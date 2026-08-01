@@ -2083,6 +2083,7 @@ fn addGFXGPU(
             "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
             "Sources/src/GFXGPU/MeshGpu.cpp",
             "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+            "Sources/src/GFXGPU/GlobalsLoader.cpp",
             "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
         },
         .flags = cppflagsForOptimize(optimize),

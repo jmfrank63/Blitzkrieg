@@ -3,14 +3,15 @@
 #include "MeshGpu.h"
 #include "..\\GFX\\GFXHelper.h"
 
-// The renderer-neutral loader uses the engine's existing singleton/save-load
-// bridge. These symbols are populated by the module loader when the game is
-// running; keeping them local avoids linking legacy GFX implementation code.
-ISingleton *g_pGlobalSingleton = nullptr;
-ISaveLoadSystem *g_pGlobalSaveLoadSystem = nullptr;
-
 MeshGpu::MeshGpu() : owner_( nullptr ) {}
 MeshGpu::MeshGpu( GraphicsEngineGpu *owner ) : owner_( owner ) {}
+
+bool STDCALL MeshGpu::Load( bool )
+{
+    if ( !parts_.empty() ) return true;
+    if ( !GetSingletonGlobal() || name_.empty() ) return false;
+    return LoadAsset( name_.c_str() );
+}
 
 bool MeshGpu::LoadAsset( const char *stream_name )
 {

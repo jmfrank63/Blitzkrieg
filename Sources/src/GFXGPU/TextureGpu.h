@@ -19,7 +19,7 @@ public:
     int STDCALL GetRefCounter() const override { return ref_count_; }
     const char * STDCALL GetSharedResourceName() const override { return name_.c_str(); }
     void STDCALL SetSharedResourceName( const std::string &name ) override { name_ = name; }
-    bool STDCALL Load( bool bPreLoad = false ) override { (void)bPreLoad; return true; }
+    bool STDCALL Load( bool bPreLoad = false ) override;
     void STDCALL ClearInternalContainer() override {}
     bool STDCALL Lock( int nLevel, SSurfaceLockInfo *pLockInfo ) override;
     bool STDCALL Unlock( int nLevel ) override;

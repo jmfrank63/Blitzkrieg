@@ -26,7 +26,7 @@ public:
     void SetSharedResourceLastUsage( int ) {}
     int GetSharedResourceLastUsage() const { return 0; }
     int GetResourceConsumption() const override { return static_cast<int>( parts_.size() ); }
-    bool STDCALL Load( bool = false ) override { return !parts_.empty(); }
+    bool STDCALL Load( bool = false ) override;
     void STDCALL ClearInternalContainer() override { parts_.clear(); }
     const SGFXBoundSphere & STDCALL GetBS() override { return sphere_; }
     const SGFXAABB & STDCALL GetAABB() override { return aabb_; }

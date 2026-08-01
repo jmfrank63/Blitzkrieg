@@ -87,8 +87,9 @@ pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBu
     return true;
 }
 
-pub fn createSampler(device: *GpuDevice) ?*c.SDL_GPUSampler {
-    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = c.SDL_GPU_FILTER_NEAREST, .mag_filter = c.SDL_GPU_FILTER_NEAREST, .mipmap_mode = c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST, .address_mode_u = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_v = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_w = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = c.SDL_GPU_COMPAREOP_ALWAYS, .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
+pub fn createSampler(device: *GpuDevice, linear: bool) ?*c.SDL_GPUSampler {
+    const filter = if (linear) c.SDL_GPU_FILTER_LINEAR else c.SDL_GPU_FILTER_NEAREST;
+    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = filter, .mag_filter = filter, .mipmap_mode = c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST, .address_mode_u = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_v = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_w = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = c.SDL_GPU_COMPAREOP_ALWAYS, .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
     return c.SDL_CreateGPUSampler(device, &info);
 }
 

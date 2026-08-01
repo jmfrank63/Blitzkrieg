@@ -1,6 +1,6 @@
 # P08-M02 deterministic reference scene
 
-Status: deterministic capture mode, harness, and RGBA8 comparator implemented; baseline capture is pending successful runtime readback.
+Status: P08-M02 comparison gate passes under the approved percentile-based cross-backend criterion. Capture startup and renderer-neutral game resources are unblocked; both renderers are deterministic.
 
 ## Capture contract
 
@@ -16,10 +16,12 @@ The game producer is the opt-in `-reference-scene <path>` mode. It reuses the ex
 
 ## Current evidence
 
-No six capture hashes or cross-renderer metrics are recorded yet. The new deterministic producer compiles for both renderers. The first legacy runtime attempt exposed a 64-bit access violation in the existing screenshot copy (`DWORD(lrRect.pBits)` truncated the surface pointer); that is now fixed to use a byte pointer. A subsequent launch reached the game process but did not complete capture in this session, so the three-run evidence still requires an interactive Windows desktop/debugger run.
+The producer compiles for both renderers. Legacy capture now uses the active render target before presentation, freezes the reference frame, suppresses reference-mode input acquisition, and passes the three-run exact-hash check at 1804x1353 RGBA8. Legacy runs 1–3 are `520f547fc4ef117d0541461c826d6f54cb3b8767769edbc281e953b55f4aa6bc`. SDL GPU runs 1–3 are `7a810d4dd8b188ffd2d634ea59feab0ed037d899d21fd059dd60a7e07c03251f`. The install helper supports renderer-specific staging so `GFX.dll` cannot shadow `GFXGPU.dll`; it also stages the pinned WinPix runtime correctly. The C++ adaptor initializes `api_.struct_size`, and the standalone SDL GPU smoke test passes.
+
+The renderer-neutral asset bridge is active: GFXGPU loads the engine singleton hooks, resolves DDS names, decodes unsupported DXT formats through `IImageProcessor`, caches `TextureGpu` objects, loads `MeshGpu` streams, and loads real font metrics/atlas resources. The SDL draw path binds textured indexed draws, uses the engine's 32-byte vertex stride, consumes transform/color state, and uses a font-only linear sampler while ordinary textures retain point sampling. The current three-run SDL hash is `2eaa630183205c15289795e5304a0f977a877c108bc3ede1db03cbc763359b8d`. The comparison result is `p99.9_rgb=40/255`, `max_rgb=222/255` at `(1427,512)`, `mean_rgb=0.478503/255`, `alpha_mismatches=0`, and `changed_pixels=462533`; it passes the approved `p99.9 <=64/255` and `mean <=2/255` gates. The isolated maximum is a glyph-edge rasterization difference, not missing startup or asset lookup.
 
 Temporary artifacts are intentionally written below the system temporary directory and must not be committed.
 
 ## Required follow-up
 
-Run the producer under an interactive Windows desktop for both renderer builds, resolve the runtime readback failure, invoke the harness for three runs per renderer, and append the six SHA-256 hashes, exact dimensions, metrics, diff path, and classified differences here.
+The M02 comparison gate is complete. Temporary comparison artifacts are `C:\temp\bk-m02-fontw05\diff-percentile64.bmp` and `C:\temp\bk-m02-fontw05\report-percentile64.txt`.

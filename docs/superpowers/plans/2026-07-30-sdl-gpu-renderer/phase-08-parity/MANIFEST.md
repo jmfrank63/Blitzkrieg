@@ -13,6 +13,7 @@
 | Packet | Depends on | Owns |
 |---|---|---|
 | P08-M01 | P07-M05 | compatibility matrix and automated suite |
+| P08-M01.5 | M01 | renderer-neutral game asset bridge required by parity captures |
 | P08-M02 | M01 | deterministic reference-scene comparison |
 | P08-M03 | M02 | main-menu and representative-mission parity |
 | P08-M04 | M03 | resize/fullscreen/restart/resource endurance |

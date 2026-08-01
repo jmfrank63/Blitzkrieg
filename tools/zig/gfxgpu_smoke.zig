@@ -93,6 +93,8 @@ fn runReferenceSmoke() !void {
     const Vertex = extern struct {
         position: [3]f32,
         color: [4]u8,
+        specular: [4]u8 = .{ 0, 0, 0, 0 },
+        padding: [3]u32 = .{ 0, 0, 0 },
     };
     const vertices = [_]Vertex{
         .{ .position = .{ 0.0, 0.75, 0.0 }, .color = .{ 255, 0, 0, 255 } },
@@ -100,7 +102,7 @@ fn runReferenceSmoke() !void {
         .{ .position = .{ 0.75, -0.75, 0.0 }, .color = .{ 0, 0, 255, 255 } },
     };
     var buffer: u64 = 0;
-    var buffer_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = 3, .format = 0, .stride = 16, .usage = 0 };
+    var buffer_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = 3, .format = 0, .stride = 32, .usage = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.create_buffer(renderer, &buffer_info, &buffer));
     defer _ = api.destroy_buffer(renderer, buffer);
     var upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .byte_offset = 0 };
@@ -125,7 +127,7 @@ fn runReferenceSmoke() !void {
             try std.testing.expectEqual(gpu.error_codes.ok, api.bind_vertex_buffer(renderer, buffer));
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_indexed(renderer, index_buffer, 4, 0, 3, 0));
         } else {
-            var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 16 };
+            var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 32 };
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &temporary, 1));
         }
         try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
@@ -133,14 +135,22 @@ fn runReferenceSmoke() !void {
         var pixels: [64 * 64 * 4]u8 = undefined;
         var readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&pixels) };
         try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &readback));
-        try std.testing.expect(std.mem.readInt(u32, pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
+        var changed = false;
+        var pixel_index: usize = 0;
+        while (pixel_index < pixels.len) : (pixel_index += 4) {
+            if (std.mem.readInt(u32, pixels[pixel_index..][0..4], .little) != 0x10ff3020) {
+                changed = true;
+                break;
+            }
+        }
+        try std.testing.expect(changed);
         std.crypto.hash.sha2.Sha256.hash(&pixels, hash, .{});
     }
     try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);
     try std.testing.expectEqualSlices(u8, &hashes[1], &hashes[2]);
     std.debug.print("GfxGpu reference smoke: 3 identical frame hashes\n", .{});
 
-    const TexturedVertex = extern struct { position: [3]f32, color: [4]u8, uv: [2]f32 };
+    const TexturedVertex = extern struct { position: [3]f32, color: [4]u8, specular: [4]u8 = .{ 0, 0, 0, 0 }, uv: [2]f32, padding: u32 = 0 };
     const textured_vertices = [_]TexturedVertex{
         .{ .position = .{ -0.75, 0.75, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 0 } },
         .{ .position = .{ 0.75, 0.75, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 1, 0 } },
@@ -150,7 +160,7 @@ fn runReferenceSmoke() !void {
         .{ .position = .{ -0.75, -0.75, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 1 } },
     };
     var textured_buffer: u64 = 0;
-    var textured_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = textured_vertices.len, .format = 0, .stride = 24, .usage = 0 };
+    var textured_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = textured_vertices.len, .format = 0, .stride = 32, .usage = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.create_buffer(renderer, &textured_info, &textured_buffer));
     defer _ = api.destroy_buffer(renderer, textured_buffer);
     var textured_upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&textured_vertices), .byte_length = @sizeOf(@TypeOf(textured_vertices)), .byte_offset = 0 };
@@ -172,8 +182,45 @@ fn runReferenceSmoke() !void {
     var textured_pixels: [64 * 64 * 4]u8 = undefined;
     var textured_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = textured_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&textured_pixels) };
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &textured_readback));
-    try std.testing.expect(std.mem.readInt(u32, textured_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
+    const textured_probe = std.mem.readInt(u32, textured_pixels[(16 * 64 + 16) * 4 ..][0..4], .little);
+    try std.testing.expect(textured_probe != 0x10ff3020);
     std.debug.print("GfxGpu textured smoke: visible textured quad\n", .{});
+
+    const screen_vertices = [_]TexturedVertex{
+        .{ .position = .{ 8, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 0 } },
+        .{ .position = .{ 56, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 1, 0 } },
+        .{ .position = .{ 56, 56, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 1, 1 } },
+        .{ .position = .{ 8, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 0 } },
+        .{ .position = .{ 56, 56, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 1, 1 } },
+        .{ .position = .{ 8, 56, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 1 } },
+    };
+    var screen_upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&screen_vertices), .byte_length = @sizeOf(@TypeOf(screen_vertices)), .byte_offset = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, textured_buffer, &screen_upload));
+    const pixel_world = gpu.abi.MatrixInfo{ .struct_size = @sizeOf(gpu.abi.MatrixInfo), .values = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 } };
+    const pixel_view_proj = gpu.abi.MatrixInfo{ .struct_size = @sizeOf(gpu.abi.MatrixInfo), .values = .{ 2.0 / 64.0, 0, 0, -1, 0, -2.0 / 64.0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1 } };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+    var screen_viewport = gpu.abi.ViewportInfo{ .struct_size = @sizeOf(gpu.abi.ViewportInfo), .x = 0, .y = 0, .width = 64, .height = 64, .min_depth = 0, .max_depth = 1 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &screen_viewport));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_transform(renderer, &pixel_world, &pixel_view_proj));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, texture));
+    var screen_clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &screen_clear));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(textured_buffer), 2));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
+    var screen_pixels: [64 * 64 * 4]u8 = undefined;
+    var screen_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = screen_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&screen_pixels) };
+    try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &screen_readback));
+    var screen_changed: usize = 0;
+    for (0..64) |y| for (0..64) |x| {
+        if (std.mem.readInt(u32, screen_pixels[(y * 64 + x) * 4 ..][0..4], .little) != 0x10ff3020) {
+            screen_changed += 1;
+        }
+    };
+    try std.testing.expect(screen_changed > 0);
+    try std.testing.expect(std.mem.readInt(u32, screen_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
+    try std.testing.expect(std.mem.readInt(u32, screen_pixels[(48 * 64 + 48) * 4 ..][0..4], .little) != 0x10ff3020);
+    std.debug.print("GfxGpu pixel-transform smoke: visible textured quad\n", .{});
 
     const depth_vertices = [_]Vertex{
         .{ .position = .{ -0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },
@@ -184,6 +231,7 @@ fn runReferenceSmoke() !void {
         .{ .position = .{ 0, -0.75, 0.25 }, .color = .{ 0, 0, 255, 255 } },
     };
     try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_transform(renderer, &pixel_world, &gpu.abi.MatrixInfo{ .struct_size = @sizeOf(gpu.abi.MatrixInfo), .values = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 } }));
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, 0));
     var depth_clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &depth_clear));

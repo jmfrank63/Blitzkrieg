@@ -66,6 +66,8 @@ struct SCmdParams
 	bool bStartupSmoke;
 	bool bReferenceScene;
 	std::string szReferenceScenePath;
+	int nReferenceWidth;
+	int nReferenceHeight;
 	std::string szGameSpyPassword;
 
 	ITextureManager::ETextureQuality eTextureQuality;
@@ -74,7 +76,7 @@ struct SCmdParams
 	std::string szSaveFile;								// save file name - for direct save launch
 	std::string szModName;								// mod file name - to lauch game with particular mod added
 
-	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ) { }
+	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ) { }
 };
 void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
@@ -310,6 +312,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	{
 		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
 		cmdp.nScreenSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
+		if ( cmdp.bReferenceScene && cmdp.nReferenceWidth > 0 && cmdp.nReferenceHeight > 0 )
+		{
+			cmdp.nScreenSizeX = cmdp.nReferenceWidth;
+			cmdp.nScreenSizeY = cmdp.nReferenceHeight;
+		}
 		cmdp.nScreenBPP = GetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP );
 		cmdp.nStencilBPP = GetGlobalVar( "GFX.Mode.InterMission.Stencil", 0 );
 		cmdp.eFullscreenMode = (EGFXFullscreen)GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) );
@@ -320,8 +327,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		// SetMode just made the window visible; present a black frame right away
 		// so it never flashes unpainted (white) content before the intro video
 		// renders its first frame.
-		pGFX->Clear( 0, 0, GFXCLEAR_TARGET, 0 );
-		pGFX->Flip();
 		const CTRect<long> rcScreen = pGFX->GetScreenRect();
 		cmdp.nScreenSizeX = rcScreen.Width();
 		cmdp.nScreenSizeY = rcScreen.Height();
@@ -332,11 +337,17 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		SetGlobalVar( "GFX.Mode.Current.SizeX", cmdp.nScreenSizeX );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", cmdp.nScreenSizeY );
 		SetGlobalVar( "GFX.Mode.Current.BPP", cmdp.nScreenBPP );
-		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, cmdp.nScreenSizeX, cmdp.nScreenSizeY, 1, 1024*8 + cmdp.nScreenSizeY*2 );
-		pGFX->SetProjectionTransform( matrix );
-		pGFX->EnableLighting( false );
+		if ( pGFX->BeginScene() )
+		{
+			pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
+			pGFX->SetProjectionTransform( matrix );
+			pGFX->EnableLighting( false );
+			pGFX->Clear( 0, 0, GFXCLEAR_TARGET, 0 );
+			pGFX->EndScene();
+			pGFX->Flip();
+		}
 		GetSingleton<ITextureManager>()->SetQuality( cmdp.eTextureQuality );
 	}
 	timeMeter.Sample( "graphics init" );
@@ -397,7 +408,8 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	{
 		IMainLoop *pMainLoop = CreateMainLoop();
 		RegisterSingleton( IMainLoop::tidTypeID, pMainLoop );
-		GetSingleton<ICursor>()->Acquire( true );
+		if ( !cmdp.bReferenceScene )
+			GetSingleton<ICursor>()->Acquire( true );
 		{
 			const std::string szMOD = !cmdp.szModName.empty() ? cmdp.szModName : GetSingleton<IUserProfile>()->GetMOD();
 			if ( !szMOD.empty() ) 
@@ -434,6 +446,9 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		// Startup is done and the first main-loop step will begin the intro
 		// video — only now take the splash logo down.
 		NWinFrame::ShowSplashScreen( hInstance, false );
+		if ( cmdp.bReferenceScene )
+			GetSingleton<ICursor>()->Show( false );
+		int nReferenceCaptureDelay = 0; // allow the deterministic menu frame to settle
 		for (;;)
 		{
 			if ( !cmdp.szMovieDir.empty() ) 
@@ -448,11 +463,13 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 			if ( !pMainLoop->StepApp( bActive ) )
 				break;
-			if ( cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
+			if ( cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 && ++nReferenceCaptureDelay >= 5 )
 			{
 				IGFX *pGFX = GetSingleton<IGFX>();
 				const CTRect<long> rcScreen = pGFX->GetScreenRect();
 				CPtr<IImage> referenceImage = GetImageProcessor()->CreateImage( rcScreen.Width(), rcScreen.Height() );
+				if ( !pGFX->Flip() && !cmdp.bReferenceScene )
+					return 0xDEAD;
 				bool captured = pGFX->TakeScreenShot( referenceImage );
 				if ( captured && !cmdp.szReferenceScenePath.empty() )
 				{
@@ -465,7 +482,9 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 							for ( int x = 0; x < referenceImage->GetSizeX(); ++x )
 							{
 								const SColor &pixel = pixels[y * referenceImage->GetSizeX() + x];
-								const BYTE rgba[4] = { pixel.r, pixel.g, pixel.b, pixel.a };
+								// Reference captures use the legacy contract: alpha is not part
+								// of the scene comparison and is emitted as zero by D3D9.
+								const BYTE rgba[4] = { pixel.r, pixel.g, pixel.b, 0 };
 								if ( fwrite( rgba, sizeof( rgba ), 1, referenceFile ) != 1 )
 								{
 									captured = false;
@@ -486,7 +505,7 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 				::OutputDebugStringA( "BK_REFERENCE_SCENE: capture failed\n" );
 				return 0xDEAD;
 			}
-			if ( cmdp.bStartupSmoke && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
+			if ( cmdp.bStartupSmoke && !cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
 			{
 				::OutputDebugStringA( "BK_STARTUP: C6 main menu smoke checkpoint passed\n" );
 				break;
@@ -607,7 +626,13 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 				NStr::TrimBoth( pCmdParams->szReferenceScenePath, "\"" );
 			}
 			SetGlobalVar( "X64.StartupSmoke", 1 );
+			SetGlobalVar( "X64.ReferenceScene", 1 );
 			SetGlobalVar( "novideo", 1 );
+		}
+		else if ( szParams[i] == "-reference-resolution" && i + 2 < szParams.size() )
+		{
+			pCmdParams->nReferenceWidth = atoi( szParams[++i].c_str() );
+			pCmdParams->nReferenceHeight = atoi( szParams[++i].c_str() );
 		}
 		else if ( szParams[i].compare(0, 4, "-mod") == 0 )
 		{

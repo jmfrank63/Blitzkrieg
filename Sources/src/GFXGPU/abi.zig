@@ -2,6 +2,7 @@ const std = @import("std");
 const errors = @import("error.zig");
 const renderer_mod = @import("renderer.zig");
 const device_mod = @import("device.zig");
+const sdl = @import("sdl.zig");
 
 pub const abi_version: u32 = 1;
 pub const RendererHandle = opaque {};
@@ -108,8 +109,9 @@ fn destroy(handle: ?*RendererHandle) callconv(.c) void {
 }
 
 fn getLastError(handle: ?*RendererHandle, destination: ?[*]u8, capacity: u32, written: ?*u32) callconv(.c) Result {
-    if (handle == null) return errors.invalid_handle;
-    return errors.copyBounded("", destination, capacity, written);
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    const message = if (renderer.last_error.len > 0) renderer.last_error else sdl.getError();
+    return errors.copyBounded(message, destination, capacity, written);
 }
 
 fn getLiveCounts(handle: ?*RendererHandle, counts: ?*LiveCounts) callconv(.c) Result {
@@ -129,8 +131,9 @@ fn withRenderer(handle: ?*RendererHandle) ?*renderer_mod.Renderer {
 }
 fn beginFrame(handle: ?*RendererHandle) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    _ = renderer.beginFrame() catch return errors.invalid_state;
-    return if (renderer.frame.skipped) errors.ok else errors.ok;
+    const acquired = renderer.beginFrame() catch return errors.invalid_state;
+    renderer.last_error = @tagName(renderer.frame.state);
+    return if (acquired) errors.ok else errors.invalid_state;
 }
 fn endFrame(handle: ?*RendererHandle) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
@@ -148,19 +151,23 @@ fn cancelFrame(handle: ?*RendererHandle) callconv(.c) void {
 fn clear(handle: ?*RendererHandle, info: ?*const ClearInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ClearInfo)) return errors.invalid_argument;
-    if (renderer.frame.state != .recording) return errors.invalid_state;
+    if (renderer.frame.state != .recording) { renderer.last_error = @tagName(renderer.frame.state); return errors.invalid_state; }
     const color = info.?.color_rgba8;
     renderer.clear(.{
         @as(f32, @floatFromInt((color >> 0) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0,
-    }) catch return errors.invalid_state;
+    }) catch |err| { renderer.last_error = @errorName(err); return errors.invalid_state; };
     return errors.ok;
 }
 fn resize(handle: ?*RendererHandle, width: u32, height: u32) callconv(.c) Result {
-    _ = withRenderer(handle) orelse return errors.invalid_handle;
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (width == 0 or height == 0) return errors.invalid_argument;
+    renderer.resize(width, height) catch |err| return switch (err) {
+        error.InvalidViewport, error.InvalidState => errors.invalid_state,
+        error.NoDevice, error.SceneTextureCreateFailed, error.DepthTextureCreateFailed => errors.sdl_error,
+    };
     return errors.ok;
 }
 fn setViewport(handle: ?*RendererHandle, viewport: ?*const ViewportInfo) callconv(.c) Result {
@@ -176,11 +183,14 @@ fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: 
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (world == null or view_proj == null or world.?.struct_size < @sizeOf(MatrixInfo) or view_proj.?.struct_size < @sizeOf(MatrixInfo)) return errors.invalid_argument;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    renderer.world_matrix = world.?.values;
+    renderer.view_proj_matrix = view_proj.?.values;
     return errors.ok;
 }
-fn setColor(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
+fn setColor(handle: ?*RendererHandle, color: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    renderer.draw_color = .{ @as(f32, @floatFromInt(color & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0 };
     return errors.ok;
 }
 fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
@@ -284,52 +294,54 @@ fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (sampler == 0) return errors.invalid_argument;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    if (sampler != 1 and sampler != 2) return errors.invalid_argument;
+    renderer.use_linear_sampler = sampler == 2;
     return errors.ok;
 }
 fn draw(handle: ?*RendererHandle, vertex_buffer: u32, primitive_count: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (primitive_count == 0) return errors.invalid_argument;
-    if (renderer.frame.state != .pass_active) return errors.invalid_state;
-    renderer.draw(vertex_buffer, primitive_count) catch |err| return switch (err) {
+    if (renderer.frame.state != .pass_active) { renderer.last_error = "draw requires active render pass"; return errors.invalid_state; }
+    renderer.draw(vertex_buffer, primitive_count) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
         error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
         error.InvalidState => errors.invalid_state,
         error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
         else => errors.internal_error,
-    };
+    }; };
     return errors.ok;
 }
 fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, vertex_offset: i32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument;
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
-    renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| return switch (err) {
+    renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
         error.InvalidDraw, error.InvalidBuffer, error.VertexBufferMissing => errors.invalid_argument,
         error.InvalidState => errors.invalid_state,
         error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
         else => errors.internal_error,
-    };
+    }; };
     return errors.ok;
 }
 fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument;
-    if (renderer.frame.state != .pass_active) return errors.invalid_state;
-    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| return switch (err) {
+    if (renderer.frame.state != .pass_active) { renderer.last_error = "draw_temporary requires active render pass"; return errors.invalid_state; }
+    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
         error.InvalidDraw, error.InvalidBuffer, error.InvalidState => errors.invalid_argument,
         error.NoDevice, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing => errors.sdl_error,
         error.OutOfMemory => errors.out_of_memory,
-    };
+    }; };
     return errors.ok;
 }
 pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ReadbackInfo) or info.?.width == 0 or info.?.height == 0 or info.?.data == null) return errors.invalid_argument;
     if (info.?.row_pitch < info.?.width * 4 or info.?.byte_length < info.?.row_pitch * info.?.height) return errors.invalid_argument;
-    renderer.readback(@as([*]u8, @ptrCast(info.?.data.?))[0..info.?.byte_length], info.?.width, info.?.height, info.?.row_pitch) catch |err| return switch (err) {
+    renderer.readback(@as([*]u8, @ptrCast(info.?.data.?))[0..info.?.byte_length], info.?.width, info.?.height, info.?.row_pitch) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
         error.ReadbackUnavailable => errors.unsupported,
         error.ReadbackInvalid => errors.invalid_state,
         error.NoDevice, error.TransferBufferCreateFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.TransferBufferMapFailed => errors.sdl_error,
-    };
+    }; };
     return errors.ok;
 }
 

@@ -969,8 +969,9 @@ void CProgressScreen::Draw()
 		{
 			nCurrFrame = nNextFrame;
 			pVP->SetCurrentFrame( nCurrFrame );
+			if ( !pGFX->BeginScene() )
+				return;
 			pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
-			pGFX->BeginScene();
 			pGFX->SetupDirectTransform();
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
 			pVP->Draw( pGFX );

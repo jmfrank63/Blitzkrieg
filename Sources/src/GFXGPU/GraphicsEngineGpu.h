@@ -106,12 +106,14 @@ public:
 private:
     bool fail( const char *message );
     bool Check( GfxGpuResult result, const char *operation );
+    bool ApplyTransforms();
     bool SetState( uint32_t kind, uint32_t index, uint32_t value, const void *data, size_t data_size, const char *operation );
 
     GfxGpuApi api_{};
     GfxGpuRenderer *renderer_ = nullptr;
     struct SDL_Window *sdl_window_ = nullptr;
     bool video_subsystem_owned_ = false;
+    bool frame_pending_ = false;
     bool api_valid_ = false;
     bool initialized_ = false;
     int width_ = 0;
@@ -121,13 +123,17 @@ private:
     std::string last_error_;
     SGFXDisplayMode display_mode_{};
     SHMatrix view_matrix_{};
+    SHMatrix world_matrix_{};
     SHMatrix billboard_matrix_{};
     SHMatrix inverse_view_matrix_{};
     SHMatrix projection_matrix_{};
     SHMatrix viewport_matrix_{};
+    SHMatrix direct_view_stored_{};
+    bool direct_transform_ = false;
     std::vector<unsigned char> temporary_vertex_bytes_;
     std::vector<unsigned char> temporary_index_bytes_;
     int temporary_vertex_stride_ = 0;
+    int temporary_vertex_source_stride_ = 0;
     int temporary_vertex_count_ = 0;
     int temporary_index_stride_ = 0;
     int temporary_index_count_ = 0;

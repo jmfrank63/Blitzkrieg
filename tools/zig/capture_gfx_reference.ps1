@@ -30,12 +30,14 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $resolvedData = [IO.Path]::GetFullPath((Join-Path $repoRoot $DataDirectory))
+$captureWorkingDirectory = $repoRoot
 if (-not (Test-Path $resolvedData)) { throw "Data directory does not exist: $resolvedData" }
 if ([string]::IsNullOrWhiteSpace($CaptureCommand)) {
     if ([string]::IsNullOrWhiteSpace($GamePath)) { throw "Provide -CaptureCommand or -GamePath for the deterministic game capture." }
     $resolvedGame = [IO.Path]::GetFullPath((Join-Path $repoRoot $GamePath))
     if (-not (Test-Path $resolvedGame)) { throw "Game executable does not exist: $resolvedGame" }
-    $CaptureCommand = "& `"$resolvedGame`" -reference-scene`"{output}`" -windowed"
+    $captureWorkingDirectory = Split-Path -Parent $resolvedGame
+    $CaptureCommand = "& `"$resolvedGame`" -reference-scene `"{output}`" -windowed -fps60"
 }
 
 $hashes = [Collections.Generic.List[string]]::new()
@@ -56,9 +58,14 @@ for ($run = 1; $run -le $Runs; $run++) {
     }
     foreach ($key in $replacements.Keys) { $expanded = $expanded.Replace($key, [string]$replacements[$key]) }
     Write-Host ("capture renderer={0} run={1}/{2}" -f $Renderer, $run, $Runs)
-    Push-Location $repoRoot
-    try { Invoke-Expression $expanded } finally { Pop-Location }
-    if ($LASTEXITCODE -ne 0) { throw "Capture command failed for $Renderer run $run with exit code $LASTEXITCODE." }
+    if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+        $process = Start-Process -FilePath $resolvedGame -ArgumentList @("-reference-scene", $rgbaPath, "-reference-resolution", $Width, $Height, "-windowed", "-fps60") -WorkingDirectory $captureWorkingDirectory -Wait -PassThru
+        if ($process.ExitCode -ne 0) { throw "Capture command failed for $Renderer run $run with exit code $($process.ExitCode)." }
+    } else {
+        Push-Location $captureWorkingDirectory
+        try { Invoke-Expression $expanded } finally { Pop-Location }
+        if ($LASTEXITCODE -ne 0) { throw "Capture command failed for $Renderer run $run with exit code $LASTEXITCODE." }
+    }
     if (-not (Test-Path $rgbaPath)) { throw "Capture command did not write $rgbaPath" }
     $expectedBytes = [int64]$Width * $Height * 4
     $actualBytes = (Get-Item $rgbaPath).Length

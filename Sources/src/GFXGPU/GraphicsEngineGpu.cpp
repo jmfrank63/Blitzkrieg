@@ -2,6 +2,7 @@
 
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
+#include "FontGpu.h"
 #include "GeometryBufferGpu.h"
 #include "MeshGpu.h"
 #include "..\\GFX\\GFXHelper.h"
@@ -12,6 +13,11 @@
 
 namespace
 {
+DWORD GpuVertexColor( DWORD color )
+{
+    return (color & 0xff00ff00u) | ((color & 0x000000ffu) << 16) | ((color & 0x00ff0000u) >> 16);
+}
+
 bool DrawFallbackGlyphs( GraphicsEngineGpu *graphics, const wchar_t *text, int x, int y, DWORD color, int max_width = 0 )
 {
     if ( !text || !*text ) return true;
@@ -25,12 +31,14 @@ bool DrawFallbackGlyphs( GraphicsEngineGpu *graphics, const wchar_t *text, int x
             SGFXRect2 glyph;
             glyph.rect.minx = static_cast<float>( cursor ); glyph.rect.miny = static_cast<float>( y );
             glyph.rect.maxx = static_cast<float>( cursor + 7 ); glyph.rect.maxy = static_cast<float>( y + 12 );
-            glyph.color = color;
+            glyph.color = GpuVertexColor( color );
             glyphs.push_back( glyph );
         }
         cursor += *it == L'\t' ? 32 : 8;
     }
-    return glyphs.empty() || graphics->DrawRects( glyphs.data(), static_cast<int>( glyphs.size() ), true );
+    if ( glyphs.empty() ) return true;
+    graphics->SetTexture( 0, nullptr );
+    return graphics->DrawRects( glyphs.data(), static_cast<int>( glyphs.size() ), true );
 }
 }
 
@@ -55,6 +63,11 @@ namespace
 
 GraphicsEngineGpu::GraphicsEngineGpu()
 {
+    view_matrix_ = MONE;
+    world_matrix_ = MONE;
+    projection_matrix_ = MONE;
+    viewport_matrix_ = MONE;
+    api_.struct_size = sizeof( api_ );
     api_valid_ = gfxgpu_get_api( GFXGPU_ABI_VERSION, &api_ ) == GFXGPU_OK && IsApiUsable( api_ );
     if ( !api_valid_ )
         last_error_ = "GfxGpu API version or size mismatch";
@@ -62,6 +75,10 @@ GraphicsEngineGpu::GraphicsEngineGpu()
 
 GraphicsEngineGpu::GraphicsEngineGpu( const GfxGpuApi &api ) : api_( api ), api_valid_( IsApiUsable( api_ ) )
 {
+    view_matrix_ = MONE;
+    world_matrix_ = MONE;
+    projection_matrix_ = MONE;
+    viewport_matrix_ = MONE;
     if ( !api_valid_ ) last_error_ = "GfxGpu API version or size mismatch";
 }
 
@@ -163,7 +180,7 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     if ( initialized_ ) return true;
     if ( window.value )
     {
-        if ( SDL_InitSubSystem( SDL_INIT_VIDEO ) )
+        if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) )
         {
             last_error_ = SDL_GetError();
             return false;
@@ -177,6 +194,7 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
         sdl_window_ = SDL_CreateWindowWithProperties( properties );
         SDL_DestroyProperties( properties );
         if ( !sdl_window_ ) { last_error_ = SDL_GetError(); return false; }
+        SDL_ShowWindow( sdl_window_ );
     }
     GfxGpuCreateInfo info{};
     info.struct_size = sizeof( info );
@@ -206,7 +224,7 @@ void STDCALL GraphicsEngineGpu::Clear() { Done(); }
 
 bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, EGFXFullscreen, int )
 {
-    if ( nBpp != 0 && nBpp != 32 ) return fail( "SDL GPU adapter supports 32-bit color only" );
+    if ( nBpp != 0 && nBpp != 16 && nBpp != 32 ) return fail( "SDL GPU adapter supports 16/32-bit requests on an RGBA8 surface" );
     width_ = nSizeX; height_ = nSizeY;
     display_mode_ = { nSizeX, nSizeY, 32 };
     return !renderer_ || Check( api_.resize( renderer_, static_cast<uint32_t>( nSizeX ), static_cast<uint32_t>( nSizeY ) ), "resize" );
@@ -228,28 +246,60 @@ bool STDCALL GraphicsEngineGpu::ChangeViewport( int nX, int nY, int nWidth, int 
     return Check( api_.set_viewport( renderer_, &viewport ), "set_viewport" );
 }
 bool STDCALL GraphicsEngineGpu::ChangeViewport( int nWidth, int nHeight ) { return ChangeViewport( 0, 0, nWidth, nHeight, 0.0f, 1.0f ); }
-bool STDCALL GraphicsEngineGpu::SetWorldTransforms( const int, const SHMatrix *, const int ) { return true; }
+bool STDCALL GraphicsEngineGpu::SetWorldTransforms( const int nStartIndex, const SHMatrix *pMatrices, const int nNumMatrices )
+{
+    if ( nNumMatrices < 1 || pMatrices == nullptr ) return true;
+    if ( nStartIndex != 0 ) return true;
+    world_matrix_ = pMatrices[0];
+    return !renderer_ || !frame_pending_ || ApplyTransforms();
+}
+bool GraphicsEngineGpu::ApplyTransforms()
+{
+    if ( !renderer_ || !api_.set_transform ) return fail( "set_transform is unavailable" );
+    GfxGpuMatrixInfo world{ sizeof( world ) }, view_projection{ sizeof( view_projection ) };
+    SHMatrix view_projection_matrix;
+    Multiply( &view_projection_matrix, projection_matrix_, view_matrix_ );
+    std::memcpy( world.values, &world_matrix_, CopySize( sizeof( world.values ), sizeof( world_matrix_ ) ) );
+    std::memcpy( view_projection.values, &view_projection_matrix, CopySize( sizeof( view_projection.values ), sizeof( view_projection_matrix ) ) );
+    return Check( api_.set_transform( renderer_, &world, &view_projection ), "set_transform" );
+}
 bool STDCALL GraphicsEngineGpu::SetViewTransform( const SHMatrix &matrix )
 {
+    if ( direct_transform_ ) return true;
     view_matrix_ = matrix;
-    if ( !renderer_ ) return true;
-    GfxGpuMatrixInfo world{ sizeof( world ) }, view_projection{ sizeof( view_projection ) };
-    std::memcpy( world.values, &matrix, CopySize( sizeof( world.values ), sizeof( matrix ) ) );
-    std::memcpy( view_projection.values, &projection_matrix_, CopySize( sizeof( view_projection.values ), sizeof( projection_matrix_ ) ) );
-    return Check( api_.set_transform( renderer_, &world, &view_projection ), "set_view_transform" );
+    return !renderer_ || !frame_pending_ || ApplyTransforms();
 }
 bool STDCALL GraphicsEngineGpu::SetProjectionTransform( const SHMatrix &matrix )
 {
     projection_matrix_ = matrix;
-    if ( !renderer_ ) return true;
-    GfxGpuMatrixInfo world{ sizeof( world ) }, view_projection{ sizeof( view_projection ) };
-    std::memcpy( world.values, &view_matrix_, CopySize( sizeof( world.values ), sizeof( view_matrix_ ) ) );
-    std::memcpy( view_projection.values, &matrix, CopySize( sizeof( view_projection.values ), sizeof( matrix ) ) );
-    return Check( api_.set_transform( renderer_, &world, &view_projection ), "set_projection_transform" );
+    return !renderer_ || !frame_pending_ || ApplyTransforms();
 }
 bool STDCALL GraphicsEngineGpu::SetTextureTransform( int, const SHMatrix & ) { return true; }
-bool STDCALL GraphicsEngineGpu::SetupDirectTransform() { return true; }
-bool STDCALL GraphicsEngineGpu::RestoreTransform() { return true; }
+bool STDCALL GraphicsEngineGpu::SetupDirectTransform()
+{
+    if ( direct_transform_ ) return true;
+    direct_view_stored_ = view_matrix_;
+    SHMatrix direct;
+    direct._11 = 1.0f;
+    direct._14 = -static_cast<float>( width_ > 0 ? width_ : 1 ) * 0.5f;
+    direct._22 = -1.0f;
+    direct._24 = static_cast<float>( height_ > 0 ? height_ : 1 ) * 0.5f;
+    direct._33 = projection_matrix_._33 != 0.0f ? 1.0f / projection_matrix_._33 : 1.0f;
+    direct._34 = projection_matrix_._33 != 0.0f ? -projection_matrix_._34 / projection_matrix_._33 : 0.0f;
+    direct._44 = 1.0f;
+    view_matrix_ = direct;
+    world_matrix_ = MONE;
+    direct_transform_ = true;
+    return !renderer_ || !frame_pending_ || ApplyTransforms();
+}
+bool STDCALL GraphicsEngineGpu::RestoreTransform()
+{
+    if ( !direct_transform_ ) return true;
+    view_matrix_ = direct_view_stored_;
+    world_matrix_ = MONE;
+    direct_transform_ = false;
+    return !renderer_ || !frame_pending_ || ApplyTransforms();
+}
 const SHMatrix & STDCALL GraphicsEngineGpu::GetViewMatrix() const { return view_matrix_; }
 const SHMatrix & STDCALL GraphicsEngineGpu::GetBillboardMatrix() const { return billboard_matrix_; }
 const SHMatrix & STDCALL GraphicsEngineGpu::GetInverseViewMatrix() const { return inverse_view_matrix_; }
@@ -265,10 +315,19 @@ void STDCALL GraphicsEngineGpu::SetMaterial( const SGFXMaterial &material ) { Se
 bool STDCALL GraphicsEngineGpu::SetTexture( int stage, IGFXBaseTexture *texture )
 {
     if ( stage < 0 || stage > 1 ) return fail( "only texture stages 0 and 1 are supported" );
+    if ( !texture )
+    {
+        if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
+        const bool result = Check( api_.set_texture( renderer_, 0 ), "clear_texture" );
+        if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
+        return result;
+    }
     TextureGpu *gpu_texture = dynamic_cast<TextureGpu *>( texture );
     if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
     if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
-    return Check( api_.set_texture( renderer_, gpu_texture->Handle() ), "set_texture" );
+    const bool result = Check( api_.set_texture( renderer_, gpu_texture->Handle() ), "set_texture" );
+    if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
+    return result;
 }
 bool STDCALL GraphicsEngineGpu::SetWireframe( bool enable ) { return SetState( GFXGPU_STATE_WIREFRAME, 0, enable ? 1u : 0u, nullptr, 0, "set_wireframe" ); }
 bool STDCALL GraphicsEngineGpu::SetCullMode( EGFXCull cull ) { return SetState( GFXGPU_STATE_CULL_MODE, 0, static_cast<uint32_t>( cull ), nullptr, 0, "set_cull_mode" ); }
@@ -277,8 +336,19 @@ bool STDCALL GraphicsEngineGpu::EnableLighting( bool enable ) { return SetState(
 bool STDCALL GraphicsEngineGpu::EnableSpecular( bool enable ) { return SetState( GFXGPU_STATE_SPECULAR, 0, enable ? 1u : 0u, nullptr, 0, "set_specular" ); }
 bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont * ) { return fail( "SDL GPU font resources are not available yet" ); }
 bool STDCALL GraphicsEngineGpu::IsActive() { return initialized_; }
-bool STDCALL GraphicsEngineGpu::BeginScene() { return renderer_ && Check( api_.begin_frame( renderer_ ), "begin_frame" ); }
-bool STDCALL GraphicsEngineGpu::EndScene() { return renderer_ && Check( api_.end_frame( renderer_ ), "end_frame" ); }
+bool STDCALL GraphicsEngineGpu::BeginScene()
+{
+    const bool result = renderer_ && Check( api_.begin_frame( renderer_ ), "begin_frame" );
+    frame_pending_ = result;
+    if ( result ) (void)ApplyTransforms();
+    return result;
+}
+bool STDCALL GraphicsEngineGpu::EndScene()
+{
+    const bool result = renderer_ && Check( api_.end_frame( renderer_ ), "end_frame" );
+    if ( result ) frame_pending_ = false;
+    return result;
+}
 bool STDCALL GraphicsEngineGpu::IsSafeToPresent() const { return initialized_; }
 
 bool STDCALL GraphicsEngineGpu::Clear( int, RECT *, DWORD dwFlags, DWORD dwColor, float fDepth, DWORD dwStencil )
@@ -287,7 +357,12 @@ bool STDCALL GraphicsEngineGpu::Clear( int, RECT *, DWORD dwFlags, DWORD dwColor
     GfxGpuClearInfo clear{ sizeof( clear ), static_cast<uint32_t>( dwFlags ), dwColor, fDepth, dwStencil };
     return Check( api_.clear( renderer_, &clear ), "clear" );
 }
-bool STDCALL GraphicsEngineGpu::Flip() { return renderer_ && Check( api_.present( renderer_ ), "present" ); }
+bool STDCALL GraphicsEngineGpu::Flip()
+{
+    const bool result = renderer_ && Check( api_.present( renderer_ ), "present" );
+    if ( result ) frame_pending_ = false;
+    return result;
+}
 bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture *target )
 {
     if ( !target ) return BindRenderTargetHandle( 0 );
@@ -313,10 +388,12 @@ bool STDCALL GraphicsEngineGpu::BeginSolidVertexBlock( int, DWORD, EGFXDynamic )
 bool STDCALL GraphicsEngineGpu::EndSolidVertexBlock() { return false; }
 bool STDCALL GraphicsEngineGpu::BeginSolidIndexBlock( int, DWORD, EGFXDynamic ) { return false; }
 bool STDCALL GraphicsEngineGpu::EndSolidIndexBlock() { return false; }
-void * STDCALL GraphicsEngineGpu::GetTempVertices( int elements, DWORD, EGFXPrimitiveType type )
+void * STDCALL GraphicsEngineGpu::GetTempVertices( int elements, DWORD format, EGFXPrimitiveType type )
 {
     if ( !temporary_vertex_bytes_.empty() ) return nullptr;
-    temporary_vertex_stride_ = 32; temporary_vertex_count_ = elements; temporary_type_ = type;
+    temporary_vertex_stride_ = 32;
+    temporary_vertex_source_stride_ = format == SGFXLVertex::format ? static_cast<int>( sizeof( SGFXLVertex ) ) : temporary_vertex_stride_;
+    temporary_vertex_count_ = elements; temporary_type_ = type;
     try { temporary_vertex_bytes_.assign( static_cast<size_t>( elements ) * temporary_vertex_stride_, 0 ); } catch ( ... ) { return nullptr; }
     return temporary_vertex_bytes_.data();
 }
@@ -369,8 +446,19 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     if ( temporary_vertex_bytes_.empty() ) return false;
     GfxGpuHandle vertex_handle = 0;
     GfxGpuHandle index_handle = 0;
+    std::vector<unsigned char> packed_vertex_bytes;
+    const unsigned char *vertex_data = temporary_vertex_bytes_.data();
+    size_t vertex_bytes = temporary_vertex_bytes_.size();
+    if ( temporary_vertex_source_stride_ != temporary_vertex_stride_ )
+    {
+        packed_vertex_bytes.assign( static_cast<size_t>( temporary_vertex_count_ ) * temporary_vertex_stride_, 0 );
+        for ( int index = 0; index < temporary_vertex_count_; ++index )
+            std::memcpy( packed_vertex_bytes.data() + static_cast<size_t>( index ) * temporary_vertex_stride_, temporary_vertex_bytes_.data() + static_cast<size_t>( index ) * temporary_vertex_source_stride_, temporary_vertex_source_stride_ );
+        vertex_data = packed_vertex_bytes.data();
+        vertex_bytes = packed_vertex_bytes.size();
+    }
     const bool vertex_created = CreateBufferHandle( static_cast<uint32_t>( temporary_vertex_count_ ), 0, static_cast<uint32_t>( temporary_vertex_stride_ ), GFXD_DYNAMIC, &vertex_handle ) &&
-        UploadBuffer( vertex_handle, temporary_vertex_bytes_.data(), temporary_vertex_bytes_.size() );
+        UploadBuffer( vertex_handle, vertex_data, vertex_bytes );
     const bool indexed = !temporary_index_bytes_.empty();
     const bool index_created = !indexed || ( CreateBufferHandle( static_cast<uint32_t>( temporary_index_count_ ), 0, static_cast<uint32_t>( temporary_index_stride_ ), GFXD_DYNAMIC, &index_handle ) &&
         UploadBuffer( index_handle, temporary_index_bytes_.data(), temporary_index_bytes_.size() ) );
@@ -408,11 +496,49 @@ bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWO
     return DrawFallbackGlyphs( this, wide.c_str(), x, y, color );
 }
 bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, DWORD color ) { return DrawFallbackGlyphs( this, text, x, y, color ); }
-bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD )
+bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD flags )
 {
     if ( !text ) return false;
     IText *source = text->GetText();
-    return source ? DrawFallbackGlyphs( this, reinterpret_cast<const wchar_t *>( source->GetString() ), rect.left, rect.top + y, 0xffffffff, rect.right ) : true;
+    if ( !source ) return true;
+    const wchar_t *value = reinterpret_cast<const wchar_t *>( source->GetString() );
+    IGFXTextGpuFontProvider *font_provider = dynamic_cast<IGFXTextGpuFontProvider *>( text );
+    FontGpu *font = font_provider ? dynamic_cast<FontGpu *>( font_provider->Font() ) : nullptr;
+    const int width = text->GetWidth();
+    float x = static_cast<float>( rect.left );
+    if ( font )
+    {
+        const float text_width = font->TextWidthFloat( reinterpret_cast<const WORD *>( value ) ) * font_provider->Scale();
+        if ( (flags & FNT_FORMAT_CENTER) != 0 ) x = static_cast<float>( rect.left ) + std::floor((static_cast<float>( rect.right - rect.left ) - text_width) * 0.5f);
+        else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) x = static_cast<float>( rect.right ) - text_width;
+    }
+    else
+    {
+        if ( (flags & FNT_FORMAT_CENTER) != 0 ) x = static_cast<float>( rect.left + (rect.right - rect.left - width) / 2 );
+        else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) x = static_cast<float>( rect.right - width );
+    }
+    if ( font )
+    {
+        std::vector<SGFXLVertex> vertices;
+        std::vector<WORD> indices;
+        font->AppendGeometry( value, x, static_cast<float>( rect.top + y ), font_provider->Scale(), font_provider->Color(), vertices, indices );
+        if ( !vertices.empty() && SetTexture( 0, font->Texture() ) )
+        {
+            if ( api_.set_sampler ) (void)api_.set_sampler( renderer_, 2 );
+            SGFXLVertex *destination = static_cast<SGFXLVertex *>( GetTempVertices( static_cast<int>( vertices.size() ), SGFXLVertex::format, GFXPT_TRIANGLELIST ) );
+            if ( destination )
+            {
+                std::memcpy( destination, vertices.data(), vertices.size() * sizeof( SGFXLVertex ) );
+                WORD *index_destination = static_cast<WORD *>( GetTempIndices( static_cast<int>( indices.size() ), GFXIF_INDEX16, GFXPT_TRIANGLELIST ) );
+                if ( index_destination )
+                {
+                    std::memcpy( index_destination, indices.data(), indices.size() * sizeof( WORD ) );
+                    return DrawTemp();
+                }
+            }
+        }
+    }
+    return DrawFallbackGlyphs( this, value, static_cast<int>( x ), rect.top + y, font_provider ? font_provider->Color() : 0xffffffff, rect.right );
 }
 bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *rects, int count, bool solid )
 {
@@ -424,10 +550,14 @@ bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *rects, int count, bo
     {
         const SGFXRect2 &rect = rects[i];
         SGFXLVertex corners[4];
-        corners[0].Setup( rect.rect.minx, rect.rect.maxy, rect.fZ, rect.color, rect.specular, rect.maps.minx, rect.maps.maxy );
-        corners[1].Setup( rect.rect.minx, rect.rect.miny, rect.fZ, rect.color, rect.specular, rect.maps.minx, rect.maps.miny );
-        corners[2].Setup( rect.rect.maxx, rect.rect.maxy, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.maxy );
-        corners[3].Setup( rect.rect.maxx, rect.rect.miny, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.miny );
+        const float minx = rect.rect.minx + 0.5f;
+        const float miny = rect.rect.miny + 0.5f;
+        const float maxx = rect.rect.maxx + 0.5f;
+        const float maxy = rect.rect.maxy + 0.5f;
+        corners[0].Setup( minx, maxy, rect.fZ, rect.color, rect.specular, rect.maps.minx, rect.maps.maxy );
+        corners[1].Setup( minx, miny, rect.fZ, rect.color, rect.specular, rect.maps.minx, rect.maps.miny );
+        corners[2].Setup( maxx, maxy, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.maxy );
+        corners[3].Setup( maxx, miny, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.miny );
         if ( solid ) { *vertices++ = corners[2]; *vertices++ = corners[1]; *vertices++ = corners[0]; *vertices++ = corners[1]; *vertices++ = corners[2]; *vertices++ = corners[3]; }
         else { *vertices++ = corners[0]; *vertices++ = corners[1]; *vertices++ = corners[1]; *vertices++ = corners[3]; *vertices++ = corners[3]; *vertices++ = corners[2]; *vertices++ = corners[2]; *vertices++ = corners[0]; }
     }
@@ -440,6 +570,13 @@ void STDCALL GraphicsEngineGpu::GetGammaCorrectionValues( float *b, float *c, fl
 bool STDCALL GraphicsEngineGpu::TakeScreenShot( IImage *image )
 {
     if ( !image || !renderer_ ) return fail( "SDL GPU screenshot readback is unavailable" );
+    // Readback requires the queued frame to be submitted. The reference path
+    // captures after EndScene and before the normal Flip, so present only when
+    // this adaptor still owns a pending frame.
+    if ( frame_pending_ ) {
+        if ( !Check( api_.present( renderer_ ), "screenshot present" ) ) return false;
+        frame_pending_ = false;
+    }
     const uint32_t width = static_cast<uint32_t>( image->GetSizeX() );
     const uint32_t height = static_cast<uint32_t>( image->GetSizeY() );
     if ( width == 0 || height == 0 ) return fail( "screenshot image has invalid dimensions" );

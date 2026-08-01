@@ -2338,8 +2338,9 @@ bool CInterfaceMission::MakeMapShot()
 			const double fX = double(j - i) / SQRT_2;
 			const double fY = double(j + i) / SQRT_2;
 			pCamera->SetAnchor( CVec3(fX, fY, 0) );
+			if ( !pGFX->BeginScene() )
+				continue;
 			pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
-			pGFX->BeginScene();
 			pScene->Draw( pCamera );
 			pGFX->EndScene();
 			pGFX->Flip();

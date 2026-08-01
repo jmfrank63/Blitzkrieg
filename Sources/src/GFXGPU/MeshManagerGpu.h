@@ -12,7 +12,7 @@ public:
     OBJECT_COMPLETE_METHODS( MeshManagerGpu );
     DECLARE_SERIALIZE;
 
-    bool STDCALL Init() override { return share_.Init(); }
+    bool STDCALL Init() override;
     void STDCALL SetSerialMode( ESharedDataSerialMode mode ) override { share_.SetSerialMode( mode ); }
     void STDCALL SetShareMode( ESharedDataSharingMode mode ) override { share_.SetShareMode( mode ); }
     void STDCALL Clear( EClearMode mode = CLEAR_ALL, int usage = 0, int amount = 0 ) override;

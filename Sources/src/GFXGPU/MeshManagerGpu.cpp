@@ -2,6 +2,11 @@
 
 #include "MeshManagerGpu.h"
 
+bool STDCALL MeshManagerGpu::Init()
+{
+    return true;
+}
+
 void STDCALL MeshManagerGpu::Clear( const EClearMode mode, const int usage, const int amount )
 {
     if ( mode == CLEAR_ALL ) share_.Clear();
