@@ -5,6 +5,8 @@ param(
     [string]$Optimize = "Debug",
     [string]$Target = "x86_64-windows-msvc",
     [switch]$Launch,
+    [ValidateSet("legacy", "sdl_gpu")]
+    [string]$LaunchRenderer = "",
     [string[]]$GameArguments = @(),
     [int]$LaunchTimeoutSeconds = 0
 )
@@ -110,20 +112,20 @@ $manifest = [ordered]@{
 $manifest | ConvertTo-Json -Depth 12 | Set-Content -Encoding utf8 (Join-Path $OutputRoot "manifest.json")
 
 if ($Launch) {
+    if ([string]::IsNullOrWhiteSpace($LaunchRenderer)) {
+        throw "-Launch requires -LaunchRenderer legacy or sdl_gpu; review one staged renderer at a time."
+    }
     $argumentList = @("-windowed") + $GameArguments
-    foreach ($renderer in @(@("legacy", $legacyGame), @("sdl_gpu", $sdlGame))) {
-        Stop-RunningGame
-        $name = $renderer[0]
-        $game = $renderer[1]
-        $stdout = Join-Path $logsRoot ("{0}-stdout.log" -f $name)
-        $stderr = Join-Path $logsRoot ("{0}-stderr.log" -f $name)
-        Write-Host ("launching {0}: {1}" -f $name, $game)
-        $process = Start-Process -FilePath $game -ArgumentList $argumentList -WorkingDirectory (Split-Path -Parent $game) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-        if ($LaunchTimeoutSeconds -gt 0) {
-            if (-not $process.WaitForExit($LaunchTimeoutSeconds * 1000)) {
-                Stop-Process -Id $process.Id -Force
-                $process.WaitForExit()
-            }
+    Stop-RunningGame
+    $game = if ($LaunchRenderer -eq "legacy") { $legacyGame } else { $sdlGame }
+    $stdout = Join-Path $logsRoot ("{0}-stdout.log" -f $LaunchRenderer)
+    $stderr = Join-Path $logsRoot ("{0}-stderr.log" -f $LaunchRenderer)
+    Write-Host ("launching {0}: {1}" -f $LaunchRenderer, $game)
+    $process = Start-Process -FilePath $game -ArgumentList $argumentList -WorkingDirectory (Split-Path -Parent $game) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    if ($LaunchTimeoutSeconds -gt 0) {
+        if (-not $process.WaitForExit($LaunchTimeoutSeconds * 1000)) {
+            Stop-Process -Id $process.Id -Force
+            $process.WaitForExit()
         }
     }
 }

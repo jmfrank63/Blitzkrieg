@@ -16,9 +16,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tools/zig/capture_gfx_game.ps1 `
 
 The generated `manifest.json` records the commit, renderer executable paths,
 identical scenario list, capture directory, and log directory. Build logs are
-written below the selected temporary output root. Optional `-Launch` starts
-each renderer in sequence with `-windowed`; additional arguments can be
-provided with `-GameArguments`.
+written below the selected temporary output root. Use `-LaunchRenderer legacy`
+or `-LaunchRenderer sdl_gpu` with `-Launch` to review one renderer at a time;
+additional arguments can be provided with `-GameArguments`.
 
 Preparation verification completed on 2026-08-02 at commit
 `201e82d9f`: both renderer installs completed successfully under
