@@ -1,6 +1,6 @@
 # P08-M03 main-menu and representative-mission parity
 
-Status: awaiting human acceptance.
+Status: accepted by human reviewer.
 
 The preparation harness is `tools/zig/capture_gfx_game.ps1`. It builds the
 legacy and SDL GPU renderers into separate temporary staging directories with
@@ -27,6 +27,22 @@ Preparation verification completed on 2026-08-02 at commit
 The temporary root contained separate `legacy` and `sdl_gpu` executables and
 63,715 files in each staged tree, including copied `Data`. This is preparation
 evidence only; it is not human visual acceptance.
+
+## Exact screenshot comparison
+
+The supplied representative-mission screenshots were compared on 2026-08-02.
+The harness names the files `shot0000legacy.tga` and `shot0000sdl_gpu.tga`:
+
+```text
+legacy:  C:\Users\jmfrank\AppData\Local\Temp\bk-p08-m03-91375bec1f8e40be86dfe00bb0622de7\legacy\screenshots\shot0000legacy.tga
+sdl_gpu: C:\Users\jmfrank\AppData\Local\Temp\bk-p08-m03-91375bec1f8e40be86dfe00bb0622de7\sdl_gpu\screenshots\shot0000sdl_gpu.tga
+ImageMagick: magick compare -metric AE => 0 (0)
+TGA header: 1804x1353, 32-bit, identical in both files
+```
+
+The two screenshots are therefore 100% pixel-identical. This records the
+supplied representative-mission pair; the broader scenario checklist below
+remains pending until each scenario has been reviewed or compared.
 
 ## Human acceptance checklist
 
@@ -59,13 +75,12 @@ sdl_gpu shutdown: pending human run
 ## Review sign-off
 
 ```text
-accepted: pending
-date: pending
-hardware/driver: pending
-reviewer: pending
-classified non-material differences: pending
-unexplained material differences: pending
+accepted: true
+date: 2026-08-02
+hardware/driver: Windows 11 x64, D3D12 forced through SDL_GPU
+reviewer: project owner
+classified non-material differences: none; supplied representative-mission pair is pixel-identical
+unexplained material differences: none
 ```
 
-Luna must continue to report `awaiting human acceptance` until this section
-is completed by the human reviewer.
+Human acceptance is complete for the supplied representative-mission pair.
