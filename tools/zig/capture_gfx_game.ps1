@@ -77,6 +77,7 @@ function Prepare-Renderer {
     if (-not (Test-Path -LiteralPath $gamePath)) { throw "Missing staged executable: $gamePath" }
     $dataPath = Join-Path $InstallRoot "Data"
     if (-not (Test-Path -LiteralPath $dataPath)) { throw "Missing staged Data directory: $dataPath" }
+    New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot "screenshots") | Out-Null
     return $gamePath
 }
 

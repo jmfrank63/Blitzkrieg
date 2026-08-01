@@ -5,7 +5,8 @@ Status: awaiting human acceptance.
 The preparation harness is `tools/zig/capture_gfx_game.ps1`. It builds the
 legacy and SDL GPU renderers into separate temporary staging directories with
 the same copied `Data` tree. It does not touch the user's normal game
-settings, and it stops stale `Game.exe` processes before each staged launch.
+settings, creates each install's `screenshots` directory, and stops stale
+`Game.exe` processes before each staged launch.
 
 Example preparation command:
 
