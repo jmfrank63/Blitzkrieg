@@ -3,6 +3,7 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
+#include "GFXPlatform.h"
 #include "GFXTypes.h"
 enum
 {
@@ -117,7 +118,7 @@ interface IFontManager : public ISharedManager
 interface IGFX : public IRefCount
 {
 	enum { tidTypeID = GFX_GFX };
-	virtual bool STDCALL Init( const char *pszAdapterName, HWND hWnd ) = 0;
+	virtual bool STDCALL Init( const char *pszAdapterName, GFXNativeWindow window ) = 0;
 	virtual bool STDCALL Done() = 0;
 	virtual void Clear() = 0;
 	virtual bool STDCALL SetMode( int nSizeX, int nSizeY, int nBpp, int nStencilBPP, EGFXFullscreen eFullscreen, int nFreq = 0 ) = 0;

@@ -494,6 +494,28 @@ const gfx_sources = &.{
     "Sources/src/GFX/Text.cpp",
 };
 
+const gfx_gpu_sources = &.{
+    "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+    "Sources/src/GFXGPU/TextureGpu.cpp",
+    "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
+    "Sources/src/GFXGPU/MeshGpu.cpp",
+    "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+    "Sources/src/GFXGPU/GlobalsLoader.cpp",
+    "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+};
+
+fn auditDefaultRendererInputs(files: []const []const u8) void {
+    const forbidden = [_][]const u8{ "GraphicsEngine.cpp", "Texture.cpp", "GeometryBuffer.cpp", "d3d9", "dxguid", "Specific.h" };
+    for (files) |file| {
+        for (forbidden) |token| {
+            if (std.mem.indexOf(u8, file, token) != null) {
+                std.log.err("SDL GPU renderer input audit failed: {s} contains {s}", .{ file, token });
+                @panic("default renderer contains legacy D3D input");
+            }
+        }
+    }
+}
+
 const randommapgen_sources = &.{
     "Sources/src/RandomMapGen/StdAfx.cpp",
     "Sources/src/RandomMapGen/BetaSpline.cpp",
@@ -630,6 +652,127 @@ pub fn build(b: *std.Build) void {
         },
     });
     const optimize = b.standardOptimizeOption(.{});
+    const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
+    if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
+        @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
+    }
+    if (std.mem.eql(u8, renderer, "sdl_gpu")) auditDefaultRendererInputs(gfx_gpu_sources);
+    _ = b.option(bool, "sdl-debug", "Enable SDL GPU debug validation") orelse false;
+    const sdl3_dep = b.dependency("sdl3", .{
+        .target = target,
+        .optimize = optimize,
+        .c_sdl_preferred_linkage = .dynamic,
+        .c_sdl_install_build_config_h = true,
+    });
+    const sdl_c_dep = b.dependency("sdl", .{
+        .target = target,
+        .optimize = optimize,
+        .preferred_linkage = .static,
+        .install_build_config_h = true,
+    });
+    const sdl_c = sdl_c_dep.artifact("SDL3");
+    const sdl3 = sdl3_dep.module("sdl3");
+    const sdl3_verify_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_sdl3.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
+    });
+    const sdl3_verify = b.addExecutable(.{
+        .name = "verify-sdl3",
+        .root_module = sdl3_verify_module,
+    });
+    const sdl3_verify_run = b.addRunArtifact(sdl3_verify);
+    const sdl3_step = b.step("sdl3", "Build and verify the zig-sdl3 dependency");
+    sdl3_step.dependOn(&sdl3_verify_run.step);
+
+    const shadercross_build = b.addSystemCommand(&.{
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tools/shadercross/build_shadercross.ps1",
+        "-Mode",
+        "Build",
+        "-OutputRoot",
+        "zig-out/tools/shadercross",
+    });
+    const shadercross_build_step = b.step("shadercross-build", "Build the pinned host SDL_shadercross tool");
+    shadercross_build_step.dependOn(&shadercross_build.step);
+
+    const shadercross_verify_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_shadercross.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shadercross_verify = b.addExecutable(.{
+        .name = "verify-shadercross",
+        .root_module = shadercross_verify_module,
+    });
+    const shadercross_verify_run = b.addRunArtifact(shadercross_verify);
+    shadercross_verify_run.step.dependOn(&shadercross_build.step);
+    const shadercross_verify_step = b.step("verify-shadercross", "Verify shadercross CLI options and host installation");
+    shadercross_verify_step.dependOn(&shadercross_verify_run.step);
+
+    const shader_driver_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shader_driver = b.addExecutable(.{
+        .name = "compile-gfxgpu-shaders",
+        .root_module = shader_driver_module,
+    });
+    const shader_driver_run = b.addRunArtifact(shader_driver);
+    shader_driver_run.step.dependOn(&shadercross_build.step);
+    shader_driver_run.addArgs(&.{
+        "Sources/src/GFXGPU/shaders/manifest.json",
+        "zig-out/tools/shadercross/install/bin/shadercross.exe",
+        "zig-out/shaders",
+    });
+
+    const shader_parser_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shader_parser_tests = b.addTest(.{ .root_module = shader_parser_module });
+    const shader_parser_tests_run = b.addRunArtifact(shader_parser_tests);
+    const shader_tests_step = b.step("test-gfxgpu-shaders", "Run shader manifest parser tests");
+    shader_tests_step.dependOn(&shader_parser_tests_run.step);
+
+    const gfx_gpu_shaders_step = b.step("gfxgpu-shaders", "Compile deterministic GfxGpu shader blobs and manifest");
+    gfx_gpu_shaders_step.dependOn(&shader_driver_run.step);
+    gfx_gpu_shaders_step.dependOn(&shader_parser_tests_run.step);
+
+    const shader_determinism_a = b.addRunArtifact(shader_driver);
+    shader_determinism_a.step.dependOn(&shadercross_build.step);
+    shader_determinism_a.addArgs(&.{
+        "Sources/src/GFXGPU/shaders/manifest.json",
+        "zig-out/tools/shadercross/install/bin/shadercross.exe",
+        "zig-out/shaders-determinism-a",
+    });
+    const shader_determinism_b = b.addRunArtifact(shader_driver);
+    shader_determinism_b.step.dependOn(&shadercross_build.step);
+    shader_determinism_b.addArgs(&.{
+        "Sources/src/GFXGPU/shaders/manifest.json",
+        "zig-out/tools/shadercross/install/bin/shadercross.exe",
+        "zig-out/shaders-determinism-b",
+    });
+    const shader_compare = b.addSystemCommand(&.{
+        "pwsh",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "$a=Get-ChildItem 'zig-out/shaders-determinism-a' -File | Sort-Object Name; $b=Get-ChildItem 'zig-out/shaders-determinism-b' -File | Sort-Object Name; if($a.Count -ne $b.Count){throw 'shader output file count differs'}; for($i=0;$i -lt $a.Count;$i++){if($a[$i].Name -ne $b[$i].Name){throw 'shader output names differ'}; $ha=(Get-FileHash $a[$i].FullName -Algorithm SHA256).Hash; $hb=(Get-FileHash $b[$i].FullName -Algorithm SHA256).Hash; if($ha -ne $hb){throw ('shader output hash differs: ' + $a[$i].Name)}}; Write-Output 'shader outputs are deterministic'",
+    });
+    shader_compare.step.dependOn(&shader_determinism_a.step);
+    shader_compare.step.dependOn(&shader_determinism_b.step);
+    const shader_determinism_step = b.step("test-gfxgpu-shader-determinism", "Compare two clean shader compiler output directories");
+    shader_determinism_step.dependOn(&shader_compare.step);
+
+    const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {
         .x86 => "x86",
@@ -643,6 +786,62 @@ pub fn build(b: *std.Build) void {
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
         .library_arch = library_arch,
     };
+    const gfx_gpu_abi_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    gfx_gpu_abi_test_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/gfxgpu_abi_test.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfx_gpu_abi_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    addMsvcIncludePaths(b, gfx_gpu_abi_test_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
+    gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_abi_test_module.linkLibrary(sdl_c);
+    linkMsvcRuntime(gfx_gpu_abi_test_module, optimize);
+    const gfx_gpu_abi_test = b.addExecutable(.{
+        .name = "gfxgpu-abi-test",
+        .root_module = gfx_gpu_abi_test_module,
+    });
+    gfx_gpu_abi_test.subsystem = .console;
+    gfx_gpu_abi_test.entry = .{ .symbol_name = "main" };
+    const gfx_gpu_abi_test_run = b.addRunArtifact(gfx_gpu_abi_test);
+    const gfx_gpu_abi_test_step = b.step("gfxgpu-abi-test", "Run the C++ GfxGpu ABI test");
+    gfx_gpu_abi_test_step.dependOn(&gfx_gpu_abi_test_run.step);
+
+    const gfx_gpu_smoke_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/gfxgpu_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{ .{ .name = "sdl3", .module = sdl3 }, .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module } },
+    });
+    const gfx_gpu_smoke = b.addExecutable(.{
+        .name = "gfxgpu-smoke",
+        .root_module = gfx_gpu_smoke_module,
+    });
+    const gfx_gpu_smoke_run = b.addRunArtifact(gfx_gpu_smoke);
+    const gfx_gpu_smoke_install = b.addInstallArtifact(gfx_gpu_smoke, .{});
+    const gfx_gpu_smoke_build_step = b.step("gfxgpu-smoke-build", "Build the Zig SDL3 GPU shader smoke test");
+    gfx_gpu_smoke_build_step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_run.setCwd(b.path("zig-out/bin"));
+    const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
+    gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
+
+    const gfx_reference_compare_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compare_gfx_reference.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const gfx_reference_compare = b.addExecutable(.{
+        .name = "compare-gfx-reference",
+        .root_module = gfx_reference_compare_module,
+    });
+    const gfx_reference_compare_run = b.addRunArtifact(gfx_reference_compare);
+    if (b.args) |args| gfx_reference_compare_run.addArgs(args);
+    const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
+    gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
     // Save-load spends its time in the zig structure reader; at Debug (-O0 +
     // safety) that alone made big-mission loads take ~1 min. The zig half of
@@ -678,7 +877,9 @@ pub fn build(b: *std.Build) void {
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
-    const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
+    const gfx_legacy = addGFX(b, target, optimize, toolchain, misc, formats);
+    const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_c);
+    const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
@@ -688,7 +889,7 @@ pub fn build(b: *std.Build) void {
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = target,
@@ -723,6 +924,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
     b.installArtifact(game);
+    b.installArtifact(gfx_gpu_zig);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -772,6 +974,43 @@ pub fn build(b: *std.Build) void {
     const gfx_step = b.step("gfx", "Build the GFX dynamic library");
     gfx_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
 
+    const gfx_legacy_step = b.step("gfx-legacy", "Build the legacy DirectX GFX dynamic library");
+    gfx_legacy_step.dependOn(&b.addInstallArtifact(gfx_legacy, .{}).step);
+
+    const gfx_gpu_step = b.step("gfx-sdl-gpu", "Build the SDL GPU GFX adapter dynamic library");
+    gfx_gpu_step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+
+    const gfx_gpu_factory_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    gfx_gpu_factory_test_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, gfx_gpu_factory_test_module);
+    gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
+    gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
+    linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
+    gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_factory_test_module.linkLibrary(sdl_c);
+    gfx_gpu_factory_test_module.linkLibrary(formats);
+    gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+    const gfx_gpu_factory_test = b.addExecutable(.{
+        .name = "gfxgpu-factory-test",
+        .root_module = gfx_gpu_factory_test_module,
+    });
+    gfx_gpu_factory_test.subsystem = .console;
+    gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
+    const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    gfx_gpu_factory_test_run.setCwd(b.path("."));
+    gfx_gpu_factory_test_run.addArg("zig-out/bin/GFXGPU.dll");
+    const gfx_gpu_factory_test_step = b.step("gfxgpu-factory-test", "Load the SDL GPU GFX DLL and create its IGFX object");
+    gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
+
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
 
@@ -792,6 +1031,9 @@ pub fn build(b: *std.Build) void {
 
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
+
+    const gfx_gpu_zig_step = b.step("GfxGpuZig", "Build the Zig GPU renderer static library");
+    gfx_gpu_zig_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
@@ -819,6 +1061,7 @@ pub fn build(b: *std.Build) void {
     if (copy_data) {
         install_game_cmd.addArg("--copy-data");
     }
+    install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
@@ -835,13 +1078,35 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(install_game_step);
     run_step.dependOn(&run_game_cmd.step);
 
-    const verify_x64_cmd = b.addSystemCommand(&.{
-        "powershell.exe",                   "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-        "tools/zig/verify_x64_runtime.ps1", install_dir,
+    const verify_x64_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_x64_runtime.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
     });
+    const verify_x64_tool = b.addExecutable(.{
+        .name = "verify-x64-runtime",
+        .root_module = verify_x64_module,
+    });
+    const verify_x64_cmd = b.addRunArtifact(verify_x64_tool);
+    verify_x64_cmd.addArg(install_dir);
     verify_x64_cmd.step.dependOn(install_game_step);
     const verify_x64_step = b.step("verify-x64-runtime", "Validate the staged Windows x64 runtime");
     verify_x64_step.dependOn(&verify_x64_cmd.step);
+
+    const endurance_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_gfxgpu_endurance.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const endurance_tool = b.addExecutable(.{
+        .name = "verify-gfxgpu-endurance",
+        .root_module = endurance_module,
+    });
+    const endurance_cmd = b.addRunArtifact(endurance_tool);
+    endurance_cmd.addArg(install_dir);
+    endurance_cmd.step.dependOn(install_game_step);
+    const endurance_step = b.step("verify-gfxgpu-endurance", "Run SDL GPU resize, restart, and endurance validation");
+    endurance_step.dependOn(&endurance_cmd.step);
 
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
@@ -858,6 +1123,7 @@ pub fn build(b: *std.Build) void {
 
     const package_game_step = b.step("package-game", "Create game-only installation zip package");
     package_game_step.dependOn(game_all_step);
+    package_game_step.dependOn(gfx_gpu_shaders_step);
     package_game_step.dependOn(&stage_package_game_cmd.step);
     package_game_step.dependOn(&package_tool_run.step);
 
@@ -921,6 +1187,30 @@ pub fn build(b: *std.Build) void {
     });
     const streamio_unit_tests = b.addTest(.{ .root_module = streamio_test_module });
     const run_streamio_unit_tests = b.addRunArtifact(streamio_unit_tests);
+    const gfx_gpu_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
+    });
+    const gfx_gpu_unit_tests = b.addTest(.{ .root_module = gfx_gpu_test_module });
+    const run_gfx_gpu_unit_tests = b.addRunArtifact(gfx_gpu_unit_tests);
+    const gfx_gpu_test_step = b.step("test-gfxgpu-core", "Run the Zig GPU renderer core tests");
+    gfx_gpu_test_step.dependOn(&run_gfx_gpu_unit_tests.step);
+    const gfx_gpu_compat_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/compatibility_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "gfxgpu", .module = gfx_gpu_test_module }},
+    });
+    const gfx_gpu_compat_tests = b.addTest(.{ .root_module = gfx_gpu_compat_module });
+    const run_gfx_gpu_compat_tests = b.addRunArtifact(gfx_gpu_compat_tests);
+    const gfx_gpu_compat_step = b.step("test-gfxgpu-compatibility", "Run the Phase 8 compatibility matrix");
+    gfx_gpu_compat_step.dependOn(&run_gfx_gpu_compat_tests.step);
+    const test_gfxgpu_step = b.step("test-gfxgpu", "Run the GfxGpu core, C ABI, and SDL smoke tests");
+    test_gfxgpu_step.dependOn(gfx_gpu_test_step);
+    test_gfxgpu_step.dependOn(gfx_gpu_abi_test_step);
+    test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
@@ -1180,6 +1470,7 @@ fn addGame(
     formats: *std.Build.Step.Compile,
     blitz64: *std.Build.Step.Compile,
     startup_trace: bool,
+    renderer: []const u8,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -1208,7 +1499,9 @@ fn addGame(
     game_module.linkSystemLibrary("winmm", .{});
     game_module.linkSystemLibrary("odbc32", .{});
     game_module.linkSystemLibrary("odbccp32", .{});
-    game_module.linkSystemLibrary("d3d9", .{});
+    if (std.mem.eql(u8, renderer, "legacy")) {
+        game_module.linkSystemLibrary("d3d9", .{});
+    }
     game_module.linkSystemLibrary("shlwapi", .{});
     game_module.linkSystemLibrary("advapi32", .{});
     game_module.linkSystemLibrary("user32", .{});
@@ -1808,6 +2101,65 @@ fn addGFX(
         .linkage = .dynamic,
         .root_module = gfx_module,
         .win32_module_definition = b.path("Sources/src/GFX/GFX.def"),
+    });
+}
+
+fn addGFXGPU(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    gfx_gpu_zig: *std.Build.Step.Compile,
+    sdl_c: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const gfx_gpu_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, gfx_gpu_module);
+    addMsvcIncludePaths(b, gfx_gpu_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_module, toolchain);
+    gfx_gpu_module.addIncludePath(b.path("Sources/src/GFX"));
+    gfx_gpu_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    gfx_gpu_module.addCSourceFiles(.{
+        .files = gfx_gpu_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfx_gpu_module.linkLibrary(misc);
+    gfx_gpu_module.linkLibrary(formats);
+    gfx_gpu_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_module.linkLibrary(sdl_c);
+    linkMsvcRuntime(gfx_gpu_module, optimize);
+    gfx_gpu_module.linkSystemLibrary("user32", .{});
+    gfx_gpu_module.linkSystemLibrary("gdi32", .{});
+
+    return b.addLibrary(.{
+        .name = "GFXGPU",
+        .linkage = .dynamic,
+        .root_module = gfx_gpu_module,
+        .win32_module_definition = b.path("Sources/src/GFXGPU/GFXGPU.def"),
+    });
+}
+
+fn addGfxGpuZig(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    sdl3: *std.Build.Module,
+) *std.Build.Step.Compile {
+    const gfx_gpu_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
+    });
+
+    return b.addLibrary(.{
+        .name = "GfxGpuZig",
+        .linkage = .static,
+        .root_module = gfx_gpu_module,
     });
 }
 

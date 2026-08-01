@@ -60,7 +60,10 @@ ReleaseDll/
 
 # Zig build artifacts
 .zig-cache/
+.zig-cache-*/
 zig-out/
+_capture-stage-m02-run/
+/zig-pkg/
 
 # Local Git worktrees
 .worktrees/

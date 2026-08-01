@@ -1,0 +1,18 @@
+.{
+    .name = .sdl3_gpu_embedded_template,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        // Replace this with `zig fetch --save=sdl3 git+https://codeberg.org/7Games/zig-sdl3#master` or the version of your choice.
+        .sdl3 = .{
+            .path = "../../",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "shaders",
+        "src",
+    },
+    .fingerprint = 0x12af63c2660570e2,
+}

@@ -51,6 +51,7 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
         copyGameRuntime(io, allocator, binaries, destination, options.install_dir) catch |err| return failStep("copyGameRuntime", err);
+        copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
         // Seed config.cfg only when absent: the game persists the whole user
         // profile into it (options, keybinds, unlocked cutscenes, help state) —
         // overwriting on every stage silently reset that progress. config.cfg
@@ -113,11 +114,11 @@ fn copyGameRuntime(io: std.Io, allocator: std.mem.Allocator, binaries: std.Io.Di
         // Clear prior runtime outputs so staging is deterministic.
         "Game.exe",        "Game.pdb",
         "StreamIO.dll",      "StreamIOOptionsAbi.dll", "Anim.dll",
-        "GFX.dll",           "Image.dll",              "Input.dll",
+        "GFX.dll",           "GFXGPU.dll",             "Image.dll",              "Input.dll",
         "Net.dll",           "SFX.dll",                "UI.dll",
         "Scene.dll",         "AILogic.dll",            "GameTT.dll",
         "StreamIO.pdb",      "StreamIOOptionsAbi.pdb", "Anim.pdb",
-        "GFX.pdb",           "Image.pdb",              "Input.pdb",
+        "GFX.pdb",           "GFXGPU.pdb",             "Image.pdb",              "Input.pdb",
         "Net.pdb",           "SFX.pdb",                "UI.pdb",
         "Scene.pdb",         "AILogic.pdb",            "GameTT.pdb",
     };
@@ -128,7 +129,8 @@ fn copyGameRuntime(io: std.Io, allocator: std.mem.Allocator, binaries: std.Io.Di
         "StreamIO.dll",
         "StreamIOOptionsAbi.dll",
         "Anim.dll",
-        "GFX.dll",
+        "GFXGPU.dll",
+        "SDL3.dll",
         "Image.dll",
         "Input.dll",
         "Net.dll",
@@ -140,7 +142,7 @@ fn copyGameRuntime(io: std.Io, allocator: std.mem.Allocator, binaries: std.Io.Di
         "StreamIO.pdb",
         "StreamIOOptionsAbi.pdb",
         "Anim.pdb",
-        "GFX.pdb",
+        "GFXGPU.pdb",
         "Image.pdb",
         "Input.pdb",
         "Net.pdb",
@@ -188,6 +190,16 @@ fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destinat
     var destination_data = try destination.openDir(io, "Data", .{ .access_sub_paths = true });
     defer destination_data.close(io);
     try copyTree(io, allocator, data, destination_data);
+}
+
+fn copyShaderAssets(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {
+    try removeTreeIfPresent(io, destination, "Shaders/GfxGpu");
+    var source = try repo.openDir(io, "zig-out/shaders", .{ .iterate = true });
+    defer source.close(io);
+    try destination.createDirPath(io, "Shaders/GfxGpu");
+    var shader_dir = try destination.openDir(io, "Shaders/GfxGpu", .{ .access_sub_paths = true });
+    defer shader_dir.close(io);
+    try copyTree(io, allocator, source, shader_dir);
 }
 
 fn linkData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, cwd: std.Io.Dir, destination: std.Io.Dir, install_dir: []const u8) !void {

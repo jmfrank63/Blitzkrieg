@@ -1,5 +1,7 @@
 ﻿param(
     [string]$InstallDir = "zig-out/game",
+    [ValidateSet("all", "legacy", "sdl_gpu")]
+    [string]$Renderer = "all",
     [switch]$CopyData,
     [switch]$IncludeEditors,
     [switch]$Run,
@@ -43,7 +45,11 @@ if (-not (Test-Path $resolvedInstallDir)) {
     New-Item -ItemType Directory -Path $resolvedInstallDir | Out-Null
 }
 
-Copy-Item -Path (Join-Path $binDir "*") -Destination $resolvedInstallDir -Recurse -Force
+Get-ChildItem -LiteralPath $binDir | Where-Object {
+    if ($Renderer -eq "legacy") { $_.Name -ne "GFXGPU.dll" }
+    elseif ($Renderer -eq "sdl_gpu") { $_.Name -ne "GFX.dll" }
+    else { $true }
+} | Copy-Item -Destination $resolvedInstallDir -Recurse -Force
 
 if (Test-Path $installDataDir) {
     Remove-Item -Path $installDataDir -Recurse -Force
@@ -59,6 +65,36 @@ if ($CopyData) {
         throw "Missing Data directory: $dataDir"
     }
     New-Item -ItemType Junction -Path $installDataDir -Target $dataDir | Out-Null
+}
+
+if ($Renderer -eq "sdl_gpu") {
+    $shaderSource = Join-Path $repoRoot "zig-out/shaders"
+    if (-not (Test-Path $shaderSource)) {
+        throw "Missing generated SDL GPU shaders: $shaderSource. Run 'zig build gfxgpu-shaders' first."
+    }
+    $shaderDestination = Join-Path $resolvedInstallDir "zig-out/shaders"
+    New-Item -ItemType Directory -Force -Path $shaderDestination | Out-Null
+    Copy-Item -Path (Join-Path $shaderSource "*") -Destination $shaderDestination -Recurse -Force
+
+    $winPixVersion = "1.0.240308001"
+    $winPixUrl = "https://www.nuget.org/api/v2/package/WinPixEventRuntime/$winPixVersion"
+    $winPixHash = "726ACC93D6968E2146261A1E415521747D50AD69894C2B42B5D0D4C29FD66EC4"
+    $winPixTemp = Join-Path ([IO.Path]::GetTempPath()) ("blitzkrieg-winpix-" + [guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Force -Path $winPixTemp | Out-Null
+        # Expand-Archive validates the filename extension even though NuGet
+        # packages are ZIP containers.
+        $winPixArchive = Join-Path $winPixTemp "WinPixEventRuntime.zip"
+        Invoke-WebRequest -Uri $winPixUrl -OutFile $winPixArchive
+        if ((Get-FileHash -Algorithm SHA256 $winPixArchive).Hash -ne $winPixHash) {
+            throw "WinPixEventRuntime package hash mismatch."
+        }
+        Expand-Archive -LiteralPath $winPixArchive -DestinationPath (Join-Path $winPixTemp "package") -Force
+        Copy-Item -LiteralPath (Join-Path $winPixTemp "package/bin/x64/WinPixEventRuntime.dll") -Destination $resolvedInstallDir -Force
+    }
+    finally {
+        if (Test-Path $winPixTemp) { Remove-Item -LiteralPath $winPixTemp -Recurse -Force }
+    }
 }
 
 $configSource = Join-Path $dataConfigsDir "config.cfg"

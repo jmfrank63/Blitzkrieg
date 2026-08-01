@@ -422,18 +422,22 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 			{
 				CTRect<long> rcRect = pGFX->GetScreenRect();
 				CPtr<IImage> pImage = GetImageProcessor()->CreateImage( rcRect.Width(), rcRect.Height() );
-				if ( pGFX->TakeScreenShot(pImage) )
+				// Present before readback, matching the deterministic reference capture
+				// path. SDL GPU readback requires the completed frame to be submitted.
+				if ( pImage != 0 && pGFX->Flip() && pGFX->TakeScreenShot(pImage) )
 				{
 					while ( NFile::IsFileExist(NStr::Format("%sscreenshots\\shot%.4d.tga", szBaseDir.c_str(), nShotIndex)) ) 
 						++nShotIndex;
 					CPtr<IDataStream> pStream = CreateFileStream( NStr::Format("%sscreenshots\\shot%.4d.tga", szBaseDir.c_str(), nShotIndex), STREAM_ACCESS_WRITE );
-					GetImageProcessor()->SaveImageAsTGA( pStream, pImage );
-					if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
+					if ( pStream != 0 && GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
 					{
-						const std::wstring wszShotName = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
-						GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, wszShotName.c_str(), 0xff00ff00 );
+						if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
+						{
+							const std::wstring wszShotName = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
+							GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, wszShotName.c_str(), 0xff00ff00 );
+						}
+						++nShotIndex;
 					}
-					++nShotIndex;
 				}
 			}
 			break;
@@ -969,8 +973,9 @@ void CProgressScreen::Draw()
 		{
 			nCurrFrame = nNextFrame;
 			pVP->SetCurrentFrame( nCurrFrame );
+			if ( !pGFX->BeginScene() )
+				return;
 			pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
-			pGFX->BeginScene();
 			pGFX->SetupDirectTransform();
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
 			pVP->Draw( pGFX );

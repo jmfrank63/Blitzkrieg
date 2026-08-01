@@ -196,9 +196,10 @@ int CInterfaceScreenBase::FinishInterface( IInterfaceCommand *pCmdNextInterface 
 }
 void CInterfaceScreenBase::Step( bool bAppActive )
 {
-	pCamera->Update();
+	if ( GetGlobalVar( "X64.ReferenceScene", 0 ) == 0 )
+		pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
-	const bool bStepLocalResult = StepLocal( bAppActive );
+	const bool bStepLocalResult = GetGlobalVar( "X64.ReferenceScene", 0 ) != 0 ? true : StepLocal( bAppActive );
 	const bool bGFXActive = pGFX->IsActive();
 	if ( (bStepLocalResult == false) || (bAppActive == false) || !bGFXActive )
 	{
@@ -225,8 +226,9 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	}
 	pScene->UpdateSound( pCamera );
 
+	if ( !pGFX->BeginScene() )
+		return;
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
-	pGFX->BeginScene();
   pScene->Draw( pCamera );
 	DrawAdd();
 	AddStatistics();

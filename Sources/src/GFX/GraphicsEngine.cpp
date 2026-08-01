@@ -589,7 +589,7 @@ bool CGraphicsEngine::FindDepthStencilFormat( int nBPP, int nStencilBPP )
 	}
 	return false;
 }
-bool CGraphicsEngine::Init( const char *pszAdapterName, HWND hWnd )
+bool CGraphicsEngine::Init( const char *pszAdapterName, GFXNativeWindow window )
 {
 	std::string szAdapterName = pszAdapterName != 0 ? pszAdapterName : "";
 	std::list<SAdapterDesc> adapters;
@@ -603,7 +603,7 @@ bool CGraphicsEngine::Init( const char *pszAdapterName, HWND hWnd )
 	const SAdapterDesc *pAdapter = FindAdapter( szAdapterName.c_str(), adapters );
 	NI_ASSERT_TF( pAdapter != 0, "Can't find adapter by name", return false );
 	adapter = *pAdapter;
-	hWindow = hWnd;
+	hWindow = static_cast<HWND>( window.value );
 	pD3D.Create( Direct3DCreate8(D3D_SDK_VERSION) );
 	NI_ASSERT_TF( pD3D != 0, NStr::Format("Can't create Direct3D8 of build %d. Pls, install latest DX", D3D_SDK_VERSION), return false );
 	SetupShaders();
@@ -1872,24 +1872,29 @@ void CGraphicsEngine::GetGammaCorrectionValues( float *pfBrightness, float *pfCo
 }
 bool CGraphicsEngine::TakeScreenShot( IImage *pImage )
 {
-	D3DDISPLAYMODE mode;
-	HRESULT dxrval = pD3D->GetAdapterDisplayMode( adapter.nIndex, &mode );
+	NWin32Helper::com_ptr<IDirect3DSurface9> pSourceSurface;
+	HRESULT dxrval = pD3DDevice->GetRenderTarget( 0, pSourceSurface.GetAddr() );
+	NI_ASSERTHR_TF( dxrval, "Can't retrieve the render target for the screenshot", return 0 );
+	D3DSURFACE_DESC sourceDesc;
+	dxrval = pSourceSurface->GetDesc( &sourceDesc );
+	NI_ASSERTHR_TF( dxrval, "Can't describe the render target for the screenshot", return 0 );
 	NWin32Helper::com_ptr<IDirect3DSurface8> pD3DSurface;
-	dxrval = pD3DDevice->CreateOffscreenPlainSurface( mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, pD3DSurface.GetAddr(), 0 );
-	NI_ASSERTHR_TF( dxrval, NStr::Format("Can't create surface %d:%d:32 to take screenshot", mode.Width, mode.Height), return 0 );
-	dxrval = pD3DDevice->GetFrontBufferData( 0, pD3DSurface );
-	NI_ASSERTHR_TF( dxrval, "Can't retrieve front buffer data for the screenshot", return 0 );
+	dxrval = pD3DDevice->CreateOffscreenPlainSurface( sourceDesc.Width, sourceDesc.Height, sourceDesc.Format, D3DPOOL_SYSTEMMEM, pD3DSurface.GetAddr(), 0 );
+	NI_ASSERTHR_TF( dxrval, NStr::Format("Can't create surface %d:%d for screenshot", sourceDesc.Width, sourceDesc.Height), return 0 );
+	dxrval = pD3DDevice->GetRenderTargetData( pSourceSurface, pD3DSurface );
+	NI_ASSERTHR_TF( dxrval, "Can't retrieve render target data for the screenshot", return 0 );
 	D3DLOCKED_RECT lrRect;
-	dxrval = pD3DSurface->LockRect( &lrRect, &rcScreen, D3DLOCK_NO_DIRTY_UPDATE | D3DLOCK_NOSYSLOCK | D3DLOCK_READONLY );
+	RECT captureRect = { 0, 0, static_cast<LONG>(sourceDesc.Width), static_cast<LONG>(sourceDesc.Height) };
+	dxrval = pD3DSurface->LockRect( &lrRect, &captureRect, D3DLOCK_NO_DIRTY_UPDATE | D3DLOCK_NOSYSLOCK | D3DLOCK_READONLY );
 	if ( FAILED(dxrval) ) 
 		return false;
 	SColor *pDst = pImage->GetLFB();
-	const int nWidth = rcScreen.right - rcScreen.left;
-	const int nHeight = rcScreen.bottom - rcScreen.top;
+	const int nWidth = static_cast<int>(sourceDesc.Width);
+	const int nHeight = static_cast<int>(sourceDesc.Height);
 
 	for ( int i = 0; i < nHeight; ++i )
 	{
-		memcpy( pDst, (void*)(DWORD(lrRect.pBits) + i*lrRect.Pitch), nWidth*sizeof(SColor) );
+		memcpy( pDst, static_cast<const BYTE*>( lrRect.pBits ) + i*lrRect.Pitch, nWidth*sizeof(SColor) );
 		pDst += nWidth;
 	}
 	pD3DSurface->UnlockRect();
