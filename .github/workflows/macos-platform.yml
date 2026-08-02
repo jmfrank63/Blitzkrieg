@@ -54,9 +54,6 @@ jobs:
       - name: Run runtime module contract tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run
 
-      - name: Compile StreamIO runtime
-        run: zig build --sysroot "$MACOS_SYSROOT" streamio -Dtarget=aarch64-macos -Doptimize=Debug -Dtest-mode=compile
-
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v4

@@ -926,6 +926,8 @@ pub fn build(b: *std.Build) void {
     const platform_foundation = b.step("platform-foundation", "Build the supported portable foundation matrix");
     platform_foundation.dependOn(test_platform_foundation);
     if (platform != .windows_x64) {
+        addPortableStreamioFilesTest(b, target, optimize, test_mode);
+        addPortableModuleTest(b, target, test_mode);
         b.default_step = platform_foundation;
         return;
     }
@@ -2661,6 +2663,54 @@ fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
+}
+
+fn addPortableStreamioFilesTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    test_mode: build_support.TestMode,
+) void {
+    const streamio_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const streamio_platform_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .imports = &.{.{ .name = "streamio", .module = streamio_test_module }},
+    });
+    const streamio_platform_tests = b.addTest(.{ .root_module = streamio_platform_module });
+    const run_streamio_platform_tests = b.addRunArtifact(streamio_platform_tests);
+    const streamio_platform_step = b.step("test-platform-files", "Run portable StreamIO host filesystem tests");
+    streamio_platform_step.dependOn(&streamio_platform_tests.step);
+    if (test_mode == .run) streamio_platform_step.dependOn(&run_streamio_platform_tests.step);
+}
+
+fn addPortableModuleTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+        .link_libc = true,
+    });
+    module.addCSourceFile(.{
+        .file = b.path("tools/zig/platform_module_test.cpp"),
+        .flags = &.{"-std=c++17"},
+    });
+    const test_exe = b.addExecutable(.{ .name = "platform-module-test", .root_module = module });
+    const test_run = b.addRunArtifact(test_exe);
+    test_run.setCwd(b.path("."));
+    const test_step = b.step("test-platform-modules", "Run portable runtime module tests");
+    test_step.dependOn(&test_exe.step);
+    if (test_mode == .run) test_step.dependOn(&test_run.step);
 }
 
 fn linkSdlRuntime(
