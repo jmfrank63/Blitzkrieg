@@ -392,12 +392,12 @@ void CUnits::CheckUnitCell()
 			CAIUnit *pCellUnit = units.GetEl( unitID );
 			SVector cell1 = AICellsTiles::GetBigCell( pCellUnit->GetCenter() );
 			if ( cell != cell1 )
-				DEBUG_BREAK;
+				NPlatform::BreakIntoDebugger();
 		}
 	}
 
 	if ( !bOk )
-		DEBUG_BREAK;
+		NPlatform::BreakIntoDebugger();
 	*/
 }
 void CUnits::UpdateUnitVis4Enemy( CAIUnit *pUnit )

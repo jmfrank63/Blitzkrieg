@@ -3,6 +3,7 @@ extern "C"
 {
 	void __cdecl CallAssert( int bCondition )
 	{
-		DEBUG_BREAK;
+		(void)bCondition;
+		NPlatform::BreakIntoDebugger();
 	}
 }
