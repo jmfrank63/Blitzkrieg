@@ -71,14 +71,35 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $zigHome
           & (Join-Path $zigHome "zig.exe") version
 
+      - name: Resolve MSVC and Windows SDK paths
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if (-not $vsInstall) { throw "Visual Studio C++ toolchain was not found" }
+
+          $msvcRoot = Get-ChildItem (Join-Path $vsInstall "VC\Tools\MSVC") -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          $sdkRoot = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $msvcRoot -or -not $sdkRoot) { throw "MSVC or Windows SDK directories were not found" }
+
+          "MSVC_INCLUDE=$($msvcRoot.FullName)\include" >> $env:GITHUB_ENV
+          "MSVC_LIB=$($msvcRoot.FullName)\lib" >> $env:GITHUB_ENV
+          "WINDOWS_SDK_INCLUDE=$($sdkRoot.FullName)" >> $env:GITHUB_ENV
+          "WINDOWS_SDK_LIB=$(${env:ProgramFiles(x86)})\Windows Kits\10\Lib\$($sdkRoot.Name)" >> $env:GITHUB_ENV
+
+          Write-Host "Using MSVC: $($msvcRoot.FullName)"
+          Write-Host "Using Windows SDK: $($sdkRoot.FullName)"
+
       - name: Run StreamIO filesystem tests
-        run: zig build test-platform-files -Dtarget=x86_64-windows-msvc -Dtest-mode=compile
+        run: zig build test-platform-files -Dtarget=x86_64-windows-msvc -Dtest-mode=compile "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Run runtime module contract tests
-        run: zig build test-platform-modules -Dtarget=x86_64-windows-msvc -Dtest-mode=compile
+        run: zig build test-platform-modules -Dtarget=x86_64-windows-msvc -Dtest-mode=compile "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Compile complete Windows runtime
-        run: zig build game-all -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-mode=compile
+        run: zig build game-all -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-mode=compile "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Upload generated outputs
         if: always()
