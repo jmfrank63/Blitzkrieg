@@ -672,11 +672,36 @@ pub fn build(b: *std.Build) void {
     const build_support_step = b.step("test-build-support", "Validate the supported cross-platform target policy");
     build_support_step.dependOn(&build_support_tests.step);
     if (test_mode == .run) build_support_step.dependOn(&build_support_tests_run.step);
+    const optimize = b.standardOptimizeOption(.{});
+    const library_arch = build_support.libraryArch(platform);
+    const toolchain = ToolchainIncludes{
+        .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
+        .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
+        .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib",
+        .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
+        .library_arch = library_arch,
+    };
+    const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    platform_headers_module.addCSourceFiles(.{ .files = &.{ "tools/zig/platform_headers_test.cpp" }, .flags = &.{} });
+    platform_headers_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
+    const platform_headers_object = b.addObject(.{ .name = "platform-headers-test", .root_module = platform_headers_module });
+    const platform_headers_step = b.step("test-platform-headers", "Validate portable compiler and legacy value types");
+    platform_headers_step.dependOn(&platform_headers_object.step);
+    if (test_mode == .run) {
+        const platform_headers_test = b.addExecutable(.{ .name = "platform-headers-test-run", .root_module = platform_headers_module });
+        if (platform == .windows_x64) {
+            addMsvcLibraryPaths(b, platform_headers_module, toolchain);
+            linkMsvcRuntime(platform_headers_module, optimize);
+        }
+        const platform_headers_run = b.addRunArtifact(platform_headers_test);
+        platform_headers_step.dependOn(&platform_headers_run.step);
+    }
     if (platform != .windows_x64) {
+        build_support_step.dependOn(platform_headers_step);
         b.default_step = build_support_step;
         return;
     }
-    const optimize = b.standardOptimizeOption(.{});
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
@@ -818,7 +843,6 @@ pub fn build(b: *std.Build) void {
 
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
-    const library_arch = build_support.libraryArch(platform);
     const stage_root = b.fmt("zig-out/game/{s}", .{platform_policy.package_root});
     const package_root = b.fmt("zig-out/packages/{s}", .{platform_policy.package_root});
     const stage_game_name = platform_policy.executable_name;
@@ -832,13 +856,6 @@ pub fn build(b: *std.Build) void {
         &[_][]const u8{ "Game.pdb", "StreamIO.pdb", "StreamIOOptionsAbi.pdb", "Anim.pdb", "GFXGPU.pdb", "Image.pdb", "Input.pdb", "Net.pdb", "SFX.pdb", "UI.pdb", "Scene.pdb", "AILogic.pdb", "GameTT.pdb" }
     else
         &[_][]const u8{};
-    const toolchain = ToolchainIncludes{
-        .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
-        .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
-        .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib",
-        .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
-        .library_arch = library_arch,
-    };
     const gfx_gpu_abi_test_module = b.createModule(.{
         .target = target,
         .optimize = optimize,

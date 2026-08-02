@@ -1,12 +1,14 @@
 #ifndef __BASIC_H__
 #define __BASIC_H__
 #pragma ONCE
+#include "../Platform/Compiler.h"
+#include "../Platform/LegacyTypes.h"
 #include "..\zlib\zlib.h"
 #ifndef interface
 #define interface struct
 #endif // interface
 #ifndef STDCALL
-#define STDCALL __stdcall
+#define STDCALL BK_STDCALL
 #endif // STDCALL
 template <int N> struct SGenericNumber { int operator()() const { return N; } };
 interface IRefCount

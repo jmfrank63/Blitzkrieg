@@ -10,6 +10,7 @@
 // GFX contract must not expose a platform window type.
 struct GFXNativeWindow
 {
+	// Borrowed, non-owning native window value. The renderer never releases it.
 	void *value;
 
 	// Transitional compatibility for legacy callers. Platform code should
