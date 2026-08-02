@@ -798,6 +798,23 @@ pub fn build(b: *std.Build) void {
         .x86_64 => "x64",
         else => @panic("The Windows runtime build supports only x86 and x86_64 targets"),
     };
+    const target_triple = target.result.zigTriple(b.allocator) catch @panic("unable to format target triple");
+    const stage_root = b.fmt("zig-out/game/{s}", .{target_triple});
+    const package_root = b.fmt("zig-out/packages/{s}", .{target_triple});
+    const stage_game_name = switch (target.result.os.tag) {
+        .windows => "Game.exe",
+        else => "Game",
+    };
+    const stage_runtime_files = switch (target.result.os.tag) {
+        .windows => &[_][]const u8{ "Game.exe", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
+        .linux => &[_][]const u8{ "Game", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libSDL3.so", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+        .macos => &[_][]const u8{ "Game", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
+        else => &[_][]const u8{stage_game_name},
+    };
+    const stage_debug_files = if (target.result.os.tag == .windows)
+        &[_][]const u8{ "Game.pdb", "StreamIO.pdb", "StreamIOOptionsAbi.pdb", "Anim.pdb", "GFXGPU.pdb", "Image.pdb", "Input.pdb", "Net.pdb", "SFX.pdb", "UI.pdb", "Scene.pdb", "AILogic.pdb", "GameTT.pdb" }
+    else
+        &[_][]const u8{};
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
         .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
@@ -870,15 +887,9 @@ pub fn build(b: *std.Build) void {
     // mode either way).
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
     const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, streamio_fast);
-    const config_dir = switch (optimize) {
-        .Debug => "Debug",
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => "Release",
-    };
-    const install_dir = b.option([]const u8, "install-dir", "Relative install layout path") orelse b.fmt("zig-out/Game/{s}/{s}", .{ library_arch, config_dir });
-    const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
+    const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
-    const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
@@ -911,14 +922,23 @@ pub fn build(b: *std.Build) void {
     const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
-        .target = target,
+        .target = b.graph.host,
         .optimize = .ReleaseFast,
     });
     const stage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/stage.zig"),
-        .target = target,
+        .target = b.graph.host,
         .optimize = .ReleaseFast,
     });
+    const stage_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/stage_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const stage_tests = b.addTest(.{ .root_module = stage_test_module });
+    const stage_tests_run = b.addRunArtifact(stage_tests);
+    const stage_test_step = b.step("test-stage", "Run shell-free runtime staging tests");
+    stage_test_step.dependOn(&stage_tests_run.step);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -1076,18 +1096,17 @@ pub fn build(b: *std.Build) void {
 
     const install_game_cmd = b.addRunArtifact(stage_tool);
     install_game_cmd.addArg(".");
-    install_game_cmd.addArg(install_dir);
-    if (copy_data) {
-        install_game_cmd.addArg("--copy-data");
-    }
+    install_game_cmd.addArg(stage_root);
+    addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, target.result.os.tag == .windows);
+    if (!copy_data) install_game_cmd.addArg("--link-data");
     install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
 
-    const run_game_cmd = b.addSystemCommand(&.{"Game.exe"});
-    run_game_cmd.setCwd(b.path(install_dir));
+    const run_game_cmd = b.addSystemCommand(&.{stage_game_name});
+    run_game_cmd.setCwd(b.path(stage_root));
     run_game_cmd.step.dependOn(install_game_step);
     if (b.args) |args| {
         run_game_cmd.addArgs(args);
@@ -1107,7 +1126,7 @@ pub fn build(b: *std.Build) void {
         .root_module = verify_x64_module,
     });
     const verify_x64_cmd = b.addRunArtifact(verify_x64_tool);
-    verify_x64_cmd.addArg(install_dir);
+    verify_x64_cmd.addArg(stage_root);
     verify_x64_cmd.step.dependOn(install_game_step);
     const verify_x64_step = b.step("verify-x64-runtime", "Validate the staged Windows x64 runtime");
     verify_x64_step.dependOn(&verify_x64_cmd.step);
@@ -1122,23 +1141,24 @@ pub fn build(b: *std.Build) void {
         .root_module = endurance_module,
     });
     const endurance_cmd = b.addRunArtifact(endurance_tool);
-    endurance_cmd.addArg(install_dir);
+    endurance_cmd.addArg(stage_root);
     endurance_cmd.step.dependOn(install_game_step);
     const endurance_step = b.step("verify-gfxgpu-endurance", "Run SDL GPU resize, restart, and endurance validation");
     endurance_step.dependOn(&endurance_cmd.step);
 
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
-    stage_package_game_cmd.addArg("zig-out/package-staging/game");
-    stage_package_game_cmd.addArg("--copy-data");
+    stage_package_game_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
+    addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, target.result.os.tag == .windows);
 
     const package_tool = b.addExecutable(.{
         .name = "package",
         .root_module = package_module,
     });
     const package_tool_run = b.addRunArtifact(package_tool);
-    package_tool_run.addArg("zig-out/package-staging/game");
-    package_tool_run.addArg(b.fmt("{s}/Blitzkrieg-game.zip", .{package_dir}));
+    package_tool_run.addArg(b.fmt("{s}/game", .{stage_root}));
+    package_tool_run.addArg(b.fmt("{s}/Blitzkrieg-game.zip", .{package_root}));
+    package_tool_run.step.dependOn(&stage_package_game_cmd.step);
 
     const package_game_step = b.step("package-game", "Create game-only installation zip package");
     package_game_step.dependOn(game_all_step);
@@ -1148,15 +1168,16 @@ pub fn build(b: *std.Build) void {
 
     const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_editors_cmd.addArg(".");
-    stage_package_game_editors_cmd.addArg("zig-out/package-staging/game");
+    stage_package_game_editors_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
+    addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, target.result.os.tag == .windows);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
     stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
 
     const package_tool_editors = b.addRunArtifact(package_tool);
     package_tool_editors.step.dependOn(&stage_package_game_editors_cmd.step);
-    package_tool_editors.addArg("zig-out/package-staging/game");
-    package_tool_editors.addArg(b.fmt("{s}/Blitzkrieg-game-with-editors.zip", .{package_dir}));
+    package_tool_editors.addArg(b.fmt("{s}/game", .{stage_root}));
+    package_tool_editors.addArg(b.fmt("{s}/Blitzkrieg-game-with-editors.zip", .{package_root}));
 
     const package_game_editors_step = b.step("package-game-editors", "Create installation zip package with editor tools");
     package_game_editors_step.dependOn(game_all_step);
@@ -1237,6 +1258,20 @@ pub fn build(b: *std.Build) void {
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 
     b.default_step = game_all_step;
+}
+
+fn addStageLayoutArgs(run: anytype, game_name: []const u8, runtime_files: []const []const u8, debug_files: []const []const u8, editors_supported: bool) void {
+    run.addArg("--game-name");
+    run.addArg(game_name);
+    for (runtime_files) |name| {
+        run.addArg("--runtime-file");
+        run.addArg(name);
+    }
+    for (debug_files) |name| {
+        run.addArg("--debug-file");
+        run.addArg(name);
+    }
+    if (editors_supported) run.addArg("--editors-supported");
 }
 
 fn addRandomMapGen(

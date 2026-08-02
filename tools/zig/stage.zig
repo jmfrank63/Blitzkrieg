@@ -1,78 +1,121 @@
 const std = @import("std");
-const builtin = @import("builtin");
 
-const DataMode = enum { link, copy };
+pub const DataMode = enum { copy, link };
 
-const Options = struct {
+pub const RuntimeLayout = struct {
+    game_name: []const u8,
+    runtime_files: []const []const u8,
+    debug_files: []const []const u8,
+    editors_supported: bool,
+};
+
+pub const Options = struct {
     repo_root: []const u8,
     install_dir: []const u8,
-    data_mode: DataMode = .link,
+    data_mode: DataMode = .copy,
     include_editors: bool = false,
     editors_only: bool = false,
+    layout: RuntimeLayout = .{
+        .game_name = "Game.exe",
+        .runtime_files = &.{},
+        .debug_files = &.{},
+        .editors_supported = true,
+    },
 };
 
 pub fn main(init: std.process.Init) !void {
     var args = try std.process.Args.Iterator.initAllocator(init.minimal.args, init.gpa);
     defer args.deinit();
     _ = args.skip();
-
-    const options = try parseArgs(&args);
-    try stage(init.io, init.gpa, options);
+    var options = try parseArgs(&args, init.gpa);
+    defer options.deinit(init.gpa);
+    try stage(init.io, init.gpa, options.value);
 }
 
-fn parseArgs(args: *std.process.Args.Iterator) !Options {
+const ParsedOptions = struct {
+    value: Options,
+    runtime_files: std.ArrayList([]const u8),
+    debug_files: std.ArrayList([]const u8),
+
+    fn deinit(self: *ParsedOptions, allocator: std.mem.Allocator) void {
+        self.runtime_files.deinit(allocator);
+        self.debug_files.deinit(allocator);
+    }
+};
+
+fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !ParsedOptions {
+    var runtime_files = std.ArrayList([]const u8).empty;
+    errdefer runtime_files.deinit(allocator);
+    var debug_files = std.ArrayList([]const u8).empty;
+    errdefer debug_files.deinit(allocator);
+
     var options = Options{
         .repo_root = args.next() orelse return error.InvalidArguments,
         .install_dir = args.next() orelse return error.InvalidArguments,
     };
+    var game_name: []const u8 = options.layout.game_name;
+    var editors_supported = false;
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--copy-data")) {
             options.data_mode = .copy;
+        } else if (std.mem.eql(u8, arg, "--link-data")) {
+            options.data_mode = .link;
         } else if (std.mem.eql(u8, arg, "--include-editors")) {
             options.include_editors = true;
         } else if (std.mem.eql(u8, arg, "--editors-only")) {
             options.editors_only = true;
+        } else if (std.mem.eql(u8, arg, "--editors-supported")) {
+            editors_supported = true;
+        } else if (std.mem.eql(u8, arg, "--game-name")) {
+            game_name = args.next() orelse return error.InvalidArguments;
+        } else if (std.mem.eql(u8, arg, "--runtime-file")) {
+            try runtime_files.append(allocator, args.next() orelse return error.InvalidArguments);
+        } else if (std.mem.eql(u8, arg, "--debug-file")) {
+            try debug_files.append(allocator, args.next() orelse return error.InvalidArguments);
         } else {
             return error.InvalidArguments;
         }
     }
-    return options;
+    options.layout = .{
+        .game_name = game_name,
+        .runtime_files = runtime_files.items,
+        .debug_files = debug_files.items,
+        .editors_supported = editors_supported,
+    };
+    return .{ .value = options, .runtime_files = runtime_files, .debug_files = debug_files };
 }
 
-fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
+pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
     const cwd = std.Io.Dir.cwd();
     var repo = try cwd.openDir(io, options.repo_root, .{ .access_sub_paths = true });
     defer repo.close(io);
     try cwd.createDirPath(io, options.install_dir);
-    var destination = try cwd.openDir(io, options.install_dir, .{ .access_sub_paths = true });
+    var destination = try cwd.openDir(io, options.install_dir, .{ .iterate = true, .access_sub_paths = true });
     defer destination.close(io);
 
+    rejectStaleImages(io, destination) catch |err| return failStep("reject stale runtime images", err);
     if (!options.editors_only) {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
-        copyGameRuntime(io, allocator, binaries, destination, options.install_dir) catch |err| return failStep("copyGameRuntime", err);
+        copyGameRuntime(io, binaries, destination, options.layout) catch |err| return failStep("copyGameRuntime", err);
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
-        // Seed config.cfg only when absent: the game persists the whole user
-        // profile into it (options, keybinds, unlocked cutscenes, help state) —
-        // overwriting on every stage silently reset that progress. config.cfg
-        // is intentionally local and ignored, so new install directories use
-        // the tracked default configuration instead.
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
-        // The game silently fails to write saves when this is missing.
         destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
         removeTreeIfPresent(io, destination, "Data") catch |err| return failStep("remove staged Data", err);
-        if (options.data_mode == .copy) {
-            copyData(io, allocator, repo, destination) catch |err| return failStep("copyData", err);
-        } else {
-            linkData(io, allocator, repo, cwd, destination, options.install_dir) catch |err| return failStep("linkData", err);
+        switch (options.data_mode) {
+            .copy => copyData(io, allocator, repo, destination) catch |err| return failStep("copyData", err),
+            .link => linkData(io, allocator, repo, destination) catch |err| return failStep("linkData", err),
         }
-    } else {
-        try destination.access(io, "Data", .{});
+    } else if (!options.layout.editors_supported) {
+        return error.EditorsUnsupported;
     }
 
     try removeTreeIfPresent(io, destination, "Editors");
-    if (options.include_editors) try copyEditors(io, repo, destination);
+    if (options.include_editors) {
+        if (!options.layout.editors_supported) return error.EditorsUnsupported;
+        try copyEditors(io, repo, destination);
+    }
 }
 
 fn failStep(step: []const u8, err: anyerror) anyerror {
@@ -80,104 +123,54 @@ fn failStep(step: []const u8, err: anyerror) anyerror {
     return err;
 }
 
-// Zig's Dir.rename opens the file with sharing flags the image loader refuses
-// (FileBusy on a running exe/dll), while a plain Win32 rename succeeds — fall
-// back to PowerShell for locked images, mirroring createDirectoryJunction.
-fn moveAside(io: std.Io, allocator: std.mem.Allocator, destination: std.Io.Dir, install_dir: []const u8, name: []const u8, aside: []const u8) !void {
-    if (destination.rename(name, destination, aside, io)) |_| {
-        return;
-    } else |err| switch (err) {
-        error.FileBusy, error.AccessDenied, error.PermissionDenied => {},
-        else => return err,
-    }
-    if (builtin.os.tag != .windows) return error.FileBusy;
-    const cmd = try std.fmt.allocPrint(allocator, "Rename-Item -LiteralPath '{s}/{s}' -NewName '{s}'", .{ install_dir, name, aside });
-    defer allocator.free(cmd);
-    const result = try std.process.run(allocator, io, .{
-        .argv = &.{ "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", cmd },
-    });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    switch (result.term) {
-        .exited => |code| if (code != 0) return error.FileBusy,
-        else => return error.FileBusy,
+pub fn shouldReplaceRuntime(name: []const u8) bool {
+    return !std.mem.endsWith(u8, name, ".stale");
+}
+
+pub fn classifyDataLinkError(err: anyerror) anyerror {
+    return switch (err) {
+        error.AccessDenied, error.PermissionDenied => error.DataLinkPermissionDenied,
+        else => err,
+    };
+}
+
+fn rejectStaleImages(io: std.Io, destination: std.Io.Dir) !void {
+    var iterator = destination.iterate();
+    while (try iterator.next(io)) |entry| {
+        if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".stale")) {
+            std.debug.print("stage: stale runtime image '{s}' remains; close the game and remove it before rebuilding\n", .{entry.name});
+            return error.StaleRuntimeImage;
+        }
     }
 }
 
-fn copyGameRuntime(io: std.Io, allocator: std.mem.Allocator, binaries: std.Io.Dir, destination: std.Io.Dir, install_dir: []const u8) !void {
-    const stale_root_files = [_][]const u8{
-        "BetaKeyGen.exe",    "BuildVersion.exe",       "FontGen.exe",
-        // Legacy x86-only payloads must never survive a target switch into an
-        // x64 staged runtime.
-        "A7ExportModel.dll", "fmod.dll",               "mfc42.dll",
-        "msvcp60.dll",       "msvcrt.dll",
-        // Clear prior runtime outputs so staging is deterministic.
-        "Game.exe",        "Game.pdb",
-        "StreamIO.dll",      "StreamIOOptionsAbi.dll", "Anim.dll",
-        "GFX.dll",           "GFXGPU.dll",             "Image.dll",              "Input.dll",
-        "Net.dll",           "SFX.dll",                "UI.dll",
-        "Scene.dll",         "AILogic.dll",            "GameTT.dll",
-        "StreamIO.pdb",      "StreamIOOptionsAbi.pdb", "Anim.pdb",
-        "GFX.pdb",           "GFXGPU.pdb",             "Image.pdb",              "Input.pdb",
-        "Net.pdb",           "SFX.pdb",                "UI.pdb",
-        "Scene.pdb",         "AILogic.pdb",            "GameTT.pdb",
-    };
+fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir, layout: RuntimeLayout) !void {
+    const stale_root_files = [_][]const u8{ "BetaKeyGen.exe", "BuildVersion.exe", "FontGen.exe", "A7ExportModel.dll", "fmod.dll", "mfc42.dll", "msvcp60.dll", "msvcrt.dll" };
     for (stale_root_files) |name| destination.deleteFile(io, name) catch {};
-    const runtime_files = [_][]const u8{
-        "Game.exe",
-        "Game.pdb",
-        "StreamIO.dll",
-        "StreamIOOptionsAbi.dll",
-        "Anim.dll",
-        "GFXGPU.dll",
-        "SDL3.dll",
-        "Image.dll",
-        "Input.dll",
-        "Net.dll",
-        "SFX.dll",
-        "UI.dll",
-        "Scene.dll",
-        "AILogic.dll",
-        "GameTT.dll",
-        "StreamIO.pdb",
-        "StreamIOOptionsAbi.pdb",
-        "Anim.pdb",
-        "GFXGPU.pdb",
-        "Image.pdb",
-        "Input.pdb",
-        "Net.pdb",
-        "SFX.pdb",
-        "UI.pdb",
-        "Scene.pdb",
-        "AILogic.pdb",
-        "GameTT.pdb",
-    };
-    for (runtime_files) |name| {
-        var stale_buf: [64]u8 = undefined;
-        if (std.fmt.bufPrint(&stale_buf, "{s}.stale", .{name})) |aside|
-            destination.deleteFile(io, aside) catch {}
-        else |_| {}
-    }
-    for (runtime_files) |name| {
+    for (layout.runtime_files) |name| {
+        destination.deleteFile(io, name) catch {};
+        if (!shouldReplaceRuntime(name)) continue;
         copyFile(io, binaries, name, destination, name) catch |err| switch (err) {
-            error.AccessDenied, error.PermissionDenied => {
-                // A running Game.exe keeps runtime DLLs mapped; Windows blocks
-                // overwriting a mapped image but allows renaming it. Move the
-                // locked file aside and copy fresh so the staged runtime can
-                // never silently remain stale. Failing here is better than
-                // keeping an old binary that no longer matches the build.
-                var aside_buf: [64]u8 = undefined;
+            error.AccessDenied, error.PermissionDenied, error.FileBusy => {
+                var aside_buf: [256]u8 = undefined;
                 const aside = std.fmt.bufPrint(&aside_buf, "{s}.stale", .{name}) catch return err;
                 destination.deleteFile(io, aside) catch {};
-                moveAside(io, allocator, destination, install_dir, name, aside) catch |rename_err| {
-                    std.debug.print("stage: could not move locked '{s}' aside: {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
-                    return err;
+                destination.rename(name, destination, aside, io) catch |rename_err| {
+                    std.debug.print("stage: could not replace locked '{s}': {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
+                    return error.RuntimeReplacementDenied;
                 };
                 copyFile(io, binaries, name, destination, name) catch |copy_err| {
                     std.debug.print("stage: fresh copy of '{s}' failed after move-aside: {s}\n", .{ name, @errorName(copy_err) });
                     return copy_err;
                 };
             },
+            else => return err,
+        };
+    }
+    for (layout.debug_files) |name| {
+        destination.deleteFile(io, name) catch {};
+        copyFile(io, binaries, name, destination, name) catch |err| switch (err) {
+            error.FileNotFound => {},
             else => return err,
         };
     }
@@ -202,57 +195,21 @@ fn copyShaderAssets(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, 
     try copyTree(io, allocator, source, shader_dir);
 }
 
-fn linkData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, cwd: std.Io.Dir, destination: std.Io.Dir, install_dir: []const u8) !void {
+fn linkData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {
     const data_path = try repo.realPathFileAlloc(io, "Data", allocator);
     defer allocator.free(data_path);
-    const install_path = try cwd.realPathFileAlloc(io, install_dir, allocator);
+    const install_path = try destination.realPathFileAlloc(io, ".", allocator);
     defer allocator.free(install_path);
     const link_path = try std.fs.path.join(allocator, &.{ install_path, "Data" });
     defer allocator.free(link_path);
-    try createDirectoryJunction(io, allocator, data_path, link_path);
+    std.Io.Dir.symLinkAbsolute(io, data_path, link_path, .{ .is_directory = true }) catch |err| switch (classifyDataLinkError(err)) {
+        error.DataLinkPermissionDenied => {
+            std.debug.print("stage: --link-data needs filesystem symlink permission; rerun with --copy-data (the default)\n", .{});
+            return error.DataLinkPermissionDenied;
+        },
+        else => return err,
+    };
     try destination.access(io, "Data", .{});
-}
-
-fn createDirectoryJunction(io: std.Io, allocator: std.mem.Allocator, target_path: []const u8, link_path: []const u8) !void {
-    if (builtin.os.tag == .windows) {
-        const cmd = try std.fmt.allocPrint(allocator, "New-Item -ItemType Junction -Path '{s}' -Target '{s}'", .{ link_path, target_path });
-        defer allocator.free(cmd);
-        const result = try std.process.run(allocator, io, .{
-            .argv = &.{ "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", cmd },
-        });
-        defer allocator.free(result.stdout);
-        defer allocator.free(result.stderr);
-        switch (result.term) {
-            .exited => |code| if (code != 0) return error.CreateJunctionFailed,
-            else => return error.CreateJunctionFailed,
-        }
-    } else {
-        const result = try std.process.run(allocator, io, .{
-            .argv = &.{ "ln", "-s", target_path, link_path },
-        });
-        defer allocator.free(result.stdout);
-        defer allocator.free(result.stderr);
-        switch (result.term) {
-            .exited => |code| if (code != 0) return error.CreateJunctionFailed,
-            else => return error.CreateJunctionFailed,
-        }
-    }
-}
-
-test "link mode creates a directory reparse point without symbolic-link privileges" {
-    var tmp = std.testing.tmpDir(.{ .access_sub_paths = true });
-    defer tmp.cleanup();
-
-    try tmp.dir.createDirPath(std.testing.io, "target");
-    const target_path = try tmp.dir.realPathFileAlloc(std.testing.io, "target", std.testing.allocator);
-    defer std.testing.allocator.free(target_path);
-    const root_path = try tmp.dir.realPathFileAlloc(std.testing.io, ".", std.testing.allocator);
-    defer std.testing.allocator.free(root_path);
-    const link_path = try std.fs.path.join(std.testing.allocator, &.{ root_path, "link" });
-    defer std.testing.allocator.free(link_path);
-
-    try createDirectoryJunction(std.testing.io, std.testing.allocator, target_path, link_path);
-    try tmp.dir.access(std.testing.io, "link", .{});
 }
 
 fn copyTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destination: std.Io.Dir) !void {
@@ -302,4 +259,13 @@ fn copyEditors(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir) !void {
         copied += 1;
     }
     if (copied == 0) return error.NoEditorsFound;
+}
+
+test "copy is the default data mode" {
+    try std.testing.expectEqual(DataMode.copy, (Options{ .repo_root = ".", .install_dir = "out" }).data_mode);
+}
+
+test "runtime replacement rejects stale image names" {
+    try std.testing.expect(!shouldReplaceRuntime("Game.exe.stale"));
+    try std.testing.expect(shouldReplaceRuntime("Game.exe"));
 }
