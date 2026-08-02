@@ -1,9 +1,10 @@
 #ifndef __WIN32HELPER_H__
 #define __WIN32HELPER_H__
 #include "../Platform/Sync.h"
+#include "../Platform/DynamicLibrary.h"
 #if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+#endif
 namespace NWin32Helper
 {
 class CEvent
@@ -23,7 +24,7 @@ class CCriticalSection
 {
 	NPlatform::Mutex sect;
 	CCriticalSection( const CCriticalSection & ) = delete;
-	CCriticalSection& operator=( const CCriticalSection &) = delete;
+	CCriticalSection& operator=( const CCriticalSection & ) = delete;
 	void Enter() { sect.Lock(); }
 	void Leave() { sect.Unlock(); }
 public:
@@ -38,7 +39,6 @@ class CCriticalSectionLock
 public:
 	CCriticalSectionLock( CCriticalSection &_lock ): lock(_lock) { bInsideCriticalSection = true; lock.Enter(); }
 	~CCriticalSectionLock() { if ( bInsideCriticalSection ) lock.Leave(); }
-
 	void Enter() { lock.Enter(); bInsideCriticalSection = true; }
 	void Leave() { if ( bInsideCriticalSection ) lock.Leave(); bInsideCriticalSection = false; }
 };
@@ -62,32 +62,24 @@ public:
 #if !defined(BLITZKRIEG_PLATFORM_SYNC_ONLY)
 class CDLLHandle
 {
-	HMODULE handle;												// DLL handle
-	std::string szName;										// file name
-	CDLLHandle( const CDLLHandle &dll ) {  }
-	CDLLHandle& operator=( const CDLLHandle &dll ) { return *this; }
-	CDLLHandle() : handle( 0 ) {  }
+	NPlatform::DynamicLibrary library;
+	std::string szName;
+	CDLLHandle( const CDLLHandle & ) = delete;
+	CDLLHandle& operator=( const CDLLHandle & ) = delete;
 public:
-	CDLLHandle( const char *pszFileName ) : szName( pszFileName ) { const std::wstring szWideName = NStr::ToUnicode( szName ); handle = ::LoadLibraryW( reinterpret_cast<LPCWSTR>( szWideName.c_str() ) ); }
-	CDLLHandle( const std::string &szFileName ) : szName( szFileName ) { const std::wstring szWideName = NStr::ToUnicode( szName ); handle = ::LoadLibraryW( reinterpret_cast<LPCWSTR>( szWideName.c_str() ) ); }
-	~CDLLHandle() { if ( handle ) ::FreeLibrary( handle ); }
-	bool IsLoaded() const { return handle != 0; }
-	template <class TProc> 
-		TProc GetProcAddress( const char *pszProcName, TProc )
+	CDLLHandle() = default;
+	CDLLHandle( const char *pszFileName ) : library( pszFileName ), szName( pszFileName ? pszFileName : "" ) { }
+	CDLLHandle( const std::string &szFileName ) : library( szFileName.c_str() ), szName( szFileName ) { }
+	~CDLLHandle() = default;
+	bool IsLoaded() const { return library.IsLoaded(); }
+	template <class TProc>
+	TProc GetProcAddress( const char *pszProcName, TProc )
 	{
-		return IsLoaded() ? (TProc)::GetProcAddress( handle, pszProcName ) : (TProc)0;
+		return IsLoaded() ? reinterpret_cast<TProc>( library.GetFunction( pszProcName ) ) : static_cast<TProc>( 0 );
 	}
-	template <class TProc> 
-		TProc GetProcAddress( int nProcID, TProc )
-	{
-		return IsLoaded() ? (TProc)::GetProcAddress( handle, (const char *)nProcID ) : (TProc)0;
-	}
-	HMODULE GetHMdule() const { return handle; }
 	const std::string& GetModuleName() const { return szName; }
-	operator HMODULE() const { return handle; }
 	operator const char*() const { return szName.c_str(); }
 };
 #endif
 }
 #endif
-

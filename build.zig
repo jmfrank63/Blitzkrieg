@@ -259,6 +259,7 @@ const libpng_sources = &.{
 const misc_sources = &.{
 	"Sources/src/Platform/Clock.cpp",
 	"Sources/src/Platform/Debug.cpp",
+	"Sources/src/Platform/DynamicLibrary.cpp",
 	"Sources/src/Platform/Sync.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
@@ -771,6 +772,52 @@ pub fn build(b: *std.Build) void {
     const platform_debug_step = b.step("test-platform-debug", "Run portable diagnostic and debugger facade tests");
     platform_debug_step.dependOn(&platform_debug_test.step);
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
+
+    const sdl_c_dep = b.dependency("sdl", .{
+        .target = target,
+        .optimize = optimize,
+        .preferred_linkage = .static,
+        .install_build_config_h = true,
+    });
+    const sdl_c = sdl_c_dep.artifact("SDL3");
+    const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+    platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = cppflags_release });
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_test_module_module, toolchain);
+        addMsvcLibraryPaths(b, platform_test_module_module, toolchain);
+        linkMsvcRuntime(platform_test_module_module, .ReleaseFast);
+    }
+    const platform_test_module = b.addLibrary(.{ .name = "platform-test-module", .linkage = .dynamic, .root_module = platform_test_module_module });
+    const sdl_dynamic_dep = b.dependency("sdl", .{
+        .target = target,
+        .optimize = .ReleaseFast,
+        .preferred_linkage = .dynamic,
+        .install_build_config_h = true,
+    });
+    const sdl_dynamic = sdl_dynamic_dep.artifact("SDL3");
+    const platform_dynamic_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+    addProjectIncludePaths(b, platform_dynamic_module);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_dynamic_module, toolchain);
+        addMsvcLibraryPaths(b, platform_dynamic_module, toolchain);
+    }
+    platform_dynamic_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/platform_dynamic_library_test.cpp",
+            "Sources/src/Platform/DynamicLibrary.cpp",
+        },
+        .flags = cppflags_release,
+    });
+    platform_dynamic_module.linkLibrary(sdl_dynamic);
+    const platform_dynamic_test = b.addExecutable(.{ .name = "platform-dynamic-library-test", .root_module = platform_dynamic_module });
+    platform_dynamic_test.subsystem = .console;
+    if (platform == .windows_x64) platform_dynamic_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const platform_dynamic_run = b.addRunArtifact(platform_dynamic_test);
+    platform_dynamic_run.addArtifactArg(platform_test_module);
+    const platform_dynamic_step = b.step("test-platform-dynamic-library", "Run portable dynamic library ownership tests");
+    platform_dynamic_step.dependOn(&platform_dynamic_test.step);
+    platform_dynamic_step.dependOn(&platform_test_module.step);
+    if (test_mode == .run) platform_dynamic_step.dependOn(&platform_dynamic_run.step);
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
@@ -838,13 +885,6 @@ pub fn build(b: *std.Build) void {
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
     });
-    const sdl_c_dep = b.dependency("sdl", .{
-        .target = target,
-        .optimize = optimize,
-        .preferred_linkage = .static,
-        .install_build_config_h = true,
-    });
-    const sdl_c = sdl_c_dep.artifact("SDL3");
     const sdl3 = sdl3_dep.module("sdl3");
     const sdl3_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_sdl3.zig"),
@@ -1031,7 +1071,7 @@ pub fn build(b: *std.Build) void {
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
-    const misc = addMisc(b, target, optimize, toolchain);
+    const misc = addMisc(b, target, optimize, toolchain, sdl_c);
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc);
@@ -1790,6 +1830,7 @@ fn addMisc(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    sdl_c: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const misc_module = b.createModule(.{
         .target = target,
@@ -1803,6 +1844,7 @@ fn addMisc(
         .files = misc_sources,
         .flags = cppflagsForOptimize(optimize),
     });
+    misc_module.linkLibrary(sdl_c);
 
     return b.addLibrary(.{
         .name = "Misc",
