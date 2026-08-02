@@ -261,6 +261,7 @@ const misc_sources = &.{
 	"Sources/src/Platform/Debug.cpp",
 	"Sources/src/Platform/DynamicLibrary.cpp",
 	"Sources/src/Platform/Sync.cpp",
+	"Sources/src/Platform/System.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
     "Sources/src/Misc/GRect.cpp",
@@ -818,6 +819,28 @@ pub fn build(b: *std.Build) void {
     platform_dynamic_step.dependOn(&platform_dynamic_test.step);
     platform_dynamic_step.dependOn(&platform_test_module.step);
     if (test_mode == .run) platform_dynamic_step.dependOn(&platform_dynamic_run.step);
+
+    const platform_system_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+    addProjectIncludePaths(b, platform_system_module);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_system_module, toolchain);
+        addMsvcLibraryPaths(b, platform_system_module, toolchain);
+    }
+    platform_system_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/platform_system_test.cpp",
+            "Sources/src/Platform/System.cpp",
+        },
+        .flags = cppflags_release,
+    });
+    platform_system_module.linkLibrary(sdl_dynamic);
+    const platform_system_test = b.addExecutable(.{ .name = "platform-system-test", .root_module = platform_system_module });
+    platform_system_test.subsystem = .console;
+    if (platform == .windows_x64) platform_system_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const platform_system_run = b.addRunArtifact(platform_system_test);
+    const platform_system_step = b.step("test-platform-system", "Run portable system facade tests");
+    platform_system_step.dependOn(&platform_system_test.step);
+    if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
@@ -867,6 +890,13 @@ pub fn build(b: *std.Build) void {
     test_platform_foundation.dependOn(hermeticity_step);
     test_platform_foundation.dependOn(&foundation_matrix_tests.step);
     if (test_mode == .run) test_platform_foundation.dependOn(&foundation_matrix_run.step);
+    const test_platform_core = b.step("test-platform-core", "Run the Phase 01 portable runtime core tests");
+    test_platform_core.dependOn(test_platform_foundation);
+    test_platform_core.dependOn(platform_clock_step);
+    test_platform_core.dependOn(platform_sync_step);
+    test_platform_core.dependOn(platform_debug_step);
+    test_platform_core.dependOn(platform_dynamic_step);
+    test_platform_core.dependOn(platform_system_step);
     const platform_foundation = b.step("platform-foundation", "Build the supported portable foundation matrix");
     platform_foundation.dependOn(test_platform_foundation);
     if (platform != .windows_x64) {
