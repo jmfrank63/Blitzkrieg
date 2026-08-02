@@ -1,8 +1,7 @@
 #include "StdAfx.h"
 
 #include "..\StreamIO\RandomGen.h"
-#include "..\Misc\Win32Helper.h"
-#include "..\Misc\FileUtils.h"
+#include "..\Platform\DynamicLibrary.h"
 #include "..\StreamIO\StreamIOTypes.h"
 typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
 typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();
@@ -16,10 +15,20 @@ IRandomGen *g_pGlobalRandomGen = 0;
 ISaveLoadSystem *g_pGlobalSaveLoadSystem = 0;
 ISingleton *g_pGlobalSingleton = 0;
 GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
-static std::list<NWin32Helper::CDLLHandle*> dllhandles;
-NWin32Helper::CDLLHandle* LoadModule( const char *pszName )
+static const char *StreamIOName()
 {
-	NWin32Helper::CDLLHandle *pDLL = new NWin32Helper::CDLLHandle( pszName );
+#if defined(_WIN32) || defined(_WIN64)
+    return "StreamIO.dll";
+#elif defined(__APPLE__)
+    return "libStreamIO.dylib";
+#else
+    return "libStreamIO.so";
+#endif
+}
+static std::list<NPlatform::DynamicLibrary*> dllhandles;
+NPlatform::DynamicLibrary* LoadModule( const char *pszName )
+{
+	NPlatform::DynamicLibrary *pDLL = new NPlatform::DynamicLibrary( pszName );
 	if ( !pDLL->IsLoaded() ) 
 	{
 		delete pDLL;
@@ -33,14 +42,14 @@ public:
 	CGlobalsLoader()
 	{
 #ifndef _DONT_LOAD_STREAMIO
-		NWin32Helper::CDLLHandle *pStreamIO = LoadModule( "streamio.dll" );
+		NPlatform::DynamicLibrary *pStreamIO = LoadModule( StreamIOName() );
 		if ( pStreamIO != 0 )
 		{
-			if ( GETSLS_HOOK pfnGetSLS_Hook = pStreamIO->GetProcAddress( "GetSLS_Hook", (GETSLS_HOOK)0 ) ) 
+			if ( GETSLS_HOOK pfnGetSLS_Hook = reinterpret_cast<GETSLS_HOOK>( pStreamIO->GetFunction( "GetSLS_Hook" ) ) ) 
 			g_pGlobalSaveLoadSystem = (*pfnGetSLS_Hook)();
-		if ( GETSINGLETONGLOBAL_HOOK pfnGetSingletonGlobal_Hook = pStreamIO->GetProcAddress( "GetSingletonGlobal_Hook", (GETSINGLETONGLOBAL_HOOK)0 ) ) 
+		if ( GETSINGLETONGLOBAL_HOOK pfnGetSingletonGlobal_Hook = reinterpret_cast<GETSINGLETONGLOBAL_HOOK>( pStreamIO->GetFunction( "GetSingletonGlobal_Hook" ) ) ) 
 			g_pGlobalSingleton = (*pfnGetSingletonGlobal_Hook)();
-		g_pfnGlobalGetTempRawBuffer = pStreamIO->GetProcAddress( "GetTempRawBuffer_Hook", (GETTEMPRAWBUFFER_HOOK)0 );
+		g_pfnGlobalGetTempRawBuffer = reinterpret_cast<GETTEMPRAWBUFFER_HOOK>( pStreamIO->GetFunction( "GetTempRawBuffer_Hook" ) );
 
 		dllhandles.push_back( pStreamIO );
 		}
@@ -60,7 +69,7 @@ public:
 	}
 	~CGlobalsLoader()
 	{
-		for ( std::list<NWin32Helper::CDLLHandle*>::iterator it = dllhandles.begin(); it != dllhandles.end(); ++it )
+		for ( std::list<NPlatform::DynamicLibrary*>::iterator it = dllhandles.begin(); it != dllhandles.end(); ++it )
 			delete (*it);
 		dllhandles.clear();
 	}

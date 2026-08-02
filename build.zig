@@ -1137,6 +1137,33 @@ pub fn build(b: *std.Build) void {
     options_bridge_test.entry = .{ .symbol_name = "main" };
     const options_bridge_test_step = b.step("options-bridge-test", "Build portable options bridge contract tests");
     options_bridge_test_step.dependOn(&b.addInstallArtifact(options_bridge_test, .{}).step);
+    const platform_module_test_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = cppflagsForOptimize(.Debug) });
+    addMsvcIncludePaths(b, platform_module_test_module, toolchain);
+    addMsvcLibraryPaths(b, platform_module_test_module, toolchain);
+    linkMsvcRuntime(platform_module_test_module, .Debug);
+    const platform_module_test = b.addExecutable(.{ .name = "platform-module-test", .root_module = platform_module_test_module });
+    platform_module_test.subsystem = .console;
+    platform_module_test.entry = .{ .symbol_name = "main" };
+    const platform_module_test_run = b.addRunArtifact(platform_module_test);
+    platform_module_test_run.setCwd(b.path("."));
+    const platform_module_test_step = b.step("test-platform-modules", "Run portable runtime module tests");
+    platform_module_test_step.dependOn(&platform_module_test_run.step);
+    const platform_storage_gate_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    var storage_gate_flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    storage_gate_flags.appendSlice(b.allocator, cppflagsForOptimize(.Debug)) catch @panic("OOM");
+    storage_gate_flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
+    platform_storage_gate_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_storage_gate.cpp"), .flags = storage_gate_flags.items });
+    addMsvcIncludePaths(b, platform_storage_gate_module, toolchain);
+    addMsvcLibraryPaths(b, platform_storage_gate_module, toolchain);
+    linkMsvcRuntime(platform_storage_gate_module, .Debug);
+    const platform_storage_gate = b.addExecutable(.{ .name = "platform-storage-gate", .root_module = platform_storage_gate_module });
+    platform_storage_gate.subsystem = .console;
+    platform_storage_gate.entry = .{ .symbol_name = "main" };
+    const platform_storage_gate_run = b.addRunArtifact(platform_storage_gate);
+    platform_storage_gate_run.setCwd(b.path("."));
+    const platform_storage_gate_step = b.step("test-platform-storage", "Run config/save/package storage gate");
+    platform_storage_gate_step.dependOn(&platform_storage_gate_run.step);
     // Save-load spends its time in the zig structure reader; at Debug (-O0 +
     // safety) that alone made big-mission loads take ~1 min. The zig half of
     // StreamIO is unit-tested and ABI-thin, so it defaults to ReleaseFast even

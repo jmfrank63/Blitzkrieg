@@ -1,313 +1,120 @@
 #include "StdAfx.h"
 
-#include "..\Misc\Win32Helper.h"
 #include "..\Misc\FileUtils.h"
-#include "..\RandomMapGen\Registry_Types.h"
+#include "..\Platform\Debug.h"
+#include "..\Platform\DynamicLibrary.h"
+#include "..\Platform\Paths.h"
 
-using namespace NWin32Helper;
-extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
 namespace NMain
 {
-	typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
-	typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();
-	typedef void* (STDCALL *GETTEMPRAWBUFFER_HOOK)( int nAmount, int nBufferIndex );
+typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
+typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();
+typedef void* (STDCALL *GETTEMPRAWBUFFER_HOOK)( int, int );
 
-	static void EnsureGlobalHooks()
-	{
-		if ( GetSLS() != 0 && GetSingletonGlobal() != 0 && g_pfnGlobalGetTempRawBuffer != 0 )
-			return;
-
-		HMODULE hStreamIO = ::GetModuleHandleA( "StreamIO.dll" );
-		if ( hStreamIO == 0 )
-			hStreamIO = ::LoadLibraryA( "StreamIO.dll" );
-		if ( hStreamIO == 0 )
-			return;
-
-		if ( GetSLS() == 0 )
-		{
-			if ( GETSLS_HOOK pfnGetSLS = (GETSLS_HOOK)::GetProcAddress( hStreamIO, "GetSLS_Hook" ) )
-				g_pGlobalSaveLoadSystem = (*pfnGetSLS)();
-		}
-		if ( GetSingletonGlobal() == 0 )
-		{
-			if ( GETSINGLETONGLOBAL_HOOK pfnGetSingleton = (GETSINGLETONGLOBAL_HOOK)::GetProcAddress( hStreamIO, "GetSingletonGlobal_Hook" ) )
-				g_pGlobalSingleton = (*pfnGetSingleton)();
-		}
-		if ( g_pfnGlobalGetTempRawBuffer == 0 )
-			g_pfnGlobalGetTempRawBuffer = (GETTEMPRAWBUFFER_HOOK)::GetProcAddress( hStreamIO, "GetTempRawBuffer_Hook" );
-	}
-
-	static const char GAME_REGISTRY_FOLDER[] = "Software\\Nival Interactive\\Blitzkrieg";
-	static const char GAME_REGISTRY_KEY[] = "InstallFolder";
-	static std::string GetModuleDirectory()
-	{
-		char buffer[2048] = { 0 };
-		if ( ::GetModuleFileName( 0, buffer, 2048 ) == 0 )
-			return ".\\";
-		char *pFileName = strrchr( buffer, '\\' );
-		if ( pFileName != 0 )
-			*(pFileName + 1) = 0;
-		return buffer;
-	}
-	struct SDllModule
-	{
-		CDLLHandle *pDLLHandle;
-		const SModuleDescriptor *pDesc;
-		SDllModule() : pDLLHandle( 0 ), pDesc( 0 ) {  }
-		~SDllModule() 
-		{ 
-			if ( pDLLHandle ) 
-			{
-				if ( pDesc )
-					NStr::DebugTrace( "Unloading module \"%s\" of version 0x%x\n", pDesc->pszName, pDesc->nVersion );
-				delete pDLLHandle; 
-			}
-		}
-	};
-	typedef std::list<SDllModule> CModulesList;
-	CModulesList modules;
-	static bool HasModuleType( int nType )
-	{
-		for ( CModulesList::const_iterator it = modules.begin(); it != modules.end(); ++it )
-		{
-			if ( it->pDesc && it->pDesc->nType == nType )
-				return true;
-		}
-		return false;
-	}
-	static bool AddAlreadyLoadedModule( HMODULE hModule, const char *pszModuleName )
-	{
-		if ( hModule == 0 )
-			return false;
-
-		GETMODULEDESCRIPTOR pfnGetModuleDescriptor = reinterpret_cast<GETMODULEDESCRIPTOR>( ::GetProcAddress( hModule, "GetModuleDescriptor" ) );
-		if ( pfnGetModuleDescriptor == 0 )
-			return false;
-
-		const SModuleDescriptor *pDesc = (*pfnGetModuleDescriptor)();
-		if ( pDesc == 0 || pDesc->pFactory == 0 )
-			return false;
-		if ( HasModuleType( pDesc->nType ) )
-			return true;
-
-		modules.push_back( SDllModule() );
-		SDllModule &module = modules.back();
-		module.pDLLHandle = 0;
-		module.pDesc = pDesc;
-		NStr::DebugTrace( "Using already loaded module \"%s\" of version 0x%x from %s\n", pDesc->pszName, pDesc->nVersion, pszModuleName );
-		return true;
-	}
-	const SModuleDescriptor* STDCALL GetModuleDesc( int nType )
-	{
-		for ( CModulesList::const_iterator it = modules.begin(); it != modules.end(); ++it )
-		{
-			if ( it->pDesc->nType == nType )
-				return it->pDesc;
-		}
-		NStr::DebugTrace( "can't find module of type 0x%.8x\n", nType );
-		return 0;
-	}
-	int STDCALL LoadAllModules( const char *pszPath )
-	{
-		std::string szPath = pszPath;
-		if ( szPath.empty() )
-			szPath = ".\\";
-		else if ( szPath[szPath.size() - 1] != '\\' )
-			szPath += "\\";
-		for ( NFile::CFileIterator it( (szPath + "*.dll").c_str() ); !it.IsEnd(); ++it )
-		{
-			std::string szDLLPath = it.GetFilePath();
-			std::string szDLLName = szDLLPath;
-			const size_t nSlashPos = szDLLName.find_last_of( "\\/" );
-			if ( nSlashPos != std::string::npos )
-				szDLLName = szDLLName.substr( nSlashPos + 1 );
-			NStr::ToLower( szDLLName );
-			if ( szDLLName == "streamio.dll" && ::GetModuleHandleA( "streamio.dll" ) != 0 )
-			{
-				NStr::DebugTrace( "Skipping duplicate StreamIO module \"%s\"\n", it.GetFilePath().c_str() );
-				AddAlreadyLoadedModule( ::GetModuleHandleA( "streamio.dll" ), it.GetFilePath().c_str() );
-				continue;
-			}
-
-			CDLLHandle *pDLL = new CDLLHandle( it.GetFilePath() );
-			if ( !pDLL->IsLoaded() )
-			{
-				NStr::DebugTrace( "Failed to load module \"%s\" (error=%d)\n", it.GetFilePath().c_str(), int(::GetLastError()) );
-				delete pDLL;
-				continue;
-			}
-			GETMODULEDESCRIPTOR pfnGetModuleDescriptor = pDLL->GetProcAddress( "GetModuleDescriptor", (GETMODULEDESCRIPTOR)0 );
-			if ( pfnGetModuleDescriptor != 0 )
-			{
-				const SModuleDescriptor *pDesc = (*pfnGetModuleDescriptor)();
-				if ( pDesc && pDesc->pFactory )
-				{
-					modules.push_back( SDllModule() );
-					SDllModule &module = modules.back();
-					module.pDLLHandle = pDLL;
-					module.pDesc = pDesc;
-					NStr::DebugTrace( "New module \"%s\" of version 0x%x loaded\n", pDesc->pszName, pDesc->nVersion );
-				}
-				else
-				{
-					NStr::DebugTrace( "Module \"%s\" hasn't a module descriptor or object factory", it.GetFilePath().c_str() );
-					delete pDLL;
-				}
-			}
-			else
-			{
-				NStr::DebugTrace( "Module \"%s\" have no GetModuleDescriptor() function\n", it.GetFilePath().c_str() );
-				delete pDLL;
-			}
-		}
-		return modules.size();
-	}
-	void STDCALL UnloadAllModules()
-	{
-		// Finalize calls this explicitly and the static module loader calls it
-		// again during CRT teardown.  Once the provider DLLs are gone the global
-		// singleton pointer belongs to an unloaded StreamIO image.
-		if ( modules.empty() )
-			return;
-		if ( GetSingletonGlobal() != 0 )
-			GetSingletonGlobal()->Done();
-		modules.clear();
-	}
-	static const SModuleDescriptor* GetModuleByIndex( const int nIndex )
-	{
-		if ( nIndex >= modules.size() ) 
-			return 0;
-		CModulesList::iterator pos = modules.begin();
-		std::advance( pos, nIndex );
-		return pos->pDesc;
-	}
-
-	static int nModuleIndex = 0;
-	const SModuleDescriptor* GetFirstModuleDesc()
-	{
-		nModuleIndex = 0;
-		return GetModuleByIndex( nModuleIndex );
-	}
-	const SModuleDescriptor* GetNextModuleDesc()
-	{
-		++nModuleIndex;
-		return GetModuleByIndex( nModuleIndex );
-	}
-	const std::string GetModuleFileNameByDesc( const SModuleDescriptor *pModule )
-	{
-		for ( CModulesList::iterator it = modules.begin(); it != modules.end(); ++it )
-		{
-			if ( it->pDesc == pModule ) 
-				return it->pDLLHandle->GetModuleName();
-		}
-		return "";
-	}
-
-	bool SetGameDirectory()
-	{
-#if defined(_FINALRELEASE) || defined(_BETARELEASE)
-		std::string szModulePath;
-		std::string szGameFolder;
-		const std::string szModuleName( "game.exe" );
-
-
-		{
-			char buffer[2048];
-			memset( buffer, 0, 2048 );
-			::GetModuleFileName( 0, buffer, 2048 );
-			szModulePath = buffer;
-			szModulePath.resize( szModulePath.rfind( '\\' ) + 1 );
-			NStr::ToLower( szModulePath );
-		}
-		
-		bool bNeedWriteRegistry = false;
-		{
-			CRegistrySection registrySection( HKEY_LOCAL_MACHINE, KEY_READ, GAME_REGISTRY_FOLDER );
-			registrySection.LoadString( GAME_REGISTRY_KEY, &szGameFolder, "" );
-			NStr::ToLower( szGameFolder );
-			bNeedWriteRegistry = ( szGameFolder != ( szModulePath + szModuleName ) );
-		}
-
-		::SetCurrentDirectory( szModulePath.c_str() );
-		if ( bNeedWriteRegistry )
-		{
-			CRegistrySection registrySection( HKEY_LOCAL_MACHINE, KEY_WRITE, GAME_REGISTRY_FOLDER );
-			return registrySection.SaveString( GAME_REGISTRY_KEY, szModulePath + szModuleName );
-		}
-#endif // defined(_FINALRELEASE) || defined(_BETARELEASE)
-
-		return true;
-	}
-
-};
-class CModuleLoadAutoMagic
+static const char *ModuleSuffix()
 {
+#if defined(_WIN32) || defined(_WIN64)
+    return ".dll";
+#elif defined(__APPLE__)
+    return ".dylib";
+#else
+    return ".so";
+#endif
+}
+static std::string ModuleFilePattern( const std::string &root )
+{
+    std::string path = root;
+    if ( !path.empty() && path.back() != '/' && path.back() != '\\' ) path += '/';
+#if defined(_WIN32) || defined(_WIN64)
+    return path + "*.dll";
+#elif defined(__APPLE__)
+    return path + "lib*.dylib";
+#else
+    return path + "lib*.so";
+#endif
+}
+static std::string StreamIOPath()
+{
+    std::string path = NPlatform::Paths::ModuleRoot();
+    if ( !path.empty() && path.back() != '/' && path.back() != '\\' ) path += '/';
+#if defined(_WIN32) || defined(_WIN64)
+    return path + "StreamIO.dll";
+#elif defined(__APPLE__)
+    return path + "libStreamIO.dylib";
+#else
+    return path + "libStreamIO.so";
+#endif
+}
+
+static void EnsureGlobalHooks()
+{
+    if ( GetSLS() != 0 && GetSingletonGlobal() != 0 && g_pfnGlobalGetTempRawBuffer != 0 ) return;
+    static NPlatform::DynamicLibrary streamio;
+    if ( !streamio.IsLoaded() && !streamio.Load( StreamIOPath().c_str() ) ) {
+        NPlatform::DebugWriteFormat( "StreamIO hook load failed: %s\n", streamio.GetError() );
+        return;
+    }
+    if ( GetSLS() == 0 ) if ( GETSLS_HOOK hook = reinterpret_cast<GETSLS_HOOK>( streamio.GetFunction( "GetSLS_Hook" ) ) ) g_pGlobalSaveLoadSystem = hook();
+    if ( GetSingletonGlobal() == 0 ) if ( GETSINGLETONGLOBAL_HOOK hook = reinterpret_cast<GETSINGLETONGLOBAL_HOOK>( streamio.GetFunction( "GetSingletonGlobal_Hook" ) ) ) g_pGlobalSingleton = hook();
+    if ( g_pfnGlobalGetTempRawBuffer == 0 ) g_pfnGlobalGetTempRawBuffer = reinterpret_cast<GETTEMPRAWBUFFER_HOOK>( streamio.GetFunction( "GetTempRawBuffer_Hook" ) );
+}
+
+struct SDllModule {
+    NPlatform::DynamicLibrary *library = nullptr;
+    const SModuleDescriptor *descriptor = nullptr;
+    SDllModule() = default;
+    SDllModule( const SDllModule & ) = delete;
+    SDllModule &operator=( const SDllModule & ) = delete;
+    SDllModule( SDllModule &&other ) noexcept : library( other.library ), descriptor( other.descriptor ) { other.library = nullptr; other.descriptor = nullptr; }
+    SDllModule &operator=( SDllModule &&other ) noexcept { if ( this != &other ) { delete library; library = other.library; descriptor = other.descriptor; other.library = nullptr; other.descriptor = nullptr; } return *this; }
+    ~SDllModule() { delete library; }
+};
+static std::list<SDllModule> modules;
+static bool HasModuleType( int type ) { for ( const SDllModule &module : modules ) if ( module.descriptor && module.descriptor->nType == type ) return true; return false; }
+
+const SModuleDescriptor* STDCALL GetModuleDesc( int type )
+{
+    for ( const SDllModule &module : modules ) if ( module.descriptor && module.descriptor->nType == type ) return module.descriptor;
+    NPlatform::DebugWriteFormat( "can't find module of type 0x%.8x\n", type );
+    return nullptr;
+}
+int STDCALL LoadAllModules( const char *root )
+{
+    const std::string directory = root && *root ? root : NPlatform::Paths::ModuleRoot();
+    for ( NFile::CFileIterator iterator( ModuleFilePattern( directory ).c_str() ); !iterator.IsEnd(); ++iterator ) {
+        NPlatform::DynamicLibrary *library = new NPlatform::DynamicLibrary( iterator.GetFilePath().c_str() );
+        if ( !library->IsLoaded() ) { NPlatform::DebugWriteFormat( "Failed to load module %s: %s\n", iterator.GetFilePath().c_str(), library->GetError() ); delete library; continue; }
+        typedef const SModuleDescriptor* (STDCALL *GetDescriptor)();
+        GetDescriptor get_descriptor = reinterpret_cast<GetDescriptor>( library->GetFunction( "GetModuleDescriptor" ) );
+        const SModuleDescriptor *descriptor = get_descriptor ? get_descriptor() : nullptr;
+        if ( !descriptor || !descriptor->pFactory ) { NPlatform::DebugWriteFormat( "Module %s has no usable descriptor\n", iterator.GetFilePath().c_str() ); delete library; continue; }
+        if ( HasModuleType( descriptor->nType ) ) { NPlatform::DebugWriteFormat( "Duplicate module type rejected: %s\n", descriptor->pszName ); delete library; continue; }
+        SDllModule module; module.library = library; module.descriptor = descriptor; modules.push_back( std::move( module ) );
+        NPlatform::DebugWriteFormat( "Loaded module %s version 0x%x\n", descriptor->pszName, descriptor->nVersion );
+    }
+    return static_cast<int>( modules.size() );
+}
+void STDCALL UnloadAllModules()
+{
+    if ( modules.empty() ) return;
+    if ( GetSingletonGlobal() != 0 ) GetSingletonGlobal()->Done();
+    while ( !modules.empty() ) modules.pop_back();
+}
+static int module_index = 0;
+const SModuleDescriptor* GetFirstModuleDesc() { module_index = 0; return module_index < static_cast<int>( modules.size() ) ? modules.front().descriptor : nullptr; }
+const SModuleDescriptor* GetNextModuleDesc() { ++module_index; if ( module_index < 0 || module_index >= static_cast<int>( modules.size() ) ) return nullptr; std::list<SDllModule>::const_iterator it = modules.begin(); std::advance( it, module_index ); return it->descriptor; }
+const std::string GetModuleFileNameByDesc( const SModuleDescriptor *descriptor ) { for ( const SDllModule &module : modules ) if ( module.descriptor == descriptor && module.library ) return module.library->GetPath(); return {}; }
+bool SetGameDirectory() { return true; }
+
+class CModuleLoadAutoMagic {
 public:
-	CModuleLoadAutoMagic()
-	{
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic constructor enter\n" );
-#endif
-		auto AddPathEntry = []( const std::string &szPath )
-		{
-			DWORD nLength = ::GetEnvironmentVariableA( "PATH", 0, 0 );
-			std::vector<char> buffer( nLength + 1, 0 );
-			if ( nLength > 0 )
-				::GetEnvironmentVariableA( "PATH", &buffer[0], nLength + 1 );
-			std::string szCurrentPath = &buffer[0];
-			if ( !szCurrentPath.empty() && szCurrentPath[szCurrentPath.size() - 1] != ';' )
-				szCurrentPath += ';';
-			szCurrentPath += szPath;
-			::SetEnvironmentVariableA( "PATH", szCurrentPath.c_str() );
-		};
-
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - SetGameDirectory\n" );
-#endif
-		NMain::SetGameDirectory();
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - GetModuleDirectory\n" );
-#endif
-		const std::string szModuleDirectory = NMain::GetModuleDirectory();
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - GameDebugDirectory\n" );
-#endif
-		const std::string szGameDebugDirectory = szModuleDirectory + "..\\..\\Game\\Debug\\";
-		AddPathEntry( szModuleDirectory );
-		AddPathEntry( szGameDebugDirectory );
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - LoadAllModules(module)\n" );
-#endif
-
-		NMain::LoadAllModules( szModuleDirectory.c_str() );
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - LoadAllModules(debug)\n" );
-#endif
-		std::string szModuleDirectoryLower = szModuleDirectory;
-		NStr::ToLower( szModuleDirectoryLower );
-		if ( szModuleDirectoryLower.find( "\\game\\debug\\" ) == std::string::npos )
-			NMain::LoadAllModules( szGameDebugDirectory.c_str() );
-#ifdef BK_STARTUP_TRACE
-		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - EnsureGlobalHooks\n" );
-#endif
-		NMain::EnsureGlobalHooks();
-
-		ISaveLoadSystem *pSLS = GetSLS();
-		if ( pSLS == 0 )
-			NStr::DebugTrace( "LoadDLLs: GetSLS() is null during module auto-registration\n" );
-		for ( NMain::CModulesList::iterator it = NMain::modules.begin(); it != NMain::modules.end(); ++it )
-		{
-			if ( it->pDesc == 0 )
-				continue;
-			if ( pSLS != 0 && it->pDesc->pFactory )
-				pSLS->AddFactory( it->pDesc->pFactory );
-			if ( it->pDesc->pChecker ) 
-				it->pDesc->pChecker->SetModuleFunctionalityLimits();
-		}
-	}
-	~CModuleLoadAutoMagic()
-	{
-		NMain::UnloadAllModules();
-	}
+    CModuleLoadAutoMagic()
+    {
+        NMain::LoadAllModules( NPlatform::Paths::ModuleRoot().c_str() );
+        EnsureGlobalHooks();
+        if ( ISaveLoadSystem *save_load = GetSLS() ) for ( const SDllModule &module : modules ) if ( module.descriptor ) { if ( module.descriptor->pFactory ) save_load->AddFactory( module.descriptor->pFactory ); if ( module.descriptor->pChecker ) module.descriptor->pChecker->SetModuleFunctionalityLimits(); }
+    }
+    ~CModuleLoadAutoMagic() { NMain::UnloadAllModules(); }
 };
 static CModuleLoadAutoMagic moduleLoadAutoMagic;
+}
