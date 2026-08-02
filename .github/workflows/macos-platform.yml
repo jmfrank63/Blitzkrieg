@@ -46,13 +46,18 @@ jobs:
           zig version
 
       - name: Configure macOS SDK sysroot
-        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+        shell: bash
+        run: |
+          echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+          clang_path="$(realpath "$(xcrun --find clang++)")"
+          clang_dir="$(dirname "$clang_path")"
+          echo "MACOS_CXX_INCLUDE=${clang_dir}/../include/c++/v1" >> "$GITHUB_ENV"
 
       - name: Compile StreamIO filesystem tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-platform-files -Dtarget=aarch64-macos -Dtest-mode=compile
 
       - name: Run runtime module contract tests
-        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run -Dmacos-cxx-include="$MACOS_CXX_INCLUDE"
 
       - name: Upload generated outputs
         if: always()

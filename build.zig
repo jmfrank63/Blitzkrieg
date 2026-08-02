@@ -668,6 +668,7 @@ pub fn build(b: *std.Build) void {
     };
     const test_mode = build_support.parseTestMode(test_mode_text) catch @panic("invalid -Dtest-mode; expected compile or run");
     build_support.validateTestMode(test_mode, native_target) catch @panic("-Dtest-mode=run requires a matching native target; use -Dtest-mode=compile for cross targets");
+    const macos_cxx_include = b.option([]const u8, "macos-cxx-include", "Xcode libc++ include directory for macOS C++ targets");
     const platform_policy = build_support.policy(platform, native_target);
     const build_support_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/build_support.zig"),
@@ -927,7 +928,7 @@ pub fn build(b: *std.Build) void {
     platform_foundation.dependOn(test_platform_foundation);
     if (platform != .windows_x64) {
         addPortableStreamioFilesTest(b, target, optimize, test_mode);
-        addPortableModuleTest(b, target, test_mode);
+        addPortableModuleTest(b, target, test_mode, macos_cxx_include);
         b.default_step = platform_foundation;
         return;
     }
@@ -2695,6 +2696,7 @@ fn addPortableModuleTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
+    macos_cxx_include: ?[]const u8,
 ) void {
     const module = b.createModule(.{
         .target = target,
@@ -2705,6 +2707,7 @@ fn addPortableModuleTest(
         .file = b.path("tools/zig/platform_module_test.cpp"),
         .flags = &.{"-std=c++17"},
     });
+    if (macos_cxx_include) |include| module.addSystemIncludePath(.{ .cwd_relative = include });
     const test_exe = b.addExecutable(.{ .name = "platform-module-test", .root_module = module });
     const test_run = b.addRunArtifact(test_exe);
     test_run.setCwd(b.path("."));
