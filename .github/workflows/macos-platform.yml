@@ -1,0 +1,61 @@
+name: macOS platform validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-platform:
+    # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
+    # native module tests cannot silently run on an Intel host.
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify Apple Silicon host
+        run: |
+          test "$(uname -m)" = "arm64"
+          sw_vers
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_host_arch="$(uname -m)"
+          case "$zig_host_arch" in
+            arm64) zig_host_arch="aarch64" ;;
+            x86_64) zig_host_arch="x86_64" ;;
+            *) echo "Unsupported macOS host architecture: $zig_host_arch" >&2; exit 1 ;;
+          esac
+          zig_archive="zig-${zig_host_arch}-macos-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/zig-${zig_host_arch}-macos-0.16.0" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Compile StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=aarch64-macos -Dtest-mode=compile
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Compile StreamIO runtime
+        run: zig build streamio -Dtarget=aarch64-macos -Doptimize=Debug -Dtest-mode=compile
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
