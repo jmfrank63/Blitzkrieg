@@ -1,16 +1,17 @@
 #ifndef __BASICSHARE_H__
 #define __BASICSHARE_H__
 #pragma ONCE
+#include "../Platform/Clock.h"
 // [share-trace] temporary load-speed diagnostics (2026-07-27): one line per
 // share deserialize in load_trace.log (game CWD) — map-read vs resource-load
 // split. Strip when the load-time work is done.
-inline void BkShareSerializeTrace( int nShareID, int nEntries, unsigned long dwMapMs, unsigned long dwLoadMs, int nLoads, int nSwaps )
+inline void BkShareSerializeTrace( int nShareID, int nEntries, std::uint32_t dwMapMs, std::uint32_t dwLoadMs, int nLoads, int nSwaps )
 {
 	FILE *pFile = fopen( "load_trace.log", "ab" );
 	if ( pFile )
 	{
-		fprintf( pFile, "%lu [share] id=%d entries=%d mapread_ms=%lu load_ms=%lu loads=%d swaps=%d\n",
-		         GetTickCount(), nShareID, nEntries, dwMapMs, dwLoadMs, nLoads, nSwaps );
+		fprintf( pFile, "%u [share] id=%d entries=%d mapread_ms=%u load_ms=%u loads=%d swaps=%d\n",
+		         NPlatform::MonotonicMilliseconds(), nShareID, nEntries, dwMapMs, dwLoadMs, nLoads, nSwaps );
 		fclose( pFile );
 	}
 }
@@ -101,11 +102,11 @@ public:
 		CSaverAccessor saver = pSS;
 		if ( saver.IsReading() )
 		{
-			const unsigned long dwReadStart = GetTickCount();
+			const std::uint32_t dwReadStart = NPlatform::MonotonicMilliseconds();
 			if ( eSerialMode == SDSM_REPLACE )
 			{
 				saver.Add( GetID(), &data );
-				const unsigned long dwMapDone = GetTickCount();
+				const std::uint32_t dwMapDone = NPlatform::MonotonicMilliseconds();
 				int nLoads = 0;
 				for ( typename CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 				{
@@ -115,13 +116,13 @@ public:
 					i->second->Load( true );
 					++nLoads;
 				}
-				BkShareSerializeTrace( nID, data.size(), dwMapDone - dwReadStart, GetTickCount() - dwMapDone, nLoads, 0 );
+				BkShareSerializeTrace( nID, data.size(), NPlatform::MillisecondsElapsed( dwReadStart, dwMapDone ), NPlatform::MillisecondsElapsed( dwMapDone, NPlatform::MonotonicMilliseconds() ), nLoads, 0 );
 			}
 			else if ( eSerialMode == SDSM_MERGE )
 			{
 				CDataHash holder = data;
 				saver.Add( GetID(), &data );
-				const unsigned long dwMapDone = GetTickCount();
+				const std::uint32_t dwMapDone = NPlatform::MonotonicMilliseconds();
 				int nLoads = 0, nSwaps = 0;
 				for ( typename CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 				{
@@ -141,7 +142,7 @@ public:
 						++nSwaps;
 					}
 				}
-				BkShareSerializeTrace( nID, data.size(), dwMapDone - dwReadStart, GetTickCount() - dwMapDone, nLoads, nSwaps );
+				BkShareSerializeTrace( nID, data.size(), NPlatform::MillisecondsElapsed( dwReadStart, dwMapDone ), NPlatform::MillisecondsElapsed( dwMapDone, NPlatform::MonotonicMilliseconds() ), nLoads, nSwaps );
 			}
 			else if ( eSerialMode == SDSM_ADD )
 			{

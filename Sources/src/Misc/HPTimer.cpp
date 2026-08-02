@@ -1,29 +1,21 @@
-#include "StdAfx.h"
+#include <cstdint>
+
+using int64 = std::int64_t;
+
 #include "HPTimer.h"
-#if defined(_MSC_VER)
-#include <intrin.h>
-#endif
-using namespace NHPTimer;
-static double fProcFreq1 = 1;
+#include "../Platform/Clock.h"
+
 double NHPTimer::GetSeconds( const NHPTimer::STime &a )
 {
-	return (static_cast<double>(a)) * fProcFreq1;
-}
-static inline void GetCounter( int64 *pTime )
-{
-	#if defined(_MSC_VER)
-	*pTime = static_cast<int64>( __rdtsc() );
-	#else
-	*pTime = static_cast<int64>( __builtin_readcyclecounter() );
-	#endif
+	return NPlatform::NanosecondsToSeconds( static_cast<std::uint64_t>( a ) );
 }
 double NHPTimer::GetClockRate()
 {
-	return 1 / fProcFreq1;
+	return 1000000000.0;
 }
 void NHPTimer::GetTime( STime *pTime )
 {
-	GetCounter( pTime );
+	*pTime = static_cast<STime>( NPlatform::MonotonicNanoseconds() );
 }
 double NHPTimer::GetTimePassed( STime *pTime )
 {
@@ -31,34 +23,3 @@ double NHPTimer::GetTimePassed( STime *pTime )
 	GetTime( pTime );
 	return GetSeconds( *pTime - old );
 }
-static void InitHPTimer()
-{
-	int64 freq, start, fin;
-	QueryPerformanceFrequency( (_LARGE_INTEGER*) &freq );
-	double fTStart, fTFinish, fPassed;
-	STime t;
-	for(;;)
-	{
-		DWORD dwStart = GetTickCount();
-		GetTime( &t );
-		QueryPerformanceCounter( (_LARGE_INTEGER*) &start );
-		Sleep( 100 );
-		fPassed = GetTimePassed( &t );
-		QueryPerformanceCounter( (_LARGE_INTEGER*) &fin );
-		DWORD dwFinish = GetTickCount();
-
-		fTStart = double( start );
-		fTFinish = double( fin );
-		float fTickTime = ( dwFinish - dwStart ) / 1024.0f;
-		float fPCTime = (float)( ( fTFinish - fTStart ) / static_cast<double>( freq ) );
-		if ( fabs( fTickTime - fPCTime ) < 0.05f )
-			break;
-	}
-	double fProcFreq = (fPassed) * (static_cast<double>( freq )) / (fTFinish-fTStart);
-	fProcFreq1 = 1 / fProcFreq;
-}
-struct SHPTimerInit
-{
-	SHPTimerInit() { InitHPTimer(); }
-};
-static SHPTimerInit hptInit;

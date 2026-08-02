@@ -1,7 +1,5 @@
 #include "StdAfx.h"
 
-#include <mmsystem.h>
-
 #include "iMain.h"
 #include "GameTimerInternal.h"
 int CTimeSlider::operator&( IStructureSaver &ss )

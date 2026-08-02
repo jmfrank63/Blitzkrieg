@@ -257,6 +257,7 @@ const libpng_sources = &.{
 };
 
 const misc_sources = &.{
+	"Sources/src/Platform/Clock.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
     "Sources/src/Misc/GRect.cpp",
@@ -697,6 +698,30 @@ pub fn build(b: *std.Build) void {
         const platform_headers_run = b.addRunArtifact(platform_headers_test);
         platform_headers_step.dependOn(&platform_headers_run.step);
     }
+
+    const platform_clock_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    addProjectIncludePaths(b, platform_clock_module);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_clock_module, toolchain);
+        addMsvcLibraryPaths(b, platform_clock_module, toolchain);
+        linkMsvcRuntime(platform_clock_module, .Debug);
+    }
+    platform_clock_module.addIncludePath(b.path("Sources/src/Misc"));
+    platform_clock_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/platform_clock_test.cpp",
+            "Sources/src/Platform/Clock.cpp",
+            "Sources/src/Misc/HPTimer.cpp",
+        },
+        .flags = &.{},
+    });
+    const platform_clock_test = b.addExecutable(.{ .name = "platform-clock-test", .root_module = platform_clock_module });
+    platform_clock_test.subsystem = .console;
+    if (platform == .windows_x64) platform_clock_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const platform_clock_run = b.addRunArtifact(platform_clock_test);
+    const platform_clock_step = b.step("test-platform-clock", "Run monotonic clock and high-resolution timer tests");
+    platform_clock_step.dependOn(&platform_clock_test.step);
+    if (test_mode == .run) platform_clock_step.dependOn(&platform_clock_run.step);
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
