@@ -260,6 +260,7 @@ const misc_sources = &.{
 	"Sources/src/Platform/Clock.cpp",
 	"Sources/src/Platform/Debug.cpp",
 	"Sources/src/Platform/DynamicLibrary.cpp",
+	"Sources/src/Platform/LegacyVariant.cpp",
 	"Sources/src/Platform/Sync.cpp",
 	"Sources/src/Platform/System.cpp",
     "Sources/src/Misc/FileUtils.cpp",
@@ -841,6 +842,30 @@ pub fn build(b: *std.Build) void {
     const platform_system_step = b.step("test-platform-system", "Run portable system facade tests");
     platform_system_step.dependOn(&platform_system_test.step);
     if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
+
+    const legacy_variant_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    legacy_variant_module.link_libc = platform != .windows_x64;
+    legacy_variant_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, legacy_variant_module, toolchain);
+        addMsvcLibraryPaths(b, legacy_variant_module, toolchain);
+        linkMsvcRuntime(legacy_variant_module, .Debug);
+        linkComSupport(legacy_variant_module, .Debug);
+    }
+    legacy_variant_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/legacy_variant_test.cpp",
+            "Sources/src/Platform/LegacyVariant.cpp",
+        },
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{},
+    });
+    const legacy_variant_test = b.addExecutable(.{ .name = "legacy-variant-test", .root_module = legacy_variant_module });
+    legacy_variant_test.subsystem = .console;
+    if (platform == .windows_x64) legacy_variant_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const legacy_variant_run = b.addRunArtifact(legacy_variant_test);
+    const legacy_variant_step = b.step("test-legacy-variant", "Run portable legacy variant ownership and conversion tests");
+    legacy_variant_step.dependOn(&legacy_variant_test.step);
+    if (test_mode == .run) legacy_variant_step.dependOn(&legacy_variant_run.step);
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,

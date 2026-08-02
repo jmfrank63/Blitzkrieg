@@ -1,6 +1,7 @@
 #ifndef __VARSYSTEMINTERNAL_H__
 #define __VARSYSTEMINTERNAL_H__
 #pragma ONCE
+#include "../Platform/LegacyVariant.h"
 struct SSerialVariantT : public variant_t
 {
 	SSerialVariantT() {  }
