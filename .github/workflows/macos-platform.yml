@@ -11,6 +11,83 @@ permissions:
   contents: read
 
 jobs:
+  linux-platform:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Run StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: linux-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  windows-platform:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install Zig 0.16.0
+        shell: pwsh
+        run: |
+          $zigVersion = "0.16.0"
+          $zigArchive = "zig-x86_64-windows-$zigVersion.zip"
+          $zigArchivePath = Join-Path $env:RUNNER_TEMP $zigArchive
+          Invoke-WebRequest -Uri "https://ziglang.org/download/$zigVersion/$zigArchive" -OutFile $zigArchivePath
+          Expand-Archive -LiteralPath $zigArchivePath -DestinationPath $env:RUNNER_TEMP -Force
+          $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
+          Add-Content -Path $env:GITHUB_PATH -Value $zigHome
+          & (Join-Path $zigHome "zig.exe") version
+
+      - name: Run StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+
+      - name: Compile complete Windows runtime
+        run: zig build game-all -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-mode=compile
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
   macos-platform:
     # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
     # native module tests cannot silently run on an Intel host.
