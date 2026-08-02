@@ -686,20 +686,25 @@ pub fn build(b: *std.Build) void {
     const sdl3_step = b.step("sdl3", "Build and verify the zig-sdl3 dependency");
     sdl3_step.dependOn(&sdl3_verify_run.step);
 
-    const shadercross_build = b.addSystemCommand(&.{
-        "pwsh",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "tools/shadercross/build_shadercross.ps1",
-        "-Mode",
-        "Build",
-        "-OutputRoot",
-        "zig-out/tools/shadercross",
-    });
+    const sdl3_build = b.lazyImport(@This(), "sdl3") orelse return;
+    const shadercross_cli = sdl3_build.shadercross.cli(b, null, true, false) orelse return;
+    var dxc_runtime_path: ?[]const u8 = null;
+    if (b.graph.host.result.os.tag == .windows) {
+        const dxc_binary = b.lazyDependency("dxc_binary", .{}) orelse return;
+        const dxc_arch = switch (b.graph.host.result.cpu.arch) {
+            .x86 => "x86",
+            .x86_64 => "x64",
+            .aarch64 => "arm64",
+            else => @panic("unsupported Windows shadercross host architecture"),
+        };
+        shadercross_cli.root_module.addCMacro("SDL_SHADERCROSS_DXC", "1");
+        shadercross_cli.root_module.addIncludePath(dxc_binary.path("inc"));
+        shadercross_cli.root_module.addObjectFile(dxc_binary.path(b.fmt("lib/{s}/dxcompiler.lib", .{dxc_arch})));
+        shadercross_cli.root_module.addObjectFile(dxc_binary.path(b.fmt("lib/{s}/dxil.lib", .{dxc_arch})));
+        dxc_runtime_path = dxc_binary.path(b.fmt("bin/{s}", .{dxc_arch})).getPath(b);
+    }
     const shadercross_build_step = b.step("shadercross-build", "Build the pinned host SDL_shadercross tool");
-    shadercross_build_step.dependOn(&shadercross_build.step);
+    shadercross_build_step.dependOn(&shadercross_cli.step);
 
     const shadercross_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_shadercross.zig"),
@@ -711,7 +716,9 @@ pub fn build(b: *std.Build) void {
         .root_module = shadercross_verify_module,
     });
     const shadercross_verify_run = b.addRunArtifact(shadercross_verify);
-    shadercross_verify_run.step.dependOn(&shadercross_build.step);
+    shadercross_verify_run.addArtifactArg(shadercross_cli);
+    if (dxc_runtime_path) |path| shadercross_verify_run.addPathDir(path);
+    shadercross_verify_run.step.dependOn(shadercross_build_step);
     const shadercross_verify_step = b.step("verify-shadercross", "Verify shadercross CLI options and host installation");
     shadercross_verify_step.dependOn(&shadercross_verify_run.step);
 
@@ -725,12 +732,11 @@ pub fn build(b: *std.Build) void {
         .root_module = shader_driver_module,
     });
     const shader_driver_run = b.addRunArtifact(shader_driver);
-    shader_driver_run.step.dependOn(&shadercross_build.step);
-    shader_driver_run.addArgs(&.{
-        "Sources/src/GFXGPU/shaders/manifest.json",
-        "zig-out/tools/shadercross/install/bin/shadercross.exe",
-        "zig-out/shaders",
-    });
+    shader_driver_run.step.dependOn(shadercross_build_step);
+    if (dxc_runtime_path) |path| shader_driver_run.addPathDir(path);
+    shader_driver_run.addArg("Sources/src/GFXGPU/shaders/manifest.json");
+    shader_driver_run.addArtifactArg(shadercross_cli);
+    shader_driver_run.addArg("zig-out/shaders");
 
     const shader_parser_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
@@ -747,30 +753,43 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_shaders_step.dependOn(&shader_parser_tests_run.step);
 
     const shader_determinism_a = b.addRunArtifact(shader_driver);
-    shader_determinism_a.step.dependOn(&shadercross_build.step);
-    shader_determinism_a.addArgs(&.{
-        "Sources/src/GFXGPU/shaders/manifest.json",
-        "zig-out/tools/shadercross/install/bin/shadercross.exe",
-        "zig-out/shaders-determinism-a",
-    });
+    shader_determinism_a.step.dependOn(shadercross_build_step);
+    if (dxc_runtime_path) |path| shader_determinism_a.addPathDir(path);
+    shader_determinism_a.addArg("Sources/src/GFXGPU/shaders/manifest.json");
+    shader_determinism_a.addArtifactArg(shadercross_cli);
+    shader_determinism_a.addArg("zig-out/shaders-determinism-a");
     const shader_determinism_b = b.addRunArtifact(shader_driver);
-    shader_determinism_b.step.dependOn(&shadercross_build.step);
-    shader_determinism_b.addArgs(&.{
-        "Sources/src/GFXGPU/shaders/manifest.json",
-        "zig-out/tools/shadercross/install/bin/shadercross.exe",
-        "zig-out/shaders-determinism-b",
+    shader_determinism_b.step.dependOn(shadercross_build_step);
+    if (dxc_runtime_path) |path| shader_determinism_b.addPathDir(path);
+    shader_determinism_b.addArg("Sources/src/GFXGPU/shaders/manifest.json");
+    shader_determinism_b.addArtifactArg(shadercross_cli);
+    shader_determinism_b.addArg("zig-out/shaders-determinism-b");
+
+    const shader_compare_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compare_trees.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
     });
-    const shader_compare = b.addSystemCommand(&.{
-        "pwsh",
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        "$a=Get-ChildItem 'zig-out/shaders-determinism-a' -File | Sort-Object Name; $b=Get-ChildItem 'zig-out/shaders-determinism-b' -File | Sort-Object Name; if($a.Count -ne $b.Count){throw 'shader output file count differs'}; for($i=0;$i -lt $a.Count;$i++){if($a[$i].Name -ne $b[$i].Name){throw 'shader output names differ'}; $ha=(Get-FileHash $a[$i].FullName -Algorithm SHA256).Hash; $hb=(Get-FileHash $b[$i].FullName -Algorithm SHA256).Hash; if($ha -ne $hb){throw ('shader output hash differs: ' + $a[$i].Name)}}; Write-Output 'shader outputs are deterministic'",
+    const shader_compare = b.addExecutable(.{
+        .name = "compare-shader-trees",
+        .root_module = shader_compare_module,
     });
-    shader_compare.step.dependOn(&shader_determinism_a.step);
-    shader_compare.step.dependOn(&shader_determinism_b.step);
+    const shader_compare_run = b.addRunArtifact(shader_compare);
+    shader_compare_run.step.dependOn(&shader_determinism_a.step);
+    shader_compare_run.step.dependOn(&shader_determinism_b.step);
+    shader_compare_run.addArgs(&.{ "zig-out/shaders-determinism-a", "zig-out/shaders-determinism-b" });
     const shader_determinism_step = b.step("test-gfxgpu-shader-determinism", "Compare two clean shader compiler output directories");
-    shader_determinism_step.dependOn(&shader_compare.step);
+    shader_determinism_step.dependOn(&shader_compare_run.step);
+
+    const hermeticity_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/build_hermeticity_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const hermeticity_test = b.addTest(.{ .root_module = hermeticity_module });
+    const hermeticity_run = b.addRunArtifact(hermeticity_test);
+    const hermeticity_step = b.step("audit-build-hermeticity", "Reject shell-dependent shader/build-tool steps");
+    hermeticity_step.dependOn(&hermeticity_run.step);
 
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
