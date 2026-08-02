@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "StrProc.h"
+#include "../Platform/Debug.h"
 
 #include <unordered_map>
 #include <stack>
@@ -250,12 +251,10 @@ const char* __cdecl NStr::Format( const char *pszFormat, ... )
 }
 void __cdecl NStr::DebugTrace( const char *pszFormat, ... )
 {
-  static char buff[2048];
   va_list va;
   va_start( va, pszFormat );
-  vsprintf( buff, pszFormat, va );
+  NPlatform::DebugWriteFormatV( pszFormat, va );
   va_end( va );
-	OutputDebugString( buff );
 }
 __forceinline char HalfByteToHexSymbol( const unsigned char chr )
 {

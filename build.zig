@@ -258,6 +258,7 @@ const libpng_sources = &.{
 
 const misc_sources = &.{
 	"Sources/src/Platform/Clock.cpp",
+	"Sources/src/Platform/Debug.cpp",
 	"Sources/src/Platform/Sync.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
@@ -748,6 +749,28 @@ pub fn build(b: *std.Build) void {
     const platform_sync_step = b.step("test-platform-sync", "Run synchronization and worker thread stress tests");
     platform_sync_step.dependOn(&platform_sync_test.step);
     if (test_mode == .run) platform_sync_step.dependOn(&platform_sync_run.step);
+
+    const platform_debug_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    addProjectIncludePaths(b, platform_debug_module);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_debug_module, toolchain);
+        addMsvcLibraryPaths(b, platform_debug_module, toolchain);
+        linkMsvcRuntime(platform_debug_module, .Debug);
+    }
+    platform_debug_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/platform_debug_test.cpp",
+            "Sources/src/Platform/Debug.cpp",
+        },
+        .flags = cppflags_debug,
+    });
+    const platform_debug_test = b.addExecutable(.{ .name = "platform-debug-test", .root_module = platform_debug_module });
+    platform_debug_test.subsystem = .console;
+    if (platform == .windows_x64) platform_debug_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const platform_debug_run = b.addRunArtifact(platform_debug_test);
+    const platform_debug_step = b.step("test-platform-debug", "Run portable diagnostic and debugger facade tests");
+    platform_debug_step.dependOn(&platform_debug_test.step);
+    if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,

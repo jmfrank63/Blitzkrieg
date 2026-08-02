@@ -4,16 +4,7 @@
 
 #include <cassert>
 #include <cstdlib>
-
-#if defined(_MSC_VER)
-  #define DEBUG_BREAK __debugbreak()
-#else
-  #define DEBUG_BREAK { __asm { int 3 } }
-#endif
-
-// Declared here to avoid forcing <windows.h> on every includer.
-extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
-extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char*);
+#include "../Platform/Debug.h"
 
 #define NI_ASSERT_STRINGIZE2(x) #x
 #define NI_ASSERT_STRINGIZE(x)  NI_ASSERT_STRINGIZE2(x)
@@ -24,10 +15,10 @@ extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char*);
 // assert (dialog/abort) otherwise.
 #define NI_ASSERT_FAIL(expr_text)                                             \
     {                                                                         \
-      if (IsDebuggerPresent()) {                                              \
-        OutputDebugStringA("NI_ASSERT failed: " expr_text " at "              \
-                           __FILE__ "(" NI_ASSERT_STRINGIZE(__LINE__) ")\n"); \
-        DEBUG_BREAK;                                                          \
+      NPlatform::DebugWriteFormat("NI_ASSERT failed: %s at %s(%d)\n",          \
+                                  expr_text, __FILE__, __LINE__);               \
+      if (NPlatform::IsDebuggerAttached()) {                                   \
+        NPlatform::BreakIntoDebugger();                                        \
       }                                                                       \
       else { assert(false && expr_text); }                                    \
     }
