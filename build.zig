@@ -697,9 +697,59 @@ pub fn build(b: *std.Build) void {
         const platform_headers_run = b.addRunArtifact(platform_headers_test);
         platform_headers_step.dependOn(&platform_headers_run.step);
     }
+    const foundation_matrix_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const foundation_matrix_tests = b.addTest(.{ .root_module = foundation_matrix_module });
+    const foundation_matrix_run = b.addRunArtifact(foundation_matrix_tests);
+
+    const stage_tests_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/stage_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const stage_tests = b.addTest(.{ .root_module = stage_tests_module });
+    const stage_tests_run = b.addRunArtifact(stage_tests);
+    const stage_test_step = b.step("test-stage", "Run shell-free runtime staging tests");
+    stage_test_step.dependOn(&stage_tests.step);
+    if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
+
+    const shader_parser_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shader_parser_tests = b.addTest(.{ .root_module = shader_parser_module });
+    const shader_parser_tests_run = b.addRunArtifact(shader_parser_tests);
+    const shader_tests_step = b.step("test-gfxgpu-shaders", "Run shader manifest parser tests");
+    shader_tests_step.dependOn(&shader_parser_tests.step);
+    if (test_mode == .run) shader_tests_step.dependOn(&shader_parser_tests_run.step);
+
+    const hermeticity_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/build_hermeticity_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const hermeticity_test = b.addTest(.{ .root_module = hermeticity_module });
+    const hermeticity_run = b.addRunArtifact(hermeticity_test);
+    const hermeticity_step = b.step("audit-build-hermeticity", "Reject shell-dependent shader/build-tool steps");
+    hermeticity_step.dependOn(&hermeticity_test.step);
+    if (test_mode == .run) hermeticity_step.dependOn(&hermeticity_run.step);
+
+    const test_platform_foundation = b.step("test-platform-foundation", "Run the portable foundation test matrix");
+    test_platform_foundation.dependOn(build_support_step);
+    test_platform_foundation.dependOn(platform_headers_step);
+    test_platform_foundation.dependOn(stage_test_step);
+    test_platform_foundation.dependOn(shader_tests_step);
+    test_platform_foundation.dependOn(hermeticity_step);
+    test_platform_foundation.dependOn(&foundation_matrix_tests.step);
+    if (test_mode == .run) test_platform_foundation.dependOn(&foundation_matrix_run.step);
+    const platform_foundation = b.step("platform-foundation", "Build the supported portable foundation matrix");
+    platform_foundation.dependOn(test_platform_foundation);
     if (platform != .windows_x64) {
-        build_support_step.dependOn(platform_headers_step);
-        b.default_step = build_support_step;
+        b.default_step = platform_foundation;
         return;
     }
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
@@ -788,16 +838,6 @@ pub fn build(b: *std.Build) void {
     shader_driver_run.addArtifactArg(shadercross_cli);
     shader_driver_run.addArg("zig-out/shaders");
 
-    const shader_parser_module = b.createModule(.{
-        .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
-        .target = b.graph.host,
-        .optimize = .Debug,
-    });
-    const shader_parser_tests = b.addTest(.{ .root_module = shader_parser_module });
-    const shader_parser_tests_run = b.addRunArtifact(shader_parser_tests);
-    const shader_tests_step = b.step("test-gfxgpu-shaders", "Run shader manifest parser tests");
-    shader_tests_step.dependOn(&shader_parser_tests_run.step);
-
     const gfx_gpu_shaders_step = b.step("gfxgpu-shaders", "Compile deterministic GfxGpu shader blobs and manifest");
     gfx_gpu_shaders_step.dependOn(&shader_driver_run.step);
     gfx_gpu_shaders_step.dependOn(&shader_parser_tests_run.step);
@@ -830,16 +870,6 @@ pub fn build(b: *std.Build) void {
     shader_compare_run.addArgs(&.{ "zig-out/shaders-determinism-a", "zig-out/shaders-determinism-b" });
     const shader_determinism_step = b.step("test-gfxgpu-shader-determinism", "Compare two clean shader compiler output directories");
     shader_determinism_step.dependOn(&shader_compare_run.step);
-
-    const hermeticity_module = b.createModule(.{
-        .root_source_file = b.path("tools/zig/build_hermeticity_test.zig"),
-        .target = b.graph.host,
-        .optimize = .Debug,
-    });
-    const hermeticity_test = b.addTest(.{ .root_module = hermeticity_module });
-    const hermeticity_run = b.addRunArtifact(hermeticity_test);
-    const hermeticity_step = b.step("audit-build-hermeticity", "Reject shell-dependent shader/build-tool steps");
-    hermeticity_step.dependOn(&hermeticity_run.step);
 
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
@@ -964,16 +994,6 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .ReleaseFast,
     });
-    const stage_test_module = b.createModule(.{
-        .root_source_file = b.path("tools/zig/stage_test.zig"),
-        .target = b.graph.host,
-        .optimize = .Debug,
-    });
-    const stage_tests = b.addTest(.{ .root_module = stage_test_module });
-    const stage_tests_run = b.addRunArtifact(stage_tests);
-    const stage_test_step = b.step("test-stage", "Run shell-free runtime staging tests");
-    stage_test_step.dependOn(&stage_tests_run.step);
-
     b.installArtifact(zlib);
     b.installArtifact(libpng);
     b.installArtifact(misc);
