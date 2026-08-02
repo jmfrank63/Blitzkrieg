@@ -1,12 +1,13 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 #pragma ONCE
-#include "..\Misc\Win32Helper.h"
+#include "Win32Helper.h"
+#include <thread>
 class CThread
 {
-	HANDLE hThread;
-	HANDLE hFinishReport;
-	HANDLE hStopCommand;
+	std::thread hThread;
+	NWin32Helper::CEvent hFinishReport;
+	NWin32Helper::CEvent hStopCommand;
 
 	NWin32Helper::CCriticalSection criticalSection;
 
@@ -23,7 +24,7 @@ public:
 	void RunThread();
 	void StopThread();
 
-	static DWORD WINAPI TheThreadProc( LPVOID lpParameter );
+	static void TheThreadProc( CThread *pThread );
 
 	void StartThread();
 	bool CanWork();

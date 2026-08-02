@@ -1,83 +1,52 @@
-#include "stdafx.h"
-
 #include "Thread.h"
+#include "../Platform/Clock.h"
+
 using namespace NWin32Helper;
-DWORD WINAPI CThread::TheThreadProc( LPVOID lpParameter )
+
+void CThread::TheThreadProc( CThread *pThread )
 {
-	CThread *pThread = reinterpret_cast<CThread*>(lpParameter);
 	pThread->StartThread();
-	
 	const int nDelay = pThread->GetDelay();
-	while ( pThread->CanWork()  )
+	while ( pThread->CanWork() )
 	{
-		Sleep( nDelay );
+		NPlatform::SleepMilliseconds( static_cast<std::uint32_t>( nDelay > 0 ? nDelay : 0 ) );
 		pThread->Step();
 	}
-
 	pThread->FinishThread();
+}
 
-	return 0;
-}
-void CThread::StartThread()
-{
-	ResetEvent( hFinishReport );
-}
-bool CThread::CanWork()
-{
-	return WaitForSingleObject( hStopCommand, 0 ) != WAIT_OBJECT_0;
-}
-void CThread::FinishThread()
-{
-	SetEvent( hFinishReport );
-}
+void CThread::StartThread() { hFinishReport.Reset(); }
+bool CThread::CanWork() { return !hStopCommand.IsSet(); }
+void CThread::FinishThread() { hFinishReport.Set(); }
+
 CThread::CThread( const int _nDelay )
-: nDelay( _nDelay ), bRun( false )
+	: nDelay( _nDelay ), bRun( false )
 {
-	hThread = 0;
-	hFinishReport = CreateEvent( 0, true, false, 0 );
-	hStopCommand = CreateEvent( 0, true, false, 0 );
 }
+
 void CThread::StopThread()
 {
-	CCriticalSectionLock criticalSectionLock( criticalSection );
-
-	if ( bRun )
+	std::thread threadToJoin;
 	{
-		if ( hThread )
-		{
-			if ( WaitForSingleObject( hFinishReport,0 ) != WAIT_OBJECT_0 )
-			{
-				SetEvent( hStopCommand );
-				criticalSectionLock.Leave();
-				WaitForSingleObject( hFinishReport, INFINITE );
-				criticalSectionLock.Enter();
-			}
-
-			CloseHandle( hThread );
-			hThread = 0;
-		}
-
-		ResetEvent( hStopCommand );
-		CloseHandle( hStopCommand );
-		ResetEvent( hFinishReport );
-		CloseHandle( hFinishReport );
-
+		CCriticalSectionLock criticalSectionLock( criticalSection );
+		if ( !bRun ) return;
+		hStopCommand.Set();
+		threadToJoin = std::move( hThread );
 		bRun = false;
 	}
+	if ( threadToJoin.joinable() ) threadToJoin.join();
+	hStopCommand.Reset();
+	hFinishReport.Reset();
 }
-CThread::~CThread()
-{
-	CCriticalSectionLock criticalSectionLock( criticalSection );
-	StopThread();
-}
+
+CThread::~CThread() { StopThread(); }
+
 void CThread::RunThread()
 {
-	if ( !bRun )
-	{
-		DWORD dwThreadId;
-		ResetEvent( hStopCommand );
-		ResetEvent( hFinishReport );
-		bRun = true;
-		hThread = CreateThread( 0, 1024*1024, TheThreadProc, reinterpret_cast<LPVOID>(this), 0, &dwThreadId );
-	}
+	CCriticalSectionLock criticalSectionLock( criticalSection );
+	if ( bRun ) return;
+	hStopCommand.Reset();
+	hFinishReport.Reset();
+	bRun = true;
+	hThread = std::thread( &CThread::TheThreadProc, this );
 }

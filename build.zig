@@ -258,6 +258,7 @@ const libpng_sources = &.{
 
 const misc_sources = &.{
 	"Sources/src/Platform/Clock.cpp",
+	"Sources/src/Platform/Sync.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
     "Sources/src/Misc/GRect.cpp",
@@ -722,6 +723,31 @@ pub fn build(b: *std.Build) void {
     const platform_clock_step = b.step("test-platform-clock", "Run monotonic clock and high-resolution timer tests");
     platform_clock_step.dependOn(&platform_clock_test.step);
     if (test_mode == .run) platform_clock_step.dependOn(&platform_clock_run.step);
+
+    const platform_sync_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    addProjectIncludePaths(b, platform_sync_module);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_sync_module, toolchain);
+        addMsvcLibraryPaths(b, platform_sync_module, toolchain);
+        linkMsvcRuntime(platform_sync_module, .Debug);
+    }
+    platform_sync_module.addIncludePath(b.path("Sources/src/Misc"));
+    platform_sync_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/platform_sync_test.cpp",
+            "Sources/src/Platform/Sync.cpp",
+            "Sources/src/Platform/Clock.cpp",
+            "Sources/src/Misc/Thread.cpp",
+        },
+        .flags = &(cppflags_debug.* ++ .{"-DBLITZKRIEG_PLATFORM_SYNC_ONLY"}),
+    });
+    const platform_sync_test = b.addExecutable(.{ .name = "platform-sync-test", .root_module = platform_sync_module });
+    platform_sync_test.subsystem = .console;
+    if (platform == .windows_x64) platform_sync_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const platform_sync_run = b.addRunArtifact(platform_sync_test);
+    const platform_sync_step = b.step("test-platform-sync", "Run synchronization and worker thread stress tests");
+    platform_sync_step.dependOn(&platform_sync_test.step);
+    if (test_mode == .run) platform_sync_step.dependOn(&platform_sync_run.step);
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,

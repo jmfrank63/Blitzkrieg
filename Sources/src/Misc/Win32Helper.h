@@ -1,5 +1,6 @@
 #ifndef __WIN32HELPER_H__
 #define __WIN32HELPER_H__
+#include "../Platform/Sync.h"
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
@@ -7,28 +8,27 @@ namespace NWin32Helper
 {
 class CEvent
 {
-	HANDLE h;
-	CEvent( const CEvent& ) {}
-	CEvent& operator=( const CEvent& ) {}
+	NPlatform::Event event;
+	CEvent( const CEvent& ) = delete;
+	CEvent& operator=( const CEvent& ) = delete;
 public:
-	CEvent( bool bInitState = false, bool bManualReset = true ) { h = CreateEvent(0, bManualReset, bInitState, 0 ); }
-	~CEvent() { CloseHandle(h); }
-	bool Set() { return SetEvent(h) != 0; }
-	bool Pulse() { return SetEvent(h) != 0; }
-	bool Reset() { return ResetEvent(h) != 0; }
-	void Wait() { WaitForSingleObject(h, INFINITE ); }
-	bool IsSet() { return WaitForSingleObject( h, 0 ) == WAIT_OBJECT_0; }
+	CEvent( bool bInitState = false, bool bManualReset = true ) : event( bInitState, bManualReset ) {}
+	bool Set() { return event.Set(); }
+	bool Pulse() { return event.Pulse(); }
+	bool Reset() { return event.Reset(); }
+	void Wait() { event.Wait(); }
+	bool IsSet() { return event.IsSet(); }
 };
 class CCriticalSection
 {
-	CRITICAL_SECTION sect;
-	CCriticalSection( const CCriticalSection & ) {}
-	CCriticalSection& operator=( const CCriticalSection &) {}
-	void Enter() { EnterCriticalSection( &sect ); }
-	void Leave() { LeaveCriticalSection( &sect ); }
+	NPlatform::Mutex sect;
+	CCriticalSection( const CCriticalSection & ) = delete;
+	CCriticalSection& operator=( const CCriticalSection &) = delete;
+	void Enter() { sect.Lock(); }
+	void Leave() { sect.Unlock(); }
 public:
-	CCriticalSection() { InitializeCriticalSection( &sect ); }
-	~CCriticalSection() { DeleteCriticalSection( &sect ); }
+	CCriticalSection() = default;
+	~CCriticalSection() = default;
 	friend class CCriticalSectionLock;
 };
 class CCriticalSectionLock
@@ -59,6 +59,7 @@ public:
 	void Create( T *_pData ) { Free(); pData = _pData; }
 	T** GetAddr() { Free(); pData = 0; return &pData; }
 };
+#if !defined(BLITZKRIEG_PLATFORM_SYNC_ONLY)
 class CDLLHandle
 {
 	HMODULE handle;												// DLL handle
@@ -86,6 +87,7 @@ public:
 	operator HMODULE() const { return handle; }
 	operator const char*() const { return szName.c_str(); }
 };
+#endif
 }
 #endif
 
