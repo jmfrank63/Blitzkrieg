@@ -1112,7 +1112,31 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| gfx_reference_compare_run.addArgs(args);
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
-    const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
+    const options_bridge = addOptionsBridge(b, target, optimize, toolchain, sdl_c);
+    const options_bridge_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    options_bridge_test_module.addCSourceFile(.{
+        .file = b.path("tools/zig/options_bridge_test.cpp"),
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, options_bridge_test_module);
+    addMsvcIncludePaths(b, options_bridge_test_module, toolchain);
+    addMsvcLibraryPaths(b, options_bridge_test_module, toolchain);
+    linkMsvcRuntime(options_bridge_test_module, optimize);
+    if (target.result.os.tag == .windows) {
+        options_bridge_test_module.linkSystemLibrary("oleaut32", .{});
+        options_bridge_test_module.linkSystemLibrary("comsuppw", .{});
+    }
+    const options_bridge_test = b.addExecutable(.{
+        .name = "options-bridge-test",
+        .root_module = options_bridge_test_module,
+    });
+    options_bridge_test.subsystem = .console;
+    options_bridge_test.entry = .{ .symbol_name = "main" };
+    const options_bridge_test_step = b.step("options-bridge-test", "Build portable options bridge contract tests");
+    options_bridge_test_step.dependOn(&b.addInstallArtifact(options_bridge_test, .{}).step);
     // Save-load spends its time in the zig structure reader; at Debug (-O0 +
     // safety) that alone made big-mission loads take ~1 min. The zig half of
     // StreamIO is unit-tested and ABI-thin, so it defaults to ReleaseFast even
@@ -1602,17 +1626,21 @@ fn addOptionsBridge(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    sdl_c: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
-    module.addCSourceFile(.{ .file = b.path("Sources/src/StreamIOZig/options_bridge.cpp"), .flags = flags.items });
+    module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/StreamIOZig/options_bridge.cpp", "Sources/src/Platform/DynamicLibrary.cpp" },
+        .flags = flags.items,
+    });
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
-    module.linkSystemLibrary("oleaut32", .{});
-    module.linkSystemLibrary("user32", .{});
+    module.linkLibrary(sdl_c);
+    if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
 }
 
@@ -1644,15 +1672,18 @@ fn addStreamIOZig(
         // level does not affect that ABI.
         flags.appendSlice(b.allocator, &.{ "-O2", "-fno-sanitize=undefined" }) catch @panic("OOM");
     }
-    streamio_module.addCSourceFile(.{
-        .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
+    streamio_module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/StreamIOZig/legacy_bridge.cpp",
+            "Sources/src/Platform/Clock.cpp",
+            "Sources/src/Platform/Debug.cpp",
+        },
         .flags = flags.items,
     });
     addMsvcIncludePaths(b, streamio_module, toolchain);
     addMsvcLibraryPaths(b, streamio_module, toolchain);
     streamio_module.linkLibrary(options_bridge);
     linkMsvcRuntime(streamio_module, optimize);
-    streamio_module.linkSystemLibrary("oleaut32", .{});
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
     const def_path = if (target.result.cpu.arch == .x86)

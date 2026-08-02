@@ -1,10 +1,13 @@
 // Deliberately self-contained legacy ABI shim.  These declarations mirror the
 // vtable order used by the old headers without importing their MSXML/MFC stack.
+#include "../Platform/Clock.h"
+#include "../Platform/Debug.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <string>
+#include <thread>
 #include <typeinfo>
 #include <unordered_map>
 #include <utility>
@@ -58,8 +61,21 @@ extern "C" int bk_global_key_at(int index, char *buffer, int capacity);
 extern "C" void bk_global_clear();
 extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
-extern "C" __declspec(dllimport) unsigned long __stdcall GetTickCount(void);
-extern "C" __declspec(dllimport) unsigned long __stdcall GetCurrentThreadId(void);
+static char FoldAscii(char value) { return value >= 'A' && value <= 'Z' ? static_cast<char>(value + ('a' - 'A')) : value; }
+static bool EqualAsciiIgnoreCase(const char *left, const char *right) {
+    if (!left || !right) return left == right;
+    while (*left && *right && FoldAscii(*left) == FoldAscii(*right)) { ++left; ++right; }
+    return *left == *right;
+}
+static bool StartsAsciiIgnoreCase(const char *value, const char *prefix, std::size_t length) {
+    if (!value || !prefix) return false;
+    for (std::size_t i = 0; i < length; ++i) if (!value[i] || FoldAscii(value[i]) != FoldAscii(prefix[i])) return false;
+    return true;
+}
+static unsigned long LegacyTickCount() { return NPlatform::MonotonicMilliseconds(); }
+static unsigned long LegacyThreadId() {
+    return static_cast<unsigned long>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+}
 extern "C" unsigned long long bk_structure_scan_iters();
 extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
 extern "C" double bk_table_get_double(void *stream, const char *row, const char *entry, double fallback);
@@ -745,7 +761,7 @@ class ZigStructureSaver final : public IStructureSaver {
         if (!progress_) return;
         FILE *f = fopen("load_trace.log", "ab");
         if (f) {
-            fprintf(f, "%lu [reader] %s count=%d iters=%llu\n", GetTickCount(), phase, count, bk_structure_scan_iters());
+            fprintf(f, "%lu [reader] %s count=%d iters=%llu\n", LegacyTickCount(), phase, count, bk_structure_scan_iters());
             fclose(f);
         }
     }
@@ -806,7 +822,7 @@ public:
             FILE *f = fopen("load_trace.log", "ab");
             if (f) {
                 fprintf(f, "%lu [reader] scan_iters=%llu stream_bytes=%d\n",
-                        GetTickCount(), bk_structure_scan_iters(), source_ ? bk_stream_size(source_->Native()) : -1);
+                        LegacyTickCount(), bk_structure_scan_iters(), source_ ? bk_stream_size(source_->Native()) : -1);
                 fclose(f);
             }
         }
@@ -902,7 +918,7 @@ void ZigStructureSaver::PumpCombinedProgress() {
     // Serialize milestones cover the remainder.
     int pos = 1 + (int)(bk_structure_progress(saver_) * 90.0f);
     if (g_pProgressReader == this) {
-        const int creep = CreepPos(GetTickCount());
+        const int creep = CreepPos(LegacyTickCount());
         if (creep > pos) pos = creep;
     }
     if (pos > lastProgressPos_) {
@@ -913,8 +929,8 @@ void ZigStructureSaver::PumpCombinedProgress() {
 
 static void RegisterProgressReader(ZigStructureSaver *reader) {
     g_pProgressReader = reader;
-    g_progressThreadId = GetCurrentThreadId();
-    g_progressStartTick = GetTickCount();
+    g_progressThreadId = LegacyThreadId();
+    g_progressStartTick = LegacyTickCount();
     g_progressLastPumpTick = g_progressStartTick;
 }
 
@@ -925,8 +941,8 @@ static void UnregisterProgressReader(ZigStructureSaver *reader) {
 static void PumpLoadProgressHeartbeat() {
     ZigStructureSaver *reader = g_pProgressReader;
     if (!reader || g_bInProgressPump) return;
-    if (GetCurrentThreadId() != g_progressThreadId) return;
-    const unsigned long now = GetTickCount();
+    if (LegacyThreadId() != g_progressThreadId) return;
+    const unsigned long now = LegacyTickCount();
     if (now - g_progressLastPumpTick < 100) return;
     g_progressLastPumpTick = now;
     const int pos = CreepPos(now);
@@ -1169,7 +1185,7 @@ public:
         return bk_options_metadata(options_, index, editor, flags, order, instant, action, fill, fallback, type);
     }
     int FindIndex(const std::string &name) const {
-        for (int index = 0; index < Count(); ++index) { const char *candidate = NameAt(index); if (candidate && _stricmp(candidate, name.c_str()) == 0) return index; }
+        for (int index = 0; index < Count(); ++index) { const char *candidate = NameAt(index); if (candidate && EqualAsciiIgnoreCase(candidate, name.c_str())) return index; }
         return -1;
     }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
@@ -1229,7 +1245,7 @@ void ZigOptionIterator::Advance() {
         if (!key || !*key) {
             char message[160] = {};
             std::snprintf(message, sizeof(message), "[StreamIOZig] skipping option index %d: missing key\\n", index_);
-            OutputDebugStringA(message);
+            NPlatform::DebugWrite(message);
             ++index_;
             continue;
         }
@@ -1238,7 +1254,7 @@ void ZigOptionIterator::Advance() {
         if (!owner_->Metadata(index_, 0, &flags, 0, 0, 0, 0, 0, 0)) {
             char message[224] = {};
             std::snprintf(message, sizeof(message), "[StreamIOZig] skipping option index %d (%s): metadata unavailable\\n", index_, key);
-            OutputDebugStringA(message);
+            NPlatform::DebugWrite(message);
             ++index_;
             continue;
         }
@@ -1472,7 +1488,7 @@ public:
         }
         for (size_t i = 0; i < doomed.size(); ++i) bk_global_remove(doomed[i].c_str());
         for (int i = 0; i < MAX_WVARS; ++i) {
-            if (wvalues_[i].used && _strnicmp(wvalues_[i].key, match, std::strlen(match)) == 0) {
+            if (wvalues_[i].used && StartsAsciiIgnoreCase(wvalues_[i].key, match, std::strlen(match))) {
                 wvalues_[i].used = false;
                 wvalues_[i].key[0] = 0;
                 wvalues_[i].value[0] = 0;
