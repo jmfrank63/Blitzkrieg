@@ -40,7 +40,9 @@ jobs:
             "https://ziglang.org/download/0.16.0/${zig_archive}" \
             --output "${RUNNER_TEMP}/${zig_archive}"
           tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
-          echo "${RUNNER_TEMP}/zig-${zig_host_arch}-macos-0.16.0" >> "$GITHUB_PATH"
+          zig_home="${RUNNER_TEMP}/zig-${zig_host_arch}-macos-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
       - name: Compile StreamIO filesystem tests
