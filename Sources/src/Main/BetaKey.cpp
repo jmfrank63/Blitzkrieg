@@ -4,6 +4,7 @@
 
 #include "..\Misc\FileUtils.h"
 #include "..\zlib\zlib.h"
+#include "..\Platform\Paths.h"
 namespace NMain
 {
 static const int s_nKey2Length = 20;
@@ -24,12 +25,7 @@ bool CheckBetaKey()
 	char buffer[1024];
 	std::vector<std::string> szStrings;
 	{
-		GetCurrentDirectory( 1024, buffer );
-		std::string szFileName = buffer;
-		if ( !szFileName.empty() && (szFileName[szFileName.size() - 1] != '\\') ) 
-			szFileName += "\\beta.key";
-		else
-			szFileName += "beta.key";
+		std::string szFileName = NPlatform::Paths::UserRoot() + "beta.key";
 
 		NFile::CFile file;
 		file.Open( szFileName.c_str(), NFile::CFile::modeRead );

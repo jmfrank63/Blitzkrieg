@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "..\Platform\Paths.h"
 
 #include "iMain.h"
 
@@ -240,21 +241,5 @@ bool STDCALL NMain::Finalize()
 }
 bool STDCALL NMain::CanLaunch()
 {
-#if defined(_DO_ASSERT) || defined(_DO_ASSERT_SLOW)
-	char buffer[2048];
-	GetModuleFileName( 0, buffer, 2048 );
-	std::string szModuleDir = buffer;
-	szModuleDir.erase( szModuleDir.find( '\\' ) );
-	if ( szModuleDir.empty() )
-		return true;
-	if ( szModuleDir[szModuleDir.size() - 1] != '\\' )
-		szModuleDir += '\\';
-	if ( GetDriveType( szModuleDir.c_str() ) == DRIVE_REMOTE )
-	{
-		MessageBox( 0, "Program can't be run from the remote drive!", "ERROR", MB_OK | MB_ICONEXCLAMATION );
-		return false;
-	}
-
-#endif // defined(_DO_ASSERT) || defined(_DO_ASSERT_SLOW)
-	return true;
+	return NPlatform::Paths::Initialize();
 }

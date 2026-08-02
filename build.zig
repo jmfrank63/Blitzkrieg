@@ -261,6 +261,7 @@ const misc_sources = &.{
 	"Sources/src/Platform/Debug.cpp",
 	"Sources/src/Platform/DynamicLibrary.cpp",
 	"Sources/src/Platform/LegacyVariant.cpp",
+	"Sources/src/Platform/Paths.cpp",
 	"Sources/src/Platform/Sync.cpp",
 	"Sources/src/Platform/System.cpp",
     "Sources/src/Misc/FileUtils.cpp",
@@ -1485,6 +1486,25 @@ pub fn build(b: *std.Build) void {
     const file_utils_step = b.step("test-file-utils", "Run portable legacy file utility tests");
     file_utils_step.dependOn(&file_utils_test.step);
     if (test_mode == .run) file_utils_step.dependOn(&file_utils_run.step);
+
+    const paths_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    paths_module.addIncludePath(b.path("Sources/src"));
+    paths_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/platform_paths_test.cpp", "Sources/src/Platform/Paths.cpp" },
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17", "-DBLITZKRIEG_PATHS_TEST"}) else &.{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" },
+    });
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, paths_module, toolchain);
+        addMsvcLibraryPaths(b, paths_module, toolchain);
+        linkMsvcRuntime(paths_module, .Debug);
+    } else paths_module.link_libc = true;
+    const paths_test = b.addExecutable(.{ .name = "platform-paths-test", .root_module = paths_module });
+    paths_test.subsystem = .console;
+    if (platform == .windows_x64) paths_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const paths_run = b.addRunArtifact(paths_test);
+    const paths_step = b.step("test-platform-paths", "Run portable data and writable root tests");
+    paths_step.dependOn(&paths_test.step);
+    if (test_mode == .run) paths_step.dependOn(&paths_run.step);
     const gfx_gpu_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
         .target = target,
@@ -1930,9 +1950,12 @@ fn addMisc(
     addMsvcIncludePaths(b, misc_module, toolchain);
     misc_module.addIncludePath(b.path("Sources/src/Misc"));
     misc_module.addIncludePath(b.path("Sources/src/zlib"));
+    var misc_flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    misc_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+    misc_flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
     misc_module.addCSourceFiles(.{
         .files = misc_sources,
-        .flags = cppflagsForOptimize(optimize),
+        .flags = misc_flags.items,
     });
     misc_module.linkLibrary(sdl_c);
 

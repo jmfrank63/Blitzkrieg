@@ -30,6 +30,7 @@
 
 #include "..\GameTT\CutScenesHelper.h"
 #include "..\Misc\TimeMeter.h"
+#include "..\Platform\Paths.h"
 #ifdef BK_STARTUP_TRACE
 #define BK_STARTUP_MARKER(name) ::OutputDebugStringA("BK_STARTUP: " name "\n")
 #else
@@ -87,18 +88,8 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	SetErrorMode( SEM_FAILCRITICALERRORS );
 	if ( !NMain::CanLaunch() )
 		return 0xDEAD;
-	{
-		char buffer[2048] = { 0 };
-		if ( ::GetModuleFileName( 0, buffer, sizeof(buffer) ) != 0 )
-		{
-			char *pFileName = strrchr( buffer, '\\' );
-			if ( pFileName != 0 )
-			{
-				*pFileName = 0;
-				::SetCurrentDirectory( buffer );
-			}
-		}
-	}
+	if ( !NPlatform::Paths::Initialize() )
+		return 0xDEAD;
 	NWinFrame::ShowSplashScreen( hInstance, true );
 	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
 	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
@@ -136,21 +127,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 #if defined( _DO_SEH ) && !defined( _DEBUG )
 	SetCrashHandlerFilter( CrashHandlerFilter );
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
-	std::string szLogFileName, szErrorFileName;
-	{
-		char buffer[1024];
-		GetCurrentDirectory( 1024, buffer );
-		szLaunchDirectory = buffer;
-		if ( !szLaunchDirectory.empty() ) 
-		{
-			if ( szLaunchDirectory[szLaunchDirectory.size() - 1] != '\\' ) 
-				szLaunchDirectory += '\\';
-		}
-		szLogFileName = std::string(buffer) + "\\log.txt";
-		szErrorFileName = std::string(buffer) + "\\error.txt";
-		DeleteFile( szErrorFileName.c_str() );
-		DeleteFile( szLogFileName.c_str() );
-	}
+	const std::string szLogFileName = NPlatform::Paths::LogPath();
+	const std::string szErrorFileName = NPlatform::Paths::ErrorLogPath();
+	szLaunchDirectory = NPlatform::Paths::UserRoot();
+	NFile::CFile::Remove( szErrorFileName.c_str() );
+	NFile::CFile::Remove( szLogFileName.c_str() );
 	if ( IConsoleBuffer *pConsole = GetSingleton<IConsoleBuffer>() )
 	{
 		pConsole->Configure( NStr::Format("logfile;%s", szLogFileName.c_str()) );
@@ -190,7 +171,7 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 				pStorage = OpenStorage( (szDataDir + "\\data\\*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 		}
 		else
-			pStorage = OpenStorage( ".\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
+			pStorage = OpenStorage( NPlatform::Paths::DataArchivePattern().c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 		RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 	}
 	BK_STARTUP_MARKER("after OpenStorage");

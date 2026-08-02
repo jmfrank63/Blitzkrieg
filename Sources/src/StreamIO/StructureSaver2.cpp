@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "StructureSaver2.h"
+#include "..\Platform\Paths.h"
 #include "ProgressHook.h"
 
 #ifndef _FINALRELEASE
@@ -458,16 +459,7 @@ void CStructureSaver2::Start( IStructureSaver::EAccessMode eAccessMode, IProgres
 				}
 			}
 			std::sort( objinfos.begin(), objinfos.end() );
-			std::string szModuleName = "c:\\a7\\savedump.txt";
-			/*
-			{
-				char buffer[2048];
-				GetModuleFileName( 0, buffer, 2048 );
-				szModuleName = buffer;
-				szModuleName.resize( szModuleName.rfind('\\') );
-				szModuleName += "savedump.txt";
-			}
-			*/
+			std::string szModuleName = NPlatform::Paths::LogPath();
 			if ( FILE *file = fopen(szModuleName.c_str(), "wt") ) 
 			{
 				for ( std::vector<SObjectInfo>::iterator it = objinfos.begin(); it != objinfos.end(); ++it )
