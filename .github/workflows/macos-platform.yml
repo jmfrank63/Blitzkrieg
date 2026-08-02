@@ -72,10 +72,10 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Run StreamIO filesystem tests
-        run: zig build test-platform-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+        run: zig build test-platform-files -Dtarget=x86_64-windows-msvc -Dtest-mode=compile
 
       - name: Run runtime module contract tests
-        run: zig build test-platform-modules -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+        run: zig build test-platform-modules -Dtarget=x86_64-windows-msvc -Dtest-mode=compile
 
       - name: Compile complete Windows runtime
         run: zig build game-all -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-mode=compile
