@@ -45,14 +45,17 @@ jobs:
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
+      - name: Configure macOS SDK sysroot
+        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
       - name: Compile StreamIO filesystem tests
-        run: zig build test-platform-files -Dtarget=aarch64-macos -Dtest-mode=compile
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-files -Dtarget=aarch64-macos -Dtest-mode=compile
 
       - name: Run runtime module contract tests
-        run: zig build test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Compile StreamIO runtime
-        run: zig build streamio -Dtarget=aarch64-macos -Doptimize=Debug -Dtest-mode=compile
+        run: zig build --sysroot "$MACOS_SYSROOT" streamio -Dtarget=aarch64-macos -Doptimize=Debug -Dtest-mode=compile
 
       - name: Upload generated outputs
         if: always()
