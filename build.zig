@@ -2703,11 +2703,15 @@ fn addPortableModuleTest(
         .optimize = .Debug,
         .link_libc = true,
     });
+    var cxx_flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    cxx_flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
+    if (macos_cxx_include) |include| {
+        cxx_flags.appendSlice(b.allocator, &.{ "-isystem", include }) catch @panic("OOM");
+    }
     module.addCSourceFile(.{
         .file = b.path("tools/zig/platform_module_test.cpp"),
-        .flags = &.{"-std=c++17"},
+        .flags = cxx_flags.items,
     });
-    if (macos_cxx_include) |include| module.addSystemIncludePath(.{ .cwd_relative = include });
     const test_exe = b.addExecutable(.{ .name = "platform-module-test", .root_module = module });
     const test_run = b.addRunArtifact(test_exe);
     test_run.setCwd(b.path("."));
