@@ -1465,6 +1465,26 @@ pub fn build(b: *std.Build) void {
     const streamio_platform_step = b.step("test-platform-files", "Run portable StreamIO host filesystem tests");
     streamio_platform_step.dependOn(&streamio_platform_tests.step);
     if (test_mode == .run) streamio_platform_step.dependOn(&run_streamio_platform_tests.step);
+
+    const file_utils_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    file_utils_module.addIncludePath(b.path("Sources/src"));
+    file_utils_module.addIncludePath(b.path("Sources/src/Misc"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, file_utils_module, toolchain);
+        addMsvcLibraryPaths(b, file_utils_module, toolchain);
+        linkMsvcRuntime(file_utils_module, .Debug);
+    } else file_utils_module.link_libc = true;
+    file_utils_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/platform_file_utils_test.cpp", "Sources/src/Misc/FileUtils.cpp" },
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" },
+    });
+    const file_utils_test = b.addExecutable(.{ .name = "platform-file-utils-test", .root_module = file_utils_module });
+    file_utils_test.subsystem = .console;
+    if (platform == .windows_x64) file_utils_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const file_utils_run = b.addRunArtifact(file_utils_test);
+    const file_utils_step = b.step("test-file-utils", "Run portable legacy file utility tests");
+    file_utils_step.dependOn(&file_utils_test.step);
+    if (test_mode == .run) file_utils_step.dependOn(&file_utils_run.step);
     const gfx_gpu_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
         .target = target,

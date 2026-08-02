@@ -1,375 +1,166 @@
 #include "StdAfx.h"
-
 #include "FileUtils.h"
 
-#include <stdlib.h>
-#include <direct.h>
-namespace NFile
-{
-bool CFile::Open( const char *pszFileName, DWORD dwOpenFlags )
-{
-	DWORD dwAccess = 0;
-	switch ( dwOpenFlags & 3 )
-	{
-		case modeRead:
-			dwAccess = GENERIC_READ;
-			break;
-		case modeWrite:
-			dwAccess = GENERIC_WRITE;
-			break;
-		case modeReadWrite:
-			dwAccess = GENERIC_READ | GENERIC_WRITE;
-			break;
-		default:
-			return false;
-	}
-	DWORD dwShareMode = 0;
-	switch ( dwOpenFlags & 0x70 )
-	{
-		case shareCompat:										// map compatibility mode to exclusive
-		case shareExclusive:
-			dwShareMode = 0;
-			break;
-		case shareDenyWrite:
-			dwShareMode = FILE_SHARE_READ;
-			break;
-		case shareDenyRead:
-			dwShareMode = FILE_SHARE_WRITE;
-			break;
-		case shareDenyNone:
-			dwShareMode = FILE_SHARE_WRITE | FILE_SHARE_READ;
-			break;
-		default:
-			return false;
-	}
-	DWORD dwCreateFlag = 0;
-	if ( dwOpenFlags & modeCreate )
-	{
-		if ( dwOpenFlags & modeNoTruncate )
-			dwCreateFlag = OPEN_ALWAYS;
-		else
-			dwCreateFlag = CREATE_ALWAYS;
-	}
-	else
-		dwCreateFlag = OPEN_EXISTING;
-	SECURITY_ATTRIBUTES sa;
-	sa.nLength = sizeof( sa );
-	sa.lpSecurityDescriptor = 0;
-	sa.bInheritHandle = ( dwOpenFlags & modeNoInherit ) == 0;
-	const std::string szFullFilePath = GetFullName( pszFileName );
-	hFile = ::CreateFile( szFullFilePath.c_str(), dwAccess, dwShareMode, &sa, dwCreateFlag, FILE_ATTRIBUTE_NORMAL, 0 );
-	if (hFile == INVALID_HANDLE_VALUE)
-		return false;
-	szFilePath = szFullFilePath;
-	return true;
-}
-CFile* CFile::Duplicate() const
-{
-	if ( !IsOpen() ) 
-		return 0;
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <system_error>
+#include <cerrno>
+#include <cstring>
+#include <cctype>
+#include <cstdint>
+#include <limits>
+#if !defined(_WIN32) && !defined(_WIN64)
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
 
-	HANDLE hNewFile;
-	if ( !::DuplicateHandle( ::GetCurrentProcess(), hFile, ::GetCurrentProcess(), 
-		                       &hNewFile, 0, FALSE, DUPLICATE_SAME_ACCESS) )
-	{
-		return 0;
-	}
-	CFile* pFile = new CFile();
-	pFile->hFile = hNewFile;
-	pFile->szFilePath = szFilePath;
-	return pFile;
-}
-void CFile::Close()
-{
-	if ( IsOpen() ) 
-		::CloseHandle( hFile );
-	hFile = INVALID_HANDLE_VALUE;
-}
-bool CFile::Flush()
-{
-	return IsOpen() ? ::FlushFileBuffers( hFile ) != 0 : false;
-}
-int CFile::Read( void *pBuf, int nCount)
-{
-	if ( !IsOpen() || (nCount <= 0) ) 
-		return 0;
-	DWORD dwRead = 0;
-	if ( !::ReadFile(hFile, pBuf, nCount, &dwRead, NULL) )
-		return 0;
-	return int( dwRead );
-}
-int CFile::Write( const void *pBuf, int nCount )
-{
-	if ( !IsOpen() || (nCount <= 0) ) 
-		return 0;
-	DWORD dwWritten = 0;
-	if ( !::WriteFile(hFile, pBuf, nCount, &dwWritten, NULL) )
-		return 0;
-	return int( dwWritten );
-}
-int CFile::Seek( int nOffset, ESeekPosition eFrom )
-{
-	return IsOpen() ? ::SetFilePointer( hFile, nOffset, 0, (DWORD)eFrom ) : -1;
-}
-int CFile::GetPosition() const
-{
-	return IsOpen() ? ::SetFilePointer( hFile, 0, 0, FILE_CURRENT ) : -1;
-}
-int CFile::SetLength( int nLength )
-{
-	if ( IsOpen() ) 
-		return -1;
-	if ( Seek(nLength, begin) != -1 ) 
-	{
-		if ( ::SetEndOfFile(hFile) )
-			return nLength;
-	}
-	return -1;
-}
-int CFile::GetLength() const
-{
-	SStatus status;
-	if ( GetStatus(&status) )
-		return status.nSize;
-	else
-		return -1;
-}
-bool CFile::GetStatus( SStatus *pStatus ) const 
-{
-	if ( !IsOpen() || szFilePath.size() > _MAX_PATH ) 
-		return false;
-	BY_HANDLE_FILE_INFORMATION info;
-	if ( !::GetFileInformationByHandle(hFile, &info) )
-		return false;
-	pStatus->ctime = info.ftCreationTime;
-	pStatus->mtime = info.ftLastWriteTime;
-	pStatus->atime = info.ftLastAccessTime;
-	pStatus->nSize = info.nFileSizeLow;
-	pStatus->szPathName = szFilePath;
-	pStatus->dwAttributes = info.dwFileAttributes;
-	return true;
-}
-DWORD CFile::GetAttributes( const char *pszFileName )
-{
-	return ::GetFileAttributes( pszFileName );
-}
-bool CFile::SetAttributes( const char *pszFileName, DWORD dwAttributes )
-{
-	return ::SetFileAttributes( pszFileName, dwAttributes ) != 0;
-}
-bool CFile::Rename( const char *pszOldName, const char *pszNewName )
-{
-	return ::MoveFile( pszOldName, pszNewName ) != 0;
-}
-bool CFile::Remove( const char *pszFileName )
-{
-	return ::DeleteFile( pszFileName ) != 0;
-}
-const std::string& CFile::GetFilePath() const { return szFilePath; }
-const std::string CFile::GetFileName() const
-{
-	return szFilePath.substr( szFilePath.rfind('\\') + 1 );
-}
-const std::string CFile::GetFileTitle() const
-{
-	const int nNamePos = szFilePath.rfind( '\\' );
-	const int nExtPos = szFilePath.rfind( '.' );
-	if ( (nNamePos != std::string::npos) && (nExtPos != std::string::npos) && (nExtPos > nNamePos) ) 
-		return szFilePath.substr( nNamePos + 1, nExtPos - nNamePos );
-	return "";
-}
-const std::string CFile::GetFileExt() const
-{
-	const int nPos = szFilePath.rfind( '.' );
-	return nPos != std::string::npos ? szFilePath.substr( nPos + 1 ) : "";
-}
-bool CFile::SetFileTime( const FILETIME *pCreationTime, 
-												 const FILETIME *pLastAccessTime, 
-												 const FILETIME *pLastWriteTime )
-{
-	return ::SetFileTime( hFile, pCreationTime, pLastAccessTime, pLastWriteTime ) != 0;
-}
-bool CFile::SetFileTime( const char *pszFileName, 
-												 const FILETIME *pCreationTime, 
-												 const FILETIME *pLastAccessTime, 
-												 const FILETIME *pLastWriteTime )
-{
-	NFile::CFile file( pszFileName, NFile::CFile::modeWrite );
-	if ( !file.IsOpen() ) 
-		return false;
-	return file.SetFileTime( pCreationTime, pLastAccessTime, pLastWriteTime );
-}
-const CFileIterator& CFileIterator::FindFirstFile( const char *pszMask )
-{
-	szPath = pszMask;
-	int pos = szPath.rfind( '\\' );
-	if ( pos == std::string::npos )
-	{
-		szMask = pszMask;
-		szPath.clear();
-	}
-	else
-	{
-		szMask = szPath.substr( pos + 1 );
-		szPath = szPath.substr( 0, pos );
-	}
-	if ( szPath[szPath.size() - 1] != '\\' ) 
-		szPath += "\\";
-	szPath = GetFullName( szPath );
-	if ( szPath[szPath.size() - 1] != '\\' ) 
-		szPath += "\\";
-	hFind = ::FindFirstFileA( pszMask, &findinfo );
-	return *this;
-}
-const CFileIterator& CFileIterator::Next()
-{
-	if ( !IsValid() )
-		return *this;
-	if ( ::FindNextFileA(hFind, &findinfo) == 0 )
-		Close();
-	return *this;
-}
-bool CFileIterator::Close() 
-{ 
-	if ( IsValid() ) 
-	{
-		const bool bRet = ::FindClose( hFind ) != 0; 
-		hFind = INVALID_HANDLE_VALUE;
-		return bRet;
-	}
-	return true; 
-}
-const std::string CFileIterator::GetFileTitle() const
-{
-	std::string szTitle = findinfo.cFileName;
-	return szTitle.substr( 0, szTitle.rfind( '.' ) );
-}
-const std::string CFileIterator::GetFileExt() const
-{
-	std::string szExt = findinfo.cFileName;
-	int pos = szExt.rfind( '.' );
-	if ( pos == std::string::npos )
-		return "";
-	return szExt.substr( pos + 1 );
-}
-class CDeleteFiles
-{
-	bool bDeleteRO;
-	bool bDeleteDir;
-public:
-	CDeleteFiles( bool _bDeleteRO, bool _bDeleteDir ) : bDeleteRO( _bDeleteRO ), bDeleteDir( _bDeleteDir ) {  }
-	void operator()( const CFileIterator &it )
-	{
-		if ( !it.IsDirectory() )
-		{
-			if ( bDeleteRO && it.IsReadOnly() )
-				SetFileAttributes( it.GetFilePath().c_str(), it.GetAttribs() & ~NFile::CFile::readOnly );
-			DeleteFile( it.GetFilePath().c_str() );
-		}
-		else if ( bDeleteDir )
-		{
-			if ( bDeleteRO && it.IsReadOnly() )
-				SetFileAttributes( it.GetFilePath().c_str(), it.GetAttribs() & ~NFile::CFile::readOnly );
-			RemoveDirectory( it.GetFilePath().c_str() );
-		}
-	}
-};
-void DeleteFiles( const char *pszStartDir, const char *pszMask, bool bRecursive )
-{
-	EnumerateFiles( pszStartDir, pszMask, CDeleteFiles(true, false), bRecursive );
-}
-void DeleteDirectory( const char *pszDir )
-{
-	EnumerateFiles( pszDir, "*.*", CDeleteFiles(true, true), true );
-	RemoveDirectory( pszDir );
-}
-class CDirFileEnum
-{
-	std::list<std::string> *pNames;				// store names here
-	bool bDir;														// enumerate dirs
-	bool bFile;														// enumerate files
-public:
-	CDirFileEnum( std::list<std::string> *_pNames, bool _bDir, bool _bFile ) 
-		: pNames( _pNames ), bDir( _bDir ), bFile( _bFile ) {  }
-	void operator()( const CFileIterator &it )
-	{
-		if ( it.IsDirectory() )
-		{
-			if ( bDir )
-				pNames->push_back( it.GetFilePath() );
-		}
-		else if ( bFile )
-			pNames->push_back( it.GetFilePath() );
-	}
-};
-void GetDirNames( const char *pszDirName, std::list<std::string> *pNames, bool bRecursive )
-{
-	EnumerateFiles( pszDirName, "*.*", CDirFileEnum(pNames, true, false), bRecursive );
-}
-void GetFileNames( const char *pszDirName, const char *pszMask, std::list<std::string> *pNames, bool bRecurse )
-{
-	EnumerateFiles( pszDirName, pszMask, CDirFileEnum(pNames, false, true), bRecurse );
-}
-void CreatePath( const char *pszFullPath )
-{	
-	std::vector<std::string> szNames;
-	NStr::SplitString( pszFullPath, szNames, '\\' );
-	if ( szNames.empty() )
-		return;
-	char pszBuffer[1024];
-	GetCurrentDirectory( 1024, pszBuffer );
-	/*
-	NStr::CStringIterator<> it( pszFullPath, NStr::CCharSeparator('\\') );
-	SetCurrentDirectory( ((*it) + "\\").c_str() );
-	for ( ; !it.IsEnd(); ++it )
-	{
-		CreateDirectory( it->c_str(), 0 );
-		SetCurrentDirectory( ((*it) + "\\").c_str() );
-	}
-	*/
+namespace {
+namespace fs = std::filesystem;
 
-	SetCurrentDirectory( (szNames.front() + "\\").c_str() );
-	for ( std::vector<std::string>::const_iterator it = szNames.begin() + 1; it != szNames.end(); ++it )
-	{
-		CreateDirectory( it->c_str(), 0 );
-		SetCurrentDirectory( ((*it) + "\\").c_str() );
-	}
-	SetCurrentDirectory( pszBuffer );
+std::string nativePath(std::string value) {
+    for (char &c : value) if (c == '\\') c = fs::path::preferred_separator;
+    return value;
 }
-double GetFreeDiskSpace( const char *pszDrive )
-{
-	typedef BOOL (WINAPI *GDFSE)( LPCTSTR, PULARGE_INTEGER, PULARGE_INTEGER, PULARGE_INTEGER );
+std::string legacyPath(std::string value) {
+    for (char &c : value) if (c == '/') c = '\\';
+    return value;
+}
+bool wildcard(const std::string &pattern, const std::string &name) {
+    std::size_t p = 0, n = 0, star = std::string::npos, star_n = 0;
+    while (n < name.size()) {
+        if (p < pattern.size() && pattern[p] != '*' && pattern[p] != '?' &&
+            (pattern[p] == name[n] || std::tolower(static_cast<unsigned char>(pattern[p])) == std::tolower(static_cast<unsigned char>(name[n])))) { ++p; ++n; }
+        else if (p < pattern.size() && pattern[p] == '*') { star = p++; star_n = n; }
+        else if (p < pattern.size() && pattern[p] == '?') { ++p; ++n; }
+        else if (star != std::string::npos) { p = star + 1; n = ++star_n; }
+        else return false;
+    }
+    while (p < pattern.size() && pattern[p] == '*') ++p;
+    return p == pattern.size();
+}
+FILETIME fileTime(const fs::path &path) {
+    FILETIME result{};
+    std::error_code error;
+    const auto value = fs::last_write_time(path, error);
+    if (error) return result;
+    const auto ticks = std::chrono::duration_cast<std::chrono::seconds>(value.time_since_epoch()).count();
+    const std::uint64_t raw = ticks < 0 ? 0 : static_cast<std::uint64_t>(ticks);
+    result.dwLowDateTime = static_cast<DWORD>(raw & 0xffffffffu);
+    result.dwHighDateTime = static_cast<DWORD>(raw >> 32);
+    return result;
+}
+DWORD attributes(const fs::directory_entry &entry) {
+    DWORD result = 0;
+    std::error_code error;
+    if (entry.is_directory(error)) result |= NFile::CFile::directory;
+    else result |= NFile::CFile::normal;
+    const std::string name = entry.path().filename().string();
+    if (!name.empty() && name[0] == '.') result |= NFile::CFile::hidden;
+    const auto perms = entry.status(error).permissions();
+    if ((perms & fs::perms::owner_write) == fs::perms::none) result |= NFile::CFile::readOnly;
+    return result;
+}
+std::string splitDirectory(const std::string &mask, std::string &file_mask) {
+    const std::string native = nativePath(mask);
+    const std::size_t slash = native.find_last_of("/\\");
+    if (slash == std::string::npos) { file_mask = native; return "."; }
+    file_mask = native.substr(slash + 1);
+    return native.substr(0, slash).empty() ? "." : native.substr(0, slash);
+}
+}
 
-	GDFSE pfnGetDiskFreeSpaceEx = (GDFSE)GetProcAddress( GetModuleHandle("kernel32.dll"), "GetDiskFreeSpaceExA" );
-	BOOL bRetVal = FALSE;
-	double fRetVal = 0;
-	if ( pfnGetDiskFreeSpaceEx )
-	{
-	 ULARGE_INTEGER i64FreeBytesToCaller, i64TotalBytes, i64FreeBytes;
-	 bRetVal = (*pfnGetDiskFreeSpaceEx)( pszDrive, &i64FreeBytesToCaller,
-																	     &i64TotalBytes, &i64FreeBytes );
-	 fRetVal = double( __int64(i64FreeBytesToCaller.QuadPart) );
-	} 
-	else 
-	{
-		DWORD dwSectPerClust, dwBytesPerSect, dwFreeClusters, dwTotalClusters;
-		bRetVal = GetDiskFreeSpace( pszDrive, &dwSectPerClust, &dwBytesPerSect,
-																&dwFreeClusters, &dwTotalClusters );
-		fRetVal = double( dwFreeClusters ) * double( dwSectPerClust ) * double( dwBytesPerSect );
-	}
+namespace NFile {
+bool CFile::Open(const char *name, DWORD flags) {
+    if (!name) return false;
+    const DWORD mode = flags & 3;
+    const bool create = (flags & modeCreate) != 0;
+    const bool no_truncate = (flags & modeNoTruncate) != 0;
+    const char *open_mode = mode == modeRead ? "rb" : mode == modeWrite ? (create && !no_truncate ? "wb" : "rb+") : (create && !no_truncate ? "wb+" : "rb+");
+    const std::string full = GetFullName(name);
+    hFile = std::fopen(nativePath(full).c_str(), open_mode);
+    if (!hFile && create && no_truncate) hFile = std::fopen(nativePath(full).c_str(), mode == modeRead ? "rb" : "ab+");
+    if (!hFile) return false;
+    szFilePath = full;
+    return true;
+}
+CFile *CFile::Duplicate() const {
+    if (!IsOpen()) return nullptr;
+    CFile *copy = new CFile();
+    if (!copy->Open(szFilePath.c_str(), modeReadWrite | modeNoTruncate)) { delete copy; return nullptr; }
+    copy->Seek(GetPosition(), begin);
+    return copy;
+}
+void CFile::Close() { if (hFile) std::fclose(hFile); hFile = nullptr; }
+bool CFile::Flush() { return IsOpen() && std::fflush(hFile) == 0; }
+int CFile::Read(void *buffer, int count) { return IsOpen() && buffer && count > 0 ? static_cast<int>(std::fread(buffer, 1, static_cast<std::size_t>(count), hFile)) : 0; }
+int CFile::Write(const void *buffer, int count) { return IsOpen() && buffer && count > 0 ? static_cast<int>(std::fwrite(buffer, 1, static_cast<std::size_t>(count), hFile)) : 0; }
+int CFile::Seek(int offset, ESeekPosition from) { return IsOpen() && std::fseek(hFile, offset, static_cast<int>(from)) == 0 ? GetPosition() : -1; }
+int CFile::GetPosition() const { return IsOpen() ? static_cast<int>(std::ftell(hFile)) : -1; }
+int CFile::SetLength(int length) {
+    if (!IsOpen() || length < 0) return -1;
+    if (std::fflush(hFile) != 0) return -1;
+#if defined(_WIN32) || defined(_WIN64)
+    if (_chsize_s(_fileno(hFile), length) != 0) return -1;
+#else
+    if (ftruncate(fileno(hFile), length) != 0) return -1;
+#endif
+    return length;
+}
+int CFile::GetLength() const { if (!IsOpen()) return -1; const long current = std::ftell(hFile); if (current < 0 || std::fseek(hFile, 0, SEEK_END) != 0) return -1; const long length = std::ftell(hFile); std::fseek(hFile, current, SEEK_SET); return length < 0 ? -1 : static_cast<int>(length); }
+bool CFile::GetStatus(SStatus *status) const {
+    if (!IsOpen() || !status) return false;
+    std::error_code error;
+    const fs::path path(nativePath(szFilePath));
+    const auto size = fs::file_size(path, error);
+    if (error || size > static_cast<std::uintmax_t>((std::numeric_limits<int>::max)())) return false;
+    const fs::directory_entry entry(path, error);
+    if (error) return false;
+    status->ctime = fileTime(path); status->mtime = fileTime(path); status->atime = status->mtime;
+    status->nSize = static_cast<int>(size); status->dwAttributes = attributes(entry); status->szPathName = szFilePath;
+    return true;
+}
+DWORD CFile::GetAttributes(const char *name) { std::error_code error; fs::directory_entry entry(nativePath(name ? name : ""), error); return error ? 0 : attributes(entry); }
+bool CFile::SetAttributes(const char *name, DWORD value) { std::error_code error; fs::path path(nativePath(name ? name : "")); auto perms = fs::status(path, error).permissions(); if (error) return false; if (value & readOnly) perms &= ~fs::perms::owner_write; else perms |= fs::perms::owner_write; fs::permissions(path, perms, fs::perm_options::replace, error); return !error; }
+bool CFile::Rename(const char *old_name, const char *new_name) { std::error_code error; fs::rename(nativePath(old_name), nativePath(new_name), error); return !error; }
+bool CFile::Remove(const char *name) { std::error_code error; return fs::remove(nativePath(name), error) && !error; }
+bool CFile::SetFileTime(const FILETIME *, const FILETIME *, const FILETIME *) { return false; }
+const std::string &CFile::GetFilePath() const { return szFilePath; }
+const std::string CFile::GetFileName() const { return fs::path(nativePath(szFilePath)).filename().string(); }
+const std::string CFile::GetFileTitle() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? n : n.substr(0, p); }
+const std::string CFile::GetFileExt() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? "" : n.substr(p + 1); }
+bool CFile::SetFileTime(const char *name, const FILETIME *a, const FILETIME *b, const FILETIME *c) { CFile file(name, modeWrite); return file.IsOpen() && file.SetFileTime(a, b, c); }
 
-	return ( bRetVal == 0 ? 0 : fRetVal );
+const CFileIterator &CFileIterator::FindFirstFile(const char *mask) {
+    Close(); entries.clear(); index = 0;
+    szPath = splitDirectory(mask ? mask : "", szMask);
+    std::error_code error;
+    for (fs::directory_iterator it(nativePath(szPath), error); !error && it != fs::directory_iterator(); it.increment(error)) {
+        if (wildcard(szMask, it->path().filename().string())) {
+            Entry entry{it->path().filename().string(), legacyPath(fs::absolute(it->path(), error).string()), attributes(*it), fileTime(it->path()), fileTime(it->path()), fileTime(it->path()), 0};
+            if (!entry.path.empty() && entry.path.back() != '\\') entry.path += '\\';
+            entry.path += entry.name;
+            std::error_code size_error; const auto size = it->is_regular_file(size_error) ? fs::file_size(it->path(), size_error) : 0;
+            entry.size = size_error || size > static_cast<std::uintmax_t>((std::numeric_limits<int>::max)()) ? 0 : static_cast<int>(size);
+            entries.push_back(std::move(entry));
+        }
+    }
+    std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) { return a.name < b.name; });
+    return *this;
 }
-bool IsFileExist( const char *pszFileName )
-{
-	return _access( pszFileName, 0 ) != -1;
+const CFileIterator &CFileIterator::Next() { if (!IsEnd()) ++index; return *this; }
+bool CFileIterator::Close() { entries.clear(); index = 0; return true; }
+const std::string CFileIterator::GetFileTitle() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? n : n.substr(0, p); }
+const std::string CFileIterator::GetFileExt() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? "" : n.substr(p + 1); }
+
+void DeleteFiles(const char *start, const char *mask, bool recursive) { EnumerateFiles(start, mask, [](const CFileIterator &it) { CFile::Remove(it.GetFilePath().c_str()); }, recursive); }
+void DeleteDirectory(const char *path) { std::error_code error; fs::remove_all(nativePath(path), error); }
+void CreatePath(const char *path) { std::error_code error; fs::create_directories(nativePath(path ? path : ""), error); }
+class CDirFileEnum { std::list<std::string> *names; bool dirs, files; public: CDirFileEnum(std::list<std::string> *n, bool d, bool f) : names(n), dirs(d), files(f) {} void operator()(const CFileIterator &it) { if (it.IsDirectory() ? dirs : files) names->push_back(it.GetFilePath()); } };
+void GetDirNames(const char *path, std::list<std::string> *names, bool recursive) { EnumerateFiles(path, "*", CDirFileEnum(names, true, false), recursive); }
+void GetFileNames(const char *path, const char *mask, std::list<std::string> *names, bool recursive) { EnumerateFiles(path, mask, CDirFileEnum(names, false, true), recursive); }
+bool IsFileExist(const char *name) { std::error_code error; return fs::is_regular_file(nativePath(name ? name : ""), error) && !error; }
+std::string GetFullName(const std::string &path) { std::error_code error; return legacyPath(fs::absolute(nativePath(path), error).lexically_normal().string()); }
+double GetFreeDiskSpace(const char *path) { std::error_code error; const auto info = fs::space(nativePath(path ? path : "."), error); return error ? 0.0 : static_cast<double>(info.available); }
 }
-std::string GetFullName( const std::string &szPath )
-{
-	const DWORD BUFFER_SIZE = 1024;
-	char buffer[BUFFER_SIZE];
-	char *pszBufferFileName = 0;
-	GetFullPathName( szPath.c_str(), 1024, buffer, &pszBufferFileName );
-	return buffer;
-}
-}; // namespace NFile ends

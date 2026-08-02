@@ -1,6 +1,10 @@
 #ifndef __FILEATTRIBS_H__
 #define __FILEATTRIBS_H__
 #pragma ONCE
+#if !defined(_WIN32) && !defined(_WIN64) && !defined(BLITZKRIEG_FILETIME_DEFINED)
+#define BLITZKRIEG_FILETIME_DEFINED
+struct FILETIME { DWORD dwLowDateTime; DWORD dwHighDateTime; };
+#endif
 class CFileAttribs : public CBasicAccessor<DWORD>
 {
 	enum
@@ -49,6 +53,7 @@ inline DWORD DOSToWin32DateTime( time_t time )
 
 	return bit_cast<DWORD>( filetime );
 }
+#if defined(_WIN32) || defined(_WIN64)
 inline DWORD FILETIMEToWin32DateTime( const FILETIME &filetime )
 {
 	FILETIME localfiletime;
@@ -57,6 +62,9 @@ inline DWORD FILETIMEToWin32DateTime( const FILETIME &filetime )
 	FileTimeToDosDateTime( &localfiletime, &win32time.wDate, &win32time.wTime );
 	return bit_cast<DWORD>( win32time );
 }
+#else
+inline DWORD FILETIMEToWin32DateTime( const FILETIME &filetime ) { return filetime.dwLowDateTime; }
+#endif
 inline time_t Win32ToDOSDateTime( const SWin32Time &time )
 {
 	tm tmTime;
