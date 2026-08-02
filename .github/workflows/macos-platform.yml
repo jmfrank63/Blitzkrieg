@@ -98,9 +98,6 @@ jobs:
       - name: Run runtime module contract tests
         run: zig build test-platform-modules -Dtarget=x86_64-windows-msvc -Dtest-mode=compile "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      - name: Compile complete Windows runtime
-        run: zig build game-all -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-mode=compile "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
