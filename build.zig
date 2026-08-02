@@ -1178,33 +1178,33 @@ pub fn build(b: *std.Build) void {
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
-    const misc = addMisc(b, target, optimize, toolchain, sdl_c);
-    const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
+    const misc = addMisc(b, target, optimize, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
-    const net = addNet(b, target, optimize, toolchain, misc);
-    const buildversion = addBuildVersion(b, target, optimize, toolchain, misc);
-    const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc);
-    const input = addInput(b, target, optimize, toolchain, misc);
+    const net = addNet(b, target, optimize, toolchain, misc, sdl_dynamic);
+    const buildversion = addBuildVersion(b, target, optimize, toolchain, misc, sdl_dynamic);
+    const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, sdl_dynamic);
+    const input = addInput(b, target, optimize, toolchain, misc, sdl_dynamic);
     const formats = addFormats(b, target, optimize, toolchain);
-    const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats });
-    const anim = addAnim(b, target, optimize, toolchain, misc, formats);
+    const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats }, sdl_dynamic);
+    const anim = addAnim(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
     const common = addCommon(b, target, optimize, toolchain);
-    const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
-    const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
-    const sfx = addSFX(b, target, optimize, toolchain, misc, common);
-    const gfx_legacy = addGFX(b, target, optimize, toolchain, misc, formats);
-    const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_c);
+    const ui = addUI(b, target, optimize, toolchain, misc, common, lualib, sdl_dynamic);
+    const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc, sdl_dynamic);
+    const sfx = addSFX(b, target, optimize, toolchain, misc, common, sdl_dynamic);
+    const gfx_legacy = addGFX(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
+    const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
-    const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
-    const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
+    const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, sdl_dynamic);
+    const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
     // shows the version string without relying on the Win32 version resource
     // API (which Zig's resinator does not produce correctly for runtime reads).
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = b.graph.host,
@@ -1351,6 +1351,7 @@ pub fn build(b: *std.Build) void {
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
@@ -1735,6 +1736,7 @@ fn addLegacyProjectDll(
     definition: []const u8,
     includes: []const []const u8,
     libraries: []const *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const contents = std.Io.Dir.cwd().readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     var files: std.ArrayListUnmanaged([]const u8) = .empty;
@@ -1803,6 +1805,7 @@ fn addLegacyProjectDll(
         module.linkLibrary(xiph_lib);
     }
     for (libraries) |library| module.linkLibrary(library);
+    linkSdlImport(module, target, sdl_dynamic);
     linkMsvcRuntime(module, optimize);
     module.linkSystemLibrary("version", .{});
     module.linkSystemLibrary("winmm", .{});
@@ -1862,6 +1865,7 @@ fn addGame(
     startup_trace: bool,
     renderer: []const u8,
     platform: build_support.PlatformTarget,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -1880,6 +1884,7 @@ fn addGame(
     });
     game_module.linkLibrary(main);
     game_module.linkLibrary(misc);
+    linkSdlImport(game_module, target, sdl_dynamic);
     game_module.linkLibrary(lualib);
     game_module.linkLibrary(zlib);
     game_module.linkLibrary(randommapgen);
@@ -1998,7 +2003,8 @@ fn addMisc(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
-    sdl_c: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const misc_module = b.createModule(.{
         .target = target,
@@ -2015,7 +2021,7 @@ fn addMisc(
         .files = misc_sources,
         .flags = misc_flags.items,
     });
-    misc_module.linkLibrary(sdl_c);
+    linkSdlRuntime(misc_module, target, sdl_dynamic, sdl_include);
 
     return b.addLibrary(.{
         .name = "Misc",
@@ -2032,6 +2038,7 @@ fn addImage(
     zlib: *std.Build.Step.Compile,
     libpng: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const image_module = b.createModule(.{
         .target = target,
@@ -2048,6 +2055,7 @@ fn addImage(
         .flags = cppflagsForOptimize(optimize),
     });
     image_module.linkLibrary(misc);
+    linkSdlImport(image_module, target, sdl_dynamic);
     image_module.linkLibrary(libpng);
     image_module.linkLibrary(zlib);
     linkMsvcRuntime(image_module, optimize);
@@ -2097,6 +2105,7 @@ fn addNet(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const net_module = b.createModule(.{
         .target = target,
@@ -2111,6 +2120,7 @@ fn addNet(
         .flags = cppflagsForOptimize(optimize),
     });
     net_module.linkLibrary(misc);
+    linkSdlImport(net_module, target, sdl_dynamic);
     linkMsvcRuntime(net_module, optimize);
     net_module.linkSystemLibrary("ws2_32", .{});
     net_module.linkSystemLibrary("odbc32", .{});
@@ -2130,6 +2140,7 @@ fn addBuildVersion(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const buildversion_module = b.createModule(.{
         .target = target,
@@ -2144,6 +2155,7 @@ fn addBuildVersion(
         .flags = cppflagsForOptimize(optimize),
     });
     buildversion_module.linkLibrary(misc);
+    linkSdlImport(buildversion_module, target, sdl_dynamic);
     linkMsvcRuntime(buildversion_module, optimize);
     buildversion_module.linkSystemLibrary("odbc32", .{});
     buildversion_module.linkSystemLibrary("odbccp32", .{});
@@ -2164,6 +2176,7 @@ fn addBetaKeyGen(
     toolchain: ToolchainIncludes,
     zlib: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const betakeygen_module = b.createModule(.{
         .target = target,
@@ -2179,6 +2192,7 @@ fn addBetaKeyGen(
         .flags = cppflagsBetaForOptimize(optimize),
     });
     betakeygen_module.linkLibrary(misc);
+    linkSdlImport(betakeygen_module, target, sdl_dynamic);
     betakeygen_module.linkLibrary(zlib);
     linkMsvcRuntime(betakeygen_module, optimize);
     betakeygen_module.linkSystemLibrary("odbc32", .{});
@@ -2199,6 +2213,7 @@ fn addInput(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const input_module = b.createModule(.{
         .target = target,
@@ -2213,6 +2228,7 @@ fn addInput(
         .flags = cppflagsForOptimize(optimize),
     });
     input_module.linkLibrary(misc);
+    linkSdlImport(input_module, target, sdl_dynamic);
     linkMsvcRuntime(input_module, optimize);
     input_module.linkSystemLibrary("winmm", .{});
     input_module.linkSystemLibrary("dinput8", .{});
@@ -2265,6 +2281,7 @@ fn addAnim(
     toolchain: ToolchainIncludes,
     misc: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const anim_module = b.createModule(.{
         .target = target,
@@ -2280,6 +2297,7 @@ fn addAnim(
         .flags = cppflagsForOptimize(optimize),
     });
     anim_module.linkLibrary(misc);
+    linkSdlImport(anim_module, target, sdl_dynamic);
     anim_module.linkLibrary(formats);
     linkMsvcRuntime(anim_module, optimize);
     anim_module.linkSystemLibrary("odbc32", .{});
@@ -2338,6 +2356,7 @@ fn addUI(
     misc: *std.Build.Step.Compile,
     common: *std.Build.Step.Compile,
     lualib: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const ui_module = b.createModule(.{
         .target = target,
@@ -2360,6 +2379,7 @@ fn addUI(
         .flags = cppflagsForOptimize(optimize),
     });
     ui_module.linkLibrary(misc);
+    linkSdlImport(ui_module, target, sdl_dynamic);
     ui_module.linkLibrary(common);
     ui_module.linkLibrary(lualib);
     linkMsvcRuntime(ui_module, optimize);
@@ -2384,6 +2404,7 @@ fn addFontGen(
     common: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const fontgen_module = b.createModule(.{
         .target = target,
@@ -2404,6 +2425,7 @@ fn addFontGen(
     fontgen_module.linkLibrary(common);
     fontgen_module.linkLibrary(formats);
     fontgen_module.linkLibrary(misc);
+    linkSdlImport(fontgen_module, target, sdl_dynamic);
     linkMsvcRuntime(fontgen_module, optimize);
     fontgen_module.linkSystemLibrary("user32", .{});
     fontgen_module.linkSystemLibrary("gdi32", .{});
@@ -2426,6 +2448,7 @@ fn addSFX(
     toolchain: ToolchainIncludes,
     misc: *std.Build.Step.Compile,
     common: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const sfx_module = b.createModule(.{
         .target = target,
@@ -2451,6 +2474,7 @@ fn addSFX(
         .flags = cflagsSfxForOptimize(optimize),
     });
     sfx_module.linkLibrary(misc);
+    linkSdlImport(sfx_module, target, sdl_dynamic);
     sfx_module.linkLibrary(common);
     linkMsvcRuntime(sfx_module, optimize);
     sfx_module.linkSystemLibrary("winmm", .{});
@@ -2473,6 +2497,7 @@ fn addGFX(
     toolchain: ToolchainIncludes,
     misc: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const gfx_module = b.createModule(.{
         .target = target,
@@ -2489,6 +2514,7 @@ fn addGFX(
         .flags = cppflagsForOptimize(optimize),
     });
     gfx_module.linkLibrary(misc);
+    linkSdlImport(gfx_module, target, sdl_dynamic);
     gfx_module.linkLibrary(formats);
     linkMsvcRuntime(gfx_module, optimize);
     gfx_module.linkSystemLibrary("d3d9", .{});
@@ -2515,7 +2541,8 @@ fn addGFXGPU(
     misc: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
     gfx_gpu_zig: *std.Build.Step.Compile,
-    sdl_c: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const gfx_gpu_module = b.createModule(.{
         .target = target,
@@ -2533,7 +2560,7 @@ fn addGFXGPU(
     gfx_gpu_module.linkLibrary(misc);
     gfx_gpu_module.linkLibrary(formats);
     gfx_gpu_module.linkLibrary(gfx_gpu_zig);
-    gfx_gpu_module.linkLibrary(sdl_c);
+    linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
     linkMsvcRuntime(gfx_gpu_module, optimize);
     gfx_gpu_module.linkSystemLibrary("user32", .{});
     gfx_gpu_module.linkSystemLibrary("gdi32", .{});
@@ -2634,6 +2661,27 @@ fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
+}
+
+fn linkSdlRuntime(
+    module: *std.Build.Module,
+    target: std.Build.ResolvedTarget,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+) void {
+    module.addIncludePath(sdl_include);
+    linkSdlImport(module, target, sdl_dynamic);
+}
+
+fn linkSdlImport(
+    module: *std.Build.Module,
+    target: std.Build.ResolvedTarget,
+    sdl_dynamic: *std.Build.Step.Compile,
+) void {
+    switch (target.result.os.tag) {
+        .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
+        else => module.addObjectFile(sdl_dynamic.getEmittedBin()),
+    }
 }
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
