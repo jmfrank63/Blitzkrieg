@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_support = @import("tools/zig/build_support.zig");
 
 /// Single source of truth for the game version. Bump the patch component with
 /// every change. The version is embedded into Game.exe as a Win32 VERSIONINFO
@@ -646,11 +647,35 @@ const cppflags_game_release = &.{
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
-            .cpu_arch = .x86,
+            .cpu_arch = .x86_64,
             .os_tag = .windows,
             .abi = .msvc,
         },
     });
+    const platform = build_support.classify(target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
+    const host_platform = build_support.classify(b.graph.host.result) catch null;
+    const native_target = if (host_platform) |host| host == platform else false;
+    const test_mode_text = b.option([]const u8, "test-mode", "Test execution mode: compile or run") orelse switch (build_support.defaultTestMode(native_target)) {
+        .compile => "compile",
+        .run => "run",
+    };
+    const test_mode = build_support.parseTestMode(test_mode_text) catch @panic("invalid -Dtest-mode; expected compile or run");
+    build_support.validateTestMode(test_mode, native_target) catch @panic("-Dtest-mode=run requires a matching native target; use -Dtest-mode=compile for cross targets");
+    const platform_policy = build_support.policy(platform, native_target);
+    const build_support_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/build_support.zig"),
+        .target = target,
+        .optimize = .Debug,
+    });
+    const build_support_tests = b.addTest(.{ .root_module = build_support_module });
+    const build_support_tests_run = b.addRunArtifact(build_support_tests);
+    const build_support_step = b.step("test-build-support", "Validate the supported cross-platform target policy");
+    build_support_step.dependOn(&build_support_tests.step);
+    if (test_mode == .run) build_support_step.dependOn(&build_support_tests_run.step);
+    if (platform != .windows_x64) {
+        b.default_step = build_support_step;
+        return;
+    }
     const optimize = b.standardOptimizeOption(.{});
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
@@ -793,18 +818,10 @@ pub fn build(b: *std.Build) void {
 
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
-    const library_arch = switch (target.result.cpu.arch) {
-        .x86 => "x86",
-        .x86_64 => "x64",
-        else => @panic("The Windows runtime build supports only x86 and x86_64 targets"),
-    };
-    const target_triple = target.result.zigTriple(b.allocator) catch @panic("unable to format target triple");
-    const stage_root = b.fmt("zig-out/game/{s}", .{target_triple});
-    const package_root = b.fmt("zig-out/packages/{s}", .{target_triple});
-    const stage_game_name = switch (target.result.os.tag) {
-        .windows => "Game.exe",
-        else => "Game",
-    };
+    const library_arch = build_support.libraryArch(platform);
+    const stage_root = b.fmt("zig-out/game/{s}", .{platform_policy.package_root});
+    const package_root = b.fmt("zig-out/packages/{s}", .{platform_policy.package_root});
+    const stage_game_name = platform_policy.executable_name;
     const stage_runtime_files = switch (target.result.os.tag) {
         .windows => &[_][]const u8{ "Game.exe", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
         .linux => &[_][]const u8{ "Game", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libSDL3.so", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
@@ -919,7 +936,7 @@ pub fn build(b: *std.Build) void {
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = b.graph.host,
@@ -1525,6 +1542,7 @@ fn addGame(
     blitz64: *std.Build.Step.Compile,
     startup_trace: bool,
     renderer: []const u8,
+    platform: build_support.PlatformTarget,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -1591,8 +1609,15 @@ fn addGame(
         .name = "Game",
         .root_module = game_module,
     });
-    game.subsystem = .windows;
-    game.entry = .{ .symbol_name = "WinMainCRTStartup" };
+    game.subsystem = switch (build_support.subsystem(platform, true)) {
+        .windows => .windows,
+        .console => .console,
+    };
+    game.entry = switch (build_support.entryPoint(platform, true)) {
+        .win_main_crt_startup => .{ .symbol_name = "WinMainCRTStartup" },
+        .main_crt_startup => .{ .symbol_name = "mainCRTStartup" },
+        .main => .{ .symbol_name = "main" },
+    };
     return game;
 }
 
