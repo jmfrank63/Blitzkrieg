@@ -1450,6 +1450,21 @@ pub fn build(b: *std.Build) void {
     });
     const streamio_unit_tests = b.addTest(.{ .root_module = streamio_test_module });
     const run_streamio_unit_tests = b.addRunArtifact(streamio_unit_tests);
+    const test_streamio_step = b.step("test-streamio", "Run Zig StreamIO unit tests");
+    test_streamio_step.dependOn(&streamio_unit_tests.step);
+    if (test_mode == .run) test_streamio_step.dependOn(&run_streamio_unit_tests.step);
+    const streamio_platform_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .imports = &.{.{ .name = "streamio", .module = streamio_test_module }},
+    });
+    const streamio_platform_tests = b.addTest(.{ .root_module = streamio_platform_module });
+    const run_streamio_platform_tests = b.addRunArtifact(streamio_platform_tests);
+    const streamio_platform_step = b.step("test-platform-files", "Run portable StreamIO host filesystem tests");
+    streamio_platform_step.dependOn(&streamio_platform_tests.step);
+    if (test_mode == .run) streamio_platform_step.dependOn(&run_streamio_platform_tests.step);
     const gfx_gpu_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
         .target = target,

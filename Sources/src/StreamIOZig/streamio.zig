@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const xml = @import("xml.zig");
 const options = @import("options.zig");
 const console = @import("console.zig");
@@ -22,41 +23,35 @@ extern fn ftell(file: *File) c_long;
 extern fn fread(buffer: ?*anyopaque, size: usize, count: usize, file: *File) usize;
 extern fn fwrite(buffer: ?*const anyopaque, size: usize, count: usize, file: *File) usize;
 extern fn fflush(file: *File) c_int;
-const FileAttributes = extern struct {
-    attributes: u32,
-    creation_low: u32,
-    creation_high: u32,
-    access_low: u32,
-    access_high: u32,
-    write_low: u32,
-    write_high: u32,
-    size_high: u32,
-    size_low: u32,
-};
-const FileTime = extern struct { low: u32, high: u32 };
-extern fn GetFileAttributesExA(path: [*:0]const u8, info_level: u32, attributes: *FileAttributes) callconv(.winapi) bool;
-extern fn FileTimeToDosDateTime(file_time: *const FileTime, date: *u16, time: *u16) callconv(.winapi) bool;
-const FindData = extern struct {
-    attributes: u32,
-    creation_low: u32,
-    creation_high: u32,
-    access_low: u32,
-    access_high: u32,
-    write_low: u32,
-    write_high: u32,
-    size_high: u32,
-    size_low: u32,
-    reserved0: u32,
-    reserved1: u32,
-    file_name: [260]u8,
-    alternate_name: [14]u8,
-};
-extern fn FindFirstFileA(pattern: [*:0]const u8, data: *FindData) callconv(.winapi) ?*anyopaque;
-extern fn FindNextFileA(handle: *anyopaque, data: *FindData) callconv(.winapi) bool;
-extern fn FindClose(handle: *anyopaque) callconv(.winapi) bool;
-
 var arena_state = std.heap.ArenaAllocator.init(std.heap.c_allocator);
 const allocator = arena_state.allocator();
+var host_io_service: ?std.Io.Threaded = null;
+
+fn hostIo() std.Io {
+    if (host_io_service == null) host_io_service = std.Io.Threaded.init(std.heap.c_allocator, .{});
+    return host_io_service.?.io();
+}
+
+fn hostSeparator() u8 {
+    return if (builtin.os.tag == .windows) '\\' else '/';
+}
+
+fn hostPathAlloc(path: []const u8) ?[]u8 {
+    const result = allocator.alloc(u8, path.len) catch return null;
+    for (path, 0..) |byte, index| result[index] = if (byte == '/' or byte == '\\') hostSeparator() else byte;
+    return result;
+}
+
+fn appendHostPath(base: []const u8, name: []const u8) ?[]u8 {
+    const separator = hostSeparator();
+    const needs_separator = base.len != 0 and base[base.len - 1] != separator;
+    const result = allocator.alloc(u8, base.len + name.len + @intFromBool(needs_separator)) catch return null;
+    @memcpy(result[0..base.len], base);
+    var pos = base.len;
+    if (needs_separator) { result[pos] = separator; pos += 1; }
+    @memcpy(result[pos..], name);
+    return result;
+}
 
 const LoadedArchive = struct {
     bytes: []u8,
@@ -639,7 +634,8 @@ fn pathBase(name: []const u8) []const u8 {
 fn makePath(storage: *const Storage, name: []const u8) ?[]u8 {
     const path = allocator.alloc(u8, storage.base.len + name.len + 1) catch return null;
     @memcpy(path[0..storage.base.len], storage.base);
-    for (name, 0..) |byte, index| path[storage.base.len + index] = if (byte == '/') '\\' else byte;
+    for (path[0..storage.base.len]) |*byte| byte.* = if (byte.* == '/' or byte.* == '\\') hostSeparator() else byte.*;
+    for (name, 0..) |byte, index| path[storage.base.len + index] = if (byte == '/' or byte == '\\') hostSeparator() else byte;
     path[path.len - 1] = 0;
     return path;
 }
@@ -658,54 +654,123 @@ fn readFileOwned(path: [*:0]const u8) ?[]u8 {
     return bytes;
 }
 
-fn dosModified(data: *const FindData) u32 {
-    const write_time = FileTime{ .low = data.write_low, .high = data.write_high };
-    var date: u16 = 0;
-    var time: u16 = 0;
-    return if (FileTimeToDosDateTime(&write_time, &date, &time))
-        @as(u32, time) | (@as(u32, date) << 16)
-    else
-        0;
+const CivilDate = struct { year: i64, month: u32, day: u32 };
+
+fn unixDaysToCivil(days: i64) CivilDate {
+    const z = days + 719468;
+    const era = if (z >= 0) @divFloor(z, 146097) else @divFloor(z - 146096, 146097);
+    const doe: i64 = z - era * 146097;
+    const yoe: i64 = @divFloor(doe - @divFloor(doe, 1460) + @divFloor(doe, 36524) - @divFloor(doe, 146096), 365);
+    var year = yoe + era * 400;
+    const doy: i64 = doe - (365 * yoe + @divFloor(yoe, 4) - @divFloor(yoe, 100));
+    const mp: i64 = @divFloor(5 * doy + 2, 153);
+    const day: u32 = @intCast(doy - @divFloor(153 * mp + 2, 5) + 1);
+    const month_offset: i64 = if (mp < 10) 3 else -9;
+    const month: u32 = @intCast(mp + month_offset);
+    year += if (month <= 2) 1 else 0;
+    return .{ .year = year, .month = month, .day = day };
+}
+
+fn dosTimestamp(timestamp: std.Io.Timestamp) u32 {
+    const nanoseconds_per_second: i96 = std.time.ns_per_s;
+    const raw_seconds = @divFloor(timestamp.nanoseconds, nanoseconds_per_second);
+    const seconds: i64 = if (raw_seconds < std.math.minInt(i64)) std.math.minInt(i64) else if (raw_seconds > std.math.maxInt(i64)) std.math.maxInt(i64) else @intCast(raw_seconds);
+    const days = @divFloor(seconds, @as(i64, 86400));
+    const day_seconds = @mod(seconds, @as(i64, 86400));
+    const civil = unixDaysToCivil(days);
+    var clamped_year = civil.year;
+    var clamped_month = civil.month;
+    var clamped_day = civil.day;
+    if (civil.year < 1980) {
+        clamped_year = 1980;
+        clamped_month = 1;
+        clamped_day = 1;
+    } else if (civil.year > 2107) {
+        clamped_year = 2107;
+        clamped_month = 12;
+        clamped_day = 31;
+    }
+    const hour: u32 = @intCast(@divFloor(day_seconds, 3600));
+    const minute: u32 = @intCast(@divFloor(@mod(day_seconds, 3600), 60));
+    const second: u32 = @intCast(@divFloor(@mod(day_seconds, 60), 2));
+    const date: u32 = (@as(u32, @intCast(clamped_year - 1980)) << 9) | (clamped_month << 5) | clamped_day;
+    const time: u32 = (hour << 11) | (minute << 5) | second;
+    return time | (date << 16);
+}
+
+fn wildcardMatch(pattern: []const u8, name: []const u8, ignore_case: bool) bool {
+    var pattern_index: usize = 0;
+    var name_index: usize = 0;
+    var star: ?usize = null;
+    var star_name_index: usize = 0;
+    while (name_index < name.len) {
+        if (pattern_index < pattern.len and pattern[pattern_index] != '*' and pattern[pattern_index] != '?' and
+            (if (ignore_case) std.ascii.toLower(pattern[pattern_index]) == std.ascii.toLower(name[name_index]) else pattern[pattern_index] == name[name_index]))
+        {
+            pattern_index += 1;
+            name_index += 1;
+        } else if (pattern_index < pattern.len and pattern[pattern_index] == '*') {
+            star = pattern_index;
+            pattern_index += 1;
+            star_name_index = name_index;
+        } else if (pattern_index < pattern.len and pattern[pattern_index] == '?') {
+            pattern_index += 1;
+            name_index += 1;
+        } else if (star) |star_index| {
+            pattern_index = star_index + 1;
+            star_name_index += 1;
+            name_index = star_name_index;
+        } else return false;
+    }
+    while (pattern_index < pattern.len and pattern[pattern_index] == '*') pattern_index += 1;
+    return pattern_index == pattern.len;
+}
+
+pub fn streamio_test_wildcard_match(pattern: []const u8, name: []const u8, ignore_case: bool) bool {
+    return wildcardMatch(pattern, name, ignore_case);
+}
+
+pub fn streamio_test_dos_timestamp(seconds: i64) u32 {
+    return dosTimestamp(.{ .nanoseconds = @as(i96, seconds) * std.time.ns_per_s });
+}
+
+fn statFile(storage: *const Storage, name: []const u8) ?std.Io.File.Stat {
+    const raw_path = makePath(storage, name) orelse return null;
+    defer allocator.free(raw_path);
+    const path = hostPathAlloc(raw_path[0 .. raw_path.len - 1]) orelse return null;
+    defer allocator.free(path);
+    return std.Io.Dir.cwd().statFile(hostIo(), path, .{}) catch null;
+}
+
+fn storageNameLessThan(_: void, left: [:0]u8, right: [:0]u8) bool {
+    return std.mem.order(u8, left, right) == .lt;
 }
 
 fn loadArchives(storage: *Storage) void {
-    const pattern_bytes = std.fmt.allocPrint(allocator, "{s}*.pak", .{storage.base}) catch return;
-    defer allocator.free(pattern_bytes);
-    const pattern = allocator.dupeZ(u8, pattern_bytes) catch return;
-    defer allocator.free(pattern);
-    var find_data: FindData = undefined;
-    const find = FindFirstFileA(pattern.ptr, &find_data) orelse return;
-    defer _ = FindClose(find);
-    while (true) {
-        if ((find_data.attributes & 0x10) == 0) {
-            const file_name = std.mem.sliceTo(&find_data.file_name, 0);
-            const path_bytes = std.fmt.allocPrint(allocator, "{s}{s}", .{ storage.base, file_name }) catch null;
-            if (path_bytes) |owned_path_bytes| {
-                defer allocator.free(owned_path_bytes);
-                const path = allocator.dupeZ(u8, owned_path_bytes) catch null;
-                if (path) |owned_path| {
-                    if (readFileOwned(owned_path.ptr)) |bytes| {
-                        if (zip.Archive.parse(allocator, bytes)) |archive| {
-                            storage.archives.append(allocator, .{
-                                .bytes = bytes,
-                                .path = owned_path,
-                                .archive = archive,
-                                .modified = dosModified(&find_data),
-                            }) catch {
-                                var owned_archive = archive;
-                                owned_archive.deinit();
-                                allocator.free(bytes);
-                                allocator.free(owned_path);
-                            };
-                        } else |_| {
-                            allocator.free(bytes);
-                            allocator.free(owned_path);
-                        }
-                    } else allocator.free(owned_path);
-                }
+    const directory_path = hostPathAlloc(storage.base) orelse return;
+    defer allocator.free(directory_path);
+    var directory = std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch return;
+    defer directory.close(hostIo());
+    var iterator = directory.iterate();
+    while (iterator.next(hostIo()) catch null) |entry| {
+        if (entry.kind != .file or !wildcardMatch("*.pak", entry.name, true)) continue;
+        const raw_path = appendHostPath(directory_path, entry.name) orelse continue;
+        defer allocator.free(raw_path);
+        const path = allocator.dupeZ(u8, raw_path) catch continue;
+        if (readFileOwned(path.ptr)) |bytes| {
+            if (zip.Archive.parse(allocator, bytes)) |archive| {
+                const modified = if (directory.statFile(hostIo(), entry.name, .{})) |metadata| dosTimestamp(metadata.mtime) else |_| 0;
+                storage.archives.append(allocator, .{ .bytes = bytes, .path = path, .archive = archive, .modified = modified }) catch {
+                    var owned_archive = archive;
+                    owned_archive.deinit();
+                    allocator.free(bytes);
+                    allocator.free(path);
+                };
+            } else |_| {
+                allocator.free(bytes);
+                allocator.free(path);
             }
-        }
-        if (!FindNextFileA(find, &find_data)) break;
+        } else allocator.free(path);
     }
 }
 
@@ -757,28 +822,27 @@ fn normalizedStorageName(name: []const u8) ?[:0]u8 {
 }
 
 fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []const u8) void {
-    const pattern_bytes = std.fmt.allocPrint(allocator, "{s}{s}*", .{ storage.base, relative }) catch return;
-    defer allocator.free(pattern_bytes);
-    const pattern = allocator.dupeZ(u8, pattern_bytes) catch return;
-    defer allocator.free(pattern);
-    var data: FindData = undefined;
-    const handle = FindFirstFileA(pattern.ptr, &data) orelse return;
-    defer _ = FindClose(handle);
-    while (true) {
-        const name = std.mem.sliceTo(&data.file_name, 0);
+    const raw_directory = std.fmt.allocPrint(allocator, "{s}{s}", .{ storage.base, relative }) catch return;
+    defer allocator.free(raw_directory);
+    const directory_path = hostPathAlloc(raw_directory) orelse return;
+    defer allocator.free(directory_path);
+    var directory = std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch return;
+    defer directory.close(hostIo());
+    var iterator = directory.iterate();
+    while (iterator.next(hostIo()) catch null) |entry| {
+        const name = entry.name;
         if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
-            if ((data.attributes & 0x10) != 0) {
+            if (entry.kind == .directory) {
                 const child = std.fmt.allocPrint(allocator, "{s}{s}\\", .{ relative, name }) catch "";
                 defer if (child.len != 0) allocator.free(child);
                 if (child.len != 0) collectFiles(storage, enumerator, child);
-            } else {
+            } else if (entry.kind == .file) {
                 const full_name_bytes = std.fmt.allocPrint(allocator, "{s}{s}", .{ relative, name }) catch continue;
                 defer allocator.free(full_name_bytes);
                 const full_name = normalizedStorageName(full_name_bytes) orelse continue;
                 enumerator.names.append(allocator, full_name) catch allocator.free(full_name);
             }
         }
-        if (!FindNextFileA(handle, &data)) break;
     }
 }
 
@@ -1035,29 +1099,15 @@ pub export fn bk_storage_create_stream(handle: ?*anyopaque, name: [*:0]const u8,
 pub export fn bk_storage_stats(handle: ?*anyopaque, name: [*:0]const u8, output: ?*StorageStats) callconv(.c) bool {
     const storage = fromHandle(Storage, handle) orelse return false;
     const stats = output orelse return false;
-    const path = makePath(storage, std.mem.span(name)) orelse return false;
-    defer allocator.free(path);
-    const file = fopen(@ptrCast(path.ptr), "rb") orelse return false;
-    defer _ = fclose(file);
-    if (fseek(file, 0, 2) != 0) return false;
-    const end = ftell(file);
-    if (end < 0 or end > std.math.maxInt(c_int)) return false;
-    var attributes: FileAttributes = undefined;
-    const have_attributes = GetFileAttributesExA(@ptrCast(path.ptr), 0, &attributes);
-    var date: u16 = 0;
-    var time: u16 = 0;
-    var modification_time: u32 = 0;
-    if (have_attributes) {
-        const write_time = FileTime{ .low = attributes.write_low, .high = attributes.write_high };
-        if (FileTimeToDosDateTime(&write_time, &date, &time)) modification_time = @as(u32, time) | (@as(u32, date) << 16);
-    }
+    const metadata = statFile(storage, std.mem.span(name)) orelse return false;
+    if (metadata.size > std.math.maxInt(c_int)) return false;
     stats.* = .{
         .name = name,
         .element_type = 2,
-        .size = @intCast(end),
+        .size = @intCast(metadata.size),
         .creation_time = 0,
-        .modification_time = modification_time,
-        .access_time = 0,
+        .modification_time = dosTimestamp(metadata.mtime),
+        .access_time = if (metadata.atime) |atime| dosTimestamp(atime) else 0,
     };
     return true;
 }
@@ -1090,6 +1140,7 @@ pub export fn bk_storage_enumerator_create(handle: ?*anyopaque) callconv(.c) ?*a
     enumerator.* = .{};
     collectFiles(storage, enumerator, "");
     collectArchiveFiles(storage, enumerator);
+    std.mem.sort([:0]u8, enumerator.names.items, {}, storageNameLessThan);
     return enumerator;
 }
 
