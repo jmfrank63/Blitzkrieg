@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 extern "C" {
-#include "LuaSrc/Lua.h"
+#include "LuaSrc/lua.h"
 #include "LuaSrc/luadebug.h"
 }
 

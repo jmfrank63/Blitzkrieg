@@ -7,6 +7,7 @@
 #include "../Misc/BitData.h"
 #include "../StreamIO/RandomGen.h"
 #include "../zlib/zlib.h"
+#include "../Common/Actions.h"
 #include "iMain.h"
 inline int GetRandom( int nAverage, int nRandom )
 {
