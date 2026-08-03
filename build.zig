@@ -1089,10 +1089,11 @@ pub fn build(b: *std.Build) void {
     });
     gfx_gpu_abi_test_module.addCSourceFiles(.{
         .files = &.{"tools/zig/gfxgpu_abi_test.cpp"},
-        .flags = cppflagsForOptimize(optimize),
+        .flags = cppflagsForTarget(target, optimize),
     });
     gfx_gpu_abi_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
     addMsvcIncludePaths(b, gfx_gpu_abi_test_module, toolchain);
+    addLinuxCxxIncludePaths(b, gfx_gpu_abi_test_module, target);
     addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
     gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
     gfx_gpu_abi_test_module.linkLibrary(sdl_c);
@@ -1122,6 +1123,7 @@ pub fn build(b: *std.Build) void {
     const gfx_gpu_smoke_build_step = b.step("gfxgpu-smoke-build", "Build the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_build_step.dependOn(&gfx_gpu_smoke_install.step);
     gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_run.step.dependOn(&b.addInstallArtifact(sdl_c, .{}).step);
     gfx_gpu_smoke_run.setCwd(b.path("zig-out/bin"));
     const gpu_driver = b.option([]const u8, "gpu-driver", "Native SDL_GPU driver expected by gfxgpu-smoke") orelse switch (target.result.os.tag) {
         .windows => "direct3d12",
@@ -1340,12 +1342,13 @@ pub fn build(b: *std.Build) void {
     });
     gfx_gpu_factory_test_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
-        .flags = cppflagsForOptimize(optimize),
+        .flags = cppflagsForTarget(target, optimize),
     });
     addProjectIncludePaths(b, gfx_gpu_factory_test_module);
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
     addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
+    addLinuxCxxIncludePaths(b, gfx_gpu_factory_test_module, target);
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
     linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
@@ -2656,6 +2659,11 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
         .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
     };
+}
+
+fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (target.result.os.tag != .windows) return &.{"-std=c++17"};
+    return cppflagsForOptimize(optimize);
 }
 
 fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
