@@ -3,7 +3,7 @@
 #include "PlayMovieInterface.h"
 
 #include "iMission.h"
-#include "..\Misc\HPTimer.h"
+#include "../Misc/HPTimer.h"
 
 namespace
 {

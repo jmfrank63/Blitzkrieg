@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\GameTT\CommonId.h"
+#include "../GameTT/CommonId.h"
 #include "UISlider.h"
 #include "UIMessages.h"
 

@@ -23,8 +23,8 @@
 #include "ShootEstimatorInternal.h"
 #include "PlanePath.h"
 #include "General.h"
-#include "..\Formats\fmtMap.h"
-#include "Scripts\scripts.h"
+#include "../Formats/fmtMap.h"
+#include "Scripts/scripts.h"
 #include "Weather.h"
 #include "MPLog.h"
 extern CWeather theWeather;

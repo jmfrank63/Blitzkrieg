@@ -1,16 +1,16 @@
 #include "StdAfx.h"
-#include "..\Input\Input.h"
-#include "..\Main\iMainCommands.h"
-#include "..\Scene\Scene.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Input/Input.h"
+#include "../Main/iMainCommands.h"
+#include "../Scene/Scene.h"
+#include "../Formats/fmtTerrain.h"
 
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
 
 #include "UIMiniMap.h"
-#include "..\RandomMapGen\Bresenham_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\Common\PauseGame.h"
+#include "../RandomMapGen/Bresenham_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../Common/PauseGame.h"
 const char CUIMiniMap::MARKERS_TYPES_FILE_NAME[] = "UI\\MiniMapMarkers";
 const char CUIMiniMap::MARKERS_TEXTURE_NAME[] = "MiniMapMarkersTexture";
 const char CUIMiniMap::MARKERS_TYPES_NAME[] = "MiniMapMarkers";

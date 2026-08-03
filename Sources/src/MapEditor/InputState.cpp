@@ -2,8 +2,8 @@
 #include "editor.h"
 #include "InputState.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Scene\Terrain.h"
+#include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
 
 #include "frames.h"
 #include "GameWnd.h"

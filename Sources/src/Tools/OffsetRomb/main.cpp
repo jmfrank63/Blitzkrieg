@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 inline int Height( const RECT &rect ) { return rect.bottom - rect.top; }
 inline int Width( const RECT &rect ) { return rect.right - rect.left; }
 template <class TYPE>

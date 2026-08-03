@@ -3,8 +3,8 @@
 
 #include "CManuverContainer.h"
 #include "CManuver.h"
-#include "..\..\PlanePathTest\src\CPlanePreferences.h"
-#include "..\..\Misc\Win32Random.h"
+#include "../../PlanePathTest/src/CPlanePreferences.h"
+#include "../../Misc/Win32Random.h"
 #include "IPlane.h"
 
 

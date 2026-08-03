@@ -3,7 +3,7 @@
 #include "SoundManager.h"
 
 #include "SampleSounds.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 CSoundManager::~CSoundManager()
 {
 	share2.Clear();

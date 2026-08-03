@@ -4,19 +4,19 @@
 
 #include "WinFrame.h"
 #include "SysKeys.h"
-#include "..\Platform\SDLApplication.h"
-#include "..\Platform\Event.h"
+#include "../Platform/SDLApplication.h"
+#include "../Platform/Event.h"
 
 #include <SDL3/SDL.h>
 
-#include "..\Misc\Win32Helper.h"
-#include "..\Main\iMain.h"
-#include "..\Main\iMainCommands.h"
-#include "..\GameTT\iMission.h"
-#include "..\Scene\Scene.h"
-#include "..\Input\Input.h"
-#include "..\Input\InputTypes.h"
-#include "..\GFX\GFXTypes.h"
+#include "../Misc/Win32Helper.h"
+#include "../Main/iMain.h"
+#include "../Main/iMainCommands.h"
+#include "../GameTT/iMission.h"
+#include "../Scene/Scene.h"
+#include "../Input/Input.h"
+#include "../Input/InputTypes.h"
+#include "../GFX/GFXTypes.h"
 
 #include "resource.h"
 using namespace NWin32Helper;

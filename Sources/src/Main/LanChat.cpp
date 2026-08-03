@@ -4,10 +4,10 @@
 #include "NetMessages.h"
 #include "ChatMessages.h"
 
-#include "..\Net\NetDriver.h"
+#include "../Net/NetDriver.h"
 
-#include "..\StreamIO\StreamIOHelper.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../StreamIO/StreamIOHelper.h"
+#include "../StreamIO/StreamIOTypes.h"
 void CLanChat::InitInGameChat( INetDriver *_pNetDriver )
 {
 	pNetDriver = _pNetDriver;

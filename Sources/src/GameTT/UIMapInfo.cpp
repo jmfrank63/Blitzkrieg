@@ -2,8 +2,8 @@
 
 #include "UIMapInfo.h"
 #include "MultiplayerCommandManager.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\Main\TextSystem.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../Main/TextSystem.h"
 
 static const std::string szMultiplayer = "Multiplayer\\";
 bool SUIMapInfo::LoadMapInfo( const char *szMapName )

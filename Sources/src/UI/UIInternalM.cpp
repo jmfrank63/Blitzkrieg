@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include <comdef.h>
-#include "..\Main\TextSystem.h"
+#include "../Main/TextSystem.h"
 #include "UIInternal.h"
 #include "UIInternalM.h"
 

@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "MPConnectionError.h"
-#include "..\main\IMain.h"
+#include "../main/IMain.h"
 #include "iMission.h"
 #include "MuliplayerToUIConsts.h"
 bool CMPConnectionError::DisplayError( const enum EMultiplayerToUICommands eErrorID )

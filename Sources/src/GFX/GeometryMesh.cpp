@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "GeometryMesh.h"
-#include "..\Formats\fmtMesh.h"
+#include "../Formats/fmtMesh.h"
 SSingleMesh::SSingleMesh( IGFXVertices *_pVertices, IGFXIndices *_pIndices, const SGFXAABB &_aabb, const SGFXBoundSphere &_sphere )
 {
 	pVertices = _pVertices;

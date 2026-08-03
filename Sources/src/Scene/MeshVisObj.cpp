@@ -2,8 +2,8 @@
 
 #include "MeshVisObj.h"
 
-#include "..\GFX\GFXHelper.h"
-#include "..\Common\Icons.h"
+#include "../GFX/GFXHelper.h"
+#include "../Common/Icons.h"
 static const int aabbIndices[6][4] = 
 { { 0, 4, 6, 2 },
 	{ 3, 7, 5, 1 },

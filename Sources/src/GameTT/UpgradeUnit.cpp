@@ -5,9 +5,9 @@
 #include "CommonId.h"
 #include "UnitTypes.h"
 #include "etypes.h"
-#include "..\Main\RPGStats.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/RPGStats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../UI/UIMessages.h"
 enum ECommands
 {
 	IMC_DEFAULT_UNITS				= 10003,

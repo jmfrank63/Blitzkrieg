@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "NetLogin.h"
-#include "..\Platform\Clock.h"
-#include "..\Misc\HPTimer.h"
+#include "../Platform/Clock.h"
+#include "../Misc/HPTimer.h"
 
 const float F_KEEP_ACCEPTED_TIME = 2000;
 namespace NNet

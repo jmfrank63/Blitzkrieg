@@ -1,10 +1,10 @@
 #include "StdAfx.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Anim\Animation.h"
-#include "..\Formats\fmtAnimation.h"
-#include "..\Misc\FileUtils.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Anim/Animation.h"
+#include "../Formats/fmtAnimation.h"
+#include "../Misc/FileUtils.h"
 
 #include "editor.h"
 #include "PropView.h"

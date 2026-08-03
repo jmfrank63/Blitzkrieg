@@ -2,9 +2,9 @@
 
 #include "ServerInfo.h"
 
-#include "..\Net\NetDriver.h"
-#include "..\StreamIO\StreamIOHelper.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../Net/NetDriver.h"
+#include "../StreamIO/StreamIOHelper.h"
+#include "../StreamIO/StreamIOTypes.h"
 #include "MultiplayerConsts.h"
 SServerInfo::SServerInfo( const SGameInfo &gameInfo )
 {

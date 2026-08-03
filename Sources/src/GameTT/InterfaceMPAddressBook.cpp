@@ -3,7 +3,7 @@
 #include "InterfaceMPAddressBook.h"
 #include "InterfaceStartDialog.h"
 #include "CommonId.h"
-#include "..\UI\UIMessages.h"
+#include "../UI/UIMessages.h"
 #include "MainMenu.h"
 #include "WorldClient.h"
 #include "MPConnectionError.h"

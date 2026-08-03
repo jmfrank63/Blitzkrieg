@@ -1,10 +1,10 @@
 #include "StdAfx.h"
-#include "..\scene\scene.h"
-#include "..\GFX\gfx.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Formats\fmtMap.h"
-#include "..\Scene\builders.h"
+#include "../scene/scene.h"
+#include "../GFX/gfx.h"
+#include "../GFX/GFXHelper.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMap.h"
+#include "../Scene/builders.h"
 
 #include "common.h"
 

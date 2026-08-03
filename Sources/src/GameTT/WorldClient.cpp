@@ -2,26 +2,26 @@
 
 #include "WorldClient.h"
 
-#include "..\Formats\fmtTerrain.h"
-#include "..\AILogic\AITypes.h"
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
+#include "../Formats/fmtTerrain.h"
+#include "../AILogic/AITypes.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
 #include "iMission.h"
-#include "..\Main\TextSystem.h"
-#include "..\Main\GameStats.h"
-#include "..\Common\UISquadElement.h"
-#include "..\Common\PauseGame.h"
-#include "..\Main\iMainCommands.h"
+#include "../Main/TextSystem.h"
+#include "../Main/GameStats.h"
+#include "../Common/UISquadElement.h"
+#include "../Common/PauseGame.h"
+#include "../Main/iMainCommands.h"
 
 #include "SelectorVisitors.h"
-#include "..\Main\ScenarioTrackerTypes.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\UI\UI.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/ScenarioTrackerTypes.h"
+#include "../Main/ScenarioTracker.h"
+#include "../UI/UI.h"
+#include "../UI/UIMessages.h"
 
-#include "..\StreamIO\OptionSystem.h"
-#include "..\Misc\VSHelper.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../StreamIO/OptionSystem.h"
+#include "../Misc/VSHelper.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 static const NInput::SRegisterCommandEntry worldClientCommands[] = 
 {
 	{ "assign_group_0"	,	WCC_ASSIGN_GROUP_0	},

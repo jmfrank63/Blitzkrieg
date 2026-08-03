@@ -3,8 +3,8 @@
 #include "CommonId.h"
 #include "IMLoadMission.h"
 #include "MultiplayerCommandManager.h"
-#include "..\Main\iMainCommands.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/iMainCommands.h"
+#include "../Main/ScenarioTracker.h"
 void CICIMLoadMission::PostCreate( IMainLoop *pML, CInterfaceIMLoadMission *pILM )
 {
 	pML->PushInterface( pILM );

@@ -5,8 +5,8 @@
 #include "TemplateEditorFrame1.h"
 #include "TabSimpleObjectsDialog.h"
 
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 
 #include "RMG_CreateFieldDialog.h"
 #include "RMG_FieldTerrainDialog.h"

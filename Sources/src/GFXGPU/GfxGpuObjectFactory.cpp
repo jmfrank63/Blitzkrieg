@@ -4,9 +4,9 @@
 #include "MeshManagerGpu.h"
 #include "TextureGpu.h"
 #include "FontGpu.h"
-#include "..\\Main\\TextSystem.h"
+#include "..//Main//TextSystem.h"
 
-#include "..\\GFX\\GFXObjectFactory.h"
+#include "..//GFX//GFXObjectFactory.h"
 
 #include <map>
 #include <cstring>

@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 #include "GridFrm.h"
 #include "SpriteCompose.h"
 

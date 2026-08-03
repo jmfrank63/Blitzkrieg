@@ -2,7 +2,7 @@
 
 #include "ImageMMP.h"
 
-#include "..\Formats\fmtTexture.h"
+#include "../Formats/fmtTexture.h"
 namespace NImage
 {
 bool RecognizeFormatDDS( IDataStream *pStream )

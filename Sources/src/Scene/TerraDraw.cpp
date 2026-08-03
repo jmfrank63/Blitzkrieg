@@ -3,12 +3,12 @@
 #include "TerrainInternal.h"
 #include "SceneScreenScale.h"
 
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 
-#include "..\AILogic\AILogic.h"
-#include "..\AILogic\aiconsts.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\Misc\Intersection.h"
+#include "../AILogic/AILogic.h"
+#include "../AILogic/aiconsts.h"
+#include "../GFX/GFXHelper.h"
+#include "../Misc/Intersection.h"
 /**
 inline int GetNextRoadByPriority( int nPriority, const SRoadsetDesc &roadset )
 {

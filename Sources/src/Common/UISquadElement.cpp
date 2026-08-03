@@ -2,11 +2,11 @@
 
 #include "UISquadElement.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\GameTT\iMission.h"
-#include "..\GameTT\WorldClient.h"
-#include "..\Input\Input.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../GameTT/iMission.h"
+#include "../GameTT/WorldClient.h"
+#include "../Input/Input.h"
 #include "Icons.h"
 BASIC_REGISTER_CLASS( CUISquadElement );
 void CUIUnitObserver::AddIcon( const int nType, ISceneIcon *pIcon )

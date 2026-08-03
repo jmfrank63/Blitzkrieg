@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\main\rpgstats.h"
+#include "../main/rpgstats.h"
 #include "TreeItem.h"
 
 

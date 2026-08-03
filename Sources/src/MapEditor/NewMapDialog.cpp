@@ -9,8 +9,8 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-#include "..\misc\FileUtils.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../misc/FileUtils.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 const int CNewMapDialog::vID[] = 
 {
 	IDC_NEW_MAP_SIZE_X_LABEL,				//0

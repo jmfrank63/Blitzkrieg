@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\Scene\Terrain.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../Scene/Terrain.h"
 
 #include "editor.h"
 #include "PropView.h"

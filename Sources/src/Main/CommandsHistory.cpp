@@ -6,12 +6,12 @@
 #include "ScenarioTracker.h"
 #include "RandomMapHelper.h"
 
-#include "..\AILogic\AILogic.h"
-#include "..\Misc\FileUtils.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\GameTT\ReplayList.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../AILogic/AILogic.h"
+#include "../Misc/FileUtils.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../GameTT/ReplayList.h"
+#include "../StreamIO/StreamIOTypes.h"
 void CCommandsHistory::PrepareToStartMission()
 {
 	if ( !bLoadedFromCommandLine )

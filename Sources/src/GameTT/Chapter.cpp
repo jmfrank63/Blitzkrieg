@@ -5,11 +5,11 @@
 
 #include "Chapter.h"
 
-#include "..\Misc\Checker.h"
-#include "..\Main\gamestats.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\RandomMapGen\mapinfo_types.h"
-#include "..\RandomMapGen\resource_types.h"
+#include "../Misc/Checker.h"
+#include "../Main/gamestats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../RandomMapGen/mapinfo_types.h"
+#include "../RandomMapGen/resource_types.h"
 #include "Campaign.h"
 #include "CommonId.h"
 #include "UIConsts.h"

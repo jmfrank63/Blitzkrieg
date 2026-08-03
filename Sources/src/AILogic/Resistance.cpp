@@ -5,7 +5,7 @@
 #include "AIUnitInfoForGeneral.h"
 #include "AIUnit.h"
 
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 bool IsCellInExcludingCircle( const CVec2 &vCellCenter, const CCircle &circle )
 {
 	return fabs2( vCellCenter - circle.center ) <= sqr( circle.r + SGeneralConsts::RESISTANCE_CELL_SIZE * SConsts::TILE_SIZE / 3 );

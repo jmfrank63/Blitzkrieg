@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include <Mmsystem.h>
 
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 #include "editor.h"
 #include "frames.h"
 #include "TreeDockWnd.h"

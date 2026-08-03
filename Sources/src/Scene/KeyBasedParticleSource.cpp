@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "KeyBasedParticleSource.h"
-#include "..\Misc\Win32Random.h"
+#include "../Misc/Win32Random.h"
 #include "FastSinCos.h"
 IGFXTexture* CKeyBasedParticleSource::GetTexture() const
 {

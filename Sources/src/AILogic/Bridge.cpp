@@ -13,7 +13,7 @@
 #include "Formation.h"
 #include "UnitSTates.h"
 #include "StaticObjects.h"
-#include "Scripts\Scripts.h"
+#include "Scripts/Scripts.h"
 #include "Graveyard.h"
 #include "StaticObjectsIters.h"
 extern CStaticObjects theStatObjs;

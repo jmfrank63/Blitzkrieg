@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 #include <io.h>
 
-#include "..\Anim\Animation.h"
-#include "..\Formats\fmtAnimation.h"
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Image\Image.h"
-#include "..\Image\ImageHelper.h"
+#include "../Anim/Animation.h"
+#include "../Formats/fmtAnimation.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Image/Image.h"
+#include "../Image/ImageHelper.h"
 
 #include "SpriteCompose.h"
 #include "ParentFrame.h"

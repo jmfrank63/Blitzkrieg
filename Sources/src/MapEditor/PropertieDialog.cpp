@@ -3,7 +3,7 @@
 #include "PropertieDialog.h"
 #include "frames.h"
 
-#include "..\Misc\Manipulator.h"
+#include "../Misc/Manipulator.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

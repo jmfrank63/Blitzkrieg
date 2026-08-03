@@ -2,10 +2,10 @@
 
 #include "InterfaceNewDepotUpgrades.h"
 #include "CommonId.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\RPGStats.h"
-#include "..\GameTT\UnitTypes.h"
-#include "..\GameTT\etypes.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/RPGStats.h"
+#include "../GameTT/UnitTypes.h"
+#include "../GameTT/etypes.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},

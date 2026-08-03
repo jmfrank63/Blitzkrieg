@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Main\RPGStats.h"
+#include "../Main/RPGStats.h"
 const WORD GetDirectionByVector( float x, float y )
 {
 	if ( IsAlmostZero( x, y ) )

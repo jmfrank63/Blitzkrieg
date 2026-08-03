@@ -2,10 +2,10 @@
 
 #include "MinimapCreation.h"
 
-#include "..\Image\Image.h"
-#include "..\RandomMapGen\IB_Types.h"
-#include "..\RandomMapGen\MiniMap_Types.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../Image/Image.h"
+#include "../RandomMapGen/IB_Types.h"
+#include "../RandomMapGen/MiniMap_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 void CMinimapCreation::Create1Minimap( const std::string &szTerrainName, const std::string &szMiniMapName )
 {
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();

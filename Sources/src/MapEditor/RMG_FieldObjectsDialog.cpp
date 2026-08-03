@@ -12,9 +12,9 @@
 #include "RMG_FieldObjectsShellPropertiesDialog.h"
 #include "RMG_FieldObjectPropertiesDialog.h"
 
-#include "..\RandomMapGen\RMG_Types.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/RMG_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

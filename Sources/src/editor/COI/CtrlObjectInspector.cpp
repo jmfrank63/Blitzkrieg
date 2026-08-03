@@ -6,9 +6,9 @@
 #include "OIBrowEdit.h"
 #include "OIReference.h"
 #include "OIColorEdit.h"
-#include "..\frames.h"
+#include "../frames.h"
 
-#include "..\RefDlg.h"
+#include "../RefDlg.h"
 #include "PropView.h"
 
 #ifdef _DEBUG

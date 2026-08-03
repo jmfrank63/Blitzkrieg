@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "UIMask.h"
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 bool CUIMask::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();

@@ -30,7 +30,7 @@
 #include "MainFrm.h"
 #include "frames.h"
 
-#include "..\Main\iMain.h"
+#include "../Main/iMain.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

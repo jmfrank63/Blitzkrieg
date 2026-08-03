@@ -28,9 +28,9 @@
 #include "PathUnit.h"
 #include "DifficultyLevel.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Common\AdditionalActions.h"
-#include "..\Misc\Checker.h"
+#include "../Scene/Scene.h"
+#include "../Common/AdditionalActions.h"
+#include "../Misc/Checker.h"
 #include "TimeCounter.h"
 extern CGroupLogic theGroupLogic;
 extern CUnitCreation theUnitCreation;

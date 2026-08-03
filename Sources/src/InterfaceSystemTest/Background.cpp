@@ -2,7 +2,7 @@
 #include "StdAfx.h"
 #include "Background.h"
 
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 BASIC_REGISTER_CLASS(IBackground)
 IMPLEMENT_CLONABLE(CBackgroundPlainTexture)
 int CBackground::operator&( interface IDataTree &ss ) 

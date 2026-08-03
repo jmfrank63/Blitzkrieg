@@ -1,10 +1,10 @@
 #include "StdAfx.h"
 
 #include "WorldClient.h"
-#include "..\Common\Actions.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Common/Actions.h"
+#include "../Formats/fmtTerrain.h"
 #include "SelectorVisitors.h"
-#include "..\UI\UI.h"
+#include "../UI/UI.h"
 void CWorldClient::RegisterAction( int nAction, DWORD flags, USER_ACTION pfnUserAction )
 {
 	NI_ASSERT_SLOW_T( (flags != 0) && (pfnUserAction), NStr::Format("Can't register action %d with NULL functions and/or flags", nAction) );

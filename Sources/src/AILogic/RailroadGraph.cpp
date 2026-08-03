@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
 #include "RailroadGraph.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMap.h"
 CRailroadGraph theRailRoadGraph;
 BASIC_REGISTER_CLASS( IEdge );
 BASIC_REGISTER_CLASS( CEdgePoint );

@@ -2,7 +2,7 @@
 #include "StdAfx.h"
 #include "PlanePathTest.h"
 #include "PlanePathTestDlg.h"
-#include "..\Misc\HPTimer.h"
+#include "../Misc/HPTimer.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

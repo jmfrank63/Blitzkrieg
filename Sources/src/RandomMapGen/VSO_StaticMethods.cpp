@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\Misc\Spline.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Misc/Spline.h"
+#include "../Formats/fmtTerrain.h"
 #include "VSO_Types.h"
 
 #ifdef _DEBUG

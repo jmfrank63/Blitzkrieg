@@ -2,7 +2,7 @@
 
 #include "VectorObject.h"
 
-#include "..\Misc\Checker.h"
+#include "../Misc/Checker.h"
 void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBasePoints )
 {
 	std::vector<const SPatch*> selPatches;

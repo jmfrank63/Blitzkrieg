@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\Main\GameStats.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/GameStats.h"
+#include "../Main/ScenarioTracker.h"
 #include "CommonId.h"
 #include "CustomChapter.h"
 

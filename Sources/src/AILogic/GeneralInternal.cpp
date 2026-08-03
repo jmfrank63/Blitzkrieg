@@ -25,8 +25,8 @@
 #include "TimeCounter.h"
 #include "UnitCreation.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Formats\fmtMap.h"
+#include "../Scene/Scene.h"
+#include "../Formats/fmtMap.h"
 extern CTimeCounter timeCounter;
 extern CAILogic *pAILogic;
 extern NTimer::STime curTime;

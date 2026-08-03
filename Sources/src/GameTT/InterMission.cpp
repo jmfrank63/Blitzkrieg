@@ -5,8 +5,8 @@
 #include "WorldClient.h"
 #include "CommonID.h"
 #include "MultiplayerCommandManager.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/ScenarioTracker.h"
+#include "../UI/UIMessages.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_tutorial"	,	TUTORIAL_WINDOW_ID	},

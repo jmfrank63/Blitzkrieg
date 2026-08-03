@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Anim\Animation.h"
+#include "../Scene/Scene.h"
+#include "../Anim/Animation.h"
 
 #include "editor.h"
 #include "TreeDockWnd.h"

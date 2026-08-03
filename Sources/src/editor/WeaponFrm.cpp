@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 #include <io.h>
-#include "..\Common\LegacyUiCompat.h"
+#include "../Common/LegacyUiCompat.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
 
 #include "editor.h"
 #include "PropView.h"

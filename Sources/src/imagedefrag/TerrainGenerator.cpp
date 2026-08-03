@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "TerrainGenerator.h"
 #include "PNoise.h"
-#include "..\StreamIO\RandomGen.h"
+#include "../StreamIO/RandomGen.h"
 
 const SfBmValues CHField::fBmDefVals[TG_MAX_ALG] =
 {

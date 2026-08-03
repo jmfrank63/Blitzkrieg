@@ -1,11 +1,11 @@
 #include "StdAfx.h"
 #include <io.h>
-#include "..\Common\LegacyUiCompat.h"
+#include "../Common/LegacyUiCompat.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Scene\PFX.h"
-#include "..\Formats\fmtEffect.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Scene/PFX.h"
+#include "../Formats/fmtEffect.h"
 
 #include "editor.h"
 #include "PropView.h"

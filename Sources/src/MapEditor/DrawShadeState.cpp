@@ -6,16 +6,16 @@
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "..\GFX\GFX.h"
-#include "..\Scene\Terrain.h"
-#include "..\Image\Image.h"
-#include "..\Scene\Scene.h"
-#include "..\Formats\FmtMap.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Terrain.h"
+#include "../Image/Image.h"
+#include "../Scene/Scene.h"
+#include "../Formats/FmtMap.h"
 #include "IUndoRedoCmd.h"
 #include "PropertieDialog.h"
 #include "resource.h"
 
-#include "..\RandomMapGen\VSO_Types.h"
+#include "../RandomMapGen/VSO_Types.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE

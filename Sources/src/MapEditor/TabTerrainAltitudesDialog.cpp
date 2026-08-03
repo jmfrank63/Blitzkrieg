@@ -1,13 +1,13 @@
 #include "StdAfx.h"
 #include "editor.h"
 #include "frames.h"
-#include "..\GFX\GFX.h"
-#include "..\Image\Image.h"
-#include "..\Scene\Terrain.h"
+#include "../GFX/GFX.h"
+#include "../Image/Image.h"
+#include "../Scene/Terrain.h"
 #include "TabTerrainAltitudesDialog.h"
 #include "TemplateEditorFrame1.h"
-#include "..\RandomMapGen\RMG_Types.h"
-#include "..\RandomMapGen\PNoise.h"
+#include "../RandomMapGen/RMG_Types.h"
+#include "../RandomMapGen/PNoise.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

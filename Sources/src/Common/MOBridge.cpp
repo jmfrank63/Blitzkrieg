@@ -2,10 +2,10 @@
 
 #include "MOBridge.h"
 
-#include "..\GameTT\iMission.h"
+#include "../GameTT/iMission.h"
 #include "Actions.h"
 #include "PlayEffect.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 inline int GetBridgeDamageState( float fHP )
 {
 	if ( fHP > 0.5f )

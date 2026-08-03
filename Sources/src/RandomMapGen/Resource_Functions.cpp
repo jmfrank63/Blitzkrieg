@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "IB_Types.h"
 #include "Resource_Types.h"
-#include "..\Platform\System.h"
+#include "../Platform/System.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

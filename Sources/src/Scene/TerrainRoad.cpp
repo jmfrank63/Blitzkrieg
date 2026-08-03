@@ -2,7 +2,7 @@
 
 #include "TerrainRoad.h"
 #include "TerrainInternal.h"
-#include "..\GFX\GFXHelper.h"
+#include "../GFX/GFXHelper.h"
 int STerrainRoad::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

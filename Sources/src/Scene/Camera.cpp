@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
-#include "..\Input\Input.h"
+#include "../Input/Input.h"
 #include "Camera.h"
-#include "..\Common\PauseGame.h"
+#include "../Common/PauseGame.h"
 CCamera::CCamera() 
 {
 	vAnchor = VNULL3;

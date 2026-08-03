@@ -7,11 +7,11 @@
 #include "CommonId.h"
 #include "MinimapCreation.h"
 #include "UIConsts.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\UI\UIMessages.h"
-#include "..\StreamIO\ProgressHook.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../UI/UIMessages.h"
+#include "../StreamIO/ProgressHook.h"
+#include "../Main/ScenarioTracker.h"
 static const int ADD_SELECTED_CONST = 100;
 enum ECommands
 {

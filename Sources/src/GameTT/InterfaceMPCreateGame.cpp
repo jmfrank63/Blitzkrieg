@@ -2,7 +2,7 @@
 
 #include "InterfaceMPCreateGame.h"
 
-#include "..\UI\UIMessages.h"
+#include "../UI/UIMessages.h"
 #include "CommonId.h"
 #include "WorldClient.h"
 #include "UIConsts.h"

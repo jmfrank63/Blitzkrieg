@@ -2,8 +2,8 @@
 #include <mmsystem.h>
 
 #include "RandomGenInternal.h"
-#include "..\Misc\FileUtils.h"
-#include "..\StreamIO\StreamIOHelper.h"
+#include "../Misc/FileUtils.h"
+#include "../StreamIO/StreamIOHelper.h"
 CStreamAccessor& operator>>( CStreamAccessor &stream, SRandData &rnd )
 {
 	stream >> rnd.randcnt;

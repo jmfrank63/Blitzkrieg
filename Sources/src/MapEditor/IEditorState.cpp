@@ -3,8 +3,8 @@
 #include "editor.h"
 #include "IEditorState.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Terrain\Terrain.h"
+#include "../Scene/Scene.h"
+#include "../Terrain/Terrain.h"
 
 #include "frames.h"
 #include "GameWnd.h"

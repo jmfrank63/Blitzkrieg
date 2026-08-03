@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "SpellChecker.h"
-#include "..\RandomMapGen\Registry_Types.h"
+#include "../RandomMapGen/Registry_Types.h"
 
 const CSpellEngine::SLidInfo CSpellEngine::LID_NUM[]=
 {

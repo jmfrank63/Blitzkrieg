@@ -1,14 +1,14 @@
 #include "StdAfx.h"
-#include "..\Main\TextSystem.h"
+#include "../Main/TextSystem.h"
 #include "UIBasic.h"
 #include "UIBasicM.h"
 #include "UIMessages.h"
-#include "..\Scene\Scene.h"
-#include "..\Input\Input.h"
-#include "..\GameTT\CommonID.h"
-#include "..\GameTT\MessageReaction.h"
-#include "..\Common\PauseGame.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Scene/Scene.h"
+#include "../Input/Input.h"
+#include "../GameTT/CommonID.h"
+#include "../GameTT/MessageReaction.h"
+#include "../Common/PauseGame.h"
+#include "../Main/ScenarioTracker.h"
 CMultipleWindow::CMessageList CMultipleWindow::staticMessageList;
 CMultipleWindow::CLuaValues CMultipleWindow::staticLuaValues;
 

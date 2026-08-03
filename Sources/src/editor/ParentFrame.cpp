@@ -1,13 +1,13 @@
 #include "StdAfx.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Anim\Animation.h"
-#include "..\image\image.h"
-#include "..\Main\RPGStats.h"
-#include "..\Formats\fmtUnitCreation.h"
-#include "..\AILogic\UnitCreation.h"
-#include "..\RandomMapGen\MapInfo_types.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Anim/Animation.h"
+#include "../image/image.h"
+#include "../Main/RPGStats.h"
+#include "../Formats/fmtUnitCreation.h"
+#include "../AILogic/UnitCreation.h"
+#include "../RandomMapGen/MapInfo_types.h"
 
 #include "frames.h"
 #include "editor.h"
@@ -28,7 +28,7 @@
 
 #include <direct.h>
 
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 
 static const int TRANSACTION_LIMIT = 100;

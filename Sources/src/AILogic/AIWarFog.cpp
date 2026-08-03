@@ -10,8 +10,8 @@
 #include "AIUnit.h"
 #include "Graveyard.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Scene\Terrain.h"
+#include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
 extern CStaticMap theStaticMap;
 extern CDiplomacy theDipl;
 extern SCheats theCheats;

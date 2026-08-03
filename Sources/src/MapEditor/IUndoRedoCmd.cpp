@@ -2,8 +2,8 @@
 #include "StdAfx.h"
 #include "editor.h"
 #include "IUndoRedoCmd.h"
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
 #include "MapEditorBarWnd.h"
 #include "TemplateEditorFrame1.h"
 

@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 #include <io.h>
 
-#include "..\image\image.h"
-#include "..\main\rpgstats.h"
+#include "../image/image.h"
+#include "../main/rpgstats.h"
 #include "editor.h"
 #include "frames.h"
 #include "BuildFrm.h"

@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Main\GameStats.h"
+#include "../Main/GameStats.h"
 #include "CommonId.h"
 #include "CustomList.h"
 CInterfaceCustomList::~CInterfaceCustomList()

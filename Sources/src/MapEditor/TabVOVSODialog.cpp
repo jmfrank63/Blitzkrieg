@@ -3,8 +3,8 @@
 #include "frames.h"
 #include "TemplateEditorFrame1.h"
 #include "TabVOVSODialog.h"
-#include "..\Misc\FileUtils.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../Misc/FileUtils.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 
 #ifdef _DEBUG

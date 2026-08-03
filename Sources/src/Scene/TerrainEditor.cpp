@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 
 #include "TerrainInternal.h"
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 #include "TerrainBuilder.h"
-#include "..\Misc\Spline.h"
+#include "../Misc/Spline.h"
 inline bool GetTileIndexLocal( const CVec3 &point, int *pnX, int *pnY, 
 															 const float fTerraSizeX, const float fTerraSizeY, 
 															 const float fCellSize,

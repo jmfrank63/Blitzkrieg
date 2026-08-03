@@ -14,7 +14,7 @@
 #include "Technics.h"
 #include "TransportStates.h"
 #include "EntrenchmentCreation.h"
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 #include "AIStaticMap.h"
 #include "StaticObjects.h"
 #include "Building.h"

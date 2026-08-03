@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
 #include "UICreditsScroller.h"
-#include "..\Input\Input.h"
-#include "..\GameTT\CommonId.h"
+#include "../Input/Input.h"
+#include "../GameTT/CommonId.h"
 CUICreditsScroller::CUICreditsScroller()
 {
 	bWorking = false;

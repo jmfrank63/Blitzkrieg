@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\gfx\gfxhelper.h"
+#include "../gfx/gfxhelper.h"
 #include "UIObjMap.h"
 void CUIObjMap::Init()
 {

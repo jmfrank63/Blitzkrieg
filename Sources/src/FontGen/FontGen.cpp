@@ -2,10 +2,10 @@
 
 #include "FontGen.h"
 
-#include "..\Image\Image.h"
-#include "..\Image\ImageHelper.h"
-#include "..\Misc\FileUtils.h"
-#include "..\Misc\StrProc.h"
+#include "../Image/Image.h"
+#include "../Image/ImageHelper.h"
+#include "../Misc/FileUtils.h"
+#include "../Misc/StrProc.h"
 
 #include <strstream>
 const int nLeadingPixels = 2;

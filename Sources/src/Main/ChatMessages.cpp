@@ -3,8 +3,8 @@
 #include "ChatMessages.h"
 #include "ScenarioTracker.h"
 
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\GameTT\MuliplayerToUIConsts.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../GameTT/MuliplayerToUIConsts.h"
 CChatMessage::CChatMessage( const char *pszMessage, const char *pszPlayerName, bool _bWhisper ) : bWhisper( _bWhisper )
 {
 	NStr::SetCodePage( GetACP() );

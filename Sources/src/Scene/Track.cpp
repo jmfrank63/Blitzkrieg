@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Scene\Track.h"
+#include "../Scene/Track.h"
 inline const float GetRandomValue( const float fValue, const float fTime, const CTrack &rnd )
 {
 	return fValue * ( 1.0f + GetRandomFromTrack(fTime, rnd) );

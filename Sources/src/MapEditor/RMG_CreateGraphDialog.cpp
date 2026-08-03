@@ -1,10 +1,10 @@
 #include "StdAfx.h"
 
 #include "RMG_CreateGraphDialog.h"
-#include "..\RandomMapGen\LA_Types.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\RandomMapGen\Polygons_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/LA_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/Polygons_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 #include "RMG_GraphNodePropertiesDialog.h"
 #include "RMG_GraphLinkPropertiesDialog.h"

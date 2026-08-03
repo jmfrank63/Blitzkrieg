@@ -2,8 +2,8 @@
 
 #include <time.h>
 
-#include "..\Misc\FileUtils.h"
-#include "..\zlib\zlib.h"
+#include "../Misc/FileUtils.h"
+#include "../zlib/zlib.h"
 namespace NMain
 {
 static const int s_nKey2Length = 20;

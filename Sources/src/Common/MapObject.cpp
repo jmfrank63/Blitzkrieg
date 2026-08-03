@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 
 #include "MapObject.h"
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
-#include "..\Main\TextSystem.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
+#include "../Main/TextSystem.h"
 void SMapObject::SetDiplomacy( const EDiplomacyInfo eDiplomacy )
 {
 	NI_ASSERT_T( (eDiplomacy == EDI_NEUTRAL) || (eDiplomacy == EDI_FRIEND) || (eDiplomacy == EDI_ENEMY), NStr::Format("Wrong diplomacy %d", int(eDiplomacy)) );

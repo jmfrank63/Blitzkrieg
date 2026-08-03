@@ -10,13 +10,13 @@
 #include "NetMessages.h"
 #include "CommandsHistoryInterface.h"
 #include "ScenarioTracker.h"
-#include "..\GameTT\iMission.h"
-#include "..\StreamIO\StreamIOTypes.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Input\Input.h"
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\Common\PauseGame.h"
-#include "..\Main\TextSystem.h"
+#include "../GameTT/iMission.h"
+#include "../StreamIO/StreamIOTypes.h"
+#include "../AILogic/AILogic.h"
+#include "../Input/Input.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../Common/PauseGame.h"
+#include "../Main/TextSystem.h"
 const int CMultiPlayerTransceiver::MAX_LATENCY = 128;
 const NTimer::STime CMultiPlayerTransceiver::TIME_TO_START_LAG_BY_NO_SEGMENT_DATA = 3000;
 int CMultiPlayerTransceiver::operator&( IStructureSaver &ss )

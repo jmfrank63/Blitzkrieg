@@ -2,12 +2,12 @@
 
 #include "Campaign.h"
 
-#include "..\Main\gamestats.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/gamestats.h"
+#include "../Main/ScenarioTracker.h"
 #include "MainMenu.h"
 #include "CommonId.h"
 #include "UIConsts.h"
-#include "..\StreamIO\OptionSystem.h"
+#include "../StreamIO/OptionSystem.h"
 enum ENewCommands
 {
 	IMC_NEXT_CHAPTER							= 10003,

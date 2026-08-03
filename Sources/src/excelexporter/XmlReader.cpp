@@ -2,7 +2,7 @@
 #include "XmlReader.h"
 #include "io.h"
 
-#include "..\StreamIO\StreamAdaptor.h"
+#include "../StreamIO/StreamAdaptor.h"
 
 #include <ocidl.h>
 namespace

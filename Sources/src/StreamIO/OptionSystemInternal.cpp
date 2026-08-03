@@ -3,19 +3,19 @@
 #include "OptionsConvert.h"
 #include "OptionSystemInternal.h"
 
-#include "..\Main\TextSystem.h"
+#include "../Main/TextSystem.h"
 
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\SFX\SFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Scene\PFX.h"
-#include "..\GameTT\UIOptions.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
+#include "../SFX/SFX.h"
+#include "../Scene/Scene.h"
+#include "../Scene/PFX.h"
+#include "../GameTT/UIOptions.h"
 
-#include "..\AILogic\AILogic.h"
-#include "..\Input\Input.h"
-#include "..\Input\InputTypes.h"
-#include "..\Main\iMainCommands.h"
+#include "../AILogic/AILogic.h"
+#include "../Input/Input.h"
+#include "../Input/InputTypes.h"
+#include "../Main/iMainCommands.h"
 COptionSystem::COptionSystem()
 {
 	ChangeSerialize( "*", true );

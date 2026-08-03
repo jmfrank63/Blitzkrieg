@@ -2,8 +2,8 @@
 
 #include "ServersListMessages.h"
 
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\GameTT\MuliplayerToUIConsts.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../GameTT/MuliplayerToUIConsts.h"
 void CServerInfoRefreshed::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();

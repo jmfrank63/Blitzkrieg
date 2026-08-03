@@ -3,7 +3,7 @@
 #include "InputViewDialog.h"
 #include "Messages.h"
 #include "ELK_Types.h"
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

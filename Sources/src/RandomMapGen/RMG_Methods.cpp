@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "RMG_Types.h"
-#include "..\Formats\FmtTerrain.h"
+#include "../Formats/FmtTerrain.h"
 #include "Polygons_Types.h"
 #include "Resource_Types.h"
 

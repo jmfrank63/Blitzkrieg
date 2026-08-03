@@ -1,8 +1,8 @@
 #include "StdAfx.h"
-#include "..\..\Common\LegacyUiCompat.h"
+#include "../../Common/LegacyUiCompat.h"
 
 #include "OIBrowEdit.h"
-#include "..\MyOpenFileDialog.h"
+#include "../MyOpenFileDialog.h"
 
 
 BEGIN_MESSAGE_MAP(COIBrowseButton, CButton)

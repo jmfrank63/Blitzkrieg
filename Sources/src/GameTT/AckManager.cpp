@@ -1,10 +1,10 @@
 #include "StdAfx.h"
 
 #include "AckManager.h"
-#include "..\Common\Actions.h"
-#include "..\Scene\Scene.h"
-#include "..\Common\MapObject.h"
-#include "..\Main\TextSystem.h"
+#include "../Common/Actions.h"
+#include "../Scene/Scene.h"
+#include "../Common/MapObject.h"
+#include "../Main/TextSystem.h"
 #include "MultiplayerCommandManager.h"
 
 BASIC_REGISTER_CLASS(CClientAckManager);

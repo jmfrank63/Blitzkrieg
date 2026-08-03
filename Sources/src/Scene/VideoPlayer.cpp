@@ -3,7 +3,7 @@
 #include "VideoPlayer.h"
 #include "OpenVideoPlayer.h"
 
-#include "..\SFX\SFX.h"
+#include "../SFX/SFX.h"
 
 namespace
 {

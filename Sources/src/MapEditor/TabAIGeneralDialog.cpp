@@ -3,7 +3,7 @@
 #include "frames.h"
 #include "TemplateEditorFrame1.h"
 #include "TabAIGeneralDialog.h"
-#include "..\Misc\FileUtils.h"
+#include "../Misc/FileUtils.h"
 #include "TabAIGeneralEnterScriptIDDialog.h"
 #include "TabAIGeneralSetPositionTypeDialog.h"
 

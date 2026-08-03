@@ -1,17 +1,17 @@
 #include "StdAfx.h"
 
-#include "..\Main\GameStats.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/GameStats.h"
+#include "../Main/ScenarioTracker.h"
 #include "MainMenu.h"
 #include "UIState.h"
 #include "CommonId.h"
 #include "Campaign.h"
 #include "MultiplayerCommandManager.h"
-#include "..\AILogic\AILogic.h"
-#include "..\StreamIO\OptionSystem.h"
+#include "../AILogic/AILogic.h"
+#include "../StreamIO/OptionSystem.h"
 #include "CutScenesHelper.h"
 #include "UIConsts.h"
-#include "..\Misc\FileUtils.h"
+#include "../Misc/FileUtils.h"
 void IUIState::Show()
 {
 	GetSingleton<IScene>()->SetToolTip( 0, CVec2(0, 0), CTRect<float>(0, 0, 0, 0) );

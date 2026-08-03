@@ -2,7 +2,7 @@
 #include "editor.h"
 #include "StateAIGeneral.h"
 
-#include "..\AILogic\aiconsts.h"
+#include "../AILogic/aiconsts.h"
 
 #include "MapEditorBarWnd.h"
 #include "TemplateEditorFrame1.h"

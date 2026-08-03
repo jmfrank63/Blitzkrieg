@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "Passangers.h"
-#include "..\Common\Icons.h"
+#include "../Common/Icons.h"
 void AddPassanger( CPassangersList &passangers, IMOContainer *pContainer, IMOUnit *pUnit, IObjVisObj *pVisObj,
 									 const CVec3 &vAdd, const CVec3 &vStep, DWORD dwAlignment )
 {

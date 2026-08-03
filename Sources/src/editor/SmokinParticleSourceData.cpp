@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\Scene\SmokinParticleSourceData.h"
-#include "..\Scene\PFX.h"
+#include "../Scene/SmokinParticleSourceData.h"
+#include "../Scene/PFX.h"
 bool SSmokinParticleSourceData::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();

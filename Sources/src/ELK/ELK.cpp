@@ -4,9 +4,9 @@
 
 #include "MainFrm.h"
 #include "AboutDialog.h"
-#include "..\Misc\FileUtils.h"
-#include "..\RandomMapGen\Registry_Types.h"
-#include "..\Image\Image.h"
+#include "../Misc/FileUtils.h"
+#include "../RandomMapGen/Registry_Types.h"
+#include "../Image/Image.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

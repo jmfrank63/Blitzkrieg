@@ -5,10 +5,10 @@
 
 #include "MOObject.h"
 
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
-#include "..\GameTT\iMission.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
+#include "../GameTT/iMission.h"
+#include "../Formats/fmtTerrain.h"
 #include "Season.h"
 bool CMOEntrenchmentSegment::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int nSeason, int nFrameIndex, 
 																	   float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )

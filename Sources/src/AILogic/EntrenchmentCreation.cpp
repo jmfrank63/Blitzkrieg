@@ -17,8 +17,8 @@
 #include "Trigonometry.h"
 #include "StaticObjectsIters.h"
 
-#include "..\Formats\fmtTerrain.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMap.h"
 
 #include "MPLog.h"
 BASIC_REGISTER_CLASS(CEntrenchmentCreation);

@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
 #include "OpenVideoPlayer.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\SFX\SFX.h"
+#include "../GFX/GFXHelper.h"
+#include "../SFX/SFX.h"
 
 #include <ogg/ogg.h>
 #include <theora/theoradec.h>

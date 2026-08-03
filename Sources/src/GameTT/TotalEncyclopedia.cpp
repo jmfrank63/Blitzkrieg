@@ -2,14 +2,14 @@
 
 #include "TotalEncyclopedia.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/ScenarioTracker.h"
+#include "../UI/UIMessages.h"
 #include "CommonId.h"
 #include "UnitTypes.h"
 #include "etypes.h"
 #include "SaveLoadCommon.h"
-#include "..\StreamIO\ProgressHook.h"
-#include "..\Misc\Checker.h"
+#include "../StreamIO/ProgressHook.h"
+#include "../Misc/Checker.h"
 const int GetUnitClassNumberByRPGClass( const EUnitRPGClass eClass )
 {
 	for ( int k = 0; k < nUnitClassesSize; ++k )

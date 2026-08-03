@@ -3,10 +3,10 @@
 #include <float.h>
 
 #include "MapInfo_Types.h"
-#include "..\Formats\FmtMap.h"
-#include "..\Formats\FmtTerrain.h"
-#include "..\zlib\zlib.h"
-#include "..\Misc\CheckSums.h"
+#include "../Formats/FmtMap.h"
+#include "../Formats/FmtTerrain.h"
+#include "../zlib/zlib.h"
+#include "../Misc/CheckSums.h"
 #include "Resource_Types.h"
 std::unordered_set<const IGDBObject*, SDefaultPtrHash> CMapInfo::gdbObjects;
 using namespace NCheckSums;

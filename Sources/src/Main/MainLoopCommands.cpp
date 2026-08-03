@@ -2,15 +2,15 @@
 
 #include "MainLoopCommands.h"
 
-#include "..\Input\Input.h"
-#include "..\SFX\SFX.h"
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\GameTT\iMission.h"
-#include "..\Formats\fmtSaveLoad.h"
-#include "..\StreamIO\RandomGen.h"
-#include "..\StreamIO\StreamIOTypes.h"
-#include "..\StreamIO\StreamAdaptor.h"
-#include "..\StreamIO\ProgressHook.h"
+#include "../Input/Input.h"
+#include "../SFX/SFX.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../GameTT/iMission.h"
+#include "../Formats/fmtSaveLoad.h"
+#include "../StreamIO/RandomGen.h"
+#include "../StreamIO/StreamIOTypes.h"
+#include "../StreamIO/StreamAdaptor.h"
+#include "../StreamIO/ProgressHook.h"
 #include "TextSystem.h"
 #include "CommandsHistoryInterface.h"
 #include "ScenarioTracker.h"
@@ -18,8 +18,8 @@
 #include "iMainCommands.h"
 #include "iMainInternal.h"
 #include "RandomMapHelper.h"
-#include "..\Platform\Clock.h"
-#include "..\Platform\Debug.h"
+#include "../Platform/Clock.h"
+#include "../Platform/Debug.h"
 static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
 	if ( pszBaseDir == 0 || pszMessage == 0 )

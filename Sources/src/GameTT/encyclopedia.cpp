@@ -2,8 +2,8 @@
 
 #include "Encyclopedia.h"
 
-#include "..\Main\GameStats.h"
-#include "..\Main\RPGStats.h"
+#include "../Main/GameStats.h"
+#include "../Main/RPGStats.h"
 #include "MultiplayerCommandManager.h"
 #include "etypes.h"
 #include "CommonId.h"

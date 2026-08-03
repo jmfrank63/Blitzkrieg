@@ -4,7 +4,7 @@
 #include "EnterScriptIDDialog.h"
 #include "frames.h"
 #include "TemplateEditorFrame1.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "GetGroupID.h"
 
 #ifdef _DEBUG

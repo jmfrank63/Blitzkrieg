@@ -3,7 +3,7 @@
 #include "WindowMessageHandle.h"
 #include "Window.h"
 #include "IUIInternal.h"
-#include "..\Input\Input.h"
+#include "../Input/Input.h"
 
 IMPLEMENT_HANDLE_MAP(CWindow)
 IMPLEMENT_MESSAGE_HANDLER(CWindow,ShowWindow)

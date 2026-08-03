@@ -23,7 +23,7 @@
 #include "TimeCounter.h"
 #include "AIStaticMap.h"
 #include "MPLog.h"
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 extern CCollisionsCollector theColCollector;
 CGroupLogic theGroupLogic;
 extern CUpdater updater;

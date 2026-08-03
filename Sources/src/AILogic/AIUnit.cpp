@@ -46,9 +46,9 @@
 #include "StaticObjectsIters.h"
 #include "TrainPathUnit.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
-#include "..\Scene\Scene.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
+#include "../Scene/Scene.h"
 extern CSupremeBeing theSupremeBeing;
 extern CStaticObjects theStatObjs;
 extern CCombatEstimator theCombatEstimator;

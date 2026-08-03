@@ -3,8 +3,8 @@
 #include "InterfaceMPMapSettings.h"
 #include "InterfaceStartDialog.h"
 #include "CommonId.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/ScenarioTracker.h"
+#include "../UI/UIMessages.h"
 #include "OptionEntryWrapper.h"
 extern SMultiplayerGameSettings configuration;	
 extern bool bServerconfiguration ;

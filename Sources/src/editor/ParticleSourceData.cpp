@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\Scene\ParticleSourceData.h"
-#include "..\Misc\Win32Helper.h"
+#include "../Scene/ParticleSourceData.h"
+#include "../Misc/Win32Helper.h"
 bool SParticleSourceData::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();

@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\scene\scene.h"
-#include "..\common\world.h"
+#include "../scene/scene.h"
+#include "../common/world.h"
 #include "editor.h"
 #include "frames.h"
 #include "CampaignFrm.h"

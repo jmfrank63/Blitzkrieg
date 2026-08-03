@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "PlayerSkill.h"
-#include "..\StreamIO\RandomGen.h"
-#include "..\Misc\Win32Random.h"
+#include "../StreamIO/RandomGen.h"
+#include "../Misc/Win32Random.h"
 void SPlayerSkill::NormalizeValues( const bool bInitial )
 {
 	if ( bInitial )

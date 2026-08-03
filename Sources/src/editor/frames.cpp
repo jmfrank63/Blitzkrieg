@@ -8,7 +8,7 @@
 #include "ParentFrame.h"
 #include "ETreeCtrl.h"
 #include "TreeItem.h"
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 
 CFrameManager g_frameManager;
 

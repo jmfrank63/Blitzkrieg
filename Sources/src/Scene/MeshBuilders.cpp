@@ -2,7 +2,7 @@
 
 #include "Builders.h"
 
-#include "..\AILogic\AITypes.h"
+#include "../AILogic/AITypes.h"
 #include "TerrainInternal.h"
 const float fHeightCoeff = 0.86602540378444f;// cos( ToRadian(30.0f) );
 #define MAKE_COORD_X1 ( fX + (j - i)*fCellSizeX )

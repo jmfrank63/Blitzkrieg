@@ -2,7 +2,7 @@
 
 #include "ScenarioStatistics.h"
 
-#include "..\Misc\Checker.h"
+#include "../Misc/Checker.h"
 #include "ScenarioTrackerTypes.h"
 CMissionStatistics::CMissionStatistics() 
 : values( STMT_NUM_ELEMENTS ), eStatus( MISSION_FINISH_UNKNOWN )

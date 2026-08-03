@@ -2,7 +2,7 @@
 #include "Streams.h"
 #include <math.h>
 #include "NetAcks.h"
-#include "..\Platform\Clock.h"
+#include "../Platform/Clock.h"
 #ifdef LOG
 #include <iostream>
 #endif

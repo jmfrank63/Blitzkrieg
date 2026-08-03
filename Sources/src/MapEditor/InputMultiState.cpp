@@ -3,8 +3,8 @@
 #include "editor.h"
 #include "InputMultiState.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Scene\Terrain.h"
+#include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
 
 #include "frames.h"
 #include "GameWnd.h"

@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 
-#include "..\Misc\FileUtils.h"
-#include "..\Platform\Debug.h"
-#include "..\Platform\DynamicLibrary.h"
-#include "..\Platform\Paths.h"
+#include "../Misc/FileUtils.h"
+#include "../Platform/Debug.h"
+#include "../Platform/DynamicLibrary.h"
+#include "../Platform/Paths.h"
 
 namespace NMain
 {

@@ -1,14 +1,14 @@
 #include "StdAfx.h"
 
 #include "InterfaceOptionsSettings.h"
-#include "..\StreamIO\OptionSystem.h"
+#include "../StreamIO/OptionSystem.h"
 #include "CommonID.h"
 #include "OptionEntryWrapper.h"
 #include "MainMenu.h"
-#include "..\Main\iMainCommands.h"
+#include "../Main/iMainCommands.h"
 #include <mmsystem.h>
-#include "..\Common\actions.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Common/actions.h"
+#include "../Main/ScenarioTracker.h"
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {
 	{ "cancel_load"	,	IMC_CANCEL					},

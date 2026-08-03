@@ -2,7 +2,7 @@
 #include "resource.h"
 
 #include "ELK_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 #include "CreateFilterDialog.h"
 
 #ifdef _DEBUG

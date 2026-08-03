@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\\Platform\\DynamicLibrary.h"
-#include "..\\StreamIO\\StreamIOTypes.h"
+#include "..//Platform//DynamicLibrary.h"
+#include "..//StreamIO//StreamIOTypes.h"
 
 typedef ISaveLoadSystem * (STDCALL *GETSLS_HOOK)();
 typedef ISingleton * (STDCALL *GETSINGLETONGLOBAL_HOOK)();

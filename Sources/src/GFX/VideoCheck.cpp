@@ -6,7 +6,7 @@
 #include <dinput.h>
 #include <d3d9.h>
 
-#include "..\Misc\Win32Helper.h"
+#include "../Misc/Win32Helper.h"
 
 typedef HRESULT(WINAPI * DIRECTDRAWCREATE)( GUID*, LPDIRECTDRAW*, IUnknown* );
 typedef HRESULT(WINAPI * DIRECTDRAWCREATEEX)( GUID*, VOID**, REFIID, IUnknown* );

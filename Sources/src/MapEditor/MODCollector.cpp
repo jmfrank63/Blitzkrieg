@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "MODCollector.h"
-#include "..\Misc\FileUtils.h"
+#include "../Misc/FileUtils.h"
 void CMODCollector::Collect()
 {
 	if ( availableMODs.empty() )

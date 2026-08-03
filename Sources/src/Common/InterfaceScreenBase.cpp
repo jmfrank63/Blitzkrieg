@@ -3,11 +3,11 @@
 #include <mmsystem.h>
 
 #include "InterfaceScreenBase.h"
-#include "..\Main\iMainCommands.h"
-#include "..\AILogic\AILogic.h"
-#include "..\GameTT\CommonID.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\GameTT\IMission.h"
+#include "../Main/iMainCommands.h"
+#include "../AILogic/AILogic.h"
+#include "../GameTT/CommonID.h"
+#include "../Main/ScenarioTracker.h"
+#include "../GameTT/IMission.h"
 BASIC_REGISTER_CLASS( CInterfaceScreenBase );
 CInterfaceScreenBase::CInterfaceScreenBase( const std::string &_szInterfaceType )
 : szInterfaceType( _szInterfaceType ), bInterfaceClosed( false )

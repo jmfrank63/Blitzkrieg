@@ -1,7 +1,7 @@
 
 #include "StdAfx.h"
 #include "editor.h"
-#include "..\Common\LegacyUiCompat.h"
+#include "../Common/LegacyUiCompat.h"
 #include "MODDialog.h"
 #include "NewDirDialog.h"
 

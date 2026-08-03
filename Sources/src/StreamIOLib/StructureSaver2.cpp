@@ -5,8 +5,8 @@
 #include <typeinfo>
 
 #ifndef _FINALRELEASE
-#include "..\AILogic\AIClassesID.h"
-#include "..\AILogic\AILogic.h"
+#include "../AILogic/AIClassesID.h"
+#include "../AILogic/AILogic.h"
 #endif // _FINALRELEASE
 CStructureSaver2::CStructureSaver2( IDataStream *pStream, IStructureSaver::EAccessMode eAccessMode, 
 																	  IProgressHook *pLoadHook, IObjectFactory *_pFactory, IGDB *_pGDB )

@@ -3,7 +3,7 @@
 #include "WindowConsole.h"
 #include "IUIInternal.h"
 #include "UIScreen.h"
-#include "..\GFX\GFX.h"
+#include "../GFX/GFX.h"
 #include "WindowEditLine.h"
 #include "MessageReaction.h"
 

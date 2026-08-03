@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "OIReference.h"
-#include "..\RefDlg.h"
-#include "..\MultySelDialog.h"
+#include "../RefDlg.h"
+#include "../MultySelDialog.h"
 
 BEGIN_MESSAGE_MAP(COIReferenceButton, CButton)
 END_MESSAGE_MAP()

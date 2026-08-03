@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "MOSquad.h"
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 CMOSquad::CMOSquad()
 {
 }

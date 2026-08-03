@@ -4,7 +4,7 @@
 
 #include "Window.h"
 #include "UISCreen.h"
-#include "..\GFX\GFX.h"
+#include "../GFX/GFX.h"
 int CEffectorMoveTo::operator&( IStructureSaver &ss )
 {
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );

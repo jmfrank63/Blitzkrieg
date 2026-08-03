@@ -2,18 +2,18 @@
 
 #include "MOUnitInfantry.h"
 
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
-#include "..\GameTT\iMission.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
+#include "../GameTT/iMission.h"
+#include "../AILogic/AILogic.h"
+#include "../Formats/fmtTerrain.h"
 #include "MOProjectile.h"
 #include "PlayEffect.h"
-#include "..\StreamIO\OptionSystem.h"
-#include "..\Input\Input.h"
-#include "..\Misc\Win32Random.h"
+#include "../StreamIO/OptionSystem.h"
+#include "../Input/Input.h"
+#include "../Misc/Win32Random.h"
 #include "ObjectStatus.h"
-#include "..\Misc\Checker.h"
+#include "../Misc/Checker.h"
 inline const int GetHPIconState( const float fHP )
 {
 	if ( fHP <= 0.7f ) 

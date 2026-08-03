@@ -1,6 +1,6 @@
 #include "StdAfx.h"
-#include "..\AILogic\\AILogic.h"
-#include "..\AILogic\\UnitCreation.h"
+#include "../AILogic//AILogic.h"
+#include "../AILogic//UnitCreation.h"
 #include "UnitSide.h"
 
 void FillVectorOfSides( std::vector<std::string> &sides )

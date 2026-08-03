@@ -1,9 +1,9 @@
 
 #include "StdAfx.h"
 #include "WindowTextView.h"
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Main\TextSystem.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Main/TextSystem.h"
 IMPLEMENT_CLONABLE(CWindowTextView)
 int CWindowTextView::operator&( IDataTree &ss )
 {

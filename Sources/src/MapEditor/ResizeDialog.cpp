@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
 #include "ResizeDialog.h"
-#include "..\RandomMapGen\Registry_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Registry_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

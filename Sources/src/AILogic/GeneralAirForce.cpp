@@ -17,7 +17,7 @@
 #include "AIWarFog.h"
 #include "GeneralConsts.h"
 
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtMap.h"
 extern CGlobalWarFog theWarFog;
 extern CStaticMap theStaticMap;
 extern CDiplomacy theDipl;

@@ -3,8 +3,8 @@
 #include "InterfaceStartDialog.h"
 #include "CommonId.h"
 #include "MultiplayerCommandManager.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/ScenarioTracker.h"
+#include "../UI/UIMessages.h"
 #include "OptionEntryWrapper.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {

@@ -2,12 +2,12 @@
 
 #include "AddUnitToMission.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
-#include "..\Common\ObjectStatus.h"
-#include "..\Main\gamestats.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\UI\UIMessages.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
+#include "../Common/ObjectStatus.h"
+#include "../Main/gamestats.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../UI/UIMessages.h"
 #include "CommonId.h"
 #include "MultiplayerCommandManager.h"
 #include "UnitTypes.h"

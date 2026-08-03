@@ -5,7 +5,7 @@
 #include "RefDlg.h"
 #include "CtrlObjectInspector.h"
 #include "ParentFrame.h"
-#include "..\Misc\fileutils.h"
+#include "../Misc/fileutils.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

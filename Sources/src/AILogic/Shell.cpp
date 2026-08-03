@@ -19,8 +19,8 @@
 #include "MPLog.h"
 #include "StaticObjectsIters.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Misc\CheckSums.h"
+#include "../Scene/Scene.h"
+#include "../Misc/CheckSums.h"
 extern CCombatEstimator theCombatEstimator;
 extern CStaticMap theStaticMap;
 extern CUpdater updater;

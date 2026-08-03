@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "MeshGpu.h"
-#include "..\\GFX\\GFXHelper.h"
+#include "..//GFX//GFXHelper.h"
 
 MeshGpu::MeshGpu() : owner_( nullptr ) {}
 MeshGpu::MeshGpu( GraphicsEngineGpu *owner ) : owner_( owner ) {}

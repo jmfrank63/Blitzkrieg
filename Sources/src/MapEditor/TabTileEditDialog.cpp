@@ -4,13 +4,13 @@
 #include "TemplateEditorFrame1.h"
 #include "TabTileEditDialog.h"
 
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 
 #include "frames.h"
 #include "TemplateEditorFrame1.h"
 
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\RandomMapGen\IB_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/IB_Types.h"
 #include "RMG_FieldTilePropertiesDialog.h"
 
 #ifdef _DEBUG

@@ -4,9 +4,9 @@
 
 #include "CommonId.h"
 #include "MultiplayerCommandManager.h"
-#include "..\Main\CommandsHistoryInterface.h"
-#include "..\UI\UIMessages.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/CommandsHistoryInterface.h"
+#include "../UI/UIMessages.h"
+#include "../Main/ScenarioTracker.h"
 enum EControls
 {
 	E_REPLAY_EDIT_BOX											= 2000,

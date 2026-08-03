@@ -22,8 +22,8 @@
 #include "DifficultyLevel.h"
 #include "TankStates.h"
 
-#include "..\Common\AdditionalActions.h"
-#include "..\Scene\Scene.h"
+#include "../Common/AdditionalActions.h"
+#include "../Scene/Scene.h"
 
 #include "TimeCounter.h"
 extern CSupremeBeing theSupremeBeing;

@@ -6,11 +6,11 @@
 
 #include "MeshVisObj.h"
 #include "FrameSelection.h"
-#include "..\GFX\GFXHelper.h"
+#include "../GFX/GFXHelper.h"
 #include "DrawVisitor.h"
 #include "FastSinCos.h"
-#include "..\Formats\fmtMap.h"
-#include "..\Misc\Win32Random.h"
+#include "../Formats/fmtMap.h"
+#include "../Misc/Win32Random.h"
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
 #define MESH_SHADOW_DENSITY 0.5f

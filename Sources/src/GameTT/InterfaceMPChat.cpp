@@ -3,7 +3,7 @@
 #include "InterfaceMPChat.h"
 #include "WorldClient.h"
 #include "MuliplayerToUIConsts.h"
-#include "..\UI\UIMessages.h"
+#include "../UI/UIMessages.h"
 #include "CommonId.h"
 
 static const NInput::SRegisterCommandEntry commands[] = 

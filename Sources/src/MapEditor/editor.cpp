@@ -10,8 +10,8 @@
 #include "frames.h"
 #include "TemplateEditorFrame1.h"
 
-#include "..\Main\iMain.h"
-#include "..\RandomMapGen\Registry_Types.h"
+#include "../Main/iMain.h"
+#include "../RandomMapGen/Registry_Types.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

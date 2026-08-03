@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 #include <io.h>
 
-#include "..\GFX\gfx.h"
-#include "..\Image\image.h"
+#include "../GFX/gfx.h"
+#include "../Image/image.h"
 
 #include "editor.h"
 #include "frames.h"

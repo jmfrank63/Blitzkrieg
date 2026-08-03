@@ -3,10 +3,10 @@
 #include "GameDB.h"
 #include <float.h>
 
-#include "..\Formats\fmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "RPGStats.h"
 #include "GameStats.h"
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 struct SAIPrice
 {
 	int nType;														// RPG Type

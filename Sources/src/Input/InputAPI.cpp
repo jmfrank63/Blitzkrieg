@@ -2,12 +2,12 @@
 
 #include "InputAPI.h"
 #include "InputCodes.h"
-#include "..\Platform\Event.h"
+#include "../Platform/Event.h"
 #include <dinput.h>
 
 #include <mmsystem.h>
-#include "..\UI\UIMessages.h"
-#include "..\Scene\Scene.h"
+#include "../UI/UIMessages.h"
+#include "../Scene/Scene.h"
 extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
 #define SAMPLE_BUFFER_SIZE 128
 DWORD TIME_DIFF_DBL_CLK = 500;

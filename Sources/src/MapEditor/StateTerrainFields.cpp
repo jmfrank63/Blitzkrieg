@@ -7,14 +7,14 @@
 #include "MapEditorBarWnd.h"
 #include "TemplateEditorFrame1.h"
 #include "PropertieDialog.h"
-#include "..\image\image.h"
+#include "../image/image.h"
 
 #include "TabTerrainFieldsDialog.h"
 #include "TabTerrainFieldsDialog.h"
 
-#include "..\RandomMapGen\Polygons_Types.h"
-#include "..\RandomMapGen\VSO_Types.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../RandomMapGen/Polygons_Types.h"
+#include "../RandomMapGen/VSO_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE

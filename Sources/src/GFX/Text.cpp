@@ -2,7 +2,7 @@
 
 #include "Text.h"
 
-#include "..\Formats\fmtFont.h"
+#include "../Formats/fmtFont.h"
 #include "GFXTextVisitors.h"
 CGFXText::CGFXText()
 : bPreFormatted( false ), fWidth( 0 ), fScale( 1.0f ), bRedLine( true ), fRedLineSize( 0 )

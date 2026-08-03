@@ -2,9 +2,9 @@
 #include "StdAfx.h"
 #include "WindowEditLine.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Main\TextSystem.h"
-#include "..\Scene\Scene.h"
+#include "../GFX/GFX.h"
+#include "../Main/TextSystem.h"
+#include "../Scene/Scene.h"
 #include "IUIInternal.h"
 #include "UIScreen.h"
 

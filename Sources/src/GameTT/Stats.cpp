@@ -7,12 +7,12 @@
 #include "Campaign.h"
 #include "MainMenu.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
-#include "..\Main\GameStats.h"
-#include "..\Main\Transceiver.h"
-#include "..\Main\RPGStats.h"
-#include "..\UI\UIListSorter.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
+#include "../Main/GameStats.h"
+#include "../Main/Transceiver.h"
+#include "../Main/RPGStats.h"
+#include "../UI/UIListSorter.h"
 #include "MultiplayerCommandManager.h"
 enum E_InterfaceConsts
 {

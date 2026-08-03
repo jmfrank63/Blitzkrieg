@@ -2,9 +2,9 @@
 
 #include "QuitMission.h"
 
-#include "..\Main\gamestats.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\Transceiver.h"
+#include "../Main/gamestats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/Transceiver.h"
 enum EInterMissionCommand
 {
 	MC_RESTART_MISSION	= 10001,

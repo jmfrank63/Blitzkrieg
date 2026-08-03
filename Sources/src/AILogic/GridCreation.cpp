@@ -5,7 +5,7 @@
 #include "AIUnit.h"
 #include "GroupLogic.h"
 
-#include "..\Misc\Checker.h"
+#include "../Misc/Checker.h"
 extern CGroupLogic theGroupLogic;
 const float STANDART_HEIGHT = 250.0f;
 CSortedGridUnits* CSortedGridUnits::SUnitsCompare::pSortedUnits = 0;

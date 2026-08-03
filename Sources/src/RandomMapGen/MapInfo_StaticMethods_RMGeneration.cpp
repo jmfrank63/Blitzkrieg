@@ -9,11 +9,11 @@
 #include "VSO_Types.h"
 #include "Resource_Types.h"
 
-#include "..\Formats\fmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "TerrainBuilder.h"
-#include "..\Main\GameStats.h"
-#include "..\AILogic\aiconsts.h"
-#include "..\StreamIO\ProgressHook.h"
+#include "../Main/GameStats.h"
+#include "../AILogic/aiconsts.h"
+#include "../StreamIO/ProgressHook.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

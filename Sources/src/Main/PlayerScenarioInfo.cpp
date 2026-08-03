@@ -2,7 +2,7 @@
 
 #include "PlayerScenarioInfo.h"
 
-#include "..\Misc\Checker.h"
+#include "../Misc/Checker.h"
 #include "RPGStats.h"
 #include "TextSystem.h"
 #include "ScenarioTrackerTypes.h"

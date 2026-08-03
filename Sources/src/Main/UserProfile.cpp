@@ -2,10 +2,10 @@
 
 #include "UserProfile.h"
 
-#include "..\Input\Input.h"
-#include "..\StreamIO\OptionSystem.h"
-#include "..\Misc\Checker.h"
-#include "..\GameTT\MultiplayerCommandManager.h"
+#include "../Input/Input.h"
+#include "../StreamIO/OptionSystem.h"
+#include "../Misc/Checker.h"
+#include "../GameTT/MultiplayerCommandManager.h"
 bool CUserProfile::IsHelpCalled( const int nInterfaceTypeID, const int nHelpNumber ) const
 {
 	CHelpscenes::const_iterator it = helpscreens.find( nInterfaceTypeID );

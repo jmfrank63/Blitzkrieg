@@ -3,7 +3,7 @@
 
 #include "CManuverBuilder.h"
 #include "CManuver.h"
-#include "..\..\PlanePathTest\src\CPlanePreferences.h"
+#include "../../PlanePathTest/src/CPlanePreferences.h"
 #include "IPlane.h"
 
 

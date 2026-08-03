@@ -3,7 +3,7 @@
 #include "GeneralHelper.h"
 #include "GeneralInternalInterfaces.h"
 #include "CommonUnit.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "UnitStates.h"
 #include "Guns.h"
 #include "Formation.h"

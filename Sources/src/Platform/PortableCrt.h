@@ -21,9 +21,7 @@ typedef wchar_t WCHAR;
 typedef WCHAR *LPWSTR;
 typedef const WCHAR *LPCWSTR;
 typedef const char *LPCTSTR;
-typedef unsigned long DWORD;
 typedef unsigned int UINT;
-typedef long LONG;
 typedef unsigned long REGSAM;
 typedef void *HKEY;
 
@@ -57,17 +55,17 @@ static inline int MultiByteToWideChar(UINT, DWORD, const char *source, int sourc
     return converted == (size_t)-1 ? 0 : (int)converted;
 }
 
-static inline LONG RegCreateKeyEx(HKEY, LPCTSTR, DWORD, LPCTSTR, DWORD, REGSAM,
-                                  const void *, HKEY *result, DWORD *disposition) {
+static inline int RegCreateKeyEx(HKEY, LPCTSTR, unsigned long, LPCTSTR, unsigned long, REGSAM,
+                                  const void *, HKEY *result, unsigned long *disposition) {
     if (result) *result = 0;
     if (disposition) *disposition = 0;
     return ERROR_INVALID_PARAMETER;
 }
-static inline LONG RegCloseKey(HKEY) { return ERROR_SUCCESS; }
-static inline LONG RegQueryValueEx(HKEY, LPCTSTR, DWORD *, DWORD *, unsigned char *, DWORD *) {
+static inline int RegCloseKey(HKEY) { return ERROR_SUCCESS; }
+static inline int RegQueryValueEx(HKEY, LPCTSTR, unsigned long *, unsigned long *, unsigned char *, unsigned long *) {
     return ERROR_INVALID_PARAMETER;
 }
-static inline LONG RegSetValueEx(HKEY, LPCTSTR, DWORD, DWORD, const unsigned char *, DWORD) {
+static inline int RegSetValueEx(HKEY, LPCTSTR, unsigned long, unsigned long, const unsigned char *, unsigned long) {
     return ERROR_INVALID_PARAMETER;
 }
 #endif

@@ -1,6 +1,6 @@
 #include "StdAfx.h"
-#include "..\GameTT\iMission.h"
-#include "..\Main\GameStats.h"
+#include "../GameTT/iMission.h"
+#include "../Main/GameStats.h"
 #include "UIMessages.h"
 #include "UIMedals.h"
 

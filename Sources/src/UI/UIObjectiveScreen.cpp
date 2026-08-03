@@ -1,6 +1,6 @@
 #include "StdAfx.h"
-#include "..\main\\gamestats.h"
-#include "..\main\\gamedb.h"
+#include "../main//gamestats.h"
+#include "../main//gamedb.h"
 #include "UIMessages.h"
 #include "UIObjectiveScreen.h"
 #include "UIScreen.h"

@@ -7,14 +7,14 @@
 #include "NetServerInfo.h"
 #include "NetLogin.h"
 #include "NetPeer2Peer.h"
-#include "..\Misc\HPTimer.h"
+#include "../Misc/HPTimer.h"
 #include "NetA4.h"
-#include "..\StreamIO\StreamIOHelper.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../StreamIO/StreamIOHelper.h"
+#include "../StreamIO/StreamIOTypes.h"
 #include "NetDriverConsts.h"
 
-#include "..\Main\GameTimer.h"
-#include "..\StreamIO\Globals.h"
+#include "../Main/GameTimer.h"
+#include "../StreamIO/Globals.h"
 
 #ifdef _USE_GAMESPY
 extern "C"

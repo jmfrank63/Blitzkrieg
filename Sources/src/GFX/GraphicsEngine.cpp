@@ -2,7 +2,7 @@
 
 #include "GraphicsEngine.h"
 
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 
 #include "Texture.h"
 #include "GeometryBuffer.h"

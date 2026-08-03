@@ -1,11 +1,11 @@
 #include "StdAfx.h"
-#include "..\\Formats\\FmtSprite.h"
-#include "..\\Formats\\FmtTerrain.h"
-#include "..\\Image\\Image.h"
-#include "..\\RandomMapGen\\IB_Types.h"
-#include "..\\RandomMapGen\\MapInfo_Types.h"
-#include "..\\RandomMapGen\\RMG_Types.h"
-#include "..\\Misc\\FileUtils.h"
+#include "..//Formats//FmtSprite.h"
+#include "..//Formats//FmtTerrain.h"
+#include "..//Image//Image.h"
+#include "..//RandomMapGen//IB_Types.h"
+#include "..//RandomMapGen//MapInfo_Types.h"
+#include "..//RandomMapGen//RMG_Types.h"
+#include "..//Misc//FileUtils.h"
 
 
 typedef IImage* PIImage;

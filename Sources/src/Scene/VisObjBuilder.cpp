@@ -11,7 +11,7 @@
 #include "IconPic.h"
 #include "IconHPBar.h"
 
-#include "..\Common\Icons.h"
+#include "../Common/Icons.h"
 bool CVisObjBuilder::Init( ISingleton *pSingleton )
 {
 	pGFX = GetSingleton<IGFX>( pSingleton );

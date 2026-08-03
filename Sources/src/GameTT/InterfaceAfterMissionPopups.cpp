@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 
 #include "InterfaceAfterMissionPopups.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\RPGStats.h"
-#include "..\Main\GameStats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/RPGStats.h"
+#include "../Main/GameStats.h"
 #include "CutScenesHelper.h"
 #include "UIConsts.h"
-#include "..\Main\ScenarioTrackerTypes.h"
+#include "../Main/ScenarioTrackerTypes.h"
 BASIC_REGISTER_CLASS( CAfterMissionPopups );
 int CAfterMissionPopups::operator&( IStructureSaver &ss )
 {

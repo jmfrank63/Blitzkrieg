@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "DataTreeXML.h"
-#include "..\StreamIO\StreamAdaptor.h"
+#include "../StreamIO/StreamAdaptor.h"
 
 #include <ocidl.h>
 class CDataTreeXMLAutomatic

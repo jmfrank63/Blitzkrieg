@@ -2,7 +2,7 @@
 
 #include "AIWarFog.h"
 #include "StaticObject.h"
-#include "..\Misc\2DArrayRLEWrapper.h"
+#include "../Misc/2DArrayRLEWrapper.h"
 int CGlobalWarFog::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

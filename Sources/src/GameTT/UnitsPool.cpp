@@ -2,8 +2,8 @@
 
 #include "UnitsPool.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../Main/ScenarioTracker.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 #include "CommonId.h"
 #include "UnitTypes.h"
 #include "etypes.h"

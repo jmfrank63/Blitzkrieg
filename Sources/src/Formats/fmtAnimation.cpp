@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Anim\Animation.h"
+#include "../Anim/Animation.h"
 #include "fmtAnimation.h"
 bool SSpriteAnimationFormat::Load( const bool bPreLoad )
 {

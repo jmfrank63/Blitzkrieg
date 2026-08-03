@@ -2,7 +2,7 @@
 
 #include "DrawVisitor.h"
 
-#include "..\Main\TextSystem.h"
+#include "../Main/TextSystem.h"
 #include "SceneScreenScale.h"
 static void ScaleRect( CTRect<float> *pRect, const float fScale )
 {

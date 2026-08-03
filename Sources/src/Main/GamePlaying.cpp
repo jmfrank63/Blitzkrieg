@@ -7,11 +7,11 @@
 #include "MultiplayerConsts.h"
 #include "CommandsHistoryInterface.h"
 
-#include "..\StreamIO\StreamIOHelper.h"
-#include "..\StreamIO\RandomGen.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../StreamIO/StreamIOHelper.h"
+#include "../StreamIO/RandomGen.h"
+#include "../StreamIO/StreamIOTypes.h"
 
-#include "..\Net\NetDriver.h"
+#include "../Net/NetDriver.h"
 
 #include <float.h>
 BASIC_REGISTER_CLASS( IGamePlaying );

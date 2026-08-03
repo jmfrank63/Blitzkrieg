@@ -2,7 +2,7 @@
 
 #include "Cheats.h"
 #include "Diplomacy.h"
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 SCheats theCheats;
 extern CDiplomacy theDipl;
 void SCheats::Init()

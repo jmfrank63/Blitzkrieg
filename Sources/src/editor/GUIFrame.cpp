@@ -1,10 +1,10 @@
 #include "StdAfx.h"
 
-#include "..\Scene\Scene.h"
-#include "..\main\imain.h"
-#include "..\Input\Input.h"
-#include "..\Input\InputHelper.h"
-#include "..\Main\iMainCommands.h"
+#include "../Scene/Scene.h"
+#include "../main/imain.h"
+#include "../Input/Input.h"
+#include "../Input/InputHelper.h"
+#include "../Main/iMainCommands.h"
 
 #include "editor.h"
 #include "TreeDockWnd.h"

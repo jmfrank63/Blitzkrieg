@@ -4,7 +4,7 @@
 
 #include "ELK_Types.h"
 
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 #include "ImportFromGameDialog.h"
 #include "ImportFromPAKDialog.h"
@@ -14,8 +14,8 @@
 #include "CreateFilterDialog.h"
 #include "ChooseFontsDialog.h"
 
-#include "..\StreamIO\StreamIO.h"
-#include "..\Misc\FileUtils.h"
+#include "../StreamIO/StreamIO.h"
+#include "../Misc/FileUtils.h"
 
 #include "htmlhelp.h"
 

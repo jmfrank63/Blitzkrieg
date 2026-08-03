@@ -2,7 +2,7 @@
 
 #include "MapSettingsWrapper.h"
 #include "OptionEntryWrapper.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 #include "UIConsts.h"
 
 bool CMapSettingsWrapper::CFakeOptionSystem::Set( const std::string &szVarName, const variant_t &var )

@@ -2,7 +2,7 @@
 #include "StdAfx.h"
 #include "CustomCheck.h"
 
-#include "..\LuaLib\Script.h"
+#include "../LuaLib/Script.h"
 
 int CCheckRunScript::operator&( IStructureSaver &ss )
 {

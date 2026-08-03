@@ -1,11 +1,11 @@
 #include "StdAfx.h"
 
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\Formats\fmtMap.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Scene\Terrain.h"
-#include "..\Image\Image.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
+#include "../Formats/fmtMap.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Scene/Terrain.h"
+#include "../Image/Image.h"
 #include "Builders.h"
 #include "TerrainBuilder.h"
 inline BYTE GetTileType( BYTE color )

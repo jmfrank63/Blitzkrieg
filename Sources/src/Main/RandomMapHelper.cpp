@@ -3,11 +3,11 @@
 #include "RandomMapHelper.h"
 #include "GameStats.h"
 #include "iMain.h"
-#include "..\StreamIO\StreamIOTypes.h"
-#include "..\StreamIO\ProgressHook.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\Misc\FileUtils.h"
+#include "../StreamIO/StreamIOTypes.h"
+#include "../StreamIO/ProgressHook.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../Misc/FileUtils.h"
 void STDCALL StoreRandomMap( const std::string &szMissionName, NSaveLoad::SRandomHeader *pRndHdr, CPtr<IRandomGenSeed> *ppSeed )
 {
 	const SMissionStats *pMission = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );

@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\Misc\FileUtils.h"
-#include "..\Formats\fmtMesh.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../Misc/FileUtils.h"
+#include "../Formats/fmtMesh.h"
 #include <fstream>
 #include <sstream>
 namespace NParams

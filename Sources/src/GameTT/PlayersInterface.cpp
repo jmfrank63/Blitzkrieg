@@ -3,9 +3,9 @@
 
 #include "PlayersInterface.h"
 
-#include "..\Main\GameStats.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\PlayerSkill.h"
+#include "../Main/GameStats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/PlayerSkill.h"
 #include "etypes.h"
 #include "CommonId.h"
 #include "CutScenesHelper.h"

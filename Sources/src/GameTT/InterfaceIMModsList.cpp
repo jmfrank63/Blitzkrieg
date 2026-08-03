@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "CommonId.h"
-#include "..\Main\iMainCommands.h"
+#include "../Main/iMainCommands.h"
 #include "InterfaceIMModsList.h"
 #include "MainMenu.h"
 #include "MultiplayerCommandManager.h"

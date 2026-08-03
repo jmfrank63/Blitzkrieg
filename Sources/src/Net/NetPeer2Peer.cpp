@@ -9,7 +9,7 @@
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
 
 #ifdef __LOG__
-#include "..\StreamIO\globals.h"
+#include "../StreamIO/globals.h"
 #endif // __LOG__n
 namespace NNet
 {

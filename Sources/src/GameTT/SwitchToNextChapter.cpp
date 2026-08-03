@@ -2,7 +2,7 @@
 
 #include "SwitchToNextChapter.h"
 #include "CommonId.h"
-#include "..\Main\GameStats.h"
+#include "../Main/GameStats.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},

@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 
 #include "SoundScene.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Scene\Terrain.h"
-#include "..\Formats\fmtMap.h"
-#include "..\Main\RPGStats.h"
-#include "..\Misc\FreeIds.h"
-#include "..\GFX\GFXTypes.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Scene/Terrain.h"
+#include "../Formats/fmtMap.h"
+#include "../Main/RPGStats.h"
+#include "../Misc/FreeIds.h"
+#include "../GFX/GFXTypes.h"
 BASIC_REGISTER_CLASS( CSoundScene );
 NTimer::STime CSoundScene::curTime;			// ����� �� ���������� �����
 SIntPair CSoundScene::vLimit;						// ������ � ������� ���� �������� �����

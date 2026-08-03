@@ -3,8 +3,8 @@
 #include "CManuver.h"
 #include "IPlane.h"
 #include "ComplexPathFraction.h"
-#include "..\..\PlanePathTest\src\CPlanePreferences.h"
-#include "..\..\PlanePathTest\src\CManuverBuilder.h"
+#include "../../PlanePathTest/src/CPlanePreferences.h"
+#include "../../PlanePathTest/src/CManuverBuilder.h"
 extern float g = 0.0000000983f;
 BASIC_REGISTER_CLASS( CManuver );
 BASIC_REGISTER_CLASS( IManuver );

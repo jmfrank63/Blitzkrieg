@@ -2,7 +2,7 @@
 
 #include "ImagePNG.h"
 
-#include "..\libpng\png.h"
+#include "../libpng/png.h"
 enum EBMMTypes
 {
 	BMM_NO_TYPE,

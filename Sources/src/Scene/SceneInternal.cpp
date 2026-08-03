@@ -5,10 +5,10 @@
 
 #include "FrameSelection.h"
 #include "StatSystem.h"
-#include "..\GFX\GFXHelper.h"
+#include "../GFX/GFXHelper.h"
 #include "SoundScene.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Misc\Win32Random.h"
+#include "../AILogic/AILogic.h"
+#include "../Misc/Win32Random.h"
 #include "FastSinCos.h"
 HINSTANCE hDLLInstance = 0;
 BOOL WINAPI DllMain(

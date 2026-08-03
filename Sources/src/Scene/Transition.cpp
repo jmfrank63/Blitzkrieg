@@ -3,7 +3,7 @@
 #include "Transition.h"
 #include <mmsystem.h>
 
-#include "..\SFX\SFX.h"
+#include "../SFX/SFX.h"
 #define ALPHA_MAX 255.0f
 #define ALPHA_MIN 0.0f
 #define DURATION 500

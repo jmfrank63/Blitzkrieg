@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Common\fmtAnimation.h"
+#include "../Common/fmtAnimation.h"
 inline long Width( const RECT &rc ) { return rc.right - rc.left; }
 inline long Height( const RECT &rc ) { return rc.bottom - rc.top; }
 

@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "Scripts\Scripts.h"
+#include "Scripts/Scripts.h"
 extern CScripts *pScripts;
 int CScripts::SScriptInfo::operator&( IStructureSaver &ss )
 {

@@ -9,16 +9,16 @@
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\Scene\Terrain.h"
-#include "..\Image\Image.h"
-#include "..\Scene\Scene.h"
-#include "..\Anim\Animation.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
+#include "../Scene/Terrain.h"
+#include "../Image/Image.h"
+#include "../Scene/Scene.h"
+#include "../Anim/Animation.h"
 #include "IUndoRedoCmd.h"
 #include "DrawingTools.h"
 #include "ObjectPlacerState.h"
-#include "..\RandomMapGen\VSO_Types.h"
+#include "../RandomMapGen/VSO_Types.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE

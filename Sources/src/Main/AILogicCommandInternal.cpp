@@ -4,8 +4,8 @@
 #include "iMainCommands.h"
 #include "Transceiver.h"
 
-#include "..\AILogic\AILogic.h"
-#include "..\Input\Input.h"
+#include "../AILogic/AILogic.h"
+#include "../Input/Input.h"
 CRegisterGroupCommand::CRegisterGroupCommand( IRefCount **pUnitsBuffer, const int nLen, const WORD _wID, IAILogic *pAILogic )
 : wID( _wID )
 {

@@ -2,13 +2,13 @@
 
 #include "MOBuilding.h"
 
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
-#include "..\GameTT\iMission.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Input\Input.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
+#include "../GameTT/iMission.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Input/Input.h"
 #include "PlayEffect.h"
-#include "..\Misc\Win32Random.h"
+#include "../Misc/Win32Random.h"
 CMOBuilding::~CMOBuilding()
 {
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )

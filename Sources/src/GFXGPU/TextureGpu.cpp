@@ -2,9 +2,9 @@
 
 #include "TextureGpu.h"
 
-#include "..\\Formats\\fmtTexture.h"
-#include "..\\Image\\Image.h"
-#include "..\\StreamIO\\StreamIO.h"
+#include "..//Formats//fmtTexture.h"
+#include "..//Image//Image.h"
+#include "..//StreamIO//StreamIO.h"
 
 #include <limits>
 #include <climits>

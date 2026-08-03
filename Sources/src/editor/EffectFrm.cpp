@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 #include <io.h>
-#include "..\Common\LegacyUiCompat.h"
+#include "../Common/LegacyUiCompat.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Formats\fmtEffect.h"
-#include "..\StreamIO\DataTreeXML.h"
-#include "..\Anim\Animation.h"
-#include "..\Scene\PFX.h"
+#include "../Scene/Scene.h"
+#include "../Formats/fmtEffect.h"
+#include "../StreamIO/DataTreeXML.h"
+#include "../Anim/Animation.h"
+#include "../Scene/PFX.h"
 
 #include "editor.h"
 #include "DirectionButtonDock.h"

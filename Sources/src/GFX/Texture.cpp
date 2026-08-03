@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
 #include "Texture.h"
-#include "..\Image\Image.h"
-#include "..\Formats\fmtTexture.h"
+#include "../Image/Image.h"
+#include "../Formats/fmtTexture.h"
 EGFXPixelFormat GetGFXFormat( const SDDSPixelFormat &format )
 {
 	if ( format.dwFlags & DDS_FOURCC ) 

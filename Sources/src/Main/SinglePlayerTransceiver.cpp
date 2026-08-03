@@ -5,7 +5,7 @@
 #include "AILogicCommandInternal.h"
 #include "CommandsHistoryInterface.h"
 
-#include "..\Input\Input.h"
+#include "../Input/Input.h"
 int CSinglePlayerTransceiver::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

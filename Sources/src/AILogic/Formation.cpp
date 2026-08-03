@@ -27,7 +27,7 @@
 #include "DifficultyLevel.h"
 #include "UnitStates.h"
 
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/ScenarioTracker.h"
 
 #include "TimeCounter.h"
 extern CSupremeBeing theSupremeBeing;

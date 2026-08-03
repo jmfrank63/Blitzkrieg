@@ -2,15 +2,15 @@
 
 #include "WorldBase.h"
 
-#include "..\AILogic\AITypes.h"
-#include "..\Scene\Terrain.h"
-#include "..\Main\TextSystem.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../AILogic/AITypes.h"
+#include "../Scene/Terrain.h"
+#include "../Main/TextSystem.h"
+#include "../Formats/fmtTerrain.h"
 #include "MapObjVisitors.h"
 #include "PlayEffect.h"
 #include "Icons.h"
-#include "..\UI\UI.h"
-#include "..\UI\UIMessages.h"
+#include "../UI/UI.h"
+#include "../UI/UIMessages.h"
 #include <typeinfo>
 int CComplexObjects::operator&( IStructureSaver &ss )
 {

@@ -2,7 +2,7 @@
 
 #include "fmtMesh.h"
 
-#include "..\Anim\Animation.h"
+#include "../Anim/Animation.h"
 int SAnimationFormat::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

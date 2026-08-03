@@ -5,9 +5,9 @@
 #include "FontGpu.h"
 #include "GeometryBufferGpu.h"
 #include "MeshGpu.h"
-#include "..\\GFX\\GFXHelper.h"
-#include "..\\Main\\TextSystem.h"
-#include "..\\Image\\Image.h"
+#include "..//GFX//GFXHelper.h"
+#include "..//Main//TextSystem.h"
+#include "..//Image//Image.h"
 
 #include <SDL3/SDL.h>
 

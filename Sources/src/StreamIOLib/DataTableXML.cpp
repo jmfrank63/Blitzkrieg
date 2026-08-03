@@ -5,7 +5,7 @@
 
 #include <cstring>
 
-#include "..\StreamIO\StreamAdaptor.h"
+#include "../StreamIO/StreamAdaptor.h"
 CDataTableXML::CDataTableXML()
 : xmlDocument( "Microsoft.XMLDOM" ), bModified( false )
 {

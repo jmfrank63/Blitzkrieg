@@ -2,12 +2,12 @@
 
 #include "SaveMission.h"
 
-#include "..\Main\iMainCommands.h"
+#include "../Main/iMainCommands.h"
 #include "MultiplayerCommandManager.h"
 #include "SaveLoadCommon.h"
 #include "CommonId.h"
-#include "..\UI\UIMessages.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../UI/UIMessages.h"
+#include "../Main/ScenarioTracker.h"
 static const NInput::SRegisterCommandEntry savemissionCommands[] = 
 {
 	{ "cancel_save"	,	IMC_CANCEL					},

@@ -13,7 +13,7 @@
 #include "MultiplayerInfo.h"
 #include "MPLog.h"
 
-#include "..\Misc\Checker.h"
+#include "../Misc/Checker.h"
 extern CUpdater updater;
 extern CStaticObjects theStatObjs;
 extern NTimer::STime curTime;

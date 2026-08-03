@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "PNoise.h"
-#include "..\streamIO\RandomGen.h"
+#include "../streamIO/RandomGen.h"
 namespace NPerlinNoise
 {
 const int B = 256;

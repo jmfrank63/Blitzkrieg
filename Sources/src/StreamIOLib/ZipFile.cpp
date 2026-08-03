@@ -2,7 +2,7 @@
 
 #include "ZipFile.h"
 
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 #include "StreamAdaptor.h"
 #include "MemFileSystem.h"
 #pragma pack( 1 )

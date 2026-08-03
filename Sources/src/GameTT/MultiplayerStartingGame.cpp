@@ -3,7 +3,7 @@
 #include "MultiplayerStartingGame.h"
 #include "CommonId.h"
 #include "WorldClient.h"
-#include "..\UI\UIMessages.h"
+#include "../UI/UIMessages.h"
 #include "UIConsts.h"
 #include "MapSettingsWrapper.h"
 #include "UIMapINfo.h"

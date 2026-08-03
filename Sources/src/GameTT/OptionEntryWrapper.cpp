@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "OptionEntryWrapper.h"
-#include "..\UI\UIMessages.h"
+#include "../UI/UIMessages.h"
 #include "UIConsts.h"
 BASIC_REGISTER_CLASS(COptionsListWrapper);
 enum EUIElements

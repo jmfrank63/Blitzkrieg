@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "PlanePathMath.h"
-#include "..\..\Misc\Geometry.h"
+#include "../../Misc/Geometry.h"
 
 const int nOrientation = -1;
 

@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\TreeItem.h"
+#include "../TreeItem.h"
 #include "PropView.h"
 
 #define ID_OI 515

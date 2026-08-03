@@ -25,8 +25,8 @@
 #include "Graveyard.h"
 #include "Cheats.h"
 
-#include "..\Misc\BitData.h"
-#include "..\Scene\Scene.h"
+#include "../Misc/BitData.h"
+#include "../Scene/Scene.h"
 
 #include "MPLog.h"
 CStaticObjects theStatObjs;

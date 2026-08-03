@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 #include <io.h>
 
-#include "..\GFX\gfx.h"
-#include "..\Image\image.h"
-#include "..\main\rpgstats.h"
+#include "../GFX/gfx.h"
+#include "../Image/image.h"
+#include "../main/rpgstats.h"
 
 #include "editor.h"
 #include "frames.h"

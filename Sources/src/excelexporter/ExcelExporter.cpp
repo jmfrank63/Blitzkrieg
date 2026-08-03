@@ -7,7 +7,7 @@
 
 #include "ExcelExporter.h"
 #include "XmlReader.h"
-#include "..\misc\strproc.h"
+#include "../misc/strproc.h"
 
 const int STRING_SIZE = 65536;
 

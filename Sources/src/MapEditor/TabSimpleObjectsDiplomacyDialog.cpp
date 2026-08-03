@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 #include "TabSimpleObjectsDiplomacyDialog.h"
 
 #ifdef _DEBUG

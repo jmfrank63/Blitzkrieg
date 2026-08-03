@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
 #include "Statistics.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
 #include "Diplomacy.h"
 #include "CommonUnit.h"
 extern CDiplomacy theDipl;

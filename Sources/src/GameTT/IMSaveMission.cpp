@@ -4,7 +4,7 @@
 #include "CommonId.h"
 #include "IMLoadMission.h"
 #include "MultiplayerCommandManager.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/ScenarioTracker.h"
 void CICIMSaveMission::PostCreate( IMainLoop *pML, CInterfaceIMSaveMission *pILM )
 {
 	pML->PushInterface( pILM );

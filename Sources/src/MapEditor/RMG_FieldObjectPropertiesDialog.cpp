@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\Main\RPGStats.h"
+#include "../Main/RPGStats.h"
 #include "RMG_FieldObjectPropertiesDialog.h"
 
 #ifdef _DEBUG

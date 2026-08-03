@@ -3,7 +3,7 @@
 #include "SpriteVisObj.h"
 #include "AnimVisitor.h"
 #include "SceneScreenScale.h"
-#include "..\Misc\Win32Random.h"
+#include "../Misc/Win32Random.h"
 DWORD CSpriteVisObj::dwIdleData = 0;
 CSpriteVisObj::CSpriteVisObj() 
 { 

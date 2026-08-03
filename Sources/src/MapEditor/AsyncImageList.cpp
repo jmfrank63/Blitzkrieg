@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "..\\Image\\Image.h"
+#include "..//Image//Image.h"
 #include "AsyncImageList.h"
 
 #ifdef _DEBUG

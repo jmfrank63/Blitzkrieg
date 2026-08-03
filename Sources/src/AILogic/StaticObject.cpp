@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "StaticObject.h"
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 #include "Updater.h"
 #include "AIStaticMap.h"
 #include "StaticObjects.h"

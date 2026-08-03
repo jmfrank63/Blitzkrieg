@@ -2,8 +2,8 @@
 
 #include "MapInfo_Types.h"
 #include "VA_Types.h"
-#include "..\formats\FmtTerrain.h"
-#include "..\StreamIO\ProgressHook.h"
+#include "../formats/FmtTerrain.h"
+#include "../StreamIO/ProgressHook.h"
 #include "Resource_Types.h"
 
 #ifdef _DEBUG

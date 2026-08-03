@@ -21,7 +21,7 @@
 #include "UnitStates.h"
 #include "Formation.h"
 #include "GroupLogic.h"
-#include "Scripts\Scripts.h"
+#include "Scripts/Scripts.h"
 extern CUpdater updater;
 extern NTimer::STime curTime;
 extern CStaticObjects theStatObjs;

@@ -4,9 +4,9 @@
 #include "SoundEngine.h"
 
 #include "SampleSounds.h"
-#include "..\Scene\Scene.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Misc\Win32Helper.h"
+#include "../Scene/Scene.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Misc/Win32Helper.h"
 static NWin32Helper::CCriticalSection critSection;
 
 namespace

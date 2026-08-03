@@ -2,7 +2,7 @@
 
 #include "ZipFile.h"
 
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 #pragma pack( 1 )
 struct CZipFile::SZipLocalFileHeader
 {

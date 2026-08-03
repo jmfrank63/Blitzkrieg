@@ -6,10 +6,10 @@
 #include "ServersListMessages.h"
 #include "LanChat.h"
 
-#include "..\StreamIO\StreamIOHelper.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../StreamIO/StreamIOHelper.h"
+#include "../StreamIO/StreamIOTypes.h"
 
-#include "..\Net\NetDriver.h"
+#include "../Net/NetDriver.h"
 
 #ifndef BK_ENABLE_GAMESPY
 #define BK_ENABLE_GAMESPY 0

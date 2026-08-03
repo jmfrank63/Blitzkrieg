@@ -2,10 +2,10 @@
 
 #include "PlayerGainLevel.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\PlayerSkill.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/PlayerSkill.h"
 #include "CommonId.h"
-#include "..\Main\GameStats.h"
+#include "../Main/GameStats.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_CANCEL		},

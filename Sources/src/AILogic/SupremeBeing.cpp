@@ -5,9 +5,9 @@
 #include "AIUnit.h"
 #include "Diplomacy.h"
 #include "GeneralInternalInterfaces.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "AIUnitInfoForGeneral.h"
-#include "Scripts\Scripts.h"
+#include "Scripts/Scripts.h"
 CSupremeBeing theSupremeBeing;
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;

@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 #include <io.h>
-#include "..\Common\LegacyUiCompat.h"
+#include "../Common/LegacyUiCompat.h"
 
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Anim\Animation.h"
-#include "..\Main\rpgstats.h"
-#include "..\Image\image.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Anim/Animation.h"
+#include "../Main/rpgstats.h"
+#include "../Image/image.h"
 
 #include "editor.h"
 #include "PropView.h"

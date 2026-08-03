@@ -2,7 +2,7 @@
 
 #include "ChatWrapper.h"
 #include "MultiplayerCommandManager.h"
-#include "..\UI\UIMessages.h"
+#include "../UI/UIMessages.h"
 
 void CChatWrapper::AddMessageToChat( const struct SChatMessage *pChatMessage )
 {

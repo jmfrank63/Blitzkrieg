@@ -8,17 +8,17 @@
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "..\GFX\GFX.h"
-#include "..\Scene\Terrain.h"
-#include "..\Image\Image.h"
-#include "..\Scene\Scene.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Terrain.h"
+#include "../Image/Image.h"
+#include "../Scene/Scene.h"
 #include "IUndoRedoCmd.h"
 #include "PropertieDialog.h"
 #include "resource.h"
-#include "..\Anim\Animation.h"
+#include "../Anim/Animation.h"
 #include "SetupFilterDialog.h"
 
-#include "..\RandomMapGen\LA_Types.h"
+#include "../RandomMapGen/LA_Types.h"
 
 #include "SetAnim.h"
 

@@ -3,7 +3,7 @@
 #include "FenceSetupWindow.h"
 #include "TemplateEditorFrame1.h"
 #include "frames.h"
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

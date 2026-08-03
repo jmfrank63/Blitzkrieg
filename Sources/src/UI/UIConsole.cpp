@@ -1,13 +1,13 @@
 #include "StdAfx.h"
 
-#include "..\Main\iMainCommands.h"
-#include "..\Input\Input.h"
-#include "..\GameTT\iMission.h"
+#include "../Main/iMainCommands.h"
+#include "../Input/Input.h"
+#include "../GameTT/iMission.h"
 #include "UIConsole.h"
 #include "UIMessages.h"
 
-#include "..\Net\NetDriver.h"
-#include "..\Main\Transceiver.h"
+#include "../Net/NetDriver.h"
+#include "../Main/Transceiver.h"
 namespace
 {
 	inline const WORD* ToWordText( const wchar_t *pszText )

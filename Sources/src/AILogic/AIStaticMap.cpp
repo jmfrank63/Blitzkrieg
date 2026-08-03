@@ -11,14 +11,14 @@
 #include "StaticObject.h"
 #include "StaticObjectsIters.h"
 
-#include "..\Formats\fmtMap.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Formats/fmtMap.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 
-#include "..\RandomMapGen\VA_Types.h"
+#include "../RandomMapGen/VA_Types.h"
 
-#include "..\Scene\Scene.h"
-#include "..\Scene\Terrain.h"
+#include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
 CStaticMap theStaticMap;
 extern CStaticObjects theStatObjs;
 extern CUnits units;

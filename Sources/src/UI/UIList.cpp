@@ -2,7 +2,7 @@
 #include "UIList.h"
 #include "UIListSorter.h"
 #include "UIMessages.h"
-#include "..\GameTT\CommonId.h"
+#include "../GameTT/CommonId.h"
 
 static int ScaleUIPixelValue( int nValue, float fScale )
 {

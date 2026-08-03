@@ -2,17 +2,17 @@
 
 #include "MOUnit.h"
 
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
-#include "..\GameTT\iMission.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
+#include "../GameTT/iMission.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
 #include "Season.h"
-#include "..\Misc\Win32Helper.h"
+#include "../Misc/Win32Helper.h"
 
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
-#include "..\AILogic\AILogic.h"
+#include "../AILogic/AILogic.h"
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 DWORD CMOUnit::dwFlashFireColor = 0xffffffff;
 DWORD CMOUnit::dwFlashExpColor = 0xffffffff;

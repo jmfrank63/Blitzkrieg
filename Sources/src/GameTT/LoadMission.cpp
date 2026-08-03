@@ -3,10 +3,10 @@
 #include "LoadMission.h"
 #include "MultiplayerCommandManager.h"
 
-#include "..\Main\iMainCommands.h"
+#include "../Main/iMainCommands.h"
 #include "SaveLoadCommon.h"
 #include "CommonId.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/ScenarioTracker.h"
 static const NInput::SRegisterCommandEntry loadmissionCommands[] = 
 {
 	{ "cancel_load"	,	IMC_CANCEL					},

@@ -63,17 +63,17 @@ extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
 #include "Formation.h"
 #include "Shell.h"
 
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
-#include "..\Main\CommandsHistoryInterface.h"
-#include "..\Formats\fmtTerrain.h"
-#include "..\Main\GameStats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
+#include "../Main/CommandsHistoryInterface.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Main/GameStats.h"
 
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\RandomMapGen\RMG_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../RandomMapGen/RMG_Types.h"
 
 #include "MPLog.h"
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 
 #include "Guns.h"
 

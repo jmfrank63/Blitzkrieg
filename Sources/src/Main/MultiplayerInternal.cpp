@@ -8,11 +8,11 @@
 #include "MultiplayerConsts.h"
 #include "ScenarioTracker.h"
 
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\GameTT\MuliplayerToUIConsts.h"
-#include "..\GameTT\WorldClient.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../GameTT/MuliplayerToUIConsts.h"
+#include "../GameTT/WorldClient.h"
 
-#include "..\Net\NetDriver.h"
+#include "../Net/NetDriver.h"
 
 #ifndef BK_ENABLE_GAMESPY
 #define BK_ENABLE_GAMESPY 0

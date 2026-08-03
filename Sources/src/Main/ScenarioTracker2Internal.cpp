@@ -2,16 +2,16 @@
 
 #include "ScenarioTracker2Internal.h"
 
-#include "..\Misc\Checker.h"
-#include "..\Misc\Win32Random.h"
+#include "../Misc/Checker.h"
+#include "../Misc/Win32Random.h"
 #include "GameStats.h"
 #include "RPGStats.h"
-#include "..\LuaLib\Script.h"
+#include "../LuaLib/Script.h"
 #include "ScenarioTrackerTypes.h"
-#include "..\StreamIO\OptionSystem.h"
-#include "..\Main\TextSystem.h"
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\Main\GameStats.h"
+#include "../StreamIO/OptionSystem.h"
+#include "../Main/TextSystem.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../Main/GameStats.h"
 BASIC_REGISTER_CLASS(IPlayerScenarioInfo);
 BASIC_REGISTER_CLASS(IScenarioStatistics);
 CPlayerScenarioInfoIterator::CPlayerScenarioInfoIterator( const CPlayersList &_players )

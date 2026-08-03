@@ -4,18 +4,18 @@
 
 #include "MainFrm.h"
 #include "frames.h"
-#include "..\Main\GameDB.h"
-#include "..\Main\iMain.h"
-#include "..\GameTT\iMission.h"
+#include "../Main/GameDB.h"
+#include "../Main/iMain.h"
+#include "../GameTT/iMission.h"
 
 #include "TemplateEditorFrame1.h"
 #include "SetupFilterDialog.h"
 
 #include "htmlhelp.h"
 
-#include "..\RandomMapGen\RMG_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\Misc\FileUtils.h"
+#include "../RandomMapGen/RMG_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../Misc/FileUtils.h"
 
 #include "ProgressDialog.h"
 

@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 #include "editor.h"
-#include "..\GFX\GFX.h"
+#include "../GFX/GFX.h"
 #include <comdef.h>
 #include <Mmsystem.h>
 #include <set>
 #include "TemplateEditorFrame1.h"
 #include "SEditorMApObject.h"
-#include "..\AILogic\AILogic.h"
+#include "../AILogic/AILogic.h"
 #include "frames.h"
 
 #ifdef _DEBUG

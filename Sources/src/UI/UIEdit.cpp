@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
-#include "..\Main\iMainCommands.h"
-#include "..\GameTT\iMission.h"
+#include "../Main/iMainCommands.h"
+#include "../GameTT/iMission.h"
 #include "UIEdit.h"
 #include "UIMessages.h"
 

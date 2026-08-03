@@ -32,9 +32,9 @@
 #include "TreeItemFactory.h"
 #include "PropView.h"
 #include "KeyFrameDock.h"
-#include "..\Main\GameDB.h"
-#include "..\Main\iMain.h"
-#include "..\GameTT\iMission.h"
+#include "../Main/GameDB.h"
+#include "../Main/iMain.h"
+#include "../GameTT/iMission.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

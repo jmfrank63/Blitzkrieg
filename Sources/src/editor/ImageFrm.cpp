@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\Scene\Scene.h"
+#include "../Scene/Scene.h"
 #include "ImageFrm.h"
 #include "frames.h"
 #include "GameWnd.h"

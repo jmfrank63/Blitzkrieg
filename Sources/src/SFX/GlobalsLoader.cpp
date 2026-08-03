@@ -1,8 +1,8 @@
 #include "StdAfx.h"
 
-#include "..\StreamIO\RandomGen.h"
-#include "..\Platform\DynamicLibrary.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../StreamIO/RandomGen.h"
+#include "../Platform/DynamicLibrary.h"
+#include "../StreamIO/StreamIOTypes.h"
 typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
 typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();
 typedef void* (STDCALL *GETTEMPRAWBUFFER_HOOK)( int nAmount, int nBufferIndex );

@@ -5,7 +5,7 @@
 #include "MultiTreeEditBox.h"
 #include "TreeItemComboBox.h"
 #include "PercentDialog.h"
-#include "..\..\Common\LegacyUiCompat.h"
+#include "../../Common/LegacyUiCompat.h"
 
 #include "MultiTreeSlider.h"
 

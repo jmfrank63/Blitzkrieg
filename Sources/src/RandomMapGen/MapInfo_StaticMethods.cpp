@@ -10,9 +10,9 @@
 #include "Resource_Types.h"
 #include "IB_Types.h"
 
-#include "..\Formats\fmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 
-#include "..\AILogic\aiconsts.h"
+#include "../AILogic/aiconsts.h"
 #include "TerrainBuilder.h"
 
 

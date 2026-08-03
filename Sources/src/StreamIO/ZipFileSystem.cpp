@@ -3,7 +3,7 @@
 #include "ZipFileSystem.h"
 
 #include "MemFileSystem.h"
-#include "..\Misc\FileUtils.h"
+#include "../Misc/FileUtils.h"
 CZipFileSystemEnumerator::CZipFileSystemEnumerator( const CZipFilesList &_zipfiles, IDataStorage *_pStorage )
 : pStorage( _pStorage ), zipfiles( _zipfiles ), posZipFile( _zipfiles.begin() ), nFileInZip( 0 )
 {

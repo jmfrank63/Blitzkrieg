@@ -8,24 +8,24 @@
 #include "MultiplayerConsts.h"
 #include "CommandsHistory.h"
 
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 
-#include "..\StreamIO\StreamIOHelper.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "../StreamIO/StreamIOHelper.h"
+#include "../StreamIO/StreamIOTypes.h"
 
-#include "..\Net\NetDriver.h"
-#include "..\StreamIO\OptionsConvert.h"
+#include "../Net/NetDriver.h"
+#include "../StreamIO/OptionsConvert.h"
 
-#include "..\zlib\zlib.h"
-#include "..\zlib\zconf.h"
+#include "../zlib/zlib.h"
+#include "../zlib/zconf.h"
 
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
 #define DEBUG_NET_MESSAGES
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
 
 #ifdef DEBUG_NET_MESSAGES
-#include "..\StreamIO\Globals.h"
+#include "../StreamIO/Globals.h"
 #endif
 BASIC_REGISTER_CLASS( IGameCreation );
 const NTimer::STime TIME_TO_SEND_PING_MESSAGE = 200;

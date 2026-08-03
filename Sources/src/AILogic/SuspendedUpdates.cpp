@@ -7,8 +7,8 @@
 #include "Updater.h"
 #include "Graveyard.h"
 
-#include "..\StreamIO\StreamIOTypes.h"
-#include "..\StreamIO\Globals.h"
+#include "../StreamIO/StreamIOTypes.h"
+#include "../StreamIO/Globals.h"
 
 #include "MPLog.h"
 CSuspendedUpdates theSuspendedUpdates;

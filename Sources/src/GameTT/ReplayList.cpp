@@ -4,15 +4,15 @@
 #include "ReplayList.h"
 #include "MultiplayerCommandManager.h"
 
-#include "..\Main\CommandsHistoryInterface.h"
-#include "..\Main\GameStats.h"
-#include "..\Main\Transceiver.h"
+#include "../Main/CommandsHistoryInterface.h"
+#include "../Main/GameStats.h"
+#include "../Main/Transceiver.h"
 
-#include "..\GameTT\MultiplayerCommandManager.h"
+#include "../GameTT/MultiplayerCommandManager.h"
 
-#include "..\StreamIO\RandomGen.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Common\PauseGame.h"
+#include "../StreamIO/RandomGen.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Common/PauseGame.h"
 void CReplayList::PostCreate( IMainLoop *pML, CInterfaceReplayList *pILM )
 {
 	if ( !szFileNameToLoad.empty() )

@@ -1,14 +1,14 @@
 #include "StdAfx.h"
 
 #include "ELK_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\RandomMapGen\Registry_Types.h"
-#include "..\StreamIO\StreamIO.h"
-#include "..\Misc\FileUtils.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../RandomMapGen/Registry_Types.h"
+#include "../StreamIO/StreamIO.h"
+#include "../Misc/FileUtils.h"
 #include "ProgressDialog.h"
 #include "ELK_TreeWindow.h"
 #include "SpellChecker.h"
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 
 #include <afxdb.h> 
 #include <odbcinst.h> 

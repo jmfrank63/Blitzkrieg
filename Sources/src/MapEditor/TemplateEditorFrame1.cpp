@@ -2,22 +2,22 @@
 #include "resource.h"
 #include "StdAfx.h"
 
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
 
-#include "..\Scene\Terrain.h"
-#include "..\Image\Image.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Scene\Scene.h"
-#include "..\Common\Icons.h"
-#include "..\Anim\Animation.h"
+#include "../Scene/Terrain.h"
+#include "../Image/Image.h"
+#include "../AILogic/AILogic.h"
+#include "../Scene/Scene.h"
+#include "../Common/Icons.h"
+#include "../Anim/Animation.h"
 #include <Mmsystem.h>
 
 #include "editor.h" 
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "..\Common\LegacyUiCompat.h"
+#include "../Common/LegacyUiCompat.h"
 
 #include "TabTileEditDialog.h"
 #include "TemplateEditorFrame1.h"
@@ -27,9 +27,9 @@
 #include "GetGroupID.h"
 #include "MapOptionsDialog.h"
 
-#include "..\Main\RPGStats.h"
-#include "..\Main\GameStats.h"
-#include "..\Main\TextSystem.h"
+#include "../Main/RPGStats.h"
+#include "../Main/GameStats.h"
+#include "../Main/TextSystem.h"
 
 #include "AIStartCommandsDialog.h"
 #include "ProgressDialog.h"
@@ -47,8 +47,8 @@
 #include "StateGroups.h"
 #include "SetupFilterDialog.h"
 
-#include "..\RandomMapGen\RMG_Types.h"
-#include "..\RandomMapGen\IB_Types.h"
+#include "../RandomMapGen/RMG_Types.h"
+#include "../RandomMapGen/IB_Types.h"
 
 #include "RMG_CreateContainerDialog.h"
 #include "RMG_CreateGraphDialog.h"

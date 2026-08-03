@@ -2,10 +2,10 @@
 
 #include "MOProjectile.h"
 
-#include "..\Common\Actions.h"
-#include "..\Common\Icons.h"
-#include "..\GameTT\iMission.h"
-#include "..\Formats\fmtTerrain.h"
+#include "../Common/Actions.h"
+#include "../Common/Icons.h"
+#include "../GameTT/iMission.h"
+#include "../Formats/fmtTerrain.h"
 CMOProjectile::CMOProjectile()
 {
 	wMoveSoundID = 0;

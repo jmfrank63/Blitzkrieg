@@ -18,16 +18,16 @@
 #include "PlanePath.h"
 #include "Weather.h"
 #include "Aviation.h"
-#include "Scripts\scripts.h"
+#include "Scripts/scripts.h"
 
-#include "..\Input\Input.h"
-#include "..\GameTT\iMission.h"
-#include "..\Scene\Scene.h"
-#include "..\Common\World.h"
+#include "../Input/Input.h"
+#include "../GameTT/iMission.h"
+#include "../Scene/Scene.h"
+#include "../Common/World.h"
 
-#include "..\Formats\fmtMap.h"
-#include "..\RandomMapGen\Polygons_Types.h"
-#include "..\Misc\Checker.h"
+#include "../Formats/fmtMap.h"
+#include "../RandomMapGen/Polygons_Types.h"
+#include "../Misc/Checker.h"
 extern CWeather theWeather;
 extern CScripts *pScripts;
 extern CStaticObjects theStatObjs;

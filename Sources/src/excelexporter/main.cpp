@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include <iostream>
 #include "ExcelExporter.h"
-#include "..\Misc\FileUtils.h"
+#include "../Misc/FileUtils.h"
 
 std::vector<SExtension> extensions;			//global
 

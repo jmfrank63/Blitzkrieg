@@ -10,7 +10,7 @@
 #include "mainfrm.h"
 #include "TemplateEditorFrame1.h"
 
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 #include "RMG_FieldObjectPropertiesDialog.h"
 

@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\\Image\\Image.h"
+#include "..//Image//Image.h"
 #include "2DVarArray.h"
 
 #include "ImageEdge.h"

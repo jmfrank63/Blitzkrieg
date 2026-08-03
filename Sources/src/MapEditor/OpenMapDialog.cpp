@@ -10,8 +10,8 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-#include "..\misc\FileUtils.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
+#include "../misc/FileUtils.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 const int COpenMapDialog::vID[] = 
 {
 	IDC_OPEN_MAP_NAME_LABEL,					//0

@@ -4,7 +4,7 @@
 #include "Units.h"
 #include "DifficultyLevel.h"
 
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/ScenarioTracker.h"
 CDiplomacy theDipl;
 
 extern CDifficultyLevel theDifficultyLevel;

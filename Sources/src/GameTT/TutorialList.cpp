@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 
-#include "..\Main\GameStats.h"
+#include "../Main/GameStats.h"
 #include "CommonId.h"
 #include "TutorialList.h"
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/ScenarioTracker.h"
 bool CInterfaceTutorialList::Init()
 {
 	fileMasks.clear();

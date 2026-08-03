@@ -3,14 +3,14 @@
 #include "InterfaceUnitPerformance.h"
 
 #include "CommonId.h"
-#include "..\Main\ScenarioTracker.h"
-#include "..\Main\ScenarioTrackerTypes.h"
-#include "..\Main\RPGStats.h"
+#include "../Main/ScenarioTracker.h"
+#include "../Main/ScenarioTrackerTypes.h"
+#include "../Main/RPGStats.h"
 #include "UnitTypes.h"
 #include "InterfaceAfterMissionPopups.h"
 #include "Campaign.h"
 #include "MainMenu.h"
-#include "..\GameTT\eTypes.h"
+#include "../GameTT/eTypes.h"
 CAfterMissionPopups * pPopups = 0;
 static const NInput::SRegisterCommandEntry commands[] = 
 {

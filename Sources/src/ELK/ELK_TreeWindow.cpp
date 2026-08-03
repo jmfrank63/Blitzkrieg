@@ -2,7 +2,7 @@
 #include "resource.h"
 #include "ELK_TreeWindow.h"
 #include "SpellChecker.h"
-#include "..\\Misc\\FileUtils.h"
+#include "..//Misc//FileUtils.h"
 #include "ProgressDialog.h"
 #include "Messages.h"
 

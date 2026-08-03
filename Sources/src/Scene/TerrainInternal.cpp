@@ -2,12 +2,12 @@
 
 #include "TerrainInternal.h"
 
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 #include "TerrainBuilder.h"
 #include "SceneScreenScale.h"
-#include "..\AILogic\AITypes.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Scene\Scene.h"
+#include "../AILogic/AITypes.h"
+#include "../AILogic/AILogic.h"
+#include "../Scene/Scene.h"
 struct SLoadTerrain
 {
 	STerrainInfo info;

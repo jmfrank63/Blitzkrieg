@@ -2,7 +2,7 @@
 
 #include "SingleMedal.h"
 
-#include "..\Main\GameStats.h"
+#include "../Main/GameStats.h"
 #include "CommonId.h"
 #include "eTypes.h"
 enum ECommands
