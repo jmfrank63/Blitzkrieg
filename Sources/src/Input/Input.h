@@ -1,6 +1,7 @@
 #ifndef __INPUT_H__
 #define __INPUT_H__
 #pragma ONCE
+#include "InputTypes.h"
 namespace NPlatform { struct PlatformEvent; }
 enum 
 {
