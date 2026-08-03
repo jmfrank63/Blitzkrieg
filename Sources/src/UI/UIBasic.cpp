@@ -5,7 +5,7 @@
 #include "UIMessages.h"
 #include "../Scene/Scene.h"
 #include "../Input/Input.h"
-#include "../GameTT/CommonID.h"
+#include "../GameTT/CommonId.h"
 #include "../GameTT/MessageReaction.h"
 #include "../Common/PauseGame.h"
 #include "../Main/ScenarioTracker.h"

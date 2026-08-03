@@ -2,7 +2,7 @@
 
 #include "MapInfo_Types.h"
 #include "VA_Types.h"
-#include "../formats/FmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "../StreamIO/ProgressHook.h"
 #include "Resource_Types.h"
 

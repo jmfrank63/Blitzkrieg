@@ -13,7 +13,7 @@
 #include "../GameTT/MultiplayerCommandManager.h"
 #include "../GameTT/iMission.h"
 #include "../Common/PauseGame.h"
-#include "../GameTT/CommonID.h"
+#include "../GameTT/CommonId.h"
 #include "../Main/GameStats.h"
 #include "../Scene/PFX.h"
 #include "../Input/InputTypes.h"

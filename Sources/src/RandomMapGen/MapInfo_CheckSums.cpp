@@ -4,7 +4,7 @@
 
 #include "MapInfo_Types.h"
 #include "../Formats/fmtMap.h"
-#include "../Formats/FmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "../zlib/zlib.h"
 #include "../Misc/CheckSums.h"
 #include "Resource_Types.h"

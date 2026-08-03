@@ -19,6 +19,28 @@ typedef const WCHAR *LPCWSTR;
 typedef const char *LPCTSTR;
 typedef unsigned int UINT;
 typedef unsigned long REGSAM;
+typedef unsigned long ULONG;
+typedef long HRESULT;
+typedef int REFIID;
+typedef struct { long long QuadPart; } LARGE_INTEGER;
+typedef struct { unsigned long long QuadPart; } ULARGE_INTEGER;
+#define IID_IUnknown 0
+#define IID_IStream 1
+#define E_NOINTERFACE 0x80004002L
+#define S_OK 0L
+#ifdef __cplusplus
+struct IUnknown { virtual ~IUnknown() = default; };
+struct IStream : IUnknown {
+    virtual HRESULT QueryInterface(REFIID, void **) = 0;
+    virtual ULONG AddRef() = 0;
+    virtual ULONG Release() = 0;
+    virtual HRESULT Read(void *, ULONG, ULONG *) = 0;
+    virtual HRESULT Write(const void *, ULONG, ULONG *) = 0;
+    virtual HRESULT Seek(LARGE_INTEGER, unsigned int, ULARGE_INTEGER *) = 0;
+    virtual HRESULT SetSize(ULARGE_INTEGER) = 0;
+    virtual HRESULT CopyTo(IStream *, ULARGE_INTEGER, ULARGE_INTEGER *, ULARGE_INTEGER *) = 0;
+};
+#endif
 typedef void *HKEY;
 
 #define HKEY_LOCAL_MACHINE ((HKEY)(uintptr_t)1)

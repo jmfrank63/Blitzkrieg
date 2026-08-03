@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "VA_Types.h"
-#include "../Formats/FmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "IB_Types.h"
 
 #ifdef _DEBUG

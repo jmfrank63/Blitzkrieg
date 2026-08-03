@@ -5,7 +5,7 @@
 #include "../Scene/Scene.h"
 #include "UIScreen.h"
 #include "UIMessages.h"
-#include "../GameTT/CommonID.h"
+#include "../GameTT/CommonId.h"
 
 static const int GLOBAL_CONSOLE_ID = 0xAC07A918;
 

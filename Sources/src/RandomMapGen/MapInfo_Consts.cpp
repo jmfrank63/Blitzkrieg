@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "MapInfo_Types.h"
-#include "../formats/FmtTerrain.h"
+#include "../Formats/fmtTerrain.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

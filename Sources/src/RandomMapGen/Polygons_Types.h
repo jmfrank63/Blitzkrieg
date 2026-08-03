@@ -3,6 +3,8 @@
 
 #include "../Formats/fmtVSO.h"
 #include "../Misc/Win32Random.h"
+
+using NWin32Random::Random;
 #include "../Formats/fmtVSO.h"
 
 extern const float RMGC_MINIMAL_VIS_POINT_DISTANCE;	//2.0f

@@ -375,7 +375,7 @@ bool ApplyTilesInRange( const CTRect<int> &rRect,	//������� ��
 template<class TYPE>
 bool ApplyTilesInRange( const CTRect<int> &rRect, const CTPoint<int> &rMin, const CTPoint<int> &rMax, TYPE &rApplyFunctional )
 {
-	return ApplyTilesInRange( rRect, rMin.x, rMin.y, rMax.x, rMax.y, rApplyFunctional )
+	return ApplyTilesInRange( rRect, rMin.x, rMin.y, rMax.x, rMax.y, rApplyFunctional );
 }
 
 template<class TYPE>

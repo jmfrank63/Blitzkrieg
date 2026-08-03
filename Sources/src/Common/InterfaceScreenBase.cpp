@@ -5,7 +5,7 @@
 #include "InterfaceScreenBase.h"
 #include "../Main/iMainCommands.h"
 #include "../AILogic/AILogic.h"
-#include "../GameTT/CommonID.h"
+#include "../GameTT/CommonId.h"
 #include "../Main/ScenarioTracker.h"
 #include "../GameTT/IMission.h"
 BASIC_REGISTER_CLASS( CInterfaceScreenBase );
