@@ -22,7 +22,7 @@ int main()
 {
 	NPlatform::SDLApplication app;
 	CHECK( app.Initialize( "Blitzkrieg event test", 320, 200 ) );
-	NPlatform::Event ignored;
+	NPlatform::PlatformEvent ignored;
 	while ( app.PollEvent( ignored ) ) {}
 
 	SDL_Event event{};
@@ -34,7 +34,7 @@ int main()
 	event = {}; event.type = SDL_EVENT_QUIT; event.quit.timestamp = 60; CHECK( Push( event ) );
 	event = {}; event.type = static_cast<SDL_EventType>( 0x7fff0000 ); CHECK( Push( event ) );
 
-	NPlatform::Event translated[6]{};
+	NPlatform::PlatformEvent translated[6]{};
 	int count = 0;
 	while ( count < 6 && app.PollEvent( translated[count] ) ) ++count;
 	CHECK( count == 6 );

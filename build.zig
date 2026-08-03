@@ -603,6 +603,7 @@ const game_sources = &.{
     "Sources/src/Game/main.cpp",
     "Sources/src/Game/SysKeys.cpp",
     "Sources/src/Game/WinFrame.cpp",
+    "Sources/src/Platform/SDLApplication.cpp",
 };
 
 const cppflags_game_debug = &.{
@@ -1214,7 +1215,7 @@ pub fn build(b: *std.Build) void {
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = b.graph.host,
@@ -1876,6 +1877,7 @@ fn addGame(
     renderer: []const u8,
     platform: build_support.PlatformTarget,
     sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -1885,6 +1887,7 @@ fn addGame(
     addMsvcIncludePaths(b, game_module, toolchain);
     addMsvcLibraryPaths(b, game_module, toolchain);
     game_module.addIncludePath(b.path("Sources/src/Game"));
+    game_module.addIncludePath(sdl_include);
     game_module.addIncludePath(b.path("Sources/src/Main"));
     game_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
     if (startup_trace) game_module.addCMacro("BK_STARTUP_TRACE", "1");

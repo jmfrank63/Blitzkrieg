@@ -36,7 +36,7 @@ public:
 	WindowBorrow BorrowWindow() const;
 	WindowSize LogicalSize() const;
 	WindowSize PixelSize() const;
-	bool PollEvent(Event &event);
+	bool PollEvent(PlatformEvent &event);
 	const std::string &LastError() const;
 
 	static void SetInitializationFailureForTests(bool enabled);

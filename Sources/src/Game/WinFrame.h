@@ -26,6 +26,7 @@ namespace NWinFrame
 	};
 	bool GetMessage( SWindowsMsg *pRes );
 	HWND GetHWnd();
+	void *GetSDLWindow();
 	HINSTANCE GetHInstance();
 	bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *pszWndName, int nWidth, int nHeight );
 	void ShowAppWindow( bool bShow );

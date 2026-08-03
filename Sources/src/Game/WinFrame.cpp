@@ -4,6 +4,10 @@
 
 #include "WinFrame.h"
 #include "SysKeys.h"
+#include "..\Platform\SDLApplication.h"
+#include "..\Platform\Event.h"
+
+#include <SDL3/SDL.h>
 
 #include "..\Misc\Win32Helper.h"
 #include "..\Main\iMain.h"
@@ -27,6 +31,7 @@ namespace NWinFrame
 {
 static HWND hWnd = 0;                   // window handle
 static HINSTANCE hInstance = 0;         // instance handle
+static NPlatform::SDLApplication sdlApplication;
 static ATOM atomWndClassName = 0;       // atom window class name identification (assigned during registration)
 static bool bActive = false;
 static bool bExit = false;
@@ -45,6 +50,7 @@ bool IsActive() { return bActive; }
 bool IsExit() { return bExit; }
 HWND GetHWnd() { return hWnd; }
 HINSTANCE GetHInstance() { return hInstance; }
+void *GetSDLWindow() { return sdlApplication.BorrowWindow().value; }
 void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags );
 static void AddInputMessage( const int nEventID, const int nParam = 0 );
 static void UpdateCursorPos( const LPARAM lParam );
@@ -339,6 +345,17 @@ bool GetMessage( SWindowsMsg *pRes )
 }
 bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *pszWndName, int nWidth, int nHeight )
 {
+	::NWinFrame::hInstance = hInstance;
+	szAppTitleName = pszAppName ? pszAppName : " Blitzkrieg Game";
+	szWndClassName = pszWndName ? pszWndName : "NIVAL_RTS_ENGINE";
+	if ( !sdlApplication.Initialize( szAppTitleName.c_str(), nWidth, nHeight ) )
+		return false;
+	SDL_PropertiesID properties = SDL_GetWindowProperties( static_cast<SDL_Window *>( sdlApplication.BorrowWindow().value ) );
+	hWnd = properties ? static_cast<HWND>( SDL_GetPointerProperty( properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr ) ) : nullptr;
+	bActive = true;
+	bExit = false;
+	return hWnd != nullptr;
+	#if 0
 	szAppTitleName = pszAppName;
 	szWndClassName = pszWndName;
   atomWndClassName = RegisterClass( hInstance );
@@ -350,6 +367,7 @@ bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *p
 	NI_ASSERT_TF( bRetVal, "Can't init app instance", return false; );
 
 	return true;
+	#endif
 }
 static void PreRegisterClass( WNDCLASSEX& wcex )
 {
@@ -417,8 +435,7 @@ static bool InitInstance( HINSTANCE hInst, int nCmdShow, int nWidth, int nHeight
 }
 void ShowAppWindow( bool bShow )
 {
-  ShowWindow( hWnd, bShow ? SW_SHOW : SW_HIDE );
-  UpdateWindow( hWnd );
+	if ( bShow ) sdlApplication.Show(); else sdlApplication.Hide();
 }
 static bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle )
 {
@@ -473,6 +490,51 @@ void ReleaseMouse()
 }
 void PumpMessages()
 {
+	NPlatform::PlatformEvent event;
+	while ( sdlApplication.PollEvent( event ) )
+	{
+		switch ( event.type )
+		{
+			case NPlatform::EventType::quit: bExit = true; break;
+			case NPlatform::EventType::focusGained: SetActive( true ); break;
+			case NPlatform::EventType::focusLost: SetActive( false ); break;
+			case NPlatform::EventType::keyDown:
+			case NPlatform::EventType::keyUp:
+				if ( NMain::IsInitialized() )
+				{
+					if ( event.key == SDLK_ESCAPE || event.key == SDLK_SPACE || event.key == SDLK_RETURN ) AddMovieSkipMessage();
+					if ( IInput *input = GetSingleton<IInput>() )
+						input->EmulateInput( DEVICE_TYPE_KEYBOARD, event.key, event.type == NPlatform::EventType::keyDown ? 0x80 : 0, static_cast<DWORD>( event.timestamp ), event.modifiers );
+				}
+				break;
+			case NPlatform::EventType::mouseMotion:
+				if ( NMain::IsInitialized() )
+				{
+					GetSingleton<ICursor>()->SetPos( event.x, event.y );
+					if ( IInput *input = GetSingleton<IInput>() )
+					{
+						input->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_X, event.x, static_cast<DWORD>( event.timestamp ), event.x );
+						input->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Y, event.y, static_cast<DWORD>( event.timestamp ), event.y );
+					}
+				}
+				break;
+			case NPlatform::EventType::mouseButtonDown:
+			case NPlatform::EventType::mouseButtonUp:
+				if ( NMain::IsInitialized() )
+				{
+					const int control = INPUT_CONTROL_MOUSE_BUTTON0 + Max( 0, event.button - 1 );
+					if ( IInput *input = GetSingleton<IInput>() ) input->EmulateInput( DEVICE_TYPE_MOUSE, control, event.type == NPlatform::EventType::mouseButtonDown ? 0x80 : 0, static_cast<DWORD>( event.timestamp ), TranslateCoords( MAKELPARAM( event.x, event.y ) ) );
+				}
+				break;
+			case NPlatform::EventType::mouseWheel:
+				if ( NMain::IsInitialized() )
+					if ( IInput *input = GetSingleton<IInput>() ) input->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, event.y, static_cast<DWORD>( event.timestamp ), 0 );
+				break;
+			default: break;
+		}
+	}
+	/* The SDL owner applies its own native event dispatch; no Win32 queue is pumped here. */
+	#if 0
 	msgList.clear();
   MSG msg;
 	while ( PeekMessage( &msg, 0, 0, 0, PM_NOREMOVE ) )
@@ -488,6 +550,7 @@ void PumpMessages()
 			bExit = true;
 	}
 	ApplyMouseClip();
+	#endif
 }
 void ResetExit()
 {

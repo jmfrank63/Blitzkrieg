@@ -252,7 +252,7 @@ int GameMain( const NPlatform::Arguments &arguments )
 	// device exists, and IGFX::SetMode() shows it itself (SWP_SHOWWINDOW in
 	// ResizeDeviceWindow). The splash screen covers the whole startup instead.
 	BK_STARTUP_MARKER("before NMain::Initialize");
-	if ( NMain::Initialize(NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
+	if ( NMain::Initialize(reinterpret_cast<HWND>( NWinFrame::GetSDLWindow() ), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
 	{
 		::MessageBox( 0, "Can't initialize game...", "ERROR", MB_OK | MB_ICONEXCLAMATION );
 		return 0xDEAD;

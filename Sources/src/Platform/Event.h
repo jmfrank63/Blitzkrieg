@@ -24,7 +24,7 @@ enum class EventType
 	mouseWheel,
 };
 
-struct Event
+struct PlatformEvent
 {
 	EventType type = EventType::unknown;
 	std::uint64_t timestamp = 0;

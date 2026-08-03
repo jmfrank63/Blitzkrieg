@@ -78,7 +78,7 @@ WindowSize SDLApplication::PixelSize() const
 	return result;
 }
 
-bool SDLApplication::PollEvent(Event &event)
+bool SDLApplication::PollEvent(PlatformEvent &event)
 {
 	if ( !OnMainThread() ) { SetError( "PollEvent called off main thread" ); return false; }
 	SDL_Event raw{};
