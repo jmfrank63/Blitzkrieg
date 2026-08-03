@@ -4,7 +4,6 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <winsock.h>
 #include <vector>
 #include <list>
 class CBitStream;

@@ -1,6 +1,6 @@
 #ifndef __NET_DRIVER_H__
 #define __NET_DRIVER_H__
-#include <winsock2.h>
+#include "..\\Platform\\Socket.h"
 typedef unsigned int APPLICATION_ID;
 enum
 {
@@ -21,7 +21,7 @@ interface INetNodeAddress : public IRefCount
 	virtual const char* STDCALL GetFastName() const = 0;
 	virtual bool STDCALL IsSameIP( const INetNodeAddress *pAddress ) const = 0;
 	virtual unsigned int STDCALL GetIP() const = 0;
-	virtual sockaddr* STDCALL GetSockAddr() = 0;
+	virtual NPlatform::SocketAddress* STDCALL GetSockAddr() = 0;
 };
 interface INetDriver : public IRefCount
 {
@@ -119,8 +119,8 @@ interface INetDriver : public IRefCount
 	virtual bool STDCALL GetMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt ) = 0;
 	virtual const float STDCALL GetPing( const int nClientID ) = 0;
 	virtual const float STDCALL GetTimeSinceLastRecv( const int nClientID ) = 0;
-	virtual SOCKET STDCALL GetSocket() = 0;
-	virtual sockaddr* STDCALL GetSockAddr() = 0;
+	virtual NPlatform::SocketHandle STDCALL GetSocket() = 0;
+	virtual NPlatform::SocketAddress* STDCALL GetSockAddr() = 0;
 
 	virtual void STDCALL AddChannel( const int nChannelID, const std::unordered_set<BYTE> &channelMessages ) = 0;
 	virtual void STDCALL RemoveChannel( const int nChannelID ) = 0;

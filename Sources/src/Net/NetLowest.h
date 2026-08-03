@@ -4,14 +4,14 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <winsock.h>
+#include "..\\Platform\\Socket.h"
 #include <string>
 class CMemoryStream;
 namespace NNet
 {
 class CNodeAddress
 {
-	sockaddr addr;
+	NPlatform::SocketAddress addr;
 public:
 	CNodeAddress() { memset( &addr, 0, sizeof(addr) ); }
 
@@ -25,7 +25,7 @@ public:
 	bool operator == ( const CNodeAddress &a ) const { return memcmp( &addr, &a.addr, sizeof(addr) ) == 0; }
 	bool operator != ( const CNodeAddress &a ) const { return memcmp( &addr, &a.addr, sizeof(addr) ) != 0; }
 
-	sockaddr *GetSockAddr() { return &addr; }
+	NPlatform::SocketAddress *GetSockAddr() { return &addr; }
 
 	friend class CLinksManager;
 };
@@ -50,14 +50,14 @@ class CNodeAddressWrap : public INetNodeAddress
 	virtual const char* STDCALL GetFastName() const { szTempString = address.GetFastName(); return szTempString.c_str(); }
 	virtual bool STDCALL IsSameIP( const INetNodeAddress *pAddress ) const { return address.SameIP( static_cast<const CNodeAddressWrap*>( pAddress )->GetCNodeAddress() );  }
 	virtual unsigned int STDCALL GetIP() const { return address.GetIP(); }
-	virtual sockaddr* STDCALL GetSockAddr() { return address.GetSockAddr(); }
+	virtual NPlatform::SocketAddress* STDCALL GetSockAddr() { return address.GetSockAddr(); }
 public:
 	const CNodeAddress& GetCNodeAddress() const { return address; }
 	CNodeAddress& GetCNodeAddress() { return address; }
 };
 class CLinksManager
 {
-	SOCKET s;
+	NPlatform::SocketHandle s;
 	CNodeAddress broadcastAddr;
 public:
 	CLinksManager();
@@ -68,7 +68,7 @@ public:
 	bool IsLocalAddr( const CNodeAddress &test ) const;
 	bool Send( const CNodeAddress &dst, CMemoryStream &pkt ) const;
 	bool Recv( CNodeAddress *pSrc, CMemoryStream *pPkt ) const;
-	SOCKET GetSocket() const;
+	NPlatform::SocketHandle GetSocket() const;
 	bool GetSelfAddress( CNodeAddressSet *pRes ) const;
 };
 }

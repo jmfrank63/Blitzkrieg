@@ -940,6 +940,7 @@ pub fn build(b: *std.Build) void {
     addPlatformClipboardTest(b, target, test_mode, toolchain);
     addPlatformAudioTest(b, target, test_mode, toolchain);
     addInputAudioGateTest(b, target, test_mode, toolchain);
+    addPlatformSocketTypesTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2937,6 +2938,31 @@ fn addInputAudioGateTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-input-audio-gate", "Run the portable input and audio lifecycle gate");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addPlatformSocketTypesTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addIncludePath(b.path("Sources/src/Platform"));
+    module.addCSourceFiles(.{ .files = &.{ "tools/zig/platform_socket_types_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    switch (target.result.os.tag) {
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "platform-socket-types-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-platform-socket-types", "Run portable socket ABI contract tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
