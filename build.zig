@@ -1022,7 +1022,11 @@ pub fn build(b: *std.Build) void {
         .root_module = shader_driver_module,
     });
     const shader_driver_run = b.addRunArtifact(shader_driver);
-    const shader_formats = b.option([]const u8, "shader-formats", "Comma-separated shader output formats: dxil,spirv,msl") orelse "dxil";
+    const shader_formats = b.option([]const u8, "shader-formats", "Comma-separated shader output formats: dxil,spirv,msl") orelse switch (target.result.os.tag) {
+        .linux => "spirv",
+        .macos => "msl",
+        else => "dxil",
+    };
     shader_driver_run.step.dependOn(shadercross_build_step);
     if (dxc_runtime_path) |path| shader_driver_run.addPathDir(path);
     shader_driver_run.addArg("Sources/src/GFXGPU/shaders/manifest.json");
@@ -1790,9 +1794,11 @@ fn addLegacyProjectDll(
         const path_start = start + marker.len;
         const path_end = std.mem.indexOfPos(u8, contents, path_start, "\"") orelse break;
         const source = contents[path_start..path_end];
+        const normalized_source = b.allocator.dupe(u8, source) catch @panic("OOM");
+        std.mem.replaceScalar(u8, normalized_source, '\\', '/');
         if (std.mem.endsWith(u8, source, ".cpp") or std.mem.endsWith(u8, source, ".c")) {
-            const placed = b.fmt("Sources/src/{s}/{s}", .{ name, source });
-            if (std.mem.indexOf(u8, source, "xiph") != null) {
+            const placed = b.fmt("Sources/src/{s}/{s}", .{ name, normalized_source });
+            if (std.mem.indexOf(u8, normalized_source, "xiph") != null) {
                 xiph_files.append(b.allocator, placed) catch @panic("OOM");
             } else if (std.mem.indexOf(u8, source, "AudioBackend") != null) {
                 // SFX's AudioBackend*.cpp/.c hold the whole miniaudio
@@ -2695,6 +2701,11 @@ const ToolchainIncludes = struct {
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
+    if (b.graph.host.result.os.tag == .linux) {
+        module.addSystemIncludePath(.{ .cwd_relative = "/usr/include" });
+        module.addSystemIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+        return;
+    }
     if (b.graph.host.result.os.tag != .windows) return;
     module.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\ucrt", .{toolchain.windows_sdk_include}) });
