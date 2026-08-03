@@ -154,13 +154,13 @@ public:																																																\
 	virtual int STDCALL GetRefCounter() const { return (refcounter); }																	\
 	virtual const char* STDCALL GetSharedResourceName() const { return szSharedResourceName.c_str(); }	\
 	virtual void STDCALL SetSharedResourceName( const std::string &szName ) { szSharedResourceName = szName; } \
-	static const char* GetSharedResourceExtVarName() { return "SharedResource."extvarname".Ext"; }			\
+	static const char* GetSharedResourceExtVarName() { return "SharedResource." extvarname ".Ext"; }			\
 	void SetSharedResourceLastUsage( const int nUsage ) { nSharedResourceLastUsage.a = nUsage; }				\
 	int GetSharedResourceLastUsage() const { return nSharedResourceLastUsage.a; }												\
 private:																																															\
 	std::string szSharedResourceName;																																		\
 	SInt nSharedResourceLastUsage;																																			\
-	const std::string GetSharedResourceFullName() const { return szSharedResourceName + GetGlobalVar("SharedResource."extvarname".Ext", ""); }
+	const std::string GetSharedResourceFullName() const { return szSharedResourceName + GetGlobalVar("SharedResource." extvarname ".Ext", ""); }
 interface IGDBObject
 {
 	virtual const char* STDCALL GetName() const = 0;
@@ -289,7 +289,7 @@ private:
 template <class TContainer>
 inline void EraseInvalidRefs( TContainer *pData )
 {
-	for ( TContainer::iterator it = pData->begin(); it != pData->end(); )
+	for ( typename TContainer::iterator it = pData->begin(); it != pData->end(); )
 	{
 		if ( (*it)->IsValid() )
 			++it;
@@ -300,7 +300,7 @@ inline void EraseInvalidRefs( TContainer *pData )
 template <class TContainer>
 void ClearContainer( TContainer &container )
 {
-	for ( TContainer::iterator it = container.begin(); it != container.end(); ++it )
+	for ( typename TContainer::iterator it = container.begin(); it != container.end(); ++it )
 	{
 		if ( *it )
 			delete *it;
@@ -310,7 +310,7 @@ void ClearContainer( TContainer &container )
 template <class TContainer>
 void ClearComplexContainer( TContainer &container )
 {
-	for ( TContainer::iterator it = container.begin(); it != container.end(); ++it )
+	for ( typename TContainer::iterator it = container.begin(); it != container.end(); ++it )
 	{
 		if ( it->second )
 			delete it->second;
@@ -401,6 +401,8 @@ template <class TUserObj>																															\
 class TPtrName: public CPtrBase<TUserObj, TRefFunc>																		\
 {																																											\
 	typedef CPtrBase<TUserObj, TRefFunc> TBase;																					\
+	using TBase::Set;																					\
+	using TBase::GetPtr;																					\
 public:																																								\
 	TPtrName() {}																																				\
 	TPtrName( TUserObj *_ptr ): TBase( _ptr ) {  }																			\
