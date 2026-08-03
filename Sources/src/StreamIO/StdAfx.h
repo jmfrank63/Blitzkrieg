@@ -55,7 +55,7 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "ModernAssert.h"				// modern C++ asserts
 #include "Tools.h"							// different usefull tools
 #include "Geometry.h"						// geometry primitives and operations (vectors, matrix, quaternion, etc.)
-#include "2DArray.h"						// 2-D array
+#include "2Darray.h"						// 2-D array
 #include "HashFuncs.h"					// different usefull hash functions
 #include "StrProc.h"						// string processing functions
 

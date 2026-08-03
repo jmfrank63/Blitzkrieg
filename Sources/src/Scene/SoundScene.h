@@ -2,7 +2,7 @@
 #define __SOUNDSCENE_H__
 
 #include "../SFX/SFX.h"
-#include "../Misc/2DArray.h"
+#include "../Misc/2Darray.h"
 #include "../Formats/fmtMap.h"
 #include "../Misc/TypeConvertor.h"
 #include "../Misc/FreeIDs.h"

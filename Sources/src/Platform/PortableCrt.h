@@ -25,6 +25,8 @@ typedef long HRESULT;
 typedef int REFIID;
 typedef void *HANDLE;
 typedef void *HMODULE;
+typedef void *HINSTANCE;
+typedef void *HCURSOR;
 #ifndef BLITZKRIEG_FILETIME_DEFINED
 typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
 #define BLITZKRIEG_FILETIME_DEFINED
@@ -43,6 +45,8 @@ typedef struct { unsigned long long QuadPart; } ULARGE_INTEGER;
 #define THREAD_PRIORITY_BELOW_NORMAL -1
 #define TEXT(x) x
 #define MAKELPARAM(a,b) ((long)(((unsigned short)(a)) | ((unsigned long)((unsigned short)(b)) << 16)))
+#define MAKEINTRESOURCE(x) ((const char *)(uintptr_t)(x))
+#define IDC_WAIT ((const char *)32514)
 #define STG_E_INVALIDFUNCTION 0x80030001L
 #define STG_E_ACCESSDENIED 0x80030005L
 #define _PC_24 0
@@ -89,6 +93,11 @@ typedef void *HKEY;
 #define ERROR_INVALID_PARAMETER 87
 #define CP_ACP 0
 #define _stricmp strcasecmp
+#define _strnicmp strncasecmp
+#define __int64 long long
+#ifndef __stdcall
+#define __stdcall
+#endif
 #define _EM_INVALID 0
 #define _EM_ZERODIVIDE 0
 #define _EM_OVERFLOW 0
@@ -104,6 +113,10 @@ typedef void *HKEY;
 #define _MCW_DN 0
 static inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
 static inline void Sleep(unsigned long) {}
+static inline int ClipCursor(const void *) { return 1; }
+static inline int SetCursorPos(int, int) { return 1; }
+static inline HCURSOR LoadCursor(HINSTANCE, const char *) { return 0; }
+static inline HCURSOR SetCursor(HCURSOR cursor) { return cursor; }
 
 static inline UINT GetACP(void) { return 65001; }
 static inline char *_itoa(int value, char *buffer, int radix) {
