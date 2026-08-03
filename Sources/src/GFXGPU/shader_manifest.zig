@@ -1,11 +1,13 @@
 const std = @import("std");
 
 pub const magic = "GFXS";
-pub const schema_version: u16 = 2;
+pub const schema_version: u16 = 3;
 pub const max_string_length: usize = std.math.maxInt(u16);
 
 pub const Format = enum(u8) {
     dxil = 1,
+    spirv = 2,
+    msl = 3,
 };
 
 pub const Stage = enum(u8) {
@@ -19,6 +21,7 @@ pub const Record = struct {
     name: []u8,
     entry_point: []u8,
     stage: Stage,
+    format: Format = .dxil,
     blob_path: []u8,
     byte_length: u32,
     required_vertex_mask: u32,
@@ -52,6 +55,7 @@ pub const Error = error{
     BadMagic,
     UnsupportedVersion,
     UnsupportedFormat,
+    MissingStagePair,
     Truncated,
     InvalidStage,
     InvalidPath,
@@ -106,7 +110,7 @@ fn validRelativePath(path: []const u8) bool {
 
 fn duplicate(records: []const Record, record: *const Record) bool {
     for (records) |existing| {
-        if (std.mem.eql(u8, existing.effect, record.effect) and existing.stage == record.stage) return true;
+        if (std.mem.eql(u8, existing.effect, record.effect) and existing.stage == record.stage and existing.format == record.format) return true;
     }
     return false;
 }
@@ -114,6 +118,8 @@ fn duplicate(records: []const Record, record: *const Record) bool {
 fn parseFormat(value: u8) Error!Format {
     return switch (value) {
         @intFromEnum(Format.dxil) => .dxil,
+        @intFromEnum(Format.spirv) => .spirv,
+        @intFromEnum(Format.msl) => .msl,
         else => Error.UnsupportedFormat,
     };
 }
@@ -147,6 +153,7 @@ pub fn parse(allocator: std.mem.Allocator, bytes: []const u8) (Error || std.mem.
             .name = undefined,
             .entry_point = undefined,
             .stage = undefined,
+            .format = undefined,
             .blob_path = undefined,
             .byte_length = undefined,
             .required_vertex_mask = undefined,
@@ -159,6 +166,7 @@ pub fn parse(allocator: std.mem.Allocator, bytes: []const u8) (Error || std.mem.
         errdefer record.deinit(allocator);
         record.name = try readString(&reader, allocator);
         record.entry_point = try readString(&reader, allocator);
+        record.format = try parseFormat(try reader.readU8());
         record.stage = try parseStage(try reader.readU8());
         _ = try reader.readU8();
         record.blob_path = try readString(&reader, allocator);
@@ -173,17 +181,31 @@ pub fn parse(allocator: std.mem.Allocator, bytes: []const u8) (Error || std.mem.
         if (duplicate(records[0..initialized], record)) return Error.DuplicateRecord;
         initialized += 1;
     }
+    for (records) |record| {
+        if (record.stage == .compute) continue;
+        const counterpart: Stage = if (record.stage == .vertex) .fragment else .vertex;
+        var found = false;
+        for (records) |other| {
+            if (other.stage == counterpart and other.format == record.format and std.mem.eql(u8, other.effect, record.effect)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return Error.MissingStagePair;
+    }
     if (reader.offset != bytes.len) return Error.Truncated;
     return .{ .format = format, .records = records };
 }
 
 test "manifest parser rejects malformed corpus" {
     const valid = [_]u8{
-        'G', 'F', 'X', 'S', 2, 0, 1, 0, 1, 0, 0, 0,
-        1, 0, 'e', 1, 0, 'n', 4, 0, 'm', 'a', 'i', 'n', 0, 0,
-        1, 0, 'x', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        'G', 'F', 'X', 'S', 2,   0,   1, 0, 1,   0,   0,   0,
+        1,   0,   'e', 1,   0,   'n', 4, 0, 'm', 'a', 'i', 'n',
+        0,   0,   1,   0,   'x', 0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0,   0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0,   0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0,   0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,
     };
     try std.testing.expectError(Error.BadMagic, parse(std.testing.allocator, "BAD!"));
     var bad_version = valid;
@@ -199,4 +221,11 @@ test "manifest parser rejects traversal and duplicate records" {
     try std.testing.expect(!validRelativePath("../probe.dxil"));
     try std.testing.expect(!validRelativePath("C:/probe.dxil"));
     try std.testing.expect(validRelativePath("probe.vertex.dxil"));
+}
+
+test "manifest format values are stable and distinct" {
+    try std.testing.expectEqual(Format.dxil, try parseFormat(1));
+    try std.testing.expectEqual(Format.spirv, try parseFormat(2));
+    try std.testing.expectEqual(Format.msl, try parseFormat(3));
+    try std.testing.expectError(Error.UnsupportedFormat, parseFormat(4));
 }

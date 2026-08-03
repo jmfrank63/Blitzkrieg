@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Stage = enum { vertex, fragment, compute };
+const Format = enum { dxil, spirv, msl };
 
 const Define = struct {
     name: []const u8,
@@ -31,6 +32,7 @@ const ManifestHeader = struct {
 
 const CompiledRecord = struct {
     source: SourceRecord,
+    format: Format,
     blob_path: []const u8,
     byte_length: u32,
     hash: [32]u8,
@@ -142,6 +144,53 @@ fn stageName(stage: Stage) []const u8 {
     };
 }
 
+fn formatName(format: Format) []const u8 {
+    return switch (format) {
+        .dxil => "dxil",
+        .spirv => "spirv",
+        .msl => "msl",
+    };
+}
+
+fn formatByte(format: Format) u8 {
+    return switch (format) {
+        .dxil => 1,
+        .spirv => 2,
+        .msl => 3,
+    };
+}
+
+fn lessCompiled(left: CompiledRecord, right: CompiledRecord) bool {
+    const effect_order = std.mem.order(u8, left.source.effect, right.source.effect);
+    if (effect_order != .eq) return effect_order == .lt;
+    if (stageOrder(left.source.stage) != stageOrder(right.source.stage)) return stageOrder(left.source.stage) < stageOrder(right.source.stage);
+    return formatByte(left.format) < formatByte(right.format);
+}
+
+fn sortCompiled(records: []CompiledRecord) void {
+    var index: usize = 1;
+    while (index < records.len) : (index += 1) {
+        const value = records[index];
+        var position = index;
+        while (position > 0 and lessCompiled(value, records[position - 1])) : (position -= 1) {
+            records[position] = records[position - 1];
+        }
+        records[position] = value;
+    }
+}
+
+fn parseFormats(allocator: std.mem.Allocator, value: []const u8) ![]Format {
+    var formats: std.ArrayListUnmanaged(Format) = .empty;
+    var parts = std.mem.splitScalar(u8, value, ',');
+    while (parts.next()) |part| {
+        const format: Format = if (std.mem.eql(u8, part, "dxil")) .dxil else if (std.mem.eql(u8, part, "spirv")) .spirv else if (std.mem.eql(u8, part, "msl")) .msl else return error.UnknownFormat;
+        for (formats.items) |existing| if (existing == format) return error.DuplicateFormat;
+        try formats.append(allocator, format);
+    }
+    if (formats.items.len == 0) return error.MissingFormat;
+    return formats.toOwnedSlice(allocator);
+}
+
 fn stageByte(stage: Stage) u8 {
     return stageOrder(stage);
 }
@@ -174,6 +223,7 @@ fn writeRuntimeManifest(io: std.Io, allocator: std.mem.Allocator, output_dir: []
         try appendString(&output, allocator, record.source.effect);
         try appendString(&output, allocator, record.source.name);
         try appendString(&output, allocator, record.source.entry);
+        try output.append(allocator, formatByte(record.format));
         try output.append(allocator, stageByte(record.source.stage));
         try output.append(allocator, 0);
         try appendString(&output, allocator, record.blob_path);
@@ -191,42 +241,53 @@ fn writeRuntimeManifest(io: std.Io, allocator: std.mem.Allocator, output_dir: []
     });
 }
 
-fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []const u8, output_dir: []const u8) !void {
+fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []const u8, output_dir: []const u8, format_set: []const u8) !void {
     var arena = std.heap.ArenaAllocator.init(init.gpa);
     defer arena.deinit();
     const allocator = arena.allocator();
     const manifest_text = try std.Io.Dir.cwd().readFileAlloc(init.io, manifest_path, allocator, .limited(1024 * 1024));
     const shader_dir = std.fs.path.dirname(manifest_path) orelse ".";
     const records = try parseManifest(init.io, allocator, manifest_text, shader_dir);
+    const formats = try parseFormats(allocator, format_set);
     try std.Io.Dir.cwd().deleteTree(init.io, output_dir);
     try std.Io.Dir.cwd().createDirPath(init.io, output_dir);
 
-    const compiled = try allocator.alloc(CompiledRecord, records.len);
-    for (records, 0..) |record, index| {
-        const blob_path = try std.fmt.allocPrint(allocator, "{s}.{s}.dxil", .{ record.effect, stageName(record.stage) });
-        const source_path = try std.fs.path.join(allocator, &.{ shader_dir, record.source });
-        const output_path = try std.fs.path.join(allocator, &.{ output_dir, blob_path });
-        var command: std.ArrayListUnmanaged([]const u8) = .empty;
-        try command.appendSlice(allocator, &.{ shadercross, source_path, "-s", "HLSL", "-d", "DXIL", "-t", stageName(record.stage), "-e", record.entry, "-I", shader_dir, "-o", output_path });
-        for (record.defines) |define| {
-            const value = define.value orelse "1";
-            try command.append(allocator, try std.fmt.allocPrint(allocator, "-D{s}={s}", .{ define.name, value }));
+    const compiled = try allocator.alloc(CompiledRecord, records.len * formats.len);
+    var compiled_count: usize = 0;
+    for (formats) |format| {
+        for (records) |record| {
+            const blob_path = try std.fmt.allocPrint(allocator, "{s}.{s}.{s}", .{ record.effect, stageName(record.stage), formatName(format) });
+            const source_path = try std.fs.path.join(allocator, &.{ shader_dir, record.source });
+            const output_path = try std.fs.path.join(allocator, &.{ output_dir, blob_path });
+            var command: std.ArrayListUnmanaged([]const u8) = .empty;
+            const destination = switch (format) {
+                .dxil => "DXIL",
+                .spirv => "SPIRV",
+                .msl => "MSL",
+            };
+            try command.appendSlice(allocator, &.{ shadercross, source_path, "-s", "HLSL", "-d", destination, "-t", stageName(record.stage), "-e", record.entry, "-I", shader_dir, "-o", output_path });
+            for (record.defines) |define| {
+                const value = define.value orelse "1";
+                try command.append(allocator, try std.fmt.allocPrint(allocator, "-D{s}={s}", .{ define.name, value }));
+            }
+            std.debug.print("shadercross", .{});
+            for (command.items) |argument| std.debug.print(" {s}", .{argument});
+            std.debug.print("\n", .{});
+            const result = try std.process.run(allocator, init.io, .{ .argv = command.items });
+            if (result.term != .exited or result.term.exited != 0) {
+                std.debug.print("shadercross failed: {s}\n{s}", .{ record.effect, result.stderr });
+                return error.ShaderCompilationFailed;
+            }
+            const blob = try std.Io.Dir.cwd().readFileAlloc(init.io, output_path, allocator, .limited(64 * 1024 * 1024));
+            var hash: [32]u8 = undefined;
+            std.crypto.hash.sha2.Sha256.hash(blob, &hash, .{});
+            compiled[compiled_count] = .{ .source = record, .format = format, .blob_path = blob_path, .byte_length = @intCast(blob.len), .hash = hash };
+            compiled_count += 1;
+            std.debug.print("generated {s} bytes={d}\n", .{ blob_path, blob.len });
         }
-        std.debug.print("shadercross", .{});
-        for (command.items) |argument| std.debug.print(" {s}", .{argument});
-        std.debug.print("\n", .{});
-        const result = try std.process.run(allocator, init.io, .{ .argv = command.items });
-        if (result.term != .exited or result.term.exited != 0) {
-            std.debug.print("shadercross failed: {s}\n{s}", .{ record.effect, result.stderr });
-            return error.ShaderCompilationFailed;
-        }
-        const blob = try std.Io.Dir.cwd().readFileAlloc(init.io, output_path, allocator, .limited(64 * 1024 * 1024));
-        var hash: [32]u8 = undefined;
-        std.crypto.hash.sha2.Sha256.hash(blob, &hash, .{});
-        compiled[index] = .{ .source = record, .blob_path = blob_path, .byte_length = @intCast(blob.len), .hash = hash };
-        std.debug.print("generated {s} bytes={d}\n", .{ blob_path, blob.len });
     }
-    try writeRuntimeManifest(init.io, allocator, output_dir, compiled);
+    sortCompiled(compiled[0..compiled_count]);
+    try writeRuntimeManifest(init.io, allocator, output_dir, compiled[0..compiled_count]);
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -236,7 +297,8 @@ pub fn main(init: std.process.Init) !void {
     const manifest = args.next() orelse return error.MissingManifestPath;
     const shadercross = args.next() orelse return error.MissingShadercrossPath;
     const output = args.next() orelse return error.MissingOutputPath;
-    try compile(init, manifest, shadercross, output);
+    const format_set = args.next() orelse "dxil";
+    try compile(init, manifest, shadercross, output, format_set);
 }
 
 test "valid probe manifest parses and sorts stages" {

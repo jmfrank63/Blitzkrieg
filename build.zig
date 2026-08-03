@@ -1022,11 +1022,13 @@ pub fn build(b: *std.Build) void {
         .root_module = shader_driver_module,
     });
     const shader_driver_run = b.addRunArtifact(shader_driver);
+    const shader_formats = b.option([]const u8, "shader-formats", "Comma-separated shader output formats: dxil,spirv,msl") orelse "dxil";
     shader_driver_run.step.dependOn(shadercross_build_step);
     if (dxc_runtime_path) |path| shader_driver_run.addPathDir(path);
     shader_driver_run.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_driver_run.addArtifactArg(shadercross_cli);
     shader_driver_run.addArg("zig-out/shaders");
+    shader_driver_run.addArg(shader_formats);
 
     const gfx_gpu_shaders_step = b.step("gfxgpu-shaders", "Compile deterministic GfxGpu shader blobs and manifest");
     gfx_gpu_shaders_step.dependOn(&shader_driver_run.step);
@@ -1038,12 +1040,14 @@ pub fn build(b: *std.Build) void {
     shader_determinism_a.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_determinism_a.addArtifactArg(shadercross_cli);
     shader_determinism_a.addArg("zig-out/shaders-determinism-a");
+    shader_determinism_a.addArg(shader_formats);
     const shader_determinism_b = b.addRunArtifact(shader_driver);
     shader_determinism_b.step.dependOn(shadercross_build_step);
     if (dxc_runtime_path) |path| shader_determinism_b.addPathDir(path);
     shader_determinism_b.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_determinism_b.addArtifactArg(shadercross_cli);
     shader_determinism_b.addArg("zig-out/shaders-determinism-b");
+    shader_determinism_b.addArg(shader_formats);
 
     const shader_compare_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compare_trees.zig"),
