@@ -1,4 +1,5 @@
 const sdl3 = @import("sdl3");
+const builtin = @import("builtin");
 
 pub const c = sdl3.c;
 pub const GpuDevice = c.SDL_GPUDevice;
@@ -72,7 +73,11 @@ pub fn createColorTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, wi
 }
 
 pub fn createDepthTexture(device: *GpuDevice, width: u32, height: u32) ?*GpuTexture {
-    const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT, .usage = c.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
+    const depth_format = if (builtin.target.os.tag == .macos)
+        c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT
+    else
+        c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+    const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = depth_format, .usage = c.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
     return c.SDL_CreateGPUTexture(device, &info);
 }
 

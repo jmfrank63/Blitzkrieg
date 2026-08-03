@@ -140,7 +140,10 @@ fn withRenderer(handle: ?*RendererHandle) ?*renderer_mod.Renderer {
 }
 fn beginFrame(handle: ?*RendererHandle) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    const acquired = renderer.beginFrame() catch return errors.invalid_state;
+    const acquired = renderer.beginFrame() catch |err| {
+        renderer.last_error = @errorName(err);
+        return errors.invalid_state;
+    };
     renderer.last_error = @tagName(renderer.frame.state);
     return if (acquired) errors.ok else errors.invalid_state;
 }

@@ -963,7 +963,7 @@ pub fn build(b: *std.Build) void {
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
-    addGameBootstrapSmoke(b, target, optimize, toolchain, gfx_gpu_zig, sdl_c, sdl_dynamic_dep.path("include"), test_mode);
+    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
@@ -1097,7 +1097,9 @@ pub fn build(b: *std.Build) void {
     else
         &[_][]const u8{};
     const gfx_gpu_abi_test_module = b.createModule(.{
-        .target = target,
+        // An explicitly selected native Apple target still needs Zig's host
+        // target query for framework discovery (CoreMedia, Metal, etc.).
+        .target = dependency_target,
         .optimize = optimize,
     });
     gfx_gpu_abi_test_module.addCSourceFiles(.{
@@ -1109,7 +1111,6 @@ pub fn build(b: *std.Build) void {
     addLinuxCxxIncludePaths(b, gfx_gpu_abi_test_module, target);
     addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
     gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
-    gfx_gpu_abi_test_module.linkLibrary(sdl_c);
     linkMsvcRuntime(gfx_gpu_abi_test_module, optimize);
     const gfx_gpu_abi_test = b.addExecutable(.{
         .name = "gfxgpu-abi-test",
@@ -1137,7 +1138,9 @@ pub fn build(b: *std.Build) void {
     const gfx_gpu_smoke_install = b.addInstallArtifact(gfx_gpu_smoke, .{});
     const gfx_gpu_smoke_build_step = b.step("gfxgpu-smoke-build", "Build the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_build_step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_build_step.dependOn(gfx_gpu_shaders_step);
     gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_run.step.dependOn(gfx_gpu_shaders_step);
     gfx_gpu_smoke_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
     gfx_gpu_smoke_run.setCwd(b.path("."));
     if (target.result.os.tag == .linux) {
@@ -3193,19 +3196,18 @@ fn addNetworkSystemGateTest(
 fn addGameBootstrapSmoke(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
+    dependency_target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     gfx_gpu_zig: *std.Build.Step.Compile,
-    sdl_c: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
     test_mode: build_support.TestMode,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+    const module = b.createModule(.{ .target = dependency_target, .optimize = optimize, .link_libc = true });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
-    module.linkLibrary(sdl_c);
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);

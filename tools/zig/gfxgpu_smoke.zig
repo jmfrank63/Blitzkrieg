@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const gpu = @import("gfxgpu");
 
@@ -57,7 +58,8 @@ fn probePipeline(device: *sdl3.c.SDL_GPUDevice, vertex: *anyopaque, fragment: *a
         .{ .location = 3, .buffer_slot = 0, .format = sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = if (lighting_layout) 28 else 24 },
     };
     const target = sdl3.c.SDL_GPUColorTargetDescription{ .format = sdl3.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, .blend_state = .{ .src_color_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ONE, .dst_color_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ZERO, .color_blend_op = sdl3.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl3.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = false, .enable_color_write_mask = true } };
-    const info = sdl3.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(vertex), .fragment_shader = @ptrCast(fragment), .vertex_input_state = .{ .vertex_buffer_descriptions = &buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdl3.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl3.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl3.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl3.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl3.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdl3.c.SDL_GPU_COMPAREOP_LESS, .enable_depth_test = true, .enable_depth_write = true }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = sdl3.c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT, .has_depth_stencil_target = true }, .props = 0 };
+    const depth_format = if (builtin.target.os.tag == .macos) sdl3.c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT else sdl3.c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+    const info = sdl3.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(vertex), .fragment_shader = @ptrCast(fragment), .vertex_input_state = .{ .vertex_buffer_descriptions = &buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdl3.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl3.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl3.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl3.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl3.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdl3.c.SDL_GPU_COMPAREOP_LESS, .enable_depth_test = true, .enable_depth_write = true }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = depth_format, .has_depth_stencil_target = true }, .props = 0 };
     return sdl3.c.SDL_CreateGPUGraphicsPipeline(device, &info);
 }
 
@@ -76,6 +78,8 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, 0) orelse return error.SdlWindowFailed;
     std.debug.print("GfxGpu reference: SDL window created\n", .{});
     defer sdl3.c.SDL_DestroyWindow(window);
+    if (!sdl3.c.SDL_ShowWindow(window)) return error.SdlWindowShowFailed;
+    sdl3.c.SDL_PumpEvents();
     var api: gpu.abi.Api = undefined;
     api.struct_size = @sizeOf(gpu.abi.Api);
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_get_api(gpu.abi.abi_version, &api));
@@ -116,7 +120,15 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, index_buffer, &index_upload));
     var hashes: [3][32]u8 = undefined;
     for (&hashes, 0..) |*hash, frame_index| {
-        try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+        sdl3.c.SDL_PumpEvents();
+        const begin_result = api.begin_frame(renderer);
+        if (begin_result != gpu.error_codes.ok) {
+            var diagnostic: [256]u8 = undefined;
+            var diagnostic_length: u32 = 0;
+            _ = api.get_last_error(renderer, &diagnostic, diagnostic.len, &diagnostic_length);
+            std.debug.print("GfxGpu reference begin_frame failed: result={} diagnostic={s} SDL={s}\n", .{ begin_result, diagnostic[0..diagnostic_length], std.mem.span(sdl3.c.SDL_GetError()) });
+        }
+        try std.testing.expectEqual(gpu.error_codes.ok, begin_result);
         var viewport = gpu.abi.ViewportInfo{ .struct_size = @sizeOf(gpu.abi.ViewportInfo), .x = 0, .y = 0, .width = 32, .height = 32, .min_depth = 0, .max_depth = 1 };
         try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &viewport));
         var clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
