@@ -80,7 +80,7 @@ public:
 	}
 	const bool IsInArea( const TPosition &vPos ) const
 	{
-		return ( vPos.x >= 0 ) && (vPos.y >= 0) && (vPos.x < GetSizeX()*tCellSize) && (vPos.y < GetSizeY()*tCellSize);
+		return ( vPos.x >= 0 ) && (vPos.y >= 0) && (vPos.x < this->GetSizeX()*tCellSize) && (vPos.y < this->GetSizeY()*tCellSize);
 	}
 };
 template <class TYPE>
@@ -163,7 +163,7 @@ public:
 	}
 	const bool IsInArea( const TPosition &vPos ) const
 	{
-		return ( vPos.x >= 0 ) && (vPos.y >= 0) && (vPos.x < GetSizeX()*tCellSize) && (vPos.y < GetSizeY()*tCellSize);
+		return ( vPos.x >= 0 ) && (vPos.y >= 0) && (vPos.x < this->GetSizeX()*tCellSize) && (vPos.y < this->GetSizeY()*tCellSize);
 	}
 };
 #endif // __AREA_MAP_H__
