@@ -48,6 +48,22 @@ jobs:
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
+      - name: Restore Zig build cache
+        uses: actions/cache@v4
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-global-0.16.0-
+
       - name: Run StreamIO filesystem tests
         run: zig build test-platform-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
@@ -92,6 +108,22 @@ jobs:
           $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
           Add-Content -Path $env:GITHUB_PATH -Value $zigHome
           & (Join-Path $zigHome "zig.exe") version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v4
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-build-0.16.0-
+
+      - name: Restore Windows Zig global cache
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\zig
+          key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-global-0.16.0-
 
       - name: Resolve MSVC and Windows SDK paths
         shell: pwsh
@@ -172,6 +204,22 @@ jobs:
           export PATH="${zig_home}:$PATH"
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v4
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-global-0.16.0-
 
       - name: Configure macOS SDK sysroot
         run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
