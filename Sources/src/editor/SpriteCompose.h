@@ -1,11 +1,11 @@
 #ifndef __SPRITECOMPOSE_H__
 #define __SPRITECOMPOSE_H__
 
-#include "../anim/animation.h"
-#include "../image/image.h"
-#include "../gfx/gfx.h"
-#include "../Formats/fmtAnimation.h"
-#include "../RandomMapGen/IB_Types.h"
+#include "..\anim\animation.h"
+#include "..\image\image.h"
+#include "..\gfx\gfx.h"
+#include "..\Formats\fmtAnimation.h"
+#include "..\RandomMapGen\IB_Types.h"
 
 struct SAnimationDesc 
 {

@@ -6,8 +6,8 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "src/ComplexPathFraction.h"
-#include "../Misc/Spline.h"
+#include "src\ComplexPathFraction.h"
+#include "..\Misc\Spline.h"
 
 
 class CPlanePathTestDlg : public CDialog

@@ -1,6 +1,6 @@
 #ifndef __AI_LOGIC_OBJECT_FACTORY__
 #define __AI_LOGIC_OBJECT_FACTORY__
-#include "../Misc/BasicObjectFactory.h"
+#include "..\Misc\BasicObjectFactory.h"
 class CAILogicObjectFactory : public CBasicObjectFactory
 {
 public:

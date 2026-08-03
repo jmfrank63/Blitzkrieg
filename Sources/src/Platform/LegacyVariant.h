@@ -2,12 +2,12 @@
 #define BLITZKRIEG_PLATFORM_LEGACY_VARIANT_H
 
 #if defined(_WIN32) || defined(_WIN64)
-
+#include <comutil.h>
 #else
-
-
-
-
+#include <cstdint>
+#include <cstring>
+#include <cwchar>
+#include <string>
 
 using VARTYPE = std::uint16_t;
 using VARIANT_BOOL = std::int16_t;

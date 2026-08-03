@@ -1,7 +1,7 @@
 #ifndef __ANIMATION_H__
 #define __ANIMATION_H__
 #pragma ONCE
-#include "../Formats/fmtSprite.h"
+#include "..\Formats\fmtSprite.h"
 enum
 {
 	ANIM_BASE_VALUE								= 0x10020000,
@@ -56,7 +56,7 @@ enum EAnimation
 	ANIMATION_PRISONING			= 30,					// to get captive
 
 	
-	ANIMATION_LAST_ANIMATION,							// RR пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	ANIMATION_LAST_ANIMATION,							// RR мне нужно изменять размер векторов. ИД сообщения подсчитывается автоматом
 	ANIMATION_FORCE_DWORD = 0x7fffffff
 };
 #pragma pack( 2 )

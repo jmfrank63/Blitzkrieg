@@ -1,8 +1,8 @@
 #ifndef BLITZKRIEG_PLATFORM_SYNC_H
 #define BLITZKRIEG_PLATFORM_SYNC_H
 
-
-
+#include <condition_variable>
+#include <mutex>
 
 namespace NPlatform
 {

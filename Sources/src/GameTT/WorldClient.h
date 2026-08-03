@@ -1,10 +1,10 @@
 #ifndef __WORLDCLIENT_H__
 #define __WORLDCLIENT_H__
 #pragma ONCE
-#include "../Common/WorldBase.h"
-#include "../Input/Input.h"
-#include "../Input/InputHelper.h"
-#include "../AILogic/AITypes.h"
+#include "..\Common\WorldBase.h"
+#include "..\Input\Input.h"
+#include "..\Input\InputHelper.h"
+#include "..\AILogic\AITypes.h"
 enum EWorldClientCommands
 {
 	WCC_FORCE_ROTATION	= 0x00400001,

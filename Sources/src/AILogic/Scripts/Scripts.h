@@ -1,9 +1,9 @@
 #ifndef __SCRIPT_FUNCTIONS_H__
 #define __SCRIPT_FUNCTIONS_H__
 #pragma ONCE
-#include "../../LuaLib/Script.h"
-#include "../../Formats/fmtMap.h"
-#include "../AIHashFuncs.h"
+#include "..\..\LuaLib\Script.h"
+#include "..\..\Formats\fmtMap.h"
+#include "..\AIHashFuncs.h"
 interface IUpdatableObj;
 interface IScenarioUnit;
 class CScripts

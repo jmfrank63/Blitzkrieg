@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_EVENT_H
 #define BLITZKRIEG_PLATFORM_EVENT_H
 
-
+#include <cstdint>
 
 namespace NPlatform
 {

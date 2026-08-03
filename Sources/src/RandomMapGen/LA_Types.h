@@ -2,7 +2,7 @@
 #define __LA__Types__
 
 #include "Polygons_types.h"
-#include "../Formats/FmtMap.h"
+#include "..\Formats\FmtMap.h"
 
 extern const BYTE RMGC_UNLOCKED;									//0
 extern const BYTE RMGC_LOCKED;										//1
@@ -245,11 +245,11 @@ struct CheckTilesFunctional
 };
 
 template<class TYPE>
-bool ApplyTilesInObjectsPassability( const CTRect<int> &rRect,										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-																		 const SMapObjectInfo *pMapObjectInfo,				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-																		 int nMapObjectInfoCount,											//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-																		 TYPE &rApplyFunctional,											//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-																		 bool isIgnoreInvalidIndices = false )				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+bool ApplyTilesInObjectsPassability( const CTRect<int> &rRect,										//границы применимости функционалов
+																		 const SMapObjectInfo *pMapObjectInfo,				//казатель на массив обьектов
+																		 int nMapObjectInfoCount,											//число обьектов
+																		 TYPE &rApplyFunctional,											//функционал
+																		 bool isIgnoreInvalidIndices = false )				//пропускать обьекты за краями карты
 {
 	IObjectsDB *pIDB = GetSingleton<IObjectsDB>();
 	if ( !pIDB )
@@ -311,10 +311,10 @@ bool ApplyTilesInObjectsPassability( const CTRect<int> &rRect, const SMapObjectI
 }
 
 template<class TYPE, class PolygonType, class PointType>
-bool ApplyTilesInPolygon( const CTRect<int> &rRect,						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-													const PolygonType &rPolygon,				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-													float fSide,												//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
-													TYPE &rApplyFunctional )						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+bool ApplyTilesInPolygon( const CTRect<int> &rRect,						//границы применимости функционалов
+													const PolygonType &rPolygon,				//полигон
+													float fSide,												//сторона тайла
+													TYPE &rApplyFunctional )						//функционал
 {
 	CTRect<float> boundingBox = GetPolygonBoundingBox( rPolygon );
 	CTRect<int> indices( ( boundingBox.minx + ( fSide / 2.0f ) ) / fSide,
@@ -346,12 +346,12 @@ bool ApplyTilesInPolygon( const CTRect<int> &rRect,						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 }
 
 template<class TYPE>
-bool ApplyTilesInRange( const CTRect<int> &rRect,	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-												int nMinX,								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+bool ApplyTilesInRange( const CTRect<int> &rRect,	//границы применимости функционалов
+												int nMinX,								//границы прямоугольника
 												int nMinY,								//
 												int nMaxX,								//
 												int nMaxY,								//
-												TYPE &rApplyFunctional )	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+												TYPE &rApplyFunctional )	//функционал
 {
 	CTRect<int> indices( nMinX, nMinY, nMaxX + 1, nMaxY + 1 );
 	if ( ValidateIndices( rRect, &indices ) < 0 )
@@ -385,11 +385,11 @@ bool ApplyTilesInRange( const CTRect<int> &rRect, const CTRect<int> &range, TYPE
 }
 
 template<class TYPE>
-bool ApplyTilesInCircle( const CTRect<int> &rRect,	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-												 int nXPosition,						//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+bool ApplyTilesInCircle( const CTRect<int> &rRect,	//границы применимости функционалов
+												 int nXPosition,						//центр круга
 												 int nYPosition,						//
-												 int nRadius,								//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
-												 TYPE &rApplyFunctional )		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+												 int nRadius,								//радиус круга
+												 TYPE &rApplyFunctional )		//функционал
 {
 	CTRect<int> indices( nXPosition - nRadius, nYPosition - nRadius, nXPosition + nRadius + 1, nYPosition + nRadius + 1 );
 	if ( ValidateIndices( rRect, &indices )  < 0 )
@@ -419,10 +419,10 @@ inline bool ApplyTilesInCircle( const CTRect<int> &rRect, const CTPoint<int> &rC
 	return ApplyTilesInCircle( rRect, rCenter.x, rCenter.y, nRadius, rApplyFunctional );
 }
 
-int FindPath( const CTPoint<int> &rStartPoint,					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ RMGC_FINISH_POINT)
-						  const CTPoint<int> &rFinishPoint,					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ RMGC_START_POINT)
-						  CArray2D<BYTE> *pLockArray,								//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-						  std::vector<CTPoint<int> > *pPointList );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+int FindPath( const CTPoint<int> &rStartPoint,					//начальная точка (метится как RMGC_FINISH_POINT)
+						  const CTPoint<int> &rFinishPoint,					//начальная точка (метится как RMGC_START_POINT)
+						  CArray2D<BYTE> *pLockArray,								//массив тайлов
+						  std::vector<CTPoint<int> > *pPointList );	//массив точек куда добавляется путь
 #endif // #if !defined(__LA__Types__)
 
 /**

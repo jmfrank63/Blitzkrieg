@@ -3,7 +3,7 @@
 #pragma ONCE
 #include "InterMission.h"
 #include "iMission.h"
-#include "../Misc/FileUtils.h"
+#include "..\Misc\FileUtils.h"
 class CInterfaceSwitchModeTo : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceSwitchModeTo );

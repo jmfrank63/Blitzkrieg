@@ -1,8 +1,8 @@
 #ifndef __QUIT_MISSION_H__
 #define __QUIT_MISSION_H__
 #pragma ONCE
-#include "../Common/InterfaceScreenBase.h"
-#include "../Input/InputHelper.h"
+#include "..\Common\InterfaceScreenBase.h"
+#include "..\Input\InputHelper.h"
 #include "iMission.h"
 class CInterfaceQuitMission : public CInterfaceScreenBase
 {

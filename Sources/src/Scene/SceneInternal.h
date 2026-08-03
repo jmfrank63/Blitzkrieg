@@ -1,9 +1,9 @@
 #ifndef __SCENEINTERNAL_H__
 #define __SCENEINTERNAL_H__
 #pragma ONCE
-#include "../SFX/SFX.h"
-#include "../UI/UI.h"
-#include "../AILogic/AITypes.h"
+#include "..\SFX\SFX.h"
+#include "..\UI\UI.h"
+#include "..\AILogic\AITypes.h"
 #include "FixedObjList.h"
 struct SParticleInfo
 {

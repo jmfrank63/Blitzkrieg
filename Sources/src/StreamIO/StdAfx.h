@@ -61,15 +61,15 @@ typedef unsigned __int64 QWORD;					// quadra word
 
 #include "MSXMLImport.h"								// Common MSXML import
 
-#include "../StreamIO/Globals.h"				// globals - singleton, global var system, temp buffers, console, etc.
-#include "../StreamIO/StreamIO.h"				// stream I/O base interfaces
-#include "../StreamIO/DBIO.h"						// database I/O base interfaces
-#include "../StreamIO/StructureSaver.h"	// strucutre saver base interfaces
-#include "../StreamIO/SSHelper.h"				// strucutre saver helper classes
-#include "../StreamIO/DTHelper.h"				// data tree helper classes
+#include "..\StreamIO\Globals.h"				// globals - singleton, global var system, temp buffers, console, etc.
+#include "..\StreamIO\StreamIO.h"				// stream I/O base interfaces
+#include "..\StreamIO\DBIO.h"						// database I/O base interfaces
+#include "..\StreamIO\StructureSaver.h"	// strucutre saver base interfaces
+#include "..\StreamIO\SSHelper.h"				// strucutre saver helper classes
+#include "..\StreamIO\DTHelper.h"				// data tree helper classes
 
-#include "../Main/GameTimer.h"
-#include "../Main/GameDB.h"
+#include "..\Main\GameTimer.h"
+#include "..\Main\GameDB.h"
 #include "Specific.h"
 
 

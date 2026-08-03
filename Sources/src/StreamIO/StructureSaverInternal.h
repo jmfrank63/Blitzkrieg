@@ -2,7 +2,7 @@
 #define __STRUCTURESAVER_INTERNAL_H__
 #include "StructureSaver.h"
 #include "Streams.h"
-#include "../Misc/BasicObjectFactory.h"
+#include "..\Misc\BasicObjectFactory.h"
 class CSaveLoadSystem : public ISaveLoadSystem
 {
 	CBasicObjectFactory *pFactory;

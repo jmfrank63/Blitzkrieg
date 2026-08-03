@@ -1,7 +1,7 @@
 #ifndef __UIOPTIONS_H__
 #define __UIOPTIONS_H__
 #pragma ONCE
-#include "../StreamIO/OptionSystem.h"
+#include "..\StreamIO\OptionSystem.h"
 interface IUISetOptionsToUI 
 {
 	virtual void STDCALL SetSelectionOption( const std::vector<SOptionDropListValue> &szSelections, const int nDefault ) = 0;

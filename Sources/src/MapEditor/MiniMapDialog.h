@@ -4,12 +4,12 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "../AILogic/AITypes.h"
-#include "../Formats/fmtMap.h"
-#include "../GFX/GFX.h"
-#include "../Scene/Terrain.h"
-#include "../Image/Image.h"
-#include "../Scene/Scene.h"
+#include "..\AILogic\AITypes.h"
+#include "..\Formats\fmtMap.h"
+#include "..\GFX\GFX.h"
+#include "..\Scene\Terrain.h"
+#include "..\Image\Image.h"
+#include "..\Scene\Scene.h"
 
 #include "MiniMapTypes.h"
 #include "resource.h"

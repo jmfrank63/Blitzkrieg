@@ -5,8 +5,8 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "../Formats/FmtMap.h"
-#include "../Misc/Manipulator.h"
+#include "..\Formats\FmtMap.h"
+#include "..\Misc\Manipulator.h"
 
 class CTemplateEditorFrame;
 

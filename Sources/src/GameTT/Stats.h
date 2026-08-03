@@ -3,8 +3,8 @@
 #pragma ONCE
 #include "InterMission.h"
 #include "iMission.h"
-#include "../Main/ScenarioTrackerTypes.h"
-#include "../Main/ScenarioTracker.h"
+#include "..\Main\ScenarioTrackerTypes.h"
+#include "..\Main\ScenarioTracker.h"
 class CInterfaceStats : public CInterfaceInterMission
 {
 	DECLARE_SERIALIZE;

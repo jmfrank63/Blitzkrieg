@@ -8,11 +8,11 @@
 #include "InputMultiState.h"
 #include "DrawingTools.h"
 
-#include "../Image/Image.h"
-#include "../Formats/FmtMap.h"
-#include "../RandomMapGen/Polygons_Types.h"
-#include "../RandomMapGen/RMG_Types.h"
-#include "../RandomMapGen/VSO_Types.h"
+#include "..\Image\Image.h"
+#include "..\Formats\FmtMap.h"
+#include "..\RandomMapGen\Polygons_Types.h"
+#include "..\RandomMapGen\RMG_Types.h"
+#include "..\RandomMapGen\VSO_Types.h"
 
 struct CVectorStripeActivePoint
 {

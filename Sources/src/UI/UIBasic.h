@@ -1,32 +1,32 @@
 #ifndef __UIBASIC_H__
 #define __UIBASIC_H__
 #include "UIInternal.h"
-#include "../lualib/script.h"
+#include "..\lualib\script.h"
 class CSimpleWindow;
 typedef std::list< CObj<IUIElement> > CWindowList;
 class CSimpleWindow
 {
 	DECLARE_SERIALIZE;
 	
-	CTRect<float> wndRect;							//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	int nPositionFlag;									//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	CVec2 vPos;													//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	CVec2 vSize;												//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	CTRect<float> wndRect;							//координаты окошка относительно экрана
+	int nPositionFlag;									//задает точку привязки
+	CVec2 vPos;													//координаты левой верхней точки окошка относительно выбранной точки привязки
+	CVec2 vSize;												//размеры окошка
 	CVec2 vAppliedLayoutScale;
 	typedef std::vector<CWindowState> CStateVector;
 	
-	int nID;														//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	CPtr<IUIContainer> pParent;					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	bool bWindowActive;									//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ				//??
-	int nCmdShow;												//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	int nID;														//уникальный идентификатор окошка
+	CPtr<IUIContainer> pParent;					//родитель
+	bool bWindowActive;									//активно ли окно				//??
+	int nCmdShow;												//статус обображения окна
 	
-	CStateVector states;								//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ CheckButton пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	int nCurrentState;									//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	int nCurrentSubState;								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: NORMAL, HIGHLIGHTED, PUSHED
-	bool bShowBackground;								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ( пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ )
+	CStateVector states;								//все возможные состояния этой кнопки, например у CheckButton два состояния
+	int nCurrentState;									//текущее состояние
+	int nCurrentSubState;								//текущее подсостояние окошка: NORMAL, HIGHLIGHTED, PUSHED
+	bool bShowBackground;								//отображать или нет текстуру ( имеет смысл для окошек только с текстом )
 	
 	CObj<IManipulator> pManipulator;
-	std::string szHighSound;						//пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ state, пїЅпїЅ
+	std::string szHighSound;						//звук, проигрываемый когда мышка наводится на контрол, возможно они должны быть разные для разных state, хз
 	
 	int nTextAlign;
 	DWORD dwTextColor;
@@ -46,7 +46,7 @@ class CSimpleWindow
 	int nBlink;
 	DWORD dwLastBlinkTime;
 	DWORD dwCurrentBlinkColor;
-	bool bBlinking;											//пїЅпїЅпїЅпїЅ true пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bBlinking;											//если true то сейчас кнопочка мигает
 	DWORD dwBlinkTime;
 	int nBlinkColorIndex;								// color number (for blinking)
 
@@ -171,10 +171,10 @@ class CMultipleWindow : public CSimpleWindow
 	DECLARE_SERIALIZE;
 	CWindowList childList;							//child windows
 
-	CPtr<IUIElement> pHighlighted;			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
-	CPtr<IUIElement> pPushed;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
-	CPtr<IUIElement> pRPushed;					//пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
-	CPtr<IUIElement> pFocused;					//пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ edit box пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ TEXT_MODE
+	CPtr<IUIElement> pHighlighted;			//подсвеченное окно
+	CPtr<IUIElement> pPushed;						//нажатое окно (левая кнопка)
+	CPtr<IUIElement> pRPushed;					//окно с нажатой правой кнопкой мыши
+	CPtr<IUIElement> pFocused;					//окно с фокусом, при снятии фокуса для edit box например снимается TEXT_MODE
 	
 	typedef std::list< SUIMessage > CMessageList;
 	CMessageList messageList;
@@ -182,9 +182,9 @@ class CMultipleWindow : public CSimpleWindow
 	float fMouseWheelMultiplyer;
 
 	std::string szLuaFileName;
-	bool bLua;																	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ LUA
+	bool bLua;																	//проинициализировалась ли LUA
 	Script luaScript;
-	static CMessageList staticMessageList;			//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ LUA пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	static CMessageList staticMessageList;			//это для добавления мессаг в очередь во время работы LUA скрипта
 	
 	struct SLuaValue
 	{
@@ -194,17 +194,17 @@ class CMultipleWindow : public CSimpleWindow
 	typedef std::vector< SLuaValue > CLuaValues;
 	static CLuaValues staticLuaValues;
 
-	bool bAnimation;						//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	bool bAnimationRunning;			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	DWORD dwLastOpenTime;				//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	DWORD dwLastCloseTime;			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	DWORD dwAnimationTime;			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bAnimation;						//если установлен флаг, то окошко с анимацией
+	bool bAnimationRunning;			//флаг того, что происходит анимация, полезен для скорости
+	DWORD dwLastOpenTime;				//время когда началась анимация открытия
+	DWORD dwLastCloseTime;			//время когда началась анимация закрытия
+	DWORD dwAnimationTime;			//время анимации открытия или закрытия
 	CVec2 vMinPos;
 	CVec2 vMaxPos;
 	CVec2 vBeginPos;
 	int nAnimationCmdShow;
 	
-	bool bModal;			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bModal;			//используется для того, чтобы все сообщения передавались только первому ребенку
 	friend class CUIScrollTextBox;
 	friend class CUIObjective;
 	friend class CUIList;
@@ -264,9 +264,9 @@ public:
 
 	virtual IUIElement* STDCALL PickElement( const CVec2 &vPos, int nRecursion );
 
-	static int AddMessage( lua_State *pLuaState );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	static int SaveLuaValue( lua_State *pLuaState );		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	static int IsGameButtonProcessing( lua_State *pLuaState ); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	static int AddMessage( lua_State *pLuaState );			//вызывается из скрипта
+	static int SaveLuaValue( lua_State *pLuaState );		//вызывается из скрипта
+	static int IsGameButtonProcessing( lua_State *pLuaState ); //вызывается из скрипта
 	
 	void SetModalFlag( bool bFlag ) { bModal = bFlag; }
 	bool GetModalFlag() { return bModal; }

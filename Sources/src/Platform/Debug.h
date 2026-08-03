@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_DEBUG_H
 #define BLITZKRIEG_PLATFORM_DEBUG_H
 
-
+#include <cstdarg>
 
 namespace NPlatform
 {

@@ -5,7 +5,7 @@
 #include <queue>
 #include "UpdatableObject.h"
 #include "LinkObject.h"
-#include "../zlib/zlib.h"
+#include "..\zlib\zlib.h"
 class CAIUnit;
 class CHitInfo : public CLinkObject
 {
@@ -16,8 +16,8 @@ public:
 	WORD wShell;
 	WORD wDir;
 
-	CPtr<IRefCount> pVictim;  // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
-	CVec3 explCoord;					// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	CPtr<IRefCount> pVictim;  // для попадания по юниту
+	CVec3 explCoord;					// для попадания по земле
 
 	SAINotifyHitInfo::EHitType eHitType;
 	
@@ -57,12 +57,12 @@ class CBallisticTraj: public IBallisticTraj
 	CVec3 vStart3D;
 	float fVx, fVy;
 
-	WORD wAngle; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	WORD wAngle; //вертикальнй угол
 
 	WORD wDir;
 	CVec2 vDir;
 
-	float fG; // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fG; // для данной траектории ускорение свободного падения
 
 	NTimer::STime startTime, explTime;
 

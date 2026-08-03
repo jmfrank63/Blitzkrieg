@@ -1,13 +1,13 @@
 #ifndef __UIINTERNAL_H__
 #define __UIINTERNAL_H__
-#include "../Main/TextSystem.h"
-#include "../sfx/sfx.h"
+#include "..\Main\TextSystem.h"
+#include "..\sfx\sfx.h"
 #include "MaskSystem.h"
 enum EUIWindowSubState
 {
 	E_NORMAL_STATE				= 0,
 	E_HIGHLIGHTED_STATE		= 1,
-	E_PUSHED_STATE				= 2,			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ ID!
+	E_PUSHED_STATE				= 2,			//Не менять эти ID!
 	E_DISABLED_STATE			= 3,
 
 	UI_ESS_FORCE_DWORD	= 0x7fffffff
@@ -26,7 +26,7 @@ private:
 public:
 	std::vector<SWindowSubRect> subRects;
 
-	CPtr<IGFXTexture> pTexture;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<IGFXTexture> pTexture;						// внешний вид - текстура
 	CPtr<IUIMask> pMask;
 	DWORD color;
 	DWORD specular;
@@ -42,9 +42,9 @@ private:
 /*
 	struct SWindowTileRect
 	{
-		CTRect<float> rc;			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-		CVec2 vSize;					//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
-		CTRect<float> mapa;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		CTRect<float> rc;			//размер на контроле, куда тайлятся прямоугольники
+		CVec2 vSize;					//размер одного тайла
+		CTRect<float> mapa;		//текстурные координаты для одного тайла
 		int operator&( IDataTree &ss );
 	};
 	std::vector<SWindowTileRect> tileRects;
@@ -62,15 +62,15 @@ private:
 
 	void InitDependentInfo();
 public:
-	std::string szPushSound;						// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	std::string szClickSound;						// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
+	std::string szPushSound;						// звук при нажатии левой кнопкой мышки на контрол
+	std::string szClickSound;						// звук при нажатии клике мышкой в области контрола (нажалась и отжалась внутри)
 
-	CUIWindowSubState subStates[4];			// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ disabled
-	std::string szKey;									// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	CPtr<IGFXText> pGfxText;						// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	CUIWindowSubState subStates[4];			// нормальный, подсвеченный, придавленный и disabled
+	std::string szKey;									// ключ для текстовой системы, по этому ключу можно получить текст в окошке
+	CPtr<IGFXText> pGfxText;						// для отображения текста
 
-	std::string szToolKey;							// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	CPtr<IText> pToolText;							// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szToolKey;							// ключ для загрузки тултипа из текстовых ресурсов
+	CPtr<IText> pToolText;							// текст отображаемый в качестве тултипа
 
 	int operator&( IDataTree &ss );
 	CWindowState() {}

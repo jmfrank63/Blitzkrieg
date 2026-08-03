@@ -3,7 +3,7 @@
 #pragma ONCE
 #include "Multiplayer.h"
 
-#include "../Net/NetDriver.h"
+#include "..\Net\NetDriver.h"
 interface IServersList;
 interface IGameCreation;
 interface IChat;

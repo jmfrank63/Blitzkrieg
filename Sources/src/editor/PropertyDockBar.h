@@ -1,7 +1,7 @@
 #ifndef __PROPERTY_DOCK_H__
 #define __PROPERTY_DOCK_H__
 
-#include "MTree ctrl/FrameTree.h"
+#include "MTree ctrl\FrameTree.h"
 
 
 class CPropertyDockBar : public SECControlBar
@@ -30,9 +30,9 @@ private:
 	std::map<std::string, HTREEITEM> m_varHandles;
 	int		GetVariable( std::string &name );
 	void	AddRootVariable( std::string &str, int variable );
-	void	AddManipulatorVariable( std::string &str, IManipulator *ptr ); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ nod'пїЅ + пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ( пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ) node
+	void	AddManipulatorVariable( std::string &str, IManipulator *ptr ); // добавляет пустые промежуточные nod'ы + конечный( редактируемый ) node
 	
-	HTREEITEM	AddEmptyNode( std::string &str, HTREEITEM hPARoot = TVI_ROOT ); // node пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	HTREEITEM	AddEmptyNode( std::string &str, HTREEITEM hPARoot = TVI_ROOT ); // node который не содержит данных
 	HTREEITEM	AddPropertieNode( std::string &str, std::string &propName,IManipulator *ptr, HTREEITEM hPARoot = TVI_ROOT ); 
 	
 	

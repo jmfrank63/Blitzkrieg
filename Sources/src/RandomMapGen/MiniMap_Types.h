@@ -1,7 +1,7 @@
 #if !defined(__MiniMap__Types__)
 #define __MiniMap__Types__
 
-#include "../Image/Image.h"
+#include "..\Image\Image.h"
 
 struct SRMImageCreateParameter
 {

@@ -1,8 +1,8 @@
 #ifndef _Plane_Path_Math_
 #define _Plane_Path_Math_
 
-#include "../../Misc/Geometry.h"
-#include "../../Misc/Spline.h"
+#include "..\..\Misc\Geometry.h"
+#include "..\..\Misc\Spline.h"
 
 class CAnalyticBSpline3
 {

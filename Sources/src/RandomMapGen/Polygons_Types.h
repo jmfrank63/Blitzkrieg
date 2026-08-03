@@ -1,8 +1,8 @@
 #if !defined(__Polygons__Types__)
 #define __Polygons__Types__
 
-#include "../formats/fmtVSO.h"
-#include "../formats/fmtVSO.h"
+#include "..\formats\fmtVSO.h"
+#include "..\formats\fmtVSO.h"
 
 extern const float RMGC_MINIMAL_VIS_POINT_DISTANCE;	//2.0f
 

@@ -2,7 +2,7 @@
 #define __SQUAD_TREE_ITEM_H__
 
 #include "TreeItem.h"
-#include "../Main/rpgstats.h"
+#include "..\Main\rpgstats.h"
 
 interface IObjVisObj;
 
@@ -79,7 +79,7 @@ class CSquadFormationPropsItem : public CTreeItem
 public:
 	struct SUnit
 	{
-		CVec3 vPos;			// 3d пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		CVec3 vPos;			// 3d позиция отдельного юнита
 		float fDir;
 		CTreeItem *pMemberProps;
 		IObjVisObj *pSprite;
@@ -90,8 +90,8 @@ public:
 	typedef list<SUnit> CUnitsList;
 	CUnitsList units;
 
-	CVec3 vZeroPos;					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ
-	float fFormationDir;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec3 vZeroPos;					//координата центра формации, вернее координата левого верхнего края текстуры креста, отстой
+	float fFormationDir;		//направление формации
 
 public:
 	CSquadFormationPropsItem() : fFormationDir( 0 ), vZeroPos( CVec3(16*fWorldCellSize, 8*fWorldCellSize, 0) ) { bStaticElements = true; nItemType = E_SQUAD_FORMATION_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }

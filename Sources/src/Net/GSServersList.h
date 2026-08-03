@@ -1,7 +1,7 @@
 #ifndef __GS_SERVERS_LIST_H__
 #define __GS_SERVERS_LIST_H__
 #pragma ONCE
-
+#include "NetDriver.h"
 
 class CGSServersListDriver : public INetDriver
 {

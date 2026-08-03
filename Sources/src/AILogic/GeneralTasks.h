@@ -2,7 +2,7 @@
 #define __GENERAL_TASKS__
 #pragma ONCE
 #include "GeneralInternalInterfaces.h"
-#include "../Formats/fmtMap.h"
+#include "..\Formats\fmtMap.h"
 #include "AIHashFuncs.h"
 #include "Resistance.h"
 class CGeneralTaskToDefendPatch : public IGeneralTask, public IWorkerEnumerator, public IEnemyEnumerator 

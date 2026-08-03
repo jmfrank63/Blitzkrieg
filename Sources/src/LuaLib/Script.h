@@ -3,8 +3,8 @@
 #include <stdint.h>
 
 extern "C" {
-#include "LuaSrc/Lua.h"
-#include "LuaSrc/luadebug.h"
+#include "LuaSrc\Lua.h"
+#include "LuaSrc\luadebug.h"
 }
 
 class Script

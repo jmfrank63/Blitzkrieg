@@ -5,7 +5,7 @@
 #include "UnitStates.h"
 #include "StatesFactory.h"
 #include "CommonStates.h"
-#include "../Common/Actions.h"
+#include "..\Common\Actions.h"
 #include "StaticObjects.h"
 class CBuilding;
 class CEntrenchment;
@@ -549,9 +549,9 @@ protected:
 		EFRUS_WAIT_FOR_UNIT_TO_SERVE,
 	};
 	EFormationServiceUnitState eState;
-	CPtr<CAITransportUnit> pHomeTransport; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	float fWorkAccumulator;								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	float fWorkLeft;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<CAITransportUnit> pHomeTransport; //транспорт у которого берутся ресурсы на починку
+	float fWorkAccumulator;								//накопление работы в сегментах
+	float fWorkLeft;											// столько ресурсов взяли с собой солдаты
 	CPtr<CAIUnit> pPreferredUnit;
 public:
 	
@@ -571,9 +571,9 @@ class CFormationRepairUnitState : public CFormationServeUnitState
 	DECLARE_SERIALIZE;
 	
 	CFormation *pUnit;
-	CPtr<CAIUnit> pUnitInQuiestion;			//пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<CAIUnit> pUnitInQuiestion;			//юнит, который нужно обслужить
 	CPtr<CTank> pTank;
-	CVec2 vPointInQuestion;							//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	CVec2 vPointInQuestion;							//где стоит юнит
 
 	NTimer::STime lastRepearTime;
 	float fRepCost;
@@ -587,7 +587,7 @@ public:
 	{
 		bool bHasStor;
 		bool bNotEnoughRu;
-		const float fMaxRu;									// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		const float fMaxRu;									// такой запас ресурсов
 	public:
 		CFindFirstStorageToRepearPredicate( const float fMaxRu ) : fMaxRu( fMaxRu ), bNotEnoughRu( false ), bHasStor( false ) { }
 		virtual bool OnlyConnected() const { return false; }
@@ -620,12 +620,12 @@ class CFormationResupplyUnitState : public CFormationServeUnitState
 	OBJECT_COMPLETE_METHODS( CFormationResupplyUnitState );
 	DECLARE_SERIALIZE;
 	CFormation *pUnit;
-	CPtr<CAIUnit> pUnitInQuiestion;			//пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	CVec2 vPointInQuestion;							//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	CPtr<CAIUnit> pUnitInQuiestion;			//юнит, который нужно обслужить
+	CVec2 vPointInQuestion;							//где стоит юнит
 	NTimer::STime lastResupplyTime;
 
-	CPtr<CFormation> pSquadInQuestion; // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ
-	int iCurUnitInFormation; // пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<CFormation> pSquadInQuestion; // если юнит, который нужно обслужить - формация, то это она
+	int iCurUnitInFormation; // в данный момент обслуживаем этого солдата
 	bool bSayAck;							// unit being resupplied must say ack when being resupplied
 	bool bNearTruck;
 
@@ -655,7 +655,7 @@ class CFormationLoadRuState: public CFormationServeUnitState
 	DECLARE_SERIALIZE;
 	
 	CFormation *pUnit;
-	CPtr<CBuildingStorage> pStorage;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<CBuildingStorage> pStorage;			//из этого хранилища берем ресурсы
 	NTimer::STime lastResupplyTime;
 	int nEntrance;
 	void Interrupt();
@@ -683,13 +683,13 @@ class CFormationCatchTransportState : public IUnitState
 	};
 
 	CFormation *pUnit;
-	CPtr<CAITransportUnit> pTransportToCatch; //cпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<CAITransportUnit> pTransportToCatch; //cюда будем запрыгивать
 
-	std::list< CPtr<CSoldier> > deleted; // пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ 1 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+	std::list< CPtr<CSoldier> > deleted; // это не сериализовать, заполняется и чистится на 1 сегменте.
 
 	NTimer::STime timeLastUpdate;
 	CVec2 vEnterPoint;
-	float fResursPerSoldier;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fResursPerSoldier;							// солдаты, забегая в транспорт могут принести ресурсы
 	ECatchState eState;
 
 	void UpdatePath( CSoldier * pSold, const bool bForce = false );
@@ -773,7 +773,7 @@ class CFormationBuildLongObjectState : public IEngineerFormationState
 	CPtr<CAITransportUnit> pHomeTransport;
 				
 	CPtr<CLongObjectCreation> pCreation;
-	float fCompletion;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fCompletion;										// степень готовности данного сегмента
 	void SendUnitsAway( std::list<CPtr<CAIUnit> > *pUnitsPreventing );
 
 public:
@@ -881,14 +881,14 @@ class CFormationGunCrewState : public IUnitState
 		EGOSS_RELOAD,
 	};
 	
-	int nReloadPhaze;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
+	int nReloadPhaze;											// перезагрузка разделена на несколько фаз
 	bool b360DegreesRotate;							// gun has no horisontal constraints
 
 	EGunServeState eGunState;
 	
 	EGunOperateSubState eGunOperateSubState;
 
-	std::vector< SCrewMember > crew; // пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector< SCrewMember > crew; // места с меньшим номером более приоритетны
 
 	CFormation *pUnit;
 	CPtr<CArtillery> pArtillery;
@@ -901,14 +901,14 @@ class CFormationGunCrewState : public IUnitState
 
 	bool bReloadInProgress;
 
-	float fReloadPrice; // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	float fReloadProgress;	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fReloadPrice; // цена одной перезарядки
+	float fReloadProgress;	// текущее состояние перезарядки
 	bool bSegmPriorMove;
 
 	WORD wGunTurretDir ; 
 	WORD wGunBaseDir;
-	WORD wTurretHorDir; //  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	WORD wTurretVerDir; //  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	WORD wTurretHorDir; //  предыдущее направление ствола
+	WORD wTurretVerDir; //  предыдущее направление ствола
 	int nFormationSize;
 	CVec2 vGunPos;
 	

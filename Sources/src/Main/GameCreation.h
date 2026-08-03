@@ -5,10 +5,10 @@
 #include "MessagesStore.h"
 #include "ServerInfo.h"
 
-#include "../StreamIO/StreamIOHelper.h"
-#include "../RandomMapGen/MapInfo_Types.h"
+#include "..\StreamIO\StreamIOHelper.h"
+#include "..\RandomMapGen\MapInfo_Types.h"
 
-#include "../Net/NetDriver.h"
+#include "..\Net\NetDriver.h"
 interface IMultiplayerMessage;
 enum EGameType
 {

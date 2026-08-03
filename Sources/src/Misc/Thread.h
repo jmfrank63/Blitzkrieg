@@ -1,8 +1,8 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 #pragma ONCE
-
-
+#include "Win32Helper.h"
+#include <thread>
 class CThread
 {
 	std::thread hThread;

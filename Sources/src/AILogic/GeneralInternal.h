@@ -5,7 +5,7 @@
 #include "Commander.h"
 #include "AIHashFuncs.h"
 #include "Resistance.h"
-#include "../Misc/FreeIDs.h"
+#include "..\Misc\FreeIDs.h"
 #pragma ONCE
 class CArtillery;
 class CAIUnit;

@@ -1,7 +1,7 @@
 #ifndef __MULTIPLAYER_INFO_H__
 #define __MULTIPLAYER_INFO_H__
 #pragma ONCE
-#include "../RandomMapGen/MapInfo_Types.h"
+#include "..\RandomMapGen\MapInfo_Types.h"
 class CMultiplayerInfo
 {
 	enum CMapInfo::GAME_TYPE eGameType;

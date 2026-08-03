@@ -1,7 +1,7 @@
 #ifndef __UIMAPINFO_H__
 #define __UIMAPINFO_H__
 #pragma ONCE
-#include "../RandomMapGen/MapInfo_Types.h"
+#include "..\RandomMapGen\MapInfo_Types.h"
 struct SUIMapInfo : public IRefCount
 {
 	OBJECT_NORMAL_METHODS( SUIMapInfo );

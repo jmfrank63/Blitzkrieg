@@ -6,9 +6,9 @@
 #include <math.h>
 #if !defined(_M_IX86)
 #if defined(_MSC_VER)
-
+#include <intrin.h>
 #elif defined(__GNUC__) || defined(__clang__)
-
+#include <cpuid.h>
 #endif
 #include <string.h>										// memcpy for the x64 CopyNBytes branches
 #endif

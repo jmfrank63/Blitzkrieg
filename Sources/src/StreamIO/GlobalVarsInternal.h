@@ -2,7 +2,7 @@
 #define __GLOBALVARSINTERNAL_H__
 #pragma ONCE
 #include "GlobalVars2.h"
-#include "../Misc/VarSystemInternal.h"
+#include "..\Misc\VarSystemInternal.h"
 class CGlobalVars2 : public CTVarSystem< SSerialVariantT, CTRefCount<IGlobalVars2> >
 {
 	OBJECT_SERVICE_METHODS( CGlobalVars2 );

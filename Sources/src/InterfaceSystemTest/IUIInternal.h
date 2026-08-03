@@ -2,7 +2,7 @@
 #define _IBackground_h_Included_
 
 #include "Interface.h"
-#include "../GameTT/iMission.h"
+#include "..\GameTT\iMission.h"
 enum EUIStateManipulatorID
 {
 	EUISM_PS_MOVETO = 1,

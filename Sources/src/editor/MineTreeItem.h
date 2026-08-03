@@ -2,7 +2,7 @@
 #define __MINE_TREE_ITEM_H__
 
 #include "TreeItem.h"
-#include "../Main/rpgstats.h"
+#include "..\Main\rpgstats.h"
 
 class CMineTreeRootItem : public CTreeItem
 {

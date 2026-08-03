@@ -8,7 +8,7 @@
 #include "MapSettingsWrapper.h"
 #include "UIMapINfo.h"
 
-#include "../Main/Transceiver.h"
+#include "..\Main\Transceiver.h"
 class CInterfaceMPCreateGame : public CInterfaceMultiplayerScreen
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMPCreateGame );

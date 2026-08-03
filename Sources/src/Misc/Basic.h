@@ -1,10 +1,10 @@
 #ifndef __BASIC_H__
 #define __BASIC_H__
 #pragma ONCE
-
-
-
-
+#include "../Platform/Compiler.h"
+#include "../Platform/LegacyTypes.h"
+#include "../Platform/LegacyVariant.h"
+#include "../zlib/zlib.h"
 #ifndef interface
 #define interface struct
 #endif // interface

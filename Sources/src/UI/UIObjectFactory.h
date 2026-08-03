@@ -1,6 +1,6 @@
 #ifndef __UIOBJECTFACTORY_H__
 #define __UIOBJECTFACTORY_H__
-#include "../Misc/BasicObjectFactory.h"
+#include "..\Misc\BasicObjectFactory.h"
 class CUIObjectFactory : public CBasicObjectFactory
 {
 public:

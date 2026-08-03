@@ -1,7 +1,7 @@
 #ifndef __GUI_TREE_ITEM_H__
 #define __GUI_TREE_ITEM_H__
 
-#include "../UI/ui.h"
+#include "..\UI\ui.h"
 #include "TreeItem.h"
 
 class CGUITreeRootItem : public CTreeItem
@@ -36,7 +36,7 @@ public:
 
 	int GetWindowType() { return nWindowType; }
 
-	virtual void InsertChildItems();					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	virtual void InsertChildItems();					//Вызывается после создания всех компонентов для занесения их в дерево
 	virtual int operator&( IDataTree &ss );
 };
 
@@ -108,7 +108,7 @@ public:
 class CTemplatePropsTreeItem : public CTreeItem
 {
 private:
-	int nWindowType;			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ XML пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nWindowType;			//инициализируется из XML файла при загрузке
 	string szXMLFile;
 	
 public:
@@ -124,7 +124,7 @@ public:
 	virtual void MyLButtonClick();
 
 /*
-	virtual void InsertChildItems();					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	virtual void InsertChildItems();					//Вызывается после создания всех компонентов для занесения их в дерево
 */
 	virtual int operator&( IDataTree &ss );
 	virtual void MyKeyDown( int nChar );

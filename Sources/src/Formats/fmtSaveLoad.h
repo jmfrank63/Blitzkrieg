@@ -1,7 +1,7 @@
 #ifndef __FMTSAVELOAD_H__
 #define __FMTSAVELOAD_H__
 #pragma ONCE
-#include "../StreamIO/StreamIOHelper.h"
+#include "..\StreamIO\StreamIOHelper.h"
 namespace NSaveLoad
 {
 struct SFileHeader
@@ -20,10 +20,10 @@ struct SFileHeader
 struct SRandomHeader
 {
 	DWORD dwRandomDateTime;								// date and time of the random seed - to compare and, may be, restore maps and images
-	std::string szChapterUnitsTableFileName; //пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	int nLevel;															 //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	std::string szGraphName;								 //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
-	int nAngle;															 //пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szChapterUnitsTableFileName; //файл с чаптерными юнитами
+	int nLevel;															 //сложность
+	std::string szGraphName;								 //имя графа
+	int nAngle;															 //поворот
 	SRandomHeader()
 		: dwRandomDateTime( 0 ), nLevel( 0 ), nAngle( 0 ) {}
 	int operator&( IDataTree &ss )

@@ -2,7 +2,7 @@
 #define __UPDATABLE_OBJECT_H__
 
 #pragma ONCE
-#include "../Common/Actions.h"
+#include "..\Common\Actions.h"
 #include "RectTiles.h"
 interface IUpdatableObj;
 interface IUpdatableObj : public IRefCount

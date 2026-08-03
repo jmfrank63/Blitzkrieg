@@ -7,10 +7,10 @@
 #endif // _MSC_VER > 1000
 
 #include "IUIInternal.h"
-#include "../GFX/GFX.h"
+#include "..\GFX\GFX.h"
 
 #include "DeepCPtrCopy.h"
-#include "../Misc/Geometry.h"
+#include "..\Misc\Geometry.h"
 class CBackground : public IBackground
 {
 	DECLARE_SERIALIZE

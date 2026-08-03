@@ -6,7 +6,7 @@
 #endif // _MSC_VER > 1000
 
 #include "ResizeDialog.h"
-#include "../RandomMapGen/Resource_Types.h"
+#include "..\RandomMapGen\Resource_Types.h"
 
 typedef std::list<std::string> TSimpleFilterItem;
 typedef std::list<TSimpleFilterItem> TSimpleFilter;

@@ -3,7 +3,7 @@
 #pragma ONCE
 #include "InterMission.h"
 #include "iMission.h"
-#include "../Main/RPGStats.h"
+#include "..\Main\RPGStats.h"
 class CInterfaceUnitsEncyclopediaBase
 {
 	int nViewUnitsType;			// index in array unitsArray

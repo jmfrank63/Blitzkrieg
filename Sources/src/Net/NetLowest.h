@@ -4,7 +4,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-
+#include "..\\Platform\\Socket.h"
 #include <string>
 class CMemoryStream;
 namespace NNet

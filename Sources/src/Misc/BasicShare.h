@@ -1,7 +1,7 @@
 #ifndef __BASICSHARE_H__
 #define __BASICSHARE_H__
 #pragma ONCE
-
+#include "../Platform/Clock.h"
 // [share-trace] temporary load-speed diagnostics (2026-07-27): one line per
 // share deserialize in load_trace.log (game CWD) — map-read vs resource-load
 // split. Strip when the load-time work is done.

@@ -1,7 +1,7 @@
 #ifndef __OPTIONSSYSTEM_H__
 #define __OPTIONSSYSTEM_H__
 #pragma ONCE
-#include "../Misc/VarSystem.h"
+#include "..\Misc\VarSystem.h"
 enum EOptionEditorType
 {
 	EOET_NUMERIC_ENTRY						= 1,				// NUMERIC EDIT BOX( NUMERIC INPUT )

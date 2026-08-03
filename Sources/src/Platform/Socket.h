@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_SOCKET_H
 #define BLITZKRIEG_PLATFORM_SOCKET_H
 
-
+#include <cstdint>
 
 namespace NPlatform
 {

@@ -7,7 +7,7 @@
 #include "CommonStates.h"
 #include "DamageToEnemyUpdater.h"
 #include "RectTiles.h"
-#include "../Common/Actions.h"
+#include "..\Common\Actions.h"
 class CBuilding;
 class CEntrenchment;
 class CMineStaticObject;
@@ -488,11 +488,11 @@ class CSoldierAttackAviationState : public IUnitAttackingState
 	{
 		SAAS_ESITMATING,
 		
-		SAAS_START_TRASING,										// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		SAAS_START_TRASING,										// для стрельбы сопроводительным огнем
 		SAAS_TRASING,
 		SAAS_FIRING,
 		
-		SAAS_START_AIMING_TO_PREDICTED_POINT,	// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		SAAS_START_AIMING_TO_PREDICTED_POINT,	// для стрельбы заградительным огнем
 		SAAS_AIM_TO_PREDICTED_POINT,					
 		SAAS_START_FIRE_TO_PREDICTED_POINT,
 		SAAS_FIRING_TO_PREDICTED_POINT,
@@ -523,7 +523,7 @@ class CSoldierAttackAviationState : public IUnitAttackingState
 	CPtr<CAviation> pPlane;
 	bool bAttacking;											// true when desided to aim and shoot
 
-	SPredict aimPoint;		// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	SPredict aimPoint;		// точка прицеливания при стрельбе заградительным огнем
 	NTimer::STime timeOfStartBurst;
 	NTimer::STime timeLastAimUpdate;
 

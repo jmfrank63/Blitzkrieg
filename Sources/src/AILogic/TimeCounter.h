@@ -1,7 +1,7 @@
 #ifndef __TIME_COUNTER_H__
 #define __TIME_COUNTER_H__
 #pragma ONCE
-#include "../Misc/HPTimer.h"
+#include "..\Misc\HPTimer.h"
 class CTimeCounter
 {
 	std::vector<double> counters;

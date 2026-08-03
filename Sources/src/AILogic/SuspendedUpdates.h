@@ -1,7 +1,7 @@
 #ifndef __SUSPENDED_UPDATES_H__
 #define __SUSPENDED_UPDATES_H__
 #pragma ONCE
-#include "../Misc/AreaMap.h"
+#include "..\Misc\AreaMap.h"
 #include "UpdatableObject.h"
 #include "AIHashFuncs.h"
 class CSuspendedUpdates

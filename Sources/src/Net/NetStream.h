@@ -4,7 +4,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-
+#include <unordered_map>
 #include "Streams.h"
 #include "NetAcks.h"
 namespace NNet

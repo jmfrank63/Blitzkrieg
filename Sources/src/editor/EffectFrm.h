@@ -6,9 +6,9 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..//Common//LegacyUiCompat.h"
-#include "../GFX/GFX.h"
-#include "../Scene/Scene.h"
+#include "..\\Common\\LegacyUiCompat.h"
+#include "..\GFX\GFX.h"
+#include "..\Scene\Scene.h"
 
 #include "ParentFrame.h"
 #include "TreeDockWnd.h"

@@ -1,6 +1,6 @@
 #ifndef __STREAMIOOBJECTFACTORY_H__
 #define __STREAMIOOBJECTFACTORY_H__
-#include "../Misc/BasicObjectFactory.h"
+#include "..\Misc\BasicObjectFactory.h"
 class CStreamIOObjectFactory : public CBasicObjectFactory
 {
 public:

@@ -1,11 +1,11 @@
 #if !defined(__UIMiniMap__)
 #define __UIMiniMap__
 #pragma ONCE
-#include "../GFX/GFX.h"
-#include "../GFX/GFXHelper.h"
+#include "..\GFX\GFX.h"
+#include "..\GFX\GFXHelper.h"
 #include "UIBasic.h"
-#include "../AILogic/AIConsts.h"
-#include "../AILogic/AITypes.h"
+#include "..\AILogic\AIConsts.h"
+#include "..\AILogic\AITypes.h"
 struct STextureMarker
 {
 	CTRect<float> textureRect; //0.0f ... 1.0f

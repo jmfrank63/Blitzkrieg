@@ -16,7 +16,7 @@ inline IDirect3D9* Direct3DCreate8( UINT sdkVersion )
 	return Direct3DCreate9( sdkVersion );
 }
 
-#include "../Misc/Win32Helper.h"
+#include "..\Misc\Win32Helper.h"
 
 #include "GFX.h"
 #include "GFXHelper.h"

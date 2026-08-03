@@ -1,8 +1,8 @@
 #ifndef __CLIENTACKMANAGERINTERNAL_H__
 #define __CLIENTACKMANAGERINTERNAL_H__
 #include "iMission.h"
-#include "../Misc/HashFuncs.h"
-#include "../Common/Actions.h"
+#include "..\Misc\HashFuncs.h"
+#include "..\Common\Actions.h"
 interface ITextManager;
 class CClientAckManager : public IClientAckManager
 {

@@ -1,7 +1,7 @@
 #ifndef __SELECTORVISITORS_H__
 #define __SELECTORVISITORS_H__
 #pragma ONCE
-#include "../Common/MapObject.h"
+#include "..\Common\MapObject.h"
 class CGetActionsSelectiorVisitor : public ISelectorVisitor
 {
 	const IMapObj::EActionsType eActions;

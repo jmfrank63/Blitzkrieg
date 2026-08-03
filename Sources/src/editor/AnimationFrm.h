@@ -5,9 +5,9 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..//Common//LegacyUiCompat.h"
-#include "../Main/rpgstats.h"
-#include "../Scene/scene.h"
+#include "..\\Common\\LegacyUiCompat.h"
+#include "..\Main\rpgstats.h"
+#include "..\Scene\scene.h"
 
 #include "ParentFrame.h"
 #include "AnimTreeItem.h"

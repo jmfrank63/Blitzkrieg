@@ -1,6 +1,6 @@
 #ifndef __ANIMATIONMANAGER_H__
 #define __ANIMATIONMANAGER_H__
-#include "../Misc/BasicShare.h"
+#include "..\Misc\BasicShare.h"
 #include "MeshAnimation.h"
 BASIC_SHARE_DECLARE( CSpriteAnimationShare, std::string, SSpriteAnimationFormat, ANIM_SPRITE_ANIMATION_FORMAT, 101, "" );
 BASIC_SHARE_DECLARE( CComplexSpriteShare  , std::string, SSpritesPack          , ANIM_COMPLEX_SPRITE_FORMAT  , 114, "" );

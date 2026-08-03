@@ -2,7 +2,7 @@
 #define __FORMATION_H__
 #pragma ONCE
 #include "CommonUnit.h"
-#include "../Misc/BitData.h"
+#include "..\Misc\BitData.h"
 class CFormationCenter : public CCommonUnit
 {
 	DECLARE_SERIALIZE;

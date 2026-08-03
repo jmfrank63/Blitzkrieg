@@ -3,7 +3,7 @@
 #pragma ONCE
 #include "Streams.h"
 #include "StructureSaver.h"
-#include "../Misc/CheckSums.h"
+#include "..\Misc\CheckSums.h"
 
 #ifndef _FINALRELEASE
 struct SObjectInfo

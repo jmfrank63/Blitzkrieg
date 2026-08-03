@@ -1,7 +1,7 @@
 #ifndef __GLOBAL_VARS_H__
 #define __GLOBAL_VARS_H__
 #pragma ONCE
-#include "../Misc/FileUtils.h"
+#include "..\Misc\FileUtils.h"
 class CGlobalVars : public IGlobalVars
 {
 	OBJECT_NORMAL_METHODS( CGlobalVars );

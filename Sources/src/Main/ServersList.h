@@ -5,7 +5,7 @@
 #include "ServerInfo.h"
 #include "MessagesStore.h"
 
-#include "../Net/NetDriver.h"
+#include "..\Net\NetDriver.h"
 interface INetNodeAddress;
 interface IMultiplayerMessage;
 class CServersList : public IServersList

@@ -1,8 +1,8 @@
 #ifndef BLITZKRIEG_INPUT_CODES_H
 #define BLITZKRIEG_INPUT_CODES_H
 
-
-
+#include <cstddef>
+#include <cstdint>
 
 namespace NInput
 {

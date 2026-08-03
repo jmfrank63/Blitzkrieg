@@ -1,8 +1,8 @@
 #ifndef __VISOBJBUILDER_H__
 #define __VISOBJBUILDER_H__
 #pragma ONCE
-#include "../Formats/fmtEffect.h"
-#include "../Scene/ParticleManager.h"
+#include "..\Formats\fmtEffect.h"
+#include "..\Scene\ParticleManager.h"
 class CVisObjBuilder : public IVisObjBuilder
 {
 	OBJECT_NORMAL_METHODS( CVisObjBuilder );

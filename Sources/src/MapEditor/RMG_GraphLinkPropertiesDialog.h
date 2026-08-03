@@ -7,7 +7,7 @@
 
 #include "Resource.h"
 #include "ResizeDialog.h"
-#include "../RandomMapGen/RMG_Types.h"
+#include "..\RandomMapGen\RMG_Types.h"
 
 int CALLBACK GraphLinksCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 

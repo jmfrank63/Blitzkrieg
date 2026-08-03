@@ -1,8 +1,8 @@
 #ifndef __TEXT_H__
 #define __TEXT_H__
 #pragma ONCE
-#include "../Main/TextSystem.h"
-#include "../Formats/fmtFont.h"
+#include "..\Main\TextSystem.h"
+#include "..\Formats\fmtFont.h"
 inline int GetLength( const wchar_t *pszString )
 {
 	int nCounter = 0;

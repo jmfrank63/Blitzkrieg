@@ -1,7 +1,7 @@
 #ifndef __WIN32HELPER_H__
 #define __WIN32HELPER_H__
-
-
+#include "../Platform/Sync.h"
+#include "../Platform/DynamicLibrary.h"
 #if _MSC_VER > 1000
 #pragma once
 #endif

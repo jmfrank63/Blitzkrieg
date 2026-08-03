@@ -1,8 +1,8 @@
 #ifndef __INTERFACEMPMAPSETTINGS_H__
 #define __INTERFACEMPMAPSETTINGS_H__
 #pragma ONCE
-#include "../Common/InterfaceScreenBase.h"
-#include "../Input/InputHelper.h"
+#include "..\Common\InterfaceScreenBase.h"
+#include "..\Input\InputHelper.h"
 #include "iMission.h"
 #include "MapSettingsWrapper.h"
 class CInterfaceMPMapSettings : public CInterfaceScreenBase

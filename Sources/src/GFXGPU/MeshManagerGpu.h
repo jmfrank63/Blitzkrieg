@@ -2,7 +2,7 @@
 #define BLITZKRIEG_MESH_MANAGER_GPU_H
 
 #include "MeshGpu.h"
-#include "..//Misc//BasicShare.h"
+#include "..\\Misc\\BasicShare.h"
 
 BASIC_SHARE_DECLARE( MeshGpuShare, std::string, MeshGpu, GFX_MESH, 105, "" );
 

@@ -1,7 +1,7 @@
 #ifndef __TEMPLATE_TREE_H__
 #define __TEMPLATE_TREE_H__
 
-#include "..//Common//LegacyUiCompat.h"
+#include "..\\Common\\LegacyUiCompat.h"
 
 #define IDC_TEMPLATE_TREE_CONTROL 2000
 

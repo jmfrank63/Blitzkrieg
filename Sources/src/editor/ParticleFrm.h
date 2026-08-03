@@ -1,8 +1,8 @@
 #ifndef __PARTICLE_FRAME_H__
 #define __PARTICLE_FRAME_H__
 
-#include "../Scene/ParticleSourceData.h"
-#include "../Scene/SmokinParticleSourceData.h"
+#include "..\Scene\ParticleSourceData.h"
+#include "..\Scene\SmokinParticleSourceData.h"
 
 #include "ParentFrame.h"
 #include "TreeDockWnd.h"
@@ -23,7 +23,7 @@ public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
 
-	BOOL Run();										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ EditorApp OnIdle()
+	BOOL Run();										//Вызывается из EditorApp OnIdle()
 	bool IsRunning() { return bRunning; }
 
 	void SetKeyFrameDockBar( CKeyFrameDockWnd *pWnd );

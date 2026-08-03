@@ -1,7 +1,7 @@
 #ifndef __VECTOR_OBJECT_H__
 #define __VECTOR_OBJECT_H__
 #pragma ONCE
-#include "../Formats/fmtVSO.h"
+#include "..\Formats\fmtVSO.h"
 typedef SGFXLVertex STVOVertex;
 struct STVOLayer
 {

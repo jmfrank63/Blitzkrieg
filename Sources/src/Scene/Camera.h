@@ -1,7 +1,7 @@
 #ifndef __CAMERA_H__
 #define __CAMERA_H__
 #pragma ONCE
-#include "../Input/Input.h"
+#include "..\Input\Input.h"
 class CCamera : public ICamera
 {
 	OBJECT_COMPLETE_METHODS( CCamera );
@@ -17,7 +17,7 @@ class CCamera : public ICamera
 			: fAmplitude( _fAmplitude ), fAttenuation( _fAttenuation ), fDuration( _fDuration ), fTime( 0 ) {  }
 	};
 	CVec3 vAnchor;												// anchor point on the terrain's surface
-	CVec3 vAnchor1;												// пїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec3 vAnchor1;												// то, на что надо ориентироватьс
 	float fRod;														// distance from the anchor to the camera
 	float fPitch, fYaw;										// yaw and pitch of the camera
 	CVec3 vPos;														// temporary storage for position

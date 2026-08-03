@@ -2,7 +2,7 @@
 #define __CAMPAIGN_TREE_ITEM_H__
 
 #include "TreeItem.h"
-#include "../Main/rpgstats.h"
+#include "..\Main\rpgstats.h"
 
 class CCampaignTreeRootItem : public CTreeItem
 {

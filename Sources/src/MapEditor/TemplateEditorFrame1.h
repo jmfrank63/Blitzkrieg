@@ -5,15 +5,15 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "../RandomMapGen/MapInfo_Types.h"
-#include "../RandomMapGen/Resource_Types.h"
+#include "..\RandomMapGen\MapInfo_Types.h"
+#include "..\RandomMapGen\Resource_Types.h"
 
-#include "..//Common//LegacyUiCompat.h"
-#include "../GFX/GFX.h"
-#include "../Formats/fmtMap.h"
-#include "../AILogic/AILogic.h"
+#include "..\\Common\\LegacyUiCompat.h"
+#include "..\GFX\GFX.h"
+#include "..\Formats\fmtMap.h"
+#include "..\AILogic\AILogic.h"
 #include "IUndoRedoCmd.h"
-#include "../Common/WorldBase.h"
+#include "..\Common\WorldBase.h"
 #include "InputState.h"
 #include "InputMultiState.h"
 #include "SEditorMApObject.h" 

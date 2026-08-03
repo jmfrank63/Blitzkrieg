@@ -1,6 +1,6 @@
 #ifndef __SOUNDMANAGER_H__
 #define __SOUNDMANAGER_H__
-#include "../Misc/BasicShare.h"
+#include "..\Misc\BasicShare.h"
 #include "SampleSounds.h"
 class CSoundShare : public CBasicShare<std::string, CSoundSample, SFX_SAMPLE>
 {

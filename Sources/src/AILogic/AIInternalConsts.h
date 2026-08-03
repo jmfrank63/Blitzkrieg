@@ -1,8 +1,7 @@
 #ifndef __AI_INTERNAL_CONSTS_H__
 #define __AI_INTERNAL_CONSTS_H__
 #pragma ONCE
-#include "aiconsts.h"
-
+#include "AIConsts.h"
 struct SConsts : public SAIConsts
 {
 private:

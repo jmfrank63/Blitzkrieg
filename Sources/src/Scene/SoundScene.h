@@ -1,11 +1,11 @@
 #ifndef __SOUNDSCENE_H__
 #define __SOUNDSCENE_H__
 
-#include "../SFX/SFX.h"
-#include "../Misc/2DArray.h"
-#include "../Formats/fmtMap.h"
-#include "../Misc/TypeConvertor.h"
-#include "../Misc/FreeIDs.h"
+#include "..\SFX\SFX.h"
+#include "..\Misc\2DArray.h"
+#include "..\Formats\fmtMap.h"
+#include "..\Misc\TypeConvertor.h"
+#include "..\Misc\FreeIDs.h"
 
 #include "CellsConglomerateContainer.h"
 struct SSoundSceneConsts

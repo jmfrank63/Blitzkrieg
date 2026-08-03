@@ -3,8 +3,8 @@
 #pragma ONCE
 #include "RectTiles.h"
 #include "BetaSpline3D.h"
-#include "../Misc/BitData.h"
-#include "../Formats/fmtMap.h"
+#include "..\Misc\BitData.h"
+#include "..\Formats\fmtMap.h"
 #include <set>
 enum ELockMode { ELM_STATIC = 0, ELM_ALL = 1 };
 enum ETerrainTypes { ETT_EARTH_TERRAIN = 0, ETT_RIVER_TERRAIN = 1, ETT_EARTH_SEA_TERRAIN = 2 };

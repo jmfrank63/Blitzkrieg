@@ -1,7 +1,7 @@
 #ifndef __GUI_UNDO_H__
 #define __GUI_UNDO_H__
 
-#include "../ui/ui.h"
+#include "..\ui\ui.h"
 
 interface IGUIUndo : public IRefCount
 {

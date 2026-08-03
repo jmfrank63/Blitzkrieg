@@ -1,8 +1,8 @@
 #ifndef BLITZKRIEG_PLATFORM_SYSTEM_H
 #define BLITZKRIEG_PLATFORM_SYSTEM_H
 
-
-
+#include <string>
+#include <vector>
 
 namespace NPlatform
 {

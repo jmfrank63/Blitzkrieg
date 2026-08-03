@@ -7,7 +7,7 @@
 
 #include "ProgressDialog.h"
 #include "ResizeDialog.h"
-#include "../StreamIO/ProgressHook.h"
+#include "..\StreamIO\ProgressHook.h"
 
 class CCreateRandomMapProgress : public IProgressHook
 {

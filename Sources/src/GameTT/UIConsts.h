@@ -1,7 +1,7 @@
 #ifndef __UICONSTS_H__
 #define __UICONSTS_H__
 #pragma ONCE
-#include "../Main/GameStats.h"
+#include "..\Main\GameStats.h"
 class CUIConsts  
 {
 public:

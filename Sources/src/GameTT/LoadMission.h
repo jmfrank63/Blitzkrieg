@@ -3,8 +3,8 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "../Common/InterfaceScreenBase.h"
-#include "../Input/InputHelper.h"
+#include "..\Common\InterfaceScreenBase.h"
+#include "..\Input\InputHelper.h"
 #include "iMission.h"
 class CInterfaceLoadMission : public CInterfaceScreenBase
 {

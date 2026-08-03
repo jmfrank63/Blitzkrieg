@@ -3,24 +3,24 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "../Common/InterfaceScreenBase.h"
-#include "../Input/InputHelper.h"
-#include "../Misc/FileUtils.h"
+#include "..\Common\InterfaceScreenBase.h"
+#include "..\Input\InputHelper.h"
+#include "..\Misc\FileUtils.h"
 #include "iMission.h"
 class CInterfaceBaseList : public CInterfaceScreenBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceBaseList );
-	std::vector<std::string> dirsList;		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	std::vector<std::string> filesList;		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	std::list<int> stack;									//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ items, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<std::string> dirsList;		//список директорий
+	std::vector<std::string> filesList;		//список файлов
+	std::list<int> stack;									//стек для сохранения выбранных items, нужен для движения вверх директорий
 	NInput::CCommandRegistrator commandMsgs;
 	virtual void FillListFromCurrentDir();
 	friend class CInterfaceCustomList;
 protected:
-	std::vector<std::string> fileMasks;			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	std::string szCurrentDir;								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	std::string szTopDir;										//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	std::string szInterfaceName;						//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	std::vector<std::string> fileMasks;			//для некоторых списков есть несколько типов файлов, поэтому массив
+	std::string szCurrentDir;								//текущая директория
+	std::string szTopDir;										//выше этой директории не поднимаемся
+	std::string szInterfaceName;						//имя интерфейсного файла
 
 	enum E_SORT_TYPES
 	{
@@ -40,8 +40,8 @@ protected:
 	
 	virtual bool STDCALL StepLocal( bool bAppActive );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	virtual bool FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem = 0 );		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	virtual bool OnOk( const std::string &szFullFileName );															//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	virtual bool FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem = 0 );		//заполняем текущую строчку в списке
+	virtual bool OnOk( const std::string &szFullFileName );															//пользователь выбрал файл, обработаем выбор
 	virtual bool IsIgnoreSelection() const { return false; }														// user may not select, but enter to edit box
 	virtual bool OnOk() { return false; }																								// no selection, use edit box input.
 	virtual void PrepareList( std::vector<std::string> *pFiles ) { }					// inspects list ( may add something ) 

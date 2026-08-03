@@ -1,7 +1,7 @@
 #ifndef __TIMEMETER_H__
 #define __TIMEMETER_H__
 #pragma ONCE
-#include "../Misc/HPTimer.h"
+#include "..\Misc\HPTimer.h"
 struct SDebugTraceReporter
 {
 	static void Report( const char *pszName, const int nMilliseconds )

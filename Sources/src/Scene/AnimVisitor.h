@@ -1,7 +1,7 @@
 #ifndef __ANIMVISITOR_H__
 #define __ANIMVISITOR_H__
 #pragma ONCE
-#include "../Anim/Animation.h"
+#include "..\Anim\Animation.h"
 class CExtractAnimVisitor : public CTRefCount<IAnimVisitor>
 {
 	OBJECT_SERVICE_METHODS( CExtractAnimVisitor );

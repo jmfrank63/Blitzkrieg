@@ -1,10 +1,10 @@
 #ifndef __MAPSETTINGSWRAPPER_H__
 #define __MAPSETTINGSWRAPPER_H__
 #pragma ONCE
-#include "../RandomMapGen/MapInfo_Types.h"
-#include "../StreamIO/OptionSystem.h"
+#include "..\RandomMapGen\MapInfo_Types.h"
+#include "..\StreamIO\OptionSystem.h"
 #include "MultiplayerCommandManager.h"
-#include "../UI/UI.h"
+#include "..\UI\UI.h"
 class COptionsListWrapper;
 class CMapSettingsWrapper : public IRefCount
 {

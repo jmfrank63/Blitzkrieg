@@ -1,7 +1,7 @@
 #ifndef __TERRAINBUILDER_H__
 #define __TERRAINBUILDER_H__
-#include "../Formats/fmtTerrain.h"
-#include "../Image/Image.h"
+#include "..\Formats\fmtTerrain.h"
+#include "..\Image\Image.h"
 class CTerrainBuilder
 {
 public:

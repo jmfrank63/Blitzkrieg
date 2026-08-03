@@ -1,7 +1,7 @@
 #ifndef __GAME_SPY_CHAT_H__
 #define __GAME_SPY_CHAT_H__
 #pragma ONCE
-
+#include "GameCreationInterfaces.h"
 
 class CGameSpyChat : public IChat
 {

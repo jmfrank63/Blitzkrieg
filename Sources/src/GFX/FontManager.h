@@ -3,7 +3,7 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "../Misc/BasicShare.h"
+#include "..\Misc\BasicShare.h"
 #include "Font.h"
 BASIC_SHARE_DECLARE( CFontShare, std::string, CFont, GFX_FONT, 104, "\\1.tfd" );
 class CFontManager : public IFontManager

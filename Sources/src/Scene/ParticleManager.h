@@ -1,7 +1,7 @@
 #ifndef __PARTICLEMANAGER_H__
 #define __PARTICLEMANAGER_H__
 #pragma ONCE
-#include "../Misc/BasicShare.h"
+#include "..\Misc\BasicShare.h"
 #include "ParticleSourceData.h"
 #include "SmokinParticleSourceData.h"
 BASIC_SHARE_DECLARE( CParticleDataShare      , std::string, SParticleSourceData      , PFX_KEYDATA        , 107, "" );

@@ -1,6 +1,6 @@
 #ifndef __UIBASIC_M_H__
 #define __UIBASIC_M_H__
-#include "../Misc/Manipulator.h"
+#include "..\Misc\Manipulator.h"
 extern CPropertiesRegister thePropertiesRegister;
 /*
 class CUIWindowStateManipulator : public CManipulator

@@ -4,7 +4,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-
+#include <vector>
 #include <list>
 class CBitStream;
 namespace NNet
