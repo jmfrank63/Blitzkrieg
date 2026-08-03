@@ -58,7 +58,7 @@ using int64 = long long;
 #include "../Misc/ModernAssert.h"			// modern C++ asserts
 #include "../Misc/Tools.h"							// different usefull tools
 #include "../Misc/Geometry.h"						// geometry primitives and operations (vectors, matrix, quaternion, etc.)
-#include "../Misc/2DArray.h"						// 2-D array
+#include "../Misc/2Darray.h"						// 2-D array
 #include "../Misc/HashFuncs.h"					// different usefull hash functions
 #include "../Misc/StrProc.h"						// string processing functions
 
