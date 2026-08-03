@@ -761,6 +761,7 @@ static void AppendUtf8AsUtf16( const char *text, std::list<STextMessage> &chars 
 void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 {
 	const DWORD time = static_cast<DWORD>( event.timestamp );
+	const int packedPosition = ((event.x & 0x7fff) | ((event.y & 0x7fff) << 15) | 0x40000000);
 	switch ( event.type )
 	{
 		case NPlatform::EventType::keyDown:
@@ -776,13 +777,27 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 			break;
 		case NPlatform::EventType::focusLost:
 			for ( CDevicesList::const_iterator device = devices.begin(); device != devices.end(); ++device )
-				if ( device->eType == DEVICE_TYPE_KEYBOARD )
+				if ( device->eType == DEVICE_TYPE_KEYBOARD || device->eType == DEVICE_TYPE_MOUSE )
 					for ( std::vector<CControl*>::const_iterator control = device->controls.begin(); control != device->controls.end(); ++control )
-						if ( (*control)->GetType() == CONTROL_TYPE_KEY && (*control)->IsActive() )
-							EmulateInput( DEVICE_TYPE_KEYBOARD, (*control)->GetID() & 0x0fff, 0, time, 0 );
+						if ( (*control)->IsActive() )
+							EmulateInput( device->eType, (*control)->GetID() & 0x0fff, 0, time, 0 );
 			bFocusCaptured = false;
 			break;
-			default: break;
+		case NPlatform::EventType::mouseMotion:
+			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_X, event.x, time, event.x );
+			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Y, event.y, time, event.y );
+			break;
+		case NPlatform::EventType::mouseButtonDown:
+		case NPlatform::EventType::mouseButtonUp:
+		{
+			const int control = INPUT_CONTROL_MOUSE_BUTTON0 + Max( 0, event.button - 1 );
+			EmulateInput( DEVICE_TYPE_MOUSE, control, event.type == NPlatform::EventType::mouseButtonDown ? 0x80 : 0, time, packedPosition );
+			break;
+		}
+		case NPlatform::EventType::mouseWheel:
+			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, event.y, time, 0 );
+			break;
+		default: break;
 	}
 }
 template <class TYPE>

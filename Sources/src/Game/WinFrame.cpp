@@ -481,11 +481,13 @@ void SetActive( bool bActivate )
 void CaptureMouse()
 {
 	bMouseReleased = false;
+	sdlApplication.SetMouseGrab( true );
 	ApplyMouseClip();
 }
 void ReleaseMouse()
 {
 	bMouseReleased = true;
+	sdlApplication.SetMouseGrab( false );
 	::ClipCursor( 0 );
 }
 void PumpMessages()
@@ -518,23 +520,19 @@ void PumpMessages()
 				{
 					GetSingleton<ICursor>()->SetPos( event.x, event.y );
 					if ( IInput *input = GetSingleton<IInput>() )
-					{
-						input->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_X, event.x, static_cast<DWORD>( event.timestamp ), event.x );
-						input->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Y, event.y, static_cast<DWORD>( event.timestamp ), event.y );
-					}
+						input->ConsumePlatformEvent( event );
 				}
 				break;
 			case NPlatform::EventType::mouseButtonDown:
 			case NPlatform::EventType::mouseButtonUp:
 				if ( NMain::IsInitialized() )
 				{
-					const int control = INPUT_CONTROL_MOUSE_BUTTON0 + Max( 0, event.button - 1 );
-					if ( IInput *input = GetSingleton<IInput>() ) input->EmulateInput( DEVICE_TYPE_MOUSE, control, event.type == NPlatform::EventType::mouseButtonDown ? 0x80 : 0, static_cast<DWORD>( event.timestamp ), TranslateCoords( MAKELPARAM( event.x, event.y ) ) );
+					if ( IInput *input = GetSingleton<IInput>() ) input->ConsumePlatformEvent( event );
 				}
 				break;
 			case NPlatform::EventType::mouseWheel:
 				if ( NMain::IsInitialized() )
-					if ( IInput *input = GetSingleton<IInput>() ) input->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, event.y, static_cast<DWORD>( event.timestamp ), 0 );
+					if ( IInput *input = GetSingleton<IInput>() ) input->ConsumePlatformEvent( event );
 				break;
 			default: break;
 		}

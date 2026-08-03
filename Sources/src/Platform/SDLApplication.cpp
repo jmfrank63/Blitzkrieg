@@ -72,6 +72,24 @@ bool SDLApplication::SetFullscreen(bool enabled)
 	return SDL_SetWindowFullscreen( static_cast<SDL_Window *>( window_ ), enabled );
 }
 
+bool SDLApplication::SetMouseGrab(bool enabled)
+{
+	if ( !window_ || !OnMainThread() ) return false;
+	return SDL_SetWindowMouseGrab( static_cast<SDL_Window *>( window_ ), enabled );
+}
+
+bool SDLApplication::SetRelativeMouseMode(bool enabled)
+{
+	if ( !window_ || !OnMainThread() ) return false;
+	return SDL_SetWindowRelativeMouseMode( static_cast<SDL_Window *>( window_ ), enabled );
+}
+
+bool SDLApplication::SetCursorVisible(bool visible)
+{
+	if ( !OnMainThread() ) return false;
+	return visible ? SDL_ShowCursor() : SDL_HideCursor();
+}
+
 bool SDLApplication::IsMinimized() const
 {
 	return window_ && (SDL_GetWindowFlags( static_cast<SDL_Window *>( window_ ) ) & SDL_WINDOW_MINIMIZED) != 0;

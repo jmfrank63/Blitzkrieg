@@ -34,6 +34,9 @@ public:
 	void Hide();
 	bool Resize(int width, int height);
 	bool SetFullscreen(bool enabled);
+	bool SetMouseGrab(bool enabled);
+	bool SetRelativeMouseMode(bool enabled);
+	bool SetCursorVisible(bool visible);
 	bool IsMinimized() const;
 	bool IsVisible() const;
 	WindowBorrow BorrowWindow() const;
