@@ -14,6 +14,7 @@
 #include "NetPeer2Peer.h"
 
 #include "..\Misc\HPTimer.h"
+#include "..\Misc\Thread.h"
 #include "..\Misc\Win32Helper.h"
 
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
@@ -115,9 +116,14 @@ private:
 
 	bool bMultiChannel;
 
-	HANDLE hThread;
-	HANDLE hFinishReport;
-	HANDLE hStopCommand;
+	class CWorker : public CThread
+	{
+		CNetDriver *owner;
+		void Step();
+	public:
+		explicit CWorker( CNetDriver *_owner ) : CThread( 100 ), owner( _owner ) {}
+	};
+	CWorker worker;
 	NWin32Helper::CCriticalSection criticalSection;
 	
 	NTimer::STime lastTrafficCheckTime;
@@ -174,11 +180,6 @@ public:
 	virtual void STDCALL UnpauseNet();
 	virtual void STDCALL SetLag( const NTimer::STime period );
 	
-	friend DWORD WINAPI TheThreadProc( LPVOID lpParameter );
-
-	void StartThread();
-	bool CanWork();
-	void FinishThread();
 };
 INetDriver* MakeDriver( int nGamePort, bool bClientOnly = false );
 };

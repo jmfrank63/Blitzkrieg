@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "NetLogin.h"
+#include "..\Platform\Clock.h"
 #include "..\Misc\HPTimer.h"
 
 const float F_KEEP_ACCEPTED_TIME = 2000;
@@ -154,6 +155,6 @@ void CLoginSupport::StartLogin( const CNodeAddress &addr, const CMemoryStream &b
 	pwd = buf;
 	fLoginTimeLeft = 0;
 	fLoginInterval = 0.1f;
-	nLoginAttempt = (int)GetTickCount();
+	nLoginAttempt = (int)NPlatform::MonotonicMilliseconds();
 }
 }

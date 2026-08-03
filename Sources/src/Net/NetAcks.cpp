@@ -2,6 +2,7 @@
 #include "Streams.h"
 #include <math.h>
 #include "NetAcks.h"
+#include "..\Platform\Clock.h"
 #ifdef LOG
 #include <iostream>
 #endif
@@ -13,7 +14,7 @@ const float TIME_TO_UPDATE_PING = 4;
 int CAckTracker::nMaxRTT = 5;
 CAckTracker::CAckTracker()
 {
-	DWORD dwTick = GetTickCount();
+	DWORD dwTick = NPlatform::MonotonicMilliseconds();
 	float fRTT;
 	fRTT = nMaxRTT;
 	fAvrgRTT = fRTT;

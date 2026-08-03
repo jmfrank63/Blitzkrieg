@@ -120,39 +120,10 @@ static void ReadPacket( CRingBuffer<N_STREAM_BUFFER> &src, CMemoryStream *pDst )
 	pDst->SetSizeDiscard( nSize );
 	src.Read( pDst->GetBufferForWrite(), nSize );
 }
-DWORD WINAPI TheThreadProc( LPVOID lpParameter )
-{
-	CNetDriver *pNet = reinterpret_cast<CNetDriver*>(lpParameter);
-	pNet->StartThread();
-
-	while ( pNet->CanWork()  )
-	{
-		Sleep(100);
-		pNet->Step();
-	}
-
-	pNet->FinishThread();
-
-	return 0;
-}
-void CNetDriver::StartThread()
-{
-	ResetEvent( hFinishReport );
-}
-bool CNetDriver::CanWork()
-{
-	return WaitForSingleObject( hStopCommand, 0 ) != WAIT_OBJECT_0;
-}
-void CNetDriver::FinishThread()
-{
-	SetEvent( hFinishReport );
-}
+void CNetDriver::CWorker::Step() { owner->Step(); }
 CNetDriver::CNetDriver() 
-: serverInfo( 0 ), login( 0 ), bMultiChannel( false ), state( INACTIVE )
+: serverInfo( 0 ), login( 0 ), bMultiChannel( false ), state( INACTIVE ), worker( this )
 {
-	hThread = 0;
-	hFinishReport = CreateEvent( 0, true, false, 0 );
-	hStopCommand = CreateEvent( 0, true, false, 0 );
 }
 CNetDriver::~CNetDriver()
 {
@@ -175,24 +146,9 @@ CNetDriver::~CNetDriver()
 			break;
 	}
 
-	if ( hThread )
-	{
-		if ( WaitForSingleObject( hFinishReport,0 ) != WAIT_OBJECT_0 )
-		{
-			SetEvent( hStopCommand );
-			criticalSectionLock.Leave();
-			WaitForSingleObject( hFinishReport, INFINITE );
-			criticalSectionLock.Enter();
-		}
-
-		CloseHandle( hThread );
-		hThread = 0;
-	}
-
-	ResetEvent( hStopCommand );
-	ResetEvent( hFinishReport );
-	CloseHandle( hFinishReport );
-	CloseHandle( hStopCommand );
+	links.Finish();
+	criticalSectionLock.Leave();
+	worker.StopThread();
 }
 bool CNetDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, bool _bClientOnly )
 {
@@ -218,10 +174,7 @@ bool CNetDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, boo
 	bReceiveNow = false;
 #endif // __TEST_LAGS__
 
-	DWORD dwThreadId;
-	ResetEvent( hStopCommand );
-	ResetEvent( hFinishReport );
-	hThread = CreateThread( 0, 1024*1024, TheThreadProc, reinterpret_cast<LPVOID>(this), 0, &dwThreadId );
+	worker.RunThread();
 	
 	return bReturn;
 }
