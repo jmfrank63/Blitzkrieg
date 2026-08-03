@@ -61,6 +61,7 @@ const cppflags_debug = &.{
 // zig runtime that prints a panic and aborts. Traps raise an illegal-instruction
 // exception at the faulting line, which GUI debuggers (vsdbg) break on directly.
 var ubsan_trap = false;
+var build_target_os: std.Target.Os.Tag = .windows;
 const cppflags_debug_trap = &(cppflags_debug.* ++ .{"-fsanitize-trap=undefined"});
 
 const cppflags_release = &.{
@@ -665,6 +666,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const platform = build_support.classify(target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
+    build_target_os = target.result.os.tag;
     // Runtime eligibility follows the host OS and CPU. Windows can execute
     // an MSVC-targeted binary even when the Zig host itself reports the GNU
     // Windows ABI (the common Scoop Zig installation does); ABI selection is
@@ -760,7 +762,7 @@ pub fn build(b: *std.Build) void {
             "Sources/src/Platform/Clock.cpp",
             "Sources/src/Misc/Thread.cpp",
         },
-        .flags = &(cppflags_debug.* ++ .{"-DBLITZKRIEG_PLATFORM_SYNC_ONLY"}),
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-DBLITZKRIEG_PLATFORM_SYNC_ONLY"}) else &.{"-DBLITZKRIEG_PLATFORM_SYNC_ONLY"},
     });
     const platform_sync_test = b.addExecutable(.{ .name = "platform-sync-test", .root_module = platform_sync_module });
     platform_sync_test.subsystem = .console;
@@ -782,7 +784,7 @@ pub fn build(b: *std.Build) void {
             "tools/zig/platform_debug_test.cpp",
             "Sources/src/Platform/Debug.cpp",
         },
-        .flags = cppflags_debug,
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{},
     });
     const platform_debug_test = b.addExecutable(.{ .name = "platform-debug-test", .root_module = platform_debug_module });
     platform_debug_test.subsystem = .console;
@@ -800,7 +802,7 @@ pub fn build(b: *std.Build) void {
     });
     const sdl_c = sdl_c_dep.artifact("SDL3");
     const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
-    platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = cppflags_release });
+    platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = if (platform == .windows_x64) cppflags_release else &.{} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_test_module_module, toolchain);
         addMsvcLibraryPaths(b, platform_test_module_module, toolchain);
@@ -825,7 +827,7 @@ pub fn build(b: *std.Build) void {
             "tools/zig/platform_dynamic_library_test.cpp",
             "Sources/src/Platform/DynamicLibrary.cpp",
         },
-        .flags = cppflags_release,
+        .flags = if (platform == .windows_x64) cppflags_release else &.{},
     });
     platform_dynamic_module.linkLibrary(sdl_dynamic);
     const platform_dynamic_test = b.addExecutable(.{ .name = "platform-dynamic-library-test", .root_module = platform_dynamic_module });
@@ -849,7 +851,7 @@ pub fn build(b: *std.Build) void {
             "tools/zig/platform_system_test.cpp",
             "Sources/src/Platform/System.cpp",
         },
-        .flags = cppflags_release,
+        .flags = if (platform == .windows_x64) cppflags_release else &.{},
     });
     platform_system_module.linkLibrary(sdl_dynamic);
     const platform_system_test = b.addExecutable(.{ .name = "platform-system-test", .root_module = platform_system_module });
@@ -2678,6 +2680,7 @@ fn addGfxGpuZig(
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (build_target_os != .windows) return &.{};
     return switch (optimize) {
         .Debug => cflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_release,
@@ -2685,6 +2688,7 @@ fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (build_target_os != .windows) return &.{};
     return switch (optimize) {
         .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
@@ -2697,6 +2701,7 @@ fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.Opt
 }
 
 fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (build_target_os != .windows) return &.{};
     return switch (optimize) {
         .Debug => cppflags_beta_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_beta_release,
@@ -2704,6 +2709,7 @@ fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u
 }
 
 fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (build_target_os != .windows) return &.{};
     return switch (optimize) {
         .Debug => cflags_sfx_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_sfx_release,
@@ -2711,6 +2717,7 @@ fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (build_target_os != .windows) return &.{};
     return switch (optimize) {
         .Debug => cppflags_sfx_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_sfx_release,
@@ -2718,6 +2725,7 @@ fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8
 }
 
 fn cppflagsGameForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    if (build_target_os != .windows) return &.{};
     return switch (optimize) {
         .Debug => cppflags_game_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_game_release,
