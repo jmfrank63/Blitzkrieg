@@ -38,7 +38,7 @@
 #error Unknown runtime header index
 #endif
 
-static_assert(sizeof(QWORD) == 8);
-static_assert(sizeof(int64) == 8);
+static_assert(sizeof(QWORD) == 8, "QWORD must be 64-bit");
+static_assert(sizeof(int64) == 8, "int64 must be 64-bit");
 
 int main() { return 0; }
