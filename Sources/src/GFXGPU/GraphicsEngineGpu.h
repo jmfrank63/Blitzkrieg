@@ -111,8 +111,6 @@ private:
 
     GfxGpuApi api_{};
     GfxGpuRenderer *renderer_ = nullptr;
-    struct SDL_Window *sdl_window_ = nullptr;
-    bool video_subsystem_owned_ = false;
     bool frame_pending_ = false;
     bool api_valid_ = false;
     bool initialized_ = false;

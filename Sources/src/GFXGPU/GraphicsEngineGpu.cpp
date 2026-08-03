@@ -9,8 +9,6 @@
 #include "..\\Main\\TextSystem.h"
 #include "..\\Image\\Image.h"
 
-#include <SDL3/SDL.h>
-
 namespace
 {
 DWORD GpuVertexColor( DWORD color )
@@ -178,27 +176,9 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
 {
     if ( !api_valid_ ) return false;
     if ( initialized_ ) return true;
-    if ( window.value )
-    {
-        if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) )
-        {
-            last_error_ = SDL_GetError();
-            return false;
-        }
-        video_subsystem_owned_ = true;
-        SDL_PropertiesID properties = SDL_CreateProperties();
-        if ( !properties ) { last_error_ = SDL_GetError(); return false; }
-        SDL_SetPointerProperty( properties, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, window.value );
-        SDL_SetNumberProperty( properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width_ > 0 ? width_ : GFX_DEFAULT_SCREEN_WIDTH );
-        SDL_SetNumberProperty( properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height_ > 0 ? height_ : GFX_DEFAULT_SCREEN_HEIGHT );
-        sdl_window_ = SDL_CreateWindowWithProperties( properties );
-        SDL_DestroyProperties( properties );
-        if ( !sdl_window_ ) { last_error_ = SDL_GetError(); return false; }
-        SDL_ShowWindow( sdl_window_ );
-    }
     GfxGpuCreateInfo info{};
     info.struct_size = sizeof( info );
-    info.sdl_window = sdl_window_;
+    info.sdl_window = window.value;
     info.width = width_ > 0 ? static_cast<uint32_t>( width_ ) : GFX_DEFAULT_SCREEN_WIDTH;
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
     info.shader_directory_utf8 = "Shaders/GfxGpu";
@@ -213,10 +193,6 @@ bool STDCALL GraphicsEngineGpu::Done()
 {
     if ( renderer_ ) api_.destroy( renderer_ );
     renderer_ = nullptr;
-    if ( sdl_window_ ) SDL_DestroyWindow( sdl_window_ );
-    sdl_window_ = nullptr;
-    if ( video_subsystem_owned_ ) SDL_QuitSubSystem( SDL_INIT_VIDEO );
-    video_subsystem_owned_ = false;
     initialized_ = false;
     return true;
 }

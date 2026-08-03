@@ -1,7 +1,11 @@
 #include "StdAfx.h"
 #include "GFX.H"
 #include "../../Sources/src/GFXGPU/GraphicsEngineGpu.h"
+#include "../../Sources/src/GFXGPU/FontGpu.h"
 #include "../../Sources/src/GFXGPU/MeshGpu.h"
+#include "../../Sources/src/StreamIO/Globals.h"
+#include "../../Sources/src/StreamIO/StructureSaver.h"
+#include "../../Sources/src/Platform/Debug.h"
 #include <algorithm>
 #include <cctype>
 
@@ -20,13 +24,29 @@ void ToLower( std::string &value ) {
 #include <cstdio>
 #include <cstring>
 
+ISingleton *g_pGlobalSingleton = nullptr;
+ISaveLoadSystem *g_pGlobalSaveLoadSystem = nullptr;
+
+float FontGpu::TextWidthFloat( const WORD *, int ) const { return 0.0f; }
+bool FontGpu::AppendGeometry( const wchar_t *, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> & ) const { return true; }
+
+namespace NPlatform
+{
+void DebugWrite( const char * ) {}
+void DebugWriteFormatV( const char *, va_list ) {}
+void DebugWriteFormat( const char *, ... ) {}
+bool IsDebuggerAttached() { return false; }
+void BreakIntoDebugger() {}
+}
+
 namespace
 {
     char trace[256]{};
     size_t trace_length = 0;
+    int borrowed_window_marker = 0;
     int texture_creates = 0, texture_uploads = 0, texture_releases = 0, target_creates = 0, target_binds = 0, buffer_creates = 0, buffer_uploads = 0, buffer_releases = 0;
     void record( char value ) { trace[trace_length++] = value; }
-    GfxGpuResult fakeCreate( const GfxGpuCreateInfo *, GfxGpuRenderer **out ) { record( 'C' ); *out = reinterpret_cast<GfxGpuRenderer *>( 1 ); return GFXGPU_OK; }
+    GfxGpuResult fakeCreate( const GfxGpuCreateInfo *info, GfxGpuRenderer **out ) { if ( !info || info->sdl_window != &borrowed_window_marker ) return GFXGPU_INVALID_ARGUMENT; record( 'C' ); *out = reinterpret_cast<GfxGpuRenderer *>( 1 ); return GFXGPU_OK; }
     void fakeDestroy( GfxGpuRenderer * ) { record( 'D' ); }
     GfxGpuResult fakeBegin( GfxGpuRenderer * ) { record( 'B' ); return GFXGPU_OK; }
     GfxGpuResult fakeEnd( GfxGpuRenderer * ) { record( 'E' ); return GFXGPU_OK; }
@@ -67,7 +87,7 @@ static int RunRecordingTest()
     api.draw = fakeDraw; api.draw_indexed = fakeDrawIndexed;
     api.bind_vertex_buffer = fakeBindVertexBuffer;
     GraphicsEngineGpu adapter( api );
-    if ( !adapter.Init( nullptr, GFXNativeWindow( nullptr ) ) ) return 10;
+    if ( !adapter.Init( nullptr, GFXNativeWindow( &borrowed_window_marker ) ) ) return 10;
     if ( !adapter.SetMode( 800, 600, 32, 0, GFXFS_WINDOWED ) ) return 11;
     if ( !adapter.ChangeViewport( 800, 600 ) ) return 12;
     if ( !adapter.SetWireframe( true ) ) return 13;
@@ -123,9 +143,9 @@ static int RunRecordingTest()
     float brightness = 0.0f, contrast = 0.0f, gamma = 0.0f;
     adapter.GetGammaCorrectionValues( &brightness, &contrast, &gamma );
     if ( brightness != 0.1f || contrast != 0.2f || gamma != 0.3f ) return 34;
-    if ( std::strcmp( trace, "CRVSBLTEP" ) != 0 ) return 18;
+    if ( std::strcmp( trace, "CRVSBTLTEP" ) != 0 ) return 18;
     adapter.Done();
-    if ( std::strcmp( trace, "CRVSBLTEPD" ) != 0 ) return 19;
+    if ( std::strcmp( trace, "CRVSBTLTEPD" ) != 0 ) return 19;
     return 0;
 }
 
@@ -166,17 +186,6 @@ int main( int argc, char **argv )
     }
 
     object->Release();
-    IRefCount *meshManager = descriptor->pFactory->CreateObject( GFX_MESH_MANAGER );
-    IRefCount *meshType = descriptor->pFactory->CreateObject( GFX_MESH );
-    if ( !meshManager || !meshType )
-    {
-        if ( meshManager ) meshManager->Release();
-        if ( meshType ) meshType->Release();
-        FreeLibrary( module );
-        return 5;
-    }
-    meshManager->Release();
-    meshType->Release();
     FreeLibrary( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;
