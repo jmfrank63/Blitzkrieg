@@ -959,8 +959,6 @@ pub fn build(b: *std.Build) void {
     if (platform != .windows_x64) {
         addPortableStreamioFilesTest(b, target, optimize, test_mode);
         addPortableModuleTest(b, target, test_mode);
-        b.default_step = platform_foundation;
-        return;
     }
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
@@ -2684,6 +2682,7 @@ const ToolchainIncludes = struct {
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
+    if (b.graph.host.result.os.tag != .windows) return;
     module.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\ucrt", .{toolchain.windows_sdk_include}) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) });
@@ -2692,6 +2691,7 @@ fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
 }
 
 fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
+    if (b.graph.host.result.os.tag != .windows) return;
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
@@ -3238,6 +3238,10 @@ fn linkSdlImport(
 }
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    if (module.resolved_target.?.result.os.tag != .windows) {
+        module.link_libc = true;
+        return;
+    }
     switch (optimize) {
         .Debug => {
             module.linkSystemLibrary("ucrtd", .{});
