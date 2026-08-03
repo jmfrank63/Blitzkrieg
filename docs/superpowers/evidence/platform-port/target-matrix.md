@@ -28,6 +28,17 @@ Date: 2026-08-03
 
 The Phase 05 gate preserves the protocol fixture hash `c70d495e` while exercising the portable socket and system-service boundaries on the native Windows and Linux paths.
 
+## Phase 06 runtime-header evidence
+
+Date: 2026-08-03
+
+| Target triple | Runtime-header matrix | Result |
+|---|---|---|
+| `x86_64-windows-msvc` | `zig build test-runtime-headers -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` | Passed |
+| `x86_64-linux-gnu.2.32` | Native WSL compile of all playable `StdAfx.h` headers | Passed |
+
+The Linux matrix uses glibc 2.32 as the portable baseline because the installed Zig/libc headers reject newer libstdc++ headers when targeting an older baseline. This is compile evidence only; runtime link closure is covered by the remaining Phase 06 packets.
+
 ## Interpretation
 
 Compile-only success for Linux and macOS validates the Phase 00 contracts: target classification, portable compiler/value headers, Zig build-tool compilation, and hermetic build-path setup. It is not a claim that the game runtime currently links or runs on those platforms.
