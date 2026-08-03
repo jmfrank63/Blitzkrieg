@@ -60,6 +60,23 @@ void SDLApplication::Hide()
 	if ( window_ && OnMainThread() ) { SDL_HideWindow( static_cast<SDL_Window *>( window_ ) ); visible_ = false; }
 }
 
+bool SDLApplication::Resize(int width, int height)
+{
+	if ( !window_ || !OnMainThread() || width <= 0 || height <= 0 ) return false;
+	return SDL_SetWindowSize( static_cast<SDL_Window *>( window_ ), width, height );
+}
+
+bool SDLApplication::SetFullscreen(bool enabled)
+{
+	if ( !window_ || !OnMainThread() ) return false;
+	return SDL_SetWindowFullscreen( static_cast<SDL_Window *>( window_ ), enabled );
+}
+
+bool SDLApplication::IsMinimized() const
+{
+	return window_ && (SDL_GetWindowFlags( static_cast<SDL_Window *>( window_ ) ) & SDL_WINDOW_MINIMIZED) != 0;
+}
+
 bool SDLApplication::IsVisible() const { return visible_; }
 
 WindowBorrow SDLApplication::BorrowWindow() const { return { window_ }; }

@@ -9,6 +9,8 @@
 #include "..\\Main\\TextSystem.h"
 #include "..\\Image\\Image.h"
 
+#include <SDL3/SDL.h>
+
 namespace
 {
 DWORD GpuVertexColor( DWORD color )
@@ -179,6 +181,7 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     GfxGpuCreateInfo info{};
     info.struct_size = sizeof( info );
     info.sdl_window = window.value;
+    sdl_window_ = window.value;
     info.width = width_ > 0 ? static_cast<uint32_t>( width_ ) : GFX_DEFAULT_SCREEN_WIDTH;
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
     info.shader_directory_utf8 = "Shaders/GfxGpu";
@@ -193,15 +196,23 @@ bool STDCALL GraphicsEngineGpu::Done()
 {
     if ( renderer_ ) api_.destroy( renderer_ );
     renderer_ = nullptr;
+    sdl_window_ = nullptr;
     initialized_ = false;
     return true;
 }
 
 void STDCALL GraphicsEngineGpu::Clear() { Done(); }
 
-bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, EGFXFullscreen, int )
+bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, EGFXFullscreen fullscreen, int )
 {
     if ( nBpp != 0 && nBpp != 16 && nBpp != 32 ) return fail( "SDL GPU adapter supports 16/32-bit requests on an RGBA8 surface" );
+    if ( nSizeX <= 0 || nSizeY <= 0 ) return fail( "SDL GPU adapter rejects zero-sized display modes" );
+    if ( sdl_window_ )
+    {
+        SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
+        if ( !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
+        if ( !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+    }
     width_ = nSizeX; height_ = nSizeY;
     display_mode_ = { nSizeX, nSizeY, 32 };
     return !renderer_ || Check( api_.resize( renderer_, static_cast<uint32_t>( nSizeX ), static_cast<uint32_t>( nSizeY ) ), "resize" );

@@ -35,7 +35,7 @@ pub fn swapchainFormat(device: *GpuDevice, window: *Window) c.SDL_GPUTextureForm
 }
 pub fn configureSwapchain(device: *GpuDevice, window: *Window) bool {
     const mode = if (c.SDL_WindowSupportsGPUPresentMode(device, window, c.SDL_GPU_PRESENTMODE_MAILBOX)) c.SDL_GPU_PRESENTMODE_MAILBOX else c.SDL_GPU_PRESENTMODE_VSYNC;
-    return c.SDL_SetGPUSwapchainParameters(device, window, c.SDL_GPU_SWAPCHAINCOMPOSITION_SDR, mode);
+    return c.SDL_SetGPUSwapchainParameters(device, window, @intCast(c.SDL_GPU_SWAPCHAINCOMPOSITION_SDR), @intCast(mode));
 }
 pub fn acquireCommandBuffer(device: *GpuDevice) ?*GpuCommandBuffer {
     return c.SDL_AcquireGPUCommandBuffer(device);
@@ -89,7 +89,7 @@ pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBu
 
 pub fn createSampler(device: *GpuDevice, linear: bool) ?*c.SDL_GPUSampler {
     const filter = if (linear) c.SDL_GPU_FILTER_LINEAR else c.SDL_GPU_FILTER_NEAREST;
-    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = filter, .mag_filter = filter, .mipmap_mode = c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST, .address_mode_u = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_v = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_w = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = c.SDL_GPU_COMPAREOP_ALWAYS, .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
+    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = @intCast(filter), .mag_filter = @intCast(filter), .mipmap_mode = @intCast(c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST), .address_mode_u = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE), .address_mode_v = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE), .address_mode_w = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE), .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = @intCast(c.SDL_GPU_COMPAREOP_ALWAYS), .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
     return c.SDL_CreateGPUSampler(device, &info);
 }
 
@@ -189,7 +189,7 @@ pub fn bindIndexBuffer(render_pass: *GpuRenderPass, buffer: *GpuBuffer, offset: 
         4 => c.SDL_GPU_INDEXELEMENTSIZE_32BIT,
         else => return false,
     };
-    c.SDL_BindGPUIndexBuffer(render_pass, &binding, element_size);
+    c.SDL_BindGPUIndexBuffer(render_pass, &binding, @intCast(element_size));
     return true;
 }
 

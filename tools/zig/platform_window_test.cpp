@@ -29,6 +29,11 @@ int main()
 	CHECK( app.IsVisible() );
 	app.Hide();
 	CHECK( !app.IsVisible() );
+	CHECK( app.Resize( 640, 360 ) );
+	CHECK( app.LogicalSize().width == 640 && app.LogicalSize().height == 360 );
+	CHECK( app.SetFullscreen( true ) );
+	CHECK( app.SetFullscreen( false ) );
+	CHECK( !app.IsMinimized() );
 	app.Shutdown();
 	app.Shutdown();
 	CHECK( app.BorrowWindow().value == nullptr );

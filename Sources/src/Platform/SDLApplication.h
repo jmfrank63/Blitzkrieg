@@ -32,6 +32,9 @@ public:
 	void Shutdown();
 	void Show();
 	void Hide();
+	bool Resize(int width, int height);
+	bool SetFullscreen(bool enabled);
+	bool IsMinimized() const;
 	bool IsVisible() const;
 	WindowBorrow BorrowWindow() const;
 	WindowSize LogicalSize() const;

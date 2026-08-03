@@ -934,6 +934,16 @@ pub fn build(b: *std.Build) void {
     addGameCommandLineTest(b, target, test_mode, toolchain);
     addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+
+    const sdl3_dep = b.dependency("sdl3", .{
+        .target = target,
+        .optimize = optimize,
+        .c_sdl_preferred_linkage = .dynamic,
+        .c_sdl_install_build_config_h = true,
+    });
+    const sdl3 = sdl3_dep.module("sdl3");
+    const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
+    addGameBootstrapSmoke(b, target, optimize, toolchain, gfx_gpu_zig, sdl_c, sdl_dynamic_dep.path("include"), test_mode);
     if (platform != .windows_x64) {
         addPortableStreamioFilesTest(b, target, optimize, test_mode);
         addPortableModuleTest(b, target, test_mode);
@@ -946,13 +956,6 @@ pub fn build(b: *std.Build) void {
     }
     if (std.mem.eql(u8, renderer, "sdl_gpu")) auditDefaultRendererInputs(gfx_gpu_sources);
     _ = b.option(bool, "sdl-debug", "Enable SDL GPU debug validation") orelse false;
-    const sdl3_dep = b.dependency("sdl3", .{
-        .target = target,
-        .optimize = optimize,
-        .c_sdl_preferred_linkage = .dynamic,
-        .c_sdl_install_build_config_h = true,
-    });
-    const sdl3 = sdl3_dep.module("sdl3");
     const sdl3_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_sdl3.zig"),
         .target = target,
@@ -1052,7 +1055,6 @@ pub fn build(b: *std.Build) void {
     const shader_determinism_step = b.step("test-gfxgpu-shader-determinism", "Compare two clean shader compiler output directories");
     shader_determinism_step.dependOn(&shader_compare_run.step);
 
-    const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
     const stage_root = b.fmt("zig-out/game/{s}", .{platform_policy.package_root});
     const package_root = b.fmt("zig-out/packages/{s}", .{platform_policy.package_root});
@@ -2807,6 +2809,38 @@ fn addSdlApplicationTest(
     const test_step = b.step("test-platform-window", "Run SDL application window lifecycle tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
+}
+
+fn addGameBootstrapSmoke(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    gfx_gpu_zig: *std.Build.Step.Compile,
+    sdl_c: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+    module.addIncludePath(sdl_include);
+    module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{ "-std=c++17" } });
+    module.linkLibrary(gfx_gpu_zig);
+    module.linkLibrary(sdl_c);
+    switch (target.result.os.tag) {
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, optimize); },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "game-bootstrap-smoke", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "main" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-game-bootstrap", "Run the SDL and GfxGpu game bootstrap smoke test");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 fn addSdlEventTest(
