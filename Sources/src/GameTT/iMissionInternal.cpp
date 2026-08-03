@@ -17,7 +17,7 @@
 #include "..\Main\CommandsHistoryInterface.h"
 #include "..\AILogic\AILogic.h"
 #include "..\AILogic\AITypes.h"
-#include "..\AILogic\AIConsts.h"
+#include "..\AILogic\aiconsts.h"
 #include "..\Formats\fmtTerrain.h"
 #include "..\Main\TextSystem.h"
 

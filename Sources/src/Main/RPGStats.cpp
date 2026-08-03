@@ -3,7 +3,7 @@
 #include <functional>
 
 #include "RPGStats.h"
-#include "..\AILogic\AIConsts.h"
+#include "..\AILogic\aiconsts.h"
 #include "..\Formats\fmtTerrain.h"
 #include "..\Common\Actions.h"
 #include "..\Misc\CheckSums.h"

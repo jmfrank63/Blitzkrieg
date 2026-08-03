@@ -359,6 +359,11 @@ class CDecksSet : public CQueuesSet<T>
 {
 	DECLARE_SERIALIZE;
 public:
+	using CQueuesSet<T>::IncreaseQueuesNum;
+	using CQueuesSet<T>::GetQueuesNum;
+	using CQueuesSet<T>::DelQueue;
+	using CQueuesSet<T>::currentPos;
+	using CQueuesSet<T>::cListsSet;
 	CDecksSet() { Init( SConsts::AI_START_VECTOR_SIZE ); }
 	explicit CDecksSet( const int decksNum ) { Init( decksNum ); }
 

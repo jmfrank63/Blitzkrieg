@@ -11,6 +11,13 @@ using DWORD = unsigned int;
 using BOOL = int;
 using LONG = int;
 
+struct GUID {
+    DWORD Data1;
+    WORD Data2;
+    WORD Data3;
+    BYTE Data4[8];
+};
+
 struct RECT {
     LONG left;
     LONG top;

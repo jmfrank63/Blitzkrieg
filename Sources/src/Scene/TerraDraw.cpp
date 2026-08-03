@@ -6,7 +6,7 @@
 #include "..\Scene\Scene.h"
 
 #include "..\AILogic\AILogic.h"
-#include "..\AILogic\AIConsts.h"
+#include "..\AILogic\aiconsts.h"
 #include "..\GFX\GFXHelper.h"
 #include "..\Misc\Intersection.h"
 /**

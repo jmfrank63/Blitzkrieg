@@ -4,7 +4,7 @@
 #include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "UIBasic.h"
-#include "../AILogic/AIConsts.h"
+#include "../AILogic/aiconsts.h"
 #include "../AILogic/AITypes.h"
 struct STextureMarker
 {

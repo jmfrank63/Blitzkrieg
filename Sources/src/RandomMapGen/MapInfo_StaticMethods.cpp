@@ -12,7 +12,7 @@
 
 #include "..\Formats\fmtTerrain.h"
 
-#include "..\AILogic\AIConsts.h"
+#include "..\AILogic\aiconsts.h"
 #include "TerrainBuilder.h"
 
 

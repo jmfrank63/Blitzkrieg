@@ -12,7 +12,7 @@
 #include "..\Formats\fmtTerrain.h"
 #include "TerrainBuilder.h"
 #include "..\Main\GameStats.h"
-#include "..\AILogic\AIConsts.h"
+#include "..\AILogic\aiconsts.h"
 #include "..\StreamIO\ProgressHook.h"
 
 #ifdef _DEBUG

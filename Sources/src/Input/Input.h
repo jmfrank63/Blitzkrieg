@@ -49,9 +49,9 @@ interface IInput : public IRefCount
 	virtual bool STDCALL SerializeConfig( IDataTree *pSS ) = 0;
 	virtual bool STDCALL IsChanged() const = 0;
 	virtual void STDCALL Repair( IDataTree *pSS, const bool bToDefault ) = 0;
-	virtual void STDCALL SetDeviceEmulationStatus( const enum EDeviceType eDeviceType, const bool bEmulate ) = 0;
-	virtual bool STDCALL IsEmulated( const enum EDeviceType eDeviceType ) const = 0;
-	virtual void STDCALL EmulateInput( const enum EDeviceType eDeviceType, const int nControlID, 
+	virtual void STDCALL SetDeviceEmulationStatus( const EDeviceType eDeviceType, const bool bEmulate ) = 0;
+	virtual bool STDCALL IsEmulated( const EDeviceType eDeviceType ) const = 0;
+	virtual void STDCALL EmulateInput( const EDeviceType eDeviceType, const int nControlID, 
 		                                 const int nValue, const DWORD time, const int nParam ) = 0;
 	virtual void STDCALL ConsumePlatformEvent( const NPlatform::PlatformEvent &event ) = 0;
 	virtual void STDCALL PumpMessages( const bool bFocus ) = 0;

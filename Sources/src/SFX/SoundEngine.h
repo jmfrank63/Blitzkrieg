@@ -64,7 +64,7 @@ public:
 	bool PlayNextMelody();
 	void NotifyMelodyFinished();
 	// audio-thread-safe: only raises the pending flag for Update to consume
-	void QueueMelodyFinishedNotification() { InterlockedExchange( &nMelodyFinishedPending, 1 ); }
+	void QueueMelodyFinishedNotification() { nMelodyFinishedPending = 1; }
 	void MapSound( ISound *pSound, int nChannel );
 	virtual BYTE STDCALL GetSFXMasterVolume() const { return cSFXMasterVolume; }
 	virtual BYTE STDCALL GetStreamMasterVolume() const { return cStreamMasterVolume; }
