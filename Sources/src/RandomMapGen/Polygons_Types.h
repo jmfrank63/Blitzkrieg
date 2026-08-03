@@ -4,7 +4,6 @@
 #include "../Formats/fmtVSO.h"
 #include "../Misc/Win32Random.h"
 
-using NWin32Random::Random;
 #include "../Formats/fmtVSO.h"
 
 extern const float RMGC_MINIMAL_VIS_POINT_DISTANCE;	//2.0f
@@ -1056,10 +1055,10 @@ PointType GetRandomBetweenPoint( const PointType &rvBegin, const PointType &rvEn
 	PointType vNormal = GetNormal( vEdge );
 	Normalize( &vNormal );
 	
-	const float fPoint = Random( fMinSideDistanceRatio, 1.0f - fMinSideDistanceRatio );
+	const float fPoint = NWin32Random::Random( fMinSideDistanceRatio, 1.0f - fMinSideDistanceRatio );
 	PointType vPoint = GetPointOnEdge( rvBegin, rvEnd, fPoint );
 
-	const float fShift = fabs( rvBegin - rvEnd ) * Random( rShiftRatio.min, rShiftRatio.max );
+	const float fShift = fabs( rvBegin - rvEnd ) * NWin32Random::Random( rShiftRatio.min, rShiftRatio.max );
 	if ( classifyEdge == CE_LEFT )
 	{
 		vPoint += vNormal * fShift;
@@ -1110,7 +1109,7 @@ bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDist
 			typename Type::const_iterator sourcePointIterator0 = sequence1.begin();
 			typename Type::const_iterator sourcePointIterator1 = sequence1.begin();
 			++sourcePointIterator1;
-			EClassifyEdge classifyEdge = ( Random( 2 ) > 0 ) ? CE_LEFT : CE_RIGHT;
+			EClassifyEdge classifyEdge = ( NWin32Random::Random( 2 ) > 0 ) ? CE_LEFT : CE_RIGHT;
 			while ( sourcePointIterator0 != sequence1.end() )
 			{
 				sequence0.push_back( ( *sourcePointIterator0 ) );
@@ -1150,7 +1149,7 @@ bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDist
 			typename Type::const_iterator sourcePointIterator0 = sequence0.begin();
 			typename Type::const_iterator sourcePointIterator1 = sequence0.begin();
 			++sourcePointIterator1;
-			EClassifyEdge classifyEdge = ( Random( 2 ) > 0 ) ? CE_LEFT : CE_RIGHT;
+			EClassifyEdge classifyEdge = ( NWin32Random::Random( 2 ) > 0 ) ? CE_LEFT : CE_RIGHT;
 			while ( sourcePointIterator0 != sequence0.end() )
 			{
 				sequence1.push_back( ( *sourcePointIterator0 ) );

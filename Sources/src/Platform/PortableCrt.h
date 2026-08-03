@@ -22,12 +22,26 @@ typedef unsigned long REGSAM;
 typedef unsigned long ULONG;
 typedef long HRESULT;
 typedef int REFIID;
+typedef void *HANDLE;
+typedef void *HMODULE;
+typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
+typedef struct { wchar_t *pwcsName; unsigned long type; unsigned long cbSize; FILETIME mtime; FILETIME ctime; FILETIME atime; unsigned long grfMode; unsigned long grfLocksSupported; unsigned long clsid; unsigned long grfStateBits; unsigned long reserved; } STATSTG;
+typedef struct { unsigned long dwSignature; unsigned long dwStrucVersion; unsigned long dwFileVersionMS; unsigned long dwFileVersionLS; unsigned long dwProductVersionMS; unsigned long dwProductVersionLS; unsigned long dwFileFlagsMask; unsigned long dwFileFlags; unsigned long dwFileOS; unsigned long dwFileType; unsigned long dwFileSubtype; unsigned long dwFileDateMS; unsigned long dwFileDateLS; } VS_FIXEDFILEINFO;
 typedef struct { long long QuadPart; } LARGE_INTEGER;
 typedef struct { unsigned long long QuadPart; } ULARGE_INTEGER;
 #define IID_IUnknown 0
 #define IID_IStream 1
 #define E_NOINTERFACE 0x80004002L
 #define S_OK 0L
+#define FALSE 0
+#define TRUE 1
+#define THREAD_PRIORITY_NORMAL 0
+#define THREAD_PRIORITY_BELOW_NORMAL -1
+#define TEXT(x) x
+#define MAKELPARAM(a,b) ((long)(((unsigned short)(a)) | ((unsigned long)((unsigned short)(b)) << 16)))
+#define STG_E_INVALIDFUNCTION 0x80030001L
+#define STG_E_ACCESSDENIED 0x80030005L
+#define _PC_24 0
 #ifdef __cplusplus
 struct IUnknown { virtual ~IUnknown() = default; };
 struct IStream : IUnknown {
@@ -41,6 +55,19 @@ struct IStream : IUnknown {
     virtual HRESULT CopyTo(IStream *, ULARGE_INTEGER, ULARGE_INTEGER *, ULARGE_INTEGER *) = 0;
 };
 #endif
+static inline unsigned long GetTickCount(void) { return 0; }
+static inline HANDLE GetCurrentThread(void) { return 0; }
+static inline int SetThreadPriority(HANDLE, int) { return 1; }
+static inline HMODULE GetModuleHandleA(const char *) { return 0; }
+static inline void *GetProcAddress(HMODULE, const char *) { return 0; }
+static inline unsigned long GetCurrentDirectory(unsigned long, char *) { return 0; }
+static inline unsigned long GetModuleFileName(HMODULE, char *, unsigned long) { return 0; }
+static inline int GetFileVersionInfoSize(const char *, unsigned long *) { return 0; }
+static inline int GetFileVersionInfo(const char *, unsigned long, unsigned long, void *) { return 0; }
+static inline int VerQueryValue(const void *, const char *, void **, unsigned int *) { return 0; }
+static inline int CoCreateGuid(void *) { return -1; }
+static inline int DosDateTimeToFileTime(unsigned short, unsigned short, FILETIME *) { return 0; }
+static inline int LocalFileTimeToFileTime(const FILETIME *, FILETIME *) { return 0; }
 typedef void *HKEY;
 
 #define HKEY_LOCAL_MACHINE ((HKEY)(uintptr_t)1)

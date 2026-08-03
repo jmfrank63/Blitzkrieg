@@ -7,7 +7,7 @@
 #include "../AILogic/AILogic.h"
 #include "../GameTT/CommonId.h"
 #include "../Main/ScenarioTracker.h"
-#include "../GameTT/IMission.h"
+#include "../GameTT/iMission.h"
 BASIC_REGISTER_CLASS( CInterfaceScreenBase );
 CInterfaceScreenBase::CInterfaceScreenBase( const std::string &_szInterfaceType )
 : szInterfaceType( _szInterfaceType ), bInterfaceClosed( false )
