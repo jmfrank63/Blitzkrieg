@@ -179,6 +179,13 @@ fn sortCompiled(records: []CompiledRecord) void {
     }
 }
 
+fn normalizeMsl(allocator: std.mem.Allocator, blob: []const u8) ![]const u8 {
+    if (std.mem.indexOfScalar(u8, blob, '\r') == null) return blob;
+    var normalized: std.ArrayListUnmanaged(u8) = .empty;
+    for (blob) |byte| if (byte != '\r') try normalized.append(allocator, byte);
+    return normalized.toOwnedSlice(allocator);
+}
+
 fn parseFormats(allocator: std.mem.Allocator, value: []const u8) ![]Format {
     var formats: std.ArrayListUnmanaged(Format) = .empty;
     var parts = std.mem.splitScalar(u8, value, ',');
@@ -278,10 +285,15 @@ fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []con
                 std.debug.print("shadercross failed: {s}\n{s}", .{ record.effect, result.stderr });
                 return error.ShaderCompilationFailed;
             }
-            const blob = try std.Io.Dir.cwd().readFileAlloc(init.io, output_path, allocator, .limited(64 * 1024 * 1024));
+            var blob: []const u8 = try std.Io.Dir.cwd().readFileAlloc(init.io, output_path, allocator, .limited(64 * 1024 * 1024));
             if (format == .spirv) {
                 if (blob.len == 0 or blob.len % 4 != 0 or blob.len < 4 or std.mem.readInt(u32, blob[0..4], .little) != 0x0723_0203)
                     return error.InvalidSpirv;
+            }
+            if (format == .msl) {
+                blob = try normalizeMsl(allocator, blob);
+                if (blob.len == 0 or !std.unicode.utf8ValidateSlice(blob) or std.mem.indexOf(u8, blob, record.entry) == null)
+                    return error.InvalidMsl;
             }
             var hash: [32]u8 = undefined;
             std.crypto.hash.sha2.Sha256.hash(blob, &hash, .{});
