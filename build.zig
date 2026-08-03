@@ -1157,13 +1157,16 @@ pub fn build(b: *std.Build) void {
     const options_bridge_test_step = b.step("options-bridge-test", "Build portable options bridge contract tests");
     options_bridge_test_step.dependOn(&b.addInstallArtifact(options_bridge_test, .{}).step);
     const platform_module_test_module = b.createModule(.{ .target = target, .optimize = .Debug });
-    platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = cppflagsForOptimize(.Debug) });
+    const platform_module_test_flags: []const []const u8 = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"};
+    platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = platform_module_test_flags });
     addMsvcIncludePaths(b, platform_module_test_module, toolchain);
     addMsvcLibraryPaths(b, platform_module_test_module, toolchain);
     linkMsvcRuntime(platform_module_test_module, .Debug);
     const platform_module_test = b.addExecutable(.{ .name = "platform-module-test", .root_module = platform_module_test_module });
-    platform_module_test.subsystem = .console;
-    platform_module_test.entry = .{ .symbol_name = "main" };
+    if (platform == .windows_x64) {
+        platform_module_test.subsystem = .console;
+        platform_module_test.entry = .{ .symbol_name = "main" };
+    }
     const platform_module_test_run = b.addRunArtifact(platform_module_test);
     platform_module_test_run.setCwd(b.path("."));
     const platform_module_test_step = b.step("test-platform-modules", "Run portable runtime module tests");
