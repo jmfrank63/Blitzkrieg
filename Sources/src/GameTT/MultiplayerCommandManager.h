@@ -38,7 +38,7 @@ enum EPlayerChatState
 	EPCS_ISNT_CHANGED,
 	EPCS_NONE,
 };
-enum EPlayerRelation
+enum EPlayerRelation : unsigned int
 {
 	EPR_NORMAL,
 	EPR_FRIEND,

@@ -3,6 +3,7 @@
 #pragma ONCE
 #include "ScenarioTracker.h"
 #include "PlayerScenarioInfo.h"
+enum EUnitRPGClass : unsigned int;
 typedef std::pair< int, CObj<CPlayerScenarioInfo> > CPlayerScenarioInfoPair;
 typedef std::list<CPlayerScenarioInfoPair> CPlayersList;
 class CPlayerScenarioInfoIterator : public CTRefCount<IPlayerScenarioInfoIterator>

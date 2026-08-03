@@ -2,6 +2,7 @@
 #define __SCENARIOTRACKER2_H__
 #pragma ONCE
 #include "iMainClassIDs.h"
+enum EPlayerRelation : unsigned int;
 #define NUM_MEDAL_SLOTS 6
 enum EMissionFinishStatus
 {

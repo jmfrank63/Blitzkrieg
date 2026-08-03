@@ -35,6 +35,20 @@ typedef void *HKEY;
 #define ERROR_INVALID_DATA 13
 #define ERROR_INVALID_PARAMETER 87
 #define CP_ACP 0
+#define _stricmp strcasecmp
+#define _EM_INVALID 0
+#define _EM_ZERODIVIDE 0
+#define _EM_OVERFLOW 0
+#define _EM_UNDERFLOW 0
+#define _EM_INEXACT 0
+#define _EM_DENORMAL 0
+#define _MCW_EM 0
+#define _RC_NEAR 0
+#define _RC_CHOP 0
+#define _DN_SAVE 0
+#define _PC_24 0
+#define _MCW_RC 0
+static inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
 
 static inline UINT GetACP(void) { return 65001; }
 static inline char *_itoa(int value, char *buffer, int radix) {
@@ -42,13 +56,13 @@ static inline char *_itoa(int value, char *buffer, int radix) {
     else snprintf(buffer, 32, "%x", (unsigned int)value);
     return buffer;
 }
-static inline int WideCharToMultiByte(UINT, DWORD, LPCWSTR source, int source_length,
+static inline int WideCharToMultiByte(UINT, unsigned long, LPCWSTR source, int source_length,
                                       char *dest, int dest_length, const char *, int *) {
     if (source_length < 0) source_length = (int)wcslen(source);
     size_t converted = wcstombs(dest, source, (size_t)dest_length);
     return converted == (size_t)-1 ? 0 : (int)converted;
 }
-static inline int MultiByteToWideChar(UINT, DWORD, const char *source, int source_length,
+static inline int MultiByteToWideChar(UINT, unsigned long, const char *source, int source_length,
                                       LPWSTR dest, int dest_length) {
     if (source_length < 0) source_length = (int)strlen(source);
     size_t converted = mbstowcs(dest, source, (size_t)dest_length);

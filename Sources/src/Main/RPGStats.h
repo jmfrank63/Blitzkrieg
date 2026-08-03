@@ -512,7 +512,7 @@ inline bool IsSPG( EUnitRPGType type ) { return (type & RPG_TYPE_SPG) != 0; }
 inline bool IsArmor( EUnitRPGType type ) { return (type & RPG_TYPE_ARMOR) != 0; }
 inline bool IsAviation( EUnitRPGType type ) { return (type & RPG_TYPE_AVIATION) != 0; }
 inline bool IsTrain( EUnitRPGType type ) { return (type & RPG_TYPE_TRAIN) != 0; }
-enum EUnitRPGClass
+enum EUnitRPGClass : unsigned int
 {
 	RPG_CLASS_UNKNOWN					= 0,
 	RPG_CLASS_ARTILLERY				= 1,
