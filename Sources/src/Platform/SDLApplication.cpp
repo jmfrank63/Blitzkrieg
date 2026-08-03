@@ -2,6 +2,9 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+#include <cstring>
+
 namespace
 {
 bool fail_initialization_for_tests = false;
@@ -73,6 +76,39 @@ WindowSize SDLApplication::PixelSize() const
 	WindowSize result;
 	if ( window_ ) SDL_GetWindowSizeInPixels( static_cast<SDL_Window *>( window_ ), &result.width, &result.height );
 	return result;
+}
+
+bool SDLApplication::PollEvent(Event &event)
+{
+	if ( !OnMainThread() ) { SetError( "PollEvent called off main thread" ); return false; }
+	SDL_Event raw{};
+	while ( SDL_PollEvent( &raw ) )
+	{
+		event = {};
+		switch ( raw.type )
+		{
+			case SDL_EVENT_QUIT: event.type = EventType::quit; event.timestamp = raw.quit.timestamp; break;
+			case SDL_EVENT_WINDOW_FOCUS_GAINED: event.type = EventType::focusGained; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
+			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
+			case SDL_EVENT_WINDOW_MOVED: event.type = EventType::windowMoved; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
+			case SDL_EVENT_WINDOW_RESIZED: event.type = EventType::windowResized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
+			case SDL_EVENT_WINDOW_MINIMIZED: event.type = EventType::windowMinimized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
+			case SDL_EVENT_WINDOW_RESTORED: event.type = EventType::windowRestored; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
+			case SDL_EVENT_KEY_DOWN: event.type = EventType::keyDown; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.modifiers = static_cast<int>( raw.key.mod ); event.repeat = raw.key.repeat; break;
+			case SDL_EVENT_KEY_UP: event.type = EventType::keyUp; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.modifiers = static_cast<int>( raw.key.mod ); break;
+			case SDL_EVENT_TEXT_INPUT:
+				event.type = EventType::textInput; event.timestamp = raw.text.timestamp; event.windowId = raw.text.windowID;
+				if ( raw.text.text ) std::strncpy( event.text, raw.text.text, sizeof( event.text ) - 1 );
+				break;
+			case SDL_EVENT_MOUSE_MOTION: event.type = EventType::mouseMotion; event.timestamp = raw.motion.timestamp; event.windowId = raw.motion.windowID; event.x = static_cast<int>( raw.motion.x ); event.y = static_cast<int>( raw.motion.y ); event.data1 = static_cast<int>( raw.motion.xrel ); event.data2 = static_cast<int>( raw.motion.yrel ); break;
+			case SDL_EVENT_MOUSE_BUTTON_DOWN: event.type = EventType::mouseButtonDown; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
+			case SDL_EVENT_MOUSE_BUTTON_UP: event.type = EventType::mouseButtonUp; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
+			case SDL_EVENT_MOUSE_WHEEL: event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID; event.x = static_cast<int>( raw.wheel.x ); event.y = static_cast<int>( raw.wheel.y ); event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y ); break;
+			default: continue;
+		}
+		return true;
+	}
+	return false;
 }
 
 const std::string &SDLApplication::LastError() const { return last_error_; }

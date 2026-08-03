@@ -1,0 +1,52 @@
+#include "../../Sources/src/Platform/SDLApplication.h"
+
+#include <SDL3/SDL.h>
+
+#include <cstdio>
+#include <cstring>
+
+#define CHECK(condition) \
+	do { \
+		if ( !(condition) ) { \
+			std::fprintf( stderr, "platform event check failed: %s\\n", #condition ); \
+			return 1; \
+		} \
+	} while ( false )
+
+static bool Push(SDL_Event event)
+{
+	return SDL_PushEvent( &event ) == 1;
+}
+
+int main()
+{
+	NPlatform::SDLApplication app;
+	CHECK( app.Initialize( "Blitzkrieg event test", 320, 200 ) );
+	NPlatform::Event ignored;
+	while ( app.PollEvent( ignored ) ) {}
+
+	SDL_Event event{};
+	event.type = SDL_EVENT_WINDOW_RESIZED; event.window.timestamp = 10; event.window.data1 = 640; event.window.data2 = 480; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_KEY_DOWN; event.key.timestamp = 20; event.key.key = SDLK_RETURN; event.key.mod = SDL_KMOD_ALT; event.key.repeat = true; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_TEXT_INPUT; event.text.timestamp = 30; event.text.text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-long"; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_MOUSE_MOTION; event.motion.timestamp = 40; event.motion.x = 12.0f; event.motion.y = 34.0f; event.motion.xrel = 2.0f; event.motion.yrel = -3.0f; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.timestamp = 50; event.wheel.x = 1.0f; event.wheel.y = -2.0f; event.wheel.mouse_x = 12.0f; event.wheel.mouse_y = 34.0f; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_QUIT; event.quit.timestamp = 60; CHECK( Push( event ) );
+	event = {}; event.type = static_cast<SDL_EventType>( 0x7fff0000 ); CHECK( Push( event ) );
+
+	NPlatform::Event translated[6]{};
+	int count = 0;
+	while ( count < 6 && app.PollEvent( translated[count] ) ) ++count;
+	CHECK( count == 6 );
+	CHECK( translated[0].type == NPlatform::EventType::windowResized );
+	CHECK( translated[0].x == 640 && translated[0].y == 480 && translated[0].timestamp == 10 );
+	CHECK( translated[1].type == NPlatform::EventType::keyDown && translated[1].repeat );
+	CHECK( translated[1].modifiers == SDL_KMOD_ALT );
+	CHECK( translated[2].type == NPlatform::EventType::textInput );
+	CHECK( translated[2].text[sizeof( translated[2].text ) - 1] == '\0' );
+	CHECK( std::strlen( translated[2].text ) == sizeof( translated[2].text ) - 1 );
+	CHECK( translated[3].type == NPlatform::EventType::mouseMotion && translated[3].x == 12 && translated[3].data2 == -3 );
+	CHECK( translated[4].type == NPlatform::EventType::mouseWheel && translated[4].x == 1 && translated[4].y == -2 );
+	CHECK( translated[5].type == NPlatform::EventType::quit && translated[5].timestamp == 60 );
+	return 0;
+}

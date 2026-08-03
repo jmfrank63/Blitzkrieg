@@ -4,6 +4,8 @@
 #include <string>
 #include <thread>
 
+#include "Event.h"
+
 namespace NPlatform
 {
 struct WindowBorrow
@@ -34,6 +36,7 @@ public:
 	WindowBorrow BorrowWindow() const;
 	WindowSize LogicalSize() const;
 	WindowSize PixelSize() const;
+	bool PollEvent(Event &event);
 	const std::string &LastError() const;
 
 	static void SetInitializationFailureForTests(bool enabled);

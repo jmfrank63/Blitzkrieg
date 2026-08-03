@@ -932,6 +932,7 @@ pub fn build(b: *std.Build) void {
     platform_foundation.dependOn(test_platform_foundation);
     addGameCommandLineTest(b, target, test_mode, toolchain);
     addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     if (platform != .windows_x64) {
         addPortableStreamioFilesTest(b, target, optimize, test_mode);
         addPortableModuleTest(b, target, test_mode);
@@ -2801,6 +2802,46 @@ fn addSdlApplicationTest(
     test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
     if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
     const test_step = b.step("test-platform-window", "Run SDL application window lifecycle tests");
+    test_step.dependOn(&test_exe.step);
+    if (test_mode == .run) test_step.dependOn(&test_run.step);
+}
+
+fn addSdlEventTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = true });
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/platform_event_test.cpp" },
+        .flags = &.{ "-std=c++17" },
+    });
+    linkSdlImport(module, target, sdl_dynamic);
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const test_exe = b.addExecutable(.{ .name = "platform-event-test", .root_module = module });
+    test_exe.subsystem = .console;
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "main" };
+    const test_run = b.addRunArtifact(test_exe);
+    test_run.setCwd(b.path("."));
+    test_run.step.dependOn(&sdl_dynamic.step);
+    test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
+    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    const test_step = b.step("test-platform-events", "Run SDL event translation tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
 }
