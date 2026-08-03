@@ -49,7 +49,7 @@ jobs:
           zig version
 
       - name: Restore Zig build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .zig-cache
           key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -57,7 +57,7 @@ jobs:
             ${{ runner.os }}-zig-build-0.16.0-
 
       - name: Restore Unix Zig global cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/zig
           key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -110,7 +110,7 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Restore Zig build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .zig-cache
           key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -118,7 +118,7 @@ jobs:
             ${{ runner.os }}-zig-build-0.16.0-
 
       - name: Restore Windows Zig global cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~\AppData\Local\zig
           key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -206,7 +206,7 @@ jobs:
           zig version
 
       - name: Restore Zig build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .zig-cache
           key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
