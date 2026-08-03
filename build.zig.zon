@@ -20,6 +20,11 @@
             .hash = "N-V-__8AAGtdsQbKihmduJSnlYTEWToh0OQavxwZqVbjiSac",
             .lazy = true,
         },
+        .dxc = .{
+            .url = "git+https://github.com/Gota7/dxc-build?ref=zig-sdl3#a60f9fae53dac7a792f6407f8b0352e8b1f1a22e",
+            .hash = "dxc-1.8.2505-siU2n6P4FQJNhZ0or2qPUx0C72_CdWUU15vI1h54sQC5",
+            .lazy = true,
+        },
         .spirv_cross = .{
             .url = "git+https://github.com/Gota7/spirv_cross-zig#e5dd9ed763941025bdcd795edec2f3439c6dc10c",
             .hash = "spirv_cross-0.0.0-bzNVZJMYAAADFRYb_kxQsS41w0MKtOqKmmq1nN-s90Y6",
