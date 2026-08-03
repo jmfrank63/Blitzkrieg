@@ -214,7 +214,7 @@ jobs:
             ${{ runner.os }}-zig-build-0.16.0-
 
       - name: Restore Unix Zig global cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/zig
           key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
