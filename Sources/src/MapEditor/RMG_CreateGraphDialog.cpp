@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "RMG_CreateGraphDialog.h"
 #include "..\RandomMapGen\LA_Types.h"

@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "WindowConsole.h"
 #include "IUIInternal.h"
 #include "UIScreen.h"

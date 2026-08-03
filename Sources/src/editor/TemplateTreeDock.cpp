@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "TemplateTreeDock.h"
 #include "resource.h"
 

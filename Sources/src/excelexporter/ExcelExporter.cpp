@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include <afxdb.h>
 #include <odbcinst.h>
 #include <iostream>

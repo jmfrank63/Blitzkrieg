@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "SuspendedUpdates.h"
 #include "Diplomacy.h"

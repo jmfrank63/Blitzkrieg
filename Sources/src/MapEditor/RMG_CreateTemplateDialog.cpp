@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "..\RandomMapGen\Resource_Types.h"
 #include "..\RandomMapGen\MapInfo_Types.h"

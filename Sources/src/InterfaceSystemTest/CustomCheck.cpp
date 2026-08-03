@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "CustomCheck.h"
 
 #include "..\LuaLib\Script.h"

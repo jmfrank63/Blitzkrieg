@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "Graph.h"
 int CGraph::operator&( IStructureSaver &ss )

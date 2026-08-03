@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "GeneralConsts.h"
 int SGeneralConsts::TIME_DONT_SEE_ENEMY_BEFORE_FORGET = 5000;

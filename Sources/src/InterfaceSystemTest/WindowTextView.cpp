@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "WindowTextView.h"
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"

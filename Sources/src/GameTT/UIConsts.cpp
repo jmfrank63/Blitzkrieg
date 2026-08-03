@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "UIConsts.h"
 #include "..\Main\TextSystem.h"
 #include "MultiplayerCommandManager.h"

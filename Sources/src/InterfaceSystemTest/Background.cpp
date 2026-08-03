@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "Background.h"
 
 #include "..\Scene\Scene.h"

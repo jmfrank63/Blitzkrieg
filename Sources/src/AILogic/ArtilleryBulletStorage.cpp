@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "ArtilleryBulletStorage.h"
 BASIC_REGISTER_CLASS( CArtilleryBulletStorage );

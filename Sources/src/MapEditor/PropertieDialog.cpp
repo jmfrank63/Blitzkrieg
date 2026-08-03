@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "PropertieDialog.h"
 #include "frames.h"

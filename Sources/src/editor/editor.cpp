@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include <crtdbg.h>
 #include <Shlwapi.h>
 #include <afxadv.h>

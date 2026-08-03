@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "Scripts\Scripts.h"
 extern CScripts *pScripts;

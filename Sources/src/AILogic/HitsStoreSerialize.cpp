@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "HitsStore.h"
 int CHitsStore::operator&( IStructureSaver &ss )

@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "FreeIDs.h"
-#include "stdafx.h"
+#include "StdAfx.h"
 void CFreeIds::Init( const int nElements )
 {
 	nexts.resize( nElements );

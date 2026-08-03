@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "CTreeItem.h"
 #include "MultiTree.h"
 #include "MultiTreeEditBox.h"

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "EditorWindowSingleton.h"
 
 #ifdef _DEBUG

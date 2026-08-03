@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "NetDriverConsts.h"
 int SNetDriverConsts::F_TIMEOUT = 60;

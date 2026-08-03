@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include <math.h>
 #include "editor.h"
 #include "MapToolState.h"

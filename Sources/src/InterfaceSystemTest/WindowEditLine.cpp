@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "WindowEditLine.h"
 
 #include "..\GFX\GFX.h"

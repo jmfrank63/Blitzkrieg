@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "RotatingFireplacesObject.h"
 #include "Soldier.h"

@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "MultiplayerGamesList.h"
 #include "WorldClient.h"
 #include "MuliplayerToUIConsts.h"

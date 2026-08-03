@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "AntiArtilleryManager.h"
 #include "AntiArtillery.h"

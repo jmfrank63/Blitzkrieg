@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 const WORD SConsts::STANDART_VIS_ANGLE = 32768;
 
 const int SConsts::MAX_DIST_TO_RECALC_FOG = 55 * SConsts::TILE_SIZE;

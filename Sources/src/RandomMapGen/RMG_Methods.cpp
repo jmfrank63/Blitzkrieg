@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "RMG_Types.h"
 #include "..\Formats\FmtTerrain.h"

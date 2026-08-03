@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "..\Image\image.h"
 #include "ThumbList.h"
 

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"

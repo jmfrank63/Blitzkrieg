@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "Shell.h"
 int CHitInfo::operator&( IStructureSaver &ss )

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "Turret.h"
 int CTurret::operator&( IStructureSaver &ss )

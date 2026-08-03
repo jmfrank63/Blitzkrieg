@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "MultiplayerCommandManagerInternal.h"
 #include "WorldClient.h"
 BASIC_REGISTER_CLASS(IMPToUICommandManager);

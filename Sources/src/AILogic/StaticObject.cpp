@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "StaticObject.h"
 #include "..\Common\Actions.h"

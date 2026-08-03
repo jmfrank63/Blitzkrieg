@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "StateGroups.h"
 #include "frames.h"

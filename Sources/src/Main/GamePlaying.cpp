@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "GamePlaying.h"
 #include "Multiplayer.h"

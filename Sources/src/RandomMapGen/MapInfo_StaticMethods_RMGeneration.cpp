@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "MapInfo_Types.h"
 #include "RMG_Types.h"

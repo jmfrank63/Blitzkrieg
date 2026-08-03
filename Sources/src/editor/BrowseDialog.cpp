@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "frames.h"
 #include "BrowseDialog.h"

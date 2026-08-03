@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "PropView.h"
 #include "TreeDockWnd.h"
 #include "KeyFrameDock.h"

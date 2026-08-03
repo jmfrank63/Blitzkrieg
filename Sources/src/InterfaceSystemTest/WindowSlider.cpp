@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "WindowSlider.h"
 #include "WindowMultiBkg.h"
 #include "SInterfaceConsts.h"

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "KeyBasedData.h"
 int SParticleSetup::operator&( IStructureSaver &ss )
 {

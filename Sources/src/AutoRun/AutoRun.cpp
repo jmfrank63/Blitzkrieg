@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "AutoRun.h"
 #include "AutoRunDialog.h"
 

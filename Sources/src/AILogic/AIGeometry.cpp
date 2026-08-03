@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "..\Main\RPGStats.h"
 const WORD GetDirectionByVector( float x, float y )

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "NewMapDialog.h"
 #include "frames.h"
 #include "TemplateEditorFrame1.h"

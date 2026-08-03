@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "IB_Types.h"
 #include "LA_Types.h"

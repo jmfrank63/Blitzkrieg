@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "ResizeDialog.h"
 #include "..\RandomMapGen\Registry_Types.h"

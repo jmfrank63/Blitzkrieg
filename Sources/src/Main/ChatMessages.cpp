@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "ChatMessages.h"
 #include "ScenarioTracker.h"

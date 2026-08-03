@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "SimpleObjectsState.h"
 #include "frames.h"

@@ -16,6 +16,7 @@ const cflags_debug = &.{
     "-D_DLL",
     "-Wno-deprecated-non-prototype",
 };
+const portable_cflags = &.{ "-include", "Sources/src/Platform/PortableCrt.h" };
 
 const cflags_release = &.{
     "-D_WINDOWS",
@@ -1119,7 +1120,7 @@ pub fn build(b: *std.Build) void {
     });
     gfx_gpu_abi_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
     addMsvcIncludePaths(b, gfx_gpu_abi_test_module, toolchain);
-    addLinuxCxxIncludePaths(b, gfx_gpu_abi_test_module, target);
+    addLinuxCxxIncludePaths(b, gfx_gpu_abi_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
     gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
     linkMsvcRuntime(gfx_gpu_abi_test_module, optimize);
@@ -1380,7 +1381,7 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
     addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
-    addLinuxCxxIncludePaths(b, gfx_gpu_factory_test_module, target);
+    addLinuxCxxIncludePaths(b, gfx_gpu_factory_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
     linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
@@ -2680,7 +2681,7 @@ fn addGfxGpuZig(
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &.{};
+    if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
         .Debug => cflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_release,
@@ -2688,7 +2689,7 @@ fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &.{};
+    if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
         .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
@@ -2701,7 +2702,7 @@ fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.Opt
 }
 
 fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &.{};
+    if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
         .Debug => cppflags_beta_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_beta_release,
@@ -2709,7 +2710,7 @@ fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u
 }
 
 fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &.{};
+    if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
         .Debug => cflags_sfx_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_sfx_release,
@@ -2717,7 +2718,7 @@ fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &.{};
+    if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
         .Debug => cppflags_sfx_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_sfx_release,
@@ -2725,7 +2726,7 @@ fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8
 }
 
 fn cppflagsGameForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &.{};
+    if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
         .Debug => cppflags_game_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_game_release,
@@ -2736,6 +2737,7 @@ fn addProjectIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(b.path("Sources/src/Misc"));
     module.addIncludePath(b.path("Sources/src/Formats"));
+    addLinuxCxxIncludePaths(b, module);
 }
 
 const ToolchainIncludes = struct {
@@ -2767,8 +2769,8 @@ fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
 }
 
-fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
-    if (b.graph.host.result.os.tag != .linux) return;
+fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
+    if (build_target_os != .linux or b.graph.host.result.os.tag != .linux) return;
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
     var selected: ?[]const u8 = null;
@@ -2780,11 +2782,7 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module, target: std
         }
     }
     const version = selected orelse return;
-    const arch = switch (target.result.cpu.arch) {
-        .x86_64 => "x86_64",
-        .aarch64 => "aarch64",
-        else => return,
-    };
+    const arch = "x86_64";
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
     module.addSystemIncludePath(.{ .cwd_relative = "/usr/include" });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu", .{arch}) });
@@ -3096,7 +3094,7 @@ fn addRuntimeHeadersTest(
         module.addIncludePath(b.path("Sources/src/Misc"));
         module.addIncludePath(b.path("Sources/src/StreamIO"));
         module.addIncludePath(b.path("Sources/src/Formats"));
-        if (target.result.os.tag == .linux) addLinuxCxxIncludePaths(b, module, target);
+        if (target.result.os.tag == .linux) addLinuxCxxIncludePaths(b, module);
         if (target.result.os.tag == .windows) addMsvcIncludePaths(b, module, toolchain);
         const index_flag = b.fmt("-DRUNTIME_HEADER_INDEX={d}", .{index});
         module.addCSourceFiles(.{

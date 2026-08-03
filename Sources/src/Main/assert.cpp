@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 extern "C"
 {
 	void BK_CDECL CallAssert( int bCondition )

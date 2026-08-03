@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "CtrlObjectInspector.h"
 #include "OIEdit.h"
 #include "OICombo.h"

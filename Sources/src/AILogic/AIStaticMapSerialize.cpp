@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "AIStaticMap.h"
 int CStaticMap::operator&( IStructureSaver &ss )

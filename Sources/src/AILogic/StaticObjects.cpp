@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "StaticObjects.h"
 #include "StaticObjectsIters.h"

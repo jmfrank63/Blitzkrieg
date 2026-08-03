@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "SmokeScreen.h"
 #include "StaticObjectsIters.h"

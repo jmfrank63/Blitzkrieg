@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "OIEdit.h"
 
 #ifdef _DEBUG

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "PointChecking.h"
 #include "StaticObject.h"

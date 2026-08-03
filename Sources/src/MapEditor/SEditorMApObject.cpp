@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "..\GFX\GFX.h"
 #include <comdef.h>

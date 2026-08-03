@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "CLockWithUnlockPossibilities.h"
 #include "AIUnit.h"

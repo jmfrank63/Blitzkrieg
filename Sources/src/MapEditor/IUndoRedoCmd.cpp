@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "IUndoRedoCmd.h"
 #include "..\GFX\GFX.h"

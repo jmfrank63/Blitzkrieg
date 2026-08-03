@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "RndRunUpToEnemy.h"
 #include "Soldier.h"

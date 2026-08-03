@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "Spline.h"
 const int CAnalyticBSpline2::N_PARTS_FOR_CLOSEST_POINT_SEARCHING = 10;

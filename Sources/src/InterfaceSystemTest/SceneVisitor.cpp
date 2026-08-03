@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "SceneVisitor.h"
 
 #ifdef _DEBUG

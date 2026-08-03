@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "AIEditorInternal.h"
 int CAIEditor::operator&( IStructureSaver &ss )

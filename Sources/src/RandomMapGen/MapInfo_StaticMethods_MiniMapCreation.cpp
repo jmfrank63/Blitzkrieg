@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "MapInfo_Types.h"
 #include "MiniMap_Types.h"

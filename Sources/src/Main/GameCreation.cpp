@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "GameCreation.h"
 #include "ServerInfo.h"

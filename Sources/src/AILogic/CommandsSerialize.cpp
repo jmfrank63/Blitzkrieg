@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "Commands.h"
 int SGroupPathInfo::operator&( IStructureSaver &ss )

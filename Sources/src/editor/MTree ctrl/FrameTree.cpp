@@ -1,5 +1,5 @@
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "FrameTree.h"
 
 #ifdef _DEBUG

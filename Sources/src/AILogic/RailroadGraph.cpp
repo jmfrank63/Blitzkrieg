@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "RailroadGraph.h"
 #include "..\Formats\fmtTerrain.h"

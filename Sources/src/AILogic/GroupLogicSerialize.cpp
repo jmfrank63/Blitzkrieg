@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "GroupLogic.h"
 #include "GroupUnit.h"

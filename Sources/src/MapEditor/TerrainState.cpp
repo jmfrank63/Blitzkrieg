@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "editor.h"
 #include "TerrainState.h"
 #include "frames.h"

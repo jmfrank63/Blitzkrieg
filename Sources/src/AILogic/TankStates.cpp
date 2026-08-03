@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "TankStates.h"
 #include "TechnicsStates.h"

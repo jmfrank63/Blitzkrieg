@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "FormationStates.h"
 #include "SerializeOwner.h"

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "PlanePathMath.h"
 #include "..\..\Misc\Geometry.h"
