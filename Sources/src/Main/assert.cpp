@@ -1,7 +1,7 @@
 #include "stdafx.h"
 extern "C"
 {
-	void __cdecl CallAssert( int bCondition )
+	void BK_CDECL CallAssert( int bCondition )
 	{
 		(void)bCondition;
 		NPlatform::BreakIntoDebugger();

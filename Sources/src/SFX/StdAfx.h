@@ -1,5 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS
 
+#include "../Platform/Compiler.h"
+#include "../Platform/LegacyTypes.h"
+#include "../Platform/LegacyVariant.h"
+
 #if !defined(AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_)
 #define AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_
 
@@ -10,8 +14,9 @@
 #define _NOTHREADS 1
 #include <typeinfo>
 
+#if defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN							// Exclude rarely-used stuff from Windows headers
-#include <comutil.h>
+#endif
 #include <assert.h>
 #ifdef GetObject
 #undef GetObject
@@ -22,7 +27,9 @@
 
 
 #include <math.h>
+#if defined(_MSC_VER)
 #pragma warning( disable : 4503 4018 4786 4800 4290 4146 4244 4284 )
+#endif
 #include <algorithm>
 #include <list>
 #include <string>
@@ -32,10 +39,7 @@
 #include <unordered_set>
 #include <set>
 #include <queue>
-typedef __int64 int64;									// due to lack of 'long long' type support
-typedef unsigned __int64 QWORD;					// quadra word
-#define for if(false); else for					// to achive standard variable scope resolving, declared inside 'for'
-#define STDCALL __stdcall								// to use with interface function calls
+using int64 = long long;
 #ifndef interface
 #define interface struct
 #endif // interface

@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 /*
 #include "MemorySystem.h"
-void* __cdecl operator new( size_t n )
+void* BK_CDECL operator new( size_t n )
 {
 	void *pRes;
 #ifdef _DEBUG
@@ -16,7 +16,7 @@ void* __cdecl operator new( size_t n )
 #endif
 	return pRes;
 }
-void __cdecl operator delete( void *p )
+void BK_CDECL operator delete( void *p )
 {
 #ifdef _DEBUG
 #endif
@@ -27,11 +27,11 @@ void __cdecl operator delete( void *p )
 		free( p );
 #endif
 }
-void *__cdecl operator new[](size_t count) //_THROW1(std::bad_alloc)
+void *BK_CDECL operator new[](size_t count) //_THROW1(std::bad_alloc)
 {
 	return operator new(count);
 }
-void __cdecl operator delete[]( void * p )
+void BK_CDECL operator delete[]( void * p )
 {
 	operator delete(p);
 }

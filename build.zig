@@ -945,6 +945,7 @@ pub fn build(b: *std.Build) void {
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
     addPlatformNetworkTest(b, target, test_mode, toolchain);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addRuntimeHeadersTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2944,6 +2945,39 @@ fn addInputAudioGateTest(
     const step = b.step("test-input-audio-gate", "Run the portable input and audio lifecycle gate");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addRuntimeHeadersTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const header_names = [_][]const u8{
+        "AILogic", "Anim", "Common", "Formats", "Game", "GameTT", "Image", "Input",
+        "Main", "Misc", "Net", "RandomMapGen", "Scene", "SFX", "UI",
+    };
+    const step = b.step("test-runtime-headers", "Compile each playable runtime StdAfx header independently");
+    for (header_names, 0..) |header_name, index| {
+        _ = header_name;
+        const module = b.createModule(.{ .target = target, .optimize = .Debug });
+        module.addIncludePath(b.path("Sources/src"));
+        module.addIncludePath(b.path("Sources/src/Misc"));
+        module.addIncludePath(b.path("Sources/src/StreamIO"));
+        module.addIncludePath(b.path("Sources/src/Formats"));
+        if (target.result.os.tag == .windows) addMsvcIncludePaths(b, module, toolchain);
+        const index_flag = b.fmt("-DRUNTIME_HEADER_INDEX={d}", .{index});
+        module.addCSourceFiles(.{
+            .files = &.{"tools/zig/runtime_headers_test.cpp"},
+            .flags = if (target.result.os.tag == .windows)
+                &(cppflags_debug.* ++ .{ index_flag })
+            else
+                &.{ "-std=c++17", index_flag },
+        });
+        const object = b.addObject(.{ .name = b.fmt("runtime-header-{d}", .{index}), .root_module = module });
+        step.dependOn(&object.step);
+    }
+    _ = test_mode;
 }
 
 fn addPlatformSocketTypesTest(

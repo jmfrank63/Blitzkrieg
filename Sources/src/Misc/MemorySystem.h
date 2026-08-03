@@ -1,6 +1,7 @@
 #ifndef _NEW_
 #define _NEW_
 #define _INC_NEW
+#include "../Platform/Compiler.h"
 #include <malloc.h>
 namespace std
 {
@@ -8,15 +9,15 @@ namespace std
 	struct nothrow_t {  };
 	struct nothrow {  };
 
-	typedef void (__cdecl *new_handler)();
+	typedef void (BK_CDECL *new_handler)();
 	inline new_handler set_new_handler( new_handler a ) { return a; }
 }
-void* __cdecl operator new( size_t n );
-void __cdecl operator delete( void *p );
-void *__cdecl operator new[](size_t count); //_THROW1(std::bad_alloc)
-void __cdecl operator delete[]( void * p );
-inline void *__cdecl operator new(size_t, void *_P)
+void* BK_CDECL operator new( size_t n );
+void BK_CDECL operator delete( void *p );
+void *BK_CDECL operator new[](size_t count); //_THROW1(std::bad_alloc)
+void BK_CDECL operator delete[]( void * p );
+inline void *BK_CDECL operator new(size_t, void *_P)
 {return (_P); }
-inline void __cdecl operator delete(void *, void *)
+inline void BK_CDECL operator delete(void *, void *)
 {return; }
 #endif

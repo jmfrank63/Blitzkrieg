@@ -1,11 +1,9 @@
 #ifndef __GAMEDB_H__
 #define __GAMEDB_H__
+#include "../Platform/Compiler.h"
 #pragma ONCE
 #ifndef interface
 #define interface struct
-#endif
-#ifndef STDCALL
-#define STDCALL __stdcall
 #endif
 #include "..\Misc\Basic.h"
 #include "..\zlib\zlib.h"
