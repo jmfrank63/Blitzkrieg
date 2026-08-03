@@ -199,13 +199,13 @@ pub fn parse(allocator: std.mem.Allocator, bytes: []const u8) (Error || std.mem.
 
 test "manifest parser rejects malformed corpus" {
     const valid = [_]u8{
-        'G', 'F', 'X', 'S', 2,   0,   1, 0, 1,   0,   0,   0,
-        1,   0,   'e', 1,   0,   'n', 4, 0, 'm', 'a', 'i', 'n',
-        0,   0,   1,   0,   'x', 0,   0, 0, 0,   0,   0,   0,
-        0,   0,   0,   0,   0,   0,   0, 0, 0,   0,   0,   0,
-        0,   0,   0,   0,   0,   0,   0, 0, 0,   0,   0,   0,
-        0,   0,   0,   0,   0,   0,   0, 0, 0,   0,   0,   0,
-        0,   0,   0,   0,
+        'G', 'F', 'X', 'S', 3, 0,   1, 0, 1,   0,   0,   0,
+        1,   0,   'e', 1,   0, 'n', 4, 0, 'm', 'a', 'i', 'n',
+        1,   0,   0,   1,   0, 'x', 0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0, 0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0, 0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0, 0,   0, 0, 0,   0,   0,   0,
+        0,   0,   0,   0,   0,
     };
     try std.testing.expectError(Error.BadMagic, parse(std.testing.allocator, "BAD!"));
     var bad_version = valid;

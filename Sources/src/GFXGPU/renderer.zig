@@ -2,6 +2,7 @@ const std = @import("std");
 const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
+const manifest = @import("shader_manifest.zig");
 
 const io_c = @cImport({
     @cInclude("stdio.h");
@@ -322,7 +323,10 @@ pub const Renderer = struct {
         @memcpy(@as([*]u8, @ptrCast(mapped))[0 .. row_pitch * texture.height], @as([*]const u8, @ptrCast(data))[0 .. row_pitch * texture.height]);
         sdl.unmapTransferBuffer(gpu_device, transfer);
         const command = sdl.acquireCommandBuffer(gpu_device) orelse return error.CommandBufferFailed;
-        if (!sdl.uploadTexture(command, transfer, texture.gpu, texture.width, texture.height, row_pitch)) { _ = sdl.cancelCommandBuffer(command); return error.CopyPassFailed; }
+        if (!sdl.uploadTexture(command, transfer, texture.gpu, texture.width, texture.height, row_pitch)) {
+            _ = sdl.cancelCommandBuffer(command);
+            return error.CopyPassFailed;
+        }
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
         if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
     }
@@ -361,7 +365,7 @@ pub const Renderer = struct {
 
     fn readShader(self: *Renderer, name: []const u8) ![]u8 {
         const directory = self.shader_directory orelse return error.ShaderDirectoryMissing;
-        const path = try std.fmt.allocPrint(self.allocator, "{s}\\{s}", .{ directory, name });
+        const path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ directory, name });
         defer self.allocator.free(path);
         var path_z = try self.allocator.alloc(u8, path.len + 1);
         defer self.allocator.free(path_z);
@@ -379,12 +383,27 @@ pub const Renderer = struct {
         return bytes;
     }
 
+    fn shaderName(self: *Renderer, effect: []const u8, stage: []const u8, format: manifest.Format) ![]u8 {
+        const suffix = switch (format) {
+            .dxil => "dxil",
+            .spirv => "spirv",
+            .msl => "msl",
+        };
+        return std.fmt.allocPrint(self.allocator, "{s}.{s}.{s}", .{ effect, stage, suffix });
+    }
+
     fn ensureUntexturedPipeline(self: *Renderer) !*anyopaque {
         if (self.untextured_pipeline) |pipeline| return pipeline;
         const device = &(self.device orelse return error.NoDevice);
-        const vertex_code = try self.readShader("untextured.vertex.dxil");
+        const format = try device.shaderFormat();
+        const shader_format = device_mod.formatFlag(format);
+        const vertex_name = try self.shaderName("untextured", "vertex", format);
+        defer self.allocator.free(vertex_name);
+        const fragment_name = try self.shaderName("untextured", "fragment", format);
+        defer self.allocator.free(fragment_name);
+        const vertex_code = try self.readShader(vertex_name);
         defer self.allocator.free(vertex_code);
-        const fragment_code = try self.readShader("untextured.fragment.dxil");
+        const fragment_code = try self.readShader(fragment_name);
         defer self.allocator.free(fragment_code);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
         var vertex_entry: [13:0]u8 = undefined;
@@ -393,13 +412,13 @@ pub const Renderer = struct {
         var fragment_entry: [13:0]u8 = undefined;
         @memcpy(fragment_entry[0..12], "ps_untextured"[0..12]);
         fragment_entry[12] = 0;
-        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
+        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
         const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
         // ps_untextured only consumes the interpolated vertex color. Its
         // cbuffer declarations are shared source declarations, not bindings
         // referenced by the fragment stage.
-        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 0, .props = 0 };
+        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 0, .props = 0 };
         const fragment = sdl.c.SDL_CreateGPUShader(gpu_device, &fragment_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, fragment);
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 32, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
@@ -430,9 +449,15 @@ pub const Renderer = struct {
     fn ensureTexturedPipeline(self: *Renderer) !*anyopaque {
         if (self.textured_pipeline) |pipeline| return pipeline;
         const device = &(self.device orelse return error.NoDevice);
-        const vertex_code = try self.readShader("textured.vertex.dxil");
+        const format = try device.shaderFormat();
+        const shader_format = device_mod.formatFlag(format);
+        const vertex_name = try self.shaderName("textured", "vertex", format);
+        defer self.allocator.free(vertex_name);
+        const fragment_name = try self.shaderName("textured", "fragment", format);
+        defer self.allocator.free(fragment_name);
+        const vertex_code = try self.readShader(vertex_name);
         defer self.allocator.free(vertex_code);
-        const fragment_code = try self.readShader("textured.fragment.dxil");
+        const fragment_code = try self.readShader(fragment_name);
         defer self.allocator.free(fragment_code);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
         var vertex_entry: [13:0]u8 = undefined;
@@ -441,10 +466,10 @@ pub const Renderer = struct {
         var fragment_entry: [13:0]u8 = undefined;
         @memcpy(fragment_entry[0..11], "ps_textured"[0..11]);
         fragment_entry[11] = 0;
-        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
+        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
         const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
-        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 1, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 0, .props = 0 };
+        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 1, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 0, .props = 0 };
         const fragment = sdl.c.SDL_CreateGPUShader(gpu_device, &fragment_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, fragment);
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 32, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
@@ -516,11 +541,14 @@ pub const Renderer = struct {
         const transfer = sdl.createDownloadBuffer(gpu_device, row_pitch * height) orelse return error.TransferBufferCreateFailed;
         defer sdl.releaseTransferBuffer(gpu_device, transfer);
         const command = sdl.acquireCommandBuffer(gpu_device) orelse return error.CommandBufferFailed;
-        if (!sdl.downloadTexture(command, texture, transfer, width, height)) { _ = sdl.cancelCommandBuffer(command); return error.CopyPassFailed; }
+        if (!sdl.downloadTexture(command, texture, transfer, width, height)) {
+            _ = sdl.cancelCommandBuffer(command);
+            return error.CopyPassFailed;
+        }
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
         if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
         const mapped = sdl.mapTransferBuffer(gpu_device, transfer) orelse return error.TransferBufferMapFailed;
-        @memcpy(destination[0..@as(usize, row_pitch) * height], @as([*]const u8, @ptrCast(mapped))[0..@as(usize, row_pitch) * height]);
+        @memcpy(destination[0 .. @as(usize, row_pitch) * height], @as([*]const u8, @ptrCast(mapped))[0 .. @as(usize, row_pitch) * height]);
         sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };

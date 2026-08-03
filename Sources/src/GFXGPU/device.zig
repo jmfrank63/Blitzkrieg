@@ -1,7 +1,8 @@
 const std = @import("std");
 const sdl = @import("sdl.zig");
+const manifest = @import("shader_manifest.zig");
 
-pub const DeviceError = error{ CreateFailed, UnsupportedDriver };
+pub const DeviceError = error{ CreateFailed, UnsupportedDriver, UnsupportedShaderFormat };
 pub const DeviceApi = struct {
     create: *const fn (u32, bool, ?[*:0]const u8) ?*anyopaque,
     destroy: *const fn (*anyopaque) void,
@@ -67,6 +68,21 @@ fn realEndRenderPass(pass: *anyopaque) void {
 }
 pub const real_api = DeviceApi{ .create = realCreate, .destroy = realDestroy, .error_text = realError, .driver_name = realDriver, .shader_formats = realFormats, .claim_window = realClaim, .release_window = realRelease, .swapchain_format = realFormat, .configure_swapchain = realConfigure, .acquire_command_buffer = realAcquire, .wait_acquire_swapchain = realWaitAcquire, .submit_command_buffer = realSubmit, .cancel_command_buffer = realCancel, .begin_clear_pass = realBeginClear, .end_render_pass = realEndRenderPass };
 
+pub fn formatForDriver(driver: []const u8) DeviceError!manifest.Format {
+    if (std.mem.eql(u8, driver, "direct3d12")) return .dxil;
+    if (std.mem.eql(u8, driver, "vulkan")) return .spirv;
+    if (std.mem.eql(u8, driver, "metal")) return .msl;
+    return DeviceError.UnsupportedDriver;
+}
+
+pub fn formatFlag(format: manifest.Format) u32 {
+    return switch (format) {
+        .dxil => @intCast(sdl.shaderformat_dxil),
+        .spirv => @intCast(sdl.shaderformat_spirv),
+        .msl => @intCast(sdl.shaderformat_msl),
+    };
+}
+
 pub const Device = struct {
     allocator: std.mem.Allocator,
     api: DeviceApi,
@@ -103,7 +119,20 @@ pub const Device = struct {
     pub fn driverName(self: *const Device) []const u8 {
         return self.driver[0..self.driver_length];
     }
+
+    pub fn shaderFormat(self: *const Device) DeviceError!manifest.Format {
+        const format = try formatForDriver(self.driverName());
+        if (self.shader_formats & formatFlag(format) == 0) return DeviceError.UnsupportedShaderFormat;
+        return format;
+    }
 };
+
+test "driver selects its portable shader format" {
+    try std.testing.expectEqual(manifest.Format.dxil, try formatForDriver("direct3d12"));
+    try std.testing.expectEqual(manifest.Format.spirv, try formatForDriver("vulkan"));
+    try std.testing.expectEqual(manifest.Format.msl, try formatForDriver("metal"));
+    try std.testing.expectError(DeviceError.UnsupportedDriver, formatForDriver("unknown"));
+}
 
 test "device fake API handles failure, partial init, and exactly-once release" {
     const Context = struct { creates: u32 = 0, destroys: u32 = 0, fail: bool = false };

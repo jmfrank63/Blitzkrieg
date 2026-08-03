@@ -79,7 +79,8 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
     const state = std.heap.c_allocator.create(renderer_mod.Renderer) catch return errors.out_of_memory;
     state.* = renderer_mod.Renderer.init(std.heap.c_allocator);
     if ((create_info.flags & 2) == 0) {
-        state.device = device_mod.Device.init(std.heap.c_allocator, device_mod.real_api, @intCast(@import("sdl.zig").shaderformat_dxil), (create_info.flags & 1) != 0, create_info.preferred_driver_utf8) catch {
+        const shader_formats: u32 = @intCast(sdl.shaderformat_dxil | sdl.shaderformat_spirv | sdl.shaderformat_msl);
+        state.device = device_mod.Device.init(std.heap.c_allocator, device_mod.real_api, shader_formats, (create_info.flags & 1) != 0, create_info.preferred_driver_utf8) catch {
             state.deinit();
             std.heap.c_allocator.destroy(state);
             return errors.sdl_error;
@@ -151,14 +152,20 @@ fn cancelFrame(handle: ?*RendererHandle) callconv(.c) void {
 fn clear(handle: ?*RendererHandle, info: ?*const ClearInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ClearInfo)) return errors.invalid_argument;
-    if (renderer.frame.state != .recording) { renderer.last_error = @tagName(renderer.frame.state); return errors.invalid_state; }
+    if (renderer.frame.state != .recording) {
+        renderer.last_error = @tagName(renderer.frame.state);
+        return errors.invalid_state;
+    }
     const color = info.?.color_rgba8;
     renderer.clear(.{
         @as(f32, @floatFromInt((color >> 0) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0,
-    }) catch |err| { renderer.last_error = @errorName(err); return errors.invalid_state; };
+    }) catch |err| {
+        renderer.last_error = @errorName(err);
+        return errors.invalid_state;
+    };
     return errors.ok;
 }
 fn resize(handle: ?*RendererHandle, width: u32, height: u32) callconv(.c) Result {
@@ -301,47 +308,65 @@ fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result {
 fn draw(handle: ?*RendererHandle, vertex_buffer: u32, primitive_count: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (primitive_count == 0) return errors.invalid_argument;
-    if (renderer.frame.state != .pass_active) { renderer.last_error = "draw requires active render pass"; return errors.invalid_state; }
-    renderer.draw(vertex_buffer, primitive_count) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
-        error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
-        error.InvalidState => errors.invalid_state,
-        error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
-        else => errors.internal_error,
-    }; };
+    if (renderer.frame.state != .pass_active) {
+        renderer.last_error = "draw requires active render pass";
+        return errors.invalid_state;
+    }
+    renderer.draw(vertex_buffer, primitive_count) catch |err| {
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
+            error.InvalidState => errors.invalid_state,
+            error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
+            else => errors.internal_error,
+        };
+    };
     return errors.ok;
 }
 fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, vertex_offset: i32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument;
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
-    renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
-        error.InvalidDraw, error.InvalidBuffer, error.VertexBufferMissing => errors.invalid_argument,
-        error.InvalidState => errors.invalid_state,
-        error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
-        else => errors.internal_error,
-    }; };
+    renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| {
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.InvalidDraw, error.InvalidBuffer, error.VertexBufferMissing => errors.invalid_argument,
+            error.InvalidState => errors.invalid_state,
+            error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
+            else => errors.internal_error,
+        };
+    };
     return errors.ok;
 }
 fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument;
-    if (renderer.frame.state != .pass_active) { renderer.last_error = "draw_temporary requires active render pass"; return errors.invalid_state; }
-    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
-        error.InvalidDraw, error.InvalidBuffer, error.InvalidState => errors.invalid_argument,
-        error.NoDevice, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing => errors.sdl_error,
-        error.OutOfMemory => errors.out_of_memory,
-    }; };
+    if (renderer.frame.state != .pass_active) {
+        renderer.last_error = "draw_temporary requires active render pass";
+        return errors.invalid_state;
+    }
+    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| {
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.InvalidDraw, error.InvalidBuffer, error.InvalidState => errors.invalid_argument,
+            error.NoDevice, error.CreateFailed, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing, error.UnsupportedDriver, error.UnsupportedShaderFormat => errors.sdl_error,
+            error.OutOfMemory => errors.out_of_memory,
+        };
+    };
     return errors.ok;
 }
 pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ReadbackInfo) or info.?.width == 0 or info.?.height == 0 or info.?.data == null) return errors.invalid_argument;
     if (info.?.row_pitch < info.?.width * 4 or info.?.byte_length < info.?.row_pitch * info.?.height) return errors.invalid_argument;
-    renderer.readback(@as([*]u8, @ptrCast(info.?.data.?))[0..info.?.byte_length], info.?.width, info.?.height, info.?.row_pitch) catch |err| { renderer.last_error = @errorName(err); return switch (err) {
-        error.ReadbackUnavailable => errors.unsupported,
-        error.ReadbackInvalid => errors.invalid_state,
-        error.NoDevice, error.TransferBufferCreateFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.TransferBufferMapFailed => errors.sdl_error,
-    }; };
+    renderer.readback(@as([*]u8, @ptrCast(info.?.data.?))[0..info.?.byte_length], info.?.width, info.?.height, info.?.row_pitch) catch |err| {
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.ReadbackUnavailable => errors.unsupported,
+            error.ReadbackInvalid => errors.invalid_state,
+            error.NoDevice, error.TransferBufferCreateFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.TransferBufferMapFailed => errors.sdl_error,
+        };
+    };
     return errors.ok;
 }
 

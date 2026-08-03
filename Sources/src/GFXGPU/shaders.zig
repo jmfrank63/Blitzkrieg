@@ -2,6 +2,7 @@ const std = @import("std");
 const manifest = @import("shader_manifest.zig");
 const bindings = @import("bindings.zig");
 const sdl = @import("sdl.zig");
+const device_mod = @import("device.zig");
 
 pub const Error = manifest.Error || bindings.UniformError || std.mem.Allocator.Error || error{
     EffectNotFound,
@@ -96,12 +97,18 @@ pub const Loader = struct {
     }
 
     pub fn loadPair(self: *Loader, shader_manifest: *const manifest.Manifest, effect: []const u8, vertex_blob: []const u8, fragment_blob: []const u8, selected_format: u32) Error!void {
-        if (shader_manifest.format != .dxil or selected_format & sdl.c.SDL_GPU_SHADERFORMAT_DXIL == 0) return Error.FormatMismatch;
+        const format = switch (selected_format) {
+            sdl.c.SDL_GPU_SHADERFORMAT_DXIL => manifest.Format.dxil,
+            sdl.c.SDL_GPU_SHADERFORMAT_SPIRV => manifest.Format.spirv,
+            sdl.c.SDL_GPU_SHADERFORMAT_MSL => manifest.Format.msl,
+            else => return Error.FormatMismatch,
+        };
+        if (selected_format & device_mod.formatFlag(format) == 0) return Error.FormatMismatch;
         for (self.pairs.items) |loaded_pair| if (std.mem.eql(u8, loaded_pair.effect, effect)) return;
         var vertex_record: ?*const manifest.Record = null;
         var fragment_record: ?*const manifest.Record = null;
         for (shader_manifest.records) |*record| {
-            if (!std.mem.eql(u8, record.effect, effect)) continue;
+            if (!std.mem.eql(u8, record.effect, effect) or record.format != format) continue;
             switch (record.stage) {
                 .vertex => vertex_record = record,
                 .fragment => fragment_record = record,
@@ -114,9 +121,9 @@ pub const Loader = struct {
         try bindings.validateResourceCounts(fragment);
         try validateBlob(vertex, vertex_blob);
         try validateBlob(fragment, fragment_blob);
-        const vertex_handle = self.api.create(self.device, info(vertex, vertex_blob, sdl.c.SDL_GPU_SHADERFORMAT_DXIL)) orelse return Error.ShaderCreationFailed;
+        const vertex_handle = self.api.create(self.device, info(vertex, vertex_blob, selected_format)) orelse return Error.ShaderCreationFailed;
         errdefer self.api.release(self.device, vertex_handle);
-        const fragment_handle = self.api.create(self.device, info(fragment, fragment_blob, sdl.c.SDL_GPU_SHADERFORMAT_DXIL)) orelse return Error.ShaderCreationFailed;
+        const fragment_handle = self.api.create(self.device, info(fragment, fragment_blob, selected_format)) orelse return Error.ShaderCreationFailed;
         errdefer self.api.release(self.device, fragment_handle);
         const effect_copy = try self.allocator.dupe(u8, effect);
         errdefer self.allocator.free(effect_copy);
@@ -163,8 +170,14 @@ test "shader loader rolls back vertex when fragment creation fails" {
     var context = Context{};
     const Fake = struct {
         var ctx: *Context = undefined;
-        fn create(_: *anyopaque, _: ShaderCreateInfo) ?*anyopaque { ctx.creates += 1; if (ctx.creates == ctx.fail_at) return null; return @ptrCast(&ctx.creates); }
-        fn release(_: *anyopaque, _: *anyopaque) void { ctx.releases += 1; }
+        fn create(_: *anyopaque, _: ShaderCreateInfo) ?*anyopaque {
+            ctx.creates += 1;
+            if (ctx.creates == ctx.fail_at) return null;
+            return @ptrCast(&ctx.creates);
+        }
+        fn release(_: *anyopaque, _: *anyopaque) void {
+            ctx.releases += 1;
+        }
     };
     Fake.ctx = &context;
     var loader = Loader.init(std.testing.allocator, @ptrCast(&context), .{ .create = Fake.create, .release = Fake.release });
