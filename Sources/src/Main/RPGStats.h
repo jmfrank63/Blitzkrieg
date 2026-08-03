@@ -4,7 +4,6 @@
 #include <string>
 #include <unordered_map>
 #include "../AILogic/aiconsts.h"
-#include "../Common/Actions.h"
 #include "../Misc/BitData.h"
 #include "../StreamIO/RandomGen.h"
 #include "../zlib/zlib.h"
@@ -650,6 +649,7 @@ enum EUnitAckType : unsigned int
 
 	_ACK_END,
 };
+#include "../Common/Actions.h"
 struct SAckRPGStats : public SCommonRPGStats
 {
 	struct SType

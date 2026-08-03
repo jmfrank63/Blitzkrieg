@@ -523,7 +523,7 @@ namespace NScene
 	template <class TYPE>
 		inline TYPE* BuildObject( IVisObjBuilder *pVOB, const char *pszName, EObjVisType eVisType )
 		{
-			return static_cast<TYPE*>( pVOB->BuildObject( pszName, eVisType ) );
+			return static_cast<TYPE*>( pVOB->BuildObject( pszName, "", eVisType ) );
 		}
 };
 #endif // __SCENE_H__

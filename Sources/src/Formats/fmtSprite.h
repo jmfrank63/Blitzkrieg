@@ -203,7 +203,7 @@ public:
 		}
 		saver.AddRawData( 3, ( void* )( pData ), sizeof( T ) * nSize );
 		saver.AddRawData( 4, ( void* )( pLineDataSize ), sizeof( TCounter ) * nLineCount );
-		/** 
+#if 0
 		long data file but safe!   
 		int index = 0;
 		for( index = 0; index < nSize;  ++index )
@@ -214,7 +214,7 @@ public:
 		{
 			saver.Add( index + nSize + 3 , &( pLineDataSize[index] ) );
 		}
-// legacy disabled block
+#endif
 		if( saver.IsReading() )
 		{
 			IndexLineData();
@@ -238,7 +238,7 @@ public:
 		}
 		saver.AddRawData( "Data", ( void* )( pData ), sizeof( T ) * nSize );
 		saver.AddRawData( "LineData", ( void* )( pLineDataSize ), sizeof( TCounter ) * nLineCount );
-		/** 
+#if 0
 		long data file but safe!   
 		int index = 0;
 		for( index = 0; index < nSize;  ++index )
@@ -249,7 +249,7 @@ public:
 		{
 			saver.Add( NStr::Format("Line%d", index ) , &( pLineDataSize[index] ) );
 		}
-*/
+#endif
 		if( saver.IsReading() )
 		{
 			IndexLineData();

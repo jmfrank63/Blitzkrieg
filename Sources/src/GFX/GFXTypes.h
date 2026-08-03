@@ -141,6 +141,9 @@ inline int GetBPP( EGFXPixelFormat format )
 		case GFXPF_UV88:			return 16;
 		case GFXPF_LUV655:		return 16;
 		case GFXPF_DP3:				return 32;
+		case GFXPF_UNKNOWN:
+		case GFXPF_FORCE_DWORD:
+			return 0;
 	}
 	return 0;
 }
@@ -182,7 +185,7 @@ struct SGFXLightSpot : public SGFXLightPoint
 {
 	CVec3 vDir;														// direction that the light is pointing in world space
 	float fFalloff;												// decrease in illumination between a spotlight's inner cone (the angle specified by 'fTheta') and the outer edge of the outer cone (the angle specified by 'fPhi')
-	float fTheta;													// angle, in radians, of a spotlight's inner cone—that is, the fully illuminated spotlight cone
+	float fTheta;													// angle, in radians, of a spotlight's inner coneï¿½that is, the fully illuminated spotlight cone
 	float fPhi;														// angle, in radians, defining the outer edge of the spotlight's outer cone
 };
 struct SGFXMaterial

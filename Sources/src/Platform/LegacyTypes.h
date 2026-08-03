@@ -10,6 +10,8 @@ using WORD = unsigned short;
 using DWORD = unsigned int;
 using BOOL = int;
 using LONG = int;
+using LPARAM = long long;
+using HWND = void*;
 
 struct GUID {
     DWORD Data1;

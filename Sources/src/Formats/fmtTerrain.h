@@ -125,7 +125,7 @@ struct STilesetDesc
 	std::vector<STerrTypeDesc> terrtypes;	// terrain types of this tileset
 	int operator&( IDataTree &ss );
 };
-/**
+#if 0
 struct SRoadTileTypeDesc : public STileTypeDesc
 {
 	virtual int operator&( IDataTree &ss );
@@ -181,7 +181,7 @@ struct SRoadsetDesc
 	std::vector<STileMapsDesc> tilemaps;	// all tile maps
 	int operator&( IDataTree &ss );
 };
-// legacy disabled block
+#endif
 struct SCrossTileTypeDesc : public STileTypeDesc
 {
 	std::string szName;										// f', d, c, e, d', b', f, a, c', e', a', b

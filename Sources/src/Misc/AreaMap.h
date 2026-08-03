@@ -25,7 +25,7 @@ private:
 	}
 	void RemoveFrom( int nX, int nY, TYPE *pObj )
 	{
-		if ( (nX < 0) || (nX >= GetSizeX()) || (nY < 0) || (nY >= GetSizeY()) )
+		if ( (nX < 0) || (nX >= this->GetSizeX()) || (nY < 0) || (nY >= this->GetSizeY()) )
 			return;
 		CDataList &data = (*this)[nY][nX];
 		typename CDataList::iterator pos = std::find_if( data.begin(), data.end(), CObjEqualFunctional(pObj) );
@@ -108,7 +108,7 @@ private:
 	}
 	void RemoveFrom( int nX, int nY, const TYPE &obj )
 	{
-		if ( (nX < 0) || (nX >= GetSizeX()) || (nY < 0) || (nY >= GetSizeY()) )
+		if ( (nX < 0) || (nX >= this->GetSizeX()) || (nY < 0) || (nY >= this->GetSizeY()) )
 			return;
 		CDataList &data = (*this)[nY][nX];
 		typename CDataList::iterator pos = std::find_if( data.begin(), data.end(), TComparator(obj) );
