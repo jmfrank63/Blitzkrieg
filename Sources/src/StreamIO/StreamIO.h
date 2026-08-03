@@ -15,6 +15,12 @@ enum EStreamAccessMode
 	STREAM_ACCESS_TEXT   = 0x00000008,
 	STREAM_ACCESS_FORCE_DWORD = 0x7fffffff
 };
+enum STREAM_SEEK
+{
+	STREAM_SEEK_SET = 0,
+	STREAM_SEEK_CUR = 1,
+	STREAM_SEEK_END = 2,
+};
 enum EStorageType
 {
 	STORAGE_TYPE_MOD		= 0,

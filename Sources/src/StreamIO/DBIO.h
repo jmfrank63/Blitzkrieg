@@ -1,7 +1,9 @@
 #ifndef __DBIO_H__
 #define __DBIO_H__
 #pragma ONCE
+#if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
+#endif
 #include <cstdlib>
 #include <string>
 #include <vector>
