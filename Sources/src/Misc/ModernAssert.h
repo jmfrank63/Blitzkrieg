@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstdlib>
 #include "../Platform/Debug.h"
+#include "../Platform/Compiler.h"
 
 #define NI_ASSERT_STRINGIZE2(x) #x
 #define NI_ASSERT_STRINGIZE(x)  NI_ASSERT_STRINGIZE2(x)
@@ -92,16 +93,16 @@
 struct _EXCEPTION_POINTERS;
 struct IBaseCommand;
 
-inline int __stdcall SetCrashHandlerFilter(long (__stdcall*)(struct _EXCEPTION_POINTERS*)) 
+inline int BK_STDCALL SetCrashHandlerFilter(long (BK_STDCALL*)(struct _EXCEPTION_POINTERS*)) 
 { 
   return 0; // No-op: let debugger handle crashes
 }
 
 namespace NBugSlayer 
 {
-  inline void __stdcall AddEmergencyCommand(IBaseCommand*) { }
-  inline void __stdcall RemoveAllEmergencyCommands() { }
-  inline void __stdcall ExecuteEmergencyCommands() { }
+  inline void BK_STDCALL AddEmergencyCommand(IBaseCommand*) { }
+  inline void BK_STDCALL RemoveAllEmergencyCommands() { }
+  inline void BK_STDCALL ExecuteEmergencyCommands() { }
   
   inline void MemSystemDumpStats() { }
   

@@ -5,7 +5,11 @@
 #endif // _MSC_VER > 1000
 #include <math.h>
 #if !defined(_M_IX86)
-#include <intrin.h>										// __cpuid / _mm_cvtss_si32 for the x64 branches below
+#if defined(_MSC_VER)
+#include <intrin.h>
+#elif defined(__GNUC__) || defined(__clang__)
+#include <cpuid.h>
+#endif
 #include <string.h>										// memcpy for the x64 CopyNBytes branches
 #endif
 #define SQRT_2		1.41421356237309504880
@@ -31,7 +35,7 @@
 #define FP_SIGN_BIT( fp ) ( FP_BITS( fp ) & 0x80000000 )
 #define FP_SIGN_BIT_CONST( fp ) ( FP_BITS_CONST( fp ) & 0x80000000 )
 #define FP_ONE_BITS 0x3F800000
-typedef __int64 int64;
+using int64 = long long;
 #ifdef _DO_CHECKED_CAST
 template <class TOut, class TIn>
 inline TOut checked_cast( TIn obj )
@@ -232,7 +236,7 @@ inline void MemSetInt( int* lpData, const int value, const int nCount )
 }
 
 #if defined(_M_IX86)
-int __forceinline Float2Int( const float fpVar )
+inline int Float2Int( const float fpVar )
 {
 	int nRet;
 	__asm
@@ -245,9 +249,9 @@ int __forceinline Float2Int( const float fpVar )
 #else
 // Like fistp, converts honoring the current rounding mode (MXCSR on x64,
 // which _controlfp's _MCW_RC drives — see the SceneDraw _RC_CHOP toggles).
-int __forceinline Float2Int( const float fpVar )
+inline int Float2Int( const float fpVar )
 {
-	return _mm_cvtss_si32( _mm_set_ss( fpVar ) );
+	return static_cast<int>( lrintf( fpVar ) );
 }
 #endif
 inline int MINT( const float f ) { return Float2Int(f); }
@@ -756,9 +760,16 @@ inline DWORD GetCPUID()
 #else
 inline DWORD GetCPUID()
 {
+#if defined(_MSC_VER)
 	int nInfo[4] = { 0, 0, 0, 0 };
 	__cpuid( nInfo, 1 );
 	return static_cast<DWORD>( nInfo[3] );
+#elif defined(__GNUC__) || defined(__clang__)
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+	return __get_cpuid( 1, &eax, &ebx, &ecx, &edx ) ? static_cast<DWORD>( edx ) : 0;
+#else
+	return 0;
+#endif
 }
 #endif
 #endif // __TOOLS_H__
