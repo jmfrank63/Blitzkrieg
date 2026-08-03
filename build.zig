@@ -671,6 +671,12 @@ pub fn build(b: *std.Build) void {
     // still enforced by the target and linker configuration below.
     const native_target = target.result.os.tag == b.graph.host.result.os.tag and
         target.result.cpu.arch == b.graph.host.result.cpu.arch;
+    // Preserve an explicitly selected target for project artifacts, but let
+    // dependencies see Zig's native target query when the OS and CPU match.
+    // SDL distinguishes native macOS builds from cross-compiles using the
+    // target query; forwarding `-Dtarget=aarch64-macos` verbatim on an Apple
+    // Silicon host incorrectly makes SDL require an explicit SDK sysroot.
+    const dependency_target = if (native_target) b.graph.host else target;
     const test_mode_text = b.option([]const u8, "test-mode", "Test execution mode: compile or run") orelse switch (build_support.defaultTestMode(native_target)) {
         .compile => "compile",
         .run => "run",
@@ -786,7 +792,7 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
 
     const sdl_c_dep = b.dependency("sdl", .{
-        .target = target,
+        .target = dependency_target,
         .optimize = optimize,
         .preferred_linkage = .static,
         .install_build_config_h = true,
@@ -801,7 +807,7 @@ pub fn build(b: *std.Build) void {
     }
     const platform_test_module = b.addLibrary(.{ .name = "platform-test-module", .linkage = .dynamic, .root_module = platform_test_module_module });
     const sdl_dynamic_dep = b.dependency("sdl", .{
-        .target = target,
+        .target = dependency_target,
         .optimize = .ReleaseFast,
         .preferred_linkage = .dynamic,
         .install_build_config_h = true,
@@ -948,7 +954,7 @@ pub fn build(b: *std.Build) void {
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
-        .target = target,
+        .target = dependency_target,
         .optimize = optimize,
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
