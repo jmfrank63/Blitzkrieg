@@ -104,6 +104,10 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
 fn destroy(handle: ?*RendererHandle) callconv(.c) void {
     if (handle) |value| {
         const state: *renderer_mod.Renderer = @ptrCast(@alignCast(value));
+        if (state.device == null) {
+            std.heap.page_allocator.destroy(state);
+            return;
+        }
         state.deinit();
         std.heap.page_allocator.destroy(state);
     }

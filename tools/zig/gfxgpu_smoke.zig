@@ -80,7 +80,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     api.struct_size = @sizeOf(gpu.abi.Api);
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_get_api(gpu.abi.abi_version, &api));
     var renderer: ?*gpu.abi.RendererHandle = null;
-    const shader_directory = "../shaders";
+    const shader_directory = "zig-out/shaders";
     var create_info = gpu.abi.CreateInfo{ .struct_size = @sizeOf(gpu.abi.CreateInfo), .flags = 1, .sdl_window = @ptrCast(window), .width = 64, .height = 64, .shader_directory_utf8 = shader_directory, .preferred_driver_utf8 = preferred_driver.ptr };
     std.debug.print("GfxGpu reference: creating window-backed renderer\n", .{});
     const create_result = api.create(&create_info, &renderer);
@@ -271,7 +271,7 @@ pub fn main(init: std.process.Init) !void {
     const selected_format_flag = gpu.device.formatFlag(selected_format);
     std.debug.print("GfxGpu native matrix: driver={s} format={s}\n", .{ selected_driver, @tagName(selected_format) });
 
-    const manifest_bytes = try readFile(init, "../shaders/gfxgpu-shaders.manifest");
+    const manifest_bytes = try readFile(init, "zig-out/shaders/gfxgpu-shaders.manifest");
     defer init.gpa.free(manifest_bytes);
     var shader_manifest = try gpu.shader_manifest.parse(init.gpa, manifest_bytes);
     defer shader_manifest.deinit(init.gpa);
@@ -281,9 +281,9 @@ pub fn main(init: std.process.Init) !void {
     for (effect_probes) |probe| {
         const vertex = try recordFor(&shader_manifest, probe.name, .vertex, selected_format);
         const fragment = try recordFor(&shader_manifest, probe.name, .fragment, selected_format);
-        const vertex_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{vertex.blob_path});
+        const vertex_path = try std.fmt.allocPrint(init.gpa, "zig-out/shaders/{s}", .{vertex.blob_path});
         defer init.gpa.free(vertex_path);
-        const fragment_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{fragment.blob_path});
+        const fragment_path = try std.fmt.allocPrint(init.gpa, "zig-out/shaders/{s}", .{fragment.blob_path});
         defer init.gpa.free(fragment_path);
         const vertex_bytes = try readFile(init, vertex_path);
         defer init.gpa.free(vertex_bytes);
