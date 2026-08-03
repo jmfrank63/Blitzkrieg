@@ -586,7 +586,7 @@ template <class TFunctional>
 {
 	CBresenham2 line( x1, y1, x2, y2 );
 	if ( func( line.GetX(), line.GetY() ) == false )
-		break;
+		return;
 	while ( !line.IsEnd() )
 	{
 		line.Next();
@@ -625,7 +625,7 @@ public:
 	int GetZ() const { return z1; }
 };
 template <class TFunctional>
-	void MakeLine3( int x1, int y1, int z1, int x2, int y2, int z3, TFunctional &func )
+	void MakeLine3( int x1, int y1, int z1, int x2, int y2, int z2, TFunctional &func )
 {
 	CBresenham3 line( x1, y1, z1, x2, y2, z2 );
 	func( line.GetX(), line.GetY(), line.GetZ() );
@@ -636,7 +636,7 @@ template <class TFunctional>
 	}
 }
 template <class TFunctional>
-	void ScanLine3( int x1, int y1, int z1, int x2, int y2, int z3, TFunctional &func )
+	void ScanLine3( int x1, int y1, int z1, int x2, int y2, int z2, TFunctional &func )
 {
 	CBresenham3 line( x1, y1, z1, x2, y2, z2 );
 	if ( func( line.GetX(), line.GetY(), line.GetZ() ) == false )
@@ -1540,7 +1540,7 @@ inline void CMatrixStack<nMaxNumMatrices>::Push( float val )
 /* ===========================================================================
 **                            GPoint
 ** =========================================================================*/
-typedef signed __int32 GSPos;
+using GSPos = signed int;
 
 struct SPoint
 {

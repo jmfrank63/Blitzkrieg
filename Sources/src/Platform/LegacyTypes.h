@@ -22,6 +22,11 @@ struct POINT {
     LONG x;
     LONG y;
 };
+
+struct SIZE {
+    LONG cx;
+    LONG cy;
+};
 #endif
 
 #ifndef BLITZKRIEG_QWORD_DEFINED
