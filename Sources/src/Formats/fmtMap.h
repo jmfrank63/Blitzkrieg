@@ -308,7 +308,7 @@ struct SUnitsLogics
 		logics["Ambush"]	= ACTION_COMMAND_AMBUSH;
 	}
 };
-/**/
+*/
 struct SAIStartCommand
 {
 	EActionCommand cmdType;								// command type

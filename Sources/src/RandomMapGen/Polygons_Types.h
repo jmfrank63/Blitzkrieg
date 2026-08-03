@@ -2,6 +2,7 @@
 #define __Polygons__Types__
 
 #include "../Formats/fmtVSO.h"
+#include "../Misc/Win32Random.h"
 #include "../Formats/fmtVSO.h"
 
 extern const float RMGC_MINIMAL_VIS_POINT_DISTANCE;	//2.0f
@@ -243,15 +244,15 @@ EClassifyIntersection ClassifyCross( const PointType &rvBegin0, const PointType 
 
 /**
 template<class Type, class PointType>
-EClassifyIntersection ClassifyCross( const Type &rPolygon, const PointType &rvBegin, const PointType &rvEnd, Type::const_iterator *pBeginIterator, Type::const_iterator *pEndIterator, float *pfIntercectionPoint )
+EClassifyIntersection ClassifyCross( const Type &rPolygon, const PointType &rvBegin, const PointType &rvEnd, typename Type::const_iterator *pBeginIterator, typename Type::const_iterator *pEndIterator, float *pfIntercectionPoint )
 {
 	if ( rPolygon.empty() )
 	{
 		return CI_UNKNOWN;
 	}
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
 	
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )
@@ -338,8 +339,8 @@ EClassifyPolygon ClassifyConvexPolygon( const Type &rPolygon, const PointType &v
 		return CP_OUTSIDE;
 	}
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
 	
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )
@@ -405,8 +406,8 @@ EClassifyPolygon ClassifyPolygon( const Type &rPolygon, const PointType &v )
 		return CP_OUTSIDE;
 	}
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
 
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )
@@ -465,8 +466,8 @@ float GetPolygonPerimeter( const Type &rPolygon )
 		return 0.0f;
 	}
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )
 	{
@@ -496,9 +497,9 @@ float GetSignedPolygonSquare( const Type &rPolygon )
 		return 0.0f;
 	}
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
-	Type::const_iterator currentPointIterator2 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator2 = rPolygon.begin();
 	++currentPointIterator1;
 	++currentPointIterator2;
 	if ( currentPointIterator1 == rPolygon.end() )
@@ -685,8 +686,8 @@ bool SplitByEdge( const Type &rSourcePolygon, const PointType &rvBegin, const Po
 		return true;
 	}
 
-	Type::const_iterator sourcePointIterator0 = rSourcePolygon.begin();
-	Type::const_iterator sourcePointIterator1 = rSourcePolygon.begin();
+	typename Type::const_iterator sourcePointIterator0 = rSourcePolygon.begin();
+	typename Type::const_iterator sourcePointIterator1 = rSourcePolygon.begin();
 
 	++sourcePointIterator1;
 	if ( sourcePointIterator1 == rSourcePolygon.end() )
@@ -835,8 +836,8 @@ bool CutByPolygonCore( const Type &rPolygon, const Type &rPolygonCore, Type *pCu
 		( *pCutPolygon ) = rPolygon;
 		return true;
 	}
-	Type::const_iterator currentPointIterator0 = rPolygonCore.begin();
-	Type::const_iterator currentPointIterator1 = rPolygonCore.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygonCore.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygonCore.begin();
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygonCore.end() )
 	{
@@ -923,7 +924,7 @@ bool GetVoronoyPolygon( const Type &rBoundingPolygon, const Type &rPoints, const
 
 	int nCount = 0;
 	
-	for ( Type::const_iterator pointIterator = rBoundingPolygon.begin(); pointIterator != rBoundingPolygon.end(); ++pointIterator )
+	for ( typename Type::const_iterator pointIterator = rBoundingPolygon.begin(); pointIterator != rBoundingPolygon.end(); ++pointIterator )
 	{
 		if ( ( pointIterator->x != rPoint.x ) || ( pointIterator->y != rPoint.y ) )
 		{
@@ -945,7 +946,7 @@ bool GetVoronoyPolygon( const Type &rBoundingPolygon, const Type &rPoints, const
 		}
 	}
 	
-	for ( Type::const_iterator pointIterator = rPoints.begin(); pointIterator != rPoints.end(); ++pointIterator )
+	for ( typename Type::const_iterator pointIterator = rPoints.begin(); pointIterator != rPoints.end(); ++pointIterator )
 	{
 		if ( ( pointIterator->x != rPoint.x ) || ( pointIterator->y != rPoint.y ) )
 		{
@@ -1008,7 +1009,7 @@ void GetPolygonBoundingBox( const Type &rPolygon, CTRect<float> *pBoundingBox )
 	pBoundingBox->Set( 0.0f, 0.0f, 0.0f, 0.0f );
 	if ( !rPolygon.empty() )
 	{
-		Type::const_iterator pointIterator = rPolygon.begin();
+		typename Type::const_iterator pointIterator = rPolygon.begin();
 		pBoundingBox->Set( pointIterator->x, pointIterator->y, pointIterator->x, pointIterator->y );
 		for ( ++pointIterator; pointIterator != rPolygon.end(); ++pointIterator )
 		{
@@ -1082,7 +1083,7 @@ bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDist
 	}
 	else
 	{
-		Type::const_iterator testSourcePointIterator = rSourceSequence.begin();
+		typename Type::const_iterator testSourcePointIterator = rSourceSequence.begin();
 		++testSourcePointIterator;
 		if ( testSourcePointIterator == rSourceSequence.end() )
 		{
@@ -1104,8 +1105,8 @@ bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDist
 		if ( ( nCount & 0x01 ) > 0 )
 		{
 			sequence0.clear();
-			Type::const_iterator sourcePointIterator0 = sequence1.begin();
-			Type::const_iterator sourcePointIterator1 = sequence1.begin();
+			typename Type::const_iterator sourcePointIterator0 = sequence1.begin();
+			typename Type::const_iterator sourcePointIterator1 = sequence1.begin();
 			++sourcePointIterator1;
 			EClassifyEdge classifyEdge = ( Random( 2 ) > 0 ) ? CE_LEFT : CE_RIGHT;
 			while ( sourcePointIterator0 != sequence1.end() )
@@ -1144,8 +1145,8 @@ bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDist
 		else
 		{
 			sequence1.clear();
-			Type::const_iterator sourcePointIterator0 = sequence0.begin();
-			Type::const_iterator sourcePointIterator1 = sequence0.begin();
+			typename Type::const_iterator sourcePointIterator0 = sequence0.begin();
+			typename Type::const_iterator sourcePointIterator1 = sequence0.begin();
 			++sourcePointIterator1;
 			EClassifyEdge classifyEdge = ( Random( 2 ) > 0 ) ? CE_LEFT : CE_RIGHT;
 			while ( sourcePointIterator0 != sequence0.end() )
@@ -1208,8 +1209,8 @@ bool EnlargePolygonCore( const Type &rBoundingPolygon, const Type &rPolygon, flo
 							  NStr::Format( "Wrong parameter: pEnlargedPolygon %x\n", pEnlargedPolygon ),
 								return false );
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )
 	{
@@ -1218,7 +1219,7 @@ bool EnlargePolygonCore( const Type &rBoundingPolygon, const Type &rPolygon, flo
 	}
 	else
 	{
-		Type::const_iterator currentPointIterator2 = currentPointIterator1;
+		typename Type::const_iterator currentPointIterator2 = currentPointIterator1;
 		++currentPointIterator2;
 		if ( currentPointIterator2 == rPolygon.end() )
 		{
@@ -1308,8 +1309,8 @@ float PolygonDistance( const Type &rPolygon, const PointType &v )
 		return 0.0;
 	}
 
-	Type::const_iterator currentPointIterator0 = rPolygon.begin();
-	Type::const_iterator currentPointIterator1 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator0 = rPolygon.begin();
+	typename Type::const_iterator currentPointIterator1 = rPolygon.begin();
 
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )

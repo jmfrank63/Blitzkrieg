@@ -2,6 +2,7 @@
 #define __SCENE_H__
 #pragma ONCE
 #include "fmtSprite.h"
+#include "../GFX/GFXTypes.h"
 enum
 {
 	SCENE_BASE_VALUE			= 0x10060000,
@@ -62,7 +63,7 @@ enum ESoundCombatType
 	ESCT_ASK_RPG						= 3,					// ��� ����� ��������� � ������
 	ESCT_ALL								= 0x7fffffff,
 };
-enum ESoundSceneMode
+enum ESoundSceneMode : unsigned int
 {
 	ESSM_INTERMISSION_INTERFACE,
 	ESSM_INGAME,

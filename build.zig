@@ -16,7 +16,11 @@ const cflags_debug = &.{
     "-D_DLL",
     "-Wno-deprecated-non-prototype",
 };
-const portable_cflags = &.{ "-include", "Sources/src/Platform/PortableCrt.h" };
+const portable_cflags = &.{
+    "-include", "Sources/src/Platform/PortableCrt.h",
+    "-Wno-switch", "-Wno-enum-compare", "-Wno-deprecated-declarations",
+    "-Wno-comment", "-Wno-pointer-to-int-cast", "-Wno-implicit-float-conversion",
+};
 
 const cflags_release = &.{
     "-D_WINDOWS",

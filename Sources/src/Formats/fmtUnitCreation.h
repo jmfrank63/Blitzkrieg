@@ -271,4 +271,4 @@ struct SUCMine
 		return 0;
 	}
 };
-/**/
+*/
