@@ -264,6 +264,8 @@ const misc_sources = &.{
 	"Sources/src/Platform/Paths.cpp",
 	"Sources/src/Platform/Sync.cpp",
 	"Sources/src/Platform/System.cpp",
+	"Sources/src/Platform/SocketWin32.cpp",
+	"Sources/src/Platform/SocketPosix.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
     "Sources/src/Misc/GRect.cpp",
@@ -941,6 +943,7 @@ pub fn build(b: *std.Build) void {
     addPlatformAudioTest(b, target, test_mode, toolchain);
     addInputAudioGateTest(b, target, test_mode, toolchain);
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
+    addPlatformNetworkTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2963,6 +2966,31 @@ fn addPlatformSocketTypesTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-socket-types", "Run portable socket ABI contract tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addPlatformNetworkTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addIncludePath(b.path("Sources/src/Platform"));
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "tools/zig/platform_network_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    switch (target.result.os.tag) {
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); module.linkSystemLibrary("ws2_32", .{}); },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "platform-network-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-platform-network", "Run portable TCP and UDP socket tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

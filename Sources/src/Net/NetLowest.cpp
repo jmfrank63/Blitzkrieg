@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <winsock2.h>
 #include "NetLowest.h"
 #include "Streams.h"
 using namespace std;
@@ -216,7 +217,7 @@ bool CLinksManager::Send( const CNodeAddress &dst, CMemoryStream &pkt ) const
 	}
 #endif
 	int nSize = pkt.GetSize();
-	int nRv = sendto( s, (const char*)pkt.GetBuffer(), nSize, 0, &dst.addr, sizeof( dst.addr ) );
+	int nRv = sendto( s, (const char*)pkt.GetBuffer(), nSize, 0, reinterpret_cast<const sockaddr *>( &dst.addr ), sizeof( dst.addr ) );
 
 	if ( nRv >= 0 )
 	{
@@ -233,11 +234,11 @@ bool CLinksManager::Recv( CNodeAddress *pSrc, CMemoryStream *pPkt ) const
 	int nAddrSize;
 	pPkt->Seek( 2048 );
 	nAddrSize = sizeof( pSrc->addr );
-	int nRes = recvfrom( s, (char*)pPkt->GetBufferForWrite(), 2048, 0, &pSrc->addr, &nAddrSize );
+	int nRes = recvfrom( s, (char*)pPkt->GetBufferForWrite(), 2048, 0, reinterpret_cast<sockaddr *>( &pSrc->addr ), &nAddrSize );
 	if ( nRes >= 0 )
 	{
-		pSrc->addr.sa_family = AF_INET;       // somehow this gets spoiled on win2k
-		memset( pSrc->addr.sa_data + 6, 0, 8 );
+		pSrc->addr.family = AF_INET;       // somehow this gets spoiled on win2k
+		memset( pSrc->addr.data + 6, 0, 8 );
 		pPkt->SetSize( nRes );
 	}
 
@@ -270,7 +271,7 @@ bool CLinksManager::GetSelfAddress( CNodeAddressSet *pRes ) const
 	}
 	return true;
 }
-SOCKET CLinksManager::GetSocket() const
+NPlatform::SocketHandle CLinksManager::GetSocket() const
 {	
 	return s;
 }

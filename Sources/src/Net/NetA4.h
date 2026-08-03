@@ -162,8 +162,8 @@ public:
 	virtual bool STDCALL GetMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt );
 	virtual const float STDCALL GetPing( const int nClientID );
 	virtual const float STDCALL GetTimeSinceLastRecv( const int nClientID );
-	virtual SOCKET STDCALL GetSocket();
-	virtual sockaddr* STDCALL GetSockAddr();
+	virtual NPlatform::SocketHandle STDCALL GetSocket();
+	virtual NPlatform::SocketAddress* STDCALL GetSockAddr();
 
 	virtual void STDCALL AddChannel( const int nChannelID, const std::unordered_set<BYTE> &channelMessages );
 	virtual void STDCALL RemoveChannel( const int nChannelID );

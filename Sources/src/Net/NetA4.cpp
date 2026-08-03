@@ -931,13 +931,13 @@ void CNetDriver::StopNewPlayerAccept()
 	
 	bAcceptNewClients = false;
 }
-SOCKET CNetDriver::GetSocket()
+NPlatform::SocketHandle CNetDriver::GetSocket()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 
 	return links.GetSocket();
 }
-sockaddr *CNetDriver::GetSockAddr()
+NPlatform::SocketAddress *CNetDriver::GetSockAddr()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 

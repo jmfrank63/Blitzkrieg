@@ -21,8 +21,8 @@ public:
 	virtual void STDCALL StartNewPlayerAccept();
 	virtual void STDCALL StopNewPlayerAccept();
 
-	virtual SOCKET STDCALL GetSocket() { NI_ASSERT_T( false, "wrong call" ); return 0; }
-	virtual sockaddr* STDCALL GetSockAddr() { NI_ASSERT_T( false, "wrong call" ); return 0; }
+	virtual NPlatform::SocketHandle STDCALL GetSocket() { NI_ASSERT_T( false, "wrong call" ); return 0; }
+	virtual NPlatform::SocketAddress* STDCALL GetSockAddr() { NI_ASSERT_T( false, "wrong call" ); return 0; }
 
 	virtual bool STDCALL GetGameInfo( int nIdx, INetNodeAddress *pAddr, bool *pWrongVersion, float *pPing, SGameInfo *pGameInfo ) { NI_ASSERT_T( false, "wrong call" ); return false; }
 	virtual void STDCALL RefreshServersList() { NI_ASSERT_T( false, "wrong call" ); }
