@@ -76,24 +76,24 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
     const create_info = info.?.*;
     if (create_info.struct_size < @sizeOf(CreateInfo) or create_info.width == 0 or create_info.height == 0)
         return errors.invalid_argument;
-    const state = std.heap.c_allocator.create(renderer_mod.Renderer) catch return errors.out_of_memory;
+    const state = std.heap.page_allocator.create(renderer_mod.Renderer) catch return errors.out_of_memory;
     state.* = renderer_mod.Renderer.init(std.heap.c_allocator);
     if ((create_info.flags & 2) == 0) {
         const shader_formats: u32 = @intCast(sdl.shaderformat_dxil | sdl.shaderformat_spirv | sdl.shaderformat_msl);
         state.device = device_mod.Device.init(std.heap.c_allocator, device_mod.real_api, shader_formats, (create_info.flags & 1) != 0, create_info.preferred_driver_utf8) catch {
             state.deinit();
-            std.heap.c_allocator.destroy(state);
+            std.heap.page_allocator.destroy(state);
             return errors.sdl_error;
         };
         const shader_directory = create_info.shader_directory_utf8 orelse "zig-out/shaders";
         state.setShaderDirectory(shader_directory) catch {
             state.deinit();
-            std.heap.c_allocator.destroy(state);
+            std.heap.page_allocator.destroy(state);
             return errors.out_of_memory;
         };
         state.attachWindow(create_info.sdl_window, create_info.width, create_info.height) catch {
             state.deinit();
-            std.heap.c_allocator.destroy(state);
+            std.heap.page_allocator.destroy(state);
             return errors.sdl_error;
         };
     }
@@ -105,7 +105,7 @@ fn destroy(handle: ?*RendererHandle) callconv(.c) void {
     if (handle) |value| {
         const state: *renderer_mod.Renderer = @ptrCast(@alignCast(value));
         state.deinit();
-        std.heap.c_allocator.destroy(state);
+        std.heap.page_allocator.destroy(state);
     }
 }
 
