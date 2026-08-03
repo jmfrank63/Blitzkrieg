@@ -24,4 +24,36 @@ std::uint32_t SDLScancodeToLegacy(std::uint32_t scancode)
 	if ( scancode >= 4 && scancode <= 29 ) return letters[scancode - 4];
 	switch ( scancode ) { case 40: return 0x1c; case 41: return 0x01; case 44: return 0x39; case 224: return 0x1d; case 225: return 0x2a; case 226: return 0x38; case 228: return 0x9d; case 229: return 0x36; case 230: return 0xb8; default: return 0; }
 }
+
+std::size_t DecodeUtf8(const char *text, std::uint16_t *output, std::size_t capacity)
+{
+	if ( !text || !output || capacity == 0 ) return 0;
+	const unsigned char *p = reinterpret_cast<const unsigned char *>( text );
+	std::size_t count = 0;
+	while ( *p && count < capacity )
+	{
+		std::uint32_t codepoint = 0;
+		std::size_t length = 1;
+		if ( (*p & 0x80) == 0 ) codepoint = *p;
+		else if ( (*p & 0xe0) == 0xc0 ) { codepoint = *p & 0x1f; length = 2; }
+		else if ( (*p & 0xf0) == 0xe0 ) { codepoint = *p & 0x0f; length = 3; }
+		else if ( (*p & 0xf8) == 0xf0 ) { codepoint = *p & 0x07; length = 4; }
+		bool valid = true;
+		for ( std::size_t i = 1; i < length; ++i )
+		{
+			if ( (p[i] & 0xc0) != 0x80 ) { valid = false; break; }
+			codepoint = (codepoint << 6) | (p[i] & 0x3f);
+		}
+		if ( !valid ) { ++p; continue; }
+		if ( codepoint <= 0xffff ) output[count++] = static_cast<std::uint16_t>( codepoint );
+		else if ( codepoint <= 0x10ffff && count + 1 < capacity )
+		{
+			codepoint -= 0x10000;
+			output[count++] = static_cast<std::uint16_t>( 0xd800 + (codepoint >> 10) );
+			output[count++] = static_cast<std::uint16_t>( 0xdc00 + (codepoint & 0x3ff) );
+		}
+		p += length;
+	}
+	return count;
+}
 }

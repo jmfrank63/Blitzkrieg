@@ -1,6 +1,7 @@
 #ifndef __INPUT_H__
 #define __INPUT_H__
 #pragma ONCE
+namespace NPlatform { struct PlatformEvent; }
 enum 
 {
 	INPUT_BASE_VALUE	= 0x10040000,
@@ -42,7 +43,7 @@ interface IInputSlider : public IRefCount
 interface IInput : public IRefCount
 {
 	enum { tidTypeID = INPUT_INPUT };
-	virtual bool STDCALL Init( HWND hWnd ) = 0;
+	virtual bool STDCALL Init() = 0;
 	virtual bool STDCALL Done() = 0;
 	virtual int STDCALL operator&( IStructureSaver &ss ) = 0;
 	virtual bool STDCALL SerializeConfig( IDataTree *pSS ) = 0;
@@ -52,6 +53,7 @@ interface IInput : public IRefCount
 	virtual bool STDCALL IsEmulated( const enum EDeviceType eDeviceType ) const = 0;
 	virtual void STDCALL EmulateInput( const enum EDeviceType eDeviceType, const int nControlID, 
 		                                 const int nValue, const DWORD time, const int nParam ) = 0;
+	virtual void STDCALL ConsumePlatformEvent( const NPlatform::PlatformEvent &event ) = 0;
 	virtual void STDCALL PumpMessages( const bool bFocus ) = 0;
 	virtual void STDCALL AddMessage( const SGameMessage &msg ) = 0;
 	virtual bool STDCALL GetMessage( SGameMessage *pMsg ) = 0;

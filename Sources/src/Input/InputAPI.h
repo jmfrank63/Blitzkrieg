@@ -1,5 +1,6 @@
 #ifndef __INPUTAPI_H__
 #define __INPUTAPI_H__
+namespace NPlatform { struct PlatformEvent; }
 using namespace NWin32Helper;
 class CCombo;
 struct SCommand;
@@ -166,12 +167,13 @@ protected:
 public:
 	CInputAPI();
 	virtual ~CInputAPI();
-	virtual bool STDCALL Init( HWND _hWindow );
+	virtual bool STDCALL Init();
 	virtual bool STDCALL Done();
 	virtual void STDCALL SetDeviceEmulationStatus( const enum EDeviceType eDeviceType, const bool bEmulate );
 	virtual bool STDCALL IsEmulated( const enum EDeviceType eDeviceType ) const;
 	virtual void STDCALL EmulateInput( const enum EDeviceType eDeviceType, const int nControlID, 
 		                                 const int nValue, const DWORD time, const int nParam );
+	virtual void STDCALL ConsumePlatformEvent( const NPlatform::PlatformEvent &event );
 	virtual void STDCALL PumpMessages( const bool bFocus ) { PumpMessagesLocal( bFocus ); }
 	virtual void STDCALL AddMessage( const SGameMessage &msg ) { messages.push_back( msg ); }
 	virtual bool STDCALL GetMessage( SGameMessage *pMsg );

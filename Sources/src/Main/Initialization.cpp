@@ -87,7 +87,7 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 			return false;
 		CPtr<IInput> pInput = CreateObject<IInput>( pDesc->pFactory, INPUT_INPUT );
 		RegisterSingleton( IInput::tidTypeID, pInput );
-		pInput->Init( nWndInput );
+		pInput->Init();
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( GFX_GFX );

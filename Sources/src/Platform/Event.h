@@ -34,6 +34,7 @@ struct PlatformEvent
 	int data1 = 0;
 	int data2 = 0;
 	int key = 0;
+	int scancode = 0;
 	int modifiers = 0;
 	int button = 0;
 	bool repeat = false;

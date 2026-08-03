@@ -111,8 +111,8 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_WINDOW_RESIZED: event.type = EventType::windowResized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
 			case SDL_EVENT_WINDOW_MINIMIZED: event.type = EventType::windowMinimized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
 			case SDL_EVENT_WINDOW_RESTORED: event.type = EventType::windowRestored; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
-			case SDL_EVENT_KEY_DOWN: event.type = EventType::keyDown; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.modifiers = static_cast<int>( raw.key.mod ); event.repeat = raw.key.repeat; break;
-			case SDL_EVENT_KEY_UP: event.type = EventType::keyUp; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.modifiers = static_cast<int>( raw.key.mod ); break;
+			case SDL_EVENT_KEY_DOWN: event.type = EventType::keyDown; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.scancode = static_cast<int>( raw.key.scancode ); event.modifiers = static_cast<int>( raw.key.mod ); event.repeat = raw.key.repeat; break;
+			case SDL_EVENT_KEY_UP: event.type = EventType::keyUp; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.scancode = static_cast<int>( raw.key.scancode ); event.modifiers = static_cast<int>( raw.key.mod ); break;
 			case SDL_EVENT_TEXT_INPUT:
 				event.type = EventType::textInput; event.timestamp = raw.text.timestamp; event.windowId = raw.text.windowID;
 				if ( raw.text.text ) std::strncpy( event.text, raw.text.text, sizeof( event.text ) - 1 );

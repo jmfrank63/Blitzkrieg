@@ -496,16 +496,22 @@ void PumpMessages()
 		switch ( event.type )
 		{
 			case NPlatform::EventType::quit: bExit = true; break;
-			case NPlatform::EventType::focusGained: SetActive( true ); break;
-			case NPlatform::EventType::focusLost: SetActive( false ); break;
+		case NPlatform::EventType::focusGained: SetActive( true ); break;
+			case NPlatform::EventType::focusLost:
+				SetActive( false );
+				if ( NMain::IsInitialized() ) if ( IInput *input = GetSingleton<IInput>() ) input->ConsumePlatformEvent( event );
+				break;
 			case NPlatform::EventType::keyDown:
 			case NPlatform::EventType::keyUp:
 				if ( NMain::IsInitialized() )
 				{
 					if ( event.key == SDLK_ESCAPE || event.key == SDLK_SPACE || event.key == SDLK_RETURN ) AddMovieSkipMessage();
 					if ( IInput *input = GetSingleton<IInput>() )
-						input->EmulateInput( DEVICE_TYPE_KEYBOARD, event.key, event.type == NPlatform::EventType::keyDown ? 0x80 : 0, static_cast<DWORD>( event.timestamp ), event.modifiers );
+						input->ConsumePlatformEvent( event );
 				}
+				break;
+			case NPlatform::EventType::textInput:
+				if ( NMain::IsInitialized() ) if ( IInput *input = GetSingleton<IInput>() ) input->ConsumePlatformEvent( event );
 				break;
 			case NPlatform::EventType::mouseMotion:
 				if ( NMain::IsInitialized() )

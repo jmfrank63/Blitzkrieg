@@ -936,6 +936,7 @@ pub fn build(b: *std.Build) void {
     addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addInputCodesTest(b, target, test_mode, toolchain);
+    addPlatformInputTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2834,6 +2835,31 @@ fn addInputCodesTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-input-codes", "Run portable legacy input code mapping tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addPlatformInputTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addIncludePath(b.path("Sources/src/Input"));
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/platform_input_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    switch (target.result.os.tag) {
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "platform-input-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-platform-input", "Run portable keyboard and text event contract tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

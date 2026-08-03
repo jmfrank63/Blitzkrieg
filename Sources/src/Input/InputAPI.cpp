@@ -2,6 +2,7 @@
 
 #include "InputAPI.h"
 #include "InputCodes.h"
+#include "..\Platform\Event.h"
 #include <dinput.h>
 
 #include <mmsystem.h>
@@ -421,7 +422,7 @@ CInputAPI::~CInputAPI()
 {
 	Done();
 }
-bool CInputAPI::Init( HWND _hWindow )
+bool CInputAPI::Init()
 {
 	{
 		IDirectInput8 *pTemp = 0;
@@ -436,7 +437,11 @@ bool CInputAPI::Init( HWND _hWindow )
 	devices.reserve( devdesc.devices.size() );
 	for ( std::vector<SDeviceEnumDesc>::iterator device = devdesc.devices.begin(); device != devdesc.devices.end(); ++device )
 		AddDevice( &(*device), ++nDeviceCounter );
-	hWindow = _hWindow;
+	hWindow = 0;
+	// SDL owns acquisition and focus.  Keep the legacy device/control model for
+	// bindings, but consume all runtime state through platform events.
+	for ( CDevicesList::iterator device = devices.begin(); device != devices.end(); ++device )
+		device->bEmulated = true;
 	bInitialized = true;
 	TIME_DIFF_DBL_CLK = GetDoubleClickTime();
 	AREA_DBL_CLK_CX = GetSystemMetrics( SM_CXDOUBLECLK );
@@ -663,13 +668,8 @@ bool CInputAPI::SetFocus( bool bFocus )
 		return true;
 	if ( bFocus )
 	{
-		if ( GetActiveWindow() != hWindow ) 
-		{
-			NStr::DebugTrace( "Window has no top priority - can't acquire" );
-			return false;
-		}
-		if ( !SetCoopLevel() )
-			return false;
+		// The SDL owner has already established focus; there is no native window
+		// handle or DirectInput cooperative level involved in this path.
 		for ( CDevicesList::iterator it = devices.begin(); it != devices.end(); ++it )
 		{
 			if ( it->bEmulated ) 
@@ -743,6 +743,46 @@ void CInputAPI::EmulateInput( const enum EDeviceType eDeviceType, const int nCon
 			emulatedMessages.push_back( didod );
 			break;
 		}
+	}
+}
+static void AppendUtf8AsUtf16( const char *text, std::list<STextMessage> &chars )
+{
+	if ( !text ) return;
+	uint16_t decoded[128] = {};
+	const std::size_t count = NInput::DecodeUtf8( text, decoded, sizeof(decoded) / sizeof(decoded[0]) );
+	for ( std::size_t i = 0; i != count; ++i )
+	{
+		STextMessage message = {};
+		message.wChars[0] = decoded[i];
+		message.bPressed = true;
+		chars.push_back( message );
+	}
+}
+void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
+{
+	const DWORD time = static_cast<DWORD>( event.timestamp );
+	switch ( event.type )
+	{
+		case NPlatform::EventType::keyDown:
+		case NPlatform::EventType::keyUp:
+		{
+			const uint32_t legacy = NInput::SDLScancodeToLegacy( static_cast<uint32_t>( event.scancode ) );
+			if ( legacy != 0 )
+				EmulateInput( DEVICE_TYPE_KEYBOARD, static_cast<int>( legacy ), event.type == NPlatform::EventType::keyDown ? 0x80 : 0, time, event.modifiers );
+			break;
+		}
+		case NPlatform::EventType::textInput:
+			if ( eTextMode != INPUT_TEXT_MODE_NOTEXT ) AppendUtf8AsUtf16( event.text, chars );
+			break;
+		case NPlatform::EventType::focusLost:
+			for ( CDevicesList::const_iterator device = devices.begin(); device != devices.end(); ++device )
+				if ( device->eType == DEVICE_TYPE_KEYBOARD )
+					for ( std::vector<CControl*>::const_iterator control = device->controls.begin(); control != device->controls.end(); ++control )
+						if ( (*control)->GetType() == CONTROL_TYPE_KEY && (*control)->IsActive() )
+							EmulateInput( DEVICE_TYPE_KEYBOARD, (*control)->GetID() & 0x0fff, 0, time, 0 );
+			bFocusCaptured = false;
+			break;
+			default: break;
 	}
 }
 template <class TYPE>
