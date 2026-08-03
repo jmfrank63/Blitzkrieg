@@ -2711,6 +2711,15 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module, target: std
     };
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu/c++/{s}", .{ arch, version }) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}/backward", .{version}) });
+    var gcc_versions = std.Io.Dir.openDirAbsolute(b.graph.io, b.fmt("/usr/lib/gcc/{s}-linux-gnu", .{arch}), .{ .iterate = true }) catch return;
+    defer std.Io.Dir.close(gcc_versions, b.graph.io);
+    var gcc_iterator = gcc_versions.iterate();
+    while (gcc_iterator.next(b.graph.io) catch null) |entry| {
+        if (entry.kind == .directory) {
+            module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/lib/gcc/{s}-linux-gnu/{s}/include", .{ arch, entry.name }) });
+            break;
+        }
+    }
 }
 
 fn addPortableStreamioFilesTest(
