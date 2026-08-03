@@ -944,6 +944,7 @@ pub fn build(b: *std.Build) void {
     addInputAudioGateTest(b, target, test_mode, toolchain);
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
     addPlatformNetworkTest(b, target, test_mode, toolchain);
+    addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2991,6 +2992,40 @@ fn addPlatformNetworkTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-network", "Run portable TCP and UDP socket tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addNetworkSystemGateTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
+    module.addIncludePath(sdl_include);
+    module.addIncludePath(b.path("Sources/src/Platform"));
+    module.addCSourceFiles(.{ .files = &.{ "tools/zig/network_system_gate.cpp", "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "Sources/src/Platform/System.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    linkSdlImport(module, target, sdl_dynamic);
+    switch (target.result.os.tag) {
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); module.linkSystemLibrary("ws2_32", .{}); },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "network-system-gate", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    run.step.dependOn(&sdl_dynamic.step);
+    run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    const runtimeDir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
+    run.addPathDir(b.path(runtimeDir).getPath(b));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    const step = b.step("test-network-system-gate", "Run the portable network and system services gate");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
