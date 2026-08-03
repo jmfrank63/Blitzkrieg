@@ -1125,6 +1125,9 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
     gfx_gpu_smoke_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
     gfx_gpu_smoke_run.setCwd(b.path("."));
+    if (target.result.os.tag == .linux) {
+        gfx_gpu_smoke_run.setEnvironmentVariable("LD_LIBRARY_PATH", "zig-out/bin:zig-out/lib");
+    }
     const gpu_driver = b.option([]const u8, "gpu-driver", "Native SDL_GPU driver expected by gfxgpu-smoke") orelse switch (target.result.os.tag) {
         .windows => "direct3d12",
         .linux => "vulkan",
