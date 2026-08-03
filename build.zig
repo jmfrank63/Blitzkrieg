@@ -2960,7 +2960,7 @@ fn addRuntimeHeadersTest(
     const step = b.step("test-runtime-headers", "Compile each playable runtime StdAfx header independently");
     for (header_names, 0..) |header_name, index| {
         _ = header_name;
-        const module = b.createModule(.{ .target = target, .optimize = .Debug });
+        const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = true });
         module.addIncludePath(b.path("Sources/src"));
         module.addIncludePath(b.path("Sources/src/Misc"));
         module.addIncludePath(b.path("Sources/src/StreamIO"));
