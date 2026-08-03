@@ -279,6 +279,10 @@ fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []con
                 return error.ShaderCompilationFailed;
             }
             const blob = try std.Io.Dir.cwd().readFileAlloc(init.io, output_path, allocator, .limited(64 * 1024 * 1024));
+            if (format == .spirv) {
+                if (blob.len == 0 or blob.len % 4 != 0 or blob.len < 4 or std.mem.readInt(u32, blob[0..4], .little) != 0x0723_0203)
+                    return error.InvalidSpirv;
+            }
             var hash: [32]u8 = undefined;
             std.crypto.hash.sha2.Sha256.hash(blob, &hash, .{});
             compiled[compiled_count] = .{ .source = record, .format = format, .blob_path = blob_path, .byte_length = @intCast(blob.len), .hash = hash };
