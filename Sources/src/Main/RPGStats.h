@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include "../AILogic/aiconsts.h"
+#include "../Common/Actions.h"
 #include "../Misc/BitData.h"
 #include "../StreamIO/RandomGen.h"
 #include "../zlib/zlib.h"

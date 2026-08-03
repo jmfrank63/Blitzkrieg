@@ -214,7 +214,7 @@ public:
 		{
 			saver.Add( index + nSize + 3 , &( pLineDataSize[index] ) );
 		}
-		/**/
+// legacy disabled block
 		if( saver.IsReading() )
 		{
 			IndexLineData();
@@ -249,7 +249,7 @@ public:
 		{
 			saver.Add( NStr::Format("Line%d", index ) , &( pLineDataSize[index] ) );
 		}
-		/**/
+*/
 		if( saver.IsReading() )
 		{
 			IndexLineData();
@@ -321,8 +321,8 @@ public:
 		typedef std::vector<SSquare> CSquaresList;
 		CSquaresList squares;								// all squares
 		SEdge edge;													// sprite's edge
-		CTPoint<int> center;								// для работы в композере данных
-		float fMinDepth;										// для корректного отображения иконок... вычисляется при щагрузке данных
+		CTPoint<int> center;								// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		float fMinDepth;										// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ... пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		const bool IsInside( const CVec2 &vPos ) const { return edge.IsInside( vPos ); }
 		const CTRect<float>& GetBoundBox() const { return edge.GetBoundBox(); }
 		int operator&( IStructureSaver &ss );

@@ -534,7 +534,7 @@ public:
 	{
 		NI_ASSERT_T( !data.empty(), "Can't fill temp buffer from empty container" );
 		TData *pTempData = pData;
-		for ( std::list<TData>::const_iterator it = data.begin(); it != data.end(); ++it )
+		for ( typename std::list<TData>::const_iterator it = data.begin(); it != data.end(); ++it )
 			*pTempData++ = *it;
 		return *this;
 	}

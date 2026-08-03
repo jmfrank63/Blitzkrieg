@@ -107,7 +107,7 @@ struct STerrTypeDesc : public STileTypeDesc
 		ESP_TRACE = 0x01,
 		ESP_DUST	= 0x02
 	};
-	BYTE cSoilParams;											// параметры почвы - следы, пыль и т.д.
+	BYTE cSoilParams;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅ пїЅ.пїЅ.
 
 	float fSoundVolume;										// volume for all sounds from this terrain
 	bool bCanEntrench;										// can unit dig on this terrain
@@ -181,7 +181,7 @@ struct SRoadsetDesc
 	std::vector<STileMapsDesc> tilemaps;	// all tile maps
 	int operator&( IDataTree &ss );
 };
-/**/
+// legacy disabled block
 struct SCrossTileTypeDesc : public STileTypeDesc
 {
 	std::string szName;										// f', d, c, e, d', b', f, a, c', e', a', b
