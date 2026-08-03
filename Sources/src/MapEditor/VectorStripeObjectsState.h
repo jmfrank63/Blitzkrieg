@@ -9,7 +9,7 @@
 #include "DrawingTools.h"
 
 #include "../Image/Image.h"
-#include "../Formats/FmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "../RandomMapGen/Polygons_Types.h"
 #include "../RandomMapGen/RMG_Types.h"
 #include "../RandomMapGen/VSO_Types.h"

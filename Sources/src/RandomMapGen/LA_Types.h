@@ -1,8 +1,8 @@
 #if !defined(__LA__Types__)
 #define __LA__Types__
 
-#include "Polygons_types.h"
-#include "../Formats/FmtMap.h"
+#include "Polygons_Types.h"
+#include "../Formats/fmtMap.h"
 
 extern const BYTE RMGC_UNLOCKED;									//0
 extern const BYTE RMGC_LOCKED;										//1

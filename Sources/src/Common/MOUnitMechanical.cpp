@@ -16,7 +16,7 @@
 #include "Season.h"
 #include "ObjectStatus.h"
 #include "../Misc/Checker.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "MOUnitInfantry.h"
 #define MAX_NUM_EXT_PASSANGERS 6
 #define INTERIM_STEP 10

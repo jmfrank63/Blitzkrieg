@@ -6,7 +6,7 @@
 #endif // _MSC_VER > 1000
 
 #include "../Scene/Scene.h"
-#include "../Formats/FmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "../Misc/Manipulator.h"
 
 class CTemplateEditorFrame;

@@ -1,7 +1,7 @@
 
 #include "StdAfx.h"
 #include "WindowTextView.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../Main/TextSystem.h"
 IMPLEMENT_CLONABLE(CWindowTextView)

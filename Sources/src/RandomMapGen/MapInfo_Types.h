@@ -1,7 +1,7 @@
 #if !defined(__MapInfo__Types__)
 #define __MapInfo__Types__
 
-#include "../Formats/FmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "../GFX/GFXTypes.h"
 
 #include "RMG_Types.h"

@@ -2,7 +2,7 @@
 
 #include "UISquadElement.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../GameTT/iMission.h"
 #include "../GameTT/WorldClient.h"

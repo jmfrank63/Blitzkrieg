@@ -2,7 +2,7 @@
 #include "StdAfx.h"
 #include "UIScreen.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "MessageReactions.h"
 #include "WindowConsole.h"
 IWindow * B2UITest()

@@ -1,6 +1,6 @@
 #ifndef __RMG_TYPES_H__
 #define __RMG_TYPES_H__
-#include "../Formats/FmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "WV_Types.h"
 extern const char *RMGC_CONTAINER_XML_NAME;
 extern const char *RMGC_GRAPH_XML_NAME;

@@ -8,7 +8,7 @@
 #include "WinFrame.h"
 #include "SysKeys.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Image/Image.h"
 #include "../SFX/SFX.h"
 #include "../Input/Input.h"

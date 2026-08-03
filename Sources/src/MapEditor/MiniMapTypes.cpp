@@ -5,7 +5,7 @@
 #include "TemplateEditorFrame1.h"
 #include "../AILogic/AITypes.h"
 #include "../Formats/fmtMap.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Terrain.h"
 #include "../RandomMapGen/IB_Types.h"
 #include "../RandomMapGen/Resource_Types.h"

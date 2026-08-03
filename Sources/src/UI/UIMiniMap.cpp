@@ -4,7 +4,7 @@
 #include "../Scene/Scene.h"
 #include "../Formats/fmtTerrain.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 
 #include "UIMiniMap.h"

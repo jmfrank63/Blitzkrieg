@@ -2,7 +2,7 @@
 
 #include "TerrainWater.h"
 #include "TerrainRoad.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../AILogic/AILogic.h"
 #include "../Misc/Checker.h"
 static const DWORD LAYER_BORDER_LEFT	= 0x00000001;

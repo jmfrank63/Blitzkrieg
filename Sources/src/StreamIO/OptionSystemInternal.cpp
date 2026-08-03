@@ -5,7 +5,7 @@
 
 #include "../Main/TextSystem.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "../SFX/SFX.h"
 #include "../Scene/Scene.h"

@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "editor.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include <comdef.h>
 #include <Mmsystem.h>
 #include <set>

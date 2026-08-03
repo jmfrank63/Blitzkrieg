@@ -3,7 +3,7 @@
 
 #include "../Anim/Animation.h"
 #include "../Formats/fmtAnimation.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../Image/Image.h"
 #include "../Image/ImageHelper.h"

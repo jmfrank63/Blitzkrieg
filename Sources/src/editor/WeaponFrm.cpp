@@ -2,7 +2,7 @@
 #include <io.h>
 #include "../Common/LegacyUiCompat.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 
 #include "editor.h"

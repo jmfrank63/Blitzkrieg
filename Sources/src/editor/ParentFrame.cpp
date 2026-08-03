@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../Anim/Animation.h"
 #include "../image/image.h"

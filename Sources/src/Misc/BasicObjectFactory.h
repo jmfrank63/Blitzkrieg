@@ -1,6 +1,8 @@
 #ifndef __BASICOBJECTFACTORY_H__
 #define __BASICOBJECTFACTORY_H__
 #pragma ONCE
+#include <typeinfo>
+using std::type_info;
 class CBasicObjectFactory : public IObjectFactory
 {
 	typedef std::unordered_map<int, ObjectFactoryNewFunc> CNewFuncsMap;

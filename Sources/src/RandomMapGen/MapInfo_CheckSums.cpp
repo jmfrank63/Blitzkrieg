@@ -3,7 +3,7 @@
 #include <float.h>
 
 #include "MapInfo_Types.h"
-#include "../Formats/FmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "../Formats/FmtTerrain.h"
 #include "../zlib/zlib.h"
 #include "../Misc/CheckSums.h"

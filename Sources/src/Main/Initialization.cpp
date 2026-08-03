@@ -4,7 +4,7 @@
 #include "iMain.h"
 
 #include "../StreamIO/OptionSystem.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "../SFX/SFX.h"
 #include "../Input/Input.h"

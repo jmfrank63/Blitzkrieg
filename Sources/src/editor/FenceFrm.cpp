@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "../Common/LegacyUiCompat.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "../Scene/Scene.h"
 #include "../Anim/Animation.h"

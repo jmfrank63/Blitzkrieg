@@ -8,7 +8,7 @@
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Terrain.h"
 #include "../Image/Image.h"
 #include "../Scene/Scene.h"

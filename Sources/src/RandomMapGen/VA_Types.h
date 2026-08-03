@@ -1,7 +1,7 @@
 #if !defined(__VA__Types__)
 #define __VA__Types__
 
-#include "../Formats/FmtMap.h"
+#include "../Formats/fmtMap.h"
 #include "../Image/Image.h"
 
 #include "MapInfo_Types.h"

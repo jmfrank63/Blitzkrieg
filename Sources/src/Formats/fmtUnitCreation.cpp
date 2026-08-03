@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "FmtUnitCreation.h"
+#include "fmtUnitCreation.h"
 
 const char* SUnitCreationInfo::DEFAULT_AIRCRAFT_NAME[SUCAviation::AT_COUNT] =
 {

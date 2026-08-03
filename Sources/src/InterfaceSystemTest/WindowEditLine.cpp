@@ -2,7 +2,7 @@
 #include "StdAfx.h"
 #include "WindowEditLine.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Main/TextSystem.h"
 #include "../Scene/Scene.h"
 #include "IUIInternal.h"

@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 #include "editor.h"
 #include "frames.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Image/Image.h"
 #include "../Scene/Terrain.h"
 #include "TabTerrainAltitudesDialog.h"

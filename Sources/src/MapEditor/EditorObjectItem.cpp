@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "editor.h"
 #include "EditorObjectItem.h"
 

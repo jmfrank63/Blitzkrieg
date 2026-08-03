@@ -8,10 +8,6 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include <stdint.h>
-#ifdef __cplusplus
-#include <typeinfo>
-using std::type_info;
-#endif
 
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
@@ -48,6 +44,7 @@ typedef void *HKEY;
 #define _DN_SAVE 0
 #define _PC_24 0
 #define _MCW_RC 0
+#define _MCW_DN 0
 static inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
 
 static inline UINT GetACP(void) { return 65001; }

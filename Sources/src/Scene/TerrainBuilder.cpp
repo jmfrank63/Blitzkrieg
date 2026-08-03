@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "../Formats/fmtMap.h"
 #include "../Formats/fmtTerrain.h"
