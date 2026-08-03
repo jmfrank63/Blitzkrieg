@@ -1109,8 +1109,10 @@ pub fn build(b: *std.Build) void {
         .name = "gfxgpu-abi-test",
         .root_module = gfx_gpu_abi_test_module,
     });
-    gfx_gpu_abi_test.subsystem = .console;
-    gfx_gpu_abi_test.entry = .{ .symbol_name = "main" };
+    if (target.result.os.tag == .windows) {
+        gfx_gpu_abi_test.subsystem = .console;
+        gfx_gpu_abi_test.entry = .{ .symbol_name = "main" };
+    }
     const gfx_gpu_abi_test_run = b.addRunArtifact(gfx_gpu_abi_test);
     const gfx_gpu_abi_test_step = b.step("gfxgpu-abi-test", "Run the C++ GfxGpu ABI test");
     gfx_gpu_abi_test_step.dependOn(&gfx_gpu_abi_test_run.step);
