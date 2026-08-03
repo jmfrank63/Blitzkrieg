@@ -83,12 +83,12 @@ namespace
 		return int( unsigned(pData[0]) | (unsigned(pData[1]) << 8) | (unsigned(pData[2]) << 16) | (unsigned(pData[3]) << 24) );
 	}
 
-	__int64 ReadLE64( const unsigned char *pData )
+	long long ReadLE64( const unsigned char *pData )
 	{
-		unsigned __int64 nValue = 0;
+		unsigned long long nValue = 0;
 		for ( int i = 7; i >= 0; --i )
 			nValue = (nValue << 8) | pData[i];
-		return __int64( nValue );
+		return long long( nValue );
 	}
 
 	bool ParseTheoraIdentificationHeader( const unsigned char *pPacket, const int nPacketSize, CVec2 *pMovieSize, int *pnFPSNumerator, int *pnFPSDenominator, int *pnGranuleShift )
@@ -125,13 +125,13 @@ namespace
 		return false;
 	}
 
-	int DecodeTheoraGranuleFrame( const __int64 nGranulePosition, const int nGranuleShift )
+	int DecodeTheoraGranuleFrame( const long long nGranulePosition, const int nGranuleShift )
 	{
 		if ( nGranulePosition < 0 )
 			return 0;
 		if ( nGranuleShift <= 0 )
 			return int(nGranulePosition);
-		const __int64 nPFrameMask = ((__int64)1 << nGranuleShift) - 1;
+		const long long nPFrameMask = ((long long)1 << nGranuleShift) - 1;
 		return int((nGranulePosition >> nGranuleShift) + (nGranulePosition & nPFrameMask));
 	}
 
@@ -143,7 +143,7 @@ namespace
 		int nOffset = 0;
 		int nTheoraSerial = 0;
 		bool bHasTheoraSerial = false;
-		__int64 nLastGranulePosition = -1;
+		long long nLastGranulePosition = -1;
 		while ( nOffset + 27 <= int(data.size()) )
 		{
 			if ( memcmp(pData + nOffset, "OggS", 4) != 0 )
@@ -169,7 +169,7 @@ namespace
 			}
 			if ( bHasTheoraSerial && (nSerial == nTheoraSerial) )
 			{
-				const __int64 nGranulePosition = ReadLE64( pData + nOffset + 6 );
+				const long long nGranulePosition = ReadLE64( pData + nOffset + 6 );
 				if ( nGranulePosition >= 0 )
 					nLastGranulePosition = nGranulePosition;
 			}
@@ -570,7 +570,7 @@ int COpenVideoPlayer::GetCurrentFrame() const
 	if ( !bPlaying || (nMovieLength <= 0) || (nNumFrames <= 0) )
 		return -1;
 	const DWORD dwElapsed = GetTickCount() - dwStartTime;
-	const int nFrame = int((__int64)dwElapsed * nNumFrames / nMovieLength);
+	const int nFrame = int((long long)dwElapsed * nNumFrames / nMovieLength);
 	return nFrame < nNumFrames ? nFrame : nNumFrames;
 }
 
@@ -579,7 +579,7 @@ bool COpenVideoPlayer::SetCurrentFrame( const int nFrame )
 	if ( (nMovieLength <= 0) || (nNumFrames <= 0) || (nFrame < 0) )
 		return false;
 	const int nClampedFrame = Min( nFrame, nNumFrames );
-	dwStartTime = GetTickCount() - DWORD((__int64)nClampedFrame * nMovieLength / nNumFrames);
+	dwStartTime = GetTickCount() - DWORD((long long)nClampedFrame * nMovieLength / nNumFrames);
 	const int nTargetFrame = Min( nClampedFrame, nNumFrames - 1 );
 	if ( nDecodedFrame > nTargetFrame )
 	{

@@ -1166,6 +1166,6 @@ public:
 	float Sin( float fAngle ) const { return sintable[ Angle2Index( fAngle ) ]; }
 	float Cos( float fAngle ) const { return costable[ Angle2Index( fAngle ) ]; }
 };
-static CSinCosTable sincos;
-float Sin( float fAngle ) { return sincos.Sin( fAngle ); }
-float Cos( float fAngle ) { return sincos.Cos( fAngle ); }
+static CSinCosTable sincos_table;
+float Sin( float fAngle ) { return sincos_table.Sin( fAngle ); }
+float Cos( float fAngle ) { return sincos_table.Cos( fAngle ); }

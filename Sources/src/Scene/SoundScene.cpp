@@ -5,7 +5,7 @@
 #include "../Scene/Terrain.h"
 #include "../Formats/fmtMap.h"
 #include "../Main/RPGStats.h"
-#include "../Misc/FreeIds.h"
+#include "../Misc/FreeIDs.h"
 #include "../GFX/GFXTypes.h"
 BASIC_REGISTER_CLASS( CSoundScene );
 NTimer::STime CSoundScene::curTime;			// ����� �� ���������� �����
