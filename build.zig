@@ -952,6 +952,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
+        .ext_shadercross = true,
+        .ext_shadercross_dxc = true,
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
@@ -977,7 +979,12 @@ pub fn build(b: *std.Build) void {
     sdl3_step.dependOn(&sdl3_verify_run.step);
 
     const sdl3_build = b.lazyImport(@This(), "sdl3") orelse return;
-    const shadercross_cli = sdl3_build.shadercross.cli(b, null, true, false) orelse return;
+    const shadercross_cli = sdl3_build.shadercross.cli(
+        b,
+        null,
+        true,
+        b.graph.host.result.os.tag != .windows,
+    ) orelse return;
     var dxc_runtime_path: ?[]const u8 = null;
     if (b.graph.host.result.os.tag == .windows) {
         const dxc_binary = b.lazyDependency("dxc_binary", .{}) orelse return;
