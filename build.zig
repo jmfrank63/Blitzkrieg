@@ -676,7 +676,8 @@ pub fn build(b: *std.Build) void {
     // SDL distinguishes native macOS builds from cross-compiles using the
     // target query; forwarding `-Dtarget=aarch64-macos` verbatim on an Apple
     // Silicon host incorrectly makes SDL require an explicit SDK sysroot.
-    const dependency_target = if (native_target) b.graph.host else target;
+    const dependency_target = if (native_target and
+        target.result.abi == b.graph.host.result.abi) b.graph.host else target;
     const test_mode_text = b.option([]const u8, "test-mode", "Test execution mode: compile or run") orelse switch (build_support.defaultTestMode(native_target)) {
         .compile => "compile",
         .run => "run",
@@ -958,8 +959,16 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
-        .ext_shadercross = true,
-        .ext_shadercross_dxc = true,
+        // Runtime shaders are precompiled into DXIL on Windows.  The
+        // standalone shadercross CLI below remains enabled for generation,
+        // while omitting the optional runtime extension avoids pulling the
+        // libc++-based SPIR-V Cross library into the MSVC game DLLs.
+        .ext_shadercross = target.result.os.tag != .windows,
+        // Windows shader generation uses the prebuilt DXC runtime below.  Do
+        // not compile the source DXC backend into the MSVC SDL runtime
+        // library: that backend is MinGW-oriented and is incompatible with
+        // the MSVC target ABI.  The generated DXIL blobs still use DXC.
+        .ext_shadercross_dxc = target.result.os.tag != .windows,
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
