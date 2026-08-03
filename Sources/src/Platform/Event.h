@@ -22,6 +22,11 @@ enum class EventType
 	mouseButtonDown,
 	mouseButtonUp,
 	mouseWheel,
+	controllerAdded,
+	controllerRemoved,
+	controllerButtonDown,
+	controllerButtonUp,
+	controllerAxis,
 };
 
 struct PlatformEvent
@@ -37,6 +42,9 @@ struct PlatformEvent
 	int scancode = 0;
 	int modifiers = 0;
 	int button = 0;
+	int deviceId = 0;
+	int control = 0;
+	int value = 0;
 	bool repeat = false;
 	char text[64] = {};
 };

@@ -25,7 +25,7 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 	if ( initialized_ ) return true;
 	if ( fail_initialization_for_tests ) { SetError( "SDL initialization failure injected" ); return false; }
 	if ( !SDL_SetAppMetadata( "Blitzkrieg", "2.0.0", "org.blitzkrieg.game" ) ) { SetError( "SDL_SetAppMetadata" ); return false; }
-	if ( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS ) ) { SetError( "SDL_Init" ); return false; }
+	if ( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD ) ) { SetError( "SDL_Init" ); return false; }
 	window_ = SDL_CreateWindow( title ? title : "Blitzkrieg", width, height,
 		SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY );
 	if ( !window_ )
@@ -43,6 +43,9 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 void SDLApplication::Shutdown()
 {
 	if ( !OnMainThread() ) { SetError( "Shutdown called off main thread" ); return; }
+	for ( std::vector<std::pair<int, void *> >::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
+		if ( it->second ) SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->second ) );
+	gamepads_.clear();
 	if ( window_ ) SDL_DestroyWindow( static_cast<SDL_Window *>( window_ ) );
 	window_ = nullptr;
 	visible_ = false;
@@ -88,6 +91,21 @@ bool SDLApplication::SetCursorVisible(bool visible)
 {
 	if ( !OnMainThread() ) return false;
 	return visible ? SDL_ShowCursor() : SDL_HideCursor();
+}
+
+bool SDLApplication::SetClipboardText(const char *text)
+{
+	if ( !OnMainThread() ) return false;
+	return SDL_SetClipboardText( text ? text : "" );
+}
+
+std::string SDLApplication::GetClipboardText() const
+{
+	if ( !OnMainThread() ) return std::string();
+	char *text = SDL_GetClipboardText();
+	std::string result = text ? text : "";
+	if ( text ) SDL_free( text );
+	return result;
 }
 
 bool SDLApplication::IsMinimized() const
@@ -139,6 +157,17 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_MOUSE_BUTTON_DOWN: event.type = EventType::mouseButtonDown; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
 			case SDL_EVENT_MOUSE_BUTTON_UP: event.type = EventType::mouseButtonUp; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
 			case SDL_EVENT_MOUSE_WHEEL: event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID; event.x = static_cast<int>( raw.wheel.x ); event.y = static_cast<int>( raw.wheel.y ); event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y ); break;
+			case SDL_EVENT_GAMEPAD_ADDED:
+				event.type = EventType::controllerAdded; event.timestamp = raw.gdevice.timestamp; event.deviceId = static_cast<int>( raw.gdevice.which );
+				if ( SDL_Gamepad *gamepad = SDL_OpenGamepad( raw.gdevice.which ) ) gamepads_.push_back( std::make_pair( event.deviceId, static_cast<void *>( gamepad ) ) );
+				break;
+			case SDL_EVENT_GAMEPAD_REMOVED:
+				event.type = EventType::controllerRemoved; event.timestamp = raw.gdevice.timestamp; event.deviceId = static_cast<int>( raw.gdevice.which );
+				for ( std::vector<std::pair<int, void *> >::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it ) if ( it->first == event.deviceId ) { SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->second ) ); gamepads_.erase( it ); break; }
+				break;
+			case SDL_EVENT_GAMEPAD_BUTTON_DOWN: event.type = EventType::controllerButtonDown; event.timestamp = raw.gbutton.timestamp; event.deviceId = static_cast<int>( raw.gbutton.which ); event.control = raw.gbutton.button; event.value = 0x80; break;
+			case SDL_EVENT_GAMEPAD_BUTTON_UP: event.type = EventType::controllerButtonUp; event.timestamp = raw.gbutton.timestamp; event.deviceId = static_cast<int>( raw.gbutton.which ); event.control = raw.gbutton.button; event.value = 0; break;
+			case SDL_EVENT_GAMEPAD_AXIS_MOTION: event.type = EventType::controllerAxis; event.timestamp = raw.gaxis.timestamp; event.deviceId = static_cast<int>( raw.gaxis.which ); event.control = raw.gaxis.axis; event.value = raw.gaxis.value; break;
 			default: continue;
 		}
 		return true;

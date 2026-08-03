@@ -3,6 +3,7 @@
 
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "Event.h"
 
@@ -37,6 +38,8 @@ public:
 	bool SetMouseGrab(bool enabled);
 	bool SetRelativeMouseMode(bool enabled);
 	bool SetCursorVisible(bool visible);
+	bool SetClipboardText(const char *text);
+	std::string GetClipboardText() const;
 	bool IsMinimized() const;
 	bool IsVisible() const;
 	WindowBorrow BorrowWindow() const;
@@ -56,6 +59,7 @@ private:
 	std::string last_error_;
 	bool initialized_ = false;
 	bool visible_ = false;
+	std::vector<std::pair<int, void *> > gamepads_;
 };
 }
 
