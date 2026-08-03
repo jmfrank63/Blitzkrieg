@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
 
       - name: Install Linux build dependencies
         run: |
@@ -58,6 +61,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
 
       - name: Install Zig 0.16.0
         shell: pwsh
@@ -115,6 +121,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
 
       - name: Verify Apple Silicon host
         run: |
