@@ -599,6 +599,7 @@ const main_sources = &.{
 const game_sources = &.{
     "Sources/src/Game/GlobalsLoader.cpp",
     "Sources/src/Game/StdAfx.cpp",
+    "Sources/src/Game/GameMain.cpp",
     "Sources/src/Game/main.cpp",
     "Sources/src/Game/SysKeys.cpp",
     "Sources/src/Game/WinFrame.cpp",
@@ -660,8 +661,12 @@ pub fn build(b: *std.Build) void {
         },
     });
     const platform = build_support.classify(target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
-    const host_platform = build_support.classify(b.graph.host.result) catch null;
-    const native_target = if (host_platform) |host| host == platform else false;
+    // Runtime eligibility follows the host OS and CPU. Windows can execute
+    // an MSVC-targeted binary even when the Zig host itself reports the GNU
+    // Windows ABI (the common Scoop Zig installation does); ABI selection is
+    // still enforced by the target and linker configuration below.
+    const native_target = target.result.os.tag == b.graph.host.result.os.tag and
+        target.result.cpu.arch == b.graph.host.result.cpu.arch;
     const test_mode_text = b.option([]const u8, "test-mode", "Test execution mode: compile or run") orelse switch (build_support.defaultTestMode(native_target)) {
         .compile => "compile",
         .run => "run",
@@ -925,6 +930,7 @@ pub fn build(b: *std.Build) void {
     test_platform_core.dependOn(platform_system_step);
     const platform_foundation = b.step("platform-foundation", "Build the supported portable foundation matrix");
     platform_foundation.dependOn(test_platform_foundation);
+    addGameCommandLineTest(b, target, test_mode, toolchain);
     if (platform != .windows_x64) {
         addPortableStreamioFilesTest(b, target, optimize, test_mode);
         addPortableModuleTest(b, target, test_mode);
@@ -2709,6 +2715,45 @@ fn addPortableModuleTest(
     const test_run = b.addRunArtifact(test_exe);
     test_run.setCwd(b.path("."));
     const test_step = b.step("test-platform-modules", "Run portable runtime module tests");
+    test_step.dependOn(&test_exe.step);
+    if (test_mode == .run) test_step.dependOn(&test_run.step);
+}
+
+fn addGameCommandLineTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+        .link_libc = true,
+    });
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/Game/main.cpp",
+            "tools/zig/game_command_line_test.cpp",
+        },
+        .flags = &.{ "-std=c++17" },
+    });
+    module.addCMacro("BLITZKRIEG_COMMAND_LINE_TEST", "1");
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const test_exe = b.addExecutable(.{ .name = "game-command-line-test", .root_module = module });
+    test_exe.subsystem = .console;
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "main" };
+    const test_run = b.addRunArtifact(test_exe);
+    test_run.setCwd(b.path("."));
+    const test_step = b.step("test-game-command-line", "Run portable game command-line tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
 }
