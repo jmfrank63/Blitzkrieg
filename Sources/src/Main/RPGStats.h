@@ -7,8 +7,15 @@
 #include "../Misc/BitData.h"
 #include "../StreamIO/RandomGen.h"
 #include "../zlib/zlib.h"
-#include "../Common/Actions.h"
 #include "iMain.h"
+
+enum {
+	RPG_ACTION_COMMAND_CHANGE_SHELLTYPE = 46,
+	RPG_USER_ACTION_CHANGE_SHELL = 15,
+	RPG_USER_ACTION_USE_SHELL_DAMAGE = 55,
+	RPG_USER_ACTION_USE_SHELL_AGIT = 56,
+	RPG_USER_ACTION_USE_SHELL_SMOKE = 57,
+};
 inline int GetRandom( int nAverage, int nRandom )
 {
 	return nRandom <= 0 ? nAverage : RandomCheck( nAverage - nRandom, nAverage + nRandom );
@@ -793,22 +800,22 @@ struct SUnitBaseRPGStats : public SHPObjectRPGStats
 			}
 			if ( nDamageTypes[0] + nDamageTypes[1] + nDamageTypes[2] > 1 )
 			{
-				AddCommand( ACTION_COMMAND_CHANGE_SHELLTYPE );
-				availUserActions.SetAction( USER_ACTION_CHANGE_SHELL );
+				AddCommand( RPG_ACTION_COMMAND_CHANGE_SHELLTYPE );
+				availUserActions.SetAction( RPG_USER_ACTION_CHANGE_SHELL );
 				if ( nDamageTypes[SWeaponRPGStats::SShell::DAMAGE_HEALTH] != 0 ) 
-					availUserActions.SetAction( USER_ACTION_USE_SHELL_DAMAGE );
+					availUserActions.SetAction( RPG_USER_ACTION_USE_SHELL_DAMAGE );
 				if ( nDamageTypes[SWeaponRPGStats::SShell::DAMAGE_MORALE] != 0 ) 
-					availUserActions.SetAction( USER_ACTION_USE_SHELL_AGIT );
+					availUserActions.SetAction( RPG_USER_ACTION_USE_SHELL_AGIT );
 				if ( nDamageTypes[SWeaponRPGStats::SShell::DAMAGE_FOG] != 0 ) 
-					availUserActions.SetAction( USER_ACTION_USE_SHELL_SMOKE );
+					availUserActions.SetAction( RPG_USER_ACTION_USE_SHELL_SMOKE );
 			}
 			else
 			{
-				RemoveCommand( ACTION_COMMAND_CHANGE_SHELLTYPE );
-				availUserActions.RemoveAction( USER_ACTION_CHANGE_SHELL );
-				availUserActions.RemoveAction( USER_ACTION_USE_SHELL_DAMAGE );
-				availUserActions.RemoveAction( USER_ACTION_USE_SHELL_AGIT );
-				availUserActions.RemoveAction( USER_ACTION_USE_SHELL_SMOKE );
+				RemoveCommand( RPG_ACTION_COMMAND_CHANGE_SHELLTYPE );
+				availUserActions.RemoveAction( RPG_USER_ACTION_CHANGE_SHELL );
+				availUserActions.RemoveAction( RPG_USER_ACTION_USE_SHELL_DAMAGE );
+				availUserActions.RemoveAction( RPG_USER_ACTION_USE_SHELL_AGIT );
+				availUserActions.RemoveAction( RPG_USER_ACTION_USE_SHELL_SMOKE );
 			}
 		}
 	const bool HasCommand( const int nCmd ) const

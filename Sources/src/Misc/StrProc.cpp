@@ -373,20 +373,24 @@ void NStr::ToAscii( std::string *pRes, const std::wstring &szSrc )
 	ToAsciiImpl( pRes, szSrc, nCodePage );
 }
 
+#ifdef _NATIVE_WCHAR_T_DEFINED
 void NStr::ToAscii( std::string *pRes, const TUnsignedShortString &szSrc )
 {
 	ToAsciiImpl( pRes, szSrc, nCodePage );
 }
+#endif
 
 void NStr::ToUnicode( std::wstring *pRes, const std::string &szSrc )
 {
 	ToUnicodeImpl( pRes, szSrc, nCodePage );
 }
 
+#ifdef _NATIVE_WCHAR_T_DEFINED
 void NStr::ToUnicode( TUnsignedShortString *pRes, const std::string &szSrc )
 {
 	ToUnicodeImpl( pRes, szSrc, nCodePage );
 }
+#endif
 inline int MSVCMustDie_tolower( int a ) { return tolower(a); } 
 inline int MSVCMustDie_toupper( int a ) { return toupper(a); }
 void NStr::ToLower( std::string &szString ) 

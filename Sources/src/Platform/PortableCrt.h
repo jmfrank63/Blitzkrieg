@@ -10,6 +10,7 @@
 #include <stdint.h>
 #ifdef __cplusplus
 #include <typeinfo>
+using std::type_info;
 #endif
 
 #ifndef _TRUNCATE
