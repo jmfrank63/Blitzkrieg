@@ -33,8 +33,11 @@
 #include "..\GameTT\CutScenesHelper.h"
 #include "..\Misc\TimeMeter.h"
 #include "..\Platform\Paths.h"
+#include "..\Platform\System.h"
+#include "..\Platform\Debug.h"
+#include "..\Platform\Clock.h"
 #ifdef BK_STARTUP_TRACE
-#define BK_STARTUP_MARKER(name) ::OutputDebugStringA("BK_STARTUP: " name "\n")
+#define BK_STARTUP_MARKER(name) NPlatform::DebugWrite("BK_STARTUP: " name "\n")
 #else
 #define BK_STARTUP_MARKER(name) ((void)0)
 #endif
@@ -172,7 +175,7 @@ int GameMain( const NPlatform::Arguments &arguments )
 			NStr::ToLower( szDataDir );
 			if ( szDataDir == "s:\\versions\\current" )
 			{
-				::MessageBox( 0, "Can't use \"s:\\versions\\current\" as data directory!", "ERROR", MB_OK | MB_ICONEXCLAMATION );
+				NPlatform::ShowError( "ERROR", "Can't use \"s:\\versions\\current\" as data directory!" );
 				return 0xDEAD;
 			}
 			else
@@ -254,7 +257,7 @@ int GameMain( const NPlatform::Arguments &arguments )
 	BK_STARTUP_MARKER("before NMain::Initialize");
 	if ( NMain::Initialize(reinterpret_cast<HWND>( NWinFrame::GetSDLWindow() ), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
 	{
-		::MessageBox( 0, "Can't initialize game...", "ERROR", MB_OK | MB_ICONEXCLAMATION );
+		NPlatform::ShowError( "ERROR", "Can't initialize game..." );
 		return 0xDEAD;
 	}
 	BK_STARTUP_MARKER("after NMain::Initialize");
@@ -488,19 +491,19 @@ int GameMain( const NPlatform::Arguments &arguments )
 				}
 				if ( captured )
 				{
-					::OutputDebugStringA( "BK_REFERENCE_SCENE: capture complete\n" );
+					NPlatform::DebugWrite( "BK_REFERENCE_SCENE: capture complete\n" );
 					break;
 				}
-				::OutputDebugStringA( "BK_REFERENCE_SCENE: capture failed\n" );
+					NPlatform::DebugWrite( "BK_REFERENCE_SCENE: capture failed\n" );
 				return 0xDEAD;
 			}
 			if ( cmdp.bStartupSmoke && !cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
 			{
-				::OutputDebugStringA( "BK_STARTUP: C6 main menu smoke checkpoint passed\n" );
+					NPlatform::DebugWrite( "BK_STARTUP: C6 main menu smoke checkpoint passed\n" );
 				break;
 			}
 			if ( !bActive )
-				Sleep( 40 );
+				NPlatform::SleepMilliseconds( 40 );
 		}
 		// Catch-all: any exit path that bypassed CICExitGame (e.g. smoke-test
 		// break) still tears the world down here. Leak refcounted objects from
@@ -521,7 +524,7 @@ int GameMain( const NPlatform::Arguments &arguments )
 	if ( IConsoleBuffer *pConsole = GetSingleton<IConsoleBuffer>() )
 	{
 		if ( pConsole->DumpLog( -1 ) )
-			ShellExecute( 0, "open", szLogFileName.c_str(), 0, ".\\", SW_SHOWNORMAL );
+			NPlatform::OpenFile( szLogFileName.c_str() );
 	}
 */
 #endif // _DO_ASSERT_SLOW

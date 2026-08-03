@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "IB_Types.h"
 #include "Resource_Types.h"
+#include "..\Platform\System.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -258,21 +259,21 @@ void EnumFilesInDataStorage( std::vector<SEnumFilesInDataStorageParameter> *pPar
 
 bool ExecuteProcess( const std::string &szCommand, const std::string &szCmdLine, const std::string &szDirectory, bool bWait )
 {
-	char pszCommandLine[2048];
-	strcpy( pszCommandLine, szCmdLine.c_str() );
-	STARTUPINFO startinfo;
-	PROCESS_INFORMATION procinfo;
-	Zero( startinfo );
-	Zero( procinfo );
-	startinfo.cb = sizeof( startinfo );
-	BOOL bRetVal = CreateProcess( szCommand.c_str(), pszCommandLine, 0, 0, FALSE, 0, 0, szDirectory.c_str(), &startinfo, &procinfo );
-	if ( bRetVal == FALSE ) 
+	std::vector<std::string> arguments;
+	arguments.push_back( szCommand );
+	std::string current;
+	bool quoted = false;
+	for ( std::size_t i = 0; i < szCmdLine.size(); ++i )
 	{
-		return false;
+		const char character = szCmdLine[i];
+		if ( character == '"' ) { quoted = !quoted; continue; }
+		if ( !quoted && (character == ' ' || character == '\t') )
+		{
+			if ( !current.empty() ) { arguments.push_back( current ); current.clear(); }
+		}
+		else current += character;
 	}
-	if ( bWait )
-	{
-		WaitForSingleObject( procinfo.hProcess, INFINITE );
-	}
-	return true;
+	if ( !current.empty() ) arguments.push_back( current );
+	int exitCode = -1;
+	return NPlatform::RunProcess( arguments, szDirectory, bWait ? &exitCode : nullptr );
 }

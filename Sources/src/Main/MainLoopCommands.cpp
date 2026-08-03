@@ -18,6 +18,8 @@
 #include "iMainCommands.h"
 #include "iMainInternal.h"
 #include "RandomMapHelper.h"
+#include "..\Platform\Clock.h"
+#include "..\Platform\Debug.h"
 static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
 	if ( pszBaseDir == 0 || pszMessage == 0 )
@@ -26,10 +28,10 @@ static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
 	if ( pFile )
 	{
-		fprintf( pFile, "%lu %s\n", GetTickCount(), pszMessage );
+		fprintf( pFile, "%u %s\n", NPlatform::MonotonicMilliseconds(), pszMessage );
 		fclose( pFile );
 	}
-	NStr::DebugTrace( "LOADTRACE: %s\n", pszMessage );
+	NPlatform::DebugWriteFormat( "LOADTRACE: %s\n", pszMessage );
 }
 void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 {

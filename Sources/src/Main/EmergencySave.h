@@ -2,6 +2,7 @@
 #define __EMERGENCYSAVE_H__
 #pragma ONCE
 #include "iMain.h"
+#include "..\Platform\System.h"
 class CEmergencySave : public IBaseCommand
 {
 	OBJECT_MINIMAL_METHODS( CEmergencySave );
@@ -19,7 +20,7 @@ public:
 		}
 		catch ( ... )
 		{
-			::MessageBox( 0, "Unable to execute 'emergency save' command", "ERROR", MB_OK | MB_ICONEXCLAMATION );
+			NPlatform::ShowError( "ERROR", "Unable to execute 'emergency save' command" );
 		}
 	}
 	virtual void STDCALL UnDo() {  }
