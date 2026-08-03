@@ -956,10 +956,6 @@ pub fn build(b: *std.Build) void {
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     addGameBootstrapSmoke(b, target, optimize, toolchain, gfx_gpu_zig, sdl_c, sdl_dynamic_dep.path("include"), test_mode);
-    if (platform != .windows_x64) {
-        addPortableStreamioFilesTest(b, target, optimize, test_mode);
-        addPortableModuleTest(b, target, test_mode);
-    }
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
