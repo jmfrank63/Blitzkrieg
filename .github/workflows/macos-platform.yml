@@ -21,6 +21,14 @@ jobs:
         with:
           fetch-depth: 1
           filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
 
       - name: Install Linux build dependencies
         run: |
@@ -64,6 +72,14 @@ jobs:
         with:
           fetch-depth: 1
           filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.16.0
         shell: pwsh
@@ -124,6 +140,14 @@ jobs:
         with:
           fetch-depth: 1
           filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
 
       - name: Verify Apple Silicon host
         run: |
