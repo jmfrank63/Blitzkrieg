@@ -1,4 +1,4 @@
-name: macOS platform validation
+name: Cross-platform validation
 
 on:
   push:
