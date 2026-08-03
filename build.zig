@@ -3007,7 +3007,7 @@ fn addRuntimeHeadersTest(
             .flags = if (target.result.os.tag == .windows)
                 &(cppflags_debug.* ++ .{ index_flag })
             else
-                &.{ "-std=c++17", index_flag },
+                &.{ "-std=c++17", "-fms-extensions", "-fms-compatibility", "-Wno-nonportable-include-path", index_flag },
         });
         const object = b.addObject(.{ .name = b.fmt("runtime-header-{d}", .{index}), .root_module = module });
         step.dependOn(&object.step);
