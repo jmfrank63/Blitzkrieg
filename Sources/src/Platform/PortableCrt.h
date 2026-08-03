@@ -25,6 +25,10 @@ typedef long HRESULT;
 typedef int REFIID;
 typedef void *HANDLE;
 typedef void *HMODULE;
+#ifndef BLITZKRIEG_FILETIME_DEFINED
+typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
+#define BLITZKRIEG_FILETIME_DEFINED
+#endif
 typedef struct { wchar_t *pwcsName; unsigned long type; unsigned long cbSize; FILETIME mtime; FILETIME ctime; FILETIME atime; unsigned long grfMode; unsigned long grfLocksSupported; unsigned long clsid; unsigned long grfStateBits; unsigned long reserved; } STATSTG;
 typedef struct { unsigned long dwSignature; unsigned long dwStrucVersion; unsigned long dwFileVersionMS; unsigned long dwFileVersionLS; unsigned long dwProductVersionMS; unsigned long dwProductVersionLS; unsigned long dwFileFlagsMask; unsigned long dwFileFlags; unsigned long dwFileOS; unsigned long dwFileType; unsigned long dwFileSubtype; unsigned long dwFileDateMS; unsigned long dwFileDateLS; } VS_FIXEDFILEINFO;
 typedef struct { long long QuadPart; } LARGE_INTEGER;
@@ -63,9 +67,11 @@ static inline void *GetProcAddress(HMODULE, const char *) { return 0; }
 static inline unsigned long GetCurrentDirectory(unsigned long, char *) { return 0; }
 static inline unsigned long GetModuleFileName(HMODULE, char *, unsigned long) { return 0; }
 static inline int GetFileVersionInfoSize(const char *, unsigned long *) { return 0; }
-static inline int GetFileVersionInfoSize(const wchar_t *, unsigned long *) { return 0; }
 static inline int GetFileVersionInfo(const char *, unsigned long, unsigned long, void *) { return 0; }
+#ifdef __cplusplus
+static inline int GetFileVersionInfoSize(const wchar_t *, unsigned long *) { return 0; }
 static inline int GetFileVersionInfo(const wchar_t *, unsigned long, unsigned long, void *) { return 0; }
+#endif
 static inline int VerQueryValue(const void *, const char *, void **, unsigned int *) { return 0; }
 static inline int CoCreateGuid(void *) { return -1; }
 static inline int DosDateTimeToFileTime(unsigned short, unsigned short, FILETIME *) { return 0; }

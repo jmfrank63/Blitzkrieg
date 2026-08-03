@@ -19,8 +19,10 @@ struct GUID {
     WORD Data3;
     BYTE Data4[8];
 };
+#if !defined(BLITZKRIEG_FILETIME_DEFINED)
 struct FILETIME { DWORD dwLowDateTime; DWORD dwHighDateTime; };
 #define BLITZKRIEG_FILETIME_DEFINED
+#endif
 
 struct RECT {
     LONG left;
