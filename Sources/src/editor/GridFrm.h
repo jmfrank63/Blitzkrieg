@@ -2,7 +2,7 @@
 #define __GRIDFRM_H__
 
 #include "..//Common//LegacyUiCompat.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXTypes.h"
 #include "../GFX/GFXHelper.h"
 #include "ParentFrame.h"

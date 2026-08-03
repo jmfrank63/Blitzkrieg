@@ -1,4 +1,4 @@
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "../Anim/Animation.h"
 #include "../Formats/fmtTerrain.h"

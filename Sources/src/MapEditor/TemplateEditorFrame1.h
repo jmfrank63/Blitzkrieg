@@ -9,7 +9,7 @@
 #include "../RandomMapGen/Resource_Types.h"
 
 #include "..//Common//LegacyUiCompat.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Formats/fmtMap.h"
 #include "../AILogic/AILogic.h"
 #include "IUndoRedoCmd.h"

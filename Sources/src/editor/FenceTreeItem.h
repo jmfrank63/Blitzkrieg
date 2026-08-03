@@ -1,7 +1,7 @@
 #ifndef __FENCE_TREE_ITEM_H__
 #define __FENCE_TREE_ITEM_H__
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Main/rpgstats.h"
 #include "GridFrm.h"
 #include "TreeItem.h"

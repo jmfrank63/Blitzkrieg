@@ -1,7 +1,7 @@
 #ifndef __INTERFACESCREENBASE_H__
 #define __INTERFACESCREENBASE_H__
 #include "../Main/iMain.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../SFX/SFX.h"
 #include "../Input/Input.h"
 #include "../Scene/Scene.h"

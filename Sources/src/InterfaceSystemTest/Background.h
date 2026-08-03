@@ -7,7 +7,7 @@
 #endif // _MSC_VER > 1000
 
 #include "IUIInternal.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 
 #include "DeepCPtrCopy.h"
 #include "../Misc/Geometry.h"

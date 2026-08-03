@@ -1,7 +1,7 @@
 #if !defined(__UIMiniMap__)
 #define __UIMiniMap__
 #pragma ONCE
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "UIBasic.h"
 #include "../AILogic/AIConsts.h"

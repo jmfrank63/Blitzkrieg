@@ -18,7 +18,7 @@ inline IDirect3D9* Direct3DCreate8( UINT sdkVersion )
 
 #include "../Misc/Win32Helper.h"
 
-#include "GFX.h"
+#include "GFX.H"
 #include "GFXHelper.h"
 #include "CommonStructs.h"
 class CRefCount

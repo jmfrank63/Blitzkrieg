@@ -2,7 +2,7 @@
 #define __PARENT_FRAME_H__
 
 #include "..//Common//LegacyUiCompat.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 
 using std::string;
 using std::vector;

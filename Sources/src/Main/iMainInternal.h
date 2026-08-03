@@ -4,7 +4,7 @@
 #include "iMain.h"
 #include "../Input/Input.h"
 #include "../Input/InputHelper.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../AILogic/AILogic.h"
 #include "../Misc/HPTimer.h"

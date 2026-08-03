@@ -7,7 +7,7 @@
 
 #include "..//Common//LegacyUiCompat.h"
 #include "../UI/UI.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Input/Input.h"
 #include "../Input/InputHelper.h"
 #include "ParentFrame.h"

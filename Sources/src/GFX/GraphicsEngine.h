@@ -1,7 +1,7 @@
 #ifndef __GRAPHICSENGINE_H__
 #define __GRAPHICSENGINE_H__
 #pragma ONCE
-#include "GFX.h"
+#include "GFX.H"
 #include "GeometryBuffer.h"
 #include "Font.h"
 #include "Shader.h"

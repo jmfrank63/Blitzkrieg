@@ -7,7 +7,7 @@
 #endif // _MSC_VER > 1000
 
 #include "..//Common//LegacyUiCompat.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 
 #include "ParentFrame.h"
 #include "SpriteTreeItem.h"

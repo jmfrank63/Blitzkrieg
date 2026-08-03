@@ -1,7 +1,7 @@
 #ifndef __WORLDBASE_H__
 #define __WORLDBASE_H__
 #pragma ONCE
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../Input/Input.h"
 #include "../Common/World.h"

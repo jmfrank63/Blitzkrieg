@@ -1,7 +1,7 @@
 #ifndef __GEOMETRYBUFFER_H__
 #define __GEOMETRYBUFFER_H__
 #pragma ONCE
-#include "GFX.h"
+#include "GFX.H"
 #include "RangeAllocs.h"
 D3DPRIMITIVETYPE GFXPrimitiveToD3D( EGFXPrimitiveType type );
 int GetNumPrimitives( D3DPRIMITIVETYPE type, int nNumElements );

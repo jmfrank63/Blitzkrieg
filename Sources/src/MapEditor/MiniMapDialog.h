@@ -6,7 +6,7 @@
 #endif // _MSC_VER > 1000
 #include "../AILogic/AITypes.h"
 #include "../Formats/fmtMap.h"
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Terrain.h"
 #include "../Image/Image.h"
 #include "../Scene/Scene.h"

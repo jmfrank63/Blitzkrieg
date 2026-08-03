@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
 #include "../AILogic/AITypes.h"
 #include "../Scene/Scene.h"

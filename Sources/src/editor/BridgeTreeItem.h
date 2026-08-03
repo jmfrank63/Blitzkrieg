@@ -1,7 +1,7 @@
 #ifndef __BRIDGE_TREE_ITEM_H__
 #define __BRIDGE_TREE_ITEM_H__
 
-#include "../GFX/GFX.h"
+#include "../GFX/GFX.H"
 #include "../Main/rpgstats.h"
 #include "../Scene/scene.h"
 #include "GridFrm.h"
