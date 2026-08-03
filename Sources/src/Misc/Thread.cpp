@@ -17,7 +17,7 @@ void CThread::TheThreadProc( CThread *pThread )
 
 void CThread::StartThread() { hFinishReport.Reset(); }
 bool CThread::CanWork() { return !hStopCommand.IsSet(); }
-void CThread::FinishThread() { hFinishReport.Set(); }
+void CThread::FinishThread() { hStopCommand.Set(); hFinishReport.Set(); }
 
 CThread::CThread( const int _nDelay )
 	: nDelay( _nDelay ), bRun( false )
