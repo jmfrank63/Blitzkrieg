@@ -1,6 +1,6 @@
 #ifndef __ANIMOBJECTFACTORY_H__
 #define __ANIMOBJECTFACTORY_H__
-#include "..\Misc\BasicObjectFactory.h"
+#include "../Misc/BasicObjectFactory.h"
 class CAnimObjectFactory : public CBasicObjectFactory
 {
 public:

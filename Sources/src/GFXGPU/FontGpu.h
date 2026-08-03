@@ -1,9 +1,9 @@
 #ifndef BLITZKRIEG_FONT_GPU_H
 #define BLITZKRIEG_FONT_GPU_H
 
-#include "..\\GFX\\GFX.H"
-#include "..\\Formats\\fmtFont.h"
-#include "..\\GFX\\GFXHelper.h"
+#include "..//GFX//GFX.H"
+#include "..//Formats//fmtFont.h"
+#include "..//GFX//GFXHelper.h"
 
 #include <string>
 #include <vector>

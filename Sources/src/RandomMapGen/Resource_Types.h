@@ -1,7 +1,7 @@
 #if !defined(__Resource__Types__)
 #define __Resource__Types__
 
-#include "..\GFX\GFXTypes.h"
+#include "../GFX/GFXTypes.h"
 template<class Type>
 bool LoadDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, bool bBinary, int nChunkNumber, const std::string &rszChunkLabel, Type &rResource )
 {

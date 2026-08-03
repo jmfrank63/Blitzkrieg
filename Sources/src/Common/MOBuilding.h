@@ -2,15 +2,15 @@
 #define __MOBUILDING_H__
 #pragma ONCE
 #include "MapObject.h"
-#include "..\Anim\Animation.h"
-#include "..\Main\TextSystem.h"
+#include "../Anim/Animation.h"
+#include "../Main/TextSystem.h"
 #include "Passangers.h"
 class CMOBuilding : public CTRefCount<IMOContainer>
 {
 	OBJECT_SERVICE_METHODS( CMOBuilding );
 	DECLARE_SERIALIZE;
 	CPassangersList passangers;
-	mutable CPtr<IText> pLocalName;				// localized name of this building (ZB "Русский сортир")
+	mutable CPtr<IText> pLocalName;				// localized name of this building (ZB "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ")
 	int nSeason;													// season
 	CPtr<IVisObj> pGarbage;								// garbage around damaged or destroyed building
 	float fTraceSpeedCoeff;

@@ -1,8 +1,8 @@
 #ifndef BLITZKRIEG_GAME_MAIN_H
 #define BLITZKRIEG_GAME_MAIN_H
 
-#include <string>
-#include <vector>
+
+
 
 namespace NPlatform
 {

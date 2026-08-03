@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\\Common\\LegacyUiCompat.h"
+#include "..//Common//LegacyUiCompat.h"
 
 
 #define IDC_INPUT_3DTAB_WINDOW_00 ( 61850 )

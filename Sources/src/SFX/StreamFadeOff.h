@@ -1,8 +1,8 @@
 #ifndef __STREAMFADEOFF_H__
 #define __STREAMFADEOFF_H__
 
-#include "../Misc/Thread.h"
-#include <atomic>
+
+
 
 class CStreamFadeOff : private CThread
 {

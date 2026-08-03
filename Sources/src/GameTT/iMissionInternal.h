@@ -1,21 +1,21 @@
 #ifndef __IMISSIONINTERNAL_H__
 #define __IMISSIONINTERNAL_H__
 #pragma ONCE
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Input\Input.h"
-#include "..\Input\InputHelper.h"
-#include "..\Common\World.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Formats\fmtMap.h"
-#include "..\Common\MapObject.h"
-#include "..\Common\InterfaceScreenBase.h"
-#include "..\UI\UI.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Input/Input.h"
+#include "../Input/InputHelper.h"
+#include "../Common/World.h"
+#include "../AILogic/AILogic.h"
+#include "../Formats/fmtMap.h"
+#include "../Common/MapObject.h"
+#include "../Common/InterfaceScreenBase.h"
+#include "../UI/UI.h"
 #include "iMission.h"
-#include "..\Main\TextSystem.h"
+#include "../Main/TextSystem.h"
 #include "ListControlWrapper.h"
 typedef std::pair<IVisObj*, CVec2> CPickVisObj;
-typedef std::list<CPickVisObj> CPickVisObjList;	// эти объекты не живут долго, поэтому им не нужен ref counting
+typedef std::list<CPickVisObj> CPickVisObjList;	// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ ref counting
 typedef std::vector<IVisObj*> CVisObjList;
 class CInterfaceMission : public CInterfaceScreenBase
 {

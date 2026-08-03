@@ -1,11 +1,11 @@
 #ifndef BLITZKRIEG_PLATFORM_SDL_APPLICATION_H
 #define BLITZKRIEG_PLATFORM_SDL_APPLICATION_H
 
-#include <string>
-#include <thread>
-#include <vector>
 
-#include "Event.h"
+
+
+
+
 
 namespace NPlatform
 {

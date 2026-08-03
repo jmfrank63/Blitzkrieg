@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_CLOCK_H
 #define BLITZKRIEG_PLATFORM_CLOCK_H
 
-#include <cstdint>
+
 
 namespace NPlatform
 {

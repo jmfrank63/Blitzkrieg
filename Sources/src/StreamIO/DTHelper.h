@@ -1,7 +1,7 @@
 #ifndef __DTHELPER_H__
 #define __DTHELPER_H__
-#include "StructureSaver.h"
-#include "../Main/GameDB.h"
+
+
 #ifndef ZDATA_
 #define ZDATA_(a)
 #endif // ZDATA_

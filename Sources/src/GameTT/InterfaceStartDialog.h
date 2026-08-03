@@ -1,8 +1,8 @@
 #ifndef __INTERFACESTARTDIALOG_H__
 #define __INTERFACESTARTDIALOG_H__
 #pragma ONCE
-#include "..\Common\InterfaceScreenBase.h"
-#include "..\Input\InputHelper.h"
+#include "../Common/InterfaceScreenBase.h"
+#include "../Input/InputHelper.h"
 #include "iMission.h"
 class COptionsListWrapper;
 class CInterfacePlayerProfile : public CInterfaceScreenBase

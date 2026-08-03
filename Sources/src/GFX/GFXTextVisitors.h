@@ -1,7 +1,7 @@
 #ifndef __GFXTEXTVISITORS_H__
 #define __GFXTEXTVISITORS_H__
 #pragma ONCE
-#include "..\Formats\fmtFont.h"
+#include "../Formats/fmtFont.h"
 class CTextWidthVisitor
 {
 public:

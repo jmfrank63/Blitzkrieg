@@ -2,8 +2,8 @@
 #define __INTERFACEMPADDRESSBOOK_H__
 #pragma ONCE
 
-#include "..\Common\InterfaceScreenBase.h"
-#include "..\Input\InputHelper.h"
+#include "../Common/InterfaceScreenBase.h"
+#include "../Input/InputHelper.h"
 #include "iMission.h"
 #include "MapSettingsWrapper.h"
 #include "InterMission.h"

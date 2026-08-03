@@ -4,7 +4,7 @@
 #include "Messages.h"
 #include "ServerInfo.h"
 
-#include "..\Net\NetDriver.h"
+#include "../Net/NetDriver.h"
 class CConnectionFailed : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CConnectionFailed );

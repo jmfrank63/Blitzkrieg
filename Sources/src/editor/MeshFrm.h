@@ -6,7 +6,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\Main\rpgstats.h"
+#include "../Main/rpgstats.h"
 #include "ParentFrame.h"
 
 interface IObjVisObj;

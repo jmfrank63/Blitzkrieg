@@ -1,9 +1,9 @@
 #ifndef __TEXTUREMANAGER_H__
 #define __TEXTUREMANAGER_H__
 #pragma ONCE
-#include "..\Misc\BasicShare.h"
+#include "../Misc/BasicShare.h"
 #include "Texture.h"
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 BASIC_SHARE_DECLARE( CTextureShare, std::string, CTexture, GFX_TEXTURE, 106, ".tga" );
 class CTextureManager : public ITextureManager
 {

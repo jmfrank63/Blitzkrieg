@@ -1,9 +1,9 @@
 #ifndef __MESH_TREE_ITEM_H__
 #define __MESH_TREE_ITEM_H__
 
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\Main\rpgstats.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
+#include "../Main/rpgstats.h"
 #include "TreeItem.h"
 
 class CMeshTreeRootItem : public CTreeItem

@@ -1,7 +1,7 @@
 #ifndef __EFFECTVISOBJ_H__
 #define __EFFECTVISOBJ_H__
 #pragma ONCE
-#include "..\Formats\fmtEffect.h"
+#include "../Formats/fmtEffect.h"
 template <class TYPE>
 struct SEffect
 {

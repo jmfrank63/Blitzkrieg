@@ -1,7 +1,7 @@
 #ifndef __TREEITEM_H__
 #define __TREEITEM_H__
 
-#include "..\\Common\\LegacyUiCompat.h"
+#include "..//Common//LegacyUiCompat.h"
 #include "CtrlObjectInspector.h"
 
 using namespace std;

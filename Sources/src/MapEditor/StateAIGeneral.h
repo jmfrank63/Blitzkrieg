@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\RandomMapGen\Polygons_Types.h"
+#include "../RandomMapGen/Polygons_Types.h"
 
 #include "InputMultiState.h"
 #include "DrawingTools.h"

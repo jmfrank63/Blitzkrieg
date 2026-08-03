@@ -6,8 +6,8 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\\Common\\LegacyUiCompat.h"
-#include "..\GFX\GFX.h"
+#include "..//Common//LegacyUiCompat.h"
+#include "../GFX/GFX.h"
 
 #include "ParentFrame.h"
 #include "SpriteTreeItem.h"

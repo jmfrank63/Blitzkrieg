@@ -2,9 +2,9 @@
 #define __MOUNIT_H__
 #pragma ONCE
 #include "MapObject.h"
-#include "..\Scene\Scene.h"
-#include "..\Anim\Animation.h"
-#include "..\Main\TextSystem.h"
+#include "../Scene/Scene.h"
+#include "../Anim/Animation.h"
+#include "../Main/TextSystem.h"
 class CMOUnit : public CTRefCount<IMOUnit>
 {
 	DECLARE_SERIALIZE;

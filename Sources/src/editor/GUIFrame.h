@@ -5,11 +5,11 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\\Common\\LegacyUiCompat.h"
-#include "..\UI\UI.h"
-#include "..\GFX\GFX.h"
-#include "..\Input\Input.h"
-#include "..\Input\InputHelper.h"
+#include "..//Common//LegacyUiCompat.h"
+#include "../UI/UI.h"
+#include "../GFX/GFX.h"
+#include "../Input/Input.h"
+#include "../Input/InputHelper.h"
 #include "ParentFrame.h"
 #include "GUIView.h"
 #include "GUIUndo.h"

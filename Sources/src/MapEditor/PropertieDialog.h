@@ -9,7 +9,7 @@
 
 #define IDC_PC_TREE ( IDC_PIN_BUTTON + 1 )
 #include "PushPin.h"
-#include ".\\MTree ctrl\\FrameTree.h"
+#include ".//MTree ctrl//FrameTree.h"
 #include "ResizeDialog.h"
 class CPropertieDialog : public CResizeDialog
 {
@@ -25,9 +25,9 @@ public:
 	int		GetVariable( std::string &name );
 	void	AddRootVariable( std::string &str, int variable );
 
-	void	AddManipulatorVariable( std::string &str, IManipulator *ptr ); // добавляет пустые промежуточные nod'ы + конечный( редактируемый ) node
+	void	AddManipulatorVariable( std::string &str, IManipulator *ptr ); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ nod'пїЅ + пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ( пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ) node
 
-	HTREEITEM	AddEmptyNode( std::string &str, HTREEITEM hPARoot = TVI_ROOT ); // node который не содержит данных
+	HTREEITEM	AddEmptyNode( std::string &str, HTREEITEM hPARoot = TVI_ROOT ); // node пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	HTREEITEM	AddPropertieNode( std::string &str, std::string &propName,IManipulator *ptr, HTREEITEM hPARoot = TVI_ROOT ); 
 
 	CPropertieDialog(CWnd* pParent = NULL);

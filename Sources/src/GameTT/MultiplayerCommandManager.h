@@ -2,8 +2,8 @@
 #define _MULTIPLAYER_COMMAND_MANAGER_
 #include "iMission.h"
 #include "MuliplayerToUIConsts.h"
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\StreamIO\StreamIOHelper.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../StreamIO/StreamIOHelper.h"
 
 inline std::wstring MakeWideStringFromWordString( const WORD *pszText )
 {

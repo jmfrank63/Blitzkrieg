@@ -7,8 +7,8 @@
 #include "ListControlWrapper.h"
 #include "ChatWrapper.h"
 
-#include "..\Main\Transceiver.h"
-#include "..\StreamIO\ProgressHook.h"
+#include "../Main/Transceiver.h"
+#include "../StreamIO/ProgressHook.h"
 class CMapSettingsWrapper;
 class CInterfaceMPStartingGame : public CInterfaceMultiplayerScreen, public IWhisper
 {

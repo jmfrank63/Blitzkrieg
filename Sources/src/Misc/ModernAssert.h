@@ -1,11 +1,11 @@
-﻿#ifndef __MODERN_ASSERT_H__
+#ifndef __MODERN_ASSERT_H__
 #define __MODERN_ASSERT_H__
 #pragma once
 
-#include <cassert>
-#include <cstdlib>
-#include "../Platform/Debug.h"
-#include "../Platform/Compiler.h"
+
+
+
+
 
 #define NI_ASSERT_STRINGIZE2(x) #x
 #define NI_ASSERT_STRINGIZE(x)  NI_ASSERT_STRINGIZE2(x)

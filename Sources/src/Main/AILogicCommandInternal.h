@@ -3,8 +3,8 @@
 #pragma ONCE
 #include "AILogicCommand.h"
 #include "NetMessages.h"
-#include "..\Common\Actions.h"
-#include "..\zlib\zconf.h"
+#include "../Common/Actions.h"
+#include "../zlib/zconf.h"
 class CRegisterGroupCommand : public IAILogicCommand
 {
 public:

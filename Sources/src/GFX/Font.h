@@ -1,7 +1,7 @@
 #ifndef __FONT_H__
 #define __FONT_H__
 #pragma ONCE
-#include "..\Formats\fmtFont.h"
+#include "../Formats/fmtFont.h"
 #include "GFXHelper.h"
 #include "GFXTextVisitors.h"
 class CFont : public IGFXFont

@@ -2,15 +2,15 @@
 #define __FILE_UTILS_H__
 #pragma ONCE
 
-#include "../Platform/LegacyTypes.h"
-#include <cstdio>
-#include <algorithm>
-#include <string>
-#include <vector>
-#include <list>
+
+
+
+
+
+
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <windows.h>
+
 #ifdef GetFileTitle
 #undef GetFileTitle
 #endif

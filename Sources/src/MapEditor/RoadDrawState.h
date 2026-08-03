@@ -8,7 +8,7 @@
 
 #include "InputState.h"
 #include "TemplateEditorFrame1.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtMap.h"
 
 namespace roadStateConsts
 { 

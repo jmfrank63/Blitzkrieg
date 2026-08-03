@@ -1,12 +1,12 @@
 #ifndef __MAPOBJECT_H__
 #define __MAPOBJECT_H__
 #pragma ONCE
-#include "..\Main\RPGStats.h"
-#include "..\Scene\PFX.h"
-#include "..\SFX\SFX.h"
-#include "..\Scene\Scene.h"
-#include "..\AILogic\AITypes.h"
-#include "..\Image\Image.h"
+#include "../Main/RPGStats.h"
+#include "../Scene/PFX.h"
+#include "../SFX/SFX.h"
+#include "../Scene/Scene.h"
+#include "../AILogic/AITypes.h"
+#include "../Image/Image.h"
 interface IMapObjVisitor
 {
 	virtual void STDCALL VisitSprite( IVisObj *pVO, EObjGameType eGameType, EObjVisType eVisType, bool bOutbound = false ) = 0;

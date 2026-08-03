@@ -3,7 +3,7 @@
 
 #include "VA_Types.h"
 #include "Polygons_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 class CVSOBuilder
 {

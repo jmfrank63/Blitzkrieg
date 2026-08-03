@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\Main\rpgstats.h"
+#include "../Main/rpgstats.h"
 #include "GridFrm.h"
 #include "TreeDockWnd.h"
 #include "FenceTreeItem.h"
@@ -70,7 +70,7 @@ private:
 	CComboBox *m_pTransparenceCombo;
 	int m_transValue;
 
-	std::list<int> freeIndexes;			//для хранения незаполненных индексов
+	std::list<int> freeIndexes;			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	
 protected:
 	void ClickOnThumbList( int nID );
@@ -82,7 +82,7 @@ protected:
 	void CenterSpriteAboutTile();
 	
 	virtual void LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem );
-	virtual void SpecificInit();														//для инициализации внутренних данных после загрузки проекта или создании нового
+	virtual void SpecificInit();														//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void SpecificClearBeforeBatchMode();
 	virtual BOOL SpecificTranslateMessage( MSG *pMsg );
 	

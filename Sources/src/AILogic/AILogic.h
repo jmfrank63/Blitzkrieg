@@ -1,9 +1,9 @@
 #ifndef __AI_LOGIC_H__
 #define __AI_LOGIC_H__
-#include "..\Formats\fmtMap.h"
-#include "..\AILogic\AIGeometry.h"
+#include "../Formats/fmtMap.h"
+#include "../AILogic/AIGeometry.h"
 #include "AIClassesID.h"
-#include "..\StreamIO\ProgressHook.h"
+#include "../StreamIO/ProgressHook.h"
 #define AI_INIT_PROGRESS_STEPS 5
 interface IAIEditor : public IRefCount
 {

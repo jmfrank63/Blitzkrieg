@@ -1,6 +1,6 @@
 #ifndef __IMAGEOBJECTFACTORY_H__
 #define __IMAGEOBJECTFACTORY_H__
-#include "..\Misc\BasicObjectFactory.h"
+#include "../Misc/BasicObjectFactory.h"
 class CImageObjectFactory : public CBasicObjectFactory
 {
 public:

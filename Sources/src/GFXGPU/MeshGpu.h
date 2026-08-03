@@ -2,7 +2,7 @@
 #define BLITZKRIEG_MESH_GPU_H
 
 #include "GraphicsEngineGpu.h"
-#include "..\\Formats\\fmtMesh.h"
+#include "..//Formats//fmtMesh.h"
 
 class MeshGpu final : public IGFXMesh
 {

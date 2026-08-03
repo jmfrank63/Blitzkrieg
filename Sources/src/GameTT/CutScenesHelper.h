@@ -1,7 +1,7 @@
 #ifndef __CUTSCENES_HELPER_H__
 #define __CUTSCENES_HELPER_H__
 #pragma ONCE
-#include "..\Main\ScenarioTracker.h"
+#include "../Main/ScenarioTracker.h"
 namespace NCutScenes
 {
 inline void GetCutScenesList( std::list<std::string> &cutscenes )

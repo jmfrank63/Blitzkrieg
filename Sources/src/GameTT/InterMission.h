@@ -1,8 +1,8 @@
 #ifndef __INTERMISSION_H__
 #define __INTERMISSION_H__
 #pragma ONCE
-#include "..\Common\InterfaceScreenBase.h"
-#include "..\Input\InputHelper.h"
+#include "../Common/InterfaceScreenBase.h"
+#include "../Input/InputHelper.h"
 
 class CInterfaceInterMission : public CInterfaceScreenBase
 {

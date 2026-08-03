@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_GRAPHICS_ENGINE_GPU_H
 #define BLITZKRIEG_GRAPHICS_ENGINE_GPU_H
 
-#include "..\\GFX\\GFX.H"
+#include "..//GFX//GFX.H"
 #include "gfxgpu_c.h"
 
 #include <string>

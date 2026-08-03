@@ -1,6 +1,6 @@
 #ifndef __COMBATESTIMATOR_H__
 #define __COMBATESTIMATOR_H__
-#include "..\Misc\HashFuncs.h"
+#include "../Misc/HashFuncs.h"
 #include "AIHashFuncs.h"
 class CAIUnit;
 class CCombatEstimator

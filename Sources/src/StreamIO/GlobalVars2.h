@@ -1,6 +1,6 @@
 #ifndef __GLOBALVARS2_H__
 #define __GLOBALVARS2_H__
-#include "..\Misc\VarSystem.h"
+#include "../Misc/VarSystem.h"
 interface IGlobalVarsIterator : public IVarIterator
 {
 };

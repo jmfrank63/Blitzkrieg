@@ -2,7 +2,7 @@
 #define __GEOMETRY_H__
 #pragma ONCE
 #include <math.h>
-#include "Tools.h"
+
 #pragma pack( 4 )
 class CVec2
 {

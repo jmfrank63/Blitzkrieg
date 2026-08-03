@@ -7,7 +7,7 @@
 
 #include "ELK_Types.h"
 #include "ResizeDialog.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 #include "ELK_Types.h"
 
 class CChooseFontsDialog : public CResizeDialog

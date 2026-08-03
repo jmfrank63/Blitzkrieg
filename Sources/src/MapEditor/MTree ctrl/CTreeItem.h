@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <afxdisp.h>
-#include "..\..\Misc\Basic.h"
+#include "../../Misc/Basic.h"
 
 
 

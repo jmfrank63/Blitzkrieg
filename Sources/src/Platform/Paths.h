@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_PATHS_H
 #define BLITZKRIEG_PLATFORM_PATHS_H
 
-#include <string>
+
 
 namespace NPlatform::Paths {
 bool Initialize();

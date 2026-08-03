@@ -1,8 +1,8 @@
 #if !defined(__ImageBuilder__Types__)
 #define __ImageBuilder__Types__
 
-#include "..\Image\Image.h"
-#include "..\Formats\FmtSprite.h"
+#include "../Image/Image.h"
+#include "../Formats/FmtSprite.h"
 inline std::string GetDDSImageExtention( ECompressionType compressionType )
 {
 	if ( compressionType == COMPRESSION_DXT )

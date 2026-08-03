@@ -1,8 +1,8 @@
 #ifndef __PEER_CHAT_H__
 #define __PEER_CHAT_H__
 #pragma ONCE
-#include "GameCreationInterfaces.h"
-#include "MessagesStore.h"
+
+
 
 class CGameSpyPeerChat : public IChat
 {

@@ -1,7 +1,7 @@
 #ifndef __GS_QUERY_REPORTING_DRIVER__
 #define __GS_QUERY_REPORTING_DRIVER__
 #pragma ONCE
-#include "NetDriver.h"
+
 
 class CGSQueryReportingDriver : public INetDriver
 {

@@ -6,7 +6,7 @@
 #endif // _MSC_VER > 1000
 
 
-#include "..\\Resource.h"
+#include "..//Resource.h"
 
 class CPercentDialog : public CDialog
 {

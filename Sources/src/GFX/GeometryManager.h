@@ -1,7 +1,7 @@
 #ifndef __GEOMETRYMANAGER_H__
 #define __GEOMETRYMANAGER_H__
 #pragma ONCE
-#include "..\Misc\BasicShare.h"
+#include "../Misc/BasicShare.h"
 #include "GeometryMesh.h"
 BASIC_SHARE_DECLARE( CMeshShare, std::string, CGeometryMesh, GFX_MESH, 105, "" );
 class CMeshManager : public IMeshManager

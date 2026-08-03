@@ -1,13 +1,13 @@
 #ifndef __INTERFACESCREENBASE_H__
 #define __INTERFACESCREENBASE_H__
-#include "..\Main\iMain.h"
-#include "..\GFX\GFX.h"
-#include "..\SFX\SFX.h"
-#include "..\Input\Input.h"
-#include "..\Scene\Scene.h"
-#include "..\UI\UI.h"
-#include "..\Misc\HPTimer.h"
-#include "..\Main\TextSystem.h"
+#include "../Main/iMain.h"
+#include "../GFX/GFX.h"
+#include "../SFX/SFX.h"
+#include "../Input/Input.h"
+#include "../Scene/Scene.h"
+#include "../UI/UI.h"
+#include "../Misc/HPTimer.h"
+#include "../Main/TextSystem.h"
 template <class TInterface, int NInterfaceTypeID>
 class CInterfaceCommandBase : public IInterfaceCommand
 {
@@ -46,7 +46,7 @@ class CInterfaceScreenBase : public IInterfaceBase
 	float fAveFPS;												// average FPS (for a last second)
 	float fAveTPS;												// average TPS -~-
 	int nCPUFreq;													// main CPU frequence
-	std::list<SGameMessage> messages;			// сообщения наверх
+	std::list<SGameMessage> messages;			// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	std::string szBindSection;						// this interface bind section
 	const std::string szInterfaceType;		// interface type - "InterMission", "Mission"
 	CPtr<IText> pLastToolTip;							// last setuped tooltip

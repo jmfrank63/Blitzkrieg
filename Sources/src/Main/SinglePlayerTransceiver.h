@@ -2,7 +2,7 @@
 #define __SINGLEPLAYERTRANSCEIVER_H__
 #pragma ONCE
 #include "Transceiver.h"
-#include "..\AILogic\AILogic.h"
+#include "../AILogic/AILogic.h"
 interface ICommandsHistory;
 class CSinglePlayerTransceiver : public CTRefCount<ITransceiver>
 {

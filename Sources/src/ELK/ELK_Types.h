@@ -5,9 +5,9 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\RandomMapGen\Registry_Types.h"
-#include "..\RandomMapGen\Resource_Types.h"
-#include "..\Formats\fmtFont.h"
+#include "../RandomMapGen/Registry_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
+#include "../Formats/fmtFont.h"
 struct SELKTextProperty
 {
 	enum STATE

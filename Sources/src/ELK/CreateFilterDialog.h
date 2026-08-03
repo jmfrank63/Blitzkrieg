@@ -7,7 +7,7 @@
 
 #include "ELK_Types.h"
 #include "ResizeDialog.h"
-#include "..\RandomMapGen\Resource_Types.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 int CALLBACK FiltersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 class CCreateFilterDialog : public CResizeDialog

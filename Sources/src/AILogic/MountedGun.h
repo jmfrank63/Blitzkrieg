@@ -2,7 +2,7 @@
 #define __MOUNTED_GUN_H__
 
 #pragma ONCE
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 #include "Guns.h"
 class CMountedTurret;
 class CCommonMountedGun

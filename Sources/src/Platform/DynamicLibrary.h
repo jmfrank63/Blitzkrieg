@@ -1,7 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_DYNAMIC_LIBRARY_H
 #define BLITZKRIEG_PLATFORM_DYNAMIC_LIBRARY_H
 
-#include <string>
+
 
 namespace NPlatform
 {

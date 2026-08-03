@@ -1,14 +1,14 @@
 #ifndef __WORLDBASE_H__
 #define __WORLDBASE_H__
 #pragma ONCE
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\Input\Input.h"
-#include "..\Common\World.h"
-#include "..\Common\MapObject.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Main\Transceiver.h"
-#include "..\GameTT\AckManager.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../Input/Input.h"
+#include "../Common/World.h"
+#include "../Common/MapObject.h"
+#include "../AILogic/AILogic.h"
+#include "../Main/Transceiver.h"
+#include "../GameTT/AckManager.h"
 class CComplexObjects
 {
 	typedef std::unordered_map<IRefCount*, CMapObjectsList, SDefaultPtrHash> CAIVisMap;

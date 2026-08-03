@@ -1,8 +1,8 @@
 #ifndef _NEW_
 #define _NEW_
 #define _INC_NEW
-#include "../Platform/Compiler.h"
-#include <malloc.h>
+
+
 namespace std
 {
 	class bad_alloc {  };

@@ -10,7 +10,7 @@ interface IMessageReactionB2;
 interface ICustomCheck;
 
 #include "IMessageReaction.h"
-#include "..\LuaLib\Script.h"
+#include "../LuaLib/Script.h"
 
 class CMessageReactionB2 : public IMessageReactionB2
 {

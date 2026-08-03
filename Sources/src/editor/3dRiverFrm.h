@@ -1,7 +1,7 @@
 #ifndef __3DRIVER_FRAME_H__
 #define __3DRIVER_FRAME_H__
 
-#include "..\Formats\fmtmap.h"
+#include "../Formats/fmtmap.h"
 #include "ParentFrame.h"
 #include "TreeDockWnd.h"
 

@@ -6,8 +6,8 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\Common\MapObject.h"
-#include "..\Misc\Manipulator.h"
+#include "../Common/MapObject.h"
+#include "../Misc/Manipulator.h"
 #include "EditorObjectItem.h"
 class SUnitEditorObjectItem : public SEditorObjectItem
 {

@@ -2,12 +2,12 @@
 #define __IMAININTERNAL_H__
 #pragma ONCE
 #include "iMain.h"
-#include "..\Input\Input.h"
-#include "..\Input\InputHelper.h"
-#include "..\GFX\GFX.h"
-#include "..\Scene\Scene.h"
-#include "..\AILogic\AILogic.h"
-#include "..\Misc\HPTimer.h"
+#include "../Input/Input.h"
+#include "../Input/InputHelper.h"
+#include "../GFX/GFX.h"
+#include "../Scene/Scene.h"
+#include "../AILogic/AILogic.h"
+#include "../Misc/HPTimer.h"
 #include "TextSystem.h"
 #include "ScenarioTracker.h"
 class CMainLoop : public IMainLoop

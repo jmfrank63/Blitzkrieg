@@ -1,6 +1,6 @@
 #ifndef __UISCREEN_H__
 #define __UISCREEN_H__
-#include "..\Input\Input.h"
+#include "../Input/Input.h"
 #include "UIBasic.h"
 #include "UIConsole.h"
 #include "UIMessageBox.h"

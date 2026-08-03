@@ -1,12 +1,12 @@
 #if !defined(__Tabs__Terrain_Altitudes_Tab_Dialog__)
 #define __Tabs__Terrain_Altitudes_Tab_Dialog__
 
-#include "..\RandomMapGen\VA_Types.h"
+#include "../RandomMapGen/VA_Types.h"
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\RandomMapGen\TerrainGenerator.h"
+#include "../RandomMapGen/TerrainGenerator.h"
 #include "ResizeDialog.h"
 
 class CShadeEditorWnd : public CResizeDialog
@@ -14,10 +14,10 @@ class CShadeEditorWnd : public CResizeDialog
 public:
 	enum LEVEL_TO
 	{
-		LEVEL_TO_0 = 0, //к нулю 
-		LEVEL_TO_1 = 1, //к выделенному тайлу
-		LEVEL_TO_2 = 2, //к мгновенной средней высое
-		LEVEL_TO_3 = 3, //к выделенной средней высоте
+		LEVEL_TO_0 = 0, //пїЅ пїЅпїЅпїЅпїЅ 
+		LEVEL_TO_1 = 1, //пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		LEVEL_TO_2 = 2, //пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		LEVEL_TO_3 = 3, //пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	};
 
 	SVAPattern m_currentPattern;

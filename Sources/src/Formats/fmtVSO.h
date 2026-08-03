@@ -3,7 +3,7 @@
 
 #pragma ONCE
 
-#include "..\Image\Image.h"
+#include "../Image/Image.h"
 struct SVectorStripeObjectPoint
 {
 	CVec3 vPos;														// point position
@@ -11,7 +11,7 @@ struct SVectorStripeObjectPoint
 	float fRadius;												// curvature radius
 	float fWidth;													// width at this point
 	bool	bKeyPoint;											// key point of the sampling
-	float fOpacity;												// прозрачность ( 0..1 ) только для key point
+	float fOpacity;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ( 0..1 ) пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ key point
 
 	SVectorStripeObjectPoint()
 		: vPos( VNULL3 ), vNorm( VNULL3 ), fRadius( 0.0f ), fWidth( 0.0f ), bKeyPoint( false ), fOpacity( 1.0f ) {}
@@ -31,13 +31,13 @@ struct SVectorStripeObjectDesc
 	
 	struct SLayer
 	{
-		BYTE opacityCenter;									// прозрачность в центре потока
-		BYTE opacityBorder;									// прозрачность по краям
-		float fStreamSpeed;									// условная скорость потока
-		float fTextureStep;									// шаг текстурирования по тайлам
-		int nNumCells;											// ширина потока в ячейках (в тайлах)
+		BYTE opacityCenter;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		BYTE opacityBorder;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		float fStreamSpeed;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		float fTextureStep;									// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		int nNumCells;											// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
 		bool bAnimated;											// animated layer
-		std::string szTexture;							// текстура потока (или директория, если это анимированная текстура)
+		std::string szTexture;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 		float fDisturbance;									// mesh disturbance
 		float fRelWidth;										// relative width
 
@@ -51,20 +51,20 @@ struct SVectorStripeObjectDesc
 	int	eType;														// type
 	int nPriority;												// priority
 	float fPassability;										// passability
-	DWORD dwAIClasses;										// AI классы, которые не могут ходить по этой дороге
+	DWORD dwAIClasses;										// AI пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 	enum ESoilParams
 	{ 
 		ESP_TRACE = 0x01,
 		ESP_DUST	= 0x10
 	};
-	BYTE cSoilParams;											// параметры почвы - следы, пыль и т.д.
+	BYTE cSoilParams;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅ пїЅ.пїЅ.
 	
 	SLayer bottom;												// bottom central layer
 	std::vector<SLayer> bottomBorders;		// bottom layer border parts
 	std::vector<SLayer> layers;						// additional layers
-	SColor miniMapCenterColor;						// цвет обьекта на минимапе ( центральная часть )
-	SColor miniMapBorderColor;						// цвет обьекта на минимапе ( край )
+	SColor miniMapCenterColor;						// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ( пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ )
+	SColor miniMapBorderColor;						// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ( пїЅпїЅпїЅпїЅ )
 	
 	std::string szAmbientSound;
 	

@@ -13,9 +13,9 @@
 #include "NetLogin.h"
 #include "NetPeer2Peer.h"
 
-#include "..\Misc\HPTimer.h"
-#include "..\Misc\Thread.h"
-#include "..\Misc\Win32Helper.h"
+
+
+#include "../Misc/Win32Helper.h"
 
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
 #define __TEST_LAGS__

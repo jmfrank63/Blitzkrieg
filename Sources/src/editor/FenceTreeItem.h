@@ -1,8 +1,8 @@
 #ifndef __FENCE_TREE_ITEM_H__
 #define __FENCE_TREE_ITEM_H__
 
-#include "..\GFX\GFX.h"
-#include "..\Main\rpgstats.h"
+#include "../GFX/GFX.h"
+#include "../Main/rpgstats.h"
 #include "GridFrm.h"
 #include "TreeItem.h"
 #include "ThumbList.h"
@@ -24,7 +24,7 @@ private:
 class CFenceCommonPropsItem : public CTreeItem
 {
 private:
-	SThumbItems m_thumbItems;			//эти items отображаются в AllDirThumbList
+	SThumbItems m_thumbItems;			//пїЅпїЅпїЅ items пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ AllDirThumbList
 	CImageList imageList;
 	
 	OBJECT_NORMAL_METHODS( CFenceCommonPropsItem );
@@ -60,8 +60,8 @@ public:
 
 class CFenceInsertItem : public CTreeItem
 {
-	SThumbItems m_thumbItems;			//эти items отображаются в SelectedThumbList
-	bool bLoaded;									//этот флаг для подкачки items только в момент когда пользователь выбирает папку c roads
+	SThumbItems m_thumbItems;			//пїЅпїЅпїЅ items пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ SelectedThumbList
+	bool bLoaded;									//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ items пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ c roads
 	OBJECT_NORMAL_METHODS( CFenceInsertItem );
 public:
 	CFenceInsertItem() { nItemType = E_FENCE_INSERT_ITEM; bLoaded = false; InitDefaultValues(); nImageIndex = 7; }
@@ -71,7 +71,7 @@ public:
 	bool GetLoadedFlag() { return bLoaded; }
 	SThumbItems* GetThumbItems() { return &m_thumbItems; }
 	
-	virtual void InsertChildItems();					//Вызывается после создания всех компонентов для занесения их в дерево
+	virtual void InsertChildItems();					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void InitDefaultValues();
 	virtual void MyLButtonClick();
 };
@@ -81,7 +81,7 @@ class CFencePropsItem : public CTreeItem
 	OBJECT_NORMAL_METHODS( CFencePropsItem );
 	
 public:
-	CVec3 vSpritePos;		//не хочу кучу функций таскать, TT
+	CVec3 vSpritePos;		//пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, TT
 	CListOfTiles lockedTiles;
 	CListOfTiles transeparences;
 	bool bLoaded;

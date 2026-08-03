@@ -1,8 +1,8 @@
 #ifndef __COMMANDS_H__
 #define __COMMANDS_H__
 #pragma ONCE
-#include "..\Common\Actions.h"
-#include "..\Misc\FreeIDs.h"
+#include "../Common/Actions.h"
+#include "../Misc/FreeIDs.h"
 interface IStaticPathFinder;
 interface IStaticPath;
 struct SGroupPathInfo

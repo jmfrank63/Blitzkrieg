@@ -2,7 +2,7 @@
 #include "AIInternalConsts.h"
 #include "ListsSet.h"
 #include "AIGeometry.h"
-#include "..\Main\RPGStats.h"
+#include "../Main/RPGStats.h"
 #include "AITypes.h"
 #include "AICellsTiles.h"
 #include "ValidObjectCheck.h"

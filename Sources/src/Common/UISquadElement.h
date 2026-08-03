@@ -1,7 +1,7 @@
 #ifndef __UISQUADELEMENT_H__
 #define __UISQUADELEMENT_H__
 #pragma ONCE
-#include "..\UI\UI.h"
+#include "../UI/UI.h"
 #include "MapObject.h"
 class CUISquadElement;
 struct SIconDesc
@@ -43,15 +43,15 @@ class CUISquadElement : public CTRefCount<IUIElement>
 {
 	OBJECT_SERVICE_METHODS( CUISquadElement );
 	DECLARE_SERIALIZE;
-	CTRect<float> rcWindow;							// координаты окошка относительно экрана
-	int nPositionFlag;									// задает точку привязки
-	CVec2 vPos;													// координаты левой верхней точки окошка относительно выбранной точки привязки
-	CVec2 vSize;												// размеры окошка
+	CTRect<float> rcWindow;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	int nPositionFlag;									// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec2 vPos;													// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec2 vSize;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
-	int nID;														// уникальный идентификатор окошка
-	CPtr<IUIContainer> pParent;					// родитель
-	bool bWindowActive;									// активно ли окно				//??
-	int nCmdShow;												// статус обображения окна
+	int nID;														// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<IUIContainer> pParent;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bWindowActive;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ				//??
+	int nCmdShow;												// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	bool bSelected;											// is this squad selected inside the container?
 	typedef std::list< CObj<CUIUnitObserver> > CPassangersList;
 	CPassangersList passangers;					// container passangers

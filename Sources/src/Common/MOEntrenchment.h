@@ -2,14 +2,14 @@
 #define __MOENTRENCHMENT_H__
 #pragma ONCE
 #include "MapObject.h"
-#include "..\Main\TextSystem.h"
-#include "..\Anim\Animation.h"
-#include "..\Scene\Scene.h"
+#include "../Main/TextSystem.h"
+#include "../Anim/Animation.h"
+#include "../Scene/Scene.h"
 class CMOEntrenchmentSegment : public CTRefCount<SMapObject>
 {
 	OBJECT_SERVICE_METHODS( CMOEntrenchmentSegment );
 	DECLARE_SERIALIZE;
-	mutable CPtr<IText> pLocalName;				// localized name of this object (ZB "Гавно на дороге")
+	mutable CPtr<IText> pLocalName;				// localized name of this object (ZB "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ")
 	const SEntrenchmentRPGStats* GetRPGStats() const { return static_cast_gdb<const SEntrenchmentRPGStats*>( pRPG ); }
 	IMeshVisObj* GetVisObj() { return static_cast_ptr<IMeshVisObj*>( pVisObj ); }
 	IMeshAnimation* GetAnim() { return static_cast<IMeshAnimation*>( GetVisObj()->GetAnimation() ); }
