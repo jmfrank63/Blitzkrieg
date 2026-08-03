@@ -1,6 +1,7 @@
 #ifndef __DTHELPER_H__
 #define __DTHELPER_H__
 #include "StructureSaver.h"
+#include "../Main/GameDB.h"
 #ifndef ZDATA_
 #define ZDATA_(a)
 #endif // ZDATA_
@@ -292,7 +293,7 @@ class CTreeAccessor
 				}
 			}
 			Add( idChunk, &elements );
-			for ( std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+			for ( typename std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 				data.push( *it );
 		}
 	template <class T, class T1, class T2, class T3, class T4>
@@ -302,14 +303,14 @@ class CTreeAccessor
 			if ( !IsReading() )
 			{
 				elements.reserve( pData->size() );
-			for ( std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
+			for ( typename std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
 			Add( idChunk, &elements );
 			if ( IsReading() )
 			{
 				pData->clear();
-				for ( std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+				for ( typename std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 					pData->insert( *it );
 			}
 		}
@@ -319,14 +320,14 @@ class CTreeAccessor
 			std::list<T1> elements;
 			if ( !IsReading() )
 			{
-				for ( std::set<T1, T2, T3>::iterator it = pData->begin(); it != pData->end(); ++it )
+				for ( typename std::set<T1, T2, T3>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
 			Add( idChunk, &elements );
 			if ( IsReading() )
 			{
 				pData->clear();
-				for ( std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+				for ( typename std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 					pData->insert( *it );
 			}
 		}
@@ -547,7 +548,7 @@ class CTreeAccessor
 			else
 			{
 				int i = 0;
-				for ( std::unordered_multimap<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
+				for ( typename std::unordered_multimap<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
 				{
 					pSS->SetChunkCounter( i );
 					T1 idx = it->first;
@@ -573,7 +574,7 @@ class CTreeAccessor
 			else
 			{
 				int i = 0;
-				for ( std::map<T1, T2, T3, T4>::iterator it = data.begin(); it != data.end(); ++it, ++i )
+				for ( typename std::map<T1, T2, T3, T4>::iterator it = data.begin(); it != data.end(); ++it, ++i )
 				{
 					pSS->SetChunkCounter( i );
 					T1 idx = it->first;

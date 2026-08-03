@@ -165,14 +165,14 @@ class CSaverAccessor
 			std::list<T1> elements;
 			if ( !IsReading() )
 			{
-				for ( std::set<T1, T2, T3>::iterator it = pData->begin(); it != pData->end(); ++it )
+				for ( typename std::set<T1, T2, T3>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
 			Add( idChunk, &elements );
 			if ( IsReading() )
 			{
 				pData->clear();
-				for ( std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+				for ( typename std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 					pData->insert( *it );
 			}
 		}
@@ -318,7 +318,7 @@ class CSaverAccessor
 			}
 			else
 			{
-				for ( std::map<T1, T2, T3, T4>::iterator pos = data.begin(); pos != data.end(); ++pos )
+				for ( typename std::map<T1, T2, T3, T4>::iterator pos = data.begin(); pos != data.end(); ++pos )
 				{
 					T1 idx = pos->first;
 					Add( 1, &idx );
@@ -371,7 +371,7 @@ class CSaverAccessor
 				}
 			}
 			Add( 1, &elements );
-			for ( std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+			for ( typename std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 				data.push( *it );
 		}
 public:

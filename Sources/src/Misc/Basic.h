@@ -401,9 +401,9 @@ template <class TUserObj>																															\
 class TPtrName: public CPtrBase<TUserObj, TRefFunc>																		\
 {																																											\
 	typedef CPtrBase<TUserObj, TRefFunc> TBase;																					\
+public:																																								\
 	using TBase::Set;																					\
 	using TBase::GetPtr;																					\
-public:																																								\
 	TPtrName() {}																																				\
 	TPtrName( TUserObj *_ptr ): TBase( _ptr ) {  }																			\
 	TPtrName( const TPtrName &a ): TBase( a ) {  }																			\
