@@ -212,7 +212,7 @@ CMissionObjectFactory::CMissionObjectFactory()
 	REGISTER_CLASS( this, MISSION_SCORES_STATE_REPLAY, CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState )
 }
 static SModuleDescriptor theModuleDescriptor( "Main game logic", MISSION_BASE_VALUE, 0x0100, &theMissionObjectFactory, 0 );
-const SModuleDescriptor* STDCALL GetModuleDescriptor()
+extern "C" BK_EXPORT const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }

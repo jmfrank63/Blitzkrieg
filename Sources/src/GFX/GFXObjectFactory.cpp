@@ -72,7 +72,7 @@ void STDCALL CGFXModuleChecker::SetModuleFunctionalityLimits() const
 		SetGlobalVar( "GFX.Limit.TextureQuality", 1 );
 }
 static SModuleDescriptor theModuleDescriptor( "Graphics (DX8)", GFX_GFX, 0x0100, &theGFXObjectFactory, &theGFXModuleChecker );
-const SModuleDescriptor* STDCALL GetModuleDescriptor()
+extern "C" BK_EXPORT const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }

@@ -11,7 +11,7 @@ CImageObjectFactory::CImageObjectFactory()
 	REGISTER_CLASS( this, IMAGE_PROCESSOR, CImageProcessor );
 }
 static SModuleDescriptor theModuleDescriptor( "Image", IMAGE_IMAGE, 0x0100, &theImageObjectFactory, 0 );
-const SModuleDescriptor* STDCALL GetModuleDescriptor()
+extern "C" BK_EXPORT const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }

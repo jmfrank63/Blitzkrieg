@@ -257,15 +257,15 @@ const libpng_sources = &.{
 };
 
 const misc_sources = &.{
-	"Sources/src/Platform/Clock.cpp",
-	"Sources/src/Platform/Debug.cpp",
-	"Sources/src/Platform/DynamicLibrary.cpp",
-	"Sources/src/Platform/LegacyVariant.cpp",
-	"Sources/src/Platform/Paths.cpp",
-	"Sources/src/Platform/Sync.cpp",
-	"Sources/src/Platform/System.cpp",
-	"Sources/src/Platform/SocketWin32.cpp",
-	"Sources/src/Platform/SocketPosix.cpp",
+    "Sources/src/Platform/Clock.cpp",
+    "Sources/src/Platform/Debug.cpp",
+    "Sources/src/Platform/DynamicLibrary.cpp",
+    "Sources/src/Platform/LegacyVariant.cpp",
+    "Sources/src/Platform/Paths.cpp",
+    "Sources/src/Platform/Sync.cpp",
+    "Sources/src/Platform/System.cpp",
+    "Sources/src/Platform/SocketWin32.cpp",
+    "Sources/src/Platform/SocketPosix.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
     "Sources/src/Misc/GRect.cpp",
@@ -698,7 +698,7 @@ pub fn build(b: *std.Build) void {
         .library_arch = library_arch,
     };
     const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
-    platform_headers_module.addCSourceFiles(.{ .files = &.{ "tools/zig/platform_headers_test.cpp" }, .flags = &.{} });
+    platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
     platform_headers_module.addIncludePath(b.path("Sources/src"));
     if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
     const platform_headers_object = b.addObject(.{ .name = "platform-headers-test", .root_module = platform_headers_module });
@@ -1086,7 +1086,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     gfx_gpu_abi_test_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/gfxgpu_abi_test.cpp" },
+        .files = &.{"tools/zig/gfxgpu_abi_test.cpp"},
         .flags = cppflagsForOptimize(optimize),
     });
     gfx_gpu_abi_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
@@ -1554,7 +1554,7 @@ pub fn build(b: *std.Build) void {
     } else file_utils_module.link_libc = true;
     file_utils_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/platform_file_utils_test.cpp", "Sources/src/Misc/FileUtils.cpp" },
-        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" },
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"},
     });
     const file_utils_test = b.addExecutable(.{ .name = "platform-file-utils-test", .root_module = file_utils_module });
     file_utils_test.subsystem = .console;
@@ -1568,7 +1568,7 @@ pub fn build(b: *std.Build) void {
     paths_module.addIncludePath(b.path("Sources/src"));
     paths_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/platform_paths_test.cpp", "Sources/src/Platform/Paths.cpp" },
-        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17", "-DBLITZKRIEG_PATHS_TEST"}) else &.{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" },
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" }) else &.{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" },
     });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, paths_module, toolchain);
@@ -1832,13 +1832,20 @@ fn addLegacyProjectDll(
     for (libraries) |library| module.linkLibrary(library);
     linkSdlImport(module, target, sdl_dynamic);
     linkMsvcRuntime(module, optimize);
-    module.linkSystemLibrary("version", .{});
-    module.linkSystemLibrary("winmm", .{});
-    module.linkSystemLibrary("user32", .{});
-    module.linkSystemLibrary("odbc32", .{});
-    module.linkSystemLibrary("odbccp32", .{});
-    linkComSupport(module, optimize);
-    return b.addLibrary(.{ .name = name, .linkage = .dynamic, .root_module = module, .win32_module_definition = b.path(definition) });
+    if (target.result.os.tag == .windows) {
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        linkComSupport(module, optimize);
+    }
+    return b.addLibrary(.{
+        .name = name,
+        .linkage = .dynamic,
+        .root_module = module,
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path(definition) else null,
+    });
 }
 
 fn addMain(
@@ -2788,7 +2795,7 @@ fn addGameCommandLineTest(
             "Sources/src/Game/main.cpp",
             "tools/zig/game_command_line_test.cpp",
         },
-        .flags = &.{ "-std=c++17" },
+        .flags = &.{"-std=c++17"},
     });
     module.addCMacro("BLITZKRIEG_COMMAND_LINE_TEST", "1");
     switch (target.result.os.tag) {
@@ -2830,7 +2837,7 @@ fn addSdlApplicationTest(
             "Sources/src/Platform/SDLApplication.cpp",
             "tools/zig/platform_window_test.cpp",
         },
-        .flags = &.{ "-std=c++17" },
+        .flags = &.{"-std=c++17"},
     });
     linkSdlImport(module, target, sdl_dynamic);
     if (target.result.os.tag == .windows) {
@@ -2865,9 +2872,13 @@ fn addInputCodesTest(
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(b.path("Sources/src/Input"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_codes_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_codes_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -2890,9 +2901,13 @@ fn addPlatformInputTest(
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(b.path("Sources/src/Input"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/platform_input_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/platform_input_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -2915,9 +2930,13 @@ fn addPlatformClipboardTest(
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
-    module.addCSourceFiles(.{ .files = &.{ "tools/zig/platform_clipboard_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_clipboard_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -2939,9 +2958,13 @@ fn addPlatformAudioTest(
     toolchain: ToolchainIncludes,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
-    module.addCSourceFiles(.{ .files = &.{ "tools/zig/platform_audio_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_audio_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -2964,9 +2987,13 @@ fn addInputAudioGateTest(
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
-    module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_audio_gate.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/input_audio_gate.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -2988,8 +3015,8 @@ fn addRuntimeHeadersTest(
     toolchain: ToolchainIncludes,
 ) void {
     const header_names = [_][]const u8{
-        "AILogic", "Anim", "Common", "Formats", "Game", "GameTT", "Image", "Input",
-        "Main", "Misc", "Net", "RandomMapGen", "Scene", "SFX", "UI",
+        "AILogic", "Anim", "Common", "Formats",      "Game",  "GameTT", "Image", "Input",
+        "Main",    "Misc", "Net",    "RandomMapGen", "Scene", "SFX",    "UI",
     };
     const step = b.step("test-runtime-headers", "Compile each playable runtime StdAfx header independently");
     for (header_names, 0..) |header_name, index| {
@@ -3005,7 +3032,7 @@ fn addRuntimeHeadersTest(
         module.addCSourceFiles(.{
             .files = &.{"tools/zig/runtime_headers_test.cpp"},
             .flags = if (target.result.os.tag == .windows)
-                &(cppflags_debug.* ++ .{ index_flag })
+                &(cppflags_debug.* ++ .{index_flag})
             else
                 &.{ "-std=c++17", index_flag },
         });
@@ -3023,9 +3050,13 @@ fn addPlatformSocketTypesTest(
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
-    module.addCSourceFiles(.{ .files = &.{ "tools/zig/platform_socket_types_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_socket_types_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -3048,9 +3079,14 @@ fn addPlatformNetworkTest(
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "tools/zig/platform_network_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "tools/zig/platform_network_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); module.linkSystemLibrary("ws2_32", .{}); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+            module.linkSystemLibrary("ws2_32", .{});
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -3076,10 +3112,15 @@ fn addNetworkSystemGateTest(
     const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Platform"));
-    module.addCSourceFiles(.{ .files = &.{ "tools/zig/network_system_gate.cpp", "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "Sources/src/Platform/System.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{ "tools/zig/network_system_gate.cpp", "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "Sources/src/Platform/System.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     linkSdlImport(module, target, sdl_dynamic);
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); module.linkSystemLibrary("ws2_32", .{}); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+            module.linkSystemLibrary("ws2_32", .{});
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -3112,11 +3153,15 @@ fn addGameBootstrapSmoke(
     const module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{ "-std=c++17" } });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
     module.linkLibrary(sdl_c);
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, optimize); },
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, optimize);
+        },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -3143,7 +3188,7 @@ fn addSdlEventTest(
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{
         .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/platform_event_test.cpp" },
-        .flags = &.{ "-std=c++17" },
+        .flags = &.{"-std=c++17"},
     });
     linkSdlImport(module, target, sdl_dynamic);
     switch (target.result.os.tag) {

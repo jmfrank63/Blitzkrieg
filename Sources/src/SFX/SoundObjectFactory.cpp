@@ -17,7 +17,7 @@ CSoundObjectFactory::CSoundObjectFactory()
 	REGISTER_CLASS( this, SFX_PLAY_LIST, CPlayList );
 }
 static SModuleDescriptor theModuleDescriptor( "Sound", SFX_SFX, 0x0100, &theSoundObjectFactory, 0 );
-const SModuleDescriptor* STDCALL GetModuleDescriptor()
+extern "C" BK_EXPORT const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }
