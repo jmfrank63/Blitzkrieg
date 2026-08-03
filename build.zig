@@ -349,6 +349,7 @@ const betakeygen_sources = &.{
 const input_sources = &.{
     "Sources/src/Input/GlobalsLoader.cpp",
     "Sources/src/Input/StdAfx.cpp",
+    "Sources/src/Input/InputCodes.cpp",
     "Sources/src/Input/InputAPI.cpp",
     "Sources/src/Input/InputBinder.cpp",
     "Sources/src/Input/InputObjectFactory.cpp",
@@ -934,6 +935,7 @@ pub fn build(b: *std.Build) void {
     addGameCommandLineTest(b, target, test_mode, toolchain);
     addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addInputCodesTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2809,6 +2811,31 @@ fn addSdlApplicationTest(
     const test_step = b.step("test-platform-window", "Run SDL application window lifecycle tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
+}
+
+fn addInputCodesTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addIncludePath(b.path("Sources/src/Input"));
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_codes_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{ "-std=c++17" } });
+    switch (target.result.os.tag) {
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "input-codes-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-input-codes", "Run portable legacy input code mapping tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 fn addGameBootstrapSmoke(

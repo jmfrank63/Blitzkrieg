@@ -1,0 +1,21 @@
+#ifndef BLITZKRIEG_INPUT_CODES_H
+#define BLITZKRIEG_INPUT_CODES_H
+
+#include <cstddef>
+#include <cstdint>
+
+namespace NInput
+{
+struct KeyCodeEntry
+{
+	const char *name;
+	std::uint32_t code;
+};
+
+const KeyCodeEntry *KeyboardCodes(std::size_t *count);
+std::uint32_t CodeForName(const char *name);
+const char *NameForCode(std::uint32_t code);
+std::uint32_t SDLScancodeToLegacy(std::uint32_t scancode);
+}
+
+#endif
