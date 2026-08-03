@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include <stdint.h>
+#include <limits.h>
 
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
@@ -24,7 +25,6 @@ typedef long HRESULT;
 typedef int REFIID;
 typedef void *HANDLE;
 typedef void *HMODULE;
-typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
 typedef struct { wchar_t *pwcsName; unsigned long type; unsigned long cbSize; FILETIME mtime; FILETIME ctime; FILETIME atime; unsigned long grfMode; unsigned long grfLocksSupported; unsigned long clsid; unsigned long grfStateBits; unsigned long reserved; } STATSTG;
 typedef struct { unsigned long dwSignature; unsigned long dwStrucVersion; unsigned long dwFileVersionMS; unsigned long dwFileVersionLS; unsigned long dwProductVersionMS; unsigned long dwProductVersionLS; unsigned long dwFileFlagsMask; unsigned long dwFileFlags; unsigned long dwFileOS; unsigned long dwFileType; unsigned long dwFileSubtype; unsigned long dwFileDateMS; unsigned long dwFileDateLS; } VS_FIXEDFILEINFO;
 typedef struct { long long QuadPart; } LARGE_INTEGER;
@@ -63,7 +63,9 @@ static inline void *GetProcAddress(HMODULE, const char *) { return 0; }
 static inline unsigned long GetCurrentDirectory(unsigned long, char *) { return 0; }
 static inline unsigned long GetModuleFileName(HMODULE, char *, unsigned long) { return 0; }
 static inline int GetFileVersionInfoSize(const char *, unsigned long *) { return 0; }
+static inline int GetFileVersionInfoSize(const wchar_t *, unsigned long *) { return 0; }
 static inline int GetFileVersionInfo(const char *, unsigned long, unsigned long, void *) { return 0; }
+static inline int GetFileVersionInfo(const wchar_t *, unsigned long, unsigned long, void *) { return 0; }
 static inline int VerQueryValue(const void *, const char *, void **, unsigned int *) { return 0; }
 static inline int CoCreateGuid(void *) { return -1; }
 static inline int DosDateTimeToFileTime(unsigned short, unsigned short, FILETIME *) { return 0; }
@@ -95,6 +97,7 @@ typedef void *HKEY;
 #define _MCW_RC 0
 #define _MCW_DN 0
 static inline unsigned int _control87(unsigned int, unsigned int) { return 0; }
+static inline void Sleep(unsigned long) {}
 
 static inline UINT GetACP(void) { return 65001; }
 static inline char *_itoa(int value, char *buffer, int radix) {
@@ -116,13 +119,13 @@ static inline int MultiByteToWideChar(UINT, unsigned long, const char *source, i
 }
 
 static inline int RegCreateKeyEx(HKEY, LPCTSTR, unsigned long, LPCTSTR, unsigned long, REGSAM,
-                                  const void *, HKEY *result, unsigned long *disposition) {
+                                  const void *, HKEY *result, unsigned int *disposition) {
     if (result) *result = 0;
     if (disposition) *disposition = 0;
     return ERROR_INVALID_PARAMETER;
 }
 static inline int RegCloseKey(HKEY) { return ERROR_SUCCESS; }
-static inline int RegQueryValueEx(HKEY, LPCTSTR, unsigned long *, unsigned long *, unsigned char *, unsigned long *) {
+static inline int RegQueryValueEx(HKEY, LPCTSTR, unsigned int *, unsigned int *, unsigned char *, unsigned int *) {
     return ERROR_INVALID_PARAMETER;
 }
 static inline int RegSetValueEx(HKEY, LPCTSTR, unsigned long, unsigned long, const unsigned char *, unsigned long) {

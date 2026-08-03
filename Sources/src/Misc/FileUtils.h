@@ -16,8 +16,10 @@
 #endif
 #endif
 #if !defined(_WIN32) && !defined(_WIN64)
-#define BLITZKRIEG_FILETIME_DEFINED
+#if !defined(BLITZKRIEG_FILETIME_DEFINED)
 struct FILETIME { DWORD dwLowDateTime; DWORD dwHighDateTime; };
+#define BLITZKRIEG_FILETIME_DEFINED
+#endif
 #endif
 
 namespace NFile

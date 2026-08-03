@@ -75,6 +75,7 @@ public:
         SCODE scode;
         tagCY cyVal;
         BSTR bstrVal;
+        void *byref;
         void *punkVal;
         void *pdispVal;
     };
@@ -91,8 +92,8 @@ public:
     explicit variant_t(int value) : vt(VT_I4), lVal(value) {}
     explicit variant_t(long value) : vt(VT_I4), lVal(static_cast<int>(value)) {}
     explicit variant_t(std::uint64_t value) : vt(VT_UI8), ulVal(value) {}
-    explicit variant_t(float value) : vt(VT_R4), fltVal(value) {}
-    explicit variant_t(double value) : vt(VT_R8), dblVal(value) {}
+    variant_t(float value) : vt(VT_R4), fltVal(value) {}
+    variant_t(double value) : vt(VT_R8), dblVal(value) {}
     explicit variant_t(const char *value) : vt(VT_BSTR), bstrVal(nullptr) {
         if (!value) { bstrVal = SysAllocString(L""); return; }
         std::wstring converted;
@@ -149,6 +150,7 @@ public:
         else if (value.vt == VT_R8) value_ = std::to_wstring(value.dblVal);
     }
     operator const wchar_t *() const { return value_.c_str(); }
+    operator BSTR() const { return const_cast<BSTR>(value_.c_str()); }
     operator const char *() const { narrow_.clear(); for (wchar_t c : value_) narrow_.push_back(static_cast<char>(c)); narrow_.push_back('\0'); return narrow_.c_str(); }
     std::size_t length() const { return value_.size(); }
 };

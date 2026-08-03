@@ -93,7 +93,7 @@ public:
 
 			pVSO->points.clear();
 			pVSO->controlpoints.clear();
-			for ( typename typename Type::const_iteratorIterator = rVSOControlPoints.begin(); addPontsIterator != rVSOControlPoints.end(); ++addPontsIterator )
+			for ( typename Type::const_iteratorIterator = rVSOControlPoints.begin(); addPontsIterator != rVSOControlPoints.end(); ++addPontsIterator )
 			{
 				pVSO->controlpoints.push_back( GetPointType( *addPontsIterator, static_cast<CVec3*>( 0 ) ) );
 			}
