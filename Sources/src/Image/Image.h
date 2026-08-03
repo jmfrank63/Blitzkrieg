@@ -3,7 +3,7 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "..\GFX\GFXTypes.h"
+#include "../GFX/GFXTypes.h"
 enum
 {
 	IMAGE_BASE_VALUE	= 0x10070000,

@@ -1,4 +1,4 @@
-#include "..\GFX\GFX.h"
+#include "../GFX/GFX.h"
 
 #include "UI.h"
 #include "UIBridge.h"

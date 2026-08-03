@@ -1,2 +1,2 @@
-#include "..\Misc\StrProc.h"
+#include "../Misc/StrProc.h"
 #include "..\Anim\Animation.h"

@@ -1,6 +1,6 @@
 #ifndef __NET_DRIVER_H__
 #define __NET_DRIVER_H__
-#include "..\\Platform\\Socket.h"
+#include "../Platform/Socket.h"
 typedef unsigned int APPLICATION_ID;
 enum
 {
