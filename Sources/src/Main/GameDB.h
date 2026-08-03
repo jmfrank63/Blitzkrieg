@@ -5,9 +5,9 @@
 #ifndef interface
 #define interface struct
 #endif
-#include "..\Misc\Basic.h"
-#include "..\zlib\zlib.h"
-#include "..\Misc\Basic.h"
+#include "../Misc/Basic.h"
+#include "../zlib/zlib.h"
+#include "../Misc/Basic.h"
 enum EObjVisType
 {
 	SGVOT_UNKNOWN   = 0,

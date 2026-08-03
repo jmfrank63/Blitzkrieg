@@ -4,7 +4,7 @@
 #include "../Platform/Compiler.h"
 #include "../Platform/LegacyTypes.h"
 #include "../Platform/LegacyVariant.h"
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 #ifndef interface
 #define interface struct
 #endif // interface
