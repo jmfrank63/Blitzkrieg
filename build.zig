@@ -2703,12 +2703,14 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module, target: std
         }
     }
     const version = selected orelse return;
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
     const arch = switch (target.result.cpu.arch) {
         .x86_64 => "x86_64",
         .aarch64 => "aarch64",
         else => return,
     };
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
+    module.addSystemIncludePath(.{ .cwd_relative = "/usr/include" });
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu", .{arch}) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu/c++/{s}", .{ arch, version }) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}/backward", .{version}) });
     var gcc_versions = std.Io.Dir.openDirAbsolute(b.graph.io, b.fmt("/usr/lib/gcc/{s}-linux-gnu", .{arch}), .{ .iterate = true }) catch return;
