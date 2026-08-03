@@ -412,13 +412,13 @@ pub const Renderer = struct {
         var fragment_entry: [14:0]u8 = undefined;
         @memcpy(fragment_entry[0..13], "ps_untextured"[0..13]);
         fragment_entry[13] = 0;
-        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 2, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
+        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
         const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
         // ps_untextured only consumes the interpolated vertex color. Its
         // cbuffer declarations are shared source declarations, not bindings
         // referenced by the fragment stage.
-        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 2, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
+        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
         const fragment = sdl.c.SDL_CreateGPUShader(gpu_device, &fragment_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, fragment);
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 32, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
@@ -466,10 +466,10 @@ pub const Renderer = struct {
         var fragment_entry: [13:0]u8 = undefined;
         @memcpy(fragment_entry[0..11], "ps_textured"[0..11]);
         fragment_entry[11] = 0;
-        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 2, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
+        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
         const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
-        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 2, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
+        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 1, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
         const fragment = sdl.c.SDL_CreateGPUShader(gpu_device, &fragment_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, fragment);
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 32, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
