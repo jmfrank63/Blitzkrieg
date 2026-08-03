@@ -4,8 +4,8 @@
 #include "SegmentedObjects.h"
 #include "UnitsSegments.h"
 
-#include "..\Common\Actions.h"
-#include "..\Misc\FreeIDs.h"
+#include "../Common/Actions.h"
+#include "../Misc/FreeIDs.h"
 class CCommonUnit;
 class CAIUnit;
 class CGroupLogic : public IRefCount

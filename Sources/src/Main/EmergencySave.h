@@ -2,7 +2,7 @@
 #define __EMERGENCYSAVE_H__
 #pragma ONCE
 #include "iMain.h"
-#include "..\Platform\System.h"
+#include "../Platform/System.h"
 class CEmergencySave : public IBaseCommand
 {
 	OBJECT_MINIMAL_METHODS( CEmergencySave );

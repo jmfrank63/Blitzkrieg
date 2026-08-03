@@ -1,7 +1,7 @@
 #ifndef __NETOBJECTFACTORY_H__
 #define __NETOBJECTFACTORY_H__
 #pragma ONCE
-#include "..\Misc\BasicObjectFactory.h"
+#include "../Misc/BasicObjectFactory.h"
 class CNetObjectFactory : public CBasicObjectFactory
 {
 public:

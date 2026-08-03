@@ -1,7 +1,7 @@
 #ifndef __CHECK_SUMS_H__
 #define __CHECK_SUMS_H__
 #pragma ONCE
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 namespace NCheckSums
 {
 struct SCheckSumBufferStorage

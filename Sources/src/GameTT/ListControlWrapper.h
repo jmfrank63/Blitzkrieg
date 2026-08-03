@@ -4,7 +4,7 @@
 #include "MultiplayerCommandManager.h"
 #include "InterMission.h"
 #include "iMission.h"
-#include "..\Misc\FreeIDs.h"
+#include "../Misc/FreeIDs.h"
 template< class TInfo, class TID >
 class CListControlWrapper
 {

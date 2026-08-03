@@ -3,10 +3,10 @@
 #pragma ONCE
 #include <string>
 #include <unordered_map>
-#include "..\AILogic\AIConsts.h"
-#include "..\Misc\BitData.h"
-#include "..\StreamIO\RandomGen.h"
-#include "..\zlib\zlib.h"
+#include "../AILogic/AIConsts.h"
+#include "../Misc/BitData.h"
+#include "../StreamIO/RandomGen.h"
+#include "../zlib/zlib.h"
 #include "iMain.h"
 inline int GetRandom( int nAverage, int nRandom )
 {

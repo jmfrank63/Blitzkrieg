@@ -2,7 +2,7 @@
 #define __RAILROADGRAPH_H__
 #pragma ONCE
 #include "Graph.h"
-#include "..\Misc\Spline.h"
+#include "../Misc/Spline.h"
 interface IEdge;
 class CEdgePoint : public IRefCount
 {

@@ -4,8 +4,8 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "..\Formats\fmtMap.h"
-#include "..\Common\MapObject.h"
+#include "../Formats/fmtMap.h"
+#include "../Common/MapObject.h"
 
 
 struct SEditorObjectItem

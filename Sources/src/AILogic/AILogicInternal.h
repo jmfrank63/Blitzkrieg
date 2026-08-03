@@ -3,8 +3,8 @@
 
 #pragma ONCE
 #include "AILogic.h"
-#include "Scripts\Scripts.h"
-#include "..\zlib\zlib.h"
+#include "Scripts/Scripts.h"
+#include "../zlib/zlib.h"
 #include "LinkObject.h"
 class CCommonUnit;
 class CAIUnit;

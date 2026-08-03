@@ -1,7 +1,7 @@
 #ifndef __TEXTURE_MANAGER_H__
 #define __TEXTURE_MANAGER_H__
 #pragma ONCE
-#include "..\Misc\BasicShare.h"
+#include "../Misc/BasicShare.h"
 #include "TextSystem.h"
 #include "TextObject.h"
 class CTextStringShare : public CBasicShare<std::string, CTextString, TEXT_STRING>

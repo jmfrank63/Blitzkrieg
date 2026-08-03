@@ -1,6 +1,6 @@
 #ifndef __IMAGEMMP_H__
 #define __IMAGEMMP_H__
-#include "..\Formats\fmtTexture.h"
+#include "../Formats/fmtTexture.h"
 class CImageDDS : public IDDSImage
 {
 	OBJECT_MINIMAL_METHODS( CImageDDS );

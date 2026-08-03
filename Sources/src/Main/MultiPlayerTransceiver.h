@@ -3,7 +3,7 @@
 #pragma ONCE
 #include "Transceiver.h"
 #include "iMain.h"
-#include "..\StreamIO\StreamIOHelper.h"
+#include "../StreamIO/StreamIOHelper.h"
 interface IMultiplayer;
 interface IAILogic;
 interface IAILogicCommand;
@@ -54,10 +54,10 @@ class CMultiPlayerTransceiver : public CTRefCount<ITransceiver>
 	int nLatency;
 	int nSegmentsPackSize;
 
-	int nNumPlayers;											// количество игроков
-	int nNumPlayersInMap;									// максимальнок количество игроков на этой карте
-	int nSegment;													// номер текущего сегмента
-	int nMyNumber;												// номер "нашего" игрока
+	int nNumPlayers;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nNumPlayersInMap;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	int nSegment;													// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nMyNumber;												// пїЅпїЅпїЅпїЅпїЅ "пїЅпїЅпїЅпїЅпїЅпїЅ" пїЅпїЅпїЅпїЅпїЅпїЅ
 	
 	std::vector<WORD> segmFinished;
 	std::vector<int> lastFinishedSegment;

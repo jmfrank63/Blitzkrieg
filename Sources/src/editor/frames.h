@@ -2,7 +2,7 @@
 #define __FRAMES_H__
 
 #include <Mmsystem.h>
-#include "..\Misc\FileUtils.h"
+#include "../Misc/FileUtils.h"
 #include "ParentFrame.h"
 #include "MyOpenFileDialog.h"
 

@@ -2,7 +2,7 @@
 #define __TERRAININTERNAL_H__
 #include "Terrain.h"
 #include "Builders.h"
-#include "..\AILogic\AITypes.h"
+#include "../AILogic/AITypes.h"
 #include "TerrainWater.h"
 #include "TerrainRoad.h"
 #include "TerrainBuilder.h"

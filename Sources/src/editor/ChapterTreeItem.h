@@ -2,7 +2,7 @@
 #define __CHAPTER_TREE_ITEM_H__
 
 #include "TreeItem.h"
-#include "..\Main\rpgstats.h"
+#include "../Main/rpgstats.h"
 
 class CChapterTreeRootItem : public CTreeItem
 {

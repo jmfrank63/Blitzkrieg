@@ -1,8 +1,8 @@
 #ifndef __PARENT_FRAME_H__
 #define __PARENT_FRAME_H__
 
-#include "..\\Common\\LegacyUiCompat.h"
-#include "..\GFX\GFX.h"
+#include "..//Common//LegacyUiCompat.h"
+#include "../GFX/GFX.h"
 
 using std::string;
 using std::vector;

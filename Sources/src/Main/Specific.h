@@ -1,2 +1,2 @@
 #include "../GFX/GFX.h"
-#include "..\GFX\GFXHelper.h"
+#include "../GFX/GFXHelper.h"

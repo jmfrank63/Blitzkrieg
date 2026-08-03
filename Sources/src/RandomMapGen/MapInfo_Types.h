@@ -1,14 +1,14 @@
 #if !defined(__MapInfo__Types__)
 #define __MapInfo__Types__
 
-#include "..\Formats\FmtMap.h"
-#include "..\GFX\GFXTypes.h"
+#include "../Formats/FmtMap.h"
+#include "../GFX/GFXTypes.h"
 
 #include "RMG_Types.h"
 #include "RP_Types.h"
 #include "MiniMap_Types.h"
-#include "..\zlib\zlib.h"
-#include "..\Misc\CheckSums.h"
+#include "../zlib/zlib.h"
+#include "../Misc/CheckSums.h"
 extern const int RMGC_INVALID_LINK_ID_VALUE;			//0
 extern const int RMGC_INVALID_SCRIPT_ID_VALUE;		//-1
 extern const int RMGC_DEFAULT_SCRIPT_ID_VALUE;		//0

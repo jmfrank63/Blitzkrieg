@@ -1,10 +1,10 @@
 #ifndef __SERVER_INFO_H__
 #define __SERVER_INFO_H__
 #pragma ONCE
-#include "..\RandomMapGen\MapInfo_Types.h"
-#include "..\GameTT\MultiplayerCommandManager.h"
-#include "..\Net\NetDriver.h"
-#include "..\zlib\zlib.h"
+#include "../RandomMapGen/MapInfo_Types.h"
+#include "../GameTT/MultiplayerCommandManager.h"
+#include "../Net/NetDriver.h"
+#include "../zlib/zlib.h"
 interface INetNodeAddress;
 struct SServerInfo
 {

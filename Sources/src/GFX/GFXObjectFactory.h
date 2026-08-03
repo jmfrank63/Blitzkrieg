@@ -1,7 +1,7 @@
 #ifndef __GFXOBJECTFACTORY_H__
 #define __GFXOBJECTFACTORY_H__
 #pragma ONCE
-#include "..\Misc\BasicObjectFactory.h"
+#include "../Misc/BasicObjectFactory.h"
 class CGFXObjectFactory : public CBasicObjectFactory
 {
 public:

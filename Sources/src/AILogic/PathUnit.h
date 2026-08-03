@@ -1,7 +1,7 @@
 #ifndef __PATH_UNIT_H__
 #define __PATH_UNIT_H__
 #pragma ONCE
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 interface IStaticPathFinder;
 interface ISmoothPath;
 interface ICollision;

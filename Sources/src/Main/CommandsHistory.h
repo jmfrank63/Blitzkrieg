@@ -3,7 +3,7 @@
 #pragma ONCE
 #include "CommandsHistoryInterface.h"
 
-#include "..\zlib\zlib.h"
+#include "../zlib/zlib.h"
 interface IAILogicCommand;
 interface IRandomGenSeed;
 interface IScenarioTracker;

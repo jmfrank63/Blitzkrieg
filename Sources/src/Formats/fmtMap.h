@@ -1,7 +1,7 @@
 #ifndef __FMTMAP_H__
 #define __FMTMAP_H__
 #pragma ONCE
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 
 #include "fmtSound.h"
 #include "fmtVSO.h"

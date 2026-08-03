@@ -1,8 +1,8 @@
 #ifndef __PLAYMOVIEINTERFACE_H__
 #define __PLAYMOVIEINTERFACE_H__
 #pragma ONCE
-#include "..\Common\InterfaceScreenBase.h"
-#include "..\Input\InputHelper.h"
+#include "../Common/InterfaceScreenBase.h"
+#include "../Input/InputHelper.h"
 #include "iMission.h"
 class CPlayMovieInterface : public CInterfaceScreenBase
 {

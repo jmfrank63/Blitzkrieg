@@ -1,7 +1,7 @@
 #ifndef __TRACK_H__
 #define __TRACK_H__
 #pragma ONCE
-#include "..\Misc\Win32Random.h"
+#include "../Misc/Win32Random.h"
 struct STrackContext
 {
 	float fTime;													// time of the last calculated value
@@ -23,7 +23,7 @@ class CTrack
 	};
 	typedef std::vector<SKey> CKeysList;
 	CKeysList keys;												// keys
-	float fScale;                         // масштаб времени
+	float fScale;                         // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CKeysList::iterator FindKey( const float fTime ) { return std::upper_bound( keys.begin(), keys.end(), SKey(fTime, 0) ); }
 	CKeysList::const_iterator FindKey( const float fTime ) const { return std::upper_bound( keys.begin(), keys.end(), SKey(fTime, 0) ); }
 public:

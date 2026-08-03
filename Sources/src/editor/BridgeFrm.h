@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\Main\rpgstats.h"
+#include "../Main/rpgstats.h"
 #include "GridFrm.h"
 #include "TreeDockWnd.h"
 #include "BridgeTreeItem.h"
@@ -32,7 +32,7 @@ public:
 		CPtr<IObjVisObj> pSprite;
 		CPtr<IObjVisObj> pHLine;
 		
-		float fDirection;		//угол направления конуса стрельбы
+		float fDirection;		//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	};
 	
 	enum EActiveMode
@@ -86,27 +86,27 @@ private:
 		E_DRAW_SPAN_PROPS = 1,
 	};
 	int m_drawMode;
-	CVec3 vSpriteCommonPos;					//все спрайты имеют одну координату
+	CVec3 vSpriteCommonPos;					//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	
 	string szSourceDir;
 	string szDestDir;
 	CComboBox *m_pTransparenceCombo;
 	int m_transValue;
 	
-	std::list<int> freeSpanIndexes[3];			//для хранения незаполненных индексов span'ов
+	std::list<int> freeSpanIndexes[3];			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ span'пїЅпїЅ
 	
 	CPtr<IGFXIndices> pLineIndices;
 	CPtr<IGFXVertices> pLineVertices;
 	float m_fx1, m_fx2, m_fy1, m_fy2;
-	CVec3 vBeginPos, vEndPos;				//позиция начальных и конечных частей моста
-	float m_fBack, m_fFront;		//расстояния от центральной линии до боковых частей моста
+	CVec3 vBeginPos, vEndPos;				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	float m_fBack, m_fFront;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	
 	EActiveMode eActiveMode;
 	EActiveSubMode eActiveSubMode;
 	
 	typedef list<SFirePoint> CListOfFirePoints;
 	CListOfFirePoints firePoints;
-	SFirePoint *pActiveFirePoint;				//к этой переменной плохо ссылаться напрямую, лучше использовать SetActiveFirePoint()
+	SFirePoint *pActiveFirePoint;				//пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ SetActiveFirePoint()
 	
 	CBridgeSmokePropsItem *pActiveSmokePoint;
 	
@@ -148,12 +148,12 @@ protected:
 	void LoadSpriteItem( CBridgePartPropsItem *pItem, const char *pszName, const char *pszProjectFileName );
 	void SetZeroCoordinate( POINT point );
 	void CreateKrest();
-	virtual void SpecificInit();														//для инициализации внутренних данных после загрузки проекта или создании нового
+	virtual void SpecificInit();														//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void SpecificClearBeforeBatchMode();
 	virtual BOOL SpecificTranslateMessage( MSG *pMsg );
 	
-	virtual void SaveFrameOwnData( IDataTree *pDT );				//для сохранения собственных данных проекта
-	virtual void LoadFrameOwnData( IDataTree *pDT );				//для загрузки
+	virtual void SaveFrameOwnData( IDataTree *pDT );				//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	virtual void LoadFrameOwnData( IDataTree *pDT );				//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const char *pszProjectName );
 	virtual void LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem );
 

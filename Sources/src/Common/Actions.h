@@ -1,10 +1,10 @@
 #ifndef __ACTIONS_H__
 #define __ACTIONS_H__
 #pragma ONCE
-#include "..\Main\RPGStats.h"
-#include "..\AILogic\AITypes.h"
-#include "..\Anim\Animation.h"
-#include "..\StreamIO\StreamIOHelper.h"
+#include "../Main/RPGStats.h"
+#include "../AILogic/AITypes.h"
+#include "../Anim/Animation.h"
+#include "../StreamIO/StreamIOHelper.h"
 // Fixed underlying type: action codes are synthesized arithmetically (e.g.
 // EActionNotify((i<<4)|1) in CUpdater) and serialized as raw ints, so values
 // outside the declared enumerators must remain valid (UBSan traps otherwise).

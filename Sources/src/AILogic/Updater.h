@@ -2,7 +2,7 @@
 #define __UPDATER_H__
 
 #pragma ONCE
-#include "..\Common\Actions.h"
+#include "../Common/Actions.h"
 #include "AIHashFuncs.h"
 interface IUpdatableObj;
 class CUpdater

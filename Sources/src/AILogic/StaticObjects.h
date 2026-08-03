@@ -1,9 +1,9 @@
 #ifndef __STATIC_OBJECTS_H__
 #define __STATIC_OBJECTS_H__
 #pragma ONCE
-#include "..\Misc\AreaMap.h"
-#include "..\Misc\HashFuncs.h"
-#include "..\Common\Actions.h"
+#include "../Misc/AreaMap.h"
+#include "../Misc/HashFuncs.h"
+#include "../Common/Actions.h"
 #include "RectTiles.h"
 #include <set>
 #include "PathFinder.h"

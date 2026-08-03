@@ -5,13 +5,13 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXHelper.h"
-#include "..\AILogic\AITypes.h"
-#include "..\Scene\Scene.h"
-#include "..\Scene\Terrain.h"
-#include "..\RandomMapGen\Polygons_Types.h"
-#include "..\RandomMapGen\LA_Types.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXHelper.h"
+#include "../AILogic/AITypes.h"
+#include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
+#include "../RandomMapGen/Polygons_Types.h"
+#include "../RandomMapGen/LA_Types.h"
 
 class CSceneDrawTool
 {

@@ -1,7 +1,7 @@
 #ifndef __UI_INTERNAL_MANIPULATOR_H__
 #define __UI_INTERNAL_MANIPULATOR_H__
 
-#include "..\Misc\Manipulator.h"
+#include "../Misc/Manipulator.h"
 struct SUIWindowSubState;
 extern CPropertiesRegister thePropertiesRegister;
 

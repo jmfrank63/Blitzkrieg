@@ -2,13 +2,13 @@
 #define __MOOBJECT_H__
 #pragma ONCE
 #include "MapObject.h"
-#include "..\Main\TextSystem.h"
+#include "../Main/TextSystem.h"
 class CMOObject : public CTRefCount<SMapObject>
 {
 	OBJECT_SERVICE_METHODS( CMOObject );
 	DECLARE_SERIALIZE;
 	DWORD actions[2];											// actions, this object can do
-	mutable CPtr<IText> pLocalName;				// localized name of this object (ZB "Гавно на дороге")
+	mutable CPtr<IText> pLocalName;				// localized name of this object (ZB "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ")
 	bool bDead;														// is object already dead?
 	std::string szFlagSide;
 	static int nLastMarkerID;

@@ -1,6 +1,6 @@
 #ifndef __INPUTOBJECTFACTORY_H__
 #define __INPUTOBJECTFACTORY_H__
-#include "..\Misc\BasicObjectFactory.h"
+#include "../Misc/BasicObjectFactory.h"
 class CInputObjectFactory : public CBasicObjectFactory
 {
 public:

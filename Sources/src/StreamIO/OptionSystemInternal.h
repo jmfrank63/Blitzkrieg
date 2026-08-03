@@ -2,7 +2,7 @@
 #define __OPTIONSSYSTEMINTERNAL_H__
 #pragma ONCE
 #include "OptionSystem.h"
-#include "..\Misc\VarSystemInternal.h"
+#include "../Misc/VarSystemInternal.h"
 struct SOption : public SSerialVariantT
 {
 	int nEditorType;											// editor type: 0 - checkbox, 1 - slider, 2 - droplist

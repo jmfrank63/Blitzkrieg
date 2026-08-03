@@ -4,7 +4,7 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-#include "..\\Common\\LegacyUiCompat.h"
+#include "..//Common//LegacyUiCompat.h"
 
 const UINT NM_CHANGEPAGE = 1200;     
 

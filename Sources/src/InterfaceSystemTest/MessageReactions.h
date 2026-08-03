@@ -6,7 +6,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\LuaLib\Script.h"
+#include "../LuaLib/Script.h"
 
 interface IMessageReactionB2;
 class CMessageReactions 

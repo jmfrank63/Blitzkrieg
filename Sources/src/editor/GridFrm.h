@@ -1,10 +1,10 @@
 #ifndef __GRIDFRM_H__
 #define __GRIDFRM_H__
 
-#include "..\\Common\\LegacyUiCompat.h"
-#include "..\GFX\GFX.h"
-#include "..\GFX\GFXTypes.h"
-#include "..\GFX\GFXHelper.h"
+#include "..//Common//LegacyUiCompat.h"
+#include "../GFX/GFX.h"
+#include "../GFX/GFXTypes.h"
+#include "../GFX/GFXHelper.h"
 #include "ParentFrame.h"
 
 using std::list;

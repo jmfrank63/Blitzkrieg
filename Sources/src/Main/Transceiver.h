@@ -1,7 +1,7 @@
 #ifndef __TRANSCEIVER_H__
 #define __TRANSCEIVER_H__
 #pragma ONCE
-#include "..\Main\iMainClassIDs.h"
+#include "../Main/iMainClassIDs.h"
 interface ITransceiver : public IRefCount
 {
 	enum { tidTypeID = MAIN_TRANSCEIVER };

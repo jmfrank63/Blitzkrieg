@@ -1,6 +1,6 @@
 #ifndef __SETANIM_H__
 #define __SETANIM_H__
-#include "..\Main\RPGStats.h"
+#include "../Main/RPGStats.h"
 inline void SetAnim( IVisObj *pVisObj, const SGDBObjectDesc *pDesc, const int nType )
 {
 	if ( (pDesc->eGameType == SGVOGT_UNIT) && (pDesc->eVisType == SGVOT_MESH) ) 

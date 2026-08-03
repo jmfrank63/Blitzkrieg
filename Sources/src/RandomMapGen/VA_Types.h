@@ -1,8 +1,8 @@
 #if !defined(__VA__Types__)
 #define __VA__Types__
 
-#include "..\Formats\FmtMap.h"
-#include "..\Image\Image.h"
+#include "../Formats/FmtMap.h"
+#include "../Image/Image.h"
 
 #include "MapInfo_Types.h"
 
@@ -239,8 +239,8 @@ struct SVASetMaxPatternFunctional
 template<class TYPE>
 bool ApplyVAPatterns( const CTRect<int> &rRect,
 											const std::vector<SVAPattern> &rPatterns,
-											TYPE &rApplyFunctional,								//функционал
-											bool isIgnoreInvalidIndices = false )	//пропускать обьекты за краями карты
+											TYPE &rApplyFunctional,								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+											bool isIgnoreInvalidIndices = false )	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 {
 	for ( int nPatternIndex = 0; nPatternIndex < rPatterns.size(); ++nPatternIndex )
 	{

@@ -7,7 +7,7 @@
 
 #include "Resource.h"
 #include "ResizeDialog.h"
-#include "..\RandomMapGen\RMG_Types.h"
+#include "../RandomMapGen/RMG_Types.h"
 #include "Input3DTabWnd.h"
 
 #define IDC_RMG_CF_FIELD_PROPERTIES_TAB 1521

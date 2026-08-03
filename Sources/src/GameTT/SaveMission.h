@@ -1,8 +1,8 @@
 #ifndef __SAVE_MISSION_H__
 #define __SAVE_MISSION_H__
 #pragma ONCE
-#include "..\Common\InterfaceScreenBase.h"
-#include "..\Input\InputHelper.h"
+#include "../Common/InterfaceScreenBase.h"
+#include "../Input/InputHelper.h"
 #include "iMission.h"
 class CInterfaceSaveMission : public CInterfaceScreenBase
 {

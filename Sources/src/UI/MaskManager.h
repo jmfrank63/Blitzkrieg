@@ -1,6 +1,6 @@
 #ifndef __MASK_MANAGER_H__
 #define __MASK_MANAGER_H__
-#include "..\Misc\BasicShare.h"
+#include "../Misc/BasicShare.h"
 #include "MaskSystem.h"
 #include "UIMask.h"
 BASIC_SHARE_DECLARE( CUIMaskShare, std::string, CUIMask, UI_MASK, 113, ".tga" );

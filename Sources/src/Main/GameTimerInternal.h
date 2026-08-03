@@ -2,7 +2,7 @@
 #define __GAMETIMERINTERNAL_H__
 #pragma ONCE
 #include "GameTimer.h"
-#include "..\AILogic\AIConsts.h"
+#include "../AILogic/AIConsts.h"
 static const NTimer::STime INITIAL_TIME = SAIConsts::AI_SEGMENT_DURATION;
 class CTimeSlider : public ITimeSlider
 {

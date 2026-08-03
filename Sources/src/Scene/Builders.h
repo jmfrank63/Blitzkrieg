@@ -1,7 +1,7 @@
 #ifndef __BUILDERS_H__
 #define __BUILDERS_H__
-#include "..\Formats\fmtTerrain.h"
-#include "..\Formats\fmtMap.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMap.h"
 inline void GetPrimaryMaps( int nX, int nY, bool bFlipY, CVec2 *maps, const float fSizeX, const float fSizeY )
 {
 	const int nIndex0 = bFlipY ? 3 : 0;
