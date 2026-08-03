@@ -28,6 +28,18 @@ Date: 2026-08-03
 
 The Phase 05 gate preserves the protocol fixture hash `c70d495e` while exercising the portable socket and system-service boundaries on the native Windows and Linux paths.
 
+## Phase 07 native SDL_GPU evidence
+
+Date: 2026-08-03
+
+| Native runner | Required driver | Selected shader format | Renderer evidence |
+|---|---|---|---|
+| Windows x64 | `direct3d12` | DXIL | Reference hashes, textured quad, pixel transform, depth ordering, 25 shader pairs/pipelines, and release checks passed locally |
+| Linux x64 | `vulkan` | SPIR-V | Scheduled on the native Linux runner in the cross-platform validation workflow |
+| macOS arm64 | `metal` | MSL | Scheduled on the native macOS runner in the cross-platform validation workflow |
+
+The smoke executable requires an explicit `--driver` and compares it with SDL's reported selected driver before loading the matching manifest records. The generated runtime manifest is schema 3 and contains DXIL, SPIR-V, and MSL records for each effect/stage pair.
+
 ## Phase 06 runtime-header evidence
 
 Date: 2026-08-03

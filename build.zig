@@ -1119,6 +1119,16 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_smoke_build_step.dependOn(&gfx_gpu_smoke_install.step);
     gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
     gfx_gpu_smoke_run.setCwd(b.path("zig-out/bin"));
+    const gpu_driver = b.option([]const u8, "gpu-driver", "Native SDL_GPU driver expected by gfxgpu-smoke") orelse switch (target.result.os.tag) {
+        .windows => "direct3d12",
+        .linux => "vulkan",
+        .macos => "metal",
+        else => "",
+    };
+    if (gpu_driver.len != 0) {
+        gfx_gpu_smoke_run.addArg("--driver");
+        gfx_gpu_smoke_run.addArg(gpu_driver);
+    }
     const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
 

@@ -223,7 +223,7 @@ fn writeRuntimeManifest(io: std.Io, allocator: std.mem.Allocator, output_dir: []
     var output: std.ArrayListUnmanaged(u8) = .empty;
     defer output.deinit(allocator);
     try output.appendSlice(allocator, "GFXS");
-    try appendU16(&output, allocator, 2);
+    try appendU16(&output, allocator, 3);
     try output.appendSlice(allocator, &.{ 1, 0 });
     try appendU32(&output, allocator, @intCast(records.len));
     for (records) |record| {

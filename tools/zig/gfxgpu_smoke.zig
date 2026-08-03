@@ -41,9 +41,9 @@ fn readFile(init: std.process.Init, path: []const u8) ![]u8 {
     return std.Io.Dir.cwd().readFileAlloc(init.io, path, init.gpa, .limited(64 * 1024 * 1024));
 }
 
-fn recordFor(shader_manifest: *const gpu.shader_manifest.Manifest, effect: []const u8, stage: gpu.shader_manifest.Stage) !*const gpu.shader_manifest.Record {
+fn recordFor(shader_manifest: *const gpu.shader_manifest.Manifest, effect: []const u8, stage: gpu.shader_manifest.Stage, format: gpu.shader_manifest.Format) !*const gpu.shader_manifest.Record {
     for (shader_manifest.records) |*record| {
-        if (record.stage == stage and std.mem.eql(u8, record.effect, effect)) return record;
+        if (record.stage == stage and record.format == format and std.mem.eql(u8, record.effect, effect)) return record;
     }
     return error.MissingShaderRecord;
 }
@@ -71,7 +71,7 @@ fn checkFixtures() !void {
     }
 }
 
-fn runReferenceSmoke() !void {
+fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     std.debug.print("GfxGpu reference: creating SDL window\n", .{});
     const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, 0) orelse return error.SdlWindowFailed;
     std.debug.print("GfxGpu reference: SDL window created\n", .{});
@@ -81,7 +81,7 @@ fn runReferenceSmoke() !void {
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_get_api(gpu.abi.abi_version, &api));
     var renderer: ?*gpu.abi.RendererHandle = null;
     const shader_directory = "../shaders";
-    var create_info = gpu.abi.CreateInfo{ .struct_size = @sizeOf(gpu.abi.CreateInfo), .flags = 1, .sdl_window = @ptrCast(window), .width = 64, .height = 64, .shader_directory_utf8 = shader_directory, .preferred_driver_utf8 = null };
+    var create_info = gpu.abi.CreateInfo{ .struct_size = @sizeOf(gpu.abi.CreateInfo), .flags = 1, .sdl_window = @ptrCast(window), .width = 64, .height = 64, .shader_directory_utf8 = shader_directory, .preferred_driver_utf8 = preferred_driver.ptr };
     std.debug.print("GfxGpu reference: creating window-backed renderer\n", .{});
     const create_result = api.create(&create_info, &renderer);
     std.debug.print("GfxGpu reference: renderer create returned {}\n", .{create_result});
@@ -248,16 +248,28 @@ fn runReferenceSmoke() !void {
 
 pub fn main(init: std.process.Init) !void {
     try checkFixtures();
+    var args = try std.process.Args.Iterator.initAllocator(init.minimal.args, init.gpa);
+    defer args.deinit();
+    _ = args.next();
+    const driver_option = args.next() orelse return error.MissingDriverArgument;
+    if (!std.mem.eql(u8, driver_option, "--driver")) return error.InvalidDriverArgument;
+    const driver_arg = args.next() orelse return error.MissingDriverArgument;
+    if (args.next() != null) return error.UnexpectedArgument;
     if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return error.SdlInitFailed;
     defer sdl3.c.SDL_Quit();
 
-    try runReferenceSmoke();
+    try runReferenceSmoke(driver_arg);
 
-    const device = sdl3.c.SDL_CreateGPUDevice(sdl3.c.SDL_GPU_SHADERFORMAT_DXIL, false, null) orelse {
+    const device = sdl3.c.SDL_CreateGPUDevice(sdl3.c.SDL_GPU_SHADERFORMAT_DXIL | sdl3.c.SDL_GPU_SHADERFORMAT_SPIRV | sdl3.c.SDL_GPU_SHADERFORMAT_MSL, false, driver_arg.ptr) orelse {
         std.debug.print("SDL_CreateGPUDevice failed: {s}\n", .{std.mem.span(sdl3.c.SDL_GetError())});
         return error.GpuDeviceFailed;
     };
     defer sdl3.c.SDL_DestroyGPUDevice(device);
+    const selected_driver = std.mem.span(sdl3.c.SDL_GetGPUDeviceDriver(device));
+    if (!std.mem.eql(u8, selected_driver, driver_arg)) return error.DriverSelectionMismatch;
+    const selected_format = try gpu.device.formatForDriver(selected_driver);
+    const selected_format_flag = gpu.device.formatFlag(selected_format);
+    std.debug.print("GfxGpu native matrix: driver={s} format={s}\n", .{ selected_driver, @tagName(selected_format) });
 
     const manifest_bytes = try readFile(init, "../shaders/gfxgpu-shaders.manifest");
     defer init.gpa.free(manifest_bytes);
@@ -267,8 +279,8 @@ pub fn main(init: std.process.Init) !void {
     var loader = gpu.shaders.Loader.init(init.gpa, @ptrCast(device), gpu.shaders.real_api);
     defer loader.deinit();
     for (effect_probes) |probe| {
-        const vertex = try recordFor(&shader_manifest, probe.name, .vertex);
-        const fragment = try recordFor(&shader_manifest, probe.name, .fragment);
+        const vertex = try recordFor(&shader_manifest, probe.name, .vertex, selected_format);
+        const fragment = try recordFor(&shader_manifest, probe.name, .fragment, selected_format);
         const vertex_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{vertex.blob_path});
         defer init.gpa.free(vertex_path);
         const fragment_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{fragment.blob_path});
@@ -277,7 +289,7 @@ pub fn main(init: std.process.Init) !void {
         defer init.gpa.free(vertex_bytes);
         const fragment_bytes = try readFile(init, fragment_path);
         defer init.gpa.free(fragment_bytes);
-        try loader.loadPair(&shader_manifest, probe.name, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
+        try loader.loadPair(&shader_manifest, probe.name, vertex_bytes, fragment_bytes, selected_format_flag);
     }
     if (loader.count() != effect_probes.len) return error.IncompleteShaderSmoke;
     var pipeline_count: usize = 0;
