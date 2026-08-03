@@ -32,6 +32,7 @@ constexpr VARTYPE VT_DISPATCH = 9;
 constexpr VARTYPE VT_UI1 = 17;
 constexpr VARTYPE VT_UI8 = 21;
 constexpr VARTYPE VT_INT = 22;
+#define V_BOOL(v) ((v)->boolVal)
 constexpr VARTYPE VT_BYREF = 0x4000;
 constexpr VARIANT_BOOL VARIANT_FALSE = 0;
 constexpr VARIANT_BOOL VARIANT_TRUE = static_cast<VARIANT_BOOL>(-1);

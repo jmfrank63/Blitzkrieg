@@ -1745,6 +1745,7 @@ fn addOptionsBridge(
         .files = &.{ "Sources/src/StreamIOZig/options_bridge.cpp", "Sources/src/Platform/DynamicLibrary.cpp" },
         .flags = flags.items,
     });
+    addProjectIncludePaths(b, module);
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
@@ -1789,6 +1790,7 @@ fn addStreamIOZig(
         },
         .flags = flags.items,
     });
+    addProjectIncludePaths(b, streamio_module);
     addMsvcIncludePaths(b, streamio_module, toolchain);
     addMsvcLibraryPaths(b, streamio_module, toolchain);
     streamio_module.linkLibrary(options_bridge);

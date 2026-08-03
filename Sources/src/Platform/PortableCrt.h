@@ -66,10 +66,10 @@ static inline HMODULE GetModuleHandleA(const char *) { return 0; }
 static inline void *GetProcAddress(HMODULE, const char *) { return 0; }
 static inline unsigned long GetCurrentDirectory(unsigned long, char *) { return 0; }
 static inline unsigned long GetModuleFileName(HMODULE, char *, unsigned long) { return 0; }
-static inline int GetFileVersionInfoSize(const char *, unsigned long *) { return 0; }
+static inline int GetFileVersionInfoSize(const char *, unsigned int *) { return 0; }
 static inline int GetFileVersionInfo(const char *, unsigned long, unsigned long, void *) { return 0; }
 #ifdef __cplusplus
-static inline int GetFileVersionInfoSize(const wchar_t *, unsigned long *) { return 0; }
+static inline int GetFileVersionInfoSize(const wchar_t *, unsigned int *) { return 0; }
 static inline int GetFileVersionInfo(const wchar_t *, unsigned long, unsigned long, void *) { return 0; }
 #endif
 static inline int VerQueryValue(const void *, const char *, void **, unsigned int *) { return 0; }
