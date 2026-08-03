@@ -2690,6 +2690,29 @@ fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
 }
 
+fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
+    if (b.graph.host.result.os.tag != .linux) return;
+    var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
+    defer std.Io.Dir.close(versions, b.graph.io);
+    var selected: ?[]const u8 = null;
+    var iterator = versions.iterate();
+    while (iterator.next(b.graph.io) catch null) |entry| {
+        if (entry.kind != .directory) continue;
+        if (selected == null or std.mem.order(u8, selected.?, entry.name) == .lt) {
+            selected = b.allocator.dupe(u8, entry.name) catch @panic("OOM");
+        }
+    }
+    const version = selected orelse return;
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
+    const arch = switch (target.result.cpu.arch) {
+        .x86_64 => "x86_64",
+        .aarch64 => "aarch64",
+        else => return,
+    };
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu/c++/{s}", .{ arch, version }) });
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}/backward", .{version}) });
+}
+
 fn addPortableStreamioFilesTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -2965,6 +2988,7 @@ fn addRuntimeHeadersTest(
         module.addIncludePath(b.path("Sources/src/Misc"));
         module.addIncludePath(b.path("Sources/src/StreamIO"));
         module.addIncludePath(b.path("Sources/src/Formats"));
+        if (target.result.os.tag == .linux) addLinuxCxxIncludePaths(b, module, target);
         if (target.result.os.tag == .windows) addMsvcIncludePaths(b, module, toolchain);
         const index_flag = b.fmt("-DRUNTIME_HEADER_INDEX={d}", .{index});
         module.addCSourceFiles(.{
