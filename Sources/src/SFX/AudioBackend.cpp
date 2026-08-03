@@ -34,9 +34,9 @@ namespace NAudioBackend
 		NAudioBackendImpl::SetDriver( nDriver );
 	}
 
-	bool InitDevice( HWND hWnd, ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )
+	bool InitDevice( ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )
 	{
-		return NAudioBackendImpl::InitDevice( hWnd, output, nMixRate, nMaxChannels, driverInfo, pSoundCardPresent );
+		return NAudioBackendImpl::InitDevice( output, nMixRate, nMaxChannels, driverInfo, pSoundCardPresent );
 	}
 
 	void CloseDevice()

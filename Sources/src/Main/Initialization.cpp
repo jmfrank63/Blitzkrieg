@@ -115,7 +115,7 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<ISFX> pSFX = CreateObject<ISFX>( pFactory, SFX_SFX );
 		RegisterSingleton( ISFX::tidTypeID, pSFX );	// register GFX to singleton
-		pSFX->Init( hWndSound, 0, SFX_OUTPUT_DSOUND, 44100, 32 );
+		pSFX->Init( 0, SFX_OUTPUT_NO, 44100, 32 );
 		pSFX->SetDistanceFactor( fWorldCellSize / 2.0f );
 		pSFX->SetRolloffFactor( GetGlobalVar("Sound.RolloffFactor", 1.0f) );
 		CPtr<ISoundManager> pSM = CreateObject<ISoundManager>( pFactory, SFX_SOUND_MANAGER );

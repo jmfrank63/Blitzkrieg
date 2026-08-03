@@ -118,7 +118,7 @@ IRefCount* CSoundEngine::QI( int nInterfaceTypeID )
 		return NAudioBackend::GetOutputHandle();
 	return 0;
 }
-bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels )
+bool CSoundEngine::Init( int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels )
 {
 	if ( !SearchDevices() )
 		return false;
@@ -127,7 +127,7 @@ bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMix
 	NI_ASSERT_T( nDriver < drivers.size(), NStr::Format("Can't find driver %d (max found %d)", nDriver, drivers.size()) );
 	NAudioBackend::SetDriver( nDriver );
 	NI_ASSERT_T( !(output == SFX_OUTPUT_A3D && !drivers[nDriver].supportA3DOcclusions), "Can't set output as A3D with unsupported feature" );
-	if ( !NAudioBackend::InitDevice( hWnd, output, nMixRate, nMaxChannels, drivers[nDriver], &bSoundCardPresent ) )
+	if ( !NAudioBackend::InitDevice( output, nMixRate, nMaxChannels, drivers[nDriver], &bSoundCardPresent ) )
 	{
 		OutputDebugString( "NFMSound::Start():error!\n" );
 		bSoundCardPresent = false;

@@ -56,7 +56,7 @@ interface ISFX : public IRefCount
 	enum { tidTypeID = SFX_SFX };
 	virtual IRefCount* STDCALL QI( int nInterfaceTypeID ) = 0;
 	virtual bool STDCALL IsInitialized() = 0;
-	virtual bool STDCALL Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels ) = 0;
+	virtual bool STDCALL Init( int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels ) = 0;
 	virtual void STDCALL Done() = 0;
 	virtual void STDCALL EnableSFX( bool bEnable ) = 0;
 	virtual void STDCALL EnableStreaming( bool bEnable ) = 0;

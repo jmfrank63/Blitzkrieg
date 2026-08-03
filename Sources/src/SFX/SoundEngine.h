@@ -70,7 +70,7 @@ public:
 	virtual BYTE STDCALL GetStreamMasterVolume() const { return cStreamMasterVolume; }
 	virtual IRefCount* STDCALL QI( int nInterfaceTypeID );
 	virtual bool STDCALL IsInitialized();
-	virtual bool STDCALL Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels );
+	virtual bool STDCALL Init( int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels );
 	virtual void STDCALL Done();
 	virtual void STDCALL EnableSFX( bool bEnable ) { bEnableSFX = bEnable; ReEnableSounds(); }
 	virtual void STDCALL EnableStreaming( bool bEnable ) { bEnableStreaming = bEnable; ReEnableSounds(); }

@@ -888,7 +888,7 @@ namespace NAudioBackendImpl
 	{
 	}
 
-	bool InitDevice( HWND hWnd, ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )
+	bool InitDevice( ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )
 	{
 		if ( pSoundCardPresent )
 			*pSoundCardPresent = output != SFX_OUTPUT_NO;
@@ -903,15 +903,7 @@ namespace NAudioBackendImpl
 		// dsound/winmm are emulated polling layers that kept underrunning
 		// (audible stutter) whenever the main thread ran hot — load storms,
 		// first-frame texture uploads. They remain as fallbacks only.
-		const ma_backend backends[] =
-		{
-			ma_backend_wasapi,
-			ma_backend_dsound,
-			ma_backend_winmm
-		};
-
 		ma_context_config contextConfig = ma_context_config_init();
-		contextConfig.dsound.hWnd = hWnd;
 		contextConfig.threadPriority = ma_thread_priority_realtime;
 
 		// Private heap: create BEFORE context init so all miniaudio threads
@@ -925,7 +917,7 @@ namespace NAudioBackendImpl
 			contextConfig.allocationCallbacks.onFree    = AudioHeapFree;
 		}
 
-		ma_result result = ma_context_init( backends, sizeof( backends ) / sizeof( backends[0] ), &contextConfig, &g_context );
+		ma_result result = ma_context_init( 0, 0, &contextConfig, &g_context );
 		if ( result != MA_SUCCESS )
 		{
 			TraceOpenAudioResult( "context init failed", result );
