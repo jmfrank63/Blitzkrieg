@@ -406,12 +406,12 @@ pub const Renderer = struct {
         const fragment_code = try self.readShader(fragment_name);
         defer self.allocator.free(fragment_code);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
-        var vertex_entry: [13:0]u8 = undefined;
-        @memcpy(vertex_entry[0..12], "vs_untextured"[0..12]);
-        vertex_entry[12] = 0;
-        var fragment_entry: [13:0]u8 = undefined;
-        @memcpy(fragment_entry[0..12], "ps_untextured"[0..12]);
-        fragment_entry[12] = 0;
+        var vertex_entry: [14:0]u8 = undefined;
+        @memcpy(vertex_entry[0..13], "vs_untextured"[0..13]);
+        vertex_entry[13] = 0;
+        var fragment_entry: [14:0]u8 = undefined;
+        @memcpy(fragment_entry[0..13], "ps_untextured"[0..13]);
+        fragment_entry[13] = 0;
         const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = shader_format, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 2, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 3, .props = 0 };
         const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
