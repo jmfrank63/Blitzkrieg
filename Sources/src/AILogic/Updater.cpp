@@ -259,7 +259,7 @@ void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 					if ( update.nParam == -1 )
 						(*pActionsBuffer)[*pnLen].nParam = 0;
 					else
-						(*pActionsBuffer)[*pnLen].nParam = reinterpret_cast<int>( CLinkObject::GetObjectByUniqueIdSafe( update.nParam ) );
+						(*pActionsBuffer)[*pnLen].nParam = static_cast<int>( reinterpret_cast<std::uintptr_t>( CLinkObject::GetObjectByUniqueIdSafe( update.nParam ) ) );
 				}
 				(*pActionsBuffer)[*pnLen].nParam = update.nParam;
 				

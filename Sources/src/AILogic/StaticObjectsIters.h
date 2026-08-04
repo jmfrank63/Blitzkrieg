@@ -94,10 +94,10 @@ CStObjIter<bOnlyContainers>::CStObjIter( const int downX, const int upX, const i
 template<bool bOnlyContainers>
 void CStObjIter<bOnlyContainers>::Init( const int _downX, const int _upX, const int _downY, const int _upY )
 {
-	downX = Clamp( _downX, 0, GetAreaMap().GetSizeX() - 1 );
-	upX = Clamp( _upX, 0, GetAreaMap().GetSizeX() - 1 );
-  downY = Clamp( _downY, 0, GetAreaMap().GetSizeY() - 1 );
-	upY = Clamp( _upY, 0, GetAreaMap().GetSizeY() - 1 );
+	downX = Clamp( _downX, 0, theStatObjs.GetAreaMap().GetSizeX() - 1 );
+	upX = Clamp( _upX, 0, theStatObjs.GetAreaMap().GetSizeX() - 1 );
+  downY = Clamp( _downY, 0, theStatObjs.GetAreaMap().GetSizeY() - 1 );
+	upY = Clamp( _upY, 0, theStatObjs.GetAreaMap().GetSizeY() - 1 );
 
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	NI_ASSERT_T( !theStatObjs.IsIterCreated(), "Can't create two iterators concurrently" ); 
@@ -107,8 +107,8 @@ void CStObjIter<bOnlyContainers>::Init( const int _downX, const int _upX, const 
 	CExistingObject::UpdateGlobalMark();
 
 	y = downY; x = downX;
-	if ( GetAreaMap().GetSizeX() > 0 && GetAreaMap().GetSizeY() > 0 && !GetAreaMap()[y][x].empty() )
-		iter = GetAreaMap()[y][x].begin();
+	if ( theStatObjs.GetAreaMap().GetSizeX() > 0 && theStatObjs.GetAreaMap().GetSizeY() > 0 && !theStatObjs.GetAreaMap()[y][x].empty() )
+		iter = theStatObjs.GetAreaMap()[y][x].begin();
 	else
 		IterateToNextCell();
 
@@ -121,10 +121,10 @@ void CStObjIter<bOnlyContainers>::IterateToNextCell()
 	do
 	{
 		NextXY();
-	} while ( !IsFinished() && GetAreaMap()[y][x].empty() );
+	} while ( !IsFinished() && theStatObjs.GetAreaMap()[y][x].empty() );
 
 	if ( !IsFinished() )
-		iter = GetAreaMap()[y][x].begin();
+		iter = theStatObjs.GetAreaMap()[y][x].begin();
 }
 template<bool bOnlyContainers>
 void CStObjIter<bOnlyContainers>::NextXY()
@@ -145,7 +145,7 @@ void CStObjIter<bOnlyContainers>::Iterate()
 { 
 	do
 	{
-		if ( ++iter == GetAreaMap()[y][x].end() )
+		if ( ++iter == theStatObjs.GetAreaMap()[y][x].end() )
 			IterateToNextCell();
 	} while ( !IsFinished() && (*iter)->IsGlobalUpdated() );
 
@@ -160,18 +160,18 @@ CExistingObject* CStObjIter<bOnlyContainers>::operator*()
 }
 template<bool bOnlyContainers>
 CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter()
-: CStObjIter<bOnlyContainers>( 0, GetAreaMap().GetSizeX() - 1, 0, GetAreaMap().GetSizeY() - 1 )
+: CStObjIter<bOnlyContainers>( 0, theStatObjs.GetAreaMap().GetSizeX() - 1, 0, theStatObjs.GetAreaMap().GetSizeY() - 1 )
 {
 }
 template<bool bOnlyContainers>
 CStObjCircleIter<bOnlyContainers>::CStObjCircleIter( const CVec2 &vCenter, const float fR )
 {
-	const int nBigCellSize = SConsts::TILE_SIZE * GetCellSize();
+	const int nBigCellSize = SConsts::TILE_SIZE * this->GetCellSize();
 
 	const int nMinX = Max( 0, int( (vCenter.x - fR) / nBigCellSize ) );
-	const int nMaxX = Min( GetAreaMap().GetSizeX() - 1, int( (vCenter.x + fR) / nBigCellSize ) );
+	const int nMaxX = Min( theStatObjs.GetAreaMap().GetSizeX() - 1, int( (vCenter.x + fR) / nBigCellSize ) );
 	const int nMinY = Max( 0, int( ( vCenter.y - fR ) / nBigCellSize ) );
-	const int nMaxY = Min( GetAreaMap().GetSizeY() - 1, int( ( vCenter.y + fR ) / nBigCellSize ) );
+	const int nMaxY = Min( theStatObjs.GetAreaMap().GetSizeY() - 1, int( ( vCenter.y + fR ) / nBigCellSize ) );
 
 	CStObjIter<bOnlyContainers>::Init( nMinX, nMaxX, nMinY, nMaxY );
 }

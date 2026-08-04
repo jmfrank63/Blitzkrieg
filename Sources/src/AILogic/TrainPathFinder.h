@@ -2,7 +2,7 @@
 #define __TRAIN_PATH_FINDER_H__
 #pragma ONCE
 #include "PathFinder.h"
-#include "RailRoadGraph.h"
+#include "RailroadGraph.h"
 class CEdgePoint;
 class CTrainPathUnit;
 class CTrainPathFinder : public IStaticPathFinder

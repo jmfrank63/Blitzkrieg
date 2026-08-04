@@ -141,7 +141,7 @@ class CPlaneShturmovikShootEstimator : public IShootEstimator
 	CBuildings buildings;
 	CPtr<CBuilding> pBestBuilding;
 
-	const float CPlaneShturmovikShootEstimator::CalcTimeToOpenFire( CAIUnit *pEnemy ) const;
+	const float CalcTimeToOpenFire( CAIUnit *pEnemy ) const;
 	void CollectTarget( CPlaneShturmovikShootEstimator::STargetInfo * pInfo, class CAIUnit *pTarget, const DWORD dwPossibleGuns );
 	const float CalcRating( CAIUnit *pEnemy, const DWORD dwPossibleGuns ) const;
 public:
