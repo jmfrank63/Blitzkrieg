@@ -1258,7 +1258,7 @@ pub fn build(b: *std.Build) void {
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
-    const misc = addMisc(b, optimize, toolchain, sdl_dynamic_dep.path("include"));
+    const misc = addMisc(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, sdl_dynamic);
@@ -2094,6 +2094,7 @@ fn addLibpng(
 
 fn addMisc(
     b: *std.Build,
+    target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     sdl_include: std.Build.LazyPath,
