@@ -1985,18 +1985,22 @@ fn addGame(
     game_module.linkLibrary(formats);
     game_module.linkLibrary(blitz64);
     linkMsvcRuntime(game_module, optimize);
-    game_module.linkSystemLibrary("version", .{});
-    game_module.linkSystemLibrary("winmm", .{});
-    game_module.linkSystemLibrary("odbc32", .{});
-    game_module.linkSystemLibrary("odbccp32", .{});
-    if (std.mem.eql(u8, renderer, "legacy")) {
+    if (target.result.os.tag == .windows) {
+        game_module.linkSystemLibrary("version", .{});
+        game_module.linkSystemLibrary("winmm", .{});
+        game_module.linkSystemLibrary("odbc32", .{});
+        game_module.linkSystemLibrary("odbccp32", .{});
+    }
+    if (target.result.os.tag == .windows and std.mem.eql(u8, renderer, "legacy")) {
         game_module.linkSystemLibrary("d3d9", .{});
     }
-    game_module.linkSystemLibrary("shlwapi", .{});
-    game_module.linkSystemLibrary("advapi32", .{});
-    game_module.linkSystemLibrary("user32", .{});
-    game_module.linkSystemLibrary("gdi32", .{});
-    linkComSupport(game_module, optimize);
+    if (target.result.os.tag == .windows) {
+        game_module.linkSystemLibrary("shlwapi", .{});
+        game_module.linkSystemLibrary("advapi32", .{});
+        game_module.linkSystemLibrary("user32", .{});
+        game_module.linkSystemLibrary("gdi32", .{});
+        linkComSupport(game_module, optimize);
+    }
     // Splash screen, icon and bitmap resources: WinFrame.cpp creates the
     // IDD_SPLASH_SCREEN dialog from these — without them the loader shows a
     // bare white window. SplashResources.rc is an ASCII-only extract of
@@ -2151,7 +2155,7 @@ fn addImage(
     image_module.linkLibrary(libpng);
     image_module.linkLibrary(zlib);
     linkMsvcRuntime(image_module, optimize);
-    image_module.linkSystemLibrary("user32", .{});
+    if (target.result.os.tag == .windows) image_module.linkSystemLibrary("user32", .{});
 
     return b.addLibrary(.{
         .name = "Image",
@@ -2214,9 +2218,11 @@ fn addNet(
     net_module.linkLibrary(misc);
     linkSdlImport(net_module, target, sdl_dynamic);
     linkMsvcRuntime(net_module, optimize);
-    net_module.linkSystemLibrary("ws2_32", .{});
-    net_module.linkSystemLibrary("odbc32", .{});
-    net_module.linkSystemLibrary("odbccp32", .{});
+    if (target.result.os.tag == .windows) {
+        net_module.linkSystemLibrary("ws2_32", .{});
+        net_module.linkSystemLibrary("odbc32", .{});
+        net_module.linkSystemLibrary("odbccp32", .{});
+    }
 
     return b.addLibrary(.{
         .name = "Net",
@@ -2322,13 +2328,15 @@ fn addInput(
     input_module.linkLibrary(misc);
     linkSdlImport(input_module, target, sdl_dynamic);
     linkMsvcRuntime(input_module, optimize);
-    input_module.linkSystemLibrary("winmm", .{});
-    input_module.linkSystemLibrary("dinput8", .{});
-    input_module.linkSystemLibrary("dxguid", .{});
-    input_module.linkSystemLibrary("user32", .{});
-    input_module.linkSystemLibrary("odbc32", .{});
-    input_module.linkSystemLibrary("odbccp32", .{});
-    linkComSupport(input_module, optimize);
+    if (target.result.os.tag == .windows) {
+        input_module.linkSystemLibrary("winmm", .{});
+        input_module.linkSystemLibrary("dinput8", .{});
+        input_module.linkSystemLibrary("dxguid", .{});
+        input_module.linkSystemLibrary("user32", .{});
+        input_module.linkSystemLibrary("odbc32", .{});
+        input_module.linkSystemLibrary("odbccp32", .{});
+        linkComSupport(input_module, optimize);
+    }
 
     return b.addLibrary(.{
         .name = "Input",
@@ -2392,8 +2400,10 @@ fn addAnim(
     linkSdlImport(anim_module, target, sdl_dynamic);
     anim_module.linkLibrary(formats);
     linkMsvcRuntime(anim_module, optimize);
-    anim_module.linkSystemLibrary("odbc32", .{});
-    anim_module.linkSystemLibrary("odbccp32", .{});
+    if (target.result.os.tag == .windows) {
+        anim_module.linkSystemLibrary("odbc32", .{});
+        anim_module.linkSystemLibrary("odbccp32", .{});
+    }
     linkComSupport(anim_module, optimize);
 
     return b.addLibrary(.{
@@ -2475,8 +2485,10 @@ fn addUI(
     ui_module.linkLibrary(common);
     ui_module.linkLibrary(lualib);
     linkMsvcRuntime(ui_module, optimize);
-    ui_module.linkSystemLibrary("odbc32", .{});
-    ui_module.linkSystemLibrary("odbccp32", .{});
+    if (target.result.os.tag == .windows) {
+        ui_module.linkSystemLibrary("odbc32", .{});
+        ui_module.linkSystemLibrary("odbccp32", .{});
+    }
     linkComSupport(ui_module, optimize);
 
     return b.addLibrary(.{
@@ -2569,10 +2581,12 @@ fn addSFX(
     linkSdlImport(sfx_module, target, sdl_dynamic);
     sfx_module.linkLibrary(common);
     linkMsvcRuntime(sfx_module, optimize);
-    sfx_module.linkSystemLibrary("winmm", .{});
-    sfx_module.linkSystemLibrary("odbc32", .{});
-    sfx_module.linkSystemLibrary("odbccp32", .{});
-    linkComSupport(sfx_module, optimize);
+    if (target.result.os.tag == .windows) {
+        sfx_module.linkSystemLibrary("winmm", .{});
+        sfx_module.linkSystemLibrary("odbc32", .{});
+        sfx_module.linkSystemLibrary("odbccp32", .{});
+        linkComSupport(sfx_module, optimize);
+    }
 
     return b.addLibrary(.{
         .name = "SFX",
@@ -2609,13 +2623,15 @@ fn addGFX(
     linkSdlImport(gfx_module, target, sdl_dynamic);
     gfx_module.linkLibrary(formats);
     linkMsvcRuntime(gfx_module, optimize);
-    gfx_module.linkSystemLibrary("d3d9", .{});
-    gfx_module.linkSystemLibrary("dxguid", .{});
-    gfx_module.linkSystemLibrary("user32", .{});
-    gfx_module.linkSystemLibrary("gdi32", .{});
-    gfx_module.linkSystemLibrary("odbc32", .{});
-    gfx_module.linkSystemLibrary("odbccp32", .{});
-    linkComSupport(gfx_module, optimize);
+    if (target.result.os.tag == .windows) {
+        gfx_module.linkSystemLibrary("d3d9", .{});
+        gfx_module.linkSystemLibrary("dxguid", .{});
+        gfx_module.linkSystemLibrary("user32", .{});
+        gfx_module.linkSystemLibrary("gdi32", .{});
+        gfx_module.linkSystemLibrary("odbc32", .{});
+        gfx_module.linkSystemLibrary("odbccp32", .{});
+        linkComSupport(gfx_module, optimize);
+    }
 
     return b.addLibrary(.{
         .name = "GFX",
@@ -2654,8 +2670,10 @@ fn addGFXGPU(
     gfx_gpu_module.linkLibrary(gfx_gpu_zig);
     linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
     linkMsvcRuntime(gfx_gpu_module, optimize);
-    gfx_gpu_module.linkSystemLibrary("user32", .{});
-    gfx_gpu_module.linkSystemLibrary("gdi32", .{});
+    if (target.result.os.tag == .windows) {
+        gfx_gpu_module.linkSystemLibrary("user32", .{});
+        gfx_gpu_module.linkSystemLibrary("gdi32", .{});
+    }
 
     return b.addLibrary(.{
         .name = "GFXGPU",
