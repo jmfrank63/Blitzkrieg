@@ -730,7 +730,7 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 
 					RECT actualSquareSourceRect = static_cast<RECT>( actualSquareRect );
 					pPackedImage->CopyFrom( packParameterIterator->pImage,
-					`t&actualSquareSourceRect,
+						&actualSquareSourceRect,
 																	squareIterator->rcMaps.minx * packedImageSize.x - shift.x,
 																	squareIterator->rcMaps.miny * packedImageSize.y - shift.y );
 
