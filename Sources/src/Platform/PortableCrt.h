@@ -148,6 +148,7 @@ static inline void Sleep(unsigned long) {}
 static inline int ClipCursor(const void *) { return 1; }
 static inline int SetCursorPos(int, int) { return 1; }
 static inline int GetCursorPos(void *) { return 1; }
+static inline short GetAsyncKeyState(int) { return 0; }
 static inline HCURSOR LoadCursor(HINSTANCE, const char *) { return 0; }
 static inline HCURSOR SetCursor(HCURSOR cursor) { return cursor; }
 
