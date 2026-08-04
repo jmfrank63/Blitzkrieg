@@ -1258,7 +1258,7 @@ pub fn build(b: *std.Build) void {
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
-    const misc = addMisc(b, target, optimize, toolchain);
+    const misc = addMisc(b, optimize, toolchain, sdl_dynamic_dep.path("include"));
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, sdl_dynamic);
@@ -2094,9 +2094,9 @@ fn addLibpng(
 
 fn addMisc(
     b: *std.Build,
-    target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const misc_module = b.createModule(.{
         .target = target,
@@ -2106,6 +2106,7 @@ fn addMisc(
     addMsvcIncludePaths(b, misc_module, toolchain);
     misc_module.addIncludePath(b.path("Sources/src/Misc"));
     misc_module.addIncludePath(b.path("Sources/src/zlib"));
+    misc_module.addIncludePath(sdl_include);
     var misc_flags: std.ArrayListUnmanaged([]const u8) = .empty;
     misc_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     misc_flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
