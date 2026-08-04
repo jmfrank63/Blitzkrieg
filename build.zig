@@ -20,7 +20,7 @@ const portable_cflags = &.{
     "-include", "Sources/src/Platform/PortableCrt.h",
     "-Wno-switch", "-Wno-enum-compare", "-Wno-deprecated-declarations",
     "-Wno-comment", "-Wno-pointer-to-int-cast", "-Wno-implicit-float-conversion",
-    "-Wno-c++11-narrowing", "-Wno-c23-extensions", "-D__stdcall=", "-DBK_STDCALL=", "-fdeclspec",
+    "-Wno-c++11-narrowing", "-Wno-c23-extensions", "-D__stdcall=", "-DBK_STDCALL=",
 };
 
 const cflags_release = &.{

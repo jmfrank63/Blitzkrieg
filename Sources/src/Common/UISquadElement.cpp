@@ -314,7 +314,7 @@ bool CUISquadElement::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 			CUIUnitObserver *observer = *(passangers.begin());
 			if ( observer->GetMOUnit()->CanSelect() )
 			{
-				msg.nParam = reinterpret_cast<int>( observer->GetMOUnit() );
+				msg.nParam = static_cast<int>( reinterpret_cast<std::uintptr_t>( observer->GetMOUnit() ) );
 				GetSingleton<IInput>()->AddMessage( msg );
 			}
 		}
@@ -325,7 +325,7 @@ bool CUISquadElement::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 				CUIUnitObserver *observer = *(it);
 				if ( observer->GetMOUnit()->CanSelect() )
 				{
-					msg.nParam = reinterpret_cast<int>( observer->GetMOUnit() );
+					msg.nParam = static_cast<int>( reinterpret_cast<std::uintptr_t>( observer->GetMOUnit() ) );
 					GetSingleton<IInput>()->AddMessage( msg );
 				}
 			}

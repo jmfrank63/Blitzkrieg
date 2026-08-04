@@ -126,7 +126,7 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 			pIcon->UnlockBarColor();
 	}
 
-	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, (int)static_cast<IMOContainer*>(this)) );
+	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, static_cast<int>( reinterpret_cast<std::uintptr_t>( static_cast<IMOContainer*>(this) ) )) );
 	UpdatePassangers();
 	return true;
 }

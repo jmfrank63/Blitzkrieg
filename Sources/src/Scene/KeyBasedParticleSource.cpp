@@ -26,7 +26,8 @@ void CKeyBasedParticleSource::SetDirection( const SHMatrix &mDir )
 	mDir.RotateVector( &vDir, pData->vDirection );
 	Normalize( &vDir );
 	fDirectionTheta = acos( vDir.z );
-	fDirectionPhi = fDirectionTheta == 0 ? 0 : ( vDir.y > 0 ? acos( Clamp(vDir.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) : PI * 2 - acos( Clamp(vDir.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) );
+	const float direction_x = static_cast<float>( vDir.x / sin( fDirectionTheta ) );
+	fDirectionPhi = fDirectionTheta == 0 ? 0 : ( vDir.y > 0 ? acos( Clamp<float>( direction_x, -1.0f, 1.0f ) ) : PI * 2 - acos( Clamp<float>( direction_x, -1.0f, 1.0f ) ) );
 }
 void CKeyBasedParticleSource::SetStartTime( const NTimer::STime &time )
 {
@@ -55,7 +56,7 @@ void CKeyBasedParticleSource::FillParticleBuffer( SSimpleParticle *buff ) const
 {
 	for ( std::list<SExtendedParticle>::const_iterator it = particles.begin(); it != particles.end() ; it++  )
 	{
-		memcpy( buff, &(*it), sizeof( SSimpleParticle ) );
+		*buff = static_cast<const SSimpleParticle &>(*it);
 		++buff;
 	}
 }

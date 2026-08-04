@@ -46,6 +46,8 @@ public:
 		selectionState = SGVOSS_UNSELECTED;
 	}
 	virtual void STDCALL SetPlacement( const CVec3 &_vPos, const int _nDir ) { SetPosition( _vPos ); SetDirection( _nDir ); }
+	virtual void STDCALL SetPosition( const CVec3 &_vPos ) { SetPos( _vPos ); }
+	virtual void STDCALL SetDirection( const int _nDirection ) { SetDir( _nDirection ); }
 	virtual const CVec3& STDCALL GetPosition() const { return vPos; }
 	virtual int STDCALL GetDirection() const { return nDirection; }
 	virtual EVisObjSelectionState STDCALL GetSelectionState() const { return selectionState; }

@@ -88,7 +88,7 @@ namespace
 		unsigned long long nValue = 0;
 		for ( int i = 7; i >= 0; --i )
 			nValue = (nValue << 8) | pData[i];
-		return long long( nValue );
+		return static_cast<long long>( nValue );
 	}
 
 	bool ParseTheoraIdentificationHeader( const unsigned char *pPacket, const int nPacketSize, CVec2 *pMovieSize, int *pnFPSNumerator, int *pnFPSDenominator, int *pnGranuleShift )

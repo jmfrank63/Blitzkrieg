@@ -98,6 +98,12 @@ typedef long long __int64;
 #ifndef __stdcall
 #define __stdcall
 #endif
+#ifndef WINAPI
+#define WINAPI
+#endif
+#ifndef __declspec
+#define __declspec(x)
+#endif
 #define _EM_INVALID 0
 #define _EM_ZERODIVIDE 0
 #define _EM_OVERFLOW 0

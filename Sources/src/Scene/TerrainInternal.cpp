@@ -172,7 +172,7 @@ void CTerrain::SetMarker( const CTPoint<int> *pPoints, int nNumPoints )
 	if ( nNumPoints > 0 )
 	{
 		const int nNumTiles = nNumPoints;
-		memcpy( &(vismarker.info[0]), pPoints, nNumPoints * sizeof(CTPoint<int>) );
+		std::copy( pPoints, pPoints + nNumPoints, vismarker.info.begin() );
 		vismarker.vertices.resize( nNumTiles * 4 );
 		vismarker.indices.resize( nNumTiles * 6 );
 	}
@@ -286,7 +286,7 @@ template <class TVertex>
 void AddVertices( const std::vector<TVertex> &src, std::vector<TVertex> &dst, 
 								  std::vector<WORD> &indices, const CTRect<float> &rcScreen )
 {
-	for ( std::vector<TVertex>::const_iterator vertex = src.begin(); vertex != src.end(); vertex += 4 )
+	for ( typename std::vector<TVertex>::const_iterator vertex = src.begin(); vertex != src.end(); vertex += 4 )
 	{
 		const TVertex &v0 = *vertex;
 		const TVertex &v1 = *(vertex + 1);

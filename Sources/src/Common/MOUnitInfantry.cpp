@@ -381,7 +381,7 @@ void CMOUnitInfantry::SetSquad( interface IMOSquad *_pSquad )
 	if ( pSquad )
 	{
 		pSquad->Load( this, true );
-		GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, int(GetContainer())) );
+		GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, static_cast<int>( reinterpret_cast<std::uintptr_t>( GetContainer() ) )) );
 	}
 	else
 	{
