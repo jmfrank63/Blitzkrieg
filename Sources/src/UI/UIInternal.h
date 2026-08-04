@@ -1,7 +1,7 @@
 #ifndef __UIINTERNAL_H__
 #define __UIINTERNAL_H__
 #include "../Main/TextSystem.h"
-#include "../sfx/sfx.h"
+#include "../SFX/SFX.h"
 #include "MaskSystem.h"
 enum EUIWindowSubState
 {

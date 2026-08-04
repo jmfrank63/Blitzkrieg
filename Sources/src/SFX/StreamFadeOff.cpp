@@ -1,4 +1,4 @@
-#include "stdAfx.h"
+#include "StdAfx.h"
 #include "StreamFadeOff.h"
 
 int CStreamFadeOff::operator&( IStructureSaver &ss )
