@@ -3305,7 +3305,7 @@ fn linkSdlImport(
 ) void {
     switch (target.result.os.tag) {
         .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
-        else => module.addObjectFile(sdl_dynamic.getEmittedBin()),
+        else => module.linkLibrary(sdl_dynamic),
     }
 }
 
