@@ -1258,7 +1258,7 @@ pub fn build(b: *std.Build) void {
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
-    const misc = addMisc(b, target, optimize, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    const misc = addMisc(b, target, optimize, toolchain);
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, sdl_dynamic);
@@ -2097,8 +2097,6 @@ fn addMisc(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
-    sdl_dynamic: *std.Build.Step.Compile,
-    sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const misc_module = b.createModule(.{
         .target = target,
@@ -2115,8 +2113,6 @@ fn addMisc(
         .files = misc_sources,
         .flags = misc_flags.items,
     });
-    linkSdlRuntime(misc_module, target, sdl_dynamic, sdl_include);
-
     return b.addLibrary(.{
         .name = "Misc",
         .linkage = .static,
