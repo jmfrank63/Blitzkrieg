@@ -9,7 +9,7 @@
 #include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
 #include "../RandomMapGen/MapInfo_Types.h"
-#include "../RandomMapGen/resource_types.h"
+#include "../RandomMapGen/Resource_Types.h"
 #include "Campaign.h"
 #include "CommonId.h"
 #include "UIConsts.h"

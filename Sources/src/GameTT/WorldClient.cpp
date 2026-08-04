@@ -1778,7 +1778,7 @@ void CWorldClient::OnMouseMove( const CVec2 &vPos, interface IUIElement *pUIPick
 			const float fHalfTile = SAIConsts::TILE_SIZE / 2.0f;
 			int ex = int( vPos3.x / SAIConsts::TILE_SIZE );
 			int ey = int( vPos3.y / SAIConsts::TILE_SIZE );
-			if ( abs(ex - prevCmd.vPos.x) > abs(ey - prevCmd.vPos.y) )
+			if ( std::abs(ex - prevCmd.vPos.x) > std::abs(ey - prevCmd.vPos.y) )
 			{
 				const int x = prevCmd.vPos.x;
 				const int sx = Min( x, ex );

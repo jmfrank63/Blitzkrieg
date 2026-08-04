@@ -38,6 +38,10 @@ typedef void *LPVOID;
 #define OPEN_EXISTING 3
 #define FILE_ATTRIBUTE_NORMAL 0x80
 #define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
+#define VK_OEM_PLUS 0xBB
+#define VK_OEM_MINUS 0xBD
+#define LOWORD(value) ((unsigned short)((uintptr_t)(value) & 0xffffu))
+#define HIWORD(value) ((unsigned short)(((uintptr_t)(value) >> 16) & 0xffffu))
 #ifndef BLITZKRIEG_FILETIME_DEFINED
 typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
 #define BLITZKRIEG_FILETIME_DEFINED

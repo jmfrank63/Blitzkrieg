@@ -119,6 +119,7 @@ public:
         other.vt = VT_EMPTY; return *this;
     }
     operator bool() const { return vt == VT_BOOL ? boolVal != VARIANT_FALSE : lVal != 0; }
+    operator unsigned char() const { return static_cast<unsigned char>(static_cast<int>(*this)); }
     operator short() const { return vt == VT_I2 ? iVal : static_cast<short>(lVal); }
     operator int() const { return vt == VT_I2 ? iVal : (vt == VT_UI1 ? bVal : lVal); }
     operator long() const { return static_cast<long>(static_cast<int>(*this)); }
