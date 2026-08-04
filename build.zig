@@ -2211,6 +2211,7 @@ fn addNet(
     addMsvcIncludePaths(b, net_module, toolchain);
     addMsvcLibraryPaths(b, net_module, toolchain);
     net_module.addIncludePath(b.path("Sources/src/Net"));
+    net_module.addIncludePath(b.path("Sources/src/StreamIO"));
     net_module.addCSourceFiles(.{
         .files = net_sources,
         .flags = cppflagsForOptimize(optimize),
@@ -2476,6 +2477,7 @@ fn addUI(
     ui_module.addIncludePath(b.path("Sources/src/GFX"));
     ui_module.addIncludePath(b.path("Sources/src/SFX"));
     ui_module.addIncludePath(b.path("Sources/src/Scene"));
+    ui_module.addIncludePath(b.path("Sources/src/Main"));
     ui_module.addCSourceFiles(.{
         .files = ui_sources,
         .flags = cppflagsForOptimize(optimize),
