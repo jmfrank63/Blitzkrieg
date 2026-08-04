@@ -2404,7 +2404,7 @@ fn addAnim(
         anim_module.linkSystemLibrary("odbc32", .{});
         anim_module.linkSystemLibrary("odbccp32", .{});
     }
-    linkComSupport(anim_module, optimize);
+    if (target.result.os.tag == .windows) linkComSupport(anim_module, optimize);
 
     return b.addLibrary(.{
         .name = "Anim",
@@ -2489,7 +2489,7 @@ fn addUI(
         ui_module.linkSystemLibrary("odbc32", .{});
         ui_module.linkSystemLibrary("odbccp32", .{});
     }
-    linkComSupport(ui_module, optimize);
+    if (target.result.os.tag == .windows) linkComSupport(ui_module, optimize);
 
     return b.addLibrary(.{
         .name = "UI",
