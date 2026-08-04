@@ -7,7 +7,7 @@
 #include "Formation.h"
 #include "CommonUnit.h"
 #include "Soldier.h"
-#include "updater.h"
+#include "Updater.h"
 #include "Artillery.h"
 #include "AIWarFog.h"
 #include "Diplomacy.h"
@@ -18,7 +18,7 @@
 #include "PlanePath.h"
 #include "Weather.h"
 #include "Aviation.h"
-#include "Scripts/scripts.h"
+#include "Scripts/Scripts.h"
 
 #include "../Input/Input.h"
 #include "../GameTT/iMission.h"

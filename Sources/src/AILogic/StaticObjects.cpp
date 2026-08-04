@@ -14,7 +14,7 @@
 #include "Diplomacy.h"
 #include "AIUnit.h"
 #include "Fence.h"
-#include "pathfinder.h"
+#include "PathFinder.h"
 #include "AIStaticMap.h"
 #include "AICellsTiles.h"
 #include "Path.h"

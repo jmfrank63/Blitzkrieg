@@ -19,6 +19,7 @@ typedef WCHAR *LPWSTR;
 typedef const WCHAR *LPCWSTR;
 typedef const char *LPCTSTR;
 typedef unsigned int UINT;
+typedef unsigned char byte;
 typedef unsigned long REGSAM;
 typedef unsigned long ULONG;
 typedef long HRESULT;
@@ -51,6 +52,7 @@ typedef struct { unsigned long long QuadPart; } ULARGE_INTEGER;
 #define TEXT(x) x
 #define MAKELPARAM(a,b) ((long)(((unsigned short)(a)) | ((unsigned long)((unsigned short)(b)) << 16)))
 #define MAKEINTRESOURCE(x) ((const char *)(uintptr_t)(x))
+#define MAKELONG(a,b) ((long)(((unsigned short)(a)) | ((unsigned long)((unsigned short)(b)) << 16)))
 #define IDC_WAIT ((const char *)32514)
 #define STG_E_INVALIDFUNCTION 0x80030001L
 #define STG_E_ACCESSDENIED 0x80030005L

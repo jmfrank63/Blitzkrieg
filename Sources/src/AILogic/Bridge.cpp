@@ -11,7 +11,7 @@
 #include "Statistics.h"
 #include "AIWarFog.h"
 #include "Formation.h"
-#include "UnitSTates.h"
+#include "UnitStates.h"
 #include "StaticObjects.h"
 #include "Scripts/Scripts.h"
 #include "Graveyard.h"

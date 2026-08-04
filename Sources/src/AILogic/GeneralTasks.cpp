@@ -18,7 +18,7 @@
 #include "PathFinder.h"
 #include "Path.h"
 #include "General.h"
-#include "../SCene/Scene.h"
+#include "../Scene/Scene.h"
 
 extern CSupremeBeing theSupremeBeing;
 extern CStaticObjects theStaticObjects;

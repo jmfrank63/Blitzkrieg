@@ -6,7 +6,7 @@
 #include "AIUnit.h"
 #include "MultiplayerInfo.h"
 #include "Diplomacy.h"
-#include "Scripts/scripts.h"
+#include "Scripts/Scripts.h"
 #include "Updater.h"
 #include "MPLog.h"
 extern CStaticObjects theStatObjs;

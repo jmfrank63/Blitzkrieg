@@ -26,7 +26,7 @@ extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
 #include "Units.h"
 #include "UnitsIterators.h"
 #include "PathFinder.h"
-#include "updater.h"
+#include "Updater.h"
 #include "StaticObjects.h"
 #include "AIStaticMap.h"
 #include "GroupLogic.h"

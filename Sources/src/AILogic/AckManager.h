@@ -2,7 +2,7 @@
 #define __ACKMANAGER_H__
 
 #include "../Common/Actions.h"
-#include "../misc/HashFuncs.h"
+#include "../Misc/HashFuncs.h"
 #include "AIHashFuncs.h"
 class CAIUnit;
 class CAckManager

@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "fence.h"
+#include "Fence.h"
 #include "Updater.h"
 #include "Diplomacy.h"
 #include "TimeCounter.h"

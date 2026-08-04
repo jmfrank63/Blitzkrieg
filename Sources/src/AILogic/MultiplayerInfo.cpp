@@ -3,7 +3,7 @@
 #include "MultiplayerInfo.h"
 #include "Diplomacy.h"
 #include "Updater.h"
-#include "Scripts/scripts.h"
+#include "Scripts/Scripts.h"
 #include "Statistics.h"
 #include "MPLog.h"
 #include "Units.h"

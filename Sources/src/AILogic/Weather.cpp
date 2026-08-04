@@ -3,7 +3,7 @@
 #include "Weather.h"
 #include "Diplomacy.h"
 #include "UnitCreation.h"
-#include "updater.h"
+#include "Updater.h"
 extern CUpdater updater; 
 CWeather theWeather;
 extern NTimer::STime curTime;

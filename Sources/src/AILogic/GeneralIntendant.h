@@ -2,6 +2,7 @@
 #define __GENERALINTENDANT_H__
 #pragma ONCE
 #include "Commander.h"
+#include "General.h"
 #include "StaticObjects.h"
 #include "EnemyRememberer.h"
 class CResupplyCellInfo : public IRefCount
