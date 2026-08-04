@@ -175,7 +175,7 @@ void CFence::Delete()
 				GetSingleton<IConsoleBuffer>()->WriteASCII
 				(
 					CONSOLE_STREAM_CONSOLE,
-					NStr::Format("Can't find full damaged stats for %s, direction %d", pStats->szKeyName, nDir ),
+					NStr::Format("Can't find full damaged stats for %s, direction %d", pStats->szKeyName.c_str(), nDir ),
 					0xffff0000, true 
 				);
 			}
