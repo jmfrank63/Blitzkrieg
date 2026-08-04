@@ -6,7 +6,7 @@
 #include "MultiplayerCommandManager.h"
 #include "ListControlWrapper.h"
 #include "MapSettingsWrapper.h"
-#include "UIMapINfo.h"
+#include "UIMapInfo.h"
 
 #include "../Main/Transceiver.h"
 class CInterfaceMPCreateGame : public CInterfaceMultiplayerScreen

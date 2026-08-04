@@ -6,7 +6,7 @@
 #include "Chapter.h"
 
 #include "../Misc/Checker.h"
-#include "../Main/gamestats.h"
+#include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
 #include "../RandomMapGen/mapinfo_types.h"
 #include "../RandomMapGen/resource_types.h"

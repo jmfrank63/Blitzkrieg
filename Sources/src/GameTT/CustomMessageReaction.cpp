@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "CustomMessageReaction.h"
-#include "../Main/IMain.h"
+#include "../Main/iMain.h"
 #include "../Main/ScenarioTracker.h"
 #include "../Main/GameStats.h"
 #include "iMission.h"

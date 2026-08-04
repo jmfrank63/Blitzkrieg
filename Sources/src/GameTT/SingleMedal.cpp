@@ -4,7 +4,7 @@
 
 #include "../Main/GameStats.h"
 #include "CommonId.h"
-#include "eTypes.h"
+#include "etypes.h"
 enum ECommands
 {
 	IMC_SHOW_ENCYCLOPEDIA		= 10003,

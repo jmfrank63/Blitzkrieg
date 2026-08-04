@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "InterfaceMessageBox.h"
-#include "CommonID.h"
+#include "CommonId.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},

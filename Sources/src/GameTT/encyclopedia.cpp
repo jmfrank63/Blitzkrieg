@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "Encyclopedia.h"
+#include "encyclopedia.h"
 
 #include "../Main/GameStats.h"
 #include "../Main/RPGStats.h"

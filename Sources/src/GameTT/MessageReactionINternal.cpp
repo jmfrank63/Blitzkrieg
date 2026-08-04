@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 #include "MessageReactionINternal.h"
-#include "../Main/IMain.h"
+#include "../Main/iMain.h"
 #include "../Input/Input.h"
 #include "../Misc/TypeConvertor.h"
 #include "iMission.h"

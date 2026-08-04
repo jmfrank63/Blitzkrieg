@@ -2,7 +2,7 @@
 
 #include "TrainPathFinder.h"
 #include "PointChecking.h"
-#include "RailRoadGraph.h"
+#include "RailroadGraph.h"
 #include "TrainPathUnit.h"
 extern CRailroadGraph theRailRoadGraph;
 void CTrainPathFinder::AnalyzePath( const int v1, const int v2, const float fDistToV1, CEdgePoint *pPoint )

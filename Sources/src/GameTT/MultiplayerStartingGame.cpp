@@ -6,7 +6,7 @@
 #include "../UI/UIMessages.h"
 #include "UIConsts.h"
 #include "MapSettingsWrapper.h"
-#include "UIMapINfo.h"
+#include "UIMapInfo.h"
 #include "MinimapCreation.h"
 
 bool bServerconfiguration = false;

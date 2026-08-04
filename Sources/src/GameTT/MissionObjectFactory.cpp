@@ -12,7 +12,7 @@
 #include "Mission.h"
 #include "MainMenu.h"
 #include "Stats.h"
-#include "Encyclopedia.h"
+#include "encyclopedia.h"
 #include "CustomMission.h"
 #include "CustomChapter.h"
 #include "CustomCampaign.h"

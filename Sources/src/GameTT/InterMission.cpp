@@ -3,7 +3,7 @@
 #include "InterMission.h"
 
 #include "WorldClient.h"
-#include "CommonID.h"
+#include "CommonId.h"
 #include "MultiplayerCommandManager.h"
 #include "../Main/ScenarioTracker.h"
 #include "../UI/UIMessages.h"

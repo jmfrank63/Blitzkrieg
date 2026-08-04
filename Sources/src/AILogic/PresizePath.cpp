@@ -2,7 +2,7 @@
 
 #include "PresizePath.h"
 #include "BasePathUnit.h"
-#include "TankpitPath.h"
+#include "TankPitPath.h"
 #include "StandartPath.h"
 #include "StandartSmoothSoldierPath.h"
 #include "StandartSmoothMechPath.h"

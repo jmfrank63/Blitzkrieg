@@ -5,7 +5,7 @@
 #include "../Main/ScenarioTracker.h"
 #include "../Main/ScenarioTrackerTypes.h"
 #include "../Common/ObjectStatus.h"
-#include "../Main/gamestats.h"
+#include "../Main/GameStats.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../UI/UIMessages.h"
 #include "CommonId.h"

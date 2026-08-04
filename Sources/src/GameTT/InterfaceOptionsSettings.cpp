@@ -2,7 +2,7 @@
 
 #include "InterfaceOptionsSettings.h"
 #include "../StreamIO/OptionSystem.h"
-#include "CommonID.h"
+#include "CommonId.h"
 #include "OptionEntryWrapper.h"
 #include "MainMenu.h"
 #include "../Main/iMainCommands.h"

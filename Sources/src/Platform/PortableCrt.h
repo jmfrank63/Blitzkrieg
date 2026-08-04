@@ -29,10 +29,17 @@ typedef void *HMODULE;
 typedef void *HINSTANCE;
 typedef void *HCURSOR;
 typedef void *LPVOID;
+typedef struct { FILETIME ftCreationTime; FILETIME ftLastAccessTime; FILETIME ftLastWriteTime; } BY_HANDLE_FILE_INFORMATION;
+typedef struct { unsigned short wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; } SYSTEMTIME;
 #ifndef DLL_PROCESS_ATTACH
 #define DLL_PROCESS_ATTACH 1
 #define DLL_PROCESS_DETACH 0
 #endif
+#define GENERIC_READ 0x80000000UL
+#define FILE_SHARE_READ 1
+#define OPEN_EXISTING 3
+#define FILE_ATTRIBUTE_NORMAL 0x80
+#define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
 #ifndef BLITZKRIEG_FILETIME_DEFINED
 typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
 #define BLITZKRIEG_FILETIME_DEFINED
@@ -71,6 +78,14 @@ struct IStream : IUnknown {
 };
 #endif
 static inline unsigned long GetTickCount(void) { return 0; }
+static inline HANDLE CreateFile(const char *, unsigned long, unsigned long, void *, unsigned long, unsigned long, HANDLE) { return INVALID_HANDLE_VALUE; }
+static inline unsigned long GetLastError(void) { return 0; }
+static inline int GetFileInformationByHandle(HANDLE, BY_HANDLE_FILE_INFORMATION *) { return 0; }
+static inline int CloseHandle(HANDLE) { return 1; }
+static inline int FileTimeToLocalFileTime(const FILETIME *source, FILETIME *dest) { if (dest && source) *dest = *source; return 1; }
+static inline int FileTimeToSystemTime(const FILETIME *, SYSTEMTIME *) { return 0; }
+static inline int CompareFileTime(const FILETIME *a, const FILETIME *b) { if (!a || !b) return 0; return a->dwHighDateTime != b->dwHighDateTime ? (a->dwHighDateTime > b->dwHighDateTime ? 1 : -1) : (a->dwLowDateTime > b->dwLowDateTime ? 1 : (a->dwLowDateTime < b->dwLowDateTime ? -1 : 0)); }
+static inline void OutputDebugStringA(const char *) {}
 static inline HANDLE GetCurrentThread(void) { return 0; }
 static inline int SetThreadPriority(HANDLE, int) { return 1; }
 static inline HMODULE GetModuleHandleA(const char *) { return 0; }

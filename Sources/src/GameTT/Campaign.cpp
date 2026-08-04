@@ -2,7 +2,7 @@
 
 #include "Campaign.h"
 
-#include "../Main/gamestats.h"
+#include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
 #include "MainMenu.h"
 #include "CommonId.h"

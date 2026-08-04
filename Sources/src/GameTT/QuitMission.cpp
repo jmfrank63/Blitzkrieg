@@ -2,7 +2,7 @@
 
 #include "QuitMission.h"
 
-#include "../Main/gamestats.h"
+#include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
 #include "../Main/Transceiver.h"
 enum EInterMissionCommand

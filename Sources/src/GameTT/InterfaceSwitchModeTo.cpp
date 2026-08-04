@@ -1,7 +1,7 @@
 #include "StdAfx.h"
 
 #include "InterfaceSwitchModeTo.h"
-#include "CommonID.h"
+#include "CommonId.h"
 #include "MultiplayerCommandManager.h"
 enum EControls
 {

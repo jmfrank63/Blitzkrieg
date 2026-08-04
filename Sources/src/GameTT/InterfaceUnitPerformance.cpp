@@ -10,7 +10,7 @@
 #include "InterfaceAfterMissionPopups.h"
 #include "Campaign.h"
 #include "MainMenu.h"
-#include "../GameTT/eTypes.h"
+#include "../GameTT/etypes.h"
 CAfterMissionPopups * pPopups = 0;
 static const NInput::SRegisterCommandEntry commands[] = 
 {
