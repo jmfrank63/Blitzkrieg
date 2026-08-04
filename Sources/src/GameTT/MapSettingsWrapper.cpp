@@ -39,23 +39,23 @@ bool CMapSettingsWrapper::CFakeOptionSystem::Get( const std::string &szVarName, 
 
 	if ( szVarName == "Multiplayer.Timelimit" )
 	{
-		*pVar = long(settings.nTimeLimit);
+		*pVar = variant_t( long(settings.nTimeLimit) );
 	}
 	else if ( szVarName == "Multiplayer.TimeToCapture" )
 	{
-		*pVar = long(settings.nTimeToCapture);
+		*pVar = variant_t( long(settings.nTimeToCapture) );
 	}
 	else if ( szVarName == "Multiplayer.KillScoreLimit" )
 	{
-		*pVar = long(settings.nKillScoreLimit);
+		*pVar = variant_t( long(settings.nKillScoreLimit) );
 	}
 	else if ( szVarName == "Multiplayer.GameSpeed" )
 	{
-		*pVar = settings.szGameSpeed.c_str();
+		*pVar = variant_t( settings.szGameSpeed.c_str() );
 	}
 	else if ( szVarName == "Multiplayer.FlagScoreLimit" )
 	{
-		*pVar = long(settings.nFlagScoreLimit);
+		*pVar = variant_t( long(settings.nFlagScoreLimit) );
 	}
 	return true;
 }

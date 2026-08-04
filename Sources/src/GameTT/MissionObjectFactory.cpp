@@ -51,7 +51,7 @@
 #include "../Common/MOEntrenchment.h"
 #include "../Common/UISquadElement.h"
 #include "../GameTT/AckManager.h"
-#include "../GameTT/MessageReactionInternal.h"
+#include "../GameTT/MessageReactionINternal.h"
 #include "../GameTT/InterfaceUnitPerformance.h"
 #include "../GameTT/InterfaceAfterMissionPopups.h"
 #include "../GameTT/InterfaceIMModsList.h"

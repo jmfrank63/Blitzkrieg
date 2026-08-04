@@ -7,7 +7,7 @@
 #include "MainMenu.h"
 #include "../Main/iMainCommands.h"
 #include <mmsystem.h>
-#include "../Common/actions.h"
+#include "../Common/Actions.h"
 #include "../Main/ScenarioTracker.h"
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {

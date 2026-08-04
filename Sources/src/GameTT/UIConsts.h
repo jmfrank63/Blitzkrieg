@@ -2,6 +2,7 @@
 #define __UICONSTS_H__
 #pragma ONCE
 #include "../Main/GameStats.h"
+#include "MultiplayerCommandManager.h"
 class CUIConsts  
 {
 public:

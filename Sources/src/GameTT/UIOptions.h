@@ -94,7 +94,7 @@ public:
 		{ pSet->ResetSelection(); }
 	virtual void STDCALL Apply()
 	{
-		GetOptionSystem()->Set( GetName(), selections[nSelection].szProgName.c_str() );
+		GetOptionSystem()->Set( GetName(), variant_t( selections[nSelection].szProgName.c_str() ) );
 	}
 };
 class COptionSlider : public COption
@@ -133,7 +133,7 @@ public:
 		{ pSet->ResetTextEntry(); }
 	virtual void STDCALL Apply() 
 	{
-		GetOptionSystem()->Set( GetName(), szText.c_str() );
+		GetOptionSystem()->Set( GetName(), variant_t( szText.c_str() ) );
 	}
 };
 class COptionTextEntryGameSpyCharacters : public COption
@@ -152,7 +152,7 @@ public:
 		{ pSet->ResetTextGameSpyEntry(); }
 	virtual void STDCALL Apply() 
 	{
-		GetOptionSystem()->Set( GetName(), szText.c_str() );
+		GetOptionSystem()->Set( GetName(), variant_t( szText.c_str() ) );
 	}
 };
 class COptionNumericEntry : public COption

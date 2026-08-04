@@ -8,7 +8,7 @@
 #include "UIConsts.h"
 #include "MultiplayerCommandManager.h"
 #include "../Main/ServerInfo.h"
-#include "../main/gamestats.h"
+#include "../Main/GameStats.h"
 #include "../Common/Actions.h"
 #include "../Misc/HPTimer.h"
 #include "../Anim/Animation.h"
