@@ -72,7 +72,7 @@ bool CSpritesPackBuilder::GetMinimalImageSize( const SSpritesPack *pSpritesPack,
 							 NStr::Format( "Invalid collected sizes: %d %d\n", pCollectedSquareSideSize->min, pCollectedSquareSideSize->max ) );
 	/**/
 	
-	if ( ( ( *pnSquaresCount ) == 0 ) )
+	if ( *pnSquaresCount == 0 )
 	{
 		pCollectedSquareSideSize->min = 0;
 		pCollectedSquareSideSize->max = 0;
@@ -728,8 +728,9 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 					shift.x -= actualSquareRect.minx;
 					shift.y -= actualSquareRect.miny;
 
+					RECT actualSquareSourceRect = static_cast<RECT>( actualSquareRect );
 					pPackedImage->CopyFrom( packParameterIterator->pImage,
-																	&( static_cast<RECT>( actualSquareRect ) ),
+					`t&actualSquareSourceRect,
 																	squareIterator->rcMaps.minx * packedImageSize.x - shift.x,
 																	squareIterator->rcMaps.miny * packedImageSize.y - shift.y );
 
@@ -996,7 +997,8 @@ IImage* CSpritesPackBuilder::Unpack( SSpritesPack *pSpritesPack, IImage *pPacked
 			actualSquareRect.minx -= bounds.minx;
 			actualSquareRect.miny -= bounds.miny;
 
-			pOriginalImage->CopyFrom( pPackedImage, &( static_cast<RECT>( packedSquareRect ) ), actualSquareRect.minx, actualSquareRect.miny );
+			RECT packedSquareSourceRect = static_cast<RECT>( packedSquareRect );
+			pOriginalImage->CopyFrom( pPackedImage, &packedSquareSourceRect, actualSquareRect.minx, actualSquareRect.miny );
 		}
 	}
 

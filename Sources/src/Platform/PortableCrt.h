@@ -27,6 +27,11 @@ typedef void *HANDLE;
 typedef void *HMODULE;
 typedef void *HINSTANCE;
 typedef void *HCURSOR;
+typedef void *LPVOID;
+#ifndef DLL_PROCESS_ATTACH
+#define DLL_PROCESS_ATTACH 1
+#define DLL_PROCESS_DETACH 0
+#endif
 #ifndef BLITZKRIEG_FILETIME_DEFINED
 typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
 #define BLITZKRIEG_FILETIME_DEFINED
