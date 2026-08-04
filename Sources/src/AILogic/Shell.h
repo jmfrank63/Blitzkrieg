@@ -166,7 +166,7 @@ public:
 
 	const SWeaponRPGStats *GetWeapon() const { return pWeapon; }
 	const BYTE GetShellType() const { return nShellType; }
-	const SWeaponRPGStats::SShell GetShellStats() const { return pWeapon->shells[nShellType]; }
+	const SWeaponRPGStats::SShell& GetShellStats() const { return pWeapon->shells[nShellType]; }
 	const WORD GetAttackDir() const { return attackDir; }
 
 	const int GetRandomPiercing() const;

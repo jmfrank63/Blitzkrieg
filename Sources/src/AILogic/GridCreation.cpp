@@ -174,8 +174,8 @@ void CGrid::CreateGrid()
 		columns[nColumn] -= GetRowHeight( vAABBHalfSize.y );
 		sortedColumns.insert( nColumn );
 
-		fHeight = Max( fHeight, fabs( newCenters[sortedUnits.GetUnitByOrderNumber(i)].y ) );
-		fWidth = Max( fWidth, newCenters[sortedUnits.GetUnitByOrderNumber(i)].x + vAABBHalfSize.x );
+		fHeight = Max<float>( fHeight, static_cast<float>( fabs( newCenters[sortedUnits.GetUnitByOrderNumber(i)].y ) ) );
+		fWidth = Max<float>( fWidth, static_cast<float>( newCenters[sortedUnits.GetUnitByOrderNumber(i)].x + vAABBHalfSize.x ) );
 	}
 
 	const CVec2 vDir = sortedUnits.GetAverageDir();

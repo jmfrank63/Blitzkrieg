@@ -504,7 +504,7 @@ void CUnitCreation::CallPlane( const int nPlayer,
 	{
 		float fMaxOffset = 0;								// to adjust turn radius acording to plane's formation
 		for ( int i = 0; i < positions.size(); ++i )
-			fMaxOffset = Max( fMaxOffset, fabs( positions[i].y ) );
+			fMaxOffset = Max<float>( fMaxOffset, static_cast<float>( fabs( positions[i].y ) ) );
 		pFormation = new CPlanesFormation;
 		pFormation->Init( vAppearPoint, fAppearHeight, pStats->fTurnRadius + fMaxOffset, pStats->fTurnRadius * 2 + fMaxOffset, wDirection, pStats->fSpeed, fabs(vBombPointOffset.y) );
 		pFormation->SendAlongPath( new CPlanePath( CVec3( vAppearPoint, fAppearHeight ), CVec3( vGoToPoint, fAppearHeight ) ) );

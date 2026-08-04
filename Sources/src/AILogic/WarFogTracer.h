@@ -3,6 +3,7 @@
 
 #pragma ONCE
 #include "AIStaticMap.h"
+extern CStaticMap theStaticMap;
 template<class T>
 class CWarFogTracer
 {

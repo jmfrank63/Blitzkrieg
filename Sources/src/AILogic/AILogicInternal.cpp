@@ -188,7 +188,7 @@ bool CAILogic::CheckForScenarioTruck( const SMapObjectInfo &object, IObjectsDB *
 						*pNewStats = 0;
 						const float fWeight = pArtillery->GetStats()->fWeight;
 
-						for ( CAvailTrucks::iterator iter = availableTrucks.begin(); iter != availableTrucks.end(); ++iter )
+						for ( CAvailTrucks::const_iterator iter = availableTrucks.begin(); iter != availableTrucks.end(); ++iter )
 						{
 							const float fTowingForce = (*iter)->fTowingForce;
 							if ( fTowingForce >= fWeight && ( *pNewStats == 0 || fTowingForce < (*pNewStats)->fTowingForce ) )
@@ -1421,7 +1421,7 @@ bool CAILogic::SubstituteUniqueIDs( IRefCount **pUnitsBuffer, const int nLen )
 		{
 			GetSingleton<IConsoleBuffer>()->WriteASCII(
 				CONSOLE_STREAM_CONSOLE, 
-				("Wrong object of type \"%s\" - CLinkObject expected", typeid(*pUnitsBuffer[i]).name()),
+				NStr::Format("Wrong object of type \"%s\" - CLinkObject expected", typeid(*pUnitsBuffer[i]).name()),
 				0xffff0000, true );
 
 			pUnitsBuffer[i] = 0;			
