@@ -29,8 +29,6 @@ typedef void *HMODULE;
 typedef void *HINSTANCE;
 typedef void *HCURSOR;
 typedef void *LPVOID;
-typedef struct { FILETIME ftCreationTime; FILETIME ftLastAccessTime; FILETIME ftLastWriteTime; } BY_HANDLE_FILE_INFORMATION;
-typedef struct { unsigned short wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; } SYSTEMTIME;
 #ifndef DLL_PROCESS_ATTACH
 #define DLL_PROCESS_ATTACH 1
 #define DLL_PROCESS_DETACH 0
@@ -44,6 +42,8 @@ typedef struct { unsigned short wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute,
 typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
 #define BLITZKRIEG_FILETIME_DEFINED
 #endif
+typedef struct { FILETIME ftCreationTime; FILETIME ftLastAccessTime; FILETIME ftLastWriteTime; } BY_HANDLE_FILE_INFORMATION;
+typedef struct { unsigned short wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; } SYSTEMTIME;
 typedef struct { wchar_t *pwcsName; unsigned long type; unsigned long cbSize; FILETIME mtime; FILETIME ctime; FILETIME atime; unsigned long grfMode; unsigned long grfLocksSupported; unsigned long clsid; unsigned long grfStateBits; unsigned long reserved; } STATSTG;
 typedef struct { unsigned long dwSignature; unsigned long dwStrucVersion; unsigned long dwFileVersionMS; unsigned long dwFileVersionLS; unsigned long dwProductVersionMS; unsigned long dwProductVersionLS; unsigned long dwFileFlagsMask; unsigned long dwFileFlags; unsigned long dwFileOS; unsigned long dwFileType; unsigned long dwFileSubtype; unsigned long dwFileDateMS; unsigned long dwFileDateLS; } VS_FIXEDFILEINFO;
 typedef struct { long long QuadPart; } LARGE_INTEGER;
