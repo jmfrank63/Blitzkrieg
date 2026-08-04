@@ -2,6 +2,7 @@
 #define __STATIC_OBJECTS_ITERS__
 #pragma ONCE
 #include "StaticObjects.h"
+#include "StaticObject.h"
 extern CStaticObjects theStatObjs;
 template<bool bOnlyContainers>
 class CStObjIter

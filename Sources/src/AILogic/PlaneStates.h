@@ -5,6 +5,7 @@
 #include "StatesFactory.h"
 #include "UnitStates.h"
 #include "DamageToEnemyUpdater.h"
+#include "UnitCreation.h"
 class CAviation;
 class CFormation;
 class CPlaneStatesFactory : public IStatesFactory

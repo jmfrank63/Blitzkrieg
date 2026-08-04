@@ -20,7 +20,7 @@
 #include "Path.h"
 #include "SmokeScreen.h"
 #include "Obstacle.h"
-#include "ObstacleINternal.h"
+#include "ObstacleInternal.h"
 #include "Flag.h"
 #include "Graveyard.h"
 #include "Cheats.h"

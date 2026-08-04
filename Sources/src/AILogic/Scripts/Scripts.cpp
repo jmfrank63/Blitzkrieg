@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "scripts.h"
+#include "Scripts.h"
 
 #include "../AILogicInternal.h"
 #include "../Updater.h"

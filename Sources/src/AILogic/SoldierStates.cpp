@@ -17,7 +17,7 @@
 #include "Guns.h"
 #include "StaticObject.h"
 #include "StaticObjects.h"
-#include "AISTaticMap.h"
+#include "AIStaticMap.h"
 #include "AntiArtilleryManager.h"
 #include "Diplomacy.h"
 #include "Mine.h"

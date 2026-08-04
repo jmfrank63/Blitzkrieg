@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "probability.h"
+#include "Probability.h"
 const float CalculateProbability( float x0, float y0, float x1, float y1 )
 {
 	if ( x0 == x1 && y0 == y1 )

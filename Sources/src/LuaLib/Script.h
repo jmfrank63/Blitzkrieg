@@ -288,7 +288,7 @@ public:
 	void Register( const char* funcName, lua_CFunction function )  {  lua_register(m_state, funcName, function);  }
 	void PushUserData(void* u)					{  lua_pushuserdata(m_state, u);  }
 	void PushCFunction(lua_CFunction f)			{  lua_pushcclosure(m_state, f, 0);  }
-	int CloneTag(int t)							{  lua_copytagmethods(m_state, lua_newtag(m_state), t);  }
+	int CloneTag(int t) { int tag = lua_newtag(m_state); lua_copytagmethods(m_state, tag, t); return tag; }
 
 	bool IsFunction(int index)					{  return lua_isfunction(m_state, index) != 0;  }
 	bool IsCFunction(int index)				{ return lua_iscfunction(m_state, index) != 0; }
