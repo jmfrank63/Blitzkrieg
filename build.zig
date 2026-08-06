@@ -1425,6 +1425,7 @@ pub fn build(b: *std.Build) void {
     const buildversion = addBuildVersion(b, target, optimize, toolchain, misc, sdl_dynamic);
     const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, sdl_dynamic);
     const input = addInput(b, target, optimize, toolchain, misc, sdl_dynamic);
+    addInputModuleTest(b, target, optimize, test_mode, toolchain, input, misc, sdl_dynamic);
     const formats = addFormats(b, target, optimize, toolchain);
     const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats }, sdl_dynamic);
     const anim = addAnim(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
@@ -2506,6 +2507,44 @@ fn addInput(
         .root_module = input_module,
         .win32_module_definition = b.path("Sources/src/Input/Input.def"),
     });
+}
+
+fn addInputModuleTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+    input: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Input"));
+    module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_module_test.cpp" }, .flags = if (target.result.os.tag == .windows) cppflagsForOptimize(optimize) else &.{"-std=c++17"} });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, optimize);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    module.linkLibrary(input);
+    const exe = b.addExecutable(.{ .name = "input-module-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("zig-out/bin"));
+    const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
+    step.dependOn(&b.addInstallArtifact(input, .{}).step);
+    step.dependOn(&b.addInstallArtifact(misc, .{}).step);
+    step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 fn addFormats(

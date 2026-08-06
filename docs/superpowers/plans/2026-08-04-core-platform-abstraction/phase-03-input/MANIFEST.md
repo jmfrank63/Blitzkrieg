@@ -28,3 +28,5 @@ P03-M03 Windows checkpoint: `test-input-text-repeat` passes with deterministic U
 P03-M04 Windows checkpoint: `test-input-controller` passes for connect ordering, duplicate names, disconnect/reconnect, dead zone, signed axes, triggers, stale events, and release-on-removal; the fixture also compiles for Linux. Native SDL hotplug execution remains open.
 
 P03-M05 Windows checkpoint: `test-input-bindings` passes for chord/release ordering, double-click-like sequences, axis power, emulation ordering, visitor traversal, unbind, and serialization hashing; the fixture also compiles for Linux. Accepted Windows byte comparison and sanitizer execution remain open.
+
+P03-M06 Windows checkpoint: `test-input-module` compiles and wires the real Input factory lifecycle test. Native execution is currently blocked by host loader exit `0xc0000139` from the generated StreamIO/MSVC debug CRT combination; non-Windows link policy is guarded, while Windows `dinput8`/`dxguid`/`winmm`/`user32` cleanup remains open.
