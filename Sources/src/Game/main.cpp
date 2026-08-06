@@ -5,18 +5,7 @@
 #include <cstdlib>
 
 #ifndef BLITZKRIEG_COMMAND_LINE_TEST
-#ifdef _WIN32
-#include <windows.h>
-extern "C" {
-extern int __argc;
-extern char **__argv;
-}
-
-int APIENTRY WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
-{
-	return GameMain( NPlatform::Arguments{ __argc, __argv } );
-}
-#else
+#if !defined(_WIN32)
 int main(int argc, char **argv)
 {
 	return GameMain( NPlatform::Arguments{ argc, argv } );
@@ -115,8 +104,30 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 		else if ( argument.rfind( "-room", 0 ) == 0 ) result.roomName = AttachedValue( raw, 5 );
 		else if ( argument.rfind( "-cheats", 0 ) == 0 ) result.cheats = true;
 		else if ( argument.rfind( "-numsaves", 0 ) == 0 ) result.oneSave = true;
-		else if ( !argument.empty() && argument.front() == '-' ) result.unknownArguments.push_back( raw );
+		else if ( argument == "-help" || argument == "--help" || argument == "/?" ) result.showHelp = true;
+		else if ( argument.rfind( "-renderer=", 0 ) == 0 )
+		{
+			result.renderer = argument.substr( 10 );
+			if ( result.renderer != "sdl_gpu" && result.renderer != "legacy" ) result.parseError = true;
+		}
+		else if ( argument.rfind( "-renderer", 0 ) == 0 )
+		{
+			result.renderer = argument.substr( 9 );
+			if ( result.renderer != "sdl_gpu" && result.renderer != "legacy" ) result.parseError = true;
+		}
+		else if ( !argument.empty() && argument.front() == '-' )
+		{
+			result.unknownArguments.push_back( raw );
+			result.parseError = true;
+		}
 	}
 	return result;
+}
+
+int CommandLineExitCode( const CommandLineOptions &options )
+{
+	if ( options.showHelp ) return 0;
+	if ( options.parseError ) return 2;
+	return -1;
 }
 }

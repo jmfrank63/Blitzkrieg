@@ -41,6 +41,32 @@ int main()
 		CHECK( options.dataDirectory == "C:\\Data" && options.unknownArguments.size() == 1 );
 	}
 	{
+		const char *argv[] = { "Game", nullptr, "", "   ", "\"\"", "\"  \"", "\"maps/My Map.xml\"" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 7 ) );
+		CHECK( options.mapName == "maps/My Map.xml" );
+		CHECK( options.unknownArguments.empty() );
+	}
+	{
+		const char *argv[] = { "Game", u8"\"maps/世界 Map.xml\"" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 2 ) );
+		CHECK( options.mapName == u8"maps/世界 Map.xml" );
+	}
+	{
+		const char *argv[] = { "Game", "-renderer=sdl_gpu", "-fullscreen", "-datadir\"C:\\Game Data\"", "-help" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 5 ) );
+		CHECK( options.fullscreenMode == NGame::EFullscreenMode::fullscreen );
+		CHECK( options.dataDirectory == "C:\\Game Data" );
+		CHECK( options.renderer == "sdl_gpu" && options.showHelp && !options.parseError );
+		CHECK( NGame::CommandLineExitCode( options ) == 0 );
+	}
+	{
+		const char *argv[] = { "Game", "-renderer=unsupported", "-error" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 3 ) );
+		CHECK( options.parseError );
+		CHECK( options.unknownArguments.size() == 1 && options.unknownArguments[0] == "-error" );
+		CHECK( NGame::CommandLineExitCode( options ) == 2 );
+	}
+	{
 		const char *argv[] = { "Game" };
 		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 1 ) );
 		CHECK( options.mapName.empty() && options.saveFile.empty() );

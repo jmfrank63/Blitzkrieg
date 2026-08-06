@@ -618,6 +618,7 @@ const game_sources = &.{
     "Sources/src/Game/StdAfx.cpp",
     "Sources/src/Game/GameMain.cpp",
     "Sources/src/Game/main.cpp",
+    "Sources/src/Game/WindowsMain.cpp",
     "Sources/src/Game/SysKeys.cpp",
     "Sources/src/Game/WinFrame.cpp",
     "Sources/src/Platform/SDLApplication.cpp",
@@ -2198,8 +2199,10 @@ fn addGame(
         game_module.linkSystemLibrary("advapi32", .{});
         game_module.linkSystemLibrary("user32", .{});
         game_module.linkSystemLibrary("gdi32", .{});
+        game_module.linkSystemLibrary("shell32", .{});
         linkComSupport(game_module, optimize);
     }
+    if (target.result.os.tag == .windows) {
     // Splash screen, icon and bitmap resources: WinFrame.cpp creates the
     // IDD_SPLASH_SCREEN dialog from these — without them the loader shows a
     // bare white window. SplashResources.rc is an ASCII-only extract of
@@ -2225,6 +2228,7 @@ fn addGame(
             .{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) },
         },
     });
+    }
 
     const game = b.addExecutable(.{
         .name = "Game",

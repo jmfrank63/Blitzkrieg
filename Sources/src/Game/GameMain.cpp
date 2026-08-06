@@ -87,8 +87,11 @@ struct SCmdParams
 void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
 static std::string szLaunchDirectory;
-int GameMain( const NPlatform::Arguments &arguments )
+int RunGame( const BkGameLaunchInfo &launch )
 {
+	const NPlatform::Arguments &arguments = launch.arguments;
+	const int command_line_exit = NGame::CommandLineExitCode( launch.options );
+	if ( command_line_exit >= 0 ) return command_line_exit;
 	CTimeMeter<> timeMeter;
 	SetErrorMode( SEM_FAILCRITICALERRORS );
 	if ( !NMain::CanLaunch() )
@@ -536,6 +539,14 @@ int GameMain( const NPlatform::Arguments &arguments )
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
 
 	return 0;
+}
+
+int GameMain( const NPlatform::Arguments &arguments )
+{
+	BkGameLaunchInfo launch;
+	launch.arguments = arguments;
+	launch.options = NGame::ParseCommandLine( arguments );
+	return RunGame( launch );
 }
 bool IsParamMapName( const std::string &_szParam )
 {

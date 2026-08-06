@@ -56,12 +56,23 @@ struct CommandLineOptions
 	bool showScriptErrors = false;
 	bool cheats = false;
 	bool oneSave = false;
+	bool showHelp = false;
+	bool parseError = false;
+	std::string renderer = "sdl_gpu";
 	std::vector<std::string> unknownArguments;
 };
 
 CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments);
+int CommandLineExitCode(const CommandLineOptions &options);
 }
 
+struct BkGameLaunchInfo
+{
+	NPlatform::Arguments arguments{};
+	NGame::CommandLineOptions options{};
+};
+
+int RunGame(const BkGameLaunchInfo &launch);
 int GameMain(const NPlatform::Arguments &arguments);
 
 #endif

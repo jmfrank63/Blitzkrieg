@@ -15,4 +15,4 @@
 - [ ] Run command-line tests for all target compilers and natively on Windows/Linux.
 - [ ] Commit: `game: add portable entry and launch contract`
 
-**Evidence:** exact normalized argument vectors and exit codes.
+**Evidence:** `test-game-command-line -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes normalized UTF-8, spaced/empty arguments, renderer selection, data-root, help, invalid-renderer, unknown-option, and exact help/error exit-code cases. The same test compiles for `x86_64-linux-gnu`; `game -Dtarget=x86_64-windows-msvc` compiles the new `WindowsMain.cpp` adapter, conditional Windows resources, and shell32 wide-command-line conversion. PlatformRuntime-before-module startup and native Linux execution remain open for the subsequent game-shell packets.
