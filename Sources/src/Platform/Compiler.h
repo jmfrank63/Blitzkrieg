@@ -23,6 +23,8 @@
 #endif
 
 #define BK_NORETURN [[noreturn]]
+#define BK_CAPI_CALL BK_CDECL
+#define BK_CAPI_EXPORT BK_EXPORT
 
 #ifndef STDCALL
 #define STDCALL BK_STDCALL

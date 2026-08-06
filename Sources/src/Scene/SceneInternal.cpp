@@ -27,7 +27,7 @@ BOOL WINAPI DllMain(
 }
 // Called by Game.exe's atexit hook BEFORE any module destroys statics — see
 // AILogicInternal.cpp for the unload-order rationale.
-extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
+extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 {
 	NRefCount::LeakObjectsOnExit() = true;
 }

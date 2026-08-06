@@ -252,7 +252,7 @@ static CGfxGpuObjectFactory theGfxGpuObjectFactory;
 static CGfxGpuModuleChecker theGfxGpuModuleChecker;
 static SModuleDescriptor theModuleDescriptor( "Graphics (SDL GPU)", GFX_GFX, 0x0100, &theGfxGpuObjectFactory, &theGfxGpuModuleChecker );
 
-extern "C" __declspec( dllexport ) const SModuleDescriptor * STDCALL GetModuleDescriptor()
+extern "C" BK_EXPORT const SModuleDescriptor * STDCALL GetModuleDescriptor()
 {
     return &theModuleDescriptor;
 }

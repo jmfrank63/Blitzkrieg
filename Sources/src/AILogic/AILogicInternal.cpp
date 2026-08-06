@@ -16,7 +16,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
 // Called by Game.exe's atexit hook BEFORE any module destroys statics: modules
 // detach one after another, so another DLL's static teardown can release this
 // module's objects while this module's DllMain(DETACH) hasn't run yet.
-extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
+extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 {
 	NRefCount::LeakObjectsOnExit() = true;
 }

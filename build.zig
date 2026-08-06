@@ -2368,7 +2368,7 @@ fn addImage(
         .name = "Image",
         .linkage = .dynamic,
         .root_module = image_module,
-        .win32_module_definition = b.path("Sources/src/Image/Image.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/Image/Image.def") else null,
     });
 }
 
@@ -2463,8 +2463,10 @@ fn addBuildVersion(
     buildversion_module.linkLibrary(misc);
     linkSdlImport(buildversion_module, target, sdl_dynamic);
     linkMsvcRuntime(buildversion_module, optimize);
-    buildversion_module.linkSystemLibrary("odbc32", .{});
-    buildversion_module.linkSystemLibrary("odbccp32", .{});
+    if (target.result.os.tag == .windows) {
+        buildversion_module.linkSystemLibrary("odbc32", .{});
+        buildversion_module.linkSystemLibrary("odbccp32", .{});
+    }
 
     const buildversion = b.addExecutable(.{
         .name = "BuildVersion",
@@ -2501,8 +2503,10 @@ fn addBetaKeyGen(
     linkSdlImport(betakeygen_module, target, sdl_dynamic);
     betakeygen_module.linkLibrary(zlib);
     linkMsvcRuntime(betakeygen_module, optimize);
-    betakeygen_module.linkSystemLibrary("odbc32", .{});
-    betakeygen_module.linkSystemLibrary("odbccp32", .{});
+    if (target.result.os.tag == .windows) {
+        betakeygen_module.linkSystemLibrary("odbc32", .{});
+        betakeygen_module.linkSystemLibrary("odbccp32", .{});
+    }
 
     const betakeygen = b.addExecutable(.{
         .name = "BetaKeyGen",
@@ -2551,7 +2555,7 @@ fn addInput(
         .name = "Input",
         .linkage = .dynamic,
         .root_module = input_module,
-        .win32_module_definition = b.path("Sources/src/Input/Input.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/Input/Input.def") else null,
     });
 }
 
@@ -2657,7 +2661,7 @@ fn addAnim(
         .name = "Anim",
         .linkage = .dynamic,
         .root_module = anim_module,
-        .win32_module_definition = b.path("Sources/src/Anim/Animation.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/Anim/Animation.def") else null,
     });
 }
 
@@ -2743,7 +2747,7 @@ fn addUI(
         .name = "UI",
         .linkage = .dynamic,
         .root_module = ui_module,
-        .win32_module_definition = b.path("Sources/src/UI/UI.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/UI/UI.def") else null,
     });
 }
 
@@ -2779,10 +2783,12 @@ fn addFontGen(
     fontgen_module.linkLibrary(misc);
     linkSdlImport(fontgen_module, target, sdl_dynamic);
     linkMsvcRuntime(fontgen_module, optimize);
-    fontgen_module.linkSystemLibrary("user32", .{});
-    fontgen_module.linkSystemLibrary("gdi32", .{});
-    fontgen_module.linkSystemLibrary("odbc32", .{});
-    fontgen_module.linkSystemLibrary("odbccp32", .{});
+    if (target.result.os.tag == .windows) {
+        fontgen_module.linkSystemLibrary("user32", .{});
+        fontgen_module.linkSystemLibrary("gdi32", .{});
+        fontgen_module.linkSystemLibrary("odbc32", .{});
+        fontgen_module.linkSystemLibrary("odbccp32", .{});
+    }
 
     const fontgen = b.addExecutable(.{
         .name = "FontGen",
@@ -2923,7 +2929,7 @@ fn addGFX(
         .name = "GFX",
         .linkage = .dynamic,
         .root_module = gfx_module,
-        .win32_module_definition = b.path("Sources/src/GFX/GFX.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/GFX/GFX.def") else null,
     });
 }
 
@@ -2965,7 +2971,7 @@ fn addGFXGPU(
         .name = "GFXGPU",
         .linkage = .dynamic,
         .root_module = gfx_gpu_module,
-        .win32_module_definition = b.path("Sources/src/GFXGPU/GFXGPU.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/GFXGPU/GFXGPU.def") else null,
     });
 }
 
