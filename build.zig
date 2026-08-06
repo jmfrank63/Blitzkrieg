@@ -1109,7 +1109,7 @@ pub fn build(b: *std.Build) void {
     addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addInputCodesTest(b, target, test_mode, toolchain);
     addPlatformInputTest(b, target, test_mode, toolchain);
-    addInputStateTest(b, target, test_mode, toolchain);
+    addInputStateFixtureTest(b, target, test_mode, toolchain);
     addPlatformClipboardTest(b, target, test_mode, toolchain);
     addPlatformAudioTest(b, target, test_mode, toolchain);
     addInputAudioGateTest(b, target, test_mode, toolchain);
@@ -3171,7 +3171,7 @@ fn addPlatformInputTest(
     if (test_mode == .run) step.dependOn(&run.step);
 }
 
-fn addInputStateTest(
+fn addInputStateFixtureTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
@@ -3182,11 +3182,7 @@ fn addInputStateTest(
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_state_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => {
-            addMsvcIncludePaths(b, module, toolchain);
-            addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
-        },
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
