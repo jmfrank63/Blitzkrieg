@@ -977,6 +977,8 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_dynamic_module, toolchain);
         addMsvcLibraryPaths(b, platform_dynamic_module, toolchain);
+        linkMsvcRuntime(platform_dynamic_module, .ReleaseFast);
+        platform_dynamic_module.linkSystemLibrary("kernel32", .{});
     }
     platform_dynamic_module.addCSourceFiles(.{
         .files = &.{
@@ -985,7 +987,6 @@ pub fn build(b: *std.Build) void {
         },
         .flags = if (platform == .windows_x64) cppflags_release else &.{},
     });
-    platform_dynamic_module.linkLibrary(sdl_dynamic);
     const platform_dynamic_test = b.addExecutable(.{ .name = "platform-dynamic-library-test", .root_module = platform_dynamic_module });
     platform_dynamic_test.subsystem = .console;
     if (platform == .windows_x64) platform_dynamic_test.entry = .{ .symbol_name = "mainCRTStartup" };

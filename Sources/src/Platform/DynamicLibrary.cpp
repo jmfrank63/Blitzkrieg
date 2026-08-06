@@ -1,6 +1,10 @@
 #include "DynamicLibrary.h"
 
-#include <SDL3/SDL.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
 namespace NPlatform
 {
@@ -34,11 +38,17 @@ bool DynamicLibrary::Load( const char *utf8Path )
 		error = "dynamic library path is null";
 		return false;
 	}
-	handle = reinterpret_cast<void *>( SDL_LoadObject( utf8Path ) );
+#if defined(_WIN32)
+	handle = reinterpret_cast<void *>( LoadLibraryA( utf8Path ) );
+#else
+	handle = dlopen( utf8Path, RTLD_NOW | RTLD_LOCAL );
+#endif
 	if ( handle == nullptr )
 	{
-		error = SDL_GetError();
-		if ( error.empty() ) error = "SDL_LoadObject failed";
+		error = "dynamic library load failed";
+#if !defined(_WIN32)
+		if ( const char *detail = dlerror(); detail != nullptr ) error = detail;
+#endif
 	}
 	else error.clear();
 	return handle != nullptr;
@@ -47,7 +57,11 @@ bool DynamicLibrary::Load( const char *utf8Path )
 void DynamicLibrary::Unload()
 {
 	if ( handle == nullptr ) return;
-	SDL_UnloadObject( reinterpret_cast<SDL_SharedObject *>( handle ) );
+#if defined(_WIN32)
+	FreeLibrary( reinterpret_cast<HMODULE>( handle ) );
+#else
+	dlclose( handle );
+#endif
 	handle = nullptr;
 }
 
@@ -57,11 +71,17 @@ void *DynamicLibrary::GetFunction( const char *name )
 {
 	if ( handle == nullptr ) { error = "dynamic library is not loaded"; return nullptr; }
 	if ( name == nullptr ) { error = "dynamic library symbol name is null"; return nullptr; }
-	void *function = reinterpret_cast<void *>( SDL_LoadFunction( reinterpret_cast<SDL_SharedObject *>( handle ), name ) );
+#if defined(_WIN32)
+	void *function = reinterpret_cast<void *>( GetProcAddress( reinterpret_cast<HMODULE>( handle ), name ) );
+#else
+	void *function = dlsym( handle, name );
+#endif
 	if ( function == nullptr )
 	{
-		error = SDL_GetError();
-		if ( error.empty() ) error = "SDL_LoadFunction failed";
+		error = "dynamic library symbol lookup failed";
+#if !defined(_WIN32)
+		if ( const char *detail = dlerror(); detail != nullptr ) error = detail;
+#endif
 	}
 	else error.clear();
 	return function;

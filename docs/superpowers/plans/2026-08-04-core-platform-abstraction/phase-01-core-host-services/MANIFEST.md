@@ -20,3 +20,5 @@ P01-M01 Windows checkpoint: `test-platform-clock` and `test-platform-client` pas
 P01-M02 Windows checkpoint: the ABI appends opaque event/mutex operations and live-handle accounting. The shared runtime test passes timeout, wake, auto-reset consumption, mutex lock/unlock, and zero-live-handle checks.
 
 P01-M03 Windows checkpoint: the ABI appends callback-first diagnostic output and debugger-presence query. The dynamic client test emits a bounded UTF-8 record and verifies zero live synchronization handles.
+
+P01-M04 Windows checkpoint: the existing dynamic-library facade now uses native `LoadLibraryA`/`GetProcAddress`/`FreeLibrary` on Windows and `dlopen`/`dlsym`/`dlclose` on POSIX, with no SDL loader dependency. The Windows fixture test passes symbol call `42`, missing-symbol diagnostics, move ownership, and double unload.
