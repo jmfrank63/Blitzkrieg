@@ -3,7 +3,8 @@
 
 #include <string>
 
-namespace NPlatform::Paths {
+namespace NPlatform {
+namespace Paths {
 bool Initialize();
 void SetInjectedRootsForTest(const char *base, const char *preference);
 void ClearInjectedRootsForTest();
@@ -18,6 +19,7 @@ const std::string &LogPath();
 const std::string &ErrorLogPath();
 const std::string &CacheRoot();
 const std::string &DataArchivePattern();
+}
 }
 
 #endif

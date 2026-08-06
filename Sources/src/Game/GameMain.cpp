@@ -406,10 +406,22 @@ int RunGame( const BkGameLaunchInfo &launch )
 	{
 		std::string szGameSpyServer = GetGlobalVar( "Options.Multiplayer.GameSpyServerName", "" );
 		if ( !szGameSpyServer.empty() )
+		{
+			#if defined(_WIN32) || defined(_WIN64)
+			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerName", variant_t( szGameSpyServer.c_str() ) );
+			#else
 			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerName", variant_t( szGameSpyServer ) );
+			#endif
+		}
 
 		if ( cmdp.bGameSpyPasswordRequired )
+		{
+			#if defined(_WIN32) || defined(_WIN64)
+			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerPassword", variant_t( cmdp.szGameSpyPassword.c_str() ) );
+			#else
 			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerPassword", variant_t( cmdp.szGameSpyPassword ) );
+			#endif
+		}
 	}
 	timeMeter.Sample( "serialize config" );
 	{
