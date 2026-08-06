@@ -271,15 +271,12 @@ const libpng_sources = &.{
 };
 
 const misc_sources = &.{
-    "Sources/src/Platform/Clock.cpp",
     "Sources/src/Platform/Debug.cpp",
     "Sources/src/Platform/DynamicLibrary.cpp",
     "Sources/src/Platform/LegacyVariant.cpp",
     "Sources/src/Platform/Paths.cpp",
     "Sources/src/Platform/Sync.cpp",
     "Sources/src/Platform/System.cpp",
-    "Sources/src/Platform/SocketWin32.cpp",
-    "Sources/src/Platform/SocketPosix.cpp",
     "Sources/src/Misc/FileUtils.cpp",
     "Sources/src/Misc/FreeIDs.cpp",
     "Sources/src/Misc/GRect.cpp",
@@ -744,6 +741,15 @@ pub fn build(b: *std.Build) void {
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
 
+    const platform_linkage_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/platform_linkage_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const platform_linkage_tests = b.addTest(.{ .root_module = platform_linkage_module });
+    const platform_linkage_step = b.step("test-platform-linkage", "Validate one target-correct PlatformRuntime and staged linkage policy");
+    platform_linkage_step.dependOn(&platform_linkage_tests.step);
+
     const optimize = b.standardOptimizeOption(.{});
     const library_arch = build_support.libraryArch(platform);
     const toolchain = ToolchainIncludes{
@@ -787,6 +793,7 @@ pub fn build(b: *std.Build) void {
 
     const platform_runtime_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
+    platform_runtime_module.addCMacro("BK_PLATFORM_RUNTIME_BUILD", "1");
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformRuntime.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/Clock.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketWin32.cpp"), .flags = &.{"-std=c++17"} });
@@ -801,7 +808,7 @@ pub fn build(b: *std.Build) void {
         .name = "PlatformRuntime",
         .linkage = .dynamic,
         .root_module = platform_runtime_module,
-        .win32_module_definition = if (platform == .windows_x64) b.path("Sources/src/PlatformABI/PlatformRuntime.def") else null,
+        .win32_module_definition = null,
     });
     const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
@@ -1101,6 +1108,7 @@ pub fn build(b: *std.Build) void {
     test_platform_foundation.dependOn(platform_runtime_step);
     test_platform_foundation.dependOn(client_step);
     test_platform_foundation.dependOn(runtime_platform_audit_step);
+    test_platform_foundation.dependOn(platform_linkage_step);
     if (test_mode == .run) test_platform_foundation.dependOn(&foundation_matrix_run.step);
     const test_platform_core = b.step("test-platform-core", "Run the Phase 01 portable runtime core tests");
     test_platform_core.dependOn(test_platform_foundation);
@@ -1281,9 +1289,9 @@ pub fn build(b: *std.Build) void {
     const package_root = b.fmt("zig-out/packages/{s}", .{platform_policy.package_root});
     const stage_game_name = platform_policy.executable_name;
     const stage_runtime_files = switch (target.result.os.tag) {
-        .windows => &[_][]const u8{ "Game.exe", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-        .linux => &[_][]const u8{ "Game", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libSDL3.so", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
-        .macos => &[_][]const u8{ "Game", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
+        .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
+        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libSDL3.so", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+        .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
         else => &[_][]const u8{stage_game_name},
     };
     const stage_debug_files = if (target.result.os.tag == .windows)
@@ -1366,7 +1374,7 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| gfx_reference_compare_run.addArgs(args);
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
-    const options_bridge = addOptionsBridge(b, target, optimize, toolchain, sdl_c);
+    const options_bridge = addOptionsBridge(b, target, optimize, toolchain, platform_runtime, sdl_c);
     const options_bridge_test_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
@@ -1428,14 +1436,14 @@ pub fn build(b: *std.Build) void {
     // itself (the C++ bridge and CRT selection stay at the game's optimize
     // mode either way).
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
-    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, streamio_fast);
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, streamio_fast);
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
-    const misc = addMisc(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
+    const misc = addMisc(b, target, optimize, toolchain, platform_runtime, sdl_dynamic_dep.path("include"));
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, sdl_dynamic);
@@ -1950,6 +1958,7 @@ fn addOptionsBridge(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
     sdl_c: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
@@ -1964,6 +1973,7 @@ fn addOptionsBridge(
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
+    module.linkLibrary(platform_runtime);
     module.linkLibrary(sdl_c);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
@@ -1975,6 +1985,7 @@ fn addStreamIOZig(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     options_bridge: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
     streamio_fast: bool,
 ) *std.Build.Step.Compile {
     // The module optimize mode applies to the zig sources only; the C++
@@ -2000,7 +2011,6 @@ fn addStreamIOZig(
     streamio_module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/StreamIOZig/legacy_bridge.cpp",
-            "Sources/src/Platform/Clock.cpp",
             "Sources/src/Platform/Debug.cpp",
         },
         .flags = flags.items,
@@ -2009,6 +2019,7 @@ fn addStreamIOZig(
     addMsvcIncludePaths(b, streamio_module, toolchain);
     addMsvcLibraryPaths(b, streamio_module, toolchain);
     streamio_module.linkLibrary(options_bridge);
+    streamio_module.linkLibrary(platform_runtime);
     linkMsvcRuntime(streamio_module, optimize);
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
@@ -2319,6 +2330,7 @@ fn addMisc(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const misc_module = b.createModule(.{
@@ -2337,6 +2349,7 @@ fn addMisc(
         .files = misc_sources,
         .flags = misc_flags.items,
     });
+    misc_module.linkLibrary(platform_runtime);
     return b.addLibrary(.{
         .name = "Misc",
         .linkage = .static,

@@ -19,17 +19,17 @@ test "stale images are never accepted as runtime inputs" {
 test "target layout carries target-specific runtime names" {
     const windows = stage.RuntimeLayout{
         .game_name = "Game.exe",
-        .runtime_files = &.{ "Game.exe", "GFXGPU.dll" },
+        .runtime_files = &.{ "Game.exe", "PlatformRuntime.dll", "GFXGPU.dll" },
         .debug_files = &.{ "Game.pdb" },
         .editors_supported = true,
     };
     const unix = stage.RuntimeLayout{
         .game_name = "Game",
-        .runtime_files = &.{ "Game", "libGFXGPU.so" },
+        .runtime_files = &.{ "Game", "libPlatformRuntime.so", "libGFXGPU.so" },
         .debug_files = &.{},
         .editors_supported = false,
     };
     try std.testing.expectEqualStrings("Game.exe", windows.game_name);
-    try std.testing.expectEqualStrings("libGFXGPU.so", unix.runtime_files[1]);
+    try std.testing.expectEqualStrings("libPlatformRuntime.so", unix.runtime_files[1]);
     try std.testing.expect(!unix.editors_supported);
 }

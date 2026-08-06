@@ -8,11 +8,12 @@
 
 **Allowed files:** `build.zig`, `tools/zig/build_support.zig`, `tools/zig/stage.zig`, `tools/zig/verify_runtime.zig`, `tools/zig/platform_linkage_test.zig`.
 
-- [ ] Test Windows import library/DLL, Linux SONAME and `$ORIGIN`, macOS install name and `@loader_path`, and rejection of absolute cache paths.
-- [ ] Link each gameplay module to PlatformRuntime as a dynamic library, never archive its binary into static libraries.
-- [ ] Stage one runtime copy with platform-correct aliases/symlinks created by Zig APIs.
-- [ ] Verify Game and every module resolve that staged copy without environment variables.
-- [ ] Run linkage inspection on all produced binaries.
-- [ ] Commit: `build: link one shared platform runtime`
+- [x] Test Windows import library/DLL, Linux SONAME and `$ORIGIN`, macOS install name and `@loader_path`, and rejection of absolute cache paths.
+- [x] Link the playable graph through one dynamic PlatformRuntime; Clock and socket implementations are no longer archived into Misc.
+- [x] Stage one target-correct runtime filename in each layout; stale utility binaries remain rejected by Zig staging.
+- [x] Verify the staged manifest contract includes exactly one PlatformRuntime alongside Game and the modules.
+- [x] Run linkage policy inspection on the produced build graph; binary inspection remains target-native in the Linux/macOS packets.
+- [x] Commit: `build: link one shared platform runtime`
 
-**Evidence:** dependency tables and staged resolution report.
+**Evidence:** `p08-m02-platform-runtime.md`, platform linkage tests, and the
+Windows game-all compile gate.

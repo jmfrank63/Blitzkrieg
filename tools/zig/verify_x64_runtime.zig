@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const required = [_][]const u8{
+    "PlatformRuntime.dll",
     "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll",
     "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll",
     "AILogic.dll", "GameTT.dll", "Game.exe",
