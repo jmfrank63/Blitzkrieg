@@ -1444,6 +1444,7 @@ pub fn build(b: *std.Build) void {
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib, sdl_dynamic);
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc, sdl_dynamic);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common, sdl_dynamic);
+    addSfxModuleTest(b, target, toolchain, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
     const gfx_legacy = addGFX(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
     const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy;
@@ -2830,8 +2831,46 @@ fn addSFX(
         .name = "SFX",
         .linkage = .dynamic,
         .root_module = sfx_module,
-        .win32_module_definition = b.path("Sources/src/SFX/Sound.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/SFX/Sound.def") else null,
     });
+}
+
+fn addSfxModuleTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    toolchain: ToolchainIncludes,
+    sfx: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addCSourceFile(.{ .file = b.path("tools/zig/sfx_module_test.cpp"), .flags = cppflagsForTarget(target, .Debug) });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/SFX"));
+    module.linkLibrary(misc);
+    if (target.result.os.tag == .windows) {
+        addMsvcIncludePaths(b, module, toolchain);
+        addMsvcLibraryPaths(b, module, toolchain);
+    }
+    linkMsvcRuntime(module, .Debug);
+    const exe = b.addExecutable(.{ .name = "sfx-module-test", .root_module = module });
+    if (target.result.os.tag == .windows) {
+        exe.subsystem = .console;
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/SFX.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libSFX.dylib" else "zig-out/lib/libSFX.so");
+    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    run.step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
+    const step = b.step("test-sfx-module", "Load the real SFX module and verify its lifecycle contract");
+    step.dependOn(&run.step);
 }
 
 fn addGFX(

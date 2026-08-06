@@ -18,3 +18,4 @@ P05-M01 Windows checkpoint: `test-audio-lifecycle`, `test-platform-audio`, and `
 P05-M02 Windows checkpoint: miniaudio backend selection, null fallback, explicit teardown, and lifecycle fixture coverage pass; production module double-init and real-device probing remain part of M05.
 P05-M03 Windows checkpoint: SFX diagnostics, timing, completion exchange, and fade worker use portable facilities; `test-audio-worker` passes 1000 handoffs and restart, with TSan left open for a supported toolchain.
 P05-M04 Windows checkpoint: stream callback publication, stop/detach/drain ordering, and deterministic PCM lifetime coverage pass; valid Vorbis parity and Linux hashes remain open.
+P05-M05 Windows checkpoint: real staged SFX module factory and no-device restart gate pass; sample/fade asset fixture and non-Windows link/runtime gates remain open.
