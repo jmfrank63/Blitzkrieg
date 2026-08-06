@@ -1,6 +1,6 @@
 #include "StdAfx.h"
 
-#include "float.h"
+#include <cmath>
 #include "AIUnit.h"
 #include "Guns.h"
 #include "DamageToEnemyUpdater.h"
@@ -14,7 +14,7 @@ void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, 
 
 		fTakenDamagePower = pOwner->GetKillSpeed( pEnemy, dwGuns );
 		pEnemy->UpdateTakenDamagePower( fTakenDamagePower );
-		NI_ASSERT_T( _finite( fTakenDamagePower ) != 0, "Wrong fTakenDamagePower" );
+		NI_ASSERT_T( std::isfinite( fTakenDamagePower ), "Wrong fTakenDamagePower" );
 	}
 }
 void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, CBasicGun *pGun )
@@ -34,7 +34,7 @@ void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, 
 		fTakenDamagePower = pOwner->GetKillSpeed( pEnemy );
 		pEnemy->UpdateTakenDamagePower( fTakenDamagePower );
 
-		NI_ASSERT_T( _finite( fTakenDamagePower ) != 0, "Wrong fTakenDamagePower" );
+		NI_ASSERT_T( std::isfinite( fTakenDamagePower ), "Wrong fTakenDamagePower" );
 	}
 	else
 		nTakenDamageUpdated = 0;
@@ -46,7 +46,7 @@ void CDamageToEnemyUpdater::UnsetDamageFromEnemy( CAIUnit *pEnemy )
 		if ( nTakenDamageUpdated == 1 )
 			pEnemy->UpdateNAttackingGrenages( -1 );
 
-		NI_ASSERT_T( _finite( fTakenDamagePower ) != 0, "Wrong fTakenDamagePower" );
+		NI_ASSERT_T( std::isfinite( fTakenDamagePower ), "Wrong fTakenDamagePower" );
 
 		pEnemy->UpdateTakenDamagePower( -fTakenDamagePower );
 		nTakenDamageUpdated = 0;

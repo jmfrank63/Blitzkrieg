@@ -7,6 +7,8 @@
 #include <stack>
 #include <math.h>
 #include <stdlib.h>
+#include <cctype>
+#include <cctype>
 
 namespace
 {
@@ -237,7 +239,8 @@ void NStr::ToDotString( std::string *pDst, int nVal, const char cSeparator )
     nVal -= nVal1 * nOrderVal;
     nOrderVal /= 1000;
   }
-	strcat( buff, _itoa(nVal, buff2, 10) );
+	sprintf( buff2, "%d", nVal );
+	strcat( buff, buff2 );
   *pDst = buff;
 }
 const char* __cdecl NStr::Format( const char *pszFormat, ... )
@@ -397,7 +400,23 @@ void NStr::ToLower( std::string &szString )
 { 
 	std::transform( szString.begin(), szString.end(), szString.begin(), [](int c){ return tolower(c); } ); 
 }
-void NStr::ToUpper( std::string &szString ) 
+void NStr::ToUpper( std::string &szString )
 { 
 	std::transform( szString.begin(), szString.end(), szString.begin(), [](int c){ return toupper(c); } ); 
+}
+int NStr::CompareAsciiNoCase( const char *pszLeft, const char *pszRight )
+{
+	if ( pszLeft == 0 ) pszLeft = "";
+	if ( pszRight == 0 ) pszRight = "";
+	while ( *pszLeft != 0 && *pszRight != 0 )
+	{
+		const unsigned char left = static_cast<unsigned char>( *pszLeft );
+		const unsigned char right = static_cast<unsigned char>( *pszRight );
+		const int foldedLeft = std::tolower( left );
+		const int foldedRight = std::tolower( right );
+		if ( foldedLeft != foldedRight ) return foldedLeft < foldedRight ? -1 : 1;
+		++pszLeft;
+		++pszRight;
+	}
+	return *pszLeft == *pszRight ? 0 : ( *pszLeft == 0 ? -1 : 1 );
 }

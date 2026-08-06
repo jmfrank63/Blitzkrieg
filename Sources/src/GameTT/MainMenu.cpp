@@ -5,6 +5,7 @@
 #include "../Main/ScenarioTracker.h"
 #include "MultiplayerCommandManager.h"
 #include "../StreamIO/OptionSystem.h"
+#include "../Platform/System.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "show_console"		, MC_SHOW_CONSOLE		},
@@ -169,8 +170,12 @@ std::string GetMainModuleVersion()
 #ifdef BLITZKRIEG_VERSION
 	return BLITZKRIEG_VERSION;
 #else
-	char buffer[2048];
-	GetModuleFileName( 0, buffer, 2048 );
+	const std::string buffer = NPlatform::ExecutablePath() +
+#if defined(_WIN32) || defined(_WIN64) || defined(WIN32)
+		"Game.exe";
+#else
+		"Game";
+#endif
 	VS_FIXEDFILEINFO version;
 	if ( GetFileVersion(buffer, &version) != false )
 		return NStr::Format( "%d.%d.%d", (version.dwProductVersionMS >> 16) & 0xffff, version.dwProductVersionMS & 0xffff, (version.dwProductVersionLS >> 16) & 0xffff );

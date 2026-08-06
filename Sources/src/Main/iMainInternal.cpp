@@ -17,6 +17,8 @@
 #include "../Scene/PFX.h"
 #include "../Input/InputTypes.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
+#include "../Platform/System.h"
 namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
@@ -126,7 +128,7 @@ IMainLoop* STDCALL CreateMainLoop()
 	NBugSlayer::AddEmergencyCommand( pCommand );
 	
 	IMainLoop *pML = new CMainLoop();
-	CPtr<IDataStream> pStream = CreateFileStream( ".\\saves\\emergency.sav", STREAM_ACCESS_WRITE );
+	CPtr<IDataStream> pStream = CreateFileStream( ( NPlatform::Paths::SaveRoot() + "\\emergency.sav" ).c_str(), STREAM_ACCESS_WRITE );
 	if ( pStream )
 	{
 		CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::WRITE );
@@ -144,15 +146,11 @@ CMainLoop::CMainLoop()
 	bDisableMessageProcessing = false;
 	nAutoSavePeriod = GetGlobalVar( "autosave", 0 ) * 1000;
 	timeLastAutoSave = 0;
-	{
-		char buff[2048];
-		GetCurrentDirectory( 2048, buff );
-		szBaseDir = buff;
-		if ( szBaseDir.empty() )
-			szBaseDir = ".\\";
-		else if ( szBaseDir[szBaseDir.size() - 1] != '\\' )
-			szBaseDir += '\\';
-	}
+	szBaseDir = NPlatform::ExecutablePath();
+	if ( szBaseDir.empty() )
+		szBaseDir = ".\\";
+	else if ( szBaseDir[szBaseDir.size() - 1] != '\\' )
+		szBaseDir += '\\';
 	nNetAppID = -1;
 	nNetPort = 8889;
 	pGFX = GetSingleton<IGFX>();
@@ -426,9 +424,11 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 				// path. SDL GPU readback requires the completed frame to be submitted.
 				if ( pImage != 0 && pGFX->Flip() && pGFX->TakeScreenShot(pImage) )
 				{
-					while ( NFile::IsFileExist(NStr::Format("%sscreenshots\\shot%.4d.tga", szBaseDir.c_str(), nShotIndex)) ) 
+					const std::string screenshotRoot = NPlatform::Paths::SaveRoot() + "\\screenshots";
+					NFile::CreatePath( screenshotRoot.c_str() );
+					while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
 						++nShotIndex;
-					CPtr<IDataStream> pStream = CreateFileStream( NStr::Format("%sscreenshots\\shot%.4d.tga", szBaseDir.c_str(), nShotIndex), STREAM_ACCESS_WRITE );
+					CPtr<IDataStream> pStream = CreateFileStream( NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex), STREAM_ACCESS_WRITE );
 					if ( pStream != 0 && GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
 					{
 						if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
@@ -655,8 +655,12 @@ void ReportDesc( const SModuleDescriptor *pDesc, IConsoleBuffer *pCB )
 }
 void ReportMainModuleVersion( IConsoleBuffer *pCB )
 {
-	char buffer[2048];
-	GetModuleFileName( 0, buffer, 2048 );
+	const std::string buffer = NPlatform::ExecutablePath() +
+#if defined(_WIN32) || defined(_WIN64) || defined(WIN32)
+		"Game.exe";
+#else
+		"Game";
+#endif
 	std::string szVersion;
 	GetFileVersionString( buffer, &szVersion );
 	pCB->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Main Module Version: %s", szVersion.c_str()), 0xffffffff, true );

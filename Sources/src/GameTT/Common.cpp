@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "CommonId.h"
+#include "../Misc/FileUtils.h"
 
 
 bool operator > ( FILETIME a, FILETIME b )
@@ -19,22 +20,17 @@ FILETIME GetFileChangeTime( const char *pszFileName )
 	FILETIME zero;
 	zero.dwHighDateTime = 0;
 	zero.dwLowDateTime = 0;
-	HANDLE hFile = CreateFile( pszFileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0 );
-	if ( hFile == INVALID_HANDLE_VALUE )
-	{
-		DWORD dwErr = GetLastError();
+	NFile::CFile file;
+	if ( !file.Open( pszFileName, NFile::CFile::modeRead ) )
 		return zero;
-	}
-	BY_HANDLE_FILE_INFORMATION fileInfo;
-	bool bRes = GetFileInformationByHandle( hFile, &fileInfo );
-	CloseHandle( hFile );
-	if ( !bRes )
+	NFile::CFile::SStatus fileStatus;
+	if ( !file.GetStatus( &fileStatus ) )
 		return zero;
 	
-	if ( fileInfo.ftCreationTime > fileInfo.ftLastWriteTime )
-		return fileInfo.ftCreationTime;
+	if ( fileStatus.ctime > fileStatus.mtime )
+		return fileStatus.ctime;
 	else
-		return fileInfo.ftLastWriteTime;
+		return fileStatus.mtime;
 }
 
 std::string GetFileChangeTimeString( const char *pszFileName )

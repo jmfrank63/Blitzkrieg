@@ -31,7 +31,7 @@
 #include "Formation.h"
 #include "Statistics.h"
 #include "StaticObjects.h"
-#include "float.h"
+#include <cmath>
 #include "General.h"
 #include "ShootEstimatorInternal.h"
 #include "AIUnitInfoForGeneral.h"
@@ -823,8 +823,8 @@ const float CAIUnit::GetKillSpeed( const SHPObjectRPGStats *pStats, const CVec2 
 		const float fTimeToKill =
 			pGun->GetAimTime( false ) + nBursts * ( pGun->GetRelaxTime( false ) + pGun->GetFireRate() * nAmmoPerBurst );
 
-		NI_ASSERT_T( _finite( nBursts ) != 0, "Wrong nBursts (infinity)" );
-		NI_ASSERT_T( _finite( fTimeToKill ) != 0, "Wrong fTimeToKill (infinity)" );
+		NI_ASSERT_T( std::isfinite( nBursts ), "Wrong nBursts (infinity)" );
+		NI_ASSERT_T( std::isfinite( fTimeToKill ), "Wrong fTimeToKill (infinity)" );
 		NI_ASSERT_T( fTimeToKill != 0, "Wrong fTimeToKill (0)" );
 
 		return fMaxHP / fTimeToKill;
@@ -869,8 +869,8 @@ const float CAIUnit::GetKillSpeed( CAIUnit *pEnemy, CBasicGun *pGun ) const
 		const float fTimeToKill = 
 			pGun->GetAimTime( false ) + nBursts * ( pGun->GetRelaxTime( false ) + pGun->GetFireRate() * nAmmoPerBurst );
 
-		NI_ASSERT_T( _finite( nBursts ) != 0, "Wrong nBursts (infinity)" );
-		NI_ASSERT_T( _finite( fTimeToKill ) != 0, "Wrong fTimeToKill (infinity)" );
+		NI_ASSERT_T( std::isfinite( nBursts ), "Wrong nBursts (infinity)" );
+		NI_ASSERT_T( std::isfinite( fTimeToKill ), "Wrong fTimeToKill (infinity)" );
 		NI_ASSERT_T( fTimeToKill != 0, "Wrong fTimeToKill (0)" );
 
 		return fMaxHP / ( fTimeToKill + fTimeToGo );

@@ -24,8 +24,8 @@ enum EUIElements
 
 static bool IsGeneratedSelectionText( const char *pszOptionName )
 {
-	return (_stricmp( pszOptionName, "GFX.Mode" ) == 0) ||
-		     (_stricmp( pszOptionName, "GFX.Monitor" ) == 0);
+	return (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Mode" ) == 0) ||
+		     (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Monitor" ) == 0);
 }
 
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )

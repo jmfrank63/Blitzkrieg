@@ -250,21 +250,21 @@ int SGDBObjectDesc::operator&( IStructureSaver &ss )
 }
 const IGDBObject* CObjectsDB::Get( const char *pszName, const char *pszParentName )
 {
-	if ( _stricmp(pszParentName, "Desc") == 0 )
+	if ( NStr::CompareAsciiNoCase(pszParentName, "Desc") == 0 )
 		return GetDesc( pszName );
-	else if ( _stricmp(pszName, "Weapon") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "Weapon") == 0 )
 		return GetAddStats( pszParentName, IObjectsDB::WEAPON );
-	else if ( _stricmp(pszName, "Ack") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "Ack") == 0 )
 		return GetAddStats( pszParentName, IObjectsDB::ACKS );	
-	else if ( _stricmp(pszName, "AIExpLevel") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "AIExpLevel") == 0 )
 		return GetExpLevelsByName( pszParentName );
-	else if ( _stricmp(pszName, "Mission") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "Mission") == 0 )
 		return GetGameStats( pszParentName, IObjectsDB::MISSION );	
-	else if ( _stricmp(pszName, "Chapter") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "Chapter") == 0 )
 		return GetGameStats( pszParentName, IObjectsDB::CHAPTER );	
-	else if ( _stricmp(pszName, "Campaign") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "Campaign") == 0 )
 		return GetGameStats( pszParentName, IObjectsDB::CAMPAIGN );	
-	else if ( _stricmp(pszName, "Medal") == 0 )
+	else if ( NStr::CompareAsciiNoCase(pszName, "Medal") == 0 )
 		return GetGameStats( pszParentName, IObjectsDB::MEDAL );	
 	else
 	{		

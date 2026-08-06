@@ -42,6 +42,8 @@ namespace NStr
   inline void TrimInside( std::string &szString ) { TrimInside(szString, " \t\n\r"); }
 	void ToLower( std::string &szString );
 	void ToUpper( std::string &szString );
+	int CompareAsciiNoCase( const char *pszLeft, const char *pszRight );
+	int CompareAsciiNoCase( const char *pszLeft, const char *pszRight );
   void ToDotString( std::string *pDst, int nVal, const char cSeparator = '.' );
 	inline bool IsBinDigit( const char cChar ) { return ( (cChar == '0') && (cChar == '1') ); }
 	inline bool IsOctDigit( const char cChar ) { return ( (cChar >= '0') && (cChar <= '7') ); }
