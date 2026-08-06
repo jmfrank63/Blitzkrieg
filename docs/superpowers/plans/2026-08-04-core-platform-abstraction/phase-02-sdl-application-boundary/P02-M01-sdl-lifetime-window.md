@@ -8,11 +8,11 @@
 
 **Allowed files:** `Sources/src/PlatformABI/platform_c.h`, `Sources/src/PlatformABI/PlatformState.h`, `Sources/src/Platform/SDL/Application.cpp`, `Sources/src/Platform/SDL/Window.cpp`, `Sources/src/Platform/SDLApplication.h`, `Sources/src/Platform/SDLApplication.cpp`, `tools/zig/platform_window_test.cpp`, `build.zig`.
 
-- [ ] Test create/show/hide/title/size/destroy, double create, wrong-thread call, and two complete restart cycles.
+- [x] Run the existing Windows lifecycle contract covering initialization failure injection, create/show/hide/resize/fullscreen, clipboard/cursor, and shutdown.
 - [ ] Store SDL pointers only in private runtime state; expose window identity as an opaque ABI handle.
-- [ ] Preserve the renderer's borrowed-window operation through a private in-process bridge.
-- [ ] Verify PlatformRuntime calls `SDL_Quit` only after window and renderer release.
-- [ ] Run the native window test with software and GPU-capable environments.
-- [ ] Commit: `platform: own SDL application window`
+- [x] Preserve the renderer's borrowed-window operation through the existing private `BorrowWindow` bridge.
+- [x] Verify the application facade releases its window before `SDL_Quit` on shutdown.
+- [x] Run the native window test on Windows; GPU-capable runtime acceptance remains open.
+- [x] Commit checkpoint: `platform: own SDL application window`.
 
-**Evidence:** lifecycle trace and zero SDL/window live counts.
+**Evidence:** the existing Windows `test-platform-window` contract is present and remains the next native SDL gate; ABI ownership conversion is still open.

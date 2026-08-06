@@ -13,3 +13,5 @@
 | P02-M05 | M04 | application lifecycle integration gate |
 
 Exit: the native SDL application contract passes with one window owner, deterministic event translation, and clean restart.
+
+P02-M01 checkpoint: the existing SDLApplication lifecycle test and private borrowed-window bridge are retained; full PlatformRuntime ABI ownership is not yet complete.
