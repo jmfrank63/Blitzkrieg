@@ -15,3 +15,5 @@
 Exit: the native SDL application contract passes with one window owner, deterministic event translation, and clean restart.
 
 P02-M01 checkpoint: the existing SDLApplication lifecycle test compiles and the private borrowed-window bridge is retained. Run-mode execution hangs in this headless session, so desktop/GPU acceptance and full PlatformRuntime ABI ownership remain open.
+
+P02-M02 checkpoint: the existing SDL event translator compiles on Windows with injected resize, key, text, motion, wheel, quit, and unknown-event fixtures; overflow policy and runtime execution remain open.
