@@ -15,4 +15,4 @@
 - [ ] Compare lifecycle/event traces on Windows and Linux.
 - [ ] Commit: `game: replace WinFrame with SDL shell`
 
-**Evidence:** oracle-compatible event/lifecycle trace.
+**Evidence:** Windows `test-game-frame -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` and `-Dtest-mode=run` pass for the new `GameFrame` SDL-owned lifecycle/event-queue contract. The Linux compile leg reaches Zig's SDL shared-library symlink step but is blocked by `PermissionDenied` creating `libSDL3.so.0` in the current environment. The legacy `WinFrame.cpp` still owns the Windows adapter and its full migration, oracle trace, and duplicate-event comparison remain open.
