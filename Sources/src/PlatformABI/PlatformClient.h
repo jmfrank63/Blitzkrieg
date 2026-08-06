@@ -19,6 +19,16 @@ public:
     static uint32_t AtomicIncrementU32(uint32_t *value) noexcept;
     static uint32_t AtomicDecrementU32(uint32_t *value) noexcept;
     static uint32_t AtomicCompareExchangeU32(uint32_t *value, uint32_t expected, uint32_t replacement) noexcept;
+    static BkPlatformResult EventCreate(uint32_t initial_state, uint32_t manual_reset, BkPlatformHandle *out_handle) noexcept;
+    static BkPlatformResult EventDestroy(BkPlatformHandle handle) noexcept;
+    static BkPlatformResult EventSet(BkPlatformHandle handle) noexcept;
+    static BkPlatformResult EventReset(BkPlatformHandle handle) noexcept;
+    static BkPlatformResult EventWait(BkPlatformHandle handle, uint32_t timeout_milliseconds) noexcept;
+    static BkPlatformResult MutexCreate(BkPlatformHandle *out_handle) noexcept;
+    static BkPlatformResult MutexDestroy(BkPlatformHandle handle) noexcept;
+    static BkPlatformResult MutexLock(BkPlatformHandle handle) noexcept;
+    static BkPlatformResult MutexUnlock(BkPlatformHandle handle) noexcept;
+    static uint32_t LiveSyncHandles() noexcept;
     static BkPlatformResult LastError(char *dst, uint32_t capacity, uint32_t *required) noexcept;
 };
 

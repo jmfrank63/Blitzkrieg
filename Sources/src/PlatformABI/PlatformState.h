@@ -8,6 +8,7 @@ struct BkPlatformState {
     uint64_t generation;
     BkPlatformLogFn log;
     void *user_data;
+    uint32_t live_sync_handles;
     char last_error[256];
 };
 

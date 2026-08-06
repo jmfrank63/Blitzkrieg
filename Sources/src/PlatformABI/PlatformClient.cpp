@@ -51,6 +51,17 @@ uint32_t Client::AtomicCompareExchangeU32(uint32_t *value, uint32_t expected, ui
     return g_api != nullptr && g_api->atomic_compare_exchange_u32 != nullptr ? g_api->atomic_compare_exchange_u32(value, expected, replacement) : 0;
 }
 
+BkPlatformResult Client::EventCreate(uint32_t initial_state, uint32_t manual_reset, BkPlatformHandle *out_handle) noexcept { return g_api != nullptr && g_api->event_create != nullptr ? g_api->event_create(initial_state, manual_reset, out_handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::EventDestroy(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->event_destroy != nullptr ? g_api->event_destroy(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::EventSet(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->event_set != nullptr ? g_api->event_set(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::EventReset(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->event_reset != nullptr ? g_api->event_reset(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::EventWait(BkPlatformHandle handle, uint32_t timeout_milliseconds) noexcept { return g_api != nullptr && g_api->event_wait != nullptr ? g_api->event_wait(handle, timeout_milliseconds) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::MutexCreate(BkPlatformHandle *out_handle) noexcept { return g_api != nullptr && g_api->mutex_create != nullptr ? g_api->mutex_create(out_handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::MutexDestroy(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->mutex_destroy != nullptr ? g_api->mutex_destroy(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::MutexLock(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->mutex_lock != nullptr ? g_api->mutex_lock(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::MutexUnlock(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->mutex_unlock != nullptr ? g_api->mutex_unlock(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+uint32_t Client::LiveSyncHandles() noexcept { return g_api != nullptr && g_api->get_live_sync_handles != nullptr ? g_api->get_live_sync_handles() : 0; }
+
 BkPlatformResult Client::LastError(char *dst, uint32_t capacity, uint32_t *required) noexcept {
     if (g_api == nullptr || g_api->get_last_error == nullptr) return BK_PLATFORM_ERROR_NOT_INITIALIZED;
     return g_api->get_last_error(dst, capacity, required);

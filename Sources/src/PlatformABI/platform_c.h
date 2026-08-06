@@ -22,6 +22,8 @@ typedef uint32_t BkPlatformResult;
 #define BK_PLATFORM_ERROR_NOT_INITIALIZED ((BkPlatformResult)3u)
 #define BK_PLATFORM_ERROR_ALREADY_INITIALIZED ((BkPlatformResult)4u)
 #define BK_PLATFORM_ERROR_BUFFER_TOO_SMALL ((BkPlatformResult)5u)
+#define BK_PLATFORM_ERROR_TIMEOUT ((BkPlatformResult)6u)
+#define BK_PLATFORM_ERROR_BUSY ((BkPlatformResult)7u)
 
 typedef struct BkPlatformUtf8Span {
     uint32_t struct_size;
@@ -61,6 +63,16 @@ typedef struct BkPlatformApi {
     uint32_t (BK_PLATFORM_CALL *atomic_increment_u32)(uint32_t *value);
     uint32_t (BK_PLATFORM_CALL *atomic_decrement_u32)(uint32_t *value);
     uint32_t (BK_PLATFORM_CALL *atomic_compare_exchange_u32)(uint32_t *value, uint32_t expected, uint32_t replacement);
+    BkPlatformResult (BK_PLATFORM_CALL *event_create)(uint32_t initial_state, uint32_t manual_reset, BkPlatformHandle *out_handle);
+    BkPlatformResult (BK_PLATFORM_CALL *event_destroy)(BkPlatformHandle handle);
+    BkPlatformResult (BK_PLATFORM_CALL *event_set)(BkPlatformHandle handle);
+    BkPlatformResult (BK_PLATFORM_CALL *event_reset)(BkPlatformHandle handle);
+    BkPlatformResult (BK_PLATFORM_CALL *event_wait)(BkPlatformHandle handle, uint32_t timeout_milliseconds);
+    BkPlatformResult (BK_PLATFORM_CALL *mutex_create)(BkPlatformHandle *out_handle);
+    BkPlatformResult (BK_PLATFORM_CALL *mutex_destroy)(BkPlatformHandle handle);
+    BkPlatformResult (BK_PLATFORM_CALL *mutex_lock)(BkPlatformHandle handle);
+    BkPlatformResult (BK_PLATFORM_CALL *mutex_unlock)(BkPlatformHandle handle);
+    uint32_t (BK_PLATFORM_CALL *get_live_sync_handles)(void);
 } BkPlatformApi;
 
 #ifdef __cplusplus
