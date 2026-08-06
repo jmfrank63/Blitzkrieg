@@ -1124,6 +1124,7 @@ pub fn build(b: *std.Build) void {
     addPlatformNetworkTest(b, target, test_mode, toolchain);
     addPlatformSocketAbiTest(b, target, test_mode, toolchain, platform_runtime);
     addNetLowestTest(b, target, test_mode, toolchain);
+    addNetworkWorkersTest(b, target, test_mode, toolchain);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
 
@@ -3578,6 +3579,51 @@ fn addNetLowestTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-netlowest", "Run NetLowest loopback UDP fixture");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addNetworkWorkersTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Net"));
+    module.addIncludePath(b.path("Sources/src/Platform"));
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/Platform/Clock.cpp",
+            "Sources/src/Platform/Debug.cpp",
+            "Sources/src/Platform/Sync.cpp",
+            "Sources/src/Platform/SocketWin32.cpp",
+            "Sources/src/Platform/SocketPosix.cpp",
+            "Sources/src/Misc/Thread.cpp",
+            "Sources/src/Net/NetLowest.cpp",
+            "Sources/src/Net/Streams.cpp",
+            "tools/zig/network_workers_test.cpp",
+        },
+        .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"},
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+            module.linkSystemLibrary("ws2_32", .{});
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "network-workers-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-network-workers", "Run network worker cancellation and restart cycles");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
