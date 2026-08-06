@@ -17,10 +17,15 @@ const cflags_debug = &.{
     "-Wno-deprecated-non-prototype",
 };
 const portable_cflags = &.{
-    "-include", "Sources/src/Platform/PortableCrt.h",
-    "-Wno-switch", "-Wno-enum-compare", "-Wno-deprecated-declarations",
-    "-Wno-comment", "-Wno-pointer-to-int-cast", "-Wno-implicit-float-conversion",
-    "-Wno-c++11-narrowing", "-Wno-c23-extensions", "-Wno-extra-tokens", "-Wno-extra-qualification", "-Wno-logical-not-parentheses", "-D__stdcall=", "-DBK_STDCALL=", "-D__GLIBC_MINOR__=39", "-Wno-macro-redefined", "-fPIC",
+    "-include",                     "Sources/src/Platform/PortableCrt.h",
+    "-Wno-switch",                  "-Wno-enum-compare",
+    "-Wno-deprecated-declarations", "-Wno-comment",
+    "-Wno-pointer-to-int-cast",     "-Wno-implicit-float-conversion",
+    "-Wno-c++11-narrowing",         "-Wno-c23-extensions",
+    "-Wno-extra-tokens",            "-Wno-extra-qualification",
+    "-Wno-logical-not-parentheses", "-D__stdcall=",
+    "-DBK_STDCALL=",                "-D__GLIBC_MINOR__=39",
+    "-Wno-macro-redefined",         "-fPIC",
 };
 
 const cflags_release = &.{
@@ -620,17 +625,16 @@ const game_sources = &.{
 // derives playable paths from these declarations and fails if a new source
 // array is not classified, so additions cannot silently escape inventory.
 const runtime_platform_playable_source_arrays = &.{
-    "zlib_sources", "libpng_sources", "misc_sources", "image_sources", "lualib_c_sources", "lualib_cpp_sources",
-    "net_sources", "input_sources", "formats_sources", "anim_sources",
-    "common_sources", "ui_sources", "sfx_cpp_sources", "sfx_c_sources",
-    "gfx_sources", "gfx_gpu_sources", "randommapgen_sources", "main_sources",
+    "zlib_sources",    "libpng_sources", "misc_sources",    "image_sources",   "lualib_c_sources",     "lualib_cpp_sources",
+    "net_sources",     "input_sources",  "formats_sources", "anim_sources",    "common_sources",       "ui_sources",
+    "sfx_cpp_sources", "sfx_c_sources",  "gfx_sources",     "gfx_gpu_sources", "randommapgen_sources", "main_sources",
     "game_sources",
 };
 const runtime_platform_non_playable_source_arrays = &.{
     "buildversion_sources", "betakeygen_sources", "fontgen_sources",
 };
 const runtime_platform_playable_link_module_names = &.{
-    "module", "game_module", "net_module", "input_module", "sfx_module",
+    "module",     "game_module",    "net_module", "input_module", "sfx_module",
     "gfx_module", "gfx_gpu_module",
 };
 const runtime_platform_playable_build_functions = &.{
@@ -748,7 +752,7 @@ pub fn build(b: *std.Build) void {
 
     const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
-    platform_abi_layout_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_abi_layout_test.cpp"), .flags = &.{ "-std=c++17" } });
+    platform_abi_layout_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_abi_layout_test.cpp"), .flags = &.{"-std=c++17"} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_abi_layout_module, toolchain);
         addMsvcLibraryPaths(b, platform_abi_layout_module, toolchain);
@@ -779,7 +783,7 @@ pub fn build(b: *std.Build) void {
 
     const platform_runtime_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
-    platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformRuntime.cpp"), .flags = &.{ "-std=c++17" } });
+    platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformRuntime.cpp"), .flags = &.{"-std=c++17"} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
@@ -793,7 +797,7 @@ pub fn build(b: *std.Build) void {
     });
     const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
-    platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{ "-std=c++17" } });
+    platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_test_module.linkLibrary(platform_runtime);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_test_module, toolchain);
@@ -813,17 +817,17 @@ pub fn build(b: *std.Build) void {
 
     const consumer_a_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     consumer_a_module.addIncludePath(b.path("Sources/src"));
-    consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{ "-std=c++17" } });
+    consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_a_module.linkLibrary(platform_runtime);
     const consumer_a = b.addLibrary(.{ .name = "platform-consumer-a", .linkage = .dynamic, .root_module = consumer_a_module });
     const consumer_b_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     consumer_b_module.addIncludePath(b.path("Sources/src"));
-    consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{ "-std=c++17" } });
+    consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_b_module.linkLibrary(platform_runtime);
     const consumer_b = b.addLibrary(.{ .name = "platform-consumer-b", .linkage = .dynamic, .root_module = consumer_b_module });
     const client_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     client_test_module.addIncludePath(b.path("Sources/src"));
-    client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{ "-std=c++17" } });
+    client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{"-std=c++17"} });
     client_test_module.linkLibrary(platform_runtime);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, consumer_a_module, toolchain);
@@ -851,21 +855,27 @@ pub fn build(b: *std.Build) void {
     client_step.dependOn(&client_test.step);
     if (test_mode == .run) client_step.dependOn(&client_run.step);
 
-    const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
-    platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
-    platform_headers_module.addIncludePath(b.path("Sources/src"));
-    if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
-    const platform_headers_object = b.addObject(.{ .name = "platform-headers-test", .root_module = platform_headers_module });
     const platform_headers_step = b.step("test-platform-headers", "Validate portable compiler and legacy value types");
-    platform_headers_step.dependOn(&platform_headers_object.step);
     if (test_mode == .run) {
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
+        platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
+        platform_headers_module.addIncludePath(b.path("Sources/src"));
+        if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
         const platform_headers_test = b.addExecutable(.{ .name = "platform-headers-test-run", .root_module = platform_headers_module });
         if (platform == .windows_x64) {
             addMsvcLibraryPaths(b, platform_headers_module, toolchain);
             linkMsvcRuntime(platform_headers_module, optimize);
+            platform_headers_test.entry = .{ .symbol_name = "mainCRTStartup" };
         }
         const platform_headers_run = b.addRunArtifact(platform_headers_test);
         platform_headers_step.dependOn(&platform_headers_run.step);
+    } else {
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
+        platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
+        platform_headers_module.addIncludePath(b.path("Sources/src"));
+        if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
+        const platform_headers_object = b.addObject(.{ .name = "platform-headers-test", .root_module = platform_headers_module });
+        platform_headers_step.dependOn(&platform_headers_object.step);
     }
 
     const platform_clock_module = b.createModule(.{ .target = target, .optimize = .Debug });
@@ -1078,6 +1088,10 @@ pub fn build(b: *std.Build) void {
     test_platform_foundation.dependOn(shader_tests_step);
     test_platform_foundation.dependOn(hermeticity_step);
     test_platform_foundation.dependOn(&foundation_matrix_tests.step);
+    test_platform_foundation.dependOn(platform_abi_layout_step);
+    test_platform_foundation.dependOn(platform_runtime_step);
+    test_platform_foundation.dependOn(client_step);
+    test_platform_foundation.dependOn(runtime_platform_audit_step);
     if (test_mode == .run) test_platform_foundation.dependOn(&foundation_matrix_run.step);
     const test_platform_core = b.step("test-platform-core", "Run the Phase 01 portable runtime core tests");
     test_platform_core.dependOn(test_platform_foundation);

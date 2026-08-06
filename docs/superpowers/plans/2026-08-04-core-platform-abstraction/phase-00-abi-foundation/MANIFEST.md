@@ -20,4 +20,6 @@ P00-M03 Windows evidence: `test-platform-runtime -Dtarget=x86_64-windows-msvc -D
 
 P00-M04 Windows evidence: `test-platform-client -Dtarget=x86_64-windows-msvc -Dtest-mode=run` dynamically loaded consumer A and B, both observed shared runtime generation `1`, then unloaded consumers after runtime destruction.
 
+P00-M05 Windows evidence: `test-platform-foundation -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed ABI layout, shared runtime lifecycle, C++ consumers, target policy tests, platform header checks, and the 68-hit/67-entry audit with zero unknown or stale entries. CI now runs the Linux native gate and macOS arm64 compile gate with the selected Xcode sysroot.
+
 Exit: `test-platform-abi` and `test-platform-foundation` pass for native Windows/Linux and compile for macOS arm64, with a versioned shared runtime used by a real C++ consumer.

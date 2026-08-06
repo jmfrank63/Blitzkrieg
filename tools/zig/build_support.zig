@@ -24,6 +24,13 @@ pub const Policy = struct {
     package_root: []const u8,
     shader_format: ShaderFormat,
     gpu_driver: GpuDriver,
+    runtime_filename: []const u8,
+    import_library_suffix: []const u8,
+    elf_rpath: []const u8,
+    macho_install_name: []const u8,
+    crt: []const u8,
+    runtime_def_file: ?[]const u8,
+    subsystem: Subsystem,
     native_run_eligible: bool,
     windows_only: bool,
 };
@@ -73,6 +80,13 @@ pub fn policy(platform: PlatformTarget, native: bool) Policy {
             .package_root = "windows-x64",
             .shader_format = .dxil,
             .gpu_driver = .d3d12,
+            .runtime_filename = "PlatformRuntime.dll",
+            .import_library_suffix = ".lib",
+            .elf_rpath = "",
+            .macho_install_name = "",
+            .crt = "msvc",
+            .runtime_def_file = "Sources/src/PlatformABI/PlatformRuntime.def",
+            .subsystem = .console,
             .native_run_eligible = native,
             .windows_only = true,
         },
@@ -83,6 +97,13 @@ pub fn policy(platform: PlatformTarget, native: bool) Policy {
             .package_root = "linux-x64",
             .shader_format = .spirv,
             .gpu_driver = .vulkan,
+            .runtime_filename = "libPlatformRuntime.so",
+            .import_library_suffix = "",
+            .elf_rpath = "$ORIGIN",
+            .macho_install_name = "",
+            .crt = "glibc",
+            .runtime_def_file = null,
+            .subsystem = .console,
             .native_run_eligible = native,
             .windows_only = false,
         },
@@ -93,6 +114,13 @@ pub fn policy(platform: PlatformTarget, native: bool) Policy {
             .package_root = "macos-arm64",
             .shader_format = .metallib,
             .gpu_driver = .metal,
+            .runtime_filename = "libPlatformRuntime.dylib",
+            .import_library_suffix = "",
+            .elf_rpath = "",
+            .macho_install_name = "@rpath/libPlatformRuntime.dylib",
+            .crt = "libc++",
+            .runtime_def_file = null,
+            .subsystem = .console,
             .native_run_eligible = native,
             .windows_only = false,
         },
@@ -161,17 +189,29 @@ test "platform output table" {
     try std.testing.expectEqualStrings(".dll", windows.shared_library_suffix);
     try std.testing.expectEqual(ShaderFormat.dxil, windows.shader_format);
     try std.testing.expectEqual(GpuDriver.d3d12, windows.gpu_driver);
+    try std.testing.expectEqualStrings("PlatformRuntime.dll", windows.runtime_filename);
+    try std.testing.expectEqualStrings(".lib", windows.import_library_suffix);
+    try std.testing.expectEqualStrings("msvc", windows.crt);
+    try std.testing.expect(windows.runtime_def_file != null);
 
     const linux = policy(.linux_x64, false);
     try std.testing.expectEqualStrings("Game", linux.executable_name);
     try std.testing.expectEqualStrings(".so", linux.shared_library_suffix);
     try std.testing.expectEqual(ShaderFormat.spirv, linux.shader_format);
     try std.testing.expectEqual(GpuDriver.vulkan, linux.gpu_driver);
+    try std.testing.expectEqualStrings("libPlatformRuntime.so", linux.runtime_filename);
+    try std.testing.expectEqualStrings("$ORIGIN", linux.elf_rpath);
+    try std.testing.expectEqualStrings("glibc", linux.crt);
+    try std.testing.expect(linux.runtime_def_file == null);
 
     const macos = policy(.macos_arm64, true);
     try std.testing.expectEqualStrings(".dylib", macos.shared_library_suffix);
     try std.testing.expectEqual(ShaderFormat.metallib, macos.shader_format);
     try std.testing.expectEqual(GpuDriver.metal, macos.gpu_driver);
+    try std.testing.expectEqualStrings("libPlatformRuntime.dylib", macos.runtime_filename);
+    try std.testing.expectEqualStrings("@rpath/libPlatformRuntime.dylib", macos.macho_install_name);
+    try std.testing.expectEqualStrings("libc++", macos.crt);
+    try std.testing.expect(macos.runtime_def_file == null);
     try std.testing.expectEqualStrings("x64", libraryArch(.windows_x64));
     try std.testing.expectEqualStrings("arm64", libraryArch(.macos_arm64));
     try std.testing.expect(windowsSdkRequired(.windows_x64));

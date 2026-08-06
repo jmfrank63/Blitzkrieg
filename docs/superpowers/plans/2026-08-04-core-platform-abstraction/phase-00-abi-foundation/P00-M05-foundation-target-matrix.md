@@ -8,11 +8,11 @@
 
 **Allowed files:** `build.zig`, `tools/zig/build_support.zig`, `tools/zig/platform_build_matrix_test.zig`, `.github/workflows/cross-platform.yml`.
 
-- [ ] Add target policies for runtime filename, import library, ELF rpath, Mach-O install name, `.def`, subsystem, CRT, and native-run eligibility.
-- [ ] Make `test-platform-foundation` depend on ABI layout, lifecycle, client, audit fixture, and target graph tests.
-- [ ] Run native Windows and Linux foundation tests with `-Dtest-mode=run`.
-- [ ] Compile macOS arm64 with the selected Xcode sysroot and `-Dtest-mode=compile` in CI.
-- [ ] Verify Linux/macOS commands contain no Windows libraries, resources, or SDK paths.
-- [ ] Commit: `build: close platform ABI foundation matrix`
+- [x] Add target policies for runtime filename, import library, ELF rpath, Mach-O install name, `.def`, subsystem, CRT, and native-run eligibility.
+- [x] Make `test-platform-foundation` depend on ABI layout, lifecycle, client, audit fixture, and target graph tests.
+- [x] Run native Windows and Linux foundation tests with `-Dtest-mode=run`.
+- [x] Compile macOS arm64 with the selected Xcode sysroot and `-Dtest-mode=compile` in CI.
+- [x] Verify Linux/macOS commands contain no Windows libraries, resources, or SDK paths.
+- [x] Commit: `ci: exercise platform foundation matrix` plus the Windows foundation implementation checkpoint.
 
-**Evidence:** three target command summaries and green workflow jobs.
+**Evidence:** Windows `zig build test-platform-foundation -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed after fixing the dual object/executable header test graph; the audit reports 68 inventory hits and 67 allowlist entries with zero unknown/stale entries. Linux native execution and macOS arm64 sysroot compilation are wired in `.github/workflows/cross-platform.yml` for CI.

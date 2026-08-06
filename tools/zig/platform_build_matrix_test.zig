@@ -33,3 +33,25 @@ test "foundation matrix uses compile mode for cross targets" {
         }
     }
 }
+
+test "foundation matrix policies keep platform artifacts isolated" {
+    const windows = support.policy(.windows_x64, true);
+    try std.testing.expectEqualStrings("PlatformRuntime.dll", windows.runtime_filename);
+    try std.testing.expectEqualStrings(".lib", windows.import_library_suffix);
+    try std.testing.expect(windows.windows_only);
+    try std.testing.expect(windows.native_run_eligible);
+
+    const linux = support.policy(.linux_x64, false);
+    try std.testing.expectEqualStrings("libPlatformRuntime.so", linux.runtime_filename);
+    try std.testing.expectEqualStrings("$ORIGIN", linux.elf_rpath);
+    try std.testing.expectEqualStrings("", linux.import_library_suffix);
+    try std.testing.expect(!linux.windows_only);
+    try std.testing.expect(linux.runtime_def_file == null);
+
+    const macos = support.policy(.macos_arm64, false);
+    try std.testing.expectEqualStrings("libPlatformRuntime.dylib", macos.runtime_filename);
+    try std.testing.expectEqualStrings("@rpath/libPlatformRuntime.dylib", macos.macho_install_name);
+    try std.testing.expectEqualStrings("libc++", macos.crt);
+    try std.testing.expect(macos.runtime_def_file == null);
+    try std.testing.expect(!macos.native_run_eligible);
+}
