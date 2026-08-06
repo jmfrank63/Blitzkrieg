@@ -8,7 +8,9 @@
 #include <dinput.h>
 #endif
 
+#if !defined(BK_INPUT_EVENT_ONLY)
 #include <mmsystem.h>
+#endif
 #include "../UI/UIMessages.h"
 #include "../Scene/Scene.h"
 extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
@@ -420,7 +422,11 @@ CInputAPI::CInputAPI()
 	bCoopLevelSet = false;
 	bFocusCaptured = false;
 	hWindow = 0;
+	#if defined(BK_INPUT_EVENT_ONLY)
+	dwLastPumpingTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
+	#else
 	dwLastPumpingTime = timeGetTime();
+	#endif
 	pLastControlKey = 0;
 }
 CInputAPI::~CInputAPI()
@@ -866,6 +872,8 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 		case NPlatform::EventType::keyDown:
 		case NPlatform::EventType::keyUp:
 		{
+			if ( eTextMode == INPUT_TEXT_MODE_TEXTONLY )
+				break;
 			const uint32_t legacy = NInput::SDLScancodeToLegacy( static_cast<uint32_t>( event.scancode ) );
 			if ( legacy != 0 )
 				EmulateInput( DEVICE_TYPE_KEYBOARD, static_cast<int>( legacy ), event.type == NPlatform::EventType::keyDown ? 0x80 : 0, time, event.modifiers );
@@ -881,6 +889,9 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 						if ( (*control)->IsActive() )
 							EmulateInput( device->eType, (*control)->GetID() & 0x0fff, 0, time, 0 );
 			bFocusCaptured = false;
+			break;
+		case NPlatform::EventType::focusGained:
+			bFocusCaptured = true;
 			break;
 		case NPlatform::EventType::mouseMotion:
 			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_X, event.x, time, event.x );
@@ -937,8 +948,13 @@ bool CInputAPI::PumpMessagesLocal( bool bFocus )
 		return false;
 	const bool bForceGetState = bFocus && !bFocusCaptured;
 	SetFocus( bFocus );
+	#if !defined(BK_INPUT_EVENT_ONLY)
 	if ( !bFocusCaptured )
 		return false;
+	#else
+	if ( !bFocusCaptured && emulatedMessages.empty() )
+		return false;
+	#endif
 	for ( CStoredControlsList::iterator it = activecontrols.begin(); it != activecontrols.end(); ++it )
 		it->bActive = false;
 #if defined(BK_INPUT_EVENT_ONLY)

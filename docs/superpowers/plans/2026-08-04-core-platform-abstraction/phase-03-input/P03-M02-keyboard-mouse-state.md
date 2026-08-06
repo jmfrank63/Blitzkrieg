@@ -10,9 +10,9 @@
 
 - [x] Add a focused event-fed fixture for press/release, simultaneous modifiers, motion, wheel direction, buttons, focus loss, and same-frame ordering.
 - [ ] Run the fixture against the old Windows oracle and record stable legacy control IDs and values.
-- [ ] Replace device polling and buffered DirectInput records with platform event consumption.
-- [ ] Synthesize releases on focus loss and preserve mouse-coordinate translation semantics.
+- [x] Replace device polling and buffered DirectInput records with platform event consumption in the production `BK_INPUT_EVENT_ONLY` graph.
+- [x] Synthesize releases on focus loss and preserve mouse-coordinate translation semantics.
 - [x] Run the state fixture on Windows. Linux execution remains deferred to the cross-platform validation environment.
 - [x] Commit checkpoint: `097a5fe24` added the event-fed fixture and `bd66b84f0` closed its Windows build graph.
 
-**Evidence:** `test-input-state` compiles and runs on the Windows target. The fixture records the legacy control IDs and event ordering at the normalized `PlatformEvent` boundary. `CInputAPI` does not currently expose inspectable state independently of its private DirectInput-backed device graph, so this packet deliberately adds no new public state API; Linux execution and the old-oracle comparison remain open.
+**Evidence:** `zig build input -Dtarget=x86_64-windows-msvc`, `test-input-state`, and `test-platform-input` pass. The event-only `CInputAPI` owns virtual keyboard/mouse controls, consumes `SInputEvent` records in source order, uses platform monotonic time, and synthesizes releases on focus loss. The standalone fixture records stable legacy IDs and event ordering; old-oracle comparison and Linux execution remain open.
