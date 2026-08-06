@@ -1157,7 +1157,7 @@ pub fn build(b: *std.Build) void {
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
-    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, sdl_dynamic_dep.path("include"), test_mode);
+    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
@@ -4034,6 +4034,7 @@ fn addGameBootstrapSmoke(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     gfx_gpu_zig: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
     test_mode: build_support.TestMode,
 ) void {
@@ -4042,6 +4043,7 @@ fn addGameBootstrapSmoke(
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
+    module.linkLibrary(platform_runtime);
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
@@ -4057,6 +4059,8 @@ fn addGameBootstrapSmoke(
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "main" };
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
+    run.step.dependOn(&platform_runtime.step);
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     const step = b.step("test-game-bootstrap", "Run the SDL and GfxGpu game bootstrap smoke test");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);

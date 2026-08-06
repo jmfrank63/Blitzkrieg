@@ -15,4 +15,4 @@
 - [ ] Verify Game link commands contain no Windows libraries on Linux/macOS.
 - [ ] Commit: `test: close portable game bootstrap gate`
 
-**Evidence:** full startup/shutdown trace and zero-live-state report.
+**Evidence:** the bootstrap smoke now links the real `PlatformRuntime` ABI and records `P`/`p` runtime create/destroy around each `A`/`a` SDL application cycle, with GfxGpu consumer API and renderer `R`/`r` nested inside. Windows compile verification remains the active gate; native run is still coupled to the headless SDL window limitation, and Input/Net/SFX/Main integration remains open.

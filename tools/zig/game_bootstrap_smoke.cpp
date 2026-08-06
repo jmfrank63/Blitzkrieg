@@ -1,4 +1,5 @@
 #include "../../Sources/src/Platform/SDLApplication.h"
+#include "../../Sources/src/PlatformABI/platform_c.h"
 #include "../../Sources/src/GFXGPU/gfxgpu_c.h"
 
 #include <cstdio>
@@ -7,8 +8,15 @@
 int main()
 {
     std::string trace;
+    const BkPlatformApi *platform = bk_platform_get_api( BK_PLATFORM_ABI_VERSION );
+    if ( platform == nullptr || platform->struct_size < sizeof( BkPlatformApi ) ) return 12;
     for ( int cycle = 0; cycle != 3; ++cycle )
     {
+        BkPlatformCreateInfo create_info{};
+        create_info.struct_size = sizeof( create_info );
+        create_info.requested_abi_version = BK_PLATFORM_ABI_VERSION;
+        if ( platform->runtime_create( &create_info ) != BK_PLATFORM_OK ) return 13;
+        trace += 'P';
         NPlatform::SDLApplication application;
         if ( !application.Initialize( "Blitzkrieg bootstrap", 320, 200 ) ) return 1;
         trace += 'A';
@@ -50,8 +58,10 @@ int main()
         trace += 'r';
         application.Shutdown();
         trace += 'a';
+        platform->runtime_destroy();
+        trace += 'p';
     }
-    if ( trace != "AMERraAMERraAMERra" ) return 9;
+    if ( trace != "PAMERrapPAMERrapPAMERrap" ) return 9;
     std::puts( "game bootstrap: SDL window, event/controller services, 3 GfxGpu restart cycles, clean shutdown" );
     return 0;
 }
