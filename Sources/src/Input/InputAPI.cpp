@@ -3,6 +3,7 @@
 #include "InputAPI.h"
 #include "InputCodes.h"
 #include "../Platform/Event.h"
+#include "../Platform/Clock.h"
 #include <dinput.h>
 
 #include <mmsystem.h>
@@ -424,6 +425,71 @@ CInputAPI::~CInputAPI()
 }
 bool CInputAPI::Init()
 {
+#if defined(BK_INPUT_EVENT_ONLY)
+	// The default runtime owns input through normalized SDL events.  Preserve
+	// the legacy device/control IDs by creating two private virtual devices;
+	// ConsumePlatformEvent feeds the same control state and binding machinery
+	// used by the historical backend.
+	devices.clear();
+	controlIDs.clear();
+	controlNames.clear();
+	SDevice keyboard;
+	keyboard.nID = 1;
+	keyboard.eType = DEVICE_TYPE_KEYBOARD;
+	keyboard.szName = "KEYBOARD";
+	keyboard.szFriendlyName = "Keyboard";
+	keyboard.bEmulated = true;
+	for ( const SNameID *entry = kbdKeyMaps; entry->pszName != nullptr; ++entry )
+	{
+		SControlDesc desc = {};
+		desc.eType = CONTROL_TYPE_KEY;
+		desc.nID = static_cast<int>( entry->dwID );
+		desc.szName = entry->pszName;
+		desc.szFriendlyName = entry->pszName;
+		desc.nGranularity = 1;
+		keyboard.controls.push_back( new CControlKey( desc ) );
+		controlIDs[( keyboard.nID << 16 ) | desc.nID] = keyboard.controls.back();
+		controlNames[desc.szName] = keyboard.controls.back();
+	}
+	devices.push_back( std::move( keyboard ) );
+	SDevice mouse;
+	mouse.nID = 2;
+	mouse.eType = DEVICE_TYPE_MOUSE;
+	mouse.szName = "MOUSE";
+	mouse.szFriendlyName = "Mouse";
+	mouse.bEmulated = true;
+	const struct { const char *name; int id; EControlType type; } mouseControls[] = {
+		{ "AXIS_X", INPUT_CONTROL_MOUSE_AXIS_X, CONTROL_TYPE_AXIS },
+		{ "AXIS_Y", INPUT_CONTROL_MOUSE_AXIS_Y, CONTROL_TYPE_AXIS },
+		{ "AXIS_Z", INPUT_CONTROL_MOUSE_AXIS_Z, CONTROL_TYPE_AXIS },
+		{ "BUTTON0", INPUT_CONTROL_MOUSE_BUTTON0, CONTROL_TYPE_KEY },
+		{ "BUTTON1", INPUT_CONTROL_MOUSE_BUTTON1, CONTROL_TYPE_KEY },
+		{ "BUTTON2", INPUT_CONTROL_MOUSE_BUTTON2, CONTROL_TYPE_KEY },
+	};
+	for ( const auto &entry : mouseControls )
+	{
+		SControlDesc desc = {};
+		desc.eType = entry.type;
+		desc.nID = entry.id;
+		desc.szName = entry.name;
+		desc.szFriendlyName = entry.name;
+		desc.nGranularity = 1;
+		CControl *control = entry.type == CONTROL_TYPE_KEY ? static_cast<CControl *>( new CControlKey( desc ) ) : static_cast<CControl *>( new CControlAxis( desc ) );
+		mouse.controls.push_back( control );
+		controlIDs[( mouse.nID << 16 ) | desc.nID] = control;
+		controlNames[desc.szName] = control;
+	}
+	devices.push_back( std::move( mouse ) );
+	hWindow = 0;
+	bInitialized = true;
+	bCoopLevelSet = true;
+	bFocusCaptured = false;
+	dwLastPumpingTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
+	TIME_DIFF_DBL_CLK = 500;
+	TIME_DIFF_REPEAT_DELAY = 500;
+	TIME_DIFF_REPEAT_PERIOD = 30;
+	return true;
+#else
 	{
 		IDirectInput8 *pTemp = 0;
 		HRESULT dxrval = DirectInput8Create( GetModuleHandle(0), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&pTemp, 0 );
@@ -461,6 +527,7 @@ bool CInputAPI::Init()
 		TIME_DIFF_REPEAT_PERIOD = 0x7fffffff;
 	}
 	return bInitialized;
+#endif
 }
 bool CInputAPI::Done()
 {

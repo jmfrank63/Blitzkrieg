@@ -2478,6 +2478,7 @@ fn addInput(
     addMsvcIncludePaths(b, input_module, toolchain);
     addMsvcLibraryPaths(b, input_module, toolchain);
     input_module.addIncludePath(b.path("Sources/src/Input"));
+    input_module.addCMacro("BK_INPUT_EVENT_ONLY", "1");
     input_module.addCSourceFiles(.{
         .files = input_sources,
         .flags = cppflagsForOptimize(optimize),
