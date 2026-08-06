@@ -14,3 +14,5 @@
 | P03-M06 | M05 | Input shared-module gate |
 
 Exit: Input contains no DirectInput header/type/call in the portable graph and fixture behavior matches Windows control semantics.
+
+P03-M01 Windows checkpoint: input contract compilation and portable code mapping execution pass; DirectInput type decontamination remains open.

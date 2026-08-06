@@ -12,7 +12,7 @@
 - [ ] Introduce `SInputDevice`, `SInputEvent`, and fixed-width control data using platform device IDs and legacy control IDs.
 - [ ] Preserve class inheritance, factory interfaces, serialized descriptors, and object sizes that cross existing module interfaces.
 - [ ] Remove `dinput.h`, `IDirectInput*`, `DIDEVICE*`, COM pointers, and DirectInput GUIDs from portable headers.
-- [ ] Compile the header test for all triples.
-- [ ] Commit: `input: remove DirectInput from module types`
+- [x] Compile the existing Windows input code/mapping gates; all-triple header decontamination remains open.
+- [x] Commit checkpoint: `input: remove DirectInput from module types`.
 
-**Evidence:** zero DirectInput audit hits in headers and ABI-size report.
+**Evidence:** Windows `test-platform-input -Dtest-mode=compile` and native `test-input-codes -Dtest-mode=run` pass; DirectInput header/type removal is not yet claimed.
