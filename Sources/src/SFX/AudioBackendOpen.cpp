@@ -5,6 +5,7 @@
 #include "../Platform/Clock.h"
 #include "../Platform/Debug.h"
 
+#include <atomic>
 #include <cstdlib>
 
 #if defined(SFX_USE_OPEN_AUDIO_BACKEND)
@@ -98,8 +99,10 @@ namespace
 	{
 		std::string szFileName;
 		bool bLooped;
-		NAudioBackend::TStreamCallback pEndCallback;
-		void *pUserData;
+		std::atomic<NAudioBackend::TStreamCallback> pEndCallback;
+		std::atomic<void *> pUserData;
+		std::atomic<unsigned int> nCallbackReaders;
+		std::atomic<bool> bClosing;
 		std::vector<char> encodedData;
 		unsigned int nSampleRate;
 		unsigned int nChannels;
@@ -420,6 +423,7 @@ namespace
 
 		if ( g_channels[nChannel].bSoundInitialized )
 		{
+			ma_sound_set_end_callback( &g_channels[nChannel].sound, 0, 0 );
 			ma_sound_stop( &g_channels[nChannel].sound );
 			ma_sound_uninit( &g_channels[nChannel].sound );
 			g_channels[nChannel].bSoundInitialized = false;
@@ -537,8 +541,17 @@ namespace
 	void OpenStreamEndCallback( void *pUserData, ma_sound *pSound )
 	{
 		SOpenStream *pStream = static_cast<SOpenStream*>( pUserData );
-		if ( pStream && pStream->pEndCallback )
-			pStream->pEndCallback( pStream, 0, 0, pStream->pUserData );
+		if ( !pStream )
+			return;
+		pStream->nCallbackReaders.fetch_add( 1, std::memory_order_acquire );
+		if ( !pStream->bClosing.load( std::memory_order_acquire ) )
+		{
+			NAudioBackend::TStreamCallback pCallback = pStream->pEndCallback.load( std::memory_order_acquire );
+			void *pCallbackUserData = pStream->pUserData.load( std::memory_order_acquire );
+			if ( pCallback )
+				pCallback( pStream, 0, 0, pCallbackUserData );
+		}
+		pStream->nCallbackReaders.fetch_sub( 1, std::memory_order_release );
 	}
 
 	int FindFreeChannel()
@@ -1256,8 +1269,10 @@ namespace NAudioBackendImpl
 		SOpenStream *pStream = new SOpenStream;
 		pStream->szFileName = pszFileName ? pszFileName : "";
 		pStream->bLooped = bLooped;
-		pStream->pEndCallback = 0;
-		pStream->pUserData = 0;
+		pStream->pEndCallback.store( 0 );
+		pStream->pUserData.store( 0 );
+		pStream->nCallbackReaders.store( 0 );
+		pStream->bClosing.store( false );
 		pStream->nSampleRate = 0;
 		pStream->nChannels = 0;
 		pStream->nBlockAlign = 0;
@@ -1291,9 +1306,14 @@ namespace NAudioBackendImpl
 		SOpenStream *pOpenStream = static_cast<SOpenStream*>( pStream );
 		if ( pOpenStream )
 		{
+			pOpenStream->bClosing.store( true, std::memory_order_release );
+			pOpenStream->pEndCallback.store( 0, std::memory_order_release );
+			pOpenStream->pUserData.store( 0, std::memory_order_release );
 			for ( int i = 0; i < cMaxOpenChannels; ++i )
 				if ( g_channels[i].pStream == pOpenStream )
 					ResetChannel( i );
+			while ( pOpenStream->nCallbackReaders.load( std::memory_order_acquire ) != 0 )
+				NPlatform::SleepMilliseconds( 0 );
 			#if SFX_ENABLE_XIPH_READ_TRACE
 			DumpXiphReadTrace( pOpenStream->szFileName.c_str() );
 			#endif
@@ -1306,8 +1326,9 @@ namespace NAudioBackendImpl
 		if ( pStream )
 		{
 			SOpenStream *pOpenStream = static_cast<SOpenStream*>( pStream );
-			pOpenStream->pEndCallback = 0;
-			pOpenStream->pUserData = 0;
+			pOpenStream->bClosing.store( true, std::memory_order_release );
+			pOpenStream->pEndCallback.store( 0, std::memory_order_release );
+			pOpenStream->pUserData.store( 0, std::memory_order_release );
 		}
 	}
 
@@ -1316,8 +1337,9 @@ namespace NAudioBackendImpl
 		if ( pStream )
 		{
 			SOpenStream *pOpenStream = static_cast<SOpenStream*>( pStream );
-			pOpenStream->pEndCallback = pCallback;
-			pOpenStream->pUserData = pUserData;
+			pOpenStream->pUserData.store( pUserData, std::memory_order_release );
+			pOpenStream->pEndCallback.store( pCallback, std::memory_order_release );
+			pOpenStream->bClosing.store( false, std::memory_order_release );
 		}
 	}
 
