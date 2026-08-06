@@ -13,8 +13,9 @@ bool CTransition::Update( const NTimer::STime &time, bool bForced )
 	NTimer::STime currTime = NPlatform::MonotonicMilliseconds();
 	if ( timeStart == 0 ) 
 		timeStart = currTime;
-	fAlpha = Clamp( fAlphaStart + ( fAlphaEnd - fAlphaStart ) * float( currTime - timeStart ) / float( DURATION ), ALPHA_MIN, ALPHA_MAX );
-	return bInfinite || ( timeStart + DURATION > currTime );
+	const NTimer::STime elapsed = NPlatform::MillisecondsElapsed( timeStart, currTime );
+	fAlpha = Clamp( fAlphaStart + ( fAlphaEnd - fAlphaStart ) * float( elapsed ) / float( DURATION ), ALPHA_MIN, ALPHA_MAX );
+	return bInfinite || ( elapsed < DURATION );
 }
 bool CTransition::Draw( interface IGFX *pGFX )
 {

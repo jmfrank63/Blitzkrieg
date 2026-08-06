@@ -4,6 +4,7 @@
 #include "OpenVideoPlayer.h"
 
 #include "../SFX/SFX.h"
+#include "../Misc/StrProc.h"
 
 namespace
 {
@@ -24,7 +25,7 @@ namespace
 		if ( (pszFileName == 0) || (pszExtension == 0) )
 			return false;
 		const char *pszDot = strrchr( pszFileName, '.' );
-		return (pszDot != 0) && (_stricmp( pszDot, pszExtension ) == 0);
+		return (pszDot != 0) && (NStr::CompareAsciiNoCase( pszDot, pszExtension ) == 0);
 	}
 
 	bool IsLegacyBikVideoFile( const char *pszFileName )

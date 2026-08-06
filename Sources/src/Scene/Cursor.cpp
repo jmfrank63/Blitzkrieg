@@ -7,7 +7,6 @@
 #include "DTHelper.h"
 #include "Input.h"
 #include "Actions.h"
-extern HINSTANCE hDLLInstance;
 
 struct SCursorRegister
 {
@@ -149,8 +148,6 @@ void CCursor::Clear()
 void CCursor::Show( bool _bShow ) 
 { 
 	bShow = _bShow; 
-	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
-		OnSetCursor();
 }
 void CCursor::SetBounds( int x1, int y1, int x2, int y2 ) 
 { 
@@ -159,21 +156,8 @@ void CCursor::SetBounds( int x1, int y1, int x2, int y2 )
 }
 void CCursor::AcquireLocal()
 {
-	if ( eUpdateMode != ICursor::UPDATE_MODE_WINDOWS ) 
-	{
-		::ClipCursor( 0 );
-		return;
-	}
-	if ( bAcquired ) 
-	{
-		if ( !rcBounds.IsEmpty() ) 
-		{
-			const RECT rcClip = rcBounds;
-			::ClipCursor( &rcClip );
-		}
-	}
-	else
-		::ClipCursor( 0 );
+	// Cursor capture is represented by bAcquired and enforced by the
+	// software-coordinate clamp below. Scene does not own a native window.
 }
 void CCursor::Acquire( bool bAcquire )
 {
@@ -183,53 +167,21 @@ void CCursor::Acquire( bool bAcquire )
 void CCursor::SetPos( int nX, int nY ) 
 { 
 	vPos = CVec2( nX, nY ); 
-	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
-		SetCursorPos( nX, nY );
 }
 void CCursor::LockPos( bool bLock ) 
 { 
 	bPosLocked = bLock;
-	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
-	{
-		if ( bLock ) 
-		{
-			if ( bAcquired ) 
-			{
-				const RECT rcClip = { static_cast<LONG>(vPos.x), static_cast<LONG>(vPos.y), static_cast<LONG>(vPos.x), static_cast<LONG>(vPos.y) };
-				::ClipCursor( &rcClip );
-			}
-		}
-		else
-			AcquireLocal();
-	}
+	AcquireLocal();
 }
 void CCursor::SetUpdateMode( const EUpdateMode _eUpdateMode ) 
 { 
-	if ( (_eUpdateMode != eUpdateMode) && (_eUpdateMode == ICursor::UPDATE_MODE_WINDOWS) ) 
-		SetCursorPos( vPos.x, vPos.y );
 	eUpdateMode = _eUpdateMode; 
 	AcquireLocal();
-	OnSetCursor();
 }
 void CCursor::OnSetCursor()
 {
-	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
-	{
-		if ( pMode && bShow ) 
-		{
-			if ( pMode->wResourceID ) 
-			{
-				HCURSOR hCursor = ::LoadCursor( hDLLInstance, MAKEINTRESOURCE(pMode->wResourceID) );
-				::SetCursor( hCursor );
-			}
-			else
-				::SetCursor( ::LoadCursor(0, IDC_WAIT) );
-		}
-		else
-			::SetCursor( 0 );
-	}
-	else
-		::SetCursor( 0 );
+	// Hardware cursor resources are not part of the portable Scene boundary.
+	// The software cursor is drawn by Draw() for every update mode.
 }
 void CCursor::Update()
 {
@@ -237,25 +189,8 @@ void CCursor::Update()
 		ResetSliders();
 	const NTimer::STime timeAbs = GetSingleton<IGameTimer>()->GetAbsTime();
 
-	if ( eUpdateMode == ICursor::UPDATE_MODE_INPUT ) 
-	{
-		vPos.x = Clamp( vPos.x + fSensitivity*pScrollX->GetDelta(), rcBounds.minx, rcBounds.maxx );
-		vPos.y = Clamp( vPos.y + fSensitivity*pScrollY->GetDelta(), rcBounds.miny, rcBounds.maxy );
-	}
-	else
-	{
-		if ( bPosLocked ) 
-			SetCursorPos( vPos.x, vPos.y );
-		else
-		{
-			POINT point;
-			GetCursorPos( &point );
-			vPos.x = Clamp( float(point.x), rcBounds.minx, rcBounds.maxx );
-			vPos.y = Clamp( float(point.y), rcBounds.miny, rcBounds.maxy );
-			if ( (vPos.x != point.x) || (vPos.y != point.y) ) 
-				SetCursorPos( vPos.x, vPos.y );
-		}
-	}
+	vPos.x = Clamp( vPos.x + fSensitivity*pScrollX->GetDelta(), rcBounds.minx, rcBounds.maxx );
+	vPos.y = Clamp( vPos.y + fSensitivity*pScrollY->GetDelta(), rcBounds.miny, rcBounds.maxy );
 	if ( fabs2(vPos - vLastPos) > 1 ) 
 	{
 		vLastPos = vPos;
@@ -372,14 +307,9 @@ bool CCursor::Draw( interface IGFX *pGFX )
 	if ( !bShow )
 		return false;
 	Update();
-	if ( eUpdateMode == ICursor::UPDATE_MODE_INPUT ) 
-	{
-		const bool bRetVal = DrawCursor( pMode, vPos, pGFX );
-		DrawCursor( pModifier, vPos, pGFX );
-		return bRetVal;
-	}
-	else
-		return true;
+	const bool bRetVal = DrawCursor( pMode, vPos, pGFX );
+	DrawCursor( pModifier, vPos, pGFX );
+	return bRetVal;
 }
 void CCursor::Visit( ISceneVisitor *pVisitor, int nType )
 {
