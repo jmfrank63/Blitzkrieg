@@ -3,6 +3,8 @@
 #include "AudioBackend.h"
 #include "SampleSounds.h"
 #include "StreamFadeOff.h"
+#include <atomic>
+#include <cstdint>
 typedef std::unordered_map<ISound*, int, SDefaultPtrHash> CSoundChannelMap;
 typedef std::unordered_map<int, CPtr<ISound> > CChannelSoundMap;
 class CSoundEngine : public ISFX
@@ -47,7 +49,7 @@ class CSoundEngine : public ISFX
 	// itself: PlayStream loads the next music file from disk — inside the mix
 	// callback that froze the mixer for its whole duration (the "stutter when
 	// the music loads"), and racing the graph teardown deadlocked at exit.
-	volatile LONG nMelodyFinishedPending;
+	std::atomic<std::uint32_t> nMelodyFinishedPending;
 
 	CStreamFadeOff streamFadeOff;
 	void ClearChannels();
@@ -64,7 +66,7 @@ public:
 	bool PlayNextMelody();
 	void NotifyMelodyFinished();
 	// audio-thread-safe: only raises the pending flag for Update to consume
-	void QueueMelodyFinishedNotification() { nMelodyFinishedPending = 1; }
+	void QueueMelodyFinishedNotification() { nMelodyFinishedPending.store( 1, std::memory_order_release ); }
 	void MapSound( ISound *pSound, int nChannel );
 	virtual BYTE STDCALL GetSFXMasterVolume() const { return cSFXMasterVolume; }
 	virtual BYTE STDCALL GetStreamMasterVolume() const { return cStreamMasterVolume; }

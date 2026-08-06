@@ -2,6 +2,7 @@
 
 #include "AudioBackendImpl.h"
 #include "AudioBackendXiphVorbis.h"
+#include "../Platform/Clock.h"
 #include "../Platform/Debug.h"
 
 #include <cstdlib>
@@ -291,12 +292,7 @@ namespace
 
 	double XiphTraceNowMs()
 	{
-		static LARGE_INTEGER s_freq = {};
-		if ( s_freq.QuadPart == 0 )
-			QueryPerformanceFrequency( &s_freq );
-		LARGE_INTEGER counter;
-		QueryPerformanceCounter( &counter );
-		return counter.QuadPart * 1000.0 / s_freq.QuadPart;
+		return static_cast<double>( NPlatform::MonotonicNanoseconds() ) / 1000000.0;
 	}
 
 	void DumpXiphReadTrace( const char *pszReason )

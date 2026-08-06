@@ -7,6 +7,8 @@
 #include "../Scene/Scene.h"
 #include "../Formats/fmtTerrain.h"
 #include "../Misc/Win32Helper.h"
+#include "../Platform/Clock.h"
+#include "../Platform/Debug.h"
 static NWin32Helper::CCriticalSection critSection;
 
 namespace
@@ -96,7 +98,7 @@ bool CSoundEngine::SearchDevices()
 {
 	if ( !NAudioBackend::IsVersionSupported() )
 	{
-		OutputDebugString( "Error : You are using the wrong DLL version!\n" );
+		NPlatform::DebugWrite( "Error : You are using the wrong DLL version!\n" );
 		return false;
 	}
 	NAudioBackend::PrepareDeviceSearch();
@@ -129,27 +131,25 @@ bool CSoundEngine::Init( int nDriver, ESFXOutputType output, int nMixRate, int n
 	NI_ASSERT_T( !(output == SFX_OUTPUT_A3D && !drivers[nDriver].supportA3DOcclusions), "Can't set output as A3D with unsupported feature" );
 	if ( !NAudioBackend::InitDevice( output, nMixRate, nMaxChannels, drivers[nDriver], &bSoundCardPresent ) )
 	{
-		OutputDebugString( "NFMSound::Start():error!\n" );
+		NPlatform::DebugWrite( "NFMSound::Start():error!\n" );
 		bSoundCardPresent = false;
 		return true;
 	}
 
 #ifdef _DEBUG
-	OutputDebugString( "Using \"" );
-	OutputDebugString( drivers[nDriver].szDriverName.c_str() );
-	OutputDebugString( "\" sound driver.\n" );
+	NPlatform::DebugWriteFormat( "Using \"%s\" sound driver.\n", drivers[nDriver].szDriverName.c_str() );
 	if ( drivers[nDriver].isHardware3DAccelerated )
-		OutputDebugString("- Driver supports hardware 3D sound!\n" );
+		NPlatform::DebugWrite( "- Driver supports hardware 3D sound!\n" );
 	if ( drivers[nDriver].supportEAXReverb )
-		OutputDebugString("- Driver supports EAX reverb!\n" );
+		NPlatform::DebugWrite( "- Driver supports EAX reverb!\n" );
 	if ( drivers[nDriver].supportA3DOcclusions )
-		OutputDebugString("- Driver supports hardware 3d geometry processing with occlusions!\n" );
+		NPlatform::DebugWrite( "- Driver supports hardware 3d geometry processing with occlusions!\n" );
 	if ( drivers[nDriver].supportA3DReflections )
-		OutputDebugString("- Driver supports hardware 3d geometry processing with reflections!\n" );
+		NPlatform::DebugWrite( "- Driver supports hardware 3d geometry processing with reflections!\n" );
 	if ( drivers[nDriver].supportReverb )
-		OutputDebugString("- Driver supports EAX 2.0 reverb!\n" );
+		NPlatform::DebugWrite( "- Driver supports EAX 2.0 reverb!\n" );
 	
-	OutputDebugString( "Mixer = " );
+	NPlatform::DebugWrite( "Mixer = " );
 	NAudioBackend::DebugTraceMixer();
 #endif
 
@@ -194,17 +194,17 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 	// Strip with the other sound diagnostics.
 	if ( bStreamPlaying && nStreamingChannel != -1 && !bStreamingPaused && !bPaused )
 	{
-		static unsigned long s_tPrev = 0;
+		static std::uint32_t s_tPrev = 0;
 		static unsigned int s_nPrevPos = 0;
-		const unsigned long tNow = GetTickCount();
+		const std::uint32_t tNow = NPlatform::MonotonicMilliseconds();
 		// The mixer advances the cursor in whole periods (~40ms), so judging
 		// windows shorter than a few periods false-positives; sample >=200ms.
-		if ( s_tPrev == 0 || tNow - s_tPrev >= 200 )
+		if ( s_tPrev == 0 || NPlatform::MillisecondsElapsed( s_tPrev, tNow ) >= 200 )
 		{
 			const unsigned int nPos = NAudioBackend::GetChannelPosition( nStreamingChannel );
 			if ( s_tPrev != 0 )
 			{
-				const long nDeltaMs = static_cast<long>( tNow - s_tPrev );
+				const long nDeltaMs = static_cast<long>( NPlatform::MillisecondsElapsed( s_tPrev, tNow ) );
 				const long nDeltaFrames = static_cast<long>( nPos - s_nPrevPos );
 				// expect ~44.1 frames/ms; flag anything under 60% of realtime
 				if ( nDeltaMs < 5000 && nDeltaFrames >= 0 && nDeltaFrames * 10 < nDeltaMs * 441 * 6 / 10 )
@@ -212,7 +212,7 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 					FILE *pFile = fopen( "sfx_trace.log", "ab" );
 					if ( pFile )
 					{
-						fprintf( pFile, "%lu [cursor] stall: dt=%ldms frames=%ld (expected ~%ld)\n", tNow, nDeltaMs, nDeltaFrames, nDeltaMs * 44 );
+						fprintf( pFile, "%u [cursor] stall: dt=%ldms frames=%ld (expected ~%ld)\n", tNow, nDeltaMs, nDeltaFrames, nDeltaMs * 44 );
 						fclose( pFile );
 					}
 				}
@@ -229,7 +229,7 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 	// thread only raise flags — all stream open/close/switch work happens
 	// here, on the main thread. (Doing it on those threads froze the mixer
 	// while the next music file loaded, and deadlocked at exit.)
-	if ( InterlockedExchange( &nMelodyFinishedPending, 0 ) )
+	if ( nMelodyFinishedPending.exchange( 0, std::memory_order_acq_rel ) )
 		NotifyMelodyFinished();
 	if ( streamFadeOff.ConsumeFinished() )
 		StopStream( 0 );
