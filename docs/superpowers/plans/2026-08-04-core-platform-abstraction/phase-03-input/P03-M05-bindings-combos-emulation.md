@@ -13,6 +13,6 @@
 - [x] Feed keyboard/mouse emulation into the same normalized `SInputEvent` path as physical devices.
 - [ ] Compare command sequences and serialized bytes with accepted Windows fixtures.
 - [ ] Run under AddressSanitizer where supported and verify no abstract-base deletion.
-- [ ] Commit: `input: preserve binding and emulation semantics`
+- [x] Commit checkpoint: `dca9a0049 input: preserve binding and emulation semantics`.
 
 **Evidence:** `test-input-bindings` passes on Windows and compiles for Linux. The fixture covers chord and release command ordering, double-click-like sequence ordering, axis power, emulation order, visitor traversal, unbind, and stable serialization hashing. Accepted Windows byte comparison and AddressSanitizer remain open.
