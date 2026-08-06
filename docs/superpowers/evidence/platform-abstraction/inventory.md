@@ -24,19 +24,23 @@ fixture output: token=wrong-case relative include file=tools/zig/fixtures/runtim
 ## Windows native run
 
 - Command: `zig build test-runtime-platform-audit -Dtest-mode=run`
-- Result: exit code 0; the audit emitted 5 passing tests.
-- Inventory: 70 total hits, 69 unique allowlist ownership entries. The
+- Result: exit code 0; the audit emitted 9 passing tests.
+- Inventory: 68 total hits, 67 unique allowlist ownership entries. The
   duplicate `SOCKET` key is a real two-token occurrence on one source line.
+- Normalized sorted-inventory SHA-256: `BD63623DFF1B42FE2FAC7E782BD435FF5EB7F645CB3EF7BE42EA36D2E9B4C7F7`.
 
 ## Linux native run
 
 - Environment: WSL2 Ubuntu, x86_64; Zig 0.16.0.
 - Command:
   `zig build --cache-dir /tmp/bk-zig-cache-p00m01-final --global-cache-dir /tmp/bk-zig-global-p00m01-final test-runtime-platform-audit -Dtarget=x86_64-linux-gnu -Dtest-mode=run`
-- Result: exit code 0; the same 70 sorted hits, 69 unique ownership entries,
+- Result: exit code 0; the same 68 sorted hits, 67 unique ownership entries,
   and raw fixture output were emitted.
 - The Windows and Linux sorted inventory blocks and fixture blocks are byte
   identical in the captured command output below.
+- Normalized sorted-inventory SHA-256: `BD63623DFF1B42FE2FAC7E782BD435FF5EB7F645CB3EF7BE42EA36D2E9B4C7F7`.
+- The full command-output files differ only in host-specific command/cache
+  paths and test seeds; the normalized inventory hash is identical.
 
 ## Sorted inventory output
 
@@ -113,5 +117,5 @@ net|P04|ws2_32|build.zig|3206
 net|P04|ws2_32|build.zig|3240
 ```
 
-The test also emitted `platform inventory count: 70` and
-`platform allowlist ownership count: 69` on both hosts.
+The test also emitted `platform inventory count: 68` and
+`platform allowlist ownership count: 67` on both hosts.

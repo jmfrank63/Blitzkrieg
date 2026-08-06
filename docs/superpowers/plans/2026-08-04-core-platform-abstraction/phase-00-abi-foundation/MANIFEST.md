@@ -12,4 +12,6 @@
 | P00-M04 | M03 | C++ client and real shared-library consumer |
 | P00-M05 | M04 | target graph and foundation matrix |
 
+P00-M01 evidence: commits `f27534cab` and `7e27b4d8`; Windows native audit passed with 9 tests and 68 inventory hits / 67 unique allowlist entries. Linux/WSL2 verification and byte-identical sorted inventory evidence are recorded in `docs/superpowers/evidence/platform-abstraction/inventory.md`.
+
 Exit: `test-platform-abi` and `test-platform-foundation` pass for native Windows/Linux and compile for macOS arm64, with a versioned shared runtime used by a real C++ consumer.

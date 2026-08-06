@@ -139,12 +139,25 @@ pub fn ruleForLibrary(name: []const u8) ?Rule {
     return null;
 }
 
-pub fn scanBuildLibraries(allocator: std.mem.Allocator, build_text: []const u8, file: []const u8) ![]Hit {
+pub fn scanBuildLibraries(allocator: std.mem.Allocator, build_text: []const u8, file: []const u8, playable_functions: []const []const u8) ![]Hit {
     var hits = std.ArrayList(Hit).empty;
     var lines = std.mem.splitScalar(u8, build_text, '\n');
     var line_no: usize = 0;
+    var current_function: ?[]const u8 = null;
     while (lines.next()) |line| {
         line_no += 1;
+        const trimmed = std.mem.trim(u8, line, " \t");
+        if (std.mem.startsWith(u8, trimmed, "fn ")) {
+            const function_start = std.mem.indexOf(u8, trimmed, "fn ").? + 3;
+            const function_end = std.mem.indexOfPos(u8, trimmed, function_start, "(") orelse function_start;
+            current_function = trimmed[function_start..function_end];
+        }
+        const function_is_playable = if (current_function) |name| blk: {
+            var matched = false;
+            for (playable_functions) |allowed| matched = matched or std.mem.eql(u8, name, allowed);
+            break :blk matched;
+        } else false;
+        if (!function_is_playable) continue;
         var cursor: usize = 0;
         while (std.mem.indexOfPos(u8, line, cursor, "linkSystemLibrary(\"") ) |open| {
             const name_start = open + "linkSystemLibrary(\"".len;

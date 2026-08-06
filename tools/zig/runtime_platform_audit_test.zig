@@ -35,6 +35,20 @@ test "required platform fixtures report token, file, and line" {
     }
 }
 
+test "platform tokens require exact identifier boundaries" {
+    const hits = try audit.scanText(std.testing.allocator,
+        "GetTickCount64(); HANDLE_value = 0; GetTickCount(); HANDLE value;", "fixture/boundaries.cpp");
+    defer std.testing.allocator.free(hits);
+    var get_tick_count: usize = 0;
+    var handle: usize = 0;
+    for (hits) |hit| {
+        if (std.mem.eql(u8, hit.token, "GetTickCount")) get_tick_count += 1;
+        if (std.mem.eql(u8, hit.token, "HANDLE")) handle += 1;
+    }
+    try std.testing.expectEqual(@as(usize, 1), get_tick_count);
+    try std.testing.expectEqual(@as(usize, 1), handle);
+}
+
 test "playable source parser excludes declared non-playable arrays" {
     const text =
         "const runtime_platform_playable_source_arrays = &.{ \"input_sources\" };\n" ++
@@ -63,12 +77,56 @@ test "build library rules classify dxguid exactly once as graphics" {
         "module.linkSystemLibrary(\"dinput8\", .{});\n" ++
         "module.linkSystemLibrary(\"dxguid\", .{});\n" ++
         "module.linkSystemLibrary(\"ws2_32\", .{});\n";
-    const hits = try audit.scanBuildLibraries(std.testing.allocator, build_text, "build.zig");
+    const hits = try audit.scanBuildLibraries(std.testing.allocator, "fn addPlayable() void {\n" ++ build_text ++ "}\n", "build.zig", &.{ "addPlayable" });
     defer std.testing.allocator.free(hits);
     try std.testing.expectEqual(@as(usize, 3), hits.len);
     try std.testing.expectEqualStrings("input", hits[0].service);
     try std.testing.expectEqualStrings("graphics", hits[1].service);
     try std.testing.expectEqualStrings("net", hits[2].service);
+}
+
+test "build library audit excludes non-playable module links" {
+    const build_text =
+        "fn addDeveloperOnly() void {\n" ++
+        "    editor_module.linkSystemLibrary(\"d3d9\", .{});\n" ++
+        "}\n" ++
+        "fn addPlayable() void {\n" ++
+        "    game_module.linkSystemLibrary(\"d3d9\", .{});\n" ++
+        "}\n";
+    const hits = try audit.scanBuildLibraries(std.testing.allocator, build_text, "build.zig", &.{ "addPlayable" });
+    defer std.testing.allocator.free(hits);
+    try std.testing.expectEqual(@as(usize, 1), hits.len);
+    try std.testing.expectEqualStrings("d3d9", hits[0].token);
+    try std.testing.expectEqual(@as(usize, 5), hits[0].line);
+}
+
+test "build library scanner excludes developer-only target functions" {
+    const build_text =
+        "fn addPlayable() void {\n" ++
+        "    module.linkSystemLibrary(\"ws2_32\", .{});\n" ++
+        "}\n" ++
+        "fn addDeveloperOnly() void {\n" ++
+        "    module.linkSystemLibrary(\"dinput8\", .{});\n" ++
+        "}\n";
+    const hits = try audit.scanBuildLibraries(std.testing.allocator, build_text, "build.zig", &.{ "addPlayable" });
+    defer std.testing.allocator.free(hits);
+    try std.testing.expectEqual(@as(usize, 1), hits.len);
+    try std.testing.expectEqualStrings("ws2_32", hits[0].token);
+    try std.testing.expectEqual(@as(usize, 2), hits[0].line);
+}
+
+test "token scanner matches exact identifiers only" {
+    const hits = try audit.scanText(std.testing.allocator, "GetTickCount64(); HANDLE_value = 0; GetTickCount(); HANDLE value;", "fixture.cpp");
+    defer std.testing.allocator.free(hits);
+    try std.testing.expectEqual(@as(usize, 2), hits.len);
+    var saw_get_tick_count = false;
+    var saw_handle = false;
+    for (hits) |hit| {
+        saw_get_tick_count = saw_get_tick_count or std.mem.eql(u8, hit.token, "GetTickCount");
+        saw_handle = saw_handle or std.mem.eql(u8, hit.token, "HANDLE");
+    }
+    try std.testing.expect(saw_get_tick_count);
+    try std.testing.expect(saw_handle);
 }
 
 test "playable source platform inventory matches build manifest and allowlist" {
@@ -92,7 +150,9 @@ test "playable source platform inventory matches build manifest and allowlist" {
         defer allocator.free(source_hits);
         for (source_hits) |hit| try hits.append(allocator, try audit.hitKey(allocator, hit));
     }
-    const library_hits = try audit.scanBuildLibraries(allocator, build_text, "build.zig");
+    const library_hits = try audit.scanBuildLibraries(allocator, build_text, "build.zig", &.{
+        "addLegacyProjectDll", "addGame", "addNet", "addInput", "addSFX", "addGFX", "addGFXGPU",
+    });
     defer allocator.free(library_hits);
     for (library_hits) |hit| try hits.append(allocator, try audit.hitKey(allocator, hit));
 

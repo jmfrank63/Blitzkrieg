@@ -629,6 +629,13 @@ const runtime_platform_playable_source_arrays = &.{
 const runtime_platform_non_playable_source_arrays = &.{
     "buildversion_sources", "betakeygen_sources", "fontgen_sources",
 };
+const runtime_platform_playable_link_module_names = &.{
+    "module", "game_module", "net_module", "input_module", "sfx_module",
+    "gfx_module", "gfx_gpu_module",
+};
+const runtime_platform_playable_build_functions = &.{
+    "addLegacyProjectDll", "addGame", "addNet", "addInput", "addSFX", "addGFX", "addGFXGPU",
+};
 
 const cppflags_game_debug = &.{
     "-D_WINDOWS",
