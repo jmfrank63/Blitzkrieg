@@ -13,3 +13,5 @@
 | P04-M05 | M04 | Net module and protocol gate |
 
 Exit: Net includes no WinSock header, loopback/broadcast tests pass, and protocol fixture hashes are unchanged.
+
+P04-M01 Windows checkpoint: portable socket type and loopback network contracts pass natively; ABI-owned generational socket handles remain open.

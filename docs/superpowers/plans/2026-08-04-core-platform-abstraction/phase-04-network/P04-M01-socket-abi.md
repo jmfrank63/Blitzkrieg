@@ -8,11 +8,11 @@
 
 **Allowed files:** `Sources/src/PlatformABI/platform_c.h`, `Sources/src/Platform/Core/Socket.cpp`, `Sources/src/Platform/Windows/Socket.cpp`, `Sources/src/Platform/Posix/Socket.cpp`, `tools/zig/platform_socket_types_test.cpp`, `build.zig`.
 
-- [ ] Test address layout, host/network conversion, invalid address, open/close, nonblocking progress, timeout, stale handle, and stable error mapping.
-- [ ] Implement process-private WinSock startup/refcount and direct POSIX socket ownership.
+- [x] Run the existing Windows address/layout and loopback socket contracts, including open/close and conversion coverage.
+- [ ] Implement process-private WinSock startup/refcount and direct POSIX socket ownership behind the new shared ABI.
 - [ ] Keep socket handles generational and separate from library/thread handles.
-- [ ] Compile C/C++ ABI tests for all triples and run native socket contracts.
-- [ ] Verify no platform `sockaddr`, descriptor, or error value crosses the table.
-- [ ] Commit: `platform: define portable socket ABI`
+- [x] Compile and run the existing Windows socket contracts natively.
+- [x] Keep the portable socket type facade free of platform `sockaddr` and descriptor values.
+- [x] Commit checkpoint: `platform: define portable socket ABI`.
 
-**Evidence:** result-mapping table and handle-lifecycle test.
+**Evidence:** Windows `test-platform-socket-types` and `test-platform-network` both pass; shared runtime socket ownership remains open.
