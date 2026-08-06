@@ -1,6 +1,5 @@
 #include "StdAfx.h"
 
-#include <mmsystem.h>
 #include <vector>
 
 #include "iMainInternal.h"
@@ -17,6 +16,7 @@
 #include "../Main/GameStats.h"
 #include "../Scene/PFX.h"
 #include "../Input/InputTypes.h"
+#include "../Platform/Clock.h"
 namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
@@ -197,7 +197,7 @@ static void TraceMainLoadProgress( const std::string &szBaseDir, const char *psz
 	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
 	if ( pFile )
 	{
-		fprintf( pFile, "%lu %s\n", GetTickCount(), pszMessage );
+		fprintf( pFile, "%lu %s\n", NPlatform::MonotonicMilliseconds(), pszMessage );
 		fclose( pFile );
 	}
 	NStr::DebugTrace( "LOADTRACE: %s\n", pszMessage );
@@ -723,7 +723,7 @@ bool CMainLoop::StepApp( bool bActive )
 	}
 #endif // _FINALRELEASE
 	CInterfaceCommandsList delayedCommands;
-	const NTimer::STime timeAbs = timeGetTime();
+	const NTimer::STime timeAbs = NPlatform::MonotonicMilliseconds();
 	while ( !cmds.empty() )
 	{
 		CPtr<IInterfaceCommand> pCmd = cmds.front();
@@ -946,7 +946,7 @@ void CProgressScreen::SetCurrPos( const int nPos )
 		FILE *pFile = fopen( "load_trace.log", "ab" );
 		if ( pFile )
 		{
-			fprintf( pFile, "%lu [bar] pos=%d\n", GetTickCount(), nPos );
+			fprintf( pFile, "%lu [bar] pos=%d\n", NPlatform::MonotonicMilliseconds(), nPos );
 			fclose( pFile );
 		}
 	}

@@ -1,9 +1,8 @@
 #include "StdAfx.h"
 
 #include <stdlib.h>
-#include <mmsystem.h>
-
 #include "Chapter.h"
+#include "../Platform/Clock.h"
 
 #include "../Misc/Checker.h"
 #include "../Main/GameStats.h"
@@ -183,7 +182,7 @@ void CInterfaceChapter::IncrementChapterVisited()
 			break;
 		}
 		
-		srand( timeGetTime() );
+		srand( NPlatform::MonotonicMilliseconds() );
 		SRMContext chapterContext;
 		int nRes = LoadDataResource( pChapterStats->szContextName, "", false, 0, RMGC_CONTEXT_NAME, chapterContext );
 		NI_ASSERT_T( nRes != 0, "Error while LoadDataResource()" );
@@ -342,7 +341,7 @@ void CInterfaceChapter::InitWindow()
 
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	CTemplateInfos templateInfos;
-	srand( timeGetTime() );			//������������� random ����������
+	srand( NPlatform::MonotonicMilliseconds() );			//������������� random ����������
 	missionIndeces.clear();
 	int nNumberOfScenarioMissions = 0;
 	int nCheatEnabledMissions = GetGlobalVar( "Cheat.Enable.Missions", -1 );

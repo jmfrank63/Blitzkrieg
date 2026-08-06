@@ -1,8 +1,7 @@
 #include "StdAfx.h"
 
-#include <mmsystem.h>
-
 #include "InterfaceScreenBase.h"
+#include "../Platform/Clock.h"
 #include "../Main/iMainCommands.h"
 #include "../AILogic/AILogic.h"
 #include "../GameTT/CommonId.h"
@@ -139,7 +138,7 @@ void CInterfaceScreenBase::EnableMessageProcessingDelayed( const bool bEnable, c
 int CInterfaceScreenBase::PlayOverInterface( const char *pszName, const DWORD dwAddFlags, const bool bFadeIn )
 {
 	CPtr<ITransition> pTransition = CreateObject<ITransition>( SCENE_TRANSITION );
-	const int nLength = pTransition->Start( pszName, dwAddFlags, timeGetTime(), bFadeIn );
+	const int nLength = pTransition->Start( pszName, dwAddFlags, NPlatform::MonotonicMilliseconds(), bFadeIn );
 	if ( nLength > 0 ) 
 		pScene->AddSceneObject( pTransition );
 	return nLength;
@@ -148,7 +147,7 @@ void CInterfaceScreenBase::OpenCurtainsForced()
 {
 	GetSingleton<IMainLoop>()->EnableMessageProcessing( false );
 	const int nLength = PlayOverInterface( "movies\\transition\\open.bik", 0, false );
-	EnableMessageProcessingDelayed( true, timeGetTime() + nLength );
+	EnableMessageProcessingDelayed( true, NPlatform::MonotonicMilliseconds() + nLength );
 }
 bool CInterfaceScreenBase::OpenCurtains()
 {
@@ -182,7 +181,7 @@ int CInterfaceScreenBase::FinishInterface( IInterfaceCommand *pCmdNextInterface 
 		SetGlobalVar( "CurtainsClosed", 1 );
 		GetSingleton<IMainLoop>()->EnableMessageProcessing( false );
 		const int nLength = PlayOverInterface( "movies\\transition\\close.bik", IVideoPlayer::PLAY_INFINITE, true );
-		const int nTime = timeGetTime();
+		const int nTime = NPlatform::MonotonicMilliseconds();
 		EnableMessageProcessingDelayed( true, nTime + nLength );
 		if ( pCmdNextInterface ) 
 			AddDelayedCommand( pCmdNextInterface, nTime + nLength );
@@ -204,8 +203,8 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	if ( (bStepLocalResult == false) || (bAppActive == false) || !bGFXActive )
 	{
 		static DWORD dwLastLoadTrace = 0;
-		const DWORD dwNow = GetTickCount();
-		if ( dwNow > dwLastLoadTrace + 1000 )
+		const DWORD dwNow = NPlatform::MonotonicMilliseconds();
+		if ( NPlatform::MillisecondsElapsed( dwLastLoadTrace, dwNow ) >= 1000 )
 		{
 			dwLastLoadTrace = dwNow;
 			const char *pszBaseDir = GetSingleton<IMainLoop>() ? GetSingleton<IMainLoop>()->GetBaseDir() : 0;
@@ -221,7 +220,7 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 			}
 			// Keep diagnostics in load_trace.log only to avoid debugger output stalls while recovering from draw-skip states.
 		}
-		Sleep( 10 );
+		NPlatform::SleepMilliseconds( 10 );
 		return;
 	}
 	pScene->UpdateSound( pCamera );

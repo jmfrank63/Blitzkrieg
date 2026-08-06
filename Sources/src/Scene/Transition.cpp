@@ -1,7 +1,8 @@
 #include "StdAfx.h"
 
 #include "Transition.h"
-#include <mmsystem.h>
+
+#include "../Platform/Clock.h"
 
 #include "../SFX/SFX.h"
 #define ALPHA_MAX 255.0f
@@ -9,7 +10,7 @@
 #define DURATION 500
 bool CTransition::Update( const NTimer::STime &time, bool bForced )
 {
-	NTimer::STime currTime = timeGetTime();
+	NTimer::STime currTime = NPlatform::MonotonicMilliseconds();
 	if ( timeStart == 0 ) 
 		timeStart = currTime;
 	fAlpha = Clamp( fAlphaStart + ( fAlphaEnd - fAlphaStart ) * float( currTime - timeStart ) / float( DURATION ), ALPHA_MIN, ALPHA_MAX );
@@ -55,7 +56,7 @@ int CTransition::operator&( IStructureSaver &ss )
 	saver.Add( 6, &bInfinite );
 	if ( saver.IsReading() ) 
 	{
-		timeStart = timeGetTime();
+		timeStart = NPlatform::MonotonicMilliseconds();
 	}
 	return 0;
 }

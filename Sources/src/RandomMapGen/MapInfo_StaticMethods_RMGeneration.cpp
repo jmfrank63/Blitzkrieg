@@ -14,6 +14,7 @@
 #include "../Main/GameStats.h"
 #include "../AILogic/aiconsts.h"
 #include "../StreamIO/ProgressHook.h"
+#include "../Platform/Clock.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -28,19 +29,19 @@ struct STraceTimeKeeper
 	
 	STraceTimeKeeper()
 	{
-		dwTime = GetTickCount();
+		dwTime = NPlatform::MonotonicMilliseconds();
 	}
 	
 	void Init( )
 	{
-		dwTime = GetTickCount();
+		dwTime = NPlatform::MonotonicMilliseconds();
 	}
 	
 	void Trace( const std::string &rszLabel )
 	{
-		dwTime = GetTickCount() - dwTime;
+		dwTime = NPlatform::MillisecondsElapsed( dwTime, NPlatform::MonotonicMilliseconds() );
 		NStr::DebugTrace( "%s %d ms\n", rszLabel.c_str(), dwTime );
-		dwTime = GetTickCount();
+		dwTime = NPlatform::MonotonicMilliseconds();
 	}
 };
 

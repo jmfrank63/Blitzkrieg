@@ -3,17 +3,10 @@ audio|P05|winmm|build.zig|2101
 audio|P05|winmm|build.zig|2194
 audio|P05|winmm|build.zig|2541
 audio|P05|winmm|build.zig|2833
-core|P01|GetTickCount|Sources/src/Common/InterfaceScreenBase.cpp|207
 core|P01|GetTickCount|Sources/src/GFX/GraphicsEngine.cpp|1298
 core|P01|GetTickCount|Sources/src/GFX/GraphicsEngine.cpp|1360
 core|P01|GetTickCount|Sources/src/Game/WinFrame.cpp|325
 core|P01|GetTickCount|Sources/src/Game/WinFrame.cpp|341
-core|P01|GetTickCount|Sources/src/Main/iMainInternal.cpp|200
-core|P01|GetTickCount|Sources/src/Main/iMainInternal.cpp|949
-core|P01|GetTickCount|Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp|31
-core|P01|GetTickCount|Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp|36
-core|P01|GetTickCount|Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp|41
-core|P01|GetTickCount|Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp|43
 core|P01|HANDLE|Sources/src/libpng/pngrio.c|51
 core|P01|HANDLE|Sources/src/libpng/pngrio.c|83
 core|P01|HANDLE|Sources/src/libpng/pngrio.c|99

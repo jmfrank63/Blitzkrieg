@@ -2,9 +2,8 @@
 
 #include "iMission.h"
 
-#include <mmsystem.h>
-
 #include "iMissionInternal.h"
+#include "../Platform/Clock.h"
 #include "UIConsts.h"
 #include "MultiplayerCommandManager.h"
 #include "../Main/ServerInfo.h"
@@ -1333,7 +1332,7 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 	if ( nStartPauseCounter == 2 )
 		GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_PREMISSION );
 	if ( const int nDelay = GetGlobalVar("delay", 0) ) 
-		Sleep( nDelay );
+		NPlatform::SleepMilliseconds( nDelay );
 	NTimer::STime currentGameTime = pTimer->GetGameTime();
 	if ( bInterfaceActive )
 	{
@@ -1427,16 +1426,17 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 	} 
 	if ( GetGlobalVar("MultiplayerGame", 0) == 0 ) 
 	{
-		const DWORD timeFrameCurrTime = timeGetTime();
+		const DWORD timeFrameCurrTime = NPlatform::MonotonicMilliseconds();
 		const NTimer::STime timeGameTime = pTimer->GetGameTime();
 		if ( timeFrameLastTime == 0 ) 
 		{
 			timeFrameLastTime = timeFrameCurrTime;
 			timeFrameLastGameTime = timeGameTime;
 		}
-		if ( timeFrameLastTime < timeFrameCurrTime ) 
+		const DWORD timeFrameElapsed = NPlatform::MillisecondsElapsed( timeFrameLastTime, timeFrameCurrTime );
+		if ( timeFrameElapsed != 0 )
 		{
-			timePeriodTime += timeFrameCurrTime - timeFrameLastTime;
+			timePeriodTime += timeFrameElapsed;
 			++nPeriodCounter;
 		}
 		timeFrameLastTime = timeFrameCurrTime;

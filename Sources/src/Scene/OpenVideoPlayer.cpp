@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "OpenVideoPlayer.h"
+#include "../Platform/Clock.h"
 #include "../GFX/GFXHelper.h"
 #include "../SFX/SFX.h"
 
@@ -569,7 +570,7 @@ int COpenVideoPlayer::GetCurrentFrame() const
 {
 	if ( !bPlaying || (nMovieLength <= 0) || (nNumFrames <= 0) )
 		return -1;
-	const DWORD dwElapsed = GetTickCount() - dwStartTime;
+	const DWORD dwElapsed = NPlatform::MillisecondsElapsed( dwStartTime, NPlatform::MonotonicMilliseconds() );
 	const int nFrame = int((long long)dwElapsed * nNumFrames / nMovieLength);
 	return nFrame < nNumFrames ? nFrame : nNumFrames;
 }
@@ -579,7 +580,7 @@ bool COpenVideoPlayer::SetCurrentFrame( const int nFrame )
 	if ( (nMovieLength <= 0) || (nNumFrames <= 0) || (nFrame < 0) )
 		return false;
 	const int nClampedFrame = Min( nFrame, nNumFrames );
-	dwStartTime = GetTickCount() - DWORD((long long)nClampedFrame * nMovieLength / nNumFrames);
+	dwStartTime = NPlatform::MonotonicMilliseconds() - DWORD((long long)nClampedFrame * nMovieLength / nNumFrames);
 	const int nTargetFrame = Min( nClampedFrame, nNumFrames - 1 );
 	if ( nDecodedFrame > nTargetFrame )
 	{
@@ -615,10 +616,10 @@ bool COpenVideoPlayer::Update( const NTimer::STime &time, bool bForcedUpdate )
 	}
 	if ( bLooped && (nMovieLength > 0) )
 	{
-		const DWORD dwElapsed = GetTickCount() - dwStartTime;
+		const DWORD dwElapsed = NPlatform::MillisecondsElapsed( dwStartTime, NPlatform::MonotonicMilliseconds() );
 		if ( dwElapsed >= DWORD(nMovieLength) )
 		{
-			dwStartTime = GetTickCount() - (dwElapsed % nMovieLength);
+			dwStartTime = NPlatform::MonotonicMilliseconds() - (dwElapsed % nMovieLength);
 			if ( !OpenDecoder(szFileName.c_str(), pRenderGFX) || !DecodeNextFrame() )
 			{
 				bPlaying = false;
@@ -647,7 +648,7 @@ int COpenVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 		return 0;
 	if ( !DecodeFirstFrame(szFileName.c_str(), pGFX) )
 		return 0;
-	dwStartTime = GetTickCount();
+	dwStartTime = NPlatform::MonotonicMilliseconds();
 	bPlaying = true;
 	PlayVideoAudioStream( pSFX );
 	NStr::DebugTrace( "Open video backend timing \"%s\" length=%d frames=%d.\n", szFileName.c_str(), nMovieLength, nNumFrames );
