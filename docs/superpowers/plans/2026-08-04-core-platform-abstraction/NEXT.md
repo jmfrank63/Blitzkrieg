@@ -7,5 +7,16 @@ playable-source audit reports zero hits with an empty temporary allowlist, the
 target policy now avoids MSVC paths and developer utilities for non-Windows
 targets, and Windows `game-all` remains the authoritative local game-build
 gate. PlatformRuntime is now one shared dynamic dependency in the playable
-graph and is included in every target-specific stage manifest. Continue with
-the native Linux link closure.
+graph and is included in every target-specific stage manifest. The native
+Linux `Game` link is closed and recorded in
+`evidence/platform-abstraction/p08-m03-linux-link.md`; continue with the
+remaining Linux `game-all` run/staging gate.
+
+## Important working-tree files
+
+The intentional implementation checkpoints are the tracked files shown by
+`git status --short`: source/build/docs changes only. Zig 0.16 local caches
+(`b/`, `h/`, `z/`) and directly emitted `*-test.exe` files are ignored by
+`.gitignore` and must not be staged. The untracked
+`tools/zig/platform_display_contract_test.cpp` is pre-existing and is also
+not part of this packet.
