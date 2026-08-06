@@ -16,4 +16,6 @@ P00-M01 evidence: commits `f27534cab` and `7e27b4d8`; Windows native audit passe
 
 P00-M02 Windows evidence: `test-platform-abi-layout -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed the C++17 layout executable and Zig C-import test. Linux/macOS target validation remains deferred to WSL/CI/native Mac acceptance.
 
+P00-M03 Windows evidence: `test-platform-runtime -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed the shared DLL lifecycle test. The export definition contains only `bk_platform_get_api`; two create/destroy cycles complete without SDL, socket, thread, or window state.
+
 Exit: `test-platform-abi` and `test-platform-foundation` pass for native Windows/Linux and compile for macOS arm64, with a versioned shared runtime used by a real C++ consumer.

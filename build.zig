@@ -776,6 +776,41 @@ pub fn build(b: *std.Build) void {
         platform_abi_layout_step.dependOn(&platform_abi_layout_run.step);
         platform_abi_layout_step.dependOn(&platform_abi_compile_run.step);
     }
+
+    const platform_runtime_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    platform_runtime_module.addIncludePath(b.path("Sources/src"));
+    platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformRuntime.cpp"), .flags = &.{ "-std=c++17" } });
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_runtime_module, toolchain);
+        addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
+        linkMsvcRuntime(platform_runtime_module, .Debug);
+    }
+    const platform_runtime = b.addLibrary(.{
+        .name = "PlatformRuntime",
+        .linkage = .dynamic,
+        .root_module = platform_runtime_module,
+        .win32_module_definition = if (platform == .windows_x64) b.path("Sources/src/PlatformABI/PlatformRuntime.def") else null,
+    });
+    const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
+    platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{ "-std=c++17" } });
+    platform_runtime_test_module.linkLibrary(platform_runtime);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_runtime_test_module, toolchain);
+        addMsvcLibraryPaths(b, platform_runtime_test_module, toolchain);
+        linkMsvcRuntime(platform_runtime_test_module, .Debug);
+    }
+    const platform_runtime_test = b.addExecutable(.{ .name = "platform-runtime-lifecycle-test", .root_module = platform_runtime_test_module });
+    if (platform == .windows_x64) {
+        platform_runtime_test.subsystem = .console;
+        platform_runtime_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const platform_runtime_run = b.addRunArtifact(platform_runtime_test);
+    const platform_runtime_step = b.step("test-platform-runtime", "Run shared platform runtime lifecycle tests");
+    platform_runtime_step.dependOn(&platform_runtime.step);
+    platform_runtime_step.dependOn(&platform_runtime_test.step);
+    if (test_mode == .run) platform_runtime_step.dependOn(&platform_runtime_run.step);
+
     const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
     platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
     platform_headers_module.addIncludePath(b.path("Sources/src"));
