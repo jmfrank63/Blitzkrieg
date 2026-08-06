@@ -80,6 +80,7 @@ const SModuleDescriptor* STDCALL GetModuleDesc( int type )
 }
 int STDCALL LoadAllModules( const char *root )
 {
+    if ( !modules.empty() ) return static_cast<int>( modules.size() );
     const std::string directory = root && *root ? root : NPlatform::Paths::ModuleRoot();
     for ( NFile::CFileIterator iterator( ModuleFilePattern( directory ).c_str() ); !iterator.IsEnd(); ++iterator ) {
         NPlatform::DynamicLibrary *library = new NPlatform::DynamicLibrary( iterator.GetFilePath().c_str() );
@@ -92,6 +93,14 @@ int STDCALL LoadAllModules( const char *root )
         SDllModule module; module.library = library; module.descriptor = descriptor; modules.push_back( std::move( module ) );
         NPlatform::DebugWriteFormat( "Loaded module %s version 0x%x\n", descriptor->pszName, descriptor->nVersion );
     }
+    EnsureGlobalHooks();
+    if ( ISaveLoadSystem *save_load = GetSLS() )
+        for ( const SDllModule &module : modules )
+            if ( module.descriptor )
+            {
+                if ( module.descriptor->pFactory ) save_load->AddFactory( module.descriptor->pFactory );
+                if ( module.descriptor->pChecker ) module.descriptor->pChecker->SetModuleFunctionalityLimits();
+            }
     return static_cast<int>( modules.size() );
 }
 void STDCALL UnloadAllModules()
@@ -106,15 +115,4 @@ const SModuleDescriptor* GetNextModuleDesc() { ++module_index; if ( module_index
 const std::string GetModuleFileNameByDesc( const SModuleDescriptor *descriptor ) { for ( const SDllModule &module : modules ) if ( module.descriptor == descriptor && module.library ) return module.library->GetPath(); return {}; }
 bool SetGameDirectory() { return true; }
 
-class CModuleLoadAutoMagic {
-public:
-    CModuleLoadAutoMagic()
-    {
-        NMain::LoadAllModules( NPlatform::Paths::ModuleRoot().c_str() );
-        EnsureGlobalHooks();
-        if ( ISaveLoadSystem *save_load = GetSLS() ) for ( const SDllModule &module : modules ) if ( module.descriptor ) { if ( module.descriptor->pFactory ) save_load->AddFactory( module.descriptor->pFactory ); if ( module.descriptor->pChecker ) module.descriptor->pChecker->SetModuleFunctionalityLimits(); }
-    }
-    ~CModuleLoadAutoMagic() { NMain::UnloadAllModules(); }
-};
-static CModuleLoadAutoMagic moduleLoadAutoMagic;
 }

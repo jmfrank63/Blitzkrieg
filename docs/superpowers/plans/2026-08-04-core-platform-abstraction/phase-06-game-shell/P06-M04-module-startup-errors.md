@@ -15,4 +15,4 @@
 - [ ] Run injected-failure permutations natively on Windows/Linux.
 - [ ] Commit: `game: port module startup and rollback`
 
-**Evidence:** failure matrix and balanced module counts.
+**Evidence:** module loading is no longer performed by static initialization. `LoadAllModules` now owns descriptor/factory registration and is called explicitly only after command-line help/error validation and path initialization; `NMain::Finalize` remains the unload path. The Windows `Game.exe -help` smoke exits `0` without attempting DLL loads. Missing-module rollback, PlatformRuntime-before-module attachment, and full failure permutations remain open.

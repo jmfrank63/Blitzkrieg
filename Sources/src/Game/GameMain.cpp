@@ -98,6 +98,13 @@ int RunGame( const BkGameLaunchInfo &launch )
 		return 0xDEAD;
 	if ( !NPlatform::Paths::Initialize() )
 		return 0xDEAD;
+	BK_STARTUP_MARKER("before LoadAllModules");
+	if ( NMain::LoadAllModules( NPlatform::Paths::ModuleRoot().c_str() ) <= 0 )
+	{
+		NPlatform::ShowError( "ERROR", "Can't load game modules..." );
+		return 0xDEAD;
+	}
+	BK_STARTUP_MARKER("after LoadAllModules");
 	NWinFrame::ShowSplashScreen( NWinFrame::GetHInstance(), true );
 	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
 	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
