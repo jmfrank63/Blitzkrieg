@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "Debug.h"
+
 namespace
 {
 bool fail_initialization_for_tests = false;
@@ -43,8 +45,8 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 void SDLApplication::Shutdown()
 {
 	if ( !OnMainThread() ) { SetError( "Shutdown called off main thread" ); return; }
-	for ( std::vector<std::pair<int, void *> >::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
-		if ( it->second ) SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->second ) );
+	for ( std::vector<GamepadRecord>::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
+		if ( it->handle ) SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->handle ) );
 	gamepads_.clear();
 	if ( window_ ) SDL_DestroyWindow( static_cast<SDL_Window *>( window_ ) );
 	window_ = nullptr;
@@ -108,6 +110,50 @@ std::string SDLApplication::GetClipboardText() const
 	return result;
 }
 
+bool SDLApplication::GetControllerName(int deviceId, char *destination, std::size_t capacity) const
+{
+	if ( destination == nullptr || capacity == 0 ) return false;
+	destination[0] = 0;
+	for ( std::vector<GamepadRecord>::const_iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
+	{
+		if ( it->device_id != deviceId ) continue;
+		const char *name = it->name.c_str();
+		if ( it->handle )
+		{
+			if ( const char *sdlName = SDL_GetGamepadName( static_cast<SDL_Gamepad *>( it->handle ) ) ) name = sdlName;
+		}
+		const std::size_t length = std::strlen( name );
+		const std::size_t copied = length < capacity - 1 ? length : capacity - 1;
+		std::memcpy( destination, name, copied );
+		destination[copied] = 0;
+		return copied == length;
+	}
+	return false;
+}
+
+bool SDLApplication::AddVirtualControllerForTests(int deviceId, const char *name)
+{
+	if ( deviceId < 0 || name == nullptr || *name == 0 ) return false;
+	for ( std::vector<GamepadRecord>::const_iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
+		if ( it->device_id == deviceId ) return false;
+	GamepadRecord record;
+	record.device_id = deviceId;
+	record.name = name;
+	gamepads_.push_back( record );
+	return true;
+}
+
+bool SDLApplication::RemoveVirtualControllerForTests(int deviceId)
+{
+	for ( std::vector<GamepadRecord>::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
+	{
+		if ( it->device_id != deviceId || it->handle != nullptr ) continue;
+		gamepads_.erase( it );
+		return true;
+	}
+	return false;
+}
+
 bool SDLApplication::IsMinimized() const
 {
 	return window_ && (SDL_GetWindowFlags( static_cast<SDL_Window *>( window_ ) ) & SDL_WINDOW_MINIMIZED) != 0;
@@ -149,9 +195,22 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_WINDOW_RESTORED: event.type = EventType::windowRestored; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
 			case SDL_EVENT_KEY_DOWN: event.type = EventType::keyDown; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.scancode = static_cast<int>( raw.key.scancode ); event.modifiers = static_cast<int>( raw.key.mod ); event.repeat = raw.key.repeat; break;
 			case SDL_EVENT_KEY_UP: event.type = EventType::keyUp; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.scancode = static_cast<int>( raw.key.scancode ); event.modifiers = static_cast<int>( raw.key.mod ); break;
-			case SDL_EVENT_TEXT_INPUT:
+		case SDL_EVENT_TEXT_INPUT:
 				event.type = EventType::textInput; event.timestamp = raw.text.timestamp; event.windowId = raw.text.windowID;
-				if ( raw.text.text ) std::strncpy( event.text, raw.text.text, sizeof( event.text ) - 1 );
+				if ( raw.text.text )
+				{
+					const std::size_t length = std::strlen( raw.text.text );
+					if ( length >= sizeof( event.text ) )
+					{
+						if ( !event_overflow_episode_ ) NPlatform::DebugWrite( "SDL normalized text event truncated (overflow episode)\n" );
+						event_overflow_episode_ = true;
+					}
+					else
+						event_overflow_episode_ = false;
+					std::strncpy( event.text, raw.text.text, sizeof( event.text ) - 1 );
+				}
+				else
+					event_overflow_episode_ = false;
 				break;
 			case SDL_EVENT_MOUSE_MOTION: event.type = EventType::mouseMotion; event.timestamp = raw.motion.timestamp; event.windowId = raw.motion.windowID; event.x = static_cast<int>( raw.motion.x ); event.y = static_cast<int>( raw.motion.y ); event.data1 = static_cast<int>( raw.motion.xrel ); event.data2 = static_cast<int>( raw.motion.yrel ); break;
 			case SDL_EVENT_MOUSE_BUTTON_DOWN: event.type = EventType::mouseButtonDown; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
@@ -159,11 +218,18 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_MOUSE_WHEEL: event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID; event.x = static_cast<int>( raw.wheel.x ); event.y = static_cast<int>( raw.wheel.y ); event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y ); break;
 			case SDL_EVENT_GAMEPAD_ADDED:
 				event.type = EventType::controllerAdded; event.timestamp = raw.gdevice.timestamp; event.deviceId = static_cast<int>( raw.gdevice.which );
-				if ( SDL_Gamepad *gamepad = SDL_OpenGamepad( raw.gdevice.which ) ) gamepads_.push_back( std::make_pair( event.deviceId, static_cast<void *>( gamepad ) ) );
+				if ( SDL_Gamepad *gamepad = SDL_OpenGamepad( raw.gdevice.which ) )
+				{
+					GamepadRecord record;
+					record.device_id = event.deviceId;
+					record.handle = gamepad;
+					if ( const char *name = SDL_GetGamepadName( gamepad ) ) record.name = name;
+					gamepads_.push_back( record );
+				}
 				break;
 			case SDL_EVENT_GAMEPAD_REMOVED:
 				event.type = EventType::controllerRemoved; event.timestamp = raw.gdevice.timestamp; event.deviceId = static_cast<int>( raw.gdevice.which );
-				for ( std::vector<std::pair<int, void *> >::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it ) if ( it->first == event.deviceId ) { SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->second ) ); gamepads_.erase( it ); break; }
+				for ( std::vector<GamepadRecord>::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it ) if ( it->device_id == event.deviceId ) { if ( it->handle ) SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->handle ) ); gamepads_.erase( it ); break; }
 				break;
 			case SDL_EVENT_GAMEPAD_BUTTON_DOWN: event.type = EventType::controllerButtonDown; event.timestamp = raw.gbutton.timestamp; event.deviceId = static_cast<int>( raw.gbutton.which ); event.control = raw.gbutton.button; event.value = 0x80; break;
 			case SDL_EVENT_GAMEPAD_BUTTON_UP: event.type = EventType::controllerButtonUp; event.timestamp = raw.gbutton.timestamp; event.deviceId = static_cast<int>( raw.gbutton.which ); event.control = raw.gbutton.button; event.value = 0; break;

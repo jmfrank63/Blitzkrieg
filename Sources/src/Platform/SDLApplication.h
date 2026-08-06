@@ -2,6 +2,7 @@
 #define BLITZKRIEG_PLATFORM_SDL_APPLICATION_H
 
 #include <string>
+#include <cstddef>
 #include <thread>
 #include <vector>
 
@@ -40,6 +41,9 @@ public:
 	bool SetCursorVisible(bool visible);
 	bool SetClipboardText(const char *text);
 	std::string GetClipboardText() const;
+	bool GetControllerName(int deviceId, char *destination, std::size_t capacity) const;
+	bool AddVirtualControllerForTests(int deviceId, const char *name);
+	bool RemoveVirtualControllerForTests(int deviceId);
 	bool IsMinimized() const;
 	bool IsVisible() const;
 	WindowBorrow BorrowWindow() const;
@@ -59,7 +63,14 @@ private:
 	std::string last_error_;
 	bool initialized_ = false;
 	bool visible_ = false;
-	std::vector<std::pair<int, void *> > gamepads_;
+	bool event_overflow_episode_ = false;
+	struct GamepadRecord
+	{
+		int device_id = 0;
+		void *handle = nullptr;
+		std::string name;
+	};
+	std::vector<GamepadRecord> gamepads_;
 };
 }
 

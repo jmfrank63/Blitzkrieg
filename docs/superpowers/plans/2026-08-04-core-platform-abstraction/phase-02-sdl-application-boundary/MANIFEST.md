@@ -20,4 +20,6 @@ P02-M02 checkpoint: the existing SDL event translator compiles on Windows with i
 
 P02-M03 checkpoint: window display/fullscreen contracts compile on Windows; run-mode execution remains blocked by the headless SDL window hang.
 
-P02-M04 checkpoint: input/clipboard contract compilation passes on Windows; virtual-controller coverage and runtime hardware/display acceptance remain open.
+P02-M04 checkpoint: input/clipboard contract compilation passes on Windows; virtual-controller name-copy/removal coverage passes, while runtime hardware/display acceptance remains open.
+P02-M02 update: bounded text payload overflow now emits one platform diagnostic per episode.
+P02-M04 update: controller names are copied through a caller-buffer API and virtual controller fixtures pass without hardware.

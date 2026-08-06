@@ -10,9 +10,9 @@
 
 - [x] Existing Windows compile contract covers cursor/clipboard/controller service linkage; runtime hardware/display execution remains open.
 - [x] Keep cursor and clipboard operations owned by the SDL application facade.
-- [ ] Copy controller names into caller buffers and add virtual-controller fixtures.
-- [ ] Inject virtual-controller fixtures so CI does not require hardware.
+- [x] Copy controller names into caller buffers with truncation status and add virtual-controller fixtures.
+- [x] Inject virtual-controller fixtures so CI does not require hardware.
 - [x] Compile the input/clipboard gate on Windows; native runtime execution remains tied to the headless SDL blocker.
 - [x] Commit checkpoint: `platform: expose cursor clipboard and controllers`.
 
-**Evidence:** `test-platform-clipboard -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` passes; runtime evidence remains open.
+**Evidence:** `test-platform-controller -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes virtual name copy, short-buffer truncation, duplicate rejection, and removal without hardware; SDL runtime hardware/display evidence remains open.

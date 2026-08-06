@@ -1120,6 +1120,7 @@ pub fn build(b: *std.Build) void {
     addInputControllerTest(b, target, test_mode, toolchain);
     addInputBindingsTest(b, target, test_mode, toolchain);
     addPlatformClipboardTest(b, target, test_mode, toolchain);
+    addPlatformControllerTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addPlatformAudioTest(b, target, test_mode, toolchain);
     addAudioLifecycleFixtureTest(b, target, test_mode, toolchain);
     addAudioWorkerTest(b, target, test_mode, toolchain);
@@ -3203,6 +3204,7 @@ fn addSdlApplicationTest(
     module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/Platform/SDLApplication.cpp",
+            "Sources/src/Platform/Debug.cpp",
             "tools/zig/platform_window_test.cpp",
         },
         .flags = &.{"-std=c++17"},
@@ -3456,6 +3458,46 @@ fn addPlatformClipboardTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-clipboard", "Run controller and clipboard contract tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addPlatformControllerTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{ .files = &.{
+        "Sources/src/Platform/SDLApplication.cpp",
+        "Sources/src/Platform/Debug.cpp",
+        "tools/zig/platform_controller_test.cpp",
+    }, .flags = &.{"-std=c++17"} });
+    linkSdlImport(module, target, sdl_dynamic);
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "platform-controller-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    run.step.dependOn(&sdl_dynamic.step);
+    run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    run.addPathDir(b.path(if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib").getPath(b));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    const step = b.step("test-platform-controller", "Run virtual controller name and lifetime tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
@@ -3915,7 +3957,7 @@ fn addSdlEventTest(
     const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = true });
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/platform_event_test.cpp" },
+        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "tools/zig/platform_event_test.cpp" },
         .flags = &.{"-std=c++17"},
     });
     linkSdlImport(module, target, sdl_dynamic);

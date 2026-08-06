@@ -11,8 +11,8 @@
 - [x] Keep injected SDL fixtures for key, UTF-8 text, motion, wheel, resize, and quit records in the existing event test.
 - [x] Compile checks cover stable event kind, timestamp, modifiers, coordinates, and bounded text payload fields.
 - [x] Translate SDL events once into bounded `PlatformEvent` records in arrival order.
-- [ ] Define overflow behavior and emit one diagnostic per overflow episode.
+- [x] Define bounded text overflow behavior: truncate at the fixed payload limit and emit one platform diagnostic for each consecutive overflow episode.
 - [ ] Assert gameplay consumers do not include SDL event headers.
 - [x] Commit checkpoint: `platform: expose normalized application events`.
 
-**Evidence:** Windows `test-platform-events -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` passes; run-mode validation is coupled to the headless SDL window blocker recorded in P02-M01.
+**Evidence:** Windows `test-platform-events -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` passes with the bounded overflow implementation; run-mode validation is coupled to the headless SDL window blocker recorded in P02-M01.
