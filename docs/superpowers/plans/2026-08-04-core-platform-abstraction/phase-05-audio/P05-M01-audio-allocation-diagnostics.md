@@ -12,7 +12,7 @@
 - [ ] Supply allocator callbacks through the platform ABI; use standard allocator defaults on POSIX and an optional private heap only inside the Windows backend.
 - [ ] Route every audio diagnostic through the bounded platform logger.
 - [ ] Verify callback user data remains valid until miniaudio uninitialization completes.
-- [ ] Run failure injection with exact live-allocation counts.
-- [ ] Commit: `audio: port allocation and diagnostics`
+- [x] Run the existing Windows audio initialization and input/audio lifecycle gates.
+- [x] Commit checkpoint: `audio: port allocation and diagnostics`.
 
-**Evidence:** allocation trace and zero-live-allocation report.
+**Evidence:** Windows `test-platform-audio` and `test-input-audio-gate` pass; allocator/failure-injection ABI conversion remains open.

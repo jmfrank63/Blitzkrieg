@@ -13,3 +13,5 @@
 | P05-M05 | M04 | SFX module and native audio gate |
 
 Exit: SFX contains no direct Windows heap/debug/atomic/timer calls and survives repeated native init/play/stop/shutdown.
+
+P05-M01 Windows checkpoint: audio initialization and input/audio lifecycle gates pass natively; ABI allocator/diagnostic conversion remains open.
