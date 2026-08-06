@@ -1,8 +1,21 @@
-#ifndef __SYSKEYS_H__
-#define __SYSKEYS_H__
-#pragma ONCE
+#ifndef BLITZKRIEG_SYSKEYS_H
+#define BLITZKRIEG_SYSKEYS_H
+
+#include "../Platform/Event.h"
+
 namespace NSysKeys
 {
-	void EnableSystemKeys( bool bEnable, HINSTANCE hInstance );
+enum class Action
+{
+	pass,
+	consume,
+	toggleFullscreen,
+	releaseMouse,
 };
-#endif // __SYSKEYS_H__
+
+void EnableSystemKeys( bool enabled );
+void Reset();
+Action Process( const NPlatform::PlatformEvent &event );
+}
+
+#endif

@@ -1,86 +1,43 @@
-#include "StdAfx.h"
-
 #include "SysKeys.h"
-#include "WinFrame.h"
-#ifndef LLKHF_EXTENDED
-#define LLKHF_EXTENDED       0x00000001
-#endif
-#ifndef LLKHF_INJECTED
-#define LLKHF_INJECTED       0x00000010
-#endif
-#ifndef LLKHF_ALTDOWN
-#define LLKHF_ALTDOWN        0x00000020
-#endif
-#ifndef LLKHF_UP
-#define LLKHF_UP             0x00000080
-#endif
 
-#ifndef LLMHF_INJECTED
-#define LLMHF_INJECTED       0x00000001
-#endif
+#include <set>
 
-#ifndef WH_KEYBOARD_LL
-#define WH_KEYBOARD_LL     13
-#endif
-#ifndef WH_MOUSE_LL
-#define WH_MOUSE_LL        14
-#endif
+namespace
+{
+bool system_keys_enabled = true;
+std::set<int> pressed_keys;
+}
+
 namespace NSysKeys
 {
-struct KBDLLHOOKSTRUCT
+void EnableSystemKeys( const bool enabled )
 {
-  DWORD vkCode;
-  DWORD scanCode;
-  DWORD flags;
-  DWORD time;
-  DWORD dwExtraInfo;
-};
-static HHOOK hHook = 0;
-static UINT nPreviousState = 0;
-static bool bCurrEnable = true;
-LRESULT CALLBACK LowLevelKeyboardProc( INT nCode, WPARAM wParam, LPARAM lParam )
-{
-  KBDLLHOOKSTRUCT *pkbhs = (KBDLLHOOKSTRUCT *)lParam;
-  BOOL bControlKeyDown = 0;
+	system_keys_enabled = enabled;
+	if ( !enabled ) pressed_keys.clear();
+}
 
-  switch ( nCode )
-  {
-    case HC_ACTION:
-      bControlKeyDown = GetAsyncKeyState( VK_CONTROL ) >> ( (sizeof(SHORT) * 8) - 1 );
-      if ( (pkbhs->vkCode == VK_ESCAPE) && bControlKeyDown )
-      {
-        if ( (pkbhs->flags & LLKHF_UP) == 0 )
-          NWinFrame::ReleaseMouse();
-        return 1;
-      }
-      if ( (pkbhs->vkCode == VK_ESCAPE) && (pkbhs->flags & LLKHF_ALTDOWN) )
-        return 1;
-			if ( (pkbhs->vkCode == VK_LWIN) || (pkbhs->vkCode == VK_RWIN) || (pkbhs->vkCode == VK_APPS) ) 
-        return 1;
-      break;
-  }
-  return CallNextHookEx( hHook, nCode, wParam, lParam );
-}
-extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
-void EnableSystemKeys( bool bEnable, HINSTANCE hInstance )
+void Reset() { pressed_keys.clear(); }
+
+Action Process( const NPlatform::PlatformEvent &event )
 {
-	if ( (bCurrEnable == bEnable) /*|| IsDebuggerPresent()*/ ) 
-		return;
-	const DWORD dwOSVersion = GetVersion();
-	if ( dwOSVersion & 0x80000000 ) 
+	if ( event.type == NPlatform::EventType::focusLost )
 	{
-		if ( bEnable )
-			SystemParametersInfo( SPI_SETSCREENSAVERRUNNING, nPreviousState, &nPreviousState, 0 );
-		else
-			SystemParametersInfo( SPI_SETSCREENSAVERRUNNING, TRUE, &nPreviousState, 0 );
+		pressed_keys.clear();
+		return Action::pass;
 	}
-	else if ( (dwOSVersion & 0xff) >= 5 ) 
+	if ( event.type == NPlatform::EventType::keyUp )
 	{
-		if ( bEnable && (NSysKeys::hHook != 0) ) 
-			UnhookWindowsHookEx( NSysKeys::hHook );
-		else
-			NSysKeys::hHook = SetWindowsHookEx( WH_KEYBOARD_LL, NSysKeys::LowLevelKeyboardProc, hInstance, 0 );
+		pressed_keys.erase( event.key );
+		return Action::pass;
 	}
-	bCurrEnable = bEnable;
+	if ( event.type != NPlatform::EventType::keyDown ) return Action::pass;
+	pressed_keys.insert( event.key );
+	if ( !system_keys_enabled ) return Action::pass;
+	if ( event.modifiers == ( event.modifiers | NPlatform::modifierGui ) ) return Action::consume;
+	if ( event.key == static_cast<int>( NPlatform::PlatformKey::returnKey ) &&
+		( event.modifiers & NPlatform::modifierAlt ) != 0 ) return Action::toggleFullscreen;
+	if ( event.key == static_cast<int>( NPlatform::PlatformKey::escape ) &&
+		( event.modifiers & NPlatform::modifierControl ) != 0 ) return Action::releaseMouse;
+	return Action::pass;
 }
-};
+}

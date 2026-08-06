@@ -4,6 +4,7 @@
 #include <deque>
 
 #include "../Platform/SDLApplication.h"
+#include "SysKeys.h"
 
 namespace NGame
 {
@@ -28,6 +29,7 @@ public:
 	bool PollEvent( NPlatform::PlatformEvent &event );
 
 	bool IsActive() const { return active_; }
+	bool IsFullscreen() const { return fullscreen_; }
 	bool IsExit() const { return exit_; }
 	void ResetExit() { exit_ = false; }
 	NPlatform::WindowBorrow BorrowWindow() const { return application_.BorrowWindow(); }
@@ -40,6 +42,7 @@ private:
 	std::deque<NPlatform::PlatformEvent> events_;
 	bool active_ = false;
 	bool exit_ = false;
+	bool fullscreen_ = false;
 };
 }
 

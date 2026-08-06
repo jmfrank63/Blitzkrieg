@@ -15,4 +15,4 @@
 - [ ] Run the fixture on Windows/Linux and compile macOS.
 - [ ] Commit: `game: port system keys to platform events`
 
-**Evidence:** command/event fixture and zero hook/poll audit hits.
+**Evidence:** `test-game-system-keys -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes synthetic Alt+Enter toggle, Ctrl+Escape mouse release, plus/minus pass-through, GUI shortcut suppression, focus-loss cleanup, quit pass-through, and key-up cleanup. The same fixture compiles for `x86_64-linux-gnu`; the macOS compile command is wired but the current host lacks the required SDL sysroot. The old WinFrame/SysKeys integration and full hook-token audit remain open until the shell is switched over.

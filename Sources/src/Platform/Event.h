@@ -36,6 +36,16 @@ enum class PlatformKey : int
 	returnKey = 0x0000000d,
 	escape = 0x0000001b,
 	space = 0x00000020,
+	plus = 0x0000002b,
+	minus = 0x0000002d,
+};
+
+enum PlatformModifier : int
+{
+	modifierNone = 0x0000,
+	modifierControl = 0x00c0,
+	modifierAlt = 0x0300,
+	modifierGui = 0x0c00,
 };
 
 struct PlatformEvent
