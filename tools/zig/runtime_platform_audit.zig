@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = std.fs;
 
 pub const Hit = struct {
     service: []const u8,
@@ -6,14 +7,6 @@ pub const Hit = struct {
     token: []const u8,
     file: []const u8,
     line: usize,
-};
-
-const playable_arrays = [_][]const u8{
-    "misc_sources", "image_sources", "lualib_c_sources", "lualib_cpp_sources",
-    "net_sources", "input_sources", "formats_sources", "anim_sources",
-    "common_sources", "ui_sources", "sfx_cpp_sources", "sfx_c_sources",
-    "gfx_sources", "gfx_gpu_sources", "randommapgen_sources", "main_sources",
-    "game_sources",
 };
 
 const Rule = struct { token: []const u8, service: []const u8, packet: []const u8 };
@@ -53,47 +46,194 @@ pub fn scanText(allocator: std.mem.Allocator, text: []const u8, file: []const u8
                 offset = found + rule.token.len;
             }
         }
-        if (std.mem.indexOf(u8, line, "#include \"") != null and
-            (std.mem.indexOf(u8, line, "WrongCase") != null or std.mem.indexOf(u8, line, "wrongcase") != null)) {
-            try hits.append(allocator, .{ .service = "case", .packet = "P01", .token = "wrong-case relative include", .file = file, .line = line_no });
+    }
+    return hits.toOwnedSlice(allocator);
+}
+
+fn parseArrayName(line: []const u8) ?[]const u8 {
+    const const_start = std.mem.indexOf(u8, line, "const ") orelse return null;
+    const array_start = std.mem.indexOfPos(u8, line, const_start + 6, " = &.{") orelse return null;
+    return line[const_start + 6 .. array_start];
+}
+
+fn appendQuotedStrings(allocator: std.mem.Allocator, values: *std.ArrayList([]const u8), line: []const u8) !void {
+    var cursor: usize = 0;
+    while (std.mem.indexOfPos(u8, line, cursor, "\"") ) |open| {
+        const close = std.mem.indexOfPos(u8, line, open + 1, "\"") orelse break;
+        try values.append(allocator, try allocator.dupe(u8, line[open + 1 .. close]));
+        cursor = close + 1;
+    }
+}
+
+fn collectNamedArray(allocator: std.mem.Allocator, build_text: []const u8, wanted: []const u8) ![][]const u8 {
+    var values = std.ArrayList([]const u8).empty;
+    var lines = std.mem.splitScalar(u8, build_text, '\n');
+    var active = false;
+    while (lines.next()) |line| {
+        if (!active) {
+            const name = parseArrayName(line) orelse continue;
+            if (!std.mem.eql(u8, name, wanted)) continue;
+            active = true;
+        }
+        try appendQuotedStrings(allocator, &values, line);
+        if (std.mem.indexOf(u8, line, "};") != null) break;
+    }
+    return values.toOwnedSlice(allocator);
+}
+
+fn freeStrings(allocator: std.mem.Allocator, values: [][]const u8) void {
+    for (values) |value| allocator.free(value);
+    allocator.free(values);
+}
+
+pub const ParseError = error{
+    MissingPlayableSourceArrayManifest,
+    MissingNonPlayableSourceArrayManifest,
+    UnclassifiedSourceArray,
+    UnknownManifestSourceArray,
+};
+
+pub fn parsePlayableSources(allocator: std.mem.Allocator, build_text: []const u8) ![][]const u8 {
+    const playable_names = try collectNamedArray(allocator, build_text, "runtime_platform_playable_source_arrays");
+    defer freeStrings(allocator, playable_names);
+    if (playable_names.len == 0) return error.MissingPlayableSourceArrayManifest;
+    const non_playable_names = try collectNamedArray(allocator, build_text, "runtime_platform_non_playable_source_arrays");
+    defer freeStrings(allocator, non_playable_names);
+    if (non_playable_names.len == 0) return error.MissingNonPlayableSourceArrayManifest;
+
+    var sources = std.ArrayList([]const u8).empty;
+    errdefer {
+        for (sources.items) |source| allocator.free(source);
+        sources.deinit(allocator);
+    }
+    var lines = std.mem.splitScalar(u8, build_text, '\n');
+    var active_playable = false;
+    var declared = std.StringHashMap(void).init(allocator);
+    defer declared.deinit();
+    while (lines.next()) |line| {
+        if (!active_playable) {
+            const name = parseArrayName(line) orelse continue;
+            if (!std.mem.endsWith(u8, name, "_sources")) continue;
+            try declared.put(name, {});
+            var is_playable = false;
+            var is_non_playable = false;
+            for (playable_names) |allowed| is_playable = is_playable or std.mem.eql(u8, name, allowed);
+            for (non_playable_names) |allowed| is_non_playable = is_non_playable or std.mem.eql(u8, name, allowed);
+            if (!is_playable and !is_non_playable) return error.UnclassifiedSourceArray;
+            active_playable = is_playable;
+        }
+        if (active_playable) try appendQuotedStrings(allocator, &sources, line);
+        if (std.mem.indexOf(u8, line, "};") != null) active_playable = false;
+    }
+
+    for (playable_names) |name| if (!declared.contains(name)) return error.UnknownManifestSourceArray;
+    for (non_playable_names) |name| if (!declared.contains(name)) return error.UnknownManifestSourceArray;
+    return sources.toOwnedSlice(allocator);
+}
+
+pub fn ruleForLibrary(name: []const u8) ?Rule {
+    if (std.mem.eql(u8, name, "dinput8")) return .{ .token = name, .service = "input", .packet = "P03" };
+    if (std.mem.eql(u8, name, "ws2_32")) return .{ .token = name, .service = "net", .packet = "P04" };
+    if (std.mem.eql(u8, name, "winmm")) return .{ .token = name, .service = "audio", .packet = "P05" };
+    if (std.mem.eql(u8, name, "d3d9") or std.mem.eql(u8, name, "dxguid")) return .{ .token = name, .service = "graphics", .packet = "P08" };
+    return null;
+}
+
+pub fn scanBuildLibraries(allocator: std.mem.Allocator, build_text: []const u8, file: []const u8) ![]Hit {
+    var hits = std.ArrayList(Hit).empty;
+    var lines = std.mem.splitScalar(u8, build_text, '\n');
+    var line_no: usize = 0;
+    while (lines.next()) |line| {
+        line_no += 1;
+        var cursor: usize = 0;
+        while (std.mem.indexOfPos(u8, line, cursor, "linkSystemLibrary(\"") ) |open| {
+            const name_start = open + "linkSystemLibrary(\"".len;
+            const name_end = std.mem.indexOfPos(u8, line, name_start, "\"") orelse break;
+            const name = line[name_start..name_end];
+            if (ruleForLibrary(name)) |rule| try appendHit(allocator, &hits, rule, file, line_no);
+            cursor = name_end + 1;
         }
     }
     return hits.toOwnedSlice(allocator);
 }
 
-pub fn parsePlayableSources(allocator: std.mem.Allocator, build_text: []const u8) ![][]const u8 {
-    var sources = std.ArrayList([]const u8).empty;
-    var lines = std.mem.splitScalar(u8, build_text, '\n');
-    var active = false;
-    while (lines.next()) |line| {
-        if (!active) {
-            if (std.mem.indexOf(u8, line, "const ") == null or std.mem.indexOf(u8, line, " = &.{") == null) continue;
-            const name_start = std.mem.indexOf(u8, line, "const ").? + 6;
-            const name_end = std.mem.indexOfPos(u8, line, name_start, " ").?;
-            const name = line[name_start..name_end];
-            active = false;
-            for (playable_arrays) |allowed| {
-                if (std.mem.eql(u8, name, allowed)) active = true;
-            }
-            if (!active) continue;
-        }
-        var cursor: usize = 0;
-        while (std.mem.indexOfPos(u8, line, cursor, "\"") ) |open| {
-            const close = std.mem.indexOfPos(u8, line, open + 1, "\"") orelse break;
-            try sources.append(allocator, try allocator.dupe(u8, line[open + 1 .. close]));
-            cursor = close + 1;
-        }
-        if (std.mem.indexOf(u8, line, "};") != null) active = false;
-    }
-    return sources.toOwnedSlice(allocator);
+fn isSeparator(c: u8) bool {
+    return c == '/' or c == '\\';
 }
 
-pub fn ruleForLibrary(name: []const u8) ?Rule {
-    if (std.mem.eql(u8, name, "dinput8") or std.mem.eql(u8, name, "dxguid")) return .{ .token = name, .service = "input", .packet = "P03" };
-    if (std.mem.eql(u8, name, "ws2_32")) return .{ .token = name, .service = "net", .packet = "P04" };
-    if (std.mem.eql(u8, name, "winmm")) return .{ .token = name, .service = "audio", .packet = "P05" };
-    if (std.mem.eql(u8, name, "d3d9") or std.mem.eql(u8, name, "dxguid")) return .{ .token = name, .service = "graphics", .packet = "P08" };
-    return null;
+fn removeLastPathComponent(path: *std.ArrayList(u8)) void {
+    while (path.items.len > 0 and isSeparator(path.items[path.items.len - 1])) path.items.len -= 1;
+    while (path.items.len > 0 and !isSeparator(path.items[path.items.len - 1])) path.items.len -= 1;
+    while (path.items.len > 0 and isSeparator(path.items[path.items.len - 1])) path.items.len -= 1;
+}
+
+fn findActualEntry(allocator: std.mem.Allocator, cwd: std.Io.Dir, io: std.Io, parent: []const u8, wanted: []const u8) !?[]const u8 {
+    var dir = cwd.openDir(io, if (parent.len == 0) "." else parent, .{ .iterate = true }) catch return null;
+    defer std.Io.Dir.close(dir, io);
+    var iterator = dir.iterate();
+    var folded: ?[]const u8 = null;
+    while (try iterator.next(io)) |entry| {
+        if (std.mem.eql(u8, entry.name, wanted)) {
+            if (folded) |value| allocator.free(value);
+            return try allocator.dupe(u8, entry.name);
+        }
+        if (folded == null and std.ascii.eqlIgnoreCase(entry.name, wanted)) folded = try allocator.dupe(u8, entry.name);
+    }
+    return folded;
+}
+
+fn hasWrongCaseRelativeInclude(allocator: std.mem.Allocator, cwd: std.Io.Dir, io: std.Io, source_file: []const u8, include_path: []const u8) !bool {
+    if (include_path.len == 0 or fs.path.isAbsolute(include_path)) return false;
+    var resolved = std.ArrayList(u8).empty;
+    defer resolved.deinit(allocator);
+    try resolved.appendSlice(allocator, fs.path.dirname(source_file) orelse ".");
+
+    var cursor: usize = 0;
+    while (cursor < include_path.len) {
+        while (cursor < include_path.len and isSeparator(include_path[cursor])) cursor += 1;
+        const component_start = cursor;
+        while (cursor < include_path.len and !isSeparator(include_path[cursor])) cursor += 1;
+        if (component_start == cursor) continue;
+        const component = include_path[component_start..cursor];
+        if (std.mem.eql(u8, component, ".")) continue;
+        if (std.mem.eql(u8, component, "..")) {
+            removeLastPathComponent(&resolved);
+            continue;
+        }
+        const actual = try findActualEntry(allocator, cwd, io, resolved.items, component) orelse return false;
+        defer allocator.free(actual);
+        const wrong_case = !std.mem.eql(u8, actual, component);
+        if (wrong_case) return true;
+        if (resolved.items.len > 0 and !isSeparator(resolved.items[resolved.items.len - 1])) try resolved.append(allocator, '/');
+        try resolved.appendSlice(allocator, actual);
+    }
+    return false;
+}
+
+fn quotedInclude(line: []const u8) ?[]const u8 {
+    const include_start = std.mem.indexOf(u8, line, "#include") orelse return null;
+    const open = std.mem.indexOfPos(u8, line, include_start + "#include".len, "\"") orelse return null;
+    const close = std.mem.indexOfPos(u8, line, open + 1, "\"") orelse return null;
+    return line[open + 1 .. close];
+}
+
+pub fn scanTextWithCase(allocator: std.mem.Allocator, text: []const u8, file: []const u8, cwd: std.Io.Dir, io: std.Io) ![]Hit {
+    var hits = std.ArrayList(Hit).empty;
+    const token_hits = try scanText(allocator, text, file);
+    defer allocator.free(token_hits);
+    try hits.appendSlice(allocator, token_hits);
+
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var line_no: usize = 0;
+    while (lines.next()) |line| {
+        line_no += 1;
+        if (quotedInclude(line)) |include_path| {
+            if (try hasWrongCaseRelativeInclude(allocator, cwd, io, file, include_path)) {
+                try hits.append(allocator, .{ .service = "case", .packet = "P01", .token = "wrong-case relative include", .file = file, .line = line_no });
+            }
+        }
+    }
+    return hits.toOwnedSlice(allocator);
 }
 
 pub fn hitKey(allocator: std.mem.Allocator, hit: Hit) ![]const u8 {

@@ -616,6 +616,20 @@ const game_sources = &.{
     "Sources/src/Platform/SDLApplication.cpp",
 };
 
+// P00-M01 keeps this manifest next to the source declarations. The audit
+// derives playable paths from these declarations and fails if a new source
+// array is not classified, so additions cannot silently escape inventory.
+const runtime_platform_playable_source_arrays = &.{
+    "zlib_sources", "libpng_sources", "misc_sources", "image_sources", "lualib_c_sources", "lualib_cpp_sources",
+    "net_sources", "input_sources", "formats_sources", "anim_sources",
+    "common_sources", "ui_sources", "sfx_cpp_sources", "sfx_c_sources",
+    "gfx_sources", "gfx_gpu_sources", "randommapgen_sources", "main_sources",
+    "game_sources",
+};
+const runtime_platform_non_playable_source_arrays = &.{
+    "buildversion_sources", "betakeygen_sources", "fontgen_sources",
+};
+
 const cppflags_game_debug = &.{
     "-D_WINDOWS",
     "-DWIN32",
