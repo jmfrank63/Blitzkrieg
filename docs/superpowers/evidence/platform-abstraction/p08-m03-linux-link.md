@@ -32,5 +32,12 @@ directly with `zig test` passes 11/11. A clean `install-game` attempt also
 exceeded the local six-minute command window before the staged SDL runtime
 could be launched. No Linux native runtime acceptance is claimed yet.
 
+A subsequent native WSL retry against the shared checkout failed earlier with
+`AccessDenied` while renaming `.zig-cache` compilation results because Windows
+and WSL processes were using the same cache. Redirecting the top-level Zig
+cache to `/tmp` did not isolate the run artifact: Zig 0.16 still passed the
+repository-relative `.zig-cache` to its child test process. This confirms a
+build-runner/cache-contending environment blocker, not a new Linux link error.
+
 The isolated `/tmp/blitzkrieg-*` caches used for these checks are generated
 artifacts and are not repository changes.

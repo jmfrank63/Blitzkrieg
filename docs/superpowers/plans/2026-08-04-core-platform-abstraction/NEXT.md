@@ -14,7 +14,9 @@ remaining Linux `game-all` run/staging gate. On Windows, the shared runtime is
 now staged by the Input, Net, and SFX module-test runners; Net, SFX, platform
 foundation, GFXGPU, and Input gates pass. The remaining Windows closure work
 and package gates now pass as well; the remaining Windows work is the x64
-verifier, clean-cache evidence, and full regression matrix.
+verifier, clean-cache evidence, and full regression matrix. The Linux run gate
+is currently limited by Zig 0.16 child-test cache handling when Windows and WSL
+share the checkout; the native Linux link and direct audit remain passed.
 
 ## Important working-tree files
 
