@@ -1456,7 +1456,7 @@ pub fn build(b: *std.Build) void {
     const buildversion = if (platform == .windows_x64) addBuildVersion(b, target, optimize, toolchain, misc, sdl_dynamic) else null;
     const betakeygen = if (platform == .windows_x64) addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, sdl_dynamic) else null;
     const input = addInput(b, target, optimize, toolchain, misc, sdl_dynamic);
-    addInputModuleTest(b, target, optimize, test_mode, toolchain, input, misc, sdl_dynamic);
+    addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic);
     const formats = addFormats(b, target, optimize, toolchain);
     const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats }, sdl_dynamic);
     const anim = addAnim(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
@@ -1464,7 +1464,7 @@ pub fn build(b: *std.Build) void {
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib, sdl_dynamic);
     const fontgen = if (platform == .windows_x64) addFontGen(b, target, optimize, toolchain, image, common, formats, misc, sdl_dynamic) else null;
     const sfx = addSFX(b, target, optimize, toolchain, misc, common, sdl_dynamic);
-    addSfxModuleTest(b, target, toolchain, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
+    addSfxModuleTest(b, target, toolchain, platform_runtime, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
     const gfx_legacy = if (platform == .windows_x64) addGFX(b, target, optimize, toolchain, misc, formats, sdl_dynamic) else null;
     const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_dynamic, sdl_dynamic_dep.path("include"));
     if (!std.mem.eql(u8, renderer, "sdl_gpu") and platform != .windows_x64) @panic("legacy renderer is Windows-only; use -Drenderer=sdl_gpu");
@@ -1540,6 +1540,7 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, net_module_test_module, toolchain);
     linkMsvcRuntime(net_module_test_module, .Debug);
     net_module_test_module.linkLibrary(misc);
+    net_module_test_module.linkLibrary(platform_runtime);
     const net_module_test = b.addExecutable(.{ .name = "net-module-test", .root_module = net_module_test_module });
     if (target.result.os.tag == .windows) {
         net_module_test.subsystem = .console;
@@ -1551,6 +1552,7 @@ pub fn build(b: *std.Build) void {
     net_module_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
     if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
     net_module_test_run.step.dependOn(&b.addInstallArtifact(net, .{}).step);
+    net_module_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
@@ -2598,6 +2600,7 @@ fn addInputModuleTest(
     optimize: std.builtin.OptimizeMode,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
     input: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
@@ -2617,14 +2620,17 @@ fn addInputModuleTest(
         else => {},
     }
     module.linkLibrary(input);
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "input-module-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out/bin"));
+    run.addPathDir(b.path("zig-out/bin").getPath(b));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
     step.dependOn(&b.addInstallArtifact(input, .{}).step);
     step.dependOn(&b.addInstallArtifact(misc, .{}).step);
+    step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -2887,6 +2893,7 @@ fn addSfxModuleTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
     sfx: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
@@ -2898,6 +2905,7 @@ fn addSfxModuleTest(
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/SFX"));
     module.linkLibrary(misc);
+    module.linkLibrary(platform_runtime);
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
@@ -2914,6 +2922,7 @@ fn addSfxModuleTest(
     run.addPathDir(b.path("zig-out/bin").getPath(b));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
     run.step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);

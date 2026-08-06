@@ -10,7 +10,10 @@ gate. PlatformRuntime is now one shared dynamic dependency in the playable
 graph and is included in every target-specific stage manifest. The native
 Linux `Game` link is closed and recorded in
 `evidence/platform-abstraction/p08-m03-linux-link.md`; continue with the
-remaining Linux `game-all` run/staging gate.
+remaining Linux `game-all` run/staging gate. On Windows, the shared runtime is
+now staged by the Input, Net, and SFX module-test runners; Net, SFX, platform
+foundation, and GFXGPU gates pass, while the Input process smoke remains open
+because its Zig-launched executable exits with `0xC0000139` before `main`.
 
 ## Important working-tree files
 

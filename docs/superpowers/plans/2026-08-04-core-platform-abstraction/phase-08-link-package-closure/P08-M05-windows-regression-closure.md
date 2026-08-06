@@ -11,7 +11,8 @@
 - [ ] Build `game-all`, platform tests, renderer tests, and x64 runtime verification natively with MSVC target rules.
 - [ ] Verify resources, subsystem, exports, CRT choice, SDL3, PlatformRuntime DLL, and GFXGPU remain correct.
 - [ ] Compare accepted startup, renderer, input, audio, and module lifecycle fixtures.
-- [ ] Reject fallback to DirectInput or private platform-state copies.
+- [x] Reject fallback to DirectInput or private platform-state copies; the
+  Windows playable-source and runtime-platform audits report zero hits.
 - [ ] Run a clean Windows build and CI runner job.
 - [ ] Commit: `build: close Windows platform-runtime regression`
 
