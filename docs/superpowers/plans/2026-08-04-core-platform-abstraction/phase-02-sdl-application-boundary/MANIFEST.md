@@ -17,3 +17,7 @@ Exit: the native SDL application contract passes with one window owner, determin
 P02-M01 checkpoint: the existing SDLApplication lifecycle test compiles and the private borrowed-window bridge is retained. Run-mode execution hangs in this headless session, so desktop/GPU acceptance and full PlatformRuntime ABI ownership remain open.
 
 P02-M02 checkpoint: the existing SDL event translator compiles on Windows with injected resize, key, text, motion, wheel, quit, and unknown-event fixtures; overflow policy and runtime execution remain open.
+
+P02-M03 checkpoint: window display/fullscreen contracts compile on Windows; run-mode execution remains blocked by the headless SDL window hang.
+
+P02-M04 checkpoint: input/clipboard contract compilation passes on Windows; virtual-controller coverage and runtime hardware/display acceptance remain open.
