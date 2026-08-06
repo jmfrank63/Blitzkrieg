@@ -22,3 +22,5 @@ P01-M02 Windows checkpoint: the ABI appends opaque event/mutex operations and li
 P01-M03 Windows checkpoint: the ABI appends callback-first diagnostic output and debugger-presence query. The dynamic client test emits a bounded UTF-8 record and verifies zero live synchronization handles.
 
 P01-M04 Windows checkpoint: the existing dynamic-library facade now uses native `LoadLibraryA`/`GetProcAddress`/`FreeLibrary` on Windows and `dlopen`/`dlsym`/`dlclose` on POSIX, with no SDL loader dependency. The Windows fixture test passes symbol call `42`, missing-symbol diagnostics, move ownership, and double unload.
+
+P01-M05 Windows checkpoint: the existing paths and file utility tests pass natively for `x86_64-windows-msvc`; the remaining ABI-owned metadata/enumeration conversion is still open.
