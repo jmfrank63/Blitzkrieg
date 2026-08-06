@@ -1505,6 +1505,31 @@ pub fn build(b: *std.Build) void {
     const net_step = b.step("net", "Build the Net dynamic library");
     net_step.dependOn(&b.addInstallArtifact(net, .{}).step);
 
+    const net_module_test_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    net_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/net_module_test.cpp"), .flags = cppflagsForTarget(target, .Debug) });
+    addProjectIncludePaths(b, net_module_test_module);
+    net_module_test_module.addIncludePath(b.path("Sources/src/Net"));
+    addMsvcIncludePaths(b, net_module_test_module, toolchain);
+    addMsvcLibraryPaths(b, net_module_test_module, toolchain);
+    linkMsvcRuntime(net_module_test_module, .Debug);
+    net_module_test_module.linkLibrary(misc);
+    const net_module_test = b.addExecutable(.{ .name = "net-module-test", .root_module = net_module_test_module });
+    if (target.result.os.tag == .windows) {
+        net_module_test.subsystem = .console;
+        net_module_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const net_module_test_run = b.addRunArtifact(net_module_test);
+    net_module_test_run.setCwd(b.path("."));
+    net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else "zig-out/lib/libNet.so");
+    net_module_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
+    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    net_module_test_run.step.dependOn(&b.addInstallArtifact(net, .{}).step);
+    net_module_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    net_module_test_run.step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
+    net_module_test_run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
+    const net_module_test_step = b.step("test-net-module", "Load the real Net module and verify its factory contract");
+    net_module_test_step.dependOn(&net_module_test_run.step);
+
     const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
     buildversion_step.dependOn(&b.addInstallArtifact(buildversion, .{}).step);
 
@@ -2396,7 +2421,7 @@ fn addNet(
         .name = "Net",
         .linkage = .dynamic,
         .root_module = net_module,
-        .win32_module_definition = b.path("Sources/src/Net/net.def"),
+        .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/Net/net.def") else null,
     });
 }
 
