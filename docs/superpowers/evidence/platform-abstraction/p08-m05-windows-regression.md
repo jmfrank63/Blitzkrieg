@@ -1,7 +1,8 @@
 # P08-M05 Windows regression evidence
 
-Status: partial; the playable build and direct startup smoke pass. The Zig
-staged verifier and the full clean regression matrix remain open.
+Status: partial; the playable build, module/renderer gates, install layout, and
+game archive pass. The Zig staged verifier and the full clean regression matrix
+remain open.
 
 ## Passed
 
@@ -21,6 +22,11 @@ staged verifier and the full clean regression matrix remain open.
 - `zig build test-input-module -Dtarget=x86_64-windows-msvc
   -Dtest-mode=run` passed the Input factory lifecycle against the absolute
   staged module path.
+- `zig build install-game -Dtarget=x86_64-windows-msvc -Dtest-mode=compile`
+  completed the runnable Windows staging layout with one target-correct
+  `PlatformRuntime.dll` and the expected Game/module/SDL/GFXGPU artifacts.
+- `zig build package-game -Dtarget=x86_64-windows-msvc -Dtest-mode=compile`
+  completed and emitted `zig-out/packages/windows-x64/Blitzkrieg-game.zip`.
 - The staged executable was launched directly from
   `zig-out/game/windows-x64` with `Game.exe -startup-smoke -windowed` and
   exited with code 0.
@@ -32,5 +38,5 @@ staged verifier and the full clean regression matrix remain open.
 - `verify-x64-runtime` is not accepted: its Zig child-process smoke path does
   not reproduce the direct PowerShell launch result in this environment and
   must be fixed or replaced before the packet can close.
-- Platform, renderer, resource/exports, clean-build, and CI matrix evidence
-  has not yet been rerun for this checkpoint.
+- Clean-cache, resource/exports comparison, CI matrix, and macOS/Linux package
+  evidence remain open for the cross-platform closure.

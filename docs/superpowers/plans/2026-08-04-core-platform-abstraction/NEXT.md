@@ -13,7 +13,8 @@ Linux `Game` link is closed and recorded in
 remaining Linux `game-all` run/staging gate. On Windows, the shared runtime is
 now staged by the Input, Net, and SFX module-test runners; Net, SFX, platform
 foundation, GFXGPU, and Input gates pass. The remaining Windows closure work
-is the x64 verifier, clean-build, and full regression matrix.
+and package gates now pass as well; the remaining Windows work is the x64
+verifier, clean-cache evidence, and full regression matrix.
 
 ## Important working-tree files
 
