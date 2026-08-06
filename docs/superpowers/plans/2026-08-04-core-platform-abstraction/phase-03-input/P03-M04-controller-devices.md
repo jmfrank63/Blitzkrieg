@@ -13,6 +13,6 @@
 - [x] Map normalized values to `AXIS_RANGE_VALUE` with a deterministic stick dead zone and unsigned trigger range.
 - [x] Release active controls before device removal.
 - [ ] Run fixtures on all target compilers and native Windows/Linux.
-- [ ] Commit: `input: map portable controller devices`
+- [x] Commit checkpoint: `4c6e3e4f7 input: map portable controller devices`.
 
 **Evidence:** the Windows controller fixture passes and compiles for Linux. The event-fed runtime assigns virtual gamepad IDs from connect order, prefixes control names with the runtime ID, maps six normalized axes and sixteen buttons, ignores stale host events, and releases active controls before removal. Native SDL hotplug execution and all-target runtime execution remain open.
