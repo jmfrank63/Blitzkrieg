@@ -16,3 +16,5 @@
 - [ ] Commit: `build: close Windows platform-runtime regression`
 
 **Evidence:** x64 verifier output and unchanged accepted fixture hashes.
+
+Current partial evidence: `../../evidence/platform-abstraction/p08-m05-windows-regression.md`.
