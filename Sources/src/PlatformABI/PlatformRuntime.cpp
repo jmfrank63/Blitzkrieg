@@ -1,4 +1,5 @@
 #include "PlatformABI/PlatformState.h"
+#include "Platform/Clock.h"
 
 #include <cstdio>
 #include <cstring>
@@ -48,6 +49,15 @@ uint64_t BK_PLATFORM_CALL get_runtime_generation() {
     return bk_platform_state().generation;
 }
 
+uint64_t BK_PLATFORM_CALL get_monotonic_nanoseconds() { return NPlatform::MonotonicNanoseconds(); }
+void BK_PLATFORM_CALL sleep_milliseconds(uint32_t milliseconds) { NPlatform::SleepMilliseconds(milliseconds); }
+uint32_t BK_PLATFORM_CALL atomic_exchange_u32(uint32_t *value, uint32_t replacement) { return NPlatform::AtomicExchangeU32(value, replacement); }
+uint32_t BK_PLATFORM_CALL atomic_increment_u32(uint32_t *value) { return NPlatform::AtomicIncrementU32(value); }
+uint32_t BK_PLATFORM_CALL atomic_decrement_u32(uint32_t *value) { return NPlatform::AtomicDecrementU32(value); }
+uint32_t BK_PLATFORM_CALL atomic_compare_exchange_u32(uint32_t *value, uint32_t expected, uint32_t replacement) {
+    return NPlatform::AtomicCompareExchangeU32(value, expected, replacement);
+}
+
 const BkPlatformApi api = {
     BK_PLATFORM_ABI_VERSION,
     sizeof(BkPlatformApi),
@@ -55,6 +65,12 @@ const BkPlatformApi api = {
     &runtime_destroy,
     &get_last_error,
     &get_runtime_generation,
+    &get_monotonic_nanoseconds,
+    &sleep_milliseconds,
+    &atomic_exchange_u32,
+    &atomic_increment_u32,
+    &atomic_decrement_u32,
+    &atomic_compare_exchange_u32,
 };
 }
 

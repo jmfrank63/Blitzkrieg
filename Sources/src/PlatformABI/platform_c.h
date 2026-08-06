@@ -55,6 +55,12 @@ typedef struct BkPlatformApi {
     void (BK_PLATFORM_CALL *runtime_destroy)(void);
     BkPlatformResult (BK_PLATFORM_CALL *get_last_error)(char *dst, uint32_t capacity, uint32_t *required);
     uint64_t (BK_PLATFORM_CALL *get_runtime_generation)(void);
+    uint64_t (BK_PLATFORM_CALL *get_monotonic_nanoseconds)(void);
+    void (BK_PLATFORM_CALL *sleep_milliseconds)(uint32_t milliseconds);
+    uint32_t (BK_PLATFORM_CALL *atomic_exchange_u32)(uint32_t *value, uint32_t replacement);
+    uint32_t (BK_PLATFORM_CALL *atomic_increment_u32)(uint32_t *value);
+    uint32_t (BK_PLATFORM_CALL *atomic_decrement_u32)(uint32_t *value);
+    uint32_t (BK_PLATFORM_CALL *atomic_compare_exchange_u32)(uint32_t *value, uint32_t expected, uint32_t replacement);
 } BkPlatformApi;
 
 #ifdef __cplusplus

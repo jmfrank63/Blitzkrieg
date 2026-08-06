@@ -37,6 +37,14 @@ int main(int argc, char **argv) {
     if (BkPlatform::Client::Create(info) != BK_PLATFORM_OK) return 15;
     const uint64_t generation = BkPlatform::Client::Generation();
     if (generation == 0 || generation_a() != generation || generation_b() != generation) return 16;
+    const uint64_t clock_before = BkPlatform::Client::MonotonicNanoseconds();
+    BkPlatform::Client::SleepMilliseconds(1);
+    if (BkPlatform::Client::MonotonicNanoseconds() < clock_before) return 17;
+    uint32_t atomic = 10;
+    if (BkPlatform::Client::AtomicExchangeU32(&atomic, 20) != 10 || atomic != 20) return 18;
+    if (BkPlatform::Client::AtomicIncrementU32(&atomic) != 21) return 19;
+    if (BkPlatform::Client::AtomicDecrementU32(&atomic) != 20) return 20;
+    if (BkPlatform::Client::AtomicCompareExchangeU32(&atomic, 20, 42) != 20 || atomic != 42) return 21;
     BkPlatform::Client::Destroy();
     close_library(consumer_b);
     close_library(consumer_a);

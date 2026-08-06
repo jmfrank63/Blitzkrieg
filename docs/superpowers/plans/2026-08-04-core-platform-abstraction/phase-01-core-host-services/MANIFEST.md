@@ -14,3 +14,5 @@
 | P01-M06 | M05 | environment, dialogs, launch, process |
 
 Exit: core native contracts pass and converted consumers contain no direct core Win32 calls.
+
+P01-M01 Windows checkpoint: `test-platform-clock` and `test-platform-client` pass. The ABI now appends monotonic nanoseconds, bounded sleep, and fixed-width u32 exchange/increment/decrement/compare-exchange operations; the C++ client exercises the exported functions through the shared runtime.

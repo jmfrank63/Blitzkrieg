@@ -31,6 +31,16 @@ int main()
 	if ( timerElapsed <= 0.0 || timerElapsed > 0.250 )
 		return 5;
 
+	std::uint32_t atomic = 10;
+	if ( NPlatform::AtomicExchangeU32( &atomic, 20 ) != 10 || atomic != 20 )
+		return 6;
+	if ( NPlatform::AtomicIncrementU32( &atomic ) != 21 || NPlatform::AtomicDecrementU32( &atomic ) != 20 )
+		return 7;
+	if ( NPlatform::AtomicCompareExchangeU32( &atomic, 20, 42 ) != 20 || atomic != 42 )
+		return 8;
+	if ( NPlatform::AtomicCompareExchangeU32( &atomic, 20, 99 ) != 42 || atomic != 42 )
+		return 9;
+
 	std::printf( "clock monotonic: %.3f ms, hptimer: %.3f ms\n", sleepSeconds * 1000.0, timerElapsed * 1000.0 );
 	return 0;
 }
