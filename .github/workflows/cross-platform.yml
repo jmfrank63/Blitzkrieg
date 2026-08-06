@@ -64,6 +64,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-zig-global-0.16.0-
 
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
       - name: Run StreamIO filesystem tests
         run: zig build test-platform-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
@@ -127,6 +130,9 @@ jobs:
           key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
             ${{ runner.os }}-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
 
       - name: Resolve MSVC and Windows SDK paths
         shell: pwsh
@@ -226,6 +232,9 @@ jobs:
           key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
             ${{ runner.os }}-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
 
       - name: Configure macOS SDK sysroot
         run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"

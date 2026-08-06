@@ -6,6 +6,7 @@
 #include "SysKeys.h"
 #include "../Platform/SDLApplication.h"
 #include "../Platform/Event.h"
+#include "../Platform/Clock.h"
 
 #include "../Misc/Win32Helper.h"
 #include "../Main/iMain.h"
@@ -322,7 +323,7 @@ static void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags )
 	CCriticalSectionLock lock( msgs );
 	msgList.push_back( SWindowsMsg() );
 	SWindowsMsg &m = msgList.back();
-	m.time = GetTickCount();
+	m.time = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
 	m.msg = msg;
 	m.x = x;
 	m.y = y;
@@ -338,7 +339,7 @@ bool GetMessage( SWindowsMsg *pRes )
 		return true;
 	}
 	pRes->msg = SWindowsMsg::TIME;
-	pRes->time = GetTickCount();
+	pRes->time = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
 	return false;
 }
 bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *pszWndName, int nWidth, int nHeight )

@@ -1,8 +1,5 @@
 #include "Script.h"
-#ifdef WIN32
-#include <windows.h>
-#undef GetObject
-#endif
+#include "../Platform/Debug.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -10,12 +7,8 @@ static int Script_LOG(lua_State* state)
 {
 	Script script(state);
 	Script::Object obj = script.GetObject(script.GetTop());
-#ifdef WIN32
-	OutputDebugStringA(obj.GetString());
-	OutputDebugStringA("\n");
-#else
-	printf("%s\n", obj.GetString());
-#endif
+	NPlatform::DebugWrite(obj.GetString());
+	NPlatform::DebugWrite("\n");
 	return 0;
 }
 

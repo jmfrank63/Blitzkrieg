@@ -17,6 +17,8 @@ const required_fixtures = [_]Fixture{
     .{ .token = "HeapAlloc", .file = "tools/zig/fixtures/runtime_platform/heap.cpp", .line = 1 },
     .{ .token = "OutputDebugString", .file = "tools/zig/fixtures/runtime_platform/debug.cpp", .line = 1 },
     .{ .token = "wrong-case relative include", .file = "tools/zig/fixtures/runtime_platform/case_relative.cpp", .line = 1 },
+    .{ .token = "wrong-case relative include", .file = "tools/zig/fixtures/runtime_platform/case_relative.cpp", .line = 2 },
+    .{ .token = "d3d9", .file = "tools/zig/fixtures/runtime_platform/pragma_link.cpp", .line = 1 },
 };
 
 test "required platform fixtures report token, file, and line" {
@@ -115,6 +117,31 @@ test "build library scanner excludes developer-only target functions" {
     try std.testing.expectEqual(@as(usize, 2), hits[0].line);
 }
 
+test "build library scanner accepts only Windows-guarded native links" {
+    const build_text =
+        "fn addPlayable() void {\n" ++
+        "    if (target.result.os.tag == .windows) {\n" ++
+        "        module.linkSystemLibrary(\"winmm\", .{});\n" ++
+        "    }\n" ++
+        "    module.linkSystemLibrary(\"d3d9\", .{});\n" ++
+        "}\n";
+    const hits = try audit.scanBuildLibraries(std.testing.allocator, build_text, "build.zig", &.{ "addPlayable" });
+    defer std.testing.allocator.free(hits);
+    try std.testing.expectEqual(@as(usize, 1), hits.len);
+    try std.testing.expectEqualStrings("d3d9", hits[0].token);
+    try std.testing.expectEqual(@as(usize, 5), hits[0].line);
+}
+
+test "native adapter boundary is explicit and narrow" {
+    try std.testing.expect(audit.isApprovedNativeAdapterPath("Sources/src/Platform/Clock.cpp"));
+    try std.testing.expect(audit.isApprovedNativeAdapterPath("Sources/src/libpng/pngrio.c"));
+    try std.testing.expect(audit.isApprovedNativeAdapterPath("Sources/src/Input/InputAPI.cpp"));
+    try std.testing.expect(audit.isApprovedNativeAdapterPath("Sources/src/GFX/VideoCheck.cpp"));
+    try std.testing.expect(audit.isApprovedNativeAdapterPath("Sources/src/Game/WindowsMain.cpp"));
+    try std.testing.expect(!audit.isApprovedNativeAdapterPath("Sources/src/GFX/GraphicsEngine.cpp"));
+    try std.testing.expect(!audit.isApprovedNativeAdapterPath("Sources/src/Game/WinFrame.cpp"));
+}
+
 test "token scanner matches exact identifiers only" {
     const hits = try audit.scanText(std.testing.allocator, "GetTickCount64(); HANDLE_value = 0; GetTickCount(); HANDLE value;", "fixture.cpp");
     defer std.testing.allocator.free(hits);
@@ -144,6 +171,7 @@ test "playable source platform inventory matches build manifest and allowlist" {
         hits.deinit(allocator);
     }
     for (source_paths) |source| {
+        if (audit.isApprovedNativeAdapterPath(source)) continue;
         const source_text = try cwd.readFileAlloc(std.testing.io, source, allocator, .limited(20 * 1024 * 1024));
         defer allocator.free(source_text);
         const source_hits = try audit.scanTextWithCase(allocator, source_text, source, cwd, std.testing.io);
@@ -192,4 +220,5 @@ test "playable source platform inventory matches build manifest and allowlist" {
     std.debug.print("platform inventory count: {d}\n", .{hits.items.len});
     std.debug.print("platform allowlist ownership count: {d}\n", .{allowed.count()});
     try std.testing.expectEqual(@as(usize, 0), unknown);
+    try std.testing.expectEqual(@as(usize, 0), allowed.count());
 }

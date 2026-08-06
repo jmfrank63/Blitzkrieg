@@ -21,6 +21,25 @@ const rules = [_]Rule{
     .{ .token = "OutputDebugString", .service = "core", .packet = "P01" },
 };
 
+// These are the only places where the playable build is allowed to retain
+// native implementation details.  The list is deliberately path-specific:
+// adding a new native call to an ordinary gameplay source file must remain a
+// failing audit result.
+pub const approved_native_adapter_paths = [_][]const u8{
+    "Sources/src/Platform/",
+    "Sources/src/libpng/",
+    "Sources/src/Input/",
+    "Sources/src/GFX/VideoCheck.cpp",
+    "Sources/src/Game/WindowsMain.cpp",
+};
+
+pub fn isApprovedNativeAdapterPath(file: []const u8) bool {
+    for (approved_native_adapter_paths) |path| {
+        if (std.mem.startsWith(u8, file, path)) return true;
+    }
+    return false;
+}
+
 fn wordAt(line: []const u8, start: usize, token: []const u8) bool {
     if (start > 0 and (std.ascii.isAlphanumeric(line[start - 1]) or line[start - 1] == '_')) return false;
     const end = start + token.len;
@@ -44,6 +63,14 @@ pub fn scanText(allocator: std.mem.Allocator, text: []const u8, file: []const u8
                 const boundary = if (rule.token.len == 1) true else wordAt(line, found, rule.token);
                 if (boundary) try appendHit(allocator, &hits, rule, file, line_no);
                 offset = found + rule.token.len;
+            }
+        }
+        if (std.mem.indexOf(u8, line, "#pragma comment(lib") != null) {
+            const open = std.mem.lastIndexOfScalar(u8, line, '"') orelse continue;
+            if (open > 0) {
+                const first_quote = std.mem.lastIndexOfScalar(u8, line[0..open], '"') orelse continue;
+                const library = line[first_quote + 1 .. open];
+                if (ruleForLibrary(library)) |rule| try appendHit(allocator, &hits, rule, file, line_no);
             }
         }
     }
@@ -144,6 +171,7 @@ pub fn scanBuildLibraries(allocator: std.mem.Allocator, build_text: []const u8, 
     var lines = std.mem.splitScalar(u8, build_text, '\n');
     var line_no: usize = 0;
     var current_function: ?[]const u8 = null;
+    var windows_guard_depth: usize = 0;
     while (lines.next()) |line| {
         line_no += 1;
         const trimmed = std.mem.trim(u8, line, " \t");
@@ -157,14 +185,31 @@ pub fn scanBuildLibraries(allocator: std.mem.Allocator, build_text: []const u8, 
             for (playable_functions) |allowed| matched = matched or std.mem.eql(u8, name, allowed);
             break :blk matched;
         } else false;
-        if (!function_is_playable) continue;
-        var cursor: usize = 0;
-        while (std.mem.indexOfPos(u8, line, cursor, "linkSystemLibrary(\"") ) |open| {
-            const name_start = open + "linkSystemLibrary(\"".len;
-            const name_end = std.mem.indexOfPos(u8, line, name_start, "\"") orelse break;
-            const name = line[name_start..name_end];
-            if (ruleForLibrary(name)) |rule| try appendHit(allocator, &hits, rule, file, line_no);
-            cursor = name_end + 1;
+        if (function_is_playable and windows_guard_depth == 0) {
+            var cursor: usize = 0;
+            while (std.mem.indexOfPos(u8, line, cursor, "linkSystemLibrary(\"") ) |open| {
+                const name_start = open + "linkSystemLibrary(\"".len;
+                const name_end = std.mem.indexOfPos(u8, line, name_start, "\"") orelse break;
+                const name = line[name_start..name_end];
+                if (ruleForLibrary(name)) |rule| try appendHit(allocator, &hits, rule, file, line_no);
+                cursor = name_end + 1;
+            }
+        }
+
+        // Playable native libraries are permitted only inside an explicit
+        // Windows target block.  Track the simple block form used by build.zig
+        // and leave unguarded links visible to the audit.
+        if (std.mem.indexOf(u8, line, "if (target.result.os.tag == .windows") != null) {
+            const opens = std.mem.count(u8, line, "{");
+            const closes = std.mem.count(u8, line, "}");
+            if (opens > closes) windows_guard_depth += opens - closes;
+        } else if (windows_guard_depth > 0) {
+            const opens = std.mem.count(u8, line, "{");
+            const closes = std.mem.count(u8, line, "}");
+            if (closes > opens) {
+                const decrement = @min(windows_guard_depth, closes - opens);
+                windows_guard_depth -= decrement;
+            }
         }
     }
     return hits.toOwnedSlice(allocator);

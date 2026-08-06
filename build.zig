@@ -1635,6 +1635,7 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_zig_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
+    game_all_step.dependOn(runtime_platform_audit_step);
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
@@ -1745,6 +1746,7 @@ pub fn build(b: *std.Build) void {
     package_game_editors_step.dependOn(&package_tool_editors.step);
 
     const package_step = b.step("package", "Create both game-only and with-editors installation zip packages");
+    package_step.dependOn(runtime_platform_audit_step);
     package_step.dependOn(package_game_step);
     package_step.dependOn(package_game_editors_step);
 

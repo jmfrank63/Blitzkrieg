@@ -2,6 +2,8 @@
 
 #include "GraphicsEngine.h"
 
+#include "../Platform/Clock.h"
+
 #include "../Image/Image.h"
 
 #include "Texture.h"
@@ -1295,7 +1297,7 @@ bool CGraphicsEngine::IsActive()
 	if ( dxrval == D3DERR_DEVICELOST )
 	{
 		static DWORD dwLastDeviceLostTrace = 0;
-		const DWORD dwNow = GetTickCount();
+		const DWORD dwNow = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
 		if ( dwNow > dwLastDeviceLostTrace + 1000 )
 		{
 			dwLastDeviceLostTrace = dwNow;
@@ -1357,7 +1359,7 @@ void CGraphicsEngine::ForceFlushTempBuffers()
 }
 bool CGraphicsEngine::Flip()
 {
-	dwLastFrameTime = GetTickCount() - dwLastFrameTime;
+	dwLastFrameTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() ) - dwLastFrameTime;
 	HRESULT dxrval = S_OK;
 	if ( IsFullscreen() )
 	{
