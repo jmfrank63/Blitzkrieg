@@ -4,12 +4,20 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cstdint>
 
 #include "Debug.h"
 
 namespace
 {
 bool fail_initialization_for_tests = false;
+
+static_assert( sizeof( void * ) <= sizeof( BkPlatformWindowHandle ), "window identity cannot represent a native pointer" );
+
+BkPlatformWindowHandle EncodeWindowIdentity( void *window )
+{
+	return static_cast<BkPlatformWindowHandle>( reinterpret_cast<std::uintptr_t>( window ) );
+}
 }
 
 namespace NPlatform
@@ -161,7 +169,18 @@ bool SDLApplication::IsMinimized() const
 
 bool SDLApplication::IsVisible() const { return visible_; }
 
-WindowBorrow SDLApplication::BorrowWindow() const { return { window_ }; }
+WindowBorrow SDLApplication::BorrowWindow() const { return { EncodeWindowIdentity( window_ ) }; }
+
+void *SDLApplication::GetWindowsNativeHandle() const
+{
+#if defined(_WIN32)
+	if ( !window_ || !OnMainThread() ) return nullptr;
+	SDL_PropertiesID properties = SDL_GetWindowProperties( static_cast<SDL_Window *>( window_ ) );
+	return properties ? SDL_GetPointerProperty( properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr ) : nullptr;
+#else
+	return nullptr;
+#endif
+}
 
 WindowSize SDLApplication::LogicalSize() const
 {

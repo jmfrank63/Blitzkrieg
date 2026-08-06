@@ -29,6 +29,15 @@ enum class EventType
 	controllerAxis,
 };
 
+// SDL-compatible key values used by the platform event boundary. SDL headers
+// stay private to SDLApplication.cpp and are not required by game code.
+enum class PlatformKey : int
+{
+	returnKey = 0x0000000d,
+	escape = 0x0000001b,
+	space = 0x00000020,
+};
+
 struct PlatformEvent
 {
 	EventType type = EventType::unknown;

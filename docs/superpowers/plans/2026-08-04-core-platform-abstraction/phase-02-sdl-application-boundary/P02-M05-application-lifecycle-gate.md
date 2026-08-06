@@ -15,4 +15,4 @@
 - [ ] Remove SDL window/event/cursor temporary allowlist entries outside Platform and renderer bridges.
 - [ ] Commit: `test: close SDL application boundary`
 
-**Evidence:** identical ordered lifecycle traces and zero live counts.
+**Evidence:** the Windows compile gate now builds a real `game-bootstrap-smoke` executable linked to the GfxGpu consumer API. Its three-cycle implementation records `A` (SDL application), `M` (consumer API), `E` (event pump), `R/r` (renderer create/destroy), and `a` (application shutdown), and exercises fullscreen, clipboard, virtual-controller, event, and borrowed-window paths. Native desktop execution and all-triple/Linux execution remain open because the current session is headless.

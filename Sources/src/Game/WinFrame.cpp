@@ -7,8 +7,6 @@
 #include "../Platform/SDLApplication.h"
 #include "../Platform/Event.h"
 
-#include <SDL3/SDL.h>
-
 #include "../Misc/Win32Helper.h"
 #include "../Main/iMain.h"
 #include "../Main/iMainCommands.h"
@@ -350,8 +348,7 @@ bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *p
 	szWndClassName = pszWndName ? pszWndName : "NIVAL_RTS_ENGINE";
 	if ( !sdlApplication.Initialize( szAppTitleName.c_str(), nWidth, nHeight ) )
 		return false;
-	SDL_PropertiesID properties = SDL_GetWindowProperties( static_cast<SDL_Window *>( sdlApplication.BorrowWindow().value ) );
-	hWnd = properties ? static_cast<HWND>( SDL_GetPointerProperty( properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr ) ) : nullptr;
+	hWnd = static_cast<HWND>( sdlApplication.GetWindowsNativeHandle() );
 	bActive = true;
 	bExit = false;
 	return hWnd != nullptr;
@@ -507,7 +504,7 @@ void PumpMessages()
 			case NPlatform::EventType::keyUp:
 				if ( NMain::IsInitialized() )
 				{
-					if ( event.key == SDLK_ESCAPE || event.key == SDLK_SPACE || event.key == SDLK_RETURN ) AddMovieSkipMessage();
+					if ( event.key == static_cast<int>( NPlatform::PlatformKey::escape ) || event.key == static_cast<int>( NPlatform::PlatformKey::space ) || event.key == static_cast<int>( NPlatform::PlatformKey::returnKey ) ) AddMovieSkipMessage();
 					if ( IInput *input = GetSingleton<IInput>() )
 						input->ConsumePlatformEvent( event );
 				}

@@ -1,19 +1,45 @@
 #ifndef BLITZKRIEG_PLATFORM_SDL_APPLICATION_H
 #define BLITZKRIEG_PLATFORM_SDL_APPLICATION_H
 
+#include <cstdint>
 #include <string>
 #include <cstddef>
 #include <thread>
 #include <vector>
 
 #include "Event.h"
+#include "../PlatformABI/platform_c.h"
 
 namespace NPlatform
 {
 struct WindowBorrow
 {
-	void *value = nullptr;
+	// The storage crossing the facade is always eight bytes. The conversion
+	// operators are a transitional compatibility bridge for existing private
+	// renderer callers; SDL types do not appear in this header or ABI.
+	struct Value
+	{
+		BkPlatformWindowHandle bits = 0;
+
+		Value() = default;
+		Value( BkPlatformWindowHandle handle ) : bits( handle ) {}
+
+		template <typename T>
+		operator T *() const
+		{
+			return reinterpret_cast<T *>( static_cast<std::uintptr_t>( bits ) );
+		}
+
+		bool operator==( std::nullptr_t ) const { return bits == 0; }
+		bool operator!=( std::nullptr_t ) const { return bits != 0; }
+	};
+
+	Value value;
 };
+
+static_assert( sizeof( BkPlatformWindowHandle ) == 8, "window ABI handles must be 64-bit" );
+static_assert( sizeof( WindowBorrow::Value ) == sizeof( BkPlatformWindowHandle ), "borrowed window identity must stay fixed-width" );
+static_assert( sizeof( WindowBorrow ) == sizeof( BkPlatformWindowHandle ), "borrowed window bridge must stay one word" );
 
 struct WindowSize
 {
@@ -47,6 +73,7 @@ public:
 	bool IsMinimized() const;
 	bool IsVisible() const;
 	WindowBorrow BorrowWindow() const;
+	void *GetWindowsNativeHandle() const;
 	WindowSize LogicalSize() const;
 	WindowSize PixelSize() const;
 	bool PollEvent(PlatformEvent &event);

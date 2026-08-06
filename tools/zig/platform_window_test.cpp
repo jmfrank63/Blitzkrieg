@@ -1,6 +1,11 @@
 #include "../../Sources/src/Platform/SDLApplication.h"
 
 #include <cstdio>
+#include <cstddef>
+
+static_assert( sizeof(BkPlatformWindowHandle) == 8, "window identity ABI width" );
+static_assert( sizeof(NPlatform::WindowBorrow) == 8, "window borrow ABI width" );
+static_assert( offsetof(NPlatform::WindowBorrow, value) == 0, "window borrow value offset" );
 
 #define CHECK(condition) \
 	do { \

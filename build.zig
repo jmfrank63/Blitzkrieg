@@ -3924,7 +3924,7 @@ fn addGameBootstrapSmoke(
     const module = b.createModule(.{ .target = dependency_target, .optimize = optimize, .link_libc = true });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
     switch (target.result.os.tag) {
         .windows => {

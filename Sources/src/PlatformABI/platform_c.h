@@ -14,6 +14,9 @@
 #define BK_PLATFORM_ABI_VERSION 1u
 
 typedef uint64_t BkPlatformHandle;
+// Fixed-width, borrowed window identity. The value is owned and interpreted
+// by the platform runtime; callers must not treat it as an SDL_Window pointer.
+typedef uint64_t BkPlatformWindowHandle;
 typedef uint64_t BkPlatformSocketHandle;
 typedef uint32_t BkPlatformResult;
 
