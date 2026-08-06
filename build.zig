@@ -3054,10 +3054,14 @@ fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) v
         // Zig treats the abstract name `stdc++` as its libc++ switch. The
         // native Linux C++ headers in the supported WSL/CI toolchain are
         // libstdc++, so use the concrete soname to match headers and ABI.
-        .linux => if (build_host_os == .linux)
-            module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6" })
-        else
-            module.linkSystemLibrary("stdc++", .{}),
+        .linux => {
+            if (build_host_os == .linux) {
+                module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6" });
+                module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" });
+            } else {
+                module.linkSystemLibrary("stdc++", .{});
+            }
+        },
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }

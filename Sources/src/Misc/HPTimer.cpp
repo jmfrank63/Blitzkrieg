@@ -1,6 +1,9 @@
 #include <cstdint>
 
-using int64 = std::int64_t;
+// Keep the legacy public ABI stable across LP64 POSIX targets. The shared
+// project headers define int64 as long long, while std::int64_t is long on
+// x86_64 Linux; using the latter here changes the mangled HPTimer symbols.
+using int64 = long long;
 
 #include "HPTimer.h"
 #include "../Platform/Clock.h"
