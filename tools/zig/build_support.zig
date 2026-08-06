@@ -17,6 +17,35 @@ pub const GpuDriver = enum { d3d12, vulkan, metal };
 pub const Subsystem = enum { console, windows };
 pub const EntryPoint = enum { main, main_crt_startup, win_main_crt_startup };
 
+pub const SourceSets = struct {
+    shared: []const []const u8,
+    windows: []const []const u8,
+    posix: []const []const u8,
+    linux: []const []const u8,
+    macos: []const []const u8,
+    windows_oracle: []const []const u8,
+    excluded_utilities: []const []const u8,
+};
+
+pub fn sourceSets(platform: PlatformTarget) SourceSets {
+    const shared = &.{ "Sources/src/PlatformABI", "Sources/src/Platform/Clock.cpp", "Sources/src/Platform/Debug.cpp" };
+    const windows = &.{ "Sources/src/Game/WindowsMain.cpp", "Sources/src/Platform/SocketWin32.cpp" };
+    const posix = &.{ "Sources/src/Platform/SocketPosix.cpp" };
+    const linux = &.{ "Sources/src/Platform/Linux/Paths.cpp", "Sources/src/Platform/Linux/System.cpp" };
+    const macos = &.{ "Sources/src/Platform/MacOS/Paths.mm", "Sources/src/Platform/MacOS/System.mm" };
+    const windows_oracle = &.{ "Sources/src/Platform/WindowsOracle" };
+    const excluded_utilities = &.{ "BuildVersion", "BetaKeyGen", "FontGen", "GFX legacy renderer" };
+    return .{
+        .shared = shared,
+        .windows = if (platform == .windows_x64) windows else &.{},
+        .posix = if (platform != .windows_x64) posix else &.{},
+        .linux = if (platform == .linux_x64) linux else &.{},
+        .macos = if (platform == .macos_arm64) macos else &.{},
+        .windows_oracle = if (platform == .windows_x64) windows_oracle else &.{},
+        .excluded_utilities = excluded_utilities,
+    };
+}
+
 pub const Policy = struct {
     platform: PlatformTarget,
     executable_name: []const u8,
@@ -233,4 +262,26 @@ test "test mode defaults and native-run guard" {
     try validateTestMode(.compile, false);
     try std.testing.expectEqual(TestMode.compile, try parseTestMode("compile"));
     try std.testing.expectError(error.InvalidTestMode, parseTestMode("invalid"));
+}
+
+test "target source sets keep platform boundaries explicit" {
+    const windows = sourceSets(.windows_x64);
+    try std.testing.expect(windows.shared.len > 0);
+    try std.testing.expect(windows.windows.len > 0);
+    try std.testing.expectEqual(@as(usize, 0), windows.posix.len);
+    try std.testing.expect(windows.windows_oracle.len > 0);
+    try std.testing.expect(windows.excluded_utilities.len > 0);
+
+    const linux = sourceSets(.linux_x64);
+    try std.testing.expect(linux.posix.len > 0);
+    try std.testing.expect(linux.linux.len > 0);
+    try std.testing.expectEqual(@as(usize, 0), linux.windows.len);
+    try std.testing.expectEqual(@as(usize, 0), linux.windows_oracle.len);
+    try std.testing.expectEqual(@as(usize, 0), linux.macos.len);
+
+    const macos = sourceSets(.macos_arm64);
+    try std.testing.expect(macos.posix.len > 0);
+    try std.testing.expect(macos.macos.len > 0);
+    try std.testing.expectEqual(@as(usize, 0), macos.windows.len);
+    try std.testing.expectEqual(@as(usize, 0), macos.linux.len);
 }

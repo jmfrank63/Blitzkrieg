@@ -1439,8 +1439,8 @@ pub fn build(b: *std.Build) void {
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, sdl_dynamic);
-    const buildversion = addBuildVersion(b, target, optimize, toolchain, misc, sdl_dynamic);
-    const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, sdl_dynamic);
+    const buildversion = if (platform == .windows_x64) addBuildVersion(b, target, optimize, toolchain, misc, sdl_dynamic) else null;
+    const betakeygen = if (platform == .windows_x64) addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, sdl_dynamic) else null;
     const input = addInput(b, target, optimize, toolchain, misc, sdl_dynamic);
     addInputModuleTest(b, target, optimize, test_mode, toolchain, input, misc, sdl_dynamic);
     const formats = addFormats(b, target, optimize, toolchain);
@@ -1448,12 +1448,13 @@ pub fn build(b: *std.Build) void {
     const anim = addAnim(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
     const common = addCommon(b, target, optimize, toolchain);
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib, sdl_dynamic);
-    const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc, sdl_dynamic);
+    const fontgen = if (platform == .windows_x64) addFontGen(b, target, optimize, toolchain, image, common, formats, misc, sdl_dynamic) else null;
     const sfx = addSFX(b, target, optimize, toolchain, misc, common, sdl_dynamic);
     addSfxModuleTest(b, target, toolchain, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
-    const gfx_legacy = addGFX(b, target, optimize, toolchain, misc, formats, sdl_dynamic);
+    const gfx_legacy = if (platform == .windows_x64) addGFX(b, target, optimize, toolchain, misc, formats, sdl_dynamic) else null;
     const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_dynamic, sdl_dynamic_dep.path("include"));
-    const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy;
+    if (!std.mem.eql(u8, renderer, "sdl_gpu") and platform != .windows_x64) @panic("legacy renderer is Windows-only; use -Drenderer=sdl_gpu");
+    const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy.?;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, sdl_dynamic);
@@ -1480,14 +1481,14 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(image);
     b.installArtifact(lualib);
     b.installArtifact(net);
-    b.installArtifact(buildversion);
-    b.installArtifact(betakeygen);
+    if (buildversion) |artifact| b.installArtifact(artifact);
+    if (betakeygen) |artifact| b.installArtifact(artifact);
     b.installArtifact(input);
     b.installArtifact(formats);
     b.installArtifact(anim);
     b.installArtifact(common);
     b.installArtifact(ui);
-    b.installArtifact(fontgen);
+    if (fontgen) |artifact| b.installArtifact(artifact);
     b.installArtifact(sfx);
     b.installArtifact(gfx);
     b.installArtifact(randommapgen);
@@ -1542,11 +1543,15 @@ pub fn build(b: *std.Build) void {
     const net_module_test_step = b.step("test-net-module", "Load the real Net module and verify its factory contract");
     net_module_test_step.dependOn(&net_module_test_run.step);
 
-    const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
-    buildversion_step.dependOn(&b.addInstallArtifact(buildversion, .{}).step);
+    if (buildversion) |artifact| {
+        const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
+        buildversion_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
 
-    const betakeygen_step = b.step("betakeygen", "Build the BetaKeyGen console utility");
-    betakeygen_step.dependOn(&b.addInstallArtifact(betakeygen, .{}).step);
+    if (betakeygen) |artifact| {
+        const betakeygen_step = b.step("betakeygen", "Build the BetaKeyGen console utility");
+        betakeygen_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
 
     const input_step = b.step("input", "Build the Input dynamic library");
     input_step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -1563,8 +1568,10 @@ pub fn build(b: *std.Build) void {
     const ui_step = b.step("ui", "Build the UI dynamic library");
     ui_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
 
-    const fontgen_step = b.step("fontgen", "Build the FontGen console utility");
-    fontgen_step.dependOn(&b.addInstallArtifact(fontgen, .{}).step);
+    if (fontgen) |artifact| {
+        const fontgen_step = b.step("fontgen", "Build the FontGen console utility");
+        fontgen_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
 
     const sfx_step = b.step("sfx", "Build the SFX dynamic library");
     sfx_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
@@ -1572,8 +1579,10 @@ pub fn build(b: *std.Build) void {
     const gfx_step = b.step("gfx", "Build the GFX dynamic library");
     gfx_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
 
-    const gfx_legacy_step = b.step("gfx-legacy", "Build the legacy DirectX GFX dynamic library");
-    gfx_legacy_step.dependOn(&b.addInstallArtifact(gfx_legacy, .{}).step);
+    if (gfx_legacy) |artifact| {
+        const gfx_legacy_step = b.step("gfx-legacy", "Build the legacy DirectX GFX dynamic library");
+        gfx_legacy_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
 
     const gfx_gpu_step = b.step("gfx-sdl-gpu", "Build the SDL GPU GFX adapter dynamic library");
     gfx_gpu_step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
@@ -3066,12 +3075,7 @@ const ToolchainIncludes = struct {
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    if (b.graph.host.result.os.tag == .linux) {
-        module.addSystemIncludePath(.{ .cwd_relative = "/usr/include" });
-        module.addSystemIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
-        return;
-    }
-    if (b.graph.host.result.os.tag != .windows) return;
+    if (build_target_os != .windows or b.graph.host.result.os.tag != .windows) return;
     module.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\ucrt", .{toolchain.windows_sdk_include}) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) });
@@ -3080,7 +3084,7 @@ fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
 }
 
 fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    if (b.graph.host.result.os.tag != .windows) return;
+    if (build_target_os != .windows or b.graph.host.result.os.tag != .windows) return;
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
@@ -4136,6 +4140,7 @@ fn linkSdlImport(
 }
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    if (build_target_os != .windows) return;
     if (module.resolved_target.?.result.os.tag != .windows) {
         module.link_libc = true;
         return;
