@@ -2619,7 +2619,7 @@ fn addInputModuleTest(
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-    module.linkLibrary(input);
+    module.linkLibrary(misc);
     module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "input-module-test", .root_module = module });
     exe.subsystem = .console;
@@ -2627,6 +2627,7 @@ fn addInputModuleTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out/bin"));
     run.addPathDir(b.path("zig-out/bin").getPath(b));
+    run.addArg(if (target.result.os.tag == .windows) b.path("zig-out/bin/Input.dll").getPath(b) else if (target.result.os.tag == .macos) b.path("zig-out/lib/libInput.dylib").getPath(b) else b.path("zig-out/lib/libInput.so").getPath(b));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
     step.dependOn(&b.addInstallArtifact(input, .{}).step);
     step.dependOn(&b.addInstallArtifact(misc, .{}).step);

@@ -19,8 +19,8 @@ staged verifier and the full clean regression matrix remain open.
   -Dtest-mode=run` passed their module factory/lifecycle checks with the
   target-correct `PlatformRuntime.dll` staged by the build graph.
 - `zig build test-input-module -Dtarget=x86_64-windows-msvc
-  -Dtest-mode=compile` passed; its run gate is recorded below as an open
-  Windows loader issue.
+  -Dtest-mode=run` passed the Input factory lifecycle against the absolute
+  staged module path.
 - The staged executable was launched directly from
   `zig-out/game/windows-x64` with `Game.exe -startup-smoke -windowed` and
   exited with code 0.
@@ -34,7 +34,3 @@ staged verifier and the full clean regression matrix remain open.
   must be fixed or replaced before the packet can close.
 - Platform, renderer, resource/exports, clean-build, and CI matrix evidence
   has not yet been rerun for this checkpoint.
-- `zig build test-input-module -Dtarget=x86_64-windows-msvc -Dtest-mode=run`
-  still exits before `main` with Windows status `0xC0000139`; direct loader
-  probes resolve the staged `Input.dll` and `PlatformRuntime.dll`, so the
-  remaining issue is isolated to the Zig-launched executable's DLL-load path.
