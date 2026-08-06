@@ -2,10 +2,13 @@
 
 #include "GameMain.h"
 
+#if defined(_WIN32) || defined(_WIN64)
 #include <shellapi.h>
 #include <crtdbg.h>
-
 #include "WinFrame.h"
+#else
+#include "GameFrame.h"
+#endif
 #include "SysKeys.h"
 
 #include "../GFX/GFX.H"
@@ -36,6 +39,29 @@
 #include "../Platform/System.h"
 #include "../Platform/Debug.h"
 #include "../Platform/Clock.h"
+
+#if !defined(_WIN32) && !defined(_WIN64)
+namespace NWinFrame
+{
+static NGame::GameFrame game_frame;
+
+HINSTANCE GetHInstance() { return nullptr; }
+HWND GetHWnd() { return game_frame.BorrowWindow().value; }
+void *GetSDLWindow() { return game_frame.BorrowWindow().value; }
+bool InitApplication( HINSTANCE, const char *pszAppName, const char *, int nWidth, int nHeight )
+{
+	return game_frame.Initialize( pszAppName, nWidth, nHeight );
+}
+void ShowAppWindow( bool bShow ) { if ( bShow ) game_frame.Show(); else game_frame.Hide(); }
+void ShowSplashScreen( HINSTANCE, bool ) {}
+void PumpMessages() { game_frame.PumpMessages(); }
+void CaptureMouse() { game_frame.CaptureMouse(); }
+void ReleaseMouse() { game_frame.ReleaseMouse(); }
+bool IsActive() { return game_frame.IsActive(); }
+bool IsExit() { return game_frame.IsExit(); }
+void ResetExit() { game_frame.ResetExit(); }
+}
+#endif
 #ifdef BK_STARTUP_TRACE
 #define BK_STARTUP_MARKER(name) NPlatform::DebugWrite("BK_STARTUP: " name "\n")
 #else
@@ -93,7 +119,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 	const int command_line_exit = NGame::CommandLineExitCode( launch.options );
 	if ( command_line_exit >= 0 ) return command_line_exit;
 	CTimeMeter<> timeMeter;
+	#if defined(_WIN32) || defined(_WIN64)
 	SetErrorMode( SEM_FAILCRITICALERRORS );
+	#endif
 	if ( !NMain::CanLaunch() )
 		return 0xDEAD;
 	if ( !NPlatform::Paths::Initialize() )
@@ -109,9 +137,11 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
 	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
 	// so an exit-time leak dump would only flood the debugger output
+	#if defined(_WIN32) || defined(_WIN64)
 	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF );
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_DEBUG );
 	_CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_DEBUG );
+	#endif
 	// registered after static init, so this runs before Game.exe static
 	// destructors at exit (atexit is LIFO) — from then on every module leaks
 	// refcounted objects instead of running destruction cascades. The DLL flags
@@ -134,11 +164,17 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// CRT assert/abort dialogs open behind the fullscreen game window; route
 	// asserts to stderr and let abort() raise a fail-fast exception so an
 	// attached debugger breaks instead of the process exiting with code 3.
+	#if defined(_WIN32) || defined(_WIN64)
 	_set_error_mode( _OUT_TO_STDERR );
 	_set_abort_behavior( _CALL_REPORTFAULT, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
+	#endif
 	
 	int nLeakId = -1;
+	#if defined(_WIN32) || defined(_WIN64)
 	_CrtSetBreakAlloc( nLeakId );
+	#else
+	(void)nLeakId;
+	#endif
 #if defined( _DO_SEH ) && !defined( _DEBUG )
 	SetCrashHandlerFilter( CrashHandlerFilter );
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
@@ -363,17 +399,17 @@ int RunGame( const BkGameLaunchInfo &launch )
 			GetSingleton<IUserProfile>()->AddVar( "Autodetect.VideoCard", nNewVideoCard );
 			if ( (nNewVideoCard == GFXVC_RADEON9500) || (nNewVideoCard == GFXVC_RADEON9700) ) 
 			{
-				GetSingleton<IOptionSystem>()->Set( "GFX.OptBuffers", "ON" );
+			GetSingleton<IOptionSystem>()->Set( "GFX.OptBuffers", variant_t( "ON" ) );
 			}
 		}
 	}
 	{
 		std::string szGameSpyServer = GetGlobalVar( "Options.Multiplayer.GameSpyServerName", "" );
 		if ( !szGameSpyServer.empty() )
-			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerName", szGameSpyServer.c_str() );
+			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerName", variant_t( szGameSpyServer ) );
 
 		if ( cmdp.bGameSpyPasswordRequired )
-			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerPassword", cmdp.szGameSpyPassword.c_str() );
+			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerPassword", variant_t( cmdp.szGameSpyPassword ) );
 	}
 	timeMeter.Sample( "serialize config" );
 	{

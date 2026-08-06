@@ -73,6 +73,7 @@ const cppflags_debug = &.{
 // exception at the faulting line, which GUI debuggers (vsdbg) break on directly.
 var ubsan_trap = false;
 var build_target_os: std.Target.Os.Tag = .windows;
+var build_host_os: std.Target.Os.Tag = .windows;
 const cppflags_debug_trap = &(cppflags_debug.* ++ .{"-fsanitize-trap=undefined"});
 
 const cppflags_release = &.{
@@ -615,11 +616,13 @@ const game_sources = &.{
     "Sources/src/Game/StdAfx.cpp",
     "Sources/src/Game/GameMain.cpp",
     "Sources/src/Game/main.cpp",
-    "Sources/src/Game/WindowsMain.cpp",
     "Sources/src/Game/GameFrame.cpp",
     "Sources/src/Game/SysKeys.cpp",
-    "Sources/src/Game/WinFrame.cpp",
     "Sources/src/Platform/SDLApplication.cpp",
+};
+const windows_game_sources = &.{
+    "Sources/src/Game/WindowsMain.cpp",
+    "Sources/src/Game/WinFrame.cpp",
 };
 
 // P00-M01 keeps this manifest next to the source declarations. The audit
@@ -629,7 +632,7 @@ const runtime_platform_playable_source_arrays = &.{
     "zlib_sources",    "libpng_sources", "misc_sources",    "image_sources",   "lualib_c_sources",     "lualib_cpp_sources",
     "net_sources",     "input_sources",  "formats_sources", "anim_sources",    "common_sources",       "ui_sources",
     "sfx_cpp_sources", "sfx_c_sources",  "gfx_sources",     "gfx_gpu_sources", "randommapgen_sources", "main_sources",
-    "game_sources",
+    "game_sources",    "windows_game_sources",
 };
 const runtime_platform_non_playable_source_arrays = &.{
     "buildversion_sources", "betakeygen_sources", "fontgen_sources",
@@ -699,6 +702,7 @@ pub fn build(b: *std.Build) void {
     });
     const platform = build_support.classify(target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
     build_target_os = target.result.os.tag;
+    build_host_os = b.graph.host.result.os.tag;
     // Runtime eligibility follows the host OS and CPU. Windows can execute
     // an MSVC-targeted binary even when the Zig host itself reports the GNU
     // Windows ABI (the common Scoop Zig installation does); ABI selection is
@@ -793,11 +797,13 @@ pub fn build(b: *std.Build) void {
 
     const platform_runtime_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, platform_runtime_module);
     platform_runtime_module.addCMacro("BK_PLATFORM_RUNTIME_BUILD", "1");
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformRuntime.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/Clock.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketWin32.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketPosix.cpp"), .flags = &.{"-std=c++17"} });
+    linkCxxRuntime(platform_runtime_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
@@ -2191,6 +2197,7 @@ fn addGame(
         .optimize = optimize,
     });
     addProjectIncludePaths(b, game_module);
+    addLinuxCxxIncludePaths(b, game_module);
     addMsvcIncludePaths(b, game_module, toolchain);
     addMsvcLibraryPaths(b, game_module, toolchain);
     game_module.addIncludePath(b.path("Sources/src/Game"));
@@ -2199,7 +2206,7 @@ fn addGame(
     game_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
     if (startup_trace) game_module.addCMacro("BK_STARTUP_TRACE", "1");
     game_module.addCSourceFiles(.{
-        .files = game_sources,
+        .files = if (target.result.os.tag == .windows) &(game_sources.* ++ windows_game_sources.*) else game_sources,
         .flags = cppflagsGameForOptimize(optimize),
     });
     game_module.linkLibrary(main);
@@ -2282,6 +2289,7 @@ fn addZlib(
         .target = target,
         .optimize = optimize,
     });
+    addLinuxCxxIncludePaths(b, zlib_module);
     addMsvcIncludePaths(b, zlib_module, toolchain);
     zlib_module.addIncludePath(b.path("Sources/src/zlib"));
     zlib_module.addCSourceFiles(.{
@@ -2309,6 +2317,7 @@ fn addLibpng(
         .target = target,
         .optimize = optimize,
     });
+    addLinuxCxxIncludePaths(b, libpng_module);
     addMsvcIncludePaths(b, libpng_module, toolchain);
     libpng_module.addIncludePath(b.path("Sources/src/libpng"));
     libpng_module.addIncludePath(b.path("Sources/src/zlib"));
@@ -3040,6 +3049,20 @@ fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.Opt
     return cppflagsForOptimize(optimize);
 }
 
+fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
+    switch (target.result.os.tag) {
+        // Zig treats the abstract name `stdc++` as its libc++ switch. The
+        // native Linux C++ headers in the supported WSL/CI toolchain are
+        // libstdc++, so use the concrete soname to match headers and ABI.
+        .linux => if (build_host_os == .linux)
+            module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6" })
+        else
+            module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+}
+
 fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
@@ -3105,6 +3128,7 @@ fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
 
 fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     if (build_target_os != .linux or b.graph.host.result.os.tag != .linux) return;
+    module.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
     var selected: ?[]const u8 = null;
@@ -4153,6 +4177,7 @@ fn linkSdlImport(
 }
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    if (module.resolved_target) |module_target| linkCxxRuntime(module, module_target);
     if (build_target_os != .windows) return;
     if (module.resolved_target.?.result.os.tag != .windows) {
         module.link_libc = true;

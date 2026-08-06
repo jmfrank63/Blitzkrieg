@@ -62,6 +62,12 @@ ReleaseDll/
 .zig-cache/
 .zig-cache-*/
 zig-out/
+# Zig 0.16 cache directories when a local cache is rooted at the repository.
+/b/
+/h/
+/z/
+# Directly emitted local Zig test binaries.
+/*-test.exe
 _capture-stage-m02-run/
 /zig-pkg/
 
