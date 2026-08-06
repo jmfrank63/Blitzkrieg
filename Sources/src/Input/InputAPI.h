@@ -1,5 +1,6 @@
 #ifndef __INPUTAPI_H__
 #define __INPUTAPI_H__
+#include <utility>
 namespace NPlatform { struct PlatformEvent; }
 using namespace NWin32Helper;
 class CCombo;
@@ -104,6 +105,34 @@ struct SDevice : public SDeviceDesc
 	bool bNeedResync;											// need to resyncronize
 	bool bEmulated;												// is this device emulated, or we must get it from DInput?
 	SDevice() : dwBufferSize( 0 ), bNeedResync( false ), bEmulated( false ) {  }
+	SDevice( const SDevice & ) = delete;
+	SDevice& operator=( const SDevice & ) = delete;
+	SDevice( SDevice &&other ) noexcept
+		: SDeviceDesc( std::move( static_cast<SDeviceDesc&>( other ) ) ), controls( std::move( other.controls ) ),
+		  dwBufferSize( other.dwBufferSize ), bNeedResync( other.bNeedResync ), bEmulated( other.bEmulated )
+	{
+#if !defined(BK_INPUT_EVENT_ONLY)
+		pDevice = other.pDevice;
+		other.pDevice = 0;
+#endif
+		other.controls.clear();
+	}
+	SDevice& operator=( SDevice &&other ) noexcept
+	{
+		if ( this == &other ) return *this;
+		for ( std::vector<CControl*>::iterator it = controls.begin(); it != controls.end(); ++it ) delete *it;
+		static_cast<SDeviceDesc&>( *this ) = std::move( static_cast<SDeviceDesc&>( other ) );
+		controls = std::move( other.controls );
+		dwBufferSize = other.dwBufferSize;
+		bNeedResync = other.bNeedResync;
+		bEmulated = other.bEmulated;
+#if !defined(BK_INPUT_EVENT_ONLY)
+		pDevice = other.pDevice;
+		other.pDevice = 0;
+#endif
+		other.controls.clear();
+		return *this;
+	}
 	~SDevice() 
 	{ 
 		for ( std::vector<CControl*>::iterator it = controls.begin(); it != controls.end(); ++it )
@@ -133,6 +162,10 @@ class CInputAPI : public CTRefCount<IInput>
 	com_ptr<IDirectInput8> pInput;
 #endif
 	CDevicesList devices;									// all found devices
+#if defined(BK_INPUT_EVENT_ONLY)
+	std::unordered_map<int, int> controllerDeviceIDs;
+	int nextControllerID;
+#endif
 	CControlIDsMap controlIDs;						// control-ID-to-control map
 	CControlNamesMap controlNames;				// control-name-to-control map
 	CStoredControlsList activecontrols;		// controls, which was activated on the last pump
@@ -160,6 +193,8 @@ class CInputAPI : public CTRefCount<IInput>
 	bool SetCoopLevel();
 #if defined(BK_INPUT_EVENT_ONLY)
 	void EventCame( const SInputEvent &event );
+	void HandleControllerAdded( const NPlatform::PlatformEvent &event );
+	void HandleControllerRemoved( const NPlatform::PlatformEvent &event );
 #else
 	void Convert2Text( const DIDEVICEOBJECTDATA *pData, int nNumElements );
 	void EventCame( const DIDEVICEOBJECTDATA *pEvent, const int nParam );

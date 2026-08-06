@@ -428,6 +428,9 @@ CInputAPI::CInputAPI()
 	pLastControlKey = 0;
 	dwRepeatDelay = 500;
 	dwRepeatPeriod = 30;
+#if defined(BK_INPUT_EVENT_ONLY)
+	nextControllerID = 3;
+#endif
 }
 CInputAPI::~CInputAPI()
 {
@@ -443,6 +446,8 @@ bool CInputAPI::Init()
 	devices.clear();
 	controlIDs.clear();
 	controlNames.clear();
+	controllerDeviceIDs.clear();
+	nextControllerID = 3;
 	SDevice keyboard;
 	keyboard.nID = 1;
 	keyboard.eType = DEVICE_TYPE_KEYBOARD;
@@ -456,12 +461,13 @@ bool CInputAPI::Init()
 		const NInput::KeyCodeEntry &entry = keyboardCodes[i];
 		SControlDesc desc = {};
 		desc.eType = CONTROL_TYPE_KEY;
-		desc.nID = static_cast<int>( entry.code );
+		const int legacyID = static_cast<int>( entry.code );
+		desc.nID = ( keyboard.nID << 16 ) | legacyID;
 		desc.szName = entry.name;
 		desc.szFriendlyName = entry.name;
 		desc.nGranularity = 1;
 		keyboard.controls.push_back( new CControlKey( desc ) );
-		controlIDs[( keyboard.nID << 16 ) | desc.nID] = keyboard.controls.back();
+		controlIDs[desc.nID] = keyboard.controls.back();
 		controlNames[desc.szName] = keyboard.controls.back();
 	}
 	devices.push_back( std::move( keyboard ) );
@@ -483,13 +489,13 @@ bool CInputAPI::Init()
 	{
 		SControlDesc desc = {};
 		desc.eType = entry.type;
-		desc.nID = entry.id;
+		desc.nID = ( mouse.nID << 16 ) | entry.id;
 		desc.szName = entry.name;
 		desc.szFriendlyName = entry.name;
 		desc.nGranularity = 1;
 		CControl *control = entry.type == CONTROL_TYPE_KEY ? static_cast<CControl *>( new CControlKey( desc ) ) : static_cast<CControl *>( new CControlAxis( desc ) );
 		mouse.controls.push_back( control );
-		controlIDs[( mouse.nID << 16 ) | desc.nID] = control;
+		controlIDs[desc.nID] = control;
 		controlNames[desc.szName] = control;
 	}
 	devices.push_back( std::move( mouse ) );
@@ -551,6 +557,10 @@ bool CInputAPI::Done()
 	controlIDs.clear();
 	controlNames.clear();
 	devices.clear();
+#if defined(BK_INPUT_EVENT_ONLY)
+	controllerDeviceIDs.clear();
+	nextControllerID = 3;
+#endif
 #if !defined(BK_INPUT_EVENT_ONLY)
 	pInput = 0;
 #endif
@@ -698,6 +708,93 @@ SDevice* CInputAPI::GetDevice( const int nID )
 	}
 	return 0;
 }
+#if defined(BK_INPUT_EVENT_ONLY)
+static int NormalizeControllerAxis( const int rawValue, const int axis )
+{
+	if ( axis >= 4 )
+	{
+		const int clamped = Max( 0, Min( 32767, rawValue ) );
+		return (clamped * AXIS_RANGE_VALUE) / 32767;
+	}
+	const int clamped = Max( -32768, Min( 32767, rawValue ) );
+	const int magnitude = abs( clamped );
+	const int deadZone = 8000;
+	if ( magnitude <= deadZone ) return 0;
+	const int scaled = ((magnitude - deadZone) * AXIS_RANGE_VALUE) / (32767 - deadZone);
+	return (clamped < 0) ? -Min( AXIS_RANGE_VALUE, scaled ) : Min( AXIS_RANGE_VALUE, scaled );
+}
+static int ControllerAxisControlID( const int axis ) { return axis * 4; }
+static int ControllerButtonControlID( const int button ) { return 0x100 + button; }
+void CInputAPI::HandleControllerAdded( const NPlatform::PlatformEvent &event )
+{
+	if ( controllerDeviceIDs.find( event.deviceId ) != controllerDeviceIDs.end() ) return;
+	int runtimeID = nextControllerID;
+	while ( GetDevice( runtimeID ) != 0 ) ++runtimeID;
+	nextControllerID = runtimeID + 1;
+	SDevice device;
+	device.guid.fill( 0 );
+	device.nID = runtimeID;
+	device.eType = DEVICE_TYPE_GAMEPAD;
+	device.bEmulated = true;
+	device.szName = "GAMEPAD_" + std::to_string( runtimeID );
+	device.szFriendlyName = event.text[0] != 0 ? event.text : "Gamepad";
+	static const char *axisNames[] = { "LEFT_X", "LEFT_Y", "RIGHT_X", "RIGHT_Y", "LEFT_TRIGGER", "RIGHT_TRIGGER" };
+	for ( int axis = 0; axis != 6; ++axis )
+	{
+		SControlDesc desc = {};
+		desc.eType = CONTROL_TYPE_AXIS;
+		desc.nID = ( runtimeID << 16 ) | ControllerAxisControlID( axis );
+		desc.szName = device.szName + "_" + axisNames[axis];
+		desc.szFriendlyName = desc.szName;
+		desc.nGranularity = 1;
+		device.controls.push_back( new CControlAxis( desc ) );
+		controlIDs[desc.nID] = device.controls.back();
+		controlNames[desc.szName] = device.controls.back();
+	}
+	for ( int button = 0; button != 16; ++button )
+	{
+		SControlDesc desc = {};
+		desc.eType = CONTROL_TYPE_KEY;
+		desc.nID = ( runtimeID << 16 ) | ControllerButtonControlID( button );
+		desc.szName = device.szName + "_BUTTON" + std::to_string( button );
+		desc.szFriendlyName = desc.szName;
+		desc.nGranularity = 1;
+		device.controls.push_back( new CControlKey( desc ) );
+		controlIDs[desc.nID] = device.controls.back();
+		controlNames[desc.szName] = device.controls.back();
+	}
+	devices.push_back( std::move( device ) );
+	controllerDeviceIDs[event.deviceId] = runtimeID;
+}
+void CInputAPI::HandleControllerRemoved( const NPlatform::PlatformEvent &event )
+{
+	std::unordered_map<int, int>::iterator host = controllerDeviceIDs.find( event.deviceId );
+	if ( host == controllerDeviceIDs.end() ) return;
+	const int runtimeID = host->second;
+	for ( CDevicesList::iterator device = devices.begin(); device != devices.end(); ++device )
+	{
+		if ( device->nID != runtimeID ) continue;
+		for ( std::vector<CControl*>::iterator control = device->controls.begin(); control != device->controls.end(); ++control )
+		{
+			if ( (*control)->IsActive() )
+			{
+				(*control)->ChangeState( 0, static_cast<DWORD>( event.timestamp ), 0, pLastControlKey );
+				(*control)->Deactivate( static_cast<DWORD>( event.timestamp ) );
+			}
+			controlIDs.erase( (runtimeID << 16) | ((*control)->GetID() & 0xffff) );
+			controlNames.erase( (*control)->GetDesc().szName );
+			for ( CStoredControlsList::iterator active = activecontrols.begin(); active != activecontrols.end(); )
+			{
+				if ( active->pControl == *control ) active = activecontrols.erase( active );
+				else ++active;
+			}
+		}
+		devices.erase( device );
+		break;
+	}
+	controllerDeviceIDs.erase( host );
+}
+#endif
 bool CInputAPI::AddDoubleClick( const std::string &szControlName )
 {
 	CControlNamesMap::iterator pos = controlNames.find( szControlName );
@@ -906,6 +1003,45 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 		}
 		case NPlatform::EventType::mouseWheel:
 			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, event.y, time, 0 );
+			break;
+		case NPlatform::EventType::controllerAdded:
+#if defined(BK_INPUT_EVENT_ONLY)
+			HandleControllerAdded( event );
+#endif
+			break;
+		case NPlatform::EventType::controllerRemoved:
+#if defined(BK_INPUT_EVENT_ONLY)
+			HandleControllerRemoved( event );
+#endif
+			break;
+		case NPlatform::EventType::controllerButtonDown:
+		case NPlatform::EventType::controllerButtonUp:
+#if defined(BK_INPUT_EVENT_ONLY)
+		{
+			const std::unordered_map<int, int>::const_iterator device = controllerDeviceIDs.find( event.deviceId );
+			if ( device != controllerDeviceIDs.end() && event.control >= 0 && event.control < 16 )
+				emulatedMessages.push_back( SInputEvent {
+					static_cast<std::uint32_t>( device->second ),
+					static_cast<std::uint32_t>( ControllerButtonControlID( event.control )),
+					static_cast<std::int32_t>( event.type == NPlatform::EventType::controllerButtonDown ? 0x80 : 0 ),
+					static_cast<std::uint32_t>( time ), 0 } );
+			break;
+		}
+#endif
+			break;
+		case NPlatform::EventType::controllerAxis:
+#if defined(BK_INPUT_EVENT_ONLY)
+		{
+			const std::unordered_map<int, int>::const_iterator device = controllerDeviceIDs.find( event.deviceId );
+			if ( device != controllerDeviceIDs.end() && event.control >= 0 && event.control < 6 )
+				emulatedMessages.push_back( SInputEvent {
+					static_cast<std::uint32_t>( device->second ),
+					static_cast<std::uint32_t>( ControllerAxisControlID( event.control )),
+					static_cast<std::int32_t>( NormalizeControllerAxis( event.value, event.control )),
+					static_cast<std::uint32_t>( time ), 0 } );
+			break;
+		}
+#endif
 			break;
 		default: break;
 	}

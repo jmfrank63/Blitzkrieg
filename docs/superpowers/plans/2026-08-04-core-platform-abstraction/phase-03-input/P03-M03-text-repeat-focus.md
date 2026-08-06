@@ -13,6 +13,6 @@
 - [x] Keep key events and text events separate to prevent duplicate characters.
 - [ ] Verify saved keybind names and command messages remain unchanged.
 - [x] Run deterministic simulated-time tests; native text smoke remains open.
-- [ ] Commit: `input: port text repeat and focus behavior`
+- [x] Commit checkpoint: `a3b2a4517 input: port deterministic text repeat policy`; formatting follow-up `f83b3f08`.
 
 **Evidence:** `zig build test-input-text-repeat -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes, and the fixture compiles for Linux. It covers UTF-8 decoding, separate key/text streams, explicit 500 ms/30 ms repeat timing, disabled text mode, and focus-loss repeat cancellation. Dead-key/composition, backspace, native text smoke, and binding-name verification remain open.
