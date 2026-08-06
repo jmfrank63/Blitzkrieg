@@ -204,6 +204,7 @@ const cppflags_sfx_debug = &.{
     "-Wno-microsoft-cast",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
+    "-Wno-pointer-compare",
 };
 
 const cppflags_sfx_release = &.{
@@ -228,6 +229,7 @@ const cppflags_sfx_release = &.{
     "-Wno-microsoft-cast",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
+    "-Wno-pointer-compare",
 };
 
 const zlib_sources = &.{
@@ -1119,6 +1121,7 @@ pub fn build(b: *std.Build) void {
     addInputBindingsTest(b, target, test_mode, toolchain);
     addPlatformClipboardTest(b, target, test_mode, toolchain);
     addPlatformAudioTest(b, target, test_mode, toolchain);
+    addAudioLifecycleFixtureTest(b, target, test_mode, toolchain);
     addInputAudioGateTest(b, target, test_mode, toolchain);
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
     addPlatformNetworkTest(b, target, test_mode, toolchain);
@@ -3440,6 +3443,34 @@ fn addPlatformAudioTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-audio", "Run portable audio initialization contract tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addAudioLifecycleFixtureTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/audio_lifecycle_fixture.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "audio-lifecycle-fixture", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-audio-lifecycle", "Run the miniaudio allocator and null-device lifecycle fixture");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

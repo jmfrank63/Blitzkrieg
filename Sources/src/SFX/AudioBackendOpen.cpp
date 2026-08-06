@@ -2,6 +2,9 @@
 
 #include "AudioBackendImpl.h"
 #include "AudioBackendXiphVorbis.h"
+#include "../Platform/Debug.h"
+
+#include <cstdlib>
 
 #if defined(SFX_USE_OPEN_AUDIO_BACKEND)
 
@@ -16,32 +19,22 @@
 
 namespace
 {
-	// Private heap for ALL miniaudio allocations. The debug CRT heap lock
-	// is the bottleneck: the main thread holds it for seconds during
-	// save-load, and the audio mixer callback blocks on the same lock for
-	// its internal malloc/free. A private Windows heap has its own lock,
-	// so the audio thread never contends with the main thread.
-	HANDLE g_hAudioHeap = 0;
-
-	void* AudioHeapMalloc( size_t sz, void *pUserData )
+	void* AudioAllocMalloc( size_t sz, void *pUserData )
 	{
 		(void)pUserData;
-		return HeapAlloc( g_hAudioHeap, 0, sz );
+		return std::malloc( sz == 0 ? 1 : sz );
 	}
 
-	void* AudioHeapRealloc( void *p, size_t sz, void *pUserData )
+	void* AudioAllocRealloc( void *p, size_t sz, void *pUserData )
 	{
 		(void)pUserData;
-		if ( !p )
-			return HeapAlloc( g_hAudioHeap, 0, sz );
-		return HeapReAlloc( g_hAudioHeap, 0, p, sz );
+		return std::realloc( p, sz == 0 ? 1 : sz );
 	}
 
-	void AudioHeapFree( void *p, void *pUserData )
+	void AudioAllocFree( void *p, void *pUserData )
 	{
 		(void)pUserData;
-		if ( p )
-			HeapFree( g_hAudioHeap, 0, p );
+		std::free( p );
 	}
 
 	ma_context g_context;
@@ -261,7 +254,7 @@ namespace
 
 	void TraceOpenAudioResult( const char *pszAction, ma_result result )
 	{
-		OutputDebugString( NStr::Format( "SFX open audio %s: %s (%d)\n", pszAction, GetOpenAudioResultName( result ), result ) );
+		NPlatform::DebugWriteFormat( "SFX open audio %s: %s (%d)\n", pszAction, GetOpenAudioResultName( result ), result );
 	}
 
 	void TraceOpenAudioDevice()
@@ -269,7 +262,7 @@ namespace
 		ma_device *pDevice = ma_engine_get_device( &g_engine );
 		if ( !pDevice || !pDevice->pContext )
 		{
-			OutputDebugString( "SFX open audio initialized without playback device\n" );
+		NPlatform::DebugWrite( "SFX open audio initialized without playback device\n" );
 			return;
 		}
 
@@ -277,11 +270,11 @@ namespace
 		szDeviceName[0] = 0;
 		ma_device_get_name( pDevice, ma_device_type_playback, szDeviceName, sizeof( szDeviceName ), 0 );
 
-		OutputDebugString( NStr::Format( "SFX open audio device: backend=%s, device=\"%s\", sampleRate=%u, channels=%u\n",
+		NPlatform::DebugWriteFormat( "SFX open audio device: backend=%s, device=\"%s\", sampleRate=%u, channels=%u\n",
 			ma_get_backend_name( pDevice->pContext->backend ),
 			szDeviceName,
 			pDevice->sampleRate,
-			pDevice->playback.channels ) );
+			pDevice->playback.channels );
 	}
 
 	// Keep disabled by default: per-read tracing runs on the mixer thread and
@@ -840,10 +833,10 @@ namespace
 	void TraceOpenStream( const char *pszStatus, const SOpenStream *pOpenStream )
 	{
 		const int nBytes = pOpenStream ? static_cast<int>( pOpenStream->encodedData.size() ) : 0;
-		OutputDebugString( NStr::Format( "Open audio stream %s: %s (%d bytes)\n",
-																		 pszStatus,
-																		 pOpenStream ? pOpenStream->szFileName.c_str() : "",
-																		 nBytes ) );
+		NPlatform::DebugWriteFormat( "Open audio stream %s: %s (%d bytes)\n",
+												 pszStatus,
+												 pOpenStream ? pOpenStream->szFileName.c_str() : "",
+												 nBytes );
 	}
 
 }
@@ -906,16 +899,10 @@ namespace NAudioBackendImpl
 		ma_context_config contextConfig = ma_context_config_init();
 		contextConfig.threadPriority = ma_thread_priority_realtime;
 
-		// Private heap: create BEFORE context init so all miniaudio threads
-		// (mixer, resource manager, WASAPI command) use it from birth.
-		g_hAudioHeap = HeapCreate( 0, 64 * 1024 * 1024, 0 );
-		if ( g_hAudioHeap )
-		{
-			contextConfig.allocationCallbacks.pUserData = 0;
-			contextConfig.allocationCallbacks.onMalloc  = AudioHeapMalloc;
-			contextConfig.allocationCallbacks.onRealloc = AudioHeapRealloc;
-			contextConfig.allocationCallbacks.onFree    = AudioHeapFree;
-		}
+		contextConfig.allocationCallbacks.pUserData = 0;
+		contextConfig.allocationCallbacks.onMalloc  = AudioAllocMalloc;
+		contextConfig.allocationCallbacks.onRealloc = AudioAllocRealloc;
+		contextConfig.allocationCallbacks.onFree    = AudioAllocFree;
 
 		ma_result result = ma_context_init( 0, 0, &contextConfig, &g_context );
 		if ( result != MA_SUCCESS )
@@ -933,13 +920,10 @@ namespace NAudioBackendImpl
 		// decoded to PCM at init time, so the mixer callback only copies
 		// samples — zero allocations, zero decode, zero disk I/O.
 		engineConfig.periodSizeInMilliseconds = 40;
-		if ( g_hAudioHeap )
-		{
-			engineConfig.allocationCallbacks.pUserData = 0;
-			engineConfig.allocationCallbacks.onMalloc  = AudioHeapMalloc;
-			engineConfig.allocationCallbacks.onRealloc = AudioHeapRealloc;
-			engineConfig.allocationCallbacks.onFree    = AudioHeapFree;
-		}
+		engineConfig.allocationCallbacks.pUserData = 0;
+		engineConfig.allocationCallbacks.onMalloc  = AudioAllocMalloc;
+		engineConfig.allocationCallbacks.onRealloc = AudioAllocRealloc;
+		engineConfig.allocationCallbacks.onFree    = AudioAllocFree;
 		result = ma_engine_init( &engineConfig, &g_engine );
 		if ( result != MA_SUCCESS )
 		{
@@ -960,7 +944,7 @@ namespace NAudioBackendImpl
 		}
 
 		g_bEngineInitialized = true;
-		OutputDebugString( "SFX open audio backend initialized miniaudio\n" );
+		NPlatform::DebugWrite( "SFX open audio backend initialized miniaudio\n" );
 		TraceOpenAudioDevice();
 		return true;
 	}
@@ -983,18 +967,11 @@ namespace NAudioBackendImpl
 			ma_context_uninit( &g_context );
 			g_bContextInitialized = false;
 		}
-		// Destroy AFTER context uninit: miniaudio threads are dead, no
-		// outstanding allocations remain.
-		if ( g_hAudioHeap )
-		{
-			HeapDestroy( g_hAudioHeap );
-			g_hAudioHeap = 0;
-		}
 	}
 
 	void DebugTraceMixer()
 	{
-		OutputDebugString( "SFX open audio miniaudio backend\n" );
+		NPlatform::DebugWrite( "SFX open audio miniaudio backend\n" );
 	}
 
 	void SetDistanceFactor( float fFactor )
@@ -1188,7 +1165,7 @@ namespace NAudioBackendImpl
 				ma_sound_reset_stop_time_and_fade( &g_channels[nChannel].sound );
 				ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, 0.0f, ChannelTargetVolume( nChannel ), 60 );
 				if ( ma_sound_start( &g_channels[nChannel].sound ) != MA_SUCCESS )
-					OutputDebugString( "SFX open audio failed to start sample channel\n" );
+					NPlatform::DebugWrite( "SFX open audio failed to start sample channel\n" );
 			}
 		}
 	}

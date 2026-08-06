@@ -14,4 +14,4 @@
 
 Exit: SFX contains no direct Windows heap/debug/atomic/timer calls and survives repeated native init/play/stop/shutdown.
 
-P05-M01 Windows checkpoint: audio initialization and input/audio lifecycle gates pass natively; ABI allocator/diagnostic conversion remains open.
+P05-M01 Windows checkpoint: `test-audio-lifecycle`, `test-platform-audio`, and `test-input-audio-gate` pass natively; SFX allocation and diagnostics are portable, while the shared ABI allocator handoff remains open for the independently loaded module.
