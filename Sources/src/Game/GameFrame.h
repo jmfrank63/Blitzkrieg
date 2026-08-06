@@ -2,12 +2,35 @@
 #define BLITZKRIEG_GAME_FRAME_H
 
 #include <deque>
+#include <cstdint>
 
 #include "../Platform/SDLApplication.h"
 #include "SysKeys.h"
 
 namespace NGame
 {
+struct FramePlan
+{
+	bool render = false;
+	std::uint32_t sleepMilliseconds = 0;
+};
+
+class FramePacingPolicy
+{
+public:
+	void Apply( const NPlatform::PlatformEvent &event );
+	void Reset();
+	FramePlan Next() const;
+	bool IsActive() const { return active_; }
+	bool IsMinimized() const { return minimized_; }
+	bool IsQuitRequested() const { return quit_requested_; }
+
+private:
+	bool active_ = true;
+	bool minimized_ = false;
+	bool quit_requested_ = false;
+};
+
 class GameFrame
 {
 public:

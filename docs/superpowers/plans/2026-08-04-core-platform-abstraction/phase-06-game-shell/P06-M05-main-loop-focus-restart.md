@@ -15,4 +15,4 @@
 - [ ] Verify identical lifecycle ordering on Windows/Linux.
 - [ ] Commit: `game: port main loop and restart lifecycle`
 
-**Evidence:** ordered lifecycle trace and frame-pacing fixture.
+**Evidence:** `test-game-loop -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes simulated focus/unfocus pacing, minimize/restore suspension, resize preservation, quit handling, reset/restart, and three identical `RsRs` lifecycle traces. The deterministic policy compiles for Linux once the SDL shared-library symlink environment permits; integration into the legacy `GameMain` loop and native desktop lifecycle comparison remain open.

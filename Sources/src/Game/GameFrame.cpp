@@ -2,6 +2,32 @@
 
 namespace NGame
 {
+void FramePacingPolicy::Apply( const NPlatform::PlatformEvent &event )
+{
+	switch ( event.type )
+	{
+		case NPlatform::EventType::focusGained: active_ = true; break;
+		case NPlatform::EventType::focusLost: active_ = false; break;
+		case NPlatform::EventType::windowMinimized: minimized_ = true; active_ = false; break;
+		case NPlatform::EventType::windowRestored: minimized_ = false; active_ = true; break;
+		case NPlatform::EventType::quit: quit_requested_ = true; break;
+		default: break;
+	}
+}
+
+void FramePacingPolicy::Reset()
+{
+	active_ = true;
+	minimized_ = false;
+	quit_requested_ = false;
+}
+
+FramePlan FramePacingPolicy::Next() const
+{
+	if ( quit_requested_ || !active_ || minimized_ ) return FramePlan{ false, 40 };
+	return FramePlan{ true, 0 };
+}
+
 GameFrame::~GameFrame()
 {
 	Shutdown();
