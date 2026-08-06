@@ -10,7 +10,7 @@ const required = [_][]const u8{
 fn runSmoke(init: std.process.Init, allocator: std.mem.Allocator, install_dir: []const u8) !void {
     const game = try std.fs.path.join(allocator, &.{ install_dir, "Game.exe" });
     defer allocator.free(game);
-    const argv = [_][]const u8{ "Game.exe", "-x64-startup-smoke" };
+    const argv = [_][]const u8{ "Game.exe", "-startup-smoke", "-windowed" };
     var child = try std.process.spawn(init.io, .{ .argv = &argv, .cwd = .{ .path = install_dir } });
     const term = try child.wait(init.io);
     switch (term) {
