@@ -18,3 +18,5 @@ Exit: core native contracts pass and converted consumers contain no direct core 
 P01-M01 Windows checkpoint: `test-platform-clock` and `test-platform-client` pass. The ABI now appends monotonic nanoseconds, bounded sleep, and fixed-width u32 exchange/increment/decrement/compare-exchange operations; the C++ client exercises the exported functions through the shared runtime.
 
 P01-M02 Windows checkpoint: the ABI appends opaque event/mutex operations and live-handle accounting. The shared runtime test passes timeout, wake, auto-reset consumption, mutex lock/unlock, and zero-live-handle checks.
+
+P01-M03 Windows checkpoint: the ABI appends callback-first diagnostic output and debugger-presence query. The dynamic client test emits a bounded UTF-8 record and verifies zero live synchronization handles.

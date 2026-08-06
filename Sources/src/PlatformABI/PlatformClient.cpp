@@ -61,6 +61,8 @@ BkPlatformResult Client::MutexDestroy(BkPlatformHandle handle) noexcept { return
 BkPlatformResult Client::MutexLock(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->mutex_lock != nullptr ? g_api->mutex_lock(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
 BkPlatformResult Client::MutexUnlock(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->mutex_unlock != nullptr ? g_api->mutex_unlock(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
 uint32_t Client::LiveSyncHandles() noexcept { return g_api != nullptr && g_api->get_live_sync_handles != nullptr ? g_api->get_live_sync_handles() : 0; }
+BkPlatformResult Client::DiagnosticWrite(uint32_t level, BkPlatformUtf8Span message) noexcept { return g_api != nullptr && g_api->diagnostic_write != nullptr ? g_api->diagnostic_write(level, message) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+bool Client::IsDebuggerAttached() noexcept { return g_api != nullptr && g_api->is_debugger_attached != nullptr && g_api->is_debugger_attached() != 0; }
 
 BkPlatformResult Client::LastError(char *dst, uint32_t capacity, uint32_t *required) noexcept {
     if (g_api == nullptr || g_api->get_last_error == nullptr) return BK_PLATFORM_ERROR_NOT_INITIALIZED;

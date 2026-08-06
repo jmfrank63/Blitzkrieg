@@ -45,6 +45,10 @@ int main(int argc, char **argv) {
     if (BkPlatform::Client::AtomicIncrementU32(&atomic) != 21) return 19;
     if (BkPlatform::Client::AtomicDecrementU32(&atomic) != 20) return 20;
     if (BkPlatform::Client::AtomicCompareExchangeU32(&atomic, 20, 42) != 20 || atomic != 42) return 21;
+    const char diagnostic_text[] = "platform client diagnostic\n";
+    const BkPlatformUtf8Span diagnostic = {sizeof(BkPlatformUtf8Span), diagnostic_text, static_cast<uint32_t>(sizeof(diagnostic_text) - 1)};
+    if (BkPlatform::Client::DiagnosticWrite(1, diagnostic) != BK_PLATFORM_OK) return 22;
+    if (BkPlatform::Client::LiveSyncHandles() != 0) return 23;
     BkPlatform::Client::Destroy();
     close_library(consumer_b);
     close_library(consumer_a);

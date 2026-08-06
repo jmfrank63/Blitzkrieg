@@ -29,6 +29,8 @@ public:
     static BkPlatformResult MutexLock(BkPlatformHandle handle) noexcept;
     static BkPlatformResult MutexUnlock(BkPlatformHandle handle) noexcept;
     static uint32_t LiveSyncHandles() noexcept;
+    static BkPlatformResult DiagnosticWrite(uint32_t level, BkPlatformUtf8Span message) noexcept;
+    static bool IsDebuggerAttached() noexcept;
     static BkPlatformResult LastError(char *dst, uint32_t capacity, uint32_t *required) noexcept;
 };
 

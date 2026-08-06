@@ -73,6 +73,8 @@ typedef struct BkPlatformApi {
     BkPlatformResult (BK_PLATFORM_CALL *mutex_lock)(BkPlatformHandle handle);
     BkPlatformResult (BK_PLATFORM_CALL *mutex_unlock)(BkPlatformHandle handle);
     uint32_t (BK_PLATFORM_CALL *get_live_sync_handles)(void);
+    BkPlatformResult (BK_PLATFORM_CALL *diagnostic_write)(uint32_t level, BkPlatformUtf8Span message);
+    uint32_t (BK_PLATFORM_CALL *is_debugger_attached)(void);
 } BkPlatformApi;
 
 #ifdef __cplusplus

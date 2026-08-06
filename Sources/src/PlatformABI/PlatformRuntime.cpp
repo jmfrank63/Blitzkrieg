@@ -8,6 +8,10 @@
 #include <mutex>
 #include <new>
 
+#if defined(_WIN32)
+extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+#endif
+
 namespace {
 BkPlatformResult set_error(BkPlatformResult result, const char *message) {
     BkPlatformState &state = bk_platform_state();
@@ -133,6 +137,23 @@ BkPlatformResult BK_PLATFORM_CALL mutex_unlock(BkPlatformHandle handle) {
     return BK_PLATFORM_OK;
 }
 uint32_t BK_PLATFORM_CALL get_live_sync_handles() { return bk_platform_state().live_sync_handles; }
+BkPlatformResult BK_PLATFORM_CALL diagnostic_write(uint32_t level, BkPlatformUtf8Span message) {
+    BkPlatformState &state = bk_platform_state();
+    if (message.struct_size < sizeof(BkPlatformUtf8Span) || (message.length != 0 && message.data == nullptr)) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid diagnostic message");
+    if (state.log != nullptr) state.log(state.user_data, level, message);
+    else if (message.data != nullptr) {
+        std::fwrite(message.data, 1, message.length, stderr);
+        std::fflush(stderr);
+    }
+    return BK_PLATFORM_OK;
+}
+uint32_t BK_PLATFORM_CALL is_debugger_attached() {
+#if defined(_WIN32)
+    return IsDebuggerPresent() != 0 ? 1u : 0u;
+#else
+    return 0;
+#endif
+}
 
 const BkPlatformApi api = {
     BK_PLATFORM_ABI_VERSION,
@@ -157,6 +178,8 @@ const BkPlatformApi api = {
     &mutex_lock,
     &mutex_unlock,
     &get_live_sync_handles,
+    &diagnostic_write,
+    &is_debugger_attached,
 };
 }
 
