@@ -6,6 +6,7 @@
 #include "UIScreen.h"
 #include "UIMessages.h"
 #include "../GameTT/CommonId.h"
+#include "../Misc/StrProc.h"
 
 static const int GLOBAL_CONSOLE_ID = 0xAC07A918;
 
@@ -72,7 +73,7 @@ static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 	};
 	for ( int i = 0; i < sizeof(kScaledResources) / sizeof(kScaledResources[0]); ++i )
 	{
-		if ( _stricmp( pszResourceName, kScaledResources[i] ) == 0 )
+		if ( NStr::CompareAsciiNoCase( pszResourceName, kScaledResources[i] ) == 0 )
 			return true;
 	}
 	return false;

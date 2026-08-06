@@ -86,7 +86,7 @@ bool CImage::CopyFrom( IImage *pSrc, const RECT *pSrcRect, int nPosX, int nPosY 
 {
 	RECT rcRect;
 	if ( pSrcRect == 0 )
-		SetRect( &rcRect, 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() );
+		rcRect = static_cast<RECT>( CTRect<int>( 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() ) );
 	else
 		rcRect = *pSrcRect;
 	if ( (nPosX + Width(rcRect) > GetSizeX()) || (nPosY + Height(rcRect) > GetSizeY()) )
@@ -106,7 +106,7 @@ bool CImage::CopyFromAB( IImage *pSrc, const RECT *pSrcRect, int nPosX, int nPos
 {
 	RECT rcRect;
 	if ( pSrcRect == 0 )
-		SetRect( &rcRect, 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() );
+		rcRect = static_cast<RECT>( CTRect<int>( 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() ) );
 	else
 		rcRect = *pSrcRect;
 	if ( (nPosX + Width(rcRect) > GetSizeX()) || (nPosY + Height(rcRect) > GetSizeY()) )
@@ -132,7 +132,7 @@ bool CImage::ModulateAlphaFrom( IImage *pSrc, const RECT *pSrcRect, int nPosX, i
 {
 	RECT rcRect;
 	if ( pSrcRect == 0 )
-		SetRect( &rcRect, 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() );
+		rcRect = static_cast<RECT>( CTRect<int>( 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() ) );
 	else
 		rcRect = *pSrcRect;
 	if ( (nPosX + Width(rcRect) > GetSizeX()) || (nPosY + Height(rcRect) > GetSizeY()) )
@@ -158,7 +158,7 @@ bool CImage::ModulateColorFrom( IImage *pSrc, const RECT *pSrcRect, int nPosX, i
 {
 	RECT rcRect;
 	if ( pSrcRect == 0 )
-		SetRect( &rcRect, 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() );
+		rcRect = static_cast<RECT>( CTRect<int>( 0, 0, pSrc->GetSizeX(), pSrc->GetSizeY() ) );
 	else
 		rcRect = *pSrcRect;
 	if ( (nPosX + Width(rcRect) > GetSizeX()) || (nPosY + Height(rcRect) > GetSizeY()) )

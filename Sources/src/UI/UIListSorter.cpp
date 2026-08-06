@@ -1,13 +1,32 @@
 #include "StdAfx.h"
 #include "UIListSorter.h"
 
+#include <cwctype>
+
+namespace
+{
+int CompareWideNoCase( const wchar_t *left, const wchar_t *right )
+{
+	while ( *left != 0 && *right != 0 )
+	{
+		const wchar_t foldedLeft = static_cast<wchar_t>( std::towlower( *left ) );
+		const wchar_t foldedRight = static_cast<wchar_t>( std::towlower( *right ) );
+		if ( foldedLeft != foldedRight )
+			return foldedLeft < foldedRight ? -1 : 1;
+		++left;
+		++right;
+	}
+	return *left == *right ? 0 : ( *left == 0 ? -1 : 1 );
+}
+}
+
 bool CUIListTextSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, const IUIListRow *pRow2, const bool bForward ) const
 {
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
 	std::wstring wsz1 = reinterpret_cast<const wchar_t*>(pElement->GetWindowText( 0 ));
 	pElement = pRow2->GetElement( nSortColumn );
 	std::wstring wsz2 = reinterpret_cast<const wchar_t*>(pElement->GetWindowText( 0 ));
-	int nRes = _wcsicmp( wsz1.c_str(), wsz2.c_str() );
+	int nRes = CompareWideNoCase( wsz1.c_str(), wsz2.c_str() );
 	if ( nRes == 0 )
 	{
 		return false;
