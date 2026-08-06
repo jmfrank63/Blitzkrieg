@@ -69,4 +69,22 @@ BkPlatformResult Client::LastError(char *dst, uint32_t capacity, uint32_t *requi
     return g_api->get_last_error(dst, capacity, required);
 }
 
+BkPlatformResult Client::SocketRuntimeInit() noexcept { return g_api != nullptr && g_api->socket_runtime_init != nullptr ? g_api->socket_runtime_init() : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketRuntimeDone() noexcept { return g_api != nullptr && g_api->socket_runtime_done != nullptr ? g_api->socket_runtime_done() : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketOpenTcp(BkPlatformSocketHandle *out_handle) noexcept { return g_api != nullptr && g_api->socket_open_tcp != nullptr ? g_api->socket_open_tcp(out_handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketOpenUdp(BkPlatformSocketHandle *out_handle) noexcept { return g_api != nullptr && g_api->socket_open_udp != nullptr ? g_api->socket_open_udp(out_handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketBind(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, uint16_t port) noexcept { return g_api != nullptr && g_api->socket_bind != nullptr ? g_api->socket_bind(handle, address, port) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketListen(BkPlatformSocketHandle handle, int32_t backlog) noexcept { return g_api != nullptr && g_api->socket_listen != nullptr ? g_api->socket_listen(handle, backlog) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketConnect(BkPlatformSocketHandle handle, const BkPlatformSocketAddress *address) noexcept { return g_api != nullptr && g_api->socket_connect != nullptr ? g_api->socket_connect(handle, address) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketAccept(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, BkPlatformSocketHandle *out_handle) noexcept { return g_api != nullptr && g_api->socket_accept != nullptr ? g_api->socket_accept(handle, address, out_handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+int32_t Client::SocketSend(BkPlatformSocketHandle handle, const void *data, int32_t size) noexcept { return g_api != nullptr && g_api->socket_send != nullptr ? g_api->socket_send(handle, data, size) : -1; }
+int32_t Client::SocketReceive(BkPlatformSocketHandle handle, void *data, int32_t size) noexcept { return g_api != nullptr && g_api->socket_receive != nullptr ? g_api->socket_receive(handle, data, size) : -1; }
+int32_t Client::SocketSendTo(BkPlatformSocketHandle handle, const BkPlatformSocketAddress *address, const void *data, int32_t size) noexcept { return g_api != nullptr && g_api->socket_send_to != nullptr ? g_api->socket_send_to(handle, address, data, size) : -1; }
+int32_t Client::SocketReceiveFrom(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, void *data, int32_t size) noexcept { return g_api != nullptr && g_api->socket_receive_from != nullptr ? g_api->socket_receive_from(handle, address, data, size) : -1; }
+BkPlatformResult Client::SocketSetNonblocking(BkPlatformSocketHandle handle, uint32_t enabled) noexcept { return g_api != nullptr && g_api->socket_set_nonblocking != nullptr ? g_api->socket_set_nonblocking(handle, enabled) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketWaitReadable(BkPlatformSocketHandle handle, int32_t timeout_milliseconds) noexcept { return g_api != nullptr && g_api->socket_wait_readable != nullptr ? g_api->socket_wait_readable(handle, timeout_milliseconds) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::SocketResolveIPv4(const char *host, uint16_t port, BkPlatformSocketAddress *address) noexcept { return g_api != nullptr && g_api->socket_resolve_ipv4 != nullptr ? g_api->socket_resolve_ipv4(host, port, address) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformSocketError Client::SocketLastError() noexcept { return g_api != nullptr && g_api->socket_last_error != nullptr ? g_api->socket_last_error() : BK_PLATFORM_SOCKET_ERROR_UNKNOWN; }
+BkPlatformResult Client::SocketClose(BkPlatformSocketHandle handle) noexcept { return g_api != nullptr && g_api->socket_close != nullptr ? g_api->socket_close(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+
 }

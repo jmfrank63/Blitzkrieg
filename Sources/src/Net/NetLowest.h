@@ -5,6 +5,7 @@
 #endif // _MSC_VER > 1000
 
 #include "..//Platform//Socket.h"
+#include "NetDriver.h"
 #include <string>
 class CMemoryStream;
 namespace NNet
@@ -19,13 +20,14 @@ public:
 	bool SetInetName( const char *pszHost, int nDefaultPort );
 	std::string GetName( bool bResolve = true ) const;
 	std::string GetFastName() const { return GetName( false ); }
-	bool SameIP( const CNodeAddress &a ) const { return memcmp( ((char*)&a.addr) + 4, ((char*)&addr) + 4, 4 ) == 0; }
-	unsigned int GetIP() const { return ((unsigned int*)(&addr))[1]; }
+	bool SameIP( const CNodeAddress &a ) const { return memcmp( a.addr.data, addr.data, 4 ) == 0; }
+	unsigned int GetIP() const { unsigned int result = 0; memcpy( &result, addr.data, sizeof(result) ); return result; }
 
 	bool operator == ( const CNodeAddress &a ) const { return memcmp( &addr, &a.addr, sizeof(addr) ) == 0; }
 	bool operator != ( const CNodeAddress &a ) const { return memcmp( &addr, &a.addr, sizeof(addr) ) != 0; }
 
 	NPlatform::SocketAddress *GetSockAddr() { return &addr; }
+	const NPlatform::SocketAddress *GetSockAddr() const { return &addr; }
 
 	friend class CLinksManager;
 };

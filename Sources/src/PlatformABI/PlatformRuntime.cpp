@@ -1,5 +1,6 @@
 #include "PlatformABI/PlatformState.h"
 #include "Platform/Clock.h"
+#include "Platform/Socket.h"
 
 #include <cstdio>
 #include <cstring>
@@ -7,12 +8,238 @@
 #include <chrono>
 #include <mutex>
 #include <new>
+#include <unordered_map>
+#include <vector>
 
 #if defined(_WIN32)
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #endif
 
 namespace {
+struct SocketEntry {
+    NPlatform::SocketHandle native;
+    uint32_t generation;
+};
+
+std::mutex socket_mutex;
+std::unordered_map<uint32_t, SocketEntry> socket_entries;
+std::unordered_map<uint32_t, uint32_t> socket_generations;
+std::vector<uint32_t> free_socket_slots;
+uint32_t next_socket_slot = 1;
+uint32_t socket_runtime_refs = 0;
+bool socket_runtime_ready = false;
+
+BkPlatformSocketHandle make_socket_handle(uint32_t slot, uint32_t generation) {
+    return (static_cast<BkPlatformSocketHandle>(generation) << 32) | slot;
+}
+
+bool split_socket_handle(BkPlatformSocketHandle handle, uint32_t *slot, uint32_t *generation) {
+    if (handle == 0 || slot == nullptr || generation == nullptr) return false;
+    *slot = static_cast<uint32_t>(handle & 0xffffffffu);
+    *generation = static_cast<uint32_t>(handle >> 32);
+    return *slot != 0 && *generation != 0;
+}
+
+bool socket_native(BkPlatformSocketHandle handle, NPlatform::SocketHandle *out_native) {
+    uint32_t slot = 0;
+    uint32_t generation = 0;
+    if (!split_socket_handle(handle, &slot, &generation) || out_native == nullptr) return false;
+    std::lock_guard<std::mutex> lock(socket_mutex);
+    const auto it = socket_entries.find(slot);
+    if (it == socket_entries.end() || it->second.generation != generation) return false;
+    *out_native = it->second.native;
+    return true;
+}
+
+BkPlatformSocketHandle register_socket(NPlatform::SocketHandle native) {
+    if (native == NPlatform::InvalidSocket) return 0;
+    std::lock_guard<std::mutex> lock(socket_mutex);
+    uint32_t slot = 0;
+    if (!free_socket_slots.empty()) {
+        slot = free_socket_slots.back();
+        free_socket_slots.pop_back();
+    } else {
+        slot = next_socket_slot++;
+        if (slot == 0) slot = next_socket_slot++;
+    }
+    const auto generation_it = socket_generations.find(slot);
+    const uint32_t generation = generation_it == socket_generations.end() || generation_it->second == UINT32_MAX ? 1u : generation_it->second + 1u;
+    socket_generations[slot] = generation;
+    socket_entries[slot] = SocketEntry{native, generation};
+    return make_socket_handle(slot, generation);
+}
+
+bool unregister_socket(BkPlatformSocketHandle handle, NPlatform::SocketHandle *out_native) {
+    uint32_t slot = 0;
+    uint32_t generation = 0;
+    if (!split_socket_handle(handle, &slot, &generation) || out_native == nullptr) return false;
+    std::lock_guard<std::mutex> lock(socket_mutex);
+    const auto it = socket_entries.find(slot);
+    if (it == socket_entries.end() || it->second.generation != generation) return false;
+    *out_native = it->second.native;
+    socket_entries.erase(it);
+    free_socket_slots.push_back(slot);
+    return true;
+}
+
+void shutdown_sockets() {
+    std::vector<NPlatform::SocketHandle> native_handles;
+    bool had_runtime = false;
+    {
+        std::lock_guard<std::mutex> lock(socket_mutex);
+        for (const auto &entry : socket_entries) {
+            native_handles.push_back(entry.second.native);
+            free_socket_slots.push_back(entry.first);
+        }
+        socket_entries.clear();
+        socket_runtime_refs = 0;
+        had_runtime = socket_runtime_ready;
+        socket_runtime_ready = false;
+    }
+    for (const NPlatform::SocketHandle native : native_handles) NPlatform::Close(native);
+    if (had_runtime) NPlatform::SocketRuntimeDone();
+}
+
+BkPlatformResult require_socket_runtime() {
+    std::lock_guard<std::mutex> lock(socket_mutex);
+    return socket_runtime_ready ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_NOT_INITIALIZED;
+}
+
+NPlatform::SocketAddress to_native_address(const BkPlatformSocketAddress &address) {
+    NPlatform::SocketAddress native{};
+    native.family = address.family;
+    std::memcpy(native.data, address.data, sizeof(native.data));
+    return native;
+}
+
+void from_native_address(const NPlatform::SocketAddress &native, BkPlatformSocketAddress *address) {
+    if (address == nullptr) return;
+    address->family = native.family;
+    std::memcpy(address->data, native.data, sizeof(address->data));
+}
+
+BkPlatformResult socket_runtime_init() {
+    std::lock_guard<std::mutex> lock(socket_mutex);
+    if (socket_runtime_refs == 0 && !NPlatform::SocketRuntimeInit()) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    socket_runtime_ready = true;
+    ++socket_runtime_refs;
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_runtime_done() {
+    bool shutdown = false;
+    {
+        std::lock_guard<std::mutex> lock(socket_mutex);
+        if (socket_runtime_refs == 0) return BK_PLATFORM_ERROR_NOT_INITIALIZED;
+        --socket_runtime_refs;
+        shutdown = socket_runtime_refs == 0;
+    }
+    if (shutdown) shutdown_sockets();
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_runtime_init_call() { return socket_runtime_init(); }
+
+BkPlatformResult open_socket(bool tcp, BkPlatformSocketHandle *out_handle) {
+    if (out_handle == nullptr || require_socket_runtime() != BK_PLATFORM_OK) return out_handle == nullptr ? BK_PLATFORM_ERROR_INVALID_ARGUMENT : BK_PLATFORM_ERROR_NOT_INITIALIZED;
+    const NPlatform::SocketHandle native = tcp ? NPlatform::OpenTcpSocket() : NPlatform::OpenUdpSocket();
+    const BkPlatformSocketHandle handle = register_socket(native);
+    if (handle == 0) {
+        NPlatform::Close(native);
+        return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    }
+    *out_handle = handle;
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_open_tcp(BkPlatformSocketHandle *out_handle) { return open_socket(true, out_handle); }
+BkPlatformResult BK_PLATFORM_CALL socket_open_udp(BkPlatformSocketHandle *out_handle) { return open_socket(false, out_handle); }
+
+BkPlatformResult BK_PLATFORM_CALL socket_bind(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, uint16_t port) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (require_socket_runtime() != BK_PLATFORM_OK || !socket_native(handle, &native_socket)) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    NPlatform::SocketAddress native_address{};
+    NPlatform::SocketAddress *native_address_ptr = nullptr;
+    if (address != nullptr) { native_address = to_native_address(*address); native_address_ptr = &native_address; }
+    if (!NPlatform::Bind(native_socket, native_address_ptr, port)) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    if (address != nullptr) from_native_address(native_address, address);
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_listen(BkPlatformSocketHandle handle, int32_t backlog) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    return require_socket_runtime() == BK_PLATFORM_OK && socket_native(handle, &native_socket) && NPlatform::Listen(native_socket, backlog) ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_connect(BkPlatformSocketHandle handle, const BkPlatformSocketAddress *address) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (address == nullptr || require_socket_runtime() != BK_PLATFORM_OK || !socket_native(handle, &native_socket)) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    return NPlatform::Connect(native_socket, to_native_address(*address)) ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_accept(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, BkPlatformSocketHandle *out_handle) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (out_handle == nullptr || require_socket_runtime() != BK_PLATFORM_OK || !socket_native(handle, &native_socket)) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    NPlatform::SocketAddress native_address{};
+    const NPlatform::SocketHandle accepted = NPlatform::Accept(native_socket, address != nullptr ? &native_address : nullptr);
+    const BkPlatformSocketHandle portable = register_socket(accepted);
+    if (portable == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    if (address != nullptr) from_native_address(native_address, address);
+    *out_handle = portable;
+    return BK_PLATFORM_OK;
+}
+
+int32_t socket_io(BkPlatformSocketHandle handle, void *data, int32_t size, bool receive) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (require_socket_runtime() != BK_PLATFORM_OK || data == nullptr || size < 0 || !socket_native(handle, &native_socket)) return -1;
+    return receive ? NPlatform::Receive(native_socket, data, size) : NPlatform::Send(native_socket, data, size);
+}
+
+int32_t BK_PLATFORM_CALL socket_send(BkPlatformSocketHandle handle, const void *data, int32_t size) { return socket_io(handle, const_cast<void *>(data), size, false); }
+int32_t BK_PLATFORM_CALL socket_receive(BkPlatformSocketHandle handle, void *data, int32_t size) { return socket_io(handle, data, size, true); }
+
+int32_t BK_PLATFORM_CALL socket_send_to(BkPlatformSocketHandle handle, const BkPlatformSocketAddress *address, const void *data, int32_t size) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (address == nullptr || data == nullptr || size < 0 || require_socket_runtime() != BK_PLATFORM_OK || !socket_native(handle, &native_socket)) return -1;
+    return NPlatform::SendTo(native_socket, to_native_address(*address), data, size);
+}
+
+int32_t BK_PLATFORM_CALL socket_receive_from(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, void *data, int32_t size) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (data == nullptr || size < 0 || require_socket_runtime() != BK_PLATFORM_OK || !socket_native(handle, &native_socket)) return -1;
+    NPlatform::SocketAddress native_address{};
+    const int32_t result = NPlatform::ReceiveFrom(native_socket, address != nullptr ? &native_address : nullptr, data, size);
+    if (result >= 0 && address != nullptr) from_native_address(native_address, address);
+    return result;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_set_nonblocking(BkPlatformSocketHandle handle, uint32_t enabled) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    return require_socket_runtime() == BK_PLATFORM_OK && socket_native(handle, &native_socket) && NPlatform::SetNonBlocking(native_socket, enabled != 0) ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_wait_readable(BkPlatformSocketHandle handle, int32_t timeout_milliseconds) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    return timeout_milliseconds >= 0 && require_socket_runtime() == BK_PLATFORM_OK && socket_native(handle, &native_socket) && NPlatform::WaitReadable(native_socket, timeout_milliseconds) ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_TIMEOUT;
+}
+
+BkPlatformResult BK_PLATFORM_CALL socket_resolve_ipv4(const char *host, uint16_t port, BkPlatformSocketAddress *address) {
+    if (host == nullptr || address == nullptr || require_socket_runtime() != BK_PLATFORM_OK) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    NPlatform::SocketAddress native{};
+    if (!NPlatform::ResolveIPv4(host, port, &native)) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    from_native_address(native, address);
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformSocketError BK_PLATFORM_CALL socket_last_error() { return static_cast<BkPlatformSocketError>(NPlatform::LastError()); }
+
+BkPlatformResult BK_PLATFORM_CALL socket_close(BkPlatformSocketHandle handle) {
+    NPlatform::SocketHandle native_socket = NPlatform::InvalidSocket;
+    if (!unregister_socket(handle, &native_socket)) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    NPlatform::Close(native_socket);
+    return BK_PLATFORM_OK;
+}
+
 BkPlatformResult set_error(BkPlatformResult result, const char *message) {
     BkPlatformState &state = bk_platform_state();
     std::snprintf(state.last_error, sizeof(state.last_error), "%s", message);
@@ -37,6 +264,7 @@ BkPlatformResult BK_PLATFORM_CALL runtime_create(const BkPlatformCreateInfo *cre
 
 void BK_PLATFORM_CALL runtime_destroy() {
     BkPlatformState &state = bk_platform_state();
+    shutdown_sockets();
     state.initialized = false;
     state.log = nullptr;
     state.user_data = nullptr;
@@ -180,6 +408,23 @@ const BkPlatformApi api = {
     &get_live_sync_handles,
     &diagnostic_write,
     &is_debugger_attached,
+    &socket_runtime_init_call,
+    &socket_runtime_done,
+    &socket_open_tcp,
+    &socket_open_udp,
+    &socket_bind,
+    &socket_listen,
+    &socket_connect,
+    &socket_accept,
+    &socket_send,
+    &socket_receive,
+    &socket_send_to,
+    &socket_receive_from,
+    &socket_set_nonblocking,
+    &socket_wait_readable,
+    &socket_resolve_ipv4,
+    &socket_last_error,
+    &socket_close,
 };
 }
 

@@ -785,10 +785,13 @@ pub fn build(b: *std.Build) void {
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformRuntime.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/Clock.cpp"), .flags = &.{"-std=c++17"} });
+    platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketWin32.cpp"), .flags = &.{"-std=c++17"} });
+    platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketPosix.cpp"), .flags = &.{"-std=c++17"} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
         linkMsvcRuntime(platform_runtime_module, .Debug);
+        platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     }
     const platform_runtime = b.addLibrary(.{
         .name = "PlatformRuntime",
@@ -1119,6 +1122,8 @@ pub fn build(b: *std.Build) void {
     addInputAudioGateTest(b, target, test_mode, toolchain);
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
     addPlatformNetworkTest(b, target, test_mode, toolchain);
+    addPlatformSocketAbiTest(b, target, test_mode, toolchain, platform_runtime);
+    addNetLowestTest(b, target, test_mode, toolchain);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
 
@@ -3533,6 +3538,86 @@ fn addPlatformNetworkTest(
     const step = b.step("test-platform-network", "Run portable TCP and UDP socket tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addNetLowestTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Net"));
+    module.addIncludePath(b.path("Sources/src/Platform"));
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/Platform/SocketWin32.cpp",
+            "Sources/src/Platform/SocketPosix.cpp",
+            "Sources/src/Platform/Debug.cpp",
+            "Sources/src/Net/NetLowest.cpp",
+            "Sources/src/Net/Streams.cpp",
+            "tools/zig/netlowest_test.cpp",
+        },
+        .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"},
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+            module.linkSystemLibrary("ws2_32", .{});
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "netlowest-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-netlowest", "Run NetLowest loopback UDP fixture");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addPlatformSocketAbiTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = target.result.os.tag != .windows });
+    module.addIncludePath(b.path("Sources/src"));
+    module.addCSourceFile(.{ .file = b.path("tools/zig/platform_socket_abi_test.cpp"), .flags = &.{"-std=c++17"} });
+    module.linkLibrary(platform_runtime);
+    if (target.result.os.tag == .windows) {
+        addMsvcIncludePaths(b, module, toolchain);
+        addMsvcLibraryPaths(b, module, toolchain);
+        linkMsvcRuntime(module, .Debug);
+    } else if (target.result.os.tag == .linux) {
+        module.linkSystemLibrary("stdc++", .{});
+    } else if (target.result.os.tag == .macos) {
+        module.linkSystemLibrary("c++", .{});
+    }
+    const exe = b.addExecutable(.{ .name = "platform-socket-abi-test", .root_module = module });
+    if (target.result.os.tag == .windows) {
+        exe.subsystem = .console;
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    const step = b.step("test-platform-socket-abi", "Run the shared ABI generational socket contract");
+    step.dependOn(&platform_runtime.step);
+    step.dependOn(&exe.step);
+    if (test_mode == .run) {
+        run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+        step.dependOn(&run.step);
+    }
 }
 
 fn addNetworkSystemGateTest(

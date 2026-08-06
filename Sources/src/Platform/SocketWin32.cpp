@@ -40,6 +40,14 @@ bool Bind(SocketHandle socketHandle, SocketAddress *address, std::uint16_t port)
 	if ( result && address ) FromNative( native, address );
 	return result;
 }
+bool GetLocalAddress(SocketHandle socketHandle, SocketAddress *address)
+{
+	if ( address == nullptr ) return false;
+	sockaddr_in native{}; int length = sizeof(native);
+	if ( getsockname( Native(socketHandle), reinterpret_cast<sockaddr *>( &native ), &length ) != 0 ) return false;
+	FromNative( native, address );
+	return true;
+}
 bool Listen(SocketHandle socketHandle, int backlog) { return ::listen( Native(socketHandle), backlog ) == 0; }
 bool Connect(SocketHandle socketHandle, const SocketAddress &address) { const sockaddr_in native = ToNative(address); return ::connect( Native(socketHandle), reinterpret_cast<const sockaddr *>( &native ), sizeof(native) ) == 0; }
 SocketHandle Accept(SocketHandle socketHandle, SocketAddress *address)
@@ -54,10 +62,12 @@ int SendTo(SocketHandle socketHandle, const SocketAddress &address, const void *
 int ReceiveFrom(SocketHandle socketHandle, SocketAddress *address, void *data, int size)
 {
 	sockaddr_in native{}; int length = sizeof(native); int result = ::recvfrom( Native(socketHandle), static_cast<char *>(data), size, 0, reinterpret_cast<sockaddr *>( &native ), &length );
+	if ( result == SOCKET_ERROR && WSAGetLastError() == WSAEMSGSIZE ) result = size;
 	if ( result >= 0 && address ) FromNative( native, address );
 	return result;
 }
 bool SetNonBlocking(SocketHandle socketHandle, bool enabled) { u_long mode = enabled ? 1 : 0; return ioctlsocket( Native(socketHandle), FIONBIO, &mode ) == 0; }
+bool SetBroadcast(SocketHandle socketHandle, bool enabled) { const char value = enabled ? 1 : 0; return setsockopt( Native(socketHandle), SOL_SOCKET, SO_BROADCAST, &value, sizeof(value) ) == 0; }
 bool WaitReadable(SocketHandle socketHandle, int timeoutMilliseconds)
 {
 	fd_set set; FD_ZERO( &set ); FD_SET( Native(socketHandle), &set ); timeval timeout{ timeoutMilliseconds / 1000, (timeoutMilliseconds % 1000) * 1000 }; return select( 0, &set, 0, 0, &timeout ) > 0;

@@ -1,11 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-#if defined(_WIN32) || defined(_WIN64)
-#define WIN32_LEAN_AND_MEAN
-#define _WINSOCKAPI_
-#include <winsock2.h>
-#endif
-
 #include "../Platform/Compiler.h"
 #include "../Platform/LegacyTypes.h"
 #include "../Platform/LegacyVariant.h"

@@ -15,3 +15,5 @@
 Exit: Net includes no WinSock header, loopback/broadcast tests pass, and protocol fixture hashes are unchanged.
 
 P04-M01 Windows checkpoint: portable socket type and loopback network contracts pass natively; ABI-owned generational socket handles remain open.
+P04-M01 checkpoint: appended generational socket operations to the shared C ABI and passed the native ABI fixture, including stale-handle rejection and refcounted runtime shutdown.
+P04-M02 Windows checkpoint: NetLowest now uses the portable socket facade; the byte-identical loopback UDP fixture passes, including oversize truncation and reinitialization. Linux compile/runtime remains open due the host Zig C++ header environment.

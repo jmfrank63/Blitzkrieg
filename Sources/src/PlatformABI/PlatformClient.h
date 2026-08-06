@@ -32,6 +32,23 @@ public:
     static BkPlatformResult DiagnosticWrite(uint32_t level, BkPlatformUtf8Span message) noexcept;
     static bool IsDebuggerAttached() noexcept;
     static BkPlatformResult LastError(char *dst, uint32_t capacity, uint32_t *required) noexcept;
+    static BkPlatformResult SocketRuntimeInit() noexcept;
+    static BkPlatformResult SocketRuntimeDone() noexcept;
+    static BkPlatformResult SocketOpenTcp(BkPlatformSocketHandle *out_handle) noexcept;
+    static BkPlatformResult SocketOpenUdp(BkPlatformSocketHandle *out_handle) noexcept;
+    static BkPlatformResult SocketBind(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, uint16_t port) noexcept;
+    static BkPlatformResult SocketListen(BkPlatformSocketHandle handle, int32_t backlog) noexcept;
+    static BkPlatformResult SocketConnect(BkPlatformSocketHandle handle, const BkPlatformSocketAddress *address) noexcept;
+    static BkPlatformResult SocketAccept(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, BkPlatformSocketHandle *out_handle) noexcept;
+    static int32_t SocketSend(BkPlatformSocketHandle handle, const void *data, int32_t size) noexcept;
+    static int32_t SocketReceive(BkPlatformSocketHandle handle, void *data, int32_t size) noexcept;
+    static int32_t SocketSendTo(BkPlatformSocketHandle handle, const BkPlatformSocketAddress *address, const void *data, int32_t size) noexcept;
+    static int32_t SocketReceiveFrom(BkPlatformSocketHandle handle, BkPlatformSocketAddress *address, void *data, int32_t size) noexcept;
+    static BkPlatformResult SocketSetNonblocking(BkPlatformSocketHandle handle, uint32_t enabled) noexcept;
+    static BkPlatformResult SocketWaitReadable(BkPlatformSocketHandle handle, int32_t timeout_milliseconds) noexcept;
+    static BkPlatformResult SocketResolveIPv4(const char *host, uint16_t port, BkPlatformSocketAddress *address) noexcept;
+    static BkPlatformSocketError SocketLastError() noexcept;
+    static BkPlatformResult SocketClose(BkPlatformSocketHandle handle) noexcept;
 };
 
 }
