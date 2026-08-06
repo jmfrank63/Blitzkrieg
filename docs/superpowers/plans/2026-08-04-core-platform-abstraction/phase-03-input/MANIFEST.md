@@ -16,3 +16,5 @@
 Exit: Input contains no DirectInput header/type/call in the portable graph and fixture behavior matches Windows control semantics.
 
 P03-M01 Windows checkpoint: input contract compilation and portable code mapping execution pass; DirectInput type decontamination remains open.
+
+P03-M02 Windows checkpoint: `zig build test-input-state -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes. The focused fixture covers legacy key IDs, simultaneous modifiers, pointer coordinates, wheel direction, buttons, focus loss, and same-frame ordering. Production DirectInput polling replacement, old-oracle comparison, and Linux execution remain open.

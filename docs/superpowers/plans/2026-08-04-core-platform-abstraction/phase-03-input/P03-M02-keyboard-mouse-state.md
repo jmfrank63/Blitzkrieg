@@ -13,6 +13,6 @@
 - [ ] Replace device polling and buffered DirectInput records with platform event consumption.
 - [ ] Synthesize releases on focus loss and preserve mouse-coordinate translation semantics.
 - [x] Run the state fixture on Windows. Linux execution remains deferred to the cross-platform validation environment.
-- [ ] Commit: `input: consume platform keyboard and mouse events`
+- [x] Commit checkpoint: `097a5fe24` added the event-fed fixture and `bd66b84f0` closed its Windows build graph.
 
 **Evidence:** `test-input-state` compiles and runs on the Windows target. The fixture records the legacy control IDs and event ordering at the normalized `PlatformEvent` boundary. `CInputAPI` does not currently expose inspectable state independently of its private DirectInput-backed device graph, so this packet deliberately adds no new public state API; Linux execution and the old-oracle comparison remain open.
