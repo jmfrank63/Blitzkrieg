@@ -1111,6 +1111,7 @@ pub fn build(b: *std.Build) void {
     addPlatformInputTest(b, target, test_mode, toolchain);
     addInputStateFixtureTest(b, target, test_mode, toolchain);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
+    addInputTextRepeatTest(b, target, test_mode, toolchain);
     addPlatformClipboardTest(b, target, test_mode, toolchain);
     addPlatformAudioTest(b, target, test_mode, toolchain);
     addInputAudioGateTest(b, target, test_mode, toolchain);
@@ -3226,6 +3227,34 @@ fn addInputHeaderAuditTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-input-headers", "Compile the portable Input header boundary audit");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addInputTextRepeatTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_text_repeat_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "input-text-repeat-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    const step = b.step("test-input-text-repeat", "Run deterministic Input text, repeat, and focus tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

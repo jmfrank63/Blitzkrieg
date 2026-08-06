@@ -22,3 +22,5 @@ P03-M01 production update: the default Windows Input module is compiled with `BK
 P03-M02 Windows checkpoint: `zig build test-input-state -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes. The focused fixture covers legacy key IDs, simultaneous modifiers, pointer coordinates, wheel direction, buttons, focus loss, and same-frame ordering. The production event-only graph is implemented; old-oracle comparison and Linux execution remain open.
 
 P03-M02 production update: the default event-only input graph now consumes neutral `SInputEvent` records in platform order, uses monotonic time, filters key events in text-only mode, handles focus gained/lost transitions, and synthesizes keyboard/mouse releases on focus loss. The old-oracle comparison remains open.
+
+P03-M03 Windows checkpoint: `test-input-text-repeat` passes with deterministic UTF-8, separate key/text, repeat-delay/rate, disabled-text, and focus-loss coverage; the fixture also compiles for Linux. Native text smoke, dead-key/composition/backspace behavior, and binding-name verification remain open.

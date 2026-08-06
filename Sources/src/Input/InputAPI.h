@@ -15,12 +15,13 @@ protected:
 public:
 	CControl() : fPower( 1.0f ) {  }
 	CControl( const SControlDesc &desc ) : SControlDesc( desc ), fPower( 1.0f ) {  }
+	virtual ~CControl() = default;
 	const SControlDesc& GetDesc() const { return *this; }
 	const int GetID() const { return nID; }
 	void SetPower( const float _fPower ) { fPower = _fPower; }
 	const float GetPower() const { return fPower; }
 	virtual const bool ChangeState( const int nNewState, const DWORD time, const int nParam, const CControl *pLastPressedKey ) = 0;
-	virtual const int GenerateRepeats( const DWORD time ) { return 0; }
+	virtual const int GenerateRepeats( const DWORD time, const DWORD delay, const DWORD period ) { return 0; }
 	virtual void InitState( const DWORD dwNewState ) = 0;
 	virtual const DWORD GetDataFromBuffer( const BYTE *pBuffer ) = 0;
 	virtual const float GetValue() const = 0;
@@ -56,7 +57,7 @@ public:
 		: CControl( desc ), pDBLCLK( 0 ), vLastPos( VNULL2 ), dwLastTimePressed( 0 ), dwLastRepeatedTime( 0 ), nRepeated( 0 ), bPressed( false ) {  }
 	void SetDoubleClickControl( CControl *_pDBLCLK ) { pDBLCLK = _pDBLCLK; }
 	const bool ChangeState( const int nNewState, const DWORD time, const int nParam, const CControl *pLastPressedKey );
-	const int GenerateRepeats( const DWORD time );
+	const int GenerateRepeats( const DWORD time, const DWORD delay, const DWORD period );
 	void InitState( const DWORD dwNewState ) { bPressed = ( dwNewState & 0x80 ) != 0; }
 	const DWORD GetDataFromBuffer( const BYTE *pBuffer ) { return *( pBuffer + (GetID() & 0xfff) ); }
 	const float GetValue() const { return bPressed ? GetPower() : 0.0f; }
@@ -146,6 +147,8 @@ class CInputAPI : public CTRefCount<IInput>
 	std::deque<DIDEVICEOBJECTDATA> emulatedMessages;
 #endif
 	DWORD dwLastPumpingTime;							// 
+	DWORD dwRepeatDelay;
+	DWORD dwRepeatPeriod;
 	bool bInitialized;										// is input already initialized
 	bool bCoopLevelSet;										// is cooperative level already set ?
 	bool bFocusCaptured;									// is focus captured by this app ?

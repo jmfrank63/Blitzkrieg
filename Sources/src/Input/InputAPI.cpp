@@ -16,8 +16,6 @@
 extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
 #define SAMPLE_BUFFER_SIZE 128
 DWORD TIME_DIFF_DBL_CLK = 500;
-DWORD TIME_DIFF_REPEAT_DELAY = 500;
-DWORD TIME_DIFF_REPEAT_PERIOD	= 30;
 int AREA_DBL_CLK_CX = 2;
 int AREA_DBL_CLK_CY = 2;
 const bool CControlKey::ChangeState( const int nNewState, const DWORD time, const int nParam, const CControl *pLastPressedKey )
@@ -45,23 +43,23 @@ const bool CControlKey::ChangeState( const int nNewState, const DWORD time, cons
 	}
 	return bPressed;
 }
-const int CControlKey::GenerateRepeats( const DWORD time )
+const int CControlKey::GenerateRepeats( const DWORD time, const DWORD delay, const DWORD period )
 {
 	int nCounter = 0;
 	if ( nRepeated == 0 ) 
 	{
-		if ( dwLastRepeatedTime + TIME_DIFF_REPEAT_DELAY <= time ) 
+		if ( dwLastRepeatedTime + delay <= time ) 
 		{
 			++nRepeated;
-			dwLastRepeatedTime += TIME_DIFF_REPEAT_DELAY;
-			return GenerateRepeats( time ) + 1;
+			dwLastRepeatedTime += delay;
+			return GenerateRepeats( time, delay, period ) + 1;
 		}
 	}
 	else
 	{
-		while ( dwLastRepeatedTime + TIME_DIFF_REPEAT_PERIOD <= time ) 
+		while ( dwLastRepeatedTime + period <= time ) 
 		{
-			dwLastRepeatedTime += TIME_DIFF_REPEAT_PERIOD;
+			dwLastRepeatedTime += period;
 			++nRepeated;
 			++nCounter;
 		}
@@ -428,6 +426,8 @@ CInputAPI::CInputAPI()
 	dwLastPumpingTime = timeGetTime();
 	#endif
 	pLastControlKey = 0;
+	dwRepeatDelay = 500;
+	dwRepeatPeriod = 30;
 }
 CInputAPI::~CInputAPI()
 {
@@ -499,8 +499,8 @@ bool CInputAPI::Init()
 	bFocusCaptured = false;
 	dwLastPumpingTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
 	TIME_DIFF_DBL_CLK = 500;
-	TIME_DIFF_REPEAT_DELAY = 500;
-	TIME_DIFF_REPEAT_PERIOD = 30;
+	dwRepeatDelay = 500;
+	dwRepeatPeriod = 30;
 	return true;
 #else
 	{
@@ -531,13 +531,13 @@ bool CInputAPI::Init()
 		DWORD dwSpeed = 0;	// repetition speed [0..31], 0 = 2.5 repetitions per sec, 31 = 30 repetitions per sec
 		SystemParametersInfo( SPI_GETKEYBOARDDELAY, 0, &nDelay, 0 );
 		SystemParametersInfo( SPI_GETKEYBOARDSPEED, 0, &dwSpeed, 0 );
-		TIME_DIFF_REPEAT_DELAY = (nDelay + 1) * 250;
-		TIME_DIFF_REPEAT_PERIOD = 1000.0f / ( 2.5f + (float(dwSpeed) / 31.0f)*( 30.0f - 2.5f ) );
+		dwRepeatDelay = (nDelay + 1) * 250;
+		dwRepeatPeriod = 1000.0f / ( 2.5f + (float(dwSpeed) / 31.0f)*( 30.0f - 2.5f ) );
 	}
 	else
 	{
-		TIME_DIFF_REPEAT_DELAY = 0x7fffffff;
-		TIME_DIFF_REPEAT_PERIOD = 0x7fffffff;
+		dwRepeatDelay = 0x7fffffff;
+		dwRepeatPeriod = 0x7fffffff;
 	}
 	return bInitialized;
 #endif
@@ -1207,7 +1207,7 @@ void CInputAPI::GenerateRepeats( CControl *pControl )
 	const SDevice *pDevice = GetDevice( (pControl->GetID() >> 16) & 0xffff );
 	if ( pDevice->eType == DEVICE_TYPE_KEYBOARD )
 	{
-		const int nRepeats = pControl->GenerateRepeats( dwLastPumpingTime );
+		const int nRepeats = pControl->GenerateRepeats( dwLastPumpingTime, dwRepeatDelay, dwRepeatPeriod );
 		if ( nRepeats == 1 ) 
 		{
 			DIDEVICEOBJECTDATA didod;

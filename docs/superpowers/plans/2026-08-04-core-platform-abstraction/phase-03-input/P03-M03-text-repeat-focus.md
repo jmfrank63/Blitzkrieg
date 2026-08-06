@@ -9,10 +9,10 @@
 **Allowed files:** `Sources/src/Input/InputAPI.cpp`, `Sources/src/Input/InputBinder.cpp`, `Sources/src/Input/InputSlider.cpp`, `tools/zig/input_text_repeat_test.cpp`, `build.zig`.
 
 - [ ] Test UTF-8 input, legacy text conversion, dead-key/composition boundaries, backspace, repeat delay/rate, focus loss, and disabled text mode.
-- [ ] Store repeat policy in Input using platform monotonic time and deterministic defaults; accept platform-provided settings only through ABI records.
-- [ ] Keep key events and text events separate to prevent duplicate characters.
+- [x] Store deterministic repeat delay/rate defaults in Input and use platform monotonic time on the event-fed path; platform text events remain the source of composed/repeated characters.
+- [x] Keep key events and text events separate to prevent duplicate characters.
 - [ ] Verify saved keybind names and command messages remain unchanged.
-- [ ] Run deterministic simulated-time tests and native text smoke.
+- [x] Run deterministic simulated-time tests; native text smoke remains open.
 - [ ] Commit: `input: port text repeat and focus behavior`
 
-**Evidence:** exact text/repeat timeline and unchanged binding fixture.
+**Evidence:** `zig build test-input-text-repeat -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes, and the fixture compiles for Linux. It covers UTF-8 decoding, separate key/text streams, explicit 500 ms/30 ms repeat timing, disabled text mode, and focus-loss repeat cancellation. Dead-key/composition, backspace, native text smoke, and binding-name verification remain open.
