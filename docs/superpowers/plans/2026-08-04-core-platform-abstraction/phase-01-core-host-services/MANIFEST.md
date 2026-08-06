@@ -24,3 +24,5 @@ P01-M03 Windows checkpoint: the ABI appends callback-first diagnostic output and
 P01-M04 Windows checkpoint: the existing dynamic-library facade now uses native `LoadLibraryA`/`GetProcAddress`/`FreeLibrary` on Windows and `dlopen`/`dlsym`/`dlclose` on POSIX, with no SDL loader dependency. The Windows fixture test passes symbol call `42`, missing-symbol diagnostics, move ownership, and double unload.
 
 P01-M05 Windows checkpoint: the existing paths and file utility tests pass natively for `x86_64-windows-msvc`; the remaining ABI-owned metadata/enumeration conversion is still open.
+
+P01-M06 Windows checkpoint: `test-platform-system -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes environment, executable-path, injected dialog/URL, and child-process argument/exit-code checks. Timeout/output-limit and full ABI conversion remain open.
