@@ -14,4 +14,4 @@
 
 Exit: the native SDL application contract passes with one window owner, deterministic event translation, and clean restart.
 
-P02-M01 checkpoint: the existing SDLApplication lifecycle test and private borrowed-window bridge are retained; full PlatformRuntime ABI ownership is not yet complete.
+P02-M01 checkpoint: the existing SDLApplication lifecycle test compiles and the private borrowed-window bridge is retained. Run-mode execution hangs in this headless session, so desktop/GPU acceptance and full PlatformRuntime ABI ownership remain open.
