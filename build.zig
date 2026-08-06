@@ -735,15 +735,47 @@ pub fn build(b: *std.Build) void {
     const runtime_platform_audit_step = b.step("test-runtime-platform-audit", "Audit playable source platform dependencies");
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
+
     const optimize = b.standardOptimizeOption(.{});
     const library_arch = build_support.libraryArch(platform);
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
-        .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
+        .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK library include directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
         .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib",
-        .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
+        .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
         .library_arch = library_arch,
     };
+
+    const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
+    platform_abi_layout_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_abi_layout_test.cpp"), .flags = &.{ "-std=c++17" } });
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, platform_abi_layout_module, toolchain);
+        addMsvcLibraryPaths(b, platform_abi_layout_module, toolchain);
+        linkMsvcRuntime(platform_abi_layout_module, .Debug);
+    }
+    const platform_abi_layout_test = b.addExecutable(.{ .name = "platform-abi-layout-test", .root_module = platform_abi_layout_module });
+    if (platform == .windows_x64) {
+        platform_abi_layout_test.subsystem = .console;
+        platform_abi_layout_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const platform_abi_layout_run = b.addRunArtifact(platform_abi_layout_test);
+
+    const platform_abi_compile_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/platform_abi_compile_test.zig"),
+        .target = target,
+        .optimize = .Debug,
+    });
+    platform_abi_compile_module.addIncludePath(b.path("Sources/src"));
+    const platform_abi_compile_tests = b.addTest(.{ .root_module = platform_abi_compile_module });
+    const platform_abi_compile_run = b.addRunArtifact(platform_abi_compile_tests);
+    const platform_abi_layout_step = b.step("test-platform-abi-layout", "Validate the versioned platform C ABI layout and C import");
+    platform_abi_layout_step.dependOn(&platform_abi_layout_test.step);
+    platform_abi_layout_step.dependOn(&platform_abi_compile_tests.step);
+    if (test_mode == .run) {
+        platform_abi_layout_step.dependOn(&platform_abi_layout_run.step);
+        platform_abi_layout_step.dependOn(&platform_abi_compile_run.step);
+    }
     const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
     platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
     platform_headers_module.addIncludePath(b.path("Sources/src"));

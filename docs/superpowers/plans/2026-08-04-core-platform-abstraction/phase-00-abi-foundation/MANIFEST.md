@@ -14,4 +14,6 @@
 
 P00-M01 evidence: commits `f27534cab` and `7e27b4d8`; Windows native audit passed with 9 tests and 68 inventory hits / 67 unique allowlist entries. Linux/WSL2 verification and byte-identical sorted inventory evidence are recorded in `docs/superpowers/evidence/platform-abstraction/inventory.md`.
 
+P00-M02 Windows evidence: `test-platform-abi-layout -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed the C++17 layout executable and Zig C-import test. Linux/macOS target validation remains deferred to WSL/CI/native Mac acceptance.
+
 Exit: `test-platform-abi` and `test-platform-foundation` pass for native Windows/Linux and compile for macOS arm64, with a versioned shared runtime used by a real C++ consumer.
