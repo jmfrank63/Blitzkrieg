@@ -811,6 +811,46 @@ pub fn build(b: *std.Build) void {
     platform_runtime_step.dependOn(&platform_runtime_test.step);
     if (test_mode == .run) platform_runtime_step.dependOn(&platform_runtime_run.step);
 
+    const consumer_a_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    consumer_a_module.addIncludePath(b.path("Sources/src"));
+    consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{ "-std=c++17" } });
+    consumer_a_module.linkLibrary(platform_runtime);
+    const consumer_a = b.addLibrary(.{ .name = "platform-consumer-a", .linkage = .dynamic, .root_module = consumer_a_module });
+    const consumer_b_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    consumer_b_module.addIncludePath(b.path("Sources/src"));
+    consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{ "-std=c++17" } });
+    consumer_b_module.linkLibrary(platform_runtime);
+    const consumer_b = b.addLibrary(.{ .name = "platform-consumer-b", .linkage = .dynamic, .root_module = consumer_b_module });
+    const client_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    client_test_module.addIncludePath(b.path("Sources/src"));
+    client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{ "-std=c++17" } });
+    client_test_module.linkLibrary(platform_runtime);
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, consumer_a_module, toolchain);
+        addMsvcLibraryPaths(b, consumer_a_module, toolchain);
+        addMsvcIncludePaths(b, consumer_b_module, toolchain);
+        addMsvcLibraryPaths(b, consumer_b_module, toolchain);
+        addMsvcIncludePaths(b, client_test_module, toolchain);
+        addMsvcLibraryPaths(b, client_test_module, toolchain);
+        linkMsvcRuntime(consumer_a_module, .Debug);
+        linkMsvcRuntime(consumer_b_module, .Debug);
+        linkMsvcRuntime(client_test_module, .Debug);
+    }
+    const client_test = b.addExecutable(.{ .name = "platform-client-test", .root_module = client_test_module });
+    if (platform == .windows_x64) {
+        client_test.subsystem = .console;
+        client_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const client_run = b.addRunArtifact(client_test);
+    client_run.addArtifactArg(consumer_a);
+    client_run.addArtifactArg(consumer_b);
+    const client_step = b.step("test-platform-client", "Run checked C++ platform client tests");
+    client_step.dependOn(&platform_runtime.step);
+    client_step.dependOn(&consumer_a.step);
+    client_step.dependOn(&consumer_b.step);
+    client_step.dependOn(&client_test.step);
+    if (test_mode == .run) client_step.dependOn(&client_run.step);
+
     const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
     platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
     platform_headers_module.addIncludePath(b.path("Sources/src"));

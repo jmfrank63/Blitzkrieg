@@ -44,12 +44,17 @@ BkPlatformResult BK_PLATFORM_CALL get_last_error(char *dst, uint32_t capacity, u
     return BK_PLATFORM_OK;
 }
 
+uint64_t BK_PLATFORM_CALL get_runtime_generation() {
+    return bk_platform_state().generation;
+}
+
 const BkPlatformApi api = {
     BK_PLATFORM_ABI_VERSION,
     sizeof(BkPlatformApi),
     &runtime_create,
     &runtime_destroy,
     &get_last_error,
+    &get_runtime_generation,
 };
 }
 

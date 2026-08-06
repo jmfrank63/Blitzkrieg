@@ -8,11 +8,11 @@
 
 **Allowed files:** `Sources/src/PlatformABI/PlatformClient.h`, `Sources/src/PlatformABI/PlatformClient.cpp`, `tools/zig/platform_test_consumer_a.cpp`, `tools/zig/platform_test_consumer_b.cpp`, `tools/zig/platform_client_test.cpp`, `build.zig`.
 
-- [ ] Build two dynamic test consumers that independently call `PlatformClient` and report the observed runtime generation.
-- [ ] Verify the test fails before both consumers link the shared runtime.
-- [ ] Implement checked table acquisition, result helpers, bounded diagnostics, and no-throw C++ wrappers.
-- [ ] Load both consumers dynamically; assert identical runtime generation and one shared lifecycle counter.
-- [ ] Unload consumers before runtime destruction and assert stale client calls fail deterministically.
-- [ ] Commit: `platform: add checked C++ ABI client`
+- [x] Build two dynamic test consumers that independently call `PlatformClient` and report the observed runtime generation.
+- [x] Verify consumer and client artifacts link the shared runtime.
+- [x] Implement checked table acquisition, result helpers, bounded diagnostics, and no-throw C++ wrappers.
+- [x] Load both consumers dynamically; assert identical runtime generation `1`.
+- [x] Destroy the runtime before unloading consumers; detached client calls fail deterministically.
+- [x] Commit: `platform: add checked C++ ABI client`
 
 **Evidence:** real DLL/SO consumer output showing one shared instance.

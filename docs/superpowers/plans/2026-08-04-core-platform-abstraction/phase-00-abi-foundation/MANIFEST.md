@@ -18,4 +18,6 @@ P00-M02 Windows evidence: `test-platform-abi-layout -Dtarget=x86_64-windows-msvc
 
 P00-M03 Windows evidence: `test-platform-runtime -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed the shared DLL lifecycle test. The export definition contains only `bk_platform_get_api`; two create/destroy cycles complete without SDL, socket, thread, or window state.
 
+P00-M04 Windows evidence: `test-platform-client -Dtarget=x86_64-windows-msvc -Dtest-mode=run` dynamically loaded consumer A and B, both observed shared runtime generation `1`, then unloaded consumers after runtime destruction.
+
 Exit: `test-platform-abi` and `test-platform-foundation` pass for native Windows/Linux and compile for macOS arm64, with a versioned shared runtime used by a real C++ consumer.

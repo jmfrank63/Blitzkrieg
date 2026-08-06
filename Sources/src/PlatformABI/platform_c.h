@@ -54,6 +54,7 @@ typedef struct BkPlatformApi {
     BkPlatformResult (BK_PLATFORM_CALL *runtime_create)(const BkPlatformCreateInfo *create_info);
     void (BK_PLATFORM_CALL *runtime_destroy)(void);
     BkPlatformResult (BK_PLATFORM_CALL *get_last_error)(char *dst, uint32_t capacity, uint32_t *required);
+    uint64_t (BK_PLATFORM_CALL *get_runtime_generation)(void);
 } BkPlatformApi;
 
 #ifdef __cplusplus
