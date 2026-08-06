@@ -703,6 +703,17 @@ pub fn build(b: *std.Build) void {
     const build_support_step = b.step("test-build-support", "Validate the supported cross-platform target policy");
     build_support_step.dependOn(&build_support_tests.step);
     if (test_mode == .run) build_support_step.dependOn(&build_support_tests_run.step);
+
+    const runtime_platform_audit_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/runtime_platform_audit_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const runtime_platform_audit_tests = b.addTest(.{ .root_module = runtime_platform_audit_module });
+    const runtime_platform_audit_run = b.addRunArtifact(runtime_platform_audit_tests);
+    const runtime_platform_audit_step = b.step("test-runtime-platform-audit", "Audit playable source platform dependencies");
+    runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
+    if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
     const optimize = b.standardOptimizeOption(.{});
     const library_arch = build_support.libraryArch(platform);
     const toolchain = ToolchainIncludes{
