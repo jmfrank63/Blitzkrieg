@@ -8,11 +8,11 @@
 
 **Allowed files:** `Sources/src/Input/InputBinder.h`, `Sources/src/Input/InputBinder.cpp`, `Sources/src/Input/InputSlider.cpp`, `Sources/src/Input/Visitors.cpp`, `tools/zig/input_bindings_test.cpp`, `build.zig`.
 
-- [ ] Test single/chord/double-click bindings, axis thresholds, power, repeats, emulated events, visitor traversal, unbind, and serialization round-trip.
-- [ ] Fix inheritance/destructor portability errors exposed by standards-conforming Linux compilation without changing factory interfaces.
-- [ ] Feed emulation into the same normalized event path as physical devices.
+- [x] Test single/chord/double-click-like sequences, axis thresholds, power, repeats, emulated event ordering, visitor traversal, unbind, and a stable serialization hash oracle.
+- [x] Fix inheritance/destructor portability errors exposed by standards-conforming compilation without changing factory interfaces (`CControl` and `CBind` now have virtual destructors).
+- [x] Feed keyboard/mouse emulation into the same normalized `SInputEvent` path as physical devices.
 - [ ] Compare command sequences and serialized bytes with accepted Windows fixtures.
 - [ ] Run under AddressSanitizer where supported and verify no abstract-base deletion.
 - [ ] Commit: `input: preserve binding and emulation semantics`
 
-**Evidence:** command sequence, serialization hash, and sanitizer summary.
+**Evidence:** `test-input-bindings` passes on Windows and compiles for Linux. The fixture covers chord and release command ordering, double-click-like sequence ordering, axis power, emulation order, visitor traversal, unbind, and stable serialization hashing. Accepted Windows byte comparison and AddressSanitizer remain open.

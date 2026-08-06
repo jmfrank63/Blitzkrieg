@@ -149,6 +149,7 @@ protected:
 	SCommand *pCommand;
 public:
 	CBind( SCommand *_pCommand ) : pCommand( _pCommand ) {  }
+	virtual ~CBind() = default;
 	virtual void NotifyComboStateChanged( const bool bFormed, const float fPower, const EControlType eControlType, const DWORD time, const int nParam ) = 0;
 	virtual const EInputBindActivationType GetType() const = 0;
 	const SCommand* GetCommand() const { return pCommand; }

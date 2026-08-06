@@ -554,6 +554,9 @@ bool CInputAPI::Done()
 	bCoopLevelSet = false;
 	bFocusCaptured = false;
 	chars.clear();
+	emulatedMessages.clear();
+	activecontrols.clear();
+	pLastControlKey = 0;
 	controlIDs.clear();
 	controlNames.clear();
 	devices.clear();

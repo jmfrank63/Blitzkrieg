@@ -26,3 +26,5 @@ P03-M02 production update: the default event-only input graph now consumes neutr
 P03-M03 Windows checkpoint: `test-input-text-repeat` passes with deterministic UTF-8, separate key/text, repeat-delay/rate, disabled-text, and focus-loss coverage; the fixture also compiles for Linux. Native text smoke, dead-key/composition/backspace behavior, and binding-name verification remain open.
 
 P03-M04 Windows checkpoint: `test-input-controller` passes for connect ordering, duplicate names, disconnect/reconnect, dead zone, signed axes, triggers, stale events, and release-on-removal; the fixture also compiles for Linux. Native SDL hotplug execution remains open.
+
+P03-M05 Windows checkpoint: `test-input-bindings` passes for chord/release ordering, double-click-like sequences, axis power, emulation ordering, visitor traversal, unbind, and serialization hashing; the fixture also compiles for Linux. Accepted Windows byte comparison and sanitizer execution remain open.
