@@ -4,7 +4,9 @@
 #include "InputCodes.h"
 #include "../Platform/Event.h"
 #include "../Platform/Clock.h"
+#if !defined(BK_INPUT_EVENT_ONLY)
 #include <dinput.h>
+#endif
 
 #include <mmsystem.h>
 #include "../UI/UIMessages.h"
@@ -85,6 +87,7 @@ const bool CControlAxisR::ChangeState( const int nNewState, const DWORD time, co
 	}
 	return nPos != 0;
 }
+#if !defined(BK_INPUT_EVENT_ONLY)
 struct SNameID
 {
 	const char *pszName;
@@ -408,6 +411,7 @@ BOOL CALLBACK DIEnumDeviceObjectsCallback( LPCDIDEVICEOBJECTINSTANCE lpddoi, LPV
 	NStr::DebugTrace( "\t--- New Control \"%s\" of type %s with offset %d found\n", control.szFriendlyName.c_str(), control.szName.c_str(), object.dwOfs );
 	return DIENUM_CONTINUE;
 }
+#endif
 CInputAPI::CInputAPI()
 {
 	eTextMode = INPUT_TEXT_MODE_NOTEXT;
@@ -439,13 +443,16 @@ bool CInputAPI::Init()
 	keyboard.szName = "KEYBOARD";
 	keyboard.szFriendlyName = "Keyboard";
 	keyboard.bEmulated = true;
-	for ( const SNameID *entry = kbdKeyMaps; entry->pszName != nullptr; ++entry )
+	std::size_t keyboardCodeCount = 0;
+	const NInput::KeyCodeEntry *keyboardCodes = NInput::KeyboardCodes( &keyboardCodeCount );
+	for ( std::size_t i = 0; i != keyboardCodeCount; ++i )
 	{
+		const NInput::KeyCodeEntry &entry = keyboardCodes[i];
 		SControlDesc desc = {};
 		desc.eType = CONTROL_TYPE_KEY;
-		desc.nID = static_cast<int>( entry->dwID );
-		desc.szName = entry->pszName;
-		desc.szFriendlyName = entry->pszName;
+		desc.nID = static_cast<int>( entry.code );
+		desc.szName = entry.name;
+		desc.szFriendlyName = entry.name;
 		desc.nGranularity = 1;
 		keyboard.controls.push_back( new CControlKey( desc ) );
 		controlIDs[( keyboard.nID << 16 ) | desc.nID] = keyboard.controls.back();
@@ -538,10 +545,13 @@ bool CInputAPI::Done()
 	controlIDs.clear();
 	controlNames.clear();
 	devices.clear();
+#if !defined(BK_INPUT_EVENT_ONLY)
 	pInput = 0;
+#endif
 	hWindow = 0;
 	return true;
 }
+#if !defined(BK_INPUT_EVENT_ONLY)
 #if defined(__clang__)
 __attribute__((no_sanitize("alignment")))
 #endif
@@ -672,6 +682,7 @@ void CInputAPI::AddDevice( SDeviceEnumDesc *pDesc, const int nID )
 		}
 	}
 }
+#endif
 SDevice* CInputAPI::GetDevice( const int nID )
 {
 	for ( CDevicesList::iterator it = devices.begin(); it != devices.end(); ++it )
@@ -711,6 +722,10 @@ bool CInputAPI::SetPower( const std::string &szControlName, const float fPower )
 }
 bool CInputAPI::SetCoopLevel()
 {
+#if defined(BK_INPUT_EVENT_ONLY)
+	bCoopLevelSet = true;
+	return true;
+#else
 	if ( bCoopLevelSet )
 		return true;
 	for ( CDevicesList::iterator it = devices.begin(); it != devices.end(); ++it )
@@ -726,6 +741,7 @@ bool CInputAPI::SetCoopLevel()
 	}
 	bCoopLevelSet = true;
 	return true;
+#endif
 }
 bool CInputAPI::SetFocus( bool bFocus )
 {
@@ -733,6 +749,12 @@ bool CInputAPI::SetFocus( bool bFocus )
 		return false;
 	if ( bFocusCaptured == bFocus )
 		return true;
+#if defined(BK_INPUT_EVENT_ONLY)
+	bFocusCaptured = bFocus;
+	if ( bFocus )
+		GetSingleton<IInput>()->AddMessage( SGameMessage( UI_CLEAR_KEYBOARD_STATE ) );
+	return true;
+#else
 	if ( bFocus )
 	{
 		// The SDL owner has already established focus; there is no native window
@@ -768,11 +790,14 @@ bool CInputAPI::SetFocus( bool bFocus )
 	}
 	bFocusCaptured = bFocus;
 	return true;
+#endif
 }
 void CInputAPI::SetDeviceEmulationStatus( const enum EDeviceType eDeviceType, const bool bEmulate )
 {
+#if !defined(BK_INPUT_EVENT_ONLY)
 	for ( CDevicesList::iterator it = devices.begin(); it != devices.end(); ++it )
 		it->pDevice->Unacquire();
+#endif
 	for ( CDevicesList::iterator it = devices.begin(); it != devices.end(); ++it )
 	{
 		if ( it->eType == eDeviceType ) 
@@ -802,12 +827,19 @@ void CInputAPI::EmulateInput( const enum EDeviceType eDeviceType, const int nCon
 	{
 		if ( it->eType == eDeviceType ) 
 		{
+#if defined(BK_INPUT_EVENT_ONLY)
+			emulatedMessages.push_back( SInputEvent {
+				static_cast<std::uint32_t>( it->nID ), static_cast<std::uint32_t>( nControlID ),
+				static_cast<std::int32_t>( nValue ), static_cast<std::uint32_t>( time ),
+				static_cast<std::uint32_t>( nParam ) } );
+#else
 			DIDEVICEOBJECTDATA didod;
 			didod.dwOfs = ( it->nID << 16 ) | nControlID;
 			didod.dwData = nValue;
 			didod.dwTimeStamp = time;
 			didod.dwSequence = nParam;
 			emulatedMessages.push_back( didod );
+#endif
 			break;
 		}
 	}
@@ -890,6 +922,7 @@ void CInputAPI::ClearMessages()
 	messages.clear();
 	chars.clear();
 }
+#if !defined(BK_INPUT_EVENT_ONLY)
 struct SSeqNumberLessThenFunctional
 {
 	bool operator()( const DIDEVICEOBJECTDATA &dido1, const DIDEVICEOBJECTDATA &dido2 ) const 
@@ -897,6 +930,7 @@ struct SSeqNumberLessThenFunctional
 		return ( dido1.dwSequence < dido2.dwSequence ); 
 	}
 };
+#endif
 bool CInputAPI::PumpMessagesLocal( bool bFocus )
 {
 	if ( !bInitialized )
@@ -907,6 +941,16 @@ bool CInputAPI::PumpMessagesLocal( bool bFocus )
 		return false;
 	for ( CStoredControlsList::iterator it = activecontrols.begin(); it != activecontrols.end(); ++it )
 		it->bActive = false;
+#if defined(BK_INPUT_EVENT_ONLY)
+	chars.clear();
+	dwLastPumpingTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
+	// Platform events are already ordered by the SDL owner.  sequence remains
+	// the legacy notification parameter (modifiers, position, or caller data),
+	// so sorting on it would change same-frame input semantics.
+	for ( std::deque<SInputEvent>::const_iterator it = emulatedMessages.begin(); it != emulatedMessages.end(); ++it )
+		EventCame( *it );
+	emulatedMessages.clear();
+#else
 	std::vector<DIDEVICEOBJECTDATA> events( SAMPLE_BUFFER_SIZE * devices.size() );
 	chars.clear();
 	int nNumEvents = 0;
@@ -984,6 +1028,7 @@ bool CInputAPI::PumpMessagesLocal( bool bFocus )
 	for ( std::deque<DIDEVICEOBJECTDATA>::const_iterator it = emulatedMessages.begin(); it != emulatedMessages.end(); ++it )
 		EventCame( &(*it), it->dwSequence );
 	emulatedMessages.clear();
+#endif
 	for ( CStoredControlsList::iterator it = activecontrols.begin(); it != activecontrols.end();  )
 	{
 		if ( !it->bActive ) 
@@ -1005,6 +1050,7 @@ bool CInputAPI::PumpMessagesLocal( bool bFocus )
 	}
 	return true;
 }
+#if !defined(BK_INPUT_EVENT_ONLY)
 void CInputAPI::Convert2Text( const DIDEVICEOBJECTDATA *pData, int nNumElements )
 {
 	BYTE keys[256];
@@ -1067,6 +1113,35 @@ void CInputAPI::Convert2Text( const DIDEVICEOBJECTDATA *pData, int nNumElements 
 		chars.push_back( message );
 	}
 }
+#else
+void CInputAPI::EventCame( const SInputEvent &event )
+{
+	const int controlID = static_cast<int>( (event.device_id << 16) | (event.control_id & 0xffffu) );
+	CControl *pControl = controlIDs[controlID];
+	if ( pControl == 0 )
+		return;
+	if ( pControl->GetType() == CONTROL_TYPE_POV_X )
+	{
+		const float fAngle = float( event.value ) / 36000.0f * FP_2PI;
+		const float fAxisX = event.value == -1 ? 0 : AXIS_RANGE_VALUE * sin( fAngle );
+		const float fAxisY = event.value == -1 ? 0 : AXIS_RANGE_VALUE * cos( fAngle );
+		if ( pControl->ChangeState( fAxisX, event.timestamp, event.sequence, pLastControlKey ) )
+			AddActiveControl( pControl );
+		if ( CControl *pControlY = controlIDs[pControl->GetID() | 0x8000] )
+		{
+			if ( pControlY->ChangeState( fAxisY, event.timestamp, event.sequence, pLastControlKey ) )
+				AddActiveControl( pControlY );
+		}
+	}
+	else if ( pControl->ChangeState( event.value, event.timestamp, event.sequence, pLastControlKey ) )
+	{
+		AddActiveControl( pControl );
+		if ( pControl->GetType() == CONTROL_TYPE_KEY )
+			pLastControlKey = pControl;
+	}
+}
+#endif
+#if !defined(BK_INPUT_EVENT_ONLY)
 void CInputAPI::EventCame( const DIDEVICEOBJECTDATA *pEvent, const int nParam )
 {
 	CControl *pControl = controlIDs[pEvent->dwOfs];
@@ -1092,6 +1167,7 @@ void CInputAPI::EventCame( const DIDEVICEOBJECTDATA *pEvent, const int nParam )
 			pLastControlKey = pControl;
 	}
 }
+#endif
 void CInputAPI::AddActiveControl( CControl *pControl )
 {
 	for ( CStoredControlsList::iterator it = activecontrols.begin(); it != activecontrols.end(); ++it )
@@ -1106,6 +1182,10 @@ void CInputAPI::AddActiveControl( CControl *pControl )
 }
 void CInputAPI::GenerateRepeats( CControl *pControl )
 {
+#if defined(BK_INPUT_EVENT_ONLY)
+	(void)pControl;
+	return;
+#else
 	if ( (eTextMode == INPUT_TEXT_MODE_NOTEXT) ) 
 		return;
 	const SDevice *pDevice = GetDevice( (pControl->GetID() >> 16) & 0xffff );
@@ -1133,6 +1213,7 @@ void CInputAPI::GenerateRepeats( CControl *pControl )
 			Convert2Text( &(didods[0]), didods.size() );
 		}
 	}
+#endif
 }
 void CInputAPI::VisitControls( IInputVisitor *pVisitor )
 {
@@ -1142,6 +1223,7 @@ void CInputAPI::VisitControls( IInputVisitor *pVisitor )
 			pVisitor->VisitControl( it->second );
 	}
 }
+#if !defined(BK_INPUT_EVENT_ONLY)
 bool CInputAPI::GetDeviceState( SDevice &device, std::vector<BYTE> &data )
 {
 	data.resize( device.dwBufferSize );
@@ -1149,6 +1231,7 @@ bool CInputAPI::GetDeviceState( SDevice &device, std::vector<BYTE> &data )
 	NI_ASSERTHR_T( dxrval, NStr::Format("Can't get device state for device \"%s\" of type \"%s\"", device.szFriendlyName.c_str(), device.szName.c_str()) );
 	return SUCCEEDED( dxrval );
 }
+#endif
 int CInputAPI::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

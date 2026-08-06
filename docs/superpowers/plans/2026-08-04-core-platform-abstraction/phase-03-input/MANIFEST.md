@@ -15,8 +15,8 @@
 
 Exit: Input contains no DirectInput header/type/call in the portable graph and fixture behavior matches Windows control semantics.
 
-P03-M01 Windows checkpoint: input contract compilation and portable code mapping execution pass; DirectInput type decontamination remains open.
+P03-M01 Windows checkpoint: `test-input-headers` compiles and runs on Windows, and the portable header audit also compiles for Linux. DirectInput type decontamination is complete for the event-only graph; legacy oracle declarations remain isolated.
 
-P03-M01 production update: the default Windows Input module is compiled with `BK_INPUT_EVENT_ONLY=1`; `CInputAPI::Init` creates virtual keyboard/mouse controls and consumes normalized events without calling DirectInput initialization. The old declarations and link dependencies remain temporary oracle residue.
+P03-M01 production update: the default Windows Input module is compiled with `BK_INPUT_EVENT_ONLY=1`; `CInputAPI::Init` creates virtual keyboard/mouse controls and consumes normalized events without calling DirectInput initialization. `SInputEvent` owns the backend-neutral queue record. The old declarations and link dependencies remain temporary oracle residue.
 
 P03-M02 Windows checkpoint: `zig build test-input-state -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes. The focused fixture covers legacy key IDs, simultaneous modifiers, pointer coordinates, wheel direction, buttons, focus loss, and same-frame ordering. Production DirectInput polling replacement, old-oracle comparison, and Linux execution remain open.

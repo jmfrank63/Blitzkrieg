@@ -1,6 +1,23 @@
 #ifndef __INPUT_TYPES_H__
 #define __INPUT_TYPES_H__
 #pragma ONCE
+#include <array>
+#include <cstdint>
+
+#if defined(BK_INPUT_EVENT_ONLY)
+using SInputDeviceIdentity = std::array<std::uint8_t, 16>;
+#else
+using SInputDeviceIdentity = GUID;
+#endif
+
+struct SInputEvent
+{
+	std::uint32_t device_id;
+	std::uint32_t control_id;
+	std::int32_t value;
+	std::uint32_t timestamp;
+	std::uint32_t sequence;
+};
 enum EControlType
 {
 	CONTROL_TYPE_KEY		= 1,							// key on the keyboard (push/pop)
@@ -39,7 +56,7 @@ enum EDeviceType
 #define INPUT_CONTROL_MOUSE_BUTTON9	21
 struct SDeviceDesc
 {
-	GUID guid;														// GUID of this device
+	SInputDeviceIdentity guid;														// backend identity
 	EDeviceType eType;										// type of this device
 	int nID;															// run-time ID of this device
 	bool bPoll;														// is this device require 'Poll()' for data retrieving

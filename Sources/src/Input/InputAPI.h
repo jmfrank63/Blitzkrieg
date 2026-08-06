@@ -96,7 +96,9 @@ public:
 struct SDevice : public SDeviceDesc
 {
 	std::vector<CControl*> controls;			// all controls of this device
+#if !defined(BK_INPUT_EVENT_ONLY)
 	com_ptr<IDirectInputDevice8> pDevice;	// input device itself
+#endif
 	DWORD dwBufferSize;										// buffer size for one-time data retrieving
 	bool bNeedResync;											// need to resyncronize
 	bool bEmulated;												// is this device emulated, or we must get it from DInput?
@@ -105,8 +107,10 @@ struct SDevice : public SDeviceDesc
 	{ 
 		for ( std::vector<CControl*>::iterator it = controls.begin(); it != controls.end(); ++it )
 			delete (*it);
+		#if !defined(BK_INPUT_EVENT_ONLY)
 		if ( pDevice && !bEmulated ) 
 			pDevice->Unacquire(); 
+		#endif
 	}
 };
 class CInputAPI : public CTRefCount<IInput>
@@ -124,7 +128,9 @@ class CInputAPI : public CTRefCount<IInput>
 	};
 	typedef std::list<SStoredControl> CStoredControlsList;
 	HWND hWindow;													// window handle
+#if !defined(BK_INPUT_EVENT_ONLY)
 	com_ptr<IDirectInput8> pInput;
+#endif
 	CDevicesList devices;									// all found devices
 	CControlIDsMap controlIDs;						// control-ID-to-control map
 	CControlNamesMap controlNames;				// control-name-to-control map
@@ -134,17 +140,27 @@ class CInputAPI : public CTRefCount<IInput>
 	int nCodePage;												// code page
 	CCharsList chars;											// char messages during text input
 	CMessagesList messages;								// messages, generated during bind parsing
+#if defined(BK_INPUT_EVENT_ONLY)
+	std::deque<SInputEvent> emulatedMessages;
+#else
 	std::deque<DIDEVICEOBJECTDATA> emulatedMessages;
+#endif
 	DWORD dwLastPumpingTime;							// 
 	bool bInitialized;										// is input already initialized
 	bool bCoopLevelSet;										// is cooperative level already set ?
 	bool bFocusCaptured;									// is focus captured by this app ?
+#if !defined(BK_INPUT_EVENT_ONLY)
 	void AddDevice( struct SDeviceEnumDesc *pDesc, const int nID );
+#endif
 	SDevice* GetDevice( const int nID );
 	bool SetFocus( bool bFocus );
 	bool SetCoopLevel();
+#if defined(BK_INPUT_EVENT_ONLY)
+	void EventCame( const SInputEvent &event );
+#else
 	void Convert2Text( const DIDEVICEOBJECTDATA *pData, int nNumElements );
 	void EventCame( const DIDEVICEOBJECTDATA *pEvent, const int nParam );
+#endif
 	void NotifyControl( CControl *pControl, DWORD dwData );
 	void AddActiveControl( CControl *pControl );
 	void GenerateRepeats( CControl *pControl );
@@ -160,7 +176,9 @@ protected:
 		return pos != controlIDs.end() ? pos->second : 0;
 	}
 	bool PumpMessagesLocal( bool bFocus );
+#if !defined(BK_INPUT_EVENT_ONLY)
 	bool GetDeviceState( SDevice &device, std::vector<BYTE> &data );
+#endif
 	bool AddDoubleClick( const std::string &szControlName );
 	bool SetPower( const std::string &szControlName, const float fPower );
 	void VisitControls( IInputVisitor *pVisitor );
