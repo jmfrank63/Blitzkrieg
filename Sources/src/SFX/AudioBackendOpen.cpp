@@ -881,6 +881,30 @@ namespace NAudioBackendImpl
 	{
 	}
 
+	ma_uint32 SelectBackends( ESFXOutputType output, ma_backend *pBackends, ma_uint32 nCapacity )
+	{
+		if ( !pBackends || nCapacity < 4 )
+			return 0;
+
+		pBackends[0] = ma_backend_wasapi;
+		pBackends[1] = ma_backend_dsound;
+		pBackends[2] = ma_backend_winmm;
+		pBackends[3] = ma_backend_null;
+		if ( output == SFX_OUTPUT_WINMM )
+		{
+			pBackends[0] = ma_backend_winmm;
+			pBackends[1] = ma_backend_null;
+			return 2;
+		}
+		if ( output == SFX_OUTPUT_DSOUND )
+		{
+			pBackends[0] = ma_backend_dsound;
+			pBackends[1] = ma_backend_null;
+			return 2;
+		}
+		return 4;
+	}
+
 	bool InitDevice( ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )
 	{
 		if ( pSoundCardPresent )
@@ -904,7 +928,9 @@ namespace NAudioBackendImpl
 		contextConfig.allocationCallbacks.onRealloc = AudioAllocRealloc;
 		contextConfig.allocationCallbacks.onFree    = AudioAllocFree;
 
-		ma_result result = ma_context_init( 0, 0, &contextConfig, &g_context );
+		ma_backend backends[4] = {};
+		const ma_uint32 backendCount = SelectBackends( output, backends, sizeof( backends ) / sizeof( backends[0] ) );
+		ma_result result = backendCount == 0 ? MA_INVALID_ARGS : ma_context_init( backends, backendCount, &contextConfig, &g_context );
 		if ( result != MA_SUCCESS )
 		{
 			TraceOpenAudioResult( "context init failed", result );
@@ -914,6 +940,7 @@ namespace NAudioBackendImpl
 
 		ma_engine_config engineConfig = ma_engine_config_init();
 		engineConfig.pContext = &g_context;
+		engineConfig.channels = nMaxChannels > 0 ? static_cast<ma_uint32>( nMaxChannels ) : 0;
 		engineConfig.sampleRate = nMixRate > 0 ? nMixRate : 0;
 		// 40ms device period for immediate audio start. Stutter prevention
 		// comes from MA_SOUND_FLAG_DECODE in PlayStream: the entire file is

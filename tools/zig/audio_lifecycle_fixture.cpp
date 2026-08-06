@@ -99,6 +99,12 @@ bool exerciseMiniaudio()
 	AllocatorState state;
 	ma_allocation_callbacks allocation = callbacks(&state);
 	const ma_backend backend[] = { ma_backend_null };
+	const ma_backend unsupportedBackend[] = { ma_backend_custom };
+	ma_context unsupportedContext{};
+	ma_context_config unsupportedConfig = ma_context_config_init();
+	unsupportedConfig.allocationCallbacks = allocation;
+	if (!check(ma_context_init(unsupportedBackend, 1, &unsupportedConfig, &unsupportedContext) != MA_SUCCESS, "unsupported backend must fail deterministically"))
+		return false;
 
 	for (int cycle = 0; cycle != 3; ++cycle)
 	{
@@ -113,7 +119,7 @@ bool exerciseMiniaudio()
 		engineConfig.pContext = &context;
 		engineConfig.channels = 2;
 		engineConfig.sampleRate = 48000;
-		engineConfig.noDevice = MA_TRUE;
+		engineConfig.noDevice = cycle == 0 ? MA_FALSE : MA_TRUE;
 		engineConfig.allocationCallbacks = allocation;
 		if (!check(ma_engine_init(&engineConfig, &engine) == MA_SUCCESS, "no-device engine must initialize"))
 		{
@@ -123,6 +129,9 @@ bool exerciseMiniaudio()
 		ma_engine_uninit(&engine);
 		ma_context_uninit(&context);
 	}
+
+	if (!check(ma_get_bytes_per_frame(ma_format_unknown, 2) == 0, "unknown format must be rejected by format sizing"))
+		return false;
 
 	return check(state.allocations == state.frees, "miniaudio allocations must balance after uninitialization");
 }
