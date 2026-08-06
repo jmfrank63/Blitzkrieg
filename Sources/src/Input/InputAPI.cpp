@@ -48,7 +48,7 @@ const int CControlKey::GenerateRepeats( const DWORD time, const DWORD delay, con
 	int nCounter = 0;
 	if ( nRepeated == 0 ) 
 	{
-		if ( dwLastRepeatedTime + delay <= time ) 
+		if ( dwLastRepeatedTime + delay <= time )
 		{
 			++nRepeated;
 			dwLastRepeatedTime += delay;
@@ -57,7 +57,7 @@ const int CControlKey::GenerateRepeats( const DWORD time, const DWORD delay, con
 	}
 	else
 	{
-		while ( dwLastRepeatedTime + period <= time ) 
+		while ( dwLastRepeatedTime + period <= time )
 		{
 			dwLastRepeatedTime += period;
 			++nRepeated;
