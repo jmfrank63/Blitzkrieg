@@ -255,7 +255,10 @@ fn copyTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
     defer walker.deinit();
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file or isForbiddenStagedPath(entry.path)) continue;
-        try copyFile(io, entry.dir, entry.basename, destination, entry.path);
+        copyFile(io, entry.dir, entry.basename, destination, entry.path) catch |err| {
+            std.debug.print("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
+            return err;
+        };
     }
 }
 
