@@ -92,7 +92,16 @@ static NPlatform::DynamicLibrary &CoreModule() { static NPlatform::DynamicLibrar
 
 template <class T> static T Resolve(const char *name) { return reinterpret_cast<T>(CoreModule().GetFunction(name)); }
 static bool ResolveCore() {
-    if (!CoreModule().IsLoaded() && !CoreModule().Load("StreamIO.dll")) return false;
+    if (!CoreModule().IsLoaded()) {
+#if defined(_WIN32) || defined(_WIN64)
+        const char *module_name = "StreamIO.dll";
+#elif defined(__APPLE__)
+        const char *module_name = "libStreamIO.dylib";
+#else
+        const char *module_name = "libStreamIO.so";
+#endif
+        if (!CoreModule().Load(module_name)) return false;
+    }
     api.create = Resolve<decltype(api.create)>("bk_options_create");
     api.destroy = Resolve<decltype(api.destroy)>("bk_options_destroy");
     api.count = Resolve<decltype(api.count)>("bk_options_count");
