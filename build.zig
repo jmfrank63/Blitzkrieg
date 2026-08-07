@@ -1016,10 +1016,13 @@ pub fn build(b: *std.Build) void {
     platform_dynamic_module.addCSourceFiles(.{
         .files = &.{
             "tools/zig/platform_dynamic_library_test.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/DynamicLibrary.cpp",
         },
         .flags = if (platform == .windows_x64) cppflags_release else &.{},
     });
+    platform_dynamic_module.linkLibrary(platform_runtime);
+    linkCxxRuntime(platform_dynamic_module, target);
     const platform_dynamic_test = b.addExecutable(.{ .name = "platform-dynamic-library-test", .root_module = platform_dynamic_module });
     platform_dynamic_test.subsystem = .console;
     if (platform == .windows_x64) platform_dynamic_test.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -1028,6 +1031,7 @@ pub fn build(b: *std.Build) void {
     const platform_dynamic_step = b.step("test-platform-dynamic-library", "Run portable dynamic library ownership tests");
     platform_dynamic_step.dependOn(&platform_dynamic_test.step);
     platform_dynamic_step.dependOn(&platform_test_module.step);
+    platform_dynamic_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_dynamic_step.dependOn(&platform_dynamic_run.step);
 
     const platform_system_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });

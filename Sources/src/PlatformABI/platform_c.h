@@ -111,6 +111,9 @@ typedef struct BkPlatformApi {
     BkPlatformResult (BK_PLATFORM_CALL *socket_resolve_ipv4)(const char *host, uint16_t port, BkPlatformSocketAddress *address);
     BkPlatformSocketError (BK_PLATFORM_CALL *socket_last_error)(void);
     BkPlatformResult (BK_PLATFORM_CALL *socket_close)(BkPlatformSocketHandle handle);
+    BkPlatformResult (BK_PLATFORM_CALL *library_open)(BkPlatformUtf8Span path, BkPlatformHandle *out_handle);
+    BkPlatformResult (BK_PLATFORM_CALL *library_symbol)(BkPlatformHandle handle, BkPlatformUtf8Span name, void **out_symbol);
+    BkPlatformResult (BK_PLATFORM_CALL *library_close)(BkPlatformHandle handle);
 } BkPlatformApi;
 
 #ifdef __cplusplus

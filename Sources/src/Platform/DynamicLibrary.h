@@ -2,12 +2,13 @@
 #define BLITZKRIEG_PLATFORM_DYNAMIC_LIBRARY_H
 
 #include <string>
+#include "../PlatformABI/platform_c.h"
 
 namespace NPlatform
 {
 class DynamicLibrary
 {
-	void *handle;
+    BkPlatformHandle handle;
 	std::string path;
 	std::string error;
 public:

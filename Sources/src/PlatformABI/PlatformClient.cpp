@@ -86,5 +86,8 @@ BkPlatformResult Client::SocketWaitReadable(BkPlatformSocketHandle handle, int32
 BkPlatformResult Client::SocketResolveIPv4(const char *host, uint16_t port, BkPlatformSocketAddress *address) noexcept { return g_api != nullptr && g_api->socket_resolve_ipv4 != nullptr ? g_api->socket_resolve_ipv4(host, port, address) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
 BkPlatformSocketError Client::SocketLastError() noexcept { return g_api != nullptr && g_api->socket_last_error != nullptr ? g_api->socket_last_error() : BK_PLATFORM_SOCKET_ERROR_UNKNOWN; }
 BkPlatformResult Client::SocketClose(BkPlatformSocketHandle handle) noexcept { return g_api != nullptr && g_api->socket_close != nullptr ? g_api->socket_close(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::LibraryOpen(BkPlatformUtf8Span path, BkPlatformHandle *out_handle) noexcept { return g_api != nullptr && g_api->library_open != nullptr ? g_api->library_open(path, out_handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::LibrarySymbol(BkPlatformHandle handle, BkPlatformUtf8Span name, void **out_symbol) noexcept { return g_api != nullptr && g_api->library_symbol != nullptr ? g_api->library_symbol(handle, name, out_symbol) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
+BkPlatformResult Client::LibraryClose(BkPlatformHandle handle) noexcept { return g_api != nullptr && g_api->library_close != nullptr ? g_api->library_close(handle) : BK_PLATFORM_ERROR_NOT_INITIALIZED; }
 
 }

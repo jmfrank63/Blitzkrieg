@@ -49,6 +49,9 @@ public:
     static BkPlatformResult SocketResolveIPv4(const char *host, uint16_t port, BkPlatformSocketAddress *address) noexcept;
     static BkPlatformSocketError SocketLastError() noexcept;
     static BkPlatformResult SocketClose(BkPlatformSocketHandle handle) noexcept;
+    static BkPlatformResult LibraryOpen(BkPlatformUtf8Span path, BkPlatformHandle *out_handle) noexcept;
+    static BkPlatformResult LibrarySymbol(BkPlatformHandle handle, BkPlatformUtf8Span name, void **out_symbol) noexcept;
+    static BkPlatformResult LibraryClose(BkPlatformHandle handle) noexcept;
 };
 
 }

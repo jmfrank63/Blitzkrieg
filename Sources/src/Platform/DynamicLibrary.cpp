@@ -1,21 +1,28 @@
 #include "DynamicLibrary.h"
+#include "../PlatformABI/PlatformClient.h"
 
-#if defined(_WIN32)
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
+namespace {
+void updateRuntimeError(std::string &error, const char *fallback) {
+    char message[512] = {};
+    uint32_t required = 0;
+    if (BkPlatform::Client::LastError(message, sizeof(message), &required) == BK_PLATFORM_OK) error = message;
+    else error = fallback;
+}
+BkPlatformUtf8Span span(const char *value) {
+    return BkPlatformUtf8Span{sizeof(BkPlatformUtf8Span), value, value == nullptr ? 0u : static_cast<uint32_t>(std::char_traits<char>::length(value))};
+}
+}
 
 namespace NPlatform
 {
-DynamicLibrary::DynamicLibrary() : handle( nullptr ) {}
-DynamicLibrary::DynamicLibrary( const char *utf8Path ) : handle( nullptr ) { Load( utf8Path ); }
+DynamicLibrary::DynamicLibrary() : handle( 0 ) {}
+DynamicLibrary::DynamicLibrary( const char *utf8Path ) : handle( 0 ) { Load( utf8Path ); }
 DynamicLibrary::~DynamicLibrary() { Unload(); }
 
 DynamicLibrary::DynamicLibrary( DynamicLibrary &&other ) noexcept
 	: handle( other.handle ), path( std::move( other.path) ), error( std::move( other.error ) )
 {
-	other.handle = nullptr;
+	other.handle = 0;
 }
 
 DynamicLibrary &DynamicLibrary::operator=( DynamicLibrary &&other ) noexcept
@@ -25,7 +32,7 @@ DynamicLibrary &DynamicLibrary::operator=( DynamicLibrary &&other ) noexcept
 	handle = other.handle;
 	path = std::move( other.path );
 	error = std::move( other.error );
-	other.handle = nullptr;
+	other.handle = 0;
 	return *this;
 }
 
@@ -38,52 +45,42 @@ bool DynamicLibrary::Load( const char *utf8Path )
 		error = "dynamic library path is null";
 		return false;
 	}
-#if defined(_WIN32)
-	handle = reinterpret_cast<void *>( LoadLibraryA( utf8Path ) );
-#else
-	handle = dlopen( utf8Path, RTLD_NOW | RTLD_LOCAL );
-#endif
-	if ( handle == nullptr )
+	if ( !BkPlatform::Client::IsAttached() && !BkPlatform::Client::Attach() )
 	{
-		error = "dynamic library load failed";
-#if !defined(_WIN32)
-		if ( const char *detail = dlerror(); detail != nullptr ) error = detail;
-#endif
+		error = "platform runtime is not attached";
+		return false;
 	}
-	else error.clear();
-	return handle != nullptr;
+	const BkPlatformResult result = BkPlatform::Client::LibraryOpen( span( utf8Path ), &handle );
+	if ( result != BK_PLATFORM_OK )
+	{
+		handle = 0;
+		updateRuntimeError( error, "dynamic library load failed" );
+		return false;
+	}
+	error.clear();
+	return true;
 }
 
 void DynamicLibrary::Unload()
 {
-	if ( handle == nullptr ) return;
-#if defined(_WIN32)
-	FreeLibrary( reinterpret_cast<HMODULE>( handle ) );
-#else
-	dlclose( handle );
-#endif
-	handle = nullptr;
+	if ( handle == 0 ) return;
+	if ( BkPlatform::Client::IsAttached() ) BkPlatform::Client::LibraryClose( handle );
+	handle = 0;
 }
 
-bool DynamicLibrary::IsLoaded() const { return handle != nullptr; }
+bool DynamicLibrary::IsLoaded() const { return handle != 0; }
 
 void *DynamicLibrary::GetFunction( const char *name )
 {
-	if ( handle == nullptr ) { error = "dynamic library is not loaded"; return nullptr; }
+	if ( handle == 0 ) { error = "dynamic library is not loaded"; return nullptr; }
 	if ( name == nullptr ) { error = "dynamic library symbol name is null"; return nullptr; }
-#if defined(_WIN32)
-	void *function = reinterpret_cast<void *>( GetProcAddress( reinterpret_cast<HMODULE>( handle ), name ) );
-#else
-	void *function = dlsym( handle, name );
-#endif
-	if ( function == nullptr )
+	void *function = nullptr;
+	if ( !BkPlatform::Client::IsAttached() || BkPlatform::Client::LibrarySymbol( handle, span( name ), &function ) != BK_PLATFORM_OK )
 	{
-		error = "dynamic library symbol lookup failed";
-#if !defined(_WIN32)
-		if ( const char *detail = dlerror(); detail != nullptr ) error = detail;
-#endif
+		updateRuntimeError( error, "dynamic library symbol lookup failed" );
+		return nullptr;
 	}
-	else error.clear();
+	error.clear();
 	return function;
 }
 

@@ -9,11 +9,15 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
 #if defined(_WIN32)
+#include <windows.h>
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+#else
+#include <dlfcn.h>
 #endif
 
 namespace {
@@ -31,6 +35,60 @@ uint32_t socket_runtime_refs = 0;
 bool socket_runtime_ready = false;
 
 void shutdown_sync_objects();
+void shutdown_libraries();
+
+struct LibraryEntry {
+    void *native = nullptr;
+    uint32_t generation = 0;
+};
+
+constexpr uint64_t library_type_shift = 62;
+constexpr uint64_t library_type = UINT64_C(3);
+constexpr uint64_t library_generation_mask = UINT64_C(0x3fffffff);
+std::mutex library_mutex;
+std::vector<LibraryEntry> library_slots(1);
+std::vector<uint32_t> free_library_slots;
+
+BkPlatformHandle make_library_handle(uint32_t slot, uint32_t generation) {
+    return (library_type << library_type_shift) |
+           (static_cast<BkPlatformHandle>(generation) << 32) | slot;
+}
+
+bool decode_library_handle(BkPlatformHandle handle, uint32_t *slot, uint32_t *generation) {
+    if (handle == 0 || slot == nullptr || generation == nullptr || (handle >> library_type_shift) != library_type) return false;
+    *slot = static_cast<uint32_t>(handle & UINT32_MAX);
+    *generation = static_cast<uint32_t>((handle >> 32) & library_generation_mask);
+    return *slot != 0 && *generation != 0;
+}
+
+void close_native_library(void *native) {
+    if (native == nullptr) return;
+#if defined(_WIN32)
+    FreeLibrary(reinterpret_cast<HMODULE>(native));
+#else
+    dlclose(native);
+#endif
+}
+
+void *open_native_library(const std::string &path) {
+#if defined(_WIN32)
+    const int wide_length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path.data(), static_cast<int>(path.size()), nullptr, 0);
+    if (wide_length <= 0) return nullptr;
+    std::wstring wide_path(static_cast<size_t>(wide_length), L'\0');
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path.data(), static_cast<int>(path.size()), wide_path.data(), wide_length) != wide_length) return nullptr;
+    return reinterpret_cast<void *>(LoadLibraryW(wide_path.c_str()));
+#else
+    return dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+#endif
+}
+
+void *lookup_native_symbol(void *native, const std::string &name) {
+#if defined(_WIN32)
+    return native == nullptr ? nullptr : reinterpret_cast<void *>(GetProcAddress(reinterpret_cast<HMODULE>(native), name.c_str()));
+#else
+    return native == nullptr ? nullptr : dlsym(native, name.c_str());
+#endif
+}
 
 BkPlatformSocketHandle make_socket_handle(uint32_t slot, uint32_t generation) {
     return (static_cast<BkPlatformSocketHandle>(generation) << 32) | slot;
@@ -249,6 +307,102 @@ BkPlatformResult set_error(BkPlatformResult result, const char *message) {
     return result;
 }
 
+BkPlatformResult BK_PLATFORM_CALL library_open(BkPlatformUtf8Span path, BkPlatformHandle *out_handle) {
+    if (out_handle == nullptr || path.struct_size < sizeof(BkPlatformUtf8Span) || path.data == nullptr || path.length == 0)
+        return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid dynamic library path");
+    std::string path_string;
+    try {
+        path_string.assign(path.data, path.length);
+    } catch (...) {
+        return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "dynamic library path allocation failed");
+    }
+    void *native = open_native_library(path_string);
+    if (native == nullptr) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "dynamic library load failed");
+
+    std::lock_guard<std::mutex> lock(library_mutex);
+    uint32_t slot = 0;
+    if (!free_library_slots.empty()) {
+        slot = free_library_slots.back();
+        free_library_slots.pop_back();
+    } else {
+        try {
+            library_slots.emplace_back();
+        } catch (...) {
+            close_native_library(native);
+            return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "dynamic library registry allocation failed");
+        }
+        slot = static_cast<uint32_t>(library_slots.size() - 1);
+    }
+    LibraryEntry &entry = library_slots[slot];
+    entry.generation = entry.generation == static_cast<uint32_t>(library_generation_mask) ? 1u : entry.generation + 1u;
+    if (entry.generation == 0) entry.generation = 1;
+    entry.native = native;
+    *out_handle = make_library_handle(slot, entry.generation);
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformResult BK_PLATFORM_CALL library_symbol(BkPlatformHandle handle, BkPlatformUtf8Span name, void **out_symbol) {
+    if (out_symbol == nullptr || name.struct_size < sizeof(BkPlatformUtf8Span) || name.data == nullptr || name.length == 0)
+        return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid dynamic library symbol name");
+    uint32_t slot = 0;
+    uint32_t generation = 0;
+    if (!decode_library_handle(handle, &slot, &generation)) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid dynamic library handle");
+    std::string name_string;
+    try {
+        name_string.assign(name.data, name.length);
+    } catch (...) {
+        return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "dynamic library symbol allocation failed");
+    }
+    void *native = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(library_mutex);
+        if (slot >= library_slots.size() || library_slots[slot].generation != generation || library_slots[slot].native == nullptr)
+            return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid dynamic library handle");
+        native = library_slots[slot].native;
+    }
+    *out_symbol = lookup_native_symbol(native, name_string);
+    if (*out_symbol == nullptr) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "dynamic library symbol lookup failed");
+    return BK_PLATFORM_OK;
+}
+
+BkPlatformResult BK_PLATFORM_CALL library_close(BkPlatformHandle handle) {
+    uint32_t slot = 0;
+    uint32_t generation = 0;
+    if (!decode_library_handle(handle, &slot, &generation)) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid dynamic library handle");
+    void *native = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(library_mutex);
+        if (slot >= library_slots.size() || library_slots[slot].generation != generation || library_slots[slot].native == nullptr)
+            return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid dynamic library handle");
+        native = library_slots[slot].native;
+        library_slots[slot].native = nullptr;
+        try {
+            free_library_slots.push_back(slot);
+        } catch (...) {
+            close_native_library(native);
+            return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "dynamic library registry allocation failed");
+        }
+    }
+    close_native_library(native);
+    return BK_PLATFORM_OK;
+}
+
+void shutdown_libraries() {
+    std::lock_guard<std::mutex> lock(library_mutex);
+    free_library_slots.clear();
+    for (uint32_t slot = 1; slot < library_slots.size(); ++slot) {
+        LibraryEntry &entry = library_slots[slot];
+        if (entry.native != nullptr) {
+            close_native_library(entry.native);
+            entry.native = nullptr;
+        }
+        try {
+            free_library_slots.push_back(slot);
+        } catch (...) {
+        }
+    }
+}
+
 BkPlatformResult BK_PLATFORM_CALL runtime_create(const BkPlatformCreateInfo *create_info) {
     BkPlatformState &state = bk_platform_state();
     if (create_info == nullptr || create_info->struct_size < sizeof(BkPlatformCreateInfo))
@@ -267,6 +421,7 @@ BkPlatformResult BK_PLATFORM_CALL runtime_create(const BkPlatformCreateInfo *cre
 
 void BK_PLATFORM_CALL runtime_destroy() {
     BkPlatformState &state = bk_platform_state();
+    shutdown_libraries();
     shutdown_sockets();
     shutdown_sync_objects();
     state.initialized = false;
@@ -578,6 +733,9 @@ const BkPlatformApi api = {
     &socket_resolve_ipv4,
     &socket_last_error,
     &socket_close,
+    &library_open,
+    &library_symbol,
+    &library_close,
 };
 }
 
