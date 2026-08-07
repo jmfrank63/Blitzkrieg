@@ -13,7 +13,6 @@
 #endif
 #include "../UI/UIMessages.h"
 #include "../Scene/Scene.h"
-extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
 #define SAMPLE_BUFFER_SIZE 128
 DWORD TIME_DIFF_DBL_CLK = 500;
 int AREA_DBL_CLK_CX = 2;

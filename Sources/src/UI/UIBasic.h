@@ -1,7 +1,7 @@
 #ifndef __UIBASIC_H__
 #define __UIBASIC_H__
 #include "UIInternal.h"
-#include "../lualib/script.h"
+#include "../LuaLib/Script.h"
 class CSimpleWindow;
 typedef std::list< CObj<IUIElement> > CWindowList;
 class CSimpleWindow

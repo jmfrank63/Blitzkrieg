@@ -10,6 +10,18 @@ namespace
 	{
 		return reinterpret_cast<const WORD*>( pszText );
 	}
+
+	inline std::wstring ToWideText( const WORD *pszText )
+	{
+		std::wstring text;
+		if ( pszText == 0 ) return text;
+		while ( *pszText != 0 )
+		{
+			text += static_cast<wchar_t>( *pszText );
+			++pszText;
+		}
+		return text;
+	}
 }
 
 CUIWindowSubStateManipulator::CUIWindowSubStateManipulator() 
@@ -180,7 +192,7 @@ void CWindowStateManipulator::GetText( variant_t *pValue, int nIndex )
 {
 	pValue->vt = VT_BSTR;
 	IText *pText = pState->pGfxText->GetText();
-	pValue->bstrVal = bstr_t( pText->GetString() );
+	pValue->bstrVal = bstr_t( ToWideText( pText->GetString() ).c_str() );
 }
 
 void CWindowStateManipulator::GetPushSound( variant_t *pValue, int nIndex )

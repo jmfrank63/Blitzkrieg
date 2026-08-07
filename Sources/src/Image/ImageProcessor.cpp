@@ -123,7 +123,7 @@ IDDSImage* CompressRGBA( const IImage *pImage, EGFXPixelFormat format )
 	SDDSPixelFormat ddsformat;
 	GetDDSPixelFormat( format, &ddsformat );
 	if ( !InitRawPixelConvertInfo( format, &pci ) )
-		return false;
+		return nullptr;
 	int nSizeX = pImage->GetSizeX();
 	int nSizeY = pImage->GetSizeY();
 	int nBPP = ::GetBPP( format );

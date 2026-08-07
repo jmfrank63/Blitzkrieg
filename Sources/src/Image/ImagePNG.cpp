@@ -120,7 +120,7 @@ CImage* NImage::LoadImagePNG( IDataStream *pStream )
 	if ( bmtype == BMM_NO_TYPE )
 	{
     png_destroy_read_struct( &png, &info, 0 );
-		return false;
+		return nullptr;
 	}
 	row_pointers = (png_bytep*)malloc( info->height * sizeof(png_bytep) );
 	for ( png_uint_32 i=0; i<info->height; i++ )
