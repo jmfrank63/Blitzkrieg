@@ -274,6 +274,7 @@ const libpng_sources = &.{
 
 const misc_sources = &.{
     "Sources/src/Platform/Debug.cpp",
+    "Sources/src/PlatformABI/PlatformClient.cpp",
     "Sources/src/Platform/DynamicLibrary.cpp",
     "Sources/src/Platform/LegacyVariant.cpp",
     "Sources/src/Platform/Paths.cpp",
@@ -1161,7 +1162,7 @@ pub fn build(b: *std.Build) void {
     addGameFrameTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addGameSystemKeysTest(b, target, test_mode, toolchain);
     addGameLoopTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
-    addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"), platform_runtime);
     addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addInputCodesTest(b, target, test_mode, toolchain);
     addPlatformInputTest(b, target, test_mode, toolchain);
@@ -2019,6 +2020,7 @@ fn addOptionsBridge(
     module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/StreamIOZig/options_bridge.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/DynamicLibrary.cpp",
             "Sources/src/Platform/Paths.cpp",
         },
@@ -2066,6 +2068,7 @@ fn addStreamIOZig(
     streamio_module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/StreamIOZig/legacy_bridge.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/Debug.cpp",
         },
         .flags = flags.items,
@@ -3453,21 +3456,25 @@ fn addSdlApplicationTest(
     toolchain: ToolchainIncludes,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{
         .target = target,
         .optimize = .Debug,
-        .link_libc = true,
+        .link_libc = false,
     });
     module.addIncludePath(sdl_include);
+    module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/Platform/SDLApplication.cpp",
             "Sources/src/Platform/Debug.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "tools/zig/platform_window_test.cpp",
         },
         .flags = &.{"-std=c++17"},
     });
+    module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
@@ -3480,9 +3487,11 @@ fn addSdlApplicationTest(
     }
     const test_exe = b.addExecutable(.{ .name = "platform-window-test", .root_module = module });
     test_exe.subsystem = .console;
-    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "main" };
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     test_run.setCwd(b.path("."));
+    test_run.step.dependOn(&platform_runtime.step);
+    test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";

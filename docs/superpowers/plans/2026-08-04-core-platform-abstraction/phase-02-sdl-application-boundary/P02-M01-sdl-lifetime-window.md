@@ -12,7 +12,7 @@
 - [ ] Store SDL pointers only in private runtime state; expose window identity as an opaque ABI handle.
 - [x] Preserve the renderer's borrowed-window operation through the existing private `BorrowWindow` bridge.
 - [x] Verify the application facade releases its window before `SDL_Quit` on shutdown.
-- [ ] Run the native window test on Windows; compile succeeds, but the current SDL runtime test hangs in this headless session and requires a controlled desktop/GPU acceptance run.
+- [x] Run the native window test on Windows; the lifecycle contract now exits cleanly after the fullscreen round-trip.
 - [x] Commit checkpoint: `platform: own SDL application window`.
 
-**Evidence:** Windows `test-platform-window -Dtest-mode=compile` passes; the run-mode child was terminated after reproducing a hang in the current session, so native desktop acceptance remains open.
+**Evidence:** Windows `zig build test-platform-window -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes. The former hang was in the test executable's raw `main` entry/CRT wiring, not in `SDL_SetWindowFullscreen`; the test now reaches clean process termination.
