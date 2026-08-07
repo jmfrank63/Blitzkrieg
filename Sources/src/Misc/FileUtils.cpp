@@ -24,7 +24,11 @@ std::string nativePath(std::string value) {
     return value;
 }
 std::string legacyPath(std::string value) {
+#if defined(_WIN32) || defined(_WIN64)
     for (char &c : value) if (c == '/') c = '\\';
+#else
+    for (char &c : value) if (c == '\\') c = '/';
+#endif
     return value;
 }
 bool wildcard(const std::string &pattern, const std::string &name) {
