@@ -757,6 +757,13 @@ pub fn build(b: *std.Build) void {
     platform_linkage_step.dependOn(&platform_linkage_tests.step);
 
     const optimize = b.standardOptimizeOption(.{});
+    const build_variant = b.option([]const u8, "build-variant", "Optional output variant suffix: default, debug, or release") orelse "default";
+    if (!std.mem.eql(u8, build_variant, "default") and
+        !std.mem.eql(u8, build_variant, "debug") and
+        !std.mem.eql(u8, build_variant, "release"))
+    {
+        @panic("-Dbuild-variant must be default, debug, or release");
+    }
     const library_arch = build_support.libraryArch(platform);
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
@@ -1328,8 +1335,9 @@ pub fn build(b: *std.Build) void {
     shader_determinism_step.dependOn(&shader_compare_run.step);
 
     const blitz64 = addBlitz64(b, target, optimize);
-    const stage_root = b.fmt("zig-out/game/{s}", .{platform_policy.package_root});
-    const package_root = b.fmt("zig-out/packages/{s}", .{platform_policy.package_root});
+    const variant_suffix = if (std.mem.eql(u8, build_variant, "default")) "" else b.fmt("-{s}", .{build_variant});
+    const stage_root = b.fmt("zig-out/game/{s}{s}", .{ platform_policy.package_root, variant_suffix });
+    const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_policy.package_root, variant_suffix });
     const stage_game_name = platform_policy.executable_name;
     const stage_metadata_files = package_policy.required_metadata_files[0..];
     const stage_runtime_files = switch (target.result.os.tag) {
