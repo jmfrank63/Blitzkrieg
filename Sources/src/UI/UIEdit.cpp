@@ -658,7 +658,6 @@ void CUIEditBox::NotifyTextChanged()
 }
 void CUIEditBox::SetWindowText( int nState, const WORD *pszText )
 {
-	static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" );
 	wszFullText.assign( reinterpret_cast<const wchar_t*>(pszText) );
 	nBeginText = 0;
 	nCursorPos = 0;

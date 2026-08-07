@@ -92,7 +92,6 @@ public:
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
 	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
 	{ 
-		static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" ); 
 		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) ); 
 	}
 	virtual const WORD* STDCALL GetWindowText( int nState );
@@ -102,7 +101,6 @@ public:
 	virtual void STDCALL SetHelpContext( int nState, const WORD *pszToolTipText );
 	inline void STDCALL SetHelpContext( int nState, const wchar_t *pszToolTipText ) 
 	{ 
-		static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" ); 
 		SetHelpContext( nState, reinterpret_cast<const WORD*>( pszToolTipText ) ); 
 	}
 	

@@ -121,7 +121,8 @@ void CUIMiniMap::CreateMiniMapTextures()
 
 		if ( pWarFog && pWarFogTexture && isWarFogNeedUpdate )
 		{
-			pWarFog->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) ) ) );
+			const RECT dirtyRect = static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) );
+			pWarFog->AddDirtyRect( &dirtyRect );
 			if ( pWarFog != pWarFogTexture )
 				_pGFX->UpdateTexture( pWarFog, pWarFogTexture, false );
 			isWarFogNeedUpdate = false;
@@ -129,7 +130,8 @@ void CUIMiniMap::CreateMiniMapTextures()
 
 		if ( pInstantObjects && pInstantObjectsTexture && isInstantObjectsNeedUpdate )
 		{
-			pInstantObjects->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) ) ) );
+			const RECT dirtyRect = static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) );
+			pInstantObjects->AddDirtyRect( &dirtyRect );
 			if ( pInstantObjects != pInstantObjectsTexture )
 				_pGFX->UpdateTexture( pInstantObjects, pInstantObjectsTexture, false );
 			isInstantObjectsNeedUpdate = false;
@@ -950,7 +952,8 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 		
 	if ( pWarFog && pWarFogTexture && isWarFogNeedUpdate )
 	{
-		pWarFog->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) ) ) );
+		const RECT dirtyRect = static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) );
+		pWarFog->AddDirtyRect( &dirtyRect );
 		if ( pWarFog != pWarFogTexture )
 			_pGFX->UpdateTexture( pWarFog, pWarFogTexture, false );
 		isWarFogNeedUpdate = false;
@@ -958,7 +961,8 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 
 	if ( pInstantObjects && pInstantObjectsTexture && isInstantObjectsNeedUpdate )
 	{
-		pInstantObjects->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) ) ) );
+		const RECT dirtyRect = static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) );
+		pInstantObjects->AddDirtyRect( &dirtyRect );
 		if ( pInstantObjects != pInstantObjectsTexture )
 			_pGFX->UpdateTexture( pInstantObjects, pInstantObjectsTexture, false );
 		isInstantObjectsNeedUpdate = false;
