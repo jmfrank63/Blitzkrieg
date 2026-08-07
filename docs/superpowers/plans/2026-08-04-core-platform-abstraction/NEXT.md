@@ -8,21 +8,20 @@ target policy now avoids MSVC paths and developer utilities for non-Windows
 targets, and Windows `game-all` remains the authoritative local game-build
 gate. PlatformRuntime is now one shared dynamic dependency in the playable
 graph and is included in every target-specific stage manifest. The native
-Linux `Game` link is closed and recorded in
+Linux `Game` link and full `game-all` run are closed and recorded in
 `evidence/platform-abstraction/p08-m03-linux-link.md`; continue with the
-remaining Linux `game-all` run/staging gate. On Windows, the shared runtime is
+Linux desktop runtime and package acceptance. On Windows, the shared runtime is
 now staged by the Input, Net, and SFX module-test runners; Net, SFX, platform
 foundation, GFXGPU, and Input gates pass. The remaining Windows closure work
 and package gates now pass as well; the x64 CDB and native Zig runtime
 verifiers now pass after fixing duplicated module paths in the portable file
 iterator. The clean-cache Windows `game-all` rerun also passes with an
 isolated cache and install prefix. The remaining Windows work is the full
-regression matrix and CI/resource/export comparison. The Linux run gate first fails with Zig 0.16 cache
-rename contention in the shared NTFS checkout. An isolated ext4 WSL worktree
-removes that `AccessDenied` failure, but the same `game-all` run still exceeds
-the bounded local command window during native dependency compilation. The
-native Linux link and direct audit remain passed; no Linux staged-runtime
-acceptance is claimed.
+regression matrix and CI/resource/export comparison. The Linux run gate now
+passes in the isolated ext4 WSL worktree: `game-all` reports 112/112 steps
+succeeded and 11/11 tests passed. The shared NTFS checkout still has Zig 0.16
+cache rename contention; no Linux desktop runtime or package acceptance is
+claimed yet.
 
 ## Important working-tree files
 

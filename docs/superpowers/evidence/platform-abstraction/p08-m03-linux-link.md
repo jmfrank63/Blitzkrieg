@@ -1,7 +1,7 @@
 # P08-M03 Linux x64 link closure
 
-Status: partial closure; the native `Game` link is closed, while the complete
-`game-all -Dtest-mode=run` build wrapper and staged runtime gate remain open.
+Status: link and Linux `game-all` closure; staged desktop runtime acceptance
+and packaging remain open.
 
 ## Passed
 
@@ -13,6 +13,16 @@ Status: partial closure; the native `Game` link is closed, while the complete
 - Direct native WSL audit: `zig test tools/zig/runtime_platform_audit_test.zig`
   passed all 11 tests with zero inventory hits and zero allowlist ownership
   entries.
+- Native ext4 WSL `zig build game-all -Dtarget=x86_64-linux-gnu.2.39
+  -Dtest-mode=run --summary all` completed with `112/112` steps succeeded and
+  `11/11` tests passed. The first post-fix run took 111 seconds; a warmed
+  rerun completed in 3 seconds.
+- The completed build installed the Linux `Game` executable and all playable
+  shared modules, including `libGFXGPU.so`, `libAILogic.so`, `libAnim.so`,
+  `libImage.so`, `libInput.so`, `libNet.so`, `libSFX.so`, and `libUI.so`.
+- ELF inspection of the UI module shows one `libPlatformRuntime.so` dependency
+  and only relative build-cache runpaths; no archive member contains a shared
+  PlatformRuntime object.
 
 ## Fixes
 
@@ -25,12 +35,10 @@ Status: partial closure; the native `Game` link is closed, while the complete
 
 ## Remaining gate
 
-`zig build game-all -Dtarget=x86_64-linux-gnu.2.39 -Dtest-mode=run` reached the
-audit run artifact, printed the expected zero-hit result, and then timed out in
-the Zig 0.16 WSL build-runner protocol (`--listen=-`). Running the same test
-directly with `zig test` passes 11/11. A clean `install-game` attempt also
-exceeded the local six-minute command window before the staged SDL runtime
-could be launched. No Linux native runtime acceptance is claimed yet.
+The build-runner still prints its known Zig 0.16 `--listen=-` diagnostic for
+the audit child, but the parent build exits successfully and reports all
+112/112 steps and 11/11 tests passed. No Linux desktop runtime launch or
+package acceptance is claimed yet.
 
 A subsequent native WSL retry against the shared checkout failed earlier with
 `AccessDenied` while renaming `.zig-cache` compilation results because Windows
@@ -40,12 +48,9 @@ repository-relative `.zig-cache` to its child test process. This confirms a
 build-runner/cache-contending environment blocker, not a new Linux link error.
 
 To separate cache contention from compile/runtime correctness, the same
-`HEAD` was checked out into an ext4 WSL worktree at `/tmp/blitzkrieg-wsl`.
-`zig build game-all -Dtarget=x86_64-linux-gnu.2.39 -Dtest-mode=run` then
-compiled normally without `AccessDenied`, but exceeded the five-minute command
-window while still compiling the native dependency graph. It did not reach the
-audit/run artifact or staged runtime gate. The temporary worktree and its
-process tree were removed after the bounded retry; no WSL build processes remain.
+`HEAD` was checked out into the persistent ext4 WSL worktree at
+`/home/jmfrank/blitzkrieg-wsl`. The post-fix run compiled normally without
+`AccessDenied` and reached the complete `game-all` summary above.
 
 The isolated `/tmp/blitzkrieg-*` caches used for these checks are generated
 artifacts and are not repository changes.
