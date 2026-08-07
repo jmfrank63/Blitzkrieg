@@ -97,7 +97,12 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
     if (!options.editors_only) {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
-        copyGameRuntime(io, binaries, destination, options.layout) catch |err| return failStep("copyGameRuntime", err);
+        var libraries: ?std.Io.Dir = repo.openDir(io, "zig-out/lib", .{ .iterate = true }) catch |err| switch (err) {
+            error.FileNotFound => null,
+            else => return failStep("open runtime libraries", err),
+        };
+        defer if (libraries) |*dir| dir.close(io);
+        copyGameRuntime(io, binaries, libraries, destination, options.layout) catch |err| return failStep("copyGameRuntime", err);
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
@@ -152,13 +157,13 @@ fn rejectStaleImages(io: std.Io, destination: std.Io.Dir) !void {
     }
 }
 
-fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir, layout: RuntimeLayout) !void {
+fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, destination: std.Io.Dir, layout: RuntimeLayout) !void {
     const stale_root_files = [_][]const u8{ "BetaKeyGen.exe", "BuildVersion.exe", "FontGen.exe", "A7ExportModel.dll", "fmod.dll", "mfc42.dll", "msvcp60.dll", "msvcrt.dll" };
     for (stale_root_files) |name| destination.deleteFile(io, name) catch {};
     for (layout.runtime_files) |name| {
         destination.deleteFile(io, name) catch {};
         if (!shouldReplaceRuntime(name)) continue;
-        copyFile(io, binaries, runtimeSourceName(name), destination, name) catch |err| switch (err) {
+        copyRuntimeFile(io, binaries, libraries, name, destination) catch |err| switch (err) {
             error.AccessDenied, error.PermissionDenied, error.FileBusy => {
                 var aside_buf: [256]u8 = undefined;
                 const aside = std.fmt.bufPrint(&aside_buf, "{s}.stale", .{name}) catch return err;
@@ -167,7 +172,7 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir, la
                     std.debug.print("stage: could not replace locked '{s}': {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
                     return error.RuntimeReplacementDenied;
                 };
-                copyFile(io, binaries, runtimeSourceName(name), destination, name) catch |copy_err| {
+                copyRuntimeFile(io, binaries, libraries, name, destination) catch |copy_err| {
                     std.debug.print("stage: fresh copy of '{s}' failed after move-aside: {s}\n", .{ name, @errorName(copy_err) });
                     return copy_err;
                 };
@@ -182,6 +187,14 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir, la
             else => return err,
         };
     }
+}
+
+fn copyRuntimeFile(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, name: []const u8, destination: std.Io.Dir) !void {
+    const source = runtimeSourceName(name);
+    copyFile(io, binaries, source, destination, name) catch |err| switch (err) {
+        error.FileNotFound => if (libraries) |lib_dir| copyFile(io, lib_dir, source, destination, name) else return err,
+        else => return err,
+    };
 }
 
 fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {
