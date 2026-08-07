@@ -1775,6 +1775,13 @@ test "parseTreeInt handles 10-character hex color values (0x prefix)" {
     try std.testing.expectEqual(@as(c_int, 1), parseTreeInt("01000000") catch unreachable);
 }
 
+test "POSIX resource paths resolve legacy casing" {
+    if (builtin.os.tag == .windows) return;
+    const resolved = resolveCaseInsensitivePath("Data/cursor/1.xml") orelse return error.TestUnexpectedResult;
+    defer allocator.free(resolved);
+    try std.testing.expectEqualStrings("Data/Cursor/1.xml", resolved);
+}
+
 test "nested data-tree containers restore the outer item enumerator" {
     const source = "<base><Children><item id=\"1\"><States><item value=\"10\"/></States></item><item id=\"2\"/></Children></base>";
     const bytes = try allocator.dupe(u8, source);
