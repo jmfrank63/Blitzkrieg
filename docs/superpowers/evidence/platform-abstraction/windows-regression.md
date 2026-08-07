@@ -44,6 +44,14 @@ zig build test -Dtarget=x86_64-windows-msvc -Dtest-mode=run
 That gate included the staged x64 runtime verifier and the full shader/test
 graph.
 
+A fresh rerun of the native endurance verifier on the current staged install
+also passed:
+
+```text
+zig run tools/zig/verify_gfxgpu_endurance.zig -- zig-out/game/windows-x64
+P08-M04 native Zig endurance smoke passed: restarts=2
+```
+
 This closes the automated staged-launch portion of P09-M04. Mission,
 save/load, input/audio interaction, resize/focus scenarios, deterministic
 screenshot comparison, leak instrumentation, and human regression approval
