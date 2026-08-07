@@ -7,9 +7,9 @@
   preserves literal POSIX backslashes, and uses explicit positional reads.
 - The package worker verified a 102-entry archive for ordering, readability,
   and two-run byte determinism.
-- Full Windows x64 `package-game` was run twice from the detached worktree at
-  `566285eba`, with both runs producing SHA-256
-  `73453868F3D57542789722314CAB11F2AB02D565EC9FF6944CA308F1A0E46446`.
+- Full Windows x64 `package-game` was run twice at pushed head `a8bfef3e8`.
+  Both metadata-aware archives were 3,073,345,577 bytes and produced SHA-256
+  `4264279A1FD6247B51FF2ECB9E5748E98C1E362A685C211E1C41CFB56135A802`.
 - `zig build verify-runtime -Dtarget=x86_64-windows-msvc -Dtest-mode=run`
   passes 10/10 tests through the native build graph. The verifier now
   covers target runtime matrices, required shaders/configs, duplicate or
@@ -31,8 +31,9 @@
 
 ## Remaining P08-M06 gates
 
-- Exact all-target manifests still need native Data/metadata/license policy
-  confirmation; Windows now stages the canonical `LICENSE.md` and `README.md`.
+- Exact all-target native manifests and package policies remain open; Windows
+  now stages and verifies canonical `Data/Configs/defconf.cfg`, `LICENSE.md`,
+  and `README.md`.
 - Staging through paths containing spaces/non-ASCII names is now covered by an
   integration fixture; native package execution for all targets remains open.
 - Architecture/export/dependency/rpath/install-name and executable-bit checks

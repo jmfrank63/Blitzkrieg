@@ -31,9 +31,10 @@ and GfxGPU/D3D12 gates also pass. Linux foundation and GfxGPU gates now pass
 on pushed head `e892d195c`, including native Vulkan/SPIR-V renderer probes and
 zero live resources. The remaining
 P09-M01 diagnostics, P09-M02 gameplay/UAT, and the broader P09-M04 regression
-acceptance remain open. P08-M06 now records Windows x64 install, verification,
-and package output in addition to deterministic package hash evidence; its
-all-target manifest, native path, and macOS package gates remain open.
+acceptance remain open. P08-M06 now records the metadata-aware Windows x64
+install, verification, package output, and two-run deterministic SHA-256
+`4264279A1FD6247B51FF2ECB9E5748E98C1E362A685C211E1C41CFB56135A802`; its
+all-target manifest, native binary, and macOS package gates remain open.
 
 ## Important working-tree files
 
