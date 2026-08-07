@@ -1163,7 +1163,7 @@ pub fn build(b: *std.Build) void {
     addGameSystemKeysTest(b, target, test_mode, toolchain);
     addGameLoopTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"), platform_runtime);
-    addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"), platform_runtime);
     addInputCodesTest(b, target, test_mode, toolchain);
     addPlatformInputTest(b, target, test_mode, toolchain);
     addInputStateFixtureTest(b, target, test_mode, toolchain);
@@ -4192,15 +4192,15 @@ fn addGameBootstrapSmoke(
 ) void {
     const module = b.createModule(.{ .target = dependency_target, .optimize = optimize, .link_libc = true });
     module.addIncludePath(sdl_include);
+    module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
     module.linkLibrary(platform_runtime);
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, optimize);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -4208,7 +4208,7 @@ fn addGameBootstrapSmoke(
     }
     const exe = b.addExecutable(.{ .name = "game-bootstrap-smoke", .root_module = module });
     exe.subsystem = .console;
-    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "main" };
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     run.step.dependOn(&platform_runtime.step);
@@ -4225,13 +4225,16 @@ fn addSdlEventTest(
     toolchain: ToolchainIncludes,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = true });
+    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
     module.addIncludePath(sdl_include);
+    module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "tools/zig/platform_event_test.cpp" },
+        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_event_test.cpp" },
         .flags = &.{"-std=c++17"},
     });
+    module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
     switch (target.result.os.tag) {
         .windows => {
@@ -4245,9 +4248,11 @@ fn addSdlEventTest(
     }
     const test_exe = b.addExecutable(.{ .name = "platform-event-test", .root_module = module });
     test_exe.subsystem = .console;
-    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "main" };
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     test_run.setCwd(b.path("."));
+    test_run.step.dependOn(&platform_runtime.step);
+    test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";

@@ -24,3 +24,14 @@ opaque borrowed-window cleanup. `zig build game-all
 -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` and the Windows platform
 foundation gate also pass after adding `PlatformClient.cpp` to the canonical
 `Misc`, `StreamIOOptionsAbi`, and `StreamIO` source graphs.
+
+The related Windows bootstrap and event targets now use the same CRT/runtime
+wiring:
+
+```text
+zig build test-game-bootstrap -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+game bootstrap: SDL window, event/controller services, 3 GfxGpu restart cycles, clean shutdown
+
+zig build test-platform-events -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+SDL normalized text event truncated (overflow episode)
+```

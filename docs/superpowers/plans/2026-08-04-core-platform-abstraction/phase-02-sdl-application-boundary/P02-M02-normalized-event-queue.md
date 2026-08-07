@@ -15,4 +15,4 @@
 - [x] Assert gameplay consumers do not include SDL event headers.
 - [x] Commit checkpoint: `platform: expose normalized application events`.
 
-**Evidence:** Windows `test-platform-events -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` passes with the bounded overflow implementation; run-mode validation is coupled to the headless SDL window blocker recorded in P02-M01.
+**Evidence:** Windows `zig build test-platform-events -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes with injected resize, key, text, motion, wheel, quit, unknown-event, and bounded-overflow fixtures. The run emits the expected single overflow-episode diagnostic.

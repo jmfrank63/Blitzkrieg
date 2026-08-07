@@ -16,7 +16,7 @@ Exit: the native SDL application contract passes with one window owner, determin
 
 P02-M01 checkpoint: the SDLApplication lifecycle test passes natively on Windows and the private borrowed-window bridge is retained. The test target now uses the Windows CRT entry point and links the shared PlatformRuntime client correctly; desktop/GPU acceptance and full PlatformRuntime ABI ownership remain open.
 
-P02-M02 checkpoint: the existing SDL event translator compiles on Windows with injected resize, key, text, motion, wheel, quit, and unknown-event fixtures; overflow policy and runtime execution remain open.
+P02-M02 checkpoint: the SDL event translator passes natively on Windows with injected resize, key, text, motion, wheel, quit, unknown-event, and overflow fixtures; the expected one-per-episode diagnostic is emitted.
 
 P02-M03 checkpoint: window display/fullscreen contracts pass natively on Windows; the former run-mode hang was caused by the test target's raw `main`/CRT wiring and is resolved. The 100-cycle desktop acceptance remains open.
 

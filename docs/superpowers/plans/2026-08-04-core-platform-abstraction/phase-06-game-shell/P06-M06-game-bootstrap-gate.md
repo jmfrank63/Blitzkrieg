@@ -15,4 +15,4 @@
 - [ ] Verify Game link commands contain no Windows libraries on Linux/macOS.
 - [x] Commit: `test: close portable game bootstrap gate`
 
-**Evidence:** the bootstrap smoke now links the real `PlatformRuntime` ABI and records `P`/`p` runtime create/destroy around each `A`/`a` SDL application cycle, with GfxGpu consumer API and renderer `R`/`r` nested inside. Windows `game-all` compile verification remains green. The focused Windows SDLApplication contract now passes fullscreen enter/leave and clean exit after correcting its CRT entry/link wiring; the full native bootstrap run and Input/Net/SFX/Main integration remain open.
+**Evidence:** the bootstrap smoke links the real `PlatformRuntime` ABI and records `P`/`p` runtime create/destroy around each `A`/`a` SDL application cycle, with GfxGpu consumer API and renderer `R`/`r` nested inside. Windows `zig build test-game-bootstrap -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes three complete restart cycles, and `game-all` compile verification remains green. The full Game graph and Input/Net/SFX/Main integration remain open.
