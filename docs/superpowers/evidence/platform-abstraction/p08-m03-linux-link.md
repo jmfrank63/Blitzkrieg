@@ -39,5 +39,13 @@ cache to `/tmp` did not isolate the run artifact: Zig 0.16 still passed the
 repository-relative `.zig-cache` to its child test process. This confirms a
 build-runner/cache-contending environment blocker, not a new Linux link error.
 
+To separate cache contention from compile/runtime correctness, the same
+`HEAD` was checked out into an ext4 WSL worktree at `/tmp/blitzkrieg-wsl`.
+`zig build game-all -Dtarget=x86_64-linux-gnu.2.39 -Dtest-mode=run` then
+compiled normally without `AccessDenied`, but exceeded the five-minute command
+window while still compiling the native dependency graph. It did not reach the
+audit/run artifact or staged runtime gate. The temporary worktree and its
+process tree were removed after the bounded retry; no WSL build processes remain.
+
 The isolated `/tmp/blitzkrieg-*` caches used for these checks are generated
 artifacts and are not repository changes.

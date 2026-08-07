@@ -8,7 +8,7 @@
 
 **Allowed files:** `build.zig`, `tools/zig/build_support.zig`, `Sources/src/Platform/Posix/Clock.cpp`, `Sources/src/Platform/Posix/Sync.cpp`, `Sources/src/Platform/Posix/Debug.cpp`, `Sources/src/Platform/Posix/DynamicLibrary.cpp`, `Sources/src/Platform/Posix/Socket.cpp`, `Sources/src/Platform/Linux/Paths.cpp`, `Sources/src/Platform/Linux/System.cpp`, `tools/zig/linux_link_closure_test.zig`.
 
-- [ ] Run `zig build game-all -Dtarget=x86_64-linux-gnu -Dtest-mode=run --verbose` in the native WSL repository.
+- [ ] Run `zig build game-all -Dtarget=x86_64-linux-gnu -Dtest-mode=run --verbose` in the native WSL repository. The shared NTFS checkout reproduces Zig 0.16 `.zig-cache` `AccessDenied`; an ext4 WSL worktree avoids that error but exceeded the bounded local command window during native dependency compilation.
 - [x] Convert each unresolved symbol at its owning abstraction boundary; do not add dummy libraries or broad stubs.
 - [ ] Reject Windows libraries, undefined platform ABI symbols, absolute cache rpaths, and duplicate PlatformRuntime copies.
 - [ ] Run all platform, Input, Net, SFX, renderer, module, and audit gates after closure.

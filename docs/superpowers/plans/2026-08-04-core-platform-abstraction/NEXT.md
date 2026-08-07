@@ -15,9 +15,12 @@ now staged by the Input, Net, and SFX module-test runners; Net, SFX, platform
 foundation, GFXGPU, and Input gates pass. The remaining Windows closure work
 and package gates now pass as well; the remaining Windows work is the x64
 verifier (now narrowed to Game-loop termination), clean-cache evidence, and
-full regression matrix. The Linux run gate
-is currently limited by Zig 0.16 child-test cache handling when Windows and WSL
-share the checkout; the native Linux link and direct audit remain passed.
+full regression matrix. The Linux run gate first fails with Zig 0.16 cache
+rename contention in the shared NTFS checkout. An isolated ext4 WSL worktree
+removes that `AccessDenied` failure, but the same `game-all` run still exceeds
+the bounded local command window during native dependency compilation. The
+native Linux link and direct audit remain passed; no Linux staged-runtime
+acceptance is claimed.
 
 ## Important working-tree files
 
