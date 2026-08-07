@@ -2,7 +2,7 @@
 
 const Entry = struct {
     name: []u8,
-    source_path: []u8,
+    file: std.Io.File,
     local_header_offset: u32,
     crc32: u32,
     size: u32,
@@ -35,7 +35,7 @@ pub fn main(init: std.process.Init) !void {
     defer {
         for (entries.items) |entry| {
             init.gpa.free(entry.name);
-            init.gpa.free(entry.source_path);
+            entry.file.close(init.io);
         }
         entries.deinit(init.gpa);
     }
@@ -43,23 +43,20 @@ pub fn main(init: std.process.Init) !void {
     while (try walker.next(init.io)) |entry| {
         if (entry.kind != .file) continue;
 
-        const file_info = try crcAndSize(init.io, entry.dir, entry.basename);
-        const source_path = try init.gpa.dupe(u8, entry.path);
-        const rel_name = init.gpa.dupe(u8, entry.path) catch |err| {
-            init.gpa.free(source_path);
-            return err;
-        };
-        std.mem.replaceScalar(u8, rel_name, '\\', '/');
+        const file = try entry.dir.openFile(init.io, entry.basename, .{});
+        errdefer file.close(init.io);
+        const file_info = try crcAndSize(init.io, file);
+        const rel_name = try init.gpa.dupe(u8, entry.path);
+        std.mem.replaceScalar(u8, rel_name, std.fs.path.sep, '/');
 
         entries.append(init.gpa, .{
             .name = rel_name,
-            .source_path = source_path,
+            .file = file,
             .local_header_offset = 0,
             .crc32 = file_info.crc32,
             .size = file_info.size,
         }) catch |err| {
             init.gpa.free(rel_name);
-            init.gpa.free(source_path);
             return err;
         };
     }
@@ -74,7 +71,7 @@ pub fn main(init: std.process.Init) !void {
         entry.local_header_offset = @intCast(writer.logicalPos());
         try writeLocalHeader(&writer.interface, entry.name, entry.crc32, entry.size);
         try writer.interface.writeAll(entry.name);
-        try streamFile(init.io, source_dir, entry.source_path, &writer.interface);
+        try streamFile(init.io, entry.file, &writer.interface);
     }
 
     const central_dir_offset: u32 = @intCast(writer.logicalPos());
@@ -100,9 +97,7 @@ const FileInfo = struct {
     size: u32,
 };
 
-fn crcAndSize(io: std.Io, dir: std.Io.Dir, path: []const u8) !FileInfo {
-    var file = try dir.openFile(io, path, .{});
-    defer file.close(io);
+fn crcAndSize(io: std.Io, file: std.Io.File) !FileInfo {
     const stat = try file.stat(io);
     const size: u32 = @intCast(stat.size);
 
@@ -118,9 +113,7 @@ fn crcAndSize(io: std.Io, dir: std.Io.Dir, path: []const u8) !FileInfo {
     return .{ .crc32 = crc.final(), .size = size };
 }
 
-fn streamFile(io: std.Io, dir: std.Io.Dir, path: []const u8, writer: *std.Io.Writer) !void {
-    var file = try dir.openFile(io, path, .{});
-    defer file.close(io);
+fn streamFile(io: std.Io, file: std.Io.File, writer: *std.Io.Writer) !void {
     var read_buffer: [64 * 1024]u8 = undefined;
     var reader = file.reader(io, &read_buffer);
     _ = try reader.interface.streamRemaining(writer);
