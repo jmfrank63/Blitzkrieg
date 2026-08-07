@@ -192,7 +192,11 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, des
 fn copyRuntimeFile(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, name: []const u8, destination: std.Io.Dir) !void {
     const source = runtimeSourceName(name);
     copyFile(io, binaries, source, destination, name) catch |err| switch (err) {
-        error.FileNotFound => if (libraries) |lib_dir| copyFile(io, lib_dir, source, destination, name) else return err,
+        error.FileNotFound => {
+            if (libraries) |lib_dir| {
+                try copyFile(io, lib_dir, source, destination, name);
+            } else return err;
+        },
         else => return err,
     };
 }
