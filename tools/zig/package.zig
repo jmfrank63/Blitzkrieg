@@ -2,6 +2,7 @@
 
 const Entry = struct {
     name: []u8,
+    source_path: []u8,
     local_header_offset: u32,
     crc32: u32,
     size: u32,
@@ -32,29 +33,48 @@ pub fn main(init: std.process.Init) !void {
 
     var entries = std.ArrayList(Entry).empty;
     defer {
-        for (entries.items) |entry| init.gpa.free(entry.name);
+        for (entries.items) |entry| {
+            init.gpa.free(entry.name);
+            init.gpa.free(entry.source_path);
+        }
         entries.deinit(init.gpa);
     }
 
     while (try walker.next(init.io)) |entry| {
         if (entry.kind != .file) continue;
 
-        const rel_name = try init.gpa.dupe(u8, entry.path);
+        const file_info = try crcAndSize(init.io, entry.dir, entry.basename);
+        const source_path = try init.gpa.dupe(u8, entry.path);
+        const rel_name = init.gpa.dupe(u8, entry.path) catch |err| {
+            init.gpa.free(source_path);
+            return err;
+        };
         std.mem.replaceScalar(u8, rel_name, '\\', '/');
 
-        const file_info = try crcAndSize(init.io, entry.dir, entry.basename);
-
-        const local_header_offset: u32 = @intCast(writer.logicalPos());
-        try writeLocalHeader(&writer.interface, rel_name, file_info.crc32, file_info.size);
-        try writer.interface.writeAll(rel_name);
-        try streamFile(init.io, entry.dir, entry.basename, &writer.interface);
-
-        try entries.append(init.gpa, .{
+        entries.append(init.gpa, .{
             .name = rel_name,
-            .local_header_offset = local_header_offset,
+            .source_path = source_path,
+            .local_header_offset = 0,
             .crc32 = file_info.crc32,
             .size = file_info.size,
-        });
+        }) catch |err| {
+            init.gpa.free(rel_name);
+            init.gpa.free(source_path);
+            return err;
+        };
+    }
+
+    std.mem.sort(Entry, entries.items, {}, struct {
+        fn lessThan(_: void, lhs: Entry, rhs: Entry) bool {
+            return std.mem.order(u8, lhs.name, rhs.name) == .lt;
+        }
+    }.lessThan);
+
+    for (entries.items) |*entry| {
+        entry.local_header_offset = @intCast(writer.logicalPos());
+        try writeLocalHeader(&writer.interface, entry.name, entry.crc32, entry.size);
+        try writer.interface.writeAll(entry.name);
+        try streamFile(init.io, source_dir, entry.source_path, &writer.interface);
     }
 
     const central_dir_offset: u32 = @intCast(writer.logicalPos());
