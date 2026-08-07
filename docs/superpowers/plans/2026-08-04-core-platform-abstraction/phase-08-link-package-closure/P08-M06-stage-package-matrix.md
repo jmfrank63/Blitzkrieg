@@ -11,7 +11,7 @@
 - [ ] Define exact target manifests for Game, PlatformRuntime, modules, SDL3, renderer, shaders, data, metadata, and licenses.
 - [ ] Test staging into paths with spaces and non-ASCII characters and reject cache/temp/user-write files.
 - [ ] Verify architecture, exports, dependency closure, executable bits, rpaths/install names, duplicate libraries, and missing shader formats.
-- [ ] Build deterministic archives using Zig tools and compare two clean manifest/hash runs.
+- [x] Build deterministic archives using Zig tools and compare two clean manifest/hash runs. The frozen Windows x64 worktree at `566285eba` produced the identical full-package SHA-256 `73453868F3D57542789722314CAB11F2AB02D565EC9FF6944CA308F1A0E46446` on two runs; the package tool also passed its 102-entry ordering/readability/determinism fixture.
 - [ ] Run `install-game`, `verify-runtime`, and `package-game` for all targets in CI/native eligibility rules.
 - [ ] Commit: `build: close cross-platform package matrix`
 
