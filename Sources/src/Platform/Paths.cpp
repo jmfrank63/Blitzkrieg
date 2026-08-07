@@ -74,8 +74,10 @@ void SetInjectedRootsForTest(const char *base, const char *preference) {
 void ClearInjectedRootsForTest() { gBase.clear(); gUser.clear(); gInitialized = false; }
 const std::string &BaseRoot() { Initialize(); return gBase; }
 const std::string &UserRoot() { Initialize(); return gUser; }
-const std::string &DataRoot() { static std::string value; value = join(BaseRoot(), "data"); return value; }
-const std::string &ShaderRoot() { static std::string value; value = join(BaseRoot(), "shaders"); return value; }
+// These are package directory names, not case-folded Windows paths.  Keeping
+// the canonical spelling here is required on case-sensitive filesystems.
+const std::string &DataRoot() { static std::string value; value = join(BaseRoot(), "Data"); return value; }
+const std::string &ShaderRoot() { static std::string value; value = join(BaseRoot(), "Shaders"); return value; }
 const std::string &ModuleRoot() { return BaseRoot(); }
 const std::string &ConfigPath() { static std::string value; value = join(UserRoot(), "config.cfg"); return value; }
 const std::string &SaveRoot() { static std::string value; value = join(UserRoot(), "saves"); return value; }
