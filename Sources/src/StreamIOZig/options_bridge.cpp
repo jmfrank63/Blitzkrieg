@@ -89,7 +89,13 @@ struct CoreApi {
     const char *(BK_CDECL *console_read_ascii)(void *, int, unsigned long *) = nullptr;
 };
 static CoreApi api;
-static NPlatform::DynamicLibrary &CoreModule() { static NPlatform::DynamicLibrary module; return module; }
+// The bridge resolves callbacks from StreamIO itself.  Keeping this handle
+// process-lifetime avoids a shutdown-order race where the bridge's static
+// destructor dlcloses StreamIO after StreamIO has already begun teardown.
+static NPlatform::DynamicLibrary &CoreModule() {
+    static NPlatform::DynamicLibrary *module = new NPlatform::DynamicLibrary();
+    return *module;
+}
 
 template <class T> static T Resolve(const char *name) { return reinterpret_cast<T>(CoreModule().GetFunction(name)); }
 static bool ResolveCore() {
