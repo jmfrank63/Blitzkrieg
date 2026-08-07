@@ -3036,7 +3036,6 @@ fn addGFXGPU(
         // SDL_shadercross brings libc++ into the link graph, while the
         // legacy C++ modules and Misc ABI use libstdc++. Keep GFXGPU's C++
         // object layout consistent with BasicObjectFactory and its clients.
-        gfx_gpu_flags.append(b.allocator, "-stdlib=libstdc++") catch @panic("OOM");
         gfx_gpu_flags.appendSlice(b.allocator, &.{
             "-I", "/usr/include/c++/13",
             "-I", "/usr/include/x86_64-linux-gnu/c++/13",

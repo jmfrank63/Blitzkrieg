@@ -10,6 +10,7 @@
 #include "..//Image//Image.h"
 
 #include <SDL3/SDL.h>
+#include <cmath>
 
 namespace
 {
