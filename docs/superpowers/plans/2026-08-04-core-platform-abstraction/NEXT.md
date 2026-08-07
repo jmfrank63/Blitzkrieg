@@ -29,7 +29,9 @@ smokes, and Windows staged SDL_GPU acceptance reaches the C6 main-menu
 checkpoint across two native restarts on the pushed head. Windows foundation
 and GfxGPU/D3D12 gates also pass. The remaining
 P09-M01 diagnostics, P09-M02 gameplay/UAT, and the broader P09-M04 regression
-acceptance remain open.
+acceptance remain open. P08-M06 now records deterministic Windows package
+hash evidence; its all-target manifest, native path, and macOS package gates
+remain open.
 
 ## Important working-tree files
 
