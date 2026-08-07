@@ -1,4 +1,5 @@
 const std = @import("std");
+const runtime_verify = @import("verify_runtime.zig");
 
 pub const DataMode = enum { copy, link };
 
@@ -6,6 +7,7 @@ pub const RuntimeLayout = struct {
     game_name: []const u8,
     runtime_files: []const []const u8,
     debug_files: []const []const u8,
+    metadata_files: []const []const u8 = &runtime_verify.required_metadata_files,
     editors_supported: bool,
 };
 
@@ -36,10 +38,12 @@ const ParsedOptions = struct {
     value: Options,
     runtime_files: std.ArrayList([]const u8),
     debug_files: std.ArrayList([]const u8),
+    metadata_files: std.ArrayList([]const u8),
 
     fn deinit(self: *ParsedOptions, allocator: std.mem.Allocator) void {
         self.runtime_files.deinit(allocator);
         self.debug_files.deinit(allocator);
+        self.metadata_files.deinit(allocator);
     }
 };
 
@@ -48,6 +52,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
     errdefer runtime_files.deinit(allocator);
     var debug_files = std.ArrayList([]const u8).empty;
     errdefer debug_files.deinit(allocator);
+    var metadata_files = std.ArrayList([]const u8).empty;
+    errdefer metadata_files.deinit(allocator);
 
     var options = Options{
         .repo_root = args.next() orelse return error.InvalidArguments,
@@ -72,17 +78,21 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
             try runtime_files.append(allocator, args.next() orelse return error.InvalidArguments);
         } else if (std.mem.eql(u8, arg, "--debug-file")) {
             try debug_files.append(allocator, args.next() orelse return error.InvalidArguments);
+        } else if (std.mem.eql(u8, arg, "--metadata-file")) {
+            try metadata_files.append(allocator, args.next() orelse return error.InvalidArguments);
         } else {
             return error.InvalidArguments;
         }
     }
+    const selected_metadata_files = if (metadata_files.items.len == 0) &runtime_verify.required_metadata_files else metadata_files.items;
     options.layout = .{
         .game_name = game_name,
         .runtime_files = runtime_files.items,
         .debug_files = debug_files.items,
+        .metadata_files = selected_metadata_files,
         .editors_supported = editors_supported,
     };
-    return .{ .value = options, .runtime_files = runtime_files, .debug_files = debug_files };
+    return .{ .value = options, .runtime_files = runtime_files, .debug_files = debug_files, .metadata_files = metadata_files };
 }
 
 pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
@@ -106,6 +116,7 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
+        copyMetadata(io, repo, destination, options.layout.metadata_files) catch |err| return failStep("copy package metadata", err);
         destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
         removeTreeIfPresent(io, destination, "Data") catch |err| return failStep("remove staged Data", err);
         switch (options.data_mode) {
@@ -206,6 +217,10 @@ fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destinat
     var destination_data = try destination.openDir(io, "Data", .{ .access_sub_paths = true });
     defer destination_data.close(io);
     try copyTree(io, allocator, data, destination_data);
+}
+
+fn copyMetadata(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir, metadata_files: []const []const u8) !void {
+    for (metadata_files) |name| try copyFile(io, repo, name, destination, name);
 }
 
 fn copyShaderAssets(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {

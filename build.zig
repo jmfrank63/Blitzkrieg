@@ -1,5 +1,6 @@
 const std = @import("std");
 const build_support = @import("tools/zig/build_support.zig");
+const package_policy = @import("tools/zig/verify_runtime.zig");
 
 /// Single source of truth for the game version. Bump the patch component with
 /// every change. The version is embedded into Game.exe as a Win32 VERSIONINFO
@@ -1321,6 +1322,7 @@ pub fn build(b: *std.Build) void {
     const stage_root = b.fmt("zig-out/game/{s}", .{platform_policy.package_root});
     const package_root = b.fmt("zig-out/packages/{s}", .{platform_policy.package_root});
     const stage_game_name = platform_policy.executable_name;
+    const stage_metadata_files = package_policy.required_metadata_files[0..];
     const stage_runtime_files = switch (target.result.os.tag) {
         .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
         .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
@@ -1713,7 +1715,7 @@ pub fn build(b: *std.Build) void {
     const install_game_cmd = b.addRunArtifact(stage_tool);
     install_game_cmd.addArg(".");
     install_game_cmd.addArg(stage_root);
-    addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, target.result.os.tag == .windows);
+    addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     if (!copy_data) install_game_cmd.addArg("--link-data");
     install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
 
@@ -1765,7 +1767,7 @@ pub fn build(b: *std.Build) void {
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
     stage_package_game_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
-    addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, target.result.os.tag == .windows);
+    addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
 
     const package_tool = b.addExecutable(.{
         .name = "package",
@@ -1785,7 +1787,7 @@ pub fn build(b: *std.Build) void {
     const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_editors_cmd.addArg(".");
     stage_package_game_editors_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
-    addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, target.result.os.tag == .windows);
+    addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
     stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
@@ -1931,7 +1933,7 @@ pub fn build(b: *std.Build) void {
     b.default_step = game_all_step;
 }
 
-fn addStageLayoutArgs(run: anytype, game_name: []const u8, runtime_files: []const []const u8, debug_files: []const []const u8, editors_supported: bool) void {
+fn addStageLayoutArgs(run: anytype, game_name: []const u8, runtime_files: []const []const u8, debug_files: []const []const u8, metadata_files: []const []const u8, editors_supported: bool) void {
     run.addArg("--game-name");
     run.addArg(game_name);
     for (runtime_files) |name| {
@@ -1940,6 +1942,10 @@ fn addStageLayoutArgs(run: anytype, game_name: []const u8, runtime_files: []cons
     }
     for (debug_files) |name| {
         run.addArg("--debug-file");
+        run.addArg(name);
+    }
+    for (metadata_files) |name| {
+        run.addArg("--metadata-file");
         run.addArg(name);
     }
     if (editors_supported) run.addArg("--editors-supported");

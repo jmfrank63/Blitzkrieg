@@ -74,6 +74,14 @@ test "stages through a destination path with spaces and non-ASCII characters" {
         .data = "default fixture",
     });
     try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "LICENSE.md" }),
+        .data = "license fixture",
+    });
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "README.md" }),
+        .data = "readme fixture",
+    });
+    try tmp.dir.writeFile(io, .{
         .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "Data/Maps/fixture.map" }),
         .data = "map fixture",
     });
@@ -114,6 +122,8 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try expectStagedFile(destination, io, allocator, "Data/Maps/fixture.map", "map fixture");
     try expectStagedFile(destination, io, allocator, "config.cfg", "default fixture");
     try expectStagedFile(destination, io, allocator, "defconf.cfg", "default fixture");
+    try expectStagedFile(destination, io, allocator, "LICENSE.md", "license fixture");
+    try expectStagedFile(destination, io, allocator, "README.md", "readme fixture");
     for ([_][]const u8{
         "Data/cache/compiled.bin",
         "Data/temp/session.bin",
