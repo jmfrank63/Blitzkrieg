@@ -101,22 +101,27 @@ fn crcAndSize(io: std.Io, file: std.Io.File) !FileInfo {
     const stat = try file.stat(io);
     const size: u32 = @intCast(stat.size);
 
-    var read_buffer: [64 * 1024]u8 = undefined;
-    var reader = file.reader(io, &read_buffer);
     var crc = std.hash.Crc32.init();
     var chunk: [64 * 1024]u8 = undefined;
+    var offset: u64 = 0;
     while (true) {
-        const n = try reader.interface.readSliceShort(&chunk);
+        const n = try file.readPositional(io, &.{chunk[0..]}, offset);
         if (n == 0) break;
         crc.update(chunk[0..n]);
+        offset += n;
     }
     return .{ .crc32 = crc.final(), .size = size };
 }
 
 fn streamFile(io: std.Io, file: std.Io.File, writer: *std.Io.Writer) !void {
-    var read_buffer: [64 * 1024]u8 = undefined;
-    var reader = file.reader(io, &read_buffer);
-    _ = try reader.interface.streamRemaining(writer);
+    var chunk: [64 * 1024]u8 = undefined;
+    var offset: u64 = 0;
+    while (true) {
+        const n = try file.readPositional(io, &.{chunk[0..]}, offset);
+        if (n == 0) break;
+        try writer.writeAll(chunk[0..n]);
+        offset += n;
+    }
 }
 
 fn ensureParentDir(io: std.Io, path: []const u8) !void {
