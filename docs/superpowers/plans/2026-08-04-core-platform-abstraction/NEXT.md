@@ -1,6 +1,8 @@
 # Next Packet
 
-Resume at `phase-08-link-package-closure/P08-M03-linux-link-closure.md`.
+Resume at `phase-01-core-host-services/P01-M05-paths-files-metadata.md`, then
+`P01-M06-environment-dialog-process.md`, before returning to
+`phase-08-link-package-closure/P08-M03-linux-link-closure.md`.
 
 P07-M01 through P07-M06 and P08-M01 are committed and pushed. The Windows
 playable-source audit reports zero hits with an empty temporary allowlist, the
@@ -35,6 +37,13 @@ acceptance remain open. P08-M06 now records the metadata-aware Windows x64
 install, verification, package output, and two-run deterministic SHA-256
 `4264279A1FD6247B51FF2ECB9E5748E98C1E362A685C211E1C41CFB56135A802`; its
 all-target manifest, native binary, and macOS package gates remain open.
+The later core-host-service hardening is also pushed: P01-M02 now has
+generational synchronization handles, 10,000 wake/wait and 100 join stress
+coverage, and a portable `Misc::Thread`; P01-M03 routes attached diagnostics
+through `PlatformClient` with callback re-entry/exception guards; P01-M04
+stores dynamic-library state behind appended ABI handles with stale/double
+close and teardown tests. Windows aggregate core validation passes 61/61
+steps and 52/52 tests on the current pushed head.
 
 ## Important working-tree files
 
