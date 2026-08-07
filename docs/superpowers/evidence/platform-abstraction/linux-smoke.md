@@ -1,6 +1,6 @@
 # Linux staged launch smoke
 
-Revision: `e892d195c` (`build: exclude forbidden artifacts during staging`)
+Revision: `62dcc8401` (`docs: record bootstrap fullscreen blocker`)
 
 Environment: WSL2 Ubuntu with WSLg (`DISPLAY=:0`, `WAYLAND_DISPLAY=wayland-0`),
 target `x86_64-linux-gnu.2.39`.
@@ -27,6 +27,10 @@ SMOKE_1_OK
 SMOKE_2_OK
 SMOKE_3_OK
 ```
+
+After the Windows metadata/staging graph changes, the pushed head was fetched
+into the same WSL checkout and `zig build game-all -Dtarget=x86_64-linux-gnu.2.39
+-Dtest-mode=compile` completed successfully again.
 
 The same WSL checkout also passed the native Linux platform and renderer
 gates:
