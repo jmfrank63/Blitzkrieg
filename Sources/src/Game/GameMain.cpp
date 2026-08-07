@@ -156,6 +156,11 @@ int RunGame( const BkGameLaunchInfo &launch )
 		return 0xDEAD;
 	}
 	BK_STARTUP_MARKER("after LoadAllModules");
+	// Arm every loaded module before Finalize() unloads them.  Calling this from
+	// atexit is too late: Finalize has already dlclose'd the modules, so the
+	// helper would reload each shared library and immediately trigger its static
+	// destructors when the temporary handle is released.
+	ArmAllModulesLeakOnExit();
 	NWinFrame::ShowSplashScreen( NWinFrame::GetHInstance(), true );
 	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
 	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
@@ -165,15 +170,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_DEBUG );
 	_CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_DEBUG );
 	#endif
-	// registered after static init, so this runs before Game.exe static
-	// destructors at exit (atexit is LIFO) — from then on every module leaks
-	// refcounted objects instead of running destruction cascades. The DLL flags
-	// must be armed here too: modules detach one after another at exit, so e.g.
-	// GameTT's static teardown can release AILogic-compiled objects before
-	// AILogic's own DllMain(DETACH) has armed its flag.
-	atexit( []{
-		ArmAllModulesLeakOnExit();
-	} );
+	// The module flags were armed immediately after LoadAllModules above, before
+	// any normal shutdown path can unload a module.
 	// CRT assert/abort dialogs open behind the fullscreen game window; route
 	// asserts to stderr and let abort() raise a fail-fast exception so an
 	// attached debugger breaks instead of the process exiting with code 3.
