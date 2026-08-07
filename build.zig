@@ -1980,7 +1980,11 @@ fn addOptionsBridge(
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
     module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/StreamIOZig/options_bridge.cpp", "Sources/src/Platform/DynamicLibrary.cpp" },
+        .files = &.{
+            "Sources/src/StreamIOZig/options_bridge.cpp",
+            "Sources/src/Platform/DynamicLibrary.cpp",
+            "Sources/src/Platform/Paths.cpp",
+        },
         .flags = flags.items,
     });
     addProjectIncludePaths(b, module);
