@@ -25,6 +25,9 @@
 - The aggregate Windows gate also passed on the same source head:
   `zig build test -Dtarget=x86_64-windows-msvc -Dtest-mode=run` exited 0 and
   included the staged x64 runtime verifier.
+- `.github/workflows/cross-platform.yml` now schedules `verify-runtime` and
+  `test-stage` in the Linux, Windows, and macOS jobs with each native target
+  and sysroot/toolchain setup. Runner results are intentionally still open.
 - Existing native Linux evidence remains: `game-all` 113/113 and 11/11,
   `install-game` 159/159 and 6/6, and one Linux package hash recorded in
   `p08-m03-linux-link.md`.
