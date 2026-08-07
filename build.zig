@@ -1081,6 +1081,17 @@ pub fn build(b: *std.Build) void {
     stage_test_step.dependOn(&stage_tests.step);
     if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
 
+    const runtime_verify_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_runtime.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const runtime_verify_tests = b.addTest(.{ .root_module = runtime_verify_module });
+    const runtime_verify_run = b.addRunArtifact(runtime_verify_tests);
+    const runtime_verify_step = b.step("verify-runtime", "Run the staged runtime layout verifier tests");
+    runtime_verify_step.dependOn(&runtime_verify_tests.step);
+    if (test_mode == .run) runtime_verify_step.dependOn(&runtime_verify_run.step);
+
     const shader_parser_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
         .target = b.graph.host,
