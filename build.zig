@@ -2279,11 +2279,11 @@ fn addGame(
         .windows => .windows,
         .console => .console,
     };
-    game.entry = switch (build_support.entryPoint(platform, true)) {
-        .win_main_crt_startup => .{ .symbol_name = "WinMainCRTStartup" },
-        .main_crt_startup => .{ .symbol_name = "mainCRTStartup" },
-        .main => .{ .symbol_name = "main" },
-    };
+    switch (build_support.entryPoint(platform, true)) {
+        .win_main_crt_startup => game.entry = .{ .symbol_name = "WinMainCRTStartup" },
+        .main_crt_startup => game.entry = .{ .symbol_name = "mainCRTStartup" },
+        .main => {},
+    }
     return game;
 }
 
