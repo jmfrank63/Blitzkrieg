@@ -22,6 +22,9 @@
   from the native build graph. The package artifact was emitted at
   `zig-out/packages/windows-x64/Blitzkrieg-game.zip` with size
   `3,073,345,577` bytes.
+- `zig build verify-x64-runtime -Dtarget=x86_64-windows-msvc
+  -Dtest-mode=run` also exited 0 on the same pushed head after launching the
+  staged `Game.exe` startup smoke.
 - The aggregate Windows gate also passed on the same source head:
   `zig build test -Dtarget=x86_64-windows-msvc -Dtest-mode=run` exited 0 and
   included the staged x64 runtime verifier.
