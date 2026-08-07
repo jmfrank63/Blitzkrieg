@@ -814,7 +814,7 @@ pub fn build(b: *std.Build) void {
         .name = "PlatformRuntime",
         .linkage = .dynamic,
         .root_module = platform_runtime_module,
-        .win32_module_definition = null,
+        .win32_module_definition = if (platform == .windows_x64) b.path("Sources/src/PlatformABI/PlatformRuntime.def") else null,
     });
     const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
