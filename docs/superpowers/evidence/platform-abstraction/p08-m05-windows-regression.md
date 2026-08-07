@@ -61,6 +61,10 @@ cross-target regression matrix remain open.
   now explicitly bound in the Windows build graph.
 - Two identical `package-game` runs produced the same SHA-256 archive hash:
   `9E8A1D474E4B51638ACCCF4F5437C9FF7856BB2A35BEE1097D4C5AE1F68FE94C`.
+- A current-HEAD clean-cache Windows `game-all -Dtest-mode=run` completed in
+  304 seconds with fresh cache `bk-clean-cache-abe0e33e09994139b51701dfe2bd6caf`
+  and an isolated install prefix; the audit again reported zero inventory and
+  allowlist hits.
 
 ## Remaining
 

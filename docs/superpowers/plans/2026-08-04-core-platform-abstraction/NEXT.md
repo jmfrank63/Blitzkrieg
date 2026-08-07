@@ -17,7 +17,7 @@ and package gates now pass as well; the x64 CDB and native Zig runtime
 verifiers now pass after fixing duplicated module paths in the portable file
 iterator. The clean-cache Windows `game-all` rerun also passes with an
 isolated cache and install prefix. The remaining Windows work is the full
-regression matrix and CI/resource/export comparison. The Linux run gate now
+regression matrix and CI comparison. The Linux run gate now
 passes in the isolated ext4 WSL worktree: `game-all` reports 112/112 steps
 succeeded and 11/11 tests passed; `install-game` and `package-game` also pass
 for Linux x64. The shared NTFS checkout still has Zig 0.16 cache rename

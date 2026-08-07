@@ -13,7 +13,8 @@
 - [x] Compare accepted startup, renderer, input, audio, and module lifecycle fixtures; the x64 CDB/native Zig verifier and existing renderer/module gates pass.
 - [x] Reject fallback to DirectInput or private platform-state copies; the
   Windows playable-source and runtime-platform audits report zero hits.
-- [ ] Run a clean Windows build and CI runner job. The isolated-cache Windows build and deterministic package pass; no CI runner result is available.
+- [x] Run a clean Windows build with a fresh cache and isolated install prefix; `game-all -Dtest-mode=run` passed in 304 seconds.
+- [ ] Run the CI runner job; no CI runner result is available.
 - [x] Commit checkpoint: `67196e19d build: bind Windows PlatformRuntime definition`
 
 **Evidence:** x64 verifier output and unchanged accepted fixture hashes.
