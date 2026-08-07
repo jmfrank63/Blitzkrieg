@@ -27,6 +27,8 @@ open.
   `PlatformRuntime.dll` and the expected Game/module/SDL/GFXGPU artifacts.
 - `zig build package-game -Dtarget=x86_64-windows-msvc -Dtest-mode=compile`
   completed and emitted `zig-out/packages/windows-x64/Blitzkrieg-game.zip`.
+- The package build was rerun after the module-path fix and completed with the
+  corrected Windows `Game.exe` and SDL_GPU runtime layout.
 - `zig build test-stage`, `zig build test-platform-linkage`, and
   `zig build test-platform-storage` passed for the Windows target, covering
   target manifest rules, shared-runtime linkage policy, and package/config
