@@ -767,7 +767,10 @@ fn resolveCaseInsensitivePath(path: []const u8) ?[:0]u8 {
         if (std.mem.eql(u8, wanted, ".")) continue;
 
         const parent = if (resolved.items.len == 0) "." else resolved.items;
-        var directory = std.Io.Dir.cwd().openDir(hostIo(), parent, .{ .iterate = true }) catch return null;
+        var directory = if (resolved.items.len != 0 and resolved.items[0] == '/')
+            std.Io.Dir.openDirAbsolute(hostIo(), parent, .{ .iterate = true }) catch return null
+        else
+            std.Io.Dir.cwd().openDir(hostIo(), parent, .{ .iterate = true }) catch return null;
         defer directory.close(hostIo());
         var iterator = directory.iterate();
         var actual: ?[]u8 = null;
