@@ -3030,20 +3030,9 @@ fn addGFXGPU(
     addMsvcLibraryPaths(b, gfx_gpu_module, toolchain);
     gfx_gpu_module.addIncludePath(b.path("Sources/src/GFX"));
     gfx_gpu_module.addIncludePath(b.path("Sources/src/GFXGPU"));
-    var gfx_gpu_flags: std.ArrayListUnmanaged([]const u8) = .empty;
-    gfx_gpu_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
-    if (target.result.os.tag == .linux) {
-        // SDL_shadercross brings libc++ into the link graph, while the
-        // legacy C++ modules and Misc ABI use libstdc++. Keep GFXGPU's C++
-        // object layout consistent with BasicObjectFactory and its clients.
-        gfx_gpu_flags.appendSlice(b.allocator, &.{
-            "-I", "/usr/include/c++/13",
-            "-I", "/usr/include/x86_64-linux-gnu/c++/13",
-        }) catch @panic("OOM");
-    }
     gfx_gpu_module.addCSourceFiles(.{
         .files = gfx_gpu_sources,
-        .flags = gfx_gpu_flags.items,
+        .flags = cppflagsForOptimize(optimize),
     });
     gfx_gpu_module.linkLibrary(misc);
     gfx_gpu_module.linkLibrary(platform_runtime);
@@ -3201,11 +3190,15 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     }
     const version = selected orelse return;
     const arch = "x86_64";
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
+    // Zig's Linux C++ driver injects libc++ system headers first. These
+    // legacy modules share STL-bearing C++ objects across DLL boundaries, so
+    // make the native libstdc++ headers ordinary include paths and keep one
+    // ABI across Game, Main, Misc, and the loaded modules.
+    module.addIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
     module.addSystemIncludePath(.{ .cwd_relative = "/usr/include" });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu", .{arch}) });
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu/c++/{s}", .{ arch, version }) });
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}/backward", .{version}) });
+    module.addIncludePath(.{ .cwd_relative = b.fmt("/usr/include/{s}-linux-gnu/c++/{s}", .{ arch, version }) });
+    module.addIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}/backward", .{version}) });
     var gcc_versions = std.Io.Dir.openDirAbsolute(b.graph.io, b.fmt("/usr/lib/gcc/{s}-linux-gnu", .{arch}), .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(gcc_versions, b.graph.io);
     var gcc_iterator = gcc_versions.iterate();
