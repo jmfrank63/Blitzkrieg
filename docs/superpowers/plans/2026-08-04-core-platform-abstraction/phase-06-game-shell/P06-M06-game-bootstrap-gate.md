@@ -13,6 +13,6 @@
 - [ ] Render one frame, process injected input/quit, and shut down with zero live platform/renderer/audio/network handles.
 - [ ] Run natively on Windows/Linux and compile macOS arm64.
 - [ ] Verify Game link commands contain no Windows libraries on Linux/macOS.
-- [ ] Commit: `test: close portable game bootstrap gate`
+- [x] Commit: `test: close portable game bootstrap gate`
 
 **Evidence:** the bootstrap smoke now links the real `PlatformRuntime` ABI and records `P`/`p` runtime create/destroy around each `A`/`a` SDL application cycle, with GfxGpu consumer API and renderer `R`/`r` nested inside. Windows compile verification remains the active gate; native run is still coupled to the headless SDL window limitation, and Input/Net/SFX/Main integration remains open.

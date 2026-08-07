@@ -13,6 +13,6 @@
 - [ ] Preserve LAN discovery packet frequency and target ports.
 - [ ] Use simulated clocks for timeout tests and real loopback for readiness.
 - [ ] Run native Windows/Linux network tests and compile macOS.
-- [ ] Commit: `net: port readiness and LAN addressing`
+- [x] Commit: `net: port readiness and LAN addressing`
 
 **Evidence:** Windows `zig build test-platform-network -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed with zero/finite timeout, readable loopback, broadcast option, dotted IPv4, invalid-host rejection, and nonblocking would-block checks. NetLowest’s byte-identical UDP fixture also passes. Linux/macOS gates remain open; timeout checks currently use bounded real loopback waits rather than simulated clocks.

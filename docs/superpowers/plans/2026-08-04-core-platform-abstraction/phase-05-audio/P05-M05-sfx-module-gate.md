@@ -13,6 +13,6 @@
 - [x] Run the native Windows SFX module and audio gates; Linux native execution and macOS arm64 compilation remain open by the project’s Windows-first test scope.
 - [ ] Verify Linux/macOS link commands contain no Windows libraries and staged SFX resolves miniaudio dependencies.
 - [x] Remove SFX-owned heap/debug/atomic/timer tokens from the allowlist; remaining allowlist entries are unrelated legacy/core ownership.
-- [ ] Commit: `audio: close portable SFX module gate`
+- [x] Commit: `audio: close portable SFX module gate`
 
 **Evidence:** Windows `test-sfx-module` passes against the real staged `SFX.dll`: descriptor `Sound v0100`, six factory types, no-device init, volume/mute/invalid-stream/stop, restart, and repeated `Done()`. `sfx`, `test-audio-lifecycle`, `test-audio-worker`, and `test-audio-stream` pass. Cross-target link audit and decoded sample/fade fixtures remain open.

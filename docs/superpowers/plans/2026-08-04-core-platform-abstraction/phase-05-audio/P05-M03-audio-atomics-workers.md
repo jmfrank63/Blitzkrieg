@@ -13,6 +13,6 @@
 - [x] Route fade worker creation/join through the existing portable `CThread`/`NPlatform::Event` path.
 - [x] Preserve frame-visible completion timing and fade curves; melody completion remains deferred to the main-thread `Update` exchange.
 - [ ] Run 1,000 completion handoffs under ThreadSanitizer where supported; the Windows toolchain does not provide a supported TSan run in this gate.
-- [ ] Commit: `audio: port timing atomics and workers`
+- [x] Commit: `audio: port timing atomics and workers`
 
 **Evidence:** Windows `test-audio-worker` passes `1000` completion handoffs, fade monotonicity, shutdown wake, and worker restart. `sfx` also passes after replacing `OutputDebugString`, `GetTickCount`, `InterlockedExchange`, and the optional trace `QueryPerformanceCounter` path.

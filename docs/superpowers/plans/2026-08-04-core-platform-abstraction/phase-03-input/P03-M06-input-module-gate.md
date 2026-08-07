@@ -12,7 +12,7 @@
 - [ ] Target-guard `.def`, import libraries, COM support, DirectInput libraries, and Windows-only oracle source files.
 - [ ] Run `zig build test-input-module -Dtest-mode=run` natively on Windows and Linux; compile for macOS.
 - [x] Verify the non-Windows Input build graph does not add `dinput8`, `dxguid`, `winmm`, or `user32`; Windows still retains those temporary oracle links.
-- [ ] Remove all Input-owned native tokens from the audit allowlist.
+- [x] Remove all Input-owned native tokens from the audit allowlist.
 - [x] Commit checkpoint: `cd60e4ecc input: add shared module lifecycle gate`; native runtime closure remains open due the documented CRT loader blocker.
 
 **Evidence:** `test-input-module` compiles for `x86_64-windows-msvc` and wires the real `GetModuleDescriptor`/factory lifecycle test. A Windows run reaches the loader but exits `0xc0000139` because the installed host debug CRT does not expose the MSVC symbols used by the generated StreamIO dependency; this is an environment/runtime packaging blocker, not a compile failure. The Linux/macOS link policy remains guarded in `build.zig`; the Windows DirectInput/oracle link cleanup remains open.

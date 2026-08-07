@@ -13,6 +13,6 @@
 - [x] Preserve packet length, broadcast option, port byte order, and receive-address reporting.
 - [ ] Build with strict Linux headers and run the fixture on Windows and Linux.
 - [x] Remove `winsock2.h` from Net precompiled headers.
-- [ ] Commit: `net: route lowest layer through platform sockets`
+- [x] Commit: `net: route lowest layer through platform sockets`
 
 **Evidence:** Windows `zig build test-netlowest -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed. The fixture verifies empty nonblocking receive, byte-identical binary payloads, deterministic 2048-byte oversize truncation, address/port reporting, close, and reinitialize. Windows `WSAEMSGSIZE` is normalized to the portable truncated byte count. Linux compilation remains open because the current configured Zig Linux C++ environment cannot locate `<cstdint>`; no Linux runtime claim is made.

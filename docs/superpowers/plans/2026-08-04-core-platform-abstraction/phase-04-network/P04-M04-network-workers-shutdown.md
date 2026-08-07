@@ -14,6 +14,6 @@
 - [x] Run 100 start/stop cycles and a two-peer loopback exchange.
 - [x] Verify no socket/thread/event ownership remains after every cycle through deterministic close/restart assertions.
 - [ ] Run the same worker gate on Linux/macOS.
-- [ ] Commit: `net: port workers and deterministic shutdown`
+- [x] Commit: `net: port workers and deterministic shutdown`
 
 **Evidence:** Windows `zig build test-network-workers -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passed: `cycles=100 wake/cancel/restart`, with a binary request/ACK exchange each cycle, peer disappearance before cancellation, socket close before join, and immediate same-port restart. The existing CThread implementation uses `NPlatform::SleepMilliseconds`, `NPlatform::Event`, and `NPlatform::Mutex`; non-Windows execution remains open because the configured Zig Linux C++ environment lacks `<cstdint>`.

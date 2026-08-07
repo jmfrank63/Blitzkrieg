@@ -12,7 +12,7 @@
 - [x] Compile checks cover stable event kind, timestamp, modifiers, coordinates, and bounded text payload fields.
 - [x] Translate SDL events once into bounded `PlatformEvent` records in arrival order.
 - [x] Define bounded text overflow behavior: truncate at the fixed payload limit and emit one platform diagnostic for each consecutive overflow episode.
-- [ ] Assert gameplay consumers do not include SDL event headers.
+- [x] Assert gameplay consumers do not include SDL event headers.
 - [x] Commit checkpoint: `platform: expose normalized application events`.
 
 **Evidence:** Windows `test-platform-events -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` passes with the bounded overflow implementation; run-mode validation is coupled to the headless SDL window blocker recorded in P02-M01.

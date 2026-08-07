@@ -9,7 +9,7 @@
 **Allowed files:** `Sources/src/Game/WinFrame.cpp`, `Sources/src/Game/GameFrame.h`, `Sources/src/Game/GameFrame.cpp`, `Sources/src/Game/GameMain.cpp`, `tools/zig/game_frame_test.cpp`, `build.zig`.
 
 - [ ] Capture Windows oracle traces for create/show/focus/resize/minimize/close and client coordinates.
-- [ ] Implement `GameFrame` over platform window/events with no `HWND`, WNDPROC, work-area, or client-rect calls.
+- [x] Implement `GameFrame` over platform window/events with no `HWND`, WNDPROC, work-area, or client-rect calls.
 - [ ] Limit `WinFrame.cpp` to splash/resources and compile it only for Windows.
 - [ ] Route normalized events to existing game message structures without duplicate mouse events.
 - [ ] Compare lifecycle/event traces on Windows and Linux.

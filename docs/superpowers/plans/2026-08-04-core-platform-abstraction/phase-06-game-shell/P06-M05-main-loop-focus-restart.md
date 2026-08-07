@@ -13,6 +13,6 @@
 - [ ] Ensure renderer ends/drains before window destruction and modules stop before PlatformRuntime destruction.
 - [ ] Run three complete bootstrap/main-loop/shutdown cycles.
 - [ ] Verify identical lifecycle ordering on Windows/Linux.
-- [ ] Commit: `game: port main loop and restart lifecycle`
+- [x] Commit: `game: port main loop and restart lifecycle`
 
 **Evidence:** `test-game-loop -Dtarget=x86_64-windows-msvc -Dtest-mode=run` passes simulated focus/unfocus pacing, minimize/restore suspension, resize preservation, quit handling, reset/restart, and three identical `RsRs` lifecycle traces. The deterministic policy compiles for Linux once the SDL shared-library symlink environment permits; integration into the legacy `GameMain` loop and native desktop lifecycle comparison remain open.

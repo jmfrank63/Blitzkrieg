@@ -13,6 +13,6 @@
 - [x] Fix standards-conforming C/C++ warnings in the lifetime path without changing decoded samples.
 - [ ] Compare PCM hashes and frame counts on Windows/Linux; Windows frame/count coverage passes, Linux execution remains open.
 - [x] Run repeated stream callback create/stop/destroy cycles with a zero-live-reader assertion (`cycles=100`).
-- [ ] Commit: `audio: harden portable stream callback lifetime`
+- [x] Commit: `audio: harden portable stream callback lifetime`
 
 **Evidence:** Windows `test-audio-stream` passes PCM read/seek/loop/EOF and 100 callback-drain cycles. The production SFX module builds after callback detachment and reader-drain hardening. Valid Vorbis decode parity and cross-platform hashes remain open.

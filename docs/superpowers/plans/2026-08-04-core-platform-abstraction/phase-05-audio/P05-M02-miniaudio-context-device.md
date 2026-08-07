@@ -13,6 +13,6 @@
 - [x] Preserve accepted sample rate, channel layout, volume defaults, and disabled-audio behavior; requested channel count now reaches miniaudio.
 - [x] Ensure context, device, engine, and allocator destruction order is explicit.
 - [x] Run the Windows compile/runtime gates with a null backend fallback for headless CI; Linux native execution remains open.
-- [ ] Commit: `audio: port miniaudio device lifecycle`
+- [x] Commit: `audio: port miniaudio device lifecycle`
 
 **Evidence:** `test-audio-lifecycle` passes with forced custom-backend failure, null-device and default-null-device engine initialization, three teardown/restart cycles, and allocator balance. Windows `sfx`, `test-platform-audio`, and `test-input-audio-gate` also pass. Production backend selection now honors WinMM/DirectSound requests and otherwise tries WASAPI, DirectSound, WinMM, then Null.
