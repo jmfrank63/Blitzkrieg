@@ -1,5 +1,6 @@
 #include "../Platform/DynamicLibrary.h"
 #include "../Platform/LegacyVariant.h"
+#include "../Platform/Paths.h"
 
 #include <SDL3/SDL.h>
 #include <cstdio>
@@ -100,7 +101,10 @@ static bool ResolveCore() {
 #else
         const char *module_name = "libStreamIO.so";
 #endif
-        if (!CoreModule().Load(module_name)) return false;
+        std::string module_path = NPlatform::Paths::ModuleRoot();
+        if (!module_path.empty() && module_path.back() != '/' && module_path.back() != '\\') module_path += '/';
+        module_path += module_name;
+        if (!CoreModule().Load(module_path.c_str()) && !CoreModule().Load(module_name)) return false;
     }
     api.create = Resolve<decltype(api.create)>("bk_options_create");
     api.destroy = Resolve<decltype(api.destroy)>("bk_options_destroy");
