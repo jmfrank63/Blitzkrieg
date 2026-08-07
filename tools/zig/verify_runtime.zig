@@ -35,6 +35,10 @@ pub const VerifyError = error{
     MissingDefaultConfig,
     UnsafeManifestPath,
     ForbiddenArtifact,
+    DuplicateManifestEntry,
+    UnexpectedRuntimeEntry,
+    UnexpectedShader,
+    UnexpectedManifestEntry,
 };
 
 pub fn runtimeName(target: RuntimeTarget) []const u8 {
@@ -99,14 +103,63 @@ pub fn verifyStagedLayout(names: []const []const u8, target: RuntimeTarget) Veri
     }
 
     if (!containsPath(names, shader_manifest_name)) return error.MissingShaderManifest;
+    for (names) |name| {
+        if (shaderNameAtPath(name)) |shader_name| {
+            if (hasKnownShaderExtension(shader_name) and !std.mem.endsWith(u8, shader_name, shaderExtension(target)))
+                return error.UnexpectedShader;
+        }
+    }
     if (!containsShader(names, target)) return error.MissingShader;
     if (!containsPath(names, "config.cfg")) return error.MissingConfig;
     if (!containsPath(names, "defconf.cfg")) return error.MissingDefaultConfig;
+
+    for (names, 0..) |left, index| {
+        for (names[index + 1 ..]) |right| {
+            if (pathEqual(left, right)) return error.DuplicateManifestEntry;
+        }
+    }
+
+    for (names) |name| {
+        if (isKnownRuntimeName(name) and !containsPath(requiredRuntimeNames(target), name))
+            return error.UnexpectedRuntimeEntry;
+    }
 }
 
 pub fn isValidStagedLayout(names: []const []const u8, target: RuntimeTarget) bool {
     verifyStagedLayout(names, target) catch return false;
     return true;
+}
+
+/// Walk a staged package with Zig I/O, collect its relative file manifest,
+/// and apply the same exact-layout rules as verifyStagedLayout.
+pub fn verifyStagedRoot(io: std.Io, allocator: std.mem.Allocator, root_path: []const u8, target: RuntimeTarget) !void {
+    var root = try std.Io.Dir.cwd().openDir(io, root_path, .{ .iterate = true, .access_sub_paths = true });
+    defer root.close(io);
+    try verifyStagedDirectory(io, allocator, root, target);
+}
+
+/// Validate an already-open staged directory. The directory remains owned by
+/// the caller and is not closed here.
+pub fn verifyStagedDirectory(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, target: RuntimeTarget) !void {
+    var names: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (names.items) |name| allocator.free(name);
+        names.deinit(allocator);
+    }
+
+    var walker = try root.walk(allocator);
+    defer walker.deinit();
+    while (try walker.next(io)) |entry| {
+        if (!isSafeManifestPath(entry.path)) return error.UnsafeManifestPath;
+        if (isForbiddenArtifactPath(entry.path)) return error.ForbiddenArtifact;
+        switch (entry.kind) {
+            .file => try names.append(allocator, try allocator.dupe(u8, entry.path)),
+            .directory => {},
+            else => return error.UnexpectedManifestEntry,
+        }
+    }
+
+    try verifyStagedLayout(names.items, target);
 }
 
 pub fn isSafeManifestPath(path: []const u8) bool {
@@ -115,7 +168,9 @@ pub fn isSafeManifestPath(path: []const u8) bool {
 
     var parts = std.mem.splitAny(u8, path, "/\\");
     while (parts.next()) |part| {
-        if (std.mem.eql(u8, part, "..")) return false;
+        if (part.len == 0 or std.mem.eql(u8, part, ".") or std.mem.eql(u8, part, "..")) return false;
+        if (std.mem.indexOfScalar(u8, part, ':') != null) return false;
+        if (std.mem.indexOfScalar(u8, part, 0) != null) return false;
     }
     return true;
 }
@@ -152,6 +207,27 @@ fn isPlatformRuntimeName(name: []const u8) bool {
     return pathEqual(name, "PlatformRuntime.dll") or
         pathEqual(name, "libPlatformRuntime.so") or
         pathEqual(name, "libPlatformRuntime.dylib");
+}
+
+fn isKnownRuntimeName(name: []const u8) bool {
+    return containsPath(&windows_runtime_names, name) or
+        containsPath(&linux_runtime_names, name) or
+        containsPath(&macos_runtime_names, name);
+}
+
+fn shaderNameAtPath(name: []const u8) ?[]const u8 {
+    var parts = std.mem.splitAny(u8, name, "/\\");
+    if (!std.mem.eql(u8, parts.next() orelse return null, "Shaders")) return null;
+    if (!std.mem.eql(u8, parts.next() orelse return null, "GfxGpu")) return null;
+    const shader_name = parts.next() orelse return null;
+    if (parts.next() != null) return null;
+    return shader_name;
+}
+
+fn hasKnownShaderExtension(name: []const u8) bool {
+    return (name.len > ".dxil".len and std.mem.endsWith(u8, name, ".dxil")) or
+        (name.len > ".spirv".len and std.mem.endsWith(u8, name, ".spirv")) or
+        (name.len > ".msl".len and std.mem.endsWith(u8, name, ".msl"));
 }
 
 fn isForbiddenArtifactPath(path: []const u8) bool {
@@ -273,6 +349,54 @@ test "staged layout verifier rejects unsafe and writable artifacts" {
     try expectLinuxManifestError("temp-runtime.dll", error.ForbiddenArtifact);
     try expectLinuxManifestError("Game.exe.stale", error.ForbiddenArtifact);
     try expectLinuxManifestError("saves/profile.sav", error.ForbiddenArtifact);
+}
+
+test "staged layout verifier rejects duplicate entries and foreign target assets" {
+    try expectLinuxManifestError("config.cfg", error.DuplicateManifestEntry);
+    try expectLinuxManifestError("Game.exe", error.UnexpectedRuntimeEntry);
+    try expectLinuxManifestError("Shaders/GfxGpu/probe.vertex.dxil", error.UnexpectedShader);
+}
+
+test "filesystem verifier walks staged roots with portable paths" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+
+    const stage_path = "stage space/тест";
+    try tmp.dir.createDirPath(io, stage_path);
+    var stage = try tmp.dir.openDir(io, stage_path, .{ .iterate = true, .access_sub_paths = true });
+    defer stage.close(io);
+    try createLinuxStageFixture(io, stage);
+
+    const root_path = try tmp.dir.realPathFileAlloc(io, stage_path, std.testing.allocator);
+    defer std.testing.allocator.free(root_path);
+    try verifyStagedRoot(io, std.testing.allocator, root_path, .linux);
+}
+
+test "filesystem verifier rejects forbidden directories" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+
+    try createLinuxStageFixture(io, tmp.dir);
+    try tmp.dir.createDirPath(io, "cache-temp");
+    const root_path = try tmp.dir.realPathFileAlloc(io, ".", std.testing.allocator);
+    defer std.testing.allocator.free(root_path);
+    try std.testing.expectError(error.ForbiddenArtifact, verifyStagedRoot(io, std.testing.allocator, root_path, .linux));
+}
+
+fn createLinuxStageFixture(io: std.Io, root: std.Io.Dir) !void {
+    try root.createDirPath(io, "Shaders/GfxGpu");
+    for (requiredRuntimeNames(.linux)) |name| try touchFile(io, root, name);
+    try touchFile(io, root, shader_manifest_name);
+    try touchFile(io, root, "Shaders/GfxGpu/probe.vertex.spirv");
+    try touchFile(io, root, "config.cfg");
+    try touchFile(io, root, "defconf.cfg");
+}
+
+fn touchFile(io: std.Io, dir: std.Io.Dir, path: []const u8) !void {
+    const file = try dir.createFile(io, path, .{});
+    file.close(io);
 }
 
 fn expectLinuxManifestError(extra: []const u8, expected: VerifyError) !void {
