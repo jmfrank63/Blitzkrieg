@@ -148,6 +148,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// must be armed here too: modules detach one after another at exit, so e.g.
 	// GameTT's static teardown can release AILogic-compiled objects before
 	// AILogic's own DllMain(DETACH) has armed its flag.
+	#if defined(_WIN32) || defined(_WIN64)
 	atexit( []{
 		NRefCount::LeakObjectsOnExit() = true;
 		const char *pszModules[] = { "AILogic.dll", "GameTT.dll", "UI.dll", "Scene.dll" };
@@ -161,6 +162,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			}
 		}
 	} );
+	#endif
 	// CRT assert/abort dialogs open behind the fullscreen game window; route
 	// asserts to stderr and let abort() raise a fail-fast exception so an
 	// attached debugger breaks instead of the process exiting with code 3.
