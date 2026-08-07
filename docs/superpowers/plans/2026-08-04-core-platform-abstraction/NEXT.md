@@ -27,7 +27,9 @@ for Linux x64. The shared NTFS checkout still has Zig 0.16 cache rename
 contention. Linux staged launch acceptance now has three clean WSLg startup
 smokes, and Windows staged SDL_GPU acceptance reaches the C6 main-menu
 checkpoint across two native restarts on the pushed head. Windows foundation
-and GfxGPU/D3D12 gates also pass. The remaining
+and GfxGPU/D3D12 gates also pass. Linux foundation and GfxGPU gates now pass
+on pushed head `e892d195c`, including native Vulkan/SPIR-V renderer probes and
+zero live resources. The remaining
 P09-M01 diagnostics, P09-M02 gameplay/UAT, and the broader P09-M04 regression
 acceptance remain open. P08-M06 now records deterministic Windows package
 hash evidence; its all-target manifest, native path, and macOS package gates

@@ -9,6 +9,7 @@
 **Allowed files:** `tools/zig/linux_game_smoke.zig`, `tools/zig/verify_runtime.zig`, `build.zig`, `docs/superpowers/evidence/platform-abstraction/linux-smoke.md`.
 
 - [x] Launch only from the staged Linux install with no source-tree library paths.
+- [x] Run the native WSL platform-foundation and GFXGPU gates; lifecycle/client checks, Vulkan/SPIR-V, renderer probes, and zero-live-resource checks pass.
 - [ ] Verify PlatformRuntime, SDL window, Vulkan renderer/SPIR-V, Input, SFX, Net, Main, UI, and menu initialization.
 - [ ] Inject keyboard/mouse/text, resize, focus loss/restore, minimize/restore, and clean quit.
 - [ ] Capture diagnostics and live-handle counts; reject validation errors and software rendering unless explicitly selected.

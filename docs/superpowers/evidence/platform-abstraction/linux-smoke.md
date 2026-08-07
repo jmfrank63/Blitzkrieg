@@ -1,6 +1,6 @@
 # Linux staged launch smoke
 
-Revision: `566285eba` (`build: include platform paths in options bridge`)
+Revision: `e892d195c` (`build: exclude forbidden artifacts during staging`)
 
 Environment: WSL2 Ubuntu with WSLg (`DISPLAY=:0`, `WAYLAND_DISPLAY=wayland-0`),
 target `x86_64-linux-gnu.2.39`.
@@ -27,6 +27,18 @@ SMOKE_1_OK
 SMOKE_2_OK
 SMOKE_3_OK
 ```
+
+The same WSL checkout also passed the native Linux platform and renderer
+gates:
+
+```text
+zig build test-platform-foundation -Dtarget=x86_64-linux-gnu.2.39 -Dtest-mode=run
+zig build test-gfxgpu -Dtarget=x86_64-linux-gnu.2.39 -Dtest-mode=run
+```
+
+The foundation gate passed its lifecycle/client/audit checks. The GFXGPU gate
+reported the Vulkan/SPIR-V native matrix, three identical reference frame
+hashes, visible textured/pixel-transform/depth probes, and zero live resources.
 
 This closes the staged Linux launch-repeat portion of P09-M01. Renderer
 identity, input/focus/minimize interaction, live-handle diagnostics, and the
