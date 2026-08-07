@@ -1,6 +1,6 @@
 # Windows staged runtime smoke
 
-Revision: `4398a6e7a` (the pushed Linux launch-evidence checkpoint).
+Revision: `90320140` (the pushed hermeticity-audit fix).
 
 Target: `x86_64-windows-msvc`, staged install `zig-out/game/windows-x64`.
 
@@ -23,6 +23,17 @@ passed`, and exited successfully. The verifier reported:
 ```text
 P08-M04 native Zig endurance smoke passed: restarts=2
 ```
+
+The supporting Windows gates also passed:
+
+```text
+zig build test-platform-foundation -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+zig build test-gfxgpu -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+```
+
+The GfxGpu gate reported the native `direct3d12`/`dxil` driver, three
+identical frame hashes, textured/depth/pixel-transform coverage, and zero
+live resources.
 
 This closes the automated staged-launch portion of P09-M04. Mission,
 save/load, input/audio interaction, resize/focus scenarios, deterministic
