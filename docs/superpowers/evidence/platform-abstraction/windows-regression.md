@@ -35,6 +35,15 @@ The GfxGpu gate reported the native `direct3d12`/`dxil` driver, three
 identical frame hashes, textured/depth/pixel-transform coverage, and zero
 live resources.
 
+The aggregate Windows test gate also passed with exit status 0:
+
+```text
+zig build test -Dtarget=x86_64-windows-msvc -Dtest-mode=run
+```
+
+That gate included the staged x64 runtime verifier and the full shader/test
+graph.
+
 This closes the automated staged-launch portion of P09-M04. Mission,
 save/load, input/audio interaction, resize/focus scenarios, deterministic
 screenshot comparison, leak instrumentation, and human regression approval
