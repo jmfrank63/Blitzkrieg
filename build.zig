@@ -1508,6 +1508,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(randommapgen);
     b.installArtifact(main);
     b.installArtifact(options_bridge);
+    b.installArtifact(platform_runtime);
     b.installArtifact(ailogic);
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
@@ -1661,6 +1662,7 @@ pub fn build(b: *std.Build) void {
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(runtime_platform_audit_step);
+    game_all_step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
