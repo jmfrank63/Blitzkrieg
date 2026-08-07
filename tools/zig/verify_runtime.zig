@@ -31,6 +31,6 @@ test "runtime verifier uses target-correct names" {
 }
 
 test "runtime verifier rejects duplicate runtime copies" {
-    try std.testing.expect(hasExactlyOneRuntime(&.{ "Game", "libPlatformRuntime.so", "libSDL3.so" }, .linux));
+    try std.testing.expect(hasExactlyOneRuntime(&.{ "Game", "libPlatformRuntime.so", "libSDL3.so.0" }, .linux));
     try std.testing.expect(!hasExactlyOneRuntime(&.{ "Game", "libPlatformRuntime.so", "libPlatformRuntime.so" }, .linux));
 }

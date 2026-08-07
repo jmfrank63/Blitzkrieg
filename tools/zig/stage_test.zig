@@ -16,6 +16,11 @@ test "stale images are never accepted as runtime inputs" {
     try std.testing.expect(stage.shouldReplaceRuntime("Game.exe"));
 }
 
+test "Linux SDL staging resolves the versioned shared object" {
+    try std.testing.expectEqualStrings("libSDL3.so.0.4.0", stage.runtimeSourceName("libSDL3.so.0"));
+    try std.testing.expectEqualStrings("libPlatformRuntime.so", stage.runtimeSourceName("libPlatformRuntime.so"));
+}
+
 test "target layout carries target-specific runtime names" {
     const windows = stage.RuntimeLayout{
         .game_name = "Game.exe",

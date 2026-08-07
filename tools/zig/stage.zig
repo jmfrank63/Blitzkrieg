@@ -127,6 +127,14 @@ pub fn shouldReplaceRuntime(name: []const u8) bool {
     return !std.mem.endsWith(u8, name, ".stale");
 }
 
+/// SDL's Linux shared object is emitted with a versioned filename and a
+/// symlink chain. Stage the SONAME file as a regular file so the package does
+/// not depend on symlink preservation by the host filesystem.
+pub fn runtimeSourceName(name: []const u8) []const u8 {
+    if (std.mem.eql(u8, name, "libSDL3.so.0")) return "libSDL3.so.0.4.0";
+    return name;
+}
+
 pub fn classifyDataLinkError(err: anyerror) anyerror {
     return switch (err) {
         error.AccessDenied, error.PermissionDenied => error.DataLinkPermissionDenied,
@@ -150,7 +158,7 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir, la
     for (layout.runtime_files) |name| {
         destination.deleteFile(io, name) catch {};
         if (!shouldReplaceRuntime(name)) continue;
-        copyFile(io, binaries, name, destination, name) catch |err| switch (err) {
+        copyFile(io, binaries, runtimeSourceName(name), destination, name) catch |err| switch (err) {
             error.AccessDenied, error.PermissionDenied, error.FileBusy => {
                 var aside_buf: [256]u8 = undefined;
                 const aside = std.fmt.bufPrint(&aside_buf, "{s}.stale", .{name}) catch return err;
@@ -159,7 +167,7 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir, la
                     std.debug.print("stage: could not replace locked '{s}': {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
                     return error.RuntimeReplacementDenied;
                 };
-                copyFile(io, binaries, name, destination, name) catch |copy_err| {
+                copyFile(io, binaries, runtimeSourceName(name), destination, name) catch |copy_err| {
                     std.debug.print("stage: fresh copy of '{s}' failed after move-aside: {s}\n", .{ name, @errorName(copy_err) });
                     return copy_err;
                 };
