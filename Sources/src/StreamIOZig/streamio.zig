@@ -742,6 +742,55 @@ fn statFile(storage: *const Storage, name: []const u8) ?std.Io.File.Stat {
     return std.Io.Dir.cwd().statFile(hostIo(), path, .{}) catch null;
 }
 
+// Legacy resource names are case-insensitive on Windows.  The original game
+// keeps many of those names in lowercase while the package tree preserves
+// mixed-case directory names (for example Data/Cursor).  Resolve each POSIX
+// path component against the directory entry spelling when the exact path is
+// not available, preserving Windows' native fast path.
+fn resolveCaseInsensitivePath(path: []const u8) ?[:0]u8 {
+    if (builtin.os.tag == .windows) return allocator.dupeZ(u8, path) catch null;
+
+    var resolved = std.ArrayList(u8).empty;
+    defer resolved.deinit(allocator);
+    var cursor: usize = 0;
+    if (path.len != 0 and (path[0] == '/' or path[0] == '\\')) {
+        resolved.append(allocator, '/') catch return null;
+        while (cursor < path.len and (path[cursor] == '/' or path[cursor] == '\\')) cursor += 1;
+    }
+
+    while (cursor < path.len) {
+        while (cursor < path.len and (path[cursor] == '/' or path[cursor] == '\\')) cursor += 1;
+        const start = cursor;
+        while (cursor < path.len and path[cursor] != '/' and path[cursor] != '\\') cursor += 1;
+        if (start == cursor) continue;
+        const wanted = path[start..cursor];
+        if (std.mem.eql(u8, wanted, ".")) continue;
+
+        const parent = if (resolved.items.len == 0) "." else resolved.items;
+        var directory = std.Io.Dir.cwd().openDir(hostIo(), parent, .{ .iterate = true }) catch return null;
+        defer directory.close(hostIo());
+        var iterator = directory.iterate();
+        var actual: ?[]u8 = null;
+        while (iterator.next(hostIo()) catch null) |entry| {
+            if (std.mem.eql(u8, entry.name, wanted)) {
+                actual = allocator.dupe(u8, entry.name) catch return null;
+                break;
+            }
+            if (actual == null and std.ascii.eqlIgnoreCase(entry.name, wanted))
+                actual = allocator.dupe(u8, entry.name) catch return null;
+        }
+        const component = actual orelse return null;
+        defer allocator.free(component);
+        if (resolved.items.len != 0 and resolved.items[resolved.items.len - 1] != '/')
+            resolved.append(allocator, '/') catch return null;
+        resolved.appendSlice(allocator, component) catch return null;
+    }
+
+    const result = allocator.allocSentinel(u8, resolved.items.len, 0) catch return null;
+    @memcpy(result[0..resolved.items.len], resolved.items);
+    return result;
+}
+
 fn storageNameLessThan(_: void, left: [:0]u8, right: [:0]u8) bool {
     return std.mem.order(u8, left, right) == .lt;
 }
@@ -849,7 +898,7 @@ fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []co
 fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*Stream {
     const raw_path = makePath(storage, name) orelse return null;
     defer allocator.free(raw_path);
-    const path = allocator.dupeZ(u8, raw_path[0 .. raw_path.len - 1]) catch return null;
+    var path = allocator.dupeZ(u8, raw_path[0 .. raw_path.len - 1]) catch return null;
     _ = create; // Legacy file storage uses access flags to decide create/truncate behavior.
     const can_read = (access & 0x1) != 0;
     const can_write = (access & 0x2) != 0;
@@ -866,6 +915,11 @@ fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*
             // OPEN_ALWAYS behavior for RW/RWA/WA combinations.
             file = fopen(path.ptr, "wb+");
         }
+    }
+    if (file == null and builtin.os.tag != .windows) {
+        allocator.free(path);
+        path = resolveCaseInsensitivePath(raw_path[0 .. raw_path.len - 1]) orelse return null;
+        file = fopen(path.ptr, if (can_read and !can_write) "rb" else "rb+");
     }
     if (file == null) {
         allocator.free(path);
