@@ -1162,12 +1162,16 @@ pub fn build(b: *std.Build) void {
         // standalone shadercross CLI below remains enabled for generation,
         // while omitting the optional runtime extension avoids pulling the
         // libc++-based SPIR-V Cross library into the MSVC game DLLs.
-        .ext_shadercross = target.result.os.tag != .windows,
+        // Shadercross is used by the standalone shader-generation tool below;
+        // the game runtime does not use the optional SDL shadercross module.
+        // Keeping it out of the runtime graph prevents libc++ from being
+        // mixed into the legacy libstdc++ module ABI on Linux.
+        .ext_shadercross = false,
         // Windows shader generation uses the prebuilt DXC runtime below.  Do
         // not compile the source DXC backend into the MSVC SDL runtime
         // library: that backend is MinGW-oriented and is incompatible with
         // the MSVC target ABI.  The generated DXIL blobs still use DXC.
-        .ext_shadercross_dxc = target.result.os.tag != .windows,
+        .ext_shadercross_dxc = false,
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
@@ -3033,6 +3037,10 @@ fn addGFXGPU(
         // legacy C++ modules and Misc ABI use libstdc++. Keep GFXGPU's C++
         // object layout consistent with BasicObjectFactory and its clients.
         gfx_gpu_flags.append(b.allocator, "-stdlib=libstdc++") catch @panic("OOM");
+        gfx_gpu_flags.appendSlice(b.allocator, &.{
+            "-I", "/usr/include/c++/13",
+            "-I", "/usr/include/x86_64-linux-gnu/c++/13",
+        }) catch @panic("OOM");
     }
     gfx_gpu_module.addCSourceFiles(.{
         .files = gfx_gpu_sources,
