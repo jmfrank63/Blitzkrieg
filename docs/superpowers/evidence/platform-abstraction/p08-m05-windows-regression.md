@@ -1,8 +1,8 @@
 # P08-M05 Windows regression evidence
 
 Status: partial; the playable build, module/renderer gates, install layout,
-archive, and x64 staged verifier pass. The full clean regression matrix remains
-open.
+archive determinism, PE audit, and x64 staged verifier pass. CI and the full
+cross-target regression matrix remain open.
 
 ## Passed
 
@@ -52,6 +52,15 @@ open.
   exited with code 0.
 - The same source/build checkpoint fixed the Windows C++17 namespace issue in
   `Paths.h` and kept MSVC `_variant_t` calls on their `const char *` overload.
+- `dumpbin` confirms the staged `Game.exe` is x64 (`8664`), Windows GUI
+  subsystem, and contains a non-empty resource directory. Its direct runtime
+  dependencies include `PlatformRuntime.dll` and `SDL3.dll`.
+- `PlatformRuntime.dll` exports the public `bk_platform_get_api` entry point
+  plus the existing 29 `NPlatform::*` compatibility imports used by the
+  legacy modules; no duplicate runtime DLL is staged. The module definition is
+  now explicitly bound in the Windows build graph.
+- Two identical `package-game` runs produced the same SHA-256 archive hash:
+  `9E8A1D474E4B51638ACCCF4F5437C9FF7856BB2A35BEE1097D4C5AE1F68FE94C`.
 
 ## Remaining
 
@@ -60,5 +69,5 @@ open.
   rejected all modules before entering the game loop. The iterator now keeps
   the normalized absolute file path without appending the filename a second
   time; `LoadAllModules` also uses the target-native separator for its glob.
-- Resource/exports comparison, CI matrix, and macOS/Linux package evidence
+- CI matrix, macOS package evidence, and Linux package/runtime acceptance
   remain open for the cross-platform closure.
