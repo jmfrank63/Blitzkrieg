@@ -239,9 +239,58 @@ fn copyTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
     var walker = try source.walk(allocator);
     defer walker.deinit();
     while (try walker.next(io)) |entry| {
-        if (entry.kind != .file) continue;
+        if (entry.kind != .file or isForbiddenStagedPath(entry.path)) continue;
         try copyFile(io, entry.dir, entry.basename, destination, entry.path);
     }
+}
+
+fn isForbiddenStagedPath(path: []const u8) bool {
+    var parts = std.mem.splitAny(u8, path, "/\\");
+    while (parts.next()) |part| {
+        if (part.len == 0) continue;
+        if (isCacheName(part) or isTempName(part) or isUserWriteName(part)) return true;
+    }
+    return false;
+}
+
+fn isCacheName(name: []const u8) bool {
+    return eqlIgnoreCase(name, ".zig-cache") or eqlIgnoreCase(name, "zig-out") or
+        eqlIgnoreCase(name, ".cache") or eqlIgnoreCase(name, "cache") or
+        startsWithIgnoreCase(name, "cache-") or startsWithIgnoreCase(name, "cache_");
+}
+
+fn isTempName(name: []const u8) bool {
+    return eqlIgnoreCase(name, "temp") or eqlIgnoreCase(name, "tmp") or
+        startsWithIgnoreCase(name, "temp-") or startsWithIgnoreCase(name, "temp_") or
+        startsWithIgnoreCase(name, "temp.") or startsWithIgnoreCase(name, "tmp-") or
+        startsWithIgnoreCase(name, "tmp_") or startsWithIgnoreCase(name, "tmp.") or
+        endsWithIgnoreCase(name, ".tmp") or endsWithIgnoreCase(name, ".temp");
+}
+
+fn isUserWriteName(name: []const u8) bool {
+    return eqlIgnoreCase(name, "saves") or eqlIgnoreCase(name, "save") or
+        eqlIgnoreCase(name, "userdata") or eqlIgnoreCase(name, "user-data") or
+        eqlIgnoreCase(name, "logs") or eqlIgnoreCase(name, "crashdumps") or
+        eqlIgnoreCase(name, "crash-dumps") or endsWithIgnoreCase(name, ".log") or
+        endsWithIgnoreCase(name, ".lock");
+}
+
+fn eqlIgnoreCase(left: []const u8, right: []const u8) bool {
+    if (left.len != right.len) return false;
+    for (left, right) |left_byte, right_byte| if (asciiLower(left_byte) != asciiLower(right_byte)) return false;
+    return true;
+}
+
+fn startsWithIgnoreCase(value: []const u8, prefix: []const u8) bool {
+    return value.len >= prefix.len and eqlIgnoreCase(value[0..prefix.len], prefix);
+}
+
+fn endsWithIgnoreCase(value: []const u8, suffix: []const u8) bool {
+    return value.len >= suffix.len and eqlIgnoreCase(value[value.len - suffix.len ..], suffix);
+}
+
+fn asciiLower(byte: u8) u8 {
+    return if (byte >= 'A' and byte <= 'Z') byte + ('a' - 'A') else byte;
 }
 
 fn copyFile(io: std.Io, source_dir: std.Io.Dir, source: []const u8, destination_dir: std.Io.Dir, destination: []const u8) !void {
