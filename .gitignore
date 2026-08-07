@@ -68,6 +68,8 @@ zig-out/
 /z/
 # Directly emitted local Zig test binaries.
 /*-test.exe
+# Local Zig cache used when the managed runner cannot access the user cache.
+/.zig-global-cache-local/
 _capture-stage-m02-run/
 /zig-pkg/
 
