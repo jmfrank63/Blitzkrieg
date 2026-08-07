@@ -22,6 +22,8 @@ const macos_runtime_names = [_][]const u8{
 };
 
 pub const shader_manifest_name = "Shaders/GfxGpu/gfxgpu-shaders.manifest";
+pub const required_metadata_files = [_][]const u8{ "LICENSE.md", "README.md" };
+pub const required_data_files = [_][]const u8{"Data/Configs/defconf.cfg"};
 
 pub const VerifyError = error{
     DuplicatePlatformRuntime,
@@ -33,6 +35,10 @@ pub const VerifyError = error{
     MissingShader,
     MissingConfig,
     MissingDefaultConfig,
+    MissingMetadata,
+    MissingDataRoot,
+    MissingConfigRoot,
+    MissingDataFile,
     UnsafeManifestPath,
     ForbiddenArtifact,
     DuplicateManifestEntry,
@@ -112,6 +118,14 @@ pub fn verifyStagedLayout(names: []const []const u8, target: RuntimeTarget) Veri
     if (!containsShader(names, target)) return error.MissingShader;
     if (!containsPath(names, "config.cfg")) return error.MissingConfig;
     if (!containsPath(names, "defconf.cfg")) return error.MissingDefaultConfig;
+    for (required_metadata_files) |required| {
+        if (!containsPath(names, required)) return error.MissingMetadata;
+    }
+    if (!containsPathUnder(names, "Data")) return error.MissingDataRoot;
+    if (!containsPathUnder(names, "Data/Configs")) return error.MissingConfigRoot;
+    for (required_data_files) |required| {
+        if (!containsPath(names, required)) return error.MissingDataFile;
+    }
 
     for (names, 0..) |left, index| {
         for (names[index + 1 ..]) |right| {
@@ -177,6 +191,26 @@ pub fn isSafeManifestPath(path: []const u8) bool {
 
 fn containsPath(names: []const []const u8, required: []const u8) bool {
     for (names) |name| if (pathEqual(name, required)) return true;
+    return false;
+}
+
+fn containsPathUnder(names: []const []const u8, root: []const u8) bool {
+    for (names) |name| {
+        var name_parts = std.mem.splitAny(u8, name, "/\\");
+        var root_parts = std.mem.splitAny(u8, root, "/\\");
+        var matched = true;
+        while (root_parts.next()) |root_part| {
+            const name_part = name_parts.next() orelse {
+                matched = false;
+                break;
+            };
+            if (!std.mem.eql(u8, name_part, root_part)) {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) return true;
+    }
     return false;
 }
 
@@ -295,23 +329,48 @@ test "runtime verifier rejects duplicate runtime copies" {
 
 test "staged layout verifier accepts every target matrix" {
     try verifyStagedLayout(&.{
-        "Game.exe",           "PlatformRuntime.dll",                 "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll",
-        "GFXGPU.dll",         "SDL3.dll",                            "Image.dll",    "Input.dll",              "Net.dll",
-        "SFX.dll",            "UI.dll",                              "Scene.dll",    "AILogic.dll",            "GameTT.dll",
-        shader_manifest_name, "Shaders/GfxGpu/textured.vertex.dxil", "config.cfg",   "defconf.cfg",
+        "Game.exe",           "PlatformRuntime.dll",                 "StreamIO.dll",          "StreamIOOptionsAbi.dll", "Anim.dll",
+        "GFXGPU.dll",         "SDL3.dll",                            "Image.dll",             "Input.dll",              "Net.dll",
+        "SFX.dll",            "UI.dll",                              "Scene.dll",             "AILogic.dll",            "GameTT.dll",
+        shader_manifest_name, "Shaders/GfxGpu/textured.vertex.dxil", "config.cfg",            "defconf.cfg",            "LICENSE.md",
+        "README.md",          "Data/Configs/defconf.cfg",            "Data/Maps/fixture.map",
     }, .windows);
     try verifyStagedLayout(&.{
-        "Game",               "libPlatformRuntime.so",                "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so",
-        "libGFXGPU.so",       "libSDL3.so.0",                         "libImage.so",    "libInput.so",              "libNet.so",
-        "libSFX.so",          "libUI.so",                             "libScene.so",    "libAILogic.so",            "libGameTT.so",
-        shader_manifest_name, "Shaders/GfxGpu/textured.vertex.spirv", "config.cfg",     "defconf.cfg",
+        "Game",               "libPlatformRuntime.so",                "libStreamIO.so",        "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",       "libSDL3.so.0",                         "libImage.so",           "libInput.so",              "libNet.so",
+        "libSFX.so",          "libUI.so",                             "libScene.so",           "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name, "Shaders/GfxGpu/textured.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
+        "README.md",          "Data/Configs/defconf.cfg",             "Data/Maps/fixture.map",
     }, .linux);
     try verifyStagedLayout(&.{
-        "Game",               "libPlatformRuntime.dylib",           "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib",
-        "libGFXGPU.dylib",    "libSDL3.dylib",                      "libImage.dylib",    "libInput.dylib",              "libNet.dylib",
-        "libSFX.dylib",       "libUI.dylib",                        "libScene.dylib",    "libAILogic.dylib",            "libGameTT.dylib",
-        shader_manifest_name, "Shaders/GfxGpu/textured.vertex.msl", "config.cfg",        "defconf.cfg",
+        "Game",               "libPlatformRuntime.dylib",           "libStreamIO.dylib",     "libStreamIOOptionsAbi.dylib", "libAnim.dylib",
+        "libGFXGPU.dylib",    "libSDL3.dylib",                      "libImage.dylib",        "libInput.dylib",              "libNet.dylib",
+        "libSFX.dylib",       "libUI.dylib",                        "libScene.dylib",        "libAILogic.dylib",            "libGameTT.dylib",
+        shader_manifest_name, "Shaders/GfxGpu/textured.vertex.msl", "config.cfg",            "defconf.cfg",                 "LICENSE.md",
+        "README.md",          "Data/Configs/defconf.cfg",           "Data/Maps/fixture.map",
     }, .macos);
+}
+
+test "staged layout requires canonical metadata and essential data roots" {
+    const complete = [_][]const u8{
+        "Game",                     "libPlatformRuntime.so",             "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",             "libSDL3.so.0",                      "libImage.so",    "libInput.so",              "libNet.so",
+        "libSFX.so",                "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name,       "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              "LICENSE.md",
+        "Data/Configs/defconf.cfg", "Data/Maps/fixture.map",             "README.md",
+    };
+    try std.testing.expect(isValidStagedLayout(&complete, .linux));
+
+    try std.testing.expect(!isValidStagedLayout(complete[0 .. complete.len - 1], .linux));
+
+    const missing_data = [_][]const u8{
+        "Game",               "libPlatformRuntime.so",             "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",    "libInput.so",              "libNet.so",
+        "libSFX.so",          "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              "LICENSE.md",
+        "README.md",
+    };
+    try std.testing.expect(!isValidStagedLayout(&missing_data, .linux));
 }
 
 test "staged layout verifier rejects missing required entries" {
@@ -387,11 +446,17 @@ test "filesystem verifier rejects forbidden directories" {
 
 fn createLinuxStageFixture(io: std.Io, root: std.Io.Dir) !void {
     try root.createDirPath(io, "Shaders/GfxGpu");
+    try root.createDirPath(io, "Data/Configs");
+    try root.createDirPath(io, "Data/Maps");
     for (requiredRuntimeNames(.linux)) |name| try touchFile(io, root, name);
     try touchFile(io, root, shader_manifest_name);
     try touchFile(io, root, "Shaders/GfxGpu/probe.vertex.spirv");
     try touchFile(io, root, "config.cfg");
     try touchFile(io, root, "defconf.cfg");
+    try touchFile(io, root, "LICENSE.md");
+    try touchFile(io, root, "README.md");
+    try touchFile(io, root, "Data/Configs/defconf.cfg");
+    try touchFile(io, root, "Data/Maps/fixture.map");
 }
 
 fn touchFile(io: std.Io, dir: std.Io.Dir, path: []const u8) !void {
@@ -401,10 +466,11 @@ fn touchFile(io: std.Io, dir: std.Io.Dir, path: []const u8) !void {
 
 fn expectLinuxManifestError(extra: []const u8, expected: VerifyError) !void {
     const names = [_][]const u8{
-        "Game",               "libPlatformRuntime.so",             "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so",
-        "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",    "libInput.so",              "libNet.so",
-        "libSFX.so",          "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
-        shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              extra,
+        "Game",               "libPlatformRuntime.so",             "libStreamIO.so",        "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",           "libInput.so",              "libNet.so",
+        "libSFX.so",          "libUI.so",                          "libScene.so",           "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
+        "README.md",          "Data/Configs/defconf.cfg",          "Data/Maps/fixture.map", extra,
     };
     try std.testing.expectError(expected, verifyStagedLayout(&names, .linux));
 }
