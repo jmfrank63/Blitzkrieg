@@ -138,9 +138,7 @@ const CFileIterator &CFileIterator::FindFirstFile(const char *mask) {
     std::error_code error;
     for (fs::directory_iterator it(nativePath(szPath), error); !error && it != fs::directory_iterator(); it.increment(error)) {
         if (wildcard(szMask, it->path().filename().string())) {
-            Entry entry{it->path().filename().string(), legacyPath(fs::absolute(it->path(), error).string()), attributes(*it), fileTime(it->path()), fileTime(it->path()), fileTime(it->path()), 0};
-            if (!entry.path.empty() && entry.path.back() != '\\') entry.path += '\\';
-            entry.path += entry.name;
+            Entry entry{it->path().filename().string(), legacyPath(fs::absolute(it->path(), error).lexically_normal().string()), attributes(*it), fileTime(it->path()), fileTime(it->path()), fileTime(it->path()), 0};
             std::error_code size_error; const auto size = it->is_regular_file(size_error) ? fs::file_size(it->path(), size_error) : 0;
             entry.size = size_error || size > static_cast<std::uintmax_t>((std::numeric_limits<int>::max)()) ? 0 : static_cast<int>(size);
             entries.push_back(std::move(entry));

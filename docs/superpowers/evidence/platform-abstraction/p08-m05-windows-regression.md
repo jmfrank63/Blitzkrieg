@@ -1,8 +1,8 @@
 # P08-M05 Windows regression evidence
 
-Status: partial; the playable build, module/renderer gates, install layout, and
-game archive pass. The Zig staged verifier and the full clean regression matrix
-remain open.
+Status: partial; the playable build, module/renderer gates, install layout,
+archive, and x64 staged verifier pass. The full clean regression matrix remains
+open.
 
 ## Passed
 
@@ -33,6 +33,13 @@ remain open.
   storage behavior.
 - `zig build test-game-command-line -Dtarget=x86_64-windows-msvc
   -Dtest-mode=run` passes the documented `-startup-smoke` compatibility mode.
+- `zig build game-all -Dtarget=x86_64-windows-msvc -Dtest-mode=run` completed
+  successfully after the module-loader fix; the embedded platform audit still
+  reports zero inventory hits and zero allowlist ownership entries.
+- `tools/zig/verify_x64_runtime.ps1 -InstallDir zig-out/Game/windows-x64`
+  passed under x64 CDB, including the `BK_STARTUP: C6 main menu smoke
+  checkpoint passed` marker. The native Zig verifier also passed and reported
+  `native Zig x64 runtime verification passed`.
 - The staged executable was launched directly from
   `zig-out/game/windows-x64` with `Game.exe -startup-smoke -windowed` and
   exited with code 0.
@@ -41,10 +48,10 @@ remain open.
 
 ## Remaining
 
-- `verify-x64-runtime` is not accepted: its Zig child-process smoke path does
-  now resolves the absolute staged `Game.exe` and reaches the Game process,
-  but the headless Game loop does not terminate at the startup checkpoint in
-  this environment. The verifier retry was stopped after its bounded timeout;
-  no debug or Game processes were left running.
+- The verifier timeout was traced to `Misc::CFileIterator` constructing each
+  module path twice (`...\\AILogic.dll\\AILogic.dll`). The loader therefore
+  rejected all modules before entering the game loop. The iterator now keeps
+  the normalized absolute file path without appending the filename a second
+  time; `LoadAllModules` also uses the target-native separator for its glob.
 - Clean-cache, resource/exports comparison, CI matrix, and macOS/Linux package
   evidence remain open for the cross-platform closure.

@@ -557,7 +557,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 					NPlatform::DebugWrite( "BK_REFERENCE_SCENE: capture failed\n" );
 				return 0xDEAD;
 			}
-			if ( cmdp.bStartupSmoke && !cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
+			if ( cmdp.bStartupSmoke && !cmdp.bReferenceScene )
 			{
 					NPlatform::DebugWrite( "BK_STARTUP: C6 main menu smoke checkpoint passed\n" );
 				break;

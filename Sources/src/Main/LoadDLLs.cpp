@@ -24,7 +24,14 @@ static const char *ModuleSuffix()
 static std::string ModuleFilePattern( const std::string &root )
 {
     std::string path = root;
-    if ( !path.empty() && path.back() != '/' && path.back() != '\\' ) path += '/';
+    if ( !path.empty() && path.back() != '/' && path.back() != '\\' )
+    {
+#if defined(_WIN32) || defined(_WIN64)
+        path += '\\';
+#else
+        path += '/';
+#endif
+    }
 #if defined(_WIN32) || defined(_WIN64)
     return path + "*.dll";
 #elif defined(__APPLE__)
@@ -82,7 +89,8 @@ int STDCALL LoadAllModules( const char *root )
 {
     if ( !modules.empty() ) return static_cast<int>( modules.size() );
     const std::string directory = root && *root ? root : NPlatform::Paths::ModuleRoot();
-    for ( NFile::CFileIterator iterator( ModuleFilePattern( directory ).c_str() ); !iterator.IsEnd(); ++iterator ) {
+    const std::string pattern = ModuleFilePattern( directory );
+    for ( NFile::CFileIterator iterator( pattern.c_str() ); !iterator.IsEnd(); ++iterator ) {
         NPlatform::DynamicLibrary *library = new NPlatform::DynamicLibrary( iterator.GetFilePath().c_str() );
         if ( !library->IsLoaded() ) { NPlatform::DebugWriteFormat( "Failed to load module %s: %s\n", iterator.GetFilePath().c_str(), library->GetError() ); delete library; continue; }
         typedef const SModuleDescriptor* (STDCALL *GetDescriptor)();

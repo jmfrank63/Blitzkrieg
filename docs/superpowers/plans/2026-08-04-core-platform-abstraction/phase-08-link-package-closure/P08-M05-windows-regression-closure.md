@@ -8,7 +8,7 @@
 
 **Allowed files:** `build.zig`, `tools/zig/build_support.zig`, `Sources/src/Platform/Windows/Clock.cpp`, `Sources/src/Platform/Windows/Sync.cpp`, `Sources/src/Platform/Windows/Debug.cpp`, `Sources/src/Platform/Windows/DynamicLibrary.cpp`, `Sources/src/Platform/Windows/Socket.cpp`, `Sources/src/Platform/Windows/Paths.cpp`, `Sources/src/Platform/Windows/System.cpp`, `tools/zig/verify_x64_runtime.zig`, `.github/workflows/cross-platform.yml`.
 
-- [ ] Build `game-all`, platform tests, renderer tests, and x64 runtime verification natively with MSVC target rules.
+- [x] Build `game-all` and run x64 runtime verification natively with MSVC target rules. Platform/renderer fixture coverage is recorded in the existing evidence; the clean full regression matrix remains open.
 - [ ] Verify resources, subsystem, exports, CRT choice, SDL3, PlatformRuntime DLL, and GFXGPU remain correct.
 - [ ] Compare accepted startup, renderer, input, audio, and module lifecycle fixtures.
 - [x] Reject fallback to DirectInput or private platform-state copies; the

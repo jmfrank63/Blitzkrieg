@@ -13,9 +13,10 @@ Linux `Game` link is closed and recorded in
 remaining Linux `game-all` run/staging gate. On Windows, the shared runtime is
 now staged by the Input, Net, and SFX module-test runners; Net, SFX, platform
 foundation, GFXGPU, and Input gates pass. The remaining Windows closure work
-and package gates now pass as well; the remaining Windows work is the x64
-verifier (now narrowed to Game-loop termination), clean-cache evidence, and
-full regression matrix. The Linux run gate first fails with Zig 0.16 cache
+and package gates now pass as well; the x64 CDB and native Zig runtime
+verifiers now pass after fixing duplicated module paths in the portable file
+iterator. The remaining Windows work is clean-cache evidence and the full
+regression matrix. The Linux run gate first fails with Zig 0.16 cache
 rename contention in the shared NTFS checkout. An isolated ext4 WSL worktree
 removes that `AccessDenied` failure, but the same `game-all` run still exceeds
 the bounded local command window during native dependency compilation. The
