@@ -19,9 +19,9 @@ iterator. The clean-cache Windows `game-all` rerun also passes with an
 isolated cache and install prefix. The remaining Windows work is the full
 regression matrix and CI/resource/export comparison. The Linux run gate now
 passes in the isolated ext4 WSL worktree: `game-all` reports 112/112 steps
-succeeded and 11/11 tests passed. The shared NTFS checkout still has Zig 0.16
-cache rename contention; no Linux desktop runtime or package acceptance is
-claimed yet.
+succeeded and 11/11 tests passed; `install-game` and `package-game` also pass
+for Linux x64. The shared NTFS checkout still has Zig 0.16 cache rename
+contention; Linux desktop launch acceptance remains open.
 
 ## Important working-tree files
 

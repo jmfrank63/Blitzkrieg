@@ -1,7 +1,7 @@
 # P08-M03 Linux x64 link closure
 
-Status: link and Linux `game-all` closure; staged desktop runtime acceptance
-and packaging remain open.
+Status: Linux link, `game-all`, install staging, and package closure; desktop
+runtime launch and clean-cache repeat remain open.
 
 ## Passed
 
@@ -23,6 +23,13 @@ and packaging remain open.
 - ELF inspection of the UI module shows one `libPlatformRuntime.so` dependency
   and only relative build-cache runpaths; no archive member contains a shared
   PlatformRuntime object.
+- Native ext4 WSL `install-game` completed with `159/159` steps succeeded and
+  `6/6` tests passed. The staged layout contains `Game`, one
+  `libPlatformRuntime.so`, versioned `libSDL3.so.0`, and every playable module;
+  `readelf` confirms the expected PlatformRuntime and SDL3 dependencies.
+- Native ext4 WSL `package-game` completed and emitted the 2.9 GiB
+  `linux-x64` archive with SHA-256
+  `591816ecca4c13f5bf823ae6adcb876f71ffb2799836be575664fd1b5d257245`.
 
 ## Fixes
 
@@ -37,8 +44,8 @@ and packaging remain open.
 
 The build-runner still prints its known Zig 0.16 `--listen=-` diagnostic for
 the audit child, but the parent build exits successfully and reports all
-112/112 steps and 11/11 tests passed. No Linux desktop runtime launch or
-package acceptance is claimed yet.
+112/112 steps and 11/11 tests passed. No Linux desktop runtime launch
+acceptance is claimed yet.
 
 A subsequent native WSL retry against the shared checkout failed earlier with
 `AccessDenied` while renaming `.zig-cache` compilation results because Windows
