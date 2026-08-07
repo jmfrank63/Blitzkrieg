@@ -1,7 +1,14 @@
 #include "Thread.h"
 #include "../Platform/Clock.h"
 
-using namespace NWin32Helper;
+namespace {
+class MutexGuard {
+	NPlatform::Mutex &mutex;
+public:
+	explicit MutexGuard( NPlatform::Mutex &value ) : mutex( value ) { mutex.Lock(); }
+	~MutexGuard() { mutex.Unlock(); }
+};
+}
 
 void CThread::TheThreadProc( CThread *pThread )
 {
@@ -28,7 +35,7 @@ void CThread::StopThread()
 {
 	std::thread threadToJoin;
 	{
-		CCriticalSectionLock criticalSectionLock( criticalSection );
+		MutexGuard criticalSectionLock( criticalSection );
 		if ( !bRun ) return;
 		hStopCommand.Set();
 		threadToJoin = std::move( hThread );
@@ -43,7 +50,7 @@ CThread::~CThread() { StopThread(); }
 
 void CThread::RunThread()
 {
-	CCriticalSectionLock criticalSectionLock( criticalSection );
+	MutexGuard criticalSectionLock( criticalSection );
 	if ( bRun ) return;
 	hStopCommand.Reset();
 	hFinishReport.Reset();

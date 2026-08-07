@@ -16,14 +16,14 @@ public:
 
 int main()
 {
-	NWin32Helper::CEvent event( false, true );
+	NPlatform::Event event( false, true );
 	if ( event.IsSet() ) return 1;
 	event.Set();
 	if ( !event.IsSet() || !event.IsSet() ) return 2;
 	event.Reset();
 	if ( event.IsSet() ) return 3;
 
-	NWin32Helper::CEvent wakeEvent( false, false );
+	NPlatform::Event wakeEvent( false, false );
 	std::atomic<int> wakeCount{ 0 };
 	std::thread waiter( [&]() {
 		for ( int i = 0; i != 10000; ++i )
@@ -40,14 +40,15 @@ int main()
 	waiter.join();
 	if ( wakeCount.load( std::memory_order_acquire ) != 10000 ) return 4;
 
-	NWin32Helper::CCriticalSection mutex;
+	NPlatform::Mutex mutex;
 	int guarded = 0;
 	{
-		NWin32Helper::CCriticalSectionLock lock( mutex );
+		mutex.Lock();
 		++guarded;
-		lock.Leave();
-		lock.Enter();
+		mutex.Unlock();
+		mutex.Lock();
 		++guarded;
+		mutex.Unlock();
 	}
 	if ( guarded != 2 ) return 5;
 

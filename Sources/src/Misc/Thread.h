@@ -1,15 +1,15 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 #pragma ONCE
-#include "Win32Helper.h"
+#include "../Platform/Sync.h"
 #include <thread>
 class CThread
 {
 	std::thread hThread;
-	NWin32Helper::CEvent hFinishReport;
-	NWin32Helper::CEvent hStopCommand;
+	NPlatform::Event hFinishReport;
+	NPlatform::Event hStopCommand;
 
-	NWin32Helper::CCriticalSection criticalSection;
+	NPlatform::Mutex criticalSection;
 
 	const int nDelay;
 	bool bRun;
