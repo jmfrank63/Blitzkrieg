@@ -209,6 +209,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 	BK_STARTUP_MARKER("before InitApplication");
 	if ( !NWinFrame::InitApplication( NWinFrame::GetHInstance(), " Blitzkrieg Game", "A7_ENGINE", cmdp.nScreenSizeX, cmdp.nScreenSizeY ) )
 		return 0xDEAD;
+	if ( cmdp.bStartupSmoke ) SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
 	BK_STARTUP_MARKER("after InitApplication");
 	timeMeter.Reset();
 	BK_STARTUP_MARKER("before OpenStorage");
@@ -274,6 +275,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		SetGlobalVar( "GFX.Mode.Current.Stencil", GetGlobalVar( "GFX.Mode.InterMission.Stencil", cmdp.nStencilBPP ) );
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) ) );
 		SetGlobalVar( "GFX.Mode.Current.Frequency", GetGlobalVar( "GFX.Mode.InterMission.Frequency", cmdp.nFreq ) );
+		if ( cmdp.bStartupSmoke ) SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
 	}
 	BK_STARTUP_MARKER("after consts.xml");
 	timeMeter.Sample( "consts table" );
@@ -666,10 +668,11 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 		{
 			pCmdParams->bMultiplayer = true;
 		}
-		else if ( szParams[i] == "-x64-startup-smoke" )
+		else if ( szParams[i] == "-x64-startup-smoke" || szParams[i] == "-startup-smoke" )
 		{
 			pCmdParams->bStartupSmoke = true;
 			SetGlobalVar( "X64.StartupSmoke", 1 );
+			SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
 			SetGlobalVar( "novideo", 1 );
 		}
 		else if ( szParams[i].compare( 0, 16, "-reference-scene" ) == 0 )

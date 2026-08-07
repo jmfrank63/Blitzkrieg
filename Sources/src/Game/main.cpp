@@ -63,7 +63,7 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 		else if ( HasSuffix( argument, ".sav" ) ) result.saveFile = unquoted;
 		else if ( argument.rfind( "-freq", 0 ) == 0 ) result.frequency = std::atoi( argument.c_str() + 5 );
 		else if ( argument == "-mp" ) result.multiplayer = true;
-		else if ( argument == "-x64-startup-smoke" ) result.startupSmoke = true;
+		else if ( argument == "-x64-startup-smoke" || argument == "-startup-smoke" ) result.startupSmoke = true;
 		else if ( argument.rfind( "-reference-scene", 0 ) == 0 )
 		{
 			result.referenceScene = true;

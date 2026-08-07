@@ -31,6 +31,8 @@ remain open.
   `zig build test-platform-storage` passed for the Windows target, covering
   target manifest rules, shared-runtime linkage policy, and package/config
   storage behavior.
+- `zig build test-game-command-line -Dtarget=x86_64-windows-msvc
+  -Dtest-mode=run` passes the documented `-startup-smoke` compatibility mode.
 - The staged executable was launched directly from
   `zig-out/game/windows-x64` with `Game.exe -startup-smoke -windowed` and
   exited with code 0.
@@ -40,7 +42,9 @@ remain open.
 ## Remaining
 
 - `verify-x64-runtime` is not accepted: its Zig child-process smoke path does
-  not reproduce the direct PowerShell launch result in this environment and
-  must be fixed or replaced before the packet can close.
+  now resolves the absolute staged `Game.exe` and reaches the Game process,
+  but the headless Game loop does not terminate at the startup checkpoint in
+  this environment. The verifier retry was stopped after its bounded timeout;
+  no debug or Game processes were left running.
 - Clean-cache, resource/exports comparison, CI matrix, and macOS/Linux package
   evidence remain open for the cross-platform closure.

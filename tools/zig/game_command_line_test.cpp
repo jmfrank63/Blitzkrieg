@@ -25,6 +25,11 @@ int main()
 		CHECK( options.guaranteeFps == 60 && options.autoSavePeriod == 30 && options.startupSmoke );
 	}
 	{
+		const char *argv[] = { "Game", "-startup-smoke", "-windowed" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 3 ) );
+		CHECK( options.startupSmoke && !options.parseError );
+	}
+	{
 		const char *argv[] = { "Game", "\"maps/My Map.xml\"", "-reference-scene", "capture.rgba", "-reference-resolution", "1280", "720", "-mod\"My Mod\"", "-movie\"Movies\"", "-password\"secret value\"" };
 		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 10 ) );
 		CHECK( options.mapName == "maps/My Map.xml" );
