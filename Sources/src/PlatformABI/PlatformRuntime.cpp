@@ -48,6 +48,7 @@ constexpr uint64_t library_generation_mask = UINT64_C(0x3fffffff);
 std::mutex library_mutex;
 std::vector<LibraryEntry> library_slots(1);
 std::vector<uint32_t> free_library_slots;
+thread_local bool diagnostic_callback_active = false;
 
 BkPlatformHandle make_library_handle(uint32_t slot, uint32_t generation) {
     return (library_type << library_type_shift) |
@@ -420,6 +421,7 @@ BkPlatformResult BK_PLATFORM_CALL runtime_create(const BkPlatformCreateInfo *cre
 }
 
 void BK_PLATFORM_CALL runtime_destroy() {
+    if (diagnostic_callback_active) return;
     BkPlatformState &state = bk_platform_state();
     shutdown_libraries();
     shutdown_sockets();
@@ -676,7 +678,17 @@ uint32_t BK_PLATFORM_CALL get_live_sync_handles() {
 BkPlatformResult BK_PLATFORM_CALL diagnostic_write(uint32_t level, BkPlatformUtf8Span message) {
     BkPlatformState &state = bk_platform_state();
     if (message.struct_size < sizeof(BkPlatformUtf8Span) || (message.length != 0 && message.data == nullptr)) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid diagnostic message");
-    if (state.log != nullptr) state.log(state.user_data, level, message);
+    if (state.log != nullptr) {
+        if (diagnostic_callback_active) return set_error(BK_PLATFORM_ERROR_BUSY, "diagnostic callback re-entry");
+        diagnostic_callback_active = true;
+        try {
+            state.log(state.user_data, level, message);
+        } catch (...) {
+            diagnostic_callback_active = false;
+            return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "diagnostic callback threw an exception");
+        }
+        diagnostic_callback_active = false;
+    }
     else if (message.data != nullptr) {
         std::fwrite(message.data, 1, message.length, stderr);
         std::fflush(stderr);

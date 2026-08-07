@@ -1,14 +1,12 @@
 #include "Debug.h"
+#include "../PlatformABI/PlatformClient.h"
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <cstdint>
 #include <mutex>
 #include <string>
-
-#if defined(_MSC_VER)
-extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent( void );
-extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA( const char *text );
-#endif
 
 namespace
 {
@@ -24,12 +22,19 @@ namespace NPlatform
 	void DebugWrite( const char *text )
 	{
 		if ( text == nullptr ) return;
+		const std::size_t length = std::strlen( text );
+		thread_local bool dispatching = false;
+		if ( !dispatching && length <= UINT32_MAX && BkPlatform::Client::IsAttached() )
+		{
+			dispatching = true;
+			const BkPlatformUtf8Span message = {sizeof( BkPlatformUtf8Span ), text, static_cast<uint32_t>( length )};
+			const BkPlatformResult result = BkPlatform::Client::DiagnosticWrite( 1, message );
+			dispatching = false;
+			if ( result == BK_PLATFORM_OK ) return;
+		}
 		std::lock_guard<std::mutex> lock( DebugMutex() );
-		std::fputs( text, stderr );
+		std::fwrite( text, 1, length, stderr );
 		std::fflush( stderr );
-#if defined(_MSC_VER)
-		::OutputDebugStringA( text );
-#endif
 	}
 
 	void DebugWriteFormatV( const char *format, va_list args )
@@ -55,11 +60,7 @@ namespace NPlatform
 
 	bool IsDebuggerAttached()
 	{
-#if defined(_MSC_VER)
-		return ::IsDebuggerPresent() != 0;
-#else
-		return false;
-#endif
+		return BkPlatform::Client::IsAttached() && BkPlatform::Client::IsDebuggerAttached();
 	}
 
 	void BreakIntoDebugger()

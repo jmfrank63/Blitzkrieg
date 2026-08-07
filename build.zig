@@ -971,16 +971,20 @@ pub fn build(b: *std.Build) void {
     platform_debug_module.addCSourceFiles(.{
         .files = &.{
             "tools/zig/platform_debug_test.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/Debug.cpp",
         },
         .flags = if (platform == .windows_x64) cppflags_debug else &.{},
     });
+    platform_debug_module.linkLibrary(platform_runtime);
+    linkCxxRuntime(platform_debug_module, target);
     const platform_debug_test = b.addExecutable(.{ .name = "platform-debug-test", .root_module = platform_debug_module });
     platform_debug_test.subsystem = .console;
     if (platform == .windows_x64) platform_debug_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_debug_run = b.addRunArtifact(platform_debug_test);
     const platform_debug_step = b.step("test-platform-debug", "Run portable diagnostic and debugger facade tests");
     platform_debug_step.dependOn(&platform_debug_test.step);
+    platform_debug_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
 
     const sdl_c_dep = b.dependency("sdl", .{
