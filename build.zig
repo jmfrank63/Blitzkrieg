@@ -2282,9 +2282,7 @@ fn addGame(
     switch (build_support.entryPoint(platform, true)) {
         .win_main_crt_startup => game.entry = .{ .symbol_name = "WinMainCRTStartup" },
         .main_crt_startup => game.entry = .{ .symbol_name = "mainCRTStartup" },
-        .main => {
-            if (platform == .linux_x64) game.entry = .{ .symbol_name = "_start" };
-        },
+        .main => {},
     }
     return game;
 }
