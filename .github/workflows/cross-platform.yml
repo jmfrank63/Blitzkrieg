@@ -76,6 +76,12 @@ jobs:
       - name: Run platform foundation matrix
         run: zig build test-platform-foundation -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Verify native runtime layout
+        run: zig build verify-runtime -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build test-stage -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -164,6 +170,12 @@ jobs:
       - name: Run platform foundation matrix
         run: zig build test-platform-foundation -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Verify native runtime layout
+        run: zig build verify-runtime -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Run native staging tests
+        run: zig build test-stage -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -247,6 +259,12 @@ jobs:
 
       - name: Compile platform foundation matrix
         run: zig build --sysroot "$MACOS_SYSROOT" test-platform-foundation -Dtarget=aarch64-macos -Dtest-mode=compile
+
+      - name: Verify native runtime layout
+        run: zig build --sysroot "$MACOS_SYSROOT" verify-runtime -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-stage -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Upload generated outputs
         if: always()
