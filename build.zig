@@ -2275,6 +2275,11 @@ fn addGame(
         .name = "Game",
         .root_module = game_module,
     });
+    if (target.result.os.tag == .linux) {
+        // Legacy modules resolve RTTI owned by Main from the executable when
+        // they are loaded with RTLD_NOW (for example SBuildingRPGStats).
+        game.rdynamic = true;
+    }
     game.subsystem = switch (build_support.subsystem(platform, true)) {
         .windows => .windows,
         .console => .console,
@@ -3021,9 +3026,17 @@ fn addGFXGPU(
     addMsvcLibraryPaths(b, gfx_gpu_module, toolchain);
     gfx_gpu_module.addIncludePath(b.path("Sources/src/GFX"));
     gfx_gpu_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    var gfx_gpu_flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    gfx_gpu_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+    if (target.result.os.tag == .linux) {
+        // SDL_shadercross brings libc++ into the link graph, while the
+        // legacy C++ modules and Misc ABI use libstdc++. Keep GFXGPU's C++
+        // object layout consistent with BasicObjectFactory and its clients.
+        gfx_gpu_flags.append(b.allocator, "-stdlib=libstdc++") catch @panic("OOM");
+    }
     gfx_gpu_module.addCSourceFiles(.{
         .files = gfx_gpu_sources,
-        .flags = cppflagsForOptimize(optimize),
+        .flags = gfx_gpu_flags.items,
     });
     gfx_gpu_module.linkLibrary(misc);
     gfx_gpu_module.linkLibrary(platform_runtime);

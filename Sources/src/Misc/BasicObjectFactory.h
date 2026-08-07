@@ -9,9 +9,8 @@ class CBasicObjectFactory : public IObjectFactory
 	typedef std::unordered_map<const type_info*, int, SDefaultPtrHash> CRTTIMap;
 	CNewFuncsMap newfuncs;
 	CRTTIMap rttis;
-private:
-	void RegisterType( int nObjectTypeID, const type_info *pObjectTypeInfo, ObjectFactoryNewFunc newFunc );
 public:
+	void RegisterType( int nObjectTypeID, const type_info *pObjectTypeInfo, ObjectFactoryNewFunc newFunc );
 	virtual IRefCount* STDCALL CreateObject( int nTypeID );
 	virtual void STDCALL RegisterType( int nObjectTypeID, ObjectFactoryNewFunc newFunc );
 	virtual void STDCALL Aggregate( IObjectFactory *pFactory );
@@ -25,5 +24,5 @@ public:
 		return pos != rttis.end() ? pos->second : -1;
 	}
 };
-#define REGISTER_CLASS( pFactory, nTypeID, className ) pFactory->RegisterType( nTypeID, reinterpret_cast<ObjectFactoryNewFunc>( className::CreateNewClassInstanceInternal ) );
+#define REGISTER_CLASS( pFactory, nTypeID, className ) pFactory->RegisterType( nTypeID, &( typeid(className) ), reinterpret_cast<ObjectFactoryNewFunc>( className::CreateNewClassInstanceInternal ) );
 #endif // __BASICOBJECTFACTORY_H__
