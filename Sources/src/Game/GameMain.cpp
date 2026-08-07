@@ -39,6 +39,7 @@
 #include "../Platform/System.h"
 #include "../Platform/Debug.h"
 #include "../Platform/Clock.h"
+#include "../Platform/DynamicLibrary.h"
 
 #if !defined(_WIN32) && !defined(_WIN64)
 namespace NWinFrame
@@ -110,6 +111,28 @@ struct SCmdParams
 
 	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ) { }
 };
+static void ArmAllModulesLeakOnExit()
+{
+	NRefCount::LeakObjectsOnExit() = true;
+#if defined(_WIN32) || defined(_WIN64)
+	const char *const modules[] = { "AILogic.dll", "GameTT.dll", "UI.dll", "Scene.dll" };
+#elif defined(__APPLE__)
+	const char *const modules[] = { "libAILogic.dylib", "libGameTT.dylib", "libUI.dylib", "libScene.dylib" };
+#else
+	const char *const modules[] = { "libAILogic.so", "libGameTT.so", "libUI.so", "libScene.so" };
+#endif
+	const std::string root = NPlatform::Paths::ModuleRoot();
+	for ( const char *module : modules )
+	{
+		std::string path = root;
+		if ( !path.empty() && path.back() != '/' && path.back() != '\\' ) path += '/';
+		path += module;
+		NPlatform::DynamicLibrary library( path.c_str() );
+		if ( !library.IsLoaded() ) continue;
+		typedef void (*ArmFunc)();
+		if ( ArmFunc arm = reinterpret_cast<ArmFunc>( library.GetFunction( "ArmRefCountLeakOnExit" ) ) ) arm();
+	}
+}
 void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
 static std::string szLaunchDirectory;
@@ -148,21 +171,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// must be armed here too: modules detach one after another at exit, so e.g.
 	// GameTT's static teardown can release AILogic-compiled objects before
 	// AILogic's own DllMain(DETACH) has armed its flag.
-	#if defined(_WIN32) || defined(_WIN64)
 	atexit( []{
-		NRefCount::LeakObjectsOnExit() = true;
-		const char *pszModules[] = { "AILogic.dll", "GameTT.dll", "UI.dll", "Scene.dll" };
-		for ( const char *pszModule : pszModules )
-		{
-			if ( HMODULE hModule = ::GetModuleHandleA( pszModule ) )
-			{
-				typedef void (*ArmFunc)();
-				if ( ArmFunc pfnArm = reinterpret_cast<ArmFunc>( ::GetProcAddress( hModule, "ArmRefCountLeakOnExit" ) ) )
-					pfnArm();
-			}
-		}
+		ArmAllModulesLeakOnExit();
 	} );
-	#endif
 	// CRT assert/abort dialogs open behind the fullscreen game window; route
 	// asserts to stderr and let abort() raise a fail-fast exception so an
 	// attached debugger breaks instead of the process exiting with code 3.
