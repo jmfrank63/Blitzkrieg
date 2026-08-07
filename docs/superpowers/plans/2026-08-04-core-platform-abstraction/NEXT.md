@@ -24,7 +24,9 @@ rerun took 6.4 seconds.
 Both `game-all` runs report 113/113 steps succeeded and 11/11 tests passed;
 `install-game` and `package-game` also pass
 for Linux x64. The shared NTFS checkout still has Zig 0.16 cache rename
-contention; Linux desktop launch acceptance remains open.
+contention. Linux staged launch acceptance now has three clean WSLg startup
+smokes on the pushed head; the remaining P09-M01 diagnostics and P09-M02
+gameplay/UAT work remain open.
 
 ## Important working-tree files
 
