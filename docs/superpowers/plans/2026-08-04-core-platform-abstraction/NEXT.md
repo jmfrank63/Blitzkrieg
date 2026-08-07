@@ -25,8 +25,10 @@ Both `game-all` runs report 113/113 steps succeeded and 11/11 tests passed;
 `install-game` and `package-game` also pass
 for Linux x64. The shared NTFS checkout still has Zig 0.16 cache rename
 contention. Linux staged launch acceptance now has three clean WSLg startup
-smokes on the pushed head; the remaining P09-M01 diagnostics and P09-M02
-gameplay/UAT work remain open.
+smokes, and Windows staged SDL_GPU acceptance reaches the C6 main-menu
+checkpoint across two native restarts on the pushed head. The remaining
+P09-M01 diagnostics, P09-M02 gameplay/UAT, and the broader P09-M04 regression
+acceptance remain open.
 
 ## Important working-tree files
 
