@@ -22,6 +22,9 @@
   from the native build graph. The package artifact was emitted at
   `zig-out/packages/windows-x64/Blitzkrieg-game.zip` with size
   `3,073,345,577` bytes.
+- The aggregate Windows gate also passed on the same source head:
+  `zig build test -Dtarget=x86_64-windows-msvc -Dtest-mode=run` exited 0 and
+  included the staged x64 runtime verifier.
 - Existing native Linux evidence remains: `game-all` 113/113 and 11/11,
   `install-game` 159/159 and 6/6, and one Linux package hash recorded in
   `p08-m03-linux-link.md`.

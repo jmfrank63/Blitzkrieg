@@ -1,6 +1,6 @@
 # Windows staged runtime smoke
 
-Revision: `90320140` (the pushed hermeticity-audit fix).
+Revision: `03c554df4` (canonical package metadata staging).
 
 Target: `x86_64-windows-msvc`, staged install `zig-out/game/windows-x64`.
 
