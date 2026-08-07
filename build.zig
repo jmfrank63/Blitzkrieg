@@ -3196,7 +3196,7 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     const arch = "x86_64";
     // Zig's Linux C++ driver injects libc++ system headers first. These
     // legacy modules share STL-bearing C++ objects across DLL boundaries, so
-    // make the native libstdc++ headers ordinary include paths and keep one
+    // treat the native libstdc++ headers as ordinary include paths and keep one
     // ABI across Game, Main, Misc, and the loaded modules.
     module.addIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}", .{version}) });
     module.addSystemIncludePath(.{ .cwd_relative = "/usr/include" });
