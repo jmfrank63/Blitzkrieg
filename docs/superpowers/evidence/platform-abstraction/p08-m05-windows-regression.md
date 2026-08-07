@@ -40,6 +40,11 @@ open.
   passed under x64 CDB, including the `BK_STARTUP: C6 main menu smoke
   checkpoint passed` marker. The native Zig verifier also passed and reported
   `native Zig x64 runtime verification passed`.
+- A clean-cache Windows rerun completed with a fresh local cache and isolated
+  install prefix: `zig build game-all -Dtarget=x86_64-windows-msvc
+  -Dtest-mode=run --cache-dir <temp> --prefix <temp>`. All 11/11 platform
+  audit tests passed. A first rerun using the shared `zig-out` prefix hit only
+  an `SDL3.dll` destination lock; the isolated-prefix retry passed.
 - The staged executable was launched directly from
   `zig-out/game/windows-x64` with `Game.exe -startup-smoke -windowed` and
   exited with code 0.
@@ -53,5 +58,5 @@ open.
   rejected all modules before entering the game loop. The iterator now keeps
   the normalized absolute file path without appending the filename a second
   time; `LoadAllModules` also uses the target-native separator for its glob.
-- Clean-cache, resource/exports comparison, CI matrix, and macOS/Linux package
-  evidence remain open for the cross-platform closure.
+- Resource/exports comparison, CI matrix, and macOS/Linux package evidence
+  remain open for the cross-platform closure.
