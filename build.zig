@@ -818,8 +818,10 @@ pub fn build(b: *std.Build) void {
     });
     const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, platform_runtime_test_module);
     platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_test_module.linkLibrary(platform_runtime);
+    linkCxxRuntime(platform_runtime_test_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_test_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_test_module, toolchain);
@@ -838,18 +840,24 @@ pub fn build(b: *std.Build) void {
 
     const consumer_a_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     consumer_a_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, consumer_a_module);
     consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_a_module.linkLibrary(platform_runtime);
+    linkCxxRuntime(consumer_a_module, target);
     const consumer_a = b.addLibrary(.{ .name = "platform-consumer-a", .linkage = .dynamic, .root_module = consumer_a_module });
     const consumer_b_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     consumer_b_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, consumer_b_module);
     consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_b_module.linkLibrary(platform_runtime);
+    linkCxxRuntime(consumer_b_module, target);
     const consumer_b = b.addLibrary(.{ .name = "platform-consumer-b", .linkage = .dynamic, .root_module = consumer_b_module });
     const client_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     client_test_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, client_test_module);
     client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{"-std=c++17"} });
     client_test_module.linkLibrary(platform_runtime);
+    linkCxxRuntime(client_test_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, consumer_a_module, toolchain);
         addMsvcLibraryPaths(b, consumer_a_module, toolchain);
@@ -878,9 +886,11 @@ pub fn build(b: *std.Build) void {
 
     const platform_headers_step = b.step("test-platform-headers", "Validate portable compiler and legacy value types");
     if (test_mode == .run) {
-        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
         platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
         platform_headers_module.addIncludePath(b.path("Sources/src"));
+        addLinuxCxxIncludePaths(b, platform_headers_module);
+        linkCxxRuntime(platform_headers_module, target);
         if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
         const platform_headers_test = b.addExecutable(.{ .name = "platform-headers-test-run", .root_module = platform_headers_module });
         if (platform == .windows_x64) {
@@ -891,9 +901,11 @@ pub fn build(b: *std.Build) void {
         const platform_headers_run = b.addRunArtifact(platform_headers_test);
         platform_headers_step.dependOn(&platform_headers_run.step);
     } else {
-        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug });
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
         platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
         platform_headers_module.addIncludePath(b.path("Sources/src"));
+        addLinuxCxxIncludePaths(b, platform_headers_module);
+        linkCxxRuntime(platform_headers_module, target);
         if (platform == .windows_x64) addMsvcIncludePaths(b, platform_headers_module, toolchain);
         const platform_headers_object = b.addObject(.{ .name = "platform-headers-test", .root_module = platform_headers_module });
         platform_headers_step.dependOn(&platform_headers_object.step);
