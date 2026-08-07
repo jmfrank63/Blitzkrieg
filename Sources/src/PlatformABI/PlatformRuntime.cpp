@@ -6,6 +6,7 @@
 #include <cstring>
 #include <condition_variable>
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <new>
 #include <unordered_map>
@@ -28,6 +29,8 @@ std::vector<uint32_t> free_socket_slots;
 uint32_t next_socket_slot = 1;
 uint32_t socket_runtime_refs = 0;
 bool socket_runtime_ready = false;
+
+void shutdown_sync_objects();
 
 BkPlatformSocketHandle make_socket_handle(uint32_t slot, uint32_t generation) {
     return (static_cast<BkPlatformSocketHandle>(generation) << 32) | slot;
@@ -265,6 +268,7 @@ BkPlatformResult BK_PLATFORM_CALL runtime_create(const BkPlatformCreateInfo *cre
 void BK_PLATFORM_CALL runtime_destroy() {
     BkPlatformState &state = bk_platform_state();
     shutdown_sockets();
+    shutdown_sync_objects();
     state.initialized = false;
     state.log = nullptr;
     state.user_data = nullptr;
@@ -302,69 +306,218 @@ struct SyncEvent {
 };
 struct SyncMutex { std::mutex mutex; };
 
+enum class SyncType : uint8_t {
+    none = 0,
+    event = 1,
+    mutex = 2,
+};
+
+struct SyncSlot {
+    uint32_t generation = 0;
+    SyncType type = SyncType::none;
+    std::shared_ptr<void> object;
+};
+
+struct DecodedSyncHandle {
+    SyncType type;
+    uint32_t slot;
+    uint32_t generation;
+};
+
+constexpr uint64_t sync_type_shift = 62;
+constexpr uint64_t sync_generation_mask = UINT64_C(0x3fffffff);
+constexpr uint32_t sync_slot_mask = UINT32_MAX;
+
+std::mutex sync_registry_mutex;
+std::vector<SyncSlot> sync_slots(1);
+std::vector<uint32_t> free_sync_slots;
+
+BkPlatformHandle make_sync_handle(SyncType type, uint32_t slot, uint32_t generation) {
+    return (static_cast<BkPlatformHandle>(type) << sync_type_shift) |
+           (static_cast<BkPlatformHandle>(generation) << 32) | slot;
+}
+
+bool decode_sync_handle(BkPlatformHandle handle, DecodedSyncHandle *decoded) {
+    if (handle == 0 || decoded == nullptr) return false;
+    const uint64_t type = handle >> sync_type_shift;
+    const uint32_t slot = static_cast<uint32_t>(handle & sync_slot_mask);
+    const uint32_t generation = static_cast<uint32_t>((handle >> 32) & sync_generation_mask);
+    if (type < static_cast<uint64_t>(SyncType::event) || type > static_cast<uint64_t>(SyncType::mutex) || slot == 0 || generation == 0) return false;
+    decoded->type = static_cast<SyncType>(type);
+    decoded->slot = slot;
+    decoded->generation = generation;
+    return true;
+}
+
+template <typename T>
+BkPlatformHandle register_sync(std::shared_ptr<T> object, SyncType type) {
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    uint32_t slot = 0;
+    if (!free_sync_slots.empty()) {
+        slot = free_sync_slots.back();
+        free_sync_slots.pop_back();
+        SyncSlot &entry = sync_slots[slot];
+        entry.generation = entry.generation == static_cast<uint32_t>(sync_generation_mask) ? 1u : entry.generation + 1u;
+        entry.type = type;
+        entry.object = std::move(object);
+        ++bk_platform_state().live_sync_handles;
+        return make_sync_handle(type, slot, entry.generation);
+    }
+    if (sync_slots.size() >= static_cast<size_t>(UINT32_MAX)) return 0;
+    try {
+        sync_slots.emplace_back();
+    } catch (...) {
+        return 0;
+    }
+    slot = static_cast<uint32_t>(sync_slots.size() - 1);
+    SyncSlot &entry = sync_slots[slot];
+    entry.generation = 1;
+    entry.type = type;
+    entry.object = std::move(object);
+    ++bk_platform_state().live_sync_handles;
+    return make_sync_handle(type, slot, entry.generation);
+}
+
+std::shared_ptr<SyncEvent> lookup_event(BkPlatformHandle handle) {
+    DecodedSyncHandle decoded{};
+    if (!decode_sync_handle(handle, &decoded) || decoded.type != SyncType::event) return {};
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    if (decoded.slot >= sync_slots.size()) return {};
+    const SyncSlot &entry = sync_slots[decoded.slot];
+    if (entry.type != SyncType::event || entry.generation != decoded.generation || !entry.object) return {};
+    return std::static_pointer_cast<SyncEvent>(entry.object);
+}
+
+std::shared_ptr<SyncMutex> lookup_mutex(BkPlatformHandle handle) {
+    DecodedSyncHandle decoded{};
+    if (!decode_sync_handle(handle, &decoded) || decoded.type != SyncType::mutex) return {};
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    if (decoded.slot >= sync_slots.size()) return {};
+    const SyncSlot &entry = sync_slots[decoded.slot];
+    if (entry.type != SyncType::mutex || entry.generation != decoded.generation || !entry.object) return {};
+    return std::static_pointer_cast<SyncMutex>(entry.object);
+}
+
+bool destroy_event_handle(BkPlatformHandle handle) {
+    DecodedSyncHandle decoded{};
+    if (!decode_sync_handle(handle, &decoded) || decoded.type != SyncType::event) return false;
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    if (decoded.slot >= sync_slots.size()) return false;
+    SyncSlot &entry = sync_slots[decoded.slot];
+    if (entry.type != SyncType::event || entry.generation != decoded.generation || !entry.object) return false;
+    try {
+        free_sync_slots.push_back(decoded.slot);
+    } catch (...) {
+        return false;
+    }
+    entry.object.reset();
+    entry.type = SyncType::none;
+    --bk_platform_state().live_sync_handles;
+    return true;
+}
+
+bool destroy_mutex_handle(BkPlatformHandle handle) {
+    DecodedSyncHandle decoded{};
+    if (!decode_sync_handle(handle, &decoded) || decoded.type != SyncType::mutex) return false;
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    if (decoded.slot >= sync_slots.size()) return false;
+    SyncSlot &entry = sync_slots[decoded.slot];
+    if (entry.type != SyncType::mutex || entry.generation != decoded.generation || !entry.object) return false;
+    try {
+        free_sync_slots.push_back(decoded.slot);
+    } catch (...) {
+        return false;
+    }
+    entry.object.reset();
+    entry.type = SyncType::none;
+    --bk_platform_state().live_sync_handles;
+    return true;
+}
+
+void shutdown_sync_objects() {
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    for (size_t i = 1; i < sync_slots.size(); ++i) {
+        SyncSlot &entry = sync_slots[i];
+        entry.object.reset();
+        entry.type = SyncType::none;
+    }
+    bk_platform_state().live_sync_handles = 0;
+}
+
 BkPlatformResult BK_PLATFORM_CALL event_create(uint32_t initial_state, uint32_t manual_reset, BkPlatformHandle *out_handle) {
     if (out_handle == nullptr) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    SyncEvent *event = new (std::nothrow) SyncEvent{{}, {}, initial_state != 0, manual_reset != 0};
-    if (event == nullptr) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    *out_handle = reinterpret_cast<BkPlatformHandle>(event);
-    ++bk_platform_state().live_sync_handles;
+    std::shared_ptr<SyncEvent> event;
+    try {
+        event = std::make_shared<SyncEvent>();
+    } catch (...) {
+        return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    }
+    event->signaled = initial_state != 0;
+    event->manual_reset = manual_reset != 0;
+    const BkPlatformHandle handle = register_sync(std::move(event), SyncType::event);
+    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    *out_handle = handle;
     return BK_PLATFORM_OK;
 }
 BkPlatformResult BK_PLATFORM_CALL event_destroy(BkPlatformHandle handle) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    delete reinterpret_cast<SyncEvent *>(handle);
-    if (bk_platform_state().live_sync_handles != 0) --bk_platform_state().live_sync_handles;
-    return BK_PLATFORM_OK;
+    return destroy_event_handle(handle) ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_INVALID_ARGUMENT;
 }
 BkPlatformResult BK_PLATFORM_CALL event_set(BkPlatformHandle handle) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    SyncEvent &event = *reinterpret_cast<SyncEvent *>(handle);
-    { std::lock_guard<std::mutex> lock(event.mutex); event.signaled = true; }
-    if (event.manual_reset) event.condition.notify_all(); else event.condition.notify_one();
+    const std::shared_ptr<SyncEvent> event = lookup_event(handle);
+    if (!event) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    { std::lock_guard<std::mutex> lock(event->mutex); event->signaled = true; }
+    if (event->manual_reset) event->condition.notify_all(); else event->condition.notify_one();
     return BK_PLATFORM_OK;
 }
 BkPlatformResult BK_PLATFORM_CALL event_reset(BkPlatformHandle handle) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    SyncEvent &event = *reinterpret_cast<SyncEvent *>(handle);
-    std::lock_guard<std::mutex> lock(event.mutex);
-    event.signaled = false;
+    const std::shared_ptr<SyncEvent> event = lookup_event(handle);
+    if (!event) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lock(event->mutex);
+    event->signaled = false;
     return BK_PLATFORM_OK;
 }
 BkPlatformResult BK_PLATFORM_CALL event_wait(BkPlatformHandle handle, uint32_t timeout_milliseconds) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    SyncEvent &event = *reinterpret_cast<SyncEvent *>(handle);
-    std::unique_lock<std::mutex> lock(event.mutex);
-    const auto ready = [&event] { return event.signaled; };
-    if (timeout_milliseconds == UINT32_MAX) event.condition.wait(lock, ready);
-    else if (!event.condition.wait_for(lock, std::chrono::milliseconds(timeout_milliseconds), ready)) return BK_PLATFORM_ERROR_TIMEOUT;
-    if (!event.manual_reset) event.signaled = false;
+    const std::shared_ptr<SyncEvent> event = lookup_event(handle);
+    if (!event) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    std::unique_lock<std::mutex> lock(event->mutex);
+    const auto ready = [&event] { return event->signaled; };
+    if (timeout_milliseconds == UINT32_MAX) event->condition.wait(lock, ready);
+    else if (!event->condition.wait_for(lock, std::chrono::milliseconds(timeout_milliseconds), ready)) return BK_PLATFORM_ERROR_TIMEOUT;
+    if (!event->manual_reset) event->signaled = false;
     return BK_PLATFORM_OK;
 }
 BkPlatformResult BK_PLATFORM_CALL mutex_create(BkPlatformHandle *out_handle) {
     if (out_handle == nullptr) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    SyncMutex *mutex = new (std::nothrow) SyncMutex{{}};
-    if (mutex == nullptr) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    *out_handle = reinterpret_cast<BkPlatformHandle>(mutex);
-    ++bk_platform_state().live_sync_handles;
+    std::shared_ptr<SyncMutex> mutex;
+    try {
+        mutex = std::make_shared<SyncMutex>();
+    } catch (...) {
+        return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    }
+    const BkPlatformHandle handle = register_sync(std::move(mutex), SyncType::mutex);
+    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    *out_handle = handle;
     return BK_PLATFORM_OK;
 }
 BkPlatformResult BK_PLATFORM_CALL mutex_destroy(BkPlatformHandle handle) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    delete reinterpret_cast<SyncMutex *>(handle);
-    if (bk_platform_state().live_sync_handles != 0) --bk_platform_state().live_sync_handles;
-    return BK_PLATFORM_OK;
+    return destroy_mutex_handle(handle) ? BK_PLATFORM_OK : BK_PLATFORM_ERROR_INVALID_ARGUMENT;
 }
 BkPlatformResult BK_PLATFORM_CALL mutex_lock(BkPlatformHandle handle) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    reinterpret_cast<SyncMutex *>(handle)->mutex.lock();
+    const std::shared_ptr<SyncMutex> mutex = lookup_mutex(handle);
+    if (!mutex) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    mutex->mutex.lock();
     return BK_PLATFORM_OK;
 }
 BkPlatformResult BK_PLATFORM_CALL mutex_unlock(BkPlatformHandle handle) {
-    if (handle == 0) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
-    reinterpret_cast<SyncMutex *>(handle)->mutex.unlock();
+    const std::shared_ptr<SyncMutex> mutex = lookup_mutex(handle);
+    if (!mutex) return BK_PLATFORM_ERROR_INVALID_ARGUMENT;
+    mutex->mutex.unlock();
     return BK_PLATFORM_OK;
 }
-uint32_t BK_PLATFORM_CALL get_live_sync_handles() { return bk_platform_state().live_sync_handles; }
+uint32_t BK_PLATFORM_CALL get_live_sync_handles() {
+    std::lock_guard<std::mutex> lock(sync_registry_mutex);
+    return bk_platform_state().live_sync_handles;
+}
 BkPlatformResult BK_PLATFORM_CALL diagnostic_write(uint32_t level, BkPlatformUtf8Span message) {
     BkPlatformState &state = bk_platform_state();
     if (message.struct_size < sizeof(BkPlatformUtf8Span) || (message.length != 0 && message.data == nullptr)) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid diagnostic message");
