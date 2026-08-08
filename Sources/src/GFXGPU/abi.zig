@@ -224,6 +224,7 @@ const state_lighting: u32 = 4; // GFXGPU_STATE_LIGHTING
 const state_material: u32 = 7; // GFXGPU_STATE_MATERIAL
 const state_shade_effect: u32 = 8; // GFXGPU_STATE_SHADE_EFFECT
 const state_topology: u32 = 9; // GFXGPU_STATE_TOPOLOGY
+const state_texture_matrix: u32 = 10; // GFXGPU_STATE_TEXTURE_MATRIX
 fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument;
@@ -240,6 +241,10 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
         // four floats a, r, g, b in that order.
         state_material => renderer.material_diffuse = .{ info.?.values[1], info.?.values[2], info.?.values[3], info.?.values[0] },
         state_topology => renderer.topology = formats.fromPrimitive(info.?.value) catch return errors.invalid_argument,
+        // Only stage 0 has a matrix in the fixed-function paths the engine uses.
+        state_texture_matrix => if (info.?.index == 0) {
+            renderer.texture_matrix = info.?.values;
+        },
         else => {},
     }
     return errors.ok;

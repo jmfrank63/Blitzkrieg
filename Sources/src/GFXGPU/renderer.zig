@@ -65,6 +65,11 @@ pub const Renderer = struct {
     // as the buffer held, reading past its end and painting the garbage as a
     // solid wedge across the screen.
     topology: formats.Topology = .triangle_list,
+    // The stage-0 texture matrix. CTerrainWater::DrawWater scrolls each river
+    // layer by translating u through it, so with the transform discarded the
+    // water was motionless. Only effects that enable D3DTTFF_COUNT2 see it;
+    // every other draw gets the identity.
+    texture_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
     last_error: []const u8 = "",
 
     pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
@@ -136,7 +141,8 @@ pub const Renderer = struct {
 
     const MatrixUniforms = extern struct { matrix: [16]f32, padding: [4]f32 };
     // `screen` is g_screen: (pre_transformed, 1/width, 1/height, 0).
-    const DrawUniforms = extern struct { matrix: [16]f32, color: [4]f32, screen: [4]f32 };
+    const DrawUniforms = extern struct { matrix: [16]f32, color: [4]f32, screen: [4]f32, texture_matrix: [16]f32 };
+    const identity_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 
     pub fn init(allocator: std.mem.Allocator) Renderer {
         return .{ .allocator = allocator };
@@ -648,7 +654,8 @@ pub const Renderer = struct {
             .{ 1, 1 / width, 1 / height, combine }
         else
             .{ 0, 1 / width, 1 / height, combine };
-        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen };
+        const texture_matrix = if (effects.usesTextureTransform(self.shade_effect)) self.texture_matrix else identity_matrix;
+        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen, .texture_matrix = texture_matrix };
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
         // The fragment stage declares the same cbuffers and reads g_screen for

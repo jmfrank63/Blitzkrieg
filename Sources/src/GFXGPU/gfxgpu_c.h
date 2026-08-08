@@ -89,6 +89,8 @@ enum {
     GFXGPU_STATE_SHADE_EFFECT = 8,
     // EGFXPrimitiveType of the geometry the next draw submits.
     GFXGPU_STATE_TOPOLOGY = 9,
+    // Stage-0 texture matrix; index selects the stage, values carry the matrix.
+    GFXGPU_STATE_TEXTURE_MATRIX = 10,
 };
 
 typedef struct GfxGpuApi {

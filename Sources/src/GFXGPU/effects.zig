@@ -29,6 +29,14 @@ pub const FogMode = enum { none, linear };
 //        plus ALPHAREF 50 GREATEREQUAL
 pub const Combine = enum(u32) { single = 0, modulate_second = 1, mask_alpha = 2, mask_alpha_test = 3 };
 
+// Whether an effect turns the stage-0 texture matrix on. CGraphicsEngine sets
+// D3DTTFF_COUNT2 for 303, the flowing river layers, and D3DTTFF_DISABLE for 304,
+// which exists only to turn it back off again.
+pub fn usesTextureTransform(id: u32) bool {
+    const spec = find(id) orelse return false;
+    return (spec.fixed_state_overrides & state_texture_transform) != 0;
+}
+
 pub fn combineFor(id: u32) Combine {
     return switch (id) {
         101 => .modulate_second,
@@ -127,7 +135,10 @@ pub const specs = [_]EffectSpec{
     make(301, .stencil, .stencil_test, 0, state_stencil),
     make(302, .stencil, .stencil_test, 0, state_none),
     make(303, .special, .special_transform, 1, state_alpha_test | state_alpha_blend | state_texture_transform),
-    make(304, .special, .special_transform, 1, state_texture_transform),
+    // 304 is D3DTTFF_DISABLE: the effect that clears the transform, not one that
+    // uses it. Carrying the flag here left the water's scroll matrix applied to
+    // everything drawn after the river.
+    make(304, .special, .special_transform, 1, state_none),
     make(310, .special, .special_depth, 0, state_none),
     make(311, .special, .special_depth, 0, state_none),
     make(312, .special, .special_depth, 0, state_none),
@@ -274,6 +285,16 @@ test "stencil and water special-effect fixtures" {
         if (spec.family == .stencil or spec.family == .shadow or spec.family == .water or spec.family == .special)
             try std.testing.expect(spec.shader_effect != .textured and spec.shader_effect != .untextured);
     }
+}
+
+test "only the flowing-water effect enables the stage-0 texture matrix" {
+    // CGraphicsEngine sets D3DTTFF_COUNT2 for 303 and D3DTTFF_DISABLE for 304.
+    try std.testing.expect(usesTextureTransform(303));
+    try std.testing.expect(!usesTextureTransform(304));
+    // Nothing else transforms its texcoords, so every other draw gets identity.
+    try std.testing.expect(!usesTextureTransform(3));
+    try std.testing.expect(!usesTextureTransform(101));
+    try std.testing.expect(!usesTextureTransform(9999));
 }
 
 test "terrain effects declare the stage combines their D3D states describe" {

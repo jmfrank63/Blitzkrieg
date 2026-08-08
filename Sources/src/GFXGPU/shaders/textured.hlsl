@@ -16,7 +16,7 @@ VertexOutput vs_textured(VertexInput input) {
     VertexOutput output;
     output.position = transform_legacy_position(input.position);
     output.color = legacy_vertex_color(input.color) * g_color;
-    output.uv = input.uv;
+    output.uv = transform_legacy_texcoord(input.uv);
     return output;
 }
 
@@ -32,7 +32,7 @@ VertexOutput vs_textured_nocolor(VertexInputNoColor input) {
     VertexOutput output;
     output.position = transform_legacy_position(input.position);
     output.color = g_color;
-    output.uv = input.uv;
+    output.uv = transform_legacy_texcoord(input.uv);
     return output;
 }
 

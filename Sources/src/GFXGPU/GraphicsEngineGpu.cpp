@@ -373,7 +373,14 @@ bool STDCALL GraphicsEngineGpu::SetProjectionTransform( const SHMatrix &matrix )
     projection_matrix_ = matrix;
     return !renderer_ || !frame_pending_ || ApplyTransforms();
 }
-bool STDCALL GraphicsEngineGpu::SetTextureTransform( int, const SHMatrix & ) { return true; }
+// CTerrainWater::DrawWater scrolls each river layer by translating u through the
+// stage-0 texture matrix once per frame. Dropping it on the floor is what made
+// the water stand still.
+bool STDCALL GraphicsEngineGpu::SetTextureTransform( int index, const SHMatrix &matrix )
+{
+    if ( index != 0 ) return true;
+    return SetState( GFXGPU_STATE_TEXTURE_MATRIX, 0, 0, &matrix, sizeof( matrix ), "set_texture_matrix" );
+}
 bool STDCALL GraphicsEngineGpu::SetupDirectTransform()
 {
     if ( direct_transform_ ) return true;
