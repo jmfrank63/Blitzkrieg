@@ -108,6 +108,7 @@ private:
     bool Check( GfxGpuResult result, const char *operation );
     bool ApplyTransforms();
     bool SetState( uint32_t kind, uint32_t index, uint32_t value, const void *data, size_t data_size, const char *operation );
+    bool SetTopology( EGFXPrimitiveType type );
 
     GfxGpuApi api_{};
     GfxGpuRenderer *renderer_ = nullptr;

@@ -3,6 +3,7 @@ const libc = @cImport({
     @cInclude("stdlib.h");
 });
 const errors = @import("error.zig");
+const formats = @import("formats.zig");
 const renderer_mod = @import("renderer.zig");
 const device_mod = @import("device.zig");
 const sdl = @import("sdl.zig");
@@ -222,6 +223,7 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
 const state_lighting: u32 = 4; // GFXGPU_STATE_LIGHTING
 const state_material: u32 = 7; // GFXGPU_STATE_MATERIAL
 const state_shade_effect: u32 = 8; // GFXGPU_STATE_SHADE_EFFECT
+const state_topology: u32 = 9; // GFXGPU_STATE_TOPOLOGY
 fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument;
@@ -237,6 +239,7 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
         // SGFXMaterial leads with vDiffuse, and CVec4's colour view names its
         // four floats a, r, g, b in that order.
         state_material => renderer.material_diffuse = .{ info.?.values[1], info.?.values[2], info.?.values[3], info.?.values[0] },
+        state_topology => renderer.topology = formats.fromPrimitive(info.?.value) catch return errors.invalid_argument,
         else => {},
     }
     return errors.ok;

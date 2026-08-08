@@ -87,6 +87,8 @@ enum {
     GFXGPU_STATE_LIGHT = 6,
     GFXGPU_STATE_MATERIAL = 7,
     GFXGPU_STATE_SHADE_EFFECT = 8,
+    // EGFXPrimitiveType of the geometry the next draw submits.
+    GFXGPU_STATE_TOPOLOGY = 9,
 };
 
 typedef struct GfxGpuApi {

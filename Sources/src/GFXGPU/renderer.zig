@@ -4,6 +4,7 @@ const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
 const manifest = @import("shader_manifest.zig");
 const effects = @import("effects.zig");
+const formats = @import("formats.zig");
 const vertex_layout = @import("vertex_layout.zig");
 
 const io_c = @cImport({
@@ -57,6 +58,13 @@ pub const Renderer = struct {
     // opaque white silhouette on the ground.
     lighting_enabled: bool = false,
     material_diffuse: [4]f32 = .{ 1, 1, 1, 1 },
+    // What the geometry of the next draw actually is. Every pipeline used to be
+    // built as a triangle list and every primitive count multiplied by three, so
+    // a line list -- the selection rectangle, UI borders, gun traces, minimap
+    // markers -- was rasterised as triangles over three times as many vertices
+    // as the buffer held, reading past its end and painting the garbage as a
+    // solid wedge across the screen.
+    topology: formats.Topology = .triangle_list,
     last_error: []const u8 = "",
 
     pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
@@ -426,7 +434,7 @@ pub const Renderer = struct {
 
     pub fn drawTemporary(self: *Renderer, data: *const anyopaque, byte_length: u32, stride: u32, primitive_count: u32) !void {
         if (byte_length == 0 or stride == 0 or byte_length % stride != 0 or primitive_count == 0) return error.InvalidDraw;
-        const vertex_count = std.math.mul(u32, primitive_count, 3) catch return error.InvalidDraw;
+        const vertex_count = formats.primitiveVertexCount(self.topology, primitive_count) catch return error.InvalidDraw;
         if (vertex_count > byte_length / stride) return error.InvalidDraw;
         const id = try self.createBuffer(byte_length / stride, 0, stride, 0);
         errdefer self.destroyBuffer(id) catch {};
@@ -525,9 +533,20 @@ pub const Renderer = struct {
         if (self.linear_sampler == null) self.linear_sampler = sdl.createSampler(gpu_device, true) orelse return error.SamplerCreateFailed;
     }
 
-    fn pipelineCacheKey(fvf: u32, textured: bool, blend: effects.BlendMode, dual: bool) u64 {
+    fn pipelineCacheKey(fvf: u32, textured: bool, blend: effects.BlendMode, dual: bool, topology: formats.Topology) u64 {
         return @as(u64, fvf) | (@as(u64, @intFromBool(textured)) << 32) |
-            (@as(u64, @intFromEnum(blend)) << 33) | (@as(u64, @intFromBool(dual)) << 35);
+            (@as(u64, @intFromEnum(blend)) << 33) | (@as(u64, @intFromBool(dual)) << 35) |
+            (@as(u64, @intFromEnum(topology)) << 36);
+    }
+
+    fn sdlTopology(topology: formats.Topology) sdl.c.SDL_GPUPrimitiveType {
+        return switch (topology) {
+            .point_list => sdl.c.SDL_GPU_PRIMITIVETYPE_POINTLIST,
+            .line_list => sdl.c.SDL_GPU_PRIMITIVETYPE_LINELIST,
+            .line_strip => sdl.c.SDL_GPU_PRIMITIVETYPE_LINESTRIP,
+            .triangle_list => sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+            .triangle_strip => sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+        };
     }
 
     // Builds the pipeline for one vertex format. Attribute locations follow the
@@ -548,7 +567,7 @@ pub const Renderer = struct {
         // actually bound, and the vertex format carries the second texcoord set.
         const dual = textured and texcoord1 != null and self.bound_textures[1] != null and
             effects.combineFor(self.shade_effect) != .single;
-        const key = pipelineCacheKey(fvf, textured, blend_mode, dual);
+        const key = pipelineCacheKey(fvf, textured, blend_mode, dual, self.topology);
         if (self.pipelines.get(key)) |pipeline| return pipeline;
         const variant: ShaderVariant = if (dual)
             .textured_dual
@@ -580,7 +599,7 @@ pub const Renderer = struct {
         const color_format: sdl.c.SDL_GPUTextureFormat = @intCast(self.swapchain_format);
         const factors = blendFactors(blend_mode);
         const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = factors.source, .dst_color_blendfactor = factors.destination, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = factors.enabled, .enable_color_write_mask = true } };
-        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{}, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = 0, .has_depth_stencil_target = false }, .props = 0 };
+        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdlTopology(self.topology), .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{}, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = 0, .has_depth_stencil_target = false }, .props = 0 };
         const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse return error.PipelineCreateFailed;
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
         try self.pipelines.put(self.allocator, key, pipeline);
@@ -656,7 +675,7 @@ pub const Renderer = struct {
         }
         if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
         sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0);
-        const vertex_count = std.math.mul(u32, primitive_count, 3) catch return error.InvalidDraw;
+        const vertex_count = formats.primitiveVertexCount(self.topology, primitive_count) catch return error.InvalidDraw;
         sdl.drawPrimitives(@ptrCast(@alignCast(pass)), vertex_count, 0);
     }
 
@@ -708,6 +727,22 @@ pub const Renderer = struct {
         sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };
+
+test "line geometry gets its own pipeline and its own vertex count" {
+    // A line list and a triangle list of the same format must not share a
+    // pipeline: the cached one carried the primitive type, so whichever draw ran
+    // first decided how both rasterised.
+    const fvf: u32 = 0x002 | 0x040 | 0x080 | 0x100; // SGFXLVertex
+    const lines = Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .line_list);
+    const triangles = Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .triangle_list);
+    try std.testing.expect(lines != triangles);
+
+    // DrawRects lays a non-solid rect out as eight vertices, four lines. Read as
+    // triangles those four primitives claim twelve vertices from an eight-vertex
+    // buffer.
+    try std.testing.expectEqual(@as(u32, 8), try formats.primitiveVertexCount(.line_list, 4));
+    try std.testing.expectEqual(@as(u32, 12), try formats.primitiveVertexCount(.triangle_list, 4));
+}
 
 test "lit draws take their diffuse from the material" {
     var renderer = Renderer.init(std.testing.allocator);

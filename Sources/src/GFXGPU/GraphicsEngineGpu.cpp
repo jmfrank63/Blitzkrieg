@@ -96,6 +96,21 @@ namespace
         }
         return stride;
     }
+
+    // How many primitives a run of vertices makes. Only the triangle-list case
+    // was ever applied, so a line list asked the renderer to draw one primitive
+    // per vertex and it then read three vertices for each of them.
+    uint32_t PrimitiveCount( EGFXPrimitiveType type, uint32_t vertices )
+    {
+        switch ( type )
+        {
+            case GFXPT_POINTLIST:     return vertices;
+            case GFXPT_LINELIST:      return vertices / 2;
+            case GFXPT_LINESTRIP:     return vertices > 1 ? vertices - 1 : 0;
+            case GFXPT_TRIANGLESTRIP: return vertices > 2 ? vertices - 2 : 0;
+            default:                  return vertices / 3;
+        }
+    }
 }
 
 namespace
@@ -164,6 +179,15 @@ bool GraphicsEngineGpu::SetState( uint32_t kind, uint32_t index, uint32_t value,
     if ( data && data_size )
         std::memcpy( state.values, data, CopySize( data_size, sizeof( state.values ) ) );
     return Check( api_.set_state( renderer_, &state ), operation );
+}
+
+// Every pipeline was built as a triangle list, so the selection rectangle, UI
+// borders, gun traces and minimap markers -- all line lists -- were rasterised
+// as triangles over three times the vertices they own. Tell the renderer what
+// the geometry is before each draw.
+bool GraphicsEngineGpu::SetTopology( EGFXPrimitiveType type )
+{
+    return SetState( GFXGPU_STATE_TOPOLOGY, 0, static_cast<uint32_t>( type ), nullptr, 0, "set_topology" );
 }
 
 bool GraphicsEngineGpu::CreateTextureHandle( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, GfxGpuHandle *out_handle )
@@ -542,6 +566,7 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
 {
     VerticesGpu *vb = dynamic_cast<VerticesGpu *>( vertices );
     if ( !vb || !renderer_ ) return fail( "vertex buffer does not belong to the SDL GPU adapter" );
+    if ( !SetTopology( vb->Type() ) ) return false;
     if ( indices )
     {
         IndicesGpu *ib = dynamic_cast<IndicesGpu *>( indices );
@@ -552,11 +577,7 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
         return result;
     }
     if ( !api_.draw ) return fail( "draw is unavailable" );
-    uint32_t primitives = vb->Count();
-    if ( vb->Type() == GFXPT_TRIANGLELIST ) primitives /= 3;
-    else if ( vb->Type() == GFXPT_TRIANGLESTRIP ) primitives = primitives > 2 ? primitives - 2 : 0;
-    else if ( vb->Type() == GFXPT_LINELIST ) primitives /= 2;
-    else if ( vb->Type() == GFXPT_LINESTRIP ) primitives = primitives > 1 ? primitives - 1 : 0;
+    const uint32_t primitives = PrimitiveCount( vb->Type(), vb->Count() );
     if ( primitives == 0 ) return fail( "geometry has no drawable primitives" );
     const bool result = Check( api_.draw( renderer_, 0, primitives ), "draw" );
     if ( result ) { passed_vertices_ += static_cast<int>( vb->Count() ); passed_primitives_ += static_cast<int>( primitives ); }
@@ -565,6 +586,7 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
 bool STDCALL GraphicsEngineGpu::DrawTemp()
 {
     if ( temporary_vertex_bytes_.empty() ) return false;
+    if ( !SetTopology( temporary_type_ ) ) return false;
     GfxGpuHandle vertex_handle = 0;
     GfxGpuHandle index_handle = 0;
     // No repacking: the buffer was allocated at the format's own stride, so the
@@ -580,8 +602,8 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     const bool vertex_bound = !indexed || ( vertex_created && api_.bind_vertex_buffer && Check( api_.bind_vertex_buffer( renderer_, vertex_handle ), "bind_temporary_vertex_buffer" ) );
     if ( vertex_created && index_created && vertex_bound ) {
         if ( indexed ) drawn = DrawIndexedBufferHandle( index_handle, static_cast<uint32_t>( temporary_index_stride_ ), static_cast<uint32_t>( temporary_index_count_ ) );
-        else { uint32_t primitives = static_cast<uint32_t>( temporary_vertex_count_ ); if ( temporary_type_ == GFXPT_TRIANGLELIST ) primitives /= 3; drawn = DrawBufferHandle( vertex_handle, primitives ); }
-        if ( drawn ) { passed_vertices_ += temporary_vertex_count_; passed_primitives_ += indexed ? temporary_index_count_ / 3 : ( temporary_type_ == GFXPT_TRIANGLELIST ? temporary_vertex_count_ / 3 : temporary_vertex_count_ / 2 ); }
+        else drawn = DrawBufferHandle( vertex_handle, PrimitiveCount( temporary_type_, static_cast<uint32_t>( temporary_vertex_count_ ) ) );
+        if ( drawn ) { passed_vertices_ += temporary_vertex_count_; passed_primitives_ += static_cast<int>( PrimitiveCount( temporary_type_, static_cast<uint32_t>( indexed ? temporary_index_count_ : temporary_vertex_count_ ) ) ); }
     }
     if ( index_handle ) DestroyBufferHandle( index_handle );
     if ( vertex_handle ) DestroyBufferHandle( vertex_handle );
