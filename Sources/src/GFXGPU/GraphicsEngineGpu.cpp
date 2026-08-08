@@ -469,6 +469,12 @@ bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont * ) { return fail( "SDL GPU fo
 bool STDCALL GraphicsEngineGpu::IsActive() { return initialized_; }
 bool STDCALL GraphicsEngineGpu::BeginScene()
 {
+    // CGraphicsEngine::BeginScene clears these every frame and callers read them
+    // as per-frame totals. Letting them run for the whole session made
+    // CInterfaceScreenBase::AddStatistics add a session total into an int once a
+    // frame, which overflowed after a few minutes of play and trapped.
+    passed_vertices_ = 0;
+    passed_primitives_ = 0;
     const bool result = renderer_ && Check( api_.begin_frame( renderer_ ), "begin_frame" );
     frame_pending_ = result;
     if ( result ) (void)ApplyTransforms();
