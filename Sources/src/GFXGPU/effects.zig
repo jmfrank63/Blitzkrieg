@@ -18,6 +18,26 @@ pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured,
 pub const BlendMode = enum { replace, multiply, straight_alpha, additive };
 pub const FogMode = enum { none, linear };
 
+// How an effect combines its two texture stages, read off the D3DTSS_* states
+// CGraphicsEngine::SetShadingEffect programs:
+//   101  stage0 = tileset MODULATE diffuse, stage1 = noise MODULATE current,
+//        alpha from stage0        -> the noise shades the ground
+//   100  stage0 = tileset MODULATE diffuse, stage1 colour = CURRENT and
+//        alpha = crosset texture  -> the crosset masks a tile transition
+//   102  identical stage setup to 100, alpha blended
+//   104  stage0 = noise SELECTARG1 (no diffuse), stage1 alpha = crosset,
+//        plus ALPHAREF 50 GREATEREQUAL
+pub const Combine = enum(u32) { single = 0, modulate_second = 1, mask_alpha = 2, mask_alpha_test = 3 };
+
+pub fn combineFor(id: u32) Combine {
+    return switch (id) {
+        101 => .modulate_second,
+        100, 102 => .mask_alpha,
+        104 => .mask_alpha_test,
+        else => .single,
+    };
+}
+
 pub const EffectSpec = struct {
     id: u32,
     family: Family,
@@ -254,4 +274,18 @@ test "stencil and water special-effect fixtures" {
         if (spec.family == .stencil or spec.family == .shadow or spec.family == .water or spec.family == .special)
             try std.testing.expect(spec.shader_effect != .textured and spec.shader_effect != .untextured);
     }
+}
+
+test "terrain effects declare the stage combines their D3D states describe" {
+    try std.testing.expectEqual(Combine.modulate_second, combineFor(101));
+    try std.testing.expectEqual(Combine.mask_alpha, combineFor(100));
+    try std.testing.expectEqual(Combine.mask_alpha, combineFor(102));
+    try std.testing.expectEqual(Combine.mask_alpha_test, combineFor(104));
+    // 103 is the single-stage noise pass, and everything outside the terrain
+    // family samples one texture.
+    try std.testing.expectEqual(Combine.single, combineFor(103));
+    try std.testing.expectEqual(Combine.single, combineFor(3));
+    try std.testing.expectEqual(BlendMode.multiply, (find(103) orelse unreachable).blend);
+    try std.testing.expectEqual(BlendMode.multiply, (find(104) orelse unreachable).blend);
+    try std.testing.expectEqual(BlendMode.replace, (find(101) orelse unreachable).blend);
 }

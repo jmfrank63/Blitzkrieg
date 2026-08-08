@@ -411,27 +411,28 @@ void STDCALL GraphicsEngineGpu::SetMaterial( const SGFXMaterial &material ) { Se
 bool STDCALL GraphicsEngineGpu::SetTexture( int stage, IGFXBaseTexture *texture )
 {
     if ( stage < 0 || stage > 1 ) return fail( "only texture stages 0 and 1 are supported" );
-    // The renderer samples one texture, so only stage 0 reaches it. Forwarding
-    // stage 1 as well overwrote the stage 0 binding: the terrain sets its
-    // tileset on 0 and then a noise or crosset texture on 1, so every terrain
-    // draw sampled the wrong texture, and the SetTexture( 1, 0 ) that disabled
-    // noise cleared the tileset outright. Stage 1 is remembered for when
-    // multitexturing is wired through.
-    if ( stage == 1 )
+    if ( !renderer_ ) return fail( "set_texture is unavailable" );
+    // Each stage goes to its own slot. Both used to be funnelled into a single
+    // binding, so the terrain's noise or crosset on stage 1 overwrote the tileset
+    // on stage 0, and the SetTexture( 1, 0 ) that disables noise cleared the
+    // tileset outright.
+    TextureGpu *gpu_texture = 0;
+    if ( texture )
     {
-        stage1_texture_ = texture ? dynamic_cast<TextureGpu *>( texture ) : nullptr;
-        return true;
+        gpu_texture = dynamic_cast<TextureGpu *>( texture );
+        if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
     }
-    if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
-    if ( !texture )
+    const GfxGpuHandle handle = gpu_texture ? gpu_texture->Handle() : 0;
+    if ( api_.set_texture_stage )
     {
-        const bool result = Check( api_.set_texture( renderer_, 0 ), "clear_texture" );
-        if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
+        const bool result = Check( api_.set_texture_stage( renderer_, static_cast<uint32_t>( stage ), handle ), "set_texture_stage" );
+        if ( result && stage == 0 && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
         return result;
     }
-    TextureGpu *gpu_texture = dynamic_cast<TextureGpu *>( texture );
-    if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
-    const bool result = Check( api_.set_texture( renderer_, gpu_texture->Handle() ), "set_texture" );
+    // Renderers predating the stage-aware entry point only have stage 0.
+    if ( stage != 0 ) return true;
+    if ( !api_.set_texture ) return fail( "set_texture is unavailable" );
+    const bool result = Check( api_.set_texture( renderer_, handle ), handle ? "set_texture" : "clear_texture" );
     if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
     return result;
 }

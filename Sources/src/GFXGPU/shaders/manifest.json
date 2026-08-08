@@ -460,5 +460,11 @@
   },
   {
     "effect": "textured_nocolor", "name": "TexturedNocolor", "stage": "fragment", "source": "textured.hlsl", "entry": "ps_textured", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured_dual", "name": "TexturedDual", "stage": "vertex", "source": "textured_dual.hlsl", "entry": "vs_textured_dual", "defines": [], "required_vertex_mask": 35, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured_dual", "name": "TexturedDual", "stage": "fragment", "source": "textured_dual.hlsl", "entry": "ps_textured_dual", "defines": [], "required_vertex_mask": 0, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   }
 ]

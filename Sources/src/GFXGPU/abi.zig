@@ -67,6 +67,7 @@ pub const Api = extern struct {
     upload_buffer: *const fn (?*RendererHandle, u64, ?*const BufferUploadInfo) callconv(.c) Result,
     destroy_buffer: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     set_texture: *const fn (?*RendererHandle, u64) callconv(.c) Result,
+    set_texture_stage: *const fn (?*RendererHandle, u32, u64) callconv(.c) Result,
     set_sampler: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     draw: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
     draw_indexed: *const fn (?*RendererHandle, u64, u32, u32, u32, i32) callconv(.c) Result,
@@ -303,10 +304,21 @@ fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     if (texture == 0) {
-        renderer.bound_texture = null;
+        renderer.bound_textures[0] = null;
         return errors.ok;
     }
-    renderer.bindTexture(texture) catch return errors.invalid_handle;
+    renderer.bindTextureStage(0, texture) catch return errors.invalid_handle;
+    return errors.ok;
+}
+fn setTextureStage(handle: ?*RendererHandle, stage: u32, texture: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    if (stage > 1) return errors.invalid_argument;
+    if (texture == 0) {
+        renderer.bound_textures[stage] = null;
+        return errors.ok;
+    }
+    renderer.bindTextureStage(stage, texture) catch return errors.invalid_handle;
     return errors.ok;
 }
 fn bindVertexBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
@@ -416,6 +428,7 @@ const api = Api{
     .upload_buffer = uploadBuffer,
     .destroy_buffer = destroyBuffer,
     .set_texture = setTexture,
+    .set_texture_stage = setTextureStage,
     .set_sampler = setSampler,
     .draw = draw,
     .draw_indexed = drawIndexed,

@@ -94,15 +94,29 @@ pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBu
     return true;
 }
 
+// D3D9 addresses textures with D3DTADDRESS_WRAP by default, which the terrain
+// depends on: the noise texcoords tile far outside [0,1]. Clamping collapsed
+// every one of those lookups onto a single edge texel, so modulating by the
+// noise flattened the whole ground to one dark shade.
 pub fn createSampler(device: *GpuDevice, linear: bool) ?*c.SDL_GPUSampler {
     const filter = if (linear) c.SDL_GPU_FILTER_LINEAR else c.SDL_GPU_FILTER_NEAREST;
-    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = @intCast(filter), .mag_filter = @intCast(filter), .mipmap_mode = @intCast(c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST), .address_mode_u = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE), .address_mode_v = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE), .address_mode_w = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE), .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = @intCast(c.SDL_GPU_COMPAREOP_ALWAYS), .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
+    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = @intCast(filter), .mag_filter = @intCast(filter), .mipmap_mode = @intCast(c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST), .address_mode_u = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_REPEAT), .address_mode_v = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_REPEAT), .address_mode_w = @intCast(c.SDL_GPU_SAMPLERADDRESSMODE_REPEAT), .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = @intCast(c.SDL_GPU_COMPAREOP_ALWAYS), .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
     return c.SDL_CreateGPUSampler(device, &info);
 }
 
 pub fn bindFragmentSampler(render_pass: *GpuRenderPass, texture: *GpuTexture, sampler: *c.SDL_GPUSampler) void {
     const binding = c.SDL_GPUTextureSamplerBinding{ .texture = texture, .sampler = sampler };
     c.SDL_BindGPUFragmentSamplers(render_pass, 0, &binding, 1);
+}
+
+// The multitextured terrain effects sample a second stage: the noise that
+// modulates the ground, or the crosset whose alpha masks a tile transition.
+pub fn bindFragmentSamplers2(render_pass: *GpuRenderPass, texture0: *GpuTexture, texture1: *GpuTexture, sampler: *c.SDL_GPUSampler) void {
+    const bindings = [_]c.SDL_GPUTextureSamplerBinding{
+        .{ .texture = texture0, .sampler = sampler },
+        .{ .texture = texture1, .sampler = sampler },
+    };
+    c.SDL_BindGPUFragmentSamplers(render_pass, 0, &bindings, 2);
 }
 
 pub fn beginColorPass(command_buffer: *GpuCommandBuffer, texture: *GpuTexture, color: [4]f32, load: c.SDL_GPULoadOp) ?*GpuRenderPass {

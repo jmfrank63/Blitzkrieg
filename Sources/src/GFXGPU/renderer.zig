@@ -34,13 +34,15 @@ pub const Renderer = struct {
     // other format the engine draws with -- terrain tiles, mesh vertices, line
     // vertices -- was strided and swizzled as garbage.
     pipelines: std.AutoHashMapUnmanaged(u64, *anyopaque) = .empty,
-    vertex_shaders: [4]?*anyopaque = .{ null, null, null, null },
-    fragment_shaders: [4]?*anyopaque = .{ null, null, null, null },
+    vertex_shaders: [5]?*anyopaque = @splat(null),
+    fragment_shaders: [5]?*anyopaque = @splat(null),
     shade_effect: u32 = 0,
     sampler: ?*sdl.c.SDL_GPUSampler = null,
     linear_sampler: ?*sdl.c.SDL_GPUSampler = null,
     use_linear_sampler: bool = false,
-    bound_texture: ?u64 = null,
+    // Stage 0 is the tileset or sprite; stage 1 is the terrain's noise or the
+    // crosset whose alpha masks a tile transition.
+    bound_textures: [2]?u64 = .{ null, null },
     bound_vertex_buffer: ?u64 = null,
     viewport: ?ViewportState = null,
     world_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
@@ -72,7 +74,7 @@ pub const Renderer = struct {
 
     // Which vertex shader a draw needs. The two "nocolor" entry points exist for
     // vertex formats that carry no GFXFVF_DIFFUSE.
-    pub const ShaderVariant = enum(u2) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3 };
+    pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4 };
 
     fn variantEffect(variant: ShaderVariant) []const u8 {
         return switch (variant) {
@@ -80,6 +82,7 @@ pub const Renderer = struct {
             .untextured_nocolor => "untextured_nocolor",
             .textured => "textured",
             .textured_nocolor => "textured_nocolor",
+            .textured_dual => "textured_dual",
         };
     }
     fn variantVertexEntry(variant: ShaderVariant) [:0]const u8 {
@@ -88,6 +91,7 @@ pub const Renderer = struct {
             .untextured_nocolor => "vs_untextured_nocolor",
             .textured => "vs_textured",
             .textured_nocolor => "vs_textured_nocolor",
+            .textured_dual => "vs_textured_dual",
         };
     }
     // The nocolor variants reuse the base fragment entry point, so the blob
@@ -96,12 +100,14 @@ pub const Renderer = struct {
         return switch (variant) {
             .untextured, .untextured_nocolor => "ps_untextured",
             .textured, .textured_nocolor => "ps_textured",
+            .textured_dual => "ps_textured_dual",
         };
     }
     fn variantSamplerCount(variant: ShaderVariant) u32 {
         return switch (variant) {
             .untextured, .untextured_nocolor => 0,
             .textured, .textured_nocolor => 1,
+            .textured_dual => 2,
         };
     }
 
@@ -389,12 +395,15 @@ pub const Renderer = struct {
         const texture = self.textures.fetchRemove(id) orelse return error.InvalidTexture;
         const device = &(self.device orelse return error.NoDevice);
         sdl.releaseTexture(@ptrCast(@alignCast(device.handle.?)), texture.value.gpu);
-        if (self.bound_texture == id) self.bound_texture = null;
+        for (&self.bound_textures) |*slot| {
+            if (slot.* == id) slot.* = null;
+        }
     }
 
-    pub fn bindTexture(self: *Renderer, id: u64) !void {
+    pub fn bindTextureStage(self: *Renderer, stage: u32, id: u64) !void {
+        if (stage > 1) return error.InvalidTexture;
         if (!self.textures.contains(id)) return error.InvalidTexture;
-        self.bound_texture = id;
+        self.bound_textures[stage] = id;
     }
 
     pub fn bindVertexBuffer(self: *Renderer, id: u64) !void {
@@ -507,8 +516,9 @@ pub const Renderer = struct {
         if (self.linear_sampler == null) self.linear_sampler = sdl.createSampler(gpu_device, true) orelse return error.SamplerCreateFailed;
     }
 
-    fn pipelineCacheKey(fvf: u32, textured: bool, blend: effects.BlendMode) u64 {
-        return @as(u64, fvf) | (@as(u64, @intFromBool(textured)) << 32) | (@as(u64, @intFromEnum(blend)) << 33);
+    fn pipelineCacheKey(fvf: u32, textured: bool, blend: effects.BlendMode, dual: bool) u64 {
+        return @as(u64, fvf) | (@as(u64, @intFromBool(textured)) << 32) |
+            (@as(u64, @intFromEnum(blend)) << 33) | (@as(u64, @intFromBool(dual)) << 35);
     }
 
     // Builds the pipeline for one vertex format. Attribute locations follow the
@@ -520,13 +530,20 @@ pub const Renderer = struct {
         const position = vertex_layout.find(layout, .position, 0) orelse return error.UnsupportedVertexFormat;
         const diffuse = vertex_layout.find(layout, .diffuse, 5);
         const texcoord = vertex_layout.find(layout, .texcoord, 0);
+        const texcoord1 = vertex_layout.find(layout, .texcoord, 1);
         // A draw can bind a texture for geometry that carries no texcoord (the
         // terrain clears stage 0 between passes). There is nothing to sample
         // then, so it falls back to the untextured shader.
         const textured = want_texture and texcoord != null;
-        const key = pipelineCacheKey(fvf, textured, blend_mode);
+        // Two stages only when the effect combines them, the second texture is
+        // actually bound, and the vertex format carries the second texcoord set.
+        const dual = textured and texcoord1 != null and self.bound_textures[1] != null and
+            effects.combineFor(self.shade_effect) != .single;
+        const key = pipelineCacheKey(fvf, textured, blend_mode, dual);
         if (self.pipelines.get(key)) |pipeline| return pipeline;
-        const variant: ShaderVariant = if (textured)
+        const variant: ShaderVariant = if (dual)
+            .textured_dual
+        else if (textured)
             (if (diffuse != null) .textured else .textured_nocolor)
         else
             (if (diffuse != null) .untextured else .untextured_nocolor);
@@ -534,7 +551,7 @@ pub const Renderer = struct {
         if (textured) try self.ensureSamplers();
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
-        var attributes: [3]sdl.c.SDL_GPUVertexAttribute = undefined;
+        var attributes: [4]sdl.c.SDL_GPUVertexAttribute = undefined;
         var attribute_count: u32 = 0;
         attributes[attribute_count] = .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = position.offset };
         attribute_count += 1;
@@ -544,6 +561,10 @@ pub const Renderer = struct {
         }
         if (textured) {
             attributes[attribute_count] = .{ .location = attribute_count, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = texcoord.?.offset };
+            attribute_count += 1;
+        }
+        if (dual) {
+            attributes[attribute_count] = .{ .location = attribute_count, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = texcoord1.?.offset };
             attribute_count += 1;
         }
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = layout.stride, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
@@ -560,7 +581,7 @@ pub const Renderer = struct {
     // Picks the pipeline for a draw from the bound vertex buffer's own format.
     fn pipelineForDraw(self: *Renderer, buffer: BufferResource) !*anyopaque {
         const fvf = if (buffer.format != 0) buffer.format else default_fvf;
-        return self.ensurePipeline(fvf, self.bound_texture != null, self.blendModeForDraw());
+        return self.ensurePipeline(fvf, self.bound_textures[0] != null, self.blendModeForDraw());
     }
 
     // GFXFVF_XYZRHW (0x004) marks a position the engine already transformed to
@@ -569,15 +590,24 @@ pub const Renderer = struct {
         return (fvf & 0x0f) == 0x004;
     }
 
+    // Stage 1 participates only when a texture is bound to it and the current
+    // effect actually combines the two stages.
+    fn dualTextureActive(self: *const Renderer) ?u64 {
+        if (effects.combineFor(self.shade_effect) == .single) return null;
+        return self.bound_textures[1];
+    }
+
     fn pushDrawUniforms(self: *Renderer, fvf: u32) !void {
         const command = self.frame.command_buffer orelse return error.InvalidState;
         const frame_uniforms = MatrixUniforms{ .matrix = self.view_proj_matrix, .padding = .{ 0, 0, 0, 0 } };
         const width: f32 = @floatFromInt(@max(self.drawable_width, 1));
         const height: f32 = @floatFromInt(@max(self.drawable_height, 1));
+        // w carries the stage combine the fragment shader should apply.
+        const combine: f32 = if (self.dualTextureActive() != null) @floatFromInt(@intFromEnum(effects.combineFor(self.shade_effect))) else 0;
         const screen: [4]f32 = if (isPreTransformed(fvf))
-            .{ 1, 1 / width, 1 / height, 0 }
+            .{ 1, 1 / width, 1 / height, combine }
         else
-            .{ 0, 1 / width, 1 / height, 0 };
+            .{ 0, 1 / width, 1 / height, combine };
         const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.draw_color, .screen = screen };
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
@@ -591,11 +621,17 @@ pub const Renderer = struct {
         const pipeline = try self.pipelineForDraw(buffer);
         try self.pushDrawUniforms(buffer.format);
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
-        if (self.bound_texture) |texture_id| {
+        if (self.bound_textures[0]) |texture_id| {
             const texture = self.textures.get(texture_id) orelse return error.InvalidTexture;
             const sampler = if (self.use_linear_sampler) self.linear_sampler else self.sampler;
             const sampler_handle = sampler orelse return error.SamplerMissing;
-            sdl.bindFragmentSampler(@ptrCast(@alignCast(pass)), texture.gpu, sampler_handle);
+            // A pipeline built for two samplers must have both bound.
+            if (self.dualTextureActive()) |second_id| {
+                const second = self.textures.get(second_id) orelse return error.InvalidTexture;
+                sdl.bindFragmentSamplers2(@ptrCast(@alignCast(pass)), texture.gpu, second.gpu, sampler_handle);
+            } else {
+                sdl.bindFragmentSampler(@ptrCast(@alignCast(pass)), texture.gpu, sampler_handle);
+            }
         }
         if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
         sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0);
@@ -614,11 +650,17 @@ pub const Renderer = struct {
         const pipeline = try self.pipelineForDraw(vertex_buffer);
         try self.pushDrawUniforms(vertex_buffer.format);
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
-        if (self.bound_texture) |texture_id| {
+        if (self.bound_textures[0]) |texture_id| {
             const texture = self.textures.get(texture_id) orelse return error.InvalidTexture;
             const sampler = if (self.use_linear_sampler) self.linear_sampler else self.sampler;
             const sampler_handle = sampler orelse return error.SamplerMissing;
-            sdl.bindFragmentSampler(@ptrCast(@alignCast(pass)), texture.gpu, sampler_handle);
+            // A pipeline built for two samplers must have both bound.
+            if (self.dualTextureActive()) |second_id| {
+                const second = self.textures.get(second_id) orelse return error.InvalidTexture;
+                sdl.bindFragmentSamplers2(@ptrCast(@alignCast(pass)), texture.gpu, second.gpu, sampler_handle);
+            } else {
+                sdl.bindFragmentSampler(@ptrCast(@alignCast(pass)), texture.gpu, sampler_handle);
+            }
         }
         if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
         sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), vertex_buffer.gpu, 0);

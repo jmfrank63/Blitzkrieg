@@ -138,8 +138,6 @@ private:
     int temporary_index_stride_ = 0;
     int temporary_index_count_ = 0;
     EGFXPrimitiveType temporary_type_ = GFXPT_TRIANGLELIST;
-    // Texture stage 1, recorded but not bound: the renderer samples one texture.
-    class TextureGpu *stage1_texture_ = nullptr;
     int passed_vertices_ = 0;
     int passed_primitives_ = 0;
     float brightness_ = 0.0f;

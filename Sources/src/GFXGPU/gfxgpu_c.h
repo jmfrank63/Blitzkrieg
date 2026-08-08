@@ -116,6 +116,10 @@ typedef struct GfxGpuApi {
     GfxGpuResult (*upload_buffer)(GfxGpuRenderer *, GfxGpuHandle, const GfxGpuBufferUploadInfo *);
     GfxGpuResult (*destroy_buffer)(GfxGpuRenderer *, GfxGpuHandle);
     GfxGpuResult (*set_texture)(GfxGpuRenderer *, uint64_t);
+    /* Binds a texture to an explicit stage. Stage 1 is the terrain's noise or
+       crosset; stage 0 is equivalent to set_texture. Appended to the struct, so
+       callers that predate it keep working via the struct_size check. */
+    GfxGpuResult (*set_texture_stage)(GfxGpuRenderer *, uint32_t, uint64_t);
     GfxGpuResult (*set_sampler)(GfxGpuRenderer *, uint64_t);
     GfxGpuResult (*draw)(GfxGpuRenderer *, uint32_t, uint32_t);
     GfxGpuResult (*draw_indexed)(GfxGpuRenderer *, uint64_t, uint32_t, uint32_t, uint32_t, int32_t);
