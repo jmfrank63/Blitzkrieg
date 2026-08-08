@@ -577,6 +577,21 @@ int RunGame( const BkGameLaunchInfo &launch )
 				NWinFrame::ResetExit();
 				pMainLoop->Command( MAIN_COMMAND_EXIT_GAME, 0 );				// generate 'EXIT' command
 			}
+			// BK_REFERENCE_CAMERA="x,y" pins the camera anchor so a capture can be
+			// taken of somewhere other than wherever the mission happens to start.
+			// A headless run has nobody to scroll the view, so without this the
+			// only part of a map a renderer regression can be checked against is
+			// the opening screenful.
+			static const char *pszCameraAnchor = getenv( "BK_REFERENCE_CAMERA" );
+			if ( cmdp.bReferenceScene && pszCameraAnchor != 0 )
+			{
+				float fAnchorX = 0.0f, fAnchorY = 0.0f;
+				if ( sscanf( pszCameraAnchor, "%f,%f", &fAnchorX, &fAnchorY ) == 2 )
+				{
+					if ( ICamera *pCamera = GetSingleton<ICamera>() )
+						pCamera->SetAnchor( CVec3( fAnchorX, fAnchorY, 0.0f ) );
+				}
+			}
 			if ( !pMainLoop->StepApp( bActive ) )
 				break;
 			// BK_REFERENCE_DELAY overrides the 5-frame main-menu capture point so a
@@ -588,6 +603,10 @@ int RunGame( const BkGameLaunchInfo &launch )
 			if ( cmdp.bReferenceScene && bCaptureGate && ++nReferenceCaptureDelay >= nCaptureDelay )
 			{
 				IGFX *pGFX = GetSingleton<IGFX>();
+				// Printed in the form BK_REFERENCE_CAMERA takes, so a capture can be
+				// repeated somewhere else on the map without guessing coordinates.
+				if ( ICamera *pCamera = GetSingleton<ICamera>() )
+					NPlatform::DebugWrite( NStr::Format( "BK_REFERENCE_SCENE: camera anchor %.0f,%.0f\n", pCamera->GetAnchor().x, pCamera->GetAnchor().y ) );
 				const CTRect<long> rcScreen = pGFX->GetScreenRect();
 				CPtr<IImage> referenceImage = GetImageProcessor()->CreateImage( rcScreen.Width(), rcScreen.Height() );
 				if ( !pGFX->Flip() && !cmdp.bReferenceScene )
