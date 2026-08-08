@@ -48,6 +48,15 @@ pub const Renderer = struct {
     world_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
     view_proj_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
     draw_color: [4]f32 = .{ 1, 1, 1, 1 },
+    // With D3D's fixed-function lighting on, the vertex colour comes from the
+    // material, not from the vertex: the mesh formats carry a normal where the
+    // lit formats keep their diffuse DWORD and so have no colour of their own.
+    // The shadow passes depend on that -- CScene::Draw sets an all-black
+    // material whose alpha is MESH_SHADOW_DENSITY and draws untextured meshes
+    // through it -- so discarding the material turned every mesh shadow into an
+    // opaque white silhouette on the ground.
+    lighting_enabled: bool = false,
+    material_diffuse: [4]f32 = .{ 1, 1, 1, 1 },
     last_error: []const u8 = "",
 
     pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
@@ -597,6 +606,18 @@ pub const Renderer = struct {
         return self.bound_textures[1];
     }
 
+    // The colour a draw modulates by. Lit draws fold in the material because
+    // that is where their diffuse lives; unlit ones keep the draw colour alone.
+    fn effectiveDrawColor(self: *const Renderer) [4]f32 {
+        if (!self.lighting_enabled) return self.draw_color;
+        return .{
+            self.draw_color[0] * self.material_diffuse[0],
+            self.draw_color[1] * self.material_diffuse[1],
+            self.draw_color[2] * self.material_diffuse[2],
+            self.draw_color[3] * self.material_diffuse[3],
+        };
+    }
+
     fn pushDrawUniforms(self: *Renderer, fvf: u32) !void {
         const command = self.frame.command_buffer orelse return error.InvalidState;
         const frame_uniforms = MatrixUniforms{ .matrix = self.view_proj_matrix, .padding = .{ 0, 0, 0, 0 } };
@@ -608,7 +629,7 @@ pub const Renderer = struct {
             .{ 1, 1 / width, 1 / height, combine }
         else
             .{ 0, 1 / width, 1 / height, combine };
-        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.draw_color, .screen = screen };
+        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen };
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
     }
@@ -687,3 +708,27 @@ pub const Renderer = struct {
         sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };
+
+test "lit draws take their diffuse from the material" {
+    var renderer = Renderer.init(std.testing.allocator);
+    renderer.draw_color = .{ 1, 1, 1, 1 };
+
+    // CScene::Draw's mesh shadow pass: an all-black material whose alpha is
+    // MESH_SHADOW_DENSITY, drawn untextured with lighting on. Without the
+    // material the shadow is an opaque white silhouette.
+    renderer.lighting_enabled = true;
+    renderer.material_diffuse = .{ 0, 0, 0, 0.5 };
+    try std.testing.expectEqual([4]f32{ 0, 0, 0, 0.5 }, renderer.effectiveDrawColor());
+
+    // CMeshVisObj's default material is opaque white, so lit meshes are
+    // unchanged, and SetOpacity only moves alpha.
+    renderer.material_diffuse = .{ 1, 1, 1, 1 };
+    try std.testing.expectEqual([4]f32{ 1, 1, 1, 1 }, renderer.effectiveDrawColor());
+    renderer.material_diffuse = .{ 1, 1, 1, 0.25 };
+    try std.testing.expectEqual([4]f32{ 1, 1, 1, 0.25 }, renderer.effectiveDrawColor());
+
+    // Unlit draws never consult it, however stale it is.
+    renderer.lighting_enabled = false;
+    renderer.material_diffuse = .{ 0, 0, 0, 0 };
+    try std.testing.expectEqual([4]f32{ 1, 1, 1, 1 }, renderer.effectiveDrawColor());
+}

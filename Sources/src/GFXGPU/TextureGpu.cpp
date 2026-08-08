@@ -55,6 +55,60 @@ namespace
         const int bpp = BytesPerPixel( format );
         return bpp > 0 ? width * bpp : 0;
     }
+
+    // SDL_GPU's portable baseline carries no 16-bit packed sampled format, so
+    // the legacy surfaces the game creates at runtime live on the GPU as BGRA8
+    // and are widened when the caller unlocks them. Rejecting the format
+    // instead made CreateTexture return null, and CUIMiniMap then drew its war
+    // fog and unit overlays as untextured opaque white quads over the map.
+    EGFXPixelFormat GpuFormat( EGFXPixelFormat format )
+    {
+        switch ( format )
+        {
+            case GFXPF_ARGB4444:
+            case GFXPF_ARGB1555:
+            case GFXPF_ARGB0565: return GFXPF_ARGB8888;
+            default: return format;
+        }
+    }
+
+    // Narrow channels replicate their high bits so that a full-scale input maps
+    // to 255 rather than 240 or 248.
+    unsigned char Widen4( unsigned int value ) { return static_cast<unsigned char>( (value << 4) | value ); }
+    unsigned char Widen5( unsigned int value ) { return static_cast<unsigned char>( (value << 3) | (value >> 2) ); }
+    unsigned char Widen6( unsigned int value ) { return static_cast<unsigned char>( (value << 2) | (value >> 4) ); }
+
+    // Writes one row as B, G, R, A bytes, the memory order GFXPF_ARGB8888
+    // uploads use.
+    void WidenRow( EGFXPixelFormat format, const unsigned char *source, unsigned char *target, int width )
+    {
+        for ( int x = 0; x < width; ++x )
+        {
+            const unsigned int packed = static_cast<unsigned int>( source[2 * x] ) | (static_cast<unsigned int>( source[2 * x + 1] ) << 8);
+            unsigned char *pixel = target + 4 * x;
+            switch ( format )
+            {
+                case GFXPF_ARGB1555:
+                    pixel[0] = Widen5( packed & 0x1f );
+                    pixel[1] = Widen5( (packed >> 5) & 0x1f );
+                    pixel[2] = Widen5( (packed >> 10) & 0x1f );
+                    pixel[3] = (packed & 0x8000) ? 0xff : 0x00;
+                    break;
+                case GFXPF_ARGB0565:
+                    pixel[0] = Widen5( packed & 0x1f );
+                    pixel[1] = Widen6( (packed >> 5) & 0x3f );
+                    pixel[2] = Widen5( (packed >> 11) & 0x1f );
+                    pixel[3] = 0xff;
+                    break;
+                default:
+                    pixel[0] = Widen4( packed & 0x0f );
+                    pixel[1] = Widen4( (packed >> 4) & 0x0f );
+                    pixel[2] = Widen4( (packed >> 8) & 0x0f );
+                    pixel[3] = Widen4( (packed >> 12) & 0x0f );
+                    break;
+            }
+        }
+    }
 }
 
 bool STDCALL TextureGpu::Load( bool bPreLoad )
@@ -96,7 +150,7 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
         height_ = image->GetSizeY();
         mips_ = 1;
         format_ = GFXPF_ARGB8888;
-        if ( !owner_ || !owner_->CreateTextureHandle( width_, height_, mips_, format_, usage_, &handle_ ) ) return false;
+        if ( !owner_ || !owner_->CreateTextureHandle( width_, height_, mips_, GpuFormat( format_ ), usage_, &handle_ ) ) return false;
         SSurfaceLockInfo lock{};
         if ( !Lock( 0, &lock ) ) return false;
         for ( int row = 0; row < height_; ++row )
@@ -104,7 +158,7 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
         return Unlock( 0 );
     }
 
-    if ( !owner_ || !owner_->CreateTextureHandle( width_, height_, mips_, format_, usage_, &handle_ ) ) return false;
+    if ( !owner_ || !owner_->CreateTextureHandle( width_, height_, mips_, GpuFormat( format_ ), usage_, &handle_ ) ) return false;
 
     for ( int level = 0; level < mips_; ++level )
     {
@@ -122,7 +176,7 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
 TextureGpu::TextureGpu( GraphicsEngineGpu *owner, int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage )
     : owner_( owner ), width_( width ), height_( height ), mips_( mips ), format_( format ), usage_( usage )
 {
-    if ( !owner_ || width_ <= 0 || height_ <= 0 || mips_ <= 0 || format_ == GFXPF_UNKNOWN || !owner_->CreateTextureHandle( width_, height_, mips_, format_, usage_, &handle_ ) )
+    if ( !owner_ || width_ <= 0 || height_ <= 0 || mips_ <= 0 || format_ == GFXPF_UNKNOWN || !owner_->CreateTextureHandle( width_, height_, mips_, GpuFormat( format_ ), usage_, &handle_ ) )
         handle_ = 0;
 }
 
@@ -154,7 +208,20 @@ bool STDCALL TextureGpu::Lock( int level, SSurfaceLockInfo *lock )
 bool STDCALL TextureGpu::Unlock( int level )
 {
     if ( !locked_ || level != locked_level_ || !owner_ ) return false;
-    const bool uploaded = owner_->UploadTexture( handle_, level, lock_bytes_.data(), lock_bytes_.size(), locked_pitch_ );
+    bool uploaded = false;
+    if ( GpuFormat( format_ ) != format_ )
+    {
+        const int width = GetSizeX( level );
+        const int height = GetSizeY( level );
+        const size_t pitch = static_cast<size_t>( width ) * 4;
+        std::vector<unsigned char> widened;
+        try { widened.resize( pitch * static_cast<size_t>( height ) ); } catch ( ... ) { return false; }
+        for ( int row = 0; row < height; ++row )
+            WidenRow( format_, lock_bytes_.data() + static_cast<size_t>( row ) * locked_pitch_, widened.data() + static_cast<size_t>( row ) * pitch, width );
+        uploaded = owner_->UploadTexture( handle_, level, widened.data(), widened.size(), static_cast<int>( pitch ) );
+    }
+    else
+        uploaded = owner_->UploadTexture( handle_, level, lock_bytes_.data(), lock_bytes_.size(), locked_pitch_ );
     lock_bytes_.clear();
     locked_ = false;
     locked_level_ = -1;

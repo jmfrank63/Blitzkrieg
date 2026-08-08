@@ -219,24 +219,40 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     return errors.ok;
 }
+const state_lighting: u32 = 4; // GFXGPU_STATE_LIGHTING
+const state_material: u32 = 7; // GFXGPU_STATE_MATERIAL
 const state_shade_effect: u32 = 8; // GFXGPU_STATE_SHADE_EFFECT
 fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     // This validated every state and then discarded it, so SHADE_EFFECT,
-    // DEPTH_MODE, LIGHTING and the rest were silently dropped. Record the
-    // shading effect at least: it selects the blend mode, without which
-    // alpha-blended draws such as the war fog paint over the whole screen.
-    if (info.?.kind == state_shade_effect) renderer.shade_effect = info.?.value;
+    // DEPTH_MODE, LIGHTING and the rest were silently dropped. The shading
+    // effect selects the blend mode, without which alpha-blended draws such as
+    // the war fog paint over the whole screen; lighting and the material
+    // together supply the diffuse colour of geometry that carries none.
+    switch (info.?.kind) {
+        state_shade_effect => renderer.shade_effect = info.?.value,
+        state_lighting => renderer.lighting_enabled = info.?.value != 0,
+        // SGFXMaterial leads with vDiffuse, and CVec4's colour view names its
+        // four floats a, r, g, b in that order.
+        state_material => renderer.material_diffuse = .{ info.?.values[1], info.?.values[2], info.?.values[3], info.?.values[0] },
+        else => {},
+    }
     return errors.ok;
 }
 fn createTexture(handle: ?*RendererHandle, info: ?*const TextureCreateInfo, out_handle: ?*u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or out_handle == null or info.?.struct_size < @sizeOf(TextureCreateInfo) or info.?.width == 0 or info.?.height == 0 or info.?.mip_count == 0) return errors.invalid_argument;
-    const id = renderer.createTexture(info.?.width, info.?.height, info.?.format) catch |err| return switch (err) {
-        error.NoDevice, error.UnsupportedTextureFormat, error.TextureCreateFailed => errors.sdl_error,
-        error.OutOfMemory => errors.out_of_memory,
+    const id = renderer.createTexture(info.?.width, info.?.height, info.?.format) catch |err| {
+        // Without this the caller reported whatever last_error happened to hold,
+        // so a texture rejected for its pixel format read as an unrelated
+        // failure and the white quads it caused looked unexplained.
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.NoDevice, error.UnsupportedTextureFormat, error.TextureCreateFailed => errors.sdl_error,
+            error.OutOfMemory => errors.out_of_memory,
+        };
     };
     out_handle.?.* = id;
     return errors.ok;
