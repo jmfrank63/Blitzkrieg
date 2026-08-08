@@ -14,8 +14,24 @@ struct VertexOutput {
 
 VertexOutput vs_textured(VertexInput input) {
     VertexOutput output;
-    output.position = mul(mul(float4(input.position, 1.0f), g_world), g_view_proj);
+    output.position = transform_legacy_position(input.position);
     output.color = legacy_vertex_color(input.color) * g_color;
+    output.uv = input.uv;
+    return output;
+}
+
+// See untextured.hlsl: formats without GFXFVF_DIFFUSE substitute the draw
+// colour. The texcoord is the second declared input here, so the pipeline binds
+// it to location 1 rather than 2.
+struct VertexInputNoColor {
+    float3 position : POSITION0;
+    float2 uv : TEXCOORD0;
+};
+
+VertexOutput vs_textured_nocolor(VertexInputNoColor input) {
+    VertexOutput output;
+    output.position = transform_legacy_position(input.position);
+    output.color = g_color;
     output.uv = input.uv;
     return output;
 }

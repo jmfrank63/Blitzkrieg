@@ -1305,6 +1305,13 @@ pub fn build(b: *std.Build) void {
     shader_driver_run.addArtifactArg(shadercross_cli);
     shader_driver_run.addArg("zig-out/shaders");
     shader_driver_run.addArg(shader_formats);
+    // The driver reads the manifest and every .hlsl beside it but takes them as a
+    // plain path argument, so none of its real inputs were visible to the build
+    // cache: it was keyed on its argv alone and an edited shader was silently
+    // never recompiled. Declaring the sources makes both this step and the
+    // staging that consumes its output re-run exactly when a shader changes.
+    const shader_sources = shaderSourceFiles(b) catch &[_][]const u8{};
+    for (shader_sources) |source| shader_driver_run.addFileInput(b.path(source));
 
     const gfx_gpu_shaders_step = b.step("gfxgpu-shaders", "Compile deterministic GfxGpu shader blobs and manifest");
     gfx_gpu_shaders_step.dependOn(&shader_driver_run.step);
@@ -1748,6 +1755,11 @@ pub fn build(b: *std.Build) void {
     addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     if (!copy_data) install_game_cmd.addArg("--link-data");
     install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
+    // Staging copies the compiled shader blobs out of a plain path, so the same
+    // sources have to be part of its cache key or an edited shader never reaches
+    // the install layout. It cannot simply always run: it deletes and re-copies
+    // the whole 2.7 GB Data tree.
+    for (shader_sources) |source| install_game_cmd.addFileInput(b.path(source));
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
@@ -4353,6 +4365,22 @@ fn linkSdlImport(
         .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
         else => module.linkLibrary(sdl_dynamic),
     }
+}
+
+// Every file the shader driver reads: the manifest plus the .hlsl sources beside
+// it, including the shared headers the entry points include.
+fn shaderSourceFiles(b: *std.Build) ![]const []const u8 {
+    const directory = "Sources/src/GFXGPU/shaders";
+    var sources: std.ArrayList([]const u8) = .empty;
+    try sources.append(b.allocator, b.fmt("{s}/manifest.json", .{directory}));
+    var dir = try std.Io.Dir.cwd().openDir(b.graph.io, directory, .{ .iterate = true });
+    defer dir.close(b.graph.io);
+    var iterator = dir.iterate();
+    while (try iterator.next(b.graph.io)) |entry| {
+        if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, ".hlsl")) continue;
+        try sources.append(b.allocator, b.fmt("{s}/{s}", .{ directory, entry.name }));
+    }
+    return sources.items;
 }
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {

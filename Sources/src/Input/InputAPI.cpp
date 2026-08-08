@@ -1000,8 +1000,16 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 			bFocusCaptured = true;
 			break;
 		case NPlatform::EventType::mouseMotion:
-			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_X, event.x, time, event.x );
-			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Y, event.y, time, event.y );
+			// Deliberately silent. MOUSE_AXIS_X and MOUSE_AXIS_Y are bound only to
+			// the cursor_x/cursor_y sliders, and CCursor::Update accumulates those
+			// as DirectInput-style relative deltas:
+			//     vPos.x = Clamp( vPos.x + fSensitivity*pScrollX->GetDelta(), ... )
+			// SDL reports absolute window coordinates, which the frame already
+			// applies with ICursor::SetPos. Emitting them here as well fed the
+			// absolute position in as if it were a delta, so every motion moved the
+			// cursor twice -- once to the right place, then by a large bogus offset
+			// -- which is what made the pointer jitter. The wheel is a real relative
+			// axis and is still reported below.
 			break;
 		case NPlatform::EventType::mouseButtonDown:
 		case NPlatform::EventType::mouseButtonUp:

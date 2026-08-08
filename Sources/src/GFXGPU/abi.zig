@@ -334,7 +334,7 @@ fn draw(handle: ?*RendererHandle, vertex_buffer: u32, primitive_count: u32) call
     renderer.draw(vertex_buffer, primitive_count) catch |err| {
         renderer.last_error = @errorName(err);
         return switch (err) {
-            error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
+            error.InvalidDraw, error.InvalidBuffer, error.UnsupportedVertexFormat => errors.invalid_argument,
             error.InvalidState => errors.invalid_state,
             error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
             else => errors.internal_error,
@@ -349,7 +349,7 @@ fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, fir
     renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| {
         renderer.last_error = @errorName(err);
         return switch (err) {
-            error.InvalidDraw, error.InvalidBuffer, error.VertexBufferMissing => errors.invalid_argument,
+            error.InvalidDraw, error.InvalidBuffer, error.VertexBufferMissing, error.UnsupportedVertexFormat => errors.invalid_argument,
             error.InvalidState => errors.invalid_state,
             error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
             else => errors.internal_error,
@@ -367,7 +367,7 @@ fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, 
     renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| {
         renderer.last_error = @errorName(err);
         return switch (err) {
-            error.InvalidDraw, error.InvalidBuffer, error.InvalidState => errors.invalid_argument,
+            error.InvalidDraw, error.InvalidBuffer, error.InvalidState, error.UnsupportedVertexFormat => errors.invalid_argument,
             error.NoDevice, error.CreateFailed, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing, error.UnsupportedDriver, error.UnsupportedShaderFormat => errors.sdl_error,
             error.OutOfMemory => errors.out_of_memory,
         };

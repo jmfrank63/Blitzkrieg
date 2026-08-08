@@ -12,6 +12,8 @@
 
 #include <SDL3/SDL.h>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 namespace
 {
@@ -43,7 +45,57 @@ bool DrawFallbackGlyphs( GraphicsEngineGpu *graphics, const wchar_t *text, int x
 
 namespace
 {
+    // Renderer failures were recorded in last_error_ and never surfaced, so a
+    // draw that could not build its pipeline looked like geometry that simply
+    // did not appear. BK_GFX_TRACE=1 reports them.
+    bool GfxTraceEnabled()
+    {
+        static const bool enabled = getenv( "BK_GFX_TRACE" ) != 0;
+        return enabled;
+    }
+}
+
+
+namespace
+{
     size_t CopySize( size_t left, size_t right ) { return left < right ? left : right; }
+
+    // Byte size of one vertex in the given FVF. This mirrors decodeFvf in
+    // vertex_layout.zig, which derives the pipeline's vertex pitch and attribute
+    // offsets from the same bits, so the two must agree: the CPU writes at this
+    // stride and the GPU reads at the one the Zig side computes.
+    int FvfStride( DWORD format )
+    {
+        int stride = 0;
+        switch ( format & 0x0f )
+        {
+            // GFXFVF_XYZRHW is a pre-transformed position of four floats.
+            case GFXFVF_XYZ:    stride = 12; break;
+            case GFXFVF_XYZRHW: stride = 16; break;
+            case GFXFVF_XYZB1:  stride = 12 + 4; break;
+            case GFXFVF_XYZB2:  stride = 12 + 8; break;
+            case GFXFVF_XYZB3:  stride = 12 + 12; break;
+            case GFXFVF_XYZB4:  stride = 12 + 16; break;
+            default: return 0;
+        }
+        if ( format & GFXFVF_NORMAL ) stride += 12;
+        if ( format & GFXFVF_PSIZE ) stride += 4;
+        if ( format & GFXFVF_DIFFUSE ) stride += 4;
+        if ( format & GFXFVF_SPECULAR ) stride += 4;
+        const int textures = static_cast<int>( ( format >> 8 ) & 0x0f );
+        if ( textures > 8 ) return 0;
+        for ( int index = 0; index < textures; ++index )
+        {
+            switch ( ( format >> ( 16 + index * 2 ) ) & 3 )
+            {
+                case 0: stride += 8; break;      // two floats, the common case
+                case 1: stride += 12; break;
+                case 2: stride += 16; break;
+                default: stride += 4; break;
+            }
+        }
+        return stride;
+    }
 }
 
 namespace
@@ -82,6 +134,7 @@ GraphicsEngineGpu::GraphicsEngineGpu( const GfxGpuApi &api ) : api_( api ), api_
 bool GraphicsEngineGpu::fail( const char *message )
 {
     last_error_ = message;
+    if ( GfxTraceEnabled() ) fprintf( stderr, "BK_GFX_TRACE: %s\n", last_error_.c_str() );
     return false;
 }
 
@@ -96,6 +149,7 @@ bool GraphicsEngineGpu::Check( GfxGpuResult result, const char *operation )
     last_error_ = operation ? operation : "GfxGpu operation";
     last_error_ += ": ";
     last_error_ += written ? diagnostic : "GfxGpu operation failed";
+    if ( GfxTraceEnabled() ) fprintf( stderr, "BK_GFX_TRACE: %s\n", last_error_.c_str() );
     return false;
 }
 
@@ -326,11 +380,27 @@ bool STDCALL GraphicsEngineGpu::RestoreTransform()
     direct_transform_ = false;
     return !renderer_ || !frame_pending_ || ApplyTransforms();
 }
-const SHMatrix & STDCALL GraphicsEngineGpu::GetViewMatrix() const { return view_matrix_; }
+// While a direct transform is active the pipeline draws in screen space, but
+// callers asking for the view matrix still want the camera's, exactly as
+// CGraphicsEngine::GetViewMatrix does. Returning the direct matrix instead made
+// viewport * projection * view collapse to the identity, which is correct for
+// screen-space vertices and useless to CTerrain::MovePatches: it transforms the
+// terrain origin through that product to find where the map starts on screen, so
+// it got the world origin back, placed its patches thousands of pixels below the
+// window, and AddVertices then clipped away every tile. That is the black ground.
+const SHMatrix & STDCALL GraphicsEngineGpu::GetViewMatrix() const { return direct_transform_ ? direct_view_stored_ : view_matrix_; }
 const SHMatrix & STDCALL GraphicsEngineGpu::GetBillboardMatrix() const { return billboard_matrix_; }
 const SHMatrix & STDCALL GraphicsEngineGpu::GetInverseViewMatrix() const { return inverse_view_matrix_; }
 const SHMatrix & STDCALL GraphicsEngineGpu::GetProjectionMatrix() const { return projection_matrix_; }
 const SHMatrix & STDCALL GraphicsEngineGpu::GetViewportMatrix() const { return viewport_matrix_; }
+// Still unimplemented, and deliberately left that way for now. SPlane's default
+// constructor zeroes to VNULL4, so callers that declare SPlane planes[6] as a
+// local -- CTerrain::ExtractVisiblePatches does -- get all-zero planes, every
+// GetDistanceToPoint returns 0, no clip bit is ever set and nothing is culled.
+// Leaving it empty is therefore "draw everything", which is wrong but safe. A
+// port of CGraphicsEngine::GetViewVolume culled the entire scene, so its plane
+// orientation does not carry over unexamined; it needs the clip convention
+// checked against this renderer's view_proj before it can be turned on.
 void STDCALL GraphicsEngineGpu::GetViewVolume( SPlane * ) const {}
 void STDCALL GraphicsEngineGpu::GetViewVolumeCrosses( const CVec2 &, CVec3 *, CVec3 * ) {}
 void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightDirectional &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 1, &light, sizeof( light ), "set_directional_light" ); }
@@ -341,16 +411,26 @@ void STDCALL GraphicsEngineGpu::SetMaterial( const SGFXMaterial &material ) { Se
 bool STDCALL GraphicsEngineGpu::SetTexture( int stage, IGFXBaseTexture *texture )
 {
     if ( stage < 0 || stage > 1 ) return fail( "only texture stages 0 and 1 are supported" );
+    // The renderer samples one texture, so only stage 0 reaches it. Forwarding
+    // stage 1 as well overwrote the stage 0 binding: the terrain sets its
+    // tileset on 0 and then a noise or crosset texture on 1, so every terrain
+    // draw sampled the wrong texture, and the SetTexture( 1, 0 ) that disabled
+    // noise cleared the tileset outright. Stage 1 is remembered for when
+    // multitexturing is wired through.
+    if ( stage == 1 )
+    {
+        stage1_texture_ = texture ? dynamic_cast<TextureGpu *>( texture ) : nullptr;
+        return true;
+    }
+    if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
     if ( !texture )
     {
-        if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
         const bool result = Check( api_.set_texture( renderer_, 0 ), "clear_texture" );
         if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
         return result;
     }
     TextureGpu *gpu_texture = dynamic_cast<TextureGpu *>( texture );
     if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
-    if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
     const bool result = Check( api_.set_texture( renderer_, gpu_texture->Handle() ), "set_texture" );
     if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
     return result;
@@ -399,7 +479,9 @@ bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture *target )
 void STDCALL GraphicsEngineGpu::SetOptimizedBuffers( bool ) {}
 IGFXVertices * STDCALL GraphicsEngineGpu::CreateVertices( int elements, DWORD format, EGFXPrimitiveType type, EGFXDynamic usage, IGFXVertices * )
 {
-    VerticesGpu *buffer = new VerticesGpu( this, elements, format, 32, usage, type );
+    const int stride = FvfStride( format );
+    if ( stride <= 0 ) { fail( "unsupported vertex format" ); return nullptr; }
+    VerticesGpu *buffer = new VerticesGpu( this, elements, format, stride, usage, type );
     if ( !buffer->IsValid() ) { delete buffer; return nullptr; }
     return buffer;
 }
@@ -416,13 +498,20 @@ bool STDCALL GraphicsEngineGpu::BeginSolidIndexBlock( int, DWORD, EGFXDynamic ) 
 bool STDCALL GraphicsEngineGpu::EndSolidIndexBlock() { return false; }
 void * STDCALL GraphicsEngineGpu::GetTempVertices( int elements, DWORD format, EGFXPrimitiveType type )
 {
-    if ( !temporary_vertex_bytes_.empty() ) return nullptr;
-    temporary_vertex_stride_ = 32;
-    temporary_vertex_source_stride_ = format == SGFXLVertex::format ? static_cast<int>( sizeof( SGFXLVertex ) ) : temporary_vertex_stride_;
-    // Keep the FVF: the GPU stride is always 32, so it cannot distinguish an
-    // XYZ vertex repacked into 32 bytes (colour at 12) from a pre-transformed
-    // XYZRHW vertex (colour at 16). The renderer needs the format to pick
-    // matching attribute offsets.
+    if ( !temporary_vertex_bytes_.empty() ) { fail( "GetTempVertices: previous temporary buffer not drawn" ); return nullptr; }
+    // The caller memcpy's sizeof(TVertex) bytes per element into this buffer, so
+    // the stride has to be the vertex's true size. Forcing 32 both overflowed
+    // the allocation for larger formats and made the GPU stride past the wrong
+    // number of bytes: STerrainTLVertex is 36, which is why terrain went black.
+    const int stride = FvfStride( format );
+    if ( stride <= 0 || elements <= 0 )
+    {
+        // Returning null here makes the caller memcpy into a null pointer, so
+        // report the format rather than letting it crash silently.
+        if ( GfxTraceEnabled() ) fprintf( stderr, "BK_GFX_TRACE: GetTempVertices unsupported fvf=0x%lx elements=%d stride=%d\n", static_cast<unsigned long>( format ), elements, stride );
+        return nullptr;
+    }
+    temporary_vertex_stride_ = stride;
     temporary_vertex_format_ = format;
     temporary_vertex_count_ = elements; temporary_type_ = type;
     try { temporary_vertex_bytes_.assign( static_cast<size_t>( elements ) * temporary_vertex_stride_, 0 ); } catch ( ... ) { return nullptr; }
@@ -477,17 +566,10 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     if ( temporary_vertex_bytes_.empty() ) return false;
     GfxGpuHandle vertex_handle = 0;
     GfxGpuHandle index_handle = 0;
-    std::vector<unsigned char> packed_vertex_bytes;
+    // No repacking: the buffer was allocated at the format's own stride, so the
+    // bytes the caller wrote are already the layout the pipeline expects.
     const unsigned char *vertex_data = temporary_vertex_bytes_.data();
-    size_t vertex_bytes = temporary_vertex_bytes_.size();
-    if ( temporary_vertex_source_stride_ != temporary_vertex_stride_ )
-    {
-        packed_vertex_bytes.assign( static_cast<size_t>( temporary_vertex_count_ ) * temporary_vertex_stride_, 0 );
-        for ( int index = 0; index < temporary_vertex_count_; ++index )
-            std::memcpy( packed_vertex_bytes.data() + static_cast<size_t>( index ) * temporary_vertex_stride_, temporary_vertex_bytes_.data() + static_cast<size_t>( index ) * temporary_vertex_source_stride_, temporary_vertex_source_stride_ );
-        vertex_data = packed_vertex_bytes.data();
-        vertex_bytes = packed_vertex_bytes.size();
-    }
+    const size_t vertex_bytes = temporary_vertex_bytes_.size();
     const bool vertex_created = CreateBufferHandle( static_cast<uint32_t>( temporary_vertex_count_ ), static_cast<uint32_t>( temporary_vertex_format_ ), static_cast<uint32_t>( temporary_vertex_stride_ ), GFXD_DYNAMIC, &vertex_handle ) &&
         UploadBuffer( vertex_handle, vertex_data, vertex_bytes );
     const bool indexed = !temporary_index_bytes_.empty();

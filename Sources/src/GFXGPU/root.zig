@@ -42,3 +42,14 @@ test "renderer context initializes and deinitializes without SDL startup" {
     var renderer = Renderer.init(std.testing.allocator);
     renderer.deinit();
 }
+
+// Tests in imported files only run when something references the file, so the
+// modules re-exported above were compiled but their tests were skipped. That
+// hid a vertex_layout.zig that did not even compile.
+// Referencing every module here would be better still, but pipeline_cache.zig,
+// pipeline_key.zig and surface.zig have rotted against Zig 0.16 while unused and
+// do not compile yet.
+test {
+    std.testing.refAllDecls(vertex_layout);
+    std.testing.refAllDecls(effects);
+}

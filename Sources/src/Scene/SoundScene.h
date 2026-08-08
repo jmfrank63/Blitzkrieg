@@ -276,7 +276,13 @@ private:
 	{
 		size_t operator() ( const SIntPair &v ) const
 		{
-			return v.x * RAND_MAX +  v.y;
+			// RAND_MAX is 32767 on Windows but INT_MAX here, so the product
+			// overflows a signed int for any x above one and traps. Computing it
+			// unsigned makes the wrap defined and leaves the Windows result
+			// unchanged, since nothing overflowed there. The two platforms still
+			// bucket differently, which matters only if unordered_map iteration
+			// order ever has to agree across them.
+			return static_cast<size_t>( static_cast<unsigned int>( v.x ) * static_cast<unsigned int>( RAND_MAX ) + static_cast<unsigned int>( v.y ) );
 		}
 	};
 

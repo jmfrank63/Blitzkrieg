@@ -87,11 +87,17 @@ pub const specs = [_]EffectSpec{
     make(21, .ui, .textured, 1, state_alpha_blend),
     make(22, .ui, .textured, 1, state_alpha_blend),
     make(23, .ui, .textured, 1, state_alpha_blend),
+    // 100-104 are the terrain passes, and their blend modes come straight from
+    // the D3D states CGraphicsEngine::SetShadingEffect sets. 102 is alpha
+    // blended there despite the name, and 103/104 use SRCBLEND=DESTCOLOR with
+    // DESTBLEND=ZERO -- a pure multiply, the noise modulating the ground under
+    // it. Treating those two as straight alpha painted the noise texture over
+    // the terrain as flat grey.
     make(100, .water, .water, 2, state_alpha_blend),
     make(101, .water, .water, 2, state_none),
-    make(102, .water, .water, 2, state_none),
-    make(103, .water, .water_single, 1, state_alpha_blend),
-    make(104, .water, .water_alpha, 2, state_alpha_test | state_alpha_blend),
+    withPipelinePolicy(make(102, .water, .water, 2, state_alpha_blend), .straight_alpha, true, .none),
+    withPipelinePolicy(make(103, .water, .water_single, 1, state_alpha_blend), .multiply, true, .none),
+    withPipelinePolicy(make(104, .water, .water_alpha, 2, state_alpha_test | state_alpha_blend), .multiply, true, .none),
     make(110, .shadow, .stencil_test, 0, state_stencil),
     make(111, .shadow, .shadow_sprite, 1, state_alpha_test | state_alpha_blend),
     make(112, .shadow, .shadow_mesh, 1, state_alpha_blend),

@@ -448,5 +448,17 @@
   },
   {
     "effect": "special_depth", "name": "SpecialDepth", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_video", "defines": [], "required_vertex_mask": 35, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+  },
+  {
+    "effect": "untextured_nocolor", "name": "UntexturedNocolor", "stage": "vertex", "source": "untextured.hlsl", "entry": "vs_untextured_nocolor", "defines": [], "required_vertex_mask": 1, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+  },
+  {
+    "effect": "untextured_nocolor", "name": "UntexturedNocolor", "stage": "fragment", "source": "untextured.hlsl", "entry": "ps_untextured", "defines": [], "required_vertex_mask": 0, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured_nocolor", "name": "TexturedNocolor", "stage": "vertex", "source": "textured.hlsl", "entry": "vs_textured_nocolor", "defines": [], "required_vertex_mask": 33, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured_nocolor", "name": "TexturedNocolor", "stage": "fragment", "source": "textured.hlsl", "entry": "ps_textured", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   }
 ]

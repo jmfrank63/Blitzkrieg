@@ -15,7 +15,22 @@
 #include "lstate.h"
 
 
+// Lua's testing allocator, which brackets every block with guard bytes, poisons
+// freed memory, and fakes allocation failures once memdebug_total passes
+// memdebug_memlimit. It was enabled unconditionally, including in release.
+//
+// That is fatal here rather than merely slow. Game, libUI and libAILogic each
+// link their own private copy of this file while luaM_realloc is exported, so a
+// block allocated through one module's counters can be freed through another's.
+// memdebug_total and memdebug_numblocks are unsigned, so the drift wraps below
+// zero -- they were observed at 2^64-695 and 2^64-16 -- and from then on every
+// Lua allocation is refused. lua_close then reaches luaD_breakrun with no error
+// handler installed and calls exit(1), killing the process mid mission load.
+// The matching asserts that would have caught the drift are compiled out in
+// release, so it failed silently.
+#ifdef _DEBUG
 #define LUA_DEBUG
+#endif
 
 #ifdef LUA_DEBUG
 /*
