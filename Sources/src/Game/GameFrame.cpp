@@ -52,6 +52,7 @@ void GameFrame::Shutdown()
 	application_.Shutdown();
 }
 
+bool GameFrame::SetCursorVisible( bool visible ) { return application_.SetCursorVisible( visible ); }
 void GameFrame::Show() { application_.Show(); }
 void GameFrame::Hide() { application_.Hide(); }
 bool GameFrame::Resize( int width, int height ) { return application_.Resize( width, height ); }

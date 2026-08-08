@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "GameMain.h"
 
@@ -51,11 +52,54 @@ HWND GetHWnd() { return game_frame.BorrowWindow().value; }
 void *GetSDLWindow() { return game_frame.BorrowWindow().value; }
 bool InitApplication( HINSTANCE, const char *pszAppName, const char *, int nWidth, int nHeight )
 {
-	return game_frame.Initialize( pszAppName, nWidth, nHeight );
+	if ( !game_frame.Initialize( pszAppName, nWidth, nHeight ) ) return false;
+	// The engine draws its own cursor, so hide the system pointer the way
+	// WinFrame's SetCursor( 0 ) does; otherwise two pointers are on screen.
+	game_frame.SetCursorVisible( false );
+	return true;
 }
 void ShowAppWindow( bool bShow ) { if ( bShow ) game_frame.Show(); else game_frame.Hide(); }
 void ShowSplashScreen( HINSTANCE, bool ) {}
-void PumpMessages() { game_frame.PumpMessages(); }
+// GameFrame only queues the translated SDL events; nothing else drains that
+// queue, so without this the events accumulated forever and the game received
+// no mouse or keyboard input at all. Mirror the dispatch WinFrame performs.
+void PumpMessages()
+{
+	game_frame.PumpMessages();
+	NPlatform::PlatformEvent event;
+	while ( game_frame.PollEvent( event ) )
+	{
+		if ( !NMain::IsInitialized() ) continue;
+		IInput *pInput = GetSingleton<IInput>();
+		switch ( event.type )
+		{
+			case NPlatform::EventType::keyDown:
+			case NPlatform::EventType::keyUp:
+				if ( event.key == static_cast<int>( NPlatform::PlatformKey::escape ) ||
+					event.key == static_cast<int>( NPlatform::PlatformKey::space ) ||
+					event.key == static_cast<int>( NPlatform::PlatformKey::returnKey ) )
+					pInput->AddMessage( SGameMessage( MC_MOVIE_SKIP_SEQUENCE, 0 ) );
+				pInput->ConsumePlatformEvent( event );
+				break;
+			case NPlatform::EventType::mouseMotion:
+				GetSingleton<ICursor>()->SetPos( event.x, event.y );
+				pInput->ConsumePlatformEvent( event );
+				break;
+			case NPlatform::EventType::mouseButtonDown:
+			case NPlatform::EventType::mouseButtonUp:
+			case NPlatform::EventType::mouseWheel:
+			case NPlatform::EventType::textInput:
+			case NPlatform::EventType::focusLost:
+			// focusGained is what sets CInputAPI::bFocusCaptured, and the input
+			// pump is gated on that flag. Without it the module received every
+			// mouse event and discarded them all, so clicks never reached the UI.
+			case NPlatform::EventType::focusGained:
+				pInput->ConsumePlatformEvent( event );
+				break;
+			default: break;
+		}
+	}
+}
 void CaptureMouse() { game_frame.CaptureMouse(); }
 void ReleaseMouse() { game_frame.ReleaseMouse(); }
 bool IsActive() { return game_frame.IsActive(); }
@@ -815,7 +859,7 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			NStr::TrimBoth( szNick, '"' );
 
 			const std::wstring szWideNick = NStr::ToUnicode( szNick );
-			SetGlobalVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( szWideNick.c_str() ) );
+			SetGlobalVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( szWideNick.c_str() ) ) );
 		}
 		else if ( szParams[i].compare(0,5, "-room") == 0 )
 		{

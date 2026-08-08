@@ -48,6 +48,7 @@ public:
 	bool SetFullscreen( bool enabled );
 	void CaptureMouse();
 	void ReleaseMouse();
+	bool SetCursorVisible( bool visible );
 	void PumpMessages();
 	bool PollEvent( NPlatform::PlatformEvent &event );
 

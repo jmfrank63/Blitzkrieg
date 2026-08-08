@@ -36,8 +36,14 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 	if ( fail_initialization_for_tests ) { SetError( "SDL initialization failure injected" ); return false; }
 	if ( !SDL_SetAppMetadata( "Blitzkrieg", "2.0.0", "org.blitzkrieg.game" ) ) { SetError( "SDL_SetAppMetadata" ); return false; }
 	if ( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD ) ) { SetError( "SDL_Init" ); return false; }
+	// No SDL_WINDOW_HIGH_PIXEL_DENSITY: on a 2x Retina display it makes the
+	// drawable twice the window size in points, but the engine sizes its
+	// render target from the video mode and receives mouse positions in
+	// points. The mismatch left most of the swapchain undrawn and put the
+	// in-game cursor at half the pointer's position. A 1:1 drawable keeps the
+	// legacy coordinate space consistent.
 	window_ = SDL_CreateWindow( title ? title : "Blitzkrieg", width, height,
-		SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY );
+		SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE );
 	if ( !window_ )
 	{
 		SetError( "SDL_CreateWindow" );

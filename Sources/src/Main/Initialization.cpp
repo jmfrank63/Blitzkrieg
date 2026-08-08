@@ -115,7 +115,11 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<ISFX> pSFX = CreateObject<ISFX>( pFactory, SFX_SFX );
 		RegisterSingleton( ISFX::tidTypeID, pSFX );	// register GFX to singleton
-		pSFX->Init( 0, SFX_OUTPUT_NO, 44100, 32 );
+		// Driver 0 with a real output type. SFX_OUTPUT_NO makes InitDevice
+		// return before it opens any device, which silenced the game on every
+		// platform; the value only selects among the Windows driver backends,
+		// and the portable backend picks the native one regardless.
+		pSFX->Init( 0, SFX_OUTPUT_DSOUND, 44100, 32 );
 		pSFX->SetDistanceFactor( fWorldCellSize / 2.0f );
 		pSFX->SetRolloffFactor( GetGlobalVar("Sound.RolloffFactor", 1.0f) );
 		CPtr<ISoundManager> pSM = CreateObject<ISoundManager>( pFactory, SFX_SOUND_MANAGER );

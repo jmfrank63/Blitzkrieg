@@ -895,6 +895,7 @@ namespace NAudioBackendImpl
 		if ( !pBackends || nCapacity < 4 )
 			return 0;
 
+#if defined(_WIN32) || defined(_WIN64)
 		pBackends[0] = ma_backend_wasapi;
 		pBackends[1] = ma_backend_dsound;
 		pBackends[2] = ma_backend_winmm;
@@ -912,6 +913,25 @@ namespace NAudioBackendImpl
 			return 2;
 		}
 		return 4;
+#else
+		// The WASAPI/DirectSound/WinMM list above does not exist off Windows,
+		// so requesting it left ma_backend_null as the only match: every call
+		// reported success and the mixer ran into a null device, i.e. silence.
+		// SFX_OUTPUT_WINMM/DSOUND are Windows driver choices and carry no
+		// meaning here, so the native backend is used whatever they say.
+		( void )output;
+#if defined(__APPLE__)
+		pBackends[0] = ma_backend_coreaudio;
+		pBackends[1] = ma_backend_null;
+		return 2;
+#else
+		pBackends[0] = ma_backend_pulseaudio;
+		pBackends[1] = ma_backend_alsa;
+		pBackends[2] = ma_backend_jack;
+		pBackends[3] = ma_backend_null;
+		return 4;
+#endif
+#endif
 	}
 
 	bool InitDevice( ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )

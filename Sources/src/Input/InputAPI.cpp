@@ -476,13 +476,20 @@ bool CInputAPI::Init()
 	mouse.szName = "MOUSE";
 	mouse.szFriendlyName = "Mouse";
 	mouse.bEmulated = true;
+	// The binding configs address mouse controls by their qualified name -
+	// <Control>MOUSE_BUTTON0</Control> - which is what the enumerated-device
+	// path builds as "<device>_<control>". Registering them unqualified left
+	// every mouse bind unresolved, so CCombo::NotifyControlStateChanged
+	// returned at its !IsBinded() guard and no click ever reached the UI.
+	// Keyboard controls are referenced bare in the same configs, hence the
+	// asymmetry with the keyboard table above.
 	const struct { const char *name; int id; EControlType type; } mouseControls[] = {
-		{ "AXIS_X", INPUT_CONTROL_MOUSE_AXIS_X, CONTROL_TYPE_AXIS },
-		{ "AXIS_Y", INPUT_CONTROL_MOUSE_AXIS_Y, CONTROL_TYPE_AXIS },
-		{ "AXIS_Z", INPUT_CONTROL_MOUSE_AXIS_Z, CONTROL_TYPE_AXIS },
-		{ "BUTTON0", INPUT_CONTROL_MOUSE_BUTTON0, CONTROL_TYPE_KEY },
-		{ "BUTTON1", INPUT_CONTROL_MOUSE_BUTTON1, CONTROL_TYPE_KEY },
-		{ "BUTTON2", INPUT_CONTROL_MOUSE_BUTTON2, CONTROL_TYPE_KEY },
+		{ "MOUSE_AXIS_X", INPUT_CONTROL_MOUSE_AXIS_X, CONTROL_TYPE_AXIS },
+		{ "MOUSE_AXIS_Y", INPUT_CONTROL_MOUSE_AXIS_Y, CONTROL_TYPE_AXIS },
+		{ "MOUSE_AXIS_Z", INPUT_CONTROL_MOUSE_AXIS_Z, CONTROL_TYPE_AXIS },
+		{ "MOUSE_BUTTON0", INPUT_CONTROL_MOUSE_BUTTON0, CONTROL_TYPE_KEY },
+		{ "MOUSE_BUTTON1", INPUT_CONTROL_MOUSE_BUTTON1, CONTROL_TYPE_KEY },
+		{ "MOUSE_BUTTON2", INPUT_CONTROL_MOUSE_BUTTON2, CONTROL_TYPE_KEY },
 	};
 	for ( const auto &entry : mouseControls )
 	{
@@ -999,7 +1006,19 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 		case NPlatform::EventType::mouseButtonDown:
 		case NPlatform::EventType::mouseButtonUp:
 		{
-			const int control = INPUT_CONTROL_MOUSE_BUTTON0 + Max( 0, event.button - 1 );
+			// SDL orders buttons left=1, middle=2, right=3; the legacy device
+			// (and every binding config) uses left=0, right=1, middle=2. Mapping
+			// them by subtraction swapped middle and right, so right-click never
+			// matched MOUSE_BUTTON1 and no action2 command ever fired.
+			int legacy_button = 0;
+			switch ( event.button )
+			{
+				case 1: legacy_button = 0; break;
+				case 2: legacy_button = 2; break;
+				case 3: legacy_button = 1; break;
+				default: legacy_button = Max( 0, event.button - 1 ); break;
+			}
+			const int control = INPUT_CONTROL_MOUSE_BUTTON0 + legacy_button;
 			EmulateInput( DEVICE_TYPE_MOUSE, control, event.type == NPlatform::EventType::mouseButtonDown ? 0x80 : 0, time, packedPosition );
 			break;
 		}
