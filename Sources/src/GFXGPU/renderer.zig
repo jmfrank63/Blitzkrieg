@@ -70,6 +70,13 @@ pub const Renderer = struct {
     // water was motionless. Only effects that enable D3DTTFF_COUNT2 see it;
     // every other draw gets the identity.
     texture_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
+    // EGFXDepthBuffer and its compare function. The pass carried no
+    // depth-stencil attachment at all and every pipeline declared it had none,
+    // so meshes had no hidden-surface removal: a truck's far wheels and the
+    // opposite wall of its cargo bed drew straight through the near side,
+    // whichever triangle happened to come last.
+    depth_mode: u32 = 0,
+    depth_compare: u32 = 0,
     last_error: []const u8 = "",
 
     pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
@@ -276,7 +283,12 @@ pub const Renderer = struct {
         // wired through the legacy adapter.  Some D3D12 devices reject the
         // temporary D24S8 target during pass creation even though the texture
         // itself was created successfully.
-        const pass: ?*anyopaque = if (self.scene_texture != null)
+        // The depth target is attached whenever one exists, for the windowed and
+        // the offscreen reference path alike; pipelines declare a depth-stencil
+        // target on exactly the same condition, so the two cannot disagree.
+        const pass: ?*anyopaque = if (self.scene_depth) |depth|
+            @ptrCast(sdl.beginColorDepthPass(@ptrCast(@alignCast(command)), @ptrCast(@alignCast(texture)), depth, color, sdl.c.SDL_GPU_LOADOP_CLEAR))
+        else if (self.scene_texture != null)
             @ptrCast(sdl.beginColorPass(@ptrCast(@alignCast(command)), @ptrCast(@alignCast(texture)), color, sdl.c.SDL_GPU_LOADOP_CLEAR))
         else
             device.api.begin_clear_pass(command, @ptrCast(texture), color);
@@ -539,10 +551,39 @@ pub const Renderer = struct {
         if (self.linear_sampler == null) self.linear_sampler = sdl.createSampler(gpu_device, true) orelse return error.SamplerCreateFailed;
     }
 
-    fn pipelineCacheKey(fvf: u32, textured: bool, blend: effects.BlendMode, dual: bool, topology: formats.Topology) u64 {
+    fn pipelineCacheKey(fvf: u32, textured: bool, blend: effects.BlendMode, dual: bool, topology: formats.Topology, depth: DepthState) u64 {
         return @as(u64, fvf) | (@as(u64, @intFromBool(textured)) << 32) |
             (@as(u64, @intFromEnum(blend)) << 33) | (@as(u64, @intFromBool(dual)) << 35) |
-            (@as(u64, @intFromEnum(topology)) << 36);
+            (@as(u64, @intFromEnum(topology)) << 36) |
+            (@as(u64, @intFromBool(depth.test_enabled)) << 39) |
+            (@as(u64, @intFromBool(depth.write_enabled)) << 40) |
+            (@as(u64, depth.compare) << 41);
+    }
+
+    pub const DepthState = struct { test_enabled: bool, write_enabled: bool, compare: u4 };
+
+    // GFXDB_NONE turns the test off entirely, as D3DRS_ZENABLE FALSE does; the
+    // effect table says whether a pass that does test also writes, which is how
+    // particles and transparencies sort behind the geometry they overlay.
+    fn depthStateForDraw(self: *const Renderer) DepthState {
+        const test_enabled = self.depth_mode != 0;
+        const writes = if (effects.find(self.shade_effect)) |spec| spec.depth_write else true;
+        // GFXCMP_DEFAULT means LESSEQUAL for the z-buffer.
+        const compare: u4 = @intCast(if (self.depth_compare == 0) 4 else @min(self.depth_compare, 8));
+        return .{ .test_enabled = test_enabled, .write_enabled = test_enabled and writes, .compare = compare };
+    }
+
+    fn sdlCompare(compare: u4) sdl.c.SDL_GPUCompareOp {
+        return switch (compare) {
+            1 => sdl.c.SDL_GPU_COMPAREOP_NEVER,
+            2 => sdl.c.SDL_GPU_COMPAREOP_LESS,
+            3 => sdl.c.SDL_GPU_COMPAREOP_EQUAL,
+            4 => sdl.c.SDL_GPU_COMPAREOP_LESS_OR_EQUAL,
+            5 => sdl.c.SDL_GPU_COMPAREOP_GREATER,
+            6 => sdl.c.SDL_GPU_COMPAREOP_NOT_EQUAL,
+            7 => sdl.c.SDL_GPU_COMPAREOP_GREATER_OR_EQUAL,
+            else => sdl.c.SDL_GPU_COMPAREOP_ALWAYS,
+        };
     }
 
     fn sdlTopology(topology: formats.Topology) sdl.c.SDL_GPUPrimitiveType {
@@ -573,7 +614,8 @@ pub const Renderer = struct {
         // actually bound, and the vertex format carries the second texcoord set.
         const dual = textured and texcoord1 != null and self.bound_textures[1] != null and
             effects.combineFor(self.shade_effect) != .single;
-        const key = pipelineCacheKey(fvf, textured, blend_mode, dual, self.topology);
+        const depth = self.depthStateForDraw();
+        const key = pipelineCacheKey(fvf, textured, blend_mode, dual, self.topology, depth);
         if (self.pipelines.get(key)) |pipeline| return pipeline;
         const variant: ShaderVariant = if (dual)
             .textured_dual
@@ -605,7 +647,7 @@ pub const Renderer = struct {
         const color_format: sdl.c.SDL_GPUTextureFormat = @intCast(self.swapchain_format);
         const factors = blendFactors(blend_mode);
         const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = factors.source, .dst_color_blendfactor = factors.destination, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = factors.enabled, .enable_color_write_mask = true } };
-        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdlTopology(self.topology), .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{}, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = 0, .has_depth_stencil_target = false }, .props = 0 };
+        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdlTopology(self.topology), .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdlCompare(depth.compare), .enable_depth_test = depth.test_enabled, .enable_depth_write = depth.write_enabled }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = if (self.scene_depth != null) sdl.depthFormat() else 0, .has_depth_stencil_target = self.scene_depth != null }, .props = 0 };
         const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse return error.PipelineCreateFailed;
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
         try self.pipelines.put(self.allocator, key, pipeline);
@@ -745,9 +787,19 @@ test "line geometry gets its own pipeline and its own vertex count" {
     // pipeline: the cached one carried the primitive type, so whichever draw ran
     // first decided how both rasterised.
     const fvf: u32 = 0x002 | 0x040 | 0x080 | 0x100; // SGFXLVertex
-    const lines = Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .line_list);
-    const triangles = Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .triangle_list);
+    const tested: Renderer.DepthState = .{ .test_enabled = true, .write_enabled = true, .compare = 4 };
+    const lines = Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .line_list, tested);
+    const triangles = Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .triangle_list, tested);
     try std.testing.expect(lines != triangles);
+
+    // Depth state is part of the key too: the terrain draws with the test off
+    // and meshes with it on, and one pipeline cannot serve both.
+    const untested: Renderer.DepthState = .{ .test_enabled = false, .write_enabled = false, .compare = 4 };
+    try std.testing.expect(Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .triangle_list, untested) != triangles);
+    // Depth-writing and read-only passes are distinct as well: particles test
+    // against the scene without writing into it.
+    const read_only: Renderer.DepthState = .{ .test_enabled = true, .write_enabled = false, .compare = 4 };
+    try std.testing.expect(Renderer.pipelineCacheKey(fvf, false, .straight_alpha, false, .triangle_list, read_only) != triangles);
 
     // DrawRects lays a non-solid rect out as eight vertices, four lines. Read as
     // triangles those four primitives claim twelve vertices from an eight-vertex

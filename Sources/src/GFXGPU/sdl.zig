@@ -72,11 +72,17 @@ pub fn createColorTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, wi
     return c.SDL_CreateGPUTexture(device, &info);
 }
 
-pub fn createDepthTexture(device: *GpuDevice, width: u32, height: u32) ?*GpuTexture {
-    const depth_format = if (builtin.target.os.tag == .macos)
+// The one depth-stencil format the depth texture and every pipeline that
+// declares a depth-stencil target must agree on.
+pub fn depthFormat() c.SDL_GPUTextureFormat {
+    return if (builtin.target.os.tag == .macos)
         c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT
     else
         c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+}
+
+pub fn createDepthTexture(device: *GpuDevice, width: u32, height: u32) ?*GpuTexture {
+    const depth_format = depthFormat();
     const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = depth_format, .usage = c.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
     return c.SDL_CreateGPUTexture(device, &info);
 }

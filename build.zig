@@ -762,14 +762,26 @@ pub fn build(b: *std.Build) void {
     const platform_linkage_step = b.step("test-platform-linkage", "Validate one target-correct PlatformRuntime and staged linkage policy");
     platform_linkage_step.dependOn(&platform_linkage_tests.step);
 
-    const optimize = b.standardOptimizeOption(.{});
-    const build_variant = b.option([]const u8, "build-variant", "Optional output variant suffix: default, debug, or release") orelse "default";
+    const standard_optimize = b.standardOptimizeOption(.{});
+    const build_variant = b.option([]const u8, "build-variant", "Output variant: default, debug, or release. Also selects the optimisation unless -Doptimize is given") orelse "default";
     if (!std.mem.eql(u8, build_variant, "default") and
         !std.mem.eql(u8, build_variant, "debug") and
         !std.mem.eql(u8, build_variant, "release"))
     {
         @panic("-Dbuild-variant must be default, debug, or release");
     }
+    // The variant names what the staged tree is for, so it has to choose the
+    // optimisation as well. It used to be a directory suffix and nothing else,
+    // which meant zig-out/game/<platform>-release held an unoptimised build
+    // compiled with _DEBUG. An explicit -Doptimize still wins.
+    const optimize = if (b.user_input_options.contains("optimize"))
+        standard_optimize
+    else if (std.mem.eql(u8, build_variant, "release"))
+        std.builtin.OptimizeMode.ReleaseFast
+    else if (std.mem.eql(u8, build_variant, "debug"))
+        std.builtin.OptimizeMode.Debug
+    else
+        standard_optimize;
     const library_arch = build_support.libraryArch(platform);
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",

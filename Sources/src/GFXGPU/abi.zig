@@ -220,6 +220,7 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     return errors.ok;
 }
+const state_depth_mode: u32 = 3; // GFXGPU_STATE_DEPTH_MODE
 const state_lighting: u32 = 4; // GFXGPU_STATE_LIGHTING
 const state_material: u32 = 7; // GFXGPU_STATE_MATERIAL
 const state_shade_effect: u32 = 8; // GFXGPU_STATE_SHADE_EFFECT
@@ -237,6 +238,11 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
     switch (info.?.kind) {
         state_shade_effect => renderer.shade_effect = info.?.value,
         state_lighting => renderer.lighting_enabled = info.?.value != 0,
+        // value is EGFXDepthBuffer, index the EGFXCmpFunction.
+        state_depth_mode => {
+            renderer.depth_mode = info.?.value;
+            renderer.depth_compare = info.?.index;
+        },
         // SGFXMaterial leads with vDiffuse, and CVec4's colour view names its
         // four floats a, r, g, b in that order.
         state_material => renderer.material_diffuse = .{ info.?.values[1], info.?.values[2], info.?.values[3], info.?.values[0] },
