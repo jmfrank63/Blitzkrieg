@@ -18,7 +18,7 @@ struct WaterVertexOutput {
 WaterVertexOutput vs_water(WaterVertexInput input) {
     WaterVertexOutput output;
     output.position = mul(mul(float4(input.position, 1.0f), g_world), g_view_proj);
-    output.color = input.color * g_color;
+    output.color = legacy_vertex_color(input.color) * g_color;
     output.uv0 = input.uv0 + g_color.xy * g_color.w;
     output.uv1 = input.uv1 + g_color.yx * g_color.w;
     output.alpha_threshold = g_color.a;

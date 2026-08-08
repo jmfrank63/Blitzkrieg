@@ -17,7 +17,7 @@ struct LightmapVertexOutput {
 LightmapVertexOutput vs_lightmap(LightmapVertexInput input) {
     LightmapVertexOutput output;
     output.position = mul(mul(float4(input.position, 1.0f), g_world), g_view_proj);
-    output.color = input.color * g_color;
+    output.color = legacy_vertex_color(input.color) * g_color;
     output.uv0 = input.uv0;
     output.uv1 = input.uv1;
     return output;

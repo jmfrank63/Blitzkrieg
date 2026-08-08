@@ -1,3 +1,10 @@
+// Legacy vertex colours are D3DCOLOR (0xAARRGGBB), which is B,G,R,A in memory.
+// SDL_GPU's UBYTE4_NORM attribute reads memory as R,G,B,A, so the red and blue
+// channels arrive swapped. Undo that once, here, for every vertex shader.
+float4 legacy_vertex_color(float4 packed) {
+    return packed.bgra;
+}
+
 struct FrameUniforms {
     row_major float4x4 g_view_proj;
     float4 g_fog;

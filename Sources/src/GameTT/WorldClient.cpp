@@ -1,4 +1,6 @@
 #include "StdAfx.h"
+#include "../Platform/Debug.h"
+#include "../Platform/LegacyText.h"
 
 #include "WorldClient.h"
 
@@ -1236,14 +1238,14 @@ void DisplayObjective( IUIContainer *pDialog, IText *pHeader, IText *pBody )
 		pTextHeader->SetWindowText( 0, pHeader->GetString() );
 	}
 	else
-		pTextHeader->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
+		pTextHeader->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) );
 	
 	if ( pBody ) 
 	{
 		pTextBody->SetWindowText( 0, pBody->GetString() );
 	}
 	else
-		pTextBody->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
+		pTextBody->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) );
 	
 	if ( !pHeader && !pBody )
 		pDialog->ShowWindow( UI_SW_HIDE );
@@ -1943,9 +1945,9 @@ void CWorldClient::ReportObjectiveStateChanged( int nObjective, int nState )
 	{
 		std::wstring szObjective;
 		if ( (pHeaderText != 0) && (pHeaderText->GetString() != 0) ) 
-			szObjective = std::wstring(reinterpret_cast<const wchar_t*>(pStateText->GetString())) + L" " + std::wstring(reinterpret_cast<const wchar_t*>(pHeaderText->GetString()));
+			szObjective = std::wstring(NPlatform::WideFromWordString(pStateText->GetString())) + L" " + std::wstring(NPlatform::WideFromWordString(pHeaderText->GetString()));
 		else
-			szObjective = std::wstring(reinterpret_cast<const wchar_t*>(pStateText->GetString())) + L" " + NStr::ToUnicode( "Unknown Objective" );
+			szObjective = std::wstring(NPlatform::WideFromWordString(pStateText->GetString())) + L" " + NStr::ToUnicode( "Unknown Objective" );
 		GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szObjective.c_str(), dwTextColor );
 		pScene->AddSound( pszSound, VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
 	}

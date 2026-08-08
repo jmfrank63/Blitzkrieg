@@ -2,6 +2,8 @@
 #define BLITZKRIEG_FONT_GPU_H
 
 #include "..//GFX//GFX.H"
+#include <utility>
+#include <vector>
 #include "..//Formats//fmtFont.h"
 #include "..//GFX//GFXHelper.h"
 
@@ -43,6 +45,13 @@ private:
     SFontFormat format_{};
     IGFXTexture *texture_ = nullptr;
 };
+
+// Shared greedy line breaking, so the row height reported by
+// TextGpu::GetNumLines and the lines actually emitted by
+// GraphicsEngineGpu::DrawText can never disagree. Returns [begin,end)
+// ranges over the UTF-16 string; carriage returns are skipped.
+void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wrap_width,
+    std::vector<std::pair<size_t, size_t> > &lines );
 
 class IGFXTextGpuFontProvider
 {

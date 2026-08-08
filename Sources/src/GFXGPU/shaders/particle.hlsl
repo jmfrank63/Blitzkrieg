@@ -21,7 +21,7 @@ struct ParticleVertexOutput {
 ParticleVertexOutput vs_particle(ParticleVertexInput input) {
     ParticleVertexOutput output;
     output.position = mul(mul(float4(input.position, 1.0f), g_world), g_view_proj);
-    output.color = input.color * g_color;
+    output.color = legacy_vertex_color(input.color) * g_color;
     output.uv = input.uv;
     output.view_depth = output.position.z / max(output.position.w, 0.0001f);
     output.alpha_threshold = g_color.a;

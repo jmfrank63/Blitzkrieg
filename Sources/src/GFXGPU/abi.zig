@@ -167,11 +167,12 @@ fn clear(handle: ?*RendererHandle, info: ?*const ClearInfo) callconv(.c) Result 
         renderer.last_error = @tagName(renderer.frame.state);
         return errors.invalid_state;
     }
+    // The engine passes its D3DCOLOR (0xAARRGGBB) through unchanged.
     const color = info.?.color_rgba8;
     renderer.clear(.{
-        @as(f32, @floatFromInt((color >> 0) & 0xff)) / 255.0,
-        @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0,
+        @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0,
+        @as(f32, @floatFromInt((color >> 0) & 0xff)) / 255.0,
         @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0,
     }) catch |err| {
         renderer.last_error = @errorName(err);
@@ -208,7 +209,8 @@ fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: 
 fn setColor(handle: ?*RendererHandle, color: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
-    renderer.draw_color = .{ @as(f32, @floatFromInt(color & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0 };
+    // D3DCOLOR is 0xAARRGGBB: red lives in bits 16-23, blue in bits 0-7.
+    renderer.draw_color = .{ @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0, @as(f32, @floatFromInt(color & 0xff)) / 255.0, @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0 };
     return errors.ok;
 }
 fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {

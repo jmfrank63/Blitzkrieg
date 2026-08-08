@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
@@ -14,11 +15,6 @@
 
 namespace
 {
-DWORD GpuVertexColor( DWORD color )
-{
-    return (color & 0xff00ff00u) | ((color & 0x000000ffu) << 16) | ((color & 0x00ff0000u) >> 16);
-}
-
 bool DrawFallbackGlyphs( GraphicsEngineGpu *graphics, const wchar_t *text, int x, int y, DWORD color, int max_width = 0 )
 {
     if ( !text || !*text ) return true;
@@ -32,7 +28,7 @@ bool DrawFallbackGlyphs( GraphicsEngineGpu *graphics, const wchar_t *text, int x
             SGFXRect2 glyph;
             glyph.rect.minx = static_cast<float>( cursor ); glyph.rect.miny = static_cast<float>( y );
             glyph.rect.maxx = static_cast<float>( cursor + 7 ); glyph.rect.maxy = static_cast<float>( y + 12 );
-            glyph.color = GpuVertexColor( color );
+            glyph.color = color;   // the vertex shader swizzles D3DCOLOR now
             glyphs.push_back( glyph );
         }
         cursor += *it == L'\t' ? 32 : 8;
@@ -213,8 +209,28 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
         if ( !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
         if ( !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+        // The app window is deliberately created hidden and stays hidden until a
+        // GFX device exists, so SetMode owns making it visible. This is the
+        // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
+        // without it the game runs correctly but renders to a window the
+        // compositor never shows.
+        SDL_ShowWindow( window );
+        // The window manager is free to refuse the requested size: a fullscreen
+        // window keeps the display size, and a windowed one is clamped to what
+        // fits on screen. Report what we actually got, because the caller reads
+        // GetScreenRect() straight back and adopts it as the current mode - if
+        // this kept the requested size the engine would render at one resolution
+        // into a drawable of another and the picture would not fit the window.
+        SDL_SyncWindow( window );
+        int pixel_width = 0, pixel_height = 0;
+        if ( SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height ) && pixel_width > 0 && pixel_height > 0 )
+        {
+            nSizeX = pixel_width;
+            nSizeY = pixel_height;
+        }
     }
     width_ = nSizeX; height_ = nSizeY;
+    UpdateViewportMatrix( 0, 0, nSizeX, nSizeY, 0.0f, 1.0f );
     display_mode_ = { nSizeX, nSizeY, 32 };
     return !renderer_ || Check( api_.resize( renderer_, static_cast<uint32_t>( nSizeX ), static_cast<uint32_t>( nSizeY ) ), "resize" );
 }
@@ -228,9 +244,25 @@ const SGFXDisplayMode * STDCALL GraphicsEngineGpu::GetDisplayModes() const { ret
 void STDCALL GraphicsEngineGpu::PushViewport() {}
 bool STDCALL GraphicsEngineGpu::PopViewport() { return true; }
 
+void GraphicsEngineGpu::UpdateViewportMatrix( int nX, int nY, int nWidth, int nHeight, float fMinZ, float fMaxZ )
+{
+    // NDC -> screen pixels, matching CGraphicsEngine::SetupViewport. The scene
+    // multiplies this into its pick transform, so leaving it identity made
+    // CScene::Pick test screen-space cursor positions against clip-space
+    // coordinates and never hit anything.
+    Zero( viewport_matrix_ );
+    viewport_matrix_._11 = nWidth / 2.0f;
+    viewport_matrix_._14 = nX + nWidth / 2.0f;
+    viewport_matrix_._22 = -( nHeight / 2.0f );
+    viewport_matrix_._24 = nY + nHeight / 2.0f;
+    viewport_matrix_._33 = fMaxZ - fMinZ;
+    viewport_matrix_._34 = fMinZ;
+    viewport_matrix_._44 = 1.0f;
+}
 bool STDCALL GraphicsEngineGpu::ChangeViewport( int nX, int nY, int nWidth, int nHeight, float fMinZ, float fMaxZ )
 {
     if ( !renderer_ ) return fail( "ChangeViewport requires Init" );
+    UpdateViewportMatrix( nX, nY, nWidth, nHeight, fMinZ, fMaxZ );
     GfxGpuViewportInfo viewport{ sizeof( viewport ), static_cast<float>( nX ), static_cast<float>( nY ), static_cast<float>( nWidth ), static_cast<float>( nHeight ), fMinZ, fMaxZ };
     return Check( api_.set_viewport( renderer_, &viewport ), "set_viewport" );
 }
@@ -268,7 +300,12 @@ bool STDCALL GraphicsEngineGpu::SetupDirectTransform()
 {
     if ( direct_transform_ ) return true;
     direct_view_stored_ = view_matrix_;
+    // SHMatrix is a POD union with no zeroing constructor and only seven of
+    // its sixteen elements are assigned below, so the shear and translation
+    // terms were stack garbage. Every screen-space draw (war fog, markers,
+    // the selection frame) went through this matrix and came out skewed.
     SHMatrix direct;
+    Zero( direct );
     direct._11 = 1.0f;
     direct._14 = -static_cast<float>( width_ > 0 ? width_ : 1 ) * 0.5f;
     direct._22 = -1.0f;
@@ -490,27 +527,50 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     if ( !text ) return false;
     IText *source = text->GetText();
     if ( !source ) return true;
-    const wchar_t *value = reinterpret_cast<const wchar_t *>( source->GetString() );
+    // GetString() is UTF-16. Casting it to wchar_t made AppendGeometry walk
+    // two UTF-16 units per character on a 32-bit wchar_t, drawing every second
+    // character. Keep the raw pointer for measuring and widen a copy to draw.
+    const WORD *raw_value = source->GetString();
+    const std::wstring wide_value = NPlatform::WideFromWordString( raw_value );
+    const wchar_t *value = wide_value.c_str();
     IGFXTextGpuFontProvider *font_provider = dynamic_cast<IGFXTextGpuFontProvider *>( text );
     FontGpu *font = font_provider ? dynamic_cast<FontGpu *>( font_provider->Font() ) : nullptr;
     const int width = text->GetWidth();
+    const float scale = font_provider ? font_provider->Scale() : 1.0f;
+    const float wrap_width = static_cast<float>( rect.right - rect.left );
     float x = static_cast<float>( rect.left );
-    if ( font )
-    {
-        const float text_width = font->TextWidthFloat( reinterpret_cast<const WORD *>( value ) ) * font_provider->Scale();
-        if ( (flags & FNT_FORMAT_CENTER) != 0 ) x = static_cast<float>( rect.left ) + std::floor((static_cast<float>( rect.right - rect.left ) - text_width) * 0.5f);
-        else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) x = static_cast<float>( rect.right ) - text_width;
-    }
-    else
+    if ( !font )
     {
         if ( (flags & FNT_FORMAT_CENTER) != 0 ) x = static_cast<float>( rect.left + (rect.right - rect.left - width) / 2 );
         else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) x = static_cast<float>( rect.right - width );
     }
     if ( font )
     {
+        // Shared with TextGpu::GetNumLines so the row height the list reserves
+        // always matches the lines actually drawn here.
+        std::vector<std::pair<size_t, size_t> > lines;
+        WrapTextLines( font, raw_value, scale, wrap_width, lines );
+
         std::vector<SGFXLVertex> vertices;
         std::vector<WORD> indices;
-        font->AppendGeometry( value, x, static_cast<float>( rect.top + y ), font_provider->Scale(), font_provider->Color(), vertices, indices );
+        const float line_step = static_cast<float>( font->GetLineSpace() ) * scale;
+        float pen_y = static_cast<float>( rect.top + y );
+        for ( size_t line_index = 0; line_index != lines.size(); ++line_index )
+        {
+            const size_t begin = lines[line_index].first;
+            const size_t end = lines[line_index].second;
+            if ( end > begin )
+            {
+                const std::wstring line_text = wide_value.substr( begin, end - begin );
+                const float line_width = font->TextWidthFloat( raw_value + begin, static_cast<int>( end - begin ) ) * scale;
+                float line_x = static_cast<float>( rect.left );
+                if ( (flags & FNT_FORMAT_CENTER) != 0 ) line_x += std::floor( ( wrap_width - line_width ) * 0.5f );
+                else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) line_x = static_cast<float>( rect.right ) - line_width;
+                font->AppendGeometry( line_text.c_str(), line_x, pen_y, scale, font_provider->Color(), vertices, indices );
+                if ( line_index == 0 ) x = line_x;
+            }
+            pen_y += line_step;
+        }
         if ( !vertices.empty() && SetTexture( 0, font->Texture() ) )
         {
             if ( api_.set_sampler ) (void)api_.set_sampler( renderer_, 2 );

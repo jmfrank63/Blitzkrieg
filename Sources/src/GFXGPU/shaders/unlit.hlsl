@@ -16,7 +16,7 @@ struct UnlitVertexOutput {
 UnlitVertexOutput vs_unlit(UnlitVertexInput input) {
     UnlitVertexOutput output;
     output.position = mul(mul(float4(input.position, 1.0f), g_world), g_view_proj);
-    output.color = input.color * g_color;
+    output.color = legacy_vertex_color(input.color) * g_color;
     output.uv = input.uv;
     output.alpha_threshold = g_color.a;
     return output;

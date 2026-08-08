@@ -1,4 +1,6 @@
 #include "StdAfx.h"
+#include "../Platform/Debug.h"
+#include "../Platform/LegacyText.h"
 
 #include "iMission.h"
 
@@ -1511,7 +1513,7 @@ void SetChildWindowText( IUIElement *pParent, const int nID, const wchar_t *pszT
 {
 	IUIContainer *pContainer = checked_cast<IUIContainer*>( pParent );
 	if ( IUIElement *pElement = pContainer->GetChildByID(nID) )
-		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( pszText ) );
+		pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) );
 }
 void SetChildWindowText( IUIElement *pParent, const int nID, const std::wstring &szText )
 {
@@ -1519,7 +1521,7 @@ void SetChildWindowText( IUIElement *pParent, const int nID, const std::wstring 
 }
 void SetUIWindowText( IUIElement *pElement, const wchar_t *pszText )
 {
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( pszText ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) );
 }
 void SetUIWindowText( IUIElement *pElement, const std::wstring &szText )
 {
@@ -1527,7 +1529,7 @@ void SetUIWindowText( IUIElement *pElement, const std::wstring &szText )
 }
 void SetHelpContext( IUIElement *pElement, const wchar_t *pszText )
 {
-	pElement->SetHelpContext( 0, reinterpret_cast<const WORD*>( pszText ) );
+	pElement->SetHelpContext( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) );
 }
 void SetHelpContext( IUIElement *pElement, const std::wstring &szText )
 {
@@ -1535,7 +1537,7 @@ void SetHelpContext( IUIElement *pElement, const std::wstring &szText )
 }
 void OutputString( IUIStatusBar *pBar, const int nIndex, const wchar_t *pszText )
 {
-	pBar->OutputString( nIndex, reinterpret_cast<const WORD*>( pszText ) );
+	pBar->OutputString( nIndex, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) );
 }
 void OutputString( IUIStatusBar *pBar, const int nIndex, const std::wstring &szText )
 {
@@ -1543,7 +1545,7 @@ void OutputString( IUIStatusBar *pBar, const int nIndex, const std::wstring &szT
 }
 void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const wchar_t *pszText )
 {
-	pBar->SetUnitProperty( nIndex, nLevel, reinterpret_cast<const WORD*>( pszText ) );
+	pBar->SetUnitProperty( nIndex, nLevel, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) );
 }
 void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const std::wstring &szText )
 {
@@ -2072,7 +2074,7 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 			const std::wstring wszBase = 
 				( pTM->GetString( "Textes\\FeedBacks\\units_passed" ) ) ? 
 				MakeWideStringFromWordString( pTM->GetString( "Textes\\FeedBacks\\units_passed" )->GetString() ) : L"";
-			pText->SetText( reinterpret_cast<const WORD*>( (wszBase + L": " + wszSrc + L" -> " + wszTrg).c_str() ) );
+			pText->SetText( NPlatform::WordStringData( NPlatform::WordStringFromWide( (wszBase + L": " + wszSrc + L" -> " + wszTrg).c_str() ) ) );
 		}
 		break;
 	case MC_VISUALIZE_FEEDBACK_SNIPER_DEAD:

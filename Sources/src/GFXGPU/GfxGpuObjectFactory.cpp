@@ -66,16 +66,16 @@ float FontGpu::TextWidth( const T *text, int count ) const
 }
 
 int STDCALL FontGpu::GetTextWidth( const char *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
-int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { return static_cast<int>( TextWidth( reinterpret_cast<const wchar_t *>( text ), count ) ); }
-float FontGpu::TextWidthFloat( const WORD *text, int count ) const { return TextWidth( reinterpret_cast<const wchar_t *>( text ), count ); }
+// TextWidth is a template, so the UTF-16 string is measured as-is.
+int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
+float FontGpu::TextWidthFloat( const WORD *text, int count ) const { return TextWidth( text, count ); }
 
 bool FontGpu::AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
     std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices ) const
 {
     if ( !text || !*text || !texture_ ) return true;
-    // Legacy D3D9 consumes DWORD colors as BGRA memory; SDL_GPU's normalized
-    // byte vertex format consumes RGBA memory.
-    color = (color & 0xff00ff00u) | ((color & 0x000000ffu) << 16) | ((color & 0x00ff0000u) >> 16);
+    // The vertex shader now undoes the D3DCOLOR/RGBA channel order for every
+    // vertex colour, so no per-glyph swizzle here.
     WORD previous = 0;
     for ( const wchar_t *cursor = text; *cursor && *cursor != L'\n'; ++cursor )
     {
@@ -184,6 +184,38 @@ private:
     std::map<std::string, FontGpu *> fonts_;
 };
 
+void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wrap_width,
+    std::vector<std::pair<size_t, size_t> > &lines )
+{
+    lines.clear();
+    if ( !text ) return;
+    size_t length = 0;
+    while ( text[length] ) ++length;
+    size_t line_begin = 0;
+    size_t last_space = static_cast<size_t>( -1 );
+    for ( size_t index = 0; index <= length; ++index )
+    {
+        // CRLF data would otherwise draw the carriage return as a missing glyph.
+        if ( index == length || text[index] == L'\n' || text[index] == L'\r' )
+        {
+            lines.push_back( std::make_pair( line_begin, index ) );
+            if ( index + 1 < length && text[index] == L'\r' && text[index + 1] == L'\n' ) ++index;
+            line_begin = index + 1;
+            last_space = static_cast<size_t>( -1 );
+            continue;
+        }
+        if ( text[index] == L' ' ) last_space = index;
+        if ( !font || wrap_width <= 0.0f || index == line_begin ) continue;
+        const float run_width = font->TextWidthFloat( text + line_begin, static_cast<int>( index - line_begin + 1 ) ) * scale;
+        if ( run_width <= wrap_width ) continue;
+        const bool break_on_space = last_space != static_cast<size_t>( -1 ) && last_space > line_begin;
+        const size_t break_at = break_on_space ? last_space : index;
+        lines.push_back( std::make_pair( line_begin, break_at ) );
+        line_begin = break_on_space ? break_at + 1 : break_at;
+        last_space = static_cast<size_t>( -1 );
+    }
+}
+
 class TextGpu final : public IGFXText, public IGFXTextGpuFontProvider
 {
 public:
@@ -193,7 +225,7 @@ public:
     float Scale() const override { return scale_; }
     void STDCALL SetText( IText *text ) override { text_ = text; }
     IText * STDCALL GetText() override { return text_; }
-    void STDCALL SetWidth( int ) override {}
+    void STDCALL SetWidth( int width ) override { width_ = width; }
     void STDCALL SetColor( DWORD color ) override { color_ = color; }
     DWORD Color() const override { return color_; }
     void STDCALL EnableRedLine( bool ) override {}
@@ -204,20 +236,22 @@ public:
     int STDCALL GetNumLines() const override
     {
         if ( !text_ || !text_->GetString() ) return 0;
-        int lines = 1;
-        for ( const wchar_t *it = reinterpret_cast<const wchar_t *>( text_->GetString() ); *it; ++it ) if ( *it == L'\n' ) ++lines;
-        return lines;
+        // Count the wrapped lines, not just the explicit newlines: the list
+        // sizes each row from this, so a wrapped entry needs the taller row.
+        std::vector<std::pair<size_t, size_t> > lines;
+        WrapTextLines( dynamic_cast<FontGpu *>( font_ ), text_->GetString(), scale_, static_cast<float>( width_ ), lines );
+        return lines.empty() ? 1 : static_cast<int>( lines.size() );
     }
     int STDCALL GetLineSpace() const override { return font_ ? static_cast<int>( font_->GetLineSpace() * scale_ ) : 12; }
     int STDCALL GetWidth( int count = -1 ) const override
     {
         if ( !text_ || !text_->GetString() ) return 0;
-        const wchar_t *value = reinterpret_cast<const wchar_t *>( text_->GetString() );
+        const WORD *value = text_->GetString();
         int length = 0;
         while ( value[length] && value[length] != L'\n' ) ++length;
         if ( count >= 0 && count < length ) length = count;
         FontGpu *gpu_font = dynamic_cast<FontGpu *>( font_ );
-        return gpu_font ? static_cast<int>( gpu_font->TextWidthFloat( reinterpret_cast<const WORD *>( value ), length ) * scale_ ) : (font_ ? static_cast<int>( font_->GetTextWidth( reinterpret_cast<const WORD *>( value ), length ) * scale_ ) : static_cast<int>( length * 8 * scale_ ));
+        return gpu_font ? static_cast<int>( gpu_font->TextWidthFloat( value, length ) * scale_ ) : (font_ ? static_cast<int>( font_->GetTextWidth( value, length ) * scale_ ) : static_cast<int>( length * 8 * scale_ ));
     }
 
 private:
@@ -225,6 +259,7 @@ private:
     IGFXFont *font_ = nullptr;
     DWORD color_ = 0xffffffff;
     float scale_ = 1.0f;
+    int width_ = 0;
 };
 
 class CGfxGpuObjectFactory : public CBasicObjectFactory

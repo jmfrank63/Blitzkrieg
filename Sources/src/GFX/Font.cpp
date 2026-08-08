@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/Debug.h"
 
 #include "Font.h"
 template <class TYPE>

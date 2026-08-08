@@ -48,7 +48,7 @@ LightingVertexOutput vs_lighting(LightingVertexInput input) {
     output.position = mul(world_position, g_view_proj);
     output.world_position = world_position.xyz;
     output.normal = safe_normalize(mul(input.normal, (float3x3)g_world));
-    output.color = float4(input.color.rgb * g_color.rgb * (evaluate_lighting(output) + 0.05f), input.color.a * g_color.a);
+    output.color = float4(legacy_vertex_color(input.color).rgb * g_color.rgb * (evaluate_lighting(output) + 0.05f), legacy_vertex_color(input.color).a * g_color.a);
     output.uv = input.uv;
     return output;
 }

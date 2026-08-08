@@ -11,7 +11,7 @@ struct ProbeOutput {
 ProbeOutput VSMain(ProbeVertex input) {
     ProbeOutput output;
     output.position = float4(input.position, 1.0f);
-    output.color = input.color;
+    output.color = legacy_vertex_color(input.color);
     return output;
 }
 
