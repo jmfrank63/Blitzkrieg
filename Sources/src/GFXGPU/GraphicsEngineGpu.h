@@ -127,6 +127,7 @@ private:
     SHMatrix inverse_view_matrix_{};
     SHMatrix projection_matrix_{};
     SHMatrix viewport_matrix_{};
+    DWORD temporary_vertex_format_ = 0;
     void UpdateViewportMatrix( int nX, int nY, int nWidth, int nHeight, float fMinZ, float fMaxZ );
     SHMatrix direct_view_stored_{};
     bool direct_transform_ = false;

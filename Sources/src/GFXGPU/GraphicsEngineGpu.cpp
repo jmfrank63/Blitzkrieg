@@ -419,6 +419,11 @@ void * STDCALL GraphicsEngineGpu::GetTempVertices( int elements, DWORD format, E
     if ( !temporary_vertex_bytes_.empty() ) return nullptr;
     temporary_vertex_stride_ = 32;
     temporary_vertex_source_stride_ = format == SGFXLVertex::format ? static_cast<int>( sizeof( SGFXLVertex ) ) : temporary_vertex_stride_;
+    // Keep the FVF: the GPU stride is always 32, so it cannot distinguish an
+    // XYZ vertex repacked into 32 bytes (colour at 12) from a pre-transformed
+    // XYZRHW vertex (colour at 16). The renderer needs the format to pick
+    // matching attribute offsets.
+    temporary_vertex_format_ = format;
     temporary_vertex_count_ = elements; temporary_type_ = type;
     try { temporary_vertex_bytes_.assign( static_cast<size_t>( elements ) * temporary_vertex_stride_, 0 ); } catch ( ... ) { return nullptr; }
     return temporary_vertex_bytes_.data();
@@ -483,7 +488,7 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
         vertex_data = packed_vertex_bytes.data();
         vertex_bytes = packed_vertex_bytes.size();
     }
-    const bool vertex_created = CreateBufferHandle( static_cast<uint32_t>( temporary_vertex_count_ ), 0, static_cast<uint32_t>( temporary_vertex_stride_ ), GFXD_DYNAMIC, &vertex_handle ) &&
+    const bool vertex_created = CreateBufferHandle( static_cast<uint32_t>( temporary_vertex_count_ ), static_cast<uint32_t>( temporary_vertex_format_ ), static_cast<uint32_t>( temporary_vertex_stride_ ), GFXD_DYNAMIC, &vertex_handle ) &&
         UploadBuffer( vertex_handle, vertex_data, vertex_bytes );
     const bool indexed = !temporary_index_bytes_.empty();
     const bool index_created = !indexed || ( CreateBufferHandle( static_cast<uint32_t>( temporary_index_count_ ), 0, static_cast<uint32_t>( temporary_index_stride_ ), GFXD_DYNAMIC, &index_handle ) &&

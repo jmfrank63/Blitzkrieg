@@ -218,10 +218,16 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     return errors.ok;
 }
+const state_shade_effect: u32 = 8; // GFXGPU_STATE_SHADE_EFFECT
 fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    // This validated every state and then discarded it, so SHADE_EFFECT,
+    // DEPTH_MODE, LIGHTING and the rest were silently dropped. Record the
+    // shading effect at least: it selects the blend mode, without which
+    // alpha-blended draws such as the war fog paint over the whole screen.
+    if (info.?.kind == state_shade_effect) renderer.shade_effect = info.?.value;
     return errors.ok;
 }
 fn createTexture(handle: ?*RendererHandle, info: ?*const TextureCreateInfo, out_handle: ?*u64) callconv(.c) Result {

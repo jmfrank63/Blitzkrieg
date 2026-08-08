@@ -3,6 +3,7 @@ const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
 const manifest = @import("shader_manifest.zig");
+const effects = @import("effects.zig");
 
 const io_c = @cImport({
     @cInclude("stdio.h");
@@ -28,6 +29,21 @@ pub const Renderer = struct {
     untextured_vertex_shader: ?*anyopaque = null,
     untextured_fragment_shader: ?*anyopaque = null,
     untextured_pipeline: ?*anyopaque = null,
+    // Alpha-blended twin of untextured_pipeline. The legacy shading effect
+    // decides which one a draw needs; war fog asks for straight alpha and was
+    // getting the opaque pipeline, so it covered the screen.
+    untextured_blend_pipeline: ?*anyopaque = null,
+    untextured_rhw_pipeline: ?*anyopaque = null,
+    untextured_rhw_blend_pipeline: ?*anyopaque = null,
+    textured_rhw_pipeline: ?*anyopaque = null,
+    shade_effect: u32 = 0,
+    // Pre-transformed (XYZRHW) vertices carry a 4th position float, pushing
+    // colour to offset 16 and the texcoord to 24. SGFXLVertex (XYZ) is 28
+    // bytes and SGFXTLVertex (XYZRHW) is 32, so the stride identifies which
+    // layout a draw uses. Declaring the XYZ offsets for XYZRHW data read the
+    // rhw float's bytes as the vertex colour and the specular DWORD as the
+    // texcoord, which is what tinted all screen-space geometry.
+    vertex_has_rhw: bool = false,
     textured_vertex_shader: ?*anyopaque = null,
     textured_fragment_shader: ?*anyopaque = null,
     textured_pipeline: ?*anyopaque = null,
@@ -82,11 +98,15 @@ pub const Renderer = struct {
             if (self.scene_texture) |texture| sdl.releaseTexture(gpu_device, texture);
             if (self.scene_depth) |texture| sdl.releaseTexture(gpu_device, texture);
             if (self.textured_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
+            if (self.textured_rhw_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
             if (self.textured_fragment_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
             if (self.textured_vertex_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
             if (self.sampler) |sampler| sdl.c.SDL_ReleaseGPUSampler(gpu_device, sampler);
             if (self.linear_sampler) |sampler| sdl.c.SDL_ReleaseGPUSampler(gpu_device, sampler);
             if (self.untextured_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
+            if (self.untextured_blend_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
+            if (self.untextured_rhw_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
+            if (self.untextured_rhw_blend_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
             if (self.untextured_fragment_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
             if (self.untextured_vertex_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
         }
@@ -253,6 +273,10 @@ pub const Renderer = struct {
     }
 
     pub fn createBuffer(self: *Renderer, element_count: u32, format: u32, stride: u32, usage_flags: u32) !u64 {
+        // GFXFVF_XYZRHW (0x004) means a pre-transformed position of four floats,
+        // which shifts colour to 16 and the texcoord to 24. Index buffers pass
+        // format 0, so only a real vertex format updates the layout.
+        if (format != 0) self.vertex_has_rhw = (format & 0x004) != 0;
         const device = &(self.device orelse return error.NoDevice);
         const size = std.math.mul(u32, element_count, stride) catch return error.BufferTooLarge;
         const usage: sdl.c.SDL_GPUBufferUsageFlags = if ((usage_flags & 2) != 0 or format == 101 or format == 102)
@@ -392,8 +416,25 @@ pub const Renderer = struct {
         return std.fmt.allocPrint(self.allocator, "{s}.{s}.{s}", .{ effect, stage, suffix });
     }
 
+    fn untexturedBlendWanted(self: *const Renderer) bool {
+        const spec = effects.find(self.shade_effect) orelse return false;
+        return spec.blend != .replace;
+    }
     fn ensureUntexturedPipeline(self: *Renderer) !*anyopaque {
-        if (self.untextured_pipeline) |pipeline| return pipeline;
+        const want_blend = self.untexturedBlendWanted();
+        const rhw = self.vertex_has_rhw;
+        if (rhw) {
+            if (want_blend) {
+                if (self.untextured_rhw_blend_pipeline) |pipeline| return pipeline;
+            } else {
+                if (self.untextured_rhw_pipeline) |pipeline| return pipeline;
+            }
+        } else if (want_blend) {
+            if (self.untextured_blend_pipeline) |pipeline| return pipeline;
+        } else {
+            if (self.untextured_pipeline) |pipeline| return pipeline;
+        }
+        const color_offset: u32 = if (rhw) 16 else 12;
         const device = &(self.device orelse return error.NoDevice);
         const format = try device.shaderFormat();
         const shader_format = device_mod.formatFlag(format);
@@ -426,15 +467,19 @@ pub const Renderer = struct {
         // The legacy engine's color semantic is tracked as location 5 in its
         // vertex-layout mask, but SDL_GPU pipeline locations follow the shader
         // signature rather than that legacy numbering.
-        var attributes = [_]sdl.c.SDL_GPUVertexAttribute{ .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 }, .{ .location = 1, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = 12 } };
+        var attributes = [_]sdl.c.SDL_GPUVertexAttribute{ .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 }, .{ .location = 1, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = color_offset } };
         const color_format: sdl.c.SDL_GPUTextureFormat = @intCast(self.swapchain_format);
-        const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = false, .enable_color_write_mask = true } };
+        const source_factor: u32 = if (want_blend) sdl.c.SDL_GPU_BLENDFACTOR_SRC_ALPHA else sdl.c.SDL_GPU_BLENDFACTOR_ONE;
+        const destination_factor: u32 = if (want_blend) sdl.c.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA else sdl.c.SDL_GPU_BLENDFACTOR_ZERO;
+        const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = source_factor, .dst_color_blendfactor = destination_factor, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = want_blend, .enable_color_write_mask = true } };
         const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = vertex, .fragment_shader = fragment, .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = 2 }, .primitive_type = sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{}, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = 0, .has_depth_stencil_target = false }, .props = 0 };
         const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse return error.PipelineCreateFailed;
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
         self.untextured_vertex_shader = vertex;
         self.untextured_fragment_shader = fragment;
-        self.untextured_pipeline = pipeline;
+        if (rhw) {
+            if (want_blend) self.untextured_rhw_blend_pipeline = pipeline else self.untextured_rhw_pipeline = pipeline;
+        } else if (want_blend) self.untextured_blend_pipeline = pipeline else self.untextured_pipeline = pipeline;
         return pipeline;
     }
 
@@ -447,7 +492,14 @@ pub const Renderer = struct {
     }
 
     fn ensureTexturedPipeline(self: *Renderer) !*anyopaque {
-        if (self.textured_pipeline) |pipeline| return pipeline;
+        const rhw = self.vertex_has_rhw;
+        if (rhw) {
+            if (self.textured_rhw_pipeline) |pipeline| return pipeline;
+        } else {
+            if (self.textured_pipeline) |pipeline| return pipeline;
+        }
+        const color_offset: u32 = if (rhw) 16 else 12;
+        const uv_offset: u32 = if (rhw) 24 else 20;
         const device = &(self.device orelse return error.NoDevice);
         const format = try device.shaderFormat();
         const shader_format = device_mod.formatFlag(format);
@@ -475,8 +527,8 @@ pub const Renderer = struct {
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 32, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
         var attributes = [_]sdl.c.SDL_GPUVertexAttribute{
             .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 },
-            .{ .location = 1, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = 12 },
-            .{ .location = 2, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = 20 },
+            .{ .location = 1, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = color_offset },
+            .{ .location = 2, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = uv_offset },
         };
         const target = sdl.c.SDL_GPUColorTargetDescription{ .format = @intCast(self.swapchain_format), .blend_state = .{ .src_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_SRC_ALPHA, .dst_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = true, .enable_color_write_mask = true } };
         const info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = vertex, .fragment_shader = fragment, .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = 3 }, .primitive_type = sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{}, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = 0, .has_depth_stencil_target = false }, .props = 0 };
@@ -484,7 +536,7 @@ pub const Renderer = struct {
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
         self.textured_vertex_shader = vertex;
         self.textured_fragment_shader = fragment;
-        self.textured_pipeline = pipeline;
+        if (rhw) self.textured_rhw_pipeline = pipeline else self.textured_pipeline = pipeline;
         self.sampler = sdl.createSampler(gpu_device, false) orelse return error.SamplerCreateFailed;
         self.linear_sampler = sdl.createSampler(gpu_device, true) orelse return error.SamplerCreateFailed;
         return pipeline;

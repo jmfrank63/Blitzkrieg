@@ -535,6 +535,15 @@ int RunGame( const BkGameLaunchInfo &launch )
 		}
 		else if ( !cmdp.szSaveFile.empty() ) 
 			pMainLoop->Command( MAIN_COMMAND_LOAD, cmdp.szSaveFile.c_str() );
+		// An explicitly named map wins over startup smoke. -reference-scene implies
+		// smoke, which parked at the main menu and made it impossible to capture an
+		// in-game frame without a human driving the menus.
+		else if ( !cmdp.szMapName.empty() && !cmdp.bMultiplayer )
+		{
+			GetSingleton<IScenarioTracker>()->StartCampaign( "custom_mission", CAMPAIGN_TYPE_CUSTOM_MISSION );
+			GetSingleton<IScenarioTracker>()->StartChapter( "custom_mission" );
+			pMainLoop->Command( MISSION_COMMAND_MISSION, NStr::Format("%s;%d", cmdp.szMapName.c_str(), cmdp.bCycledLaunch) );
+		}
 		else if ( cmdp.bStartupSmoke )
 		{
 			pMainLoop->Command( MISSION_COMMAND_MAIN_MENU, "0" );
@@ -570,7 +579,13 @@ int RunGame( const BkGameLaunchInfo &launch )
 			}
 			if ( !pMainLoop->StepApp( bActive ) )
 				break;
-			if ( cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 && ++nReferenceCaptureDelay >= 5 )
+			// BK_REFERENCE_DELAY overrides the 5-frame main-menu capture point so a
+			// capture can be taken once a mission has loaded, which is what makes
+			// automated renderer verification possible without a human at the keyboard.
+			static const char *pszCaptureDelay = getenv( "BK_REFERENCE_DELAY" );
+			static const int nCaptureDelay = pszCaptureDelay != 0 ? atoi( pszCaptureDelay ) : 5;
+			const bool bCaptureGate = pszCaptureDelay != 0 || GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0;
+			if ( cmdp.bReferenceScene && bCaptureGate && ++nReferenceCaptureDelay >= nCaptureDelay )
 			{
 				IGFX *pGFX = GetSingleton<IGFX>();
 				const CTRect<long> rcScreen = pGFX->GetScreenRect();
