@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "encyclopedia.h"
 
@@ -131,11 +132,11 @@ void CInterfaceEncyclopedia::Create( int nType, const char *pszName )
 	
 	IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 	NI_ASSERT_T( pHeader != 0, "Invalid encyclopedia header control" );
-	pHeader->SetWindowText( 0, reinterpret_cast<const WORD*>( szTitle.c_str() ) );
+	pHeader->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szTitle.c_str() ) ) );
 
 	IUIElement *pDesc = checked_cast<IUIElement *> ( pUIScreen->GetChildByID( 2000 ) );
 	NI_ASSERT_T( pDesc != 0, "Invalid encyclopedia text description control" );
-	pDesc->SetWindowText( 0, reinterpret_cast<const WORD*>( szDesc.c_str() ) );
+	pDesc->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szDesc.c_str() ) ) );
 
 /*
 	IUIElement *pStatistics = checked_cast<IUIElement *> ( pUIScreen->GetChildByID( 3000 ) );

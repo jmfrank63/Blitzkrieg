@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "InterfaceMPAddressBook.h"
 #include "InterfaceStartDialog.h"
@@ -77,7 +78,7 @@ void CInterfaceMPAddressBook::AddServerInternal( const std::string &szServer )
 	pList->AddItem();
 	IUIListRow *pRow = pList->GetItem( pList->GetNumberOfItems() -1 );
 	const std::wstring wszServer = NStr::ToUnicode( szServer );
-	pRow->GetElement( 0 )->SetWindowText( 0, reinterpret_cast<const WORD*>( wszServer.c_str() ) );
+	pRow->GetElement( 0 )->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszServer.c_str() ) ) );
 	pList->InitialUpdate();
 }
 void CInterfaceMPAddressBook::AddServer( const std::string &szServer )
@@ -209,7 +210,7 @@ bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 		{
 			pDialogAskAddress = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_DIALOG_ASK_ADDRESS ) );
 			IUIElement *pText = pDialogAskAddress->GetChildByID( E_ADDRESS_EDIT_BOX );
-			pText->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
+			pText->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) );
 			pText->SetFocus( true );
 			pDialogAskAddress->ShowWindow( UI_SW_SHOW_MODAL );
 		}

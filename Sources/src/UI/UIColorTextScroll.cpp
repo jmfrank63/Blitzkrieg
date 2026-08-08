@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "UIColorTextScroll.h"
 
@@ -18,7 +19,7 @@ CVisibleString CUIColorTextScroll::CColorTextEntry::CreateString( const std::wst
 {
 	CVisibleString result;
 	result.first = CreateObject<ITextDialog>( TEXT_STRING );
-	result.first->SetText( reinterpret_cast<const WORD*>( szSource.c_str() ) );
+	result.first->SetText( NPlatform::WordStringData( NPlatform::WordStringFromWide( szSource ) ) );
 	
 	result.second = CreateObject<IGFXText>( GFX_TEXT );
 	result.second->SetText( result.first );
@@ -115,8 +116,8 @@ void CUIColorTextScroll::AppendMessage( const WORD *pszCaption, const WORD *pszM
 	CTRect<float> rect;
 	GetBorderRect( &rect );
 
-	CColorTextEntry * pNewEntry = new CColorTextEntry( reinterpret_cast<const wchar_t*>(pszCaption), colors[nColorIndex].first,
-																						 reinterpret_cast<const wchar_t*>(pszMessage), colors[nColorIndex].second,
+	CColorTextEntry * pNewEntry = new CColorTextEntry( NPlatform::WideFromWordString(pszCaption).c_str(), colors[nColorIndex].first,
+																						 NPlatform::WideFromWordString(pszMessage).c_str(), colors[nColorIndex].second,
 																						 nCurrentYSize, rect.Width() );
 	nCurrentYSize += pNewEntry->GetSizeY();
 	textEntrys.push_back( pNewEntry );

@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "InterfaceUnitPerformance.h"
 
@@ -155,8 +156,8 @@ void CInterfaceUnitPerformance::PrepairShortcutBar()
 	pDeadUnitsSB->Clear();
 	{
 		IUIElement *pBar = pLeveledUpSB->AddBar();		//bar невидимый
-		pBar->SetWindowText( 0, reinterpret_cast<const WORD*>( L"1" ) );
-		pBar->SetWindowText( 1, reinterpret_cast<const WORD*>( L"2" ) );
+		pBar->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"1" ) ) );
+		pBar->SetWindowText( 1, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"2" ) ) );
 		pBar->SetWindowID( 0 );
 		nPlayerUnits = pPlayerInfo->GetNumUnits();
 		

@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "OptionsConvert.h"
 #include "OptionSystemInternal.h"
@@ -198,7 +199,7 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 		{
 			IText * pT = GetSingleton<ITextManager>()->GetDialog( "Textes\\PlayerName" );
 			if ( pT )
-				szPlayerName = reinterpret_cast<const wchar_t*>(pT->GetString());
+				szPlayerName = NPlatform::WideFromWordString(pT->GetString());
 			CBase::Set( szVarName, variant_t(szPlayerName.c_str()) );
 		}
 		else 

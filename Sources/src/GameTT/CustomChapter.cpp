@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
@@ -43,7 +44,7 @@ bool CInterfaceCustomChapter::FillListItem( IUIListRow *pRow, const std::string 
 	if ( !pElement )
 		return false;
 	const std::wstring wszMissions = NStr::ToUnicode( NStr::Format( "%d", pStats->missions.size() ) );
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszMissions.c_str() ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszMissions.c_str() ) ) );
 
 /*
 	std::string szVal = GetFileChangeTimeString( szFullFileName.c_str() );

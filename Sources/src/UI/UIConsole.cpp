@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "../Main/iMainCommands.h"
 #include "../Input/Input.h"
@@ -10,9 +11,11 @@
 #include "../Main/Transceiver.h"
 namespace
 {
-	inline const WORD* ToWordText( const wchar_t *pszText )
+	// Returns owned UTF-16: a 32-bit wchar_t string has no 16-bit copy to
+	// point at, so the conversion has to produce storage the caller keeps.
+	inline std::u16string ToWordText( const wchar_t *pszText )
 	{
-		return reinterpret_cast<const WORD*>( pszText );
+		return NPlatform::WordStringFromWide( pszText == 0 ? std::wstring() : std::wstring( pszText ) );
 	}
 }
 static const int OPEN_TIME = 200;						//����� �������� � �������� ��������� � �������������
@@ -251,11 +254,11 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 		if ( bShowCursor )
 		{
 			IText *pText = states[nCurrentState].pGfxText->GetText();
-			const WORD *pszEditString = ToWordText( szEditString.c_str() );
-			pText->SetText( pszEditString );
+			const std::u16string pszEditString = ToWordText( szEditString.c_str() );
+			pText->SetText( NPlatform::WordStringData( pszEditString ) );
 			int nWidth = states[nCurrentState].pGfxText->GetWidth( nCursorPos );
-			const WORD *pszEmptyString = ToWordText( L"" );
-			pText->SetText( pszEmptyString );
+			const std::u16string pszEmptyString = ToWordText( L"" );
+			pText->SetText( NPlatform::WordStringData( pszEmptyString ) );
 
 			SGFXRect2 rc;
 			rc.rect.left = wndRect.left + nWidth + vTextPos.x - 1 + TEXT_LEFT_SPACE + TEXT_VERTICAL_SIZE;

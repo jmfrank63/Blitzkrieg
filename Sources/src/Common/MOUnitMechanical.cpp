@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "MOUnitMechanical.h"
 
@@ -673,7 +674,7 @@ int CMOUnitMechanical::AIUpdateActions( const SAINotifyAction &action, const NTi
 				ITextManager *pTM = GetSingleton<ITextManager>();
 				IText *pText = pTM->GetString( "Textes\\FeedBacks\\unit_gain_level" );
 				IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
-				pBuffer->Write( CONSOLE_STREAM_CHAT, reinterpret_cast<const wchar_t*>( pText->GetString() ), dwTextColor );
+				pBuffer->Write( CONSOLE_STREAM_CHAT, NPlatform::WideFromWordString( pText->GetString() ).c_str(), dwTextColor );
 			}
 			nRetVal = CMOUnit::AIUpdateActions( action, currTime, pVOB, pScene, pAckManager );
 			break;

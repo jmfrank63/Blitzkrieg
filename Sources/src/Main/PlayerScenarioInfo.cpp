@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "PlayerScenarioInfo.h"
 
@@ -189,7 +190,7 @@ void CPlayerScenarioInfo::SetName( const std::wstring &_wszName )
 	wszName = _wszName;
 	if ( pNameObject == 0 ) 
 		pNameObject = CreateObject<IText>( TEXT_STRING );
-	pNameObject->SetText( reinterpret_cast<const WORD*>( wszName.c_str() ) );
+	pNameObject->SetText( NPlatform::WordStringData( NPlatform::WordStringFromWide( wszName.c_str() ) ) );
 }
 const std::wstring& CPlayerScenarioInfo::GetName() const
 {

@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "OptionEntryWrapper.h"
 #include "../UI/UIMessages.h"
@@ -255,18 +256,20 @@ int CUIOption::GetSliderOption() const
 const int CUIOption::GetTextNumericOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_NUMERIC ) );
-	std::string szEntry = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) ) ) );
+	std::string szEntry = NStr::ToAscii( std::wstring( NPlatform::WideFromWordString( pStatic->GetWindowText( 0 ) ) ) );
 	return NStr::ToInt( szEntry );
 }
 const wchar_t * CUIOption::GetTextGameSpyOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	return reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) );
+	szWideGameSpyCache = NPlatform::WideFromWordString( pStatic->GetWindowText( 0 ) );
+	return szWideGameSpyCache.c_str();
 }
 const wchar_t * CUIOption::GetTextOption () const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	return reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) );
+	szWideTextCache = NPlatform::WideFromWordString( pStatic->GetWindowText( 0 ) );
+	return szWideTextCache.c_str();
 }
 COptionsListWrapper::COptionsListWrapper( const DWORD _dwFlags, IUIListControl * _pList, const int _nIDToStartFrom, IOptionSystem * pSystem, const bool _bDisableChange )
 	: pList( _pList ), nIDToStartFrom( _nIDToStartFrom ), dwFlags( _dwFlags ), bDisableChange( _bDisableChange ), pSetOptionSystem( pSystem )

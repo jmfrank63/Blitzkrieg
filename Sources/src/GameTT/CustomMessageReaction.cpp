@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "CustomMessageReaction.h"
 #include "../Main/iMain.h"
@@ -43,7 +44,7 @@ void ConstructWhoWin( class CInterfaceScreenBase *_pInterface )
 			szMessage += MakeWideStringFromWordString( pText->GetString() );
 	}
 
-	SetGlobalVar( "temp.Replay.WinMessage", reinterpret_cast<const WORD*>( szMessage.c_str() ) );
+	SetGlobalVar( "temp.Replay.WinMessage", NPlatform::WordStringData( NPlatform::WordStringFromWide( szMessage.c_str() ) ) );
 }
 void ReactionSetMultiplayerTimeout( class CInterfaceScreenBase *_pInterface )
 {

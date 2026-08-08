@@ -1,4 +1,6 @@
 #include "StdAfx.h"
+#include "../Platform/Debug.h"
+#include "../Platform/LegacyText.h"
 
 #include "Text.h"
 
@@ -32,9 +34,14 @@ int CGFXText::GetWidth( int nNumCharacters ) const
 {
 	if ( pText == 0 ) 
 		return 1;
-	const wchar_t *pszStringBegin = (const wchar_t*)(const void*)pText->GetString();
-	if ( pszStringBegin == 0 ) 
+	// GetString() is UTF-16; casting it to wchar_t made the font iterate two
+	// UTF-16 units per character wherever wchar_t is 32 bits, rendering every
+	// second character. The widened copy has to outlive the pointers below.
+	const WORD *pszRawString = pText->GetString();
+	if ( pszRawString == 0 ) 
 		return 1;
+	const std::wstring wideText = NPlatform::WideFromWordString( pszRawString );
+	const wchar_t *pszStringBegin = wideText.c_str();
 	const int nStrLen = GetLength( pszStringBegin );
 	if ( nStrLen == 0 ) 
 		return 1;
@@ -62,7 +69,12 @@ void CGFXText::PreFormat() const
 	pft.Clear();
 	if ( pText == 0 ) 
 		return;
-	const wchar_t *pszStringBegin = (const wchar_t*)(const void*)pText->GetString();
+	const std::wstring wideText = NPlatform::WideFromWordString( pText->GetString() );
+	const wchar_t *pszStringBegin = wideText.c_str();
+	{ // TEMP DIAGNOSTIC
+		const WORD *dbgRaw = pText->GetString();
+		int dbgRawLen = 0; if ( dbgRaw ) while ( dbgRaw[dbgRawLen] != 0 && dbgRawLen < 16 ) ++dbgRawLen;
+	}
 	const int nStrLen =  NStr::GetStrLen( pszStringBegin );
 	const wchar_t *pszStringEnd = pszStringBegin + nStrLen;
 	pft.fWidth = fWidth;
@@ -180,7 +192,8 @@ void CGFXText::PreFormatLine() const
 	pft.Clear();
 	if ( pText == 0 ) 
 		return;
-	const wchar_t *pszStringBegin = (const wchar_t*)(const void*)pText->GetString();
+	const std::wstring wideText = NPlatform::WideFromWordString( pText->GetString() );
+	const wchar_t *pszStringBegin = wideText.c_str();
 	const int nStrLen =  NStr::GetStrLen( pszStringBegin );
 	const wchar_t *pszStringEnd = pszStringBegin + nStrLen;
 	pft.fWidth = fWidth;

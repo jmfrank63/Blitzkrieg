@@ -1,6 +1,7 @@
 #ifndef __UI_SCROLL_TEXT_H__
 #define __UI_SCROLL_TEXT_H__
 #include "UIBasic.h"
+#include "../Platform/LegacyText.h"
 #include "UISlider.h"
 class CUIScrollTextBox : public CMultipleWindow
 {
@@ -28,7 +29,7 @@ public:
 	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
 	{ 
 		
-		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) ); 
+		SetWindowText( nState, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) ); 
 	}
 	virtual void STDCALL AppendText( const WORD *pszText );
 

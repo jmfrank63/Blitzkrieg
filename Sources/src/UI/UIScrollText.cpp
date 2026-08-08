@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 #include "UIMessages.h"
 #include "UIScrollText.h"
 
@@ -63,10 +64,10 @@ void CUIScrollTextBox::AppendText( const WORD *pszText )
 	bool bNeedScrollToEnd = pScrollBar->GetPosition() == pScrollBar->GetMaxValue();
 
 	IText *pText = states[nCurrentState].pGfxText->GetText();
-	std::wstring wszTemp = reinterpret_cast<const wchar_t*>(pText->GetString());
-	wszTemp += reinterpret_cast<const wchar_t*>(pszText);
+	std::wstring wszTemp = NPlatform::WideFromWordString(pText->GetString());
+	wszTemp += NPlatform::WideFromWordString(pszText);
 
-	SetWindowText( nCurrentState, reinterpret_cast<const WORD*>(wszTemp.c_str()) );
+	SetWindowText( nCurrentState, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszTemp ) ) );
 	
 	if ( bNeedScrollToEnd )
 	{
@@ -186,8 +187,8 @@ void CUIScrollTextBox::RepositionScrollbar()
 void CUIScrollTextBox::RepositionText()
 {
 	IText *pText = states[0].pGfxText->GetText();
-	std::wstring szTempString = reinterpret_cast<const wchar_t*>(pText->GetString());
-	SetWindowText( 0, reinterpret_cast<const WORD*>(szTempString.c_str()) );
+	std::wstring szTempString = NPlatform::WideFromWordString(pText->GetString());
+	SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szTempString ) ) );
 }
 void CUIScrollTextBox::Reposition( const CTRect<float> &rcParent )
 {

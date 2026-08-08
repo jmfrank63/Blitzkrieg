@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "IMSaveMission.h"
 #include "CommonId.h"
@@ -68,7 +69,7 @@ bool CInterfaceIMSaveMission::FillListItem( IUIListRow *pRow, const std::string 
 
 	const std::string szVal = GetFileChangeTimeString( szFullFileName.c_str() );
 	const std::wstring wszVal = NStr::ToUnicode( szVal );
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszVal.c_str() ) ) );
 	return true;
 }
 bool CInterfaceIMSaveMission::OnOk()
@@ -140,7 +141,7 @@ void CInterfaceIMSaveMission::OnSelectionChanged()
 	std::string szEdit = szSaves[pSelRow->GetUserData()];
 	pElement = pUIScreen->GetChildByID( 2000 );
 	const std::wstring wszEdit = NStr::ToUnicode( szEdit );
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszEdit.c_str() ) ) );
 	
 	IUIEditBox *pEdit = checked_cast<IUIEditBox *>( pUIScreen->GetChildByID( 2000 ) );		//should be EditBox
 	pEdit->SetCursor( -1 );

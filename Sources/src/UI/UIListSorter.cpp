@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 #include "UIListSorter.h"
 
 #include <cwctype>
@@ -23,9 +24,9 @@ int CompareWideNoCase( const wchar_t *left, const wchar_t *right )
 bool CUIListTextSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, const IUIListRow *pRow2, const bool bForward ) const
 {
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
-	std::wstring wsz1 = reinterpret_cast<const wchar_t*>(pElement->GetWindowText( 0 ));
+	std::wstring wsz1 = NPlatform::WideFromWordString(pElement->GetWindowText( 0 ));
 	pElement = pRow2->GetElement( nSortColumn );
-	std::wstring wsz2 = reinterpret_cast<const wchar_t*>(pElement->GetWindowText( 0 ));
+	std::wstring wsz2 = NPlatform::WideFromWordString(pElement->GetWindowText( 0 ));
 	int nRes = CompareWideNoCase( wsz1.c_str(), wsz2.c_str() );
 	if ( nRes == 0 )
 	{
@@ -37,9 +38,9 @@ bool CUIListTextSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, c
 bool CUIListNumberSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, const IUIListRow *pRow2, const bool bForward ) const
 {
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
-	std::wstring wsz1 = reinterpret_cast<const wchar_t*>(pElement->GetWindowText( 0 ));
+	std::wstring wsz1 = NPlatform::WideFromWordString(pElement->GetWindowText( 0 ));
 	pElement = pRow2->GetElement( nSortColumn );
-	std::wstring wsz2 = reinterpret_cast<const wchar_t*>(pElement->GetWindowText( 0 ));
+	std::wstring wsz2 = NPlatform::WideFromWordString(pElement->GetWindowText( 0 ));
 	std::string sz1 = NStr::ToAscii( wsz1 );
 	std::string sz2 = NStr::ToAscii( wsz2 );
 	double d1 = atof( sz1.c_str() );

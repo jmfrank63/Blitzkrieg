@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "SaveMission.h"
 
@@ -90,7 +91,7 @@ void CInterfaceSaveMission::StartInterface()
 		szSaves.push_back( files[i].szFileName );
 		std::wstring wszTemp;
 		NStr::ToUnicode( &wszTemp, files[i].szFileName.substr( 0, files[i].szFileName.rfind( '.' ) ) );
-		pStatic->SetWindowText( pStatic->GetState(), reinterpret_cast<const WORD*>( wszTemp.c_str() ) );
+		pStatic->SetWindowText( pStatic->GetState(), NPlatform::WordStringData( NPlatform::WordStringFromWide( wszTemp.c_str() ) ) );
 		pStatic->SetTextColor( dwTextColor );
 	}
 	if ( szSaves.size() > 0 )
@@ -99,7 +100,7 @@ void CInterfaceSaveMission::StartInterface()
 		szEdit = szEdit.substr( 0, szEdit.rfind( '.' ) );
 		IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( 2000 ) );
 		const std::wstring wszEdit = NStr::ToUnicode( szEdit );
-		pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
+		pEdit->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszEdit.c_str() ) ) );
 		pEdit->SetCursor( szEdit.size() );
 		pEdit->SetSel( 0, -1 );
 		pList->SetSelectionItem( 0 );
@@ -130,7 +131,7 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 				szEdit = szEdit.substr( 0, szEdit.rfind( '.' ) );
 				IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( 2000 ) );
 				const std::wstring wszEditUnicode = NStr::ToUnicode( szEdit );
-				pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEditUnicode.c_str() ) );
+				pEdit->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszEditUnicode.c_str() ) ) );
 				pEdit->SetCursor( wszEditUnicode.length() );
 				pEdit->SetSel( 0, -1 );
 				pEdit->ShowWindow( UI_SW_SHOW );

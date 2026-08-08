@@ -1,6 +1,7 @@
 #ifndef __UIBASIC_H__
 #define __UIBASIC_H__
 #include "UIInternal.h"
+#include "../Platform/LegacyText.h"
 #include "../LuaLib/Script.h"
 class CSimpleWindow;
 typedef std::list< CObj<IUIElement> > CWindowList;
@@ -92,7 +93,7 @@ public:
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
 	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
 	{ 
-		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) ); 
+		SetWindowText( nState, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszText ) ) ); 
 	}
 	virtual const WORD* STDCALL GetWindowText( int nState );
 	virtual void STDCALL SetTextColor( DWORD dwColor );
@@ -101,7 +102,7 @@ public:
 	virtual void STDCALL SetHelpContext( int nState, const WORD *pszToolTipText );
 	inline void STDCALL SetHelpContext( int nState, const wchar_t *pszToolTipText ) 
 	{ 
-		SetHelpContext( nState, reinterpret_cast<const WORD*>( pszToolTipText ) ); 
+		SetHelpContext( nState, NPlatform::WordStringData( NPlatform::WordStringFromWide( pszToolTipText ) ) ); 
 	}
 	
 	virtual void STDCALL SetWindowTexture( IGFXTexture *pTexture );

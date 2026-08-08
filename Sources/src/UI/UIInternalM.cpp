@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 #include <comdef.h>
 #include "../Main/TextSystem.h"
 #include "UIInternal.h"
@@ -6,9 +7,11 @@
 
 namespace
 {
-	inline const WORD* ToWordText( const wchar_t *pszText )
+	// Returns owned UTF-16: a 32-bit wchar_t string has no 16-bit copy to
+	// point at, so the conversion has to produce storage the caller keeps.
+	inline std::u16string ToWordText( const wchar_t *pszText )
 	{
-		return reinterpret_cast<const WORD*>( pszText );
+		return NPlatform::WordStringFromWide( pszText == 0 ? std::wstring() : std::wstring( pszText ) );
 	}
 
 	inline std::wstring ToWideText( const WORD *pszText )
@@ -169,8 +172,8 @@ void CWindowStateManipulator::SetText( const variant_t &value )
 {
 	bstr_t bstrVal = value.bstrVal;
 	IText *pText = pState->pGfxText->GetText();
-	const WORD *pszText = ToWordText( (const wchar_t*)bstrVal );
-	pText->SetText( pszText );
+	const std::u16string pszText = ToWordText( (const wchar_t*)bstrVal );
+	pText->SetText( NPlatform::WordStringData( pszText ) );
 }
 
 void CWindowStateManipulator::GetTexture( variant_t *pValue, int nIndex )

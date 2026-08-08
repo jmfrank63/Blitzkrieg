@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "GameCreationMessages.h"
 #include "../GameTT/MultiplayerCommandManager.h"
@@ -21,7 +22,7 @@ void CPlayerInfoRefreshed::SendToUI()
 
 	pCommandManager->AddCommandToUI( 
 		SToUICommand( EMTUC_UPDATE_PLAYER_INFO, 
-			new SUIPlayerInfo( info.nLogicID, szSide.c_str(), info.bReady, info.fPing, reinterpret_cast<const WORD*>( info.szName.c_str() ), info.cMapLoadProgress )
+			new SUIPlayerInfo( info.nLogicID, szSide.c_str(), info.bReady, info.fPing, NPlatform::WordStringData( NPlatform::WordStringFromWide( info.szName.c_str() ) ), info.cMapLoadProgress )
 		)
 	);
 
@@ -34,7 +35,7 @@ void CPlayerInfoRefreshed::SendToUI()
 void CPlayerDeleted::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
-	CPtr<SUIPlayerInfo> pInfo = new SUIPlayerInfo( nLogicID, "", false, -1, reinterpret_cast<const WORD*>( wszPlayerName.c_str() ), 100 );
+	CPtr<SUIPlayerInfo> pInfo = new SUIPlayerInfo( nLogicID, "", false, -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszPlayerName.c_str() ) ), 100 );
 
 	if ( eReason == ER_LEFT )
 		pCommandManager->AddCommandToUI( SToUICommand( EMTUC_PLAYER_LEFT, pInfo ) );

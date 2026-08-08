@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "../Main/iMainCommands.h"
 #include "../GameTT/iMission.h"
@@ -7,9 +8,11 @@
 
 namespace
 {
-	inline const WORD* ToWordText( const wchar_t *pszText )
+	// Returns owned UTF-16: a 32-bit wchar_t string has no 16-bit copy to
+	// point at, so the conversion has to produce storage the caller keeps.
+	inline std::u16string ToWordText( const wchar_t *pszText )
 	{
-		return reinterpret_cast<const WORD*>( pszText );
+		return NPlatform::WordStringFromWide( pszText == 0 ? std::wstring() : std::wstring( pszText ) );
 	}
 }
 
@@ -658,7 +661,7 @@ void CUIEditBox::NotifyTextChanged()
 }
 void CUIEditBox::SetWindowText( int nState, const WORD *pszText )
 {
-	wszFullText.assign( reinterpret_cast<const wchar_t*>(pszText) );
+	wszFullText.assign( NPlatform::WideFromWordString(pszText) );
 	nBeginText = 0;
 	nCursorPos = 0;
 	m_nBeginDragSel = m_nBeginSel = m_nEndSel = -1;
@@ -668,8 +671,8 @@ void CUIEditBox::EnsureCursorVisible()
 {
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;
 	IText *pText = pGFXText->GetText();
-	const WORD *pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
-	pText->SetText( pszVisibleText );
+	std::u16string pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
+	pText->SetText( NPlatform::WordStringData( pszVisibleText ) );
 	pGFXText->SetText( pText );
 
 	if ( nCursorPos <= 0 && nBeginText > 0 )
@@ -690,7 +693,7 @@ void CUIEditBox::EnsureCursorVisible()
 			nCursorPos++;
 		}
 		pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
-		pText->SetText( pszVisibleText );
+		pText->SetText( NPlatform::WordStringData( pszVisibleText ) );
 		pGFXText->SetText( pText );
 	}
 	else if ( pGFXText->GetWidth( nCursorPos ) > wndRect.Width() - vTextPos.x - 2 )
@@ -707,7 +710,7 @@ void CUIEditBox::EnsureCursorVisible()
 				wszFullText.erase( wszFullText.size() - 1 );
 			}
 			pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
-			pText->SetText( pszVisibleText );
+			pText->SetText( NPlatform::WordStringData( pszVisibleText ) );
 			pGFXText->SetText( pText );
 		}
 	}
@@ -721,8 +724,8 @@ bool CUIEditBox::IsTextInsideEditBox()
 		return true;
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;
 	IText *pText = pGFXText->GetText();
-	const WORD *pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
-	pText->SetText( pszVisibleText );
+	std::u16string pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
+	pText->SetText( NPlatform::WordStringData( pszVisibleText ) );
 	pGFXText->SetText( pText );
 	return pGFXText->GetWidth( -1 ) <= wndRect.Width() - vTextPos.x - 2;
 }

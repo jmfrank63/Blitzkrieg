@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "MultiplayerStartingGame.h"
 #include "CommonId.h"
@@ -214,8 +215,8 @@ void CInterfaceMPStartingGame::PlayerLeft( const SUIPlayerInfo * pInfo )
 	IText * pText = pTextM->GetString( "immessage-multiplayer-playerleft" );
 	if ( pText )
 	{
-		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ") + reinterpret_cast<const wchar_t*>( pText->GetString() );
-		chat.AddImportantText( reinterpret_cast<const WORD*>( wszText.c_str() ) );
+		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ") + NPlatform::WideFromWordString( pText->GetString() );
+		chat.AddImportantText( NPlatform::WordStringData( NPlatform::WordStringFromWide( wszText.c_str() ) ) );
 	}
 	DeletePlayer( pInfo );
 }
@@ -225,8 +226,8 @@ void CInterfaceMPStartingGame::PlayerKicked( const SUIPlayerInfo * pInfo )
 	IText * pText = pTextM->GetString( "immessage-multiplayer-playerkicked" );
 	if ( pText )
 	{
-		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ")+ reinterpret_cast<const wchar_t*>( pText->GetString() );
-		chat.AddImportantText( reinterpret_cast<const WORD*>( wszText.c_str() ) );
+		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ")+ NPlatform::WideFromWordString( pText->GetString() );
+		chat.AddImportantText( NPlatform::WordStringData( NPlatform::WordStringFromWide( wszText.c_str() ) ) );
 	}
 	DeletePlayer( pInfo );
 }
@@ -337,7 +338,7 @@ void CInterfaceMPStartingGame::AddOrUpdatePlayer( SUIPlayerInfo *pPlayerInfo )
 	{
 		pReadyIcon->ShowWindow( UI_SW_HIDE );
 		pDownload->ShowWindow( UI_SW_SHOW );
-		pDownload->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( NStr::Format( "%i%%", pPlayerInfo->nDownloadCount ) ).c_str() ) );
+		pDownload->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( NStr::ToUnicode( NStr::Format( "%i%%", pPlayerInfo->nDownloadCount ) ).c_str() ) ) );
 	}
 	else // ready/not ready
 	{
@@ -349,15 +350,15 @@ void CInterfaceMPStartingGame::AddOrUpdatePlayer( SUIPlayerInfo *pPlayerInfo )
 	}
 
 	IUIStatic * pPlayerName = checked_cast<IUIStatic*>( pRow->GetElement( 1 ) );
-	pPlayerName->SetWindowText( 0, reinterpret_cast<const WORD*>( pPlayerInfo->szName.c_str() ) );
+	pPlayerName->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( pPlayerInfo->szName.c_str() ) ) );
 
-	std::wstring szLocalParty = reinterpret_cast<const wchar_t*>( CUIConsts::GetLocalPartyName( pPlayerInfo->szSide.c_str() ) );
+	std::wstring szLocalParty = NPlatform::WideFromWordString( CUIConsts::GetLocalPartyName( pPlayerInfo->szSide.c_str() ) );
 	
 	IUIStatic * pTeam = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
-	pTeam->SetWindowText( 0, reinterpret_cast<const WORD*>( szLocalParty.c_str() ) );
+	pTeam->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szLocalParty.c_str() ) ) );
 
 	IUIStatic * pPing = checked_cast<IUIStatic*>( pRow->GetElement( 3 ) );
-	pPing->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( NStr::Format( "%d", int(pPlayerInfo->fPing * 1000) ) ).c_str() ) );
+	pPing->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( NStr::ToUnicode( NStr::Format( "%d", int(pPlayerInfo->fPing * 1000) ) ).c_str() ) ) );
 
 	if ( pConfiguration && pConfiguration->nLocalPlayerID == pPlayerInfo->nID  )
 	{

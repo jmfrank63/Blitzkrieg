@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "CommonId.h"
 #include "ReplayList.h"
@@ -105,7 +106,7 @@ bool CInterfaceReplayList::FillListItem( IUIListRow *pRow, const std::string &sz
 	
 	std::string szVal = GetFileChangeTimeString( szFullFileName.c_str() );
 	const std::wstring wszVal = NStr::ToUnicode( szVal );
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszVal.c_str() ) ) );
 	return true;
 }
 bool CInterfaceReplayList::OnOk( const std::string &szFullFileName )

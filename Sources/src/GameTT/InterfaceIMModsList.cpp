@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "CommonId.h"
 #include "../Main/iMainCommands.h"
@@ -60,7 +61,7 @@ bool CInterfaceIMModsList::FillListItem( IUIListRow *pRow, const std::string &sz
 		}
 		const std::string szFullModName = szMODName + " " + szMODVersion;
 		const std::wstring wszFullModName = NStr::ToUnicode( szFullModName );
-		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszFullModName.c_str() ) );
+		pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszFullModName.c_str() ) ) );
 	}
 	return true;
 }

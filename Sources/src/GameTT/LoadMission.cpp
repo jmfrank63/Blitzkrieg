@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "LoadMission.h"
 #include "MultiplayerCommandManager.h"
@@ -71,7 +72,7 @@ void CInterfaceLoadMission::StartInterface()
 		szSaves.push_back( files[i].szFileName );
 		std::wstring wszTemp;
 		NStr::ToUnicode( &wszTemp, files[i].szFileName.substr( 0, files[i].szFileName.rfind( '.' ) ) );
-		pStatic->SetWindowText( pStatic->GetState(), reinterpret_cast<const WORD*>( wszTemp.c_str() ) );
+		pStatic->SetWindowText( pStatic->GetState(), NPlatform::WordStringData( NPlatform::WordStringFromWide( wszTemp.c_str() ) ) );
 		pStatic->SetTextColor( dwTextColor );
 	}
 	
@@ -81,7 +82,7 @@ void CInterfaceLoadMission::StartInterface()
 		szEdit = szEdit.substr( 0, szEdit.rfind( '.' ) );
 		pElement = pUIScreen->GetChildByID( 2000 );
 		const std::wstring wszEdit = NStr::ToUnicode( szEdit );
-		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
+		pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszEdit.c_str() ) ) );
 		pList->SetSelectionItem( 0 );
 	}
 	
@@ -107,7 +108,7 @@ bool CInterfaceLoadMission::ProcessMessage( const SGameMessage &msg )
 				szEdit = szEdit.substr( 0, szEdit.rfind( '.' ) );
 				pElement = pUIScreen->GetChildByID( 2000 );
 				const std::wstring wszEdit = NStr::ToUnicode( szEdit );
-				pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
+				pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszEdit.c_str() ) ) );
 			}
 			return true;
 			

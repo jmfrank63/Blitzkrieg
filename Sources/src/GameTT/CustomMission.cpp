@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
@@ -40,14 +41,14 @@ bool CInterfaceCustomMission::FillListItem( IUIListRow *pRow, const std::string 
 		if ( !pElement )
 			return false;
 		const std::wstring wszSizeX = NStr::ToUnicode( NStr::Format( "%d", mapInfo.size.x ) );
-		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszSizeX.c_str() ) );
+		pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszSizeX.c_str() ) ) );
 	}
 
 	pElement = pRow->GetElement( 2 );
 	if ( !pElement )
 		return false;
 	const std::wstring wszPlayers = NStr::ToUnicode( NStr::Format( "%d", mapInfo.playerParties.size() ) );
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszPlayers.c_str() ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszPlayers.c_str() ) ) );
 
 	return true;
 }

@@ -1,5 +1,6 @@
 
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "PlayersInterface.h"
 
@@ -199,7 +200,7 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 		std::wstring wszCaption = MakeWideStringFromWordString( pTextCurrentRank->GetString() );
 		wszCaption += L" ";
 		wszCaption += pPlayerInfo->GetName();
-		pCaption->SetWindowText( 0, reinterpret_cast<const WORD*>( wszCaption.c_str() ) );
+		pCaption->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszCaption.c_str() ) ) );
 	}
 	
 	IUIListControl * pListControl = checked_cast<IUIListControl *>( pUIScreen->GetChildByID( 1000 ) );
@@ -302,7 +303,7 @@ void CPlayersInterface::SetValues( IUIListRow * pRow, const float fCurrentVal, c
 	const int nDiff = ( fCurrentVal - fFormerVal ) * nMultiply;
 
 	const std::wstring wszSkill = NStr::ToUnicode( NStr::Format("%i%%(%i)", nValue, nDiff) );
-	pText->SetWindowText( 0, reinterpret_cast<const WORD*>( wszSkill.c_str() ) );
+	pText->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszSkill.c_str() ) ) );
 	pText->ShowWindow( UI_SW_SHOW );
 }		
 bool CPlayersInterface::ProcessMessage( const SGameMessage &msg )

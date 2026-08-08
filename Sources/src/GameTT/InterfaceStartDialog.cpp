@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "InterfaceStartDialog.h"
 #include "CommonId.h"
@@ -135,7 +136,7 @@ void CInterfacePlayerProfile::StartInterface()
 	if ( szName.empty() )
 		szName = L"Player";
 
-	pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( szName.c_str() ) );
+	pEdit->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szName.c_str() ) ) );
 	
 	pButtonOK = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_OK ) );
 	pButtonCancel = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_CANCEL ) );

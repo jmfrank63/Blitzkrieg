@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 #include "MessageReactionINternal.h"
 #include "../Main/iMain.h"
 #include "../Input/Input.h"
@@ -38,10 +39,10 @@ bool CMessageAtomReactionSetWindowTextFromGlobalVar::Execute()
 	NStr::DebugTrace( "\t\t SetWindowTextFromGlobalVar \twnd =\t\"%s\"\t(%d), \ttext =\t\"%s\"\n", 
 										szWindowID.c_str(), 
 										nWindowID, 
-										NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( GetGlobalWVar( szTextKey.c_str(), reinterpret_cast<const WORD*>( L"" ) ) ) ) ).c_str() );
+										NStr::ToAscii( std::wstring( NPlatform::WideFromWordString( GetGlobalWVar( szTextKey.c_str(), NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) ) ) ) ).c_str() );
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	
-	GetSingleton<IMessageLinkContainer>()->SetWindowText( nWindowID, GetGlobalWVar(szTextKey.c_str(), reinterpret_cast<const WORD*>( L"" )) );
+	GetSingleton<IMessageLinkContainer>()->SetWindowText( nWindowID, GetGlobalWVar(szTextKey.c_str(), NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" )) ) );
 	return true;
 }
 bool CMessageAtomReactionSetWindowText::Execute() 

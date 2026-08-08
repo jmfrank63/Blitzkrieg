@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 #include "TextManager.h"
 #include "TextObject.h"
 bool CTextManager::Init()
@@ -48,9 +49,14 @@ bool CTextManager::AddTextFile( const char *pszFileName )
 	NI_ASSERT_TF( wSignature == 0xfeff, NStr::Format("Text set \"%s\" is not a UNICODE text!", pszFileName), return false );
 	const int nSize = pStream->GetSize() - 2;
 	NI_ASSERT_TF( !(nSize & 0x01), "The file size is incorrect, the size of UNICODE file should be even", return false );	
-	std::wstring szString;
-	szString.resize( nSize / 2 );
-	const int nCheck = pStream->Read( &(szString[0]), nSize );
+	// The file is UTF-16, so it has to be read into 16-bit elements: reading it
+	// straight into a wstring allocates nSize/2 elements but fills only nSize
+	// bytes of them, which on a 32-bit wchar_t merges every character pair and
+	// drops every second character. Widen afterwards for the parsing below.
+	std::u16string wordString;
+	wordString.resize( nSize / 2 );
+	const int nCheck = pStream->Read( &(wordString[0]), nSize );
+	const std::wstring szString( wordString.begin(), wordString.end() );
 	NI_ASSERT_SLOW_TF( nCheck == nSize, "Readed size doesn't match requested", return false );
 	const wchar_t wSeparator = L'\n';
 	int nPos = 0, nLastPos = 0;
@@ -62,7 +68,7 @@ bool CTextManager::AddTextFile( const char *pszFileName )
 		if ( ExtractKeyAndValue(szString.substr(nLastPos, nPos - nLastPos), &szKey, &wszValue) == true )
 		{
 			CPtr<CTextString> pTextString = new CTextString;
-			pTextString->SetText( reinterpret_cast<const WORD*>( wszValue.c_str() ) );
+			pTextString->SetText( NPlatform::WordStringData( NPlatform::WordStringFromWide( wszValue.c_str() ) ) );
 			shareString.AddPair( szKey, pTextString );
 		}
 		nLastPos = nPos + 1;

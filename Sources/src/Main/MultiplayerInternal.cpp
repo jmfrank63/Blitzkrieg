@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "MultiplayerInternal.h"
 #include "GameCreationInterfaces.h"
@@ -379,7 +380,7 @@ void CMultiplayer::ProcessChat()
 			if ( pMessage->GetMessageID() == E_CHAT_MESSAGE )
 			{
 				const WORD *wpszSentPlayer = checked_cast<CChatMessage*>(pMessage)->GetPlayerNick();
-				if ( GetSingleton<IUserProfile>()->GetChatRelation( reinterpret_cast<const wchar_t*>( wpszSentPlayer ) ) == EPR_IGNORED )
+				if ( GetSingleton<IUserProfile>()->GetChatRelation( NPlatform::WideFromWordString( wpszSentPlayer ).c_str() ) == EPR_IGNORED )
 					continue;
 			}
 			
@@ -583,7 +584,7 @@ void CGameSpyMultiplayer::Init()
 #if BK_ENABLE_GAMESPY
 	SetChat( new CGameSpyPeerChat() );
 
-	std::wstring wszUserName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( L"Noname" ) ) );
+	std::wstring wszUserName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Noname" ) ) ) );
 	if ( wszUserName == L"Noname" )
 		wszUserName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 	

@@ -54,6 +54,12 @@ public:
 	virtual const wchar_t * STDCALL GetTextOption () const ;
 	virtual const wchar_t * STDCALL GetTextGameSpyOption() const ;
 	virtual const int STDCALL GetTextNumericOption() const;
+private:
+	// Backing store for the two accessors that return a raw const wchar_t*.
+	// The text arrives from the UI as UTF-16 and has to be widened, so the
+	// result needs an owner that outlives the call.
+	mutable std::wstring szWideTextCache;
+	mutable std::wstring szWideGameSpyCache;
 };
 typedef std::list<SOptionDesc> OptionDescs;
 class COptionsListWrapper : public IRefCount

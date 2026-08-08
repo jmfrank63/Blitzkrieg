@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "MainLoopCommands.h"
 
@@ -39,7 +40,7 @@ void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 	{
 		if ( pText->GetString() != 0 ) 
 		{
-			std::wstring szString( reinterpret_cast<const wchar_t*>( pText->GetString() ) );
+			std::wstring szString( NPlatform::WideFromWordString( pText->GetString() ) );
 			szString += L" " + NStr::ToUnicode( szFileName );
 			GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szString.c_str(), 0xff00ff00 );
 		}

@@ -2,13 +2,17 @@
 #define __GLOBAL_VARS_H__
 #pragma ONCE
 #include "../Misc/FileUtils.h"
+#include "../Platform/LegacyText.h"
 class CGlobalVars : public IGlobalVars
 {
 	OBJECT_NORMAL_METHODS( CGlobalVars );
 	typedef std::unordered_map<std::string, std::string> CValuesMap;
 	CValuesMap values;
 	
-	typedef std::unordered_map<std::string, std::wstring> CWValuesMap;
+	// UTF-16 storage: these values are handed to and taken from the module
+	// interfaces as const WORD*, so holding them in a 16-bit string keeps both
+	// directions a plain view instead of a width-changing cast.
+	typedef std::unordered_map<std::string, std::u16string> CWValuesMap;
 	CWValuesMap wValues;
 public:
 	virtual const char* STDCALL GetVar( const char *pszValueName ) const
@@ -86,13 +90,13 @@ public:
 
 	virtual void STDCALL SetVar( const char *pszValueName, const WORD *pszValue )
 	{
-		wValues[pszValueName] = reinterpret_cast<const wchar_t*>(pszValue);
+		wValues[pszValueName] = pszValue == 0 ? u"" : reinterpret_cast<const char16_t*>(pszValue);
 	}
 
 	virtual const WORD* STDCALL GetWVar( const char *pszValueName ) const
 	{
 		CWValuesMap::const_iterator pos = wValues.find( pszValueName );
-		return pos == wValues.end() ? 0 : reinterpret_cast<const WORD*>(pos->second.c_str());
+		return pos == wValues.end() ? 0 : NPlatform::WordStringData( pos->second );
 	}
 
 	virtual void STDCALL RemoveWVar( const char *pszValueName )

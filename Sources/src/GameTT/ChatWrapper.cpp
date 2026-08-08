@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "ChatWrapper.h"
 #include "MultiplayerCommandManager.h"
@@ -14,7 +15,7 @@ void CChatWrapper::AddMessageToChat( const struct SChatMessage *pChatMessage )
 			szName += MakeWideStringFromWordString( pText->GetString() );
 	}
 	szName += L":";
-	pChatText->AppendMessage( reinterpret_cast<const WORD*>( szName.c_str() ), reinterpret_cast<const WORD*>( pChatMessage->szMessageText.c_str() ) );
+	pChatText->AppendMessage( NPlatform::WordStringData( NPlatform::WordStringFromWide( szName.c_str() ) ), NPlatform::WordStringData( NPlatform::WordStringFromWide( pChatMessage->szMessageText.c_str() ) ) );
 }
 void CChatWrapper::AddEditBoxText( const bool bWhisper )
 {
@@ -32,15 +33,15 @@ void CChatWrapper::AddEditBoxText( const bool bWhisper )
 		if ( !wszText.empty() )
 		{
 			CPtr<SChatMessage> pChatMessage = new SChatMessage( 
-				reinterpret_cast<const WORD*>( wszText.c_str() ), ( bWhisper ? pWhisper->GetDestinationName(): reinterpret_cast<const WORD*>(L"") ), bWhisper );
+				NPlatform::WordStringData( NPlatform::WordStringFromWide( wszText.c_str() ) ), ( bWhisper ? pWhisper->GetDestinationName() : NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) ), bWhisper );
 			pCommandManager->AddChatMessageFromUI( pChatMessage );
-			pChatEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
+			pChatEdit->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) );
 		}
 	}
 }		
 void CChatWrapper::ClearEditBoxText()
 {
-	pChatEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
+	pChatEdit->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( L"" ) ) );
 	pChatEdit->SetFocus( true );
 }
 void CChatWrapper::Init( IUIColorTextScroll * _pChatText,

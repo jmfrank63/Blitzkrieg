@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "../Main/Transceiver.h"
 #include "../Main/GameStats.h"
@@ -159,7 +160,7 @@ void CInterfaceCutsceneList::StartInterface()
 			if ( nPos != std::string::npos )
 				szVideoName = szVideoName.substr( nPos + 1 );
 			const std::wstring wszVideoName = NStr::ToUnicode( szVideoName );
-			pContainer->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVideoName.c_str() ) );
+			pContainer->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszVideoName.c_str() ) ) );
 		}
 		
 		IUIElement *pElement = pContainer->GetChildByID( 1 );

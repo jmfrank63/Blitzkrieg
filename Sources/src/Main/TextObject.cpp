@@ -36,19 +36,19 @@ bool CTextDialog::Load( const bool bPreLoad )
 	szString.resize( nSize / 2 );
 	const int nCheck = pStream->Read( &(szString[0]), nSize );
 	NI_ASSERT_SLOW_TF( nCheck == nSize, NStr::Format("Readed size (%d) doesn't match requested (%d)", nCheck, nSize), return false );
-	int nPos = szString.find_last_not_of( L'\n' );
+	int nPos = szString.find_last_not_of( u'\n' );
 	while ( nPos + 1 < szString.size() ) 
 	{
 		if ( nPos == std::string::npos )
 		{
-			if ( szString.find_first_of( L'\n' ) == 0 )
+			if ( szString.find_first_of( u'\n' ) == 0 )
 				szString.clear();
 			break;
 		}
 		else
 		{
 			szString.erase( nPos, std::string::npos );
-			nPos = szString.find_last_not_of( L'\n' );
+			nPos = szString.find_last_not_of( u'\n' );
 		}
 	}
 
@@ -56,6 +56,6 @@ bool CTextDialog::Load( const bool bPreLoad )
 }
 void CTextDialog::SetText( const WORD *pszText ) 
 { 
-	szString = pszText == 0 ? L"" : reinterpret_cast<const wchar_t*>(pszText);
+	szString = pszText == 0 ? u"" : reinterpret_cast<const char16_t*>(pszText);
 	bChanged = true; 
 }

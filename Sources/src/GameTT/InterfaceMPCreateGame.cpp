@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "InterfaceMPCreateGame.h"
 
@@ -184,18 +185,18 @@ void CInterfaceMPCreateGame::PrepareMapsList()
 		{
 			IUIListRow * pRow = mapsList.Add( pInfo );
 			IUIStatic * pMapName = checked_cast<IUIStatic*>( pRow->GetElement( 0 ) );
-			pMapName->SetWindowText( 0, reinterpret_cast<const WORD*>( pInfo->GetVisualName() ) );
+			pMapName->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( pInfo->GetVisualName() ) ) );
 			
 			IUIStatic *pGameType = checked_cast<IUIStatic*>( pRow->GetElement( 1 ) );
 			pGameType->SetWindowText( 0, CUIConsts::GetMapTypeString( pInfo->mapInfo.nType ) );
 			
 			IUIStatic * pMaxPlayers = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
 			std::wstring wszMaxPlayers = NStr::ToUnicode( NStr::Format( "%d", pInfo->mapInfo.playerParties.size() ) );
-			pMaxPlayers->SetWindowText( 0, reinterpret_cast<const WORD*>( wszMaxPlayers.c_str() ) );
+			pMaxPlayers->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszMaxPlayers.c_str() ) ) );
 
 			IUIStatic *pMapSize = checked_cast<IUIStatic*>( pRow->GetElement( 3 ) );
 			std::wstring wszMapSize = NStr::ToUnicode( NStr::Format( "%d", pInfo->mapInfo.size.x ) );
-			pMapSize->SetWindowText( 0, reinterpret_cast<const WORD*>( wszMapSize.c_str() ) );
+			pMapSize->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszMapSize.c_str() ) ) );
 
 			const std::string szMapName = "maps\\" + pInfo->szPath;
 			CMinimapCreation::Create1Minimap( szMapName, szMapName );

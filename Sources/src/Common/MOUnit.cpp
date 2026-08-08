@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "MOUnit.h"
 
@@ -156,7 +157,7 @@ void CMOUnit::GetStatus( struct SMissionStatusObject *pStatus ) const
 		const std::wstring wszStateName = pState ? NStr::ToUnicode( szStateName ) : L"";
 		const std::wstring wszName = NStr::ToUnicode( NStr::Format( "id %d", GetSingleton<IAILogic>()->GetUniqueIDOfObject( pAIObj ) ) ) +
 																 NStr::ToUnicode( szFrozenInfo ) +
-																 L"," + wszStateName + L"," + reinterpret_cast<const wchar_t*>(pName->GetString());
+																 L"," + wszStateName + L"," + NPlatform::WideFromWordString(pName->GetString());
 		memcpy( pStatus->pszName, wszName.c_str(), (wszName.size() + 1) * 2 );
 	}
 #else

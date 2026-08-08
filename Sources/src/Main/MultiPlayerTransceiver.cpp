@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include <float.h>
 
@@ -120,7 +121,7 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 		player.lastLagUpdateTime = 0;
 
 		szValueName = NStr::Format( "Multiplayer.Player%d.Name", i );
-		player.szName = MakeWideStringFromWordString( GetGlobalWVar( szValueName.c_str(), reinterpret_cast<const WORD*>( L"Unknown Player" ) ) );
+		player.szName = MakeWideStringFromWordString( GetGlobalWVar( szValueName.c_str(), NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Unknown Player" ) ) ) );
 
 		szValueName = NStr::Format( "Multiplayer.Player%d.Side", i );
 		player.nSide = GetGlobalVar( szValueName.c_str(), int(-1) );
@@ -264,7 +265,7 @@ void CMultiPlayerTransceiver::SendChatMessages()
 	{
 		std::wstring szMessageType = pszString;
 		const wchar_t *pszString1 = pBuffer->Read( CONSOLE_STREAM_NET_CHAT );
-		pMultiplayer->SendInGameChatMessage( reinterpret_cast<const WORD*>( szMessageType.c_str() ), reinterpret_cast<const WORD*>( pszString1 ) );
+		pMultiplayer->SendInGameChatMessage( NPlatform::WordStringData( NPlatform::WordStringFromWide( szMessageType.c_str() ) ), NPlatform::WordStringData( NPlatform::WordStringFromWide( pszString1 ) ) );
 	}
 }
 void CMultiPlayerTransceiver::SegmentFinished()

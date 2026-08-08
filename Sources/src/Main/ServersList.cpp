@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "ServersList.h"
 #include "MultiplayerConsts.h"
@@ -274,7 +275,7 @@ void CGameSpyServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pInG
 	{
 		*pChat = new CGameSpyPeerChat();
 		
-		std::wstring szPlayerName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( L"Noname" ) ) );
+		std::wstring szPlayerName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Noname" ) ) ) );
 		if ( szPlayerName == L"Noname" )
 			szPlayerName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 

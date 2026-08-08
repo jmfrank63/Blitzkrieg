@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "Stats.h"
 
@@ -304,7 +305,7 @@ void CInterfaceStats::FillCommonStatsList( const bool bMultiplayer, const CInter
 
 		const std::wstring szValue = commonStats.GetStatValue( i );
 		IUIElement * pActualText = checked_cast<IUIContainer*>(pRow->GetElement( 1 ))->GetChildByID( E_ACTUAL_TEXT_ID );
-		pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( szValue.c_str() ) );
+		pActualText->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szValue.c_str() ) ) );
 
 		pActualText->ShowWindow( UI_SW_SHOW );
 	}
@@ -381,9 +382,9 @@ void CInterfaceStats::RepositionList()
 				{
 					pList->SetSortFunctor( nIndex, pSorter );
 					IUIContainer * pElement = checked_cast<IUIContainer*>( pRow->GetElement( nIndex++ ) ); 
-					pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( partyInfo[nParty][nStatFeild].GetValForSort( playerStatsConfigure[nStatFeild] ).c_str() ) );
+					pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( partyInfo[nParty][nStatFeild].GetValForSort( playerStatsConfigure[nStatFeild] ).c_str() ) ) );
 					IUIElement * pActualText = pElement->GetChildByID( E_ACTUAL_TEXT_ID_PARTY );
-					pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( partyInfo[nParty][nStatFeild].GetPartyVal( playerStatsConfigure[nStatFeild] ).c_str() ) );
+					pActualText->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( partyInfo[nParty][nStatFeild].GetPartyVal( playerStatsConfigure[nStatFeild] ).c_str() ) ) );
 					pActualText->ShowWindow( UI_SW_SHOW );
 					pElement->EnableWindow( false );
 				}
@@ -397,7 +398,7 @@ void CInterfaceStats::RepositionList()
 				pList->AddItem( nPlayer + 1 );
 				const int nRowID = pList->GetItemByID( nPlayer + 1 );
 				IUIListRow * pRow = pList->GetItem( nRowID );
-				pRow->GetElement( 0 )->SetWindowText( 0, reinterpret_cast<const WORD*>( playersInfo[nPlayer].first->GetName().c_str() ) );
+				pRow->GetElement( 0 )->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( playersInfo[nPlayer].first->GetName().c_str() ) ) );
 				pRow->GetElement( 0 )->EnableWindow( false );
 				int nIndex = 1;	// +1 because of party's name
 				for ( int nStatFeild = 0; nStatFeild < playerStatsConfigure.size(); ++nStatFeild )
@@ -409,9 +410,9 @@ void CInterfaceStats::RepositionList()
 						const SPlayerStatInfo  &curPlayerStat = playerStat[nPlayer + (nParty == 1 ? nPlayersIn0Party : 0 )][nStatFeild];
 												
 						IUIContainer * pElement = checked_cast<IUIContainer*>( pRow->GetElement( nIndex++ ) ); 
-						pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( curPlayerStat.GetValueToSort( curConfigure ).c_str() ) );
+						pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( curPlayerStat.GetValueToSort( curConfigure ).c_str() ) ) );
 						IUIElement * pActualText = pElement->GetChildByID( E_ACTUAL_TEXT_ID );
-						pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( curPlayerStat.GetValue( curConfigure ).c_str() ) );
+						pActualText->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( curPlayerStat.GetValue( curConfigure ).c_str() ) ) );
 						pActualText->ShowWindow( UI_SW_SHOW );
 						pElement->EnableWindow( false );
 

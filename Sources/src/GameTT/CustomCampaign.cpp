@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
@@ -43,7 +44,7 @@ bool CInterfaceCustomCampaign::FillListItem( IUIListRow *pRow, const std::string
 	if ( !pElement )
 		return false;
 	const std::wstring wszChapters = NStr::ToUnicode( NStr::Format( "%d", pStats->chapters.size() ) );
-	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszChapters.c_str() ) );
+	pElement->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszChapters.c_str() ) ) );
 
 	return true;
 }

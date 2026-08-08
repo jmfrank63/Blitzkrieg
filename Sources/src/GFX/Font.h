@@ -48,7 +48,10 @@ public:
   virtual int STDCALL GetAscent() const { return format.metrics.nAscent; }
   virtual int STDCALL GetDescent() const { return format.metrics.nDescent; }
   virtual int STDCALL GetTextWidth( const char *pszString, int nCounter = 2000000000 ) const { return GetTextWidthLocal( pszString, nCounter ); }
-	virtual int STDCALL GetTextWidth( const WORD *pszString, int nCounter = 2000000000 ) const { return GetTextWidthLocal( reinterpret_cast<const wchar_t*>( pszString ), nCounter ); }
+	// GetTextWidthLocal is a template, so the UTF-16 string is measured as-is.
+	// Casting it to wchar_t here would have merged character pairs wherever
+	// wchar_t is 32 bits and mismeasured every string.
+	virtual int STDCALL GetTextWidth( const WORD *pszString, int nCounter = 2000000000 ) const { return GetTextWidthLocal( pszString, nCounter ); }
   virtual int STDCALL EstimateTextWidth( const char *pszString ) const;
 	bool FillGeometryData( const char *pszString, float sx, const float sy,
                          const DWORD dwColor, const DWORD dwSpecular,

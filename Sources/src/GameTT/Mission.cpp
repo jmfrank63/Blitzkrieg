@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "Mission.h"
 
@@ -218,7 +219,7 @@ void CInterfaceAboutMission::StartInterface()
 	NI_ASSERT_T( pDesc != 0, "Invalid mission text description control" );
 	std::wstring szDescription;
 	CUIConsts::CreateDescription( &pChapterStats->missions[nMissionIndex], &szDescription, false );
-	pDesc->SetWindowText( 0, reinterpret_cast<const WORD*>( szDescription.c_str() ) );
+	pDesc->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szDescription.c_str() ) ) );
 	
 	IUIElement *pObjectivesScreen = pUIScreen->GetChildByID( 4000 );
 	pObjectivesScreen->ShowWindow( UI_SW_SHOW );		//����� ���������� ���� �������� objectives
