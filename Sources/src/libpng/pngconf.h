@@ -181,9 +181,14 @@
  * just __MWERKS__ is not good enough, because the Codewarrior is now used
  * on non-Mac platforms.
  */
+/* MACOS here means *classic* Mac OS, whose toolchain lacks <sys/types.h> and
+   spells the math header <fp.h>. TargetConditionals.h defines TARGET_OS_MAC to 1
+   on every modern Apple target, which wrongly selected that classic path; modern
+   macOS is a POSIX system, so exclude it via __APPLE__. */
 #ifndef MACOS
 #  if (defined(__MWERKS__) && defined(macintosh)) || defined(applec) || \
-      defined(THINK_C) || defined(__SC__) || defined(TARGET_OS_MAC)
+      defined(THINK_C) || defined(__SC__) || \
+      (defined(TARGET_OS_MAC) && !defined(__APPLE__))
 #    define MACOS
 #  endif
 #endif

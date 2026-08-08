@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "SoundScene.h"
+#include "../Platform/LegacyAlgorithm.h"
 #include "../Formats/fmtTerrain.h"
 #include "../Scene/Terrain.h"
 #include "../Formats/fmtMap.h"
@@ -231,7 +232,7 @@ void CSoundScene::CPlayList::Clear()
 }
 void CSoundScene::CPlayList::Shuffle()
 { 
-	std::random_shuffle( melodies.begin(), melodies.end() ); 
+	NPlatform::RandomShuffle( melodies.begin(), melodies.end() ); 
 }
 void CSoundScene::CPlayList::AddMelody( const std::string &pszFileName ) 
 {

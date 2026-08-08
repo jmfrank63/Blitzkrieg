@@ -2,6 +2,7 @@
 
 #include "EnemyRememberer.h"
 #include "GeneralHelper.h"
+#include "../Platform/LegacyAlgorithm.h"
 #include "GeneralAirForce.h"
 #include "GeneralInternalInterfaces.h"
 #include "UnitCreation.h"
@@ -358,7 +359,7 @@ void CGeneralAirForce::LaunchScoutFree( const int nPlayer )
 		}
 	}
 	SGeneralHelper::SRandomFunctor pr;
-	std::random_shuffle( points.begin(), points.end(), pr );
+	NPlatform::RandomShuffle( points.begin(), points.end(), pr );
 
 	const CVec2 vAppearPoint( theUnitCreation.GetRandomAppearPoint( nPlayer ) );
 	const float fFlyHeight( theUnitCreation.GetPlaneFlyHeight( nPlayer, SUCAviation::AT_SCOUT ) );

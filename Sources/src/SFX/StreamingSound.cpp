@@ -1,10 +1,11 @@
 #include "StdAfx.h"
 
 #include "StreamingSound.h"
+#include "../Platform/LegacyAlgorithm.h"
 void CPlayList::CreateRandomList()
 {
 	szRandomized = szMelodies;
-	std::random_shuffle( szRandomized.begin(), szRandomized.end() );
+	NPlatform::RandomShuffle( szRandomized.begin(), szRandomized.end() );
 }
 const char* CPlayList::GetNextMelody()
 {

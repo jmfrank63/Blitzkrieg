@@ -210,7 +210,11 @@
 #   define FAR
 #endif
 
-#if !defined(MACOS) && !defined(TARGET_OS_MAC)
+/* Byte is predefined only when Apple's MacTypes.h has actually been included.
+   The historical TARGET_OS_MAC guard is wrong on modern macOS: TargetConditionals.h
+   defines TARGET_OS_MAC to 1 for every Apple target, so the typedef was skipped
+   and Bytef degraded to implicit int. Match upstream zlib and key off __MACTYPES__. */
+#if !defined(MACOS) && !defined(__MACTYPES__)
 typedef unsigned char  Byte;  /* 8 bits */
 #endif
 typedef unsigned int   uInt;  /* 16 bits or more */

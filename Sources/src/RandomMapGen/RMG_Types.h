@@ -2,6 +2,7 @@
 #define __RMG_TYPES_H__
 #include "../Formats/fmtMap.h"
 #include "WV_Types.h"
+#include "../Platform/LegacyAlgorithm.h"
 extern const char *RMGC_CONTAINER_XML_NAME;
 extern const char *RMGC_GRAPH_XML_NAME;
 extern const char *RMGC_OBJECTSET_XML_NAME;
@@ -679,7 +680,7 @@ public:
 				_bonuses.push_back( it->szRPGStats );
 			}
 		}
-		std::random_shuffle( _bonuses.begin(), _bonuses.end() );
+		NPlatform::RandomShuffle( _bonuses.begin(), _bonuses.end() );
 	}
 	
 	void GetAllRandomBonuses( std::vector<std::string> &_bonuses ) const

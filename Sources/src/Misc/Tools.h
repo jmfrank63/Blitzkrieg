@@ -4,11 +4,18 @@
 #pragma once
 #endif // _MSC_VER > 1000
 #include <math.h>
+// Guard the CPUID headers on the x86 family, not merely on "not 32-bit x86":
+// <cpuid.h> and <intrin.h> are x86-only and hard-error on AArch64.
+#if defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__) || defined(__i386__)
+#define BK_HAS_X86_CPUID 1
+#endif
 #if !defined(_M_IX86)
+#if defined(BK_HAS_X86_CPUID)
 #if defined(_MSC_VER)
 #include <intrin.h>
-#elif defined(__GNUC__) || defined(__clang__)
+#else
 #include <cpuid.h>
+#endif
 #endif
 #include <string.h>										// memcpy for the x64 CopyNBytes branches
 #endif
@@ -760,7 +767,11 @@ inline DWORD GetCPUID()
 #else
 inline DWORD GetCPUID()
 {
-#if defined(_MSC_VER)
+#if !defined(BK_HAS_X86_CPUID)
+	// Non-x86 (AArch64): the caller only tests the x86 MMX/SSE feature bits
+	// above, so reporting "no x86 features present" is the correct answer.
+	return 0;
+#elif defined(_MSC_VER)
 	int nInfo[4] = { 0, 0, 0, 0 };
 	__cpuid( nInfo, 1 );
 	return static_cast<DWORD>( nInfo[3] );

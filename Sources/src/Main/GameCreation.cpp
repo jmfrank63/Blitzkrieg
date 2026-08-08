@@ -1,6 +1,8 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "GameCreation.h"
+#include "../Platform/LegacyAlgorithm.h"
 #include "ServerInfo.h"
 #include "GameCreationMessages.h"
 #include "GamePlaying.h"
@@ -264,7 +266,7 @@ void CCommonGameCreationInfo::DistributePlayersNumbers()
 		while ( allPlayers.size() < sides[i].nMaxPlayers )
 			allPlayers.push_back( -1 );
 
-		std::random_shuffle( allPlayers.begin(), allPlayers.end() );
+		NPlatform::RandomShuffle( allPlayers.begin(), allPlayers.end() );
 
 		std::vector<int>::const_iterator iter = allPlayers.begin();
 		for ( int nPlayer = mapInfo.playerParties.size() - 1; nPlayer >= 0; --nPlayer )
@@ -443,7 +445,7 @@ void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOut
 	players[0].eState = SPlayerInfo::EPS_VALID;
 	NStr::SetCodePage( GetACP() );
 	
-	players[0].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( L"Noname" ) ) );
+	players[0].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Noname" ) ) ) );
 	if ( players[0].szName == L"Noname" )
 		players[0].szName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 
@@ -1087,7 +1089,7 @@ void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt
 	players[nLogicID].eState = SPlayerInfo::EPS_CONNECTED;
 	NStr::SetCodePage( GetACP() );
 
-	players[nLogicID].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( L"Noname" ) ) );
+	players[nLogicID].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Noname" ) ) ) );
 	if ( players[nLogicID].szName == L"Noname" )
 		players[nLogicID].szName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 

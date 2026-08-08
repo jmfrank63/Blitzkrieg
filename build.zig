@@ -695,29 +695,35 @@ const cppflags_game_release = &.{
 };
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{
+    const selected_target = b.standardTargetOptions(.{
         .default_target = .{
             .cpu_arch = .x86_64,
             .os_tag = .windows,
             .abi = .msvc,
         },
     });
-    const platform = build_support.classify(target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
-    build_target_os = target.result.os.tag;
+    const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
+    build_target_os = selected_target.result.os.tag;
     build_host_os = b.graph.host.result.os.tag;
     // Runtime eligibility follows the host OS and CPU. Windows can execute
     // an MSVC-targeted binary even when the Zig host itself reports the GNU
     // Windows ABI (the common Scoop Zig installation does); ABI selection is
     // still enforced by the target and linker configuration below.
-    const native_target = target.result.os.tag == b.graph.host.result.os.tag and
-        target.result.cpu.arch == b.graph.host.result.cpu.arch;
+    const native_target = selected_target.result.os.tag == b.graph.host.result.os.tag and
+        selected_target.result.cpu.arch == b.graph.host.result.cpu.arch;
     // Preserve an explicitly selected target for project artifacts, but let
     // dependencies see Zig's native target query when the OS and CPU match.
     // SDL distinguishes native macOS builds from cross-compiles using the
     // target query; forwarding `-Dtarget=aarch64-macos` verbatim on an Apple
     // Silicon host incorrectly makes SDL require an explicit SDK sysroot.
     const dependency_target = if (native_target and
-        target.result.abi == b.graph.host.result.abi) b.graph.host else target;
+        selected_target.result.abi == b.graph.host.result.abi) b.graph.host else selected_target;
+    // The project's own macOS modules link SDL's Apple frameworks transitively.
+    // Zig only populates SDK framework search paths for a *native* target query,
+    // so an explicit `-Dtarget=aarch64-macos` yields "searched paths: none" at
+    // link time. Reuse the native query on Apple hosts; Windows and Linux keep
+    // the explicitly selected target unchanged.
+    const target = if (selected_target.result.os.tag == .macos) dependency_target else selected_target;
     const test_mode_text = b.option([]const u8, "test-mode", "Test execution mode: compile or run") orelse switch (build_support.defaultTestMode(native_target)) {
         .compile => "compile",
         .run => "run",
@@ -819,6 +825,7 @@ pub fn build(b: *std.Build) void {
         linkMsvcRuntime(platform_runtime_module, .Debug);
         platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     }
+    applyMacosLoaderPath(target, platform_runtime_module);
     const platform_runtime = b.addLibrary(.{
         .name = "PlatformRuntime",
         .linkage = .dynamic,
@@ -1426,7 +1433,13 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| gfx_reference_compare_run.addArgs(args);
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
-    const options_bridge = addOptionsBridge(b, target, optimize, toolchain, platform_runtime, sdl_c);
+    // StreamIOOptionsAbi ships in the same directory as the shared libSDL3.dylib
+    // and is loaded alongside it. Linking the *static* SDL3 here would put a
+    // second copy of SDL's Objective-C classes into the process, which the
+    // runtime reports as duplicate class implementations and which dyld resolves
+    // arbitrarily. Share the one SDL3 image on macOS.
+    const options_bridge_sdl = if (target.result.os.tag == .macos) sdl_dynamic else sdl_c;
+    const options_bridge = addOptionsBridge(b, target, optimize, toolchain, platform_runtime, options_bridge_sdl);
     const options_bridge_test_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
@@ -2041,6 +2054,7 @@ fn addOptionsBridge(
     module.linkLibrary(platform_runtime);
     module.linkLibrary(sdl_c);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
+    applyMacosLoaderPath(target, module);
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
 }
 
@@ -2093,6 +2107,7 @@ fn addStreamIOZig(
         "Sources/src/StreamIOZig/StreamIO.def"
     else
         "Sources/src/StreamIOZig/StreamIO.x64.def";
+    applyMacosLoaderPath(target, streamio_module);
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
@@ -2194,12 +2209,20 @@ fn addLegacyProjectDll(
         module.linkSystemLibrary("odbccp32", .{});
         linkComSupport(module, optimize);
     }
-    return b.addLibrary(.{
+    applyMacosLoaderPath(target, module);
+    const library = b.addLibrary(.{
         .name = name,
         .linkage = .dynamic,
         .root_module = module,
         .win32_module_definition = if (target.result.os.tag == .windows) b.path(definition) else null,
     });
+    // These engine modules are loaded by Game, which owns the Main objects they
+    // call back into (RPGStats typeinfo, for example). ELF permits those
+    // undefined symbols in a shared object by default, which is what the Linux
+    // build relies on; Mach-O rejects them unless asked to defer resolution to
+    // load time, so opt macOS into the same contract.
+    if (target.result.os.tag == .macos) library.linker_allow_shlib_undefined = true;
+    return library;
 }
 
 fn addMain(
@@ -2327,13 +2350,16 @@ fn addGame(
     });
     }
 
+    applyMacosLoaderPath(target, game_module);
     const game = b.addExecutable(.{
         .name = "Game",
         .root_module = game_module,
     });
-    if (target.result.os.tag == .linux) {
+    if (target.result.os.tag == .linux or target.result.os.tag == .macos) {
         // Legacy modules resolve RTTI owned by Main from the executable when
         // they are loaded with RTLD_NOW (for example SBuildingRPGStats).
+        // macOS needs the same export set: its module dylibs defer those
+        // symbols to load time, so they must be visible in the executable.
         game.rdynamic = true;
     }
     game.subsystem = switch (build_support.subsystem(platform, true)) {
@@ -2466,6 +2492,7 @@ fn addImage(
     linkMsvcRuntime(image_module, optimize);
     if (target.result.os.tag == .windows) image_module.linkSystemLibrary("user32", .{});
 
+    applyMacosLoaderPath(target, image_module);
     return b.addLibrary(.{
         .name = "Image",
         .linkage = .dynamic,
@@ -2536,6 +2563,7 @@ fn addNet(
         net_module.linkSystemLibrary("odbccp32", .{});
     }
 
+    applyMacosLoaderPath(target, net_module);
     return b.addLibrary(.{
         .name = "Net",
         .linkage = .dynamic,
@@ -2661,6 +2689,7 @@ fn addInput(
         linkComSupport(input_module, optimize);
     }
 
+    applyMacosLoaderPath(target, input_module);
     return b.addLibrary(.{
         .name = "Input",
         .linkage = .dynamic,
@@ -2774,6 +2803,7 @@ fn addAnim(
     }
     if (target.result.os.tag == .windows) linkComSupport(anim_module, optimize);
 
+    applyMacosLoaderPath(target, anim_module);
     return b.addLibrary(.{
         .name = "Anim",
         .linkage = .dynamic,
@@ -2862,6 +2892,7 @@ fn addUI(
     }
     if (target.result.os.tag == .windows) linkComSupport(ui_module, optimize);
 
+    applyMacosLoaderPath(target, ui_module);
     return b.addLibrary(.{
         .name = "UI",
         .linkage = .dynamic,
@@ -2965,6 +2996,7 @@ fn addSFX(
         linkComSupport(sfx_module, optimize);
     }
 
+    applyMacosLoaderPath(target, sfx_module);
     return b.addLibrary(.{
         .name = "SFX",
         .linkage = .dynamic,
@@ -3053,6 +3085,7 @@ fn addGFX(
         linkComSupport(gfx_module, optimize);
     }
 
+    applyMacosLoaderPath(target, gfx_module);
     return b.addLibrary(.{
         .name = "GFX",
         .linkage = .dynamic,
@@ -3090,13 +3123,22 @@ fn addGFXGPU(
     gfx_gpu_module.linkLibrary(platform_runtime);
     gfx_gpu_module.linkLibrary(formats);
     gfx_gpu_module.linkLibrary(gfx_gpu_zig);
-    linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
+    if (target.result.os.tag == .macos) {
+        // gfx_gpu_zig already links SDL3, so linking it again here emits a
+        // second LC_LOAD_DYLIB for @rpath/libSDL3.dylib. ELF tolerates the
+        // duplicate DT_NEEDED, but dyld rejects the image outright
+        // ("duplicate linked dylib"), so take only the headers here.
+        gfx_gpu_module.addIncludePath(sdl_include);
+    } else {
+        linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
+    }
     linkMsvcRuntime(gfx_gpu_module, optimize);
     if (target.result.os.tag == .windows) {
         gfx_gpu_module.linkSystemLibrary("user32", .{});
         gfx_gpu_module.linkSystemLibrary("gdi32", .{});
     }
 
+    applyMacosLoaderPath(target, gfx_gpu_module);
     return b.addLibrary(.{
         .name = "GFXGPU",
         .linkage = .dynamic,
@@ -3227,7 +3269,28 @@ fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
 }
 
+/// macOS counterpart to the Linux libstdc++ policy below. Zig ships its own
+/// libc++ and injects those headers whenever a module links it, so the macOS
+/// build standardizes on that single header set and implementation rather than
+/// mixing in the SDK's copy: having both visible redefines libc++'s configuration
+/// macros and leaves <cstring>/<cerrno> using-declarations unresolved.
+fn addMacosCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
+    if (build_target_os != .macos or b.graph.host.result.os.tag != .macos) return;
+    module.link_libcpp = true;
+}
+
+/// Mach-O counterpart to the Linux `$ORIGIN` rpath policy. The staged runtime
+/// puts Game and every module dylib side by side in one directory, so each
+/// binary has to resolve its `@rpath/lib*.dylib` dependencies relative to its
+/// own location. Without this the staged layout only resolves against the
+/// build-time .zig-cache paths Zig records, and Game fails to launch.
+fn applyMacosLoaderPath(target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
+    if (target.result.os.tag != .macos) return;
+    module.addRPathSpecial("@loader_path");
+}
+
 fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
+    addMacosCxxIncludePaths(b, module);
     if (build_target_os != .linux or b.graph.host.result.os.tag != .linux) return;
     module.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
