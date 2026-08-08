@@ -226,4 +226,11 @@ pub fn pushVertexUniformData(command_buffer: *GpuCommandBuffer, slot: u32, data:
     c.SDL_PushGPUVertexUniformData(command_buffer, slot, data, byte_length);
 }
 
+// The two stages have separate uniform bindings. Fragment entry points that read
+// a cbuffer -- the dual-texture terrain pass reads g_screen to know which stage
+// combine to apply -- got whatever happened to be bound until this was pushed.
+pub fn pushFragmentUniformData(command_buffer: *GpuCommandBuffer, slot: u32, data: *const anyopaque, byte_length: u32) void {
+    c.SDL_PushGPUFragmentUniformData(command_buffer, slot, data, byte_length);
+}
+
 const std = @import("std");

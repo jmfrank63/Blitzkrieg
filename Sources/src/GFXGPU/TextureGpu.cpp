@@ -178,6 +178,9 @@ TextureGpu::TextureGpu( GraphicsEngineGpu *owner, int width, int height, int mip
 {
     if ( !owner_ || width_ <= 0 || height_ <= 0 || mips_ <= 0 || format_ == GFXPF_UNKNOWN || !owner_->CreateTextureHandle( width_, height_, mips_, GpuFormat( format_ ), usage_, &handle_ ) )
         handle_ = 0;
+    // Surfaces the game creates and then edits in place, rather than ones loaded
+    // whole from a DDS, are the ones whose locks have to behave like D3D's.
+    keeps_contents_ = handle_ != 0 && mips_ == 1;
 }
 
 TextureGpu::~TextureGpu()
@@ -197,7 +200,19 @@ bool STDCALL TextureGpu::Lock( int level, SSurfaceLockInfo *lock )
     if ( locked_pitch_ <= 0 || height <= 0 ) return false;
     const size_t bytes = static_cast<size_t>( locked_pitch_ ) * static_cast<size_t>( height );
     if ( bytes > (static_cast<size_t>( -1 ) / 2) ) return false;
-    try { lock_bytes_.assign( bytes, 0 ); } catch ( ... ) { return false; }
+    // D3D9's LockRect hands back the surface's own memory, so a caller may
+    // rewrite part of it and leave the rest standing. CUIMiniMap::AddWarFogData
+    // relies on that: it fills the war fog a slice of tiles at a time across
+    // many frames. Handing out a zeroed scratch buffer instead threw away
+    // everything written before, so all that ever reached the GPU was the one
+    // slice written this frame -- a band of fog crawling across an otherwise
+    // unfogged minimap. Runtime surfaces therefore keep their contents between
+    // locks; single-mip only, so one buffer can never be mistaken for another
+    // level's.
+    if ( !keeps_contents_ || lock_bytes_.size() != bytes )
+    {
+        try { lock_bytes_.assign( bytes, 0 ); } catch ( ... ) { return false; }
+    }
     locked_ = true;
     locked_level_ = level;
     lock->nPitch = locked_pitch_;
@@ -222,7 +237,8 @@ bool STDCALL TextureGpu::Unlock( int level )
     }
     else
         uploaded = owner_->UploadTexture( handle_, level, lock_bytes_.data(), lock_bytes_.size(), locked_pitch_ );
-    lock_bytes_.clear();
+    if ( !keeps_contents_ )
+        lock_bytes_.clear();
     locked_ = false;
     locked_level_ = -1;
     locked_pitch_ = 0;

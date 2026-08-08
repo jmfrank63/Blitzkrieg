@@ -651,6 +651,11 @@ pub const Renderer = struct {
         const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen };
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
+        // The fragment stage declares the same cbuffers and reads g_screen for
+        // the stage combine, so it needs its own copy: uniforms pushed to the
+        // vertex stage are not visible to it.
+        sdl.pushFragmentUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
+        sdl.pushFragmentUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
     }
 
     pub fn draw(self: *Renderer, vertex_buffer: u64, primitive_count: u32) !void {

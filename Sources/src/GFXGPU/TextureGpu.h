@@ -41,6 +41,10 @@ private:
     int ref_count_ = 0;
     bool locked_ = false;
     bool dirty_ = false;
+    // Whether a lock hands back what the last one left, the way D3D9's LockRect
+    // does. Set for surfaces created outright; a DDS load writes every level
+    // once and would only be holding a second copy of itself.
+    bool keeps_contents_ = false;
     int locked_level_ = -1;
     int locked_pitch_ = 0;
     std::vector<unsigned char> lock_bytes_;
