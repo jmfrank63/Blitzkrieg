@@ -173,6 +173,11 @@ class CInputAPI : public CTRefCount<IInput>
 	EInputTextMode eTextMode;							// current text input mode
 	int nCodePage;												// code page
 	CCharsList chars;											// char messages during text input
+	// SDL splits a keystroke into a key event and the text it produced; Windows
+	// delivered one message carrying both. Set while the key event that a text
+	// event may still belong to is the most recent one seen. ConsumePlatformEvent
+	// is built on both backends, so this is not gated on the event-only path.
+	bool bTextMayFollowKey;
 	CMessagesList messages;								// messages, generated during bind parsing
 #if defined(BK_INPUT_EVENT_ONLY)
 	std::deque<SInputEvent> emulatedMessages;

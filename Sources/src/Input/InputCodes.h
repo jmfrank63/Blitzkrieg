@@ -16,6 +16,7 @@ const KeyCodeEntry *KeyboardCodes(std::size_t *count);
 std::uint32_t CodeForName(const char *name);
 const char *NameForCode(std::uint32_t code);
 std::uint32_t SDLScancodeToLegacy(std::uint32_t scancode);
+std::uint32_t SDLScancodeToVirtualKey(std::uint32_t scancode);
 std::size_t DecodeUtf8(const char *text, std::uint16_t *output, std::size_t capacity);
 }
 

@@ -419,6 +419,7 @@ CInputAPI::CInputAPI()
 	bCoopLevelSet = false;
 	bFocusCaptured = false;
 	hWindow = 0;
+	bTextMayFollowKey = false;
 	#if defined(BK_INPUT_EVENT_ONLY)
 	dwLastPumpingTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
 	#else
@@ -956,12 +957,23 @@ void CInputAPI::EmulateInput( const enum EDeviceType eDeviceType, const int nCon
 		}
 	}
 }
-static void AppendUtf8AsUtf16( const char *text, std::list<STextMessage> &chars )
+static void AppendUtf8AsUtf16( const char *text, std::list<STextMessage> &chars, bool bMergeIntoLastKey )
 {
 	if ( !text ) return;
 	uint16_t decoded[128] = {};
 	const std::size_t count = NInput::DecodeUtf8( text, decoded, sizeof(decoded) / sizeof(decoded[0]) );
-	for ( std::size_t i = 0; i != count; ++i )
+	std::size_t first = 0;
+	// Convert2Text produced a single message per scancode carrying both the
+	// virtual key and the character it typed. Folding the character back into
+	// the key press it came from keeps that shape, so an edit box does not see
+	// one keystroke as two messages.
+	if ( count != 0 && bMergeIntoLastKey && !chars.empty() &&
+	     chars.back().bPressed && chars.back().wChars[0] == 0 && chars.back().nVirtualKey != 0 )
+	{
+		chars.back().wChars[0] = decoded[0];
+		first = 1;
+	}
+	for ( std::size_t i = first; i != count; ++i )
 	{
 		STextMessage message = {};
 		message.wChars[0] = decoded[i];
@@ -973,20 +985,42 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 {
 	const DWORD time = static_cast<DWORD>( event.timestamp );
 	const int packedPosition = ((event.x & 0x7fff) | ((event.y & 0x7fff) << 15) | 0x40000000);
+	// Only a text event that immediately follows a key press belongs to it, so
+	// the flag survives exactly one event.
+	const bool bPreviousKeyMayCarryText = bTextMayFollowKey;
+	bTextMayFollowKey = false;
 	switch ( event.type )
 	{
 		case NPlatform::EventType::keyDown:
 		case NPlatform::EventType::keyUp:
 		{
+			const bool bPressed = event.type == NPlatform::EventType::keyDown;
+			const uint32_t legacy = NInput::SDLScancodeToLegacy( static_cast<uint32_t>( event.scancode ) );
+			// Windows fed the UI from the same buffered scancodes that drove the
+			// bindings, so the virtual key reaches the screens in every text mode
+			// but NOTEXT -- including TEXTONLY, where Tab, Enter, Backspace and the
+			// arrows are the only way to work an edit box.
+			if ( eTextMode != INPUT_TEXT_MODE_NOTEXT )
+			{
+				const uint32_t virtualKey = NInput::SDLScancodeToVirtualKey( static_cast<uint32_t>( event.scancode ) );
+				if ( virtualKey != 0 )
+				{
+					STextMessage message = {};
+					message.nVirtualKey = static_cast<int>( virtualKey );
+					message.nScanCode = static_cast<int>( legacy );
+					message.bPressed = bPressed;
+					chars.push_back( message );
+				}
+				bTextMayFollowKey = bPressed;
+			}
 			if ( eTextMode == INPUT_TEXT_MODE_TEXTONLY )
 				break;
-			const uint32_t legacy = NInput::SDLScancodeToLegacy( static_cast<uint32_t>( event.scancode ) );
 			if ( legacy != 0 )
-				EmulateInput( DEVICE_TYPE_KEYBOARD, static_cast<int>( legacy ), event.type == NPlatform::EventType::keyDown ? 0x80 : 0, time, event.modifiers );
+				EmulateInput( DEVICE_TYPE_KEYBOARD, static_cast<int>( legacy ), bPressed ? 0x80 : 0, time, event.modifiers );
 			break;
 		}
 		case NPlatform::EventType::textInput:
-			if ( eTextMode != INPUT_TEXT_MODE_NOTEXT ) AppendUtf8AsUtf16( event.text, chars );
+			if ( eTextMode != INPUT_TEXT_MODE_NOTEXT ) AppendUtf8AsUtf16( event.text, chars, bPreviousKeyMayCarryText );
 			break;
 		case NPlatform::EventType::focusLost:
 			for ( CDevicesList::const_iterator device = devices.begin(); device != devices.end(); ++device )

@@ -23,6 +23,53 @@ int main()
     CHECK( NInput::SDLScancodeToLegacy( 41 ) == NInput::CodeForName( "ESC" ) );
     CHECK( NInput::SDLScancodeToLegacy( 40 ) == NInput::CodeForName( "ENTER" ) );
 
+    // The keys the incomplete table used to drop: the digits behind Ctrl+1..9
+    // unit groups, game speed on -/=, Tab, and the function keys.
+    static const struct { std::uint32_t scancode; const char *name; } named[] = {
+        { 30, "1" }, { 31, "2" }, { 38, "9" }, { 39, "0" },
+        { 43, "TAB" }, { 42, "BACKSPACE" }, { 45, "-" }, { 46, "=" },
+        { 58, "F1" }, { 67, "F10" }, { 68, "F11" }, { 69, "F12" },
+        { 79, "RIGHT" }, { 80, "LEFT" }, { 81, "DOWN" }, { 82, "UP" },
+        { 74, "HOME" }, { 77, "END" }, { 76, "DELETE" }, { 73, "INSERT" },
+        { 89, "NUM_1" }, { 95, "NUM_7" }, { 98, "NUM_0" }, { 88, "NUM_ENTER" },
+        { 224, "LCTRL" }, { 228, "RCTRL" }, { 225, "LSHIFT" }, { 53, "`" },
+    };
+    for ( const auto &entry : named )
+        CHECK( NInput::SDLScancodeToLegacy( entry.scancode ) == NInput::CodeForName( entry.name ) );
+
+    // Every legacy code the table produces must be a control the device
+    // registers, or the key resolves to nothing once it reaches the bindings.
+    for ( std::uint32_t scancode = 0; scancode != 256; ++scancode ) {
+        const std::uint32_t legacy = NInput::SDLScancodeToLegacy( scancode );
+        if ( legacy == 0 ) continue;
+        CHECK( std::string( NInput::NameForCode( legacy ) ) != "UNKNOWN_KEY" );
+    }
+
+    // Virtual keys are what the screens switch on; 192 is the console toggle and
+    // the modifiers must arrive side-independent, as MapVirtualKeyEx reported.
+    CHECK( NInput::SDLScancodeToVirtualKey( 43 ) == 0x09 );   // VK_TAB
+    CHECK( NInput::SDLScancodeToVirtualKey( 40 ) == 0x0d );   // VK_RETURN
+    CHECK( NInput::SDLScancodeToVirtualKey( 42 ) == 0x08 );   // VK_BACK
+    CHECK( NInput::SDLScancodeToVirtualKey( 76 ) == 0x2e );   // VK_DELETE
+    CHECK( NInput::SDLScancodeToVirtualKey( 80 ) == 0x25 );   // VK_LEFT
+    CHECK( NInput::SDLScancodeToVirtualKey( 41 ) == 0x1b );   // VK_ESCAPE
+    CHECK( NInput::SDLScancodeToVirtualKey( 4 ) == 0x41 );    // 'A'
+    CHECK( NInput::SDLScancodeToVirtualKey( 30 ) == 0x31 );   // '1'
+    CHECK( NInput::SDLScancodeToVirtualKey( 39 ) == 0x30 );   // '0'
+    CHECK( NInput::SDLScancodeToVirtualKey( 58 ) == 0x70 );   // VK_F1
+    CHECK( NInput::SDLScancodeToVirtualKey( 69 ) == 0x7b );   // VK_F12
+    CHECK( NInput::SDLScancodeToVirtualKey( 53 ) == 192 );    // VK_OEM_3
+    CHECK( NInput::SDLScancodeToVirtualKey( 224 ) == NInput::SDLScancodeToVirtualKey( 228 ) );
+    CHECK( NInput::SDLScancodeToVirtualKey( 225 ) == NInput::SDLScancodeToVirtualKey( 229 ) );
+    CHECK( NInput::SDLScancodeToVirtualKey( 226 ) == NInput::SDLScancodeToVirtualKey( 230 ) );
+    CHECK( NInput::SDLScancodeToVirtualKey( 0 ) == 0 );
+
+    // A key the bindings can reach must also reach the screens, so the two
+    // tables have to agree on which scancodes exist at all.
+    for ( std::uint32_t scancode = 0; scancode != 256; ++scancode )
+        if ( NInput::SDLScancodeToLegacy( scancode ) != 0 )
+            CHECK( NInput::SDLScancodeToVirtualKey( scancode ) != 0 );
+
     std::ifstream config( "Data/Configs/defconf.cfg" );
     CHECK( config.good() );
     const char *required[] = { "ESC", "LCTRL", "MOUSE_BUTTON0", "MOUSE_AXIS_X", "MOUSE_AXIS_Z" };
