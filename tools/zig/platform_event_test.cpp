@@ -1,3 +1,4 @@
+#include "../../Sources/src/Platform/Clock.h"
 #include "../../Sources/src/Platform/SDLApplication.h"
 
 #include <SDL3/SDL.h>
@@ -41,7 +42,15 @@ int main()
 	CHECK( translated[0].type == NPlatform::EventType::windowResized );
 	// SDL3 stamps events in nanoseconds; PollEvent converts to the milliseconds
 	// the input layer measures double clicks and key repeats in.
-	CHECK( translated[0].x == 640 && translated[0].y == 480 && translated[0].timestamp == 10 );
+	CHECK( translated[0].x == 640 && translated[0].y == 480 );
+	// Timestamps come out in milliseconds on the engine's monotonic clock, not
+	// SDL's tick epoch: CInputSlider integrates a held key from its activation
+	// stamp to CInputAPI's clock, and mixing the two epochs made a single tap of
+	// an arrow key read as days of holding it. Only the offset is shared, so the
+	// spacing between events has to survive and the absolute value has to sit
+	// alongside MonotonicMilliseconds.
+	const std::uint32_t engine_now = NPlatform::MonotonicMilliseconds();
+	CHECK( translated[0].timestamp + 60000u > engine_now && translated[0].timestamp < engine_now + 60000u );
 	CHECK( translated[1].type == NPlatform::EventType::keyDown && translated[1].repeat );
 	CHECK( translated[1].modifiers == SDL_KMOD_ALT );
 	CHECK( translated[2].type == NPlatform::EventType::textInput );
@@ -49,6 +58,8 @@ int main()
 	CHECK( std::strlen( translated[2].text ) == sizeof( translated[2].text ) - 1 );
 	CHECK( translated[3].type == NPlatform::EventType::mouseMotion && translated[3].x == 12 && translated[3].data2 == -3 );
 	CHECK( translated[4].type == NPlatform::EventType::mouseWheel && translated[4].x == 1 && translated[4].y == -2 );
-	CHECK( translated[5].type == NPlatform::EventType::quit && translated[5].timestamp == 60 );
+	CHECK( translated[5].type == NPlatform::EventType::quit );
+	// 10ms and 60ms in, so 50ms apart whatever the offset is.
+	CHECK( translated[5].timestamp - translated[0].timestamp == 50 );
 	return 0;
 }

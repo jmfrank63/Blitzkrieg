@@ -1,4 +1,5 @@
 #include "SDLApplication.h"
+#include "Clock.h"
 
 #include <SDL3/SDL.h>
 
@@ -275,10 +276,25 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 		// those nanoseconds straight through put two clicks a third of a second
 		// apart 300 million units apart, so no double click ever registered, and
 		// truncating to 32 bits wrapped the value every 4.3 seconds on top.
-		event.timestamp = SDL_NS_TO_MS( event.timestamp );
+		// ...and on the same epoch. SDL counts from its own initialisation while
+		// MonotonicMilliseconds counts from the steady clock's, about a month
+		// apart on a machine that has been up a while. CInputSlider integrates a
+		// held key from its activation stamp to CInputAPI's clock, so mixing the
+		// two made one tap of an arrow key look like days of holding it and the
+		// camera jumped straight to the edge of the map.
+		event.timestamp = static_cast<std::uint32_t>( SDL_NS_TO_MS( event.timestamp ) + TimestampBase() );
 		return true;
 	}
 	return false;
+}
+
+// Offset from SDL's tick epoch to the engine's monotonic clock, sampled once.
+// Both are monotonic and tick in milliseconds, so a single difference aligns
+// them for the life of the process.
+std::uint64_t SDLApplication::TimestampBase()
+{
+	static const std::uint64_t base = NPlatform::MonotonicMilliseconds64() - SDL_GetTicks();
+	return base;
 }
 
 const std::string &SDLApplication::LastError() const { return last_error_; }

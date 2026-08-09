@@ -967,8 +967,10 @@ static void AppendUtf8AsUtf16( const char *text, std::list<STextMessage> &chars,
 	// virtual key and the character it typed. Folding the character back into
 	// the key press it came from keeps that shape, so an edit box does not see
 	// one keystroke as two messages.
+	// Overwrites whatever CharacterFromKeycode guessed: a real text event knows
+	// the layout and the dead keys, the keycode fallback only knows ASCII.
 	if ( count != 0 && bMergeIntoLastKey && !chars.empty() &&
-	     chars.back().bPressed && chars.back().wChars[0] == 0 && chars.back().nVirtualKey != 0 )
+	     chars.back().bPressed && chars.back().nVirtualKey != 0 )
 	{
 		chars.back().wChars[0] = decoded[0];
 		first = 1;
@@ -1009,6 +1011,7 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 					message.nVirtualKey = static_cast<int>( virtualKey );
 					message.nScanCode = static_cast<int>( legacy );
 					message.bPressed = bPressed;
+					if ( bPressed ) message.wChars[0] = NInput::CharacterFromKeycode( event.key, event.modifiers );
 					chars.push_back( message );
 				}
 				bTextMayFollowKey = bPressed;

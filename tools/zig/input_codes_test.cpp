@@ -92,6 +92,23 @@ int main()
     CHECK( contents.find( "MOUSE_BUTTON0" ) != std::string::npos );
     CHECK( contents.find( "MOUSE_AXIS_X" ) != std::string::npos );
     CHECK( contents.find( "MOUSE_AXIS_Z" ) != std::string::npos );
+    // An edit box only inserts a character, so a printable key has to carry one
+    // even when no SDL text event follows -- that is what left the save game
+    // name field impossible to type into.
+    CHECK( NInput::CharacterFromKeycode( 'a', 0 ) == 'a' );
+    CHECK( NInput::CharacterFromKeycode( 'a', 0x0002 ) == 'A' );
+    CHECK( NInput::CharacterFromKeycode( 'a', 0x2000 ) == 'A' );
+    CHECK( NInput::CharacterFromKeycode( 'a', 0x2000 | 0x0001 ) == 'a' );
+    CHECK( NInput::CharacterFromKeycode( '7', 0 ) == '7' );
+    CHECK( NInput::CharacterFromKeycode( ' ', 0 ) == ' ' );
+    CHECK( NInput::CharacterFromKeycode( '-', 0 ) == '-' );
+    // Shifted punctuation is layout dependent, so it defers to the text event.
+    CHECK( NInput::CharacterFromKeycode( '7', 0x0001 ) == 0 );
+    // Non printable keys must stay silent or an edit box would insert controls.
+    CHECK( NInput::CharacterFromKeycode( 13, 0 ) == 0 );
+    CHECK( NInput::CharacterFromKeycode( 8, 0 ) == 0 );
+    CHECK( NInput::CharacterFromKeycode( 0x40000050, 0 ) == 0 );
+
     (void)required;
     std::puts( "portable input code mapping passed" );
     return 0;

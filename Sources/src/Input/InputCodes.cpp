@@ -199,4 +199,16 @@ std::size_t DecodeUtf8(const char *text, std::uint16_t *output, std::size_t capa
 	}
 	return count;
 }
+
+uint16_t CharacterFromKeycode( int keycode, int modifiers )
+{
+	if ( keycode < 32 || keycode > 126 ) return 0;
+	const bool bShift = ( modifiers & 0x0003 ) != 0;			// SDL_KMOD_SHIFT
+	const bool bCaps = ( modifiers & 0x2000 ) != 0;				// SDL_KMOD_CAPS
+	if ( keycode >= 'a' && keycode <= 'z' )
+		return static_cast<uint16_t>( bShift != bCaps ? keycode - 'a' + 'A' : keycode );
+	// Anything else becomes layout dependent the moment shift is involved, and
+	// guessing a US keyboard would be worse than typing nothing.
+	return bShift ? 0 : static_cast<uint16_t>( keycode );
+}
 }

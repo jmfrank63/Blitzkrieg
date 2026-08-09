@@ -66,6 +66,8 @@ public:
 	bool SetRelativeMouseMode(bool enabled);
 	bool SetCursorVisible(bool visible);
 	bool SetClipboardText(const char *text);
+	// Aligns SDL's tick epoch with NPlatform::MonotonicMilliseconds.
+	static std::uint64_t TimestampBase();
 	std::string GetClipboardText() const;
 	bool GetControllerName(int deviceId, char *destination, std::size_t capacity) const;
 	bool AddVirtualControllerForTests(int deviceId, const char *name);
