@@ -136,6 +136,20 @@ class CUIMiniMap : public CSimpleWindow
 	DWORD dwScreenFrameColor;
 	DWORD dwScreenFrameColorShadow;
   int nSize;
+	// PointToTextureMiniMap lays the map out as an isometric diamond nSize wide
+	// and nSize/2 tall, so taking nSize from the frame's width alone ties its
+	// height to the horizontal scale. CUIScreen::Reposition scales the legacy
+	// 1024x768 layout by width/1024 and height/768 independently, and those are
+	// equal only on a 4:3 window -- on anything wider the diamond came out too
+	// tall for its frame and covered the readouts beneath it. Fitting both axes
+	// leaves a 4:3 window exactly as it was. Drawing and hit testing share this
+	// so a click still lands where the map shows it.
+	int FittedMiniMapSize() const
+	{
+		const int nFrameWidth = wndRect.right - wndRect.left;
+		const int nFrameHeight = wndRect.bottom - wndRect.top;
+		return ( nFrameHeight > 0 && 2 * nFrameHeight < nFrameWidth ) ? 2 * nFrameHeight : nFrameWidth;
+	}
 	int nPlayersCount;
   int nUnitCrossSize;
 

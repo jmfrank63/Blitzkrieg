@@ -214,9 +214,17 @@ void CUIMiniMap::GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool is
 	else
 	{
 		*pfXZeroPoint = 0.0f;
-		*pfYZeroPoint = nSize / 4.0f; 
+		*pfYZeroPoint = nSize / 4.0f;
 	}
 
+	// Where the frame is wider than the diamond -- which happens once the legacy
+	// layout is stretched to a window that is not 4:3 -- centre the map in it
+	// rather than leaving it against the left edge, so its apex still meets the
+	// frame's. Hit testing goes through the same mapping, so a click keeps
+	// landing where the map shows it.
+	const int nFrameWidth = wndRect.right - wndRect.left;
+	if ( nFrameWidth > nSize )
+		*pfXZeroPoint += ( nFrameWidth - nSize ) / 2.0f;
 }
 void CUIMiniMap::PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos, bool isLeftTop )
 {
@@ -985,7 +993,7 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		}
 		const NTimer::STime currentAbsTime = _pGameTimer->GetAbsTime();
 		float zCoord = 0.0f;
-		nSize = wndRect.right - wndRect.left;
+		nSize = FittedMiniMapSize();
 
 		std::vector<CTPoint<float> > vPoints;
 		vPoints.resize(4);
@@ -1148,7 +1156,7 @@ bool CUIMiniMap::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( IsInitialized() )
 	{
-		nSize = wndRect.right - wndRect.left;
+		nSize = FittedMiniMapSize();
 		
 		ICursor *_pCursor = GetSingleton<ICursor>();
 		_pCursor->SetBounds( wndRect.left, wndRect.top, wndRect.right, wndRect.bottom );
