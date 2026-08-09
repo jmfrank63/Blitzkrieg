@@ -36,6 +36,38 @@ VertexOutput vs_textured_nocolor(VertexInputNoColor input) {
     return output;
 }
 
+// See untextured.hlsl: the specular colour is added after the texture stages.
+struct VertexInputSpecular {
+    float3 position : POSITION0;
+    float4 color : COLOR0;
+    float4 specular : COLOR1;
+    float2 uv : TEXCOORD0;
+};
+
+struct VertexOutputSpecular {
+    float4 position : SV_Position;
+    float4 color : COLOR0;
+    float4 specular : COLOR1;
+    float2 uv : TEXCOORD0;
+};
+
+VertexOutputSpecular vs_textured_specular(VertexInputSpecular input) {
+    VertexOutputSpecular output;
+    output.position = transform_legacy_position(input.position);
+    output.color = legacy_vertex_color(input.color) * g_color;
+    output.specular = legacy_vertex_color(input.specular);
+    output.uv = transform_legacy_texcoord(input.uv);
+    return output;
+}
+
+float4 ps_textured_specular(VertexOutputSpecular input) : SV_Target0 {
+    float4 texel = g_texture0.Sample(g_sampler0, input.uv);
+    if (g_stage.x != 0.0f) return float4(saturate(texel.rgb + input.color.rgb), texel.a);
+    float4 result = texel * input.color;
+    clip(g_stage.y > 0.0f ? result.a - g_stage.y : 1.0f);
+    return float4(saturate(result.rgb + input.specular.rgb), result.a);
+}
+
 float4 ps_textured(VertexOutput input) : SV_Target0 {
     float4 texel = g_texture0.Sample(g_sampler0, input.uv);
     // D3DTOP_ADD at stage 0, which only the vehicle tracks use. Alpha stays

@@ -1,5 +1,342 @@
 [
   {
+    "effect": "alpha_test",
+    "name": "AlphaTest",
+    "stage": "fragment",
+    "source": "unlit.hlsl",
+    "entry": "ps_alpha_test",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "alpha_test",
+    "name": "AlphaTest",
+    "stage": "vertex",
+    "source": "unlit.hlsl",
+    "entry": "vs_unlit",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lighting",
+    "name": "Lighting",
+    "stage": "fragment",
+    "source": "lighting.hlsl",
+    "entry": "ps_lighting",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 3
+  },
+  {
+    "effect": "lighting",
+    "name": "Lighting",
+    "stage": "vertex",
+    "source": "lighting.hlsl",
+    "entry": "vs_lighting",
+    "defines": [],
+    "required_vertex_mask": 299,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 3
+  },
+  {
+    "effect": "lightmap_complement",
+    "name": "LightmapComplement",
+    "stage": "fragment",
+    "source": "lightmap.hlsl",
+    "entry": "ps_lightmap_complement",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_complement",
+    "name": "LightmapComplement",
+    "stage": "vertex",
+    "source": "lightmap.hlsl",
+    "entry": "vs_lightmap",
+    "defines": [],
+    "required_vertex_mask": 291,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_modulate",
+    "name": "LightmapModulate",
+    "stage": "fragment",
+    "source": "lightmap.hlsl",
+    "entry": "ps_lightmap_modulate",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_modulate",
+    "name": "LightmapModulate",
+    "stage": "vertex",
+    "source": "lightmap.hlsl",
+    "entry": "vs_lightmap",
+    "defines": [],
+    "required_vertex_mask": 291,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "particle_additive",
+    "name": "ParticleAdditive",
+    "stage": "fragment",
+    "source": "particle.hlsl",
+    "entry": "ps_particle_additive",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "particle_additive",
+    "name": "ParticleAdditive",
+    "stage": "vertex",
+    "source": "particle.hlsl",
+    "entry": "vs_particle",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "particle_modulate",
+    "name": "ParticleModulate",
+    "stage": "fragment",
+    "source": "particle.hlsl",
+    "entry": "ps_particle_modulate",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "particle_modulate",
+    "name": "ParticleModulate",
+    "stage": "vertex",
+    "source": "particle.hlsl",
+    "entry": "vs_particle",
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "shadow_mesh",
+    "name": "ShadowMesh",
+    "stage": "fragment",
+    "source": "stencil_shadow.hlsl",
+    "entry": "ps_shadow_mesh",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "shadow_mesh",
+    "name": "ShadowMesh",
+    "stage": "vertex",
+    "source": "stencil_shadow.hlsl",
+    "entry": "vs_stencil",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "shadow_sprite",
+    "name": "ShadowSprite",
+    "stage": "fragment",
+    "source": "stencil_shadow.hlsl",
+    "entry": "ps_shadow_sprite",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "shadow_sprite",
+    "name": "ShadowSprite",
+    "stage": "vertex",
+    "source": "stencil_shadow.hlsl",
+    "entry": "vs_stencil",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "special_depth",
+    "name": "SpecialDepth",
+    "stage": "fragment",
+    "source": "special.hlsl",
+    "entry": "ps_special_depth",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "special_depth",
+    "name": "SpecialDepth",
+    "stage": "vertex",
+    "source": "special.hlsl",
+    "entry": "vs_special_video",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "special_transform",
+    "name": "SpecialTransform",
+    "stage": "fragment",
+    "source": "special.hlsl",
+    "entry": "ps_special_transform",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "special_transform",
+    "name": "SpecialTransform",
+    "stage": "vertex",
+    "source": "special.hlsl",
+    "entry": "vs_special_transform",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "special_video",
+    "name": "SpecialVideo",
+    "stage": "fragment",
+    "source": "special.hlsl",
+    "entry": "ps_special_video",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "special_video",
+    "name": "SpecialVideo",
+    "stage": "vertex",
+    "source": "special.hlsl",
+    "entry": "vs_special_video",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "stencil_test",
+    "name": "StencilTest",
+    "stage": "fragment",
+    "source": "stencil_shadow.hlsl",
+    "entry": "ps_stencil_test",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "stencil_test",
+    "name": "StencilTest",
+    "stage": "vertex",
+    "source": "stencil_shadow.hlsl",
+    "entry": "vs_stencil",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "stencil_write",
+    "name": "StencilWrite",
+    "stage": "fragment",
+    "source": "stencil_shadow.hlsl",
+    "entry": "ps_stencil_write",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "stencil_write",
+    "name": "StencilWrite",
+    "stage": "vertex",
+    "source": "stencil_shadow.hlsl",
+    "entry": "vs_stencil",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
     "effect": "textured",
     "name": "Textured",
     "stage": "fragment",
@@ -26,38 +363,37 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "untextured",
-    "name": "Untextured",
+    "effect": "textured_dual",
+    "name": "TexturedDual",
     "stage": "fragment",
-    "source": "untextured.hlsl",
-    "entry": "ps_untextured",
+    "source": "textured_dual.hlsl",
+    "entry": "ps_textured_dual",
     "defines": [],
     "required_vertex_mask": 0,
-    "sampler_count": 0,
+    "sampler_count": 2,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "untextured",
-    "name": "Untextured",
+    "effect": "textured_dual",
+    "name": "TexturedDual",
     "stage": "vertex",
-    "source": "untextured.hlsl",
-    "entry": "vs_untextured",
+    "source": "textured_dual.hlsl",
+    "entry": "vs_textured_dual",
     "defines": [],
-    "required_vertex_mask": 33,
-    "sampler_count": 0,
+    "required_vertex_mask": 35,
+    "sampler_count": 2,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
-  }
-,
+  },
   {
-    "effect": "alpha_test",
-    "name": "AlphaTest",
+    "effect": "textured_nocolor",
+    "name": "TexturedNocolor",
     "stage": "fragment",
-    "source": "unlit.hlsl",
-    "entry": "ps_alpha_test",
+    "source": "textured.hlsl",
+    "entry": "ps_textured",
     "defines": [],
     "required_vertex_mask": 0,
     "sampler_count": 1,
@@ -66,11 +402,141 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "alpha_test",
-    "name": "AlphaTest",
+    "effect": "textured_nocolor",
+    "name": "TexturedNocolor",
     "stage": "vertex",
-    "source": "unlit.hlsl",
-    "entry": "vs_unlit",
+    "source": "textured.hlsl",
+    "entry": "vs_textured_nocolor",
+    "defines": [],
+    "required_vertex_mask": 33,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured_specular",
+    "name": "TexturedSpecular",
+    "stage": "fragment",
+    "source": "textured.hlsl",
+    "entry": "ps_textured_specular",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured_specular",
+    "name": "TexturedSpecular",
+    "stage": "vertex",
+    "source": "textured.hlsl",
+    "entry": "vs_textured_specular",
+    "defines": [],
+    "required_vertex_mask": 163,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent",
+    "name": "Transparent",
+    "stage": "fragment",
+    "source": "transparent.hlsl",
+    "entry": "ps_transparent",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent",
+    "name": "Transparent",
+    "stage": "vertex",
+    "source": "transparent.hlsl",
+    "entry": "vs_transparent",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent_additive",
+    "name": "TransparentAdditive",
+    "stage": "fragment",
+    "source": "transparent.hlsl",
+    "entry": "ps_transparent_additive",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent_additive",
+    "name": "TransparentAdditive",
+    "stage": "vertex",
+    "source": "transparent.hlsl",
+    "entry": "vs_transparent",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent_alpha",
+    "name": "TransparentAlpha",
+    "stage": "fragment",
+    "source": "transparent.hlsl",
+    "entry": "ps_transparent_alpha_test",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent_alpha",
+    "name": "TransparentAlpha",
+    "stage": "vertex",
+    "source": "transparent.hlsl",
+    "entry": "vs_transparent",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent_multiply",
+    "name": "TransparentMultiply",
+    "stage": "fragment",
+    "source": "transparent.hlsl",
+    "entry": "ps_transparent_multiply",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "transparent_multiply",
+    "name": "TransparentMultiply",
+    "stage": "vertex",
+    "source": "transparent.hlsl",
+    "entry": "vs_transparent",
     "defines": [],
     "required_vertex_mask": 35,
     "sampler_count": 1,
@@ -157,166 +623,89 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "transparent",
-    "name": "Transparent",
+    "effect": "untextured",
+    "name": "Untextured",
     "stage": "fragment",
-    "source": "transparent.hlsl",
-    "entry": "ps_transparent",
+    "source": "untextured.hlsl",
+    "entry": "ps_untextured",
     "defines": [],
     "required_vertex_mask": 0,
-    "sampler_count": 1,
+    "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "transparent",
-    "name": "Transparent",
+    "effect": "untextured",
+    "name": "Untextured",
     "stage": "vertex",
-    "source": "transparent.hlsl",
-    "entry": "vs_transparent",
+    "source": "untextured.hlsl",
+    "entry": "vs_untextured",
     "defines": [],
-    "required_vertex_mask": 35,
-    "sampler_count": 1,
+    "required_vertex_mask": 33,
+    "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "particle_additive",
-    "name": "ParticleAdditive",
+    "effect": "untextured_nocolor",
+    "name": "UntexturedNocolor",
     "stage": "fragment",
-    "source": "particle.hlsl",
-    "entry": "ps_particle_additive",
+    "source": "untextured.hlsl",
+    "entry": "ps_untextured",
     "defines": [],
     "required_vertex_mask": 0,
-    "sampler_count": 1,
+    "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "particle_additive",
-    "name": "ParticleAdditive",
+    "effect": "untextured_nocolor",
+    "name": "UntexturedNocolor",
     "stage": "vertex",
-    "source": "particle.hlsl",
-    "entry": "vs_particle",
+    "source": "untextured.hlsl",
+    "entry": "vs_untextured_nocolor",
     "defines": [],
-    "required_vertex_mask": 35,
-    "sampler_count": 1,
+    "required_vertex_mask": 1,
+    "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "particle_modulate",
-    "name": "ParticleModulate",
+    "effect": "untextured_specular",
+    "name": "UntexturedSpecular",
     "stage": "fragment",
-    "source": "particle.hlsl",
-    "entry": "ps_particle_modulate",
+    "source": "untextured.hlsl",
+    "entry": "ps_untextured_specular",
     "defines": [],
     "required_vertex_mask": 0,
-    "sampler_count": 1,
+    "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "particle_modulate",
-    "name": "ParticleModulate",
+    "effect": "untextured_specular",
+    "name": "UntexturedSpecular",
     "stage": "vertex",
-    "source": "particle.hlsl",
-    "entry": "vs_particle",
-    "required_vertex_mask": 35,
-    "sampler_count": 1,
+    "source": "untextured.hlsl",
+    "entry": "vs_untextured_specular",
+    "defines": [],
+    "required_vertex_mask": 130,
+    "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
   },
   {
-    "effect": "transparent_multiply",
-    "name": "TransparentMultiply",
+    "effect": "water",
+    "name": "Water",
     "stage": "fragment",
-    "source": "transparent.hlsl",
-    "entry": "ps_transparent_multiply",
-    "defines": [],
-    "required_vertex_mask": 0,
-    "sampler_count": 1,
-    "storage_texture_count": 0,
-    "storage_buffer_count": 0,
-    "uniform_buffer_count": 2
-  },
-  {
-    "effect": "transparent_multiply",
-    "name": "TransparentMultiply",
-    "stage": "vertex",
-    "source": "transparent.hlsl",
-    "entry": "vs_transparent",
-    "defines": [],
-    "required_vertex_mask": 35,
-    "sampler_count": 1,
-    "storage_texture_count": 0,
-    "storage_buffer_count": 0,
-    "uniform_buffer_count": 2
-  },
-  {
-    "effect": "transparent_alpha",
-    "name": "TransparentAlpha",
-    "stage": "fragment",
-    "source": "transparent.hlsl",
-    "entry": "ps_transparent_alpha_test",
-    "defines": [],
-    "required_vertex_mask": 0,
-    "sampler_count": 1,
-    "storage_texture_count": 0,
-    "storage_buffer_count": 0,
-    "uniform_buffer_count": 2
-  },
-  {
-    "effect": "transparent_alpha",
-    "name": "TransparentAlpha",
-    "stage": "vertex",
-    "source": "transparent.hlsl",
-    "entry": "vs_transparent",
-    "defines": [],
-    "required_vertex_mask": 35,
-    "sampler_count": 1,
-    "storage_texture_count": 0,
-    "storage_buffer_count": 0,
-    "uniform_buffer_count": 2
-  },
-  {
-    "effect": "transparent_additive",
-    "name": "TransparentAdditive",
-    "stage": "fragment",
-    "source": "transparent.hlsl",
-    "entry": "ps_transparent_additive",
-    "defines": [],
-    "required_vertex_mask": 0,
-    "sampler_count": 1,
-    "storage_texture_count": 0,
-    "storage_buffer_count": 0,
-    "uniform_buffer_count": 2
-  },
-  {
-    "effect": "transparent_additive",
-    "name": "TransparentAdditive",
-    "stage": "vertex",
-    "source": "transparent.hlsl",
-    "entry": "vs_transparent",
-    "defines": [],
-    "required_vertex_mask": 35,
-    "sampler_count": 1,
-    "storage_texture_count": 0,
-    "storage_buffer_count": 0,
-    "uniform_buffer_count": 2
-  },
-  {
-    "effect": "lightmap_modulate",
-    "name": "LightmapModulate",
-    "stage": "fragment",
-    "source": "lightmap.hlsl",
-    "entry": "ps_lightmap_modulate",
+    "source": "water.hlsl",
+    "entry": "ps_water",
     "defines": [],
     "required_vertex_mask": 0,
     "sampler_count": 2,
@@ -325,11 +714,11 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "lightmap_modulate",
-    "name": "LightmapModulate",
+    "effect": "water",
+    "name": "Water",
     "stage": "vertex",
-    "source": "lightmap.hlsl",
-    "entry": "vs_lightmap",
+    "source": "water.hlsl",
+    "entry": "vs_water",
     "defines": [],
     "required_vertex_mask": 291,
     "sampler_count": 2,
@@ -338,11 +727,11 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "lightmap_complement",
-    "name": "LightmapComplement",
+    "effect": "water_alpha",
+    "name": "WaterAlpha",
     "stage": "fragment",
-    "source": "lightmap.hlsl",
-    "entry": "ps_lightmap_complement",
+    "source": "water.hlsl",
+    "entry": "ps_water_alpha_test",
     "defines": [],
     "required_vertex_mask": 0,
     "sampler_count": 2,
@@ -351,11 +740,11 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "lightmap_complement",
-    "name": "LightmapComplement",
+    "effect": "water_alpha",
+    "name": "WaterAlpha",
     "stage": "vertex",
-    "source": "lightmap.hlsl",
-    "entry": "vs_lightmap",
+    "source": "water.hlsl",
+    "entry": "vs_water",
     "defines": [],
     "required_vertex_mask": 291,
     "sampler_count": 2,
@@ -364,107 +753,29 @@
     "uniform_buffer_count": 2
   },
   {
-    "effect": "lighting",
-    "name": "Lighting",
+    "effect": "water_single",
+    "name": "WaterSingle",
     "stage": "fragment",
-    "source": "lighting.hlsl",
-    "entry": "ps_lighting",
+    "source": "water.hlsl",
+    "entry": "ps_water_single",
     "defines": [],
     "required_vertex_mask": 0,
     "sampler_count": 1,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
-    "uniform_buffer_count": 3
+    "uniform_buffer_count": 2
   },
   {
-    "effect": "lighting",
-    "name": "Lighting",
+    "effect": "water_single",
+    "name": "WaterSingle",
     "stage": "vertex",
-    "source": "lighting.hlsl",
-    "entry": "vs_lighting",
+    "source": "water.hlsl",
+    "entry": "vs_water",
     "defines": [],
-    "required_vertex_mask": 299,
+    "required_vertex_mask": 291,
     "sampler_count": 1,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
-    "uniform_buffer_count": 3
-  },
-  {
-    "effect": "stencil_write", "name": "StencilWrite", "stage": "fragment", "source": "stencil_shadow.hlsl", "entry": "ps_stencil_write", "defines": [], "required_vertex_mask": 0, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "stencil_write", "name": "StencilWrite", "stage": "vertex", "source": "stencil_shadow.hlsl", "entry": "vs_stencil", "defines": [], "required_vertex_mask": 35, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "stencil_test", "name": "StencilTest", "stage": "fragment", "source": "stencil_shadow.hlsl", "entry": "ps_stencil_test", "defines": [], "required_vertex_mask": 0, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "stencil_test", "name": "StencilTest", "stage": "vertex", "source": "stencil_shadow.hlsl", "entry": "vs_stencil", "defines": [], "required_vertex_mask": 35, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "shadow_sprite", "name": "ShadowSprite", "stage": "fragment", "source": "stencil_shadow.hlsl", "entry": "ps_shadow_sprite", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "shadow_sprite", "name": "ShadowSprite", "stage": "vertex", "source": "stencil_shadow.hlsl", "entry": "vs_stencil", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "shadow_mesh", "name": "ShadowMesh", "stage": "fragment", "source": "stencil_shadow.hlsl", "entry": "ps_shadow_mesh", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "shadow_mesh", "name": "ShadowMesh", "stage": "vertex", "source": "stencil_shadow.hlsl", "entry": "vs_stencil", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "water", "name": "Water", "stage": "fragment", "source": "water.hlsl", "entry": "ps_water", "defines": [], "required_vertex_mask": 0, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "water", "name": "Water", "stage": "vertex", "source": "water.hlsl", "entry": "vs_water", "defines": [], "required_vertex_mask": 291, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "water_single", "name": "WaterSingle", "stage": "fragment", "source": "water.hlsl", "entry": "ps_water_single", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "water_single", "name": "WaterSingle", "stage": "vertex", "source": "water.hlsl", "entry": "vs_water", "defines": [], "required_vertex_mask": 291, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "water_alpha", "name": "WaterAlpha", "stage": "fragment", "source": "water.hlsl", "entry": "ps_water_alpha_test", "defines": [], "required_vertex_mask": 0, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "water_alpha", "name": "WaterAlpha", "stage": "vertex", "source": "water.hlsl", "entry": "vs_water", "defines": [], "required_vertex_mask": 291, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "special_video", "name": "SpecialVideo", "stage": "fragment", "source": "special.hlsl", "entry": "ps_special_video", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "special_video", "name": "SpecialVideo", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_video", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "special_transform", "name": "SpecialTransform", "stage": "fragment", "source": "special.hlsl", "entry": "ps_special_transform", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "special_transform", "name": "SpecialTransform", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_transform", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "special_depth", "name": "SpecialDepth", "stage": "fragment", "source": "special.hlsl", "entry": "ps_special_depth", "defines": [], "required_vertex_mask": 0, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "special_depth", "name": "SpecialDepth", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_video", "defines": [], "required_vertex_mask": 35, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "untextured_nocolor", "name": "UntexturedNocolor", "stage": "vertex", "source": "untextured.hlsl", "entry": "vs_untextured_nocolor", "defines": [], "required_vertex_mask": 1, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "untextured_nocolor", "name": "UntexturedNocolor", "stage": "fragment", "source": "untextured.hlsl", "entry": "ps_untextured", "defines": [], "required_vertex_mask": 0, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "textured_nocolor", "name": "TexturedNocolor", "stage": "vertex", "source": "textured.hlsl", "entry": "vs_textured_nocolor", "defines": [], "required_vertex_mask": 33, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "textured_nocolor", "name": "TexturedNocolor", "stage": "fragment", "source": "textured.hlsl", "entry": "ps_textured", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "textured_dual", "name": "TexturedDual", "stage": "vertex", "source": "textured_dual.hlsl", "entry": "vs_textured_dual", "defines": [], "required_vertex_mask": 35, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
-  },
-  {
-    "effect": "textured_dual", "name": "TexturedDual", "stage": "fragment", "source": "textured_dual.hlsl", "entry": "ps_textured_dual", "defines": [], "required_vertex_mask": 0, "sampler_count": 2, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+    "uniform_buffer_count": 2
   }
 ]

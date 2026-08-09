@@ -784,6 +784,7 @@ bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *rects, int count, bo
     const int vertices_per_rect = solid ? 6 : 8;
     SGFXLVertex *vertices = static_cast<SGFXLVertex *>( GetTempVertices( count * vertices_per_rect, SGFXLVertex::format, solid ? GFXPT_TRIANGLELIST : GFXPT_LINELIST ) );
     if ( !vertices ) return false;
+    DWORD specular_bits = 0;
     for ( int i = 0; i < count; ++i )
     {
         const SGFXRect2 &rect = rects[i];
@@ -798,8 +799,18 @@ bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *rects, int count, bo
         corners[3].Setup( maxx, miny, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.miny );
         if ( solid ) { *vertices++ = corners[2]; *vertices++ = corners[1]; *vertices++ = corners[0]; *vertices++ = corners[1]; *vertices++ = corners[2]; *vertices++ = corners[3]; }
         else { *vertices++ = corners[0]; *vertices++ = corners[1]; *vertices++ = corners[1]; *vertices++ = corners[3]; *vertices++ = corners[3]; *vertices++ = corners[2]; *vertices++ = corners[2]; *vertices++ = corners[0]; }
+        specular_bits |= rect.specular;
     }
-    return DrawTemp();
+    // CGraphicsEngine::DrawRects turns D3DRS_SPECULARENABLE on for a batch whose
+    // rects carry a non-black specular and off again afterwards. That is how a
+    // blinking UI element flashes: CSimpleWindow::Draw puts its blink colour in
+    // the specular, leaving 0xff000000 -- black, and so a no-op -- when it is not
+    // blinking.
+    const bool has_specular = ( specular_bits & 0x00ffffff ) != 0;
+    if ( has_specular ) EnableSpecular( true );
+    const bool result = DrawTemp();
+    if ( has_specular ) EnableSpecular( false );
+    return result;
 }
 bool STDCALL GraphicsEngineGpu::SetGammaRamp( const SGFXGammaRamp &, bool ) { return false; }
 bool STDCALL GraphicsEngineGpu::GetGammaRamp( const SGFXGammaRamp * ) { return false; }

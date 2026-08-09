@@ -223,6 +223,7 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
 }
 const state_depth_mode: u32 = 3; // GFXGPU_STATE_DEPTH_MODE
 const state_lighting: u32 = 4; // GFXGPU_STATE_LIGHTING
+const state_specular: u32 = 5; // GFXGPU_STATE_SPECULAR
 const state_material: u32 = 7; // GFXGPU_STATE_MATERIAL
 const state_shade_effect: u32 = 8; // GFXGPU_STATE_SHADE_EFFECT
 const state_topology: u32 = 9; // GFXGPU_STATE_TOPOLOGY
@@ -247,6 +248,7 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
             if (effects.depthTestChangeFor(info.?.value)) |enabled| renderer.depth_mode = if (enabled) 1 else 0;
         },
         state_lighting => renderer.lighting_enabled = info.?.value != 0,
+        state_specular => renderer.specular_enabled = info.?.value != 0,
         // value is EGFXDepthBuffer, index the EGFXCmpFunction.
         state_depth_mode => {
             renderer.depth_mode = info.?.value;

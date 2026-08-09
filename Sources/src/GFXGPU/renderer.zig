@@ -53,6 +53,7 @@ pub const Renderer = struct {
     // delta: 110 opens the shadow pass and 113 closes it, and the effects that
     // draw in between inherit what those set.
     stencil_mode: effects.StencilMode = .off,
+    specular_enabled: bool = false,
     // With D3D's fixed-function lighting on, the vertex colour comes from the
     // material, not from the vertex: the mesh formats carry a normal where the
     // lit formats keep their diffuse DWORD and so have no colour of their own.
@@ -107,7 +108,7 @@ pub const Renderer = struct {
 
     // Which vertex shader a draw needs. The two "nocolor" entry points exist for
     // vertex formats that carry no GFXFVF_DIFFUSE.
-    pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4 };
+    pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4, untextured_specular = 5, textured_specular = 6 };
 
     fn variantEffect(variant: ShaderVariant) []const u8 {
         return switch (variant) {
@@ -116,6 +117,8 @@ pub const Renderer = struct {
             .textured => "textured",
             .textured_nocolor => "textured_nocolor",
             .textured_dual => "textured_dual",
+            .untextured_specular => "untextured_specular",
+            .textured_specular => "textured_specular",
         };
     }
     fn variantVertexEntry(variant: ShaderVariant) [:0]const u8 {
@@ -125,6 +128,8 @@ pub const Renderer = struct {
             .textured => "vs_textured",
             .textured_nocolor => "vs_textured_nocolor",
             .textured_dual => "vs_textured_dual",
+            .untextured_specular => "vs_untextured_specular",
+            .textured_specular => "vs_textured_specular",
         };
     }
     // The nocolor variants reuse the base fragment entry point, so the blob
@@ -134,12 +139,14 @@ pub const Renderer = struct {
             .untextured, .untextured_nocolor => "ps_untextured",
             .textured, .textured_nocolor => "ps_textured",
             .textured_dual => "ps_textured_dual",
+            .untextured_specular => "ps_untextured_specular",
+            .textured_specular => "ps_textured_specular",
         };
     }
     fn variantSamplerCount(variant: ShaderVariant) u32 {
         return switch (variant) {
-            .untextured, .untextured_nocolor => 0,
-            .textured, .textured_nocolor => 1,
+            .untextured, .untextured_nocolor, .untextured_specular => 0,
+            .textured, .textured_nocolor, .textured_specular => 1,
             .textured_dual => 2,
         };
     }
@@ -630,15 +637,23 @@ pub const Renderer = struct {
         // actually bound, and the vertex format carries the second texcoord set.
         const dual = textured and texcoord1 != null and self.bound_textures[1] != null and
             effects.combineFor(self.shade_effect) != .single;
+        // D3DRS_SPECULARENABLE. CGraphicsEngine::DrawRects turns it on for a
+        // batch whose rects carry a non-black specular and off again after, which
+        // is how a blinking UI element flashes.
+        const specular = if (self.specular_enabled and diffuse != null and !dual)
+            vertex_layout.find(layout, .specular, 6)
+        else
+            null;
         const depth = self.depthStateForDraw();
-        const key = pipelineCacheKey(fvf, textured, blend_mode, dual, self.topology, depth);
+        const key = pipelineCacheKey(fvf, textured, blend_mode, dual, self.topology, depth) |
+            (@as(u64, @intFromBool(specular != null)) << 47);
         if (self.pipelines.get(key)) |pipeline| return pipeline;
         const variant: ShaderVariant = if (dual)
             .textured_dual
         else if (textured)
-            (if (diffuse != null) .textured else .textured_nocolor)
+            (if (specular != null) .textured_specular else if (diffuse != null) .textured else .textured_nocolor)
         else
-            (if (diffuse != null) .untextured else .untextured_nocolor);
+            (if (specular != null) .untextured_specular else if (diffuse != null) .untextured else .untextured_nocolor);
         const shaders = try self.ensureShaders(variant);
         if (textured) try self.ensureSamplers();
         const device = &(self.device orelse return error.NoDevice);
@@ -648,6 +663,12 @@ pub const Renderer = struct {
         attributes[attribute_count] = .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = position.offset };
         attribute_count += 1;
         if (diffuse) |attribute| {
+            attributes[attribute_count] = .{ .location = attribute_count, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = attribute.offset };
+            attribute_count += 1;
+        }
+        // COLOR1 sits between the diffuse and the texcoord in the specular
+        // variants' input signature, so it has to be bound there too.
+        if (specular) |attribute| {
             attributes[attribute_count] = .{ .location = attribute_count, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = attribute.offset };
             attribute_count += 1;
         }
