@@ -220,6 +220,7 @@ class TextGpu final : public IGFXText, public IGFXTextGpuFontProvider
 {
 public:
     OBJECT_COMPLETE_METHODS( TextGpu );
+    int STDCALL operator&( IStructureSaver &ss ) override;
     void STDCALL SetFont( IGFXFont *font ) override { font_ = font; }
     IGFXFont *Font() const override { return font_; }
     float Scale() const override { return scale_; }
@@ -239,7 +240,7 @@ public:
         // Count the wrapped lines, not just the explicit newlines: the list
         // sizes each row from this, so a wrapped entry needs the taller row.
         std::vector<std::pair<size_t, size_t> > lines;
-        WrapTextLines( dynamic_cast<FontGpu *>( font_ ), text_->GetString(), scale_, static_cast<float>( width_ ), lines );
+        WrapTextLines( dynamic_cast_ptr<FontGpu *>( font_ ), text_->GetString(), scale_, static_cast<float>( width_ ), lines );
         return lines.empty() ? 1 : static_cast<int>( lines.size() );
     }
     int STDCALL GetLineSpace() const override { return font_ ? static_cast<int>( font_->GetLineSpace() * scale_ ) : 12; }
@@ -250,17 +251,42 @@ public:
         int length = 0;
         while ( value[length] && value[length] != L'\n' ) ++length;
         if ( count >= 0 && count < length ) length = count;
-        FontGpu *gpu_font = dynamic_cast<FontGpu *>( font_ );
+        FontGpu *gpu_font = dynamic_cast_ptr<FontGpu *>( font_ );
         return gpu_font ? static_cast<int>( gpu_font->TextWidthFloat( value, length ) * scale_ ) : (font_ ? static_cast<int>( font_->GetTextWidth( value, length ) * scale_ ) : static_cast<int>( length * 8 * scale_ ));
     }
 
 private:
-    IText *text_ = nullptr;
-    IGFXFont *font_ = nullptr;
+    // Owning, as CGFXText's are: a saved game restores the text object through
+    // this class, and CWindowState hands its IText over without keeping a
+    // reference of its own.
+    CPtr<IText> text_;
+    CPtr<IGFXFont> font_;
     DWORD color_ = 0xffffffff;
     float scale_ = 1.0f;
     int width_ = 0;
 };
+
+// Mirrors CGFXText::operator& chunk for chunk, so a saved game written by either
+// backend restores in the other. Without it a restored window state came back
+// with no text object at all, and CScene::Reposition walked into
+// CUIScrollTextBox::RepositionText, which dereferences GetText() unguarded --
+// the crash on loading a game.
+int STDCALL TextGpu::operator&( IStructureSaver &ss )
+{
+    CSaverAccessor saver = &ss;
+    float width = static_cast<float>( width_ );
+    // The GPU text has no red line, but the chunks stay so the layout matches.
+    bool red_line = false;
+    float red_line_size = 0;
+    saver.Add( 1, &text_ );
+    saver.Add( 2, &width );
+    saver.Add( 3, &color_ );
+    saver.Add( 4, &font_ );
+    saver.Add( 5, &red_line );
+    saver.Add( 7, &red_line_size );
+    if ( saver.IsReading() ) width_ = static_cast<int>( width );
+    return 0;
+}
 
 class CGfxGpuObjectFactory : public CBasicObjectFactory
 {
