@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <cstdio>
 #include "../Platform/LegacyText.h"
 
 #include "../Main/iMainCommands.h"
@@ -208,6 +209,10 @@ bool CUIEditBox::ProcessMessage( const SUIMessage &msg )
 }
 bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
+	if ( getenv( "BK_INPUT_TRACE" ) )
+		std::fprintf( stderr, "BK_INPUT_TRACE: editbox char=%u vk=0x%02x pressed=%d state=0x%lx visible=%d valid=%d\n",
+			unsigned( nAsciiCode ), nVirtualKey, int( bPressed ), (unsigned long)keyState,
+			int( IsVisible() ), int( IsValidSymbol( nAsciiCode ) ) );
 	if ( !IsVisible() )
 		return false;
 	

@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <cstdio>
 #include "../Platform/LegacyText.h"
 
 #include <vector>
@@ -771,7 +772,13 @@ bool CMainLoop::StepApp( bool bActive )
 	{
 		STextMessage textMessage;
 		while ( pInput->GetTextMessage( &textMessage ) )
+		{
+			if ( getenv( "BK_INPUT_TRACE" ) )
+				std::fprintf( stderr, "BK_INPUT_TRACE: pump vk=0x%02x char=%u -> %s\n",
+					textMessage.nVirtualKey, unsigned( textMessage.wChars[0] ),
+					interfaces.empty() ? "<none>" : typeid( *interfaces.back() ).name() );
 			interfaces.back()->ProcessTextMessage( textMessage );
+		}
 		SGameMessage msg;
 		while ( pInput->GetMessage( &msg ) )
 		{
@@ -788,6 +795,8 @@ bool CMainLoop::StepApp( bool bActive )
 	}
 	else
 	{
+		if ( getenv( "BK_INPUT_TRACE" ) )
+			std::fprintf( stderr, "BK_INPUT_TRACE: message processing DISABLED, discarding\n" );
 		STextMessage textMessage;
 		while ( pInput->GetTextMessage( &textMessage ) );
 		SGameMessage msg;

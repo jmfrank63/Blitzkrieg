@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <cstdio>
 
 #include "InputAPI.h"
 #include "InputCodes.h"
@@ -1012,6 +1013,9 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 					message.nScanCode = static_cast<int>( legacy );
 					message.bPressed = bPressed;
 					if ( bPressed ) message.wChars[0] = NInput::CharacterFromKeycode( event.key, event.modifiers );
+					if ( getenv( "BK_INPUT_TRACE" ) )
+						std::fprintf( stderr, "BK_INPUT_TRACE: produced mode=%d vk=0x%02x char=%u pressed=%d\n",
+							int( eTextMode ), int( virtualKey ), unsigned( message.wChars[0] ), int( bPressed ) );
 					chars.push_back( message );
 				}
 				bTextMayFollowKey = bPressed;
