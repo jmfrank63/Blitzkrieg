@@ -150,11 +150,33 @@ public:
             for ( std::map<std::string, CObj<IGFXTexture> >::iterator it = textures_.begin(); it != textures_.end(); ++it )
             {
                 if ( it->second == 0 ) continue;
-                it->second->SetSharedResourceName( it->first );
+                // The texture restores the resolved stream name itself. Only
+                // fall back to the map key for a save written before that was
+                // serialized, and resolve the suffix the same way GetTexture
+                // does so the reload actually finds a file.
+                const char *restored = it->second->GetSharedResourceName();
+                if ( !restored || !*restored )
+                    it->second->SetSharedResourceName( ResolveStreamName( it->first ) );
                 it->second->Load( false );
             }
         }
         return 0;
+    }
+    // A lookup name has no extension; the file on disk carries a quality
+    // suffix. Shared with the deserialization path above.
+    std::string ResolveStreamName( const std::string &key ) const
+    {
+        ISingleton *globals = GetSingletonGlobal();
+        IDataStorage *storage = globals ? GetSingleton<IDataStorage>( globals ) : 0;
+        if ( !storage ) return std::string();
+        const char *suffixes[] = { quality_suffix_.c_str(), "_h.dds", "_c.dds", "_l.dds", ".dds" };
+        for ( const char *suffix : suffixes )
+        {
+            std::string candidate( key );
+            if ( candidate.size() < 4 || candidate.substr( candidate.size() - 4 ) != ".dds" ) candidate += suffix;
+            if ( storage->IsStreamExist( candidate.c_str() ) ) return candidate;
+        }
+        return std::string();
     }
     IGFXTexture * STDCALL GetTexture( const char *name ) override
     {
@@ -167,14 +189,7 @@ public:
         GraphicsEngineGpu *owner = dynamic_cast<GraphicsEngineGpu *>( GetSingleton<IGFX>( globals ) );
         IDataStorage *storage = GetSingleton<IDataStorage>( globals );
         if ( !owner || !storage ) return nullptr;
-        const char *suffixes[] = { quality_suffix_.c_str(), "_h.dds", "_c.dds", "_l.dds", ".dds" };
-        std::string stream_name;
-        for ( const char *suffix : suffixes )
-        {
-            std::string candidate( key );
-            if ( candidate.size() < 4 || candidate.substr( candidate.size() - 4 ) != ".dds" ) candidate += suffix;
-            if ( storage->IsStreamExist( candidate.c_str() ) ) { stream_name = candidate; break; }
-        }
+        const std::string stream_name = ResolveStreamName( key );
         if ( stream_name.empty() ) return nullptr;
         CObj<IGFXTexture> texture = new TextureGpu( owner, 0, 0, 0, GFXPF_UNKNOWN, GFXD_STATIC );
         texture->SetSharedResourceName( stream_name );

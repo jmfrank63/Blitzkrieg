@@ -182,12 +182,17 @@ TextureGpu::TextureGpu()
         owner_ = dynamic_cast<GraphicsEngineGpu *>( GetSingleton<IGFX>( globals ) );
 }
 
-// CTexture stores only its usage counter; the name and the reload come from the
-// manager's shared map, which is serialized alongside.
+// The name has to travel with the texture. The manager's map is keyed by the
+// lookup name ("units\\technics\\tanktrack"), but a texture loads from the
+// resolved stream ("...tanktrack_h.dds"), which GetTexture picks by probing the
+// quality suffixes. Restoring the key alone left Load opening a stream that
+// does not exist, so every texture in a loaded game came back empty and the
+// whole scene rendered white.
 int STDCALL TextureGpu::operator&( IStructureSaver &ss )
 {
     CSaverAccessor saver = &ss;
     saver.Add( 1, &shared_resource_last_usage_ );
+    saver.Add( 2, &name_ );
     return 0;
 }
 

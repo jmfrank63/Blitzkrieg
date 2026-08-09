@@ -94,6 +94,20 @@ pub fn depthTestChangeFor(id: u32) ?bool {
     };
 }
 
+// D3DSAMP_MAGFILTER/MINFILTER for stage 0, straight from SetupShaders. This is
+// applied per effect, like every other render state: the GPU path only had an
+// explicit set_sampler call, which text used to switch to linear and nothing
+// ever switched back, so every sprite and terrain tile drawn after the first
+// string in a frame got filtered and bled across its atlas neighbours.
+// An effect that leaves the sampler alone inherits the previous one.
+pub fn linearFilterChangeFor(id: u32) ?bool {
+    return switch (id) {
+        1, 3, 14, 111 => false,
+        2, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
+        else => null,
+    };
+}
+
 pub const ColorOp = enum(u32) { modulate = 0, add = 1 };
 
 pub fn colorOpFor(id: u32) ColorOp {
@@ -331,6 +345,17 @@ test "UI and alpha reference fixtures" {
     try std.testing.expect(!alphaPassGreaterEqual(0.0, alphaRefFor(1)));
     try std.testing.expect(!alphaPassGreaterEqual(150.0 / 255.0, alphaRefFor(1)));
     try std.testing.expect(alphaPassGreaterEqual(1.0, alphaRefFor(1)));
+
+    // The sampler is a per-effect state too: the sprite cutouts are point
+    // sampled and the lit and blended passes are filtered, and an effect that
+    // sets neither inherits whatever the last one left.
+    try std.testing.expectEqual(false, linearFilterChangeFor(3).?);
+    try std.testing.expectEqual(false, linearFilterChangeFor(1).?);
+    try std.testing.expectEqual(false, linearFilterChangeFor(14).?);
+    try std.testing.expectEqual(false, linearFilterChangeFor(111).?);
+    try std.testing.expectEqual(true, linearFilterChangeFor(8).?);
+    try std.testing.expectEqual(true, linearFilterChangeFor(112).?);
+    for ([_]u32{ 4, 11, 13, 100, 110, 113, 300 }) |id| try std.testing.expect(linearFilterChangeFor(id) == null);
 
     // An effect that leaves the test off must keep every texel, including a
     // fully transparent one: D3D only rejects alpha strictly below the

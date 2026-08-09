@@ -246,6 +246,11 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
             // leave both standing.
             if (effects.stencilChangeFor(info.?.value)) |mode| renderer.stencil_mode = mode;
             if (effects.depthTestChangeFor(info.?.value)) |enabled| renderer.depth_mode = if (enabled) 1 else 0;
+            // D3DSAMP_MAGFILTER/MINFILTER travels with the effect too. Without
+            // this the sampler only ever changed through an explicit call, so
+            // the linear filter text switches on stayed on for the sprites and
+            // terrain drawn after it and bled across their atlas neighbours.
+            if (effects.linearFilterChangeFor(info.?.value)) |linear| renderer.use_linear_sampler = linear;
         },
         state_lighting => renderer.lighting_enabled = info.?.value != 0,
         state_specular => renderer.specular_enabled = info.?.value != 0,
