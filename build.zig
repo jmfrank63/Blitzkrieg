@@ -822,7 +822,12 @@ pub fn build(b: *std.Build) void {
         platform_abi_layout_step.dependOn(&platform_abi_compile_run.step);
     }
 
-    const platform_runtime_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    // The shipped runtime follows the build's optimisation like every other
+    // module. Pinning it to Debug left a release install with a debug copy of the
+    // layer everything else calls -- clock, file I/O, sockets, heap, debug output
+    // -- and on Windows it also pinned the CRT, so a release build there would
+    // have mixed debug and release CRTs across the DLL boundary.
+    const platform_runtime_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = platform != .windows_x64 });
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, platform_runtime_module);
     platform_runtime_module.addCMacro("BK_PLATFORM_RUNTIME_BUILD", "1");
@@ -834,7 +839,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
-        linkMsvcRuntime(platform_runtime_module, .Debug);
+        linkMsvcRuntime(platform_runtime_module, optimize);
         platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     }
     applyMacosLoaderPath(target, platform_runtime_module);
