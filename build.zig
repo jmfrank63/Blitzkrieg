@@ -1832,6 +1832,31 @@ pub fn build(b: *std.Build) void {
         else => "LD_LIBRARY_PATH",
     }, b.pathFromRoot(stage_root));
     console_bridge_run.step.dependOn(install_game_step);
+    // The terrain is built at integer screen coordinates and then scaled by
+    // width/1024 against height/768, which is not a whole number on most
+    // windows. Scaled vertices have to land on whole pixels or a point sampled
+    // tile edge reads its neighbour out of the tileset.
+    const scene_scale_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    if (platform != .windows_x64) {
+        scene_scale_module.link_libc = true;
+        scene_scale_module.link_libcpp = true;
+    }
+    scene_scale_module.addCSourceFile(.{
+        .file = b.path("tools/zig/scene_screen_scale_test.cpp"),
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"},
+    });
+    scene_scale_module.addIncludePath(b.path("Sources/src"));
+    addMsvcIncludePaths(b, scene_scale_module, toolchain);
+    addMsvcLibraryPaths(b, scene_scale_module, toolchain);
+    linkMsvcRuntime(scene_scale_module, .Debug);
+    const scene_scale_test = b.addExecutable(.{ .name = "scene-screen-scale-test", .root_module = scene_scale_module });
+    scene_scale_test.subsystem = .console;
+    if (platform == .windows_x64) scene_scale_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const scene_scale_run = b.addRunArtifact(scene_scale_test);
+    const scene_scale_step = b.step("test-scene-scale", "Check scaled terrain vertices land on whole pixels");
+    scene_scale_step.dependOn(&scene_scale_test.step);
+    if (test_mode == .run) scene_scale_step.dependOn(&scene_scale_run.step);
+
     const console_bridge_test_step = b.step("test-console-bridge", "Round-trip a wide string through the console bridge");
     console_bridge_test_step.dependOn(&console_bridge_test.step);
     if (test_mode == .run) console_bridge_test_step.dependOn(&console_bridge_run.step);
