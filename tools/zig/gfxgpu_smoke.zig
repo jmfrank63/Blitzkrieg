@@ -256,6 +256,32 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &depth_readback));
     try std.testing.expect(std.mem.readInt(u32, depth_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
     std.debug.print("GfxGpu depth smoke: overlapping triangles resolved\n", .{});
+
+    // Draw once with D3DRS_SPECULARENABLE on. The specular variants are selected
+    // by vertex format and this state, and their shader slots are indexed by the
+    // variant enum -- when those caches were a hardcoded [5] the new variants
+    // indexed past the end, and a release build handed Metal a garbage vertex
+    // function and died inside setVertexFunction:. Nothing here inspects pixels;
+    // the point is that the pipeline builds and the draw survives.
+    var specular_on = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 5, .index = 0, .value = 1, .values = .{0} ** 16 };
+    var specular_off = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 5, .index = 0, .value = 0, .values = .{0} ** 16 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &screen_viewport));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_transform(renderer, &pixel_world, &pixel_view_proj));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &specular_on));
+    var specular_clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &specular_clear));
+    // Textured and untextured take different specular variants, so both run.
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, texture));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(textured_buffer), 2));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, 0));
+    var specular_geometry = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&depth_vertices), .byte_length = @sizeOf(@TypeOf(depth_vertices)), .stride = 16 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &specular_geometry, 2));
+    // Render state only takes while a frame is recording, as it does in the game.
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &specular_off));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
+    std.debug.print("GfxGpu specular smoke: specular variants build and draw\n", .{});
 }
 
 pub fn main(init: std.process.Init) !void {

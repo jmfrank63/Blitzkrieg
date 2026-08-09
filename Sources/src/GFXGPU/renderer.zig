@@ -11,6 +11,9 @@ const io_c = @cImport({
     @cInclude("stdio.h");
 });
 
+// One shader slot per Renderer.ShaderVariant. Declared here so the caches below
+// cannot fall behind the enum.
+const shader_variant_count = @typeInfo(Renderer.ShaderVariant).@"enum".fields.len;
 
 pub const Renderer = struct {
     allocator: std.mem.Allocator,
@@ -35,8 +38,11 @@ pub const Renderer = struct {
     // other format the engine draws with -- terrain tiles, mesh vertices, line
     // vertices -- was strided and swizzled as garbage.
     pipelines: std.AutoHashMapUnmanaged(u64, *anyopaque) = .empty,
-    vertex_shaders: [5]?*anyopaque = @splat(null),
-    fragment_shaders: [5]?*anyopaque = @splat(null),
+    // Sized from the variant enum: these are indexed by @intFromEnum, so a fixed
+    // count silently goes out of bounds the moment a variant is added, and a
+    // release build has no check to catch it.
+    vertex_shaders: [shader_variant_count]?*anyopaque = @splat(null),
+    fragment_shaders: [shader_variant_count]?*anyopaque = @splat(null),
     shade_effect: u32 = 0,
     sampler: ?*sdl.c.SDL_GPUSampler = null,
     linear_sampler: ?*sdl.c.SDL_GPUSampler = null,
@@ -820,6 +826,23 @@ pub const Renderer = struct {
         sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };
+
+test "every shader variant has a slot and a name" {
+    // The caches are indexed by @intFromEnum. They used to be a hardcoded [5],
+    // so adding the specular variants wrote past the end of the Renderer -- and
+    // a release build has no bounds check, so it handed Metal a garbage vertex
+    // function and crashed inside setVertexFunction:.
+    const fields = @typeInfo(Renderer.ShaderVariant).@"enum".fields;
+    try std.testing.expectEqual(fields.len, shader_variant_count);
+    inline for (fields) |field| {
+        const variant: Renderer.ShaderVariant = @enumFromInt(field.value);
+        try std.testing.expect(@intFromEnum(variant) < shader_variant_count);
+        try std.testing.expect(Renderer.variantEffect(variant).len > 0);
+        try std.testing.expect(Renderer.variantVertexEntry(variant).len > 0);
+        try std.testing.expect(Renderer.variantFragmentEntry(variant).len > 0);
+        try std.testing.expect(Renderer.variantSamplerCount(variant) <= 2);
+    }
+}
 
 test "line geometry gets its own pipeline and its own vertex count" {
     // A line list and a triangle list of the same format must not share a
