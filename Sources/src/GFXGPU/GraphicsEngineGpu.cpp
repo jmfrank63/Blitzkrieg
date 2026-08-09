@@ -269,6 +269,8 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
 
 bool STDCALL GraphicsEngineGpu::Done()
 {
+    if ( current_font_ ) current_font_->Release();
+    current_font_ = nullptr;
     if ( renderer_ ) api_.destroy( renderer_ );
     renderer_ = nullptr;
     sdl_window_ = nullptr;
@@ -497,7 +499,13 @@ bool STDCALL GraphicsEngineGpu::SetCullMode( EGFXCull cull ) { return SetState( 
 bool STDCALL GraphicsEngineGpu::SetDepthBufferMode( EGFXDepthBuffer depth, EGFXCmpFunction cmp ) { return SetState( GFXGPU_STATE_DEPTH_MODE, static_cast<uint32_t>( cmp ), static_cast<uint32_t>( depth ), nullptr, 0, "set_depth_mode" ); }
 bool STDCALL GraphicsEngineGpu::EnableLighting( bool enable ) { return SetState( GFXGPU_STATE_LIGHTING, 0, enable ? 1u : 0u, nullptr, 0, "set_lighting" ); }
 bool STDCALL GraphicsEngineGpu::EnableSpecular( bool enable ) { return SetState( GFXGPU_STATE_SPECULAR, 0, enable ? 1u : 0u, nullptr, 0, "set_specular" ); }
-bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont * ) { return fail( "SDL GPU font resources are not available yet" ); }
+bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont *font )
+{
+    if ( font ) font->AddRef();
+    if ( current_font_ ) current_font_->Release();
+    current_font_ = font;
+    return font != nullptr;
+}
 bool STDCALL GraphicsEngineGpu::IsActive() { return initialized_; }
 bool STDCALL GraphicsEngineGpu::BeginScene()
 {
@@ -662,14 +670,41 @@ bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *matric
     }
     return true;
 }
+// SetFont used to fail outright, so DrawString and DrawStringA had no font to
+// draw with and fell back to one filled rectangle per character. Everything that
+// goes through them rendered as coloured blocks: the statistics overlay in the
+// top left, the console, and the chat lines.
+bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD color )
+{
+    FontGpu *font = dynamic_cast<FontGpu *>( current_font_ );
+    if ( !font || !font->Texture() || !text || !*text ) return false;
+    std::vector<SGFXLVertex> vertices;
+    std::vector<WORD> indices;
+    font->AppendGeometry( text, static_cast<float>( x ), static_cast<float>( y ), 1.0f, color, vertices, indices );
+    if ( vertices.empty() || indices.empty() ) return true;
+    if ( !SetTexture( 0, font->Texture() ) ) return false;
+    if ( api_.set_sampler ) (void)api_.set_sampler( renderer_, 2 );
+    SGFXLVertex *destination = static_cast<SGFXLVertex *>( GetTempVertices( static_cast<int>( vertices.size() ), SGFXLVertex::format, GFXPT_TRIANGLELIST ) );
+    if ( !destination ) return false;
+    std::memcpy( destination, vertices.data(), vertices.size() * sizeof( SGFXLVertex ) );
+    WORD *index_destination = static_cast<WORD *>( GetTempIndices( static_cast<int>( indices.size() ), GFXIF_INDEX16, GFXPT_TRIANGLELIST ) );
+    if ( !index_destination ) return false;
+    std::memcpy( index_destination, indices.data(), indices.size() * sizeof( WORD ) );
+    return DrawTemp();
+}
 bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWORD color )
 {
     if ( !text || !*text ) return true;
     std::wstring wide;
     while ( *text ) wide.push_back( static_cast<unsigned char>( *text++ ) );
+    if ( DrawFontLine( wide.c_str(), x, y, color ) ) return true;
     return DrawFallbackGlyphs( this, wide.c_str(), x, y, color );
 }
-bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, DWORD color ) { return DrawFallbackGlyphs( this, text, x, y, color ); }
+bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, DWORD color )
+{
+    if ( DrawFontLine( text, x, y, color ) ) return true;
+    return DrawFallbackGlyphs( this, text, x, y, color );
+}
 bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD flags )
 {
     if ( !text ) return false;

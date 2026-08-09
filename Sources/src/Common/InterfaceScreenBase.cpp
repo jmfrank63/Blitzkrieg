@@ -11,7 +11,7 @@ BASIC_REGISTER_CLASS( CInterfaceScreenBase );
 CInterfaceScreenBase::CInterfaceScreenBase( const std::string &_szInterfaceType )
 : szInterfaceType( _szInterfaceType ), bInterfaceClosed( false )
 {
-	bEnableStatistics = false;
+	bEnableStatistics = getenv( "BK_STATS_OVERLAY" ) != 0;
 	fTotalTime = 1;
 	nFrameCounter = 1;
 	nTriCounter = 0;

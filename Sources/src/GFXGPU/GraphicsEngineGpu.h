@@ -109,8 +109,13 @@ private:
     bool ApplyTransforms();
     bool SetState( uint32_t kind, uint32_t index, uint32_t value, const void *data, size_t data_size, const char *operation );
     bool SetTopology( EGFXPrimitiveType type );
+    // Draws one unwrapped line with the font SetFont selected, as
+    // CGraphicsEngine::DrawString does. False means there is no usable font, so
+    // the caller can fall back rather than draw nothing.
+    bool DrawFontLine( const wchar_t *text, int x, int y, DWORD color );
 
     GfxGpuApi api_{};
+    IGFXFont *current_font_ = nullptr;
     GfxGpuRenderer *renderer_ = nullptr;
     void *sdl_window_ = nullptr;
     bool frame_pending_ = false;
