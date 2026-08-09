@@ -63,6 +63,37 @@ pub fn alphaRefFor(id: u32) u8 {
     };
 }
 
+// CGraphicsEngine::SetShadingEffect applies each effect as a delta over the
+// current D3D render state, so 110 opens the shadow pass, 111 and 112 draw
+// inside it, and 113 closes it again. Only the effects that actually write
+// D3DRS_STENCILENABLE report a change here; the rest inherit.
+//
+// The pass exists because a shadow must darken each pixel exactly once.
+// STENCILFUNC EQUAL against a reference of 0 with STENCILPASS INCRSAT lets the
+// first fragment through and stamps the pixel, so every later fragment covering
+// it fails the test. Without it, overlapping silhouette polygons -- a hull, its
+// turret and its gun -- compound at MESH_SHADOW_DENSITY 0.5 into 0.75, then
+// 0.875, and the vehicle wears a dark blot.
+pub const StencilMode = enum(u32) { off = 0, darken_once = 1 };
+
+pub fn stencilChangeFor(id: u32) ?StencilMode {
+    return switch (id) {
+        6, 110 => .darken_once,
+        7, 113 => .off,
+        else => null,
+    };
+}
+
+// D3DRS_ZENABLE, likewise a delta. 110 drops the depth test for the shadow pass
+// and 113 restores it; 200 draws its additive sprites without one.
+pub fn depthTestChangeFor(id: u32) ?bool {
+    return switch (id) {
+        110, 113 => id == 113,
+        200 => false,
+        else => null,
+    };
+}
+
 pub const ColorOp = enum(u32) { modulate = 0, add = 1 };
 
 pub fn colorOpFor(id: u32) ColorOp {
@@ -300,6 +331,23 @@ test "UI and alpha reference fixtures" {
     try std.testing.expect(!alphaPassGreaterEqual(0.0, alphaRefFor(1)));
     try std.testing.expect(!alphaPassGreaterEqual(150.0 / 255.0, alphaRefFor(1)));
     try std.testing.expect(alphaPassGreaterEqual(1.0, alphaRefFor(1)));
+}
+
+test "the shadow pass opens and closes as a render-state delta" {
+    // 110 opens it, 111 and 112 draw inside it and touch neither state, 113
+    // closes it. Anything that reported a change for 111 or 112 would end the
+    // pass halfway through and let the shadows compound again.
+    try std.testing.expectEqual(StencilMode.darken_once, stencilChangeFor(110).?);
+    try std.testing.expectEqual(StencilMode.off, stencilChangeFor(113).?);
+    try std.testing.expectEqual(StencilMode.darken_once, stencilChangeFor(6).?);
+    try std.testing.expectEqual(StencilMode.off, stencilChangeFor(7).?);
+    for ([_]u32{ 111, 112, 1, 3, 20, 100, 300 }) |id| try std.testing.expect(stencilChangeFor(id) == null);
+
+    // D3DRS_ZENABLE travels with it: off for the shadow pass, back on after.
+    try std.testing.expectEqual(false, depthTestChangeFor(110).?);
+    try std.testing.expectEqual(true, depthTestChangeFor(113).?);
+    try std.testing.expectEqual(false, depthTestChangeFor(200).?);
+    for ([_]u32{ 111, 112, 6, 7, 1, 20 }) |id| try std.testing.expect(depthTestChangeFor(id) == null);
 }
 
 test "vehicle tracks add the diffuse colour and multiply into the ground" {

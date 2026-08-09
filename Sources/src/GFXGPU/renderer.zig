@@ -49,6 +49,10 @@ pub const Renderer = struct {
     world_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
     view_proj_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
     draw_color: [4]f32 = .{ 1, 1, 1, 1 },
+    // Sticky, because CGraphicsEngine::SetShadingEffect applies an effect as a
+    // delta: 110 opens the shadow pass and 113 closes it, and the effects that
+    // draw in between inherit what those set.
+    stencil_mode: effects.StencilMode = .off,
     // With D3D's fixed-function lighting on, the vertex colour comes from the
     // material, not from the vertex: the mesh formats carry a normal where the
     // lit formats keep their diffuse DWORD and so have no colour of their own.
@@ -559,10 +563,11 @@ pub const Renderer = struct {
             (@as(u64, @intFromEnum(topology)) << 36) |
             (@as(u64, @intFromBool(depth.test_enabled)) << 39) |
             (@as(u64, @intFromBool(depth.write_enabled)) << 40) |
-            (@as(u64, depth.compare) << 41);
+            (@as(u64, depth.compare) << 41) |
+            (@as(u64, @intFromEnum(depth.stencil)) << 45);
     }
 
-    pub const DepthState = struct { test_enabled: bool, write_enabled: bool, compare: u4 };
+    pub const DepthState = struct { test_enabled: bool, write_enabled: bool, compare: u4, stencil: effects.StencilMode = .off };
 
     // GFXDB_NONE turns the test off entirely, as D3DRS_ZENABLE FALSE does; the
     // effect table says whether a pass that does test also writes, which is how
@@ -572,7 +577,16 @@ pub const Renderer = struct {
         const writes = if (effects.find(self.shade_effect)) |spec| spec.depth_write else true;
         // GFXCMP_DEFAULT means LESSEQUAL for the z-buffer.
         const compare: u4 = @intCast(if (self.depth_compare == 0) 4 else @min(self.depth_compare, 8));
-        return .{ .test_enabled = test_enabled, .write_enabled = test_enabled and writes, .compare = compare };
+        return .{ .test_enabled = test_enabled, .write_enabled = test_enabled and writes, .compare = compare, .stencil = self.stencil_mode };
+    }
+
+    // EQUAL against a reference of 0, incrementing on pass: the first fragment to
+    // reach a pixel darkens it and stamps the stencil, and every later one fails.
+    fn sdlStencilState(mode: effects.StencilMode) sdl.c.SDL_GPUStencilOpState {
+        return switch (mode) {
+            .off => .{ .fail_op = sdl.c.SDL_GPU_STENCILOP_KEEP, .pass_op = sdl.c.SDL_GPU_STENCILOP_KEEP, .depth_fail_op = sdl.c.SDL_GPU_STENCILOP_KEEP, .compare_op = sdl.c.SDL_GPU_COMPAREOP_ALWAYS },
+            .darken_once => .{ .fail_op = sdl.c.SDL_GPU_STENCILOP_KEEP, .pass_op = sdl.c.SDL_GPU_STENCILOP_INCREMENT_AND_CLAMP, .depth_fail_op = sdl.c.SDL_GPU_STENCILOP_KEEP, .compare_op = sdl.c.SDL_GPU_COMPAREOP_EQUAL },
+        };
     }
 
     fn sdlCompare(compare: u4) sdl.c.SDL_GPUCompareOp {
@@ -649,7 +663,7 @@ pub const Renderer = struct {
         const color_format: sdl.c.SDL_GPUTextureFormat = @intCast(self.swapchain_format);
         const factors = blendFactors(blend_mode);
         const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = factors.source, .dst_color_blendfactor = factors.destination, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = factors.enabled, .enable_color_write_mask = true } };
-        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdlTopology(self.topology), .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdlCompare(depth.compare), .enable_depth_test = depth.test_enabled, .enable_depth_write = depth.write_enabled }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = if (self.scene_depth != null) sdl.depthFormat() else 0, .has_depth_stencil_target = self.scene_depth != null }, .props = 0 };
+        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdlTopology(self.topology), .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdlCompare(depth.compare), .back_stencil_state = sdlStencilState(depth.stencil), .front_stencil_state = sdlStencilState(depth.stencil), .compare_mask = 0xff, .write_mask = 0xff, .enable_depth_test = depth.test_enabled, .enable_depth_write = depth.write_enabled, .enable_stencil_test = depth.stencil != .off }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = if (self.scene_depth != null) sdl.depthFormat() else 0, .has_depth_stencil_target = self.scene_depth != null }, .props = 0 };
         const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse return error.PipelineCreateFailed;
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
         try self.pipelines.put(self.allocator, key, pipeline);

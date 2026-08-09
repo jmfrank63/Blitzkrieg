@@ -4,6 +4,7 @@ const libc = @cImport({
 });
 const errors = @import("error.zig");
 const formats = @import("formats.zig");
+const effects = @import("effects.zig");
 const renderer_mod = @import("renderer.zig");
 const device_mod = @import("device.zig");
 const sdl = @import("sdl.zig");
@@ -236,7 +237,15 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
     // the war fog paint over the whole screen; lighting and the material
     // together supply the diffuse colour of geometry that carries none.
     switch (info.?.kind) {
-        state_shade_effect => renderer.shade_effect = info.?.value,
+        state_shade_effect => {
+            renderer.shade_effect = info.?.value;
+            // An effect that writes D3DRS_STENCILENABLE or D3DRS_ZENABLE changes
+            // it for everything that follows, not just for its own draws: 110
+            // opens the shadow pass and 113 closes it. Effects that write neither
+            // leave both standing.
+            if (effects.stencilChangeFor(info.?.value)) |mode| renderer.stencil_mode = mode;
+            if (effects.depthTestChangeFor(info.?.value)) |enabled| renderer.depth_mode = if (enabled) 1 else 0;
+        },
         state_lighting => renderer.lighting_enabled = info.?.value != 0,
         // value is EGFXDepthBuffer, index the EGFXCmpFunction.
         state_depth_mode => {
