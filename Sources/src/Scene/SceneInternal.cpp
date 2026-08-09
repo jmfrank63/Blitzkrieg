@@ -63,6 +63,28 @@ CScene::CScene()
 	bEnableShowBorder = true;
 	bShowUI = true;
 	bEnableHaze = false;
+	// BK_SCENE_DISABLE turns individual passes off at startup so a rendering
+	// artefact can be attributed to the pass that draws it without hunting
+	// through the code. Comma separated, any of:
+	//   shadows objects units effects terrain noise warfog border haze grid
+	// e.g. BK_SCENE_DISABLE=shadows,noise
+	if ( const char *pszDisable = getenv( "BK_SCENE_DISABLE" ) )
+	{
+		const std::string szDisable( pszDisable );
+		struct { const char *pszName; bool *pFlag; } flags[] = {
+			{ "shadows", &bEnableShadows }, { "objects", &bEnableObjects },
+			{ "units", &bEnableUnits },     { "effects", &bEnableEffects },
+			{ "terrain", &bEnableTerrain }, { "noise", &bEnableNoise },
+			{ "warfog", &bEnableWarFog },   { "border", &bEnableShowBorder },
+			{ "haze", &bEnableHaze },       { "grid", &bEnableGrid },
+		};
+		for ( int i = 0; i != sizeof(flags)/sizeof(flags[0]); ++i )
+		{
+			if ( szDisable.find( flags[i].pszName ) == std::string::npos ) continue;
+			*( flags[i].pFlag ) = false;
+			NPlatform::DebugWrite( NStr::Format( "BK_SCENE_DISABLE: %s off\n", flags[i].pszName ) );
+		}
+	}
 	pSandTexture = 0;
 	pTerrain = 0;
 	bWeatherOn = false;
