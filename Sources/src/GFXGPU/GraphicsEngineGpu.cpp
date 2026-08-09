@@ -677,6 +677,12 @@ bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *matric
 bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD color )
 {
     FontGpu *font = dynamic_cast<FontGpu *>( current_font_ );
+    if ( getenv( "BK_TEXT_TRACE" ) && text )
+    {
+        std::fprintf( stderr, "BK_TEXT_TRACE: font=%s codes=", font ? font->GetSharedResourceName() : "<none>" );
+        for ( const wchar_t *it = text; *it && it - text < 24; ++it ) std::fprintf( stderr, "%u,", static_cast<unsigned>( *it ) );
+        std::fprintf( stderr, "\n" );
+    }
     if ( !font || !font->Texture() || !text || !*text ) return false;
     std::vector<SGFXLVertex> vertices;
     std::vector<WORD> indices;
