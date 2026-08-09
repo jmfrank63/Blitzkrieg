@@ -37,6 +37,18 @@ bool CConsoleBuffer::Configure( const char *pszConfigure )
 }
 void CConsoleBuffer::WriteLocal( int nStreamID, const wchar_t *pszString, DWORD color, bool bBackupLog )
 {
+	// BK_TEXT_TRACE also covers this end of the pipe, so a line that renders
+	// wrong can be blamed on the producer or on the console buffer rather than
+	// on the text drawing.
+	if ( getenv( "BK_TEXT_TRACE" ) )
+	{
+		std::fprintf( stderr, "BK_TEXT_TRACE: console stream=%d color=%08x len=%d codes=", nStreamID, color,
+			pszString ? int( std::wcslen( pszString ) ) : -1 );
+		if ( pszString )
+			for ( const wchar_t *it = pszString; *it && it - pszString < 24; ++it )
+				std::fprintf( stderr, "%u,", static_cast<unsigned>( *it ) );
+		std::fprintf( stderr, "\n" );
+	}
 	streams[nStreamID].push_back( std::pair<std::wstring, DWORD>(pszString, color) );
 	if ( bBackupLog )
 		logs[nStreamID].push_back( std::pair<std::wstring, DWORD>(pszString, color) );
