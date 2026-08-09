@@ -56,6 +56,33 @@ inline const WORD *WordStringData( const std::u16string &text )
 	return reinterpret_cast<const WORD *>( text.c_str() );
 }
 
+// Fills a fixed wchar_t buffer from UTF-16. The status structs the engine passes
+// between modules declare wchar_t arrays and were filled with a memcpy over a
+// hardcoded two bytes per character, which is wchar_t's size only on Windows.
+// Where wchar_t is 32 bits that packed two UTF-16 units into every element, and
+// the readers -- which narrow each element back to 16 bits -- then showed every
+// second character of the unit name in the status bar. The copy is also bounded,
+// which the memcpy was not.
+inline void CopyWordStringToWide( wchar_t *pDest, std::size_t nCapacity, const WORD *pszText )
+{
+	if ( pDest == 0 || nCapacity == 0 ) return;
+	std::size_t i = 0;
+	if ( pszText != 0 )
+		for ( ; i + 1 < nCapacity && pszText[i] != 0; ++i )
+			pDest[i] = static_cast<wchar_t>( pszText[i] );
+	pDest[i] = 0;
+}
+
+inline void CopyWideToWide( wchar_t *pDest, std::size_t nCapacity, const wchar_t *pszText )
+{
+	if ( pDest == 0 || nCapacity == 0 ) return;
+	std::size_t i = 0;
+	if ( pszText != 0 )
+		for ( ; i + 1 < nCapacity && pszText[i] != 0; ++i )
+			pDest[i] = pszText[i];
+	pDest[i] = 0;
+}
+
 }
 
 #endif // __PLATFORM_LEGACYTEXT_H__

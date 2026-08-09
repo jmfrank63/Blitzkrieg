@@ -158,17 +158,17 @@ void CMOUnit::GetStatus( struct SMissionStatusObject *pStatus ) const
 		const std::wstring wszName = NStr::ToUnicode( NStr::Format( "id %d", GetSingleton<IAILogic>()->GetUniqueIDOfObject( pAIObj ) ) ) +
 																 NStr::ToUnicode( szFrozenInfo ) +
 																 L"," + wszStateName + L"," + NPlatform::WideFromWordString(pName->GetString());
-		memcpy( pStatus->pszName, wszName.c_str(), (wszName.size() + 1) * 2 );
+		NPlatform::CopyWideToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), wszName.c_str() );
 	}
 #else
 	if ( IText *pName = GetLocalNameLocal() ) 
-		memcpy( pStatus->pszName, pName->GetString(), (pName->GetLength() + 1) * 2 );
+		NPlatform::CopyWordStringToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), pName->GetString() );
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	else
 	{
 		static std::wstring szName;
 		NStr::ToUnicode( &szName, pDesc->szKey );
-		memcpy( pStatus->pszName, szName.c_str(), (szName.size() + 1) * sizeof(szName[0]) );
+		NPlatform::CopyWideToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), szName.c_str() );
 	}
 }
 void CMOUnit::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )

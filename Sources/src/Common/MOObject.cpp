@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Platform/LegacyText.h"
 
 #include "MOObject.h"
 
@@ -164,12 +165,12 @@ void CMOObject::GetStatus( struct SMissionStatusObject *pStatus ) const
 	pStatus->params[2] = 0;
 	pStatus->params[3] = 0;
 	if ( IText *pName = GetLocalName() ) 
-		memcpy( pStatus->pszName, pName->GetString(), (pName->GetLength() + 1) * 2 );
+		NPlatform::CopyWordStringToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), pName->GetString() );
 	else
 	{
 		static std::wstring szName;
 		NStr::ToUnicode( &szName, pDesc->szKey );
-		memcpy( pStatus->pszName, szName.c_str(), (szName.size() + 1) * sizeof(szName[0]) );
+		NPlatform::CopyWideToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), szName.c_str() );
 	}
 	Zero( pStatus->weaponstats );
 	Zero( pStatus->armors );
