@@ -58,11 +58,18 @@ struct IOptionSystem : public IRefCount {
     virtual void BK_STDCALL Init() = 0;
     virtual void BK_STDCALL Repair(IDataTree *, bool) = 0;
 };
+// Must match IConsoleBuffer in StreamIO/Globals.h exactly. It carries wchar_t,
+// which is 32 bits off Windows while the Zig core stores UTF-16, so the bridge
+// converts rather than declaring the narrower type: the vtable slots line up
+// either way, so a mismatch is silent. Declaring unsigned short here made a
+// write stop at the first character (its high half reads as a NUL) and a read
+// run off the end of the buffer for the second one, which is why the top-left
+// messages came out as "GG", "OO" and "RR" plus a garbage glyph.
 struct IConsoleBuffer : public IRefCount {
     virtual bool BK_STDCALL Configure(const char *) = 0;
-    virtual void BK_STDCALL Write(int, const unsigned short *, unsigned long, bool) = 0;
+    virtual void BK_STDCALL Write(int, const wchar_t *, unsigned long, bool) = 0;
     virtual void BK_STDCALL WriteASCII(int, const char *, unsigned long, bool) = 0;
-    virtual const unsigned short *BK_STDCALL Read(int, unsigned long *) = 0;
+    virtual const wchar_t *BK_STDCALL Read(int, unsigned long *) = 0;
     virtual const char *BK_STDCALL ReadASCII(int, unsigned long *) = 0;
     virtual bool BK_STDCALL DumpLog(int) = 0;
 };
@@ -278,15 +285,32 @@ const std::vector<OptionDropValue> &BK_STDCALL OptionIterator::GetDropValues() c
 
 class ConsoleBuffer final : public IConsoleBuffer {
     void *state_; int refs_ = 0;
+    // Read hands back a pointer the caller keeps using until its next read, the
+    // way CConsoleBuffer::szTempString does.
+    std::wstring read_stash_;
 public:
     ConsoleBuffer() : state_(api.console_create()) {} ~ConsoleBuffer() { api.console_destroy(state_); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { if ((refs_ -= count) <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return state_ != nullptr; }
     bool BK_STDCALL Configure(const char *config) override { return config && api.console_configure(state_, config); }
-    void BK_STDCALL Write(int channel, const unsigned short *text, unsigned long color, bool backup) override { if (text) api.console_write(state_, channel, text, color, backup); }
+    void BK_STDCALL Write(int channel, const wchar_t *text, unsigned long color, bool backup) override
+    {
+        if (!text) return;
+        std::vector<unsigned short> utf16;
+        for (const wchar_t *it = text; *it; ++it) utf16.push_back(static_cast<unsigned short>(*it));
+        utf16.push_back(0);
+        api.console_write(state_, channel, utf16.data(), color, backup);
+    }
     void BK_STDCALL WriteASCII(int channel, const char *text, unsigned long color, bool backup) override { if (text) api.console_write_ascii(state_, channel, text, color, backup); }
-    const unsigned short *BK_STDCALL Read(int channel, unsigned long *color) override { return api.console_read(state_, channel, color); }
+    const wchar_t *BK_STDCALL Read(int channel, unsigned long *color) override
+    {
+        const unsigned short *line = api.console_read(state_, channel, color);
+        if (!line) return nullptr;
+        read_stash_.clear();
+        for (const unsigned short *it = line; *it; ++it) read_stash_.push_back(static_cast<wchar_t>(*it));
+        return read_stash_.c_str();
+    }
     const char *BK_STDCALL ReadASCII(int channel, unsigned long *color) override { return api.console_read_ascii(state_, channel, color); }
     bool BK_STDCALL DumpLog(int) override { return true; }
 };

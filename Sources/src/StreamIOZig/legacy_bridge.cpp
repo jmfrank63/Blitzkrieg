@@ -245,11 +245,14 @@ struct ISFXMinimal : public IRefCount {
     virtual void BK_STDCALL SetStreamMasterVolume(float volume) = 0;
 };
 
+// wchar_t, matching StreamIO/Globals.h. See options_bridge.cpp: the Zig core
+// stores UTF-16, so the implementation converts; declaring the narrower type
+// here truncates every message to its first character.
 struct IConsoleBuffer : public IRefCount {
     virtual bool BK_STDCALL Configure(const char *) = 0;
-    virtual void BK_STDCALL Write(int, const unsigned short *, unsigned long, bool) = 0;
+    virtual void BK_STDCALL Write(int, const wchar_t *, unsigned long, bool) = 0;
     virtual void BK_STDCALL WriteASCII(int, const char *, unsigned long, bool) = 0;
-    virtual const unsigned short *BK_STDCALL Read(int, unsigned long *) = 0;
+    virtual const wchar_t *BK_STDCALL Read(int, unsigned long *) = 0;
     virtual const char *BK_STDCALL ReadASCII(int, unsigned long *) = 0;
     virtual bool BK_STDCALL DumpLog(int) = 0;
 };
@@ -1612,9 +1615,9 @@ public:
     void BK_STDCALL Release(int, int) override {}
     bool BK_STDCALL IsValid() const override { return console_ != 0; }
     bool BK_STDCALL Configure(const char *config) override { return config && bk_console_configure(console_, config); }
-    void BK_STDCALL Write(int channel, const unsigned short *text, unsigned long color, bool backup) override { if (text) bk_console_write(console_, channel, text, color, backup); }
+    void BK_STDCALL Write(int channel, const wchar_t *text, unsigned long color, bool backup) override { if (text) bk_console_write_wide(console_, channel, text, color, backup); }
     void BK_STDCALL WriteASCII(int channel, const char *text, unsigned long color, bool backup) override { if (text) bk_console_write_ascii(console_, channel, text, color, backup); }
-    const unsigned short *BK_STDCALL Read(int channel, unsigned long *color) override { return bk_console_read(console_, channel, color); }
+    const wchar_t *BK_STDCALL Read(int channel, unsigned long *color) override { return bk_console_read_wide(console_, channel, color); }
     const char *BK_STDCALL ReadASCII(int channel, unsigned long *color) override { return bk_console_read_ascii(console_, channel, color); }
     bool BK_STDCALL DumpLog(int) override { return true; }
 };

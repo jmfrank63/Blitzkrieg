@@ -1496,6 +1496,8 @@ pub fn build(b: *std.Build) void {
     options_bridge_test.entry = .{ .symbol_name = "main" };
     const options_bridge_test_step = b.step("options-bridge-test", "Build portable options bridge contract tests");
     options_bridge_test_step.dependOn(&b.addInstallArtifact(options_bridge_test, .{}).step);
+
+
     const platform_module_test_module = b.createModule(.{ .target = target, .optimize = .Debug });
     const platform_module_test_flags: []const []const u8 = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"};
     platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = platform_module_test_flags });
@@ -1789,6 +1791,50 @@ pub fn build(b: *std.Build) void {
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
+
+    // Drives the shipped console bridge through the engine's own IConsoleBuffer
+    // signature. It carries wchar_t, the Zig core stores UTF-16, and the vtable
+    // slots match either way, so only an actual round trip catches a width
+    // mismatch at that boundary.
+    const console_bridge_test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    if (platform != .windows_x64) {
+        console_bridge_test_module.link_libc = true;
+        console_bridge_test_module.link_libcpp = true;
+    }
+    console_bridge_test_module.addCSourceFile(.{
+        .file = b.path("tools/zig/console_bridge_test.cpp"),
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, console_bridge_test_module);
+    addMsvcIncludePaths(b, console_bridge_test_module, toolchain);
+    addMsvcLibraryPaths(b, console_bridge_test_module, toolchain);
+    linkMsvcRuntime(console_bridge_test_module, optimize);
+    const console_bridge_test = b.addExecutable(.{
+        .name = "console-bridge-test",
+        .root_module = console_bridge_test_module,
+    });
+    console_bridge_test.subsystem = .console;
+    if (platform == .windows_x64) console_bridge_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const console_bridge_run = b.addRunArtifact(console_bridge_test);
+    // The bridge dlopens its Zig core next to itself, so point at the staged
+    // copy rather than the cache artefact, which sits alone.
+    console_bridge_run.setCwd(b.path(stage_root));
+    console_bridge_run.addArg(switch (target.result.os.tag) {
+        .windows => "StreamIOOptionsAbi.dll",
+        .macos => "./libStreamIOOptionsAbi.dylib",
+        else => "./libStreamIOOptionsAbi.so",
+    });
+    // The bridge falls back to a bare dlopen of its core, so the loader needs
+    // the staged directory on its search path.
+    console_bridge_run.setEnvironmentVariable(switch (target.result.os.tag) {
+        .macos => "DYLD_LIBRARY_PATH",
+        .windows => "PATH",
+        else => "LD_LIBRARY_PATH",
+    }, b.pathFromRoot(stage_root));
+    console_bridge_run.step.dependOn(install_game_step);
+    const console_bridge_test_step = b.step("test-console-bridge", "Round-trip a wide string through the console bridge");
+    console_bridge_test_step.dependOn(&console_bridge_test.step);
+    if (test_mode == .run) console_bridge_test_step.dependOn(&console_bridge_run.step);
 
     const run_game_cmd = b.addSystemCommand(&.{stage_game_name});
     run_game_cmd.setCwd(b.path(stage_root));
