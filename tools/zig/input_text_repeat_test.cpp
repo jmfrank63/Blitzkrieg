@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 namespace
@@ -187,6 +188,31 @@ int main()
 	if (!TestRepeatDelayAndRate()) return 1;
 	if (!TestDisabledTextMode()) return 1;
 	if (!TestFocusLossClearsPressedState()) return 1;
+	// The event path fills chars from the SDL loop before the frame pumps, so
+	// PumpMessagesLocal must not clear it there -- only the DirectInput branch
+	// may, because it refills from the device data in the same call. Clearing
+	// in the event branch discarded every character just typed and left every
+	// edit box in the game unusable while arrows and Enter still worked.
+	{
+		std::FILE *source = std::fopen( "Sources/src/Input/InputAPI.cpp", "rb" );
+		if ( source == nullptr ) { std::fprintf( stderr, "cannot open InputAPI.cpp\n" ); return 1; }
+		std::string text;
+		char buffer[4096];
+		std::size_t read = 0;
+		while ( (read = std::fread( buffer, 1, sizeof(buffer), source )) > 0 ) text.append( buffer, read );
+		std::fclose( source );
+		const std::size_t pump = text.find( "CInputAPI::PumpMessagesLocal( bool bFocus )" );
+		if ( pump == std::string::npos ) { std::fprintf( stderr, "PumpMessagesLocal not found\n" ); return 1; }
+		const std::size_t begin = text.find( "#if defined(BK_INPUT_EVENT_ONLY)", pump );
+		const std::size_t end = text.find( "#else", begin );
+		if ( begin == std::string::npos || end == std::string::npos ) { std::fprintf( stderr, "event branch not found\n" ); return 1; }
+		if ( text.find( "\n\tchars.clear();", begin ) < end )
+		{
+			std::fprintf( stderr, "PumpMessagesLocal clears chars in the event path\n" );
+			return 1;
+		}
+	}
+
 	std::puts("input text, repeat, and focus fixture passed");
 	return 0;
 }

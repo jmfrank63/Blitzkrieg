@@ -1164,7 +1164,13 @@ bool CInputAPI::PumpMessagesLocal( bool bFocus )
 	for ( CStoredControlsList::iterator it = activecontrols.begin(); it != activecontrols.end(); ++it )
 		it->bActive = false;
 #if defined(BK_INPUT_EVENT_ONLY)
-	chars.clear();
+	// No chars.clear() here. The DirectInput path below clears and then refills
+	// it from the device data it has just read, in this same call. The event
+	// path does not: ConsumePlatformEvent fills chars from the SDL loop before
+	// the frame pumps, so clearing here threw away every character that had
+	// just been typed and GetTextMessage always found the queue empty. Nothing
+	// could be typed into any edit box. The queue is drained by GetTextMessage
+	// each frame and reset outright by ClearMessages, so it stays bounded.
 	dwLastPumpingTime = static_cast<DWORD>( NPlatform::MonotonicMilliseconds() );
 	// Platform events are already ordered by the SDL owner.  sequence remains
 	// the legacy notification parameter (modifiers, position, or caller data),
