@@ -679,8 +679,29 @@ bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD c
     FontGpu *font = dynamic_cast<FontGpu *>( current_font_ );
     if ( getenv( "BK_TEXT_TRACE" ) && text )
     {
-        std::fprintf( stderr, "BK_TEXT_TRACE: font=%s codes=", font ? font->GetSharedResourceName() : "<none>" );
-        for ( const wchar_t *it = text; *it && it - text < 24; ++it ) std::fprintf( stderr, "%u,", static_cast<unsigned>( *it ) );
+        // Reports both halves of the question at once: how long the string
+        // actually is, and whether the font knows each character. A glyph the
+        // font is missing comes back zero-width, so the pen does not advance
+        // and the survivors bunch up at the left edge -- which looks the same
+        // as a truncated string until you can see the widths.
+        std::size_t length = 0;
+        while ( text[length] ) ++length;
+        std::fprintf( stderr, "BK_TEXT_TRACE: font=%s len=%zu chars=",
+            font ? font->GetSharedResourceName() : "<none>", length );
+        for ( const wchar_t *it = text; *it && it - text < 32; ++it )
+        {
+            const unsigned code = static_cast<unsigned>( *it );
+            if ( font )
+            {
+                const SFontFormat &format = font->GetFormat();
+                const bool known = format.chars.find( static_cast<WORD>( code ) ) != format.chars.end();
+                const SFontFormat::SCharDesc &desc = format.GetChar( static_cast<WORD>( code ) );
+                std::fprintf( stderr, "%u%s(w=%.1f) ", code, known ? "" : "!MISSING", desc.fA + desc.fB + desc.fC );
+            }
+            else
+                std::fprintf( stderr, "%u ", code );
+        }
+        if ( font ) std::fprintf( stderr, "| font has %d chars", static_cast<int>( font->GetFormat().chars.size() ) );
         std::fprintf( stderr, "\n" );
     }
     if ( !font || !font->Texture() || !text || !*text ) return false;
