@@ -2,7 +2,9 @@
 
 cbuffer FrameUniforms : register(b0, space1) { float4x4 g_view_proj; float4 g_fog; };
 // g_screen is (pre_transformed, 1/viewport_width, 1/viewport_height, 0).
-cbuffer DrawUniforms : register(b1, space1) { float4x4 g_world; float4 g_color; float4 g_screen; float4x4 g_texture_matrix; };
+// g_stage.x is the stage-0 D3DTSS_COLOROP: 0 modulates the texture with the
+// diffuse colour, 1 adds them.
+cbuffer DrawUniforms : register(b1, space1) { float4x4 g_world; float4 g_color; float4 g_screen; float4x4 g_texture_matrix; float4 g_stage; };
 cbuffer LightUniforms : register(b2, space1) { float4 g_light_data[32]; };
 
 Texture2D g_texture0 : register(t0, space2);

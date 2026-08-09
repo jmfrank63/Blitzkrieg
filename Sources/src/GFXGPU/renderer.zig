@@ -148,7 +148,9 @@ pub const Renderer = struct {
 
     const MatrixUniforms = extern struct { matrix: [16]f32, padding: [4]f32 };
     // `screen` is g_screen: (pre_transformed, 1/width, 1/height, 0).
-    const DrawUniforms = extern struct { matrix: [16]f32, color: [4]f32, screen: [4]f32, texture_matrix: [16]f32 };
+    // stage.x is the stage-0 colour op the fragment shader applies; see
+    // effects.colorOpFor.
+    const DrawUniforms = extern struct { matrix: [16]f32, color: [4]f32, screen: [4]f32, texture_matrix: [16]f32, stage: [4]f32 };
     const identity_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 
     pub fn init(allocator: std.mem.Allocator) Renderer {
@@ -697,7 +699,8 @@ pub const Renderer = struct {
         else
             .{ 0, 1 / width, 1 / height, combine };
         const texture_matrix = if (effects.usesTextureTransform(self.shade_effect)) self.texture_matrix else identity_matrix;
-        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen, .texture_matrix = texture_matrix };
+        const color_op: f32 = @floatFromInt(@intFromEnum(effects.colorOpFor(self.shade_effect)));
+        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen, .texture_matrix = texture_matrix, .stage = .{ color_op, 0, 0, 0 } };
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
         // The fragment stage declares the same cbuffers and reads g_screen for

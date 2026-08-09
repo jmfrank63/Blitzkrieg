@@ -37,5 +37,9 @@ VertexOutput vs_textured_nocolor(VertexInputNoColor input) {
 }
 
 float4 ps_textured(VertexOutput input) : SV_Target0 {
-    return g_texture0.Sample(g_sampler0, input.uv) * input.color;
+    float4 texel = g_texture0.Sample(g_sampler0, input.uv);
+    // D3DTOP_ADD at stage 0, which only the vehicle tracks use. Alpha stays
+    // D3DTOP_SELECTARG1 over the texture there, so it is not combined.
+    if (g_stage.x != 0.0f) return float4(saturate(texel.rgb + input.color.rgb), texel.a);
+    return texel * input.color;
 }

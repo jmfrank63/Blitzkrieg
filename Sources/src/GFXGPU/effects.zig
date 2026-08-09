@@ -37,6 +37,23 @@ pub fn usesTextureTransform(id: u32) bool {
     return (spec.fixed_state_overrides & state_texture_transform) != 0;
 }
 
+// Stage-0 D3DTSS_COLOROP. Nearly every effect MODULATEs the texture with the
+// diffuse colour, but CGraphicsEngine::SetShadingEffect gives 20 -- the vehicle
+// tracks -- D3DTOP_ADD against SRCBLEND=DESTCOLOR/DESTBLEND=ZERO. That pairing
+// is how a track fades: the multiply darkens the ground by the texture, and as
+// the trace ages its vertex colour brightens toward white until the sum
+// saturates and the multiply leaves the ground untouched. Drawn as MODULATE and
+// REPLACE instead, the tracks appeared as the raw black and white texture and
+// never faded.
+pub const ColorOp = enum(u32) { modulate = 0, add = 1 };
+
+pub fn colorOpFor(id: u32) ColorOp {
+    return switch (id) {
+        20 => .add,
+        else => .modulate,
+    };
+}
+
 pub fn combineFor(id: u32) Combine {
     return switch (id) {
         101 => .modulate_second,
@@ -111,7 +128,8 @@ pub const specs = [_]EffectSpec{
     make(17, .special, .special_video, 1, state_none),
     make(18, .special, .special_video, 1, state_none),
     make(19, .special, .special_transform, 1, state_none),
-    make(20, .special, .special_transform, 1, state_none),
+    // Vehicle tracks: SRCBLEND=DESTCOLOR, DESTBLEND=ZERO. See colorOpFor.
+    withPipelinePolicy(make(20, .special, .special_transform, 1, state_alpha_blend), .multiply, false, .none),
     make(21, .ui, .textured, 1, state_alpha_blend),
     make(22, .ui, .textured, 1, state_alpha_blend),
     make(23, .ui, .textured, 1, state_alpha_blend),
