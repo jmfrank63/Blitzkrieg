@@ -33,5 +33,8 @@ VertexOutput vs_untextured_nocolor(VertexInputNoColor input) {
 }
 
 float4 ps_untextured(float4 color : COLOR0) : SV_Target0 {
+    // Same D3DRS_ALPHAREF test as the textured path; here the alpha is the
+    // vertex colour's, since there is no texture to take it from.
+    clip(g_stage.y > 0.0f ? color.a - g_stage.y : 1.0f);
     return color;
 }

@@ -41,5 +41,10 @@ float4 ps_textured(VertexOutput input) : SV_Target0 {
     // D3DTOP_ADD at stage 0, which only the vehicle tracks use. Alpha stays
     // D3DTOP_SELECTARG1 over the texture there, so it is not combined.
     if (g_stage.x != 0.0f) return float4(saturate(texel.rgb + input.color.rgb), texel.a);
-    return texel * input.color;
+    float4 result = texel * input.color;
+    // D3DCMP_GREATEREQUAL against D3DRS_ALPHAREF. The cutout has to happen
+    // before the depth write, or a sprite's transparent corners occlude what is
+    // behind them.
+    clip(g_stage.y > 0.0f ? result.a - g_stage.y : 1.0f);
+    return result;
 }

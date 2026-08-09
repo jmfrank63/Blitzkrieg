@@ -700,7 +700,8 @@ pub const Renderer = struct {
             .{ 0, 1 / width, 1 / height, combine };
         const texture_matrix = if (effects.usesTextureTransform(self.shade_effect)) self.texture_matrix else identity_matrix;
         const color_op: f32 = @floatFromInt(@intFromEnum(effects.colorOpFor(self.shade_effect)));
-        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen, .texture_matrix = texture_matrix, .stage = .{ color_op, 0, 0, 0 } };
+        const alpha_ref: f32 = @as(f32, @floatFromInt(effects.alphaRefFor(self.shade_effect))) / 255.0;
+        const draw_uniforms = DrawUniforms{ .matrix = self.world_matrix, .color = self.effectiveDrawColor(), .screen = screen, .texture_matrix = texture_matrix, .stage = .{ color_op, alpha_ref, 0, 0 } };
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
         sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
         // The fragment stage declares the same cbuffers and reads g_screen for

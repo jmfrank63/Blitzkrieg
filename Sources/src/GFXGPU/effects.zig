@@ -45,6 +45,24 @@ pub fn usesTextureTransform(id: u32) bool {
 // saturates and the multiply leaves the ground untouched. Drawn as MODULATE and
 // REPLACE instead, the tracks appeared as the raw black and white texture and
 // never faded.
+// D3DRS_ALPHAREF for the effects that enable D3DRS_ALPHATESTENABLE, every one of
+// them with D3DCMP_GREATEREQUAL. There is no fixed-function alpha test here, so
+// the fragment shader discards below this value. Without the discard the fully
+// transparent corners of a tree or grass sprite were still shaded and still
+// wrote depth, so the sprite's quad cut a square out of whatever stood behind
+// it. 104 is left to textured_dual.hlsl, which tests the crosset's alpha rather
+// than the final one.
+pub fn alphaRefFor(id: u32) u8 {
+    return switch (id) {
+        1 => 200,
+        13 => 10,
+        12 => 5,
+        111, 200 => 50,
+        3, 8, 10, 19, 21, 303 => 1,
+        else => 0,
+    };
+}
+
 pub const ColorOp = enum(u32) { modulate = 0, add = 1 };
 
 pub fn colorOpFor(id: u32) ColorOp {
@@ -261,6 +279,45 @@ test "UI and alpha reference fixtures" {
     try std.testing.expect(alphaPassGreaterEqual(1.0 / 255.0, 1));
     try std.testing.expect(!alphaPassGreaterEqual(0.0, 1));
     try std.testing.expect(alphaPassGreaterEqual(200.0 / 255.0, 200));
+
+    // The D3DRS_ALPHAREF each effect sets, straight from
+    // CGraphicsEngine::SetShadingEffect. 1 is the sprite cutout the trees and
+    // grass use; an effect that reports 0 leaves D3DRS_ALPHATESTENABLE off.
+    try std.testing.expectEqual(@as(u8, 200), alphaRefFor(1));
+    try std.testing.expectEqual(@as(u8, 10), alphaRefFor(13));
+    try std.testing.expectEqual(@as(u8, 5), alphaRefFor(12));
+    try std.testing.expectEqual(@as(u8, 50), alphaRefFor(111));
+    try std.testing.expectEqual(@as(u8, 50), alphaRefFor(200));
+    for ([_]u32{ 3, 8, 10, 19, 21, 303 }) |id| try std.testing.expectEqual(@as(u8, 1), alphaRefFor(id));
+    for ([_]u32{ 2, 9, 11, 14, 20, 100, 102 }) |id| try std.testing.expectEqual(@as(u8, 0), alphaRefFor(id));
+    // 104 tests the crosset's alpha, not the final one, so textured_dual.hlsl
+    // owns its cutout and the shared path must leave it alone.
+    try std.testing.expectEqual(@as(u8, 0), alphaRefFor(104));
+    try std.testing.expectEqual(Combine.mask_alpha_test, combineFor(104));
+
+    // A sprite whose transparent corner survives the test would write depth and
+    // cut a square out of what stands behind it, so the cutout must reject it.
+    try std.testing.expect(!alphaPassGreaterEqual(0.0, alphaRefFor(1)));
+    try std.testing.expect(!alphaPassGreaterEqual(150.0 / 255.0, alphaRefFor(1)));
+    try std.testing.expect(alphaPassGreaterEqual(1.0, alphaRefFor(1)));
+}
+
+test "vehicle tracks add the diffuse colour and multiply into the ground" {
+    try std.testing.expectEqual(ColorOp.add, colorOpFor(20));
+    try std.testing.expectEqual(BlendMode.multiply, (find(20) orelse unreachable).blend);
+    // Everything else keeps D3DTOP_MODULATE.
+    for ([_]u32{ 1, 3, 12, 19, 21, 100, 303 }) |id| try std.testing.expectEqual(ColorOp.modulate, colorOpFor(id));
+
+    // The fade: a track's vertex colour brightens toward white as it ages, and
+    // ADD then saturates, so the multiply leaves the ground exactly as it was.
+    const ground = [4]f32{ 0.4, 0.5, 0.3, 1.0 };
+    const track_texel = [4]f32{ 0.25, 0.25, 0.25, 1.0 };
+    const fresh = blend(.multiply, track_texel, ground);
+    try std.testing.expectApproxEqAbs(0.1, fresh[0], 0.000001);
+    const faded = [4]f32{ 1.0, 1.0, 1.0, 1.0 };
+    const gone = blend(.multiply, faded, ground);
+    try std.testing.expectApproxEqAbs(ground[0], gone[0], 0.000001);
+    try std.testing.expectApproxEqAbs(ground[1], gone[1], 0.000001);
 }
 
 test "transparent blend and range fog fixtures" {
