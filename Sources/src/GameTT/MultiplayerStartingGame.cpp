@@ -321,7 +321,9 @@ const WORD * CInterfaceMPStartingGame::GetDestinationName()
 {
 	SUIPlayerInfo * pInfo = playerList.GetCurInfo();
 	if ( !pInfo ) return 0;
-	return reinterpret_cast<const WORD*>( pInfo->szName.c_str() );
+	// See CInterfaceMPChat::GetDestinationName - wide to UTF-16, not a cast.
+	szDestinationName = NPlatform::WordStringFromWide( pInfo->szName );
+	return NPlatform::WordStringData( szDestinationName );
 }
 void CInterfaceMPStartingGame::DeletePlayer( const SUIPlayerInfo *pPlayerInfo )
 {

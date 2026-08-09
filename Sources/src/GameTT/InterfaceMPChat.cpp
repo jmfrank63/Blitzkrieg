@@ -75,7 +75,10 @@ void CInterfaceMPChat::StartInterface()
 }
 const WORD * CInterfaceMPChat::GetDestinationName()
 {
-	return reinterpret_cast<const WORD*>( playerList.GetCurInfo()->szName.c_str() );
+	// szName is wide, and wchar_t is 32 bits off Windows, so convert instead of
+	// reinterpreting; the member keeps the returned pointer alive.
+	szDestinationName = NPlatform::WordStringFromWide( playerList.GetCurInfo()->szName );
+	return NPlatform::WordStringData( szDestinationName );
 }
 bool CInterfaceMPChat::ProcessMPCommand( SToUICommand & cmd )
 {

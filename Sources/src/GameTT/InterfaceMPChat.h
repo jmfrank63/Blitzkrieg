@@ -34,6 +34,7 @@ public:
 	virtual bool STDCALL Init();
 	virtual void STDCALL StartInterface();
 
+	std::u16string szDestinationName;
 	const WORD * GetDestinationName();
 };
 class CICMultyplayerChat : public CInterfaceCommandBase<CInterfaceMPChat, MISSION_INTERFACE_MULTYPLAYER_CHAT>

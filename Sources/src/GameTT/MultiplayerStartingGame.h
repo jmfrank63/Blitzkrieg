@@ -47,6 +47,7 @@ public:
 	virtual void STDCALL StartInterface();
 	virtual void STDCALL SetParams( const char * pszParams );
 	virtual void STDCALL Done();
+	std::u16string szDestinationName;
 	const WORD * GetDestinationName();
 };
 class CICMultyplayerStartingGame : public CInterfaceCommandBase<CInterfaceMPStartingGame, MISSION_INTERFACE_MULTIPLAYER_STARTINGGAME>

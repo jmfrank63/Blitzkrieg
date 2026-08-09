@@ -4,6 +4,7 @@
 #include "MuliplayerToUIConsts.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../StreamIO/StreamIOHelper.h"
+#include "../Platform/LegacyText.h"
 
 inline std::wstring MakeWideStringFromWordString( const WORD *pszText )
 {
@@ -20,13 +21,25 @@ inline std::wstring MakeWideStringFromWordString( const WORD *pszText )
 
 	return szText;
 }
-inline const WORD* ToWordString( const std::wstring &szText )
+// wchar_t is 32 bits off Windows, so handing a wstring's bytes straight to code
+// that reads 16-bit units left every string cut off after its first character.
+// The holder owns a converted copy; it lives to the end of the full expression,
+// which is how every caller uses the result.
+class CWordStringHolder
 {
-	return reinterpret_cast<const WORD*>( szText.c_str() );
+	std::u16string data;
+public:
+	explicit CWordStringHolder( const std::wstring &szText ) : data( NPlatform::WordStringFromWide( szText ) ) {  }
+	explicit CWordStringHolder( const wchar_t *pszText ) : data( NPlatform::WordStringFromWide( pszText ) ) {  }
+	operator const WORD*() const { return NPlatform::WordStringData( data ); }
+};
+inline CWordStringHolder ToWordString( const std::wstring &szText )
+{
+	return CWordStringHolder( szText );
 }
-inline const WORD* ToWordString( const wchar_t *pszText )
+inline CWordStringHolder ToWordString( const wchar_t *pszText )
 {
-	return reinterpret_cast<const WORD*>( pszText );
+	return CWordStringHolder( pszText );
 }
 enum EPlayerChatState
 {

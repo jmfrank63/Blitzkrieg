@@ -121,7 +121,7 @@ std::wstring CInterfaceStats::CCommonStats::GetStatValue( const int nIndex ) con
 				IText * pT = GetSingleton<ITextManager>()->GetDialog( szKey.c_str() );
 				
 				if ( !pT ) return L"";
-				return reinterpret_cast<const wchar_t *>( pT->GetString() );
+				return NPlatform::WideFromWordString( pT->GetString() );
 			}
 		case 3: //saves
 			return NStr::ToUnicode( NStr::Format( "%d", nSaves ) );
@@ -141,9 +141,9 @@ bool CInterfaceStats::CSorter::operator() ( int nSortColumn,
 	if ( nData2 == 0 ) return false;
 
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
-	std::wstring wsz1 = reinterpret_cast<const wchar_t *>( pElement->GetWindowText( 0 ) );
+	std::wstring wsz1 = NPlatform::WideFromWordString( pElement->GetWindowText( 0 ) );
 	pElement = pRow2->GetElement( nSortColumn );
-	std::wstring wsz2 = reinterpret_cast<const wchar_t *>( pElement->GetWindowText( 0 ) );
+	std::wstring wsz2 = NPlatform::WideFromWordString( pElement->GetWindowText( 0 ) );
 	std::string sz1 = NStr::ToAscii( wsz1 );
 	std::string sz2 = NStr::ToAscii( wsz2 );
 	double d1 = atof( sz1.c_str() );

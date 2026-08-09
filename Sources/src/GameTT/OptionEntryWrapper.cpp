@@ -47,8 +47,8 @@ CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pO
 #ifndef _FINALRELEASE
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
 #endif // _FINALRELEASE
-		const std::wstring szFallbackName = NStr::ToUnicode( pOption->GetName() );
-		pOptionName->SetWindowText( 0, reinterpret_cast<const WORD *>( szFallbackName.c_str() ) );
+		const std::u16string szFallbackName = NPlatform::WordStringFromWide( NStr::ToUnicode( pOption->GetName() ) );
+		pOptionName->SetWindowText( 0, NPlatform::WordStringData( szFallbackName ) );
 	}
 	pText = pTM->GetString( szKeyTooltip.c_str() );
 	if ( pText )
@@ -115,7 +115,8 @@ void CUIOption::ChangeSelection( const int nCurSelection )
 		if ( !bGeneratedSelectionText )
 			GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
 #endif // _FINALRELEASE
-		pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( NStr::ToUnicode( szSelections[nCurSelection].szProgName ).c_str() ) );
+		const std::u16string szProgName = NPlatform::WordStringFromWide( NStr::ToUnicode( szSelections[nCurSelection].szProgName ) );
+		pStatic->SetWindowText( 0, NPlatform::WordStringData( szProgName ) );
 	}
 
 	pText = pTM->GetString( szKeyTooltip.c_str() );
@@ -219,7 +220,8 @@ void CUIOption::SetTextNumericOption( const int nEntry )
 void CUIOption::ResetTextEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( szInitialText.c_str() ) );
+	const std::u16string szEntry = NPlatform::WordStringFromWide( szInitialText );
+	pStatic->SetWindowText( 0, NPlatform::WordStringData( szEntry ) );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 	IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
 	if ( pHelpContext )
@@ -228,7 +230,8 @@ void CUIOption::ResetTextEntry()
 void CUIOption::ResetTextGameSpyEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_GAMESPY) );
-	pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( szInitialText.c_str() ) );
+	const std::u16string szEntry = NPlatform::WordStringFromWide( szInitialText );
+	pStatic->SetWindowText( 0, NPlatform::WordStringData( szEntry ) );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 	
 	IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
@@ -238,7 +241,8 @@ void CUIOption::ResetTextGameSpyEntry()
 void CUIOption::ResetNumericEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_NUMERIC ) );
-	pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( NStr::ToUnicode( NStr::Format( "%d", nInitialNumericEntry ) ).c_str() ) );
+	const std::u16string szNumeric = NPlatform::WordStringFromWide( NStr::ToUnicode( NStr::Format( "%d", nInitialNumericEntry ) ) );
+	pStatic->SetWindowText( 0, NPlatform::WordStringData( szNumeric ) );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 	IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
 	if ( pHelpContext )

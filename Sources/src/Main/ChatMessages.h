@@ -3,6 +3,7 @@
 #pragma ONCE
 #include "Messages.h"
 #include "GameCreationInterfaces.h"
+#include "../Platform/LegacyText.h"
 class CChatMessage : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CChatMessage );
@@ -19,7 +20,16 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return E_CHAT_MESSAGE; }
 	virtual void SendToUI();
 
-	const WORD* GetPlayerNick() const { return reinterpret_cast<const WORD*>( szPlayerName.c_str() ); }
+	// The name is stored wide, and wchar_t is 32 bits off Windows, so it has to
+	// be converted rather than reinterpreted. The cache gives the caller a
+	// pointer that outlives the call.
+	const WORD* GetPlayerNick() const
+	{
+		szPlayerNickUtf16 = NPlatform::WordStringFromWide( szPlayerName );
+		return NPlatform::WordStringData( szPlayerNickUtf16 );
+	}
+private:
+	mutable std::u16string szPlayerNickUtf16;
 };
 class CSimpleChatMessage : public IMultiplayerMessage
 {
