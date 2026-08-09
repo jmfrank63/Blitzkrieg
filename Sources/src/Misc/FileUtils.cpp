@@ -44,15 +44,24 @@ bool wildcard(const std::string &pattern, const std::string &name) {
     while (p < pattern.size() && pattern[p] == '*') ++p;
     return p == pattern.size();
 }
+// A FILETIME is 100ns ticks since 1601-01-01 UTC. This used to store raw
+// seconds since the filesystem epoch, which no Win32 time helper can decode,
+// so every date built from it printed as zeroes.
 FILETIME fileTime(const fs::path &path) {
     FILETIME result{};
     std::error_code error;
     const auto value = fs::last_write_time(path, error);
     if (error) return result;
-    const auto ticks = std::chrono::duration_cast<std::chrono::seconds>(value.time_since_epoch()).count();
-    const std::uint64_t raw = ticks < 0 ? 0 : static_cast<std::uint64_t>(ticks);
-    result.dwLowDateTime = static_cast<DWORD>(raw & 0xffffffffu);
-    result.dwHighDateTime = static_cast<DWORD>(raw >> 32);
+    // file_time_type's epoch is unspecified in C++17 (Unix on libc++, 1601 on
+    // MSVC), so rebase through system_clock rather than assuming one.
+    const auto system_time = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+        value - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+    const auto unix_time = std::chrono::duration_cast<std::chrono::seconds>(system_time.time_since_epoch()).count();
+    const long long since_1601 = static_cast<long long>(unix_time) + 11644473600LL;
+    if (since_1601 <= 0) return result;
+    const std::uint64_t ticks = static_cast<std::uint64_t>(since_1601) * 10000000ULL;
+    result.dwLowDateTime = static_cast<DWORD>(ticks & 0xffffffffu);
+    result.dwHighDateTime = static_cast<DWORD>(ticks >> 32);
     return result;
 }
 DWORD attributes(const fs::directory_entry &entry) {

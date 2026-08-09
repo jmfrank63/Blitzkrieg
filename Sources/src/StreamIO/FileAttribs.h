@@ -63,7 +63,15 @@ inline DWORD FILETIMEToWin32DateTime( const FILETIME &filetime )
 	return bit_cast<DWORD>( win32time );
 }
 #else
-inline DWORD FILETIMEToWin32DateTime( const FILETIME &filetime ) { return filetime.dwLowDateTime; }
+// Used to return the raw low word, which only happened to order correctly while
+// a FILETIME held seconds. Now that it holds real 100ns ticks the value has to
+// be unpacked into the same DOS date/time layout Windows produces.
+inline DWORD FILETIMEToWin32DateTime( const FILETIME &filetime )
+{
+	if ( filetime.dwLowDateTime == 0 && filetime.dwHighDateTime == 0 )
+		return 0;
+	return DOSToWin32DateTime( static_cast<time_t>( FileTimeToUnixSeconds( &filetime ) ) );
+}
 #endif
 inline time_t Win32ToDOSDateTime( const SWin32Time &time )
 {

@@ -9,6 +9,7 @@
 #include <wchar.h>
 #include <stdint.h>
 #include <limits.h>
+#include <time.h>
 
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
@@ -62,7 +63,10 @@ typedef void *LPVOID;
 #define LOWORD(value) ((unsigned short)((uintptr_t)(value) & 0xffffu))
 #define HIWORD(value) ((unsigned short)(((uintptr_t)(value) >> 16) & 0xffffu))
 #ifndef BLITZKRIEG_FILETIME_DEFINED
-typedef struct { unsigned long dwLowDateTime; unsigned long dwHighDateTime; } FILETIME;
+// unsigned int, not unsigned long: LegacyTypes.h and FileUtils.h both build
+// FILETIME out of a 4-byte DWORD, and on LP64 an unsigned long version would
+// silently give a different struct layout to whoever included this header first.
+typedef struct { unsigned int dwLowDateTime; unsigned int dwHighDateTime; } FILETIME;
 #define BLITZKRIEG_FILETIME_DEFINED
 #endif
 typedef struct { FILETIME ftCreationTime; FILETIME ftLastAccessTime; FILETIME ftLastWriteTime; } BY_HANDLE_FILE_INFORMATION;
@@ -105,8 +109,51 @@ static inline HANDLE CreateFile(const char *, unsigned long, unsigned long, void
 static inline unsigned long GetLastError(void) { return 0; }
 static inline int GetFileInformationByHandle(HANDLE, BY_HANDLE_FILE_INFORMATION *) { return 0; }
 static inline int CloseHandle(HANDLE) { return 1; }
-static inline int FileTimeToLocalFileTime(const FILETIME *source, FILETIME *dest) { if (dest && source) *dest = *source; return 1; }
-static inline int FileTimeToSystemTime(const FILETIME *, SYSTEMTIME *) { return 0; }
+// A FILETIME counts 100ns ticks from 1601-01-01 UTC, the same as on Windows.
+// These used to be stubs, so every date the game printed from a file stamp
+// (the save game list above all) came out as 00.00.0000 00:00.
+#define BLITZKRIEG_FILETIME_UNIX_EPOCH 11644473600LL
+static inline long long FileTimeToUnixSeconds(const FILETIME *source) {
+    unsigned long long ticks;
+    if (!source) return 0;
+    ticks = ((unsigned long long)source->dwHighDateTime << 32) | (unsigned long long)source->dwLowDateTime;
+    return (long long)(ticks / 10000000ULL) - BLITZKRIEG_FILETIME_UNIX_EPOCH;
+}
+static inline void UnixSecondsToFileTime(long long seconds, FILETIME *dest) {
+    unsigned long long ticks;
+    if (!dest) return;
+    if (seconds < -BLITZKRIEG_FILETIME_UNIX_EPOCH) seconds = -BLITZKRIEG_FILETIME_UNIX_EPOCH;
+    ticks = (unsigned long long)(seconds + BLITZKRIEG_FILETIME_UNIX_EPOCH) * 10000000ULL;
+    dest->dwLowDateTime = (unsigned int)(ticks & 0xffffffffULL);
+    dest->dwHighDateTime = (unsigned int)(ticks >> 32);
+}
+static inline int FileTimeToLocalFileTime(const FILETIME *source, FILETIME *dest) {
+    time_t seconds;
+    struct tm local;
+    if (!source || !dest) return 0;
+    seconds = (time_t)FileTimeToUnixSeconds(source);
+    if (!localtime_r(&seconds, &local)) { *dest = *source; return 1; }
+    UnixSecondsToFileTime((long long)seconds + (long long)local.tm_gmtoff, dest);
+    return 1;
+}
+// Windows breaks a UTC FILETIME down into a UTC SYSTEMTIME; callers that want
+// local time run FileTimeToLocalFileTime first, so this must not shift again.
+static inline int FileTimeToSystemTime(const FILETIME *source, SYSTEMTIME *dest) {
+    time_t seconds;
+    struct tm utc;
+    if (!source || !dest) return 0;
+    seconds = (time_t)FileTimeToUnixSeconds(source);
+    if (!gmtime_r(&seconds, &utc)) return 0;
+    dest->wYear = (unsigned short)(utc.tm_year + 1900);
+    dest->wMonth = (unsigned short)(utc.tm_mon + 1);
+    dest->wDayOfWeek = (unsigned short)utc.tm_wday;
+    dest->wDay = (unsigned short)utc.tm_mday;
+    dest->wHour = (unsigned short)utc.tm_hour;
+    dest->wMinute = (unsigned short)utc.tm_min;
+    dest->wSecond = (unsigned short)utc.tm_sec;
+    dest->wMilliseconds = 0;
+    return 1;
+}
 static inline int CompareFileTime(const FILETIME *a, const FILETIME *b) { if (!a || !b) return 0; return a->dwHighDateTime != b->dwHighDateTime ? (a->dwHighDateTime > b->dwHighDateTime ? 1 : -1) : (a->dwLowDateTime > b->dwLowDateTime ? 1 : (a->dwLowDateTime < b->dwLowDateTime ? -1 : 0)); }
 static inline void OutputDebugStringA(const char *) {}
 static inline HANDLE GetCurrentThread(void) { return 0; }
@@ -123,8 +170,30 @@ static inline int GetFileVersionInfo(const wchar_t *, unsigned long, unsigned lo
 #endif
 static inline int VerQueryValue(const void *, const char *, void **, unsigned int *) { return 0; }
 static inline int CoCreateGuid(void *) { return -1; }
-static inline int DosDateTimeToFileTime(unsigned short, unsigned short, FILETIME *) { return 0; }
-static inline int LocalFileTimeToFileTime(const FILETIME *, FILETIME *) { return 0; }
+static inline int DosDateTimeToFileTime(unsigned short date, unsigned short time, FILETIME *dest) {
+    struct tm fields;
+    if (!dest) return 0;
+    memset(&fields, 0, sizeof(fields));
+    fields.tm_mday = date & 0x1f;
+    fields.tm_mon = ((date >> 5) & 0x0f) - 1;
+    fields.tm_year = ((date >> 9) & 0x7f) + 80;
+    fields.tm_sec = (time & 0x1f) * 2;
+    fields.tm_min = (time >> 5) & 0x3f;
+    fields.tm_hour = (time >> 11) & 0x1f;
+    // Windows reads the DOS fields verbatim; the caller applies the timezone
+    // afterwards through LocalFileTimeToFileTime.
+    UnixSecondsToFileTime((long long)timegm(&fields), dest);
+    return 1;
+}
+static inline int LocalFileTimeToFileTime(const FILETIME *source, FILETIME *dest) {
+    time_t seconds;
+    struct tm local;
+    if (!source || !dest) return 0;
+    seconds = (time_t)FileTimeToUnixSeconds(source);
+    if (!localtime_r(&seconds, &local)) { *dest = *source; return 1; }
+    UnixSecondsToFileTime((long long)seconds - (long long)local.tm_gmtoff, dest);
+    return 1;
+}
 typedef void *HKEY;
 
 #define HKEY_LOCAL_MACHINE ((HKEY)(uintptr_t)1)

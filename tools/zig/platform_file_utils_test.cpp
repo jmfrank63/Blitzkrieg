@@ -1,5 +1,13 @@
+// FileUtils.h first: it pulls in LegacyTypes.h, which is what fixes FILETIME's
+// layout for everyone. The game's StdAfx.h headers do the same.
 #include "Misc/FileUtils.h"
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#else
+#include "Platform/PortableCrt.h"
+#endif
 #include <cassert>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 
@@ -36,6 +44,39 @@ int main()
     assert(!iterator.IsEnd());
     ++iterator;
     assert(iterator.IsEnd());
+
+    // The save game list builds its date through GetStatus ->
+    // FileTimeToLocalFileTime -> FileTimeToSystemTime. While a FILETIME held
+    // raw seconds none of that decoded, and every save showed 00.00.0000 00:00.
+    {
+        NFile::CFile stamped(file_name.c_str(), NFile::CFile::modeRead);
+        assert(stamped.IsOpen());
+        NFile::CFile::SStatus status;
+        assert(stamped.GetStatus(&status));
+        stamped.Close();
+        const unsigned long long ticks = (static_cast<unsigned long long>(status.mtime.dwHighDateTime) << 32) | status.mtime.dwLowDateTime;
+        const long long stamped_unix = static_cast<long long>(ticks / 10000000ULL) - 11644473600LL;
+        const long long now = static_cast<long long>(std::time(nullptr));
+        assert(stamped_unix > now - 600 && stamped_unix < now + 600);
+
+        FILETIME local = {};
+        assert(FileTimeToLocalFileTime(&status.mtime, &local) != 0);
+        SYSTEMTIME broken = {};
+        assert(FileTimeToSystemTime(&local, &broken) != 0);
+
+        const std::time_t stamped_time = static_cast<std::time_t>(stamped_unix);
+        std::tm expected = {};
+#if defined(_WIN32) || defined(_WIN64)
+        localtime_s(&expected, &stamped_time);
+#else
+        localtime_r(&stamped_time, &expected);
+#endif
+        assert(broken.wYear == expected.tm_year + 1900);
+        assert(broken.wMonth == expected.tm_mon + 1);
+        assert(broken.wDay == expected.tm_mday);
+        assert(broken.wHour == expected.tm_hour);
+        assert(broken.wMinute == expected.tm_min);
+    }
 
     const std::string renamed = (root / "nested" / "renamed.bin").string();
     assert(NFile::CFile::Rename(file_name.c_str(), renamed.c_str()));

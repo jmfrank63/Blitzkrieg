@@ -744,18 +744,24 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
         std::vector<WORD> indices;
         const float line_step = static_cast<float>( font->GetLineSpace() ) * scale;
         float pen_y = static_cast<float>( rect.top + y );
+        // The D3D path clips every glyph to rect. Without this a scrolled or
+        // oversized text box drew all of its lines and spilled over whatever
+        // was below it.
+        const float clip_top = static_cast<float>( rect.top );
+        const float clip_bottom = static_cast<float>( rect.bottom );
         for ( size_t line_index = 0; line_index != lines.size(); ++line_index )
         {
             const size_t begin = lines[line_index].first;
             const size_t end = lines[line_index].second;
-            if ( end > begin )
+            if ( pen_y >= clip_bottom ) break;
+            if ( end > begin && pen_y + line_step > clip_top )
             {
                 const std::wstring line_text = wide_value.substr( begin, end - begin );
                 const float line_width = font->TextWidthFloat( raw_value + begin, static_cast<int>( end - begin ) ) * scale;
                 float line_x = static_cast<float>( rect.left );
                 if ( (flags & FNT_FORMAT_CENTER) != 0 ) line_x += std::floor( ( wrap_width - line_width ) * 0.5f );
                 else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) line_x = static_cast<float>( rect.right ) - line_width;
-                font->AppendGeometry( line_text.c_str(), line_x, pen_y, scale, font_provider->Color(), vertices, indices );
+                font->AppendGeometry( line_text.c_str(), line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom );
                 if ( line_index == 0 ) x = line_x;
             }
             pen_y += line_step;

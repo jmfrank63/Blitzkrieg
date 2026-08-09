@@ -71,25 +71,45 @@ int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { return 
 float FontGpu::TextWidthFloat( const WORD *text, int count ) const { return TextWidth( text, count ); }
 
 bool FontGpu::AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
-    std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices ) const
+    std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
+    float clip_top, float clip_bottom ) const
 {
     if ( !text || !*text || !texture_ ) return true;
     // The vertex shader now undoes the D3DCOLOR/RGBA channel order for every
     // vertex colour, so no per-glyph swizzle here.
     WORD previous = 0;
+    const float glyph_height = format_.metrics.nHeight * scale;
     for ( const wchar_t *cursor = text; *cursor && *cursor != L'\n'; ++cursor )
     {
         const WORD current = static_cast<WORD>( *cursor );
         const SFontFormat::SCharDesc &character = format_.GetChar( current );
         x += (character.fA + format_.GetKern( previous, current )) * scale;
-        const WORD base = static_cast<WORD>( vertices.size() );
-        vertices.emplace_back(); vertices.back().Setup( x, y + format_.metrics.nHeight * scale, 0, 1, color, 0xff000000, character.x1, character.y2 );
-        vertices.emplace_back(); vertices.back().Setup( x, y, 0, 1, color, 0xff000000, character.x1, character.y1 );
         const float glyph_width = character.fWidth * scale + 0.5f;
-        vertices.emplace_back(); vertices.back().Setup( x + glyph_width, y + format_.metrics.nHeight * scale, 0, 1, color, 0xff000000, character.x2, character.y2 );
-        vertices.emplace_back(); vertices.back().Setup( x + glyph_width, y, 0, 1, color, 0xff000000, character.x2, character.y1 );
-        indices.push_back( base + 2 ); indices.push_back( base + 1 ); indices.push_back( base + 0 );
-        indices.push_back( base + 1 ); indices.push_back( base + 2 ); indices.push_back( base + 3 );
+        // Cut the quad against the text rectangle and carry the texture
+        // coordinates with it, exactly as ClipAARect does for the D3D path.
+        // The pen still advances over a fully clipped glyph, so the visible
+        // part of a half-shown line keeps its spacing.
+        float top_fraction = 0.0f;
+        float bottom_fraction = 1.0f;
+        if ( glyph_height > 0.0f )
+        {
+            if ( y < clip_top ) top_fraction = ( clip_top - y ) / glyph_height;
+            if ( y + glyph_height > clip_bottom ) bottom_fraction = ( clip_bottom - y ) / glyph_height;
+        }
+        if ( bottom_fraction > top_fraction )
+        {
+            const float top = y + top_fraction * glyph_height;
+            const float bottom = y + bottom_fraction * glyph_height;
+            const float v1 = character.y1 + top_fraction * ( character.y2 - character.y1 );
+            const float v2 = character.y1 + bottom_fraction * ( character.y2 - character.y1 );
+            const WORD base = static_cast<WORD>( vertices.size() );
+            vertices.emplace_back(); vertices.back().Setup( x, bottom, 0, 1, color, 0xff000000, character.x1, v2 );
+            vertices.emplace_back(); vertices.back().Setup( x, top, 0, 1, color, 0xff000000, character.x1, v1 );
+            vertices.emplace_back(); vertices.back().Setup( x + glyph_width, bottom, 0, 1, color, 0xff000000, character.x2, v2 );
+            vertices.emplace_back(); vertices.back().Setup( x + glyph_width, top, 0, 1, color, 0xff000000, character.x2, v1 );
+            indices.push_back( base + 2 ); indices.push_back( base + 1 ); indices.push_back( base + 0 );
+            indices.push_back( base + 1 ); indices.push_back( base + 2 ); indices.push_back( base + 3 );
+        }
         x += (character.fB + character.fC) * scale;
         previous = current;
     }

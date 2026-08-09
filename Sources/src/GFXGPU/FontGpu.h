@@ -34,8 +34,12 @@ public:
     float TextWidthFloat( const WORD *text, int count = 2000000000 ) const;
 
     IGFXTexture *Texture() const { return texture_; }
+    // clip_top/clip_bottom bound the glyph quads the way CTextClipVisitor does
+    // in the D3D path: a line that only partly fits its rectangle is cut, not
+    // spilled over whatever sits below the text box.
     bool AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
-        std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices ) const;
+        std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
+        float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
 
 private:
     ~FontGpu();

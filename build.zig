@@ -1936,7 +1936,12 @@ pub fn build(b: *std.Build) void {
         addMsvcIncludePaths(b, file_utils_module, toolchain);
         addMsvcLibraryPaths(b, file_utils_module, toolchain);
         linkMsvcRuntime(file_utils_module, .Debug);
-    } else file_utils_module.link_libc = true;
+    } else {
+        // FileUtils.cpp is C++ (std::filesystem), so the host build needs the
+        // C++ runtime as well; without it the target never compiled off Windows.
+        file_utils_module.link_libc = true;
+        file_utils_module.link_libcpp = true;
+    }
     file_utils_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/platform_file_utils_test.cpp", "Sources/src/Misc/FileUtils.cpp" },
         .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"},
