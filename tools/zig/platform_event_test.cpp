@@ -26,12 +26,12 @@ int main()
 	while ( app.PollEvent( ignored ) ) {}
 
 	SDL_Event event{};
-	event.type = SDL_EVENT_WINDOW_RESIZED; event.window.timestamp = 10; event.window.data1 = 640; event.window.data2 = 480; CHECK( Push( event ) );
-	event = {}; event.type = SDL_EVENT_KEY_DOWN; event.key.timestamp = 20; event.key.key = SDLK_RETURN; event.key.mod = SDL_KMOD_ALT; event.key.repeat = true; CHECK( Push( event ) );
-	event = {}; event.type = SDL_EVENT_TEXT_INPUT; event.text.timestamp = 30; event.text.text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-long"; CHECK( Push( event ) );
-	event = {}; event.type = SDL_EVENT_MOUSE_MOTION; event.motion.timestamp = 40; event.motion.x = 12.0f; event.motion.y = 34.0f; event.motion.xrel = 2.0f; event.motion.yrel = -3.0f; CHECK( Push( event ) );
-	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.timestamp = 50; event.wheel.x = 1.0f; event.wheel.y = -2.0f; event.wheel.mouse_x = 12.0f; event.wheel.mouse_y = 34.0f; CHECK( Push( event ) );
-	event = {}; event.type = SDL_EVENT_QUIT; event.quit.timestamp = 60; CHECK( Push( event ) );
+	event.type = SDL_EVENT_WINDOW_RESIZED; event.window.timestamp = 10 * 1000000; event.window.data1 = 640; event.window.data2 = 480; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_KEY_DOWN; event.key.timestamp = 20 * 1000000; event.key.key = SDLK_RETURN; event.key.mod = SDL_KMOD_ALT; event.key.repeat = true; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_TEXT_INPUT; event.text.timestamp = 30 * 1000000; event.text.text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-long"; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_MOUSE_MOTION; event.motion.timestamp = 40 * 1000000; event.motion.x = 12.0f; event.motion.y = 34.0f; event.motion.xrel = 2.0f; event.motion.yrel = -3.0f; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.timestamp = 50 * 1000000; event.wheel.x = 1.0f; event.wheel.y = -2.0f; event.wheel.mouse_x = 12.0f; event.wheel.mouse_y = 34.0f; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_QUIT; event.quit.timestamp = 60 * 1000000; CHECK( Push( event ) );
 	event = {}; event.type = static_cast<SDL_EventType>( 0x7fff0000 ); CHECK( Push( event ) );
 
 	NPlatform::PlatformEvent translated[6]{};
@@ -39,6 +39,8 @@ int main()
 	while ( count < 6 && app.PollEvent( translated[count] ) ) ++count;
 	CHECK( count == 6 );
 	CHECK( translated[0].type == NPlatform::EventType::windowResized );
+	// SDL3 stamps events in nanoseconds; PollEvent converts to the milliseconds
+	// the input layer measures double clicks and key repeats in.
 	CHECK( translated[0].x == 640 && translated[0].y == 480 && translated[0].timestamp == 10 );
 	CHECK( translated[1].type == NPlatform::EventType::keyDown && translated[1].repeat );
 	CHECK( translated[1].modifiers == SDL_KMOD_ALT );

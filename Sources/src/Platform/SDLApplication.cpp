@@ -261,6 +261,14 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_GAMEPAD_AXIS_MOTION: event.type = EventType::controllerAxis; event.timestamp = raw.gaxis.timestamp; event.deviceId = static_cast<int>( raw.gaxis.which ); event.control = raw.gaxis.axis; event.value = raw.gaxis.value; break;
 			default: continue;
 		}
+		// SDL3 stamps events in nanoseconds. Everything downstream measures time
+		// in milliseconds -- CControlKey::ChangeState compares against
+		// TIME_DIFF_DBL_CLK, GenerateRepeats against a delay and period, and
+		// CInputAPI seeds its clock from NPlatform::MonotonicMilliseconds. Handing
+		// those nanoseconds straight through put two clicks a third of a second
+		// apart 300 million units apart, so no double click ever registered, and
+		// truncating to 32 bits wrapped the value every 4.3 seconds on top.
+		event.timestamp = SDL_NS_TO_MS( event.timestamp );
 		return true;
 	}
 	return false;
