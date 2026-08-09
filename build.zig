@@ -1853,6 +1853,28 @@ pub fn build(b: *std.Build) void {
     scene_scale_test.subsystem = .console;
     if (platform == .windows_x64) scene_scale_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const scene_scale_run = b.addRunArtifact(scene_scale_test);
+    // The noise texture is addressed in world tile units; neighbouring map
+    // tiles must get adjacent coordinates or the pattern jumps at the seam.
+    const noise_seam_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    if (platform != .windows_x64) {
+        noise_seam_module.link_libc = true;
+        noise_seam_module.link_libcpp = true;
+    }
+    noise_seam_module.addCSourceFile(.{
+        .file = b.path("tools/zig/terrain_noise_seam_test.cpp"),
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, noise_seam_module, toolchain);
+    addMsvcLibraryPaths(b, noise_seam_module, toolchain);
+    linkMsvcRuntime(noise_seam_module, .Debug);
+    const noise_seam_test = b.addExecutable(.{ .name = "terrain-noise-seam-test", .root_module = noise_seam_module });
+    noise_seam_test.subsystem = .console;
+    if (platform == .windows_x64) noise_seam_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const noise_seam_run = b.addRunArtifact(noise_seam_test);
+    const noise_seam_step = b.step("test-terrain-noise", "Check terrain noise coordinates are continuous across patches");
+    noise_seam_step.dependOn(&noise_seam_test.step);
+    if (test_mode == .run) noise_seam_step.dependOn(&noise_seam_run.step);
+
     const scene_scale_step = b.step("test-scene-scale", "Check scaled terrain vertices land on whole pixels");
     scene_scale_step.dependOn(&scene_scale_test.step);
     if (test_mode == .run) scene_scale_step.dependOn(&scene_scale_run.step);

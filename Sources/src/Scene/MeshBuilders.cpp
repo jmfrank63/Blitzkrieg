@@ -47,6 +47,12 @@ void CreateTiles( const float fX, const float fY,
 	const CArray2D<SMainTileInfo> &tiles = info.tiles;
 	const CArray2D<SVertexAltitude> &heights = info.altitudes;
 	const float fStartX = patch.nStartX * STerrainPatchInfo::nSizeX;
+	// fPosY built on fStartX in the original source, leaving fStartY computed
+	// and unused. The noise texture's V then came from the patch's column
+	// rather than its row, so the pattern jumped at every patch boundary and
+	// drew a thin line along it -- one grid of them, fixed in screen space,
+	// coming and going as the patch grid shifted under a scroll. The war fog
+	// covered it, which is why it only ever showed with the fog off.
 	const float fStartY = patch.nStartY * STerrainPatchInfo::nSizeY;
 	const float fTileSize = 32;
 	const float fNoiseRcprX = 1.0f / fNoiseSizeX;
@@ -55,7 +61,7 @@ void CreateTiles( const float fX, const float fY,
 	Reserve( pPatch->mainverts2, STerrainPatchInfo::nSizeX*STerrainPatchInfo::nSizeY*4 );
 	for ( int i=0; i<STerrainPatchInfo::nSizeY; ++i )
 	{
-		const float fPosY = ( fStartX + i ) * fTileSize;
+		const float fPosY = ( fStartY + i ) * fTileSize;
 		const int nMapY = patch.nStartY + i;
 		const int nMapY1 = nMapY + 1;
 		for ( int j=0; j<STerrainPatchInfo::nSizeX; ++j )
@@ -150,7 +156,7 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 		const int nMapY1 = nMapY + 1;
 		const int nMapX = patch.nStartX + j;
 		const int nMapX1 = nMapX + 1;
-		const float fPosY = ( fStartX + i ) * fTileSize;
+		const float fPosY = ( fStartY + i ) * fTileSize;
 		const float fPosX = ( fStartX + j ) * fTileSize;
 
 		STerrainPatch::SVertex2 *pVerts = ResizeToAdd( pPatch->noiseverts, 4 );
@@ -180,7 +186,7 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 			const int nMapX1 = nMapX + 1;
 			const CVec2 *maps = tileset.tilemaps[it->tile].maps;
 			const CVec2 *maskmaps = crosset.tilemaps[it->cross].maps;
-			const float fPosY = ( fStartX + i ) * fTileSize;
+			const float fPosY = ( fStartY + i ) * fTileSize;
 			const float fPosX = ( fStartX + j ) * fTileSize;
 			if ( it->flags & SCrossTileInfo::CROSS ) 
 			{
@@ -200,7 +206,7 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 			}
 			if ( it->flags == SCrossTileInfo::MIXED )
 			{
-				const float fPosY = ( fStartX + i ) * fTileSize;
+				const float fPosY = ( fStartY + i ) * fTileSize;
 				const float fPosX = ( fStartX + j ) * fTileSize;
 
 				STerrainPatch::SVertex1 *pVerts = ResizeToAdd( pPatch->layernoiseverts[nLayer], 4 );
