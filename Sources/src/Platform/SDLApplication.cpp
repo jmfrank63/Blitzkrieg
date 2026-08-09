@@ -50,6 +50,13 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 		SDL_Quit();
 		return false;
 	}
+	// SDL3 keeps text input off until it is asked for, and only then does it
+	// emit SDL_EVENT_TEXT_INPUT. Without this no keystroke ever carried a
+	// character, so every edit box in the game - the save game name above all -
+	// took arrows and Enter but could not be typed into. Windows delivered
+	// WM_CHAR unconditionally; CInputAPI already discards text in
+	// INPUT_TEXT_MODE_NOTEXT, so leaving it on matches that.
+	SDL_StartTextInput( static_cast<SDL_Window *>( window_ ) );
 	initialized_ = true;
 	visible_ = false;
 	last_error_.clear();

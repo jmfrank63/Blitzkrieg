@@ -1,5 +1,7 @@
 #include "../../Sources/src/Platform/SDLApplication.h"
 
+#include <SDL3/SDL.h>
+
 #include <cstdio>
 #include <cstddef>
 
@@ -27,6 +29,10 @@ int main()
 	NPlatform::SDLApplication app;
 	CHECK( app.Initialize( "Blitzkrieg test", 320, 200 ) );
 	CHECK( app.BorrowWindow().value != nullptr );
+	// SDL3 emits no SDL_EVENT_TEXT_INPUT until text input is started, so
+	// without this every keystroke reached the UI with no character attached
+	// and no edit box in the game could be typed into.
+	CHECK( SDL_TextInputActive( static_cast<SDL_Window *>( app.BorrowWindow().value ) ) );
 	CHECK( app.LogicalSize().width == 320 && app.LogicalSize().height == 200 );
 	CHECK( app.PixelSize().width > 0 && app.PixelSize().height > 0 );
 	CHECK( !app.IsVisible() );
