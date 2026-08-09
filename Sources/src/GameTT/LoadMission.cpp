@@ -48,11 +48,13 @@ void CInterfaceLoadMission::StartInterface()
 	
 	szSaves.clear();
 	std::string szMask = "*.sav";
-	std::string szBaseDir = std::string( GetSingleton<IDataStorage>()->GetName() );
-	szBaseDir = szBaseDir.substr( 0, szBaseDir.rfind('\\') );
-	szBaseDir = szBaseDir.substr( 0, szBaseDir.rfind('\\') );
+	// Was derived by stripping two components off the data storage name with
+	// rfind('\\'). There is no backslash in a path here, so rfind returned npos,
+	// substr(0, npos) handed back the whole string, and the dialog looked for
+	// saves inside Data instead of beside the executable -- an empty list.
+	// GetBaseDir is where quicksave and the intermission dialogs already write.
+	std::string szBaseDir = GetSingleton<IMainLoop>()->GetBaseDir();
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
-	szBaseDir += "\\";
 	if ( !szModname.empty() )
 	{
 		szBaseDir += "mods\\";

@@ -78,6 +78,19 @@ int main()
         assert(broken.wMinute == expected.tm_min);
     }
 
+    // The in-game save and load dialogs used to derive their directory by
+    // stripping two components with rfind('\\'). A path here has no backslash,
+    // so rfind returns npos and substr(0, npos) hands back the whole string
+    // unchanged - the dialog then looked for saves inside Data and listed
+    // nothing. Any such strip has to accept either separator.
+    {
+        const std::string data_root = "/game/install/Data";
+        assert(data_root.rfind('\\') == std::string::npos);
+        assert(data_root.substr(0, data_root.rfind('\\')) == data_root);
+        assert(data_root.find_last_of("\\/") != std::string::npos);
+        assert(data_root.substr(0, data_root.find_last_of("\\/")) == "/game/install");
+    }
+
     const std::string renamed = (root / "nested" / "renamed.bin").string();
     assert(NFile::CFile::Rename(file_name.c_str(), renamed.c_str()));
     assert(NFile::IsFileExist(renamed.c_str()));
