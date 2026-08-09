@@ -29,6 +29,14 @@ const portable_cflags = &.{
     "-Wno-macro-redefined",         "-fPIC",
 };
 
+// The portable flag set is shared by both variants because the debug macros
+// (_DEBUG, _DO_ASSERT_SLOW, _STL_RANGE_CHECK) gate code that has never been
+// compiled outside Windows. The release macros are a different matter: without
+// them a macOS release build still ran with assert() live and _FINALRELEASE
+// undefined, so development-only code stayed in -- the unit name in the status
+// bar, for one, carried its "id N,(frozen flags),CState," debug prefix.
+const portable_cflags_release = portable_cflags.* ++ [_][]const u8{ "-DNDEBUG", "-D_FINALRELEASE" };
+
 const cflags_release = &.{
     "-D_WINDOWS",
     "-DWIN32",
@@ -3197,7 +3205,10 @@ fn addGfxGpuZig(
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return portable_cflags;
+    if (build_target_os != .windows) return switch (optimize) {
+        .Debug => portable_cflags,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cflags_release,
+    };
     return switch (optimize) {
         .Debug => cflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_release,
@@ -3205,7 +3216,10 @@ fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return portable_cflags;
+    if (build_target_os != .windows) return switch (optimize) {
+        .Debug => portable_cflags,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cflags_release,
+    };
     return switch (optimize) {
         .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
