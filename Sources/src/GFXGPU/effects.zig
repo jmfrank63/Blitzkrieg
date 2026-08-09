@@ -345,6 +345,40 @@ test "UI and alpha reference fixtures" {
     try std.testing.expect(alphaPassGreaterEqual(0.5, alphaRefFor(111)));
 }
 
+// A class the object factory does not know cannot be recreated when a saved
+// game is loaded: GetObjectTypeID returns -1, the type id is written as -1, and
+// CreateObject hands back null on the way in. The assert that would have caught
+// it is compiled out of a release build, so the null travels until something
+// dereferences it - CTerrain::MovePatch on a null tileset, for one. The GPU
+// factory therefore has to register everything the D3D factory does, for every
+// class the GPU backend implements.
+test "the gpu object factory registers what the d3d one does" {
+    const gpu = @embedFile("GfxGpuObjectFactory.cpp");
+
+    // Everything CGFXObjectFactory::Init registers in GFX/GFXObjectFactory.cpp,
+    // minus GFX_RT_TEXTURE, GFX_VERTICES and GFX_INDICES, which no saved game
+    // reaches through a serialized pointer. Add one here the moment it does.
+    const required = [_][]const u8{
+        "GFX_GFX",           "GFX_TEXTURE_MANAGER", "GFX_MESH_MANAGER",
+        "GFX_FONT_MANAGER",  "GFX_TEXTURE",         "GFX_MESH",
+        "GFX_FONT",          "GFX_TEXT",
+    };
+
+    for (required) |id| {
+        const needle = try std.fmt.allocPrint(std.testing.allocator, "REGISTER_CLASS( this, {s},", .{id});
+        defer std.testing.allocator.free(needle);
+        std.testing.expect(std.mem.indexOf(u8, gpu, needle) != null) catch |err| {
+            std.debug.print("GPU object factory does not register {s}\n", .{id});
+            return err;
+        };
+    }
+
+    // A registered class must also be constructible: REGISTER_CLASS goes
+    // through CreateNewClassInstanceInternal, and a stub returning null puts
+    // the null straight back into the loaded save.
+    try std.testing.expect(std.mem.indexOf(u8, gpu, "CreateNewClassInstanceInternal() { return nullptr; }") == null);
+}
+
 // Every shader that clips has to take its threshold from the effect's
 // D3DRS_ALPHAREF, which travels in g_stage.y. Taking it from g_color.a instead
 // clipped against the draw colour: opaque for most draws, so only fully opaque

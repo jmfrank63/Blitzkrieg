@@ -14,7 +14,10 @@ class FontGpu final : public IGFXFont
 {
 public:
     FontGpu();
-    static IRefCount * STDCALL CreateNewClassInstanceInternal() { return nullptr; }
+    // Recreated by the object factory when a saved game is loaded; the manager's
+    // shared map then supplies the name and calls Load().
+    static IRefCount * STDCALL CreateNewClassInstanceInternal() { return new FontGpu(); }
+    int STDCALL operator&( IStructureSaver &ss ) override;
     void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ += nRef; }
     void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ -= nRef; if ( ref_count_ == 0 ) delete this; }
     bool STDCALL IsValid() const override { return ref_count_ >= 0 && texture_ != nullptr; }
@@ -48,6 +51,7 @@ private:
     std::string name_;
     SFontFormat format_{};
     IGFXTexture *texture_ = nullptr;
+    int shared_resource_last_usage_ = 0;
 };
 
 // Shared greedy line breaking, so the row height reported by

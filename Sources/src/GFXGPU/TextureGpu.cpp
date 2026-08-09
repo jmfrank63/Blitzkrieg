@@ -173,6 +173,24 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
 }
 
 
+// Built by the object factory when a saved game is loaded: no dimensions yet,
+// they come from the DDS header once the manager hands over the name.
+TextureGpu::TextureGpu()
+    : owner_( nullptr ), width_( 0 ), height_( 0 ), mips_( 0 ), format_( GFXPF_UNKNOWN ), usage_( GFXD_STATIC )
+{
+    if ( ISingleton *globals = GetSingletonGlobal() )
+        owner_ = dynamic_cast<GraphicsEngineGpu *>( GetSingleton<IGFX>( globals ) );
+}
+
+// CTexture stores only its usage counter; the name and the reload come from the
+// manager's shared map, which is serialized alongside.
+int STDCALL TextureGpu::operator&( IStructureSaver &ss )
+{
+    CSaverAccessor saver = &ss;
+    saver.Add( 1, &shared_resource_last_usage_ );
+    return 0;
+}
+
 TextureGpu::TextureGpu( GraphicsEngineGpu *owner, int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage )
     : owner_( owner ), width_( width ), height_( height ), mips_( mips ), format_( format ), usage_( usage )
 {

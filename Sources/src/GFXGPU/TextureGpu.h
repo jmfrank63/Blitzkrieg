@@ -9,9 +9,15 @@
 class TextureGpu final : public IGFXTexture
 {
 public:
+    // The structure saver recreates a stored texture through the object
+    // factory, so it needs an instance it can build with no arguments and
+    // then hand a name and a Load(). The owner is resolved from the singleton
+    // in that case, exactly as TextureManagerGpu does when it creates one.
+    TextureGpu();
     TextureGpu( GraphicsEngineGpu *owner, int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage );
     ~TextureGpu();
-    static IRefCount * STDCALL CreateNewClassInstanceInternal() { return nullptr; }
+    static IRefCount * STDCALL CreateNewClassInstanceInternal() { return new TextureGpu(); }
+    int STDCALL operator&( IStructureSaver &ss ) override;
     void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ += nRef; }
     void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ -= nRef; if ( ref_count_ == 0 ) delete this; }
     bool STDCALL IsValid() const override { return ref_count_ >= 0 && handle_ != 0; }
@@ -49,6 +55,7 @@ private:
     int locked_pitch_ = 0;
     std::vector<unsigned char> lock_bytes_;
     std::string name_;
+    int shared_resource_last_usage_ = 0;
 };
 
 class RenderTargetGpu final : public IGFXRTexture

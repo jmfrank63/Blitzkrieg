@@ -65,6 +65,15 @@ float FontGpu::TextWidth( const T *text, int count ) const
     return width;
 }
 
+// CFont stores only its usage counter; the name and the reload come from the
+// manager's shared map, which is serialized alongside.
+int STDCALL FontGpu::operator&( IStructureSaver &ss )
+{
+    CSaverAccessor saver = &ss;
+    saver.Add( 1, &shared_resource_last_usage_ );
+    return 0;
+}
+
 int STDCALL FontGpu::GetTextWidth( const char *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
 // TextWidth is a template, so the UTF-16 string is measured as-is.
 int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
@@ -126,10 +135,26 @@ public:
     void STDCALL Clear( EClearMode mode, int, int ) override
     {
         if ( mode == CLEAR_ALL )
-        {
-            for ( auto &entry : textures_ ) if ( entry.second ) entry.second->Release();
             textures_.clear();
+    }
+    // CTextureManager serializes its shared map, which is what gives every
+    // stored texture pointer something to come back to. Without it the factory
+    // wrote -1 for the type id and a loaded save handed back null, so
+    // CTerrain::MovePatch dereferenced a null tileset.
+    int STDCALL operator&( IStructureSaver &ss ) override
+    {
+        CSaverAccessor saver = &ss;
+        saver.Add( 106, &textures_ );
+        if ( saver.IsReading() )
+        {
+            for ( std::map<std::string, CObj<IGFXTexture> >::iterator it = textures_.begin(); it != textures_.end(); ++it )
+            {
+                if ( it->second == 0 ) continue;
+                it->second->SetSharedResourceName( it->first );
+                it->second->Load( false );
+            }
         }
+        return 0;
     }
     IGFXTexture * STDCALL GetTexture( const char *name ) override
     {
@@ -151,10 +176,9 @@ public:
             if ( storage->IsStreamExist( candidate.c_str() ) ) { stream_name = candidate; break; }
         }
         if ( stream_name.empty() ) return nullptr;
-        TextureGpu *texture = new TextureGpu( owner, 0, 0, 0, GFXPF_UNKNOWN, GFXD_STATIC );
-        texture->AddRef();
+        CObj<IGFXTexture> texture = new TextureGpu( owner, 0, 0, 0, GFXPF_UNKNOWN, GFXD_STATIC );
         texture->SetSharedResourceName( stream_name );
-        if ( !texture->Load() ) { texture->Release(); return nullptr; }
+        if ( !texture->Load() ) return nullptr;
         textures_[key] = texture;
         return texture;
     }
@@ -174,7 +198,7 @@ public:
     }
 
 private:
-    std::map<std::string, IGFXTexture *> textures_;
+    std::map<std::string, CObj<IGFXTexture> > textures_;
     std::string quality_suffix_ = "_h.dds";
 
 };
@@ -187,21 +211,36 @@ public:
     void STDCALL SetSerialMode( ESharedDataSerialMode ) override {}
     void STDCALL SetShareMode( ESharedDataSharingMode ) override {}
     void STDCALL Clear( EClearMode, int, int ) override {}
+    // See TextureManagerGpu::operator& - CFontManager serializes the same way.
+    int STDCALL operator&( IStructureSaver &ss ) override
+    {
+        CSaverAccessor saver = &ss;
+        saver.Add( 108, &fonts_ );
+        if ( saver.IsReading() )
+        {
+            for ( std::map<std::string, CObj<IGFXFont> >::iterator it = fonts_.begin(); it != fonts_.end(); ++it )
+            {
+                if ( it->second == 0 ) continue;
+                it->second->SetSharedResourceName( it->first );
+                it->second->Load( false );
+            }
+        }
+        return 0;
+    }
     IGFXFont * STDCALL GetFont( const char *name ) override
     {
         if ( !name || !*name ) return nullptr;
         const std::string key( name );
         const auto cached = fonts_.find( key );
         if ( cached != fonts_.end() ) return cached->second;
-        FontGpu *font = new FontGpu();
-        font->AddRef();
+        CObj<IGFXFont> font = new FontGpu();
         font->SetSharedResourceName( key );
-        if ( !font->Load() ) { font->Release(); return nullptr; }
+        if ( !font->Load() ) return nullptr;
         fonts_[key] = font;
         return font;
     }
 private:
-    std::map<std::string, FontGpu *> fonts_;
+    std::map<std::string, CObj<IGFXFont> > fonts_;
 };
 
 void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wrap_width,
@@ -317,6 +356,8 @@ public:
         REGISTER_CLASS( this, GFX_TEXTURE_MANAGER, TextureManagerGpu );
         REGISTER_CLASS( this, GFX_MESH_MANAGER, MeshManagerGpu );
         REGISTER_CLASS( this, GFX_FONT_MANAGER, FontManagerGpu );
+        REGISTER_CLASS( this, GFX_TEXTURE, TextureGpu );
+        REGISTER_CLASS( this, GFX_FONT, FontGpu );
         REGISTER_CLASS( this, GFX_TEXT, TextGpu );
         REGISTER_CLASS( this, GFX_MESH, MeshGpu );
     }
