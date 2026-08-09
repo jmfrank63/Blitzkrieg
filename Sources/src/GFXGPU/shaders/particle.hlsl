@@ -24,7 +24,9 @@ ParticleVertexOutput vs_particle(ParticleVertexInput input) {
     output.color = legacy_vertex_color(input.color) * g_color;
     output.uv = input.uv;
     output.view_depth = output.position.z / max(output.position.w, 0.0001f);
-    output.alpha_threshold = g_color.a;
+    // D3DRS_ALPHAREF for the current effect, not the draw colour: clipping at
+    // g_color.a discarded every texel that was not fully opaque.
+    output.alpha_threshold = g_stage.y;
     output.fog_color = g_fog.xyz;
     output.fog_range = g_fog.w;
     return output;

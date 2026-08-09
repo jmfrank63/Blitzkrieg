@@ -21,7 +21,9 @@ WaterVertexOutput vs_water(WaterVertexInput input) {
     output.color = legacy_vertex_color(input.color) * g_color;
     output.uv0 = input.uv0 + g_color.xy * g_color.w;
     output.uv1 = input.uv1 + g_color.yx * g_color.w;
-    output.alpha_threshold = g_color.a;
+    // D3DRS_ALPHAREF for the current effect, not the draw colour: clipping at
+    // g_color.a discarded every texel that was not fully opaque.
+    output.alpha_threshold = g_stage.y;
     return output;
 }
 

@@ -331,6 +331,37 @@ test "UI and alpha reference fixtures" {
     try std.testing.expect(!alphaPassGreaterEqual(0.0, alphaRefFor(1)));
     try std.testing.expect(!alphaPassGreaterEqual(150.0 / 255.0, alphaRefFor(1)));
     try std.testing.expect(alphaPassGreaterEqual(1.0, alphaRefFor(1)));
+
+    // An effect that leaves the test off must keep every texel, including a
+    // fully transparent one: D3D only rejects alpha strictly below the
+    // reference, and clip() only rejects a strictly negative argument.
+    try std.testing.expect(alphaPassGreaterEqual(0.0, alphaRefFor(14)));
+    try std.testing.expect(alphaPassGreaterEqual(0.0, alphaRefFor(15)));
+    // Half-transparent texels belong to the icons and the haze, so a threshold
+    // taken from the draw colour (which is opaque) would have erased them.
+    try std.testing.expect(alphaPassGreaterEqual(0.5, alphaRefFor(14)));
+    // The sprite shadow keeps its own cutout at 50 either way.
+    try std.testing.expect(!alphaPassGreaterEqual(0.1, alphaRefFor(111)));
+    try std.testing.expect(alphaPassGreaterEqual(0.5, alphaRefFor(111)));
+}
+
+// Every shader that clips has to take its threshold from the effect's
+// D3DRS_ALPHAREF, which travels in g_stage.y. Taking it from g_color.a instead
+// clipped against the draw colour: opaque for most draws, so only fully opaque
+// texels survived, and for water g_color is not even a colour but a UV scroll.
+test "alpha-testing shaders read the reference from g_stage" {
+    const sources = [_][]const u8{
+        @embedFile("shaders/particle.hlsl"),
+        @embedFile("shaders/stencil_shadow.hlsl"),
+        @embedFile("shaders/transparent.hlsl"),
+        @embedFile("shaders/ui.hlsl"),
+        @embedFile("shaders/unlit.hlsl"),
+        @embedFile("shaders/water.hlsl"),
+    };
+    for (sources) |source| {
+        try std.testing.expect(std.mem.indexOf(u8, source, "alpha_threshold = g_stage.y") != null);
+        try std.testing.expect(std.mem.indexOf(u8, source, "alpha_threshold = g_color.a") == null);
+    }
 }
 
 test "the shadow pass opens and closes as a render-state delta" {

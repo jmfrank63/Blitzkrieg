@@ -18,7 +18,9 @@ StencilVertexOutput vs_stencil(StencilVertexInput input) {
     output.position = mul(mul(float4(input.position, 1.0f), g_world), g_view_proj);
     output.color = legacy_vertex_color(input.color) * g_color;
     output.uv = input.uv;
-    output.alpha_threshold = g_color.a;
+    // D3DRS_ALPHAREF for the current effect, not the draw colour: clipping at
+    // g_color.a discarded every texel that was not fully opaque.
+    output.alpha_threshold = g_stage.y;
     return output;
 }
 
