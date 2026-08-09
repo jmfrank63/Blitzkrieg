@@ -4,6 +4,15 @@
 
 namespace NInput
 {
+// A Mac keyboard's Command key is the one a player reaches for, but the configs
+// bind LCTRL and RCTRL. Elsewhere the equivalent key is the OS's own, so it
+// keeps reporting itself.
+#if defined(__APPLE__)
+static const bool kMacCommandIsControl = true;
+#else
+static const bool kMacCommandIsControl = false;
+#endif
+
 // DIK-compatible values are part of the config ABI. They are intentionally
 // kept here so SDL and legacy backends share the same stable identifiers.
 static const KeyCodeEntry codes[] = {
@@ -79,11 +88,15 @@ std::uint32_t SDLScancodeToLegacy(std::uint32_t scancode)
 		case 224: return 0x1d;		// LCTRL
 		case 225: return 0x2a;		// LSHIFT
 		case 226: return 0x38;		// LALT
-		case 227: return 0xdb;		// LWIN
+		// Command is where a Mac keyboard puts the modifier every shortcut uses,
+		// and the configs bind LCTRL/RCTRL for the unit groups and the rest.
+		// Nothing binds LWIN, RWIN or APP_MENU, so nothing is lost by sending
+		// Command through as Control; the Control keys keep working as well.
+		case 227: return kMacCommandIsControl ? 0x1d : 0xdb;	// LWIN / LCTRL
 		case 228: return 0x9d;		// RCTRL
 		case 229: return 0x36;		// RSHIFT
 		case 230: return 0xb8;		// RALT
-		case 231: return 0xdc;		// RWIN
+		case 231: return kMacCommandIsControl ? 0x9d : 0xdc;	// RWIN / RCTRL
 		default: return 0;
 	}
 }
@@ -147,8 +160,10 @@ std::uint32_t SDLScancodeToVirtualKey(std::uint32_t scancode)
 		case 224: case 228: return 0x11;	// VK_CONTROL
 		case 225: case 229: return 0x10;	// VK_SHIFT
 		case 226: case 230: return 0x12;	// VK_MENU
-		case 227: return 0x5b;		// VK_LWIN
-		case 231: return 0x5c;		// VK_RWIN
+		// Command reaches the screens as Control too, so a dialog that tests the
+		// modifier agrees with the bindings.
+		case 227: return kMacCommandIsControl ? 0x11 : 0x5b;	// VK_CONTROL / VK_LWIN
+		case 231: return kMacCommandIsControl ? 0x11 : 0x5c;	// VK_CONTROL / VK_RWIN
 		default: return 0;
 	}
 }

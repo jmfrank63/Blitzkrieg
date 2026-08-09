@@ -33,6 +33,13 @@ int main()
         { 74, "HOME" }, { 77, "END" }, { 76, "DELETE" }, { 73, "INSERT" },
         { 89, "NUM_1" }, { 95, "NUM_7" }, { 98, "NUM_0" }, { 88, "NUM_ENTER" },
         { 224, "LCTRL" }, { 228, "RCTRL" }, { 225, "LSHIFT" }, { 53, "`" },
+#if defined(__APPLE__)
+        // Command is the modifier a Mac player reaches for, and the configs bind
+        // LCTRL/RCTRL for the unit groups. Control still works alongside it.
+        { 227, "LCTRL" }, { 231, "RCTRL" },
+#else
+        { 227, "LWIN" }, { 231, "RWIN" },
+#endif
     };
     for ( const auto &entry : named )
         CHECK( NInput::SDLScancodeToLegacy( entry.scancode ) == NInput::CodeForName( entry.name ) );
@@ -62,6 +69,10 @@ int main()
     CHECK( NInput::SDLScancodeToVirtualKey( 224 ) == NInput::SDLScancodeToVirtualKey( 228 ) );
     CHECK( NInput::SDLScancodeToVirtualKey( 225 ) == NInput::SDLScancodeToVirtualKey( 229 ) );
     CHECK( NInput::SDLScancodeToVirtualKey( 226 ) == NInput::SDLScancodeToVirtualKey( 230 ) );
+#if defined(__APPLE__)
+    CHECK( NInput::SDLScancodeToVirtualKey( 227 ) == 0x11 );  // VK_CONTROL
+    CHECK( NInput::SDLScancodeToVirtualKey( 231 ) == 0x11 );
+#endif
     CHECK( NInput::SDLScancodeToVirtualKey( 0 ) == 0 );
 
     // A key the bindings can reach must also reach the screens, so the two
