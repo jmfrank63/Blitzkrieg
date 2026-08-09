@@ -276,7 +276,32 @@ bool STDCALL GraphicsEngineGpu::Done()
     return true;
 }
 
-void STDCALL GraphicsEngineGpu::Clear() { Done(); }
+// IGFX::Clear() releases cached scratch data between missions; it is not a
+// shutdown. CGraphicsEngine::Clear drops the temporary vertex and index buffers
+// and asks the texture and mesh managers to let go of anything unreferenced,
+// then restarts the frame counter -- the device keeps running. Calling Done()
+// here destroyed the renderer instead, so CMainLoop::ClearResources turned
+// leaving a mission into a teardown: every later create_texture failed with
+// "create_texture is unavailable", CTextureManagerGpu::GetTexture handed back a
+// null texture, and the next CTerrain::LoadLocal dereferenced it.
+void STDCALL GraphicsEngineGpu::Clear()
+{
+    temporary_vertex_bytes_.clear();
+    temporary_index_bytes_.clear();
+    temporary_vertex_stride_ = 0;
+    temporary_vertex_count_ = 0;
+    temporary_index_stride_ = 0;
+    temporary_index_count_ = 0;
+    temporary_vertex_format_ = 0;
+    temporary_type_ = GFXPT_TRIANGLELIST;
+    if ( ISingleton *globals = GetSingletonGlobal() )
+    {
+        if ( ITextureManager *textures = GetSingleton<ITextureManager>( globals ) )
+            textures->Clear( ISharedManager::CLEAL_UNREFERENCED, 0, 0 );
+        if ( IMeshManager *meshes = GetSingleton<IMeshManager>( globals ) )
+            meshes->Clear( ISharedManager::CLEAL_UNREFERENCED, 0, 0 );
+    }
+}
 
 bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, EGFXFullscreen fullscreen, int )
 {
