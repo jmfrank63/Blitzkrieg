@@ -133,7 +133,11 @@ pub fn beginColorPass(command_buffer: *GpuCommandBuffer, texture: *GpuTexture, c
 pub fn beginColorDepthPass(command_buffer: *GpuCommandBuffer, color_texture: *GpuTexture, depth_texture: *GpuTexture, color: [4]f32, load: c.SDL_GPULoadOp) ?*GpuRenderPass {
     const color_target = c.SDL_GPUColorTargetInfo{ .texture = color_texture, .clear_color = .{ .r = color[0], .g = color[1], .b = color[2], .a = color[3] }, .load_op = load, .store_op = c.SDL_GPU_STOREOP_STORE };
     const depth_target = c.SDL_GPUDepthStencilTargetInfo{ .texture = depth_texture, .clear_depth = 1, .load_op = c.SDL_GPU_LOADOP_CLEAR, .store_op = c.SDL_GPU_STOREOP_STORE, .stencil_load_op = c.SDL_GPU_LOADOP_CLEAR, .stencil_store_op = c.SDL_GPU_STOREOP_STORE, .cycle = false, .clear_stencil = 0, .mip_level = 0, .layer = 0 };
-    return c.SDL_BeginGPURenderPass(command_buffer, &color_target, 1, &depth_target);
+    const pass = c.SDL_BeginGPURenderPass(command_buffer, &color_target, 1, &depth_target);
+    // D3DRS_STENCILREF 0, which the shadow pass compares EQUAL against. SDL does
+    // not promise a starting reference, so it is set rather than assumed.
+    if (pass) |handle| c.SDL_SetGPUStencilReference(handle, 0);
+    return pass;
 }
 
 pub fn blitTexture(command_buffer: *GpuCommandBuffer, source: *GpuTexture, destination: *GpuTexture, width: u32, height: u32) void {
