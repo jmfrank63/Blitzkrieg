@@ -436,6 +436,20 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 					NPlatform::DebugWrite( "screenshot: readback failed\n" );
 					break;
 				}
+				// The scene texture's alpha is whatever the passes happened to
+				// leave behind - sprite and blend passes write it and nothing
+				// clears it - so it means nothing as transparency. The reference
+				// capture forces it to zero for exactly this reason. A 32-bit TGA
+				// carries the channel, so every viewer that honours alpha showed
+				// the shot composited over its own background: a grey wedge where
+				// the scene is black, white haze over the terrain and ghosted
+				// outlines around every sprite. A screenshot is opaque.
+				if ( SColor *pPixels = pImage->GetLFB() )
+				{
+					const int nPixels = pImage->GetSizeX() * pImage->GetSizeY();
+					for ( int i = 0; i != nPixels; ++i )
+						pPixels[i].a = 255;
+				}
 				const std::string screenshotRoot = NPlatform::Paths::SaveRoot() + "\\screenshots";
 				NFile::CreatePath( screenshotRoot.c_str() );
 				while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
