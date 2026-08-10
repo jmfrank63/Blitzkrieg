@@ -118,10 +118,12 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
         copyMetadata(io, repo, destination, options.layout.metadata_files) catch |err| return failStep("copy package metadata", err);
         destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
-        removeTreeIfPresent(io, destination, "Data") catch |err| return failStep("remove staged Data", err);
         switch (options.data_mode) {
-            .copy => copyData(io, allocator, repo, destination) catch |err| return failStep("copyData", err),
-            .link => linkData(io, allocator, repo, destination) catch |err| return failStep("linkData", err),
+            .copy => syncData(io, allocator, repo, destination) catch |err| return failStep("syncData", err),
+            .link => {
+                removeTreeIfPresent(io, destination, "Data") catch |err| return failStep("remove staged Data", err);
+                linkData(io, allocator, repo, destination) catch |err| return failStep("linkData", err);
+            },
         }
     } else if (!options.layout.editors_supported) {
         return error.EditorsUnsupported;
@@ -210,13 +212,97 @@ fn copyRuntimeFile(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, nam
     };
 }
 
-fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {
+/// Staging used to delete the staged Data tree and copy all of it back. On
+/// Windows a deleted file lingers in delete-pending for as long as any handle
+/// to it is open - a file indexer or a virus scanner is enough - and creating
+/// the same path again then fails with DELETE_PENDING, which std answers by
+/// parking on a timed sleep inside its create-file retry. Copying over the
+/// tree and removing only what the repository no longer has keeps any path out
+/// of delete-pending ahead of the write that needs it, and costs a stat per
+/// file rather than a copy once the tree is in place.
+fn syncData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {
     var data = try repo.openDir(io, "Data", .{ .iterate = true });
     defer data.close(io);
+    try removeDataLinkIfPresent(io, destination);
     try destination.createDirPath(io, "Data");
-    var destination_data = try destination.openDir(io, "Data", .{ .access_sub_paths = true });
+    var destination_data = try destination.openDir(io, "Data", .{ .iterate = true, .access_sub_paths = true });
     defer destination_data.close(io);
-    try copyTree(io, allocator, data, destination_data);
+    try syncTree(io, allocator, data, destination_data);
+}
+
+/// An earlier --link-data run leaves Data as a link into the repository.
+/// Copying through it would write the staged tree back over its own source, so
+/// the link has to go before a copy starts.
+fn removeDataLinkIfPresent(io: std.Io, destination: std.Io.Dir) !void {
+    const staged = destination.statFile(io, "Data", .{ .follow_symlinks = false }) catch |err| switch (err) {
+        error.FileNotFound => return,
+        else => return err,
+    };
+    if (staged.kind == .directory) return;
+    try removeTreeIfPresent(io, destination, "Data");
+}
+
+fn syncTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destination: std.Io.Dir) !void {
+    var staged: std.StringHashMapUnmanaged(void) = .empty;
+    defer {
+        var keys = staged.keyIterator();
+        while (keys.next()) |key| allocator.free(key.*);
+        staged.deinit(allocator);
+    }
+
+    var walker = try source.walk(allocator);
+    defer walker.deinit();
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file or isForbiddenStagedPath(entry.path)) continue;
+        const path = try allocator.dupe(u8, entry.path);
+        errdefer allocator.free(path);
+        try staged.put(allocator, path, {});
+        if (isStagedCopyCurrent(io, entry.dir, entry.basename, destination, entry.path)) continue;
+        copyFile(io, entry.dir, entry.basename, destination, entry.path) catch |err| {
+            std.debug.print("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
+            return err;
+        };
+    }
+
+    try pruneStagedTree(io, allocator, destination, staged);
+}
+
+/// A copy carries the time it was made rather than the time of its source, so
+/// a staged file that is the same size and no older than the file it came from
+/// is already the copy this run would write.
+fn isStagedCopyCurrent(io: std.Io, source_dir: std.Io.Dir, source: []const u8, destination_dir: std.Io.Dir, destination: []const u8) bool {
+    const source_info = source_dir.statFile(io, source, .{}) catch return false;
+    const staged_info = destination_dir.statFile(io, destination, .{}) catch return false;
+    if (staged_info.kind != .file) return false;
+    if (staged_info.size != source_info.size) return false;
+    return staged_info.mtime.nanoseconds >= source_info.mtime.nanoseconds;
+}
+
+fn pruneStagedTree(io: std.Io, allocator: std.mem.Allocator, destination: std.Io.Dir, staged: std.StringHashMapUnmanaged(void)) !void {
+    var stale = std.ArrayList([]const u8).empty;
+    defer {
+        for (stale.items) |path| allocator.free(path);
+        stale.deinit(allocator);
+    }
+
+    {
+        // Deleting during the walk would pull entries out from under the
+        // iterator, so the tree is read first and pruned afterwards.
+        var walker = try destination.walk(allocator);
+        defer walker.deinit();
+        while (try walker.next(io)) |entry| {
+            if (entry.kind != .file) continue;
+            // Forbidden paths are never staged, so a staged file matching one
+            // was written by the game rather than copied here.
+            if (isForbiddenStagedPath(entry.path) or staged.contains(entry.path)) continue;
+            try stale.append(allocator, try allocator.dupe(u8, entry.path));
+        }
+    }
+
+    for (stale.items) |path| destination.deleteFile(io, path) catch |err| {
+        std.debug.print("stage: stale data file '{s}' could not be removed: {s}\n", .{ path, @errorName(err) });
+        return err;
+    };
 }
 
 fn copyMetadata(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir, metadata_files: []const []const u8) !void {

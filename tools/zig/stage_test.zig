@@ -135,6 +135,115 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try destination.access(io, "saves", .{});
 }
 
+test "restaging updates changed data, prunes removed data, and keeps game-written files" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    try stage.stage(io, allocator, fixture.options);
+
+    // The repository loses one file and edits another between the two runs.
+    try tmp.dir.deleteFile(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "Data/Maps/dropped.map" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "Data/Maps/edited.map" }),
+        .data = "edited fixture, at a different length",
+    });
+    // The game writes a save into the staged tree; staging must not take it.
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.install_name, "Data/saves" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.install_name, "Data/saves/profile.sav" }),
+        .data = "player save",
+    });
+
+    try stage.stage(io, allocator, fixture.options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "Data/Maps/kept.map", "kept fixture");
+    try expectStagedFile(destination, io, allocator, "Data/Maps/edited.map", "edited fixture, at a different length");
+    try expectStagedPathAbsent(destination, io, "Data/Maps/dropped.map");
+    try expectStagedFile(destination, io, allocator, "Data/saves/profile.sav", "player save");
+}
+
+test "restaging leaves a data file the repository has not touched" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    try stage.stage(io, allocator, fixture.options);
+
+    // Same length and written after the staged copy, so staging has to read it
+    // as current and skip it. Rewriting it would restore "kept fixture".
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.install_name, "Data/Maps/kept.map" }),
+        .data = "KEPT FIXTURE",
+    });
+
+    try stage.stage(io, allocator, fixture.options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "Data/Maps/kept.map", "KEPT FIXTURE");
+}
+
+const RepositoryFixture = struct {
+    repo_name: []const u8,
+    install_name: []const u8,
+    install_path: []const u8,
+    options: stage.Options,
+};
+
+fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.testing.TmpDir) !RepositoryFixture {
+    const fixture_root = try tmp.dir.realPathFileAlloc(io, ".", allocator);
+    const repo_name = "repository";
+    const install_name = "staged";
+    const repo_path = try std.fs.path.join(allocator, &.{ fixture_root, repo_name });
+    const install_path = try std.fs.path.join(allocator, &.{ fixture_root, install_name });
+
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "zig-out/bin" }));
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "zig-out/shaders" }));
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Configs" }));
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Maps" }));
+    const files = [_]struct { path: []const u8, data: []const u8 }{
+        .{ .path = "zig-out/bin/Game", .data = "game fixture" },
+        .{ .path = "Data/Configs/defconf.cfg", .data = "default fixture" },
+        .{ .path = "LICENSE.md", .data = "license fixture" },
+        .{ .path = "README.md", .data = "readme fixture" },
+        .{ .path = "Data/Maps/kept.map", .data = "kept fixture" },
+        .{ .path = "Data/Maps/edited.map", .data = "edited fixture" },
+        .{ .path = "Data/Maps/dropped.map", .data = "dropped fixture" },
+    };
+    for (files) |file| try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, file.path }),
+        .data = file.data,
+    });
+
+    return .{
+        .repo_name = repo_name,
+        .install_name = install_name,
+        .install_path = install_path,
+        .options = .{
+            .repo_root = repo_path,
+            .install_dir = install_path,
+            .data_mode = .copy,
+            .layout = .{
+                .game_name = "Game",
+                .runtime_files = &.{"Game"},
+                .debug_files = &.{},
+                .editors_supported = false,
+            },
+        },
+    };
+}
+
 fn expectStagedFile(destination: std.Io.Dir, io: std.Io, allocator: std.mem.Allocator, path: []const u8, expected: []const u8) !void {
     const contents = try destination.readFileAlloc(io, path, allocator, .limited(1024));
     defer allocator.free(contents);
