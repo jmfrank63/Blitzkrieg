@@ -406,10 +406,12 @@ bool COpenVideoPlayer::DecodeNextFrame( bool bConvertFrame )
 					if ( images.empty() )
 					{
 						const bool bHasNonPow2Textures = (GetGlobalVar( "GFX.Caps.Texture.NonPow2Conditional", 0 ) != 0) || (GetGlobalVar( "GFX.Caps.Texture.NonPow2", 0 ) != 0);
+						NStr::DebugTrace( "Open video surface: %dx%d nonpow2=%d.\n", nWidth, nHeight, int( bHasNonPow2Textures ) );
 						if ( bHasNonPow2Textures )
 						{
 							SOpenVideoImagePart image;
 							image.pTexture = pRenderGFX->CreateTexture( nWidth, nHeight, 1, GFXPF_ARGB8888, GFXD_STATIC );
+							NStr::DebugTrace( "Open video surface: single texture %p.\n", (void*)image.pTexture.GetPtr() );
 							image.rcSrcRect.Set( 0, 0, nWidth, nHeight );
 							image.rcDstRect.Set( 0, 0, nWidth, nHeight );
 							image.rcMaps.Set( 0, 0, 1, 1 );
@@ -451,6 +453,7 @@ bool COpenVideoPlayer::DecodeNextFrame( bool bConvertFrame )
 					for ( COpenVideoImagesList::const_iterator it = images.begin(); it != images.end(); ++it )
 					{
 						SSurfaceLockInfo lock = { 0, 0 };
+							static bool bTracedTex = false; if ( !bTracedTex ) { bTracedTex = true; NStr::DebugTrace( "Open video part: texture=%p dst=%dx%d.\n", (void*)it->pTexture.GetPtr(), int( it->rcDstRect.Width() ), int( it->rcDstRect.Height() ) ); }
 						if ( it->pTexture == 0 || !it->pTexture->Lock(0, &lock) || lock.pData == 0 )
 							continue;
 						for ( int y = 0; y < it->rcDstRect.Height(); ++y )
@@ -470,7 +473,8 @@ bool COpenVideoPlayer::DecodeNextFrame( bool bConvertFrame )
 								pDst[x] = YCbCrToARGB( yv, cb, cr );
 							}
 						}
-						it->pTexture->Unlock( 0 );
+							const bool bUploaded = it->pTexture->Unlock( 0 );
+							static bool bTracedUp = false; if ( !bTracedUp ) { bTracedUp = true; NStr::DebugTrace( "Open video upload: ok=%d pitch=%d.\n", int( bUploaded ), lock.nPitch ); }
 						it->pTexture->AddDirtyRect( 0 );
 					}
 					if ( rcDstRect.IsEmpty() )

@@ -4,6 +4,8 @@ const std = @import("std");
 /// reason is reported once rather than once per draw.
 var reported_pipeline_failure: bool = false;
 var reported_pipeline_probe: bool = false;
+/// A handful of draws is enough to see what the pipeline is being chosen from.
+var draw_traces_left: u32 = 12;
 const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
@@ -776,7 +778,12 @@ pub const Renderer = struct {
     // Picks the pipeline for a draw from the bound vertex buffer's own format.
     fn pipelineForDraw(self: *Renderer, buffer: BufferResource) !*anyopaque {
         const fvf = if (buffer.format != 0) buffer.format else default_fvf;
-        return self.ensurePipeline(fvf, self.bound_textures[0] != null, self.blendModeForDraw());
+        const textured = self.bound_textures[0] != null;
+        if (draw_traces_left > 0) {
+            draw_traces_left -= 1;
+            std.debug.print("BK_GFX_TRACE: draw fvf=0x{x} textured={} texture={?d} effect={d} blend={s}\n", .{ fvf, textured, self.bound_textures[0], self.shade_effect, @tagName(self.blendModeForDraw()) });
+        }
+        return self.ensurePipeline(fvf, textured, self.blendModeForDraw());
     }
 
     // GFXFVF_XYZRHW (0x004) marks a position the engine already transformed to
