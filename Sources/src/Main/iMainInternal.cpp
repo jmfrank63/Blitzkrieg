@@ -450,7 +450,9 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 					for ( int i = 0; i != nPixels; ++i )
 						pPixels[i].a = 255;
 				}
-				const std::string screenshotRoot = NPlatform::Paths::SaveRoot() + "\\screenshots";
+				// Paths::Initialize creates this at startup, but a user can delete
+				// it while the game runs, so make it again rather than lose the shot.
+				const std::string screenshotRoot = NPlatform::Paths::ScreenshotRoot();
 				NFile::CreatePath( screenshotRoot.c_str() );
 				while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
 					++nShotIndex;

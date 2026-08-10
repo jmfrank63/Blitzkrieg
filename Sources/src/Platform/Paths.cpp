@@ -29,6 +29,7 @@ void createWritableRoots() {
     std::filesystem::create_directories(join(gUser, "saves"), error);
     std::filesystem::create_directories(join(gUser, "logs"), error);
     std::filesystem::create_directories(join(gUser, "cache"), error);
+    std::filesystem::create_directories(join(gUser, "screenshots"), error);
 }
 #if !defined(_WIN32)
 std::string executableRoot() {
@@ -81,6 +82,9 @@ const std::string &ShaderRoot() { static std::string value; value = join(BaseRoo
 const std::string &ModuleRoot() { return BaseRoot(); }
 const std::string &ConfigPath() { static std::string value; value = join(UserRoot(), "config.cfg"); return value; }
 const std::string &SaveRoot() { static std::string value; value = join(UserRoot(), "saves"); return value; }
+// A sibling of saves, not a child of it: screenshots are not save games and
+// the save game browser enumerates that directory.
+const std::string &ScreenshotRoot() { static std::string value; value = join(UserRoot(), "screenshots"); return value; }
 const std::string &LogPath() { static std::string value; value = join(join(UserRoot(), "logs"), "log.txt"); return value; }
 const std::string &ErrorLogPath() { static std::string value; value = join(join(UserRoot(), "logs"), "error.txt"); return value; }
 const std::string &CacheRoot() { static std::string value; value = join(UserRoot(), "cache"); return value; }

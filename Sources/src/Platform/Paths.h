@@ -15,6 +15,7 @@ const std::string &ShaderRoot();
 const std::string &ModuleRoot();
 const std::string &ConfigPath();
 const std::string &SaveRoot();
+const std::string &ScreenshotRoot();
 const std::string &LogPath();
 const std::string &ErrorLogPath();
 const std::string &CacheRoot();

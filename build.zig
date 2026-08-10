@@ -2057,7 +2057,13 @@ pub fn build(b: *std.Build) void {
         addMsvcIncludePaths(b, paths_module, toolchain);
         addMsvcLibraryPaths(b, paths_module, toolchain);
         linkMsvcRuntime(paths_module, .Debug);
-    } else paths_module.link_libc = true;
+    } else {
+        paths_module.link_libc = true;
+        // Paths.h includes <string> and Paths.cpp uses <filesystem>, so this
+        // needs the C++ standard library. Without it the step never compiled
+        // and the writable-root assertions had never once run.
+        paths_module.link_libcpp = true;
+    }
     const paths_test = b.addExecutable(.{ .name = "platform-paths-test", .root_module = paths_module });
     paths_test.subsystem = .console;
     if (platform == .windows_x64) paths_test.entry = .{ .symbol_name = "mainCRTStartup" };
