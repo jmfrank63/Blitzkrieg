@@ -268,6 +268,16 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     // of the description it rejected.
     if ( getenv( "BK_GFX_DEBUG" ) ) info.flags |= 1;
     if ( !Check( api_.create( &info, &renderer_ ), "create" ) ) return false;
+    // Only the legacy D3D9 engine ever published these, from D3DCAPS8, so on
+    // this path they read as their 0 defaults and every caller concluded the
+    // hardware could not do what all of it can. COpenVideoPlayer took that to
+    // mean it had to cut each movie into 256x256 power-of-two tiles instead of
+    // uploading one frame-sized texture, and drew the result as an untextured
+    // white quad. SDL_GPU requires non-power-of-two textures of every backend it
+    // supports, so state that rather than leave it to be guessed.
+    SetGlobalVar( "GFX.Caps.Texture.NonPow2", 1 );
+    SetGlobalVar( "GFX.Caps.Texture.NonPow2Conditional", 1 );
+    SetGlobalVar( "GFX.Caps.Texture.SquareOnly", 0 );
     initialized_ = true;
     adapter_name_ = pszAdapterName ? pszAdapterName : "SDL GPU";
     return true;
