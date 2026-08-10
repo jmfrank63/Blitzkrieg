@@ -3,6 +3,7 @@ const std = @import("std");
 /// A graphics pipeline that fails to build fails again on every frame, so the
 /// reason is reported once rather than once per draw.
 var reported_pipeline_failure: bool = false;
+var reported_pipeline_probe: bool = false;
 const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
@@ -721,6 +722,33 @@ pub const Renderer = struct {
                     @intFromEnum(self.topology),
                     if (reason != null) std.mem.span(reason) else "(none)",
                 });
+            }
+            // Narrow it down rather than guess. Rebuild the same description
+            // with one suspect field neutralised at a time and report which one
+            // the driver stops objecting to; the first that succeeds names the
+            // field that is wrong.
+            if (!reported_pipeline_probe) {
+                reported_pipeline_probe = true;
+                var probe = pipeline_info;
+                probe.target_info.has_depth_stencil_target = false;
+                probe.target_info.depth_stencil_format = 0;
+                probe.depth_stencil_state.enable_depth_test = false;
+                probe.depth_stencil_state.enable_depth_write = false;
+                probe.depth_stencil_state.enable_stencil_test = false;
+                if (sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &probe)) |ok| {
+                    sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
+                    std.debug.print("BK_GFX_TRACE: pipeline probe: accepted without the depth-stencil target\n", .{});
+                } else {
+                    var bare = pipeline_info;
+                    bare.vertex_input_state.num_vertex_attributes = 0;
+                    bare.vertex_input_state.num_vertex_buffers = 0;
+                    if (sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &bare)) |ok| {
+                        sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
+                        std.debug.print("BK_GFX_TRACE: pipeline probe: accepted without the vertex input state\n", .{});
+                    } else {
+                        std.debug.print("BK_GFX_TRACE: pipeline probe: rejected with no depth and no vertex input - the shaders or the colour target are the problem: {s}\n", .{std.mem.span(sdl.c.SDL_GetError())});
+                    }
+                }
             }
             return error.PipelineCreateFailed;
         };
