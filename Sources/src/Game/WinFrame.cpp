@@ -573,9 +573,32 @@ void Exit( int nExitCode )
 {
 	PostQuitMessage( nExitCode );
 }
+// The splash bitmap, painted directly onto the dialog. The template names it
+// as a static control's SS_BITMAP image, but that reference does not survive
+// the resource compiler this build uses: the control came up empty and the
+// splash showed as a bare white rectangle where the Blitzkrieg logo belongs.
+// Loading the bitmap here and blitting it in WM_PAINT does not depend on the
+// control, its id, or its style surviving compilation.
+static HBITMAP hSplashBitmap = 0;
+
+static void PaintSplash( HWND hwndDlg, HDC hdc )
+{
+	if ( hSplashBitmap == 0 )
+		return;
+	BITMAP bm = {};
+	::GetObjectW( hSplashBitmap, sizeof( bm ), &bm );
+	HDC hMemDC = ::CreateCompatibleDC( hdc );
+	HGDIOBJ hOld = ::SelectObject( hMemDC, hSplashBitmap );
+	RECT rc;
+	::GetClientRect( hwndDlg, &rc );
+	::StretchBlt( hdc, 0, 0, rc.right, rc.bottom, hMemDC, 0, 0, bm.bmWidth, bm.bmHeight, SRCCOPY );
+	::SelectObject( hMemDC, hOld );
+	::DeleteDC( hMemDC );
+}
+
 INT_PTR CALLBACK SplashScreenDialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
-	switch ( uMsg ) 
+	switch ( uMsg )
 	{
 		case WM_INITDIALOG:
 			{
@@ -584,11 +607,45 @@ INT_PTR CALLBACK SplashScreenDialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				const int nX = ( nScreenSizeX - SPLASH_SCREEN_SIZE_X ) / 2;
 				const int nY = ( nScreenSizeY - SPLASH_SCREEN_SIZE_Y ) / 2;
 				::MoveWindow( hwndDlg, nX, nY, SPLASH_SCREEN_SIZE_X, SPLASH_SCREEN_SIZE_Y, false );
-				HWND hwndPicture = ::GetDlgItem( hwndDlg, IDC_PICTURE );
-				if ( ::IsWindow(hwndPicture) ) 
-					::MoveWindow( hwndPicture, 0, 0, SPLASH_SCREEN_SIZE_X, SPLASH_SCREEN_SIZE_Y, false );
+				if ( hSplashBitmap == 0 )
+				{
+					// The bitmap is linked into the executable, so load it from
+					// the process's own module. The dialog's GWLP_HINSTANCE does
+					// not reliably name that module under this build's resource
+					// compiler, and loading against the wrong instance returned
+					// null - the reason the earlier control-based attempt drew
+					// nothing.
+					hSplashBitmap = reinterpret_cast<HBITMAP>( ::LoadImage( ::GetModuleHandle( 0 ),
+						MAKEINTRESOURCE( IDB_SPLASH ), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION ) );
+					if ( getenv( "BK_GFX_TRACE" ) )
+						fprintf( stderr, "BK_GFX_TRACE: splash bitmap load %s\n", hSplashBitmap ? "ok" : "FAILED" );
+				}
 			}
 			return 1;
+		case WM_ERASEBKGND:
+			return 1;			// the WM_PAINT blit paints every pixel; skip the flash of the default background
+		case WM_PAINT:
+			{
+				PAINTSTRUCT ps;
+				HDC hdc = ::BeginPaint( hwndDlg, &ps );
+				PaintSplash( hwndDlg, hdc );
+				::EndPaint( hwndDlg, &ps );
+			}
+			return 1;
+		case WM_PRINTCLIENT:
+			// PrintWindow (used for offscreen capture and by some compositors)
+			// asks the control to draw into a supplied DC rather than through
+			// BeginPaint, so the same blit has to answer here or the capture
+			// comes back blank.
+			PaintSplash( hwndDlg, reinterpret_cast<HDC>( wParam ) );
+			return 1;
+		case WM_DESTROY:
+			if ( hSplashBitmap != 0 )
+			{
+				::DeleteObject( hSplashBitmap );
+				hSplashBitmap = 0;
+			}
+			return 0;
 		default:
 			return 0;
 	}
@@ -607,6 +664,19 @@ void ShowSplashScreen( HINSTANCE hInstance, bool bShow )
 		}
 		ShowWindow( hWndSplashScreen, SW_SHOW );
 		UpdateWindow( hWndSplashScreen );
+		// The main loop pumps SDL events, not the Win32 message queue this
+		// modeless dialog would normally paint through, so WM_PAINT may never be
+		// delivered and the splash would stay unpainted for its whole lifetime.
+		// Blit the bitmap onto the window directly, once, right after it is
+		// shown.
+		{
+			HDC hdc = ::GetDC( hWndSplashScreen );
+			if ( hdc != 0 )
+			{
+				PaintSplash( hWndSplashScreen, hdc );
+				::ReleaseDC( hWndSplashScreen, hdc );
+			}
+		}
 	}
 	else if ( hWndSplashScreen != 0 )
 	{
