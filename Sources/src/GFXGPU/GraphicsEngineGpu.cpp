@@ -360,30 +360,21 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
     if ( sdl_window_ )
     {
         SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
-        const bool bFullscreen = fullscreen == GFXFS_FULLSCREEN;
-        if ( bFullscreen ) MoveToSelectedDisplay( window );
-        // Order matters, and it used to be wrong. SDL_SetWindowFullscreen on a
-        // hidden window only records a pending flag and returns - it applies
-        // nothing until the window is shown - and this window is created hidden
-        // and stays hidden until a GFX device exists, so SetMode owns showing
-        // it. Asking for fullscreen first therefore left the window windowed,
-        // the SetWindowSize below took effect on it, and the size read back
-        // afterwards was the windowed one. The engine then rendered 1920x1440
-        // into a drawable covering the whole display and the display stretched
-        // it back out - every menu and every movie 1.79 times too wide on a
-        // 3440x1440 screen, with no width left over for the bars either side.
-        //
-        // Size the window only when it is going to stay a window, show it so
-        // the fullscreen request is applied rather than deferred, and read the
-        // size back after that. This is the SWP_SHOWWINDOW the legacy DirectX
-        // ResizeDeviceWindow performed; without it the game runs correctly but
-        // renders to a window the compositor never shows.
-        if ( !bFullscreen && !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+        if ( fullscreen == GFXFS_FULLSCREEN ) MoveToSelectedDisplay( window );
+        if ( !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
+        if ( !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+        // The app window is deliberately created hidden and stays hidden until a
+        // GFX device exists, so SetMode owns making it visible. This is the
+        // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
+        // without it the game runs correctly but renders to a window the
+        // compositor never shows.
         SDL_ShowWindow( window );
-        if ( !SDL_SetWindowFullscreen( window, bFullscreen ) ) return fail( SDL_GetError() );
-        // Report what we actually got, because the caller reads GetScreenRect()
-        // straight back and adopts it as the current mode, and the interface
-        // derives its 4:3 canvas from it.
+        // The window manager is free to refuse the requested size: a fullscreen
+        // window keeps the display size, and a windowed one is clamped to what
+        // fits on screen. Report what we actually got, because the caller reads
+        // GetScreenRect() straight back and adopts it as the current mode - if
+        // this kept the requested size the engine would render at one resolution
+        // into a drawable of another and the picture would not fit the window.
         SDL_SyncWindow( window );
         int pixel_width = 0, pixel_height = 0;
         const bool bReadBack = SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height );
@@ -391,21 +382,6 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         {
             nSizeX = pixel_width;
             nSizeY = pixel_height;
-        }
-        // A fullscreen window covers the display, so the display's own mode is
-        // the size the engine has to render at. Taking it outright rather than
-        // trusting the read-back alone means a transition that has not landed
-        // by the time this runs cannot leave the engine rendering the
-        // pre-fullscreen size into a full-screen drawable, which is a stretch
-        // no letterboxing further down can undo.
-        if ( bFullscreen )
-        {
-            const SDL_DisplayMode *pDesktop = SDL_GetDesktopDisplayMode( SDL_GetDisplayForWindow( window ) );
-            if ( pDesktop && pDesktop->w > 0 && pDesktop->h > 0 )
-            {
-                nSizeX = pDesktop->w;
-                nSizeY = pDesktop->h;
-            }
         }
         // The interface letterboxes itself against whatever GetScreenRect
         // reports, so a mode that keeps the requested size while the window
