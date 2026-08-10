@@ -5,6 +5,7 @@
 #include "..//Formats//fmtTexture.h"
 #include "..//Image//Image.h"
 #include "..//StreamIO//StreamIO.h"
+#include "..//Platform//Debug.h"
 
 #include <limits>
 #include <climits>
@@ -127,6 +128,18 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
     if ( stream->Read( &header, sizeof(header) ) != sizeof(header) ) return false;
     const EGFXPixelFormat format = GfxFormatFromDDS( header.ddspf );
     const int mip_count = (header.dwHeaderFlags & DDS_HEADER_FLAGS_MIPMAP) && header.dwMipMapCount != 0 ? static_cast<int>(header.dwMipMapCount) : 1;
+    // BK_SPRITE_TRACE also names textures as they load, so a pointer reported by
+    // the sprite trace can be turned back into a file on disk. The two traces
+    // print the same address: TextureGpu derives from IGFXTexture singly.
+    {
+        static const char *pszSpriteTrace = getenv( "BK_SPRITE_TRACE" );
+        if ( pszSpriteTrace != 0 )
+        {
+            NPlatform::DebugWriteFormat( "BK_SPRITE_TRACE: load texture=%p format=%d %dx%d mips=%d name=%s\n",
+                static_cast<const void *>( this ), int( format ), int( header.dwWidth ), int( header.dwHeight ),
+                mip_count, name_.c_str() );
+        }
+    }
     if ( format == GFXPF_UNKNOWN || header.dwWidth == 0 || header.dwHeight == 0 || mip_count <= 0 || mip_count > 16 ) return false;
     width_ = static_cast<int>( header.dwWidth );
     height_ = static_cast<int>( header.dwHeight );
