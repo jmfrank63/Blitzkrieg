@@ -943,7 +943,11 @@ void CProgressScreen::Init( const std::string &szMovieName )
 	pVP->Play( szMovieName.c_str(), IVideoPlayer::PLAY_FROM_MEMORY, pGFX, GetSingleton<ISFX>() );
 	nNumFrames = pVP->GetNumFrames();
 	CTRect<long> rcScreenRect = pGFX->GetScreenRect();
-	pVP->SetDstRect( rcScreenRect, false );
+	// Fit the movie into the screen at its own aspect rather than stretching it
+	// to fill. The progress movies are 1024x768, so filling a 3440x1440 display
+	// made the loading screen 1.79 times too wide. CPlayMovieInterface already
+	// asks for this; the progress screen was the one caller that did not.
+	pVP->SetDstRect( rcScreenRect, true );
 	nCurrFrame = 0;
 	GetSingleton<ICursor>()->Show( false );
 }
@@ -1026,10 +1030,27 @@ void CProgressScreen::Draw()
 			{
 				CTRect<float> currRect = wndRect;
 				CTRect<long> rcScreenRect = pGFX->GetScreenRect();
-				currRect.x1 = currRect.x1 * ( rcScreenRect.x2 - rcScreenRect.x1 ) + rcScreenRect.x1;
-				currRect.x2 = currRect.x2 * ( rcScreenRect.x2 - rcScreenRect.x1 ) + rcScreenRect.x1;
-				currRect.y1 = currRect.y1 * ( rcScreenRect.y2 - rcScreenRect.y1 ) + rcScreenRect.y1;
-				currRect.y2 = currRect.y2 * ( rcScreenRect.y2 - rcScreenRect.y1 ) + rcScreenRect.y1;
+				// wndRect is a fraction of the movie's frame, which used to be the
+				// whole screen. The movie is fitted rather than stretched now, so
+				// map the caption onto the frame the movie actually covers -
+				// against the full screen it would sit off the artwork on any
+				// display wider than the movie. Same fit as COpenVideoPlayer::SetupRects.
+				CTRect<float> rcMovie( float(rcScreenRect.x1), float(rcScreenRect.y1), float(rcScreenRect.x2), float(rcScreenRect.y2) );
+				CVec2 vMovieSize;
+				if ( pVP->GetMovieSize( &vMovieSize ) && ( vMovieSize.x > 0 ) && ( vMovieSize.y > 0 ) )
+				{
+					const float fCoeff = Min( rcMovie.Width() / vMovieSize.x, rcMovie.Height() / vMovieSize.y );
+					const float fWidth = vMovieSize.x * fCoeff;
+					const float fHeight = vMovieSize.y * fCoeff;
+					rcMovie.x1 = float(rcScreenRect.x1) + ( float(rcScreenRect.x2 - rcScreenRect.x1) - fWidth ) / 2.0f;
+					rcMovie.y1 = float(rcScreenRect.y1) + ( float(rcScreenRect.y2 - rcScreenRect.y1) - fHeight ) / 2.0f;
+					rcMovie.x2 = rcMovie.x1 + fWidth;
+					rcMovie.y2 = rcMovie.y1 + fHeight;
+				}
+				currRect.x1 = currRect.x1 * rcMovie.Width() + rcMovie.x1;
+				currRect.x2 = currRect.x2 * rcMovie.Width() + rcMovie.x1;
+				currRect.y1 = currRect.y1 * rcMovie.Height() + rcMovie.y1;
+				currRect.y2 = currRect.y2 * rcMovie.Height() + rcMovie.y1;
 				pGFX->SetShadingEffect( 3 );
 				pGFXText->SetColor( 0xff000000 );
 				currRect.x1 += 2;

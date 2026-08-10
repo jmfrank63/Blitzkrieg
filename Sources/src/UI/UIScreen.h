@@ -28,6 +28,10 @@ private:
 
 	CPtr<IInputSlider> pMouseWheelSlider;
 	bool bScaleLayoutToScreen;
+	// Screens whose pieces are anchored to the screen edges rather than composed
+	// against the 1024x768 canvas: they take the whole display instead of a
+	// centred 4:3 canvas. See ShouldAnchorLayoutToScreenEdges.
+	bool bAnchorLayoutToScreenEdges;
 	bool bRestoredScaledLayout;
 	CVec2 vLayoutScale;
 

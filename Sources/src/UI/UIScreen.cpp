@@ -80,6 +80,19 @@ static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 	return false;
 }
 
+// The in-mission HUD is the one screen built out of edge-anchored clusters
+// rather than composed against the 1024x768 canvas: the minimap, the command
+// buttons and the status bar are all BOTTOM|LEFT, a couple of counters are
+// BOTTOM|RIGHT, and every dialog is centred. Handing it the whole display puts
+// those corners in the display's corners over a full-width scene. Every other
+// screen positions its pieces at canvas coordinates -- the main menu's panel
+// sits at x=610 of 1024 -- so a wider parent would strand them mid-screen, and
+// they get a centred 4:3 canvas instead.
+static bool ShouldAnchorLayoutToScreenEdges( const char *pszResourceName )
+{
+	return NStr::CompareAsciiNoCase( pszResourceName, "ui\\mission" ) == 0;
+}
+
 int CUIScreen::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -106,6 +119,7 @@ int CUIScreen::operator&( interface IStructureSaver &ss )
 	{
 		pMouseWheelSlider = GetSingleton<IInput>()->CreateSlider( "mouse_wheel" );
 		bScaleLayoutToScreen = ShouldScaleLegacyLayout( szResourceName.c_str() );
+		bAnchorLayoutToScreenEdges = ShouldAnchorLayoutToScreenEdges( szResourceName.c_str() );
 		bRestoredScaledLayout = bScaleLayoutToScreen;
 	}
 	return 0;
@@ -125,7 +139,7 @@ int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
 	return 0;
 }
 CUIScreen::CUIScreen() : m_mouseState( E_MOUSE_FREE ), m_keyboardState( E_KEYBOARD_FREE ), bChatMode( false ), nCursorPos( 0 ),
-	bScaleLayoutToScreen( false ), bRestoredScaledLayout( false ), vLayoutScale( 1.0f, 1.0f )
+	bScaleLayoutToScreen( false ), bAnchorLayoutToScreenEdges( false ), bRestoredScaledLayout( false ), vLayoutScale( 1.0f, 1.0f )
 {
 	SetShowBackgroundFlag( false );
 	szLastChatMessage = L"";
@@ -150,6 +164,7 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 		CPtr<IDataTree> pDT = bRelative ? CreateDataTreeSaver( pStream, IDataTree::READ ) : CreateDataTreeSaver( pStream, IDataTree::READ, "GUI_Composer_Project" );
 		this->operator&( *pDT );
 		bScaleLayoutToScreen = bRelative && ShouldScaleLegacyLayout( szResourceName.c_str() );
+		bAnchorLayoutToScreenEdges = bRelative && ShouldAnchorLayoutToScreenEdges( szResourceName.c_str() );
 		bRestoredScaledLayout = false;
 		vLayoutScale = CVec2( 1.0f, 1.0f );
 		IUIElement *pElement = GetChildByIndex( 0 );
@@ -163,11 +178,22 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 		return 0;
 	}
 }
-void CUIScreen::Reposition( const CTRect<float> &rcParent )
+void CUIScreen::Reposition( const CTRect<float> &rcScreen )
 {
+	CTRect<float> rcParent = rcScreen;
 	if ( bScaleLayoutToScreen )
 	{
-		CVec2 vNewScale( rcParent.Width() / LEGACY_UI_WIDTH, rcParent.Height() / LEGACY_UI_HEIGHT );
+		// One scale for both axes. Scaling x by width/1024 against y by
+		// height/768 stretched every widget on a screen that is not 4:3: on a
+		// 3440x1440 display x came out 3.36 against y's 1.88, so the whole
+		// interface was 1.79 times too wide. Taking the height and letting the
+		// width follow keeps the artwork's proportions, and the space left over
+		// on a wider display is space the layout does not reach rather than
+		// space it is smeared across. Min() rather than the height alone so a
+		// narrower-than-4:3 window shrinks to fit instead of running off the
+		// sides.
+		const float fScale = Min( rcScreen.Width() / LEGACY_UI_WIDTH, rcScreen.Height() / LEGACY_UI_HEIGHT );
+		CVec2 vNewScale( fScale, fScale );
 		if ( bRestoredScaledLayout )
 		{
 			vLayoutScale = vNewScale;
@@ -179,6 +205,19 @@ void CUIScreen::Reposition( const CTRect<float> &rcParent )
 		{
 			ScaleLayout( vDeltaScale );
 			vLayoutScale = vNewScale;
+		}
+		// Canvas-composed screens keep the 4:3 canvas the scale was derived
+		// from, centred, so each piece stays where it was authored and the
+		// leftover width becomes bars either side. The mission HUD anchors to
+		// the edges instead and keeps the whole display.
+		if ( !bAnchorLayoutToScreenEdges )
+		{
+			const float fCanvasWidth = LEGACY_UI_WIDTH * fScale;
+			const float fCanvasHeight = LEGACY_UI_HEIGHT * fScale;
+			const float fCenterX = rcScreen.x1 + rcScreen.Width() * 0.5f;
+			const float fCenterY = rcScreen.y1 + rcScreen.Height() * 0.5f;
+			rcParent = CTRect<float>( floorf( fCenterX - fCanvasWidth * 0.5f ), floorf( fCenterY - fCanvasHeight * 0.5f ),
+									 floorf( fCenterX + fCanvasWidth * 0.5f ), floorf( fCenterY + fCanvasHeight * 0.5f ) );
 		}
 	}
 	SetScreenRect( rcParent );
