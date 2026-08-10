@@ -30,8 +30,15 @@ test "required platform fixtures report token, file, and line" {
         defer std.testing.allocator.free(hits);
         var found = false;
         for (hits) |hit| {
-            std.debug.print("fixture output: token={s} file={s} line={d}\n", .{ hit.token, hit.file, hit.line });
             if (std.mem.eql(u8, hit.token, fixture.token) and std.mem.eql(u8, hit.file, fixture.file) and hit.line == fixture.line) found = true;
+        }
+        // Only report what the scanner did see when the expected hit is missing;
+        // stderr on the passing path makes the build runner print the step's
+        // in-flight command under a "failed command:" heading.
+        if (!found) {
+            for (hits) |hit| {
+                std.debug.print("fixture output: token={s} file={s} line={d}\n", .{ hit.token, hit.file, hit.line });
+            }
         }
         try std.testing.expect(found);
     }
@@ -199,7 +206,6 @@ test "playable source platform inventory matches build manifest and allowlist" {
     }
     var unknown: usize = 0;
     for (hits.items) |key| {
-        std.debug.print("platform inventory: {s}\n", .{key});
         if (!allowed.contains(key)) {
             unknown += 1;
             std.debug.print("unknown platform hit: {s}\n", .{key});
@@ -217,8 +223,10 @@ test "playable source platform inventory matches build manifest and allowlist" {
             std.debug.print("stale platform allowlist entry: {s}\n", .{key});
         }
     }
-    std.debug.print("platform inventory count: {d}\n", .{hits.items.len});
-    std.debug.print("platform allowlist ownership count: {d}\n", .{allowed.count()});
+    if (unknown != 0 or allowed.count() != 0) {
+        std.debug.print("platform inventory count: {d}\n", .{hits.items.len});
+        std.debug.print("platform allowlist ownership count: {d}\n", .{allowed.count()});
+    }
     try std.testing.expectEqual(@as(usize, 0), unknown);
     try std.testing.expectEqual(@as(usize, 0), allowed.count());
 }
