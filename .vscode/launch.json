@@ -2,168 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Zig: Debug Game.exe (x86, VSDBG)",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "environment": [],
-      "console": "integratedTerminal",
-      "preLaunchTask": "Zig Build Game (Debug, x86)",
-      "symbolOptions": {
-        "searchPaths": [
-          "${workspaceFolder}/zig-out/Game/x86/Debug",
-          "${workspaceFolder}/zig-out/bin"
-        ],
-        "searchMicrosoftSymbolServer": false,
-        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
-      },
-      "sourceFileMap": {},
-      "logging": {
-        "moduleLoad": false,
-        "trace": false,
-        "engineLogging": false,
-        "programOutput": true,
-        "exceptions": true
-      }
-    },
-    {
-      "name": "Zig: Debug Game.exe (x86, VSDBG, Break on Panics)",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "environment": [],
-      "console": "integratedTerminal",
-      "preLaunchTask": "Zig Build Game (Debug, x86, UBSan Trap)",
-      "symbolOptions": {
-        "searchPaths": [
-          "${workspaceFolder}/zig-out/Game/x86/Debug",
-          "${workspaceFolder}/zig-out/bin"
-        ],
-        "searchMicrosoftSymbolServer": false,
-        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
-      },
-      "sourceFileMap": {},
-      "logging": {
-        "moduleLoad": false,
-        "trace": false,
-        "engineLogging": false,
-        "programOutput": true,
-        "exceptions": true
-      }
-    },
-    {
-      "name": "Zig: Debug Game.exe (x86, VSDBG, No Build)",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "environment": [],
-      "console": "integratedTerminal",
-      "symbolOptions": {
-        "searchPaths": [
-          "${workspaceFolder}/zig-out/Game/x86/Debug",
-          "${workspaceFolder}/zig-out/bin"
-        ],
-        "searchMicrosoftSymbolServer": false,
-        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
-      },
-      "sourceFileMap": {},
-      "logging": {
-        "moduleLoad": false,
-        "trace": false,
-        "engineLogging": false,
-        "programOutput": true,
-        "exceptions": true
-      }
-    },
-    {
-      "name": "Zig: Debug Game.exe (x86, LLDB - Assert Break)",
-      "type": "lldb-dap",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "initCommands": [
-        "settings set target.source-map C:\\Users\\jmfrank\\source\\repos\\jmfrank63\\Blitzkrieg ${workspaceFolder}",
-        "settings set target.source-map C:\\Users\\jmfrank\\scoop\\apps\\zig\\0.16.0 C:\\Users\\jmfrank\\scoop\\apps\\zig\\current",
-        "settings set target.inline-breakpoint-strategy always"
-      ],
-      "exitCommands": [
-        "thread backtrace all"
-      ],
-      "args": [],
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "env": {},
-      "preLaunchTask": "Zig Build Game (Debug, x86)"
-    },
-    {
-      "name": "Zig: Debug Game.exe (x86, LLDB)",
-      "type": "lldb-dap",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "initCommands": [
-        "settings set target.source-map C:\\Users\\jmfrank\\source\\repos\\jmfrank63\\Blitzkrieg ${workspaceFolder}",
-        "settings set target.source-map C:\\Users\\jmfrank\\scoop\\apps\\zig\\0.16.0 C:\\Users\\jmfrank\\scoop\\apps\\zig\\current",
-        "settings set target.inline-breakpoint-strategy always"
-      ],
-      "args": [],
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "env": {},
-      "preLaunchTask": "Zig Build Game (Debug, x86)"
-    },
-    {
-      "name": "Zig: Debug Game.exe (x86, LLDB, No Build)",
-      "type": "lldb-dap",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "initCommands": [
-        "settings set target.source-map C:\\Users\\jmfrank\\source\\repos\\jmfrank63\\Blitzkrieg ${workspaceFolder}",
-        "settings set target.source-map C:\\Users\\jmfrank\\scoop\\apps\\zig\\0.16.0 C:\\Users\\jmfrank\\scoop\\apps\\zig\\current",
-        "settings set target.inline-breakpoint-strategy always"
-      ],
-      "args": [],
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "env": {}
-    },
-    {
-      "name": "Zig: Debug Game.exe (x86, LLDB-MI, No Build)",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
-      "environment": [],
-      "MIMode": "lldb",
-      "miDebuggerPath": "C:\\Users\\jmfrank\\scoop\\apps\\llvm\\22.1.8\\bin\\lldb.exe",
-      "sourceFileMap": {},
-      "logging": {
-        "moduleLoad": false,
-        "trace": false,
-        "engineLogging": false,
-        "programOutput": true,
-        "exceptions": true
-      }
-    },
-    {
       "name": "Zig: Debug Game.exe (x64, VSDBG)",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/windows/x86_64/Game.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64",
       "environment": [],
       "console": "integratedTerminal",
       "symbolOptions": {
         "searchPaths": [
-          "${workspaceFolder}/zig-out/Game/x64/Debug",
+          "${workspaceFolder}/zig-out/game/windows/x86_64",
           "${workspaceFolder}/zig-out/bin"
         ],
         "searchMicrosoftSymbolServer": false,
@@ -182,7 +32,7 @@
       "name": "Zig: Debug Game.exe (x64, LLDB - Assert Break)",
       "type": "lldb-dap",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/windows/x86_64/Game.exe",
       "initCommands": [
         "settings set target.source-map C:\\Users\\jmfrank\\source\\repos\\jmfrank63\\Blitzkrieg ${workspaceFolder}",
         "settings set target.source-map C:\\Users\\jmfrank\\scoop\\apps\\zig\\0.16.0 C:\\Users\\jmfrank\\scoop\\apps\\zig\\current",
@@ -192,7 +42,7 @@
         "thread backtrace all"
       ],
       "args": [],
-      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64",
       "env": {},
       "preLaunchTask": "Zig Build Game (Debug, x64)"
     },
@@ -200,14 +50,14 @@
       "name": "Zig: Debug Game.exe (x64, LLDB)",
       "type": "lldb-dap",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/windows/x86_64/Game.exe",
       "initCommands": [
         "settings set target.source-map C:\\Users\\jmfrank\\source\\repos\\jmfrank63\\Blitzkrieg ${workspaceFolder}",
         "settings set target.source-map C:\\Users\\jmfrank\\scoop\\apps\\zig\\0.16.0 C:\\Users\\jmfrank\\scoop\\apps\\zig\\current",
         "settings set target.inline-breakpoint-strategy always"
       ],
       "args": [],
-      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64",
       "env": {},
       "preLaunchTask": "Zig Build Game (Debug, x64)"
     },
@@ -215,24 +65,24 @@
       "name": "Zig: Debug Game.exe (x64, LLDB, No Build)",
       "type": "lldb-dap",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/windows/x86_64/Game.exe",
       "initCommands": [
         "settings set target.source-map C:\\Users\\jmfrank\\source\\repos\\jmfrank63\\Blitzkrieg ${workspaceFolder}",
         "settings set target.source-map C:\\Users\\jmfrank\\scoop\\apps\\zig\\0.16.0 C:\\Users\\jmfrank\\scoop\\apps\\zig\\current",
         "settings set target.inline-breakpoint-strategy always"
       ],
       "args": [],
-      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64",
       "env": {}
     },
     {
       "name": "Zig: Debug Game.exe (x64, LLDB-MI, No Build)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/windows/x86_64/Game.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64",
       "environment": [],
       "MIMode": "lldb",
       "miDebuggerPath": "C:\\Users\\jmfrank\\scoop\\apps\\llvm\\22.1.8\\bin\\lldb.exe",
@@ -272,21 +122,6 @@
         "programOutput": true,
         "exceptions": true
       }
-    },
-    {
-      "name": "WinDbg: Debug Game.exe (Zig x86)",
-      "type": "windbg",
-      "request": "launch",
-      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
-      "target": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
-      "preLaunchTask": "Zig Build Game (Debug, x86)"
-    },
-    {
-      "name": "WinDbg: Debug Game.exe (Zig x86, No Build)",
-      "type": "windbg",
-      "request": "launch",
-      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
-      "target": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe"
     },
     {
       "name": "WinDbg: Debug Game.exe (MSBuild x86)",

@@ -56,7 +56,7 @@ zig build main
 zig build game
 ```
 
-By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
+The build targets x64/MSVC (`x86_64-windows-msvc`); `x86_64-linux-gnu` and `aarch64-macos` are the other supported targets. 32-bit Windows was dropped once the port moved to 64-bit — play the original 32-bit game from a GOG install instead. Targets are selected with Zig's normal `-Dtarget=...` option.
 
 The first target omits `Sources/src/zlib/minigzip.c` because it is a sample executable with its own `main`, not part of the zlib library surface used by the game.
 

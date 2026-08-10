@@ -1,5 +1,5 @@
 param(
-    [string]$InstallDir = "zig-out/Game/x86/Debug",
+    [string]$InstallDir = "zig-out/game/windows/x86_64",
     [int]$StartupTimeoutSeconds = 3
 )
 
