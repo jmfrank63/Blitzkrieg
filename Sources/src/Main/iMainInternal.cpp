@@ -19,6 +19,7 @@
 #include "../Scene/PFX.h"
 #include "../Input/InputTypes.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Debug.h"
 #include "../Platform/Paths.h"
 #include "../Platform/System.h"
 namespace
@@ -422,25 +423,37 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 			{
 				CTRect<long> rcRect = pGFX->GetScreenRect();
 				CPtr<IImage> pImage = GetImageProcessor()->CreateImage( rcRect.Width(), rcRect.Height() );
-				// Present before readback, matching the deterministic reference capture
-				// path. SDL GPU readback requires the completed frame to be submitted.
-				if ( pImage != 0 && pGFX->Flip() && pGFX->TakeScreenShot(pImage) )
+				// No Flip() here. This runs from the message pump, between frames,
+				// where the SDL GPU renderer has already submitted the frame and
+				// dropped its command buffer - presenting again fails, and because
+				// the call sat inside an && the whole screenshot silently did
+				// nothing. That is why no screenshots directory ever appeared.
+				// TakeScreenShot presents for itself when a frame really is still
+				// pending, and otherwise reads the scene texture, which still holds
+				// the frame just drawn.
+				if ( pImage == 0 || !pGFX->TakeScreenShot(pImage) )
 				{
-					const std::string screenshotRoot = NPlatform::Paths::SaveRoot() + "\\screenshots";
-					NFile::CreatePath( screenshotRoot.c_str() );
-					while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
-						++nShotIndex;
-					CPtr<IDataStream> pStream = CreateFileStream( NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex), STREAM_ACCESS_WRITE );
-					if ( pStream != 0 && GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
-					{
-						if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
-						{
-							const std::wstring wszShotName = std::wstring(NPlatform::WideFromWordString(pText->GetString())) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
-							GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, wszShotName.c_str(), 0xff00ff00 );
-						}
-						++nShotIndex;
-					}
+					NPlatform::DebugWrite( "screenshot: readback failed\n" );
+					break;
 				}
+				const std::string screenshotRoot = NPlatform::Paths::SaveRoot() + "\\screenshots";
+				NFile::CreatePath( screenshotRoot.c_str() );
+				while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
+					++nShotIndex;
+				const std::string szShotPath = NStr::Format( "%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex );
+				CPtr<IDataStream> pStream = CreateFileStream( szShotPath, STREAM_ACCESS_WRITE );
+				if ( pStream == 0 || !GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
+				{
+					NPlatform::DebugWriteFormat( "screenshot: cannot write %s\n", szShotPath.c_str() );
+					break;
+				}
+				NPlatform::DebugWriteFormat( "screenshot: wrote %s\n", szShotPath.c_str() );
+				if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
+				{
+					const std::wstring wszShotName = std::wstring(NPlatform::WideFromWordString(pText->GetString())) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
+					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, wszShotName.c_str(), 0xff00ff00 );
+				}
+				++nShotIndex;
 			}
 			break;
 		case CMD_SAVE:
