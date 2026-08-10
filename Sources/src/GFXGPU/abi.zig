@@ -251,6 +251,8 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
             // the linear filter text switches on stayed on for the sprites and
             // terrain drawn after it and bled across their atlas neighbours.
             if (effects.linearFilterChangeFor(info.?.value)) |linear| renderer.use_linear_sampler = linear;
+            // D3DRS_ALPHABLENDENABLE and the blend factors are deltas too.
+            if (effects.blendChangeFor(info.?.value)) |mode| renderer.blend_mode = mode;
         },
         state_lighting => renderer.lighting_enabled = info.?.value != 0,
         state_specular => renderer.specular_enabled = info.?.value != 0,

@@ -44,6 +44,10 @@ pub const Renderer = struct {
     vertex_shaders: [shader_variant_count]?*anyopaque = @splat(null),
     fragment_shaders: [shader_variant_count]?*anyopaque = @splat(null),
     shade_effect: u32 = 0,
+    // The blend in force, carried across effects that do not write one. See
+    // effects.blendChangeFor: 22 only turns Z writes off, so it must not undo
+    // the additive blend 16 set for the flash sprites just before it.
+    blend_mode: effects.BlendMode = .replace,
     sampler: ?*sdl.c.SDL_GPUSampler = null,
     linear_sampler: ?*sdl.c.SDL_GPUSampler = null,
     use_linear_sampler: bool = false,
@@ -513,8 +517,7 @@ pub const Renderer = struct {
     // could only express straight alpha, so the terrain noise passes -- which
     // multiply into the framebuffer -- came out as flat grey overlays.
     fn blendModeForDraw(self: *const Renderer) effects.BlendMode {
-        const spec = effects.find(self.shade_effect) orelse return .replace;
-        return spec.blend;
+        return self.blend_mode;
     }
 
     const BlendFactors = struct { source: u32, destination: u32, enabled: bool };

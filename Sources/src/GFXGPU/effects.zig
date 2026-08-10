@@ -112,6 +112,30 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
     };
 }
 
+/// D3DRS_ALPHABLENDENABLE and the two blend factors are render states like any
+/// other, so an effect that never writes them leaves the previous blend in
+/// place. Returns null for those, and the effect's own blend for the rest.
+///
+/// This is what drew a dark box over every explosion. Flashes are drawn as
+///     SetShadingEffect( 16 );   // SRCBLEND=SRCALPHA, DESTBLEND=ONE
+///     SetShadingEffect( 22 );   // ZWRITEENABLE=false, and nothing else
+///     DrawSprites( spriteFlashes );
+/// and 22 carried a blend of its own here, so it replaced 16's additive blend
+/// with straight alpha. effects\sprites\flash\1_h.dds is a greyscale radial
+/// glow that is opaque on all 4096 texels - it has no alpha channel to shape
+/// it, because it is meant to be added, where black contributes nothing.
+/// Blended as straight alpha at the sprite's ~0.3 vertex alpha, those black
+/// corners darkened the ground to about 0.7 of itself: a hard edged rectangle
+/// the size of the flash quad, on explosions and fire only, worst over snow.
+pub fn blendChangeFor(id: u32) ?BlendMode {
+    return switch (id) {
+        // Pure deltas in SetupShaders: Z write, stencil, or the texture
+        // transform, and never a blend state.
+        6, 7, 11, 18, 22, 23, 110, 113, 300, 302, 304 => null,
+        else => if (find(id)) |spec| spec.blend else null,
+    };
+}
+
 pub const ColorOp = enum(u32) { modulate = 0, add = 1 };
 
 /// The stage-0 colour the fixed function pipeline produces, given the sampled
@@ -629,4 +653,39 @@ test "terrain effects declare the stage combines their D3D states describe" {
     try std.testing.expectEqual(BlendMode.multiply, (find(103) orelse unreachable).blend);
     try std.testing.expectEqual(BlendMode.multiply, (find(104) orelse unreachable).blend);
     try std.testing.expectEqual(BlendMode.replace, (find(101) orelse unreachable).blend);
+}
+
+test "a blend survives the effects that only change Z writes" {
+    // The flash sequence from CScene::Draw:
+    //   SetShadingEffect( 16 );  SRCALPHA/ONE
+    //   SetShadingEffect( 22 );  ZWRITEENABLE=false, nothing else
+    //   DrawSprites( spriteFlashes );
+    //   SetShadingEffect( 23 );  ZWRITEENABLE=true, nothing else
+    // 22 must leave 16's additive blend standing, or the flash draws as
+    // straight alpha and its black surround paints a box on the ground.
+    try std.testing.expectEqual(BlendMode.additive, blendChangeFor(16).?);
+    try std.testing.expect(blendChangeFor(22) == null);
+    try std.testing.expect(blendChangeFor(23) == null);
+
+    var current: BlendMode = .replace;
+    for ([_]u32{ 16, 22 }) |id| {
+        if (blendChangeFor(id)) |mode| current = mode;
+    }
+    try std.testing.expectEqual(BlendMode.additive, current);
+
+    // Every effect that writes D3DRS_ALPHABLENDENABLE still reports its blend.
+    for ([_]u32{ 1, 3, 9, 10, 12, 16, 20, 100, 103, 111, 200 }) |id| {
+        try std.testing.expect(blendChangeFor(id) != null);
+    }
+    // And the other pure deltas leave it alone.
+    for ([_]u32{ 6, 7, 11, 18, 110, 113, 300, 304 }) |id| {
+        try std.testing.expect(blendChangeFor(id) == null);
+    }
+
+    // The flash texture is opaque everywhere, so straight alpha can only paint
+    // its black surround onto the scene, while additive leaves it untouched.
+    const ground = [4]f32{ 0.80, 0.83, 0.82, 1.0 };
+    const surround = [4]f32{ 0.0, 0.0, 0.0, 0.30 };
+    try std.testing.expectApproxEqAbs(ground[0], blend(.additive, surround, ground)[0], 0.000001);
+    try std.testing.expect(blend(.straight_alpha, surround, ground)[0] < ground[0] - 0.2);
 }
