@@ -11,6 +11,7 @@
 #include "..//Image//Image.h"
 
 #include <SDL3/SDL.h>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -305,6 +306,52 @@ void STDCALL GraphicsEngineGpu::Clear()
     }
 }
 
+static std::string LowerAscii( const char *pszText )
+{
+    std::string result = pszText ? pszText : "";
+    for ( int i = 0; i < result.size(); ++i )
+        result[i] = static_cast<char>( std::tolower( static_cast<unsigned char>( result[i] ) ) );
+    return result;
+}
+
+// SDL puts a fullscreen window on whichever display it currently occupies and
+// ignores a move while the window is already fullscreen, so the monitor has to
+// be chosen from the windowed state, before the mode switch. GFX.Monitor.Name
+// is matched first because display indices shuffle as monitors are plugged in
+// and unplugged; GFX.Monitor.Index keeps the meaning it already has for the
+// legacy D3D9 path, where 0 is the primary display.
+static void MoveToSelectedDisplay( SDL_Window *window )
+{
+    if ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN )
+        SDL_SetWindowFullscreen( window, false );
+    int nCount = 0;
+    SDL_DisplayID *pDisplays = SDL_GetDisplays( &nCount );
+    if ( pDisplays == 0 ) return;
+    int nSelected = -1;
+    const std::string szWanted = LowerAscii( GetGlobalVar( "GFX.Monitor.Name", "" ) );
+    if ( !szWanted.empty() )
+    {
+        for ( int i = 0; i < nCount && nSelected < 0; ++i )
+            if ( LowerAscii( SDL_GetDisplayName( pDisplays[i] ) ).find( szWanted ) != std::string::npos )
+                nSelected = i;
+    }
+    if ( nSelected < 0 )
+    {
+        const int nIndex = Max( 0, GetGlobalVar( "GFX.Monitor.Index", 0 ) );
+        if ( nIndex < nCount ) nSelected = nIndex;
+    }
+    if ( nSelected >= 0 )
+    {
+        const int nCentered = SDL_WINDOWPOS_CENTERED_DISPLAY( pDisplays[nSelected] );
+        SDL_SetWindowPosition( window, nCentered, nCentered );
+        SDL_SyncWindow( window );
+        if ( GfxTraceEnabled() )
+            fprintf( stderr, "BK_GFX_TRACE: fullscreen display %d \"%s\"\n", nSelected,
+                SDL_GetDisplayName( pDisplays[nSelected] ) );
+    }
+    SDL_free( pDisplays );
+}
+
 bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, EGFXFullscreen fullscreen, int )
 {
     if ( nBpp != 0 && nBpp != 16 && nBpp != 32 ) return fail( "SDL GPU adapter supports 16/32-bit requests on an RGBA8 surface" );
@@ -312,6 +359,7 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
     if ( sdl_window_ )
     {
         SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
+        if ( fullscreen == GFXFS_FULLSCREEN ) MoveToSelectedDisplay( window );
         if ( !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
         if ( !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
         // The app window is deliberately created hidden and stays hidden until a

@@ -80,6 +80,12 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 		else if ( argument.rfind( "-mod", 0 ) == 0 ) result.modName = AttachedValue( raw, 4 );
 		else if ( argument == "-windowed" ) result.fullscreenMode = EFullscreenMode::windowed;
 		else if ( argument == "-fullscreen" ) result.fullscreenMode = EFullscreenMode::fullscreen;
+		else if ( argument.rfind( "-monitor", 0 ) == 0 )
+		{
+			std::string value = AttachedValue( raw, 8 );
+			if ( !value.empty() && value.front() == '=' ) value = TrimQuotes( value.substr( 1 ) );
+			result.monitor = value;
+		}
 		else if ( argument.rfind( "-autosave", 0 ) == 0 ) result.autoSavePeriod = std::atoi( argument.c_str() + 9 );
 		else if ( argument == "-cycled" ) result.cycledLaunch = true;
 		else if ( argument.rfind( "-fps", 0 ) == 0 ) result.guaranteeFps = std::atoi( argument.c_str() + 4 );

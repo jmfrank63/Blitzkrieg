@@ -29,6 +29,10 @@ struct CommandLineOptions
 	int stencilBpp = 0;
 	int frequency = 0;
 	EFullscreenMode fullscreenMode = EFullscreenMode::windowed;
+	// Which display a fullscreen window lands on: either an index (0 = primary,
+	// matching GFX.Monitor.Index) or part of the display's name, because the
+	// index order changes as monitors are plugged in.
+	std::string monitor;
 	bool useDxt = false;
 	bool multiplayer = false;
 	bool cycledLaunch = false;

@@ -804,6 +804,24 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			SetGlobalVar( "fullscreen", "1" );
 			SetGlobalVar( "windowed", "0" );
 		}
+		else if ( szParams[i].compare( 0, 8, "-monitor" ) == 0 )
+		{
+			// Accepts either an index (-monitor1) or part of the display's name
+			// (-monitor="Mi monitor"), because the index order changes as
+			// monitors are plugged in and a name survives that. The index keeps
+			// the meaning GFX.Monitor.Index already has for the D3D9 path.
+			std::string szMonitor = realStr.substr( 8 );
+			if ( !szMonitor.empty() && szMonitor[0] == '=' )
+				szMonitor = szMonitor.substr( 1 );
+			NStr::TrimBoth( szMonitor, "\"" );
+			bool bNumeric = !szMonitor.empty();
+			for ( int n = 0; n < szMonitor.size() && bNumeric; ++n )
+				bNumeric = isdigit( (unsigned char)szMonitor[n] ) != 0;
+			if ( bNumeric )
+				SetGlobalVar( "GFX.Monitor.Index", atoi( szMonitor.c_str() ) );
+			else if ( !szMonitor.empty() )
+				SetGlobalVar( "GFX.Monitor.Name", szMonitor.c_str() );
+		}
 		else if ( szParams[i].compare(0, 9, "-autosave") == 0 )
 		{
 			pCmdParams->nAutoSavePeriod = atoi( szParams[i].c_str() + 9 );
