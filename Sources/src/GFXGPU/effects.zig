@@ -102,8 +102,12 @@ pub fn depthTestChangeFor(id: u32) ?bool {
 // An effect that leaves the sampler alone inherits the previous one.
 pub fn linearFilterChangeFor(id: u32) ?bool {
     return switch (id) {
-        1, 3, 14, 111 => false,
-        2, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
+        // 100 draws the terrain crosses - the masks that blend one tile type
+        // into another - and SetupShaders gives it POINT. It was missing here,
+        // so the pass inherited whatever the previous effect left, normally
+        // linear, and the mask bled across its atlas cell.
+        1, 3, 14, 100, 111 => false,
+        2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
         else => null,
     };
 }
@@ -355,7 +359,12 @@ test "UI and alpha reference fixtures" {
     try std.testing.expectEqual(false, linearFilterChangeFor(111).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(8).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(112).?);
-    for ([_]u32{ 4, 11, 13, 100, 110, 113, 300 }) |id| try std.testing.expect(linearFilterChangeFor(id) == null);
+    // The terrain cross pass is point sampled in SetupShaders. Leaving it out
+    // let it inherit the previous effect's filter.
+    try std.testing.expectEqual(false, linearFilterChangeFor(100).?);
+    try std.testing.expectEqual(true, linearFilterChangeFor(4).?);
+    try std.testing.expectEqual(true, linearFilterChangeFor(5).?);
+    for ([_]u32{ 11, 13, 110, 113, 300 }) |id| try std.testing.expect(linearFilterChangeFor(id) == null);
 
     // An effect that leaves the test off must keep every texel, including a
     // fully transparent one: D3D only rejects alpha strictly below the
