@@ -496,9 +496,20 @@ void PumpMessages()
 		switch ( event.type )
 		{
 			case NPlatform::EventType::quit: bExit = true; break;
-		case NPlatform::EventType::focusGained: SetActive( true ); break;
+			// SwitchGame is what actually pauses: it holds PAUSE_TYPE_INACTIVE on
+			// the game timer, drops the gamma ramp and releases the cursor. The
+			// WM_ACTIVATE branch above calls it either way; this path only ever
+			// set the flag, so switching to another Space left the simulation
+			// running against a clock that kept counting while macOS stopped
+			// presenting. Coming back, the whole backlog executed at once - on a
+			// large map, a lot of orders arriving in one frame.
+			case NPlatform::EventType::focusGained:
+				SetActive( true );
+				NMain::SwitchGame( true );
+				break;
 			case NPlatform::EventType::focusLost:
 				SetActive( false );
+				NMain::SwitchGame( false );
 				if ( NMain::IsInitialized() ) if ( IInput *input = GetSingleton<IInput>() ) input->ConsumePlatformEvent( event );
 				break;
 			case NPlatform::EventType::keyDown:
