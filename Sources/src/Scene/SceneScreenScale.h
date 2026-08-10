@@ -13,7 +13,17 @@ namespace NSceneScreenScale
 	{
 		const float fWidth = Max( rcScreen.Width(), 1.0f );
 		const float fHeight = Max( rcScreen.Height(), 1.0f );
-		return Max( 1.0f, Min( fWidth / LEGACY_GAMEPLAY_WIDTH, fHeight / LEGACY_GAMEPLAY_HEIGHT ) );
+		// Whole steps only. The terrain is one point sampled tileset atlas, so a
+		// fractional scale spreads a 64x32 tile over 72.3x36.2 pixels and the
+		// pixel straddling a tile edge takes its colour from the neighbouring
+		// atlas cell: a one pixel seam on a lattice of exactly the scaled tile
+		// size. Measured on a 1440x868 window, whose scale is 1.13, the seams
+		// autocorrelate at 36 pixels across and 72 down - the scaled half tile
+		// and full tile. Rounding the vertices, which is what this used to rely
+		// on, keeps the mesh watertight but cannot help: the span each tile
+		// covers still varies between 36 and 37 pixels, so the sampling phase
+		// moves from tile to tile. An integer scale removes the fraction itself.
+		return Max( 1.0f, floorf( Min( fWidth / LEGACY_GAMEPLAY_WIDTH, fHeight / LEGACY_GAMEPLAY_HEIGHT ) ) );
 	}
 
 	inline void ScaleGameplayScreenPoint( float *pfX, float *pfY, const CTRect<float> &rcScreen )
