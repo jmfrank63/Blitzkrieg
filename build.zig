@@ -1340,7 +1340,12 @@ pub fn build(b: *std.Build) void {
 
     const gfx_gpu_shaders_step = b.step("gfxgpu-shaders", "Compile deterministic GfxGpu shader blobs and manifest");
     gfx_gpu_shaders_step.dependOn(&shader_driver_run.step);
-    gfx_gpu_shaders_step.dependOn(&shader_parser_tests_run.step);
+    // The driver parses the manifest this step compiles from, so the parser has
+    // to build. Running its tests belongs to test-gfxgpu-shaders: depending on
+    // the run put a test-runner handshake in front of every install-game, and a
+    // build that merely failed to talk to that process failed shader
+    // compilation, and the whole install, along with it.
+    gfx_gpu_shaders_step.dependOn(&shader_parser_tests.step);
 
     const shader_determinism_a = b.addRunArtifact(shader_driver);
     shader_determinism_a.step.dependOn(shadercross_build_step);
