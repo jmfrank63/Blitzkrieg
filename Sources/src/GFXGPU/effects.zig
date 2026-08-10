@@ -196,8 +196,13 @@ pub const specs = [_]EffectSpec{
     make(1, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
     make(2, .lit, .lighting, 1, state_none),
     make(3, .ui, .ui, 1, state_alpha_test | state_alpha_blend),
-    make(4, .lightmap, .lightmap_complement, 2, state_alpha_blend),
-    make(5, .lightmap, .lightmap_modulate, 2, state_alpha_blend),
+    // 4 and 5 both enable blending, so make() inferred straight alpha for them,
+    // but SetupShaders gives 4 SRCBLEND=ONE/DESTBLEND=ZERO - a plain replace -
+    // and 5 ONE/ONE, which is additive. 5 is the one that shows: it is the light
+    // a fire throws onto the scene, and alpha blending a grey quad where the
+    // original adds light turns a glow into a dark rectangle.
+    withPipelinePolicy(make(4, .lightmap, .lightmap_complement, 2, state_alpha_blend), .replace, true, .none),
+    withPipelinePolicy(make(5, .lightmap, .lightmap_modulate, 2, state_alpha_blend), .additive, true, .none),
     make(6, .stencil, .stencil_write, 0, state_stencil),
     make(7, .stencil, .stencil_test, 0, state_none),
     make(8, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
@@ -211,7 +216,9 @@ pub const specs = [_]EffectSpec{
     withPipelinePolicy(make(16, .particle, .particle_additive, 1, state_alpha_blend), .additive, false, .linear),
     make(17, .special, .special_video, 1, state_none),
     make(18, .special, .special_video, 1, state_none),
-    make(19, .special, .special_transform, 1, state_none),
+    // 19 alpha tests at ALPHAREF 1 and blends SRCALPHA/INVSRCALPHA in
+    // SetupShaders. Declaring no state left it opaque with the test off.
+    make(19, .special, .special_transform, 1, state_alpha_test | state_alpha_blend),
     // Vehicle tracks: SRCBLEND=DESTCOLOR, DESTBLEND=ZERO. See colorOpFor.
     withPipelinePolicy(make(20, .special, .special_transform, 1, state_alpha_blend), .multiply, false, .none),
     make(21, .ui, .textured, 1, state_alpha_blend),
@@ -482,6 +489,53 @@ test "vehicle tracks add the diffuse colour and multiply into the ground" {
     const gone = blend(.multiply, faded, ground);
     try std.testing.expectApproxEqAbs(ground[0], gone[0], 0.000001);
     try std.testing.expectApproxEqAbs(ground[1], gone[1], 0.000001);
+}
+
+test "every effect's blend matches the D3D source and destination factors" {
+    // Transcribed from CGraphicsEngine::SetupShaders. make() infers the blend
+    // from whether ALPHABLENDENABLE is set, which is right for SRCALPHA over
+    // INVSRCALPHA and wrong for everything else, so each exception has to be
+    // declared. 4, 5 and 19 were not, and 5 is a light: ONE/ONE adds a fire's
+    // glow to the scene, while straight alpha painted a grey quad over it.
+    const expected = [_]struct { id: u32, blend: BlendMode }{
+        .{ .id = 1, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 3, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 4, .blend = .replace }, // ONE/ZERO
+        .{ .id = 5, .blend = .additive }, // ONE/ONE
+        .{ .id = 8, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 9, .blend = .multiply }, // DESTCOLOR/ZERO
+        .{ .id = 10, .blend = .additive }, // SRCALPHA/ONE
+        .{ .id = 12, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 13, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 14, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 15, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 16, .blend = .additive }, // SRCALPHA/ONE
+        .{ .id = 19, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 20, .blend = .multiply }, // DESTCOLOR/ZERO
+        .{ .id = 21, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 100, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 101, .blend = .replace }, // ONE/ZERO
+        .{ .id = 102, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 103, .blend = .multiply }, // DESTCOLOR/ZERO
+        .{ .id = 104, .blend = .multiply }, // DESTCOLOR/ZERO
+        .{ .id = 111, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 112, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+        .{ .id = 200, .blend = .additive }, // SRCALPHA/ONE
+        .{ .id = 303, .blend = .straight_alpha }, // SRCALPHA/INVSRCALPHA
+    };
+    for (expected) |want| {
+        const spec = find(want.id) orelse return error.TestUnexpectedResult;
+        try std.testing.expectEqual(want.blend, spec.blend);
+    }
+
+    // A light adds to what is already there, so a glow over a bright background
+    // can only brighten it. Alpha blending the same grey darkens it instead.
+    const scene = [4]f32{ 0.80, 0.83, 0.82, 1.0 };
+    const glow = [4]f32{ 0.53, 0.56, 0.55, 0.78 };
+    const added = blend(.additive, glow, scene);
+    try std.testing.expect(added[0] >= scene[0]);
+    const alphaed = blend(.straight_alpha, glow, scene);
+    try std.testing.expect(alphaed[0] < scene[0]);
 }
 
 test "the gaps in a track texture leave the ground alone" {
