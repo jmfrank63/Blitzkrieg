@@ -1383,7 +1383,14 @@ pub fn build(b: *std.Build) void {
     // the first rather than on top of it: macos/arm64/release next to
     // macos/x86_64/release. The default variant stays unqualified, as it was when
     // this was a "-release"/"-debug" suffix on a single directory name.
-    const variant_suffix = if (std.mem.eql(u8, build_variant, "default")) "" else b.fmt("/{s}", .{build_variant});
+    // The staged tree is named for what it holds, and the optimize mode is what
+    // decides that: `--release=fast` stages release, a plain `zig build` stages
+    // debug, whichever way the mode was reached. Naming the directory from
+    // -Dbuild-variant instead left the unqualified variant covering both modes,
+    // so a debug build and a release build staged over each other and the tree
+    // said nothing about which one was in it. Deriving it from the mode also
+    // means the name can never disagree with the contents.
+    const variant_suffix = b.fmt("/{s}", .{if (optimize == .Debug) "debug" else "release"});
     const platform_root = b.fmt("{s}/{s}", .{ platform_policy.os_dir, platform_policy.arch_dir });
     const stage_root = b.fmt("zig-out/game/{s}{s}", .{ platform_root, variant_suffix });
     const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_root, variant_suffix });

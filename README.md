@@ -56,9 +56,9 @@ Quick commands:
 
 2. Install Zig (0.16 or later) and the MSVC toolchain + Windows SDK (paths are configurable via `-Dmsvc-include`/`-Dwindows-sdk-include` and their `lib` counterparts if yours differ from the defaults in `build.zig`).
 
-3. Run `zig build install-game -Dtarget=x86_64-windows-msvc`.
+3. Run `zig build install-game -Dtarget=x86_64-windows-msvc --release=fast` to play, or drop `--release=fast` for a debug build.
 
-4. Start `zig-out/game/windows/x86_64/Game.exe`.
+4. Start `zig-out/game/windows/x86_64/release/Game.exe` (`.../debug/Game.exe` without `--release=fast`). The staged tree is named for the optimisation it holds, so the two never overwrite each other.
 
 5. `zig build package` creates distributable zip packages; `zig build test` runs the Zig unit tests and the C++ ABI smoke test.
 

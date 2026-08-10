@@ -1860,10 +1860,12 @@ test "write-mode tree round-trips through the reader" {
 }
 
 test "real GAZ_61 unit XML decodes Type/Passangers like MSXML" {
-    // The staged game data: the boarding bug reduces to whether this exact
-    // file yields Type="trn_military_auto" (the transport enum name) and
-    // Passangers=3 through the tree reader.
-    const file = fopen("zig-out/game/windows/x86_64/Data/Units/Technics/USSR/Auto/GAZ_61/1.xml", "rb") orelse return error.SkipZigTest;
+    // The boarding bug reduces to whether this exact file yields
+    // Type="trn_military_auto" (the transport enum name) and Passangers=3
+    // through the tree reader. Read it out of the repository rather than a
+    // staged tree: the staged copy is identical, and pointing at one made the
+    // test skip itself for anyone who had not staged that particular variant.
+    const file = fopen("Data/Units/Technics/USSR/Auto/GAZ_61/1.xml", "rb") orelse return error.SkipZigTest;
     defer _ = fclose(file);
     _ = fseek(file, 0, 2);
     const file_size: usize = @intCast(ftell(file));

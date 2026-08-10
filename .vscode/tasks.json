@@ -252,8 +252,7 @@
         "--build-file",
         "${workspaceFolder}/build.zig",
         "install-game",
-        "-Dtarget=x86_64-windows-msvc",
-        "-Doptimize=Debug"
+        "-Dtarget=x86_64-windows-msvc"
       ],
       "group": {
         "kind": "build",
@@ -275,7 +274,6 @@
         "${workspaceFolder}/build.zig",
         "install-game",
         "-Dtarget=x86_64-windows-msvc",
-        "-Doptimize=Debug",
         "-Dubsan-trap=true"
       ],
       "group": {
@@ -298,7 +296,7 @@
         "${workspaceFolder}/build.zig",
         "install-game",
         "-Dtarget=x86_64-windows-msvc",
-        "-Doptimize=ReleaseFast"
+        "--release=fast"
       ],
       "group": "build",
       "presentation": {
@@ -310,9 +308,9 @@
     {
       "label": "Zig Run Game (Debug, x64)",
       "type": "process",
-      "command": "${workspaceFolder}/zig-out/game/windows/x86_64/Game.exe",
+      "command": "${workspaceFolder}/zig-out/game/windows/x86_64/debug/Game.exe",
       "options": {
-        "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64"
+        "cwd": "${workspaceFolder}/zig-out/game/windows/x86_64/debug"
       },
       "group": "build",
       "presentation": {
