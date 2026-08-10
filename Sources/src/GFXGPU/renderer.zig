@@ -1,4 +1,8 @@
 const std = @import("std");
+
+/// A graphics pipeline that fails to build fails again on every frame, so the
+/// reason is reported once rather than once per draw.
+var reported_pipeline_failure: bool = false;
 const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
@@ -699,7 +703,27 @@ pub const Renderer = struct {
         const factors = blendFactors(blend_mode);
         const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = factors.source, .dst_color_blendfactor = factors.destination, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = factors.enabled, .enable_color_write_mask = true } };
         const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(@alignCast(shaders.vertex)), .fragment_shader = @ptrCast(@alignCast(shaders.fragment)), .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdlTopology(self.topology), .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdlCompare(depth.compare), .back_stencil_state = sdlStencilState(depth.stencil), .front_stencil_state = sdlStencilState(depth.stencil), .compare_mask = 0xff, .write_mask = 0xff, .enable_depth_test = depth.test_enabled, .enable_depth_write = depth.write_enabled, .enable_stencil_test = depth.stencil != .off }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = if (self.scene_depth != null) sdl.depthFormat() else 0, .has_depth_stencil_target = self.scene_depth != null }, .props = 0 };
-        const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse return error.PipelineCreateFailed;
+        const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse {
+            // The C++ side only ever sees the name of this error, so SDL's own
+            // reason - the only thing that says which part of the description
+            // the driver rejected - was being dropped. Report it once: a
+            // pipeline that fails to build fails again on every frame, and
+            // every frame reporting it buries everything else in the log.
+            if (!reported_pipeline_failure) {
+                reported_pipeline_failure = true;
+                const reason = sdl.c.SDL_GetError();
+                std.debug.print("BK_GFX_TRACE: pipeline create failed variant={s} color_format={d} depth_format={d} has_depth={} attributes={d} topology={d} reason={s}\n", .{
+                    @tagName(variant),
+                    color_format,
+                    pipeline_info.target_info.depth_stencil_format,
+                    pipeline_info.target_info.has_depth_stencil_target,
+                    attribute_count,
+                    @intFromEnum(self.topology),
+                    if (reason != null) std.mem.span(reason) else "(none)",
+                });
+            }
+            return error.PipelineCreateFailed;
+        };
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
         try self.pipelines.put(self.allocator, key, pipeline);
         return pipeline;
