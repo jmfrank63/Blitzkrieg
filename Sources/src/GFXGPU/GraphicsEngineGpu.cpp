@@ -356,6 +356,7 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
 {
     if ( nBpp != 0 && nBpp != 16 && nBpp != 32 ) return fail( "SDL GPU adapter supports 16/32-bit requests on an RGBA8 surface" );
     if ( nSizeX <= 0 || nSizeY <= 0 ) return fail( "SDL GPU adapter rejects zero-sized display modes" );
+    const int nRequestedX = nSizeX, nRequestedY = nSizeY;
     if ( sdl_window_ )
     {
         SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
@@ -376,10 +377,27 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // into a drawable of another and the picture would not fit the window.
         SDL_SyncWindow( window );
         int pixel_width = 0, pixel_height = 0;
-        if ( SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height ) && pixel_width > 0 && pixel_height > 0 )
+        const bool bReadBack = SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height );
+        if ( bReadBack && pixel_width > 0 && pixel_height > 0 )
         {
             nSizeX = pixel_width;
             nSizeY = pixel_height;
+        }
+        // The interface letterboxes itself against whatever GetScreenRect
+        // reports, so a mode that keeps the requested size while the window
+        // covers a larger display renders the whole picture into a drawable of
+        // another shape and the display stretches it back out. Report both
+        // sizes: which of them the mode adopted says whether the stretch comes
+        // from the layout or from the mode.
+        if ( GfxTraceEnabled() )
+        {
+            int window_width = 0, window_height = 0;
+            SDL_GetWindowSize( window, &window_width, &window_height );
+            const SDL_DisplayMode *pDesktop = SDL_GetDesktopDisplayMode( SDL_GetDisplayForWindow( window ) );
+            fprintf( stderr, "BK_GFX_TRACE: SetMode requested %dx%d fullscreen=%d -> window %dx%d pixels %dx%d (readback=%d) adopted %dx%d desktop %dx%d\n",
+                nRequestedX, nRequestedY, fullscreen == GFXFS_FULLSCREEN, window_width, window_height,
+                pixel_width, pixel_height, bReadBack ? 1 : 0, nSizeX, nSizeY,
+                pDesktop ? pDesktop->w : -1, pDesktop ? pDesktop->h : -1 );
         }
     }
     width_ = nSizeX; height_ = nSizeY;

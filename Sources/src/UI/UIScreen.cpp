@@ -220,6 +220,15 @@ void CUIScreen::Reposition( const CTRect<float> &rcScreen )
 									 floorf( fCenterX + fCanvasWidth * 0.5f ), floorf( fCenterY + fCanvasHeight * 0.5f ) );
 		}
 	}
+	// Whether a screen stretches is decided by two numbers: the rect the mode
+	// hands down and the rect this lays the widgets out in. BK_UI_TRACE reports
+	// both, so a stretch can be read as either a layout that ignored the
+	// display's shape or a display rect that never described it.
+	if ( getenv( "BK_UI_TRACE" ) )
+		fprintf( stderr, "BK_UI_TRACE: reposition \"%s\" screen %.0fx%.0f -> parent %.0fx%.0f at (%.0f,%.0f) scale %.3f,%.3f scaled=%d anchored=%d\n",
+			szResourceName.c_str(), rcScreen.Width(), rcScreen.Height(), rcParent.Width(), rcParent.Height(),
+			rcParent.x1, rcParent.y1, vLayoutScale.x, vLayoutScale.y, bScaleLayoutToScreen ? 1 : 0,
+			bAnchorLayoutToScreenEdges ? 1 : 0 );
 	SetScreenRect( rcParent );
 	SetPos( CVec2(0, 0) );
 	SetSize( CVec2(rcParent.Width(), rcParent.Height()) );
