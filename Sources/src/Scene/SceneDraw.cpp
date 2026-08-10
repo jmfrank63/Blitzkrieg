@@ -11,6 +11,7 @@
 #include "FastSinCos.h"
 #include "../Formats/fmtMap.h"
 #include "../Misc/Win32Random.h"
+#include "../Platform/Debug.h"
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
 #define MESH_SHADOW_DENSITY 0.5f
@@ -922,10 +923,30 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 	_control87( _RC_NEAR, _MCW_RC );
 	pGFX->EnableSpecular( dwSpecularCheck != 0xff000000 );
 	pGFX->SetTexture( 0, sprites[0]->pTexture );
+	// BK_SPRITE_TRACE reports what a sprite pack actually draws. The effect
+	// sprites come out as a flat quad measuring a constant grey near 140 at
+	// about 0.78 alpha, and a constant means the texture sample never varies:
+	// either no texture is bound, so the quad shows only the vertex colour, or
+	// the mapping rect collapsed onto a single texel. This tells the two apart
+	// without another round of guessing.
+	{
+		static const char *pszSpriteTrace = getenv( "BK_SPRITE_TRACE" );
+		if ( pszSpriteTrace != 0 )
+		{
+			static int nCalls = 0;
+			if ( ( nCalls++ % 120 ) == 0 )
+			{
+				const SSpriteInfo *pFirst = sprites[0];
+				NPlatform::DebugWriteFormat( "BK_SPRITE_TRACE: single pack=%d texture=%p maps=(%.4f,%.4f)-(%.4f,%.4f) color=%08x\n",
+					nNumSprites, (const void *)pFirst->pTexture,
+					pFirst->maps.x1, pFirst->maps.y1, pFirst->maps.x2, pFirst->maps.y2, pFirst->color );
+			}
+		}
+	}
 	return DrawTemp( pGFX, drawvertices, drawindices );
 }
 template <class TDepthCalculator>
-bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprites, const TDepthCalculator &calculator, 
+bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprites, const TDepthCalculator &calculator,
 														 const CTRect<float> &rcScreen, IGFX *pGFX )
 {
 	if ( sprites.empty() )
@@ -973,6 +994,20 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 	_control87( _RC_NEAR, _MCW_RC );
 	pGFX->EnableSpecular( dwSpecularCheck != 0xff000000 );
 	pGFX->SetTexture( 0, sprites[0]->pTexture );
+	{
+		static const char *pszSpriteTrace = getenv( "BK_SPRITE_TRACE" );
+		if ( pszSpriteTrace != 0 )
+		{
+			static int nCalls = 0;
+			if ( ( nCalls++ % 120 ) == 0 )
+			{
+				const SComplexSpriteInfo *pFirst = sprites[0];
+				const int nSquares = pFirst->pSprite != 0 ? int( pFirst->pSprite->squares.size() ) : -1;
+				NPlatform::DebugWriteFormat( "BK_SPRITE_TRACE: complex pack=%d squares=%d texture=%p color=%08x\n",
+					nNumSprites, nSquares, (const void *)pFirst->pTexture, pFirst->color );
+			}
+		}
+	}
 	return DrawTemp( pGFX, drawvertices, drawindices );
 }
 void CScene::DrawSprites( CSpriteVisList &sprites )
