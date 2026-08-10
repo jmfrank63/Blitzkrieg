@@ -520,7 +520,12 @@ pub const Renderer = struct {
         return self.blend_mode;
     }
 
-    const BlendFactors = struct { source: u32, destination: u32, enabled: bool };
+    // SDL's C enums translate to a different backing integer per target ABI
+    // (unsigned on the Apple/clang headers, signed on x86_64-windows-msvc), so
+    // take the blend factor type from the struct we assign into rather than
+    // naming a fixed width here.
+    const BlendFactor = @FieldType(@FieldType(sdl.c.SDL_GPUColorTargetDescription, "blend_state"), "src_color_blendfactor");
+    const BlendFactors = struct { source: BlendFactor, destination: BlendFactor, enabled: bool };
 
     fn blendFactors(mode: effects.BlendMode) BlendFactors {
         return switch (mode) {
