@@ -19,17 +19,18 @@ int main()
     assert(NPlatform::Paths::SaveRoot().find("saves") != std::string::npos);
     assert(NPlatform::Paths::LogPath().find("logs") != std::string::npos);
     assert(NPlatform::Paths::CacheRoot().find("cache") != std::string::npos);
-    // Screenshots sit beside the saves, not inside them: the save game browser
-    // enumerates SaveRoot and a screenshots directory in there is not a save.
+    // Screenshots live in the game directory, beside the saves the game
+    // actually writes: missions save to GetBaseDir() + modname + "saves".
     assert(NPlatform::Paths::ScreenshotRoot().find("screenshots") != std::string::npos);
-    assert(NPlatform::Paths::ScreenshotRoot().find("saves") == std::string::npos);
-    assert(std::filesystem::path(NPlatform::Paths::ScreenshotRoot()).parent_path() ==
-           std::filesystem::path(NPlatform::Paths::SaveRoot()).parent_path());
+    // BaseRoot carries a trailing separator, so compare by prefix rather than
+    // by parent_path, which would differ only by that separator.
+    assert(NPlatform::Paths::ScreenshotRoot().rfind(NPlatform::Paths::BaseRoot(), 0) == 0);
+    assert(NPlatform::Paths::ScreenshotRoot().substr(NPlatform::Paths::BaseRoot().size()) == "screenshots");
     assert(std::filesystem::exists(user / "saves"));
     assert(std::filesystem::exists(user / "logs"));
     assert(std::filesystem::exists(user / "cache"));
     // Created at startup, so a first F9 never has to make it.
-    assert(std::filesystem::exists(user / "screenshots"));
+    assert(std::filesystem::exists(root / "screenshots"));
     NPlatform::Paths::ClearInjectedRootsForTest();
     std::filesystem::remove_all(root);
     return 0;
