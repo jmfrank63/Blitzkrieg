@@ -333,6 +333,13 @@ void CStaticObjects::AddStaticObject( class CCommonStaticObject* pObj, bool bAlr
 }
 CStaticObject* CStaticObjects::AddNewStaticObject( const SObjectBaseRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, bool bInitialization )
 {
+	// IObjectsDB::GetRPGStats hands back 0 when an object's stats cannot be
+	// read and states that callers cope with it; reading pStats->fMaxHP took
+	// the whole mission load down instead. Skipping the one object keeps the
+	// rest of the map loadable, and GetRPGStats has already traced which asset
+	// failed and why.
+	if ( pStats == 0 )
+		return 0;
 	CCommonStaticObject *pObj = new CSimpleStaticObject( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, ESOT_COMMON );
 	pObj->Mem2UniqueIdObjs();
 	pObj->Init();
@@ -343,6 +350,9 @@ CStaticObject* CStaticObjects::AddNewStaticObject( const SObjectBaseRPGStats *pS
 }
 CStaticObject* CStaticObjects::AddNewFlag( const SStaticObjectRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, int player, bool bInitialization )
 {
+	// Same missing-stats contract as AddNewStaticObject above.
+	if ( pStats == 0 )
+		return 0;
 	CFlag *pFlag = new CFlag( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, player, ESOT_FLAG );
 	pFlag->Mem2UniqueIdObjs();
 	pFlag->Init();

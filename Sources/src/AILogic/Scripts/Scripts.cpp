@@ -63,6 +63,12 @@ int CScripts::GetScriptID( IUpdatableObj *pObj ) const
 }
 void CScripts::AddObjToScriptGroup( IUpdatableObj *pObj, const int nGroup )
 {
+	// Every CAILogic::AddObject branch forwards whatever the corresponding
+	// Add* returned, and those now return 0 for an object whose stats could
+	// not be read. Registering that null would only move the crash here, to
+	// pObj->GetUniqueId().
+	if ( pObj == 0 )
+		return;
 	if ( nGroup != -1 )
 	{
 		groups[nGroup].push_back( pObj );
