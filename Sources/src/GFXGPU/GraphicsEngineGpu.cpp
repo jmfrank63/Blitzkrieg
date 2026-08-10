@@ -383,6 +383,24 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
         // without it the game runs correctly but renders to a window the
         // compositor never shows.
+        //
+        // Present a black frame while the window is still hidden. A window whose
+        // swapchain has never presented displays as an unpainted white rectangle
+        // until the first real frame, and the first frame is the slowest of the
+        // session: begin_frame builds every shader and pipeline before anything
+        // reaches the screen. Showing first therefore parked a bare white box in
+        // the middle of the display for the whole warm-up, every launch, before
+        // the intro video appeared. Presenting into the hidden window is allowed,
+        // pays the warm-up cost while nothing is visible, and means the first
+        // thing the window ever displays is black. Best-effort: a mode that
+        // cannot present yet just shows the window as before.
+        if ( renderer_ && api_.begin_frame( renderer_ ) == GFXGPU_OK )
+        {
+            GfxGpuClearInfo clear{ sizeof( clear ), GFXCLEAR_ALL, 0xff000000, 1.0f, 0 };
+            (void)api_.clear( renderer_, &clear );
+            (void)api_.end_frame( renderer_ );
+            (void)api_.present( renderer_ );
+        }
         SDL_ShowWindow( window );
         // The window manager is free to refuse the requested size: a fullscreen
         // window keeps the display size, and a windowed one is clamped to what
