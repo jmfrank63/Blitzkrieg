@@ -1374,9 +1374,14 @@ pub fn build(b: *std.Build) void {
     shader_determinism_step.dependOn(&shader_compare_run.step);
 
     const blitz64 = addBlitz64(b, target, optimize);
-    const variant_suffix = if (std.mem.eql(u8, build_variant, "default")) "" else b.fmt("-{s}", .{build_variant});
-    const stage_root = b.fmt("zig-out/game/{s}{s}", .{ platform_policy.package_root, variant_suffix });
-    const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_policy.package_root, variant_suffix });
+    // <os>/<arch>[/<variant>], so a second architecture for one OS lands beside
+    // the first rather than on top of it: macos/arm64/release next to
+    // macos/x86_64/release. The default variant stays unqualified, as it was when
+    // this was a "-release"/"-debug" suffix on a single directory name.
+    const variant_suffix = if (std.mem.eql(u8, build_variant, "default")) "" else b.fmt("/{s}", .{build_variant});
+    const platform_root = b.fmt("{s}/{s}", .{ platform_policy.os_dir, platform_policy.arch_dir });
+    const stage_root = b.fmt("zig-out/game/{s}{s}", .{ platform_root, variant_suffix });
+    const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_root, variant_suffix });
     const stage_game_name = platform_policy.executable_name;
     const stage_metadata_files = package_policy.required_metadata_files[0..];
     const stage_runtime_files = switch (target.result.os.tag) {

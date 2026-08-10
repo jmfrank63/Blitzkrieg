@@ -19,7 +19,7 @@ Default behavior:
 - `zig build package` now creates two zip installers in `zig-out/packages`: `Blitzkrieg-game.zip` and `Blitzkrieg-game-with-editors.zip`.
 - You can also build each variant separately with `zig build package-game` and `zig build package-game-editors`.
 - Use `-Dpackage-dir=...` to change where zip installers are written.
-- Use `-Doptimize=Debug -Dbuild-variant=debug` and `-Doptimize=ReleaseFast -Dbuild-variant=release` to keep independently testable Windows outputs in `zig-out/game/windows-x64-debug` and `zig-out/game/windows-x64-release`. The matching packages are written below `zig-out/packages/windows-x64-debug` and `zig-out/packages/windows-x64-release`.
+- Use `-Doptimize=Debug -Dbuild-variant=debug` and `-Doptimize=ReleaseFast -Dbuild-variant=release` to keep independently testable Windows outputs in `zig-out/game/windows/x86_64/debug` and `zig-out/game/windows/x86_64/release`. The matching packages are written below `zig-out/packages/windows/x86_64/debug` and `zig-out/packages/windows/x86_64/release`.
 
 For a native Windows debug/release smoke test:
 
@@ -30,7 +30,7 @@ zig build verify-x64-runtime -Dtarget=x86_64-windows-msvc -Doptimize=Debug -Dbui
 zig build verify-x64-runtime -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dbuild-variant=release
 ```
 
-Run either staged executable directly with `zig-out\game\windows-x64-debug\Game.exe` or `zig-out\game\windows-x64-release\Game.exe`.
+Run either staged executable directly with `zig-out\game\windows\x86_64\debug\Game.exe` or `zig-out\game\windows\x86_64\release\Game.exe`.
 
 Current Zig targets:
 
