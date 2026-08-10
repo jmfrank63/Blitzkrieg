@@ -114,6 +114,23 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
 
 pub const ColorOp = enum(u32) { modulate = 0, add = 1 };
 
+/// The stage-0 colour the fixed function pipeline produces, given the sampled
+/// texel and the interpolated diffuse. The shaders branch on g_stage.x to do
+/// exactly this; it lives here so the composition itself is testable, because
+/// getting it wrong is invisible in a state table and very visible on screen.
+/// D3DTOP_ADD pairs with D3DTOP_SELECTARG1 on alpha, which takes the texture's.
+pub fn stageColor(id: u32, texel: [4]f32, diffuse: [4]f32) [4]f32 {
+    return switch (colorOpFor(id)) {
+        .add => .{
+            @min(1.0, texel[0] + diffuse[0]),
+            @min(1.0, texel[1] + diffuse[1]),
+            @min(1.0, texel[2] + diffuse[2]),
+            texel[3],
+        },
+        .modulate => .{ texel[0] * diffuse[0], texel[1] * diffuse[1], texel[2] * diffuse[2], texel[3] * diffuse[3] },
+    };
+}
+
 pub fn colorOpFor(id: u32) ColorOp {
     return switch (id) {
         20 => .add,
@@ -465,6 +482,33 @@ test "vehicle tracks add the diffuse colour and multiply into the ground" {
     const gone = blend(.multiply, faded, ground);
     try std.testing.expectApproxEqAbs(ground[0], gone[0], 0.000001);
     try std.testing.expectApproxEqAbs(ground[1], gone[1], 0.000001);
+}
+
+test "the gaps in a track texture leave the ground alone" {
+    // Measured from a winter F9 capture: every trace quad multiplied the snow
+    // under it by a flat 0.89 on all three channels, drawing a hard edged
+    // rectangle on the ground. 0.89 is the diffuse, which is what a modulate
+    // produces where the track texture is white - the gaps between the tread
+    // marks and the whole margin of the quad.
+    const ground = [4]f32{ 0.72, 0.76, 0.75, 1.0 };
+    const diffuse = [4]f32{ 0.89, 0.89, 0.89, 1.0 };
+    const white = [4]f32{ 1.0, 1.0, 1.0, 1.0 };
+
+    // Adding saturates, so the multiply is a no-op and the terrain is untouched.
+    const gap = blend(.multiply, stageColor(20, white, diffuse), ground);
+    try std.testing.expectApproxEqAbs(ground[0], gap[0], 0.000001);
+    try std.testing.expectApproxEqAbs(ground[1], gap[1], 0.000001);
+    try std.testing.expectApproxEqAbs(ground[2], gap[2], 0.000001);
+
+    // Modulating, which is what the special shader used to do, dims the lot.
+    const wrong = blend(.multiply, stageColor(1, white, diffuse), ground);
+    try std.testing.expectApproxEqAbs(ground[0] * 0.89, wrong[0], 0.000001);
+    try std.testing.expect(wrong[0] < ground[0] - 0.05);
+
+    // The tread marks themselves still darken: a dark texel plus the diffuse
+    // stays below one, so the ground is multiplied down.
+    const tread = blend(.multiply, stageColor(20, .{ 0.0, 0.0, 0.0, 1.0 }, diffuse), ground);
+    try std.testing.expectApproxEqAbs(ground[0] * 0.89, tread[0], 0.000001);
 }
 
 test "transparent blend and range fog fixtures" {
