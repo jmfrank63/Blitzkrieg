@@ -3,9 +3,6 @@ const std = @import("std");
 /// A graphics pipeline that fails to build fails again on every frame, so the
 /// reason is reported once rather than once per draw.
 var reported_pipeline_failure: bool = false;
-var reported_pipeline_probe: bool = false;
-/// A handful of draws is enough to see what the pipeline is being chosen from.
-var draw_traces_left: u32 = 12;
 const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
@@ -725,49 +722,6 @@ pub const Renderer = struct {
                     if (reason != null) std.mem.span(reason) else "(none)",
                 });
             }
-            // Narrow it down rather than guess. Rebuild the same description
-            // with one suspect field neutralised at a time and report which one
-            // the driver stops objecting to; the first that succeeds names the
-            // field that is wrong.
-            if (!reported_pipeline_probe) {
-                reported_pipeline_probe = true;
-                var probe = pipeline_info;
-                probe.target_info.has_depth_stencil_target = false;
-                probe.target_info.depth_stencil_format = 0;
-                probe.depth_stencil_state.enable_depth_test = false;
-                probe.depth_stencil_state.enable_depth_write = false;
-                probe.depth_stencil_state.enable_stencil_test = false;
-                if (sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &probe)) |ok| {
-                    sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
-                    std.debug.print("BK_GFX_TRACE: pipeline probe: accepted without the depth-stencil target\n", .{});
-                } else {
-                    var bare = pipeline_info;
-                    bare.vertex_input_state.num_vertex_attributes = 0;
-                    bare.vertex_input_state.num_vertex_buffers = 0;
-                    if (sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &bare)) |ok| {
-                        sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
-                        std.debug.print("BK_GFX_TRACE: pipeline probe: accepted without the vertex input state\n", .{});
-                    } else {
-                        // Colour target or shaders. Swap the target for a format
-                        // every D3D12 device renders to, with blending off: if
-                        // that builds, the swapchain format is what is wrong,
-                        // and if it does not, the shaders are.
-                        var plain_target = target;
-                        plain_target.format = sdl.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-                        plain_target.blend_state.enable_blend = false;
-                        plain_target.blend_state.enable_color_write_mask = false;
-                        var swapped = bare;
-                        swapped.target_info.color_target_descriptions = &plain_target;
-                        const supported = sdl.c.SDL_GPUTextureSupportsFormat(gpu_device, color_format, sdl.c.SDL_GPU_TEXTURETYPE_2D, sdl.c.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET);
-                        if (sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &swapped)) |ok| {
-                            sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
-                            std.debug.print("BK_GFX_TRACE: pipeline probe: accepted with an RGBA8 colour target - the swapchain format {d} is the problem (device reports supported={})\n", .{ color_format, supported });
-                        } else {
-                            std.debug.print("BK_GFX_TRACE: pipeline probe: rejected with everything neutral except the shaders - the shaders are the problem (swapchain format {d} supported={}): {s}\n", .{ color_format, supported, std.mem.span(sdl.c.SDL_GetError()) });
-                        }
-                    }
-                }
-            }
             return error.PipelineCreateFailed;
         };
         errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
@@ -778,12 +732,7 @@ pub const Renderer = struct {
     // Picks the pipeline for a draw from the bound vertex buffer's own format.
     fn pipelineForDraw(self: *Renderer, buffer: BufferResource) !*anyopaque {
         const fvf = if (buffer.format != 0) buffer.format else default_fvf;
-        const textured = self.bound_textures[0] != null;
-        if (draw_traces_left > 0) {
-            draw_traces_left -= 1;
-            std.debug.print("BK_GFX_TRACE: draw fvf=0x{x} textured={} texture={?d} effect={d} blend={s}\n", .{ fvf, textured, self.bound_textures[0], self.shade_effect, @tagName(self.blendModeForDraw()) });
-        }
-        return self.ensurePipeline(fvf, textured, self.blendModeForDraw());
+        return self.ensurePipeline(fvf, self.bound_textures[0] != null, self.blendModeForDraw());
     }
 
     // GFXFVF_XYZRHW (0x004) marks a position the engine already transformed to
