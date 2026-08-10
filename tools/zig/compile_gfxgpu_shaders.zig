@@ -273,6 +273,12 @@ fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []con
                 .msl => "MSL",
             };
             try command.appendSlice(allocator, &.{ shadercross, source_path, "-s", "HLSL", "-d", destination, "-t", stageName(record.stage), "-e", record.entry, "-I", shader_dir, "-o", output_path });
+            // SDL_GPU's D3D12 backend builds a root signature per stage with a
+            // fixed register-space convention - vertex uniforms in space1,
+            // fragment uniforms in space3 - and the same header declares the
+            // uniforms for both stages. It cannot know which stage it is being
+            // compiled for unless the compiler is told.
+            try command.append(allocator, try std.fmt.allocPrint(allocator, "-DBK_SHADER_STAGE_{s}=1", .{stageName(record.stage)}));
             for (record.defines) |define| {
                 const value = define.value orelse "1";
                 try command.append(allocator, try std.fmt.allocPrint(allocator, "-D{s}={s}", .{ define.name, value }));

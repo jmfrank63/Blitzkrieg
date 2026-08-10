@@ -262,6 +262,11 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
     info.shader_directory_utf8 = "Shaders/GfxGpu";
     info.preferred_driver_utf8 = pszAdapterName;
+    // The device was always created without the graphics debug layer, so a
+    // driver that refuses a pipeline reported E_INVALIDARG and named nothing.
+    // BK_GFX_DEBUG=1 turns the layer on, which makes the runtime say which part
+    // of the description it rejected.
+    if ( getenv( "BK_GFX_DEBUG" ) ) info.flags |= 1;
     if ( !Check( api_.create( &info, &renderer_ ), "create" ) ) return false;
     initialized_ = true;
     adapter_name_ = pszAdapterName ? pszAdapterName : "SDL GPU";

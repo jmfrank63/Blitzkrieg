@@ -1,12 +1,26 @@
 #include "common.hlsl"
 
-cbuffer FrameUniforms : register(b0, space1) { float4x4 g_view_proj; float4 g_fog; };
+// SDL_GPU's D3D12 backend builds one root signature per stage and puts the
+// uniform buffers in a different register space for each: space1 for a vertex
+// shader, space3 for a fragment shader. Declaring both in space1 left every
+// fragment blob describing resources its root signature did not have, and
+// D3D12 answered CreateGraphicsPipelineState with a bare E_INVALIDARG - so no
+// pipeline built, nothing textured drew, and the game rendered a white
+// silhouette on black. Metal and SPIR-V do not carry the distinction, which is
+// why only the Direct3D path was affected.
+#if defined(BK_SHADER_STAGE_fragment)
+#define BK_UNIFORM_SPACE space3
+#else
+#define BK_UNIFORM_SPACE space1
+#endif
+
+cbuffer FrameUniforms : register(b0, BK_UNIFORM_SPACE) { float4x4 g_view_proj; float4 g_fog; };
 // g_screen is (pre_transformed, 1/viewport_width, 1/viewport_height, 0).
 // g_stage.x is the stage-0 D3DTSS_COLOROP: 0 modulates the texture with the
 // diffuse colour, 1 adds them. g_stage.y is D3DRS_ALPHAREF scaled to 0..1, or 0
 // where the effect leaves D3DRS_ALPHATESTENABLE off.
-cbuffer DrawUniforms : register(b1, space1) { float4x4 g_world; float4 g_color; float4 g_screen; float4x4 g_texture_matrix; float4 g_stage; };
-cbuffer LightUniforms : register(b2, space1) { float4 g_light_data[32]; };
+cbuffer DrawUniforms : register(b1, BK_UNIFORM_SPACE) { float4x4 g_world; float4 g_color; float4 g_screen; float4x4 g_texture_matrix; float4 g_stage; };
+cbuffer LightUniforms : register(b2, BK_UNIFORM_SPACE) { float4 g_light_data[32]; };
 
 Texture2D g_texture0 : register(t0, space2);
 Texture2D g_texture1 : register(t1, space2);

@@ -746,7 +746,23 @@ pub const Renderer = struct {
                         sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
                         std.debug.print("BK_GFX_TRACE: pipeline probe: accepted without the vertex input state\n", .{});
                     } else {
-                        std.debug.print("BK_GFX_TRACE: pipeline probe: rejected with no depth and no vertex input - the shaders or the colour target are the problem: {s}\n", .{std.mem.span(sdl.c.SDL_GetError())});
+                        // Colour target or shaders. Swap the target for a format
+                        // every D3D12 device renders to, with blending off: if
+                        // that builds, the swapchain format is what is wrong,
+                        // and if it does not, the shaders are.
+                        var plain_target = target;
+                        plain_target.format = sdl.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+                        plain_target.blend_state.enable_blend = false;
+                        plain_target.blend_state.enable_color_write_mask = false;
+                        var swapped = bare;
+                        swapped.target_info.color_target_descriptions = &plain_target;
+                        const supported = sdl.c.SDL_GPUTextureSupportsFormat(gpu_device, color_format, sdl.c.SDL_GPU_TEXTURETYPE_2D, sdl.c.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET);
+                        if (sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &swapped)) |ok| {
+                            sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, ok);
+                            std.debug.print("BK_GFX_TRACE: pipeline probe: accepted with an RGBA8 colour target - the swapchain format {d} is the problem (device reports supported={})\n", .{ color_format, supported });
+                        } else {
+                            std.debug.print("BK_GFX_TRACE: pipeline probe: rejected with everything neutral except the shaders - the shaders are the problem (swapchain format {d} supported={}): {s}\n", .{ color_format, supported, std.mem.span(sdl.c.SDL_GetError()) });
+                        }
                     }
                 }
             }
