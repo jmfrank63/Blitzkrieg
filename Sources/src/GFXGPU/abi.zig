@@ -75,6 +75,10 @@ pub const Api = extern struct {
     draw_indexed: *const fn (?*RendererHandle, u64, u32, u32, u32, i32) callconv(.c) Result,
     draw_temporary: *const fn (?*RendererHandle, ?*const TemporaryGeometryInfo, u32) callconv(.c) Result,
     bind_vertex_buffer: *const fn (?*RendererHandle, u64) callconv(.c) Result,
+    // Appended: how a scene that differs from the drawable is presented.
+    // 0 = centered 1:1 (borders/crop, gameplay), nonzero = aspect-fit scale
+    // (menus and videos, whose controls must never be clipped away).
+    set_present_fit: *const fn (?*RendererHandle, c_int) callconv(.c) Result,
 };
 
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
@@ -369,6 +373,11 @@ fn setTextureStage(handle: ?*RendererHandle, stage: u32, texture: u64) callconv(
     renderer.bindTextureStage(stage, texture) catch return errors.invalid_handle;
     return errors.ok;
 }
+fn setPresentFit(handle: ?*RendererHandle, fit: c_int) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    renderer.present_fit = fit != 0;
+    return errors.ok;
+}
 fn bindVertexBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (buffer == 0) return errors.invalid_argument;
@@ -482,6 +491,7 @@ const api = Api{
     .draw_indexed = drawIndexed,
     .draw_temporary = drawTemporary,
     .bind_vertex_buffer = bindVertexBuffer,
+    .set_present_fit = setPresentFit,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {

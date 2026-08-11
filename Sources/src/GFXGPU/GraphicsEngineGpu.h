@@ -124,6 +124,14 @@ private:
     unsigned int pending_fullscreen_display_ = 0;
     int pending_fullscreen_frames_ = 0;
     void UpdatePendingFullscreen();
+    // Window-to-game mouse transform for the centered/fitted presentation;
+    // published as GFX.Present.Offset*/Scale* for the input pump.
+    float present_offset_x_ = 0.0f;
+    float present_offset_y_ = 0.0f;
+    float present_scale_x_ = 1.0f;
+    float present_scale_y_ = 1.0f;
+    bool present_fit_ = false;
+    void UpdatePresentOffsets();
     bool frame_pending_ = false;
     bool api_valid_ = false;
     bool initialized_ = false;

@@ -212,6 +212,13 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 				GetSingleton<IScene>()->Reposition();
 		}
 	}
+	// Asserted every frame, not only in OnGetFocus: the direct save launch
+	// activates the mission screen without a focus notification, and a stale
+	// fit mode would scale gameplay or clip a menu.
+	if ( szInterfaceType == "Mission" )
+		SetGlobalVar( "GFX.Present.Fit", 0 );
+	else if ( szInterfaceType != "Current" )
+		SetGlobalVar( "GFX.Present.Fit", 1 );
 	// The texture-quality option action runs in the StreamIO bridge, which
 	// cannot reach ITextureManager; it leaves the chosen value here instead.
 	// Applies to textures loaded from now on - already-resident ones keep the
@@ -443,10 +450,19 @@ bool CInterfaceScreenBase::ChangeResolution()
 	}
 	return false;
 }
-void CInterfaceScreenBase::OnGetFocus( bool bFocus ) 
-{  
-	if ( bFocus ) 
+void CInterfaceScreenBase::OnGetFocus( bool bFocus )
+{
+	if ( bFocus )
 	{
+		// How the scene is presented when its resolution differs from the
+		// window: gameplay keeps exact pixels (centered, borders/crop), menus
+		// and videos aspect-fit scale so no control is ever clipped away.
+		// "Current" overlays (in-mission dialogs, list screens) keep whatever
+		// presentation the screen below them established.
+		if ( szInterfaceType == "Mission" )
+			SetGlobalVar( "GFX.Present.Fit", 0 );
+		else if ( szInterfaceType != "Current" )
+			SetGlobalVar( "GFX.Present.Fit", 1 );
 		pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
 		if ( (pInput != 0) && !szBindSection.empty() )
 			pInput->SetBindSection( szBindSection.c_str() );

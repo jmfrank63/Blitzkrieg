@@ -32,8 +32,17 @@ pub const Renderer = struct {
     window: ?*anyopaque = null,
     window_claimed: bool = false,
     swapchain_format: u32 = 0,
+    // The swapchain (window) size. The scene may legitimately differ: an
+    // explicit fullscreen resolution renders at scene_* and is presented
+    // centered on the drawable - black borders when smaller, cropped when
+    // larger, never scaled.
     drawable_width: u32 = 0,
     drawable_height: u32 = 0,
+    scene_width: u32 = 0,
+    scene_height: u32 = 0,
+    // true: aspect-fit scale (menus/videos - nothing may be clipped away);
+    // false: centered 1:1 with borders/crop (gameplay - exact pixels win).
+    present_fit: bool = false,
     scene_texture: ?*sdl.GpuTexture = null,
     scene_depth: ?*sdl.GpuTexture = null,
     shader_directory: ?[]u8 = null,
@@ -231,6 +240,8 @@ pub const Renderer = struct {
         self.swapchain_format = device.api.swapchain_format(device.handle.?, window_ptr);
         self.drawable_width = width;
         self.drawable_height = height;
+        self.scene_width = width;
+        self.scene_height = height;
         self.scene_texture = sdl.createColorTexture(@ptrCast(@alignCast(device.handle.?)), @intCast(self.swapchain_format), width, height) orelse return error.SceneTextureCreateFailed;
         self.scene_depth = sdl.createDepthTexture(@ptrCast(@alignCast(device.handle.?)), width, height) orelse return error.DepthTextureCreateFailed;
     }
@@ -253,8 +264,11 @@ pub const Renderer = struct {
         self.scene_depth = null;
         self.scene_texture = sdl.createColorTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.SceneTextureCreateFailed;
         self.scene_depth = sdl.createDepthTexture(gpu_device, width, height) orelse return error.DepthTextureCreateFailed;
-        self.drawable_width = width;
-        self.drawable_height = height;
+        // Only the scene follows the requested mode; the drawable keeps
+        // tracking the swapchain (refreshed on every acquire), which is what
+        // makes a fixed fullscreen resolution possible at all.
+        self.scene_width = width;
+        self.scene_height = height;
     }
 
     pub fn beginFrame(self: *Renderer) !bool {
@@ -297,7 +311,10 @@ pub const Renderer = struct {
         if (self.scene_texture) |scene| {
             const command = self.frame.command_buffer orelse return error.InvalidState;
             const swapchain = self.frame.swapchain_texture orelse return error.InvalidState;
-            sdl.blitTexture(@ptrCast(@alignCast(command)), scene, @ptrCast(@alignCast(swapchain)), self.drawable_width, self.drawable_height);
+            if (self.present_fit)
+                sdl.blitTextureFit(@ptrCast(@alignCast(command)), scene, self.scene_width, self.scene_height, @ptrCast(@alignCast(swapchain)), self.drawable_width, self.drawable_height)
+            else
+                sdl.blitTextureCentered(@ptrCast(@alignCast(command)), scene, self.scene_width, self.scene_height, @ptrCast(@alignCast(swapchain)), self.drawable_width, self.drawable_height);
         }
         try self.frame.end();
     }
@@ -815,8 +832,10 @@ pub const Renderer = struct {
     fn pushDrawUniforms(self: *Renderer, fvf: u32) !void {
         const command = self.frame.command_buffer orelse return error.InvalidState;
         const frame_uniforms = MatrixUniforms{ .matrix = self.view_proj_matrix, .padding = .{ 0, 0, 0, 0 } };
-        const width: f32 = @floatFromInt(@max(self.drawable_width, 1));
-        const height: f32 = @floatFromInt(@max(self.drawable_height, 1));
+        // Pre-transformed vertices are in game-screen pixels, and they render
+        // into the scene texture - normalize against it, not the swapchain.
+        const width: f32 = @floatFromInt(@max(self.scene_width, 1));
+        const height: f32 = @floatFromInt(@max(self.scene_height, 1));
         // w carries the stage combine the fragment shader should apply.
         const combine: f32 = if (self.dualTextureActive() != null) @floatFromInt(@intFromEnum(effects.combineFor(self.shade_effect))) else 0;
         const screen: [4]f32 = if (isPreTransformed(fvf))

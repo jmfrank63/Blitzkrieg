@@ -419,7 +419,11 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
             }
         }
         if ( !bDeferFullscreen && !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
-        if ( !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+        // Never size a fullscreen window: its surface is the display, and on
+        // macOS the request actually shrinks the Space's backing store, which
+        // stretches the picture instead of letterboxing it. The requested
+        // resolution lives in the scene texture; the present blit centers it.
+        if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
         // The app window is deliberately created hidden and stays hidden until a
         // GFX device exists, so SetMode owns making it visible. This is the
         // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
@@ -435,7 +439,15 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         SDL_SyncWindow( window );
         int pixel_width = 0, pixel_height = 0;
         const bool bReadBack = SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height );
-        if ( bReadBack && pixel_width > 0 && pixel_height > 0 )
+        // An explicit resolution is honored as the render size: the scene
+        // renders at the requested size and the present blit centers it on
+        // whatever surface actually exists - black borders when the surface
+        // is larger, cropped when it is smaller, never scaled. In fullscreen
+        // the surface is the display; in windowed mode it is the freely
+        // resizable window, which behaves like a little monitor of its own.
+        // Only automatic modes adopt what the window manager granted.
+        const bool bKeepRequested = nRequestedX > 0 && nRequestedY > 0;
+        if ( bReadBack && pixel_width > 0 && pixel_height > 0 && !bKeepRequested )
         {
             nSizeX = pixel_width;
             nSizeY = pixel_height;
@@ -694,9 +706,66 @@ void GraphicsEngineGpu::UpdatePendingFullscreen()
             unsigned( SDL_GetDisplayForWindow( window ) ), pending_fullscreen_frames_ );
 }
 
+// The scene is presented on the window either centered 1:1 (gameplay:
+// borders/crop) or aspect-fit scaled (menus and videos, GFX.Present.Fit -
+// their controls must never be clipped away). Mouse events arrive in window
+// coordinates; these globals carry the transform the input pump applies to
+// land in game coordinates: game = (window - Offset) * Scale. Re-derived
+// every frame because the window size changes asynchronously (deferred
+// fullscreen moves, OS drags, live window resizing).
+void GraphicsEngineGpu::UpdatePresentOffsets()
+{
+    const bool bFit = GetGlobalVar( "GFX.Present.Fit", 1 ) != 0;
+    if ( bFit != present_fit_ )
+    {
+        present_fit_ = bFit;
+        if ( renderer_ && api_.set_present_fit )
+            api_.set_present_fit( renderer_, bFit ? 1 : 0 );
+    }
+    float fOffsetX = 0.0f, fOffsetY = 0.0f, fScaleX = 1.0f, fScaleY = 1.0f;
+    int pixel_width = 0, pixel_height = 0;
+    if ( sdl_window_ != nullptr && width_ > 0 && height_ > 0 &&
+         SDL_GetWindowSizeInPixels( static_cast<SDL_Window *>( sdl_window_ ), &pixel_width, &pixel_height ) &&
+         pixel_width > 0 && pixel_height > 0 )
+    {
+        if ( bFit )
+        {
+            const double fScale = Min( double( pixel_width ) / width_, double( pixel_height ) / height_ );
+            const double fFitW = width_ * fScale, fFitH = height_ * fScale;
+            fOffsetX = float( ( pixel_width - fFitW ) / 2 );
+            fOffsetY = float( ( pixel_height - fFitH ) / 2 );
+            fScaleX = float( width_ / fFitW );
+            fScaleY = float( height_ / fFitH );
+        }
+        else
+        {
+            // 1:1 - the offset is signed: positive margins when the scene is
+            // smaller (borders), negative when it is larger (center crop).
+            fOffsetX = float( ( pixel_width - width_ ) / 2 );
+            fOffsetY = float( ( pixel_height - height_ ) / 2 );
+        }
+    }
+    if ( fOffsetX != present_offset_x_ || fOffsetY != present_offset_y_ ||
+         fScaleX != present_scale_x_ || fScaleY != present_scale_y_ )
+    {
+        present_offset_x_ = fOffsetX;
+        present_offset_y_ = fOffsetY;
+        present_scale_x_ = fScaleX;
+        present_scale_y_ = fScaleY;
+        SetGlobalVar( "GFX.Present.OffsetX", fOffsetX );
+        SetGlobalVar( "GFX.Present.OffsetY", fOffsetY );
+        SetGlobalVar( "GFX.Present.ScaleX", fScaleX );
+        SetGlobalVar( "GFX.Present.ScaleY", fScaleY );
+        if ( GfxTraceEnabled() )
+            fprintf( stderr, "BK_GFX_TRACE: present fit=%d scene %dx%d window %dx%d offset %.1f,%.1f scale %.4f,%.4f\n",
+                bFit ? 1 : 0, width_, height_, pixel_width, pixel_height, fOffsetX, fOffsetY, fScaleX, fScaleY );
+    }
+}
+
 bool STDCALL GraphicsEngineGpu::Flip()
 {
     UpdatePendingFullscreen();
+    UpdatePresentOffsets();
     const bool result = renderer_ && Check( api_.present( renderer_ ), "present" );
     if ( result ) frame_pending_ = false;
     return result;

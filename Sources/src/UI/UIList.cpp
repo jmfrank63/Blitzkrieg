@@ -891,10 +891,17 @@ bool CUIList::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDe
 {
 	if ( !IsInside( vPos ) )
 		return false;
-	
+
 	if ( !pScrollBar )
 		return false;
-	
-	pScrollBar->SetPosition( pScrollBar->GetPosition() + fDelta*GetMouseWheelMultiplyer() );
+
+	// A quarter of a wheel turn (~6 notches) travels the whole list from top
+	// to bottom, however long it is; short lists keep the classic fixed step
+	// as a floor so a notch always visibly moves them.
+	CTRect<float> rect;
+	GetWindowPlacement( 0, 0, &rect );
+	const float fRange = listItems.size() * nItemHeight - ( rect.Height() - nTopSpace * 2 - nHeaderSize - nHeaderTopSpace );
+	const float fStep = Max( GetMouseWheelMultiplyer(), fRange / 6.0f );
+	pScrollBar->SetPosition( pScrollBar->GetPosition() + int( fDelta * fStep ) );
 	return true;
 }

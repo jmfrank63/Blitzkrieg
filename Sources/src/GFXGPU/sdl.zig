@@ -140,8 +140,40 @@ pub fn beginColorDepthPass(command_buffer: *GpuCommandBuffer, color_texture: *Gp
     return pass;
 }
 
-pub fn blitTexture(command_buffer: *GpuCommandBuffer, source: *GpuTexture, destination: *GpuTexture, width: u32, height: u32) void {
-    const info = c.SDL_GPUBlitInfo{ .source = .{ .texture = source, .w = width, .h = height }, .destination = .{ .texture = destination, .w = width, .h = height }, .load_op = c.SDL_GPU_LOADOP_LOAD, .filter = c.SDL_GPU_FILTER_NEAREST };
+// Presents the scene 1:1 and centered on the drawable: a mode smaller than
+// the window leaves black borders (the destination is cleared), a larger one
+// shows its middle. Never scaled - a player who picked 1024x768 gets exactly
+// those pixels.
+// Presents the whole scene scaled to the largest size that fits the drawable
+// while keeping its aspect ratio (letterboxed on one axis at most). For menus
+// and videos: every control stays visible regardless of the chosen mode.
+pub fn blitTextureFit(command_buffer: *GpuCommandBuffer, source: *GpuTexture, source_width: u32, source_height: u32, destination: *GpuTexture, destination_width: u32, destination_height: u32) void {
+    if (source_width == 0 or source_height == 0 or destination_width == 0 or destination_height == 0) return;
+    const scale_w = @as(f64, @floatFromInt(destination_width)) / @as(f64, @floatFromInt(source_width));
+    const scale_h = @as(f64, @floatFromInt(destination_height)) / @as(f64, @floatFromInt(source_height));
+    const scale = @min(scale_w, scale_h);
+    const fit_w: u32 = @max(1, @min(destination_width, @as(u32, @intFromFloat(@round(@as(f64, @floatFromInt(source_width)) * scale)))));
+    const fit_h: u32 = @max(1, @min(destination_height, @as(u32, @intFromFloat(@round(@as(f64, @floatFromInt(source_height)) * scale)))));
+    const info = c.SDL_GPUBlitInfo{
+        .source = .{ .texture = source, .w = source_width, .h = source_height },
+        .destination = .{ .texture = destination, .x = (destination_width - fit_w) / 2, .y = (destination_height - fit_h) / 2, .w = fit_w, .h = fit_h },
+        .load_op = c.SDL_GPU_LOADOP_CLEAR,
+        .clear_color = .{ .r = 0, .g = 0, .b = 0, .a = 1 },
+        .filter = c.SDL_GPU_FILTER_LINEAR,
+    };
+    c.SDL_BlitGPUTexture(command_buffer, &info);
+}
+
+pub fn blitTextureCentered(command_buffer: *GpuCommandBuffer, source: *GpuTexture, source_width: u32, source_height: u32, destination: *GpuTexture, destination_width: u32, destination_height: u32) void {
+    const copy_w = @min(source_width, destination_width);
+    const copy_h = @min(source_height, destination_height);
+    const info = c.SDL_GPUBlitInfo{
+        .source = .{ .texture = source, .x = (source_width - copy_w) / 2, .y = (source_height - copy_h) / 2, .w = copy_w, .h = copy_h },
+        .destination = .{ .texture = destination, .x = (destination_width - copy_w) / 2, .y = (destination_height - copy_h) / 2, .w = copy_w, .h = copy_h },
+        .load_op = c.SDL_GPU_LOADOP_CLEAR,
+        .clear_color = .{ .r = 0, .g = 0, .b = 0, .a = 1 },
+        .filter = c.SDL_GPU_FILTER_NEAREST,
+    };
     c.SDL_BlitGPUTexture(command_buffer, &info);
 }
 

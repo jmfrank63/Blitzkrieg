@@ -3,10 +3,12 @@
 #include "../Platform/Paths.h"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -197,10 +199,14 @@ static void FillMonitors(std::vector<OptionDropValue> *drops) {
     if (drops->empty()) drops->push_back({"Monitor1"});
 }
 static void FillVideoModes(std::vector<OptionDropValue> *drops) {
-    drops->push_back({"Auto"});  // the desktop resolution of the selected display
+    // "Auto" (the desktop resolution of the selected display) first, then the
+    // real modes ordered by pixel count so the click-switch cycles
+    // Auto -> smallest -> ... -> largest -> Auto.
+    drops->push_back({"Auto"});
     int display_count = 0;
     SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
     if (!displays) return;
+    std::vector<std::pair<long long, std::string> > modes_sorted;
     for (int d = 0; d < display_count; ++d) {
         int mode_count = 0;
         SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(displays[d], &mode_count);
@@ -209,13 +215,18 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
             const SDL_DisplayMode *mode = modes[i];
             if (!mode || mode->w <= 0 || mode->h <= 0) continue;
             char text[64]; std::snprintf(text, sizeof(text), "%dx%dx32", mode->w, mode->h);
+            // The width joins the pixel count as a tie-breaker so equal-area
+            // modes of different shapes get a stable, sensible order.
+            const long long key = (long long)mode->w * mode->h * 100000 + mode->w;
             bool exists = false;
-            for (const OptionDropValue &drop : *drops) if (drop.program_name == text) { exists = true; break; }
-            if (!exists) drops->push_back({text});
+            for (const auto &entry : modes_sorted) if (entry.second == text) { exists = true; break; }
+            if (!exists) modes_sorted.push_back({key, text});
         }
         SDL_free(modes);
     }
     SDL_free(displays);
+    std::sort(modes_sorted.begin(), modes_sorted.end());
+    for (const auto &entry : modes_sorted) drops->push_back({entry.second.c_str()});
 }
 
 class OptionSystem;

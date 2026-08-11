@@ -129,6 +129,10 @@ typedef struct GfxGpuApi {
     GfxGpuResult (*draw_indexed)(GfxGpuRenderer *, uint64_t, uint32_t, uint32_t, uint32_t, int32_t);
     GfxGpuResult (*draw_temporary)(GfxGpuRenderer *, const GfxGpuTemporaryGeometryInfo *, uint32_t);
     GfxGpuResult (*bind_vertex_buffer)(GfxGpuRenderer *, GfxGpuHandle);
+    /* Appended: presentation of a scene that differs from the drawable.
+       0 = centered 1:1 (borders/crop, gameplay), nonzero = aspect-fit scale
+       (menus and videos, whose controls must never be clipped away). */
+    GfxGpuResult (*set_present_fit)(GfxGpuRenderer *, int);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

@@ -91,7 +91,17 @@ void PumpMessages()
 				pInput->ConsumePlatformEvent( event );
 				break;
 			case NPlatform::EventType::mouseMotion:
-				GetSingleton<ICursor>()->SetPos( event.x, event.y );
+			case NPlatform::EventType::mouseButtonDown:
+			case NPlatform::EventType::mouseButtonUp:
+			case NPlatform::EventType::mouseWheel:
+				// The scene may be presented centered (1:1) or aspect-fit
+				// scaled inside the window; mouse events arrive in window
+				// coordinates and map into game coordinates via the
+				// transform the GFX engine publishes each frame.
+				event.x = int( ( event.x - GetGlobalVar( "GFX.Present.OffsetX", 0.0f ) ) * GetGlobalVar( "GFX.Present.ScaleX", 1.0f ) + 0.5f );
+				event.y = int( ( event.y - GetGlobalVar( "GFX.Present.OffsetY", 0.0f ) ) * GetGlobalVar( "GFX.Present.ScaleY", 1.0f ) + 0.5f );
+				if ( event.type == NPlatform::EventType::mouseMotion )
+					GetSingleton<ICursor>()->SetPos( event.x, event.y );
 				pInput->ConsumePlatformEvent( event );
 				break;
 			case NPlatform::EventType::windowDisplayChanged:
@@ -102,9 +112,6 @@ void PumpMessages()
 				SetGlobalVar( "GFX.Monitor.Index", event.data1 );
 				SetGlobalVar( "GFX.DisplayChanged", 1 );
 				break;
-			case NPlatform::EventType::mouseButtonDown:
-			case NPlatform::EventType::mouseButtonUp:
-			case NPlatform::EventType::mouseWheel:
 			case NPlatform::EventType::textInput:
 			case NPlatform::EventType::focusLost:
 			// focusGained is what sets CInputAPI::bFocusCaptured, and the input
@@ -470,6 +477,25 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// mode-defining options are peeked here by hand. The command line still
 	// wins: -windowed/-fullscreen left a marker global behind.
 	SerializeConfig( true, SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_HELPCALLS );
+	{
+		// Seed the mode-size globals from the GFX.Mode option so the first
+		// SetMode already uses the configured resolution (an explicit size is
+		// no longer corrected by window-size adoption - the renderer honors
+		// it and centers the picture). "Auto" (or anything unparsable) is
+		// 0x0, which SetMode resolves to the desktop of the target display.
+		variant_t modeVar;
+		if ( GetSingleton<IOptionSystem>()->Get( "GFX.Mode", &modeVar ) )
+		{
+			const std::string szMode = (const char*)bstr_t( modeVar );
+			int nModeX = 0, nModeY = 0, nModeBPP = 32;
+			if ( sscanf( szMode.c_str(), "%dx%dx%d", &nModeX, &nModeY, &nModeBPP ) < 2 || nModeX <= 0 || nModeY <= 0 )
+				nModeX = nModeY = 0;
+			SetGlobalVar( "GFX.Mode.Mission.SizeX", nModeX );
+			SetGlobalVar( "GFX.Mode.Mission.SizeY", nModeY );
+			SetGlobalVar( "GFX.Mode.InterMission.SizeX", nModeX );
+			SetGlobalVar( "GFX.Mode.InterMission.SizeY", nModeY );
+		}
+	}
 	if ( GetGlobalVar( "GFX.FullScreen.CmdLine", -1 ) < 0 )
 	{
 		variant_t var;
