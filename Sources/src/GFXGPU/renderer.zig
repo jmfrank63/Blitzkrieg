@@ -404,8 +404,16 @@ pub const Renderer = struct {
             _ = sdl.cancelCommandBuffer(command);
             return error.CopyPassFailed;
         }
+        // Submit and move on. A full SDL_WaitForGPUIdle here stalled the CPU on
+        // the whole GPU after every upload, and drawTemporary uploads a fresh
+        // vertex buffer for each UI rectangle, sprite and text string - hundreds
+        // of pipeline flushes a frame, which showed up as a stuttering cursor
+        // and a barely-moving interface. SDL_GPU runs command buffers in
+        // submission order on one queue, so this upload, submitted before the
+        // frame's draw command buffer, is guaranteed to complete before the draw
+        // that reads the buffer, and the transfer buffer's release is deferred
+        // by SDL until the copy actually finishes.
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
-        if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
     }
 
     pub fn destroyBuffer(self: *Renderer, id: u64) !void {
@@ -449,8 +457,12 @@ pub const Renderer = struct {
             _ = sdl.cancelCommandBuffer(command);
             return error.CopyPassFailed;
         }
+        // No SDL_WaitForGPUIdle: same reasoning as uploadBuffer. The upload is
+        // submitted before any frame that samples the texture, and SDL runs
+        // command buffers in submission order, so the wait only stalled the
+        // pipeline - badly during video, which uploads a frame-sized texture
+        // every frame.
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
-        if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
     }
 
     pub fn destroyTexture(self: *Renderer, id: u64) !void {
