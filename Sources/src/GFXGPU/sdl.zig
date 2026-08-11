@@ -172,11 +172,18 @@ pub fn unmapTransferBuffer(device: *GpuDevice, buffer: *GpuTransferBuffer) void 
 }
 
 pub fn uploadBuffer(device: *GpuDevice, command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, destination: *GpuBuffer, byte_offset: u32, byte_length: u32) bool {
+    return uploadBufferCycle(device, command_buffer, transfer, destination, byte_offset, byte_length, false);
+}
+
+// cycle asks SDL for a fresh internal backing when the destination is still in
+// use, which is what makes a pooled buffer safe to overwrite the frame after it
+// was drawn from without stalling.
+pub fn uploadBufferCycle(device: *GpuDevice, command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, destination: *GpuBuffer, byte_offset: u32, byte_length: u32, cycle: bool) bool {
     _ = device;
     const copy_pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse return false;
     var source = c.SDL_GPUTransferBufferLocation{ .transfer_buffer = transfer, .offset = 0 };
     var target = c.SDL_GPUBufferRegion{ .buffer = destination, .offset = byte_offset, .size = byte_length };
-    c.SDL_UploadToGPUBuffer(copy_pass, &source, &target, false);
+    c.SDL_UploadToGPUBuffer(copy_pass, &source, &target, cycle);
     c.SDL_EndGPUCopyPass(copy_pass);
     return true;
 }

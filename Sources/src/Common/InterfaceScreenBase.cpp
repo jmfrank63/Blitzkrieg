@@ -225,14 +225,39 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	}
 	pScene->UpdateSound( pCamera );
 
+	static const bool bPerf = getenv( "BK_PERF" ) != 0;
+	LARGE_INTEGER pf_freq, pf0, pf1, pf2, pf3, pf4;
+	if ( bPerf ) { QueryPerformanceFrequency( &pf_freq ); QueryPerformanceCounter( &pf0 ); }
+
 	if ( !pGFX->BeginScene() )
 		return;
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
+	if ( bPerf ) QueryPerformanceCounter( &pf1 );
   pScene->Draw( pCamera );
+	if ( bPerf ) QueryPerformanceCounter( &pf2 );
 	DrawAdd();
 	AddStatistics();
 	pGFX->EndScene();
+	if ( bPerf ) QueryPerformanceCounter( &pf3 );
 	pGFX->Flip();
+	if ( bPerf )
+	{
+		QueryPerformanceCounter( &pf4 );
+		static double acc_begin = 0, acc_draw = 0, acc_end = 0, acc_flip = 0;
+		static int acc_frames = 0;
+		const double s = 1000.0 / double( pf_freq.QuadPart );
+		acc_begin += ( pf1.QuadPart - pf0.QuadPart ) * s;
+		acc_draw  += ( pf2.QuadPart - pf1.QuadPart ) * s;
+		acc_end   += ( pf3.QuadPart - pf2.QuadPart ) * s;
+		acc_flip  += ( pf4.QuadPart - pf3.QuadPart ) * s;
+		if ( ++acc_frames >= 60 )
+		{
+			fprintf( stderr, "BK_PERF: phases/frame  begin=%.2f  sceneDraw=%.2f  endScene=%.2f  flip=%.2f ms\n",
+				acc_begin / acc_frames, acc_draw / acc_frames, acc_end / acc_frames, acc_flip / acc_frames );
+			fflush( stderr );
+			acc_begin = acc_draw = acc_end = acc_flip = 0; acc_frames = 0;
+		}
+	}
 }
 void CInterfaceScreenBase::AddStatistics()
 {

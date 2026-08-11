@@ -33,7 +33,7 @@ pub const LiveCounts = extern struct {
 pub const ClearInfo = extern struct { struct_size: u32, mask: u32, color_rgba8: u32, depth: f32, stencil: u32 };
 pub const ViewportInfo = extern struct { struct_size: u32, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
 pub const MatrixInfo = extern struct { struct_size: u32, values: [16]f32 };
-pub const TemporaryGeometryInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, stride: u32 };
+pub const TemporaryGeometryInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, stride: u32, format: u32 };
 pub const StateInfo = extern struct { struct_size: u32, kind: u32, index: u32, value: u32, values: [16]f32 };
 pub const TextureCreateInfo = extern struct { struct_size: u32, width: u32, height: u32, mip_count: u32, format: u32, usage: u32 };
 pub const TextureUploadInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, row_pitch: u32, mip_level: u32 };
@@ -75,6 +75,19 @@ pub const Api = extern struct {
     draw_indexed: *const fn (?*RendererHandle, u64, u32, u32, u32, i32) callconv(.c) Result,
     draw_temporary: *const fn (?*RendererHandle, ?*const TemporaryGeometryInfo, u32) callconv(.c) Result,
     bind_vertex_buffer: *const fn (?*RendererHandle, u64) callconv(.c) Result,
+    draw_temporary_indexed: *const fn (?*RendererHandle, ?*const TemporaryIndexedGeometryInfo) callconv(.c) Result,
+};
+
+pub const TemporaryIndexedGeometryInfo = extern struct {
+    struct_size: u32,
+    vertex_data: ?*const anyopaque,
+    vertex_bytes: u32,
+    stride: u32,
+    format: u32,
+    index_data: ?*const anyopaque,
+    index_bytes: u32,
+    index_size: u32,
+    index_count: u32,
 };
 
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
@@ -424,12 +437,31 @@ fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, 
         renderer.last_error = "draw_temporary requires active render pass";
         return errors.invalid_state;
     }
-    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| {
+    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, info.?.format, primitive_count) catch |err| {
         renderer.last_error = @errorName(err);
         return switch (err) {
-            error.InvalidDraw, error.InvalidBuffer, error.InvalidState, error.UnsupportedVertexFormat => errors.invalid_argument,
-            error.NoDevice, error.CreateFailed, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing, error.UnsupportedDriver, error.UnsupportedShaderFormat => errors.sdl_error,
+            error.InvalidDraw, error.InvalidState => errors.invalid_argument,
             error.OutOfMemory => errors.out_of_memory,
+            else => errors.sdl_error,
+        };
+    };
+    return errors.ok;
+}
+fn drawTemporaryIndexed(handle: ?*RendererHandle, info: ?*const TemporaryIndexedGeometryInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(TemporaryIndexedGeometryInfo)) return errors.invalid_argument;
+    const value = info.?.*;
+    if (value.vertex_data == null or value.vertex_bytes == 0 or value.stride == 0 or value.index_data == null or value.index_bytes == 0 or value.index_count == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .pass_active) {
+        renderer.last_error = "draw_temporary_indexed requires active render pass";
+        return errors.invalid_state;
+    }
+    renderer.drawTemporaryIndexed(value.vertex_data.?, value.vertex_bytes, value.stride, value.format, value.index_data.?, value.index_bytes, value.index_size, value.index_count) catch |err| {
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.InvalidDraw, error.InvalidState => errors.invalid_argument,
+            error.OutOfMemory => errors.out_of_memory,
+            else => errors.sdl_error,
         };
     };
     return errors.ok;
@@ -482,6 +514,7 @@ const api = Api{
     .draw_indexed = drawIndexed,
     .draw_temporary = drawTemporary,
     .bind_vertex_buffer = bindVertexBuffer,
+    .draw_temporary_indexed = drawTemporaryIndexed,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {

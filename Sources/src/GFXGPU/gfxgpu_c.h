@@ -69,7 +69,18 @@ typedef struct GfxGpuClearInfo {
 } GfxGpuClearInfo;
 typedef struct GfxGpuViewportInfo { uint32_t struct_size; float x, y, width, height, min_depth, max_depth; } GfxGpuViewportInfo;
 typedef struct GfxGpuMatrixInfo { uint32_t struct_size; float values[16]; } GfxGpuMatrixInfo;
-typedef struct GfxGpuTemporaryGeometryInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t stride; } GfxGpuTemporaryGeometryInfo;
+typedef struct GfxGpuTemporaryGeometryInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t stride; uint32_t format; } GfxGpuTemporaryGeometryInfo;
+typedef struct GfxGpuTemporaryIndexedGeometryInfo {
+    uint32_t struct_size;
+    const void *vertex_data;
+    uint32_t vertex_bytes;
+    uint32_t stride;
+    uint32_t format;
+    const void *index_data;
+    uint32_t index_bytes;
+    uint32_t index_size;
+    uint32_t index_count;
+} GfxGpuTemporaryIndexedGeometryInfo;
 typedef struct GfxGpuStateInfo { uint32_t struct_size; uint32_t kind; uint32_t index; uint32_t value; float values[16]; } GfxGpuStateInfo;
 typedef struct GfxGpuTextureCreateInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t mip_count; uint32_t format; uint32_t usage; } GfxGpuTextureCreateInfo;
 typedef struct GfxGpuTextureUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t row_pitch; uint32_t mip_level; } GfxGpuTextureUploadInfo;
@@ -129,6 +140,7 @@ typedef struct GfxGpuApi {
     GfxGpuResult (*draw_indexed)(GfxGpuRenderer *, uint64_t, uint32_t, uint32_t, uint32_t, int32_t);
     GfxGpuResult (*draw_temporary)(GfxGpuRenderer *, const GfxGpuTemporaryGeometryInfo *, uint32_t);
     GfxGpuResult (*bind_vertex_buffer)(GfxGpuRenderer *, GfxGpuHandle);
+    GfxGpuResult (*draw_temporary_indexed)(GfxGpuRenderer *, const GfxGpuTemporaryIndexedGeometryInfo *);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

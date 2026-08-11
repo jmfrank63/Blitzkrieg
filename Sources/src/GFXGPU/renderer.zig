@@ -27,6 +27,24 @@ pub const Renderer = struct {
     textures: std.AutoHashMapUnmanaged(u64, TextureResource) = .empty,
     buffers: std.AutoHashMapUnmanaged(u64, BufferResource) = .empty,
     temporary_buffers: std.ArrayListUnmanaged(u64) = .empty,
+    // Pooled GPU buffers for the immediate-mode temporary draws. Allocating and
+    // freeing a vertex buffer and a transfer buffer for every UI rectangle,
+    // sprite and text string ran the menu at 12 fps; reusing them across frames
+    // keeps the allocation out of the hot path. A buffer used this frame returns
+    // to the free list at present and is handed out again next frame; the copy
+    // that fills it cycles so overwriting one the GPU has not finished reading
+    // does not stall.
+    free_temp_vertex: std.ArrayListUnmanaged(TempBuffer) = .empty,
+    in_use_temp_vertex: std.ArrayListUnmanaged(TempBuffer) = .empty,
+    free_temp_index: std.ArrayListUnmanaged(TempBuffer) = .empty,
+    in_use_temp_index: std.ArrayListUnmanaged(TempBuffer) = .empty,
+    free_temp_transfer: std.ArrayListUnmanaged(TempTransfer) = .empty,
+    in_use_temp_transfer: std.ArrayListUnmanaged(TempTransfer) = .empty,
+    // One command buffer per frame collects every temporary upload copy. It is
+    // submitted once, before the frame's draw command buffer, rather than a
+    // command buffer submitted per draw: a D3D12 queue submission costs enough
+    // that hundreds a frame - one per UI rectangle - was the whole frame budget.
+    frame_upload_command: ?*sdl.GpuCommandBuffer = null,
     next_resource_handle: u64 = 1,
     window: ?*anyopaque = null,
     window_claimed: bool = false,
@@ -120,6 +138,11 @@ pub const Renderer = struct {
         format: u32,
     };
 
+    // A pooled temporary buffer and its allocated capacity. Capacity is a power
+    // of two so buffers of similar size share a bucket and get reused.
+    const TempBuffer = struct { gpu: *sdl.GpuBuffer, capacity: u32 };
+    const TempTransfer = struct { transfer: *sdl.GpuTransferBuffer, capacity: u32 };
+
     // Which vertex shader a draw needs. The two "nocolor" entry points exist for
     // vertex formats that carry no GFXFVF_DIFFUSE.
     pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4, untextured_specular = 5, textured_specular = 6 };
@@ -205,7 +228,19 @@ pub const Renderer = struct {
             }
             if (self.sampler) |sampler| sdl.c.SDL_ReleaseGPUSampler(gpu_device, sampler);
             if (self.linear_sampler) |sampler| sdl.c.SDL_ReleaseGPUSampler(gpu_device, sampler);
+            for (self.free_temp_vertex.items) |b| sdl.releaseBuffer(gpu_device, b.gpu);
+            for (self.in_use_temp_vertex.items) |b| sdl.releaseBuffer(gpu_device, b.gpu);
+            for (self.free_temp_index.items) |b| sdl.releaseBuffer(gpu_device, b.gpu);
+            for (self.in_use_temp_index.items) |b| sdl.releaseBuffer(gpu_device, b.gpu);
+            for (self.free_temp_transfer.items) |t| sdl.releaseTransferBuffer(gpu_device, t.transfer);
+            for (self.in_use_temp_transfer.items) |t| sdl.releaseTransferBuffer(gpu_device, t.transfer);
         }
+        self.free_temp_vertex.deinit(self.allocator);
+        self.in_use_temp_vertex.deinit(self.allocator);
+        self.free_temp_index.deinit(self.allocator);
+        self.in_use_temp_index.deinit(self.allocator);
+        self.free_temp_transfer.deinit(self.allocator);
+        self.in_use_temp_transfer.deinit(self.allocator);
         self.pipelines.deinit(self.allocator);
         if (self.shader_directory) |directory| self.allocator.free(directory);
         if (self.device) |device| {
@@ -347,6 +382,12 @@ pub const Renderer = struct {
         }
         const device = &(self.device orelse return error.NoDevice);
         const command = self.frame.command_buffer orelse return error.InvalidState;
+        // The uploads must land before the draws that read them, and SDL runs
+        // command buffers in submission order, so the upload buffer goes first.
+        if (self.frame_upload_command) |upload| {
+            _ = sdl.submitCommandBuffer(upload);
+            self.frame_upload_command = null;
+        }
         if (!device.api.submit_command_buffer(command)) {
             self.frame.cancel();
             return error.SubmitFailed;
@@ -356,6 +397,12 @@ pub const Renderer = struct {
     }
 
     pub fn cancelFrame(self: *Renderer) void {
+        // The upload buffer never acquires a swapchain texture, so it is always
+        // safe to cancel; its recorded copies are discarded with the frame.
+        if (self.frame_upload_command) |upload| {
+            _ = sdl.cancelCommandBuffer(upload);
+            self.frame_upload_command = null;
+        }
         if (self.frame.render_pass) |pass| {
             if (self.device) |device| device.api.end_render_pass(pass);
         }
@@ -487,17 +534,98 @@ pub const Renderer = struct {
 
     fn releaseTemporaryBuffers(self: *Renderer) void {
         while (self.temporary_buffers.pop()) |id| self.destroyBuffer(id) catch {};
+        // The temp buffers used this frame go back to the free pool rather than
+        // being destroyed, so next frame hands them straight out again.
+        self.free_temp_vertex.appendSlice(self.allocator, self.in_use_temp_vertex.items) catch {};
+        self.in_use_temp_vertex.clearRetainingCapacity();
+        self.free_temp_index.appendSlice(self.allocator, self.in_use_temp_index.items) catch {};
+        self.in_use_temp_index.clearRetainingCapacity();
+        self.free_temp_transfer.appendSlice(self.allocator, self.in_use_temp_transfer.items) catch {};
+        self.in_use_temp_transfer.clearRetainingCapacity();
     }
 
-    pub fn drawTemporary(self: *Renderer, data: *const anyopaque, byte_length: u32, stride: u32, primitive_count: u32) !void {
+    fn tempCapacityFor(needed: u32) u32 {
+        var capacity: u32 = 4096;
+        while (capacity < needed) capacity <<= 1;
+        return capacity;
+    }
+
+    fn acquireTempBuffer(self: *Renderer, pool: *std.ArrayListUnmanaged(TempBuffer), usage: sdl.c.SDL_GPUBufferUsageFlags, needed: u32) !TempBuffer {
+        const capacity = tempCapacityFor(needed);
+        var i: usize = 0;
+        while (i < pool.items.len) : (i += 1) {
+            if (pool.items[i].capacity >= capacity) return pool.swapRemove(i);
+        }
+        const device = &(self.device orelse return error.NoDevice);
+        const gpu = sdl.createBuffer(@ptrCast(@alignCast(device.handle.?)), usage, capacity) orelse return error.BufferCreateFailed;
+        return .{ .gpu = gpu, .capacity = capacity };
+    }
+
+    fn acquireTempTransfer(self: *Renderer, needed: u32) !TempTransfer {
+        const capacity = tempCapacityFor(needed);
+        var i: usize = 0;
+        while (i < self.free_temp_transfer.items.len) : (i += 1) {
+            if (self.free_temp_transfer.items[i].capacity >= capacity)
+                return self.free_temp_transfer.swapRemove(i);
+        }
+        const device = &(self.device orelse return error.NoDevice);
+        const transfer = sdl.createUploadBuffer(@ptrCast(@alignCast(device.handle.?)), capacity) orelse return error.TransferBufferCreateFailed;
+        return .{ .transfer = transfer, .capacity = capacity };
+    }
+
+    // Stage bytes into a pooled destination through a pooled transfer buffer and
+    // record the copy into the frame's shared upload command buffer. The transfer
+    // buffer is remembered for recycling at present; the caller keeps the
+    // destination alive the same way. cycle: a pooled buffer may still be read by
+    // the previous frame's in-flight draw, so ask SDL for a fresh backing rather
+    // than stall or corrupt.
+    fn stageTempCopy(self: *Renderer, gpu_device: *sdl.GpuDevice, dest: *sdl.GpuBuffer, data: *const anyopaque, byte_length: u32) !void {
+        const transfer = try self.acquireTempTransfer(byte_length);
+        errdefer self.free_temp_transfer.append(self.allocator, transfer) catch {};
+        const mapped = sdl.mapTransferBuffer(gpu_device, transfer.transfer) orelse return error.TransferBufferMapFailed;
+        @memcpy(@as([*]u8, @ptrCast(mapped))[0..byte_length], @as([*]const u8, @ptrCast(data))[0..byte_length]);
+        sdl.unmapTransferBuffer(gpu_device, transfer.transfer);
+        if (self.frame_upload_command == null)
+            self.frame_upload_command = sdl.acquireCommandBuffer(gpu_device) orelse return error.CommandBufferFailed;
+        if (!sdl.uploadBufferCycle(gpu_device, self.frame_upload_command.?, transfer.transfer, dest, 0, byte_length, true))
+            return error.CopyPassFailed;
+        try self.in_use_temp_transfer.append(self.allocator, transfer);
+    }
+
+    pub fn drawTemporary(self: *Renderer, data: *const anyopaque, byte_length: u32, stride: u32, format: u32, primitive_count: u32) !void {
         if (byte_length == 0 or stride == 0 or byte_length % stride != 0 or primitive_count == 0) return error.InvalidDraw;
         const vertex_count = formats.primitiveVertexCount(self.topology, primitive_count) catch return error.InvalidDraw;
         if (vertex_count > byte_length / stride) return error.InvalidDraw;
-        const id = try self.createBuffer(byte_length / stride, 0, stride, 0);
-        errdefer self.destroyBuffer(id) catch {};
-        try self.uploadBuffer(id, data, byte_length, 0);
-        try self.draw(id, primitive_count);
-        try self.temporary_buffers.append(self.allocator, id);
+        const device = &(self.device orelse return error.NoDevice);
+        const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+
+        const vertex = try self.acquireTempBuffer(&self.free_temp_vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX, byte_length);
+        errdefer self.free_temp_vertex.append(self.allocator, vertex) catch {};
+        try self.stageTempCopy(gpu_device, vertex.gpu, data, byte_length);
+
+        const resource = BufferResource{ .gpu = vertex.gpu, .size = byte_length, .stride = stride, .format = format };
+        try self.drawResource(resource, primitive_count);
+        try self.in_use_temp_vertex.append(self.allocator, vertex);
+    }
+
+    pub fn drawTemporaryIndexed(self: *Renderer, vertex_data: *const anyopaque, vertex_bytes: u32, stride: u32, format: u32, index_data: *const anyopaque, index_bytes: u32, index_size: u32, index_count: u32) !void {
+        if (vertex_bytes == 0 or stride == 0 or vertex_bytes % stride != 0) return error.InvalidDraw;
+        if (index_count == 0 or (index_size != 2 and index_size != 4) or index_bytes < index_count * index_size) return error.InvalidDraw;
+        const device = &(self.device orelse return error.NoDevice);
+        const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+
+        const vertex = try self.acquireTempBuffer(&self.free_temp_vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX, vertex_bytes);
+        errdefer self.free_temp_vertex.append(self.allocator, vertex) catch {};
+        const index = try self.acquireTempBuffer(&self.free_temp_index, sdl.c.SDL_GPU_BUFFERUSAGE_INDEX, index_bytes);
+        errdefer self.free_temp_index.append(self.allocator, index) catch {};
+
+        try self.stageTempCopy(gpu_device, vertex.gpu, vertex_data, vertex_bytes);
+        try self.stageTempCopy(gpu_device, index.gpu, index_data, index_bytes);
+
+        const resource = BufferResource{ .gpu = vertex.gpu, .size = vertex_bytes, .stride = stride, .format = format };
+        try self.drawResourceIndexed(resource, index.gpu, index_size, index_count);
+        try self.in_use_temp_vertex.append(self.allocator, vertex);
+        try self.in_use_temp_index.append(self.allocator, index);
     }
 
     fn readShader(self: *Renderer, name: []const u8) ![]u8 {
@@ -798,9 +926,16 @@ pub const Renderer = struct {
 
     pub fn draw(self: *Renderer, vertex_buffer: u64, primitive_count: u32) !void {
         if (primitive_count == 0) return error.InvalidDraw;
-        const pass = self.frame.render_pass orelse return error.InvalidState;
         const buffer = self.buffers.get(vertex_buffer) orelse return error.InvalidBuffer;
         self.bound_vertex_buffer = vertex_buffer;
+        try self.drawResource(buffer, primitive_count);
+    }
+
+    // Pipeline, uniforms, texture/sampler and viewport state common to every
+    // draw. Returns the render pass so the caller only has to bind buffers and
+    // issue the draw.
+    fn bindDrawState(self: *Renderer, buffer: BufferResource) !*anyopaque {
+        const pass = self.frame.render_pass orelse return error.InvalidState;
         const pipeline = try self.pipelineForDraw(buffer);
         try self.pushDrawUniforms(buffer.format);
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
@@ -817,9 +952,25 @@ pub const Renderer = struct {
             }
         }
         if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
+        return pass;
+    }
+
+    // The shared draw tail, over a buffer that need not live in the buffers map.
+    // drawTemporary builds a BufferResource around a pooled buffer and reaches
+    // it here without registering an id.
+    fn drawResource(self: *Renderer, buffer: BufferResource, primitive_count: u32) !void {
+        const pass = try self.bindDrawState(buffer);
         sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0);
         const vertex_count = formats.primitiveVertexCount(self.topology, primitive_count) catch return error.InvalidDraw;
         sdl.drawPrimitives(@ptrCast(@alignCast(pass)), vertex_count, 0);
+    }
+
+    // The indexed counterpart, over pooled vertex and index buffers.
+    fn drawResourceIndexed(self: *Renderer, vertex: BufferResource, index_gpu: *sdl.GpuBuffer, index_size: u32, index_count: u32) !void {
+        const pass = try self.bindDrawState(vertex);
+        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), vertex.gpu, 0);
+        if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), index_gpu, 0, index_size)) return error.InvalidDraw;
+        sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, 0, 0);
     }
 
     pub fn drawIndexed(self: *Renderer, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, vertex_offset: i32) !void {

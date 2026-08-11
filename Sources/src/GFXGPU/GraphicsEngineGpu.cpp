@@ -637,6 +637,28 @@ bool STDCALL GraphicsEngineGpu::Flip()
 {
     const bool result = renderer_ && Check( api_.present( renderer_ ), "present" );
     if ( result ) frame_pending_ = false;
+    // BK_PERF=1 prints the frame rate and the temporary-draw count once a
+    // second, so a slow scene can be told apart from a slow present.
+    static const bool perf = getenv( "BK_PERF" ) != 0;
+    if ( perf && api_.get_live_counts )
+    {
+        static LARGE_INTEGER freq = {};
+        static LARGE_INTEGER last = {};
+        static int frames = 0;
+        if ( freq.QuadPart == 0 ) { QueryPerformanceFrequency( &freq ); QueryPerformanceCounter( &last ); }
+        ++frames;
+        LARGE_INTEGER now; QueryPerformanceCounter( &now );
+        const double elapsed = double( now.QuadPart - last.QuadPart ) / double( freq.QuadPart );
+        if ( elapsed >= 1.0 )
+        {
+            GfxGpuLiveCounts counts{ sizeof( counts ) };
+            api_.get_live_counts( renderer_, &counts );
+            fprintf( stderr, "BK_PERF: %.1f fps (%.2f ms/frame)  live buffers=%u textures=%u\n",
+                frames / elapsed, 1000.0 * elapsed / frames, counts.buffers, counts.textures );
+            fflush( stderr );
+            frames = 0; last = now;
+        }
+    }
     return result;
 }
 bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture *target )
@@ -738,9 +760,42 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     // bytes the caller wrote are already the layout the pipeline expects.
     const unsigned char *vertex_data = temporary_vertex_bytes_.data();
     const size_t vertex_bytes = temporary_vertex_bytes_.size();
+    const bool indexed = !temporary_index_bytes_.empty();
+
+    // The common case - every UI rectangle, sprite and text run - is a single
+    // non-indexed batch. Route it through draw_temporary, which pools its
+    // buffers and folds every upload into one command buffer a frame. The old
+    // path created a GPU buffer, a transfer buffer and a whole command-buffer
+    // submission per call and freed the buffer again, which ran the menu at 12
+    // fps on a discrete D3D12 adapter.
+    if ( !indexed && api_.draw_temporary && vertex_bytes <= 0xffffffffu )
+    {
+        GfxGpuTemporaryGeometryInfo info{ sizeof( info ), vertex_data, static_cast<uint32_t>( vertex_bytes ),
+            static_cast<uint32_t>( temporary_vertex_stride_ ), static_cast<uint32_t>( temporary_vertex_format_ ) };
+        const uint32_t primitives = PrimitiveCount( temporary_type_, static_cast<uint32_t>( temporary_vertex_count_ ) );
+        const bool drawn = Check( api_.draw_temporary( renderer_, &info, primitives ), "draw_temporary" );
+        if ( drawn ) { passed_vertices_ += temporary_vertex_count_; passed_primitives_ += static_cast<int>( primitives ); }
+        temporary_vertex_bytes_.clear();
+        temporary_index_bytes_.clear();
+        return drawn;
+    }
+    // Same pooled path for indexed batches - every text run goes through here,
+    // and text is most of what an RTS mission draws over the map.
+    if ( indexed && api_.draw_temporary_indexed && vertex_bytes <= 0xffffffffu && temporary_index_bytes_.size() <= 0xffffffffu )
+    {
+        GfxGpuTemporaryIndexedGeometryInfo info{ sizeof( info ), vertex_data, static_cast<uint32_t>( vertex_bytes ),
+            static_cast<uint32_t>( temporary_vertex_stride_ ), static_cast<uint32_t>( temporary_vertex_format_ ),
+            temporary_index_bytes_.data(), static_cast<uint32_t>( temporary_index_bytes_.size() ),
+            static_cast<uint32_t>( temporary_index_stride_ ), static_cast<uint32_t>( temporary_index_count_ ) };
+        const bool drawn = Check( api_.draw_temporary_indexed( renderer_, &info ), "draw_temporary_indexed" );
+        if ( drawn ) { passed_vertices_ += temporary_vertex_count_; passed_primitives_ += static_cast<int>( PrimitiveCount( temporary_type_, static_cast<uint32_t>( temporary_index_count_ ) ) ); }
+        temporary_vertex_bytes_.clear();
+        temporary_index_bytes_.clear();
+        return drawn;
+    }
+
     const bool vertex_created = CreateBufferHandle( static_cast<uint32_t>( temporary_vertex_count_ ), static_cast<uint32_t>( temporary_vertex_format_ ), static_cast<uint32_t>( temporary_vertex_stride_ ), GFXD_DYNAMIC, &vertex_handle ) &&
         UploadBuffer( vertex_handle, vertex_data, vertex_bytes );
-    const bool indexed = !temporary_index_bytes_.empty();
     const bool index_created = !indexed || ( CreateBufferHandle( static_cast<uint32_t>( temporary_index_count_ ), 0, static_cast<uint32_t>( temporary_index_stride_ ), GFXD_DYNAMIC, &index_handle ) &&
         UploadBuffer( index_handle, temporary_index_bytes_.data(), temporary_index_bytes_.size() ) );
     bool drawn = false;
