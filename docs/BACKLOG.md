@@ -10,6 +10,12 @@ bottom of their section; delete items when they ship (git history keeps them).
   value. The other half of this item — wheel scrolls lists, quarter turn
   travels the whole list — shipped 2026-08-12. (Requested 2026-08-11.)
 
+- **Zooming in and out of the game.** Zoom the mission view in and out
+  (mouse wheel is the natural control; the camera already has a
+  `camera_zoom` slider bound to the wheel, but the distance is effectively
+  fixed today). Needs sensible min/max limits and should compose with the
+  fixed-resolution presentation. (Requested 2026-08-12.)
+
 - **Windows parity pass.** Deferred while macOS is brought up first
   ("we will worry about windows once we have mac correct", 2026-08-11).
   Collects everything the macOS rounds changed that Windows still needs:
