@@ -34,6 +34,13 @@ NTimer::STime SSoundSceneConsts::MAP_SOUNDS_UPDATE;
 float SSoundSceneConsts::COMBAT_MUSIC_VOLUME;
 float SSoundSceneConsts::IDLE_MUSIC_VOLUME;
 float SSoundSceneConsts::COMBAT_SOUNDR_FEAR_RADIUS;
+// The values consts.xml states for the two screen-scaled constants, captured
+// where the table is read. InitScreenResolutionConsts used to scale the
+// statics by multiplying them in place, and it runs on every Reposition, so
+// each resolution change or alt-tab compounded the combat fear radius and the
+// terrain weight once more. Scaling from the base makes it idempotent.
+static float s_fCombatFearRadiusBase = 15.0f;
+static float s_fTerrainCriticalWeightBase = 1000.0f;
 float SSoundSceneConsts::COMBAT_FEAR_TIME;
 int SSoundSceneConsts::TERRAIN_NONCYCLED_SOUNDS_MIN_RADIUS;
 int SSoundSceneConsts::TERRAIN_NONCYCLED_SOUNDS_MAX_RADIUS;
@@ -967,6 +974,7 @@ void CSoundScene::InitConsts()
 	SSoundSceneConsts::TERRAIN_SOUND_RADIUS_MAX = constsTbl.GetFloat( "Scene", "Sound.TerrainSounds.MaxRadius", 0.8f );
 	
 	SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT = constsTbl.GetInt( "Scene", "Sound.TerrainSounds.CriticalWeight", 1000 );
+	s_fTerrainCriticalWeightBase = SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT;
 	SSoundSceneConsts::MAP_SOUNDS_UPDATE = constsTbl.GetInt( "Scene", "Sound.MapSounds.UpdateTime", 1500 );
 	
 	SSoundSceneConsts::DEFAULT_SCREEN_WIDTH = constsTbl.GetInt( "Scene", "Sound.ScreenWidth", 1024 );
@@ -975,6 +983,7 @@ void CSoundScene::InitConsts()
 	SSoundSceneConsts::COMBAT_MUSIC_VOLUME = constsTbl.GetFloat( "Scene", "Sound.StreamingSounds.CombatMusicVolume", 1.0f );
 	SSoundSceneConsts::IDLE_MUSIC_VOLUME = constsTbl.GetFloat( "Scene", "Sound.StreamingSounds.IdleMusicVolume", 1.0f );
 	SSoundSceneConsts::COMBAT_SOUNDR_FEAR_RADIUS = constsTbl.GetFloat( "Scene", "Sound.CombatSounds.FearRadius", 15 );
+	s_fCombatFearRadiusBase = SSoundSceneConsts::COMBAT_SOUNDR_FEAR_RADIUS;
 	SSoundSceneConsts::COMBAT_FEAR_TIME = constsTbl.GetInt( "Scene", "Sound.CombatSounds.FearTime", 3000 );
 	SSoundSceneConsts::TERRAIN_NONCYCLED_SOUNDS_MIN_RADIUS = constsTbl.GetInt( "Scene", "Sound.TerrainSounds.NonCycledMinRadius", 15 );
 	SSoundSceneConsts::TERRAIN_NONCYCLED_SOUNDS_MAX_RADIUS = constsTbl.GetInt( "Scene", "Sound.TerrainSounds.NonCycledMaxRadius", 30 );
@@ -991,11 +1000,21 @@ void CSoundScene::InitScreenResolutionConsts()
 	const int nScreenHeight = GetGlobalVar( "GFX.Mode.Mission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 	NI_ASSERT_T( nScreenWidth && nScreenHeight, NStr::Format( "wrong screen sizes %d x %d \n", nScreenWidth, nScreenHeight) );
 
-	vScreenResize.x = 1.0f * nScreenWidth / SSoundSceneConsts::DEFAULT_SCREEN_WIDTH;
-	vScreenResize.y = 1.0f * nScreenHeight / SSoundSceneConsts::DEFAULT_SCREEN_HEIGHT;
+	// One scale for both axes, from the height, the same rule the interface
+	// uses. Scaling the hearing radii by width/1024 against height/768 was
+	// harmless at 4:3 where the two are equal, but on a 3440x1440 display a
+	// sound's full-volume radius scaled by 3.36 while its cut-off radius
+	// scaled by 1.875: for most samples the minimum then exceeded the maximum,
+	// the (dist-min)/(max-min) attenuation went negative, and every gun and
+	// engine on the map played at full volume no matter how far off screen it
+	// was - and kept playing, since distance could never silence it.
+	const float fScale = Min( 1.0f * nScreenWidth / SSoundSceneConsts::DEFAULT_SCREEN_WIDTH,
+	                          1.0f * nScreenHeight / SSoundSceneConsts::DEFAULT_SCREEN_HEIGHT );
+	vScreenResize.x = fScale;
+	vScreenResize.y = fScale;
 
-	SSoundSceneConsts::COMBAT_SOUNDR_FEAR_RADIUS *= fWorldCellSize * sqrt( vScreenResize.x *  vScreenResize.y) / SSoundSceneConsts::SS_SOUND_CELL_SIZE ; 
-	SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT = vScreenResize.x * vScreenResize.y * SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT;
+	SSoundSceneConsts::COMBAT_SOUNDR_FEAR_RADIUS = s_fCombatFearRadiusBase * fWorldCellSize * fScale / SSoundSceneConsts::SS_SOUND_CELL_SIZE;
+	SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT = s_fTerrainCriticalWeightBase * fScale * fScale;
 }
 void CSoundScene::Init( const int nMaxX, const int nMaxY )
 {
