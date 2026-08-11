@@ -74,6 +74,7 @@ public:
 	bool RemoveVirtualControllerForTests(int deviceId);
 	bool IsMinimized() const;
 	bool IsVisible() const;
+	bool HasInputFocus() const;
 	WindowBorrow BorrowWindow() const;
 	void *GetWindowsNativeHandle() const;
 	WindowSize LogicalSize() const;

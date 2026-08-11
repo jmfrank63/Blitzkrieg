@@ -34,7 +34,9 @@ static NPlatform::SDLApplication sdlApplication;
 static ATOM atomWndClassName = 0;       // atom window class name identification (assigned during registration)
 static bool bActive = false;
 static bool bExit = false;
-static bool bMouseReleased = false;
+// Starts released: the mouse is not owned until the window actually holds
+// focus, which ReconcileMouseCapture establishes on the first focused pump.
+static bool bMouseReleased = true;
 static std::list<SWindowsMsg> msgList;  // pumped messages
 static std::string szAppTitleName = " Blitzkrieg Game"; // application title ( will be loaded during initialization )
 static std::string szWndClassName = "NIVAL_RTS_ENGINE"; // user window class name ( will be loaded during initialization )
@@ -352,6 +354,9 @@ bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *p
 	hWnd = static_cast<HWND>( sdlApplication.GetWindowsNativeHandle() );
 	bActive = true;
 	bExit = false;
+	// The system pointer is hidden and the mouse grabbed by
+	// ReconcileMouseCapture on the first pump where the window holds focus, so
+	// there is nothing to set here.
 	return hWnd != nullptr;
 	#if 0
 	szAppTitleName = pszAppName;
@@ -480,16 +485,43 @@ void CaptureMouse()
 {
 	bMouseReleased = false;
 	sdlApplication.SetMouseGrab( true );
+	// The engine draws its own cursor, so the system pointer must be hidden
+	// while the game owns the mouse - otherwise both are on screen at once.
+	// SDL_HideCursor is the only thing that takes the SDL window's default
+	// arrow down; the Win32 SetCursor(0) that did this in the DirectX build
+	// never ran here, because the window is SDL's and not one whose class
+	// cursor we control.
+	sdlApplication.SetCursorVisible( false );
 	ApplyMouseClip();
 }
 void ReleaseMouse()
 {
 	bMouseReleased = true;
 	sdlApplication.SetMouseGrab( false );
+	// Give the pointer back when the game no longer owns it, so the desktop
+	// and other windows are usable while tabbed out.
+	sdlApplication.SetCursorVisible( true );
 	::ClipCursor( 0 );
+}
+// Reconcile the mouse-owned state to whether the window actually holds input
+// focus. Capture is otherwise driven by the focus-gained/lost events, but SDL
+// only emits those on a transition: a window that comes up already focused - the
+// normal case at launch - never gets a focus-gained, so the mouse was never
+// grabbed and the system cursor never hidden until the first alt-tab out and
+// back. Polling the real focus flag each pump closes that gap and is idempotent.
+static void ReconcileMouseCapture()
+{
+	if ( hWnd == 0 )
+		return;
+	const bool bFocused = sdlApplication.HasInputFocus();
+	if ( bFocused && bMouseReleased )
+		CaptureMouse();
+	else if ( !bFocused && !bMouseReleased )
+		ReleaseMouse();
 }
 void PumpMessages()
 {
+	ReconcileMouseCapture();
 	NPlatform::PlatformEvent event;
 	while ( sdlApplication.PollEvent( event ) )
 	{

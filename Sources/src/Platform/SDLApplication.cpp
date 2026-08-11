@@ -183,6 +183,11 @@ bool SDLApplication::IsMinimized() const
 
 bool SDLApplication::IsVisible() const { return visible_; }
 
+bool SDLApplication::HasInputFocus() const
+{
+	return window_ && (SDL_GetWindowFlags( static_cast<SDL_Window *>( window_ ) ) & SDL_WINDOW_INPUT_FOCUS) != 0;
+}
+
 WindowBorrow SDLApplication::BorrowWindow() const { return { EncodeWindowIdentity( window_ ) }; }
 
 void *SDLApplication::GetWindowsNativeHandle() const
