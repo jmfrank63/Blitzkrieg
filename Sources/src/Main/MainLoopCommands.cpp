@@ -10,6 +10,8 @@
 #include "../Formats/fmtSaveLoad.h"
 #include "../StreamIO/RandomGen.h"
 #include "../StreamIO/StreamIOTypes.h"
+#include "../StreamIO/ProfilePaths.h"
+#include "../Misc/FileUtils.h"
 #include "../StreamIO/StreamAdaptor.h"
 #include "../StreamIO/ProgressHook.h"
 #include "TextSystem.h"
@@ -62,7 +64,9 @@ void CICSave::Exec( IMainLoop *pML )
 	{
 		szModname = "mods\\" + szModname;
 	}
-	const std::string szFullFileName = std::string( pML->GetBaseDir() )  + szModname + "saves\\"+ szFileName;
+	const std::string szSaveDir = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\";
+	NFile::CreatePath( szSaveDir.c_str() );
+	const std::string szFullFileName = szSaveDir + szFileName;
 	CPtr<IDataStream> pStream = CreateFileStream( szFullFileName.c_str(), STREAM_ACCESS_WRITE );
 	if ( pStream )
 	{
@@ -106,7 +110,7 @@ void CICLoad::Exec( IMainLoop *pML )
 	{
 		szModname = "mods\\" + szModname;
 	}
-	const std::string szFullFileName = std::string( pML->GetBaseDir() ) + szModname + "saves\\" + szFileName;
+	const std::string szFullFileName = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\" + szFileName;
 	CPtr<IDataStream> pStream = OpenFileStream( szFullFileName.c_str(), STREAM_ACCESS_READ );
 	if ( pStream == 0 )
 	{

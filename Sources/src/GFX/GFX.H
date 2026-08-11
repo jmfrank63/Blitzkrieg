@@ -79,6 +79,9 @@ interface ITextureManager : public ISharedManager
 		TEXTURE_QUALITY_COMPRESSED	= 1,
 		TEXTURE_QUALITY_LOW					= 2,
 		TEXTURE_QUALITY_HIGH				= 3,
+		// Prefers "_u.dds" streams (a high-resolution texture pack) and falls
+		// back to the "_h.dds" originals while no such pack is installed.
+		TEXTURE_QUALITY_ULTRA				= 4,
 	};
 	virtual IGFXTexture* STDCALL GetTexture( const char *pszName ) = 0;
 	virtual const char* STDCALL GetTextureName( IGFXTexture *pTexture ) = 0;

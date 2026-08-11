@@ -118,6 +118,12 @@ private:
     IGFXFont *current_font_ = nullptr;
     GfxGpuRenderer *renderer_ = nullptr;
     void *sdl_window_ = nullptr;
+    // Cross-display move of a macOS fullscreen space: the space is left in
+    // SetMode and re-entered from Flip() once the window has actually landed
+    // on the target display (0 = nothing pending).
+    unsigned int pending_fullscreen_display_ = 0;
+    int pending_fullscreen_frames_ = 0;
+    void UpdatePendingFullscreen();
     bool frame_pending_ = false;
     bool api_valid_ = false;
     bool initialized_ = false;

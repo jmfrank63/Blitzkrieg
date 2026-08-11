@@ -2469,6 +2469,11 @@ fn addGame(
         game_module.linkSystemLibrary("odbc32", .{});
         game_module.linkSystemLibrary("odbccp32", .{});
     }
+    if (target.result.os.tag == .macos) {
+        // SDLApplication::SetAppIcon talks to AppKit through the Objective-C
+        // runtime to give the bare executable a Dock icon.
+        game_module.linkSystemLibrary("objc", .{});
+    }
     if (target.result.os.tag == .windows and std.mem.eql(u8, renderer, "legacy")) {
         game_module.linkSystemLibrary("d3d9", .{});
     }

@@ -405,8 +405,14 @@ pub const Renderer = struct {
             _ = sdl.cancelCommandBuffer(command);
             return error.CopyPassFailed;
         }
+        // No wait after the submit. Command buffers execute in submission
+        // order, so this copy lands before the frame's draws (whose command
+        // buffer is submitted at present), and SDL defers releasing the
+        // transfer buffer until the copy has run. The wait-for-idle that sat
+        // here synced the whole GPU once per upload - and the engine uploads
+        // a temporary buffer per draw batch - which is what held a paused
+        // mission to ~12 fps.
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
-        if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
     }
 
     pub fn destroyBuffer(self: *Renderer, id: u64) !void {
@@ -450,8 +456,10 @@ pub const Renderer = struct {
             _ = sdl.cancelCommandBuffer(command);
             return error.CopyPassFailed;
         }
+        // Same as uploadBuffer: submission order already puts this copy ahead
+        // of the frame's draws, so the per-upload GPU sync bought nothing and
+        // stalled every minimap and war-fog texture update.
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
-        if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
     }
 
     pub fn destroyTexture(self: *Renderer, id: u64) !void {

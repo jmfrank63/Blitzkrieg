@@ -41,6 +41,7 @@ public:
 	GameFrame &operator=( const GameFrame & ) = delete;
 
 	bool Initialize( const char *title, int width, int height );
+	bool SetAppIcon( const char *path ) { return application_.SetAppIcon( path ); }
 	void Shutdown();
 	void Show();
 	void Hide();

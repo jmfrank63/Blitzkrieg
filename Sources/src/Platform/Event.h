@@ -15,6 +15,7 @@ enum class EventType
 	windowResized,
 	windowMinimized,
 	windowRestored,
+	windowDisplayChanged,
 	keyDown,
 	keyUp,
 	textInput,

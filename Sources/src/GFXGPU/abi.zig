@@ -294,7 +294,7 @@ fn uploadTexture(handle: ?*RendererHandle, texture: u64, info: ?*const TextureUp
     if (info == null or info.?.struct_size < @sizeOf(TextureUploadInfo) or info.?.data == null or info.?.byte_length == 0) return errors.invalid_argument;
     renderer.uploadTexture(texture, info.?.data.?, info.?.byte_length, info.?.row_pitch) catch |err| return switch (err) {
         error.InvalidTexture, error.TextureUploadOutOfBounds => errors.invalid_argument,
-        error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed => errors.sdl_error,
+        error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed => errors.sdl_error,
     };
     return errors.ok;
 }
@@ -335,7 +335,7 @@ fn uploadBuffer(handle: ?*RendererHandle, buffer: u64, info: ?*const BufferUploa
     if (info == null or info.?.struct_size < @sizeOf(BufferUploadInfo) or info.?.data == null or info.?.byte_length == 0) return errors.invalid_argument;
     renderer.uploadBuffer(buffer, info.?.data.?, info.?.byte_length, info.?.byte_offset) catch |err| return switch (err) {
         error.InvalidBuffer, error.BufferUploadOutOfBounds => errors.invalid_argument,
-        error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed => errors.sdl_error,
+        error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed => errors.sdl_error,
     };
     return errors.ok;
 }
@@ -428,7 +428,7 @@ fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, 
         renderer.last_error = @errorName(err);
         return switch (err) {
             error.InvalidDraw, error.InvalidBuffer, error.InvalidState, error.UnsupportedVertexFormat => errors.invalid_argument,
-            error.NoDevice, error.CreateFailed, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing, error.UnsupportedDriver, error.UnsupportedShaderFormat => errors.sdl_error,
+            error.NoDevice, error.CreateFailed, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing, error.UnsupportedDriver, error.UnsupportedShaderFormat => errors.sdl_error,
             error.OutOfMemory => errors.out_of_memory,
         };
     };

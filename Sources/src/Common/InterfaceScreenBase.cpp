@@ -3,6 +3,7 @@
 #include "InterfaceScreenBase.h"
 #include "../Platform/Clock.h"
 #include "../Main/iMainCommands.h"
+#include "../StreamIO/OptionSystem.h"
 #include "../AILogic/AILogic.h"
 #include "../GameTT/CommonId.h"
 #include "../Main/ScenarioTracker.h"
@@ -195,6 +196,38 @@ int CInterfaceScreenBase::FinishInterface( IInterfaceCommand *pCmdNextInterface 
 }
 void CInterfaceScreenBase::Step( bool bAppActive )
 {
+	// The OS moved the window to another display (drag, arrangement change,
+	// unplug) - GameMain's event pump has already pointed GFX.Monitor.Index at
+	// it. In fullscreen the mode must follow so the picture covers the display
+	// it now lives on at that display's resolution; the option value is
+	// updated too so the settings screen agrees with where the game really is.
+	if ( GetGlobalVar( "GFX.DisplayChanged", 0 ) != 0 )
+	{
+		SetGlobalVar( "GFX.DisplayChanged", 0 );
+		if ( GetGlobalVar( "GFX.Mode.Current.FullScreen", 0 ) == int( GFXFS_FULLSCREEN ) )
+		{
+			GetSingleton<IOptionSystem>()->Set( "GFX.Monitor",
+				variant_t( NStr::Format( "Monitor%d", GetGlobalVar( "GFX.Monitor.Index", 0 ) + 1 ) ) );
+			if ( ChangeResolution() )
+				GetSingleton<IScene>()->Reposition();
+		}
+	}
+	// The texture-quality option action runs in the StreamIO bridge, which
+	// cannot reach ITextureManager; it leaves the chosen value here instead.
+	// Applies to textures loaded from now on - already-resident ones keep the
+	// files they were created from.
+	{
+		const std::string szTextureQuality = GetGlobalVar( "GFX.Texture.QualityPending", "" );
+		if ( !szTextureQuality.empty() )
+		{
+			SetGlobalVar( "GFX.Texture.QualityPending", "" );
+			ITextureManager::ETextureQuality eQuality = ITextureManager::TEXTURE_QUALITY_HIGH;
+			if ( szTextureQuality == "Ultra" ) eQuality = ITextureManager::TEXTURE_QUALITY_ULTRA;
+			else if ( szTextureQuality == "Compressed" ) eQuality = ITextureManager::TEXTURE_QUALITY_COMPRESSED;
+			else if ( szTextureQuality == "Low" ) eQuality = ITextureManager::TEXTURE_QUALITY_LOW;
+			GetSingleton<ITextureManager>()->SetQuality( eQuality );
+		}
+	}
 	if ( GetGlobalVar( "X64.ReferenceScene", 0 ) == 0 )
 		pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
@@ -363,10 +396,21 @@ bool CInterfaceScreenBase::ChangeResolution()
 	const int nCurrentSizeY = GetGlobalVar( "GFX.Mode.Current.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 	const int nCurrentStencil = GetGlobalVar( "GFX.Mode.Current.Stencil", 0 );
 	const int nCurrentBPP = GetGlobalVar( "GFX.Mode.Current.BPP", 16 );
-	if ( (nDesiredSizeX != nCurrentSizeX) || (nDesiredSizeY != nCurrentSizeY) || 
-		   (nDesiredStencil != nCurrentStencil) || (nDesiredBPP != nCurrentBPP) )
+	// The monitor choice participates in the mode diff so that picking another
+	// display in the options re-runs SetMode (which moves the window) even when
+	// the resolution itself is unchanged. "Current" defaults to the desired
+	// value: an unset copy means SetMode already honored the choice at startup.
+	const int nDesiredMonitor = GetGlobalVar( "GFX.Monitor.Index", 0 );
+	const int nCurrentMonitor = GetGlobalVar( "GFX.Monitor.Current.Index", nDesiredMonitor );
+	// The fullscreen flag is part of the diff so the options' Fullscreen
+	// ON/OFF row takes effect even when nothing else changed.
+	const int nDesiredFullScreen = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
+	const int nCurrentFullScreen = GetGlobalVar( "GFX.Mode.Current.FullScreen", nDesiredFullScreen );
+	if ( (nDesiredSizeX != nCurrentSizeX) || (nDesiredSizeY != nCurrentSizeY) ||
+		   (nDesiredStencil != nCurrentStencil) || (nDesiredBPP != nCurrentBPP) ||
+		   (nDesiredMonitor != nCurrentMonitor) || (nDesiredFullScreen != nCurrentFullScreen) )
 	{
-		const EGFXFullscreen eFullScreen = (EGFXFullscreen)GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
+		const EGFXFullscreen eFullScreen = (EGFXFullscreen)nDesiredFullScreen;
 		const int nDesiredFreq = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".Frequency").c_str(), 0 );
 		if ( pGFX->SetMode( nDesiredSizeX, nDesiredSizeY, nDesiredBPP, nDesiredStencil, eFullScreen, nDesiredFreq ) == false )
 		{
@@ -386,6 +430,7 @@ bool CInterfaceScreenBase::ChangeResolution()
 		SetGlobalVar( "GFX.Mode.Current.Stencil", nDesiredStencil );
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", int( eFullScreen ) );
 		SetGlobalVar( "GFX.Mode.Current.Frequency", nDesiredFreq );
+		SetGlobalVar( "GFX.Monitor.Current.Index", nDesiredMonitor );
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, rcScreen.Width(), rcScreen.Height(), 1, 1024*8 + rcScreen.Height()*2 );

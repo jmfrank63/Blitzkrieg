@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Platform/LegacyText.h"
 
 #include "../Main/Transceiver.h"
@@ -71,6 +72,7 @@ void AppendCampaignCutScenesFromSaves( std::list<std::string> &cutscenes )
 	szBaseDir = szBaseDir.substr( 0, szBaseDir.rfind('\\') );
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	szBaseDir += "\\";
+	szBaseDir += NProfile::Segment();
 	if ( !szModname.empty() )
 	{
 		szBaseDir += "mods\\";

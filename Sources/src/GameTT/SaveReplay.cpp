@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 
 #include "SaveReplay.h"
 
@@ -86,7 +87,7 @@ bool CInterfaceSaveReplay::ProcessMessage( const SGameMessage &msg )
 		case IMC_OK:
 			{
 				IMainLoop *pML = GetSingleton<IMainLoop>();
-				szSaveReplayFile = pML->GetBaseDir();
+				szSaveReplayFile = std::string( pML->GetBaseDir() ) + NProfile::Segment();
 				const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 				if ( !szModname.empty() )
 				{

@@ -184,19 +184,20 @@ static void FillMonitors(std::vector<OptionDropValue> *drops) {
     int count = 0;
     SDL_DisplayID *displays = SDL_GetDisplays(&count);
     if (displays) {
-        int ordinal = 1;
+        // "MonitorN" means display index N-1, matching the -monitorN command
+        // line. The game has no notion of a primary display, so the first one
+        // is just Monitor1 ("Primary" from older configs still parses as it).
         for (int i = 0; i < count; ++i) {
-            const SDL_DisplayID id = displays[i];
-            const char *name = SDL_GetDisplayName(id);
-            if (i == 0) drops->push_back({"Primary"});
-            else { char text[32]; std::snprintf(text, sizeof(text), "Monitor%d", ordinal++); drops->push_back({text}); }
-            (void)name;
+            char text[32];
+            std::snprintf(text, sizeof(text), "Monitor%d", i + 1);
+            drops->push_back({text});
         }
         SDL_free(displays);
     }
-    if (drops->empty()) drops->push_back({"Primary"});
+    if (drops->empty()) drops->push_back({"Monitor1"});
 }
 static void FillVideoModes(std::vector<OptionDropValue> *drops) {
+    drops->push_back({"Auto"});  // the desktop resolution of the selected display
     int display_count = 0;
     SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
     if (!displays) return;
@@ -268,7 +269,7 @@ public:
         else if (fill && std::strcmp(fill, "GetGameSpeed") == 0) { values[0] = "VerySlow"; values[1] = "Slow"; values[2] = "Normal"; values[3] = "Fast"; values[4] = "VeryFast"; count = 5; }
         else if (fill && std::strcmp(fill, "GetVideoModes") == 0) FillVideoModes(&drops_);
         else if (fill && std::strcmp(fill, "GetMonitors") == 0) FillMonitors(&drops_);
-        else if (fill && std::strcmp(fill, "GetTextureQuality") == 0) { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; count = 3; }
+        else if (fill && std::strcmp(fill, "GetTextureQuality") == 0) { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; values[3] = "Ultra"; count = 4; }
         for (int i = 0; i < count; ++i) drops_.push_back({values[i]}); return drops_;
     }
     IOptionSystemIterator *BK_STDCALL CreateIterator(unsigned long mask) override { return new OptionIterator(this, mask); }

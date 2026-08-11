@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Platform/LegacyText.h"
 
 #include "CommonId.h"
@@ -84,7 +85,7 @@ bool CInterfaceReplayList::Init()
 {
 	fileMasks.clear();
 	fileMasks.push_back( "*.rpl" );
-	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
+	szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
