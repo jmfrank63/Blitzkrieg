@@ -77,6 +77,14 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 			result.referenceWidth = std::atoi( arguments.argv[++index] );
 			result.referenceHeight = std::atoi( arguments.argv[++index] );
 		}
+		else if ( argument.rfind( "-mode", 0 ) == 0 )
+		{
+			// Checked ahead of -mod (mod directory) since "-mode" shares its
+			// four-letter prefix.
+			std::string value = AttachedValue( raw, 5 );
+			if ( !value.empty() && value.front() == '=' ) value = TrimQuotes( value.substr( 1 ) );
+			result.mode = value;
+		}
 		else if ( argument.rfind( "-mod", 0 ) == 0 ) result.modName = AttachedValue( raw, 4 );
 		else if ( argument == "-windowed" ) result.fullscreenMode = EFullscreenMode::windowed;
 		else if ( argument == "-fullscreen" ) result.fullscreenMode = EFullscreenMode::fullscreen;

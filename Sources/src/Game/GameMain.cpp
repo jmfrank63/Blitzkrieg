@@ -475,7 +475,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// flipping once the first interface screen applies the options. Loading
 	// only fills the option values - actions run later in Init() - so the two
 	// mode-defining options are peeked here by hand. The command line still
-	// wins: -windowed/-fullscreen left a marker global behind.
+	// wins: -windowed/-fullscreen/-mode left a marker global behind.
 	SerializeConfig( true, SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_HELPCALLS );
 	{
 		// Seed the mode-size globals from the GFX.Mode option so the first
@@ -483,10 +483,22 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// no longer corrected by window-size adoption - the renderer honors
 		// it and centers the picture). "Auto" (or anything unparsable) is
 		// 0x0, which SetMode resolves to the desktop of the target display.
-		variant_t modeVar;
-		if ( GetSingleton<IOptionSystem>()->Get( "GFX.Mode", &modeVar ) )
+		// -mode left its normalized value behind in GFX.Mode.CmdLine.Value;
+		// that wins over the config option, same as -windowed/-fullscreen
+		// win over GFX.FullScreen below.
+		std::string szMode;
+		if ( GetGlobalVar( "GFX.Mode.CmdLine", -1 ) >= 0 )
 		{
-			const std::string szMode = (const char*)bstr_t( modeVar );
+			szMode = GetGlobalVar( "GFX.Mode.CmdLine.Value", "" );
+		}
+		else
+		{
+			variant_t modeVar;
+			if ( GetSingleton<IOptionSystem>()->Get( "GFX.Mode", &modeVar ) )
+				szMode = (const char*)bstr_t( modeVar );
+		}
+		if ( !szMode.empty() )
+		{
 			int nModeX = 0, nModeY = 0, nModeBPP = 32;
 			if ( sscanf( szMode.c_str(), "%dx%dx%d", &nModeX, &nModeY, &nModeBPP ) < 2 || nModeX <= 0 || nModeY <= 0 )
 				nModeX = nModeY = 0;
@@ -633,6 +645,14 @@ int RunGame( const BkGameLaunchInfo &launch )
 		const int nCmdFullscreen = GetGlobalVar( "GFX.FullScreen.CmdLine", -1 );
 		if ( nCmdFullscreen >= 0 )
 			pOptionSystem->Set( "GFX.FullScreen", variant_t( nCmdFullscreen != 0 ? "ON" : "OFF" ) );
+		// Same for an explicit -mode: Init() just re-applied the config's
+		// GFX.Mode too, so push the cmdline's normalized value back into the
+		// option. That re-runs the option's own action (identical to picking
+		// it in the options screen) and leaves the options screen and config
+		// serialization agreeing with what's on screen.
+		const std::string szCmdMode = GetGlobalVar( "GFX.Mode.CmdLine", -1 ) >= 0 ? GetGlobalVar( "GFX.Mode.CmdLine.Value", "" ) : "";
+		if ( !szCmdMode.empty() )
+			pOptionSystem->Set( "GFX.Mode", variant_t( szCmdMode ) );
 	}
 	timeMeter.Sample( "options init" );
 	int nGuaranteeFPSTime = 0;
@@ -1007,11 +1027,32 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			pCmdParams->nReferenceWidth = atoi( szParams[++i].c_str() );
 			pCmdParams->nReferenceHeight = atoi( szParams[++i].c_str() );
 		}
+		else if ( szParams[i].compare(0, 5, "-mode") == 0 )
+		{
+			// -mode=WxH / -mode=WxHxBPP (BPP defaults to 32) / -mode=auto:
+			// sets the resolution exactly like picking it in the options
+			// screen. Checked ahead of -mod (mod directory) since "-mode"
+			// shares its four-letter prefix. Garbage is ignored - the flag
+			// is dropped and the config (or the option's own default) keeps
+			// driving the mode, same as if it had never been given.
+			std::string szMode = szParams[i].c_str() + 5;
+			if ( !szMode.empty() && szMode[0] == '=' )
+				szMode = szMode.substr( 1 );
+			NStr::TrimBoth( szMode, "\"" );
+			int nModeX = 0, nModeY = 0, nModeBPP = 32;
+			const bool bAuto = szMode == "auto";
+			if ( bAuto || ( sscanf( szMode.c_str(), "%dx%dx%d", &nModeX, &nModeY, &nModeBPP ) >= 2 && nModeX > 0 && nModeY > 0 ) )
+			{
+				const std::string szNormalized = bAuto ? "Auto" : NStr::Format( "%dx%dx%d", nModeX, nModeY, nModeBPP );
+				SetGlobalVar( "GFX.Mode.CmdLine", 1 );
+				SetGlobalVar( "GFX.Mode.CmdLine.Value", szNormalized.c_str() );
+			}
+		}
 		else if ( szParams[i].compare(0, 4, "-mod") == 0 )
 		{
 			std::string szModDir = szParams[i].c_str() + 4;
 			NStr::TrimBoth( szModDir, '"' );
-			if ( !szModDir.empty() && szModDir[szModDir.size() - 1] != '\\' ) 
+			if ( !szModDir.empty() && szModDir[szModDir.size() - 1] != '\\' )
 				szModDir += '\\';
 			pCmdParams->szModName = szModDir;
 		}

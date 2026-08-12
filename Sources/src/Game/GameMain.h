@@ -34,6 +34,9 @@ struct CommandLineOptions
 	// "Monitor2" naming) or part of the display's name, because the index order
 	// changes as monitors are plugged in.
 	std::string monitor;
+	// -mode=WxH / -mode=WxHxBPP / -mode=auto: the resolution, normalized the
+	// same way the GFX.Mode option stores it. Empty when not given.
+	std::string mode;
 	bool useDxt = false;
 	bool multiplayer = false;
 	bool cycledLaunch = false;
