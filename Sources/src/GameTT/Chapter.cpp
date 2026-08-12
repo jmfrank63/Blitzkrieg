@@ -326,20 +326,37 @@ void CInterfaceChapter::InitWindow()
 	int nMission = GetGlobalVar( "Mission.Current.Index", 0 );		//��� �������� ������, ���� �� ������������ ����� �� ������ ������, �� �� != 0
 	
 	IUIContainer *pMap = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
-	// The map placement below, and every mission button added to pMap further
-	// down, come from raw 1024x768-authored pixel data (game stats / XML),
-	// set AFTER the screen's one-time ScaleLayout already ran in Reposition()
-	// above. Capture the scale already applied to this (correctly scaled)
-	// container now, so the freshly authored subtree can be brought up to it
-	// explicitly in one shot once everything is in place — see the
-	// pMap->ScaleLayout() call below.
+	// pMap's own ORIGIN is already correct here: it was scaled exactly once,
+	// as part of the whole screen tree, by the screen's one-time ScaleLayout
+	// in Reposition() above (from its XML-authored WindowPos). Only its SIZE
+	// still needs fixing below, and the mission buttons added further down
+	// still need scaling entirely (they come from raw 1024x768-authored pixel
+	// data — game stats / a freshly loaded button XML — added AFTER that
+	// pass). Do not call ScaleLayout on pMap itself: ScaleLayout scales
+	// position AND size together, and pMap's position is already scaled, so
+	// doing that would scale it a second time (a v1 bug: size came out
+	// right, position drifted down-right by roughly position*(scale-1)).
+	// Capture the scale once so the map's size and each new child can be
+	// brought to it explicitly instead.
 	const CVec2 vMapLayoutScale = pMap->GetLayoutScale();
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		CVec2 pos, size; CTRect<float> rect;
+		pMap->GetWindowPlacement( &pos, &size, &rect );
+		fprintf( stderr, "BK_UI_TRACE: chapter map anchor (pre-fix, already-scaled-once) pos=(%.1f,%.1f) rect=(%.1f,%.1f)-(%.1f,%.1f) scale=(%.4f,%.4f)\n",
+			pos.x, pos.y, rect.x1, rect.y1, rect.x2, rect.y2, vMapLayoutScale.x, vMapLayoutScale.y );
+	}
 	IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture( pStats->szMapImage.c_str() );
 	NI_ASSERT_T( pTexture != 0, "Chapter map texture is invalid" );
 	pMap->SetWindowTexture( pTexture );
 	CTRect<float> rc( 0.0f, 0.0f, pStats->mapImageRect.x2, pStats->mapImageRect.y2 );
 	pMap->SetWindowMap( rc );
-	const CVec2 map_position( pStats->mapImageRect.x1, pStats->mapImageRect.y1 );
+	// mapImageRect.x1/y1 are the map dialog's own raw 1024x768-authored SIZE
+	// (despite going in as SetWindowPlacement's "size" argument — see its
+	// signature below). Scale it here, directly, instead of leaving it raw
+	// and later running ScaleLayout on pMap (which would also re-scale the
+	// already-correct position above).
+	const CVec2 map_position( pStats->mapImageRect.x1 * vMapLayoutScale.x, pStats->mapImageRect.y1 * vMapLayoutScale.y );
 	pMap->SetWindowPlacement( 0, &map_position );
 	
 	CPtr<IDataStream> pMissionButtonStream = GetSingleton<IDataStorage>()->OpenStream( "ui\\common\\missionbutton.xml", STREAM_ACCESS_READ );
@@ -395,6 +412,11 @@ void CInterfaceChapter::InitWindow()
 		pMissionButton->SetWindowPlacement( &vPos, 0 );
 		pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
 		pMap->AddChild( pMissionButton );
+		// Freshly loaded window (scale 1.0), positioned from raw
+		// 1024x768-authored pixel data. Bring it to the map's scale now —
+		// see the comment above pMap's fetch for why pMap itself is not
+		// scaled here.
+		pMissionButton->ScaleLayout( vMapLayoutScale );
 		missionIndeces.push_back( i );
 	}
 
@@ -420,6 +442,7 @@ void CInterfaceChapter::InitWindow()
 			pMissionButton->SetWindowPlacement( &vPos, 0 );
 			pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
 			pMap->AddChild( pMissionButton );
+			pMissionButton->ScaleLayout( vMapLayoutScale );
 			missionIndeces.push_back( i );
 		}
 	}
@@ -446,31 +469,21 @@ void CInterfaceChapter::InitWindow()
 		pMissionButton->SetWindowPlacement( &vPos, 0 );
 		pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
 		pMap->AddChild( pMissionButton );
+		pMissionButton->ScaleLayout( vMapLayoutScale );
 		missionIndeces.push_back( i );
 	}
-	// Bring the map image placement and every mission button added above
-	// (across all three loops, regardless of which ones ran) from their raw
-	// 1024x768-authored pixel data up to the screen's actual layout scale, in
-	// one shot (CMultipleWindow::ScaleLayout recurses into pMap's children).
-	// The Reposition() call at the end of this function recomputes the SAME
-	// scale for this resolution, so its vDeltaScale is ~1.0 and ScaleLayout
-	// is skipped there — this call does not get applied twice. This must run
-	// even if missionIndeces ends up empty, because the map background image
-	// itself still needs it.
+	// pMap's own placement was fixed up-front (size scaled directly, origin
+	// left untouched) and every mission button above (across all three
+	// loops, regardless of which ones ran) was scaled individually as it was
+	// added, so there is nothing left to do here. Trace the final state and
+	// confirm the origin is unchanged from the anchor logged above (proves
+	// no double-scaling), while the size reflects the scaled value.
 	if ( getenv( "BK_UI_TRACE" ) )
 	{
 		CVec2 pos, size; CTRect<float> rect;
 		pMap->GetWindowPlacement( &pos, &size, &rect );
-		fprintf( stderr, "BK_UI_TRACE: chapter map pre-scale pos=(%.1f,%.1f) size=(%.1f,%.1f) targetScale=(%.4f,%.4f)\n",
-			pos.x, pos.y, size.x, size.y, vMapLayoutScale.x, vMapLayoutScale.y );
-	}
-	pMap->ScaleLayout( vMapLayoutScale );
-	if ( getenv( "BK_UI_TRACE" ) )
-	{
-		CVec2 pos, size; CTRect<float> rect;
-		pMap->GetWindowPlacement( &pos, &size, &rect );
-		fprintf( stderr, "BK_UI_TRACE: chapter map post-scale pos=(%.1f,%.1f) size=(%.1f,%.1f)\n",
-			pos.x, pos.y, size.x, size.y );
+		fprintf( stderr, "BK_UI_TRACE: chapter map final pos=(%.1f,%.1f) size=(%.1f,%.1f) rect=(%.1f,%.1f)-(%.1f,%.1f)\n",
+			pos.x, pos.y, size.x, size.y, rect.x1, rect.y1, rect.x2, rect.y2 );
 	}
 	if ( !missionIndeces.empty() )
 		SetGlobalVar( "NumberOfButtons", (int) missionIndeces.size() - 1 );
