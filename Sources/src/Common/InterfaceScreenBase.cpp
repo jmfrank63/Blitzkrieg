@@ -212,6 +212,19 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 				GetSingleton<IScene>()->Reposition();
 		}
 	}
+	// A live window resize changes the drawable; the mission scene follows it
+	// (its scene is the drawable) and cfg_eff re-clamps. Menus keep their
+	// configured scene and only the letterbox changes, which the present path
+	// handles by itself.
+	if ( GetGlobalVar( "GFX.DrawableChanged", 0 ) != 0 )
+	{
+		SetGlobalVar( "GFX.DrawableChanged", 0 );
+		if ( szInterfaceType == "Mission" )
+		{
+			if ( ChangeResolution() )
+				GetSingleton<IScene>()->Reposition();
+		}
+	}
 	// Asserted every frame, not only in OnGetFocus: the direct save launch
 	// activates the mission screen without a focus notification, and a stale
 	// fit mode would scale gameplay or clip a menu.
@@ -420,8 +433,24 @@ bool CInterfaceScreenBase::GetMessage( SGameMessage *pMsg )
 }
 bool CInterfaceScreenBase::ChangeResolution()
 {
-	const int nDesiredSizeX = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeX").c_str(), GFX_DEFAULT_SCREEN_WIDTH );
-	const int nDesiredSizeY = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeY").c_str(), GFX_DEFAULT_SCREEN_HEIGHT );
+	int nDesiredSizeX = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeX").c_str(), GFX_DEFAULT_SCREEN_WIDTH );
+	int nDesiredSizeY = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeY").c_str(), GFX_DEFAULT_SCREEN_HEIGHT );
+	// The configured resolution is not a literal render size any more
+	// (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md):
+	// missions render at the drawable and use the configuration as the world
+	// view / HUD base; menus and videos render at the configuration and are
+	// presented shrink-only. cfg_eff clamps the configuration to the
+	// drawable so an oversized setting behaves as the drawable size.
+	const int nDrawableX = GetGlobalVar( "GFX.Drawable.SizeX", 0 );
+	const int nDrawableY = GetGlobalVar( "GFX.Drawable.SizeY", 0 );
+	int nWorldBaseX = 0, nWorldBaseY = 0;
+	if ( szInterfaceType == "Mission" && nDrawableX > 0 && nDrawableY > 0 )
+	{
+		nWorldBaseX = nDesiredSizeX > 0 ? Min( nDesiredSizeX, nDrawableX ) : nDrawableX;
+		nWorldBaseY = nDesiredSizeY > 0 ? Min( nDesiredSizeY, nDrawableY ) : nDrawableY;
+		nDesiredSizeX = nDrawableX;
+		nDesiredSizeY = nDrawableY;
+	}
 	const int nDesiredStencil = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".Stencil").c_str(), 0 );
 	const int nDesiredBPP = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".BPP").c_str(), 16 );
 	const int nCurrentSizeX = GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
@@ -463,6 +492,8 @@ bool CInterfaceScreenBase::ChangeResolution()
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", int( eFullScreen ) );
 		SetGlobalVar( "GFX.Mode.Current.Frequency", nDesiredFreq );
 		SetGlobalVar( "GFX.Monitor.Current.Index", nDesiredMonitor );
+		SetGlobalVar( "GFX.World.BaseSizeX", nWorldBaseX );
+		SetGlobalVar( "GFX.World.BaseSizeY", nWorldBaseY );
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, rcScreen.Width(), rcScreen.Height(), 1, 1024*8 + rcScreen.Height()*2 );
