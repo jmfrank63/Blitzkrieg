@@ -811,7 +811,7 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
     {
         if ( bFit )
         {
-            const double fScale = Min( double( pixel_width ) / width_, double( pixel_height ) / height_ );
+            const double fScale = Min( 1.0, Min( double( pixel_width ) / width_, double( pixel_height ) / height_ ) );
             const double fFitW = width_ * fScale, fFitH = height_ * fScale;
             fOffsetX = float( ( pixel_width - fFitW ) / 2 );
             fOffsetY = float( ( pixel_height - fFitH ) / 2 );

@@ -1162,6 +1162,17 @@ pub fn build(b: *std.Build) void {
     stage_test_step.dependOn(&stage_tests.step);
     if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
 
+    const present_fit_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/present_fit.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const present_fit_tests = b.addTest(.{ .root_module = present_fit_module });
+    const present_fit_tests_run = b.addRunArtifact(present_fit_tests);
+    const present_fit_step = b.step("test-present-fit", "Run the shrink-only present fit rect tests");
+    present_fit_step.dependOn(&present_fit_tests.step);
+    if (test_mode == .run) present_fit_step.dependOn(&present_fit_tests_run.step);
+
     const runtime_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_runtime.zig"),
         .target = b.graph.host,
@@ -1206,6 +1217,7 @@ pub fn build(b: *std.Build) void {
     test_platform_foundation.dependOn(platform_runtime_step);
     test_platform_foundation.dependOn(client_step);
     test_platform_foundation.dependOn(runtime_platform_audit_step);
+    test_platform_foundation.dependOn(present_fit_step);
     test_platform_foundation.dependOn(platform_linkage_step);
     if (test_mode == .run) test_platform_foundation.dependOn(&foundation_matrix_run.step);
     const test_platform_core = b.step("test-platform-core", "Run the Phase 01 portable runtime core tests");
@@ -1794,6 +1806,7 @@ pub fn build(b: *std.Build) void {
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(runtime_platform_audit_step);
+    game_all_step.dependOn(present_fit_step);
     game_all_step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
