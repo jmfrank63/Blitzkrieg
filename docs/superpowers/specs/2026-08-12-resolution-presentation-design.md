@@ -45,7 +45,9 @@ Each screen type uses it differently:
 - UI layout scale: derived from the scene as today (`ScaleLayout`).
 - Present blit: **shrink-only aspect-fit** — scale factor
   `min(1, fit_scale)`, centered, black bars. This replaces today's
-  unrestricted aspect-fit, which upscaled low resolutions.
+  unrestricted aspect-fit, which upscaled low resolutions. Example: at
+  800x600 on a 1440x900 display the menu is shown 1:1 in a black frame;
+  today it is stretched to fill the screen.
 - "Current" overlays keep inheriting the presentation of the screen below
   them, as today.
 
@@ -71,7 +73,12 @@ Each screen type uses it differently:
   (`SDL_GetDisplayUsableBounds`) so the window — and with it the drawable —
   can never extend off screen. Free resizing stays.
 - Fullscreen: unchanged (including the deferred fullscreen-entry fix of
-  2026-08-12).
+  2026-08-12). Invariant on every platform: fullscreen never changes the
+  display mode — the drawable is always the display's current native
+  resolution, and every scale or letterbox decision happens in our present
+  blit, never in the OS or monitor scaler. (Concretely: no
+  `SDL_SetWindowFullscreenMode` calls; SDL borderless-desktop fullscreen
+  only.)
 
 ## Plumbing
 
