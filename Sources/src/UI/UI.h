@@ -102,7 +102,19 @@ interface IUIElement : public IRefCount
 	virtual void STDCALL SetWindowPlacement( const CVec2 *vPos, const CVec2 *vSize ) = 0;
 	virtual void STDCALL SetWindowID( int nID ) = 0;
 	virtual void STDCALL SetBoundRect( const CTRect<float> &rc ) = 0;
-	
+
+	// Legacy UI layouts are authored in 1024x768 pixels and brought to the
+	// screen's actual scale by ScaleLayout, applied as a multiplicative DELTA
+	// on top of whatever scale is already baked into this element's pixel
+	// metrics (see CUIScreen::Reposition's vLayoutScale/vDeltaScale and
+	// docs/scaling.md). GetLayoutScale returns the ABSOLUTE scale already
+	// applied to an existing element, so it can be used as that delta to
+	// bring a freshly loaded, still-unscaled subtree (e.g. dynamically added
+	// marker buttons positioned from raw game-stats pixel data) up to match
+	// an already-scaled sibling/parent in one shot.
+	virtual void STDCALL ScaleLayout( const CVec2 &vScale ) = 0;
+	virtual CVec2 STDCALL GetLayoutScale() = 0;
+
 	virtual bool STDCALL OnLButtonDblClk( const CVec2 &vPos ) = 0;
 	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState ) = 0;
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState ) = 0;

@@ -27,6 +27,8 @@
 	virtual const WORD* STDCALL GetWindowText( int nState ) { return CSuper::GetWindowText( nState ); }										\
 	virtual void STDCALL SetTextColor( DWORD dwColor ) { CSuper::SetTextColor( dwColor ); }											\
 	virtual void STDCALL SetBoundRect( const CTRect<float> &rc ) { CSuper::SetBoundRect( rc ); }								\
+	virtual void STDCALL ScaleLayout( const CVec2 &vScale ) { CSuper::ScaleLayout( vScale ); }									\
+	virtual CVec2 STDCALL GetLayoutScale() { return CSuper::GetLayoutScale(); }													\
 	virtual int STDCALL GetWindowPlacement( CVec2 *pPos, CVec2 *pSize, CTRect<float> *pScreenRect ) { return CSuper::GetWindowPlacement( pPos, pSize, pScreenRect ); } \
 	virtual int STDCALL GetPositionFlag() { return CSuper::GetPositionFlag(); }																	\
 	virtual IText* STDCALL GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect ) { return CSuper::GetHelpContext( vPos, pRect ); }		\

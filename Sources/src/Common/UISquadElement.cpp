@@ -51,6 +51,16 @@ CUISquadElement::CUISquadElement()
 	nPositionFlag = UIPLACE_LEFT | UIPLACE_TOP;
 	bSelected = false;
 	pSquadIcon = 0;
+	vAppliedLayoutScale = CVec2( 1.0f, 1.0f );
+}
+void CUISquadElement::ScaleLayout( const CVec2 &vScale )
+{
+	vAppliedLayoutScale.x *= vScale.x;
+	vAppliedLayoutScale.y *= vScale.y;
+	vPos.x *= vScale.x;
+	vPos.y *= vScale.y;
+	vSize.x *= vScale.x;
+	vSize.y *= vScale.y;
 }
 bool CUISquadElement::Update( const NTimer::STime &currTime )
 {

@@ -326,6 +326,14 @@ void CInterfaceChapter::InitWindow()
 	int nMission = GetGlobalVar( "Mission.Current.Index", 0 );		//��� �������� ������, ���� �� ������������ ����� �� ������ ������, �� �� != 0
 	
 	IUIContainer *pMap = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
+	// The map placement below, and every mission button added to pMap further
+	// down, come from raw 1024x768-authored pixel data (game stats / XML),
+	// set AFTER the screen's one-time ScaleLayout already ran in Reposition()
+	// above. Capture the scale already applied to this (correctly scaled)
+	// container now, so the freshly authored subtree can be brought up to it
+	// explicitly in one shot once everything is in place — see the
+	// pMap->ScaleLayout() call below.
+	const CVec2 vMapLayoutScale = pMap->GetLayoutScale();
 	IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture( pStats->szMapImage.c_str() );
 	NI_ASSERT_T( pTexture != 0, "Chapter map texture is invalid" );
 	pMap->SetWindowTexture( pTexture );
@@ -439,6 +447,30 @@ void CInterfaceChapter::InitWindow()
 		pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
 		pMap->AddChild( pMissionButton );
 		missionIndeces.push_back( i );
+	}
+	// Bring the map image placement and every mission button added above
+	// (across all three loops, regardless of which ones ran) from their raw
+	// 1024x768-authored pixel data up to the screen's actual layout scale, in
+	// one shot (CMultipleWindow::ScaleLayout recurses into pMap's children).
+	// The Reposition() call at the end of this function recomputes the SAME
+	// scale for this resolution, so its vDeltaScale is ~1.0 and ScaleLayout
+	// is skipped there — this call does not get applied twice. This must run
+	// even if missionIndeces ends up empty, because the map background image
+	// itself still needs it.
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		CVec2 pos, size; CTRect<float> rect;
+		pMap->GetWindowPlacement( &pos, &size, &rect );
+		fprintf( stderr, "BK_UI_TRACE: chapter map pre-scale pos=(%.1f,%.1f) size=(%.1f,%.1f) targetScale=(%.4f,%.4f)\n",
+			pos.x, pos.y, size.x, size.y, vMapLayoutScale.x, vMapLayoutScale.y );
+	}
+	pMap->ScaleLayout( vMapLayoutScale );
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		CVec2 pos, size; CTRect<float> rect;
+		pMap->GetWindowPlacement( &pos, &size, &rect );
+		fprintf( stderr, "BK_UI_TRACE: chapter map post-scale pos=(%.1f,%.1f) size=(%.1f,%.1f)\n",
+			pos.x, pos.y, size.x, size.y );
 	}
 	if ( !missionIndeces.empty() )
 		SetGlobalVar( "NumberOfButtons", (int) missionIndeces.size() - 1 );

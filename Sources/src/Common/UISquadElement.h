@@ -47,6 +47,7 @@ class CUISquadElement : public CTRefCount<IUIElement>
 	int nPositionFlag;									// ������ ����� ��������
 	CVec2 vPos;													// ���������� ����� ������� ����� ������ ������������ ��������� ����� ��������
 	CVec2 vSize;												// ������� ������
+	CVec2 vAppliedLayoutScale;					// cumulative scale applied via ScaleLayout, for GetLayoutScale()
 
 	int nID;														// ���������� ������������� ������
 	CPtr<IUIContainer> pParent;					// ��������
@@ -72,6 +73,11 @@ public:
 	virtual void STDCALL SetWindowPlacement( const CVec2 *vPos, const CVec2 *vSize );
 	virtual void STDCALL SetWindowID( int nID );
 	virtual void STDCALL SetBoundRect( const CTRect<float> &rc );
+	// vPos/vSize are the pixel metrics documented on IUIElement::ScaleLayout;
+	// rcWindow is derived from them (plus nPositionFlag) fresh on every
+	// Reposition() and needs no separate scaling here.
+	virtual void STDCALL ScaleLayout( const CVec2 &vScale );
+	virtual CVec2 STDCALL GetLayoutScale() { return vAppliedLayoutScale; }
 
 	virtual bool STDCALL OnLButtonDblClk( const CVec2 &vPos );
 	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState );
