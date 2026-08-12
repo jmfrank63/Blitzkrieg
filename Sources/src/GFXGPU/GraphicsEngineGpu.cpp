@@ -469,6 +469,19 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
             }
         }
         if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+        // The window manager may apply additional constraints beyond what
+        // SDL_GetDisplayUsableBounds reports (e.g., macOS excludes title bar
+        // height). Read back what was actually applied and adjust nSizeX/nSizeY
+        // to ensure the render size doesn't exceed the actual window.
+        if ( fullscreen != GFXFS_FULLSCREEN )
+        {
+            int actual_width = 0, actual_height = 0;
+            if ( SDL_GetWindowSize( window, &actual_width, &actual_height ) )
+            {
+                nSizeX = Min( nSizeX, actual_width );
+                nSizeY = Min( nSizeY, actual_height );
+            }
+        }
         // The app window is deliberately created hidden and stays hidden until a
         // GFX device exists, so SetMode owns making it visible. This is the
         // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
