@@ -392,6 +392,11 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
             SDL_SyncWindow( window );
         }
         bool bDeferFullscreen = false;
+        // Set when the branch below already repositions the window onto
+        // another display via SDL_WINDOWPOS_CENTERED_DISPLAY; the windowed
+        // position clamp further down must not fight that move by reading a
+        // usable rect for the OLD display and dragging the window back.
+        bool bCenteredDisplayMove = false;
         if ( target != 0 && SDL_GetDisplayForWindow( window ) != target )
         {
             if ( fullscreen == GFXFS_FULLSCREEN && ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) )
@@ -422,6 +427,7 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
                     SDL_SetWindowSize( window, nSizeX, nSizeY );
                 SDL_SetWindowPosition( window, nCentered, nCentered );
                 SDL_SyncWindow( window );
+                bCenteredDisplayMove = true;
                 if ( GfxTraceEnabled() )
                     fprintf( stderr, "BK_GFX_TRACE: moved %dx%d window toward display %u, now on %u (flags=0x%llx)\n",
                         nSizeX, nSizeY, unsigned( target ), unsigned( SDL_GetDisplayForWindow( window ) ),
@@ -471,17 +477,47 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // programmatic ones. Clamp only the window request - the scene keeps
         // the requested size, and the present blit maps one onto the other.
         int nWindowSizeX = nSizeX, nWindowSizeY = nSizeY;
+        SDL_Rect usable{};
+        bool bHaveUsable = false;
         if ( fullscreen != GFXFS_FULLSCREEN )
         {
-            SDL_Rect usable{};
             const SDL_DisplayID clamp_display = target != 0 ? target : SDL_GetDisplayForWindow( window );
-            if ( clamp_display != 0 && SDL_GetDisplayUsableBounds( clamp_display, &usable ) && usable.w > 0 && usable.h > 0 )
+            bHaveUsable = clamp_display != 0 && SDL_GetDisplayUsableBounds( clamp_display, &usable ) && usable.w > 0 && usable.h > 0;
+            if ( bHaveUsable )
             {
                 nWindowSizeX = Min( nWindowSizeX, usable.w );
                 nWindowSizeY = Min( nWindowSizeY, usable.h );
             }
         }
         if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nWindowSizeX, nWindowSizeY ) ) return fail( SDL_GetError() );
+        // A window left partially outside the display's usable area is
+        // partially invisible - most commonly right after this leaves
+        // fullscreen, when the windowed position it is returning to predates
+        // a display change, a resolution shrink, or a monitor unplug/replug.
+        // Align it back in, biased toward the upper-left as requested: clamp
+        // the trailing edge first (x = min(x, usable.right - window.w)) so a
+        // window that already fits is left alone, then clamp the leading edge
+        // (x = max(x, usable.x)) so a window wider/taller than the usable
+        // area still lands flush with the left/top rather than hanging off
+        // the right/bottom. Skipped when the centered-display move above
+        // already placed the window this call (bCenteredDisplayMove) - that
+        // already centers it fully inside the target display, and re-clamping
+        // here would use a usable rect for the display the window is
+        // (asynchronously) leaving and fight the move.
+        if ( fullscreen != GFXFS_FULLSCREEN && !bCenteredDisplayMove && bHaveUsable )
+        {
+            int nWinX = 0, nWinY = 0;
+            SDL_GetWindowPosition( window, &nWinX, &nWinY );
+            const int nClampedX = Max( Min( nWinX, usable.x + usable.w - nWindowSizeX ), usable.x );
+            const int nClampedY = Max( Min( nWinY, usable.y + usable.h - nWindowSizeY ), usable.y );
+            if ( nClampedX != nWinX || nClampedY != nWinY )
+            {
+                SDL_SetWindowPosition( window, nClampedX, nClampedY );
+                if ( GfxTraceEnabled() )
+                    fprintf( stderr, "BK_GFX_TRACE: clamped windowed position (%d,%d) -> (%d,%d) into usable %d,%d %dx%d\n",
+                        nWinX, nWinY, nClampedX, nClampedY, usable.x, usable.y, usable.w, usable.h );
+            }
+        }
         // The app window is deliberately created hidden and stays hidden until a
         // GFX device exists, so SetMode owns making it visible. This is the
         // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
@@ -554,10 +590,16 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
             int window_width = 0, window_height = 0;
             SDL_GetWindowSize( window, &window_width, &window_height );
             const SDL_DisplayMode *pDesktop = SDL_GetDesktopDisplayMode( SDL_GetDisplayForWindow( window ) );
-            fprintf( stderr, "BK_GFX_TRACE: SetMode requested %dx%d fullscreen=%d -> window %dx%d pixels %dx%d (readback=%d) adopted %dx%d desktop %dx%d\n",
+            // Position is reported unconditionally (not only when the clamp
+            // above actually moved anything) so a windowed SetMode's final
+            // placement is always verifiable from the trace, including the
+            // common case where the window already fit and nothing fired.
+            int final_x = 0, final_y = 0;
+            SDL_GetWindowPosition( window, &final_x, &final_y );
+            fprintf( stderr, "BK_GFX_TRACE: SetMode requested %dx%d fullscreen=%d -> window %dx%d pixels %dx%d (readback=%d) adopted %dx%d desktop %dx%d pos %d,%d\n",
                 nRequestedX, nRequestedY, fullscreen == GFXFS_FULLSCREEN, window_width, window_height,
                 pixel_width, pixel_height, bReadBack ? 1 : 0, nSizeX, nSizeY,
-                pDesktop ? pDesktop->w : -1, pDesktop ? pDesktop->h : -1 );
+                pDesktop ? pDesktop->w : -1, pDesktop ? pDesktop->h : -1, final_x, final_y );
         }
     }
     width_ = nSizeX; height_ = nSizeY;
