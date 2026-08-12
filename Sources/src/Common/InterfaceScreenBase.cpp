@@ -254,7 +254,7 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 				FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
 				if ( pFile )
 				{
-					fprintf( pFile, "%lu CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", dwNow, bAppActive, bStepLocalResult, bGFXActive );
+					fprintf( pFile, "%lu CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", (unsigned long)dwNow, bAppActive, bStepLocalResult, bGFXActive );
 					fclose( pFile );
 				}
 			}
