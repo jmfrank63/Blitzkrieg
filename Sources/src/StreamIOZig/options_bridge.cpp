@@ -231,9 +231,10 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
 
 class OptionSystem;
 class OptionIterator final : public IOptionSystemIterator {
-    OptionSystem *owner_; unsigned long mask_; int index_ = 0, refs_ = 0; void Advance();
+    OptionSystem *owner_; std::vector<int> sorted_; size_t position_ = 0; int refs_ = 0;
+    int Current() const { return position_ < sorted_.size() ? sorted_[position_] : -1; }
 public:
-    OptionIterator(OptionSystem *owner, unsigned long mask) : owner_(owner), mask_(mask) { Advance(); }
+    OptionIterator(OptionSystem *owner, unsigned long mask);
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { if ((refs_ -= count) <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return owner_ != nullptr; }
@@ -288,12 +289,31 @@ public:
     void BK_STDCALL Init() override { for (int i = 0; i < Count(); ++i) if (NameAt(i)) ApplyAction(NameAt(i)); }
     void BK_STDCALL Repair(IDataTree *tree, bool to_default) override { api.load_tree(state_, tree, !to_default); }
 };
-void OptionIterator::Advance() { while (owner_ && index_ < owner_->Count()) { unsigned long flags = 0; owner_->Metadata(index_, nullptr, &flags, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr); if (mask_ == 0xffffffff || (flags & mask_)) break; ++index_; } }
-bool BK_STDCALL OptionIterator::Next() { if (!IsEnd()) ++index_; Advance(); return !IsEnd(); }
-bool BK_STDCALL OptionIterator::IsEnd() const { return !owner_ || index_ >= owner_->Count(); }
-bool BK_STDCALL OptionIterator::Get(variant_t *name, variant_t *value) const { const char *key = IsEnd() ? nullptr : owner_->NameAt(index_); return key && AssignVariant(name, VT_BSTR, key) && owner_->Get(key, value); }
-const OptionDesc *BK_STDCALL OptionIterator::GetDesc() const { const char *key = IsEnd() ? nullptr : owner_->NameAt(index_); return key ? owner_->GetDesc(key) : nullptr; }
-const std::vector<OptionDropValue> &BK_STDCALL OptionIterator::GetDropValues() const { static const std::vector<OptionDropValue> empty; const char *key = IsEnd() ? nullptr : owner_->NameAt(index_); return key ? owner_->GetDropValues(key) : empty; }
+// The options screen shows entries in iterator order, so the iterator has to
+// impose the same order as the legacy SOptionSortCmp: Order first, name as
+// the tie-break. The store itself keeps config-file order, and the config is
+// rewritten on every exit, so file order is not stable across sessions.
+OptionIterator::OptionIterator(OptionSystem *owner, unsigned long mask) : owner_(owner) {
+    if (!owner_) return;
+    for (int i = 0; i < owner_->Count(); ++i) {
+        unsigned long flags = 0;
+        owner_->Metadata(i, nullptr, &flags, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+        if (mask == 0xffffffff || (flags & mask)) sorted_.push_back(i);
+    }
+    std::stable_sort(sorted_.begin(), sorted_.end(), [this](int left, int right) {
+        int order_left = 0, order_right = 0;
+        owner_->Metadata(left, nullptr, nullptr, &order_left, nullptr, nullptr, nullptr, nullptr, nullptr);
+        owner_->Metadata(right, nullptr, nullptr, &order_right, nullptr, nullptr, nullptr, nullptr, nullptr);
+        if (order_left != order_right) return order_left < order_right;
+        const char *name_left = owner_->NameAt(left), *name_right = owner_->NameAt(right);
+        return std::strcmp(name_left ? name_left : "", name_right ? name_right : "") < 0;
+    });
+}
+bool BK_STDCALL OptionIterator::Next() { if (position_ < sorted_.size()) ++position_; return !IsEnd(); }
+bool BK_STDCALL OptionIterator::IsEnd() const { return position_ >= sorted_.size(); }
+bool BK_STDCALL OptionIterator::Get(variant_t *name, variant_t *value) const { const char *key = IsEnd() ? nullptr : owner_->NameAt(Current()); return key && AssignVariant(name, VT_BSTR, key) && owner_->Get(key, value); }
+const OptionDesc *BK_STDCALL OptionIterator::GetDesc() const { const char *key = IsEnd() ? nullptr : owner_->NameAt(Current()); return key ? owner_->GetDesc(key) : nullptr; }
+const std::vector<OptionDropValue> &BK_STDCALL OptionIterator::GetDropValues() const { static const std::vector<OptionDropValue> empty; const char *key = IsEnd() ? nullptr : owner_->NameAt(Current()); return key ? owner_->GetDropValues(key) : empty; }
 
 class ConsoleBuffer final : public IConsoleBuffer {
     void *state_; int refs_ = 0;

@@ -75,6 +75,7 @@ void CInterfaceOptionsSettings::Create()
 	pScene->AddUIScreen( pUIScreen );
 	
 	std::unordered_map< std::string, OptionDescs > sections;
+	std::vector< std::string > sectionOrder;
 	
 	IOptionSystem * pOptionSystem = GetSingleton<IOptionSystem>();
 
@@ -96,26 +97,33 @@ void CInterfaceOptionsSettings::Create()
 			continue;
 
 		const SOptionDesc desc = *pDesc;
-		sections[desc.szDivision].push_back( desc );
+		OptionDescs &sectionDescs = sections[desc.szDivision];
+		// Divisions become the tab buttons in first-encounter order; walking
+		// the unordered_map instead made the tab layout depend on the STL's
+		// hash order, which differs between platforms.
+		if ( sectionDescs.empty() )
+			sectionOrder.push_back( desc.szDivision );
+		sectionDescs.push_back( desc );
 	}
 	
 	ITextManager * pTM = GetSingleton<ITextManager>();
 	
 	nMaxDivision = 0;
 	const std::string szKeyOption = "Textes\\Options\\";
-	for ( std::unordered_map< std::string, OptionDescs >::iterator it = sections.begin(); it != sections.end(); ++it )
+	for ( int nSection = 0; nSection < sectionOrder.size(); ++nSection )
 	{
-		const std::string szKeyName = szKeyOption + it->first + ".name";
-		const std::string szKeyTooltip = szKeyOption + it->first + ".tooltip";
+		const std::string &szSection = sectionOrder[nSection];
+		const std::string szKeyName = szKeyOption + szSection + ".name";
+		const std::string szKeyTooltip = szKeyOption + szSection + ".tooltip";
 
 		IText *pT = pTM->GetString( szKeyName.c_str() );
-		
+
 		NI_ASSERT_T( pT != 0, NStr::Format( "no local name for section %s", szKeyName.c_str() ) );
-		
+
 		IUIListControl * pList = checked_cast<IUIListControl*>(pUIScreen->GetChildByID( _E_LIST_BEGIN + nMaxDivision ));
 		IUIStatic * pCaption = checked_cast<IUIStatic*>( pList->GetChildByID( 10 ) );
-		
-		optionsLists.push_back( new COptionsListWrapper( pList, it->second, 100 ) );
+
+		optionsLists.push_back( new COptionsListWrapper( pList, sections[szSection], 100 ) );
 		IUIButton * pButton = checked_cast<IUIButton *>( pUIScreen->GetChildByID( _E_BUTTON_CHANGE_DIVISION_BEGIN + nMaxDivision ) );
 		
 		pButton->SetWindowText( -1, pT->GetString() );
