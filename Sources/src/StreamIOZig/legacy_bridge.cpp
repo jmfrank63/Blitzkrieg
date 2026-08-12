@@ -1746,6 +1746,17 @@ static void ApplyFullScreenAction(const char *value)
     global_vars->SetVar("fullscreen", on ? "1" : "0");
 }
 
+// Read-only access to a single global var, for sibling files in this same
+// module that need one without linking the whole GlobalVars machinery -
+// options_bridge.cpp's resolution dropdown (FillVideoModes) resolves
+// GFX.Monitor.Name/GFX.Monitor.Index through this to filter the list down to
+// the SELECTED display, mirroring GraphicsEngineGpu::SelectedDisplay()'s own
+// read of the same two globals (2026-08-12-resolution-presentation, Part B).
+extern "C" __declspec(dllexport) const char *bk_bridge_get_global_var(const char *name)
+{
+    return (global_vars && name) ? global_vars->GetVar(name) : nullptr;
+}
+
 extern "C" __declspec(dllexport) void bk_bridge_apply_option_action(const char *action, const char *name, const char *value)
 {
     if (!action || !*action) return;

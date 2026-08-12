@@ -450,6 +450,14 @@ bool CInterfaceScreenBase::ChangeResolution()
 	// tracking and pin to whatever the drawable happened to be.
 	const int nConfiguredSizeX = nDesiredSizeX;
 	const int nConfiguredSizeY = nDesiredSizeY;
+	// Needed below (windowed vs fullscreen changes how the clamp works, not
+	// just the diff further down where this is read again for nCurrentFullScreen's
+	// default): the *desired* value, not GFX.Mode.Current.FullScreen's old one -
+	// during a fullscreen<->windowed toggle this call is exactly what decides
+	// which mode SetMode below actually runs in, so the clamp must follow the
+	// same target, not the mode we are about to leave.
+	const int nDesiredFullScreen = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
+	const bool bWindowed = nDesiredFullScreen != int( GFXFS_FULLSCREEN );
 	// The configured resolution is not a literal render size any more
 	// (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md):
 	// missions render at the drawable and use the configuration as the world
@@ -457,23 +465,46 @@ bool CInterfaceScreenBase::ChangeResolution()
 	// per axis - a resolution lower than the screen still renders 1:1 (the
 	// existing shrink-only blit puts it in a black frame), a larger one now
 	// caps at the drawable instead of rendering oversized and shrinking.
+	// That cap is a fullscreen rule though: the drawable there IS the display,
+	// a fixed ceiling. In WINDOWED mode the drawable is just the window's
+	// *current* size, and capping the SetMode request to it means an explicit
+	// resolution bigger than today's window can never ask the window to grow
+	// - the request clamps down to the very thing it is supposed to change,
+	// so only shrinking ever worked. An explicit (non-Auto) windowed request
+	// therefore skips the cap and asks SetMode for cfg outright; SetMode's own
+	// windowed path (GraphicsEngineGpu.cpp) already clamps the actual window
+	// resize to the display's usable bounds and keeps the scene at the
+	// request, so this can never ask for an off-screen window. Auto (0) keeps
+	// tracking the drawable as before - there is no larger configured size to
+	// grow toward.
 	const int nDrawableX = GetGlobalVar( "GFX.Drawable.SizeX", 0 );
 	const int nDrawableY = GetGlobalVar( "GFX.Drawable.SizeY", 0 );
 	const bool bDrawableValid = nDrawableX > 0 && nDrawableY > 0;
+	const bool bWindowedExplicit = bWindowed && nDesiredSizeX > 0 && nDesiredSizeY > 0;
 	int nWorldBaseX = 0, nWorldBaseY = 0;
 	if ( szInterfaceType == "Mission" && bDrawableValid )
 	{
 		nWorldBaseX = nDesiredSizeX > 0 ? Min( nDesiredSizeX, nDrawableX ) : nDrawableX;
 		nWorldBaseY = nDesiredSizeY > 0 ? Min( nDesiredSizeY, nDrawableY ) : nDrawableY;
-		nDesiredSizeX = nDrawableX;
-		nDesiredSizeY = nDrawableY;
+		if ( !bWindowedExplicit )
+		{
+			nDesiredSizeX = nDrawableX;
+			nDesiredSizeY = nDrawableY;
+		}
+		// else: windowed explicit resolution - nDesiredSizeX/Y stays cfg
+		// (unclamped) so the SetMode call below asks the WINDOW to actually
+		// become cfg (a mission player applying 800x600 windowed expects the
+		// window to become 800x600); the world base above, which is what
+		// missions render at for HUD/zoom purposes, still tracks
+		// min(cfg, drawable) exactly as before and catches up to the resized
+		// drawable on the very next call.
 	}
 	// "Current" is excluded: its own GFX.Mode.Current.SizeX/Y read above is
 	// the same global the diff below compares against (nCurrentSizeX/Y), so
 	// clamping it here would manufacture a diff against itself every frame
 	// instead of staying the permanent no-op "inherit the screen below me"
 	// is designed to be.
-	else if ( szInterfaceType != "Current" && bDrawableValid )
+	else if ( szInterfaceType != "Current" && bDrawableValid && !bWindowedExplicit )
 	{
 		nDesiredSizeX = nDesiredSizeX > 0 ? Min( nDesiredSizeX, nDrawableX ) : nDrawableX;
 		nDesiredSizeY = nDesiredSizeY > 0 ? Min( nDesiredSizeY, nDrawableY ) : nDrawableY;
@@ -498,8 +529,9 @@ bool CInterfaceScreenBase::ChangeResolution()
 	const int nDesiredMonitor = GetGlobalVar( "GFX.Monitor.Index", 0 );
 	const int nCurrentMonitor = GetGlobalVar( "GFX.Monitor.Current.Index", nDesiredMonitor );
 	// The fullscreen flag is part of the diff so the options' Fullscreen
-	// ON/OFF row takes effect even when nothing else changed.
-	const int nDesiredFullScreen = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
+	// ON/OFF row takes effect even when nothing else changed. (nDesiredFullScreen
+	// itself was already read above, before the clamp block - the clamp needs
+	// windowed-vs-fullscreen too, not just this diff.)
 	const int nCurrentFullScreen = GetGlobalVar( "GFX.Mode.Current.FullScreen", nDesiredFullScreen );
 	// The world base has to be part of the diff too, for Mission only: its
 	// nDesiredSizeX/Y IS the drawable, not cfg, so a resolution change that

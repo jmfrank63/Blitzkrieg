@@ -182,6 +182,39 @@ static bool EqualAsciiIgnoreCase(const char *left, const char *right) {
     return *left == *right;
 }
 
+static std::string LowerAsciiCopy(const char *text) {
+    std::string result;
+    if (text) for (const char *p = text; *p; ++p) result.push_back(FoldAscii(*p));
+    return result;
+}
+using GetGlobalVarFunc = const char *(*)(const char *);
+static GetGlobalVarFunc ResolveGetGlobalVar() { return Resolve<GetGlobalVarFunc>("bk_bridge_get_global_var"); }
+// Which display the resolution dropdown should list modes for. Mirrors
+// GraphicsEngineGpu::SelectedDisplay() (GraphicsEngineGpu.cpp) exactly - same
+// GFX.Monitor.Name-then-GFX.Monitor.Index resolution against the same two
+// globals - so the dropdown always matches the display SetMode will actually
+// target. This module does not link against GFXGPU (separate dylib), so the
+// globals are read back through legacy_bridge.cpp's bk_bridge_get_global_var,
+// a sibling file in this same module, instead of duplicating GlobalVars here.
+// Returns 0 (like SelectedDisplay()) when neither the name nor the index
+// resolves to a connected display - the caller falls back to displays[0].
+static SDL_DisplayID SelectedDisplayForOptions(SDL_DisplayID *displays, int count) {
+    if (!displays || count <= 0) return 0;
+    GetGlobalVarFunc get_var = ResolveGetGlobalVar();
+    const std::string wanted = get_var ? LowerAsciiCopy(get_var("GFX.Monitor.Name")) : std::string();
+    int selected = -1;
+    if (!wanted.empty()) {
+        for (int i = 0; i < count && selected < 0; ++i)
+            if (LowerAsciiCopy(SDL_GetDisplayName(displays[i])).find(wanted) != std::string::npos) selected = i;
+    }
+    if (selected < 0) {
+        const char *index_text = get_var ? get_var("GFX.Monitor.Index") : nullptr;
+        int index = index_text ? std::atoi(index_text) : 0;
+        if (index < 0) index = 0;
+        if (index < count) selected = index;
+    }
+    return selected >= 0 ? displays[selected] : 0;
+}
 static void FillMonitors(std::vector<OptionDropValue> *drops) {
     int count = 0;
     SDL_DisplayID *displays = SDL_GetDisplays(&count);
@@ -206,17 +239,30 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
     int display_count = 0;
     SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
     if (!displays) return;
+    // Only the SELECTED display's own modes (2026-08-12-resolution-presentation,
+    // Part B): listing every display's modes offered sizes this one could
+    // never reach, and picking one just silently clamped down once applied.
+    // Falls back to the first enumerable display if the selection does not
+    // resolve to a connected one (stale/disconnected GFX.Monitor config) -
+    // SelectedDisplay() itself falls back to "whatever display the window is
+    // on" in that case, which has no equivalent here since there is no window.
+    SDL_DisplayID selected = SelectedDisplayForOptions(displays, display_count);
+    if (selected == 0) selected = displays[0];
+    if (getenv("BK_GFX_TRACE")) {
+        std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes selected display \"%s\" of %d\n",
+            SDL_GetDisplayName(selected), display_count);
+        std::fflush(stderr);
+    }
     std::vector<std::pair<long long, std::string> > modes_sorted;
-    for (int d = 0; d < display_count; ++d) {
-        int mode_count = 0;
-        SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(displays[d], &mode_count);
-        if (!modes) continue;
+    int mode_count = 0;
+    if (SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(selected, &mode_count)) {
         for (int i = 0; i < mode_count; ++i) {
             const SDL_DisplayMode *mode = modes[i];
             if (!mode || mode->w <= 0 || mode->h <= 0) continue;
             char text[64]; std::snprintf(text, sizeof(text), "%dx%dx32", mode->w, mode->h);
             // The width joins the pixel count as a tie-breaker so equal-area
-            // modes of different shapes get a stable, sensible order.
+            // modes of different shapes get a stable, sensible order. Modes
+            // of the same size at different refresh rates dedup to one entry.
             const long long key = (long long)mode->w * mode->h * 100000 + mode->w;
             bool exists = false;
             for (const auto &entry : modes_sorted) if (entry.second == text) { exists = true; break; }
