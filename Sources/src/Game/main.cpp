@@ -48,6 +48,14 @@ std::string AttachedValue(const std::string &argument, std::size_t prefixLength)
 // "WxHxBPP" with positive width/height (BPP defaults to 32, matching the
 // GFX.Mode option's own format). Returns false - leaving normalized
 // untouched - for anything else, including an empty value.
+//
+// %n (and a two-pass WxHxBPP-then-WxH attempt) requires the whole value to
+// be consumed: plain "%dx%dx%d" alone would happily accept "800x600zzzz"
+// (sscanf just stops at the first unmatched character once >=2 fields are
+// filled), silently dropping the trailing garbage instead of rejecting it.
+// This tightening is deliberately local to this CLI-validation path; the
+// looser "%dx%dx%d" convention used elsewhere for reading the GFX.Mode
+// config option is untouched.
 bool NormalizeModeValue(const std::string &lowered, std::string &normalized)
 {
 	if ( lowered == "auto" )
@@ -55,11 +63,21 @@ bool NormalizeModeValue(const std::string &lowered, std::string &normalized)
 		normalized = "Auto";
 		return true;
 	}
-	int width = 0, height = 0, bpp = 32;
-	if ( std::sscanf( lowered.c_str(), "%dx%dx%d", &width, &height, &bpp ) >= 2 && width > 0 && height > 0 )
+	int width = 0, height = 0, bpp = 0, consumed = 0;
+	if ( std::sscanf( lowered.c_str(), "%dx%dx%d%n", &width, &height, &bpp, &consumed ) == 3
+		&& consumed == (int)lowered.size() && width > 0 && height > 0 )
 	{
 		char buffer[32];
 		std::snprintf( buffer, sizeof buffer, "%dx%dx%d", width, height, bpp );
+		normalized = buffer;
+		return true;
+	}
+	width = 0; height = 0; consumed = 0;
+	if ( std::sscanf( lowered.c_str(), "%dx%d%n", &width, &height, &consumed ) == 2
+		&& consumed == (int)lowered.size() && width > 0 && height > 0 )
+	{
+		char buffer[32];
+		std::snprintf( buffer, sizeof buffer, "%dx%dx32", width, height );
 		normalized = buffer;
 		return true;
 	}
@@ -118,13 +136,17 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 			result.referenceWidth = std::atoi( arguments.argv[++index] );
 			result.referenceHeight = std::atoi( arguments.argv[++index] );
 		}
-		else if ( argument.rfind( "-mode", 0 ) == 0 )
+		else if ( argument == "-mode" || argument.rfind( "-mode=", 0 ) == 0 )
 		{
-			// Checked ahead of -mod (mod directory) since "-mode" shares its
-			// four-letter prefix. Rejected here rather than left for
-			// GameMain's later re-parse: this is the one path RunGame always
-			// takes before any engine/window init (see CommandLineExitCode
-			// below), so it is the only reliable place to bail out clean.
+			// Exact "-mode" or "-mode=..." only - NOT a bare prefix match.
+			// "-mode" is also a prefix of "-mod<dir>" (e.g. -modExpansion
+			// lowercases to "-modexpansion"), so a loose rfind("-mode",0)==0
+			// here would swallow that mod argument, fail to parse "xpansion"
+			// as a resolution, and hard-exit a perfectly valid -mod. Rejected
+			// here rather than left for GameMain's later re-parse: this is
+			// the one path RunGame always takes before any engine/window
+			// init (see CommandLineExitCode below), so it is the only
+			// reliable place to bail out clean.
 			std::string value = AttachedValue( raw, 5 );
 			if ( !value.empty() && value.front() == '=' ) value = TrimQuotes( value.substr( 1 ) );
 			std::string normalized;
@@ -133,6 +155,7 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 			else
 			{
 				result.parseError = true;
+				result.modeInvalid = true;
 				result.modeError = value;
 			}
 		}
@@ -204,7 +227,9 @@ void ReportCommandLine( const CommandLineOptions &options )
 		return;
 	}
 	if ( !options.parseError ) return;
-	if ( !options.modeError.empty() )
+	if ( options.modeInvalid && options.modeError.empty() )
+		std::fprintf( stderr, "Error: -mode requires a value (expected WxH, WxHxBPP, or auto)\n" );
+	else if ( options.modeInvalid )
 		std::fprintf( stderr, "Error: invalid -mode value \"%s\" (expected WxH, WxHxBPP, or auto)\n", options.modeError.c_str() );
 	else if ( !options.unknownArguments.empty() )
 		std::fprintf( stderr, "Error: unrecognized argument \"%s\"\n", options.unknownArguments.front().c_str() );

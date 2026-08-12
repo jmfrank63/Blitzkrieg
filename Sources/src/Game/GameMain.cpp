@@ -1034,12 +1034,15 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			pCmdParams->nReferenceWidth = atoi( szParams[++i].c_str() );
 			pCmdParams->nReferenceHeight = atoi( szParams[++i].c_str() );
 		}
-		else if ( szParams[i].compare(0, 5, "-mode") == 0 )
+		else if ( szParams[i] == "-mode" || szParams[i].compare(0, 6, "-mode=") == 0 )
 		{
 			// -mode=WxH / -mode=WxHxBPP (BPP defaults to 32) / -mode=auto:
 			// sets the resolution exactly like picking it in the options
-			// screen. Checked ahead of -mod (mod directory) since "-mode"
-			// shares its four-letter prefix. Garbage is tolerated here (the
+			// screen. Exact "-mode" or "-mode=..." only, not a bare prefix
+			// match: "-mode" is also a prefix of "-mod<dir>" (e.g.
+			// -modExpansion), and a loose compare(0,5,"-mode") here would
+			// swallow that mod argument before the -mod branch ever saw it,
+			// silently dropping the mod load. Garbage is tolerated here (the
 			// flag is dropped and the config, or the option's own default,
 			// keeps driving the mode) rather than rejected: main.cpp's
 			// ParseCommandLine/CommandLineExitCode already reject it before

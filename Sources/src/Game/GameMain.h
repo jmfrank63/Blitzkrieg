@@ -38,8 +38,12 @@ struct CommandLineOptions
 	// same way the GFX.Mode option stores it. Empty when not given.
 	std::string mode;
 	// Set instead of `mode` (and parseError also set) when -mode's value
-	// doesn't parse as WxH / WxHxBPP / auto, or has a nonpositive dimension.
-	// Holds the raw offending text for the error message.
+	// doesn't parse as WxH / WxHxBPP / auto, or has a nonpositive dimension,
+	// or is missing entirely. modeError holds the raw offending text (empty
+	// when the value itself was empty, e.g. "-mode" or "-mode=") - check
+	// modeInvalid, not modeError.empty(), to tell "no -mode error" from
+	// "-mode was given an empty value".
+	bool modeInvalid = false;
 	std::string modeError;
 	bool useDxt = false;
 	bool multiplayer = false;
