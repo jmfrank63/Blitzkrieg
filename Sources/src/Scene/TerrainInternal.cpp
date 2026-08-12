@@ -151,6 +151,27 @@ void CTerrain::LoadLocal( const std::string &szName, const STerrainInfo &_terrai
 		}
 		CorrectUVMaps( tilesetDesc.tilemaps, fTW, fTH );
 		CorrectUVMaps( crossetDesc.tilemaps, fCW, fCH );
+
+		// Half-texel inset: the tileset and crosset are both atlases of tiles
+		// looked up by index (MeshBuilders.cpp reads tileset.tilemaps[tile].maps
+		// and crosset.tilemaps[cross].maps straight into the mesh's per-vertex
+		// UVs), sampled at world scale NSceneScreenScale::GetGameplayScale --
+		// fractional whenever the configured resolution differs from the
+		// drawable. At a fractional scale a tile edge lands inside a screen
+		// pixel, so the sample taken for that pixel can fall past the tile's
+		// atlas cell into its neighbour: the one-pixel seam lattice measured at
+		// scale 1.13 (36px across, 72px down; see
+		// memory/blitzkrieg-measure-graphics-artefacts.md). The correction above
+		// is a fixed, resolution-keyed margin left as-is for whatever it was
+		// tuned for; this is an independent, additional half-atlas-texel pull-in
+		// that keeps every sample inside its own cell at any scale, including a
+		// magnified one. It is invisible at tile magnifications >= 1. The noise
+		// texture bound alongside these (STerrainCurrMeshData::Draw) is excluded:
+		// its UV is (world position)/(noise texture size), a continuously
+		// tiling repeat rather than an atlas cell lookup, so there is no
+		// neighbouring cell for it to bleed into.
+		CorrectUVMaps( tilesetDesc.tilemaps, 0.5f / float( nTilesetSizeX ), 0.5f / float( nTilesetSizeY ) );
+		CorrectUVMaps( crossetDesc.tilemaps, 0.5f / float( nCrossetSizeX ), 0.5f / float( nCrossetSizeY ) );
 	}
 	rivers.resize( terrainInfo.rivers.size() );
 	for ( int i = 0; i != rivers.size(); ++i )
