@@ -809,6 +809,19 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
          SDL_GetWindowSizeInPixels( static_cast<SDL_Window *>( sdl_window_ ), &pixel_width, &pixel_height ) &&
          pixel_width > 0 && pixel_height > 0 )
     {
+        if ( pixel_width != published_drawable_w_ || pixel_height != published_drawable_h_ )
+        {
+            const bool bFirstPublish = published_drawable_w_ == 0 && published_drawable_h_ == 0;
+            published_drawable_w_ = pixel_width;
+            published_drawable_h_ = pixel_height;
+            SetGlobalVar( "GFX.Drawable.SizeX", pixel_width );
+            SetGlobalVar( "GFX.Drawable.SizeY", pixel_height );
+            // The startup publish is not a change: nothing consumed the old
+            // value, and flagging it would make the first screen re-run its
+            // mode change for no reason.
+            if ( !bFirstPublish )
+                SetGlobalVar( "GFX.DrawableChanged", 1 );
+        }
         if ( bFit )
         {
             const double fScale = Min( 1.0, Min( double( pixel_width ) / width_, double( pixel_height ) / height_ ) );

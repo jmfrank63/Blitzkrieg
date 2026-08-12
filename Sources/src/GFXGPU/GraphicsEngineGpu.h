@@ -123,6 +123,8 @@ private:
     // on the target display (0 = nothing pending).
     unsigned int pending_fullscreen_display_ = 0;
     int pending_fullscreen_frames_ = 0;
+    int published_drawable_w_ = 0;
+    int published_drawable_h_ = 0;
     int flips_presented_ = 0;
     void UpdatePendingFullscreen();
     // Window-to-game mouse transform for the centered/fitted presentation;
