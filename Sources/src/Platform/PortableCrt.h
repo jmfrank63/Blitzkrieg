@@ -105,6 +105,20 @@ struct IStream : IUnknown {
 };
 #endif
 static inline unsigned long GetTickCount(void) { return 0; }
+// Real monotonic time, not a stub: BK_PERF divides by the reported frequency,
+// so a zeroed shim would turn every timing it prints into inf/nan.
+static inline int QueryPerformanceFrequency(LARGE_INTEGER *frequency) {
+    if (!frequency) return 0;
+    frequency->QuadPart = 1000000000LL;
+    return 1;
+}
+static inline int QueryPerformanceCounter(LARGE_INTEGER *counter) {
+    struct timespec now;
+    if (!counter) return 0;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) { counter->QuadPart = 0; return 0; }
+    counter->QuadPart = (long long)now.tv_sec * 1000000000LL + (long long)now.tv_nsec;
+    return 1;
+}
 static inline HANDLE CreateFile(const char *, unsigned long, unsigned long, void *, unsigned long, unsigned long, HANDLE) { return INVALID_HANDLE_VALUE; }
 static inline unsigned long GetLastError(void) { return 0; }
 static inline int GetFileInformationByHandle(HANDLE, BY_HANDLE_FILE_INFORMATION *) { return 0; }
