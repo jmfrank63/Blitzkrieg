@@ -75,10 +75,11 @@ Each screen type uses it differently:
 
 ### Window sizing
 
-- Windowed: the resolution option still sets the window size at mode
-  changes, now clamped to the display's usable bounds
-  (`SDL_GetDisplayUsableBounds`) so the window — and with it the drawable —
-  can never extend off screen. Free resizing stays.
+- Windowed: the resolution option sets the window size at mode changes,
+  clamped to the display's usable bounds (`SDL_GetDisplayUsableBounds`) so
+  the window — and with it the drawable — can never extend off screen. The
+  window is not user-resizable: its size comes from the applied preset only
+  (decided 2026-08-12; removes the drag-vs-preset edge cases).
 - Fullscreen: unchanged (including the deferred fullscreen-entry fix of
   2026-08-12). Invariant on every platform: fullscreen never changes the
   display mode — the drawable is always the display's current native
@@ -111,10 +112,11 @@ Each screen type uses it differently:
 
 - `Auto` resolution: `cfg = drawable` → `s_hud` as today, `f = 1`,
   menus 1:1 borderless — no visible change from today's Auto behavior.
-- Window shrunk below `cfg` mid-mission: `cfg_eff` re-clamps, HUD rescales
-  down with it, world re-zooms; nothing clips.
-- Window shrunk very small: `s_hud` can drop below 1 (HUD smaller than
-  design size) — acceptable; controls stay visible and proportional.
+- Drawable shrunk below `cfg` (display change only): `cfg_eff` re-clamps,
+  HUD rescales down with it, world re-zooms; nothing clips.
+- Drawable shrunk very small (display change only): `s_hud` can drop below 1
+  (HUD smaller than design size) — acceptable; controls stay visible and
+  proportional.
 - Aspect mismatch (4:3 resolution on 16:10 display) in missions: uniform
   `f` fills the screen; the wider axis shows more world. In menus: bars on
   the wider axis.

@@ -75,8 +75,11 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 	// points. The mismatch left most of the swapchain undrawn and put the
 	// in-game cursor at half the pointer's position. A 1:1 drawable keeps the
 	// legacy coordinate space consistent.
+	// The window is fixed-size by design — its size comes from the resolution
+	// presets only (user decision 2026-08-12), which keeps the presentation
+	// logic free of user-drag edge cases.
 	window_ = SDL_CreateWindow( title ? title : "Blitzkrieg", width, height,
-		SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE );
+		SDL_WINDOW_HIDDEN );
 	if ( !window_ )
 	{
 		SetError( "SDL_CreateWindow" );
