@@ -227,6 +227,19 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
     SDL_free(displays);
     std::sort(modes_sorted.begin(), modes_sorted.end());
     for (const auto &entry : modes_sorted) drops->push_back({entry.second.c_str()});
+    // One-time dump of the resolution dropdown's actual contents: this list is
+    // built entirely from SDL_GetFullscreenDisplayModes, so an odd-looking
+    // entry here (e.g. a narrow scaled-HiDPI mode the display offers, not a
+    // corrupted/computed value) is enough to explain the option ending up set
+    // to it - see the GFX.Mode Set() trace in OptionSystem::Set below.
+    static bool traced = false;
+    if (!traced && getenv("BK_GFX_TRACE")) {
+        traced = true;
+        std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes ->");
+        for (const auto &d : *drops) std::fprintf(stderr, " %s", d.program_name.c_str());
+        std::fprintf(stderr, "\n");
+        std::fflush(stderr);
+    }
 }
 
 class OptionSystem;
@@ -263,7 +276,22 @@ public:
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { if ((refs_ -= count) <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return state_ != nullptr; }
     bool BK_STDCALL Get(const std::string &name, variant_t *value) const override { unsigned short type = VT_EMPTY; const char *text = api.value(state_, name.c_str(), &type); return text && AssignVariant(value, type, text); }
-    bool BK_STDCALL Set(const std::string &name, const variant_t &value) override { const std::string text = VariantText(value); const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt); if (ok) ApplyAction(name); return ok; }
+    bool BK_STDCALL Set(const std::string &name, const variant_t &value) override {
+        const std::string text = VariantText(value);
+        // Permanent, opt-in diagnostic for the GFX.Mode-drifts-on-its-own class
+        // of report (docs/superpowers/sdd/2026-08-12-resolution-presentation):
+        // this is the option's ONLY writer (COptionSelection::Apply, driven by
+        // the resolution dropdown's click-switch), so a run that ends with an
+        // unexpected value always shows the exact Set() call(s) that produced
+        // it here, in order - same convention as the ChangeResolution trace in
+        // InterfaceScreenBase.cpp.
+        if (getenv("BK_GFX_TRACE") && EqualAsciiIgnoreCase(name.c_str(), "GFX.Mode")) {
+            unsigned short old_type = 0; const char *old_text = api.value(state_, name.c_str(), &old_type);
+            std::fprintf(stderr, "BK_GFX_TRACE: option Set(\"GFX.Mode\") old=\"%s\" new=\"%s\"\n", old_text ? old_text : "<none>", text.c_str());
+            std::fflush(stderr);
+        }
+        const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt); if (ok) ApplyAction(name); return ok;
+    }
     bool BK_STDCALL Remove(const std::string &name) override { return api.remove(state_, name.c_str()); }
     bool BK_STDCALL RemoveByMatch(const std::string &prefix) override { api.remove_prefix(state_, prefix.c_str()); return true; }
     bool BK_STDCALL ChangeSerialize(const std::string &, bool) override { return true; }

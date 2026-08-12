@@ -213,18 +213,24 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 		}
 	}
 	// A live window resize changes the drawable; the mission scene follows it
-	// (its scene is the drawable) and cfg_eff re-clamps. Menus keep their
-	// configured scene and only the letterbox changes, which the present path
-	// handles by itself.
+	// 1:1 and cfg_eff re-clamps, and menus/videos re-clamp their cfg_eff cap
+	// too (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md).
+	// The flag is still consumed/reset here for anything else watching it;
+	// the diff itself no longer gates on it - the unconditional check below
+	// already re-runs every frame regardless of what changed.
 	if ( GetGlobalVar( "GFX.DrawableChanged", 0 ) != 0 )
-	{
 		SetGlobalVar( "GFX.DrawableChanged", 0 );
-		if ( szInterfaceType == "Mission" )
-		{
-			if ( ChangeResolution() )
-				GetSingleton<IScene>()->Reposition();
-		}
-	}
+	// The active screen notices a mode diff every frame, not only on a focus
+	// change or a drawable/display event: an options screen is a different
+	// screen instance (and often a different szInterfaceType, e.g. "Current"
+	// for the in-mission overlay) than the one whose GFX.Mode.<type>.* it
+	// just edited, so the screen that owns that type needs to pick the
+	// change up on its own next step rather than wait for a focus change.
+	// ChangeResolution() is already a cheap, internally-diffed no-op when
+	// nothing changed (a handful of GetGlobalVar reads), so this costs
+	// nothing in the common case.
+	if ( ChangeResolution() )
+		GetSingleton<IScene>()->Reposition();
 	// Asserted every frame, not only in OnGetFocus: the direct save launch
 	// activates the mission screen without a focus notification, and a stale
 	// fit mode would scale gameplay or clip a menu.
@@ -447,19 +453,38 @@ bool CInterfaceScreenBase::ChangeResolution()
 	// The configured resolution is not a literal render size any more
 	// (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md):
 	// missions render at the drawable and use the configuration as the world
-	// view / HUD base; menus and videos render at the configuration and are
-	// presented shrink-only. cfg_eff clamps the configuration to the
-	// drawable so an oversized setting behaves as the drawable size.
+	// view / HUD base; menus and videos render at cfg_eff = min(cfg, drawable)
+	// per axis - a resolution lower than the screen still renders 1:1 (the
+	// existing shrink-only blit puts it in a black frame), a larger one now
+	// caps at the drawable instead of rendering oversized and shrinking.
 	const int nDrawableX = GetGlobalVar( "GFX.Drawable.SizeX", 0 );
 	const int nDrawableY = GetGlobalVar( "GFX.Drawable.SizeY", 0 );
+	const bool bDrawableValid = nDrawableX > 0 && nDrawableY > 0;
 	int nWorldBaseX = 0, nWorldBaseY = 0;
-	if ( szInterfaceType == "Mission" && nDrawableX > 0 && nDrawableY > 0 )
+	if ( szInterfaceType == "Mission" && bDrawableValid )
 	{
 		nWorldBaseX = nDesiredSizeX > 0 ? Min( nDesiredSizeX, nDrawableX ) : nDrawableX;
 		nWorldBaseY = nDesiredSizeY > 0 ? Min( nDesiredSizeY, nDrawableY ) : nDrawableY;
 		nDesiredSizeX = nDrawableX;
 		nDesiredSizeY = nDrawableY;
 	}
+	// "Current" is excluded: its own GFX.Mode.Current.SizeX/Y read above is
+	// the same global the diff below compares against (nCurrentSizeX/Y), so
+	// clamping it here would manufacture a diff against itself every frame
+	// instead of staying the permanent no-op "inherit the screen below me"
+	// is designed to be.
+	else if ( szInterfaceType != "Current" && bDrawableValid )
+	{
+		nDesiredSizeX = nDesiredSizeX > 0 ? Min( nDesiredSizeX, nDrawableX ) : nDrawableX;
+		nDesiredSizeY = nDesiredSizeY > 0 ? Min( nDesiredSizeY, nDrawableY ) : nDrawableY;
+	}
+	// Whether THIS call's nDesiredSizeX/Y was rewritten away from cfg above
+	// (Mission's drawable override, or a menu/video's cfg_eff clamp): the
+	// write-back below must persist nConfiguredSizeX/Y in that case, exactly
+	// as Task 4 established for Mission - otherwise the clamped/adopted size
+	// would echo back into GFX.Mode.<type>.SizeX/Y and corrupt cfg for the
+	// next call (see the comment on nConfiguredSizeX/Y above).
+	const bool bCfgClamped = (szInterfaceType == "Mission") || (szInterfaceType != "Current" && bDrawableValid);
 	const int nDesiredStencil = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".Stencil").c_str(), 0 );
 	const int nDesiredBPP = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".BPP").c_str(), 16 );
 	const int nCurrentSizeX = GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
@@ -476,9 +501,32 @@ bool CInterfaceScreenBase::ChangeResolution()
 	// ON/OFF row takes effect even when nothing else changed.
 	const int nDesiredFullScreen = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
 	const int nCurrentFullScreen = GetGlobalVar( "GFX.Mode.Current.FullScreen", nDesiredFullScreen );
+	// The world base has to be part of the diff too, for Mission only: its
+	// nDesiredSizeX/Y IS the drawable, not cfg, so a resolution change that
+	// does not also happen to change the drawable (the ordinary case - the
+	// window does not resize just because the option changed) would
+	// otherwise leave every other input above identical to last call. Without
+	// this, the whole block below - including the SetGlobalVar that publishes
+	// GFX.World.BaseSizeX/Y - would never run, so the HUD and world zoom
+	// (which read that global, not cfg directly) would silently keep the old
+	// resolution's size until something else changed the drawable. This is
+	// the mechanism behind "the resolution option does not apply in a
+	// mission": the option's value changed, but nothing downstream noticed.
+	// Scoped to Mission: every other type's own nWorldBaseX/Y stays the fixed
+	// 0 initializer (world base is Mission-only), so comparing it against the
+	// shared GFX.World.BaseSizeX/Y global - which Mission may have legitimately
+	// published a nonzero value into on an earlier step, and Step() now calls
+	// every interface on the stack every frame, not just the focused one -
+	// would otherwise manufacture a permanent diff for every other type,
+	// fighting Mission's own publish every frame (SetMode called forever,
+	// each side repeatedly overwriting the global back to its own 0/nonzero).
+	const bool bMission = szInterfaceType == "Mission";
+	const int nCurrentWorldBaseX = bMission ? GetGlobalVar( "GFX.World.BaseSizeX", 0 ) : nWorldBaseX;
+	const int nCurrentWorldBaseY = bMission ? GetGlobalVar( "GFX.World.BaseSizeY", 0 ) : nWorldBaseY;
 	if ( (nDesiredSizeX != nCurrentSizeX) || (nDesiredSizeY != nCurrentSizeY) ||
 		   (nDesiredStencil != nCurrentStencil) || (nDesiredBPP != nCurrentBPP) ||
-		   (nDesiredMonitor != nCurrentMonitor) || (nDesiredFullScreen != nCurrentFullScreen) )
+		   (nDesiredMonitor != nCurrentMonitor) || (nDesiredFullScreen != nCurrentFullScreen) ||
+		   (nWorldBaseX != nCurrentWorldBaseX) || (nWorldBaseY != nCurrentWorldBaseY) )
 	{
 		const EGFXFullscreen eFullScreen = (EGFXFullscreen)nDesiredFullScreen;
 		const int nDesiredFreq = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".Frequency").c_str(), 0 );
@@ -491,13 +539,15 @@ bool CInterfaceScreenBase::ChangeResolution()
 		const int nActualSizeY = rcScreen.Height();
 		const int nActualBPP = pGFX->GetScreenBPP();
 		const std::string szModePrefix = "GFX.Mode." + szInterfaceType + ".";
-		// Mission writes the configured size back here, not the actual/adopted
-		// one: nActualSizeX/Y is the drawable for Mission (see cfg_eff above),
-		// and echoing it back into GFX.Mode.Mission.SizeX/Y would overwrite cfg
-		// with the drawable. Every other screen type still echoes the actual
-		// adopted size, unchanged from before this task.
-		SetGlobalVar( (szModePrefix + "SizeX").c_str(), szInterfaceType == "Mission" ? nConfiguredSizeX : nActualSizeX );
-		SetGlobalVar( (szModePrefix + "SizeY").c_str(), szInterfaceType == "Mission" ? nConfiguredSizeY : nActualSizeY );
+		// A clamped type (Mission always; menus/videos when the drawable is
+		// valid) writes the configured size back here, not the actual/adopted
+		// one: nActualSizeX/Y is the drawable-derived, clamped value in that
+		// case (see cfg_eff above), and echoing it back into
+		// GFX.Mode.<type>.SizeX/Y would overwrite cfg with it. "Current" and
+		// any type seen before the drawable is published still echo the
+		// actual adopted size, unchanged from before this task.
+		SetGlobalVar( (szModePrefix + "SizeX").c_str(), bCfgClamped ? nConfiguredSizeX : nActualSizeX );
+		SetGlobalVar( (szModePrefix + "SizeY").c_str(), bCfgClamped ? nConfiguredSizeY : nActualSizeY );
 		SetGlobalVar( (szModePrefix + "BPP").c_str(), nActualBPP );
 		SetGlobalVar( "GFX.Mode.Current.SizeX", nActualSizeX );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", nActualSizeY );
