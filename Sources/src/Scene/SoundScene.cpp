@@ -996,8 +996,18 @@ void CSoundScene::InitConsts()
 }
 void CSoundScene::InitScreenResolutionConsts()
 {
-	const int nScreenWidth = GetGlobalVar( "GFX.Mode.Mission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
-	const int nScreenHeight = GetGlobalVar( "GFX.Mode.Mission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
+	// GFX.Mode.Mission.SizeX/Y is cfg, which Auto legitimately keeps at 0
+	// (SetModeSizeVars(0,0), legacy_bridge.cpp) since the cfg-preserving
+	// write-back landed - reading it directly here zeroed every positional
+	// sound's hearing radius in Auto missions. Mirror
+	// CInterfaceMission::CheckResolution (iMissionInternal.cpp): the
+	// configured view base is GFX.World.BaseSizeX/Y when it is set, falling
+	// back to GFX.Mode.Current.SizeX/Y (nonzero outside a Mission screen, and
+	// before the first world-base publish).
+	const int nWorldBaseSizeX = GetGlobalVar( "GFX.World.BaseSizeX", 0 );
+	const int nWorldBaseSizeY = GetGlobalVar( "GFX.World.BaseSizeY", 0 );
+	const int nScreenWidth = nWorldBaseSizeX > 0 ? nWorldBaseSizeX : GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+	const int nScreenHeight = nWorldBaseSizeY > 0 ? nWorldBaseSizeY : GetGlobalVar( "GFX.Mode.Current.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 	NI_ASSERT_T( nScreenWidth && nScreenHeight, NStr::Format( "wrong screen sizes %d x %d \n", nScreenWidth, nScreenHeight) );
 
 	// One scale for both axes, from the height, the same rule the interface

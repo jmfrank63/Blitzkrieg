@@ -432,13 +432,25 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // would put the window straight back into the space it just left.
         if ( fullscreen != GFXFS_FULLSCREEN ) pending_fullscreen_display_ = 0;
         // A fullscreen toggle posted before the window has genuinely been on
-        // screen for a while is silently dropped by the window server, and a
-        // dropped toggle wedges SDL's transition tracking for good - every
-        // later request is then absorbed as "pending" and never re-posted.
-        // So the one request this process gets must not be spent early:
-        // during the first second of presented frames the request is queued
-        // for UpdatePendingFullscreen instead of issued here.
+        // screen for a while is silently dropped by the macOS window server,
+        // and a dropped toggle wedges SDL's transition tracking for good -
+        // every later request is then absorbed as "pending" and never
+        // re-posted. So the one request this process gets must not be spent
+        // early: during the first second of presented frames the request is
+        // queued for UpdatePendingFullscreen instead of issued here. This is
+        // an Apple-specific window-server workaround, not a general SDL
+        // property, so it is gated to Apple; other platforms issue the
+        // request synchronously below, as before this grace period existed.
+        // The retry/pending mechanism itself (armed further down when a
+        // synchronous request does not immediately take, and in
+        // UpdatePendingFullscreen) stays unconditional - that part is
+        // genuine cross-platform robustness against an asynchronous window
+        // manager, not a macOS-only assumption.
+#if defined(__APPLE__)
         const bool bDeferForGrace = fullscreen == GFXFS_FULLSCREEN && !bDeferFullscreen && flips_presented_ < 60;
+#else
+        const bool bDeferForGrace = false;
+#endif
         if ( bDeferForGrace )
         {
             SDL_DisplayID retry_display = target != 0 ? target : SDL_GetDisplayForWindow( window );
@@ -520,9 +532,11 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // renders at the requested size and the present blit centers it on
         // whatever surface actually exists - black borders when the surface
         // is larger, cropped when it is smaller, never scaled. In fullscreen
-        // the surface is the display; in windowed mode it is the freely
-        // resizable window, which behaves like a little monitor of its own.
-        // Only automatic modes adopt what the window manager granted.
+        // the surface is the display; in windowed mode it is the fixed-size
+        // window (docs/scaling.md), sized only by the applied resolution
+        // preset and the display's usable-bounds clamp above - never by a
+        // live user resize. Only automatic modes adopt what the window
+        // manager granted.
         const bool bKeepRequested = nRequestedX > 0 && nRequestedY > 0;
         if ( bReadBack && pixel_width > 0 && pixel_height > 0 && !bKeepRequested )
         {
@@ -786,13 +800,17 @@ void GraphicsEngineGpu::UpdatePendingFullscreen()
         }
         return;
     }
-    // On the target display but still windowed. The request is only issued
-    // once the window has demonstrably been presenting for a while: earlier
-    // toggles are dropped by the window server, and a dropped toggle wedges
-    // SDL's transition tracking so no later request ever fires again. Stay
-    // armed and keep asking until the FULLSCREEN flag is actually observed
-    // above.
+    // On the target display but still windowed. On Apple the request is only
+    // issued once the window has demonstrably been presenting for a while:
+    // earlier toggles are dropped by the macOS window server, and a dropped
+    // toggle wedges SDL's transition tracking so no later request ever fires
+    // again. Stay armed and keep asking until the FULLSCREEN flag is
+    // actually observed above. Other platforms don't have this window-server
+    // quirk, so they skip the wait and start retrying immediately below; the
+    // retry loop itself is unconditional cross-platform robustness.
+#if defined(__APPLE__)
     if ( flips_presented_ < 60 ) return;
+#endif
     if ( ( pending_fullscreen_frames_ % 15 ) == 1 )
     {
         SDL_SetWindowFullscreen( window, true );
@@ -803,12 +821,13 @@ void GraphicsEngineGpu::UpdatePendingFullscreen()
 }
 
 // The scene is presented on the window either centered 1:1 (gameplay:
-// borders/crop) or aspect-fit scaled (menus and videos, GFX.Present.Fit -
+// borders/crop) or shrink-only aspect-fit (menus and videos, GFX.Present.Fit -
 // their controls must never be clipped away). Mouse events arrive in window
 // coordinates; these globals carry the transform the input pump applies to
 // land in game coordinates: game = (window - Offset) * Scale. Re-derived
-// every frame because the window size changes asynchronously (deferred
-// fullscreen moves, OS drags, live window resizing).
+// every frame because the window size changes asynchronously - not from OS
+// drags or live resizing, which are gone now that the window is fixed-size
+// (docs/scaling.md), but from display changes and deferred fullscreen moves.
 void GraphicsEngineGpu::UpdatePresentOffsets()
 {
     const bool bFit = GetGlobalVar( "GFX.Present.Fit", 1 ) != 0;

@@ -138,15 +138,21 @@ The window is fixed-size by design
 `SDL_WINDOW_RESIZABLE`, decided 2026-08-12): its size comes only from the
 applied resolution preset, clamped to the display's usable bounds
 (`SDL_GetDisplayUsableBounds`) in windowed mode. A one-shot apply marker
-(`GFX.Mode.<type>.AppliedSizeX/Y`, read/written in `ChangeResolution`) still
-gates the windowed clamp bypass that lets an explicit resolution grow the
-window past its current size — a leftover mechanism from when manual
-drag-resizing also existed and had to coexist with preset changes; it is
-harmless now that drag-resizing is gone; it simply makes each distinct
-configured size apply exactly once. Fullscreen never changes the display
-mode on any platform: the drawable is always the display's current native
-resolution, and every scale/letterbox decision happens in the present blit,
-never in the OS or monitor scaler.
+(`GFX.Mode.<type>.AppliedSizeX/Y`, read/written in `ChangeResolution`) gates
+the windowed clamp bypass (`bWindowedExplicit`) that lets an explicit
+resolution grow the window past its current size. This is load-bearing, not
+a leftover from the drag-resize era: without the one-shot, an oversize
+windowed cfg would keep `bWindowedExplicit` true forever (cfg always equals
+itself), the `cfg_eff` clamp further down would never re-engage, and every
+call would keep re-requesting the same size — pinning menus permanently in
+the shrink blit and violating the spec's steady-state-1:1 rule. Comparing
+against `AppliedSizeX/Y` (rather than only "did cfg change") also lets the
+bypass fire once more on a fullscreen⇄windowed toggle even when cfg itself
+is unchanged, so a toggle back to windowed restores the configured window
+size instead of leaving it at whatever the fullscreen drawable happened to
+be. Fullscreen never changes the display mode on any platform: the drawable
+is always the display's current native resolution, and every scale/letterbox
+decision happens in the present blit, never in the OS or monitor scaler.
 
 ## Coordinate systems cheat sheet
 

@@ -500,8 +500,20 @@ bool CInterfaceScreenBase::ChangeResolution()
 	// resize sticks.
 	const int nAppliedSizeX = GetGlobalVar( (szModePrefix + "AppliedSizeX").c_str(), -1 );
 	const int nAppliedSizeY = GetGlobalVar( (szModePrefix + "AppliedSizeY").c_str(), -1 );
+	// Read here (ahead of nCurrentFullScreen's other use in the diff further
+	// down) so the windowed-explicit bypass can also fire on a fullscreen
+	// mode-family transition, not only on a genuine cfg change. Without this,
+	// a fullscreen->windowed toggle leaves bWindowedExplicit false (cfg ==
+	// AppliedSize, both untouched by the toggle), the Mission branch below
+	// requests the drawable instead of cfg, and the window comes back at
+	// display size instead of the configured preset - re-selecting the same
+	// resolution afterward is then a permanent no-op (cfg, AppliedSize and
+	// the option value never change). The cfg > 0 requirement below still
+	// applies, so Auto keeps tracking the drawable through the toggle.
+	const int nCurrentFullScreen = GetGlobalVar( "GFX.Mode.Current.FullScreen", nDesiredFullScreen );
 	const bool bWindowedExplicit = bWindowed && nDesiredSizeX > 0 && nDesiredSizeY > 0
-		&& ( nDesiredSizeX != nAppliedSizeX || nDesiredSizeY != nAppliedSizeY );
+		&& ( nDesiredSizeX != nAppliedSizeX || nDesiredSizeY != nAppliedSizeY
+			|| nDesiredFullScreen != nCurrentFullScreen );
 	int nWorldBaseX = 0, nWorldBaseY = 0;
 	if ( szInterfaceType == "Mission" && bDrawableValid )
 	{
@@ -551,9 +563,9 @@ bool CInterfaceScreenBase::ChangeResolution()
 	const int nCurrentMonitor = GetGlobalVar( "GFX.Monitor.Current.Index", nDesiredMonitor );
 	// The fullscreen flag is part of the diff so the options' Fullscreen
 	// ON/OFF row takes effect even when nothing else changed. (nDesiredFullScreen
-	// itself was already read above, before the clamp block - the clamp needs
-	// windowed-vs-fullscreen too, not just this diff.)
-	const int nCurrentFullScreen = GetGlobalVar( "GFX.Mode.Current.FullScreen", nDesiredFullScreen );
+	// and nCurrentFullScreen were already read above, before the clamp block -
+	// the clamp needs windowed-vs-fullscreen too, not just this diff, and the
+	// windowed-explicit bypass needs the transition itself.)
 	// The world base has to be part of the diff too, for Mission only: its
 	// nDesiredSizeX/Y IS the drawable, not cfg, so a resolution change that
 	// does not also happen to change the drawable (the ordinary case - the
