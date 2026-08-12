@@ -659,7 +659,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// serialization agreeing with what's on screen.
 		const std::string szCmdMode = GetGlobalVar( "GFX.Mode.CmdLine", -1 ) >= 0 ? GetGlobalVar( "GFX.Mode.CmdLine.Value", "" ) : "";
 		if ( !szCmdMode.empty() )
-			pOptionSystem->Set( "GFX.Mode", variant_t( szCmdMode ) );
+			pOptionSystem->Set( "GFX.Mode", variant_t( szCmdMode.c_str() ) );
 	}
 	timeMeter.Sample( "options init" );
 	int nGuaranteeFPSTime = 0;
