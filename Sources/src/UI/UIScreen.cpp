@@ -192,7 +192,24 @@ void CUIScreen::Reposition( const CTRect<float> &rcScreen )
 		// space it is smeared across. Min() rather than the height alone so a
 		// narrower-than-4:3 window shrinks to fit instead of running off the
 		// sides.
-		const float fScale = Min( rcScreen.Width() / LEGACY_UI_WIDTH, rcScreen.Height() / LEGACY_UI_HEIGHT );
+		// Edge-anchored screens are the mission HUD: their size comes from
+		// the configured resolution (GFX.World.BaseSize, cfg_eff) while their
+		// anchors stay on the real drawable edges, so the HUD scales down at
+		// low configured resolutions but can never leave the visible area.
+		// Canvas screens (menus) keep scaling with their own scene, which is
+		// the configured resolution already.
+		float fScaleW = rcScreen.Width(), fScaleH = rcScreen.Height();
+		if ( bAnchorLayoutToScreenEdges )
+		{
+			const int nBaseW = GetGlobalVar( "GFX.World.BaseSizeX", 0 );
+			const int nBaseH = GetGlobalVar( "GFX.World.BaseSizeY", 0 );
+			if ( nBaseW > 0 && nBaseH > 0 )
+			{
+				fScaleW = float( nBaseW );
+				fScaleH = float( nBaseH );
+			}
+		}
+		const float fScale = Min( fScaleW / LEGACY_UI_WIDTH, fScaleH / LEGACY_UI_HEIGHT );
 		CVec2 vNewScale( fScale, fScale );
 		if ( bRestoredScaledLayout )
 		{
