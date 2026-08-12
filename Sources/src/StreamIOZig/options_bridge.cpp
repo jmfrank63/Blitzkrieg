@@ -248,17 +248,38 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
     // on" in that case, which has no equivalent here since there is no window.
     SDL_DisplayID selected = SelectedDisplayForOptions(displays, display_count);
     if (selected == 0) selected = displays[0];
-    if (getenv("BK_GFX_TRACE")) {
+    // Cache the environment variable check to avoid repeated calls.
+    static const bool bGfxTrace = getenv("BK_GFX_TRACE") != 0;
+    if (bGfxTrace) {
         std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes selected display \"%s\" of %d\n",
             SDL_GetDisplayName(selected), display_count);
         std::fflush(stderr);
     }
+    // Query the desktop display mode to filter out modes larger than the screen.
+    // cfg_eff clamps any resolution to the screen anyway, so modes above it are
+    // indistinguishable from the screen resolution - user decision 2026-08-12.
+    const SDL_DisplayMode *desktop_mode = SDL_GetDesktopDisplayMode(selected);
+    if (bGfxTrace) {
+        if (desktop_mode) {
+            std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes desktop cap %dx%d\n",
+                desktop_mode->w, desktop_mode->h);
+        } else {
+            std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes desktop mode query failed\n");
+        }
+        std::fflush(stderr);
+    }
     std::vector<std::pair<long long, std::string> > modes_sorted;
     int mode_count = 0;
+    int kept_count = 0, skipped_count = 0;
     if (SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(selected, &mode_count)) {
         for (int i = 0; i < mode_count; ++i) {
             const SDL_DisplayMode *mode = modes[i];
             if (!mode || mode->w <= 0 || mode->h <= 0) continue;
+            // Skip modes larger than the desktop resolution if the desktop mode query succeeded.
+            if (desktop_mode && (mode->w > desktop_mode->w || mode->h > desktop_mode->h)) {
+                ++skipped_count;
+                continue;
+            }
             char text[64]; std::snprintf(text, sizeof(text), "%dx%dx32", mode->w, mode->h);
             // The width joins the pixel count as a tie-breaker so equal-area
             // modes of different shapes get a stable, sensible order. Modes
@@ -266,7 +287,10 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
             const long long key = (long long)mode->w * mode->h * 100000 + mode->w;
             bool exists = false;
             for (const auto &entry : modes_sorted) if (entry.second == text) { exists = true; break; }
-            if (!exists) modes_sorted.push_back({key, text});
+            if (!exists) {
+                modes_sorted.push_back({key, text});
+                ++kept_count;
+            }
         }
         SDL_free(modes);
     }
@@ -279,8 +303,10 @@ static void FillVideoModes(std::vector<OptionDropValue> *drops) {
     // corrupted/computed value) is enough to explain the option ending up set
     // to it - see the GFX.Mode Set() trace in OptionSystem::Set below.
     static bool traced = false;
-    if (!traced && getenv("BK_GFX_TRACE")) {
+    if (!traced && bGfxTrace) {
         traced = true;
+        std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes kept %d modes, skipped %d above desktop cap\n",
+            kept_count, skipped_count);
         std::fprintf(stderr, "BK_GFX_TRACE: FillVideoModes ->");
         for (const auto &d : *drops) std::fprintf(stderr, " %s", d.program_name.c_str());
         std::fprintf(stderr, "\n");
