@@ -283,8 +283,8 @@ inline const DWORD CheckForRect( const CTRect<float> &rect, const float x, const
 	return GetFlags( rect.x1, rect.y1, rect.x2, rect.y2, x, y );
 }
 template <class TVertex>
-void AddVertices( const std::vector<TVertex> &src, std::vector<TVertex> &dst, 
-								  std::vector<WORD> &indices, const CTRect<float> &rcScreen )
+void AddVertices( const std::vector<TVertex> &src, std::vector<TVertex> &dst,
+								  std::vector<WORD> &indices, const CTRect<float> &rcScreen, float fScale )
 {
 	for ( typename std::vector<TVertex>::const_iterator vertex = src.begin(); vertex != src.end(); vertex += 4 )
 	{
@@ -297,10 +297,13 @@ void AddVertices( const std::vector<TVertex> &src, std::vector<TVertex> &dst,
 		TVertex vScaled1 = v1;
 		TVertex vScaled2 = v2;
 		TVertex vScaled3 = v3;
-		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled0, rcScreen );
-		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled1, rcScreen );
-		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled2, rcScreen );
-		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled3, rcScreen );
+		// fScale is computed once per rebuild (CTerrain::ReBuildMeshes), not
+		// re-derived here per vertex -- GetGameplayScale does two GetGlobalVar
+		// hash lookups, which measurably added up over a whole terrain rebuild.
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled0, rcScreen, fScale );
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled1, rcScreen, fScale );
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled2, rcScreen, fScale );
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled3, rcScreen, fScale );
 		const TVertex &vDraw0 = vScaled0;
 		const TVertex &vDraw1 = vScaled1;
 		const TVertex &vDraw2 = vScaled2;
@@ -362,17 +365,19 @@ void CTerrain::ReBuildMeshes()
 		mshCurrent.mshCrossLayers[i].mshNoises.Reserve( nNumLayerNoises[i], nNumLayerNoises[i]/4*6 );
 	}
 	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	// Computed once for the whole rebuild -- see the comment in AddVertices.
+	const float fScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
-		AddVertices( it->mainverts1, mshCurrent.mshNoiseTiles.vertices, mshCurrent.mshNoiseTiles.indices, rcScreen );
-		AddVertices( it->mainverts2, mshCurrent.mshNoNoiseTiles.vertices, mshCurrent.mshNoNoiseTiles.indices, rcScreen );
-		AddVertices( it->basecrossverts, mshCurrent.mshBaseCrosses.vertices, mshCurrent.mshBaseCrosses.indices, rcScreen );
-		AddVertices( it->noiseverts, mshCurrent.mshNoises.vertices, mshCurrent.mshNoises.indices, rcScreen );
+		AddVertices( it->mainverts1, mshCurrent.mshNoiseTiles.vertices, mshCurrent.mshNoiseTiles.indices, rcScreen, fScale );
+		AddVertices( it->mainverts2, mshCurrent.mshNoNoiseTiles.vertices, mshCurrent.mshNoNoiseTiles.indices, rcScreen, fScale );
+		AddVertices( it->basecrossverts, mshCurrent.mshBaseCrosses.vertices, mshCurrent.mshBaseCrosses.indices, rcScreen, fScale );
+		AddVertices( it->noiseverts, mshCurrent.mshNoises.vertices, mshCurrent.mshNoises.indices, rcScreen, fScale );
 		const int nNumLocalLayers = it->layercrossverts.size();
 		for ( int i = 0; i != nNumLocalLayers; ++i )
 		{
-			AddVertices( it->layercrossverts[i], mshCurrent.mshCrossLayers[i].mshCrosses.vertices, mshCurrent.mshCrossLayers[i].mshCrosses.indices, rcScreen );
-			AddVertices( it->layernoiseverts[i], mshCurrent.mshCrossLayers[i].mshNoises.vertices, mshCurrent.mshCrossLayers[i].mshNoises.indices, rcScreen );
+			AddVertices( it->layercrossverts[i], mshCurrent.mshCrossLayers[i].mshCrosses.vertices, mshCurrent.mshCrossLayers[i].mshCrosses.indices, rcScreen, fScale );
+			AddVertices( it->layernoiseverts[i], mshCurrent.mshCrossLayers[i].mshNoises.vertices, mshCurrent.mshCrossLayers[i].mshNoises.indices, rcScreen, fScale );
 		}
 	}
 }

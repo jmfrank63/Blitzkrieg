@@ -4,6 +4,8 @@
 
 #include <cmath>
 
+#include "Globals.h"
+
 namespace NSceneScreenScale
 {
 	static const float LEGACY_GAMEPLAY_WIDTH = 1024.0f;
@@ -23,12 +25,28 @@ namespace NSceneScreenScale
 		// on, keeps the mesh watertight but cannot help: the span each tile
 		// covers still varies between 36 and 37 pixels, so the sampling phase
 		// moves from tile to tile. An integer scale removes the fraction itself.
-		return Max( 1.0f, floorf( Min( fWidth / LEGACY_GAMEPLAY_WIDTH, fHeight / LEGACY_GAMEPLAY_HEIGHT ) ) );
+		// The whole-step rule above applies to the legacy base factor; the fill
+		// factor on top of it may be fractional because Task "fractional-safe
+		// terrain sampling" removed the seam mechanism. When the world base
+		// globals are unset (menus, the ELK editor, the legacy path) this
+		// reduces to the old whole-step rule.
+		const float fBaseW = float( GetGlobalVar( "GFX.World.BaseSizeX", 0 ) );
+		const float fBaseH = float( GetGlobalVar( "GFX.World.BaseSizeY", 0 ) );
+		if ( fBaseW < 1.0f || fBaseH < 1.0f )
+			return Max( 1.0f, floorf( Min( fWidth / LEGACY_GAMEPLAY_WIDTH, fHeight / LEGACY_GAMEPLAY_HEIGHT ) ) );
+		const float fLegacyStep = Max( 1.0f, floorf( Min( fBaseW / LEGACY_GAMEPLAY_WIDTH, fBaseH / LEGACY_GAMEPLAY_HEIGHT ) ) );
+		const float fFill = Max( 1.0f, Min( fWidth / fBaseW, fHeight / fBaseH ) );
+		return fLegacyStep * fFill;
 	}
 
-	inline void ScaleGameplayScreenPoint( float *pfX, float *pfY, const CTRect<float> &rcScreen )
+	// Scale-supplied overload for hot per-vertex loops (CTerrain::ReBuildMeshes):
+	// GetGameplayScale does two GetGlobalVar hash lookups, and calling it once
+	// per vertex over a whole terrain rebuild is measurably slower than
+	// computing it once per rebuild and passing the result down. Not cached as
+	// a header static -- the caller re-derives it once per rebuild, so it never
+	// goes stale across a mode change.
+	inline void ScaleGameplayScreenPoint( float *pfX, float *pfY, const CTRect<float> &rcScreen, float fScale )
 	{
-		const float fScale = GetGameplayScale( rcScreen );
 		if ( fScale <= 1.001f )
 			return;
 
@@ -49,6 +67,11 @@ namespace NSceneScreenScale
 		*pfY = floorf( fCenterY + ( *pfY - fCenterY ) * fScale + 0.5f );
 	}
 
+	inline void ScaleGameplayScreenPoint( float *pfX, float *pfY, const CTRect<float> &rcScreen )
+	{
+		ScaleGameplayScreenPoint( pfX, pfY, rcScreen, GetGameplayScale( rcScreen ) );
+	}
+
 	inline void UnscaleGameplaySpritePoint( float *pfX, float *pfY, const CVec3 &vSpriteCenter, const CTRect<float> &rcScreen )
 	{
 		const float fScale = GetGameplayScale( rcScreen );
@@ -60,9 +83,15 @@ namespace NSceneScreenScale
 	}
 
 	template <class TVertex>
+	inline void ScaleGameplayScreenVertex( TVertex *pVertex, const CTRect<float> &rcScreen, float fScale )
+	{
+		ScaleGameplayScreenPoint( &pVertex->x, &pVertex->y, rcScreen, fScale );
+	}
+
+	template <class TVertex>
 	inline void ScaleGameplayScreenVertex( TVertex *pVertex, const CTRect<float> &rcScreen )
 	{
-		ScaleGameplayScreenPoint( &pVertex->x, &pVertex->y, rcScreen );
+		ScaleGameplayScreenVertex( pVertex, rcScreen, GetGameplayScale( rcScreen ) );
 	}
 
 	inline CTRect<float> GetGameplayScreenRect( const CTRect<float> &rcScreen )

@@ -55,9 +55,11 @@ Each screen type uses it differently:
 
 - Scene size: `drawable`, re-adopted live when the window is resized.
 - World projection (`NSceneScreenScale`): scaled so the visible world
-  region equals what a `cfg_eff` screen shows today, rendered into the
-  drawable — net ortho scale `s_world = s_hud * f`. `f` is uniform, so no
-  distortion; the non-limiting axis shows slightly more world.
+  region a `cfg_eff` screen shows today, rendered into the drawable — net
+  ortho scale `s_world = legacy_step(cfg_eff) * f`, where `legacy_step` is
+  the existing whole-step base factor (preserves Auto exactly) and `f` is
+  the uniform fill. `f` is uniform, so no distortion; the non-limiting axis
+  shows slightly more world.
 - HUD (`ScaleLayout` + reposition): layout scale `s_hud`; anchors
   reposition against the drawable-sized scene rect. Result: HUD size
   follows the resolution setting ("scales down" at low resolutions on big
