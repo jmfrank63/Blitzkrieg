@@ -24,7 +24,10 @@
 #include "../Net/NetDriver.h"
 
 #include "../StreamIO/OptionSystem.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../StreamIO/RandomGen.h"
+#include <fstream>
+#include <filesystem>
 #include "../StreamIO/OptionSystem.h"
 
 #include "../Main/iMain.h"
@@ -56,6 +59,12 @@ bool InitApplication( HINSTANCE, const char *pszAppName, const char *, int nWidt
 	// The engine draws its own cursor, so hide the system pointer the way
 	// WinFrame's SetCursor( 0 ) does; otherwise two pointers are on screen.
 	game_frame.SetCursorVisible( false );
+	// The Dock and cmd-tab icon; a bare executable otherwise shows the
+	// generic one. The image is the original Game.exe icon (main.ico).
+	std::string szIconPath = NPlatform::Paths::ModuleRoot();
+	if ( !szIconPath.empty() && szIconPath.back() != '/' && szIconPath.back() != '\\' ) szIconPath += '/';
+	szIconPath += "Data/icon.png";
+	game_frame.SetAppIcon( szIconPath.c_str() );
 	return true;
 }
 void ShowAppWindow( bool bShow ) { if ( bShow ) game_frame.Show(); else game_frame.Hide(); }
@@ -82,12 +91,27 @@ void PumpMessages()
 				pInput->ConsumePlatformEvent( event );
 				break;
 			case NPlatform::EventType::mouseMotion:
-				GetSingleton<ICursor>()->SetPos( event.x, event.y );
-				pInput->ConsumePlatformEvent( event );
-				break;
 			case NPlatform::EventType::mouseButtonDown:
 			case NPlatform::EventType::mouseButtonUp:
 			case NPlatform::EventType::mouseWheel:
+				// The scene may be presented centered (1:1) or aspect-fit
+				// scaled inside the window; mouse events arrive in window
+				// coordinates and map into game coordinates via the
+				// transform the GFX engine publishes each frame.
+				event.x = int( ( event.x - GetGlobalVar( "GFX.Present.OffsetX", 0.0f ) ) * GetGlobalVar( "GFX.Present.ScaleX", 1.0f ) + 0.5f );
+				event.y = int( ( event.y - GetGlobalVar( "GFX.Present.OffsetY", 0.0f ) ) * GetGlobalVar( "GFX.Present.ScaleY", 1.0f ) + 0.5f );
+				if ( event.type == NPlatform::EventType::mouseMotion )
+					GetSingleton<ICursor>()->SetPos( event.x, event.y );
+				pInput->ConsumePlatformEvent( event );
+				break;
+			case NPlatform::EventType::windowDisplayChanged:
+				// The OS moved the window to another display (a drag, an
+				// arrangement change, an unplug). The game's monitor selection
+				// follows it; CInterfaceScreenBase::Step picks the flag up and,
+				// in fullscreen, re-resolves the mode against the new display.
+				SetGlobalVar( "GFX.Monitor.Index", event.data1 );
+				SetGlobalVar( "GFX.DisplayChanged", 1 );
+				break;
 			case NPlatform::EventType::textInput:
 			case NPlatform::EventType::focusLost:
 			// focusGained is what sets CInputAPI::bFocusCaptured, and the input
@@ -152,6 +176,7 @@ struct SCmdParams
 	std::string szBindName;								// config file name - obsolete - unsupported
 	std::string szSaveFile;								// save file name - for direct save launch
 	std::string szModName;								// mod file name - to lauch game with particular mod added
+	std::string szProfileName;						// player profile to activate (-profile=Name)
 
 	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ) { }
 };
@@ -257,6 +282,47 @@ int RunGame( const BkGameLaunchInfo &launch )
 		if ( arguments.argv[index] ) commandLine += arguments.argv[index];
 	}
 	ProcessCommandLine( commandLine.c_str(), &cmdp );
+	{
+		// The active player profile - the owner of saves, screenshots and
+		// config.cfg under profiles\<name>\. It must be settled before the
+		// config is read. -profile= beats the name remembered in
+		// profiles\active.cfg, which beats the default "Player".
+		std::string szProfile = cmdp.szProfileName;
+		const bool bFirstProfileRun = !std::filesystem::exists( "profiles/active.cfg" );
+		if ( szProfile.empty() && !bFirstProfileRun )
+		{
+			std::ifstream file( "profiles/active.cfg" );
+			if ( file )
+				std::getline( file, szProfile );
+		}
+		szProfile = NProfile::Sanitize( szProfile );
+		SetGlobalVar( "Profile.Name", szProfile.c_str() );
+		std::error_code pathError;
+		std::filesystem::create_directories( "profiles/" + szProfile + "/saves", pathError );
+		std::filesystem::create_directories( "profiles/" + szProfile + "/screenshots", pathError );
+		std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+		if ( active )
+			active << szProfile;
+		if ( bFirstProfileRun )
+		{
+			// One-time migration: the pre-profile layout kept saves and
+			// screenshots directly in the game directory. They become the
+			// first profile's data, otherwise they would vanish from the
+			// load dialog. config.cfg migrates by itself - the profile-less
+			// copy is the read fallback and the next write lands in the
+			// profile.
+			const char *legacy[][2] = { { "saves", "saves" }, { "screenshots", "screenshots" } };
+			for ( int i = 0; i < 2; ++i )
+			{
+				const std::filesystem::path from( legacy[i][0] );
+				const std::filesystem::path to( "profiles/" + szProfile + "/" + legacy[i][1] );
+				if ( !std::filesystem::is_directory( from, pathError ) )
+					continue;
+				for ( const auto &entry : std::filesystem::directory_iterator( from, pathError ) )
+					std::filesystem::rename( entry.path(), to / entry.path().filename(), pathError );
+			}
+		}
+	}
 	if ( cmdp.bReferenceScene )
 		SetGlobalVar( "fixrandom", 1 );
 	GetSingleton<IRandomGen>()->Init();
@@ -404,6 +470,46 @@ int RunGame( const BkGameLaunchInfo &launch )
 	}
 	timeMeter.Sample( "inspecting storage" );
 	timeMeter.Reset();
+	// The config is loaded before the first SetMode (it used to follow it) so
+	// the window can come up in the configured mode right away instead of
+	// flipping once the first interface screen applies the options. Loading
+	// only fills the option values - actions run later in Init() - so the two
+	// mode-defining options are peeked here by hand. The command line still
+	// wins: -windowed/-fullscreen left a marker global behind.
+	SerializeConfig( true, SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_HELPCALLS );
+	{
+		// Seed the mode-size globals from the GFX.Mode option so the first
+		// SetMode already uses the configured resolution (an explicit size is
+		// no longer corrected by window-size adoption - the renderer honors
+		// it and centers the picture). "Auto" (or anything unparsable) is
+		// 0x0, which SetMode resolves to the desktop of the target display.
+		variant_t modeVar;
+		if ( GetSingleton<IOptionSystem>()->Get( "GFX.Mode", &modeVar ) )
+		{
+			const std::string szMode = (const char*)bstr_t( modeVar );
+			int nModeX = 0, nModeY = 0, nModeBPP = 32;
+			if ( sscanf( szMode.c_str(), "%dx%dx%d", &nModeX, &nModeY, &nModeBPP ) < 2 || nModeX <= 0 || nModeY <= 0 )
+				nModeX = nModeY = 0;
+			SetGlobalVar( "GFX.Mode.Mission.SizeX", nModeX );
+			SetGlobalVar( "GFX.Mode.Mission.SizeY", nModeY );
+			SetGlobalVar( "GFX.Mode.InterMission.SizeX", nModeX );
+			SetGlobalVar( "GFX.Mode.InterMission.SizeY", nModeY );
+		}
+	}
+	if ( GetGlobalVar( "GFX.FullScreen.CmdLine", -1 ) < 0 )
+	{
+		variant_t var;
+		if ( GetSingleton<IOptionSystem>()->Get( "GFX.FullScreen", &var ) )
+		{
+			const std::string szValue = (const char*)bstr_t( var );
+			cmdp.eFullscreenMode = szValue == "OFF" ? GFXFS_WINDOWED : GFXFS_FULLSCREEN;
+			SetGlobalVar( "GFX.Mode.Mission.FullScreen", int(cmdp.eFullscreenMode) );
+			SetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) );
+			SetGlobalVar( "GFX.Mode.Current.FullScreen", int(cmdp.eFullscreenMode) );
+			SetGlobalVar( "windowed", cmdp.eFullscreenMode == GFXFS_WINDOWED ? "1" : "0" );
+			SetGlobalVar( "fullscreen", cmdp.eFullscreenMode == GFXFS_FULLSCREEN ? "1" : "0" );
+		}
+	}
 	{
 		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
 		cmdp.nScreenSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
@@ -447,7 +553,6 @@ int RunGame( const BkGameLaunchInfo &launch )
 	}
 	timeMeter.Sample( "graphics init" );
 	timeMeter.Reset();
-	SerializeConfig( true, SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_HELPCALLS );
 	{
 		const int nOldVideoCard = GetSingleton<IUserProfile>()->GetVar( "Autodetect.VideoCard", GFXVC_DEFAULT );
 		const int nNewVideoCard = GetSingleton<IGFX>()->GetVideoCard();
@@ -502,8 +607,32 @@ int RunGame( const BkGameLaunchInfo &launch )
 	GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_COMMAND, "Exec( \"autoexec.cfg\" )", 0xff0000ff );
 	timeMeter.Reset();
 	{
+		// Init() re-applies every option's action, which includes the config's
+		// monitor choice - overwriting a -monitorN / -monitor="name" given on
+		// the command line moments earlier. The command line wins: a numeric
+		// choice is pushed into the option itself, so the settings screen
+		// shows the display the game is actually on and OK confirms it rather
+		// than reverting to the config. A name match has no option
+		// representation, so only its globals are put back.
+		//
+		// Without a command line the monitor choice is NOT carried over from
+		// the previous session: every launch starts on Monitor1. A remembered
+		// monitor turned out to be a trap - the game follows OS drags into the
+		// option, so it silently came up wherever it was last dragged.
+		const int nCmdMonitorIndex = GetGlobalVar( "GFX.Monitor.Index", -1 );
+		const std::string szCmdMonitorName = GetGlobalVar( "GFX.Monitor.Name", "" );
 		IOptionSystem * pOptionSystem = GetSingleton<IOptionSystem>();
 		pOptionSystem->Init();
+		if ( nCmdMonitorIndex >= 0 )
+			pOptionSystem->Set( "GFX.Monitor", variant_t( NStr::Format( "Monitor%d", nCmdMonitorIndex + 1 ) ) );
+		else if ( szCmdMonitorName.empty() )
+			pOptionSystem->Set( "GFX.Monitor", variant_t( "Monitor1" ) );
+		if ( !szCmdMonitorName.empty() )
+			SetGlobalVar( "GFX.Monitor.Name", szCmdMonitorName.c_str() );
+		// Same for an explicit -windowed / -fullscreen.
+		const int nCmdFullscreen = GetGlobalVar( "GFX.FullScreen.CmdLine", -1 );
+		if ( nCmdFullscreen >= 0 )
+			pOptionSystem->Set( "GFX.FullScreen", variant_t( nCmdFullscreen != 0 ? "ON" : "OFF" ) );
 	}
 	timeMeter.Sample( "options init" );
 	int nGuaranteeFPSTime = 0;
@@ -544,7 +673,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			GetSingleton<IScenarioTracker>()->StartChapter( "custom_mission" );
 			pMainLoop->Command( MISSION_COMMAND_MISSION, NStr::Format("%s;%d", cmdp.szMapName.c_str(), cmdp.bCycledLaunch) );
 		}
-		else if ( cmdp.bStartupSmoke )
+		else if ( cmdp.bStartupSmoke || getenv( "BK_AUTO_UI" ) != 0 )	// BK_AUTO_UI drives the UI headless; the intro just costs frames
 		{
 			pMainLoop->Command( MISSION_COMMAND_MAIN_MENU, "0" );
 		}
@@ -571,6 +700,100 @@ int RunGame( const BkGameLaunchInfo &launch )
 				SetGlobalVar( "MovieDir", cmdp.szMovieDir.c_str() );
 			NWinFrame::PumpMessages();
 			bool bActive = NWinFrame::IsActive();
+			// BK_AUTO_UI="frame:action,..." drives the UI without a human, the way
+			// BK_GFX_TRACE watches the mode changes. Actions: settings | ok |
+			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |
+			// cmd=<id> | click=<x>x<y> | set=<option>=<value> | var=<name>=<value>.
+			// It also reports frame timing every 120 frames, which is how the menu
+			// frame rate is measured headless.
+			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
+			if ( pszAutoUI != 0 )
+			{
+				bActive = true;		// keep stepping while the window is unfocused
+				static int nAutoUIFrame = 0;
+				static int nAutoUIRelease = 0;
+				static int vAutoUIReleasePos[2] = { 0, 0 };
+				++nAutoUIFrame;
+				if ( ( nAutoUIFrame % 120 ) == 0 )
+					fprintf( stderr, "BK_AUTO_UI: frame %d at %u ms\n", nAutoUIFrame, unsigned( NPlatform::MonotonicMilliseconds() ) );
+				if ( nAutoUIRelease != 0 && nAutoUIFrame >= nAutoUIRelease )
+				{
+					const int nPacked = ( vAutoUIReleasePos[0] & 0x7fff ) | ( ( vAutoUIReleasePos[1] & 0x7fff ) << 15 ) | 0x40000000;
+					pInput->AddMessage( SGameMessage( 0x00100022 /*CMD_END_ACTION1*/, nPacked ) );
+					nAutoUIRelease = 0;
+				}
+				const std::string szSchedule = pszAutoUI;
+				for ( size_t nPos = 0; nPos < szSchedule.size(); )
+				{
+					size_t nEnd = szSchedule.find( ',', nPos );
+					if ( nEnd == std::string::npos ) nEnd = szSchedule.size();
+					const std::string szEntry = szSchedule.substr( nPos, nEnd - nPos );
+					nPos = nEnd + 1;
+					const size_t nColon = szEntry.find( ':' );
+					if ( nColon == std::string::npos || atoi( szEntry.substr( 0, nColon ).c_str() ) != nAutoUIFrame )
+						continue;
+					const std::string szAction = szEntry.substr( nColon + 1 );
+					fprintf( stderr, "BK_AUTO_UI: frame %d action %s\n", nAutoUIFrame, szAction.c_str() );
+					if ( szAction == "settings" ) pInput->AddMessage( SGameMessage( 10005 ) );		// IMC_SETTINGS
+					else if ( szAction == "ok" ) pInput->AddMessage( SGameMessage( 10002 ) );			// IMC_OK
+					else if ( szAction == "cancel" ) pInput->AddMessage( SGameMessage( 10001 ) );	// IMC_CANCEL
+					else if ( szAction.compare( 0, 4, "msg=" ) == 0 ) pInput->AddMessage( SGameMessage( (int)strtol( szAction.c_str() + 4, 0, 0 ) ) );
+					else if ( szAction.compare( 0, 4, "cmd=" ) == 0 ) pMainLoop->Command( (int)strtol( szAction.c_str() + 4, 0, 0 ), "" );
+					else if ( szAction.compare( 0, 6, "click=" ) == 0 )
+					{
+						int nClickX = 0, nClickY = 0;
+						if ( sscanf( szAction.c_str() + 6, "%dx%d", &nClickX, &nClickY ) == 2 )
+						{
+							// The UI receives clicks as CMD_BEGIN/END_ACTION1 carrying
+							// the position packed the way CInputAPI packs it.
+							const int nPacked = ( nClickX & 0x7fff ) | ( ( nClickY & 0x7fff ) << 15 ) | 0x40000000;
+							GetSingleton<ICursor>()->SetPos( nClickX, nClickY );
+							pInput->AddMessage( SGameMessage( 0x00100021 /*CMD_BEGIN_ACTION1*/, nPacked ) );
+							nAutoUIRelease = nAutoUIFrame + 2;
+							vAutoUIReleasePos[0] = nClickX; vAutoUIReleasePos[1] = nClickY;
+						}
+					}
+					else if ( szAction == "shot" )
+					{
+						IGFX *pGFXShot = GetSingleton<IGFX>();
+						const CTRect<long> rcShot = pGFXShot->GetScreenRect();
+						CPtr<IImage> shotImage = GetImageProcessor()->CreateImage( rcShot.Width(), rcShot.Height() );
+						pGFXShot->Flip();
+						if ( pGFXShot->TakeScreenShot( shotImage ) )
+						{
+							FILE *pShotFile = fopen( NStr::Format( "autoshot_%d_%dx%d.rgba", nAutoUIFrame, shotImage->GetSizeX(), shotImage->GetSizeY() ), "wb" );
+							if ( pShotFile )
+							{
+								const SColor *pPixels = shotImage->GetLFB();
+								for ( int n = 0; n < shotImage->GetSizeX() * shotImage->GetSizeY(); ++n )
+								{
+									const BYTE rgba[4] = { pPixels[n].r, pPixels[n].g, pPixels[n].b, 255 };
+									fwrite( rgba, 4, 1, pShotFile );
+								}
+								fclose( pShotFile );
+								fprintf( stderr, "BK_AUTO_UI: shot written\n" );
+							}
+						}
+						else
+							fprintf( stderr, "BK_AUTO_UI: shot failed\n" );
+					}
+					else if ( szAction == "exit" ) pMainLoop->Command( MAIN_COMMAND_EXIT_GAME, 0 );
+					else if ( szAction.compare( 0, 4, "var=" ) == 0 )
+					{
+						const std::string szPair = szAction.substr( 4 );
+						const size_t nEq = szPair.find( '=' );
+						if ( nEq != std::string::npos )
+							SetGlobalVar( szPair.substr( 0, nEq ).c_str(), szPair.substr( nEq + 1 ).c_str() );
+					}
+					else if ( szAction.compare( 0, 4, "set=" ) == 0 )
+					{
+						const std::string szPair = szAction.substr( 4 );
+						const size_t nEq = szPair.find( '=' );
+						if ( nEq != std::string::npos )
+							GetSingleton<IOptionSystem>()->Set( szPair.substr( 0, nEq ), variant_t( szPair.substr( nEq + 1 ).c_str() ) );
+					}
+				}
+			}
 			pInput->PumpMessages( bActive );
 			if ( NWinFrame::IsExit() )
 			{
@@ -792,24 +1015,37 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 				szModDir += '\\';
 			pCmdParams->szModName = szModDir;
 		}
+		else if ( szParams[i].compare( 0, 8, "-profile" ) == 0 )
+		{
+			// -profile=Name (or -profileName): play with this player profile
+			// for the session and remember it as the active one.
+			std::string szName = realStr.substr( 8 );
+			if ( !szName.empty() && szName[0] == '=' )
+				szName = szName.substr( 1 );
+			NStr::TrimBoth( szName, "\"" );
+			pCmdParams->szProfileName = szName;
+		}
 		else if ( szParams[i] == "-windowed" )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
 			SetGlobalVar( "windowed", "1" );
 			SetGlobalVar( "fullscreen", "0" );
+			SetGlobalVar( "GFX.FullScreen.CmdLine", 0 );
 		}
 		else if ( szParams[i] == "-fullscreen" )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_FULLSCREEN;
 			SetGlobalVar( "fullscreen", "1" );
 			SetGlobalVar( "windowed", "0" );
+			SetGlobalVar( "GFX.FullScreen.CmdLine", 1 );
 		}
 		else if ( szParams[i].compare( 0, 8, "-monitor" ) == 0 )
 		{
-			// Accepts either an index (-monitor1) or part of the display's name
-			// (-monitor="Mi monitor"), because the index order changes as
-			// monitors are plugged in and a name survives that. The index keeps
-			// the meaning GFX.Monitor.Index already has for the D3D9 path.
+			// Accepts either a 1-based ordinal (-monitor1 is the primary display,
+			// -monitor2 the second, matching the "Monitor2" naming the options
+			// screen uses) or part of the display's name (-monitor="Mi monitor"),
+			// because the index order changes as monitors are plugged in and a
+			// name survives that. GFX.Monitor.Index itself stays 0-based.
 			std::string szMonitor = realStr.substr( 8 );
 			if ( !szMonitor.empty() && szMonitor[0] == '=' )
 				szMonitor = szMonitor.substr( 1 );
@@ -818,7 +1054,7 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			for ( int n = 0; n < szMonitor.size() && bNumeric; ++n )
 				bNumeric = isdigit( (unsigned char)szMonitor[n] ) != 0;
 			if ( bNumeric )
-				SetGlobalVar( "GFX.Monitor.Index", atoi( szMonitor.c_str() ) );
+				SetGlobalVar( "GFX.Monitor.Index", Max( 0, atoi( szMonitor.c_str() ) - 1 ) );
 			else if ( !szMonitor.empty() )
 				SetGlobalVar( "GFX.Monitor.Name", szMonitor.c_str() );
 		}

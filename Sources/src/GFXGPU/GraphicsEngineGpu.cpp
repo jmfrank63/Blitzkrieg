@@ -329,19 +329,16 @@ static std::string LowerAscii( const char *pszText )
     return result;
 }
 
-// SDL puts a fullscreen window on whichever display it currently occupies and
-// ignores a move while the window is already fullscreen, so the monitor has to
-// be chosen from the windowed state, before the mode switch. GFX.Monitor.Name
-// is matched first because display indices shuffle as monitors are plugged in
-// and unplugged; GFX.Monitor.Index keeps the meaning it already has for the
-// legacy D3D9 path, where 0 is the primary display.
-static void MoveToSelectedDisplay( SDL_Window *window )
+// Which display the mode should land on. GFX.Monitor.Name is matched first
+// because display indices shuffle as monitors are plugged in and unplugged;
+// GFX.Monitor.Index keeps the meaning it already has for the legacy D3D9 path,
+// where 0 is the primary display. Pure selection - the move itself happens in
+// SetMode, after the window has been sized to fit the target.
+static SDL_DisplayID SelectedDisplay()
 {
-    if ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN )
-        SDL_SetWindowFullscreen( window, false );
     int nCount = 0;
     SDL_DisplayID *pDisplays = SDL_GetDisplays( &nCount );
-    if ( pDisplays == 0 ) return;
+    if ( pDisplays == 0 ) return 0;
     int nSelected = -1;
     const std::string szWanted = LowerAscii( GetGlobalVar( "GFX.Monitor.Name", "" ) );
     if ( !szWanted.empty() )
@@ -355,29 +352,88 @@ static void MoveToSelectedDisplay( SDL_Window *window )
         const int nIndex = Max( 0, GetGlobalVar( "GFX.Monitor.Index", 0 ) );
         if ( nIndex < nCount ) nSelected = nIndex;
     }
-    if ( nSelected >= 0 )
-    {
-        const int nCentered = SDL_WINDOWPOS_CENTERED_DISPLAY( pDisplays[nSelected] );
-        SDL_SetWindowPosition( window, nCentered, nCentered );
-        SDL_SyncWindow( window );
-        if ( GfxTraceEnabled() )
-            fprintf( stderr, "BK_GFX_TRACE: fullscreen display %d \"%s\"\n", nSelected,
-                SDL_GetDisplayName( pDisplays[nSelected] ) );
-    }
+    const SDL_DisplayID chosen = nSelected >= 0 ? pDisplays[nSelected] : 0;
+    if ( chosen != 0 && GfxTraceEnabled() )
+        fprintf( stderr, "BK_GFX_TRACE: selected display %d \"%s\"\n", nSelected, SDL_GetDisplayName( chosen ) );
     SDL_free( pDisplays );
+    return chosen;
 }
 
 bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, EGFXFullscreen fullscreen, int )
 {
     if ( nBpp != 0 && nBpp != 16 && nBpp != 32 ) return fail( "SDL GPU adapter supports 16/32-bit requests on an RGBA8 surface" );
-    if ( nSizeX <= 0 || nSizeY <= 0 ) return fail( "SDL GPU adapter rejects zero-sized display modes" );
+    if ( !sdl_window_ && ( nSizeX <= 0 || nSizeY <= 0 ) ) return fail( "SDL GPU adapter rejects zero-sized display modes" );
     const int nRequestedX = nSizeX, nRequestedY = nSizeY;
     if ( sdl_window_ )
     {
         SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
-        if ( fullscreen == GFXFS_FULLSCREEN ) MoveToSelectedDisplay( window );
-        if ( !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
-        if ( !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
+        // The display choice applies to windowed modes too, so picking another
+        // monitor in the options moves the game there without a mode change.
+        SDL_DisplayID target = SelectedDisplay();
+        if ( nSizeX <= 0 || nSizeY <= 0 )
+        {
+            // An automatic mode adopts the desktop resolution of the display
+            // the window is (about to be) on.
+            const SDL_DisplayMode *pDesktop = SDL_GetDesktopDisplayMode( target != 0 ? target : SDL_GetDisplayForWindow( window ) );
+            if ( pDesktop == 0 ) return fail( SDL_GetError() );
+            nSizeX = pDesktop->w;
+            nSizeY = pDesktop->h;
+        }
+        // A window that ends up filling its display's usable area is flagged
+        // maximized, and SDL defers every size and position request on a
+        // maximized window until it is restored. An automatic mode does
+        // exactly that (it asks for the desktop size), so without the restore
+        // the next mode change - switching back to a smaller display, or
+        // picking a smaller resolution - was deferred forever and silently
+        // did nothing.
+        if ( SDL_GetWindowFlags( window ) & SDL_WINDOW_MAXIMIZED )
+        {
+            SDL_RestoreWindow( window );
+            SDL_SyncWindow( window );
+        }
+        bool bDeferFullscreen = false;
+        if ( target != 0 && SDL_GetDisplayForWindow( window ) != target )
+        {
+            if ( fullscreen == GFXFS_FULLSCREEN && ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) )
+            {
+                // A macOS fullscreen space cannot be carried to another
+                // display synchronously - the space toggle only knows the
+                // screen the window is on. Start leaving the space now;
+                // UpdatePendingFullscreen() moves the window and re-enters
+                // fullscreen on the target over the next frames.
+                SDL_SetWindowFullscreen( window, false );
+                pending_fullscreen_display_ = static_cast<unsigned int>( target );
+                pending_fullscreen_frames_ = 0;
+                bDeferFullscreen = true;
+                if ( GfxTraceEnabled() )
+                    fprintf( stderr, "BK_GFX_TRACE: deferring fullscreen move to display %u\n", unsigned( target ) );
+            }
+            else
+            {
+                // A centered-display position records the target as the
+                // window's pending display, and either the reposition itself
+                // (windowed) or the SDL_SetWindowFullscreen below carries the
+                // window there - the asynchronous window manager is handled
+                // inside SDL (SDL_video.c, pending_displayID). The size is
+                // set first so the centering math uses the size the window is
+                // about to have, not the one it is leaving.
+                const int nCentered = SDL_WINDOWPOS_CENTERED_DISPLAY( target );
+                if ( fullscreen != GFXFS_FULLSCREEN )
+                    SDL_SetWindowSize( window, nSizeX, nSizeY );
+                SDL_SetWindowPosition( window, nCentered, nCentered );
+                SDL_SyncWindow( window );
+                if ( GfxTraceEnabled() )
+                    fprintf( stderr, "BK_GFX_TRACE: moved %dx%d window toward display %u, now on %u (flags=0x%llx)\n",
+                        nSizeX, nSizeY, unsigned( target ), unsigned( SDL_GetDisplayForWindow( window ) ),
+                        (unsigned long long)SDL_GetWindowFlags( window ) );
+            }
+        }
+        if ( !bDeferFullscreen && !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
+        // Never size a fullscreen window: its surface is the display, and on
+        // macOS the request actually shrinks the Space's backing store, which
+        // stretches the picture instead of letterboxing it. The requested
+        // resolution lives in the scene texture; the present blit centers it.
+        if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
         // The app window is deliberately created hidden and stays hidden until a
         // GFX device exists, so SetMode owns making it visible. This is the
         // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
@@ -411,7 +467,15 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         SDL_SyncWindow( window );
         int pixel_width = 0, pixel_height = 0;
         const bool bReadBack = SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height );
-        if ( bReadBack && pixel_width > 0 && pixel_height > 0 )
+        // An explicit resolution is honored as the render size: the scene
+        // renders at the requested size and the present blit centers it on
+        // whatever surface actually exists - black borders when the surface
+        // is larger, cropped when it is smaller, never scaled. In fullscreen
+        // the surface is the display; in windowed mode it is the freely
+        // resizable window, which behaves like a little monitor of its own.
+        // Only automatic modes adopt what the window manager granted.
+        const bool bKeepRequested = nRequestedX > 0 && nRequestedY > 0;
+        if ( bReadBack && pixel_width > 0 && pixel_height > 0 && !bKeepRequested )
         {
             nSizeX = pixel_width;
             nSizeY = pixel_height;
@@ -633,8 +697,103 @@ bool STDCALL GraphicsEngineGpu::Clear( int, RECT *, DWORD dwFlags, DWORD dwColor
     GfxGpuClearInfo clear{ sizeof( clear ), static_cast<uint32_t>( dwFlags ), dwColor, fDepth, dwStencil };
     return Check( api_.clear( renderer_, &clear ), "clear" );
 }
+// A fullscreen space cannot be carried to another display in one synchronous
+// call: leaving the old space, moving the windowed frame and entering the new
+// space are three asynchronous window-manager transitions. SetMode starts the
+// exit and stashes the target; this ticks the remaining phases once per frame.
+void GraphicsEngineGpu::UpdatePendingFullscreen()
+{
+    if ( pending_fullscreen_display_ == 0 || sdl_window_ == nullptr ) return;
+    SDL_Window *window = static_cast<SDL_Window *>( sdl_window_ );
+    const SDL_DisplayID target = static_cast<SDL_DisplayID>( pending_fullscreen_display_ );
+    ++pending_fullscreen_frames_;
+    const bool bFullscreenNow = ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) != 0;
+    if ( bFullscreenNow )
+    {
+        // Either still leaving the old space, or something else (the
+        // display-changed reaction) already re-entered on the target.
+        if ( SDL_GetDisplayForWindow( window ) == target || pending_fullscreen_frames_ > 600 )
+            pending_fullscreen_display_ = 0;
+        return;
+    }
+    if ( SDL_GetDisplayForWindow( window ) != target && pending_fullscreen_frames_ <= 600 )
+    {
+        // Re-issue the move occasionally; the window manager drops requests
+        // that arrive while its animations are still running.
+        if ( ( pending_fullscreen_frames_ % 15 ) == 1 )
+        {
+            const int nCentered = SDL_WINDOWPOS_CENTERED_DISPLAY( target );
+            SDL_SetWindowPosition( window, nCentered, nCentered );
+        }
+        return;
+    }
+    SDL_SetWindowFullscreen( window, true );
+    pending_fullscreen_display_ = 0;
+    if ( GfxTraceEnabled() )
+        fprintf( stderr, "BK_GFX_TRACE: pending fullscreen re-entered on display %u after %d frames\n",
+            unsigned( SDL_GetDisplayForWindow( window ) ), pending_fullscreen_frames_ );
+}
+
+// The scene is presented on the window either centered 1:1 (gameplay:
+// borders/crop) or aspect-fit scaled (menus and videos, GFX.Present.Fit -
+// their controls must never be clipped away). Mouse events arrive in window
+// coordinates; these globals carry the transform the input pump applies to
+// land in game coordinates: game = (window - Offset) * Scale. Re-derived
+// every frame because the window size changes asynchronously (deferred
+// fullscreen moves, OS drags, live window resizing).
+void GraphicsEngineGpu::UpdatePresentOffsets()
+{
+    const bool bFit = GetGlobalVar( "GFX.Present.Fit", 1 ) != 0;
+    if ( bFit != present_fit_ )
+    {
+        present_fit_ = bFit;
+        if ( renderer_ && api_.set_present_fit )
+            api_.set_present_fit( renderer_, bFit ? 1 : 0 );
+    }
+    float fOffsetX = 0.0f, fOffsetY = 0.0f, fScaleX = 1.0f, fScaleY = 1.0f;
+    int pixel_width = 0, pixel_height = 0;
+    if ( sdl_window_ != nullptr && width_ > 0 && height_ > 0 &&
+         SDL_GetWindowSizeInPixels( static_cast<SDL_Window *>( sdl_window_ ), &pixel_width, &pixel_height ) &&
+         pixel_width > 0 && pixel_height > 0 )
+    {
+        if ( bFit )
+        {
+            const double fScale = Min( double( pixel_width ) / width_, double( pixel_height ) / height_ );
+            const double fFitW = width_ * fScale, fFitH = height_ * fScale;
+            fOffsetX = float( ( pixel_width - fFitW ) / 2 );
+            fOffsetY = float( ( pixel_height - fFitH ) / 2 );
+            fScaleX = float( width_ / fFitW );
+            fScaleY = float( height_ / fFitH );
+        }
+        else
+        {
+            // 1:1 - the offset is signed: positive margins when the scene is
+            // smaller (borders), negative when it is larger (center crop).
+            fOffsetX = float( ( pixel_width - width_ ) / 2 );
+            fOffsetY = float( ( pixel_height - height_ ) / 2 );
+        }
+    }
+    if ( fOffsetX != present_offset_x_ || fOffsetY != present_offset_y_ ||
+         fScaleX != present_scale_x_ || fScaleY != present_scale_y_ )
+    {
+        present_offset_x_ = fOffsetX;
+        present_offset_y_ = fOffsetY;
+        present_scale_x_ = fScaleX;
+        present_scale_y_ = fScaleY;
+        SetGlobalVar( "GFX.Present.OffsetX", fOffsetX );
+        SetGlobalVar( "GFX.Present.OffsetY", fOffsetY );
+        SetGlobalVar( "GFX.Present.ScaleX", fScaleX );
+        SetGlobalVar( "GFX.Present.ScaleY", fScaleY );
+        if ( GfxTraceEnabled() )
+            fprintf( stderr, "BK_GFX_TRACE: present fit=%d scene %dx%d window %dx%d offset %.1f,%.1f scale %.4f,%.4f\n",
+                bFit ? 1 : 0, width_, height_, pixel_width, pixel_height, fOffsetX, fOffsetY, fScaleX, fScaleY );
+    }
+}
+
 bool STDCALL GraphicsEngineGpu::Flip()
 {
+    UpdatePendingFullscreen();
+    UpdatePresentOffsets();
     const bool result = renderer_ && Check( api_.present( renderer_ ), "present" );
     if ( result ) frame_pending_ = false;
     // BK_PERF=1 prints the frame rate and the temporary-draw count once a
@@ -941,7 +1100,13 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
             }
             pen_y += line_step;
         }
-        if ( !vertices.empty() && SetTexture( 0, font->Texture() ) )
+        // An empty list means every line fell outside the clip rect - a
+        // successful draw of nothing. Falling through to the block-glyph
+        // fallback painted the clipped-away rows of a scrolled options list as
+        // solid bars across whatever sat below the list (the OK/Cancel
+        // buttons). The fallback is only for text that has no font at all.
+        if ( vertices.empty() ) return true;
+        if ( SetTexture( 0, font->Texture() ) )
         {
             if ( api_.set_sampler ) (void)api_.set_sampler( renderer_, 2 );
             SGFXLVertex *destination = static_cast<SGFXLVertex *>( GetTempVertices( static_cast<int>( vertices.size() ), SGFXLVertex::format, GFXPT_TRIANGLELIST ) );
@@ -956,6 +1121,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
                 }
             }
         }
+        return true;
     }
     return DrawFallbackGlyphs( this, value, static_cast<int>( x ), rect.top + y, font_provider ? font_provider->Color() : 0xffffffff, rect.right );
 }

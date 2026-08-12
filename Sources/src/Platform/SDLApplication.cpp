@@ -7,6 +7,11 @@
 #include <cstring>
 #include <cstdint>
 
+#ifdef __APPLE__
+#include <objc/message.h>
+#include <objc/runtime.h>
+#endif
+
 #include "Debug.h"
 
 namespace
@@ -28,6 +33,33 @@ SDLApplication::SDLApplication() : main_thread_( std::this_thread::get_id() ) {}
 SDLApplication::~SDLApplication()
 {
 	Shutdown();
+}
+
+bool SDLApplication::SetAppIcon(const char *path)
+{
+#ifdef __APPLE__
+	// A bare executable has no .app bundle to carry an icon, so the Dock and
+	// cmd-tab show the generic one. AppKit decodes the PNG and accepts a
+	// runtime icon; spoken through the Objective-C runtime because this file
+	// compiles as plain C++.
+	if ( !path || !*path ) return false;
+	typedef id (*IdSelChar)(id, SEL, const char *);
+	typedef id (*IdSel)(id, SEL);
+	typedef id (*IdSelId)(id, SEL, id);
+	typedef void (*VoidSelId)(id, SEL, id);
+	id nspath = ((IdSelChar)objc_msgSend)( (id)objc_getClass( "NSString" ), sel_registerName( "stringWithUTF8String:" ), path );
+	if ( !nspath ) return false;
+	id image = ((IdSel)objc_msgSend)( (id)objc_getClass( "NSImage" ), sel_registerName( "alloc" ) );
+	image = ((IdSelId)objc_msgSend)( image, sel_registerName( "initWithContentsOfFile:" ), nspath );
+	if ( !image ) return false;
+	id app = ((IdSel)objc_msgSend)( (id)objc_getClass( "NSApplication" ), sel_registerName( "sharedApplication" ) );
+	((VoidSelId)objc_msgSend)( app, sel_registerName( "setApplicationIconImage:" ), image );
+	((IdSel)objc_msgSend)( image, sel_registerName( "release" ) );
+	return true;
+#else
+	(void)path;
+	return false;
+#endif
 }
 
 bool SDLApplication::Initialize(const char *title, int width, int height)
@@ -229,6 +261,24 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
 			case SDL_EVENT_WINDOW_MOVED: event.type = EventType::windowMoved; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
 			case SDL_EVENT_WINDOW_RESIZED: event.type = EventType::windowResized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
+			case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
+			{
+				// data1 carries the display's list index (the number the game
+				// uses everywhere: MonitorN is index N-1), not SDL's opaque id.
+				event.type = EventType::windowDisplayChanged;
+				event.timestamp = raw.window.timestamp;
+				event.windowId = raw.window.windowID;
+				event.data1 = 0;
+				int displayCount = 0;
+				if ( SDL_DisplayID *displays = SDL_GetDisplays( &displayCount ) )
+				{
+					for ( int i = 0; i < displayCount; ++i )
+						if ( displays[i] == static_cast<SDL_DisplayID>( raw.window.data1 ) )
+							event.data1 = i;
+					SDL_free( displays );
+				}
+				break;
+			}
 			case SDL_EVENT_WINDOW_MINIMIZED: event.type = EventType::windowMinimized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
 			case SDL_EVENT_WINDOW_RESTORED: event.type = EventType::windowRestored; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
 			case SDL_EVENT_KEY_DOWN: event.type = EventType::keyDown; event.timestamp = raw.key.timestamp; event.windowId = raw.key.windowID; event.key = static_cast<int>( raw.key.key ); event.scancode = static_cast<int>( raw.key.scancode ); event.modifiers = static_cast<int>( raw.key.mod ); event.repeat = raw.key.repeat; break;

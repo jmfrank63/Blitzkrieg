@@ -209,6 +209,9 @@ public:
             case TEXTURE_QUALITY_COMPRESSED: quality_suffix_ = "_c.dds"; break;
             case TEXTURE_QUALITY_LOW: quality_suffix_ = "_l.dds"; break;
             case TEXTURE_QUALITY_HIGH: quality_suffix_ = "_h.dds"; break;
+            // ResolveStreamName tries this first and then walks the fallback
+            // chain, so Ultra shows the _h originals until a _u pack exists.
+            case TEXTURE_QUALITY_ULTRA: quality_suffix_ = "_u.dds"; break;
         }
     }
 

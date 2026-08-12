@@ -1676,9 +1676,90 @@ static void EnsureCoreServices()
 // actions (OptionSystemInternal.cpp:229-242). Without it option values load
 // but never take effect — menu music stays at the backend's zero volume.
 // Other actions (game speed, difficulty, gamma...) still TODO.
+
+// Video-mode option values are "WxHxB" strings or "Auto", which stands for the
+// desktop resolution of the selected display. The actions only write the GFX.*
+// globals: CInterfaceScreenBase::ChangeResolution compares them against the
+// current mode on the next screen-focus change (options dialog closing) and
+// drives IGFX::SetMode, so a new resolution or display applies live. "Auto"
+// stays 0x0 here because only the GFX module can ask the windowing system
+// which display the window will land on.
+static bool IsAutoVideoMode(const char *value)
+{
+    return value && (value[0] == 'A' || value[0] == 'a') && (value[1] == 'U' || value[1] == 'u') &&
+           (value[2] == 'T' || value[2] == 't') && (value[3] == 'O' || value[3] == 'o') && value[4] == 0;
+}
+static void SetModeSizeVars(int width, int height)
+{
+    static const char *prefixes[] = {"GFX.Mode.Mission.", "GFX.Mode.InterMission."};
+    char key[64], text[32];
+    for (const char *prefix : prefixes) {
+        std::snprintf(key, sizeof key, "%sSizeX", prefix);
+        std::snprintf(text, sizeof text, "%d", width);
+        global_vars->SetVar(key, text);
+        std::snprintf(key, sizeof key, "%sSizeY", prefix);
+        std::snprintf(text, sizeof text, "%d", height);
+        global_vars->SetVar(key, text);
+    }
+}
+static void ApplyVideoModeAction(const char *value)
+{
+    int width = 0, height = 0, bpp = 32;
+    if (!IsAutoVideoMode(value) && (std::sscanf(value, "%dx%dx%d", &width, &height, &bpp) < 2 || width <= 0 || height <= 0))
+        return;
+    SetModeSizeVars(width, height);
+    global_vars->SetVar("GFX.Mode.Program", value);
+}
+static void ApplyMonitorAction(const char *value)
+{
+    // "MonitorN" is display N-1, matching the -monitorN command line. Anything
+    // else - including "Primary", which older configs stored for display 0 -
+    // selects the first display.
+    int index = 0;
+    if (std::strncmp(value, "Monitor", 7) == 0) {
+        index = std::atoi(value + 7) - 1;
+        if (index < 0) index = 0;
+    }
+    char text[32];
+    std::snprintf(text, sizeof text, "%d", index);
+    global_vars->SetVar("GFX.Monitor.Index", text);
+    // The name match (a -monitor="..." command line) would override the index
+    // inside MoveToSelectedDisplay, so an explicit choice in options drops it.
+    global_vars->SetVar("GFX.Monitor.Name", "");
+    // An automatic resolution follows the display it lives on.
+    if (IsAutoVideoMode(global_vars->GetVar("GFX.Mode.Program")))
+        SetModeSizeVars(0, 0);
+}
+
+static void ApplyFullScreenAction(const char *value)
+{
+    // ON means exclusive fullscreen (GFXFS_FULLSCREEN=1), anything else a
+    // window (GFXFS_WINDOWED=2). Like the video mode, the action only writes
+    // the desired-mode globals; CInterfaceScreenBase::ChangeResolution diffs
+    // them against GFX.Mode.Current.* and drives IGFX::SetMode live.
+    const bool on = (value[0] == 'O' || value[0] == 'o') && (value[1] == 'N' || value[1] == 'n') && value[2] == 0;
+    const char *text = on ? "1" : "2";
+    global_vars->SetVar("GFX.Mode.Mission.FullScreen", text);
+    global_vars->SetVar("GFX.Mode.InterMission.FullScreen", text);
+    // The legacy pair the Windows frame still consults (IsWindowedMode).
+    global_vars->SetVar("windowed", on ? "0" : "1");
+    global_vars->SetVar("fullscreen", on ? "1" : "0");
+}
+
 extern "C" __declspec(dllexport) void bk_bridge_apply_option_action(const char *action, const char *name, const char *value)
 {
     if (!action || !*action) return;
+    if (global_vars && value) {
+        if (std::strcmp(action, "SetVideoMode") == 0) { ApplyVideoModeAction(value); return; }
+        if (std::strcmp(action, "SetMonitor") == 0) { ApplyMonitorAction(value); return; }
+        if (std::strcmp(action, "SetFullScreen") == 0) { ApplyFullScreenAction(value); return; }
+        if (std::strcmp(action, "SetTextureQuality") == 0) {
+            // ITextureManager lives in the GFX module; CInterfaceScreenBase::Step
+            // picks the value up and forwards it (same pattern as GFX.DisplayChanged).
+            global_vars->SetVar("GFX.Texture.QualityPending", value);
+            return;
+        }
+    }
     const bool music = std::strcmp(action, "SetMusicVolume") == 0;
     const bool sfx = std::strcmp(action, "SetSFXVolume") == 0;
     if (!music && !sfx) return;

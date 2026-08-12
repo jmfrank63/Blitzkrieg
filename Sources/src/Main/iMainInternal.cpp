@@ -22,6 +22,7 @@
 #include "../Platform/Debug.h"
 #include "../Platform/Paths.h"
 #include "../Platform/System.h"
+#include "../StreamIO/ProfilePaths.h"
 namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
@@ -71,6 +72,20 @@ static const NInput::SRegisterCommandEntry stdCommands[] =
 static std::string ResolveConfigFileName( const std::string &szFileName, const bool bMustExist )
 {
 	std::vector<std::string> candidates;
+	// The active profile owns config.cfg. On read, an old root-level config
+	// still resolves through the later candidates - that is the migration
+	// path; the next write lands in the profile directory. defconf.cfg never
+	// exists in a profile, so it keeps resolving from Data\Configs.
+	const std::string szProfileSegment = NProfile::Segment();
+	if ( !szProfileSegment.empty() )
+	{
+		candidates.push_back( ".\\" + szProfileSegment + szFileName );
+		// Writes define the file's location; the existence scan below is for
+		// reads. Without this the flush kept updating a root-level config.cfg
+		// from before profiles existed instead of the profile's own copy.
+		if ( !bMustExist )
+			return candidates[0];
+	}
 	candidates.push_back( ".\\" + szFileName );
 	candidates.push_back( ".\\Data\\Configs\\" + szFileName );
 	candidates.push_back( "..\\Data\\Configs\\" + szFileName );
@@ -450,9 +465,12 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 					for ( int i = 0; i != nPixels; ++i )
 						pPixels[i].a = 255;
 				}
-				// Paths::Initialize creates this at startup, but a user can delete
-				// it while the game runs, so make it again rather than lose the shot.
-				const std::string screenshotRoot = NPlatform::Paths::ScreenshotRoot();
+				// Screenshots belong to the active profile, beside its saves.
+				// Created on demand rather than at startup so a deleted folder
+				// never loses the shot.
+				const std::string screenshotRoot = NProfile::Segment().empty()
+					? NPlatform::Paths::ScreenshotRoot()
+					: std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment() + "screenshots";
 				NFile::CreatePath( screenshotRoot.c_str() );
 				while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
 					++nShotIndex;

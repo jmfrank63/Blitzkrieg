@@ -91,6 +91,14 @@ pub const System = struct {
         }
     }
 
+    // only_missing=false loads a user config: every record replaces the option
+    // wholesale. only_missing=true is the defconf.cfg repair pass; it adds
+    // options the config lacked AND refreshes the metadata (default, action,
+    // fill, flags...) of the ones it already has, keeping only the user's
+    // value. config.cfg snapshots the whole descriptor when written, so
+    // without the refresh an old config pins the defaults (1024x768x32,
+    // "Primary") forever and the DEFAULTS button restores settings no current
+    // defconf.cfg contains.
     pub fn loadXml(self: *System, root: *xml.Node, only_missing: bool) !usize {
         const options_node = if (std.mem.eql(u8, root.name, "Options")) root else xml.child(root, "Options") orelse return 0;
         const vars = xml.child(options_node, "Vars") orelse return 0;
@@ -100,14 +108,13 @@ pub const System = struct {
             const key_node = xml.child(item, "KeyName") orelse continue;
             const name = key_node.text;
             if (name.len == 0) continue;
-            if (only_missing and self.findIndex(name) != null) continue;
 
             const type_text = xml.attribute(item, "Type") orelse "8";
             const value_type = std.fmt.parseInt(u16, type_text, 10) catch 8;
             const value = xml.attribute(item, "Var") orelse if (xml.child(item, "Var")) |node| node.text else "";
             const default_node = xml.child(item, "Default");
             const default_value = if (default_node) |node| (xml.attribute(node, "Var") orelse if (xml.child(node, "Var")) |value_node| value_node.text else value) else value;
-            const replacement = Option{
+            var replacement = Option{
                 .name = try self.allocator.dupeZ(u8, name),
                 .value = try self.allocator.dupeZ(u8, value),
                 .default_value = try self.allocator.dupeZ(u8, default_value),
@@ -120,6 +127,13 @@ pub const System = struct {
                 .action_fill = try self.allocator.dupeZ(u8, if (xml.child(item, "ActionFill")) |node| node.text else ""),
             };
             if (self.findIndex(name)) |index| {
+                if (only_missing) {
+                    const existing = &self.entries.items[index];
+                    self.allocator.free(replacement.value);
+                    replacement.value = existing.value;
+                    replacement.value_type = existing.value_type;
+                    existing.value = try self.allocator.dupeZ(u8, "");
+                }
                 self.freeOption(self.entries.items[index]);
                 self.entries.items[index] = replacement;
             } else try self.entries.append(self.allocator, replacement);
@@ -146,6 +160,24 @@ fn parseU32Compat(value: ?[]const u8, fallback: u32) u32 {
     } else |_| {}
 
     return fallback;
+}
+
+test "repair pass refreshes metadata from defconf but keeps the user's value" {
+    const config = "<base><Options><Vars><item Type=\"8\" Flags=\"49\" Order=\"1\"><Var>Monitor3</Var><Action>SetMonitor</Action><Default Type=\"8\"><Var>Primary</Var></Default><KeyName>GFX.Monitor</KeyName></item></Vars></Options></base>";
+    const defconf = "<base><Options><Vars><item Type=\"8\" Flags=\"49\" Order=\"2\"><Var>Monitor1</Var><Action>SetMonitor</Action><ActionFill>GetMonitors</ActionFill><Default Type=\"8\"><Var>Monitor1</Var></Default><KeyName>GFX.Monitor</KeyName></item></Vars></Options></base>";
+    var config_doc = try xml.parse(std.testing.allocator, config);
+    defer config_doc.deinit();
+    var defconf_doc = try xml.parse(std.testing.allocator, defconf);
+    defer defconf_doc.deinit();
+    var system = System.init(std.testing.allocator);
+    defer system.deinit();
+    _ = try system.loadXml(config_doc.root, false);
+    _ = try system.loadXml(defconf_doc.root, true);
+    const entry = system.get("GFX.Monitor").?;
+    try std.testing.expectEqualStrings("Monitor3", entry.value);
+    try std.testing.expectEqualStrings("Monitor1", entry.default_value);
+    try std.testing.expectEqualStrings("GetMonitors", entry.action_fill);
+    try std.testing.expectEqual(@as(i32, 2), entry.order);
 }
 
 test "loads legacy option records and preserves config precedence" {

@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Platform/LegacyText.h"
 
 #include "LoadMission.h"
@@ -53,7 +54,7 @@ void CInterfaceLoadMission::StartInterface()
 	// substr(0, npos) handed back the whole string, and the dialog looked for
 	// saves inside Data instead of beside the executable -- an empty list.
 	// GetBaseDir is where quicksave and the intermission dialogs already write.
-	std::string szBaseDir = GetSingleton<IMainLoop>()->GetBaseDir();
+	std::string szBaseDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{

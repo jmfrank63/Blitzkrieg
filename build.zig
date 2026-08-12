@@ -48,6 +48,12 @@ const cflags_release = &.{
 };
 
 const cppflags_debug = &.{
+    // C++17 to match the mac build (clang's default there); the MSVC target
+    // otherwise defaults to C++14, which empties <filesystem> out of the STL.
+    // _HAS_AUTO_PTR_ETC keeps std::random_shuffle, which LegacyAlgorithm.h
+    // uses to preserve the engine's historical shuffle sequences.
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-D_DEBUG",
@@ -86,6 +92,8 @@ var build_host_os: std.Target.Os.Tag = .windows;
 const cppflags_debug_trap = &(cppflags_debug.* ++ .{"-fsanitize-trap=undefined"});
 
 const cppflags_release = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-DNDEBUG",
@@ -112,6 +120,8 @@ const cppflags_release = &.{
 };
 
 const cppflags_beta_debug = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-D_DEBUG",
@@ -141,6 +151,8 @@ const cppflags_beta_debug = &.{
 };
 
 const cppflags_beta_release = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-DNDEBUG",
@@ -191,6 +203,8 @@ const cflags_sfx_release = &.{
 };
 
 const cppflags_sfx_debug = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-D_DEBUG",
@@ -218,6 +232,8 @@ const cppflags_sfx_debug = &.{
 };
 
 const cppflags_sfx_release = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-DNDEBUG",
@@ -656,6 +672,8 @@ const runtime_platform_playable_build_functions = &.{
 };
 
 const cppflags_game_debug = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-D_DEBUG",
@@ -681,6 +699,8 @@ const cppflags_game_debug = &.{
 };
 
 const cppflags_game_release = &.{
+    "-std=c++17",
+    "-D_HAS_AUTO_PTR_ETC=1",
     "-D_WINDOWS",
     "-DWIN32",
     "-DNDEBUG",
@@ -1482,12 +1502,14 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| gfx_reference_compare_run.addArgs(args);
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
-    // StreamIOOptionsAbi ships in the same directory as the shared libSDL3.dylib
-    // and is loaded alongside it. Linking the *static* SDL3 here would put a
-    // second copy of SDL's Objective-C classes into the process, which the
-    // runtime reports as duplicate class implementations and which dyld resolves
-    // arbitrarily. Share the one SDL3 image on macOS.
-    const options_bridge_sdl = if (target.result.os.tag == .macos) sdl_dynamic else sdl_c;
+    // StreamIOOptionsAbi ships in the same directory as the shared SDL3
+    // library and is loaded alongside it. It must share the game's one SDL3
+    // image on every platform: a *static* SDL3 here is a second, private SDL
+    // whose video subsystem is never initialized, so SDL_GetDisplays returns
+    // nothing and the options menu degrades to a single monitor and no video
+    // modes. On macOS the duplicate also collides at the Objective-C runtime
+    // (duplicate class implementations, resolved arbitrarily by dyld).
+    const options_bridge_sdl = sdl_dynamic;
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain, platform_runtime, options_bridge_sdl);
     const options_bridge_test_module = b.createModule(.{
         .target = target,
@@ -2190,7 +2212,7 @@ fn addOptionsBridge(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     platform_runtime: *std.Build.Step.Compile,
-    sdl_c: *std.Build.Step.Compile,
+    sdl: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
@@ -2210,7 +2232,7 @@ fn addOptionsBridge(
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
     module.linkLibrary(platform_runtime);
-    module.linkLibrary(sdl_c);
+    module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     applyMacosLoaderPath(target, module);
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
@@ -2468,6 +2490,11 @@ fn addGame(
         game_module.linkSystemLibrary("winmm", .{});
         game_module.linkSystemLibrary("odbc32", .{});
         game_module.linkSystemLibrary("odbccp32", .{});
+    }
+    if (target.result.os.tag == .macos) {
+        // SDLApplication::SetAppIcon talks to AppKit through the Objective-C
+        // runtime to give the bare executable a Dock icon.
+        game_module.linkSystemLibrary("objc", .{});
     }
     if (target.result.os.tag == .windows and std.mem.eql(u8, renderer, "legacy")) {
         game_module.linkSystemLibrary("d3d9", .{});

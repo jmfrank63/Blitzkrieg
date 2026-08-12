@@ -145,7 +145,7 @@ void CCombo::NotifyControlStateChanged( const bool bActivated, const DWORD time,
 		if ( nSuppressCounter == 0 ) 
 			NotifyBinds( bFormedLocal, time );
 	}
-	else if ( bFormedLocal && (nSuppressCounter == 0) )	// повторная активация с другим значением возможна только для 'rotational axis'
+	else if ( bFormedLocal && (nSuppressCounter == 0) )	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ 'rotational axis'
 		NotifyBinds( bFormedLocal, time, true );
 	bFormed = bFormedLocal;
 	if ( !bActivated ) 
@@ -491,16 +491,39 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 	}
 	for ( std::vector<SBindsConfig::SBindSection>::const_iterator itRepairSect = repairs.sections.begin(); itRepairSect != repairs.sections.end(); ++itRepairSect )
 	{
-		bool bFoundSection = false;
-		for ( std::vector<SBindsConfig::SBindSection>::const_iterator itConfigSect = config.sections.begin(); itConfigSect != config.sections.end(); ++itConfigSect )
+		SBindsConfig::SBindSection *pFoundSection = 0;
+		for ( std::vector<SBindsConfig::SBindSection>::iterator itConfigSect = config.sections.begin(); itConfigSect != config.sections.end(); ++itConfigSect )
 		{
-			if ( itConfigSect->szName == itRepairSect->szName ) 
+			if ( itConfigSect->szName == itRepairSect->szName )
 			{
-				bFoundSection = true;
+				pFoundSection = &( *itConfigSect );
 				break;
 			}
 		}
-		if ( !bFoundSection )	
+		if ( pFoundSection )
+		{
+			// The section survived from an old config, but the defaults may
+			// have gained binds since it was written (a new command, a new
+			// alternative control). Merge every bind the config does not
+			// already have, matched by name+type+controls, so new default
+			// binds actually reach existing installations.
+			for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = itRepairSect->commands.begin(); bind != itRepairSect->commands.end(); ++bind )
+			{
+				if ( bind->szName.empty() )
+					continue;
+				bool bHaveBind = false;
+				for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator have = pFoundSection->commands.begin(); have != pFoundSection->commands.end() && !bHaveBind; ++have )
+					bHaveBind = ( have->szName == bind->szName ) && ( have->szBindType == bind->szBindType ) && ( have->controls == bind->controls );
+				if ( !bHaveBind )
+				{
+					SetBindSection( itRepairSect->szName.c_str() );
+					AddBindLocal( *bind );
+					pFoundSection->commands.push_back( *bind );
+					bMappingChanged = true;
+				}
+			}
+		}
+		else
 		{
 			SetBindSection( itRepairSect->szName.c_str() );
 			for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = itRepairSect->commands.begin(); bind != itRepairSect->commands.end(); ++bind )

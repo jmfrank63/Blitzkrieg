@@ -57,6 +57,10 @@ public:
 	SDLApplication &operator=(const SDLApplication &) = delete;
 
 	bool Initialize(const char *title, int width, int height);
+	// Gives the bare executable an application icon (Dock / cmd-tab on
+	// macOS, where a binary without an .app bundle shows the generic
+	// executable icon). No-op on other platforms. Accepts a PNG path.
+	bool SetAppIcon(const char *path);
 	void Shutdown();
 	void Show();
 	void Hide();

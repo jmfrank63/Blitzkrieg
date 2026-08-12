@@ -7,6 +7,9 @@
 #include "../Main/ScenarioTracker.h"
 #include "../UI/UIMessages.h"
 #include "OptionEntryWrapper.h"
+#include "../StreamIO/ProfilePaths.h"
+#include <fstream>
+#include <filesystem>
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
@@ -62,6 +65,40 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 				IOptionSystem * pOptionsSystem = GetSingleton<IOptionSystem>();
 				if ( !szWindowText.empty() )
 				{
+					// The player name IS the profile: a new name switches to
+					// (or creates) profiles\<name>\ with its own saves,
+					// screenshots and settings.
+					const std::string szNewProfile = NProfile::Sanitize( std::string( (const char*)bstr_t( szWindowText.c_str() ) ) );
+					const std::string szOldProfile = GetGlobalVar( "Profile.Name", "" );
+					bool bLoadedExistingProfile = false;
+					if ( !szOldProfile.empty() && szNewProfile != szOldProfile )
+					{
+						IMainLoop *pML = GetSingleton<IMainLoop>();
+						// Leave the old profile with its settings flushed and
+						// its own player name intact.
+						pML->SerializeConfig( false, 0xffffffff );
+						SetGlobalVar( "Profile.Name", szNewProfile.c_str() );
+						std::error_code pathError;
+						std::filesystem::create_directories( "profiles/" + szNewProfile + "/saves", pathError );
+						std::filesystem::create_directories( "profiles/" + szNewProfile + "/screenshots", pathError );
+						std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+						if ( active )
+							active << szNewProfile;
+						if ( std::filesystem::exists( "profiles/" + szNewProfile + "/config.cfg", pathError ) )
+						{
+							// An existing profile brings its own settings; the
+							// screen regaining focus applies mode changes live.
+							// The monitor stays where the game is right now -
+							// like at startup, it is not carried over.
+							const int nMonitor = GetGlobalVar( "GFX.Monitor.Index", 0 );
+							pML->SerializeConfig( true, 0xffffffff );
+							pOptionsSystem->Init();
+							pOptionsSystem->Set( "GFX.Monitor", variant_t( NStr::Format( "Monitor%d", nMonitor + 1 ) ) );
+							bLoadedExistingProfile = true;
+						}
+						// A brand-new profile is seeded with the settings in
+						// effect right now by the flush below.
+					}
 					pOptionsSystem->Set( "GamePlay.PlayerName", variant_t( szWindowText.c_str() ) );
 
 					/*{
@@ -76,7 +113,11 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 					}*/
 					
 					GetSingleton<IMainLoop>()->SerializeConfig( false, 0xffffffff );
-					pOptions->Apply();
+					// The difficulty/blood rows still show the previous
+					// profile's selections; applying them would overwrite what
+					// the loaded profile chose for itself.
+					if ( !bLoadedExistingProfile )
+						pOptions->Apply();
 				}
 				pButtonOK->EnableWindow( false ); // to disable second return
 				CloseInterface();
