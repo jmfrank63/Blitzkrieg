@@ -9,10 +9,13 @@ Date: 2026-08-12. Agreed with Johannes in-session; supersedes the
 The configured resolution (`GFX.Mode`) stops being a literal render size.
 Each screen type uses it differently:
 
-- **Menus and videos** never upscale. They render at the configured
-  resolution and are presented 1:1 when they fit, scaled *down* to fit when
-  they do not — black bars around them in both cases. Sharp at 1:1; no
-  scaling blur from us and nothing left over for the OS to stretch.
+- **Menus and videos** render at `cfg_eff = min(cfg, drawable)` per axis
+  (revised 2026-08-12, second pass): a resolution lower than the screen
+  shows 1:1 inside a black frame; a resolution larger than the screen just
+  means screen resolution. The present blit is 1:1 in steady state — no
+  scaling ever, so nothing is soft and nothing is left for the OS to
+  stretch. The shrink-only fit stays only as a transient safety net during
+  live resizes.
 - **Missions** always render at the drawable size (window or monitor).
   The resolution acts as the *view and HUD base*: the world shows the region
   a configured-resolution screen would show (projection zoom, rendered
@@ -41,7 +44,9 @@ Each screen type uses it differently:
 
 ### Menus, videos, overlays (`szInterfaceType != "Mission"`)
 
-- Scene size: `cfg` (unchanged from today).
+- Scene size: `cfg_eff = min(cfg, drawable)` per axis (revised: was raw
+  `cfg`; an oversized resolution now behaves as the screen resolution
+  instead of rendering large and shrinking).
 - UI layout scale: derived from the scene as today (`ScaleLayout`).
 - Present blit: **shrink-only aspect-fit** — scale factor
   `min(1, fit_scale)`, centered, black bars. This replaces today's
@@ -97,7 +102,10 @@ Each screen type uses it differently:
   HUD compositing pass.
 - The options screen needs no changes. The resolution option's meaning
   becomes: window size in windowed mode; HUD size and world view base in
-  missions; menu/video render size (never upscaled).
+  missions; menu/video render size (never upscaled, capped at the screen).
+- Changing the resolution in the options screen takes effect immediately:
+  the active screen runs its mode diff every frame (`ChangeResolution` is
+  already a no-op diff when nothing changed), not only on focus changes.
 
 ## Error handling & edge cases
 
