@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 
 #ifndef BLITZKRIEG_COMMAND_LINE_TEST
@@ -42,6 +43,46 @@ std::string AttachedValue(const std::string &argument, std::size_t prefixLength)
 {
 	return TrimQuotes( argument.substr( prefixLength ) );
 }
+
+// Accepts a lowercased, already-trimmed -mode value: "auto", or "WxH" /
+// "WxHxBPP" with positive width/height (BPP defaults to 32, matching the
+// GFX.Mode option's own format). Returns false - leaving normalized
+// untouched - for anything else, including an empty value.
+bool NormalizeModeValue(const std::string &lowered, std::string &normalized)
+{
+	if ( lowered == "auto" )
+	{
+		normalized = "Auto";
+		return true;
+	}
+	int width = 0, height = 0, bpp = 32;
+	if ( std::sscanf( lowered.c_str(), "%dx%dx%d", &width, &height, &bpp ) >= 2 && width > 0 && height > 0 )
+	{
+		char buffer[32];
+		std::snprintf( buffer, sizeof buffer, "%dx%dx%d", width, height, bpp );
+		normalized = buffer;
+		return true;
+	}
+	return false;
+}
+
+// Shared by -help and by a parse error, so both point at the same list of
+// recognized flags. Deliberately leaves out internal/testing-only flags
+// (-reference-scene, -startup-smoke, -lh*, ...).
+const char *const kUsageText =
+"Usage: Game [options] [map.xml | save.sav]\n"
+"\n"
+"Options:\n"
+"  -windowed                     run in a window\n"
+"  -fullscreen                   run fullscreen\n"
+"  -mode=WxH[xBPP] | -mode=auto  set the resolution, e.g. -mode=1024x768x32\n"
+"  -monitorN                     pick a display by 1-based ordinal, e.g. -monitor2\n"
+"  -monitor=\"name\"               pick a display by name\n"
+"  -profile=Name                 play with this player profile\n"
+"  -mp                           multiplayer\n"
+"  -mod<dir>                     load a mod from <dir>\n"
+"\n"
+"Example: Game -windowed -mode=1024x768x32\n";
 }
 
 namespace NGame
@@ -80,10 +121,20 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 		else if ( argument.rfind( "-mode", 0 ) == 0 )
 		{
 			// Checked ahead of -mod (mod directory) since "-mode" shares its
-			// four-letter prefix.
+			// four-letter prefix. Rejected here rather than left for
+			// GameMain's later re-parse: this is the one path RunGame always
+			// takes before any engine/window init (see CommandLineExitCode
+			// below), so it is the only reliable place to bail out clean.
 			std::string value = AttachedValue( raw, 5 );
 			if ( !value.empty() && value.front() == '=' ) value = TrimQuotes( value.substr( 1 ) );
-			result.mode = value;
+			std::string normalized;
+			if ( NormalizeModeValue( Lower( value ), normalized ) )
+				result.mode = normalized;
+			else
+			{
+				result.parseError = true;
+				result.modeError = value;
+			}
 		}
 		else if ( argument.rfind( "-mod", 0 ) == 0 ) result.modName = AttachedValue( raw, 4 );
 		else if ( argument == "-windowed" ) result.fullscreenMode = EFullscreenMode::windowed;
@@ -143,5 +194,22 @@ int CommandLineExitCode( const CommandLineOptions &options )
 	if ( options.showHelp ) return 0;
 	if ( options.parseError ) return 2;
 	return -1;
+}
+
+void ReportCommandLine( const CommandLineOptions &options )
+{
+	if ( options.showHelp )
+	{
+		std::fputs( kUsageText, stdout );
+		return;
+	}
+	if ( !options.parseError ) return;
+	if ( !options.modeError.empty() )
+		std::fprintf( stderr, "Error: invalid -mode value \"%s\" (expected WxH, WxHxBPP, or auto)\n", options.modeError.c_str() );
+	else if ( !options.unknownArguments.empty() )
+		std::fprintf( stderr, "Error: unrecognized argument \"%s\"\n", options.unknownArguments.front().c_str() );
+	else
+		std::fprintf( stderr, "Error: invalid command line\n" );
+	std::fputs( kUsageText, stderr );
 }
 }

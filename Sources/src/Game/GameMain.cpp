@@ -209,7 +209,14 @@ int RunGame( const BkGameLaunchInfo &launch )
 {
 	const NPlatform::Arguments &arguments = launch.arguments;
 	const int command_line_exit = NGame::CommandLineExitCode( launch.options );
-	if ( command_line_exit >= 0 ) return command_line_exit;
+	if ( command_line_exit >= 0 )
+	{
+		// Ahead of everything else in this function - no window, no engine
+		// module, nothing loaded yet - so an invalid -mode (or -help) never
+		// has to be torn back down, just reported.
+		NGame::ReportCommandLine( launch.options );
+		return command_line_exit;
+	}
 	CTimeMeter<> timeMeter;
 	#if defined(_WIN32) || defined(_WIN64)
 	SetErrorMode( SEM_FAILCRITICALERRORS );
@@ -1032,9 +1039,13 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			// -mode=WxH / -mode=WxHxBPP (BPP defaults to 32) / -mode=auto:
 			// sets the resolution exactly like picking it in the options
 			// screen. Checked ahead of -mod (mod directory) since "-mode"
-			// shares its four-letter prefix. Garbage is ignored - the flag
-			// is dropped and the config (or the option's own default) keeps
-			// driving the mode, same as if it had never been given.
+			// shares its four-letter prefix. Garbage is tolerated here (the
+			// flag is dropped and the config, or the option's own default,
+			// keeps driving the mode) rather than rejected: main.cpp's
+			// ParseCommandLine/CommandLineExitCode already reject it before
+			// RunGame - the only caller of this function - ever gets this
+			// far, so this is a defensive fallback, not the enforcement
+			// point.
 			std::string szMode = szParams[i].c_str() + 5;
 			if ( !szMode.empty() && szMode[0] == '=' )
 				szMode = szMode.substr( 1 );

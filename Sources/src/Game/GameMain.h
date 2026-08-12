@@ -37,6 +37,10 @@ struct CommandLineOptions
 	// -mode=WxH / -mode=WxHxBPP / -mode=auto: the resolution, normalized the
 	// same way the GFX.Mode option stores it. Empty when not given.
 	std::string mode;
+	// Set instead of `mode` (and parseError also set) when -mode's value
+	// doesn't parse as WxH / WxHxBPP / auto, or has a nonpositive dimension.
+	// Holds the raw offending text for the error message.
+	std::string modeError;
 	bool useDxt = false;
 	bool multiplayer = false;
 	bool cycledLaunch = false;
@@ -72,6 +76,10 @@ struct CommandLineOptions
 
 CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments);
 int CommandLineExitCode(const CommandLineOptions &options);
+// Prints usage (on -help) or an error naming the bad argument followed by
+// usage (on a parse error) to stdout/stderr respectively. Call once, right
+// alongside CommandLineExitCode, before any engine/window init.
+void ReportCommandLine(const CommandLineOptions &options);
 }
 
 struct BkGameLaunchInfo
