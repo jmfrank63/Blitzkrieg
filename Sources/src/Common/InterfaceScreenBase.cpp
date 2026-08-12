@@ -435,6 +435,15 @@ bool CInterfaceScreenBase::ChangeResolution()
 {
 	int nDesiredSizeX = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeX").c_str(), GFX_DEFAULT_SCREEN_WIDTH );
 	int nDesiredSizeY = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeY").c_str(), GFX_DEFAULT_SCREEN_HEIGHT );
+	// Captured before the Mission override below replaces nDesiredSizeX/Y with
+	// the drawable: SetMode's write-back must persist the *configured* value
+	// (0 means Auto) back to GFX.Mode.<type>.SizeX/Y, the same global this read
+	// just consumed as cfg. Persisting the drawable there instead would corrupt
+	// cfg on the next call - a second live resize would clamp against the
+	// previous drawable rather than the real setting, and Auto would stop
+	// tracking and pin to whatever the drawable happened to be.
+	const int nConfiguredSizeX = nDesiredSizeX;
+	const int nConfiguredSizeY = nDesiredSizeY;
 	// The configured resolution is not a literal render size any more
 	// (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md):
 	// missions render at the drawable and use the configuration as the world
@@ -482,8 +491,13 @@ bool CInterfaceScreenBase::ChangeResolution()
 		const int nActualSizeY = rcScreen.Height();
 		const int nActualBPP = pGFX->GetScreenBPP();
 		const std::string szModePrefix = "GFX.Mode." + szInterfaceType + ".";
-		SetGlobalVar( (szModePrefix + "SizeX").c_str(), nActualSizeX );
-		SetGlobalVar( (szModePrefix + "SizeY").c_str(), nActualSizeY );
+		// Mission writes the configured size back here, not the actual/adopted
+		// one: nActualSizeX/Y is the drawable for Mission (see cfg_eff above),
+		// and echoing it back into GFX.Mode.Mission.SizeX/Y would overwrite cfg
+		// with the drawable. Every other screen type still echoes the actual
+		// adopted size, unchanged from before this task.
+		SetGlobalVar( (szModePrefix + "SizeX").c_str(), szInterfaceType == "Mission" ? nConfiguredSizeX : nActualSizeX );
+		SetGlobalVar( (szModePrefix + "SizeY").c_str(), szInterfaceType == "Mission" ? nConfiguredSizeY : nActualSizeY );
 		SetGlobalVar( (szModePrefix + "BPP").c_str(), nActualBPP );
 		SetGlobalVar( "GFX.Mode.Current.SizeX", nActualSizeX );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", nActualSizeY );
@@ -494,6 +508,14 @@ bool CInterfaceScreenBase::ChangeResolution()
 		SetGlobalVar( "GFX.Monitor.Current.Index", nDesiredMonitor );
 		SetGlobalVar( "GFX.World.BaseSizeX", nWorldBaseX );
 		SetGlobalVar( "GFX.World.BaseSizeY", nWorldBaseY );
+		// World base and the cfg written back to GFX.Mode.<type>.SizeX/Y are
+		// otherwise invisible outside a debugger; mirrors the GraphicsEngineGpu
+		// SetMode trace so a live resize's effect on both is visible in the
+		// same log.
+		static const bool bGfxTrace = getenv( "BK_GFX_TRACE" ) != 0;
+		if ( bGfxTrace )
+			fprintf( stderr, "BK_GFX_TRACE: ChangeResolution type=%s cfg %dx%d world-base %dx%d\n",
+				szInterfaceType.c_str(), nConfiguredSizeX, nConfiguredSizeY, nWorldBaseX, nWorldBaseY );
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, rcScreen.Width(), rcScreen.Height(), 1, 1024*8 + rcScreen.Height()*2 );

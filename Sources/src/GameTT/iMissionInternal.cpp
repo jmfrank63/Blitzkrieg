@@ -852,8 +852,15 @@ void CInterfaceMission::CheckResolution()
 {
 	if ( !pUIScreen ) return;
 
-	const int nSizeXAfter = GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
-	
+	// GFX.Mode.Current.SizeX now measures the drawable in a mission (the scene
+	// renders at window pixel size), not the configured resolution; the HUD
+	// layout follows the configured world base instead
+	// (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md).
+	// GFX.World.BaseSizeX is 0 outside a Mission screen, so fall back to
+	// Current for that case.
+	const int nWorldBaseSizeX = GetGlobalVar( "GFX.World.BaseSizeX", 0 );
+	const int nSizeXAfter = nWorldBaseSizeX > 0 ? nWorldBaseSizeX : GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+
 	const bool bEnoughToAllControls = nSizeXAfter >= 800;
 
 	if ( bEnoughToAllControls )
