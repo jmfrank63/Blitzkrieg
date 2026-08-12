@@ -133,6 +133,11 @@ bool CTerrain::DrawWarFog()
 	const CTRect<float> rcScreen = pGFX->GetScreenRect();
 	pGFX->SetTexture( 0, 0 );
 	pGFX->SetShadingEffect( 13 );
+	// Computed once for the whole call -- DrawWarFog runs unconditionally every
+	// frame (unlike ReBuildMeshes, which only reruns on a patch-set change), so
+	// re-deriving it per vertex here was the actual measurable hot path; see
+	// the comment in TerrainInternal.cpp's AddVertices.
+	const float fScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
 		if ( it->warfogverts.empty() || it->warfoginds.empty() )
@@ -140,7 +145,7 @@ bool CTerrain::DrawWarFog()
 #ifndef _USE_HWTL
 		STerrainPatch::CVertex2List warfogverts = it->warfogverts;
 		for ( STerrainPatch::CVertex2List::iterator vertex = warfogverts.begin(); vertex != warfogverts.end(); ++vertex )
-			NSceneScreenScale::ScaleGameplayScreenVertex( &(*vertex), rcScreen );
+			NSceneScreenScale::ScaleGameplayScreenVertex( &(*vertex), rcScreen, fScale );
 		::DrawTemp( pGFX, warfogverts, it->warfoginds );
 #else
 		::DrawTemp( pGFX, it->warfogverts, it->warfoginds );
