@@ -130,6 +130,16 @@ Each screen type uses it differently:
 - Numeric world↔screen round-trip stays exact (the `CScene::GetPos3` /
   `UpdateTransformMatrix` invariant from docs/scaling.md) with the new
   `s_world` — re-verify at 1024x768-on-1440x900 and Auto.
-- Visual sign-off by Johannes: HUD size at explicit low resolution,
-  menu bars, live window resizing in a mission.
+- Visual sign-off by Johannes: HUD size at explicit low resolution, menu
+  bars, terrain seam check while scrolling at a fractional `fill`. "Live
+  window resizing in a mission" is stale as a sign-off item now that the
+  window is not user-resizable (decided 2026-08-12, Window sizing above);
+  replaced by two scenarios that exercise the same drawable/world-base
+  plumbing without manual dragging: a display change while a mission is
+  running (unplug/replug, resolution/arrangement change, or moving the
+  window to another display in a multi-monitor setup) re-derives `cfg_eff`,
+  the world zoom and the HUD base against the new drawable with no clipping;
+  and changing the resolution from the in-mission options overlay applies
+  instantly (world zoom and HUD both re-scale on the very next frame, no OK
+  press or screen close needed).
 - Update `docs/scaling.md` with the new mechanism once implemented.
