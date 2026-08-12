@@ -456,32 +456,20 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // resolution lives in the scene texture; the present blit centers it.
         // A window larger than the display's usable area hangs off screen and
         // takes the HUD with it; the WM only clamps user resizes, not
-        // programmatic ones. Clamp to the usable bounds of the display the
-        // window is (about to be) on.
+        // programmatic ones. Clamp only the window request - the scene keeps
+        // the requested size, and the present blit maps one onto the other.
+        int nWindowSizeX = nSizeX, nWindowSizeY = nSizeY;
         if ( fullscreen != GFXFS_FULLSCREEN )
         {
             SDL_Rect usable{};
             const SDL_DisplayID clamp_display = target != 0 ? target : SDL_GetDisplayForWindow( window );
             if ( clamp_display != 0 && SDL_GetDisplayUsableBounds( clamp_display, &usable ) && usable.w > 0 && usable.h > 0 )
             {
-                nSizeX = Min( nSizeX, usable.w );
-                nSizeY = Min( nSizeY, usable.h );
+                nWindowSizeX = Min( nWindowSizeX, usable.w );
+                nWindowSizeY = Min( nWindowSizeY, usable.h );
             }
         }
-        if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nSizeX, nSizeY ) ) return fail( SDL_GetError() );
-        // The window manager may apply additional constraints beyond what
-        // SDL_GetDisplayUsableBounds reports (e.g., macOS excludes title bar
-        // height). Read back what was actually applied and adjust nSizeX/nSizeY
-        // to ensure the render size doesn't exceed the actual window.
-        if ( fullscreen != GFXFS_FULLSCREEN )
-        {
-            int actual_width = 0, actual_height = 0;
-            if ( SDL_GetWindowSize( window, &actual_width, &actual_height ) )
-            {
-                nSizeX = Min( nSizeX, actual_width );
-                nSizeY = Min( nSizeY, actual_height );
-            }
-        }
+        if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nWindowSizeX, nWindowSizeY ) ) return fail( SDL_GetError() );
         // The app window is deliberately created hidden and stays hidden until a
         // GFX device exists, so SetMode owns making it visible. This is the
         // SWP_SHOWWINDOW that the legacy DirectX ResizeDeviceWindow performed;
