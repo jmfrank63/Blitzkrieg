@@ -428,7 +428,28 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
                         (unsigned long long)SDL_GetWindowFlags( window ) );
             }
         }
-        if ( !bDeferFullscreen && !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
+        // A windowed mode cancels any queued fullscreen retry, or the retry
+        // would put the window straight back into the space it just left.
+        if ( fullscreen != GFXFS_FULLSCREEN ) pending_fullscreen_display_ = 0;
+        // A fullscreen toggle posted before the window has genuinely been on
+        // screen for a while is silently dropped by the window server, and a
+        // dropped toggle wedges SDL's transition tracking for good - every
+        // later request is then absorbed as "pending" and never re-posted.
+        // So the one request this process gets must not be spent early:
+        // during the first second of presented frames the request is queued
+        // for UpdatePendingFullscreen instead of issued here.
+        const bool bDeferForGrace = fullscreen == GFXFS_FULLSCREEN && !bDeferFullscreen && flips_presented_ < 60;
+        if ( bDeferForGrace )
+        {
+            SDL_DisplayID retry_display = target != 0 ? target : SDL_GetDisplayForWindow( window );
+            if ( retry_display == 0 ) retry_display = SDL_GetPrimaryDisplay();
+            pending_fullscreen_display_ = static_cast<unsigned int>( retry_display );
+            pending_fullscreen_frames_ = 0;
+            if ( GfxTraceEnabled() )
+                fprintf( stderr, "BK_GFX_TRACE: fullscreen queued until the window has presented (display %u, %d flips so far)\n",
+                    pending_fullscreen_display_, flips_presented_ );
+        }
+        if ( !bDeferFullscreen && !bDeferForGrace && !SDL_SetWindowFullscreen( window, fullscreen == GFXFS_FULLSCREEN ) ) return fail( SDL_GetError() );
         // Never size a fullscreen window: its surface is the display, and on
         // macOS the request actually shrinks the Space's backing store, which
         // stretches the picture instead of letterboxing it. The requested
@@ -465,6 +486,19 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // this kept the requested size the engine would render at one resolution
         // into a drawable of another and the picture would not fit the window.
         SDL_SyncWindow( window );
+        // Even a well-timed request completes asynchronously; arm the
+        // per-frame watcher so a transition that quietly fails (or is still
+        // in flight) is re-asserted until the FULLSCREEN flag actually
+        // appears.
+        if ( fullscreen == GFXFS_FULLSCREEN && !bDeferForGrace && !bDeferFullscreen && !( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) )
+        {
+            SDL_DisplayID retry_display = target != 0 ? target : SDL_GetDisplayForWindow( window );
+            if ( retry_display == 0 ) retry_display = SDL_GetPrimaryDisplay();
+            pending_fullscreen_display_ = static_cast<unsigned int>( retry_display );
+            pending_fullscreen_frames_ = 0;
+            if ( GfxTraceEnabled() )
+                fprintf( stderr, "BK_GFX_TRACE: fullscreen did not take at SetMode, arming retry on display %u\n", pending_fullscreen_display_ );
+        }
         int pixel_width = 0, pixel_height = 0;
         const bool bReadBack = SDL_GetWindowSizeInPixels( window, &pixel_width, &pixel_height );
         // An explicit resolution is honored as the render size: the scene
@@ -713,10 +747,20 @@ void GraphicsEngineGpu::UpdatePendingFullscreen()
         // Either still leaving the old space, or something else (the
         // display-changed reaction) already re-entered on the target.
         if ( SDL_GetDisplayForWindow( window ) == target || pending_fullscreen_frames_ > 600 )
+        {
             pending_fullscreen_display_ = 0;
+            if ( GfxTraceEnabled() )
+                fprintf( stderr, "BK_GFX_TRACE: fullscreen settled on display %u after %d frames\n",
+                    unsigned( SDL_GetDisplayForWindow( window ) ), pending_fullscreen_frames_ );
+        }
         return;
     }
-    if ( SDL_GetDisplayForWindow( window ) != target && pending_fullscreen_frames_ <= 600 )
+    if ( pending_fullscreen_frames_ > 600 )
+    {
+        pending_fullscreen_display_ = 0;
+        return;
+    }
+    if ( SDL_GetDisplayForWindow( window ) != target )
     {
         // Re-issue the move occasionally; the window manager drops requests
         // that arrive while its animations are still running.
@@ -727,11 +771,20 @@ void GraphicsEngineGpu::UpdatePendingFullscreen()
         }
         return;
     }
-    SDL_SetWindowFullscreen( window, true );
-    pending_fullscreen_display_ = 0;
-    if ( GfxTraceEnabled() )
-        fprintf( stderr, "BK_GFX_TRACE: pending fullscreen re-entered on display %u after %d frames\n",
-            unsigned( SDL_GetDisplayForWindow( window ) ), pending_fullscreen_frames_ );
+    // On the target display but still windowed. The request is only issued
+    // once the window has demonstrably been presenting for a while: earlier
+    // toggles are dropped by the window server, and a dropped toggle wedges
+    // SDL's transition tracking so no later request ever fires again. Stay
+    // armed and keep asking until the FULLSCREEN flag is actually observed
+    // above.
+    if ( flips_presented_ < 60 ) return;
+    if ( ( pending_fullscreen_frames_ % 15 ) == 1 )
+    {
+        SDL_SetWindowFullscreen( window, true );
+        if ( GfxTraceEnabled() )
+            fprintf( stderr, "BK_GFX_TRACE: pending fullscreen requested on display %u at frame %d\n",
+                unsigned( SDL_GetDisplayForWindow( window ) ), pending_fullscreen_frames_ );
+    }
 }
 
 // The scene is presented on the window either centered 1:1 (gameplay:
@@ -795,7 +848,13 @@ bool STDCALL GraphicsEngineGpu::Flip()
     UpdatePendingFullscreen();
     UpdatePresentOffsets();
     const bool result = renderer_ && Check( api_.present( renderer_ ), "present" );
-    if ( result ) frame_pending_ = false;
+    if ( result )
+    {
+        frame_pending_ = false;
+        // Saturating frame count: only the first second of it is ever read
+        // (the fullscreen grace period), the cap just keeps it from wrapping.
+        if ( flips_presented_ < 1000 ) ++flips_presented_;
+    }
     // BK_PERF=1 prints the frame rate and the temporary-draw count once a
     // second, so a slow scene can be told apart from a slow present.
     static const bool perf = getenv( "BK_PERF" ) != 0;
