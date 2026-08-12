@@ -458,6 +458,10 @@ bool CInterfaceScreenBase::ChangeResolution()
 	// same target, not the mode we are about to leave.
 	const int nDesiredFullScreen = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
 	const bool bWindowed = nDesiredFullScreen != int( GFXFS_FULLSCREEN );
+	// Shared "GFX.Mode.<type>." prefix - built once and reused both by the
+	// AppliedSizeX/Y read just below and by the write-back inside the diff
+	// block further down.
+	const std::string szModePrefix = "GFX.Mode." + szInterfaceType + ".";
 	// The configured resolution is not a literal render size any more
 	// (docs/superpowers/specs/2026-08-12-resolution-presentation-design.md):
 	// missions render at the drawable and use the configuration as the world
@@ -480,7 +484,24 @@ bool CInterfaceScreenBase::ChangeResolution()
 	const int nDrawableX = GetGlobalVar( "GFX.Drawable.SizeX", 0 );
 	const int nDrawableY = GetGlobalVar( "GFX.Drawable.SizeY", 0 );
 	const bool bDrawableValid = nDrawableX > 0 && nDrawableY > 0;
-	const bool bWindowedExplicit = bWindowed && nDesiredSizeX > 0 && nDesiredSizeY > 0;
+	// One-shot guard on the windowed-explicit clamp bypass: without it, once
+	// bWindowedExplicit goes true it never goes false again (cfg keeps
+	// re-matching itself forever), which pins nDesiredSizeX/Y at cfg on every
+	// call - including calls that only re-diffed because something ELSE
+	// changed (Mission's world-base term reacts to the drawable every frame).
+	// A manual window shrink after a windowed apply is exactly that: the
+	// drawable changes, world-base's diff fires, and this call would
+	// otherwise re-request the old cfg and snap the window straight back -
+	// the window could never be shrunk below the last applied size. Comparing
+	// against the size actually asked for last time (AppliedSizeX/Y, written
+	// alongside SizeX/Y below) means the bypass fires exactly once per
+	// genuine configured-value change; once SetMode has been asked for this
+	// cfg, later calls fall back to normal drawable-tracking and a manual
+	// resize sticks.
+	const int nAppliedSizeX = GetGlobalVar( (szModePrefix + "AppliedSizeX").c_str(), -1 );
+	const int nAppliedSizeY = GetGlobalVar( (szModePrefix + "AppliedSizeY").c_str(), -1 );
+	const bool bWindowedExplicit = bWindowed && nDesiredSizeX > 0 && nDesiredSizeY > 0
+		&& ( nDesiredSizeX != nAppliedSizeX || nDesiredSizeY != nAppliedSizeY );
 	int nWorldBaseX = 0, nWorldBaseY = 0;
 	if ( szInterfaceType == "Mission" && bDrawableValid )
 	{
@@ -570,7 +591,6 @@ bool CInterfaceScreenBase::ChangeResolution()
 		const int nActualSizeX = rcScreen.Width();
 		const int nActualSizeY = rcScreen.Height();
 		const int nActualBPP = pGFX->GetScreenBPP();
-		const std::string szModePrefix = "GFX.Mode." + szInterfaceType + ".";
 		// A clamped type (Mission always; menus/videos when the drawable is
 		// valid) writes the configured size back here, not the actual/adopted
 		// one: nActualSizeX/Y is the drawable-derived, clamped value in that
@@ -581,6 +601,13 @@ bool CInterfaceScreenBase::ChangeResolution()
 		SetGlobalVar( (szModePrefix + "SizeX").c_str(), bCfgClamped ? nConfiguredSizeX : nActualSizeX );
 		SetGlobalVar( (szModePrefix + "SizeY").c_str(), bCfgClamped ? nConfiguredSizeY : nActualSizeY );
 		SetGlobalVar( (szModePrefix + "BPP").c_str(), nActualBPP );
+		// One-shot marker consumed by bWindowedExplicit above: records the
+		// configured size SetMode was actually asked for this call, so the
+		// windowed-explicit clamp bypass fires once per genuine cfg change
+		// and then gets out of the way for manual window resizes (see the
+		// comment on bWindowedExplicit).
+		SetGlobalVar( (szModePrefix + "AppliedSizeX").c_str(), nConfiguredSizeX );
+		SetGlobalVar( (szModePrefix + "AppliedSizeY").c_str(), nConfiguredSizeY );
 		SetGlobalVar( "GFX.Mode.Current.SizeX", nActualSizeX );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", nActualSizeY );
 		SetGlobalVar( "GFX.Mode.Current.BPP", nActualBPP );
