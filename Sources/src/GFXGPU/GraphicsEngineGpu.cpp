@@ -392,11 +392,6 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
             SDL_SyncWindow( window );
         }
         bool bDeferFullscreen = false;
-        // Set when the branch below already repositions the window onto
-        // another display via SDL_WINDOWPOS_CENTERED_DISPLAY; the windowed
-        // position clamp further down must not fight that move by reading a
-        // usable rect for the OLD display and dragging the window back.
-        bool bCenteredDisplayMove = false;
         if ( target != 0 && SDL_GetDisplayForWindow( window ) != target )
         {
             if ( fullscreen == GFXFS_FULLSCREEN && ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) )
@@ -427,7 +422,6 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
                     SDL_SetWindowSize( window, nSizeX, nSizeY );
                 SDL_SetWindowPosition( window, nCentered, nCentered );
                 SDL_SyncWindow( window );
-                bCenteredDisplayMove = true;
                 if ( GfxTraceEnabled() )
                     fprintf( stderr, "BK_GFX_TRACE: moved %dx%d window toward display %u, now on %u (flags=0x%llx)\n",
                         nSizeX, nSizeY, unsigned( target ), unsigned( SDL_GetDisplayForWindow( window ) ),
@@ -499,12 +493,19 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // window that already fits is left alone, then clamp the leading edge
         // (x = max(x, usable.x)) so a window wider/taller than the usable
         // area still lands flush with the left/top rather than hanging off
-        // the right/bottom. Skipped when the centered-display move above
-        // already placed the window this call (bCenteredDisplayMove) - that
-        // already centers it fully inside the target display, and re-clamping
-        // here would use a usable rect for the display the window is
-        // (asynchronously) leaving and fight the move.
-        if ( fullscreen != GFXFS_FULLSCREEN && !bCenteredDisplayMove && bHaveUsable )
+        // the right/bottom. Unconditional - including right after the
+        // centered-display move above: that move centers the window using
+        // its PRE-CLAMP size (SDL_video.c), so an explicit resolution larger
+        // than the target display centers to a negative origin, and the
+        // SDL_SetWindowSize call just above (which shrinks it to
+        // nWindowSizeX/Y) does not reposition - the window would stay
+        // partially off-screen without this clamp. Safe to run every time:
+        // usable/clamp_display above already resolves to the same target
+        // display the centering move (if any) just placed the window on
+        // (both read "target != 0 ? target : SDL_GetDisplayForWindow(window)"),
+        // so a window that already fits - the common case - reads back a
+        // position inside its own bounds and the clamp is a no-op.
+        if ( fullscreen != GFXFS_FULLSCREEN && bHaveUsable )
         {
             int nWinX = 0, nWinY = 0;
             SDL_GetWindowPosition( window, &nWinX, &nWinY );
