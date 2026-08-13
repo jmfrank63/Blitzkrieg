@@ -657,6 +657,14 @@ void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 		}
 		IInterfaceCommand *pCmd = CreateObject<IInterfaceCommand>( nCommandID );
 		NI_ASSERT_TF( pCmd != 0, NStr::Format("Can't create command 0x%x", nCommandID), return );
+		// Message-only ids (CMD_*) have no command class registered; in release
+		// the assert above compiles out and an injected id (BK_AUTO_UI cmd=)
+		// crashed the loop on the null — drop it instead.
+		if ( pCmd == 0 )
+		{
+			NStr::DebugTrace( "Can't create command 0x%x\n", nCommandID );
+			return;
+		}
 		pCmd->Configure( pszConfiguration );
 		Command( pCmd );
 	}

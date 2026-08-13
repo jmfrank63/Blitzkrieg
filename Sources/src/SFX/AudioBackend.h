@@ -42,6 +42,7 @@ namespace NAudioBackend
 	void SetChannelPan( int nChannel, int nPan );
 	void SetChannelPaused( int nChannel, bool bPaused );
 	void StopChannel( int nChannel );
+	void StopAllSampleChannels();
 	bool IsChannelPlaying( int nChannel );
 	int GetChannelsPlaying();
 	unsigned int GetChannelPosition( int nChannel );

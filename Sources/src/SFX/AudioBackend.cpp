@@ -139,6 +139,11 @@ namespace NAudioBackend
 		NAudioBackendImpl::StopChannel( nChannel );
 	}
 
+	void StopAllSampleChannels()
+	{
+		NAudioBackendImpl::StopAllSampleChannels();
+	}
+
 	bool IsChannelPlaying( int nChannel )
 	{
 		return NAudioBackendImpl::IsChannelPlaying( nChannel );

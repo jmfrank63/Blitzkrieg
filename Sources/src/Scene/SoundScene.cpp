@@ -1644,8 +1644,11 @@ void CSoundScene::MuteSounds( CSoundScene::CSoundsList	* muteSounds )
 		CSound *sound = (*it);
 		if ( !sound->IsMarkedFinished() )
 		{
-			sound->UnSubstitute();
+			// Stop first: UnSubstitute() drops the substitute, after which
+			// GetSound() returns the template sample and the stop misses the
+			// voice actually playing.
 			pSFX->StopSample( sound->GetSound() );
+			sound->UnSubstitute();
 		}
 	}
 }

@@ -237,11 +237,25 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 		PlayNextMelody();
 	
 	const int nNumChannels = NAudioBackend::GetChannelsPlaying();
-	
+
 	{
 		IScene * pScene = GetSingleton<IScene>();
 		IStatSystem *pStat = pScene->GetStatSystem();
 		pStat->UpdateEntry( "SFX: num channels:", NStr::Format("%d", nNumChannels )  );
+	}
+
+	// [sfx-trace] BK_SFX_TRACE=1: periodic voice census on stderr. channels
+	// must return to a quiet baseline after battles; a persistent gap above
+	// mapped means orphaned backend voices (the immortal-loop bug). Strip with
+	// the other sound diagnostics.
+	{
+		static const bool s_bTrace = getenv( "BK_SFX_TRACE" ) != 0;
+		static int s_nTraceFrames = 0;
+		if ( s_bTrace && ++s_nTraceFrames >= 120 )
+		{
+			s_nTraceFrames = 0;
+			fprintf( stderr, "[sfx] channels=%d mapped=%d\n", nNumChannels, static_cast<int>( soundsMap.size() ) );
+		}
 	}
 
 
@@ -317,8 +331,18 @@ void CSoundEngine::SetStreamVolume( const float fVolume )
 }
 void CSoundEngine::MapSound( ISound *pSound, int nChannel )
 {
-	channelsMap.insert( std::pair<ISound*, int>( pSound, nChannel ) );
-	soundsMap.insert( std::pair<int, CPtr<ISound> >( nChannel, pSound ) );
+	// The maps must stay exact inverses: the backend reuses channel indices,
+	// and map::insert silently keeps a stale entry — StopChannel then erases
+	// the wrong sound, the live voice loses its only handle, and a looping
+	// one plays forever. Unlink both stale pairings before linking anew.
+	CChannelSoundMap::iterator itChannel = soundsMap.find( nChannel );
+	if ( itChannel != soundsMap.end() )
+		channelsMap.erase( itChannel->second );
+	CSoundChannelMap::iterator itSound = channelsMap.find( pSound );
+	if ( itSound != channelsMap.end() )
+		soundsMap.erase( itSound->second );
+	channelsMap[pSound] = nChannel;
+	soundsMap[nChannel] = pSound;
 }
 float CSoundEngine::GetStreamVolume() const
 {
@@ -626,8 +650,14 @@ int CSoundEngine::operator&( IStructureSaver &ss )
 	if ( saver.IsReading() )
 	{
 		CloseStreaming();
+		// The loaded world knows nothing of the voices still sounding — stop
+		// them before dropping the maps, or looping ones survive the load. The
+		// backend sweep also kills voices the maps already lost track of.
+		for ( CChannelSoundMap::iterator it = soundsMap.begin(); it != soundsMap.end(); ++it )
+			NAudioBackend::StopChannel( it->first );
 		channelsMap.clear();
 		soundsMap.clear();
+		NAudioBackend::StopAllSampleChannels();
 		timeStreamFinished = timeLastUpdate;
 	}
 

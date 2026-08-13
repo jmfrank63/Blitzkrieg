@@ -93,6 +93,7 @@ namespace
 		bool bUse3DPan;
 		bool bPaused;
 		unsigned int nPausedPosition;
+		unsigned int nStartSerial;
 	};
 
 	struct SOpenStream
@@ -113,6 +114,13 @@ namespace
 	const int cMaxOpenChannels = 128;
 	SOpenChannel g_channels[cMaxOpenChannels];
 	int g_nNextChannel = 0;
+	// Streams (music/video audio) own the tail of the slot array so sample
+	// voice stealing can never silence them; only CSoundEngine plays streams,
+	// so a small reserve is plenty.
+	const int cReservedStreamChannels = 16;
+	int g_nMaxSampleChannels = cMaxOpenChannels - cReservedStreamChannels;
+	int g_nNextStreamChannel = cMaxOpenChannels - cReservedStreamChannels;
+	unsigned int g_nStartSerial = 0;
 	float g_fDistanceFactor = 1.0f;
 	float g_fRolloffFactor = 1.0f;
 
@@ -454,6 +462,7 @@ namespace
 		g_channels[nChannel].bUse3DPan = false;
 		g_channels[nChannel].bPaused = false;
 		g_channels[nChannel].nPausedPosition = 0;
+		g_channels[nChannel].nStartSerial = 0;
 	}
 
 	float ChannelTargetVolume( int nChannel )
@@ -554,19 +563,51 @@ namespace
 		pStream->nCallbackReaders.fetch_sub( 1, std::memory_order_release );
 	}
 
-	int FindFreeChannel()
+	int FindFreeChannelInRange( int nBegin, int nEnd, int *pNextChannel )
 	{
-		for ( int i = 0; i < cMaxOpenChannels; ++i )
+		const int nCount = nEnd - nBegin;
+		if ( nCount <= 0 )
+			return -1;
+		for ( int i = 0; i < nCount; ++i )
 		{
-			const int nChannel = (g_nNextChannel + i) % cMaxOpenChannels;
+			const int nChannel = nBegin + (*pNextChannel - nBegin + i) % nCount;
 			if ( !g_channels[nChannel].bSoundInitialized || ma_sound_at_end( &g_channels[nChannel].sound ) )
 			{
 				ResetChannel( nChannel );
-				g_nNextChannel = (nChannel + 1) % cMaxOpenChannels;
+				*pNextChannel = nBegin + (nChannel - nBegin + 1) % nCount;
 				return nChannel;
 			}
 		}
 		return -1;
+	}
+
+	// A LOOPING ma_sound never reports at_end, so a full pool must be stolen
+	// from, not refused: refusing would strand any looping voice whose map
+	// entry upstream was lost — it would play forever. FMOD's FSOUND_FREE
+	// recycled voices the same way; the oldest running voice is the least
+	// audible loss.
+	int FindFreeSampleChannel()
+	{
+		const int nFree = FindFreeChannelInRange( 0, g_nMaxSampleChannels, &g_nNextChannel );
+		if ( nFree != -1 )
+			return nFree;
+
+		int nOldest = -1;
+		for ( int i = 0; i < g_nMaxSampleChannels; ++i )
+		{
+			if ( !g_channels[i].bSoundInitialized || g_channels[i].pStream || g_channels[i].bPaused )
+				continue;
+			if ( nOldest == -1 || g_channels[i].nStartSerial < g_channels[nOldest].nStartSerial )
+				nOldest = i;
+		}
+		if ( nOldest != -1 )
+			ResetChannel( nOldest );
+		return nOldest;
+	}
+
+	int FindFreeStreamChannel()
+	{
+		return FindFreeChannelInRange( g_nMaxSampleChannels, cMaxOpenChannels, &g_nNextStreamChannel );
 	}
 
 	bool HasBytes( const char *pData, int nSize, int nOffset, int nBytes )
@@ -967,9 +1008,19 @@ namespace NAudioBackendImpl
 		}
 		g_bContextInitialized = true;
 
+		// nMaxChannels is the game's VOICE budget (FMOD semantics). It must not
+		// go into engineConfig.channels — that is the device SPEAKER count, and
+		// feeding 32 in asked for a 32-speaker mix. Native layout stays 0; the
+		// budget caps the sample slot pool instead (streams keep their reserve).
+		if ( nMaxChannels > 0 )
+		{
+			g_nMaxSampleChannels = Clamp( nMaxChannels, 1, cMaxOpenChannels - cReservedStreamChannels );
+			g_nNextChannel = 0;
+			g_nNextStreamChannel = g_nMaxSampleChannels;
+		}
+
 		ma_engine_config engineConfig = ma_engine_config_init();
 		engineConfig.pContext = &g_context;
-		engineConfig.channels = nMaxChannels > 0 ? static_cast<ma_uint32>( nMaxChannels ) : 0;
 		engineConfig.sampleRate = nMixRate > 0 ? nMixRate : 0;
 		// 40ms device period for immediate audio start. Stutter prevention
 		// comes from MA_SOUND_FLAG_DECODE in PlayStream: the entire file is
@@ -1082,11 +1133,11 @@ namespace NAudioBackendImpl
 		if ( !pSample )
 			return;
 
-		SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
-		pOpenSample->bLooped = bEnable;
-		for ( int i = 0; i < cMaxOpenChannels; ++i )
-			if ( g_channels[i].bSoundInitialized && g_channels[i].pSample == pOpenSample )
-				ma_sound_set_looping( &g_channels[i].sound, bEnable ? MA_TRUE : MA_FALSE );
+		// Sample default only, picked up when a voice starts (FMOD's
+		// FSOUND_Sample_SetMode semantics). Retro-applying to every playing
+		// channel of a shared sample turned live one-shots into immortal loops
+		// (and vice versa) whenever a later play toggled the flag.
+		static_cast<SOpenSample*>( pSample )->bLooped = bEnable;
 	}
 
 	void SetSampleLoopPoints( void *pSample, int nStart, int nEnd )
@@ -1146,7 +1197,7 @@ namespace NAudioBackendImpl
 		if ( !g_bEngineInitialized || !pOpenSample || !pOpenSample->bBufferInitialized )
 			return -1;
 
-		const int nChannel = FindFreeChannel();
+		const int nChannel = FindFreeSampleChannel();
 		if ( nChannel == -1 )
 			return -1;
 
@@ -1175,6 +1226,7 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].bUse3DPan = pOpenSample->nMode == GetSampleMode3D();
 		g_channels[nChannel].bPaused = true;
 		g_channels[nChannel].nPausedPosition = 0;
+		g_channels[nChannel].nStartSerial = ++g_nStartSerial;
 		ApplySampleLoopPoints( &g_channels[nChannel], pOpenSample );
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMixInstant( nChannel );
@@ -1229,6 +1281,16 @@ namespace NAudioBackendImpl
 	void StopChannel( int nChannel )
 	{
 		ResetChannel( nChannel );
+	}
+
+	// Savegame load: the loaded world knows nothing of the voices still
+	// sounding, including any the engine's maps lost track of — sweep every
+	// non-stream slot so orphaned loops cannot outlive the load.
+	void StopAllSampleChannels()
+	{
+		for ( int i = 0; i < cMaxOpenChannels; ++i )
+			if ( !g_channels[i].pStream )
+				ResetChannel( i );
 	}
 
 	bool IsChannelPlaying( int nChannel )
@@ -1369,7 +1431,7 @@ namespace NAudioBackendImpl
 		if ( !g_bEngineInitialized || !pOpenStream )
 			return -1;
 
-		const int nChannel = FindFreeChannel();
+		const int nChannel = FindFreeStreamChannel();
 		if ( nChannel == -1 )
 			return -1;
 
@@ -1444,6 +1506,7 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].bUse3DPan = false;
 		g_channels[nChannel].bPaused = false;
 		g_channels[nChannel].nPausedPosition = 0;
+		g_channels[nChannel].nStartSerial = ++g_nStartSerial;
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenStream->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMixInstant( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
