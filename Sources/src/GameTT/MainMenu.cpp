@@ -221,6 +221,11 @@ void CInterfaceMainMenu::Create( int nState )
 		if ( IUIElement *pElement = pUIScreen->GetChildByID( 21000 ) )
 		{
 			std::wstring wszProfile;
+			if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetDialog( "textes\\strings\\profile" ) )
+				wszProfile = MakeWideStringFromWordString( pText->GetString() );
+			else
+				wszProfile = L"Profile:";
+			wszProfile += L" ";
 			for ( int i = 0; i < szProfile.size(); ++i )
 				wszProfile += wchar_t( (unsigned char)szProfile[i] );
 			pElement->SetWindowText( 0, ToWordString( wszProfile ) );
