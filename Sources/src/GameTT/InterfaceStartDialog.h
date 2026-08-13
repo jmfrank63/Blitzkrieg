@@ -16,7 +16,17 @@ class CInterfacePlayerProfile : public CInterfaceScreenBase
 
 	CPtr<COptionsListWrapper> pOptions;
 	bool bEnableCancel;
-		
+
+	CPtr<IUIListControl> pProfileList;
+	std::vector<std::string> profileNames;// row user data indexes into this
+	std::string szPendingDelete;					// profile awaiting the confirm box answer
+
+	void SwitchToProfile( const std::string &szNewProfile, const std::wstring &szTypedName );
+	void FillProfileList( const std::string &szSelect );
+	void SetEditBoxText( const std::wstring &szText );
+	void DeleteProfile( const std::string &szName );
+	void ReportProfileError( const char *pszTextKey, const std::string &szDetail );
+
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual ~CInterfacePlayerProfile() {}
 	virtual bool STDCALL StepLocal( bool bAppActive );

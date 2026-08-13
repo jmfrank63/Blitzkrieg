@@ -68,6 +68,8 @@ void CICSave::Exec( IMainLoop *pML )
 	NFile::CreatePath( szSaveDir.c_str() );
 	const std::string szFullFileName = szSaveDir + szFileName;
 	CPtr<IDataStream> pStream = CreateFileStream( szFullFileName.c_str(), STREAM_ACCESS_WRITE );
+	if ( pStream == 0 )
+		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Can't create file \"%s\" to save - skipping...", szFullFileName.c_str()), 0xffff0000 );
 	if ( pStream )
 	{
 		pML->ClearResources( false );

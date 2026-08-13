@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Platform/LegacyText.h"
 
 #include "SaveMission.h"
@@ -61,7 +62,7 @@ void CInterfaceSaveMission::StartInterface()
 
 	IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		// should be List Control
 	if ( !pElement )
-		return;			// не нашелся list control
+		return;			// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 	IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 	
 	szSaves.clear();
@@ -71,7 +72,9 @@ void CInterfaceSaveMission::StartInterface()
 	// substr(0, npos) handed back the whole string, and the dialog looked for
 	// saves inside Data instead of beside the executable -- an empty list.
 	// GetBaseDir is where quicksave and the intermission dialogs already write.
-	std::string szBaseDir = GetSingleton<IMainLoop>()->GetBaseDir();
+	// Saves live under the active profile (CICSave::Exec), so the profile
+	// segment is part of the listing dir like in LoadMission.
+	std::string szBaseDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
@@ -124,7 +127,7 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
-					return true;			//не нашелся list control
+					return true;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 				int nSave = pList->GetSelectionItem();
 				if ( nSave == -1 )
 					return true;
@@ -147,7 +150,7 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 				pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
 				IMainLoop *pML = GetSingleton<IMainLoop>();
 				CloseInterface();
-				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
+				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 				return true;
 			}
 
@@ -163,7 +166,7 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 					IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 					IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 					if ( !pList )
-						return true;			//не нашелся list control
+						return true;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 					int nSave = pList->GetSelectionItem();
 					if ( nSave == -1 )
 						return true;
@@ -171,7 +174,12 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 				}
 				
 				szProspecitveSave = szEdit;
-				std::string szFileName = GetSingleton<IMainLoop>()->GetBaseDir();
+				// The overwrite probe must look where CICSave::Exec will write -
+				// the profile's (and mod's) saves dir.
+				std::string szFileName = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
+				std::string szOverwriteModname = GetSingleton<IUserProfile>()->GetMOD();
+				if ( !szOverwriteModname.empty() )
+					szFileName += "mods\\" + szOverwriteModname;
 				szFileName += "saves\\";
 				szFileName += szEdit + ".sav";
 
@@ -211,7 +219,7 @@ void CInterfaceSaveMission::OnSave()
 	pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
 	const std::string szSave = szProspecitveSave + ".sav";
 	pML->Command( MAIN_COMMAND_SAVE, szSave.c_str() );
-	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
+	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 }
 bool CInterfaceSaveMission::StepLocal( bool bAppActive )
 {

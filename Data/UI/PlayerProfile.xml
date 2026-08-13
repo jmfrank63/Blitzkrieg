@@ -6,7 +6,7 @@
 		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
 			<Script>ui\PlayerProfile</Script>
 			<WindowPos x="0" y="0"/>
-			<WindowSize x="512" y="336"/>
+			<WindowSize x="736" y="520"/>
 			<Children>
 				<item ClassTypeID="0x10001107" ElementID="20001" PositionFlag="0x0012" ActiveFlag="1" Background="1" VisibleFlag="1" TextAlign="0x022">
 					<!--background to list and edit-->
@@ -535,7 +535,7 @@
 							</States>
 						</item>
 					</Children>
-					<WindowPos x="0" y="20"/>
+					<WindowPos x="-112" y="20"/>
 					<WindowSize x="464" y="238"/>
 					<States>
 						<item PushSound="0" ClickSound="0">
@@ -554,10 +554,325 @@
 						</item>
 					</States>
 				</item>
+				<item ClassTypeID="0x1000110A" ElementID="2100" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" HSubSpace="5" VSubSpace="1" SBWidth="28" HeaderSize="0" SBVisible="0">
+					<!--list: profiles-->
+					<Selection_Texture>UI\mapping</Selection_Texture>
+					<SelTileRects>
+						<item>
+							<!--Left-->
+							<rect x1="0" y1="0" x2="4" y2="26"/>
+							<size x="4" y="26"/>
+							<map x1="206" y1="63" x2="4" y2="26"/>
+						</item>
+						<item>
+							<!--Middle-->
+							<rect x1="4" y1="0" x2="152" y2="26"/>
+							<size x="26" y="26"/>
+							<map x1="210" y1="63" x2="26" y2="26"/>
+						</item>
+						<item>
+							<!--Right-->
+							<rect x1="152" y1="0" x2="160" y2="26"/>
+							<size x="8" y="26"/>
+							<map x1="232" y1="63" x2="8" y2="26"/>
+						</item>
+					</SelTileRects>
+					<ColumnProps>
+						<item Width="160">
+							<FileName>ui\common\goldlefttext</FileName>
+						</item>
+					</ColumnProps>
+					<Children>
+						<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0" Background="0">
+							<Children>
+								<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+									<!--scrollbar upper button-->
+									<WindowSize x="45" y="58"/>
+									<States>
+										<item EventID="-1">
+											<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="636" y1="769" x2="45" y2="58"/>
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceNormal>
+											<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="636" y1="769" x2="45" y2="58"/>
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceHighlighted>
+											<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="636" y1="827" x2="45" y2="58"/>
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearancePushed>
+										</item>
+									</States>
+								</item>
+								<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+									<!--scrollbar lower button-->
+									<WindowSize x="45" y="58"/>
+									<States>
+										<item EventID="-1">
+											<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="591" y1="769" x2="45" y2="58"/>
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceNormal>
+											<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="591" y1="769" x2="45" y2="58"/>
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceHighlighted>
+											<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="591" y1="827" x2="45" y2="58"/>
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearancePushed>
+										</item>
+									</States>
+								</item>
+								<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+									<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+									<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+									<!--slider-->
+									<WindowSize x="41" y="0"/>
+									<States>
+										<item EventID="-1">
+											<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+												<Placement Flags="0x1111">
+													<Pos x="100" y="100"/>
+													<Size x="64" y="32"/>
+												</Placement>
+												<Maps x1="108" y1="0" x2="40" y2="33"/>
+												<Texture>ui\slider</Texture>
+											</AppearanceNormal>
+											<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+												<Placement Flags="0x1111">
+													<Pos x="100" y="100"/>
+													<Size x="64" y="32"/>
+												</Placement>
+												<Maps x1="108" y1="0" x2="27" y2="128"/>
+												<Texture>ui\slider</Texture>
+											</AppearanceHighlighted>
+											<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+												<Placement Flags="0x1111">
+													<Pos x="100" y="100"/>
+													<Size x="64" y="32"/>
+												</Placement>
+												<Maps x1="108" y1="0" x2="27" y2="128"/>
+												<Texture>ui\slider</Texture>
+											</AppearancePushed>
+										</item>
+									</States>
+								</item>
+							</Children>
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="30" y="0"/>
+						</item>
+						<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB">
+							<!--column header: the list loader requires one element per column (ID 10+i); HeaderSize=0 keeps it zero-height-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="160" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="236" y1="90" x2="20" y2="22"/>
+										<Texture>ui\mapping</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="236" y1="90" x2="20" y2="22"/>
+										<Texture>ui\mapping</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="236" y1="90" x2="20" y2="22"/>
+										<Texture>ui\mapping</Texture>
+									</AppearancePushed>
+									<TextKey/>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="236" y="54"/>
+					<WindowSize x="184" y="180"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<Texture>ui\mapping</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="864" y1="780" x2="100" y2="40"/>
+								<Texture>ui\mapping</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="864" y1="780" x2="100" y2="40"/>
+								<Texture>ui\mapping</Texture>
+							</AppearancePushed>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10010" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
+					<!--new profile-->
+					<ShadowShift x="-1" y="1"/>
+					<TextPos x="-16" y="-1"/>
+					<ShiftText x="0" y="1"/>
+					<WindowPos x="236" y="266"/>
+					<WindowSize x="132" y="62"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffd08c0c">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffefb42a">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffa87508">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="66" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\Intermission\MainMenu\PlayerProfile\new</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10011" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
+					<!--rename profile-->
+					<ShadowShift x="-1" y="1"/>
+					<TextPos x="-16" y="-1"/>
+					<ShiftText x="0" y="1"/>
+					<WindowPos x="236" y="332"/>
+					<WindowSize x="132" y="62"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffd08c0c">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffefb42a">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffa87508">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="66" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\Intermission\MainMenu\PlayerProfile\rename</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10012" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
+					<!--delete profile-->
+					<ShadowShift x="-1" y="1"/>
+					<TextPos x="-16" y="-1"/>
+					<ShiftText x="0" y="1"/>
+					<WindowPos x="236" y="398"/>
+					<WindowSize x="132" y="62"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffd08c0c">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffefb42a">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffa87508">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="66" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\Intermission\MainMenu\PlayerProfile\delete</TextKey>
+						</item>
+					</States>
+				</item>
 				<item ClassTypeID="0x10001103" ElementID="10002" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--ok-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="-162" y="20"/>
+					<WindowPos x="-182" y="20"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -629,7 +944,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--cancel-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="162" y="20"/>
+					<WindowPos x="-42" y="20"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -698,6 +1013,83 @@
 						</item>
 					</States>
 				</item>
+				<item ClassTypeID="0x10001105" ElementID="20010" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<!--panel behind the profile list and its buttons: same 9-piece stone frame as the dialog border (declared late so it draws beneath the list and buttons, above the darken layer)-->
+					<WindowPos x="236" y="20"/>
+					<WindowSize x="216" y="450"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="64" y1="42" x2="152" y2="408"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="152" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="152" y1="42" x2="216" y2="408"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="408" x2="152" y2="450"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="42" x2="64" y2="408"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="0" x2="64" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="152" y1="0" x2="216" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="152" y1="408" x2="216" y2="450"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="408" x2="64" y2="450"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="214" x2="64" y2="42"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<Texture>ui\mapping</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<Texture>ui\mapping</Texture>
+							</AppearancePushed>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20011" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<!--opaque backing for the panel: the tile-background centre is translucent and the main menu bled through-->
+					<WindowPos x="236" y="26"/>
+					<WindowSize x="204" y="438"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xff17130f" Specular="0xff000000" Depth="0.0001"/>
+							<AppearanceHighlighted Color="0xff17130f" Specular="0xff000000" Depth="0.0001"/>
+							<AppearancePushed Color="0xff17130f" Specular="0xff000000" Depth="0.0001"/>
+						</item>
+					</States>
+				</item>
 				<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="0" VisibleFlag="1" Background="1" ElementID="31420">
 					<!--darken screen-->
 					<Script/>
@@ -718,27 +1110,27 @@
 					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
 						<TileRects>
 							<item>
-								<rect x1="64" y1="42" x2="448" y2="294"/>
+								<rect x1="64" y1="42" x2="672" y2="478"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="0" x2="448" y2="42"/>
+								<rect x1="64" y1="0" x2="672" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="42" x2="512" y2="294"/>
+								<rect x1="672" y1="42" x2="736" y2="478"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="294" x2="448" y2="336"/>
+								<rect x1="64" y1="478" x2="672" y2="520"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="214" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="0" y1="42" x2="64" y2="294"/>
+								<rect x1="0" y1="42" x2="64" y2="478"/>
 								<size x="64" y="42"/>
 								<map x1="0" y1="171" x2="64" y2="42"/>
 							</item>
@@ -748,17 +1140,17 @@
 								<map x1="0" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="0" x2="512" y2="42"/>
+								<rect x1="672" y1="0" x2="736" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="294" x2="512" y2="336"/>
+								<rect x1="672" y1="478" x2="736" y2="520"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="214" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="0" y1="294" x2="64" y2="336"/>
+								<rect x1="0" y1="478" x2="64" y2="520"/>
 								<size x="64" y="42"/>
 								<map x1="0" y1="214" x2="64" y2="42"/>
 							</item>

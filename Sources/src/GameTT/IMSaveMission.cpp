@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Platform/LegacyText.h"
 
 #include "IMSaveMission.h"
@@ -26,8 +27,10 @@ bool CInterfaceIMSaveMission::Init()
 {
 	fileMasks.clear();
 	fileMasks.push_back( "*.sav" );
-	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
-	
+	// Saves live under the active profile (CICSave::Exec); without the segment
+	// this dialog listed the pre-profile <game>\saves\ and showed nothing.
+	szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
+
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
@@ -86,7 +89,7 @@ bool CInterfaceIMSaveMission::OnOk()
 		IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 		IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 		if ( !pList )
-			return true;			//не нашелся list control
+			return true;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 		int nSave = pList->GetSelectionItem();
 		if ( nSave == -1 )
 			return true;
@@ -99,9 +102,9 @@ bool CInterfaceIMSaveMission::OnOk()
 	}
 
 	szProspectiveFileName = szEdit;
-	std::string szFileName = GetSingleton<IMainLoop>()->GetBaseDir();
-	szFileName += "saves\\";
-	szFileName += szEdit;
+	// The overwrite probe must look where CICSave::Exec will write - the
+	// profile's (and mod's) saves dir, which szTopDir already is.
+	const std::string szFileName = szTopDir + szEdit;
 				
 	if ( NFile::IsFileExist( szFileName.c_str() ) )
 	{
@@ -131,7 +134,7 @@ void CInterfaceIMSaveMission::OnSelectionChanged()
 	IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 	IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 	if ( !pList )
-		return ;			//не нашелся list control
+		return ;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 
 	int nSave = pList->GetSelectionItem();
 	if ( nSave == -1 )

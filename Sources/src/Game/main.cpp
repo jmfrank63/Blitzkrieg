@@ -188,6 +188,7 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 			result.passwordRequired = true;
 			result.password = AttachedValue( raw, 9 );
 		}
+		else if ( argument.rfind( "-profile", 0 ) == 0 ) {}		// consumed by GameMain's own parse
 		else if ( argument.rfind( "-name", 0 ) == 0 ) result.playerName = AttachedValue( raw, 5 );
 		else if ( argument.rfind( "-room", 0 ) == 0 ) result.roomName = AttachedValue( raw, 5 );
 		else if ( argument.rfind( "-cheats", 0 ) == 0 ) result.cheats = true;

@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Platform/LegacyText.h"
 
 #include "CommonId.h"
@@ -17,7 +18,9 @@ bool CInterfaceIMLoadMission::Init()
 {
 	fileMasks.clear();
 	fileMasks.push_back( "*.sav" );
-	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
+	// Saves live under the active profile (CICSave::Exec); without the segment
+	// this dialog listed the pre-profile <game>\saves\ and showed nothing.
+	szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
@@ -49,7 +52,7 @@ bool CInterfaceIMLoadMission::OnOk( const std::string &szFullFileName )
 	std::string szShortName = szFullFileName.substr( szTopDir.size() );
 	CloseInterface();
 	pML->Command( MAIN_COMMAND_LOAD, szShortName.c_str() );
-	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
+	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	return true;
 }
 bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
@@ -66,7 +69,7 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
-					return true;			//не нашелся list control
+					return true;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 				int nSave = pList->GetSelectionItem();
 				if ( nSave == -1 )
 					return true;
@@ -83,8 +86,8 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 			{
 				CloseInterface();
 /*
-				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
-				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", MC_SHOW_ESCAPE_MENU) );	//покажем escape menu
+				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", MC_SHOW_ESCAPE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ escape menu
 */
 				return true;
 			}
@@ -95,7 +98,7 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
-					return true;			//не нашелся list control
+					return true;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ list control
 				int nSave = pList->GetSelectionItem();
 				if ( nSave == -1 )
 					return true;
@@ -106,7 +109,7 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 				CloseInterface();
 				szEdit += ".sav";
 				pML->Command( MAIN_COMMAND_LOAD, szEdit.c_str() );
-				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
+				pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 				return true;
 			}
 	*/
