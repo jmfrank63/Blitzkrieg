@@ -473,14 +473,27 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         int nWindowSizeX = nSizeX, nWindowSizeY = nSizeY;
         SDL_Rect usable{};
         bool bHaveUsable = false;
+        // SDL sizes and positions describe the CLIENT area, but what must fit
+        // inside the usable bounds is the whole frame - caption and borders
+        // included. Clamping the client alone puts the client's top edge at
+        // the top of the work area and parks the title bar above the screen
+        // (seen on Windows: a window with no visible caption or close button
+        // that cannot be dragged). Fold the decoration extents into both the
+        // size cap and the position clamp below. Best-effort: if the query
+        // fails (the window can still be mid fullscreen-transition on
+        // platforms where the style change is asynchronous), the extents stay
+        // 0 and this degrades to the plain client-rect clamp.
+        int nBorderTop = 0, nBorderLeft = 0, nBorderBottom = 0, nBorderRight = 0;
         if ( fullscreen != GFXFS_FULLSCREEN )
         {
+            if ( !SDL_GetWindowBordersSize( window, &nBorderTop, &nBorderLeft, &nBorderBottom, &nBorderRight ) )
+                nBorderTop = nBorderLeft = nBorderBottom = nBorderRight = 0;
             const SDL_DisplayID clamp_display = target != 0 ? target : SDL_GetDisplayForWindow( window );
             bHaveUsable = clamp_display != 0 && SDL_GetDisplayUsableBounds( clamp_display, &usable ) && usable.w > 0 && usable.h > 0;
             if ( bHaveUsable )
             {
-                nWindowSizeX = Min( nWindowSizeX, usable.w );
-                nWindowSizeY = Min( nWindowSizeY, usable.h );
+                nWindowSizeX = Min( nWindowSizeX, Max( 1, usable.w - nBorderLeft - nBorderRight ) );
+                nWindowSizeY = Min( nWindowSizeY, Max( 1, usable.h - nBorderTop - nBorderBottom ) );
             }
         }
         if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nWindowSizeX, nWindowSizeY ) ) return fail( SDL_GetError() );
@@ -509,14 +522,19 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         {
             int nWinX = 0, nWinY = 0;
             SDL_GetWindowPosition( window, &nWinX, &nWinY );
-            const int nClampedX = Max( Min( nWinX, usable.x + usable.w - nWindowSizeX ), usable.x );
-            const int nClampedY = Max( Min( nWinY, usable.y + usable.h - nWindowSizeY ), usable.y );
+            // Position is the client origin: the frame's left/top edge sits
+            // nBorderLeft/nBorderTop before it, so the client must stay that
+            // far inside the usable bounds for the decorations to be on
+            // screen (a caption above the work area is undraggable).
+            const int nClampedX = Max( Min( nWinX, usable.x + usable.w - nBorderRight - nWindowSizeX ), usable.x + nBorderLeft );
+            const int nClampedY = Max( Min( nWinY, usable.y + usable.h - nBorderBottom - nWindowSizeY ), usable.y + nBorderTop );
             if ( nClampedX != nWinX || nClampedY != nWinY )
             {
                 SDL_SetWindowPosition( window, nClampedX, nClampedY );
                 if ( GfxTraceEnabled() )
-                    fprintf( stderr, "BK_GFX_TRACE: clamped windowed position (%d,%d) -> (%d,%d) into usable %d,%d %dx%d\n",
-                        nWinX, nWinY, nClampedX, nClampedY, usable.x, usable.y, usable.w, usable.h );
+                    fprintf( stderr, "BK_GFX_TRACE: clamped windowed position (%d,%d) -> (%d,%d) into usable %d,%d %dx%d borders t%d l%d b%d r%d\n",
+                        nWinX, nWinY, nClampedX, nClampedY, usable.x, usable.y, usable.w, usable.h,
+                        nBorderTop, nBorderLeft, nBorderBottom, nBorderRight );
             }
         }
         // The app window is deliberately created hidden and stays hidden until a
