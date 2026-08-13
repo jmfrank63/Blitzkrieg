@@ -497,6 +497,17 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
             }
         }
         if ( fullscreen != GFXFS_FULLSCREEN && !SDL_SetWindowSize( window, nWindowSizeX, nWindowSizeY ) ) return fail( SDL_GetError() );
+        // A fullscreen request sizes the still-windowed window to the mode
+        // too: on macOS the fullscreen toggle is deferred until the window
+        // has presented, and until it settles this window IS the drawable
+        // the engine publishes every frame. Left at its creation size the
+        // drawable-tracking screens re-adopted that stale size (1920x1440
+        // creation default on a 1440x900 display) and the whole startup -
+        // intro videos included - rendered oversized and cropped until the
+        // fullscreen settled. Best effort: the toggle still decides the
+        // final surface, this only makes the transitional frames match it.
+        if ( fullscreen == GFXFS_FULLSCREEN && !( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) )
+            SDL_SetWindowSize( window, nSizeX, nSizeY );
         // A window left partially outside the display's usable area is
         // partially invisible - most commonly right after this leaves
         // fullscreen, when the windowed position it is returning to predates
@@ -591,9 +602,17 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // window (docs/scaling.md), sized only by the applied resolution
         // preset and the display's usable-bounds clamp above - never by a
         // live user resize. Only automatic modes adopt what the window
-        // manager granted.
+        // manager granted - and only in windowed mode. A fullscreen surface
+        // is always the target display's desktop (the auto path above already
+        // resolved that), while the readback here can still describe the
+        // pre-fullscreen window when the toggle is deferred or mid-flight
+        // (macOS queues it until the window has presented). Adopting that
+        // stale size made "-mode=auto" render the whole startup - intro
+        // videos included - at the 1920x1440 creation-default window on a
+        // 1440x900 display, and the oversized scene was cropped on screen.
         const bool bKeepRequested = nRequestedX > 0 && nRequestedY > 0;
-        if ( bReadBack && pixel_width > 0 && pixel_height > 0 && !bKeepRequested )
+        if ( bReadBack && pixel_width > 0 && pixel_height > 0 && !bKeepRequested
+            && fullscreen != GFXFS_FULLSCREEN )
         {
             nSizeX = pixel_width;
             nSizeY = pixel_height;

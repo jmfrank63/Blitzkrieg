@@ -35,6 +35,7 @@ class CPlayMovieInterface : public CInterfaceScreenBase
 	};
 	NInput::CCommandRegistrator movieMsgs;
 	CPtr<IVideoPlayer> pPlayer;						// video player with current movie
+	CTRect<long> rcMovieDstRect;					// dst rect last given to pPlayer; re-derived when the scene changes mid-movie
 	std::vector<SMovie> movies;						// all movies to play
 	int nCurrMovie;												// current movie to play
 	int nNextInterfaceCommandTypeID;

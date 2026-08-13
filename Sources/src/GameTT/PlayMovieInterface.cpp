@@ -85,6 +85,7 @@ CPlayMovieInterface::CPlayMovieInterface()
 {
 	nCurrMovie = -1;
 	nNextInterfaceCommandTypeID = -1;
+	rcMovieDstRect.SetEmpty();
 }
 CPlayMovieInterface::~CPlayMovieInterface()
 {
@@ -174,9 +175,20 @@ bool CPlayMovieInterface::ProcessMessage( const SGameMessage &msg )
 void CPlayMovieInterface::Step( bool bAppActive )
 {
 	CInterfaceScreenBase::Step( bAppActive );
-	if ( pPlayer ) 
+	if ( pPlayer )
 	{
-		if ( !pPlayer->IsPlaying() ) 
+		// The destination rect is captured at PlayMovie time, but the scene
+		// can change size under a running movie - the deferred macOS
+		// fullscreen settles a few dozen frames into the intro sequence, and
+		// a display change re-derives the mode live. A stale rect then draws
+		// outside (or short of) the scene for the rest of the movie.
+		const CTRect<long> rcScreen = pGFX->GetScreenRect();
+		if ( rcMovieDstRect != rcScreen )
+		{
+			rcMovieDstRect = rcScreen;
+			pPlayer->SetDstRect( rcScreen, true );
+		}
+		if ( !pPlayer->IsPlaying() )
 		{
 			pScene->RemoveSceneObject( pPlayer );
 			++nCurrMovie;
@@ -200,6 +212,7 @@ bool CPlayMovieInterface::PlayMovie()
 		return false;
 	pPlayer = CreateObject<IVideoPlayer>( SCENE_VIDEO_PLAYER );
 	const CTRect<long> rcScreen = pGFX->GetScreenRect();
+	rcMovieDstRect = rcScreen;
 	pPlayer->SetDstRect( rcScreen, true );
 	const double fClockRate = NHPTimer::GetClockRate();
 	const std::string szMovieName = movies[nCurrMovie].szFileName + ( fClockRate > 900000000 ? ".bik" : "_l.bik" );
