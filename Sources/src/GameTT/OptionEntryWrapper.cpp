@@ -4,6 +4,7 @@
 #include "OptionEntryWrapper.h"
 #include "../UI/UIMessages.h"
 #include "UIConsts.h"
+#include "CommonId.h"
 BASIC_REGISTER_CLASS(COptionsListWrapper);
 enum EUIElements
 {
@@ -163,6 +164,29 @@ void CUIOption::OnClicked( const bool bLeft )
 		IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_GAMESPY ) );
 		pStatic->SetFocus( true );
 	}
+}
+// The keyboard's left/right of the highlighted row: choices step the same way
+// the row's own click controls do, sliders take one key step through the very
+// slider control (so the position-changed notification and an instant apply
+// run exactly as for a drag). Text rows have nothing to step.
+bool CUIOption::ChangeByKey( const bool bNext )
+{
+	if ( EOT_SELECTION == pOption->GetType() )
+	{
+		OnClicked( bNext );
+		return true;
+	}
+	if ( EOT_SLIDER == pOption->GetType() )
+	{
+		IUISlider *pSlider = checked_cast<IUISlider*>( pSubDialog->GetChildByID( E_SLIDER ) );
+		SUIMessage msg;
+		msg.nMessageCode = bNext ? MESSAGE_KEY_DOWN : MESSAGE_KEY_UP;		// the slider control's increment/decrement pair
+		msg.nFirst = 0;
+		msg.nSecond = 0;
+		pSlider->ProcessMessage( msg );
+		return true;
+	}
+	return false;
 }
 void CUIOption::SetSelectionOption( const std::vector<SOptionDropListValue> &_szSelections, const int _nDefault )
 {
@@ -387,6 +411,15 @@ void COptionsListWrapper::InitList( const bool bDefault )
 		options[i] = pOption;
 	}
 	pList->InitialUpdate();
+}
+bool COptionsListWrapper::ChangeSelectedOption( const bool bNext )
+{
+	if ( bDisableChange )
+		return false;
+	const int nOption = pList->GetSelectionItem();
+	if ( nOption < 0 || options.size() <= nOption || !options[nOption]->IsOptionValid() )
+		return false;
+	return options[nOption]->ChangeByKey( bNext );
 }
 void COptionsListWrapper::Apply()
 {

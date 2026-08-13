@@ -41,7 +41,7 @@
 				<Script>UI\common\Options\ForwardMouseClicks</Script>
 				<!--slider control, select form range.-->
 				<Children>
-					<item ClassTypeID="0x10001108" ElementID="10003" PositionFlag="0x0011" Min="0" Max="100" Step="1" VisibleFlag="1" Position="0" Width="100" Vertical="0" Elevator_Width="14">
+					<item ClassTypeID="0x10001108" ElementID="10003" PositionFlag="0x0011" Min="0" Max="100" Step="1" VisibleFlag="1" Position="0" Width="100" Vertical="0" Elevator_Width="14" KeyStep="5">
 						<Elevator_Texture>UI\Mapping</Elevator_Texture>
 						<Elevator_Maps x1="151" y1="181" x2="14" y2="27"/>
 						<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->

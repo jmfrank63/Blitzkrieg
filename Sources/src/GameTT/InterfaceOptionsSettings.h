@@ -13,17 +13,23 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	int nActive;													// nurrent active division
 	int nMaxDivision;											// total number of divisions.
 	int nMinDifficulty;
+	int nActiveNavButton;									// button the last Tab press parked the cursor on, -1 when none
+
+	CPtr<IInputSlider> pWheelScroll;			// own view of the mouse wheel for the whole-screen list scroll
 
 	NInput::CCommandRegistrator commandMsgs;
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
+	virtual bool STDCALL StepLocal( bool bAppActive );
 
 	virtual ~CInterfaceOptionsSettings() {  }
-	CInterfaceOptionsSettings() : CInterfaceInterMission( /*"InterMission"*/"Current" ), nActive( -1 ), nMaxDivision( 0 ) {  }
+	CInterfaceOptionsSettings() : CInterfaceInterMission( /*"InterMission"*/"Current" ), nActive( -1 ), nMaxDivision( 0 ), nActiveNavButton( -1 ) {  }
 
 	virtual void SuspendAILogic( bool bSuspend );
 	void OnChangeDivision( const int nDivision );
 	void Close();
 	virtual bool OpenCurtains();
+	void CycleNavButton();
+	int GetArmedNavButton();
 public:
 	virtual void STDCALL Done();
 	virtual bool STDCALL Init();

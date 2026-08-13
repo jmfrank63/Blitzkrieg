@@ -90,10 +90,16 @@ void PumpMessages()
 					pInput->AddMessage( SGameMessage( MC_MOVIE_SKIP_SEQUENCE, 0 ) );
 				pInput->ConsumePlatformEvent( event );
 				break;
+			case NPlatform::EventType::mouseWheel:
+				// A wheel event's x/y are the scroll deltas, not a position (the
+				// position rides in data1/data2), so the present transform below
+				// must not touch them - it turned the delta into garbage whenever
+				// the presentation had an offset (fullscreen letterboxing).
+				pInput->ConsumePlatformEvent( event );
+				break;
 			case NPlatform::EventType::mouseMotion:
 			case NPlatform::EventType::mouseButtonDown:
 			case NPlatform::EventType::mouseButtonUp:
-			case NPlatform::EventType::mouseWheel:
 				// The scene may be presented centered (1:1) or aspect-fit
 				// scaled inside the window; mouse events arrive in window
 				// coordinates and map into game coordinates via the
@@ -730,7 +736,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// BK_AUTO_UI="frame:action,..." drives the UI without a human, the way
 			// BK_GFX_TRACE watches the mode changes. Actions: settings | ok |
 			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |
-			// cmd=<id> | click=<x>x<y> | set=<option>=<value> | var=<name>=<value>.
+			// cmd=<id> | click=<x>x<y> | key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE>
+			// (a real key press through the bind chain) | wheel=<delta> (a wheel
+			// notch, positive up) | set=<option>=<value> | var=<name>=<value>.
 			// It also reports frame timing every 120 frames, which is how the menu
 			// frame rate is measured headless.
 			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
@@ -740,7 +748,14 @@ int RunGame( const BkGameLaunchInfo &launch )
 				static int nAutoUIFrame = 0;
 				static int nAutoUIRelease = 0;
 				static int vAutoUIReleasePos[2] = { 0, 0 };
+				static int nAutoUIKeyRelease = 0;
+				static int nAutoUIKeyCode = 0;
 				++nAutoUIFrame;
+				if ( nAutoUIKeyRelease != 0 && nAutoUIFrame >= nAutoUIKeyRelease )
+				{
+					pInput->EmulateInput( DEVICE_TYPE_KEYBOARD, nAutoUIKeyCode, 0, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
+					nAutoUIKeyRelease = 0;
+				}
 				if ( ( nAutoUIFrame % 120 ) == 0 )
 					fprintf( stderr, "BK_AUTO_UI: frame %d at %u ms\n", nAutoUIFrame, unsigned( NPlatform::MonotonicMilliseconds() ) );
 				if ( nAutoUIRelease != 0 && nAutoUIFrame >= nAutoUIRelease )
@@ -803,6 +818,36 @@ int RunGame( const BkGameLaunchInfo &launch )
 						}
 						else
 							fprintf( stderr, "BK_AUTO_UI: shot failed\n" );
+					}
+					else if ( szAction.compare( 0, 4, "key=" ) == 0 )
+					{
+						// Emulates a real key press through the input device layer, so
+						// the whole bind chain (bind section, command registration) is
+						// what a test exercises - unlike msg=, which injects past it.
+						// The codes are the DIK-compatible config ABI (InputCodes.cpp).
+						static const struct { const char *pszName; int nCode; } autoUIKeys[] =
+						{
+							{ "UP", 0xc8 }, { "DOWN", 0xd0 }, { "LEFT", 0xcb }, { "RIGHT", 0xcd },
+							{ "TAB", 0x0f }, { "ENTER", 0x1c }, { "ESC", 0x01 }, { "SPACE", 0x39 },
+						};
+						const std::string szKey = szAction.substr( 4 );
+						for ( int nKey = 0; nKey < int( sizeof(autoUIKeys) / sizeof(autoUIKeys[0]) ); ++nKey )
+						{
+							if ( szKey == autoUIKeys[nKey].pszName )
+							{
+								pInput->EmulateInput( DEVICE_TYPE_KEYBOARD, autoUIKeys[nKey].nCode, 0x80, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
+								nAutoUIKeyCode = autoUIKeys[nKey].nCode;
+								nAutoUIKeyRelease = nAutoUIFrame + 2;
+								break;
+							}
+						}
+					}
+					else if ( szAction.compare( 0, 6, "wheel=" ) == 0 )
+					{
+						// Wheel notches through the device path, positive is wheel-up;
+						// scaled to the legacy WHEEL_DELTA units the same way
+						// SDLApplication scales a real wheel event.
+						pInput->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, atoi( szAction.c_str() + 6 ) * 120, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
 					}
 					else if ( szAction == "exit" ) pMainLoop->Command( MAIN_COMMAND_EXIT_GAME, 0 );
 					else if ( szAction.compare( 0, 4, "var=" ) == 0 )

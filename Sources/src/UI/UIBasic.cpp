@@ -1950,13 +1950,27 @@ bool CMultipleWindow::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, f
 				return true;
 		}
 	}
-	
+
 /*
 	if ( pFocused )
 	{
 		return pFocused->OnMouseWheel( vPos, mouseState, fDelta );
 	}
 */
+
+	// The wheel used to reach only the highlighted child, so whether a list
+	// scrolled depended on which sibling the cursor's hover chain happened to
+	// pick - a background static over the list swallowed the highlight and
+	// the wheel died with it. Offer the wheel to the remaining children:
+	// controls that care test the position themselves (a list scrolls only
+	// when the cursor is inside its rect), everything else declines.
+	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
+	{
+		if ( it->GetPtr() == pHighlighted.GetPtr() )
+			continue;
+		if ( (*it)->IsVisible() && (*it)->OnMouseWheel( vPos, mouseState, fDelta ) )
+			return true;
+	}
 
 	return false;
 }

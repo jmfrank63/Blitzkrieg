@@ -59,7 +59,7 @@
 				<Script>UI\common\Options\ForwardMouseClicks</Script>
 				<!--slider control, select form range.-->
 				<Children>
-					<item ClassTypeID="0x10001108" ElementID="10003" PositionFlag="0x0011" Min="0" Max="100" Step="1" VisibleFlag="1" Position="0" Width="100" Vertical="0" Elevator_Width="12">
+					<item ClassTypeID="0x10001108" ElementID="10003" PositionFlag="0x0011" Min="0" Max="100" Step="1" VisibleFlag="1" Position="0" Width="100" Vertical="0" Elevator_Width="12" KeyStep="5">
 						<ShadowShift x="1" y="2"/>
 						<Elevator_Texture>UI\IntermissionTextures\Options_entry</Elevator_Texture>
 						<Elevator_Maps x1="161" y1="0" x2="12" y2="30"/>

@@ -76,6 +76,7 @@ class CUIList : public CMultipleWindow
 	int nSelection;
 	int nSortedHeaderIndex;
 	bool bSortAscending;
+	bool bRepositioningItems;							// guards the item re-place inside Reposition against recursion
 
 	SUIListHeader headers;
 	CUIListItems listItems;

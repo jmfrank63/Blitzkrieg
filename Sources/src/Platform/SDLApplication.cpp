@@ -306,7 +306,15 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			case SDL_EVENT_MOUSE_MOTION: event.type = EventType::mouseMotion; event.timestamp = raw.motion.timestamp; event.windowId = raw.motion.windowID; event.x = static_cast<int>( raw.motion.x ); event.y = static_cast<int>( raw.motion.y ); event.data1 = static_cast<int>( raw.motion.xrel ); event.data2 = static_cast<int>( raw.motion.yrel ); break;
 			case SDL_EVENT_MOUSE_BUTTON_DOWN: event.type = EventType::mouseButtonDown; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
 			case SDL_EVENT_MOUSE_BUTTON_UP: event.type = EventType::mouseButtonUp; event.timestamp = raw.button.timestamp; event.windowId = raw.button.windowID; event.button = raw.button.button; event.x = static_cast<int>( raw.button.x ); event.y = static_cast<int>( raw.button.y ); break;
-			case SDL_EVENT_MOUSE_WHEEL: event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID; event.x = static_cast<int>( raw.wheel.x ); event.y = static_cast<int>( raw.wheel.y ); event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y ); break;
+			// The wheel delta is reported in legacy WHEEL_DELTA units (one notch =
+			// 120), the ABI every consumer is tuned against: the input configs
+			// scale MOUSE_AXIS_Z by Power=40 and sliders by 0.001, so the UI's
+			// wheel quantum of 25/4.8 pixels expects 120*40*0.001 = 4.8 per notch.
+			// SDL's plain +-1 per notch starved that chain a hundredfold - every
+			// int() truncation downstream rounded the step to zero and no menu
+			// list ever scrolled. Scaling before the int cast also keeps a
+			// trackpad's fractional flicks from truncating to nothing.
+			case SDL_EVENT_MOUSE_WHEEL: event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID; event.x = static_cast<int>( raw.wheel.x * 120.0f ); event.y = static_cast<int>( raw.wheel.y * 120.0f ); event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y ); break;
 			case SDL_EVENT_GAMEPAD_ADDED:
 				event.type = EventType::controllerAdded; event.timestamp = raw.gdevice.timestamp; event.deviceId = static_cast<int>( raw.gdevice.which );
 				if ( SDL_Gamepad *gamepad = SDL_OpenGamepad( raw.gdevice.which ) )

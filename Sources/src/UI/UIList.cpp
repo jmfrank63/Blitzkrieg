@@ -61,7 +61,8 @@ IUIElement* SUIListHeader::GetElement( int nIndex ) const
 }
 CUIList::CUIList() : pScrollBar( 0 ), nLeftSpace( 10 ), nTopSpace( 5 ), nItemHeight( 30 ), nHeaderSize( 0 ),
 	nSortedHeaderIndex( -1 ), bSortAscending( false ), nHeaderTopSpace( 0 ), nHSubSpace( 2 ),
-	nVSubSpace( 2 ), bLeftScrollBar( false ), nScrollBarWidth( 30 ), nSelection( -1 ), bScrollBarAlwaysVisible( true )
+	nVSubSpace( 2 ), bLeftScrollBar( false ), nScrollBarWidth( 30 ), nSelection( -1 ), bScrollBarAlwaysVisible( true ),
+	bRepositioningItems( false )
 {
 	SetMouseWheelMultiplyer( 25.0f/4.8f );		//������� �������
 }
@@ -369,6 +370,13 @@ void CUIList::UpdateScrollBarStatus()
 }
 void CUIList::Reposition( const CTRect<float> &rcParent )
 {
+	// The scrollbar length below must come from the rect this reposition is
+	// establishing, not from whatever the previous layout left in wndRect.
+	// The stale read was invisible while a list could never change size, but
+	// a live resolution change rescales the whole screen (ScaleLayout plus
+	// this reposition), and the scrollbar then kept the old resolution's
+	// height: its lower button sat mid-shaft and its slider hung past it.
+	CSimpleWindow::Reposition( rcParent );
 	CTRect<float> rect = GetScreenRect();
 
 	{
@@ -393,6 +401,22 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 	}
 
 	CMultipleWindow::Reposition( rcParent );
+
+	// The rows' placements and bound (clip) rects are stored in screen pixels
+	// by UpdateItemsCoordinates and are only ever refreshed on a scroll, so
+	// after a rescale the rows stayed placed and clipped against the previous
+	// resolution's rects: slider grooves rendered as clipped fragments and
+	// thumbs sat outside their column. Re-derive them from the rect this
+	// reposition just established. UpdateItemsCoordinates ends with another
+	// Reposition to push the new placements into screen rects - the flag
+	// keeps that recursion to a single extra pass.
+	if ( !bRepositioningItems )
+	{
+		bRepositioningItems = true;
+		UpdateScrollBarStatus();
+		UpdateItemsCoordinates();
+		bRepositioningItems = false;
+	}
 }
 void CUIList::ScaleLayout( const CVec2 &vScale )
 {
@@ -411,6 +435,21 @@ void CUIList::ScaleLayout( const CVec2 &vScale )
 
 	for ( int i = 0; i < selSubRects.size(); ++i )
 		ScaleUISubRect( &selSubRects[i], vScale );
+
+	// The scroll offset is a pixel offset into the item stack, which was just
+	// rescaled with nItemHeight above; left unscaled, a scrolled list showed
+	// a different set of rows after a live resolution change. The range is
+	// widened to the whole scaled stack first only so the scaled position is
+	// not clamped against the old maximum - Reposition re-derives the exact
+	// range against the final rect right after.
+	if ( pScrollBar )
+	{
+		const int nScaledPosition = ScaleUIPixelValue( pScrollBar->GetPosition(), vScale.y );
+		bRepositioningItems = true;
+		pScrollBar->SetMaxValue( int( listItems.size() ) * nItemHeight );
+		pScrollBar->SetPosition( nScaledPosition );
+		bRepositioningItems = false;
+	}
 }
 void CUIList::NotifySelectionChanged()
 {
@@ -495,7 +534,10 @@ bool CUIList::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyS
 		if ( pFocused.GetPtr() == pScrollBar.GetPtr() )
 			return pScrollBar->OnChar( nAsciiCode, nVirtualKey, bPressed, keyState );
 		{
-			if ( nSelection < listItems.size() - 1 )
+			// int against size_t: with no selection yet (nSelection == -1) the
+			// unsigned promotion made this false forever, so the keyboard could
+			// never select the first row of a list the mouse had not touched.
+			if ( nSelection < int( listItems.size() ) - 1 )
 			{
 				RemoveFocusFromItem( nSelection );
 				nSelection++;
@@ -541,7 +583,9 @@ bool CUIList::ProcessMessage( const SUIMessage &msg )
 		if ( pFocused.GetPtr() == pScrollBar.GetPtr() )
 			return pScrollBar->ProcessMessage( msg );
 		{
-			if ( nSelection < listItems.size() - 1 )
+			// Same int/size_t promotion trap as in OnChar above: -1 never
+			// compared smaller, so a fresh list ignored key-down.
+			if ( nSelection < int( listItems.size() ) - 1 )
 			{
 				RemoveFocusFromItem( nSelection );
 				nSelection++;

@@ -29,12 +29,13 @@ public:
 	CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption );
 
 	void Apply();
-	
+
 	void CancelChanges();
 
 	void OnClicked( const bool bLeft );
 	void OnSelected();
 	void PositionChanged();
+	bool ChangeByKey( const bool bNext );
 	bool IsOptionValid() const { return pOption.IsValid(); }
 
 	virtual void STDCALL SetSelectionOption( const std::vector<SOptionDropListValue> &szSelections, const int nDefault );
@@ -81,6 +82,8 @@ public:
 	COptionsListWrapper( const DWORD _dwFlags, IUIListControl * _pList, const int _nIDToStartFrom, IOptionSystem * pSystem = 0, const bool bDisableChange = false );
 	COptionsListWrapper( IUIListControl * _pList, OptionDescs & optionDescs, const int _nIDToStartFrom, IOptionSystem * pSystem = 0, const bool bDisableChange = false );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
+
+	bool ChangeSelectedOption( const bool bNext );
 
 	void Apply();
 	void ToDefault();

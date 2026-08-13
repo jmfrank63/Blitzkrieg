@@ -68,6 +68,26 @@ function). Visual confirmation that the seam is gone (scrolling at a
 fractional `fill`, e.g. 1024×768 on a larger display) is a sign-off item, not
 something this fix claims to have measured on its own.
 
+The sprite path hit the same class of bug (2026-08-13, observed as artifacts
+around trees at 800×600 fullscreen). Sprites — trees, buildings, terra
+objects and their shadows — are quads (or per-square quads of a complex
+sprite) mapped to frames in a shared atlas, point sampled, with a half-texel
+UV shift authored for the 1:1 texel-to-pixel mapping. At a fractional zoom
+`s` the first pixel of every frame samples `s` times less of the texture, so
+the unscaled shift underflowed into the neighbouring atlas frame: a thin
+line of foreign texels along every square border, a visible grid over trees.
+Fix: divide the shift by the zoom (`DrawSingleSpritesPack` /
+`DrawComplexSpritesPack` in `Sources/src/Scene/SceneDraw.cpp`). Separately,
+the sprite *shadow* pass (effect 111) draws pre-baked shadow sprites whose
+alpha carries per-texel detail; point sampling at a fractional zoom
+duplicates texels unevenly and that detail clumps into large grey blotches
+around trees. That pass alone now samples linearly when the zoom is
+fractional (`GraphicsEngineGpu::SetTexture` keys on effect 111 plus a
+per-frame fractional-zoom flag from `UpdatePresentOffsets`), paired with a
+half-texel UV inset per square (`g_bShadowSpritePass` in `SceneDraw.cpp`) so
+the linear kernel stays inside its own atlas frame. Whole-number zooms are
+bit-for-bit unchanged on both counts.
+
 ### UI layout scaling (`ScaleLayout`)
 
 Legacy UI layouts are authored in 1024×768 coordinates and scaled by the
@@ -80,6 +100,16 @@ explicit `ScaleLayout` override.
   kept `fBegin/fEnd/fCurrent` in unscaled pixels, so the bar only filled to
   1/scale of its width. Fixed by adding a `ScaleLayout` override that scales
   those fields.
+* Same class, fixed 2026-08-13: `CUIList` (options/load/save lists). Its
+  `Reposition` sized the scrollbar from the *previous* layout's `wndRect`
+  (read before the base reposition), and its rows' placements and bound
+  (clip) rects were only refreshed on a scroll — so after a live resolution
+  change from the settings screen the scrollbar's lower button sat mid-shaft
+  and slider rows rendered clipped against the old resolution's rects.
+  `CUIList::Reposition` now repositions itself first and re-derives the
+  scrollbar, the row placements and the bound rects from the fresh rect
+  (`Sources/src/UI/UIList.cpp`); `ScaleLayout` also rescales the pixel
+  scroll offset along with `nItemHeight`.
 
 For *edge-anchored* screens (`bAnchorLayoutToScreenEdges` — the mission HUD,
 `ui\mission`), `CUIScreen::Reposition` (`Sources/src/UI/UIScreen.cpp`)
