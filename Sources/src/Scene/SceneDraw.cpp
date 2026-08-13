@@ -15,6 +15,15 @@
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
 #define MESH_SHADOW_DENSITY 0.5f
+// The terra-object shadow pass (effect 111) draws pre-baked shadow sprites
+// whose alpha carries per-texel detail (frond gaps, dither). At a fractional
+// gameplay zoom the point sampler duplicates texels unevenly and that detail
+// clumps into grey blotches, so for that pass alone the renderer switches to
+// linear filtering (GraphicsEngineGpu::SetTexture keys on effect 111 plus the
+// zoom) and the sprite packers below inset each square's texture rect half a
+// texel so the linear kernel stays inside its own atlas frame. The flag marks
+// the pass; at whole-number zooms nothing changes.
+static bool g_bShadowSpritePass = false;
 template <class TYPE>
 class CRawBuffer
 {
@@ -330,7 +339,9 @@ void CScene::Draw( ICamera *pCamera )
 			{
 				SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 				pGFX->SetShadingEffect( 111 );
+				g_bShadowSpritePass = true;
 				DrawTerraObjects( pDrawVisitor->shadowObjects );
+				g_bShadowSpritePass = false;
 				RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 			}
 			if ( !pDrawVisitor->meshes.empty() )
@@ -808,7 +819,8 @@ inline const DWORD CheckForRect( const CTRect<float> &rect, const float x, const
 template <class TDepthCalculator>
 int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
-							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff, const float fSpriteScale )
+							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff, const float fSpriteScale,
+							 const float fTexInsetX, const float fTexInsetY )
 {
 	const float fX1 = MINT( pInfo->relpos.x + square.vLeftTop.x * fSpriteScale ) + fScrDiff;
 	const float fX2 = MINT( pInfo->relpos.x + ( square.vLeftTop.x + square.fSize ) * fSpriteScale ) + fScrDiff;
@@ -827,10 +839,14 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	const float fZ2 = calculator.GetZ2( pInfo, square );
 	const float fZ3 = calculator.GetZ3( pInfo, square );
 	const float fZ4 = calculator.GetZ4( pInfo, square );
-	const float fMapX1 = square.rcMaps.x1 + fTexDiffX;
-	const float fMapY1 = square.rcMaps.y1 + fTexDiffY;
-	const float fMapX2 = square.rcMaps.x2 + fTexDiffX;
-	const float fMapY2 = square.rcMaps.y2 + fTexDiffY;
+	// The inset shrinks the mapping toward the frame's interior; mirrored
+	// frames (x1 > x2) flip its sign with the mapping direction.
+	const float fInsX = square.rcMaps.x2 >= square.rcMaps.x1 ? fTexInsetX : -fTexInsetX;
+	const float fInsY = square.rcMaps.y2 >= square.rcMaps.y1 ? fTexInsetY : -fTexInsetY;
+	const float fMapX1 = square.rcMaps.x1 + fTexDiffX + fInsX;
+	const float fMapY1 = square.rcMaps.y1 + fTexDiffY + fInsY;
+	const float fMapX2 = square.rcMaps.x2 + fTexDiffX - fInsX;
+	const float fMapY2 = square.rcMaps.y2 + fTexDiffY - fInsY;
 	SSpriteVertex *pVertices = Resize2Fit( drawvertices, 4 );
 	pVertices->Setup( fX1, fY2, fZ1, 1, pInfo->color, pInfo->specular, fMapX1, fMapY2 );
 	++pVertices;
@@ -852,7 +868,8 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 template <class TDepthCalculator>
 int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
-							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff, const float fSpriteScale )
+							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff, const float fSpriteScale,
+							 const float fTexInsetX, const float fTexInsetY )
 {
 	const float fX1 = MINT( pInfo->relpos.x + pInfo->rect.x1 * fSpriteScale ) + fScrDiff;
 	const float fX2 = MINT( pInfo->relpos.x + pInfo->rect.x2 * fSpriteScale ) + fScrDiff;
@@ -871,10 +888,12 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	const float fZ2 = calculator.GetZ2( pInfo );
 	const float fZ3 = calculator.GetZ3( pInfo );
 	const float fZ4 = calculator.GetZ4( pInfo );
-	const float fMapX1 = pInfo->maps.x1 + fTexDiffX;
-	const float fMapY1 = pInfo->maps.y1 + fTexDiffY;
-	const float fMapX2 = pInfo->maps.x2 + fTexDiffX;
-	const float fMapY2 = pInfo->maps.y2 + fTexDiffY;
+	const float fInsX = pInfo->maps.x2 >= pInfo->maps.x1 ? fTexInsetX : -fTexInsetX;
+	const float fInsY = pInfo->maps.y2 >= pInfo->maps.y1 ? fTexInsetY : -fTexInsetY;
+	const float fMapX1 = pInfo->maps.x1 + fTexDiffX + fInsX;
+	const float fMapY1 = pInfo->maps.y1 + fTexDiffY + fInsY;
+	const float fMapX2 = pInfo->maps.x2 + fTexDiffX - fInsX;
+	const float fMapY2 = pInfo->maps.y2 + fTexDiffY - fInsY;
 	SSpriteVertex *pVertices = Resize2Fit( drawvertices, 4 );
 	pVertices->Setup( fX1, fY2, fZ1, 1, pInfo->color, pInfo->specular, fMapX1, fMapY2 );
 	++pVertices;
@@ -900,24 +919,48 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 	if ( sprites.empty() )
 		return false;
 	const int nNumSprites = sprites.size();
+	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
+	const bool bFractionalScale = fabsf( fSpriteScale - floorf( fSpriteScale + 0.5f ) ) > 0.001f;
 	float fTexDiffX = 0, fTexDiffY = 0, fScrDiff = -0.5f;
-	if ( sprites[0]->pTexture != 0 ) 
+	float fTexInsetX = 0, fTexInsetY = 0;
+	if ( sprites[0]->pTexture != 0 )
 	{
-		fTexDiffX = -0.5f / float( sprites[0]->pTexture->GetSizeX(0) );
-		fTexDiffY = -0.5f / float( sprites[0]->pTexture->GetSizeY(0) );
+		const float fTexelX = 1.0f / float( sprites[0]->pTexture->GetSizeX(0) );
+		const float fTexelY = 1.0f / float( sprites[0]->pTexture->GetSizeY(0) );
 		fScrDiff = -0.5f;
+		if ( g_bShadowSpritePass && bFractionalScale )
+		{
+			// Linear filtering (see g_bShadowSpritePass): no half-texel shift,
+			// a half-texel inset instead, so interpolation cannot reach the
+			// neighbouring atlas frame.
+			fTexInsetX = 0.5f * fTexelX;
+			fTexInsetY = 0.5f * fTexelY;
+		}
+		else
+		{
+			// Point sampling. The half-texel shift is authored for a 1:1
+			// texel-to-pixel mapping; at a zoom of s the first pixel of a
+			// frame samples s times less of the texture, so an unscaled shift
+			// underflows into the neighbouring atlas frame and draws a thin
+			// line of foreign texels along every square border. Dividing by
+			// the zoom keeps the first and last samples inside the frame; the
+			// 0.4995 (instead of 0.5) absorbs the rounding jitter of the
+			// integer-snapped quad edges without changing which texel any
+			// whole-number zoom picks.
+			fTexDiffX = -0.4995f * fTexelX / fSpriteScale;
+			fTexDiffY = -0.4995f * fTexelY / fSpriteScale;
+		}
 	}
 	WORD wCurrVertex = 0;
 	DWORD dwSpecularCheck = 0;;
-	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	drawvertices.resize( 0 );
 	drawvertices.reserve( nNumSprites * 4 );
 	drawindices.resize( 0 );
 	drawindices.reserve( nNumSprites * 6 );
 	_control87( _RC_CHOP, _MCW_RC );
-	for ( std::vector<const SSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it ) 
+	for ( std::vector<const SSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it )
 	{
-		wCurrVertex += AddSquare( *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff, fSpriteScale );
+		wCurrVertex += AddSquare( *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff, fSpriteScale, fTexInsetX, fTexInsetY );
 		dwSpecularCheck |= (*it)->specular;
 	}
 	_control87( _RC_NEAR, _MCW_RC );
@@ -952,17 +995,30 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 	if ( sprites.empty() )
 		return false;
 	const int nNumSprites = sprites.size();
+	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
+	const bool bFractionalScale = fabsf( fSpriteScale - floorf( fSpriteScale + 0.5f ) ) > 0.001f;
 	float fTexDiffX = 0, fTexDiffY = 0, fScrDiff = -0.5f;
-	if ( sprites[0]->pTexture != 0 ) 
+	float fTexInsetX = 0, fTexInsetY = 0;
+	if ( sprites[0]->pTexture != 0 )
 	{
-		fTexDiffX = -0.5f / float( sprites[0]->pTexture->GetSizeX(0) );
-		fTexDiffY = -0.5f / float( sprites[0]->pTexture->GetSizeY(0) );
+		// Shift vs inset: same reasoning as DrawSingleSpritesPack above.
+		const float fTexelX = 1.0f / float( sprites[0]->pTexture->GetSizeX(0) );
+		const float fTexelY = 1.0f / float( sprites[0]->pTexture->GetSizeY(0) );
 		fScrDiff = -0.5f;
+		if ( g_bShadowSpritePass && bFractionalScale )
+		{
+			fTexInsetX = 0.5f * fTexelX;
+			fTexInsetY = 0.5f * fTexelY;
+		}
+		else
+		{
+			fTexDiffX = -0.4995f * fTexelX / fSpriteScale;
+			fTexDiffY = -0.4995f * fTexelY / fSpriteScale;
+		}
 	}
 	int nNumSquares = 0;
 	for ( std::vector<const SComplexSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it )
 		nNumSquares += (*it)->pSprite->squares.size();
-	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	drawvertices.resize( 0 );
 	drawvertices.reserve( nNumSquares * 4 );
 	drawindices.resize( 0 );
@@ -988,7 +1044,7 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 				drawindices.resize( 0 );
 				drawindices.reserve( nNumSquares * 6 );
 			}
-			wCurrVertex += AddSquare( *sprite, *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff, fSpriteScale );
+			wCurrVertex += AddSquare( *sprite, *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff, fSpriteScale, fTexInsetX, fTexInsetY );
 		}
 	}
 	_control87( _RC_NEAR, _MCW_RC );

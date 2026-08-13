@@ -768,17 +768,24 @@ bool STDCALL GraphicsEngineGpu::SetTexture( int stage, IGFXBaseTexture *texture 
         if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
     }
     const GfxGpuHandle handle = gpu_texture ? gpu_texture->Handle() : 0;
+    // The bind-time reset normally forces point sampling (the effect table
+    // re-applies its own filter when the effect changes, not when a texture
+    // binds). The one exception: sprite shadows (effect 111) under a
+    // fractional world zoom sample linearly, or their dithered alpha clumps
+    // into grey blotches. The scene side pairs this with half-texel-inset
+    // sprite UVs (SceneDraw.cpp, g_bShadowSpritePass).
+    const uint64_t sampler = ( shade_effect_ == 111 && world_zoom_fractional_ ) ? 2 : 1;
     if ( api_.set_texture_stage )
     {
         const bool result = Check( api_.set_texture_stage( renderer_, static_cast<uint32_t>( stage ), handle ), "set_texture_stage" );
-        if ( result && stage == 0 && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
+        if ( result && stage == 0 && api_.set_sampler ) (void)api_.set_sampler( renderer_, sampler );
         return result;
     }
     // Renderers predating the stage-aware entry point only have stage 0.
     if ( stage != 0 ) return true;
     if ( !api_.set_texture ) return fail( "set_texture is unavailable" );
     const bool result = Check( api_.set_texture( renderer_, handle ), handle ? "set_texture" : "clear_texture" );
-    if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, 1 );
+    if ( result && api_.set_sampler ) (void)api_.set_sampler( renderer_, sampler );
     return result;
 }
 bool STDCALL GraphicsEngineGpu::SetWireframe( bool enable ) { return SetState( GFXGPU_STATE_WIREFRAME, 0, enable ? 1u : 0u, nullptr, 0, "set_wireframe" ); }
@@ -933,6 +940,24 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
             fOffsetX = float( ( pixel_width - width_ ) / 2 );
             fOffsetY = float( ( pixel_height - height_ ) / 2 );
         }
+    }
+    // Mirror of NSceneScreenScale::GetGameplayScale (docs/scaling.md): the
+    // mission world zoom is legacy_step(base) * fill(scene/base). The sprite
+    // shadow pass switches to linear filtering when it is fractional; see
+    // SetTexture. Unset base globals mean a non-Mission screen, whose zoom is
+    // a whole step by construction.
+    {
+        bool bFractional = false;
+        const float fBaseW = float( GetGlobalVar( "GFX.World.BaseSizeX", 0 ) );
+        const float fBaseH = float( GetGlobalVar( "GFX.World.BaseSizeY", 0 ) );
+        if ( width_ > 0 && height_ > 0 && fBaseW >= 1.0f && fBaseH >= 1.0f )
+        {
+            const float fLegacyStep = Max( 1.0f, floorf( Min( fBaseW / 1024.0f, fBaseH / 768.0f ) ) );
+            const float fFill = Max( 1.0f, Min( float( width_ ) / fBaseW, float( height_ ) / fBaseH ) );
+            const float fZoom = fLegacyStep * fFill;
+            bFractional = fabsf( fZoom - floorf( fZoom + 0.5f ) ) > 0.001f;
+        }
+        world_zoom_fractional_ = bFractional;
     }
     if ( fOffsetX != present_offset_x_ || fOffsetY != present_offset_y_ ||
          fScaleX != present_scale_x_ || fScaleY != present_scale_y_ )
@@ -1354,4 +1379,8 @@ bool STDCALL GraphicsEngineGpu::TakeScreenShot( IImage *image )
 }
 int STDCALL GraphicsEngineGpu::GetNumPassedVertices() const { return passed_vertices_; }
 int STDCALL GraphicsEngineGpu::GetNumPassedPrimitives() const { return passed_primitives_; }
-bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect ) { return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" ); }
+bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect )
+{
+    shade_effect_ = effect;
+    return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" );
+}

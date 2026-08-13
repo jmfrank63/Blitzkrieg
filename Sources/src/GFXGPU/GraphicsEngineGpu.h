@@ -135,6 +135,11 @@ private:
     float present_scale_y_ = 1.0f;
     bool present_fit_ = false;
     void UpdatePresentOffsets();
+    // The sprite-shadow pass (effect 111) wants linear filtering whenever the
+    // gameplay zoom is fractional - point sampling clumps the shadows' dithered
+    // alpha into blotches. SetTexture picks the sampler from these two.
+    int shade_effect_ = 0;
+    bool world_zoom_fractional_ = false;
     bool frame_pending_ = false;
     bool api_valid_ = false;
     bool initialized_ = false;
