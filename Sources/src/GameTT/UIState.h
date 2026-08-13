@@ -92,6 +92,7 @@ class CUIMultiplayerState : public IUIState
 public:
 	CUIMultiplayerState () : IUIState( 2004, "Textes\\UI\\Intermission\\MainMenu\\Multiplayer\\caption" ) {  }
 
+	virtual void Show();
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
 class CUICustomGameState : public IUIState

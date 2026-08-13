@@ -211,6 +211,21 @@ void CInterfaceMainMenu::Create( int nState )
 			pElement->SetWindowText( 0, ToWordString( wszVersion ) );
 		}
 	}
+	// Active profile name in the lower left, opposite the version label
+	// (id 21000, the same convention as the settings screen). The name is
+	// printable ASCII by contract (NProfile::Sanitize), so widening per
+	// character is exact.
+	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+	if ( !szProfile.empty() )
+	{
+		if ( IUIElement *pElement = pUIScreen->GetChildByID( 21000 ) )
+		{
+			std::wstring wszProfile;
+			for ( int i = 0; i < szProfile.size(); ++i )
+				wszProfile += wchar_t( (unsigned char)szProfile[i] );
+			pElement->SetWindowText( 0, ToWordString( wszProfile ) );
+		}
+	}
 	pScene->AddUIScreen( pUIScreen );
 
 	if ( nState == 99 )

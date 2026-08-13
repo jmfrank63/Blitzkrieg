@@ -110,6 +110,20 @@
 				</item>
 			</States>
 		</item>
+		<item ClassTypeID="0x10001105" ElementID="21000" PositionFlag="0x0031" Background="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34" VisibleFlag="1">
+			<!--active profile name, lower left; id 21000 is the convention for this label-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="0" y="0"/>
+			<WindowPos x="10" y="54"/>
+			<WindowSize x="500" y="50"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
 		<item ClassTypeID="0x10001118" ElementID="100" PositionFlag="0x0011" ActiveFlag="0">
 			<!--smoke1-->
 			<VideoFile>movies\interface\smoke1</VideoFile>

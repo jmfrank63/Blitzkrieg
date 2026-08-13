@@ -227,6 +227,37 @@ bool CUIOptionsState::ProcessMessage( const SGameMessage &msg )
 	
 	return false;
 }
+void CUIMultiplayerState::Show()
+{
+	IUIState::Show();
+
+	// Seed the multiplayer player name from the active profile. Only a
+	// name that is empty or still the shipped default is replaced - a
+	// name the player typed stays. Options are per-profile, so each
+	// profile is seeded once. The profile name is printable ASCII by
+	// contract (NProfile::Sanitize), so widening per character is exact.
+	IOptionSystem * pOptions = GetSingleton<IOptionSystem>();
+	variant_t varPlayerName;
+	pOptions->Get( "Multiplayer.PlayerName", &varPlayerName );
+	const std::wstring szNameFromOptions = (wchar_t*)(bstr_t)varPlayerName;
+	IText * pT = GetSingleton<ITextManager>()->GetDialog( "Textes\\PlayerName" );
+	const std::wstring szDefault = pT ? NPlatform::WideFromWordString(pT->GetString()) : L"";
+	const SOptionDesc * pDesc = pOptions->GetDesc( "Multiplayer.PlayerName" );
+	const std::wstring szShippedDefault = pDesc ? std::wstring( (wchar_t*)(bstr_t)pDesc->defaultValue ) : L"";
+
+	if ( szNameFromOptions.empty() || szNameFromOptions == szDefault || szNameFromOptions == szShippedDefault )
+	{
+		const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+		if ( !szProfile.empty() )
+		{
+			std::wstring wszProfile;
+			for ( int i = 0; i < szProfile.size(); ++i )
+				wszProfile += wchar_t( (unsigned char)szProfile[i] );
+			if ( wszProfile != szNameFromOptions )
+				pOptions->Set( "Multiplayer.PlayerName", variant_t( wszProfile.c_str() ) );
+		}
+	}
+}
 bool CUIMultiplayerState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
