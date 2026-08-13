@@ -113,6 +113,7 @@ int CUIScreen::operator&( interface IStructureSaver &ss )
 	saver.Add( 103, &bMessagesToEveryone );
 	saver.Add( 104, &nCursorPos );
 	saver.Add( 105, &pMessageBox );
+	saver.Add( 110, &dwScreenFillColor );
 
 
 	if ( saver.IsReading() )
@@ -128,6 +129,7 @@ int CUIScreen::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<CMultipleWindow*>( this ) );
+	saver.Add( "ScreenFillColor", &dwScreenFillColor );
 	return 0;
 }
 int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
@@ -139,8 +141,10 @@ int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
 	return 0;
 }
 CUIScreen::CUIScreen() : m_mouseState( E_MOUSE_FREE ), m_keyboardState( E_KEYBOARD_FREE ), bChatMode( false ), nCursorPos( 0 ),
-	bScaleLayoutToScreen( false ), bAnchorLayoutToScreenEdges( false ), bRestoredScaledLayout( false ), vLayoutScale( 1.0f, 1.0f )
+	bScaleLayoutToScreen( false ), bAnchorLayoutToScreenEdges( false ), bRestoredScaledLayout( false ), vLayoutScale( 1.0f, 1.0f ),
+	dwScreenFillColor( 0 )
 {
+	rcWholeScreen.SetEmpty();
 	SetShowBackgroundFlag( false );
 	szLastChatMessage = L"";
 	nNumChatDublicates = 0;
@@ -180,6 +184,11 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 }
 void CUIScreen::Reposition( const CTRect<float> &rcScreen )
 {
+	// The full screen rect, before any canvas centring below: the optional
+	// ScreenFillColor backdrop must cover the letterbox bands the canvas
+	// deliberately leaves, so it cannot use the canvas rect this method
+	// hands to the children.
+	rcWholeScreen = rcScreen;
 	CTRect<float> rcParent = rcScreen;
 	if ( bScaleLayoutToScreen )
 	{
@@ -449,6 +458,18 @@ bool CUIScreen::GetMessage( SGameMessage *pMsg )
 }
 void CUIScreen::Visit( interface ISceneVisitor *pVisitor )
 {
+	// The opaque backdrop goes in first: it paints over whatever the screen
+	// below already drew, and every child of this screen lands on top of it.
+	// An untextured rect draws as a solid vertex-colored quad (VisitUIRects
+	// handles the null texture). Skipped until Reposition supplies the rect.
+	if ( dwScreenFillColor != 0 && !rcWholeScreen.IsEmpty() )
+	{
+		SGFXRect2 fill;
+		fill.rect = rcWholeScreen;
+		fill.maps.SetEmpty();
+		fill.color = dwScreenFillColor;
+		pVisitor->VisitUIRects( 0, 3, &fill, 1 );
+	}
 	CMultipleWindow::Visit( pVisitor );
 	IUIConsole *pConsole = checked_cast<IUIConsole*>( GetChildByID(GLOBAL_CONSOLE_ID) );
 	if ( !pConsole || ( !pConsole->IsVisible() && !pConsole->IsAnimationStage() ) )

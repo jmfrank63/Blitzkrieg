@@ -1,7 +1,8 @@
 <!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
 <!-- deleted comment here -->
 <!-- deleted comment here -->
-<base>
+<base ScreenFillColor="0xff5f5c54">
+	<!--ScreenFillColor: opaque safety net under the tiled metal sheet (element 31420), in the sheet's own face tone - only visible on aspect ratios wider than the sheet covers-->
 	<Children>
 		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
 			<Script>ui\PlayerProfile</Script>
@@ -704,12 +705,12 @@
 						</item>
 					</States>
 				</item>
-				<item ClassTypeID="0x10001103" ElementID="10010" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
+				<item ClassTypeID="0x10001103" ElementID="10010" PositionFlag="0x0011" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
 					<!--new profile-->
 					<ShadowShift x="-1" y="1"/>
 					<TextPos x="-16" y="-1"/>
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="236" y="266"/>
+					<WindowPos x="24" y="278"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -759,12 +760,12 @@
 						</item>
 					</States>
 				</item>
-				<item ClassTypeID="0x10001103" ElementID="10011" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
+				<item ClassTypeID="0x10001103" ElementID="10011" PositionFlag="0x0011" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
 					<!--rename profile-->
 					<ShadowShift x="-1" y="1"/>
 					<TextPos x="-16" y="-1"/>
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="236" y="332"/>
+					<WindowPos x="190" y="278"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -814,12 +815,12 @@
 						</item>
 					</States>
 				</item>
-				<item ClassTypeID="0x10001103" ElementID="10012" PositionFlag="0x0012" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
+				<item ClassTypeID="0x10001103" ElementID="10012" PositionFlag="0x0011" ActiveFlag="1" VisibleFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xffd08c0c" ShadowColor="0xffffe9a8">
 					<!--delete profile-->
 					<ShadowShift x="-1" y="1"/>
 					<TextPos x="-16" y="-1"/>
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="236" y="398"/>
+					<WindowPos x="356" y="278"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -872,7 +873,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10002" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--ok-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="-182" y="20"/>
+					<WindowPos x="-182" y="50"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -944,7 +945,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--cancel-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="-42" y="20"/>
+					<WindowPos x="-42" y="50"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -1013,8 +1014,48 @@
 						</item>
 					</States>
 				</item>
+				<item ClassTypeID="0x10001105" ElementID="20011" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<!--metal face for the panel interior: the panel frame's 9-piece centre is a translucent black veil, so the metal must sit ABOVE it (declared before the frame = drawn after it) or the veil darkens the sheet below. Same back-settings face tile as the full-screen sheet-->
+					<WindowPos x="236" y="26"/>
+					<WindowSize x="204" y="438"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="204" y2="438"/>
+										<size x="368" y="94"/>
+										<map x1="552" y1="204" x2="368" y2="94"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="204" y2="438"/>
+										<size x="368" y="94"/>
+										<map x1="552" y1="204" x2="368" y2="94"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="204" y2="438"/>
+										<size x="368" y="94"/>
+										<map x1="552" y1="204" x2="368" y2="94"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+						</item>
+					</States>
+				</item>
 				<item ClassTypeID="0x10001105" ElementID="20010" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
-					<!--panel behind the profile list and its buttons: same 9-piece stone frame as the dialog border (declared late so it draws beneath the list and buttons, above the darken layer)-->
+					<!--panel behind the profile list and its buttons: same 9-piece stone frame as the dialog border (declared late so it draws beneath the list and buttons, above the metal sheet). Its translucent centre is covered by the 20011 metal face declared just above-->
+
 					<WindowPos x="236" y="20"/>
 					<WindowSize x="216" y="450"/>
 					<States>
@@ -1078,29 +1119,43 @@
 						</item>
 					</States>
 				</item>
-				<item ClassTypeID="0x10001105" ElementID="20011" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
-					<!--opaque backing for the panel: the tile-background centre is translucent and the main menu bled through-->
-					<WindowPos x="236" y="26"/>
-					<WindowSize x="204" y="438"/>
-					<States>
-						<item EventID="-1">
-							<AppearanceNormal Color="0xff17130f" Specular="0xff000000" Depth="0.0001"/>
-							<AppearanceHighlighted Color="0xff17130f" Specular="0xff000000" Depth="0.0001"/>
-							<AppearancePushed Color="0xff17130f" Specular="0xff000000" Depth="0.0001"/>
-						</item>
-					</States>
-				</item>
 				<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="0" VisibleFlag="1" Background="1" ElementID="31420">
-					<!--darken screen-->
+					<!--was "darken screen" (half-black over the menu). Now the full-screen brushed-metal sheet: the face of the settings plate (back-settings) tiled over everything. Declared last = drawn first, so it covers the dialog's translucent 9-piece veil and the menu below; every plate, panel and button sits on this metal-->
 					<Script/>
 					<WindowPos x="0" y="0"/>
 					<WindowSize x="2048" y="1536"/>
 					<States>
 						<item EventID="-1">
-							<AppearanceNormal Color="0x7f000000" Specular="0xff000000" Depth="0.0001"/>
-							<AppearanceHighlighted Color="0xff000000" Specular="0x88000000" Depth="0.0001"/>
-							<AppearancePushed Color="0xff000000" Specular="0x88000000" Depth="0.0001"/>
-							<AppearanceDisabled Color="0xff000000" Specular="0x88000000" Depth="0.0001"/>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="2048" y2="1536"/>
+										<size x="368" y="94"/>
+										<map x1="552" y1="204" x2="368" y2="94"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="2048" y2="1536"/>
+										<size x="368" y="94"/>
+										<map x1="552" y1="204" x2="368" y2="94"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="2048" y2="1536"/>
+										<size x="368" y="94"/>
+										<map x1="552" y1="204" x2="368" y2="94"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
 						</item>
 					</States>
 				</item>

@@ -34,6 +34,13 @@ private:
 	bool bAnchorLayoutToScreenEdges;
 	bool bRestoredScaledLayout;
 	CVec2 vLayoutScale;
+	// Opaque backdrop over the WHOLE screen rect (not just the centred 4:3
+	// canvas), drawn before any child. 0 = off. Set per screen from the XML
+	// base ("ScreenFillColor"); a canvas screen cannot reach the letterbox
+	// bands with a child, so this is the only way a dialog can promise "no
+	// transparency anywhere" (first user: ui\PlayerProfile).
+	DWORD dwScreenFillColor;
+	CTRect<float> rcWholeScreen;
 
 	typedef std::list<SAcknowledgment> CListOfAcks;
 	CListOfAcks listOfAcks;
