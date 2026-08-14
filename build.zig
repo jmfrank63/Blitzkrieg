@@ -723,13 +723,30 @@ const cppflags_game_release = &.{
 };
 
 pub fn build(b: *std.Build) void {
-    const selected_target = b.standardTargetOptions(.{
+    var selected_target = b.standardTargetOptions(.{
         .default_target = .{
             .cpu_arch = .x86_64,
             .os_tag = .windows,
             .abi = .msvc,
         },
     });
+    // The Linux build compiles against the host's GCC libstdc++ headers and
+    // links its shared libstdc++ (linkCxxRuntime), and those headers assume
+    // the host's glibc - GCC 13's <ext/atomicity.h> unconditionally includes
+    // <sys/single_threaded.h>, which needs glibc 2.32+. An unversioned
+    // -Dtarget=x86_64-linux-gnu makes zig model its older cross-default
+    // glibc, whose bundled headers reject that include with an #error. When
+    // building on a Linux host for Linux, adopt the host's detected glibc
+    // version unless the command line pinned one explicitly.
+    if (b.graph.host.result.os.tag == .linux and
+        selected_target.result.os.tag == .linux and
+        selected_target.result.abi.isGnu() and
+        selected_target.query.glibc_version == null)
+    {
+        var query = selected_target.query;
+        query.glibc_version = b.graph.host.result.os.version_range.linux.glibc;
+        selected_target = b.resolveTargetQuery(query);
+    }
     const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
     build_target_os = selected_target.result.os.tag;
     build_host_os = b.graph.host.result.os.tag;
