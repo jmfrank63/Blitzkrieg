@@ -106,11 +106,27 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 		return true;
 	case E_BUTTON_NEW:
 		{
-			// Nothing exists until OK confirms the typed name.
-			SetEditBoxText( std::wstring() );
-			pButtonOK->EnableWindow( false );
-			pEdit->SetFocus( true );
-			pInput->SetTextMode( INPUT_TEXT_MODE_TEXTONLY );
+			// The typed name IS the new profile: create it and switch to it
+			// right away, keeping the screen open with the list refreshed.
+			// A name that already exists (the active profile included)
+			// changes nothing - no error box, the field keeps its text.
+			const std::wstring szTyped = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
+			if ( szTyped.empty() )
+				return true;
+			const std::string szTarget = NProfile::Sanitize( std::string( (const char*)bstr_t( szTyped.c_str() ) ) );
+			if ( szTarget.empty() )
+				return true;
+			for ( int i = 0; i < profileNames.size(); ++i )
+				if ( NProfile::NameEquals( profileNames[i], szTarget ) )
+					return true;
+			SwitchToProfile( szTarget, szTyped );
+			// SwitchToProfile flushed the config, which leaves the "default"
+			// input bind section behind (see the rename path); this screen
+			// stays open, so its section goes back or input dies.
+			pInput->SetBindSection( "intermission" );
+			FillProfileList( szTarget );
+			SetEditBoxText( WideFromProfileName( szTarget ) );
+			pButtonOK->EnableWindow( true );
 		}
 
 		return true;
@@ -216,14 +232,11 @@ void CInterfacePlayerProfile::SwitchToProfile( const std::string &szNewProfile, 
 			active << szNewProfile;
 		if ( std::filesystem::exists( "profiles/" + szNewProfile + "/config.cfg", pathError ) )
 		{
-			// An existing profile brings its own settings; the
-			// screen regaining focus applies mode changes live.
-			// The monitor stays where the game is right now -
-			// like at startup, it is not carried over.
-			const int nMonitor = GetGlobalVar( "GFX.Monitor.Index", 0 );
+			// An existing profile brings its own settings - monitor
+			// included; the screen regaining focus applies mode (and
+			// display) changes live via the ChangeResolution diff.
 			pML->SerializeConfig( true, 0xffffffff );
 			pOptionsSystem->Init();
-			pOptionsSystem->Set( "GFX.Monitor", variant_t( NStr::Format( "Monitor%d", nMonitor + 1 ) ) );
 			bLoadedExistingProfile = true;
 		}
 		// A brand-new profile is seeded with the settings in
