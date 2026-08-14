@@ -349,8 +349,12 @@ static SDL_DisplayID SelectedDisplay()
     }
     if ( nSelected < 0 )
     {
+        // A remembered display that is not connected any more (a profile saved
+        // with a second monitor attached, opened on the laptop alone) falls
+        // back to the first one rather than leaving the choice unresolved -
+        // "Monitor1" is the display that always exists.
         const int nIndex = Max( 0, GetGlobalVar( "GFX.Monitor.Index", 0 ) );
-        if ( nIndex < nCount ) nSelected = nIndex;
+        nSelected = nIndex < nCount ? nIndex : 0;
     }
     const SDL_DisplayID chosen = nSelected >= 0 ? pDisplays[nSelected] : 0;
     if ( chosen != 0 && GfxTraceEnabled() )
@@ -639,6 +643,13 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
                 pixel_width, pixel_height, bReadBack ? 1 : 0, nSizeX, nSizeY,
                 pDesktop ? pDesktop->w : -1, pDesktop ? pDesktop->h : -1, final_x, final_y );
         }
+        // Publish the monitor choice this call honored. The screens diff
+        // GFX.Monitor.Index against GFX.Monitor.Current.Index to decide whether
+        // picking another display in the options must re-run SetMode; without
+        // this publish the baseline only ever existed after ChangeResolution had
+        // taken its diff branch once for some OTHER reason, so an unset copy read
+        // back as the freshly chosen value and a monitor-only change never fired.
+        SetGlobalVar( "GFX.Monitor.Current.Index", Max( 0, GetGlobalVar( "GFX.Monitor.Index", 0 ) ) );
     }
     width_ = nSizeX; height_ = nSizeY;
     UpdateViewportMatrix( 0, 0, nSizeX, nSizeY, 0.0f, 1.0f );

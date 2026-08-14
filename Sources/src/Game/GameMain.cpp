@@ -521,6 +521,24 @@ int RunGame( const BkGameLaunchInfo &launch )
 			SetGlobalVar( "GFX.Mode.InterMission.SizeY", nModeY );
 		}
 	}
+	// Seed the monitor choice from the profile's config the same way, so the
+	// window comes up on the remembered display instead of appearing on the
+	// primary one and hopping over once the first interface screen applies the
+	// options. Without a profile config the option is its own default,
+	// Monitor1. A -monitorN command line already left GFX.Monitor.CmdLine
+	// behind and wins for the session; a -monitor="name" match goes through
+	// GFX.Monitor.Name instead. A remembered display that is not connected
+	// falls back to the first one - see SelectedDisplay in GraphicsEngineGpu.
+	if ( GetGlobalVar( "GFX.Monitor.CmdLine", -1 ) < 0 && std::string( GetGlobalVar( "GFX.Monitor.Name", "" ) ).empty() )
+	{
+		variant_t var;
+		if ( GetSingleton<IOptionSystem>()->Get( "GFX.Monitor", &var ) )
+		{
+			const std::string szMonitor = (const char*)bstr_t( var );
+			if ( szMonitor.compare( 0, 7, "Monitor" ) == 0 )
+				SetGlobalVar( "GFX.Monitor.Index", Max( 0, NStr::ToInt( szMonitor.substr( 7 ) ) - 1 ) );
+		}
+	}
 	if ( GetGlobalVar( "GFX.FullScreen.CmdLine", -1 ) < 0 )
 	{
 		variant_t var;
@@ -640,32 +658,56 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// than reverting to the config. A name match has no option
 		// representation, so only its globals are put back.
 		//
-		// Without a command line the monitor choice is NOT carried over from
-		// the previous session: every launch starts on Monitor1. A remembered
-		// monitor turned out to be a trap - the game follows OS drags into the
-		// option, so it silently came up wherever it was last dragged.
-		const int nCmdMonitorIndex = GetGlobalVar( "GFX.Monitor.Index", -1 );
+		// Without a command line the monitor choice comes from the profile's
+		// config: Init() just re-ran the GFX.Monitor action, so the profile's
+		// remembered display is what the first ChangeResolution honors. (This
+		// includes OS drags from the previous session - the game follows drags
+		// into the option, and the profile keeps whatever display the game was
+		// last on. That is the wanted behavior: settings follow the profile.)
+		//
+		// A command line overrides the SESSION without editing the profile's
+		// stored settings: the globals below are what the engine actually
+		// targets, while the options keep the profile's own values, so the
+		// settings screen still shows them and the config still saves them.
+		// (Confirming that screen therefore re-applies the profile's choice
+		// over the command line's - the option value is what OK applies.)
 		const std::string szCmdMonitorName = GetGlobalVar( "GFX.Monitor.Name", "" );
+		const int nCmdMonitorIndex = GetGlobalVar( "GFX.Monitor.CmdLine", -1 );
 		IOptionSystem * pOptionSystem = GetSingleton<IOptionSystem>();
 		pOptionSystem->Init();
+		// Init() re-ran the GFX.Monitor action, which overwrote both globals
+		// from the option (and cleared the name) - reassert the command line.
 		if ( nCmdMonitorIndex >= 0 )
-			pOptionSystem->Set( "GFX.Monitor", variant_t( NStr::Format( "Monitor%d", nCmdMonitorIndex + 1 ) ) );
-		else if ( szCmdMonitorName.empty() )
-			pOptionSystem->Set( "GFX.Monitor", variant_t( "Monitor1" ) );
+			SetGlobalVar( "GFX.Monitor.Index", nCmdMonitorIndex );
 		if ( !szCmdMonitorName.empty() )
 			SetGlobalVar( "GFX.Monitor.Name", szCmdMonitorName.c_str() );
-		// Same for an explicit -windowed / -fullscreen.
+		// Same for an explicit -windowed / -fullscreen: write the desired-mode
+		// globals the way the option's own action would (GFXFS_FULLSCREEN=1,
+		// GFXFS_WINDOWED=2), leaving GFX.FullScreen itself at the profile's value.
 		const int nCmdFullscreen = GetGlobalVar( "GFX.FullScreen.CmdLine", -1 );
 		if ( nCmdFullscreen >= 0 )
-			pOptionSystem->Set( "GFX.FullScreen", variant_t( nCmdFullscreen != 0 ? "ON" : "OFF" ) );
-		// Same for an explicit -mode: Init() just re-applied the config's
-		// GFX.Mode too, so push the cmdline's normalized value back into the
-		// option. That re-runs the option's own action (identical to picking
-		// it in the options screen) and leaves the options screen and config
-		// serialization agreeing with what's on screen.
+		{
+			const int nMode = nCmdFullscreen != 0 ? int( GFXFS_FULLSCREEN ) : int( GFXFS_WINDOWED );
+			SetGlobalVar( "GFX.Mode.Mission.FullScreen", nMode );
+			SetGlobalVar( "GFX.Mode.InterMission.FullScreen", nMode );
+			SetGlobalVar( "windowed", nCmdFullscreen != 0 ? "0" : "1" );
+			SetGlobalVar( "fullscreen", nCmdFullscreen != 0 ? "1" : "0" );
+		}
+		// Same for an explicit -mode: Init() re-applied the config's GFX.Mode,
+		// so put the command line's normalized size back into the size globals
+		// ("Auto" and anything unparsable is 0x0, which SetMode resolves to the
+		// target display's desktop).
 		const std::string szCmdMode = GetGlobalVar( "GFX.Mode.CmdLine", -1 ) >= 0 ? GetGlobalVar( "GFX.Mode.CmdLine.Value", "" ) : "";
 		if ( !szCmdMode.empty() )
-			pOptionSystem->Set( "GFX.Mode", variant_t( szCmdMode.c_str() ) );
+		{
+			int nModeX = 0, nModeY = 0, nModeBPP = 32;
+			if ( sscanf( szCmdMode.c_str(), "%dx%dx%d", &nModeX, &nModeY, &nModeBPP ) < 2 || nModeX <= 0 || nModeY <= 0 )
+				nModeX = nModeY = 0;
+			SetGlobalVar( "GFX.Mode.Mission.SizeX", nModeX );
+			SetGlobalVar( "GFX.Mode.Mission.SizeY", nModeY );
+			SetGlobalVar( "GFX.Mode.InterMission.SizeX", nModeX );
+			SetGlobalVar( "GFX.Mode.InterMission.SizeY", nModeY );
+		}
 	}
 	timeMeter.Sample( "options init" );
 	int nGuaranteeFPSTime = 0;
@@ -1153,8 +1195,16 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			bool bNumeric = !szMonitor.empty();
 			for ( int n = 0; n < szMonitor.size() && bNumeric; ++n )
 				bNumeric = isdigit( (unsigned char)szMonitor[n] ) != 0;
+			// The marker distinguishes "the command line asked for this display"
+			// from the profile's own remembered choice, which is seeded into
+			// GFX.Monitor.Index further down. A command line overrides the
+			// session only: the option - what the settings screen shows and
+			// what the profile saves - is deliberately left alone.
 			if ( bNumeric )
+			{
 				SetGlobalVar( "GFX.Monitor.Index", Max( 0, atoi( szMonitor.c_str() ) - 1 ) );
+				SetGlobalVar( "GFX.Monitor.CmdLine", Max( 0, atoi( szMonitor.c_str() ) - 1 ) );
+			}
 			else if ( !szMonitor.empty() )
 				SetGlobalVar( "GFX.Monitor.Name", szMonitor.c_str() );
 		}
