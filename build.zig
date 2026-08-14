@@ -887,7 +887,7 @@ pub fn build(b: *std.Build) void {
         linkMsvcRuntime(platform_runtime_module, optimize);
         platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     }
-    applyMacosLoaderPath(target, platform_runtime_module);
+    applyLoaderPath(target, platform_runtime_module);
     const platform_runtime = b.addLibrary(.{
         .name = "PlatformRuntime",
         .linkage = .dynamic,
@@ -2264,7 +2264,7 @@ fn addOptionsBridge(
     module.linkLibrary(platform_runtime);
     module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
-    applyMacosLoaderPath(target, module);
+    applyLoaderPath(target, module);
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
 }
 
@@ -2317,7 +2317,7 @@ fn addStreamIOZig(
         "Sources/src/StreamIOZig/StreamIO.def"
     else
         "Sources/src/StreamIOZig/StreamIO.x64.def";
-    applyMacosLoaderPath(target, streamio_module);
+    applyLoaderPath(target, streamio_module);
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
@@ -2419,7 +2419,7 @@ fn addLegacyProjectDll(
         module.linkSystemLibrary("odbccp32", .{});
         linkComSupport(module, optimize);
     }
-    applyMacosLoaderPath(target, module);
+    applyLoaderPath(target, module);
     const library = b.addLibrary(.{
         .name = name,
         .linkage = .dynamic,
@@ -2565,7 +2565,7 @@ fn addGame(
     });
     }
 
-    applyMacosLoaderPath(target, game_module);
+    applyLoaderPath(target, game_module);
     const game = b.addExecutable(.{
         .name = "Game",
         .root_module = game_module,
@@ -2707,7 +2707,7 @@ fn addImage(
     linkMsvcRuntime(image_module, optimize);
     if (target.result.os.tag == .windows) image_module.linkSystemLibrary("user32", .{});
 
-    applyMacosLoaderPath(target, image_module);
+    applyLoaderPath(target, image_module);
     return b.addLibrary(.{
         .name = "Image",
         .linkage = .dynamic,
@@ -2778,7 +2778,7 @@ fn addNet(
         net_module.linkSystemLibrary("odbccp32", .{});
     }
 
-    applyMacosLoaderPath(target, net_module);
+    applyLoaderPath(target, net_module);
     return b.addLibrary(.{
         .name = "Net",
         .linkage = .dynamic,
@@ -2904,7 +2904,7 @@ fn addInput(
         linkComSupport(input_module, optimize);
     }
 
-    applyMacosLoaderPath(target, input_module);
+    applyLoaderPath(target, input_module);
     return b.addLibrary(.{
         .name = "Input",
         .linkage = .dynamic,
@@ -3018,7 +3018,7 @@ fn addAnim(
     }
     if (target.result.os.tag == .windows) linkComSupport(anim_module, optimize);
 
-    applyMacosLoaderPath(target, anim_module);
+    applyLoaderPath(target, anim_module);
     return b.addLibrary(.{
         .name = "Anim",
         .linkage = .dynamic,
@@ -3107,7 +3107,7 @@ fn addUI(
     }
     if (target.result.os.tag == .windows) linkComSupport(ui_module, optimize);
 
-    applyMacosLoaderPath(target, ui_module);
+    applyLoaderPath(target, ui_module);
     return b.addLibrary(.{
         .name = "UI",
         .linkage = .dynamic,
@@ -3211,7 +3211,7 @@ fn addSFX(
         linkComSupport(sfx_module, optimize);
     }
 
-    applyMacosLoaderPath(target, sfx_module);
+    applyLoaderPath(target, sfx_module);
     return b.addLibrary(.{
         .name = "SFX",
         .linkage = .dynamic,
@@ -3300,7 +3300,7 @@ fn addGFX(
         linkComSupport(gfx_module, optimize);
     }
 
-    applyMacosLoaderPath(target, gfx_module);
+    applyLoaderPath(target, gfx_module);
     return b.addLibrary(.{
         .name = "GFX",
         .linkage = .dynamic,
@@ -3353,7 +3353,7 @@ fn addGFXGPU(
         gfx_gpu_module.linkSystemLibrary("gdi32", .{});
     }
 
-    applyMacosLoaderPath(target, gfx_gpu_module);
+    applyLoaderPath(target, gfx_gpu_module);
     return b.addLibrary(.{
         .name = "GFXGPU",
         .linkage = .dynamic,
@@ -3500,14 +3500,18 @@ fn addMacosCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     module.link_libcpp = true;
 }
 
-/// Mach-O counterpart to the Linux `$ORIGIN` rpath policy. The staged runtime
-/// puts Game and every module dylib side by side in one directory, so each
-/// binary has to resolve its `@rpath/lib*.dylib` dependencies relative to its
-/// own location. Without this the staged layout only resolves against the
-/// build-time .zig-cache paths Zig records, and Game fails to launch.
-fn applyMacosLoaderPath(target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
-    if (target.result.os.tag != .macos) return;
-    module.addRPathSpecial("@loader_path");
+/// The staged runtime layout puts Game and every shared library side by side
+/// in one directory, so each binary resolves its dependencies relative to its
+/// own location: `$ORIGIN` in ELF runpaths, `@loader_path` in Mach-O rpaths.
+/// Without this the staged layout only resolves against the build-time
+/// .zig-cache paths Zig records, and Game fails to launch
+/// ("libPlatformRuntime.so: cannot open shared object file" on Linux).
+fn applyLoaderPath(target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
+    switch (target.result.os.tag) {
+        .linux => module.addRPathSpecial("$ORIGIN"),
+        .macos => module.addRPathSpecial("@loader_path"),
+        else => {},
+    }
 }
 
 fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
