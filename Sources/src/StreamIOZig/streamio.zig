@@ -23,8 +23,13 @@ extern fn ftell(file: *File) c_long;
 extern fn fread(buffer: ?*anyopaque, size: usize, count: usize, file: *File) usize;
 extern fn fwrite(buffer: ?*const anyopaque, size: usize, count: usize, file: *File) usize;
 extern fn fflush(file: *File) c_int;
-var arena_state = std.heap.ArenaAllocator.init(std.heap.c_allocator);
-const allocator = arena_state.allocator();
+// The module allocator. This used to be a process-lifetime ArenaAllocator,
+// which made every free()/destroy()/deinit() in this file a no-op: each
+// stream read, each parsed XML tree (RPG stats, effects, animations are
+// loaded lazily all through a mission), each temp-buffer growth stayed
+// resident forever and the game grew by gigabytes over a long session.
+// The code already frees what it allocates, so a real allocator is the fix.
+const allocator = std.heap.c_allocator;
 var host_io_service: ?std.Io.Threaded = null;
 
 fn hostIo() std.Io {
