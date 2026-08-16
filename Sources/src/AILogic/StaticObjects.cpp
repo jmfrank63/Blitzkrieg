@@ -544,8 +544,36 @@ void CStaticObjects::RemoveFromAreaMap( CExistingObject *pObj )
 	--nObjs;
 	NI_ASSERT_T( nObjs >= 0, "Wrong number of static objects" );
 }
+int CStaticObjects::EraseSegmentNodesOf( const CStaticObject *pObj )
+{
+	int nErased = 0;
+	for ( CSegmObjects::iterator it = segmObjects.begin(); it != segmObjects.end(); )
+	{
+		if ( it->GetPtr() == pObj )
+		{
+			it = segmObjects.erase( it );
+			++nErased;
+		}
+		else
+			++it;
+	}
+	return nErased;
+}
 void CStaticObjects::RegisterSegment( class CStaticObject *pObj )
 {
+	// segmObjects is ordered by (GetNextSegmentTime, uid). Buildings and
+	// entrenchments write nextSegmTime and then RegisterSegment when their
+	// first soldier enters - and they may STILL be a node in the set at that
+	// point (an emptied building only unregisters on its own next Segment,
+	// up to 10 AI segments later). A key changed under a node breaks the
+	// ordering: erase(key) misses it, insert adds a second node, and the
+	// stale one lives forever, read as "due" and processed every Segment.
+	// Fifty minutes of infantry running through houses and trenches grew
+	// the set until one Segment took seconds - the game sat at 100% CPU,
+	// unresponsive, in erase/find (2026-08-16, Leningrad-1 stack sample).
+	// Registering therefore first removes any existing node for the object
+	// structurally, so a re-registration can never leave a duplicate.
+	EraseSegmentNodesOf( pObj );
 	segmObjects.insert( pObj );
 }
 void CStaticObjects::UnregisterSegment( class CStaticObject *pObj )
@@ -556,24 +584,51 @@ void CStaticObjects::Segment()
 {
 	std::set< CPtr<CStaticObject>, SSegmentObjectsSort >::iterator iter = segmObjects.begin();
 	std::list< CPtr<CStaticObject> > changedObjs;
-	while ( iter != segmObjects.end() && curTime >= (*iter)->GetNextSegmentTime() )
+	while ( iter != segmObjects.end() )
 	{
+		// A node whose object lost its last strong reference has a garbage
+		// key (the in-place re-construction leaves nextSegmTime unset); left
+		// in the prefix it could stop this scan early and starve everything
+		// ordered after it. Purge it structurally, right here.
+		if ( iter->GetPtr() == 0 || !(*iter)->IsValid() )
+		{
+			iter = segmObjects.erase( iter );
+			continue;
+		}
+		if ( curTime < (*iter)->GetNextSegmentTime() )
+			break;
 		changedObjs.push_back( *iter );
 		++iter;
 	}
 
+	if ( getenv( "BK_SCRIPT_TRACE" ) )
+	{
+		static int nSegmTrace = 0;
+		if ( ( nSegmTrace++ % 100 ) == 0 )
+			fprintf( stderr, "BK_SCRIPT_TRACE: static segment set size=%d due=%d\n", int( segmObjects.size() ), int( changedObjs.size() ) );
+	}
 	for ( std::list< CPtr<CStaticObject> >::iterator iter = changedObjs.begin(); iter != changedObjs.end(); ++iter )
 	{
 		CPtr<CStaticObject> pObject = *iter;
 		
-		segmObjects.erase( pObject.GetPtr() );
+		// erase(key) can miss when the key changed under the node (see
+		// RegisterSegment); fall back to a structural erase so no stale
+		// duplicate survives. An object that lost its last strong reference
+		// is dropped instead of stepped - its key is garbage by then.
+		if ( segmObjects.erase( pObject.GetPtr() ) == 0 )
+			EraseSegmentNodesOf( pObject.GetPtr() );
+		if ( pObject.GetPtr() == 0 || !pObject->IsValid() )
+			continue;
 
 		pObject->Segment();
 		segmObjects.insert( pObject.GetPtr() );
 	}
 
 	for ( std::list< CPtr<CStaticObject> >::iterator iter = unregisteredObjects.begin(); iter != unregisteredObjects.end(); ++iter )
-		segmObjects.erase( *iter );
+	{
+		if ( segmObjects.erase( *iter ) == 0 )
+			EraseSegmentNodesOf( iter->GetPtr() );
+	}
 	unregisteredObjects.clear();
 
 	for ( CObjectsHashSet::iterator iter = deletedObjects.begin(); iter != deletedObjects.end(); ++iter )

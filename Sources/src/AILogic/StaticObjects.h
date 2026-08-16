@@ -146,6 +146,10 @@ public:
 	void GetDeletedStaticObjects( IRefCount ***pObjects, int *pnLen );
 
 	void RegisterSegment( class CStaticObject *pObj );
+	// Removes every node of segmObjects that points at pObj by walking the
+	// tree structurally - independent of the ordering key, which is what
+	// makes it safe when the key changed under a node. Returns the count.
+	int EraseSegmentNodesOf( const class CStaticObject *pObj );
 	void UnregisterSegment( class CStaticObject *pObj );
 
 
