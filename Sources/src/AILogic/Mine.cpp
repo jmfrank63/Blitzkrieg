@@ -2,6 +2,7 @@
 
 #include "Mine.h"
 #include "StaticObjects.h"
+#include "StaticObjectsIters.h"
 #include "Shell.h"
 #include "Updater.h"
 #include "UnitsIterators2.h"
@@ -28,6 +29,32 @@ void CMineStaticObject::Init()
 	nextSegmTime = curTime + 4 * SConsts::AI_SEGMENT_DURATION + Random( 0, 3 * SConsts::AI_SEGMENT_DURATION );
 
 	theStatObjs.RegisterSegment( this );
+}
+void CMineStaticObject::Disarm()
+{
+	// Detonate() does Delete() + bAlive = false; the disarm path used to do
+	// only the Delete(). The mine left the map (inert, invisible) but stayed
+	// "alive", and since something keeps a strong reference to a deleted
+	// static object (it stays IsValid()), a script group holding it counted
+	// it forever - the Leningrad-1 "clear the railway of mines" objective
+	// never completed once its mines were disarmed rather than blown up.
+	Delete();
+	bAlive = false;
+}
+void CMineStaticObject::MarkDeadIfRemoved()
+{
+	if ( !bAlive )
+		return;
+	// Saves written before Disarm() existed hold such ghosts: the script
+	// group's serialized pointer resurrects the deleted mine on load, valid
+	// and alive but absent from the area map. Not-in-map is the one
+	// reliable sign of "was deleted" that survives a save/load.
+	for ( CStObjCircleIter<false> iter( GetCenter(), 1 ); !iter.IsFinished(); iter.Iterate() )
+	{
+		if ( (*iter) == this )
+			return;
+	}
+	bAlive = false;
 }
 void CMineStaticObject::Detonate()
 {

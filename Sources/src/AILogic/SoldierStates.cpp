@@ -1260,7 +1260,7 @@ void CSoldierClearMineRadiusState::Segment()
 		case EPM_WAITING:
 			if ( curTime - beginAnimTime >= pUnit->GetStats()->GetAnimTime( GetAnimationFromAction( ACTION_NOTIFY_USE_DOWN ) ) )
 			{
-				pMine->Delete();
+				pMine->Disarm();
 				pMine = 0;
 				eState = EPM_START;
 			}

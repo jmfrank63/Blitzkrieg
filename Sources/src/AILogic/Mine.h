@@ -42,6 +42,14 @@ public:
 	void SetVisible( int nParty, bool bVis = true );
 
 	bool IsBeingDisarmed() const {return bIfWillBeDeleted; }
+	bool IsRegisteredInWorldPublic() const { return bIfRegisteredInCWorld; }	// diagnostics (BK_SCRIPT_TRACE)
+	// An engineer finished disarming: the mine leaves the world AND dies -
+	// the counterpart of Detonate() without the explosion.
+	void Disarm();
+	// A mine that is valid but no longer in the static-object map has been
+	// deleted; only the script group's own pointer (or another strong holder)
+	// keeps it around. Marks it dead so it stops counting as alive.
+	void MarkDeadIfRemoved();
 	void SetBeingDisarmed( bool bStartDisarm );
 
 	void RegisterInWorld();

@@ -709,6 +709,19 @@ int CScripts::GetNUnitsInScriptGroup( struct lua_State *state )
 	int nNumber = 0;	
 	if ( pScripts->groups.find( nScriptID ) != pScripts->groups.end() )
 	{
+		// Mines disarmed before CMineStaticObject::Disarm() existed (older
+		// saves) are deleted from the world but still valid and "alive"
+		// here; retire them so the count reflects the mines that exist.
+		for ( std::list<CPtr<IUpdatableObj> >::iterator it = pScripts->groups[nScriptID].begin(); it != pScripts->groups[nScriptID].end(); ++it )
+		{
+			IUpdatableObj *pObj = *it;
+			if ( pObj && pObj->IsValid() )
+			{
+				if ( CStaticObject *pStat = dynamic_cast<CStaticObject*>( pObj ) )
+					if ( pStat->GetObjectType() == ESOT_MINE )
+						static_cast<CMineStaticObject*>( pStat )->MarkDeadIfRemoved();
+			}
+		}
 		pScripts->DelInvalidUnits( nScriptID );
 		if ( getenv( "BK_SCRIPT_TRACE" ) )
 		{
@@ -718,9 +731,19 @@ int CScripts::GetNUnitsInScriptGroup( struct lua_State *state )
 				IUpdatableObj *pObj = *it;
 				CStaticObject *pStat = pObj && pObj->IsValid() ? dynamic_cast<CStaticObject*>( pObj ) : 0;
 				CMineStaticObject *pMineObj = pStat && pStat->GetObjectType() == ESOT_MINE ? static_cast<CMineStaticObject*>( pStat ) : 0;
-				fprintf( stderr, " [uid=%d valid=%d alive=%d static=%d type=%d disarming=%d hp=%.1f pos=(%.0f,%.0f)]", pObj ? pObj->GetUniqueId() : -1, pObj ? int( pObj->IsValid() ) : -1,
+				// inmap: is this object still in the static-object area map at its
+				// own centre? A valid object that is NOT in the map has been
+				// Delete()d and is only kept valid by some other strong holder.
+				int nInMap = -1;
+				if ( pStat )
+				{
+					nInMap = 0;
+					for ( CStObjCircleIter<false> iter( pStat->GetCenter(), 1 ); !iter.IsFinished(); iter.Iterate() )
+						if ( (*iter) == pStat ) { nInMap = 1; break; }
+				}
+				fprintf( stderr, " [uid=%d valid=%d alive=%d static=%d type=%d disarming=%d inmap=%d inworld=%d hp=%.1f pos=(%.0f,%.0f)]", pObj ? pObj->GetUniqueId() : -1, pObj ? int( pObj->IsValid() ) : -1,
 					pObj && pObj->IsValid() ? int( pObj->IsAlive() ) : -1, int( pStat != 0 ), pStat ? int( pStat->GetObjectType() ) : -1,
-					pMineObj ? int( pMineObj->IsBeingDisarmed() ) : -1, pStat ? pStat->GetHitPoints() : -1.0f,
+					pMineObj ? int( pMineObj->IsBeingDisarmed() ) : -1, nInMap, pMineObj ? int( pMineObj->IsRegisteredInWorldPublic() ) : -1, pStat ? pStat->GetHitPoints() : -1.0f,
 					pStat ? pStat->GetCenter().x : -1.0f, pStat ? pStat->GetCenter().y : -1.0f );
 			}
 			fprintf( stderr, "\n" );
