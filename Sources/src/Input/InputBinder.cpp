@@ -62,10 +62,10 @@ void CControl::AddCombo( CCombo *pCombo )
 		combos.sort( SCombosCmp() );
 	}
 }
-void CControl::SetBindSection( const std::string &szName )
+void CControl::SetBindSection( const std::string &szName, const DWORD time )
 {
 	for ( CCombosList::iterator it = combos.begin(); it != combos.end(); ++it )
-		(*it)->ChangeMappingSection( szName );
+		(*it)->ChangeMappingSection( szName, time );
 }
 CCombo::CCombo( const CControlsPtrList &_controls ) 
 : pMapping( 0 ), nSuppressCounter( 0 ), bFormed( false ), bLastNotifyFormed( false ), fPower( 0 ), nBestParam( 0 )
@@ -115,8 +115,22 @@ void CCombo::NotifyBinds( const bool bFormedLocal, const DWORD time, const bool 
 	}
 	bLastNotifyFormed = bFormedLocal;
 }
-void CCombo::ChangeMappingSection( const std::string &szMapping ) 
+void CCombo::ChangeMappingSection( const std::string &szMapping, const DWORD time ) 
 { 
+	// A combo notified as formed in the OLD mapping must be un-formed there
+	// before the mapping is swapped: bLastNotifyFormed is per combo, so a
+	// key released after the switch would notify the NEW mapping's binds
+	// (which were never activated) and the old mapping's binds would never
+	// hear the release. A held slider bind - camera_strafe on an arrow key -
+	// then integrated power*time forever and pinned the camera to the map
+	// edge on the next return to its section: press an arrow, open the
+	// escape menu / options on the same keystroke, release, come back.
+	if ( pMapping != 0 && bLastNotifyFormed )
+	{
+		for ( CBindsPtrList::iterator it = pMapping->binds.begin(); it != pMapping->binds.end(); ++it )
+			(*it)->NotifyComboStateChanged( false, fPower, eControlType, time, nBestParam );
+		bLastNotifyFormed = false;
+	}
 	pMapping = &( mappings[szMapping] ); 
 	pMapping->szName = szMapping;
 	nSuppressCounter = 0;
@@ -207,6 +221,8 @@ void SCommand::ActivateSlider( const bool bActivate, const float fPower, EContro
 {
 	if ( (pInput->GetTextModeLocal() == INPUT_TEXT_MODE_SYSKEYS) && !bSystem ) 
 		return;
+	if ( getenv( "BK_INPUT_TRACE" ) )
+		fprintf( stderr, "BK_INPUT_TRACE: slider \"%s\" %s power=%.2f time=%u\n", szName.c_str(), bActivate ? "activate" : "deactivate", fPower, unsigned( time ) );
 
 	const char *pszType = 0;
 	switch ( eControlType ) 
@@ -360,7 +376,7 @@ bool CInputBinder::AddBindLocal( const SBindsConfig::SBindSection::SCommandBind 
 	}
 	if ( pCombo == 0 ) 
 		pCombo = new CCombo( controls );
-	pCombo->ChangeMappingSection( szCurrentMapping );
+	pCombo->ChangeMappingSection( szCurrentMapping, GetCurrentTime() );
 	for ( std::vector<const CControl*>::iterator it = controls.begin(); it != controls.end(); ++it )
 		const_cast<CControl*>( (*it) )->AddCombo( pCombo );
 	for ( std::list<CCombo*>::iterator it = subsets.begin(); it != subsets.end(); ++it )
@@ -395,7 +411,7 @@ void CInputBinder::SetBindSection( const char *pszSectionName )
 {
 	NStr::DebugTrace( "****** Set bind section to \"%s\"\n", pszSectionName );
 	szCurrentMapping = pszSectionName;
-	CSetBindSectionVisitor visitor( pszSectionName );
+	CSetBindSectionVisitor visitor( pszSectionName, GetCurrentTime() );
 	VisitControls( &visitor );
 }
 void CInputBinder::RemoveBind( const IInputBind *pBind )

@@ -12,7 +12,7 @@ bool CSetBindSectionVisitor::VisitCombo( CCombo *pCombo )
 { 
 	if ( combos.find(pCombo) == combos.end() ) 
 	{
-		pCombo->ChangeMappingSection( szBindSection ); 
+		pCombo->ChangeMappingSection( szBindSection, dwTime ); 
 		combos.insert( pCombo );
 	}
 	return true;

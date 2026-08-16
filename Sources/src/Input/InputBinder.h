@@ -98,7 +98,7 @@ public:
 	virtual ~CCombo();
 	void Suppress( const int nSuppress, const DWORD time );
 	void NotifyControlStateChanged( const bool bActivated, const DWORD time, const int nParam );
-	void ChangeMappingSection( const std::string &szMapping );
+	void ChangeMappingSection( const std::string &szMapping, const DWORD time );
 	const bool IsFormed() const { return bFormed; }
 	const bool IsEmpty() const
 	{

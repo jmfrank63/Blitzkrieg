@@ -62,6 +62,11 @@ void CCamera::Update()
 	const float fTimeDiff = pTimeSlider->GetDelta();
 	float fStrafe = pStrafe->GetDelta() + fTimeDiff*vScrollSpeed.x;
 	float fFwd = pFwd->GetDelta() + fTimeDiff*vScrollSpeed.y * 2;
+	// BK_INPUT_TRACE: every non-zero camera move, paired with the slider
+	// activate/deactivate lines from the input binder - a move with no key
+	// held means a slider bind never received its release.
+	if ( ( fabsf( fStrafe ) > 0.001f || fabsf( fFwd ) > 0.001f ) && getenv( "BK_INPUT_TRACE" ) )
+		fprintf( stderr, "BK_INPUT_TRACE: camera strafe=%.2f fwd=%.2f anchor=(%.0f,%.0f)\n", fStrafe, fFwd, vAnchor.x, vAnchor.y );
 	float fZoom = pZoom->GetDelta();
 	CQuat quat = CQuat( fYaw, V3_AXIS_Z ) * CQuat( fPitch, V3_AXIS_X );
 	CVec3 vAxisX, vAxisY;

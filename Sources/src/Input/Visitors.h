@@ -6,9 +6,10 @@ struct SCommand;
 class CSetBindSectionVisitor : public IInputVisitor
 {
 	const std::string szBindSection;
+	const DWORD dwTime;										// pump time the switch happens at, for un-forming held combos
 	std::unordered_set<CCombo*, SDefaultPtrHash> combos;
 public:
-	CSetBindSectionVisitor( const std::string &_szBindSection ) : szBindSection( _szBindSection ) {  }
+	CSetBindSectionVisitor( const std::string &_szBindSection, const DWORD _dwTime ) : szBindSection( _szBindSection ), dwTime( _dwTime ) {  }
 	virtual bool STDCALL VisitControl( class CControl *pControl );
 	virtual bool STDCALL VisitCombo( CCombo *pCombo );
 	virtual bool STDCALL VisitBind( class CBind *pBind ) { return false; }

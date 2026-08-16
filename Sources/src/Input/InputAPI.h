@@ -32,7 +32,7 @@ public:
 	const std::list< CObj<CCombo> >& GetCombos() const { return combos; }
 	void AddCombo( CCombo *pCombo );
 	void RemoveCombo( CCombo *pCombo ) { combos.remove( CObj<CCombo>( pCombo ) ); }
-	void SetBindSection( const std::string &szName );
+	void SetBindSection( const std::string &szName, const DWORD time );
 	bool Visit( IInputVisitor *pVisitor )
 	{
 		for ( CCombosList::iterator it = combos.begin(); it != combos.end(); ++it )
