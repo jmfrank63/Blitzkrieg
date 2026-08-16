@@ -273,8 +273,12 @@ bool STDCALL TextureGpu::Unlock( int level )
     }
     else
         uploaded = owner_->UploadTexture( handle_, level, lock_bytes_.data(), lock_bytes_.size(), locked_pitch_ );
+    // clear() keeps the capacity: every DDS texture ever loaded would go on
+    // holding a CPU copy of itself for the life of the process (hundreds of
+    // MB over a long mission). Give the memory back; only runtime surfaces
+    // that promise to keep their contents keep the buffer.
     if ( !keeps_contents_ )
-        lock_bytes_.clear();
+        std::vector<unsigned char>().swap( lock_bytes_ );
     locked_ = false;
     locked_level_ = -1;
     locked_pitch_ = 0;
