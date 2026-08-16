@@ -1156,8 +1156,26 @@ IUnitState* CSoldierClearMineRadiusState::Instance( CAIUnit *pUnit, const CVec2 
 	return new CSoldierClearMineRadiusState( pUnit, clearCenter );
 }
 CSoldierClearMineRadiusState::CSoldierClearMineRadiusState( CAIUnit *_pUnit, const CVec2 &_clearCenter )
-: pUnit( _pUnit ), clearCenter( _clearCenter ), eState( EPM_START )
+: pUnit( _pUnit ), clearCenter( _clearCenter ), eState( EPM_START ), bReassertClaim( false )
 {
+	claimRelease.ppMine = &pMine;
+}
+CSoldierClearMineRadiusState::SMineClaimRelease::~SMineClaimRelease()
+{
+	// The disarm claim (CMineStaticObject::SetBeingDisarmed) is owned by
+	// the enclosing state and must die with it. TryInterruptState releases
+	// it on a normal command change, but a state can also be dropped without
+	// any interrupt: CAIUnit::Disappear() (engineers reabsorbed into their
+	// vehicle when the clear-mines job "finishes", or the squad being
+	// re-created) and death both go through PrepareToDelete, which stops
+	// the unit and clears its command queue but never interrupts the state.
+	// A mine left flagged this way is invisible to every mine search
+	// (FindMineToClear, HaveToSendEngeneersNow both skip IsBeingDisarmed
+	// mines), so it can never be cleared again and a "clear the mines"
+	// objective polling the mines' script group can never complete.
+	// (Seen in a Leningrad-1 save: four flagged mines, no owning state.)
+	if ( ppMine && IsValidObj( *ppMine ) && (*ppMine)->IsBeingDisarmed() )
+		(*ppMine)->SetBeingDisarmed( false );
 }
 bool CSoldierClearMineRadiusState::FindMineToClear()
 {
@@ -1197,6 +1215,12 @@ bool CSoldierClearMineRadiusState::FindMineToClear()
 }
 void CSoldierClearMineRadiusState::Segment()
 {
+	if ( bReassertClaim )
+	{
+		bReassertClaim = false;
+		if ( IsValidObj( pMine ) )
+			pMine->SetBeingDisarmed( true );
+	}
 	if ( pMine != 0 && !IsValidObj( pMine ) )
 	{
 		pMine = 0;

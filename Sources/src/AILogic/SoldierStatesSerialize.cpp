@@ -1,4 +1,6 @@
 #include "StdAfx.h"
+#include "Mine.h"
+#include "AIUnit.h"
 
 #include "SoldierStates.h"
 #include "InBuildingStates.h"
@@ -130,6 +132,12 @@ int CSoldierClearMineRadiusState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &pMine );
 	saver.Add( 4, &clearCenter );
 	saver.Add( 5, &beginAnimTime );
+	// The mine's disarm claim is not restored from the save (it is transient,
+	// see CMineStaticObject::operator&). The owning soldier re-asserts it on
+	// its first Segment after the load - not here, because the mine may be
+	// read after this state and would wipe a claim set now.
+	if ( saver.IsReading() )
+		bReassertClaim = IsValidObj( pMine ) && eState != EPM_START;
 
 	return 0;
 }

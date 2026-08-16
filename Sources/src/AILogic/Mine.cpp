@@ -43,6 +43,8 @@ bool CMineStaticObject::IsRegisteredInWorld() const
 }
 void CMineStaticObject::SetBeingDisarmed( bool bStartDisarm )
 { 
+	if ( getenv( "BK_SCRIPT_TRACE" ) )
+		fprintf( stderr, "BK_SCRIPT_TRACE: mine %d SetBeingDisarmed(%d)\n", GetUniqueId(), int( bStartDisarm ) );
 	bIfWillBeDeleted = bStartDisarm; 
 }
 void CMineStaticObject::RegisterInWorld()

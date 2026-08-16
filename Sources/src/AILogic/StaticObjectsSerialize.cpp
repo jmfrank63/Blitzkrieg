@@ -130,6 +130,15 @@ int CMineStaticObject::operator&( IStructureSaver &ss )
 	saver.Add( 6, &bIfRegisteredInCWorld );
 	saver.Add( 7, &nextSegmTime );
 	saver.Add( 8, &bAlive );
+	// The disarm claim is transient state of one soldier's clear-mine state
+	// object, not of the mine: a soldier that is mid-disarm after a load
+	// keeps its pMine and never re-checks the flag (only FindMineToClear in
+	// EPM_START does), so dropping the flag here loses nothing - and it heals
+	// saves written while a claim was orphaned (see
+	// CSoldierClearMineRadiusState::SMineClaimRelease), where the flagged mines could never be
+	// cleared again after loading.
+	if ( saver.IsReading() )
+		bIfWillBeDeleted = false;
 
 	return 0;
 }

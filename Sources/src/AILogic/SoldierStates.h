@@ -315,15 +315,26 @@ class CSoldierClearMineRadiusState : public IUnitState
 
 	CAIUnit *pUnit;
 	CPtr<CMineStaticObject> pMine;
+	// Releases pMine's disarm claim when this state dies for ANY reason - the
+	// class destructor is pinned empty by OBJECT_COMPLETE_METHODS, so the
+	// release rides on a member whose destructor runs on both the real
+	// destructor and DestroyContents(). See the .cpp for why this matters.
+	struct SMineClaimRelease
+	{
+		CPtr<CMineStaticObject> *ppMine;
+		SMineClaimRelease() : ppMine( 0 ) {  }
+		~SMineClaimRelease();
+	} claimRelease;
 
 	CVec2 clearCenter;
 	NTimer::STime beginAnimTime;
+	bool bReassertClaim;									// set on load: re-flag pMine as being disarmed on the first Segment (see serialize)
 
 	bool FindMineToClear();
 public:
 	static IUnitState* Instance( class CAIUnit *pUnit, const CVec2 &clearCenter );
 
-	CSoldierClearMineRadiusState() : pUnit( 0 ) { }
+	CSoldierClearMineRadiusState() : pUnit( 0 ), bReassertClaim( false ) { claimRelease.ppMine = &pMine; }
 	CSoldierClearMineRadiusState( class CAIUnit *pUnit, const CVec2 &clearCenter );
 
 	virtual void Segment();
