@@ -648,6 +648,14 @@ void CWorldBase::AIUpdateRemoveObjects( const NTimer::STime &currTime )
 			{
 				IMOUnit *pMOUnit = static_cast<IMOUnit*>(pMO);
 				pMOUnit->PrepareToRemove();
+				// Stop the unit's looped sounds here, like the dead-unit path
+				// does, instead of relying on the map object's destructor: a
+				// unit that DISAPPEARS (a plane flying off the map, engineers
+				// reabsorbed into their vehicle) whose object outlives its
+				// removal - any lingering holder - kept its engine loop
+				// playing at its last position, audible from the map edge
+				// long after the plane was gone.
+				pMOUnit->RemoveSounds( pScene );
 				pMOUnit->SetSquad( 0 );
 				pAckManager->UnitDead( pMOUnit, pScene );
 			}
