@@ -161,6 +161,7 @@ int CWorldBase::operator&( IStructureSaver &ss )
 }
 CWorldBase::CWorldBase()
 {
+	timeNextSoundReconcile = 0;
 	nSeason = SEASON_SUMMER;
 	vLastAnchor.Set( -1000000, -1000000, -1000000 );
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateNewProjectiles );	
@@ -225,6 +226,7 @@ void CWorldBase::Clear()
 {
 	vLastAnchor = VNULL3;
 	warFogLastTime = 0;
+	timeNextSoundReconcile = 0;
 	entrenchments.Clear();
 	inContainer.clear();
 	aispans.clear();
@@ -478,6 +480,31 @@ void CWorldBase::RemoveFromScene( SBridgeSpanObject *pSpan )
 	if ( pSpan->pFrontGirder )
 		visspans.erase( pSpan->pFrontGirder->pVisObj );
 }
+// Looped scene sounds are owned by map objects (a vehicle's engine loop),
+// by the scene itself (weather) and by the sound scene's own map-sound
+// cells; anything else looping with an ID is an orphan that will play at its
+// last position until the mission ends - and get saved along with the scene,
+// so it comes back with every load (a save from before the fix in
+// AIUpdateRemoveObjects carried four Yak engine loops that way). Collect the
+// IDs the world's objects still own and let the scene drop the rest.
+void CWorldBase::ReconcileLoopedSounds()
+{
+	std::vector<WORD> ownedIDs;
+	ownedIDs.reserve( 64 );
+	for ( CMapObjectsMap::iterator it = aiobjects.begin(); it != aiobjects.end(); ++it )
+	{
+		if ( it->second != 0 )
+			if ( const WORD wID = it->second->GetOwnedLoopedSoundID() )
+				ownedIDs.push_back( wID );
+	}
+	for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
+	{
+		if ( it->second != 0 )
+			if ( const WORD wID = it->second->GetOwnedLoopedSoundID() )
+				ownedIDs.push_back( wID );
+	}
+	pScene->RemoveOrphanLoopedSounds( ownedIDs.empty() ? 0 : &ownedIDs[0], ownedIDs.size() );
+}
 void CWorldBase::Update( const NTimer::STime &currTime )
 {
 	pCamera->Update();
@@ -488,6 +515,11 @@ void CWorldBase::Update( const NTimer::STime &currTime )
 			it = updatable.erase( it );
 		else
 			++it;
+	}
+	if ( currTime >= timeNextSoundReconcile )
+	{
+		ReconcileLoopedSounds();
+		timeNextSoundReconcile = currTime + 5000;
 	}
 	UpdatePick( GetSingleton<ICursor>()->GetPos(), currTime, true );
 	ISegmentTimer *pSegmentTimer = GetSingleton<IGameTimer>()->GetGameSegmentTimer();

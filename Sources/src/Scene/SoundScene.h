@@ -89,6 +89,8 @@ class CMapSounds
 
 		void RemoveSound( CellSounds *pCellSounds, const WORD wInstanceID );
 	public:
+		WORD GetPlayingLoopedSceneID() const { return playingLoopedSound.wSceneID; }
+		WORD GetPlayingSceneID() const { return playingSound.wSceneID; }
 		CMapSoundCell() : timeNextRun( 0 ) { }
 
 		void AddSound( const WORD wSoundID, const CVec2 &vPos, const RegisteredSounds &registeredSounds, const WORD wInstanceID, const bool bLooped );
@@ -115,6 +117,8 @@ public:
 	void InitSizes( const int nSizeX, const int nSizeY );
 	WORD AddSound( const CVec2 &vPos, const char *szName );
 	void RemoveSound( const WORD wInstanceID );
+	// Scene IDs of the looped sounds the cells are playing right now.
+	void CollectLoopedSceneIDs( std::vector<WORD> *pIDs ) const;
 };
 class CSoundScene : public IRefCount
 {
@@ -413,6 +417,9 @@ public:
 		CSound * GetSound( const WORD wID );
 
 		void Update( ISFX * pSFX );
+		int GetNumSounds() const { return sounds.size(); }
+		void TraceSounds( ISFX *pSFX, const SIntPair &vCell );	// BK_SOUND_TRACE
+		void CollectOrphanLoopedIDs( const std::vector<WORD> &ownedSorted, std::vector<WORD> *pOrphans ) const;
 		
 
 
@@ -583,6 +590,7 @@ public:
 												const unsigned int nTimeAfterStart = 0 );
 
 	void RemoveSound( const WORD wID );
+	int RemoveOrphanLoopedSounds( const WORD *pOwnedIDs, int nOwnedIDs );
 	void SetSoundPos( const WORD wID, const class CVec3 &vPos );
 
 	bool IsFinished( const WORD wID );

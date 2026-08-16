@@ -345,6 +345,7 @@ public:
 	virtual void STDCALL SetSoundPos( const WORD wID, const CVec3 &vPos );
 	virtual bool STDCALL IsSoundFinished( const WORD wID );
 	virtual void STDCALL RemoveSound( const WORD wID ) ;
+	virtual int STDCALL RemoveOrphanLoopedSounds( const WORD *pOwnedIDs, int nOwnedIDs );
 	virtual WORD STDCALL AddSound( 	const char *pszName,
 												const CVec3 &vPos,
 												const ESoundMixType eMixType,

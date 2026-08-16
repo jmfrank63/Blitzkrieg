@@ -9,6 +9,15 @@
 #include "../Misc/FreeIDs.h"
 #include "../GFX/GFXTypes.h"
 BASIC_REGISTER_CLASS( CSoundScene );
+// BK_SOUND_TRACE=1: print every looped/ID sound add/remove and, every few
+// seconds, every sound still resident in the scene cells (name, id, position,
+// dim/subst/playing state). Diagnostics for "a sound keeps playing" reports.
+static bool IsSoundTraceOn()
+{
+	static const bool bOn = getenv( "BK_SOUND_TRACE" ) != 0;
+	return bOn;
+}
+
 NTimer::STime CSoundScene::curTime;			// ����� �� ���������� �����
 SIntPair CSoundScene::vLimit;						// ������ � ������� ���� �������� �����
 int SSoundSceneConsts::SS_SOUND_CELL_SIZE;									// ����� ������� � ������
@@ -199,6 +208,18 @@ WORD CMapSounds::AddSound( const CVec2 &vPos, const char *pszName )
 	cells[wInstanceID] = vCellPos;
 	
 	return wInstanceID;
+}
+void CMapSounds::CollectLoopedSceneIDs( std::vector<WORD> *pIDs ) const
+{
+	for ( int x = 0; x < mapCells.GetSizeX(); ++x )
+		for ( int y = 0; y < mapCells.GetSizeY(); ++y )
+		{
+			const CMapSoundCell &cell = mapCells( x, y );
+			if ( cell.GetPlayingLoopedSceneID() != 0 )
+				pIDs->push_back( cell.GetPlayingLoopedSceneID() );
+			if ( cell.GetPlayingSceneID() != 0 )
+				pIDs->push_back( cell.GetPlayingSceneID() );
+		}
 }
 void CMapSounds::Clear()
 {
@@ -870,6 +891,27 @@ CSoundScene::CSound * CSoundScene::CSoundCell::GetSound( const WORD wID )
 	}
 	return 0;
 }
+void CSoundScene::CSoundCell::CollectOrphanLoopedIDs( const std::vector<WORD> &ownedSorted, std::vector<WORD> *pOrphans ) const
+{
+	for ( CSounds::const_iterator it = sounds.begin(); it != sounds.end(); ++it )
+	{
+		CSound *pS = *it;
+		if ( pS == 0 || pS->GetID() == 0 || !pS->IsLooped() )
+			continue;
+		if ( !std::binary_search( ownedSorted.begin(), ownedSorted.end(), pS->GetID() ) )
+			pOrphans->push_back( pS->GetID() );
+	}
+}
+void CSoundScene::CSoundCell::TraceSounds( ISFX *pSFX, const SIntPair &vCell )
+{
+	for ( CSounds::iterator it = sounds.begin(); it != sounds.end(); ++it )
+	{
+		CSound *pS = *it;
+		ISound *pVoice = pS->GetSound();
+		fprintf( stderr, "BK_SOUND_TRACE:   cell=(%d,%d) id=%d name=\"%s\" looped=%d dim=%d started=%d finished=%d subst=%d playing=%d pos=(%.0f,%.0f) begin=%u\n",
+			vCell.x, vCell.y, int(pS->GetID()), pS->GetName().c_str(), int(pS->IsLooped()), int(pS->IsMarkedForDim()), int(pS->IsMarkedStarted()), int(pS->IsMarkedFinished()), int(pS->IsSubstituted()), pVoice ? int(pSFX->IsPlaying( pVoice )) : -1, pS->GetPos().x, pS->GetPos().y, unsigned(pS->GetBeginTime()) );
+	}
+}
 void CSoundScene::CSoundCell::Update( ISFX * pSFX )
 {
 	bool bSomeSoundErased = false;
@@ -1153,6 +1195,8 @@ WORD CSoundScene::AddSound( const char *pszName, const CVec3 &vPos,
 																	  fMinDist * fWorldCellSize * vScreenResize.x,
 																	  fMaxDist* fWorldCellSize * vScreenResize.y );
 		pSnd->SetBeginTime( GetCurTime() - nTimeAfterStart );
+		if ( IsSoundTraceOn() && ( bNeedID || bLooped ) )
+			fprintf( stderr, "BK_SOUND_TRACE: add id=%d name=\"%s\" looped=%d mix=%d pos=(%.0f,%.0f) t=%u\n", int(wID), pszSoundPath, int(bLooped), int(eMixMode), vRealSoundPos.x, vRealSoundPos.y, unsigned(GetCurTime()) );
 		if ( bToCell )
 		{
 			const SIntPair vCell( vRealSoundPos.x / SSoundSceneConsts::SS_SOUND_CELL_SIZE,
@@ -1255,6 +1299,14 @@ void CSoundScene::RemoveSound( const WORD wID )
 {
 	if ( !pSFX->IsSFXEnabled() || 0 == wID ) 
 		return;
+	if ( IsSoundTraceOn() )
+	{
+		const bool bKnown = soundIDs.find( wID ) != soundIDs.end();
+		CSound *pTr = 0;
+		if ( bKnown && soundCellsWithSound.find( soundIDs[wID] ) != soundCellsWithSound.end() )
+			pTr = GetSoundCell( soundIDs[wID] )->GetSound( wID );
+		fprintf( stderr, "BK_SOUND_TRACE: remove id=%d known=%d found=%d name=\"%s\" looped=%d t=%u\n", int(wID), int(bKnown), int(pTr != 0), pTr ? pTr->GetName().c_str() : "", pTr ? int(pTr->IsLooped()) : 0, unsigned(GetCurTime()) );
+	}
 
 	if ( soundIDs.find( wID ) == soundIDs.end() )
 	{
@@ -1292,6 +1344,30 @@ void CSoundScene::RemoveSound( const WORD wID )
 		}
 	}
 
+}
+int CSoundScene::RemoveOrphanLoopedSounds( const WORD *pOwnedIDs, int nOwnedIDs )
+{
+	if ( !pSFX->IsSFXEnabled() )
+		return 0;
+	std::vector<WORD> owned( pOwnedIDs, pOwnedIDs + nOwnedIDs );
+	mapSounds.CollectLoopedSceneIDs( &owned );
+	std::sort( owned.begin(), owned.end() );
+	std::vector<WORD> orphans;
+	for ( CSoundCellsWithSound::iterator it = soundCellsWithSound.begin(); it != soundCellsWithSound.end(); ++it )
+	{
+		if ( it->second == 0 )
+			continue;
+		it->second->CollectOrphanLoopedIDs( owned, &orphans );
+	}
+	for ( int i = 0; i < int( orphans.size() ); ++i )
+	{
+		if ( IsSoundTraceOn() )
+			fprintf( stderr, "BK_SOUND_TRACE: orphan looped sound id=%d removed\n", int(orphans[i]) );
+		RemoveSound( orphans[i] );
+	}
+	if ( !orphans.empty() )
+		fprintf( stderr, "Sound scene: removed %d orphaned looped sound(s)\n", int( orphans.size() ) );
+	return orphans.size();
 }
 void CSoundScene::SetSoundPos( const WORD wID, const CVec3 &vPos )
 {
@@ -1374,6 +1450,20 @@ void CSoundScene::Update( interface ICamera *pCamera )
 		{
 
 			const CVec3 vCameraPos( pCamera->GetAnchor() );
+			if ( IsSoundTraceOn() )
+			{
+				static NTimer::STime timeLastDump = 0;
+				if ( GetCurTime() > timeLastDump + 5000 || GetCurTime() < timeLastDump )
+				{
+					timeLastDump = GetCurTime();
+					int nTotal = 0;
+					for ( CSoundCellsWithSound::iterator it = soundCellsWithSound.begin(); it != soundCellsWithSound.end(); ++it )
+						nTotal += it->second->GetNumSounds();
+					fprintf( stderr, "BK_SOUND_TRACE: dump t=%u camera=(%.0f,%.0f) cells=%d sounds=%d\n", unsigned(GetCurTime()), vCameraPos.x, vCameraPos.y, int(soundCellsWithSound.size()), nTotal );
+					for ( CSoundCellsWithSound::iterator it = soundCellsWithSound.begin(); it != soundCellsWithSound.end(); ++it )
+						it->second->TraceSounds( pSFX, it->first );
+				}
+			}
 			const SIntPair vCameraCell( vCameraPos.x / SSoundSceneConsts::SS_SOUND_CELL_SIZE,
 														vCameraPos.y / SSoundSceneConsts::SS_SOUND_CELL_SIZE );
 			

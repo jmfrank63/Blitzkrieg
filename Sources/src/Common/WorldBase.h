@@ -91,6 +91,7 @@ class CWorldBase
 	
 	CVec3 vLastAnchor;										// ��������� ������� ������
 	NTimer::STime warFogLastTime;					// ��������� ����� ���������� ������ �����
+	NTimer::STime timeNextSoundReconcile;	// next CWorldBase::ReconcileLoopedSounds (not saved: runs right after a load)
 	CMapObjectsMap aiobjects;							// ��� ������� ���� � AI ������� ��� �� �����
 	CMapObjectsMap visobjects;						// ������������ Vis obj <=> map object ��� ��������� ���������� ��� ��������� ��������
 	CMapObjectsList delayedRemoveAIObjes;	// list of objects for delayed remove from AI
@@ -215,6 +216,7 @@ public:
 	virtual void STDCALL Init( ISingleton *pSingleton );
 	virtual void STDCALL Clear();
 	virtual void STDCALL Update( const NTimer::STime &currTime );
+	void ReconcileLoopedSounds();
 	void MoveObject( IVisObj *pObj, const CVec3 &vPos );
 	bool GetMessage( SGameMessage *pMsg )
 	{

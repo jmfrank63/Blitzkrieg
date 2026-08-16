@@ -33,6 +33,13 @@ void CScene::RemoveSound( const WORD wID )
 {
 	pSoundScene->RemoveSound( wID );
 }
+int CScene::RemoveOrphanLoopedSounds( const WORD *pOwnedIDs, int nOwnedIDs )
+{
+	std::vector<WORD> ids( pOwnedIDs, pOwnedIDs + nOwnedIDs );
+	if ( wAmbientID != 0 )
+		ids.push_back( wAmbientID );		// weather loop, owned by the scene itself
+	return pSoundScene->RemoveOrphanLoopedSounds( ids.empty() ? 0 : &ids[0], ids.size() );
+}
 void CScene::UpdateSound( interface ICamera *pCamera )
 {
 	pSoundScene->Update( pCamera );

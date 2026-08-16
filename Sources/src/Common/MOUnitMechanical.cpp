@@ -21,6 +21,13 @@
 #include "MOUnitInfantry.h"
 #define MAX_NUM_EXT_PASSANGERS 6
 #define INTERIM_STEP 10
+// BK_SOUND_TRACE=1: which unit owns which looped/ID sound (pairs with the
+// sound-scene trace, which knows ids but not owners).
+static bool IsUnitSoundTraceOn()
+{
+	static const bool bOn = getenv( "BK_SOUND_TRACE" ) != 0;
+	return bOn;
+}
 CMOUnitMechanical::CMOUnitMechanical()
 {
 	bInstalled = true;
@@ -36,6 +43,8 @@ CMOUnitMechanical::CMOUnitMechanical()
 }
 CMOUnitMechanical::~CMOUnitMechanical()
 {
+	if ( IsUnitSoundTraceOn() && ( wMoveSoundID != 0 || wNonCycleSoundID != 0 ) )
+		fprintf( stderr, "BK_SOUND_TRACE: unit \"%s\" ai=%p destructor moveSound=%d nonCycle=%d\n", pDesc ? pDesc->szKey.c_str() : "?", (void*)pAIObj.GetPtr(), int(wMoveSoundID), int(wNonCycleSoundID) );
 	if ( 0 != wMoveSoundID )
 	{
 		GetSingleton<IScene>()->RemoveSound( wMoveSoundID );
@@ -768,6 +777,8 @@ void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer:
 			if ( !pRPG->szSoundMoveCycle.empty() && 0 == wMoveSoundID )
 				wMoveSoundID = pScene->AddSound( pRPG->szSoundMoveCycle.c_str(), pVisObj->GetPosition(), 
 																					SFX_MIX_ALWAYS, SAM_LOOPED_NEED_ID, ESCT_GENERIC, 1, 100 );
+			if ( IsUnitSoundTraceOn() )
+				fprintf( stderr, "BK_SOUND_TRACE: unit \"%s\" ai=%p move-start moveSound=%d nonCycle=%d pos=(%.0f,%.0f)\n", pDesc->szKey.c_str(), (void*)pAIObj.GetPtr(), int(wMoveSoundID), int(wNonCycleSoundID), pVisObj->GetPosition().x, pVisObj->GetPosition().y );
 		}
 		/*break;
 	}*/
@@ -813,6 +824,8 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 	}
 	else
 		GetAnim()->CutProceduralAnimation( timeEffect );
+	if ( IsUnitSoundTraceOn() )
+		fprintf( stderr, "BK_SOUND_TRACE: unit \"%s\" ai=%p die param=0x%x moveSound=%d nonCycle=%d pos=(%.0f,%.0f)\n", pDesc->szKey.c_str(), (void*)pAIObj.GetPtr(), unsigned(action.nParam), int(wMoveSoundID), int(wNonCycleSoundID), pVisObj->GetPosition().x, pVisObj->GetPosition().y );
 	if ( 0 != wMoveSoundID )
 	{
 		pScene->RemoveSound( wMoveSoundID );
@@ -983,6 +996,8 @@ void CMOUnitMechanical::AddAnimation( const SUnitBaseRPGStats::SAnimDesc *pDesc 
 }
 void CMOUnitMechanical::RemoveSounds( interface IScene * pScene )
 {
+	if ( IsUnitSoundTraceOn() )
+		fprintf( stderr, "BK_SOUND_TRACE: unit \"%s\" ai=%p RemoveSounds moveSound=%d nonCycle=%d pos=(%.0f,%.0f)\n", pDesc->szKey.c_str(), (void*)pAIObj.GetPtr(), int(wMoveSoundID), int(wNonCycleSoundID), pVisObj ? pVisObj->GetPosition().x : 0.0f, pVisObj ? pVisObj->GetPosition().y : 0.0f );
 	if ( 0 != wMoveSoundID )
 	{
 		pScene->RemoveSound( wMoveSoundID );
@@ -1120,5 +1135,7 @@ int CMOUnitMechanical::operator&( IStructureSaver &ss )
 	saver.Add( 18, &smokeEffects );
 	saver.Add( 19, &effects );
 	saver.Add( 20, &wNonCycleSoundID );
+	if ( saver.IsReading() && IsUnitSoundTraceOn() && ( wMoveSoundID != 0 || wNonCycleSoundID != 0 ) )
+		fprintf( stderr, "BK_SOUND_TRACE: unit \"%s\" ai=%p loaded moveSound=%d nonCycle=%d pos=(%.0f,%.0f)\n", pDesc ? pDesc->szKey.c_str() : "?", (void*)pAIObj.GetPtr(), int(wMoveSoundID), int(wNonCycleSoundID), pVisObj ? pVisObj->GetPosition().x : 0.0f, pVisObj ? pVisObj->GetPosition().y : 0.0f );
 	return 0;
 }

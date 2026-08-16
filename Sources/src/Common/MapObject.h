@@ -75,6 +75,11 @@ public:
 	bool IsFriend() const { return diplomacy == EDI_FRIEND; }
 	bool IsNeutral() const { return diplomacy == EDI_NEUTRAL; }
 	virtual bool STDCALL CanSelect() const { return bCanSelect; }
+	// The scene sound ID of the looped sound this object owns right now, 0
+	// for none. The world uses it to reconcile the sound scene: a looped
+	// sound whose owner is gone plays forever otherwise (and rides along in
+	// every save made afterwards). See CWorldBase::ReconcileLoopedSounds.
+	virtual WORD STDCALL GetOwnedLoopedSoundID() const { return 0; }
 };
 struct SBridgeSpanObject : public IMapObj
 {

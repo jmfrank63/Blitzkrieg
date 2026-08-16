@@ -125,6 +125,7 @@ public:
 	virtual void STDCALL Visit( IMapObjVisitor *pVisitor );
 	virtual void STDCALL AddAnimation( const SUnitBaseRPGStats::SAnimDesc *pDesc );
 	virtual void STDCALL RemoveSounds(interface IScene * pScene );
+	virtual WORD STDCALL GetOwnedLoopedSoundID() const { return wMoveSoundID; }
 	virtual bool STDCALL ChangeWithBlood( IVisObjBuilder *pVOB ) { return true; }
 };
 #endif // __MOUNITMECHANICAL_H__

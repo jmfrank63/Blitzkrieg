@@ -455,6 +455,9 @@ interface IScene : public IRefCount
 	virtual void STDCALL SetSoundPos( const WORD wID, const CVec3 &vPos ) = 0;
 	virtual bool STDCALL IsSoundFinished( const WORD wID ) = 0;
 	virtual void STDCALL RemoveSound( const WORD wID ) = 0;
+	// Drop every looped, ID-carrying scene sound whose ID is not in the given
+	// list (the scene adds its own ambient/map-sound IDs). Returns how many.
+	virtual int STDCALL RemoveOrphanLoopedSounds( const WORD *pOwnedIDs, int nOwnedIDs ) = 0;
 	virtual WORD STDCALL AddSound( 	const char * pszName,
 																	const CVec3 &vPos,
 																	const ESoundMixType eMixType,
