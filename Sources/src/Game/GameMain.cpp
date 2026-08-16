@@ -790,13 +790,22 @@ int RunGame( const BkGameLaunchInfo &launch )
 				static int nAutoUIFrame = 0;
 				static int nAutoUIRelease = 0;
 				static int vAutoUIReleasePos[2] = { 0, 0 };
-				static int nAutoUIKeyRelease = 0;
-				static int nAutoUIKeyCode = 0;
+				// Pending key releases: one slot per key, so two overlapping key=
+				// actions (a key pressed one frame, another the next) each get
+				// their own release. A single slot let the second press overwrite
+				// the first release, leaving the first key stuck down forever -
+				// which looked exactly like the game losing a key-up.
+				static std::vector< std::pair<int, int> > autoUIKeyReleases;	// (code, frame)
 				++nAutoUIFrame;
-				if ( nAutoUIKeyRelease != 0 && nAutoUIFrame >= nAutoUIKeyRelease )
+				for ( int nRel = 0; nRel < int( autoUIKeyReleases.size() ); )
 				{
-					pInput->EmulateInput( DEVICE_TYPE_KEYBOARD, nAutoUIKeyCode, 0, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
-					nAutoUIKeyRelease = 0;
+					if ( nAutoUIFrame >= autoUIKeyReleases[nRel].second )
+					{
+						pInput->EmulateInput( DEVICE_TYPE_KEYBOARD, autoUIKeyReleases[nRel].first, 0, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
+						autoUIKeyReleases.erase( autoUIKeyReleases.begin() + nRel );
+					}
+					else
+						++nRel;
 				}
 				if ( ( nAutoUIFrame % 120 ) == 0 )
 					fprintf( stderr, "BK_AUTO_UI: frame %d at %u ms\n", nAutoUIFrame, unsigned( NPlatform::MonotonicMilliseconds() ) );
@@ -878,8 +887,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 							if ( szKey == autoUIKeys[nKey].pszName )
 							{
 								pInput->EmulateInput( DEVICE_TYPE_KEYBOARD, autoUIKeys[nKey].nCode, 0x80, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
-								nAutoUIKeyCode = autoUIKeys[nKey].nCode;
-								nAutoUIKeyRelease = nAutoUIFrame + 2;
+								autoUIKeyReleases.push_back( std::make_pair( autoUIKeys[nKey].nCode, nAutoUIFrame + 2 ) );
 								break;
 							}
 						}
