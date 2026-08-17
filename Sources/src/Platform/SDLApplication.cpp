@@ -57,8 +57,23 @@ bool SDLApplication::SetAppIcon(const char *path)
 	((IdSel)objc_msgSend)( image, sel_registerName( "release" ) );
 	return true;
 #else
-	(void)path;
-	return false;
+	// The window/taskbar icon. Windows never reaches here (its icon is the
+	// Game.exe resource); this covers Linux, where SDL sets _NET_WM_ICON on
+	// X11 and speaks the xdg-toplevel-icon protocol on Wayland. SDL decodes
+	// only BMP itself, so the icon ships as icon.bmp (a BITMAPV4HEADER BGRA
+	// bitmap - the V4 alpha mask is what keeps the corners transparent)
+	// alongside the icon.png the Apple branch reads.
+	if ( !window_ || !path || !*path ) return false;
+	std::string bmp_path( path );
+	const std::string::size_type dot = bmp_path.rfind( '.' );
+	if ( dot != std::string::npos ) bmp_path.resize( dot );
+	bmp_path += ".bmp";
+	SDL_Surface *icon = SDL_LoadBMP( bmp_path.c_str() );
+	if ( !icon ) { SetError( "SDL_LoadBMP" ); return false; }
+	const bool applied = SDL_SetWindowIcon( static_cast<SDL_Window *>( window_ ), icon );
+	SDL_DestroySurface( icon );
+	if ( !applied ) { SetError( "SDL_SetWindowIcon" ); return false; }
+	return true;
 #endif
 }
 

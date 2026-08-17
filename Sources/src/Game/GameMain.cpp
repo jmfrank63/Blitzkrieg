@@ -59,8 +59,10 @@ bool InitApplication( HINSTANCE, const char *pszAppName, const char *, int nWidt
 	// The engine draws its own cursor, so hide the system pointer the way
 	// WinFrame's SetCursor( 0 ) does; otherwise two pointers are on screen.
 	game_frame.SetCursorVisible( false );
-	// The Dock and cmd-tab icon; a bare executable otherwise shows the
-	// generic one. The image is the original Game.exe icon (main.ico).
+	// The app icon - macOS Dock/cmd-tab and the Linux window/taskbar; a bare
+	// executable otherwise shows the generic one. The image is the original
+	// Game.exe icon (main.ico); Linux loads the icon.bmp sibling because SDL
+	// decodes only BMP on its own.
 	std::string szIconPath = NPlatform::Paths::ModuleRoot();
 	if ( !szIconPath.empty() && szIconPath.back() != '/' && szIconPath.back() != '\\' ) szIconPath += '/';
 	szIconPath += "Data/icon.png";
