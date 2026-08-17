@@ -1759,6 +1759,9 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 	{
 		if ( (*it)->Update( time ) == false )
 		{
+			static const bool bTrace = getenv( "BK_PLANE_TRACE" ) != 0;
+			if ( bTrace )
+				fprintf( stderr, "BK_PLANE_TRACE: outbound effect %p finished at t=%u pos=(%.0f,%.0f,%.0f), dropped\n", (void*)(*it).GetPtr(), unsigned(time), (*it)->GetPosition().x, (*it)->GetPosition().y, (*it)->GetPosition().z );
 			objdescs.erase( *it );
 			it = outboundEffects.erase( it );
 		}

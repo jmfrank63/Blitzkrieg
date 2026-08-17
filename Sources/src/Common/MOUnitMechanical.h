@@ -52,6 +52,7 @@ class CMOUnitMechanical : public CMOUnit
 	WORD wMoveSoundID;										// sound, this unit producas during movement (0 = invalid)
 	WORD wNonCycleSoundID;								// some noncycled sound, that must stop with unit destruction
 	bool bDiveMove;												// for dive bombers
+	bool bFollowDeathCamera;					// BK_AUTO_UI: camera tracks this downed aircraft (not saved)
 	CPassangersList passangers;						// all passangers inside
 	CPtr<IMeshVisObj> pExtPassangers;			// 'external passangers' - солдаты на броне
 	int nNumExtPassangers;								// на сколько внешних пассажиров сейчас рассчитана моделька

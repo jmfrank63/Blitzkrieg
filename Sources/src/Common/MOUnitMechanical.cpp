@@ -41,6 +41,7 @@ CMOUnitMechanical::CMOUnitMechanical()
 	bArtilleryHooked = false;
 	wMoveSoundID = wNonCycleSoundID = 0;
 	bDiveMove = false;
+	bFollowDeathCamera = false;
 	nNumExtPassangers = 0;
 	fTraceProbabilityCoeff = GetGlobalVar( "Scene.GunTrace.ProbabilityCoeff", 1.0f );
 	fTraceSpeedCoeff = GetGlobalVar( "Scene.GunTrace.SpeedCoeff", 1.0f );
@@ -332,11 +333,23 @@ void CMOUnitMechanical::UpdateAttachedEffects( const NTimer::STime &currTime, IS
 				it->pEffect->Update( it->timeLastUpdate );
 			}
 		}
-		if ( (pScene == 0) || (pScene->MoveObject(it->pEffect, vNewPos) == false) ) 
+		const bool bInScene = pScene != 0 && pScene->MoveObject( it->pEffect, vNewPos );
+		if ( !bInScene )
 			it->pEffect->SetPlacement( vNewPos, 0 );
 		if ( bOnNode )
 			it->pEffect->SetEffectDirection( matrices[it->nPointIndex] );
 		it->pEffect->SetSuspendedState( !(GetVisObj()->IsVisible()) );
+		if ( IsPlaneTraceOn() && bFollowDeathCamera )
+		{
+			static NTimer::STime timeLastTrace = 0;
+			if ( currTime > timeLastTrace + 500 || currTime < timeLastTrace )
+			{
+				timeLastTrace = currTime;
+				const CVec3 vE = it->pEffect->GetPosition();
+				fprintf( stderr, "BK_PLANE_TRACE: trail node=%d inScene=%d unitVisible=%d effectFinished=%d hull=(%.0f,%.0f,%.0f) effect=(%.0f,%.0f,%.0f) t=%u\n",
+					it->nPointIndex, int(bInScene), int(GetVisObj()->IsVisible()), int(it->pEffect->IsFinished( currTime )), vNewPos.x, vNewPos.y, vNewPos.z, vE.x, vE.y, vE.z, unsigned(currTime) );
+			}
+		}
 	}
 }
 bool CMOUnitMechanical::Update( const NTimer::STime &currTime )
@@ -393,6 +406,15 @@ void CMOUnitMechanical::AIUpdatePlacement( const SAINotifyPlacement &placement, 
 		pScene->SetSoundPos( wMoveSoundID, pVisObj->GetPosition() );
 	if ( 0 != wNonCycleSoundID )
 		pScene->SetSoundPos( wNonCycleSoundID, pVisObj->GetPosition() );
+	if ( bFollowDeathCamera )
+	{
+		// Harness: keep the view on the falling plane. It is drawn where a ground
+		// point shifted by its altitude would be (the same projection the sound
+		// scene uses), so anchor there rather than on the ground position.
+		const CVec3 vPos = pVisObj->GetPosition();
+		if ( ICamera *pCamera = GetSingleton<ICamera>() )
+			pCamera->SetAnchor( CVec3( vPos.x - vPos.z * FP_SQRT_2, vPos.y + vPos.z * FP_SQRT_2, 0 ) );
+	}
 	UpdateAttachedEffects( currTime, pScene );
 	IMeshAnimation *pAnim = GetAnim();
 	if ( IMatrixEffectorLeveling *pEffector = static_cast<IMatrixEffectorLeveling*>( pAnim->GetEffector( ANIM_EFFECTOR_LEVELING, -2 ) ) )
@@ -858,6 +880,13 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 						 pDesc->szKey.c_str(), unsigned(action.nParam), int(pRPG->damagePoints.size()), int(pRPG->HasSmokeEffect()) );
 	if ( action.nParam == -1 ) // not ordinary death
 	{
+		// BK_AUTO_UI test aid: `var=BK.Debug.FollowDeath=1` makes the camera track
+		// the next downed aircraft through its dive and explosion.
+		if ( getenv( "BK_AUTO_UI" ) != 0 && GetGlobalVar( "BK.Debug.FollowDeath", 0 ) != 0 )
+		{
+			RemoveGlobalVar( "BK.Debug.FollowDeath" );
+			bFollowDeathCamera = true;
+		}
 		wNonCycleSoundID = pScene->AddSound( "plane_fly_death", pVisObj->GetPosition(),
 																				SFX_MIX_ALWAYS, SAM_NEED_ID);
 	}
@@ -894,8 +923,8 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 				                                  pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC,
 				                                  !pRPG->IsAviation() );
 			if ( IsPlaneTraceOn() && pRPG->IsAviation() )
-				fprintf( stderr, "BK_PLANE_TRACE: \"%s\" smoke=\"%s\" built=%d node=%d/%d usable=%d at=(%.0f,%.0f,%.0f) hull=(%.0f,%.0f,%.0f)\n",
-								 pDesc->szKey.c_str(), pRPG->szEffectSmoke.c_str(), pEffect != 0, nIndex, nNumNodes, int(bNodeUsable),
+				fprintf( stderr, "BK_PLANE_TRACE: \"%s\" smoke=\"%s\" built=%d effect=%p node=%d/%d usable=%d at=(%.0f,%.0f,%.0f) hull=(%.0f,%.0f,%.0f)\n",
+								 pDesc->szKey.c_str(), pRPG->szEffectSmoke.c_str(), pEffect != 0, (void*)pEffect, nIndex, nNumNodes, int(bNodeUsable),
 								 vSmokePos.x, vSmokePos.y, vSmokePos.z,
 								 pObj->GetPosition().x, pObj->GetPosition().y, pObj->GetPosition().z );
 			if ( pEffect )

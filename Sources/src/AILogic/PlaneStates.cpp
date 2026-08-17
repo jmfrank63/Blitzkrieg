@@ -1786,10 +1786,16 @@ void CPlaneFlyDeadState::Segment()
 		{
 			if ( bFatality )
 			{
-				if ( bExplodeInstantly || timeStart < curTime )
+				// A plane that carries its dive past the map edge is neither seen
+				// nor reachable any more, but its siren stays audible until the
+				// timer runs out - a wail with no aircraft. Blow it up at the edge
+				// instead, which ends its sounds with it (Yaks.sav: the first Yak
+				// exploded at x=-1098, well outside the playable area).
+				const bool bLeftMap = !theStaticMap.IsPointInside( pPlane->GetCenter() );
+				if ( bExplodeInstantly || timeStart < curTime || bLeftMap )
 				{
 					if ( IsPlaneTraceOn() )
-						fprintf( stderr, "BK_PLANE_TRACE: plane %p explodes t=%u\n", (void*)pPlane, unsigned(curTime) );
+						fprintf( stderr, "BK_PLANE_TRACE: plane %p explodes t=%u leftMap=%d at=(%.0f,%.0f)\n", (void*)pPlane, unsigned(curTime), int(bLeftMap), pPlane->GetCenter().x, pPlane->GetCenter().y );
 					updater.Update( ACTION_NOTIFY_DIE, pPlane, (ANIMATION_DEATH_FATALITY<<16) );
 					timeStart = curTime + SConsts::DIVE_AFTER_EXPLODE_TIME;
 					eState = EPDS_DIVE;

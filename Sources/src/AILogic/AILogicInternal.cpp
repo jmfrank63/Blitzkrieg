@@ -985,6 +985,29 @@ void CAILogic::Segment()
 		bSegment = true;
 		curTime = GetAIGetSegmTime( pGameSegment );
 
+		// BK_AUTO_UI test hook: `var=BK.Debug.KillAviation=1` downs every aircraft
+		// in the air through the normal damage path (CAIUnit::TakeDamage ->
+		// ACTION_COMMAND_DIE -> CAviation::Die -> the fly-dead dive), so the
+		// shot-down sequence can be reproduced headless on cue instead of
+		// waiting for enemy AA to oblige. Inert unless the harness env is set.
+		{
+			static const bool bHarness = getenv( "BK_AUTO_UI" ) != 0;
+			if ( bHarness && GetGlobalVar( "BK.Debug.KillAviation", 0 ) != 0 )
+			{
+				RemoveGlobalVar( "BK.Debug.KillAviation" );
+				int nDowned = 0;
+				for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+				{
+					CAIUnit *pUnit = *iter;
+					if ( pUnit && pUnit->IsAlive() && pUnit->GetStats()->IsAviation() )
+					{
+						pUnit->TakeDamage( 1000000.0f, 0, theDipl.GetNeutralPlayer(), 0 );
+						++nDowned;
+					}
+				}
+				fprintf( stderr, "BK_AUTO_UI: KillAviation downed %d aircraft\n", nDowned );
+			}
+		}
 		theGroupLogic.Segment();
 
 		if ( theCheats.GetWarFog() )

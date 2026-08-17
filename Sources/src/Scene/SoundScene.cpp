@@ -759,6 +759,8 @@ unsigned int CSoundScene::CSound::GetSamplesPassed()
 }
 CSoundScene::CSound::~CSound()
 {
+	if ( IsSoundTraceOn() && szName.find( "planehit" ) != std::string::npos )
+		fprintf( stderr, "BK_SOUND_TRACE: ~CSound id=%d \"%s\" subst=%d substrefs=0x%x\n", int(wID), szName.c_str(), int(pSubstitute != 0), unsigned(GetDebugSubstRefs()) );
 }
 float CSoundScene::CSound::GetVolume( const NTimer::STime time, const float fDist ) const
 {
@@ -872,10 +874,16 @@ void CSoundScene::CSoundCell::RemoveSound( const WORD wID, ISFX * pSFX )
 		if ( (*it)->GetID() == wID )
 		{
 			CSound * s = *it;
+			ISound *pTraceVoice = s->GetSound();
+			const bool bTraceSubst = s->IsSubstituted();
+			const std::string szTraceName = s->GetName();
+			const int nTraceRefs = s->GetDebugRefs(), nTraceSubstRefs = s->GetDebugSubstRefs();
 			if ( pSFX && !s->IsSubstituted() )
 				pSFX->StopSample( s->GetSound() );
 			it = sounds.erase( it );
 			RecountForDelete();
+			if ( IsSoundTraceOn() && pSFX )
+				fprintf( stderr, "BK_SOUND_TRACE: cell erased id=%d name=\"%s\" subst=%d refs=0x%x substrefs=0x%x voice=%p playing-after=%d\n", int(wID), szTraceName.c_str(), int(bTraceSubst), unsigned(nTraceRefs), unsigned(nTraceSubstRefs), (void*)pTraceVoice, pTraceVoice ? int(pSFX->IsPlaying( pTraceVoice )) : -1 );
 			return;
 		}
 		++it;
@@ -1661,6 +1669,8 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 			if ( !pSubstSruct && sound.IsSubstituted() && sound.IsMarkedStarted() ) 
 			{	// ���� - ��� �������� � �� ��� ������
 				pSubstSruct = sound.GetSubst();
+				if ( IsSoundTraceOn() && sound.GetName().find( "planehit" ) != std::string::npos )
+					fprintf( stderr, "BK_SOUND_TRACE: reuse subst of id=%d \"%s\" voice=%p\n", int(sound.GetID()), sound.GetName().c_str(), (void*)pSubstSruct->GetSound() );
 				nStartTime = sound.GetBeginTime();
 			}
 		}
@@ -1676,6 +1686,8 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 			if ( pSubstituteSound == 0 ) // ������ ���� ������ �� �����
 				pSubstituteSound = pSound->GetSound();
 			pSubstSruct = new CSubstSound( pSubstituteSound, pSFX );
+			if ( IsSoundTraceOn() && bLooped == false && pSound && pSound->GetName().find( "planehit" ) != std::string::npos )
+				fprintf( stderr, "BK_SOUND_TRACE: new subst for \"%s\" voice=%p group=%d\n", pSound->GetName().c_str(), (void*)pSubstSruct->GetSound(), nSounds );
 		}
 
 		unsigned int nStartSample = 0; // ����� ��� ������������� �����

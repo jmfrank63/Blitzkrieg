@@ -1585,31 +1585,17 @@ pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_i
     return true;
 }
 
-/// Parse a legacy data-tree integer value.
-/// The XML serialiser historically stored ints as 8 lower-case hex digits in
-/// little-endian byte order ("01000000" = LE bytes 01 00 00 00 = int 1).
-/// Plain decimal strings are also accepted for forward compatibility.
+/// Parse a data-tree integer value the way the original CDataTreeXML did
+/// (sscanf "%i"): decimal, or hex with a 0x prefix. This used to treat any
+/// 8-character all-hex-digit string as four little-endian hex bytes - the
+/// encoding of RAW data, which has its own reader (bk_tree_raw) - so every
+/// 8-digit decimal in the game data was misread: an effect duration of
+/// "15002500" became 2424853 and a particle LifeTime of "15000000" became 21
+/// (bytes 15 00 00 00), which is why a downed plane's smoke trail never emitted
+/// a particle. Enums are serialised through the raw path, so nothing reaches
+/// this function in the byte encoding.
 fn parseTreeInt(text: []const u8) !c_int {
     const trimmed = std.mem.trim(u8, text, " \t\r\n");
-    if (trimmed.len == 8) {
-        // Check whether all eight characters are hex digits.
-        var all_hex = true;
-        for (trimmed) |c| {
-            if (!std.ascii.isHex(c)) {
-                all_hex = false;
-                break;
-            }
-        }
-        if (all_hex) {
-            // Decode as four little-endian bytes.
-            var bytes: [4]u8 = undefined;
-            bytes[0] = try std.fmt.parseInt(u8, trimmed[0..2], 16);
-            bytes[1] = try std.fmt.parseInt(u8, trimmed[2..4], 16);
-            bytes[2] = try std.fmt.parseInt(u8, trimmed[4..6], 16);
-            bytes[3] = try std.fmt.parseInt(u8, trimmed[6..8], 16);
-            return @bitCast(std.mem.readInt(u32, &bytes, .little));
-        }
-    }
     // Try unsigned 32-bit first so hex values like 0xffffbe34 (which exceed
     // i32 max) parse correctly.  Fall back to signed parsing for negative
     // decimal strings such as "-1".

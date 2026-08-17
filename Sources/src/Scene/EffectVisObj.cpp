@@ -34,8 +34,17 @@ void CEffectVisObj::SetSuspendedState( bool bState )
 }
 bool CEffectVisObj::Update( const NTimer::STime &time, bool bForced )
 {
+	static const bool bTrace = getenv( "BK_PLANE_TRACE" ) != 0;
 	if ( time < dwStartTime )
+	{
+		if ( bTrace && !particles.empty() && particles[0].dwEnd > 100000 )
+		{
+			static int nTr = 0;
+			if ( ( ++nTr % 30 ) == 0 )
+				fprintf( stderr, "BK_PLANE_TRACE: effect %p Update(%u) before start %u - inactive\n", (void*)this, unsigned(time), unsigned(dwStartTime) );
+		}
 		return true;
+	}
 	DWORD dt = time - dwStartTime;
 	if ( dt > dwDuration )
 		return false;
@@ -61,6 +70,12 @@ bool CEffectVisObj::Update( const NTimer::STime &time, bool bForced )
 		}
 		else
 			it->bActive = false;
+		if ( bTrace && it->dwEnd > 100000 )
+		{
+			static int nTr2 = 0;
+			if ( ( ++nTr2 % 60 ) == 0 )
+				fprintf( stderr, "BK_PLANE_TRACE: effect %p dt=%u range=[%u,%u) active=%d particles=%d suspended=%d stopped=%d\n", (void*)this, unsigned(dt), unsigned(it->dwStart), unsigned(it->dwEnd), int(it->bActive), it->pObj->GetNumParticles(), int(bSuspended), int(bStopped) );
+		}
 		bHasParticles = bHasParticles || it->bActive;
 	}
 	if ( bStopped && !bHasParticles ) 

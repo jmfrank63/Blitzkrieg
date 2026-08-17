@@ -238,11 +238,13 @@ int RunGame( const BkGameLaunchInfo &launch )
 		return 0xDEAD;
 	}
 	BK_STARTUP_MARKER("after LoadAllModules");
-	// Arm every loaded module before Finalize() unloads them.  Calling this from
-	// atexit is too late: Finalize has already dlclose'd the modules, so the
-	// helper would reload each shared library and immediately trigger its static
-	// destructors when the temporary handle is released.
-	ArmAllModulesLeakOnExit();
+	// NOT armed here. LeakObjectsOnExit makes every Release() skip delete and
+	// DestroyContents from that moment on; arming it at startup (44c802b47, to
+	// beat Finalize() unloading the modules) silently turned the whole run into
+	// a leak: no CSound/CSubstSound was ever destroyed (a downed plane's siren
+	// played on after the explosion), no unit map object, path or collision was
+	// ever freed, and IsValid() never went false. It is armed once the main
+	// loop is over instead - see the end of the loop - still before Finalize().
 	NWinFrame::ShowSplashScreen( NWinFrame::GetHInstance(), true );
 	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
 	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
@@ -790,6 +792,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 				static int nAutoUIFrame = 0;
 				static int nAutoUIRelease = 0;
 				static int vAutoUIReleasePos[2] = { 0, 0 };
+				static int nAutoUIRelease2 = 0;		// pending right-button release (rclick=)
+				static int vAutoUIRelease2Pos[2] = { 0, 0 };
 				// Pending key releases: one slot per key, so two overlapping key=
 				// actions (a key pressed one frame, another the next) each get
 				// their own release. A single slot let the second press overwrite
@@ -814,6 +818,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 					const int nPacked = ( vAutoUIReleasePos[0] & 0x7fff ) | ( ( vAutoUIReleasePos[1] & 0x7fff ) << 15 ) | 0x40000000;
 					pInput->AddMessage( SGameMessage( 0x00100022 /*CMD_END_ACTION1*/, nPacked ) );
 					nAutoUIRelease = 0;
+				}
+				if ( nAutoUIRelease2 != 0 && nAutoUIFrame >= nAutoUIRelease2 )
+				{
+					const int nPacked = ( vAutoUIRelease2Pos[0] & 0x7fff ) | ( ( vAutoUIRelease2Pos[1] & 0x7fff ) << 15 ) | 0x40000000;
+					pInput->AddMessage( SGameMessage( 0x00100024 /*CMD_END_ACTION2*/, nPacked ) );
+					nAutoUIRelease2 = 0;
 				}
 				const std::string szSchedule = pszAutoUI;
 				for ( size_t nPos = 0; nPos < szSchedule.size(); )
@@ -845,6 +855,32 @@ int RunGame( const BkGameLaunchInfo &launch )
 							nAutoUIRelease = nAutoUIFrame + 2;
 							vAutoUIReleasePos[0] = nClickX; vAutoUIReleasePos[1] = nClickY;
 						}
+					}
+					else if ( szAction.compare( 0, 7, "rclick=" ) == 0 )
+					{
+						// Right button: the order/forced-action button in a mission (a left
+						// click with nothing selected cancels a pending forced action).
+						int nClickX = 0, nClickY = 0;
+						if ( sscanf( szAction.c_str() + 7, "%dx%d", &nClickX, &nClickY ) == 2 )
+						{
+							const int nPacked = ( nClickX & 0x7fff ) | ( ( nClickY & 0x7fff ) << 15 ) | 0x40000000;
+							GetSingleton<ICursor>()->SetPos( nClickX, nClickY );
+							pInput->AddMessage( SGameMessage( 0x00100023 /*CMD_BEGIN_ACTION2*/, nPacked ) );
+							nAutoUIRelease2 = nAutoUIFrame + 2;
+							vAutoUIRelease2Pos[0] = nClickX; vAutoUIRelease2Pos[1] = nClickY;
+						}
+					}
+					else if ( szAction.compare( 0, 7, "camera=" ) == 0 )
+					{
+						// Move the view: "camera=XxY" in world coordinates (the numbers
+						// BK_REFERENCE_SCENE prints; 'x' separates them because the schedule
+						// itself is comma-separated), so a capture can look at a spot the
+						// action moved to - a plane at altitude is drawn far up-screen
+						// from its ground position.
+						float fAnchorX = 0.0f, fAnchorY = 0.0f;
+						if ( sscanf( szAction.c_str() + 7, "%fx%f", &fAnchorX, &fAnchorY ) == 2 )
+							if ( ICamera *pCamera = GetSingleton<ICamera>() )
+								pCamera->SetAnchor( CVec3( fAnchorX, fAnchorY, 0.0f ) );
 					}
 					else if ( szAction == "shot" )
 					{
@@ -1001,8 +1037,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 		}
 		// Catch-all: any exit path that bypassed CICExitGame (e.g. smoke-test
 		// break) still tears the world down here. Leak refcounted objects from
-		// now on — see ArmAllModulesLeakOnExit / CICExitGame::Exec.
-		NRefCount::LeakObjectsOnExit() = true;
+		// now on - in this module and in every loaded one; they are all still
+		// loaded here, Finalize() below is what unloads them.
+		ArmAllModulesLeakOnExit();
 		pMainLoop->ResetStack();
 		UnRegisterSingleton( IMainLoop::tidTypeID );
 		SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );

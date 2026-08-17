@@ -314,6 +314,9 @@ public:
 		CSubstSound( ISound *pSound, ISFX *pSFX ): pSample( pSound ), pSFX( pSFX ) {  }
 		virtual ~CSubstSound()
 		{
+			static const bool bTrace = getenv( "BK_SOUND_TRACE" ) != 0;
+			if ( bTrace )
+				fprintf( stderr, "BK_SOUND_TRACE: ~CSubstSound voice=%p sfx=%d\n", (void*)pSample.GetPtr(), int(pSFX != 0) );
 			if ( pSFX )
 				pSFX->StopSample( pSample );
 		}
@@ -321,6 +324,7 @@ public:
 		{
 			return pSample;
 		}
+		int GetDebugRefs() const { return nRefData.a; }	// BK_SOUND_TRACE
 	};
 
 	class CSound : public IRefCount
@@ -377,6 +381,8 @@ public:
 		void MarkFinished( bool bFinished =true ) { bFinishedMark=bFinished; }
 		void MarkToDim( const NTimer::STime time );
 		bool IsMarkedForDim() const { return bDimMark; }
+		int GetDebugRefs() const { return nRefData.a; }	// BK_SOUND_TRACE
+		int GetDebugSubstRefs() const { return pSubstitute ? pSubstitute->GetDebugRefs() : -1; }
 		float GetVolume( const NTimer::STime time, const float fDist  ) const;
 
 

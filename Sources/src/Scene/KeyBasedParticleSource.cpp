@@ -89,6 +89,13 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 {
 	NI_ASSERT_SLOW_T( pData != 0, "Updating uninitialized particle source!" );
 	const int dt = time - nLastUpdateTime;
+	static const bool bTrace = getenv( "BK_PLANE_TRACE" ) != 0;
+	if ( bTrace && pData->nLifeTime > 100000 )
+	{
+		static int nTr = 0;
+		if ( ( ++nTr % 40 ) == 0 )
+			fprintf( stderr, "BK_PLANE_TRACE: psrc %p Update(time=%u) last=%u dt=%d start=%u life=%u dens=%.3f err=%.3f keys=%d n=%d\n", (void*)this, unsigned(time), unsigned(nLastUpdateTime), dt, unsigned(nStartTime), unsigned(pData->nLifeTime), pData->fDensityCoeff, lastError, int(pData->trackDensity.GetNumKeys()), int(particles.size()) );
+	}
 	if ( dt > 64 && pData->nLifeTime + nStartTime > time )
 	{
 		const int nStep = 16; // �.� �������� �  ������������ � 16 ��������.
@@ -98,6 +105,8 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 			const float fTempVal = ( lastError + pData->trackDensity.Integrate( &contextDensity, fRelTime ) * pData->nLifeTime ) * pData->fDensityCoeff;
 			int nNumForGenerating = MINT( fTempVal );
 			lastError = fTempVal - nNumForGenerating;
+			if ( bTrace && pData->nLifeTime > 100000 && i == 0 )
+				fprintf( stderr, "BK_PLANE_TRACE: psrc %p gen: rel=%.8f tempval=%.4f n=%d ctxTime=%.8f ctxIdx=%d\n", (void*)this, fRelTime, fTempVal, nNumForGenerating, contextDensity.fTime, contextDensity.nUpperKeyIndex );
 			CParticleGenerator::ResetGenerator( nNumForGenerating );
 			while ( nNumForGenerating > 0 && !bStopped && !bSuspended )
 			{

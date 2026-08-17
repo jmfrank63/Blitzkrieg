@@ -440,6 +440,9 @@ void CAviation::Die( const bool fromExplosion, const float fDamage )
 	
 	ChangePlayer( theDipl.GetNeutralPlayer() );
 	
+	if ( getenv( "BK_PLANE_TRACE" ) )
+		fprintf( stderr, "BK_PLANE_TRACE: plane %p Die: state=%d inFormation=%d hasPlanesFormation=%d cmdFinished=%d\n", (void*)this,
+			GetState() ? int(GetState()->GetName()) : -1, int(IsInFormation()), GetPlanesFormation() != 0, int(IsCurCmdFinished()) );
 	theGroupLogic.UnitCommand( SAIUnitCmd(ACTION_MOVE_FLY_DEAD), this, false );
 	
 	updater.Update( ACTION_NOTIFY_RPG_CHANGED, this );
