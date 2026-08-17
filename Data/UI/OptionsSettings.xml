@@ -594,24 +594,24 @@
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="40" y2="33"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceNormal>
 									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceHighlighted>
 									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearancePushed>
 								</item>
 							</States>
@@ -808,24 +808,24 @@
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="40" y2="33"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceNormal>
 									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceHighlighted>
 									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearancePushed>
 								</item>
 							</States>
@@ -1022,24 +1022,24 @@
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="40" y2="33"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceNormal>
 									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceHighlighted>
 									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearancePushed>
 								</item>
 							</States>
@@ -1236,24 +1236,24 @@
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="40" y2="33"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceNormal>
 									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceHighlighted>
 									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearancePushed>
 								</item>
 							</States>
@@ -1450,24 +1450,24 @@
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="40" y2="33"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceNormal>
 									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceHighlighted>
 									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearancePushed>
 								</item>
 							</States>
@@ -1664,24 +1664,24 @@
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="40" y2="33"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceNormal>
 									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearanceHighlighted>
 									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 										<Placement Flags="0x1111">
 											<Pos x="100" y="100"/>
 											<Size x="64" y="32"/>
 										</Placement>
-										<Maps x1="108" y1="0" x2="27" y2="128"/>
-										<Texture>ui\slider</Texture>
+										<Maps x1="681" y1="783" x2="45" y2="33"/>
+										<Texture>ui\IntermissionTextures\back-settings</Texture>
 									</AppearancePushed>
 								</item>
 							</States>

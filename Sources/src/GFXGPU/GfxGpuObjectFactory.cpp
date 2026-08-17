@@ -10,6 +10,7 @@
 
 #include <map>
 #include <cstring>
+#include <cstdio>
 
 FontGpu::FontGpu() = default;
 
@@ -32,7 +33,12 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     IDataStorage *storage = GetSingleton<IDataStorage>( globals );
     if ( !storage ) return false;
 
-    const std::string metrics_name = name_ + "\\1.tfd";
+    std::string storage_name = name_;
+    if ( storage_name.rfind( "fonts", 0 ) == 0 ) storage_name.replace( 0, 5, "Fonts" );
+    else if ( storage_name.rfind( "ui", 0 ) == 0 ) storage_name.replace( 0, 2, "UI" );
+    else if ( storage_name.rfind( "effects", 0 ) == 0 ) storage_name.replace( 0, 7, "Effects" );
+    else if ( storage_name.rfind( "cursor", 0 ) == 0 ) storage_name.replace( 0, 6, "Cursor" );
+    const std::string metrics_name = storage_name + "\\1.tfd";
     CPtr<IDataStream> stream = storage->OpenStream( metrics_name.c_str(), STREAM_ACCESS_READ );
     if ( !stream ) return false;
     CPtr<IStructureSaver> structure = CreateStructureSaver( stream, IStructureSaver::READ );
@@ -43,7 +49,7 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
 
     ITextureManager *textures = GetSingleton<ITextureManager>( globals );
     if ( !textures ) return false;
-    texture_ = textures->GetTexture( (name_ + "\\1").c_str() );
+    texture_ = textures->GetTexture( (storage_name + "\\1").c_str() );
     if ( !texture_ ) return false;
     texture_->AddRef();
     return true;
@@ -175,6 +181,33 @@ public:
             std::string candidate( key );
             if ( candidate.size() < 4 || candidate.substr( candidate.size() - 4 ) != ".dds" ) candidate += suffix;
             if ( storage->IsStreamExist( candidate.c_str() ) ) return candidate;
+
+            std::string normalized = candidate;
+            if ( normalized.rfind( "fonts", 0 ) == 0 ) normalized.replace( 0, 5, "Fonts" );
+            else if ( normalized.rfind( "ui", 0 ) == 0 ) normalized.replace( 0, 2, "UI" );
+            else if ( normalized.rfind( "effects", 0 ) == 0 ) normalized.replace( 0, 7, "Effects" );
+            else if ( normalized.rfind( "particles", 0 ) == 0 ) normalized.replace( 0, 9, "Particles" );
+            else if ( normalized.rfind( "sprites", 0 ) == 0 ) normalized.replace( 0, 7, "Sprites" );
+            else if ( normalized.rfind( "cursor", 0 ) == 0 ) normalized.replace( 0, 6, "Cursor" );
+            // Some UI XML uses lowercase "ui\intermissiontextures\...".
+            // Canonicalize this segment even after the top-level "ui" -> "UI"
+            // replacement above; the old else-if chain skipped this path.
+            std::string lowered_for_search = normalized;
+            for ( std::string::size_type i = 0; i < lowered_for_search.size(); ++i )
+                lowered_for_search[i] = static_cast<char>( std::tolower( static_cast<unsigned char>( lowered_for_search[i] ) ) );
+            const std::string::size_type intermission_pos = lowered_for_search.find( "intermissiontextures" );
+            if ( intermission_pos != std::string::npos )
+            {
+                normalized.replace( intermission_pos, 20, "IntermissionTextures" );
+            }
+            if ( normalized != candidate && storage->IsStreamExist( normalized.c_str() ) ) return normalized;
+
+            std::string lowered = normalized;
+            const std::string::size_type slash = lowered.find_last_of( "\\/" );
+            const std::string::size_type start = slash == std::string::npos ? 0 : slash + 1;
+            for ( std::string::size_type i = start; i < lowered.size(); ++i )
+                lowered[i] = static_cast<char>( std::tolower( static_cast<unsigned char>( lowered[i] ) ) );
+            if ( lowered != normalized && storage->IsStreamExist( lowered.c_str() ) ) return lowered;
         }
         return std::string();
     }
@@ -182,6 +215,7 @@ public:
     {
         if ( !name || !*name ) return nullptr;
         const std::string key( name );
+        const bool bTraceUITextures = getenv( "BK_UI_TEX_TRACE" ) != 0;
         const auto cached = textures_.find( key );
         if ( cached != textures_.end() ) return cached->second;
         ISingleton *globals = GetSingletonGlobal();
@@ -190,7 +224,22 @@ public:
         IDataStorage *storage = GetSingleton<IDataStorage>( globals );
         if ( !owner || !storage ) return nullptr;
         const std::string stream_name = ResolveStreamName( key );
-        if ( stream_name.empty() ) return nullptr;
+        if ( stream_name.empty() )
+        {
+            if ( bTraceUITextures )
+            {
+                const bool bIsUITexture = key.rfind( "ui\\", 0 ) == 0 || key.rfind( "UI\\", 0 ) == 0;
+                if ( bIsUITexture )
+                    std::fprintf( stderr, "BK_UI_TEX_TRACE: unresolved key=\"%s\"\n", key.c_str() );
+            }
+            return nullptr;
+        }
+        if ( bTraceUITextures )
+        {
+            const bool bIsUITexture = key.rfind( "ui\\", 0 ) == 0 || key.rfind( "UI\\", 0 ) == 0;
+            if ( bIsUITexture )
+                std::fprintf( stderr, "BK_UI_TEX_TRACE: key=\"%s\" -> stream=\"%s\"\n", key.c_str(), stream_name.c_str() );
+        }
         CObj<IGFXTexture> texture = new TextureGpu( owner, 0, 0, 0, GFXPF_UNKNOWN, GFXD_STATIC );
         texture->SetSharedResourceName( stream_name );
         if ( !texture->Load() ) return nullptr;

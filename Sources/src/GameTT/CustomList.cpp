@@ -4,6 +4,29 @@
 #include "../Main/GameStats.h"
 #include "CommonId.h"
 #include "CustomList.h"
+
+namespace
+{
+	bool StartsWithNoCase( const std::string &szText, const std::string &szPrefix )
+	{
+		if ( szText.size() < szPrefix.size() )
+			return false;
+		return NStr::CompareAsciiNoCase( szText.substr( 0, szPrefix.size() ).c_str(), szPrefix.c_str() ) == 0;
+	}
+
+	int FindNoCase( const std::string &szText, const std::string &szToken )
+	{
+		if ( szToken.empty() || szText.size() < szToken.size() )
+			return -1;
+		for ( int i = 0; i + szToken.size() <= szText.size(); ++i )
+		{
+			if ( NStr::CompareAsciiNoCase( szText.substr( i, szToken.size() ).c_str(), szToken.c_str() ) == 0 )
+				return i;
+		}
+		return -1;
+	}
+}
+
 CInterfaceCustomList::~CInterfaceCustomList()
 {
 }
@@ -26,14 +49,44 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 	
 	IFilesInspectorEntryCollector *pCollector = checked_cast<IFilesInspectorEntryCollector *>( GetSingleton<IFilesInspector>()->GetEntry( szCollectorName.c_str() ) );
 	const std::vector<std::string> &tutorialFiles = pCollector->GetCollected();
+	std::vector<std::string> normalizedFiles;
+	normalizedFiles.reserve( tutorialFiles.size() );
+	for ( int i=0; i<tutorialFiles.size(); ++i )
+	{
+		std::string szNormalized = tutorialFiles[i];
+		for ( int k = 0; k < szNormalized.size(); ++k )
+		{
+			if ( szNormalized[k] == '/' )
+				szNormalized[k] = '\\';
+		}
+		normalizedFiles.push_back( szNormalized );
+	}
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		fprintf( stderr, "BK_UI_TRACE: custom list collector=%s current=%s collected=%d\n",
+			szCollectorName.c_str(), szCurrentDir.c_str(), (int)normalizedFiles.size() );
+		if ( szCollectorName == "tutorial" )
+		{
+			for ( int i = 0; i < normalizedFiles.size() && i < 8; ++i )
+				fprintf( stderr, "BK_UI_TRACE: tutorial sample[%d]=%s\n", i, normalizedFiles[i].c_str() );
+		}
+	}
 	std::unordered_set<std::string> setOfDirs;		//����� � �������� ��� ����������
 	
-	for ( int i=0; i<tutorialFiles.size(); i++ )
+	for ( int i=0; i<normalizedFiles.size(); i++ )
 	{
-		if ( strncmp( tutorialFiles[i].c_str(), szCurrentDir.c_str(), szCurrentDir.size() ) )
-			continue;			//�� �����
-		
-		std::string szCurrentName = tutorialFiles[i].c_str() + szCurrentDir.size();
+		std::string szCurrentFile = normalizedFiles[i];
+		if ( !StartsWithNoCase( szCurrentFile, szCurrentDir ) )
+		{
+			const int nOffset = FindNoCase( szCurrentFile, szCurrentDir );
+			if ( getenv( "BK_UI_TRACE" ) && szCollectorName == "tutorial" && i < 3 )
+				fprintf( stderr, "BK_UI_TRACE: tutorial match sample[%d] offset=%d file=%s\n", i, nOffset, szCurrentFile.c_str() );
+			if ( nOffset < 0 )
+				continue;			//�� �����
+			szCurrentFile = szCurrentFile.substr( nOffset );
+		}
+
+		std::string szCurrentName = szCurrentFile.substr( szCurrentDir.size() );
 		int nPos = szCurrentName.rfind( '\\' );
 		if ( nPos != std::string::npos )		//������ ���� ��� ����������
 		{
@@ -42,17 +95,29 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 			continue;
 		}
 	}
+	if ( getenv( "BK_UI_TRACE" ) && szCollectorName == "tutorial" )
+	{
+		fprintf( stderr, "BK_UI_TRACE: tutorial top dirs=%d\n", (int)setOfDirs.size() );
+		int nPrinted = 0;
+		for ( std::unordered_set<std::string>::iterator it = setOfDirs.begin(); it != setOfDirs.end() && nPrinted < 8; ++it, ++nPrinted )
+			fprintf( stderr, "BK_UI_TRACE: tutorial top dir[%d]=%s\n", nPrinted, it->c_str() );
+	}
 	
 	for ( std::unordered_set<std::string>::iterator it = setOfDirs.begin(); it != setOfDirs.end(); ++it )
 	{
 		std::string szCmpDir = szCurrentDir + *it;
 		szCmpDir += '\\';
 		std::unordered_set<std::string> setOfSubDirs;
-		for ( int i=0; i<tutorialFiles.size(); i++ )
+		for ( int i=0; i<normalizedFiles.size(); i++ )
 		{
-			std::string szCurrentName = tutorialFiles[i];
-			if ( strncmp( szCurrentName.c_str(), szCmpDir.c_str(), szCmpDir.size() ) )
-				continue;			//�� �����
+			std::string szCurrentName = normalizedFiles[i];
+			if ( !StartsWithNoCase( szCurrentName, szCmpDir ) )
+			{
+				const int nOffset = FindNoCase( szCurrentName, szCmpDir );
+				if ( nOffset < 0 )
+					continue;			//�� �����
+				szCurrentName = szCurrentName.substr( nOffset );
+			}
 			szCurrentName = szCurrentName.substr( szCmpDir.size() );
 			
 			int nPos = szCurrentName.rfind( '\\' );
@@ -67,10 +132,10 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 			if ( nPos == std::string::npos )
 				continue;
 
-			std::string szExtension = szCurrentName.substr( nPos );
+			std::string szExtension = szCurrentName.substr( nPos + 1 );
 			for ( int k=0; k<fileMasks.size(); k++ )
 			{
-				if ( szExtension == fileMasks[k].c_str() + 1 )
+				if ( NStr::CompareAsciiNoCase( szExtension.c_str(), fileMasks[k].c_str() + 1 ) == 0 )
 				{
 					std::string szName = szCmpDir;
 					szName += szCurrentName;
@@ -83,6 +148,11 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 		{
 			dirs.push_back( *it );
 		}
+	}
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		fprintf( stderr, "BK_UI_TRACE: custom list collector=%s dirs=%d files=%d\n",
+			szCollectorName.c_str(), (int)dirs.size(), (int)files.size() );
 	}
 	
 	

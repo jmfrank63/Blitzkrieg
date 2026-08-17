@@ -1,6 +1,19 @@
 #include "StdAfx.h"
 
 #include "FilesInspector.h"
+
+namespace
+{
+	void NormalizeSeparators( std::string *pPath )
+	{
+		for ( int i = 0; i < pPath->size(); ++i )
+		{
+			if ( (*pPath)[i] == '/' )
+				(*pPath)[i] = '\\';
+		}
+	}
+}
+
 bool CFilesInspector::AddEntry( const std::string &szName, IFilesInspectorEntry *pEntry )
 {
 	if ( GetEntry(szName) != 0 ) 
@@ -99,18 +112,27 @@ void CFilesInspectorEntryCollector::SetMatchFunction( const int _nMatchType )
 }
 void CFilesInspectorEntryCollector::AddIfPrefixMatched( const std::string &szName )
 {
-	if ( szName.compare( 0, szPrefix.size(), szPrefix ) == 0 )
+	std::string lowerName = szName;
+	NStr::ToLower( lowerName );
+	NormalizeSeparators( &lowerName );
+	if ( lowerName.find( szPrefix ) != std::string::npos )
 		szNames.push_back( szName );
 }
 void CFilesInspectorEntryCollector::AddIfSuffixMatched( const std::string &szName )
 {
-	if ( szName.compare( szName.size() - szSuffix.size(), szSuffix.size(), szSuffix ) == 0 )
+	std::string lowerName = szName;
+	NStr::ToLower( lowerName );
+	NormalizeSeparators( &lowerName );
+	if ( lowerName.compare( lowerName.size() - szSuffix.size(), szSuffix.size(), szSuffix ) == 0 )
 		szNames.push_back( szName );
 }
 void CFilesInspectorEntryCollector::AddIfBothMatched( const std::string &szName )
 {
-	if ( (szName.compare( 0, szPrefix.size(), szPrefix ) == 0) &&
-	     (szName.compare( szName.size() - szSuffix.size(), szSuffix.size(), szSuffix ) == 0) )
+	std::string lowerName = szName;
+	NStr::ToLower( lowerName );
+	NormalizeSeparators( &lowerName );
+	if ( (lowerName.find( szPrefix ) != std::string::npos) &&
+	     (lowerName.compare( lowerName.size() - szSuffix.size(), szSuffix.size(), szSuffix ) == 0) )
 		szNames.push_back( szName );
 }
 void CFilesInspectorEntryCollector::InspectStream( const std::string &szName )

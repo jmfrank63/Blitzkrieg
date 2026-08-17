@@ -1,6 +1,8 @@
 #ifndef __HASHFUNCS_H__
 #define __HASHFUNCS_H__
 #pragma ONCE
+#include <cstddef>
+
 struct SDefaultPtrHash
 {
 	enum
@@ -15,7 +17,7 @@ struct SDefaultPtrHash
 
 	bool operator()( const void *lhs, const void *rhs ) const
 	{
-		return lhs < rhs;
+		return lhs == rhs;
 	}
 };
 struct SPtrHash

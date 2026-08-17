@@ -51,7 +51,12 @@ std::string preferenceRoot() {
 
 namespace NPlatform::Paths {
 bool Initialize() {
-    if (gInitialized) return !gBase.empty() && !gUser.empty();
+    if (gInitialized && !gBase.empty() && !gUser.empty()) return true;
+    if (gInitialized) {
+        gBase.clear();
+        gUser.clear();
+        gInitialized = false;
+    }
 #if defined(BLITZKRIEG_PATHS_TEST)
     return false;
 #elif defined(_WIN32)
@@ -70,8 +75,8 @@ bool Initialize() {
 void SetInjectedRootsForTest(const char *base, const char *preference) {
     gBase = ensureSeparator(base ? base : "");
     gUser = ensureSeparator(preference ? preference : "");
-    gInitialized = true;
-    createWritableRoots();
+    gInitialized = !gBase.empty() && !gUser.empty();
+    if (gInitialized) createWritableRoots();
 }
 void ClearInjectedRootsForTest() { gBase.clear(); gUser.clear(); gInitialized = false; }
 const std::string &BaseRoot() { Initialize(); return gBase; }

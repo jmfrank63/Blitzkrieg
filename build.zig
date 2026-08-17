@@ -25,9 +25,11 @@ const portable_cflags = &.{
     "-Wno-c++11-narrowing",         "-Wno-c23-extensions",
     "-Wno-extra-tokens",            "-Wno-extra-qualification",
     "-Wno-logical-not-parentheses", "-D__stdcall=",
-    "-DBK_STDCALL=",                "-D__GLIBC_MINOR__=39",
+    "-DBK_STDCALL=",
     "-Wno-macro-redefined",         "-fPIC",
 };
+const portable_cppflags = portable_cflags.* ++ [_][]const u8{ "-std=c++17", "-nostdinc++", "-Wno-invalid-constexpr" };
+const portable_cppflags_release = portable_cflags_release ++ [_][]const u8{ "-std=c++17", "-nostdinc++", "-Wno-invalid-constexpr" };
 
 // The portable flag set is shared by both variants because the debug macros
 // (_DEBUG, _DO_ASSERT_SLOW, _STL_RANGE_CHECK) gate code that has never been
@@ -723,12 +725,30 @@ const cppflags_game_release = &.{
 };
 
 pub fn build(b: *std.Build) void {
-    var selected_target = b.standardTargetOptions(.{
-        .default_target = .{
+    const default_target: std.Target.Query = switch (b.graph.host.result.os.tag) {
+        .linux => .{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .gnu,
+        },
+        .windows => .{
             .cpu_arch = .x86_64,
             .os_tag = .windows,
             .abi = .msvc,
         },
+        .macos => .{
+            .cpu_arch = .aarch64,
+            .os_tag = .macos,
+        },
+        else => .{
+            .cpu_arch = .x86_64,
+            .os_tag = .linux,
+            .abi = .gnu,
+        },
+    };
+
+    var selected_target = b.standardTargetOptions(.{
+        .default_target = default_target,
     });
     // The Linux build compiles against the host's GCC libstdc++ headers and
     // links its shared libstdc++ (linkCxxRuntime), and those headers assume
@@ -835,6 +855,14 @@ pub fn build(b: *std.Build) void {
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
         .library_arch = library_arch,
     };
+    if (platform == .windows_x64 and b.graph.host.result.os.tag != .windows and
+        (!b.user_input_options.contains("msvc-include") or
+            !b.user_input_options.contains("windows-sdk-include") or
+            !b.user_input_options.contains("msvc-lib") or
+            !b.user_input_options.contains("windows-sdk-lib")))
+    {
+        @panic("Windows target on a non-Windows host requires explicit MSVC/Windows SDK paths: pass -Dmsvc-include, -Dwindows-sdk-include, -Dmsvc-lib, and -Dwindows-sdk-lib.");
+    }
 
     const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
     platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
@@ -1447,7 +1475,7 @@ pub fn build(b: *std.Build) void {
     const stage_metadata_files = package_policy.required_metadata_files[0..];
     const stage_runtime_files = switch (target.result.os.tag) {
         .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
         .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
         else => &[_][]const u8{stage_game_name},
     };
@@ -1605,6 +1633,7 @@ pub fn build(b: *std.Build) void {
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
     const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, streamio_fast);
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
+    const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
 
@@ -1833,6 +1862,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -1850,12 +1880,14 @@ pub fn build(b: *std.Build) void {
     install_game_cmd.addArg(stage_root);
     addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     if (!copy_data) install_game_cmd.addArg("--link-data");
-    install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
-    // Staging copies the compiled shader blobs out of a plain path, so the same
-    // sources have to be part of its cache key or an edited shader never reaches
-    // the install layout. It cannot simply always run: it deletes and re-copies
-    // the whole 2.7 GB Data tree.
-    for (shader_sources) |source| install_game_cmd.addFileInput(b.path(source));
+    if (!use_prebuilt_shaders) {
+        install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
+        // Staging copies the compiled shader blobs out of a plain path, so the same
+        // sources have to be part of its cache key or an edited shader never reaches
+        // the install layout. It cannot simply always run: it deletes and re-copies
+        // the whole 2.7 GB Data tree.
+        for (shader_sources) |source| install_game_cmd.addFileInput(b.path(source));
+    }
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
@@ -2009,7 +2041,7 @@ pub fn build(b: *std.Build) void {
 
     const package_game_step = b.step("package-game", "Create game-only installation zip package");
     package_game_step.dependOn(game_all_step);
-    package_game_step.dependOn(gfx_gpu_shaders_step);
+    if (!use_prebuilt_shaders) package_game_step.dependOn(gfx_gpu_shaders_step);
     package_game_step.dependOn(&stage_package_game_cmd.step);
     package_game_step.dependOn(&package_tool_run.step);
 
@@ -3374,10 +3406,11 @@ fn addGfxGpuZig(
         .optimize = optimize,
         .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
     });
+    applyLoaderPath(target, gfx_gpu_module);
 
     return b.addLibrary(.{
         .name = "GfxGpuZig",
-        .linkage = .static,
+        .linkage = if (target.result.os.tag == .linux) .dynamic else .static,
         .root_module = gfx_gpu_module,
     });
 }
@@ -3395,8 +3428,8 @@ fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 
 fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
-        .Debug => portable_cflags,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cflags_release,
+        .Debug => &portable_cppflags,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cppflags_release,
     };
     return switch (optimize) {
         .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
@@ -3428,7 +3461,7 @@ fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) v
 }
 
 fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return portable_cflags;
+    if (build_target_os != .windows) return &portable_cppflags;
     return switch (optimize) {
         .Debug => cppflags_beta_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_beta_release,
@@ -3444,7 +3477,10 @@ fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return portable_cflags;
+    if (build_target_os != .windows) return switch (optimize) {
+        .Debug => &portable_cppflags,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cppflags_release,
+    };
     return switch (optimize) {
         .Debug => cppflags_sfx_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_sfx_release,
@@ -3452,7 +3488,10 @@ fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8
 }
 
 fn cppflagsGameForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return portable_cflags;
+    if (build_target_os != .windows) return switch (optimize) {
+        .Debug => &portable_cppflags,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cppflags_release,
+    };
     return switch (optimize) {
         .Debug => cppflags_game_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_game_release,
@@ -3475,19 +3514,19 @@ const ToolchainIncludes = struct {
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    if (build_target_os != .windows or b.graph.host.result.os.tag != .windows) return;
+    if (build_target_os != .windows) return;
     module.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\ucrt", .{toolchain.windows_sdk_include}) });
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) });
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\um", .{toolchain.windows_sdk_include}) });
-    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\winrt", .{toolchain.windows_sdk_include}) });
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/ucrt", .{toolchain.windows_sdk_include}) });
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/shared", .{toolchain.windows_sdk_include}) });
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/um", .{toolchain.windows_sdk_include}) });
+    module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/winrt", .{toolchain.windows_sdk_include}) });
 }
 
 fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    if (build_target_os != .windows or b.graph.host.result.os.tag != .windows) return;
-    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
-    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
-    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
+    if (build_target_os != .windows) return;
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/ucrt/{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/um/{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
 }
 
 /// macOS counterpart to the Linux libstdc++ policy below. Zig ships its own
@@ -3541,12 +3580,20 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     module.addIncludePath(.{ .cwd_relative = b.fmt("/usr/include/c++/{s}/backward", .{version}) });
     var gcc_versions = std.Io.Dir.openDirAbsolute(b.graph.io, b.fmt("/usr/lib/gcc/{s}-linux-gnu", .{arch}), .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(gcc_versions, b.graph.io);
+    var selected_gcc: ?[]const u8 = null;
     var gcc_iterator = gcc_versions.iterate();
     while (gcc_iterator.next(b.graph.io) catch null) |entry| {
-        if (entry.kind == .directory) {
-            module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/lib/gcc/{s}-linux-gnu/{s}/include", .{ arch, entry.name }) });
+        if (entry.kind != .directory) continue;
+        if (std.mem.eql(u8, entry.name, version)) {
+            selected_gcc = b.allocator.dupe(u8, entry.name) catch @panic("OOM");
             break;
         }
+        if (selected_gcc == null or std.mem.order(u8, selected_gcc.?, entry.name) == .lt) {
+            selected_gcc = b.allocator.dupe(u8, entry.name) catch @panic("OOM");
+        }
+    }
+    if (selected_gcc) |gcc_version| {
+        module.addSystemIncludePath(.{ .cwd_relative = b.fmt("/usr/lib/gcc/{s}-linux-gnu/{s}/include", .{ arch, gcc_version }) });
     }
 }
 

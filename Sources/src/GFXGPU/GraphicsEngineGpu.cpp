@@ -1270,6 +1270,7 @@ bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, D
 bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD flags )
 {
     if ( !text ) return false;
+    text->SetWidth( rect.right - rect.left );
     IText *source = text->GetText();
     if ( !source ) return true;
     // GetString() is UTF-16. Casting it to wchar_t made AppendGeometry walk
@@ -1345,6 +1346,13 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
         }
         return true;
     }
+    // The legacy CGFXText implementation belongs to the older GFX library, not
+    // the SDL-GPU module. Keeping a dynamic_cast to that type here pulls in its
+    // RTTI symbol even when the library itself is never built, which breaks the
+    // Linux dlopen chain. The GPU text path already handles all rendering and
+    // falls back to simple glyph blocks only when there is no font provider.
+    if ( getenv( "BK_GFX_TRACE" ) )
+        std::fprintf( stderr, "BK_GFX_TRACE: DrawText fallback provider=%p font=%p text=%p\n", static_cast<void *>( font_provider ), static_cast<void *>( font ), static_cast<void *>( text ) );
     return DrawFallbackGlyphs( this, value, static_cast<int>( x ), rect.top + y, font_provider ? font_provider->Color() : 0xffffffff, rect.right );
 }
 bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *rects, int count, bool solid )
