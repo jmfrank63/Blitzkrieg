@@ -744,7 +744,13 @@ fn statFile(storage: *const Storage, name: []const u8) ?std.Io.File.Stat {
     defer allocator.free(raw_path);
     const path = hostPathAlloc(raw_path[0 .. raw_path.len - 1]) orelse return null;
     defer allocator.free(path);
-    return std.Io.Dir.cwd().statFile(hostIo(), path, .{}) catch null;
+    if (std.Io.Dir.cwd().statFile(hostIo(), path, .{})) |stat| {
+        return stat;
+    } else |_| {}
+    if (builtin.os.tag == .windows) return null;
+    const resolved = resolveCaseInsensitivePath(raw_path[0 .. raw_path.len - 1]) orelse return null;
+    defer allocator.free(resolved);
+    return std.Io.Dir.cwd().statFile(hostIo(), resolved, .{}) catch null;
 }
 
 // Legacy resource names are case-insensitive on Windows.  The original game
@@ -850,6 +856,24 @@ fn overlayStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
     return null;
 }
 
+// The loose-file half of an existence probe: exact case first (the only case
+// Windows ever needs), then the POSIX component-by-component resolution that
+// openStream already applies.  An existence probe must not be stricter than
+// open - a file that loads fine but reports "missing" is how the campaign
+// buttons and the tutorial list came up empty on Linux.
+fn looseFileExists(raw_path: []const u8) bool {
+    if (fopen(@ptrCast(raw_path.ptr), "rb")) |file| {
+        _ = fclose(file);
+        return true;
+    }
+    if (builtin.os.tag == .windows) return false;
+    const resolved = resolveCaseInsensitivePath(raw_path[0 .. raw_path.len - 1]) orelse return false;
+    defer allocator.free(resolved);
+    const file = fopen(resolved.ptr, "rb") orelse return false;
+    _ = fclose(file);
+    return true;
+}
+
 fn overlayExists(storage: *const Storage, name: []const u8) bool {
     var index = storage.overlays.items.len;
     while (index > 0) {
@@ -857,10 +881,7 @@ fn overlayExists(storage: *const Storage, name: []const u8) bool {
         const child = storage.overlays.items[index].storage;
         const path = makePath(child, name) orelse continue;
         defer allocator.free(path);
-        if (fopen(@ptrCast(path.ptr), "rb")) |file| {
-            _ = fclose(file);
-            return true;
-        }
+        if (looseFileExists(path)) return true;
         if (archiveEntry(child, name) != null or overlayExists(child, name)) return true;
     }
     return false;
@@ -1115,9 +1136,8 @@ pub export fn bk_storage_exists(handle: ?*anyopaque, name: [*:0]const u8) callco
     const storage = fromHandle(Storage, handle) orelse return false;
     const path = makePath(storage, std.mem.span(name)) orelse return false;
     defer allocator.free(path);
-    const file = fopen(@ptrCast(path.ptr), "rb") orelse return archiveEntry(storage, std.mem.span(name)) != null or overlayExists(storage, std.mem.span(name));
-    _ = fclose(file);
-    return true;
+    if (looseFileExists(path)) return true;
+    return archiveEntry(storage, std.mem.span(name)) != null or overlayExists(storage, std.mem.span(name));
 }
 
 pub export fn bk_storage_open(handle: ?*anyopaque, name: [*:0]const u8, access: c_ulong) callconv(.c) ?*anyopaque {
@@ -1771,6 +1791,17 @@ test "POSIX resource paths resolve legacy casing" {
     const resolved = resolveCaseInsensitivePath("Data/cursor/1.xml") orelse return error.TestUnexpectedResult;
     defer allocator.free(resolved);
     try std.testing.expectEqualStrings("Data/Cursor/1.xml", resolved);
+}
+
+test "storage existence probe resolves legacy casing like open does" {
+    if (builtin.os.tag == .windows) return;
+    const handle = bk_storage_create("Data\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(handle);
+    // The UI probes with the legacy lowercase spelling while the data tree is
+    // mixed-case (Data/Scenarios/Campaigns/German/german.xml); the campaign
+    // buttons and the tutorial list are gated on exactly this probe.
+    try std.testing.expect(bk_storage_exists(handle, "scenarios\\campaigns\\german\\german.xml"));
+    try std.testing.expect(!bk_storage_exists(handle, "scenarios\\campaigns\\german\\missing.xml"));
 }
 
 test "nested data-tree containers restore the outer item enumerator" {
