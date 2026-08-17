@@ -79,6 +79,15 @@ public:
 	bool IsMinimized() const;
 	bool IsVisible() const;
 	bool HasInputFocus() const;
+	// The pointer is over our window. Distinct from input focus: the two part
+	// company whenever the pointer wanders off a still-focused window.
+	bool HasMouseFocus() const;
+	// Pointer position in desktop coordinates: unlike a window-relative one it
+	// stays meaningful after the pointer has left the window, which is exactly
+	// the case the confinement has to detect and undo.
+	bool GetGlobalMousePosition( float *x, float *y ) const;
+	bool GetWindowPosition( int *x, int *y ) const;
+	bool WarpMousePosition( float x, float y );
 	WindowBorrow BorrowWindow() const;
 	void *GetWindowsNativeHandle() const;
 	WindowSize LogicalSize() const;

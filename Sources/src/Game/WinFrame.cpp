@@ -3,6 +3,7 @@
 #include <mmsystem.h>
 
 #include "WinFrame.h"
+#include "MouseCapture.h"
 #include "SysKeys.h"
 #include "../Platform/SDLApplication.h"
 #include "../Platform/Event.h"
@@ -509,15 +510,44 @@ void ReleaseMouse()
 // normal case at launch - never gets a focus-gained, so the mouse was never
 // grabbed and the system cursor never hidden until the first alt-tab out and
 // back. Polling the real focus flag each pump closes that gap and is idempotent.
+// The release rule lives in NMouseCapture so both frames answer the same.
+// SDL's grab alone was not keeping the pointer in - it hands AppKit a
+// mouseConfinementRect and the pointer still reached the desktop at the bottom
+// corners - so the pointer is also checked against the window every pump.
+static void HoldPointerInsideWindow()
+{
+	if ( bMouseReleased )
+		return;
+	float fGlobalX = 0.0f, fGlobalY = 0.0f;
+	int nWindowX = 0, nWindowY = 0;
+	if ( !sdlApplication.GetGlobalMousePosition( &fGlobalX, &fGlobalY ) )
+		return;
+	if ( !sdlApplication.GetWindowPosition( &nWindowX, &nWindowY ) )
+		return;
+	const NPlatform::WindowSize size = sdlApplication.LogicalSize();
+	float fInsideX = 0.0f, fInsideY = 0.0f;
+	if ( NMouseCapture::ClampIntoWindow( fGlobalX - float( nWindowX ), fGlobalY - float( nWindowY ),
+																	 size.width, size.height, &fInsideX, &fInsideY ) )
+		sdlApplication.WarpMousePosition( fInsideX, fInsideY );
+}
 static void ReconcileMouseCapture()
 {
 	if ( hWnd == 0 )
 		return;
-	const bool bFocused = sdlApplication.HasInputFocus();
-	if ( bFocused && bMouseReleased )
-		CaptureMouse();
-	else if ( !bFocused && !bMouseReleased )
-		ReleaseMouse();
+	NMouseCapture::SInputs inputs;
+	inputs.bWindowFocused = sdlApplication.HasInputFocus();
+	inputs.bPointerOverWindow = sdlApplication.HasMouseFocus();
+	inputs.bGrabbed = !bMouseReleased;
+
+	const bool bWant = NMouseCapture::WantGrab( inputs );
+	if ( bWant != inputs.bGrabbed )
+	{
+		if ( bWant )
+			CaptureMouse();
+		else
+			ReleaseMouse();
+	}
+	HoldPointerInsideWindow();
 }
 void PumpMessages()
 {

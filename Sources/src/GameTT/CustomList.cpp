@@ -103,6 +103,11 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 			fprintf( stderr, "BK_UI_TRACE: tutorial top dir[%d]=%s\n", nPrinted, it->c_str() );
 	}
 	
+	// One logical file is collected once per storage that carries it - the game
+	// archive and the loose Data tree both do - and each storage's own prefix is
+	// stripped below, so they all reduce to the same name. Without this every
+	// entry was listed once per storage: five identical tutorials in a row.
+	std::unordered_set<std::string> setOfSeenFiles;
 	for ( std::unordered_set<std::string>::iterator it = setOfDirs.begin(); it != setOfDirs.end(); ++it )
 	{
 		std::string szCmpDir = szCurrentDir + *it;
@@ -132,14 +137,19 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 			if ( nPos == std::string::npos )
 				continue;
 
-			std::string szExtension = szCurrentName.substr( nPos + 1 );
+			// Keep the dot: the mask is "*.xml" and the comparison below skips only
+			// the star, so it is matched against ".xml". Dropping the dot here made
+			// every mask comparison fail, which emptied all four custom lists -
+			// tutorials, missions, chapters and campaigns.
+			std::string szExtension = szCurrentName.substr( nPos );
 			for ( int k=0; k<fileMasks.size(); k++ )
 			{
 				if ( NStr::CompareAsciiNoCase( szExtension.c_str(), fileMasks[k].c_str() + 1 ) == 0 )
 				{
 					std::string szName = szCmpDir;
 					szName += szCurrentName;
-					files.push_back( szName );
+					if ( setOfSeenFiles.insert( szName ).second )
+						files.push_back( szName );
 				}
 			}
 		}

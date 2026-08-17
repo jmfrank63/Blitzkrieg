@@ -561,6 +561,10 @@ private:
 	};
 	
 	void InitConsts();
+	// Silences every sample the engine is still playing for this scene. See
+	// CSoundScene::Clear for why letting go of the CSound objects is not
+	// enough.
+	void StopAllSamples();
 public:
 
 	CSoundScene();

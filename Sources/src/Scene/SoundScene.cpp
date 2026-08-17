@@ -1112,8 +1112,21 @@ CSoundScene::CSoundScene()
 {
 	mapSounds.SetSoundScene( this );
 }
+void CSoundScene::StopAllSamples()
+{
+	if ( pSFX == 0 )
+		pSFX = GetSingleton<ISFX>();
+	if ( pSFX )
+		pSFX->StopAllSamples();
+}
 void CSoundScene::Clear()
 {
+	// Dropping the containers below only releases the CSound objects, and
+	// neither ~CSound nor ~CBaseSound stops the channel the engine gave them -
+	// the engine keeps its own reference and goes on playing. Anything still
+	// looping when the mission ends therefore followed the player into the
+	// menu, so silence the samples before letting go of them.
+	StopAllSamples();
 	freeIDs.Clear();
 	substTable.clear();
 	streamingSounds.Clear();
@@ -1225,6 +1238,9 @@ void CSoundScene::SetMode( const enum ESoundSceneMode _eSoundSceneMode )
 
 		break;
 	case ESSM_INTERMISSION_INTERFACE:
+		// Same reason as CSoundScene::Clear: the containers do not own the
+		// playback, so leaving the mission has to stop it explicitly.
+		StopAllSamples();
 		mapSounds.Clear();
 		freeIDs.Clear();
 		substTable.clear();

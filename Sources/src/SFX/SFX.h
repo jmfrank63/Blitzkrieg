@@ -86,5 +86,12 @@ interface ISFX : public IRefCount
 
 	virtual unsigned int STDCALL GetCurrentPosition( ISound * pSound )=0;
 	virtual void STDCALL SetCurrentPosition( ISound * pSound, unsigned int pos )=0;
+
+	// Silence every playing sample at once, leaving the music stream alone.
+	// Releasing an ISound does not stop it - the engine holds the channel and
+	// the only reference to the sound - so tearing a mission's sound scene
+	// down by clearing its containers left whatever was looping at that moment
+	// (an aircraft engine, most audibly) playing on into the menu.
+	virtual void STDCALL StopAllSamples() = 0;
 };
 #endif // __SFX_H__

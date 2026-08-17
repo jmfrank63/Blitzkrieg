@@ -553,6 +553,21 @@ void CSoundEngine::StopChannel( int nChannel )
 		soundsMap.erase( pos );
 	}
 }
+void CSoundEngine::StopAllSamples()
+{
+	// soundsMap holds a reference to every sound it is playing, so a sound the
+	// rest of the game has forgotten still has a live channel here. Stop them
+	// all, but never the music stream: it is not in these maps (PlayStream
+	// drives nStreamingChannel directly) and the menu music that follows a
+	// mission is started before the scene tears down.
+	for ( CChannelSoundMap::iterator it = soundsMap.begin(); it != soundsMap.end(); ++it )
+	{
+		if ( it->first != nStreamingChannel )
+			NAudioBackend::StopChannel( it->first );
+	}
+	soundsMap.clear();
+	channelsMap.clear();
+}
 unsigned int CSoundEngine::GetCurrentPosition( ISound * pSound )
 {
 	CSoundChannelMap::iterator pos = channelsMap.find( pSound );

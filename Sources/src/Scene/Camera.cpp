@@ -39,6 +39,11 @@ void CCamera::SetPlacement( const CVec3 &_vAnchor, float _fDist, float _fPitch, 
 {
 	vAnchor = _vAnchor;
 	vAnchor.z = 0;
+	// GetAnchor reports vAnchor1, which Update derives by snapping vAnchor to
+	// whole screen steps. Leaving it behind here makes GetAnchor answer with
+	// the previous placement until the next Update, and the caller that reads
+	// it back to re-place the camera then moves the camera somewhere else.
+	vAnchor1 = vAnchor;
 	fRod = _fDist;
 	fPitch = _fPitch;
 	fYaw = _fYaw;
@@ -154,5 +159,11 @@ int CCamera::operator&( IStructureSaver &ss )
 	saver.Add( 11, &fEQAttenuation );
 	saver.Add( 12, &fEQPeriod );
 	saver.Add( 13, &timeEQDuration );
+	// vAnchor1 is derived, so it is not in the save. Seeding it from the
+	// restored anchor matters because CMD_LOAD_FINISHED re-places the camera on
+	// GetAnchor() before the first Update has recomputed it: reading the stale
+	// zero there put every loaded game back at the corner of the map.
+	if ( saver.IsReading() )
+		vAnchor1 = vAnchor;
 	return 0;
 }

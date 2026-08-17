@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "../Platform/SDLApplication.h"
+#include "MouseCapture.h"
 #include "SysKeys.h"
 
 namespace NGame
@@ -49,6 +50,12 @@ public:
 	bool SetFullscreen( bool enabled );
 	void CaptureMouse();
 	void ReleaseMouse();
+	// Brings the confinement in line with focus, the shift gesture and any
+	// standing ctrl+escape release. Idempotent, and driven from the message
+	// pump rather than from focus events alone: a window that comes up already
+	// focused never produces a focus-gained event to hang the first grab on.
+	void ReconcileMouseCapture();
+	void HoldPointerInsideWindow();
 	bool SetCursorVisible( bool visible );
 	void PumpMessages();
 	bool PollEvent( NPlatform::PlatformEvent &event );
@@ -68,6 +75,13 @@ private:
 	bool active_ = false;
 	bool exit_ = false;
 	bool fullscreen_ = false;
+	// Set by ctrl+escape and cleared when the window next takes focus, so the
+	// hotkey frees the pointer for as long as the player stays outside instead
+	// of being undone by the next reconcile.
+	bool release_requested_ = false;
+	// Whether we asked for the pointer. Kept here rather than read back from
+	// SDL, which reports a grab as off whenever the window is unfocused.
+	bool grabbed_ = false;
 };
 }
 

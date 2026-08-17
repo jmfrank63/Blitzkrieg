@@ -28,6 +28,13 @@ static bool IsUnitSoundTraceOn()
 	static const bool bOn = getenv( "BK_SOUND_TRACE" ) != 0;
 	return bOn;
 }
+// BK_PLANE_TRACE=1: what the client actually does with a downed aircraft -
+// which death notify arrived, and whether the smoke trail was really built.
+static bool IsPlaneTraceOn()
+{
+	static const bool bOn = getenv( "BK_PLANE_TRACE" ) != 0;
+	return bOn;
+}
 CMOUnitMechanical::CMOUnitMechanical()
 {
 	bInstalled = true;
@@ -304,8 +311,12 @@ void CMOUnitMechanical::UpdateAttachedEffects( const NTimer::STime &currTime, IS
 	{
 		if ( it->nPointIndex >= nNumNodes ) 
 			continue;
-		const SHMatrix &matrix = matrices[it->nPointIndex];
-		const CVec3 vNewPos = matrix.GetTrans3();
+		// A negative index means the effect rides the hull rather than a model
+		// node. Reading matrices[-1] here was an out-of-bounds access waiting for
+		// a default-constructed SEffect, and it is how an aircraft's death trail
+		// is attached now - see ActionDie.
+		const bool bOnNode = it->nPointIndex >= 0;
+		const CVec3 vNewPos = bOnNode ? matrices[it->nPointIndex].GetTrans3() : GetVisObj()->GetPosition();
 		CVec3 vPos = it->pEffect->GetPosition();
 		if ( fabs2(vNewPos - vPos) >= 25 )
 		{
@@ -323,7 +334,8 @@ void CMOUnitMechanical::UpdateAttachedEffects( const NTimer::STime &currTime, IS
 		}
 		if ( (pScene == 0) || (pScene->MoveObject(it->pEffect, vNewPos) == false) ) 
 			it->pEffect->SetPlacement( vNewPos, 0 );
-		it->pEffect->SetEffectDirection( matrix );
+		if ( bOnNode )
+			it->pEffect->SetEffectDirection( matrices[it->nPointIndex] );
 		it->pEffect->SetSuspendedState( !(GetVisObj()->IsVisible()) );
 	}
 }
@@ -830,9 +842,20 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 	{
 		pScene->RemoveSound( wMoveSoundID );
 		wMoveSoundID = 0;
+	}
+	// Independently of the engine loop, which is the bug this used to be nested
+	// inside. A downed plane gets its falling whine on the first ActionDie - the
+	// notify carrying -1 - and its explosion arrives as a second one, by which
+	// point wMoveSoundID is already 0 and the whole block was skipped. The whine
+	// therefore played on over the explosion and outlived the aircraft.
+	if ( 0 != wNonCycleSoundID )
+	{
 		pScene->RemoveSound( wNonCycleSoundID );
 		wNonCycleSoundID = 0;
 	}
+	if ( IsPlaneTraceOn() && pRPG->IsAviation() )
+		fprintf( stderr, "BK_PLANE_TRACE: \"%s\" ActionDie param=0x%x damagePoints=%d hasSmoke=%d\n",
+						 pDesc->szKey.c_str(), unsigned(action.nParam), int(pRPG->damagePoints.size()), int(pRPG->HasSmokeEffect()) );
 	if ( action.nParam == -1 ) // not ordinary death
 	{
 		wNonCycleSoundID = pScene->AddSound( "plane_fly_death", pVisObj->GetPosition(),
@@ -843,20 +866,55 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 		if ( !pRPG->damagePoints.empty() && pRPG->HasSmokeEffect() ) 
 		{
 			const int nIndex = pRPG->damagePoints[ rand() % pRPG->damagePoints.size() ];
+			// Node matrices only mean anything once the object has been stepped to the
+			// current time - UpdateAttachedEffects steps it for exactly this reason
+			// before it reads them. Reading them cold hung the trail off a stale
+			// matrix, which is why a downed plane explodes but never smokes: the
+			// explosion is placed at the hull, the trail at a damage point.
+			pObj->Update( currTime );
 			const SHMatrix *matrices = pObj->GetMatrices();
-			CheckFixedRange( nIndex, GetAnim()->GetNumNodes(), pDesc->szPath.c_str() );
-			const SHMatrix &matrix = matrices[nIndex];
-			if ( IEffectVisObj *pEffect = PlayEffect(pRPG->szEffectSmoke, matrix.GetTrans3(), timeEffect, pRPG->IsAviation(), 
-				                                       pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC) )
+			const int nNumNodes = GetAnim()->GetNumNodes();
+			CheckFixedRange( nIndex, nNumNodes, pDesc->szPath.c_str() );
+			// CheckFixedRange compiles to `true` in release builds, so a damage point
+			// past the model's nodes read a matrix out of bounds and put the smoke at
+			// a garbage position. Fall back to the hull, where the explosion goes.
+			// Aircraft hang the trail on the hull instead of a damage point. The node
+			// matrix is the one thing that differs between this and the explosion -
+			// which is placed at GetPosition() and does appear - so it is what the
+			// missing trail points at, and a plane's damage points sit inside the
+			// fuselage anyway. A negative point index makes UpdateAttachedEffects
+			// follow the object itself, so the trail still rides the aircraft down.
+			const bool bNodeUsable = !pRPG->IsAviation() && nIndex >= 0 && nIndex < nNumNodes;
+			const int nEffectPoint = bNodeUsable ? nIndex : -1;
+			const CVec3 vSmokePos = bNodeUsable ? matrices[nIndex].GetTrans3() : pObj->GetPosition();
+			// Aircraft already get the stoppable "plane_fly_death" whine above; letting
+			// the trail add its own forgotten copy on top left a plane sound with no
+			// handle, still audible after the wreck was gone.
+			IEffectVisObj *pEffect = PlayEffect(pRPG->szEffectSmoke, vSmokePos, timeEffect, pRPG->IsAviation(), 
+				                                  pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC,
+				                                  !pRPG->IsAviation() );
+			if ( IsPlaneTraceOn() && pRPG->IsAviation() )
+				fprintf( stderr, "BK_PLANE_TRACE: \"%s\" smoke=\"%s\" built=%d node=%d/%d usable=%d at=(%.0f,%.0f,%.0f) hull=(%.0f,%.0f,%.0f)\n",
+								 pDesc->szKey.c_str(), pRPG->szEffectSmoke.c_str(), pEffect != 0, nIndex, nNumNodes, int(bNodeUsable),
+								 vSmokePos.x, vSmokePos.y, vSmokePos.z,
+								 pObj->GetPosition().x, pObj->GetPosition().y, pObj->GetPosition().z );
+			if ( pEffect )
 			{
-				pEffect->SetEffectDirection( matrix );
-				AddEffect( pEffect, nIndex, timeEffect );
+				if ( bNodeUsable )
+					pEffect->SetEffectDirection( matrices[nIndex] );
+				AddEffect( pEffect, nEffectPoint, timeEffect );
 			}
 		}
 	}
 	else if ( int((action.nParam >> 16) & 0x0fff) == ANIMATION_DEATH_FATALITY ) 
 	{
-		if ( !pRPG->szEffectFatality.empty() )
+		// AILogic sends every downed plane down the fatality path now, so an
+		// aircraft whose stats never got an explosion effect filled in still has
+		// to blow up somehow: fall back to the effect the other aircraft use.
+		std::string szFatality = pRPG->szEffectFatality;
+		if ( szFatality.empty() && pRPG->IsAviation() )
+			szFatality = "expplane1";
+		if ( !szFatality.empty() )
 		{
 			if ( pRPG->nFatalitySmokePoint != -1 ) 
 			{
@@ -864,7 +922,7 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 				const SHMatrix &matrix = matrices[pRPG->nFatalitySmokePoint];
 				CheckFixedRange( pRPG->nFatalitySmokePoint, GetAnim()->GetNumNodes(), pDesc->szPath.c_str() );
 				const CVec3 vEffPos = matrix.GetTrans3();
-				if ( IEffectVisObj *pEffect = PlayEffect(pRPG->szEffectFatality, vEffPos, timeEffect, pRPG->IsAviation(), 
+				if ( IEffectVisObj *pEffect = PlayEffect(szFatality, vEffPos, timeEffect, pRPG->IsAviation(), 
 					                                       pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC) )
 				{
 					pEffect->SetEffectDirection( matrix );
@@ -881,7 +939,7 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 					pGamma->Init( 1, 1, 1, timeEffect, 250 );
 					pScene->AddSceneObject( pGamma );
 				}
-				PlayEffect( pRPG->szEffectFatality, GetVisObj()->GetPosition(), timeEffect, true, 
+				PlayEffect( szFatality, GetVisObj()->GetPosition(), timeEffect, true, 
 					          pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC );
 			}
 		}

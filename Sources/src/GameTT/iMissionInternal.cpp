@@ -778,6 +778,34 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 }
 static void SyncMissionModeFromInterMission();
 static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor );
+// Where the player's troops stand, averaged. Only a fallback for maps that
+// author no camera anchor at all: the anchor the designers set is the better
+// answer everywhere it exists, because it frames the opening situation rather
+// than the arithmetic middle of the roster.
+static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlayer )
+{
+	IObjectsDB *pDB = GetSingleton<IObjectsDB>();
+	if ( pDB == 0 )
+		return VNULL3;
+	CVec3 vSum = VNULL3;
+	int nUnits = 0;
+	for ( int i = 0; i < mapinfo.objects.size(); ++i )
+	{
+		const SMapObjectInfo &object = mapinfo.objects[i];
+		if ( object.nPlayer != nPlayer )
+			continue;
+		// Scenery carries a player index too - on Summa 846 of player 0's 1080
+		// objects are props - so the game type is what tells troops from trees.
+		CGDBPtr<SGDBObjectDesc> pDesc = pDB->GetDesc( object.szName.c_str() );
+		if ( pDesc == 0 || pDesc->eGameType != SGVOGT_UNIT )
+			continue;
+		vSum += object.vPos;
+		++nUnits;
+	}
+	if ( nUnits == 0 )
+		return VNULL3;
+	return CVec3( vSum.x / nUnits, vSum.y / nUnits, 0.0f );
+}
 bool CInterfaceMission::Init()
 {
 	SyncMissionModeFromInterMission();
@@ -794,7 +822,11 @@ bool CInterfaceMission::Init()
 	pAckManager = GetSingleton<IClientAckManager>();
 	pFrameSelection = pScene->GetFrameSelection();
 	missionMsgs.Init( pInput, missionCommands );
-	SetMissionCameraPlacement( pGFX, pCamera, CVec3(0, 0, 0) );
+	// Keep whatever anchor the camera already carries. Init runs before
+	// NewMission on a fresh start, where the anchor is still the default, but
+	// during deserialization on a load - and hardcoding the origin here threw
+	// away the position the save had just restored.
+	SetMissionCameraPlacement( pGFX, pCamera, pCamera->GetAnchor() );
 	nFPSAveragePeriod = GetGlobalVar( "Word.FPSAveragePeriod", 5000 );
 	SetBindSection( "game_mission" );
 	pAILogic->Resume();
@@ -1198,10 +1230,15 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 	vCameraStartPos = mapinfo.vCameraAnchor;
 	{
 		const int nUserPlayer = GetSingleton<IScenarioTracker>()->GetUserPlayerID();
-		if ( nUserPlayer < mapinfo.playersCameraAnchors.size() ) 
+		if ( nUserPlayer < mapinfo.playersCameraAnchors.size() )
 			vCameraStartPos = mapinfo.playersCameraAnchors[nUserPlayer];
-		if ( vCameraStartPos == VNULL3 ) 
+		if ( vCameraStartPos == VNULL3 )
 			vCameraStartPos = mapinfo.vCameraAnchor;
+		// Neither anchor authored - random maps and unfinished ones - used to
+		// open the mission on the map's origin corner, nowhere near the player.
+		// The middle of what the player owns is the useful view instead.
+		if ( vCameraStartPos == VNULL3 )
+			vCameraStartPos = GetPlayerUnitsCenter( mapinfo, nUserPlayer );
 	}
 	pCamera->SetAnchor( vCameraStartPos );
 	pCamera->SetBounds( 0, 0, mapinfo.terrain.tiles.GetSizeX() * fWorldCellSize, mapinfo.terrain.tiles.GetSizeY() * fWorldCellSize );

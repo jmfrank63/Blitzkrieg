@@ -223,6 +223,31 @@ bool SDLApplication::HasInputFocus() const
 	return window_ && (SDL_GetWindowFlags( static_cast<SDL_Window *>( window_ ) ) & SDL_WINDOW_INPUT_FOCUS) != 0;
 }
 
+bool SDLApplication::HasMouseFocus() const
+{
+	return window_ && SDL_GetMouseFocus() == static_cast<SDL_Window *>( window_ );
+}
+
+bool SDLApplication::GetGlobalMousePosition( float *x, float *y ) const
+{
+	if ( !window_ || x == nullptr || y == nullptr ) return false;
+	SDL_GetGlobalMouseState( x, y );
+	return true;
+}
+
+bool SDLApplication::GetWindowPosition( int *x, int *y ) const
+{
+	if ( !window_ || x == nullptr || y == nullptr ) return false;
+	return SDL_GetWindowPosition( static_cast<SDL_Window *>( window_ ), x, y );
+}
+
+bool SDLApplication::WarpMousePosition( float x, float y )
+{
+	if ( !window_ || !OnMainThread() ) return false;
+	SDL_WarpMouseInWindow( static_cast<SDL_Window *>( window_ ), x, y );
+	return true;
+}
+
 WindowBorrow SDLApplication::BorrowWindow() const { return { EncodeWindowIdentity( window_ ) }; }
 
 void *SDLApplication::GetWindowsNativeHandle() const

@@ -93,6 +93,7 @@ public:
 	virtual void STDCALL StopSample( ISound *pSound );
 	virtual void STDCALL UpdateSample( ISound *pSound );
 	virtual void STDCALL StopChannel( int nChannel );
+	virtual void STDCALL StopAllSamples();
 
 	virtual void STDCALL Update( interface ICamera *pCamera );
 	virtual bool STDCALL Pause( bool bPause );

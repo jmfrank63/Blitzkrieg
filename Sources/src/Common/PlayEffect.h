@@ -18,7 +18,11 @@ inline const std::string* GetHitEffect( const SAINotifyHitInfo &hit, const SWeap
 inline IEffectVisObj* PlayEffect( const std::string &szEffect, const CVec3 &vPos, 
 																  const NTimer::STime &currTime, bool bOutbound, IScene *pScene, IVisObjBuilder *pVOB,
 																	const NTimer::STime &timeAfterStart = 0, ESoundMixType eMixType = SFX_MIX_IF_TIME_EQUALS, 
-																	ESoundAddMode eAddType = SAM_ADD_N_FORGET, ESoundCombatType eCombatType = ESCT_ASK_RPG )
+																	ESoundAddMode eAddType = SAM_ADD_N_FORGET, ESoundCombatType eCombatType = ESCT_ASK_RPG,
+										// An effect's own sound is added and forgotten - no id comes back, so
+										// nothing can ever stop it early. Callers that already play a
+										// stoppable sound of their own for the same event pass false.
+										bool bPlayEffectSound = true )
 {
 	if ( szEffect.empty() )
 		return 0;
@@ -27,7 +31,7 @@ inline IEffectVisObj* PlayEffect( const std::string &szEffect, const CVec3 &vPos
 		static_cast<IEffectVisObj*>(pObj)->SetStartTime( currTime );
 		pObj->SetPlacement( vPos, 0 );
 		const std::string &szSoundEffect = static_cast<IEffectVisObj*>(pObj)->GetSoundEffect();
-		if ( !szSoundEffect.empty() ) 
+		if ( bPlayEffectSound && !szSoundEffect.empty() ) 
 			pScene->AddSound( szSoundEffect.c_str(), vPos, eMixType, eAddType, eCombatType, 1, 100, timeAfterStart );
 		if ( bOutbound ) 
 		{

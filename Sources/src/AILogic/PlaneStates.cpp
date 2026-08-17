@@ -1673,6 +1673,13 @@ ETryStateInterruptResult CPlaneShturmovikPatrolState::TryInterruptState( class C
 	pPlane->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
+// BK_PLANE_TRACE=1: the shot-down plane's death sequence, so the dive length
+// and the moment of the explosion can be read off against what is on screen.
+static bool IsPlaneTraceOn()
+{
+	static const bool bOn = getenv( "BK_PLANE_TRACE" ) != 0;
+	return bOn;
+}
 IUnitState* CPlaneFlyDeadState::Instance( CAviation *pPlane )
 {
 	return new CPlaneFlyDeadState( pPlane );
@@ -1681,12 +1688,31 @@ CPlaneFlyDeadState::CPlaneFlyDeadState ( CAviation *_pPlane )
 : pPlane( _pPlane ), eState( EPDS_START_DIVE ), timeStart( curTime ), bExplodeInstantly( true ),
 	fHeight( 0.0f ), bFatality( false )
 {
-	const SMechUnitRPGStats * pStats = static_cast<const SMechUnitRPGStats*>( pPlane->GetStats() );
-	bFatality = !pStats->szEffectFatality.empty();
-	if ( bFatality )
-		bExplodeInstantly = Random( 1 );
-	if ( !bExplodeInstantly )
-		timeStart = curTime + Random( 0, SConsts::DIVE_BEFORE_EXPLODE_TIME );
+	// Every downed plane blows up. bFatality used to be keyed off szEffectFatality,
+	// so the aircraft that never got an explosion effect filled in (He 111, Pe 8,
+	// Tb 3, Wellington, the B-24/25/29, every transport) fell through to the branch
+	// in Segment() that merely descends and then flies off the map edge - a
+	// shot-down bomber visibly kept flying and never died. A missing effect is a
+	// content gap, not a gameplay rule; CMOUnitMechanical::ActionDie supplies a
+	// default explosion for the planes that lack one. The flag stays serialized:
+	// a save written before this change can still restore a plane mid-glide.
+	bFatality = true;
+	// The dive is the point: the plane trails smoke on the way down and only
+	// then blows up. This used to read Random( 1 ), which is Random() % 1 and
+	// so never once came out true - the coin flip the name promises has never
+	// happened, and reinstating it now would only take the smoke away again.
+	bExplodeInstantly = false;
+	// Rolling the dive from zero had the same effect by accident: a low roll
+	// fired the explosion on the very next segment, so the plane blew up before
+	// any smoke reached the screen. The configured dive time is now the floor
+	// rather than the ceiling and the roll only adds to it, so the descent is
+	// always seen. Both ends move with AI/Aviation.DiveBeforeExplodeTime in
+	// consts.xml, currently 5s, giving a 5-7.5s smoking dive.
+	const int nDive = int( SConsts::DIVE_BEFORE_EXPLODE_TIME );
+	timeStart = curTime + nDive + Random( 0, nDive / 2 );
+	if ( IsPlaneTraceOn() )
+		fprintf( stderr, "BK_PLANE_TRACE: plane %p starts dive t=%u, explodes in %u ms\n",
+						 (void*)pPlane, unsigned(curTime), unsigned(timeStart - curTime) );
 	
 	pPlane->SetPlanesFormation( 0, VNULL2 );
 	pPlane->InitAviationPath();
@@ -1762,6 +1788,8 @@ void CPlaneFlyDeadState::Segment()
 			{
 				if ( bExplodeInstantly || timeStart < curTime )
 				{
+					if ( IsPlaneTraceOn() )
+						fprintf( stderr, "BK_PLANE_TRACE: plane %p explodes t=%u\n", (void*)pPlane, unsigned(curTime) );
 					updater.Update( ACTION_NOTIFY_DIE, pPlane, (ANIMATION_DEATH_FATALITY<<16) );
 					timeStart = curTime + SConsts::DIVE_AFTER_EXPLODE_TIME;
 					eState = EPDS_DIVE;
