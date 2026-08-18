@@ -737,9 +737,19 @@ pub fn build(b: *std.Build) void {
             .os_tag = .windows,
             .abi = .msvc,
         },
-        .macos => .{
-            .cpu_arch = .aarch64,
-            .os_tag = .macos,
+        .macos => switch (b.graph.host.result.cpu.arch) {
+            .x86_64 => .{
+                .cpu_arch = .x86_64,
+                .os_tag = .macos,
+            },
+            .aarch64 => .{
+                .cpu_arch = .aarch64,
+                .os_tag = .macos,
+            },
+            else => .{
+                .cpu_arch = .x86_64,
+                .os_tag = .macos,
+            },
         },
         else => .{
             .cpu_arch = .x86_64,
@@ -768,7 +778,7 @@ pub fn build(b: *std.Build) void {
         query.glibc_version = b.graph.host.result.os.version_range.linux.glibc;
         selected_target = b.resolveTargetQuery(query);
     }
-    const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, and aarch64-macos");
+    const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, x86_64-macos, and aarch64-macos");
     build_target_os = selected_target.result.os.tag;
     build_host_os = b.graph.host.result.os.tag;
     // Runtime eligibility follows the host OS and CPU. Windows can execute
@@ -1894,6 +1904,10 @@ pub fn build(b: *std.Build) void {
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
+
+    // Backwards-compatible alias for the older command used in project scripts.
+    const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
+    game_install_step.dependOn(install_game_step);
 
     // Drives the shipped console bridge through the engine's own IConsoleBuffer
     // signature. It carries wchar_t, the Zig core stores UTF-16, and the vtable

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const PlatformTarget = enum { windows_x64, linux_x64, macos_arm64 };
+pub const PlatformTarget = enum { windows_x64, linux_x64, macos_x64, macos_arm64 };
 pub const TestMode = enum { compile, run };
 pub const TargetArch = enum { x86, x86_64, aarch64 };
 pub const TargetOs = enum { windows, linux, macos };
@@ -100,6 +100,7 @@ pub fn classify(target: std.Target) PolicyError!PlatformTarget {
 pub fn classifyDescriptor(target: TargetDescriptor) PolicyError!PlatformTarget {
     if (target.arch == .x86_64 and target.os == .windows and target.abi == .msvc) return .windows_x64;
     if (target.arch == .x86_64 and target.os == .linux and target.abi == .gnu) return .linux_x64;
+    if (target.arch == .x86_64 and target.os == .macos and target.abi == .none) return .macos_x64;
     if (target.arch == .aarch64 and target.os == .macos and target.abi == .none) return .macos_arm64;
     return error.UnsupportedTarget;
 }
@@ -142,6 +143,24 @@ pub fn policy(platform: PlatformTarget, native: bool) Policy {
             .native_run_eligible = native,
             .windows_only = false,
         },
+        .macos_x64 => .{
+            .platform = platform,
+            .executable_name = "Game",
+            .shared_library_suffix = ".dylib",
+            .os_dir = "macos",
+            .arch_dir = "x86_64",
+            .shader_format = .metallib,
+            .gpu_driver = .metal,
+            .runtime_filename = "libPlatformRuntime.dylib",
+            .import_library_suffix = "",
+            .elf_rpath = "",
+            .macho_install_name = "@rpath/libPlatformRuntime.dylib",
+            .crt = "libc++",
+            .runtime_def_file = null,
+            .subsystem = .console,
+            .native_run_eligible = native,
+            .windows_only = false,
+        },
         .macos_arm64 => .{
             .platform = platform,
             .executable_name = "Game",
@@ -167,6 +186,7 @@ pub fn libraryArch(platform: PlatformTarget) []const u8 {
     return switch (platform) {
         .windows_x64 => "x64",
         .linux_x64 => "x86_64",
+        .macos_x64 => "x86_64",
         .macos_arm64 => "arm64",
     };
 }
@@ -211,6 +231,7 @@ pub fn validateTestMode(mode: TestMode, native: bool) !void {
 test "supported target table" {
     try std.testing.expectEqual(PlatformTarget.windows_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .windows, .abi = .msvc }));
     try std.testing.expectEqual(PlatformTarget.linux_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .linux, .abi = .gnu }));
+    try std.testing.expectEqual(PlatformTarget.macos_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .macos, .abi = .none }));
     try std.testing.expectEqual(PlatformTarget.macos_arm64, try classifyDescriptor(.{ .arch = .aarch64, .os = .macos, .abi = .none }));
 }
 
