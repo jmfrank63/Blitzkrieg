@@ -4111,16 +4111,21 @@
 					</States>
 				</item>
 				<item ClassTypeID="0x10001105" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1" ElementID="31420">
+					<!--the rust background. Sized to the inside of the inner frame (20021)
+					    rather than to the screen, and stopped ten pixels short of that
+					    frame's bottom bar so the bar closes the content area instead of
+					    being covered by rust. Below it the dark brown ScreenFillColor shows
+					    through, which is what the accept/cancel buttons sit on.-->
 					<!--was "darken screen" (half-black over the menu). Now the full-screen rust sheet: the settings screen's own dark background image (back-settings 0,0-1024x768) stretched over everything, so Profiles matches the Settings look. Declared last = drawn first; every plate, panel and button sits on this rust-->
 					<Script/>
 					<WindowPos x="0" y="12"/>
-					<WindowSize x="708" y="507"/>
+					<WindowSize x="708" y="497"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="708" y2="507"/>
+										<rect x1="0" y1="0" x2="708" y2="497"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
