@@ -7,7 +7,7 @@
 		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
 			<Script>ui\PlayerProfile</Script>
 			<WindowPos x="0" y="0"/>
-			<WindowSize x="736" y="580"/>
+			<WindowSize x="736" y="610"/>
 			<Children>
 				<item ClassTypeID="0x10001107" ElementID="20001" PositionFlag="0x0012" ActiveFlag="1" Background="1" VisibleFlag="1" TextAlign="0x022">
 					<!--background to list and edit-->
@@ -3864,7 +3864,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10002" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--ok-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="-70" y="18"/>
+					<WindowPos x="-70" y="20"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -3936,7 +3936,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--cancel-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="70" y="18"/>
+					<WindowPos x="70" y="20"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -4114,13 +4114,13 @@
 					<!--was "darken screen" (half-black over the menu). Now the full-screen rust sheet: the settings screen's own dark background image (back-settings 0,0-1024x768) stretched over everything, so Profiles matches the Settings look. Declared last = drawn first; every plate, panel and button sits on this rust-->
 					<Script/>
 					<WindowPos x="0" y="12"/>
-					<WindowSize x="708" y="466"/>
+					<WindowSize x="708" y="507"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="708" y2="466"/>
+										<rect x1="0" y1="0" x2="708" y2="507"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
@@ -4130,7 +4130,7 @@
 							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="708" y2="466"/>
+										<rect x1="0" y1="0" x2="708" y2="507"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
@@ -4140,7 +4140,7 @@
 							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="708" y2="466"/>
+										<rect x1="0" y1="0" x2="708" y2="507"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
@@ -4151,55 +4151,62 @@
 					</States>
 				</item>
 <item ClassTypeID="0x10001105" ElementID="20020" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
-					<!--frame around the whole dialog. Same nine-slice atlas as the profiles
-					    list frame (20010), just at dialog scale, and with the centre cell
-					    left out so the rust sheet behind it shows through. Drawn last and
-					    without a Depth so it sits over that sheet.-->
+					<!--frame around the whole dialog, accept/cancel buttons included. Built
+					    from the border of the tile-background frame art only: every cell of
+					    that atlas is a 5px border with a 59%-opaque black fill behind it,
+					    meant for darkening a panel, so slicing it the usual nine-slice way
+					    tinted everything inside the frame near-black. These slices take the
+					    8px edges and 24px corners (enough for the rivet at 10..20) and
+					    nothing else, leaving the interior untouched: rust where the sheet
+					    (31420) reaches, and the dark ScreenFillColor below it where the
+					    buttons sit. The sheet stops just above the buttons rather than at
+					    the content: the main menu screen still draws behind this dialog,
+					    and a bar of its art was showing through the gap as a darker strip.-->
 					<WindowPos x="0" y="6"/>
-					<WindowSize x="720" y="478"/>
+					<WindowSize x="720" y="598"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="64" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="129" x2="64" y2="42"/>
+										<rect x1="0" y1="0" x2="24" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="64" y1="0" x2="656" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="64" y1="129" x2="64" y2="42"/>
+										<rect x1="696" y1="0" x2="720" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="656" y1="0" x2="720" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="129" x2="64" y2="42"/>
+										<rect x1="0" y1="574" x2="24" y2="598"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="0" y1="42" x2="64" y2="436"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="171" x2="64" y2="42"/>
+										<rect x1="696" y1="574" x2="720" y2="598"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="656" y1="42" x2="720" y2="436"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="171" x2="64" y2="42"/>
+										<rect x1="24" y1="0" x2="696" y2="8"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="129" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="0" y1="436" x2="64" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="214" x2="64" y2="42"/>
+										<rect x1="24" y1="590" x2="696" y2="598"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="248" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="64" y1="436" x2="656" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="64" y1="214" x2="64" y2="42"/>
+										<rect x1="0" y1="24" x2="8" y2="574"/>
+										<size x="8" y="16"/>
+										<map x1="0" y1="153" x2="8" y2="16"/>
 									</item>
 									<item>
-										<rect x1="656" y1="436" x2="720" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="214" x2="64" y2="42"/>
+										<rect x1="712" y1="24" x2="720" y2="574"/>
+										<size x="8" y="16"/>
+										<map x1="184" y1="153" x2="8" y2="16"/>
 									</item>
 								</TileRects>
 								<Texture>UI\IntermissionTextures\tile-background</Texture>
@@ -4207,44 +4214,44 @@
 							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="64" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="129" x2="64" y2="42"/>
+										<rect x1="0" y1="0" x2="24" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="64" y1="0" x2="656" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="64" y1="129" x2="64" y2="42"/>
+										<rect x1="696" y1="0" x2="720" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="656" y1="0" x2="720" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="129" x2="64" y2="42"/>
+										<rect x1="0" y1="574" x2="24" y2="598"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="0" y1="42" x2="64" y2="436"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="171" x2="64" y2="42"/>
+										<rect x1="696" y1="574" x2="720" y2="598"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="656" y1="42" x2="720" y2="436"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="171" x2="64" y2="42"/>
+										<rect x1="24" y1="0" x2="696" y2="8"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="129" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="0" y1="436" x2="64" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="214" x2="64" y2="42"/>
+										<rect x1="24" y1="590" x2="696" y2="598"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="248" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="64" y1="436" x2="656" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="64" y1="214" x2="64" y2="42"/>
+										<rect x1="0" y1="24" x2="8" y2="574"/>
+										<size x="8" y="16"/>
+										<map x1="0" y1="153" x2="8" y2="16"/>
 									</item>
 									<item>
-										<rect x1="656" y1="436" x2="720" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="214" x2="64" y2="42"/>
+										<rect x1="712" y1="24" x2="720" y2="574"/>
+										<size x="8" y="16"/>
+										<map x1="184" y1="153" x2="8" y2="16"/>
 									</item>
 								</TileRects>
 								<Texture>UI\IntermissionTextures\tile-background</Texture>
@@ -4252,44 +4259,44 @@
 							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="64" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="129" x2="64" y2="42"/>
+										<rect x1="0" y1="0" x2="24" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="64" y1="0" x2="656" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="64" y1="129" x2="64" y2="42"/>
+										<rect x1="696" y1="0" x2="720" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="656" y1="0" x2="720" y2="42"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="129" x2="64" y2="42"/>
+										<rect x1="0" y1="574" x2="24" y2="598"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="0" y1="42" x2="64" y2="436"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="171" x2="64" y2="42"/>
+										<rect x1="696" y1="574" x2="720" y2="598"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="656" y1="42" x2="720" y2="436"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="171" x2="64" y2="42"/>
+										<rect x1="24" y1="0" x2="696" y2="8"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="129" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="0" y1="436" x2="64" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="0" y1="214" x2="64" y2="42"/>
+										<rect x1="24" y1="590" x2="696" y2="598"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="248" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="64" y1="436" x2="656" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="64" y1="214" x2="64" y2="42"/>
+										<rect x1="0" y1="24" x2="8" y2="574"/>
+										<size x="8" y="16"/>
+										<map x1="0" y1="153" x2="8" y2="16"/>
 									</item>
 									<item>
-										<rect x1="656" y1="436" x2="720" y2="478"/>
-										<size x="64" y="42"/>
-										<map x1="128" y1="214" x2="64" y2="42"/>
+										<rect x1="712" y1="24" x2="720" y2="574"/>
+										<size x="8" y="16"/>
+										<map x1="184" y1="153" x2="8" y2="16"/>
 									</item>
 								</TileRects>
 								<Texture>UI\IntermissionTextures\tile-background</Texture>
