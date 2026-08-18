@@ -2,12 +2,12 @@
 <!-- deleted comment here -->
 <!-- deleted comment here -->
 <base ScreenFillColor="0xff464135">
-	<!--ScreenFillColor: opaque safety net under the full-screen rust sheet (element 31420), in the rust image's average tone - only visible on aspect ratios wider than the sheet covers-->
+	<!--ScreenFillColor: the dark brown everything outside the frame is painted in. The rust sheet (element 31420) is no longer full screen - it is sized to the inside of the frame (element 20020) - so this tone, the rust image's average, is what surrounds the dialog at every aspect ratio rather than only on ultrawide-->
 	<Children>
 		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
 			<Script>ui\PlayerProfile</Script>
 			<WindowPos x="0" y="0"/>
-			<WindowSize x="736" y="520"/>
+			<WindowSize x="736" y="580"/>
 			<Children>
 				<item ClassTypeID="0x10001107" ElementID="20001" PositionFlag="0x0012" ActiveFlag="1" Background="1" VisibleFlag="1" TextAlign="0x022">
 					<!--background to list and edit-->
@@ -3864,7 +3864,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10002" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--ok-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="-182" y="50"/>
+					<WindowPos x="-70" y="18"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -3936,7 +3936,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--cancel-->
 					<ShiftText x="0" y="1"/>
-					<WindowPos x="-42" y="50"/>
+					<WindowPos x="70" y="18"/>
 					<WindowSize x="132" y="62"/>
 					<States>
 						<item EventID="-1">
@@ -4110,17 +4110,17 @@
 						</item>
 					</States>
 				</item>
-				<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="0" VisibleFlag="1" Background="1" ElementID="31420">
+				<item ClassTypeID="0x10001105" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1" ElementID="31420">
 					<!--was "darken screen" (half-black over the menu). Now the full-screen rust sheet: the settings screen's own dark background image (back-settings 0,0-1024x768) stretched over everything, so Profiles matches the Settings look. Declared last = drawn first; every plate, panel and button sits on this rust-->
 					<Script/>
-					<WindowPos x="0" y="0"/>
-					<WindowSize x="2048" y="1536"/>
+					<WindowPos x="0" y="12"/>
+					<WindowSize x="708" y="466"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="2048" y2="1536"/>
+										<rect x1="0" y1="0" x2="708" y2="466"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
@@ -4130,7 +4130,7 @@
 							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="2048" y2="1536"/>
+										<rect x1="0" y1="0" x2="708" y2="466"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
@@ -4140,13 +4140,162 @@
 							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
 								<TileRects>
 									<item>
-										<rect x1="0" y1="0" x2="2048" y2="1536"/>
+										<rect x1="0" y1="0" x2="708" y2="466"/>
 										<size x="683" y="768"/>
 										<map x1="12" y1="120" x2="476" y2="500"/>
 									</item>
 								</TileRects>
 								<Texture>ui\IntermissionTextures\back-settings</Texture>
 							</AppearancePushed>
+						</item>
+					</States>
+				</item>
+<item ClassTypeID="0x10001105" ElementID="20020" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<!--frame around the whole dialog. Same nine-slice atlas as the profiles
+					    list frame (20010), just at dialog scale, and with the centre cell
+					    left out so the rust sheet behind it shows through. Drawn last and
+					    without a Depth so it sits over that sheet.-->
+					<WindowPos x="0" y="6"/>
+					<WindowSize x="720" y="478"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="64" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="656" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="0" x2="720" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="42" x2="64" y2="436"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="42" x2="720" y2="436"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="436" x2="64" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="436" x2="656" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="436" x2="720" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="214" x2="64" y2="42"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="64" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="656" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="0" x2="720" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="42" x2="64" y2="436"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="42" x2="720" y2="436"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="436" x2="64" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="436" x2="656" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="436" x2="720" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="214" x2="64" y2="42"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="64" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="656" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="0" x2="720" y2="42"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="129" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="42" x2="64" y2="436"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="42" x2="720" y2="436"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="171" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="0" y1="436" x2="64" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="0" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="64" y1="436" x2="656" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="64" y1="214" x2="64" y2="42"/>
+									</item>
+									<item>
+										<rect x1="656" y1="436" x2="720" y2="478"/>
+										<size x="64" y="42"/>
+										<map x1="128" y1="214" x2="64" y2="42"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
 						</item>
 					</States>
 				</item>
