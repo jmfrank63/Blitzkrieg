@@ -4150,20 +4150,16 @@
 						</item>
 					</States>
 				</item>
-<item ClassTypeID="0x10001105" ElementID="20020" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
-					<!--frame around the whole dialog, accept/cancel buttons included. Built
-					    from the border of the tile-background frame art only: every cell of
-					    that atlas is a 5px border with a 59%-opaque black fill behind it,
-					    meant for darkening a panel, so slicing it the usual nine-slice way
-					    tinted everything inside the frame near-black. These slices take the
-					    8px edges and 24px corners (enough for the rivet at 10..20) and
-					    nothing else, leaving the interior untouched: rust where the sheet
-					    (31420) reaches, and the dark ScreenFillColor below it where the
-					    buttons sit. The sheet stops just above the buttons rather than at
-					    the content: the main menu screen still draws behind this dialog,
-					    and a bar of its art was showing through the gap as a darker strip.-->
-					<WindowPos x="0" y="6"/>
-					<WindowSize x="720" y="598"/>
+<item ClassTypeID="0x10001105" ElementID="20021" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<!--inner frame: the short one, drawn on the bounds of the rust sheet (31420)
+					    so the content is framed and the button band below it is not. Both
+					    frames take only the border of the tile-background art: every cell of
+					    that atlas is a 5px border over a 59%-opaque black fill meant for
+					    darkening a panel, so a conventional nine-slice tints everything
+					    inside it. These slices use the 8px edges and 24px corners - enough
+					    for the rivet at 10..20 - and nothing else.-->
+					<WindowPos x="0" y="12"/>
+					<WindowSize x="708" y="507"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
@@ -4174,37 +4170,37 @@
 										<map x1="0" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="696" y1="0" x2="720" y2="24"/>
+										<rect x1="684" y1="0" x2="708" y2="24"/>
 										<size x="24" y="24"/>
 										<map x1="168" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="0" y1="574" x2="24" y2="598"/>
+										<rect x1="0" y1="483" x2="24" y2="507"/>
 										<size x="24" y="24"/>
 										<map x1="0" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="696" y1="574" x2="720" y2="598"/>
+										<rect x1="684" y1="483" x2="708" y2="507"/>
 										<size x="24" y="24"/>
 										<map x1="168" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="24" y1="0" x2="696" y2="8"/>
+										<rect x1="24" y1="0" x2="684" y2="8"/>
 										<size x="16" y="8"/>
 										<map x1="24" y1="129" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="24" y1="590" x2="696" y2="598"/>
+										<rect x1="24" y1="499" x2="684" y2="507"/>
 										<size x="16" y="8"/>
 										<map x1="24" y1="248" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="0" y1="24" x2="8" y2="574"/>
+										<rect x1="0" y1="24" x2="8" y2="483"/>
 										<size x="8" y="16"/>
 										<map x1="0" y1="153" x2="8" y2="16"/>
 									</item>
 									<item>
-										<rect x1="712" y1="24" x2="720" y2="574"/>
+										<rect x1="700" y1="24" x2="708" y2="483"/>
 										<size x="8" y="16"/>
 										<map x1="184" y1="153" x2="8" y2="16"/>
 									</item>
@@ -4219,37 +4215,37 @@
 										<map x1="0" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="696" y1="0" x2="720" y2="24"/>
+										<rect x1="684" y1="0" x2="708" y2="24"/>
 										<size x="24" y="24"/>
 										<map x1="168" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="0" y1="574" x2="24" y2="598"/>
+										<rect x1="0" y1="483" x2="24" y2="507"/>
 										<size x="24" y="24"/>
 										<map x1="0" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="696" y1="574" x2="720" y2="598"/>
+										<rect x1="684" y1="483" x2="708" y2="507"/>
 										<size x="24" y="24"/>
 										<map x1="168" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="24" y1="0" x2="696" y2="8"/>
+										<rect x1="24" y1="0" x2="684" y2="8"/>
 										<size x="16" y="8"/>
 										<map x1="24" y1="129" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="24" y1="590" x2="696" y2="598"/>
+										<rect x1="24" y1="499" x2="684" y2="507"/>
 										<size x="16" y="8"/>
 										<map x1="24" y1="248" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="0" y1="24" x2="8" y2="574"/>
+										<rect x1="0" y1="24" x2="8" y2="483"/>
 										<size x="8" y="16"/>
 										<map x1="0" y1="153" x2="8" y2="16"/>
 									</item>
 									<item>
-										<rect x1="712" y1="24" x2="720" y2="574"/>
+										<rect x1="700" y1="24" x2="708" y2="483"/>
 										<size x="8" y="16"/>
 										<map x1="184" y1="153" x2="8" y2="16"/>
 									</item>
@@ -4264,37 +4260,187 @@
 										<map x1="0" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="696" y1="0" x2="720" y2="24"/>
+										<rect x1="684" y1="0" x2="708" y2="24"/>
 										<size x="24" y="24"/>
 										<map x1="168" y1="129" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="0" y1="574" x2="24" y2="598"/>
+										<rect x1="0" y1="483" x2="24" y2="507"/>
 										<size x="24" y="24"/>
 										<map x1="0" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="696" y1="574" x2="720" y2="598"/>
+										<rect x1="684" y1="483" x2="708" y2="507"/>
 										<size x="24" y="24"/>
 										<map x1="168" y1="232" x2="24" y2="24"/>
 									</item>
 									<item>
-										<rect x1="24" y1="0" x2="696" y2="8"/>
+										<rect x1="24" y1="0" x2="684" y2="8"/>
 										<size x="16" y="8"/>
 										<map x1="24" y1="129" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="24" y1="590" x2="696" y2="598"/>
+										<rect x1="24" y1="499" x2="684" y2="507"/>
 										<size x="16" y="8"/>
 										<map x1="24" y1="248" x2="16" y2="8"/>
 									</item>
 									<item>
-										<rect x1="0" y1="24" x2="8" y2="574"/>
+										<rect x1="0" y1="24" x2="8" y2="483"/>
 										<size x="8" y="16"/>
 										<map x1="0" y1="153" x2="8" y2="16"/>
 									</item>
 									<item>
-										<rect x1="712" y1="24" x2="720" y2="574"/>
+										<rect x1="700" y1="24" x2="708" y2="483"/>
+										<size x="8" y="16"/>
+										<map x1="184" y1="153" x2="8" y2="16"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20020" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<!--outer frame: the long one. It runs the full height of the dialog so the
+					    accept/cancel buttons are enclosed by it, and sits on the dialog edge
+					    where the main menu screen behind was already showing a short border
+					    of its own, so that stray line is covered rather than competing with
+					    this frame. Border slices only - see element 20021.-->
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="736" y="610"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="24" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="129" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="712" y1="0" x2="736" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="129" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="0" y1="586" x2="24" y2="610"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="232" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="712" y1="586" x2="736" y2="610"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="232" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="24" y1="0" x2="712" y2="8"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="129" x2="16" y2="8"/>
+									</item>
+									<item>
+										<rect x1="24" y1="602" x2="712" y2="610"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="248" x2="16" y2="8"/>
+									</item>
+									<item>
+										<rect x1="0" y1="24" x2="8" y2="586"/>
+										<size x="8" y="16"/>
+										<map x1="0" y1="153" x2="8" y2="16"/>
+									</item>
+									<item>
+										<rect x1="728" y1="24" x2="736" y2="586"/>
+										<size x="8" y="16"/>
+										<map x1="184" y1="153" x2="8" y2="16"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="24" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="129" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="712" y1="0" x2="736" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="129" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="0" y1="586" x2="24" y2="610"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="232" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="712" y1="586" x2="736" y2="610"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="232" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="24" y1="0" x2="712" y2="8"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="129" x2="16" y2="8"/>
+									</item>
+									<item>
+										<rect x1="24" y1="602" x2="712" y2="610"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="248" x2="16" y2="8"/>
+									</item>
+									<item>
+										<rect x1="0" y1="24" x2="8" y2="586"/>
+										<size x="8" y="16"/>
+										<map x1="0" y1="153" x2="8" y2="16"/>
+									</item>
+									<item>
+										<rect x1="728" y1="24" x2="736" y2="586"/>
+										<size x="8" y="16"/>
+										<map x1="184" y1="153" x2="8" y2="16"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="24" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="129" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="712" y1="0" x2="736" y2="24"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="129" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="0" y1="586" x2="24" y2="610"/>
+										<size x="24" y="24"/>
+										<map x1="0" y1="232" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="712" y1="586" x2="736" y2="610"/>
+										<size x="24" y="24"/>
+										<map x1="168" y1="232" x2="24" y2="24"/>
+									</item>
+									<item>
+										<rect x1="24" y1="0" x2="712" y2="8"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="129" x2="16" y2="8"/>
+									</item>
+									<item>
+										<rect x1="24" y1="602" x2="712" y2="610"/>
+										<size x="16" y="8"/>
+										<map x1="24" y1="248" x2="16" y2="8"/>
+									</item>
+									<item>
+										<rect x1="0" y1="24" x2="8" y2="586"/>
+										<size x="8" y="16"/>
+										<map x1="0" y1="153" x2="8" y2="16"/>
+									</item>
+									<item>
+										<rect x1="728" y1="24" x2="736" y2="586"/>
 										<size x="8" y="16"/>
 										<map x1="184" y1="153" x2="8" y2="16"/>
 									</item>
