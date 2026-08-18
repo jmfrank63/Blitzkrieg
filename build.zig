@@ -1616,7 +1616,18 @@ pub fn build(b: *std.Build) void {
     options_bridge_test_step.dependOn(&b.addInstallArtifact(options_bridge_test, .{}).step);
 
 
-    const platform_module_test_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    // This module used to declare no C runtime at all and lean entirely on
+    // linkMsvcRuntime below. That works when Zig supplies libc itself, but on a
+    // Linux host linkCxxRuntime links the host's libstdc++ directly without
+    // asking for libc, so the module compiled with no system headers and failed
+    // on <stdio.h> - the long-standing red in the Linux CI job. MSVC still gets
+    // its CRT from linkMsvcRuntime and must not have one forced here.
+    const platform_module_test_module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+        .link_libc = !build_support.usesMsvc(platform),
+        .link_libcpp = build_support.needsBundledLibcpp(platform),
+    });
     const platform_module_test_flags: []const []const u8 = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"};
     platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = platform_module_test_flags });
     addMsvcIncludePaths(b, platform_module_test_module, toolchain);
@@ -4707,7 +4718,7 @@ fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode
     if (!build_target_msvc) {
         // A Windows module that is not MSVC is MinGW, and Zig supplies both the
         // CRT and the C++ standard library for it. Call sites lean on this helper
-        // to make a module compilable at all, so returning bare here left them
+        // for a module to compile at all, so returning bare here left them
         // without even <stdio.h>. Non-Windows modules keep their previous
         // behaviour of being configured by their own call sites.
         if (module.resolved_target) |module_target| {
