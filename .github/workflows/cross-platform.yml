@@ -52,17 +52,17 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
-            ${{ runner.os }}-zig-build-0.16.0-
+            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-
 
       - name: Restore Unix Zig global cache
         uses: actions/cache@v5
         with:
           path: ~/.cache/zig
-          key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
-            ${{ runner.os }}-zig-global-0.16.0-
+            ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-
 
       - name: Audit playable native residue
         run: zig test tools/zig/runtime_platform_audit_test.zig
@@ -125,17 +125,17 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
-            ${{ runner.os }}-zig-build-0.16.0-
+            ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.16.0-
 
       - name: Restore Windows Zig global cache
         uses: actions/cache@v5
         with:
           path: ~\AppData\Local\zig
-          key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
-            ${{ runner.os }}-zig-global-0.16.0-
+            ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.16.0-
 
       - name: Audit playable native residue
         run: zig test tools/zig/runtime_platform_audit_test.zig
@@ -233,17 +233,17 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-aarch64-macos-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
-            ${{ runner.os }}-zig-build-0.16.0-
+            ${{ runner.os }}-aarch64-macos-zig-build-0.16.0-
 
       - name: Restore Unix Zig global cache
         uses: actions/cache@v5
         with:
           path: ~/.cache/zig
-          key: ${{ runner.os }}-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-aarch64-macos-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
           restore-keys: |
-            ${{ runner.os }}-zig-global-0.16.0-
+            ${{ runner.os }}-aarch64-macos-zig-global-0.16.0-
 
       - name: Audit playable native residue
         run: zig test tools/zig/runtime_platform_audit_test.zig
@@ -271,5 +271,254 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: macos-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  linux-arm-platform:
+    # Raspberry Pi class target. GitHub's arm64 Linux runner executes the suites
+    # natively, so this job proves the aarch64 build works rather than only that
+    # it compiles.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
+
+      - name: Verify arm64 host
+        run: |
+          test "$(uname -m)" = "aarch64"
+          uname -a
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-aarch64-linux-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-aarch64-linux-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-aarch64-linux-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-linux-gnu-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Run StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run platform foundation matrix
+        run: zig build test-platform-foundation -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Verify native runtime layout
+        run: zig build verify-runtime -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build test-stage -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: linux-arm-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  windows-mingw-platform:
+    # The GNU Windows ABI. Zig ships its own mingw-w64 headers and import
+    # libraries, so unlike the MSVC job this one needs no Visual Studio lookup.
+    # It runs on Windows so the suites execute rather than only link.
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Zig 0.16.0
+        shell: pwsh
+        run: |
+          $zigVersion = "0.16.0"
+          $zigArchive = "zig-x86_64-windows-$zigVersion.zip"
+          $zigArchivePath = Join-Path $env:RUNNER_TEMP $zigArchive
+          Invoke-WebRequest -Uri "https://ziglang.org/download/$zigVersion/$zigArchive" -OutFile $zigArchivePath
+          Expand-Archive -LiteralPath $zigArchivePath -DestinationPath $env:RUNNER_TEMP -Force
+          $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
+          Add-Content -Path $env:GITHUB_PATH -Value $zigHome
+          & (Join-Path $zigHome "zig.exe") version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.16.0-
+
+      - name: Restore Windows Zig global cache
+        uses: actions/cache@v5
+        with:
+          path: ~\AppData\Local\zig
+          key: ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Run StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run platform foundation matrix
+        run: zig build test-platform-foundation -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Verify native runtime layout
+        run: zig build verify-runtime -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build test-stage -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-mingw-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  macos-intel-platform:
+    # Intel macOS is a supported target but had no job, so nothing caught that
+    # its Cocoa adapters were never being compiled. SDL refuses to cross-compile
+    # for macOS without a sysroot, which is why this needs a real Intel host
+    # rather than an arm64 runner building x86_64.
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
+
+      - name: Verify Intel host
+        run: |
+          test "$(uname -m)" = "x86_64"
+          sw_vers
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-macos-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-macos-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-macos-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-macos-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-x86_64-macos-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-macos-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Configure macOS SDK sysroot
+        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
+      - name: Compile StreamIO filesystem tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-files -Dtarget=x86_64-macos -Dtest-mode=compile
+
+      - name: Run runtime module contract tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Compile platform foundation matrix
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-foundation -Dtarget=x86_64-macos -Dtest-mode=compile
+
+      - name: Verify native runtime layout
+        run: zig build --sysroot "$MACOS_SYSROOT" verify-runtime -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-stage -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-intel-platform-outputs
           path: zig-out
           if-no-files-found: ignore

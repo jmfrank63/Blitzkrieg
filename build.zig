@@ -91,6 +91,11 @@ const cppflags_debug = &.{
 var ubsan_trap = false;
 var build_target_os: std.Target.Os.Tag = .windows;
 var build_host_os: std.Target.Os.Tag = .windows;
+// Windows has two ABIs and only one of them is Visual Studio. The MSVC
+// helpers below used to gate on the OS alone, so a MinGW target picked up
+// Visual Studio include paths and the msvcrt/ucrt import libraries it has no
+// business linking - and failed when that toolchain was not installed.
+var build_target_msvc: bool = true;
 const cppflags_debug_trap = &(cppflags_debug.* ++ .{"-fsanitize-trap=undefined"});
 
 const cppflags_release = &.{
@@ -780,6 +785,7 @@ pub fn build(b: *std.Build) void {
     }
     const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, x86_64-macos, and aarch64-macos");
     build_target_os = selected_target.result.os.tag;
+    build_target_msvc = build_support.usesMsvc(platform);
     build_host_os = b.graph.host.result.os.tag;
     // Runtime eligibility follows the host OS and CPU. Windows can execute
     // an MSVC-targeted binary even when the Zig host itself reports the GNU
@@ -875,7 +881,7 @@ pub fn build(b: *std.Build) void {
         @panic("Windows target on a non-Windows host requires explicit MSVC/Windows SDK paths: pass -Dmsvc-include, -Dwindows-sdk-include, -Dmsvc-lib, and -Dwindows-sdk-lib.");
     }
 
-    const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
     platform_abi_layout_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_abi_layout_test.cpp"), .flags = &.{"-std=c++17"} });
     if (platform == .windows_x64) {
@@ -911,7 +917,7 @@ pub fn build(b: *std.Build) void {
     // layer everything else calls -- clock, file I/O, sockets, heap, debug output
     // -- and on Windows it also pinned the CRT, so a release build there would
     // have mixed debug and release CRTs across the DLL boundary.
-    const platform_runtime_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = platform != .windows_x64 });
+    const platform_runtime_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, platform_runtime_module);
     platform_runtime_module.addCMacro("BK_PLATFORM_RUNTIME_BUILD", "1");
@@ -920,12 +926,15 @@ pub fn build(b: *std.Build) void {
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketWin32.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketPosix.cpp"), .flags = &.{"-std=c++17"} });
     linkCxxRuntime(platform_runtime_module, target);
-    if (platform == .windows_x64) {
+    if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, platform_runtime_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
         linkMsvcRuntime(platform_runtime_module, optimize);
-        platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     }
+    // Winsock is a property of the OS, not of the toolchain: MinGW needs it just
+    // as much as MSVC does, and bundling the two together left the GNU ABI
+    // build failing to link every WSA* symbol in SocketWin32.cpp.
+    if (build_support.isWindows(platform)) platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     applyLoaderPath(target, platform_runtime_module);
     const platform_runtime = b.addLibrary(.{
         .name = "PlatformRuntime",
@@ -933,7 +942,7 @@ pub fn build(b: *std.Build) void {
         .root_module = platform_runtime_module,
         .win32_module_definition = if (platform == .windows_x64) b.path("Sources/src/PlatformABI/PlatformRuntime.def") else null,
     });
-    const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, platform_runtime_test_module);
     platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{"-std=c++17"} });
@@ -955,21 +964,21 @@ pub fn build(b: *std.Build) void {
     platform_runtime_step.dependOn(&platform_runtime_test.step);
     if (test_mode == .run) platform_runtime_step.dependOn(&platform_runtime_run.step);
 
-    const consumer_a_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    const consumer_a_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     consumer_a_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, consumer_a_module);
     consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_a_module.linkLibrary(platform_runtime);
     linkCxxRuntime(consumer_a_module, target);
     const consumer_a = b.addLibrary(.{ .name = "platform-consumer-a", .linkage = .dynamic, .root_module = consumer_a_module });
-    const consumer_b_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    const consumer_b_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     consumer_b_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, consumer_b_module);
     consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_b_module.linkLibrary(platform_runtime);
     linkCxxRuntime(consumer_b_module, target);
     const consumer_b = b.addLibrary(.{ .name = "platform-consumer-b", .linkage = .dynamic, .root_module = consumer_b_module });
-    const client_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+    const client_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     client_test_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, client_test_module);
     client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{"-std=c++17"} });
@@ -1003,7 +1012,7 @@ pub fn build(b: *std.Build) void {
 
     const platform_headers_step = b.step("test-platform-headers", "Validate portable compiler and legacy value types");
     if (test_mode == .run) {
-        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
         platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
         platform_headers_module.addIncludePath(b.path("Sources/src"));
         addLinuxCxxIncludePaths(b, platform_headers_module);
@@ -1018,7 +1027,7 @@ pub fn build(b: *std.Build) void {
         const platform_headers_run = b.addRunArtifact(platform_headers_test);
         platform_headers_step.dependOn(&platform_headers_run.step);
     } else {
-        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = platform != .windows_x64 });
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
         platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
         platform_headers_module.addIncludePath(b.path("Sources/src"));
         addLinuxCxxIncludePaths(b, platform_headers_module);
@@ -1177,7 +1186,8 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
 
     const legacy_variant_module = b.createModule(.{ .target = target, .optimize = .Debug });
-    legacy_variant_module.link_libc = platform != .windows_x64;
+    legacy_variant_module.link_libc = !build_support.usesMsvc(platform);
+    legacy_variant_module.link_libcpp = build_support.needsBundledLibcpp(platform);
     legacy_variant_module.addIncludePath(b.path("Sources/src"));
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, legacy_variant_module, toolchain);
@@ -1620,7 +1630,11 @@ pub fn build(b: *std.Build) void {
     const platform_module_test_run = b.addRunArtifact(platform_module_test);
     platform_module_test_run.setCwd(b.path("."));
     const platform_module_test_step = b.step("test-platform-modules", "Run portable runtime module tests");
-    platform_module_test_step.dependOn(&platform_module_test_run.step);
+    // Every other test step gates its run on the mode; this one did not, so a
+    // cross-compile of it tried to execute a foreign binary on the host and
+    // failed -Dtest-mode=compile outright.
+    platform_module_test_step.dependOn(&platform_module_test.step);
+    if (test_mode == .run) platform_module_test_step.dependOn(&platform_module_test_run.step);
     const platform_storage_gate_module = b.createModule(.{ .target = target, .optimize = .Debug });
     var storage_gate_flags: std.ArrayListUnmanaged([]const u8) = .empty;
     storage_gate_flags.appendSlice(b.allocator, cppflagsForOptimize(.Debug)) catch @panic("OOM");
@@ -3530,7 +3544,7 @@ const ToolchainIncludes = struct {
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    if (build_target_os != .windows) return;
+    if (!build_target_msvc) return;
     module.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/ucrt", .{toolchain.windows_sdk_include}) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/shared", .{toolchain.windows_sdk_include}) });
@@ -3539,7 +3553,7 @@ fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
 }
 
 fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    if (build_target_os != .windows) return;
+    if (!build_target_msvc) return;
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/ucrt/{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
     module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/um/{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
@@ -4690,7 +4704,20 @@ fn shaderSourceFiles(b: *std.Build) ![]const []const u8 {
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
     if (module.resolved_target) |module_target| linkCxxRuntime(module, module_target);
-    if (build_target_os != .windows) return;
+    if (!build_target_msvc) {
+        // A Windows module that is not MSVC is MinGW, and Zig supplies both the
+        // CRT and the C++ standard library for it. Call sites lean on this helper
+        // to make a module compilable at all, so returning bare here left them
+        // without even <stdio.h>. Non-Windows modules keep their previous
+        // behaviour of being configured by their own call sites.
+        if (module.resolved_target) |module_target| {
+            if (module_target.result.os.tag == .windows) {
+                module.link_libc = true;
+                module.link_libcpp = true;
+            }
+        }
+        return;
+    }
     if (module.resolved_target.?.result.os.tag != .windows) {
         module.link_libc = true;
         return;

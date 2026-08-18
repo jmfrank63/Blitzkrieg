@@ -1,6 +1,36 @@
 const std = @import("std");
 
-pub const PlatformTarget = enum { windows_x64, linux_x64, macos_x64, macos_arm64 };
+pub const PlatformTarget = enum { windows_x64, windows_x64_gnu, linux_x64, linux_arm64, macos_x64, macos_arm64 };
+
+// Windows comes in two ABI flavours and most build decisions care about only
+// one of the two questions. "Is this Windows?" governs the Win32 sources, the
+// resource script and the subsystem; "does this use MSVC?" governs the toolchain
+// paths, the CRT and the SDK requirement. Conflating them is what makes a MinGW
+// target either miss its Win32 sources or demand a Visual Studio install.
+pub fn isWindows(platform: PlatformTarget) bool {
+    return platform == .windows_x64 or platform == .windows_x64_gnu;
+}
+
+pub fn usesMsvc(platform: PlatformTarget) bool {
+    return platform == .windows_x64;
+}
+
+// Zig's bundled libc++ is the only C++ standard library available for the GNU
+// Windows ABI: macOS takes its headers from the SDK sysroot, Linux from the
+// host GCC install, and MSVC from the Visual Studio tree, so MinGW is the one
+// flavour that has to ask for a standard library explicitly. Without it even
+// <cstdint> is missing.
+pub fn needsBundledLibcpp(platform: PlatformTarget) bool {
+    return platform == .windows_x64_gnu;
+}
+
+pub fn isLinux(platform: PlatformTarget) bool {
+    return platform == .linux_x64 or platform == .linux_arm64;
+}
+
+pub fn isMacos(platform: PlatformTarget) bool {
+    return platform == .macos_x64 or platform == .macos_arm64;
+}
 pub const TestMode = enum { compile, run };
 pub const TargetArch = enum { x86, x86_64, aarch64 };
 pub const TargetOs = enum { windows, linux, macos };
@@ -37,11 +67,16 @@ pub fn sourceSets(platform: PlatformTarget) SourceSets {
     const excluded_utilities = &.{ "BuildVersion", "BetaKeyGen", "FontGen", "GFX legacy renderer" };
     return .{
         .shared = shared,
-        .windows = if (platform == .windows_x64) windows else &.{},
-        .posix = if (platform != .windows_x64) posix else &.{},
-        .linux = if (platform == .linux_x64) linux else &.{},
-        .macos = if (platform == .macos_arm64) macos else &.{},
-        .windows_oracle = if (platform == .windows_x64) windows_oracle else &.{},
+        .windows = if (isWindows(platform)) windows else &.{},
+        .posix = if (!isWindows(platform)) posix else &.{},
+        .linux = if (isLinux(platform)) linux else &.{},
+        // Both macOS architectures need the Cocoa adapters. Keying this on
+        // macos_arm64 alone left an Intel build with no Paths/System sources at
+        // all, which the arm64-only CI job could never have caught.
+        .macos = if (isMacos(platform)) macos else &.{},
+        // The oracle records real MSVC behaviour to compare the portable layer
+        // against, so it is meaningful only for the MSVC ABI.
+        .windows_oracle = if (usesMsvc(platform)) windows_oracle else &.{},
         .excluded_utilities = excluded_utilities,
     };
 }
@@ -99,7 +134,9 @@ pub fn classify(target: std.Target) PolicyError!PlatformTarget {
 
 pub fn classifyDescriptor(target: TargetDescriptor) PolicyError!PlatformTarget {
     if (target.arch == .x86_64 and target.os == .windows and target.abi == .msvc) return .windows_x64;
+    if (target.arch == .x86_64 and target.os == .windows and target.abi == .gnu) return .windows_x64_gnu;
     if (target.arch == .x86_64 and target.os == .linux and target.abi == .gnu) return .linux_x64;
+    if (target.arch == .aarch64 and target.os == .linux and target.abi == .gnu) return .linux_arm64;
     if (target.arch == .x86_64 and target.os == .macos and target.abi == .none) return .macos_x64;
     if (target.arch == .aarch64 and target.os == .macos and target.abi == .none) return .macos_arm64;
     return error.UnsupportedTarget;
@@ -125,12 +162,51 @@ pub fn policy(platform: PlatformTarget, native: bool) Policy {
             .native_run_eligible = native,
             .windows_only = true,
         },
+        // MinGW produces the same Windows artefacts through a different
+        // toolchain, so it needs its own staging root: sharing windows/x86_64
+        // with the MSVC build would have the two overwrite each other.
+        .windows_x64_gnu => .{
+            .platform = platform,
+            .executable_name = "Game.exe",
+            .shared_library_suffix = ".dll",
+            .os_dir = "windows-mingw",
+            .arch_dir = "x86_64",
+            .shader_format = .dxil,
+            .gpu_driver = .d3d12,
+            .runtime_filename = "PlatformRuntime.dll",
+            .import_library_suffix = ".lib",
+            .elf_rpath = "",
+            .macho_install_name = "",
+            .crt = "mingw",
+            .runtime_def_file = "Sources/src/PlatformABI/PlatformRuntime.def",
+            .subsystem = .console,
+            .native_run_eligible = native,
+            .windows_only = true,
+        },
         .linux_x64 => .{
             .platform = platform,
             .executable_name = "Game",
             .shared_library_suffix = ".so",
             .os_dir = "linux",
             .arch_dir = "x86_64",
+            .shader_format = .spirv,
+            .gpu_driver = .vulkan,
+            .runtime_filename = "libPlatformRuntime.so",
+            .import_library_suffix = "",
+            .elf_rpath = "$ORIGIN",
+            .macho_install_name = "",
+            .crt = "glibc",
+            .runtime_def_file = null,
+            .subsystem = .console,
+            .native_run_eligible = native,
+            .windows_only = false,
+        },
+        .linux_arm64 => .{
+            .platform = platform,
+            .executable_name = "Game",
+            .shared_library_suffix = ".so",
+            .os_dir = "linux",
+            .arch_dir = "aarch64",
             .shader_format = .spirv,
             .gpu_driver = .vulkan,
             .runtime_filename = "libPlatformRuntime.so",
@@ -184,33 +260,36 @@ pub fn policy(platform: PlatformTarget, native: bool) Policy {
 
 pub fn libraryArch(platform: PlatformTarget) []const u8 {
     return switch (platform) {
-        .windows_x64 => "x64",
+        .windows_x64, .windows_x64_gnu => "x64",
         .linux_x64 => "x86_64",
+        .linux_arm64 => "aarch64",
         .macos_x64 => "x86_64",
         .macos_arm64 => "arm64",
     };
 }
 
+// Only the MSVC ABI needs a Visual Studio install: Zig ships its own mingw-w64
+// headers and import libraries for the GNU Windows ABI.
 pub fn windowsSdkRequired(platform: PlatformTarget) bool {
-    return platform == .windows_x64;
+    return usesMsvc(platform);
 }
 
 pub fn subsystem(platform: PlatformTarget, graphical: bool) Subsystem {
-    if (platform == .windows_x64 and graphical) return .windows;
+    if (isWindows(platform) and graphical) return .windows;
     return .console;
 }
 
 pub fn entryPoint(platform: PlatformTarget, graphical: bool) EntryPoint {
-    if (platform == .windows_x64 and graphical) return .win_main_crt_startup;
+    if (isWindows(platform) and graphical) return .win_main_crt_startup;
     return .main;
 }
 
 pub fn resourceFile(platform: PlatformTarget) ?[]const u8 {
-    return if (platform == .windows_x64) "Sources/src/Main/Game.rc" else null;
+    return if (isWindows(platform)) "Sources/src/Main/Game.rc" else null;
 }
 
 pub fn defFile(platform: PlatformTarget, arch: TargetArch) ?[]const u8 {
-    if (platform != .windows_x64) return null;
+    if (!isWindows(platform)) return null;
     return if (arch == .x86_64) "Sources/src/StreamIOZig/StreamIO.x64.def" else null;
 }
 
@@ -230,14 +309,60 @@ pub fn validateTestMode(mode: TestMode, native: bool) !void {
 
 test "supported target table" {
     try std.testing.expectEqual(PlatformTarget.windows_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .windows, .abi = .msvc }));
+    try std.testing.expectEqual(PlatformTarget.windows_x64_gnu, try classifyDescriptor(.{ .arch = .x86_64, .os = .windows, .abi = .gnu }));
     try std.testing.expectEqual(PlatformTarget.linux_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .linux, .abi = .gnu }));
+    try std.testing.expectEqual(PlatformTarget.linux_arm64, try classifyDescriptor(.{ .arch = .aarch64, .os = .linux, .abi = .gnu }));
     try std.testing.expectEqual(PlatformTarget.macos_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .macos, .abi = .none }));
     try std.testing.expectEqual(PlatformTarget.macos_arm64, try classifyDescriptor(.{ .arch = .aarch64, .os = .macos, .abi = .none }));
 }
 
 test "unsupported target diagnostics" {
     try std.testing.expectError(error.UnsupportedTarget, classifyDescriptor(.{ .arch = .x86, .os = .windows, .abi = .msvc }));
-    try std.testing.expectError(error.UnsupportedTarget, classifyDescriptor(.{ .arch = .aarch64, .os = .linux, .abi = .gnu }));
+    try std.testing.expectError(error.UnsupportedTarget, classifyDescriptor(.{ .arch = .x86, .os = .linux, .abi = .gnu }));
+    try std.testing.expectError(error.UnsupportedTarget, classifyDescriptor(.{ .arch = .aarch64, .os = .windows, .abi = .gnu }));
+}
+
+test "windows ABI flavours share Win32 policy but not the MSVC toolchain" {
+    // The whole point of splitting isWindows from usesMsvc: MinGW is Windows for
+    // sources, subsystem and resources, and is not Visual Studio for anything.
+    inline for (.{ PlatformTarget.windows_x64, PlatformTarget.windows_x64_gnu }) |flavour| {
+        const sources = sourceSets(flavour);
+        try std.testing.expect(sources.windows.len > 0);
+        try std.testing.expectEqual(@as(usize, 0), sources.posix.len);
+        try std.testing.expectEqual(Subsystem.windows, subsystem(flavour, true));
+        try std.testing.expectEqual(EntryPoint.win_main_crt_startup, entryPoint(flavour, true));
+        try std.testing.expect(resourceFile(flavour) != null);
+        try std.testing.expect(defFile(flavour, .x86_64) != null);
+        try std.testing.expectEqualStrings("Game.exe", policy(flavour, false).executable_name);
+    }
+    try std.testing.expect(windowsSdkRequired(.windows_x64));
+    try std.testing.expect(!windowsSdkRequired(.windows_x64_gnu));
+    try std.testing.expect(sourceSets(.windows_x64).windows_oracle.len > 0);
+    try std.testing.expectEqual(@as(usize, 0), sourceSets(.windows_x64_gnu).windows_oracle.len);
+    // Distinct staging roots, or one flavour's install would clobber the other.
+    try std.testing.expect(!std.mem.eql(
+        u8,
+        policy(.windows_x64, false).os_dir,
+        policy(.windows_x64_gnu, false).os_dir,
+    ));
+}
+
+test "second architecture sits beside the first for every OS" {
+    const linux_x64 = policy(.linux_x64, false);
+    const linux_arm = policy(.linux_arm64, false);
+    try std.testing.expectEqualStrings(linux_x64.os_dir, linux_arm.os_dir);
+    try std.testing.expectEqualStrings("aarch64", linux_arm.arch_dir);
+    try std.testing.expectEqualStrings("$ORIGIN", linux_arm.elf_rpath);
+    try std.testing.expectEqual(ShaderFormat.spirv, linux_arm.shader_format);
+    try std.testing.expectEqual(GpuDriver.vulkan, linux_arm.gpu_driver);
+    try std.testing.expect(!windowsSdkRequired(.linux_arm64));
+    try std.testing.expectEqualStrings("aarch64", libraryArch(.linux_arm64));
+
+    // Both macOS architectures carry the Cocoa adapters; Intel used to get none.
+    try std.testing.expect(sourceSets(.macos_x64).macos.len > 0);
+    try std.testing.expect(sourceSets(.macos_arm64).macos.len > 0);
+    try std.testing.expect(sourceSets(.linux_arm64).linux.len > 0);
+    try std.testing.expect(sourceSets(.linux_arm64).posix.len > 0);
 }
 
 test "platform output table" {
