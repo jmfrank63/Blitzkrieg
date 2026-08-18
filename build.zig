@@ -3483,6 +3483,18 @@ fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.Opt
     return cppflagsForOptimize(optimize);
 }
 
+// Debian multiarch library directory for a Linux target. This was hardcoded to
+// the x86_64 triple, so an arm64 Linux host looked for its C++ runtime under
+// /usr/lib/x86_64-linux-gnu and found nothing: the aarch64 job could not link
+// libstdc++ at all. Only ever consulted for native Linux builds, where the
+// target architecture is also the host's.
+fn linuxMultiarchDir(arch: std.Target.Cpu.Arch) []const u8 {
+    return switch (arch) {
+        .aarch64 => "/usr/lib/aarch64-linux-gnu",
+        else => "/usr/lib/x86_64-linux-gnu",
+    };
+}
+
 fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
     switch (target.result.os.tag) {
         // Zig treats the abstract name `stdc++` as its libc++ switch. The
@@ -3490,8 +3502,16 @@ fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) v
         // libstdc++, so use the concrete soname to match headers and ABI.
         .linux => {
             if (build_host_os == .linux) {
-                module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6" });
-                module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" });
+                switch (target.result.cpu.arch) {
+                    .aarch64 => {
+                        module.addObjectFile(.{ .cwd_relative = "/usr/lib/aarch64-linux-gnu/libstdc++.so.6" });
+                        module.addObjectFile(.{ .cwd_relative = "/usr/lib/aarch64-linux-gnu/libgcc_s.so.1" });
+                    },
+                    else => {
+                        module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libstdc++.so.6" });
+                        module.addObjectFile(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1" });
+                    },
+                }
             } else {
                 module.linkSystemLibrary("stdc++", .{});
             }
@@ -3597,7 +3617,7 @@ fn applyLoaderPath(target: std.Build.ResolvedTarget, module: *std.Build.Module) 
 fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     addMacosCxxIncludePaths(b, module);
     if (build_target_os != .linux or b.graph.host.result.os.tag != .linux) return;
-    module.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
+    module.addLibraryPath(.{ .cwd_relative = linuxMultiarchDir(b.graph.host.result.cpu.arch) });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
     var selected: ?[]const u8 = null;
