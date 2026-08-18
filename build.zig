@@ -783,7 +783,7 @@ pub fn build(b: *std.Build) void {
         query.glibc_version = b.graph.host.result.os.version_range.linux.glibc;
         selected_target = b.resolveTargetQuery(query);
     }
-    const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-linux-gnu, x86_64-macos, and aarch64-macos");
+    const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-windows-gnu, x86_64-linux-gnu, aarch64-linux-gnu, x86_64-macos, and aarch64-macos");
     build_target_os = selected_target.result.os.tag;
     build_target_msvc = build_support.usesMsvc(platform);
     build_host_os = b.graph.host.result.os.tag;
@@ -3488,6 +3488,16 @@ fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.Opt
 // /usr/lib/x86_64-linux-gnu and found nothing: the aarch64 job could not link
 // libstdc++ at all. Only ever consulted for native Linux builds, where the
 // target architecture is also the host's.
+// Debian multiarch architecture name. libstdc++ keeps bits/c++config.h under
+// /usr/include/<arch>-linux-gnu/c++/<version>, so a hardcoded x86_64 here left
+// an arm64 host unable to find it and every <cstdint> include failed.
+fn linuxArchName(arch: std.Target.Cpu.Arch) []const u8 {
+    return switch (arch) {
+        .aarch64 => "aarch64",
+        else => "x86_64",
+    };
+}
+
 fn linuxMultiarchDir(arch: std.Target.Cpu.Arch) []const u8 {
     return switch (arch) {
         .aarch64 => "/usr/lib/aarch64-linux-gnu",
@@ -3629,7 +3639,7 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
         }
     }
     const version = selected orelse return;
-    const arch = "x86_64";
+    const arch = linuxArchName(b.graph.host.result.cpu.arch);
     // Zig's Linux C++ driver injects libc++ system headers first. These
     // legacy modules share STL-bearing C++ objects across DLL boundaries, so
     // treat the native libstdc++ headers as ordinary include paths and keep one
