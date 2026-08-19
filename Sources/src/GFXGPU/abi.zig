@@ -116,10 +116,29 @@ pub const TemporaryIndexedGeometryInfo = extern struct {
 // after the fact and defaults to vsync when the caller stops short of it.
 const create_info_base_size: u32 = @offsetOf(CreateInfo, "present_mode");
 
+// Copy a caller's struct into a zeroed local of our (possibly grown) layout,
+// reading only the bytes the caller says it owns. Dereferencing the pointer as
+// a whole struct instead would read past the end of an object compiled against
+// a shorter layout - the exact thing struct_size exists to prevent - and the
+// fields past the caller's end have to read as zero, which is what every
+// appended field documents as its "caller stopped short" value.
+fn copyBoundedStruct(comptime T: type, source: *const T, provided_size: u32) T {
+    var result = std.mem.zeroes(T);
+    const copied = @min(provided_size, @as(u32, @sizeOf(T)));
+    const destination: [*]u8 = @ptrCast(&result);
+    const bytes: [*]const u8 = @ptrCast(source);
+    @memcpy(destination[0..copied], bytes[0..copied]);
+    return result;
+}
+
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
     if (info == null or out_renderer == null) return errors.invalid_argument;
-    const create_info = info.?.*;
-    if (create_info.struct_size < create_info_base_size or create_info.width == 0 or create_info.height == 0)
+    // struct_size is the first field of every one of these structs, so it can
+    // always be read before anything else is trusted.
+    const provided_size = info.?.struct_size;
+    if (provided_size < create_info_base_size) return errors.invalid_argument;
+    const create_info = copyBoundedStruct(CreateInfo, info.?, provided_size);
+    if (create_info.width == 0 or create_info.height == 0)
         return errors.invalid_argument;
     const raw_state = libc.malloc(@sizeOf(renderer_mod.Renderer)) orelse return errors.out_of_memory;
     const state: *renderer_mod.Renderer = @ptrCast(@alignCast(raw_state));
@@ -137,7 +156,7 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
             libc.free(state);
             return errors.out_of_memory;
         };
-        if (create_info.struct_size >= @sizeOf(CreateInfo))
+        if (provided_size >= @sizeOf(CreateInfo))
             state.present_mode = sdl.presentModeFromValue(create_info.present_mode);
         state.attachWindow(create_info.sdl_window, create_info.width, create_info.height) catch {
             state.deinit();
@@ -572,12 +591,84 @@ const api = Api{
     .set_present_mode = setPresentMode,
 };
 
+// The size of the table as it shipped before the presentation entry points
+// were appended. A caller compiled against that layout asks for exactly this
+// many bytes, and the two appended function pointers do not exist in its
+// struct at all - so requiring @sizeOf(Api) here would reject every such
+// caller, which is what "appended, callers that predate it keep working via
+// the struct_size check" is supposed to rule out.
+const api_base_size: u32 = @offsetOf(Api, "set_present_fit");
+
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {
     if (out_api == null) return errors.invalid_argument;
     if (requested_version != abi_version) return errors.unsupported;
-    if (out_api.?.struct_size < @sizeOf(Api)) return errors.invalid_argument;
-    out_api.?.* = api;
+    const requested_size = out_api.?.struct_size;
+    if (requested_size < api_base_size) return errors.invalid_argument;
+    // Fill only as far as the caller's table reaches. Assigning the whole
+    // struct would write our size into an object that may be shorter.
+    const copied = @min(requested_size, @as(u32, @sizeOf(Api)));
+    const destination: [*]u8 = @ptrCast(out_api.?);
+    const source: [*]const u8 = @ptrCast(&api);
+    @memcpy(destination[0..copied], source[0..copied]);
+    // Report what was actually written rather than either side's idea of the
+    // full size, so a caller newer than this library can tell a short table
+    // from a complete one and leave the entry points it did not get alone.
+    out_api.?.struct_size = copied;
     return errors.ok;
+}
+
+test "the API table is filled to the caller's size and never past it" {
+    // A caller compiled before the presentation entry points were appended
+    // passes the shorter size. Model it with a full-size table whose tail is
+    // poisoned - an unbounded assignment would overwrite the poison, which is
+    // a write past the end of that caller's real object.
+    var table: Api = undefined;
+    const bytes: [*]u8 = @ptrCast(&table);
+    @memset(bytes[0..@sizeOf(Api)], 0xAA);
+    table.struct_size = api_base_size;
+    try std.testing.expectEqual(errors.ok, gfxgpu_get_api(abi_version, &table));
+    try std.testing.expectEqual(abi_version, table.abi_version);
+    try std.testing.expect(table.create == api.create);
+    try std.testing.expect(table.present == api.present);
+    // struct_size reports what was written, so a caller newer than this
+    // library can tell a short table from a complete one.
+    try std.testing.expectEqual(api_base_size, table.struct_size);
+    for (bytes[api_base_size..@sizeOf(Api)]) |byte|
+        try std.testing.expectEqual(@as(u8, 0xAA), byte);
+
+    // A caller of this vintage gets the whole table, appended entries and all.
+    var full: Api = undefined;
+    full.struct_size = @sizeOf(Api);
+    try std.testing.expectEqual(errors.ok, gfxgpu_get_api(abi_version, &full));
+    try std.testing.expectEqual(@as(u32, @sizeOf(Api)), full.struct_size);
+    try std.testing.expect(full.set_present_mode == api.set_present_mode);
+}
+
+test "a caller's struct is read only as far as its struct_size" {
+    // The bytes past the caller's end are not its to read: an object compiled
+    // against the shorter layout simply stops there. Every appended field
+    // documents zero as its "caller stopped short" value, so that - not
+    // whatever memory follows - is what a short copy has to produce.
+    const source = CreateInfo{
+        .struct_size = @sizeOf(CreateInfo),
+        .flags = 2,
+        .sdl_window = null,
+        .width = 320,
+        .height = 200,
+        .shader_directory_utf8 = null,
+        .preferred_driver_utf8 = null,
+        .present_mode = 2,
+    };
+    const full = copyBoundedStruct(CreateInfo, &source, @sizeOf(CreateInfo));
+    try std.testing.expectEqual(@as(u32, 2), full.present_mode);
+    try std.testing.expectEqual(@as(u32, 320), full.width);
+    const short = copyBoundedStruct(CreateInfo, &source, create_info_base_size);
+    try std.testing.expectEqual(@as(u32, 0), short.present_mode);
+    try std.testing.expectEqual(@as(u32, 320), short.width);
+    // A caller asking for more than this library knows about gets our layout,
+    // not a read past the end of our own table.
+    const generous = copyBoundedStruct(CreateInfo, &source, @sizeOf(CreateInfo) + 64);
+    try std.testing.expectEqual(@as(u32, 2), generous.present_mode);
 }
 
 test "C ABI uses fixed-width fields and rejects invalid API requests" {

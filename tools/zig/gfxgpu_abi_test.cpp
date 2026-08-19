@@ -1,6 +1,8 @@
 #include "../../Sources/src/GFXGPU/gfxgpu_c.h"
 
+#include <cstddef>
 #include <cstdio>
+#include <cstring>
 
 int main()
 {
@@ -9,6 +11,29 @@ int main()
     if ( gfxgpu_get_api( GFXGPU_ABI_VERSION, &api ) != GFXGPU_OK ) return 1;
     if ( api.abi_version != GFXGPU_ABI_VERSION || api.struct_size != sizeof( api ) ) return 2;
     if ( gfxgpu_get_api( GFXGPU_ABI_VERSION + 1u, &api ) != GFXGPU_UNSUPPORTED ) return 3;
+
+    // A caller compiled before set_present_fit and set_present_mode were
+    // appended asks for the shorter table. It has to be served - that is what
+    // struct_size is for - and served without a single byte landing past the
+    // end of its object. Modelled with a full-size table whose tail is
+    // poisoned: an unbounded fill would overwrite the poison.
+    {
+        const size_t nShortSize = offsetof( GfxGpuApi, set_present_fit );
+        GfxGpuApi legacy{};
+        std::memset( &legacy, 0xAA, sizeof( legacy ) );
+        legacy.struct_size = static_cast<uint32_t>( nShortSize );
+        if ( gfxgpu_get_api( GFXGPU_ABI_VERSION, &legacy ) != GFXGPU_OK ) return 9;
+        if ( legacy.struct_size != nShortSize ) return 10;
+        if ( legacy.abi_version != GFXGPU_ABI_VERSION || legacy.create == nullptr || legacy.present == nullptr ) return 11;
+        const unsigned char *pTail = reinterpret_cast<const unsigned char *>( &legacy ) + nShortSize;
+        for ( size_t i = 0; i < sizeof( legacy ) - nShortSize; ++i )
+            if ( pTail[i] != 0xAA ) return 12;
+        // Anything shorter than the mandatory part of the table is still a
+        // rejection rather than a partial fill.
+        GfxGpuApi tiny{};
+        tiny.struct_size = 1;
+        if ( gfxgpu_get_api( GFXGPU_ABI_VERSION, &tiny ) != GFXGPU_INVALID_ARGUMENT ) return 13;
+    }
 
     GfxGpuCreateInfo info{};
     info.struct_size = static_cast<uint32_t>( sizeof( info ) );

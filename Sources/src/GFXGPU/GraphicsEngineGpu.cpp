@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 
@@ -116,10 +117,19 @@ namespace
 
 namespace
 {
+    // How much of the table this engine actually needs. Demanding
+    // sizeof(GfxGpuApi) instead would make every appended entry point a hard
+    // ABI break in the other direction: a library built before set_present_fit
+    // and set_present_mode fills a shorter table, reports that shorter size,
+    // and would be rejected outright even though everything the engine draws
+    // with is present. The appended pointers are optional by construction -
+    // gfxgpu_get_api leaves them as the zero-initialised nulls they started
+    // as, and every call site tests them - so the gate stops where the
+    // mandatory part of the table stops.
     bool IsApiUsable( const GfxGpuApi &api )
     {
         return api.abi_version == GFXGPU_ABI_VERSION &&
-            api.struct_size >= sizeof( GfxGpuApi ) &&
+            api.struct_size >= offsetof( GfxGpuApi, set_present_fit ) &&
             api.create != nullptr && api.destroy != nullptr &&
             api.begin_frame != nullptr && api.end_frame != nullptr &&
             api.present != nullptr;
