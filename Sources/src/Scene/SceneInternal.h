@@ -103,12 +103,12 @@ struct SClickMarker
 	CVec3 vPos;
 	NTimer::STime nStartTime;
 };
-typedef std::list<const SBasicSpriteInfo*> CSpriteVisList;
-typedef std::list<IMeshVisObj*> CMeshVisList;
+typedef std::vector<const SBasicSpriteInfo*> CSpriteVisList;
+typedef std::vector<IMeshVisObj*> CMeshVisList;
 typedef std::list< CPtr<IMeshVisObj> > CMeshObjList;
 typedef std::list< CPtr<IEffectVisObj> > CEffectObjList;
 typedef std::list< CPtr<ISpriteVisObj> > CSpritesObjList;
-typedef std::list<SParticleInfo> CParticlesVisList;
+typedef std::vector<SParticleInfo> CParticlesVisList;
 typedef std::list< CPtr<ISceneObject> > CSceneObjectsList;
 typedef std::unordered_map<IGFXTexture*, CParticlesVisList, SDefaultPtrHash> CParticlesVisMap;
 
@@ -283,7 +283,11 @@ class CScene : public IScene
 				return false;
 			}
 		}
-	typedef std::list< std::pair<int, int> > CPatchesList;
+	typedef std::vector< std::pair<int, int> > CPatchesList;
+	// Scratch for the per-frame patch selection. It lives here rather than on
+	// the stack of FormVisibilityLists so that its capacity survives the frame -
+	// SelectPatches() clears it instead of the caller building a fresh one.
+	CPatchesList visiblePatches;
 	void SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, float fPatchSize, CPatchesList *pPatches );
 	void SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const CVec2 &vCameraY,
 											 float fPatchesX, float fPatchesY, float fPatchSize, CPatchesList *pPatches );

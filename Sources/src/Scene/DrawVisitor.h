@@ -17,9 +17,9 @@ struct SBoldLineObject
 	DWORD color;
 	SBoldLineObject( CVec3 *_corners, DWORD _color ) : corners( _corners ), color( _color ) {  }
 };
-typedef std::list<STextObject> CTextVisList;
-typedef std::list<ISceneObject*> CUnknownVisList;
-typedef std::list<SBoldLineObject> CBoldLineVisList;
+typedef std::vector<STextObject> CTextVisList;
+typedef std::vector<ISceneObject*> CUnknownVisList;
+typedef std::vector<SBoldLineObject> CBoldLineVisList;
 struct SSortByFont
 {
 	bool operator()( const STextObject &s1, const STextObject &s2 ) const
@@ -99,6 +99,10 @@ public:
 	void Init( ICamera *_pCamera, const SHMatrix &_matrix, const CTRect<short> &_rcScreen, const SPlane *pViewVolumePlanes );
 	void Clear();
 	void Sort();
+	// The particle map keeps its per-texture buckets across frames so they keep
+	// their capacity, so an all-empty frame still has map entries - ask about
+	// the contents, never about the map being empty.
+	bool HasParticles() const;
 	void STDCALL VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority );
 	void STDCALL VisitMeshObject( IMeshVisObj *pObj, int nType, int nPriority );
 	void STDCALL VisitParticles( IParticleSource *pObj );

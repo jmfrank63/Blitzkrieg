@@ -225,6 +225,9 @@ void CScene::Pick( const CTRect<float> &rcRect, std::pair<IVisObj*, CVec2> **ppO
 void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const CVec2 &vCameraY, 
 																  float fPatchesX, float fPatchesY, float fPatchSize, CPatchesList *pPatches )
 {
+	// Same contract as SelectPatches: the caller may reuse its container, so the
+	// selection starts by emptying it rather than appending to what was there.
+	pPatches->clear();
 	const float fPatchHalfAxis = fPatchSize * FP_SQRT_2 / 2.0f; //fCellSizeX * STerrainPatchInfo::nSizeX;
 	CVec3 vAxisX, vAxisY;
 	GetLineEq( 0, 0, 1, 0, &vAxisX.x, &vAxisX.y, &vAxisX.z );

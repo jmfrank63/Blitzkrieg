@@ -220,10 +220,12 @@ static void RestoreGameplayDirectTransform( IGFX *pGFX, const SHMatrix &matGamep
 // the reporter below - both live in this file, so no plumbing is needed.
 static int g_nBkPerfVisiblePatches = 0;
 // Reports, once a second, how much the visibility pass allocated and how full
-// it left the draw lists. Every std::list push_back is exactly one heap
-// allocation, and CDrawVisitor::Clear() empties the lists immediately before
-// FormVisibilityLists runs, so the final sizes *are* the allocation count -
-// a global operator new hook would say the same thing at a far higher price.
+// it left the draw lists. The draw lists are vectors owned by the one
+// persistent visitor and only cleared - never freed - between frames, so their
+// push_backs stop allocating as soon as capacity has settled; the same goes
+// for the patch list and for the per-texture particle buckets. What is left
+// paying one heap allocation per element is the two std::list trace
+// collections, so they alone make up the steady-state allocation count.
 // uiObjects is a deque, which allocates per block rather than per element, so
 // it is reported but left out of the allocation total.
 static void ReportVisibilityLists( const CDrawVisitor *pVisitor )
@@ -236,13 +238,7 @@ static void ReportVisibilityLists( const CDrawVisitor *pVisitor )
 	int nParticles = 0;
 	for ( CParticlesVisMap::const_iterator it = pVisitor->particles.begin(); it != pVisitor->particles.end(); ++it )
 		nParticles += int( it->second.size() );
-	const int nAllocs = g_nBkPerfVisiblePatches +
-		int( pVisitor->sprites.size() + pVisitor->spriteBuildings.size() + pVisitor->spriteUnits.size() +
-		     pVisitor->spriteEffects.size() + pVisitor->spriteFlashes.size() + pVisitor->meshes.size() +
-		     pVisitor->aviation.size() + pVisitor->terraObjects.size() + pVisitor->shadowObjects.size() +
-		     pVisitor->unknowns.size() + pVisitor->boldLines.size() + pVisitor->traces.size() +
-		     pVisitor->gunTraces.size() + pVisitor->icons.size() + pVisitor->textes.size() +
-		     pVisitor->particles.size() ) + nParticles;
+	const int nAllocs = int( pVisitor->traces.size() + pVisitor->gunTraces.size() );
 	fprintf( stderr, "BK_PERF: formVis allocs=%d patches=%d"
 		" sprites=%d buildings=%d units=%d effects=%d flashes=%d meshes=%d aviation=%d"
 		" terra=%d shadows=%d particles=%d textes=%d traces=%d gunTraces=%d icons=%d uiObjects=%d\n",
@@ -459,7 +455,9 @@ void CScene::Draw( ICamera *pCamera )
 		}
 		if ( !pDrawVisitor->textes.empty() )
 		{
-			pDrawVisitor->textes.sort( SSortByFont() );
+			// stable_sort keeps the submission order inside one font, which is what
+			// std::list::sort used to guarantee here.
+			std::stable_sort( pDrawVisitor->textes.begin(), pDrawVisitor->textes.end(), SSortByFont() );
 			for ( CTextVisList::iterator it = pDrawVisitor->textes.begin(); it != pDrawVisitor->textes.end(); ++it )
 			{
 				pGFX->SetFont( it->pFont );
@@ -511,7 +509,7 @@ void CScene::Draw( ICamera *pCamera )
 	}
 	if ( bEnableEffects )
 	{
-		if ( !pDrawVisitor->particles.empty() )
+		if ( pDrawVisitor->HasParticles() )
 		{
 			SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 			pGFX->SetShadingEffect( 12 );
@@ -760,7 +758,9 @@ void DrawSprites( CSpriteVisList &sprites, const TDepthCalculator &calculator,
 								  const CTRect<float> &rcScreen, IGFX *pGFX )
 {
 	const int nNumSprites = sprites.size();
-	sprites.sort( CSpritesSortFunctional() );
+	// stable_sort: sprites that compare equal have to keep the order the scene
+	// handed them over in, or equally-deep sprites swap and the overdraw flips.
+	std::stable_sort( sprites.begin(), sprites.end(), CSpritesSortFunctional() );
 	ReserveSprites2Draw( nNumSprites );
 	for ( CSpriteVisList::const_iterator it = sprites.begin(); it != sprites.end(); ++it )
 	{
@@ -1671,11 +1671,16 @@ void CScene::UpdateWeather()
 void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 {
 	NTimer::STime time = pTimer->GetGameTime();
-	CPatchesList patches;
+	// The scratch member, not a fresh list per frame - SelectPatches clears it.
+	CPatchesList &patches = visiblePatches;
 	SelectPatches( pCamera, areaUnits.GetSizeX(), areaUnits.GetSizeY(), AREA_MAP_CELL_SIZE, &patches );
-	g_nBkPerfVisiblePatches = int( patches.size() );		// BK_PERF: one list node per patch
+	g_nBkPerfVisiblePatches = int( patches.size() );		// BK_PERF: visible patches, no longer an allocation each
 	const CTRect<short> rcScreen = pGFX->GetScreenRect();
-	if ( bWeatherOn && bEnableEffects )
+	// The empty case has no rect to derive from. That read was always out of
+	// bounds, but a std::list kept its sentinel inside the list object so it
+	// only ever returned garbage; begin() on an empty vector is null, which
+	// would make the same line a crash. Leave the previous rect standing.
+	if ( bWeatherOn && bEnableEffects && !patches.empty() )
 	{
 		viewableTerrainRect.x1 = patches.begin()->first;
 		viewableTerrainRect.y1 = patches.begin()->second;
@@ -1835,6 +1840,9 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 }
 void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, float fPatchSize, CPatchesList *pPatches )
 {
+	// Callers hand in a container they keep across frames, so start from empty
+	// here - clear() on a vector keeps the capacity it already grew to.
+	pPatches->clear();
 	const CVec3 vCamera = pCamera->GetAnchor();
 	const float fPatchHalfAxis = fPatchSize * FP_SQRT_2 / 2.0f; //fCellSizeX * STerrainPatchInfo::nSizeX;
 	CVec3 vAxisX, vAxisY;

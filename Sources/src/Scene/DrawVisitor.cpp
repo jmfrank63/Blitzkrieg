@@ -31,7 +31,12 @@ void CDrawVisitor::Clear()
 	aviation.clear();
 	terraObjects.clear();
 	shadowObjects.clear();
-	particles.clear();
+	// Empty every per-texture bucket but keep the map itself: the buckets are
+	// vectors and clearing them keeps the storage they grew to, so a texture
+	// that stays visible never reallocates. HasParticles() is what tells an
+	// all-empty frame from a populated one now.
+	for ( CParticlesVisMap::iterator it = particles.begin(); it != particles.end(); ++it )
+		it->second.clear();
 	unknowns.clear();
 	icons.clear();
 	textes.clear();
@@ -252,6 +257,18 @@ struct STextureCmpFunctional
 };
 void CDrawVisitor::Sort()
 {
-	meshes.sort( STextureCmpFunctional() );
-	aviation.sort( STextureCmpFunctional() );
+	// stable_sort, not sort: these used to be std::lists, whose sort is stable,
+	// and the draw order of same-texture meshes has to stay the submission order
+	// or the overdraw between them changes.
+	std::stable_sort( meshes.begin(), meshes.end(), STextureCmpFunctional() );
+	std::stable_sort( aviation.begin(), aviation.end(), STextureCmpFunctional() );
+}
+bool CDrawVisitor::HasParticles() const
+{
+	for ( CParticlesVisMap::const_iterator it = particles.begin(); it != particles.end(); ++it )
+	{
+		if ( !it->second.empty() )
+			return true;
+	}
+	return false;
 }
