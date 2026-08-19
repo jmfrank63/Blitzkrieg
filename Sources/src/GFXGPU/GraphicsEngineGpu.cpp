@@ -1075,18 +1075,34 @@ bool STDCALL GraphicsEngineGpu::Flip()
             // Unsigned arithmetic keeps that correct across a 32-bit wrap.
             static GfxGpuLiveCounts previous{ sizeof( previous ) };
             const double per_frame = 1.0 / frames;
+            // The last six counters mean one thing on the pooled path and
+            // another on the arena one - see GfxGpuLiveCounts - so the line
+            // has to name the path it is describing. Read the switch the
+            // same way the renderer does: only a literal 0 turns the arena off.
+            static const char *pszArena = getenv( "BK_GPU_ARENA" );
+            static const bool arena = pszArena == 0 || strcmp( pszArena, "0" ) != 0;
             fprintf( stderr, "BK_PERF: %.1f fps (%.2f ms/frame)  live buffers=%u textures=%u"
-                " tempDraws=%.0f/frame staged=%.1f KB/frame"
-                " tempPool(free+inUse) vtx=%.0f+%.0f idx=%.0f+%.0f xfer=%.0f+%.0f\n",
+                " tempDraws=%.0f/frame staged=%.1f KB/frame",
                 frames / elapsed, 1000.0 * elapsed / frames, counts.buffers, counts.textures,
                 ( counts.temporary_draws - previous.temporary_draws ) * per_frame,
-                ( counts.temporary_bytes - previous.temporary_bytes ) * per_frame / 1024.0,
-                ( counts.temporary_vertex_free - previous.temporary_vertex_free ) * per_frame,
-                ( counts.temporary_vertex_in_use - previous.temporary_vertex_in_use ) * per_frame,
-                ( counts.temporary_index_free - previous.temporary_index_free ) * per_frame,
-                ( counts.temporary_index_in_use - previous.temporary_index_in_use ) * per_frame,
-                ( counts.temporary_transfer_free - previous.temporary_transfer_free ) * per_frame,
-                ( counts.temporary_transfer_in_use - previous.temporary_transfer_in_use ) * per_frame );
+                ( counts.temporary_bytes - previous.temporary_bytes ) * per_frame / 1024.0 );
+            if ( arena )
+                fprintf( stderr, " tempArena(used/cap KB) vtx=%.1f/%.0f idx=%.1f/%.0f"
+                    " xferCap=%.0f fallbacks=%.1f\n",
+                    ( counts.temporary_vertex_free - previous.temporary_vertex_free ) * per_frame / 1024.0,
+                    ( counts.temporary_vertex_in_use - previous.temporary_vertex_in_use ) * per_frame / 1024.0,
+                    ( counts.temporary_index_free - previous.temporary_index_free ) * per_frame / 1024.0,
+                    ( counts.temporary_index_in_use - previous.temporary_index_in_use ) * per_frame / 1024.0,
+                    ( counts.temporary_transfer_free - previous.temporary_transfer_free ) * per_frame / 1024.0,
+                    ( counts.temporary_transfer_in_use - previous.temporary_transfer_in_use ) * per_frame );
+            else
+                fprintf( stderr, " tempPool(free+inUse) vtx=%.0f+%.0f idx=%.0f+%.0f xfer=%.0f+%.0f\n",
+                    ( counts.temporary_vertex_free - previous.temporary_vertex_free ) * per_frame,
+                    ( counts.temporary_vertex_in_use - previous.temporary_vertex_in_use ) * per_frame,
+                    ( counts.temporary_index_free - previous.temporary_index_free ) * per_frame,
+                    ( counts.temporary_index_in_use - previous.temporary_index_in_use ) * per_frame,
+                    ( counts.temporary_transfer_free - previous.temporary_transfer_free ) * per_frame,
+                    ( counts.temporary_transfer_in_use - previous.temporary_transfer_in_use ) * per_frame );
             fflush( stderr );
             previous = counts;
             frames = 0; last = now;

@@ -32,8 +32,10 @@ pub const LiveCounts = extern struct {
     buffers: u32,
     samplers: u32,
     render_targets: u32,
-    // Appended after the shipped layout - see gfxgpu_c.h. Written only when the
-    // caller's struct_size reaches them, so the ABI stays backward compatible.
+    // Appended after the shipped layout - see gfxgpu_c.h, which also records
+    // what the six pool fields carry on each of the two upload paths. Written
+    // only when the caller's struct_size reaches them, so the ABI stays
+    // backward compatible.
     temporary_draws: u32,
     temporary_bytes: u32,
     temporary_vertex_free: u32,

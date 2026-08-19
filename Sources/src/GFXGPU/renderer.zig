@@ -40,11 +40,25 @@ pub const Renderer = struct {
     in_use_temp_index: std.ArrayListUnmanaged(TempBuffer) = .empty,
     free_temp_transfer: std.ArrayListUnmanaged(TempTransfer) = .empty,
     in_use_temp_transfer: std.ArrayListUnmanaged(TempTransfer) = .empty,
+    // The per-frame arena those pools were replaced by, and the switch that
+    // selects it. The pools above are exactly-sized and never shrink: the menu
+    // held 26 vertex buffers, 16 index buffers and 42 transfer buffers live for
+    // 21 KB of geometry, and did 42 map/unmap pairs a frame to fill them.
+    // BK_GPU_ARENA=0 goes back to that path, unchanged, so a rendering
+    // regression bisects on one variable.
+    arena_enabled: bool = true,
+    arena: TempArena = .{},
     // BK_PERF measurement only - nothing here feeds a decision. The draw and
-    // byte counters are free-running totals; the pool counters add one sample
-    // per frame. Both are read once a second through get_live_counts, which
-    // subtracts its previous sample and divides by the frames it saw, so they
-    // are never reset and wrap harmlessly.
+    // byte counters are free-running totals; the six counters below them add one
+    // sample per frame. Both are read once a second through get_live_counts,
+    // which subtracts its previous sample and divides by the frames it saw, so
+    // they are never reset and wrap harmlessly.
+    //
+    // The six carry the pool sizes on the BK_GPU_ARENA=0 path and the arena's
+    // numbers on the default one - bytes the frame asked of each arena, the
+    // capacity that served it, and the draws that had to fall back. Same fields,
+    // because the C header they cross is shared; releaseTemporaryBuffers is
+    // where the two meanings are set.
     perf_temp_draws: u32 = 0,
     perf_temp_bytes: u32 = 0,
     perf_temp_vertex_free: u32 = 0,
@@ -168,6 +182,152 @@ pub const Renderer = struct {
     const TempBuffer = struct { gpu: *sdl.GpuBuffer, capacity: u32 };
     const TempTransfer = struct { transfer: *sdl.GpuTransferBuffer, capacity: u32 };
 
+    // Every arena offset, on the transfer side and the GPU side alike, is a
+    // multiple of this. SDL validates no alignment at all for a buffer copy, but
+    // the backends underneath do: Metal's blit encoder wants four bytes on
+    // macOS, D3D12 and Vulkan are happier with more. Sixteen costs a few bytes
+    // of padding per draw against a 64 KB arena, which is not worth measuring.
+    const arena_copy_alignment: u32 = 16;
+
+    // Where a suballocation may start. SDL_GPUBufferBinding.offset is where
+    // element zero of the draw lives, so the offset has to be a whole number of
+    // elements as well as a legal copy offset, and the smallest step that is
+    // both is their least common multiple. The strides here are 20..40 bytes, so
+    // this lands on 80..160.
+    fn arenaAlignmentFor(element_size: u32) u32 {
+        if (element_size == 0 or element_size > 1 << 20) return arena_copy_alignment;
+        const divisor = std.math.gcd(element_size, arena_copy_alignment);
+        return (element_size / divisor) * arena_copy_alignment;
+    }
+
+    fn alignUpSaturating(value: u32, alignment: u32) u32 {
+        if (alignment <= 1) return value;
+        const remainder = value % alignment;
+        if (remainder == 0) return value;
+        return value +| (alignment - remainder);
+    }
+
+    // The bump allocator behind one arena buffer. It deliberately holds no GPU
+    // handle: everything an arena gets wrong is arithmetic - a misaligned bind,
+    // a range that runs off the end, a capacity that never comes back down - and
+    // none of that should need a device to test.
+    pub const ArenaCursor = struct {
+        // The size of the GPU buffer this hands out ranges of. Zero until that
+        // buffer exists, which makes every draw fall back, which is correct.
+        capacity: u32 = 0,
+        // The size the buffer should be recreated at before the next frame.
+        pending: u32 = 0,
+        cursor: u32 = 0,
+        // What the frame asked for, aligned the same way, counting the requests
+        // that did not fit. A frame that overflowed and fell back to per-draw
+        // buffers grows the arena to cover it rather than falling back forever.
+        wanted: u32 = 0,
+        // Sliding maximum of `wanted` over two buckets, the window under way and
+        // the one before it. Shrinking off a single frame's low sample would let
+        // a screen that redraws unevenly thrash the arena between two sizes.
+        window_peak: u32 = 0,
+        previous_peak: u32 = 0,
+        window_frames: u32 = 0,
+        minimum: u32 = 64 * 1024,
+        maximum: u32 = 64 * 1024 * 1024,
+        // How long the arena may sit above what it needs. 240 frames is a few
+        // seconds - long enough that opening a dialog and closing it again does
+        // not resize the arena twice.
+        review_frames: u32 = 240,
+
+        pub fn beginFrame(self: *ArenaCursor) void {
+            self.cursor = 0;
+            self.wanted = 0;
+        }
+
+        // A range of `length` bytes starting at a multiple of `alignment`, or
+        // null when it does not fit - the caller then draws through a per-draw
+        // buffer, and `wanted` has recorded the size either way.
+        pub fn alloc(self: *ArenaCursor, length: u32, alignment: u32) ?u32 {
+            if (length == 0) return null;
+            // `wanted` is a shadow cursor that advances even when the real one
+            // cannot, so it says how large the arena would have had to be to
+            // serve the whole frame.
+            self.wanted = alignUpSaturating(self.wanted, alignment) +| length;
+            const start = alignUpSaturating(self.cursor, alignment);
+            const end = start +| length;
+            if (end > self.capacity) return null;
+            self.cursor = end;
+            return start;
+        }
+
+        // Decide the capacity for the next frame. Growth is immediate, because a
+        // frame that overflowed has already paid for it; shrinking waits out a
+        // whole review window so it cannot chase a dip.
+        pub fn endFrame(self: *ArenaCursor) void {
+            self.window_peak = @max(self.window_peak, self.wanted);
+            self.window_frames +|= 1;
+            if (self.wanted > self.capacity) {
+                self.pending = capacityFor(self.wanted, self.minimum, self.maximum);
+                self.previous_peak = self.window_peak;
+                self.window_peak = self.wanted;
+                self.window_frames = 0;
+                return;
+            }
+            if (self.window_frames < self.review_frames) return;
+            const peak = @max(self.window_peak, self.previous_peak);
+            const target = capacityFor(peak, self.minimum, self.maximum);
+            if (target < self.capacity) self.pending = target;
+            self.previous_peak = self.window_peak;
+            self.window_peak = self.wanted;
+            self.window_frames = 0;
+        }
+
+        // The smallest power-of-two multiple of `minimum` that covers `need`.
+        fn capacityFor(need: u32, minimum: u32, maximum: u32) u32 {
+            var value: u32 = if (minimum == 0) 4096 else minimum;
+            while (value < need) {
+                if (value >= maximum) return maximum;
+                value = if (value > maximum / 2) maximum else value * 2;
+            }
+            return value;
+        }
+    };
+
+    // One arena per frame: a vertex buffer, an index buffer and a transfer
+    // buffer that every immediate-mode draw takes a range out of, instead of a
+    // GPU buffer and a transfer buffer per draw.
+    //
+    // Rotation. The previous frame's draws may still be reading these buffers,
+    // so the frame's first copy into each one, and the frame's single map of the
+    // transfer buffer, ask SDL to cycle. SDL swaps in a free backing exactly
+    // when the current one is still referenced by an in-flight command buffer
+    // and reuses it when it is not (METAL/D3D12/VULKAN_INTERNAL_PrepareBufferFor
+    // Write, all three gated on activeBuffer->referenceCount), so the ring is
+    // there and is sized to the frames actually in flight rather than to a
+    // guess. That is the same mechanism the pooled path's uploadBufferCycle(...,
+    // true) relied on. Only the frame's FIRST copy into a buffer may cycle: a
+    // later one would strand the ranges already written into the old backing.
+    const TempArena = struct {
+        vertex_gpu: ?*sdl.GpuBuffer = null,
+        index_gpu: ?*sdl.GpuBuffer = null,
+        transfer: ?*sdl.GpuTransferBuffer = null,
+        // Mapped once per frame and unmapped once, before the upload command
+        // buffer is submitted.
+        mapped: ?[*]u8 = null,
+        copy_pass: ?*sdl.GpuCopyPass = null,
+        vertex: ArenaCursor = .{ .minimum = 64 * 1024, .pending = 64 * 1024 },
+        index: ArenaCursor = .{ .minimum = 16 * 1024, .pending = 16 * 1024 },
+        // The transfer buffer carries the vertex and the index bytes both, so it
+        // is sized to their sum.
+        staging: ArenaCursor = .{ .minimum = 64 * 1024, .pending = 64 * 1024 },
+        // Cleared by the frame's first copy into the buffer each one names.
+        cycle_vertex: bool = true,
+        cycle_index: bool = true,
+        // Draws this frame that did not fit and went through a per-draw buffer.
+        fallbacks: u32 = 0,
+        // Between the first temporary draw of a frame and present or cancel.
+        open: bool = false,
+    };
+
+    const ArenaTarget = enum { vertex, index };
+    const ArenaRange = struct { destination: u32, source: u32 };
+
     // Which vertex shader a draw needs. The two "nocolor" entry points exist for
     // vertex formats that carry no GFXFVF_DIFFUSE.
     pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4, untextured_specular = 5, textured_specular = 6 };
@@ -227,7 +387,34 @@ pub const Renderer = struct {
     const identity_matrix: [16]f32 = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 
     pub fn init(allocator: std.mem.Allocator) Renderer {
-        return .{ .allocator = allocator };
+        var renderer = Renderer{ .allocator = allocator, .arena_enabled = arenaFlagEnabled() };
+        if (arenaSizeOverride()) |bytes| {
+            inline for (.{ &renderer.arena.vertex, &renderer.arena.index, &renderer.arena.staging }) |cursor| {
+                cursor.minimum = bytes;
+                cursor.maximum = bytes;
+                cursor.pending = bytes;
+            }
+        }
+        return renderer;
+    }
+
+    // BK_GPU_ARENA=0 selects the pooled per-draw path. Anything else - unset
+    // included - selects the arena.
+    fn arenaFlagEnabled() bool {
+        const value = sdl.getEnv("BK_GPU_ARENA") orelse return true;
+        return !(value.len == 1 and value[0] == '0');
+    }
+
+    // BK_GPU_ARENA_KB pins every arena to one size, minimum and maximum alike,
+    // so it can neither grow nor shrink. Only testing wants that: pinning it
+    // small is the one way to make the overflow fallback - the path a frame that
+    // fits never reaches - run on every draw, and it also parks the growth logic
+    // against its ceiling.
+    fn arenaSizeOverride() ?u32 {
+        const value = sdl.getEnv("BK_GPU_ARENA_KB") orelse return null;
+        const kilobytes = std.fmt.parseInt(u32, value, 10) catch return null;
+        if (kilobytes == 0 or kilobytes > 64 * 1024) return null;
+        return kilobytes * 1024;
     }
 
     pub fn deinit(self: *Renderer) void {
@@ -259,6 +446,11 @@ pub const Renderer = struct {
             for (self.in_use_temp_index.items) |b| sdl.releaseBuffer(gpu_device, b.gpu);
             for (self.free_temp_transfer.items) |t| sdl.releaseTransferBuffer(gpu_device, t.transfer);
             for (self.in_use_temp_transfer.items) |t| sdl.releaseTransferBuffer(gpu_device, t.transfer);
+            // cancelFrame above has already ended the copy pass and unmapped the
+            // transfer buffer, so these are safe to release here.
+            if (self.arena.vertex_gpu) |buffer| sdl.releaseBuffer(gpu_device, buffer);
+            if (self.arena.index_gpu) |buffer| sdl.releaseBuffer(gpu_device, buffer);
+            if (self.arena.transfer) |transfer| sdl.releaseTransferBuffer(gpu_device, transfer);
         }
         self.free_temp_vertex.deinit(self.allocator);
         self.in_use_temp_vertex.deinit(self.allocator);
@@ -420,7 +612,18 @@ pub const Renderer = struct {
     }
 
     pub fn present(self: *Renderer) !void {
+        // The arena's copy pass has to be ended and its transfer buffer unmapped
+        // before the command buffer holding the copies is submitted.
+        self.closeArenaFrame();
         if (self.frame.skipped) {
+            // A skipped frame still recorded its uploads. Submitting them rather
+            // than carrying the command buffer into the next frame keeps a
+            // minimised window from accumulating copy passes without bound; the
+            // copies land in buffers nothing reads this frame.
+            if (self.frame_upload_command) |upload| {
+                _ = sdl.submitCommandBuffer(upload);
+                self.frame_upload_command = null;
+            }
             self.frame.cancel();
             return;
         }
@@ -441,6 +644,9 @@ pub const Renderer = struct {
     }
 
     pub fn cancelFrame(self: *Renderer) void {
+        // The arena's copy pass has to be closed and its transfer buffer
+        // unmapped before the command buffer holding them goes away.
+        self.closeArenaFrame();
         // The upload buffer never acquires a swapchain texture, so it is always
         // safe to cancel; its recorded copies are discarded with the frame.
         if (self.frame_upload_command) |upload| {
@@ -581,12 +787,24 @@ pub const Renderer = struct {
         // Sampled before the recycling below: afterwards every in-use list is
         // empty, and it is the frame's own high-water mark that says how many
         // pooled buffers the frame actually needed.
-        self.perf_temp_vertex_free +%= @intCast(self.free_temp_vertex.items.len);
-        self.perf_temp_vertex_in_use +%= @intCast(self.in_use_temp_vertex.items.len);
-        self.perf_temp_index_free +%= @intCast(self.free_temp_index.items.len);
-        self.perf_temp_index_in_use +%= @intCast(self.in_use_temp_index.items.len);
-        self.perf_temp_transfer_free +%= @intCast(self.free_temp_transfer.items.len);
-        self.perf_temp_transfer_in_use +%= @intCast(self.in_use_temp_transfer.items.len);
+        if (self.arena_enabled) {
+            // present() closed the arena before this ran, and closing only rolls
+            // the capacity decision forward - `wanted` and `capacity` still
+            // describe the frame that just drew.
+            self.perf_temp_vertex_free +%= self.arena.vertex.wanted;
+            self.perf_temp_vertex_in_use +%= self.arena.vertex.capacity;
+            self.perf_temp_index_free +%= self.arena.index.wanted;
+            self.perf_temp_index_in_use +%= self.arena.index.capacity;
+            self.perf_temp_transfer_free +%= self.arena.staging.capacity;
+            self.perf_temp_transfer_in_use +%= self.arena.fallbacks;
+        } else {
+            self.perf_temp_vertex_free +%= @intCast(self.free_temp_vertex.items.len);
+            self.perf_temp_vertex_in_use +%= @intCast(self.in_use_temp_vertex.items.len);
+            self.perf_temp_index_free +%= @intCast(self.free_temp_index.items.len);
+            self.perf_temp_index_in_use +%= @intCast(self.in_use_temp_index.items.len);
+            self.perf_temp_transfer_free +%= @intCast(self.free_temp_transfer.items.len);
+            self.perf_temp_transfer_in_use +%= @intCast(self.in_use_temp_transfer.items.len);
+        }
         // The temp buffers used this frame go back to the free pool rather than
         // being destroyed, so next frame hands them straight out again.
         self.free_temp_vertex.appendSlice(self.allocator, self.in_use_temp_vertex.items) catch {};
@@ -626,6 +844,127 @@ pub const Renderer = struct {
         return .{ .transfer = transfer, .capacity = capacity };
     }
 
+    // Recreate one arena buffer at the capacity its cursor asked for. A failure
+    // leaves the handle null and the capacity zero, which sends every draw down
+    // the per-draw path - degraded, never wrong. SDL defers the release of a
+    // buffer an in-flight command buffer still references, so growing or
+    // shrinking mid-run cannot pull the previous frame's geometry out from
+    // under it.
+    fn resizeArenaBuffer(gpu_device: *sdl.GpuDevice, slot: *?*sdl.GpuBuffer, cursor: *ArenaCursor, usage: sdl.c.SDL_GPUBufferUsageFlags) void {
+        if (slot.* != null and cursor.pending == cursor.capacity) return;
+        if (slot.*) |old| sdl.releaseBuffer(gpu_device, old);
+        slot.* = sdl.createBuffer(gpu_device, usage, cursor.pending);
+        cursor.capacity = if (slot.* == null) 0 else cursor.pending;
+    }
+
+    fn resizeArenaTransfer(self: *Renderer, gpu_device: *sdl.GpuDevice) void {
+        const cursor = &self.arena.staging;
+        if (self.arena.transfer != null and cursor.pending == cursor.capacity) return;
+        if (self.arena.transfer) |old| sdl.releaseTransferBuffer(gpu_device, old);
+        self.arena.transfer = sdl.createUploadBuffer(gpu_device, cursor.pending);
+        cursor.capacity = if (self.arena.transfer == null) 0 else cursor.pending;
+    }
+
+    // Open the frame's arena: apply any capacity change, reset the cursors and
+    // map the transfer buffer once. Called from the frame's first temporary
+    // draw; closeArenaFrame at present or cancel is the other half, and the two
+    // are what make the cursors' "one frame" mean one frame.
+    fn beginArenaFrame(self: *Renderer, gpu_device: *sdl.GpuDevice) void {
+        if (self.arena.open) return;
+        self.arena.open = true;
+        self.arena.fallbacks = 0;
+        self.arena.cycle_vertex = true;
+        self.arena.cycle_index = true;
+        resizeArenaBuffer(gpu_device, &self.arena.vertex_gpu, &self.arena.vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX);
+        resizeArenaBuffer(gpu_device, &self.arena.index_gpu, &self.arena.index, sdl.c.SDL_GPU_BUFFERUSAGE_INDEX);
+        self.resizeArenaTransfer(gpu_device);
+        self.arena.vertex.beginFrame();
+        self.arena.index.beginFrame();
+        self.arena.staging.beginFrame();
+        // mapTransferBuffer maps with cycle set, which is what keeps this frame
+        // off the backing the previous frame's copy pass may still be reading.
+        self.arena.mapped = null;
+        if (self.arena.transfer) |transfer| {
+            if (sdl.mapTransferBuffer(gpu_device, transfer)) |pointer| self.arena.mapped = @ptrCast(pointer);
+        }
+    }
+
+    // Close the frame's arena. The transfer buffer must be unmapped before the
+    // upload command buffer is submitted, and the copy pass must be ended before
+    // that command buffer is submitted or cancelled.
+    fn closeArenaFrame(self: *Renderer) void {
+        if (!self.arena.open) return;
+        self.endArenaCopyPass();
+        if (self.arena.mapped != null) {
+            if (self.device) |device| {
+                if (self.arena.transfer) |transfer| sdl.unmapTransferBuffer(@ptrCast(@alignCast(device.handle.?)), transfer);
+            }
+            self.arena.mapped = null;
+        }
+        self.arena.vertex.endFrame();
+        self.arena.index.endFrame();
+        self.arena.staging.endFrame();
+        self.arena.open = false;
+    }
+
+    fn endArenaCopyPass(self: *Renderer) void {
+        if (self.arena.copy_pass) |pass| {
+            sdl.endCopyPass(pass);
+            self.arena.copy_pass = null;
+        }
+    }
+
+    // One copy pass for the whole frame, on the shared upload command buffer.
+    fn arenaCopyPass(self: *Renderer, gpu_device: *sdl.GpuDevice) ?*sdl.GpuCopyPass {
+        if (self.arena.copy_pass) |pass| return pass;
+        if (self.frame_upload_command == null)
+            self.frame_upload_command = sdl.acquireCommandBuffer(gpu_device);
+        const command = self.frame_upload_command orelse return null;
+        self.arena.copy_pass = sdl.beginCopyPass(command);
+        return self.arena.copy_pass;
+    }
+
+    // Reserve a destination range in one arena buffer and the staging range in
+    // the transfer buffer that will feed it. Both cursors are asked even when
+    // the first one fails, so `wanted` describes the frame's whole demand and
+    // the next frame's arena is sized for it.
+    fn arenaReserve(self: *Renderer, target: ArenaTarget, byte_length: u32, alignment: u32) ?ArenaRange {
+        const cursor = switch (target) {
+            .vertex => &self.arena.vertex,
+            .index => &self.arena.index,
+        };
+        const destination = cursor.alloc(byte_length, alignment);
+        const source = self.arena.staging.alloc(byte_length, arena_copy_alignment);
+        if (self.arena.mapped == null) return null;
+        return .{ .destination = destination orelse return null, .source = source orelse return null };
+    }
+
+    // Copy the reserved bytes into the mapped transfer buffer and record the
+    // copy into the frame's one copy pass.
+    fn arenaCopy(self: *Renderer, gpu_device: *sdl.GpuDevice, target: ArenaTarget, range: ArenaRange, data: *const anyopaque, byte_length: u32) bool {
+        const mapped = self.arena.mapped orelse return false;
+        const transfer = self.arena.transfer orelse return false;
+        const buffer = (switch (target) {
+            .vertex => self.arena.vertex_gpu,
+            .index => self.arena.index_gpu,
+        }) orelse return false;
+        const pass = self.arenaCopyPass(gpu_device) orelse return false;
+        const length: usize = byte_length;
+        const offset: usize = range.source;
+        @memcpy(mapped[offset .. offset + length], @as([*]const u8, @ptrCast(data))[0..length]);
+        const cycle = switch (target) {
+            .vertex => self.arena.cycle_vertex,
+            .index => self.arena.cycle_index,
+        };
+        sdl.recordBufferUpload(pass, transfer, range.source, buffer, range.destination, byte_length, cycle);
+        switch (target) {
+            .vertex => self.arena.cycle_vertex = false,
+            .index => self.arena.cycle_index = false,
+        }
+        self.perf_temp_bytes +%= byte_length;
+        return true;
+    }
+
     // Stage bytes into a pooled destination through a pooled transfer buffer and
     // record the copy into the frame's shared upload command buffer. The transfer
     // buffer is remembered for recycling at present; the caller keeps the
@@ -633,6 +972,10 @@ pub const Renderer = struct {
     // the previous frame's in-flight draw, so ask SDL for a fresh backing rather
     // than stall or corrupt.
     fn stageTempCopy(self: *Renderer, gpu_device: *sdl.GpuDevice, dest: *sdl.GpuBuffer, data: *const anyopaque, byte_length: u32) !void {
+        // The arena keeps one copy pass open on the shared upload command
+        // buffer, and a second cannot be begun while it is. Only the arena's
+        // overflow fallback reaches this with one open.
+        self.endArenaCopyPass();
         self.perf_temp_bytes +%= byte_length;
         const transfer = try self.acquireTempTransfer(byte_length);
         errdefer self.free_temp_transfer.append(self.allocator, transfer) catch {};
@@ -654,6 +997,20 @@ pub const Renderer = struct {
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
         self.perf_temp_draws +%= 1;
 
+        if (self.arena_enabled) {
+            self.beginArenaFrame(gpu_device);
+            if (self.arenaReserve(.vertex, byte_length, arenaAlignmentFor(stride))) |range| {
+                if (self.arenaCopy(gpu_device, .vertex, range, data, byte_length)) {
+                    const arena_resource = BufferResource{ .gpu = self.arena.vertex_gpu.?, .size = byte_length, .stride = stride, .format = format };
+                    return self.drawResourceAt(arena_resource, range.destination, primitive_count);
+                }
+            }
+            // Bigger than the whole arena, or the arena is not built yet. The
+            // per-draw path below still draws it, and the cursors have recorded
+            // the size, so the next frame's arena covers it.
+            self.arena.fallbacks +%= 1;
+        }
+
         const vertex = try self.acquireTempBuffer(&self.free_temp_vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX, byte_length);
         errdefer self.free_temp_vertex.append(self.allocator, vertex) catch {};
         try self.stageTempCopy(gpu_device, vertex.gpu, data, byte_length);
@@ -669,6 +1026,26 @@ pub const Renderer = struct {
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
         self.perf_temp_draws +%= 1;
+
+        if (self.arena_enabled) {
+            self.beginArenaFrame(gpu_device);
+            // Both reservations are taken before either copy: a vertex range
+            // written into the arena whose index range then did not fit would be
+            // dead space and would double-count the staged bytes.
+            const vertex_range = self.arenaReserve(.vertex, vertex_bytes, arenaAlignmentFor(stride));
+            const index_range = self.arenaReserve(.index, index_bytes, arenaAlignmentFor(index_size));
+            if (vertex_range) |vertices| {
+                if (index_range) |indices| {
+                    if (self.arenaCopy(gpu_device, .vertex, vertices, vertex_data, vertex_bytes) and
+                        self.arenaCopy(gpu_device, .index, indices, index_data, index_bytes))
+                    {
+                        const arena_resource = BufferResource{ .gpu = self.arena.vertex_gpu.?, .size = vertex_bytes, .stride = stride, .format = format };
+                        return self.drawResourceIndexedAt(arena_resource, vertices.destination, self.arena.index_gpu.?, indices.destination, index_size, index_count);
+                    }
+                }
+            }
+            self.arena.fallbacks +%= 1;
+        }
 
         const vertex = try self.acquireTempBuffer(&self.free_temp_vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX, vertex_bytes);
         errdefer self.free_temp_vertex.append(self.allocator, vertex) catch {};
@@ -1017,17 +1394,33 @@ pub const Renderer = struct {
     // drawTemporary builds a BufferResource around a pooled buffer and reaches
     // it here without registering an id.
     fn drawResource(self: *Renderer, buffer: BufferResource, primitive_count: u32) !void {
+        return self.drawResourceAt(buffer, 0, primitive_count);
+    }
+
+    // The same at a byte offset into the buffer. The arena binds one big vertex
+    // buffer and moves the binding offset instead of handing out a buffer per
+    // draw; the pipeline's attribute offsets are relative to the binding, so
+    // element zero of the draw sits exactly at `vertex_offset` and the draw
+    // still starts from vertex 0.
+    fn drawResourceAt(self: *Renderer, buffer: BufferResource, vertex_offset: u32, primitive_count: u32) !void {
         const pass = try self.bindDrawState(buffer);
-        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0);
+        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, vertex_offset);
         const vertex_count = formats.primitiveVertexCount(self.topology, primitive_count) catch return error.InvalidDraw;
         sdl.drawPrimitives(@ptrCast(@alignCast(pass)), vertex_count, 0);
     }
 
     // The indexed counterpart, over pooled vertex and index buffers.
     fn drawResourceIndexed(self: *Renderer, vertex: BufferResource, index_gpu: *sdl.GpuBuffer, index_size: u32, index_count: u32) !void {
+        return self.drawResourceIndexedAt(vertex, 0, index_gpu, 0, index_size, index_count);
+    }
+
+    // The indexed counterpart at arena offsets. Index zero of the draw sits at
+    // `index_offset`, so first_index stays 0 and the index values keep counting
+    // from the vertex the binding offset put first.
+    fn drawResourceIndexedAt(self: *Renderer, vertex: BufferResource, vertex_offset: u32, index_gpu: *sdl.GpuBuffer, index_offset: u32, index_size: u32, index_count: u32) !void {
         const pass = try self.bindDrawState(vertex);
-        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), vertex.gpu, 0);
-        if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), index_gpu, 0, index_size)) return error.InvalidDraw;
+        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), vertex.gpu, vertex_offset);
+        if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), index_gpu, index_offset, index_size)) return error.InvalidDraw;
         sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, 0, 0);
     }
 
@@ -1079,6 +1472,172 @@ pub const Renderer = struct {
         sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };
+
+test "arena offsets are a whole number of elements and a legal copy offset" {
+    // SDL_GPUBufferBinding.offset is where element zero of the draw lives, so an
+    // offset that is not a multiple of the stride reads every attribute from the
+    // middle of a vertex. It also has to be a legal buffer-copy offset, which is
+    // what the 16 is for.
+    const Cursor = Renderer.ArenaCursor;
+    inline for (.{ @as(u32, 20), 24, 28, 32, 36, 40 }) |stride| {
+        const alignment = Renderer.arenaAlignmentFor(stride);
+        try std.testing.expectEqual(@as(u32, 0), alignment % stride);
+        try std.testing.expectEqual(@as(u32, 0), alignment % 16);
+    }
+    // Index elements are 2 or 4 bytes, both of which divide 16.
+    try std.testing.expectEqual(@as(u32, 16), Renderer.arenaAlignmentFor(2));
+    try std.testing.expectEqual(@as(u32, 16), Renderer.arenaAlignmentFor(4));
+
+    var cursor = Cursor{ .capacity = 4096, .pending = 4096 };
+    cursor.beginFrame();
+    const stride: u32 = 28;
+    const alignment = Renderer.arenaAlignmentFor(stride);
+    var previous_end: u32 = 0;
+    for (0..8) |index| {
+        // 3, 6, 9, ... vertices, so the next request never starts aligned by luck.
+        const length: u32 = @as(u32, @intCast(index + 1)) * 3 * stride;
+        const offset = cursor.alloc(length, alignment) orelse return error.TestUnexpectedResult;
+        try std.testing.expectEqual(@as(u32, 0), offset % stride);
+        try std.testing.expectEqual(@as(u32, 0), offset % 16);
+        try std.testing.expect(offset >= previous_end);
+        previous_end = offset + length;
+    }
+}
+
+test "arena suballocation packs, fits exactly, and refuses to run off the end" {
+    const Cursor = Renderer.ArenaCursor;
+    var cursor = Cursor{ .capacity = 64, .pending = 64 };
+    cursor.beginFrame();
+    try std.testing.expectEqual(@as(?u32, 0), cursor.alloc(16, 16));
+    try std.testing.expectEqual(@as(?u32, 16), cursor.alloc(16, 16));
+    // Exactly the rest of the arena still fits.
+    try std.testing.expectEqual(@as(?u32, 32), cursor.alloc(32, 16));
+    try std.testing.expectEqual(@as(u32, 64), cursor.cursor);
+    // One byte past the end does not, and does not move the cursor either.
+    try std.testing.expectEqual(@as(?u32, null), cursor.alloc(1, 1));
+    try std.testing.expectEqual(@as(u32, 64), cursor.cursor);
+    // A zero-length request is not a draw.
+    try std.testing.expectEqual(@as(?u32, null), cursor.alloc(0, 16));
+}
+
+test "an overflowed frame grows the arena instead of falling back again" {
+    const Cursor = Renderer.ArenaCursor;
+    var cursor = Cursor{ .capacity = 4096, .pending = 4096, .minimum = 4096, .maximum = 1 << 20 };
+    cursor.beginFrame();
+    _ = cursor.alloc(4096, 16);
+    // Overflow: the draw falls back to a per-draw buffer, but `wanted` still
+    // counts it, which is what makes the next frame large enough.
+    try std.testing.expectEqual(@as(?u32, null), cursor.alloc(3000, 16));
+    try std.testing.expectEqual(@as(u32, 7096), cursor.wanted);
+    cursor.endFrame();
+    try std.testing.expectEqual(@as(u32, 8192), cursor.pending);
+
+    // Capacity only changes when the buffer is really recreated, which is the
+    // renderer's job; from there the same frame fits with nothing left over.
+    cursor.capacity = cursor.pending;
+    cursor.beginFrame();
+    try std.testing.expectEqual(@as(?u32, 0), cursor.alloc(4096, 16));
+    try std.testing.expectEqual(@as(?u32, 4096), cursor.alloc(3000, 16));
+}
+
+test "a single draw larger than the arena maximum keeps falling back, never fails" {
+    const Cursor = Renderer.ArenaCursor;
+    var cursor = Cursor{ .capacity = 4096, .pending = 4096, .minimum = 4096, .maximum = 8192 };
+    cursor.beginFrame();
+    // One draw that no arena will ever hold. alloc says so rather than
+    // truncating, and the caller draws it through its own buffer.
+    try std.testing.expectEqual(@as(?u32, null), cursor.alloc(100000, 16));
+    // Smaller draws behind it still get arena space: one huge sprite must not
+    // push the whole frame onto the slow path.
+    try std.testing.expectEqual(@as(?u32, 0), cursor.alloc(256, 16));
+    cursor.endFrame();
+    // The capacity climbs to the cap and stops there.
+    try std.testing.expectEqual(@as(u32, 8192), cursor.pending);
+    cursor.capacity = cursor.pending;
+    cursor.beginFrame();
+    try std.testing.expectEqual(@as(?u32, null), cursor.alloc(100000, 16));
+    cursor.endFrame();
+    try std.testing.expectEqual(@as(u32, 8192), cursor.pending);
+}
+
+test "the arena comes back down to the trailing peak instead of keeping it" {
+    const Cursor = Renderer.ArenaCursor;
+    var cursor = Cursor{ .capacity = 4096, .pending = 4096, .minimum = 4096, .maximum = 1 << 20, .review_frames = 4 };
+    // One expensive frame - a screen full of text - takes the arena up.
+    cursor.beginFrame();
+    _ = cursor.alloc(60000, 16);
+    cursor.endFrame();
+    try std.testing.expectEqual(@as(u32, 65536), cursor.pending);
+    cursor.capacity = cursor.pending;
+
+    // The pool problem this replaces: quiet frames afterwards must not keep the
+    // peak forever. Two review windows of small frames bring it back.
+    var frame: u32 = 0;
+    while (frame < 4 * cursor.review_frames) : (frame += 1) {
+        cursor.beginFrame();
+        _ = cursor.alloc(1000, 16);
+        cursor.endFrame();
+        cursor.capacity = cursor.pending;
+    }
+    try std.testing.expectEqual(@as(u32, 4096), cursor.capacity);
+
+    // ...but not off a single dip: one quiet frame inside a busy window leaves
+    // the capacity where the busy frames put it.
+    cursor.capacity = 65536;
+    cursor.pending = 65536;
+    cursor.window_peak = 0;
+    cursor.previous_peak = 0;
+    cursor.window_frames = 0;
+    frame = 0;
+    while (frame < 3) : (frame += 1) {
+        cursor.beginFrame();
+        _ = cursor.alloc(if (frame == 1) 100 else 60000, 16);
+        cursor.endFrame();
+        cursor.capacity = cursor.pending;
+    }
+    try std.testing.expectEqual(@as(u32, 65536), cursor.capacity);
+}
+
+test "every frame starts the arena over at offset zero" {
+    // The rotation invariant, on the CPU side: beginFrame is the only thing that
+    // resets the cursor, so a frame can never hand out a range the frame before
+    // it also handed out - and the GPU side of it is that the frame's first copy
+    // into each buffer cycles, so the backing being written is never one an
+    // in-flight command buffer is still reading.
+    const Cursor = Renderer.ArenaCursor;
+    var cursor = Cursor{ .capacity = 4096, .pending = 4096 };
+    var first: [4]?u32 = undefined;
+    cursor.beginFrame();
+    for (&first) |*slot| slot.* = cursor.alloc(64, 16);
+    cursor.endFrame();
+
+    var second: [4]?u32 = undefined;
+    cursor.beginFrame();
+    try std.testing.expectEqual(@as(u32, 0), cursor.cursor);
+    try std.testing.expectEqual(@as(u32, 0), cursor.wanted);
+    for (&second) |*slot| slot.* = cursor.alloc(64, 16);
+    try std.testing.expectEqualSlices(?u32, &first, &second);
+
+    // Within a frame the ranges never overlap, whatever the mix of sizes.
+    cursor.beginFrame();
+    var end: u32 = 0;
+    for ([_]u32{ 12, 96, 3, 400, 1 }) |length| {
+        const offset = cursor.alloc(length, 16) orelse return error.TestUnexpectedResult;
+        try std.testing.expect(offset >= end);
+        end = offset + length;
+    }
+}
+
+test "the arena path is on unless BK_GPU_ARENA=0 says otherwise" {
+    // The flag exists so a rendering regression can be bisected on one variable
+    // with the same binary; defaulting it off would defeat that. The value the
+    // process was started with is whatever it is, so the expectation is derived
+    // from the same string rather than assumed.
+    const expected = if (sdl.getEnv("BK_GPU_ARENA")) |value| !(value.len == 1 and value[0] == '0') else true;
+    var renderer = Renderer.init(std.testing.allocator);
+    defer renderer.deinit();
+    try std.testing.expectEqual(expected, renderer.arena_enabled);
+}
 
 test "every shader variant has a slot and a name" {
     // The caches are indexed by @intFromEnum. They used to be a hardcoded [5],

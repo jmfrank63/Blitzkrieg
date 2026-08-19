@@ -72,10 +72,27 @@ typedef struct GfxGpuLiveCounts {
     /* Appended: BK_PERF counters for the immediate-mode temporary path. They
        are written only when struct_size says the caller's struct reaches this
        far, so a caller built against the five-field layout keeps working.
-       temporary_draws and temporary_bytes are free-running totals; the pool
-       fields are per-frame samples summed over every frame so far. Either way
-       the reader subtracts its previous sample and divides by the frames it
-       counted - unsigned arithmetic, so a 32-bit wrap costs nothing. */
+       temporary_draws and temporary_bytes are free-running totals; the six
+       fields after them are per-frame samples summed over every frame so far.
+       Either way the reader subtracts its previous sample and divides by the
+       frames it counted - unsigned arithmetic, so a 32-bit wrap costs nothing.
+
+       What those six mean depends on which upload path is running, because the
+       field names outlived the pools they were built for:
+
+         BK_GPU_ARENA=0 (pooled buffer per draw)   default (per-frame arena)
+         vertex_free    pooled vertex buffers free vertex bytes the frame wanted
+         vertex_in_use  pooled vertex buffers used vertex arena capacity, bytes
+         index_free     pooled index buffers free  index bytes the frame wanted
+         index_in_use   pooled index buffers used  index arena capacity, bytes
+         transfer_free  transfer buffers free      transfer arena capacity, bytes
+         transfer_in_use transfer buffers used     draws that overflowed the
+                                                   arena and used a per-draw
+                                                   buffer instead
+
+       On the arena path the bytes actually staged are already reported by
+       temporary_bytes, so the transfer arena reports its capacity rather than
+       repeating that. */
     uint32_t temporary_draws;
     uint32_t temporary_bytes;
     uint32_t temporary_vertex_free;

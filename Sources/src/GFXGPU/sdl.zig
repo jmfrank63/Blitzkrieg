@@ -260,6 +260,37 @@ pub fn unmapTransferBuffer(device: *GpuDevice, buffer: *GpuTransferBuffer) void 
     c.SDL_UnmapGPUTransferBuffer(device, buffer);
 }
 
+// A copy pass that outlives the call that opened it. The per-frame arena records
+// every temporary upload into one pass on the shared upload command buffer; the
+// pass-per-copy that uploadBufferCycle opens cost a begin/end pair per UI
+// rectangle for nothing.
+pub fn beginCopyPass(command_buffer: *GpuCommandBuffer) ?*GpuCopyPass {
+    return c.SDL_BeginGPUCopyPass(command_buffer);
+}
+
+pub fn endCopyPass(copy_pass: *GpuCopyPass) void {
+    c.SDL_EndGPUCopyPass(copy_pass);
+}
+
+// One upload into an already-open copy pass, source and destination offsets
+// both explicit: the arena suballocates ranges of one big transfer buffer and
+// one big GPU buffer rather than handing out a pair per draw. cycle must be set
+// on the frame's first copy into a destination and cleared on every later one -
+// see uploadBufferCycle for what it buys, and note that cycling again mid-frame
+// would strand the ranges already written into the previous backing.
+pub fn recordBufferUpload(copy_pass: *GpuCopyPass, transfer: *GpuTransferBuffer, source_offset: u32, destination: *GpuBuffer, destination_offset: u32, byte_length: u32, cycle: bool) void {
+    var source = c.SDL_GPUTransferBufferLocation{ .transfer_buffer = transfer, .offset = source_offset };
+    var target = c.SDL_GPUBufferRegion{ .buffer = destination, .offset = destination_offset, .size = byte_length };
+    c.SDL_UploadToGPUBuffer(copy_pass, &source, &target, cycle);
+}
+
+// SDL_getenv works before SDL_Init and on every target; std.process needs an
+// allocator on Windows to answer the same question.
+pub fn getEnv(name: [*:0]const u8) ?[]const u8 {
+    const value = c.SDL_getenv(name) orelse return null;
+    return std.mem.span(value);
+}
+
 pub fn uploadBuffer(device: *GpuDevice, command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, destination: *GpuBuffer, byte_offset: u32, byte_length: u32) bool {
     return uploadBufferCycle(device, command_buffer, transfer, destination, byte_offset, byte_length, false);
 }
