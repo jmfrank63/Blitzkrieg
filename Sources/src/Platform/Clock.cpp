@@ -4,6 +4,12 @@
 #include <atomic>
 #include <thread>
 
+#if defined(__APPLE__)
+#include <mach/mach_time.h>
+#elif !defined(_WIN32) && !defined(_WIN64)
+#include <ctime>
+#endif
+
 namespace NPlatform
 {
 	std::uint64_t MonotonicNanoseconds()
@@ -35,6 +41,33 @@ namespace NPlatform
 	void SleepMilliseconds( const std::uint32_t milliseconds )
 	{
 		std::this_thread::sleep_for( std::chrono::milliseconds( milliseconds ) );
+	}
+
+	bool SleepPreciseNanoseconds( const std::uint64_t nanoseconds )
+	{
+#if defined(__APPLE__)
+		// mach_wait_until is the one Darwin wait that is not coalesced to the
+		// millisecond, so it lands close enough to the deadline that the caller
+		// does not need a spin at all. It takes an absolute time on the mach
+		// timebase, whose epoch is not the steady_clock one - hence a duration
+		// from now rather than a deadline in the caller's clock.
+		static mach_timebase_info_data_t timebase;
+		if ( timebase.denom == 0 && mach_timebase_info( &timebase ) != KERN_SUCCESS )
+			return false;
+		const std::uint64_t ticks = nanoseconds * timebase.denom / timebase.numer;
+		return mach_wait_until( mach_absolute_time() + ticks ) == KERN_SUCCESS;
+#elif !defined(_WIN32) && !defined(_WIN64)
+		// POSIX high-resolution timers are what clock_nanosleep waits on. A
+		// signal can cut the wait short, which is why the caller still checks
+		// the clock afterwards rather than trusting the return.
+		timespec request;
+		request.tv_sec = static_cast<time_t>( nanoseconds / 1000000000ULL );
+		request.tv_nsec = static_cast<long>( nanoseconds % 1000000000ULL );
+		return clock_nanosleep( CLOCK_MONOTONIC, 0, &request, nullptr ) == 0;
+#else
+		(void)nanoseconds;
+		return false;
+#endif
 	}
 
 	static std::atomic<std::uint32_t> &AtomicRef( std::uint32_t *value )
