@@ -1775,15 +1775,15 @@ pub export fn bk_tree_flush(handle: ?*anyopaque, stream_handle: ?*anyopaque) cal
     return bk_stream_flush(stream_handle);
 }
 
-test "parseTreeInt handles 10-character hex color values (0x prefix)" {
+test "parseTreeInt handles decimal and 0x-prefixed integer values" {
     // UI colors from XML are stored as 0x-prefixed hex like 0xffffbe34 (yellow).
     // These exceed i32 max, so they must parse via u32 -> bitCast.
     try std.testing.expectEqual(@as(c_int, @bitCast(@as(u32, 0xffffbe34))), parseTreeInt("0xffffbe34") catch unreachable);
     try std.testing.expectEqual(@as(c_int, @bitCast(@as(u32, 0xff000000))), parseTreeInt("0xff000000") catch unreachable);
     // Negative decimal strings must still work.
     try std.testing.expectEqual(@as(c_int, -1), parseTreeInt("-1") catch unreachable);
-    // Legacy 8-hex-digit LE format must still work.
-    try std.testing.expectEqual(@as(c_int, 1), parseTreeInt("01000000") catch unreachable);
+    // Leading zeroes do not turn decimal text into RAW little-endian bytes.
+    try std.testing.expectEqual(@as(c_int, 1_000_000), parseTreeInt("01000000") catch unreachable);
 }
 
 test "POSIX resource paths resolve legacy casing" {
