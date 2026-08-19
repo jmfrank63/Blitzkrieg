@@ -37,9 +37,69 @@ pub fn releaseWindow(device: *GpuDevice, window: *Window) void {
 pub fn swapchainFormat(device: *GpuDevice, window: *Window) c.SDL_GPUTextureFormat {
     return c.SDL_GetGPUSwapchainTextureFormat(device, window);
 }
-pub fn configureSwapchain(device: *GpuDevice, window: *Window) bool {
-    const mode = if (c.SDL_WindowSupportsGPUPresentMode(device, window, c.SDL_GPU_PRESENTMODE_MAILBOX)) c.SDL_GPU_PRESENTMODE_MAILBOX else c.SDL_GPU_PRESENTMODE_VSYNC;
-    return c.SDL_SetGPUSwapchainParameters(device, window, @intCast(c.SDL_GPU_SWAPCHAINCOMPOSITION_SDR), @intCast(mode));
+// How the swapchain hands finished frames to the display. VSYNC is the only
+// mode SDL guarantees every window can present, so it is both the default and
+// the fallback. MAILBOX used to be picked unconditionally whenever the window
+// supported it, which left the GPU (and the main loop driving it) running flat
+// out to produce frames the display never shows - see GFX.Present.Mode.
+pub const PresentMode = enum(u32) {
+    vsync = 0,
+    mailbox = 1,
+    immediate = 2,
+};
+
+// The value carried across the C ABI. Anything unrecognized is vsync rather
+// than an error: an old caller passing a zeroed field must get the safe mode.
+pub fn presentModeFromValue(value: u32) PresentMode {
+    return switch (value) {
+        1 => .mailbox,
+        2 => .immediate,
+        else => .vsync,
+    };
+}
+
+// SDL_SetGPUSwapchainParameters rejects a mode the window cannot present and
+// takes the whole swapchain configure down with it, so an unsupported request
+// degrades to vsync here instead of failing the attach.
+pub fn choosePresentMode(requested: PresentMode, mailbox_supported: bool, immediate_supported: bool) PresentMode {
+    return switch (requested) {
+        .vsync => .vsync,
+        .mailbox => if (mailbox_supported) .mailbox else .vsync,
+        .immediate => if (immediate_supported) .immediate else .vsync,
+    };
+}
+
+fn sdlPresentMode(mode: PresentMode) c_uint {
+    return switch (mode) {
+        .vsync => c.SDL_GPU_PRESENTMODE_VSYNC,
+        .mailbox => c.SDL_GPU_PRESENTMODE_MAILBOX,
+        .immediate => c.SDL_GPU_PRESENTMODE_IMMEDIATE,
+    };
+}
+
+pub fn configureSwapchain(device: *GpuDevice, window: *Window, requested: PresentMode) bool {
+    const mode = choosePresentMode(
+        requested,
+        c.SDL_WindowSupportsGPUPresentMode(device, window, c.SDL_GPU_PRESENTMODE_MAILBOX),
+        c.SDL_WindowSupportsGPUPresentMode(device, window, c.SDL_GPU_PRESENTMODE_IMMEDIATE),
+    );
+    return c.SDL_SetGPUSwapchainParameters(device, window, @intCast(c.SDL_GPU_SWAPCHAINCOMPOSITION_SDR), @intCast(sdlPresentMode(mode)));
+}
+
+test "an unsupported present mode falls back to vsync, which is always supported" {
+    try std.testing.expectEqual(PresentMode.mailbox, choosePresentMode(.mailbox, true, true));
+    try std.testing.expectEqual(PresentMode.vsync, choosePresentMode(.mailbox, false, true));
+    try std.testing.expectEqual(PresentMode.immediate, choosePresentMode(.immediate, false, true));
+    try std.testing.expectEqual(PresentMode.vsync, choosePresentMode(.immediate, true, false));
+    // vsync never consults support at all.
+    try std.testing.expectEqual(PresentMode.vsync, choosePresentMode(.vsync, false, false));
+}
+
+test "present mode crosses the C ABI as a value, unknown meaning vsync" {
+    try std.testing.expectEqual(PresentMode.vsync, presentModeFromValue(0));
+    try std.testing.expectEqual(PresentMode.mailbox, presentModeFromValue(1));
+    try std.testing.expectEqual(PresentMode.immediate, presentModeFromValue(2));
+    try std.testing.expectEqual(PresentMode.vsync, presentModeFromValue(99));
 }
 pub fn acquireCommandBuffer(device: *GpuDevice) ?*GpuCommandBuffer {
     return c.SDL_AcquireGPUCommandBuffer(device);

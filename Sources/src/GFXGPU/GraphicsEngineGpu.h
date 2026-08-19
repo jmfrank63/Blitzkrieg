@@ -134,6 +134,10 @@ private:
     float present_scale_x_ = 1.0f;
     float present_scale_y_ = 1.0f;
     bool present_fit_ = false;
+    // GFXGPU_PRESENT_MODE_* in force on the swapchain (GFX.Present.Mode).
+    // Diffed every Flip so the profile's value, which only arrives after
+    // Init(), reconfigures the live swapchain instead of needing a restart.
+    uint32_t present_mode_ = 0;
     void UpdatePresentOffsets();
     // The sprite-shadow pass (effect 111) wants linear filtering whenever the
     // gameplay zoom is fractional - point sampling clumps the shadows' dithered

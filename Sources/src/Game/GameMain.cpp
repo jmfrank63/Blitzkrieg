@@ -32,6 +32,7 @@
 
 #include "../Main/iMain.h"
 #include "../Main/GameDB.h"
+#include "../Main/GameTimer.h"
 #include "../Main/Transceiver.h"
 #include "../Main/Multiplayer.h"
 #include "../Main/ScenarioTracker.h"
@@ -557,6 +558,26 @@ int RunGame( const BkGameLaunchInfo &launch )
 			SetGlobalVar( "fullscreen", cmdp.eFullscreenMode == GFXFS_FULLSCREEN ? "1" : "0" );
 		}
 	}
+	// Frame pacing, peeked out of the config the same way as the mode above and
+	// left in globals: GraphicsEngineGpu reads GFX.Present.Mode when it
+	// configures the swapchain, the main loop below reads GFX.Present.MaxFPS.
+	// Both have an env override so a headless A/B run can pick a mode without
+	// Set()ing anything, which would persist into the player's profile.
+	{
+		variant_t var;
+		std::string szPresentMode = "VSync";
+		if ( GetSingleton<IOptionSystem>()->Get( "GFX.Present.Mode", &var ) )
+			szPresentMode = (const char*)bstr_t( var );
+		if ( const char *pszPresentMode = getenv( "BK_PRESENT_MODE" ) )
+			szPresentMode = pszPresentMode;
+		SetGlobalVar( "GFX.Present.Mode", szPresentMode.c_str() );
+		int nMaxFPS = 0;
+		if ( GetSingleton<IOptionSystem>()->Get( "GFX.Present.MaxFPS", &var ) )
+			nMaxFPS = int( var );
+		if ( const char *pszMaxFPS = getenv( "BK_MAX_FPS" ) )
+			nMaxFPS = atoi( pszMaxFPS );
+		SetGlobalVar( "GFX.Present.MaxFPS", Max( 0, nMaxFPS ) );
+	}
 	{
 		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
 		cmdp.nScreenSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
@@ -773,6 +794,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		if ( cmdp.bReferenceScene )
 			GetSingleton<ICursor>()->Show( false );
 		int nReferenceCaptureDelay = 0; // allow the deterministic menu frame to settle
+		std::uint64_t nFrameDeadline = 0;		// frame pacing target, ns on the monotonic clock
 		for (;;)
 		{
 			if ( !cmdp.szMovieDir.empty() ) 
@@ -814,7 +836,15 @@ int RunGame( const BkGameLaunchInfo &launch )
 						++nRel;
 				}
 				if ( ( nAutoUIFrame % 120 ) == 0 )
-					fprintf( stderr, "BK_AUTO_UI: frame %d at %u ms\n", nAutoUIFrame, unsigned( NPlatform::MonotonicMilliseconds() ) );
+				{
+					// Both clocks, because they are the pair a frame-pacing change
+					// must not decouple: game time is driven by the real delta
+					// (CSingleTimer::Update), so capping frames may only change how
+					// many frames cover a second - never how much game time one
+					// second buys.
+					const unsigned nGameTime = GetSingleton<IGameTimer>() ? unsigned( GetSingleton<IGameTimer>()->GetGameTime() ) : 0;
+					fprintf( stderr, "BK_AUTO_UI: frame %d at %u ms game %u ms\n", nAutoUIFrame, unsigned( NPlatform::MonotonicMilliseconds() ), nGameTime );
+				}
 				if ( nAutoUIRelease != 0 && nAutoUIFrame >= nAutoUIRelease )
 				{
 					const int nPacked = ( vAutoUIReleasePos[0] & 0x7fff ) | ( ( vAutoUIReleasePos[1] & 0x7fff ) << 15 ) | 0x40000000;
@@ -1036,6 +1066,55 @@ int RunGame( const BkGameLaunchInfo &launch )
 			}
 			if ( !bActive )
 				NPlatform::SleepMilliseconds( 40 );
+			// Frame pacing. GFX.Present.MaxFPS caps the loop (0 = unlimited);
+			// menus are held to 60 whatever it says, because an interface screen
+			// redraws an almost static picture and running it faster only burns
+			// the GPU. AreWeInMission is the same flag the options screen uses to
+			// tell the two apart.
+			//
+			// The wait runs against a rolling deadline rather than a fixed sleep
+			// per frame: WaitAndAcquireGPUSwapchainTexture inside BeginScene
+			// already blocks for most of a present interval, so a sleep added on
+			// top of it would stack with that block and deliver half the rate
+			// asked for.
+			//
+			// This does not change game speed. CSingleTimer::Update is handed an
+			// absolute clock and advances by the real delta, and the simulation
+			// runs a whole number of 50 ms segments out of that delta
+			// (CSinglePlayerTransceiver::DoSegments), so a longer frame simply
+			// covers more segments. -fps is the exception - it feeds the timer a
+			// synthetic clock of nGuaranteeFPS ms per iteration, making game time
+			// the frame count itself - so the cap stays out of its way.
+			if ( GetGlobalVar( "GuaranteeFPS", -1 ) == -1 )
+			{
+				int nMaxFPS = GetGlobalVar( "GFX.Present.MaxFPS", 0 );
+				if ( GetGlobalVar( "AreWeInMission", 0 ) == 0 )
+					nMaxFPS = nMaxFPS > 0 ? Min( nMaxFPS, 60 ) : 60;
+				if ( nMaxFPS <= 0 )
+					nFrameDeadline = 0;
+				else
+				{
+					const std::uint64_t nPeriod = 1000000000ULL / std::uint64_t( nMaxFPS );
+					const std::uint64_t nNow = NPlatform::MonotonicNanoseconds();
+					// A frame that overran by more than one period restarts the
+					// schedule instead of catching up: mission loading blocks the
+					// loop for seconds, and repaying that debt would let a burst of
+					// uncapped frames through afterwards.
+					if ( nFrameDeadline == 0 || nNow > nFrameDeadline + nPeriod )
+						nFrameDeadline = nNow + nPeriod;
+					else
+					{
+						// SleepMilliseconds overshoots by a scheduler quantum, which
+						// at 60 Hz is most of a frame; sleep to a millisecond short of
+						// the deadline and spin out the remainder.
+						if ( nFrameDeadline > nNow + 1000000ULL )
+							NPlatform::SleepMilliseconds( std::uint32_t( ( nFrameDeadline - nNow - 1000000ULL ) / 1000000ULL ) );
+						while ( NPlatform::MonotonicNanoseconds() < nFrameDeadline )
+							;
+						nFrameDeadline += nPeriod;
+					}
+				}
+			}
 		}
 		// Catch-all: any exit path that bypassed CICExitGame (e.g. smoke-test
 		// break) still tears the world down here. Leak refcounted objects from

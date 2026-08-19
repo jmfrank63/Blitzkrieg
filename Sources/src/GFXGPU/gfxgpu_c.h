@@ -28,6 +28,13 @@ typedef uint32_t GfxGpuResult;
 #define GFXGPU_CREATE_DEBUG     UINT32_C(1)
 #define GFXGPU_CREATE_NO_DEVICE UINT32_C(2)
 
+/* How the swapchain hands finished frames to the display (GFX.Present.Mode).
+   VSYNC is the only mode every window is guaranteed to present, so it is the
+   default and the fallback for an unsupported request. */
+#define GFXGPU_PRESENT_MODE_VSYNC     UINT32_C(0)
+#define GFXGPU_PRESENT_MODE_MAILBOX   UINT32_C(1)
+#define GFXGPU_PRESENT_MODE_IMMEDIATE UINT32_C(2)
+
 typedef struct GfxGpuExtent {
     uint32_t width;
     uint32_t height;
@@ -50,6 +57,10 @@ typedef struct GfxGpuCreateInfo {
     uint32_t height;
     const char *shader_directory_utf8;
     const char *preferred_driver_utf8;
+    /* Appended: GFXGPU_PRESENT_MODE_*. Read only when struct_size says the
+       caller's struct reaches this far, so a caller built against the shorter
+       layout keeps working and gets vsync. */
+    uint32_t present_mode;
 } GfxGpuCreateInfo;
 
 typedef struct GfxGpuLiveCounts {
@@ -160,6 +171,10 @@ typedef struct GfxGpuApi {
        0 = centered 1:1 (borders/crop, gameplay), nonzero = aspect-fit scale
        (menus and videos, whose controls must never be clipped away). */
     GfxGpuResult (*set_present_fit)(GfxGpuRenderer *, int);
+    /* Appended: GFXGPU_PRESENT_MODE_*, reconfigures the live swapchain so the
+       option applies without a restart. An unsupported mode degrades to
+       vsync rather than failing. */
+    GfxGpuResult (*set_present_mode)(GfxGpuRenderer *, uint32_t);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

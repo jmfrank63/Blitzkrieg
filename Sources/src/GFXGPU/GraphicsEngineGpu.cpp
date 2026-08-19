@@ -250,6 +250,10 @@ bool GraphicsEngineGpu::DrawIndexedBufferHandle( GfxGpuHandle handle, uint32_t i
     return renderer_ && api_.draw_indexed && Check( api_.draw_indexed( renderer_, handle, index_size, 0, count, 0 ), "draw_temporary_indexed" );
 }
 
+// Defined further down, next to the LowerAscii it uses; Init needs it here to
+// pick the mode the very first swapchain configure runs with.
+static uint32_t ResolvePresentMode();
+
 bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindow window )
 {
     if ( !api_valid_ ) return false;
@@ -262,6 +266,8 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
     info.shader_directory_utf8 = "Shaders/GfxGpu";
     info.preferred_driver_utf8 = pszAdapterName;
+    present_mode_ = ResolvePresentMode();
+    info.present_mode = present_mode_;
     // The device was always created without the graphics debug layer, so a
     // driver that refuses a pipeline reported E_INVALIDARG and named nothing.
     // BK_GFX_DEBUG=1 turns the layer on, which makes the runtime say which part
@@ -327,6 +333,25 @@ static std::string LowerAscii( const char *pszText )
     for ( int i = 0; i < result.size(); ++i )
         result[i] = static_cast<char>( std::tolower( static_cast<unsigned char>( result[i] ) ) );
     return result;
+}
+
+// GFX.Present.Mode as the renderer's enum. VSync is both the default and the
+// fallback for anything unrecognized: it is the only mode SDL guarantees every
+// window can present. Mailbox - which this path used to pick on its own
+// whenever the window supported it - lets the GPU run unthrottled, rendering
+// frames the display never shows, so it is opt-in now.
+//
+// BK_PRESENT_MODE is consulted here as well as through the global because
+// Init() runs before the profile config (and therefore the option) is loaded;
+// GameMain seeds GFX.Present.Mode from the option and the same variable just
+// before the first SetMode, and the per-frame diff in Flip() picks that up.
+static uint32_t ResolvePresentMode()
+{
+    static const char *pszEnvMode = getenv( "BK_PRESENT_MODE" );
+    const std::string szMode = LowerAscii( pszEnvMode != 0 ? pszEnvMode : GetGlobalVar( "GFX.Present.Mode", "vsync" ) );
+    if ( szMode == "mailbox" ) return GFXGPU_PRESENT_MODE_MAILBOX;
+    if ( szMode == "immediate" ) return GFXGPU_PRESENT_MODE_IMMEDIATE;
+    return GFXGPU_PRESENT_MODE_VSYNC;
 }
 
 // Which display the mode should land on. GFX.Monitor.Name is matched first
@@ -934,6 +959,17 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
         present_fit_ = bFit;
         if ( renderer_ && api_.set_present_fit )
             api_.set_present_fit( renderer_, bFit ? 1 : 0 );
+    }
+    // Same treatment for the present mode: the option only becomes readable
+    // once the profile config has been loaded, which is after Init().
+    const uint32_t nPresentMode = ResolvePresentMode();
+    if ( nPresentMode != present_mode_ )
+    {
+        present_mode_ = nPresentMode;
+        if ( renderer_ && api_.set_present_mode )
+            api_.set_present_mode( renderer_, nPresentMode );
+        if ( GfxTraceEnabled() )
+            fprintf( stderr, "BK_GFX_TRACE: present mode %u\n", unsigned( nPresentMode ) );
     }
     float fOffsetX = 0.0f, fOffsetY = 0.0f, fScaleX = 1.0f, fScaleY = 1.0f;
     int pixel_width = 0, pixel_height = 0;

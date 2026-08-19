@@ -21,6 +21,9 @@ pub const CreateInfo = extern struct {
     height: u32,
     shader_directory_utf8: ?[*:0]const u8,
     preferred_driver_utf8: ?[*:0]const u8,
+    // Appended after the shipped layout - see gfxgpu_c.h. Read only when the
+    // caller's struct_size reaches it; a shorter caller gets vsync.
+    present_mode: u32 = 0,
 };
 
 pub const LiveCounts = extern struct {
@@ -90,6 +93,8 @@ pub const Api = extern struct {
     // 0 = centered 1:1 (borders/crop, gameplay), nonzero = aspect-fit scale
     // (menus and videos, whose controls must never be clipped away).
     set_present_fit: *const fn (?*RendererHandle, c_int) callconv(.c) Result,
+    // GFXGPU_PRESENT_MODE_*: vsync, mailbox or immediate.
+    set_present_mode: *const fn (?*RendererHandle, u32) callconv(.c) Result,
 };
 
 pub const TemporaryIndexedGeometryInfo = extern struct {
@@ -104,10 +109,15 @@ pub const TemporaryIndexedGeometryInfo = extern struct {
     index_count: u32,
 };
 
+// The size of the layout the header originally shipped with, so a caller
+// compiled against it still passes the gate below - present_mode was appended
+// after the fact and defaults to vsync when the caller stops short of it.
+const create_info_base_size: u32 = @offsetOf(CreateInfo, "present_mode");
+
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
     if (info == null or out_renderer == null) return errors.invalid_argument;
     const create_info = info.?.*;
-    if (create_info.struct_size < @sizeOf(CreateInfo) or create_info.width == 0 or create_info.height == 0)
+    if (create_info.struct_size < create_info_base_size or create_info.width == 0 or create_info.height == 0)
         return errors.invalid_argument;
     const raw_state = libc.malloc(@sizeOf(renderer_mod.Renderer)) orelse return errors.out_of_memory;
     const state: *renderer_mod.Renderer = @ptrCast(@alignCast(raw_state));
@@ -125,6 +135,8 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
             libc.free(state);
             return errors.out_of_memory;
         };
+        if (create_info.struct_size >= @sizeOf(CreateInfo))
+            state.present_mode = sdl.presentModeFromValue(create_info.present_mode);
         state.attachWindow(create_info.sdl_window, create_info.width, create_info.height) catch {
             state.deinit();
             libc.free(state);
@@ -416,6 +428,11 @@ fn setPresentFit(handle: ?*RendererHandle, fit: c_int) callconv(.c) Result {
     renderer.present_fit = fit != 0;
     return errors.ok;
 }
+fn setPresentMode(handle: ?*RendererHandle, mode: u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    renderer.setPresentMode(sdl.presentModeFromValue(mode)) catch return errors.sdl_error;
+    return errors.ok;
+}
 fn bindVertexBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (buffer == 0) return errors.invalid_argument;
@@ -550,6 +567,7 @@ const api = Api{
     .bind_vertex_buffer = bindVertexBuffer,
     .draw_temporary_indexed = drawTemporaryIndexed,
     .set_present_fit = setPresentFit,
+    .set_present_mode = setPresentMode,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {

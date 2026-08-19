@@ -73,6 +73,9 @@ pub const Renderer = struct {
     // true: aspect-fit scale (menus/videos - nothing may be clipped away);
     // false: centered 1:1 with borders/crop (gameplay - exact pixels win).
     present_fit: bool = false,
+    // How finished frames reach the display (GFX.Present.Mode). Defaults to
+    // vsync: mailbox is opt-in because it lets the GPU run unthrottled.
+    present_mode: sdl.PresentMode = .vsync,
     scene_texture: ?*sdl.GpuTexture = null,
     scene_depth: ?*sdl.GpuTexture = null,
     shader_directory: ?[]u8 = null,
@@ -281,7 +284,7 @@ pub const Renderer = struct {
         const window_ptr = window orelse return error.NullWindow;
         if (!device.api.claim_window(device.handle.?, window_ptr)) return error.ClaimFailed;
         errdefer device.api.release_window(device.handle.?, window_ptr);
-        if (!device.api.configure_swapchain(device.handle.?, window_ptr)) return error.SwapchainConfigurationFailed;
+        if (!device.api.configure_swapchain(device.handle.?, window_ptr, self.present_mode)) return error.SwapchainConfigurationFailed;
         self.window = window_ptr;
         self.window_claimed = true;
         self.swapchain_format = device.api.swapchain_format(device.handle.?, window_ptr);
@@ -291,6 +294,17 @@ pub const Renderer = struct {
         self.scene_height = height;
         self.scene_texture = sdl.createColorTexture(@ptrCast(@alignCast(device.handle.?)), @intCast(self.swapchain_format), width, height) orelse return error.SceneTextureCreateFailed;
         self.scene_depth = sdl.createDepthTexture(@ptrCast(@alignCast(device.handle.?)), width, height) orelse return error.DepthTextureCreateFailed;
+    }
+
+    // Re-runs the swapchain configure so the option applies without a
+    // restart, the way GFX.Present.Fit does. Called every frame from the
+    // C++ side, so an unchanged mode must cost nothing.
+    pub fn setPresentMode(self: *Renderer, mode: sdl.PresentMode) !void {
+        if (self.present_mode == mode) return;
+        self.present_mode = mode;
+        const device = &(self.device orelse return);
+        const window_ptr = self.window orelse return;
+        if (!device.api.configure_swapchain(device.handle.?, window_ptr, mode)) return error.SwapchainConfigurationFailed;
     }
 
     pub fn setShaderDirectory(self: *Renderer, directory: ?[*:0]const u8) !void {

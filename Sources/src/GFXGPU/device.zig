@@ -12,7 +12,9 @@ pub const DeviceApi = struct {
     claim_window: *const fn (*anyopaque, *anyopaque) bool,
     release_window: *const fn (*anyopaque, *anyopaque) void,
     swapchain_format: *const fn (*anyopaque, *anyopaque) u32,
-    configure_swapchain: *const fn (*anyopaque, *anyopaque) bool,
+    // The present mode is a parameter, not a policy baked into the backend:
+    // GFX.Present.Mode picks it and an unsupported one degrades to vsync.
+    configure_swapchain: *const fn (*anyopaque, *anyopaque, sdl.PresentMode) bool,
     acquire_command_buffer: *const fn (*anyopaque) ?*anyopaque,
     wait_acquire_swapchain: *const fn (*anyopaque, *anyopaque, *?*anyopaque, *u32, *u32) bool,
     submit_command_buffer: *const fn (*anyopaque) bool,
@@ -45,8 +47,8 @@ fn realRelease(device: *anyopaque, window: *anyopaque) void {
 fn realFormat(device: *anyopaque, window: *anyopaque) u32 {
     return @intCast(sdl.swapchainFormat(@ptrCast(@alignCast(device)), @ptrCast(@alignCast(window))));
 }
-fn realConfigure(device: *anyopaque, window: *anyopaque) bool {
-    return sdl.configureSwapchain(@ptrCast(@alignCast(device)), @ptrCast(@alignCast(window)));
+fn realConfigure(device: *anyopaque, window: *anyopaque, mode: sdl.PresentMode) bool {
+    return sdl.configureSwapchain(@ptrCast(@alignCast(device)), @ptrCast(@alignCast(window)), mode);
 }
 fn realAcquire(device: *anyopaque) ?*anyopaque {
     return @ptrCast(sdl.acquireCommandBuffer(@ptrCast(@alignCast(device))));
