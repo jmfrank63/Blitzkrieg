@@ -58,6 +58,21 @@ typedef struct GfxGpuLiveCounts {
     uint32_t buffers;
     uint32_t samplers;
     uint32_t render_targets;
+    /* Appended: BK_PERF counters for the immediate-mode temporary path. They
+       are written only when struct_size says the caller's struct reaches this
+       far, so a caller built against the five-field layout keeps working.
+       temporary_draws and temporary_bytes are free-running totals; the pool
+       fields are per-frame samples summed over every frame so far. Either way
+       the reader subtracts its previous sample and divides by the frames it
+       counted - unsigned arithmetic, so a 32-bit wrap costs nothing. */
+    uint32_t temporary_draws;
+    uint32_t temporary_bytes;
+    uint32_t temporary_vertex_free;
+    uint32_t temporary_vertex_in_use;
+    uint32_t temporary_index_free;
+    uint32_t temporary_index_in_use;
+    uint32_t temporary_transfer_free;
+    uint32_t temporary_transfer_in_use;
 } GfxGpuLiveCounts;
 
 typedef struct GfxGpuClearInfo {

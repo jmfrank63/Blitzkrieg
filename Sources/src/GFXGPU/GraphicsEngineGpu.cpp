@@ -1034,9 +1034,25 @@ bool STDCALL GraphicsEngineGpu::Flip()
         {
             GfxGpuLiveCounts counts{ sizeof( counts ) };
             api_.get_live_counts( renderer_, &counts );
-            fprintf( stderr, "BK_PERF: %.1f fps (%.2f ms/frame)  live buffers=%u textures=%u\n",
-                frames / elapsed, 1000.0 * elapsed / frames, counts.buffers, counts.textures );
+            // The temporary counters accumulate and are never reset, so the
+            // interval's work is the difference from the previous sample.
+            // Unsigned arithmetic keeps that correct across a 32-bit wrap.
+            static GfxGpuLiveCounts previous{ sizeof( previous ) };
+            const double per_frame = 1.0 / frames;
+            fprintf( stderr, "BK_PERF: %.1f fps (%.2f ms/frame)  live buffers=%u textures=%u"
+                " tempDraws=%.0f/frame staged=%.1f KB/frame"
+                " tempPool(free+inUse) vtx=%.0f+%.0f idx=%.0f+%.0f xfer=%.0f+%.0f\n",
+                frames / elapsed, 1000.0 * elapsed / frames, counts.buffers, counts.textures,
+                ( counts.temporary_draws - previous.temporary_draws ) * per_frame,
+                ( counts.temporary_bytes - previous.temporary_bytes ) * per_frame / 1024.0,
+                ( counts.temporary_vertex_free - previous.temporary_vertex_free ) * per_frame,
+                ( counts.temporary_vertex_in_use - previous.temporary_vertex_in_use ) * per_frame,
+                ( counts.temporary_index_free - previous.temporary_index_free ) * per_frame,
+                ( counts.temporary_index_in_use - previous.temporary_index_in_use ) * per_frame,
+                ( counts.temporary_transfer_free - previous.temporary_transfer_free ) * per_frame,
+                ( counts.temporary_transfer_in_use - previous.temporary_transfer_in_use ) * per_frame );
             fflush( stderr );
+            previous = counts;
             frames = 0; last = now;
         }
     }

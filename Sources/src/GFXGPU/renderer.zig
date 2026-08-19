@@ -40,6 +40,19 @@ pub const Renderer = struct {
     in_use_temp_index: std.ArrayListUnmanaged(TempBuffer) = .empty,
     free_temp_transfer: std.ArrayListUnmanaged(TempTransfer) = .empty,
     in_use_temp_transfer: std.ArrayListUnmanaged(TempTransfer) = .empty,
+    // BK_PERF measurement only - nothing here feeds a decision. The draw and
+    // byte counters are free-running totals; the pool counters add one sample
+    // per frame. Both are read once a second through get_live_counts, which
+    // subtracts its previous sample and divides by the frames it saw, so they
+    // are never reset and wrap harmlessly.
+    perf_temp_draws: u32 = 0,
+    perf_temp_bytes: u32 = 0,
+    perf_temp_vertex_free: u32 = 0,
+    perf_temp_vertex_in_use: u32 = 0,
+    perf_temp_index_free: u32 = 0,
+    perf_temp_index_in_use: u32 = 0,
+    perf_temp_transfer_free: u32 = 0,
+    perf_temp_transfer_in_use: u32 = 0,
     // One command buffer per frame collects every temporary upload copy. It is
     // submitted once, before the frame's draw command buffer, rather than a
     // command buffer submitted per draw: a D3D12 queue submission costs enough
@@ -551,6 +564,15 @@ pub const Renderer = struct {
 
     fn releaseTemporaryBuffers(self: *Renderer) void {
         while (self.temporary_buffers.pop()) |id| self.destroyBuffer(id) catch {};
+        // Sampled before the recycling below: afterwards every in-use list is
+        // empty, and it is the frame's own high-water mark that says how many
+        // pooled buffers the frame actually needed.
+        self.perf_temp_vertex_free +%= @intCast(self.free_temp_vertex.items.len);
+        self.perf_temp_vertex_in_use +%= @intCast(self.in_use_temp_vertex.items.len);
+        self.perf_temp_index_free +%= @intCast(self.free_temp_index.items.len);
+        self.perf_temp_index_in_use +%= @intCast(self.in_use_temp_index.items.len);
+        self.perf_temp_transfer_free +%= @intCast(self.free_temp_transfer.items.len);
+        self.perf_temp_transfer_in_use +%= @intCast(self.in_use_temp_transfer.items.len);
         // The temp buffers used this frame go back to the free pool rather than
         // being destroyed, so next frame hands them straight out again.
         self.free_temp_vertex.appendSlice(self.allocator, self.in_use_temp_vertex.items) catch {};
@@ -597,6 +619,7 @@ pub const Renderer = struct {
     // the previous frame's in-flight draw, so ask SDL for a fresh backing rather
     // than stall or corrupt.
     fn stageTempCopy(self: *Renderer, gpu_device: *sdl.GpuDevice, dest: *sdl.GpuBuffer, data: *const anyopaque, byte_length: u32) !void {
+        self.perf_temp_bytes +%= byte_length;
         const transfer = try self.acquireTempTransfer(byte_length);
         errdefer self.free_temp_transfer.append(self.allocator, transfer) catch {};
         const mapped = sdl.mapTransferBuffer(gpu_device, transfer.transfer) orelse return error.TransferBufferMapFailed;
@@ -615,6 +638,7 @@ pub const Renderer = struct {
         if (vertex_count > byte_length / stride) return error.InvalidDraw;
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+        self.perf_temp_draws +%= 1;
 
         const vertex = try self.acquireTempBuffer(&self.free_temp_vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX, byte_length);
         errdefer self.free_temp_vertex.append(self.allocator, vertex) catch {};
@@ -630,6 +654,7 @@ pub const Renderer = struct {
         if (index_count == 0 or (index_size != 2 and index_size != 4) or index_bytes < index_count * index_size) return error.InvalidDraw;
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+        self.perf_temp_draws +%= 1;
 
         const vertex = try self.acquireTempBuffer(&self.free_temp_vertex, sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX, vertex_bytes);
         errdefer self.free_temp_vertex.append(self.allocator, vertex) catch {};

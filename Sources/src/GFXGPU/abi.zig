@@ -29,6 +29,16 @@ pub const LiveCounts = extern struct {
     buffers: u32,
     samplers: u32,
     render_targets: u32,
+    // Appended after the shipped layout - see gfxgpu_c.h. Written only when the
+    // caller's struct_size reaches them, so the ABI stays backward compatible.
+    temporary_draws: u32,
+    temporary_bytes: u32,
+    temporary_vertex_free: u32,
+    temporary_vertex_in_use: u32,
+    temporary_index_free: u32,
+    temporary_index_in_use: u32,
+    temporary_transfer_free: u32,
+    temporary_transfer_in_use: u32,
 };
 pub const ClearInfo = extern struct { struct_size: u32, mask: u32, color_rgba8: u32, depth: f32, stencil: u32 };
 pub const ViewportInfo = extern struct { struct_size: u32, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
@@ -143,14 +153,29 @@ fn getLastError(handle: ?*RendererHandle, destination: ?[*]u8, capacity: u32, wr
     return errors.copyBounded(message, destination, capacity, written);
 }
 
+// The size of the layout the header originally shipped with. A caller compiled
+// against it still passes that size, so it - not @sizeOf(LiveCounts) - is what
+// the call has to accept.
+const live_counts_base_size: u32 = @offsetOf(LiveCounts, "temporary_draws");
+
 fn getLiveCounts(handle: ?*RendererHandle, counts: ?*LiveCounts) callconv(.c) Result {
     if (handle == null or counts == null) return errors.invalid_argument;
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    if (counts.?.struct_size < @sizeOf(LiveCounts)) return errors.invalid_argument;
+    if (counts.?.struct_size < live_counts_base_size) return errors.invalid_argument;
     counts.?.textures = @intCast(renderer.textures.count());
     counts.?.buffers = @intCast(renderer.buffers.count());
     counts.?.samplers = 0;
     counts.?.render_targets = 0;
+    if (counts.?.struct_size >= @sizeOf(LiveCounts)) {
+        counts.?.temporary_draws = renderer.perf_temp_draws;
+        counts.?.temporary_bytes = renderer.perf_temp_bytes;
+        counts.?.temporary_vertex_free = renderer.perf_temp_vertex_free;
+        counts.?.temporary_vertex_in_use = renderer.perf_temp_vertex_in_use;
+        counts.?.temporary_index_free = renderer.perf_temp_index_free;
+        counts.?.temporary_index_in_use = renderer.perf_temp_index_in_use;
+        counts.?.temporary_transfer_free = renderer.perf_temp_transfer_free;
+        counts.?.temporary_transfer_in_use = renderer.perf_temp_transfer_in_use;
+    }
     return errors.ok;
 }
 

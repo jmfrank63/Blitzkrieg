@@ -196,6 +196,12 @@ int CInterfaceScreenBase::FinishInterface( IInterfaceCommand *pCmdNextInterface 
 }
 void CInterfaceScreenBase::Step( bool bAppActive )
 {
+	// BK_PERF: the total column is taken from here rather than from BeginScene,
+	// so it also accounts for what the frame spends before it starts drawing -
+	// the resolution/option checks below, the camera update and StepLocal.
+	static const bool bPerf = getenv( "BK_PERF" ) != 0;
+	LARGE_INTEGER pfStep;
+	if ( bPerf ) QueryPerformanceCounter( &pfStep );
 	// The OS moved the window to another display (drag, arrangement change,
 	// unplug) - GameMain's event pump has already pointed GFX.Monitor.Index at
 	// it. In fullscreen the mode must follow so the picture covers the display
@@ -284,7 +290,6 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	}
 	pScene->UpdateSound( pCamera );
 
-	static const bool bPerf = getenv( "BK_PERF" ) != 0;
 	LARGE_INTEGER pf_freq, pf0, pf1, pf2, pf3, pf4;
 	if ( bPerf ) { QueryPerformanceFrequency( &pf_freq ); QueryPerformanceCounter( &pf0 ); }
 
@@ -302,19 +307,25 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	if ( bPerf )
 	{
 		QueryPerformanceCounter( &pf4 );
-		static double acc_begin = 0, acc_draw = 0, acc_end = 0, acc_flip = 0;
+		static double acc_begin = 0, acc_draw = 0, acc_end = 0, acc_flip = 0, acc_total = 0, acc_formvis = 0;
 		static int acc_frames = 0;
 		const double s = 1000.0 / double( pf_freq.QuadPart );
 		acc_begin += ( pf1.QuadPart - pf0.QuadPart ) * s;
 		acc_draw  += ( pf2.QuadPart - pf1.QuadPart ) * s;
 		acc_end   += ( pf3.QuadPart - pf2.QuadPart ) * s;
 		acc_flip  += ( pf4.QuadPart - pf3.QuadPart ) * s;
+		acc_total += ( pf4.QuadPart - pfStep.QuadPart ) * s;
+		// CScene::Draw times its visibility pass and leaves it here; formVis is
+		// a slice of sceneDraw, not a phase of its own, so the columns still add
+		// up to total without it.
+		acc_formvis += GetGlobalVar( "Perf.FormVisMs", 0.0f );
 		if ( ++acc_frames >= 60 )
 		{
-			fprintf( stderr, "BK_PERF: phases/frame  begin=%.2f  sceneDraw=%.2f  endScene=%.2f  flip=%.2f ms\n",
-				acc_begin / acc_frames, acc_draw / acc_frames, acc_end / acc_frames, acc_flip / acc_frames );
+			fprintf( stderr, "BK_PERF: phases/frame  begin=%.2f  sceneDraw=%.2f (formVis=%.2f)  endScene=%.2f  flip=%.2f  total=%.2f ms\n",
+				acc_begin / acc_frames, acc_draw / acc_frames, acc_formvis / acc_frames,
+				acc_end / acc_frames, acc_flip / acc_frames, acc_total / acc_frames );
 			fflush( stderr );
-			acc_begin = acc_draw = acc_end = acc_flip = 0; acc_frames = 0;
+			acc_begin = acc_draw = acc_end = acc_flip = acc_total = acc_formvis = 0; acc_frames = 0;
 		}
 	}
 }

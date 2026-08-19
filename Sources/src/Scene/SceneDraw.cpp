@@ -12,6 +12,7 @@
 #include "../Formats/fmtMap.h"
 #include "../Misc/Win32Random.h"
 #include "../Platform/Debug.h"
+#include "../Platform/Clock.h"
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
 #define MESH_SHADOW_DENSITY 0.5f
@@ -215,6 +216,44 @@ static void RestoreGameplayDirectTransform( IGFX *pGFX, const SHMatrix &matGamep
 	if ( bUseGameplayProjection )
 		pGFX->SetProjectionTransform( matGameplayProjection );
 }
+// BK_PERF probe for the visibility pass. Set by FormVisibilityLists, read by
+// the reporter below - both live in this file, so no plumbing is needed.
+static int g_nBkPerfVisiblePatches = 0;
+// Reports, once a second, how much the visibility pass allocated and how full
+// it left the draw lists. Every std::list push_back is exactly one heap
+// allocation, and CDrawVisitor::Clear() empties the lists immediately before
+// FormVisibilityLists runs, so the final sizes *are* the allocation count -
+// a global operator new hook would say the same thing at a far higher price.
+// uiObjects is a deque, which allocates per block rather than per element, so
+// it is reported but left out of the allocation total.
+static void ReportVisibilityLists( const CDrawVisitor *pVisitor )
+{
+	static DWORD dwLastReport = 0;
+	const DWORD dwNow = NPlatform::MonotonicMilliseconds();
+	if ( NPlatform::MillisecondsElapsed( dwLastReport, dwNow ) < 1000 )
+		return;
+	dwLastReport = dwNow;
+	int nParticles = 0;
+	for ( CParticlesVisMap::const_iterator it = pVisitor->particles.begin(); it != pVisitor->particles.end(); ++it )
+		nParticles += int( it->second.size() );
+	const int nAllocs = g_nBkPerfVisiblePatches +
+		int( pVisitor->sprites.size() + pVisitor->spriteBuildings.size() + pVisitor->spriteUnits.size() +
+		     pVisitor->spriteEffects.size() + pVisitor->spriteFlashes.size() + pVisitor->meshes.size() +
+		     pVisitor->aviation.size() + pVisitor->terraObjects.size() + pVisitor->shadowObjects.size() +
+		     pVisitor->unknowns.size() + pVisitor->boldLines.size() + pVisitor->traces.size() +
+		     pVisitor->gunTraces.size() + pVisitor->icons.size() + pVisitor->textes.size() +
+		     pVisitor->particles.size() ) + nParticles;
+	fprintf( stderr, "BK_PERF: formVis allocs=%d patches=%d"
+		" sprites=%d buildings=%d units=%d effects=%d flashes=%d meshes=%d aviation=%d"
+		" terra=%d shadows=%d particles=%d textes=%d traces=%d gunTraces=%d icons=%d uiObjects=%d\n",
+		nAllocs, g_nBkPerfVisiblePatches,
+		int( pVisitor->sprites.size() ), int( pVisitor->spriteBuildings.size() ), int( pVisitor->spriteUnits.size() ),
+		int( pVisitor->spriteEffects.size() ), int( pVisitor->spriteFlashes.size() ), int( pVisitor->meshes.size() ),
+		int( pVisitor->aviation.size() ), int( pVisitor->terraObjects.size() ), int( pVisitor->shadowObjects.size() ),
+		nParticles, int( pVisitor->textes.size() ), int( pVisitor->traces.size() ), int( pVisitor->gunTraces.size() ),
+		int( pVisitor->icons.size() ), int( pVisitor->uiObjects.size() ) );
+	fflush( stderr );
+}
 void CScene::Draw( ICamera *pCamera )
 {
 	_control87( _RC_NEAR, _MCW_RC );
@@ -268,7 +307,21 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->GetViewVolume( vViewVolumePlanes );
 		pDrawVisitor->Init( pCamera, matTransform, rcScreenRect, &(vViewVolumePlanes[0]) );
 	}
+	// BK_PERF: the visibility pass walks every patch in view and refills the
+	// draw lists, so it gets its own column in the phase breakdown printed by
+	// CInterfaceScreenBase::Step. Published through a global var rather than a
+	// direct symbol because Scene and Common are separate modules; the string
+	// round-trip only happens while BK_PERF is set.
+	static const bool bPerf = getenv( "BK_PERF" ) != 0;
+	LARGE_INTEGER pfVisFreq, pfVis0, pfVis1;
+	if ( bPerf ) { QueryPerformanceFrequency( &pfVisFreq ); QueryPerformanceCounter( &pfVis0 ); }
 	FormVisibilityLists( pCamera, pDrawVisitor );
+	if ( bPerf )
+	{
+		QueryPerformanceCounter( &pfVis1 );
+		SetGlobalVar( "Perf.FormVisMs", float( ( pfVis1.QuadPart - pfVis0.QuadPart ) * 1000.0 / double( pfVisFreq.QuadPart ) ) );
+		ReportVisibilityLists( pDrawVisitor );
+	}
 	pDrawVisitor->Sort();
 	if ( bEnableObjects )
 	{
@@ -1620,6 +1673,7 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 	NTimer::STime time = pTimer->GetGameTime();
 	CPatchesList patches;
 	SelectPatches( pCamera, areaUnits.GetSizeX(), areaUnits.GetSizeY(), AREA_MAP_CELL_SIZE, &patches );
+	g_nBkPerfVisiblePatches = int( patches.size() );		// BK_PERF: one list node per patch
 	const CTRect<short> rcScreen = pGFX->GetScreenRect();
 	if ( bWeatherOn && bEnableEffects )
 	{
