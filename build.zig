@@ -2125,8 +2125,10 @@ pub fn build(b: *std.Build) void {
         .name = "blitz64-abi-test",
         .root_module = abi_test_module,
     });
-    abi_test.subsystem = .console;
-    abi_test.entry = .{ .symbol_name = "main" };
+    if (target.result.os.tag == .windows) {
+        abi_test.subsystem = .console;
+        abi_test.entry = .{ .symbol_name = "main" };
+    }
     const run_abi_test = b.addRunArtifact(abi_test);
     const abi_test_step = b.step("blitz64-abi-test", "Run the Blitz64 C++ ABI smoke test");
     abi_test_step.dependOn(&run_abi_test.step);
