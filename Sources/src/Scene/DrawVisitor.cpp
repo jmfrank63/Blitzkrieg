@@ -4,6 +4,11 @@
 
 #include "../Main/TextSystem.h"
 #include "SceneScreenScale.h"
+// How often Clear() drops the particle buckets nothing is drawing into. Long
+// enough that an effect which flickers off for a frame keeps its storage,
+// short enough that a mission's textures do not outlive the mission by
+// anything a player would notice: 300 frames is five seconds at 60 FPS.
+static const int PARTICLE_SWEEP_FRAMES = 300;
 static void ScaleRect( CTRect<float> *pRect, const float fScale )
 {
 	if ( fScale <= 1.001f )
@@ -35,8 +40,29 @@ void CDrawVisitor::Clear()
 	// vectors and clearing them keeps the storage they grew to, so a texture
 	// that stays visible never reallocates. HasParticles() is what tells an
 	// all-empty frame from a populated one now.
-	for ( CParticlesVisMap::iterator it = particles.begin(); it != particles.end(); ++it )
-		it->second.clear();
+	//
+	// Kept, but not forever. This visitor is a static that outlives every
+	// mission, so retaining a bucket per texture unconditionally would leave
+	// an entry - and its peak allocation - behind for every particle texture
+	// the process has ever drawn, and would make this loop and HasParticles()
+	// proportional to that whole history instead of to what is on screen. So
+	// once every sweep interval the buckets that are still empty on arrival
+	// here - nothing drew into them last frame - are dropped, together with
+	// texture pointers that may no longer be alive. A texture in continuous
+	// use is never empty at that moment and keeps its capacity.
+	const bool bSweep = ++nParticleSweep >= PARTICLE_SWEEP_FRAMES;
+	if ( bSweep )
+		nParticleSweep = 0;
+	for ( CParticlesVisMap::iterator it = particles.begin(); it != particles.end(); )
+	{
+		if ( bSweep && it->second.empty() )
+			it = particles.erase( it );
+		else
+		{
+			it->second.clear();
+			++it;
+		}
+	}
 	unknowns.clear();
 	icons.clear();
 	textes.clear();

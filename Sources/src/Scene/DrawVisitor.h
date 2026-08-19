@@ -72,6 +72,9 @@ class CDrawVisitor : public ISceneVisitor
 	CDepthOptimizer depthoptimizer;
 	void AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList *pSprites, WORD wPriority );
 	void AddSingleParticleEffect( IParticleSource *pPS, CParticlesVisMap *pParticles );
+	// Frames since the particle map last dropped the buckets nothing is
+	// drawing into - see Clear().
+	int nParticleSweep = 0;
 	void AddSingleMesh( IMeshVisObj *pMesh, CMeshVisList *pMeshes );
 	void AddSingleMeshUnchecked( IMeshVisObj *pMesh, CMeshVisList *pMeshes );
 public:
