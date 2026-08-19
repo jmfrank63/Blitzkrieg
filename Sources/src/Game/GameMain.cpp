@@ -32,6 +32,7 @@
 
 #include "../Main/iMain.h"
 #include "../Main/GameDB.h"
+#include "../Main/GameStats.h"
 #include "../Main/GameTimer.h"
 #include "../Main/Transceiver.h"
 #include "../Main/Multiplayer.h"
@@ -769,9 +770,33 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// in-game frame without a human driving the menus.
 		else if ( !cmdp.szMapName.empty() && !cmdp.bMultiplayer )
 		{
+			// MISSION_COMMAND_MISSION takes a map under maps\ - every menu path
+			// sends a mission's FinalMap. A mission XML given on the command line
+			// (scenarios\...\1.xml, tutorial\...) is stats, not a map, so resolve
+			// it through the GDB to the FinalMap it names - the way the demo menu
+			// cold-starts its mission - or the command bounces off the missing
+			// maps\ entry into the main menu.
+			std::string szLaunchMap = cmdp.szMapName;
+			NStr::ToLower( szLaunchMap );
+			for ( char &c : szLaunchMap )
+				if ( c == '/' ) c = '\\';
+			const std::string szStatsKey = szLaunchMap.substr( 0, szLaunchMap.rfind( '.' ) );
+			const std::string szTerrainName = std::string( "maps\\" ) + szStatsKey;
+			IDataStorage *pStorage = GetSingleton<IDataStorage>();
+			if ( !pStorage->IsStreamExist( (szTerrainName + ".xml").c_str() ) &&
+				 !pStorage->IsStreamExist( (szTerrainName + ".bzm").c_str() ) )
+			{
+				const SMissionStats *pStats = NGDB::GetGameStats<SMissionStats>( szStatsKey.c_str(), IObjectsDB::MISSION );
+				if ( pStats != 0 && !pStats->szFinalMap.empty() )
+				{
+					SetGlobalVar( "Chapter.Current.Name", "custom_mission" );
+					SetGlobalVar( "Mission.Current.Name", szStatsKey.c_str() );
+					szLaunchMap = pStats->szFinalMap + ".xml";
+				}
+			}
 			GetSingleton<IScenarioTracker>()->StartCampaign( "custom_mission", CAMPAIGN_TYPE_CUSTOM_MISSION );
 			GetSingleton<IScenarioTracker>()->StartChapter( "custom_mission" );
-			pMainLoop->Command( MISSION_COMMAND_MISSION, NStr::Format("%s;%d", cmdp.szMapName.c_str(), cmdp.bCycledLaunch) );
+			pMainLoop->Command( MISSION_COMMAND_MISSION, NStr::Format("%s;%d", szLaunchMap.c_str(), cmdp.bCycledLaunch) );
 		}
 		else if ( cmdp.bStartupSmoke || getenv( "BK_AUTO_UI" ) != 0 )	// BK_AUTO_UI drives the UI headless; the intro just costs frames
 		{

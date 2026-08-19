@@ -218,8 +218,12 @@ void CICMission::PostCreate( IMainLoop *pML, CInterfaceMission *pInterface )
 	SStorageElementStats stats;
 	Zero( stats );
 	if ( pStorage->IsStreamExist( (szTerrainName + ".xml").c_str() ) == false &&
-		   pStorage->IsStreamExist( (szTerrainName + ".bzm").c_str() ) == false ) 
+		   pStorage->IsStreamExist( (szTerrainName + ".bzm").c_str() ) == false )
 	{
+		// Every launch path funnels here (menus, restart, command line); a
+		// missing map bounced to the main menu without a word, which reads
+		// as the game ignoring the request. Say what was looked for.
+		NStr::DebugTrace( "CICMission: no map \"%s\" (.xml/.bzm) in storage - returning to the main menu\n", szTerrainName.c_str() );
 		pML->Command( MISSION_COMMAND_MAIN_MENU, 0 );
 		return;
 	}
