@@ -18,32 +18,29 @@ bottom of their section; delete items when they ship (git history keeps them).
 
 - **Windows parity pass.** Deferred while macOS is brought up first
   ("we will worry about windows once we have mac correct", 2026-08-11).
-  Collects everything the macOS rounds changed that Windows still needs:
-  - Build verification of all changes on a Windows machine (cross-compile
-    from macOS is not possible — MSVC paths).
+  Collects everything the macOS rounds changed that Windows still needs.
+  Build verification and the frame-pacing measurement shipped 2026-08-19
+  (release build compiles, test suite passes, startup smoke and an
+  80-second save-loaded mission run exit clean; the limiter held exactly
+  60 with the millisecond sleep + spin at ~5% of a core, and the
+  high-resolution waitable timer took that spin away — 29.9% → 24.4% of a
+  core on the menu — with pacing still exact and game/wall at 1.0000).
+  Still open:
   - `windowDisplayChanged` platform events are not emitted on the Windows
     path, so OS display-move following will not work there yet.
   - The window→game mouse transform (GFX.Present.*) is applied in the
     non-Windows event pump only; the Windows WndProc path needs the same.
   - App icon: Game.rc is not wired into the zig build.
-  - Frame pacing: `NPlatform::SleepPreciseNanoseconds` reports failure on
-    Windows, so the limiter there still sleeps to a millisecond short of the
-    deadline and spins out the rest. Windows 10 1803 and later have a
-    high-resolution waitable timer
-    (`CreateWaitableTimerExW` + `CREATE_WAITABLE_TIMER_HIGH_RESOLUTION`).
-    Measure the limiter on Windows first — on macOS the precise wait took it
-    from 1.0-1.4% of a core to 0.11-0.23% with no more jitter, but an
-    unmeasured change to frame pacing is not an improvement.
 
-- **Verify the particle-bucket sweep in a mission.** `CDrawVisitor::Clear`
-  now drops the per-texture particle buckets that were still empty on
-  arrival, once every 300 frames, so the map stops accumulating an entry per
-  texture the process has ever drawn. Only the empty-map path has been
-  exercised: `-m<name>.sav` answered "CICLoad::Exec open failed" in the
-  headless setup even with the save in `profiles/<active>/saves/`, so no
-  scene with live particles was ever driven. Get a mission running headless
-  again, then confirm particles still draw and that the map does not grow
-  across missions. (Found in review 2026-08-19.)
+- **Observe the particle-bucket map does not grow across missions.**
+  `CDrawVisitor::Clear` drops the per-texture particle buckets that were
+  still empty on arrival, once every 300 frames. That particles still draw
+  through the sweep is confirmed (2026-08-20, Windows: a quicksave with a
+  burning plane held particles=13 steady with bursts to 160 across ~14
+  sweep cycles). What remains is the growth half — that the map really
+  stops accumulating an entry per texture across mission loads — which has
+  no external observable today; needs a bucket-count line in `BK_PERF` to
+  check. (Found in review 2026-08-19.)
 
 - **BK_DATA_TRACE cannot see a silent misparse.** `bk_tree_int` traces a
   value that fails to parse, which catches text with a hex letter in it
