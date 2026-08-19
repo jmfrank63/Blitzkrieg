@@ -43,6 +43,13 @@ public:
     bool AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
         std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
         float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
+    // Same, over the [text, text + length) slice of a larger buffer. DrawText
+    // draws every wrapped line out of one widened copy of the string, and
+    // cutting each line out of it with substr() allocated once per line, per
+    // frame.
+    bool AppendGeometry( const wchar_t *text, size_t length, float x, float y, float scale, DWORD color,
+        std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
+        float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
 
 private:
     ~FontGpu();
@@ -68,6 +75,11 @@ public:
     virtual IGFXFont *Font() const = 0;
     virtual DWORD Color() const = 0;
     virtual float Scale() const = 0;
+    // The line breaking the text object has already done for GetNumLines.
+    // DrawText reuses it instead of re-wrapping the whole string every frame;
+    // the two agreed by construction anyway, since both called WrapTextLines
+    // with the same font, scale and width.
+    virtual const std::vector<std::pair<size_t, size_t> > &WrappedLines() const = 0;
 };
 
 #endif

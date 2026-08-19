@@ -1292,8 +1292,10 @@ bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD c
         std::fprintf( stderr, "\n" );
     }
     if ( !font || !font->Texture() || !text || !*text ) return false;
-    std::vector<SGFXLVertex> vertices;
-    std::vector<WORD> indices;
+    std::vector<SGFXLVertex> &vertices = text_vertices_;
+    std::vector<WORD> &indices = text_indices_;
+    vertices.clear();
+    indices.clear();
     font->AppendGeometry( text, static_cast<float>( x ), static_cast<float>( y ), 1.0f, color, vertices, indices );
     if ( vertices.empty() || indices.empty() ) return true;
     if ( !SetTexture( 0, font->Texture() ) ) return false;
@@ -1329,8 +1331,9 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     // two UTF-16 units per character on a 32-bit wchar_t, drawing every second
     // character. Keep the raw pointer for measuring and widen a copy to draw.
     const WORD *raw_value = source->GetString();
-    const std::wstring wide_value = NPlatform::WideFromWordString( raw_value );
-    const wchar_t *value = wide_value.c_str();
+    text_wide_.clear();
+    if ( raw_value ) for ( const WORD *unit = raw_value; *unit; ++unit ) text_wide_.push_back( static_cast<wchar_t>( *unit ) );
+    const wchar_t *value = text_wide_.c_str();
     IGFXTextGpuFontProvider *font_provider = dynamic_cast<IGFXTextGpuFontProvider *>( text );
     FontGpu *font = font_provider ? dynamic_cast<FontGpu *>( font_provider->Font() ) : nullptr;
     const int width = text->GetWidth();
@@ -1345,12 +1348,17 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     if ( font )
     {
         // Shared with TextGpu::GetNumLines so the row height the list reserves
-        // always matches the lines actually drawn here.
-        std::vector<std::pair<size_t, size_t> > lines;
-        WrapTextLines( font, raw_value, scale, wrap_width, lines );
+        // always matches the lines actually drawn here. The text object caches
+        // the wrap keyed on the string, the font, its width and its scale, and
+        // SetWidth above has just given it this rectangle's width, so this is
+        // the same break WrapTextLines( font, raw_value, scale, wrap_width )
+        // would produce - without breaking the paragraph again every frame.
+        const std::vector<std::pair<size_t, size_t> > &lines = font_provider->WrappedLines();
 
-        std::vector<SGFXLVertex> vertices;
-        std::vector<WORD> indices;
+        std::vector<SGFXLVertex> &vertices = text_vertices_;
+        std::vector<WORD> &indices = text_indices_;
+        vertices.clear();
+        indices.clear();
         const float line_step = static_cast<float>( font->GetLineSpace() ) * scale;
         float pen_y = static_cast<float>( rect.top + y );
         // The D3D path clips every glyph to rect. Without this a scrolled or
@@ -1365,12 +1373,13 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
             if ( pen_y >= clip_bottom ) break;
             if ( end > begin && pen_y + line_step > clip_top )
             {
-                const std::wstring line_text = wide_value.substr( begin, end - begin );
                 const float line_width = font->TextWidthFloat( raw_value + begin, static_cast<int>( end - begin ) ) * scale;
                 float line_x = static_cast<float>( rect.left );
                 if ( (flags & FNT_FORMAT_CENTER) != 0 ) line_x += std::floor( ( wrap_width - line_width ) * 0.5f );
                 else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) line_x = static_cast<float>( rect.right ) - line_width;
-                font->AppendGeometry( line_text.c_str(), line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom );
+                // The widened string is one wchar_t per UTF-16 unit, so the
+                // wrap's offsets index it directly and the line needs no copy.
+                font->AppendGeometry( value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom );
                 if ( line_index == 0 ) x = line_x;
             }
             pen_y += line_step;

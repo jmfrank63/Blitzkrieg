@@ -2,6 +2,8 @@
 #define BLITZKRIEG_GRAPHICS_ENGINE_GPU_H
 
 #include "..//GFX//GFX.H"
+// SGFXLVertex, for the retained text geometry buffers below.
+#include "..//GFX//GFXHelper.h"
 #include "gfxgpu_c.h"
 
 #include <string>
@@ -165,6 +167,14 @@ private:
     bool direct_transform_ = false;
     std::vector<unsigned char> temporary_vertex_bytes_;
     std::vector<unsigned char> temporary_index_bytes_;
+    // Text geometry is built here and then copied into the temporary buffer.
+    // Kept across calls so the capacity survives: a fresh vector per drawn
+    // string meant a handful of allocations per line of text, every frame.
+    std::vector<SGFXLVertex> text_vertices_;
+    std::vector<WORD> text_indices_;
+    // The UTF-16 text widened to wchar_t, likewise reused rather than built
+    // anew for every DrawText.
+    std::wstring text_wide_;
     int temporary_vertex_stride_ = 0;
     int temporary_vertex_count_ = 0;
     int temporary_index_stride_ = 0;
