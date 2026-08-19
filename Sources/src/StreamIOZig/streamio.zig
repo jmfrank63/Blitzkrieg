@@ -1589,6 +1589,30 @@ pub export fn bk_tree_raw(handle: ?*anyopaque, destination: ?*anyopaque, length:
     return true;
 }
 
+// Env-gated diagnostic for data-tree values that fail to parse.  bk_tree_int
+// and bk_tree_double keep their contract - return false and leave the caller's
+// member at its default - because most fields are legitimately absent from most
+// files.  The price is that an unparseable value is indistinguishable from a
+// missing one: "0E000000" in an int field fails std.fmt.parseInt and the field
+// silently stays at whatever the constructor set, which is how the whole
+// acknowledgement table lost its types without a word.  BK_DATA_TRACE=1 prints
+// those, so the next data/parser mismatch is visible instead of silent.
+extern fn getenv(name: [*:0]const u8) ?[*:0]const u8;
+var data_trace: enum { unknown, off, on } = .unknown;
+fn dataTraceEnabled() bool {
+    if (data_trace == .unknown) data_trace = if (getenv("BK_DATA_TRACE") != null) .on else .off;
+    return data_trace == .on;
+}
+fn traceUnparsed(kind: []const u8, name: [*:0]const u8, text: []const u8, err: anyerror) void {
+    if (!dataTraceEnabled()) return;
+    std.debug.print("BK_DATA_TRACE: \"{s}\" is not {s}: \"{s}\" ({s}) - the field keeps its default\n", .{
+        std.mem.span(name),
+        kind,
+        std.mem.trim(u8, text, " \t\r\n"),
+        @errorName(err),
+    });
+}
+
 pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_int) callconv(.c) bool {
     const tree = fromHandle(Tree, handle) orelse return false;
     const result = value orelse return false;
@@ -1597,11 +1621,17 @@ pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_i
     // attribute and a child with the same name (attribute names never contain
     // '/', so path lookups fall through naturally).
     if (xml.attribute(tree.current, std.mem.span(name))) |attr| {
-        result.* = parseTreeInt(attr) catch return false;
+        result.* = parseTreeInt(attr) catch |err| {
+            traceUnparsed("an integer", name, attr, err);
+            return false;
+        };
         return true;
     }
     const node = treeNode(tree, std.mem.span(name)) orelse return false;
-    result.* = parseTreeInt(node.text) catch return false;
+    result.* = parseTreeInt(node.text) catch |err| {
+        traceUnparsed("an integer", name, node.text, err);
+        return false;
+    };
     return true;
 }
 
@@ -1612,8 +1642,11 @@ pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_i
 /// 8-digit decimal in the game data was misread: an effect duration of
 /// "15002500" became 2424853 and a particle LifeTime of "15000000" became 21
 /// (bytes 15 00 00 00), which is why a downed plane's smoke trail never emitted
-/// a particle. Enums are serialised through the raw path, so nothing reaches
-/// this function in the byte encoding.
+/// a particle. Enums and SColor members are serialised through the raw path
+/// (CTreeAccessor::AddRawData -> bk_tree_raw), which still reads hex byte
+/// pairs, so the byte encoding in Data/ never reaches this function - with one
+/// exception, the acknowledgement table, whose members were ported from enums
+/// to plain ints; Data/Sounds/Ack/acks.xml was rewritten in decimal to match.
 fn parseTreeInt(text: []const u8) !c_int {
     const trimmed = std.mem.trim(u8, text, " \t\r\n");
     // Try unsigned 32-bit first so hex values like 0xffffbe34 (which exceed
@@ -1635,7 +1668,10 @@ pub export fn bk_tree_double(handle: ?*anyopaque, name: [*:0]const u8, value: ?*
         const node = treeNode(tree, std.mem.span(name)) orelse return false;
         break :blk node.text;
     };
-    result.* = std.fmt.parseFloat(f64, std.mem.trim(u8, text, " \t\r\n")) catch return false;
+    result.* = std.fmt.parseFloat(f64, std.mem.trim(u8, text, " \t\r\n")) catch |err| {
+        traceUnparsed("a number", name, text, err);
+        return false;
+    };
     return true;
 }
 
@@ -1775,15 +1811,42 @@ pub export fn bk_tree_flush(handle: ?*anyopaque, stream_handle: ?*anyopaque) cal
     return bk_stream_flush(stream_handle);
 }
 
-test "parseTreeInt handles decimal and 0x-prefixed integer values" {
+test "parseTreeInt is decimal and 0x-prefixed hex only, never little-endian bytes" {
     // UI colors from XML are stored as 0x-prefixed hex like 0xffffbe34 (yellow).
     // These exceed i32 max, so they must parse via u32 -> bitCast.
     try std.testing.expectEqual(@as(c_int, @bitCast(@as(u32, 0xffffbe34))), parseTreeInt("0xffffbe34") catch unreachable);
     try std.testing.expectEqual(@as(c_int, @bitCast(@as(u32, 0xff000000))), parseTreeInt("0xff000000") catch unreachable);
     // Negative decimal strings must still work.
     try std.testing.expectEqual(@as(c_int, -1), parseTreeInt("-1") catch unreachable);
-    // Leading zeroes do not turn decimal text into RAW little-endian bytes.
+    // Whitespace and newlines from pretty-printed XML are trimmed.
+    try std.testing.expectEqual(@as(c_int, 4), parseTreeInt("\r\n\t4  ") catch unreachable);
+
+    // An 8-digit decimal is a decimal, leading zeroes and all. parseTreeInt
+    // used to decode every 8-character all-hex-digit string as four
+    // little-endian bytes, which turned the particle-trail duration "15002500"
+    // into 2424853 and a LifeTime of "15000000" into 21 - a downed plane's
+    // smoke trail then emitted nothing. Data/Effects still writes those as
+    // plain decimals, so they have to survive untouched.
+    try std.testing.expectEqual(@as(c_int, 15_002_500), parseTreeInt("15002500") catch unreachable);
+    try std.testing.expectEqual(@as(c_int, 15_000_000), parseTreeInt("15000000") catch unreachable);
     try std.testing.expectEqual(@as(c_int, 1_000_000), parseTreeInt("01000000") catch unreachable);
+    try std.testing.expectEqual(@as(c_int, 2_000_000), parseTreeInt("02000000") catch unreachable);
+
+    // ...and a string with a hex letter in it is an error, not a byte
+    // sequence. The little-endian branch is gone for good: 8-digit decimals
+    // and 8-digit little-endian hex are indistinguishable as strings, so this
+    // function cannot serve both and the data was made unambiguous instead.
+    // Nothing is lost by that. Enum and SColor members reach the data tree
+    // through CTreeAccessor::AddRawData -> bk_tree_raw, which reads hex byte
+    // pairs and is where every <Type>01000000</Type> in Data/ actually goes.
+    // The one struct that read such values as ints - the acknowledgement table
+    // in Sources/src/GameTT/AckManager.h, whose members were ported from enums
+    // to plain ints - had its data rewritten in decimal instead
+    // (Data/Sounds/Ack/acks.xml: <AckType>1</AckType>). Do not reintroduce the
+    // little-endian decoding here; convert the data.
+    try std.testing.expectError(error.InvalidCharacter, parseTreeInt("0E000000"));
+    try std.testing.expectError(error.InvalidCharacter, parseTreeInt("000000FF"));
+    try std.testing.expectError(error.InvalidCharacter, parseTreeInt("6C4D0BFF"));
 }
 
 test "POSIX resource paths resolve legacy casing" {
