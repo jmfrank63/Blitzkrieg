@@ -141,6 +141,7 @@ private:
     // Init(), reconfigures the live swapchain instead of needing a restart.
     uint32_t present_mode_ = 0;
     void UpdatePresentOffsets();
+    void UpdatePresentMode();
     // The sprite-shadow pass (effect 111) wants linear filtering whenever the
     // gameplay zoom is fractional - point sampling clumps the shadows' dithered
     // alpha into blotches. SetTexture picks the sampler from these two.

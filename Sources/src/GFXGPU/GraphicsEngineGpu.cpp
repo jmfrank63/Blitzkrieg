@@ -956,20 +956,13 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
     const bool bFit = GetGlobalVar( "GFX.Present.Fit", 1 ) != 0;
     if ( bFit != present_fit_ )
     {
-        present_fit_ = bFit;
-        if ( renderer_ && api_.set_present_fit )
-            api_.set_present_fit( renderer_, bFit ? 1 : 0 );
-    }
-    // Same treatment for the present mode: the option only becomes readable
-    // once the profile config has been loaded, which is after Init().
-    const uint32_t nPresentMode = ResolvePresentMode();
-    if ( nPresentMode != present_mode_ )
-    {
-        present_mode_ = nPresentMode;
-        if ( renderer_ && api_.set_present_mode )
-            api_.set_present_mode( renderer_, nPresentMode );
-        if ( GfxTraceEnabled() )
-            fprintf( stderr, "BK_GFX_TRACE: present mode %u\n", unsigned( nPresentMode ) );
+        // Cache what the renderer took, not what was asked for: remembering a
+        // rejected value as current would leave the swapchain on the old one
+        // with nothing left to trigger a retry. Nothing to reject means the
+        // value is simply remembered until a renderer exists.
+        if ( !renderer_ || !api_.set_present_fit ||
+             api_.set_present_fit( renderer_, bFit ? 1 : 0 ) == GFXGPU_OK )
+            present_fit_ = bFit;
     }
     float fOffsetX = 0.0f, fOffsetY = 0.0f, fScaleX = 1.0f, fScaleY = 1.0f;
     int pixel_width = 0, pixel_height = 0;
@@ -1042,11 +1035,40 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
     }
 }
 
+// The present mode is the one setting here that cannot be applied at any
+// moment: set_present_mode reconfigures the swapchain, which SDL's D3D12 and
+// Vulkan backends do by recreating it. A swapchain texture acquired in
+// BeginScene belongs to the command buffer that acquired it and is presented
+// when that buffer is submitted - which is what api_.present does - so
+// recreating the swapchain anywhere between the two pulls the render target
+// out from under the frame in flight. Hence this runs after the present, not
+// with the rest of the per-frame present state: a mode change costs one frame
+// of latency and nothing else. The renderer refuses a mid-frame call outright,
+// so the ordering cannot silently rot.
+void GraphicsEngineGpu::UpdatePresentMode()
+{
+    // The option only becomes readable once the profile config has been
+    // loaded, which is after Init() - hence the per-frame diff rather than a
+    // one-off read at startup.
+    const uint32_t nPresentMode = ResolvePresentMode();
+    if ( nPresentMode == present_mode_ )
+        return;
+    if ( renderer_ && api_.set_present_mode &&
+         api_.set_present_mode( renderer_, nPresentMode ) != GFXGPU_OK )
+        return;
+    present_mode_ = nPresentMode;
+    if ( GfxTraceEnabled() )
+        fprintf( stderr, "BK_GFX_TRACE: present mode %u\n", unsigned( nPresentMode ) );
+}
+
 bool STDCALL GraphicsEngineGpu::Flip()
 {
     UpdatePendingFullscreen();
     UpdatePresentOffsets();
     const bool result = renderer_ && Check( api_.present( renderer_ ), "present" );
+    // Outside the acquire-to-submit window now that the frame has gone to the
+    // GPU - see UpdatePresentMode.
+    UpdatePresentMode();
     if ( result )
     {
         frame_pending_ = false;

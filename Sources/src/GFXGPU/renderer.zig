@@ -491,12 +491,31 @@ pub const Renderer = struct {
     // Re-runs the swapchain configure so the option applies without a
     // restart, the way GFX.Present.Fit does. Called every frame from the
     // C++ side, so an unchanged mode must cost nothing.
+    //
+    // Only ever between frames. SDL_ConfigureGPUSwapchain recreates the
+    // swapchain on the D3D12 and Vulkan backends, and an acquired swapchain
+    // texture belongs to the command buffer that acquired it until that
+    // buffer is submitted - so reconfiguring inside a frame pulls the target
+    // out from under the frame in flight. The state check makes that a
+    // refusal rather than a corrupted first frame; the caller applies the
+    // mode after the present.
     pub fn setPresentMode(self: *Renderer, mode: sdl.PresentMode) !void {
         if (self.present_mode == mode) return;
-        self.present_mode = mode;
-        const device = &(self.device orelse return);
-        const window_ptr = self.window orelse return;
+        if (self.frame.state != .idle) return error.InvalidState;
+        // With no device or window yet there is nothing to reconfigure and
+        // nothing that can fail: the mode is remembered for attachWindow.
+        const device = &(self.device orelse {
+            self.present_mode = mode;
+            return;
+        });
+        const window_ptr = self.window orelse {
+            self.present_mode = mode;
+            return;
+        };
         if (!device.api.configure_swapchain(device.handle.?, window_ptr, mode)) return error.SwapchainConfigurationFailed;
+        // Recorded only once the device has taken it, so a rejected mode is
+        // retried next frame instead of being remembered as the live one.
+        self.present_mode = mode;
     }
 
     pub fn setShaderDirectory(self: *Renderer, directory: ?[*:0]const u8) !void {
@@ -1472,6 +1491,56 @@ pub const Renderer = struct {
         sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };
+
+test "the present mode is recorded only once the device takes it, and never mid-frame" {
+    const Fake = struct {
+        var configures: u32 = 0;
+        var accept: bool = true;
+        fn destroy(_: *anyopaque) void {}
+        fn configure(_: *anyopaque, _: *anyopaque, _: sdl.PresentMode) bool {
+            configures += 1;
+            return accept;
+        }
+    };
+    Fake.configures = 0;
+    Fake.accept = false;
+    var api = device_mod.real_api;
+    api.destroy = Fake.destroy;
+    api.configure_swapchain = Fake.configure;
+
+    var renderer = Renderer.init(std.testing.allocator);
+    var window: u8 = 0;
+    var handle: u8 = 0;
+    renderer.device = device_mod.Device{ .allocator = std.testing.allocator, .api = api, .handle = &handle };
+    renderer.window = &window;
+    // deinit would drive the real SDL release calls against the fake handle.
+    defer {
+        renderer.device = null;
+        renderer.window = null;
+        renderer.deinit();
+    }
+
+    // A refused reconfiguration leaves the live mode alone, so the next frame
+    // asks again instead of believing the new mode took effect.
+    try std.testing.expectError(error.SwapchainConfigurationFailed, renderer.setPresentMode(.immediate));
+    try std.testing.expectEqual(@as(u32, 1), Fake.configures);
+    try std.testing.expectEqual(sdl.PresentMode.vsync, renderer.present_mode);
+
+    Fake.accept = true;
+    try renderer.setPresentMode(.immediate);
+    try std.testing.expectEqual(sdl.PresentMode.immediate, renderer.present_mode);
+    // Called every frame, so an unchanged mode must not touch the swapchain.
+    try renderer.setPresentMode(.immediate);
+    try std.testing.expectEqual(@as(u32, 2), Fake.configures);
+
+    // A frame in flight owns the acquired swapchain texture until its command
+    // buffer is submitted; recreating the swapchain under it is refused.
+    renderer.frame.state = .recording;
+    try std.testing.expectError(error.InvalidState, renderer.setPresentMode(.vsync));
+    try std.testing.expectEqual(sdl.PresentMode.immediate, renderer.present_mode);
+    try std.testing.expectEqual(@as(u32, 2), Fake.configures);
+    renderer.frame.state = .idle;
+}
 
 test "arena offsets are a whole number of elements and a legal copy offset" {
     // SDL_GPUBufferBinding.offset is where element zero of the draw lives, so an
