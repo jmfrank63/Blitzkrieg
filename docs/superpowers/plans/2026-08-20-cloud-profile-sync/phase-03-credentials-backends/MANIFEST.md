@@ -49,3 +49,29 @@ Carried forward from P03-M01:
   an empty *and* an absent incoming secret both preserve; only
   `creds_clear_secret` blanks. After a clear there is nothing to resurrect —
   pinned in `clear_secret_removes_it`.
+
+P03-M02 Windows checkpoint: `zig build test-cloudsync-backend -Dtest-mode=run`
+passes 1/1 with a live MinIO plus the pinned rclone (`BK_TEST_MINIO` +
+`BK_TEST_RCLONE`, ~5 s), and passes silently without them. Cross-targets
+compile; all other suites unaffected; no orphan process. Commit `7b04a5884`.
+
+Carried forward from P03-M02:
+
+- **Provider coverage**: MinIO is measured. AWS, Cloudflare R2, Backblaze B2
+  and Wasabi are inferred through rclone's `provider` handling and remain
+  unproven by this suite — anyone claiming broader coverage owes a run
+  against the real service.
+- Pairing against a bucket that does not exist works: rclone's s3 `Mkdir`
+  creates the bucket for the fs root the alias names, so `engine.pair`'s
+  existing `operations/mkdir` covers the brand-new-account state with no
+  extra code.
+- The remote is unreadable as a directory, so backend assertions pull
+  through `operations/copyfile` into a scratch dir and stat through
+  `operations/stat` — the helpers in `backend_test.zig` are the pattern
+  P03-M03/M04 should reuse. `remoteWrite` stages locally and copies up,
+  which also preserves the staged file's mtime for newer-wins scenarios.
+- MinIO's API accepts TCP a moment before it is actually serviceable; the
+  fixture waits for the port and then one extra second. A `MinioSpawnFailed`
+  on a machine with the env var set is a real failure, not a skip.
+- `test-cloudsync-backend` is a new build step (build.zig amended, same
+  shape as the others).
