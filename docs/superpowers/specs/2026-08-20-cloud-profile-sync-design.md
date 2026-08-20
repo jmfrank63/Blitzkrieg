@@ -258,9 +258,16 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   `profiles/<name>/.cloudsync-restore/<nonce>/` holding the payload, a
   metadata file naming the mode and the payload hash, and a `COMMIT` marker
   written last; a stage without `COMMIT`, or failing its hash, is deleted
-  rather than guessed at. Nonce scoping means the `COMMIT` write is the single
-  publication point, so a failed download never destroys a previously staged
-  restore and two requests cannot interleave in one directory. Undo takes the same path, and acceptance tests a restore across a real
+  rather than guessed at. A failed download therefore never destroys a
+  previously staged restore, and two requests cannot interleave in one
+  directory.
+
+  Which stage is current is a separate question from whether a stage is whole,
+  and the two need separate markers. `COMMIT` answers the second; an `ACTIVE`
+  file naming the chosen nonce, written by rename, answers the first. Picking
+  the newest by timestamp instead would go wrong under a clock rollback,
+  equal timestamps, or coarse resolution — and the rename gives a real total
+  order for free. Undo takes the same path, and acceptance tests a restore across a real
   restart, because a same-session check passes while the feature is broken.
 - **The merge runs at apply time, in Zig, behind one export.** At the next
   startup — before the option system reads the config — the game calls a
@@ -274,7 +281,10 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   installing the new `config.cfg` and clearing the stage makes the next launch
   apply the same stage again — and an unkeyed snapshot would then capture the
   already-restored file, leaving undo recovering the restore instead of the
-  original. The operation
+  original. The snapshot is itself written through a temporary file and
+  renamed: "skip it if it already exists" trusts whatever is there, and a
+  crash mid-copy would otherwise leave a truncated undo that the retry
+  happily keeps. The operation
   needs no daemon and no credentials, so a restore already downloaded still
   completes if the feature is later switched off.
 - Only local `GFX.*` values are preserved across that window. Every other key
@@ -347,7 +357,11 @@ field is `s3_provider`.
 Discovery of the rclone binary is cached so that availability and the detailed
 status can never disagree, and saving credentials invalidates that cache —
 `rclone_path` lives in this file, so a player who points the game at a working
-binary must see it recognised immediately rather than after a restart.
+binary must see it recognised immediately rather than after a restart. That
+invalidation crosses threads, since the save arrives from the UI while the
+sync worker may be reading the path, so the cache is mutex-guarded and no
+caller ever holds a pointer into it: readers copy out what they need, which
+lets a refresh free the old value outright instead of reference-counting it.
 
 The secret is never handed back out: the load path returns a `has_secret` flag
 and the dialog shows a placeholder. Saving without touching that field

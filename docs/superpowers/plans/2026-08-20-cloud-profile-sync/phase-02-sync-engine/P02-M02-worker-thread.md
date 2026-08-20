@@ -14,6 +14,7 @@
 - [ ] Define `Snapshot = struct { state: State, outcome: Outcome, error_text: []const u8, progress: ?Progress }` published under a mutex, or as an atomically swapped pointer. `Engine.poll()` copies the snapshot and returns. **It performs no I/O of any kind.**
 - [ ] Define `State = enum { idle, starting, pairing, syncing, done, failed }`. `Engine.begin(profile) !Handle` enqueues work and returns immediately — daemon spawn and readiness happen inside the worker and are observed through `poll`, never awaited in `begin`.
 - [ ] Poll `job/status` from the worker on a wall-clock interval, not per frame; a 200 Hz menu must not produce 200 status calls a second.
+- [ ] **Copy the rclone path out of the discovery cache before using it.** The worker is the reader the P00-M04 locking contract exists for: the UI thread can refresh that cache at any moment (P03-M01 does it on credentials save), and a borrowed pointer into it can be freed underneath a daemon spawn. Take an owned copy under the lock and release before spawning.
 - [ ] Give the worker a cancellation path so `Shutdown` during an in-flight sync does not block exit past the bounded timeout.
 - [ ] Assert in the test that the maximum observed `poll()` duration stays within one frame at 60 Hz even while the transport is hung.
 - [ ] Commit checkpoint: `cloudsync: move every rc call onto a worker thread`.

@@ -52,6 +52,24 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Sixth review pass
+
+- **The undo snapshot was conditional but not atomic.** "Skip if present"
+  trusts whatever is present, so a crash mid-copy left a truncated
+  `<nonce>.cfg` that the retry kept — reintroducing the corrupt-undo failure
+  one step earlier than the nonce key had fixed it. It is now written to a
+  temp file and renamed, with a crash test in the copy window.
+- **Committed stages had no reliable order.** With `COMMIT` in two directories
+  that marker says only "this stage is whole", and choosing the newest by
+  metadata timestamp breaks under clock rollback, equal timestamps, or coarse
+  resolution. An `ACTIVE` file naming the nonce, published by rename, is now
+  the single selection point and a genuine total order.
+- **The discovery cache had no thread-safety contract.** Credentials save
+  refreshes it from the UI thread while the sync worker may be reading the
+  path. It is now mutex-guarded, with no caller holding a pointer into it —
+  readers copy out, the probe runs outside the lock, and a concurrent
+  read/refresh test runs under the debug allocator.
+
 ### Fifth review pass
 
 - **Apply was not crash-idempotent.** A crash between installing the new
