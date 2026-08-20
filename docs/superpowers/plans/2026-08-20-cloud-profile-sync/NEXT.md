@@ -1,8 +1,8 @@
 # Next Packet
 
-Resume at `phase-05-settings-data/P05-M02-cloud-options.md`.
+Resume at `phase-06-cpp-integration/P06-M01-cpp-facade.md`.
 
-**Phases 00 through 04 are complete; P05-M01 is done.** Phase 00's gate is met
+**Phases 00 through 05 are complete.** Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
 branch moved to a real Windows 11 machine and every suite ran natively on
 `x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
@@ -83,8 +83,8 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-05-settings-data/P05-M02-cloud-options.md` — the Cloud.*
-option declarations and labels; the Cloud tab becomes the fifth division.
+**Next:** `phase-06-cpp-integration/P06-M01-cpp-facade.md` — the C++ facade
+wrapping every export; the library joins the staged runtime file lists.
 
 ## Corrections applied after review
 
