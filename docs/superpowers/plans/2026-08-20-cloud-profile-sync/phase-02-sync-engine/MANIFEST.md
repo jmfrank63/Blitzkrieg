@@ -118,3 +118,26 @@ Carried forward from P02-M03:
   optional. P02-M05's ABI error string carries `lastErrorText()`, which is
   already redacted; the worker snapshot's 512-byte copy truncates it, so the
   ABI should read the engine text, not the snapshot, for support reports.
+
+P02-M04 Windows checkpoint: `zig build test-cloudsync-engine -Dtest-mode=run`
+passes 15/15 natively, 17 with the live daemon — run-wise remote pruning over
+`operations/list` + `operations/purge` with a foreign directory untouched and
+a missing trash root reporting zero-of-each. Cross-targets compile; worker,
+plan, streamio unaffected. Commit `4aea7f0df`.
+
+Carried forward from P02-M04:
+
+- Retention is run-wise and conservative by construction: only names that
+  parse as run ids are candidates, `min_keep_runs` newest survive regardless
+  of age, and a directory that refuses to delete counts as kept. Nothing the
+  pruner did not create can be deleted by it.
+- `runIdTimestamp` (public) inverts `plan.runId`'s stamp; pruning arithmetic
+  is pinned against known epoch values including a leap day. Anyone changing
+  the run-id format must change both and both tests.
+- Pruning is opt-in via `Engine.prune: ?PruneOptions` and fires only inside
+  `syncOnce` after `recordSuccess` — pairing does not prune (its run just
+  created the first trash entries), and prune failures never fail the sync.
+  P02-M05 decides the shipped `PruneOptions`; until then the field stays
+  null and nothing prunes.
+- The filter exclusion of the local trash and the sibling layout of the
+  remote one are pinned by plan tests (P01-M03/M04), not re-proven here.
