@@ -116,3 +116,56 @@ Carried forward from P06-M03:
   full game's cross libc setup is a separate open item). The game-side
   cross gate remains `test-cloudsync-facade -Dtest-mode=compile`, which
   compiles the facade + loader C++ for the three cross targets.
+
+P06-M04 Windows checkpoint: the indicator narrates every state on the
+release build at 1024x768 (evidence/cloud-sync/indicator/, fourteen
+screenshots): pairing/syncing amber with the skip affordance, the
+click-to-offline flow measured live against a hung remote ("skip to
+offline requested" traced, cancel settling as "Cancelled"), paired/synced,
+and a distinct message per P02-M03 outcome — auth_failed (cleared secret),
+too_many_deletes (saves moved out), needs_resync (listings deleted) staged
+for real, the rest via the harness vars the indicator renders from. All
+suites green offline and live; facade cross-compiles pass. Phase 06 closed.
+Commit `249bd2339`.
+
+Carried forward from P06-M04 (all of it earned by measurement):
+
+- **The menu screen is modal.** The exit-confirm dialog's `ModalFlag="1"`
+  makes `InitDependentInfoMW` set `bModal` on the whole screen, and the
+  modal branch of `CMultipleWindow::OnLButtonDown` routes every press to
+  the FRONT child only (the active state container, moved up by its
+  `Show()`), swallowing the rest of the screen. Screen-level siblings are
+  unreachable by mouse picking, and the notify-to-game translation only
+  exists in per-container Lua anyway. The indicator therefore stays a
+  plain element to the picker; `CInterfaceMainMenu::ProcessMessage`
+  hit-tests the unconsumed `CMD_END_ACTION1` (packed position, cursor
+  fallback) against the element's own rect. The button-DOWN is eaten by
+  the screen; the UP is what falls through.
+- `AddChild` is `push_front`: the LAST XML child is picked first and drawn
+  last. The indicator sits at the end of `MainMenu.xml`'s children.
+- The main loop publishes `CloudSync.State/Outcome/Error` while a handle
+  is live and consumes `CloudSync.SkipToOffline` into `Cancel` (also
+  swallowing a click that raced the settle so it cannot cancel a future
+  run). The menu never touches the facade.
+- The worker now leads pair/sync `SyncFailed` texts with the classified
+  outcome tag (`publishRunFailure`, the testConnection contract) and
+  publishes bare "Cancelled" for a cancellation — the engine's stored
+  text can belong to an earlier run, and the facade's exact-match
+  `NotPaired` retry is deliberately untouched.
+- The skip choice is sticky in the menu (`bCloudSkipRequested`): a hung
+  transfer's eventual failure text must not overwrite the player's
+  answer; a settled-to-running edge (new run) clears it. Cancel during a
+  hung synchronous rc call settles only when that call returns — the exit
+  path's bounded 15 s wait plus `Shutdown()` covers a player who quits
+  immediately after skipping.
+- A bucket that vanishes on an already-paired profile classifies
+  `needs_resync` on the SYNC path (bisync aborts on its own listings
+  before the remote answers) — and resync genuinely is the repair there.
+  `remote_missing` belongs to the `testConnection` probe (P07's settings
+  dialog). A wrong-but-present secret can also surface as `unknown:` noise
+  from bisync; the cleared-secret probe text is the reliable auth staging.
+- `-mode=1024x768` pins the headless resolution (the mode option path);
+  the default otherwise chases the desktop. Element 21001's rect at that
+  resolution is x 10..650, y 614..664 — `click=150x640` hits it.
+- Disabled buttons render sub-state-3 grey (`0xffa0a0a0` default): the
+  settled indicator goes grey for free via `EnableWindow(false)`.

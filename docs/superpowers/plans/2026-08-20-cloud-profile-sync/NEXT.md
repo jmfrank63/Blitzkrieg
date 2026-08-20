@@ -85,8 +85,8 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-06-cpp-integration/P06-M04-indicator.md` — the sync
-indicator and skip-to-offline; closes phase 06.
+**Next:** `phase-07-game-ui/P07-M01-credentials-dialog.md` — phase 06 is
+closed; phase 07 begins with the credentials dialog.
 
 ## Corrections applied after review
 
