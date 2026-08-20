@@ -267,7 +267,13 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   file naming the chosen nonce, written by rename, answers the first. Picking
   the newest by timestamp instead would go wrong under a clock rollback,
   equal timestamps, or coarse resolution — and the rename gives a real total
-  order for free. Undo takes the same path, and acceptance tests a restore across a real
+  order for free.
+
+  Teardown runs in the same direction: `ACTIVE` is removed before the stage
+  directories it names, so a crash mid-cleanup leaves unreferenced debris
+  rather than a pointer to nothing. The same reasoning names the undo
+  snapshots — a random nonce carries no order, so a `LATEST_UNDO` pointer,
+  also rename-published, is what "the most recent" means. Undo takes the same path, and acceptance tests a restore across a real
   restart, because a same-session check passes while the feature is broken.
 - **The merge runs at apply time, in Zig, behind one export.** At the next
   startup — before the option system reads the config — the game calls a
@@ -362,6 +368,10 @@ invalidation crosses threads, since the save arrives from the UI while the
 sync worker may be reading the path, so the cache is mutex-guarded and no
 caller ever holds a pointer into it: readers copy out what they need, which
 lets a refresh free the old value outright instead of reference-counting it.
+Because the version probe spawns a process and therefore runs outside the
+lock, each refresh also carries a generation stamp and publishes only if no
+newer refresh has started — the lock keeps the cache safe, the generation
+keeps it current.
 
 The secret is never handed back out: the load path returns a `has_secret` flag
 and the dialog shows a placeholder. Saving without touching that field

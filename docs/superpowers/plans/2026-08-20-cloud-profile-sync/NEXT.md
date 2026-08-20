@@ -52,6 +52,23 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Seventh review pass
+
+Each of these is a consequence of the previous round's fix, which is the usual
+shape once ordering is made explicit:
+
+- **`ACTIVE` teardown order was unspecified.** Deleting the stage directory
+  before the pointer naming it would leave `ACTIVE` pointing at nothing, and
+  the hard-error rule added last round would then brick startup. `ACTIVE` goes
+  first; the absent-directory case is now separated from the invalid-stage
+  case so only genuine corruption stops the game.
+- **"Most recent" undo snapshot had no ordering** once snapshots were keyed by
+  random nonce. A `LATEST_UNDO` pointer, rename-published, now defines it.
+- **The cache mutex fixed safety, not staleness.** With the probe outside the
+  lock, two overlapping refreshes can land out of order and the older can
+  reinstate the path the player just replaced. Refreshes now carry a
+  generation and publish only if none newer has started.
+
 ### Sixth review pass
 
 - **The undo snapshot was conditional but not atomic.** "Skip if present"
