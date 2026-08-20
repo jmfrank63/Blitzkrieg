@@ -220,10 +220,16 @@ were reordered so every option exists before a hook reads it.
 
 Both are Windows-first and should not be discovered late:
 
-- the short link is a junction (`mklink /J`), and whether it can be created
-  without administrator rights is asserted, not tested (P01-M01, P08-M02);
+- ~~junction creation without administrator rights~~ — **settled**:
+  `New-Item -ItemType Junction -Path test -Target $env:HOMEPATH` succeeds from
+  an unelevated Windows prompt. The target must be absolute, which P01-M01 now
+  records.
 - whether rclone leaves a junction root unresolved in the session name, as it
-  does a POSIX symlink, is verified on macOS only (P01-M01, P08-M02).
+  does a POSIX symlink, is verified on macOS only (P01-M01, P08-M02). With
+  creation settled this is the largest open risk in the plan: if Windows
+  resolves the junction, the short link buys nothing there and P01-M01 needs
+  redesigning toward keeping the profile directory short rather than linking
+  to it.
 
 ## Important working-tree files
 
