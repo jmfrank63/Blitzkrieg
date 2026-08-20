@@ -63,7 +63,7 @@ Excluded:
 - Zig owns the sync logic; C++ owns only the facade, the hooks, and the UI.
 - **No HTTP call ever runs on the main thread.** `_async` makes the *job* asynchronous server-side; the initiating POST and every `job/status` POST still block the caller. The engine owns a worker; `poll()` reads a snapshot and never touches a socket.
 - **Machine-local state lives outside Path1.** Pairing state, the pid file, and the workdir describe one machine and must not travel to another.
-- **A packet that adds an export owns the whole export path.** `cloudsync.zig`, both `.def` files, the facade, and the ABI smoke test are in its allowlist. There is no packet whose exports another packet is expected to wire up later.
+- **A packet that adds an export owns the whole export path.** `cloudsync.zig`, both `.def` files, and the ABI smoke test are in its allowlist, plus the facade **once that file exists** — see the amendment rule in `EXECUTION.md`. Phases 03 and 04 run before the facade is written, so their exports are proven from C++ by the ABI smoke test and wrapped by `P06-M01`, which depends on them for exactly that reason. No export is ever left unproven, and none is left for a later packet to discover.
 - Legacy C++ sources carry CP1251 comments. After editing one, restore clobbered comment lines from `git show HEAD:<file>` and keep CRLF.
 
 ## Stable file map

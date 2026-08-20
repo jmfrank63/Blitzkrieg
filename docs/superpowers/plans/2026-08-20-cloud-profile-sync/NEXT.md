@@ -52,6 +52,24 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Eighth review pass
+
+- **The generation predicate did not implement the rule it stated.**
+  `my_gen > published_gen` lets generation 1 publish while generation 2 is
+  still probing, since nothing has published yet — and generation 2 is
+  typically the credentials save that just changed the path, so the worker
+  would be served the superseded path for the length of the newer probe. The
+  predicate is now `my_gen == next_gen`, with a test that inspects the cache
+  while the newer refresh is still in flight.
+- **Cancelling a staged restore still spoke of deleting a "pending file"**, a
+  name predating the staged-directory protocol; taken literally it would
+  delete the directory before `ACTIVE` and recreate the dangling-pointer state
+  that has to be a hard error. Cancellation now follows the same teardown
+  order, and `restore_undo_available` keys off `ACTIVE` and `LATEST_UNDO`.
+- **The README contradicted packet ownership**, claiming every export-adding
+  packet wires the facade while phases 03 and 04 run before the facade exists.
+  It now matches EXECUTION's "once that file exists" rule.
+
 ### Seventh review pass
 
 Each of these is a consequence of the previous round's fix, which is the usual
