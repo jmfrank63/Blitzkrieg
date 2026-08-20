@@ -143,6 +143,12 @@ far more adversarial testing than anything we would write.
   `resyncMode: "newer"` the newer copy survives on both sides. Pairing is
   exactly the moment both sides are most likely to hold different content, so
   this is not an edge case.
+
+  A resync **does** honour `backupDir1`/`backupDir2` (verified in both
+  directions), so the overwritten version is recoverable from the losing
+  side's run-scoped trash. The original failure destroyed the save only
+  because no backup directory was passed at all — which is why pairing carries
+  them and asserts the loser landed there.
 - **Conflicts.** `conflictResolve:"newer"`, losers kept as `.conflictN`. The
   rule we commit to: **a sync never destroys a save.**
 - **Deletes propagate in both directions, but nothing is unlinked.** A delete
@@ -297,6 +303,7 @@ options list can safely represent — toggles and droplists:
 Cloud.Enabled          EditorType 3   Off / On
 Cloud.Provider         EditorType 3   Off / S3 / WebDAV
 Cloud.Sync.OnStartup   EditorType 3   Off / On
+Cloud.Sync.OnSave      EditorType 3   Off / On
 Cloud.Sync.OnExit      EditorType 3   Off / On
 Cloud.Config.Backup    EditorType 3   Off / On
 ```

@@ -15,8 +15,10 @@
 - [ ] Implement `Engine.pair(self, ctx) !void` issuing bisync with `resync: true` and `resyncMode: "newer"`.
 - [ ] Before writing a sentinel, check the remote for one with `operations/stat`, and pass the result into `plan.ensureSentinel`. Seeding both sides independently aborts the resync as out of sync.
 - [ ] Add the regression test that matters most here: local holds an older copy of a save, the remote a newer one, pairing runs, and **the newer copy survives on both sides**. Without `resyncMode` this test loses the newer save silently, which is exactly the failure it exists to catch.
+- [ ] **Assert the loser is recoverable too, not merely that the winner is right.** The invariant is that a sync never destroys a save, and resync takes a different rclone path from ordinary conflict handling — the original measured failure produced no trash entry at all. Pass `backupDir1` and `backupDir2` on the pairing call and assert the overwritten version appears in the correct run-scoped trash.
+- [ ] Test both directions, because the loser lands on its own side and the two cases exercise different code: with Path2 newer the local copy loses and appears in `backupDir1`; with Path1 newer the remote copy loses and appears in `backupDir2`. Both verified against rclone v1.75.0 — resync does honour the backup directories, so an empty trash here means the packet is wrong, not that rclone cannot do it.
 - [ ] Refuse to auto-resync a profile already paired. A resync after real divergence overwrites one side, so recovery is an explicit player action routed through P02-M03.
 - [ ] Treat a changed remote fingerprint (different bucket or endpoint) as a new pairing needing confirmation, not a resumable session.
 - [ ] Commit checkpoint: `cloudsync: pair a profile without overwriting the newer side`.
 
-**Evidence:** Integration output shows a successful pairing that preserves the newer remote save, then a second run whose parameters contain no `resync` key.
+**Evidence:** Integration output shows pairing in both directions preserving the newer save and placing the loser in the correct side's run-scoped trash, a pairing against a completely empty remote, and a second run whose parameters contain no `resync` key.

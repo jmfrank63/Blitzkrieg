@@ -4,7 +4,7 @@
 
 **Goal:** Sync `profiles/<name>/` to a cloud provider by driving rclone's rc API over a localhost socket, with the provider chosen from a new Cloud tab in the settings screen, and `config.cfg` backed up per host rather than synced.
 
-**Architecture:** A Zig module `Sources/src/CloudSync` speaks rclone's JSON rc API to a child `rclone rcd` process, and exports a five-function C ABI to C++ exactly as `StreamIOZig` does. `sync/bisync` is the diff engine; the plan never writes one. Path1 is a short game-managed link to the profile directory, path2 is a named remote. Credentials live outside the option system and outside `config.cfg`.
+**Architecture:** A Zig module `Sources/src/CloudSync` speaks rclone's JSON rc API to a child `rclone rcd` process, and exports a C ABI to C++ exactly as `StreamIOZig` does — one that grows packet by packet under the amendment rule in `EXECUTION.md`, never stubbed ahead of its behaviour. `sync/bisync` is the diff engine; the plan never writes one. Path1 is a short game-managed link to the profile directory, path2 is a named remote. Credentials live outside the option system and outside `config.cfg`.
 
 **Tech Stack:** Zig 0.16.0 (`std.http.Client` over `std.Io.Threaded`, `std.json`, no third-party dependency), C++17 game modules, rclone v1.75.0 or newer as an optional external binary, Windows x64, Linux x64, macOS arm64/x64.
 

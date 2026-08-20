@@ -52,6 +52,34 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Third review pass
+
+- **Phase 04 had grown a C++ allowlist**, editing the facade, `GameMain.cpp`,
+  and `InterfaceOptionsSettings.cpp` before the facade exists — introduced
+  while fixing the restore-staging defect. Phase 04 is Zig and ABI only again;
+  applying a staged restore moved to P06-M02, and P06-M01 now depends on
+  P03-M04, P04-M04, and P05-M02 since it wraps their exports.
+- **Suppressing the game's config writes was wrong.** `config.cfg` and
+  `config.cfg.pending-restore` are different files, so a shutdown serialize was
+  never a threat to the restore; suppression would only have discarded binds
+  and unrelated settings, and it covered two of nine `SerializeConfig( false,
+  ... )` call sites. Removed. The merge also moved to apply time, so settings
+  changed after staging are folded in rather than frozen.
+- **Pairing proved only that the winner was right.** It now passes
+  `backupDir1`/`backupDir2` and asserts the loser lands in the correct
+  run-scoped trash, in both directions. Verified that resync honours the backup
+  directories: Path2-newer puts the local loser in `backupDir1`, Path1-newer
+  puts the remote loser in `backupDir2`. The original catastrophic measurement
+  destroyed the save only because no backup directory was passed at all.
+- **The rclone path picker was promised and missing.** With bundling and
+  auto-download out of scope, an override field is the only route for a player
+  whose rclone is not on `PATH`; added to P07-M01, with
+  `explicit_path_wins_over_path_entry` in P00-M02.
+- **Authoritative documents disagreed with the packets**: the design listed
+  five Cloud options against the plan's six, and the README still described a
+  five-function ABI. Both reconciled, since workers are told to stop on
+  exactly that.
+
 Testing the first-pass corrections turned up a third: **the sentinel must never be seeded
 on both sides.** Two independently created `.bkprofile` files differ in
 modification time, and bisync then aborts the resync with `Modtime not equal
