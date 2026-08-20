@@ -54,7 +54,7 @@ pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, tes
 
 /// How the last finished job ended. `.none` until the first job finishes.
 /// Appended, never reordered, for the same reason.
-pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed };
+pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed, restore_staged };
 
 /// Reserved for the sync indicator; the worker publishes states today and
 /// null progress, and nothing downstream may assume otherwise.
@@ -92,7 +92,7 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync, test_connection, list_backups };
+pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage };
 
 /// A job as the caller describes it. Every slice is copied by `begin`; none
 /// needs to outlive the call.
@@ -113,6 +113,11 @@ pub const JobSpec = struct {
     /// Retention applied after a successful snapshot: keep this many per
     /// host, newest always surviving.
     backup_keep_per_host: u32 = 10,
+    /// For `.restore_stage`: the backup entry to download, as
+    /// `bk_cloudsync_backup_entry` reported it.
+    entry_id: []const u8 = "",
+    /// For `.restore_stage`: how the apply step will treat the payload.
+    restore_mode: backup.RestoreMode = .merge_keep_local_gfx,
 };
 
 pub const Options = struct {
@@ -143,6 +148,8 @@ const JobBox = struct {
     backup_config: bool,
     host: []const u8,
     backup_keep_per_host: u32,
+    entry_id: []const u8,
+    restore_mode: backup.RestoreMode,
 };
 
 pub const Worker = struct {
@@ -229,6 +236,8 @@ pub const Worker = struct {
         box.backup_config = spec.backup_config;
         box.host = try arena.dupe(u8, spec.host);
         box.backup_keep_per_host = spec.backup_keep_per_host;
+        box.entry_id = try arena.dupe(u8, spec.entry_id);
+        box.restore_mode = spec.restore_mode;
 
         self.mutex.lockUncancelable(self.io);
         defer self.mutex.unlock(self.io);
@@ -325,9 +334,10 @@ pub const Worker = struct {
 
         self.publishState(switch (box.kind) {
             .pair => .pairing,
-            .sync => .syncing,
-            // Probe-shaped fetches share the testing state: short, networked,
-            // and nothing a UI needs to distinguish while it spins.
+            // Transfer-shaped work reads as syncing; probe-shaped fetches
+            // share the testing state — nothing a UI needs to distinguish
+            // while it spins.
+            .sync, .restore_stage => .syncing,
             .test_connection, .list_backups => .testing,
         });
 
@@ -349,8 +359,11 @@ pub const Worker = struct {
                 // After a clean finish only, and best-effort: the sync that
                 // succeeded stays succeeded whatever the snapshot does.
                 if (box.backup_config) {
+                    // The active profile owns config.cfg (iMainInternal's
+                    // ResolveConfigFileName), so the snapshot source is the
+                    // profile directory — path1 — not the game root.
                     const snapshot: ?[]u8 = backup.snapshotConfig(self.gpa, self.io, eng.client, .{
-                        .config_dir = self.game_dir,
+                        .config_dir = box.ctx.path1,
                         .remote = box.ctx.remote,
                         .profile = box.ctx.profile,
                         .host = box.host,
@@ -370,6 +383,23 @@ pub const Worker = struct {
                     }
                 }
                 self.publishDone(.synced);
+            },
+            .restore_stage => {
+                const nonce = backup.stageRestore(
+                    self.gpa,
+                    self.io,
+                    eng.client,
+                    box.ctx.path1,
+                    box.ctx.remote,
+                    box.ctx.profile,
+                    box.entry_id,
+                    box.restore_mode,
+                ) catch |err| {
+                    self.publishFailure(err, eng.lastErrorText());
+                    return;
+                };
+                self.gpa.free(nonce);
+                self.publishDone(.restore_staged);
             },
             .list_backups => {
                 const list = backup.listBackups(self.gpa, eng.client, box.ctx.remote, box.ctx.profile) catch |err| {

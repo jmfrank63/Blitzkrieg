@@ -18,3 +18,5 @@ EXPORTS
     bk_cloudsync_test_connection @16
     bk_cloudsync_backup_list @17
     bk_cloudsync_backup_entry @18
+    bk_cloudsync_backup_restore @19
+    bk_cloudsync_apply_pending_restore @20

@@ -256,3 +256,369 @@ pub fn pruneBackups(
     }
     return removed;
 }
+
+// -- Staged restore ------------------------------------------------------------
+//
+// A restore is staged, never applied live: the game rewrites `config.cfg`
+// from its in-memory options at shutdown and from eight other
+// `SerializeConfig` call sites, so a restored file written mid-session is
+// discarded before the player ever sees it. The download lands in
+// `<profile>/.cloudsync-restore/<nonce>/` as one atomic transaction —
+// payload, `meta.json` (mode, source, SHA-256, nonce, creation time), and a
+// `COMMIT` marker written last. Which stage is *current* is a separate
+// question from whether a stage is *whole*: an `ACTIVE` file naming the
+// chosen nonce, published by rename, answers it — timestamps would lie under
+// a clock rollback, equal stamps, or coarse resolution.
+//
+// The apply step is purely local — no daemon, no network, no credentials —
+// because a restore already downloaded has to finish regardless of the
+// feature's current state. It merges at apply time against `config.cfg` as
+// it stands at that startup, snapshots the pre-restore config once per
+// stage nonce (so a crash-interrupted apply retried never captures the
+// already-restored file), installs via temp-then-rename, and tears down
+// `ACTIVE` first so a crash mid-cleanup leaves unreferenced debris rather
+// than a pointer to nothing.
+
+pub const restore_dir_name = ".cloudsync-restore";
+pub const active_name = "ACTIVE";
+pub const commit_name = "COMMIT";
+pub const payload_name = "payload.cfg";
+pub const meta_name = "meta.json";
+/// Undo snapshots live here, keyed by stage nonce; `LATEST_UNDO` names the
+/// most recent, rename-published, because a random nonce carries no order.
+pub const undo_dir_relative = ".cloudsync-trash/config";
+pub const latest_undo_name = "LATEST_UNDO";
+
+pub const RestoreMode = enum {
+    /// Every key from the backup except those under `GFX.`, which are kept
+    /// from the local file: restoring another machine's settings must not
+    /// import its monitor layout.
+    merge_keep_local_gfx,
+    /// Verbatim. Survivable — an alien resolution falls back to Auto, a
+    /// missing monitor to display 0 — but both failures are silent, which is
+    /// why the UI warns before offering it.
+    full,
+};
+
+pub const StageError = rc.RcError || Allocator.Error || error{StageUnwritable};
+
+/// Download `entry_id` into a fresh stage and publish it. A failed download
+/// deletes only its own partial stage: the previously published one, and
+/// `ACTIVE`, remain exactly as they were — a player is never left with
+/// neither the old restore nor the new. Returns the new stage's nonce.
+pub fn stageRestore(
+    gpa: Allocator,
+    io: Io,
+    client: *rc.Client,
+    profile_dir: []const u8,
+    remote: []const u8,
+    profile: []const u8,
+    entry_id: []const u8,
+    mode: RestoreMode,
+) StageError![]u8 {
+    const root = try std.Io.Dir.path.join(gpa, &.{ profile_dir, restore_dir_name });
+    defer gpa.free(root);
+    Io.Dir.cwd().createDirPath(io, root) catch return error.StageUnwritable;
+
+    const nonce = try plan.runId(gpa, io);
+    errdefer gpa.free(nonce);
+    const stage = try std.Io.Dir.path.join(gpa, &.{ root, nonce });
+    defer gpa.free(stage);
+    Io.Dir.cwd().createDirPath(io, stage) catch return error.StageUnwritable;
+    errdefer Io.Dir.cwd().deleteTree(io, stage) catch {};
+
+    // The download, straight into the stage.
+    {
+        const src_root = try std.fmt.allocPrint(gpa, "{s}:config-backups/{s}", .{ remote, profile });
+        defer gpa.free(src_root);
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(gpa);
+        try object.put(gpa, "srcFs", .{ .string = src_root });
+        try object.put(gpa, "srcRemote", .{ .string = entry_id });
+        try object.put(gpa, "dstFs", .{ .string = stage });
+        try object.put(gpa, "dstRemote", .{ .string = payload_name });
+        var reply = try client.call("operations/copyfile", .{ .object = object });
+        reply.deinit();
+    }
+
+    const payload_path = try std.Io.Dir.path.join(gpa, &.{ stage, payload_name });
+    defer gpa.free(payload_path);
+    const payload = Io.Dir.cwd().readFileAlloc(io, payload_path, gpa, .limited(1 << 22)) catch
+        return error.StageUnwritable;
+    defer gpa.free(payload);
+
+    var digest: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(payload, &digest, .{});
+    var hex_buffer: [64]u8 = undefined;
+    const hex = std.fmt.bufPrint(&hex_buffer, "{x}", .{&digest}) catch unreachable;
+
+    const created = Io.Clock.now(.real, io).toSeconds();
+    const meta = try std.fmt.allocPrint(
+        gpa,
+        "{{\"mode\":\"{s}\",\"entry_id\":\"{s}\",\"sha256\":\"{s}\"," ++
+            "\"nonce\":\"{s}\",\"created_unix\":{d}}}",
+        .{ @tagName(mode), entry_id, hex, nonce, created },
+    );
+    defer gpa.free(meta);
+    const meta_path = try std.Io.Dir.path.join(gpa, &.{ stage, meta_name });
+    defer gpa.free(meta_path);
+    Io.Dir.cwd().writeFile(io, .{ .sub_path = meta_path, .data = meta }) catch
+        return error.StageUnwritable;
+
+    // COMMIT last: anything without it is incomplete and gets deleted, never
+    // interpreted.
+    const commit_path = try std.Io.Dir.path.join(gpa, &.{ stage, commit_name });
+    defer gpa.free(commit_path);
+    Io.Dir.cwd().writeFile(io, .{ .sub_path = commit_path, .data = "1" }) catch
+        return error.StageUnwritable;
+
+    // Publication is the ACTIVE rename — the single point after which this
+    // stage is the one that applies, last writer winning outright.
+    publishPointer(gpa, io, root, active_name, nonce) catch return error.StageUnwritable;
+    return nonce;
+}
+
+fn publishPointer(
+    gpa: Allocator,
+    io: Io,
+    dir: []const u8,
+    comptime name: []const u8,
+    value: []const u8,
+) !void {
+    const tmp = try std.Io.Dir.path.join(gpa, &.{ dir, name ++ ".tmp" });
+    defer gpa.free(tmp);
+    const final = try std.Io.Dir.path.join(gpa, &.{ dir, name });
+    defer gpa.free(final);
+    try Io.Dir.cwd().writeFile(io, .{ .sub_path = tmp, .data = value });
+    try Io.Dir.rename(.cwd(), tmp, .cwd(), final, io);
+}
+
+pub const ApplyOutcome = enum { applied, nothing_staged };
+
+pub const ApplyError = Allocator.Error || error{
+    /// The stage `ACTIVE` names exists and fails validation — no `COMMIT`,
+    /// a payload that does not match its hash, unreadable metadata. We were
+    /// told to apply specific content and that content is wrong; falling
+    /// back to another stage would silently apply a restore the player did
+    /// not choose, so this stops the caller instead.
+    StageCorrupt,
+    /// The merged result could not be installed.
+    ConfigUnwritable,
+};
+
+const StageMeta = struct {
+    mode: []const u8,
+    entry_id: []const u8,
+    sha256: []const u8,
+    nonce: []const u8,
+    created_unix: i64,
+};
+
+/// Apply the published stage, if any. Purely local; safe to call
+/// unconditionally at startup. `ACTIVE` naming a directory that is absent
+/// entirely is outside interference (correct teardown cannot produce it):
+/// the pointer is cleared, debris swept, and nothing staged reported —
+/// distinctly from a present-but-invalid stage, which is the hard error.
+pub fn applyPendingRestore(
+    gpa: Allocator,
+    io: Io,
+    profile_dir: []const u8,
+) ApplyError!ApplyOutcome {
+    const root = try std.Io.Dir.path.join(gpa, &.{ profile_dir, restore_dir_name });
+    defer gpa.free(root);
+    const active_path = try std.Io.Dir.path.join(gpa, &.{ root, active_name });
+    defer gpa.free(active_path);
+
+    const active_raw = Io.Dir.cwd().readFileAlloc(io, active_path, gpa, .limited(256)) catch {
+        // No pointer: the ordinary state, and the state a crash between the
+        // two teardown removals leaves — sweep whatever survived it.
+        gcStages(gpa, io, root);
+        return .nothing_staged;
+    };
+    defer gpa.free(active_raw);
+    const nonce = std.mem.trim(u8, active_raw, " \t\r\n");
+
+    const stage = try std.Io.Dir.path.join(gpa, &.{ root, nonce });
+    defer gpa.free(stage);
+    if (Io.Dir.cwd().statFile(io, stage, .{})) |_| {} else |_| {
+        Io.Dir.cwd().deleteFile(io, active_path) catch {};
+        gcStages(gpa, io, root);
+        return .nothing_staged;
+    }
+
+    // From here the stage exists and every defect is a hard error.
+    const commit_path = try std.Io.Dir.path.join(gpa, &.{ stage, commit_name });
+    defer gpa.free(commit_path);
+    _ = Io.Dir.cwd().statFile(io, commit_path, .{}) catch return error.StageCorrupt;
+
+    const meta_path = try std.Io.Dir.path.join(gpa, &.{ stage, meta_name });
+    defer gpa.free(meta_path);
+    const meta_text = Io.Dir.cwd().readFileAlloc(io, meta_path, gpa, .limited(4096)) catch
+        return error.StageCorrupt;
+    defer gpa.free(meta_text);
+    const parsed_meta = std.json.parseFromSlice(StageMeta, gpa, meta_text, .{
+        .ignore_unknown_fields = true,
+        .allocate = .alloc_always,
+    }) catch return error.StageCorrupt;
+    defer parsed_meta.deinit();
+    const mode = std.meta.stringToEnum(RestoreMode, parsed_meta.value.mode) orelse
+        return error.StageCorrupt;
+
+    const payload_path = try std.Io.Dir.path.join(gpa, &.{ stage, payload_name });
+    defer gpa.free(payload_path);
+    const payload = Io.Dir.cwd().readFileAlloc(io, payload_path, gpa, .limited(1 << 22)) catch
+        return error.StageCorrupt;
+    defer gpa.free(payload);
+
+    var digest: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(payload, &digest, .{});
+    var hex_buffer: [64]u8 = undefined;
+    const hex = std.fmt.bufPrint(&hex_buffer, "{x}", .{&digest}) catch unreachable;
+    if (!std.mem.eql(u8, hex, parsed_meta.value.sha256)) return error.StageCorrupt;
+
+    const config_path = try std.Io.Dir.path.join(gpa, &.{ profile_dir, config_file_name });
+    defer gpa.free(config_path);
+    const local = Io.Dir.cwd().readFileAlloc(io, config_path, gpa, .limited(1 << 22)) catch
+        try gpa.dupe(u8, "");
+    defer gpa.free(local);
+
+    // The undo snapshot, keyed by stage nonce and written exactly once: a
+    // retried apply after a crash reuses the first one, so the *original*
+    // config stays recoverable however many times the apply is interrupted.
+    const undo_dir = try std.Io.Dir.path.join(gpa, &.{ profile_dir, undo_dir_relative });
+    defer gpa.free(undo_dir);
+    Io.Dir.cwd().createDirPath(io, undo_dir) catch return error.ConfigUnwritable;
+    const undo_file = try std.fmt.allocPrint(gpa, "{s}.cfg", .{nonce});
+    defer gpa.free(undo_file);
+    const undo_path = try std.Io.Dir.path.join(gpa, &.{ undo_dir, undo_file });
+    defer gpa.free(undo_path);
+    if (Io.Dir.cwd().statFile(io, undo_path, .{})) |_| {} else |_| {
+        // Atomic: a crash mid-copy must not leave a truncated snapshot the
+        // retry would then trust.
+        const undo_tmp = try std.fmt.allocPrint(gpa, "{s}.tmp", .{undo_path});
+        defer gpa.free(undo_tmp);
+        Io.Dir.cwd().writeFile(io, .{ .sub_path = undo_tmp, .data = local }) catch
+            return error.ConfigUnwritable;
+        Io.Dir.rename(.cwd(), undo_tmp, .cwd(), undo_path, io) catch
+            return error.ConfigUnwritable;
+    }
+    publishPointer(gpa, io, undo_dir, latest_undo_name, nonce) catch
+        return error.ConfigUnwritable;
+
+    // Merge at apply time, against the config as it stands right now —
+    // settings changed since staging fold in rather than freezing.
+    const merged = switch (mode) {
+        .full => try gpa.dupe(u8, payload),
+        .merge_keep_local_gfx => try mergeConfig(gpa, local, payload),
+    };
+    defer gpa.free(merged);
+
+    const config_tmp = try std.fmt.allocPrint(gpa, "{s}.tmp-restore", .{config_path});
+    defer gpa.free(config_tmp);
+    Io.Dir.cwd().writeFile(io, .{ .sub_path = config_tmp, .data = merged }) catch
+        return error.ConfigUnwritable;
+    Io.Dir.rename(.cwd(), config_tmp, .cwd(), config_path, io) catch
+        return error.ConfigUnwritable;
+
+    // Teardown: ACTIVE first — a single atomic unlink — then the debris. The
+    // reverse order would leave a pointer to nothing, which the hard-error
+    // rule above turns into a bricked startup.
+    Io.Dir.cwd().deleteFile(io, active_path) catch {};
+    gcStages(gpa, io, root);
+    return .applied;
+}
+
+/// Sweep every stage directory — called only when `ACTIVE` is absent, which
+/// makes everything under the restore root unreferenced debris. A root that
+/// still has an `ACTIVE` is left entirely alone.
+pub fn gcStages(gpa: Allocator, io: Io, root: []const u8) void {
+    const active_path = std.Io.Dir.path.join(gpa, &.{ root, active_name }) catch return;
+    defer gpa.free(active_path);
+    if (Io.Dir.cwd().statFile(io, active_path, .{})) |_| {
+        return;
+    } else |_| {}
+
+    var dir = Io.Dir.cwd().openDir(io, root, .{ .iterate = true }) catch return;
+    defer dir.close(io);
+    var names: std.ArrayList([]u8) = .empty;
+    defer {
+        for (names.items) |name| gpa.free(name);
+        names.deinit(gpa);
+    }
+    var it = dir.iterate();
+    while (it.next(io) catch null) |entry| {
+        const copy = gpa.dupe(u8, entry.name) catch continue;
+        names.append(gpa, copy) catch {
+            gpa.free(copy);
+            continue;
+        };
+    }
+    for (names.items) |name| {
+        const child = std.Io.Dir.path.join(gpa, &.{ root, name }) catch continue;
+        defer gpa.free(child);
+        Io.Dir.cwd().deleteTree(io, child) catch {};
+    }
+}
+
+// -- The GFX-preserving merge -------------------------------------------------
+
+/// Every key from the backup except those under `GFX.`, which are kept from
+/// the local file. `config.cfg` is the option system's XML: `<item>` blocks
+/// carrying a `<KeyName>` each. The merge walks the backup's text and
+/// substitutes the local block wherever the key is GFX-prefixed and the
+/// local file has one; everything else — other items, binds, surrounding
+/// structure — passes through from the backup byte-for-byte.
+pub fn mergeConfig(
+    gpa: Allocator,
+    local_cfg: []const u8,
+    restored_cfg: []const u8,
+) Allocator.Error![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(gpa);
+
+    var index: usize = 0;
+    while (nextItem(restored_cfg, index)) |block| {
+        try out.appendSlice(gpa, restored_cfg[index..block.start]);
+        const item = restored_cfg[block.start..block.end];
+        if (keyNameOf(item)) |key| {
+            if (std.mem.startsWith(u8, key, "GFX.")) {
+                if (findItemByKey(local_cfg, key)) |local_item| {
+                    try out.appendSlice(gpa, local_item);
+                    index = block.end;
+                    continue;
+                }
+            }
+        }
+        try out.appendSlice(gpa, item);
+        index = block.end;
+    }
+    try out.appendSlice(gpa, restored_cfg[index..]);
+    return out.toOwnedSlice(gpa);
+}
+
+const ItemSpan = struct { start: usize, end: usize };
+
+fn nextItem(text: []const u8, from: usize) ?ItemSpan {
+    const start = std.mem.indexOfPos(u8, text, from, "<item") orelse return null;
+    const close = std.mem.indexOfPos(u8, text, start, "</item>") orelse return null;
+    return .{ .start = start, .end = close + "</item>".len };
+}
+
+fn keyNameOf(item: []const u8) ?[]const u8 {
+    const open = std.mem.indexOf(u8, item, "<KeyName>") orelse return null;
+    const value_start = open + "<KeyName>".len;
+    const close = std.mem.indexOfPos(u8, item, value_start, "</KeyName>") orelse return null;
+    return std.mem.trim(u8, item[value_start..close], " \t\r\n");
+}
+
+fn findItemByKey(text: []const u8, key: []const u8) ?[]const u8 {
+    var index: usize = 0;
+    while (nextItem(text, index)) |block| {
+        const item = text[block.start..block.end];
+        if (keyNameOf(item)) |item_key| {
+            if (std.mem.eql(u8, item_key, key)) return item;
+        }
+        index = block.end;
+    }
+    return null;
+}

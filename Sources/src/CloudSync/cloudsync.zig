@@ -68,6 +68,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const backup = @import("backup.zig");
 const creds = @import("creds.zig");
 const daemon = @import("daemon.zig");
 const worker = @import("worker.zig");
@@ -524,6 +525,7 @@ comptime {
     std.debug.assert(@intFromEnum(worker.Outcome.failed) == 3);
     std.debug.assert(@intFromEnum(worker.Outcome.connection_ok) == 4);
     std.debug.assert(@intFromEnum(worker.Outcome.backups_listed) == 5);
+    std.debug.assert(@intFromEnum(worker.Outcome.restore_staged) == 6);
 }
 
 const module_gpa = std.heap.smp_allocator;
@@ -820,6 +822,69 @@ pub export fn bk_cloudsync_backup_entry(
     };
     clearError();
     return @intCast(length);
+}
+
+/// Download one backup into a staged restore — pollable, outcome
+/// `restore_staged` (6) on done. Nothing is applied here: the stage waits
+/// for `bk_cloudsync_apply_pending_restore` at the next startup. `mode` is
+/// 0 for the GFX-preserving merge, 1 for a full restore (warn first).
+pub export fn bk_cloudsync_backup_restore(
+    game_dir: [*:0]const u8,
+    profile: [*:0]const u8,
+    entry_id: [*:0]const u8,
+    mode: u32,
+) callconv(.c) i32 {
+    var dir_buffer: [1024]u8 = undefined;
+    const profile_dir = std.fmt.bufPrint(&dir_buffer, "{s}/profiles/{s}", .{
+        std.mem.span(game_dir),
+        std.mem.span(profile),
+    }) catch {
+        setError("cloud sync: the profile path does not fit");
+        return -1;
+    };
+
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    return enqueueLocked(std.mem.span(game_dir), .{
+        .kind = .restore_stage,
+        .path1 = profile_dir,
+        .remote = creds.sync_remote_name,
+        .profile = std.mem.span(profile),
+        .profile_id = "",
+        .remote_fingerprint = "",
+        .entry_id = std.mem.span(entry_id),
+        .restore_mode = if (mode == 1) .full else .merge_keep_local_gfx,
+    });
+}
+
+/// Apply the published stage for `profile`, resolved as `profiles/<name>`
+/// against the working directory — the game's own convention. Purely local:
+/// no daemon, no network, no credentials, so a restore already downloaded
+/// finishes even with rclone gone and cloud sync disabled. Returns 1 when a
+/// stage was applied, 0 when nothing is staged (cheap; call it
+/// unconditionally at startup), -1 on a hard error with the reason in
+/// `bk_cloudsync_last_error`.
+pub export fn bk_cloudsync_apply_pending_restore(profile: [*:0]const u8) callconv(.c) i32 {
+    var dir_buffer: [1024]u8 = undefined;
+    const profile_dir = std.fmt.bufPrint(&dir_buffer, "profiles/{s}", .{std.mem.span(profile)}) catch {
+        setError("cloud sync: the profile path does not fit");
+        return -1;
+    };
+
+    const outcome = backup.applyPendingRestore(module_gpa, credsIo(), profile_dir) catch |err| {
+        switch (err) {
+            error.StageCorrupt => setError("cloud sync: the staged restore is corrupt and was not applied"),
+            error.ConfigUnwritable => setError("cloud sync: the restored config could not be written"),
+            error.OutOfMemory => setError("cloud sync: out of memory applying the staged restore"),
+        }
+        return -1;
+    };
+    clearError();
+    return switch (outcome) {
+        .applied => 1,
+        .nothing_staged => 0,
+    };
 }
 
 /// Invalidate the handle. Shared state — the worker, the daemon, the rc

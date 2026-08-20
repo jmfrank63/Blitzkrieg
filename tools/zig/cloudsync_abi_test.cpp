@@ -57,6 +57,11 @@ int bk_cloudsync_test_connection(const char *game_dir);
 // JSON entry per index; -1 past the end.
 int bk_cloudsync_backup_list(const char *game_dir, const char *profile);
 int bk_cloudsync_backup_entry(int handle, unsigned int index, unsigned char *json_out, unsigned int cap);
+// Staged restore: a pollable download (outcome 6 = restore_staged; mode 0
+// merge, 1 full), applied later by the purely local apply step (1 applied,
+// 0 nothing staged, -1 hard error).
+int bk_cloudsync_backup_restore(const char *game_dir, const char *profile, const char *entry_id, unsigned int mode);
+int bk_cloudsync_apply_pending_restore(const char *profile);
 }
 
 static int failures = 0;
@@ -579,7 +584,67 @@ static void sync_full_cycle()
         check(bk_cloudsync_backup_entry(listing, 1, entry, sizeof entry) > 0, "entry 1 reads");
         check(bk_cloudsync_backup_entry(listing, 99, entry, sizeof entry) == -1,
               "past the end is -1, which is how a caller counts");
+
+        // Restore the newest snapshot: extract its id from the entry, stage
+        // it over the network, then apply it purely locally.
+        char entry_id[256];
+        entry_id[0] = '\0';
+        check(bk_cloudsync_backup_entry(listing, 0, entry, sizeof entry) > 0, "entry 0 re-reads");
+        if (const char *id_at = std::strstr(reinterpret_cast<const char *>(entry), "\"id\":\""))
+        {
+            const char *value = id_at + 6;
+            const char *end = std::strchr(value, '"');
+            if (end != nullptr && static_cast<size_t>(end - value) < sizeof entry_id)
+            {
+                std::memcpy(entry_id, value, static_cast<size_t>(end - value));
+                entry_id[end - value] = '\0';
+            }
+        }
+        check(entry_id[0] != '\0', "the entry id parses out of the JSON");
         bk_cloudsync_release(listing);
+
+        const int staging = bk_cloudsync_backup_restore(game, "hero", entry_id, 0);
+        check(staging >= 0, "backup_restore hands out a handle");
+        if (staging >= 0)
+        {
+            const unsigned int staged = poll_to_rest(staging, 60000);
+            if (staged != 4u)
+                std::fprintf(stderr, "cloudsync-abi-test: staging error: %s\n", bk_cloudsync_error(staging));
+            check(staged == 4u, "the staging download reaches done");
+            check(bk_cloudsync_outcome(staging) == 6u, "with the restore_staged outcome");
+            bk_cloudsync_release(staging);
+
+            // The apply step resolves profiles/<name> against the working
+            // directory, exactly as the game does at startup.
+            char before_cwd[1024];
+#ifdef _WIN32
+            check(_getcwd(before_cwd, sizeof before_cwd) != nullptr, "remember cwd for apply");
+            check(_chdir(game) == 0, "chdir into the game dir for apply");
+#else
+            check(getcwd(before_cwd, sizeof before_cwd) != nullptr, "remember cwd for apply");
+            check(chdir(game) == 0, "chdir into the game dir for apply");
+#endif
+            write_file("profiles/hero/config.cfg", "local-config");
+            check(bk_cloudsync_apply_pending_restore("hero") == 1, "the staged restore applies");
+            char restored[4096];
+            read_file("profiles/hero/config.cfg", restored, sizeof restored);
+            check(std::strcmp(restored, "newer-snapshot") == 0, "the applied config is the snapshot");
+            // The pre-restore config is recoverable from the undo snapshot.
+            char undo_pointer[256];
+            read_file("profiles/hero/.cloudsync-trash/config/LATEST_UNDO", undo_pointer, sizeof undo_pointer);
+            check(undo_pointer[0] != '\0', "LATEST_UNDO names the undo snapshot");
+            char undo_path[1024];
+            std::snprintf(undo_path, sizeof undo_path, "profiles/hero/.cloudsync-trash/config/%s.cfg", undo_pointer);
+            char undo_content[4096];
+            read_file(undo_path, undo_content, sizeof undo_content);
+            check(std::strcmp(undo_content, "local-config") == 0, "the undo snapshot holds the original");
+            check(bk_cloudsync_apply_pending_restore("hero") == 0, "a second apply reports nothing staged");
+#ifdef _WIN32
+            check(_chdir(before_cwd) == 0, "chdir back after apply");
+#else
+            check(chdir(before_cwd) == 0, "chdir back after apply");
+#endif
+        }
     }
 
     // Shutdown with everything released stops worker and daemon; the fixture

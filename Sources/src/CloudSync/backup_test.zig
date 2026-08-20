@@ -299,6 +299,479 @@ test "backups list newest-first across hosts and prune per host" {
     try std.testing.expectEqual(@as(usize, 0), none.entries.len);
 }
 
+// -- The staged restore --------------------------------------------------------
+//
+// Everything below except the live staging case is pure filesystem work and
+// runs on every machine: the apply step is deliberately local-only, because
+// a restore already downloaded has to finish with rclone absent and cloud
+// sync disabled.
+
+const local_xml =
+    \\<base><Options><Vars>
+    \\  <item Order="1"><Var>1024x768x32</Var><KeyName>GFX.Mode</KeyName></item>
+    \\  <item Order="2"><Var>1</Var><KeyName>GFX.Monitor.Index</KeyName></item>
+    \\  <item Order="3"><Var>OFF</Var><KeyName>GFX.FullScreen</KeyName></item>
+    \\  <item Order="4"><Var>30</Var><KeyName>Sound.Volume</KeyName></item>
+    \\</Vars></Options></base>
+;
+
+const restored_xml =
+    \\<base><Options><Vars>
+    \\  <item Order="1"><Var>3840x2160x32</Var><KeyName>GFX.Mode</KeyName></item>
+    \\  <item Order="2"><Var>2</Var><KeyName>GFX.Monitor.Index</KeyName></item>
+    \\  <item Order="3"><Var>ON</Var><KeyName>GFX.FullScreen</KeyName></item>
+    \\  <item Order="4"><Var>80</Var><KeyName>Sound.Volume</KeyName></item>
+    \\  <item Order="5"><Var>ON</Var><KeyName>Announcer</KeyName></item>
+    \\</Vars></Options></base>
+;
+
+test "the merge preserves local GFX and adopts every other key" {
+    const gpa = std.testing.allocator;
+
+    const merged = try backup.mergeConfig(gpa, local_xml, restored_xml);
+    defer gpa.free(merged);
+
+    // The desktop's monitor layout stays home...
+    try std.testing.expect(std.mem.indexOf(u8, merged, "1024x768x32") != null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "3840x2160x32") == null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "<Var>1</Var><KeyName>GFX.Monitor.Index") != null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "<Var>OFF</Var><KeyName>GFX.FullScreen") != null);
+    // ...while everything else arrives from the backup.
+    try std.testing.expect(std.mem.indexOf(u8, merged, "<Var>80</Var><KeyName>Sound.Volume") != null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "Announcer") != null);
+}
+
+/// A committed stage built by hand — the shape `stageRestore` writes.
+fn buildStage(
+    gpa: std.mem.Allocator,
+    fixture: *Fixture,
+    profile_dir: []const u8,
+    nonce: []const u8,
+    payload: []const u8,
+    mode_text: []const u8,
+    corrupt_hash: bool,
+    with_commit: bool,
+) !void {
+    const stage = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, nonce });
+    defer gpa.free(stage);
+
+    const payload_path = try path.join(gpa, &.{ stage, backup.payload_name });
+    defer gpa.free(payload_path);
+    try fixture.write(payload_path, payload);
+
+    var digest: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(payload, &digest, .{});
+    var hex_buffer: [64]u8 = undefined;
+    const hex = std.fmt.bufPrint(&hex_buffer, "{x}", .{&digest}) catch unreachable;
+
+    const meta = try std.fmt.allocPrint(
+        gpa,
+        "{{\"mode\":\"{s}\",\"entry_id\":\"HostA/x.cfg\",\"sha256\":\"{s}\"," ++
+            "\"nonce\":\"{s}\",\"created_unix\":1000}}",
+        .{ mode_text, if (corrupt_hash) "0" ** 64 else hex, nonce },
+    );
+    defer gpa.free(meta);
+    const meta_path = try path.join(gpa, &.{ stage, backup.meta_name });
+    defer gpa.free(meta_path);
+    try fixture.write(meta_path, meta);
+
+    if (with_commit) {
+        const commit_path = try path.join(gpa, &.{ stage, backup.commit_name });
+        defer gpa.free(commit_path);
+        try fixture.write(commit_path, "1");
+    }
+}
+
+fn setActive(gpa: std.mem.Allocator, fixture: *Fixture, profile_dir: []const u8, nonce: []const u8) !void {
+    const active = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, backup.active_name });
+    defer gpa.free(active);
+    try fixture.write(active, nonce);
+}
+
+fn readProfileFile(gpa: std.mem.Allocator, profile_dir: []const u8, rel: []const u8) ![]u8 {
+    const at = try path.join(gpa, &.{ profile_dir, rel });
+    defer gpa.free(at);
+    return std.Io.Dir.cwd().readFileAlloc(io, at, gpa, .limited(1 << 20));
+}
+
+test "apply with nothing staged sweeps debris and reports it cheaply" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    // No restore root at all: the common case, and the cheap one.
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.nothing_staged,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+
+    // Debris without an ACTIVE — the state a crash between the two teardown
+    // removals leaves — is ordinary, and swept.
+    try buildStage(gpa, &fixture, profile_dir, "20260821T000000Z-11111111", "junk", "full", false, true);
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.nothing_staged,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const stage = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, "20260821T000000Z-11111111" });
+    defer gpa.free(stage);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, stage, .{}));
+}
+
+test "a staged merge applies, snapshots once, and tears down in order" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T010000Z-aaaa1111";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "merge_keep_local_gfx", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+
+    const merged = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(merged);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "1024x768x32") != null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "<Var>80</Var><KeyName>Sound.Volume") != null);
+
+    // The undo snapshot is the pre-restore original, keyed by nonce, and
+    // LATEST_UNDO names it.
+    const undo = try readProfileFile(gpa, profile_dir, ".cloudsync-trash/config/" ++ nonce ++ ".cfg");
+    defer gpa.free(undo);
+    try std.testing.expectEqualStrings(local_xml, undo);
+    const pointer = try readProfileFile(gpa, profile_dir, ".cloudsync-trash/config/LATEST_UNDO");
+    defer gpa.free(pointer);
+    try std.testing.expectEqualStrings(nonce, pointer);
+
+    // Teardown left neither pointer nor stage.
+    const active = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, backup.active_name });
+    defer gpa.free(active);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, active, .{}));
+    const stage = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, nonce });
+    defer gpa.free(stage);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, stage, .{}));
+
+    // And a second call is the cheap nothing-staged path.
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.nothing_staged,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+}
+
+test "a full restore adopts everything including GFX" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T020000Z-bbbb2222";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "full", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const applied = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(applied);
+    try std.testing.expectEqualStrings(restored_xml, applied);
+}
+
+test "the merge runs against the config as it stands at apply time" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T030000Z-cccc3333";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "merge_keep_local_gfx", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+
+    // The player kept playing after staging: a new resolution landed in
+    // config.cfg. The merge must keep *this* one, not the one from staging
+    // time — merging early would quietly revert it.
+    const changed_local =
+        \\<base><Options><Vars>
+        \\  <item Order="1"><Var>2560x1440x32</Var><KeyName>GFX.Mode</KeyName></item>
+        \\  <item Order="4"><Var>55</Var><KeyName>Sound.Volume</KeyName></item>
+        \\</Vars></Options></base>
+    ;
+    try fixture.write(config_path, changed_local);
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const merged = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(merged);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "2560x1440x32") != null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "3840x2160x32") == null);
+    // Non-GFX still comes from the backup, not from the changed local.
+    try std.testing.expect(std.mem.indexOf(u8, merged, "<Var>80</Var><KeyName>Sound.Volume") != null);
+}
+
+test "a stage ACTIVE names that fails validation is a hard error" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    // Missing COMMIT: incomplete, and named by ACTIVE — refuse.
+    try buildStage(gpa, &fixture, profile_dir, "20260821T040000Z-dddd4444", restored_xml, "full", false, false);
+    try setActive(gpa, &fixture, profile_dir, "20260821T040000Z-dddd4444");
+    try std.testing.expectError(
+        error.StageCorrupt,
+        backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+
+    // A wrong payload hash is the same refusal: we were told to apply
+    // specific content and this is not it.
+    try buildStage(gpa, &fixture, profile_dir, "20260821T050000Z-eeee5555", restored_xml, "full", true, true);
+    try setActive(gpa, &fixture, profile_dir, "20260821T050000Z-eeee5555");
+    try std.testing.expectError(
+        error.StageCorrupt,
+        backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+}
+
+test "ACTIVE naming an absent stage clears and reports nothing staged" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    // Correct teardown cannot produce this: outside interference or partial
+    // disk loss. Distinctly from the corrupt case, it must not stop the
+    // game — clear, sweep, nothing staged.
+    try buildStage(gpa, &fixture, profile_dir, "20260821T060000Z-ffff6666", restored_xml, "full", false, true);
+    try setActive(gpa, &fixture, profile_dir, "20260821T990000Z-00000000");
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.nothing_staged,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const active = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, backup.active_name });
+    defer gpa.free(active);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, active, .{}));
+}
+
+test "ACTIVE decides between committed stages regardless of timestamps" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    // Two whole stages, equal meta timestamps (buildStage writes 1000 for
+    // both): COMMIT can say "whole" twice, only ACTIVE says "current".
+    // First round: the pointer names the *older* nonce and wins anyway.
+    {
+        const profile_dir = try fixture.makeDir("pa");
+        defer gpa.free(profile_dir);
+        const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+        defer gpa.free(config_path);
+        try fixture.write(config_path, "");
+        try buildStage(gpa, &fixture, profile_dir, "20260801T000000Z-aaaa0000", "payload-old", "full", false, true);
+        try buildStage(gpa, &fixture, profile_dir, "20260821T000000Z-bbbb0000", "payload-new", "full", false, true);
+        try setActive(gpa, &fixture, profile_dir, "20260801T000000Z-aaaa0000");
+
+        try std.testing.expectEqual(
+            backup.ApplyOutcome.applied,
+            try backup.applyPendingRestore(gpa, io, profile_dir),
+        );
+        const applied = try readProfileFile(gpa, profile_dir, "config.cfg");
+        defer gpa.free(applied);
+        try std.testing.expectEqualStrings("payload-old", applied);
+    }
+    // Second round, reversed: ACTIVE names the newer one.
+    {
+        const profile_dir = try fixture.makeDir("pb");
+        defer gpa.free(profile_dir);
+        const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+        defer gpa.free(config_path);
+        try fixture.write(config_path, "");
+        try buildStage(gpa, &fixture, profile_dir, "20260801T000000Z-aaaa0000", "payload-old", "full", false, true);
+        try buildStage(gpa, &fixture, profile_dir, "20260821T000000Z-bbbb0000", "payload-new", "full", false, true);
+        try setActive(gpa, &fixture, profile_dir, "20260821T000000Z-bbbb0000");
+
+        try std.testing.expectEqual(
+            backup.ApplyOutcome.applied,
+            try backup.applyPendingRestore(gpa, io, profile_dir),
+        );
+        const applied = try readProfileFile(gpa, profile_dir, "config.cfg");
+        defer gpa.free(applied);
+        try std.testing.expectEqualStrings("payload-new", applied);
+    }
+}
+
+test "a partial newer stage never displaces the published one" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, "");
+
+    // The published stage, and beside it the wreck of a download that died
+    // before COMMIT — the exact state a failed re-stage leaves. The player
+    // still has the old restore.
+    try buildStage(gpa, &fixture, profile_dir, "20260810T000000Z-aaaa0000", "published", "full", false, true);
+    try setActive(gpa, &fixture, profile_dir, "20260810T000000Z-aaaa0000");
+    try buildStage(gpa, &fixture, profile_dir, "20260821T000000Z-bbbb0000", "half-downloaded", "full", false, false);
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const applied = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(applied);
+    try std.testing.expectEqualStrings("published", applied);
+}
+
+test "a crash between config rename and cleanup retries idempotently" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T070000Z-abab7777";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "merge_keep_local_gfx", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+
+    // The crash window: config renamed, stage not yet torn down. The next
+    // launch sees the stage still committed and applies again.
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "merge_keep_local_gfx", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+
+    // Re-merging is harmless; a second snapshot would not be. Keyed by
+    // nonce and written once, the undo still holds the *original* — not the
+    // already-restored file the retry ran against.
+    const undo = try readProfileFile(gpa, profile_dir, ".cloudsync-trash/config/" ++ nonce ++ ".cfg");
+    defer gpa.free(undo);
+    try std.testing.expectEqualStrings(local_xml, undo);
+}
+
+test "staging downloads into a fresh stage and a failed download leaves the old one" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const cloud = try fixture.makeDir("cloud");
+    defer gpa.free(cloud);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    const remote_backup = try path.join(gpa, &.{ cloud, "config-backups", "hero", "HostA", "20260820T000000Z-12121212.cfg" });
+    defer gpa.free(remote_backup);
+    try fixture.write(remote_backup, restored_xml);
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    try createAliasRemote(gpa, &client, "bkremote", cloud);
+
+    const nonce = try backup.stageRestore(
+        gpa,
+        tio,
+        &client,
+        profile_dir,
+        "bkremote",
+        "hero",
+        "HostA/20260820T000000Z-12121212.cfg",
+        .merge_keep_local_gfx,
+    );
+    defer gpa.free(nonce);
+
+    // Committed and published.
+    const active = try readProfileFile(gpa, profile_dir, backup.restore_dir_name ++ "/" ++ backup.active_name);
+    defer gpa.free(active);
+    try std.testing.expectEqualStrings(nonce, active);
+
+    // A second staging whose download fails — the entry does not exist —
+    // must leave the published stage and pointer exactly as they were.
+    try std.testing.expectError(error.RcFailed, backup.stageRestore(
+        gpa,
+        tio,
+        &client,
+        profile_dir,
+        "bkremote",
+        "hero",
+        "HostA/no-such-backup.cfg",
+        .merge_keep_local_gfx,
+    ));
+    const still_active = try readProfileFile(gpa, profile_dir, backup.restore_dir_name ++ "/" ++ backup.active_name);
+    defer gpa.free(still_active);
+    try std.testing.expectEqualStrings(nonce, still_active);
+
+    // And the published stage applies, locally, daemonless from here.
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const merged = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(merged);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "1024x768x32") != null);
+    try std.testing.expect(std.mem.indexOf(u8, merged, "<Var>80</Var><KeyName>Sound.Volume") != null);
+}
+
 test "the worker snapshots after a clean sync and nothing syncs back down" {
     const gpa = std.testing.allocator;
 
@@ -321,14 +794,12 @@ test "the worker snapshots after a clean sync and nothing syncs back down" {
     const save = try path.join(gpa, &.{ profile_dir, "quick.sav" });
     defer gpa.free(save);
     try fixture.write(save, "v1");
-    const game_config = try path.join(gpa, &.{ game_dir, "config.cfg" });
-    defer gpa.free(game_config);
-    try fixture.write(game_config, "GFX.Mode = 4k");
-    // A config.cfg *inside* the profile is the filter's problem, and it must
-    // stay home no matter what the backup path does.
+    // The active profile owns config.cfg: it lives *inside* Path1, which is
+    // exactly why the filter must keep it out of the sync set while the
+    // snapshot path carries it up separately.
     const profile_config = try path.join(gpa, &.{ profile_dir, "config.cfg" });
     defer gpa.free(profile_config);
-    try fixture.write(profile_config, "GFX.Mode = stray");
+    try fixture.write(profile_config, "GFX.Mode = profile-owned");
 
     const conf = try path.join(gpa, &.{ game_dir, "cloudsync", "rclone.conf" });
     defer gpa.free(conf);
@@ -393,7 +864,7 @@ test "the worker snapshots after a clean sync and nothing syncs back down" {
     defer gpa.free(first_path);
     const stored = try std.Io.Dir.cwd().readFileAlloc(io, first_path, gpa, .limited(4096));
     defer gpa.free(stored);
-    try std.testing.expectEqualStrings("GFX.Mode = 4k", stored);
+    try std.testing.expectEqualStrings("GFX.Mode = profile-owned", stored);
 
     // The backup history never syncs back down, and config.cfg never went
     // up: the split the layout plus the filter set exists to guarantee.
@@ -421,10 +892,10 @@ test "the worker snapshots after a clean sync and nothing syncs back down" {
         error.FileNotFound,
         std.Io.Dir.cwd().statFile(io, uploaded_config, .{}),
     );
-    // The local stray config is untouched and unsynced.
-    const stray = try std.Io.Dir.cwd().readFileAlloc(io, profile_config, gpa, .limited(4096));
-    defer gpa.free(stray);
-    try std.testing.expectEqualStrings("GFX.Mode = stray", stray);
+    // The profile's config is untouched and unsynced.
+    const untouched = try std.Io.Dir.cwd().readFileAlloc(io, profile_config, gpa, .limited(4096));
+    defer gpa.free(untouched);
+    try std.testing.expectEqualStrings("GFX.Mode = profile-owned", untouched);
 }
 
 fn resolveFixedBinary(context: ?*anyopaque, gpa: std.mem.Allocator) ?[]u8 {
