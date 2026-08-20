@@ -33,6 +33,21 @@ builds the JSON and interprets the replies — is written once and is the whole
 investment. Swapping to in-process `librclone` later means replacing one
 `send()` function, not the design.
 
+### Why not add-only sync
+
+Two `sync/copy` calls (local to cloud, cloud to local) with `UpdateOlder` and
+`BackupDir` is a genuinely tempting alternative: `copy` never deletes on the
+destination, so it needs none of bisync's state — no workdir, no session name
+and therefore no `NAME_MAX` exposure, no sentinel, no resync, no delete
+ratios. It was tested and it works, conflicts included: the newer side wins
+and the loser lands in the backup directory.
+
+It is rejected because it cannot express a deletion. A save deleted on one
+machine is restored from the cloud on the next pull (verified), so stale
+autosaves become permanent and the profile only ever grows. Deletion has to
+propagate; the requirement is that it be *recoverable*, not that it be
+impossible.
+
 ### Why not link librclone now
 
 It is the tempting answer and it is a trap at this point in the project:
@@ -122,6 +137,35 @@ far more adversarial testing than anything we would write.
   trigger silently — a resync after real divergence can overwrite one side.
 - **Conflicts.** `conflictResolve:"newer"`, losers kept as `.conflictN`. The
   rule we commit to: **a sync never destroys a save.**
+- **Deletes propagate in both directions, but nothing is unlinked.** A delete
+  has to reach the other machine — otherwise deleting forty stale autosaves is
+  impossible, because every surviving copy resurrects them on the next run.
+  bisync does this symmetrically (verified: removing a file on the cloud side
+  removes it locally). What we add is that it is never destructive:
+  `backupDir1` and `backupDir2` divert every deletion and overwrite into a
+  per-profile trash directory, relative paths preserved
+  (`trash/saves/m2.sav`). Between `.conflictN` and the trash, both ways a save
+  can be at risk are recoverable. The trash is pruned by age, not by sync.
+- **One delete always passes; mass deletion trips the breaker.** `maxDelete`
+  is a *percentage* (`deleted / oldCount > maxDelete/100` aborts), an awkward
+  shape for a profile holding three saves — deleting the only save would be
+  100%. The `.bkprofile` sentinel fixes this as a side effect: it counts
+  toward `oldCount`, so a single delete is at worst 1-of-2 = 50%, and the
+  comparison is `<=`. At `maxDelete: 50` that is exactly the policy we want,
+  with no dynamic ratio computation:
+
+  | profile | deleted | result |
+  |---|---|---|
+  | sentinel + 1 save | 1 | passes (50%) |
+  | no sentinel + 1 save | 1 | aborts |
+  | sentinel + 4 saves | 1 | passes |
+  | sentinel + 4 saves | 3 | `too many deletes` |
+
+  A `too many deletes` abort is then a genuine mass-delete event, surfaced to
+  the player as a prompt — "the cloud copy looks emptied, mirror that?" —
+  rather than as a failure. Pin this with a test: **sentinel plus one save,
+  delete it, sync must succeed.** That test is what stops someone removing the
+  sentinel as cosmetic.
 - **Scope.** Path1 is `profiles/<name>/`, path2 is `<remote>/profiles/<name>/`.
   Profiles sync independently, so a corrupt pairing on one does not touch
   another.
@@ -214,7 +258,19 @@ so plainly. Platform keychain / DPAPI storage is a follow-up, not a blocker.
   never rewritten. It guarantees `foundSame` on both sides while leaving
   `force` off and the delete guard armed. Verified: rewriting *every* save on
   both sides then syncing succeeds with the sentinel present, resolves the
-  conflict, and preserves the loser as `.conflict1`.
+  conflict, and preserves the loser as `.conflict1`. It then does double duty
+  — being counted in `oldCount` is what keeps a single deletion under the
+  `maxDelete` ratio (see Sync semantics). Two separate guards rest on this one
+  file.
+- **`maxDelete` defaults to 0 over the rc API — the CLI's 50 does not apply.**
+  `cmd.go` applies `DefaultMaxDelete = 50` on the command-line path; `rc.go`
+  builds a zero-valued `Options{}` and only assigns `opt.MaxDelete` if the
+  caller passed `maxDelete`. The zero value means *any* delete exceeds the
+  ratio. Verified: deleting one file out of five aborted the run with `too
+  many deletes`, and the same call with `maxDelete: 50` succeeded. Worse,
+  `maxDelete: 0` is not a way to get add-only behaviour — it aborts the entire
+  run, so a sync carrying one deletion and one new file delivered neither.
+  Always send `maxDelete` explicitly.
 - **rc errors are terse.** The RPC reply is `{"error": "bisync aborted",
   "status": 500}` and nothing more; the actionable detail is only in the log.
   Always run the daemon with `--log-file` and surface its tail on failure. In
