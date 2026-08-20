@@ -68,6 +68,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const creds = @import("creds.zig");
 const daemon = @import("daemon.zig");
 const worker = @import("worker.zig");
 
@@ -149,10 +150,14 @@ pub const Discovery = struct {
         self.lock();
         self.next_gen += 1;
         const my_gen = self.next_gen;
+        // Copied under the lock: `setExplicit` replaces this struct from the
+        // UI thread, and a torn read of a slice is a crash. The slice
+        // contents themselves are never freed — see `setExplicit`.
+        const search = self.search;
         self.unlock();
 
         // Outside the lock: this launches a process and waits for it.
-        var probed = try self.resolver(self.gpa, self.search);
+        var probed = try self.resolver(self.gpa, search);
 
         self.lock();
         defer self.unlock();
@@ -215,6 +220,19 @@ pub const Discovery = struct {
         self.next_gen += 1;
         if (self.value) |*previous| previous.deinit(self.gpa);
         self.value = null;
+    }
+
+    /// Install the player's explicit rclone override as the first search
+    /// source. The *previous* override allocation is deliberately never
+    /// freed: a refresh already in flight captured the old slice outside the
+    /// lock and may read it for the length of a probe, and a player changes
+    /// this path a handful of times per session — a bounded, tiny leak buys
+    /// the absence of a use-after-free with no reference counting.
+    pub fn setExplicit(self: *Discovery, path: ?[]const u8) Allocator.Error!void {
+        const copy: ?[]u8 = if (path) |p| try self.gpa.dupe(u8, p) else null;
+        self.lock();
+        defer self.unlock();
+        self.search.explicit = copy;
     }
 };
 
@@ -350,6 +368,117 @@ pub export fn bk_cloudsync_shutdown() callconv(.c) void {
 /// succeeded. Module-owned; copy it if you need to keep it.
 pub export fn bk_cloudsync_last_error() callconv(.c) [*:0]const u8 {
     return @ptrCast(&error_text);
+}
+
+// ---------------------------------------------------------------------------
+// Credentials
+//
+// Four exports over `profiles/cloud.credentials`, resolved against the
+// game's working directory — the engine's own convention for profile paths.
+// The rules live in `creds.zig`; what the ABI adds is the discovery contract:
+// a successful save installs the file's `rclone_path` as the explicit search
+// source and re-runs discovery through the P00-M04 locking contract, so
+// `available` and `discovery_status` reflect the new path on the very next
+// call, with no restart. The secret never crosses this boundary outward:
+// `creds_load` serialises the redacted form with `has_secret`, and a save
+// without a secret merges the stored one rather than destroying it.
+// ---------------------------------------------------------------------------
+
+/// One io for the credential exports' file work. Blocking is acceptable here
+/// for the same reason it is in `refresh_discovery`: these are settings-screen
+/// operations, documented as possibly taking a moment.
+fn credsIo() std.Io {
+    return lock_io_impl.io();
+}
+
+/// Write the redacted credentials document into `json_out` and return its
+/// length excluding the NUL, or -1 when none are saved or the buffer is too
+/// small. The secret itself never leaves; `has_secret` says whether one is
+/// stored.
+pub export fn bk_cloudsync_creds_load(json_out: [*]u8, cap: u32) callconv(.c) i32 {
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
+        setError("cloud sync: no credentials are saved");
+        return -1;
+    };
+    defer loaded.deinit();
+
+    const document = creds.redacted(module_gpa, loaded.creds) catch {
+        setError("cloud sync: out of memory serialising credentials");
+        return -1;
+    };
+    defer module_gpa.free(document);
+
+    if (cap == 0 or document.len >= cap) {
+        setError("cloud sync: buffer too small for the credentials document");
+        return -1;
+    }
+    @memcpy(json_out[0..document.len], document);
+    json_out[document.len] = 0;
+    clearError();
+    return @intCast(document.len);
+}
+
+/// Parse and persist a credentials document, merging the stored secret when
+/// the incoming one is absent — the dialog cannot send back what `creds_load`
+/// withheld, and editing the endpoint must not destroy the credential. On
+/// success the file's `rclone_path` becomes the explicit discovery source and
+/// discovery re-runs before this returns.
+pub export fn bk_cloudsync_creds_save(json: [*:0]const u8) callconv(.c) i32 {
+    var incoming = (creds.parse(module_gpa, std.mem.span(json)) catch {
+        setError("cloud sync: out of memory parsing credentials");
+        return -1;
+    }) orelse {
+        setError("cloud sync: the credentials document is malformed or names an unknown protocol");
+        return -1;
+    };
+    defer incoming.deinit();
+
+    var stored = creds.load(module_gpa, credsIo(), creds.default_path) catch null;
+    defer if (stored) |*loaded| loaded.deinit();
+    if (stored) |loaded| creds.mergeOmittedSecret(&incoming.creds, loaded.creds);
+
+    creds.save(module_gpa, credsIo(), creds.default_path, incoming.creds) catch {
+        setError("cloud sync: the credentials file could not be written");
+        return -1;
+    };
+
+    // The saved path becomes the first discovery source, and the cache is
+    // replaced through the locking contract — never reached into — so the
+    // worker can be mid-read on the old value without a tear.
+    module.setExplicit(incoming.creds.rclone_path) catch {
+        setError("cloud sync: out of memory installing the rclone override");
+        return -1;
+    };
+    module.refresh() catch {
+        setError("cloud sync: out of memory while searching for rclone");
+        return -1;
+    };
+    clearError();
+    return 0;
+}
+
+/// Remove the stored secret — the deliberate act, distinct from saving.
+pub export fn bk_cloudsync_creds_clear_secret() callconv(.c) i32 {
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
+        setError("cloud sync: no credentials are saved");
+        return -1;
+    };
+    defer loaded.deinit();
+
+    creds.clearSecret(&loaded.creds);
+    creds.save(module_gpa, credsIo(), creds.default_path, loaded.creds) catch {
+        setError("cloud sync: the credentials file could not be written");
+        return -1;
+    };
+    clearError();
+    return 0;
+}
+
+/// 1 when a parseable credentials file exists, 0 otherwise.
+pub export fn bk_cloudsync_creds_present() callconv(.c) u32 {
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse return 0;
+    loaded.deinit();
+    return 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -929,6 +1058,52 @@ test "an older refresh that finishes first is discarded, not published" {
     newer.join();
     try newer_result;
     try expectCachedPath(&discovery, "/newer/rclone");
+}
+
+/// A resolver that honours the explicit override the way the real search
+/// does — precedence itself is pinned by `explicit_path_wins_over_path_entry`
+/// in the daemon suite; what this proves is the *plumbing*: a saved override
+/// reaches the search, the refresh publishes, and both readers flip.
+fn searchSensitiveResolve(gpa: Allocator, search: daemon.Search) Allocator.Error!daemon.Availability {
+    if (search.explicit) |explicit| {
+        if (explicit.len != 0) return .{ .ready = .{
+            .path = try gpa.dupe(u8, explicit),
+            .version = .{ .major = 1, .minor = 75, .patch = 0 },
+        } };
+    }
+    return .{ .unavailable = .{ .reason = .not_found, .path = null, .version = null } };
+}
+
+test "a saved rclone override flips availability without a restart" {
+    var discovery: Discovery = .{ .gpa = testing.allocator, .resolver = searchSensitiveResolve };
+    defer discovery.clear();
+
+    // Before: nothing on the machine. Both readers agree on "not found".
+    try discovery.ensure();
+    try testing.expect(!discovery.available());
+    var buffer: [512]u8 = undefined;
+    var length = try discovery.writeStatus(&buffer);
+    try testing.expect(std.mem.indexOf(u8, buffer[0..length], "\"reason\":\"not_found\"") != null);
+
+    // The dialog saves credentials carrying a valid rclone_path; the save
+    // path installs the override and refreshes — no restart anywhere.
+    try discovery.setExplicit("/opt/rclone/rclone");
+    try discovery.refresh();
+
+    try testing.expect(discovery.available());
+    length = try discovery.writeStatus(&buffer);
+    try testing.expect(std.mem.indexOf(u8, buffer[0..length], "\"path\":\"/opt/rclone/rclone\"") != null);
+    try testing.expect(std.mem.indexOf(u8, buffer[0..length], "\"found\":true") != null);
+
+    // And back: clearing the override re-finds nothing. `setExplicit`
+    // deliberately never frees the previous override (see its doc comment),
+    // so this test frees the superseded copy by hand to keep the testing
+    // allocator's leak check meaningful.
+    const superseded = discovery.search.explicit;
+    try discovery.setExplicit(null);
+    try discovery.refresh();
+    try testing.expect(!discovery.available());
+    if (superseded) |allocation| testing.allocator.free(@constCast(allocation));
 }
 
 const StressState = struct {

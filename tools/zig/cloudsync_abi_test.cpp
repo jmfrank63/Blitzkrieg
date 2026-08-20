@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -43,6 +44,12 @@ unsigned int bk_cloudsync_outcome(int handle);
 const char *bk_cloudsync_error(int handle);
 void bk_cloudsync_cancel(int handle);
 void bk_cloudsync_release(int handle);
+// Credentials, over profiles/cloud.credentials relative to the working
+// directory. creds_load withholds the secret and reports has_secret.
+int bk_cloudsync_creds_load(unsigned char *json_out, unsigned int cap);
+int bk_cloudsync_creds_save(const char *json);
+int bk_cloudsync_creds_clear_secret(void);
+unsigned int bk_cloudsync_creds_present(void);
 }
 
 static int failures = 0;
@@ -262,6 +269,108 @@ static unsigned int poll_to_rest(int handle, unsigned int budget_ms)
     }
 }
 
+// The credentials exports, driven end to end against a fixture working
+// directory: the secret never comes back, omission preserves it, clearing is
+// deliberate. Runs everywhere — no daemon involved.
+static void creds_contract()
+{
+    // The exports resolve profiles/cloud.credentials against the working
+    // directory, exactly as the game itself resolves profile paths; chdir
+    // into a fixture so nothing touches a real profile.
+    const char *temp_root = std::getenv("TEMP");
+    if (temp_root == nullptr) temp_root = std::getenv("TMPDIR");
+    if (temp_root == nullptr) temp_root = "/tmp";
+    char base[1024];
+    std::snprintf(base, sizeof base, "%s/bk-creds-%u", temp_root,
+                  static_cast<unsigned>(std::rand() & 0xffffff));
+    for (char *c = base; *c != '\0'; ++c)
+        if (*c == '\\') *c = '/';
+    make_dirs(base);
+    char old_cwd[1024];
+#ifdef _WIN32
+    check(_getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+    check(_chdir(base) == 0, "chdir into the credentials fixture");
+#else
+    check(getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+    check(chdir(base) == 0, "chdir into the credentials fixture");
+#endif
+
+    check(bk_cloudsync_creds_present() == 0u, "no credentials before the first save");
+    unsigned char out[2048];
+    check(bk_cloudsync_creds_load(out, sizeof out) == -1, "load without a file fails readably");
+    check(bk_cloudsync_last_error()[0] != '\0', "and names the reason");
+
+    static const char *secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+    char doc[2048];
+    std::snprintf(doc, sizeof doc,
+                  "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
+                  "\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"bk\","
+                  "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\","
+                  "\"secret\":\"%s\"},\"rclone_path\":null}",
+                  secret);
+    check(bk_cloudsync_creds_save(doc) == 0, "the first save succeeds");
+    check(bk_cloudsync_creds_present() == 1u, "credentials are present after saving");
+
+    const int loaded = bk_cloudsync_creds_load(out, sizeof out);
+    check(loaded > 0, "load returns the document");
+    const char *json = reinterpret_cast<const char *>(out);
+    check(!contains(json, secret), "the secret never crosses the ABI outward");
+    check(contains(json, "\"has_secret\":true"), "but its presence is reported");
+    check(contains(json, "\"endpoint\":\"http://127.0.0.1:9000\""), "the editable fields all return");
+
+    // The dialog's edit: endpoint changed, no secret field at all — the
+    // stored secret must survive on disk.
+    check(bk_cloudsync_creds_save(
+              "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
+              "\"endpoint\":\"http://192.168.0.5:9000\",\"bucket\":\"bk\","
+              "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\"},"
+              "\"rclone_path\":null}") == 0,
+          "an endpoint-only save succeeds");
+    char on_disk[4096];
+    read_file("profiles/cloud.credentials", on_disk, sizeof on_disk);
+    check(std::strstr(on_disk, secret) != nullptr, "omission preserved the stored secret");
+    check(std::strstr(on_disk, "192.168.0.5") != nullptr, "and the endpoint edit landed");
+
+    check(bk_cloudsync_creds_clear_secret() == 0, "clearing the secret succeeds");
+    read_file("profiles/cloud.credentials", on_disk, sizeof on_disk);
+    check(std::strstr(on_disk, secret) == nullptr, "the deliberate clear removed it");
+    check(bk_cloudsync_creds_load(out, sizeof out) > 0, "load still works after clearing");
+    check(contains(reinterpret_cast<const char *>(out), "\"has_secret\":false"),
+          "and reports the secret gone");
+
+    // With a real rclone: saving a valid rclone_path must flip discovery to
+    // the override without any restart — the dialog's re-discover promise.
+    if (const char *rclone = std::getenv("BK_TEST_RCLONE"))
+    {
+        if (rclone[0] != '\0')
+        {
+            char escaped[1024];
+            json_escape(rclone, escaped, sizeof escaped);
+            std::snprintf(doc, sizeof doc,
+                          "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
+                          "\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"bk\","
+                          "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\"},"
+                          "\"rclone_path\":\"%s\"}",
+                          escaped);
+            check(bk_cloudsync_creds_save(doc) == 0, "saving an rclone override succeeds");
+            check(bk_cloudsync_available() == 1u, "the override is discovered with no restart");
+            unsigned char status[1024];
+            std::memset(status, 0, sizeof status);
+            check(bk_cloudsync_discovery_status(status, sizeof status) > 0, "status after the override");
+            check(contains(reinterpret_cast<const char *>(status), "\"found\":true"),
+                  "and the status agrees");
+        }
+    }
+
+    bk_cloudsync_shutdown();
+#ifdef _WIN32
+    check(_chdir(old_cwd) == 0, "chdir back out of the credentials fixture");
+#else
+    check(chdir(old_cwd) == 0, "chdir back out of the credentials fixture");
+#endif
+    remove_tree(base);
+}
+
 // The handle contract needs no daemon: invalid handles answer failed with a
 // readable error instead of crashing or inventing a second error channel.
 static void sync_handle_contract()
@@ -429,6 +538,10 @@ static void sync_full_cycle()
 
 int main()
 {
+    // The fixture directories are keyed by rand(); unseeded, every run picks
+    // the same names and the second run inherits the first one's leftovers.
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
     unsigned char raw[1024];
     std::memset(raw, 0, sizeof raw);
     const char *json = reinterpret_cast<const char *>(raw);
@@ -491,6 +604,7 @@ int main()
     check(bk_cloudsync_available() == available, "and reaches the same verdict");
     bk_cloudsync_shutdown();
 
+    creds_contract();
     sync_handle_contract();
     sync_full_cycle();
 

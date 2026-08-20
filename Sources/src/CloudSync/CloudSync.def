@@ -16,3 +16,7 @@ EXPORTS
     bk_cloudsync_error = _bk_cloudsync_error @9
     bk_cloudsync_cancel = _bk_cloudsync_cancel @10
     bk_cloudsync_release = _bk_cloudsync_release @11
+    bk_cloudsync_creds_load = _bk_cloudsync_creds_load @12
+    bk_cloudsync_creds_save = _bk_cloudsync_creds_save @13
+    bk_cloudsync_creds_clear_secret = _bk_cloudsync_creds_clear_secret @14
+    bk_cloudsync_creds_present = _bk_cloudsync_creds_present @15
