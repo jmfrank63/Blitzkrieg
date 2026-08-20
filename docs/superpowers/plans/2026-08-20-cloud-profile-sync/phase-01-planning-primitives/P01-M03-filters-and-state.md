@@ -10,7 +10,7 @@
 
 - [ ] Write the failing test asserting the filter set excludes exactly the intended paths, that no machine-local state file sits inside Path1, and that the sentinel is created once and never rewritten.
 - [ ] **Put machine-local state outside Path1.** Pairing state, the workdir, the pid/daemon record, and the filters file all describe one machine and must not travel to another. Implement `stateRoot(allocator) ![]u8` returning `<gamedir>/cloudsync/`, with pairing state at `<stateRoot>/state/<profile>.json`. Nothing under `profiles/<name>/` may hold machine-local state except the trash and the sentinel.
-- [ ] Implement `writeFiltersFile(allocator, path) !void` excluding `config.cfg`, `config.cfg.pending-restore`, `screenshots/**`, `*.tmp-rename`, `cloud.credentials`, `.cloudsync-trash/**`, and `config-backups/**`. Pass it to bisync as `filtersFile`.
+- [ ] Implement `writeFiltersFile(allocator, path) !void` excluding `config.cfg`, `screenshots/**`, `*.tmp-rename`, `cloud.credentials`, `.cloudsync-trash/**`, `.cloudsync-restore/**`, and `config-backups/**`. Pass it to bisync as `filtersFile`.
 - [ ] **Fix the remote layout so nothing that is not a profile lives under Path2.** Path2 is `<remote>/profiles/<name>/`; the trash and the config backups are siblings of `profiles/`, not children of it:
 
   ```

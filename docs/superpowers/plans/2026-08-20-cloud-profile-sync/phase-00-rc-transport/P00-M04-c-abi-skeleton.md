@@ -9,7 +9,8 @@
 **Allowed files:** `Sources/src/CloudSync/cloudsync.zig`, `Sources/src/CloudSync/CloudSync.def`, `Sources/src/CloudSync/CloudSync.x64.def`, `build.zig`, `tools/zig/build_support.zig`, `tools/zig/cloudsync_abi_test.cpp`.
 
 - [ ] Write the C++ smoke consumer first, modelled on the Blitz64 ABI test, linking the library and calling every exported symbol.
-- [ ] Define the surface with `callconv(.c)` and no Zig error union, slice, or allocator crossing it: `bk_cloudsync_available() u32`, `bk_cloudsync_shutdown() void`, and `bk_cloudsync_last_error() [*:0]const u8`.
+- [ ] Define the surface with `callconv(.c)` and no Zig error union, slice, or allocator crossing it: `bk_cloudsync_available() u32`, `bk_cloudsync_discovery_status(json_out: [*]u8, cap: u32) i32`, `bk_cloudsync_shutdown() void`, and `bk_cloudsync_last_error() [*:0]const u8`.
+- [ ] `discovery_status` returns `{ found, path, version, reason }`, where `reason` is the typed P00-M02 rejection (`not_found`, `too_old`, `not_executable`) rather than free text. The settings dialog has to tell a player *why* the feature is unavailable and *which* binary was chosen; a boolean plus a generic last-error string cannot answer either, and "cloud sync unavailable" with no reason is the least actionable message the screen could show.
 - [ ] **Implement `bk_cloudsync_available` for real** against P00-M02 discovery — it returns whether a usable rclone was found. This packet ships one working export rather than a set of placeholders.
 - [ ] Do **not** declare `begin`, `poll`, or any other export here. Each arrives with the packet that implements it, under the ABI amendment rule in `EXECUTION.md`; an export declared before its behaviour is how a feature ships unwired.
 - [ ] Establish the conventions the later exports follow: handles are small positive indices into a fixed-size table, `-1` is the only failure value, and returned strings are module-owned and valid until the next call on that handle.

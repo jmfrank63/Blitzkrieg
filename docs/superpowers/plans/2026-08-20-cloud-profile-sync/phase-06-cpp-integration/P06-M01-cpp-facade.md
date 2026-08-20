@@ -11,6 +11,8 @@
 - [ ] Write the failing C++ test first, exercising the facade against the real library.
 - [ ] Declare in namespace `NCloudSync`: `bool Available()`, `int Begin( const char *pszProfile )`, `EState Poll( int nHandle )`, `EOutcome Outcome( int nHandle )`, `const char *Error( int nHandle )`, `void Cancel( int nHandle )`, `void Release( int nHandle )`, and `void Shutdown()`.
 - [ ] Cover the credentials, backup, and restore exports from phases 03 and 04 in the same namespace, so the phase-07 dialogs have one surface to call rather than reaching for the raw ABI. Those phases are Zig and ABI only by design; **this is the first packet permitted to add C++ for them**, which is why it depends on all three.
+- [ ] Include `NCloudSync::ApplyPendingRestore( const char *pszProfile )` over `bk_cloudsync_apply_pending_restore`, and `NCloudSync::DiscoveryStatus()` over `bk_cloudsync_discovery_status`. `P06-M02` needs the first at startup and `P07-M01` the second; neither may reach past the facade to the raw ABI.
+- [ ] `ApplyPendingRestore` must work with the library present but the feature disabled and rclone missing — it is a local file operation, and the guard that returns `Available() == false` elsewhere must not short-circuit it.
 - [ ] Mirror the engine states and outcomes in C++ enums so the UI never switches on a bare integer from Zig, and pin their numeric values against the Zig side in the test.
 - [ ] Keep the header free of Zig, JSON, and rclone vocabulary. Callers know about profiles, states, and outcomes, nothing else.
 - [ ] Make it a real translation unit rather than a header-only helper: `NProfile` is header-only because it spans dylibs, and this one links against a single library instead.

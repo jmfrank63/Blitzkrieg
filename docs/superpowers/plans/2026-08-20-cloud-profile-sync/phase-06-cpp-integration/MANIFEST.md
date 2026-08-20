@@ -6,7 +6,7 @@
 
 | Packet | Depends on | Owns |
 |---|---|---|
-| P06-M01 | P02-M05, P05-M02 | C++ facade over the C ABI |
+| P06-M01 | P02-M05, P03-M04, P04-M04, P05-M02 | C++ facade over the C ABI, including the pending-restore apply and discovery-status wrappers |
 | P06-M02 | M01 | startup pull before the profile config is read |
 | P06-M03 | M02 | post-save and exit push |
 | P06-M04 | M03 | sync indicator and skip-to-offline |

@@ -41,9 +41,9 @@ Six more, all reproduced or confirmed in source before being designed against:
 - **A restored config was overwritten by the game itself.** `config.cfg` is
   rewritten from memory at shutdown (`GameMain.cpp:1182`) and on settings OK
   (`InterfaceOptionsSettings.cpp:344`), so a live restore never survived to
-  the next launch. Restores and undos are now staged to
-  `config.cfg.pending-restore` and applied at startup, and acceptance tests
-  across a real restart (P04-M03, P04-M04, P06-M02, P07-M03, P08-M01, P08-M04).
+  the next launch. Restores and undos are now staged and applied at startup,
+  and acceptance tests across a real restart (P04-M03, P04-M04, P06-M02,
+  P07-M03, P08-M01, P08-M04).
 - **Saving credentials did not define what an omitted secret meant.** Since
   the load path withholds it, omission now explicitly preserves, with a
   separate clear action (P03-M01).
@@ -52,6 +52,29 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Fourth review pass
+
+- **Startup could not call the merge.** `mergeConfig` lives in Zig, but the
+  only export was the staging download, and P06-M02 is C++ only — so applying
+  a stage would have meant a second merge implementation in C++. Phase 04 now
+  exports a local-only `apply_pending_restore`, P06-M01 wraps it, and P06-M02
+  just decides when to call it.
+- **The undo snapshot was taken a session too early.** Copying `config.cfg` at
+  stage time undoes to a file that may be hours stale, discarding everything
+  written since by any of nine `SerializeConfig` call sites. The snapshot moved
+  inside the apply step, immediately before the merged result is installed.
+- **The stage was not atomic.** A payload plus a separate mode marker is two
+  writes, and a crash between them could apply merge content as a full restore.
+  It is now a staged directory with payload, metadata, hash, and a `COMMIT`
+  file written last; anything incomplete is deleted rather than interpreted.
+- **The phase 06 manifest still listed the old dependencies** for P06-M01,
+  disagreeing with the packet the coordinator reads alongside it.
+- **The path picker asked for status the ABI could not supply.** P00-M04 now
+  exports a structured `discovery_status` carrying the chosen path, version,
+  and typed rejection reason, wrapped in the facade for the dialog.
+- Corrected an overstatement: only local `GFX.*` survives the staging window.
+  Every other key comes from the backup by design.
+
 ### Third review pass
 
 - **Phase 04 had grown a C++ allowlist**, editing the facade, `GameMain.cpp`,
@@ -59,9 +82,9 @@ Six more, all reproduced or confirmed in source before being designed against:
   while fixing the restore-staging defect. Phase 04 is Zig and ABI only again;
   applying a staged restore moved to P06-M02, and P06-M01 now depends on
   P03-M04, P04-M04, and P05-M02 since it wraps their exports.
-- **Suppressing the game's config writes was wrong.** `config.cfg` and
-  `config.cfg.pending-restore` are different files, so a shutdown serialize was
-  never a threat to the restore; suppression would only have discarded binds
+- **Suppressing the game's config writes was wrong.** `config.cfg` and the
+  staged restore are different files, so a shutdown serialize was never a
+  threat to the restore; suppression would only have discarded binds
   and unrelated settings, and it covered two of nine `SerializeConfig( false,
   ... )` call sites. Removed. The merge also moved to apply time, so settings
   changed after staging are folded in rather than frozen.

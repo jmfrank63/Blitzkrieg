@@ -249,14 +249,29 @@ Backups are a separate, one-way mechanism with no bisync involvement:
 - The current config is copied into the local trash before a restore
   overwrites it, so restoring is itself undoable.
 - **A restore is staged, never applied live.** The game rewrites `config.cfg`
-  from its in-memory options at shutdown (`GameMain.cpp:1182`) and again
-  whenever the settings screen is confirmed (`InterfaceOptionsSettings.cpp:344`),
+  from its in-memory options at shutdown (`GameMain.cpp:1182`) and from eight
+  other `SerializeConfig( false, ... )` call sites across the interface code,
   so a restored file written under a running game is discarded before the
-  player ever sees it. The merged result goes to `config.cfg.pending-restore`
-  and is moved into place at the next startup, in the same early window the
-  sync hook uses — before the option system reads the file. Undo takes the
-  same path, and acceptance tests a restore across a real restart, because a
-  same-session check passes while the feature is broken.
+  player ever sees it. The download goes to a staged directory
+  `profiles/<name>/.cloudsync-restore/` holding the payload, a metadata file
+  naming the mode and the payload hash, and a `COMMIT` marker written last; a
+  stage without `COMMIT`, or failing its hash, is deleted rather than guessed
+  at. Undo takes the same path, and acceptance tests a restore across a real
+  restart, because a same-session check passes while the feature is broken.
+- **The merge runs at apply time, in Zig, behind one export.** At the next
+  startup — before the option system reads the config — the game calls a
+  local-only `apply_pending_restore`, which snapshots the current `config.cfg`
+  for undo, merges the stage against the file *as it then stands*, and
+  installs the result. Doing the merge then rather than at stage time means
+  local `GFX.*` values changed during the intervening session are respected.
+  The snapshot is taken there for the same reason: a copy made when the
+  restore was requested would undo to a file hours out of date. The operation
+  needs no daemon and no credentials, so a restore already downloaded still
+  completes if the feature is later switched off.
+- Only local `GFX.*` values are preserved across that window. Every other key
+  comes from the backup by design, so a sound or gameplay setting changed
+  after requesting a restore is replaced when it applies — worth stating in
+  the UI rather than implying that nothing is lost.
 
 ## In-game configuration
 
