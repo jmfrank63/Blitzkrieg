@@ -1,7 +1,0 @@
-zig-out\Game\x64\Release\Game.exe - F2.0.0.0
-zig-out\Game\x64\Debug\Game.exe - F2.0.0.0
-zig-out\Game\x86\Debug\Game.exe - F
-zig-out\bin\Game.exe - F2.0.0.0
-Sources\src\Game\Release\Game.exe - F1, 2, 0, 0
-Sources\src\Game\Debug\Game.exe - F1, 2, 0, 0
-zig-out\game\Game.exe - FOUND
