@@ -35,6 +35,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const backup = @import("backup.zig");
 const creds = @import("creds.zig");
 const rc = @import("rc.zig");
 const daemon = @import("daemon.zig");
@@ -102,6 +103,13 @@ pub const JobSpec = struct {
     profile: []const u8,
     profile_id: []const u8,
     remote_fingerprint: []const u8,
+    /// Snapshot `config.cfg` after a clean sync — the `Cloud.Config.Backup`
+    /// option, passed per job by the caller who owns option state. A failed
+    /// snapshot never fails the sync that triggered it.
+    backup_config: bool = false,
+    /// This machine's name, for the per-host backup key. Sanitised in
+    /// `backup.zig`.
+    host: []const u8 = "",
 };
 
 pub const Options = struct {
@@ -129,6 +137,8 @@ const JobBox = struct {
     arena: std.heap.ArenaAllocator,
     kind: JobKind,
     ctx: engine.RunContext,
+    backup_config: bool,
+    host: []const u8,
 };
 
 pub const Worker = struct {
@@ -206,6 +216,8 @@ pub const Worker = struct {
             .profile_id = try arena.dupe(u8, spec.profile_id),
             .remote_fingerprint = try arena.dupe(u8, spec.remote_fingerprint),
         };
+        box.backup_config = spec.backup_config;
+        box.host = try arena.dupe(u8, spec.host);
 
         self.mutex.lockUncancelable(self.io);
         defer self.mutex.unlock(self.io);
@@ -300,6 +312,17 @@ pub const Worker = struct {
                     return;
                 };
                 self.gpa.free(run_id);
+                // After a clean finish only, and best-effort: the sync that
+                // succeeded stays succeeded whatever the snapshot does.
+                if (box.backup_config) {
+                    const snapshot: ?[]u8 = backup.snapshotConfig(self.gpa, self.io, eng.client, .{
+                        .config_dir = self.game_dir,
+                        .remote = box.ctx.remote,
+                        .profile = box.ctx.profile,
+                        .host = box.host,
+                    }) catch null;
+                    if (snapshot) |name| self.gpa.free(name);
+                }
                 self.publishDone(.synced);
             },
             .test_connection => {

@@ -2224,6 +2224,17 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_backend_step = b.step("test-cloudsync-backend", "Run Zig CloudSync backend integration tests");
     test_cloudsync_backend_step.dependOn(&cloudsync_backend_unit_tests.step);
     if (test_mode == .run) test_cloudsync_backend_step.dependOn(&run_cloudsync_backend_unit_tests.step);
+    const cloudsync_backup_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/backup_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_backup_unit_tests = b.addTest(.{ .root_module = cloudsync_backup_test_module });
+    const run_cloudsync_backup_unit_tests = b.addRunArtifact(cloudsync_backup_unit_tests);
+    const test_cloudsync_backup_step = b.step("test-cloudsync-backup", "Run Zig CloudSync config backup tests");
+    test_cloudsync_backup_step.dependOn(&cloudsync_backup_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_backup_step.dependOn(&run_cloudsync_backup_unit_tests.step);
     const cloudsync_worker_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/CloudSync/worker_test.zig"),
         .target = target,

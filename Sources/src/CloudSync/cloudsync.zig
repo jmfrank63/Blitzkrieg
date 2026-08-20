@@ -557,6 +557,10 @@ const JobDoc = struct {
     game_dir: []const u8,
     profile_id: []const u8,
     remote_fingerprint: []const u8,
+    /// Snapshot config.cfg after a clean sync (the `Cloud.Config.Backup`
+    /// option). Defaults keep older documents valid.
+    backup_config: bool = false,
+    host: []const u8 = "",
 };
 
 /// The production `BinarySource`: an owned copy out of the discovery cache,
@@ -608,6 +612,8 @@ pub export fn bk_cloudsync_begin(job_json: [*:0]const u8) callconv(.c) i32 {
         .profile = doc.profile,
         .profile_id = doc.profile_id,
         .remote_fingerprint = doc.remote_fingerprint,
+        .backup_config = doc.backup_config,
+        .host = doc.host,
     });
 }
 
