@@ -377,6 +377,14 @@ into the base install. Cloud sync is an optional feature: if the binary is
 absent, `CloudSyncAvailable()` is false and the UI offers a download or a path
 picker. A player who already has rclone installed points at their copy.
 
+## Implementation plan
+
+The packetised plan lives at
+`docs/superpowers/plans/2026-08-20-cloud-profile-sync/` — 31 packets across
+eight phases, starting at `phase-00-rc-transport/P00-M01-rc-json-client.md`.
+The milestones below are the shape of it; the plan is the authority on
+sequencing and gates.
+
 ## Milestones
 
 1. `rc.zig` against a hand-started `rclone rcd` — `core/version`, `sync/bisync`,
