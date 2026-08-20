@@ -1,6 +1,13 @@
 #include "StdAfx.h"
 
 #include "IconHPBar.h"
+// BK_COLOR_TRACE: every write to an HP bar's colors, and the restored state,
+// to pin down where a passenger bar's fill color comes from after a load.
+static bool ColorTraceOn()
+{
+	static const bool bOn = getenv( "BK_COLOR_TRACE" ) != 0;
+	return bOn;
+}
 CIconHPBar::CIconHPBar()
 {
 	bEnable = true;
@@ -36,6 +43,9 @@ int CIconHPBar::operator&( IStructureSaver &ss )
 	if ( saver.IsReading() ) 
 	{
 		infoMain.pTexture = pTexture;
+		if ( ColorTraceOn() )
+			fprintf( stderr, "BK_COLOR_TRACE: bar %p restored main=%08x bar=%08x saved=%08x locked=%d hp=%.2f\n",
+				(void*)this, (unsigned)infoMain.color, (unsigned)infoBar.color, (unsigned)dwBarColor, (int)bBarLocked, fPercentage );
 	}
 	return 0;
 }
@@ -48,11 +58,15 @@ void CIconHPBar::LockBarColor()
 {
 	bBarLocked = true;
 	infoBar.color = infoMain.color;
+	if ( ColorTraceOn() )
+		fprintf( stderr, "BK_COLOR_TRACE: bar %p lock -> bar=%08x\n", (void*)this, (unsigned)infoBar.color );
 }
 void CIconHPBar::UnlockBarColor()
 {
 	bBarLocked = false;
 	SetColor( dwBarColor );
+	if ( ColorTraceOn() )
+		fprintf( stderr, "BK_COLOR_TRACE: bar %p unlock -> bar=%08x\n", (void*)this, (unsigned)infoBar.color );
 }
 void CIconHPBar::ForceThinIcon()
 {
@@ -60,12 +74,16 @@ void CIconHPBar::ForceThinIcon()
 }
 void CIconHPBar::SetColor( DWORD _color ) 
 { 
+	if ( ColorTraceOn() && _color != dwBarColor )
+		fprintf( stderr, "BK_COLOR_TRACE: bar %p setcolor %08x locked=%d\n", (void*)this, (unsigned)_color, (int)bBarLocked );
 	dwBarColor = _color;
 	if ( !bBarLocked )
 		infoBar.color = (infoBar.color & 0xff000000) | (_color & 0x00ffffff); 
 }
 void CIconHPBar::SetBorderColor( DWORD dwColor ) 
 { 
+	if ( ColorTraceOn() && ((infoMain.color ^ dwColor) & 0x00ffffff) != 0 )
+		fprintf( stderr, "BK_COLOR_TRACE: bar %p setborder %08x (was %08x) locked=%d\n", (void*)this, (unsigned)dwColor, (unsigned)infoMain.color, (int)bBarLocked );
 	infoMain.color = (infoBar.color & 0xff000000) | (dwColor & 0x00ffffff); 
 }
 void CIconHPBar::SetAlpha( BYTE alpha ) 

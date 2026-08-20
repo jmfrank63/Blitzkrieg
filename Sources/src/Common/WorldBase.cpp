@@ -10,6 +10,7 @@
 #include "MapObjVisitors.h"
 #include "PlayEffect.h"
 #include "Icons.h"
+#include "MOBuilding.h"
 #include "../UI/UI.h"
 #include "../UI/UIMessages.h"
 #include <typeinfo>
@@ -1476,8 +1477,26 @@ static void RefreshUnitPlayerColor( IMOUnit *pUnit )
 		return;
 	ISceneIconBar *pBar = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>(pUnit->pVisObj)->GetIcon(ICON_HP_BAR) );
 	const int nColor = GetGlobalVar( NStr::Format("Scene.PlayerColors.Player%d", pUnit->GetPlayerIndex()), int(0xff000000) );
+	static const bool bColorTrace = getenv( "BK_COLOR_TRACE" ) != 0;
+	if ( bColorTrace )
+		fprintf( stderr, "BK_COLOR_TRACE: refresh unit %p player=%d var=%08x bar=%p contained=%d\n",
+			(void*)pUnit, pUnit->GetPlayerIndex(), (unsigned)nColor, (void*)pBar, pUnit->GetContainer() != 0 );
 	if ( pBar )
+	{
 		pBar->SetBorderColor( nColor );
+		// A unit garrisoned in a building shows the player color as its bar
+		// FILL, not just the border - CMOBuilding::Load locks the fill to the
+		// border color on entry. Re-assert the whole invariant here instead of
+		// trusting the restored lock state: a bar that comes out of a load
+		// unlocked repaints itself with the HP gradient (green at full health)
+		// on the next HP update, which is how garrisoned enemies showed green
+		// on macOS while the same save showed red on Windows. Locking is
+		// idempotent when the state restored correctly. Trucks and other
+		// mechanical containers deliberately do not lock - their passengers
+		// keep the HP gradient - so only building containers are re-locked.
+		if ( dynamic_cast<CMOBuilding*>( pUnit->GetContainer() ) != 0 )
+			pBar->LockBarColor();
+	}
 }
 void CWorldBase::RefreshPlayerColors()
 {
