@@ -117,13 +117,22 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 			AddPassanger( passangers, this, pMO, GetVisObj(), vAdd, CVec3(0, 0, 4), ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL );
 		else
 			AddPassanger( passangers, this, pMO, GetVisObj(), vAdd, CVec3(0, 0, 2), ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL );
-		if( ISceneIconBar *pIcon = dynamic_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>( pMO->pVisObj )->GetIcon(ICON_HP_BAR) ) )
+		// static_cast, the way every other ICON_HP_BAR access reads that slot
+		// (MOUnit.cpp, MOUnitInfantry.cpp, WorldBase.cpp): the icon is created
+		// in Scene, and a dynamic_cast on it crosses the module boundary. The
+		// MSVC ABI compares RTTI by name string, so it worked on Windows; the
+		// Itanium ABI (macOS/Linux) compares typeinfo identity, the copies in
+		// the two modules do not unify, and the cast returned null - the lock
+		// was silently skipped and a garrisoned enemy's bar kept the HP
+		// gradient: green at full health, in every mission.
+		if( ISceneIconBar *pIcon = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>( pMO->pVisObj )->GetIcon(ICON_HP_BAR) ) )
 			pIcon->LockBarColor();
 	}
 	else
 	{
 		RemovePassanger( passangers, pMO, GetVisObj() );
-		if( ISceneIconBar *pIcon = dynamic_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>( pMO->pVisObj )->GetIcon(ICON_HP_BAR) ) )
+		// static_cast for the same cross-module reason as the lock above.
+		if( ISceneIconBar *pIcon = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>( pMO->pVisObj )->GetIcon(ICON_HP_BAR) ) )
 			pIcon->UnlockBarColor();
 	}
 
