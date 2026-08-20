@@ -51,6 +51,25 @@ bottom of their section; delete items when they ship (git history keeps them).
   field, which needs an allowlist for the legitimate ones. (Found
   2026-08-19.)
 
+- **Verify the garrisoned-enemy bar color fix on Intel macOS.** Loading
+  "Bug Not Present on Windows.sav" showed enemy soldiers in the bunker with
+  green bars on Intel macOS where Windows correctly shows red. Ground truth
+  from Windows (BK_COLOR_TRACE): the red is the bar FILL, locked to the
+  border color by CMOBuilding::Load on entry and restored locked from the
+  save; the green equals the serialized HP-gradient color that shows the
+  moment the lock is lost. RefreshPlayerColors now re-asserts the lock for
+  building-garrisoned units after every load (verified no-change on
+  Windows). To verify on the Mac: pull, rebuild, load the same save - bars
+  should be red; if still green, run with BK_COLOR_TRACE=1 and read which
+  writes paint the fill. (Found 2026-08-20.)
+
+- **Save names with spaces cannot be passed on the command line.** RunGame
+  re-joins argv with spaces before ProcessCommandLine, losing the original
+  quoting, so `-Bug Not Present on Windows.sav` splits into five arguments
+  and main.cpp's parser exits with the usage text. Space-free names work
+  (`-bugsave.sav`). Either re-quote arguments containing spaces at the
+  join, or parse argv directly. (Found 2026-08-20.)
+
 ## Ruled out
 
 - **Hold-a-letter-key + mouse to scroll the map** (tried with G, 2026-08-12):
