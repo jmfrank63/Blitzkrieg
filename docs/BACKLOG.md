@@ -58,6 +58,25 @@ bottom of their section; delete items when they ship (git history keeps them).
   (`-bugsave.sav`). Either re-quote arguments containing spaces at the
   join, or parse argv directly. (Found 2026-08-20.)
 
+- **Verify the launch splash on macOS and Linux.** The Blitzkrieg logo
+  between launch and the first video was Windows-only (a Win32 dialog in
+  WinFrame.cpp; the SDL path had an empty stub). SDLApplication now shows
+  the same picture - a borderless, centered, always-on-top 600x352 window
+  blitting Data/splash.bmp (the IDB_SPLASH resource bitmap, staged like
+  icon.bmp) - from before SDL_Init until the game window is up, with its
+  own refcounted video-subsystem reference. Compile-verified for
+  x86_64-linux-gnu and inert on Windows (startup smoke passes); needs one
+  launch on each platform to confirm the window actually appears and goes
+  away. (Found 2026-08-20.)
+
+- **test-game-frame and test-game-loop do not build on Windows.** Both
+  compile Platform/Debug.cpp, whose PlatformClient.h include of
+  "PlatformABI/platform_c.h" is not on those targets' include paths
+  (Sources/src is missing from the list), so the steps fail before running
+  - on clean main, unrelated to any recent change. The zig build test
+  suite does not include them, which is why it passes. Add the include
+  path or drop Debug.cpp from the lists. (Found 2026-08-20.)
+
 ## Ruled out
 
 - **Hold-a-letter-key + mouse to scroll the map** (tried with G, 2026-08-12):
