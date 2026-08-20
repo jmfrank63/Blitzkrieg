@@ -116,3 +116,37 @@ Carried forward from P01-M03:
   it explicitly, and the design-table test `single_delete_passes_with_sentinel`
   pins the `<=` boundary the sentinel arranges.
 
+P01-M04 Windows checkpoint: `zig build test-cloudsync-plan -Dtest-mode=run`
+passes 35/35 natively on `x86_64-windows-msvc`; the three cross-targets
+compile; rc, daemon, abi and streamio unaffected. Commit `01f2d71ea`.
+
+Carried forward from P01-M04:
+
+- `bisyncParams` returns an arena-owned `BisyncParams{arena, value}` rather
+  than a bare `std.json.Value` — the object's strings are allocations, and a
+  bare Value has no owner to free them. `params.value` feeds
+  `rc.Client.callAsync` directly; note `callAsync`'s `encodeParams` also puts
+  `_async: true`, so the builder's copy is redundant-but-harmless on that
+  path and load-bearing on `call`.
+- The session budget check runs inside `bisyncParams` on every call. P02-M02's
+  worker does not need its own check; the surface that shows the number to
+  the player calls `sessionName` itself.
+- `runId(gpa, io)` produces `YYYYMMDDTHHMMSSZ-<8 hex>` — 25 bytes, colon-free
+  because Windows refuses colons in filenames. Wall-clock time in Zig 0.16 is
+  `Io.Clock.now(.real, io).toSeconds()` (there is no `std.time.timestamp`
+  anymore — fifth entry in the `std.crypto.random` family) fed through
+  `std.time.epoch`; randomness is the established
+  `io.randomSecure(&b) catch io.random(&b)`.
+- `SyncContext.mode` is how "resync only on first pairing" is expressed: the
+  builder never reads pairing state itself. P02-M01 owns setting `.pairing`
+  from `<stateRoot>/state/<profile>.json` and flipping it after success.
+
+**Phase 01 exit: met.** A profile directory at a pathological depth yields a
+short, budget-checked, correctly defaulted parameter set offline: the short
+link bounds Path1, the budget check refuses what bisync would abort on, the
+filter set and state paths keep machine-local data out of the sync set, the
+sentinel arms both bisync guards, and `bisyncParams` emits the correct
+object for pairing and steady state. All run-verified on
+`x86_64-windows-msvc`; macOS holds at P01-M01 until the branch next sits on
+a Mac.
+
