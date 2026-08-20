@@ -1,12 +1,16 @@
 # Next Packet
 
-Resume at `phase-01-planning-primitives/P01-M02-session-budget.md`.
+Resume at `phase-01-planning-primitives/P01-M03-filters-and-state.md`.
 
-**Phase 00 is complete, and P01-M01 is done.** Phase 00's gate is met on macOS — see
-`phase-00-rc-transport/MANIFEST.md` for the four checkpoints. `rc.zig`,
-`daemon.zig` and `cloudsync.zig` are committed with 37 passing tests across
-three build steps, plus a C++ ABI consumer; Linux and Windows are compile-only
-until P08.
+**Phase 00 is complete; P01-M01 and P01-M02 are done.** Phase 00's gate is met
+on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
+branch moved to a real Windows 11 machine and every suite ran natively on
+`x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
+tests plus the C++ consumer, with the daemon's live cases driven against a
+real rclone v1.75.0 and no orphan left. The junction code in `plan.zig` made
+real junctions from an unelevated shell for the first time — P01-M01's last
+open item — and a file crossed them in both directions. Linux is compile-only
+until P08-M03.
 
 Four Zig 0.16 facts the packet texts got wrong, all recorded in the phase 00
 manifest and worth knowing before writing more: `std.http.Client` requires an
@@ -24,16 +28,21 @@ behavioural claims measured against rclone v1.75.0 on macOS arm64.
 Branch `feature/cloud-profile-sync`. Everything needed to continue is in the
 repository; nothing lives only on the machine it was written on.
 
-**Done so far:** all of phase 00 plus `P01-M01`. Five build steps green on
-macOS — 52 tests — with `test-streamio` unaffected:
+**Done so far:** all of phase 00 plus `P01-M01` and `P01-M02`. Five build
+steps green natively on Windows — 58 CloudSync tests — with `test-streamio`
+unaffected. On the machine's native platform, omit `-Dtarget`:
 
 ```
-zig build test-cloudsync-rc      -Dtarget=aarch64-macos -Dtest-mode=run    #  6
-zig build test-cloudsync-daemon  -Dtarget=aarch64-macos -Dtest-mode=run    # 22
-zig build test-cloudsync-abi     -Dtarget=aarch64-macos -Dtest-mode=run    #  9 + C++ consumer
-zig build test-cloudsync-plan    -Dtarget=aarch64-macos -Dtest-mode=run    # 15
-zig build test-streamio          -Dtarget=aarch64-macos -Dtest-mode=run    # 32 (regression)
+zig build test-cloudsync-rc      -Dtest-mode=run    #  6
+zig build test-cloudsync-daemon  -Dtest-mode=run    # 22
+zig build test-cloudsync-abi     -Dtest-mode=run    #  9 + C++ consumer
+zig build test-cloudsync-plan    -Dtest-mode=run    # 21
+zig build test-streamio          -Dtest-mode=run    # 32 (regression)
 ```
+
+The macOS figures (P01-M01 and earlier, plan at 15/15) are in the phase
+manifests; P01-M02's five new tests are platform-invariant arithmetic, so the
+next macOS run should show 21/21 with no per-platform expectations.
 
 Run `zig build` **from the repository root only** — anywhere else it aborts
 with a FileNotFound panic. Toolchain is Zig 0.16.0.
@@ -50,12 +59,14 @@ Use v1.75.0 or newer; `daemon.zig` gates at 1.66 because the plan depends on
 `resyncMode`, on `backupDir1`/`backupDir2` as rc parameters, and on the
 non-suffixed bisync listing filenames.
 
-**Target matrix as it stands.** Run-verified: `aarch64-macos` only.
+**Target matrix as it stands.** Run-verified: `aarch64-macos` (through
+P01-M01) and `x86_64-windows-msvc` (everything, including P01-M02).
 Compile-verified: `x86_64-linux-gnu`, `aarch64-linux-gnu`,
-`x86_64-windows-gnu`. Not configurable from macOS at all:
-`x86_64-windows-msvc` (needs the MSVC toolchain) and `x86_64-macos` (SDL wants
-`--sysroot`, reproducible on the unchanged tree). Windows and Linux become real
-at P08.
+`x86_64-windows-gnu`. The SDL `--sysroot` refusal is symmetric: macOS targets
+cannot be configured from Windows, just as `x86_64-macos` could not from the
+arm Mac — so each OS re-verifies its own targets when the branch sits on it.
+Linux becomes real at P08-M03; access to all three OSes is available, so the
+matrix can be closed whenever a packet warrants it.
 
 **Where the findings are.** Each phase `MANIFEST.md` carries a checkpoint per
 completed packet: the exact commands, what passed, and anything later packets
@@ -66,8 +77,10 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-01-planning-primitives/P01-M02-session-budget.md` — pure
-arithmetic over path mangling, no platform risk, fully verifiable anywhere.
+**Next:** `phase-01-planning-primitives/P01-M03-filters-and-state.md` —
+filter rules, machine-local state paths and the sentinel. Offline like the
+rest of phase 01; the sentinel's remote-side check is a design obligation on
+P02-M01, not a network call here.
 
 ## Corrections applied after review
 
@@ -288,6 +301,7 @@ across the link, and P08-M02 confirms it in the shipped build.
 
 ## Important working-tree files
 
-The branch is `feature/cloud-profile-sync`. Only documentation exists so far.
-The pinned rclone binary used for verification is not in the repository and
-must be fetched per machine.
+The branch is `feature/cloud-profile-sync`. The CloudSync Zig sources live in
+`Sources/src/CloudSync/`; everything else is documentation. The pinned rclone
+binary used for verification is not in the repository and must be fetched per
+machine.

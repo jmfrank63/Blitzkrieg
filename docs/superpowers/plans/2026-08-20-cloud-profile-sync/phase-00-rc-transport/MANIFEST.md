@@ -120,3 +120,15 @@ job against a live rclone, the daemon spawns, reports ready and is reaped with
 no orphan, and the ABI is reachable from C++. Windows and Linux remain
 compile-only until P08.
 
+**Windows addendum (2026-08-20, during P01-M02):** the branch moved to a real
+Windows 11 machine and every phase-00 suite now runs natively on
+`x86_64-windows-msvc`: rc 6/6, daemon 22/22, abi 9/9 plus the C++ consumer.
+The daemon's three live cases ran against a real rclone v1.75.0 (fetched per
+machine, not committed) — spawn, readiness, wrong-password rejection on the
+same port, `RCLONE_CONFIG` under `<gamedir>/cloudsync/`, and identity-checked
+reaping through `GetProcessTimes`, with no rclone process left afterwards. The
+phase-00 gate is therefore met on Windows too, ahead of P08-M02, which keeps
+only the shipped-build acceptance. Two caveats stand: the stub-executable
+discovery cases are `/bin/sh` scripts and return early on Windows, and Linux
+remains compile-only.
+

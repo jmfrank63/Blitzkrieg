@@ -45,7 +45,41 @@ Carried forward:
 - `ensureShortLink` returns a `ShortLink{ path, target, slot, method }` rather
   than the packet's `![]u8`: a slice cannot also record which creation path was
   taken, and `method == null` distinguishes a reused slot from a created one.
-- The junction path is semantically analyzed for `x86_64-windows-gnu` (proved by
-  injecting a type error only that target rejects) but no junction has ever been
-  created by this code. P08-M02 owns that.
+- ~~The junction path is semantically analyzed for `x86_64-windows-gnu` (proved
+  by injecting a type error only that target rejects) but no junction has ever
+  been created by this code. P08-M02 owns that.~~ **Closed during P01-M02**, run
+  on a real Windows 11 machine: all 15 P01-M01 tests pass natively on
+  `x86_64-windows-msvc` from an unelevated shell, so `createJunction` made real
+  junctions without administrator rights, a file crossed them in both
+  directions, and repoint/reclaim ran against real reparse points. P08-M02
+  still owns the shipped-build confirmation.
+
+P01-M02 Windows checkpoint: `zig build test-cloudsync-plan -Dtest-mode=run`
+passes 21/21 natively on `x86_64-windows-msvc` — the target macOS could not
+even configure. `x86_64-linux-gnu`, `aarch64-linux-gnu` and
+`x86_64-windows-gnu` compile. All other suites re-verified natively the same
+day: rc 6/6, daemon 22/22 (including the three live cases against a real
+rclone v1.75.0 with no orphan left), abi 9/9 plus the C++ consumer, streamio
+32/32. Commit `5c3137782`.
+
+Carried forward from P01-M02:
+
+- The session-name arithmetic is platform-invariant on purpose:
+  `canonicalPath` folds `\` and `/` alike to `_`, so the measured pairs
+  (`C__bk_p0..C__bk_remote`, `tmp_bkp..tmp_bkremote`) assert the same bytes on
+  every OS and the suite needs no per-platform expectations.
+- The packet's `SESSION_SUFFIX_MAX`/`SESSION_BUDGET` are `session_suffix_max`/
+  `session_budget` — this file's constant style (`max_slots`,
+  `mklink_timeout_ms`).
+- "An error carrying the projected length" is expressed as an out-parameter
+  written on success and failure both, because a Zig error carries no payload.
+  P01-M04 should surface that number, not the error name.
+- A named remote endpoint is passed to `fsPath` as the combined `name:root`
+  string; there is no separate name/root pair in the API. P01-M04 constructs
+  it that way.
+- `aarch64-macos` cannot be configured from Windows — same SDL `--sysroot`
+  refusal as `x86_64-macos` from the arm Mac, pre-existing and symmetric.
+  macOS re-verification of phases 00–01 happens when the branch next sits on
+  a Mac; nothing in P01-M02 is platform-conditional beyond `fsPath`'s
+  separator choice, which is covered by the windows-gnu compile.
 
