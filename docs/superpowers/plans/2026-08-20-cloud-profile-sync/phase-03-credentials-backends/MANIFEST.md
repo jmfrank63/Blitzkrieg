@@ -75,3 +75,36 @@ Carried forward from P03-M02:
   on a machine with the env var set is a real failure, not a skip.
 - `test-cloudsync-backend` is a new build step (build.zig amended, same
   shape as the others).
+
+P03-M03 Windows checkpoint: `zig build test-cloudsync-backend -Dtest-mode=run`
+passes 2/2 with both backends live (~22 s), skip path clean, cross-targets
+compile, no orphans. Commit `dc099ecb6`.
+
+Carried forward from P03-M03:
+
+- **The modify-window finding.** WebDAV holds mtimes at one-second
+  granularity, and bisync compares listings under a one-second modify
+  window: an overwrite of a remote file landing within one second of that
+  file's previous listing entry reads as a *size-only* change, the winner
+  comparison then has a zero time for that side, and bisync falls back to
+  renaming both copies (`.conflict1`/`.conflict2` — nothing lost, nobody
+  ranked). Measured against `rclone serve webdav`. Field consequence: two
+  machines saving the same file within one second of each other get the
+  rename-both fallback rather than newer-wins. Safe, but P07's conflict UI
+  should not promise "newest always wins" unconditionally.
+- The client must send `vendor: "owncloud"` (or another mtime-capable
+  vendor) for WebDAV: a plain vendor drops modification times entirely and
+  would misresolve every newer-wins comparison. `rclone serve webdav`
+  implements the ownCloud mtime extension; a forged 2026-01-15 mtime
+  round-tripped byte-identical.
+- `config/create` is always called with `opt.obscure = true`: rclone
+  obscures password-typed fields itself (webdav `pass`), and non-password
+  fields (S3's secret) pass through untouched — one call shape for every
+  backend.
+- bisync inside the daemon resolves the alias for its session name: the
+  listings are named `..bkraw_profiles_hero`, not `..bkremote_...`. The
+  budget arithmetic still holds (`bkraw` is as short as `bkremote`), but
+  anyone renaming the raw remote must re-check the session-name budget.
+- A spawned test child needs a real environment map — with an empty one a
+  Windows process dies before `main` (no `SystemRoot`) and reads as a
+  server that never comes up.
