@@ -52,3 +52,35 @@ Open for later packets, not defects here:
   scripts, so those cases return early there, and the MSVC target cannot be
   built from macOS. P08-M02 is where it becomes real.
 
+P00-M03 macOS checkpoint: 22/22 pass both with and without a real rclone —
+`BK_TEST_RCLONE` selects one, otherwise the three live cases return early, so a
+machine without rclone still passes. With the pinned v1.75.0 binary the live
+path spawns, answers `core/version`, rejects a wrong password on the same port,
+reports its config as `<gamedir>/cloudsync/rclone.conf` (proving `RCLONE_CONFIG`
+took effect rather than merely being set), and leaves no process behind:
+`pgrep -fl rclone` is empty afterwards. Commit `631202691`.
+
+Identity for reaping is all three of pid alive, start time equal, and the
+process answering `core/version` with the credentials derived from the recorded
+nonce; anything less returns `.refused_foreign_process` or
+`.refused_unauthenticated` and leaves the process alone on a fresh port. Start
+time comes from public `sysctl(KERN_PROC_PID)` on macOS, `/proc/<pid>/stat`
+field 22 on Linux, `GetProcessTimes` on Windows. The test that pins this forges
+a record naming **the test process itself** with `start_time + 1`: a pid-only
+supervisor would kill its own runner.
+
+Carried forward:
+
+- **`std.crypto.random` does not exist in Zig 0.16.** Credentials use
+  `io.randomSecure()` falling back to `io.random()`. Later packets wanting
+  randomness should not reach for the name the packet text used.
+- Windows is semantically analyzed only — the job object, `GetProcessTimes` and
+  `TerminateProcess` compile for `x86_64-windows-gnu` (verified by injecting a
+  type error and watching only that target reject it), but `x86_64-windows-msvc`
+  cannot even be configured from macOS. Linux `/proc` parsing is likewise
+  compile-only. P08 is where both become real.
+- `waitReady` has no fast path for a child that exits immediately; it waits out
+  the full budget and reports `.daemon_timeout` with the log tail.
+- Refusals are returned as `Reap{outcome, pid}` rather than logged, since there
+  is no logging façade yet and stderr fails a test step. P07-M01 surfaces them.
+
