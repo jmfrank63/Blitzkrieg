@@ -13,7 +13,7 @@
 - [ ] Save on A, sync, sync on B, and confirm the save arrives and loads.
 - [ ] Delete a save on A, sync both, and confirm it is gone on B **and** recoverable from the trash. This is the case that killed the add-only design and it must be demonstrated, not argued.
 - [ ] Edit the same save on both machines while offline, then sync both, and confirm the newer wins on both sides with the loser preserved as `.conflictN` on both.
-- [ ] Back up config on A, restore it on B in merge mode, and confirm B keeps its own resolution and monitor.
+- [ ] Back up config on A, restore it on B in merge mode, restart B, and confirm the restored values survived the shutdown rewrite while B kept its own resolution and monitor.
 - [ ] Run one deliberate mass-delete to confirm `too many deletes` surfaces as a prompt rather than mirroring the wipe.
 - [ ] Confirm neither machine ever wrote its own sentinel over the other's.
 - [ ] Human approval on both machines is required.

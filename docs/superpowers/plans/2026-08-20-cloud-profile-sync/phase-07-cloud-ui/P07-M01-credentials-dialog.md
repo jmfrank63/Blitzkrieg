@@ -10,8 +10,9 @@
 
 - [ ] Model the screen on the player-profile dialog, the existing precedent for an edit-box screen reached from a menu.
 - [ ] Reuse the settings tab-bar 9-slice for buttons: the plain bar at 590,957 and the gold-outline active bar at 590,888 in `ui\IntermissionTextures\back-settings`, both 433x66, as `PlayerProfile.xml` already does.
-- [ ] Provide fields for endpoint, bucket, region, access key, and secret, with the secret masked.
-- [ ] Populate from `NCloudSync` credentials load, which deliberately does not return the secret — show a masked placeholder when `has_secret` is set, and send a secret only when the player types a new one.
+- [ ] **Show fields per protocol, not one union of everything.** S3 asks for vendor, endpoint, bucket, region, access key, and secret; WebDAV asks for URL, vendor, user, and password. Switching `Cloud.Provider` swaps the field set — presenting a WebDAV user with a bucket field is how a configuration screen teaches people the software does not know what it is doing.
+- [ ] Mask the secret and password fields.
+- [ ] Populate from `NCloudSync` credentials load, which deliberately does not return the secret — show a masked placeholder when `has_secret` is set, and send a secret only when the player types a new one. Saving without touching that field preserves the stored secret (P03-M01); offer clearing as an explicit action, never as a consequence of an empty box.
 - [ ] Write through `NCloudSync`; the dialog must never call `IOptionSystem::Set` for these values, which would truncate anything over 12 characters to 8.
 - [ ] Wire "Test connection" to the pollable `NCloudSync` connection test, showing the classified outcome rather than a bare failure, and never blocking the UI thread while it runs.
 - [ ] Reach the dialog from the Cloud tab as a screen button, since the options list renders only declared options and none of these are options.

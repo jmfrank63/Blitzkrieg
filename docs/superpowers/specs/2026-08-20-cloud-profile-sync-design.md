@@ -153,14 +153,24 @@ far more adversarial testing than anything we would write.
   `backupDir1` and `backupDir2` divert every deletion and overwrite into a
   trash directory, relative paths preserved (`trash/saves/m2.sav`).
 
-  **There are two trashes, not one.** rclone requires each backup directory to
-  live on its own side's filesystem — pointing `backupDir2` at a local path
-  while Path2 is a remote fails the run outright with `parameter to
-  --backup-dir has to be on the same remote as destination` (verified). So
-  `backupDir1` is local, under the profile, and `backupDir2` is a directory on
-  the remote, outside the synced prefix and excluded by the filters so it is
-  never itself synced. Between `.conflictN` and the two trashes, both ways a
-  save can be at risk are recoverable. Trash is pruned by age, not by sync.
+  **There are two trashes, not one, and a fresh directory per run.** rclone
+  requires each backup directory to live on its own side's filesystem —
+  pointing `backupDir2` at a local path while Path2 is a remote fails the run
+  outright with `parameter to --backup-dir has to be on the same remote as
+  destination` (verified). So `backupDir1` is local under the profile and
+  `backupDir2` is on the remote.
+
+  Each run gets its own trash directory, `<trash>/<run_id>/`. rclone
+  **overwrites** an existing backup at the same resulting path: deleting
+  `saves/m2.sav`, recreating it and deleting it again left only the second
+  version and destroyed the first (verified). Save filenames recur constantly
+  — `quick.sav` and the autosaves are the same name every time — so a shared
+  trash root loses recovery copies during ordinary play. A unique per-run
+  `_config.Suffix` is an equally valid fix and also verified, but only when
+  the suffix is itself unique per run; a constant one collapses identically.
+
+  Between `.conflictN` and the two run-scoped trashes, both ways a save can be
+  at risk are recoverable. Trash is pruned whole runs at a time, not by sync.
 - **One delete always passes; mass deletion trips the breaker.** `maxDelete`
   is a *percentage* (`deleted / oldCount > maxDelete/100` aborts), an awkward
   shape for a profile holding three saves — deleting the only save would be
@@ -183,7 +193,20 @@ far more adversarial testing than anything we would write.
   sentinel as cosmetic.
 - **Scope.** Path1 is `profiles/<name>/`, path2 is `<remote>/profiles/<name>/`.
   Profiles sync independently, so a corrupt pairing on one does not touch
-  another.
+  another. **Nothing that is not a profile lives under path2** — the trash and
+  the config backups are siblings of `profiles/`, because anything beneath the
+  synced prefix is by definition synced back down to every machine:
+
+  ```
+  <remote>/profiles/<name>/               path2, synced
+  <remote>/trash/<name>/<run_id>/          backupDir2
+  <remote>/config-backups/<name>/<host>/   config snapshots
+  ```
+- **The remote directories must exist before the first pairing.** bisync needs
+  both base directories present and otherwise aborts a first resync with
+  `error reading source root directory: directory not found` (verified, even
+  against a local path2). An `operations/mkdir` precedes pairing — the empty
+  remote is the normal first-run state, not an edge case.
 - **Filters.** Excluded from sync:
   - `config.cfg` — carries `GFX.Mode`, `GFX.Monitor`, `GFX.FullScreen`. This
     codebase spent real work making display choices persist *per machine*;
@@ -201,8 +224,8 @@ far more adversarial testing than anything we would write.
 Backups are a separate, one-way mechanism with no bisync involvement:
 
 - After a successful sync, the current config is snapshotted to
-  `<remote>/profiles/<name>/config-backups/<host>/<timestamp>.cfg` with a
-  single `operations/copyfile`. No listings, no session state, no delete
+  `<remote>/config-backups/<name>/<host>/<timestamp>.cfg` — a sibling of
+  `profiles/`, not a child of it — with a single `operations/copyfile`. No listings, no session state, no delete
   ratios — none of bisync's machinery applies.
 - **Backups are never pulled automatically.** Restoring is always an explicit
   player action, which is the whole point of the split: the cloud holds the
@@ -219,6 +242,15 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   is silent.
 - The current config is copied into the local trash before a restore
   overwrites it, so restoring is itself undoable.
+- **A restore is staged, never applied live.** The game rewrites `config.cfg`
+  from its in-memory options at shutdown (`GameMain.cpp:1182`) and again
+  whenever the settings screen is confirmed (`InterfaceOptionsSettings.cpp:344`),
+  so a restored file written under a running game is discarded before the
+  player ever sees it. The merged result goes to `config.cfg.pending-restore`
+  and is moved into place at the next startup, in the same early window the
+  sync hook uses — before the option system reads the file. Undo takes the
+  same path, and acceptance tests a restore across a real restart, because a
+  same-session check passes while the feature is broken.
 
 ## In-game configuration
 
@@ -269,10 +301,23 @@ Cloud.Sync.OnExit      EditorType 3   Off / On
 Cloud.Config.Backup    EditorType 3   Off / On
 ```
 
-Endpoint, bucket, access key and secret are edited in a dedicated dialog
-reached from the tab — the player-profile dialog is the precedent for an
-edit-box screen — and are written to `profiles/cloud.credentials`, never
-through the option system.
+Connection details are edited in a dedicated dialog reached from the tab — the
+player-profile dialog is the precedent for an edit-box screen — and written to
+`profiles/cloud.credentials`, never through the option system.
+
+That file uses a **tagged schema**, because the two backends share almost no
+fields: an `s3` arm carrying vendor, endpoint, bucket, region, access key and
+secret, and a `webdav` arm carrying URL, vendor, user and password. The dialog
+shows one arm at a time. Note that rclone's S3 `provider` names the vendor
+behind the protocol (AWS, Cloudflare, Minio) while the game's `Cloud.Provider`
+selects the protocol itself — same word, different question, so the stored
+field is `s3_provider`.
+
+The secret is never handed back out: the load path returns a `has_secret` flag
+and the dialog shows a placeholder. Saving without touching that field
+therefore has to **preserve** the stored secret rather than write an empty
+one, or editing an endpoint would silently destroy the credential. Clearing is
+a separate deliberate action.
 
 That separation is not only about the truncation. `config.cfg` is uploaded by
 the backup mechanism above, so **credentials kept in it would be pushed into

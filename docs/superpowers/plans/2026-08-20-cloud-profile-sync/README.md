@@ -47,7 +47,9 @@ Excluded:
 ## Global invariants
 
 - **A sync never destroys a save.** Conflict losers survive as `.conflictN`; deletions and overwrites are diverted to trash by `backupDir1`/`backupDir2`. A packet that can lose a save is wrong even if its tests pass.
-- **There are two trashes.** `backupDir1` must live on Path1's filesystem and `backupDir2` on Path2's. A local path passed as `backupDir2` against a remote Path2 fails the run with `parameter to --backup-dir has to be on the same remote as destination`.
+- **There are two trashes, and a fresh directory per run.** `backupDir1` must live on Path1's filesystem and `backupDir2` on Path2's. A local path passed as `backupDir2` against a remote Path2 fails the run with `parameter to --backup-dir has to be on the same remote as destination`. Both are `<trash>/<run_id>/`: rclone overwrites a backup at an existing path, so a shared root destroys the earlier copy of any filename that recurs — and save filenames recur constantly.
+- **Nothing but the profile lives under Path2.** The trash and the config backups are siblings of `profiles/`, never children of it; anything beneath Path2 is synced back down by definition.
+- **A restored config is staged, never written live.** The game rewrites `config.cfg` from memory at shutdown and on settings OK, so a live write is discarded before the player sees it.
 - **Every `resync` carries `resyncMode: "newer"`.** `conflictResolve` does not apply during a resync, which defaults to Path1 winning and renames nothing — pairing a machine holding an older save silently destroys the newer cloud copy without a conflict file or a trash entry.
 - **The sentinel is written on Path1 only, never seeded on the remote.** Two independently created copies differ in modification time and bisync rejects the resync as out of sync.
 - Path1 is always the short game-managed link, never the install path. The projected bisync session name is validated before every run.
@@ -84,6 +86,14 @@ Excluded:
 - `Sources/src/Game/GameMain.cpp` — startup pull before the profile config is read; exit push.
 - `Sources/src/GameTT/InterfaceOptionsSettings.cpp/.h` — stale division constants, bounds guard, Cloud tab hooks.
 - `Sources/src/GameTT/InterfaceCloudCredentials.cpp/.h` — the credentials dialog.
+
+### Remote layout
+
+```
+<remote>/profiles/<name>/               Path2 — the only synced prefix
+<remote>/trash/<name>/<run_id>/         backupDir2, one directory per run
+<remote>/config-backups/<name>/<host>/  config snapshots, never synced
+```
 
 ### Data
 

@@ -10,9 +10,11 @@
 
 - [ ] Write the failing test asserting a pre-restore copy exists and reproduces the original byte for byte.
 - [ ] Before a restore writes anything, copy the current `config.cfg` to `.cloudsync-trash/config/<timestamp>.cfg`, reusing the local trash that already protects saves.
-- [ ] Implement `undoRestore(allocator, ctx) !void` reinstating the most recent pre-restore copy, and export `bk_cloudsync_restore_undo() i32` plus `bk_cloudsync_restore_undo_available() u32` so the UI can offer it only when it exists. Own the whole export path.
+- [ ] Implement `undoRestore(allocator, ctx) !void` reinstating the most recent pre-restore copy **through the same staging path as the restore** — write it to `config.cfg.pending-restore` and let startup apply it. An undo that writes `config.cfg` live is discarded by the shutdown rewrite exactly as an unstaged restore is (P04-M03).
+- [ ] If a restore is still staged and unapplied, undo simply deletes the pending file; there is nothing to reinstate yet, and rewriting the config would be wrong.
+- [ ] Export `bk_cloudsync_restore_undo() i32` and `bk_cloudsync_restore_undo_available() u32` so the UI offers undo only when a pre-restore copy or a pending file exists. Own the whole export path.
 - [ ] Write the restored config through temp-file-then-rename, so an interrupted restore cannot leave a half-written config the game then fails to parse.
 - [ ] Exempt pre-restore copies from `pruneTrash` age limits up to `min_keep`; they are small and are the only undo path.
 - [ ] Commit checkpoint: `cloudsync: make config restore undoable`.
 
-**Evidence:** Unit tests show a byte-identical undo after both a merge restore and a full restore, driven through the ABI.
+**Evidence:** Unit tests show a byte-identical undo after both a merge restore and a full restore across a simulated restart, plus the staged-but-unapplied case where undo discards the pending file.
