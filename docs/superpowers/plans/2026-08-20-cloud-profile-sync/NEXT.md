@@ -1,8 +1,8 @@
 # Next Packet
 
-Resume at `phase-02-sync-engine/P02-M03-error-classification.md`.
+Resume at `phase-02-sync-engine/P02-M04-trash-retention.md`.
 
-**Phases 00 and 01 are complete; P02-M01 and P02-M02 are done.** Phase 00's gate is met
+**Phases 00 and 01 are complete; P02-M01 through P02-M03 are done.** Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
 branch moved to a real Windows 11 machine and every suite ran natively on
 `x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
@@ -38,7 +38,7 @@ zig build test-cloudsync-rc      -Dtest-mode=run    #  6
 zig build test-cloudsync-daemon  -Dtest-mode=run    # 22
 zig build test-cloudsync-abi     -Dtest-mode=run    #  9 + C++ consumer
 zig build test-cloudsync-plan    -Dtest-mode=run    # 35
-zig build test-cloudsync-engine  -Dtest-mode=run    #  7 (3 live with BK_TEST_RCLONE)
+zig build test-cloudsync-engine  -Dtest-mode=run    # 12 (3 more live with BK_TEST_RCLONE)
 zig build test-cloudsync-worker  -Dtest-mode=run    #  3 (1 live with BK_TEST_RCLONE)
 zig build test-streamio          -Dtest-mode=run    # 32 (regression)
 ```
@@ -80,9 +80,8 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-02-sync-engine/P02-M03-error-classification.md` — turn every
-rclone failure into something a player can act on. The raw material is
-`Engine.lastErrorText()`: the job's error plus the bisync run log.
+**Next:** `phase-02-sync-engine/P02-M04-trash-retention.md` — two-sided trash
+retention and pruning over the run-scoped directories P01-M04 emits.
 
 ## Corrections applied after review
 

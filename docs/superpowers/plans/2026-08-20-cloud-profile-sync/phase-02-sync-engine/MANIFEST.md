@@ -87,3 +87,34 @@ Carried forward from P02-M02:
   remote before the worker spawns the daemon — the exact arrangement the
   credentials packet produces in production, and it proves the daemon reads
   a pre-existing config rather than needing rc-side creation.
+
+P02-M03 Windows checkpoint: `zig build test-cloudsync-engine -Dtest-mode=run`
+passes 12/12 natively (17 with the live daemon), every classification fixture
+a captured real v1.75.0 failure recorded in
+`docs/superpowers/evidence/cloud-sync/failure-texts-v1.75-windows.md`.
+Cross-targets compile; worker, plan and streamio unaffected. Commit
+`39c193897`.
+
+Carried forward from P02-M03:
+
+- **The resync trailer is a consequence, not a cause.** Auth failures and
+  unreachable-network failures both end in the identical `Bisync aborted.
+  Must run --resync to recover.` (captured), so `classifyText` tests cause
+  patterns first and a dedicated test pins the order. Anyone adding patterns
+  must keep causes above the trailer.
+- **Windows spells "name too long" differently**: bisync's canned `syntax
+  error detected in your path(s)` wrapping `The filename, directory name, or
+  volume label syntax is incorrect.` POSIX says `file name too long`. Both
+  are patterns; P08-M01 should confirm the POSIX capture on macOS.
+- `recovery()` is a total switch — a new `Outcome` without a decision fails
+  to compile — and no `Recovery` arm can express a force retry, which is how
+  "never auto-force the delete guard" is made structural.
+- `Engine.recordError` stores classification (`lastOutcome()`) plus a
+  redacted 200-line log tail; the raw log never escapes that function.
+  `classifyTransport` covers errors with no log; rc-level `Unauthorized` is
+  `daemon_gone` (foreign process on our port), never `auth_failed`.
+- The connection-string capture shows rclone printing `user=…,pass=…` inside
+  filesystem names in error lines — the concrete reason redaction is not
+  optional. P02-M05's ABI error string carries `lastErrorText()`, which is
+  already redacted; the worker snapshot's 512-byte copy truncates it, so the
+  ABI should read the engine text, not the snapshot, for support reports.
