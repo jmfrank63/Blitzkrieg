@@ -11,6 +11,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const backup = @import("backup.zig");
 const daemon = @import("daemon.zig");
+const engine = @import("engine.zig");
 const plan = @import("plan.zig");
 const rc = @import("rc.zig");
 const worker = @import("worker.zig");
@@ -202,6 +203,100 @@ test "a snapshot lands per host outside the synced prefix" {
         error.FileNotFound,
         std.Io.Dir.cwd().statFile(io, profiles_dir, .{}),
     );
+}
+
+test "backups list newest-first across hosts and prune per host" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const cloud = try fixture.makeDir("cloud");
+    defer gpa.free(cloud);
+
+    // Two hosts, mixed ages, plus things a listing must ignore: a non-cfg
+    // file and a nested directory no snapshot would create.
+    const tree = [_][2][]const u8{
+        .{ "config-backups/hero/HostA/20260810T100000Z-aaaaaaaa.cfg", "a-old" },
+        .{ "config-backups/hero/HostA/20260820T100000Z-bbbbbbbb.cfg", "a-mid" },
+        .{ "config-backups/hero/HostA/20260821T100000Z-cccccccc.cfg", "a-new" },
+        .{ "config-backups/hero/HostB/20260601T100000Z-dddddddd.cfg", "b-only" },
+        .{ "config-backups/hero/HostA/notes.txt", "not a snapshot" },
+        .{ "config-backups/hero/HostA/deep/stray.cfg", "not ours either" },
+    };
+    for (tree) |leaf| {
+        const at = try path.join(gpa, &.{ cloud, leaf[0] });
+        defer gpa.free(at);
+        try fixture.write(at, leaf[1]);
+    }
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    try createAliasRemote(gpa, &client, "bkremote", cloud);
+
+    var list = try backup.listBackups(gpa, &client, "bkremote", "hero");
+    defer list.deinit();
+    try std.testing.expectEqual(@as(usize, 4), list.entries.len);
+
+    // Newest first, across hosts.
+    try std.testing.expectEqualStrings("HostA/20260821T100000Z-cccccccc.cfg", list.entries[0].id);
+    try std.testing.expectEqualStrings("HostA/20260820T100000Z-bbbbbbbb.cfg", list.entries[1].id);
+    try std.testing.expectEqualStrings("HostA/20260810T100000Z-aaaaaaaa.cfg", list.entries[2].id);
+    try std.testing.expectEqualStrings("HostB/20260601T100000Z-dddddddd.cfg", list.entries[3].id);
+
+    try std.testing.expectEqualStrings("HostA", list.entries[0].host);
+    try std.testing.expectEqual(engine.runIdTimestamp("20260821T100000Z-cccccccc").?, list.entries[0].timestamp);
+    try std.testing.expectEqual(@as(u64, 5), list.entries[0].size);
+    try std.testing.expect(std.mem.startsWith(
+        u8,
+        list.entries[0].remote_path,
+        "bkremote:config-backups/hero/HostA/",
+    ));
+
+    // Retention: per host, never globally. HostA keeps its newest and loses
+    // two; HostB's only — and therefore newest — entry survives even though
+    // it is the oldest file in the whole tree.
+    const removed = try backup.pruneBackups(gpa, &client, "bkremote", "hero", 1);
+    try std.testing.expectEqual(@as(u32, 2), removed);
+
+    for ([_][]const u8{
+        "config-backups/hero/HostA/20260821T100000Z-cccccccc.cfg",
+        "config-backups/hero/HostB/20260601T100000Z-dddddddd.cfg",
+        "config-backups/hero/HostA/notes.txt",
+    }) |kept| {
+        const at = try path.join(gpa, &.{ cloud, kept });
+        defer gpa.free(at);
+        _ = try std.Io.Dir.cwd().statFile(io, at, .{});
+    }
+    for ([_][]const u8{
+        "config-backups/hero/HostA/20260820T100000Z-bbbbbbbb.cfg",
+        "config-backups/hero/HostA/20260810T100000Z-aaaaaaaa.cfg",
+    }) |gone| {
+        const at = try path.join(gpa, &.{ cloud, gone });
+        defer gpa.free(at);
+        try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, at, .{}));
+    }
+
+    // keep_per_host of zero still keeps the newest: the retention setting
+    // can bound history, never erase it.
+    const zero_removed = try backup.pruneBackups(gpa, &client, "bkremote", "hero", 0);
+    try std.testing.expectEqual(@as(u32, 0), zero_removed);
+
+    // A profile with no backups lists as empty rather than failing.
+    var none = try backup.listBackups(gpa, &client, "bkremote", "nobody");
+    defer none.deinit();
+    try std.testing.expectEqual(@as(usize, 0), none.entries.len);
 }
 
 test "the worker snapshots after a clean sync and nothing syncs back down" {

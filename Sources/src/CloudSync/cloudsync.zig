@@ -523,6 +523,7 @@ comptime {
     std.debug.assert(@intFromEnum(worker.Outcome.synced) == 2);
     std.debug.assert(@intFromEnum(worker.Outcome.failed) == 3);
     std.debug.assert(@intFromEnum(worker.Outcome.connection_ok) == 4);
+    std.debug.assert(@intFromEnum(worker.Outcome.backups_listed) == 5);
 }
 
 const module_gpa = std.heap.smp_allocator;
@@ -771,6 +772,54 @@ pub export fn bk_cloudsync_cancel(handle: i32) callconv(.c) void {
     if (slot.active) {
         if (sync_worker) |w| w.cancel();
     }
+}
+
+/// Start fetching the backup listing for `profile` — networked, therefore a
+/// pollable job like every other; outcome `backups_listed` (5) on done. The
+/// entries are then read one at a time with `bk_cloudsync_backup_entry`.
+pub export fn bk_cloudsync_backup_list(
+    game_dir: [*:0]const u8,
+    profile: [*:0]const u8,
+) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    return enqueueLocked(std.mem.span(game_dir), .{
+        .kind = .list_backups,
+        .path1 = "",
+        .remote = creds.sync_remote_name,
+        .profile = std.mem.span(profile),
+        .profile_id = "",
+        .remote_fingerprint = "",
+    });
+}
+
+/// Write entry `index` of the most recent completed listing into `json_out`
+/// as NUL-terminated `{id, host, timestamp, size, remote_path}` and return
+/// its length, or -1 past the end — which is also how a caller counts.
+pub export fn bk_cloudsync_backup_entry(
+    handle: i32,
+    index: u32,
+    json_out: [*]u8,
+    cap: u32,
+) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    _ = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return -1;
+    };
+    const w = sync_worker orelse {
+        setError("cloud sync: no worker is running");
+        return -1;
+    };
+    const length = w.backupEntryJson(index, json_out[0..cap]) orelse {
+        setError("cloud sync: no such backup entry");
+        return -1;
+    };
+    clearError();
+    return @intCast(length);
 }
 
 /// Invalidate the handle. Shared state — the worker, the daemon, the rc

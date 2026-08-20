@@ -54,7 +54,7 @@ pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, tes
 
 /// How the last finished job ended. `.none` until the first job finishes.
 /// Appended, never reordered, for the same reason.
-pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok };
+pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed };
 
 /// Reserved for the sync indicator; the worker publishes states today and
 /// null progress, and nothing downstream may assume otherwise.
@@ -92,7 +92,7 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync, test_connection };
+pub const JobKind = enum { pair, sync, test_connection, list_backups };
 
 /// A job as the caller describes it. Every slice is copied by `begin`; none
 /// needs to outlive the call.
@@ -110,6 +110,9 @@ pub const JobSpec = struct {
     /// This machine's name, for the per-host backup key. Sanitised in
     /// `backup.zig`.
     host: []const u8 = "",
+    /// Retention applied after a successful snapshot: keep this many per
+    /// host, newest always surviving.
+    backup_keep_per_host: u32 = 10,
 };
 
 pub const Options = struct {
@@ -139,6 +142,7 @@ const JobBox = struct {
     ctx: engine.RunContext,
     backup_config: bool,
     host: []const u8,
+    backup_keep_per_host: u32,
 };
 
 pub const Worker = struct {
@@ -156,6 +160,11 @@ pub const Worker = struct {
     stop_flag: std.atomic.Value(bool) = .init(false),
     cancel_flag: std.atomic.Value(bool) = .init(false),
     task: ?Io.Future(void) = null,
+
+    /// The most recent `.list_backups` result, mutex-guarded, replaced by
+    /// the next listing and freed on destroy. Readers copy out through
+    /// `backupEntryJson`; nobody holds a pointer in.
+    backup_list: ?backup.BackupList = null,
 
     /// Heap-allocated because the worker task holds `self` for its lifetime;
     /// the pointer must not move.
@@ -190,6 +199,7 @@ pub const Worker = struct {
         if (self.task) |*task| task.await(self.io);
 
         if (self.pending) |box| freeJob(self.gpa, box);
+        if (self.backup_list) |*list| list.deinit();
         self.gpa.free(self.game_dir);
         const gpa = self.gpa;
         self.* = undefined;
@@ -218,6 +228,7 @@ pub const Worker = struct {
         };
         box.backup_config = spec.backup_config;
         box.host = try arena.dupe(u8, spec.host);
+        box.backup_keep_per_host = spec.backup_keep_per_host;
 
         self.mutex.lockUncancelable(self.io);
         defer self.mutex.unlock(self.io);
@@ -246,6 +257,27 @@ pub const Worker = struct {
     /// server-side; the worker reports `.failed` with a cancellation text.
     pub fn cancel(self: *Worker) void {
         self.cancel_flag.store(true, .release);
+    }
+
+    /// Serialise entry `index` of the most recent backup listing into `out`
+    /// as NUL-terminated JSON and return its length, or null when there is
+    /// no listing or no such entry. A value copy under the mutex — the
+    /// listing can be replaced the moment this returns.
+    pub fn backupEntryJson(self: *Worker, index: usize, out: []u8) ?usize {
+        if (out.len == 0) return null;
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+
+        const list = self.backup_list orelse return null;
+        if (index >= list.entries.len) return null;
+        const entry = list.entries[index];
+
+        var writer: std.Io.Writer = .fixed(out[0 .. out.len - 1]);
+        var json: std.json.Stringify = .{ .writer = &writer };
+        writeEntry(&json, entry) catch return null;
+        const length = writer.buffered().len;
+        out[length] = 0;
+        return length;
     }
 
     // -- worker side ---------------------------------------------------------
@@ -294,7 +326,9 @@ pub const Worker = struct {
         self.publishState(switch (box.kind) {
             .pair => .pairing,
             .sync => .syncing,
-            .test_connection => .testing,
+            // Probe-shaped fetches share the testing state: short, networked,
+            // and nothing a UI needs to distinguish while it spins.
+            .test_connection, .list_backups => .testing,
         });
 
         switch (box.kind) {
@@ -321,9 +355,32 @@ pub const Worker = struct {
                         .profile = box.ctx.profile,
                         .host = box.host,
                     }) catch null;
-                    if (snapshot) |name| self.gpa.free(name);
+                    if (snapshot) |name| {
+                        self.gpa.free(name);
+                        // Retention only after a snapshot actually landed —
+                        // a failed upload must not become the trigger that
+                        // deletes old copies.
+                        _ = backup.pruneBackups(
+                            self.gpa,
+                            eng.client,
+                            box.ctx.remote,
+                            box.ctx.profile,
+                            box.backup_keep_per_host,
+                        ) catch 0;
+                    }
                 }
                 self.publishDone(.synced);
+            },
+            .list_backups => {
+                const list = backup.listBackups(self.gpa, eng.client, box.ctx.remote, box.ctx.profile) catch |err| {
+                    self.publishFailure(err, eng.lastErrorText());
+                    return;
+                };
+                self.mutex.lockUncancelable(self.io);
+                if (self.backup_list) |*previous| previous.deinit();
+                self.backup_list = list;
+                self.mutex.unlock(self.io);
+                self.publishDone(.backups_listed);
             },
             .test_connection => {
                 const result = eng.testConnection(box.ctx.remote) catch {
@@ -500,6 +557,21 @@ pub const Worker = struct {
 fn freeJob(gpa: Allocator, box: *JobBox) void {
     box.arena.deinit();
     gpa.destroy(box);
+}
+
+fn writeEntry(json: *std.json.Stringify, entry: backup.BackupEntry) !void {
+    try json.beginObject();
+    try json.objectField("id");
+    try json.write(entry.id);
+    try json.objectField("host");
+    try json.write(entry.host);
+    try json.objectField("timestamp");
+    try json.write(entry.timestamp);
+    try json.objectField("size");
+    try json.write(entry.size);
+    try json.objectField("remote_path");
+    try json.write(entry.remote_path);
+    try json.endObject();
 }
 
 fn sleepMs(io: Io, ms: u32) void {

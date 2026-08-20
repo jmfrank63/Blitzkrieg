@@ -53,6 +53,10 @@ unsigned int bk_cloudsync_creds_present(void);
 // A pollable probe of the configured remote; on failure the handle's error
 // text begins with the classified outcome name.
 int bk_cloudsync_test_connection(const char *game_dir);
+// Backup listing: a pollable fetch (outcome 5 = backups_listed), then one
+// JSON entry per index; -1 past the end.
+int bk_cloudsync_backup_list(const char *game_dir, const char *profile);
+int bk_cloudsync_backup_entry(int handle, unsigned int index, unsigned char *json_out, unsigned int cap);
 }
 
 static int failures = 0;
@@ -550,6 +554,33 @@ static void sync_full_cycle()
     std::snprintf(at2, sizeof at2, "%s/.cloudsync-trash", profile);
     check(trash_holds(at2, "f-remote.sav"),
           "the remotely deleted file's local copy is in the local trash");
+
+    // The backup listing, through the same handle machinery: two snapshots
+    // planted for one host, fetched and read back entry by entry.
+    std::snprintf(at, sizeof at, "%s/config-backups/hero/RigA/20260801T090000Z-0a0a0a0a.cfg", cloud);
+    write_file(at, "older-snapshot");
+    std::snprintf(at, sizeof at, "%s/config-backups/hero/RigA/20260821T090000Z-0b0b0b0b.cfg", cloud);
+    write_file(at, "newer-snapshot");
+    const int listing = bk_cloudsync_backup_list(game, "hero");
+    check(listing >= 0, "backup_list hands out a handle");
+    if (listing >= 0)
+    {
+        const unsigned int listed = poll_to_rest(listing, 60000);
+        if (listed != 4u)
+            std::fprintf(stderr, "cloudsync-abi-test: listing error: %s\n", bk_cloudsync_error(listing));
+        check(listed == 4u, "the listing fetch reaches done");
+        check(bk_cloudsync_outcome(listing) == 5u, "with the backups_listed outcome");
+
+        unsigned char entry[1024];
+        check(bk_cloudsync_backup_entry(listing, 0, entry, sizeof entry) > 0, "entry 0 reads");
+        const char *entry_json = reinterpret_cast<const char *>(entry);
+        check(contains(entry_json, "\"host\":\"RigA\""), "the entry names its host");
+        check(contains(entry_json, "20260821T090000Z"), "and the newest snapshot comes first");
+        check(bk_cloudsync_backup_entry(listing, 1, entry, sizeof entry) > 0, "entry 1 reads");
+        check(bk_cloudsync_backup_entry(listing, 99, entry, sizeof entry) == -1,
+              "past the end is -1, which is how a caller counts");
+        bk_cloudsync_release(listing);
+    }
 
     // Shutdown with everything released stops worker and daemon; the fixture
     // tree can then be removed, which doubles as proof nothing keeps a handle
