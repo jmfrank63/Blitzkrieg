@@ -19,6 +19,56 @@ The design below is unchanged. The design at
 `docs/superpowers/specs/2026-08-20-cloud-profile-sync-design.md` had its
 behavioural claims measured against rclone v1.75.0 on macOS arm64.
 
+## Resuming on another machine
+
+Branch `feature/cloud-profile-sync`. Everything needed to continue is in the
+repository; nothing lives only on the machine it was written on.
+
+**Done so far:** all of phase 00 plus `P01-M01`. Five build steps green on
+macOS — 52 tests — with `test-streamio` unaffected:
+
+```
+zig build test-cloudsync-rc      -Dtarget=aarch64-macos -Dtest-mode=run    #  6
+zig build test-cloudsync-daemon  -Dtarget=aarch64-macos -Dtest-mode=run    # 22
+zig build test-cloudsync-abi     -Dtarget=aarch64-macos -Dtest-mode=run    #  9 + C++ consumer
+zig build test-cloudsync-plan    -Dtarget=aarch64-macos -Dtest-mode=run    # 15
+zig build test-streamio          -Dtarget=aarch64-macos -Dtest-mode=run    # 32 (regression)
+```
+
+Run `zig build` **from the repository root only** — anywhere else it aborts
+with a FileNotFound panic. Toolchain is Zig 0.16.0.
+
+**rclone is not in the repository and must be fetched per machine.** Only the
+phase-00 daemon tests want a live one, and they skip cleanly without it:
+
+```
+BK_TEST_RCLONE=/path/to/rclone zig build test-cloudsync-daemon \
+    -Dtarget=aarch64-macos -Dtest-mode=run
+```
+
+Use v1.75.0 or newer; `daemon.zig` gates at 1.66 because the plan depends on
+`resyncMode`, on `backupDir1`/`backupDir2` as rc parameters, and on the
+non-suffixed bisync listing filenames.
+
+**Target matrix as it stands.** Run-verified: `aarch64-macos` only.
+Compile-verified: `x86_64-linux-gnu`, `aarch64-linux-gnu`,
+`x86_64-windows-gnu`. Not configurable from macOS at all:
+`x86_64-windows-msvc` (needs the MSVC toolchain) and `x86_64-macos` (SDL wants
+`--sysroot`, reproducible on the unchanged tree). Windows and Linux become real
+at P08.
+
+**Where the findings are.** Each phase `MANIFEST.md` carries a checkpoint per
+completed packet: the exact commands, what passed, and anything later packets
+must know. `docs/superpowers/evidence/cloud-sync/` holds measurements taken
+outside the test suite. Read the phase-00 manifest before writing any Zig — it
+records four APIs the packet texts assumed that do not exist in Zig 0.16
+(`std.crypto.random`, `std.Thread.Mutex`, `std.net.Server`, `std.posix.symlink`),
+plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
+build test step fails if its binary writes anything at all to stderr.
+
+**Next:** `phase-01-planning-primitives/P01-M02-session-budget.md` — pure
+arithmetic over path mangling, no platform risk, fully verifiable anywhere.
+
 ## Corrections applied after review
 
 The first draft of this plan would have failed in two ways that testing
