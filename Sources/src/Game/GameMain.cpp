@@ -30,6 +30,7 @@
 #include <filesystem>
 #include "../StreamIO/OptionSystem.h"
 
+#include "../Main/CloudSyncFacade.h"
 #include "../Main/iMain.h"
 #include "../Main/GameDB.h"
 #include "../Main/GameStats.h"
@@ -232,6 +233,42 @@ static void ArmAllModulesLeakOnExit()
 void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
 static std::string szLaunchDirectory;
+
+// The startup sync's handle, polled by the main loop until it settles; the
+// sync indicator packet will own presenting its state.
+static int g_nCloudStartupSync = -1;
+
+// Whether a Cloud.* droplist option reads ON in the profile's config - by a
+// minimal scan of the raw XML, because this is asked before the option
+// system has initialised (the whole point of the startup window is that the
+// config has not been read yet). Inside an item the live <Var> comes first
+// and the <Default> block - with its own inner <Var> - sits between it and
+// <KeyName>, so the scan must take the FIRST <Var> after the enclosing
+// item's start; the nearest one before the key is always the default.
+// Anything missing or malformed is OFF.
+static bool CloudOptionIsOn( const std::string &szConfigPath, const char *pszKey )
+{
+	std::ifstream file( szConfigPath, std::ios::binary );
+	if ( !file )
+		return false;
+	std::string szContent( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+
+	const std::string szNeedle = std::string( "<KeyName>" ) + pszKey + "</KeyName>";
+	const std::string::size_type nKeyAt = szContent.find( szNeedle );
+	if ( nKeyAt == std::string::npos )
+		return false;
+	const std::string::size_type nItemAt = szContent.rfind( "<item", nKeyAt );
+	if ( nItemAt == std::string::npos )
+		return false;
+	const std::string::size_type nVarAt = szContent.find( "<Var>", nItemAt );
+	if ( nVarAt == std::string::npos || nVarAt > nKeyAt )
+		return false;
+	const std::string::size_type nVarEnd = szContent.find( "</Var>", nVarAt );
+	if ( nVarEnd == std::string::npos || nVarEnd > nKeyAt )
+		return false;
+	const std::string szValue = szContent.substr( nVarAt + 5, nVarEnd - nVarAt - 5 );
+	return szValue == "ON";
+}
 int RunGame( const BkGameLaunchInfo &launch )
 {
 	const NPlatform::Arguments &arguments = launch.arguments;
@@ -357,6 +394,44 @@ int RunGame( const BkGameLaunchInfo &launch )
 				for ( const auto &entry : std::filesystem::directory_iterator( from, pathError ) )
 					std::filesystem::rename( entry.path(), to / entry.path().filename(), pathError );
 			}
+		}
+	}
+	{
+		// Cloud sync's one startup window: the active profile is settled but
+		// its config has not been read yet (SerializeConfig below), so a
+		// staged restore applied here is exactly what that read will see.
+		// This is the only point where no SerializeConfig can have run,
+		// which is why restores stage instead of writing (P04-M03). The
+		// apply is unconditional and purely local: a restore the player
+		// already downloaded finishes even with cloud sync off or rclone
+		// missing, and "nothing staged" is the ordinary cheap answer.
+		const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+		if ( NCloudSync::ApplyPendingRestore( szProfile.c_str() ) == 1 )
+			NStr::DebugTrace( "cloud sync: applied a staged config restore for \"%s\"\n", szProfile.c_str() );
+
+		// Cloud.Sync.OnStartup lives in that same unread config, so the
+		// option system cannot answer yet - it has not initialised. A
+		// minimal scan of the raw file for the Cloud keys is deliberate,
+		// and anything missing or unparsable means disabled: a first
+		// launch, a corrupt config, and a profile that predates the
+		// feature must all do nothing and add no startup latency. The
+		// option checks run before Available(), because Available() is
+		// what probes for rclone.
+		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
+		if ( CloudOptionIsOn( szConfigPath, "Cloud.Enabled" ) &&
+				 CloudOptionIsOn( szConfigPath, "Cloud.Sync.OnStartup" ) &&
+				 NCloudSync::Available() )
+		{
+			// Begin only enqueues - the daemon spawn (reaping any orphan
+			// from a crashed run first, the P00-M03 identity-checked path)
+			// and the run itself happen on the library's worker, and the
+			// main loop polls. A slow link can never stall the first frame.
+			g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(),
+				CloudOptionIsOn( szConfigPath, "Cloud.Config.Backup" ) );
+			if ( g_nCloudStartupSync >= 0 )
+				NStr::DebugTrace( "cloud sync: startup sync begun for \"%s\"\n", szProfile.c_str() );
+			else
+				NStr::DebugTrace( "cloud sync: startup sync refused: %s\n", NCloudSync::LastError() );
 		}
 	}
 	if ( cmdp.bReferenceScene )
@@ -843,6 +918,23 @@ int RunGame( const BkGameLaunchInfo &launch )
 				SetGlobalVar( "MovieDir", cmdp.szMovieDir.c_str() );
 			NWinFrame::PumpMessages();
 			bool bActive = NWinFrame::IsActive();
+			// The startup sync, observed rather than awaited: Poll is a futex
+			// and a struct copy, no I/O. Until the sync indicator exists, done
+			// and failed just trace and release.
+			if ( g_nCloudStartupSync >= 0 )
+			{
+				const NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				if ( eCloudState == NCloudSync::STATE_DONE || eCloudState == NCloudSync::STATE_FAILED )
+				{
+					if ( eCloudState == NCloudSync::STATE_FAILED )
+						NStr::DebugTrace( "cloud sync: startup sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
+					else
+						NStr::DebugTrace( "cloud sync: startup sync finished (%s)\n",
+							NCloudSync::Outcome( g_nCloudStartupSync ) == NCloudSync::OUTCOME_PAIRED ? "paired" : "synced" );
+					NCloudSync::Release( g_nCloudStartupSync );
+					g_nCloudStartupSync = -1;
+				}
+			}
 			// BK_AUTO_UI="frame:action,..." drives the UI without a human, the way
 			// BK_GFX_TRACE watches the mode changes. Actions: settings | ok |
 			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |

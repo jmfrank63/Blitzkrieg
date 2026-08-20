@@ -9,17 +9,10 @@
 // here are small.
 
 #include "CloudSyncFacade.h"
+#include "../Platform/CloudSyncLoader.h"
 
 #include <cstdio>
 #include <cstring>
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#include <unistd.h>
-#endif
 
 namespace
 {
@@ -87,11 +80,7 @@ namespace
 
 	void *LoadSymbol( void *pModule, const char *pszName )
 	{
-#ifdef _WIN32
-		return reinterpret_cast<void *>( GetProcAddress( static_cast<HMODULE>( pModule ), pszName ) );
-#else
-		return dlsym( pModule, pszName );
-#endif
+		return NPlatform::CloudSyncLoadSymbol( pModule, pszName );
 	}
 
 	// Load once. Failure is remembered: a game installed without the library
@@ -102,18 +91,7 @@ namespace
 			return s_library;
 		s_library.bTried = true;
 
-		void *pModule = 0;
-#ifdef _WIN32
-		pModule = LoadLibraryA( "CloudSync.dll" );
-#elif defined(__APPLE__)
-		pModule = dlopen( "libCloudSync.dylib", RTLD_NOW );
-		if ( pModule == 0 )
-			pModule = dlopen( "./libCloudSync.dylib", RTLD_NOW );
-#else
-		pModule = dlopen( "libCloudSync.so", RTLD_NOW );
-		if ( pModule == 0 )
-			pModule = dlopen( "./libCloudSync.so", RTLD_NOW );
-#endif
+		void *pModule = NPlatform::CloudSyncLoadLibrary();
 		if ( pModule == 0 )
 			return s_library;
 
@@ -173,15 +151,7 @@ namespace
 
 	void HostName( char *pszOut, unsigned int nCap )
 	{
-#ifdef _WIN32
-		DWORD dwSize = nCap;
-		if ( !GetComputerNameA( pszOut, &dwSize ) )
-			std::snprintf( pszOut, nCap, "%s", "host" );
-#else
-		if ( gethostname( pszOut, nCap ) != 0 )
-			std::snprintf( pszOut, nCap, "%s", "host" );
-		pszOut[nCap - 1] = 0;
-#endif
+		NPlatform::CloudSyncHostName( pszOut, nCap );
 	}
 
 	// The remote identity for the pairing record, derived from the redacted

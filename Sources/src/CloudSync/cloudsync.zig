@@ -299,7 +299,7 @@ fn clearError() void {
 /// discovery `bk_cloudsync_discovery_status` reports, so the two can never
 /// disagree.
 pub export fn bk_cloudsync_available() callconv(.c) u32 {
-    module.ensure() catch {
+    moduleEnsure() catch {
         setError("cloud sync: out of memory while searching for rclone");
         return 0;
     };
@@ -311,7 +311,7 @@ pub export fn bk_cloudsync_available() callconv(.c) u32 {
 /// JSON and return its length excluding the NUL, or -1 on failure. On failure
 /// the contents of `json_out` are unspecified.
 pub export fn bk_cloudsync_discovery_status(json_out: [*]u8, cap: u32) callconv(.c) i32 {
-    module.ensure() catch {
+    moduleEnsure() catch {
         setError("cloud sync: out of memory while searching for rclone");
         return -1;
     };
@@ -330,6 +330,7 @@ pub export fn bk_cloudsync_discovery_status(json_out: [*]u8, cap: u32) callconv(
 /// refresh that a newer one superseded reports success without publishing, and
 /// a refresh that fails leaves the previous value in place.
 pub export fn bk_cloudsync_refresh_discovery() callconv(.c) i32 {
+    bootstrapExplicitFromCredentials();
     module.refresh() catch {
         setError("cloud sync: out of memory while searching for rclone");
         return -1;
@@ -390,6 +391,27 @@ pub export fn bk_cloudsync_last_error() callconv(.c) [*:0]const u8 {
 /// operations, documented as possibly taking a moment.
 fn credsIo() std.Io {
     return lock_io_impl.io();
+}
+
+/// Discovery's cold-start seed, run once per process before the first probe:
+/// the credentials file's `rclone_path` is the player's explicit override,
+/// and it must win on a fresh launch too — not only after the next
+/// `creds_save` installs it live. Found the hard way: a game restarted with
+/// valid credentials on disk reported rclone missing.
+var explicit_bootstrap_done: std.atomic.Value(bool) = .init(false);
+
+fn bootstrapExplicitFromCredentials() void {
+    if (explicit_bootstrap_done.swap(true, .acq_rel)) return;
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse return;
+    defer loaded.deinit();
+    const override = loaded.creds.rclone_path orelse return;
+    module.setExplicit(override) catch {};
+}
+
+/// `module.ensure` with the cold-start seed applied first.
+fn moduleEnsure() Allocator.Error!void {
+    bootstrapExplicitFromCredentials();
+    return module.ensure();
 }
 
 /// Write the redacted credentials document into `json_out` and return its
@@ -572,7 +594,7 @@ const JobDoc = struct {
 /// thread at spawn time, so the path is as current as the last refresh.
 fn resolveFromDiscovery(context: ?*anyopaque, gpa: Allocator) ?[]u8 {
     _ = context;
-    module.ensure() catch return null;
+    moduleEnsure() catch return null;
     module.lock();
     defer module.unlock();
     const current = module.value orelse return null;

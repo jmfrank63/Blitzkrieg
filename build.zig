@@ -652,6 +652,8 @@ const game_sources = &.{
     "Sources/src/Game/GameFrame.cpp",
     "Sources/src/Game/SysKeys.cpp",
     "Sources/src/Game/MouseCapture.cpp",
+    "Sources/src/Main/CloudSyncFacade.cpp",
+    "Sources/src/Platform/CloudSyncLoader.cpp",
     "Sources/src/Platform/SDLApplication.cpp",
 };
 const windows_game_sources = &.{
@@ -2303,7 +2305,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     cloudsync_facade_test_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/cloudsync_facade_test.cpp", "Sources/src/Main/CloudSyncFacade.cpp" },
+        .files = &.{ "tools/zig/cloudsync_facade_test.cpp", "Sources/src/Main/CloudSyncFacade.cpp", "Sources/src/Platform/CloudSyncLoader.cpp" },
         .flags = &.{"-std=c++17"},
     });
     addMsvcIncludePaths(b, cloudsync_facade_test_module, toolchain);
