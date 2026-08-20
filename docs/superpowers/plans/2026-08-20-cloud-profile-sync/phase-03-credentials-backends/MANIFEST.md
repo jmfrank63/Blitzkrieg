@@ -108,3 +108,44 @@ Carried forward from P03-M03:
 - A spawned test child needs a real environment map — with an empty one a
   Windows process dies before `main` (no `SystemRoot`) and reads as a
   server that never comes up.
+
+P03-M04 Windows checkpoint: engine 16/16 natively (17 with the live server —
+all four probe fixtures classified against a real WebDAV), abi 10/10 plus
+the consumer offline and live including the dead-endpoint probe classified
+from C++, worker and backend suites green both ways, cross-targets compile,
+no orphans. Commit `17d521aa5`.
+
+Carried forward from P03-M04:
+
+- **The worker now applies `cloud.credentials` to the daemon** before the
+  first job: `bkraw` plus the `bkremote` alias via `config/create` with
+  `opt.obscure`, from `<game_dir>/profiles/cloud.credentials`. No file →
+  skip, and whatever `rclone.conf` already holds is used (the fixture
+  path). This closed the last gap between the ABI and a real cloud: save
+  credentials, probe, pair, sync — all through the exports.
+- The probe sends `_config: {Retries: 1, LowLevelRetries: 1,
+  ConnectTimeout: "3s", Timeout: "5s"}` — without it, S3's internal retry
+  schedule turns a dead endpoint into `timed_out` (measured). A probe means
+  one bounded attempt.
+- A missing credential ("secret_access_key not found", captured live via a
+  cleared secret) classifies as `auth_failed`; `remote_missing` is the new
+  outcome for "server answered, root absent", recovering to the credentials
+  dialog — a fresh account's not-yet-created bucket is the same shape and
+  the dialog's copy should soften it.
+- `worker.State.testing` (6) and `worker.Outcome.connection_ok` (4) are
+  appended, never inserted; the ABI asserts pin them. The probe handle's
+  failure text begins with the classified outcome's tag
+  (`remote_unreachable: dial tcp …`) — P07 parses the prefix, or asks for a
+  typed export then.
+- `bk_cloudsync_test_connection` takes `game_dir` — the packet's
+  no-argument form had no way to find the credentials or spawn the daemon
+  before any `begin`.
+- `worker.zig` was amended beyond the packet's allowlist (the job kind and
+  credential application live there); same pragmatism as build.zig
+  amendments, recorded here.
+
+**Phase 03 exit: met on Windows.** The phase-02 cycle passes against a real
+S3-compatible remote (MinIO) and a real WebDAV server, credentials are
+reachable from C++ — saved, probed, and driving the sync through the exports
+— and no secret appears in any output: `creds_load` withholds it, error
+texts are redacted, and the live tests assert its absence.
