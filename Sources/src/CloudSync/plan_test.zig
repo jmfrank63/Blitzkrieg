@@ -1,4 +1,4 @@
-//! Offline tests for the short Path1 link.
+//! Offline tests for the short Path1 link and the session-name budget.
 //!
 //! Nothing here may touch the player's real cache directory, so every case
 //! injects `Roots.link_root` — the same trick `daemon_test.zig` plays with
@@ -506,4 +506,140 @@ test "repointing a slot outside the space is refused" {
         error.SlotOutOfRange,
         plan.repointShortLinkIn(gpa, io, fixture.roots(), plan.max_slots, dir),
     );
+}
+
+// -- Session-name budget -----------------------------------------------------
+//
+// Pure arithmetic from here down: no filesystem, no platform variance. The
+// expected strings are identical on every OS because `canonicalPath` folds
+// both separators to `_`, which the cross-platform pairs below rely on.
+
+test "fsPath mirrors rclone's separator handling" {
+    const gpa = std.testing.allocator;
+
+    // A local path is suffixed with the platform separator — on Windows after
+    // its forward slashes are rewritten, which is `bilib.FsPath`'s order.
+    const local = try plan.fsPath(gpa, "/tmp/bkp", .local);
+    defer gpa.free(local);
+    const expected = if (builtin.os.tag == .windows) "\\tmp\\bkp\\" else "/tmp/bkp/";
+    try std.testing.expectEqualStrings(expected, local);
+
+    // An already-suffixed path gains nothing.
+    const suffixed_input = if (builtin.os.tag == .windows) "C:\\bk\\p0\\" else "/bk/p0/";
+    const suffixed = try plan.fsPath(gpa, suffixed_input, .local);
+    defer gpa.free(suffixed);
+    try std.testing.expectEqualStrings(suffixed_input, suffixed);
+
+    // A remote contributes `name:root` and a `/` regardless of platform.
+    const remote = try plan.fsPath(gpa, "bkremote:profiles/Foo", .remote);
+    defer gpa.free(remote);
+    try std.testing.expectEqualStrings("bkremote:profiles/Foo/", remote);
+}
+
+test "canonicalisation covers rclone's character class" {
+    const gpa = std.testing.allocator;
+
+    // Every member of `[\s\\/:?*]` in one string, wrapped in the separators
+    // that must be trimmed rather than replaced. The trailing `\n` survives
+    // the trim — only `\` and `/` are trimmed — and is then replaced, which
+    // is why the expectation ends in two underscores.
+    const canon = try plan.canonicalPath(gpa, "/a b\tc?d*e:f\\g\r\n/");
+    defer gpa.free(canon);
+    try std.testing.expectEqualStrings("a_b_c_d_e_f_g__", canon);
+}
+
+test "the measured probe pairs mangle to the recorded session names" {
+    const gpa = std.testing.allocator;
+
+    // The Windows junction probe: a junction at C:\bk\p0 against C:\bk\remote
+    // produced exactly this — see docs/superpowers/evidence/cloud-sync/
+    // junction-session-name.md. This arithmetic must agree with that evidence.
+    const windows_pair = try plan.sessionName(
+        gpa,
+        .{ .path = "C:\\bk\\p0", .kind = .local },
+        .{ .path = "C:\\bk\\remote", .kind = .local },
+    );
+    defer gpa.free(windows_pair);
+    try std.testing.expectEqualStrings("C__bk_p0..C__bk_remote", windows_pair);
+
+    // The macOS symlink probe: a 199-byte directory reached through /tmp/bkp
+    // came out as these 21 bytes, and the budget check accepts them.
+    const p1: plan.Endpoint = .{ .path = "/tmp/bkp", .kind = .local };
+    const p2: plan.Endpoint = .{ .path = "/tmp/bkremote", .kind = .local };
+    const posix_pair = try plan.sessionName(gpa, p1, p2);
+    defer gpa.free(posix_pair);
+    try std.testing.expectEqualStrings("tmp_bkp..tmp_bkremote", posix_pair);
+
+    var projected: usize = 0;
+    try plan.checkSessionBudget(gpa, p1, p2, &projected);
+    try std.testing.expectEqual(@as(usize, 21), projected);
+}
+
+test "a named remote contributes its name, colon and root" {
+    const gpa = std.testing.allocator;
+
+    // Path2 as the field will see it: remote name plus profile prefix. The
+    // space matters — profile names carry them, and `\s` is in the class.
+    const name = try plan.sessionName(
+        gpa,
+        .{ .path = "/tmp/bkp", .kind = .local },
+        .{ .path = "bkremote:profiles/My Profile", .kind = .remote },
+    );
+    defer gpa.free(name);
+    try std.testing.expectEqualStrings("tmp_bkp..bkremote_profiles_My_Profile", name);
+}
+
+test "the measured overlong pair is refused with the number" {
+    const gpa = std.testing.allocator;
+
+    // 120 + ".." + 127 = 249 bytes, the measured failure: bisync would die
+    // writing `<249 bytes>.path1.lst-new`, a 263-byte filename.
+    const p1: plan.Endpoint = .{ .path = "/" ++ ("a" ** 120), .kind = .local };
+    const p2: plan.Endpoint = .{ .path = "/" ++ ("b" ** 127), .kind = .local };
+
+    const name = try plan.sessionName(gpa, p1, p2);
+    defer gpa.free(name);
+    try std.testing.expectEqual(@as(usize, 249), name.len);
+
+    var projected: usize = 0;
+    try std.testing.expectError(
+        error.SessionNameTooLong,
+        plan.checkSessionBudget(gpa, p1, p2, &projected),
+    );
+    // The number is written even though the call failed: 249 against a budget
+    // of 241 names the eight bytes that have to go, and "sync failed" names
+    // nothing.
+    try std.testing.expectEqual(@as(usize, 249), projected);
+}
+
+test "the budget boundary sits at exactly 241 bytes" {
+    const gpa = std.testing.allocator;
+
+    // `.path1.lst-new` is 14 bytes; 255 - 14 = 241. A session name of exactly
+    // 241 fills the filename limit to the byte and must pass.
+    try std.testing.expectEqual(@as(usize, 14), plan.session_suffix_max);
+    try std.testing.expectEqual(@as(usize, 241), plan.session_budget);
+
+    const p1: plan.Endpoint = .{ .path = "/" ++ ("a" ** 120), .kind = .local };
+    var projected: usize = 0;
+
+    try plan.checkSessionBudget(
+        gpa,
+        p1,
+        .{ .path = "/" ++ ("b" ** 119), .kind = .local },
+        &projected,
+    );
+    try std.testing.expectEqual(@as(usize, 241), projected);
+
+    // One more byte and the `-new` listing cannot be created.
+    try std.testing.expectError(
+        error.SessionNameTooLong,
+        plan.checkSessionBudget(
+            gpa,
+            p1,
+            .{ .path = "/" ++ ("b" ** 120), .kind = .local },
+            &projected,
+        ),
+    );
+    try std.testing.expectEqual(@as(usize, 242), projected);
 }

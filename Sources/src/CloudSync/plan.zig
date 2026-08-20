@@ -1,5 +1,6 @@
-//! Sync planning primitives. This packet owns the first of them: the short
-//! link that stands in for the profile directory as bisync's Path1.
+//! Sync planning primitives: the short link that stands in for the profile
+//! directory as bisync's Path1, and the session-name budget that refuses a
+//! run bisync would abort on filename length.
 //!
 //! Why a link at all. bisync mangles both canonical paths into one state
 //! filename — `<path1>..<path2>.path1.lst` — and dies once that name passes
@@ -257,6 +258,120 @@ pub fn repointShortLinkIn(
 /// `<root>/p<slot>`.
 pub fn slotPath(gpa: Allocator, root: []const u8, slot: u8) Allocator.Error![]u8 {
     return std.fmt.allocPrint(gpa, "{s}{c}p{d}", .{ root, path.sep, slot });
+}
+
+// -- Session-name budget -----------------------------------------------------
+//
+// bisync names every state file after the session: `<canon1>..<canon2>` plus
+// a suffix — `.path1.lst-new`, `.lck`, and friends. That name is a filename
+// in rclone's cache directory, and filesystems refuse names past 255 bytes,
+// so a pair whose mangled paths are long enough kills every run with an error
+// about a listing file rather than anything a player could act on.
+//
+// The arithmetic below reproduces rclone's — `CanonicalPath`, `FsPath` and
+// `SessionName` from `cmd/bisync/bilib`, measured against v1.75.0 — so the
+// refusal happens here, with a number, before a daemon is ever asked. The
+// short link holds Path1 constant, but the profile name is part of Path2 and
+// changes under a rename, which is why the check runs before every sync and
+// not once at pairing.
+
+/// Which side of the pair a path is, because rclone derives the two
+/// differently.
+pub const EndpointKind = enum {
+    /// A local directory. Contributes its entire absolute path — the reason
+    /// Path1 must be the short link and never the profile directory itself.
+    local,
+    /// A named remote, passed as `name:root`. Contributes only that string,
+    /// which is why Path2's length is bounded by the profile name and not by
+    /// anything about the player's machine.
+    remote,
+};
+
+/// One side of a bisync run: the path as it will be handed to rclone.
+pub const Endpoint = struct {
+    path: []const u8,
+    kind: EndpointKind,
+};
+
+/// Mirror of `bilib.FsPath`: the argument string rclone derives for one side.
+/// A local path gains its platform separator when not already suffixed — on
+/// Windows after every `/` has become `\` — and a remote gains a `/`.
+pub fn fsPath(gpa: Allocator, raw: []const u8, kind: EndpointKind) Allocator.Error![]u8 {
+    const sep: u8 = if (kind == .local and builtin.os.tag == .windows) '\\' else '/';
+
+    const owned = try gpa.dupe(u8, raw);
+    if (kind == .local and builtin.os.tag == .windows) {
+        for (owned) |*byte| {
+            if (byte.* == '/') byte.* = '\\';
+        }
+    }
+
+    if (owned.len != 0 and owned[owned.len - 1] == sep) return owned;
+    defer gpa.free(owned);
+    return std.fmt.allocPrint(gpa, "{s}{c}", .{ owned, sep });
+}
+
+/// Mirror of `bilib.CanonicalPath`: leading and trailing separators trimmed,
+/// then every byte of the class `[\s\\/:?*]` replaced with `_`. `\s` is Go's:
+/// space, tab, newline, form feed and carriage return.
+pub fn canonicalPath(gpa: Allocator, remote: []const u8) Allocator.Error![]u8 {
+    const trimmed = std.mem.trim(u8, remote, "\\/");
+    const out = try gpa.dupe(u8, trimmed);
+    for (out) |*byte| switch (byte.*) {
+        ' ', '\t', '\n', 0x0c, '\r', '\\', '/', ':', '?', '*' => byte.* = '_',
+        else => {},
+    };
+    return out;
+}
+
+/// Mirror of `bilib.SessionName`: the base name of every bisync state file
+/// for this pair, and the exact bytes the budget is spent on.
+pub fn sessionName(gpa: Allocator, p1: Endpoint, p2: Endpoint) Allocator.Error![]u8 {
+    const c1 = try canonicalEndpoint(gpa, p1);
+    defer gpa.free(c1);
+    const c2 = try canonicalEndpoint(gpa, p2);
+    defer gpa.free(c2);
+    return std.mem.concat(gpa, u8, &.{ c1, "..", c2 });
+}
+
+fn canonicalEndpoint(gpa: Allocator, endpoint: Endpoint) Allocator.Error![]u8 {
+    const fs_path = try fsPath(gpa, endpoint.path, endpoint.kind);
+    defer gpa.free(fs_path);
+    return canonicalPath(gpa, fs_path);
+}
+
+/// The longest suffix bisync appends to a session name: `.path1.lst-new`,
+/// with `-old` and `-err` the same length and `.lck` shorter.
+pub const session_suffix_max: usize = ".path1.lst-new".len;
+
+/// What remains of a 255-byte filename once the worst suffix has taken its
+/// share.
+pub const session_budget: usize = 255 - session_suffix_max;
+
+pub const SessionBudgetError = error{
+    /// The projected session name is past the budget. Its length is in the
+    /// caller's out-parameter, so the player is told a number against the
+    /// budget rather than "sync failed".
+    SessionNameTooLong,
+} || Allocator.Error;
+
+/// Refuse a pair whose session name bisync could not create a state file
+/// for. Called before every run, not only at setup: a profile rename changes
+/// Path2.
+///
+/// `projected` is written on success and failure both — a Zig error carries
+/// no payload, and the number is the entire point of checking here instead of
+/// letting the run die on a filename.
+pub fn checkSessionBudget(
+    gpa: Allocator,
+    p1: Endpoint,
+    p2: Endpoint,
+    projected: *usize,
+) SessionBudgetError!void {
+    const name = try sessionName(gpa, p1, p2);
+    defer gpa.free(name);
+    projected.* = name.len;
+    if (name.len > session_budget) return error.SessionNameTooLong;
 }
 
 /// Take `target` on the ownership of the returned `ShortLink`, replacing
