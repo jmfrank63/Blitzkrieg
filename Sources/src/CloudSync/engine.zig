@@ -143,6 +143,9 @@ pub const RunContext = struct {
 };
 
 pub const PairError = error{
+    /// The engine's cancel flag went true while the run was in flight. The
+    /// rclone job keeps running server-side; only the wait is abandoned.
+    Cancelled,
     /// This profile is already paired here. A resync after real divergence
     /// overwrites one side; recovery is a player action through P02-M03.
     AlreadyPaired,
@@ -158,6 +161,7 @@ pub const PairError = error{
 } || rc.RcError || Allocator.Error;
 
 pub const SyncError = error{
+    Cancelled,
     /// No successful pairing recorded for this profile on this machine.
     NotPaired,
     FingerprintChanged,
@@ -189,6 +193,10 @@ pub const Engine = struct {
     /// What rclone said about the most recent failed run: the job's error
     /// text, and the run log when there is one. P02-M03 classifies it.
     last_error_owned: ?[]u8 = null,
+    /// When set, checked between the bounded phases of a run — before the
+    /// job starts and between status polls. A true value abandons the wait
+    /// with `error.Cancelled`; the worker's shutdown path owns setting it.
+    cancel: ?*const std.atomic.Value(bool) = null,
 
     pub fn init(gpa: Allocator, io: Io, client: *rc.Client) Engine {
         return .{ .gpa = gpa, .io = io, .client = client };
@@ -332,13 +340,15 @@ pub const Engine = struct {
     /// Start the job and poll it to completion. `_async` plus polling rather
     /// than a synchronous call, because a bisync can outlive any reasonable
     /// single-request deadline and the rc transport's budget is per POST.
-    fn runBisync(self: *Engine, params: std.json.Value) (rc.RcError || error{SyncFailed} || Allocator.Error)!void {
+    fn runBisync(self: *Engine, params: std.json.Value) (rc.RcError || error{ SyncFailed, Cancelled } || Allocator.Error)!void {
         self.clearLastError();
 
+        if (self.cancelled()) return error.Cancelled;
         const job = try self.client.callAsync("sync/bisync", params);
 
         var waited: u32 = 0;
         while (true) {
+            if (self.cancelled()) return error.Cancelled;
             var status = try self.client.jobStatus(job);
             defer status.deinit();
 
@@ -354,6 +364,11 @@ pub const Engine = struct {
             sleepMs(self.io, job_poll_ms);
             waited += job_poll_ms;
         }
+    }
+
+    fn cancelled(self: *const Engine) bool {
+        const flag = self.cancel orelse return false;
+        return flag.load(.acquire);
     }
 
     /// `operations/mkdir` on the root of `fs_spec`. Creating a directory that
