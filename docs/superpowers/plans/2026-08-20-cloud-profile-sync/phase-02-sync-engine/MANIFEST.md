@@ -141,3 +141,39 @@ Carried forward from P02-M04:
   null and nothing prunes.
 - The filter exclusion of the local trash and the sibling layout of the
   remote one are pinned by plan tests (P01-M03/M04), not re-proven here.
+
+P02-M05 Windows checkpoint: `zig build test-cloudsync-abi -Dtest-mode=run`
+passes 9/9 plus the C++ consumer natively, offline and with the live rclone;
+Linux and windows-gnu targets compile; every other suite unaffected; no
+orphan process. Commit `55844b583`.
+
+Carried forward from P02-M05:
+
+- **`bk_cloudsync_begin` takes one JSON job document**, not the packet's bare
+  profile name — a profile string alone cannot name the short link, remote or
+  game directory. Shape: `{kind, path1, remote, profile, game_dir,
+  profile_id, remote_fingerprint}` with unknown fields ignored. P03 (dialog)
+  and P06 (facade) own producing it.
+- State and outcome numerics are pinned by comptime asserts against the
+  worker enums (state 0–5 idle/starting/pairing/syncing/done/failed, outcome
+  0–3 none/paired/synced/failed). Reordering either enum fails the build.
+- The worker is created lazily on first `begin`; `resolveFromDiscovery` is
+  the production `BinarySource`, copying out of the discovery cache under its
+  lock on the worker thread at spawn time. One worker, one `game_dir` — a job
+  naming another is refused.
+- `bk_cloudsync_error(handle)` serves per-slot fixed storage valid until the
+  next call on the same handle; it carries the worker snapshot's 512-byte
+  copy of the (already redacted) engine text.
+- **The C++ consumer must stay C-runtime-only.** Pulling MSVC STL objects
+  (`<fstream>`, `<thread>`, locale) into it makes lld-link refuse the mixed
+  RuntimeLibrary against `msvcprtd` on the existing link line. File and
+  directory work in the consumer is CRT + Win32/dirent.
+- `Engine.prune` remains null through the ABI for now: the shipped
+  `PruneOptions` default is a product decision left to P06's facade wiring.
+
+**Phase 02 exit: met on Windows.** A pair/diverge/converge cycle over two
+local directories passes end to end through the C ABI — conflict preserved as
+a `.conflict` file, each side's delete recoverable from the correct
+run-scoped trash — and the hung-transport worker tests prove no socket call
+ever reaches the calling thread. macOS re-verification of phases 00–02
+happens when the branch next sits on a Mac.
