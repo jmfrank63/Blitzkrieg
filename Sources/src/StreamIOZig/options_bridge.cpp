@@ -382,6 +382,7 @@ public:
         else if (fill && std::strcmp(fill, "GetVideoModes") == 0) FillVideoModes(&drops_);
         else if (fill && std::strcmp(fill, "GetMonitors") == 0) FillMonitors(&drops_);
         else if (fill && std::strcmp(fill, "GetTextureQuality") == 0) { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; values[3] = "Ultra"; count = 4; }
+        else if (fill && std::strcmp(fill, "GetCloudProvider") == 0) { values[0] = "Off"; values[1] = "S3"; values[2] = "WebDAV"; count = 3; }
         for (int i = 0; i < count; ++i) drops_.push_back({values[i]}); return drops_;
     }
     IOptionSystemIterator *BK_STDCALL CreateIterator(unsigned long mask) override { return new OptionIterator(this, mask); }

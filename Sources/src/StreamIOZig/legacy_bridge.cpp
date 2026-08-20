@@ -1227,6 +1227,7 @@ public:
         else if (fill && std::string(fill) == "GetDifficulty") { values[0] = "Easy"; values[1] = "Normal"; values[2] = "Hard"; values[3] = "Ironman"; count = 4; }
         else if (fill && std::string(fill) == "GetGameSpeed") { values[0] = "VerySlow"; values[1] = "Slow"; values[2] = "Normal"; values[3] = "Fast"; values[4] = "VeryFast"; count = 5; }
         else if (fill && std::string(fill) == "GetTextureQuality") { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; count = 3; }
+        else if (fill && std::string(fill) == "GetCloudProvider") { values[0] = "Off"; values[1] = "S3"; values[2] = "WebDAV"; count = 3; }
         for (int i = 0; i < count; ++i) { OptionDropValue value; value.program_name = values[i]; drop_values_.push_back(value); }
         return drop_values_;
     }
