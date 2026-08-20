@@ -177,7 +177,10 @@ fn parentEnviron(gpa: std.mem.Allocator) !std.process.Environ.Map {
     return map;
 }
 
-/// `config/create` with the given parameters object.
+/// `config/create` with the given parameters object. `obscure` is always
+/// requested: rclone transforms plaintext password-typed fields itself — the
+/// credentials file stores the plain value — and fields that are not
+/// password-typed (S3's secret) pass through untouched.
 fn createRemote(
     gpa: std.mem.Allocator,
     client: *rc.Client,
@@ -192,6 +195,10 @@ fn createRemote(
     // The type key rides inside `remoteParams`' object too; rclone ignores a
     // duplicate parameter it already got explicitly.
     try object.put(gpa, "parameters", params);
+    var opt: std.json.ObjectMap = .empty;
+    defer opt.deinit(gpa);
+    try opt.put(gpa, "obscure", .{ .bool = true });
+    try object.put(gpa, "opt", .{ .object = opt });
 
     var reply = try client.call("config/create", .{ .object = object });
     reply.deinit();
@@ -284,27 +291,18 @@ fn hasConflictFile(gpa: std.mem.Allocator, dir_path: []const u8) bool {
     return false;
 }
 
-test "the phase-02 cycle passes against a real S3 remote" {
-    const gpa = std.testing.allocator;
-
-    var threaded: std.Io.Threaded = .init(gpa, .{});
-    defer threaded.deinit();
-    const tio = threaded.io();
-
-    const rclone = liveRclone(gpa, tio) orelse return;
-    defer gpa.free(rclone);
-    const minio_exe = envVar(gpa, minio_env) orelse return;
-    defer gpa.free(minio_exe);
-    if (minio_exe.len == 0) return;
-
-    var fixture = try Fixture.init(gpa);
-    defer fixture.deinit();
-    const game_dir = try fixture.makeDir("game");
-    defer gpa.free(game_dir);
-    const minio_data = try fixture.makeDir("minio");
-    defer gpa.free(minio_data);
-    const scratch = try fixture.makeDir("scratch");
-    defer gpa.free(scratch);
+/// The phase-02 cycle, identical for every backend — a backend that needs
+/// the cycle altered is not finished. Setup differs per backend; from the
+/// first pairing onward this function is the whole test.
+fn runCycle(
+    gpa: std.mem.Allocator,
+    tio: std.Io,
+    client: *rc.Client,
+    fixture: *Fixture,
+    game_dir: []const u8,
+    scratch: []const u8,
+    backend_creds: creds.Credentials,
+) !void {
     const profile_dir = try fixture.makeDir("p1");
     defer gpa.free(profile_dir);
 
@@ -323,44 +321,20 @@ test "the phase-02 cycle passes against a real S3 remote" {
     defer gpa.free(pad);
     try fixture.write(pad, "pad");
 
-    var minio = try Minio.spawn(gpa, tio, minio_exe, minio_data);
-    defer minio.stop();
-    try std.testing.expect(waitTcp(tio, minio.port, 30_000));
-    // TCP up is not API up; MinIO finishes its bucket scan just after.
-    sleepMs(tio, 1_000);
-
-    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = rclone, .game_dir = game_dir });
-    defer d.shutdown();
-    try d.waitReady(daemon.ready_timeout_ms);
-    var client = try rc.Client.init(gpa, tio, d.endpoint());
-    defer client.deinit();
-
     // The two remotes exactly as the credentials packet defines them: the
-    // raw S3 backend from `remoteParams`, and the alias whose target carries
+    // raw backend from `remoteParams`, and the alias whose target carries
     // the bucket, so Path2's session-name contribution stays `bkremote:...`.
-    const endpoint = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{minio.port});
-    defer gpa.free(endpoint);
-    const s3_creds: creds.Credentials = .{
-        .payload = .{ .s3 = .{
-            .s3_provider = "Minio",
-            .endpoint = endpoint,
-            .bucket = bucket,
-            .region = "us-east-1",
-            .access_key = minio_user,
-            .secret = minio_password,
-        } },
-    };
-    var params = try creds.remoteParams(gpa, s3_creds);
+    var params = try creds.remoteParams(gpa, backend_creds);
     defer params.deinit();
-    try createRemote(gpa, &client, creds.backend_remote_name, params.value);
-    const alias_target = try creds.aliasTarget(gpa, s3_creds);
+    try createRemote(gpa, client, creds.backend_remote_name, params.value);
+    const alias_target = try creds.aliasTarget(gpa, backend_creds);
     defer gpa.free(alias_target);
-    try createAlias(gpa, &client, creds.sync_remote_name, alias_target);
+    try createAlias(gpa, client, creds.sync_remote_name, alias_target);
 
-    var eng = engine.Engine.init(gpa, tio, &client);
+    var eng = engine.Engine.init(gpa, tio, client);
     defer eng.deinit();
 
-    const print = try creds.fingerprint(gpa, s3_creds);
+    const print = try creds.fingerprint(gpa, backend_creds);
     defer gpa.free(print);
     const ctx: engine.RunContext = .{
         .path1 = profile_dir,
@@ -387,7 +361,7 @@ test "the phase-02 cycle passes against a real S3 remote" {
         try std.testing.expect(projected < 160);
     }
 
-    // Pair against a bucket that does not exist yet — the first-run state.
+    // Pair against a remote that holds nothing yet — the first-run state.
     var outcome = eng.pair(ctx) catch |err| {
         try std.testing.expectEqualStrings("", eng.lastErrorText());
         return err;
@@ -397,19 +371,28 @@ test "the phase-02 cycle passes against a real S3 remote" {
 
     const profile_fs = "bkremote:profiles/hero";
     {
-        const uploaded = try remoteRead(gpa, &client, profile_fs, "quick.sav", scratch);
+        const uploaded = try remoteRead(gpa, client, profile_fs, "quick.sav", scratch);
         defer gpa.free(uploaded);
         try std.testing.expectEqualStrings("v1", uploaded);
     }
-    try std.testing.expect(try remoteExists(gpa, &client, profile_fs, plan.sentinel_name));
+    try std.testing.expect(try remoteExists(gpa, client, profile_fs, plan.sentinel_name));
 
     // Diverge: the remote side first, then — measurably newer — the local
     // side, plus one delete on each side.
-    try remoteWrite(gpa, &client, profile_fs, "quick.sav", "v2-remote", scratch);
+    //
+    // The gap *before* the remote write matters as much as the one after:
+    // bisync compares the new remote mtime against the pairing's listing
+    // under the backend's modify window (one second for WebDAV), and an
+    // overwrite landing inside that window reads as a size-only change —
+    // the winner comparison then has no time to rank and safely renames
+    // both sides. Measured here first: everything within one second, and
+    // `quick.sav.conflict1`/`.conflict2` where the winner should have been.
+    sleepMs(tio, 2_000);
+    try remoteWrite(gpa, client, profile_fs, "quick.sav", "v2-remote", scratch);
     sleepMs(tio, 2_000);
     try fixture.write(quick, "v2-local");
     try std.Io.Dir.cwd().deleteFile(io, f_local);
-    try remoteDelete(gpa, &client, profile_fs, "f-remote.sav");
+    try remoteDelete(gpa, client, profile_fs, "f-remote.sav");
 
     const run_id = eng.syncOnce(ctx) catch |err| {
         try std.testing.expectEqualStrings("", eng.lastErrorText());
@@ -424,7 +407,7 @@ test "the phase-02 cycle passes against a real S3 remote" {
         const local_now = try std.Io.Dir.cwd().readFileAlloc(io, quick, gpa, .limited(4096));
         defer gpa.free(local_now);
         try std.testing.expectEqualStrings("v2-local", local_now);
-        const remote_now = try remoteRead(gpa, &client, profile_fs, "quick.sav", scratch);
+        const remote_now = try remoteRead(gpa, client, profile_fs, "quick.sav", scratch);
         defer gpa.free(remote_now);
         try std.testing.expectEqualStrings("v2-local", remote_now);
     }
@@ -438,14 +421,148 @@ test "the phase-02 cycle passes against a real S3 remote" {
 
     const remote_trash_name = try std.fmt.allocPrint(gpa, "{s}/f-local.sav", .{run_id});
     defer gpa.free(remote_trash_name);
-    try std.testing.expect(try remoteExists(gpa, &client, "bkremote:trash/hero", remote_trash_name));
+    try std.testing.expect(try remoteExists(gpa, client, "bkremote:trash/hero", remote_trash_name));
     {
-        const from_trash = try remoteRead(gpa, &client, "bkremote:trash/hero", remote_trash_name, scratch);
+        const from_trash = try remoteRead(gpa, client, "bkremote:trash/hero", remote_trash_name, scratch);
         defer gpa.free(from_trash);
         try std.testing.expectEqualStrings("keep-l", from_trash);
     }
 
-    // The trash is a sibling of the synced prefix inside the bucket — never
-    // under profiles/, where it would sync back down.
-    try std.testing.expect(!try remoteExists(gpa, &client, profile_fs, "trash"));
+    // The trash is a sibling of the synced prefix — never under profiles/,
+    // where it would sync back down.
+    try std.testing.expect(!try remoteExists(gpa, client, profile_fs, "trash"));
+
+    // Modification-time fidelity, the other direction: newer-wins rests on
+    // the remote *holding* timestamps, and some servers round or drop them.
+    // A remote-newer conflict resolving remoteward is the functional proof —
+    // with a 2 s gap, so granularity coarser than that fails loudly here
+    // rather than misresolving silently in the field.
+    sleepMs(tio, 2_000);
+    try fixture.write(quick, "v3-local");
+    sleepMs(tio, 2_000);
+    try remoteWrite(gpa, client, profile_fs, "quick.sav", "v3-remote", scratch);
+
+    const second_run = eng.syncOnce(ctx) catch |err| {
+        try std.testing.expectEqualStrings("", eng.lastErrorText());
+        return err;
+    };
+    gpa.free(second_run);
+
+    {
+        const local_after = try std.Io.Dir.cwd().readFileAlloc(io, quick, gpa, .limited(4096));
+        defer gpa.free(local_after);
+        try std.testing.expectEqualStrings("v3-remote", local_after);
+        const remote_after = try remoteRead(gpa, client, profile_fs, "quick.sav", scratch);
+        defer gpa.free(remote_after);
+        try std.testing.expectEqualStrings("v3-remote", remote_after);
+    }
+}
+
+test "the phase-02 cycle passes against a real S3 remote" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const rclone = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(rclone);
+    const minio_exe = envVar(gpa, minio_env) orelse return;
+    defer gpa.free(minio_exe);
+    if (minio_exe.len == 0) return;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const minio_data = try fixture.makeDir("minio");
+    defer gpa.free(minio_data);
+    const scratch = try fixture.makeDir("scratch");
+    defer gpa.free(scratch);
+
+    var minio = try Minio.spawn(gpa, tio, minio_exe, minio_data);
+    defer minio.stop();
+    try std.testing.expect(waitTcp(tio, minio.port, 30_000));
+    // TCP up is not API up; MinIO finishes its bucket scan just after.
+    sleepMs(tio, 1_000);
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = rclone, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+
+    const endpoint = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{minio.port});
+    defer gpa.free(endpoint);
+    try runCycle(gpa, tio, &client, &fixture, game_dir, scratch, .{
+        .payload = .{ .s3 = .{
+            .s3_provider = "Minio",
+            .endpoint = endpoint,
+            .bucket = bucket,
+            .region = "us-east-1",
+            .access_key = minio_user,
+            .secret = minio_password,
+        } },
+    });
+}
+
+test "the phase-02 cycle passes against a real WebDAV server" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const rclone = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(rclone);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const dav_data = try fixture.makeDir("dav");
+    defer gpa.free(dav_data);
+    const scratch = try fixture.makeDir("scratch");
+    defer gpa.free(scratch);
+
+    // The server is rclone itself: `serve webdav` implements the ownCloud
+    // mtime extension, which is what lets the client vendor below preserve
+    // modification times — the thing newer-wins rests on.
+    const port = try reservePort(tio);
+    var addr_buffer: [32]u8 = undefined;
+    const addr = std.fmt.bufPrint(&addr_buffer, "127.0.0.1:{d}", .{port}) catch unreachable;
+    // The child needs a real environment — spawned with none, a Windows
+    // process dies before main (no SystemRoot), which reads as a server that
+    // never comes up.
+    var serve_environ = try parentEnviron(gpa);
+    defer serve_environ.deinit();
+    var serve = std.process.spawn(tio, .{
+        .argv = &.{ rclone, "serve", "webdav", dav_data, "--addr", addr, "--user", "dav", "--pass", "dav-secret-123" },
+        .environ_map = &serve_environ,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    }) catch return error.ServeSpawnFailed;
+    defer serve.kill(tio);
+    try std.testing.expect(waitTcp(tio, port, 15_000));
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = rclone, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+
+    const url = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{port});
+    defer gpa.free(url);
+    try runCycle(gpa, tio, &client, &fixture, game_dir, scratch, .{
+        .payload = .{ .webdav = .{
+            .url = url,
+            // "owncloud" is the vendor whose mtime handling `rclone serve
+            // webdav` implements; plain "other" drops modification times and
+            // would misresolve every newer-wins comparison.
+            .vendor = "owncloud",
+            .user = "dav",
+            .pass = "dav-secret-123",
+        } },
+    });
 }
