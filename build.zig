@@ -2180,6 +2180,17 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_daemon_step = b.step("test-cloudsync-daemon", "Run Zig CloudSync rclone discovery unit tests");
     test_cloudsync_daemon_step.dependOn(&cloudsync_daemon_unit_tests.step);
     if (test_mode == .run) test_cloudsync_daemon_step.dependOn(&run_cloudsync_daemon_unit_tests.step);
+    const cloudsync_plan_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/plan_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_plan_unit_tests = b.addTest(.{ .root_module = cloudsync_plan_test_module });
+    const run_cloudsync_plan_unit_tests = b.addRunArtifact(cloudsync_plan_unit_tests);
+    const test_cloudsync_plan_step = b.step("test-cloudsync-plan", "Run Zig CloudSync sync planning unit tests");
+    test_cloudsync_plan_step.dependOn(&cloudsync_plan_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_plan_step.dependOn(&run_cloudsync_plan_unit_tests.step);
     // The C ABI is proven from both sides in one step: the zig tests below
     // cover the discovery cache and its threading contract, and the C++ smoke
     // consumer links the real shared library and calls every export, which is
