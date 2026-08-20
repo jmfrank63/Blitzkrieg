@@ -52,6 +52,19 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Ninth review pass
+
+- **Undo could race an in-flight restore download.** The in-flight guard
+  covered restore against restore, but undo is the other writer of `ACTIVE`:
+  a `LATEST_UNDO` from an earlier restore made undo available mid-download,
+  the undo published its stage, and the finishing download then renamed
+  `ACTIVE` over it with no error raised anywhere. One operation slot now
+  covers both writers, availability reports busy as a third answer, and a race
+  test holds a download mid-flight to prove it.
+- **The UI still described undo availability as a bool.** It now names the
+  action for its state — "Cancel pending restore" versus "Undo applied
+  restore" — and stays disabled while the slot is busy.
+
 ### Eighth review pass
 
 - **The generation predicate did not implement the rule it stated.**

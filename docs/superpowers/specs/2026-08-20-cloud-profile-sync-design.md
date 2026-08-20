@@ -247,7 +247,10 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   falls back to display 0 — but "survivable" is not "wanted", and the failure
   is silent.
 - The current config is copied into the local trash before a restore
-  overwrites it, so restoring is itself undoable. Applying is idempotent: a
+  overwrites it, so restoring is itself undoable — as a cancellation while the
+  restore is still staged, or as a reinstatement once it has been applied. The
+  UI names those two separately, because discarding a restore that has not
+  happened is not the same act as reversing one that has. Applying is idempotent: a
   retry after an interrupted apply reuses the existing snapshot rather than
   taking a new one.
 - **A restore is staged, never applied live.** The game rewrites `config.cfg`
@@ -268,6 +271,13 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   the newest by timestamp instead would go wrong under a clock rollback,
   equal timestamps, or coarse resolution — and the rename gives a real total
   order for free.
+
+  Every writer of `ACTIVE` — the staging download and undo alike — takes one
+  shared operation slot, and anything arriving while it is held reports busy.
+  A guard covering only restore-against-restore misses the case that fails
+  silently: an undo offered on the strength of an earlier restore, published
+  while a new download is still running, and then overwritten when that
+  download finishes.
 
   Teardown runs in the same direction: `ACTIVE` is removed before the stage
   directories it names, so a crash mid-cleanup leaves unreferenced debris
