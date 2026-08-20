@@ -248,6 +248,14 @@ const fixture_out_of_sync =
     \\ERROR : Bisync critical error: path1 and path2 are out of sync, run --resync to recover
 ;
 
+/// The empty-remote pairing abort, measured during planning (and prevented
+/// by engine.pair's mkdir; classification is the belt-and-braces).
+const fixture_remote_missing =
+    \\ERROR : webdav root 'profiles/hero': error reading source root directory: directory not found
+    \\ERROR : Bisync critical error: directory not found
+    \\ERROR : Bisync aborted. Must run --resync to recover.
+;
+
 test "each captured failure classifies to its outcome" {
     const cases = [_]struct { log: []const u8, expected: engine.Outcome }{
         .{ .log = fixture_too_many_deletes, .expected = .too_many_deletes },
@@ -257,6 +265,10 @@ test "each captured failure classifies to its outcome" {
         .{ .log = fixture_name_too_long_windows, .expected = .name_too_long },
         .{ .log = fixture_name_too_long_posix, .expected = .name_too_long },
         .{ .log = fixture_out_of_sync, .expected = .out_of_sync },
+        .{ .log = fixture_remote_missing, .expected = .remote_missing },
+        // Captured live through the connection probe: a cleared secret means
+        // rclone cannot even build the fs — a credentials problem.
+        .{ .log = "error in ListJSON: secret_access_key not found", .expected = .auth_failed },
     };
     for (cases) |case| {
         try std.testing.expectEqual(case.expected, engine.classify(bare_reply, case.log));
@@ -290,6 +302,7 @@ test "every outcome maps to its recovery and the delete guard is never forced" {
     try std.testing.expectEqual(engine.Recovery.confirm_mirror_delete, engine.recovery(.too_many_deletes));
     try std.testing.expectEqual(engine.Recovery.report_name_budget, engine.recovery(.name_too_long));
     try std.testing.expectEqual(engine.Recovery.open_credentials, engine.recovery(.auth_failed));
+    try std.testing.expectEqual(engine.Recovery.open_credentials, engine.recovery(.remote_missing));
     try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.timed_out));
     try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.remote_unreachable));
     try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.daemon_gone));
@@ -346,6 +359,150 @@ test "the support log tail is bounded and redacted" {
     try std.testing.expect(std.mem.startsWith(u8, tail, "line-50\n"));
     try std.testing.expect(std.mem.indexOf(u8, tail, "line-49\n") == null);
     try std.testing.expect(std.mem.indexOf(u8, tail, "line-249") != null);
+}
+
+// -- Connection test -----------------------------------------------------------
+
+fn parentEnviron(gpa: std.mem.Allocator) !std.process.Environ.Map {
+    if (builtin.os.tag == .windows) {
+        const environ: std.process.Environ = .{ .block = .global };
+        return environ.createMap(gpa);
+    }
+    var map: std.process.Environ.Map = .init(gpa);
+    errdefer map.deinit();
+    var index: usize = 0;
+    while (std.c.environ[index]) |entry| : (index += 1) {
+        const pair = std.mem.span(entry);
+        const split = std.mem.findScalar(u8, pair, '=') orelse continue;
+        try map.put(pair[0..split], pair[split + 1 ..]);
+    }
+    return map;
+}
+
+fn reservePort(target_io: std.Io) !u16 {
+    var addr: std.Io.net.IpAddress = .{ .ip4 = .loopback(0) };
+    var server = try addr.listen(target_io, .{ .reuse_address = true });
+    const port = server.socket.address.getPort();
+    server.deinit(target_io);
+    return port;
+}
+
+fn waitTcp(target_io: std.Io, port: u16, budget_ms: u32) bool {
+    var waited: u32 = 0;
+    while (waited < budget_ms) {
+        const addr: std.Io.net.IpAddress = .{ .ip4 = .loopback(port) };
+        if (addr.connect(target_io, .{ .mode = .stream })) |stream| {
+            var open = stream;
+            open.close(target_io);
+            return true;
+        } else |_| {}
+        sleepMs(target_io, 100);
+        waited += 100;
+    }
+    return false;
+}
+
+fn createConfigRemote(
+    gpa: std.mem.Allocator,
+    client: *rc.Client,
+    name: []const u8,
+    fields: []const [2][]const u8,
+) !void {
+    var parameters: std.json.ObjectMap = .empty;
+    defer parameters.deinit(gpa);
+    for (fields) |field| try parameters.put(gpa, field[0], .{ .string = field[1] });
+
+    var object: std.json.ObjectMap = .empty;
+    defer object.deinit(gpa);
+    try object.put(gpa, "name", .{ .string = name });
+    try object.put(gpa, "type", parameters.get("type").?);
+    try object.put(gpa, "parameters", .{ .object = parameters });
+    var opt: std.json.ObjectMap = .empty;
+    defer opt.deinit(gpa);
+    try opt.put(gpa, "obscure", .{ .bool = true });
+    try object.put(gpa, "opt", .{ .object = opt });
+
+    var reply = try client.call("config/create", .{ .object = object });
+    reply.deinit();
+}
+
+test "connection outcomes are classified against a live server" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const dav_data = try fixture.makeDir("dav");
+    defer gpa.free(dav_data);
+
+    const port = try reservePort(tio);
+    var addr_buffer: [32]u8 = undefined;
+    const addr = std.fmt.bufPrint(&addr_buffer, "127.0.0.1:{d}", .{port}) catch unreachable;
+    var serve_environ = try parentEnviron(gpa);
+    defer serve_environ.deinit();
+    var serve = std.process.spawn(tio, .{
+        .argv = &.{ binary, "serve", "webdav", dav_data, "--addr", addr, "--user", "dav", "--pass", "dav-secret-123" },
+        .environ_map = &serve_environ,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    }) catch return error.ServeSpawnFailed;
+    defer serve.kill(tio);
+    try std.testing.expect(waitTcp(tio, port, 15_000));
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    var eng = engine.Engine.init(gpa, tio, &client);
+    defer eng.deinit();
+
+    const url = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{port});
+    defer gpa.free(url);
+
+    // Good configuration: the probe answers ok and classifies nothing.
+    try createConfigRemote(gpa, &client, "cok", &.{
+        .{ "type", "webdav" }, .{ "url", url }, .{ "vendor", "owncloud" },
+        .{ "user", "dav" },    .{ "pass", "dav-secret-123" },
+    });
+    const good = try eng.testConnection("cok");
+    try std.testing.expect(good.ok);
+
+    // Wrong password: authentication, and never the secret in the text.
+    try createConfigRemote(gpa, &client, "cbad", &.{
+        .{ "type", "webdav" }, .{ "url", url }, .{ "vendor", "owncloud" },
+        .{ "user", "dav" },    .{ "pass", "wrong-password-42" },
+    });
+    const bad_auth = try eng.testConnection("cbad");
+    try std.testing.expect(!bad_auth.ok);
+    try std.testing.expectEqual(engine.Outcome.auth_failed, bad_auth.outcome);
+    try std.testing.expect(std.mem.indexOf(u8, eng.lastErrorText(), "wrong-password-42") == null);
+
+    // Nothing listening: unreachable, distinctly from auth.
+    try createConfigRemote(gpa, &client, "coff", &.{
+        .{ "type", "webdav" }, .{ "url", "http://127.0.0.1:9" }, .{ "vendor", "owncloud" },
+        .{ "user", "dav" },    .{ "pass", "dav-secret-123" },
+    });
+    const unreachable_result = try eng.testConnection("coff");
+    try std.testing.expect(!unreachable_result.ok);
+    try std.testing.expectEqual(engine.Outcome.remote_unreachable, unreachable_result.outcome);
+
+    // Server fine, configured root absent: the missing-bucket shape.
+    try createConfigRemote(gpa, &client, "cmiss", &.{
+        .{ "type", "alias" }, .{ "remote", "cok:no-such-dir" },
+    });
+    const missing = try eng.testConnection("cmiss");
+    try std.testing.expect(!missing.ok);
+    try std.testing.expectEqual(engine.Outcome.remote_missing, missing.outcome);
 }
 
 // -- Trash retention ----------------------------------------------------------

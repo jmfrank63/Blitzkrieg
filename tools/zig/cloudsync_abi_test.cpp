@@ -50,6 +50,9 @@ int bk_cloudsync_creds_load(unsigned char *json_out, unsigned int cap);
 int bk_cloudsync_creds_save(const char *json);
 int bk_cloudsync_creds_clear_secret(void);
 unsigned int bk_cloudsync_creds_present(void);
+// A pollable probe of the configured remote; on failure the handle's error
+// text begins with the classified outcome name.
+int bk_cloudsync_test_connection(const char *game_dir);
 }
 
 static int failures = 0;
@@ -346,12 +349,16 @@ static void creds_contract()
         {
             char escaped[1024];
             json_escape(rclone, escaped, sizeof escaped);
+            // A complete credential this time — the secret was cleared above,
+            // and a missing secret classifies as auth_failed before any dial;
+            // the probe below is about the network class.
             std::snprintf(doc, sizeof doc,
                           "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
                           "\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"bk\","
-                          "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\"},"
+                          "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\","
+                          "\"secret\":\"%s\"},"
                           "\"rclone_path\":\"%s\"}",
-                          escaped);
+                          secret, escaped);
             check(bk_cloudsync_creds_save(doc) == 0, "saving an rclone override succeeds");
             check(bk_cloudsync_available() == 1u, "the override is discovered with no restart");
             unsigned char status[1024];
@@ -359,6 +366,23 @@ static void creds_contract()
             check(bk_cloudsync_discovery_status(status, sizeof status) > 0, "status after the override");
             check(contains(reinterpret_cast<const char *>(status), "\"found\":true"),
                   "and the status agrees");
+
+            // The saved endpoint points at a dead port, which is exactly
+            // what the connection probe must say — classified, pollable,
+            // and never blocking this thread.
+            const int probe = bk_cloudsync_test_connection(base);
+            check(probe >= 0, "test_connection hands out a handle");
+            if (probe >= 0)
+            {
+                const unsigned int probed = poll_to_rest(probe, 90000);
+                check(probed == 5u, "the dead endpoint probe reports failed");
+                const char *why = bk_cloudsync_error(probe);
+                if (std::strstr(why, "remote_unreachable") != why)
+                    std::fprintf(stderr, "cloudsync-abi-test: probe said: %s\n", why);
+                check(std::strstr(why, "remote_unreachable") == why,
+                      "the classified outcome leads the error text");
+                bk_cloudsync_release(probe);
+            }
         }
     }
 

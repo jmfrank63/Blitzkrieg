@@ -35,21 +35,25 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const creds = @import("creds.zig");
 const rc = @import("rc.zig");
 const daemon = @import("daemon.zig");
 const engine = @import("engine.zig");
 
 const Allocator = std.mem.Allocator;
 const Io = std.Io;
+const path = Io.Dir.path;
 
 /// How often the idle worker looks for newly enqueued work. Also the upper
 /// bound `destroy` waits on an idle worker.
 const idle_poll_ms: u32 = 25;
 
-pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed };
+/// New states are appended, never inserted: the ABI pins the numerics.
+pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, testing };
 
 /// How the last finished job ended. `.none` until the first job finishes.
-pub const Outcome = enum(u8) { none, paired, synced, failed };
+/// Appended, never reordered, for the same reason.
+pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok };
 
 /// Reserved for the sync indicator; the worker publishes states today and
 /// null progress, and nothing downstream may assume otherwise.
@@ -87,7 +91,7 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync };
+pub const JobKind = enum { pair, sync, test_connection };
 
 /// A job as the caller describes it. Every slice is copied by `begin`; none
 /// needs to outlive the call.
@@ -208,7 +212,7 @@ pub const Worker = struct {
 
         if (self.pending != null) return error.Busy;
         switch (self.snapshot.state) {
-            .starting, .pairing, .syncing => return error.Busy,
+            .starting, .pairing, .syncing, .testing => return error.Busy,
             .idle, .done, .failed => {},
         }
 
@@ -278,6 +282,7 @@ pub const Worker = struct {
         self.publishState(switch (box.kind) {
             .pair => .pairing,
             .sync => .syncing,
+            .test_connection => .testing,
         });
 
         switch (box.kind) {
@@ -296,6 +301,25 @@ pub const Worker = struct {
                 };
                 self.gpa.free(run_id);
                 self.publishDone(.synced);
+            },
+            .test_connection => {
+                const result = eng.testConnection(box.ctx.remote) catch {
+                    self.publishFailureText("out of memory testing the connection");
+                    return;
+                };
+                if (result.ok) {
+                    self.publishDone(.connection_ok);
+                } else {
+                    // The classified outcome leads the text, so the caller
+                    // can branch on it while the human still gets rclone's
+                    // (already redacted) words.
+                    var buffer: [error_text_max]u8 = undefined;
+                    const text = std.fmt.bufPrint(&buffer, "{s}: {s}", .{
+                        @tagName(result.outcome),
+                        eng.lastErrorText(),
+                    }) catch @tagName(result.outcome);
+                    self.publishFailureText(text);
+                }
             },
         }
     }
@@ -341,9 +365,81 @@ pub const Worker = struct {
         };
         if (self.deadline) |deadline| session.client.?.deadline = deadline;
 
+        // When a credentials file exists, its remotes are (re)created in the
+        // daemon's config before the first job runs: the raw backend plus
+        // the short alias every sync names. A machine without the file — the
+        // worker tests pre-write `rclone.conf` by hand — skips this and uses
+        // whatever the config already holds.
+        if (!self.applyCredentials(&session.client.?)) {
+            session.client.?.deinit();
+            session.client = null;
+            return null;
+        }
+
         session.eng = engine.Engine.init(self.gpa, self.io, &session.client.?);
         session.eng.?.cancel = &self.cancel_flag;
         return &session.eng.?;
+    }
+
+    /// Configure `bkraw` and the `bkremote` alias from
+    /// `<game_dir>/profiles/cloud.credentials`, when present. True on
+    /// success or absence; false after publishing the failure.
+    fn applyCredentials(self: *Worker, client: *rc.Client) bool {
+        const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch {
+            self.publishFailureText("out of memory reading credentials");
+            return false;
+        };
+        defer self.gpa.free(creds_path);
+
+        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return true;
+        defer loaded.deinit();
+
+        var params = creds.remoteParams(self.gpa, loaded.creds) catch {
+            self.publishFailureText("out of memory building remote parameters");
+            return false;
+        };
+        defer params.deinit();
+        self.configCreate(client, creds.backend_remote_name, params.value) catch {
+            self.publishFailureText("cloud credentials could not be applied to the daemon");
+            return false;
+        };
+
+        const target = creds.aliasTarget(self.gpa, loaded.creds) catch {
+            self.publishFailureText("out of memory building the sync alias");
+            return false;
+        };
+        defer self.gpa.free(target);
+        var alias: std.json.ObjectMap = .empty;
+        defer alias.deinit(self.gpa);
+        alias.put(self.gpa, "type", .{ .string = "alias" }) catch return false;
+        alias.put(self.gpa, "remote", .{ .string = target }) catch return false;
+        self.configCreate(client, creds.sync_remote_name, .{ .object = alias }) catch {
+            self.publishFailureText("cloud credentials could not be applied to the daemon");
+            return false;
+        };
+        return true;
+    }
+
+    /// `config/create` with `opt.obscure`: rclone transforms password-typed
+    /// fields itself, and everything else passes through.
+    fn configCreate(
+        self: *Worker,
+        client: *rc.Client,
+        name: []const u8,
+        params: std.json.Value,
+    ) !void {
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        try object.put(self.gpa, "name", .{ .string = name });
+        try object.put(self.gpa, "type", params.object.get("type").?);
+        try object.put(self.gpa, "parameters", params);
+        var opt: std.json.ObjectMap = .empty;
+        defer opt.deinit(self.gpa);
+        try opt.put(self.gpa, "obscure", .{ .bool = true });
+        try object.put(self.gpa, "opt", .{ .object = opt });
+
+        var reply = try client.call("config/create", .{ .object = object });
+        reply.deinit();
     }
 
     fn publishState(self: *Worker, state: State) void {

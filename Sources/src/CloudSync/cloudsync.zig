@@ -517,10 +517,12 @@ comptime {
     std.debug.assert(@intFromEnum(worker.State.syncing) == 3);
     std.debug.assert(@intFromEnum(worker.State.done) == 4);
     std.debug.assert(@intFromEnum(worker.State.failed) == 5);
+    std.debug.assert(@intFromEnum(worker.State.testing) == 6);
     std.debug.assert(@intFromEnum(worker.Outcome.none) == 0);
     std.debug.assert(@intFromEnum(worker.Outcome.paired) == 1);
     std.debug.assert(@intFromEnum(worker.Outcome.synced) == 2);
     std.debug.assert(@intFromEnum(worker.Outcome.failed) == 3);
+    std.debug.assert(@intFromEnum(worker.Outcome.connection_ok) == 4);
 }
 
 const module_gpa = std.heap.smp_allocator;
@@ -599,33 +601,51 @@ pub export fn bk_cloudsync_begin(job_json: [*:0]const u8) callconv(.c) i32 {
     jobs_mutex.lockUncancelable(lockIo());
     defer jobs_mutex.unlock(lockIo());
 
+    return enqueueLocked(doc.game_dir, .{
+        .kind = kind,
+        .path1 = doc.path1,
+        .remote = doc.remote,
+        .profile = doc.profile,
+        .profile_id = doc.profile_id,
+        .remote_fingerprint = doc.remote_fingerprint,
+    });
+}
+
+/// The worker for `game_dir`, created on first use. Call under `jobs_mutex`.
+/// Null after setting the module error.
+fn ensureWorkerLocked(game_dir: []const u8) ?*worker.Worker {
     if (sync_game_dir) |existing| {
-        if (!std.mem.eql(u8, existing, doc.game_dir)) {
+        if (!std.mem.eql(u8, existing, game_dir)) {
             setError("cloud sync: the game directory cannot change between jobs");
-            return -1;
+            return null;
         }
     }
-
     if (sync_worker == null) {
         const io_impl = module_gpa.create(std.Io.Threaded) catch {
             setError("cloud sync: out of memory starting the sync worker");
-            return -1;
+            return null;
         };
         io_impl.* = .init(module_gpa, .{});
         const w = worker.Worker.create(module_gpa, io_impl.io(), .{
-            .game_dir = doc.game_dir,
+            .game_dir = game_dir,
             .binary_source = .{ .resolve = resolveFromDiscovery },
         }) catch {
             io_impl.deinit();
             module_gpa.destroy(io_impl);
             setError("cloud sync: the sync worker could not be started");
-            return -1;
+            return null;
         };
-        sync_game_dir = module_gpa.dupe(u8, doc.game_dir) catch null;
+        sync_game_dir = module_gpa.dupe(u8, game_dir) catch null;
         sync_io_impl = io_impl;
         sync_worker = w;
     }
-    const w = sync_worker.?;
+    return sync_worker.?;
+}
+
+/// Enqueue on the (possibly new) worker and hand out a slot. Call under
+/// `jobs_mutex`.
+fn enqueueLocked(game_dir: []const u8, spec: worker.JobSpec) i32 {
+    const w = ensureWorkerLocked(game_dir) orelse return -1;
 
     // Find a free slot before enqueueing, so a full table cannot strand a
     // job nothing can observe.
@@ -636,14 +656,7 @@ pub export fn bk_cloudsync_begin(job_json: [*:0]const u8) callconv(.c) i32 {
         return -1;
     };
 
-    w.begin(.{
-        .kind = kind,
-        .path1 = doc.path1,
-        .remote = doc.remote,
-        .profile = doc.profile,
-        .profile_id = doc.profile_id,
-        .remote_fingerprint = doc.remote_fingerprint,
-    }) catch |err| {
+    w.begin(spec) catch |err| {
         switch (err) {
             error.Busy => setError("cloud sync: a job is already running; poll it to completion first"),
             error.OutOfMemory => setError("cloud sync: out of memory enqueueing the job"),
@@ -663,6 +676,26 @@ pub export fn bk_cloudsync_begin(job_json: [*:0]const u8) callconv(.c) i32 {
     };
     clearError();
     return handle;
+}
+
+/// Probe the configured remote — `operations/list` of its root on the
+/// worker, never blocking this thread — and report through the same handle
+/// machinery as a sync. On failure the handle's error text begins with the
+/// classified outcome's name (`auth_failed: …`, `remote_unreachable: …`,
+/// `remote_missing: …`), so the dialog can branch while the human reads
+/// rclone's (already redacted) words.
+pub export fn bk_cloudsync_test_connection(game_dir: [*:0]const u8) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    return enqueueLocked(std.mem.span(game_dir), .{
+        .kind = .test_connection,
+        .path1 = "",
+        .remote = creds.sync_remote_name,
+        .profile = "",
+        .profile_id = "",
+        .remote_fingerprint = "",
+    });
 }
 
 fn slotAt(handle: i32) ?*JobSlot {

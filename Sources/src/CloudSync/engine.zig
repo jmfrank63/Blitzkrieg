@@ -447,6 +447,74 @@ pub const Engine = struct {
         };
     }
 
+    /// What `testConnection` answers.
+    pub const TestResult = struct {
+        ok: bool,
+        /// `.unknown` when ok; the classified failure otherwise — the same
+        /// vocabulary the sync path speaks, so the dialog needs one voice.
+        outcome: Outcome,
+    };
+
+    /// One `operations/list` of the remote's root under a tightened
+    /// deadline: tell the player what is wrong *before* the next sync
+    /// discovers it. Blocking, like everything here — the worker runs it.
+    ///
+    /// Unlike bisync, a plain operation returns its real cause in the rc
+    /// reply, so classification reads `lastFailure` directly; there is no
+    /// run log. The stored error text passes through the same redaction as
+    /// every other failure.
+    pub fn testConnection(self: *Engine, remote: []const u8) Allocator.Error!TestResult {
+        self.clearLastError();
+        self.last_outcome = .unknown;
+
+        // A connection test is a settings-screen probe, not a transfer: it
+        // deserves a tighter budget than a sync POST.
+        const saved = self.client.deadline;
+        self.client.deadline = .{ .connect_ms = 5_000, .read_ms = 10_000 };
+        defer self.client.deadline = saved;
+
+        const fs_spec = try std.fmt.allocPrint(self.gpa, "{s}:", .{remote});
+        defer self.gpa.free(fs_spec);
+
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        try object.put(self.gpa, "fs", .{ .string = fs_spec });
+        try object.put(self.gpa, "remote", .{ .string = "" });
+        var opt: std.json.ObjectMap = .empty;
+        defer opt.deinit(self.gpa);
+        try opt.put(self.gpa, "dirsOnly", .{ .bool = true });
+        try object.put(self.gpa, "opt", .{ .object = opt });
+        // Without this, backends that retry internally (S3 above all) chew
+        // through their backoff schedule against a dead endpoint until the
+        // POST deadline fires, and an unreachable server misclassifies as a
+        // timeout. One attempt, tightly bounded, is what a probe means.
+        var config: std.json.ObjectMap = .empty;
+        defer config.deinit(self.gpa);
+        try config.put(self.gpa, "Retries", .{ .integer = 1 });
+        try config.put(self.gpa, "LowLevelRetries", .{ .integer = 1 });
+        try config.put(self.gpa, "ConnectTimeout", .{ .string = "3s" });
+        try config.put(self.gpa, "Timeout", .{ .string = "5s" });
+        try object.put(self.gpa, "_config", .{ .object = config });
+
+        var reply = self.client.call("operations/list", .{ .object = object }) catch |err| {
+            const outcome: Outcome = switch (err) {
+                error.RcFailed => blk: {
+                    const failure = self.client.lastFailure() orelse break :blk .unknown;
+                    self.recordError(failure.message, null);
+                    break :blk classify(failure, "");
+                },
+                else => other: {
+                    self.recordError(@errorName(err), null);
+                    break :other classifyTransport(err);
+                },
+            };
+            self.last_outcome = outcome;
+            return .{ .ok = false, .outcome = outcome };
+        };
+        reply.deinit();
+        return .{ .ok = true, .outcome = .unknown };
+    }
+
     /// Start the job and poll it to completion. `_async` plus polling rather
     /// than a synchronous call, because a bisync can outlive any reasonable
     /// single-request deadline and the rc transport's budget is per POST.
@@ -703,6 +771,11 @@ pub const Outcome = enum {
     auth_failed,
     /// The cloud could not be reached at all.
     remote_unreachable,
+    /// The cloud answered, but the configured root — the bucket, the WebDAV
+    /// directory — is not there. Usually a typo in the credentials; on a
+    /// brand-new account it just means the first pairing has not created it
+    /// yet, and the dialog should say so rather than alarm.
+    remote_missing,
     /// The daemon itself is not answering.
     daemon_gone,
     /// The run outlived its budget.
@@ -734,7 +807,9 @@ pub fn recovery(outcome: Outcome) Recovery {
         .needs_resync, .out_of_sync => .confirm_repair,
         .too_many_deletes => .confirm_mirror_delete,
         .name_too_long => .report_name_budget,
-        .auth_failed => .open_credentials,
+        // A missing root is almost always a mistyped bucket or path; the
+        // fresh-account case is the dialog's copy to soften.
+        .auth_failed, .remote_missing => .open_credentials,
         .timed_out, .remote_unreachable, .daemon_gone => .retry,
         .unknown => .show_log,
     };
@@ -761,6 +836,10 @@ fn classifyText(text: []const u8) ?Outcome {
         "signaturedoesnotmatch",
         "invalidaccesskeyid",
         "authorizationheadermalformed",
+        // A credential missing outright — rclone refuses to build the fs.
+        // Captured live: a cleared secret probes as exactly this.
+        "secret_access_key not found",
+        "access_key_id not found",
     };
     for (auth_patterns) |pattern| {
         if (containsIgnoreCase(text, pattern)) return .auth_failed;
@@ -778,6 +857,8 @@ fn classifyText(text: []const u8) ?Outcome {
     for (unreachable_patterns) |pattern| {
         if (containsIgnoreCase(text, pattern)) return .remote_unreachable;
     }
+
+    if (containsIgnoreCase(text, "directory not found")) return .remote_missing;
 
     if (containsIgnoreCase(text, "too many deletes")) return .too_many_deletes;
 

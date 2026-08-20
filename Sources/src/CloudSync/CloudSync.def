@@ -20,3 +20,4 @@ EXPORTS
     bk_cloudsync_creds_save = _bk_cloudsync_creds_save @13
     bk_cloudsync_creds_clear_secret = _bk_cloudsync_creds_clear_secret @14
     bk_cloudsync_creds_present = _bk_cloudsync_creds_present @15
+    bk_cloudsync_test_connection = _bk_cloudsync_test_connection @16
