@@ -23,12 +23,15 @@ static const NInput::SRegisterCommandEntry commonCommands[] =
 };
 enum EButtonsInOptionsSettings
 {
+	// Six division buttons and six lists exist in Data/UI/OptionsSettings.xml
+	// (ids 10007..10012 and 1000..1005). The END constants are unused by the
+	// code but must document that layout truthfully.
 	_E_BUTTON_CHANGE_DIVISION_BEGIN					= 10007,
-	_E_BUTTON_CHANGE_DIVISION_END						= 10009,
+	_E_BUTTON_CHANGE_DIVISION_END						= 10012,
 
 
 	_E_LIST_BEGIN						= 1000,
-	_E_LIST_END							= 1002,
+	_E_LIST_END							= 1005,
 
 
 	E_BUTTON_DEFAULT				= 10003,
@@ -142,7 +145,7 @@ void CInterfaceOptionsSettings::Create()
 	}
 	
 	ITextManager * pTM = GetSingleton<ITextManager>();
-	
+
 	nMaxDivision = 0;
 	const std::string szKeyOption = "Textes\\Options\\";
 	for ( int nSection = 0; nSection < sectionOrder.size(); ++nSection )
@@ -154,6 +157,18 @@ void CInterfaceOptionsSettings::Create()
 		IText *pT = pTM->GetString( szKeyName.c_str() );
 
 		NI_ASSERT_T( pT != 0, NStr::Format( "no local name for section %s", szKeyName.c_str() ) );
+
+		// The screen has exactly six tab/list slots. A seventh division - a
+		// mod declaring more option sections than the UI has tabs - must not
+		// reach checked_cast on the missing child and take the settings
+		// screen down with it; it is skipped, and the trace names it so the
+		// mod author can find out why their tab never appeared.
+		if ( pUIScreen->GetChildByID( _E_LIST_BEGIN + nMaxDivision ) == 0 ||
+				 pUIScreen->GetChildByID( _E_BUTTON_CHANGE_DIVISION_BEGIN + nMaxDivision ) == 0 )
+		{
+			NStr::DebugTrace( "CInterfaceOptionsSettings: no tab slot for division %d (\"%s\") - skipped\n", nMaxDivision, szSection.c_str() );
+			continue;
+		}
 
 		IUIListControl * pList = checked_cast<IUIListControl*>(pUIScreen->GetChildByID( _E_LIST_BEGIN + nMaxDivision ));
 		IUIStatic * pCaption = checked_cast<IUIStatic*>( pList->GetChildByID( 10 ) );
