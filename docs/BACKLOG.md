@@ -77,6 +77,22 @@ bottom of their section; delete items when they ship (git history keeps them).
   suite does not include them, which is why it passes. Add the include
   path or drop Debug.cpp from the lists. (Found 2026-08-20.)
 
+- **Verify garrison bars in live play on Intel macOS.** The green enemies
+  returned in every fresh mission because the load-time re-lock only heals
+  saves: the live boarding path never locked on macOS at all.
+  CMOBuilding::Load reached the bar through the tree's only two
+  dynamic_cast<ISceneIconBar*> - a cast on an object created in Scene,
+  across the module boundary. The MSVC ABI compares RTTI name strings, so
+  Windows always locked; the Itanium ABI compares typeinfo identity, the
+  copies in the two modules do not unify, the cast returned null, and the
+  lock was silently skipped - which is also why Mac-written saves carried
+  locked=false. Both sites now use static_cast like every other
+  ICON_HP_BAR access (Windows regression identical). Verify on the Mac:
+  garrisoned enemies red in a fresh mission, red after save/load of a
+  Mac-written save. Standing hazard to remember: any dynamic_cast on an
+  object created in another module is a silent null on macOS/Linux.
+  (Found 2026-08-20.)
+
 ## Ruled out
 
 - **Hold-a-letter-key + mouse to scroll the map** (tried with G, 2026-08-12):
