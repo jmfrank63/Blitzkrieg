@@ -76,3 +76,34 @@ Carried forward from P07-M01:
   screen = dialog + (144,79). Tab CLOUD center (260,562), dialog button
   (260,660), provider toggle (334,167), test (334,573), forget (690,573),
   V (440,634), X (578,634), row N edit center (500, 118+36(N-1)+15+79).
+
+P07-M02 Windows checkpoint: measured on the release build against a live
+MinIO — the loading line, the empty-bucket explanation, and a listing
+across two hosts (this machine's real snapshots plus a staged
+"old-desktop" history), grouped by host and newest first
+(evidence/cloud-sync/backup-browser/). All suites green offline and live;
+facade cross-compiles pass. Commit `4561186fa`.
+
+Carried forward from P07-M02:
+
+- **The list control REQUIRES one header child per column** (ids 10, 11,
+  12, ...): `CUIList`'s deserialize resolves `GetChildByID(10 + i)` for
+  every ColumnProps entry, asserts in debug, and in release stores the
+  null and crashes inside the screen's first `Reposition`
+  (`headers.subItems[i].pElement->SetWindowPlacement`). Every multi-column
+  list in the data obeys this; a new list must too.
+- The Cloud tab's sixth-slot buttons are now two half-width bars:
+  "Storage..." (10013, x 45..257) and "Backups..." (10014, x 266..478),
+  centers (151,663) and (372,663). OptionsSettings.lua's translated range
+  is 10001..10014.
+- The browser fetches on open (`ListBackups` + facade poll), keeps
+  `entryIDs` per row (user data indexes it) for P07-M03's restore, maps
+  failures through the same classified-tag lookup, and explains the empty
+  case. The staged second host was written with plain `rclone copyto`
+  onto `config-backups/<profile>/<host>/<stamp>.cfg` — a fine fixture
+  recipe for restores too.
+- An empty BUCKET lists as empty (the engine's missing-backup-root case);
+  a missing bucket fails classified. The X icon button's element id IS
+  IMC_CANCEL (10001) — one switch case, not two.
+- A warm daemon session lists in well under 300 ms — a loading-state
+  screenshot needs its shot within ~4 frames of the opening click.
