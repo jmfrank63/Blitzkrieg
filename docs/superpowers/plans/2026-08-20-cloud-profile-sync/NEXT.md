@@ -220,16 +220,21 @@ were reordered so every option exists before a hook reads it.
 
 Both are Windows-first and should not be discovered late:
 
-- ~~junction creation without administrator rights~~ — **settled**:
-  `New-Item -ItemType Junction -Path test -Target $env:HOMEPATH` succeeds from
-  an unelevated Windows prompt. The target must be absolute, which P01-M01 now
-  records.
-- whether rclone leaves a junction root unresolved in the session name, as it
-  does a POSIX symlink, is verified on macOS only (P01-M01, P08-M02). With
-  creation settled this is the largest open risk in the plan: if Windows
-  resolves the junction, the short link buys nothing there and P01-M01 needs
-  redesigning toward keeping the profile directory short rather than linking
-  to it.
+Both are now **settled**, and neither forces a redesign:
+
+- ~~junction creation without administrator rights~~ — `New-Item -ItemType
+  Junction` succeeds from an unelevated Windows prompt. The target must be
+  absolute, which P01-M01 records.
+- ~~whether rclone resolves a junction root~~ — it does not. A junction at
+  `C:\bk\p0` pointing at a deep target produced the session name
+  `C__bk_p0..C__bk_remote`; `bilib.FsPath` strips the `\\?\` prefix rclone
+  canonicalises to and mangles the path as given. Evidence in
+  `docs/superpowers/evidence/cloud-sync/junction-session-name.md`.
+
+The short link is therefore a real mitigation on both platforms and P01-M01
+stands as written. One gap remains from that probe: both sides were empty, so
+data movement through a junction is unexercised — P01-M01 now carries a file
+across the link, and P08-M02 confirms it in the shipped build.
 
 ## Important working-tree files
 
