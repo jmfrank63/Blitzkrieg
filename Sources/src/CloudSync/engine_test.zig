@@ -196,6 +196,158 @@ test "syncOnce refuses an unpaired profile" {
     }));
 }
 
+// -- Failure classification ---------------------------------------------------
+//
+// Every fixture below is a captured real failure — rclone v1.75.0 on Windows,
+// texts recorded in docs/superpowers/evidence/cloud-sync/
+// failure-texts-v1.75-windows.md — because a classifier tested against
+// invented strings classifies inventions.
+
+/// The rc reply for every failed bisync, verbatim. The cause is never here.
+const bare_reply: rc.RcFailure = .{ .message = "bisync aborted", .status = 500 };
+
+const fixture_too_many_deletes =
+    \\2026/08/21 00:44:42 ERROR : Safety abort: too many deletes (>50%, 2 of 3) on Path1 "C:\bk-ef\a\". Run with --force if desired.
+    \\2026/08/21 00:44:42 NOTICE: Bisync aborted. Please try again.
+    \\2026/08/21 00:44:42 NOTICE: Failed to bisync: too many deletes
+;
+
+const fixture_needs_resync =
+    \\2026/08/21 00:44:42 ERROR : Bisync critical error: cannot find prior Path1 or Path2 listings, likely due to critical error on prior run
+    \\2026/08/21 00:44:42 ERROR : Bisync aborted. Must run --resync to recover.
+    \\2026/08/21 00:44:42 NOTICE: Failed to bisync: bisync aborted
+;
+
+const fixture_auth_failed =
+    \\2026/08/21 00:45:35 ERROR : webdav root '': error reading source root directory: couldn't list files: 401 Unauthorized: 401 Unauthorized
+    \\2026/08/21 00:45:35 ERROR : Bisync critical error: couldn't list files: 401 Unauthorized: 401 Unauthorized
+    \\2026/08/21 00:45:35 ERROR : Bisync aborted. Must run --resync to recover.
+    \\2026/08/21 00:45:35 NOTICE: Failed to bisync with 2 errors: last error was: bisync aborted
+;
+
+const fixture_unreachable =
+    \\2026/08/21 00:45:40 ERROR : webdav root '': error reading source root directory: couldn't list files: Propfind "http://127.0.0.1:19999/": dial tcp 127.0.0.1:19999: connectex: No connection could be made because the target machine actively refused it.
+    \\2026/08/21 00:45:40 ERROR : Bisync critical error: couldn't list files: Propfind "http://127.0.0.1:19999/": dial tcp 127.0.0.1:19999: connectex: No connection could be made because the target machine actively refused it.
+    \\2026/08/21 00:45:40 ERROR : Bisync aborted. Must run --resync to recover.
+    \\2026/08/21 00:45:40 NOTICE: Failed to bisync with 2 errors: last error was: bisync aborted
+;
+
+const fixture_name_too_long_windows =
+    \\2026/08/21 00:44:17 NOTICE: Failed to bisync: syntax error detected in your path(s). Please check your command and try again.
+    \\ error: CreateFile C:\wd\C__deep_a..C__deep_b: The filename, directory name, or volume label syntax is incorrect.
+;
+
+/// The POSIX flavour, measured on macOS during planning.
+const fixture_name_too_long_posix =
+    \\ERROR : Bisync critical error: file name too long
+;
+
+/// The double-seeded-sentinel abort, measured during planning.
+const fixture_out_of_sync =
+    \\ERROR : Modtime not equal in listing: .bkprofile
+    \\ERROR : Bisync critical error: path1 and path2 are out of sync, run --resync to recover
+;
+
+test "each captured failure classifies to its outcome" {
+    const cases = [_]struct { log: []const u8, expected: engine.Outcome }{
+        .{ .log = fixture_too_many_deletes, .expected = .too_many_deletes },
+        .{ .log = fixture_needs_resync, .expected = .needs_resync },
+        .{ .log = fixture_auth_failed, .expected = .auth_failed },
+        .{ .log = fixture_unreachable, .expected = .remote_unreachable },
+        .{ .log = fixture_name_too_long_windows, .expected = .name_too_long },
+        .{ .log = fixture_name_too_long_posix, .expected = .name_too_long },
+        .{ .log = fixture_out_of_sync, .expected = .out_of_sync },
+    };
+    for (cases) |case| {
+        try std.testing.expectEqual(case.expected, engine.classify(bare_reply, case.log));
+    }
+
+    // The bare reply with no log is the degenerate case: nothing to read,
+    // nothing to invent.
+    try std.testing.expectEqual(engine.Outcome.unknown, engine.classify(bare_reply, ""));
+}
+
+test "the resync trailer loses to the cause above it" {
+    // Both captures end with the identical `Must run --resync to recover.`
+    // trailer. A classifier that reads the trailer first answers a wrong
+    // password with an offer to re-pair — which is why order is pinned here.
+    try std.testing.expect(
+        std.mem.indexOf(u8, fixture_auth_failed, "Must run --resync") != null,
+    );
+    try std.testing.expect(
+        std.mem.indexOf(u8, fixture_unreachable, "Must run --resync") != null,
+    );
+    try std.testing.expectEqual(engine.Outcome.auth_failed, engine.classify(bare_reply, fixture_auth_failed));
+    try std.testing.expectEqual(engine.Outcome.remote_unreachable, engine.classify(bare_reply, fixture_unreachable));
+}
+
+test "every outcome maps to its recovery and the delete guard is never forced" {
+    try std.testing.expectEqual(engine.Recovery.confirm_repair, engine.recovery(.needs_resync));
+    try std.testing.expectEqual(engine.Recovery.confirm_repair, engine.recovery(.out_of_sync));
+    // A tripped delete breaker is the guard *working*: the only recovery is
+    // the player's explicit "mirror that?" decision. There is deliberately
+    // no Recovery arm that retries with force, so it cannot be reached.
+    try std.testing.expectEqual(engine.Recovery.confirm_mirror_delete, engine.recovery(.too_many_deletes));
+    try std.testing.expectEqual(engine.Recovery.report_name_budget, engine.recovery(.name_too_long));
+    try std.testing.expectEqual(engine.Recovery.open_credentials, engine.recovery(.auth_failed));
+    try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.timed_out));
+    try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.remote_unreachable));
+    try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.daemon_gone));
+    try std.testing.expectEqual(engine.Recovery.show_log, engine.recovery(.unknown));
+}
+
+test "transport errors classify without a log" {
+    try std.testing.expectEqual(engine.Outcome.timed_out, engine.classifyTransport(error.Timeout));
+    try std.testing.expectEqual(engine.Outcome.daemon_gone, engine.classifyTransport(error.Transport));
+    // rc-level 401 is the daemon refusing our nonce — a foreign process on
+    // our port — not the cloud rejecting credentials.
+    try std.testing.expectEqual(engine.Outcome.daemon_gone, engine.classifyTransport(error.Unauthorized));
+    try std.testing.expectEqual(engine.Outcome.unknown, engine.classifyTransport(error.RcFailed));
+    try std.testing.expectEqual(engine.Outcome.unknown, engine.classifyTransport(error.BadJson));
+}
+
+test "the support log tail is bounded and redacted" {
+    const gpa = std.testing.allocator;
+
+    // Redaction exists because rclone puts the whole connection string —
+    // obscured password included — into the filesystem name it prints in
+    // error lines (captured with the unquoted-url variant). One line with
+    // every marker shape:
+    const secrets = "url=http://h,user=bk,pass=OBSCURED123: password=hunter2 " ++
+        "access_key_id=AKIAXYZ secret_access_key=SsEeCc token=t0k3n " ++
+        "Authorization: Basic QWxhZGRpbg== done\n";
+    const scrubbed = try engine.redactedLogTail(gpa, secrets);
+    defer gpa.free(scrubbed);
+    for ([_][]const u8{ "OBSCURED123", "hunter2", "AKIAXYZ", "SsEeCc", "t0k3n", "QWxhZGRpbg" }) |secret| {
+        try std.testing.expect(std.mem.indexOf(u8, scrubbed, secret) == null);
+    }
+    try std.testing.expect(std.mem.indexOf(u8, scrubbed, "pass=[redacted]") != null);
+    // The non-secret content survives — a fully censored log helps nobody.
+    try std.testing.expect(std.mem.indexOf(u8, scrubbed, "user=bk") != null);
+    try std.testing.expect(std.mem.indexOf(u8, scrubbed, "done") != null);
+
+    // A capture with no credentials passes through intact.
+    const untouched = try engine.redactedLogTail(gpa, fixture_unreachable);
+    defer gpa.free(untouched);
+    try std.testing.expectEqualStrings(fixture_unreachable, untouched);
+
+    // 250 numbered lines in, the last 200 out.
+    var big: std.ArrayList(u8) = .empty;
+    defer big.deinit(gpa);
+    var line: usize = 0;
+    var scratch: [32]u8 = undefined;
+    while (line < 250) : (line += 1) {
+        const rendered = std.fmt.bufPrint(&scratch, "line-{d}\n", .{line}) catch unreachable;
+        try big.appendSlice(gpa, rendered);
+    }
+
+    const tail = try engine.redactedLogTail(gpa, big.items);
+    defer gpa.free(tail);
+    try std.testing.expect(std.mem.startsWith(u8, tail, "line-50\n"));
+    try std.testing.expect(std.mem.indexOf(u8, tail, "line-49\n") == null);
+    try std.testing.expect(std.mem.indexOf(u8, tail, "line-249") != null);
+}
+
 // -- Live: pairing against a real daemon -------------------------------------
 
 fn envVar(gpa: std.mem.Allocator, name: []const u8) ?[]u8 {

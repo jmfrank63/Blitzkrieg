@@ -197,6 +197,10 @@ pub const Engine = struct {
     /// job starts and between status polls. A true value abandons the wait
     /// with `error.Cancelled`; the worker's shutdown path owns setting it.
     cancel: ?*const std.atomic.Value(bool) = null,
+    /// The classification of the most recent `error.SyncFailed`, `.unknown`
+    /// until one happens. Transport-level errors never get here; classify
+    /// those with `classifyTransport` at the call site.
+    last_outcome: Outcome = .unknown,
 
     pub fn init(gpa: Allocator, io: Io, client: *rc.Client) Engine {
         return .{ .gpa = gpa, .io = io, .client = client };
@@ -406,12 +410,25 @@ pub const Engine = struct {
         return item != .null;
     }
 
+    /// The classification of the most recent failed run.
+    pub fn lastOutcome(self: *const Engine) Outcome {
+        return self.last_outcome;
+    }
+
     fn recordError(self: *Engine, error_text: []const u8, run_log: ?[]const u8) void {
         self.clearLastError();
-        self.last_error_owned = if (run_log) |log|
-            std.fmt.allocPrint(self.gpa, "{s}\n{s}", .{ error_text, log }) catch null
-        else
-            self.gpa.dupe(u8, error_text) catch null;
+        self.last_outcome = classify(
+            .{ .message = error_text, .status = 500 },
+            run_log orelse "",
+        );
+        // What is kept is already redacted and bounded: the raw log never
+        // leaves this function, so nothing downstream can leak it.
+        self.last_error_owned = if (run_log) |log| owned: {
+            const tail = redactedLogTail(self.gpa, log) catch
+                break :owned self.gpa.dupe(u8, error_text) catch null;
+            defer self.gpa.free(tail);
+            break :owned std.fmt.allocPrint(self.gpa, "{s}\n{s}", .{ error_text, tail }) catch null;
+        } else self.gpa.dupe(u8, error_text) catch null;
     }
 
     fn clearLastError(self: *Engine) void {
@@ -426,4 +443,211 @@ fn sleepMs(io: Io, ms: u32) void {
         .clock = .awake,
     };
     duration.sleep(io) catch {};
+}
+
+// -- Failure classification --------------------------------------------------
+//
+// The rc reply for a failed bisync says only `{"error": "bisync aborted",
+// "status": 500}` — the cause exists solely in the run log, so
+// classification reads the log, never the reply. Every pattern below is a
+// captured real failure, not an invented one; the texts are in
+// `docs/superpowers/evidence/cloud-sync/failure-texts-v1.75-windows.md`.
+//
+// Order is load-bearing: an auth failure and an unreachable remote both end
+// with the same `Bisync aborted. Must run --resync to recover.` trailer
+// (captured), so the cause patterns must be tested before the trailer — or a
+// wrong password would be answered with an offer to re-pair.
+
+/// What went wrong, in terms a UI can offer a real choice about.
+pub const Outcome = enum {
+    /// bisync has no usable prior listings. Recovery is a *confirmed*
+    /// re-pair; resync overwrites one side, so it is never automatic.
+    needs_resync,
+    /// The delete-ratio breaker tripped: a genuine mass-delete event. Never
+    /// auto-retried with `force` — silently overriding this guard is the
+    /// one behaviour the design exists to prevent.
+    too_many_deletes,
+    /// The session name is over the filename budget.
+    name_too_long,
+    /// The two sides' listings disagree (the double-seeded-sentinel shape).
+    /// Recovery is a confirmed re-pair.
+    out_of_sync,
+    /// The cloud rejected the credentials.
+    auth_failed,
+    /// The cloud could not be reached at all.
+    remote_unreachable,
+    /// The daemon itself is not answering.
+    daemon_gone,
+    /// The run outlived its budget.
+    timed_out,
+    unknown,
+};
+
+/// What the UI should offer for each outcome. The mapping is total, so a new
+/// `Outcome` without a decision here fails to compile.
+pub const Recovery = enum {
+    /// Offer a confirmed re-pair through the pairing flow.
+    confirm_repair,
+    /// Ask "the cloud copy looks emptied, mirror that?" — a player decision,
+    /// never a `force` retry.
+    confirm_mirror_delete,
+    /// Report the projected session-name length against the budget and point
+    /// at the short link.
+    report_name_budget,
+    /// Open the credentials dialog.
+    open_credentials,
+    /// Offer a retry.
+    retry,
+    /// Nothing smarter to offer: show the redacted log tail.
+    show_log,
+};
+
+pub fn recovery(outcome: Outcome) Recovery {
+    return switch (outcome) {
+        .needs_resync, .out_of_sync => .confirm_repair,
+        .too_many_deletes => .confirm_mirror_delete,
+        .name_too_long => .report_name_budget,
+        .auth_failed => .open_credentials,
+        .timed_out, .remote_unreachable, .daemon_gone => .retry,
+        .unknown => .show_log,
+    };
+}
+
+/// Classify a failed run from its rc failure and run log. The log is
+/// consulted first and the terse reply only as a fallback, because the reply
+/// never carries the cause.
+pub fn classify(failure: rc.RcFailure, log: []const u8) Outcome {
+    if (classifyText(log)) |outcome| return outcome;
+    if (classifyText(failure.message)) |outcome| return outcome;
+    return .unknown;
+}
+
+fn classifyText(text: []const u8) ?Outcome {
+    if (text.len == 0) return null;
+
+    // Causes before consequences: the resync trailer appears under auth and
+    // network failures too (captured), and must lose to them.
+    const auth_patterns = [_][]const u8{
+        "401 unauthorized",
+        "403 forbidden",
+        "accessdenied",
+        "signaturedoesnotmatch",
+        "invalidaccesskeyid",
+        "authorizationheadermalformed",
+    };
+    for (auth_patterns) |pattern| {
+        if (containsIgnoreCase(text, pattern)) return .auth_failed;
+    }
+
+    const unreachable_patterns = [_][]const u8{
+        // Go's dialer prefixes both POSIX "connection refused" and Windows
+        // "connectex: No connection could be made..." with this.
+        "dial tcp",
+        "no such host",
+        "connection refused",
+        "network is unreachable",
+        "i/o timeout",
+    };
+    for (unreachable_patterns) |pattern| {
+        if (containsIgnoreCase(text, pattern)) return .remote_unreachable;
+    }
+
+    if (containsIgnoreCase(text, "too many deletes")) return .too_many_deletes;
+
+    // POSIX says "file name too long"; Windows wraps "The filename,
+    // directory name, or volume label syntax is incorrect." in bisync's
+    // canned "syntax error detected in your path(s)" (both captured).
+    if (containsIgnoreCase(text, "file name too long")) return .name_too_long;
+    if (containsIgnoreCase(text, "syntax error detected in your path")) return .name_too_long;
+
+    if (containsIgnoreCase(text, "path1 and path2 are out of sync")) return .out_of_sync;
+    if (containsIgnoreCase(text, "must run --resync to recover")) return .needs_resync;
+
+    return null;
+}
+
+/// Transport-level failures never reach the log; they are classified from
+/// the error alone. `Unauthorized` here is the *daemon* refusing our nonce —
+/// a foreign process on our port — not the cloud rejecting credentials.
+pub fn classifyTransport(err: rc.RcError) Outcome {
+    return switch (err) {
+        error.Timeout => .timed_out,
+        error.Transport, error.Unauthorized => .daemon_gone,
+        error.RcFailed, error.BadJson => .unknown,
+    };
+}
+
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    return std.ascii.indexOfIgnoreCase(haystack, needle) != null;
+}
+
+// -- Log redaction ------------------------------------------------------------
+
+/// How much of a failing run log is kept for support purposes.
+pub const log_tail_lines = 200;
+
+/// Markers whose value, up to the next delimiter, is credential material.
+/// The capture that motivates this: a connection-string remote puts
+/// `user=bk,pass=<obscured>` into the *filesystem name*, which rclone then
+/// prints in every error line.
+const redact_markers = [_][]const u8{
+    "pass=",
+    "password=",
+    "secret_access_key=",
+    "access_key_id=",
+    "token=",
+    "authorization: basic ",
+    "authorization: bearer ",
+};
+
+const redacted_placeholder = "[redacted]";
+
+/// The last `log_tail_lines` lines of `log`, with credential values struck
+/// out. This is what may travel in a support report; the raw log never
+/// leaves the machine through the ABI.
+pub fn redactedLogTail(gpa: Allocator, log: []const u8) Allocator.Error![]u8 {
+    const tail = lastLines(log, log_tail_lines);
+
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(gpa);
+
+    var index: usize = 0;
+    scan: while (index < tail.len) {
+        for (redact_markers) |marker| {
+            if (std.ascii.startsWithIgnoreCase(tail[index..], marker)) {
+                try out.appendSlice(gpa, tail[index..][0..marker.len]);
+                try out.appendSlice(gpa, redacted_placeholder);
+                index += marker.len;
+                // Swallow the value: everything up to a delimiter that can
+                // end a credential in a URL, connection string, header or
+                // config line.
+                while (index < tail.len) : (index += 1) {
+                    switch (tail[index]) {
+                        ' ', ',', '"', '\'', ':', ';', '\n', '\r', ')', ']', '&' => break,
+                        else => {},
+                    }
+                }
+                continue :scan;
+            }
+        }
+        try out.append(gpa, tail[index]);
+        index += 1;
+    }
+
+    return out.toOwnedSlice(gpa);
+}
+
+fn lastLines(text: []const u8, count: usize) []const u8 {
+    if (text.len == 0) return text;
+    var lines: usize = 0;
+    var index = text.len;
+    // A trailing newline does not make an empty extra line.
+    if (text[index - 1] == '\n') index -= 1;
+    while (index > 0) : (index -= 1) {
+        if (text[index - 1] == '\n') {
+            lines += 1;
+            if (lines == count) return text[index..];
+        }
+    }
+    return text;
 }
