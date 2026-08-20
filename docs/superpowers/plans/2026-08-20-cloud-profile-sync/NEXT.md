@@ -52,6 +52,26 @@ Six more, all reproduced or confirmed in source before being designed against:
   is every player's first sync. `operations/mkdir` now precedes pairing
   (P02-M01).
 
+### Fifth review pass
+
+- **Apply was not crash-idempotent.** A crash between installing the new
+  `config.cfg` and clearing the stage makes the next launch apply it again;
+  the second run snapshotted the already-restored file, so "undo the most
+  recent" recovered the restore instead of the original. Undo snapshots are
+  now keyed by stage nonce and written once, with a crash test in that exact
+  window.
+- **Staging cleared the old stage before writing the new one**, so a failed
+  download left neither, and two pollable restore jobs could interleave in one
+  directory. Stages are now `.cloudsync-restore/<nonce>/`, the `COMMIT` write
+  is the single publication point, the previous committed stage survives until
+  a new one commits, and a second concurrent restore is refused.
+- **Discovery refresh had no owner.** `P00-M04` caches discovery before
+  `rclone_path` exists, and nothing required `creds_save` to invalidate it, so
+  the dialog's promise to re-discover after a path change rested on nothing.
+  The cache contract and `refresh_discovery` are defined in P00-M04, P03-M01
+  owns invalidation, and an end-to-end test proves a saved override flips both
+  `available` and `discovery_status` without a restart.
+
 ### Fourth review pass
 
 - **Startup could not call the merge.** `mergeConfig` lives in Zig, but the

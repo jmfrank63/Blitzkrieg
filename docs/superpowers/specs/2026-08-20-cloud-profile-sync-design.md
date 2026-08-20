@@ -247,16 +247,20 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   falls back to display 0 — but "survivable" is not "wanted", and the failure
   is silent.
 - The current config is copied into the local trash before a restore
-  overwrites it, so restoring is itself undoable.
+  overwrites it, so restoring is itself undoable. Applying is idempotent: a
+  retry after an interrupted apply reuses the existing snapshot rather than
+  taking a new one.
 - **A restore is staged, never applied live.** The game rewrites `config.cfg`
   from its in-memory options at shutdown (`GameMain.cpp:1182`) and from eight
   other `SerializeConfig( false, ... )` call sites across the interface code,
   so a restored file written under a running game is discarded before the
-  player ever sees it. The download goes to a staged directory
-  `profiles/<name>/.cloudsync-restore/` holding the payload, a metadata file
-  naming the mode and the payload hash, and a `COMMIT` marker written last; a
-  stage without `COMMIT`, or failing its hash, is deleted rather than guessed
-  at. Undo takes the same path, and acceptance tests a restore across a real
+  player ever sees it. The download goes to a nonce-scoped staged directory
+  `profiles/<name>/.cloudsync-restore/<nonce>/` holding the payload, a
+  metadata file naming the mode and the payload hash, and a `COMMIT` marker
+  written last; a stage without `COMMIT`, or failing its hash, is deleted
+  rather than guessed at. Nonce scoping means the `COMMIT` write is the single
+  publication point, so a failed download never destroys a previously staged
+  restore and two requests cannot interleave in one directory. Undo takes the same path, and acceptance tests a restore across a real
   restart, because a same-session check passes while the feature is broken.
 - **The merge runs at apply time, in Zig, behind one export.** At the next
   startup — before the option system reads the config — the game calls a
@@ -265,7 +269,12 @@ Backups are a separate, one-way mechanism with no bisync involvement:
   installs the result. Doing the merge then rather than at stage time means
   local `GFX.*` values changed during the intervening session are respected.
   The snapshot is taken there for the same reason: a copy made when the
-  restore was requested would undo to a file hours out of date. The operation
+  restore was requested would undo to a file hours out of date. It is named
+  after the stage nonce and written only once, because a crash between
+  installing the new `config.cfg` and clearing the stage makes the next launch
+  apply the same stage again — and an unkeyed snapshot would then capture the
+  already-restored file, leaving undo recovering the restore instead of the
+  original. The operation
   needs no daemon and no credentials, so a restore already downloaded still
   completes if the feature is later switched off.
 - Only local `GFX.*` values are preserved across that window. Every other key
@@ -334,6 +343,11 @@ shows one arm at a time. Note that rclone's S3 `provider` names the vendor
 behind the protocol (AWS, Cloudflare, Minio) while the game's `Cloud.Provider`
 selects the protocol itself — same word, different question, so the stored
 field is `s3_provider`.
+
+Discovery of the rclone binary is cached so that availability and the detailed
+status can never disagree, and saving credentials invalidates that cache —
+`rclone_path` lives in this file, so a player who points the game at a working
+binary must see it recognised immediately rather than after a restart.
 
 The secret is never handed back out: the load path returns a `has_secret` flag
 and the dialog shows a placeholder. Saving without touching that field
