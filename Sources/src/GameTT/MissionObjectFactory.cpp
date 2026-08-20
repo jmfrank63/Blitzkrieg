@@ -24,6 +24,7 @@
 #include "SwitchToNextChapter.h"
 #include "InterfaceStartDialog.h"
 #include "InterfaceCloudCredentials.h"
+#include "InterfaceCloudBackups.h"
 #include "IMLoadMission.h"
 #include "TutorialList.h"
 #include "PlayerGainLevel.h"
@@ -164,6 +165,9 @@ CMissionObjectFactory::CMissionObjectFactory()
 
 	REGISTER_CLASS( this, MISSION_INTERFACE_CLOUD_CREDENTIALS, CInterfaceCloudCredentials );
 	REGISTER_CLASS( this, MISSION_COMMAND_CLOUD_CREDENTIALS, CICCloudCredentials );
+
+	REGISTER_CLASS( this, MISSION_INTERFACE_CLOUD_BACKUPS, CInterfaceCloudBackups );
+	REGISTER_CLASS( this, MISSION_COMMAND_CLOUD_BACKUPS, CICCloudBackups );
 
 	REGISTER_CLASS( this, MISSION_INTERFACE_MP_MAP_SETTINGS, CInterfaceMPMapSettings );
 	REGISTER_CLASS( this, MISSION_COMMAND_MP_MAP_SETTINGS, CICMPMapSettings );

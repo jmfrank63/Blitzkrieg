@@ -43,11 +43,12 @@ enum EButtonsInOptionsSettings
 	// a convention, other screens showing the profile label reuse it.
 	E_STATIC_PROFILE				= 21000,
 
-	// The credentials dialog button, visible only while the Cloud tab is
-	// active. Endpoints, keys and the secret are not options - the option
-	// store truncates long strings and must never carry a secret - so the
-	// Cloud tab opens a dedicated screen for them.
+	// The cloud screen buttons, visible only while the Cloud tab is active,
+	// sharing the sixth tab slot. Endpoints, keys and the secret are not
+	// options - the option store truncates long strings and must never
+	// carry a secret - so the Cloud tab opens dedicated screens for them.
 	E_BUTTON_CLOUD_CREDENTIALS	= 10013,
+	E_BUTTON_CLOUD_BACKUPS			= 10014,
 };
 bool CInterfaceOptionsSettings::OpenCurtains()
 {
@@ -250,9 +251,12 @@ void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 	NI_ASSERT_T( pElement != 0, NStr::Format("There is no button with id %d") );
 	pElement->EnableWindow( false );
 
-	// The credentials button belongs to the Cloud tab alone.
+	// The cloud screen buttons belong to the Cloud tab alone.
+	const int nCloudShow = nActive == nCloudDivision && nCloudDivision >= 0 ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE;
 	if ( IUIElement *pCredentials = pUIScreen->GetChildByID( E_BUTTON_CLOUD_CREDENTIALS ) )
-		pCredentials->ShowWindow( nActive == nCloudDivision && nCloudDivision >= 0 ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+		pCredentials->ShowWindow( nCloudShow );
+	if ( IUIElement *pBackups = pUIScreen->GetChildByID( E_BUTTON_CLOUD_BACKUPS ) )
+		pBackups->ShowWindow( nCloudShow );
 }
 // Tab parks the cursor on the next button of the screen - division tabs,
 // then V (ok), then X (cancel) - so the button highlights, tooltips and
@@ -377,6 +381,10 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 	case E_BUTTON_CLOUD_CREDENTIALS:
 		// The settings screen stays below; the dialog pops back to it.
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CLOUD_CREDENTIALS, 0 );
+		return true;
+
+	case E_BUTTON_CLOUD_BACKUPS:
+		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CLOUD_BACKUPS, 0 );
 		return true;
 
 	case IMC_CANCEL:

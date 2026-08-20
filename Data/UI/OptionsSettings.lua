@@ -16,7 +16,7 @@ function LuaProcessMessage( nMessageCode, nFirst, nSecond )
 		return 1
 	end
 
-	if ( nMessageCode == 536936448 and ( nFirst >= 10001 and nFirst <= 10013 ) ) then	--10013: cloud credentials
+	if ( nMessageCode == 536936448 and ( nFirst >= 10001 and nFirst <= 10014 ) ) then	--10013: cloud credentials, 10014: cloud backups
 		local nMessage = SetProcessedFlag( nFirst )
 		AddMessage( nMessage, 0, 1 )
 		return 1
