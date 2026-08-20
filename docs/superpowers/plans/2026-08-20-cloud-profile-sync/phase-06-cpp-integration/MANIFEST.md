@@ -40,3 +40,36 @@ Carried forward from P06-M01:
 - `CloudSyncFacade.cpp` is compiled only by its test so far. P06-M02 owns
   adding it to the game build (Main.vcxproj or the exe's source list)
   together with the first call site.
+
+P06-M02 Windows checkpoint: measured end to end on the release build against
+a live MinIO — launch one paired before the menu (begun pre-menu-pipeline,
+finished during menu load, frame cadence unchanged), launch two synced
+steady-state, the bucket holding the profile's actual saves with the
+sentinel and `config.cfg` absent, `cloudsync/state/USSR.json` carrying the
+fingerprint. All suites green. Commit `caaf3ccbe`.
+
+Carried forward from P06-M02:
+
+- **Two real defects found by the measurement.** (1) The minimal config
+  scan's first draft read the wrong element: inside an item the `<Default>`
+  block's own `<Var>` sits between the live value and `<KeyName>`, so
+  nearest-preceding-`<Var>` is always the default — the scan anchors at the
+  enclosing `<item` and takes the first `<Var>` after it. (2) Discovery
+  honoured the credentials `rclone_path` only after a live `creds_save`; the
+  library now bootstraps the explicit override from `cloud.credentials` once
+  per process before the first probe (`cloudsync.zig` amended beyond the
+  allowlist, recorded).
+- The platform audit rejects raw `LoadLibrary`/`dlopen` outside approved
+  paths; the facade's native corners live in
+  `Sources/src/Platform/CloudSyncLoader.*` (path-scoped adapter), and the
+  facade itself has no platform includes.
+- `CloudSyncFacade.cpp` + `CloudSyncLoader.cpp` are compiled into the game
+  via `game_sources`; the facade test compiles all three files itself.
+- Harness lessons: `set=` writes the option system directly, but an open
+  settings screen's OK/cancel overwrites it with the screen's captured
+  values — set options with no screen open. The game's own traces
+  (`NStr::DebugTrace`) do reach stderr in headless release runs.
+- The main-loop poll block traces and releases on settle; P06-M04 replaces
+  the traces with the indicator. P06-M03 owns exit (`Shutdown()` is not yet
+  called anywhere in the game; the Windows job object reaps the daemon on
+  process death, POSIX relies on next-launch identity reaping).

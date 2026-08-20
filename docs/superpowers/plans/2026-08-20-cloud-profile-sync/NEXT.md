@@ -1,8 +1,10 @@
 # Next Packet
 
-Resume at `phase-06-cpp-integration/P06-M02-startup-pull.md`.
+Resume at `phase-06-cpp-integration/P06-M03-push-hooks.md`.
 
-**Phases 00 through 05 are complete; P06-M01 is done.** Phase 00's gate is met
+**Phases 00 through 05 are complete; P06-M01 and P06-M02 are done.** The
+game pairs and syncs at startup against a live S3 store, measured on the
+release build. Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
 branch moved to a real Windows 11 machine and every suite ran natively on
 `x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
@@ -83,8 +85,8 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-06-cpp-integration/P06-M02-startup-pull.md` — the startup
-pull before the profile config is read; the facade joins the game build.
+**Next:** `phase-06-cpp-integration/P06-M03-push-hooks.md` — the post-save
+and exit push hooks.
 
 ## Corrections applied after review
 
