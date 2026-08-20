@@ -447,16 +447,14 @@ pub fn filtersFilePath(gpa: Allocator, game_dir: []const u8) Allocator.Error![]u
 /// any future machine-local file dropped into the profile directory by
 /// mistake.
 pub const filters_file_content =
-    \\- config.cfg
-    \\- screenshots/**
-    \\- *.tmp-rename
-    \\- cloud.credentials
-    \\- .cloudsync-trash/**
-    \\- .cloudsync-restore/**
-    \\- config-backups/**
-    \\- .cloudsync-*
-    \\
-;
+    "- config.cfg\n" ++
+    "- screenshots/**\n" ++
+    "- *.tmp-rename\n" ++
+    "- cloud.credentials\n" ++
+    "- " ++ local_trash_dir_name ++ "/**\n" ++
+    "- .cloudsync-restore/**\n" ++
+    "- config-backups/**\n" ++
+    "- .cloudsync-*\n";
 
 /// Write the filter set to `file_path`, replacing whatever is there. The
 /// content is comptime-constant, so rewriting is idempotent and cannot
@@ -569,6 +567,148 @@ pub fn ensureSentinel(
     Io.Dir.cwd().writeFile(io, .{ .sub_path = sentinel_path, .data = content }) catch
         return error.SentinelUnwritable;
     return .written;
+}
+
+// -- bisync parameters -------------------------------------------------------
+//
+// One correct parameter object, including the three defaults the rc API gets
+// wrong or ignores: `maxDelete` is zero-valued over rc so any delete aborts
+// unless 50 is sent explicitly; `conflictResolve` is ignored during a resync,
+// so every pairing carries `resyncMode: "newer"` or an older local save
+// silently destroys the newer cloud copy; and `force` is never sent, because
+// it disables the excess-deletes guard along with the all-changed guard the
+// sentinel already covers.
+
+/// The local trash's directory name inside the profile. On the filter list,
+/// so trashed saves never sync; the constant and the filter rule are the same
+/// bytes by construction.
+pub const local_trash_dir_name = ".cloudsync-trash";
+
+/// Whether this run pairs or syncs. `.pairing` only when the pairing state
+/// records that this profile has never paired — `resync` rebuilds the
+/// listings from scratch and must not run on a paired profile, where it would
+/// bypass conflict renaming.
+pub const SyncMode = enum { pairing, steady };
+
+/// Everything `bisyncParams` needs to know, gathered by the caller: the
+/// worker owns discovery and state, this module owns correctness of the
+/// emitted object.
+pub const SyncContext = struct {
+    /// The short link, Path1. Never the profile directory itself — the whole
+    /// point of P01-M01.
+    path1: []const u8,
+    /// The rclone remote name, without the colon.
+    remote: []const u8,
+    /// The profile name as it appears under `<remote>:profiles/`.
+    profile: []const u8,
+    /// Where machine-local state lives; see `stateRoot`.
+    game_dir: []const u8,
+    /// A fresh `runId()` per run — the uniqueness of the two trash
+    /// directories rests on it.
+    run_id: []const u8,
+    mode: SyncMode,
+};
+
+pub const BisyncParamsError = SessionBudgetError;
+
+/// The parameter object for one `sync/bisync` rc call, arena-owned.
+pub const BisyncParams = struct {
+    arena: std.heap.ArenaAllocator,
+    /// An `.object` value, ready for `rc.Client.callAsync`.
+    value: std.json.Value,
+
+    pub fn deinit(self: *BisyncParams) void {
+        self.arena.deinit();
+        self.* = undefined;
+    }
+};
+
+/// Assemble the rc parameters for one run. The session budget is checked
+/// here, on every call, because the profile name is part of Path2 and a
+/// rename can push a fitting pair over the limit between runs. A caller that
+/// wants the offending number for the player calls `sessionName` itself.
+pub fn bisyncParams(gpa: Allocator, ctx: SyncContext) BisyncParamsError!BisyncParams {
+    var arena: std.heap.ArenaAllocator = .init(gpa);
+    errdefer arena.deinit();
+    const alloc = arena.allocator();
+
+    const path2 = try remoteProfileRoot(alloc, ctx.remote, ctx.profile);
+
+    var projected: usize = 0;
+    try checkSessionBudget(
+        alloc,
+        .{ .path = ctx.path1, .kind = .local },
+        .{ .path = path2, .kind = .remote },
+        &projected,
+    );
+
+    var object: std.json.ObjectMap = .empty;
+    try object.put(alloc, "path1", .{ .string = try alloc.dupe(u8, ctx.path1) });
+    try object.put(alloc, "path2", .{ .string = path2 });
+    try object.put(alloc, "workdir", .{ .string = try workdirPath(alloc, ctx.game_dir) });
+    try object.put(alloc, "filtersFile", .{ .string = try filtersFilePath(alloc, ctx.game_dir) });
+    try object.put(alloc, "conflictResolve", .{ .string = "newer" });
+    try object.put(alloc, "_async", .{ .bool = true });
+    // Explicit on every run: rc builds a zero-valued Options{} and a zero
+    // maxDelete aborts on *any* delete — the CLI's default of 50 is applied
+    // in cmd.go, which the rc path never runs.
+    try object.put(alloc, "maxDelete", .{ .integer = @intCast(max_delete_percent) });
+
+    // Two trashes, one per side, both scoped to this run. rclone requires
+    // each backup directory on its own side's filesystem, and it overwrites
+    // a backup at an existing path — quick.sav is the same name every
+    // session, so a shared trash root destroys recovery copies during
+    // ordinary play.
+    const backup1 = try std.fmt.allocPrint(
+        alloc,
+        "{s}{c}" ++ local_trash_dir_name ++ "{c}{s}",
+        .{ ctx.path1, path.sep, path.sep, ctx.run_id },
+    );
+    try object.put(alloc, "backupDir1", .{ .string = backup1 });
+    try object.put(alloc, "backupDir2", .{
+        .string = try remoteTrashRoot(alloc, ctx.remote, ctx.profile, ctx.run_id),
+    });
+
+    if (ctx.mode == .pairing) {
+        try object.put(alloc, "resync", .{ .bool = true });
+        // conflictResolve is ignored during a resync, which defaults to
+        // Path1 winning and renames nothing: measured, a machine holding an
+        // older save overwrote the newer cloud copy with no conflict file
+        // and no trash entry.
+        try object.put(alloc, "resyncMode", .{ .string = "newer" });
+    }
+
+    return .{ .arena = arena, .value = .{ .object = object } };
+}
+
+/// A per-run identifier: a sortable UTC stamp plus a random nonce, safe for
+/// both a directory name and a remote path segment (no colons — Windows).
+/// The stamp orders trash runs for retention; the nonce keeps two runs in
+/// the same second — or under a clock rollback — from sharing a trash
+/// directory, which would let one run overwrite the other's recovery copies.
+pub fn runId(gpa: Allocator, io: Io) Allocator.Error![]u8 {
+    const seconds = Io.Clock.now(.real, io).toSeconds();
+    const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = @intCast(@max(seconds, 0)) };
+    const year_day = epoch_seconds.getEpochDay().calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
+    const day_seconds = epoch_seconds.getDaySeconds();
+
+    var nonce: [4]u8 = undefined;
+    io.randomSecure(&nonce) catch io.random(&nonce);
+
+    return std.fmt.allocPrint(
+        gpa,
+        "{d:0>4}{d:0>2}{d:0>2}T{d:0>2}{d:0>2}{d:0>2}Z-{x:0>8}",
+        .{
+            year_day.year,
+            month_day.month.numeric(),
+            @as(u6, month_day.day_index) + 1,
+            day_seconds.getHoursIntoDay(),
+            day_seconds.getMinutesIntoHour(),
+            day_seconds.getSecondsIntoMinute(),
+            std.mem.readInt(u32, &nonce, .big),
+        },
+    );
 }
 
 /// Take `target` on the ownership of the returned `ShortLink`, replacing

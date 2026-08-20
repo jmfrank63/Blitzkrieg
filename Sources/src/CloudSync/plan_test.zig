@@ -825,3 +825,190 @@ test "an unwritable profile is a typed sentinel failure" {
     );
 }
 
+// -- bisync parameters -------------------------------------------------------
+
+/// A context whose paths are plausible on the running platform, so the
+/// emitted object can be asserted byte-for-byte.
+fn testContext(mode: plan.SyncMode) plan.SyncContext {
+    return .{
+        .path1 = if (builtin.os.tag == .windows) "C:\\bk\\p0" else "/tmp/bk/p0",
+        .remote = "bkremote",
+        .profile = "Panzerkommandant",
+        .game_dir = if (builtin.os.tag == .windows) "C:\\Games\\Blitzkrieg" else "/games/blitzkrieg",
+        .run_id = "20260821T101530Z-a1b2c3d4",
+        .mode = mode,
+    };
+}
+
+fn paramString(params: plan.BisyncParams, key: []const u8) ?[]const u8 {
+    const value = params.value.object.get(key) orelse return null;
+    return switch (value) {
+        .string => |s| s,
+        else => null,
+    };
+}
+
+test "pairing params carry every required key and value" {
+    const gpa = std.testing.allocator;
+
+    var params = try plan.bisyncParams(gpa, testContext(.pairing));
+    defer params.deinit();
+    const object = params.value.object;
+
+    const ctx = testContext(.pairing);
+    try std.testing.expectEqualStrings(ctx.path1, paramString(params, "path1").?);
+    try std.testing.expectEqualStrings(
+        "bkremote:profiles/Panzerkommandant",
+        paramString(params, "path2").?,
+    );
+
+    // Machine-local, under the state root, never inside either path.
+    const expected_workdir = try plan.workdirPath(gpa, ctx.game_dir);
+    defer gpa.free(expected_workdir);
+    try std.testing.expectEqualStrings(expected_workdir, paramString(params, "workdir").?);
+    const expected_filters = try plan.filtersFilePath(gpa, ctx.game_dir);
+    defer gpa.free(expected_filters);
+    try std.testing.expectEqualStrings(expected_filters, paramString(params, "filtersFile").?);
+
+    try std.testing.expectEqualStrings("newer", paramString(params, "conflictResolve").?);
+    try std.testing.expectEqual(true, object.get("_async").?.bool);
+    // Explicit because rc's zero-valued Options{} aborts on any delete; the
+    // CLI's default of 50 lives in cmd.go, which rc never runs.
+    try std.testing.expectEqual(@as(i64, 50), object.get("maxDelete").?.integer);
+
+    try std.testing.expectEqual(true, object.get("resync").?.bool);
+    try std.testing.expectEqualStrings("newer", paramString(params, "resyncMode").?);
+
+    // Never: force disables the excess-deletes guard along with the
+    // all-changed guard, and the sentinel already covers the latter.
+    try std.testing.expect(object.get("force") == null);
+}
+
+test "assertNoResyncWhenPaired" {
+    const gpa = std.testing.allocator;
+
+    var params = try plan.bisyncParams(gpa, testContext(.steady));
+    defer params.deinit();
+    const object = params.value.object;
+
+    // A resync on a paired profile bypasses conflict renaming; it exists for
+    // first pairing only, and the steady-state call must not carry it.
+    try std.testing.expect(object.get("resync") == null);
+    try std.testing.expect(object.get("resyncMode") == null);
+
+    // The safety keys are not pairing-only.
+    try std.testing.expectEqual(@as(i64, 50), object.get("maxDelete").?.integer);
+    try std.testing.expectEqualStrings("newer", paramString(params, "conflictResolve").?);
+    try std.testing.expect(object.get("force") == null);
+    try std.testing.expect(object.get("backupDir1") != null);
+    try std.testing.expect(object.get("backupDir2") != null);
+}
+
+test "resync_preserves_newer_side" {
+    const gpa = std.testing.allocator;
+
+    // conflictResolve is ignored during a resync, which defaults to Path1
+    // winning and renames nothing: measured, a machine holding an older save
+    // overwrote the newer cloud copy with no conflict file and no trash
+    // entry. resyncMode "newer" is the parameter that stops that, and it must
+    // be on every pairing call.
+    var params = try plan.bisyncParams(gpa, testContext(.pairing));
+    defer params.deinit();
+    try std.testing.expectEqualStrings("newer", paramString(params, "resyncMode").?);
+    try std.testing.expectEqual(true, params.value.object.get("resync").?.bool);
+}
+
+test "the two trashes sit on their own filesystems" {
+    const gpa = std.testing.allocator;
+
+    const ctx = testContext(.steady);
+    var params = try plan.bisyncParams(gpa, ctx);
+    defer params.deinit();
+
+    const backup1 = paramString(params, "backupDir1").?;
+    const backup2 = paramString(params, "backupDir2").?;
+    const path2 = paramString(params, "path2").?;
+
+    // backupDir1 on Path1's filesystem: inside the profile via the short
+    // link, in the directory the filter set excludes from sync.
+    const local_prefix = try std.fmt.allocPrint(gpa, "{s}{c}", .{ ctx.path1, path.sep });
+    defer gpa.free(local_prefix);
+    try std.testing.expect(std.mem.startsWith(u8, backup1, local_prefix));
+    try std.testing.expect(std.mem.indexOf(u8, backup1, plan.local_trash_dir_name) != null);
+    const trash_rule = "- " ++ plan.local_trash_dir_name ++ "/**\n";
+    try std.testing.expect(std.mem.indexOf(u8, plan.filters_file_content, trash_rule) != null);
+
+    // backupDir2 on Path2's filesystem — a local path here fails the run
+    // with `parameter to --backup-dir has to be on the same remote as
+    // destination` — but as a sibling of the synced prefix, never beneath it.
+    try std.testing.expect(std.mem.startsWith(u8, backup2, "bkremote:"));
+    try std.testing.expect(!std.mem.startsWith(u8, backup2, path2));
+
+    // Both carry the run id — one run, one pair of trashes.
+    try std.testing.expect(std.mem.endsWith(u8, backup1, ctx.run_id));
+    try std.testing.expect(std.mem.endsWith(u8, backup2, ctx.run_id));
+}
+
+test "repeated_overwrite_keeps_every_version" {
+    const gpa = std.testing.allocator;
+
+    // rclone overwrites a backup at an existing path, and save filenames
+    // recur every session — quick.sav, the autosaves — so deleting,
+    // recreating and deleting again destroyed the first recovery copy in a
+    // shared trash root (measured). Distinct run ids must put the same
+    // filename at distinct trash paths on both sides.
+    var first_ctx = testContext(.steady);
+    first_ctx.run_id = "20260821T101530Z-a1b2c3d4";
+    var second_ctx = testContext(.steady);
+    second_ctx.run_id = "20260821T113000Z-5e6f7a8b";
+
+    var first = try plan.bisyncParams(gpa, first_ctx);
+    defer first.deinit();
+    var second = try plan.bisyncParams(gpa, second_ctx);
+    defer second.deinit();
+
+    inline for (.{ "backupDir1", "backupDir2" }) |key| {
+        const a = try std.fmt.allocPrint(gpa, "{s}/saves/quick.sav", .{paramString(first, key).?});
+        defer gpa.free(a);
+        const b = try std.fmt.allocPrint(gpa, "{s}/saves/quick.sav", .{paramString(second, key).?});
+        defer gpa.free(b);
+        try std.testing.expect(!std.mem.eql(u8, a, b));
+    }
+}
+
+test "the session budget is enforced on every build" {
+    const gpa = std.testing.allocator;
+
+    // A profile rename can push a fitting pair over the limit between runs,
+    // so the check lives in the builder, not in setup.
+    var ctx = testContext(.steady);
+    ctx.path1 = "/" ++ ("a" ** 240);
+    try std.testing.expectError(error.SessionNameTooLong, plan.bisyncParams(gpa, ctx));
+}
+
+test "a run id is a sortable UTC stamp with a nonce" {
+    const gpa = std.testing.allocator;
+
+    const first = try plan.runId(gpa, io);
+    defer gpa.free(first);
+    const second = try plan.runId(gpa, io);
+    defer gpa.free(second);
+
+    // `YYYYMMDDTHHMMSSZ-xxxxxxxx`: 25 bytes, sortable, and legal as both a
+    // directory name and a remote path segment — no colons, which Windows
+    // refuses in filenames.
+    try std.testing.expectEqual(@as(usize, 25), first.len);
+    try std.testing.expectEqual(@as(u8, 'T'), first[8]);
+    try std.testing.expectEqual(@as(u8, 'Z'), first[15]);
+    try std.testing.expectEqual(@as(u8, '-'), first[16]);
+    for (first[0..8]) |digit| try std.testing.expect(std.ascii.isDigit(digit));
+    for (first[9..15]) |digit| try std.testing.expect(std.ascii.isDigit(digit));
+    for (first[17..]) |nibble| try std.testing.expect(std.ascii.isHex(nibble));
+    try std.testing.expect(std.mem.indexOfAny(u8, first, ":/\\") == null);
+
+    // The nonce is what separates two runs in the same second — or across a
+    // clock rollback, when the stamp alone could even repeat.
+    try std.testing.expect(!std.mem.eql(u8, first, second));
+    try std.testing.expect(!std.mem.eql(u8, first[17..], second[17..]));
+}
+
