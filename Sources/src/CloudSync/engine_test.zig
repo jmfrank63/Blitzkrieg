@@ -348,6 +348,165 @@ test "the support log tail is bounded and redacted" {
     try std.testing.expect(std.mem.indexOf(u8, tail, "line-249") != null);
 }
 
+// -- Trash retention ----------------------------------------------------------
+
+test "runIdTimestamp parses the stamp and rejects imposters" {
+    // Pinned against independently known epoch values, because the pruning
+    // arithmetic rests on this function.
+    try std.testing.expectEqual(@as(i64, 0), engine.runIdTimestamp("19700101T000000Z-00000000").?);
+    try std.testing.expectEqual(@as(i64, 951_868_800), engine.runIdTimestamp("20000301T000000Z-abcdef01").?);
+    try std.testing.expectEqual(@as(i64, 1_709_208_000), engine.runIdTimestamp("20240229T120000Z-deadbeef").?);
+
+    for ([_][]const u8{
+        "not-a-run",
+        "20260821T110000Z", // too short: no nonce
+        "20260821X110000Z-aaaaaaaa", // wrong stamp separator
+        "20260821T110000Z_aaaaaaaa", // wrong nonce separator
+        "20261341T110000Z-aaaaaaaa", // month 13
+        "20260821T256161Z-aaaaaaaa", // hour 25
+        "20260821T110000Z-zzzzzzzz", // nonce not hex
+        "2026082aT110000Z-aaaaaaaa", // stamp not digits
+    }) |imposter| {
+        try std.testing.expect(engine.runIdTimestamp(imposter) == null);
+    }
+}
+
+test "local trash pruning keeps the newest runs and prunes by age only past them" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const trash = try fixture.makeDir("trash");
+    defer gpa.free(trash);
+
+    // Mixed ages around a fixed "now", each run holding the same recurring
+    // filename — the reason runs are the unit of retention at all.
+    const now = engine.runIdTimestamp("20260821T120000Z-00000000").?;
+    const runs = [_]struct { name: []const u8, content: []const u8 }{
+        .{ .name = "20260821T110000Z-aaaaaaaa", .content = "v5" }, // 1 hour
+        .{ .name = "20260810T110000Z-bbbbbbbb", .content = "v4" }, // 11 days
+        .{ .name = "20260701T110000Z-cccccccc", .content = "v3" }, // 51 days
+        .{ .name = "20260601T110000Z-dddddddd", .content = "v2" }, // 81 days
+        .{ .name = "20260501T110000Z-eeeeeeee", .content = "v1" }, // 112 days
+    };
+    for (runs) |run| {
+        const save = try path.join(gpa, &.{ trash, run.name, "saves", "quick.sav" });
+        defer gpa.free(save);
+        try fixture.write(save, run.content);
+    }
+    // Not a run id: never created by a run, never deleted by pruning.
+    const foreign = try path.join(gpa, &.{ trash, "not-a-run", "keep.txt" });
+    defer gpa.free(foreign);
+    try fixture.write(foreign, "untouched");
+
+    const report = try engine.pruneTrash(gpa, io, trash, .{
+        .max_age_days = 30,
+        .min_keep_runs = 2,
+    }, now);
+    try std.testing.expectEqual(@as(usize, 2), report.kept);
+    try std.testing.expectEqual(@as(usize, 3), report.removed);
+
+    // The two survivors carry two versions of the same recurring filename —
+    // the recovery property a shared trash root destroyed (measured).
+    try expectFileContent(gpa, &.{ trash, runs[0].name, "saves", "quick.sav" }, "v5");
+    try expectFileContent(gpa, &.{ trash, runs[1].name, "saves", "quick.sav" }, "v4");
+    for (runs[2..]) |gone| {
+        const dir = try path.join(gpa, &.{ trash, gone.name });
+        defer gpa.free(dir);
+        try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, dir, .{}));
+    }
+    try expectFileContent(gpa, &.{ trash, "not-a-run", "keep.txt" }, "untouched");
+
+    // min_keep_runs holds against age alone: with everything ancient, the
+    // newest two still survive a second pass.
+    const later = now + 400 * 86_400;
+    const aged = try engine.pruneTrash(gpa, io, trash, .{
+        .max_age_days = 30,
+        .min_keep_runs = 2,
+    }, later);
+    try std.testing.expectEqual(@as(usize, 2), aged.kept);
+    try std.testing.expectEqual(@as(usize, 0), aged.removed);
+
+    // A trash that does not exist is quietly nothing to do.
+    const missing = try path.join(gpa, &.{ fixture.root, "no-trash-here" });
+    defer gpa.free(missing);
+    const empty = try engine.pruneTrash(gpa, io, missing, .{}, now);
+    try std.testing.expectEqual(@as(usize, 0), empty.kept);
+    try std.testing.expectEqual(@as(usize, 0), empty.removed);
+}
+
+test "remote trash pruning works run-wise over the rc api" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const cloud = try fixture.makeDir("cloud");
+    defer gpa.free(cloud);
+
+    // The remote side's trash, as bisync leaves it: run-scoped directories
+    // that are siblings of profiles/, with relative paths preserved.
+    const now = engine.runIdTimestamp("20260821T120000Z-00000000").?;
+    for ([_][]const u8{
+        "20260821T110000Z-aaaaaaaa",
+        "20260601T110000Z-dddddddd",
+        "20260501T110000Z-eeeeeeee",
+    }) |run| {
+        const save = try path.join(gpa, &.{ cloud, "trash", "hero", run, "saves", "quick.sav" });
+        defer gpa.free(save);
+        try fixture.write(save, run);
+    }
+    const foreign = try path.join(gpa, &.{ cloud, "trash", "hero", "not-a-run", "keep.txt" });
+    defer gpa.free(foreign);
+    try fixture.write(foreign, "untouched");
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    try createAliasRemote(gpa, &client, "bkremote", cloud);
+
+    var eng = engine.Engine.init(gpa, tio, &client);
+    defer eng.deinit();
+
+    const report = try eng.pruneRemoteTrash("bkremote", "hero", .{
+        .max_age_days = 30,
+        .min_keep_runs = 1,
+    }, now);
+    try std.testing.expectEqual(@as(usize, 1), report.kept);
+    try std.testing.expectEqual(@as(usize, 2), report.removed);
+
+    // The newest run survives, the old ones are gone whole, the foreign
+    // directory is untouched.
+    try expectFileContent(
+        gpa,
+        &.{ cloud, "trash", "hero", "20260821T110000Z-aaaaaaaa", "saves", "quick.sav" },
+        "20260821T110000Z-aaaaaaaa",
+    );
+    for ([_][]const u8{ "20260601T110000Z-dddddddd", "20260501T110000Z-eeeeeeee" }) |gone| {
+        const dir = try path.join(gpa, &.{ cloud, "trash", "hero", gone });
+        defer gpa.free(dir);
+        try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, dir, .{}));
+    }
+    try expectFileContent(gpa, &.{ cloud, "trash", "hero", "not-a-run", "keep.txt" }, "untouched");
+
+    // A profile with no trash root yet: zero of each, no error — the empty
+    // remote is the normal first-run state everywhere in this plan.
+    const none = try eng.pruneRemoteTrash("bkremote", "nobody", .{}, now);
+    try std.testing.expectEqual(@as(usize, 0), none.kept);
+    try std.testing.expectEqual(@as(usize, 0), none.removed);
+}
+
 // -- Live: pairing against a real daemon -------------------------------------
 
 fn envVar(gpa: std.mem.Allocator, name: []const u8) ?[]u8 {

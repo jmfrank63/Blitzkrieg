@@ -201,6 +201,11 @@ pub const Engine = struct {
     /// until one happens. Transport-level errors never get here; classify
     /// those with `classifyTransport` at the call site.
     last_outcome: Outcome = .unknown,
+    /// When set, both trashes are pruned after a clean sync — and only then:
+    /// the call sites sit after `recordSuccess`, so a failed run can never
+    /// prune what it may have just displaced. Prune failures are hygiene,
+    /// not correctness, and never fail the sync that triggered them.
+    prune: ?PruneOptions = null,
 
     pub fn init(gpa: Allocator, io: Io, client: *rc.Client) Engine {
         return .{ .gpa = gpa, .io = io, .client = client };
@@ -311,7 +316,108 @@ pub const Engine = struct {
         try self.runBisync(params.value);
 
         try self.recordSuccess(ctx);
+        self.pruneBothTrashes(ctx);
         return run_id;
+    }
+
+    /// Prune both sides, best-effort, after a clean finish. Every failure is
+    /// swallowed: a sync that succeeded stays succeeded.
+    fn pruneBothTrashes(self: *Engine, ctx: RunContext) void {
+        const opts = self.prune orelse return;
+        const now_unix = Io.Clock.now(.real, self.io).toSeconds();
+
+        if (path.join(self.gpa, &.{ ctx.path1, plan.local_trash_dir_name })) |trash_dir| {
+            defer self.gpa.free(trash_dir);
+            _ = pruneTrash(self.gpa, self.io, trash_dir, opts, now_unix) catch {};
+        } else |_| {}
+
+        _ = self.pruneRemoteTrash(ctx.remote, ctx.profile, opts, now_unix) catch {};
+    }
+
+    /// Prune the remote trash, whole run directories at a time, via
+    /// `operations/list` + `operations/purge`. A missing trash root reports
+    /// zero of each rather than failing: an empty remote is normal.
+    pub fn pruneRemoteTrash(
+        self: *Engine,
+        remote: []const u8,
+        profile: []const u8,
+        opts: PruneOptions,
+        now_unix: i64,
+    ) (rc.RcError || Allocator.Error)!PruneReport {
+        var report: PruneReport = .{};
+
+        const trash_fs = try std.fmt.allocPrint(self.gpa, "{s}:trash/{s}", .{ remote, profile });
+        defer self.gpa.free(trash_fs);
+
+        var names: std.ArrayList([]u8) = .empty;
+        defer {
+            for (names.items) |name| self.gpa.free(name);
+            names.deinit(self.gpa);
+        }
+
+        {
+            var object: std.json.ObjectMap = .empty;
+            defer object.deinit(self.gpa);
+            try object.put(self.gpa, "fs", .{ .string = trash_fs });
+            try object.put(self.gpa, "remote", .{ .string = "" });
+            var opt: std.json.ObjectMap = .empty;
+            defer opt.deinit(self.gpa);
+            try opt.put(self.gpa, "dirsOnly", .{ .bool = true });
+            try object.put(self.gpa, "opt", .{ .object = opt });
+
+            var reply = self.client.call("operations/list", .{ .object = object }) catch |err|
+                switch (err) {
+                    // No trash root yet — nothing has ever been displaced.
+                    error.RcFailed => return report,
+                    else => |e| return e,
+                };
+            defer reply.deinit();
+
+            const top = switch (reply.value) {
+                .object => |o| o,
+                else => return error.BadJson,
+            };
+            const list = top.get("list") orelse return report;
+            const entries = switch (list) {
+                .array => |a| a,
+                else => return error.BadJson,
+            };
+            for (entries.items) |item| {
+                const entry = switch (item) {
+                    .object => |o| o,
+                    else => continue,
+                };
+                const is_dir = entry.get("IsDir") orelse continue;
+                if (is_dir != .bool or !is_dir.bool) continue;
+                const name_value = entry.get("Name") orelse continue;
+                const name = switch (name_value) {
+                    .string => |s| s,
+                    else => continue,
+                };
+                if (runIdTimestamp(name) == null) continue;
+                try names.append(self.gpa, try self.gpa.dupe(u8, name));
+            }
+        }
+
+        sortNewestFirst(names.items);
+
+        for (names.items, 0..) |name, index| {
+            if (keepRun(name, index, opts, now_unix)) {
+                report.kept += 1;
+                continue;
+            }
+            var object: std.json.ObjectMap = .empty;
+            defer object.deinit(self.gpa);
+            try object.put(self.gpa, "fs", .{ .string = trash_fs });
+            try object.put(self.gpa, "remote", .{ .string = name });
+            var reply = self.client.call("operations/purge", .{ .object = object }) catch {
+                report.kept += 1;
+                continue;
+            };
+            reply.deinit();
+            report.removed += 1;
+        }
+        return report;
     }
 
     /// The machine-local prerequisites every run needs: the state root and
@@ -443,6 +549,127 @@ fn sleepMs(io: Io, ms: u32) void {
         .clock = .awake,
     };
     duration.sleep(io) catch {};
+}
+
+// -- Trash retention ----------------------------------------------------------
+//
+// Two trashes, one per side, one directory per run — that layout is P01-M04's;
+// this section keeps both bounded without ever pruning what protects a
+// player. Retention works on whole run directories, never individual files:
+// a run is the unit of recovery, and half a run is not a recovery. At least
+// `min_keep_runs` most-recent runs survive regardless of age, so a burst of
+// syncs cannot age out every copy at once. And pruning runs only after a
+// clean finish — the sole call sites in this module sit after
+// `recordSuccess` — so a failed run can never delete the files it may have
+// just displaced.
+
+pub const PruneOptions = struct {
+    /// Runs older than this are eligible for pruning...
+    max_age_days: u32 = 30,
+    /// ...except the newest `min_keep_runs`, which are kept no matter what.
+    min_keep_runs: usize = 5,
+};
+
+pub const PruneReport = struct {
+    kept: usize = 0,
+    removed: usize = 0,
+};
+
+/// Prune one side's trash directory on the local filesystem. Only entries
+/// whose names parse as run ids are considered at all: anything else in the
+/// trash was not put there by a run, and this code never deletes what it did
+/// not create.
+pub fn pruneTrash(
+    gpa: Allocator,
+    io: Io,
+    trash_dir: []const u8,
+    opts: PruneOptions,
+    now_unix: i64,
+) Allocator.Error!PruneReport {
+    var report: PruneReport = .{};
+
+    var dir = Io.Dir.cwd().openDir(io, trash_dir, .{ .iterate = true }) catch return report;
+    defer dir.close(io);
+
+    var names: std.ArrayList([]u8) = .empty;
+    defer {
+        for (names.items) |name| gpa.free(name);
+        names.deinit(gpa);
+    }
+
+    var it = dir.iterate();
+    while (it.next(io) catch null) |entry| {
+        if (entry.kind != .directory) continue;
+        if (runIdTimestamp(entry.name) == null) continue;
+        try names.append(gpa, try gpa.dupe(u8, entry.name));
+    }
+
+    sortNewestFirst(names.items);
+
+    for (names.items, 0..) |name, index| {
+        if (keepRun(name, index, opts, now_unix)) {
+            report.kept += 1;
+            continue;
+        }
+        const run_path = try path.join(gpa, &.{ trash_dir, name });
+        defer gpa.free(run_path);
+        Io.Dir.cwd().deleteTree(io, run_path) catch {
+            // A run that would not delete is a run still protecting someone.
+            report.kept += 1;
+            continue;
+        };
+        report.removed += 1;
+    }
+    return report;
+}
+
+fn sortNewestFirst(names: [][]u8) void {
+    // Run ids are zero-padded UTC stamps: byte order is time order.
+    std.mem.sort([]u8, names, {}, struct {
+        fn newerFirst(_: void, a: []u8, b: []u8) bool {
+            return std.mem.order(u8, a, b) == .gt;
+        }
+    }.newerFirst);
+}
+
+fn keepRun(name: []const u8, index: usize, opts: PruneOptions, now_unix: i64) bool {
+    if (index < opts.min_keep_runs) return true;
+    const stamp = runIdTimestamp(name) orelse return true;
+    const age_seconds = now_unix - stamp;
+    return age_seconds <= @as(i64, opts.max_age_days) * 86_400;
+}
+
+/// The UTC second a run id names, or null when the name is not a run id.
+/// The inverse of `plan.runId`'s stamp half.
+pub fn runIdTimestamp(name: []const u8) ?i64 {
+    if (name.len != 25) return null;
+    if (name[8] != 'T' or name[15] != 'Z' or name[16] != '-') return null;
+    for (name[0..8]) |c| if (!std.ascii.isDigit(c)) return null;
+    for (name[9..15]) |c| if (!std.ascii.isDigit(c)) return null;
+    for (name[17..]) |c| if (!std.ascii.isHex(c)) return null;
+
+    const year = std.fmt.parseInt(i64, name[0..4], 10) catch return null;
+    const month = std.fmt.parseInt(u32, name[4..6], 10) catch return null;
+    const day = std.fmt.parseInt(u32, name[6..8], 10) catch return null;
+    const hour = std.fmt.parseInt(i64, name[9..11], 10) catch return null;
+    const minute = std.fmt.parseInt(i64, name[11..13], 10) catch return null;
+    const second = std.fmt.parseInt(i64, name[13..15], 10) catch return null;
+    if (month < 1 or month > 12 or day < 1 or day > 31) return null;
+    if (hour > 23 or minute > 59 or second > 59) return null;
+
+    return daysFromCivil(year, month, day) * 86_400 + hour * 3_600 + minute * 60 + second;
+}
+
+/// Howard Hinnant's days-from-civil: days since 1970-01-01 for a proleptic
+/// Gregorian date.
+fn daysFromCivil(year: i64, month: u32, day: u32) i64 {
+    const y = if (month <= 2) year - 1 else year;
+    const era = @divFloor(y, 400);
+    const yoe = y - era * 400;
+    const mp = @mod(@as(i64, month) + 9, 12);
+    const doy = @divFloor(153 * mp + 2, 5) + day - 1;
+    const doe = yoe * 365 + @divFloor(yoe, 4) - @divFloor(yoe, 100) + doy;
+    return era * 146_097 + doe - 719_468;
 }
 
 // -- Failure classification --------------------------------------------------
