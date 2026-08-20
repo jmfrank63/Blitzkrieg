@@ -32,3 +32,22 @@ Carried forward from P04-M01:
   for that plumbing, as with P03-M04.
 - `operations/copyfile` creates destination directories itself; no mkdir
   precedes a snapshot.
+
+P04-M02 Windows checkpoint: backup suite 4/4 natively (2 offline, live tree
+listing/pruning under `BK_TEST_RCLONE`), abi and worker green both ways,
+cross-targets compile, no orphans. Commit `f13180239`.
+
+Carried forward from P04-M02:
+
+- The listing lives on the worker behind its mutex (`Worker.backup_list`),
+  read entry-wise as value copies through `backupEntryJson`. It is replaced
+  by the next listing and freed on destroy; nothing holds a pointer in.
+- Retention runs only after a snapshot actually landed, per job, with
+  `backup_keep_per_host` (default 10). `keep = 0` clamps to 1: the setting
+  bounds history, never erases it.
+- `bk_cloudsync_backup_entry` past-the-end returns -1, which is the counting
+  contract; `worker.Outcome.backups_listed` (5) is appended and pinned.
+  `.list_backups` shares the `testing` state with the probe.
+- Only depth-two `.cfg` entries under `config-backups/<profile>/` are
+  listed; stray files and nested directories are ignored, and an unparsable
+  stem lists with timestamp 0 rather than being hidden.
