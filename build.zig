@@ -1496,9 +1496,9 @@ pub fn build(b: *std.Build) void {
     const stage_game_name = platform_policy.executable_name;
     const stage_metadata_files = package_policy.required_metadata_files[0..];
     const stage_runtime_files = switch (target.result.os.tag) {
-        .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
-        .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
+        .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
+        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+        .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
         else => &[_][]const u8{stage_game_name},
     };
     const stage_debug_files = if (target.result.os.tag == .windows)
@@ -1744,6 +1744,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(ailogic);
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
+    b.installArtifact(cloudsync);
     b.installArtifact(game);
     b.installArtifact(gfx_gpu_zig);
 
@@ -1911,6 +1912,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(net, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(cloudsync, .{}).step);
 
     const stage_tool = b.addExecutable(.{
         .name = "stage-game",
@@ -2291,6 +2293,42 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) {
         test_cloudsync_abi_step.dependOn(&run_cloudsync_abi_unit_tests.step);
         test_cloudsync_abi_step.dependOn(&run_cloudsync_abi_consumer.step);
+    }
+    // The facade loads the library at runtime, so unlike the ABI consumer it
+    // links nothing: the two run modes prove the degraded path (no library
+    // anywhere near the working directory) and the live path (cwd holding
+    // the freshly built artifact).
+    const cloudsync_facade_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    cloudsync_facade_test_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/cloudsync_facade_test.cpp", "Sources/src/Main/CloudSyncFacade.cpp" },
+        .flags = &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, cloudsync_facade_test_module, toolchain);
+    addMsvcLibraryPaths(b, cloudsync_facade_test_module, toolchain);
+    linkMsvcRuntime(cloudsync_facade_test_module, optimize);
+    applyLoaderPath(target, cloudsync_facade_test_module);
+    const cloudsync_facade_test = b.addExecutable(.{
+        .name = "cloudsync-facade-test",
+        .root_module = cloudsync_facade_test_module,
+    });
+    if (target.result.os.tag == .windows) {
+        cloudsync_facade_test.subsystem = .console;
+        cloudsync_facade_test.entry = .{ .symbol_name = "main" };
+    }
+    // -fentry=main skips the CRT's argv setup, so the mode travels by env.
+    const run_facade_absent = b.addRunArtifact(cloudsync_facade_test);
+    run_facade_absent.setEnvironmentVariable("BK_FACADE_MODE", "absent");
+    const run_facade_present = b.addRunArtifact(cloudsync_facade_test);
+    run_facade_present.setEnvironmentVariable("BK_FACADE_MODE", "present");
+    run_facade_present.setCwd(cloudsync.getEmittedBin().dirname());
+    const test_cloudsync_facade_step = b.step("test-cloudsync-facade", "Run the CloudSync C++ facade tests");
+    test_cloudsync_facade_step.dependOn(&cloudsync_facade_test.step);
+    if (test_mode == .run) {
+        test_cloudsync_facade_step.dependOn(&run_facade_absent.step);
+        test_cloudsync_facade_step.dependOn(&run_facade_present.step);
     }
     const streamio_platform_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
