@@ -1,8 +1,8 @@
 # Next Packet
 
-Resume at `phase-03-credentials-backends/P03-M01-credentials-file.md`.
+Resume at `phase-03-credentials-backends/P03-M02-s3-backend.md`.
 
-**Phases 00, 01 and 02 are complete.** Phase 00's gate is met
+**Phases 00, 01 and 02 are complete; P03-M01 is done.** Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
 branch moved to a real Windows 11 machine and every suite ran natively on
 `x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
@@ -40,6 +40,7 @@ zig build test-cloudsync-abi     -Dtest-mode=run    #  9 + C++ consumer; full sy
 zig build test-cloudsync-plan    -Dtest-mode=run    # 35
 zig build test-cloudsync-engine  -Dtest-mode=run    # 15 (4 more live with BK_TEST_RCLONE)
 zig build test-cloudsync-worker  -Dtest-mode=run    #  3 (1 live with BK_TEST_RCLONE)
+zig build test-cloudsync-creds   -Dtest-mode=run    #  8
 zig build test-streamio          -Dtest-mode=run    # 32 (regression)
 ```
 
@@ -80,9 +81,9 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-03-credentials-backends/P03-M01-credentials-file.md` — the
-`cloud.credentials` file: tagged-union backends (s3/webdav), omitted-secret
-semantics, discovery-cache invalidation on save.
+**Next:** `phase-03-credentials-backends/P03-M02-s3-backend.md` — the
+S3-compatible backend end to end, over the `bkraw`/`bkremote` alias
+arrangement P03-M01 defined.
 
 ## Corrections applied after review
 

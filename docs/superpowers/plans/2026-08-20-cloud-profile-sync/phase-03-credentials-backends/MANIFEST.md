@@ -12,3 +12,40 @@
 | P03-M04 | M03 | connection test with classified failures |
 
 Exit: the phase-02 cycle passes against a real S3-compatible remote and a real WebDAV server, with credentials reachable from C++ and absent from every log.
+
+P03-M01 Windows checkpoint: `zig build test-cloudsync-creds -Dtest-mode=run`
+passes 8/8 natively; `test-cloudsync-abi` 10/10 plus the consumer's
+credential contract from C++, offline and twice consecutively with the live
+rclone (fixtures are now seeded and cleaned — the first draft reused
+`rand()`'s unseeded sequence and the second run inherited the first's
+leftovers). Cross-targets compile; every other suite unaffected. Commit
+`4a1159b24`.
+
+Carried forward from P03-M01:
+
+- **The alias indirection is the bucket answer.** The raw backend remote is
+  `bkraw` (its rc parameters from `creds.remoteParams`, bucket deliberately
+  absent); the sync always runs over the `bkremote` alias whose target is
+  `bkraw:<bucket>` (S3) or `bkraw:` (WebDAV) from `creds.aliasTarget`.
+  Path2's session-name contribution stays `bkremote:profiles/<name>`
+  regardless of endpoint or bucket length, and every engine/worker test
+  already uses that name. P03-M02/M03 own creating both remotes via
+  `config/create`.
+- The credentials path is `profiles/cloud.credentials` **relative to the
+  working directory**, matching the engine's own relative-profile
+  convention; the C++ consumer chdirs into its fixture for exactly that
+  reason. The facade must not chdir before touching credentials.
+- `Discovery.refresh` copies the search struct under the lock, and
+  `Discovery.setExplicit` never frees a superseded override — an in-flight
+  probe may still be reading it, and a player changes the path a handful of
+  times per session. A bounded leak bought the absence of a use-after-free;
+  the e2e test frees the superseded copy by hand to keep the leak checker
+  honest.
+- `creds.fingerprint` (`s3:<endpoint>/<bucket>` / `webdav:<url>`) is the
+  `remote_fingerprint` the engine's pairing record wants; no secret
+  material. `creds.parse` is `load` without the file, which is what
+  `creds_save` uses on incoming ABI documents.
+- Omission-preserves is implemented at the merge (`mergeOmittedSecret`), so
+  an empty *and* an absent incoming secret both preserve; only
+  `creds_clear_secret` blanks. After a clear there is nothing to resurrect —
+  pinned in `clear_secret_removes_it`.
