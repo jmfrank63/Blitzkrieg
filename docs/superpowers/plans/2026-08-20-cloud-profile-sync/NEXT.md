@@ -1,8 +1,8 @@
 # Next Packet
 
-Resume at `phase-01-planning-primitives/P01-M03-filters-and-state.md`.
+Resume at `phase-01-planning-primitives/P01-M04-bisync-params.md`.
 
-**Phase 00 is complete; P01-M01 and P01-M02 are done.** Phase 00's gate is met
+**Phase 00 is complete; P01-M01 through P01-M03 are done.** Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
 branch moved to a real Windows 11 machine and every suite ran natively on
 `x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
@@ -28,15 +28,15 @@ behavioural claims measured against rclone v1.75.0 on macOS arm64.
 Branch `feature/cloud-profile-sync`. Everything needed to continue is in the
 repository; nothing lives only on the machine it was written on.
 
-**Done so far:** all of phase 00 plus `P01-M01` and `P01-M02`. Five build
-steps green natively on Windows — 58 CloudSync tests — with `test-streamio`
+**Done so far:** all of phase 00 plus `P01-M01` through `P01-M03`. Five build
+steps green natively on Windows — 65 CloudSync tests — with `test-streamio`
 unaffected. On the machine's native platform, omit `-Dtarget`:
 
 ```
 zig build test-cloudsync-rc      -Dtest-mode=run    #  6
 zig build test-cloudsync-daemon  -Dtest-mode=run    # 22
 zig build test-cloudsync-abi     -Dtest-mode=run    #  9 + C++ consumer
-zig build test-cloudsync-plan    -Dtest-mode=run    # 21
+zig build test-cloudsync-plan    -Dtest-mode=run    # 28
 zig build test-streamio          -Dtest-mode=run    # 32 (regression)
 ```
 
@@ -60,7 +60,7 @@ Use v1.75.0 or newer; `daemon.zig` gates at 1.66 because the plan depends on
 non-suffixed bisync listing filenames.
 
 **Target matrix as it stands.** Run-verified: `aarch64-macos` (through
-P01-M01) and `x86_64-windows-msvc` (everything, including P01-M02).
+P01-M01) and `x86_64-windows-msvc` (everything, through P01-M03).
 Compile-verified: `x86_64-linux-gnu`, `aarch64-linux-gnu`,
 `x86_64-windows-gnu`. The SDL `--sysroot` refusal is symmetric: macOS targets
 cannot be configured from Windows, just as `x86_64-macos` could not from the
@@ -77,10 +77,10 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-01-planning-primitives/P01-M03-filters-and-state.md` —
-filter rules, machine-local state paths and the sentinel. Offline like the
-rest of phase 01; the sentinel's remote-side check is a design obligation on
-P02-M01, not a network call here.
+**Next:** `phase-01-planning-primitives/P01-M04-bisync-params.md` — bisync
+parameter construction, the packet that assembles everything phase 01 built:
+short-link Path1, budget check, filters file, the two run-scoped trashes,
+`resyncMode: "newer"`, `maxDelete` sent explicitly. Offline; closes phase 01.
 
 ## Corrections applied after review
 

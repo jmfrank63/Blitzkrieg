@@ -83,3 +83,36 @@ Carried forward from P01-M02:
   a Mac; nothing in P01-M02 is platform-conditional beyond `fsPath`'s
   separator choice, which is covered by the windows-gnu compile.
 
+P01-M03 Windows checkpoint: `zig build test-cloudsync-plan -Dtest-mode=run`
+passes 28/28 natively on `x86_64-windows-msvc`; `x86_64-linux-gnu`,
+`aarch64-linux-gnu` and `x86_64-windows-gnu` compile; rc, daemon, abi and
+streamio all unaffected. Commit `9b3e9f1a4`.
+
+Carried forward from P01-M03:
+
+- `stateRoot` takes `game_dir` as a parameter rather than the packet's
+  `(allocator)`-only signature — discovery of the game directory belongs to
+  the ABI layer, exactly as `daemon.zig` takes `Options.game_dir`, and tests
+  inject a fixture. `writeFiltersFile` likewise takes `(io, path)` and no
+  allocator: the content is a comptime constant, which is what makes rewriting
+  idempotent under bisync's filters-changed MD5 check.
+- `ensureSentinel` returns a `SentinelAction`
+  (`already_present`/`written`/`deferred_to_remote`) instead of the packet's
+  `!void`, widened the way `ensureShortLink`'s return was: the pairing report
+  should say whether this machine seeded the profile or is waiting for the
+  resync to deliver the sentinel. P02-M01 supplies `remote_has_sentinel` by
+  asking the remote; nothing in this module does network.
+- `plan.state_dir_name` is textually identical to `daemon.state_dir_name`
+  ("cloudsync") but deliberately not imported — the planning module must not
+  pull the daemon's process machinery into its compile. If either constant
+  ever changes, change both.
+- The sentinel's content is `<profile_id>\n`. Its *content* is never read
+  back and never compared — existence alone short-circuits, because the
+  unchanged modification time is the `foundSame` guarantee, and that holds
+  even when a later call passes a different id.
+- `max_delete_percent` and `deleteWithinRatio` live here, not in P01-M04's
+  parameter builder, because the rc API defaults `maxDelete` to zero (the
+  CLI's 50 is applied in `cmd.go`, which rc never runs) — every run must send
+  it explicitly, and the design-table test `single_delete_passes_with_sentinel`
+  pins the `<=` boundary the sentinel arranges.
+
