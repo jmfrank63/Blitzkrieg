@@ -1,8 +1,21 @@
 # Next Packet
 
-Start at `phase-00-rc-transport/P00-M01-rc-json-client.md`.
+Resume at `phase-01-planning-primitives/P01-M01-short-link.md`.
 
-Nothing in this plan is implemented yet. The design at
+**Phase 00 is complete and its gate is met on macOS** — see
+`phase-00-rc-transport/MANIFEST.md` for the four checkpoints. `rc.zig`,
+`daemon.zig` and `cloudsync.zig` are committed with 37 passing tests across
+three build steps, plus a C++ ABI consumer; Linux and Windows are compile-only
+until P08.
+
+Four Zig 0.16 facts the packet texts got wrong, all recorded in the phase 00
+manifest and worth knowing before writing more: `std.http.Client` requires an
+`io` field, `std.crypto.random` and `std.Thread.Mutex` do not exist (use
+`io.randomSecure()` and `std.Io.Mutex`), socket-level timeouts panic under
+`Io.Threaded` so deadlines go through `std.Io.Select`, and a build test step
+fails if its binary writes anything at all to stderr.
+
+The design below is unchanged. The design at
 `docs/superpowers/specs/2026-08-20-cloud-profile-sync-design.md` had its
 behavioural claims measured against rclone v1.75.0 on macOS arm64.
 

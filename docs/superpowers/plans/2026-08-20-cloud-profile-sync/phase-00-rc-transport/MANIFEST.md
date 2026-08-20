@@ -84,3 +84,39 @@ Carried forward:
 - Refusals are returned as `Reap{outcome, pid}` rather than logged, since there
   is no logging façade yet and stderr fails a test step. P07-M01 surfaces them.
 
+P00-M04 macOS checkpoint: `test-cloudsync-abi` passes 9/9 plus the C++ consumer
+natively; `x86_64-linux-gnu`, `aarch64-linux-gnu` and `x86_64-windows-gnu`
+compile. `bk_cloudsync_available` is backed by real discovery, returning 0 with
+`{"reason":"not_found"}` on a bare PATH and 1 with the resolved path and version
+when the pinned rclone is present. Commit `6e99fe111`.
+
+The generation predicate is `my_gen != self.next_gen -> discard`, and the
+ordering tests are gate-driven rather than timed: a stub resolver blocks on an
+atomic flag the test opens by hand, so "the newer probe is still in flight" is
+imposed rather than raced, and neither test can flake under load. Swapping in
+the weaker `my_gen > published_gen` was demonstrated to fail the
+older-finishes-first case, which is what makes that test worth having.
+
+Carried forward:
+
+- **`std.Thread.Mutex` does not exist in Zig 0.16** — it is `std.Io.Mutex`, and
+  locking takes an `Io` because a contended wait is a cancellation point. A C
+  ABI entry point has none, so the module keeps a comptime-initialised
+  `std.Io.Threaded` purely to service futex wait/wake. Same guarantee, different
+  type than the packet text assumed; treat this like the `std.crypto.random`
+  finding when later packets need a lock.
+- The library is deliberately **not** installed into the game layout yet —
+  nothing loads it until the facade in P06-M01, which should add it to the
+  staged runtime file lists.
+- `discovery_status` carries `found`, `path`, `version`, `reason` but not
+  `MIN_RCLONE`. P07-M01 wants to show what was found next to what is required,
+  so that packet needs either a new field here or the minimum on the C++ side.
+- `x86_64-macos` cannot be configured from this machine at all — `--sysroot is
+  required when building SDL for non-native macOS targets`, reproducible on the
+  unchanged tree with `test-streamio`. Pre-existing and unrelated to CloudSync.
+
+Phase 00 gate: **met on macOS.** A Zig test drives `core/version` and an async
+job against a live rclone, the daemon spawns, reports ready and is reaped with
+no orphan, and the ABI is reachable from C++. Windows and Linux remain
+compile-only until P08.
+
