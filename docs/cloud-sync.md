@@ -173,13 +173,96 @@ far more adversarial testing than anything we would write.
   - `config.cfg` — carries `GFX.Mode`, `GFX.Monitor`, `GFX.FullScreen`. This
     codebase spent real work making display choices persist *per machine*;
     pushing a 4K desktop's monitor layout onto a 14" MacBook would undo that.
-    Revisit as a key-level merge (gameplay/audio synced, `GFX.*` local) once
-    sync itself is proven.
+    It is backed up rather than synced — see Config backups below.
   - `screenshots/` — large, low value. Opt-in later.
   - `*.tmp-rename` — `NProfile::Rename`'s intermediate state.
 - **Clock skew** is what `conflictResolve:"newer"` runs on. Consider
   `checkAccess` and a size/checksum comparison as hardening once the basic path
   works.
+
+## Config backups
+
+`config.cfg` is never synced, but it is worth having a copy off the machine.
+Backups are a separate, one-way mechanism with no bisync involvement:
+
+- After a successful sync, the current config is snapshotted to
+  `<remote>/profiles/<name>/config-backups/<host>/<timestamp>.cfg` with a
+  single `operations/copyfile`. No listings, no session state, no delete
+  ratios — none of bisync's machinery applies.
+- **Backups are never pulled automatically.** Restoring is always an explicit
+  player action, which is the whole point of the split: the cloud holds the
+  history, the local machine keeps authority over its own display settings.
+- Snapshots are keyed by host, so machines never overwrite each other's
+  history and "restore the desktop's settings onto the laptop" is a
+  meaningful request. Retention is the last N per host, pruned with
+  `operations/list` + `operations/deletefile`.
+- **Restore defaults to a merge, not a copy**: every key except `GFX.*` is
+  taken from the backup, and the local display settings are kept. A full
+  restore is offered but warned about. It is survivable — a resolution absent
+  from the local SDL mode list falls back to Auto, and a disconnected monitor
+  falls back to display 0 — but "survivable" is not "wanted", and the failure
+  is silent.
+- The current config is copied into the local trash before a restore
+  overwrites it, so restoring is itself undoable.
+
+## In-game configuration
+
+The provider is chosen in the existing settings screen, as a fifth tab
+alongside GFX, GamePlay, Multiplayer and Sound.
+
+Almost none of this needs code. The tab bar is data-driven: a division is just
+the first dot-separated component of an option name
+(`COptionSystem::GetDesc`, `OptionSystemInternal.cpp:168`), and
+`CInterfaceOptionsSettings::Create` groups options by division in
+first-encounter order, lighting up list `1000+n` and button `10007+n` for
+each. Registering `Cloud.*` options therefore creates the tab. Options are
+declared in `Data/Configs/defconf.cfg` (`EditorType`, `Flags`, `Order`,
+`Type`, `Action`, `Default`, `KeyName`), and labels come from
+`Data/Textes/Options/Cloud.name.txt` plus a `.name`/`.tooltip` pair per
+option.
+
+`Data/UI/OptionsSettings.xml` already defines six tab buttons (10007-10012)
+and six lists (1000-1005) against today's four divisions, so **the fifth tab
+needs no XML change**. Two things to repair while adding it:
+`_E_BUTTON_CHANGE_DIVISION_END = 10009` and `_E_LIST_END = 1002` are stale —
+they claim three divisions, and grep finds no use of either constant — and
+`Create()` indexes `_BEGIN + nMaxDivision` with no bounds check, so a seventh
+division would `checked_cast` a null child. Correct the constants and add the
+guard.
+
+### Credentials do not go in the option system
+
+`COptionSystem::Set` truncates every string option longer than 12 characters
+down to 8, unless the option's action happens to be `SetVideoMode`
+(`OptionSystemInternal.cpp:186-192`):
+
+```cpp
+const bool bCanUseLongString = (pOpt != 0) && (pOpt->szAction == "SetVideoMode");
+if ( (szStr.size() > 12) && !bCanUseLongString )
+    szStr.resize( 8 );
+```
+
+A 20-character access key, a 40-character secret and any endpoint URL are all
+silently destroyed by that. So the Cloud tab carries only the values the
+options list can safely represent — toggles and droplists:
+
+```
+Cloud.Enabled          EditorType 3   Off / On
+Cloud.Provider         EditorType 3   Off / S3 / WebDAV
+Cloud.Sync.OnStartup   EditorType 3   Off / On
+Cloud.Sync.OnExit      EditorType 3   Off / On
+Cloud.Config.Backup    EditorType 3   Off / On
+```
+
+Endpoint, bucket, access key and secret are edited in a dedicated dialog
+reached from the tab — the player-profile dialog is the precedent for an
+edit-box screen — and are written to `profiles/cloud.credentials`, never
+through the option system.
+
+That separation is not only about the truncation. `config.cfg` is uploaded by
+the backup mechanism above, so **credentials kept in it would be pushed into
+the cloud service they unlock**. `cloud.credentials` is excluded from both
+sync and backup, and must stay that way.
 
 ## Lifecycle
 
@@ -195,20 +278,25 @@ far more adversarial testing than anything we would write.
   random port, random per-launch `--rc-user`/`--rc-pass`. On startup, reap any
   orphan from a previous crashed run before spawning.
 
-## Configuration
+## Where settings live
 
-`profiles/cloud.cfg` (global, not per-profile):
+Three files, split by who owns the value and who is allowed to see it:
 
-```
-Cloud.Enabled     = 1
-Cloud.Remote.Type = s3
-Cloud.Remote.Path = bk-profiles/
-Cloud.Rclone.Path = <optional explicit path to the rclone binary>
-```
+| file | holds | synced? | backed up? |
+|---|---|---|---|
+| `config.cfg` (per profile) | the `Cloud.*` options from the settings tab, alongside everything else | no | yes |
+| `profiles/cloud.credentials` | endpoint, bucket, access key, secret | **no** | **no** |
+| `<remote>/.../config-backups/` | config snapshots per host | n/a | n/a |
 
-with the backend's parameters alongside. Credentials are plaintext on disk in
-the first cut — same posture as the rest of the profile — and the doc must say
-so plainly. Platform keychain / DPAPI storage is a follow-up, not a blocker.
+Credentials are plaintext on disk in the first cut — the same posture as the
+rest of the profile — and that must be stated plainly in the UI, not just
+here. Platform keychain / DPAPI storage is a follow-up. What is *not*
+negotiable even in the first cut is the file split: `config.cfg` leaves the
+machine, so credentials cannot live in it.
+
+`Cloud.Rclone.Path`, an optional explicit path to the rclone binary, sits in
+`cloud.credentials` too — it is machine-specific, so it has no business in a
+file that gets restored onto a different machine.
 
 ## Gotchas found the hard way
 
@@ -301,12 +389,17 @@ picker. A player who already has rclone installed points at their copy.
    without the link.
 4. C ABI + C++ facade; wire the startup and post-save hooks; "syncing" UI state.
 5. Real backends end to end (S3-compatible first — R2/B2/MinIO — then WebDAV).
-6. Only if wanted: swap the transport to in-process `librclone`, changing
+6. Settings integration — `Cloud.*` options in `defconf.cfg`, the text
+   entries, the credentials dialog, and the stale-constant/bounds-check repair
+   in `InterfaceOptionsSettings.cpp`.
+7. Config backup and restore, including the `GFX.*`-preserving merge.
+8. Only if wanted: swap the transport to in-process `librclone`, changing
    nothing above the `send()` boundary.
 
 ## Open questions
 
-- Where credentials live long term (keychain / DPAPI / libsecret).
+- Where credentials live long term (keychain / DPAPI / libsecret);
+  `profiles/cloud.credentials` is the first cut, not the destination.
 - Whether screenshots sync at all, or only on explicit request.
 - Whether `config.cfg` eventually gets a key-level split rather than staying
   excluded.
