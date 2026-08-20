@@ -32,3 +32,23 @@ Two findings worth carrying forward:
   test passing — the Zig 0.16 build runner treats non-empty stderr as failure.
   Assertions, not printed diagnostics, are how a test carries its evidence here.
 
+P00-M02 macOS checkpoint: `zig build test-cloudsync-daemon -Dtarget=aarch64-macos
+-Dtest-mode=run` passes 12/12 with no real rclone installed — the tests inject
+`explicit`, `game_dir` and `path_env` through a `Search` struct and drive stub
+executables, so they never read the host's `PATH`. `test-cloudsync-rc` and
+`test-streamio` still pass; Linux cross-compile succeeds. Commit `d2f7c7461`.
+
+Rejections are a tagged union rather than a bool: `Availability{ ready: Found,
+unavailable: Rejected }` where `Rejected` carries `.not_found`/`.too_old`/
+`.not_executable` **plus the path and version it rejected**, so P07-M01 can show
+the player what was found next to what is required.
+
+Open for later packets, not defects here:
+
+- The real game-directory lookup (`std.process.executableDirPath`) is compiled
+  but never asserted; precedence over `PATH` is tested with an injected
+  directory. Whatever exercises the shipped binary layout should close this.
+- Windows discovery is compile-verified only. The stub binaries are `/bin/sh`
+  scripts, so those cases return early there, and the MSVC target cannot be
+  built from macOS. P08-M02 is where it becomes real.
+
