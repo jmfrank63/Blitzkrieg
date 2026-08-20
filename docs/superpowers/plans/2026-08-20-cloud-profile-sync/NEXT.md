@@ -1,8 +1,8 @@
 # Next Packet
 
-Resume at `phase-01-planning-primitives/P01-M01-short-link.md`.
+Resume at `phase-01-planning-primitives/P01-M02-session-budget.md`.
 
-**Phase 00 is complete and its gate is met on macOS** — see
+**Phase 00 is complete, and P01-M01 is done.** Phase 00's gate is met on macOS — see
 `phase-00-rc-transport/MANIFEST.md` for the four checkpoints. `rc.zig`,
 `daemon.zig` and `cloudsync.zig` are committed with 37 passing tests across
 three build steps, plus a C++ ABI consumer; Linux and Windows are compile-only
