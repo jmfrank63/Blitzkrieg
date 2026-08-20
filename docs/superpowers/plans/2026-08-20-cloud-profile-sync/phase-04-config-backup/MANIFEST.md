@@ -51,3 +51,32 @@ Carried forward from P04-M02:
 - Only depth-two `.cfg` entries under `config-backups/<profile>/` are
   listed; stray files and nested directories are ignored, and an unparsable
   stem lists with timestamp 0 rather than being hidden.
+
+P04-M03 Windows checkpoint: backup 15/15 natively, 17 with the live daemon
+(staging + failed-download isolation); abi green offline and live with the
+C++ consumer staging the newest listed snapshot and applying it locally;
+cross-targets compile; no orphans. Commit `12e28f1be`.
+
+Carried forward from P04-M03:
+
+- **The active profile owns `config.cfg`** (`ResolveConfigFileName` in
+  `iMainInternal.cpp`): it lives in the profile directory, not the game
+  root. P04-M01's snapshot source moved accordingly (`ctx.path1`), and the
+  apply step writes `profiles/<name>/config.cfg`. P06's facade must not
+  assume a root-level config.
+- `config.cfg` is the option system's XML (`<item>` blocks with `<KeyName>`
+  children). `mergeConfig` substitutes whole item blocks textually; a
+  payload with no item blocks passes through wholesale, which is also what
+  makes non-XML test payloads behave predictably.
+- The stage/apply protocol constants live in `backup.zig`
+  (`restore_dir_name`, `active_name`, `commit_name`, `undo_dir_relative`,
+  `latest_undo_name`). `LATEST_UNDO` is already rename-published at apply;
+  P04-M04 consumes it.
+- The undo/busy race test (packet line 27) rides on the worker's single-job
+  discipline — `begin` refuses Busy while any job runs — and lands with the
+  undo job itself in P04-M04, which must add it.
+- `bk_cloudsync_apply_pending_restore(profile)` resolves
+  `profiles/<name>` against the working directory (the game's convention);
+  `bk_cloudsync_backup_restore` takes `game_dir` and builds the absolute
+  profile path itself. Zig 0.16 rejects hard tabs inside multiline string
+  literals — fixture XML uses spaces.
