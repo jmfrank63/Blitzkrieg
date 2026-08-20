@@ -141,8 +141,14 @@ Carried forward from P06-M04 (all of it earned by measurement):
   hit-tests the unconsumed `CMD_END_ACTION1` (packed position, cursor
   fallback) against the element's own rect. The button-DOWN is eaten by
   the screen; the UP is what falls through.
-- `AddChild` is `push_front`: the LAST XML child is picked first and drawn
-  last. The indicator sits at the end of `MainMenu.xml`'s children.
+- ~~`AddChild` is `push_front`: the LAST XML child is picked first~~
+  Corrected by P07-M01's measurements: DESERIALIZED children keep document
+  order (the pick trace listed container 2000's children 10006..10002, the
+  XML order), and `push_front` applies only to children added through
+  `AddChild` at runtime. Document order is both the pick order and the
+  visual top-to-bottom; the indicator's position at the end of
+  `MainMenu.xml` is harmless but was not what made it clickable — the
+  interface-side hit test was.
 - The main loop publishes `CloudSync.State/Outcome/Error` while a handle
   is live and consumes `CloudSync.SkipToOffline` into `Cancel` (also
   swallowing a click that raced the settle so it cannot cancel a future

@@ -85,8 +85,8 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-07-cloud-ui/P07-M01-credentials-dialog.md` — phase 06 is
-closed; phase 07 begins with the credentials dialog.
+**Next:** `phase-07-cloud-ui/P07-M02-backup-browser.md` — the credentials
+dialog is done (P07-M01, commit `641270f5e`); the backup browser follows.
 
 ## Corrections applied after review
 
