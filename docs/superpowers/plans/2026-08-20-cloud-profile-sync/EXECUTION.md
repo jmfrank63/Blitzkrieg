@@ -48,6 +48,9 @@ Two rules learned the hard way:
 - Keep fixture paths short. bisync mangles both canonical paths into one state
   filename and dies past 255 bytes, so a fixture under a long scratch path
   fails for reasons that have nothing to do with the packet.
+- A test that must prove non-blocking behaviour uses a socket that accepts and
+  never replies, not a slow one. `std.net.Server` accepting and then sleeping
+  is the fixture; a real daemon cannot be relied on to hang on demand.
 - rc error replies are terse (`{"error": "bisync aborted", "status": 500}`).
   The actionable detail is in the log, or in `output.output` of a `job/status`
   reply for an `_async` call. Always capture one of the two.
@@ -58,6 +61,21 @@ UI packets are driven with `BK_AUTO_UI` rather than by hand — see the project
 memory for the full action list. Always schedule `40:var=notransition=1`
 first, or the curtain transition swallows every injected message. `shot` dumps
 raw RGBA at game resolution.
+
+## ABI amendment rule
+
+The C ABI is not frozen by an early packet. Any packet that introduces a new
+export owns the entire path for it in the same commit:
+
+- the export in `Sources/src/CloudSync/cloudsync.zig`;
+- both `CloudSync.def` and `CloudSync.x64.def`;
+- the C++ declaration in `Sources/src/Main/CloudSyncFacade.h/.cpp`, once that
+  file exists;
+- a case in `tools/zig/cloudsync_abi_test.cpp`.
+
+Those five files are implicitly in the allowlist of any packet whose steps
+declare an export. No packet may leave an export stubbed for a later packet to
+connect — a stub with no owner is how a feature ships unwired.
 
 ## Stop conditions
 

@@ -131,10 +131,18 @@ We do not write a diff engine. `sync/bisync` is the diff engine, and it has had
 far more adversarial testing than anything we would write.
 
 - **Pairing.** First sync for a profile is `resync:true`, which establishes the
-  baseline listings and writes the `.bkprofile` sentinel. Every later sync
-  omits it. If bisync ever aborts with "must run --resync to recover", that is
-  a state we surface to the player as a one-click repair, never something we
-  trigger silently — a resync after real divergence can overwrite one side.
+  baseline listings. Every later sync omits it. If bisync ever aborts with
+  "must run --resync to recover", that is a state we surface to the player as
+  a one-click repair, never something we trigger silently — a resync after
+  real divergence can overwrite one side.
+- **A resync must carry `resyncMode: "newer"`.** `conflictResolve` does not
+  apply during a resync; resync defaults to Path1 winning, and it renames
+  nothing. Verified, and it is the sharpest edge in this design: pairing a
+  machine whose local save is *older* than the cloud copy silently destroyed
+  the cloud version — no `.conflictN`, no trash, nothing to recover from. With
+  `resyncMode: "newer"` the newer copy survives on both sides. Pairing is
+  exactly the moment both sides are most likely to hold different content, so
+  this is not an edge case.
 - **Conflicts.** `conflictResolve:"newer"`, losers kept as `.conflictN`. The
   rule we commit to: **a sync never destroys a save.**
 - **Deletes propagate in both directions, but nothing is unlinked.** A delete
@@ -143,9 +151,16 @@ far more adversarial testing than anything we would write.
   bisync does this symmetrically (verified: removing a file on the cloud side
   removes it locally). What we add is that it is never destructive:
   `backupDir1` and `backupDir2` divert every deletion and overwrite into a
-  per-profile trash directory, relative paths preserved
-  (`trash/saves/m2.sav`). Between `.conflictN` and the trash, both ways a save
-  can be at risk are recoverable. The trash is pruned by age, not by sync.
+  trash directory, relative paths preserved (`trash/saves/m2.sav`).
+
+  **There are two trashes, not one.** rclone requires each backup directory to
+  live on its own side's filesystem — pointing `backupDir2` at a local path
+  while Path2 is a remote fails the run outright with `parameter to
+  --backup-dir has to be on the same remote as destination` (verified). So
+  `backupDir1` is local, under the profile, and `backupDir2` is a directory on
+  the remote, outside the synced prefix and excluded by the filters so it is
+  never itself synced. Between `.conflictN` and the two trashes, both ways a
+  save can be at risk are recoverable. Trash is pruned by age, not by sync.
 - **One delete always passes; mass deletion trips the breaker.** `maxDelete`
   is a *percentage* (`deleted / oldCount > maxDelete/100` aborts), an awkward
   shape for a profile holding three saves — deleting the only save would be
@@ -350,6 +365,14 @@ file that gets restored onto a different machine.
   — being counted in `oldCount` is what keeps a single deletion under the
   `maxDelete` ratio (see Sync semantics). Two separate guards rest on this one
   file.
+
+  **It is written on Path1 only and never seeded on the remote.** Creating it
+  independently on both sides gives the copies different modification times,
+  and bisync rejects that during resync — `Modtime not equal in listing ...
+  .bkprofile`, then `path1 and path2 are out of sync, run --resync to recover`
+  (verified). A second machine that has never paired must check whether the
+  remote already carries a sentinel and let the resync deliver it rather than
+  writing its own.
 - **`maxDelete` defaults to 0 over the rc API — the CLI's 50 does not apply.**
   `cmd.go` applies `DefaultMaxDelete = 50` on the command-line path; `rc.go`
   builds a zero-valued `Options{}` and only assigns `opt.MaxDelete` if the
@@ -380,8 +403,8 @@ picker. A player who already has rclone installed points at their copy.
 ## Implementation plan
 
 The packetised plan lives at
-`docs/superpowers/plans/2026-08-20-cloud-profile-sync/` — 31 packets across
-eight phases, starting at `phase-00-rc-transport/P00-M01-rc-json-client.md`.
+`docs/superpowers/plans/2026-08-20-cloud-profile-sync/` — 34 packets across
+nine phases, starting at `phase-00-rc-transport/P00-M01-rc-json-client.md`.
 The milestones below are the shape of it; the plan is the authority on
 sequencing and gates.
 
