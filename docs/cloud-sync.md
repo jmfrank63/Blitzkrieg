@@ -85,7 +85,8 @@ Sources/src/CloudSync/
   cloudsync.zig     root module + C ABI exports (mirrors StreamIOZig's pattern)
   rc.zig            rc client: build JSON, POST, parse reply, poll job/status
   daemon.zig        spawn//health-check/reap the rcd child, port + token
-  plan.zig          profile dir -> bisync params; filter rules; state paths
+  plan.zig          profile dir -> bisync params; short-link management;
+                    filter rules; sentinel; state paths
   CloudSync.def     export list for the Windows build
 ```
 
@@ -115,10 +116,10 @@ We do not write a diff engine. `sync/bisync` is the diff engine, and it has had
 far more adversarial testing than anything we would write.
 
 - **Pairing.** First sync for a profile is `resync:true`, which establishes the
-  baseline listings. Every later sync omits it. If bisync ever aborts with
-  "must run --resync to recover", that is a state we surface to the player as a
-  one-click repair, never something we trigger silently — a resync after real
-  divergence can overwrite one side.
+  baseline listings and writes the `.bkprofile` sentinel. Every later sync
+  omits it. If bisync ever aborts with "must run --resync to recover", that is
+  a state we surface to the player as a one-click repair, never something we
+  trigger silently — a resync after real divergence can overwrite one side.
 - **Conflicts.** `conflictResolve:"newer"`, losers kept as `.conflictN`. The
   rule we commit to: **a sync never destroys a save.**
 - **Scope.** Path1 is `profiles/<name>/`, path2 is `<remote>/profiles/<name>/`.
@@ -167,15 +168,53 @@ so plainly. Platform keychain / DPAPI storage is a follow-up, not a blocker.
 
 ## Gotchas found the hard way
 
-- **`NAME_MAX` on the bisync session name.** bisync derives its state filenames
-  by mangling *both* canonical path strings into one name
-  (`tmp_bksync_local..tmp_bksync_remote.path1.lst`). With long absolute paths
-  this exceeds 255 bytes and every run aborts with `file name too long`. Alias
-  remotes do **not** help — they resolve back to the canonical path before
-  mangling. Mitigation: keep `workdir` under the game directory and validate
-  the projected session-name length at setup, reporting a clear error instead
-  of an inscrutable abort. A deep Windows install path is the realistic way a
-  player hits this.
+- **`NAME_MAX` on the bisync session name.** bisync derives its state
+  filenames by mangling *both* canonical path strings into one name
+  (`tmp_bksync_local..tmp_bksync_remote.path1.lst`), and past 255 bytes every
+  run aborts with `file name too long`. The budget is exact and computable:
+  `NAME_MAX (255) - 14` for the longest suffix (`.path1.lst-new`; `-old` and
+  `-err` are the same length, `.lck` is shorter), so **241 bytes** for
+  `mangle(path1) + ".." + mangle(path2)`.
+
+  Only the local side pays full price. `bilib.FsPath` branches on
+  `if name == "local"`, using the raw absolute path for local and a bare
+  `remotename:root` for everything else, so a named cloud remote costs ~25
+  bytes. Alias remotes do **not** help — the alias backend resolves through to
+  the wrapped Fs, which arrives as `local` with the target's absolute path.
+  Relative paths do not help either; the local backend absolutizes them.
+
+  Measured: a Steam-style install
+  (`.../steamapps/common/Blitzkrieg/profiles/Panzerkommandant`) against a
+  short cloud remote produces a 212-byte session name. It fits, but 29 bytes
+  of headroom is not a margin worth shipping on.
+
+  **The fix is to never hand bisync the install path.** A short, stable,
+  game-managed link is used as Path1 instead. rclone does not resolve a
+  symlinked root, so the short name survives into the session name:
+  pointing bisync at `/tmp/bkp` -> a 199-byte profile directory produced the
+  session `tmp_bkp..tmp_bkremote` (21 bytes), and the profile — including the
+  leading-space save filename — synced through it correctly. On Windows this
+  is a **junction** (`mklink /J`), which unlike a symlink needs no
+  administrator rights or Developer Mode; that path still needs verifying on
+  the Windows machine. `plan.zig` creates the link under a fixed short root
+  (`%LOCALAPPDATA%\bk\` / `~/.cache/blitzkrieg/`), repoints it when the
+  active profile changes, and still validates the projected session length as
+  a backstop before every run.
+- **The all-files-changed safety abort will fire during normal play.**
+  `bisyncops.go` aborts with `all files were changed` whenever a side has no
+  unchanged file at all (`deltaSet.foundSame`, "true if found at least one
+  unchanged file"). It exists to catch DST-shifted timestamps, but a profile
+  holds a handful of saves — overwrite the only autosave and 100% of the side
+  has changed. This reproduced immediately in testing on a one-file profile.
+
+  `force: true` silences it, but it also disables the excess-deletes guard
+  (`ds.excessDeletes()`, the check that stops a wiped cloud side from
+  emptying the local one), so it is the wrong lever. Instead the profile
+  carries a **sentinel file** — `.bkprofile`, written once at pairing and
+  never rewritten. It guarantees `foundSame` on both sides while leaving
+  `force` off and the delete guard armed. Verified: rewriting *every* save on
+  both sides then syncing succeeds with the sentinel present, resolves the
+  conflict, and preserves the loser as `.conflict1`.
 - **rc errors are terse.** The RPC reply is `{"error": "bisync aborted",
   "status": 500}` and nothing more; the actionable detail is only in the log.
   Always run the daemon with `--log-file` and surface its tail on failure. In
@@ -199,8 +238,11 @@ picker. A player who already has rclone installed points at their copy.
 1. `rc.zig` against a hand-started `rclone rcd` — `core/version`, `sync/bisync`,
    `job/status`. No game integration.
 2. `daemon.zig` — spawn, health check, auth, reap, orphan cleanup.
-3. `plan.zig` — profile dir to bisync params, filters, session-name length
-   validation. Tests over a fake profile tree including the leading-space save.
+3. `plan.zig` — profile dir to bisync params, filters, the short-link
+   (symlink/junction) management, the `.bkprofile` sentinel, and session-name
+   length validation as a backstop. Tests over a fake profile tree including
+   the leading-space save and an install path deep enough to blow the budget
+   without the link.
 4. C ABI + C++ facade; wire the startup and post-save hooks; "syncing" UI state.
 5. Real backends end to end (S3-compatible first — R2/B2/MinIO — then WebDAV).
 6. Only if wanted: swap the transport to in-process `librclone`, changing
