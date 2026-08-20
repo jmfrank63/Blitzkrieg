@@ -14,6 +14,7 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	int nMaxDivision;											// total number of divisions.
 	int nMinDifficulty;
 	int nActiveNavButton;									// button the last Tab press parked the cursor on, -1 when none
+	int nCloudDivision;										// tab index of the "Cloud" division, -1 when absent
 
 	CPtr<IInputSlider> pWheelScroll;			// own view of the mouse wheel for the whole-screen list scroll
 
@@ -22,7 +23,7 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	virtual bool STDCALL StepLocal( bool bAppActive );
 
 	virtual ~CInterfaceOptionsSettings() {  }
-	CInterfaceOptionsSettings() : CInterfaceInterMission( /*"InterMission"*/"Current" ), nActive( -1 ), nMaxDivision( 0 ), nActiveNavButton( -1 ) {  }
+	CInterfaceOptionsSettings() : CInterfaceInterMission( /*"InterMission"*/"Current" ), nActive( -1 ), nMaxDivision( 0 ), nActiveNavButton( -1 ), nCloudDivision( -1 ) {  }
 
 	virtual void SuspendAILogic( bool bSuspend );
 	void OnChangeDivision( const int nDivision );

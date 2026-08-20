@@ -249,6 +249,33 @@ namespace
 			return 0;
 		return &s_jobs[nHandle];
 	}
+
+	// Every handle this facade returns must be a facade slot: Poll, Error,
+	// Cancel and Release all translate through the job table, so a raw
+	// library handle handed to the caller could never be observed. The
+	// probe-shaped jobs (test, list, restore, undo) go through here.
+	int WrapLibraryHandle( int nLibraryHandle )
+	{
+		if ( nLibraryHandle < 0 )
+			return nLibraryHandle;
+		for ( int i = 0; i < int( sizeof s_jobs / sizeof s_jobs[0] ); ++i )
+		{
+			if ( !s_jobs[i].bInUse )
+			{
+				SJob &job = s_jobs[i];
+				std::memset( &job, 0, sizeof job );
+				job.bInUse = true;
+				job.nLibraryHandle = nLibraryHandle;
+				return i;
+			}
+		}
+		// No slot free: a job nobody can observe must not keep running.
+		SLibrary &library = Library();
+		if ( library.bLoaded )
+			library.pfnRelease( nLibraryHandle );
+		SetLastError2( "all cloud sync handles are in use" );
+		return -1;
+	}
 }
 
 namespace NCloudSync
@@ -431,7 +458,7 @@ namespace NCloudSync
 			SetLastError2( "cloud sync library is not installed" );
 			return -1;
 		}
-		return library.pfnTestConnection( "." );
+		return WrapLibraryHandle( library.pfnTestConnection( "." ) );
 	}
 
 	const char *DiscoveryStatus()
@@ -461,15 +488,16 @@ namespace NCloudSync
 			SetLastError2( "cloud sync library is not installed" );
 			return -1;
 		}
-		return library.pfnBackupList( ".", pszProfile );
+		return WrapLibraryHandle( library.pfnBackupList( ".", pszProfile ) );
 	}
 
 	bool BackupEntry( int nHandle, unsigned int nIndex, char *pszJsonOut, unsigned int nCap )
 	{
+		SJob *pJob = JobAt( nHandle );
 		SLibrary &library = Library();
-		if ( !library.bLoaded || pszJsonOut == 0 || nCap == 0 )
+		if ( pJob == 0 || !library.bLoaded || pszJsonOut == 0 || nCap == 0 )
 			return false;
-		return library.pfnBackupEntry( nHandle, nIndex, reinterpret_cast<unsigned char *>( pszJsonOut ), nCap ) >= 0;
+		return library.pfnBackupEntry( pJob->nLibraryHandle, nIndex, reinterpret_cast<unsigned char *>( pszJsonOut ), nCap ) >= 0;
 	}
 
 	int RestoreBackup( const char *pszProfile, const char *pszEntryID, ERestoreMode eMode )
@@ -480,7 +508,7 @@ namespace NCloudSync
 			SetLastError2( "cloud sync library is not installed" );
 			return -1;
 		}
-		return library.pfnBackupRestore( ".", pszProfile, pszEntryID, eMode == RESTORE_FULL ? 1u : 0u );
+		return WrapLibraryHandle( library.pfnBackupRestore( ".", pszProfile, pszEntryID, eMode == RESTORE_FULL ? 1u : 0u ) );
 	}
 
 	int ApplyPendingRestore( const char *pszProfile )
@@ -509,7 +537,7 @@ namespace NCloudSync
 		const int nHandle = library.pfnRestoreUndo( ".", pszProfile );
 		if ( nHandle < 0 )
 			SetLastError2( library.pfnLastError() );
-		return nHandle;
+		return WrapLibraryHandle( nHandle );
 	}
 
 	EUndoAvailability UndoAvailability( const char *pszProfile )

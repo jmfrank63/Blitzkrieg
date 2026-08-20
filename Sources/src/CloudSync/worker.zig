@@ -346,6 +346,14 @@ pub const Worker = struct {
 
         const eng = self.ensureSession(session) orelse return;
 
+        // Credentials are re-applied to the daemon at every job start, not
+        // once per session: the dialog edits `cloud.credentials` while the
+        // daemon keeps running, and a connection test must probe what was
+        // just saved — not whatever the session was built with. (The daemon
+        // BINARY is still the session's: an rclone_path change takes effect
+        // on the next daemon, not mid-session.)
+        if (!self.applyCredentials(&session.client.?)) return;
+
         self.publishState(switch (box.kind) {
             .pair => .pairing,
             // Transfer-shaped work reads as syncing; probe-shaped fetches
@@ -491,25 +499,21 @@ pub const Worker = struct {
         };
         if (self.deadline) |deadline| session.client.?.deadline = deadline;
 
-        // When a credentials file exists, its remotes are (re)created in the
-        // daemon's config before the first job runs: the raw backend plus
-        // the short alias every sync names. A machine without the file — the
-        // worker tests pre-write `rclone.conf` by hand — skips this and uses
-        // whatever the config already holds.
-        if (!self.applyCredentials(&session.client.?)) {
-            session.client.?.deinit();
-            session.client = null;
-            return null;
-        }
-
+        // Credentials are applied per job by `execute`, not here: a session
+        // outlives many edits of `cloud.credentials`, and every job must run
+        // with what is on disk at its own start.
         session.eng = engine.Engine.init(self.gpa, self.io, &session.client.?);
         session.eng.?.cancel = &self.cancel_flag;
         return &session.eng.?;
     }
 
     /// Configure `bkraw` and the `bkremote` alias from
-    /// `<game_dir>/profiles/cloud.credentials`, when present. True on
-    /// success or absence; false after publishing the failure.
+    /// `<game_dir>/profiles/cloud.credentials`, when present — run at every
+    /// job start, so an edit through the dialog reaches the daemon's config
+    /// before the next probe or sync. True on success or absence — a machine
+    /// without the file (the worker tests pre-write `rclone.conf` by hand)
+    /// uses whatever the config already holds; false after publishing the
+    /// failure.
     fn applyCredentials(self: *Worker, client: *rc.Client) bool {
         const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch {
             self.publishFailureText("out of memory reading credentials");

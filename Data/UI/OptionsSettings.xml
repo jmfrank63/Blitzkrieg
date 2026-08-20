@@ -349,6 +349,31 @@
 				</item>
 			</States>
 		</item>
+		<item ClassTypeID="0x10001103" ElementID="10013" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+			<ToolTip/>
+			<!--button: cloud credentials dialog, in the sixth tab slot below the division tabs; shown by code only while the Cloud tab is active. A mod filling all six tab slots would overlap it - six divisions is already the screen's limit-->
+			<WindowPos x="45" y="630"/>
+			<WindowSize x="433" y="66"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="590" y1="957" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="590" y1="888" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="590" y1="888" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+					<TextKey>Textes\UI\CloudCredentials\open_button</TextKey>
+				</item>
+			</States>
+		</item>
 		<item ClassTypeID="0x10001103" ElementID="10008" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button: 2-->

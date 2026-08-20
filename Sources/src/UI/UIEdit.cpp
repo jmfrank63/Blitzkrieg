@@ -672,6 +672,15 @@ void CUIEditBox::SetWindowText( int nState, const WORD *pszText )
 	m_nBeginDragSel = m_nBeginSel = m_nEndSel = -1;
 	CSimpleWindow::SetWindowText( nState, pszText );
 }
+const WORD* CUIEditBox::GetWindowText( int nState )
+{
+	// The state's own text is only the visible, scrolled slice; a caller
+	// asking an edit box for its text means everything that was typed.
+	// Without this, any scrolling box (chat entry, a long path) read back
+	// only what happened to fit its width.
+	wszReturnText = ToWordText( wszFullText.c_str() );
+	return NPlatform::WordStringData( wszReturnText );
+}
 void CUIEditBox::EnsureCursorVisible()
 {
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;

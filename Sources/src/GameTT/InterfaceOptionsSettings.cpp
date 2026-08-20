@@ -42,6 +42,12 @@ enum EButtonsInOptionsSettings
 	// Gold static in the lower left with the active profile name - the id is
 	// a convention, other screens showing the profile label reuse it.
 	E_STATIC_PROFILE				= 21000,
+
+	// The credentials dialog button, visible only while the Cloud tab is
+	// active. Endpoints, keys and the secret are not options - the option
+	// store truncates long strings and must never carry a secret - so the
+	// Cloud tab opens a dedicated screen for them.
+	E_BUTTON_CLOUD_CREDENTIALS	= 10013,
 };
 bool CInterfaceOptionsSettings::OpenCurtains()
 {
@@ -147,6 +153,7 @@ void CInterfaceOptionsSettings::Create()
 	ITextManager * pTM = GetSingleton<ITextManager>();
 
 	nMaxDivision = 0;
+	nCloudDivision = -1;
 	const std::string szKeyOption = "Textes\\Options\\";
 	for ( int nSection = 0; nSection < sectionOrder.size(); ++nSection )
 	{
@@ -184,6 +191,8 @@ void CInterfaceOptionsSettings::Create()
 			pButton->SetHelpContext( 0, pT->GetString() );
 		
 		pButton->ShowWindow( UI_SW_SHOW );
+		if ( szSection == "Cloud" )
+			nCloudDivision = nMaxDivision;
 		++nMaxDivision;
 	}
 	
@@ -240,6 +249,10 @@ void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 	IUIElement *pElement = pUIScreen->GetChildByID( nActive + _E_BUTTON_CHANGE_DIVISION_BEGIN );
 	NI_ASSERT_T( pElement != 0, NStr::Format("There is no button with id %d") );
 	pElement->EnableWindow( false );
+
+	// The credentials button belongs to the Cloud tab alone.
+	if ( IUIElement *pCredentials = pUIScreen->GetChildByID( E_BUTTON_CLOUD_CREDENTIALS ) )
+		pCredentials->ShowWindow( nActive == nCloudDivision && nCloudDivision >= 0 ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
 }
 // Tab parks the cursor on the next button of the screen - division tabs,
 // then V (ok), then X (cancel) - so the button highlights, tooltips and
@@ -361,11 +374,16 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 		}
 		return true;
 
+	case E_BUTTON_CLOUD_CREDENTIALS:
+		// The settings screen stays below; the dialog pops back to it.
+		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CLOUD_CREDENTIALS, 0 );
+		return true;
+
 	case IMC_CANCEL:
 		for ( int i = 0; i < optionsLists.size(); ++i )
 			optionsLists[i]->CancelChanges();
 		Close();
-		
+
 		return true;
 	case E_BUTTON_DEFAULT:
 		for ( int i = 0; i < optionsLists.size(); ++i )
