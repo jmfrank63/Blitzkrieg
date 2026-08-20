@@ -1,6 +1,17 @@
 //! Sync planning primitives: the short link that stands in for the profile
-//! directory as bisync's Path1, and the session-name budget that refuses a
-//! run bisync would abort on filename length.
+//! directory as bisync's Path1, the session-name budget that refuses a run
+//! bisync would abort on filename length, the filter set and the
+//! machine-local state paths that stay out of it, the remote layout, and the
+//! `.bkprofile` sentinel.
+//!
+//! The sentinel is one file backing two of bisync's guards, which is why it
+//! is written once and never rewritten. Unchanged, it keeps `foundSame` true,
+//! so the `all files were changed` abort cannot fire on a small profile where
+//! overwriting the only autosave changes 100% of the side. Counted, it adds
+//! one to `oldCount`, so deleting the only save is 1-of-2 — exactly the 50%
+//! `maxDelete` ratio, which compares with `<=` and passes. Rewriting it on a
+//! later run would forfeit the first guard; seeding it on both sides would
+//! give the copies different modification times and abort the resync.
 //!
 //! Why a link at all. bisync mangles both canonical paths into one state
 //! filename — `<path1>..<path2>.path1.lst` — and dies once that name passes
@@ -372,6 +383,192 @@ pub fn checkSessionBudget(
     defer gpa.free(name);
     projected.* = name.len;
     if (name.len > session_budget) return error.SessionNameTooLong;
+}
+
+// -- Machine-local state paths -----------------------------------------------
+//
+// Pairing state, bisync's workdir, the daemon record and the filters file all
+// describe one machine: which rclone was found, what this host has paired,
+// where its listings live. Inside Path1 they would travel to every other
+// machine and corrupt the same state they record, so they live under
+// `<gamedir>/cloudsync/` — the directory `daemon.zig` already owns for
+// `rclone.conf` and `daemon.json`. Nothing under `profiles/<name>/` may hold
+// machine-local state except the trash and the sentinel.
+
+/// The state directory's name under the game root. Kept textually identical
+/// to `daemon.state_dir_name`; not imported, because the planning module
+/// should not pull the daemon's process machinery into its compile.
+pub const state_dir_name = "cloudsync";
+
+/// `<gamedir>/cloudsync` — the root of everything machine-local. The game
+/// directory is a parameter, not discovered here, for the same reason
+/// `daemon.zig` takes `Options.game_dir`: the ABI layer owns discovery, and
+/// tests inject a fixture.
+pub fn stateRoot(gpa: Allocator, game_dir: []const u8) Allocator.Error![]u8 {
+    return path.join(gpa, &.{ game_dir, state_dir_name });
+}
+
+/// `<stateRoot>/state/<profile>.json` — what this machine knows about one
+/// profile's pairing: whether a resync has succeeded, when, against what.
+pub fn pairingStatePath(gpa: Allocator, game_dir: []const u8, profile: []const u8) Allocator.Error![]u8 {
+    return std.fmt.allocPrint(
+        gpa,
+        "{s}{c}{s}{c}state{c}{s}.json",
+        .{ game_dir, path.sep, state_dir_name, path.sep, path.sep, profile },
+    );
+}
+
+/// `<stateRoot>/workdir` — bisync's listing files, one pair per session.
+/// Machine-local by nature: another machine's listings describe another
+/// machine's last sync.
+pub fn workdirPath(gpa: Allocator, game_dir: []const u8) Allocator.Error![]u8 {
+    return path.join(gpa, &.{ game_dir, state_dir_name, "workdir" });
+}
+
+/// `<stateRoot>/filters.txt` — where `writeFiltersFile` puts the rule set
+/// handed to bisync as `filtersFile`.
+pub fn filtersFilePath(gpa: Allocator, game_dir: []const u8) Allocator.Error![]u8 {
+    return path.join(gpa, &.{ game_dir, state_dir_name, "filters.txt" });
+}
+
+// -- Filters -----------------------------------------------------------------
+
+/// The rule set handed to bisync as `filtersFile`, byte-exact and constant:
+/// bisync stores an MD5 of this file and demands a resync when it changes, so
+/// the content must never vary between runs or machines.
+///
+/// `config.cfg` is backed up rather than synced — it carries `GFX.*`, and
+/// display choices are per machine by hard-won design. `screenshots/**` is
+/// large and low-value. `*.tmp-rename` is `NProfile::Rename`'s intermediate
+/// state. `cloud.credentials` never leaves the machine. The trash, restore
+/// stages and config backups are excluded belt-and-braces: the remote copies
+/// are siblings of `profiles/` and never under Path2 at all, and the local
+/// ones are `.cloudsync-*` names inside the profile. The final rule covers
+/// any future machine-local file dropped into the profile directory by
+/// mistake.
+pub const filters_file_content =
+    \\- config.cfg
+    \\- screenshots/**
+    \\- *.tmp-rename
+    \\- cloud.credentials
+    \\- .cloudsync-trash/**
+    \\- .cloudsync-restore/**
+    \\- config-backups/**
+    \\- .cloudsync-*
+    \\
+;
+
+/// Write the filter set to `file_path`, replacing whatever is there. The
+/// content is comptime-constant, so rewriting is idempotent and cannot
+/// trip bisync's filters-changed MD5 check.
+pub fn writeFiltersFile(io: Io, file_path: []const u8) !void {
+    try Io.Dir.cwd().writeFile(io, .{ .sub_path = file_path, .data = filters_file_content });
+}
+
+// -- Remote layout -----------------------------------------------------------
+//
+// Path2 is `<remote>:profiles/<name>`, and nothing that is not a profile
+// lives under it: anything beneath the synced prefix is by definition synced
+// back down to every machine, which is how a config-backup history would have
+// arrived on every machine at once. The trash and the backups are siblings of
+// `profiles/`, so the filter entries naming them are a second fence around a
+// path that is already outside the pen.
+
+/// `<remote>:profiles/<profile>` — Path2, the synced prefix.
+pub fn remoteProfileRoot(gpa: Allocator, remote: []const u8, profile: []const u8) Allocator.Error![]u8 {
+    return std.fmt.allocPrint(gpa, "{s}:profiles/{s}", .{ remote, profile });
+}
+
+/// `<remote>:trash/<profile>/<run_id>` — `backupDir2`, fresh per run because
+/// rclone overwrites a backup at an existing path and save filenames recur
+/// every session.
+pub fn remoteTrashRoot(
+    gpa: Allocator,
+    remote: []const u8,
+    profile: []const u8,
+    run_id: []const u8,
+) Allocator.Error![]u8 {
+    return std.fmt.allocPrint(gpa, "{s}:trash/{s}/{s}", .{ remote, profile, run_id });
+}
+
+/// `<remote>:config-backups/<profile>/<host>` — one-way config snapshots,
+/// keyed by host so machines never overwrite each other's history.
+pub fn remoteConfigBackupRoot(
+    gpa: Allocator,
+    remote: []const u8,
+    profile: []const u8,
+    host: []const u8,
+) Allocator.Error![]u8 {
+    return std.fmt.allocPrint(gpa, "{s}:config-backups/{s}/{s}", .{ remote, profile, host });
+}
+
+// -- Delete ratio ------------------------------------------------------------
+
+/// bisync's `maxDelete`, sent explicitly on every run: over rc the option
+/// defaults to zero — the CLI's 50 is applied in `cmd.go`, which rc never
+/// runs — and zero aborts on *any* delete rather than allowing none.
+pub const max_delete_percent: usize = 50;
+
+/// The abort predicate, mirrored: a run passes while
+/// `deleted / oldCount <= maxDelete/100`. Scaled to integers so the boundary
+/// is exact — one delete of two files is precisely 50% and passes, which is
+/// the arithmetic the sentinel exists to arrange.
+pub fn deleteWithinRatio(old_count: usize, deletes: usize) bool {
+    return deletes * 100 <= old_count * max_delete_percent;
+}
+
+// -- Sentinel ----------------------------------------------------------------
+
+/// The one file guaranteed present and unchanged in every paired profile.
+pub const sentinel_name = ".bkprofile";
+
+/// What `ensureSentinel` did, recorded rather than discarded — the pairing
+/// step's report should say whether this machine seeded the profile or is
+/// waiting for the resync to deliver the sentinel.
+pub const SentinelAction = enum {
+    /// A sentinel already exists locally. It was not touched: its unchanged
+    /// modification time is the `foundSame` guarantee.
+    already_present,
+    /// No sentinel anywhere; one was written here, and the resync will carry
+    /// it up.
+    written,
+    /// The remote already carries one, so nothing was written — two
+    /// independently created copies differ in modification time and abort
+    /// the resync with `Modtime not equal in listing`. The resync delivers
+    /// the remote's copy instead.
+    deferred_to_remote,
+};
+
+pub const SentinelError = Allocator.Error || error{
+    /// The sentinel was absent and could not be written — the profile
+    /// directory is missing or read-only.
+    SentinelUnwritable,
+};
+
+/// Guarantee the pairing can rely on the sentinel without ever rewriting one.
+/// `remote_has_sentinel` is the caller's answer from asking the remote —
+/// P02-M01 owns that question; this function owns never seeding both sides.
+pub fn ensureSentinel(
+    gpa: Allocator,
+    io: Io,
+    profile_dir: []const u8,
+    profile_id: []const u8,
+    remote_has_sentinel: bool,
+) SentinelError!SentinelAction {
+    const sentinel_path = try path.join(gpa, &.{ profile_dir, sentinel_name });
+    defer gpa.free(sentinel_path);
+
+    if (Io.Dir.cwd().statFile(io, sentinel_path, .{})) |_| {
+        return .already_present;
+    } else |_| {}
+
+    if (remote_has_sentinel) return .deferred_to_remote;
+
+    const content = try std.fmt.allocPrint(gpa, "{s}\n", .{profile_id});
+    defer gpa.free(content);
+    Io.Dir.cwd().writeFile(io, .{ .sub_path = sentinel_path, .data = content }) catch
+        return error.SentinelUnwritable;
+    return .written;
 }
 
 /// Take `target` on the ownership of the returned `ShortLink`, replacing

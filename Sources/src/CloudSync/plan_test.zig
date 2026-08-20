@@ -643,3 +643,185 @@ test "the budget boundary sits at exactly 241 bytes" {
     );
     try std.testing.expectEqual(@as(usize, 242), projected);
 }
+
+// -- Filters, state paths and the sentinel -----------------------------------
+
+test "the filter set excludes exactly the intended paths" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const file_path = try joinPath(gpa, &.{ fixture.root, "filters.txt" });
+    defer gpa.free(file_path);
+    try plan.writeFiltersFile(io, file_path);
+
+    const written = try std.Io.Dir.cwd().readFileAlloc(io, file_path, gpa, .limited(4096));
+    defer gpa.free(written);
+
+    // Byte-exact, nothing more and nothing less: bisync stores an MD5 of this
+    // file and demands a resync when it changes, and an extra rule someone
+    // slips in is a rule every machine silently starts obeying.
+    const expected =
+        "- config.cfg\n" ++
+        "- screenshots/**\n" ++
+        "- *.tmp-rename\n" ++
+        "- cloud.credentials\n" ++
+        "- .cloudsync-trash/**\n" ++
+        "- .cloudsync-restore/**\n" ++
+        "- config-backups/**\n" ++
+        "- .cloudsync-*\n";
+    try std.testing.expectEqualStrings(expected, written);
+
+    // Rewriting is idempotent — same bytes, no MD5 drift.
+    try plan.writeFiltersFile(io, file_path);
+    const again = try std.Io.Dir.cwd().readFileAlloc(io, file_path, gpa, .limited(4096));
+    defer gpa.free(again);
+    try std.testing.expectEqualStrings(expected, again);
+}
+
+test "no machine-local state file sits inside Path1" {
+    const gpa = std.testing.allocator;
+
+    // The real layout: the profile lives under the game root, and the state
+    // root must still stay out of the profile.
+    const game_dir = if (builtin.os.tag == .windows)
+        "C:\\Games\\Blitzkrieg"
+    else
+        "/games/blitzkrieg";
+    const profile = "Panzerkommandant";
+    const profile_dir = try path.join(gpa, &.{ game_dir, "profiles", profile });
+    defer gpa.free(profile_dir);
+    const profile_prefix = try std.fmt.allocPrint(gpa, "{s}{c}", .{ profile_dir, path.sep });
+    defer gpa.free(profile_prefix);
+
+    const state_root = try plan.stateRoot(gpa, game_dir);
+    defer gpa.free(state_root);
+    const pairing = try plan.pairingStatePath(gpa, game_dir, profile);
+    defer gpa.free(pairing);
+    const workdir = try plan.workdirPath(gpa, game_dir);
+    defer gpa.free(workdir);
+    const filters = try plan.filtersFilePath(gpa, game_dir);
+    defer gpa.free(filters);
+
+    const expected_root = try path.join(gpa, &.{ game_dir, "cloudsync" });
+    defer gpa.free(expected_root);
+    try std.testing.expectEqualStrings(expected_root, state_root);
+
+    const expected_pairing = try std.fmt.allocPrint(
+        gpa,
+        "{s}{c}state{c}{s}.json",
+        .{ state_root, path.sep, path.sep, profile },
+    );
+    defer gpa.free(expected_pairing);
+    try std.testing.expectEqualStrings(expected_pairing, pairing);
+
+    // Every state path lives under the state root, and none is inside the
+    // profile — state inside Path1 would travel to every machine and corrupt
+    // the same records it keeps.
+    for ([_][]const u8{ pairing, workdir, filters }) |state_path| {
+        try std.testing.expect(std.mem.startsWith(u8, state_path, state_root));
+        try std.testing.expect(!std.mem.startsWith(u8, state_path, profile_prefix));
+    }
+}
+
+test "the remote layout keeps non-profile data out of Path2" {
+    const gpa = std.testing.allocator;
+
+    const path2 = try plan.remoteProfileRoot(gpa, "bkremote", "Panzerkommandant");
+    defer gpa.free(path2);
+    try std.testing.expectEqualStrings("bkremote:profiles/Panzerkommandant", path2);
+
+    const trash = try plan.remoteTrashRoot(gpa, "bkremote", "Panzerkommandant", "run-0001");
+    defer gpa.free(trash);
+    try std.testing.expectEqualStrings("bkremote:trash/Panzerkommandant/run-0001", trash);
+
+    const backups = try plan.remoteConfigBackupRoot(gpa, "bkremote", "Panzerkommandant", "desktop");
+    defer gpa.free(backups);
+    try std.testing.expectEqualStrings("bkremote:config-backups/Panzerkommandant/desktop", backups);
+
+    // Siblings of the synced prefix, never children: anything beneath Path2
+    // is synced back down to every machine by definition. The filter entries
+    // naming these are the second fence, not the first.
+    try std.testing.expect(!std.mem.startsWith(u8, trash, path2));
+    try std.testing.expect(!std.mem.startsWith(u8, backups, path2));
+}
+
+test "single_delete_passes_with_sentinel" {
+    // The design table, encoded. maxDelete compares with `<=`, so the
+    // sentinel's +1 on oldCount makes deleting the only save exactly 50%.
+    try std.testing.expect(plan.deleteWithinRatio(2, 1));
+    // Without the sentinel the same delete is 100% and aborts the run. This
+    // line is what stops someone removing the sentinel as cosmetic.
+    try std.testing.expect(!plan.deleteWithinRatio(1, 1));
+    // A fuller profile: one delete of five files passes, three trip the
+    // breaker — which is then a genuine mass-delete event for the UI.
+    try std.testing.expect(plan.deleteWithinRatio(5, 1));
+    try std.testing.expect(!plan.deleteWithinRatio(5, 3));
+}
+
+test "sentinel_not_seeded_when_remote_has_one" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const profile = try fixture.shallowDir("second-machine-profile");
+    defer gpa.free(profile);
+
+    // A second machine pairing a profile the cloud already knows: writing a
+    // sentinel here gives two copies with different modification times, and
+    // bisync aborts the resync on `Modtime not equal in listing`. The resync
+    // must deliver the remote's copy instead.
+    const action = try plan.ensureSentinel(gpa, io, profile, "profile-id", true);
+    try std.testing.expectEqual(plan.SentinelAction.deferred_to_remote, action);
+    try std.testing.expectError(
+        error.FileNotFound,
+        readThrough(gpa, profile, plan.sentinel_name),
+    );
+}
+
+test "the sentinel is created once and never rewritten" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const profile = try fixture.shallowDir("first-machine-profile");
+    defer gpa.free(profile);
+
+    const first = try plan.ensureSentinel(gpa, io, profile, "profile-id", false);
+    try std.testing.expectEqual(plan.SentinelAction.written, first);
+
+    const content = try readThrough(gpa, profile, plan.sentinel_name);
+    defer gpa.free(content);
+    try std.testing.expectEqualStrings("profile-id\n", content);
+
+    // A second call must not touch the file — its unchanged modification
+    // time is the `foundSame` guarantee — even when handed a different id,
+    // and even when told the remote has one too.
+    const second = try plan.ensureSentinel(gpa, io, profile, "some-other-id", false);
+    try std.testing.expectEqual(plan.SentinelAction.already_present, second);
+    const third = try plan.ensureSentinel(gpa, io, profile, "some-other-id", true);
+    try std.testing.expectEqual(plan.SentinelAction.already_present, third);
+
+    const after = try readThrough(gpa, profile, plan.sentinel_name);
+    defer gpa.free(after);
+    try std.testing.expectEqualStrings("profile-id\n", after);
+}
+
+test "an unwritable profile is a typed sentinel failure" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const missing = try joinPath(gpa, &.{ fixture.root, "no-such-profile" });
+    defer gpa.free(missing);
+
+    try std.testing.expectError(
+        error.SentinelUnwritable,
+        plan.ensureSentinel(gpa, io, missing, "profile-id", false),
+    );
+}
+
