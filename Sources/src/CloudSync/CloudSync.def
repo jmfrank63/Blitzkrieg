@@ -10,3 +10,9 @@ EXPORTS
     bk_cloudsync_refresh_discovery = _bk_cloudsync_refresh_discovery @3
     bk_cloudsync_shutdown = _bk_cloudsync_shutdown @4
     bk_cloudsync_last_error = _bk_cloudsync_last_error @5
+    bk_cloudsync_begin = _bk_cloudsync_begin @6
+    bk_cloudsync_poll = _bk_cloudsync_poll @7
+    bk_cloudsync_outcome = _bk_cloudsync_outcome @8
+    bk_cloudsync_error = _bk_cloudsync_error @9
+    bk_cloudsync_cancel = _bk_cloudsync_cancel @10
+    bk_cloudsync_release = _bk_cloudsync_release @11

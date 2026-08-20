@@ -69,6 +69,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const daemon = @import("daemon.zig");
+const worker = @import("worker.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -318,12 +319,29 @@ pub export fn bk_cloudsync_refresh_discovery() callconv(.c) i32 {
     return 0;
 }
 
-/// Release everything this module owns. Idempotent, and safe to call without
-/// ever having called anything else. A later call re-runs discovery rather
-/// than answering from a cache that was thrown away.
-///
-/// Packets that add owned state — the daemon child above all — stop it here.
+/// Release everything this module owns. Idempotent, safe to call twice, and
+/// safe with a sync in flight: the worker's destroy cancels the run and is
+/// bounded by one POST deadline, and the daemon is shut down with it. A later
+/// call re-runs discovery and can start a fresh worker.
 pub export fn bk_cloudsync_shutdown() callconv(.c) void {
+    // Detach under the lock, destroy outside it: `Worker.destroy` blocks for
+    // up to a deadline, and nothing else may wait on the jobs lock that long.
+    jobs_mutex.lockUncancelable(lockIo());
+    const w = sync_worker;
+    sync_worker = null;
+    const io_impl = sync_io_impl;
+    sync_io_impl = null;
+    if (sync_game_dir) |dir| module_gpa.free(dir);
+    sync_game_dir = null;
+    job_slots = @splat(.{});
+    jobs_mutex.unlock(lockIo());
+
+    if (w) |live| live.destroy();
+    if (io_impl) |impl| {
+        impl.deinit();
+        module_gpa.destroy(impl);
+    }
+
     module.clear();
     clearError();
 }
@@ -332,6 +350,269 @@ pub export fn bk_cloudsync_shutdown() callconv(.c) void {
 /// succeeded. Module-owned; copy it if you need to keep it.
 pub export fn bk_cloudsync_last_error() callconv(.c) [*:0]const u8 {
     return @ptrCast(&error_text);
+}
+
+// ---------------------------------------------------------------------------
+// Sync jobs
+//
+// The engine is reachable from C++ through six exports and a handle table.
+// A handle is an index into `job_slots`, never a pointer; each slot holds a
+// value copy of the worker's snapshot, refreshed on `poll` while its job is
+// the active one and frozen once a newer job begins. `release` invalidates
+// the handle only — the worker, daemon and rc client are shared state owned
+// by the module and torn down solely by `bk_cloudsync_shutdown`.
+//
+// Stable numeric values, which C++ switches on — reordering the Zig enums
+// would silently change behaviour, so the mapping is pinned by comptime
+// asserts right below and must never be edited in one place only:
+//
+//   state:   0 idle, 1 starting, 2 pairing, 3 syncing, 4 done, 5 failed
+//   outcome: 0 none, 1 paired, 2 synced, 3 failed
+//
+// `bk_cloudsync_begin` takes one NUL-terminated JSON document rather than the
+// bare profile name a caller cannot act on alone:
+//
+//   { "kind": "pair" | "sync", "path1": ..., "remote": ..., "profile": ...,
+//     "game_dir": ..., "profile_id": ..., "remote_fingerprint": ... }
+//
+// The credentials packet (P03) and the facade (P06) own producing it; until
+// then the C++ smoke consumer builds it by hand. Windows paths must be
+// JSON-escaped like any other string.
+// ---------------------------------------------------------------------------
+
+comptime {
+    // The ABI contract above, enforced at build time.
+    std.debug.assert(@intFromEnum(worker.State.idle) == 0);
+    std.debug.assert(@intFromEnum(worker.State.starting) == 1);
+    std.debug.assert(@intFromEnum(worker.State.pairing) == 2);
+    std.debug.assert(@intFromEnum(worker.State.syncing) == 3);
+    std.debug.assert(@intFromEnum(worker.State.done) == 4);
+    std.debug.assert(@intFromEnum(worker.State.failed) == 5);
+    std.debug.assert(@intFromEnum(worker.Outcome.none) == 0);
+    std.debug.assert(@intFromEnum(worker.Outcome.paired) == 1);
+    std.debug.assert(@intFromEnum(worker.Outcome.synced) == 2);
+    std.debug.assert(@intFromEnum(worker.Outcome.failed) == 3);
+}
+
+const module_gpa = std.heap.smp_allocator;
+const max_job_slots = 8;
+
+const JobSlot = struct {
+    in_use: bool = false,
+    /// Still the worker's current job. Exactly one slot is active at a time.
+    active: bool = false,
+    snapshot: worker.Snapshot = .{},
+    /// The NUL-terminated copy `bk_cloudsync_error` hands out; per-slot fixed
+    /// storage, so the pointer stays valid until the next call on the same
+    /// handle, exactly as the module conventions promise.
+    error_z: [worker.error_text_max + 1]u8 = @splat(0),
+};
+
+var jobs_mutex: std.Io.Mutex = .init;
+var job_slots: [max_job_slots]JobSlot = @splat(.{});
+var sync_worker: ?*worker.Worker = null;
+var sync_io_impl: ?*std.Io.Threaded = null;
+/// The game directory the worker was created for. One worker, one game dir;
+/// a job naming another is a caller bug reported as a failure, not honoured.
+var sync_game_dir: ?[]u8 = null;
+
+/// What `begin` parses. Unknown fields are ignored so later packets can
+/// extend the document without breaking older callers.
+const JobDoc = struct {
+    kind: []const u8,
+    path1: []const u8,
+    remote: []const u8,
+    profile: []const u8,
+    game_dir: []const u8,
+    profile_id: []const u8,
+    remote_fingerprint: []const u8,
+};
+
+/// The production `BinarySource`: an owned copy out of the discovery cache,
+/// taken under that cache's lock — the P00-M04 contract. Runs on the worker
+/// thread at spawn time, so the path is as current as the last refresh.
+fn resolveFromDiscovery(context: ?*anyopaque, gpa: Allocator) ?[]u8 {
+    _ = context;
+    module.ensure() catch return null;
+    module.lock();
+    defer module.unlock();
+    const current = module.value orelse return null;
+    return switch (current) {
+        .ready => |ready| gpa.dupe(u8, ready.path) catch null,
+        .unavailable => null,
+    };
+}
+
+/// Enqueue one job described by `job_json` and return its handle, or -1 with
+/// a readable `bk_cloudsync_last_error`. Never blocks on a socket: daemon
+/// spawn, readiness and the run itself happen on the worker and are observed
+/// through `bk_cloudsync_poll`.
+pub export fn bk_cloudsync_begin(job_json: [*:0]const u8) callconv(.c) i32 {
+    const text = std.mem.span(job_json);
+    const parsed = std.json.parseFromSlice(JobDoc, module_gpa, text, .{
+        .ignore_unknown_fields = true,
+    }) catch {
+        setError("cloud sync: the job document is not valid JSON or misses a field");
+        return -1;
+    };
+    defer parsed.deinit();
+    const doc = parsed.value;
+
+    const kind: worker.JobKind = if (std.mem.eql(u8, doc.kind, "pair"))
+        .pair
+    else if (std.mem.eql(u8, doc.kind, "sync"))
+        .sync
+    else {
+        setError("cloud sync: job kind must be \"pair\" or \"sync\"");
+        return -1;
+    };
+
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    if (sync_game_dir) |existing| {
+        if (!std.mem.eql(u8, existing, doc.game_dir)) {
+            setError("cloud sync: the game directory cannot change between jobs");
+            return -1;
+        }
+    }
+
+    if (sync_worker == null) {
+        const io_impl = module_gpa.create(std.Io.Threaded) catch {
+            setError("cloud sync: out of memory starting the sync worker");
+            return -1;
+        };
+        io_impl.* = .init(module_gpa, .{});
+        const w = worker.Worker.create(module_gpa, io_impl.io(), .{
+            .game_dir = doc.game_dir,
+            .binary_source = .{ .resolve = resolveFromDiscovery },
+        }) catch {
+            io_impl.deinit();
+            module_gpa.destroy(io_impl);
+            setError("cloud sync: the sync worker could not be started");
+            return -1;
+        };
+        sync_game_dir = module_gpa.dupe(u8, doc.game_dir) catch null;
+        sync_io_impl = io_impl;
+        sync_worker = w;
+    }
+    const w = sync_worker.?;
+
+    // Find a free slot before enqueueing, so a full table cannot strand a
+    // job nothing can observe.
+    const handle: i32 = for (&job_slots, 0..) |*slot, index| {
+        if (!slot.in_use) break @intCast(index);
+    } else {
+        setError("cloud sync: all job handles are in use; release one first");
+        return -1;
+    };
+
+    w.begin(.{
+        .kind = kind,
+        .path1 = doc.path1,
+        .remote = doc.remote,
+        .profile = doc.profile,
+        .profile_id = doc.profile_id,
+        .remote_fingerprint = doc.remote_fingerprint,
+    }) catch |err| {
+        switch (err) {
+            error.Busy => setError("cloud sync: a job is already running; poll it to completion first"),
+            error.OutOfMemory => setError("cloud sync: out of memory enqueueing the job"),
+        }
+        return -1;
+    };
+
+    // The previous job, if any, keeps its final snapshot but stops tracking
+    // the worker: from here the worker's state describes the new job.
+    for (&job_slots) |*slot| {
+        if (slot.active) slot.active = false;
+    }
+    job_slots[@intCast(handle)] = .{
+        .in_use = true,
+        .active = true,
+        .snapshot = w.poll(),
+    };
+    clearError();
+    return handle;
+}
+
+fn slotAt(handle: i32) ?*JobSlot {
+    if (handle < 0 or handle >= max_job_slots) return null;
+    const slot = &job_slots[@intCast(handle)];
+    return if (slot.in_use) slot else null;
+}
+
+/// The job's state as the stable numeric mapping above. An invalid or
+/// released handle answers `failed` with a readable last error — a state a
+/// caller already handles — rather than a second error channel.
+pub export fn bk_cloudsync_poll(handle: i32) callconv(.c) u32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    const slot = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return @intFromEnum(worker.State.failed);
+    };
+    if (slot.active) {
+        if (sync_worker) |w| slot.snapshot = w.poll();
+    }
+    return @intFromEnum(slot.snapshot.state);
+}
+
+/// How the job ended, meaningful once `poll` reports done or failed.
+pub export fn bk_cloudsync_outcome(handle: i32) callconv(.c) u32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    const slot = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return @intFromEnum(worker.Outcome.failed);
+    };
+    if (slot.active) {
+        if (sync_worker) |w| slot.snapshot = w.poll();
+    }
+    return @intFromEnum(slot.snapshot.outcome);
+}
+
+/// The job's error text — empty while it runs or when it succeeded. The
+/// pointer is valid until the next call on the same handle.
+pub export fn bk_cloudsync_error(handle: i32) callconv(.c) [*:0]const u8 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    const slot = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return "cloud sync: unknown job handle";
+    };
+    if (slot.active) {
+        if (sync_worker) |w| slot.snapshot = w.poll();
+    }
+    const text = slot.snapshot.errorText();
+    @memcpy(slot.error_z[0..text.len], text);
+    slot.error_z[text.len] = 0;
+    return @ptrCast(&slot.error_z);
+}
+
+/// Abandon the wait on a running job. The rclone job keeps running
+/// server-side; the handle will report failed with a cancellation text.
+pub export fn bk_cloudsync_cancel(handle: i32) callconv(.c) void {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    const slot = slotAt(handle) orelse return;
+    if (slot.active) {
+        if (sync_worker) |w| w.cancel();
+    }
+}
+
+/// Invalidate the handle. Shared state — the worker, the daemon, the rc
+/// client — is untouched; `bk_cloudsync_shutdown` owns that.
+pub export fn bk_cloudsync_release(handle: i32) callconv(.c) void {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    const slot = slotAt(handle) orelse return;
+    slot.* = .{};
 }
 
 // ---------------------------------------------------------------------------

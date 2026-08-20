@@ -2232,6 +2232,10 @@ pub fn build(b: *std.Build) void {
     });
     cloudsync_abi_consumer_module.addCSourceFiles(.{
         .files = &.{"tools/zig/cloudsync_abi_test.cpp"},
+        // Deliberately C-runtime only: pulling MSVC's STL objects (locale,
+        // iostreams, <thread>) into this consumer starts a RuntimeLibrary
+        // fight with the mixed link line that the game itself never has to
+        // win. The consumer proves the ABI, not the STL.
         .flags = &.{"-std=c++17"},
     });
     addMsvcIncludePaths(b, cloudsync_abi_consumer_module, toolchain);
