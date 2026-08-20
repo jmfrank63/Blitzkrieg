@@ -62,6 +62,10 @@ int bk_cloudsync_backup_entry(int handle, unsigned int index, unsigned char *jso
 // 0 nothing staged, -1 hard error).
 int bk_cloudsync_backup_restore(const char *game_dir, const char *profile, const char *entry_id, unsigned int mode);
 int bk_cloudsync_apply_pending_restore(const char *profile);
+// Undo: a pollable local job (outcome 7 = undo_done); availability is 0
+// nothing, 1 cancellable stage, 2 reinstatable, 3 busy.
+int bk_cloudsync_restore_undo(const char *game_dir, const char *profile);
+unsigned int bk_cloudsync_restore_undo_available(const char *profile);
 }
 
 static int failures = 0;
@@ -639,6 +643,25 @@ static void sync_full_cycle()
             read_file(undo_path, undo_content, sizeof undo_content);
             check(std::strcmp(undo_content, "local-config") == 0, "the undo snapshot holds the original");
             check(bk_cloudsync_apply_pending_restore("hero") == 0, "a second apply reports nothing staged");
+
+            // Undo, end to end: available as a reinstate, staged as a job,
+            // applied at the "next startup", and the original comes back.
+            check(bk_cloudsync_restore_undo_available("hero") == 2u,
+                  "an applied restore reports reinstatable");
+            const int undoing = bk_cloudsync_restore_undo(game, "hero");
+            check(undoing >= 0, "restore_undo hands out a handle");
+            if (undoing >= 0)
+            {
+                const unsigned int undone = poll_to_rest(undoing, 30000);
+                check(undone == 4u, "the undo job reaches done");
+                check(bk_cloudsync_outcome(undoing) == 6u + 1u, "with the undo_done outcome");
+                bk_cloudsync_release(undoing);
+                check(bk_cloudsync_restore_undo_available("hero") == 1u,
+                      "the staged reinstate reports cancellable");
+                check(bk_cloudsync_apply_pending_restore("hero") == 1, "the reinstate applies");
+                read_file("profiles/hero/config.cfg", restored, sizeof restored);
+                check(std::strcmp(restored, "local-config") == 0, "and the original config is back");
+            }
 #ifdef _WIN32
             check(_chdir(before_cwd) == 0, "chdir back after apply");
 #else

@@ -526,6 +526,7 @@ comptime {
     std.debug.assert(@intFromEnum(worker.Outcome.connection_ok) == 4);
     std.debug.assert(@intFromEnum(worker.Outcome.backups_listed) == 5);
     std.debug.assert(@intFromEnum(worker.Outcome.restore_staged) == 6);
+    std.debug.assert(@intFromEnum(worker.Outcome.undo_done) == 7);
 }
 
 const module_gpa = std.heap.smp_allocator;
@@ -884,6 +885,67 @@ pub export fn bk_cloudsync_apply_pending_restore(profile: [*:0]const u8) callcon
     return switch (outcome) {
         .applied => 1,
         .nothing_staged => 0,
+    };
+}
+
+/// Undo the restore state for `profile`: cancel a staged-but-unapplied
+/// restore, or stage the `LATEST_UNDO` snapshot back as a full restore for
+/// the next startup. Runs as a job — the worker's one-at-a-time discipline
+/// is the operation slot, so this returns -1 busy while a restore download
+/// is in flight rather than racing it over `ACTIVE`. Outcome `undo_done`
+/// (7) on done.
+pub export fn bk_cloudsync_restore_undo(
+    game_dir: [*:0]const u8,
+    profile: [*:0]const u8,
+) callconv(.c) i32 {
+    var dir_buffer: [1024]u8 = undefined;
+    const profile_dir = std.fmt.bufPrint(&dir_buffer, "{s}/profiles/{s}", .{
+        std.mem.span(game_dir),
+        std.mem.span(profile),
+    }) catch {
+        setError("cloud sync: the profile path does not fit");
+        return -1;
+    };
+
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    return enqueueLocked(std.mem.span(game_dir), .{
+        .kind = .restore_undo,
+        .path1 = profile_dir,
+        .remote = creds.sync_remote_name,
+        .profile = std.mem.span(profile),
+        .profile_id = "",
+        .remote_fingerprint = "",
+    });
+}
+
+/// What undo would do for `profile` (resolved as `profiles/<name>` against
+/// the working directory): 0 nothing, 1 a staged restore can be cancelled,
+/// 2 an applied restore can be reinstated, 3 busy — a job holds the
+/// operation slot, and answering "available" now is what would let a stale
+/// undo race the finishing download.
+pub export fn bk_cloudsync_restore_undo_available(profile: [*:0]const u8) callconv(.c) u32 {
+    {
+        jobs_mutex.lockUncancelable(lockIo());
+        defer jobs_mutex.unlock(lockIo());
+        if (sync_worker) |w| {
+            switch (w.poll().state) {
+                .starting, .pairing, .syncing, .testing => return 3,
+                .idle, .done, .failed => {},
+            }
+        }
+    }
+
+    var dir_buffer: [1024]u8 = undefined;
+    const profile_dir = std.fmt.bufPrint(&dir_buffer, "profiles/{s}", .{std.mem.span(profile)}) catch
+        return 0;
+    const availability = backup.restoreUndoAvailability(module_gpa, credsIo(), profile_dir) catch
+        return 0;
+    return switch (availability) {
+        .none => 0,
+        .cancellable => 1,
+        .reinstatable => 2,
     };
 }
 

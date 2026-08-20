@@ -25,3 +25,5 @@ EXPORTS
     bk_cloudsync_backup_entry = _bk_cloudsync_backup_entry @18
     bk_cloudsync_backup_restore = _bk_cloudsync_backup_restore @19
     bk_cloudsync_apply_pending_restore = _bk_cloudsync_apply_pending_restore @20
+    bk_cloudsync_restore_undo = _bk_cloudsync_restore_undo @21
+    bk_cloudsync_restore_undo_available = _bk_cloudsync_restore_undo_available @22

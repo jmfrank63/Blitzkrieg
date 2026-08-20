@@ -54,7 +54,7 @@ pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, tes
 
 /// How the last finished job ended. `.none` until the first job finishes.
 /// Appended, never reordered, for the same reason.
-pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed, restore_staged };
+pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed, restore_staged, undo_done };
 
 /// Reserved for the sync indicator; the worker publishes states today and
 /// null progress, and nothing downstream may assume otherwise.
@@ -92,7 +92,7 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage };
+pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage, restore_undo };
 
 /// A job as the caller describes it. Every slice is copied by `begin`; none
 /// needs to outlive the call.
@@ -330,6 +330,20 @@ pub const Worker = struct {
     }
 
     fn execute(self: *Worker, session: *Session, box: *JobBox) void {
+        // Undo is purely local — no daemon, no client — and running it as a
+        // job is precisely the point: the worker's one-job-at-a-time
+        // discipline is the operation slot that keeps it from racing an
+        // in-flight restore download over `ACTIVE`.
+        if (box.kind == .restore_undo) {
+            self.publishState(.testing);
+            _ = backup.undoRestore(self.gpa, self.io, box.ctx.path1) catch |err| {
+                self.publishFailureText(@errorName(err));
+                return;
+            };
+            self.publishDone(.undo_done);
+            return;
+        }
+
         const eng = self.ensureSession(session) orelse return;
 
         self.publishState(switch (box.kind) {
@@ -339,6 +353,7 @@ pub const Worker = struct {
             // while it spins.
             .sync, .restore_stage => .syncing,
             .test_connection, .list_backups => .testing,
+            .restore_undo => unreachable, // handled above, before the session
         });
 
         switch (box.kind) {
@@ -412,6 +427,7 @@ pub const Worker = struct {
                 self.mutex.unlock(self.io);
                 self.publishDone(.backups_listed);
             },
+            .restore_undo => unreachable, // handled above, before the session
             .test_connection => {
                 const result = eng.testConnection(box.ctx.remote) catch {
                     self.publishFailureText("out of memory testing the connection");

@@ -695,6 +695,355 @@ test "a crash between config rename and cleanup retries idempotently" {
     try std.testing.expectEqualStrings(local_xml, undo);
 }
 
+// -- Undo ----------------------------------------------------------------------
+
+test "undo reinstates the original across a simulated restart, and undoes itself" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    // Restore applied (merge), then undone, then the undo applied at the
+    // "next startup": the original comes back byte for byte.
+    const nonce = "20260821T080000Z-cdcd8888";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "merge_keep_local_gfx", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const merged = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(merged);
+
+    try std.testing.expectEqual(
+        backup.UndoAvailability.reinstatable,
+        try backup.restoreUndoAvailability(gpa, io, profile_dir),
+    );
+    try std.testing.expectEqual(
+        backup.UndoAction.staged_reinstate,
+        try backup.undoRestore(gpa, io, profile_dir),
+    );
+    // Staged, not yet applied: config still the merged one, and the UI's
+    // state has flipped from "undo applied restore" to "cancel pending".
+    try std.testing.expectEqual(
+        backup.UndoAvailability.cancellable,
+        try backup.restoreUndoAvailability(gpa, io, profile_dir),
+    );
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const back = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(back);
+    try std.testing.expectEqualStrings(local_xml, back);
+
+    // The undo's own apply snapshotted the pre-undo (merged) config, so
+    // undo-of-undo is a redo for free.
+    try std.testing.expectEqual(
+        backup.UndoAvailability.reinstatable,
+        try backup.restoreUndoAvailability(gpa, io, profile_dir),
+    );
+    try std.testing.expectEqual(
+        backup.UndoAction.staged_reinstate,
+        try backup.undoRestore(gpa, io, profile_dir),
+    );
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const redone = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(redone);
+    try std.testing.expectEqualStrings(merged, redone);
+}
+
+test "undo recovers a change written after staging but before application" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T090000Z-efef9999";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "merge_keep_local_gfx", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+
+    // A whole session passed between staging and startup; the config the
+    // player actually had immediately before application is this one, and
+    // it is this one the undo must reproduce.
+    const changed = "<base><Options><Vars><item><Var>77</Var><KeyName>Sound.Volume</KeyName></item></Vars></Options></base>";
+    try fixture.write(config_path, changed);
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    try std.testing.expectEqual(
+        backup.UndoAction.staged_reinstate,
+        try backup.undoRestore(gpa, io, profile_dir),
+    );
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const recovered = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(recovered);
+    try std.testing.expectEqualStrings(changed, recovered);
+}
+
+test "undo cancels a staged unapplied restore rather than reinstating" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T100000Z-baba0000";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "full", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+    try std.testing.expectEqual(
+        backup.UndoAvailability.cancellable,
+        try backup.restoreUndoAvailability(gpa, io, profile_dir),
+    );
+
+    // Nothing has applied, so there is nothing to reinstate: the stage is
+    // discarded — pointer first, directories second — and the config never
+    // moves.
+    try std.testing.expectEqual(
+        backup.UndoAction.cancelled_stage,
+        try backup.undoRestore(gpa, io, profile_dir),
+    );
+    const untouched = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(untouched);
+    try std.testing.expectEqualStrings(local_xml, untouched);
+    const active = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, backup.active_name });
+    defer gpa.free(active);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, active, .{}));
+    try std.testing.expectEqual(
+        backup.UndoAvailability.none,
+        try backup.restoreUndoAvailability(gpa, io, profile_dir),
+    );
+
+    // And with nothing staged and nothing applied, undo is a typed refusal.
+    try std.testing.expectError(error.NothingToUndo, backup.undoRestore(gpa, io, profile_dir));
+}
+
+test "a crash during snapshot creation cannot corrupt the undo" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const config_path = try path.join(gpa, &.{ profile_dir, "config.cfg" });
+    defer gpa.free(config_path);
+    try fixture.write(config_path, local_xml);
+
+    const nonce = "20260821T110000Z-dede1111";
+    try buildStage(gpa, &fixture, profile_dir, nonce, restored_xml, "full", false, true);
+    try setActive(gpa, &fixture, profile_dir, nonce);
+
+    // The first crash window is after the config rename; this is the one
+    // before it — mid-copy. The residue is a truncated temp under the name
+    // the retry would otherwise trust once renamed.
+    const tmp_residue = try path.join(gpa, &.{
+        profile_dir,
+        backup.undo_dir_relative,
+        nonce ++ ".cfg.tmp",
+    });
+    defer gpa.free(tmp_residue);
+    try fixture.write(tmp_residue, "trunc");
+
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const undo = try readProfileFile(gpa, profile_dir, ".cloudsync-trash/config/" ++ nonce ++ ".cfg");
+    defer gpa.free(undo);
+    try std.testing.expectEqualStrings(local_xml, undo);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, tmp_residue, .{}));
+}
+
+test "trash pruning never touches the undo snapshots" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const trash = try fixture.makeDir("p1/.cloudsync-trash");
+    defer gpa.free(trash);
+
+    // An ancient run directory, prunable; beside it the config/ undo store,
+    // whose name is not a run id and which the pruner therefore never
+    // considers — the structural exemption, asserted.
+    const old_run = try path.join(gpa, &.{ trash, "20200101T000000Z-aaaaaaaa", "x.sav" });
+    defer gpa.free(old_run);
+    try fixture.write(old_run, "old");
+    const undo_snapshot = try path.join(gpa, &.{ trash, "config", "20200101T000000Z-bbbbbbbb.cfg" });
+    defer gpa.free(undo_snapshot);
+    try fixture.write(undo_snapshot, "the only undo path");
+
+    const now = engine.runIdTimestamp("20260821T120000Z-00000000").?;
+    const report = try engine.pruneTrash(gpa, io, trash, .{
+        .max_age_days = 1,
+        .min_keep_runs = 0,
+    }, now);
+    try std.testing.expectEqual(@as(usize, 1), report.removed);
+
+    const kept = try std.Io.Dir.cwd().readFileAlloc(io, undo_snapshot, gpa, .limited(256));
+    defer gpa.free(kept);
+    try std.testing.expectEqualStrings("the only undo path", kept);
+}
+
+/// Accepts a connection and never answers — the operation-slot race fixture.
+const HungServer = struct {
+    io: std.Io,
+    server: std.Io.net.Server,
+    port: u16,
+    stop_flag: std.atomic.Value(bool),
+    thread: ?std.Thread,
+    stopped: bool,
+
+    fn start(self: *HungServer, target_io: std.Io) !void {
+        var addr: std.Io.net.IpAddress = .{ .ip4 = .loopback(0) };
+        self.* = .{
+            .io = target_io,
+            .server = try addr.listen(target_io, .{ .reuse_address = true }),
+            .port = 0,
+            .stop_flag = .init(false),
+            .thread = null,
+            .stopped = false,
+        };
+        self.port = self.server.socket.address.getPort();
+        self.thread = try std.Thread.spawn(.{}, run, .{self});
+    }
+
+    fn stop(self: *HungServer) void {
+        if (self.stopped) return;
+        self.stopped = true;
+        self.stop_flag.store(true, .release);
+        if (self.thread) |t| {
+            t.join();
+            self.thread = null;
+        }
+        self.server.deinit(self.io);
+    }
+
+    fn run(self: *HungServer) void {
+        var stream = self.server.accept(self.io) catch return;
+        defer stream.close(self.io);
+        while (!self.stop_flag.load(.acquire)) {
+            const tick: std.Io.Clock.Duration = .{
+                .raw = .fromMilliseconds(10),
+                .clock = .awake,
+            };
+            tick.sleep(self.io) catch break;
+        }
+    }
+};
+
+test "undo reports busy while a restore download holds the slot" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var hung: HungServer = undefined;
+    try hung.start(tio);
+    defer hung.stop();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    // A LATEST_UNDO from an earlier restore: exactly the state that makes a
+    // naive availability say "undo me" while a new download is in flight.
+    const undo_snapshot = try path.join(gpa, &.{ profile_dir, backup.undo_dir_relative, "20260801T000000Z-cafe0001.cfg" });
+    defer gpa.free(undo_snapshot);
+    try fixture.write(undo_snapshot, local_xml);
+    const pointer = try path.join(gpa, &.{ profile_dir, backup.undo_dir_relative, backup.latest_undo_name });
+    defer gpa.free(pointer);
+    try fixture.write(pointer, "20260801T000000Z-cafe0001");
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = .{ .host = "127.0.0.1", .port = hung.port, .user = "u", .pass = "p" },
+        .deadline = .{ .connect_ms = 1_000, .read_ms = 1_000 },
+    });
+    defer w.destroy();
+
+    // The download starts and wedges against the hung transport.
+    try w.begin(.{
+        .kind = .restore_stage,
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .profile_id = "",
+        .remote_fingerprint = "",
+        .entry_id = "HostA/x.cfg",
+    });
+    sleepMs(tio, 200);
+
+    // Undo while the slot is held: refused outright, and ACTIVE untouched —
+    // the silent alternative is an undo the finishing download overwrites.
+    try std.testing.expectError(error.Busy, w.begin(.{
+        .kind = .restore_undo,
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .profile_id = "",
+        .remote_fingerprint = "",
+    }));
+    const active = try path.join(gpa, &.{ profile_dir, backup.restore_dir_name, backup.active_name });
+    defer gpa.free(active);
+    try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, active, .{}));
+
+    // Once the slot frees — the wedged download fails on its deadline — the
+    // same undo is accepted and publishes its stage.
+    var snapshot = pollUntilSettled(w, tio, 30_000);
+    try std.testing.expectEqual(worker.State.failed, snapshot.state);
+
+    try w.begin(.{
+        .kind = .restore_undo,
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .profile_id = "",
+        .remote_fingerprint = "",
+    });
+    snapshot = pollUntilSettled(w, tio, 30_000);
+    try std.testing.expectEqualStrings("", snapshot.errorText());
+    try std.testing.expectEqual(worker.Outcome.undo_done, snapshot.outcome);
+    const published = try readProfileFile(gpa, profile_dir, backup.restore_dir_name ++ "/" ++ backup.active_name);
+    defer gpa.free(published);
+    try std.testing.expect(published.len > 0);
+
+    // And the published reinstate applies to the snapshot's content.
+    try std.testing.expectEqual(
+        backup.ApplyOutcome.applied,
+        try backup.applyPendingRestore(gpa, io, profile_dir),
+    );
+    const applied = try readProfileFile(gpa, profile_dir, "config.cfg");
+    defer gpa.free(applied);
+    try std.testing.expectEqualStrings(local_xml, applied);
+}
+
 test "staging downloads into a fresh stage and a failed download leaves the old one" {
     const gpa = std.testing.allocator;
 

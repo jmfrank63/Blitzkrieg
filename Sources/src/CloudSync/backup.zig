@@ -347,6 +347,23 @@ pub fn stageRestore(
         return error.StageUnwritable;
     defer gpa.free(payload);
 
+    try commitAndPublish(gpa, io, root, stage, nonce, payload, mode, entry_id);
+    return nonce;
+}
+
+/// The shared back half of staging: metadata with the payload's hash,
+/// `COMMIT` last, then the `ACTIVE` rename — the single point after which
+/// this stage is the one that applies, last writer winning outright.
+fn commitAndPublish(
+    gpa: Allocator,
+    io: Io,
+    root: []const u8,
+    stage: []const u8,
+    nonce: []const u8,
+    payload: []const u8,
+    mode: RestoreMode,
+    entry_id: []const u8,
+) (Allocator.Error || error{StageUnwritable})!void {
     var digest: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(payload, &digest, .{});
     var hex_buffer: [64]u8 = undefined;
@@ -365,17 +382,12 @@ pub fn stageRestore(
     Io.Dir.cwd().writeFile(io, .{ .sub_path = meta_path, .data = meta }) catch
         return error.StageUnwritable;
 
-    // COMMIT last: anything without it is incomplete and gets deleted, never
-    // interpreted.
     const commit_path = try std.Io.Dir.path.join(gpa, &.{ stage, commit_name });
     defer gpa.free(commit_path);
     Io.Dir.cwd().writeFile(io, .{ .sub_path = commit_path, .data = "1" }) catch
         return error.StageUnwritable;
 
-    // Publication is the ACTIVE rename — the single point after which this
-    // stage is the one that applies, last writer winning outright.
     publishPointer(gpa, io, root, active_name, nonce) catch return error.StageUnwritable;
-    return nonce;
 }
 
 fn publishPointer(
@@ -492,6 +504,10 @@ pub fn applyPendingRestore(
     defer gpa.free(undo_file);
     const undo_path = try std.Io.Dir.path.join(gpa, &.{ undo_dir, undo_file });
     defer gpa.free(undo_path);
+    // A leftover `.tmp` here is the debris of a crash mid-copy, never
+    // something to reuse — sweep on the way past, so "skip if present" below
+    // only ever trusts a name the rename made whole.
+    sweepUndoTmp(gpa, io, undo_dir);
     if (Io.Dir.cwd().statFile(io, undo_path, .{})) |_| {} else |_| {
         // Atomic: a crash mid-copy must not leave a truncated snapshot the
         // retry would then trust.
@@ -558,6 +574,159 @@ pub fn gcStages(gpa: Allocator, io: Io, root: []const u8) void {
         defer gpa.free(child);
         Io.Dir.cwd().deleteTree(io, child) catch {};
     }
+}
+
+fn sweepUndoTmp(gpa: Allocator, io: Io, undo_dir: []const u8) void {
+    var dir = Io.Dir.cwd().openDir(io, undo_dir, .{ .iterate = true }) catch return;
+    defer dir.close(io);
+    var names: std.ArrayList([]u8) = .empty;
+    defer {
+        for (names.items) |name| gpa.free(name);
+        names.deinit(gpa);
+    }
+    var it = dir.iterate();
+    while (it.next(io) catch null) |entry| {
+        if (!std.mem.endsWith(u8, entry.name, ".tmp")) continue;
+        const copy = gpa.dupe(u8, entry.name) catch continue;
+        names.append(gpa, copy) catch {
+            gpa.free(copy);
+            continue;
+        };
+    }
+    for (names.items) |name| {
+        const child = std.Io.Dir.path.join(gpa, &.{ undo_dir, name }) catch continue;
+        defer gpa.free(child);
+        Io.Dir.cwd().deleteFile(io, child) catch {};
+    }
+}
+
+// -- Undo ----------------------------------------------------------------------
+//
+// Restoring is itself reversible, in two distinct senses the UI must name
+// separately: a restore that is *staged but unapplied* is cancelled —
+// nothing has happened yet, so there is nothing to reinstate — while a
+// restore that has *been applied* is reversed by staging the pre-restore
+// snapshot back through the very same protocol. An undo that wrote
+// `config.cfg` live would be discarded by the shutdown rewrite exactly as an
+// unstaged restore is; going through the stage means the P06-M02 startup
+// apply installs it, and the apply's own snapshot of the pre-undo config
+// makes undo-of-undo a redo for free.
+
+pub const UndoAction = enum {
+    /// A staged, unapplied restore was discarded. `config.cfg` untouched.
+    cancelled_stage,
+    /// The `LATEST_UNDO` snapshot is staged as a full-mode restore; the next
+    /// startup applies it. An undo reinstates the file as it was, so it
+    /// never merges.
+    staged_reinstate,
+};
+
+pub const UndoAvailability = enum {
+    none,
+    /// A staged restore exists and can be cancelled before it applies.
+    cancellable,
+    /// An applied restore can be reversed from its snapshot.
+    reinstatable,
+};
+
+pub const UndoError = Allocator.Error || error{
+    /// Neither a stage to cancel nor a snapshot to reinstate.
+    NothingToUndo,
+    /// `LATEST_UNDO` names a snapshot that cannot be read.
+    UndoCorrupt,
+    StageUnwritable,
+};
+
+/// What undo would do right now. The third answer — busy, while a restore
+/// download holds the operation slot — belongs to the job layer: the worker
+/// runs one job at a time, and the ABI reports busy from there. Reporting
+/// available during a download is what lets a stale `LATEST_UNDO` invite an
+/// undo the finishing download then silently overwrites.
+pub fn restoreUndoAvailability(
+    gpa: Allocator,
+    io: Io,
+    profile_dir: []const u8,
+) Allocator.Error!UndoAvailability {
+    const active_path = try std.Io.Dir.path.join(gpa, &.{ profile_dir, restore_dir_name, active_name });
+    defer gpa.free(active_path);
+    if (Io.Dir.cwd().statFile(io, active_path, .{})) |_| {
+        return .cancellable;
+    } else |_| {}
+
+    const undo_dir = try std.Io.Dir.path.join(gpa, &.{ profile_dir, undo_dir_relative });
+    defer gpa.free(undo_dir);
+    const pointer_path = try std.Io.Dir.path.join(gpa, &.{ undo_dir, latest_undo_name });
+    defer gpa.free(pointer_path);
+    const pointer = Io.Dir.cwd().readFileAlloc(io, pointer_path, gpa, .limited(256)) catch
+        return .none;
+    defer gpa.free(pointer);
+    const nonce = std.mem.trim(u8, pointer, " \t\r\n");
+
+    const snapshot_file = try std.fmt.allocPrint(gpa, "{s}.cfg", .{nonce});
+    defer gpa.free(snapshot_file);
+    const snapshot_path = try std.Io.Dir.path.join(gpa, &.{ undo_dir, snapshot_file });
+    defer gpa.free(snapshot_path);
+    if (Io.Dir.cwd().statFile(io, snapshot_path, .{})) |_| {
+        return .reinstatable;
+    } else |_| {}
+    return .none;
+}
+
+/// Undo, branching on which state it finds. Purely local, like the apply —
+/// reversing a restore must work with rclone gone and the feature off.
+pub fn undoRestore(gpa: Allocator, io: Io, profile_dir: []const u8) UndoError!UndoAction {
+    const root = try std.Io.Dir.path.join(gpa, &.{ profile_dir, restore_dir_name });
+    defer gpa.free(root);
+    const active_path = try std.Io.Dir.path.join(gpa, &.{ root, active_name });
+    defer gpa.free(active_path);
+
+    if (Io.Dir.cwd().statFile(io, active_path, .{})) |_| {
+        // Staged, unapplied: cancel. Same teardown direction as the apply —
+        // the pointer first, a single atomic unlink, then the debris.
+        // Directory-first would recreate the dangling-ACTIVE state P04-M03
+        // must treat as a hard error.
+        Io.Dir.cwd().deleteFile(io, active_path) catch {};
+        gcStages(gpa, io, root);
+        return .cancelled_stage;
+    } else |_| {}
+
+    const undo_dir = try std.Io.Dir.path.join(gpa, &.{ profile_dir, undo_dir_relative });
+    defer gpa.free(undo_dir);
+    const pointer_path = try std.Io.Dir.path.join(gpa, &.{ undo_dir, latest_undo_name });
+    defer gpa.free(pointer_path);
+    const pointer = Io.Dir.cwd().readFileAlloc(io, pointer_path, gpa, .limited(256)) catch
+        return error.NothingToUndo;
+    defer gpa.free(pointer);
+    const undo_nonce = std.mem.trim(u8, pointer, " \t\r\n");
+
+    const snapshot_file = try std.fmt.allocPrint(gpa, "{s}.cfg", .{undo_nonce});
+    defer gpa.free(snapshot_file);
+    const snapshot_path = try std.Io.Dir.path.join(gpa, &.{ undo_dir, snapshot_file });
+    defer gpa.free(snapshot_path);
+    const snapshot = Io.Dir.cwd().readFileAlloc(io, snapshot_path, gpa, .limited(1 << 22)) catch
+        return error.UndoCorrupt;
+    defer gpa.free(snapshot);
+
+    // Reinstate through the same staging path as a restore: payload, meta,
+    // COMMIT last, ACTIVE rename. Full mode — the snapshot *is* the file as
+    // it was.
+    Io.Dir.cwd().createDirPath(io, root) catch return error.StageUnwritable;
+    const nonce = try plan.runId(gpa, io);
+    defer gpa.free(nonce);
+    const stage = try std.Io.Dir.path.join(gpa, &.{ root, nonce });
+    defer gpa.free(stage);
+    Io.Dir.cwd().createDirPath(io, stage) catch return error.StageUnwritable;
+    errdefer Io.Dir.cwd().deleteTree(io, stage) catch {};
+
+    const payload_path = try std.Io.Dir.path.join(gpa, &.{ stage, payload_name });
+    defer gpa.free(payload_path);
+    Io.Dir.cwd().writeFile(io, .{ .sub_path = payload_path, .data = snapshot }) catch
+        return error.StageUnwritable;
+
+    const source = try std.fmt.allocPrint(gpa, "undo:{s}", .{undo_nonce});
+    defer gpa.free(source);
+    try commitAndPublish(gpa, io, root, stage, nonce, snapshot, .full, source);
+    return .staged_reinstate;
 }
 
 // -- The GFX-preserving merge -------------------------------------------------
