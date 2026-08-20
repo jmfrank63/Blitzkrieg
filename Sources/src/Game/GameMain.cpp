@@ -234,9 +234,25 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
 static std::string szLaunchDirectory;
 
-// The startup sync's handle, polled by the main loop until it settles; the
-// sync indicator packet will own presenting its state.
+// The active cloud sync's handle - startup pull, post-save push or exit
+// push, one at a time - polled by the main loop until it settles; the sync
+// indicator packet will own presenting its state.
 static int g_nCloudStartupSync = -1;
+// Post-save coalescing: the save counter last observed, and when the
+// pending push is allowed to start (0 = nothing pending). Every further
+// save pushes the due time out, so a burst of autosaves is one sync.
+static int g_nCloudSavesSeen = 0;
+static std::uint64_t g_nCloudSyncDueMs = 0;
+
+// A Cloud.* option through the live option system - available once the
+// config has been read, unlike the raw-scan path the startup window needs.
+static bool CloudSyncOptionOn( const char *pszKey )
+{
+	variant_t var;
+	if ( !GetSingleton<IOptionSystem>()->Get( pszKey, &var ) )
+		return false;
+	return std::string( (const char*)bstr_t( var ) ) == "ON";
+}
 
 // Whether a Cloud.* droplist option reads ON in the profile's config - by a
 // minimal scan of the raw XML, because this is asked before the option
@@ -918,21 +934,50 @@ int RunGame( const BkGameLaunchInfo &launch )
 				SetGlobalVar( "MovieDir", cmdp.szMovieDir.c_str() );
 			NWinFrame::PumpMessages();
 			bool bActive = NWinFrame::IsActive();
-			// The startup sync, observed rather than awaited: Poll is a futex
-			// and a struct copy, no I/O. Until the sync indicator exists, done
-			// and failed just trace and release.
+			// The active cloud sync, observed rather than awaited: Poll is a
+			// futex and a struct copy, no I/O. Until the sync indicator
+			// exists, done and failed just trace and release.
 			if ( g_nCloudStartupSync >= 0 )
 			{
 				const NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
 				if ( eCloudState == NCloudSync::STATE_DONE || eCloudState == NCloudSync::STATE_FAILED )
 				{
 					if ( eCloudState == NCloudSync::STATE_FAILED )
-						NStr::DebugTrace( "cloud sync: startup sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
+						NStr::DebugTrace( "cloud sync: sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
 					else
-						NStr::DebugTrace( "cloud sync: startup sync finished (%s)\n",
+						NStr::DebugTrace( "cloud sync: sync finished (%s)\n",
 							NCloudSync::Outcome( g_nCloudStartupSync ) == NCloudSync::OUTCOME_PAIRED ? "paired" : "synced" );
 					NCloudSync::Release( g_nCloudStartupSync );
 					g_nCloudStartupSync = -1;
+				}
+			}
+			// Post-save push. Saves bump a counter (CMainLoop::Command); every
+			// bump pushes the due time out five seconds, so a burst of
+			// autosaves coalesces into one sync. The push waits for a quiet
+			// moment: never mid-mission - a network stall must not touch
+			// frame pacing during play - and never while another run holds
+			// the handle. The option checks come before Available(), which
+			// is the one that probes for rclone.
+			{
+				const int nSavesSeen = GetGlobalVar( "CloudSync.SavesSeen", 0 );
+				if ( nSavesSeen != g_nCloudSavesSeen )
+				{
+					g_nCloudSavesSeen = nSavesSeen;
+					g_nCloudSyncDueMs = NPlatform::MonotonicMilliseconds() + 5000;
+				}
+				if ( g_nCloudSyncDueMs != 0 && g_nCloudStartupSync < 0 &&
+						 NPlatform::MonotonicMilliseconds() >= g_nCloudSyncDueMs &&
+						 !GetGlobalVar( "AreWeInMission", 0 ) )
+				{
+					g_nCloudSyncDueMs = 0;
+					if ( CloudSyncOptionOn( "Cloud.Enabled" ) && CloudSyncOptionOn( "Cloud.Sync.OnSave" ) &&
+							 NCloudSync::Available() )
+					{
+						const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+						g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+						if ( g_nCloudStartupSync >= 0 )
+							NStr::DebugTrace( "cloud sync: post-save sync begun for \"%s\"\n", szProfile.c_str() );
+					}
 				}
 			}
 			// BK_AUTO_UI="frame:action,..." drives the UI without a human, the way
@@ -1272,6 +1317,46 @@ int RunGame( const BkGameLaunchInfo &launch )
 		pMainLoop->ResetStack();
 		UnRegisterSingleton( IMainLoop::tidTypeID );
 		SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );
+		{
+			// The exit push, after the config write so a backup snapshots the
+			// final settings and the last saves are on disk. Honours
+			// Cloud.Sync.OnExit, and also flushes a post-save push that was
+			// still coalescing rather than dropping it. The wait is bounded:
+			// on timeout the run is abandoned - the profile simply stays
+			// ahead of the cloud and the next startup pull converges - and
+			// Shutdown() runs on this path regardless, so the daemon dies
+			// with the game (a crash skips all of this; the Windows job
+			// object and the next launch's identity-checked reap cover it).
+			const bool bExitSyncWanted = CloudSyncOptionOn( "Cloud.Enabled" ) &&
+				( CloudSyncOptionOn( "Cloud.Sync.OnExit" ) || g_nCloudSyncDueMs != 0 ) &&
+				NCloudSync::Available();
+			if ( g_nCloudStartupSync < 0 && bExitSyncWanted )
+			{
+				const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+			}
+			if ( g_nCloudStartupSync >= 0 )
+			{
+				NStr::DebugTrace( "cloud sync: finishing before exit\n" );
+				const std::uint64_t nDeadlineMs = NPlatform::MonotonicMilliseconds() + 15000;
+				NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				while ( eCloudState != NCloudSync::STATE_DONE && eCloudState != NCloudSync::STATE_FAILED &&
+								NPlatform::MonotonicMilliseconds() < nDeadlineMs )
+				{
+					NPlatform::SleepMilliseconds( 100 );
+					eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				}
+				if ( eCloudState == NCloudSync::STATE_DONE )
+					NStr::DebugTrace( "cloud sync: exit sync finished\n" );
+				else if ( eCloudState == NCloudSync::STATE_FAILED )
+					NStr::DebugTrace( "cloud sync: exit sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
+				else
+					NStr::DebugTrace( "cloud sync: exit sync timed out; the next startup pull converges\n" );
+				NCloudSync::Release( g_nCloudStartupSync );
+				g_nCloudStartupSync = -1;
+			}
+			NCloudSync::Shutdown();
+		}
 	}
 #ifdef _FINALRELEASE
 	}
