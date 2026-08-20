@@ -359,7 +359,7 @@ pub const Worker = struct {
         switch (box.kind) {
             .pair => {
                 var outcome = eng.pair(box.ctx) catch |err| {
-                    self.publishFailure(err, eng.lastErrorText());
+                    self.publishRunFailure(eng, err);
                     return;
                 };
                 outcome.deinit(self.gpa);
@@ -367,7 +367,7 @@ pub const Worker = struct {
             },
             .sync => {
                 const run_id = eng.syncOnce(box.ctx) catch |err| {
-                    self.publishFailure(err, eng.lastErrorText());
+                    self.publishRunFailure(eng, err);
                     return;
                 };
                 self.gpa.free(run_id);
@@ -587,6 +587,31 @@ pub const Worker = struct {
         // said — and the error name otherwise, so `.failed` is never mute.
         const text = if (detail.len != 0) detail else @errorName(err);
         self.publishFailureText(text);
+    }
+
+    /// A pair or sync failure. When the engine classified the run, the
+    /// outcome tag leads the text — the contract testConnection already
+    /// keeps — so a caller can branch on the first word while the human
+    /// reads rclone's (redacted) words after it. A cancellation is its own
+    /// bare word: the engine's stored text may belong to an earlier run,
+    /// and "the player skipped" needs no elaboration. Every other error
+    /// (NotPaired above all — the facade matches that text exactly to
+    /// retry as a pairing) passes through untouched.
+    fn publishRunFailure(self: *Worker, eng: *engine.Engine, err: anyerror) void {
+        if (err == error.Cancelled) {
+            self.publishFailureText("Cancelled");
+            return;
+        }
+        if (err == error.SyncFailed) {
+            var buffer: [error_text_max]u8 = undefined;
+            const text = std.fmt.bufPrint(&buffer, "{s}: {s}", .{
+                @tagName(eng.lastOutcome()),
+                eng.lastErrorText(),
+            }) catch @tagName(eng.lastOutcome());
+            self.publishFailureText(text);
+            return;
+        }
+        self.publishFailure(err, eng.lastErrorText());
     }
 
     fn publishFailureText(self: *Worker, text: []const u8) void {

@@ -9,8 +9,17 @@ class CInterfaceMainMenu : public CInterfaceInterMission
 	OBJECT_NORMAL_METHODS( CInterfaceMainMenu );
 	NInput::CCommandRegistrator commandMsgs;
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
+	virtual bool STDCALL StepLocal( bool bAppActive );
 	virtual ~CInterfaceMainMenu();
 	CInterfaceMainMenu();
+
+	// The cloud sync indicator (element 21001): what it currently shows,
+	// the state seen last frame (a settled->running edge means a new run),
+	// and whether the player clicked skip while a sync was still running.
+	std::string szCloudShownKey;
+	int nCloudLastState;
+	bool bCloudSkipRequested;
+	void RefreshCloudIndicator();
 
 	CUIMainMenuState mainMenuState;
 	CUINewGameState newGameState;

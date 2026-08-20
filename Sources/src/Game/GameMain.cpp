@@ -935,13 +935,31 @@ int RunGame( const BkGameLaunchInfo &launch )
 			NWinFrame::PumpMessages();
 			bool bActive = NWinFrame::IsActive();
 			// The active cloud sync, observed rather than awaited: Poll is a
-			// futex and a struct copy, no I/O. Until the sync indicator
-			// exists, done and failed just trace and release.
+			// futex and a struct copy, no I/O. The menu's indicator (element
+			// 21001) renders from the CloudSync.* global vars published here,
+			// and its skip-to-offline click lands as a global var because the
+			// handle lives here. The traces stay: they are the headless
+			// evidence channel.
+			if ( GetGlobalVar( "CloudSync.SkipToOffline", 0 ) )
+			{
+				// Consumed even with no handle - a click racing the settle
+				// must not cancel a future sync.
+				RemoveGlobalVar( "CloudSync.SkipToOffline" );
+				if ( g_nCloudStartupSync >= 0 )
+				{
+					NCloudSync::Cancel( g_nCloudStartupSync );
+					NStr::DebugTrace( "cloud sync: skip to offline requested\n" );
+				}
+			}
 			if ( g_nCloudStartupSync >= 0 )
 			{
 				const NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				SetGlobalVar( "CloudSync.State", (int)eCloudState );
 				if ( eCloudState == NCloudSync::STATE_DONE || eCloudState == NCloudSync::STATE_FAILED )
 				{
+					SetGlobalVar( "CloudSync.Outcome", (int)NCloudSync::Outcome( g_nCloudStartupSync ) );
+					SetGlobalVar( "CloudSync.Error",
+						eCloudState == NCloudSync::STATE_FAILED ? NCloudSync::Error( g_nCloudStartupSync ) : "" );
 					if ( eCloudState == NCloudSync::STATE_FAILED )
 						NStr::DebugTrace( "cloud sync: sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
 					else
