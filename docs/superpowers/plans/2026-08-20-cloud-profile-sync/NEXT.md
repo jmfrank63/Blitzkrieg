@@ -1,8 +1,8 @@
 # Next Packet
 
-Resume at `phase-04-config-backup/P04-M04-restore-undo.md`.
+Resume at `phase-05-settings-data/P05-M01-division-guard.md`.
 
-**Phases 00 through 03 are complete; P04-M01 through P04-M03 are done.** Phase 00's gate is met
+**Phases 00 through 04 are complete.** Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
 branch moved to a real Windows 11 machine and every suite ran natively on
 `x86_64-windows-msvc`, the target macOS could not configure: 58 CloudSync
@@ -42,7 +42,7 @@ zig build test-cloudsync-engine  -Dtest-mode=run    # 16 (5 more live with BK_TE
 zig build test-cloudsync-worker  -Dtest-mode=run    #  3 (1 live with BK_TEST_RCLONE)
 zig build test-cloudsync-creds   -Dtest-mode=run    #  8
 zig build test-cloudsync-backend -Dtest-mode=run    #  2 (s3 live with BK_TEST_RCLONE + BK_TEST_MINIO; webdav with BK_TEST_RCLONE)
-zig build test-cloudsync-backup  -Dtest-mode=run    # 15 (2 more live with BK_TEST_RCLONE)
+zig build test-cloudsync-backup  -Dtest-mode=run    # 21 (2 more live with BK_TEST_RCLONE)
 zig build test-streamio          -Dtest-mode=run    # 32 (regression)
 ```
 
@@ -83,9 +83,8 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-04-config-backup/P04-M04-restore-undo.md` — pre-restore
-backup and undo, consuming the LATEST_UNDO pointer the apply step already
-publishes. Closes phase 04.
+**Next:** `phase-05-settings-data/P05-M01-division-guard.md` — the first
+packet that touches game data/options rather than CloudSync Zig.
 
 ## Corrections applied after review
 

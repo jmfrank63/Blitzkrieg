@@ -80,3 +80,29 @@ Carried forward from P04-M03:
   `bk_cloudsync_backup_restore` takes `game_dir` and builds the absolute
   profile path itself. Zig 0.16 rejects hard tabs inside multiline string
   literals — fixture XML uses spaces.
+
+P04-M04 Windows checkpoint: backup 21/21 natively, 23 live; abi and worker
+green both ways; the busy race pinned against a hung transport with no
+rclone needed; cross-targets compile; no orphans. Commit `68a214e1c`.
+
+Carried forward from P04-M04:
+
+- Undo is a worker job (`.restore_undo`, local — no session, no daemon), so
+  the worker's one-job discipline *is* the shared operation slot the design
+  demanded. `bk_cloudsync_restore_undo` returns -1 busy while anything runs.
+- Availability is 0/1/2/3 (nothing / cancellable / reinstatable / busy);
+  the busy answer comes from the module's view of the worker, the other
+  three from `backup.restoreUndoAvailability`. P07-M03's UI must name
+  cancel and undo separately — the enum already forces it.
+- Undo-of-undo is redo, for free, because the reinstate goes through the
+  same stage protocol and the apply snapshots the pre-undo config under the
+  new nonce. Tested.
+- Undo snapshots are structurally exempt from trash pruning (`config/` is
+  not a run id); the exemption is asserted in
+  `trash pruning never touches the undo snapshots`.
+
+**Phase 04 exit: met on Windows.** A snapshot uploads per host, prunes to
+per-host retention with the newest always kept, restores through the staged
+protocol without disturbing local display settings, and undoes byte-for-byte
+— all reachable from C++ through the exports, with the apply and undo paths
+purely local.
