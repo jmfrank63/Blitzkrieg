@@ -73,3 +73,46 @@ Carried forward from P06-M02:
   the traces with the indicator. P06-M03 owns exit (`Shutdown()` is not yet
   called anywhere in the game; the Windows job object reaps the daemon on
   process death, POSIX relies on next-launch identity reaping).
+
+P06-M03 Windows checkpoint: measured on the release build against a live
+MinIO — three `cmd=0x10010014` saves in one second produced exactly one
+"post-save sync begun" and one "(synced)", the exit path traced "finishing
+before exit" then "exit sync finished", and `Get-Process rclone` was empty
+after the game exited. All suites green offline and live; facade
+cross-compiles pass for `x86_64-linux-gnu`, `aarch64-linux-gnu`,
+`x86_64-windows-gnu`. Commit `578717fa3`.
+
+Carried forward from P06-M03:
+
+- **The save signal is a global-var counter, not a callback.** Every save —
+  quick, auto, mission dialog — funnels through
+  `CMainLoop::Command(MAIN_COMMAND_SAVE, ...)` in `iMainInternal.cpp`, which
+  bumps `CloudSync.SavesSeen`; `GameMain.cpp`'s main loop diffs the counter
+  and re-arms a five-second quiet window on every bump, so a save burst
+  coalesces into one sync. The counter bumps when the command is *issued*,
+  before the file write lands — the quiet window is also what keeps the
+  push behind the actual write.
+- The post-save push holds while `AreWeInMission` is set (saves during play
+  re-arm the window; the push fires after mission end), while a handle is
+  already active, and unless `Cloud.Enabled` + `Cloud.Sync.OnSave` read ON
+  via the live option system (`CloudSyncOptionOn`, not the config-file scan
+  — by main-loop time the option system is up).
+- The exit push sits *after* `SerializeConfig(false, ...)` so a config
+  backup snapshots the final settings; it fires on `Cloud.Sync.OnExit` OR a
+  still-pending coalescing window (a pending post-save push is flushed, not
+  dropped). Bounded wait: 15 s polling at 100 ms with traces as the
+  indicator; on timeout the run is abandoned — the profile simply stays
+  ahead of the cloud and the next startup pull converges.
+- `NCloudSync::Shutdown()` now runs unconditionally on the exit path
+  (inside the same block, after the optional wait). A crash skips it; the
+  Windows job object and next-launch identity reaping still cover the
+  daemon.
+- `MAIN_COMMAND_SAVE` is `0x10010014` (`MAIN_BASE_VALUE + 20`) — usable as
+  a `cmd=` harness injection to trigger the counter from the menu; the
+  save itself fails harmlessly with an empty filename, which is exactly
+  what the coalescing test wants.
+- `zig build game -Dtarget=<linux/windows-gnu>` does NOT cross-configure
+  from Windows (SDL3 `.so` symlink needs Developer Mode/elevation; the
+  full game's cross libc setup is a separate open item). The game-side
+  cross gate remains `test-cloudsync-facade -Dtest-mode=compile`, which
+  compiles the facade + loader C++ for the three cross targets.
