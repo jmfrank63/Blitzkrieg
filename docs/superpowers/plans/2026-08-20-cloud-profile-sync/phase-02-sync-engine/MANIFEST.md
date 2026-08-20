@@ -50,3 +50,40 @@ Carried forward from P02-M01:
 - The bisync job is polled at 250 ms under a 120 s budget; expiry returns
   the transport's `error.Timeout` while the job keeps running server-side.
   P02-M03 owns what to tell the player about that.
+
+P02-M02 Windows checkpoint: `zig build test-cloudsync-worker -Dtest-mode=run`
+passes 3/3 natively on `x86_64-windows-msvc`, both with and without a live
+rclone. Against a server that accepts and never replies, the maximum observed
+`poll()` stayed under one 60 Hz frame while the run ended `.failed` on the
+per-POST deadline; `begin` returned within a frame; a second `begin` refused
+`Busy`; `destroy` mid-flight returned inside the deadline bound. Live: pair
+then sync entirely through `begin`/`poll` with the worker spawning its own
+daemon from a pre-written alias `rclone.conf`, no orphan. Cross-targets
+compile; all other suites unaffected. Commit `8dc39cab9`.
+
+Carried forward from P02-M02:
+
+- The worker is one long-lived `io.concurrent` task on the caller's
+  `Io.Threaded`, heap-pinned via `Worker.create`/`destroy`. The rc client's
+  nested `Io.Select` deadline machinery works from inside a concurrent task —
+  measured by the hung-transport case, on Windows included.
+- `Snapshot` carries its error text inline (`error_buf`/`errorText()`), not
+  as the packet's `[]const u8` — a slice into worker memory could be freed
+  by the next transition, and P02-M05 marshals a value copy anyway.
+- `Progress` is declared but always published null for now; the sync
+  indicator packet decides what real progress means.
+- The rclone binary reaches the worker only through `BinarySource`, a
+  resolve-to-owned-copy callback. P02-M05's ABI wiring implements it over
+  the discovery cache's lock; tests hand back fixture paths.
+- `Engine` gained `cancel: ?*const std.atomic.Value(bool)`, checked between
+  the bounded phases of `runBisync`, plus `error.Cancelled` in both error
+  sets. `Worker.destroy` and `Worker.cancel` set it.
+- Fixture lesson: a hung-server stub must accept exactly once and then
+  sleep-loop on its stop flag — a looping `accept` leaves the join in
+  `stop()` blocked forever. rc_test's fixture is shaped that way for the
+  same reason; the first draft here re-learned it the hard way (test binary
+  killed by hand after a 600 s hang).
+- Worker tests pre-write `<gamedir>/cloudsync/rclone.conf` with the alias
+  remote before the worker spawns the daemon — the exact arrangement the
+  credentials packet produces in production, and it proves the daemon reads
+  a pre-existing config rather than needing rc-side creation.
