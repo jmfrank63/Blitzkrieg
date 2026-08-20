@@ -27,8 +27,6 @@ This is the **Blitzkrieg** game source code - a legacy Visual Studio C++ project
 - **Precompiled headers:** Most projects use `StdAfx.h`
 
 ### Build Scripts
-- **`fix_debug_config.ps1`** - Updates projects for VS2022 compatibility (removes deprecated options, updates toolset)
-- **`fix_basic_ptr.ps1`** - Fixes CPtr comparison operators in `Misc/Basic.h`
 - **`Sources/src/clear.bat`** - Cleans build artifacts
 
 ## Dependencies
