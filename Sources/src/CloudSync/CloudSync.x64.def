@@ -1,0 +1,7 @@
+LIBRARY "CloudSync"
+EXPORTS
+    bk_cloudsync_available @1
+    bk_cloudsync_discovery_status @2
+    bk_cloudsync_refresh_discovery @3
+    bk_cloudsync_shutdown @4
+    bk_cloudsync_last_error @5

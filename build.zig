@@ -1669,6 +1669,11 @@ pub fn build(b: *std.Build) void {
     // mode either way).
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
     const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, streamio_fast);
+    // Cloud profile sync. Nothing loads it yet — the C++ facade arrives with
+    // P06-M01 — so it is built and exercised by test-cloudsync-abi rather than
+    // installed into the game layout; the packet that gives the game a reason
+    // to load it is the packet that adds it to the staged runtime files.
+    const cloudsync = addCloudSync(b, target, optimize, toolchain);
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
@@ -2175,6 +2180,48 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_daemon_step = b.step("test-cloudsync-daemon", "Run Zig CloudSync rclone discovery unit tests");
     test_cloudsync_daemon_step.dependOn(&cloudsync_daemon_unit_tests.step);
     if (test_mode == .run) test_cloudsync_daemon_step.dependOn(&run_cloudsync_daemon_unit_tests.step);
+    // The C ABI is proven from both sides in one step: the zig tests below
+    // cover the discovery cache and its threading contract, and the C++ smoke
+    // consumer links the real shared library and calls every export, which is
+    // the only thing that can catch an export that compiles but is not
+    // reachable from C++ (a missing .def entry, above all).
+    const cloudsync_abi_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/cloudsync.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_abi_unit_tests = b.addTest(.{ .root_module = cloudsync_abi_test_module });
+    const run_cloudsync_abi_unit_tests = b.addRunArtifact(cloudsync_abi_unit_tests);
+    const cloudsync_abi_consumer_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    cloudsync_abi_consumer_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/cloudsync_abi_test.cpp"},
+        .flags = &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, cloudsync_abi_consumer_module, toolchain);
+    addMsvcLibraryPaths(b, cloudsync_abi_consumer_module, toolchain);
+    cloudsync_abi_consumer_module.linkLibrary(cloudsync);
+    linkMsvcRuntime(cloudsync_abi_consumer_module, optimize);
+    applyLoaderPath(target, cloudsync_abi_consumer_module);
+    const cloudsync_abi_consumer = b.addExecutable(.{
+        .name = "cloudsync-abi-test",
+        .root_module = cloudsync_abi_consumer_module,
+    });
+    if (target.result.os.tag == .windows) {
+        cloudsync_abi_consumer.subsystem = .console;
+        cloudsync_abi_consumer.entry = .{ .symbol_name = "main" };
+    }
+    const run_cloudsync_abi_consumer = b.addRunArtifact(cloudsync_abi_consumer);
+    const test_cloudsync_abi_step = b.step("test-cloudsync-abi", "Run the CloudSync C ABI tests and C++ smoke consumer");
+    test_cloudsync_abi_step.dependOn(&cloudsync_abi_unit_tests.step);
+    test_cloudsync_abi_step.dependOn(&cloudsync_abi_consumer.step);
+    if (test_mode == .run) {
+        test_cloudsync_abi_step.dependOn(&run_cloudsync_abi_unit_tests.step);
+        test_cloudsync_abi_step.dependOn(&run_cloudsync_abi_consumer.step);
+    }
     const streamio_platform_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
         .target = target,
@@ -2419,6 +2466,38 @@ fn addStreamIOZig(
         .name = "StreamIO",
         .linkage = .dynamic,
         .root_module = streamio_module,
+        .win32_module_definition = b.path(def_path),
+    });
+}
+
+fn addCloudSync(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    // Pure zig, unlike StreamIO: there is no C++ bridge here, because the
+    // whole point of the C ABI below is that C++ never sees a zig type.
+    const cloudsync_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/cloudsync.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    addMsvcIncludePaths(b, cloudsync_module, toolchain);
+    addMsvcLibraryPaths(b, cloudsync_module, toolchain);
+    linkMsvcRuntime(cloudsync_module, optimize);
+    // x86 exports carry a leading underscore that does not exist on x86_64,
+    // so the def file is per-arch exactly as StreamIO's is.
+    const def_path = if (target.result.cpu.arch == .x86)
+        "Sources/src/CloudSync/CloudSync.def"
+    else
+        "Sources/src/CloudSync/CloudSync.x64.def";
+    applyLoaderPath(target, cloudsync_module);
+    return b.addLibrary(.{
+        .name = "CloudSync",
+        .linkage = .dynamic,
+        .root_module = cloudsync_module,
         .win32_module_definition = b.path(def_path),
     });
 }

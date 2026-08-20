@@ -1,0 +1,12 @@
+; 32-bit export list. Every entry point is callconv(.c), which on x86 Windows
+; is cdecl and so carries a leading underscore that x86_64 does not have; the
+; aliases below are the whole reason this file is separate from the x64 one.
+; No supported triple is x86 today, so this list is a contract kept in step
+; with its sibling rather than something the build exercises.
+LIBRARY "CloudSync"
+EXPORTS
+    bk_cloudsync_available = _bk_cloudsync_available @1
+    bk_cloudsync_discovery_status = _bk_cloudsync_discovery_status @2
+    bk_cloudsync_refresh_discovery = _bk_cloudsync_refresh_discovery @3
+    bk_cloudsync_shutdown = _bk_cloudsync_shutdown @4
+    bk_cloudsync_last_error = _bk_cloudsync_last_error @5
