@@ -95,6 +95,14 @@ public:
 	bool PollEvent(PlatformEvent &event);
 	const std::string &LastError() const;
 
+	// The launch splash: a borderless, centered, always-on-top window showing
+	// one BMP, alive from before Initialize() until the game window is up -
+	// the SDL twin of the Win32 splash dialog in Game/WinFrame.cpp. ShowSplash
+	// opens its own reference on the video subsystem so it can run first;
+	// HideSplash closes that reference again, leaving Initialize()'s untouched.
+	bool ShowSplash(const char *bmpPath, int width, int height);
+	void HideSplash();
+
 	static void SetInitializationFailureForTests(bool enabled);
 
 private:
@@ -102,6 +110,9 @@ private:
 	void SetError(const char *operation);
 
 	void *window_ = nullptr;
+	void *splash_window_ = nullptr;
+	void *splash_renderer_ = nullptr;
+	bool splash_video_opened_ = false;
 	std::thread::id main_thread_;
 	std::string last_error_;
 	bool initialized_ = false;

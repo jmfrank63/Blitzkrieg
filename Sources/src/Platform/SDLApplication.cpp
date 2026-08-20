@@ -77,6 +77,90 @@ bool SDLApplication::SetAppIcon(const char *path)
 #endif
 }
 
+bool SDLApplication::ShowSplash( const char *bmpPath, int width, int height )
+{
+	if ( !OnMainThread() ) { SetError( "ShowSplash called off main thread" ); return false; }
+	if ( splash_window_ ) return true;
+	// The splash comes up before Initialize() has run SDL_Init, so open the
+	// video subsystem here. SDL3 refcounts it: HideSplash closes this
+	// reference and Initialize()'s own stays live for the game.
+	if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) ) { SetError( "SDL_InitSubSystem" ); return false; }
+	splash_video_opened_ = true;
+	// NOT_FOCUSABLE is the SWP_NOACTIVATE of the Win32 splash: the picture
+	// must not take the keyboard from whatever launched the game, and must
+	// not steal it back when the game window comes up underneath.
+	SDL_Window *window = SDL_CreateWindow( "",
+		width, height,
+		SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_HIDDEN );
+	if ( !window )
+	{
+		SetError( "SDL_CreateWindow" );
+		SDL_QuitSubSystem( SDL_INIT_VIDEO );
+		splash_video_opened_ = false;
+		return false;
+	}
+	SDL_SetWindowPosition( window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED );
+	SDL_Renderer *renderer = SDL_CreateRenderer( window, nullptr );
+	if ( !renderer )
+	{
+		SetError( "SDL_CreateRenderer" );
+		SDL_DestroyWindow( window );
+		SDL_QuitSubSystem( SDL_INIT_VIDEO );
+		splash_video_opened_ = false;
+		return false;
+	}
+	splash_window_ = window;
+	splash_renderer_ = renderer;
+	// One blit, like the Win32 splash: nothing pumps events or repaints while
+	// the modules load, so the picture is drawn once, right now. A missing or
+	// undecodable bitmap still shows the plain window rather than failing the
+	// launch - the splash is cosmetic.
+	SDL_Texture *texture = nullptr;
+	if ( SDL_Surface *surface = SDL_LoadBMP( bmpPath ) )
+	{
+		texture = SDL_CreateTextureFromSurface( renderer, surface );
+		SDL_DestroySurface( surface );
+	}
+	else
+		SetError( "SDL_LoadBMP" );
+	SDL_ShowWindow( window );
+	SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
+	SDL_RenderClear( renderer );
+	if ( texture )
+		SDL_RenderTexture( renderer, texture, nullptr, nullptr );
+	SDL_RenderPresent( renderer );
+	if ( texture )
+		SDL_DestroyTexture( texture );
+	// Deliver the map/expose round-trip so the compositor actually shows the
+	// window now instead of after the long module load.
+	SDL_PumpEvents();
+	return true;
+}
+
+void SDLApplication::HideSplash()
+{
+	if ( !OnMainThread() ) return;
+	if ( splash_renderer_ )
+	{
+		SDL_DestroyRenderer( static_cast<SDL_Renderer *>( splash_renderer_ ) );
+		splash_renderer_ = nullptr;
+	}
+	if ( splash_window_ )
+	{
+		SDL_DestroyWindow( static_cast<SDL_Window *>( splash_window_ ) );
+		splash_window_ = nullptr;
+	}
+	if ( splash_video_opened_ )
+	{
+		SDL_QuitSubSystem( SDL_INIT_VIDEO );
+		splash_video_opened_ = false;
+	}
+	// The Win32 splash hands the foreground to the game window on the way
+	// out; raise ours the same way.
+	if ( window_ )
+		SDL_RaiseWindow( static_cast<SDL_Window *>( window_ ) );
+}
+
 bool SDLApplication::Initialize(const char *title, int width, int height)
 {
 	if ( !OnMainThread() ) { SetError( "Initialize called off main thread" ); return false; }
@@ -117,6 +201,7 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 void SDLApplication::Shutdown()
 {
 	if ( !OnMainThread() ) { SetError( "Shutdown called off main thread" ); return; }
+	HideSplash();
 	for ( std::vector<GamepadRecord>::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
 		if ( it->handle ) SDL_CloseGamepad( static_cast<SDL_Gamepad *>( it->handle ) );
 	gamepads_.clear();

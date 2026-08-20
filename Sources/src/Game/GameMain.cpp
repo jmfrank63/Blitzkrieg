@@ -72,7 +72,24 @@ bool InitApplication( HINSTANCE, const char *pszAppName, const char *, int nWidt
 	return true;
 }
 void ShowAppWindow( bool bShow ) { if ( bShow ) game_frame.Show(); else game_frame.Hide(); }
-void ShowSplashScreen( HINSTANCE, bool ) {}
+void ShowSplashScreen( HINSTANCE, bool bShow )
+{
+	// The Windows build shows the Blitzkrieg logo between launch and the
+	// first video, from a topmost dialog in WinFrame.cpp blitting the
+	// IDB_SPLASH resource. Same picture here, from the staged Data - SDL
+	// decodes only BMP on its own, so the logo ships as Data/splash.bmp
+	// (the resource bitmap, unchanged). 600x352 mirrors the Win32 splash's
+	// SPLASH_SCREEN_SIZE_X/Y.
+	if ( bShow )
+	{
+		std::string szSplashPath = NPlatform::Paths::ModuleRoot();
+		if ( !szSplashPath.empty() && szSplashPath.back() != '/' && szSplashPath.back() != '\\' ) szSplashPath += '/';
+		szSplashPath += "Data/splash.bmp";
+		game_frame.ShowSplash( szSplashPath.c_str(), 600, 352 );
+	}
+	else
+		game_frame.HideSplash();
+}
 // GameFrame only queues the translated SDL events; nothing else drains that
 // queue, so without this the events accumulated forever and the game received
 // no mouse or keyboard input at all. Mirror the dispatch WinFrame performs.

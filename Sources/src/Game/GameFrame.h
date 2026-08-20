@@ -43,6 +43,8 @@ public:
 
 	bool Initialize( const char *title, int width, int height );
 	bool SetAppIcon( const char *path ) { return application_.SetAppIcon( path ); }
+	bool ShowSplash( const char *bmpPath, int width, int height ) { return application_.ShowSplash( bmpPath, width, height ); }
+	void HideSplash() { application_.HideSplash(); }
 	void Shutdown();
 	void Show();
 	void Hide();
