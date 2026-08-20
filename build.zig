@@ -2153,6 +2153,17 @@ pub fn build(b: *std.Build) void {
     const test_streamio_step = b.step("test-streamio", "Run Zig StreamIO unit tests");
     test_streamio_step.dependOn(&streamio_unit_tests.step);
     if (test_mode == .run) test_streamio_step.dependOn(&run_streamio_unit_tests.step);
+    const cloudsync_rc_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/rc_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_rc_unit_tests = b.addTest(.{ .root_module = cloudsync_rc_test_module });
+    const run_cloudsync_rc_unit_tests = b.addRunArtifact(cloudsync_rc_unit_tests);
+    const test_cloudsync_rc_step = b.step("test-cloudsync-rc", "Run Zig CloudSync rc client unit tests");
+    test_cloudsync_rc_step.dependOn(&cloudsync_rc_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_rc_step.dependOn(&run_cloudsync_rc_unit_tests.step);
     const streamio_platform_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
         .target = target,
