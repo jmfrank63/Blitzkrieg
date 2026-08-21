@@ -9,7 +9,11 @@
 **Allowed files:** `Sources/src/CloudSync/form.zig`, `Sources/src/CloudSync/form_test.zig`, `build.zig`.
 
 - [ ] Write the failing test over the committed fixture before writing the model.
-- [ ] Implement `buildForm(catalogue, backend) -> []Field`: `Examples` with `Exclusive` becomes a closed droplist, `Examples` without it an editable one, `IsPassword` or `Sensitive` a masked field, everything else text. `Hide` omits the field; `Advanced` flags it rather than dropping it.
+- [ ] Implement `buildForm(catalogue, backend, selected_provider) -> []Field`: `Examples` with `Exclusive` becomes a closed droplist, `Examples` without it an editable one, `IsPassword` or `Sensitive` a masked field, everything else text. `Advanced` flags a field rather than dropping it.
+- [ ] **Filter options and examples by `Provider`, and rebuild the form when the selected provider changes.** Both carry it, and the form is wrong without it: s3 has 51 vendors behind its `provider` option and 664 provider-tagged examples, so a Wasabi user shown AWS regions is being offered values that do not exist. The selected provider is itself just an option value, so this is a re-derivation, not a special case.
+- [ ] Implement the expression semantics rclone uses: a comma-separated list matches any member (one such list names 51 S3 vendors), and a leading `!` negates (`!no_auth` is the only negated form in v1.75.0, but implement the operator, not the instance). An empty expression matches everything.
+- [ ] Test across at least two S3 vendors — AWS and one non-AWS — asserting the region examples differ.
+- [ ] **`Hide` is a bitmask, not a boolean.** Values observed: `{0: 915, 3: 36, 2: 13, 1: 4}`. Bit 1 hides from the command line and bit 2 from the configurator; omit a field only when the **configurator** bit is set. Dropping everything non-zero would wrongly hide the four `Hide=1` options. Test `1` as visible and `2` and `3` as hidden.
 - [ ] **Split basic from advanced, collapsed by default.** s3 has 78 options against 14 basic ones; rendering all 78 is a wall, not a form.
 - [ ] Carry `Help` through as the tooltip source — it is the only per-field documentation the player gets, and writing our own would go stale against upstream.
 - [ ] Carry `Default`/`DefaultStr` as placeholder text and mark the field so the save path knows not to persist a value equal to it.

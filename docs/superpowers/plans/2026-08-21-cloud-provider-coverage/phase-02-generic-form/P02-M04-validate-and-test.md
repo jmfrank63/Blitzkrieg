@@ -9,7 +9,9 @@
 **Allowed files:** `Sources/src/CloudSync/form.zig`, `Sources/src/CloudSync/form_test.zig`, `Sources/src/CloudSync/engine.zig`, `Sources/src/CloudSync/engine_test.zig`, `Sources/src/GameTT/InterfaceCloudCredentials.cpp`, `Data/Textes/UI/CloudCredentials`, `Sources/src/Main/CloudSyncFacade.h`, `Sources/src/Main/CloudSyncFacade.cpp`.
 
 - [ ] Write the failing test with a fixture backend whose required field is blank.
-- [ ] Validate `Required` fields from the catalogue before the connection test runs, naming the field by its catalogue `Help` rather than a generic message.
+- [ ] Validate `Required` fields from the catalogue before the connection test runs.
+- [ ] **A blank required field is only an error when its effective default is also empty.** rclone accepts an unset required option that has a non-empty default. Of 66 required options, three carry one — `pixeldrain.api_url`, `iclouddrive.service`, `oracleobjectstorage.provider` — and treating blank as invalid would make those backends impossible to configure. Test a required field with a default and one without.
+- [ ] Name the field by its **label**, not by `Help`. `Help` is explanatory prose and can run to several lines; it belongs beside the field, not inside an error message.
 - [ ] **Extend `testConnection`** — an earlier draft said to reuse it unchanged *and* to make it write, which cannot both hold. It stays backend-agnostic: if it ever needs a per-backend branch, something upstream is hardcoded and that is a stop condition. But the operation itself grows from listing to a write probe.
 - [ ] Confirm the remote root participates: a bucket typo must fail the test, not appear to succeed against the account root.
 - [ ] **Test writability, not just listing.** A successful `operations/list` proves the credentials resolve; it does not prove the backend accepts writes and deletes, which bisync requires — some are read-only or restrict deletion. Write a small probe object under the remote root, read it back, then delete it.

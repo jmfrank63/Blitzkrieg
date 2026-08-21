@@ -102,5 +102,4 @@ all to stderr.
 - `phase-03-oauth`: P03-M01 through P03-M03
 - `phase-04-acceptance`: P04-M01 through P04-M02
 
-Seventeen packets, one of which (P00-M04) is a credentialed human release gate that does not block the rest. Each has an explicit allowlist, a failing test, an
-implementation boundary, commands, evidence, and a commit.
+Seventeen packets. Each has an explicit allowlist, a failing test, an implementation boundary, commands, evidence, and a commit — **except `P00-M04`**, which is a credentialed human release gate with no code and therefore no failing test. It records approval, and nothing else in the plan depends on it.

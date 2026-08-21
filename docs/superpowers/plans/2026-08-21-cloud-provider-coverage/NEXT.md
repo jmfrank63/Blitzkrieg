@@ -63,6 +63,37 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Sixth correction round
+
+Four correctness gaps, each measured against v1.75.0's catalogue.
+
+- **Provider-conditioned fields were not modelled at all.** `Provider` appears
+  on 35 options and **664 examples** — s3's `region` examples are AWS-only —
+  and my field list missed it because I derived the list from s3's *first*
+  option, which happens not to carry one. The form now filters options and
+  examples by the selected provider and rebuilds when it changes, implementing
+  the comma-list and leading-`!` semantics (72 distinct expressions, one of
+  them naming 51 S3 vendors). Without this a Wasabi user is offered AWS
+  regions that do not exist.
+- **Required validation ignored defaults.** rclone accepts a blank required
+  option when it has a non-empty default; three of the 66 required options do
+  (`pixeldrain.api_url`, `iclouddrive.service`,
+  `oracleobjectstorage.provider`), so treating blank as invalid would make
+  those backends impossible to configure. Errors also name the field by label,
+  not by `Help`, which is multi-line prose.
+- **`is_password` was persisted a phase too late.** It arrived in P03-M03, so
+  every credential written in phases 01 and 02 would have been unreadable
+  safely once the catalogue cache was gone. Both `secret` and `is_password` are
+  now written from the first generic save, and phase 03 only consumes them.
+- **`Hide` is a bitmask.** Observed `{0: 915, 3: 36, 2: 13, 1: 4}`; bit 1 hides
+  from the command line and bit 2 from the configurator. Omitting everything
+  non-zero would wrongly hide the four `Hide=1` options.
+
+Also: `ShortOpt` joins the modelled fields; the `FieldName` claim is narrowed
+to *non-empty* field names, since blank means "use `Name`"; and the README no
+longer claims every packet carries a failing test, since `P00-M04` is a human
+release gate with no code.
+
 ## Fifth correction round
 
 The previous round introduced an error of my own, corrected here, plus four
