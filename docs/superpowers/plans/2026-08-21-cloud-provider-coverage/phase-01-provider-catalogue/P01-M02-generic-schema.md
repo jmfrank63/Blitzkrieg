@@ -6,7 +6,12 @@
 
 **Dependencies:** P01-M01.
 
-**Allowed files:** `Sources/src/CloudSync/creds.zig`, `Sources/src/CloudSync/creds_test.zig`.
+**Allowed files:** `Sources/src/CloudSync/creds.zig`, `Sources/src/CloudSync/creds_test.zig`, `Sources/src/CloudSync/backend_test.zig`.
+
+> Widened during execution with the plan owner's approval: `backend_test.zig`
+> constructs the two-arm union in its MinIO and WebDAV fixtures, no other
+> packet owns the file, and the port is mechanical — the two credential
+> literals rewritten in the generic schema.
 
 - [ ] Write the failing migration test first, against a real `cloud.credentials` written by the current two-arm build — one S3, one WebDAV.
 - [ ] **The schema is `{ backend, options, remote_root }`, not `{ backend, options }`.** `remoteParams` says it outright: *"The bucket is deliberately not here — for S3 it is a path component, carried by the alias target."* An options-only map has nowhere to put the bucket, and migrating it as an option would route every S3 sync at the account root instead of the bucket. That is silent data misplacement, not a config error.

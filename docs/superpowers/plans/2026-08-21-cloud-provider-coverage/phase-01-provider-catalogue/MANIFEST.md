@@ -46,3 +46,37 @@ Two design choices worth carrying:
 in `catalogue.zig` as their single owner. No provider, field or vendor name
 appears in any source file.
 
+P01-M02 macOS checkpoint: `test-cloudsync-creds` 15/15 against the generic
+schema, migration asserted on byte-exact documents captured by running the
+two-arm serializer before the change; rc 6, daemon 27, abi 10 + C++ consumer,
+plan 35, catalogue 15, worker 8, engine 16, backup 21, facade, package 4,
+verify-runtime 11, streamio 32 all green, the daemon/abi/worker/engine runs
+repeated against a live staged rclone; backend 2/2 with the WebDAV cycle
+executing end to end against `rclone serve webdav` on the generic schema; the
+creds suite compiles for `x86_64-linux-gnu` and `x86_64-windows`. Commit
+`06601b7c6`.
+
+Findings the packet text does not carry:
+
+- **The allowlist was widened to `backend_test.zig` with the plan owner's
+  approval** (recorded in the packet): its two fixtures constructed the
+  removed union, and no other packet owns the file.
+- **The wire format keeps non-secret values flat** (`"endpoint":"…"`) with the
+  classification as `secret_options`/`password_options` name arrays, because
+  `cloudsync_abi_test.cpp` asserts the flat substring — per-entry option
+  objects would have failed the untouched C++ consumer. The redacted form
+  names stored secrets in `secret_options`; a dialog echoes those names and
+  `mergeOmittedSecret` fills the values, which is also where the stored
+  fingerprint is carried or released for re-derivation.
+- **v1.75.0 flags more than the old dialog withheld**: s3 `access_key_id` and
+  webdav `user` are `Sensitive`, so both are now flagged secret at migration.
+  Only webdav `pass` is `IsPassword` among the legacy fields.
+- **`parse` now dupes the document into its arena before JSON parsing.** The
+  std parser references the input buffer for strings that need no unescaping;
+  the two-arm `load` freed that buffer while the credentials still pointed
+  into it — a latent use-after-free, fixed in passing (catalogue.zig had
+  already documented the same hazard).
+- **The shipped C++ dialog cannot prefill from the generic redacted document**
+  until P01-M03/P02-M03 rewrite that chain; its legacy-format saves still
+  parse via the migration path, and the ABI creds contract passes untouched.
+

@@ -1,12 +1,13 @@
 # Next Packet
 
-Resume at `phase-01-provider-catalogue/P01-M02-generic-schema.md`.
+Resume at `phase-01-provider-catalogue/P01-M03-catalogue-abi.md`.
 
 ## Where implementation stands
 
-**Phase 00 is complete** (P00-M01 through P00-M04) and **P01-M01 is complete**.
-Every checkpoint is in its phase `MANIFEST.md` with the measurements; read
-those before writing code, they carry findings the packet texts do not.
+**Phase 00 is complete** (P00-M01 through P00-M04), and **P01-M01 and P01-M02
+are complete**. Every checkpoint is in its phase `MANIFEST.md` with the
+measurements; read those before writing code, they carry findings the packet
+texts do not.
 
 | packet | commit | result |
 |---|---|---|
@@ -15,6 +16,7 @@ those before writing code, they carry findings the packet texts do not.
 | P00-M03 packaging and notices | `86c53c970` | notices shipped, package deterministic |
 | P00-M04 package permissions | `6dccbc024` | `package-game` completes; exec bit survives |
 | P01-M01 catalogue | `9aa47f7fb` | parse, cache, `matchProvider`, fetch job |
+| P01-M02 generic schema | `06601b7c6` | migration byte-identical, flags persisted |
 
 ## Resuming on another machine
 
@@ -22,7 +24,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `b6018200c`:
+Suites, all green at `06601b7c6`:
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -32,6 +34,7 @@ zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
 zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 15
 zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  8
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 16
+zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 15
 zig build test-package             -Dtarget=aarch64-macos -Dtest-mode=run   #  4
 zig build verify-runtime           -Dtest-mode=run                          # 11
 zig build test-streamio            -Dtarget=aarch64-macos -Dtest-mode=run   # 32
@@ -76,31 +79,34 @@ gated.
   provenance inside the file as a `_fixture` key that doubles as an unknown
   field the parser must tolerate.
 
-## P01-M02 is the riskiest packet in the plan
+## P01-M02 landed — what P01-M03 inherits
 
-It **replaces working, shipped code** — `creds.zig`'s two-arm union — and its
-allowlist is only `creds.zig` and `creds_test.zig`. Five things cost the most
-if missed, all of them recorded in the packet itself but worth flagging here:
+All five risk items held (bucket as remote root, flat `Name` map, byte-identical
+fingerprint carry, both flags from the first save, caps replaced). The
+allowlist *was* too narrow: `backend_test.zig`'s fixtures constructed the
+union, execution stopped and reported per instruction, and the plan owner
+approved widening it — recorded in the packet. What the next packet needs:
 
-1. The schema is `{backend, options, remote_root}`. `remoteParams` says the
-   bucket is deliberately not an option because for S3 it is a path component
-   carried by the alias target — migrating it as an option routes every sync at
-   the account root instead of the bucket. Silent misplacement.
-2. `remoteParams` must be **replaced outright**, emitting a flat `Name`-keyed
-   map. Verified against v1.75.0: no non-empty `FieldName` differs from `Name`,
-   no option name contains a dot, and a flat create round-trips unchanged.
-3. The fingerprint is the **connection identity**, today `s3:{endpoint}/{bucket}`
-   and `webdav:{url}`. Persist it explicitly, carry the legacy value over at
-   migration byte-for-byte, and rotate only on backend, root, or the canonical
-   non-secret option projection — a password-only edit must not rotate it.
-4. Persist **two** flags, `secret` and `is_password`, from this first generic
-   save. Phase 03's token read-back needs `is_password` and the catalogue cache
-   may be gone by then.
-5. Replace the 16 KiB caps. `load`'s failure mode is to return null, which
-   would silently lose the credentials.
-
-If files outside the allowlist fail to compile against the new API, that means
-the allowlist is too narrow — **stop and report** rather than editing around it.
+- **The wire format is flat.** Non-secret options serialise as
+  `"name":"value"`; the classification travels as `secret_options` /
+  `password_options` name arrays, not per-entry objects, because
+  `cloudsync_abi_test.cpp` asserts the flat substring. The redacted form names
+  stored secrets in `secret_options` and carries **no fingerprint** — a stale
+  echo must not ride back in through a save.
+- **The merge is the identity gate.** A dialog echoes stored secret names;
+  `mergeOmittedSecret` fills their values, carries the fingerprint verbatim
+  while backend, root and the canonical non-secret projection are unchanged,
+  and otherwise leaves it for `save` to re-derive. Nothing crosses a backend
+  change.
+- **The C++ dialog is degraded until its rewrite.** It still parses the legacy
+  document shape, so it cannot prefill from the generic redacted form; its
+  legacy-format saves migrate on parse. P01-M03 and P02-M03 own that chain.
+- **`Sensitive` widened the withheld set**: s3 `access_key_id` and webdav
+  `user` are secret now; only webdav `pass` is `IsPassword` among migrated
+  fields.
+- `load` can now fail with `error.CredentialsTooLarge` (documented 1 MiB
+  limit) — callers that `catch null` still compile, but new ABI text in
+  P01-M03 should surface it rather than reading it as "none saved".
 
 ## Not implementable without help
 
