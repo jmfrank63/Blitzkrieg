@@ -223,7 +223,7 @@
 						</item>
 					</Children>
 					<WindowPos x="28" y="84"/>
-					<WindowSize x="680" y="420"/>
+					<WindowSize x="680" y="300"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
@@ -240,6 +240,73 @@
 						</item>
 					</States>
 				</item>
+			<item ClassTypeID="0x10001105" ElementID="3103" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+				<ShadowShift x="1" y="2"/>
+				<TextPos x="0" y="0"/>
+				<WindowPos x="30" y="392"/>
+				<WindowSize x="680" y="76"/>
+				<States>
+					<item>
+						<PushSound/>
+						<ClickSound/>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001103" ElementID="10030" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1">
+				<WindowPos x="30" y="470"/>
+				<WindowSize x="320" y="49"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+							<Maps x1="590" y1="957" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+							<Maps x1="590" y1="888" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+							<Maps x1="590" y1="888" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearancePushed>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff777777">
+							<Maps x1="590" y1="957" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearanceDisabled>
+						<PushSound>sounds\buttons\select</PushSound>
+						<ClickSound>sounds\buttons\ok</ClickSound>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001103" ElementID="10031" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1">
+				<WindowPos x="386" y="470"/>
+				<WindowSize x="320" y="49"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+							<Maps x1="590" y1="957" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+							<Maps x1="590" y1="888" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+							<Maps x1="590" y1="888" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearancePushed>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff777777">
+							<Maps x1="590" y1="957" x2="433" y2="66"/>
+							<Texture>ui\IntermissionTextures\back-settings</Texture>
+						</AppearanceDisabled>
+						<PushSound>sounds\buttons\select</PushSound>
+						<ClickSound>sounds\buttons\ok</ClickSound>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
 				<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
 					<!--cancel-->
 					<ShiftText x="0" y="1"/>

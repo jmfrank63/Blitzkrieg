@@ -19,7 +19,10 @@ enum
 {
 	E_LIST											= 2100,
 	E_STATIC_STATUS							= 3102,
+	E_STATIC_EXPLAIN						= 3103,
 	E_BUTTON_CANCEL							= 10001,
+	E_BUTTON_PRIMARY						= 10030,		// restore... / merge restore / full restore now
+	E_BUTTON_SECONDARY					= 10031,		// undo (named for its state) / full restore... / back
 };
 // One parsed row of the facade's entry document.
 struct SBackupRow
@@ -168,13 +171,184 @@ void CInterfaceCloudBackups::FillList()
 	else
 		SetStatus( 0, L"" );
 }
+void CInterfaceCloudBackups::SetExplain( const char *pszTextKey )
+{
+	IUIElement *pExplain = pUIScreen->GetChildByID( E_STATIC_EXPLAIN );
+	if ( pExplain == 0 )
+		return;
+	const std::wstring szText = pszTextKey != 0 ? TextOrFallback( pszTextKey, L"" ) : L"";
+	pExplain->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szText.c_str() ) ) );
+}
+// Labels, visibility and enablement follow the state machine and what
+// restore_undo_available reports - three answers plus busy, each with its
+// own name, because cancelling a restore that has not happened and
+// reversing one that has are visibly different acts.
+void CInterfaceCloudBackups::RefreshControls()
+{
+	IUIElement *pPrimary = pUIScreen->GetChildByID( E_BUTTON_PRIMARY );
+	IUIElement *pSecondary = pUIScreen->GetChildByID( E_BUTTON_SECONDARY );
+	if ( pPrimary == 0 || pSecondary == 0 )
+		return;
+
+	const bool bWorking = nActionHandle >= 0;
+	const char *pszPrimary = 0;
+	const char *pszSecondary = 0;
+	bool bPrimaryOn = false;
+	bool bSecondaryOn = false;
+
+	switch ( eBrowseState )
+	{
+	case BS_BROWSE:
+		{
+			SetExplain( "Textes\\UI\\CloudBackups\\explain_browse" );
+			pszPrimary = "button_restore";
+			bPrimaryOn = !bWorking && nSelectedEntry >= 0 && nSelectedEntry < (int)entryIDs.size();
+			const NCloudSync::EUndoAvailability eUndo = NCloudSync::UndoAvailability( GetGlobalVar( "Profile.Name", "" ) );
+			if ( eUndo == NCloudSync::UNDO_CANCELLABLE )
+			{
+				pszSecondary = "button_cancel_pending";
+				bSecondaryOn = !bWorking;
+			}
+			else if ( eUndo == NCloudSync::UNDO_REINSTATABLE )
+			{
+				pszSecondary = "button_undo_applied";
+				bSecondaryOn = !bWorking;
+			}
+			else if ( eUndo == NCloudSync::UNDO_BUSY )
+			{
+				// A restore download holds the slot; an undo now would be
+				// silently overwritten when it lands.
+				pszSecondary = "button_undo_busy";
+				bSecondaryOn = false;
+			}
+		}
+		break;
+	case BS_CONFIRM:
+		SetExplain( "Textes\\UI\\CloudBackups\\explain_merge" );
+		pszPrimary = "button_restore_merge";
+		pszSecondary = "button_restore_full";
+		bPrimaryOn = !bWorking;
+		bSecondaryOn = !bWorking;
+		break;
+	case BS_CONFIRM_FULL:
+		SetExplain( "Textes\\UI\\CloudBackups\\explain_full" );
+		pszPrimary = "button_restore_full_go";
+		pszSecondary = "button_back";
+		bPrimaryOn = !bWorking;
+		bSecondaryOn = !bWorking;
+		break;
+	}
+
+	if ( pszPrimary != 0 )
+	{
+		const std::string szKey = std::string( "Textes\\UI\\CloudBackups\\" ) + pszPrimary;
+		pPrimary->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( TextOrFallback( szKey.c_str(), L"?" ).c_str() ) ) );
+		pPrimary->EnableWindow( bPrimaryOn );
+		pPrimary->ShowWindow( UI_SW_SHOW_DONT_MOVE_UP );
+	}
+	else
+		pPrimary->ShowWindow( UI_SW_HIDE );
+	if ( pszSecondary != 0 )
+	{
+		const std::string szKey = std::string( "Textes\\UI\\CloudBackups\\" ) + pszSecondary;
+		pSecondary->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( TextOrFallback( szKey.c_str(), L"?" ).c_str() ) ) );
+		pSecondary->EnableWindow( bSecondaryOn );
+		pSecondary->ShowWindow( UI_SW_SHOW_DONT_MOVE_UP );
+	}
+	else
+		pSecondary->ShowWindow( UI_SW_HIDE );
+}
+void CInterfaceCloudBackups::BeginRestore( int eMode )
+{
+	if ( nActionHandle >= 0 || nSelectedEntry < 0 || nSelectedEntry >= (int)entryIDs.size() )
+		return;
+	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+	bActionIsUndo = false;
+	nActionHandle = NCloudSync::RestoreBackup( szProfile.c_str(), entryIDs[nSelectedEntry].c_str(),
+		(NCloudSync::ERestoreMode)eMode );
+	if ( nActionHandle < 0 )
+	{
+		NStr::DebugTrace( "cloud backups: restore begin failed: %s\n", NCloudSync::LastError() );
+		SetStatus( "Textes\\UI\\CloudBackups\\unavailable", L"" );
+		return;
+	}
+	NStr::DebugTrace( "cloud backups: restore staged download begun (%s)\n",
+		eMode == NCloudSync::RESTORE_FULL ? "full" : "merge" );
+	SetStatus( "Textes\\UI\\CloudBackups\\restoring", L"" );
+	RefreshControls();
+}
+void CInterfaceCloudBackups::BeginUndo()
+{
+	if ( nActionHandle >= 0 )
+		return;
+	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+	eUndoWas = NCloudSync::UndoAvailability( szProfile.c_str() );
+	if ( eUndoWas != NCloudSync::UNDO_CANCELLABLE && eUndoWas != NCloudSync::UNDO_REINSTATABLE )
+		return;
+	bActionIsUndo = true;
+	nActionHandle = NCloudSync::UndoRestore( szProfile.c_str() );
+	if ( nActionHandle < 0 )
+	{
+		NStr::DebugTrace( "cloud backups: undo begin failed: %s\n", NCloudSync::LastError() );
+		SetStatus( "Textes\\UI\\CloudBackups\\unavailable", L"" );
+		return;
+	}
+	NStr::DebugTrace( "cloud backups: undo begun (%s)\n",
+		eUndoWas == NCloudSync::UNDO_CANCELLABLE ? "cancel pending" : "reinstate previous" );
+	RefreshControls();
+}
 bool CInterfaceCloudBackups::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
 	{
 	case UI_NOTIFY_EDIT_BOX_ESCAPE:
 	case IMC_CANCEL:		// also the X button - its element id IS this event id
+		// Inside the confirmation, cancel means "back to the list", not
+		// "leave the screen" - a mis-aimed escape must not skip the
+		// explicit step.
+		if ( eBrowseState != BS_BROWSE )
+		{
+			eBrowseState = BS_BROWSE;
+			RefreshControls();
+			return true;
+		}
 		CloseInterface();
+		return true;
+	case E_LIST:
+		{
+			IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_LIST ) );
+			const int nRow = pList != 0 ? pList->GetSelectionItem() : -1;
+			nSelectedEntry = nRow >= 0 ? pList->GetItem( nRow )->GetUserData() : -1;
+			RefreshControls();
+		}
+		return true;
+	case E_BUTTON_PRIMARY:
+		if ( eBrowseState == BS_BROWSE )
+		{
+			if ( nSelectedEntry >= 0 && nSelectedEntry < (int)entryIDs.size() && nActionHandle < 0 )
+			{
+				eBrowseState = BS_CONFIRM;
+				RefreshControls();
+			}
+		}
+		else if ( eBrowseState == BS_CONFIRM )
+			BeginRestore( NCloudSync::RESTORE_MERGE );
+		else
+			BeginRestore( NCloudSync::RESTORE_FULL );
+		return true;
+	case E_BUTTON_SECONDARY:
+		if ( eBrowseState == BS_BROWSE )
+			BeginUndo();
+		else if ( eBrowseState == BS_CONFIRM )
+		{
+			eBrowseState = BS_CONFIRM_FULL;
+			RefreshControls();
+		}
+		else
+		{
+			eBrowseState = BS_CONFIRM;
+			RefreshControls();
+		}
 		return true;
 	default:
 		return false;
@@ -194,6 +368,7 @@ bool CInterfaceCloudBackups::StepLocal( bool bAppActive )
 			FillList();
 			NCloudSync::Release( nListHandle );
 			nListHandle = -1;
+			RefreshControls();
 		}
 		else if ( eState == NCloudSync::STATE_FAILED )
 		{
@@ -203,6 +378,44 @@ bool CInterfaceCloudBackups::StepLocal( bool bAppActive )
 			SetStatus( szKey.c_str(), L"" );
 			NCloudSync::Release( nListHandle );
 			nListHandle = -1;
+			RefreshControls();
+		}
+	}
+	if ( nActionHandle >= 0 )
+	{
+		const NCloudSync::EState eState = NCloudSync::Poll( nActionHandle );
+		if ( eState == NCloudSync::STATE_DONE )
+		{
+			if ( bActionIsUndo )
+			{
+				// The two undo answers finish as visibly different things:
+				// a pending stage is simply gone, an applied restore is
+				// staged back for the next launch.
+				NStr::DebugTrace( "cloud backups: undo done\n" );
+				SetStatus( eUndoWas == NCloudSync::UNDO_CANCELLABLE
+					? "Textes\\UI\\CloudBackups\\undone_pending"
+					: "Textes\\UI\\CloudBackups\\undone_applied", L"" );
+			}
+			else
+			{
+				NStr::DebugTrace( "cloud backups: restore staged\n" );
+				SetStatus( "Textes\\UI\\CloudBackups\\staged", L"" );
+			}
+			NCloudSync::Release( nActionHandle );
+			nActionHandle = -1;
+			eBrowseState = BS_BROWSE;
+			RefreshControls();
+		}
+		else if ( eState == NCloudSync::STATE_FAILED )
+		{
+			const std::string szError = NCloudSync::Error( nActionHandle );
+			NStr::DebugTrace( "cloud backups: %s failed: %s\n", bActionIsUndo ? "undo" : "restore", szError.c_str() );
+			const std::string szKey = std::string( "Textes\\UI\\CloudSync\\" ) + CloudOutcomeTextKey( szError );
+			SetStatus( szKey.c_str(), L"" );
+			NCloudSync::Release( nActionHandle );
+			nActionHandle = -1;
+			eBrowseState = BS_BROWSE;
+			RefreshControls();
 		}
 	}
 	return true;
@@ -221,11 +434,23 @@ void CInterfaceCloudBackups::Done()
 		NCloudSync::Release( nListHandle );
 		nListHandle = -1;
 	}
+	// A restore download deliberately keeps running - it stages a file and
+	// COMMITs last, so an unobserved finish is safe; only the handle goes.
+	if ( nActionHandle >= 0 )
+	{
+		NCloudSync::Release( nActionHandle );
+		nActionHandle = -1;
+	}
 	CInterfaceScreenBase::Done();
 }
 void CInterfaceCloudBackups::StartInterface()
 {
 	nListHandle = -1;
+	nActionHandle = -1;
+	nSelectedEntry = -1;
+	eBrowseState = BS_BROWSE;
+	bActionIsUndo = false;
+	eUndoWas = NCloudSync::UNDO_NONE;
 	entryIDs.clear();
 	CInterfaceScreenBase::StartInterface();
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
@@ -246,6 +471,7 @@ void CInterfaceCloudBackups::StartInterface()
 		std::snprintf( pszError, sizeof( pszError ), "%s", NCloudSync::LastError() );
 		SetStatus( "Textes\\UI\\CloudBackups\\unavailable", WideFromNarrow( pszError ) );
 	}
+	RefreshControls();
 
 	IInput *pInputSingleton = GetSingleton<IInput>();
 	pInputSingleton->PumpMessages( true );

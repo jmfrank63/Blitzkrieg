@@ -16,11 +16,25 @@ class CInterfaceCloudBackups : public CInterfaceScreenBase
 	// Poll handle of the running listing, -1 when settled.
 	int nListHandle;
 	// Row order after sorting; rows carry an index into this via user data.
-	// P07-M03's restore needs the entry id the engine gave us back.
+	// The restore needs the entry id the engine gave us back.
 	std::vector<std::string> entryIDs;
+
+	// The restore flow is a small state machine on the same screen: browse,
+	// then an explicit confirmation defaulting to the GFX-preserving merge,
+	// then a separate warning step for the full restore.
+	enum EBrowseState { BS_BROWSE, BS_CONFIRM, BS_CONFIRM_FULL };
+	int eBrowseState;
+	int nSelectedEntry;					// index into entryIDs, -1 when none
+	int nActionHandle;					// running restore or undo job, -1 when idle
+	bool bActionIsUndo;
+	int eUndoWas;								// availability when the undo began - names its result
 
 	void FillList();
 	void SetStatus( const char *pszTextKey, const std::wstring &szSuffix );
+	void SetExplain( const char *pszTextKey );
+	void RefreshControls();
+	void BeginRestore( int eMode );
+	void BeginUndo();
 
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );

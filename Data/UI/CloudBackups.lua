@@ -1,6 +1,6 @@
 function LuaProcessMessage( nMessageCode, nFirst, nSecond )
 	if ( nMessageCode == 536936448 ) then --NOTIFY STATE CHANGED
-		if ( nFirst == 10001 ) then
+		if ( nFirst == 10001 or nFirst == 10030 or nFirst == 10031 ) then
 			local nMessage = SetProcessedFlag( nFirst )
 			AddMessage( nMessage, nFirst, 1 )
 			return 1
