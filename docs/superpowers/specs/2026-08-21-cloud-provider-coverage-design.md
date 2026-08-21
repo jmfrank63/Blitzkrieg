@@ -151,6 +151,15 @@ the process.
 
 ## Size
 
-31.0 MB fetched, 84.3 MB installed, per platform. rclone is MIT, so
-redistribution is fine. The bundled binary must be signed and notarized with
-the macOS app.
+31.0 MB fetched, 84.3 MB installed, per platform.
+
+rclone is MIT, which requires the copyright and permission notice to travel
+with the copies. The official archive carries no `COPYING` — it holds the
+binary, a man page, two READMEs and a git log — so the notice ships in a
+third-party notices file we own rather than one extracted at build time.
+
+A shipped macOS build needs the nested executable signed before archiving,
+then the app notarized and stapled. That is excluded from the platform plan's
+scope and needs an Apple identity, so it is a separate credentialed release
+gate rather than a condition on the packaging packet — which must stay
+closable on an unsigned development build.

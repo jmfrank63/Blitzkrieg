@@ -9,10 +9,8 @@
 **Allowed files:** `build.zig`, `tools/zig/stage.zig`, `Data/THIRD-PARTY-NOTICES.txt`, `docs/superpowers/evidence/cloud-sync/bundled-rclone-size.md`, `tools/zig/verify_runtime.zig`.
 
 - [ ] Record measured fetched and installed size per platform. The macOS arm64 reference is 31.0 MB fetched, 84.3 MB installed.
-- [ ] **Signing and notarization are outside the platform plan's scope** — `2026-08-02-linux-macos-platform-port/README.md` excludes "installers, signing/notarization" explicitly — so this packet must not silently adopt them. Define the boundary instead of assuming it.
-- [ ] Record what is required for a signed release without implementing the credentialed parts: the nested executable must be signed before the archive is created (signing after zipping signs nothing), then the app notarized and the ticket stapled.
-- [ ] Automate only what needs no credentials — the ordering, and a `codesign --verify` check when an identity is available. Everything requiring an Apple identity is a human release gate, recorded as such.
-- [ ] State plainly that **`codesign --verify` does not establish notarization**; that needs `xcrun stapler validate` or an `spctl` assessment. A packet claiming a notarized build on the strength of `codesign` alone is claiming something it did not test.
+- [ ] **This packet does not sign anything, and its gate must be closable on an unsigned development build.** Signing and notarization are excluded by `2026-08-02-linux-macos-platform-port/README.md` ("installers, signing/notarization"), and an earlier draft both deferred them to a human gate *and* demanded `codesign --verify` in its evidence — which an unsigned build can never satisfy. That contradiction is removed: the signed-release gate belongs to `P00-M04`.
+- [ ] What this packet does own is the **ordering constraint that makes signing possible later**: the nested executable is staged as a normal file so it can be signed before the archive is built. Signing after archiving signs nothing, so a packaging step that zipped first would foreclose the release path.
 - [ ] Confirm `package-game` includes it and that the packaged layout still verifies, since the runtime verifier enumerates staged files.
 - [ ] Confirm the deterministic-package property the existing plan established is unaffected — the same input must still produce the same package hash.
 - [ ] **Ship rclone's licence text, not just a note that it exists.** MIT requires the copyright and permission notice to accompany copies; recording "rclone is MIT" in an evidence file does not discharge that.
@@ -21,4 +19,4 @@
 - [ ] Note the licence in the evidence file as well, with the path the notice ships at.
 - [ ] Commit checkpoint: `cloudsync: package the bundled rclone`.
 
-**Evidence:** Packaging passes per platform with sizes recorded, and on macOS the nested binary passes `codesign --verify`.
+**Evidence:** Packaging passes per platform with sizes recorded, the notices file present in the packaged layout, and the staged layout leaving the nested executable signable before archiving. No signature is asserted — see P00-M04.

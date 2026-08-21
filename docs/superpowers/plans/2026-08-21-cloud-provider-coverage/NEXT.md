@@ -63,16 +63,47 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Fifth correction round
+
+The previous round introduced an error of my own, corrected here, plus four
+edge cases. All settled by running rclone v1.75.0 rather than by argument.
+
+- **`FieldName` was the wrong key** for `config/create`, and the dotted-nesting
+  rule invented a case rclone does not have. Measured: no backend option has a
+  `FieldName` differing from its `Name`, no option name contains a dot, and a
+  flat `Name`-keyed create round-trips through `config/get` unchanged. Backend
+  configuration is keyed by `Name`; `FieldName` belongs to the global RC
+  option-struct JSON.
+- **Token read-back could destroy passwords.** `config/get` returns rclone's
+  *stored* values, and an `IsPassword` field comes back obscured — sending
+  `pass: "hunter2"` with `obscure: true` reads back as
+  `tEvsvLJ9Bj-HwIyGtwp6i-2G2eqU8jQ`. Merging that as plaintext and re-obscuring
+  on the next save double-obscures it and breaks authentication with the
+  original gone. Read-back now covers non-`IsPassword` fields only; tokens
+  qualify because on `drive` and `dropbox` they are `Sensitive` but not
+  `IsPassword`, which is the discriminator.
+- **A secret-only edit could rotate a migrated fingerprint**, since any option
+  change triggered recomputation and the new digest will not equal the legacy
+  `s3:{endpoint}/{bucket}` string. Rotation now compares backend, root and the
+  canonical non-secret projection only; secret-only edits keep the stored value
+  verbatim.
+- **OAuth continuations must resend the whole envelope** — `name`, `type` and
+  the full `parameters` map on every call, not just the continuation flags.
+  The stub asserts it.
+- **The signing requirement contradicted itself**: deferred to a human gate
+  while the evidence still demanded `codesign --verify`, which an unsigned
+  development build can never satisfy. P00-M03 now owns only the ordering
+  constraint that keeps signing possible, and a new `P00-M04` owns the
+  credentialed release gate — including that notarization needs `stapler
+  validate` or `spctl`, not `codesign`.
+
 ## Fourth correction round
 
 - **The schema change alone left `remoteParams` behind.** No bullet replaced
   it, so a generic schema would have had no way to reach rclone. It is now
-  explicitly rewritten to emit every saved option under its `FieldName` where
-  the catalogue supplies one and its `Name` otherwise — they differ, and
-  rclone's option block keys on the field name, so getting it wrong sends
-  values rclone ignores and the remote fails to authenticate while looking
-  configured. Dotted field names nest. Tested on `sftp`, not only on the two
-  backends we shipped.
+  explicitly rewritten to emit every saved option. **The `FieldName` rule
+  recorded here in that round was wrong and is corrected below**; the keying is
+  a flat `Name` map. Tested on `sftp`, not only on the two backends we shipped.
 - **Switching provider could carry credentials across.** Omission means
   preserve, and `user`/`pass`/`token` recur across backends, so a switch could
   have applied one service's password to another. Preservation now holds only
