@@ -1230,6 +1230,17 @@ pub fn build(b: *std.Build) void {
     stage_test_step.dependOn(&stage_tests.step);
     if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
 
+    const package_tests_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/package_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const package_tests = b.addTest(.{ .root_module = package_tests_module });
+    const package_tests_run = b.addRunArtifact(package_tests);
+    const package_test_step = b.step("test-package", "Run release zip writer tests");
+    package_test_step.dependOn(&package_tests.step);
+    if (test_mode == .run) package_test_step.dependOn(&package_tests_run.step);
+
     const present_fit_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/present_fit.zig"),
         .target = b.graph.host,
