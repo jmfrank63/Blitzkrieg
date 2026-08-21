@@ -63,6 +63,30 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Tenth round — signing removed entirely
+
+`P00-M04` is deleted and no Apple Developer identity is needed. The earlier
+rounds treated signing as a requirement to be scoped; it is not a requirement
+at all, which the binaries settle:
+
+```
+rclone (official v1.75.0):  Signature=adhoc, linker-signed  ->  spctl: rejected
+Game (this project):        Signature=adhoc, linker-signed
+```
+
+Both are ad-hoc signed — which is what lets an arm64 binary execute on Apple
+Silicon — and neither is notarized. The game already ships in that state, so a
+bundled rclone adds no Gatekeeper condition the project does not already have,
+and the platform plan excludes "installers, signing/notarization" outright.
+
+The nested-Mach-O rule that motivated the gate only applies to a Developer ID
+signed app. It survives as a one-line conditional in P00-M03: *if* the project
+ever adopts signing, the bundled rclone must be signed before the archive is
+built, because signing after archiving signs nothing. That is a constraint to
+remember, not a packet to execute.
+
+Sixteen packets. Nothing in the plan now requires a credential.
+
 ## Ninth correction round
 
 - **UI preservation could reintroduce a value the save path had just cleared.**

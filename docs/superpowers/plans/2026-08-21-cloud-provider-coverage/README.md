@@ -96,10 +96,10 @@ all to stderr.
 
 ## Packet index
 
-- `phase-00-bundled-rclone`: P00-M01 through P00-M04
+- `phase-00-bundled-rclone`: P00-M01 through P00-M03
 - `phase-01-provider-catalogue`: P01-M01 through P01-M04
 - `phase-02-generic-form`: P02-M01 through P02-M04
 - `phase-03-oauth`: P03-M01 through P03-M03
 - `phase-04-acceptance`: P04-M01 through P04-M02
 
-Seventeen packets. Each has an explicit allowlist, a failing test, an implementation boundary, commands, evidence, and a commit — **except `P00-M04`**, which is a credentialed human release gate with no code and therefore no failing test. It records approval, and nothing else in the plan depends on it.
+Sixteen packets. Each has an explicit allowlist, a failing test, an implementation boundary, commands, evidence, and a commit.

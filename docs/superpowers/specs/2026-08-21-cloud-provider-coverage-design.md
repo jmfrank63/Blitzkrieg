@@ -201,8 +201,11 @@ with the copies. The official archive carries no `COPYING` — it holds the
 binary, a man page, two READMEs and a git log — so the notice ships in a
 third-party notices file we own rather than one extracted at build time.
 
-A shipped macOS build needs the nested executable signed before archiving,
-then the app notarized and stapled. That is excluded from the platform plan's
-scope and needs an Apple identity, so it is a separate credentialed release
-gate rather than a condition on the packaging packet — which must stay
-closable on an unsigned development build.
+Signing does not enter into it. rclone's official macOS binary is ad-hoc,
+linker-signed and fails an `spctl` assessment — the same state as the game's
+own `Game` binary — so bundling it adds no Gatekeeper condition the project
+does not already have, and the platform plan excludes signing and notarization
+outright. The one thing worth remembering is conditional: *if* this project
+ever adopts Developer ID signing, a signed app requires every nested Mach-O to
+be signed, so the bundled rclone would have to be signed before the archive is
+built.
