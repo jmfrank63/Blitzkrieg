@@ -107,3 +107,30 @@ Also fixed here, pre-existing: the package stage directory was `<root>/game`,
 which on a case-insensitive filesystem collides with the staged `Game`
 executable — `package-game` had never worked on macOS. Renamed to `package`.
 
+P00-M04 macOS checkpoint: `package-game` now **completes** — 26 s, 2,876,018,942
+bytes, 63,728 entries — where it previously died `ProcessFdQuotaExceeded` and
+left a zero-byte archive. The walk holds one handle at a time. Permissions
+survive: exactly 17 entries are `-rwxr-xr-x` (`Game`, fifteen dylibs, `rclone`)
+and the other 63,711 stay `0644`, taken per source file rather than hardcoded.
+The extracted `rclone` runs with `PATH` emptied and reports v1.75.0. Three runs
+produced one hash, `52790811536b03191d40eb56a4a67a23cb6044a0773d3f22f5c05f3490d87b0d`.
+`test-package` 4/4, `verify-runtime` 11/11, daemon 27/27, streamio 32/32.
+Commit `6dccbc024`.
+
+The hash necessarily differs from P00-M03's `cbd57eb6…`: version-made-by and
+external attributes now differ in all 63,728 central-directory records. The
+1980-00-00 stamp and name ordering are untouched, so determinism is intact.
+
+A partial archive is now written as `.partial` and renamed only after the final
+flush, so a failure leaves nothing that looks like a product.
+
+**Carried forward, not fixed here: the layout is close to zip's hard ceiling.**
+63,728 entries against 65,535, and 2.88 GB against 4 GiB. The writer previously
+`@intCast` the entry count, sizes and offsets, so in ReleaseFast an overrun
+would have silently truncated into an archive that opens and lies; those casts
+now fail loudly as `TooManyEntries` / `ArchiveTooLarge`. Zip64 is the real fix
+and is not done — roughly 1,800 more files reaches the cliff.
+
+Windows and Linux packaging remain unverified; only `aarch64-macos` was
+exercised, since `-Dtest-mode=run` cannot cross.
+
