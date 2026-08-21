@@ -40,6 +40,7 @@ const creds = @import("creds.zig");
 const rc = @import("rc.zig");
 const daemon = @import("daemon.zig");
 const engine = @import("engine.zig");
+const plan = @import("plan.zig");
 
 const Allocator = std.mem.Allocator;
 const Io = std.Io;
@@ -131,6 +132,10 @@ pub const Options = struct {
     deadline: ?rc.Deadline = null,
     /// How the worker obtains the rclone binary when it must spawn.
     binary_source: ?BinarySource = null,
+    /// Where the short profile link lives. Tests point this at a fixture;
+    /// production leaves the defaults (`%LOCALAPPDATA%\bk` and friends).
+    /// Borrowed — the strings must outlive the worker.
+    link_roots: plan.Roots = .{},
 };
 
 pub const CreateError = Allocator.Error || error{ConcurrencyUnavailable};
@@ -159,6 +164,7 @@ pub const Worker = struct {
     endpoint: ?rc.Endpoint,
     deadline: ?rc.Deadline,
     binary_source: ?BinarySource,
+    link_roots: plan.Roots,
 
     mutex: Io.Mutex = .init,
     snapshot: Snapshot = .{},
@@ -189,6 +195,7 @@ pub const Worker = struct {
             .endpoint = options.endpoint,
             .deadline = options.deadline,
             .binary_source = options.binary_source,
+            .link_roots = options.link_roots,
         };
 
         // `concurrent`, not `async`: the whole point is a task that runs
@@ -342,6 +349,23 @@ pub const Worker = struct {
             };
             self.publishDone(.undo_done);
             return;
+        }
+
+        // Path1 must never be the install path: bisync spends the 255-byte
+        // session-name budget on Path1's absolute bytes, so every
+        // transfer-shaped job runs through the short link
+        // (`<linkRoot>/p<slot>`), created or reused here — which also makes
+        // the budget projection measure the exact bytes rclone will mangle,
+        // and holds Path1 constant so only the profile name (Path2) varies.
+        // A machine where the link cannot be made falls back to the raw
+        // path; the budget check still refuses a name past the limit.
+        var short_link: ?plan.ShortLink = null;
+        defer if (short_link) |*link| link.deinit(self.gpa);
+        if (box.kind == .pair or box.kind == .sync or box.kind == .restore_stage) {
+            if (plan.ensureShortLinkIn(self.gpa, self.io, self.link_roots, box.ctx.path1)) |link| {
+                short_link = link;
+                box.ctx.path1 = link.path;
+            } else |_| {}
         }
 
         const eng = self.ensureSession(session) orelse return;
