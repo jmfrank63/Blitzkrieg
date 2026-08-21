@@ -22,6 +22,43 @@ Two things, both from the cloud-profile-sync plan:
 
 Everything else in that plan stands.
 
+## Corrections applied after review
+
+The first draft would not have executed. Seven issues, all confirmed against
+the shipped code before being fixed:
+
+- **Backend names would have been truncated.** `Cloud.Provider` was to carry
+  the backend name, but `COptionSystem::Set` truncates strings over 12
+  characters to 8 — `googlecloudstorage`, `internetarchive` and
+  `oracleobjectstorage` would have become `googlecl`, `internet`, `oracleob`.
+  The option is now `OFF`/`ON` and the identity lives in `cloud.credentials`.
+- **The migration would have broken S3 bucket routing.** `remoteParams` says
+  the bucket is "deliberately not here — for S3 it is a path component,
+  carried by the alias target", and a `{backend, options}` schema had nowhere
+  to put it. The schema is now `{backend, options, remote_root}`, with the
+  fingerprint and alias target rebuilt from it.
+- **No packet owned the Zig-to-C++ chain** for the catalogue or the form, so
+  the renderer could never have received a form. P01-M03 and P02-M02 now own
+  those export chains — the same gap the sync plan hit and fixed, repeated.
+- **OAuth persistence was a sentence, not a design.** Refreshed tokens live in
+  rclone's config; the read-back points (`config/get` after authorisation,
+  after any refreshing operation, and before daemon shutdown) are now named.
+- **A fresh install could sit at `OFF` forever** — the settings list may not
+  start a daemon and an empty cache offers nothing, so nothing would ever
+  populate it. P01-M01 now owns a background bootstrap fetch.
+- **"Every backend is a provider" was too broad.** Twelve of the 69 are
+  wrappers or non-destinations; roughly 57 are real. P01-M04 filters them, and
+  the acceptance packets no longer imply that four backends prove the rest.
+- **Storage assumptions were outgrown.** The 16 KiB caps in `creds.zig` were
+  sized for "endpoints and keys"; the read path's failure mode is a silent
+  null. Sizing is dynamic under a documented limit, and the secret flag is
+  persisted per field so credentials load with no catalogue cached.
+
+Two smaller ones: `build.zig.zon` is a static literal and cannot interpolate a
+version into several URLs, and the "no provider names" invariant now carries
+three declared exceptions — the legacy migration, the destination filter, and
+the test fixture.
+
 ## Sizing
 
 31.0 MB fetched per platform, 84.3 MB installed. `strip` saves nothing —

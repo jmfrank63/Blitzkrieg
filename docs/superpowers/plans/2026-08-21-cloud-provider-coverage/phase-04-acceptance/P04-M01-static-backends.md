@@ -11,7 +11,7 @@
 - [ ] Configure and sync three backends chosen for their differences, entirely through the generic form: one S3-compatible, one WebDAV, and one that is neither — SFTP or Backblaze B2 native.
 - [ ] Run the full phase-02 cycle from the sync plan against each: pair, diverge on both sides, converge, conflict preserved, delete recoverable from both trashes.
 - [ ] Confirm the bisync session name stays inside the 241-byte budget for each, since a new backend brings a new remote-name shape.
-- [ ] Record which services were tested and which are inferred. Three passing does not prove 69.
+- [ ] Record which services were tested and which are inferred. **Three passing does not prove 57**, and 57 is the real number of destinations — twelve of rclone's 69 backends are wrappers or non-destinations that P01-M04 filters out. State the tested set and the untested remainder plainly rather than implying coverage.
 - [ ] Human approval required.
 - [ ] Commit checkpoint: `cloudsync: static-credential backend acceptance`.
 

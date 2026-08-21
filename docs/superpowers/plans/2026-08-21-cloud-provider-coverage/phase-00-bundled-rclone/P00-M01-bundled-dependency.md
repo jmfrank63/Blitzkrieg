@@ -9,7 +9,7 @@
 **Allowed files:** `build.zig.zon`, `build.zig`, `tools/zig/stage.zig`, `tools/zig/build_support.zig`.
 
 - [ ] Add one lazy dependency per target triple to `build.zig.zon`, following the existing `dxc_binary` entry exactly — official URL from `downloads.rclone.org`, pinned version, content hash. The binary never enters the repository.
-- [ ] Pin the version in one place and reference it from each URL, so a bump is a single edit rather than six.
+- [ ] **`build.zig.zon` is a static literal — it cannot interpolate a version into several URLs.** Write the version out in each entry and put the bump procedure in a comment beside them, or generate the file from a single source in a build step. Do not attempt a shared constant; there is no mechanism for one.
 - [ ] Extract and stage the binary into the game layout beside `libCloudSync.dylib` by adding it to `runtime_files` in `tools/zig/stage.zig`, with the platform-correct name (`rclone.exe` on Windows).
 - [ ] Mark the executable bit on POSIX. An archive member staged without it is found by discovery and then rejected as `.not_executable`, which is a confusing way to fail.
 - [ ] **Do not touch `daemon.zig`.** Discovery already searches the executable directory before `PATH`; if bundling appears to need a discovery change, the staging path is wrong. That is a stop condition.

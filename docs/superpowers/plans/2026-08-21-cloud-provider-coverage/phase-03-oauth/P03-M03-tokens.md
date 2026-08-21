@@ -6,11 +6,16 @@
 
 **Dependencies:** P03-M02.
 
-**Allowed files:** `Sources/src/CloudSync/creds.zig`, `Sources/src/CloudSync/creds_test.zig`, `Sources/src/CloudSync/oauth.zig`.
+**Allowed files:** `Sources/src/CloudSync/creds.zig`, `Sources/src/CloudSync/creds_test.zig`, `Sources/src/CloudSync/oauth.zig`, `Sources/src/CloudSync/engine.zig`, `Sources/src/CloudSync/daemon.zig`.
+
+The read-back points live in the engine and the daemon shutdown path, so both are in scope here.
 
 - [ ] Write the failing test with an expired token fixture.
 - [ ] Store the token as an ordinary option value, since rclone treats it as one. It is `Sensitive`, so the existing withheld-secret contract covers it with no new mechanism.
-- [ ] **Let rclone refresh it.** rclone owns the refresh cycle when it holds the token; our job is to persist what it writes back, not to implement OAuth refresh ourselves.
+- [ ] **Let rclone refresh it, then read it back — "persist what rclone writes" is not an implementation.** rclone writes the refreshed token into *its* config, not ours, so it must be read out explicitly with `config/get` for the remote (or `config/dump` when the whole set is wanted) and written to `cloud.credentials`.
+- [ ] Define exactly when the read-back happens: immediately after the authorisation flow completes, and after any operation that may have refreshed the token — a completed sync, a connection test, a backup run. A token refreshed and never read back is lost when the daemon exits.
+- [ ] Read back once more before daemon shutdown, so a refresh late in a session survives.
+- [ ] Write through the same atomic temp-then-rename path the credentials file already uses; a token half-written is an unusable credential.
 - [ ] Detect a token that can no longer be refreshed and map it to the existing `auth_failed` outcome, which already routes the player to the credentials dialog.
 - [ ] Confirm the token never reaches a log, an error string, or the config backup — `cloud.credentials` is excluded from both sync and backup, and a token living anywhere else would break that.
 - [ ] Commit checkpoint: `cloudsync: persist and refresh OAuth tokens`.

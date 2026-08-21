@@ -66,15 +66,29 @@ that the next rclone release exposes.
 ## Consequences
 
 - `Protocol` and the `Payload` union are **deleted**, replaced by
-  `{ backend: []const u8, options: map }`. This is a net simplification of
-  shipped code, not an addition to it.
-- `Cloud.Provider` cannot stay a static droplist. The option system already
-  supports code-populated lists through `szActionFill`
-  (`OptionSystemInternal.cpp:341`, as `GetGameSpeed` and `GetDifficulty` do),
-  so the list is filled from the catalogue.
+  `{ backend, options, remote_root }`. The remote root is not optional
+  bookkeeping: `remoteParams` states that for S3 the bucket is "deliberately
+  not here — for S3 it is a path component, carried by the alias target", so a
+  schema without it would migrate the bucket into an ordinary option and route
+  every sync at the account root instead of the bucket. Silent misplacement,
+  not a visible error.
+- **`Cloud.Provider` cannot carry the backend name at all.** `COptionSystem::Set`
+  truncates any string over 12 characters to 8, and `googlecloudstorage`,
+  `internetarchive` and `oracleobjectstorage` already exceed it — they would be
+  stored as `googlecl`, `internet`, `oracleob`. The option is reduced to
+  `OFF`/`ON`; the backend identity lives in `cloud.credentials`, and selection
+  moves into the credentials dialog.
+- **Not every backend is a provider.** Twelve of the 69 — `alias`, `archive`,
+  `cache`, `chunker`, `combine`, `compress`, `crypt`, `hasher`, `local`,
+  `memory`, `overview`, `union` — wrap another remote or are not independent
+  destinations. Roughly 57 are. Catalogue visibility and offered destinations
+  are different lists.
 - The catalogue needs the daemon, and the daemon needs rclone — so it is
   **cached to disk** after the first successful fetch. A cold start shows the
-  cached list; no cache yet is an empty list, never an error.
+  cached list; no cache yet is an empty list, never an error. Something must
+  perform that first fetch, or a fresh install never acquires one: a
+  background fetch runs at startup once availability detection succeeds, and
+  the settings screen refreshes asynchronously rather than blocking on it.
 - Credentials already saved under the two-arm union must keep working. The
   migration is mechanical, since `s3` and `webdav` are backend names rclone
   itself uses.
@@ -95,6 +109,15 @@ Storing only what the player set — never a copy of the defaults — matters fo
 the same reason as everything else here: a default that changes in a later
 rclone release should follow the release, not our saved file.
 
+Two storage consequences. Which fields are secret comes from catalogue
+metadata, but credentials must load with the cache absent, so the secret flag
+is persisted per field at save time rather than re-derived. And the existing
+16 KiB caps on reading and serialising `cloud.credentials` were sized when
+"endpoints and keys are hundreds of bytes at the outside" held; a backend with
+dozens of set options plus an OAuth token document can exceed that, and the
+read path's failure mode is to return null — silently losing the credentials.
+Sizing becomes dynamic under a documented limit, and exceeding it reports.
+
 ## OAuth
 
 `config/oauthstatus` and `config/oauthstop` exist, and `config/create` drives
@@ -102,6 +125,12 @@ rclone's interactive state machine, which is how GUI wrappers perform OAuth.
 Drive, Dropbox, OneDrive and the rest are therefore reachable, but they need a
 browser launch and a loopback callback, so they are their own phase rather
 than a case in the generic renderer.
+
+Refreshed tokens are rclone's to produce and ours to keep. rclone writes them
+into its own config, so they must be read back with `config/get` after
+authorisation and after any operation that may have refreshed one, and again
+before the daemon exits — otherwise a refresh late in a session is lost with
+the process.
 
 ## Size
 

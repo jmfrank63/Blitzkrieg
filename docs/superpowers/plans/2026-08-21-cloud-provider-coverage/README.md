@@ -33,10 +33,21 @@ all to stderr.
 
 ## Global invariants
 
-- **Nothing about a provider is hardcoded.** No backend name, field name,
-  vendor list or default appears in our source or data. Anything hardcoded is
-  a defect the next rclone release exposes. A packet that adds a provider
-  special case is wrong even if its tests pass.
+- **Nothing about a provider is hardcoded**, with three declared exceptions.
+  No backend name, field name, vendor list or default appears in our source or
+  data; anything hardcoded is a defect the next rclone release exposes, and a
+  packet that adds a provider special case is wrong even if its tests pass.
+  The exceptions, each of which must stay in one named place with a comment
+  giving its criterion:
+  1. the **legacy migration** in P01-M02, which necessarily names `s3` and
+     `webdav` to read files written by the two-arm build;
+  2. the **destination filter** in P01-M04, the twelve wrapper backends that
+     are not independent cloud destinations;
+  3. the **test fixture**, a snapshot of one rclone version's catalogue, which
+     is evidence about that version and never the truth about rclone.
+- **The provider list is offered, not exhaustive.** rclone has 69 backends;
+  twelve are wrappers, so roughly 57 are destinations. Say 57, not 69, and
+  never let an acceptance run of three or four imply the rest.
 - **Store only what the player set.** Never persist a copy of rclone's
   defaults; a default that changes upstream must follow upstream.
 - Secrets are never returned by the load path — a `has_secret` flag only, as
@@ -69,7 +80,7 @@ all to stderr.
 | Phase | Required gate |
 |---|---|
 | 00 | A fresh install reports cloud sync available with no rclone on `PATH` |
-| 01 | The provider list comes from the catalogue, survives a cold start from cache, and old credentials still load |
+| 01 | The provider list comes from the catalogue, reaches C++, survives a cold start, and old credentials still sync to the same bucket |
 | 02 | An arbitrary static-credential backend can be configured and connection-tested without a line of provider-specific code |
 | 03 | One OAuth backend authorises and syncs |
 | 04 | Three static backends and one OAuth backend pass end to end, and a newer rclone exposes a new provider with no game change |
@@ -77,10 +88,10 @@ all to stderr.
 ## Packet index
 
 - `phase-00-bundled-rclone`: P00-M01 through P00-M03
-- `phase-01-provider-catalogue`: P01-M01 through P01-M03
-- `phase-02-generic-form`: P02-M01 through P02-M03
+- `phase-01-provider-catalogue`: P01-M01 through P01-M04
+- `phase-02-generic-form`: P02-M01 through P02-M04
 - `phase-03-oauth`: P03-M01 through P03-M03
 - `phase-04-acceptance`: P04-M01 through P04-M02
 
-Fourteen packets. Each has an explicit allowlist, a failing test, an
+Sixteen packets. Each has an explicit allowlist, a failing test, an
 implementation boundary, commands, evidence, and a commit.

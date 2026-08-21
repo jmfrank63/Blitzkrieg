@@ -1,20 +1,20 @@
-# P01-M02 — generic credentials schema
+# P01-M02 — generic schema with remote root
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`; stop after this packet.
 
-**Objective:** Replace the two-arm union with a backend name and an option map, without losing saved credentials.
+**Objective:** Replace the two-arm union with a schema that can express any backend, without losing saved credentials or breaking S3 bucket routing.
 
 **Dependencies:** P01-M01.
 
-**Allowed files:** `Sources/src/CloudSync/creds.zig`, `Sources/src/CloudSync/creds_test.zig`, `Sources/src/CloudSync/cloudsync.zig`, `Sources/src/CloudSync/CloudSync.def`, `Sources/src/CloudSync/CloudSync.x64.def`, `tools/zig/cloudsync_abi_test.cpp`.
+**Allowed files:** `Sources/src/CloudSync/creds.zig`, `Sources/src/CloudSync/creds_test.zig`.
 
-- [ ] Write the failing migration test first, using a real `cloud.credentials` file written by the current two-arm code.
-- [ ] Replace `Protocol` and `Payload` with `{ backend: []const u8, options: StringHashMap([]const u8), rclone_path: ?[]const u8 }`. This deletes code; resist the urge to keep the enum "for convenience", since it is exactly the hardcoding this plan exists to remove.
-- [ ] **Migrate in place.** An existing file with `protocol: "s3"` becomes `backend: "s3"` with its fields as options; the same for `webdav`. Both names are rclone backend names already, so the mapping is identity. Migrate on load and rewrite on next save.
-- [ ] Preserve the secret contract exactly: values whose catalogue entry sets `IsPassword` or `Sensitive` are never returned by the load path, only a per-field `has_value` flag.
-- [ ] **Store only what the player set.** Never write a value equal to the catalogue default — a default that changes upstream must follow upstream.
-- [ ] Update `remoteParams` to emit `{"type": backend, ...options}` generically, and keep `remoteName` short so the bisync session-name budget is unaffected.
-- [ ] Own the whole export path for any signature change, per the ABI amendment rule.
-- [ ] Commit checkpoint: `cloudsync: generic credentials schema`.
+- [ ] Write the failing migration test first, against a real `cloud.credentials` written by the current two-arm build — one S3, one WebDAV.
+- [ ] **The schema is `{ backend, options, remote_root }`, not `{ backend, options }`.** `remoteParams` says it outright: *"The bucket is deliberately not here — for S3 it is a path component, carried by the alias target."* An options-only map has nowhere to put the bucket, and migrating it as an option would route every S3 sync at the account root instead of the bucket. That is silent data misplacement, not a config error.
+- [ ] Migrate `s3` by moving its `bucket` into `remote_root` and its remaining fields into `options`; migrate `webdav` by moving its fields into `options` with an empty `remote_root`. Both protocol names are rclone backend names already, so the backend field is an identity mapping.
+- [ ] Update the alias target and the pairing fingerprint to be built from `backend` + `remote_root` rather than the old per-arm fields, and assert an already-paired profile keeps its fingerprint across the migration — a changed fingerprint would demand a re-pair and, worse, look like a new remote.
+- [ ] **Classify secrets independently of the catalogue.** Which fields are secret currently comes from catalogue metadata, but the cache can be absent while credentials still must load. Persist a per-field secret flag at save time, so the withheld-secret contract holds with no catalogue at all.
+- [ ] **Replace the 16 KiB caps** at `load` and in the serializer. They were sized when the comment "endpoints and keys are hundreds of bytes at the outside" was true; a backend with dozens of set options plus an OAuth token document can exceed it, and the failure mode of `load` is to return null — silently losing the credentials. Size dynamically with a documented safety limit, and make exceeding it a reported error rather than a null.
+- [ ] **Store only what the player set.** Never persist a value equal to the catalogue default.
+- [ ] Commit checkpoint: `cloudsync: generic credentials schema with remote root`.
 
-**Evidence:** A credentials file written by the previous build loads, migrates, syncs, and round-trips; secrets stay withheld; no stored value duplicates a catalogue default.
+**Evidence:** A credentials file from the previous build migrates, keeps its fingerprint, and syncs to the same bucket path; a 64 KiB credentials document round-trips; secrets stay withheld with the catalogue cache deleted.
