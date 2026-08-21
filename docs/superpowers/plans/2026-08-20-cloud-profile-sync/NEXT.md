@@ -1,8 +1,22 @@
 # Next Packet
 
-Resume at `phase-06-cpp-integration/P06-M03-push-hooks.md`.
+Resume at `phase-08-acceptance/P08-M01-macos-acceptance.md`, then `P08-M03`
+and `P08-M04`. `P08-M02` (Windows) is already done, out of order, because the
+machine was available.
 
-**Phases 00 through 05 are complete; P06-M01 and P06-M02 are done.** The
+**Phases 00 through 07 are complete.** The pointer above previously read
+`P06-M03`; that packet and everything through `P07-M03` are committed, with
+checkpoints in their phase manifests — the resume line simply was not updated
+alongside them. Note also that packet checkboxes stopped being ticked after
+`P01-M01`; the manifests and commits are authoritative, not the boxes.
+
+A follow-on plan now exists at
+`docs/superpowers/plans/2026-08-21-cloud-provider-coverage/`, which bundles
+rclone and replaces this plan's two-provider credentials schema with one
+driven by rclone's own catalogue. It revises `P03-M01`'s `creds.zig` and
+`P05-M02`'s `Cloud.Provider` droplist; everything else here stands.
+
+**Earlier state, retained for context:** The
 game pairs and syncs at startup against a live S3 store, measured on the
 release build. Phase 00's gate is met
 on macOS **and now on Windows** — see the two manifests. On 2026-08-20 the
