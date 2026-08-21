@@ -50,6 +50,10 @@ Hide  Default  DefaultStr  Exclusive  FieldName  NoPrefix  Provider
 ShortOpt  Value  ValueStr
 ```
 
+Those eighteen are the union across all backends. `Groups`, which rclone's
+general option-block documentation lists, does not appear on any backend
+option record — it belongs to the global options surface.
+
 Take that list as the union across all backends. `Provider` is absent from
 s3's first option and present on 35 options overall, which is precisely how it
 gets missed by sampling one entry.
@@ -140,6 +144,12 @@ func MatchProvider(providerConfig, provider string) bool {
 Both empty cases match everything, so a backend with no vendor chosen yet shows
 all conditional fields rather than none. Without this filtering a Wasabi user
 is offered AWS-only regions; one comma list names 51 S3 vendors.
+
+Filtering reaches values, not only fields. An option can stay applicable while
+its examples change — `s3`'s `region` names 39 vendors on the option itself but
+carries 153 provider-tagged examples — so a stored value in a closed
+(`Exclusive`) field must be cleared when the new vendor does not offer it.
+Editable fields keep whatever was typed.
 
 `Hide` follows rclone's visibility constants — `OptionHideCommandLine = 1`,
 `OptionHideConfigurator = 2`, `OptionHideBoth = 3` — so treating any non-zero

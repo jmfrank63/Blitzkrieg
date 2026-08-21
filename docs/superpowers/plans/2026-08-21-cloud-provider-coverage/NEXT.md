@@ -63,6 +63,31 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Eighth correction round
+
+Edge cases rather than structure, and two of them corrected my own examples.
+
+- **Vendor cleanup missed invalidated values.** Dropping options whose
+  `Provider` stops matching does not cover an option that stays applicable
+  while its *examples* change: a closed (`Exclusive`) field can keep a value
+  the new vendor never offers. That value is now cleared, editable fields are
+  left alone, and the test is synthetic because exactly one option across all
+  69 backends is `Exclusive` today.
+- **My AWS-to-Wasabi example was wrong.** `region` is not AWS-only — its own
+  expression names 39 vendors including Wasabi, so it survives the switch;
+  only its 153 provider-tagged examples change. The persistence test now uses
+  a genuinely AWS-only option (`requester_pays`, `use_accelerate_endpoint`,
+  `leave_parts_on_error`, `sts_endpoint`, `directory_bucket`), and the
+  region-example test stays where it belongs, in P02.
+- **The ABI carried more than the model needs.** P02-M02 passed the current
+  option map while P02-M01 takes only backend and provider, which would have
+  serialised freshly typed secrets across the boundary on every rebuild. Only
+  backend and provider cross; the dialog preserves typed values by field name.
+- **The field list omitted `Value` and `ValueStr`.** Added. `Groups` is *not*
+  present on backend option records in v1.75.0 despite appearing in the
+  general option-block documentation, so it is tolerated as an unknown field
+  rather than modelled.
+
 ## Seventh correction round
 
 - **Provider rebuilding stopped at the Zig model.** P02-M01 took a

@@ -13,7 +13,7 @@
 - [ ] Provide a show-advanced toggle, collapsed by default.
 - [ ] Bind masked fields to the withheld-secret contract: a stored secret shows a placeholder and is sent only when the player types a new one.
 - [ ] Populate droplists from `Examples`, showing the example help where the catalogue provides it.
-- [ ] **Rebuild the form when the `provider` field changes**, preserving what the player has already typed into fields that still apply. Selecting a vendor is not an ordinary edit: it changes which fields exist. Without this the dialog shows whatever the first build produced and quietly offers the wrong options.
+- [ ] **Rebuild the form when the `provider` field changes**, preserving what the player has already typed into fields that still apply. The preservation happens here, matched by field name — the model is asked only for the new field list, so no typed secret crosses the ABI during a rebuild. Selecting a vendor is not an ordinary edit: it changes which fields exist. Without this the dialog shows whatever the first build produced and quietly offers the wrong options.
 - [ ] Verify the rebuild headlessly: choose `s3`, capture the form under `AWS`, switch to `Wasabi`, and capture again — the region choices must differ, and values typed into still-applicable fields must survive the switch.
 - [ ] Some backends have dozens of basic fields. The list scrolls; it does not truncate.
 - [ ] Trigger `ensureCatalogue` when the dialog opens and **poll it** like any other job, showing a fetching state; the fetch can spawn a daemon and must not block the UI thread.
