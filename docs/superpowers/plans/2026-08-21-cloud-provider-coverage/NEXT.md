@@ -63,6 +63,45 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Fourth correction round
+
+- **The schema change alone left `remoteParams` behind.** No bullet replaced
+  it, so a generic schema would have had no way to reach rclone. It is now
+  explicitly rewritten to emit every saved option under its `FieldName` where
+  the catalogue supplies one and its `Name` otherwise — they differ, and
+  rclone's option block keys on the field name, so getting it wrong sends
+  values rclone ignores and the remote fails to authenticate while looking
+  configured. Dotted field names nest. Tested on `sftp`, not only on the two
+  backends we shipped.
+- **Switching provider could carry credentials across.** Omission means
+  preserve, and `user`/`pass`/`token` recur across backends, so a switch could
+  have applied one service's password to another. Preservation now holds only
+  while the backend is unchanged, with a cross-backend isolation test.
+- **The fingerprint rule still needed forbidden knowledge** — "an obvious
+  endpoint field" is field-name hardcoding, and the catalogue does not say
+  which fields define a remote. One generic rule replaces it: keep the stored
+  value while backend, root and options are unchanged; otherwise recompute
+  from backend, root and a canonical digest of non-secret, non-default options.
+- **P00-M03 was not executable.** The official archive has **no `COPYING`** —
+  verified: it holds `rclone`, `rclone.1`, `README.html`, `README.txt` and
+  `git-log.txt`, with the MIT text buried in the README. The notice now ships
+  in a `Data/THIRD-PARTY-NOTICES.txt` we own rather than scraped at build time.
+  Signing and notarization are excluded by the platform plan, so the packet
+  records the required ordering and marks the credentialed steps a human
+  release gate — and notes that `codesign --verify` does not establish
+  notarization at all.
+- **OAuth request casing was wrong.** rclone's documentation gives the request
+  `opt` keys as lowercase `state`, `result`, `continue`, `nonInteractive`,
+  while replies carry `State`, `Option`, `Error`. Posting the capitalised
+  spelling is ignored, so the loop hangs rather than failing. `form.zig` is
+  also in the allowlist now, since the reply's `Option` block shares the
+  catalogue option's shape and the conversion should be shared, not copied.
+- **Two verification paths lacked ownership**: the write probe must use
+  `operations/copyfile` from a local temp file, because `rc.Client` posts JSON
+  only and `uploadfile` needs multipart; and the final token read-back needs
+  `worker_test.zig` so the teardown sequencing is tested rather than asserted
+  by inspection.
+
 ## Third correction round
 
 - **The generic fingerprint collapsed distinct remotes.** Deriving it from
