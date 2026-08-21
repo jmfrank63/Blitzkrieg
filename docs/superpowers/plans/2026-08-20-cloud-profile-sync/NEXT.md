@@ -85,11 +85,19 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-08-acceptance/P08-M02-windows-acceptance.md` — phase 07
-is closed (P07-M03, commit `1f2776d15`). Phase 08 is the acceptance
-matrix: P08-M02 (Windows) runs on this machine; P08-M01 (macOS), P08-M03
-(Linux) and P08-M04 (two machines) need other hosts — stop and hand off
-there.
+**Next: the machine work on Windows is done.** Phases 00–07 are closed and
+P08-M02's machine-verifiable items are measured (commit `e6a2ce102` —
+including the short-link wiring that item exposed as missing). What
+remains needs a human or another machine:
+
+1. **Human playability approval on Windows** (P08-M02's last box): play
+   the shipped build, then record the approval in
+   `evidence/cloud-sync/p08-m02-windows.md` and close the packet.
+2. **P08-M01 on the Mac** — carry the branch there; note the short-link
+   wiring changed session names, so a profile paired before `e6a2ce102`
+   re-pairs once (wipe `cloudsync/state` if it refuses).
+3. **P08-M03 on Linux**, **P08-M04 across two machines** — in packet
+   order after M01.
 
 ## Corrections applied after review
 
