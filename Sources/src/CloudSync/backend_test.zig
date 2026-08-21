@@ -494,15 +494,20 @@ test "the phase-02 cycle passes against a real S3 remote" {
 
     const endpoint = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{minio.port});
     defer gpa.free(endpoint);
+    // The generic schema exactly as the credentials packet defines it: the
+    // bucket is the remote root, not an option, and both `Sensitive` fields
+    // carry the flag the catalogue declares for them.
+    var s3_options = [_]creds.Option{
+        .{ .name = "provider", .value = "Minio" },
+        .{ .name = "endpoint", .value = endpoint },
+        .{ .name = "region", .value = "us-east-1" },
+        .{ .name = "access_key_id", .value = minio_user, .secret = true },
+        .{ .name = "secret_access_key", .value = minio_password, .secret = true },
+    };
     try runCycle(gpa, tio, &client, &fixture, game_dir, scratch, .{
-        .payload = .{ .s3 = .{
-            .s3_provider = "Minio",
-            .endpoint = endpoint,
-            .bucket = bucket,
-            .region = "us-east-1",
-            .access_key = minio_user,
-            .secret = minio_password,
-        } },
+        .backend = "s3",
+        .remote_root = bucket,
+        .options = &s3_options,
     });
 }
 
@@ -554,15 +559,17 @@ test "the phase-02 cycle passes against a real WebDAV server" {
 
     const url = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{port});
     defer gpa.free(url);
+    var dav_options = [_]creds.Option{
+        .{ .name = "url", .value = url },
+        // "owncloud" is the vendor whose mtime handling `rclone serve
+        // webdav` implements; plain "other" drops modification times and
+        // would misresolve every newer-wins comparison.
+        .{ .name = "vendor", .value = "owncloud" },
+        .{ .name = "user", .value = "dav", .secret = true },
+        .{ .name = "pass", .value = "dav-secret-123", .secret = true, .is_password = true },
+    };
     try runCycle(gpa, tio, &client, &fixture, game_dir, scratch, .{
-        .payload = .{ .webdav = .{
-            .url = url,
-            // "owncloud" is the vendor whose mtime handling `rclone serve
-            // webdav` implements; plain "other" drops modification times and
-            // would misresolve every newer-wins comparison.
-            .vendor = "owncloud",
-            .user = "dav",
-            .pass = "dav-secret-123",
-        } },
+        .backend = "webdav",
+        .options = &dav_options,
     });
 }
