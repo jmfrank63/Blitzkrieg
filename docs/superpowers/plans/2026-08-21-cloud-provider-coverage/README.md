@@ -41,13 +41,22 @@ all to stderr.
   giving its criterion:
   1. the **legacy migration** in P01-M02, which necessarily names `s3` and
      `webdav` to read files written by the two-arm build;
-  2. the **destination filter** in P01-M04, the twelve wrapper backends that
-     are not independent cloud destinations;
+  2. the **candidate filter** in P01-M04, the eleven backends that wrap
+     another remote or are not cloud destinations;
   3. the **test fixture**, a snapshot of one rclone version's catalogue, which
      is evidence about that version and never the truth about rclone.
-- **The provider list is offered, not exhaustive.** rclone has 69 backends;
-  twelve are wrappers, so roughly 57 are destinations. Say 57, not 69, and
+- **Offered is not the same as verified, and neither has a number.** rclone
+  has 69 backends; eleven wrap another remote or are not cloud destinations,
+  and the rest are *candidates*. Nothing in the catalogue says whether a
+  candidate supports the writable, deletable semantics bisync needs — some
+  backends are read-only or restrict deletion — so a writable connection test,
+  not a count, decides. Never state a figure for "supported providers", and
   never let an acceptance run of three or four imply the rest.
+- **A fresh install must be able to acquire a catalogue.** Startup cannot do
+  it: `GameMain.cpp` reaches `Available()` only when cloud sync is already
+  enabled, so a first-run player would never trigger it. The catalogue is
+  fetched on first need — opening the credentials dialog — and refreshed
+  opportunistically after a successful sync.
 - **Store only what the player set.** Never persist a copy of rclone's
   defaults; a default that changes upstream must follow upstream.
 - Secrets are never returned by the load path — a `has_secret` flag only, as

@@ -6,7 +6,7 @@
 
 | Packet | Depends on | Owns |
 |---|---|---|
-| P03-M01 | P02-M03 | rc config state machine |
+| P03-M01 | P02-M04 | rc config state machine |
 | P03-M02 | M01 | browser launch and callback |
 | P03-M03 | M02 | token storage and refresh |
 

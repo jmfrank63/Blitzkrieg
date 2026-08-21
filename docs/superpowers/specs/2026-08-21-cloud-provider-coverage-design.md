@@ -78,17 +78,30 @@ that the next rclone release exposes.
   stored as `googlecl`, `internet`, `oracleob`. The option is reduced to
   `OFF`/`ON`; the backend identity lives in `cloud.credentials`, and selection
   moves into the credentials dialog.
-- **Not every backend is a provider.** Twelve of the 69 — `alias`, `archive`,
-  `cache`, `chunker`, `combine`, `compress`, `crypt`, `hasher`, `local`,
-  `memory`, `overview`, `union` — wrap another remote or are not independent
-  destinations. Roughly 57 are. Catalogue visibility and offered destinations
-  are different lists.
+- **Not every backend is a provider, and the remainder is not a number.**
+  Eleven of the 69 — `alias`, `archive`, `cache`, `chunker`, `combine`,
+  `compress`, `crypt`, `hasher`, `local`, `memory`, `union` — wrap another
+  remote or are not cloud destinations. (Note `overview` is *not* a backend;
+  it appears in lists built by scraping rather than by asking
+  `config/providers`.) The rest are **candidates**, not verified destinations:
+  nothing in the catalogue states whether a backend supports the writable,
+  deletable semantics bisync needs, and some are read-only or restrict
+  deletion. A writable connection test decides, per configuration.
 - The catalogue needs the daemon, and the daemon needs rclone — so it is
   **cached to disk** after the first successful fetch. A cold start shows the
   cached list; no cache yet is an empty list, never an error. Something must
   perform that first fetch, or a fresh install never acquires one: a
   background fetch runs at startup once availability detection succeeds, and
   the settings screen refreshes asynchronously rather than blocking on it.
+
+  Startup is the wrong trigger, though it looks like the obvious one.
+  `GameMain.cpp` reaches `NCloudSync::Available()` only inside
+  `Cloud.Enabled && Cloud.Sync.OnStartup`, and a fresh profile has both off —
+  so a startup bootstrap would never run for precisely the players who have no
+  catalogue. The fetch happens on first need instead: opening the credentials
+  dialog, which is a deliberate action where spawning a daemon is acceptable,
+  plus an opportunistic refresh after a successful sync where the daemon is
+  already running.
 - Credentials already saved under the two-arm union must keep working. The
   migration is mechanical, since `s3` and `webdav` are backend names rclone
   itself uses.
@@ -102,6 +115,7 @@ that the next rclone release exposes.
 | `IsPassword` or `Sensitive` | masked; never returned by the load path |
 | `Advanced` | hidden behind a toggle — this is what keeps s3's 78 options usable |
 | `Required` | validated before the connection test |
+| remote root | not described by the catalogue at all — we supply a generic label and help |
 | `Hide` | not rendered at all |
 | `Default` / `DefaultStr` | placeholder, and omitted from what we store |
 

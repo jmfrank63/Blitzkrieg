@@ -14,6 +14,9 @@
 - [ ] Serialise across the boundary as JSON into a caller-supplied buffer, matching `discovery_status`, rather than inventing a second marshalling style.
 - [ ] Report a too-small buffer as a required size rather than truncating, since option sets vary by orders of magnitude between backends.
 - [ ] Keep the withheld-secret contract at the boundary: the load export returns per-field `has_value` flags, never secret values.
+- [ ] **Replace `bk_cloudsync_creds_clear_secret()`, which takes no arguments.** It was written when a backend had one secret; the generic schema can carry several — an S3 secret key, an SFTP passphrase, an OAuth token — and an argument-free clear cannot say which. Provide a per-field clear naming the option, and keep the old export only if something still calls it, in which case document what it clears.
+- [ ] Decide and document the save representation of "clear this field": an explicitly empty value must be distinguishable from an omitted one, because omitted means *preserve* under the existing contract. Getting this wrong silently keeps a credential the player asked to remove.
+- [ ] Export `ensureCatalogue` from P01-M01 as part of this chain, since the dialog in P02-M03 needs to trigger it and cannot reach Zig directly.
 - [ ] Commit checkpoint: `cloudsync: expose the catalogue and credentials through the ABI`.
 
-**Evidence:** The C++ consumer enumerates providers from the cached catalogue, reads one backend's option list, and round-trips a credentials document with secrets withheld.
+**Evidence:** The C++ consumer enumerates providers, reads one backend's option list, round-trips a credentials document with secrets withheld, clears one named secret while leaving another intact, and triggers `ensureCatalogue`.
