@@ -44,3 +44,31 @@ Linux from this macOS host has no libc headers. Reproduced on the unchanged
 tree by stashing. The Linux rclone itself fetched and installed correctly
 before that failure.
 
+P00-M02 macOS checkpoint: 27/27 daemon tests and 10/10 ABI tests plus the C++
+consumer pass, with and without a real rclone available; `rc`, `plan` and
+`streamio` unaffected; `x86_64-linux-gnu` and `x86_64-windows-gnu` compile.
+Commit `a70a3dab9`. Tests only — `daemon.zig` was not touched, which is the
+right outcome: P00-M01 already made discovery search the executable's directory.
+
+The mutation check is what makes these tests worth having. Removing the staging
+produced three Zig failures and four C++ failures; mutating one assertion
+inside the `BK_TEST_RCLONE` branch failed only that line, proving the
+real-binary branch runs rather than silently skipping.
+
+How the fixtures avoid depending on the build output:
+
+- Zig injects a `TmpDir` as `Search.game_dir` with `path_env = ""`, so no path
+  under `zig-out` appears. Stubs are `/bin/sh` scripts printing chosen banners.
+- C++ has no `game_dir` injection — `bk_cloudsync_available` uses
+  `std.process.executableDirPath` — so the consumer finds its own directory
+  (`_NSGetExecutablePath`, `/proc/self/exe`, `GetModuleFileNameA`) and stages
+  `rclone` beside itself, which is exactly the shipped neighbour relationship.
+  It refuses to overwrite a pre-existing neighbour and restores `PATH`.
+- Identity is proved by version rather than by path string: the stubs print
+  `v9.75.3` and `v9.66.1`, versions no real rclone has printed, so seeing one
+  in `discovery_status` proves which binary answered.
+
+Windows remains compile-verified only: the C++ stub cases are `#ifndef _WIN32`,
+so there the function runs only its real-binary branch and only when
+`BK_TEST_RCLONE` is set.
+
