@@ -1497,11 +1497,23 @@ pub fn build(b: *std.Build) void {
     const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_root, variant_suffix });
     const stage_game_name = platform_policy.executable_name;
     const stage_metadata_files = package_policy.required_metadata_files[0..];
-    const stage_runtime_files = switch (target.result.os.tag) {
-        .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
-        .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
-        else => &[_][]const u8{stage_game_name},
+    // rclone ships beside the game so cloud sync works on a machine with
+    // nothing on PATH: daemon discovery already searches the executable's own
+    // directory before PATH, so bundling is entirely a staging job and needs no
+    // discovery change. stage.zig copies these names out of zig-out/bin, which
+    // is why the binary is installed there first, below game-all.
+    const rclone_bundle = build_support.bundledRclone(platform);
+    const stage_runtime_files = stage_files: {
+        const engine_files: []const []const u8 = switch (target.result.os.tag) {
+            .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
+            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+            .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
+            else => &[_][]const u8{stage_game_name},
+        };
+        const files = b.allocator.alloc([]const u8, engine_files.len + 1) catch @panic("OOM");
+        @memcpy(files[0..engine_files.len], engine_files);
+        files[engine_files.len] = rclone_bundle.installed_name;
+        break :stage_files files;
     };
     const stage_debug_files = if (target.result.os.tag == .windows)
         &[_][]const u8{ "Game.pdb", "StreamIO.pdb", "StreamIOOptionsAbi.pdb", "Anim.pdb", "GFXGPU.pdb", "Image.pdb", "Input.pdb", "Net.pdb", "SFX.pdb", "UI.pdb", "Scene.pdb", "AILogic.pdb", "GameTT.pdb" }
@@ -1915,6 +1927,28 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(cloudsync, .{}).step);
+
+    // Only the archive matching -Dtarget is ever asked for, and it is lazy, so
+    // the ~31 MB download is not part of the eager dependency set.
+    const rclone_dependency = b.lazyDependency(rclone_bundle.dependency, .{}) orelse return;
+    const rclone_archive_member = rclone_dependency.path(rclone_bundle.archive_member);
+    // Zig's zip extraction does not carry a member's unix mode, so the archive
+    // copy of rclone arrives as 0644 and every copy after it inherits that:
+    // Step.installFile and stage.zig's copyFile both preserve the source's
+    // permissions. A staged rclone without the executable bit is found by
+    // discovery and then rejected as .not_executable, which is a confusing way
+    // to fail, so the bit goes on once here — before zig-out/bin — and staging
+    // and packaging carry it from there. Windows has no such bit and no
+    // `install`, so there it is a plain file copy.
+    const install_rclone = install_rclone: {
+        if (b.graph.host.result.os.tag == .windows)
+            break :install_rclone b.addInstallBinFile(rclone_archive_member, rclone_bundle.installed_name);
+        const mark_executable = b.addSystemCommand(&.{ "install", "-m", "0755" });
+        mark_executable.addFileArg(rclone_archive_member);
+        const executable_copy = mark_executable.addOutputFileArg(rclone_bundle.installed_name);
+        break :install_rclone b.addInstallBinFile(executable_copy, rclone_bundle.installed_name);
+    };
+    game_all_step.dependOn(&install_rclone.step);
 
     const stage_tool = b.addExecutable(.{
         .name = "stage-game",
