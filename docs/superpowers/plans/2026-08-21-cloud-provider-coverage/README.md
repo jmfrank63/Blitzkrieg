@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement exactly one packet at a time. Do not combine packets. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship rclone with the game, and offer every provider rclone supports, discovered at runtime so a newer rclone brings new providers with no game change.
+**Goal:** Ship rclone with the game, and offer every backend rclone can configure as a destination, discovered at runtime so a newer rclone brings new providers with no game change. Wrappers and non-destinations are filtered; writability is confirmed per configuration rather than promised by a list.
 
-**Architecture:** The rclone binary is a hashed `build.zig.zon` dependency staged into the game layout, where `daemon.zig` discovery already looks first. Every provider screen is built from `config/providers` — rclone's own machine-readable catalogue of 69 backends and their options — rendered by one generic form. No provider name, field name or vendor list is written into our source.
+**Architecture:** The rclone binary is a hashed `build.zig.zon` dependency staged into the game layout, where `daemon.zig` discovery already looks first. Every provider screen is built from `config/providers` — rclone's own machine-readable catalogue of 69 backends and their options — rendered by one generic form, with the eleven wrapper backends filtered out. No provider name, field name or vendor list is written into our source.
 
 **Tech Stack:** Zig 0.16.0, C++17 game modules, rclone v1.75.0+ as a bundled binary, Windows x64, Linux x64, macOS arm64/x64.
 

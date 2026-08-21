@@ -6,14 +6,16 @@
 
 **Dependencies:** P02-M03.
 
-**Allowed files:** `Sources/src/CloudSync/form.zig`, `Sources/src/CloudSync/form_test.zig`, `Sources/src/CloudSync/engine.zig`, `Sources/src/GameTT/InterfaceCloudCredentials.cpp`.
+**Allowed files:** `Sources/src/CloudSync/form.zig`, `Sources/src/CloudSync/form_test.zig`, `Sources/src/CloudSync/engine.zig`, `Sources/src/CloudSync/engine_test.zig`, `Sources/src/GameTT/InterfaceCloudCredentials.cpp`, `Data/Textes/UI/CloudCredentials`, `Sources/src/Main/CloudSyncFacade.h`, `Sources/src/Main/CloudSyncFacade.cpp`.
 
 - [ ] Write the failing test with a fixture backend whose required field is blank.
 - [ ] Validate `Required` fields from the catalogue before the connection test runs, naming the field by its catalogue `Help` rather than a generic message.
-- [ ] Reuse `testConnection` unchanged — it issues `operations/list` against whatever remote parameters it is given and is already backend-agnostic. If it needs changing for a new backend, something upstream of it is hardcoded.
+- [ ] **Extend `testConnection`** — an earlier draft said to reuse it unchanged *and* to make it write, which cannot both hold. It stays backend-agnostic: if it ever needs a per-backend branch, something upstream is hardcoded and that is a stop condition. But the operation itself grows from listing to a write probe.
 - [ ] Confirm the remote root participates: a bucket typo must fail the test, not appear to succeed against the account root.
-- [ ] **Test writability, not just listing.** A successful `operations/list` proves the credentials resolve; it does not prove the backend accepts writes and deletes, which bisync requires — some are read-only or restrict deletion. Write a small probe object under the remote root, read it back, and delete it, reporting a listable-but-not-writable remote as its own outcome rather than passing it through to fail at the first sync.
-- [ ] Clean the probe up on every path, including failure. A stray probe object in a player's bucket is our litter.
+- [ ] **Test writability, not just listing.** A successful `operations/list` proves the credentials resolve; it does not prove the backend accepts writes and deletes, which bisync requires — some are read-only or restrict deletion. Write a small probe object under the remote root, read it back, then delete it.
+- [ ] Add a typed outcome for the listable-but-not-writable case. The current `Outcome` enum has no such member, and mapping it onto an existing one would tell the player the wrong thing — hence `engine.zig` and the UI text resource are both in the allowlist.
+- [ ] **Accept that cleanup can fail, because that is the condition under test.** If the upload succeeds and the delete is refused, the probe cannot be removed — demanding cleanup "on every path" is impossible exactly when it matters. Name the probe unmistakably (a fixed prefix plus a nonce, under the configured root), delete it on every path where deletion is permitted, and when it is not, **report the exact path left behind** so the player can remove it themselves.
+- [ ] Say so in the outcome text as well: a remote that accepts writes but refuses deletes cannot support sync, and it has one of our probe files in it.
 - [ ] Map failures through the existing `Outcome` vocabulary so the dialog and the sync path keep one voice.
 - [ ] Keep every secret out of logs and error strings through `redacted()`; a generic form makes it easy to leak a field nobody anticipated.
 - [ ] Commit checkpoint: `cloudsync: validate and test an arbitrary backend`.

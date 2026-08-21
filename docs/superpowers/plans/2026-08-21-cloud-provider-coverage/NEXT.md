@@ -14,11 +14,14 @@ interactive state machine.
 Two things, both from the cloud-profile-sync plan:
 
 - `Sources/src/CloudSync/creds.zig` — `Protocol = enum { s3, webdav }` and its
-  `Payload` union are replaced by a generic `{ backend, options }` map. This is
-  a **revision of working, committed code**, so the migration path for already
-  saved credentials is part of the packet, not an afterthought.
-- `Data/Configs/defconf.cfg` — `Cloud.Provider` stops being a static droplist
-  and is filled from the catalogue through `szActionFill`.
+  `Payload` union are replaced by `{ backend, options, remote_root }` with an
+  explicitly persisted fingerprint. This is a **revision of working, committed
+  code**, so migrating already-saved credentials — preserving their existing
+  fingerprint byte for byte — is part of the packet, not an afterthought.
+- `Data/Configs/defconf.cfg` — `Cloud.Provider` is reduced to a fixed `OFF`/`ON`
+  state, because the option system truncates strings over 12 characters. The
+  backend identity lives in `cloud.credentials` and is chosen in the
+  credentials dialog.
 
 Everything else in that plan stands.
 
@@ -59,6 +62,36 @@ Two smaller ones: `build.zig.zon` is a static literal and cannot interpolate a
 version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
+
+## Third correction round
+
+- **The generic fingerprint collapsed distinct remotes.** Deriving it from
+  `backend` + `remote_root` would make two S3 services sharing a bucket name
+  identical and give **every WebDAV configuration the same string `webdav:`**,
+  since their root is empty — and it could not have preserved existing
+  fingerprints across migration. The fingerprint is now persisted explicitly,
+  carried over byte-for-byte at migration, and rotated on backend, root or
+  non-secret connection identity. It is the connection identity, not the alias
+  target; the two had been conflated.
+- **`ensureCatalogue` had no worker ownership and no async contract.** Fetching
+  spawns a daemon and makes an rc call, so it is a worker job with
+  begin/poll/cancel/release exports, not a function the UI thread can call.
+  `worker.zig` is in P01-M01's allowlist and P02-M03 polls it.
+- **The writability probe contract was self-contradictory** — reuse
+  `testConnection` unchanged *and* make it write; clean up on every path *when
+  the failure under test is that deletion is refused*. Now: `testConnection` is
+  explicitly extended, a typed outcome and UI text are added because the
+  `Outcome` enum has no member for it, and an undeletable probe is reported by
+  exact path rather than pretended away.
+- **Remote-root requiredness cannot be derived**, so it is optional at form
+  validation and the writability test discovers it with a real error from the
+  service.
+- **The MIT licence needs shipping, not noting.** rclone's `COPYING` is staged
+  or folded into third-party notices, and its presence asserted.
+- Three authoritative documents still contradicted the corrected design, and
+  the staging instruction was wrong: `stage_runtime_files` is a name list built
+  in `build.zig`, and `stage.zig` copies those names from `zig-out/bin`, so the
+  extracted executable must be installed there first.
 
 ## Second correction round
 

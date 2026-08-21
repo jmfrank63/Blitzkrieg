@@ -1,8 +1,9 @@
 # Cloud Provider Coverage
 
 Cloud sync works, but it ships nothing and offers two providers. This document
-covers bundling rclone with the game and offering **every** backend rclone
-supports, discovered at runtime rather than enumerated in our source.
+covers bundling rclone with the game and offering every backend rclone can
+configure as a destination, discovered at runtime rather than enumerated in
+our source.
 
 Supersedes the credentials portion of
 `docs/superpowers/specs/2026-08-20-cloud-profile-sync-design.md`. Everything
@@ -22,6 +23,10 @@ two of them.
 
 **Bundle the stock rclone binary, and build every provider screen from
 rclone's own catalogue.**
+
+The game therefore offers every backend rclone can configure, minus the
+wrappers that are not cloud destinations, and confirms writability per
+configuration rather than promising a supported list.
 
 Not a trimmed build, and not librclone. Measured on v1.75.0 macOS arm64: the
 official archive is 31.0 MB and extracts to 84.3 MB, of which 33.3 MB is code
@@ -90,9 +95,7 @@ that the next rclone release exposes.
 - The catalogue needs the daemon, and the daemon needs rclone — so it is
   **cached to disk** after the first successful fetch. A cold start shows the
   cached list; no cache yet is an empty list, never an error. Something must
-  perform that first fetch, or a fresh install never acquires one: a
-  background fetch runs at startup once availability detection succeeds, and
-  the settings screen refreshes asynchronously rather than blocking on it.
+  perform that first fetch, or a fresh install never acquires one.
 
   Startup is the wrong trigger, though it looks like the obvious one.
   `GameMain.cpp` reaches `NCloudSync::Available()` only inside

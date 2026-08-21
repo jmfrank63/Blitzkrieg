@@ -14,7 +14,9 @@
 - [ ] Bind masked fields to the withheld-secret contract: a stored secret shows a placeholder and is sent only when the player types a new one.
 - [ ] Populate droplists from `Examples`, showing the example help where the catalogue provides it.
 - [ ] Some backends have dozens of basic fields. The list scrolls; it does not truncate.
-- [ ] Handle the empty catalogue explicitly — say the catalogue has not been fetched yet and offer a retry, rather than presenting an empty form. A fresh install can legitimately be in this state until the first bootstrap succeeds.
+- [ ] Trigger `ensureCatalogue` when the dialog opens and **poll it** like any other job, showing a fetching state; the fetch can spawn a daemon and must not block the UI thread.
+- [ ] Handle the empty catalogue explicitly — say it has not been fetched yet, show the failure reason when there is one, and offer a retry, rather than presenting an empty form. A fresh install is legitimately in this state until the first fetch succeeds.
+- [ ] Cancel an in-flight fetch if the player closes the dialog.
 - [ ] Verify headlessly with `BK_AUTO_UI` `click=` actions, capturing s3, webdav and one OAuth-bearing backend so the differing field sets are visible in the evidence.
 - [ ] Commit checkpoint: `settings: render the credentials form from the catalogue`.
 
