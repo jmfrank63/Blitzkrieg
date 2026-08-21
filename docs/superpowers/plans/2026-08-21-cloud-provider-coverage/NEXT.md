@@ -1,29 +1,114 @@
 # Next Packet
 
-Start at `phase-00-bundled-rclone/P00-M01-bundled-dependency.md`.
+Resume at `phase-01-provider-catalogue/P01-M02-generic-schema.md`.
 
-Nothing in this plan is implemented. The design at
-`docs/superpowers/specs/2026-08-21-cloud-provider-coverage-design.md` was
-measured against rclone v1.75.0: `config/providers` returns 69 backends with
-fully self-describing options, S3 alone carries 53 vendor examples, and
-`config/oauthstatus`/`config/oauthstop` exist alongside `config/create`'s
-interactive state machine.
+## Where implementation stands
 
-## What this plan changes in the shipped code
+**Phase 00 is complete** (P00-M01 through P00-M04) and **P01-M01 is complete**.
+Every checkpoint is in its phase `MANIFEST.md` with the measurements; read
+those before writing code, they carry findings the packet texts do not.
 
-Two things, both from the cloud-profile-sync plan:
+| packet | commit | result |
+|---|---|---|
+| P00-M01 bundled dependency | `319602e62` | rclone staged, executable, v1.75.0 |
+| P00-M02 available out of box | `a70a3dab9` | found with `PATH` emptied; tests only |
+| P00-M03 packaging and notices | `86c53c970` | notices shipped, package deterministic |
+| P00-M04 package permissions | `6dccbc024` | `package-game` completes; exec bit survives |
+| P01-M01 catalogue | `9aa47f7fb` | parse, cache, `matchProvider`, fetch job |
 
-- `Sources/src/CloudSync/creds.zig` — `Protocol = enum { s3, webdav }` and its
-  `Payload` union are replaced by `{ backend, options, remote_root }` with an
-  explicitly persisted fingerprint. This is a **revision of working, committed
-  code**, so migrating already-saved credentials — preserving their existing
-  fingerprint byte for byte — is part of the packet, not an afterthought.
-- `Data/Configs/defconf.cfg` — `Cloud.Provider` is reduced to a fixed `OFF`/`ON`
-  state, because the option system truncates strings over 12 characters. The
-  backend identity lives in `cloud.credentials` and is chosen in the
-  credentials dialog.
+## Resuming on another machine
 
-Everything else in that plan stands.
+Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
+0.16.0, and `zig build` runs **from the repository root only** — anywhere else
+it panics with FileNotFound.
+
+Suites, all green at `b6018200c`:
+
+```
+zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
+zig build test-cloudsync-daemon    -Dtarget=aarch64-macos -Dtest-mode=run   # 27
+zig build test-cloudsync-abi       -Dtarget=aarch64-macos -Dtest-mode=run   # 10 + C++ consumer
+zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
+zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 15
+zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  8
+zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 16
+zig build test-package             -Dtarget=aarch64-macos -Dtest-mode=run   #  4
+zig build verify-runtime           -Dtest-mode=run                          # 11
+zig build test-streamio            -Dtarget=aarch64-macos -Dtest-mode=run   # 32
+```
+
+There are also `test-cloudsync-creds`, `-backup`, `-backend` and `-facade` from
+the earlier sync plan.
+
+**rclone no longer needs installing.** It is a hashed lazy dependency per
+target; `zig build install-game` puts it in `zig-out/bin/rclone` and stages it
+into the layout. Tests that want a live one honour `BK_TEST_RCLONE` and skip
+cleanly without it:
+
+```
+BK_TEST_RCLONE=$PWD/zig-out/bin/rclone zig build test-cloudsync-daemon \
+    -Dtarget=aarch64-macos -Dtest-mode=run
+```
+
+Expect a **cold-cache fetch of ~32 MB** on the first build for a given target,
+including a test-only build — see the P00-M01 checkpoint for why that cannot be
+gated.
+
+## What the implementation learned that the packets do not say
+
+- Zig's zip extractor ignores an archive's external file attributes, and both
+  `Step.installFile` and `stage.zig` preserve their *source's* permissions, so
+  the executable bit has to be set explicitly on the way into `zig-out/bin`.
+- Lazy dependencies resolve during *configure*, before step selection, so
+  `lazy` is conditional on the target but not on the step.
+- `package-game` had never worked on macOS: the stage directory was
+  `<root>/game`, which collides with the staged `Game` on a case-insensitive
+  filesystem. Renamed to `package`.
+- The packaged layout sits at **63,728 of zip's 65,535-entry ceiling** and
+  2.88 GB of its 4 GiB. Overruns now fail loudly instead of truncating into an
+  archive that opens and lies, but zip64 is the real fix and roughly 1,800 more
+  files reaches the cliff.
+- The catalogue fetch job deliberately skips `applyCredentials`: the catalogue
+  describes the binary, not a remote, so a broken credential must not hide the
+  list a player needs to fix it.
+- The fixture is `tools/zig/fixtures/config_providers.json` — 264,837 bytes,
+  five backends kept whole, captured from a live v1.75.0 daemon, with its
+  provenance inside the file as a `_fixture` key that doubles as an unknown
+  field the parser must tolerate.
+
+## P01-M02 is the riskiest packet in the plan
+
+It **replaces working, shipped code** — `creds.zig`'s two-arm union — and its
+allowlist is only `creds.zig` and `creds_test.zig`. Five things cost the most
+if missed, all of them recorded in the packet itself but worth flagging here:
+
+1. The schema is `{backend, options, remote_root}`. `remoteParams` says the
+   bucket is deliberately not an option because for S3 it is a path component
+   carried by the alias target — migrating it as an option routes every sync at
+   the account root instead of the bucket. Silent misplacement.
+2. `remoteParams` must be **replaced outright**, emitting a flat `Name`-keyed
+   map. Verified against v1.75.0: no non-empty `FieldName` differs from `Name`,
+   no option name contains a dot, and a flat create round-trips unchanged.
+3. The fingerprint is the **connection identity**, today `s3:{endpoint}/{bucket}`
+   and `webdav:{url}`. Persist it explicitly, carry the legacy value over at
+   migration byte-for-byte, and rotate only on backend, root, or the canonical
+   non-secret option projection — a password-only edit must not rotate it.
+4. Persist **two** flags, `secret` and `is_password`, from this first generic
+   save. Phase 03's token read-back needs `is_password` and the catalogue cache
+   may be gone by then.
+5. Replace the 16 KiB caps. `load`'s failure mode is to return null, which
+   would silently lose the credentials.
+
+If files outside the allowlist fail to compile against the new API, that means
+the allowlist is too narrow — **stop and report** rather than editing around it.
+
+## Not implementable without help
+
+- **Phase 04 acceptance** needs live services (MinIO, a WebDAV server, one
+  OAuth backend) and human approval.
+- **Windows and Linux** remain compile-verified only. The Linux
+  `install-game` fails compiling the engine's C++ from a macOS host for lack of
+  libc headers — pre-existing, reproduced on an unchanged tree.
 
 ## Corrections applied after review
 

@@ -10,8 +10,10 @@ checkpoints in their phase manifests — the resume line simply was not updated
 alongside them. Note also that packet checkboxes stopped being ticked after
 `P01-M01`; the manifests and commits are authoritative, not the boxes.
 
-A follow-on plan now exists at
-`docs/superpowers/plans/2026-08-21-cloud-provider-coverage/`, which bundles
+A follow-on plan is now **in implementation** at
+`docs/superpowers/plans/2026-08-21-cloud-provider-coverage/` — its phase 00 is
+complete and P01-M01 is done; see that plan's `NEXT.md` for the resume point.
+It which bundles
 rclone and replaces this plan's two-provider credentials schema with one
 driven by rclone's own catalogue. It revises `P03-M01`'s `creds.zig` and
 `P05-M02`'s `Cloud.Provider` droplist; everything else here stands.
