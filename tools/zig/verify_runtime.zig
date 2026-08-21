@@ -25,6 +25,21 @@ pub const shader_manifest_name = "Shaders/GfxGpu/gfxgpu-shaders.manifest";
 pub const required_metadata_files = [_][]const u8{ "LICENSE.md", "README.md" };
 pub const required_data_files = [_][]const u8{"Data/Configs/defconf.cfg"};
 
+/// rclone ships beside the game executable so cloud sync works on a machine
+/// with nothing on PATH; discovery searches that directory before PATH. A
+/// package without it is a package whose cloud sync only works for players who
+/// already installed rclone themselves, which is the whole point of bundling.
+pub fn bundledToolName(target: RuntimeTarget) []const u8 {
+    return if (target == .windows) "rclone.exe" else "rclone";
+}
+
+/// MIT obliges us to carry rclone's copyright line and permission notice with
+/// every copy of its binary, and the official archive has no COPYING file to
+/// stage. The notice is therefore a file we own and review; staging pairs it
+/// with the binary so neither can ship without the other.
+pub const third_party_notices_source = "Data/THIRD-PARTY-NOTICES.txt";
+pub const third_party_notices_name = "THIRD-PARTY-NOTICES.txt";
+
 pub const VerifyError = error{
     DuplicatePlatformRuntime,
     MissingGame,
@@ -36,6 +51,8 @@ pub const VerifyError = error{
     MissingConfig,
     MissingDefaultConfig,
     MissingMetadata,
+    MissingBundledTool,
+    MissingThirdPartyNotices,
     MissingDataRoot,
     MissingConfigRoot,
     MissingDataFile,
@@ -121,6 +138,8 @@ pub fn verifyStagedLayout(names: []const []const u8, target: RuntimeTarget) Veri
     for (required_metadata_files) |required| {
         if (!containsPath(names, required)) return error.MissingMetadata;
     }
+    if (!containsPath(names, bundledToolName(target))) return error.MissingBundledTool;
+    if (!containsPath(names, third_party_notices_name)) return error.MissingThirdPartyNotices;
     if (!containsPathUnder(names, "Data")) return error.MissingDataRoot;
     if (!containsPathUnder(names, "Data/Configs")) return error.MissingConfigRoot;
     for (required_data_files) |required| {
@@ -333,22 +352,45 @@ test "staged layout verifier accepts every target matrix" {
         "GFXGPU.dll",         "SDL3.dll",                            "Image.dll",             "Input.dll",              "Net.dll",
         "SFX.dll",            "UI.dll",                              "Scene.dll",             "AILogic.dll",            "GameTT.dll",
         shader_manifest_name, "Shaders/GfxGpu/textured.vertex.dxil", "config.cfg",            "defconf.cfg",            "LICENSE.md",
-        "README.md",          "Data/Configs/defconf.cfg",            "Data/Maps/fixture.map",
+        "README.md",          "Data/Configs/defconf.cfg",            "Data/Maps/fixture.map", "rclone.exe",             third_party_notices_name,
     }, .windows);
     try verifyStagedLayout(&.{
         "Game",               "libPlatformRuntime.so",                "libStreamIO.so",        "libStreamIOOptionsAbi.so", "libAnim.so",
         "libGFXGPU.so",       "libSDL3.so.0",                         "libImage.so",           "libInput.so",              "libNet.so",
         "libSFX.so",          "libUI.so",                             "libScene.so",           "libAILogic.so",            "libGameTT.so",
         shader_manifest_name, "Shaders/GfxGpu/textured.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
-        "README.md",          "Data/Configs/defconf.cfg",             "Data/Maps/fixture.map",
+        "README.md",          "Data/Configs/defconf.cfg",             "Data/Maps/fixture.map", "rclone",                   third_party_notices_name,
     }, .linux);
     try verifyStagedLayout(&.{
         "Game",               "libPlatformRuntime.dylib",           "libStreamIO.dylib",     "libStreamIOOptionsAbi.dylib", "libAnim.dylib",
         "libGFXGPU.dylib",    "libSDL3.dylib",                      "libImage.dylib",        "libInput.dylib",              "libNet.dylib",
         "libSFX.dylib",       "libUI.dylib",                        "libScene.dylib",        "libAILogic.dylib",            "libGameTT.dylib",
         shader_manifest_name, "Shaders/GfxGpu/textured.vertex.msl", "config.cfg",            "defconf.cfg",                 "LICENSE.md",
-        "README.md",          "Data/Configs/defconf.cfg",           "Data/Maps/fixture.map",
+        "README.md",          "Data/Configs/defconf.cfg",           "Data/Maps/fixture.map", "rclone",                      third_party_notices_name,
     }, .macos);
+}
+
+test "staged layout ships the bundled rclone with the notice its licence requires" {
+    // The binary and the notice are one shipment: rclone is MIT, so the copy we
+    // distribute has to travel with its copyright line and permission notice,
+    // and a layout carrying one without the other is rejected either way round.
+    const engine = [_][]const u8{
+        "Game",               "libPlatformRuntime.so",             "libStreamIO.so",        "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",           "libInput.so",              "libNet.so",
+        "libSFX.so",          "libUI.so",                          "libScene.so",           "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
+        "README.md",          "Data/Configs/defconf.cfg",          "Data/Maps/fixture.map",
+    };
+    try verifyStagedLayout(&(engine ++ [_][]const u8{ "rclone", third_party_notices_name }), .linux);
+    try std.testing.expectError(error.MissingBundledTool, verifyStagedLayout(&(engine ++ [_][]const u8{third_party_notices_name}), .linux));
+    try std.testing.expectError(error.MissingThirdPartyNotices, verifyStagedLayout(&(engine ++ [_][]const u8{"rclone"}), .linux));
+
+    // Windows ships the same tool under the name Win32 will execute, so a
+    // package built for it is not satisfied by the POSIX name.
+    try std.testing.expectEqualStrings("rclone.exe", bundledToolName(.windows));
+    try std.testing.expectEqualStrings("rclone", bundledToolName(.linux));
+    try std.testing.expectEqualStrings("rclone", bundledToolName(.macos));
+    try std.testing.expectEqualStrings("Data/THIRD-PARTY-NOTICES.txt", third_party_notices_source);
 }
 
 test "staged layout requires canonical metadata and essential data roots" {
@@ -357,18 +399,18 @@ test "staged layout requires canonical metadata and essential data roots" {
         "libGFXGPU.so",             "libSDL3.so.0",                      "libImage.so",    "libInput.so",              "libNet.so",
         "libSFX.so",                "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
         shader_manifest_name,       "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              "LICENSE.md",
-        "Data/Configs/defconf.cfg", "Data/Maps/fixture.map",             "README.md",
+        "Data/Configs/defconf.cfg", "Data/Maps/fixture.map",             "rclone",         third_party_notices_name,   "README.md",
     };
     try std.testing.expect(isValidStagedLayout(&complete, .linux));
 
     try std.testing.expect(!isValidStagedLayout(complete[0 .. complete.len - 1], .linux));
 
     const missing_data = [_][]const u8{
-        "Game",               "libPlatformRuntime.so",             "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so",
-        "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",    "libInput.so",              "libNet.so",
-        "libSFX.so",          "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
-        shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              "LICENSE.md",
-        "README.md",
+        "Game",               "libPlatformRuntime.so",             "libStreamIO.so",         "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",            "libInput.so",              "libNet.so",
+        "libSFX.so",          "libUI.so",                          "libScene.so",            "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",             "defconf.cfg",              "LICENSE.md",
+        "README.md",          "rclone",                            third_party_notices_name,
     };
     try std.testing.expect(!isValidStagedLayout(&missing_data, .linux));
 }
@@ -457,6 +499,8 @@ fn createLinuxStageFixture(io: std.Io, root: std.Io.Dir) !void {
     try touchFile(io, root, "README.md");
     try touchFile(io, root, "Data/Configs/defconf.cfg");
     try touchFile(io, root, "Data/Maps/fixture.map");
+    try touchFile(io, root, bundledToolName(.linux));
+    try touchFile(io, root, third_party_notices_name);
 }
 
 fn touchFile(io: std.Io, dir: std.Io.Dir, path: []const u8) !void {
@@ -470,7 +514,8 @@ fn expectLinuxManifestError(extra: []const u8, expected: VerifyError) !void {
         "libGFXGPU.so",       "libSDL3.so.0",                      "libImage.so",           "libInput.so",              "libNet.so",
         "libSFX.so",          "libUI.so",                          "libScene.so",           "libAILogic.so",            "libGameTT.so",
         shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
-        "README.md",          "Data/Configs/defconf.cfg",          "Data/Maps/fixture.map", extra,
+        "README.md",          "Data/Configs/defconf.cfg",          "Data/Maps/fixture.map", "rclone",                   third_party_notices_name,
+        extra,
     };
     try std.testing.expectError(expected, verifyStagedLayout(&names, .linux));
 }

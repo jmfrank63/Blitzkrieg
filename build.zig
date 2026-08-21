@@ -1959,6 +1959,10 @@ pub fn build(b: *std.Build) void {
     install_game_cmd.addArg(".");
     install_game_cmd.addArg(stage_root);
     addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
+    // Staging copies the third-party notice out of a plain path, the way it
+    // copies the shader blobs, so an edited licence text has to be part of the
+    // cache key or the staged and packaged copies keep the superseded notice.
+    install_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
     if (!copy_data) install_game_cmd.addArg("--link-data");
     if (!use_prebuilt_shaders) {
         install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
@@ -2109,17 +2113,24 @@ pub fn build(b: *std.Build) void {
     const endurance_step = b.step("verify-gfxgpu-endurance", "Run SDL GPU resize, restart, and endurance validation");
     endurance_step.dependOn(&endurance_cmd.step);
 
+    // The tree the zip is built from. It was `<stage_root>/game`, which on a
+    // case-insensitive filesystem is the staged `Game` executable sitting in
+    // that same directory, so every macOS package run died in stage-game with
+    // `NotDir` before it copied a byte. `package` collides with nothing the
+    // layout stages, and the name says what the directory is for.
+    const package_stage_root = b.fmt("{s}/package", .{stage_root});
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
-    stage_package_game_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
+    stage_package_game_cmd.addArg(package_stage_root);
     addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
+    stage_package_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
 
     const package_tool = b.addExecutable(.{
         .name = "package",
         .root_module = package_module,
     });
     const package_tool_run = b.addRunArtifact(package_tool);
-    package_tool_run.addArg(b.fmt("{s}/game", .{stage_root}));
+    package_tool_run.addArg(package_stage_root);
     package_tool_run.addArg(b.fmt("{s}/Blitzkrieg-game.zip", .{package_root}));
     package_tool_run.step.dependOn(&stage_package_game_cmd.step);
 
@@ -2131,7 +2142,7 @@ pub fn build(b: *std.Build) void {
 
     const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_editors_cmd.addArg(".");
-    stage_package_game_editors_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
+    stage_package_game_editors_cmd.addArg(package_stage_root);
     addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
@@ -2139,7 +2150,7 @@ pub fn build(b: *std.Build) void {
 
     const package_tool_editors = b.addRunArtifact(package_tool);
     package_tool_editors.step.dependOn(&stage_package_game_editors_cmd.step);
-    package_tool_editors.addArg(b.fmt("{s}/game", .{stage_root}));
+    package_tool_editors.addArg(package_stage_root);
     package_tool_editors.addArg(b.fmt("{s}/Blitzkrieg-game-with-editors.zip", .{package_root}));
 
     const package_game_editors_step = b.step("package-game-editors", "Create installation zip package with editor tools");
