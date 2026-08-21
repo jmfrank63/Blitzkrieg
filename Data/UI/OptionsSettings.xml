@@ -352,7 +352,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10013" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button: cloud credentials dialog, sharing the sixth tab slot with the backup browser (10014); shown by code only while the Cloud tab is active. A mod filling all six tab slots would overlap them - six divisions is already the screen's limit-->
-			<WindowPos x="45" y="630"/>
+			<WindowPos x="45" y="595"/>
 			<WindowSize x="212" y="66"/>
 			<States>
 				<item EventID="-1">
@@ -377,7 +377,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10014" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button: cloud backup browser, the sixth tab slot's right half-->
-			<WindowPos x="266" y="630"/>
+			<WindowPos x="266" y="595"/>
 			<WindowSize x="212" y="66"/>
 			<States>
 				<item EventID="-1">
@@ -402,7 +402,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10008" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button: 2-->
-			<WindowPos x="45" y="230"/>
+			<WindowPos x="45" y="223"/>
 			<WindowSize x="433" y="66"/>
 			<States>
 				<item EventID="-1">
@@ -430,7 +430,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10009" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button:3-->
-			<WindowPos x="45" y="330"/>
+			<WindowPos x="45" y="316"/>
 			<WindowSize x="433" y="66"/>
 			<States>
 				<item EventID="-1">
@@ -458,7 +458,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10010" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button:4-->
-			<WindowPos x="45" y="430"/>
+			<WindowPos x="45" y="409"/>
 			<WindowSize x="433" y="66"/>
 			<States>
 				<item EventID="-1">
@@ -486,7 +486,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10011" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button:5-->
-			<WindowPos x="45" y="530"/>
+			<WindowPos x="45" y="502"/>
 			<WindowSize x="433" y="66"/>
 			<States>
 				<item EventID="-1">
@@ -514,7 +514,7 @@
 		<item ClassTypeID="0x10001103" ElementID="10012" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 			<ToolTip/>
 			<!--button:6-->
-			<WindowPos x="45" y="630"/>
+			<WindowPos x="45" y="595"/>
 			<WindowSize x="433" y="66"/>
 			<States>
 				<item EventID="-1">
