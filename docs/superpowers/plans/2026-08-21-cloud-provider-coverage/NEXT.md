@@ -63,6 +63,24 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Ninth correction round
+
+- **UI preservation could reintroduce a value the save path had just cleared.**
+  P01-M03 cleans invalid closed-field values out of the *stored* map, but the
+  dialog preserved any typed value whose field survived a rebuild — so an
+  invalid one would come back as an explicit submission and sail past a cleanup
+  that only inspected what was already saved. The UI now preserves a value only
+  when the field is editable or the closed value is still among its filtered
+  examples, and the save path validates the **merged submission** rather than
+  the old map.
+- **A stale `region` example survived** at P01-M03's motivating bullet, calling
+  it AWS-only four lines above the correction saying it names 39 vendors. It
+  now names genuinely AWS-only options.
+- **`matchProvider` had no owner.** Three packets needed it and P02-M01 was the
+  first told to implement it, after P01-M03 already required it. It lives in
+  `catalogue.zig` under P01-M01, with the operators tested there; P01-M03,
+  P02-M01 and P02-M04 consume it.
+
 ## Eighth correction round
 
 Edge cases rather than structure, and two of them corrected my own examples.
@@ -99,8 +117,9 @@ Edge cases rather than structure, and two of them corrected my own examples.
   ABI and headlessly.
 - **A vendor change is not a backend change.** Preservation was scoped to an
   unchanged backend, but switching S3 from AWS to Wasabi leaves the backend as
-  `s3`, so AWS-only options such as `region` stayed stored and would keep being
-  sent to rclone. Options whose `Provider` no longer matches are now dropped on
+  `s3`, so options the new vendor never declares stayed stored and would keep
+  being sent to rclone. (That round used `region` as its example; `region` is
+  not AWS-only — corrected in the eighth round.) Options whose `Provider` no longer matches are now dropped on
   a vendor change, with the rest preserved.
 - **Required validation ran against the raw catalogue**, which would block
   saving on a required field belonging to a different vendor. It now validates
