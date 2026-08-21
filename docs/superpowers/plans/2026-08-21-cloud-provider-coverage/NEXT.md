@@ -63,6 +63,32 @@ version into several URLs, and the "no provider names" invariant now carries
 three declared exceptions — the legacy migration, the destination filter, and
 the test fixture.
 
+## Seventh correction round
+
+- **Provider rebuilding stopped at the Zig model.** P02-M01 took a
+  `selected_provider`, but the ABI exported "build a form for a backend" and
+  the dialog had no vendor-change handler — so the filtering would have been
+  correct in Zig and invisible on screen. The provider and the current option
+  map now cross the boundary, the dialog rebuilds on change while preserving
+  still-applicable typed values, and AWS-to-Wasabi is asserted both through the
+  ABI and headlessly.
+- **A vendor change is not a backend change.** Preservation was scoped to an
+  unchanged backend, but switching S3 from AWS to Wasabi leaves the backend as
+  `s3`, so AWS-only options such as `region` stayed stored and would keep being
+  sent to rclone. Options whose `Provider` no longer matches are now dropped on
+  a vendor change, with the rest preserved.
+- **Required validation ran against the raw catalogue**, which would block
+  saving on a required field belonging to a different vendor. It now validates
+  the active filtered form. The rule is recorded from rclone's source, since
+  half-implementing it is easy: `MatchProvider` returns true when the
+  expression is empty **or when the selected provider is empty**, so a backend
+  with no vendor chosen shows all conditional fields rather than none.
+- **The design document had drifted behind the packets** — no `Provider` or
+  `ShortOpt` in its field list, `Hide` described as all-or-nothing, required
+  validation with no mention of defaults or filtering, and a single secret
+  flag. An implementer following it would have undone four corrections, so it
+  now carries `MatchProvider` verbatim and rclone's visibility constants.
+
 ## Sixth correction round
 
 Four correctness gaps, each measured against v1.75.0's catalogue.

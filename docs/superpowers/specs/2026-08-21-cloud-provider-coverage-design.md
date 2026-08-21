@@ -45,9 +45,14 @@ Discovery already searches the game's own directory before `PATH`
 `config/providers` returns all 69 backends, each option fully self-describing:
 
 ```
-Name  Type  Help  Required  Advanced  Examples  IsPassword
-Sensitive  Hide  Default  Exclusive  FieldName  NoPrefix  Value  ValueStr
+Name  Type  Help  Required  Advanced  Examples  IsPassword  Sensitive
+Hide  Default  DefaultStr  Exclusive  FieldName  NoPrefix  Provider
+ShortOpt  Value  ValueStr
 ```
+
+Take that list as the union across all backends. `Provider` is absent from
+s3's first option and present on 35 options overall, which is precisely how it
+gets missed by sampling one entry.
 
 Measured shapes:
 
@@ -117,18 +122,46 @@ that the next rclone release exposes.
 | `Examples` without `Exclusive` | editable droplist |
 | `IsPassword` or `Sensitive` | masked; never returned by the load path |
 | `Advanced` | hidden behind a toggle — this is what keeps s3's 78 options usable |
-| `Required` | validated before the connection test |
+| `Required` | validated against the *filtered* form, and only when the effective default is also empty |
+| `Provider` | filters both options and examples; the form rebuilds when the selection changes |
 | remote root | not described by the catalogue at all — we supply a generic label and help |
-| `Hide` | not rendered at all |
+| `Hide` | a **bitmask**: omit only when the configurator bit (2) is set |
 | `Default` / `DefaultStr` | placeholder, and omitted from what we store |
+
+`Provider` is not a decoration. It appears on 35 options and 664 examples, and
+rclone matches it with:
+
+```go
+func MatchProvider(providerConfig, provider string) bool {
+	if providerConfig == "" || provider == "" { return true }
+	// leading '!' negates; otherwise membership in a comma-separated list
+```
+
+Both empty cases match everything, so a backend with no vendor chosen yet shows
+all conditional fields rather than none. Without this filtering a Wasabi user
+is offered AWS-only regions; one comma list names 51 S3 vendors.
+
+`Hide` follows rclone's visibility constants — `OptionHideCommandLine = 1`,
+`OptionHideConfigurator = 2`, `OptionHideBoth = 3` — so treating any non-zero
+value as hidden would wrongly drop the four options that are merely hidden from
+the command line.
+
+And a required option with a non-empty default may be left blank; three of the
+66 required options carry one, and rejecting blanks would make those backends
+impossible to configure.
 
 Storing only what the player set — never a copy of the defaults — matters for
 the same reason as everything else here: a default that changes in a later
 rclone release should follow the release, not our saved file.
 
 Two storage consequences. Which fields are secret comes from catalogue
-metadata, but credentials must load with the cache absent, so the secret flag
-is persisted per field at save time rather than re-derived. And the existing
+metadata, but credentials must load with the cache absent, so the
+classification is persisted per field at save time rather than re-derived —
+and as **two** flags, not one. `secret` (from `IsPassword` or `Sensitive`)
+decides what the load path withholds; `is_password` separately decides what a
+token read-back must never overwrite, because rclone returns those fields
+obscured and re-obscuring one destroys it. Both are written from the first
+generic save, so credentials never exist without them. And the existing
 16 KiB caps on reading and serialising `cloud.credentials` were sized when
 "endpoints and keys are hundreds of bytes at the outside" held; a backend with
 dozens of set options plus an OAuth token document can exceed that, and the
