@@ -25,6 +25,9 @@
 #include <windows.h>
 #else
 #include <dirent.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -283,6 +286,219 @@ static unsigned int poll_to_rest(int handle, unsigned int budget_ms)
         sleep_ms(50);
         waited += 50;
     }
+}
+
+// -- the bundled binary -------------------------------------------------------
+//
+// The game ships rclone beside its own executable. The settings screen never
+// calls discovery itself — it calls `bk_cloudsync_available` — so the
+// out-of-the-box claim can only be proven from here, and the layout that
+// proves it is this executable's own directory: the neighbour relationship a
+// shipped install has, reproduced by staging a binary next to the consumer
+// and emptying `PATH`.
+
+#ifdef _WIN32
+static const char *const rclone_exe_name = "rclone.exe";
+#else
+static const char *const rclone_exe_name = "rclone";
+#endif
+
+// The directory holding this executable, spelled the way discovery spells it:
+// the image path resolved through realpath, because that is what
+// `std.process.executableDirPath` does before taking the dirname.
+static bool executable_dir(char *out, size_t cap)
+{
+    char raw[1024];
+#ifdef _WIN32
+    const DWORD length = GetModuleFileNameA(nullptr, raw, sizeof raw);
+    if (length == 0 || length >= sizeof raw) return false;
+#elif defined(__APPLE__)
+    char image[1024];
+    unsigned int image_size = sizeof image;
+    if (_NSGetExecutablePath(image, &image_size) != 0) return false;
+    if (realpath(image, raw) == nullptr) return false;
+#else
+    const ssize_t length = readlink("/proc/self/exe", raw, sizeof raw - 1);
+    if (length <= 0) return false;
+    raw[length] = '\0';
+#endif
+    for (char *c = raw; *c != '\0'; ++c)
+        if (*c == '\\') *c = '/';
+    char *slash = std::strrchr(raw, '/');
+    if (slash == nullptr) return false;
+    *slash = '\0';
+    if (std::strlen(raw) >= cap) return false;
+    std::snprintf(out, cap, "%s", raw);
+    return true;
+}
+
+static void set_path(const char *value)
+{
+#ifdef _WIN32
+    _putenv_s("PATH", value);
+#else
+    setenv("PATH", value, 1);
+#endif
+}
+
+// A shell script is a perfectly good rclone for discovery and the version
+// gate: both do nothing but run `<binary> version` and read the first line.
+// It is also the only way to pin a *chosen* version, which is what lets the
+// assertions below name the binary that answered instead of comparing paths.
+// POSIX only — a script is not an executable image on Windows.
+#ifndef _WIN32
+static void write_version_stub(const char *at, const char *version)
+{
+    char body[256];
+    std::snprintf(body, sizeof body,
+                  "#!/bin/sh\necho \"rclone %s\"\necho \"- os/version: test\"\n", version);
+    write_file(at, body);
+    chmod(at, 0755);
+}
+#endif
+
+// Put a real rclone at `at`: a symlink on POSIX, which discovery follows on
+// purpose, and a copy on Windows, where a link needs a privilege this process
+// has no business requiring.
+static bool stage_real_rclone(const char *real, const char *at)
+{
+#ifdef _WIN32
+    return CopyFileA(real, at, TRUE) != 0;
+#else
+    return symlink(real, at) == 0;
+#endif
+}
+
+// The out-of-the-box contract, through the export the settings screen reads:
+// a binary staged beside this executable is found and gated with `PATH`
+// emptied, an override still beats it, and nothing is left behind afterwards.
+static void bundled_out_of_box()
+{
+    char exe_dir[1024];
+    if (!executable_dir(exe_dir, sizeof exe_dir)) return;
+    char staged[1200];
+    std::snprintf(staged, sizeof staged, "%s/%s", exe_dir, rclone_exe_name);
+    // Never clobber a neighbour this test did not create: a genuinely
+    // packaged layout, or the leftovers of a run that died mid-test, are not
+    // this function's to overwrite or delete.
+    if (file_exists(staged)) return;
+
+    char restore_path[8192];
+    const char *inherited = std::getenv("PATH");
+    std::snprintf(restore_path, sizeof restore_path, "%s", inherited != nullptr ? inherited : "");
+
+    unsigned char status[1024];
+
+#ifndef _WIN32
+    // 9.75.3 is a version no rclone has ever printed, which is the point: it
+    // can only have come from the file staged a line above, so `found` here
+    // cannot be some other rclone the machine happens to carry.
+    write_version_stub(staged, "v9.75.3");
+    set_path("");
+    check(bk_cloudsync_refresh_discovery() == 0, "discovery runs with PATH emptied");
+    check(bk_cloudsync_available() == 1u, "the bundled rclone is available with an empty PATH");
+    std::memset(status, 0, sizeof status);
+    check(bk_cloudsync_discovery_status(status, sizeof status) > 0, "status with an empty PATH");
+    const char *bundled_json = reinterpret_cast<const char *>(status);
+    check(contains(bundled_json, "\"found\":true"), "and the status agrees it was found");
+    check(contains(bundled_json, "\"version\":\"9.75.3\""),
+          "the binary beside the executable is the one that answered");
+    check(contains(bundled_json, "\"reason\":null"), "a usable bundled copy carries no rejection");
+
+    // The version gate applies to our own copy: a staged binary older than the
+    // minimum has to be refused in the settings screen, naming what it found,
+    // rather than being discovered at the first sync.
+    write_version_stub(staged, "v1.65.2");
+    check(bk_cloudsync_refresh_discovery() == 0, "discovery re-runs over the older staged copy");
+    check(bk_cloudsync_available() == 0u, "a bundled rclone below the minimum is not available");
+    std::memset(status, 0, sizeof status);
+    check(bk_cloudsync_discovery_status(status, sizeof status) > 0, "status for the older staged copy");
+    const char *old_json = reinterpret_cast<const char *>(status);
+    check(contains(old_json, "\"found\":false"), "an old bundled copy is not a working one");
+    check(contains(old_json, "\"reason\":\"too_old\""), "and the rejection is typed, not free text");
+    check(contains(old_json, "\"version\":\"1.65.2\""), "naming the version it rejected");
+
+    // A player pointing at their own build keeps beating ours. The override
+    // travels the way the credentials dialog sends it — `rclone_path` through
+    // creds_save — with the bundled copy still in place and still too old, so
+    // an override that failed to win would be visible as `too_old`.
+    {
+        const char *temp_root = std::getenv("TMPDIR");
+        if (temp_root == nullptr) temp_root = "/tmp";
+        char base[1024];
+        std::snprintf(base, sizeof base, "%s/bk-bundled-%u", temp_root,
+                      static_cast<unsigned>(std::rand() & 0xffffff));
+        make_dirs(base);
+        char player[1200];
+        std::snprintf(player, sizeof player, "%s/player/%s", base, rclone_exe_name);
+        write_version_stub(player, "v9.66.1");
+
+        char old_cwd[1024];
+        check(getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+        check(chdir(base) == 0, "chdir into the override fixture");
+
+        char escaped[1200];
+        json_escape(player, escaped, sizeof escaped);
+        char doc[2048];
+        std::snprintf(doc, sizeof doc,
+                      "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
+                      "\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"bk\","
+                      "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\","
+                      "\"secret\":\"unused-here\"},\"rclone_path\":\"%s\"}",
+                      escaped);
+        check(bk_cloudsync_creds_save(doc) == 0, "saving the player's own rclone succeeds");
+        check(bk_cloudsync_available() == 1u, "the override rescues an unusable bundled copy");
+        std::memset(status, 0, sizeof status);
+        check(bk_cloudsync_discovery_status(status, sizeof status) > 0, "status after the override");
+        check(contains(reinterpret_cast<const char *>(status), "\"version\":\"9.66.1\""),
+              "the override is the binary that answered, not the bundled copy");
+
+        // Clearing the override hands the search back to the bundled copy,
+        // which is still the old one — proof the override was what changed the
+        // answer, and that removing it restores the earlier verdict.
+        check(bk_cloudsync_creds_save(
+                  "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
+                  "\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"bk\","
+                  "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\"},"
+                  "\"rclone_path\":null}") == 0,
+              "clearing the override succeeds");
+        check(bk_cloudsync_available() == 0u, "and the old bundled copy is refused again");
+
+        check(chdir(old_cwd) == 0, "chdir back out of the override fixture");
+        remove_tree(base);
+    }
+
+    std::remove(staged);
+#endif
+
+    // The same claim about the file the build actually ships, when there is
+    // one to stage: no script, no chosen version, just a real rclone beside
+    // this executable and nothing on PATH. Without one this is a silent no-op,
+    // exactly like the Zig live cases.
+    if (const char *real = std::getenv("BK_TEST_RCLONE"))
+    {
+        if (real[0] != '\0' && stage_real_rclone(real, staged))
+        {
+            set_path("");
+            check(bk_cloudsync_refresh_discovery() == 0, "discovery runs over the real staged binary");
+            check(bk_cloudsync_available() == 1u,
+                  "a real bundled rclone is available with an empty PATH");
+            std::memset(status, 0, sizeof status);
+            check(bk_cloudsync_discovery_status(status, sizeof status) > 0,
+                  "status for the real staged binary");
+            const char *real_json = reinterpret_cast<const char *>(status);
+            check(contains(real_json, "\"found\":true"), "the real staged binary is found");
+            check(contains(real_json, "\"reason\":null"), "and passes the version gate");
+            check(!contains(real_json, "\"version\":null"), "reporting the version it read");
+            std::remove(staged);
+        }
+    }
+
+    // Leave the machine as it was found: PATH back, nothing staged, and the
+    // cache holding this machine's real verdict rather than the fixture's.
+    set_path(restore_path);
+    check(!file_exists(staged), "the staged binary is gone again");
+    check(bk_cloudsync_refresh_discovery() == 0, "discovery recovers once PATH is back");
 }
 
 // The credentials exports, driven end to end against a fixture working
@@ -747,6 +963,7 @@ int main()
     check(bk_cloudsync_available() == available, "and reaches the same verdict");
     bk_cloudsync_shutdown();
 
+    bundled_out_of_box();
     creds_contract();
     sync_handle_contract();
     sync_full_cycle();

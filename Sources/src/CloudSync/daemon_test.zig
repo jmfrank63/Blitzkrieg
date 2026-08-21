@@ -85,6 +85,24 @@ const Fixture = struct {
         return self.join(&.{ dir, name });
     }
 
+    /// Put a *real* binary at `<root>/<dir>/<name>`, the way an installed
+    /// game has one beside its executable. A symlink on POSIX — discovery
+    /// follows them on purpose, because a packaged rclone is routinely a link
+    /// into a versioned directory — and a copy on Windows, where creating one
+    /// needs a privilege a test process has no business requiring.
+    fn stage(self: *Fixture, dir: []const u8, name: []const u8, real: []const u8) ![]u8 {
+        try self.tmp.dir.createDirPath(io, dir);
+        const relative = try path.join(self.gpa, &.{ dir, name });
+        defer self.gpa.free(relative);
+
+        if (builtin.os.tag == .windows) {
+            try std.Io.Dir.cwd().copyFile(real, self.tmp.dir, relative, io, .{});
+        } else {
+            try self.tmp.dir.symLink(io, real, relative, .{});
+        }
+        return self.join(&.{ dir, name });
+    }
+
     fn stubWithPermissions(
         self: *Fixture,
         dir: []const u8,
@@ -409,6 +427,184 @@ test "the allocator-only entry points need no Io from the caller" {
     defer availability.deinit(gpa);
     try std.testing.expect(availability == .ready);
     try std.testing.expectEqualStrings(binary, availability.ready.path);
+}
+
+// -- the bundled binary ------------------------------------------------------
+//
+// The game ships rclone beside its own executable, where discovery has always
+// looked first: bundling changed the build, not this file. What follows pins
+// that claim from the player's side. Their search space is a staged game
+// directory and an **empty** `PATH` — the machine of someone who has never
+// installed rclone and never heard of it — so a case that passed only because
+// the machine running it happens to have one would fail here.
+
+test "the bundled binary is found with an empty PATH" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const bundled = try fixture.stub("game", daemon.exe_name, "rclone v1.75.0");
+    defer gpa.free(bundled);
+    const game_dir = try fixture.join(&.{"game"});
+    defer gpa.free(game_dir);
+
+    const found = (try daemon.discoverIn(gpa, io, .{
+        .game_dir = game_dir,
+        .path_env = "",
+    })).?;
+    defer gpa.free(found);
+    try std.testing.expectEqualStrings(bundled, found);
+
+    // Through `resolve` as well: the settings screen reads the verdict, not
+    // the path, so a discovery that finds the file but no version would still
+    // leave cloud sync switched off.
+    var availability = try daemon.resolveIn(gpa, io, .{
+        .game_dir = game_dir,
+        .path_env = "",
+    });
+    defer availability.deinit(gpa);
+    try std.testing.expect(availability == .ready);
+    try std.testing.expect(availability.reason() == null);
+    try std.testing.expectEqualStrings(bundled, availability.ready.path);
+    try std.testing.expectEqual(
+        daemon.Version{ .major = 1, .minor = 75, .patch = 0 },
+        availability.ready.version,
+    );
+}
+
+test "a bundled binary below the minimum is rejected as too_old, not skipped" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    // 1.65 predates resyncMode. A staged copy that old has to be reported the
+    // moment the settings screen asks, naming the version it rejected —
+    // discovering it at the first sync is a corrupted pairing, not a message.
+    const bundled = try fixture.stub("game", daemon.exe_name, "rclone v1.65.2");
+    defer gpa.free(bundled);
+    const game_dir = try fixture.join(&.{"game"});
+    defer gpa.free(game_dir);
+    // A new enough copy further down the search order must not rescue it: the
+    // game directory wins, so the rejection is the answer, not a fallback.
+    const on_path = try fixture.stub("path-bin", daemon.exe_name, "rclone v1.75.0");
+    defer gpa.free(on_path);
+    const bin_dir = try fixture.join(&.{"path-bin"});
+    defer gpa.free(bin_dir);
+    const path_env = try pathList(gpa, &.{bin_dir});
+    defer gpa.free(path_env);
+
+    var availability = try daemon.resolveIn(gpa, io, .{
+        .game_dir = game_dir,
+        .path_env = path_env,
+    });
+    defer availability.deinit(gpa);
+
+    try std.testing.expect(availability == .unavailable);
+    try std.testing.expectEqual(daemon.Reason.too_old, availability.unavailable.reason);
+    try std.testing.expectEqualStrings(bundled, availability.unavailable.path.?);
+    try std.testing.expectEqual(
+        daemon.Version{ .major = 1, .minor = 65, .patch = 2 },
+        availability.unavailable.version.?,
+    );
+}
+
+test "an explicit override still wins over the bundled binary" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    // The override is the older of the two again, so the assertion on the
+    // resolved version cannot pass by accident if the bundled copy were used.
+    const explicit = try fixture.stub("player", daemon.exe_name, "rclone v1.66.0");
+    defer gpa.free(explicit);
+    const bundled = try fixture.stub("game", daemon.exe_name, "rclone v1.75.0");
+    defer gpa.free(bundled);
+    const game_dir = try fixture.join(&.{"game"});
+    defer gpa.free(game_dir);
+
+    const found = (try daemon.discoverIn(gpa, io, .{
+        .explicit = explicit,
+        .game_dir = game_dir,
+        .path_env = "",
+    })).?;
+    defer gpa.free(found);
+    try std.testing.expectEqualStrings(explicit, found);
+
+    var availability = try daemon.resolveIn(gpa, io, .{
+        .explicit = explicit,
+        .game_dir = game_dir,
+        .path_env = "",
+    });
+    defer availability.deinit(gpa);
+    try std.testing.expect(availability == .ready);
+    try std.testing.expectEqualStrings(explicit, availability.ready.path);
+    try std.testing.expectEqual(
+        daemon.Version{ .major = 1, .minor = 66, .patch = 0 },
+        availability.ready.version,
+    );
+}
+
+test "a game directory with nothing staged in it is not_found, not an error" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    // Bundling must not have turned "no rclone anywhere" into a failure: this
+    // is a machine with neither a staged copy nor an installed one, and the
+    // only correct answer is still a typed, actionable rejection.
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    try std.testing.expect(try daemon.discoverIn(gpa, io, .{
+        .game_dir = game_dir,
+        .path_env = "",
+    }) == null);
+
+    var availability = try daemon.resolveIn(gpa, io, .{
+        .game_dir = game_dir,
+        .path_env = "",
+    });
+    defer availability.deinit(gpa);
+    try std.testing.expect(availability == .unavailable);
+    try std.testing.expectEqual(daemon.Reason.not_found, availability.unavailable.reason);
+    try std.testing.expect(availability.unavailable.path == null);
+}
+
+test "the real bundled binary passes the version gate with an empty PATH" {
+    const gpa = std.testing.allocator;
+
+    // The cases above drive shell stubs, which prove the search order but say
+    // nothing about the file the build actually stages. This one stages a real
+    // rclone into a real directory and holds it to `MIN_RCLONE`, which is the
+    // whole of the out-of-the-box claim. Without one to stage it proves less
+    // and returns early, exactly like the live daemon cases below.
+    const real = liveRclone(gpa, io) orelse return;
+    defer gpa.free(real);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const staged = try fixture.stage("game", daemon.exe_name, real);
+    defer gpa.free(staged);
+    const game_dir = try fixture.join(&.{"game"});
+    defer gpa.free(game_dir);
+
+    var availability = try daemon.resolveIn(gpa, io, .{
+        .game_dir = game_dir,
+        .path_env = "",
+    });
+    defer availability.deinit(gpa);
+
+    try std.testing.expect(availability == .ready);
+    try std.testing.expectEqualStrings(staged, availability.ready.path);
+    try std.testing.expect(availability.ready.version.atLeast(daemon.MIN_RCLONE));
 }
 
 test "parseVersion accepts the shapes rclone actually prints" {
