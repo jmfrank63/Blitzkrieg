@@ -9,6 +9,7 @@
 | P00-M01 | — | hashed build dependency and staging |
 | P00-M02 | M01 | availability out of the box, no PATH |
 | P00-M03 | M02 | packaging, size and third-party notices |
+| P00-M04 | M03 | package permissions and handle exhaustion |
 
 Exit: a fresh install on a machine with no rclone reports cloud sync available.
 
@@ -71,4 +72,38 @@ How the fixtures avoid depending on the build output:
 Windows remains compile-verified only: the C++ stub cases are `#ifndef _WIN32`,
 so there the function runs only its real-binary branch and only when
 `BK_TEST_RCLONE` is set.
+
+P00-M03 macOS checkpoint: the layout stages `rclone` (exec bit intact) and
+`THIRD-PARTY-NOTICES.txt` at its root; `verify-runtime` 11/11 now requires
+both, `test-cloudsync-daemon` 27/27 and `test-streamio` 32/32 unaffected. Three
+independent stagings produced an identical package hash
+`cbd57eb6c7c7baa7d274bb8b7331f1e6ad4a0f29713a09e677bc1a1596fe1d45`, so
+determinism holds. Commit `86c53c970`.
+
+The notice is a file we own, not a build-time scrape: the archive carries no
+`COPYING`, only `rclone`, `rclone.1`, `README.html`, `README.txt` and
+`git-log.txt`, with the MIT text buried in the README. It was copied verbatim
+and diffed byte-for-byte against the source. It stages at the layout **root**
+rather than under `Data/`, beside `LICENSE.md`, because `--link-data` replaces
+staged `Data` with a link into the repo and would take the notice with it.
+
+Signing was not performed and no signature is asserted, per the packet.
+
+Two defects found in `tools/zig/package.zig`, which is outside this packet's
+allowlist and is why `P00-M04` now exists:
+
+- **The zip drops the executable bit.** It writes no external file attributes
+  at all, so `0755` in becomes `0644` out. Pre-existing and equally true of
+  `Game` and every dylib, but for the bundled rclone it means a player who
+  installs from the release zip gets `.not_executable` at discovery — this
+  feature would ship broken.
+- **`package-game` cannot complete on this host**: the zip walk opens every
+  entry and holds the handle to the end, and 63,728 files exceeds
+  `kern.maxfilesperproc` (61,440), so it fails `ProcessFdQuotaExceeded` and
+  leaves a zero-byte archive. No `ulimit` raise helps. The hashes above came
+  from an out-of-tree copy differing only in when each file is opened.
+
+Also fixed here, pre-existing: the package stage directory was `<root>/game`,
+which on a case-insensitive filesystem collides with the staged `Game`
+executable — `package-game` had never worked on macOS. Renamed to `package`.
 
