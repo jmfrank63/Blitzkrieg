@@ -36,6 +36,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const backup = @import("backup.zig");
+const catalogue = @import("catalogue.zig");
 const creds = @import("creds.zig");
 const rc = @import("rc.zig");
 const daemon = @import("daemon.zig");
@@ -55,7 +56,7 @@ pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, tes
 
 /// How the last finished job ended. `.none` until the first job finishes.
 /// Appended, never reordered, for the same reason.
-pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed, restore_staged, undo_done };
+pub const Outcome = enum(u8) { none, paired, synced, failed, connection_ok, backups_listed, restore_staged, undo_done, catalogue_ready };
 
 /// Reserved for the sync indicator; the worker publishes states today and
 /// null progress, and nothing downstream may assume otherwise.
@@ -93,17 +94,25 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage, restore_undo };
+pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage, restore_undo, fetch_catalogue };
+
+/// What `ensureCatalogue` did. `.cached` means the caller may read the cache
+/// now; `.fetching` means a job is running and the answer arrives through
+/// `poll` as `.catalogue_ready` — or as `.failed`, which is not an error
+/// state: the cache simply stays as it was and the dialog offers a retry.
+pub const CatalogueState = enum { cached, fetching };
 
 /// A job as the caller describes it. Every slice is copied by `begin`; none
 /// needs to outlive the call.
 pub const JobSpec = struct {
     kind: JobKind,
-    path1: []const u8,
-    remote: []const u8,
-    profile: []const u8,
-    profile_id: []const u8,
-    remote_fingerprint: []const u8,
+    /// The sync context. Empty for a job that has none — `.fetch_catalogue`
+    /// describes the rclone binary, not any profile or remote.
+    path1: []const u8 = "",
+    remote: []const u8 = "",
+    profile: []const u8 = "",
+    profile_id: []const u8 = "",
+    remote_fingerprint: []const u8 = "",
     /// Snapshot `config.cfg` after a clean sync — the `Cloud.Config.Backup`
     /// option, passed per job by the caller who owns option state. A failed
     /// snapshot never fails the sync that triggered it.
@@ -275,6 +284,27 @@ pub const Worker = struct {
         self.cancel_flag.store(true, .release);
     }
 
+    /// Make sure a provider catalogue is available, without ever blocking the
+    /// caller on socket work.
+    ///
+    /// The cheap answer first: the cached document's version stamp is a local
+    /// file read, no daemon and no rc call, so a cache that already describes
+    /// `running` is reported straight back and nothing is enqueued. Only a
+    /// miss or a version change becomes a job — and a job it must be, because
+    /// fetching means spawning a daemon and making an rc call, which is
+    /// exactly the wait this thread exists to keep off the caller.
+    ///
+    /// `.fetching` is reported through the ordinary snapshot, so a caller
+    /// polls it like any other job and `cancel` abandons it like any other
+    /// job: a player who opens the dialog and closes it again strands
+    /// nothing.
+    pub fn ensureCatalogue(self: *Worker, running: daemon.Version) BeginError!CatalogueState {
+        const stamp = try catalogue.cachedVersion(self.gpa, self.io, self.game_dir);
+        if (catalogue.matchesVersion(stamp, running)) return .cached;
+        try self.begin(.{ .kind = .fetch_catalogue });
+        return .fetching;
+    }
+
     /// Serialise entry `index` of the most recent backup listing into `out`
     /// as NUL-terminated JSON and return its length, or null when there is
     /// no listing or no such entry. A value copy under the mutex — the
@@ -351,6 +381,33 @@ pub const Worker = struct {
             return;
         }
 
+        // The catalogue describes the rclone binary, not any configured
+        // remote, so this job takes the daemon and skips everything that
+        // belongs to a sync: no short link, and no credentials. Applying a
+        // broken credential here would let it hide the very provider list the
+        // player needs in order to fix it.
+        if (box.kind == .fetch_catalogue) {
+            if (self.cancelled()) {
+                self.publishFailureText("Cancelled");
+                return;
+            }
+            const eng = self.ensureSession(session) orelse return;
+            self.publishState(.testing);
+            if (self.cancelled()) {
+                self.publishFailureText("Cancelled");
+                return;
+            }
+            // `refreshCache` asks the daemon its version first and only
+            // fetches when the stamp no longer matches, so a job enqueued
+            // against a cache that was filled meanwhile costs one small call.
+            _ = catalogue.refreshCache(self.gpa, self.io, eng.client, self.game_dir) catch |err| {
+                self.publishFailureText(catalogueFailureText(err));
+                return;
+            };
+            self.publishDone(.catalogue_ready);
+            return;
+        }
+
         // Path1 must never be the install path: bisync spends the 255-byte
         // session-name budget on Path1's absolute bytes, so every
         // transfer-shaped job runs through the short link
@@ -385,7 +442,9 @@ pub const Worker = struct {
             // while it spins.
             .sync, .restore_stage => .syncing,
             .test_connection, .list_backups => .testing,
-            .restore_undo => unreachable, // handled above, before the session
+            // Both handled above and returned from: undo before the session
+            // exists, the catalogue fetch immediately after it.
+            .restore_undo, .fetch_catalogue => unreachable,
         });
 
         switch (box.kind) {
@@ -459,7 +518,7 @@ pub const Worker = struct {
                 self.mutex.unlock(self.io);
                 self.publishDone(.backups_listed);
             },
-            .restore_undo => unreachable, // handled above, before the session
+            .restore_undo, .fetch_catalogue => unreachable, // handled above
             .test_connection => {
                 const result = eng.testConnection(box.ctx.remote) catch {
                     self.publishFailureText("out of memory testing the connection");
@@ -528,6 +587,11 @@ pub const Worker = struct {
         // with what is on disk at its own start.
         session.eng = engine.Engine.init(self.gpa, self.io, &session.client.?);
         session.eng.?.cancel = &self.cancel_flag;
+        // The opportunistic half of the catalogue bootstrap: after a clean
+        // sync the daemon is already up and warm, so a stale or missing
+        // catalogue costs one small version call to notice and a single fetch
+        // to fix — with no dialog open and nothing waiting on it.
+        session.eng.?.refresh_catalogue = true;
         return &session.eng.?;
     }
 
@@ -596,6 +660,10 @@ pub const Worker = struct {
         reply.deinit();
     }
 
+    fn cancelled(self: *const Worker) bool {
+        return self.cancel_flag.load(.acquire);
+    }
+
     fn publishState(self: *Worker, state: State) void {
         self.mutex.lockUncancelable(self.io);
         defer self.mutex.unlock(self.io);
@@ -652,6 +720,19 @@ pub const Worker = struct {
         self.snapshot.error_len = len;
     }
 };
+
+/// A catalogue failure is reported, never thrown and never fatal: the cache
+/// stays as it was, the dialog says so and offers a retry, and nothing about
+/// the rest of cloud sync is blocked by it.
+fn catalogueFailureText(err: anyerror) []const u8 {
+    return switch (err) {
+        error.RcCallFailed => "the provider catalogue could not be fetched",
+        error.BadCatalogue => "rclone returned a provider catalogue this build cannot read",
+        error.VersionUnreadable => "rclone did not report a version this build can read",
+        error.CatalogueUnwritable => "the provider catalogue could not be cached",
+        else => @errorName(err),
+    };
+}
 
 fn freeJob(gpa: Allocator, box: *JobBox) void {
     box.arena.deinit();

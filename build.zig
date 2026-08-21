@@ -2295,6 +2295,24 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_backup_step = b.step("test-cloudsync-backup", "Run Zig CloudSync config backup tests");
     test_cloudsync_backup_step.dependOn(&cloudsync_backup_unit_tests.step);
     if (test_mode == .run) test_cloudsync_backup_step.dependOn(&run_cloudsync_backup_unit_tests.step);
+    // The catalogue tests read a committed snapshot of one rclone version's
+    // `config/providers` reply rather than a live daemon, so they stay offline;
+    // the fixture reaches `@embedFile` as an anonymous import because it lives
+    // outside the module's own directory.
+    const cloudsync_catalogue_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/catalogue_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    cloudsync_catalogue_test_module.addAnonymousImport("config_providers_fixture", .{
+        .root_source_file = b.path("tools/zig/fixtures/config_providers.json"),
+    });
+    const cloudsync_catalogue_unit_tests = b.addTest(.{ .root_module = cloudsync_catalogue_test_module });
+    const run_cloudsync_catalogue_unit_tests = b.addRunArtifact(cloudsync_catalogue_unit_tests);
+    const test_cloudsync_catalogue_step = b.step("test-cloudsync-catalogue", "Run Zig CloudSync provider catalogue tests");
+    test_cloudsync_catalogue_step.dependOn(&cloudsync_catalogue_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_catalogue_step.dependOn(&run_cloudsync_catalogue_unit_tests.step);
     const cloudsync_worker_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/CloudSync/worker_test.zig"),
         .target = target,

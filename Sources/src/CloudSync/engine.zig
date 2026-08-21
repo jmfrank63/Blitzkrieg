@@ -30,6 +30,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const catalogue = @import("catalogue.zig");
 const rc = @import("rc.zig");
 const plan = @import("plan.zig");
 
@@ -201,6 +202,17 @@ pub const Engine = struct {
     /// until one happens. Transport-level errors never get here; classify
     /// those with `classifyTransport` at the call site.
     last_outcome: Outcome = .unknown,
+    /// When set, the provider catalogue is refreshed after a clean sync, and
+    /// only then. This is the opportunistic half of the bootstrap the design
+    /// requires: the catalogue cannot be fetched at startup, because
+    /// `GameMain.cpp` reaches `Available()` only when cloud sync is already
+    /// enabled — so a fresh profile would never trigger it. The other half is
+    /// the deliberate fetch when the credentials dialog opens. Here the daemon
+    /// is already running and the check is one small version call, so a stale
+    /// catalogue costs nothing to notice. Like pruning, it runs after
+    /// `recordSuccess` and every failure is swallowed: a sync that succeeded
+    /// stays succeeded.
+    refresh_catalogue: bool = false,
     /// When set, both trashes are pruned after a clean sync — and only then:
     /// the call sites sit after `recordSuccess`, so a failed run can never
     /// prune what it may have just displaced. Prune failures are hygiene,
@@ -317,7 +329,17 @@ pub const Engine = struct {
 
         try self.recordSuccess(ctx);
         self.pruneBothTrashes(ctx);
+        self.refreshCatalogue(ctx);
         return run_id;
+    }
+
+    /// Bring the cached provider catalogue up to date, best-effort, after a
+    /// clean sync. Nothing here can fail the run: an rclone that will not
+    /// answer, a disk that will not take the file, or a reply this build
+    /// cannot read all leave the previous cache exactly as it was.
+    fn refreshCatalogue(self: *Engine, ctx: RunContext) void {
+        if (!self.refresh_catalogue) return;
+        _ = catalogue.refreshCache(self.gpa, self.io, self.client, ctx.game_dir) catch {};
     }
 
     /// Prune both sides, best-effort, after a clean finish. Every failure is

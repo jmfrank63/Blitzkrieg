@@ -15,6 +15,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const worker = @import("worker.zig");
+const catalogue = @import("catalogue.zig");
 const engine = @import("engine.zig");
 const daemon = @import("daemon.zig");
 const rc = @import("rc.zig");
@@ -411,4 +412,359 @@ test "a worker pairs and syncs through begin and poll alone" {
     const resynced = try std.Io.Dir.cwd().readFileAlloc(io, uploaded, gpa, .limited(4096));
     defer gpa.free(resynced);
     try std.testing.expectEqualStrings("v2", resynced);
+}
+
+
+// -- The catalogue job -------------------------------------------------------
+//
+// `ensureCatalogue` is a job, not a function call, because fetching means
+// spawning a daemon and making an rc call. The cases below pin the three
+// decisions it makes — cache hit, cache miss, version change — and the fourth
+// thing the packet asks for: that an unavailable daemon is reported through
+// the snapshot rather than thrown at the caller.
+
+/// A canned rc server: one accept per scripted reply, request line recorded so
+/// a test can prove which calls were made and how many.
+const CannedServer = struct {
+    io: std.Io,
+    server: net.Server,
+    port: u16,
+    replies: []const []const u8,
+    thread: ?std.Thread,
+    stopped: bool,
+    lines: [8][96]u8,
+    line_lens: [8]usize,
+    served: usize,
+
+    fn start(self: *CannedServer, target_io: std.Io, replies: []const []const u8) !void {
+        var addr: net.IpAddress = .{ .ip4 = .loopback(0) };
+        self.* = .{
+            .io = target_io,
+            .server = try addr.listen(target_io, .{ .reuse_address = true }),
+            .port = 0,
+            .replies = replies,
+            .thread = null,
+            .stopped = false,
+            .lines = undefined,
+            .line_lens = @splat(0),
+            .served = 0,
+        };
+        self.port = self.server.socket.address.getPort();
+        self.thread = try std.Thread.spawn(.{}, run, .{self});
+    }
+
+    fn stop(self: *CannedServer) void {
+        if (self.stopped) return;
+        self.stopped = true;
+        // Unblock an `accept` still waiting for a call the test never made.
+        // A scripted reply that went unused would otherwise pin this join
+        // forever, turning any earlier assertion failure into a hang instead
+        // of a report.
+        var spare: usize = 0;
+        while (spare < self.replies.len) : (spare += 1) {
+            var addr: net.IpAddress = .{ .ip4 = .loopback(self.port) };
+            if (addr.connect(self.io, .{ .mode = .stream })) |stream| {
+                var opened = stream;
+                opened.close(self.io);
+            } else |_| {}
+        }
+        if (self.thread) |t| {
+            t.join();
+            self.thread = null;
+        }
+        self.server.deinit(self.io);
+    }
+
+    fn endpoint(self: *const CannedServer) rc.Endpoint {
+        return .{ .host = "127.0.0.1", .port = self.port, .user = "u", .pass = "p" };
+    }
+
+    fn requestLine(self: *const CannedServer, index: usize) []const u8 {
+        return self.lines[index][0..self.line_lens[index]];
+    }
+
+    fn run(self: *CannedServer) void {
+        for (self.replies) |reply| {
+            var stream = self.server.accept(self.io) catch return;
+            defer stream.close(self.io);
+            self.serveOne(stream, reply) catch {};
+        }
+    }
+
+    fn serveOne(self: *CannedServer, stream: net.Stream, reply: []const u8) !void {
+        var read_buf: [8192]u8 = undefined;
+        var stream_reader = stream.reader(self.io, &read_buf);
+        const reader = &stream_reader.interface;
+
+        var first = true;
+        var content_len: usize = 0;
+        while (true) {
+            const line = reader.takeDelimiterInclusive('\n') catch break;
+            const trimmed = std.mem.trimEnd(u8, line, "\r\n");
+            if (first) {
+                first = false;
+                const slot = self.served;
+                if (slot < self.lines.len) {
+                    const len = @min(trimmed.len, self.lines[slot].len);
+                    @memcpy(self.lines[slot][0..len], trimmed[0..len]);
+                    self.line_lens[slot] = len;
+                }
+            }
+            if (trimmed.len == 0) break;
+            if (std.ascii.startsWithIgnoreCase(trimmed, "content-length:")) {
+                const raw = std.mem.trim(u8, trimmed["content-length:".len..], " ");
+                content_len = std.fmt.parseInt(usize, raw, 10) catch 0;
+            }
+        }
+        self.served += 1;
+
+        var scratch: [8192]u8 = undefined;
+        var remaining = content_len;
+        while (remaining > 0) {
+            const want = @min(remaining, scratch.len);
+            reader.readSliceAll(scratch[0..want]) catch break;
+            remaining -= want;
+        }
+
+        var write_buf: [8192]u8 = undefined;
+        var stream_writer = stream.writer(self.io, &write_buf);
+        try stream_writer.interface.writeAll(reply);
+        try stream_writer.interface.flush();
+    }
+};
+
+fn httpReply(comptime status_line: []const u8, comptime json_body: []const u8) []const u8 {
+    return status_line ++ "\r\n" ++
+        "content-type: application/json\r\n" ++
+        std.fmt.comptimePrint("content-length: {d}\r\n", .{json_body.len}) ++
+        "connection: close\r\n\r\n" ++
+        json_body;
+}
+
+const v1_75_0: daemon.Version = .{ .major = 1, .minor = 75, .patch = 0 };
+const v1_74_2: daemon.Version = .{ .major = 1, .minor = 74, .patch = 2 };
+
+/// A two-backend catalogue: enough to prove the document survived the round
+/// trip, small enough to serve from a canned reply.
+const tiny_catalogue =
+    "{\"providers\":[" ++
+    "{\"Name\":\"alpha\",\"Description\":\"A\",\"Prefix\":\"alpha\",\"Options\":[{\"Name\":\"one\",\"Type\":\"string\"}]}," ++
+    "{\"Name\":\"beta\",\"Description\":\"B\",\"Prefix\":\"beta\",\"Options\":[]}" ++
+    "]}";
+
+fn writeCache(
+    gpa: std.mem.Allocator,
+    game_dir: []const u8,
+    body: []const u8,
+    version: daemon.Version,
+) !void {
+    const document = try catalogue.stampDocument(gpa, body, version);
+    defer gpa.free(document);
+    try catalogue.cache(gpa, io, game_dir, document);
+}
+
+test "a version-matched cache answers ensureCatalogue without enqueueing a job" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    try writeCache(gpa, game_dir, tiny_catalogue, v1_75_0);
+
+    // No endpoint and no binary source at all: if this enqueued anything, the
+    // job would fail for want of a daemon, and the state would not stay idle.
+    var w = try worker.Worker.create(gpa, tio, .{ .game_dir = game_dir });
+    defer w.destroy();
+
+    try std.testing.expectEqual(worker.CatalogueState.cached, try w.ensureCatalogue(v1_75_0));
+
+    sleepMs(tio, 100);
+    try std.testing.expectEqual(worker.State.idle, w.poll().state);
+    try std.testing.expectEqual(worker.Outcome.none, w.poll().outcome);
+}
+
+test "a version change enqueues a refetch even though a cache exists" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    try writeCache(gpa, game_dir, tiny_catalogue, v1_74_2);
+
+    const replies = [_][]const u8{
+        httpReply("HTTP/1.1 200 OK", "{\"version\":\"v1.75.0\"}"),
+        httpReply("HTTP/1.1 200 OK", tiny_catalogue),
+    };
+    var stub: CannedServer = undefined;
+    try stub.start(tio, &replies);
+    defer stub.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = stub.endpoint(),
+        .deadline = .{ .connect_ms = 2_000, .read_ms = 2_000 },
+    });
+    defer w.destroy();
+
+    try std.testing.expectEqual(worker.CatalogueState.fetching, try w.ensureCatalogue(v1_75_0));
+
+    const settled = pollUntilSettled(w, tio, 30_000);
+    try std.testing.expectEqualStrings("", settled.errorText());
+    try std.testing.expectEqual(worker.State.done, settled.state);
+    try std.testing.expectEqual(worker.Outcome.catalogue_ready, settled.outcome);
+
+    stub.stop();
+    // Exactly the two calls the refresh needs, and no credentials work: a
+    // catalogue fetch must not depend on a configured remote.
+    try std.testing.expectEqual(@as(usize, 2), stub.served);
+    try std.testing.expect(std.mem.startsWith(u8, stub.requestLine(0), "POST /core/version "));
+    try std.testing.expect(std.mem.startsWith(u8, stub.requestLine(1), "POST /config/providers "));
+
+    // The cache now describes the running binary, so the next ask is free.
+    var reloaded = try catalogue.loadCached(gpa, io, game_dir);
+    defer reloaded.deinit();
+    try std.testing.expectEqual(@as(usize, 2), reloaded.backends.len);
+    try std.testing.expect(reloaded.rclone_version != null);
+    try std.testing.expectEqual(
+        std.math.Order.eq,
+        reloaded.rclone_version.?.order(v1_75_0),
+    );
+    try std.testing.expectEqual(worker.CatalogueState.cached, try w.ensureCatalogue(v1_75_0));
+}
+
+test "a missing cache fetches once, and the second ask is answered from disk" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    const replies = [_][]const u8{
+        httpReply("HTTP/1.1 200 OK", "{\"version\":\"v1.75.0\"}"),
+        httpReply("HTTP/1.1 200 OK", tiny_catalogue),
+    };
+    var stub: CannedServer = undefined;
+    try stub.start(tio, &replies);
+    defer stub.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = stub.endpoint(),
+        .deadline = .{ .connect_ms = 2_000, .read_ms = 2_000 },
+    });
+    defer w.destroy();
+
+    // Nothing cached yet — the fresh-install case the whole bootstrap exists
+    // for. `ensureCatalogue` must not have waited on the socket to say so.
+    const asked = nowNs(tio);
+    try std.testing.expectEqual(worker.CatalogueState.fetching, try w.ensureCatalogue(v1_75_0));
+    try std.testing.expect(nowNs(tio) - asked < frame_ns);
+
+    const settled = pollUntilSettled(w, tio, 30_000);
+    try std.testing.expectEqual(worker.State.done, settled.state);
+    try std.testing.expectEqual(worker.Outcome.catalogue_ready, settled.outcome);
+
+    stub.stop();
+    try std.testing.expectEqual(@as(usize, 2), stub.served);
+
+    var loaded = try catalogue.loadCached(gpa, io, game_dir);
+    defer loaded.deinit();
+    const alpha = loaded.backend("alpha") orelse return error.MissingBackend;
+    try std.testing.expectEqual(@as(usize, 1), alpha.options.len);
+
+    // The stub has no replies left, so a second fetch would fail the job.
+    // It is answered from the cache instead.
+    try std.testing.expectEqual(worker.CatalogueState.cached, try w.ensureCatalogue(v1_75_0));
+}
+
+test "an unavailable daemon is reported through the snapshot, not thrown" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    // No endpoint, no binary: there is no rclone to ask.
+    var w = try worker.Worker.create(gpa, tio, .{ .game_dir = game_dir });
+    defer w.destroy();
+
+    try std.testing.expectEqual(worker.CatalogueState.fetching, try w.ensureCatalogue(v1_75_0));
+
+    const settled = pollUntilSettled(w, tio, 10_000);
+    try std.testing.expectEqual(worker.State.failed, settled.state);
+    try std.testing.expectEqual(worker.Outcome.failed, settled.outcome);
+    try std.testing.expect(settled.errorText().len != 0);
+
+    // A failed fetch is not an error state: no cache was written, the list is
+    // simply still empty, and the worker is ready for the retry.
+    var loaded = try catalogue.loadCached(gpa, io, game_dir);
+    defer loaded.deinit();
+    try std.testing.expect(loaded.isEmpty());
+}
+
+test "a catalogue fetch is cancellable like any other job" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    // A listening socket that answers nothing: the worker either sees the
+    // cancel before it reaches the transport, or gets there and is bounded by
+    // its own POST deadline. Both are the same promise — the fetch ends.
+    var stub: CannedServer = undefined;
+    try stub.start(tio, &.{});
+    defer stub.stop();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = stub.endpoint(),
+        .deadline = .{ .connect_ms = 1_000, .read_ms = 1_000 },
+    });
+    defer w.destroy();
+
+    try std.testing.expectEqual(worker.CatalogueState.fetching, try w.ensureCatalogue(v1_75_0));
+
+    // The player closes the dialog again. The job must end rather than strand
+    // the worker, and it must end without a cache.
+    w.cancel();
+
+    const settled = pollUntilSettled(w, tio, 10_000);
+    try std.testing.expectEqual(worker.State.failed, settled.state);
+    try std.testing.expectEqual(worker.Outcome.failed, settled.outcome);
+    try std.testing.expect(settled.errorText().len != 0);
+
+    var loaded = try catalogue.loadCached(gpa, io, game_dir);
+    defer loaded.deinit();
+    try std.testing.expect(loaded.isEmpty());
+
+    // The worker took the cancellation, not a wound: the next job is accepted.
+    try std.testing.expectEqual(worker.CatalogueState.fetching, try w.ensureCatalogue(v1_75_0));
 }
