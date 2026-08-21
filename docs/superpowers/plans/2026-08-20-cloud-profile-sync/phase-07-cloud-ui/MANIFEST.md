@@ -107,3 +107,40 @@ Carried forward from P07-M02:
   IMC_CANCEL (10001) — one switch case, not two.
 - A warm daemon session lists in well under 300 ms — a loading-state
   screenshot needs its shot within ~4 frames of the opening click.
+
+P07-M03 Windows checkpoint: verified headlessly across REAL restarts
+against a live MinIO — a merge restore replaced `Cloud.Sync.OnSave` with
+the backup's value while a local `GFX.DensityCoeff` change survived; the
+undo of an applied restore staged the previous settings back and, after
+another relaunch, left `config.cfg` byte-identical (SHA-256) to the
+pre-restore original. Screenshots cover browse, the merge confirmation,
+the full-restore warning, staged-with-cancel-pending, undo-applied
+offered, and the undo staged back
+(evidence/cloud-sync/restore-confirm/). All suites green offline and
+live; facade cross-compiles pass. Phase 07 closed. Commit `1f2776d15`.
+
+Carried forward from P07-M03:
+
+- The restore flow is a state machine on the browser screen (browse /
+  confirm-merge / confirm-full), buttons 10030/10031 relabeled per state,
+  the explanation label doing the plain-terms work. Escape inside a
+  confirmation goes BACK, never past the explicit step.
+- Undo is named for what `UndoAvailability` reports and the settle message
+  matches what the undo DID: a cancelled pending stage "is discarded", a
+  reversed applied restore "is staged back - the next launch restores
+  them". After the undo stages back, availability correctly reads
+  CANCELLABLE again (the undo itself is a pending stage).
+- Acceptance tooling traps, both stepped in during this packet:
+  (1) reading config.cfg with a lazy regex crossing item boundaries
+  reports the WRONG item's value — anchor at the `<item` containing the
+  `<KeyName>` and take the FIRST `<Var>` inside it (scratchpad
+  `read-cfg.ps1` does it right); the P06-M02 lesson, relearned in
+  PowerShell. (2) `BK_AUTO_UI` actions fire on EXACT frame numbers and a
+  skipped frame silently drops one — and with `Cloud.Config.Backup` ON,
+  every synced launch snapshots the CURRENT config, so "restore the
+  newest row" restores what you already have; either stop startup syncs
+  (`Cloud.Sync.OnStartup=OFF`) before staging divergence or select an
+  older row.
+- `set=GFX.Blood` appears not to stick headlessly (its live SetBlood
+  action path); `GFX.DensityCoeff` (InstantApply="0") is a reliable GFX
+  probe.

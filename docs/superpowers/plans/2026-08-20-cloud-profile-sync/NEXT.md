@@ -85,9 +85,11 @@ records four APIs the packet texts assumed that do not exist in Zig 0.16
 plus two runtime traps: socket-level timeouts panic under `Io.Threaded`, and a
 build test step fails if its binary writes anything at all to stderr.
 
-**Next:** `phase-07-cloud-ui/P07-M03-restore-confirm.md` — the backup
-browser is done (P07-M02, commit `4561186fa`); restore confirmation and
-undo close phase 07.
+**Next:** `phase-08-acceptance/P08-M02-windows-acceptance.md` — phase 07
+is closed (P07-M03, commit `1f2776d15`). Phase 08 is the acceptance
+matrix: P08-M02 (Windows) runs on this machine; P08-M01 (macOS), P08-M03
+(Linux) and P08-M04 (two machines) need other hosts — stop and hand off
+there.
 
 ## Corrections applied after review
 
