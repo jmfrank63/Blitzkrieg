@@ -437,6 +437,61 @@ test "secrets never cross a backend change" {
     try std.testing.expect(std.mem.indexOf(u8, raw, "secret_access_key") == null);
 }
 
+test "a transitional generic document upgrades its fingerprint to the record's format" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    // Byte-for-byte what the first generic-schema build (06601b7c6) wrote
+    // for a migrated legacy file: the fingerprint in this module's old
+    // s3:-prefixed derivation, which no pairing record ever held.
+    try fixture.writeRaw(
+        \\{"backend":"s3","remote_root":"bk-saves","fingerprint":"s3:https://abc123.r2.cloudflarestorage.com/bk-saves","options":{"provider":"Cloudflare","endpoint":"https://abc123.r2.cloudflarestorage.com","region":"auto","access_key_id":"AKIAIOSFODNN7EXAMPLE","secret_access_key":"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"},"secret_options":["access_key_id","secret_access_key"],"password_options":[],"rclone_path":"/opt/rclone/rclone"}
+    );
+
+    var loaded = (try creds.load(gpa, io, fixture.file)).?;
+    defer loaded.deinit();
+    try std.testing.expectEqualStrings(legacy_s3_fingerprint, loaded.creds.fingerprint);
+    try std.testing.expectEqualStrings(fixture_secret, loaded.creds.option("secret_access_key").?.value);
+
+    // The upgrade persists, and a later password-only edit carries the
+    // upgraded value verbatim like any other stored fingerprint.
+    try creds.save(gpa, io, fixture.file, loaded.creds);
+    var reloaded = (try creds.load(gpa, io, fixture.file)).?;
+    defer reloaded.deinit();
+    try std.testing.expectEqualStrings(legacy_s3_fingerprint, reloaded.creds.fingerprint);
+
+    // The WebDAV variant of the same window.
+    try fixture.writeRaw(
+        \\{"backend":"webdav","remote_root":"","fingerprint":"webdav:https://cloud.example.net/remote.php/dav/files/player","options":{"url":"https://cloud.example.net/remote.php/dav/files/player","vendor":"nextcloud","user":"player","pass":"correct horse battery staple"},"secret_options":["user","pass"],"password_options":["pass"],"rclone_path":null}
+    );
+    var dav = (try creds.load(gpa, io, fixture.file)).?;
+    defer dav.deinit();
+    try std.testing.expectEqualStrings(legacy_webdav_fingerprint, dav.creds.fingerprint);
+}
+
+test "a fingerprint that merely resembles the old derivation is preserved" {
+    const gpa = std.testing.allocator;
+
+    // The upgrade must fire only when the stored value is provably the old
+    // derivation of these same credentials — anything else is an established
+    // identity, and rewriting it is exactly the rotation the contract
+    // forbids. "s3:" happens to prefix this value; the endpoint inside does
+    // not match the stored options, so it stays byte-identical.
+    var incoming = (try creds.parse(gpa,
+        \\{"backend":"s3","remote_root":"bk-saves",
+        \\"options":{"endpoint":"https://abc123.r2.cloudflarestorage.com"},
+        \\"fingerprint":"s3:https://elsewhere.example.net/bk-saves",
+        \\"rclone_path":null}
+    )).?;
+    defer incoming.deinit();
+    try std.testing.expectEqualStrings(
+        "s3:https://elsewhere.example.net/bk-saves",
+        incoming.creds.fingerprint,
+    );
+}
+
 test "two webdav servers get different fingerprints" {
     const gpa = std.testing.allocator;
 

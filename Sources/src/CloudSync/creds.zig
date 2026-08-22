@@ -259,13 +259,50 @@ fn parseGeneric(alloc: Allocator, root: std.json.ObjectMap) Allocator.Error!?Cre
     try applyFlags(alloc, &options, root, "secret_options", .secret);
     try applyFlags(alloc, &options, root, "password_options", .password);
 
-    return .{
+    var creds: Credentials = .{
         .backend = backend,
         .remote_root = stringField(root, "remote_root") orelse "",
         .fingerprint = stringField(root, "fingerprint") orelse "",
         .options = options.items,
         .rclone_path = stringField(root, "rclone_path"),
     };
+    creds.fingerprint = try upgradeTransitionalFingerprint(alloc, creds);
+    return creds;
+}
+
+/// Repair the one build window (`06601b7c6`, before the format correction)
+/// in which migration persisted this module's old `s3:`/`webdav:`-prefixed
+/// derivation instead of the string pairing records hold. The stored
+/// fingerprint is rewritten **only** when it is byte-equal to the old
+/// derivation of these same credentials — provably that window's output, so
+/// no established identity can be rewritten — and the rewrite produces what
+/// the corrected migration would have: the facade scrape of the same
+/// components. Anything else, including a value that merely resembles the
+/// old shape, is an identity and stays verbatim. A second use of the
+/// declared legacy-migration naming exception.
+fn upgradeTransitionalFingerprint(
+    alloc: Allocator,
+    creds: Credentials,
+) Allocator.Error![]const u8 {
+    if (creds.fingerprint.len == 0) return creds.fingerprint;
+
+    if (std.mem.eql(u8, creds.backend, "s3")) {
+        const endpoint = optionValue(creds, "endpoint");
+        const old = try std.fmt.allocPrint(alloc, "s3:{s}/{s}", .{ endpoint, creds.remote_root });
+        if (std.mem.eql(u8, creds.fingerprint, old))
+            return legacyPairingIdentity(alloc, &.{ endpoint, creds.remote_root });
+    } else if (std.mem.eql(u8, creds.backend, "webdav")) {
+        const url = optionValue(creds, "url");
+        const old = try std.fmt.allocPrint(alloc, "webdav:{s}", .{url});
+        if (std.mem.eql(u8, creds.fingerprint, old))
+            return legacyPairingIdentity(alloc, &.{url});
+    }
+    return creds.fingerprint;
+}
+
+fn optionValue(creds: Credentials, name: []const u8) []const u8 {
+    const opt = creds.option(name) orelse return "";
+    return opt.value;
 }
 
 const Flag = enum { secret, password };
