@@ -24,6 +24,11 @@ class CInterfaceCloudCredentials : public CInterfaceScreenBase
 	std::wstring szSecretReal;
 	bool bStoredSecret;
 	bool bSecretTouched;
+	// The stored document is in the generic schema this legacy dialog cannot
+	// represent; saving from these fields would overwrite the real
+	// configuration. Interim guard until the generic form replaces the
+	// dialog (P02-M03).
+	bool bGenericStored;
 	// Poll handle of the running connection test, -1 when idle.
 	int nTestHandle;
 

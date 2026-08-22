@@ -271,11 +271,15 @@ void CInterfaceCloudCredentials::PopulateFromCredentials()
 	char pszDoc[16384];
 	bStoredSecret = false;
 	bSecretTouched = false;
+	bGenericStored = false;
 	szSecretReal.clear();
 	if ( NCloudSync::LoadCredentials( pszDoc, sizeof( pszDoc ) ) )
 	{
 		const std::string szDoc = pszDoc;
 		const std::string szDocProtocol = JsonString( szDoc, "protocol" );
+		// No "protocol" key means the generic schema: partial prefill only,
+		// and SaveCredentials refuses rather than writing the blanks back.
+		bGenericStored = szDocProtocol.empty();
 		if ( !szDocProtocol.empty() )
 			szProtocol = szDocProtocol;
 		bStoredSecret = JsonBool( szDoc, "has_secret" );
@@ -294,6 +298,13 @@ void CInterfaceCloudCredentials::PopulateFromCredentials()
 			SetEdit( E_EDIT_ACCESS, WideFromUtf8( JsonString( szDoc, "access_key" ) ) );
 		}
 		SetEdit( E_EDIT_RCLONE, WideFromUtf8( JsonString( szDoc, "rclone_path" ) ) );
+	}
+	else
+	{
+		// Present but unreadable here: a legacy document always fits this
+		// buffer, so this is a generic one (an OAuth token can exceed it).
+		// Guard the save rather than treating it as absent.
+		bGenericStored = NCloudSync::CredentialsPresent();
 	}
 	ApplyProtocol();
 }
@@ -350,6 +361,14 @@ void CInterfaceCloudCredentials::OnSecretEdited()
 }
 bool CInterfaceCloudCredentials::SaveCredentials()
 {
+	if ( bGenericStored )
+	{
+		// An accept from the half-blank prefill would blank the S3 remote
+		// root and route every sync at the account root.
+		SetStatus( "Textes\\UI\\CloudCredentials\\save_failed",
+			L"stored in a newer format this dialog cannot edit yet" );
+		return false;
+	}
 	const bool bS3 = szProtocol != "webdav";
 	std::string szJson = "{";
 	szJson += bS3 ? "\"protocol\":\"s3\",\"s3\":{" : "\"protocol\":\"webdav\",\"webdav\":{";
