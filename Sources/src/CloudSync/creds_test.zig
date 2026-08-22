@@ -36,10 +36,13 @@ const legacy_webdav_doc =
     \\{"protocol":"webdav","webdav":{"url":"https://cloud.example.net/remote.php/dav/files/player","vendor":"nextcloud","user":"player","pass":"correct horse battery staple"},"rclone_path":null}
 ;
 
-/// The fingerprints those files carried implicitly — what the two-arm code's
-/// `fingerprint` computed. Migration must persist them byte-identically.
-const legacy_s3_fingerprint = "s3:https://abc123.r2.cloudflarestorage.com/bk-saves";
-const legacy_webdav_fingerprint = "webdav:https://cloud.example.net/remote.php/dav/files/player";
+/// The fingerprints those files carried implicitly — what the facade's
+/// scraper produced from the legacy redacted document, which is the string
+/// every production pairing record holds. Migration must persist them
+/// byte-identically; the Zig-side `s3:`/`webdav:`-prefixed variants never
+/// reached a pairing record and must not be resurrected here.
+const legacy_s3_fingerprint = "https://abc123.r2.cloudflarestorage.com/bk-saves";
+const legacy_webdav_fingerprint = "https://cloud.example.net/remote.php/dav/files/player";
 
 const Fixture = struct {
     tmp: std.testing.TmpDir,

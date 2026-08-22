@@ -44,8 +44,12 @@
 //! The **fingerprint** is the pairing record's connection identity, distinct
 //! from the alias target, and it is persisted explicitly rather than
 //! recomputed from whatever fields a backend happens to have. Migration
-//! stores the legacy value byte-for-byte (`s3:{endpoint}/{bucket}`,
-//! `webdav:{url}`), so an already-paired profile keeps its pairing. It
+//! stores the value **production pairing records actually hold** — the C++
+//! facade's scrape of the legacy redacted document, `{endpoint}/{bucket}`
+//! for S3 and `{url}` for WebDAV. (This module's old `fingerprint()` wrote
+//! `s3:`/`webdav:`-prefixed strings, but nothing shipping ever consumed
+//! them; the facade scraped its own.) So an already-paired profile keeps
+//! its pairing once the facade reads the persisted value. It
 //! rotates only when the backend, the remote root, or the canonical
 //! non-secret option projection changes — sorted by key, secrets excluded —
 //! so reserialising an unchanged configuration cannot rotate it and a
@@ -305,7 +309,9 @@ fn applyFlags(
 /// flags onto what v1.75.0's catalogue declares for them (`access_key_id`
 /// and `user` are `Sensitive`; `pass` is the one `IsPassword`), and the S3
 /// bucket becomes the remote root. The fingerprint is computed exactly as
-/// the two-arm code computed it, so the pairing survives byte-for-byte.
+/// the facade's scraper computed it from the legacy redacted document —
+/// the string every existing pairing record holds — so the pairing
+/// survives byte-for-byte.
 fn migrateLegacy(alloc: Allocator, root: std.json.ObjectMap) Allocator.Error!?Credentials {
     const protocol = stringField(root, "protocol") orelse return null;
 
@@ -335,7 +341,7 @@ fn migrateLegacy(alloc: Allocator, root: std.json.ObjectMap) Allocator.Error!?Cr
         });
         creds.backend = "s3";
         creds.remote_root = bucket;
-        creds.fingerprint = try std.fmt.allocPrint(alloc, "s3:{s}/{s}", .{ endpoint, bucket });
+        creds.fingerprint = try legacyPairingIdentity(alloc, &.{ endpoint, bucket });
     } else if (std.mem.eql(u8, protocol, "webdav")) {
         const section = objectField(root, "webdav") orelse return null;
         const url = stringField(section, "url") orelse "";
@@ -353,7 +359,7 @@ fn migrateLegacy(alloc: Allocator, root: std.json.ObjectMap) Allocator.Error!?Cr
             .is_password = true,
         });
         creds.backend = "webdav";
-        creds.fingerprint = try std.fmt.allocPrint(alloc, "webdav:{s}", .{url});
+        creds.fingerprint = try legacyPairingIdentity(alloc, &.{url});
     } else {
         // A protocol from a newer build: tolerated, reported as "none saved".
         return null;
@@ -361,6 +367,21 @@ fn migrateLegacy(alloc: Allocator, root: std.json.ObjectMap) Allocator.Error!?Cr
 
     creds.options = options.items;
     return creds;
+}
+
+/// The facade scraper's join, replicated byte-for-byte: each part is
+/// appended behind a `/` separator that appears only when something has
+/// been written already — so an empty leading part vanishes while an empty
+/// trailing one leaves the separator. Faithfulness to those edge cases,
+/// not elegance, is the point: the pairing record compares by string
+/// equality, and any deviation reads as a changed remote.
+fn legacyPairingIdentity(alloc: Allocator, parts: []const []const u8) Allocator.Error![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    for (parts) |part| {
+        if (out.items.len != 0) try out.append(alloc, '/');
+        try out.appendSlice(alloc, part);
+    }
+    return out.items;
 }
 
 /// Append a non-secret option only when the legacy field held a value —
