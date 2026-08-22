@@ -17,7 +17,7 @@ texts do not.
 | P00-M04 package permissions | `6dccbc024` | `package-game` completes; exec bit survives |
 | P01-M01 catalogue | `9aa47f7fb` | parse, cache, `matchProvider`, fetch job |
 | P01-M02 generic schema | `06601b7c6` | migration byte-identical, flags persisted |
-| P01-M02 amendment | `cdc864ace`+`9dc2b9042` | scraper-format fingerprint, dialog guard |
+| P01-M02 amendment | `cdc864ace`..`dcb93e181` | scraper-format fingerprint, dialog guard, transitional repair |
 
 ## Resuming on another machine
 
@@ -25,7 +25,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `9dc2b9042`:
+Suites, all green at `dcb93e181` (creds now 17):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -110,7 +110,10 @@ approved widening it — recorded in the packet. What the next packet needs:
   records hold; the Zig-side `s3:`/`webdav:` prefixes never reached them.
   P01-M03 now owns exporting the persisted fingerprint and retiring the
   facade scraper, which degrades against the generic schema (S3 loses the
-  bucket component, unscanned backends produce an empty string).
+  bucket component, unscanned backends produce an empty string). Documents
+  written inside the `06601b7c6` window self-repair on load: a fingerprint
+  byte-equal to the old derivation of its own components rewrites to the
+  scraper format; anything else stays verbatim.
 - **`Sensitive` widened the withheld set**: s3 `access_key_id` and webdav
   `user` are secret now; only webdav `pass` is `IsPassword` among migrated
   fields.

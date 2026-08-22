@@ -103,6 +103,14 @@ regressions:
   document handling. WebDAV survives a blind reopen-and-save losslessly
   (url and vendor scan flat; user and pass merge), so the guard's cost is
   S3-only edits waiting one packet.
+- **Transitional generic documents self-repair on load** (`dcb93e181`,
+  follow-up review). Files written inside the `06601b7c6` window carry the
+  old `s3:`/`webdav:`-prefixed fingerprint, and a stored fingerprint is
+  never recomputed — so they would have demanded a re-pair forever once the
+  facade consumes the persisted value. `parse` rewrites the fingerprint
+  only when it is byte-equal to the old derivation of the same document's
+  own components; a value merely resembling the old shape is an identity
+  and stays verbatim, asserted by test.
 - Suites re-run green with a live rclone, including the backend WebDAV
   cycle; `install-game` compiles the guarded dialog. Commits below.
 
