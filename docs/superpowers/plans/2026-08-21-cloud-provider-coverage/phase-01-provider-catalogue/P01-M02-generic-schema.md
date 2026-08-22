@@ -23,6 +23,15 @@
 - [ ] The **alias target** is built from the backend remote name and the remote root, matching what the two-arm code already does.
 - [ ] **The fingerprint is not the alias target, and must not be derived from `backend` + `remote_root`.** Today it is `s3:{endpoint}/{bucket}` and `webdav:{url}` — deliberately the *connection identity*. Dropping to backend and root would make two different S3 services sharing a bucket name indistinguishable, and would give **every WebDAV configuration the identical string `webdav:`**, since their root is empty. Silently treating a different server as the same pairing is the worst outcome this schema can produce.
 - [ ] **Persist the fingerprint explicitly** rather than recomputing it from whatever fields a future backend happens to have. At migration, compute the legacy value exactly as the old code did and store it, so an already-paired profile keeps its pairing — a changed fingerprint demands a re-pair and looks like a new remote.
+
+> Corrected after review (2026-08-22): "the legacy value" is **not** this
+> module's old `s3:{endpoint}/{bucket}` / `webdav:{url}` strings — nothing
+> shipping ever consumed those. The pairing records in production hold the
+> C++ facade's scrape of the redacted document: `{endpoint}/{bucket}` for S3
+> and `{url}` for WebDAV, joined with the scraper's exact separator
+> semantics. Migration persists that string; P01-M03 switches the facade
+> from the scraper to the persisted value, which is what makes the
+> continuity real.
 - [ ] Rotate it when the backend, the remote root, or the non-secret connection identity changes. Never let a secret enter it; the existing comment "No secret material" is a contract, not a description.
 - [ ] **Derive it by one generic rule, never by recognising endpoint-like fields.** Deciding that `endpoint` or `url` carries identity is exactly the field-name hardcoding this plan forbids, and the catalogue does not say which fields define a remote.
 - [ ] **Rotation is decided by comparing the backend, the root, and the canonical non-secret option projection — nothing else.** If only secrets changed, keep the stored fingerprint **verbatim**, including a migrated legacy one. Recomputing on any option change would rotate a migrated profile's fingerprint the first time its password is edited, because the new generic digest will not equal the legacy `s3:{endpoint}/{bucket}` string it replaced — turning a password change into an apparent new remote and a demand to re-pair.

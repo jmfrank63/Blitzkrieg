@@ -80,3 +80,29 @@ Findings the packet text does not carry:
   until P01-M03/P02-M03 rewrite that chain; its legacy-format saves still
   parse via the migration path, and the ABI creds contract passes untouched.
 
+P01-M02 amendment (2026-08-22), after review found two integration
+regressions:
+
+- **The migrated fingerprint now uses the facade scraper's format** —
+  `{endpoint}/{bucket}` for S3, `{url}` for WebDAV, with the scraper's exact
+  join semantics replicated. Review established that production pairing
+  records hold the *facade's* scraped string, not this module's old
+  `s3:`/`webdav:`-prefixed one, which nothing shipping ever consumed. The
+  packet's "compute the legacy value exactly as the old code did" targeted
+  the wrong old code; corrected in the packet. P01-M03 gains bullets to
+  export the persisted fingerprint, switch the facade off its scraper (which
+  degrades against the generic schema: S3 loses the bucket component, other
+  backends scan to empty), and assert the continuity in the ABI consumer.
+- **An interim guard in `InterfaceCloudCredentials`** refuses a save when the
+  loaded document carries no `protocol` key (or is present but unreadable):
+  the legacy dialog's prefill from a generic document is half-blank — for
+  S3, vendor, bucket and access key scan to nothing — and an accept wrote
+  the blanks back, blanking the remote root and rerouting the sync to the
+  account root. The guard also covers the connection test, which saves
+  before probing. It comes out when P01-M03/P02-M03 replace the dialog's
+  document handling. WebDAV survives a blind reopen-and-save losslessly
+  (url and vendor scan flat; user and pass merge), so the guard's cost is
+  S3-only edits waiting one packet.
+- Suites re-run green with a live rclone, including the backend WebDAV
+  cycle; `install-game` compiles the guarded dialog. Commits below.
+

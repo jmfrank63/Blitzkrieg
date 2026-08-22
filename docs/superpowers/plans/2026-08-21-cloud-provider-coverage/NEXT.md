@@ -17,6 +17,7 @@ texts do not.
 | P00-M04 package permissions | `6dccbc024` | `package-game` completes; exec bit survives |
 | P01-M01 catalogue | `9aa47f7fb` | parse, cache, `matchProvider`, fetch job |
 | P01-M02 generic schema | `06601b7c6` | migration byte-identical, flags persisted |
+| P01-M02 amendment | `cdc864ace`+`9dc2b9042` | scraper-format fingerprint, dialog guard |
 
 ## Resuming on another machine
 
@@ -24,7 +25,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `06601b7c6`:
+Suites, all green at `9dc2b9042`:
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -98,9 +99,18 @@ approved widening it — recorded in the packet. What the next packet needs:
   while backend, root and the canonical non-secret projection are unchanged,
   and otherwise leaves it for `save` to re-derive. Nothing crosses a backend
   change.
-- **The C++ dialog is degraded until its rewrite.** It still parses the legacy
-  document shape, so it cannot prefill from the generic redacted form; its
-  legacy-format saves migrate on parse. P01-M03 and P02-M03 own that chain.
+- **The C++ dialog is degraded until its rewrite, and guarded.** It still
+  parses the legacy document shape, so it cannot prefill from the generic
+  redacted form; a save from that half-blank state would blank the S3 remote
+  root, so an interim guard (2026-08-22) refuses to save whenever the loaded
+  document has no `protocol` key. P01-M03 and P02-M03 own the chain and the
+  guard's removal.
+- **The migrated fingerprint is the facade scraper's string** —
+  `{endpoint}/{bucket}`, `{url}` — because that is what production pairing
+  records hold; the Zig-side `s3:`/`webdav:` prefixes never reached them.
+  P01-M03 now owns exporting the persisted fingerprint and retiring the
+  facade scraper, which degrades against the generic schema (S3 loses the
+  bucket component, unscanned backends produce an empty string).
 - **`Sensitive` widened the withheld set**: s3 `access_key_id` and webdav
   `user` are secret now; only webdav `pass` is `IsPassword` among migrated
   fields.
