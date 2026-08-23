@@ -361,6 +361,42 @@ test "the support log tail is bounded and redacted" {
     try std.testing.expect(std.mem.indexOf(u8, tail, "line-249") != null);
 }
 
+test "the stored error text is redacted, with and without a run log" {
+    const gpa = std.testing.allocator;
+
+    // No daemon involved: the client is never asked to connect, it only
+    // holds an endpoint, so recordError can be driven directly.
+    var client = try rc.Client.init(gpa, io, .{
+        .host = "127.0.0.1",
+        .port = 1,
+        .user = "u",
+        .pass = "p",
+    });
+    defer client.deinit();
+    var eng = engine.Engine.init(gpa, io, &client);
+    defer eng.deinit();
+
+    // The same capture shape that motivates the marker table: rclone
+    // repeats the filesystem name — connection-string secrets included —
+    // in the error text itself, not only in the run log. Connection-test
+    // failures have no log at all, so the text is the whole exposure.
+    const failure = "couldn't connect to " ++
+        "\":webdav,url=http://127.0.0.1:81,user=bk,pass=OBSCURED-ERR-1:\"" ++
+        ": connection refused";
+
+    eng.recordError(failure, null);
+    try std.testing.expect(std.mem.indexOf(u8, eng.lastErrorText(), "OBSCURED-ERR-1") == null);
+    try std.testing.expect(std.mem.indexOf(u8, eng.lastErrorText(), "pass=[redacted]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, eng.lastErrorText(), "connection refused") != null);
+
+    // With a log, both halves of the composed text are clean.
+    eng.recordError(failure, "NOTICE: retrying\npass=OBSCURED-LOG-2 refused\n");
+    const composed = eng.lastErrorText();
+    try std.testing.expect(std.mem.indexOf(u8, composed, "OBSCURED-ERR-1") == null);
+    try std.testing.expect(std.mem.indexOf(u8, composed, "OBSCURED-LOG-2") == null);
+    try std.testing.expect(std.mem.indexOf(u8, composed, "retrying") != null);
+}
+
 // -- Connection test -----------------------------------------------------------
 
 fn parentEnviron(gpa: std.mem.Allocator) !std.process.Environ.Map {

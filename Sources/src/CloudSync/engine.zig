@@ -611,20 +611,29 @@ pub const Engine = struct {
         return self.last_outcome;
     }
 
-    fn recordError(self: *Engine, error_text: []const u8, run_log: ?[]const u8) void {
+    /// Classify a failure and store its user-facing text. Everything stored
+    /// here is redacted — the error text as much as the log tail, because
+    /// rclone repeats the filesystem name (connection-string secrets
+    /// included) in the error message itself, and a connection-test failure
+    /// has no log at all. Classification reads the raw text; only the
+    /// stored copy is scrubbed. On allocation failure the text is dropped,
+    /// never kept raw.
+    pub fn recordError(self: *Engine, error_text: []const u8, run_log: ?[]const u8) void {
         self.clearLastError();
         self.last_outcome = classify(
             .{ .message = error_text, .status = 500 },
             run_log orelse "",
         );
-        // What is kept is already redacted and bounded: the raw log never
-        // leaves this function, so nothing downstream can leak it.
-        self.last_error_owned = if (run_log) |log| owned: {
+        const safe_text = redactedText(self.gpa, error_text) catch null;
+        self.last_error_owned = owned: {
+            const text = safe_text orelse break :owned null;
+            const log = run_log orelse break :owned text;
+            defer self.gpa.free(text);
             const tail = redactedLogTail(self.gpa, log) catch
-                break :owned self.gpa.dupe(u8, error_text) catch null;
+                break :owned self.gpa.dupe(u8, text) catch null;
             defer self.gpa.free(tail);
-            break :owned std.fmt.allocPrint(self.gpa, "{s}\n{s}", .{ error_text, tail }) catch null;
-        } else self.gpa.dupe(u8, error_text) catch null;
+            break :owned std.fmt.allocPrint(self.gpa, "{s}\n{s}", .{ text, tail }) catch null;
+        };
     }
 
     fn clearLastError(self: *Engine) void {
@@ -936,23 +945,28 @@ const redacted_placeholder = "[redacted]";
 /// out. This is what may travel in a support report; the raw log never
 /// leaves the machine through the ABI.
 pub fn redactedLogTail(gpa: Allocator, log: []const u8) Allocator.Error![]u8 {
-    const tail = lastLines(log, log_tail_lines);
+    return redactedText(gpa, lastLines(log, log_tail_lines));
+}
 
+/// A copy of `text` with credential values struck out. Applied to every
+/// string a failure stores — the rc error message no less than the log
+/// tail, since rclone prints the filesystem name inside both.
+pub fn redactedText(gpa: Allocator, text: []const u8) Allocator.Error![]u8 {
     var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(gpa);
 
     var index: usize = 0;
-    scan: while (index < tail.len) {
+    scan: while (index < text.len) {
         for (redact_markers) |marker| {
-            if (std.ascii.startsWithIgnoreCase(tail[index..], marker)) {
-                try out.appendSlice(gpa, tail[index..][0..marker.len]);
+            if (std.ascii.startsWithIgnoreCase(text[index..], marker)) {
+                try out.appendSlice(gpa, text[index..][0..marker.len]);
                 try out.appendSlice(gpa, redacted_placeholder);
                 index += marker.len;
                 // Swallow the value: everything up to a delimiter that can
                 // end a credential in a URL, connection string, header or
                 // config line.
-                while (index < tail.len) : (index += 1) {
-                    switch (tail[index]) {
+                while (index < text.len) : (index += 1) {
+                    switch (text[index]) {
                         ' ', ',', '"', '\'', ':', ';', '\n', '\r', ')', ']', '&' => break,
                         else => {},
                     }
@@ -960,7 +974,7 @@ pub fn redactedLogTail(gpa: Allocator, log: []const u8) Allocator.Error![]u8 {
                 continue :scan;
             }
         }
-        try out.append(gpa, tail[index]);
+        try out.append(gpa, text[index]);
         index += 1;
     }
 
