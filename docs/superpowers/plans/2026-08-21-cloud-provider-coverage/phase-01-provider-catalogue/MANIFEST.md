@@ -147,6 +147,32 @@ Findings the packet text does not carry:
   `bk_cloudsync_creds_clear_option` is the per-field act. Clearing through
   a save stays impossible by design: empty or omitted withheld entries
   always preserve.
+P01-M04 macOS checkpoint: `test-cloudsync-catalogue` 20/20 (five new: the
+eleven exclusions, `overview` as a non-backend non-exclusion, the sorted
+offered list honouring rclone's hidden flag, configured-backend
+preservation including a backend absent from the catalogue, and the three
+long names round-tripping through the credentials file); full sweep green,
+streamio 32 and verify-runtime 11 covering the option-system side;
+`x86_64-linux-gnu` and `x86_64-windows` compile; `install-game` builds.
+Commit `4e2f61e6b`. **Phase 01 is complete.**
+
+Findings the packet text does not carry:
+
+- **Nothing ever read `Cloud.Provider`'s value.** Sync gating is
+  `Cloud.Enabled` plus the `Cloud.Sync.*` toggles, and the dialog's
+  protocol comes from the credentials document — so the option was a
+  settings-screen droplist with no consumer, and the whole change is
+  `defconf.cfg` pointing it at the existing `GetOnOff` fill.
+- **The `GetCloudProvider` fill branches are now dead code** in
+  `OptionSystemInternal.cpp`, `options_bridge.cpp` and `legacy_bridge.cpp`
+  (all outside this packet's allowlist). No option names that fill any
+  more; a later packet touching those files should delete the branches.
+- A config saved by an older build may still hold `Off`/`S3`/`WebDAV` in
+  `Cloud.Provider`; nothing reads it, the droplist offers ON/OFF from the
+  next interaction, and the stored string is short enough to be harmless.
+- The facade was in the allowlist but needed no change: the offered list
+  reaches C++ through the P02-M02 form ABI, whose packet owns that chain.
+
 - **Follow-up (`fcc9b9ebd`, review):** the facade's `BeginJob` kept a fixed
   1 KiB fingerprint buffer and emptied anything larger — and a pairing
   recorded against `""` can never detect a remote change. The fingerprint,

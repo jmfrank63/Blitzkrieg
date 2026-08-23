@@ -1,13 +1,12 @@
 # Next Packet
 
-Resume at `phase-01-provider-catalogue/P01-M04-provider-selection.md`.
+Resume at `phase-02-generic-form/P02-M01-form-model.md`.
 
 ## Where implementation stands
 
-**Phase 00 is complete** (P00-M01 through P00-M04), and **P01-M01 through
-P01-M03 are complete**. Every checkpoint is in its phase `MANIFEST.md` with
-the measurements; read those before writing code, they carry findings the
-packet texts do not.
+**Phases 00 and 01 are complete.** Every checkpoint is in its phase
+`MANIFEST.md` with the measurements; read those before writing code, they
+carry findings the packet texts do not.
 
 | packet | commit | result |
 |---|---|---|
@@ -19,6 +18,7 @@ packet texts do not.
 | P01-M02 generic schema | `06601b7c6` | migration byte-identical, flags persisted |
 | P01-M02 amendment | `cdc864ace`..`dcb93e181` | scraper-format fingerprint, dialog guard, transitional repair |
 | P01-M03 catalogue ABI | `41e0f64af` | five exports, facade scraper retired, vendor cleanup |
+| P01-M04 provider selection | `4e2f61e6b` | Cloud.Provider ON/OFF, candidate filter, offered list |
 
 ## Resuming on another machine
 
@@ -26,14 +26,14 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `fcc9b9ebd` (creds now 17):
+Suites, all green at `4e2f61e6b` (creds 17, catalogue 20):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
 zig build test-cloudsync-daemon    -Dtarget=aarch64-macos -Dtest-mode=run   # 27
 zig build test-cloudsync-abi       -Dtarget=aarch64-macos -Dtest-mode=run   # 10 + C++ consumer
 zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
-zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 15
+zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 20
 zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  8
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 16
 zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 17
@@ -81,7 +81,7 @@ gated.
   provenance inside the file as a `_fixture` key that doubles as an unknown
   field the parser must tolerate.
 
-## P01-M02 and P01-M03 landed — what P01-M04 inherits
+## Phase 01 landed — what phase 02 inherits
 
 P01-M03 closed the review's remaining P1: the facade reads the persisted
 fingerprint through `bk_cloudsync_creds_fingerprint` and the scraper is
@@ -90,8 +90,12 @@ gone. The catalogue crosses the boundary as
 contract) with `hidden` carried per backend so P01-M04's destination filter
 can honour rclone's own flag without a second read; `_ensure` is the
 pollable fetch (`-2` = cached, outcome 8 = ready). The vendor-change
-cleanup runs in the save path on the merged submission. Older notes, still
-current:
+cleanup runs in the save path on the merged submission. P01-M04 added
+`catalogue.isCandidate` and `catalogue.offeredBackends` (sorted, hidden
+honoured, configured backend preserved) for the form to consume through
+the P02-M02 chain, and `Cloud.Provider` is a plain ON/OFF whose value no
+code reads — the backend identity lives only in `cloud.credentials`.
+Older notes, still current:
 
 All five risk items held (bucket as remote root, flat `Name` map, byte-identical
 fingerprint carry, both flags from the first save, caps replaced). The
