@@ -28,7 +28,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `3135a2fed` (creds 17, catalogue 20, form 8):
+Suites, all green at `d76d1d8b2` (creds 17, catalogue 20, form 8, worker 9):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -36,7 +36,7 @@ zig build test-cloudsync-daemon    -Dtarget=aarch64-macos -Dtest-mode=run   # 27
 zig build test-cloudsync-abi       -Dtarget=aarch64-macos -Dtest-mode=run   # 10 + C++ consumer
 zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
 zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 20
-zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  8
+zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  9
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 16
 zig build test-cloudsync-form      -Dtarget=aarch64-macos -Dtest-mode=run   #  8
 zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 17

@@ -66,3 +66,13 @@ Findings the packet text does not carry:
   so the consumer's live branch reads through a 256 KiB static buffer,
   which the run proved sufficient. The required-size contract is what a
   caller without such a bound relies on.
+
+P02-M02 review follow-up (`d76d1d8b2`): the daemon's fifteen-second
+`waitReady` never observed the worker's cancel flag, so a cancel or
+shutdown landing during daemon startup sat out the whole readiness window
+— contradicting `destroy`'s documented bound. `waitReadyAbortable` checks
+an abort signal after every probe (recording no failure: nothing is wrong
+with the daemon when the caller leaves), the worker passes its cancel
+flag, and a new worker test drives a never-ready daemon script and asserts
+the job settles as `Cancelled` well inside the window. Worker suite is 9
+now.
