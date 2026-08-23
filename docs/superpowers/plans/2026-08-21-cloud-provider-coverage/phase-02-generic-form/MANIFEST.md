@@ -116,6 +116,17 @@ Findings the packet text does not carry:
   catalogue-fetch window is one or two frames — the fetching-state
   capture sits two frames after the open click.
 
+P02-M03 review follow-up (`deb635255`): `recordError` scrubbed the run-log
+tail but stored the rc error message raw — and rclone repeats the
+filesystem name, connection-string secrets included, in the message
+itself; a connection-test failure has no log, so the text was the whole
+exposure through `bk_cloudsync_error`. The marker scan is now
+`redactedText`, applied to everything `recordError` stores
+(`redactedLogTail` composes it after the tail cut), an allocation failure
+drops the text rather than keeping it raw, and a new engine test drives a
+secret-bearing error message through the stored text with and without a
+log. Engine suite is 17 now.
+
 P02-M02 review follow-up (`d76d1d8b2`): the daemon's fifteen-second
 `waitReady` never observed the worker's cancel flag, so a cancel or
 shutdown landing during daemon startup sat out the whole readiness window
