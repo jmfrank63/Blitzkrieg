@@ -2313,6 +2313,22 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_catalogue_step = b.step("test-cloudsync-catalogue", "Run Zig CloudSync provider catalogue tests");
     test_cloudsync_catalogue_step.dependOn(&cloudsync_catalogue_unit_tests.step);
     if (test_mode == .run) test_cloudsync_catalogue_step.dependOn(&run_cloudsync_catalogue_unit_tests.step);
+    // The form model derives widgets from the same committed snapshot the
+    // catalogue tests read, so its fixture arrives the same way.
+    const cloudsync_form_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/form_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    cloudsync_form_test_module.addAnonymousImport("config_providers_fixture", .{
+        .root_source_file = b.path("tools/zig/fixtures/config_providers.json"),
+    });
+    const cloudsync_form_unit_tests = b.addTest(.{ .root_module = cloudsync_form_test_module });
+    const run_cloudsync_form_unit_tests = b.addRunArtifact(cloudsync_form_unit_tests);
+    const test_cloudsync_form_step = b.step("test-cloudsync-form", "Run Zig CloudSync form model tests");
+    test_cloudsync_form_step.dependOn(&cloudsync_form_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_form_step.dependOn(&run_cloudsync_form_unit_tests.step);
     const cloudsync_worker_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/CloudSync/worker_test.zig"),
         .target = target,
