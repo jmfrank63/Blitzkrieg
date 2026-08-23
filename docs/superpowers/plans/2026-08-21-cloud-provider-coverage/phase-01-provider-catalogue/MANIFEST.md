@@ -155,5 +155,8 @@ Findings the packet text does not carry:
   no-STL, with this documented as the one exception. The facade test
   drives a 1.6 KiB identity across the ABI both ways, and its fixture
   cleans up after itself because the present-mode run reuses its directory
-  across cached re-runs.
+  across cached re-runs. A second review pass (`acad38480`) moved the
+  DLL-error read into `BeginJob` itself: `Begin` had been overwriting
+  BeginJob's precise local allocation errors with `pfnLastError()` from a
+  DLL that was never called on those paths.
 
