@@ -147,4 +147,13 @@ Findings the packet text does not carry:
   `bk_cloudsync_creds_clear_option` is the per-field act. Clearing through
   a save stays impossible by design: empty or omitted withheld entries
   always preserve.
+- **Follow-up (`fcc9b9ebd`, review):** the facade's `BeginJob` kept a fixed
+  1 KiB fingerprint buffer and emptied anything larger — and a pairing
+  recorded against `""` can never detect a remote change. The fingerprint,
+  its JSON escape, and the job document are now heap-sized under the
+  required-size contract; the facade is otherwise still fixed-buffer
+  no-STL, with this documented as the one exception. The facade test
+  drives a 1.6 KiB identity across the ABI both ways, and its fixture
+  cleans up after itself because the present-mode run reuses its directory
+  across cached re-runs.
 

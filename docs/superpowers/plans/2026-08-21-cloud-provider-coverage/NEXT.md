@@ -4,10 +4,10 @@ Resume at `phase-01-provider-catalogue/P01-M04-provider-selection.md`.
 
 ## Where implementation stands
 
-**Phase 00 is complete** (P00-M01 through P00-M04), and **P01-M01 and P01-M02
-are complete**. Every checkpoint is in its phase `MANIFEST.md` with the
-measurements; read those before writing code, they carry findings the packet
-texts do not.
+**Phase 00 is complete** (P00-M01 through P00-M04), and **P01-M01 through
+P01-M03 are complete**. Every checkpoint is in its phase `MANIFEST.md` with
+the measurements; read those before writing code, they carry findings the
+packet texts do not.
 
 | packet | commit | result |
 |---|---|---|
@@ -26,7 +26,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `41e0f64af` (creds now 17):
+Suites, all green at `fcc9b9ebd` (creds now 17):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -36,7 +36,7 @@ zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
 zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 15
 zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  8
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 16
-zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 15
+zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 17
 zig build test-package             -Dtarget=aarch64-macos -Dtest-mode=run   #  4
 zig build verify-runtime           -Dtest-mode=run                          # 11
 zig build test-streamio            -Dtarget=aarch64-macos -Dtest-mode=run   # 32
