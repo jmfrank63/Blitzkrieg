@@ -215,7 +215,9 @@ pub const Worker = struct {
     }
 
     /// Cancel whatever is in flight, stop the task, tear down the session,
-    /// free everything. Bounded: one POST deadline plus one poll interval.
+    /// free everything. Bounded: one POST deadline plus one poll interval,
+    /// and a daemon still starting is abandoned at its next readiness probe
+    /// rather than waited out.
     pub fn destroy(self: *Worker) void {
         self.stop_flag.store(true, .release);
         self.cancel_flag.store(true, .release);
@@ -567,8 +569,18 @@ pub const Worker = struct {
                 self.publishFailureText("rclone daemon failed to start");
                 return null;
             };
-            session.daemon_box.?.waitReady(daemon.ready_timeout_ms) catch {
-                self.publishFailureText("rclone daemon never became ready");
+            // Abortable on the cancel flag — set by both `cancel` and
+            // `destroy` — because this wait is the one place the worker
+            // otherwise could not observe it, and a shutdown during daemon
+            // startup would sit out the whole readiness window.
+            session.daemon_box.?.waitReadyAbortable(
+                daemon.ready_timeout_ms,
+                &self.cancel_flag,
+            ) catch |err| {
+                self.publishFailureText(switch (err) {
+                    error.Aborted => "Cancelled",
+                    error.DaemonTimeout => "rclone daemon never became ready",
+                });
                 session.daemon_box.?.shutdown();
                 session.daemon_box = null;
                 return null;

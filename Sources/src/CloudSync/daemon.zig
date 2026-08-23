@@ -401,6 +401,10 @@ pub const nonce_len = 64;
 /// budget is for a machine where the binary is on a cold or networked disk.
 pub const ready_timeout_ms: u32 = 15_000;
 
+/// The abort flag `waitReady` passes when its caller has none: never set,
+/// shared read-only by every plain wait.
+var never_abort: std.atomic.Value(bool) = .init(false);
+
 /// How often `waitReady` re-asks. Short enough that a fast start is not
 /// penalised, long enough not to spin.
 const ready_poll_ms: u32 = 100;
@@ -643,6 +647,24 @@ pub const Daemon = struct {
     /// Expiry records `.daemon_timeout` and attaches the log tail, which is
     /// the only place rclone explains a refused port or an unwritable config.
     pub fn waitReady(self: *Daemon, timeout_ms: u32) ReadyError!void {
+        return self.waitReadyAbortable(timeout_ms, &never_abort) catch |err| switch (err) {
+            error.Aborted => unreachable, // never_abort never reads true
+            else => |ready_err| ready_err,
+        };
+    }
+
+    /// `waitReady` that can be abandoned: gives up as soon as `abort` reads
+    /// true, so a cancel or a shutdown landing inside the readiness window
+    /// costs one probe interval instead of the full timeout — the wait was
+    /// the one place the worker could not observe its cancel flag, and a
+    /// destroy during daemon startup sat out all fifteen seconds. An abort
+    /// records no failure and captures no log tail: nothing is wrong with
+    /// the daemon, the caller is leaving.
+    pub fn waitReadyAbortable(
+        self: *Daemon,
+        timeout_ms: u32,
+        abort: *const std.atomic.Value(bool),
+    ) (ReadyError || error{Aborted})!void {
         const budget: Io.Clock.Duration = .{
             .raw = .fromMilliseconds(timeout_ms),
             .clock = .awake,
@@ -651,6 +673,7 @@ pub const Daemon = struct {
 
         while (true) {
             if (self.probeVersion()) return;
+            if (abort.load(.acquire)) return error.Aborted;
             const now = Io.Clock.awake.now(self.io);
             if (now.nanoseconds >= expiry.raw.nanoseconds) break;
             sleepMs(self.io, ready_poll_ms);

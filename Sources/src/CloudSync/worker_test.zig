@@ -261,6 +261,60 @@ test "destroy during an in-flight run is bounded by the deadline" {
     try std.testing.expect(elapsed < 5_000_000_000);
 }
 
+test "cancel interrupts a daemon that is still becoming ready" {
+    // The readiness wait is fifteen seconds; a cancel or destroy landing
+    // inside it must not sit the whole window out. The "daemon" is a script
+    // that starts and never answers — POSIX only, a script is not an
+    // executable image on Windows.
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    const never_ready = try path.join(gpa, &.{ fixture.root, "never-ready" });
+    defer gpa.free(never_ready);
+    try std.Io.Dir.cwd().writeFile(io, .{
+        .sub_path = never_ready,
+        .data = "#!/bin/sh\nsleep 60\n",
+        .flags = .{ .permissions = .fromMode(0o755) },
+    });
+
+    var binary_slice: []const u8 = never_ready;
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .binary_source = .{
+            .context = @ptrCast(&binary_slice),
+            .resolve = resolveFixedBinary,
+        },
+    });
+    defer w.destroy();
+
+    try w.begin(.{
+        .kind = .pair,
+        .path1 = game_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .profile_id = "hero-id",
+        .remote_fingerprint = "print",
+    });
+    w.cancel();
+
+    // Settled well inside the readiness window, and by abandonment — the
+    // timeout path has its own distinct text.
+    const before = nowNs(tio);
+    const settled = pollUntilSettled(w, tio, 10_000);
+    try std.testing.expect(nowNs(tio) - before < 10_000_000_000);
+    try std.testing.expectEqual(worker.State.failed, settled.state);
+    try std.testing.expectEqualStrings("Cancelled", settled.errorText());
+}
+
 // -- Live: the full path through begin/poll ----------------------------------
 
 fn envVar(gpa: std.mem.Allocator, name: []const u8) ?[]u8 {
