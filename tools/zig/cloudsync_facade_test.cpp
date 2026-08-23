@@ -19,6 +19,7 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#include <direct.h>
 #include <windows.h>
 #else
 #include <unistd.h>
@@ -122,6 +123,45 @@ static void run_present()
 		check( NCloudSync::Error( nHandle )[0] != 0, "present: with a readable error" );
 		NCloudSync::Release( nHandle );
 		check( NCloudSync::Poll( nHandle ) == NCloudSync::STATE_FAILED, "present: a released handle reports failed" );
+	}
+
+	// The pairing fingerprint honours the required-size contract end to end:
+	// a remote root long past any fixed buffer still crosses, because an
+	// identity that silently became "" could never detect a remote change
+	// again. Cleaned up below - this directory is reused by cached re-runs
+	// and the fresh-directory check above must stay true.
+	{
+		char szRoot[1601];
+		std::memset( szRoot, 'r', sizeof szRoot - 1 );
+		szRoot[sizeof szRoot - 1] = 0;
+		char szDoc[4096];
+		std::snprintf( szDoc, sizeof szDoc,
+			"{\"backend\":\"s3\",\"remote_root\":\"%s\","
+			"\"options\":{\"endpoint\":\"http://127.0.0.1:9000\"},"
+			"\"secret_options\":[],\"password_options\":[],\"rclone_path\":null}",
+			szRoot );
+		check( NCloudSync::SaveCredentials( szDoc ), "present: the long-root save succeeds" );
+		char szSmall[64];
+		const int nRequired = NCloudSync::CredentialsFingerprint( szSmall, sizeof szSmall );
+		check( nRequired > 1024, "present: a long fingerprint reports its size past any fixed buffer" );
+		if ( nRequired > 0 )
+		{
+			char *pszFull = static_cast<char *>( std::malloc( static_cast<size_t>( nRequired ) + 1 ) );
+			check( pszFull != 0, "present: the retry buffer allocates" );
+			if ( pszFull != 0 )
+			{
+				const int nAgain = NCloudSync::CredentialsFingerprint( pszFull, static_cast<unsigned int>( nRequired ) + 1 );
+				check( nAgain == nRequired, "present: the exact-size retry writes" );
+				check( std::strstr( pszFull, szRoot ) != 0, "present: and carries the whole identity" );
+				std::free( pszFull );
+			}
+		}
+		std::remove( "profiles/cloud.credentials" );
+#ifdef _WIN32
+		_rmdir( "profiles" );
+#else
+		rmdir( "profiles" );
+#endif
 	}
 
 	NCloudSync::Shutdown();

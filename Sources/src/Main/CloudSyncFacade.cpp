@@ -6,12 +6,15 @@
 // and is also compiled into a small test binary whose link line must not
 // pick a RuntimeLibrary fight. Buffers are fixed and bounded - profile names
 // are printable ASCII by NProfile contract, and the JSON documents crossing
-// here are small.
+// here are small - with one exception: the pairing fingerprint embeds the
+// remote root, so it and the job document carrying it are heap-sized under
+// the ABI's required-size contract rather than cut at a fixed cliff.
 
 #include "CloudSyncFacade.h"
 #include "../Platform/CloudSyncLoader.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace
@@ -177,17 +180,36 @@ namespace
 	// This replaced a scraper that rebuilt the identity from legacy JSON
 	// fields; the credentials module owns the string now, migrates the
 	// legacy scrape byte-for-byte, and rotates it only on a real connection
-	// change. Empty when no credentials are saved, which the pairing state
-	// treats as "not paired yet".
-	void Fingerprint( char *pszOut, unsigned int nCap )
+	// change.
+	//
+	// Heap-sized under the ABI's required-size contract, because a fixed
+	// buffer here was a silent cliff: the identity embeds the remote root,
+	// a fingerprint at the buffer's size collapsed to "", and a pairing
+	// recorded against "" can never detect a remote change again. Returns a
+	// malloc'd NUL-terminated string the caller frees; the empty string
+	// means no credentials are saved, which the pairing state reads as "not
+	// paired yet". Null only when the allocator fails.
+	char *FingerprintAlloc()
 	{
-		pszOut[0] = 0;
 		SLibrary &library = Library();
-		if ( !library.bLoaded || nCap == 0 )
-			return;
-		const int nLength = library.pfnCredsFingerprint( reinterpret_cast<unsigned char *>( pszOut ), nCap );
-		if ( nLength < 0 || static_cast<unsigned int>( nLength ) >= nCap )
+		unsigned int nCap = 256;
+		// Two rounds settle every stable case — probe, then exact size; the
+		// bound only cuts off a fingerprint racing its own credentials save.
+		for ( int nTry = 0; nTry < 4 && library.bLoaded; ++nTry )
+		{
+			char *pszOut = static_cast<char *>( std::malloc( nCap ) );
+			if ( pszOut == 0 )
+				return 0;
 			pszOut[0] = 0;
+			const int nLength = library.pfnCredsFingerprint( reinterpret_cast<unsigned char *>( pszOut ), nCap );
+			if ( nLength < 0 )
+				return pszOut; // no credentials saved: empty is the honest identity
+			if ( static_cast<unsigned int>( nLength ) < nCap )
+				return pszOut;
+			std::free( pszOut );
+			nCap = static_cast<unsigned int>( nLength ) + 1;
+		}
+		return static_cast<char *>( std::calloc( 1, 1 ) );
 	}
 
 	// -- Facade handles ------------------------------------------------------
@@ -222,22 +244,51 @@ namespace
 		HostName( szHost, sizeof szHost );
 		char szHostEscaped[256];
 		JsonEscape( szHost, szHostEscaped, sizeof szHostEscaped );
-		char szFingerprint[1024];
-		Fingerprint( szFingerprint, sizeof szFingerprint );
-		char szFingerprintEscaped[2048];
-		JsonEscape( szFingerprint, szFingerprintEscaped, sizeof szFingerprintEscaped );
+
+		// The fingerprint is the one unbounded piece of this document — it
+		// embeds the remote root — so it and everything downstream of it
+		// size dynamically; a cut identity here would poison the pairing
+		// record.
+		char *pszFingerprint = FingerprintAlloc();
+		if ( pszFingerprint == 0 )
+		{
+			SetLastError2( "cloud sync: out of memory reading the pairing fingerprint" );
+			return -1;
+		}
+		const size_t nEscapedCap = std::strlen( pszFingerprint ) * 2 + 8;
+		char *pszFingerprintEscaped = static_cast<char *>( std::malloc( nEscapedCap ) );
+		if ( pszFingerprintEscaped == 0 )
+		{
+			std::free( pszFingerprint );
+			SetLastError2( "cloud sync: out of memory reading the pairing fingerprint" );
+			return -1;
+		}
+		JsonEscape( pszFingerprint, pszFingerprintEscaped, static_cast<unsigned int>( nEscapedCap ) );
+		std::free( pszFingerprint );
 
 		// Paths are the game's own conventions: the profile directory under
-		// the working directory, the state root beside it.
-		char szDoc[4096];
-		std::snprintf( szDoc, sizeof szDoc,
+		// the working directory, the state root beside it. Everything but
+		// the fingerprint is bounded, so its length plus fixed headroom
+		// bounds the document.
+		const size_t nDocCap = std::strlen( pszFingerprintEscaped ) + 4096;
+		char *pszDoc = static_cast<char *>( std::malloc( nDocCap ) );
+		if ( pszDoc == 0 )
+		{
+			std::free( pszFingerprintEscaped );
+			SetLastError2( "cloud sync: out of memory building the job document" );
+			return -1;
+		}
+		std::snprintf( pszDoc, nDocCap,
 			"{\"kind\":\"%s\",\"path1\":\"profiles/%s\",\"remote\":\"bkremote\","
 			"\"profile\":\"%s\",\"game_dir\":\".\",\"profile_id\":\"%s\","
 			"\"remote_fingerprint\":\"%s\",\"backup_config\":%s,\"host\":\"%s\"}",
 			pszKind, szProfileEscaped, szProfileEscaped, szProfileEscaped,
-			szFingerprintEscaped, bBackupConfig ? "true" : "false", szHostEscaped );
+			pszFingerprintEscaped, bBackupConfig ? "true" : "false", szHostEscaped );
 
-		return library.pfnBegin( szDoc );
+		const int nHandle = library.pfnBegin( pszDoc );
+		std::free( pszDoc );
+		std::free( pszFingerprintEscaped );
+		return nHandle;
 	}
 
 	SJob *JobAt( int nHandle )
