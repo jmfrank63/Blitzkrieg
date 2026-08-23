@@ -15,25 +15,24 @@ static const NInput::SRegisterCommandEntry commands[] =
 };
 enum
 {
-	// Seven label+edit rows; which are visible and how they are labelled
-	// depends on the protocol. Vendor and endpoint/URL and the credential
-	// pair share rows across protocols; bucket and region are S3-only.
-	E_EDIT_VENDOR								= 2001,
-	E_EDIT_ENDPOINT							= 2002,
-	E_EDIT_BUCKET								= 2003,
-	E_EDIT_REGION								= 2004,
-	E_EDIT_ACCESS								= 2005,
-	E_EDIT_SECRET								= 2006,
-	E_EDIT_RCLONE								= 2007,
+	// Seven label+edit row slots: a window over the form's field list, not
+	// the field list itself. Slot ids are fixed; what a slot shows depends
+	// on the scroll position.
+	E_ROW_COUNT									= 7,
+	E_EDIT_BASE									= 2001,		// edit id = E_EDIT_BASE + slot
+	E_LABEL_BASE								= 3001,		// label id = E_LABEL_BASE + slot
+	E_CYCLE_BASE								= 4001,		// example-cycle button per slot
 
-	E_LABEL_BASE								= 3000,		// label id = E_LABEL_BASE + (edit id - 2000)
+	E_BUTTON_SCROLL_UP					= 4100,
+	E_BUTTON_SCROLL_DOWN				= 4101,
 
 	E_STATIC_DISCOVERY					= 3101,
 	E_STATIC_STATUS							= 3102,
 
-	E_BUTTON_PROVIDER						= 10020,
+	E_BUTTON_BACKEND						= 10020,	// the destination chooser; retry when no catalogue
 	E_BUTTON_TEST								= 10021,
 	E_BUTTON_CLEAR_SECRET				= 10022,
+	E_BUTTON_ADVANCED						= 10023,
 
 	E_BUTTON_OK									= 10002,
 	E_BUTTON_CANCEL							= 10001,
@@ -41,9 +40,9 @@ enum
 static const wchar_t MASK_CHAR = L'*';
 
 // ---- small string helpers -------------------------------------------------
-// The credentials document is UTF-8 JSON; edit boxes hold wide text. The
-// values here are endpoints, key ids and paths - ASCII in practice - but the
-// conversion is done honestly so a non-ASCII path survives the round trip.
+// The documents crossing the facade are UTF-8 JSON; edit boxes hold wide
+// text. Values are endpoints, key ids and paths - ASCII in practice - but
+// the conversion is done honestly so a non-ASCII path survives.
 static std::string Utf8FromWide( const std::wstring &szWide )
 {
 	std::string szOut;
@@ -109,76 +108,172 @@ static std::string JsonEscape( const std::string &szRaw )
 	}
 	return szOut;
 }
-// Extract "key": <string|true|false|null> from a flat JSON document. The
-// facade's documents nest one protocol object, but every key name appears at
-// most once per document, so a scan by key is unambiguous.
-static bool JsonFind( const std::string &szDoc, const char *pszKey, std::string *pszValue, bool *pbIsString )
+// ---- a small JSON document model ------------------------------------------
+// The form and destination documents nest arrays of objects, which the old
+// flat key scan cannot represent - two fields both carry "name". This is a
+// minimal recursive parser for exactly the documents the facade produces:
+// objects, arrays, strings, numbers, booleans, null; unknown escapes and
+// malformed bytes degrade rather than fail.
+struct SJsonValue
 {
-	const std::string szNeedle = std::string( "\"" ) + pszKey + "\"";
-	std::string::size_type nPos = szDoc.find( szNeedle );
-	if ( nPos == std::string::npos )
-		return false;
-	nPos += szNeedle.size();
-	while ( nPos < szDoc.size() && ( szDoc[nPos] == ':' || szDoc[nPos] == ' ' || szDoc[nPos] == '\t' ) )
-		++nPos;
-	if ( nPos >= szDoc.size() )
-		return false;
-	if ( szDoc[nPos] == '"' )
+	enum EType { T_NULL, T_BOOL, T_NUMBER, T_STRING, T_ARRAY, T_OBJECT };
+	EType eType;
+	bool bValue;
+	std::string szValue;										// the string, or the number's text
+	std::vector<std::string> keys;					// object member names, parallel to children
+	std::vector<SJsonValue> children;				// object member values, or array items
+	SJsonValue() : eType( T_NULL ), bValue( false ) {}
+	const SJsonValue *Get( const char *pszKey ) const
 	{
-		*pbIsString = true;
-		std::string szValue;
-		for ( ++nPos; nPos < szDoc.size() && szDoc[nPos] != '"'; ++nPos )
-		{
-			if ( szDoc[nPos] == '\\' && nPos + 1 < szDoc.size() )
-			{
-				++nPos;
-				switch ( szDoc[nPos] )
-				{
-					case 'n': szValue += '\n'; break;
-					case 't': szValue += '\t'; break;
-					case 'u':
-						// Rare in these documents; keep the scan aligned and
-						// substitute the code point when it is Latin-1.
-						if ( nPos + 4 < szDoc.size() )
-						{
-							const int nCode = (int)strtol( szDoc.substr( nPos + 1, 4 ).c_str(), 0, 16 );
-							if ( nCode > 0 && nCode < 256 )
-								szValue += char( nCode );
-							nPos += 4;
-						}
-						break;
-					default: szValue += szDoc[nPos]; break;
-				}
-			}
-			else
-				szValue += szDoc[nPos];
-		}
-		*pszValue = szValue;
-		return true;
+		for ( size_t i = 0; i < keys.size(); ++i )
+			if ( keys[i] == pszKey )
+				return &children[i];
+		return 0;
 	}
-	*pbIsString = false;
-	std::string szBare;
-	while ( nPos < szDoc.size() && ( isalnum( (unsigned char)szDoc[nPos] ) || szDoc[nPos] == '.' || szDoc[nPos] == '-' ) )
-		szBare += szDoc[nPos++];
-	*pszValue = szBare;
+	std::string Str( const char *pszKey ) const
+	{
+		const SJsonValue *pValue = Get( pszKey );
+		return ( pValue != 0 && pValue->eType == T_STRING ) ? pValue->szValue : std::string();
+	}
+	bool Bool( const char *pszKey ) const
+	{
+		const SJsonValue *pValue = Get( pszKey );
+		return pValue != 0 && pValue->eType == T_BOOL && pValue->bValue;
+	}
+};
+static void JsonSkipSpace( const std::string &szDoc, size_t *pnAt )
+{
+	while ( *pnAt < szDoc.size() && ( szDoc[*pnAt] == ' ' || szDoc[*pnAt] == '\t' || szDoc[*pnAt] == '\n' || szDoc[*pnAt] == '\r' ) )
+		++*pnAt;
+}
+static bool JsonParseString( const std::string &szDoc, size_t *pnAt, std::string *pszOut )
+{
+	if ( *pnAt >= szDoc.size() || szDoc[*pnAt] != '"' )
+		return false;
+	++*pnAt;
+	std::string szValue;
+	while ( *pnAt < szDoc.size() && szDoc[*pnAt] != '"' )
+	{
+		if ( szDoc[*pnAt] == '\\' && *pnAt + 1 < szDoc.size() )
+		{
+			++*pnAt;
+			switch ( szDoc[*pnAt] )
+			{
+				case 'n': szValue += '\n'; break;
+				case 't': szValue += '\t'; break;
+				case 'r': break;
+				case 'u':
+					// Rare in these documents; keep the scan aligned and
+					// substitute the code point when it is Latin-1.
+					if ( *pnAt + 4 < szDoc.size() )
+					{
+						const int nCode = (int)strtol( szDoc.substr( *pnAt + 1, 4 ).c_str(), 0, 16 );
+						if ( nCode > 0 && nCode < 256 )
+							szValue += char( nCode );
+						*pnAt += 4;
+					}
+					break;
+				default: szValue += szDoc[*pnAt]; break;
+			}
+			++*pnAt;
+		}
+		else
+			szValue += szDoc[( *pnAt )++];
+	}
+	if ( *pnAt < szDoc.size() )
+		++*pnAt;		// the closing quote
+	*pszOut = szValue;
 	return true;
 }
-static std::string JsonString( const std::string &szDoc, const char *pszKey )
+static bool JsonParseValue( const std::string &szDoc, size_t *pnAt, SJsonValue *pOut, int nDepth )
 {
-	std::string szValue;
-	bool bIsString = false;
-	if ( !JsonFind( szDoc, pszKey, &szValue, &bIsString ) || !bIsString )
-		return "";
-	return szValue;
-}
-static bool JsonBool( const std::string &szDoc, const char *pszKey )
-{
-	std::string szValue;
-	bool bIsString = false;
-	if ( !JsonFind( szDoc, pszKey, &szValue, &bIsString ) || bIsString )
+	if ( nDepth > 24 )
+		return false;		// these documents nest four levels; runaway input does not
+	JsonSkipSpace( szDoc, pnAt );
+	if ( *pnAt >= szDoc.size() )
 		return false;
-	return szValue == "true";
+	const char c = szDoc[*pnAt];
+	if ( c == '"' )
+	{
+		pOut->eType = SJsonValue::T_STRING;
+		return JsonParseString( szDoc, pnAt, &pOut->szValue );
+	}
+	if ( c == '{' || c == '[' )
+	{
+		const bool bObject = ( c == '{' );
+		pOut->eType = bObject ? SJsonValue::T_OBJECT : SJsonValue::T_ARRAY;
+		++*pnAt;
+		JsonSkipSpace( szDoc, pnAt );
+		if ( *pnAt < szDoc.size() && szDoc[*pnAt] == ( bObject ? '}' : ']' ) )
+		{
+			++*pnAt;
+			return true;
+		}
+		while ( *pnAt < szDoc.size() )
+		{
+			if ( bObject )
+			{
+				std::string szKey;
+				JsonSkipSpace( szDoc, pnAt );
+				if ( !JsonParseString( szDoc, pnAt, &szKey ) )
+					return false;
+				JsonSkipSpace( szDoc, pnAt );
+				if ( *pnAt >= szDoc.size() || szDoc[*pnAt] != ':' )
+					return false;
+				++*pnAt;
+				pOut->keys.push_back( szKey );
+			}
+			pOut->children.push_back( SJsonValue() );
+			if ( !JsonParseValue( szDoc, pnAt, &pOut->children.back(), nDepth + 1 ) )
+				return false;
+			JsonSkipSpace( szDoc, pnAt );
+			if ( *pnAt >= szDoc.size() )
+				return false;
+			if ( szDoc[*pnAt] == ',' )
+			{
+				++*pnAt;
+				continue;
+			}
+			if ( szDoc[*pnAt] == ( bObject ? '}' : ']' ) )
+			{
+				++*pnAt;
+				return true;
+			}
+			return false;
+		}
+		return false;
+	}
+	if ( szDoc.compare( *pnAt, 4, "true" ) == 0 )
+	{
+		pOut->eType = SJsonValue::T_BOOL;
+		pOut->bValue = true;
+		*pnAt += 4;
+		return true;
+	}
+	if ( szDoc.compare( *pnAt, 5, "false" ) == 0 )
+	{
+		pOut->eType = SJsonValue::T_BOOL;
+		pOut->bValue = false;
+		*pnAt += 5;
+		return true;
+	}
+	if ( szDoc.compare( *pnAt, 4, "null" ) == 0 )
+	{
+		pOut->eType = SJsonValue::T_NULL;
+		*pnAt += 4;
+		return true;
+	}
+	pOut->eType = SJsonValue::T_NUMBER;
+	while ( *pnAt < szDoc.size() && ( isdigit( (unsigned char)szDoc[*pnAt] ) || szDoc[*pnAt] == '-' || szDoc[*pnAt] == '+' || szDoc[*pnAt] == '.' || szDoc[*pnAt] == 'e' || szDoc[*pnAt] == 'E' ) )
+		pOut->szValue += szDoc[( *pnAt )++];
+	return !pOut->szValue.empty();
 }
+static bool JsonParse( const std::string &szDoc, SJsonValue *pOut )
+{
+	size_t nAt = 0;
+	return JsonParseValue( szDoc, &nAt, pOut, 0 );
+}
+// ---- misc ------------------------------------------------------------------
 // Which text under textes\ui\cloudsync\ a classified failure maps to - the
 // same mapping the main menu indicator uses, fed by the same leading-tag
 // contract on failure texts.
@@ -203,6 +298,26 @@ static std::wstring TextOrFallback( const char *pszKey, const wchar_t *pszFallba
 		if ( pText->GetString() != 0 )
 			return std::wstring( NPlatform::WideFromWordString( pText->GetString() ) );
 	return pszFallback;
+}
+// Read a facade document that follows the required-size contract: the
+// return value is the length, written only when it fit; otherwise retry
+// with the reported size.
+template <typename TCall>
+static bool ReadSizedDocument( TCall call, std::string *pszOut )
+{
+	std::vector<char> buffer( 16384 );
+	int nLength = call( &buffer[0], (unsigned int)buffer.size() );
+	if ( nLength < 0 )
+		return false;
+	if ( nLength >= (int)buffer.size() )
+	{
+		buffer.resize( (size_t)nLength + 1 );
+		nLength = call( &buffer[0], (unsigned int)buffer.size() );
+		if ( nLength < 0 || nLength >= (int)buffer.size() )
+			return false;
+	}
+	pszOut->assign( &buffer[0], (size_t)nLength );
+	return true;
 }
 // ---- the dialog -----------------------------------------------------------
 std::wstring CInterfaceCloudCredentials::GetEdit( int nID )
@@ -229,169 +344,513 @@ void CInterfaceCloudCredentials::SetStatus( const char *pszTextKey, const std::w
 	}
 	SetEdit( E_STATIC_STATUS, szLine );
 }
-void CInterfaceCloudCredentials::SetRow( int nRow, const char *pszLabelKey, const std::wstring &szValue, bool bVisible )
+CInterfaceCloudCredentials::SField *CInterfaceCloudCredentials::FieldAtSlot( int nSlot )
 {
-	IUIElement *pLabel = pUIScreen->GetChildByID( E_LABEL_BASE + nRow );
-	IUIElement *pEdit = pUIScreen->GetChildByID( 2000 + nRow );
-	if ( pLabel == 0 || pEdit == 0 )
-		return;
-	if ( pszLabelKey != 0 )
-	{
-		const std::string szKey = std::string( "Textes\\UI\\CloudCredentials\\" ) + pszLabelKey;
-		const std::wstring szLabel = TextOrFallback( szKey.c_str(), WideFromUtf8( pszLabelKey ).c_str() );
-		pLabel->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szLabel.c_str() ) ) );
-	}
-	SetEdit( 2000 + nRow, szValue );
-	pLabel->ShowWindow( bVisible ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
-	pEdit->ShowWindow( bVisible ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+	const int nIndex = nScroll + nSlot;
+	if ( nIndex < 0 || nIndex >= (int)visibleRows.size() )
+		return 0;
+	return &fields[visibleRows[nIndex]];
 }
-void CInterfaceCloudCredentials::ApplyProtocol()
+CInterfaceCloudCredentials::SField *CInterfaceCloudCredentials::FieldNamed( const char *pszName )
 {
-	const bool bS3 = szProtocol != "webdav";
-	// Labels swap with the protocol; values in the shared rows survive the
-	// switch so a typo in the provider choice does not eat the endpoint.
-	SetRow( 1, "label_vendor", GetEdit( E_EDIT_VENDOR ), true );
-	SetRow( 2, bS3 ? "label_endpoint" : "label_url", GetEdit( E_EDIT_ENDPOINT ), true );
-	SetRow( 3, "label_bucket", GetEdit( E_EDIT_BUCKET ), bS3 );
-	SetRow( 4, "label_region", GetEdit( E_EDIT_REGION ), bS3 );
-	SetRow( 5, bS3 ? "label_access_key" : "label_user", GetEdit( E_EDIT_ACCESS ), true );
-	SetRow( 6, bS3 ? "label_secret" : "label_password", std::wstring( bStoredSecret && !bSecretTouched ? 8 : szSecretReal.size(), MASK_CHAR ), true );
-	SetRow( 7, "label_rclone", GetEdit( E_EDIT_RCLONE ), true );
+	for ( size_t i = 0; i < fields.size(); ++i )
+		if ( fields[i].nRole == 0 && fields[i].szName == pszName )
+			return &fields[i];
+	return 0;
+}
+void CInterfaceCloudCredentials::LoadStored()
+{
+	szStoredBackend.clear();
+	szStoredRoot.clear();
+	szStoredRclone.clear();
+	storedOptions.clear();
+	storedSecretNames.clear();
+	bLoadFailed = false;
 
-	if ( IUIElement *pProvider = pUIScreen->GetChildByID( E_BUTTON_PROVIDER ) )
+	// The redacted document withholds every secret value, so it stays small;
+	// 64K is generous. A document that does not fit (or does not parse) with
+	// credentials present must not be silently overwritten by a save built
+	// from a blank form.
+	char pszDoc[65536];
+	if ( !NCloudSync::LoadCredentials( pszDoc, sizeof( pszDoc ) ) )
 	{
-		const std::wstring szText = TextOrFallback(
-			bS3 ? "Textes\\UI\\CloudCredentials\\provider_s3" : "Textes\\UI\\CloudCredentials\\provider_webdav",
-			bS3 ? L"Storage: S3" : L"Storage: WebDAV" );
-		pProvider->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( szText.c_str() ) ) );
+		bLoadFailed = NCloudSync::CredentialsPresent();
+		return;
 	}
-}
-void CInterfaceCloudCredentials::PopulateFromCredentials()
-{
-	char pszDoc[16384];
-	bStoredSecret = false;
-	bSecretTouched = false;
-	bGenericStored = false;
-	szSecretReal.clear();
-	if ( NCloudSync::LoadCredentials( pszDoc, sizeof( pszDoc ) ) )
+	SJsonValue doc;
+	if ( !JsonParse( pszDoc, &doc ) || doc.eType != SJsonValue::T_OBJECT )
 	{
-		const std::string szDoc = pszDoc;
-		const std::string szDocProtocol = JsonString( szDoc, "protocol" );
-		// No "protocol" key means the generic schema: partial prefill only,
-		// and SaveCredentials refuses rather than writing the blanks back.
-		bGenericStored = szDocProtocol.empty();
-		if ( !szDocProtocol.empty() )
-			szProtocol = szDocProtocol;
-		bStoredSecret = JsonBool( szDoc, "has_secret" );
-		if ( szProtocol == "webdav" )
+		bLoadFailed = true;
+		return;
+	}
+	szStoredBackend = doc.Str( "backend" );
+	szStoredRoot = doc.Str( "remote_root" );
+	szStoredRclone = doc.Str( "rclone_path" );
+	if ( const SJsonValue *pOptions = doc.Get( "options" ) )
+		for ( size_t i = 0; i < pOptions->keys.size(); ++i )
+			if ( pOptions->children[i].eType == SJsonValue::T_STRING )
+				storedOptions.push_back( std::make_pair( pOptions->keys[i], pOptions->children[i].szValue ) );
+	if ( const SJsonValue *pSecrets = doc.Get( "secret_options" ) )
+		for ( size_t i = 0; i < pSecrets->children.size(); ++i )
+			if ( pSecrets->children[i].eType == SJsonValue::T_STRING )
+				storedSecretNames.push_back( pSecrets->children[i].szValue );
+}
+void CInterfaceCloudCredentials::BeginCatalogue()
+{
+	if ( nCatalogueHandle >= 0 )
+		return;
+	const int nResult = NCloudSync::EnsureCatalogue();
+	if ( nResult == NCloudSync::CATALOGUE_CACHED )
+	{
+		OnCatalogueReady();
+		return;
+	}
+	if ( nResult >= 0 )
+	{
+		// The fetch can spawn a daemon; it runs on the worker and this
+		// screen polls it like any other job.
+		nCatalogueHandle = nResult;
+		SetStatus( "Textes\\UI\\CloudCredentials\\fetching_catalogue", L"" );
+		if ( IUIElement *pChooser = pUIScreen->GetChildByID( E_BUTTON_BACKEND ) )
+			pChooser->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide(
+				TextOrFallback( "Textes\\UI\\CloudCredentials\\fetching_catalogue", L"Fetching provider list..." ).c_str() ) ) );
+		return;
+	}
+	ShowCatalogueMissing( WideFromUtf8( NCloudSync::LastError() ) );
+}
+void CInterfaceCloudCredentials::ShowCatalogueMissing( const std::wstring &szReason )
+{
+	// A fresh install is legitimately here until the first fetch succeeds:
+	// say so, show why the fetch failed when it did, and make the chooser
+	// button the retry. An empty form would look like a finished dialog.
+	bCatalogueReady = false;
+	fields.clear();
+	visibleRows.clear();
+	nScroll = 0;
+	LayoutRows();
+	SetStatus( "Textes\\UI\\CloudCredentials\\catalogue_missing", szReason );
+	if ( IUIElement *pChooser = pUIScreen->GetChildByID( E_BUTTON_BACKEND ) )
+		pChooser->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide(
+			TextOrFallback( "Textes\\UI\\CloudCredentials\\catalogue_retry", L"Fetch provider list" ).c_str() ) ) );
+}
+void CInterfaceCloudCredentials::OnCatalogueReady()
+{
+	// The chooser offers the filtered destination list; the stored backend
+	// rides along even when the filter or a newer rclone would drop it.
+	destinations.clear();
+	std::string szListDoc;
+	{
+		const char *pszConfigured = szStoredBackend.c_str();
+		if ( !ReadSizedDocument( [pszConfigured]( char *psz, unsigned int nCap ) { return NCloudSync::CatalogueDestinations( pszConfigured, psz, nCap ); }, &szListDoc ) )
 		{
-			SetEdit( E_EDIT_VENDOR, WideFromUtf8( JsonString( szDoc, "vendor" ) ) );
-			SetEdit( E_EDIT_ENDPOINT, WideFromUtf8( JsonString( szDoc, "url" ) ) );
-			SetEdit( E_EDIT_ACCESS, WideFromUtf8( JsonString( szDoc, "user" ) ) );
+			ShowCatalogueMissing( WideFromUtf8( NCloudSync::LastError() ) );
+			return;
 		}
+	}
+	SJsonValue list;
+	if ( !JsonParse( szListDoc, &list ) )
+	{
+		ShowCatalogueMissing( L"" );
+		return;
+	}
+	if ( const SJsonValue *pNames = list.Get( "destinations" ) )
+		for ( size_t i = 0; i < pNames->children.size(); ++i )
+			if ( pNames->children[i].eType == SJsonValue::T_STRING )
+				destinations.push_back( pNames->children[i].szValue );
+	if ( destinations.empty() )
+	{
+		ShowCatalogueMissing( L"" );
+		return;
+	}
+	bCatalogueReady = true;
+	szBackend = szStoredBackend.empty() ? destinations[0] : szStoredBackend;
+	SetStatus( 0, L"" );
+	RebuildForm( false );
+}
+void CInterfaceCloudCredentials::RebuildForm( bool bPreserveTyped )
+{
+	// What the player already typed, keyed by name (roles keep synthetic
+	// keys so the root and the override survive a vendor rebuild too).
+	std::vector<SField> old;
+	if ( bPreserveTyped )
+		old.swap( fields );
+	fields.clear();
+
+	// The selected provider is just the current value of the option named
+	// "provider" - rclone's own convention, the same one the save path's
+	// vendor cleanup keys on. The form is re-derived under it; nothing
+	// typed crosses the ABI.
+	std::string szProvider;
+	for ( size_t i = 0; i < old.size(); ++i )
+		if ( old[i].nRole == 0 && old[i].szName == "provider" )
+			szProvider = Utf8FromWide( old[i].szValue );
+	if ( !bPreserveTyped && szBackend == szStoredBackend )
+		for ( size_t i = 0; i < storedOptions.size(); ++i )
+			if ( storedOptions[i].first == "provider" )
+				szProvider = storedOptions[i].second;
+
+	std::string szFormDoc;
+	{
+		const char *pszBackend = szBackend.c_str();
+		const char *pszProvider = szProvider.c_str();
+		if ( !ReadSizedDocument( [pszBackend, pszProvider]( char *psz, unsigned int nCap ) { return NCloudSync::CatalogueForm( pszBackend, pszProvider, psz, nCap ); }, &szFormDoc ) )
+		{
+			ShowCatalogueMissing( WideFromUtf8( NCloudSync::LastError() ) );
+			return;
+		}
+	}
+	SJsonValue form;
+	if ( !JsonParse( szFormDoc, &form ) )
+	{
+		ShowCatalogueMissing( L"" );
+		return;
+	}
+	const char *pszSections[2] = { "basic", "advanced" };
+	for ( int nSection = 0; nSection < 2; ++nSection )
+	{
+		const SJsonValue *pSection = form.Get( pszSections[nSection] );
+		if ( pSection == 0 )
+			continue;
+		for ( size_t i = 0; i < pSection->children.size(); ++i )
+		{
+			const SJsonValue &item = pSection->children[i];
+			SField field;
+			field.szName = item.Str( "name" );
+			field.nRole = ( item.Str( "role" ) == "remote_root" ) ? 1 : 0;
+			field.szLabel = WideFromUtf8( item.Str( "label" ) );
+			field.szHelp = WideFromUtf8( item.Str( "help" ) );
+			field.szWidget = item.Str( "widget" );
+			field.bRequired = item.Bool( "required" );
+			field.bAdvanced = ( nSection == 1 );
+			field.bIsPassword = item.Bool( "is_password" );
+			field.szPlaceholder = item.Str( "placeholder" );
+			if ( const SJsonValue *pExamples = item.Get( "examples" ) )
+				for ( size_t nExample = 0; nExample < pExamples->children.size(); ++nExample )
+				{
+					field.exampleValues.push_back( pExamples->children[nExample].Str( "value" ) );
+					field.exampleHelp.push_back( WideFromUtf8( pExamples->children[nExample].Str( "help" ) ) );
+				}
+			if ( field.nRole == 1 )
+				field.szLabel = TextOrFallback( "Textes\\UI\\CloudCredentials\\label_remote_root", field.szLabel.c_str() );
+			fields.push_back( field );
+		}
+	}
+	// The rclone override is ours, not the catalogue's: a local path, kept
+	// even across a backend switch - it names a binary, not a credential.
+	{
+		SField field;
+		field.nRole = 2;
+		field.szLabel = TextOrFallback( "Textes\\UI\\CloudCredentials\\label_rclone", L"rclone path" );
+		field.szWidget = "text";
+		field.szValue = WideFromUtf8( szStoredRclone );
+		fields.push_back( field );
+	}
+
+	// Values: preserved-typed on a rebuild, stored on a fresh build of the
+	// stored backend, empty otherwise. A field surviving a rebuild does not
+	// mean its value did - a closed field keeps a value only while it is
+	// still among the newly filtered examples; preserving on existence
+	// alone would resubmit a value the new vendor never offers.
+	for ( size_t i = 0; i < fields.size(); ++i )
+	{
+		SField &field = fields[i];
+		if ( bPreserveTyped )
+		{
+			for ( size_t nOld = 0; nOld < old.size(); ++nOld )
+			{
+				const SField &previous = old[nOld];
+				if ( previous.nRole != field.nRole )
+					continue;
+				if ( field.nRole == 0 && previous.szName != field.szName )
+					continue;
+				bool bKeep = ( field.szWidget != "droplist_closed" );
+				if ( !bKeep )
+					for ( size_t nExample = 0; nExample < field.exampleValues.size(); ++nExample )
+						if ( WideFromUtf8( field.exampleValues[nExample] ) == previous.szValue )
+						{
+							bKeep = true;
+							break;
+						}
+				if ( bKeep )
+				{
+					field.szValue = previous.szValue;
+					field.bTouched = previous.bTouched;
+					field.bStoredSecret = previous.bStoredSecret;
+				}
+				break;
+			}
+		}
+		else if ( szBackend == szStoredBackend )
+		{
+			if ( field.nRole == 1 )
+				field.szValue = WideFromUtf8( szStoredRoot );
+			else if ( field.nRole == 0 )
+			{
+				for ( size_t nStored = 0; nStored < storedOptions.size(); ++nStored )
+					if ( storedOptions[nStored].first == field.szName )
+						field.szValue = WideFromUtf8( storedOptions[nStored].second );
+				for ( size_t nSecret = 0; nSecret < storedSecretNames.size(); ++nSecret )
+					if ( storedSecretNames[nSecret] == field.szName )
+						field.bStoredSecret = true;
+			}
+		}
+	}
+
+	nScroll = 0;
+	LayoutRows();
+}
+void CInterfaceCloudCredentials::LayoutRows()
+{
+	visibleRows.clear();
+	int nAdvancedCount = 0;
+	for ( size_t i = 0; i < fields.size(); ++i )
+	{
+		if ( fields[i].bAdvanced )
+			++nAdvancedCount;
+		if ( !fields[i].bAdvanced || bShowAdvanced )
+			visibleRows.push_back( (int)i );
+	}
+	const int nMaxScroll = (int)visibleRows.size() > E_ROW_COUNT ? (int)visibleRows.size() - E_ROW_COUNT : 0;
+	if ( nScroll > nMaxScroll )
+		nScroll = nMaxScroll;
+	if ( nScroll < 0 )
+		nScroll = 0;
+
+	for ( int nSlot = 0; nSlot < E_ROW_COUNT; ++nSlot )
+	{
+		IUIElement *pLabel = pUIScreen->GetChildByID( E_LABEL_BASE + nSlot );
+		IUIElement *pEdit = pUIScreen->GetChildByID( E_EDIT_BASE + nSlot );
+		IUIElement *pCycle = pUIScreen->GetChildByID( E_CYCLE_BASE + nSlot );
+		const SField *pField = FieldAtSlot( nSlot );
+		const bool bVisible = ( pField != 0 );
+		if ( pLabel != 0 )
+		{
+			if ( pField != 0 )
+			{
+				std::wstring szLabel = pField->szLabel;
+				if ( pField->bRequired )
+					szLabel += L" *";
+				pLabel->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szLabel.c_str() ) ) );
+			}
+			pLabel->ShowWindow( bVisible ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+		}
+		if ( pEdit != 0 )
+		{
+			if ( pField != 0 )
+			{
+				std::wstring szShown = pField->szValue;
+				if ( pField->IsMasked() )
+					szShown = std::wstring( pField->bStoredSecret && !pField->bTouched ? 8 : pField->szValue.size(), MASK_CHAR );
+				SetEdit( E_EDIT_BASE + nSlot, szShown );
+			}
+			pEdit->ShowWindow( bVisible ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+		}
+		if ( pCycle != 0 )
+		{
+			const bool bCycle = pField != 0 && !pField->exampleValues.empty() && !pField->IsMasked();
+			pCycle->ShowWindow( bCycle ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+		}
+	}
+
+	if ( IUIElement *pUp = pUIScreen->GetChildByID( E_BUTTON_SCROLL_UP ) )
+		pUp->ShowWindow( nMaxScroll > 0 ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+	if ( IUIElement *pDown = pUIScreen->GetChildByID( E_BUTTON_SCROLL_DOWN ) )
+		pDown->ShowWindow( nMaxScroll > 0 ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
+
+	if ( IUIElement *pAdvanced = pUIScreen->GetChildByID( E_BUTTON_ADVANCED ) )
+	{
+		if ( nAdvancedCount == 0 || !bCatalogueReady )
+			pAdvanced->ShowWindow( UI_SW_HIDE );
 		else
 		{
-			SetEdit( E_EDIT_VENDOR, WideFromUtf8( JsonString( szDoc, "s3_provider" ) ) );
-			SetEdit( E_EDIT_ENDPOINT, WideFromUtf8( JsonString( szDoc, "endpoint" ) ) );
-			SetEdit( E_EDIT_BUCKET, WideFromUtf8( JsonString( szDoc, "bucket" ) ) );
-			SetEdit( E_EDIT_REGION, WideFromUtf8( JsonString( szDoc, "region" ) ) );
-			SetEdit( E_EDIT_ACCESS, WideFromUtf8( JsonString( szDoc, "access_key" ) ) );
+			const std::wstring szBase = TextOrFallback(
+				bShowAdvanced ? "Textes\\UI\\CloudCredentials\\advanced_shown" : "Textes\\UI\\CloudCredentials\\advanced_hidden",
+				bShowAdvanced ? L"Advanced: shown" : L"Advanced: hidden" );
+			const std::wstring szText = szBase + L" (" + WideFromUtf8( NStr::Format( "%d", nAdvancedCount ) ) + L")";
+			pAdvanced->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( szText.c_str() ) ) );
+			pAdvanced->ShowWindow( UI_SW_SHOW_DONT_MOVE_UP );
 		}
-		SetEdit( E_EDIT_RCLONE, WideFromUtf8( JsonString( szDoc, "rclone_path" ) ) );
 	}
-	else
+	if ( bCatalogueReady )
 	{
-		// Present but unreadable here: a legacy document always fits this
-		// buffer, so this is a generic one (an OAuth token can exceed it).
-		// Guard the save rather than treating it as absent.
-		bGenericStored = NCloudSync::CredentialsPresent();
+		if ( IUIElement *pChooser = pUIScreen->GetChildByID( E_BUTTON_BACKEND ) )
+		{
+			const std::wstring szText = TextOrFallback( "Textes\\UI\\CloudCredentials\\label_service", L"Service:" ) +
+				L" " + WideFromUtf8( szBackend );
+			pChooser->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( szText.c_str() ) ) );
+		}
 	}
-	ApplyProtocol();
 }
 void CInterfaceCloudCredentials::RefreshDiscoveryLine()
 {
-	const std::string szDoc = NCloudSync::DiscoveryStatus();
+	char pszDoc[2048];
+	pszDoc[0] = 0;
+	const char *pszStatus = NCloudSync::DiscoveryStatus();
+	strncpy( pszDoc, pszStatus != 0 ? pszStatus : "", sizeof( pszDoc ) - 1 );
+	pszDoc[sizeof( pszDoc ) - 1] = 0;
+	SJsonValue doc;
 	std::wstring szLine;
-	if ( JsonBool( szDoc, "found" ) )
+	if ( JsonParse( std::string( pszDoc ), &doc ) && doc.Bool( "found" ) )
 	{
 		szLine = TextOrFallback( "Textes\\UI\\CloudCredentials\\discovery_found", L"rclone" );
-		const std::string szVersion = JsonString( szDoc, "version" );
-		const std::string szPath = JsonString( szDoc, "path" );
-		if ( !szVersion.empty() )
-			szLine += L" " + WideFromUtf8( szVersion );
-		if ( !szPath.empty() )
-			szLine += L" - " + WideFromUtf8( szPath );
+		if ( !doc.Str( "version" ).empty() )
+			szLine += L" " + WideFromUtf8( doc.Str( "version" ) );
+		if ( !doc.Str( "path" ).empty() )
+			szLine += L" - " + WideFromUtf8( doc.Str( "path" ) );
 	}
 	else
 	{
-		const std::string szReason = JsonString( szDoc, "reason" );
+		const std::string szReason = doc.Str( "reason" );
 		const std::string szKey = std::string( "Textes\\UI\\CloudCredentials\\discovery_" ) +
 			( szReason.empty() ? "not_found" : szReason );
 		szLine = TextOrFallback( szKey.c_str(), L"rclone was not found" );
-		const std::string szPath = JsonString( szDoc, "path" );
-		if ( !szPath.empty() )
-			szLine += L" - " + WideFromUtf8( szPath );
+		if ( !doc.Str( "path" ).empty() )
+			szLine += L" - " + WideFromUtf8( doc.Str( "path" ) );
 	}
 	SetEdit( E_STATIC_DISCOVERY, szLine );
 }
-void CInterfaceCloudCredentials::OnSecretEdited()
+void CInterfaceCloudCredentials::OnSecretEdited( SField *pField, int nEditID )
 {
-	// The box shows only mask characters; the real value lives in
-	// szSecretReal. Leading and trailing runs of the mask character map onto
-	// the kept prefix and suffix of the real secret, whatever sits between
-	// them was just typed. (A secret whose own characters are typed as '*'
-	// at the edges is misread as kept - the one corner this trades away.)
-	const std::wstring szShown = GetEdit( E_EDIT_SECRET );
+	// The box shows only mask characters; the real value lives in the field.
+	// Leading and trailing runs of the mask character map onto the kept
+	// prefix and suffix of the real secret; whatever sits between them was
+	// just typed. The first edit of an untouched stored secret starts from
+	// empty - the placeholder masks stand for a value this dialog never had.
+	const std::wstring szShown = GetEdit( nEditID );
+	std::wstring szReal = pField->bTouched || !pField->bStoredSecret ? pField->szValue : L"";
 	std::wstring::size_type nLead = 0;
 	while ( nLead < szShown.size() && szShown[nLead] == MASK_CHAR )
 		++nLead;
 	std::wstring::size_type nTrail = 0;
 	while ( nTrail < szShown.size() - nLead && szShown[szShown.size() - 1 - nTrail] == MASK_CHAR )
 		++nTrail;
-	if ( nLead > szSecretReal.size() )
-		nLead = szSecretReal.size();
-	if ( nTrail > szSecretReal.size() - nLead )
-		nTrail = szSecretReal.size() - nLead;
+	if ( nLead > szReal.size() )
+		nLead = szReal.size();
+	if ( nTrail > szReal.size() - nLead )
+		nTrail = szReal.size() - nLead;
 	const std::wstring szMiddle = szShown.substr( nLead, szShown.size() - nLead - nTrail );
-	szSecretReal = szSecretReal.substr( 0, nLead ) + szMiddle + szSecretReal.substr( szSecretReal.size() - nTrail );
-	bSecretTouched = true;
-	SetEdit( E_EDIT_SECRET, std::wstring( szSecretReal.size(), MASK_CHAR ) );
-	if ( IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( E_EDIT_SECRET ) ) )
+	pField->szValue = szReal.substr( 0, nLead ) + szMiddle + szReal.substr( szReal.size() - nTrail );
+	pField->bTouched = true;
+	SetEdit( nEditID, std::wstring( pField->szValue.size(), MASK_CHAR ) );
+	if ( IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( nEditID ) ) )
 		pEdit->SetCursor( (int)( nLead + szMiddle.size() ) );
+}
+void CInterfaceCloudCredentials::OnRowEdited( int nSlot )
+{
+	SField *pField = FieldAtSlot( nSlot );
+	if ( pField == 0 )
+		return;
+	if ( pField->IsMasked() )
+	{
+		OnSecretEdited( pField, E_EDIT_BASE + nSlot );
+		return;
+	}
+	const std::wstring szValue = GetEdit( E_EDIT_BASE + nSlot );
+	if ( szValue == pField->szValue )
+		return;
+	pField->szValue = szValue;
+	// Selecting a vendor is not an ordinary edit: it changes which fields
+	// exist, so the form is re-derived - preserving still-applicable typed
+	// values, never a value the new vendor does not offer.
+	if ( pField->nRole == 0 && pField->szName == "provider" )
+		RebuildForm( true );
+}
+void CInterfaceCloudCredentials::CycleExample( int nSlot )
+{
+	SField *pField = FieldAtSlot( nSlot );
+	if ( pField == 0 || pField->exampleValues.empty() )
+		return;
+	size_t nNext = 0;
+	for ( size_t i = 0; i < pField->exampleValues.size(); ++i )
+		if ( WideFromUtf8( pField->exampleValues[i] ) == pField->szValue )
+		{
+			nNext = ( i + 1 ) % pField->exampleValues.size();
+			break;
+		}
+	pField->szValue = WideFromUtf8( pField->exampleValues[nNext] );
+	SetEdit( E_EDIT_BASE + nSlot, pField->szValue );
+	// The example's help is the only per-value documentation the catalogue
+	// carries; the status line is where this dialog shows it.
+	SetStatus( 0, pField->exampleHelp[nNext] );
+	if ( pField->nRole == 0 && pField->szName == "provider" )
+		RebuildForm( true );
 }
 bool CInterfaceCloudCredentials::SaveCredentials()
 {
-	if ( bGenericStored )
+	if ( bLoadFailed )
 	{
-		// An accept from the half-blank prefill would blank the S3 remote
-		// root and route every sync at the account root.
+		// Credentials exist but could not be read; a save built from this
+		// form would overwrite them with blanks.
 		SetStatus( "Textes\\UI\\CloudCredentials\\save_failed",
-			L"stored in a newer format this dialog cannot edit yet" );
+			TextOrFallback( "Textes\\UI\\CloudCredentials\\creds_unreadable", L"the stored credentials could not be read" ) );
 		return false;
 	}
-	const bool bS3 = szProtocol != "webdav";
-	std::string szJson = "{";
-	szJson += bS3 ? "\"protocol\":\"s3\",\"s3\":{" : "\"protocol\":\"webdav\",\"webdav\":{";
-	if ( bS3 )
+	if ( !bCatalogueReady || fields.empty() )
 	{
-		szJson += "\"s3_provider\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_VENDOR ) ) ) + "\",";
-		szJson += "\"endpoint\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_ENDPOINT ) ) ) + "\",";
-		szJson += "\"bucket\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_BUCKET ) ) ) + "\",";
-		szJson += "\"region\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_REGION ) ) ) + "\",";
-		szJson += "\"access_key\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_ACCESS ) ) ) + "\"";
-		if ( bSecretTouched && !szSecretReal.empty() )
-			szJson += ",\"secret\":\"" + JsonEscape( Utf8FromWide( szSecretReal ) ) + "\"";
+		SetStatus( "Textes\\UI\\CloudCredentials\\save_failed",
+			TextOrFallback( "Textes\\UI\\CloudCredentials\\catalogue_missing", L"no provider list yet" ) );
+		return false;
 	}
-	else
+
+	std::string szOptions;
+	std::string szSecretNames;
+	std::string szPasswordNames;
+	std::string szRoot;
+	std::string szRclone;
+	for ( size_t i = 0; i < fields.size(); ++i )
 	{
-		szJson += "\"url\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_ENDPOINT ) ) ) + "\",";
-		szJson += "\"vendor\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_VENDOR ) ) ) + "\",";
-		szJson += "\"user\":\"" + JsonEscape( Utf8FromWide( GetEdit( E_EDIT_ACCESS ) ) ) + "\"";
-		if ( bSecretTouched && !szSecretReal.empty() )
-			szJson += ",\"pass\":\"" + JsonEscape( Utf8FromWide( szSecretReal ) ) + "\"";
+		const SField &field = fields[i];
+		const std::string szValue = Utf8FromWide( field.szValue );
+		if ( field.nRole == 1 )
+		{
+			szRoot = szValue;
+			continue;
+		}
+		if ( field.nRole == 2 )
+		{
+			szRclone = szValue;
+			continue;
+		}
+		if ( field.IsMasked() )
+		{
+			// A typed secret is sent; an untouched stored one is named so
+			// the merge preserves it; empty-and-nothing-stored is nothing.
+			// Clearing is the dedicated button, never a side effect here.
+			const bool bSend = field.bTouched && !szValue.empty();
+			if ( !bSend && !field.bStoredSecret )
+				continue;
+			if ( bSend )
+			{
+				if ( !szOptions.empty() )
+					szOptions += ",";
+				szOptions += "\"" + JsonEscape( field.szName ) + "\":\"" + JsonEscape( szValue ) + "\"";
+			}
+			if ( !szSecretNames.empty() )
+				szSecretNames += ",";
+			szSecretNames += "\"" + JsonEscape( field.szName ) + "\"";
+			if ( field.bIsPassword )
+			{
+				if ( !szPasswordNames.empty() )
+					szPasswordNames += ",";
+				szPasswordNames += "\"" + JsonEscape( field.szName ) + "\"";
+			}
+			continue;
+		}
+		// Only what the player set: an empty value is unset, and a value
+		// equal to the catalogue default must follow upstream rather than
+		// being pinned in the credentials file.
+		if ( szValue.empty() || szValue == field.szPlaceholder )
+			continue;
+		if ( !szOptions.empty() )
+			szOptions += ",";
+		szOptions += "\"" + JsonEscape( field.szName ) + "\":\"" + JsonEscape( szValue ) + "\"";
 	}
-	szJson += "},";
-	const std::string szRclone = Utf8FromWide( GetEdit( E_EDIT_RCLONE ) );
+
+	std::string szJson = "{\"backend\":\"" + JsonEscape( szBackend ) + "\",";
+	szJson += "\"remote_root\":\"" + JsonEscape( szRoot ) + "\",";
+	szJson += "\"options\":{" + szOptions + "},";
+	szJson += "\"secret_options\":[" + szSecretNames + "],";
+	szJson += "\"password_options\":[" + szPasswordNames + "],";
 	if ( szRclone.empty() )
 		szJson += "\"rclone_path\":null}";
 	else
@@ -404,13 +863,22 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 		SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( NCloudSync::LastError() ) );
 		return false;
 	}
-	if ( bSecretTouched && !szSecretReal.empty() )
-		bStoredSecret = true;
-	// A secret typed and saved is now the stored one; the box goes back to
-	// meaning "keep what is stored".
-	bSecretTouched = false;
-	szSecretReal.clear();
-	SetEdit( E_EDIT_SECRET, std::wstring( bStoredSecret ? 8 : 0, MASK_CHAR ) );
+	// Typed secrets are now the stored ones; their boxes go back to meaning
+	// "keep what is stored". The stored snapshot follows the save so a later
+	// backend switch and return prefills what was just written.
+	for ( size_t i = 0; i < fields.size(); ++i )
+	{
+		SField &field = fields[i];
+		if ( field.IsMasked() && field.bTouched && !field.szValue.empty() )
+			field.bStoredSecret = true;
+		if ( field.IsMasked() )
+		{
+			field.bTouched = false;
+			field.szValue.clear();
+		}
+	}
+	LoadStored();
+	LayoutRows();
 	SetStatus( "Textes\\UI\\CloudCredentials\\saved", L"" );
 	// creds_save invalidated the discovery cache; show what the saved path
 	// resolves to right now rather than after the next failed sync.
@@ -444,8 +912,8 @@ bool CInterfaceCloudCredentials::ProcessMessage( const SGameMessage &msg )
 		pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
 		break;
 	case UI_NOTIFY_EDIT_BOX_TEXT_CHANGED:
-		if ( msg.nParam == E_EDIT_SECRET && !bFinished )
-			OnSecretEdited();
+		if ( !bFinished && msg.nParam >= E_EDIT_BASE && msg.nParam < E_EDIT_BASE + E_ROW_COUNT )
+			OnRowEdited( msg.nParam - E_EDIT_BASE );
 		return true;
 	case UI_NOTIFY_EDIT_BOX_ESCAPE:
 	case IMC_CANCEL:
@@ -466,28 +934,70 @@ bool CInterfaceCloudCredentials::ProcessMessage( const SGameMessage &msg )
 			}
 		}
 		return true;
-	case E_BUTTON_PROVIDER:
-		szProtocol = ( szProtocol == "webdav" ) ? "s3" : "webdav";
-		ApplyProtocol();
+	case E_BUTTON_BACKEND:
+		if ( !bCatalogueReady )
+		{
+			BeginCatalogue();		// the chooser doubles as the retry
+			return true;
+		}
+		if ( !destinations.empty() )
+		{
+			// Walk the filtered destination list. A backend switch starts a
+			// fresh option set - nothing typed follows, and the stored
+			// values return only with the stored backend.
+			size_t nAt = 0;
+			for ( size_t i = 0; i < destinations.size(); ++i )
+				if ( destinations[i] == szBackend )
+				{
+					nAt = ( i + 1 ) % destinations.size();
+					break;
+				}
+			szBackend = destinations[nAt];
+			bShowAdvanced = false;
+			RebuildForm( false );
+		}
+		return true;
+	case E_BUTTON_ADVANCED:
+		bShowAdvanced = !bShowAdvanced;
+		LayoutRows();
+		return true;
+	case E_BUTTON_SCROLL_UP:
+		--nScroll;
+		LayoutRows();
+		return true;
+	case E_BUTTON_SCROLL_DOWN:
+		++nScroll;
+		LayoutRows();
 		return true;
 	case E_BUTTON_TEST:
 		BeginConnectionTest();
 		return true;
 	case E_BUTTON_CLEAR_SECRET:
 		// The deliberate act, distinct from saving with an empty box - an
-		// empty box preserves the stored secret.
+		// empty box preserves the stored secrets. Clears every withheld
+		// field of the stored credentials at once.
 		if ( NCloudSync::ClearCredentialsSecret() )
 		{
-			bStoredSecret = false;
-			bSecretTouched = false;
-			szSecretReal.clear();
-			SetEdit( E_EDIT_SECRET, L"" );
+			LoadStored();
+			for ( size_t i = 0; i < fields.size(); ++i )
+				if ( fields[i].IsMasked() )
+				{
+					fields[i].bStoredSecret = false;
+					fields[i].bTouched = false;
+					fields[i].szValue.clear();
+				}
+			LayoutRows();
 			SetStatus( "Textes\\UI\\CloudCredentials\\secret_cleared", L"" );
 		}
 		else
 			SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( NCloudSync::LastError() ) );
 		return true;
 	default:
+		if ( !bFinished && msg.nEventID >= E_CYCLE_BASE && msg.nEventID < E_CYCLE_BASE + E_ROW_COUNT )
+		{
+			CycleExample( msg.nEventID - E_CYCLE_BASE );
+			return true;
+		}
 		return false;
 	}
 	return true;
@@ -497,9 +1007,38 @@ bool CInterfaceCloudCredentials::StepLocal( bool bAppActive )
 	const CVec2 vPos = pCursor->GetPos();
 	CInterfaceScreenBase::OnCursorMove( vPos );
 	pUIScreen->Update( pTimer->GetAbsTime() );
-	// The connection test is observed, never awaited: Poll is a mutex and a
-	// struct copy. The classified outcome leads the failure text, and maps
-	// onto the same per-outcome messages the menu indicator uses.
+	// The wheel scrolls the row window wherever it is turned; the row area
+	// has no list control of its own, so there is no double delivery.
+	if ( bAppActive && pWheelScroll != 0 && !bFinished )
+	{
+		const float fDelta = pWheelScroll->GetDelta();
+		if ( fDelta != 0.0f )
+		{
+			nScroll += fDelta > 0.0f ? -1 : 1;
+			LayoutRows();
+		}
+	}
+	// Both jobs are observed, never awaited: Poll is a mutex and a struct
+	// copy. The catalogue fetch feeds the form; the connection test feeds
+	// the status line through the same classified-outcome mapping the menu
+	// indicator uses.
+	if ( nCatalogueHandle >= 0 )
+	{
+		const NCloudSync::EState eState = NCloudSync::Poll( nCatalogueHandle );
+		if ( eState == NCloudSync::STATE_DONE || eState == NCloudSync::STATE_FAILED )
+		{
+			const bool bReady = ( eState == NCloudSync::STATE_DONE );
+			std::wstring szReason;
+			if ( !bReady )
+				szReason = WideFromUtf8( NCloudSync::Error( nCatalogueHandle ) );
+			NCloudSync::Release( nCatalogueHandle );
+			nCatalogueHandle = -1;
+			if ( bReady )
+				OnCatalogueReady();
+			else
+				ShowCatalogueMissing( szReason );
+		}
+	}
 	if ( nTestHandle >= 0 )
 	{
 		const NCloudSync::EState eState = NCloudSync::Poll( nTestHandle );
@@ -533,10 +1072,18 @@ bool CInterfaceCloudCredentials::Init()
 {
 	CInterfaceScreenBase::Init();
 	msgs.Init( pInput, commands );
+	pWheelScroll = pInput->CreateSlider( "mouse_wheel" );
 	return true;
 }
 void CInterfaceCloudCredentials::Done()
 {
+	// A fetch the player is no longer watching is abandoned, not awaited.
+	if ( nCatalogueHandle >= 0 )
+	{
+		NCloudSync::Cancel( nCatalogueHandle );
+		NCloudSync::Release( nCatalogueHandle );
+		nCatalogueHandle = -1;
+	}
 	if ( nTestHandle >= 0 )
 	{
 		NCloudSync::Cancel( nTestHandle );
@@ -549,7 +1096,14 @@ void CInterfaceCloudCredentials::StartInterface()
 {
 	bFinished = false;
 	nTestHandle = -1;
-	szProtocol = "s3";
+	nCatalogueHandle = -1;
+	bCatalogueReady = false;
+	bShowAdvanced = false;
+	nScroll = 0;
+	fields.clear();
+	visibleRows.clear();
+	destinations.clear();
+	szBackend.clear();
 	CInterfaceScreenBase::StartInterface();
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	pUIScreen->Load( "ui\\CloudCredentials" );
@@ -562,9 +1116,11 @@ void CInterfaceCloudCredentials::StartInterface()
 	if ( pButtonCancel )
 		pButtonCancel->EnableWindow( true );
 
-	PopulateFromCredentials();
+	LoadStored();
+	LayoutRows();
 	RefreshDiscoveryLine();
 	SetStatus( 0, L"" );
+	BeginCatalogue();
 
 	pScene->AddUIScreen( pUIScreen );
 
