@@ -91,6 +91,10 @@ int bk_cloudsync_creds_clear_option(const char *name);
 // cannot express provider filtering; the current option map deliberately
 // does not, so freshly typed secrets never ride along on a rebuild.
 int bk_cloudsync_catalogue_form(const char *game_dir, const char *backend, const char *provider, unsigned char *json_out, unsigned int cap);
+// The offered destination list: unhidden candidates sorted alphabetically,
+// plus the configured backend whatever the filter thinks of it. Same
+// required-size contract.
+int bk_cloudsync_catalogue_destinations(const char *game_dir, const char *configured, unsigned char *json_out, unsigned int cap);
 }
 
 static int failures = 0;
@@ -825,7 +829,9 @@ static void catalogue_contract()
         "{\"Name\":\"kept\",\"Help\":\"editable\",\"Type\":\"string\"},"
         "{\"Name\":\"sec\",\"Help\":\"secret\",\"Type\":\"string\",\"Sensitive\":true,\"IsPassword\":false}"
         "]},"
-        "{\"Name\":\"aux\",\"Description\":\"only enumerated\",\"Prefix\":\"aux\",\"Options\":[]}"
+        "{\"Name\":\"aux\",\"Description\":\"only enumerated\",\"Prefix\":\"aux\",\"Options\":[]},"
+        "{\"Name\":\"alias\",\"Description\":\"a wrapper\",\"Prefix\":\"alias\",\"Options\":[]},"
+        "{\"Name\":\"veiled\",\"Description\":\"rclone hides it\",\"Prefix\":\"veiled\",\"Hide\":true,\"Options\":[]}"
         "]}";
     {
         std::FILE *f = std::fopen("cloudsync/providers.json", "wb");
@@ -873,6 +879,23 @@ static void catalogue_contract()
     check(bk_cloudsync_catalogue_ensure(".") == -2,
           "a matching cache reports cached without a job");
 #endif
+
+    // The destination list is the candidate filter's answer: wrappers and
+    // rclone-hidden backends out, alphabetical, and a configured backend
+    // kept whatever the filter thinks of it.
+    std::memset(json, 0, sizeof json);
+    const int dests = bk_cloudsync_catalogue_destinations(".", "", json, sizeof json);
+    check(dests > 0, "the destination list crosses the boundary");
+    const char *dests_json = reinterpret_cast<const char *>(json);
+    check(contains(dests_json, "\"aux\"") && contains(dests_json, "\"s3\""),
+          "candidates are offered");
+    check(!contains(dests_json, "\"alias\""), "a wrapper is not offered");
+    check(!contains(dests_json, "\"veiled\""), "an rclone-hidden backend is not offered");
+    std::memset(json, 0, sizeof json);
+    check(bk_cloudsync_catalogue_destinations(".", "alias", json, sizeof json) > 0,
+          "the configured-wrapper list crosses");
+    check(contains(reinterpret_cast<const char *>(json), "\"alias\""),
+          "a configured backend stays offered whatever the filter thinks");
 
     // The form model crosses the boundary with the provider argument
     // honoured — a boundary that dropped it would pass every Zig test and

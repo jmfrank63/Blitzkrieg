@@ -110,6 +110,10 @@ namespace NCloudSync
 	// provider; typed values never cross — preserving them is the dialog's
 	// job, by field name. Same required-size contract as the readers above.
 	int CatalogueForm( const char *pszBackend, const char *pszProvider, char *pszJsonOut, unsigned int nCap );
+	// { destinations: ["drive", "s3", ...] } — unhidden candidates sorted
+	// alphabetically plus pszConfigured (the backend already saved, "" for
+	// none), which stays offered whatever the filter thinks of it.
+	int CatalogueDestinations( const char *pszConfigured, char *pszJsonOut, unsigned int nCap );
 	// A pollable probe of the configured remote; on failure the handle's
 	// Error() text begins with the classified outcome name.
 	int TestConnection();

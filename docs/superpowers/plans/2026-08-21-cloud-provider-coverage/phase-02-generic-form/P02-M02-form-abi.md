@@ -18,4 +18,12 @@
 - [ ] Keep the masked-field marking intact across the boundary; the renderer must not have to re-derive which fields are secret.
 - [ ] Commit checkpoint: `cloudsync: expose the form model through the ABI`.
 
+> Amended during P02-M03 (2026-08-23): this packet also owns
+> `bk_cloudsync_catalogue_destinations`, carrying P01-M04's
+> `offeredBackends` across the boundary — the P01-M04 checkpoint assigned
+> the chain here, but the bullet list never said so, and the provider
+> chooser cannot render without it. Same required-size contract; the
+> configured backend crosses as an argument so a filtered-out or dropped
+> backend stays offered.
+
 **Evidence:** The C++ consumer builds forms for four backends across the ABI and reads their fields; a rebuild for the same backend under two S3 vendors returns different examples; a too-small buffer reports a size rather than truncating.

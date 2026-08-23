@@ -33,3 +33,4 @@ EXPORTS
     bk_cloudsync_catalogue_providers = _bk_cloudsync_catalogue_providers @26
     bk_cloudsync_catalogue_options = _bk_cloudsync_catalogue_options @27
     bk_cloudsync_catalogue_form = _bk_cloudsync_catalogue_form @28
+    bk_cloudsync_catalogue_destinations = _bk_cloudsync_catalogue_destinations @29

@@ -875,6 +875,57 @@ fn writeFields(json: *std.json.Stringify, fields: []const form.Field) !void {
     try json.endArray();
 }
 
+/// Write `{"destinations":[...]}` — the backends a selection UI should
+/// offer, from `catalogue.offeredBackends`: unhidden candidates sorted
+/// alphabetically plus `configured` (the backend saved in the profile's
+/// credentials, empty for none), which stays offered whatever the filter or
+/// a newer rclone thinks of it. Under the `writeSized` contract; a missing
+/// cache is an empty list, never an error.
+pub export fn bk_cloudsync_catalogue_destinations(
+    game_dir: [*:0]const u8,
+    configured: [*:0]const u8,
+    json_out: [*]u8,
+    cap: u32,
+) callconv(.c) i32 {
+    var cat = catalogue.loadCached(module_gpa, credsIo(), std.mem.span(game_dir)) catch {
+        setError("cloud sync: out of memory reading the catalogue");
+        return -1;
+    };
+    defer cat.deinit();
+
+    const offered = catalogue.offeredBackends(module_gpa, &cat, std.mem.span(configured)) catch {
+        setError("cloud sync: out of memory building the destination list");
+        return -1;
+    };
+    defer module_gpa.free(offered);
+
+    const text = destinationsJson(module_gpa, offered) catch {
+        setError("cloud sync: out of memory serialising the destination list");
+        return -1;
+    };
+    defer module_gpa.free(text);
+    clearError();
+    return writeSized(json_out, cap, text);
+}
+
+fn destinationsJson(gpa: Allocator, offered: []const []const u8) Allocator.Error![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    var json: std.json.Stringify = .{ .writer = &out.writer };
+
+    write: {
+        json.beginObject() catch break :write;
+        json.objectField("destinations") catch break :write;
+        json.beginArray() catch break :write;
+        for (offered) |name| json.write(name) catch break :write;
+        json.endArray() catch break :write;
+        json.endObject() catch break :write;
+        return out.toOwnedSlice();
+    }
+    out.deinit();
+    return error.OutOfMemory;
+}
+
 fn providersJson(gpa: Allocator, cat: *const catalogue.Catalogue) Allocator.Error![]u8 {
     var out: std.Io.Writer.Allocating = .init(gpa);
     errdefer out.deinit();
