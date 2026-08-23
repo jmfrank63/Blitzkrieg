@@ -27,3 +27,4 @@ EXPORTS
     bk_cloudsync_catalogue_ensure @25
     bk_cloudsync_catalogue_providers @26
     bk_cloudsync_catalogue_options @27
+    bk_cloudsync_catalogue_form @28

@@ -72,6 +72,7 @@ const backup = @import("backup.zig");
 const catalogue = @import("catalogue.zig");
 const creds = @import("creds.zig");
 const daemon = @import("daemon.zig");
+const form = @import("form.zig");
 const worker = @import("worker.zig");
 
 const Allocator = std.mem.Allocator;
@@ -738,6 +739,140 @@ pub export fn bk_cloudsync_catalogue_options(
     defer module_gpa.free(text);
     clearError();
     return writeSized(json_out, cap, text);
+}
+
+/// Build the form for one backend under one selected provider and write it
+/// under the `writeSized` contract as `{backend, provider, basic, advanced}`
+/// — the P02-M01 model, serialised. The provider argument is the whole
+/// point of the export existing separately from the option enumeration: a
+/// build-by-backend-name call could not express provider filtering, and the
+/// dialog would render an unfiltered form. The current option map stays on
+/// the C++ side by design — the model does not need it, and shipping it
+/// would serialise freshly typed secrets across the boundary on every
+/// rebuild; preserving typed values is the dialog's job, by field name.
+pub export fn bk_cloudsync_catalogue_form(
+    game_dir: [*:0]const u8,
+    backend_name: [*:0]const u8,
+    selected_provider: [*:0]const u8,
+    json_out: [*]u8,
+    cap: u32,
+) callconv(.c) i32 {
+    var cat = catalogue.loadCached(module_gpa, credsIo(), std.mem.span(game_dir)) catch {
+        setError("cloud sync: out of memory reading the catalogue");
+        return -1;
+    };
+    defer cat.deinit();
+
+    var built = form.buildForm(
+        module_gpa,
+        &cat,
+        std.mem.span(backend_name),
+        std.mem.span(selected_provider),
+    ) catch |err| switch (err) {
+        error.OutOfMemory => {
+            setError("cloud sync: out of memory building the form");
+            return -1;
+        },
+        // An empty catalogue also has no backends, but "fetch it first" is
+        // the actionable half of that truth.
+        error.UnknownBackend => {
+            if (cat.isEmpty()) {
+                setError("cloud sync: no provider catalogue is cached; fetch it first");
+            } else {
+                setError("cloud sync: the catalogue has no such backend");
+            }
+            return -1;
+        },
+    };
+    defer built.deinit();
+
+    const text = formJson(
+        module_gpa,
+        &built,
+        std.mem.span(backend_name),
+        std.mem.span(selected_provider),
+    ) catch {
+        setError("cloud sync: out of memory serialising the form");
+        return -1;
+    };
+    defer module_gpa.free(text);
+    clearError();
+    return writeSized(json_out, cap, text);
+}
+
+fn formJson(
+    gpa: Allocator,
+    built: *const form.Form,
+    backend_name: []const u8,
+    selected_provider: []const u8,
+) Allocator.Error![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    var json: std.json.Stringify = .{ .writer = &out.writer };
+
+    writeForm(&json, built, backend_name, selected_provider) catch {
+        out.deinit();
+        return error.OutOfMemory;
+    };
+    return out.toOwnedSlice();
+}
+
+fn writeForm(
+    json: *std.json.Stringify,
+    built: *const form.Form,
+    backend_name: []const u8,
+    selected_provider: []const u8,
+) !void {
+    try json.beginObject();
+    try json.objectField("backend");
+    try json.write(backend_name);
+    try json.objectField("provider");
+    try json.write(selected_provider);
+    try json.objectField("basic");
+    try writeFields(json, built.basic);
+    try json.objectField("advanced");
+    try writeFields(json, built.advanced);
+    try json.endObject();
+}
+
+fn writeFields(json: *std.json.Stringify, fields: []const form.Field) !void {
+    try json.beginArray();
+    for (fields) |field| {
+        try json.beginObject();
+        try json.objectField("role");
+        try json.write(@tagName(field.role));
+        try json.objectField("name");
+        try json.write(field.name);
+        try json.objectField("label");
+        try json.write(field.label);
+        try json.objectField("help");
+        try json.write(field.help);
+        try json.objectField("widget");
+        try json.write(@tagName(field.widget));
+        try json.objectField("kind");
+        try json.write(@tagName(field.kind));
+        try json.objectField("required");
+        try json.write(field.required);
+        try json.objectField("secret");
+        try json.write(field.secret);
+        try json.objectField("is_password");
+        try json.write(field.is_password);
+        try json.objectField("placeholder");
+        try json.write(field.placeholder);
+        try json.objectField("examples");
+        try json.beginArray();
+        for (field.examples) |example| {
+            try json.beginObject();
+            try json.objectField("value");
+            try json.write(example.value);
+            try json.objectField("help");
+            try json.write(example.help);
+            try json.endObject();
+        }
+        try json.endArray();
+        try json.endObject();
+    }
+    try json.endArray();
 }
 
 fn providersJson(gpa: Allocator, cat: *const catalogue.Catalogue) Allocator.Error![]u8 {

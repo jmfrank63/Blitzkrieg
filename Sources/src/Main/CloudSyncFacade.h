@@ -103,6 +103,13 @@ namespace NCloudSync
 	int EnsureCatalogue();
 	int CatalogueProviders( char *pszJsonOut, unsigned int nCap );
 	int CatalogueOptions( const char *pszBackend, char *pszJsonOut, unsigned int nCap );
+	// The form model for one backend under one selected provider:
+	// { backend, provider, basic:[fields], advanced:[fields] }, each field
+	// carrying role/name/label/help/widget/kind/flags/placeholder and its
+	// provider-filtered examples. Rebuild by calling again with the new
+	// provider; typed values never cross — preserving them is the dialog's
+	// job, by field name. Same required-size contract as the readers above.
+	int CatalogueForm( const char *pszBackend, const char *pszProvider, char *pszJsonOut, unsigned int nCap );
 	// A pollable probe of the configured remote; on failure the handle's
 	// Error() text begins with the classified outcome name.
 	int TestConnection();

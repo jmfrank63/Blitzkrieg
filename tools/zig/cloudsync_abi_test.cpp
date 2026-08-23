@@ -84,6 +84,13 @@ int bk_cloudsync_catalogue_options(const char *game_dir, const char *backend, un
 // clear_secret above wipes every withheld field at once.
 int bk_cloudsync_creds_fingerprint(unsigned char *out, unsigned int cap);
 int bk_cloudsync_creds_clear_option(const char *name);
+// The form model for one backend under one selected provider — basic and
+// advanced field lists with widget, flags, placeholder and filtered
+// examples. Required-size contract like the other catalogue readers. The
+// provider crosses the boundary because a build-by-backend-name export
+// cannot express provider filtering; the current option map deliberately
+// does not, so freshly typed secrets never ride along on a rebuild.
+int bk_cloudsync_catalogue_form(const char *game_dir, const char *backend, const char *provider, unsigned char *json_out, unsigned int cap);
 }
 
 static int failures = 0;
@@ -867,6 +874,42 @@ static void catalogue_contract()
           "a matching cache reports cached without a job");
 #endif
 
+    // The form model crosses the boundary with the provider argument
+    // honoured — a boundary that dropped it would pass every Zig test and
+    // still render the unfiltered form.
+    std::memset(json, 0, sizeof json);
+    const int form_a = bk_cloudsync_catalogue_form(".", "s3", "VendorA", json, sizeof json);
+    check(form_a > 0 && form_a < static_cast<int>(sizeof json), "a form crosses the boundary");
+    const char *form_a_json = reinterpret_cast<const char *>(json);
+    check(contains(form_a_json, "\"name\":\"special\""),
+          "the vendor's own option is in its form");
+    check(contains(form_a_json, "\"value\":\"va-only\""),
+          "with the vendor's example");
+    check(!contains(form_a_json, "\"value\":\"vb-only\""),
+          "and not the other vendor's");
+    check(contains(form_a_json, "\"widget\":\"masked\""),
+          "the masked marking survives the boundary");
+    check(contains(form_a_json, "\"widget\":\"droplist_closed\""),
+          "so does the closed droplist");
+    check(contains(form_a_json, "\"role\":\"remote_root\""),
+          "and the remote-root field is present");
+
+    std::memset(json, 0, sizeof json);
+    check(bk_cloudsync_catalogue_form(".", "s3", "VendorB", json, sizeof json) > 0,
+          "the rebuild for the other vendor crosses too");
+    const char *form_b_json = reinterpret_cast<const char *>(json);
+    check(!contains(form_b_json, "\"name\":\"special\""),
+          "an option the new vendor never declares is not offered");
+    check(contains(form_b_json, "\"value\":\"vb-only\""),
+          "its example set follows the vendor");
+
+    tiny[0] = 0x7f;
+    check(bk_cloudsync_catalogue_form(".", "s3", "VendorA", tiny, sizeof tiny) == form_a,
+          "a too-small form buffer reports the required length");
+    check(tiny[0] == 0x7f, "and leaves the buffer untouched");
+    check(bk_cloudsync_catalogue_form(".", "no-such-backend", "", json, sizeof json) == -1,
+          "a form for an unknown backend fails readably");
+
     // The vendor-change cleanup on the save path: same backend, new vendor.
     // The resubmitted values are the point — the cleanup must judge the
     // merged submission, not only what was previously stored.
@@ -918,6 +961,29 @@ static void catalogue_contract()
                   "and is rclone's own list");
             check(bk_cloudsync_catalogue_ensure(".") == -2,
                   "the fresh cache reports cached");
+
+            // Four real backends build across the boundary, and the same
+            // vendor-rebuild assertion the Zig tests make holds through
+            // the ABI: AWS is offered regions Wasabi never had.
+            static const char *backends[4] = { "s3", "webdav", "sftp", "drive" };
+            static unsigned char big_json[262144];
+            for (int i = 0; i < 4; ++i)
+            {
+                const int written = bk_cloudsync_catalogue_form(
+                    ".", backends[i], "", big_json, sizeof big_json);
+                check(written > 0 && written < static_cast<int>(sizeof big_json),
+                      "a real backend's form builds across the ABI");
+            }
+            std::memset(big_json, 0, sizeof big_json);
+            check(bk_cloudsync_catalogue_form(".", "s3", "AWS", big_json, sizeof big_json) > 0,
+                  "the AWS form builds");
+            check(contains(reinterpret_cast<const char *>(big_json), "\"value\":\"us-east-2\""),
+                  "AWS is offered its own regions");
+            std::memset(big_json, 0, sizeof big_json);
+            check(bk_cloudsync_catalogue_form(".", "s3", "Wasabi", big_json, sizeof big_json) > 0,
+                  "the Wasabi form builds");
+            check(!contains(reinterpret_cast<const char *>(big_json), "\"value\":\"us-east-2\""),
+                  "Wasabi is not offered AWS regions");
         }
     }
 
