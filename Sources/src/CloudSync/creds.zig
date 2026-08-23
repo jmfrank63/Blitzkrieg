@@ -614,6 +614,18 @@ pub fn clearSecret(creds: *Credentials) void {
     }
 }
 
+/// The per-field form of the deliberate act: blank one named value. A name
+/// with no entry is already clear, so clearing it again succeeds — the
+/// caller asked for a state, not an action. Clearing through a *save* is
+/// deliberately impossible for withheld fields, because an empty or
+/// omitted withheld entry always preserves (see `mergeOmittedSecret`);
+/// this and `clearSecret` are the only ways a stored secret goes away.
+pub fn clearOption(creds: *Credentials, name: []const u8) void {
+    for (creds.options) |*opt| {
+        if (std.mem.eql(u8, opt.name, name)) opt.value = "";
+    }
+}
+
 /// True when an option belongs to the canonical non-secret projection the
 /// fingerprint is derived and compared from: a set value, not withheld.
 /// Values equal to a catalogue default are never stored (the saver's

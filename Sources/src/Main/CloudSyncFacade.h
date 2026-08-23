@@ -35,6 +35,7 @@ namespace NCloudSync
 		OUTCOME_BACKUPS_LISTED = 5,
 		OUTCOME_RESTORE_STAGED = 6,
 		OUTCOME_UNDO_DONE = 7,
+		OUTCOME_CATALOGUE_READY = 8,
 	};
 
 	enum EUndoAvailability
@@ -83,6 +84,25 @@ namespace NCloudSync
 	bool LoadCredentials( char *pszJsonOut, unsigned int nCap );
 	bool SaveCredentials( const char *pszJson );
 	bool ClearCredentialsSecret();
+	// The per-field clear the generic schema needs: a backend can hold
+	// several secrets, and the argument-free clear above wipes every
+	// withheld field at once. Clearing an absent field succeeds.
+	bool ClearCredentialsOption( const char *pszName );
+	// The persisted pairing fingerprint. Returns its length; the string was
+	// written only when that length is smaller than nCap (otherwise call
+	// again with nCap = length + 1). -1 when none is stored.
+	int CredentialsFingerprint( char *pszOut, unsigned int nCap );
+
+	// The provider catalogue, for the generic credentials form.
+	// EnsureCatalogue returns CATALOGUE_CACHED when the cache already
+	// matches the discovered rclone (read it now), a pollable handle while
+	// a fetch job fills it (OUTCOME_CATALOGUE_READY on done), or -1. The
+	// two readers share the required-size contract: the return value is the
+	// document length, written only when smaller than nCap.
+	const int CATALOGUE_CACHED = -2;
+	int EnsureCatalogue();
+	int CatalogueProviders( char *pszJsonOut, unsigned int nCap );
+	int CatalogueOptions( const char *pszBackend, char *pszJsonOut, unsigned int nCap );
 	// A pollable probe of the configured remote; on failure the handle's
 	// Error() text begins with the classified outcome name.
 	int TestConnection();

@@ -27,3 +27,8 @@ EXPORTS
     bk_cloudsync_apply_pending_restore = _bk_cloudsync_apply_pending_restore @20
     bk_cloudsync_restore_undo = _bk_cloudsync_restore_undo @21
     bk_cloudsync_restore_undo_available = _bk_cloudsync_restore_undo_available @22
+    bk_cloudsync_creds_fingerprint = _bk_cloudsync_creds_fingerprint @23
+    bk_cloudsync_creds_clear_option = _bk_cloudsync_creds_clear_option @24
+    bk_cloudsync_catalogue_ensure = _bk_cloudsync_catalogue_ensure @25
+    bk_cloudsync_catalogue_providers = _bk_cloudsync_catalogue_providers @26
+    bk_cloudsync_catalogue_options = _bk_cloudsync_catalogue_options @27

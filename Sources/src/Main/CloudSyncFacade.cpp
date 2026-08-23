@@ -40,6 +40,11 @@ namespace
 	typedef int ( *FnApplyPendingRestore )( const char * );
 	typedef int ( *FnRestoreUndo )( const char *, const char * );
 	typedef unsigned int ( *FnRestoreUndoAvailable )( const char * );
+	typedef int ( *FnCredsFingerprint )( unsigned char *, unsigned int );
+	typedef int ( *FnCredsClearOption )( const char * );
+	typedef int ( *FnCatalogueEnsure )( const char * );
+	typedef int ( *FnCatalogueProviders )( const char *, unsigned char *, unsigned int );
+	typedef int ( *FnCatalogueOptions )( const char *, const char *, unsigned char *, unsigned int );
 
 	struct SLibrary
 	{
@@ -67,6 +72,11 @@ namespace
 		FnApplyPendingRestore pfnApplyPendingRestore;
 		FnRestoreUndo pfnRestoreUndo;
 		FnRestoreUndoAvailable pfnRestoreUndoAvailable;
+		FnCredsFingerprint pfnCredsFingerprint;
+		FnCredsClearOption pfnCredsClearOption;
+		FnCatalogueEnsure pfnCatalogueEnsure;
+		FnCatalogueProviders pfnCatalogueProviders;
+		FnCatalogueOptions pfnCatalogueOptions;
 	};
 
 	SLibrary s_library = {};
@@ -117,6 +127,11 @@ namespace
 		s_library.pfnApplyPendingRestore = reinterpret_cast<FnApplyPendingRestore>( LoadSymbol( pModule, "bk_cloudsync_apply_pending_restore" ) );
 		s_library.pfnRestoreUndo = reinterpret_cast<FnRestoreUndo>( LoadSymbol( pModule, "bk_cloudsync_restore_undo" ) );
 		s_library.pfnRestoreUndoAvailable = reinterpret_cast<FnRestoreUndoAvailable>( LoadSymbol( pModule, "bk_cloudsync_restore_undo_available" ) );
+		s_library.pfnCredsFingerprint = reinterpret_cast<FnCredsFingerprint>( LoadSymbol( pModule, "bk_cloudsync_creds_fingerprint" ) );
+		s_library.pfnCredsClearOption = reinterpret_cast<FnCredsClearOption>( LoadSymbol( pModule, "bk_cloudsync_creds_clear_option" ) );
+		s_library.pfnCatalogueEnsure = reinterpret_cast<FnCatalogueEnsure>( LoadSymbol( pModule, "bk_cloudsync_catalogue_ensure" ) );
+		s_library.pfnCatalogueProviders = reinterpret_cast<FnCatalogueProviders>( LoadSymbol( pModule, "bk_cloudsync_catalogue_providers" ) );
+		s_library.pfnCatalogueOptions = reinterpret_cast<FnCatalogueOptions>( LoadSymbol( pModule, "bk_cloudsync_catalogue_options" ) );
 
 		s_library.bLoaded =
 			s_library.pfnAvailable != 0 && s_library.pfnDiscoveryStatus != 0 &&
@@ -129,7 +144,10 @@ namespace
 			s_library.pfnCredsPresent != 0 && s_library.pfnTestConnection != 0 &&
 			s_library.pfnBackupList != 0 && s_library.pfnBackupEntry != 0 &&
 			s_library.pfnBackupRestore != 0 && s_library.pfnApplyPendingRestore != 0 &&
-			s_library.pfnRestoreUndo != 0 && s_library.pfnRestoreUndoAvailable != 0;
+			s_library.pfnRestoreUndo != 0 && s_library.pfnRestoreUndoAvailable != 0 &&
+			s_library.pfnCredsFingerprint != 0 && s_library.pfnCredsClearOption != 0 &&
+			s_library.pfnCatalogueEnsure != 0 && s_library.pfnCatalogueProviders != 0 &&
+			s_library.pfnCatalogueOptions != 0;
 		return s_library;
 	}
 
@@ -154,41 +172,22 @@ namespace
 		NPlatform::CloudSyncHostName( pszOut, nCap );
 	}
 
-	// The remote identity for the pairing record, derived from the redacted
-	// credentials document - endpoint and bucket for S3, url for WebDAV, no
-	// secret material. Only self-consistency matters: the same credentials
-	// must produce the same string on every run.
+	// The remote identity for the pairing record: the fingerprint the
+	// credentials file persists, read through the ABI — no secret material.
+	// This replaced a scraper that rebuilt the identity from legacy JSON
+	// fields; the credentials module owns the string now, migrates the
+	// legacy scrape byte-for-byte, and rotates it only on a real connection
+	// change. Empty when no credentials are saved, which the pairing state
+	// treats as "not paired yet".
 	void Fingerprint( char *pszOut, unsigned int nCap )
 	{
 		pszOut[0] = 0;
 		SLibrary &library = Library();
-		if ( !library.bLoaded )
+		if ( !library.bLoaded || nCap == 0 )
 			return;
-		unsigned char szDoc[4096];
-		if ( library.pfnCredsLoad( szDoc, sizeof szDoc ) <= 0 )
-			return;
-		const char *pszDoc = reinterpret_cast<const char *>( szDoc );
-
-		char szField[1024];
-		szField[0] = 0;
-		const char *pszNames[3] = { "\"endpoint\":\"", "\"bucket\":\"", "\"url\":\"" };
-		unsigned int nAt = 0;
-		for ( int i = 0; i < 3 && nAt + 2 < nCap; ++i )
-		{
-			const char *pszAt = std::strstr( pszDoc, pszNames[i] );
-			if ( pszAt == 0 )
-				continue;
-			pszAt += std::strlen( pszNames[i] );
-			const char *pszEnd = std::strchr( pszAt, '"' );
-			if ( pszEnd == 0 )
-				continue;
-			const unsigned int nLength = static_cast<unsigned int>( pszEnd - pszAt );
-			if ( nLength >= sizeof szField )
-				continue;
-			std::memcpy( szField, pszAt, nLength );
-			szField[nLength] = 0;
-			nAt += static_cast<unsigned int>( std::snprintf( pszOut + nAt, nCap - nAt, "%s%s", nAt != 0 ? "/" : "", szField ) );
-		}
+		const int nLength = library.pfnCredsFingerprint( reinterpret_cast<unsigned char *>( pszOut ), nCap );
+		if ( nLength < 0 || static_cast<unsigned int>( nLength ) >= nCap )
+			pszOut[0] = 0;
 	}
 
 	// -- Facade handles ------------------------------------------------------
@@ -448,6 +447,71 @@ namespace NCloudSync
 			return false;
 		}
 		return true;
+	}
+
+	bool ClearCredentialsOption( const char *pszName )
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded )
+			return false;
+		if ( library.pfnCredsClearOption( pszName ) != 0 )
+		{
+			SetLastError2( library.pfnLastError() );
+			return false;
+		}
+		return true;
+	}
+
+	int CredentialsFingerprint( char *pszOut, unsigned int nCap )
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded || pszOut == 0 || nCap == 0 )
+			return -1;
+		const int nLength = library.pfnCredsFingerprint( reinterpret_cast<unsigned char *>( pszOut ), nCap );
+		if ( nLength < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nLength;
+	}
+
+	int EnsureCatalogue()
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded )
+		{
+			SetLastError2( "cloud sync library is not installed" );
+			return -1;
+		}
+		const int nResult = library.pfnCatalogueEnsure( "." );
+		if ( nResult == CATALOGUE_CACHED )
+			return CATALOGUE_CACHED;
+		if ( nResult < 0 )
+		{
+			SetLastError2( library.pfnLastError() );
+			return -1;
+		}
+		return WrapLibraryHandle( nResult );
+	}
+
+	int CatalogueProviders( char *pszJsonOut, unsigned int nCap )
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded || pszJsonOut == 0 || nCap == 0 )
+			return -1;
+		const int nLength = library.pfnCatalogueProviders( ".", reinterpret_cast<unsigned char *>( pszJsonOut ), nCap );
+		if ( nLength < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nLength;
+	}
+
+	int CatalogueOptions( const char *pszBackend, char *pszJsonOut, unsigned int nCap )
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded || pszJsonOut == 0 || nCap == 0 )
+			return -1;
+		const int nLength = library.pfnCatalogueOptions( ".", pszBackend, reinterpret_cast<unsigned char *>( pszJsonOut ), nCap );
+		if ( nLength < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nLength;
 	}
 
 	int TestConnection()

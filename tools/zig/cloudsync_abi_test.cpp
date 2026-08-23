@@ -69,6 +69,21 @@ int bk_cloudsync_apply_pending_restore(const char *profile);
 // nothing, 1 cancellable stage, 2 reinstatable, 3 busy.
 int bk_cloudsync_restore_undo(const char *game_dir, const char *profile);
 unsigned int bk_cloudsync_restore_undo_available(const char *profile);
+// Catalogue: ensure returns -2 when the cache already matches the
+// discovered rclone (read it now), a pollable handle when a fetch job
+// started (outcome 8 = catalogue_ready), -1 on failure. The two readers
+// use the required-size buffer contract: the return value is always the
+// document length excluding the NUL; the document was written only when
+// that length is smaller than cap, otherwise the buffer is untouched and
+// the caller retries with cap = length + 1.
+int bk_cloudsync_catalogue_ensure(const char *game_dir);
+int bk_cloudsync_catalogue_providers(const char *game_dir, unsigned char *json_out, unsigned int cap);
+int bk_cloudsync_catalogue_options(const char *game_dir, const char *backend, unsigned char *json_out, unsigned int cap);
+// The persisted pairing fingerprint (required-size contract; plain text,
+// not JSON), and the per-field clear the generic schema needs — the no-arg
+// clear_secret above wipes every withheld field at once.
+int bk_cloudsync_creds_fingerprint(unsigned char *out, unsigned int cap);
+int bk_cloudsync_creds_clear_option(const char *name);
 }
 
 static int failures = 0;
@@ -624,6 +639,297 @@ static void creds_contract()
     remove_tree(base);
 }
 
+// The generic-schema credential exports, catalogue-free: the persisted
+// fingerprint crosses the boundary (the continuity the pairing record
+// depends on), one named secret clears while another survives, and nothing
+// follows a backend change.
+static void generic_creds_contract()
+{
+    const char *temp_root = std::getenv("TEMP");
+    if (temp_root == nullptr) temp_root = std::getenv("TMPDIR");
+    if (temp_root == nullptr) temp_root = "/tmp";
+    char base[1024];
+    std::snprintf(base, sizeof base, "%s/bk-gcreds-%u", temp_root,
+                  static_cast<unsigned>(std::rand() & 0xffffff));
+    for (char *c = base; *c != '\0'; ++c)
+        if (*c == '\\') *c = '/';
+    make_dirs(base);
+    char old_cwd[1024];
+#ifdef _WIN32
+    check(_getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+    check(_chdir(base) == 0, "chdir into the generic credentials fixture");
+#else
+    check(getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+    check(chdir(base) == 0, "chdir into the generic credentials fixture");
+#endif
+
+    unsigned char out[2048];
+    check(bk_cloudsync_creds_fingerprint(out, sizeof out) == -1,
+          "the fingerprint of no credentials fails readably");
+
+    // A legacy two-arm document, exactly what an existing install holds.
+    static const char *secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+    char doc[2048];
+    std::snprintf(doc, sizeof doc,
+                  "{\"protocol\":\"s3\",\"s3\":{\"s3_provider\":\"Minio\","
+                  "\"endpoint\":\"http://127.0.0.1:9000\",\"bucket\":\"bk\","
+                  "\"region\":\"us-east-1\",\"access_key\":\"AKIAIOSFODNN7EXAMPLE\","
+                  "\"secret\":\"%s\"},\"rclone_path\":null}",
+                  secret);
+    check(bk_cloudsync_creds_save(doc) == 0, "the legacy save migrates");
+
+    // The continuity claim itself: the exported fingerprint is byte-equal
+    // to what the facade's old scraper derived from this document — the
+    // string every existing pairing record holds.
+    std::memset(out, 0, sizeof out);
+    const int print_len = bk_cloudsync_creds_fingerprint(out, sizeof out);
+    check(print_len > 0 && print_len < static_cast<int>(sizeof out),
+          "the fingerprint crosses the boundary");
+    check(std::strcmp(reinterpret_cast<const char *>(out), "http://127.0.0.1:9000/bk") == 0,
+          "a migrated document fingerprints as the old scrape did");
+
+    // Required-size contract: a too-small buffer reports the length and
+    // writes nothing.
+    unsigned char tiny[4];
+    tiny[0] = 0x7f;
+    check(bk_cloudsync_creds_fingerprint(tiny, sizeof tiny) == print_len,
+          "a too-small buffer reports the required length");
+    check(tiny[0] == 0x7f, "and leaves the buffer untouched");
+
+    // Per-field clearing: one named secret goes, its sibling survives.
+    char on_disk[8192];
+    check(bk_cloudsync_creds_clear_option("secret_access_key") == 0,
+          "clearing one named field succeeds");
+    read_file("profiles/cloud.credentials", on_disk, sizeof on_disk);
+    check(std::strstr(on_disk, secret) == nullptr, "the named secret is gone");
+    check(std::strstr(on_disk, "AKIAIOSFODNN7EXAMPLE") != nullptr,
+          "the sibling secret survives a per-field clear");
+    check(bk_cloudsync_creds_clear_option("secret_access_key") == 0,
+          "clearing an already-clear field is idempotent");
+    // A secret-only change is not a new remote.
+    std::memset(out, 0, sizeof out);
+    check(bk_cloudsync_creds_fingerprint(out, sizeof out) == print_len,
+          "a cleared secret leaves the fingerprint length alone");
+    check(std::strcmp(reinterpret_cast<const char *>(out), "http://127.0.0.1:9000/bk") == 0,
+          "and the fingerprint itself");
+
+    // Nothing crosses a backend change: a generic save naming a secret the
+    // old backend also stores must start from nothing.
+    check(bk_cloudsync_creds_save(doc) == 0, "restoring the s3 credential succeeds");
+    check(bk_cloudsync_creds_save(
+              "{\"backend\":\"sftp\",\"remote_root\":\"saves\","
+              "\"options\":{\"host\":\"sftp.example.net\",\"user\":\"player\"},"
+              "\"secret_options\":[\"pass\"],\"password_options\":[\"pass\"],"
+              "\"rclone_path\":null}") == 0,
+          "a generic save for another backend succeeds");
+    read_file("profiles/cloud.credentials", on_disk, sizeof on_disk);
+    check(std::strstr(on_disk, secret) == nullptr, "the old backend's secret did not follow");
+    check(std::strstr(on_disk, "secret_access_key") == nullptr, "nor its field");
+    std::memset(out, 0, sizeof out);
+    check(bk_cloudsync_creds_fingerprint(out, sizeof out) > 0, "the new backend fingerprints");
+    check(std::strstr(reinterpret_cast<const char *>(out), "sftp:saves#") ==
+              reinterpret_cast<const char *>(out),
+          "as the generic derivation, not a scrape");
+
+    bk_cloudsync_shutdown();
+#ifdef _WIN32
+    check(_chdir(old_cwd) == 0, "chdir back out of the generic credentials fixture");
+#else
+    check(chdir(old_cwd) == 0, "chdir back out of the generic credentials fixture");
+#endif
+    remove_tree(base);
+}
+
+// The catalogue exports over a synthetic cache: enumeration, the
+// required-size contract, ensure's cached short-circuit, and the
+// vendor-change cleanup on the save path. A live rclone extends this with a
+// real fetch job below.
+static void catalogue_contract()
+{
+    bk_cloudsync_shutdown(); // the worker binds one game dir per process
+
+    const char *temp_root = std::getenv("TEMP");
+    if (temp_root == nullptr) temp_root = std::getenv("TMPDIR");
+    if (temp_root == nullptr) temp_root = "/tmp";
+    char base[1024];
+    std::snprintf(base, sizeof base, "%s/bk-cat-%u", temp_root,
+                  static_cast<unsigned>(std::rand() & 0xffffff));
+    for (char *c = base; *c != '\0'; ++c)
+        if (*c == '\\') *c = '/';
+    make_dirs(base);
+    char cloudsync_dir[1200];
+    std::snprintf(cloudsync_dir, sizeof cloudsync_dir, "%s/cloudsync", base);
+    make_dirs(cloudsync_dir);
+    char old_cwd[1024];
+#ifdef _WIN32
+    check(_getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+    check(_chdir(base) == 0, "chdir into the catalogue fixture");
+#else
+    check(getcwd(old_cwd, sizeof old_cwd) != nullptr, "remember the working directory");
+    check(chdir(base) == 0, "chdir into the catalogue fixture");
+#endif
+
+    // Discovery pinned to a version stub through the credentials override,
+    // so ensure has a running version to compare the cache stamp against.
+    // The stub is a shell script, so this pin is POSIX-only; the local
+    // reads below need no discovery and run everywhere.
+    char creds_doc[4096];
+#ifndef _WIN32
+    char stub_dir[1200];
+    std::snprintf(stub_dir, sizeof stub_dir, "%s/bin", base);
+    make_dirs(stub_dir);
+    char stub[1400];
+    std::snprintf(stub, sizeof stub, "%s/%s", stub_dir, rclone_exe_name);
+    write_version_stub(stub, "v9.66.1");
+    char stub_escaped[1400];
+    json_escape(stub, stub_escaped, sizeof stub_escaped);
+    std::snprintf(creds_doc, sizeof creds_doc,
+                  "{\"backend\":\"s3\",\"remote_root\":\"bk\","
+                  "\"options\":{\"provider\":\"VendorA\",\"endpoint\":\"http://127.0.0.1:9000\","
+                  "\"special\":\"special-value\",\"closed\":\"va-only\",\"kept\":\"kept-value\"},"
+                  "\"secret_options\":[],\"password_options\":[],"
+                  "\"rclone_path\":\"%s\"}",
+                  stub_escaped);
+    check(bk_cloudsync_creds_save(creds_doc) == 0, "the fixture credentials save");
+    check(bk_cloudsync_refresh_discovery() == 0, "discovery re-runs over the stub");
+    check(bk_cloudsync_available() == 1u, "and the stub is the running rclone");
+#else
+    std::snprintf(creds_doc, sizeof creds_doc,
+                  "{\"backend\":\"s3\",\"remote_root\":\"bk\","
+                  "\"options\":{\"provider\":\"VendorA\",\"endpoint\":\"http://127.0.0.1:9000\","
+                  "\"special\":\"special-value\",\"closed\":\"va-only\",\"kept\":\"kept-value\"},"
+                  "\"secret_options\":[],\"password_options\":[],"
+                  "\"rclone_path\":null}");
+    check(bk_cloudsync_creds_save(creds_doc) == 0, "the fixture credentials save");
+#endif
+
+    // A synthetic catalogue, stamped as the stub's version: one backend the
+    // credentials use, one that only proves enumeration.
+    static const char *cache_doc =
+        "{\"rclone_version\":\"v9.66.1\",\"providers\":["
+        "{\"Name\":\"s3\",\"Description\":\"synthetic s3\",\"Prefix\":\"s3\",\"Options\":["
+        "{\"Name\":\"provider\",\"Help\":\"vendor\",\"Type\":\"string\",\"Examples\":["
+        "{\"Value\":\"VendorA\",\"Help\":\"\"},{\"Value\":\"VendorB\",\"Help\":\"\"}]},"
+        "{\"Name\":\"endpoint\",\"Help\":\"where\",\"Type\":\"string\"},"
+        "{\"Name\":\"special\",\"Help\":\"va only\",\"Type\":\"string\",\"Provider\":\"VendorA\"},"
+        "{\"Name\":\"closed\",\"Help\":\"closed list\",\"Type\":\"string\",\"Exclusive\":true,\"Examples\":["
+        "{\"Value\":\"va-only\",\"Help\":\"\",\"Provider\":\"VendorA\"},"
+        "{\"Value\":\"vb-only\",\"Help\":\"\",\"Provider\":\"VendorB\"}]},"
+        "{\"Name\":\"kept\",\"Help\":\"editable\",\"Type\":\"string\"},"
+        "{\"Name\":\"sec\",\"Help\":\"secret\",\"Type\":\"string\",\"Sensitive\":true,\"IsPassword\":false}"
+        "]},"
+        "{\"Name\":\"aux\",\"Description\":\"only enumerated\",\"Prefix\":\"aux\",\"Options\":[]}"
+        "]}";
+    {
+        std::FILE *f = std::fopen("cloudsync/providers.json", "wb");
+        check(f != nullptr, "the synthetic cache writes");
+        if (f != nullptr)
+        {
+            std::fwrite(cache_doc, 1, std::strlen(cache_doc), f);
+            std::fclose(f);
+        }
+    }
+
+    // Enumeration, and the required-size contract on its buffer.
+    unsigned char json[16384];
+    std::memset(json, 0, sizeof json);
+    const int providers_len = bk_cloudsync_catalogue_providers(".", json, sizeof json);
+    check(providers_len > 0 && providers_len < static_cast<int>(sizeof json),
+          "the provider list crosses the boundary");
+    const char *providers_json = reinterpret_cast<const char *>(json);
+    check(contains(providers_json, "\"name\":\"s3\""), "the list names the synthetic backend");
+    check(contains(providers_json, "\"name\":\"aux\""), "and the enumeration-only one");
+    check(contains(providers_json, "\"description\":\"only enumerated\""), "with descriptions");
+    unsigned char tiny[8];
+    tiny[0] = 0x7f;
+    check(bk_cloudsync_catalogue_providers(".", tiny, sizeof tiny) == providers_len,
+          "a too-small providers buffer reports the required length");
+    check(tiny[0] == 0x7f, "and leaves the buffer untouched");
+
+    // One backend's options, flags and examples included.
+    std::memset(json, 0, sizeof json);
+    const int options_len = bk_cloudsync_catalogue_options(".", "s3", json, sizeof json);
+    check(options_len > 0, "the option list crosses the boundary");
+    const char *options_json = reinterpret_cast<const char *>(json);
+    check(contains(options_json, "\"name\":\"special\""), "options are enumerated");
+    check(contains(options_json, "\"provider\":\"VendorA\""), "with their vendor expressions");
+    check(contains(options_json, "\"exclusive\":true"), "their closed-list flag");
+    check(contains(options_json, "\"secret\":true"), "and their secret classification");
+    check(contains(options_json, "\"value\":\"vb-only\""), "examples ride along");
+    check(bk_cloudsync_catalogue_options(".", "no-such-backend", json, sizeof json) == -1,
+          "an unknown backend fails readably");
+    check(bk_cloudsync_last_error()[0] != '\0', "and names the reason");
+
+    // The cache matches the running stub, so ensure is a local no-op.
+    // Needs the POSIX-only version pin above.
+#ifndef _WIN32
+    check(bk_cloudsync_catalogue_ensure(".") == -2,
+          "a matching cache reports cached without a job");
+#endif
+
+    // The vendor-change cleanup on the save path: same backend, new vendor.
+    // The resubmitted values are the point — the cleanup must judge the
+    // merged submission, not only what was previously stored.
+    check(bk_cloudsync_creds_save(
+              "{\"backend\":\"s3\",\"remote_root\":\"bk\","
+              "\"options\":{\"provider\":\"VendorB\",\"endpoint\":\"http://127.0.0.1:9000\","
+              "\"special\":\"special-value\",\"closed\":\"va-only\",\"kept\":\"kept-value\"},"
+              "\"secret_options\":[],\"password_options\":[],"
+              "\"rclone_path\":null}") == 0,
+          "the vendor-change save succeeds");
+    char on_disk[8192];
+    read_file("profiles/cloud.credentials", on_disk, sizeof on_disk);
+    check(std::strstr(on_disk, "\"provider\":\"VendorB\"") != nullptr, "the vendor change landed");
+    check(std::strstr(on_disk, "special-value") == nullptr,
+          "an option the new vendor never declares is dropped");
+    check(std::strstr(on_disk, "va-only") == nullptr,
+          "a closed value the new vendor never offers is cleared");
+    check(std::strstr(on_disk, "kept-value") != nullptr, "an editable value survives");
+
+    // With a live rclone: a stale stamp becomes a real fetch job and the
+    // enumeration turns into rclone's own catalogue.
+    if (const char *real = std::getenv("BK_TEST_RCLONE"))
+    {
+        if (real[0] != '\0')
+        {
+            char real_escaped[1200];
+            json_escape(real, real_escaped, sizeof real_escaped);
+            std::snprintf(creds_doc, sizeof creds_doc,
+                          "{\"backend\":\"s3\",\"remote_root\":\"bk\","
+                          "\"options\":{\"provider\":\"VendorB\",\"endpoint\":\"http://127.0.0.1:9000\"},"
+                          "\"secret_options\":[],\"password_options\":[],"
+                          "\"rclone_path\":\"%s\"}",
+                          real_escaped);
+            check(bk_cloudsync_creds_save(creds_doc) == 0, "pointing discovery at the real rclone");
+            check(bk_cloudsync_refresh_discovery() == 0, "discovery re-runs over it");
+            const int fetch = bk_cloudsync_catalogue_ensure(".");
+            check(fetch >= 0, "a stale stamp becomes a fetch job");
+            if (fetch >= 0)
+            {
+                const unsigned int rested = poll_to_rest(fetch, 90000);
+                check(rested == 4u, "the fetch reaches done");
+                check(bk_cloudsync_outcome(fetch) == 8u, "with the catalogue_ready outcome");
+                bk_cloudsync_release(fetch);
+            }
+            std::memset(json, 0, sizeof json);
+            check(bk_cloudsync_catalogue_providers(".", json, sizeof json) > 0,
+                  "the fetched catalogue enumerates");
+            check(contains(reinterpret_cast<const char *>(json), "\"name\":\"drive\""),
+                  "and is rclone's own list");
+            check(bk_cloudsync_catalogue_ensure(".") == -2,
+                  "the fresh cache reports cached");
+        }
+    }
+
+    bk_cloudsync_shutdown();
+#ifdef _WIN32
+    check(_chdir(old_cwd) == 0, "chdir back out of the catalogue fixture");
+#else
+    check(chdir(old_cwd) == 0, "chdir back out of the catalogue fixture");
+#endif
+    remove_tree(base);
+}
+
 // The handle contract needs no daemon: invalid handles answer failed with a
 // readable error instead of crashing or inventing a second error channel.
 static void sync_handle_contract()
@@ -965,6 +1271,8 @@ int main()
 
     bundled_out_of_box();
     creds_contract();
+    generic_creds_contract();
+    catalogue_contract();
     sync_handle_contract();
     sync_full_cycle();
 

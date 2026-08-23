@@ -69,6 +69,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const backup = @import("backup.zig");
+const catalogue = @import("catalogue.zig");
 const creds = @import("creds.zig");
 const daemon = @import("daemon.zig");
 const worker = @import("worker.zig");
@@ -458,7 +459,10 @@ pub export fn bk_cloudsync_creds_save(json: [*:0]const u8) callconv(.c) i32 {
 
     var stored = creds.load(module_gpa, credsIo(), creds.default_path) catch null;
     defer if (stored) |*loaded| loaded.deinit();
-    if (stored) |loaded| creds.mergeOmittedSecret(&incoming.creds, loaded.creds);
+    if (stored) |loaded| {
+        creds.mergeOmittedSecret(&incoming.creds, loaded.creds);
+        cleanupVendorChange(&incoming.creds, loaded.creds);
+    }
 
     creds.save(module_gpa, credsIo(), creds.default_path, incoming.creds) catch {
         setError("cloud sync: the credentials file could not be written");
@@ -502,6 +506,328 @@ pub export fn bk_cloudsync_creds_present() callconv(.c) u32 {
     var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse return 0;
     loaded.deinit();
     return 1;
+}
+
+/// A vendor change is not a backend change: switching S3 from one vendor to
+/// another leaves the backend as `s3`, so backend-scoped preservation keeps
+/// every merged option — including ones the new vendor never declares, which
+/// would keep being sent to rclone. When the `provider` value changes
+/// (rclone's own convention for the vendor option, a structural name like
+/// `type`, referenced by every `Provider` expression), drop options whose
+/// expression no longer matches and clear a closed (`Exclusive`) field's
+/// value that is absent from its newly filtered examples; editable fields
+/// keep arbitrary values legitimately.
+///
+/// This runs on the **final merged submission**, not the stored map alone:
+/// the dialog resubmits values it preserved across a rebuild, so a value
+/// cleaned out of storage can arrive again in the same save. Judgement needs
+/// the catalogue; with no cache (or a backend it does not name) nothing can
+/// be judged and the submission passes through — the next save with a
+/// catalogue filters it.
+fn cleanupVendorChange(merged: *creds.Credentials, stored: creds.Credentials) void {
+    if (!std.mem.eql(u8, merged.backend, stored.backend)) return;
+    const chosen = optionValueOf(merged.*, "provider");
+    if (std.mem.eql(u8, chosen, optionValueOf(stored, "provider"))) return;
+
+    // The creds exports resolve everything against the working directory —
+    // the game root by the engine's convention — so the cache lives at
+    // `./cloudsync/providers.json` here, exactly as the facade passes "."
+    // for every game_dir.
+    var cat = catalogue.loadCached(module_gpa, credsIo(), ".") catch return;
+    defer cat.deinit();
+    const backend = cat.backend(merged.backend) orelse return;
+
+    var keep: usize = 0;
+    for (merged.options) |opt| {
+        // An option the catalogue does not name cannot be judged; keep it —
+        // the unknown-field tolerance from the other direction.
+        const record = backend.option(opt.name) orelse {
+            merged.options[keep] = opt;
+            keep += 1;
+            continue;
+        };
+        if (!record.appliesTo(chosen)) continue;
+        var kept = opt;
+        if (record.exclusive and kept.value.len != 0) {
+            const offered = for (record.examples) |example| {
+                if (example.appliesTo(chosen) and std.mem.eql(u8, example.value, kept.value))
+                    break true;
+            } else false;
+            // Cleared, not dropped: the field still applies, its value does
+            // not. The empty value never reaches disk.
+            if (!offered) kept.value = "";
+        }
+        merged.options[keep] = kept;
+        keep += 1;
+    }
+    merged.options = merged.options[0..keep];
+}
+
+fn optionValueOf(credentials: creds.Credentials, name: []const u8) []const u8 {
+    const opt = credentials.option(name) orelse return "";
+    return opt.value;
+}
+
+/// The buffer contract the catalogue-era exports share, replacing the older
+/// truncate-to--1: the return value is always the document's length
+/// excluding the NUL, and the document was written only when that length is
+/// smaller than `cap` — otherwise the buffer is untouched and the caller
+/// retries with `cap = length + 1`. Option sets vary by orders of magnitude
+/// between backends, so a caller must be able to size a second call.
+fn writeSized(out: [*]u8, cap: u32, text: []const u8) i32 {
+    if (text.len >= cap) return @intCast(text.len);
+    @memcpy(out[0..text.len], text);
+    out[text.len] = 0;
+    return @intCast(text.len);
+}
+
+/// Write the persisted pairing fingerprint — the connection identity, no
+/// secret material — under the `writeSized` contract, or -1 when no
+/// credentials are saved. This is what the facade compares against the
+/// pairing record; it replaced a scraper that derived the identity from
+/// legacy JSON fields and broke against the generic schema.
+pub export fn bk_cloudsync_creds_fingerprint(out: [*]u8, cap: u32) callconv(.c) i32 {
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
+        setError("cloud sync: no credentials are saved");
+        return -1;
+    };
+    defer loaded.deinit();
+
+    const print = creds.fingerprint(module_gpa, loaded.creds) catch {
+        setError("cloud sync: out of memory deriving the fingerprint");
+        return -1;
+    };
+    defer module_gpa.free(print);
+    clearError();
+    return writeSized(out, cap, print);
+}
+
+/// Clear one named field — the per-field deliberate act the generic schema
+/// needs, since a backend can hold several secrets and the argument-free
+/// `bk_cloudsync_creds_clear_secret` (kept for its existing caller, the
+/// legacy dialog) cannot say which; that one clears every withheld field at
+/// once. Clearing a field with no stored value succeeds: the caller asked
+/// for a state. Clearing through a save is impossible by design — omitted
+/// or empty withheld fields always preserve.
+pub export fn bk_cloudsync_creds_clear_option(name: [*:0]const u8) callconv(.c) i32 {
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
+        setError("cloud sync: no credentials are saved");
+        return -1;
+    };
+    defer loaded.deinit();
+
+    creds.clearOption(&loaded.creds, std.mem.span(name));
+    creds.save(module_gpa, credsIo(), creds.default_path, loaded.creds) catch {
+        setError("cloud sync: the credentials file could not be written");
+        return -1;
+    };
+    clearError();
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue exports
+//
+// The provider catalogue lives in Zig (P01-M01) and the form dialog in C++;
+// this is the chain between them, which no packet owned until it was nearly
+// unbuildable. Reading is local — the cache document, never a daemon — and
+// refreshing is a worker job like everything that touches a socket.
+// ---------------------------------------------------------------------------
+
+/// `bk_cloudsync_catalogue_ensure`'s "read the cache now" answer. A success,
+/// not a failure: -1 stays the only failure value.
+const catalogue_cached: i32 = -2;
+
+/// Make sure the catalogue cache describes the discovered rclone. Returns
+/// `catalogue_cached` (-2) when it already does — a local stamp read, no job
+/// and no daemon, asserted by the worker staying idle — or a pollable job
+/// handle whose outcome is `catalogue_ready` (8) once a fetch replaced the
+/// cache, or -1 with a readable error. Cancel and release work like every
+/// other job: a player who opens the dialog and closes it strands nothing.
+pub export fn bk_cloudsync_catalogue_ensure(game_dir: [*:0]const u8) callconv(.c) i32 {
+    const dir = std.mem.span(game_dir);
+    moduleEnsure() catch {
+        setError("cloud sync: out of memory while searching for rclone");
+        return -1;
+    };
+    // The version to compare against is the discovered binary's: the cache
+    // must describe the rclone that will serve the forms, and a version
+    // change is exactly what invalidates it.
+    const running: daemon.Version = version: {
+        module.lock();
+        defer module.unlock();
+        const current = module.value orelse {
+            setError("cloud sync: rclone discovery has not run");
+            return -1;
+        };
+        switch (current) {
+            .ready => |ready| break :version ready.version,
+            .unavailable => {
+                setError("cloud sync: no usable rclone is available");
+                return -1;
+            },
+        }
+    };
+
+    const stamp = catalogue.cachedVersion(module_gpa, credsIo(), dir) catch {
+        setError("cloud sync: out of memory reading the catalogue stamp");
+        return -1;
+    };
+    if (catalogue.matchesVersion(stamp, running)) {
+        clearError();
+        return catalogue_cached;
+    }
+
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+    return enqueueLocked(dir, .{ .kind = .fetch_catalogue });
+}
+
+/// Write `{"providers":[{name, description, hidden}...]}` from the cached
+/// catalogue under the `writeSized` contract. A missing cache is an empty
+/// list, never an error — the settings screen must render regardless, and
+/// `bk_cloudsync_catalogue_ensure` is how the list gets filled. `hidden` is
+/// rclone's own "do not offer" flag, carried so the destination filter
+/// (P01-M04) can honour it without a second read.
+pub export fn bk_cloudsync_catalogue_providers(
+    game_dir: [*:0]const u8,
+    json_out: [*]u8,
+    cap: u32,
+) callconv(.c) i32 {
+    var cat = catalogue.loadCached(module_gpa, credsIo(), std.mem.span(game_dir)) catch {
+        setError("cloud sync: out of memory reading the catalogue");
+        return -1;
+    };
+    defer cat.deinit();
+
+    const text = providersJson(module_gpa, &cat) catch {
+        setError("cloud sync: out of memory serialising the provider list");
+        return -1;
+    };
+    defer module_gpa.free(text);
+    clearError();
+    return writeSized(json_out, cap, text);
+}
+
+/// Write one backend's option list — everything a form needs: name, help,
+/// type and widget kind, the required/advanced/secret/is_password/exclusive
+/// flags, the configurator-hidden bit, the vendor expression, the default's
+/// rendering, and the examples with their own vendor expressions. Unknown
+/// backend is -1 with a readable error; the caller enumerated providers
+/// first.
+pub export fn bk_cloudsync_catalogue_options(
+    game_dir: [*:0]const u8,
+    backend_name: [*:0]const u8,
+    json_out: [*]u8,
+    cap: u32,
+) callconv(.c) i32 {
+    var cat = catalogue.loadCached(module_gpa, credsIo(), std.mem.span(game_dir)) catch {
+        setError("cloud sync: out of memory reading the catalogue");
+        return -1;
+    };
+    defer cat.deinit();
+
+    const backend = cat.backend(std.mem.span(backend_name)) orelse {
+        setError("cloud sync: the catalogue has no such backend");
+        return -1;
+    };
+    const text = optionsJson(module_gpa, backend) catch {
+        setError("cloud sync: out of memory serialising the option list");
+        return -1;
+    };
+    defer module_gpa.free(text);
+    clearError();
+    return writeSized(json_out, cap, text);
+}
+
+fn providersJson(gpa: Allocator, cat: *const catalogue.Catalogue) Allocator.Error![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    var json: std.json.Stringify = .{ .writer = &out.writer };
+
+    write: {
+        json.beginObject() catch break :write;
+        json.objectField("providers") catch break :write;
+        json.beginArray() catch break :write;
+        for (cat.backends) |backend| {
+            json.beginObject() catch break :write;
+            json.objectField("name") catch break :write;
+            json.write(backend.name) catch break :write;
+            json.objectField("description") catch break :write;
+            json.write(backend.description) catch break :write;
+            json.objectField("hidden") catch break :write;
+            json.write(backend.hidden) catch break :write;
+            json.endObject() catch break :write;
+        }
+        json.endArray() catch break :write;
+        json.endObject() catch break :write;
+        return out.toOwnedSlice();
+    }
+    out.deinit();
+    return error.OutOfMemory;
+}
+
+fn optionsJson(gpa: Allocator, backend: *const catalogue.Backend) Allocator.Error![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    var json: std.json.Stringify = .{ .writer = &out.writer };
+
+    writeOptions(&json, backend) catch {
+        out.deinit();
+        return error.OutOfMemory;
+    };
+    return out.toOwnedSlice();
+}
+
+fn writeOptions(json: *std.json.Stringify, backend: *const catalogue.Backend) !void {
+    try json.beginObject();
+    try json.objectField("backend");
+    try json.write(backend.name);
+    try json.objectField("options");
+    try json.beginArray();
+    for (backend.options) |option| {
+        try json.beginObject();
+        try json.objectField("name");
+        try json.write(option.name);
+        try json.objectField("help");
+        try json.write(option.help);
+        try json.objectField("type");
+        try json.write(option.type_name);
+        try json.objectField("kind");
+        try json.write(@tagName(option.kind));
+        try json.objectField("required");
+        try json.write(option.required);
+        try json.objectField("advanced");
+        try json.write(option.advanced);
+        try json.objectField("secret");
+        try json.write(option.isSecret());
+        try json.objectField("is_password");
+        try json.write(option.is_password);
+        try json.objectField("exclusive");
+        try json.write(option.exclusive);
+        try json.objectField("hidden");
+        try json.write(option.hiddenFromConfigurator());
+        try json.objectField("provider");
+        try json.write(option.provider);
+        try json.objectField("default_str");
+        try json.write(option.default_str);
+        try json.objectField("examples");
+        try json.beginArray();
+        for (option.examples) |example| {
+            try json.beginObject();
+            try json.objectField("value");
+            try json.write(example.value);
+            try json.objectField("help");
+            try json.write(example.help);
+            try json.objectField("provider");
+            try json.write(example.provider);
+            try json.endObject();
+        }
+        try json.endArray();
+        try json.endObject();
+    }
+    try json.endArray();
+    try json.endObject();
 }
 
 // ---------------------------------------------------------------------------
@@ -549,6 +875,7 @@ comptime {
     std.debug.assert(@intFromEnum(worker.Outcome.backups_listed) == 5);
     std.debug.assert(@intFromEnum(worker.Outcome.restore_staged) == 6);
     std.debug.assert(@intFromEnum(worker.Outcome.undo_done) == 7);
+    std.debug.assert(@intFromEnum(worker.Outcome.catalogue_ready) == 8);
 }
 
 const module_gpa = std.heap.smp_allocator;
