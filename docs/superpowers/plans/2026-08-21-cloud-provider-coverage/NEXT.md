@@ -1,10 +1,10 @@
 # Next Packet
 
-Resume at `phase-02-generic-form/P02-M02-form-abi.md`.
+Resume at `phase-02-generic-form/P02-M03-render.md`.
 
 ## Where implementation stands
 
-**Phases 00 and 01 are complete**, and P02-M01 is done. Every checkpoint is in its phase
+**Phases 00 and 01 are complete**, and P02-M01 and P02-M02 are done. Every checkpoint is in its phase
 `MANIFEST.md` with the measurements; read those before writing code, they
 carry findings the packet texts do not.
 
@@ -20,6 +20,7 @@ carry findings the packet texts do not.
 | P01-M03 catalogue ABI | `41e0f64af` | five exports, facade scraper retired, vendor cleanup |
 | P01-M04 provider selection | `4e2f61e6b` | Cloud.Provider ON/OFF, candidate filter, offered list |
 | P02-M01 form model | `35428f79a` | buildForm: widgets, provider filter, basic/advanced split |
+| P02-M02 form ABI | `3135a2fed` | bk_cloudsync_catalogue_form, provider crosses, no option map |
 
 ## Resuming on another machine
 
@@ -27,7 +28,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `35428f79a` (creds 17, catalogue 20, form 8):
+Suites, all green at `3135a2fed` (creds 17, catalogue 20, form 8):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6

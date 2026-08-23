@@ -40,3 +40,29 @@ Findings the packet text does not carry:
 - Form slices borrow from the catalogue: the catalogue must outlive the
   form, which the exports in P02-M02 must arrange (the ABI serialises, so
   nothing borrowed crosses the boundary).
+
+P02-M02 macOS checkpoint: the C++ consumer failed first on the one missing
+symbol, then abi 10/10 + consumer green natively and with a live rclone —
+where all four real backends build across the boundary and the s3 rebuild
+under AWS versus Wasabi changes the region example set (`us-east-2`
+present, then absent), the same assertion the Zig tests make, repeated
+across the ABI because a boundary that drops the provider argument passes
+every Zig test and still renders the wrong form. Facade, form, and the
+full sweep green; both cross-targets compile; `install-game` builds.
+Commit `3135a2fed`.
+
+Findings the packet text does not carry:
+
+- **The wire format omits a per-field `advanced` flag on purpose**: the
+  split into `basic` and `advanced` arrays *is* the encoding, and a flag
+  that could disagree with the array a field sits in would be a second
+  source of truth.
+- **An unknown backend distinguishes its two causes** in the error text:
+  an empty cache says "no provider catalogue is cached; fetch it first" —
+  the actionable half — while a populated cache says the backend does not
+  exist.
+- The real s3 form under an empty provider is far too large for a stack
+  buffer — 153 region examples with help text among 75 visible options —
+  so the consumer's live branch reads through a 256 KiB static buffer,
+  which the run proved sufficient. The required-size contract is what a
+  caller without such a bound relies on.
