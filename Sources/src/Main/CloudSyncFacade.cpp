@@ -288,6 +288,12 @@ namespace
 		const int nHandle = library.pfnBegin( pszDoc );
 		std::free( pszDoc );
 		std::free( pszFingerprintEscaped );
+		// Every failure path out of this function owns its error text: the
+		// local ones set theirs above without touching the DLL, so a caller
+		// re-reading pfnLastError() here would replace a precise message
+		// with a stale or empty one.
+		if ( nHandle < 0 )
+			SetLastError2( library.pfnLastError() );
 		return nHandle;
 	}
 
@@ -355,14 +361,10 @@ namespace NCloudSync
 			return -1;
 		}
 
+		// BeginJob set the error, whichever side failed.
 		const int nLibraryHandle = BeginJob( "sync", pszProfile, bBackupConfig );
 		if ( nLibraryHandle < 0 )
-		{
-			SLibrary &library = Library();
-			if ( library.bLoaded )
-				SetLastError2( library.pfnLastError() );
 			return -1;
-		}
 
 		SJob &job = s_jobs[nSlot];
 		job.bInUse = true;
