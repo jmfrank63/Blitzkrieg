@@ -403,6 +403,71 @@ pub fn matchProvider(expression: []const u8, selected: []const u8) bool {
     return negate;
 }
 
+// -- Candidates and the offered list -----------------------------------------
+
+/// The backends that are not cloud destinations, and therefore never
+/// offered: each either wraps another remote (`alias`, `cache`, `chunker`,
+/// `combine`, `compress`, `crypt`, `hasher`, `union`), writes archives over
+/// one (`archive`), or is not remote storage at all (`local`, `memory`).
+/// The catalogue has no field that states this, so the list is one of the
+/// plan's declared exceptions to "no provider names in source" — kept here,
+/// in exactly one place, verified against `config/providers` on v1.75.0.
+/// `overview` is deliberately absent: it appears in lists scraped from
+/// rclone's documentation but is not a backend, and excluding it would be
+/// encoding the scrape's mistake.
+const non_candidate_backends = [_][]const u8{
+    "alias",  "archive",  "cache",  "chunker", "combine", "compress",
+    "crypt",  "hasher",   "local",  "memory",  "union",
+};
+
+/// True when a backend may be offered as a sync destination. This is a
+/// *candidate* filter, not a verification: nothing in the catalogue says
+/// whether a backend supports writable bisync, so the writable connection
+/// test is what turns a candidate into a usable destination — a backend
+/// that lists but cannot write must fail there with a clear reason, not at
+/// the first sync.
+pub fn isCandidate(name: []const u8) bool {
+    for (non_candidate_backends) |excluded| {
+        if (std.mem.eql(u8, name, excluded)) return false;
+    }
+    return true;
+}
+
+/// The backend names a selection UI should offer: candidates that rclone
+/// itself does not hide, sorted alphabetically — catalogue order is not a
+/// menu — plus `configured`, the backend already saved in the profile's
+/// credentials, whatever the filter or a newer rclone thinks of it: a
+/// working configuration must not vanish because of our list. Pass an
+/// empty string when nothing is configured.
+///
+/// The returned slice is the caller's to free; the names inside borrow
+/// from the catalogue (and from `configured`), so both must outlive the
+/// list.
+pub fn offeredBackends(
+    gpa: Allocator,
+    cat: *const Catalogue,
+    configured: []const u8,
+) Allocator.Error![][]const u8 {
+    var names = try std.ArrayList([]const u8).initCapacity(gpa, cat.backends.len + 1);
+    errdefer names.deinit(gpa);
+
+    for (cat.backends) |backend| {
+        if (backend.name.len == 0) continue;
+        if (backend.hidden) continue;
+        if (!isCandidate(backend.name)) continue;
+        if (std.mem.eql(u8, backend.name, configured)) continue; // added below, once
+        try names.append(gpa, backend.name);
+    }
+    if (configured.len != 0) try names.append(gpa, configured);
+
+    std.mem.sort([]const u8, names.items, {}, struct {
+        fn lessThan(_: void, lhs: []const u8, rhs: []const u8) bool {
+            return std.mem.lessThan(u8, lhs, rhs);
+        }
+    }.lessThan);
+    return names.toOwnedSlice(gpa);
+}
+
 // -- Fetch -------------------------------------------------------------------
 
 pub const FetchError = Allocator.Error || error{ RcCallFailed, BadCatalogue, VersionUnreadable };

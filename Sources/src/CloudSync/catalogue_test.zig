@@ -19,6 +19,7 @@
 
 const std = @import("std");
 const catalogue = @import("catalogue.zig");
+const creds = @import("creds.zig");
 const daemon = @import("daemon.zig");
 
 const io = std.testing.io;
@@ -472,4 +473,119 @@ test "cache overwrites the previous document rather than appending to it" {
     defer loaded.deinit();
     try std.testing.expectEqual(@as(usize, 0), loaded.backends.len);
     try std.testing.expect(loaded.rclone_version != null);
+}
+
+// -- Candidate filtering and the offered list (P01-M04) ----------------------
+
+test "the eleven wrappers and non-destinations are not candidates" {
+    // Verified from config/providers on v1.75.0: each of these wraps
+    // another remote or is not a cloud destination.
+    const excluded = [_][]const u8{
+        "alias",  "archive",  "cache",  "chunker", "combine", "compress",
+        "crypt",  "hasher",   "local",  "memory",  "union",
+    };
+    for (excluded) |name| try std.testing.expect(!catalogue.isCandidate(name));
+
+    // Everything else is a candidate — offered, with the writable
+    // connection test left to decide whether it is a usable destination.
+    try std.testing.expect(catalogue.isCandidate("s3"));
+    try std.testing.expect(catalogue.isCandidate("webdav"));
+    try std.testing.expect(catalogue.isCandidate("sftp"));
+    try std.testing.expect(catalogue.isCandidate("drive"));
+    try std.testing.expect(catalogue.isCandidate("googlecloudstorage"));
+}
+
+test "overview is not a backend and not an exclusion" {
+    // `overview` appears in lists scraped from rclone's documentation, but
+    // config/providers never names it — a filter built by scraping would
+    // exclude a backend that does not exist. It must be absent from the
+    // catalogue and deliberately absent from the exclusion list.
+    const gpa = std.testing.allocator;
+    var cat = try catalogue.parse(gpa, fixture_json);
+    defer cat.deinit();
+    try std.testing.expect(cat.backend("overview") == null);
+    try std.testing.expect(catalogue.isCandidate("overview"));
+}
+
+test "the offered list is filtered candidates, sorted alphabetically" {
+    const gpa = std.testing.allocator;
+
+    // Catalogue order is not a menu, wrappers are not destinations, and
+    // rclone's own hidden flag is honoured.
+    var cat = try catalogue.parse(gpa,
+        \\{"providers":[
+        \\  {"Name":"webdav"}, {"Name":"alias"}, {"Name":"s3"},
+        \\  {"Name":"shy","Hide":true}, {"Name":"drive"}, {"Name":"local"}
+        \\]}
+    );
+    defer cat.deinit();
+
+    const offered = try catalogue.offeredBackends(gpa, &cat, "");
+    defer gpa.free(offered);
+
+    try std.testing.expectEqual(@as(usize, 3), offered.len);
+    try std.testing.expectEqualStrings("drive", offered[0]);
+    try std.testing.expectEqualStrings("s3", offered[1]);
+    try std.testing.expectEqualStrings("webdav", offered[2]);
+}
+
+test "a configured backend stays offered even when the filter would drop it" {
+    const gpa = std.testing.allocator;
+
+    var cat = try catalogue.parse(gpa,
+        \\{"providers":[{"Name":"s3"},{"Name":"alias"}]}
+    );
+    defer cat.deinit();
+
+    // A working configuration must not vanish because of our list: the
+    // wrapper is configured, so it is offered — in sorted position, once.
+    const wrapped = try catalogue.offeredBackends(gpa, &cat, "alias");
+    defer gpa.free(wrapped);
+    try std.testing.expectEqual(@as(usize, 2), wrapped.len);
+    try std.testing.expectEqualStrings("alias", wrapped[0]);
+    try std.testing.expectEqualStrings("s3", wrapped[1]);
+
+    // The same holds for a backend a newer rclone dropped entirely.
+    const dropped = try catalogue.offeredBackends(gpa, &cat, "googlecloudstorage");
+    defer gpa.free(dropped);
+    try std.testing.expectEqual(@as(usize, 2), dropped.len);
+    try std.testing.expectEqualStrings("googlecloudstorage", dropped[0]);
+    try std.testing.expectEqualStrings("s3", dropped[1]);
+
+    // Already-offered configured backends are not doubled.
+    const plain = try catalogue.offeredBackends(gpa, &cat, "s3");
+    defer gpa.free(plain);
+    try std.testing.expectEqual(@as(usize, 1), plain.len);
+}
+
+test "long backend names survive the credentials round trip intact" {
+    // The reason Cloud.Provider must not carry the backend name: the
+    // option system truncates strings over 12 characters to 8, and these
+    // three real backends all exceed it. The identity lives in
+    // cloud.credentials, which has no such limit — proven here, where the
+    // filter also cannot reach it: a configured backend loads regardless.
+    const gpa = std.testing.allocator;
+
+    const long_names = [_][]const u8{
+        "googlecloudstorage", "internetarchive", "oracleobjectstorage",
+    };
+    for (long_names) |name| {
+        var fixture = try Fixture.init(gpa);
+        defer fixture.deinit();
+        const file = try path.join(gpa, &.{ fixture.root, "cloud.credentials" });
+        defer gpa.free(file);
+
+        var options = [_]creds.Option{
+            .{ .name = "endpoint", .value = "https://storage.example.net" },
+        };
+        try creds.save(gpa, io, file, .{
+            .backend = name,
+            .remote_root = "bk-saves",
+            .options = &options,
+        });
+
+        var loaded = (try creds.load(gpa, io, file)).?;
+        defer loaded.deinit();
+        try std.testing.expectEqualStrings(name, loaded.creds.backend);
+    }
 }
