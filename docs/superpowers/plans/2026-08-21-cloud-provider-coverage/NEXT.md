@@ -1,6 +1,6 @@
 # Next Packet
 
-Resume at `phase-01-provider-catalogue/P01-M03-catalogue-abi.md`.
+Resume at `phase-01-provider-catalogue/P01-M04-provider-selection.md`.
 
 ## Where implementation stands
 
@@ -18,6 +18,7 @@ texts do not.
 | P01-M01 catalogue | `9aa47f7fb` | parse, cache, `matchProvider`, fetch job |
 | P01-M02 generic schema | `06601b7c6` | migration byte-identical, flags persisted |
 | P01-M02 amendment | `cdc864ace`..`dcb93e181` | scraper-format fingerprint, dialog guard, transitional repair |
+| P01-M03 catalogue ABI | `41e0f64af` | five exports, facade scraper retired, vendor cleanup |
 
 ## Resuming on another machine
 
@@ -25,7 +26,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `dcb93e181` (creds now 17):
+Suites, all green at `41e0f64af` (creds now 17):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -80,7 +81,17 @@ gated.
   provenance inside the file as a `_fixture` key that doubles as an unknown
   field the parser must tolerate.
 
-## P01-M02 landed — what P01-M03 inherits
+## P01-M02 and P01-M03 landed — what P01-M04 inherits
+
+P01-M03 closed the review's remaining P1: the facade reads the persisted
+fingerprint through `bk_cloudsync_creds_fingerprint` and the scraper is
+gone. The catalogue crosses the boundary as
+`bk_cloudsync_catalogue_providers` / `_options` (required-size buffer
+contract) with `hidden` carried per backend so P01-M04's destination filter
+can honour rclone's own flag without a second read; `_ensure` is the
+pollable fetch (`-2` = cached, outcome 8 = ready). The vendor-change
+cleanup runs in the save path on the merged submission. Older notes, still
+current:
 
 All five risk items held (bucket as remote root, flat `Name` map, byte-identical
 fingerprint carry, both flags from the first save, caps replaced). The
@@ -103,17 +114,15 @@ approved widening it — recorded in the packet. What the next packet needs:
   parses the legacy document shape, so it cannot prefill from the generic
   redacted form; a save from that half-blank state would blank the S3 remote
   root, so an interim guard (2026-08-22) refuses to save whenever the loaded
-  document has no `protocol` key. P01-M03 and P02-M03 own the chain and the
-  guard's removal.
+  document has no `protocol` key. P02-M03 owns the rewrite and the guard's
+  removal.
 - **The migrated fingerprint is the facade scraper's string** —
   `{endpoint}/{bucket}`, `{url}` — because that is what production pairing
   records hold; the Zig-side `s3:`/`webdav:` prefixes never reached them.
-  P01-M03 now owns exporting the persisted fingerprint and retiring the
-  facade scraper, which degrades against the generic schema (S3 loses the
-  bucket component, unscanned backends produce an empty string). Documents
-  written inside the `06601b7c6` window self-repair on load: a fingerprint
-  byte-equal to the old derivation of its own components rewrites to the
-  scraper format; anything else stays verbatim.
+  Documents written inside the `06601b7c6` window self-repair on load: a
+  fingerprint byte-equal to the old derivation of its own components
+  rewrites to the scraper format; anything else stays verbatim. The facade
+  consumes the persisted value as of P01-M03.
 - **`Sensitive` widened the withheld set**: s3 `access_key_id` and webdav
   `user` are secret now; only webdav `pass` is `IsPassword` among migrated
   fields.

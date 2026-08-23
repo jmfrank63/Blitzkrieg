@@ -114,3 +114,37 @@ regressions:
 - Suites re-run green with a live rclone, including the backend WebDAV
   cycle; `install-game` compiles the guarded dialog. Commits below.
 
+P01-M03 macOS checkpoint: the extended C++ consumer failed first on exactly
+the five missing exports, then abi 10/10 + consumer green natively and with
+a live rclone (real fetch job: ensure → handle → done → `catalogue_ready`,
+then rclone's own 69-backend list enumerates); facade suite green; the full
+sweep (creds 17, rc 6, daemon 27, plan 35, catalogue 15, worker 8, engine
+16, backup 21, backend 2 live, package 4, streamio 32) green;
+`x86_64-linux-gnu` and `x86_64-windows` compile (the discovery version pin
+in the consumer is POSIX-only — a script stub is not a Windows executable —
+so the ensure-cached assertion is guarded there and the local reads run
+everywhere). `install-game` compiles the new facade. Commit `41e0f64af`.
+
+Findings the packet text does not carry:
+
+- **The review's remaining P1 closes here**: `Fingerprint()` in the facade
+  now reads the persisted value through `bk_cloudsync_creds_fingerprint`;
+  the scraper is deleted, and the consumer asserts a migrated legacy
+  document fingerprints as the byte-identical string the scraper produced.
+- **Ensure lives at the export, not the worker.** `worker.ensureCatalogue`
+  wants a live `Worker`, but the cached answer must not create one — the
+  export reimplements the same stamp comparison from `catalogue.cachedVersion`
+  and `matchesVersion`, and only a miss builds the worker and enqueues
+  `fetch_catalogue`. The compared version is discovery's, so the cache
+  always describes the binary that will serve the forms.
+- **The vendor option is `provider` by rclone's own convention** (like
+  `type`): every `Provider` expression references that option's value, so
+  the cleanup naming it is structural, not backend knowledge.
+- **The dialog guard stays** — this packet did not replace the dialog's
+  document handling; P02-M03 owns both the rewrite and the guard's removal.
+- The old no-arg `bk_cloudsync_creds_clear_secret` survives for its one
+  caller (the legacy dialog), documented as clearing every withheld field;
+  `bk_cloudsync_creds_clear_option` is the per-field act. Clearing through
+  a save stays impossible by design: empty or omitted withheld entries
+  always preserve.
+
