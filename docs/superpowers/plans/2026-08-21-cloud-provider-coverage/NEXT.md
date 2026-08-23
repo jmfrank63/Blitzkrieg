@@ -1,10 +1,10 @@
 # Next Packet
 
-Resume at `phase-02-generic-form/P02-M03-render.md`.
+Resume at `phase-02-generic-form/P02-M04-validate-and-test.md`.
 
 ## Where implementation stands
 
-**Phases 00 and 01 are complete**, and P02-M01 and P02-M02 are done. Every checkpoint is in its phase
+**Phases 00 and 01 are complete**, and P02-M01 through P02-M03 are done. Every checkpoint is in its phase
 `MANIFEST.md` with the measurements; read those before writing code, they
 carry findings the packet texts do not.
 
@@ -21,6 +21,8 @@ carry findings the packet texts do not.
 | P01-M04 provider selection | `4e2f61e6b` | Cloud.Provider ON/OFF, candidate filter, offered list |
 | P02-M01 form model | `35428f79a` | buildForm: widgets, provider filter, basic/advanced split |
 | P02-M02 form ABI | `3135a2fed` | bk_cloudsync_catalogue_form, provider crosses, no option map |
+| P02-M02 amendment | `1e762cf92` | destinations export for the chooser |
+| P02-M03 render | `fb858fe78` | generic dialog, headless evidence, guard removed |
 
 ## Resuming on another machine
 
@@ -28,7 +30,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `d76d1d8b2` (creds 17, catalogue 20, form 8, worker 9):
+Suites, all green at `fb858fe78` (creds 17, catalogue 20, form 8, worker 9):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -117,12 +119,9 @@ approved widening it — recorded in the packet. What the next packet needs:
   while backend, root and the canonical non-secret projection are unchanged,
   and otherwise leaves it for `save` to re-derive. Nothing crosses a backend
   change.
-- **The C++ dialog is degraded until its rewrite, and guarded.** It still
-  parses the legacy document shape, so it cannot prefill from the generic
-  redacted form; a save from that half-blank state would blank the S3 remote
-  root, so an interim guard (2026-08-22) refuses to save whenever the loaded
-  document has no `protocol` key. P02-M03 owns the rewrite and the guard's
-  removal.
+- **The C++ dialog speaks the generic schema natively as of P02-M03**; the
+  interim guard is gone with it. A present-but-unreadable credentials
+  document still refuses to save rather than overwriting with blanks.
 - **The migrated fingerprint is the facade scraper's string** —
   `{endpoint}/{bucket}`, `{url}` — because that is what production pairing
   records hold; the Zig-side `s3:`/`webdav:` prefixes never reached them.

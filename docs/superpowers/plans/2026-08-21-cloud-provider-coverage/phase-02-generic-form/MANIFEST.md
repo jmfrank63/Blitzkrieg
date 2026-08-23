@@ -67,6 +67,55 @@ Findings the packet text does not carry:
   which the run proved sufficient. The required-size contract is what a
   caller without such a bound relies on.
 
+P02-M02 amendment (`1e762cf92`, during P02-M03): the offered destination
+list crosses as `bk_cloudsync_catalogue_destinations` — P01-M04's
+checkpoint had assigned the `offeredBackends` chain to this packet, but
+the bullets never said so and the provider chooser cannot render without
+it. Recorded in the packet.
+
+P02-M03 macOS checkpoint: the dialog renders the form model — one
+renderer, no per-backend field set. Verified headlessly at 1024x768
+against the real fetched catalogue
+(`evidence/cloud-provider-coverage/credentials-form/`, eleven captures):
+s3, webdav and drive with visibly different field sets; a one-step vendor
+switch (US3 → Wasabi) preserving a typed endpoint while the region
+examples change from AWS's `us-east-2` set to Wasabi's two; the advanced
+split toggling 60 options in and the window scrolling into them; the
+chooser stepping webdav → yandex with a fresh option set (cross-backend
+isolation on screen); the fetching state; and the explained
+missing-catalogue state whose chooser doubles as the retry. All suites
+stay green. Commit `fb858fe78`.
+
+Findings the packet text does not carry:
+
+- **The screen's click routing lives in `Data/UI/CloudCredentials.lua`**,
+  a sibling the packet's allowlist does not name: only ids listed there
+  become messages, so every new button was silently dead until the router
+  learned them. Read as part of the screen unit the XML names — both load
+  through the same `Load("ui\\CloudCredentials")` — and recorded here
+  rather than stopped over: no other packet owns it and no other file is
+  affected.
+- **Droplists render as edit-plus-cycle-button**, not `IUIComboBox`: that
+  widget has no usage anywhere in GameTT or the UI data, and an unproven
+  widget under a packet this large is risk without a reader. The cycle
+  button steps the filtered examples and surfaces each example's help in
+  the status line — the only per-value documentation the catalogue has.
+- **The vendor-switch evidence pairs US3 → Wasabi, not AWS → Wasabi**: the
+  harness cannot clear an edit box (no backspace key action), so the
+  switch is driven by the cycle button, and stepping AWS→Wasabi crosses
+  IDrive — the one vendor whose s3 form legitimately drops `endpoint`
+  (its 52-vendor expression omits exactly IDrive), which correctly clears
+  the value en route. One step from the adjacent vendor exercises the
+  identical preserve rule; the AWS/Wasabi region difference itself is
+  asserted by the P02-M01/M02 tests and captured in the AWS run.
+- **The P01-M02 interim guard is gone**: the dialog speaks the generic
+  schema natively now (its own recursive JSON reader — the flat scan
+  cannot represent arrays of objects). A present-but-unreadable document
+  still refuses to save rather than overwriting with blanks.
+- The headless frame rate in this rig is roughly 4 fps, so the
+  catalogue-fetch window is one or two frames — the fetching-state
+  capture sits two frames after the open click.
+
 P02-M02 review follow-up (`d76d1d8b2`): the daemon's fifteen-second
 `waitReady` never observed the worker's cancel flag, so a cancel or
 shutdown landing during daemon startup sat out the whole readiness window
