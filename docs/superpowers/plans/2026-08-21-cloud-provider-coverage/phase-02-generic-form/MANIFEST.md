@@ -127,6 +127,20 @@ drops the text rather than keeping it raw, and a new engine test drives a
 secret-bearing error message through the stored text with and without a
 log. Engine suite is 17 now.
 
+P02-M03 review follow-up 2 (`6ac8aea67`): the static marker table names
+S3/WebDAV-era keys, while the generic schema lets any catalogue option be
+secret — a backend's `client_secret` in an rclone error would have
+crossed `bk_cloudsync_error` unchanged. The worker now hands the engine
+what the loaded credentials designate, at every job start (the cadence
+the daemon's config is re-applied on): secret option names struck as
+`name=` markers like the built-ins — which catches the obscured forms
+this code cannot know by value — and the plaintext values struck
+wherever a server or log echoes them, with a four-byte floor below which
+a "secret" is unrecognisable as a leak and striking it would censor
+arbitrary letters. An out-of-memory building the set refuses the job.
+`creds.Option.withheld` is pub now — the worker reuses the canonical
+predicate instead of re-deriving it. Engine suite is 18.
+
 P02-M02 review follow-up (`d76d1d8b2`): the daemon's fifteen-second
 `waitReady` never observed the worker's cancel flag, so a cancel or
 shutdown landing during daemon startup sat out the whole readiness window
