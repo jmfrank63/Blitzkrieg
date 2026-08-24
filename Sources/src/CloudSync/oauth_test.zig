@@ -463,6 +463,30 @@ fn seedCreds(fixture: *Fixture, game_dir: []const u8) !void {
     try fixture.write(creds_path, drive_creds_doc);
 }
 
+// The worker runs every exchange as an rc `_async` job — the continuation
+// that starts a browser dance blocks server-side and rclone aborts the
+// dance when the request's connection dies, so a synchronous POST under
+// the per-POST deadline would kill the sign-in at the deadline. The stub
+// scripts therefore answer each exchange with a jobid and serve
+// `job/status` (and, for the dance, `config/oauthstatus`) like the real
+// daemon does.
+
+fn jobReply(comptime id: []const u8) []const u8 {
+    return "{\"jobid\":" ++ id ++ "}";
+}
+
+fn finishedJob(comptime output_json: []const u8) []const u8 {
+    return "{\"finished\":true,\"success\":true,\"error\":\"\",\"output\":" ++ output_json ++ "}";
+}
+
+const reply_job_pending =
+    \\{"finished":false,"success":false,"error":"","output":null}
+;
+
+const reply_oauth_running =
+    \\{"authUrl":"http://127.0.0.1:53682/auth?state=test-state-secret","status":"running"}
+;
+
 test "the worker surfaces the question, takes the answer, and completion runs the connection test" {
     const gpa = std.testing.allocator;
     var threaded: std.Io.Threaded = .init(gpa, .{});
@@ -476,15 +500,18 @@ test "the worker surfaces the question, takes the answer, and completion runs th
     try seedCreds(&fixture, game_dir);
 
     // In request order: applyCredentials configures bkraw and the alias,
-    // the flow asks one question and completes on the answer, and the
-    // completion path's connection test opens with a listing the "cloud"
-    // refuses — proving the test runs, with the classified tag to show
-    // for it. (The full probe against a real service is engine_test's.)
+    // the async opener asks one question (jobid, then its status), the
+    // answered continuation completes, and the completion path's
+    // connection test opens with a listing the "cloud" refuses — proving
+    // the test runs, with the classified tag to show for it. (The full
+    // probe against a real service is engine_test's.)
     const replies = [_][]const u8{
         ok(reply_ok_empty), // config/create bkraw
         ok(reply_ok_empty), // config/create bkremote alias
-        ok(reply_client_id_warning),
-        ok(reply_done),
+        ok(jobReply("1")), // config/create, _async opener
+        ok(finishedJob(reply_client_id_warning)), // job/status: the question
+        ok(jobReply("2")), // config/create, _async continuation
+        ok(finishedJob(reply_done)), // job/status: done
         httpReply("HTTP/1.1 500 Internal Server Error", reply_list_auth_error),
     };
     var stub: Stub = undefined;
@@ -514,6 +541,14 @@ test "the worker surfaces the question, takes the answer, and completion runs th
 
     // The question does not outlive the flow that asked it.
     try std.testing.expect((try w.configQuestionOwned(gpa)) == null);
+
+    stub.stop();
+    // The exchanges went through the async transport, envelope intact.
+    var env = try parseEnvelope(gpa, stub.body(2));
+    defer env.deinit();
+    try std.testing.expect(env.root().get("_async").?.bool);
+    try std.testing.expectEqualStrings("drive", Envelope.str(env.root().get("type")));
+    try std.testing.expect(env.root().get("parameters") != null);
 }
 
 test "cancel while a question waits settles as cancelled" {
@@ -531,7 +566,8 @@ test "cancel while a question waits settles as cancelled" {
     const replies = [_][]const u8{
         ok(reply_ok_empty),
         ok(reply_ok_empty),
-        ok(reply_client_id_warning),
+        ok(jobReply("1")),
+        ok(finishedJob(reply_client_id_warning)),
     };
     var stub: Stub = undefined;
     try stub.start(tio, &replies);
@@ -546,6 +582,57 @@ test "cancel while a question waits settles as cancelled" {
     try w.begin(.{ .kind = .config_create });
     const asked = pollUntilState(w, tio, .awaiting_input, 10_000);
     try std.testing.expect(asked != null);
+
+    w.cancel();
+    const settled = pollUntilState(w, tio, .failed, 10_000);
+    try std.testing.expect(settled != null);
+    try std.testing.expectEqualStrings("Cancelled", settled.?.errorText());
+}
+
+test "a running dance parks the consent card and cancel stops it" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    try seedCreds(&fixture, game_dir);
+
+    // The opener's job stays pending — the browser dance — and
+    // `config/oauthstatus` reports the consent URL; cancel then reaches
+    // `config/oauthstop`. The 250ms worker poll leaves ample room for the
+    // 25ms test poll to cancel before a second status ask.
+    const replies = [_][]const u8{
+        ok(reply_ok_empty), // config/create bkraw
+        ok(reply_ok_empty), // config/create bkremote alias
+        ok(jobReply("1")), // config/create, _async opener
+        ok(reply_job_pending), // job/status: still dancing
+        ok(reply_oauth_running), // config/oauthstatus: the consent URL
+        ok(reply_ok_empty), // config/oauthstop on cancel
+    };
+    var stub: Stub = undefined;
+    try stub.start(tio, &replies);
+    defer stub.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = stub.endpoint(),
+    });
+    defer w.destroy();
+
+    try w.begin(.{ .kind = .config_create });
+    const waiting = pollUntilState(w, tio, .awaiting_input, 10_000);
+    try std.testing.expect(waiting != null);
+
+    // The consent card is a role, not a field: the dialog opens its URL
+    // in the platform browser and shows a waiting state.
+    const card = (try w.configQuestionOwned(gpa)).?;
+    defer gpa.free(card);
+    try std.testing.expect(std.mem.indexOf(u8, card, "\"role\":\"consent\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, card, "state=test-state-secret") != null);
 
     w.cancel();
     const settled = pollUntilState(w, tio, .failed, 10_000);

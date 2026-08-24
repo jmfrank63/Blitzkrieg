@@ -30,3 +30,6 @@ EXPORTS
     bk_cloudsync_catalogue_form @28
     bk_cloudsync_catalogue_destinations @29
     bk_cloudsync_error_detail @30
+    bk_cloudsync_config_begin @31
+    bk_cloudsync_config_question @32
+    bk_cloudsync_config_answer @33

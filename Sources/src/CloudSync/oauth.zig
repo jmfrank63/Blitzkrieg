@@ -142,45 +142,93 @@ pub const Flow = struct {
         }
     }
 
-    const Exchange = union(enum) {
+    /// One exchange's outcome for the async path: like `Step`, plus the
+    /// ask-nothing hop the synchronous `step` follows internally — an
+    /// async caller must begin a new exchange for it, so it crosses.
+    pub const Exchange = union(enum) {
         done,
         question: Question,
         auto_continue,
     };
 
+    /// Begin one exchange as an rc `_async` job. The continuation that
+    /// starts a browser dance blocks server-side until the consent
+    /// callback lands — and rclone aborts the dance the moment the
+    /// request's connection dies, so a synchronous POST under the
+    /// per-POST deadline would take the dance with it. The caller polls
+    /// the job (each poll its own bounded POST) and hands the finished
+    /// output to `finishStep`; while the job runs, `config/oauthstatus`
+    /// says whether a consent URL is waiting.
+    pub fn beginStepAsync(
+        self: *Flow,
+        parameters: std.json.Value,
+        result: ?[]const u8,
+    ) StepError!rc.JobId {
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        try self.buildEnvelope(&object, parameters, result);
+        return try self.client.callAsync("config/create", .{ .object = object });
+    }
+
+    /// Complete an exchange begun by `beginStepAsync` from the finished
+    /// job's `output` — the same reply object the synchronous call
+    /// returns.
+    pub fn finishStep(self: *Flow, output: std.json.Value) StepError!Exchange {
+        return self.parseReply(output);
+    }
+
     fn exchange(self: *Flow, parameters: std.json.Value, result: ?[]const u8) StepError!Exchange {
-        // The previous question's storage dies with the reply that made it.
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        try self.buildEnvelope(&object, parameters, result);
+
+        var reply = try self.client.call("config/create", .{ .object = object });
+        defer reply.deinit();
+        return self.parseReply(reply.value);
+    }
+
+    /// The complete envelope, every time: `name`, `type` and the full
+    /// `parameters` map, continuation flags included when a state is being
+    /// answered. rclone rebuilds the remote from each request; an envelope
+    /// missing its parameters configures something incomplete.
+    fn buildEnvelope(
+        self: *Flow,
+        object: *std.json.ObjectMap,
+        parameters: std.json.Value,
+        result: ?[]const u8,
+    ) StepError!void {
+        try object.put(self.gpa, "name", .{ .string = self.name });
+        try object.put(self.gpa, "type", .{ .string = self.backend });
+        try object.put(self.gpa, "parameters", parameters);
+        // The nested opt map lives in the step arena: it must outlive the
+        // call it travels in, and the next reply's parse resets the arena
+        // only after the call has returned.
+        const opt_alloc = self.step_arena.allocator();
+        var opt: std.json.ObjectMap = .empty;
+        // Lowercase on purpose: see the module doc. `obscure` matches the
+        // non-interactive config path — password-typed parameters arrive
+        // from the credentials document in plaintext and rclone transforms
+        // them itself.
+        try opt.put(opt_alloc, "nonInteractive", .{ .bool = true });
+        try opt.put(opt_alloc, "obscure", .{ .bool = true });
+        if (result) |r| {
+            const state = self.state orelse return error.BadReply;
+            try opt.put(opt_alloc, "continue", .{ .bool = true });
+            try opt.put(opt_alloc, "state", .{ .string = state });
+            try opt.put(opt_alloc, "result", .{ .string = r });
+        }
+        try object.put(self.gpa, "opt", .{ .object = opt });
+    }
+
+    fn parseReply(self: *Flow, value: std.json.Value) StepError!Exchange {
+        // The previous question's storage dies with the reply replacing it.
         if (self.question_cat) |*cat| {
             cat.deinit();
             self.question_cat = null;
         }
         _ = self.step_arena.reset(.retain_capacity);
 
-        var object: std.json.ObjectMap = .empty;
-        defer object.deinit(self.gpa);
-        try object.put(self.gpa, "name", .{ .string = self.name });
-        try object.put(self.gpa, "type", .{ .string = self.backend });
-        try object.put(self.gpa, "parameters", parameters);
-        var opt: std.json.ObjectMap = .empty;
-        defer opt.deinit(self.gpa);
-        // Lowercase on purpose: see the module doc. `obscure` matches the
-        // non-interactive config path — password-typed parameters arrive
-        // from the credentials document in plaintext and rclone transforms
-        // them itself.
-        try opt.put(self.gpa, "nonInteractive", .{ .bool = true });
-        try opt.put(self.gpa, "obscure", .{ .bool = true });
-        if (result) |r| {
-            const state = self.state orelse return error.BadReply;
-            try opt.put(self.gpa, "continue", .{ .bool = true });
-            try opt.put(self.gpa, "state", .{ .string = state });
-            try opt.put(self.gpa, "result", .{ .string = r });
-        }
-        try object.put(self.gpa, "opt", .{ .object = opt });
-
-        var reply = try self.client.call("config/create", .{ .object = object });
-        defer reply.deinit();
-
-        const top = switch (reply.value) {
+        const top = switch (value) {
             .object => |o| o,
             else => return error.BadReply,
         };
@@ -250,6 +298,48 @@ pub const Flow = struct {
         self.last_error = owned;
     }
 };
+
+/// The `role` value that marks a consent card rather than a field
+/// question: the dialog opens the card's `url` in the platform browser
+/// and shows a waiting state instead of an edit row.
+pub const consent_role = "consent";
+
+/// The consent URL a running dance is waiting on, out of a
+/// `config/oauthstatus` reply — or null when no dance is pending. The
+/// URL carries a state secret: it may cross to the dialog and the
+/// browser, and must never reach a log.
+pub fn pendingAuthUrl(reply: std.json.Value) ?[]const u8 {
+    const top = switch (reply) {
+        .object => |o| o,
+        else => return null,
+    };
+    const status = top.get("status") orelse return null;
+    if (status != .string or !std.mem.eql(u8, status.string, "running")) return null;
+    const url = top.get("authUrl") orelse return null;
+    return switch (url) {
+        .string => |s| if (s.len == 0) null else s,
+        else => null,
+    };
+}
+
+/// A consent card as wire JSON: `{"role":"consent","url":...}`. The same
+/// mailbox the field questions travel in, told apart by `role`. Owned by
+/// the caller — and never logged, because the URL is a credential.
+pub fn consentJson(gpa: Allocator, url: []const u8) Allocator.Error![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    var json: std.json.Stringify = .{ .writer = &out.writer };
+    consent: {
+        json.beginObject() catch break :consent;
+        json.objectField("role") catch break :consent;
+        json.write(consent_role) catch break :consent;
+        json.objectField("url") catch break :consent;
+        json.write(url) catch break :consent;
+        json.endObject() catch break :consent;
+        return out.toOwnedSlice();
+    }
+    return error.OutOfMemory;
+}
 
 /// A question as the form's wire JSON — the same keys
 /// `bk_cloudsync_catalogue_form` writes per field, plus `error` — so the

@@ -51,6 +51,9 @@ namespace
 	typedef int ( *FnCatalogueForm )( const char *, const char *, const char *, unsigned char *, unsigned int );
 	typedef int ( *FnCatalogueDestinations )( const char *, const char *, unsigned char *, unsigned int );
 	typedef int ( *FnErrorDetail )( int, unsigned char *, unsigned int );
+	typedef int ( *FnConfigBegin )( const char * );
+	typedef int ( *FnConfigQuestion )( int, unsigned char *, unsigned int );
+	typedef int ( *FnConfigAnswer )( int, const char * );
 
 	struct SLibrary
 	{
@@ -86,6 +89,9 @@ namespace
 		FnCatalogueForm pfnCatalogueForm;
 		FnCatalogueDestinations pfnCatalogueDestinations;
 		FnErrorDetail pfnErrorDetail;
+		FnConfigBegin pfnConfigBegin;
+		FnConfigQuestion pfnConfigQuestion;
+		FnConfigAnswer pfnConfigAnswer;
 	};
 
 	SLibrary s_library = {};
@@ -144,6 +150,9 @@ namespace
 		s_library.pfnCatalogueForm = reinterpret_cast<FnCatalogueForm>( LoadSymbol( pModule, "bk_cloudsync_catalogue_form" ) );
 		s_library.pfnCatalogueDestinations = reinterpret_cast<FnCatalogueDestinations>( LoadSymbol( pModule, "bk_cloudsync_catalogue_destinations" ) );
 		s_library.pfnErrorDetail = reinterpret_cast<FnErrorDetail>( LoadSymbol( pModule, "bk_cloudsync_error_detail" ) );
+		s_library.pfnConfigBegin = reinterpret_cast<FnConfigBegin>( LoadSymbol( pModule, "bk_cloudsync_config_begin" ) );
+		s_library.pfnConfigQuestion = reinterpret_cast<FnConfigQuestion>( LoadSymbol( pModule, "bk_cloudsync_config_question" ) );
+		s_library.pfnConfigAnswer = reinterpret_cast<FnConfigAnswer>( LoadSymbol( pModule, "bk_cloudsync_config_answer" ) );
 
 		s_library.bLoaded =
 			s_library.pfnAvailable != 0 && s_library.pfnDiscoveryStatus != 0 &&
@@ -160,7 +169,9 @@ namespace
 			s_library.pfnCredsFingerprint != 0 && s_library.pfnCredsClearOption != 0 &&
 			s_library.pfnCatalogueEnsure != 0 && s_library.pfnCatalogueProviders != 0 &&
 			s_library.pfnCatalogueOptions != 0 && s_library.pfnCatalogueForm != 0 &&
-			s_library.pfnCatalogueDestinations != 0 && s_library.pfnErrorDetail != 0;
+			s_library.pfnCatalogueDestinations != 0 && s_library.pfnErrorDetail != 0 &&
+			s_library.pfnConfigBegin != 0 && s_library.pfnConfigQuestion != 0 &&
+			s_library.pfnConfigAnswer != 0;
 		return s_library;
 	}
 
@@ -527,10 +538,11 @@ namespace NCloudSync
 
 	int ErrorDetail( int nHandle, char *pszOut, unsigned int nCap )
 	{
+		SJob *pJob = JobAt( nHandle );
 		SLibrary &library = Library();
-		if ( !library.bLoaded || pszOut == 0 || nCap == 0 )
+		if ( pJob == 0 || !library.bLoaded || pszOut == 0 || nCap == 0 )
 			return -1;
-		const int nLength = library.pfnErrorDetail( nHandle, reinterpret_cast<unsigned char *>( pszOut ), nCap );
+		const int nLength = library.pfnErrorDetail( pJob->nLibraryHandle, reinterpret_cast<unsigned char *>( pszOut ), nCap );
 		if ( nLength < 0 )
 			SetLastError2( library.pfnLastError() );
 		return nLength;
@@ -619,6 +631,41 @@ namespace NCloudSync
 			return -1;
 		}
 		return WrapLibraryHandle( library.pfnTestConnection( "." ) );
+	}
+
+	int ConfigBegin()
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded )
+		{
+			SetLastError2( "cloud sync library is not installed" );
+			return -1;
+		}
+		return WrapLibraryHandle( library.pfnConfigBegin( "." ) );
+	}
+
+	int ConfigQuestion( int nHandle, char *pszOut, unsigned int nCap )
+	{
+		SJob *pJob = JobAt( nHandle );
+		SLibrary &library = Library();
+		if ( pJob == 0 || !library.bLoaded || pszOut == 0 || nCap == 0 )
+			return -1;
+		const int nLength = library.pfnConfigQuestion( pJob->nLibraryHandle, reinterpret_cast<unsigned char *>( pszOut ), nCap );
+		if ( nLength < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nLength;
+	}
+
+	int ConfigAnswer( int nHandle, const char *pszResult )
+	{
+		SJob *pJob = JobAt( nHandle );
+		SLibrary &library = Library();
+		if ( pJob == 0 || !library.bLoaded || pszResult == 0 )
+			return -1;
+		const int nResult = library.pfnConfigAnswer( pJob->nLibraryHandle, pszResult );
+		if ( nResult < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nResult;
 	}
 
 	const char *DiscoveryStatus()

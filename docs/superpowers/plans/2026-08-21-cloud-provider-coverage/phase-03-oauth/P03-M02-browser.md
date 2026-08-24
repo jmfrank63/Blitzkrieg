@@ -6,7 +6,13 @@
 
 **Dependencies:** P03-M01.
 
-**Allowed files:** `Sources/src/CloudSync/oauth.zig`, `Sources/src/CloudSync/worker.zig`, `Sources/src/GameTT/InterfaceCloudCredentials.cpp`, `Sources/src/CloudSync/cloudsync.zig`, `Sources/src/CloudSync/CloudSync.def`, `Sources/src/CloudSync/CloudSync.x64.def`, `tools/zig/cloudsync_abi_test.cpp`, `Sources/src/Main/CloudSyncFacade.h`, `Sources/src/Main/CloudSyncFacade.cpp`.
+**Allowed files:** `Sources/src/CloudSync/oauth.zig`, `Sources/src/CloudSync/worker.zig`, `Sources/src/GameTT/InterfaceCloudCredentials.cpp`, `Sources/src/CloudSync/cloudsync.zig`, `Sources/src/CloudSync/CloudSync.def`, `Sources/src/CloudSync/CloudSync.x64.def`, `tools/zig/cloudsync_abi_test.cpp`, `Sources/src/Main/CloudSyncFacade.h`, `Sources/src/Main/CloudSyncFacade.cpp`, `Sources/src/CloudSync/oauth_test.zig`.
+
+> **Amendment (approved during execution):** `oauth_test.zig` added. The
+> dance dies with its request's connection (verified against v1.75.0), so
+> the worker's exchanges must run as rc `_async` jobs — which rewrites
+> P03-M01's two worker-integration stub scripts and lets them cover the
+> consent card and the `config/oauthstop` cancel offline.
 
 - [ ] Open the consent URL through the existing platform launcher in `Sources/src/Platform/System.cpp` rather than adding a second way to open a URL.
 - [ ] Poll `config/oauthstatus` for completion and offer `config/oauthstop` as a cancel, since both already exist in the rc API.

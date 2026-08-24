@@ -50,6 +50,14 @@ const char *bk_cloudsync_error(int handle);
 // failed or the last job succeeded), written only below cap; -1 on an
 // unknown handle.
 int bk_cloudsync_error_detail(int handle, unsigned char *out, unsigned int cap);
+// The interactive config machine as a job: poll like any other handle,
+// state 7 (awaiting_input) means config_question holds a field question or
+// a consent card (role "consent"; its url is a credential — never log it),
+// config_answer resumes a field question. Completion runs the connection
+// test.
+int bk_cloudsync_config_begin(const char *game_dir);
+int bk_cloudsync_config_question(int handle, unsigned char *out, unsigned int cap);
+int bk_cloudsync_config_answer(int handle, const char *result);
 void bk_cloudsync_cancel(int handle);
 void bk_cloudsync_release(int handle);
 // Credentials, over profiles/cloud.credentials relative to the working
@@ -314,6 +322,27 @@ static unsigned int poll_to_rest(int handle, unsigned int budget_ms)
         const unsigned int state = bk_cloudsync_poll(handle);
         if (state == 4u || state == 5u) return state;
         if (waited >= budget_ms) return state;
+        sleep_ms(50);
+        waited += 50;
+    }
+}
+
+// Poll until the pending config question contains `needle` — polling the
+// question text, not just state 7, because an accepted answer leaves the
+// state at awaiting_input while the previous question is still coming
+// down.
+static bool poll_for_question(int handle, const char *needle, unsigned int budget_ms)
+{
+    static unsigned char buffer[8192];
+    unsigned int waited = 0;
+    for (;;)
+    {
+        std::memset(buffer, 0, sizeof buffer);
+        if (bk_cloudsync_config_question(handle, buffer, sizeof buffer) > 0 &&
+            contains(reinterpret_cast<const char *>(buffer), needle))
+            return true;
+        if (bk_cloudsync_poll(handle) == 5u) return false;
+        if (waited >= budget_ms) return false;
         sleep_ms(50);
         waited += 50;
     }
@@ -1017,6 +1046,39 @@ static void catalogue_contract()
                   "the Wasabi form builds");
             check(!contains(reinterpret_cast<const char *>(big_json), "\"value\":\"us-east-2\""),
                   "Wasabi is not offered AWS regions");
+
+            // The interactive config machine through the ABI against the
+            // real rclone: drive with a client_id of our own asks
+            // config_is_local first, the paste-flow answer leads to the
+            // token question, and cancel settles the job. The browser
+            // dance itself is the evidence run's business — it needs a
+            // consent page to land on.
+            std::snprintf(creds_doc, sizeof creds_doc,
+                          "{\"backend\":\"drive\",\"remote_root\":\"\","
+                          "\"options\":{\"client_id\":\"abi-test-client\"},"
+                          "\"secret_options\":[],\"password_options\":[],"
+                          "\"rclone_path\":\"%s\"}",
+                          real_escaped);
+            check(bk_cloudsync_creds_save(creds_doc) == 0,
+                  "drive credentials for the config walk");
+            const int cfg = bk_cloudsync_config_begin(".");
+            check(cfg >= 0, "the config machine begins as a job");
+            if (cfg >= 0)
+            {
+                const bool bFirst = poll_for_question(cfg, "config_is_local", 30000);
+                if (!bFirst)
+                    std::fprintf(stderr, "cloudsync-abi-test: config walk state=%u error: %s\n",
+                                 bk_cloudsync_poll(cfg), bk_cloudsync_error(cfg));
+                check(bFirst, "the machine's own first question arrives");
+                check(bk_cloudsync_config_answer(cfg, "false") == 0,
+                      "the answer is accepted");
+                check(poll_for_question(cfg, "config_token", 30000),
+                      "the paste-flow token question follows");
+                bk_cloudsync_cancel(cfg);
+                check(poll_to_rest(cfg, 30000) == 5u, "cancel settles the machine");
+                check(contains(bk_cloudsync_error(cfg), "Cancelled"), "as cancelled");
+                bk_cloudsync_release(cfg);
+            }
         }
     }
 
@@ -1047,6 +1109,11 @@ static void sync_handle_contract()
           "failure detail of an invalid handle is -1");
     check(bk_cloudsync_error_detail(9999, detail, sizeof detail) == -1,
           "failure detail of an out-of-range handle is -1");
+    unsigned char question[16];
+    check(bk_cloudsync_config_question(-1, question, sizeof question) == -1,
+          "config question of an invalid handle is -1");
+    check(bk_cloudsync_config_answer(-1, "x") == -1,
+          "config answer to an invalid handle is -1");
     bk_cloudsync_cancel(-1);  // must not crash
     bk_cloudsync_release(-1); // must not crash
     bk_cloudsync_release(9999);

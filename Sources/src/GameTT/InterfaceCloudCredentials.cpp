@@ -6,6 +6,7 @@
 #include "MultiplayerCommandManager.h"
 #include "../UI/UIMessages.h"
 #include "../Main/CloudSyncFacade.h"
+#include "../Platform/System.h"
 
 static const NInput::SRegisterCommandEntry commands[] =
 {
@@ -273,6 +274,12 @@ static bool JsonParse( const std::string &szDoc, SJsonValue *pOut )
 	size_t nAt = 0;
 	return JsonParseValue( szDoc, &nAt, pOut, 0 );
 }
+// ---- interactive-config state ----------------------------------------------
+// Tracked between polls while a config job runs. File statics rather than
+// members - the packet that owns this flow may not touch the header - reset
+// on StartInterface; one credentials dialog exists at a time.
+static bool s_bConfigQuestion = false;	// a machine question owns the rows
+static std::string s_szLastCard;				// each card handled once, URL opened once
 // ---- misc ------------------------------------------------------------------
 // Which text under textes\ui\cloudsync\ a classified failure maps to - the
 // same mapping the main menu indicator uses, fed by the same leading-tag
@@ -907,7 +914,11 @@ void CInterfaceCloudCredentials::BeginConnectionTest()
 	// first - which is also what re-runs discovery on a changed rclone path.
 	if ( !SaveCredentials() )
 		return;
-	nTestHandle = NCloudSync::TestConnection();
+	// The interactive config machine, not a bare probe: for most backends
+	// it asks nothing and ends in the same connection test, and for an
+	// OAuth backend it asks its questions here - rendered by these rows -
+	// and sends the player through the browser when consent is needed.
+	nTestHandle = NCloudSync::ConfigBegin();
 	if ( nTestHandle < 0 )
 	{
 		SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( NCloudSync::LastError() ) );
@@ -917,6 +928,13 @@ void CInterfaceCloudCredentials::BeginConnectionTest()
 }
 bool CInterfaceCloudCredentials::ProcessMessage( const SGameMessage &msg )
 {
+	// While the config machine's question owns the rows, the form-shaping
+	// buttons are inert - a backend switch or an advanced toggle would
+	// rebuild the form over the question. OK answers it, Cancel leaves.
+	if ( s_bConfigQuestion &&
+			( msg.nEventID == E_BUTTON_BACKEND || msg.nEventID == E_BUTTON_ADVANCED ||
+				msg.nEventID == E_BUTTON_TEST || msg.nEventID == E_BUTTON_CLEAR_SECRET ) )
+		return true;
 	switch ( msg.nEventID )
 	{
 	case MC_SET_TEXT_MODE:
@@ -941,6 +959,20 @@ bool CInterfaceCloudCredentials::ProcessMessage( const SGameMessage &msg )
 	case IMC_OK:
 		if ( !bFinished )
 		{
+			if ( s_bConfigQuestion )
+			{
+				// OK submits the machine's answer; the flow continues and
+				// StepLocal renders whatever comes next.
+				if ( !fields.empty() && nTestHandle >= 0 &&
+						NCloudSync::ConfigAnswer( nTestHandle, Utf8FromWide( fields[0].szValue ).c_str() ) == 0 )
+				{
+					s_bConfigQuestion = false;
+					SetStatus( "Textes\\UI\\CloudCredentials\\testing", L"" );
+				}
+				else
+					SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( NCloudSync::LastError() ) );
+				return true;
+			}
 			if ( SaveCredentials() )
 			{
 				bFinished = true;
@@ -1056,8 +1088,77 @@ bool CInterfaceCloudCredentials::StepLocal( bool bAppActive )
 	if ( nTestHandle >= 0 )
 	{
 		const NCloudSync::EState eState = NCloudSync::Poll( nTestHandle );
+		if ( eState == NCloudSync::STATE_AWAITING_INPUT )
+		{
+			const int nHandle = nTestHandle;
+			std::string szCard;
+			if ( ReadSizedDocument( [nHandle]( char *pszOut, unsigned int nCap )
+					{ return NCloudSync::ConfigQuestion( nHandle, pszOut, nCap ); }, &szCard )
+					&& !szCard.empty() && szCard != s_szLastCard )
+			{
+				s_szLastCard = szCard;
+				SJsonValue card;
+				if ( JsonParse( szCard, &card ) )
+				{
+					if ( card.Str( "role" ) == "consent" )
+					{
+						// The consent URL carries a state secret: it goes to
+						// the platform browser and nowhere else - above all
+						// not into a trace. The visible waiting state matters
+						// on macOS, where the game runs in its own Space and
+						// the player comes back to what would otherwise look
+						// like a hang.
+						NPlatform::OpenUrl( card.Str( "url" ).c_str() );
+						SetStatus( 0, TextOrFallback( "Textes\\UI\\CloudCredentials\\consent_waiting",
+							L"Finish signing in in your browser, then come back - waiting here." ) );
+					}
+					else
+					{
+						// A machine question takes over the rows: one field,
+						// rendered by the same code as any form field. OK
+						// submits it; the real form returns when the flow
+						// settles.
+						SField field;
+						field.szName = card.Str( "name" );
+						field.nRole = 0;
+						field.szLabel = WideFromUtf8( card.Str( "label" ) );
+						field.szHelp = WideFromUtf8( card.Str( "help" ) );
+						field.szWidget = card.Str( "widget" );
+						field.bRequired = card.Bool( "required" );
+						field.bIsPassword = card.Bool( "is_password" );
+						field.szPlaceholder = card.Str( "placeholder" );
+						if ( const SJsonValue *pExamples = card.Get( "examples" ) )
+							for ( size_t i = 0; i < pExamples->children.size(); ++i )
+							{
+								field.exampleValues.push_back( pExamples->children[i].Str( "value" ) );
+								field.exampleHelp.push_back( WideFromUtf8( pExamples->children[i].Str( "help" ) ) );
+							}
+						field.szValue = WideFromUtf8( card.Str( "placeholder" ) );
+						fields.clear();
+						fields.push_back( field );
+						bShowAdvanced = false;
+						nScroll = 0;
+						s_bConfigQuestion = true;
+						LayoutRows();
+						const std::string szWhy = card.Str( "error" );
+						if ( !szWhy.empty() )
+							SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( szWhy ) );
+						else
+							SetStatus( 0, field.szHelp );
+					}
+				}
+			}
+		}
 		if ( eState == NCloudSync::STATE_DONE || eState == NCloudSync::STATE_FAILED )
 		{
+			// However the flow ended, the machine's takeover ends with it:
+			// the real form comes back, prefilled from what was saved.
+			if ( s_bConfigQuestion || !s_szLastCard.empty() )
+			{
+				s_bConfigQuestion = false;
+				s_szLastCard.clear();
+				RebuildForm( false );
+			}
 			if ( eState == NCloudSync::STATE_DONE )
 			{
 				NStr::DebugTrace( "cloud credentials: connection test ok\n" );
@@ -1129,6 +1230,8 @@ void CInterfaceCloudCredentials::StartInterface()
 	visibleRows.clear();
 	destinations.clear();
 	szBackend.clear();
+	s_bConfigQuestion = false;
+	s_szLastCard.clear();
 	CInterfaceScreenBase::StartInterface();
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	pUIScreen->Load( "ui\\CloudCredentials" );

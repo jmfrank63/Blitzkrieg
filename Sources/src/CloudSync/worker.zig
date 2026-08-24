@@ -711,7 +711,12 @@ pub const Worker = struct {
     }
 
     /// `config/create` with `opt.obscure`: rclone transforms password-typed
-    /// fields itself, and everything else passes through.
+    /// fields itself, and everything else passes through. `nonInteractive`
+    /// because an OAuth backend would otherwise run its whole browser
+    /// dance inside this call — headless, blocking, killed by the POST
+    /// deadline. The parameters are persisted either way (verified against
+    /// v1.75.0); a `State` in the reply is the machine offering its
+    /// questions, which are the config job's business, not this one's.
     fn configCreate(
         self: *Worker,
         client: *rc.Client,
@@ -726,6 +731,7 @@ pub const Worker = struct {
         var opt: std.json.ObjectMap = .empty;
         defer opt.deinit(self.gpa);
         try opt.put(self.gpa, "obscure", .{ .bool = true });
+        try opt.put(self.gpa, "nonInteractive", .{ .bool = true });
         try object.put(self.gpa, "opt", .{ .object = opt });
 
         var reply = try client.call("config/create", .{ .object = object });
@@ -843,28 +849,20 @@ pub const Worker = struct {
 
         var answer: ?[]u8 = null;
         defer if (answer) |owned| self.gpa.free(owned);
+        var hops: usize = 0;
 
         while (true) {
             if (self.cancelled()) {
                 self.publishFailureText("Cancelled");
                 return;
             }
-            const step = flow.step(params.value, if (answer) |a| a else null) catch |err| {
-                switch (err) {
-                    error.OutOfMemory => self.publishFailureText("out of memory driving the configuration"),
-                    // rclone's own words — through the same redaction as
-                    // every failure text, because an in-band error can
-                    // echo the parameters it rejected.
-                    error.ConfigFailed => {
-                        const safe = engine.redactedText(self.gpa, flow.lastError(), redactions) catch null;
-                        defer if (safe) |owned| self.gpa.free(owned);
-                        self.publishFailureText(safe orelse "the service refused the configuration");
-                    },
-                    error.BadReply, error.Runaway => self.publishFailureText(
-                        "rclone's configuration reply had an unexpected shape",
-                    ),
-                    else => self.publishFailure(err, ""),
-                }
+            // Every exchange runs as an rc `_async` job: the continuation
+            // that starts a browser dance blocks server-side until the
+            // consent callback lands, and rclone aborts the dance when the
+            // request's connection dies — a synchronous POST under the
+            // per-POST deadline would take it down at the deadline.
+            const job = flow.beginStepAsync(params.value, if (answer) |a| a else null) catch |err| {
+                self.publishStepError(&flow, err, redactions);
                 return;
             };
             if (answer) |owned| {
@@ -872,9 +870,26 @@ pub const Worker = struct {
                 answer = null;
             }
 
-            switch (step) {
+            const exchange = self.awaitExchange(&flow, eng, job, redactions) orelse return;
+            switch (exchange) {
                 .done => break,
+                .auto_continue => {
+                    // The machine's own hop, continued with an empty
+                    // result — bounded like the synchronous driver bounds
+                    // it, because a machine that never settles must not
+                    // spin the worker forever.
+                    hops += 1;
+                    if (hops > 16) {
+                        self.publishFailureText("rclone's configuration reply had an unexpected shape");
+                        return;
+                    }
+                    answer = self.gpa.dupe(u8, "") catch {
+                        self.publishFailureText("out of memory driving the configuration");
+                        return;
+                    };
+                },
                 .question => |q| {
+                    hops = 0;
                     // The in-band error goes through redaction before it
                     // can reach a status line.
                     const safe_error = engine.redactedText(self.gpa, q.error_text, redactions) catch null;
@@ -920,6 +935,135 @@ pub const Worker = struct {
             self.publishFailureText(owned);
         } else {
             self.publishFailureText(@tagName(test_result.outcome));
+        }
+    }
+
+    /// How often a pending config exchange is polled. Wall clock, like the
+    /// engine's job polling: a fast menu must not turn into a fast poller.
+    const config_poll_ms: u32 = 250;
+
+    /// How long the browser dance may wait for the player. Long, because
+    /// a human is reading a consent page; finite, because an abandoned
+    /// flow must not hold the job slot forever. Cancel works the whole
+    /// time.
+    const consent_wait_ms: u32 = 5 * 60 * 1000;
+
+    /// Poll one async config exchange to completion. While the job runs,
+    /// `config/oauthstatus` is asked whether a consent URL is waiting;
+    /// the first one seen parks as a consent card — role "consent", the
+    /// same mailbox the field questions use — so the dialog can open the
+    /// browser and show a visible waiting state (on macOS the game runs
+    /// in its own Space; a silent wait would look like a hang). The URL
+    /// crosses to the dialog and nowhere else: it carries a state secret
+    /// and is never logged. Publishes and returns null on failure,
+    /// cancellation, or timeout.
+    fn awaitExchange(
+        self: *Worker,
+        flow: *oauth.Flow,
+        eng: *engine.Engine,
+        job: rc.JobId,
+        redactions: engine.ExtraRedactions,
+    ) ?oauth.Flow.Exchange {
+        var waited: u32 = 0;
+        var consent_parked = false;
+        while (true) {
+            if (self.cancelled() or self.stop_flag.load(.acquire)) {
+                self.stopDance(eng);
+                self.publishFailureText("Cancelled");
+                return null;
+            }
+            var status = eng.client.jobStatus(job) catch |err| {
+                self.publishFailure(err, "");
+                return null;
+            };
+            defer status.deinit();
+            if (status.finished) {
+                if (consent_parked) self.unparkConsent();
+                if (!status.success) {
+                    // rclone's words — "oauth authentication was
+                    // cancelled", "No code returned by remote server" —
+                    // through the same redaction as every failure text.
+                    const safe = engine.redactedText(self.gpa, status.error_text, redactions) catch null;
+                    defer if (safe) |owned| self.gpa.free(owned);
+                    self.publishFailureText(safe orelse "the configuration step failed");
+                    return null;
+                }
+                const exchange = flow.finishStep(status.output) catch |err| {
+                    self.publishStepError(flow, err, redactions);
+                    return null;
+                };
+                return exchange;
+            }
+
+            if (!consent_parked) {
+                if (self.pendingConsentCard(eng)) |card| {
+                    self.parkQuestion(card);
+                    consent_parked = true;
+                }
+            }
+
+            if (waited >= consent_wait_ms) {
+                self.stopDance(eng);
+                if (consent_parked) self.unparkConsent();
+                self.publishFailureText("timed_out: the sign-in was not completed in time");
+                return null;
+            }
+            sleepMs(self.io, config_poll_ms);
+            waited += config_poll_ms;
+        }
+    }
+
+    /// One `config/oauthstatus` ask, rendered as a consent card when a
+    /// dance is waiting. Null on any failure: the status poll is advisory
+    /// and the job poll is the source of truth.
+    fn pendingConsentCard(self: *Worker, eng: *engine.Engine) ?[]u8 {
+        var reply = eng.client.call("config/oauthstatus", .{ .object = .empty }) catch return null;
+        defer reply.deinit();
+        const url = oauth.pendingAuthUrl(reply.value) orelse return null;
+        return oauth.consentJson(self.gpa, url) catch null;
+    }
+
+    /// Best-effort `config/oauthstop`: an abandoned dance settles its job
+    /// instead of waiting on a browser that will never answer. An error
+    /// means no dance was running — equally settled.
+    fn stopDance(self: *Worker, eng: *engine.Engine) void {
+        _ = self;
+        var reply = eng.client.call("config/oauthstop", .{ .object = .empty }) catch return;
+        reply.deinit();
+    }
+
+    /// Take a parked consent card down — the dance moved on — dropping
+    /// any answer nobody asked for.
+    fn unparkConsent(self: *Worker) void {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        if (self.config_question) |owned| self.gpa.free(owned);
+        self.config_question = null;
+        if (self.config_answer) |owned| self.gpa.free(owned);
+        self.config_answer = null;
+        if (self.snapshot.state == .awaiting_input) self.snapshot.state = .testing;
+    }
+
+    fn publishStepError(
+        self: *Worker,
+        flow: *oauth.Flow,
+        err: anyerror,
+        redactions: engine.ExtraRedactions,
+    ) void {
+        switch (err) {
+            error.OutOfMemory => self.publishFailureText("out of memory driving the configuration"),
+            // rclone's own words — through the same redaction as every
+            // failure text, because an in-band error can echo the
+            // parameters it rejected.
+            error.ConfigFailed => {
+                const safe = engine.redactedText(self.gpa, flow.lastError(), redactions) catch null;
+                defer if (safe) |owned| self.gpa.free(owned);
+                self.publishFailureText(safe orelse "the service refused the configuration");
+            },
+            error.BadReply, error.Runaway => self.publishFailureText(
+                "rclone's configuration reply had an unexpected shape",
+            ),
+            else => self.publishFailure(err, ""),
         }
     }
 

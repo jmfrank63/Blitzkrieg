@@ -23,6 +23,10 @@ namespace NCloudSync
 		STATE_DONE = 4,
 		STATE_FAILED = 5,
 		STATE_TESTING = 6,
+		// The config state machine is waiting on a human: a question to
+		// answer, or a browser sign-in to finish. ConfigQuestion() says
+		// which.
+		STATE_AWAITING_INPUT = 7,
 	};
 
 	enum EOutcome
@@ -81,6 +85,17 @@ namespace NCloudSync
 	int ErrorDetail( int nHandle, char *pszOut, unsigned int nCap );
 	void Cancel( int nHandle );
 	void Release( int nHandle );
+	// The interactive configuration flow - rclone's config state machine,
+	// the path every OAuth backend needs. Begin returns a job handle; while
+	// Poll reports STATE_AWAITING_INPUT, ConfigQuestion holds either a field
+	// question (the form's wire keys plus "error") or a consent card
+	// ("role":"consent") whose "url" is opened in the platform browser and
+	// NEVER logged - it carries a state secret. ConfigAnswer resumes a field
+	// question; a consent card resolves itself when the sign-in finishes.
+	// Completion runs the connection test, so the handle settles like Test().
+	int ConfigBegin();
+	int ConfigQuestion( int nHandle, char *pszOut, unsigned int nCap );
+	int ConfigAnswer( int nHandle, const char *pszResult );
 	// Stops the worker and the daemon; bounded, idempotent, safe mid-sync.
 	void Shutdown();
 

@@ -1053,6 +1053,7 @@ comptime {
     std.debug.assert(@intFromEnum(worker.State.done) == 4);
     std.debug.assert(@intFromEnum(worker.State.failed) == 5);
     std.debug.assert(@intFromEnum(worker.State.testing) == 6);
+    std.debug.assert(@intFromEnum(worker.State.awaiting_input) == 7);
     std.debug.assert(@intFromEnum(worker.Outcome.none) == 0);
     std.debug.assert(@intFromEnum(worker.Outcome.paired) == 1);
     std.debug.assert(@intFromEnum(worker.Outcome.synced) == 2);
@@ -1241,6 +1242,75 @@ pub export fn bk_cloudsync_test_connection(game_dir: [*:0]const u8) callconv(.c)
         .profile_id = "",
         .remote_fingerprint = "",
     });
+}
+
+/// Configure the saved credentials interactively: rclone's config state
+/// machine as a job, the path every OAuth backend needs. Poll the handle
+/// like any other job; state 7 (`awaiting_input`) means
+/// `bk_cloudsync_config_question` has something to render — a field
+/// question in the form's wire keys plus `error`, or a consent card
+/// (`role` = "consent") whose `url` the caller opens in the browser.
+/// `bk_cloudsync_config_answer` resumes a field question; a consent card
+/// resolves itself when the sign-in finishes. On completion the same
+/// connection test a saved credential change gets runs, so the handle
+/// settles `connection_ok` or a classified failure. Cancel works the whole
+/// time, browser wait included.
+pub export fn bk_cloudsync_config_begin(game_dir: [*:0]const u8) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    return enqueueLocked(std.mem.span(game_dir), .{
+        .kind = .config_create,
+        .path1 = "",
+        .remote = "",
+        .profile = "",
+        .profile_id = "",
+        .remote_fingerprint = "",
+    });
+}
+
+/// The pending config question or consent card under the `writeSized`
+/// contract: the length (0 when nothing is waiting), or -1 on an unknown
+/// handle. The consent card's `url` carries a state secret — show it,
+/// open it, never log it.
+pub export fn bk_cloudsync_config_question(handle: i32, out: [*]u8, cap: u32) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    _ = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return -1;
+    };
+    const w = sync_worker orelse return writeSized(out, cap, "");
+    const question = w.configQuestionOwned(module_gpa) catch {
+        setError("cloud sync: out of memory reading the question");
+        return -1;
+    };
+    const text = question orelse return writeSized(out, cap, "");
+    defer module_gpa.free(text);
+    return writeSized(out, cap, text);
+}
+
+/// Answer the pending config question. 0 when accepted; -1 when no
+/// question is waiting (a consent card takes no answer) or the handle is
+/// unknown.
+pub export fn bk_cloudsync_config_answer(handle: i32, result: [*:0]const u8) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    _ = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return -1;
+    };
+    const w = sync_worker orelse {
+        setError("cloud sync: no worker is running");
+        return -1;
+    };
+    if (!w.answerConfig(std.mem.span(result))) {
+        setError("cloud sync: no config question is waiting");
+        return -1;
+    }
+    return 0;
 }
 
 fn slotAt(handle: i32) ?*JobSlot {
