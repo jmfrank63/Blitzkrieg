@@ -1001,10 +1001,28 @@ pub fn runIdTimestamp(name: []const u8) ?i64 {
     const hour = std.fmt.parseInt(i64, name[9..11], 10) catch return null;
     const minute = std.fmt.parseInt(i64, name[11..13], 10) catch return null;
     const second = std.fmt.parseInt(i64, name[13..15], 10) catch return null;
-    if (month < 1 or month > 12 or day < 1 or day > 31) return null;
+    if (month < 1 or month > 12 or day < 1) return null;
+    // Against the month's real length, not a flat 31: `runId` can never
+    // emit Feb 31, so a name wearing an impossible date is foreign by
+    // definition — and `daysFromCivil` would happily normalise it into
+    // March, making a directory we did not create eligible for pruning.
+    if (day > daysInMonth(year, month)) return null;
     if (hour > 23 or minute > 59 or second > 59) return null;
 
     return daysFromCivil(year, month, day) * 86_400 + hour * 3_600 + minute * 60 + second;
+}
+
+fn daysInMonth(year: i64, month: u32) u32 {
+    return switch (month) {
+        1, 3, 5, 7, 8, 10, 12 => 31,
+        4, 6, 9, 11 => 30,
+        2 => if (isLeapYear(year)) @as(u32, 29) else 28,
+        else => unreachable, // month is checked to be 1..12 before this
+    };
+}
+
+fn isLeapYear(year: i64) bool {
+    return @mod(year, 4) == 0 and (@mod(year, 100) != 0 or @mod(year, 400) == 0);
 }
 
 /// Howard Hinnant's days-from-civil: days since 1970-01-01 for a proleptic

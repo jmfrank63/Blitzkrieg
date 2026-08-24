@@ -691,6 +691,13 @@ test "runIdTimestamp parses the stamp and rejects imposters" {
         "20260821T256161Z-aaaaaaaa", // hour 25
         "20260821T110000Z-zzzzzzzz", // nonce not hex
         "2026082aT110000Z-aaaaaaaa", // stamp not digits
+        // Impossible calendar dates: runId can never emit one, so a name
+        // wearing one is foreign by definition — and daysFromCivil would
+        // happily normalise Feb 31 into March, making it prune-eligible.
+        "20260231T000000Z-aaaaaaaa", // Feb 31
+        "20230229T000000Z-aaaaaaaa", // Feb 29 of a non-leap year
+        "20260431T000000Z-aaaaaaaa", // Apr 31
+        "21000229T000000Z-aaaaaaaa", // Feb 29 of a non-leap century
     }) |imposter| {
         try std.testing.expect(engine.runIdTimestamp(imposter) == null);
     }
