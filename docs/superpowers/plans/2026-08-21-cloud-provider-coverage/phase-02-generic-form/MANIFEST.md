@@ -166,6 +166,23 @@ Findings the packet text does not carry:
   schedule), so the evidence seeds credentials documents and clicks
   Test, the same substitution P02-M03 recorded for typing.
 
+P02-M04 / phase-02 review follow-up (`04a8af1f2`, `9dc1c70a8`): two
+findings. `runIdTimestamp` bounded days at a flat 1–31, so a trash name
+wearing Feb 31 — which `runId` can never emit — parsed (`daysFromCivil`
+normalises it into March) and became prune-eligible, against the
+delete-only-what-we-created guarantee; the day now checks against the
+month's real length, leap years included. And the engine's redacted
+200-line support tail never crossed the ABI: the snapshot truncates at
+512 bytes, `bk_cloudsync_error` reads only the snapshot, and the sync
+and connection-test paths composed into a snapshot-sized buffer whose
+overflow fallback dropped everything but the outcome tag. The worker
+now keeps the full text beside the snapshot, the compositions happen at
+full length, and `bk_cloudsync_error_detail` (@30, facade `ErrorDetail`)
+hands it out under the required-size contract — `bk_cloudsync_error`
+stays the one-line summary. Worker suite is 10; the detail is the
+worker's most recent failure, faithful per handle because the worker
+runs one job at a time (documented on the export).
+
 P02-M03 review follow-up (`deb635255`): `recordError` scrubbed the run-log
 tail but stored the rc error message raw — and rclone repeats the
 filesystem name, connection-string secrets included, in the message

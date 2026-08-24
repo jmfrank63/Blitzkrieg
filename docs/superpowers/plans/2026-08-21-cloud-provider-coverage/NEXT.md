@@ -25,6 +25,7 @@ carry findings the packet texts do not.
 | P02-M03 render | `fb858fe78` | generic dialog, headless evidence, guard removed |
 | P02-M03 follow-up | `deb635255`..`6ac8aea67` | error text redacted; generic secrets redacted |
 | P02-M04 validate and test | `d37fcb73d` | must-fill required, write probe, remote_unwritable |
+| P02 review follow-up | `04a8af1f2`..`9dc1c70a8` | calendar-checked run ids; full error detail over ABI |
 
 ## Resuming on another machine
 
@@ -32,7 +33,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `d37fcb73d` (creds 17, catalogue 20, form 9, worker 9,
+Suites, all green at `9dc1c70a8` (creds 17, catalogue 20, form 9, worker 10,
 engine 19):
 
 ```
@@ -41,7 +42,7 @@ zig build test-cloudsync-daemon    -Dtarget=aarch64-macos -Dtest-mode=run   # 27
 zig build test-cloudsync-abi       -Dtarget=aarch64-macos -Dtest-mode=run   # 10 + C++ consumer
 zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
 zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 20
-zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  9
+zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   # 10
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 19
 zig build test-cloudsync-form      -Dtarget=aarch64-macos -Dtest-mode=run   #  9
 zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 17
