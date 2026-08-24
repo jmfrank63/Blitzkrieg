@@ -208,6 +208,46 @@ test "defaults become placeholders the save path can compare against" {
     try std.testing.expect(env_auth.help.len != 0);
 }
 
+test "required means must-fill: a default satisfies it, another vendor's does not apply" {
+    const gpa = std.testing.allocator;
+
+    // Real half: webdav's `url` is required with no default — blank must
+    // block a save, named before any network call.
+    var cat = try catalogue.parse(gpa, fixture_json);
+    defer cat.deinit();
+    var webdav = try form.buildForm(gpa, &cat, "webdav", "");
+    defer webdav.deinit();
+    try std.testing.expect(findField(webdav.basic, "url").?.required);
+
+    // Synthetic half: rclone accepts an unset required option whose
+    // default is non-empty (pixeldrain.api_url, iclouddrive.service and
+    // oracleobjectstorage.provider are the three real ones in v1.75.0),
+    // and a requirement scoped to another vendor does not apply at all.
+    var syn = try catalogue.parse(gpa,
+        \\{"providers":[{"Name":"synthetic","Options":[
+        \\  {"Name":"must_fill","Type":"string","Required":true},
+        \\  {"Name":"defaulted","Type":"string","Required":true,
+        \\   "DefaultStr":"https://api.example"},
+        \\  {"Name":"other_vendor","Type":"string","Required":true,
+        \\   "Provider":"VendorB"}
+        \\]}]}
+    );
+    defer syn.deinit();
+
+    var vendor_a = try form.buildForm(gpa, &syn, "synthetic", "VendorA");
+    defer vendor_a.deinit();
+    try std.testing.expect(findField(vendor_a.basic, "must_fill").?.required);
+    try std.testing.expect(!findField(vendor_a.basic, "defaulted").?.required);
+    // VendorB's requirement is not in VendorA's form at all, so it cannot
+    // block validation — validating the unfiltered set would.
+    try std.testing.expect(findField(vendor_a.basic, "other_vendor") == null);
+
+    // No vendor chosen shows every conditional field — requirement included.
+    var open = try form.buildForm(gpa, &syn, "synthetic", "");
+    defer open.deinit();
+    try std.testing.expect(findField(open.basic, "other_vendor").?.required);
+}
+
 test "an unknown backend is an error, not an empty form" {
     const gpa = std.testing.allocator;
     var cat = try catalogue.parse(gpa, fixture_json);

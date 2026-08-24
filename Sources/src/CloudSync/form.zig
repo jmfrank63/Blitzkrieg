@@ -74,6 +74,14 @@ pub const Field = struct {
     /// The catalogue's type classification, carried so a renderer can
     /// refine a `.text` widget into a toggle or a number box.
     kind: catalogue.Kind = .text,
+    /// Must-fill: the catalogue marked it `Required` *and* its effective
+    /// default is empty. rclone accepts an unset required option with a
+    /// non-empty default — three of the 66 required options carry one —
+    /// so a blank there is not an error, and marking it required would
+    /// make those backends impossible to configure. Fields under another
+    /// vendor's `Provider` expression never reach the form at all, so
+    /// their requirements cannot block: validation is against the active
+    /// filtered form, not the raw catalogue.
     required: bool = false,
     advanced: bool = false,
     /// The withheld classification, persisted per field at save time.
@@ -137,7 +145,7 @@ pub fn buildForm(
             .help = option.help,
             .widget = widgetFor(option, examples),
             .kind = option.kind,
-            .required = option.required,
+            .required = option.required and option.default_str.len == 0,
             .advanced = option.advanced,
             .secret = option.isSecret(),
             .is_password = option.is_password,

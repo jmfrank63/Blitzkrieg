@@ -583,6 +583,96 @@ test "connection outcomes are classified against a live server" {
     try std.testing.expectEqual(engine.Outcome.remote_missing, missing.outcome);
 }
 
+test "the connection test probes writability, not just listing" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const dav_ro = try fixture.makeDir("dav-ro");
+    defer gpa.free(dav_ro);
+    const dav_rw = try fixture.makeDir("dav-rw");
+    defer gpa.free(dav_rw);
+
+    var serve_environ = try parentEnviron(gpa);
+    defer serve_environ.deinit();
+
+    // Read-only: exactly the backend shape the probe exists to catch — the
+    // listing succeeds and a sync would still be impossible.
+    const port_ro = try reservePort(tio);
+    var addr_ro_buffer: [32]u8 = undefined;
+    const addr_ro = std.fmt.bufPrint(&addr_ro_buffer, "127.0.0.1:{d}", .{port_ro}) catch unreachable;
+    var serve_ro = std.process.spawn(tio, .{
+        .argv = &.{ binary, "serve", "webdav", dav_ro, "--addr", addr_ro, "--read-only" },
+        .environ_map = &serve_environ,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    }) catch return error.ServeSpawnFailed;
+    defer serve_ro.kill(tio);
+    try std.testing.expect(waitTcp(tio, port_ro, 15_000));
+
+    const port_rw = try reservePort(tio);
+    var addr_rw_buffer: [32]u8 = undefined;
+    const addr_rw = std.fmt.bufPrint(&addr_rw_buffer, "127.0.0.1:{d}", .{port_rw}) catch unreachable;
+    var serve_rw = std.process.spawn(tio, .{
+        .argv = &.{ binary, "serve", "webdav", dav_rw, "--addr", addr_rw },
+        .environ_map = &serve_environ,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    }) catch return error.ServeSpawnFailed;
+    defer serve_rw.kill(tio);
+    try std.testing.expect(waitTcp(tio, port_rw, 15_000));
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    var eng = engine.Engine.init(gpa, tio, &client);
+    defer eng.deinit();
+
+    const url_ro = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{port_ro});
+    defer gpa.free(url_ro);
+    const url_rw = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{port_rw});
+    defer gpa.free(url_rw);
+
+    // Listable but not writable is its own outcome — mapping it onto
+    // auth_failed or remote_missing would tell the player the wrong thing.
+    try createConfigRemote(gpa, &client, "cro", &.{
+        .{ "type", "webdav" }, .{ "url", url_ro }, .{ "vendor", "owncloud" },
+    });
+    const read_only = try eng.testConnection("cro");
+    try std.testing.expect(!read_only.ok);
+    try std.testing.expectEqual(engine.Outcome.remote_unwritable, read_only.outcome);
+    try std.testing.expectEqual(engine.Recovery.open_credentials, engine.recovery(.remote_unwritable));
+
+    // The writable serve passes the whole round trip — and keeps nothing:
+    // the probe object is deleted after reading back, and the served
+    // directory is empty again.
+    try createConfigRemote(gpa, &client, "crw", &.{
+        .{ "type", "webdav" }, .{ "url", url_rw }, .{ "vendor", "owncloud" },
+    });
+    const writable = try eng.testConnection("crw");
+    try std.testing.expect(writable.ok);
+
+    var served = try std.Io.Dir.cwd().openDir(tio, dav_rw, .{ .iterate = true });
+    defer served.close(tio);
+    var it = served.iterate();
+    var leftovers: usize = 0;
+    while (try it.next(tio)) |_| leftovers += 1;
+    try std.testing.expectEqual(@as(usize, 0), leftovers);
+}
+
 // -- Trash retention ----------------------------------------------------------
 
 test "runIdTimestamp parses the stamp and rejects imposters" {

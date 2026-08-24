@@ -283,7 +283,7 @@ static const char *CloudOutcomeTextKey( const std::string &szError )
 		return "offline";
 	static const char *pszOutcomes[] = { "needs_resync", "too_many_deletes", "name_too_long",
 		"out_of_sync", "auth_failed", "remote_unreachable", "remote_missing",
-		"daemon_gone", "timed_out", 0 };
+		"remote_unwritable", "daemon_gone", "timed_out", 0 };
 	for ( int i = 0; pszOutcomes[i] != 0; ++i )
 	{
 		const int nLen = (int)strlen( pszOutcomes[i] );
@@ -791,6 +791,20 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 			TextOrFallback( "Textes\\UI\\CloudCredentials\\catalogue_missing", L"no provider list yet" ) );
 		return false;
 	}
+	// Required means must-fill: the model already folded catalogue defaults
+	// and other vendors' requirements out of bRequired, so blank is simply
+	// blank - and a masked field with a stored secret is not blank. Named by
+	// its label, before any network call and before the document is built.
+	for ( size_t i = 0; i < fields.size(); ++i )
+	{
+		const SField &field = fields[i];
+		if ( !field.bRequired || !field.szValue.empty() )
+			continue;
+		if ( field.IsMasked() && field.bStoredSecret )
+			continue;
+		SetStatus( "Textes\\UI\\CloudCredentials\\required_missing", field.szLabel );
+		return false;
+	}
 
 	std::string szOptions;
 	std::string szSecretNames;
@@ -1053,8 +1067,19 @@ bool CInterfaceCloudCredentials::StepLocal( bool bAppActive )
 			{
 				const std::string szError = NCloudSync::Error( nTestHandle );
 				NStr::DebugTrace( "cloud credentials: connection test failed: %s\n", szError.c_str() );
-				const std::string szKey = std::string( "Textes\\UI\\CloudSync\\" ) + CloudOutcomeTextKey( szError );
-				SetStatus( szKey.c_str(), L"" );
+				const char *pszOutcome = CloudOutcomeTextKey( szError );
+				const std::string szKey = std::string( "Textes\\UI\\CloudSync\\" ) + pszOutcome;
+				// The unwritable verdict can name a probe file the service
+				// refused to delete; that detail asks the player to act, so
+				// it rides the status line after the mapped text.
+				std::wstring szDetail;
+				if ( strcmp( pszOutcome, "remote_unwritable" ) == 0 )
+				{
+					const size_t nColon = szError.find( ": " );
+					if ( nColon != std::string::npos )
+						szDetail = WideFromUtf8( szError.substr( nColon + 2 ) );
+				}
+				SetStatus( szKey.c_str(), szDetail );
 			}
 			NCloudSync::Release( nTestHandle );
 			nTestHandle = -1;

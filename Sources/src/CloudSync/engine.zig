@@ -541,9 +541,15 @@ pub const Engine = struct {
         outcome: Outcome,
     };
 
-    /// One `operations/list` of the remote's root under a tightened
-    /// deadline: tell the player what is wrong *before* the next sync
-    /// discovers it. Blocking, like everything here — the worker runs it.
+    /// An `operations/list` of the remote's root, then a write probe under
+    /// it, all under a tightened deadline: tell the player what is wrong
+    /// *before* the next sync discovers it. Blocking, like everything here
+    /// — the worker runs it. The listing proves the credentials resolve;
+    /// the probe proves the folder accepts writes and deletes, which
+    /// bisync requires and which a read-only share or write-only token
+    /// would otherwise reveal mid-sync. Backend-agnostic by construction:
+    /// if this ever needs a per-backend branch, something upstream is
+    /// hardcoded, and that is a bug there, not a case to add here.
     ///
     /// Unlike bisync, a plain operation returns its real cause in the rc
     /// reply, so classification reads `lastFailure` directly; there is no
@@ -598,7 +604,181 @@ pub const Engine = struct {
             return .{ .ok = false, .outcome = outcome };
         };
         reply.deinit();
+        return self.probeWritability(remote);
+    }
+
+    /// The fixed half of the probe object's name. Fixed so a leftover is
+    /// recognisably ours; the nonce keeps two machines probing the same
+    /// folder apart.
+    pub const probe_prefix = "bk-write-probe-";
+
+    /// Write a probe object under the remote's root, read it back, delete
+    /// it. Runs after a successful listing, so a refusal here is about
+    /// writability, not credentials or reachability — whatever status code
+    /// it wears — and maps to `.remote_unwritable`. The probe is deleted
+    /// on every path where deletion is permitted; when the delete itself
+    /// is refused, the error text names the exact file left behind,
+    /// because demanding cleanup is impossible in precisely the condition
+    /// under test.
+    fn probeWritability(self: *Engine, remote: []const u8) Allocator.Error!TestResult {
+        if (self.cancelled()) {
+            self.recordError("Cancelled", null);
+            return .{ .ok = false, .outcome = .unknown };
+        }
+
+        var raw: [8]u8 = undefined;
+        self.io.randomSecure(&raw) catch self.io.random(&raw);
+        const nonce = std.fmt.bytesToHex(raw, .lower);
+
+        const probe_name = try std.fmt.allocPrint(self.gpa, probe_prefix ++ "{s}.txt", .{&nonce});
+        defer self.gpa.free(probe_name);
+        const content = try std.fmt.allocPrint(
+            self.gpa,
+            "Blitzkrieg cloud sync write probe {s}. Safe to delete.\n",
+            .{&nonce},
+        );
+        defer self.gpa.free(content);
+
+        const temp_dir = try tempDirPath(self.gpa);
+        defer self.gpa.free(temp_dir);
+        const local_source = try path.join(self.gpa, &.{ temp_dir, probe_name });
+        defer self.gpa.free(local_source);
+
+        Io.Dir.cwd().writeFile(self.io, .{
+            .sub_path = local_source,
+            .data = content,
+            .flags = .{ .truncate = true },
+        }) catch {
+            self.recordError("the probe file could not be written locally", null);
+            return .{ .ok = false, .outcome = .unknown };
+        };
+        defer Io.Dir.cwd().deleteFile(self.io, local_source) catch {};
+
+        const fs_spec = try std.fmt.allocPrint(self.gpa, "{s}:", .{remote});
+        defer self.gpa.free(fs_spec);
+
+        // Up. `copyfile` from the local file, not `uploadfile`: the rc
+        // client posts JSON and nothing else, and multipart would mean a
+        // second transport for the sake of a probe.
+        self.probeOperation("operations/copyfile", &.{
+            .{ "srcFs", temp_dir },
+            .{ "srcRemote", probe_name },
+            .{ "dstFs", fs_spec },
+            .{ "dstRemote", probe_name },
+        }) catch |err| {
+            if (err == error.OutOfMemory) return error.OutOfMemory;
+            const outcome = self.probeFailure(@errorCast(err), "the service refused the write probe");
+            self.last_outcome = outcome;
+            return .{ .ok = false, .outcome = outcome };
+        };
+
+        // From here on the object exists remotely: every following failure
+        // still attempts the delete, and only then reports.
+        var verdict: ?Outcome = null;
+
+        // Back down under a distinct name, and byte-compared: a service
+        // that acknowledges a write it lost would otherwise pass.
+        const back_name = try std.fmt.allocPrint(self.gpa, "{s}.back", .{probe_name});
+        defer self.gpa.free(back_name);
+        const local_back = try path.join(self.gpa, &.{ temp_dir, back_name });
+        defer self.gpa.free(local_back);
+        defer Io.Dir.cwd().deleteFile(self.io, local_back) catch {};
+
+        self.probeOperation("operations/copyfile", &.{
+            .{ "srcFs", fs_spec },
+            .{ "srcRemote", probe_name },
+            .{ "dstFs", temp_dir },
+            .{ "dstRemote", back_name },
+        }) catch |err| {
+            if (err == error.OutOfMemory) return error.OutOfMemory;
+            verdict = self.probeFailure(@errorCast(err), "the probe could not be read back");
+        };
+        if (verdict == null) {
+            const written = Io.Dir.cwd().readFileAlloc(self.io, local_back, self.gpa, .limited(4096)) catch null;
+            defer if (written) |bytes| self.gpa.free(bytes);
+            if (written == null or !std.mem.eql(u8, written.?, content)) {
+                self.recordError("the probe did not read back what was written", null);
+                verdict = .remote_unwritable;
+            }
+        }
+
+        self.probeOperation("operations/deletefile", &.{
+            .{ "fs", fs_spec },
+            .{ "remote", probe_name },
+        }) catch |err| {
+            // The leftover report wins over an earlier read-back verdict:
+            // it is the one message that asks the player to act, and the
+            // probe file may now be sitting in their folder either way.
+            if (err == error.OutOfMemory) return error.OutOfMemory;
+            const detail: []const u8 = switch (err) {
+                error.RcFailed => if (self.client.lastFailure()) |failure| failure.message else "",
+                else => @errorName(err),
+            };
+            const text = std.fmt.allocPrint(
+                self.gpa,
+                "the service accepted the probe file but refused to delete it, which sync needs; " ++
+                    "remove '{s}' from the configured folder yourself. {s}",
+                .{ probe_name, detail },
+            ) catch null;
+            if (text) |owned| {
+                defer self.gpa.free(owned);
+                self.recordError(owned, null);
+            } else {
+                self.recordError("the service accepted the probe file but refused to delete it", null);
+            }
+            verdict = .remote_unwritable;
+        };
+
+        if (verdict) |outcome| {
+            self.last_outcome = outcome;
+            return .{ .ok = false, .outcome = outcome };
+        }
         return .{ .ok = true, .outcome = .unknown };
+    }
+
+    /// One rc call of the probe: single-attempt and tightly bounded, like
+    /// the listing — a probe that grinds through backoff schedules is not
+    /// answering the question it was asked.
+    fn probeOperation(
+        self: *Engine,
+        method: []const u8,
+        pairs: []const [2][]const u8,
+    ) (rc.RcError || Allocator.Error)!void {
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        for (pairs) |entry| try object.put(self.gpa, entry[0], .{ .string = entry[1] });
+        var config: std.json.ObjectMap = .empty;
+        defer config.deinit(self.gpa);
+        try config.put(self.gpa, "Retries", .{ .integer = 1 });
+        try config.put(self.gpa, "LowLevelRetries", .{ .integer = 1 });
+        try config.put(self.gpa, "ConnectTimeout", .{ .string = "3s" });
+        try config.put(self.gpa, "Timeout", .{ .string = "5s" });
+        try object.put(self.gpa, "_config", .{ .object = config });
+
+        var reply = try self.client.call(method, .{ .object = object });
+        reply.deinit();
+    }
+
+    /// Classify a probe-step failure. The listing already succeeded, so an
+    /// rc-level refusal is the service refusing the operation — that is
+    /// `.remote_unwritable`, whatever status it wears — while transport
+    /// errors keep their own meanings: a daemon or network that died
+    /// mid-probe says nothing about writability.
+    fn probeFailure(self: *Engine, err: rc.RcError, fallback_text: []const u8) Outcome {
+        switch (err) {
+            error.RcFailed => {
+                if (self.client.lastFailure()) |failure| {
+                    self.recordError(failure.message, null);
+                } else {
+                    self.recordError(fallback_text, null);
+                }
+                return .remote_unwritable;
+            },
+            else => {
+                self.recordError(@errorName(err), null);
+                return classifyTransport(err);
+            },
+        }
     }
 
     /// Start the job and poll it to completion. `_async` plus polling rather
@@ -875,6 +1055,11 @@ pub const Outcome = enum {
     /// brand-new account it just means the first pairing has not created it
     /// yet, and the dialog should say so rather than alarm.
     remote_missing,
+    /// The cloud lists but refused the write probe — or accepted it and
+    /// refused the delete, which bisync needs just as much. Only the
+    /// connection test produces this: a sync failure has richer log
+    /// evidence and classifies through the patterns above.
+    remote_unwritable,
     /// The daemon itself is not answering.
     daemon_gone,
     /// The run outlived its budget.
@@ -907,8 +1092,10 @@ pub fn recovery(outcome: Outcome) Recovery {
         .too_many_deletes => .confirm_mirror_delete,
         .name_too_long => .report_name_budget,
         // A missing root is almost always a mistyped bucket or path; the
-        // fresh-account case is the dialog's copy to soften.
-        .auth_failed, .remote_missing => .open_credentials,
+        // fresh-account case is the dialog's copy to soften. An unwritable
+        // remote is a property of the account or folder chosen — the
+        // credentials dialog is where a different one gets picked.
+        .auth_failed, .remote_missing, .remote_unwritable => .open_credentials,
         .timed_out, .remote_unreachable, .daemon_gone => .retry,
         .unknown => .show_log,
     };
@@ -1104,6 +1291,35 @@ fn strikeValue(gpa: Allocator, text: []u8, value: []const u8) Allocator.Error![]
     }
     try out.appendSlice(gpa, text[index..]);
     return out.toOwnedSlice(gpa);
+}
+
+/// A writable local directory for the probe's source file: the platform
+/// temp directory from the environment — libc's copy, because this code
+/// is compiled into a library the game loads and never sees the
+/// environment `main` was handed — with a plain fallback when nothing is
+/// advertised. Owned by the caller.
+fn tempDirPath(gpa: Allocator) Allocator.Error![]u8 {
+    if (builtin.os.tag == .windows) {
+        const environ: std.process.Environ = .{ .block = .global };
+        var map = environ.createMap(gpa) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            else => return gpa.dupe(u8, "."),
+        };
+        defer map.deinit();
+        for ([_][]const u8{ "TEMP", "TMP" }) |key| {
+            if (map.get(key)) |value| {
+                if (value.len != 0) return gpa.dupe(u8, value);
+            }
+        }
+        return gpa.dupe(u8, ".");
+    }
+    for ([_][:0]const u8{ "TMPDIR", "TMP" }) |key| {
+        if (std.c.getenv(key.ptr)) |value| {
+            const span = std.mem.span(value);
+            if (span.len != 0) return gpa.dupe(u8, span);
+        }
+    }
+    return gpa.dupe(u8, "/tmp");
 }
 
 fn lastLines(text: []const u8, count: usize) []const u8 {
