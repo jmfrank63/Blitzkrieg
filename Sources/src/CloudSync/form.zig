@@ -137,21 +137,7 @@ pub fn buildForm(
         if (option.hiddenFromConfigurator()) continue;
         if (!option.appliesTo(selected_provider)) continue;
 
-        const examples = try filteredExamples(alloc, option, selected_provider);
-        const field: Field = .{
-            .role = .option,
-            .name = option.name,
-            .label = option.name,
-            .help = option.help,
-            .widget = widgetFor(option, examples),
-            .kind = option.kind,
-            .required = option.required and option.default_str.len == 0,
-            .advanced = option.advanced,
-            .secret = option.isSecret(),
-            .is_password = option.is_password,
-            .placeholder = option.default_str,
-            .examples = examples,
-        };
+        const field = try fieldFromOption(alloc, option, selected_provider);
         if (option.advanced) {
             try advanced.append(alloc, field);
         } else {
@@ -172,6 +158,33 @@ pub fn buildForm(
         .arena = arena,
         .basic = basic.items,
         .advanced = advanced.items,
+    };
+}
+
+/// One option turned into a renderable field under `selected_provider` —
+/// the single conversion, shared between the catalogue-driven form and the
+/// config state machine's prompts, which arrive in the same Option shape.
+/// The field borrows the option's strings; the caller keeps the option (or
+/// the catalogue holding it) alive for the field's lifetime.
+pub fn fieldFromOption(
+    alloc: Allocator,
+    option: *const catalogue.Option,
+    selected_provider: []const u8,
+) Allocator.Error!Field {
+    const examples = try filteredExamples(alloc, option, selected_provider);
+    return .{
+        .role = .option,
+        .name = option.name,
+        .label = option.name,
+        .help = option.help,
+        .widget = widgetFor(option, examples),
+        .kind = option.kind,
+        .required = option.required and option.default_str.len == 0,
+        .advanced = option.advanced,
+        .secret = option.isSecret(),
+        .is_password = option.is_password,
+        .placeholder = option.default_str,
+        .examples = examples,
     };
 }
 

@@ -41,6 +41,7 @@ const creds = @import("creds.zig");
 const rc = @import("rc.zig");
 const daemon = @import("daemon.zig");
 const engine = @import("engine.zig");
+const oauth = @import("oauth.zig");
 const plan = @import("plan.zig");
 
 const Allocator = std.mem.Allocator;
@@ -52,7 +53,7 @@ const path = Io.Dir.path;
 const idle_poll_ms: u32 = 25;
 
 /// New states are appended, never inserted: the ABI pins the numerics.
-pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, testing };
+pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, testing, awaiting_input };
 
 /// How the last finished job ended. `.none` until the first job finishes.
 /// Appended, never reordered, for the same reason.
@@ -94,7 +95,7 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage, restore_undo, fetch_catalogue };
+pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage, restore_undo, fetch_catalogue, config_create };
 
 /// What `ensureCatalogue` did. `.cached` means the caller may read the cache
 /// now; `.fetching` means a job is running and the answer arrives through
@@ -196,6 +197,15 @@ pub const Worker = struct {
     /// next success, freed on destroy.
     error_detail: ?[]u8 = null,
 
+    /// The config machine's mailboxes, mutex-guarded. While a
+    /// `.config_create` job waits on a human, the pending question sits in
+    /// `config_question` (the form's wire JSON plus an `error` key) with
+    /// the snapshot at `.awaiting_input`; `answerConfig` fills
+    /// `config_answer` and the job resumes. Both are cleared when the job
+    /// ends, whatever way it ends.
+    config_question: ?[]u8 = null,
+    config_answer: ?[]u8 = null,
+
     /// Heap-allocated because the worker task holds `self` for its lifetime;
     /// the pointer must not move.
     pub fn create(gpa: Allocator, io: Io, options: Options) CreateError!*Worker {
@@ -234,6 +244,8 @@ pub const Worker = struct {
         if (self.pending) |box| freeJob(self.gpa, box);
         if (self.backup_list) |*list| list.deinit();
         if (self.error_detail) |owned| self.gpa.free(owned);
+        if (self.config_question) |owned| self.gpa.free(owned);
+        if (self.config_answer) |owned| self.gpa.free(owned);
         self.gpa.free(self.game_dir);
         const gpa = self.gpa;
         self.* = undefined;
@@ -271,7 +283,7 @@ pub const Worker = struct {
 
         if (self.pending != null) return error.Busy;
         switch (self.snapshot.state) {
-            .starting, .pairing, .syncing, .testing => return error.Busy,
+            .starting, .pairing, .syncing, .testing, .awaiting_input => return error.Busy,
             .idle, .done, .failed => {},
         }
 
@@ -450,9 +462,11 @@ pub const Worker = struct {
             .pair => .pairing,
             // Transfer-shaped work reads as syncing; probe-shaped fetches
             // share the testing state — nothing a UI needs to distinguish
-            // while it spins.
+            // while it spins. The config machine spins the same way
+            // between questions; `.awaiting_input` is published only when
+            // one is actually waiting.
             .sync, .restore_stage => .syncing,
-            .test_connection, .list_backups => .testing,
+            .test_connection, .list_backups, .config_create => .testing,
             // Both handled above and returned from: undo before the session
             // exists, the catalogue fetch immediately after it.
             .restore_undo, .fetch_catalogue => unreachable,
@@ -530,6 +544,7 @@ pub const Worker = struct {
                 self.publishDone(.backups_listed);
             },
             .restore_undo, .fetch_catalogue => unreachable, // handled above
+            .config_create => self.runConfigCreate(eng),
             .test_connection => {
                 const result = eng.testConnection(box.ctx.remote) catch {
                     self.publishFailureText("out of memory testing the connection");
@@ -779,6 +794,171 @@ pub const Worker = struct {
         self.publishFailure(err, eng.lastErrorText());
     }
 
+    /// The interactive `config/create` machine as a job: drive the flow,
+    /// park every question in the mailbox with the snapshot flipped to
+    /// `.awaiting_input`, resume on `answerConfig`, and on completion run
+    /// the same connection test every saved credential change gets — a
+    /// remote that authorised but cannot list or write must say so now,
+    /// not at the next sync. `applyCredentials` has already run, so the
+    /// raw remote and the sync alias exist before the machine reworks the
+    /// raw one, and the engine's secret redactions are current.
+    ///
+    /// The wait on a human is bounded only by cancel and destroy — there
+    /// is no honest timeout for a person reading an OAuth page — while
+    /// every rc exchange inside the flow keeps the client's per-POST
+    /// deadline.
+    fn runConfigCreate(self: *Worker, eng: *engine.Engine) void {
+        const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch {
+            self.publishFailureText("out of memory reading credentials");
+            return;
+        };
+        defer self.gpa.free(creds_path);
+        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse {
+            self.publishFailureText("no credentials are saved to configure");
+            return;
+        };
+        defer loaded.deinit();
+
+        var params = creds.remoteParams(self.gpa, loaded.creds) catch {
+            self.publishFailureText("out of memory building remote parameters");
+            return;
+        };
+        defer params.deinit();
+        // config/create names the type at the top level; a second copy
+        // inside `parameters` would write a literal `type` key into the
+        // remote's section.
+        _ = params.value.object.orderedRemove("type");
+
+        var flow = oauth.Flow.init(self.gpa, eng.client, creds.backend_remote_name, loaded.creds.backend) catch {
+            self.publishFailureText("out of memory starting the configuration flow");
+            return;
+        };
+        defer flow.deinit();
+        defer self.clearConfigMailboxes();
+
+        const redactions: engine.ExtraRedactions = .{
+            .markers = eng.extra_markers,
+            .values = eng.extra_values,
+        };
+
+        var answer: ?[]u8 = null;
+        defer if (answer) |owned| self.gpa.free(owned);
+
+        while (true) {
+            if (self.cancelled()) {
+                self.publishFailureText("Cancelled");
+                return;
+            }
+            const step = flow.step(params.value, if (answer) |a| a else null) catch |err| {
+                switch (err) {
+                    error.OutOfMemory => self.publishFailureText("out of memory driving the configuration"),
+                    // rclone's own words — through the same redaction as
+                    // every failure text, because an in-band error can
+                    // echo the parameters it rejected.
+                    error.ConfigFailed => {
+                        const safe = engine.redactedText(self.gpa, flow.lastError(), redactions) catch null;
+                        defer if (safe) |owned| self.gpa.free(owned);
+                        self.publishFailureText(safe orelse "the service refused the configuration");
+                    },
+                    error.BadReply, error.Runaway => self.publishFailureText(
+                        "rclone's configuration reply had an unexpected shape",
+                    ),
+                    else => self.publishFailure(err, ""),
+                }
+                return;
+            };
+            if (answer) |owned| {
+                self.gpa.free(owned);
+                answer = null;
+            }
+
+            switch (step) {
+                .done => break,
+                .question => |q| {
+                    // The in-band error goes through redaction before it
+                    // can reach a status line.
+                    const safe_error = engine.redactedText(self.gpa, q.error_text, redactions) catch null;
+                    defer if (safe_error) |owned| self.gpa.free(owned);
+                    var shown = q;
+                    shown.error_text = safe_error orelse "";
+                    const question_json = oauth.questionJson(self.gpa, &shown) catch {
+                        self.publishFailureText("out of memory rendering the question");
+                        return;
+                    };
+                    self.parkQuestion(question_json);
+
+                    while (true) {
+                        if (self.cancelled() or self.stop_flag.load(.acquire)) {
+                            self.publishFailureText("Cancelled");
+                            return;
+                        }
+                        if (self.takeAnswer()) |taken| {
+                            answer = taken;
+                            break;
+                        }
+                        sleepMs(self.io, idle_poll_ms);
+                    }
+                },
+            }
+        }
+
+        // Completion runs the same probe a saved credential change gets.
+        const test_result = eng.testConnection(creds.sync_remote_name) catch {
+            self.publishFailureText("out of memory testing the connection");
+            return;
+        };
+        if (test_result.ok) {
+            self.publishDone(.connection_ok);
+            return;
+        }
+        const text = std.fmt.allocPrint(self.gpa, "{s}: {s}", .{
+            @tagName(test_result.outcome),
+            eng.lastErrorText(),
+        }) catch null;
+        if (text) |owned| {
+            defer self.gpa.free(owned);
+            self.publishFailureText(owned);
+        } else {
+            self.publishFailureText(@tagName(test_result.outcome));
+        }
+    }
+
+    /// Post a question (owned JSON, taken over) and flip the snapshot to
+    /// `.awaiting_input`. Any stale answer is dropped: it belonged to an
+    /// earlier question.
+    fn parkQuestion(self: *Worker, question_json: []u8) void {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        if (self.config_question) |owned| self.gpa.free(owned);
+        self.config_question = question_json;
+        if (self.config_answer) |owned| self.gpa.free(owned);
+        self.config_answer = null;
+        self.snapshot.state = .awaiting_input;
+    }
+
+    /// Take the pending answer, if one arrived. Taking it also takes the
+    /// question down — answered — and flips the snapshot back to the
+    /// spinner state while the machine steps.
+    fn takeAnswer(self: *Worker) ?[]u8 {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        const taken = self.config_answer orelse return null;
+        self.config_answer = null;
+        if (self.config_question) |owned| self.gpa.free(owned);
+        self.config_question = null;
+        self.snapshot.state = .testing;
+        return taken;
+    }
+
+    fn clearConfigMailboxes(self: *Worker) void {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        if (self.config_question) |owned| self.gpa.free(owned);
+        self.config_question = null;
+        if (self.config_answer) |owned| self.gpa.free(owned);
+        self.config_answer = null;
+    }
+
     /// Publish a failure: the snapshot keeps at most `error_text_max`
     /// bytes — one status line — while the full text is kept aside for
     /// `errorDetailOwned`. Pub for the truncation test; the worker itself
@@ -809,6 +989,29 @@ pub const Worker = struct {
         defer self.mutex.unlock(self.io);
         const detail = self.error_detail orelse return null;
         return try gpa.dupe(u8, detail);
+    }
+
+    /// The question the config machine is waiting on — the form's wire
+    /// JSON plus an `error` key — or null when none is pending. An owned
+    /// copy under the lock; the pending question can change the moment the
+    /// lock drops.
+    pub fn configQuestionOwned(self: *Worker, gpa: Allocator) Allocator.Error!?[]u8 {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        const question = self.config_question orelse return null;
+        return try gpa.dupe(u8, question);
+    }
+
+    /// Answer the pending config question. False when no question is
+    /// waiting, an answer is already queued, or the copy failed — the flow
+    /// then keeps waiting, and the caller may retry or cancel.
+    pub fn answerConfig(self: *Worker, result: []const u8) bool {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        if (self.config_question == null) return false;
+        if (self.config_answer != null) return false;
+        self.config_answer = self.gpa.dupe(u8, result) catch return false;
+        return true;
     }
 };
 

@@ -1494,7 +1494,7 @@ pub export fn bk_cloudsync_restore_undo_available(profile: [*:0]const u8) callco
         defer jobs_mutex.unlock(lockIo());
         if (sync_worker) |w| {
             switch (w.poll().state) {
-                .starting, .pairing, .syncing, .testing => return 3,
+                .starting, .pairing, .syncing, .testing, .awaiting_input => return 3,
                 .idle, .done, .failed => {},
             }
         }
