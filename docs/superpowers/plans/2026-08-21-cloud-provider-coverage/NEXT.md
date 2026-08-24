@@ -1,10 +1,10 @@
 # Next Packet
 
-Resume at `phase-03-oauth/P03-M01-state-machine.md`.
+Resume at `phase-03-oauth/P03-M02-browser.md`.
 
 ## Where implementation stands
 
-**Phases 00, 01 and 02 are complete.** Every checkpoint is in its phase
+**Phases 00, 01 and 02 are complete**, and P03-M01 is done. Every checkpoint is in its phase
 `MANIFEST.md` with the measurements; read those before writing code, they
 carry findings the packet texts do not.
 
@@ -26,6 +26,7 @@ carry findings the packet texts do not.
 | P02-M03 follow-up | `deb635255`..`6ac8aea67` | error text redacted; generic secrets redacted |
 | P02-M04 validate and test | `d37fcb73d` | must-fill required, write probe, remote_unwritable |
 | P02 review follow-up | `04a8af1f2`..`9dc1c70a8` | calendar-checked run ids; full error detail over ABI |
+| P03-M01 config machine | `88791fe66` | opaque state loop, worker job, awaiting_input |
 
 ## Resuming on another machine
 
@@ -33,8 +34,8 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `9dc1c70a8` (creds 17, catalogue 20, form 9, worker 10,
-engine 19):
+Suites, all green at `88791fe66` (creds 17, catalogue 20, form 9, worker 10,
+engine 19, oauth 7):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -46,6 +47,7 @@ zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   # 10
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 19
 zig build test-cloudsync-form      -Dtarget=aarch64-macos -Dtest-mode=run   #  9
 zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 17
+zig build test-cloudsync-oauth     -Dtarget=aarch64-macos -Dtest-mode=run   #  7
 zig build test-package             -Dtarget=aarch64-macos -Dtest-mode=run   #  4
 zig build verify-runtime           -Dtest-mode=run                          # 11
 zig build test-streamio            -Dtarget=aarch64-macos -Dtest-mode=run   # 32
