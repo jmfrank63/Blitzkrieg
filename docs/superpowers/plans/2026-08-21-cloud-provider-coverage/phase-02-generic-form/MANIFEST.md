@@ -116,6 +116,56 @@ Findings the packet text does not carry:
   catalogue-fetch window is one or two frames — the fetching-state
   capture sits two frames after the open click.
 
+P02-M04 macOS checkpoint: validation and the write-probe connection test,
+generic for any backend. Form 9/9 (failing-first on the must-fill rule),
+engine 19/19 with a live rclone — a writable webdav serve passes the full
+probe round trip and is empty afterwards, a `--read-only` serve
+classifies `remote_unwritable`, the wrong root stays `remote_missing` at
+the listing. Headless through the game (four new captures in
+`evidence/cloud-provider-coverage/credentials-form/`): a blank required
+`url` refused by label before any network call, Connection OK against a
+local serve through the whole generic chain, the unwritable text with
+the service's own words, and the root typo failing rather than
+succeeding against the account root. All suites green, both
+cross-targets compile, `install-game` builds. Commit `d37fcb73d`.
+**Phase 02 exit reached**: an arbitrary destination backend is
+configurable and testable with no provider-specific code.
+
+Findings the packet text does not carry:
+
+- **The `remote_unwritable` outcome text lives in
+  `Data/Textes/UI/CloudSync/`**, beside the other outcome texts — the
+  packet's allowlist names the sibling `Data/Textes/UI/CloudCredentials`
+  and its bullet says the text resource is allowlisted, so the intent is
+  explicit and only the directory was off. Recorded like P02-M03's Lua
+  router rather than stopped over.
+- **The leading-tag mapping exists in three copies** (the dialog,
+  `MainMenu.cpp`, `InterfaceCloudBackups.cpp`); only the dialog's was
+  extended. The other two fall back to their generic "failed" text, and
+  only the connection test can produce the new tag today — sync failures
+  classify from the run log — so they were left deliberately, being
+  outside the allowlist.
+- **The probe's local source file lives in the platform temp directory,
+  resolved inside the engine** (libc's environ — a loaded library never
+  sees `main`'s): `testConnection`'s signature could not grow a
+  directory parameter without touching `worker.zig`, which the packet
+  does not allow.
+- **A read-only webdav serve refuses the write with `404 Not Found`** —
+  the "whatever status it wears" rule paid off immediately; classifying
+  the probe step by status pattern would have called it a missing root.
+- **The delete-refused branch is code-covered, not live-tested**: no
+  local serve mode accepts writes while refusing deletes (permission
+  tricks on the served directory break the upload too). The
+  leftover-probe report — outcome text plus the exact file name on the
+  status line — is exercised by reading the code and by the suffix
+  plumbing the read-only capture shows.
+- The must-fill fold also governs the star rendering: a required option
+  with a catalogue default loses its `*` on purpose — blank is
+  satisfied, and starring it would demand what rclone does not.
+- The harness `text=` action cannot carry a URL (colons separate the
+  schedule), so the evidence seeds credentials documents and clicks
+  Test, the same substitution P02-M03 recorded for typing.
+
 P02-M03 review follow-up (`deb635255`): `recordError` scrubbed the run-log
 tail but stored the rc error message raw — and rclone repeats the
 filesystem name, connection-string secrets included, in the message

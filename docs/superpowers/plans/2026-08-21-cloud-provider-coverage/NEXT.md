@@ -1,10 +1,10 @@
 # Next Packet
 
-Resume at `phase-02-generic-form/P02-M04-validate-and-test.md`.
+Resume at `phase-03-oauth/P03-M01-state-machine.md`.
 
 ## Where implementation stands
 
-**Phases 00 and 01 are complete**, and P02-M01 through P02-M03 are done. Every checkpoint is in its phase
+**Phases 00, 01 and 02 are complete.** Every checkpoint is in its phase
 `MANIFEST.md` with the measurements; read those before writing code, they
 carry findings the packet texts do not.
 
@@ -24,6 +24,7 @@ carry findings the packet texts do not.
 | P02-M02 amendment | `1e762cf92` | destinations export for the chooser |
 | P02-M03 render | `fb858fe78` | generic dialog, headless evidence, guard removed |
 | P02-M03 follow-up | `deb635255`..`6ac8aea67` | error text redacted; generic secrets redacted |
+| P02-M04 validate and test | `d37fcb73d` | must-fill required, write probe, remote_unwritable |
 
 ## Resuming on another machine
 
@@ -31,8 +32,8 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `6ac8aea67` (creds 17, catalogue 20, form 8, worker 9,
-engine 18):
+Suites, all green at `d37fcb73d` (creds 17, catalogue 20, form 9, worker 9,
+engine 19):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
@@ -41,8 +42,8 @@ zig build test-cloudsync-abi       -Dtarget=aarch64-macos -Dtest-mode=run   # 10
 zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
 zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 20
 zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   #  9
-zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 18
-zig build test-cloudsync-form      -Dtarget=aarch64-macos -Dtest-mode=run   #  8
+zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 19
+zig build test-cloudsync-form      -Dtarget=aarch64-macos -Dtest-mode=run   #  9
 zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 17
 zig build test-package             -Dtarget=aarch64-macos -Dtest-mode=run   #  4
 zig build verify-runtime           -Dtest-mode=run                          # 11
