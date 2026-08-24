@@ -329,7 +329,7 @@ test "the support log tail is bounded and redacted" {
     const secrets = "url=http://h,user=bk,pass=OBSCURED123: password=hunter2 " ++
         "access_key_id=AKIAXYZ secret_access_key=SsEeCc token=t0k3n " ++
         "Authorization: Basic QWxhZGRpbg== done\n";
-    const scrubbed = try engine.redactedLogTail(gpa, secrets);
+    const scrubbed = try engine.redactedLogTail(gpa, secrets, .{});
     defer gpa.free(scrubbed);
     for ([_][]const u8{ "OBSCURED123", "hunter2", "AKIAXYZ", "SsEeCc", "t0k3n", "QWxhZGRpbg" }) |secret| {
         try std.testing.expect(std.mem.indexOf(u8, scrubbed, secret) == null);
@@ -340,7 +340,7 @@ test "the support log tail is bounded and redacted" {
     try std.testing.expect(std.mem.indexOf(u8, scrubbed, "done") != null);
 
     // A capture with no credentials passes through intact.
-    const untouched = try engine.redactedLogTail(gpa, fixture_unreachable);
+    const untouched = try engine.redactedLogTail(gpa, fixture_unreachable, .{});
     defer gpa.free(untouched);
     try std.testing.expectEqualStrings(fixture_unreachable, untouched);
 
@@ -354,7 +354,7 @@ test "the support log tail is bounded and redacted" {
         try big.appendSlice(gpa, rendered);
     }
 
-    const tail = try engine.redactedLogTail(gpa, big.items);
+    const tail = try engine.redactedLogTail(gpa, big.items, .{});
     defer gpa.free(tail);
     try std.testing.expect(std.mem.startsWith(u8, tail, "line-50\n"));
     try std.testing.expect(std.mem.indexOf(u8, tail, "line-49\n") == null);
@@ -395,6 +395,48 @@ test "the stored error text is redacted, with and without a run log" {
     try std.testing.expect(std.mem.indexOf(u8, composed, "OBSCURED-ERR-1") == null);
     try std.testing.expect(std.mem.indexOf(u8, composed, "OBSCURED-LOG-2") == null);
     try std.testing.expect(std.mem.indexOf(u8, composed, "retrying") != null);
+}
+
+test "catalogue-designated secrets are struck from the stored text" {
+    const gpa = std.testing.allocator;
+
+    var client = try rc.Client.init(gpa, io, .{
+        .host = "127.0.0.1",
+        .port = 1,
+        .user = "u",
+        .pass = "p",
+    });
+    defer client.deinit();
+    var eng = engine.Engine.init(gpa, io, &client);
+    defer eng.deinit();
+
+    // The generic schema marks arbitrary catalogue options as secret — the
+    // static marker table cannot know their names. The owner hands the
+    // engine what the loaded credentials designate: names (struck as
+    // `name=`, catching encodings of the value this code cannot know) and
+    // plaintext values (struck wherever a server or log echoes them).
+    try eng.setSecretRedactions(
+        &.{ "client_secret", "sse_kms_key_id" },
+        &.{ "very-secret-value-9", "kms" },
+    );
+
+    eng.recordError(
+        "oauth2: cannot fetch token: client_secret=OBSCURED-GEN-1 rejected",
+        "NOTICE: the server said very-secret-value-9 is expired\nkms alias kept\n",
+    );
+    const text = eng.lastErrorText();
+    try std.testing.expect(std.mem.indexOf(u8, text, "OBSCURED-GEN-1") == null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "client_secret=[redacted]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "very-secret-value-9") == null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "is expired") != null);
+    // A three-byte "secret" is not struck: it cannot be recognised as a
+    // leak, and striking it would censor arbitrary letters.
+    try std.testing.expect(std.mem.indexOf(u8, text, "kms alias kept") != null);
+
+    // Re-setting replaces the previous set entirely.
+    try eng.setSecretRedactions(&.{}, &.{});
+    eng.recordError("client_secret=SET-ANEW-2", null);
+    try std.testing.expect(std.mem.indexOf(u8, eng.lastErrorText(), "SET-ANEW-2") != null);
 }
 
 // -- Connection test -----------------------------------------------------------

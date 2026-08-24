@@ -218,14 +218,78 @@ pub const Engine = struct {
     /// prune what it may have just displaced. Prune failures are hygiene,
     /// not correctness, and never fail the sync that triggered them.
     prune: ?PruneOptions = null,
+    /// Credential-derived redaction, owned (see `setSecretRedactions`):
+    /// `name=` markers for every secret-designated option and the plaintext
+    /// values themselves. The static marker table cannot know what an
+    /// arbitrary catalogue backend calls its secrets.
+    extra_markers: [][]u8 = &.{},
+    extra_values: [][]u8 = &.{},
 
     pub fn init(gpa: Allocator, io: Io, client: *rc.Client) Engine {
         return .{ .gpa = gpa, .io = io, .client = client };
     }
 
     pub fn deinit(self: *Engine) void {
+        self.clearSecretRedactions();
         self.clearLastError();
         self.* = undefined;
+    }
+
+    /// Replace the credential-derived redaction set: `names` are the
+    /// secret-designated option names (struck as `name=` wherever an error
+    /// or log prints them, obscured values included), `values` their
+    /// plaintext values (struck wherever they appear; shorter than
+    /// `min_secret_value_len` is skipped). Called by the owner at every job
+    /// start from the freshly loaded credentials — the same cadence the
+    /// daemon's config is re-applied on — and with empty slices when no
+    /// credentials document exists. The engine owns the copies.
+    pub fn setSecretRedactions(
+        self: *Engine,
+        names: []const []const u8,
+        values: []const []const u8,
+    ) Allocator.Error!void {
+        var markers: std.ArrayList([]u8) = .empty;
+        errdefer {
+            for (markers.items) |item| self.gpa.free(item);
+            markers.deinit(self.gpa);
+        }
+        for (names) |name| {
+            const marker = try std.fmt.allocPrint(self.gpa, "{s}=", .{name});
+            errdefer self.gpa.free(marker);
+            try markers.append(self.gpa, marker);
+        }
+
+        var owned_values: std.ArrayList([]u8) = .empty;
+        errdefer {
+            for (owned_values.items) |item| self.gpa.free(item);
+            owned_values.deinit(self.gpa);
+        }
+        for (values) |value| {
+            if (value.len < min_secret_value_len) continue;
+            const copy = try self.gpa.dupe(u8, value);
+            errdefer self.gpa.free(copy);
+            try owned_values.append(self.gpa, copy);
+        }
+
+        const marker_slice = try markers.toOwnedSlice(self.gpa);
+        errdefer {
+            for (marker_slice) |item| self.gpa.free(item);
+            self.gpa.free(marker_slice);
+        }
+        const value_slice = try owned_values.toOwnedSlice(self.gpa);
+
+        self.clearSecretRedactions();
+        self.extra_markers = marker_slice;
+        self.extra_values = value_slice;
+    }
+
+    fn clearSecretRedactions(self: *Engine) void {
+        for (self.extra_markers) |item| self.gpa.free(item);
+        self.gpa.free(self.extra_markers);
+        for (self.extra_values) |item| self.gpa.free(item);
+        self.gpa.free(self.extra_values);
+        self.extra_markers = &.{};
+        self.extra_values = &.{};
     }
 
     pub fn lastErrorText(self: *const Engine) []const u8 {
@@ -624,12 +688,16 @@ pub const Engine = struct {
             .{ .message = error_text, .status = 500 },
             run_log orelse "",
         );
-        const safe_text = redactedText(self.gpa, error_text) catch null;
+        const extra: ExtraRedactions = .{
+            .markers = self.extra_markers,
+            .values = self.extra_values,
+        };
+        const safe_text = redactedText(self.gpa, error_text, extra) catch null;
         self.last_error_owned = owned: {
             const text = safe_text orelse break :owned null;
             const log = run_log orelse break :owned text;
             defer self.gpa.free(text);
-            const tail = redactedLogTail(self.gpa, log) catch
+            const tail = redactedLogTail(self.gpa, log, extra) catch
                 break :owned self.gpa.dupe(u8, text) catch null;
             defer self.gpa.free(tail);
             break :owned std.fmt.allocPrint(self.gpa, "{s}\n{s}", .{ text, tail }) catch null;
@@ -941,17 +1009,32 @@ const redact_markers = [_][]const u8{
 
 const redacted_placeholder = "[redacted]";
 
+/// A secret value shorter than this is not struck by the value scan: three
+/// bytes cannot be recognised as a leaked secret, and striking them would
+/// censor arbitrary letters out of the message.
+pub const min_secret_value_len = 4;
+
+/// What the loaded credentials designate secret, beyond the static marker
+/// table: option names (struck as `name=` like the built-in markers, which
+/// catches encodings of the value this code cannot know — rclone's
+/// obscured form above all) and plaintext values (struck wherever a server
+/// or a log echoes them). Everything borrowed.
+pub const ExtraRedactions = struct {
+    markers: []const []const u8 = &.{},
+    values: []const []const u8 = &.{},
+};
+
 /// The last `log_tail_lines` lines of `log`, with credential values struck
 /// out. This is what may travel in a support report; the raw log never
 /// leaves the machine through the ABI.
-pub fn redactedLogTail(gpa: Allocator, log: []const u8) Allocator.Error![]u8 {
-    return redactedText(gpa, lastLines(log, log_tail_lines));
+pub fn redactedLogTail(gpa: Allocator, log: []const u8, extra: ExtraRedactions) Allocator.Error![]u8 {
+    return redactedText(gpa, lastLines(log, log_tail_lines), extra);
 }
 
 /// A copy of `text` with credential values struck out. Applied to every
 /// string a failure stores — the rc error message no less than the log
 /// tail, since rclone prints the filesystem name inside both.
-pub fn redactedText(gpa: Allocator, text: []const u8) Allocator.Error![]u8 {
+pub fn redactedText(gpa: Allocator, text: []const u8, extra: ExtraRedactions) Allocator.Error![]u8 {
     var out: std.ArrayList(u8) = .empty;
     errdefer out.deinit(gpa);
 
@@ -959,18 +1042,13 @@ pub fn redactedText(gpa: Allocator, text: []const u8) Allocator.Error![]u8 {
     scan: while (index < text.len) {
         for (redact_markers) |marker| {
             if (std.ascii.startsWithIgnoreCase(text[index..], marker)) {
-                try out.appendSlice(gpa, text[index..][0..marker.len]);
-                try out.appendSlice(gpa, redacted_placeholder);
-                index += marker.len;
-                // Swallow the value: everything up to a delimiter that can
-                // end a credential in a URL, connection string, header or
-                // config line.
-                while (index < text.len) : (index += 1) {
-                    switch (text[index]) {
-                        ' ', ',', '"', '\'', ':', ';', '\n', '\r', ')', ']', '&' => break,
-                        else => {},
-                    }
-                }
+                index = try strikeMarkedValue(gpa, &out, text, index, marker.len);
+                continue :scan;
+            }
+        }
+        for (extra.markers) |marker| {
+            if (std.ascii.startsWithIgnoreCase(text[index..], marker)) {
+                index = try strikeMarkedValue(gpa, &out, text, index, marker.len);
                 continue :scan;
             }
         }
@@ -978,6 +1056,53 @@ pub fn redactedText(gpa: Allocator, text: []const u8) Allocator.Error![]u8 {
         index += 1;
     }
 
+    var result = try out.toOwnedSlice(gpa);
+    for (extra.values) |value| {
+        if (value.len < min_secret_value_len) continue;
+        result = try strikeValue(gpa, result, value);
+    }
+    return result;
+}
+
+/// The marker at `start` and its `[redacted]` placeholder appended to
+/// `out`; returns the index past the swallowed value.
+fn strikeMarkedValue(
+    gpa: Allocator,
+    out: *std.ArrayList(u8),
+    text: []const u8,
+    start: usize,
+    marker_len: usize,
+) Allocator.Error!usize {
+    try out.appendSlice(gpa, text[start..][0..marker_len]);
+    try out.appendSlice(gpa, redacted_placeholder);
+    var index = start + marker_len;
+    // Swallow the value: everything up to a delimiter that can end a
+    // credential in a URL, connection string, header or config line.
+    while (index < text.len) : (index += 1) {
+        switch (text[index]) {
+            ' ', ',', '"', '\'', ':', ';', '\n', '\r', ')', ']', '&' => break,
+            else => {},
+        }
+    }
+    return index;
+}
+
+/// Every occurrence of `value` in `text` replaced by the placeholder.
+/// Takes ownership of `text`: the input is freed whenever a replacement
+/// (or an error) makes a new buffer, so the caller keeps only the result.
+fn strikeValue(gpa: Allocator, text: []u8, value: []const u8) Allocator.Error![]u8 {
+    if (std.mem.indexOf(u8, text, value) == null) return text;
+    defer gpa.free(text);
+
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(gpa);
+    var index: usize = 0;
+    while (std.mem.indexOfPos(u8, text, index, value)) |hit| {
+        try out.appendSlice(gpa, text[index..hit]);
+        try out.appendSlice(gpa, redacted_placeholder);
+        index = hit + value.len;
+    }
+    try out.appendSlice(gpa, text[index..]);
     return out.toOwnedSlice(gpa);
 }
 

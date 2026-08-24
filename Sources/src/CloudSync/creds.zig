@@ -128,7 +128,9 @@ pub const Option = struct {
     /// phase-03 token read-back must never write it back.
     is_password: bool = false,
 
-    fn withheld(self: Option) bool {
+    /// Secret-designated by the catalogue at save time: what serialization
+    /// withholds, and what a failure text must never carry.
+    pub fn withheld(self: Option) bool {
         return self.secret or self.is_password;
     }
 };

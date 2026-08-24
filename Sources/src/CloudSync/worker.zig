@@ -435,7 +435,7 @@ pub const Worker = struct {
         // just saved — not whatever the session was built with. (The daemon
         // BINARY is still the session's: an rclone_path change takes effect
         // on the next daemon, not mid-session.)
-        if (!self.applyCredentials(&session.client.?)) return;
+        if (!self.applyCredentials(session)) return;
 
         self.publishState(switch (box.kind) {
             .pair => .pairing,
@@ -613,16 +613,47 @@ pub const Worker = struct {
     /// before the next probe or sync. True on success or absence — a machine
     /// without the file (the worker tests pre-write `rclone.conf` by hand)
     /// uses whatever the config already holds; false after publishing the
-    /// failure.
-    fn applyCredentials(self: *Worker, client: *rc.Client) bool {
+    /// failure. The engine's secret-redaction set refreshes on the same
+    /// cadence, from the same load: whatever this document designates
+    /// secret must never surface in a failure text.
+    fn applyCredentials(self: *Worker, session: *Session) bool {
+        const client = &session.client.?;
+        const eng = &session.eng.?;
+
         const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch {
             self.publishFailureText("out of memory reading credentials");
             return false;
         };
         defer self.gpa.free(creds_path);
 
-        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return true;
+        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse {
+            eng.setSecretRedactions(&.{}, &.{}) catch {};
+            return true;
+        };
         defer loaded.deinit();
+
+        var names: std.ArrayList([]const u8) = .empty;
+        defer names.deinit(self.gpa);
+        var values: std.ArrayList([]const u8) = .empty;
+        defer values.deinit(self.gpa);
+        for (loaded.creds.options) |opt| {
+            if (!opt.withheld()) continue;
+            names.append(self.gpa, opt.name) catch {
+                self.publishFailureText("out of memory preparing redaction");
+                return false;
+            };
+            if (opt.value.len == 0) continue;
+            values.append(self.gpa, opt.value) catch {
+                self.publishFailureText("out of memory preparing redaction");
+                return false;
+            };
+        }
+        // Refusing the job is deliberate: running it with an incomplete
+        // redaction set is the one failure mode worse than not running.
+        eng.setSecretRedactions(names.items, values.items) catch {
+            self.publishFailureText("out of memory preparing redaction");
+            return false;
+        };
 
         var params = creds.remoteParams(self.gpa, loaded.creds) catch {
             self.publishFailureText("out of memory building remote parameters");
