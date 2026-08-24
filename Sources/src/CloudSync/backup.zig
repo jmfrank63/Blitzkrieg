@@ -240,6 +240,15 @@ pub fn pruneBackups(
     // The list is globally newest-first, so within each host it is too:
     // count down each host's allowance and delete past it.
     for (list.entries, 0..) |entry, index| {
+        // Only snapshots are retention's to delete. The listing shows a
+        // foreign file deliberately (the player should see what is in the
+        // tree), but its stem is not a run id, and this code never deletes
+        // what no snapshot created.
+        const slash = std.mem.indexOfScalar(u8, entry.id, '/') orelse continue;
+        const file = entry.id[slash + 1 ..];
+        if (!std.mem.endsWith(u8, file, ".cfg")) continue;
+        if (engine.runIdTimestamp(file[0 .. file.len - ".cfg".len]) == null) continue;
+
         var seen: u32 = 0;
         for (list.entries[0..index]) |earlier| {
             if (std.mem.eql(u8, earlier.host, entry.host)) seen += 1;

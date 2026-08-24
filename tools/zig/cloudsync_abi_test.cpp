@@ -1298,6 +1298,26 @@ static void sync_full_cycle()
             }
         }
         check(entry_id[0] != '\0', "the entry id parses out of the JSON");
+
+        // The listing is bound to its handle: a newer listing claims the
+        // worker's single list, the old handle refuses instead of serving
+        // the new profile's entries, and the new handle refuses until its
+        // own fetch has actually delivered.
+        const int second = bk_cloudsync_backup_list(game, "hero");
+        check(second >= 0, "a second listing hands out a handle");
+        if (second >= 0)
+        {
+            check(bk_cloudsync_backup_entry(listing, 0, entry, sizeof entry) == -1,
+                  "the old handle refuses once a newer listing exists");
+            check(bk_cloudsync_backup_entry(second, 0, entry, sizeof entry) == -1,
+                  "the new handle refuses before its fetch completes");
+            check(poll_to_rest(second, 60000) == 4u, "the second fetch reaches done");
+            check(bk_cloudsync_backup_entry(second, 0, entry, sizeof entry) > 0,
+                  "and then serves its entries");
+            bk_cloudsync_release(second);
+            check(bk_cloudsync_backup_entry(second, 0, entry, sizeof entry) == -1,
+                  "a released listing handle serves nothing");
+        }
         bk_cloudsync_release(listing);
 
         const int staging = bk_cloudsync_backup_restore(game, "hero", entry_id, 0);

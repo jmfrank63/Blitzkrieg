@@ -231,6 +231,10 @@ test "backups list newest-first across hosts and prune per host" {
         .{ "config-backups/hero/HostB/20260601T100000Z-dddddddd.cfg", "b-only" },
         .{ "config-backups/hero/HostA/notes.txt", "not a snapshot" },
         .{ "config-backups/hero/HostA/deep/stray.cfg", "not ours either" },
+        // A foreign .cfg: it LISTS (the player should see what is there,
+        // timestamp 0) but retention must never delete what no snapshot
+        // created.
+        .{ "config-backups/hero/HostA/notes.cfg", "hand-placed" },
     };
     for (tree) |leaf| {
         const at = try path.join(gpa, &.{ cloud, leaf[0] });
@@ -247,13 +251,15 @@ test "backups list newest-first across hosts and prune per host" {
 
     var list = try backup.listBackups(gpa, &client, "bkremote", "hero");
     defer list.deinit();
-    try std.testing.expectEqual(@as(usize, 4), list.entries.len);
+    try std.testing.expectEqual(@as(usize, 5), list.entries.len);
 
-    // Newest first, across hosts.
+    // Newest first, across hosts; the foreign .cfg lists last at timestamp 0.
     try std.testing.expectEqualStrings("HostA/20260821T100000Z-cccccccc.cfg", list.entries[0].id);
     try std.testing.expectEqualStrings("HostA/20260820T100000Z-bbbbbbbb.cfg", list.entries[1].id);
     try std.testing.expectEqualStrings("HostA/20260810T100000Z-aaaaaaaa.cfg", list.entries[2].id);
     try std.testing.expectEqualStrings("HostB/20260601T100000Z-dddddddd.cfg", list.entries[3].id);
+    try std.testing.expectEqualStrings("HostA/notes.cfg", list.entries[4].id);
+    try std.testing.expectEqual(@as(i64, 0), list.entries[4].timestamp);
 
     try std.testing.expectEqualStrings("HostA", list.entries[0].host);
     try std.testing.expectEqual(engine.runIdTimestamp("20260821T100000Z-cccccccc").?, list.entries[0].timestamp);
@@ -274,6 +280,7 @@ test "backups list newest-first across hosts and prune per host" {
         "config-backups/hero/HostA/20260821T100000Z-cccccccc.cfg",
         "config-backups/hero/HostB/20260601T100000Z-dddddddd.cfg",
         "config-backups/hero/HostA/notes.txt",
+        "config-backups/hero/HostA/notes.cfg",
     }) |kept| {
         const at = try path.join(gpa, &.{ cloud, kept });
         defer gpa.free(at);

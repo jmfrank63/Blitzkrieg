@@ -356,6 +356,7 @@ pub export fn bk_cloudsync_shutdown() callconv(.c) void {
     if (sync_game_dir) |dir| module_gpa.free(dir);
     sync_game_dir = null;
     job_slots = @splat(.{});
+    backup_list_handle = -1;
     jobs_mutex.unlock(lockIo());
 
     if (w) |live| live.destroy();
@@ -1081,6 +1082,11 @@ const JobSlot = struct {
 
 var jobs_mutex: std.Io.Mutex = .init;
 var job_slots: [max_job_slots]JobSlot = @splat(.{});
+/// The handle whose `.list_backups` job owns the worker's single backup
+/// listing — the newest one enqueued. Entry reads through any other
+/// handle refuse: the worker keeps one "most recent" list, and an old
+/// handle must not serve a newer job's entries (or the other way round).
+var backup_list_handle: i32 = -1;
 var sync_worker: ?*worker.Worker = null;
 var sync_io_impl: ?*std.Io.Threaded = null;
 /// The game directory the worker was created for. One worker, one game dir;
@@ -1420,7 +1426,7 @@ pub export fn bk_cloudsync_backup_list(
     jobs_mutex.lockUncancelable(lockIo());
     defer jobs_mutex.unlock(lockIo());
 
-    return enqueueLocked(std.mem.span(game_dir), .{
+    const handle = enqueueLocked(std.mem.span(game_dir), .{
         .kind = .list_backups,
         .path1 = "",
         .remote = creds.sync_remote_name,
@@ -1428,6 +1434,10 @@ pub export fn bk_cloudsync_backup_list(
         .profile_id = "",
         .remote_fingerprint = "",
     });
+    // The newest listing claims entry reads; an older handle's entries
+    // would otherwise be silently replaced under it.
+    if (handle >= 0) backup_list_handle = handle;
+    return handle;
 }
 
 /// Write entry `index` of the most recent completed listing into `json_out`
@@ -1442,14 +1452,29 @@ pub export fn bk_cloudsync_backup_entry(
     jobs_mutex.lockUncancelable(lockIo());
     defer jobs_mutex.unlock(lockIo());
 
-    _ = slotAt(handle) orelse {
+    const slot = slotAt(handle) orelse {
         setError("cloud sync: unknown job handle");
         return -1;
     };
+    // Bound to the handle, not just validated by it: the worker keeps one
+    // "most recent" listing, so only the newest listing job may read it,
+    // and only once that job has actually delivered it.
+    if (handle != backup_list_handle) {
+        setError("cloud sync: the backup listing belongs to a newer job");
+        return -1;
+    }
     const w = sync_worker orelse {
         setError("cloud sync: no worker is running");
         return -1;
     };
+    if (slot.active) slot.snapshot = w.poll();
+    // Both checked, because the worker's outcome survives the next job's
+    // begin: a fresh listing job still wears the previous
+    // `backups_listed` until it settles itself.
+    if (slot.snapshot.state != .done or slot.snapshot.outcome != .backups_listed) {
+        setError("cloud sync: the backup listing has not completed");
+        return -1;
+    }
     const length = w.backupEntryJson(index, json_out[0..cap]) orelse {
         setError("cloud sync: no such backup entry");
         return -1;
@@ -1590,6 +1615,7 @@ pub export fn bk_cloudsync_release(handle: i32) callconv(.c) void {
 
     const slot = slotAt(handle) orelse return;
     slot.* = .{};
+    if (handle == backup_list_handle) backup_list_handle = -1;
 }
 
 // ---------------------------------------------------------------------------
