@@ -20,7 +20,63 @@ walks the real machine to the token question. Worker 10, form 9, engine
 19, abi 10 + consumer, facade green; both cross-targets compile;
 `install-game` builds. Commit `88791fe66`.
 
-Findings the packet text does not carry:
+P03-M02 macOS checkpoint: browser consent works end to end. Oauth 8/8
+(async stubs incl. the consent card and `config/oauthstop`), abi 10 +
+consumer with a live walk of drive to the token question and back via
+cancel, all other suites green, both cross-targets compile,
+`install-game` builds. Evidence
+(`evidence/cloud-provider-coverage/oauth-consent/`): a recorded
+consent-to-completion run through the production dylib against a local
+consent+token provider (the dance lands its token in `rclone.conf`), the
+cancel path at the consent screen, a daemon log scanned clean of tokens,
+secrets and codes, and headless captures of the question takeover and
+the waiting state. Commit `31df1d7da`.
+
+Findings the packet text does not carry (P03-M02):
+
+- **The dance dies with its request's connection** (measured): rclone
+  aborts the pending auth when the blocked `config/create` POST drops,
+  so a synchronous continuation under the per-POST deadline kills the
+  sign-in at the deadline. Every exchange therefore runs as an rc
+  `_async` job — the reason `oauth_test.zig` joined the allowlist by
+  amendment.
+- **rclone opens the browser itself when it can**: `config_is_local=true`
+  execs the platform opener from the daemon, so on a desktop both rclone
+  and the dialog may open the consent page (two tabs of the same URL at
+  worst — the second goes stale harmlessly). Headless or PATH-less
+  daemons cannot, which is exactly when the parked card and the
+  dialog-side launcher carry the flow.
+- **rclone's own NOTICE writes its auth URL into `rcd.log`** as the
+  manual fallback hint. The state nonce in it is single-use and dead
+  once the dance settles; the tokens, client secret and authorization
+  code appear nowhere in the log (scanned). Our layers never log the
+  URL.
+- **`applyCredentials` had to go `nonInteractive`**: a plain
+  `config/create` for an OAuth backend runs the whole dance inside the
+  call — headless, blocking, killed by the POST deadline ("cloud
+  credentials could not be applied"). Parameters persist either way
+  (verified against v1.75.0).
+- **`config/create` replaces the whole section: the token is wiped by
+  the next `applyCredentials`** (measured — the evidence harness shows
+  run B's apply erasing run A's token). Inside one config job the order
+  is safe (apply, dance, test); across jobs this is precisely P03-M03's
+  token-storage problem.
+- **The facade's `ErrorDetail` passed the facade handle straight to the
+  library** — found while wiring the new wrappers; it worked only
+  because first-job slot numbers coincide. Routed through the job table
+  like every other per-handle wrapper.
+- The dialog tracks question mode in two file-scope statics reset on
+  `StartInterface` — the header is outside this packet's allowlist, and
+  one credentials dialog exists at a time.
+- Drive marks `client_id` *Sensitive*, so a seeded document must list it
+  in `secret_options` or the dialog's save correctly drops it
+  (nothing-stored, nothing-typed) — it is a masked field like any other
+  secret.
+- The consent-waiting and question texts use `TextOrFallback` English
+  fallbacks; the `Data/Textes` files are outside this allowlist and can
+  land with P03-M03.
+
+Findings the packet text does not carry (P03-M01):
 
 - **The captured fixture's completion and error shapes come from adjacent
   captures**, not from finishing a real OAuth dance (that needs a human
