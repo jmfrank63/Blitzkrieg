@@ -1300,6 +1300,34 @@ pub export fn bk_cloudsync_error(handle: i32) callconv(.c) [*:0]const u8 {
     return @ptrCast(&slot.error_z);
 }
 
+/// The full redacted failure detail — the engine's error line plus the
+/// 200-line support log tail — under the `writeSized` contract.
+/// `bk_cloudsync_error` stays the one-line summary (the snapshot
+/// truncates at `worker.error_text_max`); this is the support channel
+/// the redaction exists for. The text is the worker's most recent
+/// failure, which is this job's while it is the one being polled — the
+/// worker runs one job at a time — so read it when `poll` reports
+/// failed, before beginning another job. Returns the length (0 when
+/// nothing failed or the last job succeeded), or -1 on an unknown
+/// handle or allocation failure.
+pub export fn bk_cloudsync_error_detail(handle: i32, out: [*]u8, cap: u32) callconv(.c) i32 {
+    jobs_mutex.lockUncancelable(lockIo());
+    defer jobs_mutex.unlock(lockIo());
+
+    _ = slotAt(handle) orelse {
+        setError("cloud sync: unknown job handle");
+        return -1;
+    };
+    const w = sync_worker orelse return writeSized(out, cap, "");
+    const detail = w.errorDetailOwned(module_gpa) catch {
+        setError("cloud sync: out of memory reading the failure detail");
+        return -1;
+    };
+    const text = detail orelse return writeSized(out, cap, "");
+    defer module_gpa.free(text);
+    return writeSized(out, cap, text);
+}
+
 /// Abandon the wait on a running job. The rclone job keeps running
 /// server-side; the handle will report failed with a cancellation text.
 pub export fn bk_cloudsync_cancel(handle: i32) callconv(.c) void {

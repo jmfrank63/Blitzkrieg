@@ -50,6 +50,7 @@ namespace
 	typedef int ( *FnCatalogueOptions )( const char *, const char *, unsigned char *, unsigned int );
 	typedef int ( *FnCatalogueForm )( const char *, const char *, const char *, unsigned char *, unsigned int );
 	typedef int ( *FnCatalogueDestinations )( const char *, const char *, unsigned char *, unsigned int );
+	typedef int ( *FnErrorDetail )( int, unsigned char *, unsigned int );
 
 	struct SLibrary
 	{
@@ -84,6 +85,7 @@ namespace
 		FnCatalogueOptions pfnCatalogueOptions;
 		FnCatalogueForm pfnCatalogueForm;
 		FnCatalogueDestinations pfnCatalogueDestinations;
+		FnErrorDetail pfnErrorDetail;
 	};
 
 	SLibrary s_library = {};
@@ -141,6 +143,7 @@ namespace
 		s_library.pfnCatalogueOptions = reinterpret_cast<FnCatalogueOptions>( LoadSymbol( pModule, "bk_cloudsync_catalogue_options" ) );
 		s_library.pfnCatalogueForm = reinterpret_cast<FnCatalogueForm>( LoadSymbol( pModule, "bk_cloudsync_catalogue_form" ) );
 		s_library.pfnCatalogueDestinations = reinterpret_cast<FnCatalogueDestinations>( LoadSymbol( pModule, "bk_cloudsync_catalogue_destinations" ) );
+		s_library.pfnErrorDetail = reinterpret_cast<FnErrorDetail>( LoadSymbol( pModule, "bk_cloudsync_error_detail" ) );
 
 		s_library.bLoaded =
 			s_library.pfnAvailable != 0 && s_library.pfnDiscoveryStatus != 0 &&
@@ -157,7 +160,7 @@ namespace
 			s_library.pfnCredsFingerprint != 0 && s_library.pfnCredsClearOption != 0 &&
 			s_library.pfnCatalogueEnsure != 0 && s_library.pfnCatalogueProviders != 0 &&
 			s_library.pfnCatalogueOptions != 0 && s_library.pfnCatalogueForm != 0 &&
-			s_library.pfnCatalogueDestinations != 0;
+			s_library.pfnCatalogueDestinations != 0 && s_library.pfnErrorDetail != 0;
 		return s_library;
 	}
 
@@ -520,6 +523,17 @@ namespace NCloudSync
 			return false;
 		}
 		return true;
+	}
+
+	int ErrorDetail( int nHandle, char *pszOut, unsigned int nCap )
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded || pszOut == 0 || nCap == 0 )
+			return -1;
+		const int nLength = library.pfnErrorDetail( nHandle, reinterpret_cast<unsigned char *>( pszOut ), nCap );
+		if ( nLength < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nLength;
 	}
 
 	int CredentialsFingerprint( char *pszOut, unsigned int nCap )

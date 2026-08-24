@@ -188,6 +188,14 @@ pub const Worker = struct {
     /// `backupEntryJson`; nobody holds a pointer in.
     backup_list: ?backup.BackupList = null,
 
+    /// The full text of the most recent failure, mutex-guarded: the
+    /// snapshot's inline buffer carries one status line
+    /// (`error_text_max`), while the engine's redacted 200-line support
+    /// tail is far longer — this is where it survives for
+    /// `errorDetailOwned`. Replaced by the next failure, cleared by the
+    /// next success, freed on destroy.
+    error_detail: ?[]u8 = null,
+
     /// Heap-allocated because the worker task holds `self` for its lifetime;
     /// the pointer must not move.
     pub fn create(gpa: Allocator, io: Io, options: Options) CreateError!*Worker {
@@ -225,6 +233,7 @@ pub const Worker = struct {
 
         if (self.pending) |box| freeJob(self.gpa, box);
         if (self.backup_list) |*list| list.deinit();
+        if (self.error_detail) |owned| self.gpa.free(owned);
         self.gpa.free(self.game_dir);
         const gpa = self.gpa;
         self.* = undefined;
@@ -531,13 +540,18 @@ pub const Worker = struct {
                 } else {
                     // The classified outcome leads the text, so the caller
                     // can branch on it while the human still gets rclone's
-                    // (already redacted) words.
-                    var buffer: [error_text_max]u8 = undefined;
-                    const text = std.fmt.bufPrint(&buffer, "{s}: {s}", .{
+                    // (already redacted) words. Full-length on the heap:
+                    // the snapshot truncation is publishFailureText's.
+                    const text = std.fmt.allocPrint(self.gpa, "{s}: {s}", .{
                         @tagName(result.outcome),
                         eng.lastErrorText(),
-                    }) catch @tagName(result.outcome);
-                    self.publishFailureText(text);
+                    }) catch null;
+                    if (text) |owned| {
+                        defer self.gpa.free(owned);
+                        self.publishFailureText(owned);
+                    } else {
+                        self.publishFailureText(@tagName(result.outcome));
+                    }
                 }
             },
         }
@@ -719,6 +733,8 @@ pub const Worker = struct {
         self.snapshot.state = .done;
         self.snapshot.outcome = outcome;
         self.snapshot.error_len = 0;
+        if (self.error_detail) |owned| self.gpa.free(owned);
+        self.error_detail = null;
     }
 
     fn publishFailure(self: *Worker, err: anyerror, detail: []const u8) void {
@@ -742,18 +758,32 @@ pub const Worker = struct {
             return;
         }
         if (err == error.SyncFailed) {
-            var buffer: [error_text_max]u8 = undefined;
-            const text = std.fmt.bufPrint(&buffer, "{s}: {s}", .{
+            // Composed on the heap at full length: the engine text carries
+            // the redacted support tail, and publishFailureText is where
+            // the one-line snapshot truncation happens — composing into a
+            // snapshot-sized buffer here would lose the tail before the
+            // detail channel ever saw it (and its overflow fallback used
+            // to drop everything but the tag).
+            const text = std.fmt.allocPrint(self.gpa, "{s}: {s}", .{
                 @tagName(eng.lastOutcome()),
                 eng.lastErrorText(),
-            }) catch @tagName(eng.lastOutcome());
-            self.publishFailureText(text);
+            }) catch null;
+            if (text) |owned| {
+                defer self.gpa.free(owned);
+                self.publishFailureText(owned);
+            } else {
+                self.publishFailureText(@tagName(eng.lastOutcome()));
+            }
             return;
         }
         self.publishFailure(err, eng.lastErrorText());
     }
 
-    fn publishFailureText(self: *Worker, text: []const u8) void {
+    /// Publish a failure: the snapshot keeps at most `error_text_max`
+    /// bytes — one status line — while the full text is kept aside for
+    /// `errorDetailOwned`. Pub for the truncation test; the worker itself
+    /// is the only production caller.
+    pub fn publishFailureText(self: *Worker, text: []const u8) void {
         self.mutex.lockUncancelable(self.io);
         defer self.mutex.unlock(self.io);
         self.snapshot.state = .failed;
@@ -761,6 +791,24 @@ pub const Worker = struct {
         const len = @min(text.len, error_text_max);
         @memcpy(self.snapshot.error_buf[0..len], text[0..len]);
         self.snapshot.error_len = len;
+        if (self.error_detail) |owned| self.gpa.free(owned);
+        // On allocation failure the snapshot's truncation still stands;
+        // an absent detail falls back to the summary, never to nothing.
+        self.error_detail = self.gpa.dupe(u8, text) catch null;
+    }
+
+    /// An owned copy of the full text of the most recent failure — the
+    /// engine's error line plus the redacted support tail — or null when
+    /// nothing has failed or the last job succeeded. The snapshot's
+    /// `errorText` is the one-line truncation of the same text. Copied
+    /// under the lock, because the worker replaces it the moment another
+    /// job fails; the worker runs one job at a time, so while a failed
+    /// job is the one being polled, this is that job's detail.
+    pub fn errorDetailOwned(self: *Worker, gpa: Allocator) Allocator.Error!?[]u8 {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        const detail = self.error_detail orelse return null;
+        return try gpa.dupe(u8, detail);
     }
 };
 

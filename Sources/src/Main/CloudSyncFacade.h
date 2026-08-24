@@ -71,6 +71,14 @@ namespace NCloudSync
 	EState Poll( int nHandle );
 	EOutcome Outcome( int nHandle );
 	const char *Error( int nHandle );
+	// The full redacted failure detail - Error() is the one-line summary,
+	// this is the engine's error line plus its 200-line support log tail.
+	// Required-size contract like CredentialsFingerprint: the return is the
+	// length (0 when nothing failed), written only when it fit below nCap;
+	// -1 on an unknown handle. Read it while the failed job is the one
+	// being polled - the worker runs one job at a time and the next
+	// failure replaces it.
+	int ErrorDetail( int nHandle, char *pszOut, unsigned int nCap );
 	void Cancel( int nHandle );
 	void Release( int nHandle );
 	// Stops the worker and the daemon; bounded, idempotent, safe mid-sync.

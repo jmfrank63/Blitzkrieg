@@ -748,6 +748,42 @@ test "a missing cache fetches once, and the second ask is answered from disk" {
     try std.testing.expectEqual(worker.CatalogueState.cached, try w.ensureCatalogue(v1_75_0));
 }
 
+test "the full failure detail survives the snapshot's truncation" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    var w = try worker.Worker.create(gpa, tio, .{ .game_dir = game_dir });
+    defer w.destroy();
+
+    // Nothing failed yet: no detail.
+    try std.testing.expect((try w.errorDetailOwned(gpa)) == null);
+
+    // A failure text longer than the snapshot's one-line budget — the
+    // engine's redacted 200-line support tail is exactly this shape. The
+    // snapshot truncates for the status line; the detail must not.
+    var long: [2000]u8 = undefined;
+    @memset(&long, 'x');
+    const marker = "the-final-line-of-the-tail";
+    @memcpy(long[long.len - marker.len ..], marker);
+    w.publishFailureText(&long);
+
+    const snap = w.poll();
+    try std.testing.expectEqual(worker.error_text_max, snap.errorText().len);
+
+    const detail = (try w.errorDetailOwned(gpa)).?;
+    defer gpa.free(detail);
+    try std.testing.expectEqual(long.len, detail.len);
+    try std.testing.expect(std.mem.endsWith(u8, detail, marker));
+}
+
 test "an unavailable daemon is reported through the snapshot, not thrown" {
     const gpa = std.testing.allocator;
 

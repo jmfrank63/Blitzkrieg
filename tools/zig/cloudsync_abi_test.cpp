@@ -45,6 +45,11 @@ int bk_cloudsync_begin(const char *job_json);
 unsigned int bk_cloudsync_poll(int handle);
 unsigned int bk_cloudsync_outcome(int handle);
 const char *bk_cloudsync_error(int handle);
+// The full redacted failure detail (error line plus support log tail),
+// required-size contract: the return is the length (0 when nothing
+// failed or the last job succeeded), written only below cap; -1 on an
+// unknown handle.
+int bk_cloudsync_error_detail(int handle, unsigned char *out, unsigned int cap);
 void bk_cloudsync_cancel(int handle);
 void bk_cloudsync_release(int handle);
 // Credentials, over profiles/cloud.credentials relative to the working
@@ -975,6 +980,11 @@ static void catalogue_contract()
                 const unsigned int rested = poll_to_rest(fetch, 90000);
                 check(rested == 4u, "the fetch reaches done");
                 check(bk_cloudsync_outcome(fetch) == 8u, "with the catalogue_ready outcome");
+                // A succeeded job has no failure detail: length 0, not -1.
+                unsigned char detail[64] = { 1 };
+                check(bk_cloudsync_error_detail(fetch, detail, sizeof detail) == 0,
+                      "a succeeded job reports empty failure detail");
+                check(detail[0] == '\0', "and writes the empty string");
                 bk_cloudsync_release(fetch);
             }
             std::memset(json, 0, sizeof json);
@@ -1032,6 +1042,11 @@ static void sync_handle_contract()
     check(bk_cloudsync_poll(9999) == 5u, "poll of an out-of-range handle reports failed");
     check(bk_cloudsync_outcome(-1) == 3u, "outcome of an invalid handle reports failed");
     check(bk_cloudsync_error(-1)[0] != '\0', "error of an invalid handle is a readable string");
+    unsigned char detail[16];
+    check(bk_cloudsync_error_detail(-1, detail, sizeof detail) == -1,
+          "failure detail of an invalid handle is -1");
+    check(bk_cloudsync_error_detail(9999, detail, sizeof detail) == -1,
+          "failure detail of an out-of-range handle is -1");
     bk_cloudsync_cancel(-1);  // must not crash
     bk_cloudsync_release(-1); // must not crash
     bk_cloudsync_release(9999);
