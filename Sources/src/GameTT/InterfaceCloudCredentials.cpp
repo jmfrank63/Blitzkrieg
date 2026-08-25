@@ -758,9 +758,22 @@ void CInterfaceCloudCredentials::OnRowEdited( int nSlot )
 	pField->szValue = szValue;
 	// Selecting a vendor is not an ordinary edit: it changes which fields
 	// exist, so the form is re-derived - preserving still-applicable typed
-	// values, never a value the new vendor does not offer.
+	// values, never a value the new vendor does not offer. The rebuild
+	// rewrites every visible box, which resets the caret - and this fires
+	// per keystroke, so without restoring it each following character lands
+	// at the front ("Minio" arrives as "oinM"). The provider row survives
+	// its own rebuild at the same slot (row 0, scroll reset), so the caret
+	// goes back where the keystroke left it, the way OnSecretEdited already
+	// does for the masked boxes.
 	if ( pField->nRole == 0 && pField->szName == "provider" )
+	{
+		int nCursor = (int)szValue.size();
+		if ( IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( E_EDIT_BASE + nSlot ) ) )
+			nCursor = pEdit->GetCursor();
 		RebuildForm( true );
+		if ( IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( E_EDIT_BASE + nSlot ) ) )
+			pEdit->SetCursor( nCursor );
+	}
 }
 void CInterfaceCloudCredentials::CycleExample( int nSlot )
 {
