@@ -124,6 +124,69 @@ pub fn savePairingState(
         return error.StateUnwritable;
 }
 
+/// Retire every pairing record that names a remote other than `fingerprint`,
+/// returning how many were removed. This is the machine-local half of "a
+/// changed fingerprint is a new pairing needing confirmation": the
+/// confirmation is the player's deliberate credentials save, and once the
+/// stored connection identity has rotated, a record still naming the old
+/// identity can only refuse with FingerprintChanged forever — no UI owns
+/// any other way out. Removing it routes the next sync through the designed
+/// NotPaired -> pair bootstrap. Records naming the current identity are kept
+/// (saving the same remote is a no-op here), unreadable records are left
+/// alone (they already read as "never paired"), and an empty fingerprint
+/// retires nothing — a degenerate document must never erase the machine's
+/// pairing knowledge wholesale. Failures are swallowed file-wise: a record
+/// that cannot be deleted keeps refusing exactly as it did before this
+/// function existed.
+pub fn retireMismatchedPairings(
+    gpa: Allocator,
+    io: Io,
+    game_dir: []const u8,
+    fingerprint: []const u8,
+) usize {
+    if (fingerprint.len == 0) return 0;
+
+    const state_root = plan.stateRoot(gpa, game_dir) catch return 0;
+    defer gpa.free(state_root);
+    const state_dir_path = path.join(gpa, &.{ state_root, "state" }) catch return 0;
+    defer gpa.free(state_dir_path);
+
+    var dir = Io.Dir.cwd().openDir(io, state_dir_path, .{ .iterate = true }) catch return 0;
+    defer dir.close(io);
+
+    // Collect first, delete after: removing entries out from under a live
+    // directory iterator is platform-defined behaviour.
+    var stale: std.ArrayList([]u8) = .empty;
+    defer {
+        for (stale.items) |name| gpa.free(name);
+        stale.deinit(gpa);
+    }
+    var it = dir.iterate();
+    while (it.next(io) catch null) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, ".json")) continue;
+        const profile = entry.name[0 .. entry.name.len - ".json".len];
+
+        var loaded = loadPairingState(gpa, io, game_dir, profile) orelse continue;
+        const matches = std.mem.eql(u8, loaded.state().remote_fingerprint, fingerprint);
+        loaded.deinit();
+        if (matches) continue;
+
+        const owned = gpa.dupe(u8, entry.name) catch continue;
+        stale.append(gpa, owned) catch {
+            gpa.free(owned);
+            continue;
+        };
+    }
+
+    var retired: usize = 0;
+    for (stale.items) |name| {
+        dir.deleteFile(io, name) catch continue;
+        retired += 1;
+    }
+    return retired;
+}
+
 /// Everything one pairing or sync run needs to know. The caller gathers it —
 /// discovery, credentials and the short link are other packets' property —
 /// and the engine owns doing it in the right order.

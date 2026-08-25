@@ -168,6 +168,51 @@ test "a paired profile refuses to pair again" {
     try std.testing.expectError(error.FingerprintChanged, eng.syncOnce(ctx));
 }
 
+test "a rotated identity retires only the pairings naming the old remote" {
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    try engine.savePairingState(gpa, io, game_dir, "hero", .{
+        .paired = true,
+        .last_success_unix = 1,
+        .remote_fingerprint = "fp-old",
+    });
+    try engine.savePairingState(gpa, io, game_dir, "ally", .{
+        .paired = true,
+        .last_success_unix = 2,
+        .remote_fingerprint = "fp-new",
+    });
+
+    // An empty fingerprint retires nothing: a degenerate document must
+    // never mass-delete the machine's pairing knowledge.
+    try std.testing.expectEqual(@as(usize, 0), engine.retireMismatchedPairings(gpa, io, game_dir, ""));
+    {
+        var still = engine.loadPairingState(gpa, io, game_dir, "hero") orelse return error.TestUnexpectedResult;
+        still.deinit();
+    }
+
+    // The rotation: records naming the old identity go, the current one
+    // stays, and the retired profile reads as never paired - which is what
+    // routes the next sync through the designed NotPaired -> pair bootstrap.
+    try std.testing.expectEqual(@as(usize, 1), engine.retireMismatchedPairings(gpa, io, game_dir, "fp-new"));
+    try std.testing.expect(engine.loadPairingState(gpa, io, game_dir, "hero") == null);
+    var kept = engine.loadPairingState(gpa, io, game_dir, "ally").?;
+    defer kept.deinit();
+    try std.testing.expectEqualStrings("fp-new", kept.state().remote_fingerprint);
+
+    // Idempotent: nothing left to retire.
+    try std.testing.expectEqual(@as(usize, 0), engine.retireMismatchedPairings(gpa, io, game_dir, "fp-new"));
+
+    // A game dir with no state directory at all is the fresh-install case.
+    const empty_dir = try fixture.makeDir("empty");
+    defer gpa.free(empty_dir);
+    try std.testing.expectEqual(@as(usize, 0), engine.retireMismatchedPairings(gpa, io, empty_dir, "fp-new"));
+}
+
 test "syncOnce refuses an unpaired profile" {
     const gpa = std.testing.allocator;
 

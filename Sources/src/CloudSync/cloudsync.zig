@@ -72,6 +72,7 @@ const backup = @import("backup.zig");
 const catalogue = @import("catalogue.zig");
 const creds = @import("creds.zig");
 const daemon = @import("daemon.zig");
+const engine = @import("engine.zig");
 const form = @import("form.zig");
 const worker = @import("worker.zig");
 
@@ -477,6 +478,21 @@ pub export fn bk_cloudsync_creds_save(json: [*:0]const u8) callconv(.c) i32 {
         setError("cloud sync: the credentials file could not be written");
         return -1;
     };
+
+    // The save is the player's confirmation of the new remote: pairing
+    // records still naming a different identity could only refuse with
+    // FingerprintChanged forever (no UI owns any other way out), so they
+    // are retired here and the next sync takes the NotPaired -> pair
+    // bootstrap. The fingerprint is read back from the saved document —
+    // `save` may have just derived it — and the state root follows the
+    // same working-directory convention as `creds.default_path` and the
+    // facade's fixed `game_dir` of ".". Still under the document lock, so
+    // the compared identity is the one just written.
+    if (creds.load(module_gpa, credsIo(), creds.default_path) catch null) |loaded| {
+        var saved = loaded;
+        defer saved.deinit();
+        _ = engine.retireMismatchedPairings(module_gpa, credsIo(), ".", saved.creds.fingerprint);
+    }
 
     // The saved path becomes the first discovery source, and the cache is
     // replaced through the locking contract — never reached into — so the
