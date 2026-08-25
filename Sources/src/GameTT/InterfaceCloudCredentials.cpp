@@ -502,6 +502,24 @@ void CInterfaceCloudCredentials::RebuildForm( bool bPreserveTyped )
 		const char *pszProvider = szProvider.c_str();
 		if ( !ReadSizedDocument( [pszBackend, pszProvider]( char *psz, unsigned int nCap ) { return NCloudSync::CatalogueForm( pszBackend, pszProvider, psz, nCap ); }, &szFormDoc ) )
 		{
+			// A populated catalogue that simply lacks this backend - the
+			// stored one, after the bundled rclone was swapped for an older
+			// build - must not collapse into the missing-catalogue state:
+			// there the chooser becomes the retry, the retry re-derives this
+			// same form, and the player is trapped with no way to step to a
+			// backend that exists. Keep the chooser alive over an empty row
+			// set instead; an empty form refuses to save by the existing
+			// blank-form rule, so the stored document cannot be overwritten
+			// from here, and one chooser press reaches a real backend.
+			if ( bCatalogueReady && !destinations.empty() )
+			{
+				fields.clear();
+				visibleRows.clear();
+				nScroll = 0;
+				LayoutRows();
+				SetStatus( 0, WideFromUtf8( NCloudSync::LastError() ) );
+				return;
+			}
 			ShowCatalogueMissing( WideFromUtf8( NCloudSync::LastError() ) );
 			return;
 		}
