@@ -1,6 +1,25 @@
 # Next Packet
 
-Resume at `phase-04-acceptance/P04-M02-oauth-and-forward.md`.
+**The plan is machine-complete.** What remains needs a human:
+
+- **P04-M01 approval** — review/play, then record approval in
+  `evidence/cloud-sync/p04-m01-backends.md`.
+- **P04-M02 OAuth + approval** — one real Drive/Dropbox/OneDrive run from
+  consent to a synced save and across a restart; the step-by-step
+  procedure and the place to record it are in
+  `evidence/cloud-sync/p04-m02-oauth-forward.md`. The
+  forward-compatibility half is done and in that file (checkpoint in the
+  phase-04 manifest); the literal fetch of a truly new upstream backend
+  is substituted with a synthetic catalogue entry because v1.75→v1.76-beta
+  adds no backend — re-run that leg when upstream ships one.
+
+Three acceptance findings were fixed with owner approval along the way:
+the provider-field caret survives the per-keystroke rebuild
+(`1a21f382b`), a credentials save that rotates the connection identity
+retires stale pairing records so a service switch re-pairs instead of
+dead-ending in FingerprintChanged (`129dcc166`, engine suite 20), and a
+stored backend missing from an older rclone's catalogue leaves the
+chooser alive instead of trapping the dialog (`3a07ec9ad`).
 
 **P04-M01 is machine-complete, human approval pending.** Three static
 services (MinIO s3, `rclone serve webdav`, `rclone serve sftp`) were

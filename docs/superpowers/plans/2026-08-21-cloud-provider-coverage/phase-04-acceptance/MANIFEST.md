@@ -24,6 +24,25 @@ bytes of the 241 budget. Evidence with captures in
 `evidence/cloud-sync/p04-m01-backends.md` + `p04-m01/`. **Human approval
 pending** — recorded in the evidence when given.
 
+P04-M02 macOS checkpoint (forward-compatibility half): rclone
+v1.76.0-beta staged over the bundled v1.75.0 with the game untouched —
+the catalogue cache refetched on the version change in both directions
+(stamp v1.75.0 ↔ v1.76.0, never stale), the beta's re-regioned MEGA S4
+endpoint examples reached the endpoint example-cycle on screen, and a
+synthetic `bkfuture` backend appended to the served catalogue was
+offered, rendered and saved through the generic form — no backend
+allowlist exists (the destination filter is a wrapper deny-list). The
+downgrade leg: with `bkfuture` configured and v1.75.0 restored, the
+credentials survive intact, the dialog opens explained and escapable
+(fix `3a07ec9ad`, found by this packet: the old behaviour trapped the
+chooser in the missing-catalogue retry), and the startup sync fails
+classified. No current upstream release adds a real backend (v1.75→beta
+adds none of the 69), so the literal new-backend fetch is the one
+substitution — re-run when upstream ships one. **OAuth and human
+approval pending**: needs a real Drive/Dropbox/OneDrive account and a
+human at the consent screen; the procedure is in
+`evidence/cloud-sync/p04-m02-oauth-forward.md`.
+
 Findings the packet text does not carry:
 
 - **Typing into `provider` scrambles**: the per-keystroke TEXT_CHANGED
