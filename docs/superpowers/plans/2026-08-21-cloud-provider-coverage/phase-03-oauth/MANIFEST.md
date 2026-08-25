@@ -32,6 +32,43 @@ cancel path at the consent screen, a daemon log scanned clean of tokens,
 secrets and codes, and headless captures of the question takeover and
 the waiting state. Commit `31df1d7da`.
 
+P03-M03 macOS checkpoint: tokens persist and refresh. Creds 19/19
+(failing-first on `applyReadBack`), worker 12/12 — the canned-server test
+covers read-back after a failed job, the password untouched
+byte-for-byte, the catalogue-cache-deleted classification fallback, and
+the teardown sequencing (a second `config/get` answers a newer token
+that must be on disk after `destroy`); a live test drives a revoked
+refresh token to `auth_failed` with the token absent from the error text
+and `rcd.log`. The consent harness shows the survival end to end: run B
+now asks `config_refresh_token` instead of demanding a second consent,
+and `rclone.conf` still holds the token after the next job's apply — the
+P03-M02 wipe finding closed. All suites green, both cross-targets
+compile, `install-game` builds. Commit `36472b80e`. **Phase 03 exit
+depends on a live sync over an OAuth remote, which needs a real account
+— phase 04 acceptance owns that.**
+
+Findings the packet text does not carry (P03-M03):
+
+- **The wipe is closed by round trip, not by prevention**: the next
+  job's `config/create` still replaces the section, but the document now
+  carries the token and re-supplies it as a parameter — which is why the
+  machine's next question is `config_refresh_token`, a state the opaque
+  driver had never seen and carried without change.
+- **A new field the catalogue calls IsPassword is never imported**:
+  rclone returns it obscured and the plaintext was never ours — the
+  packet's double-obscure warning applied one step further than its
+  bullet states.
+- Read-back runs after failed jobs too: the refresh happens before the
+  operation that then failed, and the deferred call in `execute` covers
+  every exit path.
+- The classifier gains `couldn't fetch token` and `invalid_grant`
+  (captured live from a revoked-grant refresh); `engine_test.zig` is
+  outside this packet's allowlist, so the patterns are exercised by the
+  live worker test instead of the classification fixture table.
+- `daemon.zig` and `build.zig` turned out untouched: the teardown
+  read-back sequences inside `runWorker` before the deferred session
+  deinit, and the existing worker suite carries the new tests.
+
 Findings the packet text does not carry (P03-M02):
 
 - **The dance dies with its request's connection** (measured): rclone
