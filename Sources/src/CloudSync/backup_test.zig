@@ -427,6 +427,42 @@ test "apply with nothing staged sweeps debris and reports it cheaply" {
     try std.testing.expectError(error.FileNotFound, std.Io.Dir.cwd().statFile(io, stage, .{}));
 }
 
+test "stage metadata survives quoted and backslashed entry ids" {
+    const gpa = std.testing.allocator;
+
+    // The listing deliberately admits foreign depth-two .cfg names, so an
+    // entry id can carry a quote or a backslash. The metadata writer must
+    // escape - a raw splice produced invalid JSON, and the committed
+    // stage was then rejected as corrupt after a successful download.
+    const wicked = "HostA/quoted\"name\\back.cfg";
+    const meta = try backup.stageMetaJson(
+        gpa,
+        .merge_keep_local_gfx,
+        wicked,
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "20260825T010000Z-abcd1234",
+        1_756_000_000,
+    );
+    defer gpa.free(meta);
+
+    const parsed = try std.json.parseFromSlice(
+        struct {
+            mode: []const u8,
+            entry_id: []const u8,
+            sha256: []const u8,
+            nonce: []const u8,
+            created_unix: i64,
+        },
+        gpa,
+        meta,
+        .{},
+    );
+    defer parsed.deinit();
+    try std.testing.expectEqualStrings(wicked, parsed.value.entry_id);
+    try std.testing.expectEqualStrings("merge_keep_local_gfx", parsed.value.mode);
+    try std.testing.expectEqual(@as(i64, 1_756_000_000), parsed.value.created_unix);
+}
+
 test "a staged merge applies, snapshots once, and tears down in order" {
     const gpa = std.testing.allocator;
 

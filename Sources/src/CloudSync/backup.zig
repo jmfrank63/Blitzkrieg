@@ -379,12 +379,7 @@ fn commitAndPublish(
     const hex = std.fmt.bufPrint(&hex_buffer, "{x}", .{&digest}) catch unreachable;
 
     const created = Io.Clock.now(.real, io).toSeconds();
-    const meta = try std.fmt.allocPrint(
-        gpa,
-        "{{\"mode\":\"{s}\",\"entry_id\":\"{s}\",\"sha256\":\"{s}\"," ++
-            "\"nonce\":\"{s}\",\"created_unix\":{d}}}",
-        .{ @tagName(mode), entry_id, hex, nonce, created },
-    );
+    const meta = try stageMetaJson(gpa, mode, entry_id, hex, nonce, created);
     defer gpa.free(meta);
     const meta_path = try std.Io.Dir.path.join(gpa, &.{ stage, meta_name });
     defer gpa.free(meta_path);
@@ -397,6 +392,39 @@ fn commitAndPublish(
         return error.StageUnwritable;
 
     publishPointer(gpa, io, root, active_name, nonce) catch return error.StageUnwritable;
+}
+
+/// The stage's `meta.json`, through the JSON serializer — never a format
+/// template: the entry id is a remote path the listing deliberately admits
+/// foreign names into, and a quote or backslash spliced raw would produce
+/// metadata the apply step rejects as corrupt after a successful download.
+pub fn stageMetaJson(
+    gpa: Allocator,
+    mode: RestoreMode,
+    entry_id: []const u8,
+    sha256_hex: []const u8,
+    nonce: []const u8,
+    created_unix: i64,
+) Allocator.Error![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    var json: std.json.Stringify = .{ .writer = &out.writer };
+    meta: {
+        json.beginObject() catch break :meta;
+        json.objectField("mode") catch break :meta;
+        json.write(@tagName(mode)) catch break :meta;
+        json.objectField("entry_id") catch break :meta;
+        json.write(entry_id) catch break :meta;
+        json.objectField("sha256") catch break :meta;
+        json.write(sha256_hex) catch break :meta;
+        json.objectField("nonce") catch break :meta;
+        json.write(nonce) catch break :meta;
+        json.objectField("created_unix") catch break :meta;
+        json.write(created_unix) catch break :meta;
+        json.endObject() catch break :meta;
+        return out.toOwnedSlice();
+    }
+    return error.OutOfMemory;
 }
 
 fn publishPointer(
