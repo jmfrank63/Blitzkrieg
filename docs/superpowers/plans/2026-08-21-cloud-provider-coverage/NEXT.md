@@ -8,12 +8,15 @@ configured entirely through the generic form in the shipped release game
 (headless BK_AUTO_UI) and each passed the full phase-02 cycle through the
 game's own startup sync; session names 82/73/81 of 241 bytes. Evidence and
 captures: `evidence/cloud-sync/p04-m01-backends.md` + `p04-m01/`. The
-phase-04 manifest carries three findings — provider typing scrambles (use
-the example-cycle button; fix = defer rebuild to focus loss), no UI owns
-the `FingerprintChanged` re-pair confirmation (evidence cleared
-`cloudsync/state/<profile>.json` by hand), and the P02 "text= cannot carry
-URLs" note is stale. The human-approval checkbox in P04-M01 stays open
-until someone records approval in the evidence file.
+phase-04 manifest carried three findings; two are since **fixed with owner
+approval**: the provider-field caret now survives the per-keystroke rebuild
+(`1a21f382b`, typed vendors land intact) and a credentials save that
+rotates the connection identity retires stale pairing records
+(`129dcc166`, engine suite 20) so a service switch flows into the designed
+NotPaired → pair bootstrap instead of a FingerprintChanged dead end. The
+third — the P02 "text= cannot carry URLs" note — was documentation, already
+corrected. The human-approval checkbox in P04-M01 stays open until someone
+records approval in the evidence file.
 
 ## Where implementation stands
 

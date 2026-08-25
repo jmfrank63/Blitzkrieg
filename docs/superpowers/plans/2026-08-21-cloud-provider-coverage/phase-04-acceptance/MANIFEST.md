@@ -29,14 +29,28 @@ Findings the packet text does not carry:
 - **Typing into `provider` scrambles**: the per-keystroke TEXT_CHANGED
   rebuild resets the edit cursor, so typed vendors arrive reversed
   ("Minio" → "oinM") and reshape the form mid-entry. The example-cycle
-  button is the safe path (used here); a fix belongs to a dialog-owning
-  packet (defer the rebuild to focus loss).
+  button is the safe path (used here). **Fixed in `1a21f382b`** (owner
+  approved going outside the packet allowlist): the caret is captured
+  before the rebuild and restored into the same slot after, the pattern
+  OnSecretEdited already used; re-verified headlessly — "Minio" typed
+  through `text=` lands intact and the form filters under it.
 - **No UI owns the changed-fingerprint confirmation.** Switching backends
   correctly refuses the next sync with `FingerprintChanged`, but the
   facade's transparent pair fallback fires only on `NotPaired` and no
   screen offers "pair anew" — the evidence cleared the machine-local
-  `cloudsync/state/<profile>.json` by hand. A player switching services
-  today is stuck at a failed sync until something owns that flow.
+  `cloudsync/state/<profile>.json` by hand. **Fixed in `129dcc166`**
+  (owner approved): the deliberate credentials save is the confirmation —
+  after a successful save, `engine.retireMismatchedPairings` removes every
+  pairing record naming a remote other than the saved document's
+  fingerprint, and the next sync takes the designed NotPaired → pair
+  bootstrap. The engine's gate is unchanged and still guards rotations
+  arriving without a save (hand-edited documents). Failing-test-first in
+  `engine_test.zig` (engine suite now 20); verified live s3 → webdav
+  through the dialog with no manual state surgery. One recorded residue:
+  a save landing while a sync is mid-run can have its retirement
+  overwritten by that run's success record — narrow (dialog save during
+  an active sync), self-healing on the following save, noted rather than
+  bought with worker-level sequencing.
 - **The P02 manifest's `text=`-cannot-carry-URLs note is stale**: the
   schedule splits an entry at its first colon only, so full
   `http://host:port` values type fine; commas remain the separator
