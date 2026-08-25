@@ -197,6 +197,14 @@ pub const Worker = struct {
     /// next success, freed on destroy.
     error_detail: ?[]u8 = null,
 
+    /// The raw bytes of `cloud.credentials` as the current job applied
+    /// them, gpa-owned. The read-back compares against this before
+    /// touching the file: the dialog may save new credentials while a job
+    /// runs, and folding the *previous* configuration's section into the
+    /// *new* document would restore an old account's token over the one
+    /// the player just chose. Null when the job found no document.
+    applied_creds_raw: ?[]u8 = null,
+
     /// The config machine's mailboxes, mutex-guarded. While a
     /// `.config_create` job waits on a human, the pending question sits in
     /// `config_question` (the form's wire JSON plus an `error` key) with
@@ -246,6 +254,7 @@ pub const Worker = struct {
         if (self.error_detail) |owned| self.gpa.free(owned);
         if (self.config_question) |owned| self.gpa.free(owned);
         if (self.config_answer) |owned| self.gpa.free(owned);
+        if (self.applied_creds_raw) |owned| self.gpa.free(owned);
         self.gpa.free(self.game_dir);
         const gpa = self.gpa;
         self.* = undefined;
@@ -668,9 +677,12 @@ pub const Worker = struct {
 
         var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse {
             eng.setSecretRedactions(&.{}, &.{}) catch {};
+            self.rememberAppliedCreds(null);
             return true;
         };
         defer loaded.deinit();
+        // What this job applied, byte-for-byte: the read-back's baseline.
+        self.rememberAppliedCreds(creds_path);
 
         var names: std.ArrayList([]const u8) = .empty;
         defer names.deinit(self.gpa);
@@ -1055,12 +1067,41 @@ pub const Worker = struct {
     /// cache, `applyReadBack`'s safe default stands. Best-effort
     /// throughout: a failed read-back must not fail the job it follows,
     /// and the next one asks again.
+    /// The raw document bytes, or null when unreadable or absent.
+    fn readCredsRaw(self: *Worker, creds_path: []const u8) ?[]u8 {
+        return Io.Dir.cwd().readFileAlloc(
+            self.io,
+            creds_path,
+            self.gpa,
+            .limited(creds.max_document_bytes),
+        ) catch null;
+    }
+
+    /// Snapshot what a job applied (null clears). The read-back refuses to
+    /// touch a document that no longer matches: the dialog saved while the
+    /// job ran, and the player's save wins.
+    fn rememberAppliedCreds(self: *Worker, creds_path: ?[]const u8) void {
+        if (self.applied_creds_raw) |owned| self.gpa.free(owned);
+        self.applied_creds_raw = if (creds_path) |at| self.readCredsRaw(at) else null;
+    }
+
     fn readBackConfig(self: *Worker, session: *Session) void {
         if (session.client == null) return;
         const client = &session.client.?;
 
         const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch return;
         defer self.gpa.free(creds_path);
+
+        // The dialog may have saved new credentials while the job ran; the
+        // daemon's section then describes the *previous* document, and
+        // merging it would restore an old account's token over the one
+        // the player just chose. The player's save wins; the next job
+        // applies it and reads back against it.
+        const applied = self.applied_creds_raw orelse return;
+        const current = self.readCredsRaw(creds_path) orelse return;
+        defer self.gpa.free(current);
+        if (!std.mem.eql(u8, current, applied)) return;
+
         var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return;
         defer loaded.deinit();
 
@@ -1074,6 +1115,13 @@ pub const Worker = struct {
             else => return,
         };
 
+        // The section must be this document's backend. A leftover from a
+        // provider switch carries another backend's fields — nothing in it
+        // is ours to import.
+        const section_type = section.get("type") orelse return;
+        if (section_type != .string) return;
+        if (!std.mem.eql(u8, section_type.string, loaded.creds.backend)) return;
+
         var cat = catalogue.loadCached(self.gpa, self.io, self.game_dir) catch return;
         defer cat.deinit();
         const ctx: ClassifyContext = .{ .cat = &cat, .backend = loaded.creds.backend };
@@ -1086,6 +1134,9 @@ pub const Worker = struct {
         // The same atomic temp-then-rename the credentials file always
         // uses: a token half-written is an unusable credential.
         creds.save(self.gpa, self.io, creds_path, loaded.creds) catch return;
+        // Our own save is the applied document plus the merge: the
+        // teardown read-back must still recognise it as unchanged.
+        self.rememberAppliedCreds(creds_path);
     }
 
     /// Best-effort `config/oauthstop`: an abandoned dance settles its job

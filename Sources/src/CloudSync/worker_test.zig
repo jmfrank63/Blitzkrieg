@@ -1045,3 +1045,142 @@ test "an unrefreshable token reports auth_failed and stays out of logs and error
     try std.testing.expect(std.mem.indexOf(u8, log_text, "expired-token-value") == null);
     try std.testing.expect(std.mem.indexOf(u8, log_text, "dead-refresh-value") == null);
 }
+
+test "a save during the job wins over the read-back" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+
+    // A config job parks on a question — the deterministic moment a
+    // player can save new credentials while the job is in flight. The
+    // read-back must then step aside: merging the old session's section
+    // over the new document would restore the old account's token over
+    // the one the player just chose.
+    const players_new_doc =
+        \\{"backend":"drive","remote_root":"","fingerprint":"drive:#new",
+        \\"options":{"token":"PLAYERS-NEW-TOKEN"},
+        \\"secret_options":["token"],"password_options":[],
+        \\"rclone_path":null}
+    ;
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{\"jobid\":1}"), // async opener
+        ok200(
+            \\{"finished":true,"success":true,"error":"","output":{"State":"s1","Option":{"Name":"q1","Type":"string"},"Error":"","Result":""}}
+        ),
+        ok200("{\"jobid\":2}"), // async continuation
+        ok200(
+            \\{"finished":true,"success":true,"error":"","output":{"State":"","Option":null,"Error":"","Result":""}}
+        ),
+        httpReply("HTTP/1.1 500 Internal Server Error",
+            \\{"error":"couldn't list files: 401 Unauthorized","status":500}
+        ), // completion's connection test
+        ok200(
+            \\{"type":"drive","token":"STOLEN-MERGE"}
+        ), // config/get — must never be consumed
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+
+    try w.begin(.{ .kind = .config_create });
+
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 25) {
+        if (w.poll().state == .awaiting_input) break;
+        sleepMs(tio, 25);
+    }
+    try std.testing.expectEqual(worker.State.awaiting_input, w.poll().state);
+
+    // The player saves while the machine waits.
+    try fixture.write(creds_at, players_new_doc);
+    try std.testing.expect(w.answerConfig("x"));
+
+    waited = 0;
+    while (waited < 10_000) : (waited += 25) {
+        const snap = w.poll();
+        if (snap.state == .failed or snap.state == .done) break;
+        sleepMs(tio, 25);
+    }
+
+    // Give the deferred read-back its moment, then the teardown one too.
+    sleepMs(tio, 300);
+    w.destroy();
+
+    var doc = try readDoc(gpa, game_dir);
+    defer doc.deinit();
+    try std.testing.expectEqualStrings("PLAYERS-NEW-TOKEN", doc.creds.option("token").?.value);
+    try std.testing.expectEqualStrings("drive:#new", doc.creds.fingerprint);
+}
+
+test "a section of the wrong backend is never merged" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+
+    // The daemon still holds a previous backend's section — a provider
+    // switch mid-session. Its fields belong to that backend and must not
+    // be imported into this document.
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{}"), // operations/list
+        ok200("{}"), // probe copy up
+        ok200("{}"), // probe copy down
+        ok200("{}"), // probe delete
+        ok200(
+            \\{"type":"s3","token":"WRONG-BACKEND","secret_access_key":"LEFTOVER"}
+        ), // config/get after the job: not our backend
+        ok200(
+            \\{"type":"s3","token":"WRONG-BACKEND","secret_access_key":"LEFTOVER"}
+        ), // and at teardown
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+
+    try w.begin(.{ .kind = .test_connection, .remote = creds.sync_remote_name });
+
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 25) {
+        const snap = w.poll();
+        if (snap.state == .failed or snap.state == .done) break;
+        sleepMs(tio, 25);
+    }
+    sleepMs(tio, 300);
+    w.destroy();
+
+    var doc = try readDoc(gpa, game_dir);
+    defer doc.deinit();
+    try std.testing.expectEqualStrings("OLD-TOKEN", doc.creds.option("token").?.value);
+    try std.testing.expect(doc.creds.option("secret_access_key") == null);
+}
