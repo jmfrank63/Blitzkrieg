@@ -16,6 +16,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const worker = @import("worker.zig");
 const catalogue = @import("catalogue.zig");
+const creds = @import("creds.zig");
 const engine = @import("engine.zig");
 const daemon = @import("daemon.zig");
 const rc = @import("rc.zig");
@@ -857,4 +858,190 @@ test "a catalogue fetch is cancellable like any other job" {
 
     // The worker took the cancellation, not a wound: the next job is accepted.
     try std.testing.expectEqual(worker.CatalogueState.fetching, try w.ensureCatalogue(v1_75_0));
+}
+
+// -- Token read-back ----------------------------------------------------------
+
+fn ok200(comptime json_body: []const u8) []const u8 {
+    return httpReply("HTTP/1.1 200 OK", json_body);
+}
+
+const readback_seed_doc =
+    \\{"backend":"drive","remote_root":"","fingerprint":"drive:#seed",
+    \\"options":{"pass":"hunter2","token":"OLD-TOKEN"},
+    \\"secret_options":["pass","token"],"password_options":["pass"],
+    \\"rclone_path":null}
+;
+
+fn readDoc(gpa: std.mem.Allocator, game_dir: []const u8) !creds.Loaded {
+    const at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(at);
+    return (try creds.load(gpa, io, at)).?;
+}
+
+test "a refreshed token is read back after the job and once more at teardown" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+    // No catalogue cache on purpose: the packet's cache-deleted case —
+    // classification falls back to secret-never-password.
+
+    // In request order: applyCredentials (two creates), the connection
+    // test (list, probe up, probe down, probe delete — the stub cannot
+    // host the probe's local read-back, so the job itself settles
+    // unwritable, which is irrelevant here: read-back runs after failed
+    // jobs too, because the refresh precedes the failure), then
+    // config/get after the job and once more at teardown.
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{}"), // operations/list
+        ok200("{}"), // probe copy up
+        ok200("{}"), // probe copy down
+        ok200("{}"), // probe delete
+        ok200(
+            \\{"type":"drive","pass":"OBSCURED-BY-RCLONE","token":"NEW-TOKEN","team_drive":"td-1"}
+        ), // config/get after the job
+        ok200(
+            \\{"type":"drive","pass":"OBSCURED-BY-RCLONE","token":"NEWER-TOKEN-2","team_drive":"td-1"}
+        ), // config/get at teardown
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+
+    try w.begin(.{ .kind = .test_connection, .remote = creds.sync_remote_name });
+
+    // The read-back lands after the snapshot settles; poll the file.
+    var updated = false;
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 50) {
+        var doc = readDoc(gpa, game_dir) catch {
+            sleepMs(tio, 50);
+            continue;
+        };
+        defer doc.deinit();
+        if (std.mem.eql(u8, doc.creds.option("token").?.value, "NEW-TOKEN")) {
+            updated = true;
+            // The password survives byte-for-byte with its flags — rclone
+            // returned it obscured, and the obscured form must never
+            // replace the plaintext.
+            const pass = doc.creds.option("pass").?;
+            try std.testing.expectEqualStrings("hunter2", pass.value);
+            try std.testing.expect(pass.is_password and pass.secret);
+            // The machine-written field arrived, secret by the safe
+            // default — there is no catalogue cache to say otherwise.
+            const imported = doc.creds.option("team_drive").?;
+            try std.testing.expectEqualStrings("td-1", imported.value);
+            try std.testing.expect(imported.secret and !imported.is_password);
+            // Secrets are outside the identity: no rotation.
+            try std.testing.expectEqualStrings("drive:#seed", doc.creds.fingerprint);
+            break;
+        }
+        sleepMs(tio, 50);
+    }
+    try std.testing.expect(updated);
+
+    // destroy tears the session down — and the last read-back must run
+    // before the client goes, or a token refreshed during the final job
+    // is lost. The teardown config/get answers a newer token still.
+    w.destroy();
+    var final = try readDoc(gpa, game_dir);
+    defer final.deinit();
+    try std.testing.expectEqualStrings("NEWER-TOKEN-2", final.creds.option("token").?.value);
+    try std.testing.expectEqualStrings("hunter2", final.creds.option("pass").?.value);
+}
+
+test "an unrefreshable token reports auth_failed and stays out of logs and error text" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+
+    // A token provider that refuses every refresh the way a revoked
+    // grant does — the captured invalid_grant shape.
+    const refused = httpReply(
+        "HTTP/1.1 400 Bad Request",
+        "{\"error\":\"invalid_grant\",\"error_description\":\"Token has been revoked.\"}",
+    );
+    const deny = [_][]const u8{ refused, refused, refused, refused };
+    var provider: CannedServer = undefined;
+    try provider.start(tio, &deny);
+    defer provider.stop();
+
+    const doc = try std.fmt.allocPrint(gpa,
+        \\{{"backend":"drive","remote_root":"","fingerprint":"drive:#x",
+        \\"options":{{"client_id":"fake-id","client_secret":"fake-secret",
+        \\"token_url":"http://127.0.0.1:{d}/token",
+        \\"token":"{{\"access_token\":\"expired-token-value\",\"token_type\":\"Bearer\",\"refresh_token\":\"dead-refresh-value\",\"expiry\":\"2020-01-01T00:00:00Z\"}}"}},
+        \\"secret_options":["client_secret","token"],"password_options":[],
+        \\"rclone_path":null}}
+    , .{provider.port});
+    defer gpa.free(doc);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, doc);
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = d.endpoint(),
+    });
+    defer w.destroy();
+
+    try w.begin(.{ .kind = .test_connection, .remote = creds.sync_remote_name });
+    var settled: ?worker.Snapshot = null;
+    var waited: u32 = 0;
+    while (waited < 30_000) : (waited += 50) {
+        const snap = w.poll();
+        if (snap.state == .failed or snap.state == .done) {
+            settled = snap;
+            break;
+        }
+        sleepMs(tio, 50);
+    }
+    try std.testing.expect(settled != null);
+
+    // The unrefreshable token is an authentication failure — the outcome
+    // that routes the player to the credentials dialog — and neither the
+    // token nor the refresh secret appears in the text.
+    const text = settled.?.errorText();
+    try std.testing.expect(std.mem.startsWith(u8, text, "auth_failed"));
+    try std.testing.expect(std.mem.indexOf(u8, text, "expired-token-value") == null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "dead-refresh-value") == null);
+
+    // Nor the daemon's own log: the token lives in cloud.credentials and
+    // rclone's config, nowhere else.
+    const log_at = try path.join(gpa, &.{ game_dir, "cloudsync", "rcd.log" });
+    defer gpa.free(log_at);
+    const log_text = std.Io.Dir.cwd().readFileAlloc(io, log_at, gpa, .limited(1 << 20)) catch
+        try gpa.dupe(u8, "");
+    defer gpa.free(log_text);
+    try std.testing.expect(std.mem.indexOf(u8, log_text, "expired-token-value") == null);
+    try std.testing.expect(std.mem.indexOf(u8, log_text, "dead-refresh-value") == null);
 }

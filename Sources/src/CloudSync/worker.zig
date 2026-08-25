@@ -379,6 +379,12 @@ pub const Worker = struct {
             defer freeJob(self.gpa, box);
             self.execute(&session, box);
         }
+
+        // The last chance to ask: the deferred teardown destroys the rc
+        // client, and a token rclone refreshed during the final job is
+        // lost unless it is read back while there is still someone to
+        // answer.
+        self.readBackConfig(&session);
     }
 
     fn takePending(self: *Worker) ?*JobBox {
@@ -457,6 +463,11 @@ pub const Worker = struct {
         // BINARY is still the session's: an rclone_path change takes effect
         // on the next daemon, not mid-session.)
         if (!self.applyCredentials(session)) return;
+
+        // And read back after every session job, failed ones included: the
+        // token refresh happens before the operation that then failed, and
+        // a refreshed token never read back is lost with the daemon.
+        defer self.readBackConfig(session);
 
         self.publishState(switch (box.kind) {
             .pair => .pairing,
@@ -1021,6 +1032,60 @@ pub const Worker = struct {
         defer reply.deinit();
         const url = oauth.pendingAuthUrl(reply.value) orelse return null;
         return oauth.consentJson(self.gpa, url) catch null;
+    }
+
+    const ClassifyContext = struct {
+        cat: *const catalogue.Catalogue,
+        backend: []const u8,
+    };
+
+    fn classifyFromCatalogue(context: ?*const anyopaque, name: []const u8) ?creds.ReadBackFlags {
+        const ctx: *const ClassifyContext = @alignCast(@ptrCast(context orelse return null));
+        const backend = ctx.cat.backend(ctx.backend) orelse return null;
+        const option = backend.option(name) orelse return null;
+        return .{ .secret = option.isSecret(), .is_password = option.is_password };
+    }
+
+    /// Fold rclone's stored section back into `cloud.credentials` — the
+    /// refreshed OAuth token above all: rclone refreshes into *its*
+    /// config, and a token never read back is lost when the daemon exits.
+    /// Runs after every session job, success or failure alike, and once
+    /// more at teardown while the client still exists to ask. The cached
+    /// catalogue classifies fields the document has never seen; with no
+    /// cache, `applyReadBack`'s safe default stands. Best-effort
+    /// throughout: a failed read-back must not fail the job it follows,
+    /// and the next one asks again.
+    fn readBackConfig(self: *Worker, session: *Session) void {
+        if (session.client == null) return;
+        const client = &session.client.?;
+
+        const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch return;
+        defer self.gpa.free(creds_path);
+        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return;
+        defer loaded.deinit();
+
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        object.put(self.gpa, "name", .{ .string = creds.backend_remote_name }) catch return;
+        var reply = client.call("config/get", .{ .object = object }) catch return;
+        defer reply.deinit();
+        const section = switch (reply.value) {
+            .object => |o| o,
+            else => return,
+        };
+
+        var cat = catalogue.loadCached(self.gpa, self.io, self.game_dir) catch return;
+        defer cat.deinit();
+        const ctx: ClassifyContext = .{ .cat = &cat, .backend = loaded.creds.backend };
+
+        const changed = creds.applyReadBack(&loaded, section, .{
+            .context = @ptrCast(&ctx),
+            .lookup = classifyFromCatalogue,
+        }) catch return;
+        if (!changed) return;
+        // The same atomic temp-then-rename the credentials file always
+        // uses: a token half-written is an unusable credential.
+        creds.save(self.gpa, self.io, creds_path, loaded.creds) catch return;
     }
 
     /// Best-effort `config/oauthstop`: an abandoned dance settles its job

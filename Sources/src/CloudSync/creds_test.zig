@@ -659,3 +659,90 @@ test "clear_secret removes every secret and a merge cannot resurrect them" {
     creds.mergeOmittedSecret(&incoming.creds, reloaded.creds);
     try std.testing.expect(!incoming.creds.hasSecret());
 }
+
+test "read-back updates tokens, never passwords, and imports new fields as secrets" {
+    const gpa = std.testing.allocator;
+
+    // A document holding both shapes the packet warns about: a password
+    // (IsPassword - rclone returns it OBSCURED, and writing that back
+    // would double-obscure on the next apply) and a token (Sensitive but
+    // not IsPassword - returned as stored, exactly what read-back is for).
+    var loaded = (try creds.parse(gpa,
+        \\{"backend":"drive","remote_root":"","fingerprint":"drive:#abc",
+        \\"options":{"client_id":"cid","pass":"hunter2","token":"{\"access_token\":\"old\"}"},
+        \\"secret_options":["pass","token"],
+        \\"password_options":["pass"],
+        \\"rclone_path":null}
+    )).?;
+    defer loaded.deinit();
+
+    // What config/get answers after a refresh: the token moved, the
+    // password comes back obscured, `type` is the section's backend line,
+    // and the machine wrote a field the document has never seen.
+    var section = try std.json.parseFromSlice(std.json.Value, gpa,
+        \\{"type":"drive","client_id":"cid",
+        \\"pass":"tEvsvLJ9Bj-HwIyGtwp6i-2G2eqU8jQ",
+        \\"token":"{\"access_token\":\"new\"}",
+        \\"team_drive":"td-123"}
+    , .{});
+    defer section.deinit();
+
+    const changed = try creds.applyReadBack(&loaded, section.value.object, .{});
+    try std.testing.expect(changed);
+
+    // The password survives byte-for-byte with its flags; the token
+    // updates; the new field arrives - and with no catalogue to ask,
+    // it defaults to secret, never to password.
+    const pass = loaded.creds.option("pass").?;
+    try std.testing.expectEqualStrings("hunter2", pass.value);
+    try std.testing.expect(pass.is_password and pass.secret);
+    try std.testing.expectEqualStrings("{\"access_token\":\"new\"}", loaded.creds.option("token").?.value);
+    const imported = loaded.creds.option("team_drive").?;
+    try std.testing.expectEqualStrings("td-123", imported.value);
+    try std.testing.expect(imported.secret and !imported.is_password);
+    // `type` is the backend, not an option.
+    try std.testing.expect(loaded.creds.option("type") == null);
+    // A read-back never rotates the identity: the changes are secrets.
+    try std.testing.expectEqualStrings("drive:#abc", loaded.creds.fingerprint);
+
+    // Idempotent: the same section again changes nothing.
+    try std.testing.expect(!(try creds.applyReadBack(&loaded, section.value.object, .{})));
+}
+
+fn classifyTeamDrive(context: ?*const anyopaque, name: []const u8) ?creds.ReadBackFlags {
+    _ = context;
+    if (std.mem.eql(u8, name, "team_drive")) return .{ .secret = false, .is_password = false };
+    if (std.mem.eql(u8, name, "trap")) return .{ .secret = true, .is_password = true };
+    return null;
+}
+
+test "read-back classification comes from the catalogue when one is offered" {
+    const gpa = std.testing.allocator;
+
+    var loaded = (try creds.parse(gpa,
+        \\{"backend":"drive","remote_root":"","fingerprint":"drive:#abc",
+        \\"options":{"token":"t1"},"secret_options":["token"],
+        \\"password_options":[],"rclone_path":null}
+    )).?;
+    defer loaded.deinit();
+
+    var section = try std.json.parseFromSlice(std.json.Value, gpa,
+        \\{"type":"drive","token":"t2","team_drive":"td-9","trap":"OBSCURED","mystery":"m1"}
+    , .{});
+    defer section.deinit();
+
+    const changed = try creds.applyReadBack(&loaded, section.value.object, .{
+        .lookup = classifyTeamDrive,
+    });
+    try std.testing.expect(changed);
+
+    // The catalogue's word is taken for fields it knows: team_drive is a
+    // plain option, and a password-typed field the document has never
+    // seen is never imported at all - rclone returned it obscured.
+    const known = loaded.creds.option("team_drive").?;
+    try std.testing.expect(!known.secret and !known.is_password);
+    try std.testing.expect(loaded.creds.option("trap") == null);
+    // Unknown to the catalogue too: the safe default stands.
+    try std.testing.expect(loaded.creds.option("mystery").?.secret);
+    try std.testing.expectEqualStrings("t2", loaded.creds.option("token").?.value);
+}

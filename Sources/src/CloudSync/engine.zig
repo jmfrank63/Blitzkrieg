@@ -1144,6 +1144,13 @@ fn classifyText(text: []const u8) ?Outcome {
         // Captured live: a cleared secret probes as exactly this.
         "secret_access_key not found",
         "access_key_id not found",
+        // An OAuth token that can no longer be refreshed. Captured live
+        // (v1.75.0, revoked refresh token): `couldn't fetch token:
+        // invalid_grant: maybe token expired? - try refreshing with
+        // "rclone config reconnect …"`. auth_failed routes the player to
+        // the credentials dialog, which is where a new sign-in starts.
+        "couldn't fetch token",
+        "invalid_grant",
     };
     for (auth_patterns) |pattern| {
         if (containsIgnoreCase(text, pattern)) return .auth_failed;

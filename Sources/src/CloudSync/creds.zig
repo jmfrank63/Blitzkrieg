@@ -717,6 +717,89 @@ pub const RemoteParams = struct {
 /// option-struct JSON, and no v1.75.0 backend option has a differing
 /// non-empty one. The remote root is deliberately not here: it is a path
 /// component, carried by the alias target.
+pub const ReadBackFlags = struct { secret: bool, is_password: bool };
+
+/// How a read-back classifies a field the document has never seen. The
+/// worker offers the cached catalogue when there is one; with nothing to
+/// ask, an unknown field defaults to secret and never to password.
+pub const ReadBackClassify = struct {
+    context: ?*const anyopaque = null,
+    lookup: ?*const fn (context: ?*const anyopaque, name: []const u8) ?ReadBackFlags = null,
+
+    fn flagsFor(self: ReadBackClassify, name: []const u8) ?ReadBackFlags {
+        const lookup = self.lookup orelse return null;
+        return lookup(self.context, name);
+    }
+};
+
+/// Fold rclone's stored section — a `config/get` reply — back into the
+/// document. This is how a refreshed OAuth token survives the daemon:
+/// rclone refreshes into *its* config, and a token never read back is
+/// lost when the daemon exits. Never a wholesale merge:
+///
+/// - A field the document marks `is_password` is never touched. rclone
+///   returns those obscured, and writing the obscured form over our
+///   plaintext double-obscures on the next apply — with the plaintext
+///   gone for good.
+/// - A new field the catalogue calls IsPassword is never imported at all,
+///   for the same reason; other new fields take the catalogue's flags, or
+///   secret-not-password when nothing can classify them.
+/// - `type` is the section's backend line, not an option; empty values
+///   stay unset; fields absent from the section keep their document
+///   values — a read-back adds and updates, never deletes.
+///
+/// Returns whether anything changed; the caller saves only then. A
+/// read-back never rotates the fingerprint: secrets are outside the
+/// identity projection.
+pub fn applyReadBack(
+    loaded: *Loaded,
+    section: std.json.ObjectMap,
+    classify: ReadBackClassify,
+) Allocator.Error!bool {
+    const alloc = loaded.arena.allocator();
+    var changed = false;
+
+    var rebuilt: std.ArrayList(Option) = .empty;
+    try rebuilt.appendSlice(alloc, loaded.creds.options);
+
+    var it = section.iterator();
+    while (it.next()) |entry| {
+        const name = entry.key_ptr.*;
+        if (std.mem.eql(u8, name, "type")) continue;
+        const value = switch (entry.value_ptr.*) {
+            .string => |s| s,
+            else => continue,
+        };
+        if (value.len == 0) continue;
+
+        const existing: ?*Option = for (rebuilt.items) |*opt| {
+            if (std.mem.eql(u8, opt.name, name)) break opt;
+        } else null;
+
+        if (existing) |opt| {
+            if (opt.is_password) continue;
+            if (std.mem.eql(u8, opt.value, value)) continue;
+            opt.value = try alloc.dupe(u8, value);
+            changed = true;
+            continue;
+        }
+
+        const flags = classify.flagsFor(name) orelse
+            ReadBackFlags{ .secret = true, .is_password = false };
+        if (flags.is_password) continue;
+        try rebuilt.append(alloc, .{
+            .name = try alloc.dupe(u8, name),
+            .value = try alloc.dupe(u8, value),
+            .secret = flags.secret,
+            .is_password = false,
+        });
+        changed = true;
+    }
+
+    if (changed) loaded.creds.options = rebuilt.items;
+    return changed;
+}
+
 pub fn remoteParams(gpa: Allocator, creds: Credentials) Allocator.Error!RemoteParams {
     var arena: std.heap.ArenaAllocator = .init(gpa);
     errdefer arena.deinit();

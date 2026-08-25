@@ -158,16 +158,27 @@ state_a, err_a = drive_flow(cancel_at_consent=False)
 log("  provider served %d consent redirect(s), %d token exchange(s)" % (served["auth"], served["token"]))
 assert served["auth"] >= 1 and served["token"] >= 1, "the dance never reached the provider"
 
-# Checked here, before run B: the next job's applyCredentials re-creates
-# the remote and wipes the token - measured, and exactly the problem
-# P03-M03 (token storage) exists to solve.
 conf_a = open(os.path.join(GAME, "cloudsync", "rclone.conf"), errors="replace").read()
 assert FAKE_ACCESS in conf_a, "the dance did not store its token"
 log("  rclone.conf holds the fake token - storage, not a log; the dance really landed")
+creds_a = open(os.path.join(GAME, "profiles", "cloud.credentials"), errors="replace").read()
+assert FAKE_ACCESS in creds_a, "the token was not read back into cloud.credentials"
+log("  cloud.credentials holds the token too - the P03-M03 read-back")
 
-log("run B: the cancel path, abandoned at the consent screen")
-state_b, err_b = drive_flow(cancel_at_consent=True)
-assert state_b == 5 and "Cancelled" in err_b
+log("run B: the token survives the next job - no new consent demanded")
+served_before = dict(served)
+state_b, err_b = drive_flow(cancel_at_consent=False)
+assert served["auth"] == served_before["auth"], "a second consent was demanded despite the stored token"
+conf_b = open(os.path.join(GAME, "cloudsync", "rclone.conf"), errors="replace").read()
+assert FAKE_ACCESS in conf_b, "the next job's apply wiped the token"
+log("  no new consent; rclone.conf still holds the token after the next job")
+
+log("run C: the cancel path, from a clean slate")
+os.remove(os.path.join(GAME, "cloudsync", "rclone.conf"))
+os.remove(os.path.join(GAME, "profiles", "cloud.credentials"))
+assert lib.bk_cloudsync_creds_save(doc.encode()) == 0
+state_c, err_c = drive_flow(cancel_at_consent=True)
+assert state_c == 5 and "Cancelled" in err_c
 
 lib.bk_cloudsync_shutdown()
 time.sleep(1)
