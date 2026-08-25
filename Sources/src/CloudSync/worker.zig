@@ -675,14 +675,32 @@ pub const Worker = struct {
         };
         defer self.gpa.free(creds_path);
 
-        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse {
+        // One read under the document lock, consumed twice: the parse that
+        // configures the daemon and the baseline the read-back compares
+        // must describe the SAME bytes. Two reads would leave a gap a
+        // dialog save could land in — the baseline then vouching for a
+        // document the daemon never saw — and the lock orders the capture
+        // after any save already in flight.
+        creds.document_mutex.lockUncancelable(self.io);
+        const raw_document = self.readCredsRaw(creds_path);
+        creds.document_mutex.unlock(self.io);
+
+        const raw = raw_document orelse {
             eng.setSecretRedactions(&.{}, &.{}) catch {};
-            self.rememberAppliedCreds(null);
+            self.setAppliedCreds(null);
+            return true;
+        };
+        var loaded = (creds.parse(self.gpa, raw) catch null) orelse {
+            // Present but unreadable: nothing applied, nothing to read
+            // back against.
+            self.gpa.free(raw);
+            eng.setSecretRedactions(&.{}, &.{}) catch {};
+            self.setAppliedCreds(null);
             return true;
         };
         defer loaded.deinit();
-        // What this job applied, byte-for-byte: the read-back's baseline.
-        self.rememberAppliedCreds(creds_path);
+        // The baseline takes ownership of the very bytes just parsed.
+        self.setAppliedCreds(raw);
 
         var names: std.ArrayList([]const u8) = .empty;
         defer names.deinit(self.gpa);
@@ -1077,12 +1095,19 @@ pub const Worker = struct {
         ) catch null;
     }
 
-    /// Snapshot what a job applied (null clears). The read-back refuses to
-    /// touch a document that no longer matches: the dialog saved while the
-    /// job ran, and the player's save wins.
-    fn rememberAppliedCreds(self: *Worker, creds_path: ?[]const u8) void {
+    /// Install the applied-document baseline: owned bytes, or null to
+    /// clear. The read-back refuses to touch a document that no longer
+    /// matches it — the dialog saved while the job ran, and the player's
+    /// save wins.
+    fn setAppliedCreds(self: *Worker, raw: ?[]u8) void {
         if (self.applied_creds_raw) |owned| self.gpa.free(owned);
-        self.applied_creds_raw = if (creds_path) |at| self.readCredsRaw(at) else null;
+        self.applied_creds_raw = raw;
+    }
+
+    /// Refresh the baseline from disk — only ever called under the
+    /// document lock, right after this worker's own save published.
+    fn rememberAppliedCreds(self: *Worker, creds_path: []const u8) void {
+        self.setAppliedCreds(self.readCredsRaw(creds_path));
     }
 
     fn readBackConfig(self: *Worker, session: *Session) void {

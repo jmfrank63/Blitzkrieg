@@ -1286,3 +1286,83 @@ test "a save during the read-back's own request still wins" {
     try std.testing.expectEqualStrings("PLAYERS-LATE-TOKEN", doc.creds.option("token").?.value);
     try std.testing.expectEqualStrings("drive:#late", doc.creds.fingerprint);
 }
+
+test "the applied baseline is captured under the document lock" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{}"), // operations/list
+        ok200("{}"), // probe copy up
+        ok200("{}"), // probe copy down
+        ok200("{}"), // probe delete
+        ok200(
+            \\{"type":"drive","token":"READBACK-TOKEN"}
+        ), // config/get after the job
+        ok200(
+            \\{"type":"drive","token":"READBACK-TOKEN"}
+        ), // and at teardown
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+
+    // Hold the document lock the way a dialog save does. The job's
+    // credential capture must WAIT on it — parse and baseline are one
+    // atomic read — so no rc call may happen while the lock is held.
+    // (Judged without `try` until the lock is released and the worker
+    // destroyed: an early unwind here would strand the worker on the
+    // mutex and hang the whole suite instead of reporting.)
+    creds.document_mutex.lockUncancelable(tio);
+    try w.begin(.{ .kind = .test_connection, .remote = creds.sync_remote_name });
+    sleepMs(tio, 600);
+    const blocked_before_any_call = server.served == 0;
+
+    // The save completes before the capture, strictly ordered by the
+    // lock: the job must configure from THIS document and read back into
+    // it.
+    const players_doc =
+        \\{"backend":"drive","remote_root":"","fingerprint":"drive:#new2",
+        \\"options":{"token":"PLAYERS-TOKEN-3"},
+        \\"secret_options":["token"],"password_options":[],
+        \\"rclone_path":null}
+    ;
+    try fixture.write(creds_at, players_doc);
+    creds.document_mutex.unlock(tio);
+
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 25) {
+        const snap = w.poll();
+        if (snap.state == .failed or snap.state == .done) break;
+        sleepMs(tio, 25);
+    }
+    sleepMs(tio, 300);
+    w.destroy();
+
+    // Everything released and torn down: now judge. The capture must
+    // have waited for the lock, and the baseline then matched the
+    // document the daemon was configured from, so the read-back merged
+    // into the player's document — token updated, identity intact.
+    try std.testing.expect(blocked_before_any_call);
+    var doc = try readDoc(gpa, game_dir);
+    defer doc.deinit();
+    try std.testing.expectEqualStrings("READBACK-TOKEN", doc.creds.option("token").?.value);
+    try std.testing.expectEqualStrings("drive:#new2", doc.creds.fingerprint);
+}
