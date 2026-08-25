@@ -1,6 +1,19 @@
 # Next Packet
 
-Resume at `phase-04-acceptance/P04-M01-static-backends.md`.
+Resume at `phase-04-acceptance/P04-M02-oauth-and-forward.md`.
+
+**P04-M01 is machine-complete, human approval pending.** Three static
+services (MinIO s3, `rclone serve webdav`, `rclone serve sftp`) were
+configured entirely through the generic form in the shipped release game
+(headless BK_AUTO_UI) and each passed the full phase-02 cycle through the
+game's own startup sync; session names 82/73/81 of 241 bytes. Evidence and
+captures: `evidence/cloud-sync/p04-m01-backends.md` + `p04-m01/`. The
+phase-04 manifest carries three findings — provider typing scrambles (use
+the example-cycle button; fix = defer rebuild to focus loss), no UI owns
+the `FingerprintChanged` re-pair confirmation (evidence cleared
+`cloudsync/state/<profile>.json` by hand), and the P02 "text= cannot carry
+URLs" note is stale. The human-approval checkbox in P04-M01 stays open
+until someone records approval in the evidence file.
 
 ## Where implementation stands
 
