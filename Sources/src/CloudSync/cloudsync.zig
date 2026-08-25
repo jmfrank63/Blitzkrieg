@@ -357,6 +357,7 @@ pub export fn bk_cloudsync_shutdown() callconv(.c) void {
     sync_game_dir = null;
     job_slots = @splat(.{});
     backup_list_handle = -1;
+    config_handle = -1;
     jobs_mutex.unlock(lockIo());
 
     if (w) |live| live.destroy();
@@ -1087,6 +1088,11 @@ var job_slots: [max_job_slots]JobSlot = @splat(.{});
 /// handle refuse: the worker keeps one "most recent" list, and an old
 /// handle must not serve a newer job's entries (or the other way round).
 var backup_list_handle: i32 = -1;
+/// Same ownership rule for the config machine's mailbox: only the newest
+/// `.config_create` job's handle may read the pending question or answer
+/// it — a finished-but-unreleased handle must not see a later job's
+/// consent URL, nor answer a question it never asked.
+var config_handle: i32 = -1;
 var sync_worker: ?*worker.Worker = null;
 var sync_io_impl: ?*std.Io.Threaded = null;
 /// The game directory the worker was created for. One worker, one game dir;
@@ -1265,7 +1271,7 @@ pub export fn bk_cloudsync_config_begin(game_dir: [*:0]const u8) callconv(.c) i3
     jobs_mutex.lockUncancelable(lockIo());
     defer jobs_mutex.unlock(lockIo());
 
-    return enqueueLocked(std.mem.span(game_dir), .{
+    const handle = enqueueLocked(std.mem.span(game_dir), .{
         .kind = .config_create,
         .path1 = "",
         .remote = "",
@@ -1273,6 +1279,8 @@ pub export fn bk_cloudsync_config_begin(game_dir: [*:0]const u8) callconv(.c) i3
         .profile_id = "",
         .remote_fingerprint = "",
     });
+    if (handle >= 0) config_handle = handle;
+    return handle;
 }
 
 /// The pending config question or consent card under the `writeSized`
@@ -1287,6 +1295,10 @@ pub export fn bk_cloudsync_config_question(handle: i32, out: [*]u8, cap: u32) ca
         setError("cloud sync: unknown job handle");
         return -1;
     };
+    if (handle != config_handle) {
+        setError("cloud sync: the config flow belongs to a newer job");
+        return -1;
+    }
     const w = sync_worker orelse return writeSized(out, cap, "");
     const question = w.configQuestionOwned(module_gpa) catch {
         setError("cloud sync: out of memory reading the question");
@@ -1308,6 +1320,10 @@ pub export fn bk_cloudsync_config_answer(handle: i32, result: [*:0]const u8) cal
         setError("cloud sync: unknown job handle");
         return -1;
     };
+    if (handle != config_handle) {
+        setError("cloud sync: the config flow belongs to a newer job");
+        return -1;
+    }
     const w = sync_worker orelse {
         setError("cloud sync: no worker is running");
         return -1;
@@ -1616,6 +1632,7 @@ pub export fn bk_cloudsync_release(handle: i32) callconv(.c) void {
     const slot = slotAt(handle) orelse return;
     slot.* = .{};
     if (handle == backup_list_handle) backup_list_handle = -1;
+    if (handle == config_handle) config_handle = -1;
 }
 
 // ---------------------------------------------------------------------------

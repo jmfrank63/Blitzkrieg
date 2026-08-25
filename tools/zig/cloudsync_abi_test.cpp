@@ -1077,6 +1077,25 @@ static void catalogue_contract()
                 bk_cloudsync_cancel(cfg);
                 check(poll_to_rest(cfg, 30000) == 5u, "cancel settles the machine");
                 check(contains(bk_cloudsync_error(cfg), "Cancelled"), "as cancelled");
+
+                // The flow is bound to its handle like the backup listing:
+                // a settled-but-unreleased handle must not read a newer
+                // job's consent URL, nor answer a question it never asked.
+                const int cfg2 = bk_cloudsync_config_begin(".");
+                check(cfg2 >= 0, "a second config job begins");
+                if (cfg2 >= 0)
+                {
+                    unsigned char stale[512];
+                    check(bk_cloudsync_config_question(cfg, stale, sizeof stale) == -1,
+                          "the old handle cannot read the new flow's question");
+                    check(bk_cloudsync_config_answer(cfg, "true") == -1,
+                          "nor answer it");
+                    check(poll_for_question(cfg2, "config_is_local", 30000),
+                          "while the new handle walks its own flow");
+                    bk_cloudsync_cancel(cfg2);
+                    check(poll_to_rest(cfg2, 30000) == 5u, "and cancels cleanly");
+                    bk_cloudsync_release(cfg2);
+                }
                 bk_cloudsync_release(cfg);
             }
         }
