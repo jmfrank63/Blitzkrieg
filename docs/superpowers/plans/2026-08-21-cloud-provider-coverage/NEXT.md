@@ -28,7 +28,7 @@ carry findings the packet texts do not.
 | P02 review follow-up | `04a8af1f2`..`9dc1c70a8` | calendar-checked run ids; full error detail over ABI |
 | P03-M01 config machine | `88791fe66` | opaque state loop, worker job, awaiting_input |
 | P03-M02 browser consent | `31df1d7da` | async dance, consent card, exports @31-@33, dialog |
-| backup review follow-up | `ab55abee8` | prune only run-id stems; listing bound to its handle |
+| backup review follow-up | `ab55abee8`..`fb5f20054` | prune only run-id stems; listing bound to its handle; meta.json serialized |
 
 ## Resuming on another machine
 
@@ -36,8 +36,8 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `ab55abee8` (creds 17, catalogue 20, form 9, worker 10,
-engine 19, oauth 8, backup 21):
+Suites, all green at `fb5f20054` (creds 17, catalogue 20, form 9, worker 10,
+engine 19, oauth 8, backup 22):
 
 ```
 zig build test-cloudsync-rc        -Dtarget=aarch64-macos -Dtest-mode=run   #  6
