@@ -460,10 +460,20 @@ fn objectField(object: std.json.ObjectMap, name: []const u8) ?std.json.ObjectMap
 
 pub const SaveError = Allocator.Error || error{CredentialsUnwritable};
 
+/// Serialises every check-then-save of the document across threads. The
+/// rename in `save` is atomic against crashes, not against another writer
+/// deciding from a stale read: the dialog's save-with-merge and the
+/// worker's token read-back both read, decide, and write — and a decision
+/// made outside this lock can publish over a save that landed in between.
+/// Callers hold it with `lockUncancelable` around the *whole*
+/// read-decide-write, never across a network call.
+pub var document_mutex: std.Io.Mutex = .init;
+
 /// Serialise and persist atomically: the document is written to `<path>.tmp`
 /// and renamed over the target, so a crash mid-write leaves either the old
 /// file or the new one, never a truncated hybrid. Owner-only permissions on
-/// POSIX; Windows scopes by the profile directory's ACL.
+/// POSIX; Windows scopes by the profile directory's ACL. Writers that
+/// first read or check the document hold `document_mutex` across both.
 pub fn save(gpa: Allocator, io: Io, path: []const u8, creds: Credentials) SaveError!void {
     const text = serialize(gpa, creds, .{ .include_secret = true }) catch
         return error.OutOfMemory;

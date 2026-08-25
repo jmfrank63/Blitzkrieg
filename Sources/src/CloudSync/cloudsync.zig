@@ -460,6 +460,12 @@ pub export fn bk_cloudsync_creds_save(json: [*:0]const u8) callconv(.c) i32 {
     };
     defer incoming.deinit();
 
+    // Read-decide-write under the document lock: the worker's token
+    // read-back is a concurrent writer, and a save deciding from a stale
+    // read would publish over its merge (or the other way round).
+    creds.document_mutex.lockUncancelable(credsIo());
+    defer creds.document_mutex.unlock(credsIo());
+
     var stored = creds.load(module_gpa, credsIo(), creds.default_path) catch null;
     defer if (stored) |*loaded| loaded.deinit();
     if (stored) |loaded| {
@@ -489,6 +495,9 @@ pub export fn bk_cloudsync_creds_save(json: [*:0]const u8) callconv(.c) i32 {
 
 /// Remove the stored secret — the deliberate act, distinct from saving.
 pub export fn bk_cloudsync_creds_clear_secret() callconv(.c) i32 {
+    creds.document_mutex.lockUncancelable(credsIo());
+    defer creds.document_mutex.unlock(credsIo());
+
     var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
         setError("cloud sync: no credentials are saved");
         return -1;
@@ -613,6 +622,9 @@ pub export fn bk_cloudsync_creds_fingerprint(out: [*]u8, cap: u32) callconv(.c) 
 /// for a state. Clearing through a save is impossible by design — omitted
 /// or empty withheld fields always preserve.
 pub export fn bk_cloudsync_creds_clear_option(name: [*:0]const u8) callconv(.c) i32 {
+    creds.document_mutex.lockUncancelable(credsIo());
+    defer creds.document_mutex.unlock(credsIo());
+
     var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
         setError("cloud sync: no credentials are saved");
         return -1;

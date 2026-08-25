@@ -490,6 +490,13 @@ const CannedServer = struct {
     lines: [8][96]u8,
     line_lens: [8]usize,
     served: usize,
+    /// When set, the reply at this index is withheld after its request has
+    /// been read: `held` flips so the test knows the call is in flight,
+    /// and the reply goes out only on `release_hold` (or `stop`). This is
+    /// how a test opens a window *inside* one blocking rc request.
+    hold_at: ?usize,
+    held: std.atomic.Value(bool),
+    release_flag: std.atomic.Value(bool),
 
     fn start(self: *CannedServer, target_io: std.Io, replies: []const []const u8) !void {
         var addr: net.IpAddress = .{ .ip4 = .loopback(0) };
@@ -503,14 +510,23 @@ const CannedServer = struct {
             .lines = undefined,
             .line_lens = @splat(0),
             .served = 0,
+            .hold_at = null,
+            .held = .init(false),
+            .release_flag = .init(false),
         };
         self.port = self.server.socket.address.getPort();
         self.thread = try std.Thread.spawn(.{}, run, .{self});
     }
 
+    fn releaseHold(self: *CannedServer) void {
+        self.release_flag.store(true, .release);
+    }
+
     fn stop(self: *CannedServer) void {
         if (self.stopped) return;
         self.stopped = true;
+        // A held reply would pin the join forever.
+        self.release_flag.store(true, .release);
         // Unblock an `accept` still waiting for a call the test never made.
         // A scripted reply that went unused would otherwise pin this join
         // forever, turning any earlier assertion failure into a hang instead
@@ -579,6 +595,19 @@ const CannedServer = struct {
             const want = @min(remaining, scratch.len);
             reader.readSliceAll(scratch[0..want]) catch break;
             remaining -= want;
+        }
+
+        // The request is fully read; hold the reply open if scripted so
+        // the test can act inside this call's window.
+        if (self.hold_at != null and self.hold_at.? == self.served - 1) {
+            self.held.store(true, .release);
+            while (!self.release_flag.load(.acquire)) {
+                const tick: std.Io.Clock.Duration = .{
+                    .raw = .fromMilliseconds(10),
+                    .clock = .awake,
+                };
+                tick.sleep(self.io) catch break;
+            }
         }
 
         var write_buf: [8192]u8 = undefined;
@@ -1183,4 +1212,77 @@ test "a section of the wrong backend is never merged" {
     defer doc.deinit();
     try std.testing.expectEqualStrings("OLD-TOKEN", doc.creds.option("token").?.value);
     try std.testing.expect(doc.creds.option("secret_access_key") == null);
+}
+
+test "a save during the read-back's own request still wins" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+
+    // The TOCTOU window the baseline check alone cannot close: the save
+    // lands after the read-back's document comparison but before its
+    // merge is published — inside the blocking config/get itself. The
+    // held reply is that window, made deterministic.
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{}"), // operations/list
+        ok200("{}"), // probe copy up
+        ok200("{}"), // probe copy down
+        ok200("{}"), // probe delete
+        ok200(
+            \\{"type":"drive","token":"STOLEN-LATE"}
+        ), // config/get, held open while the player saves
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+    server.hold_at = 6;
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+
+    try w.begin(.{ .kind = .test_connection, .remote = creds.sync_remote_name });
+
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 25) {
+        if (server.held.load(.acquire)) break;
+        sleepMs(tio, 25);
+    }
+    try std.testing.expect(server.held.load(.acquire));
+
+    // The player saves while config/get is in flight.
+    const players_late_doc =
+        \\{"backend":"drive","remote_root":"","fingerprint":"drive:#late",
+        \\"options":{"token":"PLAYERS-LATE-TOKEN"},
+        \\"secret_options":["token"],"password_options":[],
+        \\"rclone_path":null}
+    ;
+    try fixture.write(creds_at, players_late_doc);
+    server.releaseHold();
+
+    waited = 0;
+    while (waited < 10_000) : (waited += 25) {
+        const snap = w.poll();
+        if (snap.state == .failed or snap.state == .done) break;
+        sleepMs(tio, 25);
+    }
+    sleepMs(tio, 300);
+    w.destroy();
+
+    var doc = try readDoc(gpa, game_dir);
+    defer doc.deinit();
+    try std.testing.expectEqualStrings("PLAYERS-LATE-TOKEN", doc.creds.option("token").?.value);
+    try std.testing.expectEqualStrings("drive:#late", doc.creds.fingerprint);
 }

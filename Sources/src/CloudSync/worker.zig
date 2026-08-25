@@ -1089,22 +1089,15 @@ pub const Worker = struct {
         if (session.client == null) return;
         const client = &session.client.?;
 
+        // Nothing was applied: nothing to read back against.
+        if (self.applied_creds_raw == null) return;
+
         const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch return;
         defer self.gpa.free(creds_path);
 
-        // The dialog may have saved new credentials while the job ran; the
-        // daemon's section then describes the *previous* document, and
-        // merging it would restore an old account's token over the one
-        // the player just chose. The player's save wins; the next job
-        // applies it and reads back against it.
-        const applied = self.applied_creds_raw orelse return;
-        const current = self.readCredsRaw(creds_path) orelse return;
-        defer self.gpa.free(current);
-        if (!std.mem.eql(u8, current, applied)) return;
-
-        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return;
-        defer loaded.deinit();
-
+        // The blocking request happens BEFORE the document is examined:
+        // the check and the publish below form one critical section under
+        // the document lock, and a network wait must never sit inside it.
         var object: std.json.ObjectMap = .empty;
         defer object.deinit(self.gpa);
         object.put(self.gpa, "name", .{ .string = creds.backend_remote_name }) catch return;
@@ -1115,6 +1108,26 @@ pub const Worker = struct {
             else => return,
         };
 
+        var cat = catalogue.loadCached(self.gpa, self.io, self.game_dir) catch return;
+        defer cat.deinit();
+
+        // Check-and-publish, atomic against every other writer of the
+        // document: the dialog may save new credentials at any moment —
+        // during the job, or inside the very request above — and the
+        // daemon's section then describes the *previous* document. The
+        // player's save wins; the next job applies it and reads back
+        // against it.
+        creds.document_mutex.lockUncancelable(self.io);
+        defer creds.document_mutex.unlock(self.io);
+
+        const applied = self.applied_creds_raw orelse return;
+        const current = self.readCredsRaw(creds_path) orelse return;
+        defer self.gpa.free(current);
+        if (!std.mem.eql(u8, current, applied)) return;
+
+        var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return;
+        defer loaded.deinit();
+
         // The section must be this document's backend. A leftover from a
         // provider switch carries another backend's fields — nothing in it
         // is ours to import.
@@ -1122,10 +1135,7 @@ pub const Worker = struct {
         if (section_type != .string) return;
         if (!std.mem.eql(u8, section_type.string, loaded.creds.backend)) return;
 
-        var cat = catalogue.loadCached(self.gpa, self.io, self.game_dir) catch return;
-        defer cat.deinit();
         const ctx: ClassifyContext = .{ .cat = &cat, .backend = loaded.creds.backend };
-
         const changed = creds.applyReadBack(&loaded, section, .{
             .context = @ptrCast(&ctx),
             .lookup = classifyFromCatalogue,
