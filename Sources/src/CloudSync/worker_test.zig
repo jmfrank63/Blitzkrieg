@@ -1366,3 +1366,98 @@ test "the applied baseline is captured under the document lock" {
     try std.testing.expectEqualStrings("READBACK-TOKEN", doc.creds.option("token").?.value);
     try std.testing.expectEqualStrings("drive:#new2", doc.creds.fingerprint);
 }
+
+test "a run finishing after an identity rotation cannot resurrect the retired pairing" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+
+    // A config job parked on its question is the deterministic stand-in
+    // for any long-running job. While it waits: the player saves a new
+    // identity (whose save-path retirement finds nothing yet), and THEN
+    // the old run's success record lands — the resurrection this test
+    // exists to kill. The worker's post-job pass must notice the document
+    // changed under the job and retire the stale record again.
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{\"jobid\":1}"), // async opener
+        ok200(
+            \\{"finished":true,"success":true,"error":"","output":{"State":"s1","Option":{"Name":"q1","Type":"string"},"Error":"","Result":""}}
+        ),
+        ok200("{\"jobid\":2}"), // async continuation
+        ok200(
+            \\{"finished":true,"success":true,"error":"","output":{"State":"","Option":null,"Error":"","Result":""}}
+        ),
+        httpReply("HTTP/1.1 500 Internal Server Error",
+            \\{"error":"couldn't list files: 401 Unauthorized","status":500}
+        ), // completion's connection test
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+
+    try w.begin(.{ .kind = .config_create });
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 25) {
+        if (w.poll().state == .awaiting_input) break;
+        sleepMs(tio, 25);
+    }
+    try std.testing.expectEqual(worker.State.awaiting_input, w.poll().state);
+
+    // The rotation: the player saves a new identity mid-job. The save
+    // path retires records naming other remotes — there are none yet.
+    const rotated_doc =
+        \\{"backend":"webdav","remote_root":"","fingerprint":"webdav:#rotated",
+        \\"options":{"url":"http://127.0.0.1:9"},
+        \\"secret_options":[],"password_options":[],
+        \\"rclone_path":null}
+    ;
+    try fixture.write(creds_at, rotated_doc);
+    _ = engine.retireMismatchedPairings(gpa, io, game_dir, "webdav:#rotated");
+
+    // And the in-flight run's success record lands AFTER it, still naming
+    // the identity the run started with.
+    try engine.savePairingState(gpa, io, game_dir, "hero", .{
+        .paired = true,
+        .last_success_unix = 100,
+        .remote_fingerprint = "drive:#seed",
+    });
+
+    try std.testing.expect(w.answerConfig("x"));
+    waited = 0;
+    while (waited < 10_000) : (waited += 25) {
+        const snap = w.poll();
+        if (snap.state == .failed or snap.state == .done) break;
+        sleepMs(tio, 25);
+    }
+    sleepMs(tio, 300);
+    w.destroy();
+
+    // The stale record is gone: the next sync takes the NotPaired -> pair
+    // bootstrap instead of refusing FingerprintChanged until the player
+    // saves a second time.
+    if (engine.loadPairingState(gpa, io, game_dir, "hero")) |stale| {
+        var owned = stale;
+        owned.deinit();
+        return error.TestUnexpectedResult;
+    }
+    // And the rotated document itself was not touched by any read-back.
+    var doc = try readDoc(gpa, game_dir);
+    defer doc.deinit();
+    try std.testing.expectEqualStrings("webdav:#rotated", doc.creds.fingerprint);
+}

@@ -1095,6 +1095,33 @@ pub const Worker = struct {
         ) catch null;
     }
 
+    /// Under the document lock: true when the on-disk document still
+    /// matches the applied baseline. On mismatch the save's identity
+    /// rotation is re-applied for the document that won — the job that
+    /// just finished started under the OLD identity, and its success
+    /// record (`recordSuccess` writes the fingerprint the run began with)
+    /// may have resurrected a pairing the save already retired. Retiring
+    /// it again here means the next sync takes the designed NotPaired →
+    /// pair bootstrap instead of refusing FingerprintChanged until a
+    /// second save. False tells the caller to leave the document alone.
+    fn baselineIntact(self: *Worker, creds_path: []const u8) bool {
+        creds.document_mutex.lockUncancelable(self.io);
+        defer creds.document_mutex.unlock(self.io);
+        return self.baselineIntactLocked(creds_path);
+    }
+
+    fn baselineIntactLocked(self: *Worker, creds_path: []const u8) bool {
+        const applied = self.applied_creds_raw orelse return false;
+        const current = self.readCredsRaw(creds_path) orelse return false;
+        defer self.gpa.free(current);
+        if (std.mem.eql(u8, current, applied)) return true;
+
+        var winner = (creds.parse(self.gpa, current) catch null) orelse return false;
+        defer winner.deinit();
+        _ = engine.retireMismatchedPairings(self.gpa, self.io, self.game_dir, winner.creds.fingerprint);
+        return false;
+    }
+
     /// Install the applied-document baseline: owned bytes, or null to
     /// clear. The read-back refuses to touch a document that no longer
     /// matches it — the dialog saved while the job ran, and the player's
@@ -1120,9 +1147,15 @@ pub const Worker = struct {
         const creds_path = path.join(self.gpa, &.{ self.game_dir, creds.default_path }) catch return;
         defer self.gpa.free(creds_path);
 
-        // The blocking request happens BEFORE the document is examined:
-        // the check and the publish below form one critical section under
-        // the document lock, and a network wait must never sit inside it.
+        // Before any network: a document that already changed has nothing
+        // to read back into, and possibly a stale pairing to retire — the
+        // guard must not hinge on the request below succeeding.
+        if (!self.baselineIntact(creds_path)) return;
+
+        // The blocking request happens BEFORE the document is re-examined:
+        // the re-check and the publish below form one critical section
+        // under the document lock, and a network wait must never sit
+        // inside it.
         var object: std.json.ObjectMap = .empty;
         defer object.deinit(self.gpa);
         object.put(self.gpa, "name", .{ .string = creds.backend_remote_name }) catch return;
@@ -1145,10 +1178,7 @@ pub const Worker = struct {
         creds.document_mutex.lockUncancelable(self.io);
         defer creds.document_mutex.unlock(self.io);
 
-        const applied = self.applied_creds_raw orelse return;
-        const current = self.readCredsRaw(creds_path) orelse return;
-        defer self.gpa.free(current);
-        if (!std.mem.eql(u8, current, applied)) return;
+        if (!self.baselineIntactLocked(creds_path)) return;
 
         var loaded = (creds.load(self.gpa, self.io, creds_path) catch null) orelse return;
         defer loaded.deinit();
