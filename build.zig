@@ -733,11 +733,22 @@ const cppflags_game_release = &.{
 };
 
 pub fn build(b: *std.Build) void {
+    // The default target follows the host CPU on Linux as it already did on
+    // macOS. This branch used to hardcode x86_64, so a plain `zig build` on an
+    // arm64 Linux host silently cross-compiled for x86_64 and then failed to
+    // find /usr/lib/x86_64-linux-gnu/libstdc++.so.6.
     const default_target: std.Target.Query = switch (b.graph.host.result.os.tag) {
-        .linux => .{
-            .cpu_arch = .x86_64,
-            .os_tag = .linux,
-            .abi = .gnu,
+        .linux => switch (b.graph.host.result.cpu.arch) {
+            .aarch64 => .{
+                .cpu_arch = .aarch64,
+                .os_tag = .linux,
+                .abi = .gnu,
+            },
+            else => .{
+                .cpu_arch = .x86_64,
+                .os_tag = .linux,
+                .abi = .gnu,
+            },
         },
         .windows => .{
             .cpu_arch = .x86_64,
