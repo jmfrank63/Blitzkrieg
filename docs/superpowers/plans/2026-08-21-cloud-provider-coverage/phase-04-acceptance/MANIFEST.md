@@ -65,11 +65,13 @@ Findings the packet text does not carry:
   bootstrap. The engine's gate is unchanged and still guards rotations
   arriving without a save (hand-edited documents). Failing-test-first in
   `engine_test.zig` (engine suite now 20); verified live s3 → webdav
-  through the dialog with no manual state surgery. One recorded residue:
-  a save landing while a sync is mid-run can have its retirement
-  overwritten by that run's success record — narrow (dialog save during
-  an active sync), self-healing on the following save, noted rather than
-  bought with worker-level sequencing.
+  through the dialog with no manual state surgery. The recorded residue —
+  a save landing mid-sync having its retirement overwritten by that
+  run's success record — was upgraded to a finding by review and is
+  **fixed in `bdd6e5868`**: the worker's post-job baseline check
+  re-applies the retirement for the document that won, before any
+  network and again inside the locked in-request re-check, with a
+  deterministic regression (worker suite 17).
 - **The P02 manifest's `text=`-cannot-carry-URLs note is stale**: the
   schedule splits an entry at its first colon only, so full
   `http://host:port` values type fine; commas remain the separator

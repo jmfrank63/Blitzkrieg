@@ -68,6 +68,7 @@ carry findings the packet texts do not.
 | backup review follow-up | `ab55abee8`..`fb5f20054` | prune only run-id stems; listing bound to its handle; meta.json serialized |
 | P03-M03 tokens | `36472b80e` | read-back after every job and at teardown; auth_failed on dead refresh |
 | coverage review follow-up | `0e8b7667e`..`4b24c05cf` | config flow bound to its handle; saves win over read-back; baseline captured atomically |
+| P04 review follow-up | `bdd6e5868` | a finishing run cannot resurrect a retired pairing |
 
 ## Resuming on another machine
 
@@ -75,7 +76,7 @@ Branch `feature/cloud-profile-sync`, everything pushed. Toolchain is Zig
 0.16.0, and `zig build` runs **from the repository root only** — anywhere else
 it panics with FileNotFound.
 
-Suites, all green at `4b24c05cf` (creds 19, catalogue 20, form 9, worker 16,
+Suites, all green at `4b24c05cf` (creds 19, catalogue 20, form 9, worker 17,
 engine 19, oauth 8, backup 22):
 
 ```
@@ -84,7 +85,7 @@ zig build test-cloudsync-daemon    -Dtarget=aarch64-macos -Dtest-mode=run   # 27
 zig build test-cloudsync-abi       -Dtarget=aarch64-macos -Dtest-mode=run   # 10 + C++ consumer
 zig build test-cloudsync-plan      -Dtarget=aarch64-macos -Dtest-mode=run   # 35
 zig build test-cloudsync-catalogue -Dtarget=aarch64-macos -Dtest-mode=run   # 20
-zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   # 16
+zig build test-cloudsync-worker    -Dtarget=aarch64-macos -Dtest-mode=run   # 17
 zig build test-cloudsync-engine    -Dtarget=aarch64-macos -Dtest-mode=run   # 19
 zig build test-cloudsync-form      -Dtarget=aarch64-macos -Dtest-mode=run   #  9
 zig build test-cloudsync-creds     -Dtarget=aarch64-macos -Dtest-mode=run   # 19
