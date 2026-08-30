@@ -78,6 +78,8 @@ static void run_absent()
 	// downloaded it, so the quiet no-op is the honest answer.
 	check( NCloudSync::ApplyPendingRestore( "hero" ) == 0, "absent: ApplyPendingRestore no-ops" );
 	check( !NCloudSync::CredentialsPresent(), "absent: no credentials" );
+	char szBackend[64];
+	check( NCloudSync::CredentialsBackend( szBackend, sizeof szBackend ) == -1, "absent: no backend" );
 	check( NCloudSync::DiscoveryStatus()[0] == 0, "absent: discovery is empty" );
 	check( NCloudSync::UndoAvailability( "hero" ) == NCloudSync::UNDO_NONE, "absent: nothing to undo" );
 	check( NCloudSync::TestConnection() == -1, "absent: the probe refuses" );
@@ -102,6 +104,8 @@ static void run_present()
 
 	// Local surfaces work without any credentials or daemon.
 	check( !NCloudSync::CredentialsPresent(), "present: fresh directory has no credentials" );
+	char szBackend[64];
+	check( NCloudSync::CredentialsBackend( szBackend, sizeof szBackend ) == -1, "present: fresh directory has no backend" );
 	check( NCloudSync::ApplyPendingRestore( "hero" ) == 0, "present: nothing staged applies as 0" );
 	check( NCloudSync::UndoAvailability( "hero" ) == NCloudSync::UNDO_NONE, "present: nothing to undo" );
 
@@ -141,6 +145,8 @@ static void run_present()
 			"\"secret_options\":[],\"password_options\":[],\"rclone_path\":null}",
 			szRoot );
 		check( NCloudSync::SaveCredentials( szDoc ), "present: the long-root save succeeds" );
+		const int nBackend = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
+		check( nBackend == 2 && std::strcmp( szBackend, "s3" ) == 0, "present: the saved backend reads back as its id" );
 		char szSmall[64];
 		const int nRequired = NCloudSync::CredentialsFingerprint( szSmall, sizeof szSmall );
 		check( nRequired > 1024, "present: a long fingerprint reports its size past any fixed buffer" );

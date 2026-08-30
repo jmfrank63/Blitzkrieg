@@ -38,3 +38,4 @@ EXPORTS
     bk_cloudsync_config_begin = _bk_cloudsync_config_begin @31
     bk_cloudsync_config_question = _bk_cloudsync_config_question @32
     bk_cloudsync_config_answer = _bk_cloudsync_config_answer @33
+    bk_cloudsync_creds_backend = _bk_cloudsync_creds_backend @34

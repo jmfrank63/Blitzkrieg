@@ -630,6 +630,22 @@ pub export fn bk_cloudsync_creds_fingerprint(out: [*]u8, cap: u32) callconv(.c) 
     return writeSized(out, cap, print);
 }
 
+/// The saved document's backend id — `s3`, `webdav`, `google cloud
+/// storage` — under the `writeSized` contract, or -1 when no credentials
+/// are saved. The settings screen's Provider row and the lifecycle gates
+/// compare this with `Cloud.Provider`: a sync runs only when the two agree,
+/// so a row changed casually (an arrow key steps it) can never route a sync
+/// at a service whose configuration was never saved.
+pub export fn bk_cloudsync_creds_backend(out: [*]u8, cap: u32) callconv(.c) i32 {
+    var loaded = (creds.load(module_gpa, credsIo(), creds.default_path) catch null) orelse {
+        setError("cloud sync: no credentials are saved");
+        return -1;
+    };
+    defer loaded.deinit();
+    clearError();
+    return writeSized(out, cap, loaded.creds.backend);
+}
+
 /// Clear one named field — the per-field deliberate act the generic schema
 /// needs, since a backend can hold several secrets and the argument-free
 /// `bk_cloudsync_creds_clear_secret` (kept for its existing caller, the

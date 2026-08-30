@@ -96,6 +96,9 @@ int bk_cloudsync_catalogue_options(const char *game_dir, const char *backend, un
 // not JSON), and the per-field clear the generic schema needs — the no-arg
 // clear_secret above wipes every withheld field at once.
 int bk_cloudsync_creds_fingerprint(unsigned char *out, unsigned int cap);
+// The saved document's backend id, same required-size contract; -1 when
+// no credentials are saved.
+int bk_cloudsync_creds_backend(unsigned char *out, unsigned int cap);
 int bk_cloudsync_creds_clear_option(const char *name);
 // The form model for one backend under one selected provider — basic and
 // advanced field lists with widget, flags, placeholder and filtered
@@ -711,6 +714,8 @@ static void generic_creds_contract()
     unsigned char out[2048];
     check(bk_cloudsync_creds_fingerprint(out, sizeof out) == -1,
           "the fingerprint of no credentials fails readably");
+    check(bk_cloudsync_creds_backend(out, sizeof out) == -1,
+          "the backend of no credentials fails readably");
 
     // A legacy two-arm document, exactly what an existing install holds.
     static const char *secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
@@ -722,6 +727,16 @@ static void generic_creds_contract()
                   "\"secret\":\"%s\"},\"rclone_path\":null}",
                   secret);
     check(bk_cloudsync_creds_save(doc) == 0, "the legacy save migrates");
+
+    {
+        unsigned char backend[64];
+        const int length = bk_cloudsync_creds_backend(backend, sizeof backend);
+        check(length == 2 && std::strcmp(reinterpret_cast<const char *>(backend), "s3") == 0,
+              "the backend of a saved document is its rclone id");
+        unsigned char tiny[2];
+        check(bk_cloudsync_creds_backend(tiny, sizeof tiny) == 2,
+              "a buffer too small reports the required size without writing");
+    }
 
     // The continuity claim itself: the exported fingerprint is byte-equal
     // to what the facade's old scraper derived from this document — the

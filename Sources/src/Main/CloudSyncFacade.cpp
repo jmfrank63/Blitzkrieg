@@ -44,6 +44,7 @@ namespace
 	typedef int ( *FnRestoreUndo )( const char *, const char * );
 	typedef unsigned int ( *FnRestoreUndoAvailable )( const char * );
 	typedef int ( *FnCredsFingerprint )( unsigned char *, unsigned int );
+	typedef int ( *FnCredsBackend )( unsigned char *, unsigned int );
 	typedef int ( *FnCredsClearOption )( const char * );
 	typedef int ( *FnCatalogueEnsure )( const char * );
 	typedef int ( *FnCatalogueProviders )( const char *, unsigned char *, unsigned int );
@@ -82,6 +83,7 @@ namespace
 		FnRestoreUndo pfnRestoreUndo;
 		FnRestoreUndoAvailable pfnRestoreUndoAvailable;
 		FnCredsFingerprint pfnCredsFingerprint;
+		FnCredsBackend pfnCredsBackend;
 		FnCredsClearOption pfnCredsClearOption;
 		FnCatalogueEnsure pfnCatalogueEnsure;
 		FnCatalogueProviders pfnCatalogueProviders;
@@ -143,6 +145,7 @@ namespace
 		s_library.pfnRestoreUndo = reinterpret_cast<FnRestoreUndo>( LoadSymbol( pModule, "bk_cloudsync_restore_undo" ) );
 		s_library.pfnRestoreUndoAvailable = reinterpret_cast<FnRestoreUndoAvailable>( LoadSymbol( pModule, "bk_cloudsync_restore_undo_available" ) );
 		s_library.pfnCredsFingerprint = reinterpret_cast<FnCredsFingerprint>( LoadSymbol( pModule, "bk_cloudsync_creds_fingerprint" ) );
+		s_library.pfnCredsBackend = reinterpret_cast<FnCredsBackend>( LoadSymbol( pModule, "bk_cloudsync_creds_backend" ) );
 		s_library.pfnCredsClearOption = reinterpret_cast<FnCredsClearOption>( LoadSymbol( pModule, "bk_cloudsync_creds_clear_option" ) );
 		s_library.pfnCatalogueEnsure = reinterpret_cast<FnCatalogueEnsure>( LoadSymbol( pModule, "bk_cloudsync_catalogue_ensure" ) );
 		s_library.pfnCatalogueProviders = reinterpret_cast<FnCatalogueProviders>( LoadSymbol( pModule, "bk_cloudsync_catalogue_providers" ) );
@@ -166,7 +169,7 @@ namespace
 			s_library.pfnBackupList != 0 && s_library.pfnBackupEntry != 0 &&
 			s_library.pfnBackupRestore != 0 && s_library.pfnApplyPendingRestore != 0 &&
 			s_library.pfnRestoreUndo != 0 && s_library.pfnRestoreUndoAvailable != 0 &&
-			s_library.pfnCredsFingerprint != 0 && s_library.pfnCredsClearOption != 0 &&
+			s_library.pfnCredsFingerprint != 0 && s_library.pfnCredsBackend != 0 && s_library.pfnCredsClearOption != 0 &&
 			s_library.pfnCatalogueEnsure != 0 && s_library.pfnCatalogueProviders != 0 &&
 			s_library.pfnCatalogueOptions != 0 && s_library.pfnCatalogueForm != 0 &&
 			s_library.pfnCatalogueDestinations != 0 && s_library.pfnErrorDetail != 0 &&
@@ -554,6 +557,17 @@ namespace NCloudSync
 		if ( !library.bLoaded || pszOut == 0 || nCap == 0 )
 			return -1;
 		const int nLength = library.pfnCredsFingerprint( reinterpret_cast<unsigned char *>( pszOut ), nCap );
+		if ( nLength < 0 )
+			SetLastError2( library.pfnLastError() );
+		return nLength;
+	}
+
+	int CredentialsBackend( char *pszOut, unsigned int nCap )
+	{
+		SLibrary &library = Library();
+		if ( !library.bLoaded || pszOut == 0 || nCap == 0 )
+			return -1;
+		const int nLength = library.pfnCredsBackend( reinterpret_cast<unsigned char *>( pszOut ), nCap );
 		if ( nLength < 0 )
 			SetLastError2( library.pfnLastError() );
 		return nLength;

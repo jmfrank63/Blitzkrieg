@@ -115,6 +115,11 @@ namespace NCloudSync
 	// written only when that length is smaller than nCap (otherwise call
 	// again with nCap = length + 1). -1 when none is stored.
 	int CredentialsFingerprint( char *pszOut, unsigned int nCap );
+	// The saved credentials' backend id (required-size contract, plain
+	// text, -1 when none is stored). The settings screen's Provider row and
+	// the sync gates compare it with Cloud.Provider; they must agree before
+	// a sync runs.
+	int CredentialsBackend( char *pszOut, unsigned int nCap );
 
 	// The provider catalogue, for the generic credentials form.
 	// EnsureCatalogue returns CATALOGUE_CACHED when the cache already
