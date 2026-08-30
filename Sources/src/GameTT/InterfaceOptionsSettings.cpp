@@ -10,6 +10,9 @@
 #include <mmsystem.h>
 #include "../Common/Actions.h"
 #include "../Main/ScenarioTracker.h"
+#include "../Main/CloudSyncFacade.h"
+#include "CloudJson.h"
+#include <algorithm>
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {
 	{ "cancel_load"	,	IMC_CANCEL					},
@@ -79,6 +82,30 @@ bool CInterfaceOptionsSettings::Init()
 bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 {
 	const bool bResult = CInterfaceInterMission::StepLocal( bAppActive );
+	// A Provider change - a row click, or the left/right keys - reshapes the
+	// Cloud tab: the timing rows and the two buttons follow the value. Read
+	// per frame rather than per message so every path that commits the
+	// instant-apply row is caught, including clicks the list handles itself.
+	if ( nCloudDivision >= 0 && nActive == nCloudDivision )
+	{
+		const std::string szProvider = ReadCloudProvider();
+		if ( szProvider != szCloudProvider )
+		{
+			szCloudProvider = szProvider;
+			BuildCloudList();
+		}
+	}
+	if ( nCatalogueHandle >= 0 )
+	{
+		const NCloudSync::EState eState = NCloudSync::Poll( nCatalogueHandle );
+		if ( eState == NCloudSync::STATE_DONE || eState == NCloudSync::STATE_FAILED )
+		{
+			NCloudSync::Release( nCatalogueHandle );
+			nCatalogueHandle = -1;
+			if ( eState == NCloudSync::STATE_DONE )
+				LoadCloudDestinations();
+		}
+	}
 	// The UI screen already routes the wheel to whatever list the cursor is
 	// inside of; this covers the rest of the screen, so the wheel scrolls the
 	// option list wherever it is turned. Only outside the list rect - inside
@@ -103,7 +130,134 @@ bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 }
 void CInterfaceOptionsSettings::Done()
 {
+	if ( nCatalogueHandle >= 0 )
+	{
+		NCloudSync::Release( nCatalogueHandle );
+		nCatalogueHandle = -1;
+	}
 	CInterfaceInterMission::Done();
+}
+// Cloud.Provider is the switch: "Off" - and the pre-row "ON"/"OFF" values a
+// profile written before it may still carry - mean cloud sync is off.
+bool CInterfaceOptionsSettings::IsCloudProviderOff( const std::string &szValue )
+{
+	return szValue.empty() ||
+		NStr::CompareAsciiNoCase( szValue.c_str(), "Off" ) == 0 ||
+		NStr::CompareAsciiNoCase( szValue.c_str(), "On" ) == 0;
+}
+std::string CInterfaceOptionsSettings::ReadCloudProvider() const
+{
+	variant_t var;
+	if ( !GetSingleton<IOptionSystem>()->Get( "Cloud.Provider", &var ) )
+		return std::string();
+	return std::string( (const char*)bstr_t( var ) );
+}
+// The Cloud tab's list. Provider first; the timing rows and the settings
+// backup only when a provider is chosen - with Provider Off they would be
+// four switches that do nothing. Rebuilt whenever the Provider value changes
+// and when the catalogue fetch lands, so the row's list is always the full
+// destination list the facade offers.
+void CInterfaceOptionsSettings::BuildCloudList()
+{
+	if ( nCloudDivision < 0 || pUIScreen == 0 )
+		return;
+	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( _E_LIST_BEGIN + nCloudDivision ) );
+	if ( pList == 0 )
+		return;
+	const bool bOff = IsCloudProviderOff( szCloudProvider );
+
+	OptionDescs descs;
+	for ( OptionDescs::const_iterator it = cloudDescs.begin(); it != cloudDescs.end(); ++it )
+	{
+		// Cloud.Enabled is gone from defconf; a profile config written before
+		// the Provider row may still carry it, and it must not come back as a
+		// stray row.
+		if ( NStr::CompareAsciiNoCase( it->szName.c_str(), "Cloud.Enabled" ) == 0 )
+			continue;
+		const bool bProviderRow = NStr::CompareAsciiNoCase( it->szName.c_str(), "Cloud.Provider" ) == 0;
+		if ( bProviderRow || !bOff )
+			descs.push_back( *it );
+	}
+
+	// The Provider row's list: Off, then the destinations sorted by id, and
+	// always the row's own value - COptionSelection resolves an absent value
+	// to entry 0, which would turn cloud sync off on the next OK. The saved
+	// credentials' backend rides along for the same reason.
+	OptionDropOverrides overrides;
+	std::vector<SOptionDropListValue> &values = overrides["Cloud.Provider"];
+	SOptionDropListValue off;
+	off.szProgName = "Off";
+	values.push_back( off );
+	std::vector<std::string> names = cloudDestinations;
+	if ( !bOff )
+		names.push_back( szCloudProvider );
+	char szBackend[256];
+	const int nBackend = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
+	if ( nBackend > 0 && nBackend < (int)sizeof szBackend )
+		names.push_back( szBackend );
+	std::sort( names.begin(), names.end() );
+	for ( size_t i = 0; i < names.size(); ++i )
+	{
+		if ( IsCloudProviderOff( names[i] ) || ( i > 0 && names[i] == names[i - 1] ) )
+			continue;
+		SOptionDropListValue value;
+		value.szProgName = names[i];
+		values.push_back( value );
+	}
+
+	while ( pList->GetNumberOfItems() )
+		pList->RemoveItem( 0 );
+	optionsLists[nCloudDivision] = new COptionsListWrapper( pList, descs, 100, overrides );
+	if ( pList->GetNumberOfItems() > 0 )
+		pList->SetSelectionItem( 0 );
+	RefreshCloudButtons();
+}
+// The catalogue fetch, on opening the Cloud tab: a deliberate player action,
+// the same rule under which the credentials dialog spawns the daemon. A
+// cached list rebuilds at once; a fetch is polled in StepLocal. No catalogue
+// is not an error here - the row offers Off and the values it must keep, and
+// the full list arrives when the fetch does.
+void CInterfaceOptionsSettings::BeginCloudCatalogue()
+{
+	if ( nCatalogueHandle >= 0 || !cloudDestinations.empty() )
+		return;
+	const int nResult = NCloudSync::EnsureCatalogue();
+	if ( nResult == NCloudSync::CATALOGUE_CACHED )
+		LoadCloudDestinations();
+	else if ( nResult >= 0 )
+		nCatalogueHandle = nResult;
+}
+// The facade's filtered destination list, with the saved backend riding
+// along even when the running rclone's catalogue lacks it.
+void CInterfaceOptionsSettings::LoadCloudDestinations()
+{
+	char szBackend[256];
+	const int nBackend = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
+	const char *pszConfigured = ( nBackend > 0 && nBackend < (int)sizeof szBackend ) ? szBackend : "";
+	std::string szListDoc;
+	if ( !ReadSizedDocument( [pszConfigured]( char *psz, unsigned int nCap ) { return NCloudSync::CatalogueDestinations( pszConfigured, psz, nCap ); }, &szListDoc ) )
+		return;
+	SJsonValue list;
+	if ( !JsonParse( szListDoc, &list ) )
+		return;
+	cloudDestinations.clear();
+	if ( const SJsonValue *pNames = list.Get( "destinations" ) )
+		for ( size_t i = 0; i < pNames->children.size(); ++i )
+			if ( pNames->children[i].eType == SJsonValue::T_STRING )
+				cloudDestinations.push_back( pNames->children[i].szValue );
+	BuildCloudList();
+}
+// The cloud screens belong to the Cloud tab, and only to a chosen provider:
+// Config... sets up the service the row names, Backups... browses what that
+// service holds.
+void CInterfaceOptionsSettings::RefreshCloudButtons()
+{
+	const bool bShow = nActive == nCloudDivision && nCloudDivision >= 0 && !IsCloudProviderOff( szCloudProvider );
+	const int nShow = bShow ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE;
+	if ( IUIElement *pCredentials = pUIScreen->GetChildByID( E_BUTTON_CLOUD_CREDENTIALS ) )
+		pCredentials->ShowWindow( nShow );
+	if ( IUIElement *pBackups = pUIScreen->GetChildByID( E_BUTTON_CLOUD_BACKUPS ) )
+		pBackups->ShowWindow( nShow );
 }
 void CInterfaceOptionsSettings::Create()
 {
@@ -181,7 +335,16 @@ void CInterfaceOptionsSettings::Create()
 		IUIListControl * pList = checked_cast<IUIListControl*>(pUIScreen->GetChildByID( _E_LIST_BEGIN + nMaxDivision ));
 		IUIStatic * pCaption = checked_cast<IUIStatic*>( pList->GetChildByID( 10 ) );
 
-		optionsLists.push_back( new COptionsListWrapper( pList, sections[szSection], 100 ) );
+		if ( szSection == "Cloud" )
+		{
+			nCloudDivision = nMaxDivision;
+			cloudDescs = sections[szSection];
+			szCloudProvider = ReadCloudProvider();
+			optionsLists.push_back( CPtr<COptionsListWrapper>() );
+			BuildCloudList();
+		}
+		else
+			optionsLists.push_back( new COptionsListWrapper( pList, sections[szSection], 100 ) );
 		IUIButton * pButton = checked_cast<IUIButton *>( pUIScreen->GetChildByID( _E_BUTTON_CHANGE_DIVISION_BEGIN + nMaxDivision ) );
 		
 		pButton->SetWindowText( -1, pT->GetString() );
@@ -192,8 +355,6 @@ void CInterfaceOptionsSettings::Create()
 			pButton->SetHelpContext( 0, pT->GetString() );
 		
 		pButton->ShowWindow( UI_SW_SHOW );
-		if ( szSection == "Cloud" )
-			nCloudDivision = nMaxDivision;
 		++nMaxDivision;
 	}
 	
@@ -251,12 +412,9 @@ void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 	NI_ASSERT_T( pElement != 0, NStr::Format("There is no button with id %d") );
 	pElement->EnableWindow( false );
 
-	// The cloud screen buttons belong to the Cloud tab alone.
-	const int nCloudShow = nActive == nCloudDivision && nCloudDivision >= 0 ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE;
-	if ( IUIElement *pCredentials = pUIScreen->GetChildByID( E_BUTTON_CLOUD_CREDENTIALS ) )
-		pCredentials->ShowWindow( nCloudShow );
-	if ( IUIElement *pBackups = pUIScreen->GetChildByID( E_BUTTON_CLOUD_BACKUPS ) )
-		pBackups->ShowWindow( nCloudShow );
+	RefreshCloudButtons();
+	if ( nActive == nCloudDivision )
+		BeginCloudCatalogue();
 }
 // Tab parks the cursor on the next button of the screen - division tabs,
 // then V (ok), then X (cancel) - so the button highlights, tooltips and
@@ -314,6 +472,9 @@ int CInterfaceOptionsSettings::GetArmedNavButton()
 }
 void CInterfaceOptionsSettings::Close()
 {
+	// Whatever changed on the Cloud tab, the menu indicator re-evaluates
+	// "chosen but not set up" when it gets the screen back.
+	SetGlobalVar( "CloudSync.Recheck", 1 );
 	if ( GetGlobalVar( "AreWeInMission", 0 ) )
 	{
 		IMainLoop *pML = GetSingleton<IMainLoop>();
