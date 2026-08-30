@@ -79,4 +79,7 @@ zig-pkg/
 
 # Local Git worktrees
 .worktrees/
+
+# Subagent-driven-development scratch (ledger, briefs, review packages)
+.superpowers/
 node_modules/
