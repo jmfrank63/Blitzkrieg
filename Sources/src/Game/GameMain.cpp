@@ -245,46 +245,84 @@ static int g_nCloudStartupSync = -1;
 static int g_nCloudSavesSeen = 0;
 static std::uint64_t g_nCloudSyncDueMs = 0;
 
-// A Cloud.* option through the live option system - available once the
-// config has been read, unlike the raw-scan path the startup window needs.
-static bool CloudSyncOptionOn( const char *pszKey )
+// A Cloud.* option's value through the live option system - available once
+// the config has been read, unlike the raw-scan path the startup window
+// needs. Empty when unset.
+static std::string CloudSyncOptionValue( const char *pszKey )
 {
 	variant_t var;
 	if ( !GetSingleton<IOptionSystem>()->Get( pszKey, &var ) )
-		return false;
-	return std::string( (const char*)bstr_t( var ) ) == "ON";
+		return std::string();
+	return std::string( (const char*)bstr_t( var ) );
+}
+static bool CloudSyncOptionOn( const char *pszKey )
+{
+	return CloudSyncOptionValue( pszKey ) == "ON";
 }
 
-// Whether a Cloud.* droplist option reads ON in the profile's config - by a
-// minimal scan of the raw XML, because this is asked before the option
-// system has initialised (the whole point of the startup window is that the
-// config has not been read yet). Inside an item the live <Var> comes first
-// and the <Default> block - with its own inner <Var> - sits between it and
+// A Cloud.* option's value in the profile's config - by a minimal scan of
+// the raw XML, because this is asked before the option system has
+// initialised (the whole point of the startup window is that the config has
+// not been read yet). Inside an item the live <Var> comes first and the
+// <Default> block - with its own inner <Var> - sits between it and
 // <KeyName>, so the scan must take the FIRST <Var> after the enclosing
 // item's start; the nearest one before the key is always the default.
-// Anything missing or malformed is OFF.
-static bool CloudOptionIsOn( const std::string &szConfigPath, const char *pszKey )
+// Anything missing or malformed is empty.
+static std::string CloudOptionValue( const std::string &szConfigPath, const char *pszKey )
 {
 	std::ifstream file( szConfigPath, std::ios::binary );
 	if ( !file )
-		return false;
+		return std::string();
 	std::string szContent( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
 
 	const std::string szNeedle = std::string( "<KeyName>" ) + pszKey + "</KeyName>";
 	const std::string::size_type nKeyAt = szContent.find( szNeedle );
 	if ( nKeyAt == std::string::npos )
-		return false;
+		return std::string();
 	const std::string::size_type nItemAt = szContent.rfind( "<item", nKeyAt );
 	if ( nItemAt == std::string::npos )
-		return false;
+		return std::string();
 	const std::string::size_type nVarAt = szContent.find( "<Var>", nItemAt );
 	if ( nVarAt == std::string::npos || nVarAt > nKeyAt )
-		return false;
+		return std::string();
 	const std::string::size_type nVarEnd = szContent.find( "</Var>", nVarAt );
 	if ( nVarEnd == std::string::npos || nVarEnd > nKeyAt )
-		return false;
-	const std::string szValue = szContent.substr( nVarAt + 5, nVarEnd - nVarAt - 5 );
-	return szValue == "ON";
+		return std::string();
+	return szContent.substr( nVarAt + 5, nVarEnd - nVarAt - 5 );
+}
+static bool CloudOptionIsOn( const std::string &szConfigPath, const char *pszKey )
+{
+	return CloudOptionValue( szConfigPath, pszKey ) == "ON";
+}
+
+// Cloud.Provider is the switch. "Off" - and the pre-row "ON"/"OFF" values a
+// profile written before it may still carry - mean cloud sync is off;
+// anything else is the rclone backend id the profile syncs with.
+static bool CloudProviderSelected( const std::string &szProvider )
+{
+	return !szProvider.empty() &&
+		NStr::CompareAsciiNoCase( szProvider.c_str(), "Off" ) != 0 &&
+		NStr::CompareAsciiNoCase( szProvider.c_str(), "On" ) != 0;
+}
+// The saved credentials must name the chosen backend. The row is changed
+// casually (an arrow key steps it), the document only by a deliberate save
+// in Config..., and a sync must never run against a service whose setup was
+// never saved. Loads the library, never probes for rclone.
+static bool CloudCredentialsMatch( const std::string &szProvider )
+{
+	char szBackend[256];
+	const int nLength = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
+	return nLength > 0 && nLength < (int)sizeof szBackend && szProvider == szBackend;
+}
+// The indicator's "chosen but not set up" line. No job exists to publish
+// from, so the state is written directly; the menu maps the error text to
+// textes\ui\cloudsync\unconfigured.
+static void PublishCloudUnconfigured()
+{
+	SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_FAILED );
+	SetGlobalVar( "CloudSync.Outcome", (int)NCloudSync::OUTCOME_FAILED );
+	SetGlobalVar( "CloudSync.Error", "unconfigured" );
+	NStr::DebugTrace( "cloud sync: provider chosen but not set up\n" );
 }
 int RunGame( const BkGameLaunchInfo &launch )
 {
@@ -433,22 +471,28 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// launch, a corrupt config, and a profile that predates the
 		// feature must all do nothing and add no startup latency. The
 		// option checks run before Available(), because Available() is
-		// what probes for rclone.
+		// what probes for rclone. Cloud.Provider is read the same way, and
+		// a chosen provider whose credentials are missing or name another
+		// backend publishes the unconfigured indicator instead of syncing.
 		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
-		if ( CloudOptionIsOn( szConfigPath, "Cloud.Enabled" ) &&
-				 CloudOptionIsOn( szConfigPath, "Cloud.Sync.OnStartup" ) &&
-				 NCloudSync::Available() )
+		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
+		if ( CloudProviderSelected( szProvider ) )
 		{
-			// Begin only enqueues - the daemon spawn (reaping any orphan
-			// from a crashed run first, the P00-M03 identity-checked path)
-			// and the run itself happen on the library's worker, and the
-			// main loop polls. A slow link can never stall the first frame.
-			g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(),
-				CloudOptionIsOn( szConfigPath, "Cloud.Config.Backup" ) );
-			if ( g_nCloudStartupSync >= 0 )
-				NStr::DebugTrace( "cloud sync: startup sync begun for \"%s\"\n", szProfile.c_str() );
-			else
-				NStr::DebugTrace( "cloud sync: startup sync refused: %s\n", NCloudSync::LastError() );
+			if ( !CloudCredentialsMatch( szProvider ) )
+				PublishCloudUnconfigured();
+			else if ( CloudOptionIsOn( szConfigPath, "Cloud.Sync.OnStartup" ) && NCloudSync::Available() )
+			{
+				// Begin only enqueues - the daemon spawn (reaping any orphan
+				// from a crashed run first, the P00-M03 identity-checked path)
+				// and the run itself happen on the library's worker, and the
+				// main loop polls. A slow link can never stall the first frame.
+				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(),
+					CloudOptionIsOn( szConfigPath, "Cloud.Config.Backup" ) );
+				if ( g_nCloudStartupSync >= 0 )
+					NStr::DebugTrace( "cloud sync: startup sync begun for \"%s\"\n", szProfile.c_str() );
+				else
+					NStr::DebugTrace( "cloud sync: startup sync refused: %s\n", NCloudSync::LastError() );
+			}
 		}
 	}
 	if ( cmdp.bReferenceScene )
@@ -952,6 +996,24 @@ int RunGame( const BkGameLaunchInfo &launch )
 					NStr::DebugTrace( "cloud sync: skip to offline requested\n" );
 				}
 			}
+			if ( GetGlobalVar( "CloudSync.Recheck", 0 ) )
+			{
+				// The settings screen closed: re-evaluate "chosen but not set
+				// up" for the indicator. Only while no run holds the handle - a
+				// run's own settle owns the state until it lands.
+				RemoveGlobalVar( "CloudSync.Recheck" );
+				if ( g_nCloudStartupSync < 0 )
+				{
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( CloudProviderSelected( szProvider ) && !CloudCredentialsMatch( szProvider ) )
+						PublishCloudUnconfigured();
+					else if ( std::string( GetGlobalVar( "CloudSync.Error", "" ) ) == "unconfigured" )
+					{
+						SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_IDLE );
+						SetGlobalVar( "CloudSync.Error", "" );
+					}
+				}
+			}
 			if ( g_nCloudStartupSync >= 0 )
 			{
 				const NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
@@ -989,7 +1051,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 						 !GetGlobalVar( "AreWeInMission", 0 ) )
 				{
 					g_nCloudSyncDueMs = 0;
-					if ( CloudSyncOptionOn( "Cloud.Enabled" ) && CloudSyncOptionOn( "Cloud.Sync.OnSave" ) &&
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( CloudProviderSelected( szProvider ) && CloudCredentialsMatch( szProvider ) && CloudSyncOptionOn( "Cloud.Sync.OnSave" ) &&
 							 NCloudSync::Available() )
 					{
 						const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
@@ -1352,14 +1415,16 @@ int RunGame( const BkGameLaunchInfo &launch )
 		{
 			// The exit push, after the config write so a backup snapshots the
 			// final settings and the last saves are on disk. Honours
-			// Cloud.Sync.OnExit, and also flushes a post-save push that was
-			// still coalescing rather than dropping it. The wait is bounded:
-			// on timeout the run is abandoned - the profile simply stays
-			// ahead of the cloud and the next startup pull converges - and
-			// Shutdown() runs on this path regardless, so the daemon dies
-			// with the game (a crash skips all of this; the Windows job
-			// object and the next launch's identity-checked reap cover it).
-			const bool bExitSyncWanted = CloudSyncOptionOn( "Cloud.Enabled" ) &&
+			// Cloud.Sync.OnExit under a chosen and set-up provider, and also
+			// flushes a post-save push that was still coalescing rather than
+			// dropping it. The wait is bounded: on timeout the run is
+			// abandoned - the profile simply stays ahead of the cloud and the
+			// next startup pull converges - and Shutdown() runs on this path
+			// regardless, so the daemon dies with the game (a crash skips all
+			// of this; the Windows job object and the next launch's
+			// identity-checked reap cover it).
+			const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+			const bool bExitSyncWanted = CloudProviderSelected( szProvider ) && CloudCredentialsMatch( szProvider ) &&
 				( CloudSyncOptionOn( "Cloud.Sync.OnExit" ) || g_nCloudSyncDueMs != 0 ) &&
 				NCloudSync::Available();
 			if ( g_nCloudStartupSync < 0 && bExitSyncWanted )

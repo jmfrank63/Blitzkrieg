@@ -27,7 +27,8 @@ enum EUIElements
 static bool IsGeneratedSelectionText( const char *pszOptionName )
 {
 	return (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Mode" ) == 0) ||
-		     (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Monitor" ) == 0);
+		     (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Monitor" ) == 0) ||
+		     (NStr::CompareAsciiNoCase( pszOptionName, "Cloud.Provider" ) == 0);		// rclone ids, shown as they are
 }
 
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )

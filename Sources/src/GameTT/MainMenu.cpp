@@ -253,11 +253,13 @@ void CInterfaceMainMenu::Create( int nState )
 // contract), so the branch reads the first word; "Cancelled" is the
 // player's own skip and reads as offline, and anything unrecognized falls
 // back to the generic message rather than a raw error on the menu.
+// "unconfigured" is not a run outcome - the main loop publishes it when a
+// provider is chosen but the saved credentials do not name it.
 static const char *CloudFailureTextKey( const std::string &szError )
 {
 	if ( szError == "Cancelled" )
 		return "offline";
-	static const char *pszOutcomes[] = { "needs_resync", "too_many_deletes", "name_too_long",
+	static const char *pszOutcomes[] = { "unconfigured", "needs_resync", "too_many_deletes", "name_too_long",
 		"out_of_sync", "auth_failed", "remote_unreachable", "remote_missing",
 		"daemon_gone", "timed_out", 0 };
 	for ( int i = 0; pszOutcomes[i] != 0; ++i )
