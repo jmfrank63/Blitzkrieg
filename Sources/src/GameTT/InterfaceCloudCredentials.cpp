@@ -1064,11 +1064,22 @@ bool CInterfaceCloudCredentials::StepLocal( bool bAppActive )
 		if ( eState == NCloudSync::STATE_DONE || eState == NCloudSync::STATE_FAILED )
 		{
 			// However the flow ended, the machine's takeover ends with it:
-			// the real form comes back, prefilled from what was saved.
+			// the real form comes back, prefilled from what was saved. The
+			// flow that just settled is itself a writer of the stored
+			// document, not only a reader of it - an OAuth backend's worker
+			// reads the token back and writes it mid-flow - so the snapshot
+			// LoadStored() last took predates what settled onto disk just
+			// now. Re-read before the rebuild: skip this and the rebuilt
+			// token field carries bStoredSecret == false, so a player who
+			// touches any other field (the folder, say) and presses OK takes
+			// the touched save path, whose masked-field branch omits an
+			// untouched field with no stored flag - the token this flow just
+			// acquired is silently dropped and the next sync fails auth.
 			if ( s_bConfigQuestion || !s_szLastCard.empty() )
 			{
 				s_bConfigQuestion = false;
 				s_szLastCard.clear();
+				LoadStored();
 				RebuildForm( false );
 			}
 			if ( eState == NCloudSync::STATE_DONE )
