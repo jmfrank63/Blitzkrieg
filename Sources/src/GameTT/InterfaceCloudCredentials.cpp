@@ -613,6 +613,7 @@ void CInterfaceCloudCredentials::OnRowEdited( int nSlot )
 	if ( szValue == pField->szValue )
 		return;
 	pField->szValue = szValue;
+	pField->bTouched = true;
 	// Selecting a vendor is not an ordinary edit: it changes which fields
 	// exist, so the form is re-derived - preserving still-applicable typed
 	// values, never a value the new vendor does not offer. The rebuild
@@ -645,6 +646,7 @@ void CInterfaceCloudCredentials::CycleExample( int nSlot )
 			break;
 		}
 	pField->szValue = WideFromUtf8( pField->exampleValues[nNext] );
+	pField->bTouched = true;
 	SetEdit( E_EDIT_BASE + nSlot, pField->szValue );
 	// The example's help is the only per-value documentation the catalogue
 	// carries; the status line is where this dialog shows it.
@@ -668,16 +670,36 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 			TextOrFallback( "Textes\\UI\\CloudCredentials\\catalogue_missing", L"no provider list yet" ) );
 		return false;
 	}
+	// Whatever this backend already has on record, keyed by option name -
+	// the fallback an untouched, blank non-secret box defers to below, the
+	// same protection a blank masked box already has through bStoredSecret.
+	// A box the player actually typed or cycled through (bTouched) always
+	// wins, including a deliberate blank: this only covers a box that
+	// never carried anything this session, on the very backend already
+	// saved - never a switch to a different one, which is meant to start
+	// clean.
+	const bool bSameBackend = ( szBackend == szStoredBackend );
+	auto StoredOptionValue = [this]( const std::string &szName ) -> std::string
+	{
+		for ( size_t i = 0; i < storedOptions.size(); ++i )
+			if ( storedOptions[i].first == szName )
+				return storedOptions[i].second;
+		return std::string();
+	};
 	// Required means must-fill: the model already folded catalogue defaults
 	// and other vendors' requirements out of bRequired, so blank is simply
-	// blank - and a masked field with a stored secret is not blank. Named by
-	// its label, before any network call and before the document is built.
+	// blank - and a masked field with a stored secret is not blank, and
+	// neither is an untouched non-secret field the record still has a
+	// value for. Named by its label, before any network call and before
+	// the document is built.
 	for ( size_t i = 0; i < fields.size(); ++i )
 	{
 		const SField &field = fields[i];
 		if ( !field.bRequired || !field.szValue.empty() )
 			continue;
 		if ( field.IsMasked() && field.bStoredSecret )
+			continue;
+		if ( !field.IsMasked() && !field.bTouched && bSameBackend && !StoredOptionValue( field.szName ).empty() )
 			continue;
 		SetStatus( "Textes\\UI\\CloudCredentials\\required_missing", field.szLabel );
 		return false;
@@ -695,6 +717,8 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 		if ( field.nRole == 1 )
 		{
 			szRoot = szValue;
+			if ( szRoot.empty() && !field.bTouched && bSameBackend )
+				szRoot = szStoredRoot;
 			continue;
 		}
 		if ( field.nRole == 2 )
@@ -729,12 +753,18 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 		}
 		// Only what the player set: an empty value is unset, and a value
 		// equal to the catalogue default must follow upstream rather than
-		// being pinned in the credentials file.
-		if ( szValue.empty() || szValue == field.szPlaceholder )
+		// being pinned in the credentials file - unless the box is blank
+		// only because this backend's own prefill never reached it
+		// (untouched, same backend as stored), in which case the value
+		// already on record carries forward.
+		std::string szSend = szValue;
+		if ( szSend.empty() && !field.bTouched && bSameBackend )
+			szSend = StoredOptionValue( field.szName );
+		if ( szSend.empty() || szSend == field.szPlaceholder )
 			continue;
 		if ( !szOptions.empty() )
 			szOptions += ",";
-		szOptions += "\"" + JsonEscape( field.szName ) + "\":\"" + JsonEscape( szValue ) + "\"";
+		szOptions += "\"" + JsonEscape( field.szName ) + "\":\"" + JsonEscape( szSend ) + "\"";
 	}
 
 	std::string szJson = "{\"backend\":\"" + JsonEscape( szBackend ) + "\",";

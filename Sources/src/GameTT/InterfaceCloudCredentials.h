@@ -40,7 +40,7 @@ class CInterfaceCloudCredentials : public CInterfaceScreenBase
 		std::vector<std::wstring> exampleHelp;
 		std::wstring szValue;				// the real value, masked fields included
 		bool bStoredSecret;					// a secret is stored; empty value means keep it
-		bool bTouched;							// masked only: typed this session
+		bool bTouched;							// typed or cycled this session: a blank here is the player's own choice, not an unreached prefill
 		SField() : nRole( 0 ), bRequired( false ), bAdvanced( false ), bIsPassword( false ), bStoredSecret( false ), bTouched( false ) {}
 		bool IsMasked() const { return szWidget == "masked"; }
 	};
