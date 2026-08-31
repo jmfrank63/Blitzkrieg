@@ -37,6 +37,15 @@ third — the P02 "text= cannot carry URLs" note — was documentation, already
 corrected. The human-approval checkbox in P04-M01 stays open until someone
 records approval in the evidence file.
 
+**Provider row (2026-08-30).** Cloud.Enabled is gone; Cloud.Provider is Off
+or the backend id and gates every sync together with the saved credentials
+naming it; the Cloud tab lists the catalogue's destinations in the row,
+shows the timing rows and Config.../Backups... inside its box only under a
+chosen provider; the dialog opens on the row's backend. Spec
+docs/superpowers/specs/2026-08-30-cloud-provider-row-design.md, plan
+docs/superpowers/plans/2026-08-30-cloud-provider-row.md, evidence
+docs/superpowers/evidence/cloud-sync/provider-row.md.
+
 ## Where implementation stands
 
 **Phases 00 through 03 are complete** (phase 03's exit — a live OAuth

@@ -128,9 +128,9 @@ and OpenSSH — is untested here.
   offers only Credentials and Backups. The evidence confirmed each new
   pairing the only way there is — deleting the machine-local record
   `cloudsync/state/P04.json` — after which the designed
-  `NotPaired → pair` bootstrap ran cleanly. A player who switches
-  services today is stuck at a failed sync with no in-game way forward;
-  a later packet should own the confirmation flow.
+  `NotPaired → pair` bootstrap ran cleanly. **Fixed in 129dcc166**: the
+  credentials save retires pairing records naming another fingerprint,
+  and the next sync takes the NotPaired → pair bootstrap.
 - **The `text=` colon note in the P02 manifest is stale.** The schedule
   parser splits entries at their *first* colon only, so URLs type fine;
   commas remain the real separator constraint. The P02 evidence's
@@ -141,6 +141,10 @@ and OpenSSH — is untested here.
   same store the settings screen writes.
 
 ## Commands (abbreviated)
+
+The chooser walk (msg=10020 ×N) is historical: since the Provider row the
+backend is chosen on the Cloud tab (msg=10011, then key=RIGHT per step) and
+the dialog opens on it - see provider-row.md.
 
 ```
 # services
