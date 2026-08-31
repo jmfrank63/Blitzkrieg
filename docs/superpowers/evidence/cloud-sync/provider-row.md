@@ -1,8 +1,13 @@
 # Provider row — end to end through the shipped game
 
 Measured 2026-08-31 on Apple Silicon macOS (Darwin 25.6.0), the already-staged
-release build (`zig build install-game -Dtarget=aarch64-macos --release=fast`,
-unchanged for this packet), run from `zig-out/game/macos/arm64/release`,
+release build (`zig build install-game -Dtarget=aarch64-macos --release=fast`;
+this held for Steps 1 and 2 and the first Findings pass below, but the
+credentials-dialog fixes that followed it — `4a2d509c7` (the prefill
+fallback), then `c45b43ef1` (the untouched-form guard and the vendor-switch
+fix) — each required a rebuild before its own re-verification could run;
+noted inline wherever a capture or trace postdates one), run from
+`zig-out/game/macos/arm64/release`,
 bundled rclone v1.75.0. Profile `P06` (`./Game -windowed -profile=P06`),
 created fresh for this packet with `rm -rf profiles/P06; mkdir -p
 profiles/P06/saves`; no `profiles/P04` exists on this machine (only
@@ -108,11 +113,15 @@ stored secret should show — and the status line reads `Cloud: sync failed -
 changes will sync later`. Kept here as the historical record of the failure;
 see the Findings entry below for the fix.
 
-**Re-run after `4a2d509c7`, same Cloud tab route, `test-ok.png`.** Reopening
-`Config...` on the saved `s3` backend (`40:var=notransition=1,60:settings,
-120:click=1067x341,240:msg=10011,300:shot,320:msg=10013,400:shot,
-420:msg=10021,750:shot,760:msg=10020,800:shot,850:ok,900:ok,950:exit`)
-now prefills correctly and stays that way through a real test and save:
+**Re-run after `4a2d509c7`, same Cloud tab route, `test-ok.png`.** Run on
+profile `P05`, not `P06` — this re-verification reused the fix round's own
+working profile rather than re-staging `P06`, and the saved `s3` backend is
+the same shared `profiles/cloud.credentials` document either profile reads.
+Reopening `Config...` on the saved `s3` backend
+(`40:var=notransition=1,60:settings,120:click=1067x341,240:msg=10011,
+300:shot,320:msg=10013,400:shot,420:msg=10021,750:shot,760:msg=10020,
+800:shot,850:ok,900:ok,950:exit`) now prefills correctly and stays that way
+through a real test and save:
 frame 400 (right after `Config...` opens, before `Test`) shows `Service: s3`
 greyed, `provider Minio`, `region us-east-1`, `endpoint
 http://127.0.0.1:19100`, and `access_key_id`/`secret_access_key` masked —
@@ -226,51 +235,122 @@ packet's many runs without ever reverting to a default.
 
 ## Findings
 
-- **Reopening `Config...` on an already-configured backend blanks the form,
-  and the first `Test connection` (or `OK`) silently overwrites the real
-  credentials with an empty document.** Reproduced three times: the full
-  Step 1.2 schedule above (twice, identical trace both times) and a minimal
-  isolated repro (`set=Cloud.Provider=s3` directly, then `msg=10013,
-  msg=10021, cancel` — no row navigation at all, same failure). Also
-  reproduced on `P05`, which the earlier P04-M01 packet had already paired.
-  `InterfaceCloudCredentials.cpp`'s `RebuildForm()` has code that looks
-  designed to do this correctly — `else if ( szBackend == szStoredBackend )`
-  copies every `storedOptions` entry into the matching field, and marks
-  masked (secret) fields `bStoredSecret` — but in practice every field,
-  secret and non-secret alike, renders and saves blank. `BeginConnectionTest()`
-  calls `SaveCredentials()` *before* probing ("the probe reads the saved
-  document, so what is typed must be saved first"), and `SaveCredentials()`
-  treats a blank, untouched field as "the player unset it" for non-secret
-  options (`if (szValue.empty() ...) continue;` — nothing preserves the
-  stored value the way the secret path's `bStoredSecret` name-only send
-  does). The visible daemon-side symptom is `cloudsync/rclone.conf` gaining
-  `[bkraw] type = s3` with no `provider` (confirmed in `cloudsync/rcd.log`:
-  `NOTICE: s3: s3 provider "" not known - please set correctly`), and the
-  saved `profiles/cloud.credentials` collapsing to
+- **Reopening `Config...` on an already-configured backend could blank the
+  form, and the first `Test connection` (or `OK`) then silently overwrote
+  the real credentials with an empty document.** `InterfaceCloudCredentials.cpp`'s
+  `RebuildForm()` has code that looks designed to prevent this — `else if
+  ( szBackend == szStoredBackend )` copies every `storedOptions` entry into
+  the matching field, and marks masked (secret) fields `bStoredSecret` —
+  but in practice every field, secret and non-secret alike, could render
+  and save blank. `BeginConnectionTest()` calls `SaveCredentials()` *before*
+  probing ("the probe reads the saved document, so what is typed must be
+  saved first"), and `SaveCredentials()` treated a blank, untouched field
+  as "the player unset it" for non-secret options (`if (szValue.empty()
+  ...) continue;` — nothing preserved the stored value the way the secret
+  path's `bStoredSecret` name-only send did). The visible daemon-side
+  symptom is `cloudsync/rclone.conf` gaining `[bkraw] type = s3` with no
+  `provider` (confirmed in `cloudsync/rcd.log`: `NOTICE: s3: s3 provider ""
+  not known - please set correctly`), and the saved
+  `profiles/cloud.credentials` collapsing to
   `{"backend":"s3","remote_root":"","options":{},...}`. This is new: P04-M01's
   own dialog evidence always typed a backend fresh through the chooser and
   never reopened an already-saved one, and this exact reopen-on-the-row path
   (`InterfaceCloudCredentials.cpp`'s `ProviderRowValue()`/prefill-on-open
   logic) is this plan's own `a3ddec5f9` ("the credentials dialog sets up the
-  row's backend"), landed the same day as this evidence run. Not fixed at
-  the time of this packet — Task 7's brief scopes it to evidence and docs
-  only, and the brief's own expectation (`Expect cloud credentials:
-  connection test ok`) did not hold; recovery was to restore the exact
-  original `cloud.credentials` document from this session's own earlier
-  inspection of it (recorded above) rather than re-typing through the form.
-  A player who opens `Config...` on an already-working backend just to
-  look, and reflexively hits `OK` or `Test connection`, would have lost
-  their saved credentials with no warning. **Fixed in `4a2d509c7`** —
-  `RebuildForm()`'s one-shot prefill of non-secret fields had no fallback
-  if it never reached a field (the settings screen stays alive underneath
-  the reopened dialog and keeps polling the same `NCloudSync` catalogue/
-  credentials calls independently, a concurrency the direct main-menu route
-  never has), so a field that rendered blank had nothing else remembering
-  the stored value, unlike a masked field's independent `bStoredSecret`;
-  `SaveCredentials()` now falls back to the recorded value for a blank,
-  untouched field on the very backend already saved, closing that gap
-  regardless of what left the field unfilled. See `test-ok.png` below,
-  captured after the fix through this same Cloud tab route.
+  row's backend"), landed the same day as this evidence run.
+
+  **What was actually observed, precisely: one live occurrence, two
+  deterministic follow-ons.** Three runs showed the failure: the full
+  Step 1.2 schedule above, a repeat with the same schedule, and a minimal
+  isolated repro (`set=Cloud.Provider=s3` directly, then `msg=10013,
+  msg=10021, cancel` — no row navigation at all). That is not three
+  independent hits of the underlying gap. `LoadStored()` reads
+  `szStoredBackend` from the document's `"backend"` field (which a blank
+  save still writes, e.g. `"s3"`) while `storedOptions` reads from
+  `"options"` (which a blank save empties): once the *first* run wiped the
+  document, `szBackend == szStoredBackend` still held on every later open,
+  but there was nothing left in `storedOptions` to prefill from, so the
+  same blank render — and, on reaching `Test`/`OK` again, the same resave —
+  recurred on the repeat and the isolated repro with no race required.
+  Made explicit here rather than left implicit: this is why Task 7's own
+  report records exactly two wipe-and-restore cycles across the
+  investigation ("I caused this wipe twice during investigation and
+  recovered both times by restoring the exact original `cloud.credentials`
+  bytes"), not three — the first run's wipe, and one resave from a
+  follow-on run before the document was restored; only the first
+  restoration (before Step 1.3, above) is narrated here in full.
+
+  **The trigger for the first, live occurrence was never reproduced.** Also
+  reproduced on `P05`, which the earlier P04-M01 packet had already paired
+  — restoring the wiped bytes afterward retired its pairing record (see the
+  next finding), a real but separate consequence. Fix round 1 tried to
+  force the original blank render back on this machine five separate ways,
+  matching the evidence's conditions as closely as possible, and could not:
+  (1) the tab route with `Cloud.Provider` already `s3` on `P05`; (2) the
+  evidence's own Step 1.2 schedule verbatim, from `Off` through the full
+  44-step walk to `s3`, on `P05`; (3) the same schedule with
+  `cloudsync/providers.json` deliberately removed first, to force a cold
+  catalogue fetch; (4) the same schedule on `P06` itself, still carrying
+  its state from this evidence session; (5) with a trace confirming
+  `CInterfaceOptionsSettings::StepLocal`/`BuildCloudList()` genuinely keep
+  running the whole time the dialog sits on top of it — the settings
+  screen really does stay "alive underneath," independently polling the
+  same `NCloudSync` catalogue/credentials calls, which is the one concrete,
+  verified structural difference from the direct main-menu route (no other
+  screen is alive there) — prefill still worked correctly every time.
+
+  **Fixed in `4a2d509c7`** — non-secret fields now carry the same "blank
+  and untouched on the very backend already saved keeps the stored value"
+  protection secrets already had (`bStoredSecret`), via a per-field
+  `bTouched` flag now set on every real edit or example-cycle, not just a
+  secret's. Verified on the same Cloud tab route, profile `P05`: reopening
+  the saved `s3` backend prefills correctly, `Test connection` reaches
+  `Connection OK`, and `OK` leaves the saved document — `backend`,
+  `remote_root`, every non-secret option, and the `fingerprint` — byte-for-
+  byte unchanged (`test-ok.png`, described above under Step 1.2's re-run).
+
+  **Residual risk this alone did not close, and what covers it — fixed in
+  `c45b43ef1`.** The round-1 fallback is only as good as `storedOptions`:
+  on the very state that produced the original wipe — an empty stored
+  snapshot, or (structurally identical to it, for this fallback) a
+  backend mismatch — the fallback is a no-op and the same wipe could
+  recur, since neither state gives it anything to fall back to.
+  `c45b43ef1` closes this directly: an entirely untouched form now
+  refuses to save at all when real credentials are on record
+  (`NCloudSync::CredentialsPresent()`) and the backend is mismatched or
+  the stored snapshot for it is empty — the same status-line refusal
+  shape `SaveCredentials()` already used for unreadable credentials.
+  Verified: `Provider=webdav` over the saved `s3` document, dialog opened
+  and left untouched — both `Test connection` and `OK` refuse with
+  `Could not save: nothing was typed; the saved credentials were left as
+  they are`, and `profiles/cloud.credentials` stays byte-unchanged; a
+  webdav form actually typed into (a URL) still saves normally, unaffected
+  by the guard; the prefilled-reopen round-trip from the paragraph above
+  still saves byte-identical, Test still reaches `Connection OK`.
+
+  The same commit also closed a second, related gap the round-1 fallback
+  introduced on its own: cycling the `provider` field within the same
+  backend (`RebuildForm( true )`) deliberately drops a `droplist_closed`
+  value the new vendor does not offer, but left the replacement field
+  looking untouched — the very state the round-1 fallback would then
+  resurrect the dropped value into, from `storedOptions`, on save. The
+  rebuild path now marks that replacement field touched when a value is
+  dropped this way, so the drop sticks. This one could not be verified
+  organically: the bundled rclone's own s3 catalogue never marks a single
+  field `Exclusive` (confirmed across all 69 cached backends — the one
+  field anywhere that is, `azureblob`'s `delete_snapshots`, belongs to a
+  backend with no `provider` sub-field to cycle at all), so
+  `droplist_closed` never actually occurs through the live UI today.
+  Verified instead with a temporary, since-removed debug hook
+  (`BK_FORCE_CLOSED_TEST`) forcing the `region` field's widget to
+  `droplist_closed` with an example set that excludes whatever is
+  currently stored: with the fix reverted, cycling the `provider` field
+  away from `Minio` and saving resurrected `"region":"us-east-1"` into a
+  vendor that (by the forced example set) does not offer it, confirmed
+  writable, the exact resubmit the code's own comment rules out; with the
+  fix restored, the identical steps produced a document with no `region`
+  key at all. Both runs used the same starting document and the same
+  cycle-then-save steps, differing only in whether the fix was present.
 - **Side effect: `P05`'s pairing record was retired.** The credential wipe
   above rotated the stored fingerprint (from `s3:bk-saves#07fd8363...` to
   `s3:#6e88edc9...`, since an empty `remote_root`/`options` hashes
