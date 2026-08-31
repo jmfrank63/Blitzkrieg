@@ -315,18 +315,47 @@ packet's many runs without ever reverting to a default.
   snapshot, or (structurally identical to it, for this fallback) a
   backend mismatch — the fallback is a no-op and the same wipe could
   recur, since neither state gives it anything to fall back to.
-  `c45b43ef1` closes this directly: an entirely untouched form now
-  refuses to save at all when real credentials are on record
-  (`NCloudSync::CredentialsPresent()`) and the backend is mismatched or
-  the stored snapshot for it is empty — the same status-line refusal
+  `c45b43ef1` closed this directly: an entirely untouched form refused to
+  save at all when real credentials were on record
+  (`NCloudSync::CredentialsPresent()`) and the backend was mismatched or
+  the stored snapshot for it was empty — the same status-line refusal
   shape `SaveCredentials()` already used for unreadable credentials.
-  Verified: `Provider=webdav` over the saved `s3` document, dialog opened
-  and left untouched — both `Test connection` and `OK` refuse with
+
+  **That guard was itself too broad — narrowed in `3381a7569`.** The
+  mismatch arm refused every untouched cross-backend save, but a player
+  moving the Provider row to a zero-required-field backend (`drive`,
+  `dropbox`, `onedrive`, `box`, every OAuth backend — 34 of the
+  catalogue's 69 entries) legitimately starts setup by pressing `Test
+  connection` on an intentionally blank form; that first save of
+  `{backend: drive, options:{}}` has to go through so `ConfigBegin()` can
+  run, and dropping the old backend's options wholesale on a backend
+  switch is the designed cross-backend isolation, not the bug the guard
+  exists to catch. The guard now fires only on `bSameBackend &&
+  CredentialsPresent() && storedOptions.empty()`: same backend, a
+  document already on disk, an empty parsed snapshot, and nothing typed
+  is a broken dialog view, and writing from it is what wiped the document;
+  an untouched cross-backend save is the player's deliberate switch and
+  keeps the isolation rule. Verified: with `profiles/cloud.credentials`
+  forced into that inconsistent same-backend/empty-snapshot state (`s3`
+  stored, `options:{}`), both `Test connection` and `OK` still refuse with
   `Could not save: nothing was typed; the saved credentials were left as
-  they are`, and `profiles/cloud.credentials` stays byte-unchanged; a
-  webdav form actually typed into (a URL) still saves normally, unaffected
-  by the guard; the prefilled-reopen round-trip from the paragraph above
-  still saves byte-identical, Test still reaches `Connection OK`.
+  they are`, and the file stays byte-unchanged; an untouched `drive` row
+  over the real `s3` document now saves through
+  (`{"backend":"drive","remote_root":"","options":{},...}`) and the flow
+  progresses past the save into rclone's own `config_shared_client_id`
+  OAuth setup question, with the refusal text never appearing; the
+  prefilled `s3` round-trip (`Test` → `connection test ok`, `OK` →
+  document and fingerprint unchanged) and a typed webdav save both remain
+  unaffected, as before.
+
+  **Residual risk accepted.** The narrowed guard still distinguishes
+  same-backend from cross-backend purely by comparing the Provider row's
+  current value against the stored document's `backend` field. A trigger
+  that spuriously flipped the row's value out from under the player
+  (without touching the document) would present as a legitimate backend
+  switch and evade the guard — but that requires the option store itself
+  to misreport the row, a failure mode distinct from, and not covered by,
+  the dialog-state bug this guard closes.
 
   The same commit also closed a second, related gap the round-1 fallback
   introduced on its own: cycling the `provider` field within the same
