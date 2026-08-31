@@ -29,6 +29,7 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	void BeginCloudCatalogue();
 	void LoadCloudDestinations();
 	void RefreshCloudButtons();
+	IUIElement *CloudButton( int nID );
 
 	NInput::CCommandRegistrator commandMsgs;
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );

@@ -247,6 +247,19 @@ void CInterfaceOptionsSettings::LoadCloudDestinations()
 				cloudDestinations.push_back( pNames->children[i].szValue );
 	BuildCloudList();
 }
+// The two cloud buttons live inside the Cloud list's Children now, not as
+// direct screen children - GetChildByID( screen ) alone would miss them, so
+// this checks the screen first (in case a future layout puts them back) and
+// falls through to the Cloud list itself.
+IUIElement *CInterfaceOptionsSettings::CloudButton( int nID )
+{
+	if ( IUIElement *pDirect = pUIScreen->GetChildByID( nID ) )
+		return pDirect;
+	if ( nCloudDivision < 0 )
+		return 0;
+	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( _E_LIST_BEGIN + nCloudDivision ) );
+	return pList ? pList->GetChildByID( nID ) : 0;
+}
 // The cloud screens belong to the Cloud tab, and only to a chosen provider:
 // Config... sets up the service the row names, Backups... browses what that
 // service holds.
@@ -254,9 +267,9 @@ void CInterfaceOptionsSettings::RefreshCloudButtons()
 {
 	const bool bShow = nActive == nCloudDivision && nCloudDivision >= 0 && !IsCloudProviderOff( szCloudProvider );
 	const int nShow = bShow ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE;
-	if ( IUIElement *pCredentials = pUIScreen->GetChildByID( E_BUTTON_CLOUD_CREDENTIALS ) )
+	if ( IUIElement *pCredentials = CloudButton( E_BUTTON_CLOUD_CREDENTIALS ) )
 		pCredentials->ShowWindow( nShow );
-	if ( IUIElement *pBackups = pUIScreen->GetChildByID( E_BUTTON_CLOUD_BACKUPS ) )
+	if ( IUIElement *pBackups = CloudButton( E_BUTTON_CLOUD_BACKUPS ) )
 		pBackups->ShowWindow( nShow );
 }
 void CInterfaceOptionsSettings::Create()
@@ -495,9 +508,35 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 		OnChangeDivision( msg.nEventID - _E_BUTTON_CHANGE_DIVISION_BEGIN );
 	}
 
+	// The Cloud list's ForwardMouseClicks script turns ANY click inside the
+	// list rectangle into "advance the selected row" (event 7777) before a
+	// child button ever sees it - measured: a click on Config... advanced
+	// the Provider row instead. The two cloud buttons live visually inside
+	// that rectangle, so their clicks are picked off here by cursor
+	// position, ahead of the wrapper that would otherwise consume the event.
+	if ( msg.nEventID == 7777 && msg.nParam == 7777 &&
+			 nActive == nCloudDivision && nCloudDivision >= 0 && pUIScreen != 0 )
+	{
+		static const int nCloudButtons[] = { E_BUTTON_CLOUD_CREDENTIALS, E_BUTTON_CLOUD_BACKUPS };
+		static const int nCloudCommands[] = { MISSION_COMMAND_CLOUD_CREDENTIALS, MISSION_COMMAND_CLOUD_BACKUPS };
+		for ( int i = 0; i < 2; ++i )
+		{
+			IUIElement *pButton = CloudButton( nCloudButtons[i] );
+			if ( pButton == 0 || !pButton->IsVisible() )
+				continue;
+			CTRect<float> rcButton;
+			pButton->GetWindowPlacement( 0, 0, &rcButton );
+			if ( rcButton.IsInside( pCursor->GetPos() ) )
+			{
+				GetSingleton<IMainLoop>()->Command( nCloudCommands[i], 0 );
+				return true;
+			}
+		}
+	}
+
 	if ( nActive >= 0 &&
-			 optionsLists.size() > nActive && 
-			 optionsLists[nActive]->ProcessMessage( msg ) ) 
+			 optionsLists.size() > nActive &&
+			 optionsLists[nActive]->ProcessMessage( msg ) )
 	{
 		return true;
 	}
