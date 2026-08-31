@@ -5,7 +5,9 @@ release build (`zig build install-game -Dtarget=aarch64-macos --release=fast`;
 this held for Steps 1 and 2 and the first Findings pass below, but the
 credentials-dialog fixes that followed it — `4a2d509c7` (the prefill
 fallback), then `c45b43ef1` (the untouched-form guard and the vendor-switch
-fix) — each required a rebuild before its own re-verification could run;
+fix), then `3381a7569` and `4d099afd6` (that guard narrowed, then replaced
+by skip-write) — each required a rebuild before its own re-verification
+could run;
 noted inline wherever a capture or trace postdates one), run from
 `zig-out/game/macos/arm64/release`,
 bundled rclone v1.75.0. Profile `P06` (`./Game -windowed -profile=P06`),
@@ -321,43 +323,76 @@ packet's many runs without ever reverting to a default.
   the stored snapshot for it was empty — the same status-line refusal
   shape `SaveCredentials()` already used for unreadable credentials.
 
-  **That guard was itself too broad — narrowed in `3381a7569`.** The
-  mismatch arm refused every untouched cross-backend save, but a player
-  moving the Provider row to a zero-required-field backend (`drive`,
-  `dropbox`, `onedrive`, `box`, every OAuth backend — 34 of the
-  catalogue's 69 entries) legitimately starts setup by pressing `Test
-  connection` on an intentionally blank form; that first save of
-  `{backend: drive, options:{}}` has to go through so `ConfigBegin()` can
-  run, and dropping the old backend's options wholesale on a backend
-  switch is the designed cross-backend isolation, not the bug the guard
-  exists to catch. The guard now fires only on `bSameBackend &&
-  CredentialsPresent() && storedOptions.empty()`: same backend, a
-  document already on disk, an empty parsed snapshot, and nothing typed
-  is a broken dialog view, and writing from it is what wiped the document;
-  an untouched cross-backend save is the player's deliberate switch and
-  keeps the isolation rule. Verified: with `profiles/cloud.credentials`
-  forced into that inconsistent same-backend/empty-snapshot state (`s3`
-  stored, `options:{}`), both `Test connection` and `OK` still refuse with
-  `Could not save: nothing was typed; the saved credentials were left as
-  they are`, and the file stays byte-unchanged; an untouched `drive` row
-  over the real `s3` document now saves through
-  (`{"backend":"drive","remote_root":"","options":{},...}`) and the flow
-  progresses past the save into rclone's own `config_shared_client_id`
-  OAuth setup question, with the refusal text never appearing; the
-  prefilled `s3` round-trip (`Test` → `connection test ok`, `OK` →
-  document and fingerprint unchanged) and a typed webdav save both remain
-  unaffected, as before.
+  **That guard was itself too broad — narrowed in `3381a7569`, then
+  dropped entirely in `4d099afd6`.** The mismatch arm refused every
+  untouched cross-backend save, but a player moving the Provider row to a
+  zero-required-field backend (`drive`, `dropbox`, `onedrive`, `box`,
+  every OAuth backend — 34 of the catalogue's 69 entries) legitimately
+  starts setup by pressing `Test connection` on an intentionally blank
+  form; that first save of `{backend: drive, options:{}}` has to go
+  through so `ConfigBegin()` can run, and dropping the old backend's
+  options wholesale on a backend switch is the designed cross-backend
+  isolation, not the bug the guard exists to catch. `3381a7569` therefore
+  narrowed the condition to `bSameBackend && CredentialsPresent() &&
+  storedOptions.empty()` — and that was still wrong, in the opposite
+  direction: it false-refused a *working* setup. A configured OAuth
+  backend's steady state is exactly `options:{}` with the token living in
+  `secret_options`, because every field of `drive`/`dropbox`/`box`/
+  `onedrive` is `Sensitive` or `IsPassword` and none of them reaches the
+  non-secret snapshot. An empty `storedOptions` is a legitimate state,
+  not evidence of a broken view, so re-testing or OK-closing perfectly
+  good credentials answered `Could not save: nothing was typed; the saved
+  credentials were left as they are` with nothing wrong at all.
 
-  **Residual risk accepted.** The narrowed guard still distinguishes
-  same-backend from cross-backend purely by comparing the Provider row's
-  current value against the stored document's `backend` field. A trigger
-  that spuriously flipped the row's value out from under the player
-  (without touching the document) would present as a legitimate backend
-  switch and evade the guard — but that requires the option store itself
-  to misreport the row, a failure mode distinct from, and not covered by,
-  the dialog-state bug this guard closes.
+  **What replaced it — skip-write, in `4d099afd6`.** The honest signal
+  was never the snapshot; it is that nothing was typed. `SaveCredentials()`
+  now returns success *without writing anything* when the form's backend
+  is the stored one, credentials are on record
+  (`NCloudSync::CredentialsPresent()`), and no field is `bTouched`: an
+  untouched same-backend form has nothing to say. The document on disk is
+  already the authority, this form at best mirrors it, and writing from it
+  could only lose information — which is precisely the wipe this thread
+  exists for. Nothing is lost by not writing, because both callers read
+  that document as their very next step: `BeginConnectionTest()` probes it
+  through `ConfigBegin()`, and `IMC_OK` closes the dialog. An untouched
+  cross-backend save still writes (the player's deliberate switch, and the
+  `{backend, options:{}}` document first-time OAuth setup needs), and any
+  touched form writes as before with the round-1 preserve fallbacks. The
+  `nothing_to_save` status text went with the refusal.
 
-  The same commit also closed a second, related gap the round-1 fallback
+  Verified against the rebuilt binary, profile `P05`, the direct
+  `cmd=0x100e0104` route, `profiles/cloud.credentials` backed up and
+  restored around every destructive step: (1) untouched reopen on the
+  configured `s3` — `Test` reaches `cloud credentials: connection test ok`
+  with `Connection OK` on the status line and the document byte-identical
+  (`md5 ca3c718f…` before and after, i.e. no write happened), then `OK`
+  closes to the main menu with the document still byte-identical; (2) the
+  document forced into the wipe-adjacent state (`s3` stored, `options:{}`,
+  empty fingerprint) — no refusal now: the probe runs against that blank
+  document and reports `connection test failed: … ListBuckets …`, a
+  classified failure, and the file stays byte-unchanged after both `Test`
+  and `OK`; (3) an untouched `drive` row over the real `s3` document still
+  writes `{"backend":"drive","remote_root":"","options":{},…}` and reaches
+  rclone's `config_shared_client_id` OAuth question; (4) a touched
+  same-backend edit persists — typing into `region` and pressing `OK`
+  wrote the new region while `remote_root`, `provider`, `endpoint` and
+  both stored secrets came through untouched; (5) a typed webdav form
+  still saves (`{"backend":"webdav",…,"options":{"url":"https://example.com/dav"}}`).
+
+  **Residual risk accepted.** Skip-write still distinguishes same-backend
+  from cross-backend purely by comparing the Provider row's current value
+  against the stored document's `backend` field. A trigger that
+  spuriously flipped the row's value out from under the player (without
+  touching the document) would present as a legitimate backend switch and
+  bypass the invariant — but that requires the option store itself to
+  misreport the row, a failure mode distinct from, and not covered by, the
+  dialog-state bug this closes. And the honesty from the start of this
+  finding still stands: the *first* blank render was never reproduced, so
+  none of this is a diagnosis of the trigger. It is the narrower claim
+  that an untouched form can no longer destroy what is on disk, whatever
+  made it come up blank.
+
+  `c45b43ef1` also closed a second, related gap the round-1 fallback
   introduced on its own: cycling the `provider` field within the same
   backend (`RebuildForm( true )`) deliberately drops a `droplist_closed`
   value the new vendor does not offer, but left the replacement field
