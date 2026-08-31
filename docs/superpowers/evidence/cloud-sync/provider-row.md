@@ -105,7 +105,27 @@ on `Service: s3` with `provider`, `env_auth`, `access_key_id`,
 `secret_access_key`, `region`, `endpoint`, `location_constraint` all
 rendered **blank** — no pre-filled values, not even the masked placeholder a
 stored secret should show — and the status line reads `Cloud: sync failed -
-changes will sync later`.
+changes will sync later`. Kept here as the historical record of the failure;
+see the Findings entry below for the fix.
+
+**Re-run after `4a2d509c7`, same Cloud tab route, `test-ok.png`.** Reopening
+`Config...` on the saved `s3` backend (`40:var=notransition=1,60:settings,
+120:click=1067x341,240:msg=10011,300:shot,320:msg=10013,400:shot,
+420:msg=10021,750:shot,760:msg=10020,800:shot,850:ok,900:ok,950:exit`)
+now prefills correctly and stays that way through a real test and save:
+frame 400 (right after `Config...` opens, before `Test`) shows `Service: s3`
+greyed, `provider Minio`, `region us-east-1`, `endpoint
+http://127.0.0.1:19100`, and `access_key_id`/`secret_access_key` masked —
+nothing blank. Frame 750, after `msg=10021` (`Test connection`), is
+`test-ok.png`: the same prefilled form with `Connection OK` on the status
+line and the verbatim trace line `cloud credentials: connection test ok`.
+`msg=10020` at frame 760 (the former chooser, now the disabled label) did
+nothing — frame 800's capture is byte-identical to frame 750's. `ok` at 850
+and 900 (closing the credentials dialog, then the settings screen) wrote
+`profiles/cloud.credentials` back to disk; compared against the document
+captured before this run, `backend`, `remote_root`, every non-secret option
+and the `fingerprint` are byte-for-byte identical — the save did not merely
+avoid blanking the document, it did not perturb it at all.
 
 **3. Sync on startup ON, relaunch: the pairing runs.**
 
@@ -232,15 +252,25 @@ packet's many runs without ever reverting to a default.
   never reopened an already-saved one, and this exact reopen-on-the-row path
   (`InterfaceCloudCredentials.cpp`'s `ProviderRowValue()`/prefill-on-open
   logic) is this plan's own `a3ddec5f9` ("the credentials dialog sets up the
-  row's backend"), landed the same day as this evidence run. **Not fixed
-  here** — Task 7's brief scopes this packet to evidence and docs only, and
-  the brief's own expectation (`Expect cloud credentials: connection test ok`)
-  did not hold; recovery was to restore the exact original
-  `cloud.credentials` document from this session's own earlier inspection of
-  it (recorded above) rather than re-typing through the form. A player who
-  opens `Config...` on an already-working backend just to look, and reflexively
-  hits `OK` or `Test connection`, loses their saved credentials with no
-  warning.
+  row's backend"), landed the same day as this evidence run. Not fixed at
+  the time of this packet — Task 7's brief scopes it to evidence and docs
+  only, and the brief's own expectation (`Expect cloud credentials:
+  connection test ok`) did not hold; recovery was to restore the exact
+  original `cloud.credentials` document from this session's own earlier
+  inspection of it (recorded above) rather than re-typing through the form.
+  A player who opens `Config...` on an already-working backend just to
+  look, and reflexively hits `OK` or `Test connection`, would have lost
+  their saved credentials with no warning. **Fixed in `4a2d509c7`** —
+  `RebuildForm()`'s one-shot prefill of non-secret fields had no fallback
+  if it never reached a field (the settings screen stays alive underneath
+  the reopened dialog and keeps polling the same `NCloudSync` catalogue/
+  credentials calls independently, a concurrency the direct main-menu route
+  never has), so a field that rendered blank had nothing else remembering
+  the stored value, unlike a masked field's independent `bStoredSecret`;
+  `SaveCredentials()` now falls back to the recorded value for a blank,
+  untouched field on the very backend already saved, closing that gap
+  regardless of what left the field unfilled. See `test-ok.png` below,
+  captured after the fix through this same Cloud tab route.
 - **Side effect: `P05`'s pairing record was retired.** The credential wipe
   above rotated the stored fingerprint (from `s3:bk-saves#07fd8363...` to
   `s3:#6e88edc9...`, since an empty `remote_root`/`options` hashes
