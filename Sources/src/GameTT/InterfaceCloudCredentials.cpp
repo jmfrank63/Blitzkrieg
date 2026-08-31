@@ -8,6 +8,7 @@
 #include "../Main/CloudSyncFacade.h"
 #include "CloudJson.h"
 #include "../Platform/System.h"
+#include "../StreamIO/OptionSystem.h"
 
 static const NInput::SRegisterCommandEntry commands[] =
 {
@@ -31,7 +32,7 @@ enum
 	E_STATIC_DISCOVERY					= 3101,
 	E_STATIC_STATUS							= 3102,
 
-	E_BUTTON_BACKEND						= 10020,	// the destination chooser; retry when no catalogue
+	E_BUTTON_BACKEND						= 10020,	// "Service: <id>" label; the retry while there is no catalogue
 	E_BUTTON_TEST								= 10021,
 	E_BUTTON_CLEAR_SECRET				= 10022,
 	E_BUTTON_ADVANCED						= 10023,
@@ -141,6 +142,20 @@ static std::wstring TextOrFallback( const char *pszKey, const wchar_t *pszFallba
 		if ( pText->GetString() != 0 )
 			return std::wstring( NPlatform::WideFromWordString( pText->GetString() ) );
 	return pszFallback;
+}
+// The Provider row's value: the backend this dialog sets up. The row is the
+// selector now; the dialog no longer offers one of its own. Empty when the
+// row is Off (the button that opens this dialog is hidden then, so only a
+// harness opening it directly arrives here) or holds a pre-row ON/OFF.
+static std::string ProviderRowValue()
+{
+	variant_t var;
+	if ( !GetSingleton<IOptionSystem>()->Get( "Cloud.Provider", &var ) )
+		return std::string();
+	const std::string szValue( (const char*)bstr_t( var ) );
+	if ( NStr::CompareAsciiNoCase( szValue.c_str(), "Off" ) == 0 || NStr::CompareAsciiNoCase( szValue.c_str(), "On" ) == 0 )
+		return std::string();
+	return szValue;
 }
 // ---- the dialog -----------------------------------------------------------
 std::wstring CInterfaceCloudCredentials::GetEdit( int nID )
@@ -253,8 +268,11 @@ void CInterfaceCloudCredentials::ShowCatalogueMissing( const std::wstring &szRea
 	LayoutRows();
 	SetStatus( "Textes\\UI\\CloudCredentials\\catalogue_missing", szReason );
 	if ( IUIElement *pChooser = pUIScreen->GetChildByID( E_BUTTON_BACKEND ) )
+	{
+		pChooser->EnableWindow( true );			// the retry
 		pChooser->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide(
 			TextOrFallback( "Textes\\UI\\CloudCredentials\\catalogue_retry", L"Fetch provider list" ).c_str() ) ) );
+	}
 }
 void CInterfaceCloudCredentials::OnCatalogueReady()
 {
@@ -286,7 +304,11 @@ void CInterfaceCloudCredentials::OnCatalogueReady()
 		return;
 	}
 	bCatalogueReady = true;
-	szBackend = szStoredBackend.empty() ? destinations[0] : szStoredBackend;
+	// The backend is the Provider row's, fixed at open; the destination list
+	// is kept only so RebuildForm can tell a backend this catalogue lacks
+	// (the empty, cannot-save form) from a missing catalogue.
+	if ( szBackend.empty() )
+		szBackend = szStoredBackend.empty() ? destinations[0] : szStoredBackend;
 	SetStatus( 0, L"" );
 	RebuildForm( false );
 }
@@ -519,6 +541,7 @@ void CInterfaceCloudCredentials::LayoutRows()
 			const std::wstring szText = TextOrFallback( "Textes\\UI\\CloudCredentials\\label_service", L"Service:" ) +
 				L" " + WideFromUtf8( szBackend );
 			pChooser->SetWindowText( -1, NPlatform::WordStringData( NPlatform::WordStringFromWide( szText.c_str() ) ) );
+			pChooser->EnableWindow( false );		// a label now: the row chose
 		}
 	}
 }
@@ -833,22 +856,6 @@ bool CInterfaceCloudCredentials::ProcessMessage( const SGameMessage &msg )
 			BeginCatalogue();		// the chooser doubles as the retry
 			return true;
 		}
-		if ( !destinations.empty() )
-		{
-			// Walk the filtered destination list. A backend switch starts a
-			// fresh option set - nothing typed follows, and the stored
-			// values return only with the stored backend.
-			size_t nAt = 0;
-			for ( size_t i = 0; i < destinations.size(); ++i )
-				if ( destinations[i] == szBackend )
-				{
-					nAt = ( i + 1 ) % destinations.size();
-					break;
-				}
-			szBackend = destinations[nAt];
-			bShowAdvanced = false;
-			RebuildForm( false );
-		}
 		return true;
 	case E_BUTTON_ADVANCED:
 		bShowAdvanced = !bShowAdvanced;
@@ -1092,6 +1099,9 @@ void CInterfaceCloudCredentials::StartInterface()
 		pButtonCancel->EnableWindow( true );
 
 	LoadStored();
+	szBackend = ProviderRowValue();
+	if ( szBackend.empty() )
+		szBackend = szStoredBackend;
 	LayoutRows();
 	RefreshDiscoveryLine();
 	SetStatus( 0, L"" );
