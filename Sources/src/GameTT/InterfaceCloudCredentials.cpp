@@ -440,6 +440,16 @@ void CInterfaceCloudCredentials::RebuildForm( bool bPreserveTyped )
 					field.bTouched = previous.bTouched;
 					field.bStoredSecret = previous.bStoredSecret;
 				}
+				else
+				{
+					// The new vendor does not offer what was here: a
+					// deliberate drop, not an unfilled box. Left untouched,
+					// SaveCredentials()'s same-backend fallback would read
+					// this blank as never having reached the field and
+					// resurrect the dropped value from storedOptions -
+					// exactly the resubmit the comment above rules out.
+					field.bTouched = true;
+				}
 				break;
 			}
 		}
@@ -686,6 +696,31 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 				return storedOptions[i].second;
 		return std::string();
 	};
+	// A form nobody touched can still reach here with the fallback above
+	// unable to help it: a different backend than stored (by design - it
+	// never applies there) or, the state this whole fix exists for, the
+	// same backend with an empty stored snapshot (RebuildForm's prefill
+	// branch is then a no-op too, for the same reason). Nothing typed
+	// means refusing loses nothing; saving would either write a config
+	// with nothing behind it or, on the very backend already working,
+	// overwrite it with the same emptiness that caused the wipe this
+	// packet is fixing. A first-ever save - no credentials on record yet -
+	// is unaffected, and a genuinely different, blank backend the player
+	// has actually typed into still proceeds.
+	if ( NCloudSync::CredentialsPresent() && ( !bSameBackend || storedOptions.empty() ) )
+	{
+		bool bAnyTouched = false;
+		for ( size_t i = 0; i < fields.size() && !bAnyTouched; ++i )
+			if ( fields[i].bTouched )
+				bAnyTouched = true;
+		if ( !bAnyTouched )
+		{
+			SetStatus( "Textes\\UI\\CloudCredentials\\save_failed",
+				TextOrFallback( "Textes\\UI\\CloudCredentials\\nothing_to_save",
+					L"nothing was typed; the saved credentials were left as they are" ) );
+			return false;
+		}
+	}
 	// Required means must-fill: the model already folded catalogue defaults
 	// and other vendors' requirements out of bRequired, so blank is simply
 	// blank - and a masked field with a stored secret is not blank, and
