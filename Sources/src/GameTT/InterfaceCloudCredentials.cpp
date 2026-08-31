@@ -696,23 +696,23 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 				return storedOptions[i].second;
 		return std::string();
 	};
-	// Same backend + a document on disk + an empty parsed snapshot + nothing
-	// typed is a broken dialog view, and writing from it is what wiped the
-	// document; an untouched cross-backend save is the player's deliberate
-	// switch and keeps the isolation rule.
-	if ( bSameBackend && NCloudSync::CredentialsPresent() && storedOptions.empty() )
+	// An untouched form on the backend already saved has nothing to say: the
+	// document on disk is the authority, this form at best mirrors it, and
+	// writing from it could only lose information - a view that came up
+	// blank is exactly how the document got wiped. So succeed without
+	// writing: the caller's next step reads that document anyway (the
+	// connection probe, or closing the dialog), and nothing is lost either
+	// way. An untouched cross-backend save still writes - that is the
+	// player's deliberate switch, and first-time OAuth setup needs the
+	// {backend, options:{}} document ConfigBegin() works from.
+	if ( bSameBackend && NCloudSync::CredentialsPresent() )
 	{
 		bool bAnyTouched = false;
 		for ( size_t i = 0; i < fields.size() && !bAnyTouched; ++i )
 			if ( fields[i].bTouched )
 				bAnyTouched = true;
 		if ( !bAnyTouched )
-		{
-			SetStatus( "Textes\\UI\\CloudCredentials\\save_failed",
-				TextOrFallback( "Textes\\UI\\CloudCredentials\\nothing_to_save",
-					L"nothing was typed; the saved credentials were left as they are" ) );
-			return false;
-		}
+			return true;		// saved is where it already was
 	}
 	// Required means must-fill: the model already folded catalogue defaults
 	// and other vendors' requirements out of bRequired, so blank is simply
