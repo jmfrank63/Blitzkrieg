@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace NInput
 {
@@ -26,6 +27,16 @@ std::uint32_t SDLScancodeToVirtualKey(std::uint32_t scancode);
 // on a keyboard layout this cannot know.
 uint16_t CharacterFromKeycode( int keycode, int modifiers );
 std::size_t DecodeUtf8(const char *text, std::uint16_t *output, std::size_t capacity);
+
+// The paste chord: Ctrl+V or Cmd+V (either side), shift tolerated, never
+// Alt -- AltGr arrives as Ctrl+Alt on Windows layouts and TYPES a character,
+// which a paste must not eat. SDL keycodes are unshifted, so 'v' is 'v'.
+bool IsPasteChord( int keycode, int modifiers );
+// Clipboard text destined for single-line edit boxes: control bytes stripped
+// (a password manager's trailing newline above all), UTF-8 kept, and a
+// runaway clipboard capped on a character boundary so DecodeUtf8 never sees
+// a torn sequence.
+std::string SanitizeClipboardText( const std::string &text );
 }
 
 #endif

@@ -1066,7 +1066,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// BK_GFX_TRACE watches the mode changes. Actions: settings | ok |
 			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |
 			// cmd=<id> | click=<x>x<y> | key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE>
-			// (a real key press through the bind chain) | text=<utf8> (typed into
+			// (a real key press through the bind chain) | clip=<utf8> (set the
+			// clipboard) | paste (press the real Cmd+V chord) | text=<utf8> (typed into
 			// the focused edit box through the platform text path; no commas or
 			// colons - they are the schedule's separators) | wheel=<delta> (a wheel
 			// notch, positive up) | set=<option>=<value> | var=<name>=<value>.
@@ -1137,6 +1138,26 @@ int RunGame( const BkGameLaunchInfo &launch )
 					else if ( szAction == "cancel" ) pInput->AddMessage( SGameMessage( 10001 ) );	// IMC_CANCEL
 					else if ( szAction.compare( 0, 4, "msg=" ) == 0 ) pInput->AddMessage( SGameMessage( (int)strtol( szAction.c_str() + 4, 0, 0 ) ) );
 					else if ( szAction.compare( 0, 4, "cmd=" ) == 0 ) pMainLoop->Command( (int)strtol( szAction.c_str() + 4, 0, 0 ), "" );
+					else if ( szAction.compare( 0, 5, "clip=" ) == 0 )
+					{
+						// Seeds the clipboard for a following paste action; commas
+						// and colons are the schedule's separators, like text=.
+						NPlatform::SetClipboardText( szAction.c_str() + 5 );
+					}
+					else if ( szAction == "paste" )
+					{
+						// The real chord through the real path: a synthetic Cmd+V
+						// keydown into ConsumePlatformEvent, which fetches the
+						// clipboard and feeds the text queue.
+						NPlatform::PlatformEvent event;
+						event.type = NPlatform::EventType::keyDown;
+						event.key = 'v';
+						event.scancode = 25;		// SDL_SCANCODE_V
+						event.modifiers = NPlatform::modifierGui;
+						pInput->ConsumePlatformEvent( event );
+						event.type = NPlatform::EventType::keyUp;
+						pInput->ConsumePlatformEvent( event );
+					}
 					else if ( szAction.compare( 0, 5, "text=" ) == 0 )
 					{
 						// Types into the focused edit box through the real text

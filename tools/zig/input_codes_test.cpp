@@ -109,6 +109,41 @@ int main()
     CHECK( NInput::CharacterFromKeycode( 8, 0 ) == 0 );
     CHECK( NInput::CharacterFromKeycode( 0x40000050, 0 ) == 0 );
 
+    // The paste chord: Ctrl+V or Cmd+V (either side), shift tolerated, but
+    // never Alt -- AltGr arrives as Ctrl+Alt on Windows layouts and types a
+    // character, which a paste must not eat. SDL keycodes are unshifted, so
+    // the key is always lowercase 'v'.
+    CHECK( NInput::IsPasteChord( 'v', 0x0040 ) );              // LCTRL
+    CHECK( NInput::IsPasteChord( 'v', 0x00c0 ) );              // both ctrls
+    CHECK( NInput::IsPasteChord( 'v', 0x0400 ) );              // LGUI (Cmd)
+    CHECK( NInput::IsPasteChord( 'v', 0x0800 ) );              // RGUI
+    CHECK( NInput::IsPasteChord( 'v', 0x0001 | 0x0400 ) );     // Shift+Cmd+V
+    CHECK( !NInput::IsPasteChord( 'v', 0 ) );                  // plain v types
+    CHECK( !NInput::IsPasteChord( 'v', 0x0040 | 0x0100 ) );    // AltGr combo
+    CHECK( !NInput::IsPasteChord( 'v', 0x0200 ) );             // Alt alone
+    CHECK( !NInput::IsPasteChord( 'c', 0x0040 ) );             // not the V key
+    CHECK( !NInput::IsPasteChord( 'v', 0x2000 ) );             // caps lock only
+
+    // Clipboard text is destined for single-line edit boxes: control bytes
+    // (a password manager's trailing newline above all) are stripped, UTF-8
+    // passes through, and a runaway clipboard is capped on a character
+    // boundary so the decoder never sees a torn sequence.
+    CHECK( NInput::SanitizeClipboardText( "sOXJ-08 pass" ) == "sOXJ-08 pass" );
+    CHECK( NInput::SanitizeClipboardText( "secret\n" ) == "secret" );
+    CHECK( NInput::SanitizeClipboardText( "a\r\nb\tc" ) == "abc" );
+    CHECK( NInput::SanitizeClipboardText( "" ).empty() );
+    CHECK( NInput::SanitizeClipboardText( "gr\xc3\xbc\xc3\x9f" "e" ) == "gr\xc3\xbc\xc3\x9f" "e" );
+    {
+        std::string huge( 5000, 'x' );
+        huge += "\xc3\xbc";
+        const std::string capped = NInput::SanitizeClipboardText( huge );
+        CHECK( capped.size() <= 4096 );
+        CHECK( ( static_cast<unsigned char>( capped[capped.size() - 1] ) & 0xc0 ) != 0x80 );
+    }
+    std::string boundary( 4095, 'x' );
+    boundary += "\xc3\xbc";        // two-byte char straddles the cap
+    CHECK( NInput::SanitizeClipboardText( boundary ) == std::string( 4095, 'x' ) );
+
     (void)required;
     std::puts( "portable input code mapping passed" );
     return 0;

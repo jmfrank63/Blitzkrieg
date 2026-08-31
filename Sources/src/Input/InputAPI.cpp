@@ -4,6 +4,7 @@
 #include "InputAPI.h"
 #include "InputCodes.h"
 #include "../Platform/Event.h"
+#include "../Platform/System.h"
 #include "../Platform/Clock.h"
 #if !defined(BK_INPUT_EVENT_ONLY)
 #include <dinput.h>
@@ -1005,6 +1006,18 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 			// arrows are the only way to work an edit box.
 			if ( eTextMode != INPUT_TEXT_MODE_NOTEXT )
 			{
+				// The paste chord, ahead of everything: Cmd+V / Ctrl+V feeds the
+				// clipboard through the same multi-character path a real text
+				// event uses, so it lands in whatever edit box has focus with
+				// that box's own filter applied. Consumed outright -- no stray
+				// 'v' char, and the raw key never reaches the bindings.
+				if ( bPressed && NInput::IsPasteChord( event.key, event.modifiers ) )
+				{
+					const std::string szClipboard = NInput::SanitizeClipboardText( NPlatform::GetClipboardText() );
+					if ( !szClipboard.empty() )
+						AppendUtf8AsUtf16( szClipboard.c_str(), chars, false );
+					break;
+				}
 				const uint32_t virtualKey = NInput::SDLScancodeToVirtualKey( static_cast<uint32_t>( event.scancode ) );
 				if ( virtualKey != 0 )
 				{
