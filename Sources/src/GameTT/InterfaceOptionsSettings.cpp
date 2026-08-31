@@ -195,10 +195,15 @@ void CInterfaceOptionsSettings::BuildCloudList()
 	const int nBackend = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
 	if ( nBackend > 0 && nBackend < (int)sizeof szBackend )
 		names.push_back( szBackend );
-	std::sort( names.begin(), names.end() );
+	// "sorted by id, case-insensitive" - ids are the vendor's own strings
+	// (s3, S3, Minio...), and the plain std::sort below would split same-id
+	// spellings that differ only in case into separate list entries instead
+	// of merging them.
+	std::sort( names.begin(), names.end(),
+		[]( const std::string &a, const std::string &b ) { return NStr::CompareAsciiNoCase( a.c_str(), b.c_str() ) < 0; } );
 	for ( size_t i = 0; i < names.size(); ++i )
 	{
-		if ( IsCloudProviderOff( names[i] ) || ( i > 0 && names[i] == names[i - 1] ) )
+		if ( IsCloudProviderOff( names[i] ) || ( i > 0 && NStr::CompareAsciiNoCase( names[i].c_str(), names[i - 1].c_str() ) == 0 ) )
 			continue;
 		SOptionDropListValue value;
 		value.szProgName = names[i];
@@ -207,6 +212,10 @@ void CInterfaceOptionsSettings::BuildCloudList()
 
 	while ( pList->GetNumberOfItems() )
 		pList->RemoveItem( 0 );
+	// Rebuilt on every provider change (see StepLocal), so the wrapper's
+	// snapshot always equals the value already on the row - unlike every
+	// other row on this screen, Cancel has nothing here to revert to; the
+	// instant-apply option store commit already happened at the click.
 	optionsLists[nCloudDivision] = new COptionsListWrapper( pList, descs, 100, overrides );
 	if ( pList->GetNumberOfItems() > 0 )
 		pList->SetSelectionItem( 0 );
@@ -355,6 +364,10 @@ void CInterfaceOptionsSettings::Create()
 			szCloudProvider = ReadCloudProvider();
 			optionsLists.push_back( CPtr<COptionsListWrapper>() );
 			BuildCloudList();
+			// Apply/CancelChanges/ToDefault below walk optionsLists and deref
+			// every slot unguarded; the null CPtr pushed above is only ever
+			// meant to be a placeholder BuildCloudList immediately fills.
+			NI_ASSERT_T( optionsLists[nCloudDivision] != 0, "BuildCloudList left the Cloud slot empty" );
 		}
 		else
 			optionsLists.push_back( new COptionsListWrapper( pList, sections[szSection], 100 ) );
@@ -578,6 +591,14 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 		}
 		return true;
 
+	// No live path delivers these two event ids to this switch: the buttons
+	// live inside the Cloud list's rectangle, and a click there arrives as
+	// 7777 and is picked off by cursor position above, ahead of this
+	// switch. What still reaches these cases is a message the test harness
+	// injects directly by numeric id (BK_AUTO_UI's msg=10013 / msg=10014) -
+	// confirmed live in docs/superpowers/evidence/cloud-sync/provider-row.md
+	// - so they stay, not as dead code but as the harness's way to open
+	// these screens without simulating a cursor position.
 	case E_BUTTON_CLOUD_CREDENTIALS:
 		// The settings screen stays below; the dialog pops back to it.
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CLOUD_CREDENTIALS, 0 );

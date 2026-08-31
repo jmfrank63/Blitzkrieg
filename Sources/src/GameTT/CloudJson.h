@@ -9,6 +9,8 @@
 // build reads, and a header needs no entry there.
 #include <string>
 #include <vector>
+#include <cctype>
+#include <cstdlib>
 
 // ---- a small JSON document model ------------------------------------------
 // The form and destination documents nest arrays of objects, which the old

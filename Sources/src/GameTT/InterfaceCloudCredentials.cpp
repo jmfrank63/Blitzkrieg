@@ -343,12 +343,13 @@ void CInterfaceCloudCredentials::RebuildForm( bool bPreserveTyped )
 			// A populated catalogue that simply lacks this backend - the
 			// stored one, after the bundled rclone was swapped for an older
 			// build - must not collapse into the missing-catalogue state:
-			// there the chooser becomes the retry, the retry re-derives this
-			// same form, and the player is trapped with no way to step to a
-			// backend that exists. Keep the chooser alive over an empty row
-			// set instead; an empty form refuses to save by the existing
-			// blank-form rule, so the stored document cannot be overwritten
-			// from here, and one chooser press reaches a real backend.
+			// there the retry button re-derives this same form, and the
+			// player is trapped with no way to step to a backend that
+			// exists. Show an empty row set instead of that dead end; an
+			// empty form refuses to save by the existing blank-form rule,
+			// so the stored document cannot be overwritten from here. This
+			// dialog no longer offers its own chooser - the way out is the
+			// Provider row on the Cloud tab, one level up.
 			if ( bCatalogueReady && !destinations.empty() )
 			{
 				fields.clear();
