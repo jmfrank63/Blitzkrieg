@@ -696,18 +696,11 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 				return storedOptions[i].second;
 		return std::string();
 	};
-	// A form nobody touched can still reach here with the fallback above
-	// unable to help it: a different backend than stored (by design - it
-	// never applies there) or, the state this whole fix exists for, the
-	// same backend with an empty stored snapshot (RebuildForm's prefill
-	// branch is then a no-op too, for the same reason). Nothing typed
-	// means refusing loses nothing; saving would either write a config
-	// with nothing behind it or, on the very backend already working,
-	// overwrite it with the same emptiness that caused the wipe this
-	// packet is fixing. A first-ever save - no credentials on record yet -
-	// is unaffected, and a genuinely different, blank backend the player
-	// has actually typed into still proceeds.
-	if ( NCloudSync::CredentialsPresent() && ( !bSameBackend || storedOptions.empty() ) )
+	// Same backend + a document on disk + an empty parsed snapshot + nothing
+	// typed is a broken dialog view, and writing from it is what wiped the
+	// document; an untouched cross-backend save is the player's deliberate
+	// switch and keeps the isolation rule.
+	if ( bSameBackend && NCloudSync::CredentialsPresent() && storedOptions.empty() )
 	{
 		bool bAnyTouched = false;
 		for ( size_t i = 0; i < fields.size() && !bAnyTouched; ++i )
