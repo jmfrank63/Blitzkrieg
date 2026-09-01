@@ -1146,16 +1146,25 @@ int RunGame( const BkGameLaunchInfo &launch )
 					}
 					else if ( szAction == "paste" )
 					{
-						// The real chord through the real path: a synthetic Cmd+V
-						// keydown into ConsumePlatformEvent, which fetches the
-						// clipboard and feeds the text queue.
+						// The real chord through the real path, MODIFIER INCLUDED:
+						// a player's Cmd is physically down around the V press and
+						// its own keydown reaches the screens first - the original
+						// synthetic press skipped it, which hid the edit box
+						// dropping pasted characters while the modifier was held.
 						NPlatform::PlatformEvent event;
 						event.type = NPlatform::EventType::keyDown;
-						event.key = 'v';
-						event.scancode = 25;		// SDL_SCANCODE_V
+						event.key = 0x400000e3;		// SDLK_LGUI
+						event.scancode = 227;			// SDL_SCANCODE_LGUI
 						event.modifiers = NPlatform::modifierGui;
 						pInput->ConsumePlatformEvent( event );
+						event.key = 'v';
+						event.scancode = 25;			// SDL_SCANCODE_V
+						pInput->ConsumePlatformEvent( event );
 						event.type = NPlatform::EventType::keyUp;
+						pInput->ConsumePlatformEvent( event );
+						event.key = 0x400000e3;
+						event.scancode = 227;
+						event.modifiers = 0;
 						pInput->ConsumePlatformEvent( event );
 					}
 					else if ( szAction.compare( 0, 5, "text=" ) == 0 )

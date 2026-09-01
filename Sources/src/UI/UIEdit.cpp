@@ -222,7 +222,14 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 
 	std::wstring wszOldText = wszFullText;
 	int nOldCursorPos = nCursorPos;
-	if ( ( keyState == E_KEYBOARD_FREE || keyState == E_SHIFT_KEY_DOWN ) && IsValidSymbol(nAsciiCode) )
+	// A message with no virtual key carries only text - an SDL text event's
+	// extra units, or the paste feed - and text is text no matter which
+	// modifier is physically down. The gate below still applies to
+	// key-derived characters, so a held Ctrl/Cmd keeps chords from typing
+	// their letter; without the exemption the pasted characters drained
+	// while the player still held Cmd and every one of them was dropped.
+	const bool bPureText = nVirtualKey == 0;
+	if ( ( keyState == E_KEYBOARD_FREE || keyState == E_SHIFT_KEY_DOWN || bPureText ) && IsValidSymbol(nAsciiCode) )
 	{
 		DeleteSelection();
 		wszFullText.insert( Min( int(wszFullText.size()), nBeginText+nCursorPos), 1, nAsciiCode );
