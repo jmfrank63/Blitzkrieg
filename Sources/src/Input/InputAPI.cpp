@@ -1004,6 +1004,9 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 			// bindings, so the virtual key reaches the screens in every text mode
 			// but NOTEXT -- including TEXTONLY, where Tab, Enter, Backspace and the
 			// arrows are the only way to work an edit box.
+			if ( getenv( "BK_INPUT_TRACE" ) )
+				std::fprintf( stderr, "BK_INPUT_TRACE: platform key%s key=0x%x scancode=%d mod=0x%x mode=%d\n",
+					bPressed ? "Down" : "Up", unsigned( event.key ), event.scancode, unsigned( event.modifiers ), int( eTextMode ) );
 			if ( eTextMode != INPUT_TEXT_MODE_NOTEXT )
 			{
 				// The paste chord, ahead of everything: Cmd+V / Ctrl+V feeds the
@@ -1014,6 +1017,8 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 				if ( bPressed && NInput::IsPasteChord( event.key, event.modifiers ) )
 				{
 					const std::string szClipboard = NInput::SanitizeClipboardText( NPlatform::GetClipboardText() );
+					if ( getenv( "BK_INPUT_TRACE" ) )
+						std::fprintf( stderr, "BK_INPUT_TRACE: paste chord, clipboard %zu bytes after sanitize\n", szClipboard.size() );
 					if ( !szClipboard.empty() )
 						AppendUtf8AsUtf16( szClipboard.c_str(), chars, false );
 					break;
