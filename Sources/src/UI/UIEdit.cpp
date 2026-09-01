@@ -98,10 +98,15 @@ int CUIEditBox::GetSelection( int nX )
 }
 void CUIEditBox::SetCursor( int nPos )
 {
-	if ( nPos < 0 )
+	if ( nPos < 0 || nPos > int( wszFullText.length() ) )
 		nCursorPos = wszFullText.length();
 	else
-		nCursorPos = nPos; 
+		nCursorPos = nPos;
+	// Placing the caret means showing it. The masked fields set their whole
+	// star string first - SetWindowText resets the scroll to zero - and
+	// without the re-scroll here a value wider than the box rendered from
+	// position zero and wrapped onto a second line below the row.
+	EnsureCursorVisible();
 }
 void CUIEditBox::SetFocus( bool bFocus )
 {
