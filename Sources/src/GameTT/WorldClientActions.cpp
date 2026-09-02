@@ -1,5 +1,8 @@
 #include "StdAfx.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "WorldClient.h"
 #include "../Common/Actions.h"
 #include "../Formats/fmtTerrain.h"
@@ -854,6 +857,7 @@ bool CWorldClient::ActionBuildFenceMsg( const SGameMessage &msg, bool bForced )
 		cmd.vPos.x = vPos.x / SAIConsts::TILE_SIZE;
 		cmd.vPos.y = vPos.y / SAIConsts::TILE_SIZE;
 		fencePoints.push_back( cmd );
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client fence BEGIN tile (%.1f,%.1f)\n", cmd.vPos.x, cmd.vPos.y );
 		pBoldLine = CreateObject<IBoldLineVisObj>( SCENE_BOLD_LINE );
 		pScene->AddLine( pBoldLine );
 		return false;
@@ -869,6 +873,16 @@ bool CWorldClient::ActionBuildFenceMsg( const SGameMessage &msg, bool bForced )
 			cmd.vPos.y = prevCmd.vPos.y;
 		else
 			cmd.vPos.x = prevCmd.vPos.x;
+		// A red line is refused outright: the build would skip the bad tiles
+		// and leave holes. The drag stays alive so the end point can move.
+		if ( !pAILogic->CanBuildLongObjectLine( false,
+				CVec2( prevCmd.vPos.x * SAIConsts::TILE_SIZE, prevCmd.vPos.y * SAIConsts::TILE_SIZE ),
+				CVec2( cmd.vPos.x * SAIConsts::TILE_SIZE, cmd.vPos.y * SAIConsts::TILE_SIZE ) ) )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client fence END refused, line not fully buildable\n" );
+			return false;
+		}
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client fence END tiles (%.1f,%.1f)->(%.1f,%.1f) group=%d\n", prevCmd.vPos.x, prevCmd.vPos.y, cmd.vPos.x, cmd.vPos.y, selunits.GetAIGroup() );
 		pTransceiver->CommandGroupCommand( &prevCmd, selunits.GetAIGroup(), bActionModifierAdd );
 		pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), true );
 		ResetPoints();
@@ -898,6 +912,13 @@ bool CWorldClient::ActionBuildEntrenchmentMsg( const SGameMessage &msg, bool bFo
 		cmd.cmdType = ACTION_COMMAND_ENTRENCH_END;
 		cmd.vPos.x = vPos.x;
 		cmd.vPos.y = vPos.y;
+		// A red line is refused outright; see the fence branch.
+		if ( !pAILogic->CanBuildLongObjectLine( true,
+				CVec2( prevCmd.vPos.x, prevCmd.vPos.y ), CVec2( cmd.vPos.x, cmd.vPos.y ) ) )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client trench END refused, line not fully diggable\n" );
+			return false;
+		}
 		pTransceiver->CommandGroupCommand( &prevCmd, selunits.GetAIGroup(), bActionModifierAdd );
 		pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), true );
 		ResetPoints();

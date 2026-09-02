@@ -1,5 +1,7 @@
 #include "StdAfx.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include "EntrenchmentCreation.h"
 #include "StaticObjects.h"
 #include "AIStaticMap.h"
@@ -338,7 +340,52 @@ bool CEntrenchmentCreation::CanDig( const SEntrenchmentRPGStats *pRPG, int dbID,
 	}
 	return bPossible;
 }
-WORD CEntrenchmentCreation::GetLineAngle( const CVec2 &vBegin, const CVec2 &vEnd ) const
+bool CEntrenchmentCreation::CanDigLine( const CVec2 &vFrom, const CVec2 &vTo )
+{
+	// Mirrors PreCreate's acceptance checks without its side effects - no
+	// parts are created - and with fixed frame seeds instead of Random():
+	// the preview asks every frame, and the synced random sequence must not
+	// advance (nor the answer flicker between frame variants). A build can
+	// still stop early at a unit in the way; that is not this question.
+	IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
+	CGDBPtr<SGDBObjectDesc> pDesc = pGDB->GetDesc( theUnitCreation.GetEntrenchmentName() );
+	CGDBPtr<SEntrenchmentRPGStats> pRPG = static_cast<const SEntrenchmentRPGStats*>( pGDB->GetRPGStats( pDesc ) );
+	const int dbID = pGDB->GetIndex( theUnitCreation.GetEntrenchmentName() );
+
+	int nSeed = 0;
+	const int nWidthFrame = pRPG->GetLineIndex( &nSeed );
+	const float fTrenchWidth = pRPG->segments[nWidthFrame].vAABBHalfSize.x * 2;
+
+	std::vector<CVec2> vLinePoints;
+	SplitLineToSegrments( &vLinePoints, vFrom, vTo, fTrenchWidth );
+	if ( vLinePoints.size() <= 1 )
+	{
+		// Sub-segment drag: judge the start spot alone (nominal angle), so
+		// the very first square answers red or green instead of always red.
+		nSeed = 0;
+		return CanDig( pRPG, dbID, vFrom, 0, pRPG->GetLineIndex( &nSeed ) );
+	}
+
+	const WORD wLineAngle = GetLineAngle( vFrom, vTo );
+	for ( int i = 0; i < vLinePoints.size() - 1; ++i )
+	{
+		nSeed = 0;
+		const int nFrameIndex = ((i+1)%3) == 0 ? pRPG->GetFirePlaceIndex( &nSeed ) : pRPG->GetLineIndex( &nSeed );
+		const CVec2 pt = ( vLinePoints[i] + vLinePoints[i + 1] ) / 2.0f;
+		if ( !CanDig( pRPG, dbID, pt, wLineAngle, nFrameIndex ) )
+		{
+			if ( getenv( "BK_AI_TRACE" ) )
+				fprintf( stderr, "BK_AI_TRACE: trench line refused at segment %d/%d (%.0f,%.0f)\n", i, (int)vLinePoints.size() - 1, pt.x, pt.y );
+			return false;
+		}
+	}
+	nSeed = 0;
+	const bool bTerminator = CanDig( pRPG, dbID, vLinePoints[0], wLineAngle + 65535/2, pRPG->GetTerminatorIndex( &nSeed ) );
+	if ( !bTerminator && getenv( "BK_AI_TRACE" ) )
+		fprintf( stderr, "BK_AI_TRACE: trench line refused at begin terminator (%.0f,%.0f)\n", vLinePoints[0].x, vLinePoints[0].y );
+	return bTerminator;
+}
+WORD CEntrenchmentCreation::GetLineAngle( const CVec2 &vBegin, const CVec2 &vEnd )
 {
 	CVec2 vTmp = vEnd - vBegin;  
 	Normalize( &vTmp );
@@ -431,6 +478,7 @@ void CFenceCreation::BuildNext()
 	CLongObjectCreation::BuildNext();
 	theStatObjs.AddStaticObject( fenceSegements[nCurIndex], false, false );
 	++nCurIndex;
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence segment %d/%d placed\n", nCurIndex, (int)fenceSegements.size() );
 }
 bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 {
@@ -446,6 +494,7 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 
 	isXConst = false;
 	if ( vFrom.x == vTo.x ) isXConst = true;
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence PreCreate tiles (%d,%d)->(%d,%d) points=%d isXConst=%d\n", vFrom.x, vFrom.y, vTo.x, vTo.y, (int)hlpFence.m_points.size(), (int)isXConst );
 	
 	IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
 
@@ -473,8 +522,11 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 			++it;
 		}
 
-		if ( !bCanBuild ) 
+		if ( !bCanBuild )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence PreCreate stopped at map edge, segments=%d\n", (int)fenceSegements.size() );
 			return !fenceSegements.empty();
+		}
 
 		CVec2 vFencePosition( vPoint1.x * SConsts::TILE_SIZE, vPoint1.y * SConsts::TILE_SIZE );
 		CVec2 vCenterPosition( vPoint1 );
@@ -513,14 +565,64 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 			vPoints.push_back( vCenterPosition * SConsts::TILE_SIZE );
 			fenceSegements.push_back( pObj.GetPtr() );
 		}
+		else if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence segment at tile (%.1f,%.1f) skipped by IsCegmentToBeBuilt\n", vPoint1.x, vPoint1.y );
 	}
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence PreCreate done, segments=%d\n", (int)fenceSegements.size() );
 	return !fenceSegements.empty();
+}
+bool CFenceCreation::CanBuildLine( const CVec2 &_vFrom, const CVec2 &_vTo )
+{
+	// The bar promises the whole drawn line: every tile of it must be
+	// inside the map, gentle enough and unoccupied, or the bar goes red.
+	// Deliberately stricter than PreCreate, which skips a bad window and
+	// builds the rest: green means the line builds exactly as drawn. A
+	// zero-length drag judges its single tile, so the very first square
+	// already answers red or green.
+	const SVector vFrom( _vFrom / SConsts::TILE_SIZE );
+	const SVector vTo( _vTo / SConsts::TILE_SIZE );
+	APointHelper hlpFence;
+	MakeLine2( vFrom.x, vFrom.y, vTo.x, vTo.y, hlpFence );
+	if ( hlpFence.m_points.empty() )
+		return false;
+	IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
+	const SGDBObjectDesc *pDesc = pGDB->GetDesc( theUnitCreation.GetWireFenceName() );
+	const SStaticObjectRPGStats *pStats = static_cast<const SStaticObjectRPGStats*>( pGDB->GetRPGStats( pDesc ) );
+	for ( std::vector<CVec2>::iterator it = hlpFence.m_points.begin(); it != hlpFence.m_points.end(); ++it )
+	{
+		const SVector vTile( int( it->x ), int( it->y ) );
+		if ( !theStaticMap.IsTileInside( vTile ) )
+		{
+			if ( getenv( "BK_AI_TRACE" ) )
+				fprintf( stderr, "BK_AI_TRACE: fence line red, tile (%d,%d) outside map\n", vTile.x, vTile.y );
+			return false;
+		}
+		const CVec2 vCenter( ( vTile.x + 0.5f ) * SConsts::TILE_SIZE, ( vTile.y + 0.5f ) * SConsts::TILE_SIZE );
+		const CVec3 vNormal = DWORDToVec3( theStaticMap.GetNormal( vCenter ) );
+		if ( fabs( vNormal.x ) > fNearToNormale * fabs( vNormal.z ) &&
+				fabs( vNormal.y ) > fNearToNormale * fabs( vNormal.z ) )
+		{
+			if ( getenv( "BK_AI_TRACE" ) )
+				fprintf( stderr, "BK_AI_TRACE: fence line red, tile (%d,%d) too steep\n", vTile.x, vTile.y );
+			return false;
+		}
+		if ( theStaticMap.IsLocked( vTile, pStats->dwAIClasses ) )
+		{
+			if ( getenv( "BK_AI_TRACE" ) )
+				fprintf( stderr, "BK_AI_TRACE: fence line red, tile (%d,%d) occupied\n", vTile.x, vTile.y );
+			return false;
+		}
+	}
+	return true;
 }
 bool CFenceCreation::IsCegmentToBeBuilt( class CFence *pObj ) const
 {
 	const CVec3 vNormal =  DWORDToVec3( theStaticMap.GetNormal( pObj->GetCenter() ) );
 	if ( fabs(vNormal.x) > fNearToNormale * fabs(vNormal.z) &&
-			fabs(vNormal.y) > fNearToNormale * fabs(vNormal.z) ) return false;
+			fabs(vNormal.y) > fNearToNormale * fabs(vNormal.z) )
+	{
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence segment rejected by slope, normal (%.3f,%.3f,%.3f)\n", vNormal.x, vNormal.y, vNormal.z );
+		return false;
+	}
 
 	
 	SRect r1;
@@ -552,7 +654,10 @@ bool CFenceCreation::IsCegmentToBeBuilt( class CFence *pObj ) const
 	{
 		const SStaticObjectRPGStats * pStats = static_cast<const SStaticObjectRPGStats *>(pObj->GetStats());
 		if ( theStaticMap.IsLocked( *it, pStats->dwAIClasses ) )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: fence segment rejected, tile (%d,%d) locked\n", it->x, it->y );
 			return false;
+		}
 	}
 	return true;
 }

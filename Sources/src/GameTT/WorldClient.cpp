@@ -1799,7 +1799,20 @@ void CWorldClient::OnMouseMove( const CVec2 &vPos, interface IUIElement *pUIPick
 			AI2Vis( &vStartPos );
 			AI2Vis( &vEndPos );
 
-			pBoldLine->Setup( vStartPos, vEndPos, fWorldCellSize / 2, 0xffff0000 );
+			// The line answers before the click does: green when the fence
+			// line would build, red when it would be refused. The click snaps
+			// the end point onto the axis (ActionBuildFenceMsg), so the query
+			// must judge that snapped line, not the raw cursor position.
+			float fEndTileX = vPos3.x / SAIConsts::TILE_SIZE;
+			float fEndTileY = vPos3.y / SAIConsts::TILE_SIZE;
+			if ( fabs( fEndTileX - prevCmd.vPos.x ) > fabs( fEndTileY - prevCmd.vPos.y ) )
+				fEndTileY = prevCmd.vPos.y;
+			else
+				fEndTileX = prevCmd.vPos.x;
+			const bool bCanBuild = pAILogic->CanBuildLongObjectLine( false,
+				CVec2( prevCmd.vPos.x * SAIConsts::TILE_SIZE, prevCmd.vPos.y * SAIConsts::TILE_SIZE ),
+				CVec2( fEndTileX * SAIConsts::TILE_SIZE, fEndTileY * SAIConsts::TILE_SIZE ) );
+			pBoldLine->Setup( vStartPos, vEndPos, fWorldCellSize / 2, bCanBuild ? 0xff00ff00 : 0xffff0000 );
 		}
 		else if ( fencePoints.back().cmdType == ACTION_COMMAND_ENTRENCH_BEGIN )
 		{
@@ -1809,7 +1822,13 @@ void CWorldClient::OnMouseMove( const CVec2 &vPos, interface IUIElement *pUIPick
 			CVec3 vStartPos( prevCmd.vPos.x, prevCmd.vPos.y, 0 );
 			AI2Vis( &vStartPos );
 
-			pBoldLine->Setup( vStartPos, vPos3, fWorldCellSize / 2, 0xffff0000 );
+			// Same feedback for the trench: the check runs in AI coordinates,
+			// the drawing stays in vis coordinates.
+			CVec3 vEndAI = vPos3;
+			Vis2AI( &vEndAI );
+			const bool bCanBuild = pAILogic->CanBuildLongObjectLine( true,
+				CVec2( prevCmd.vPos.x, prevCmd.vPos.y ), CVec2( vEndAI.x, vEndAI.y ) );
+			pBoldLine->Setup( vStartPos, vPos3, fWorldCellSize / 2, bCanBuild ? 0xff00ff00 : 0xffff0000 );
 		}
 	}
 }
