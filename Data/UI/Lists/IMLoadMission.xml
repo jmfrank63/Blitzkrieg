@@ -7,7 +7,7 @@
 		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
 			<Script>ui\loadmission</Script>
 			<WindowPos x="0" y="0"/>
-			<WindowSize x="512" y="630"/>
+			<WindowSize x="592" y="630"/>
 			<Children>
 				<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31415">
 					<!--inter mission tutorial-->
@@ -172,18 +172,18 @@
 							<map x1="206" y1="63" x2="4" y2="26"/>
 						</item>
 						<item>
-							<rect x1="4" y1="0" x2="402" y2="26"/>
+							<rect x1="4" y1="0" x2="482" y2="26"/>
 							<size x="26" y="26"/>
 							<map x1="210" y1="63" x2="26" y2="26"/>
 						</item>
 						<item>
-							<rect x1="402" y1="0" x2="406" y2="26"/>
+							<rect x1="482" y1="0" x2="486" y2="26"/>
 							<size x="4" y="26"/>
 							<map x1="236" y1="63" x2="4" y2="26"/>
 						</item>
 					</SelTileRects>
 					<ColumnProps>
-						<item Width="262" Sorter="1">
+						<item Width="342" Sorter="1">
 							<FileName>ui\Lists\SaveLoadNameIcon</FileName>
 						</item>
 						<item Width="140" Sorter="3">
@@ -276,7 +276,7 @@
 							<TextPos x="15" y="0"/>
 							<ToolTip>Textes\UI\Intermission\LoadMission\TTSaveName</ToolTip>
 							<WindowPos x="30" y="30"/>
-							<WindowSize x="272" y="41"/>
+							<WindowSize x="352" y="41"/>
 							<States>
 								<item>
 									<AppearanceNormal Color="-1" Specular="-16777216">
@@ -288,12 +288,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -308,12 +308,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -328,12 +328,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -353,12 +353,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -378,12 +378,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -403,12 +403,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -433,12 +433,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -458,12 +458,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -483,12 +483,12 @@
 												<map x1="215" y1="318" x2="17" y2="41"/>
 											</item>
 											<item>
-												<rect x1="17" y1="0" x2="245" y2="41"/>
+												<rect x1="17" y1="0" x2="325" y2="41"/>
 												<size x="22" y="41"/>
 												<map x1="236" y1="318" x2="22" y2="41"/>
 											</item>
 											<item>
-												<rect x1="245" y1="0" x2="262" y2="41"/>
+												<rect x1="325" y1="0" x2="342" y2="41"/>
 												<size x="17" y="41"/>
 												<map x1="262" y1="318" x2="17" y2="41"/>
 											</item>
@@ -766,7 +766,7 @@
 						</item>
 					</Children>
 					<WindowPos x="0" y="25"/>
-					<WindowSize x="462" y="512"/>
+					<WindowSize x="542" y="512"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
@@ -804,22 +804,22 @@
 					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
 						<TileRects>
 							<item>
-								<rect x1="64" y1="42" x2="448" y2="588"/>
+								<rect x1="64" y1="42" x2="528" y2="588"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="0" x2="448" y2="42"/>
+								<rect x1="64" y1="0" x2="528" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="42" x2="512" y2="588"/>
+								<rect x1="528" y1="42" x2="592" y2="588"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="588" x2="448" y2="630"/>
+								<rect x1="64" y1="588" x2="528" y2="630"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="214" x2="64" y2="42"/>
 							</item>
@@ -834,12 +834,12 @@
 								<map x1="0" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="0" x2="512" y2="42"/>
+								<rect x1="528" y1="0" x2="592" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="588" x2="512" y2="630"/>
+								<rect x1="528" y1="588" x2="592" y2="630"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="214" x2="64" y2="42"/>
 							</item>
@@ -854,22 +854,22 @@
 					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
 						<TileRects>
 							<item>
-								<rect x1="64" y1="42" x2="448" y2="588"/>
+								<rect x1="64" y1="42" x2="528" y2="588"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="0" x2="448" y2="42"/>
+								<rect x1="64" y1="0" x2="528" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="42" x2="512" y2="588"/>
+								<rect x1="528" y1="42" x2="592" y2="588"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="588" x2="448" y2="630"/>
+								<rect x1="64" y1="588" x2="528" y2="630"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="214" x2="64" y2="42"/>
 							</item>
@@ -884,12 +884,12 @@
 								<map x1="0" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="0" x2="512" y2="42"/>
+								<rect x1="528" y1="0" x2="592" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="588" x2="512" y2="630"/>
+								<rect x1="528" y1="588" x2="592" y2="630"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="214" x2="64" y2="42"/>
 							</item>
@@ -904,22 +904,22 @@
 					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
 						<TileRects>
 							<item>
-								<rect x1="64" y1="42" x2="448" y2="588"/>
+								<rect x1="64" y1="42" x2="528" y2="588"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="0" x2="448" y2="42"/>
+								<rect x1="64" y1="0" x2="528" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="42" x2="512" y2="588"/>
+								<rect x1="528" y1="42" x2="592" y2="588"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="171" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="64" y1="588" x2="448" y2="630"/>
+								<rect x1="64" y1="588" x2="528" y2="630"/>
 								<size x="64" y="42"/>
 								<map x1="64" y1="214" x2="64" y2="42"/>
 							</item>
@@ -934,12 +934,12 @@
 								<map x1="0" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="0" x2="512" y2="42"/>
+								<rect x1="528" y1="0" x2="592" y2="42"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="129" x2="64" y2="42"/>
 							</item>
 							<item>
-								<rect x1="448" y1="588" x2="512" y2="630"/>
+								<rect x1="528" y1="588" x2="592" y2="630"/>
 								<size x="64" y="42"/>
 								<map x1="128" y1="214" x2="64" y2="42"/>
 							</item>
