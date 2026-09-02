@@ -30,6 +30,7 @@
 #include <filesystem>
 #include "../StreamIO/OptionSystem.h"
 
+#include "../AILogic/AILogic.h"
 #include "../Main/CloudSyncFacade.h"
 #include "../Main/iMain.h"
 #include "../Main/GameDB.h"
@@ -1138,6 +1139,21 @@ int RunGame( const BkGameLaunchInfo &launch )
 					else if ( szAction == "cancel" ) pInput->AddMessage( SGameMessage( 10001 ) );	// IMC_CANCEL
 					else if ( szAction.compare( 0, 4, "msg=" ) == 0 ) pInput->AddMessage( SGameMessage( (int)strtol( szAction.c_str() + 4, 0, 0 ) ) );
 					else if ( szAction.compare( 0, 4, "cmd=" ) == 0 ) pMainLoop->Command( (int)strtol( szAction.c_str() + 4, 0, 0 ), "" );
+					else if ( szAction.compare( 0, 6, "probe=" ) == 0 )
+					{
+						// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence): asks the AI
+						// whether the line builds, in AI world coordinates - the
+						// build-preview query without driving the UI.
+						int nX1 = 0, nY1 = 0, nX2 = 0, nY2 = 0;
+						const char cKind = szAction[6];
+						if ( sscanf( szAction.c_str() + 7, "%dx%dx%dx%d", &nX1, &nY1, &nX2, &nY2 ) == 4 )
+						{
+							const bool bResult = GetSingleton<IAILogic>()->CanBuildLongObjectLine( cKind == 't',
+								CVec2( float( nX1 ), float( nY1 ) ), CVec2( float( nX2 ), float( nY2 ) ) );
+							fprintf( stderr, "BK_AUTO_UI: probe %c (%d,%d)-(%d,%d) -> %s\n",
+								cKind, nX1, nY1, nX2, nY2, bResult ? "GREEN" : "RED" );
+						}
+					}
 					else if ( szAction.compare( 0, 5, "clip=" ) == 0 )
 					{
 						// Seeds the clipboard for a following paste action; commas

@@ -1,5 +1,8 @@
 #include "StdAfx.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include <float.h>
 
 #include "TransportStates.h"
@@ -141,7 +144,9 @@ IUnitState* CTransportStatesFactory::ProduceState( class CQueueUnit *pObj, class
 				NI_ASSERT_T( dynamic_cast<CTransportBuildEntrenchmentState*>( pUnit->GetState()) != 0, "bad state sequence" );
 				static_cast<CTransportBuildEntrenchmentState*>( pUnit->GetState() )->SetEndPoint( cmd.vPos );
 				pResult = pUnit->GetState();
+				if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai trench END accepted, world (%.0f,%.0f)\n", cmd.vPos.x, cmd.vPos.y );
 			}
+			else if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai trench END DROPPED, unit state=%d\n", (int)pUnit->GetState()->GetName() );
 
 			break;
 		case ACTION_COMMAND_PLACE_ANTITANK:
@@ -158,6 +163,7 @@ IUnitState* CTransportStatesFactory::ProduceState( class CQueueUnit *pObj, class
 			break;
 		case ACTION_COMMAND_BUILD_FENCE_BEGIN:
 			pResult = CTransportBuildFenceState::Instance( pUnit, cmd.vPos * SConsts::TILE_SIZE );
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai fence BEGIN world (%.0f,%.0f)\n", cmd.vPos.x * SConsts::TILE_SIZE, cmd.vPos.y * SConsts::TILE_SIZE );
 			
 			break;
 		case ACTION_COMMAND_BUILD_FENCE_END:
@@ -166,7 +172,9 @@ IUnitState* CTransportStatesFactory::ProduceState( class CQueueUnit *pObj, class
 				NI_ASSERT_T( dynamic_cast<CTransportBuildFenceState*>( pUnit->GetState())!=0, "bad state sequence" );
 				static_cast<CTransportBuildFenceState*>( pUnit->GetState() )->SetEndPoint( cmd.vPos * SConsts::TILE_SIZE );
 				pResult = pUnit->GetState();
+				if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai fence END accepted, world (%.0f,%.0f)\n", cmd.vPos.x * SConsts::TILE_SIZE, cmd.vPos.y * SConsts::TILE_SIZE );
 			}
+			else if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai fence END DROPPED, unit state=%d\n", (int)pUnit->GetState()->GetName() );
 
 			break;
 		case ACTION_COMMAND_ENTRENCH_SELF:
