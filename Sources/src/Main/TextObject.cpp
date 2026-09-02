@@ -52,6 +52,21 @@ bool CTextDialog::Load( const bool bPreLoad )
 		}
 	}
 
+	// The stock data promises an exit to Windows; this build does not run
+	// there. Substituted on every (re)load, so the patch survives resource
+	// reloads, and only for this one text.
+#if defined(__APPLE__) || defined(__linux__)
+	if ( szStreamName.find( "exittowindows" ) != std::string::npos )
+	{
+		const std::u16string::size_type nWinPos = szString.find( u"Windows" );
+		if ( nWinPos != std::u16string::npos )
+#if defined(__APPLE__)
+			szString.replace( nWinPos, 7, u"MacOS" );
+#else
+			szString.replace( nWinPos, 7, u"Linux" );
+#endif
+	}
+#endif
 	return true;
 }
 void CTextDialog::SetText( const WORD *pszText ) 
