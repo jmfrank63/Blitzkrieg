@@ -508,7 +508,7 @@
 						<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xFF000000">
 							<!--date-->
 							<ToolTip>Textes\UI\Intermission\LoadMission\TTDate</ToolTip>
-							<WindowPos x="82" y="30"/>
+							<WindowPos x="106" y="30"/>
 							<WindowSize x="70" y="41"/>
 							<States>
 								<item>
@@ -766,7 +766,7 @@
 						</item>
 					</Children>
 					<WindowPos x="0" y="25"/>
-					<WindowSize x="590" y="512"/>
+					<WindowSize x="614" y="512"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
