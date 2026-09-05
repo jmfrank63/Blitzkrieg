@@ -1542,8 +1542,8 @@
 				<item ClassTypeID="0x10001103" ElementID="10013" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip/>
 					<!--button: cloud credentials dialog (Config...), a child of the Cloud list so its clicks arrive at all - the list's native pick absorbs clicks aimed at overlapping siblings before any message exists. The list converts every click in its rectangle to the row-cycle event (7777); ProcessMessage picks these two buttons off that event by cursor position. Shown by code only while the Cloud tab is active and a provider is chosen.-->
-					<WindowPos x="2" y="439"/>
-					<WindowSize x="212" y="66"/>
+					<WindowPos x="35" y="455"/>
+					<WindowSize x="170" y="46"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
@@ -1567,8 +1567,8 @@
 				<item ClassTypeID="0x10001103" ElementID="10014" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip/>
 					<!--button: cloud backup browser (Backups...), the right of the pair - see 10013.-->
-					<WindowPos x="218" y="439"/>
-					<WindowSize x="212" y="66"/>
+					<WindowPos x="225" y="455"/>
+					<WindowSize x="170" y="46"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
