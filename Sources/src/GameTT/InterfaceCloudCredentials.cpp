@@ -681,6 +681,20 @@ bool CInterfaceCloudCredentials::SaveCredentials()
 			TextOrFallback( "Textes\\UI\\CloudCredentials\\catalogue_missing", L"no provider list yet" ) );
 		return false;
 	}
+	// A pending Forget lands here, at the moment the form is persisted. The
+	// stored snapshot is re-read after: the untouched-form rule below and the
+	// masked-field merge must see the post-clear document, not the one that
+	// still carried the secrets.
+	if ( bPendingClearSecrets )
+	{
+		if ( !NCloudSync::ClearCredentialsSecret() )
+		{
+			SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( NCloudSync::LastError() ) );
+			return false;
+		}
+		bPendingClearSecrets = false;
+		LoadStored();
+	}
 	// Whatever this backend already has on record, keyed by option name -
 	// the fallback an untouched, blank non-secret box defers to below, the
 	// same protection a blank masked box already has through bStoredSecret.
@@ -933,23 +947,20 @@ bool CInterfaceCloudCredentials::ProcessMessage( const SGameMessage &msg )
 		return true;
 	case E_BUTTON_CLEAR_SECRET:
 		// The deliberate act, distinct from saving with an empty box - an
-		// empty box preserves the stored secrets. Clears every withheld
-		// field of the stored credentials at once.
-		if ( NCloudSync::ClearCredentialsSecret() )
-		{
-			LoadStored();
-			for ( size_t i = 0; i < fields.size(); ++i )
-				if ( fields[i].IsMasked() )
-				{
-					fields[i].bStoredSecret = false;
-					fields[i].bTouched = false;
-					fields[i].szValue.clear();
-				}
-			LayoutRows();
-			SetStatus( "Textes\\UI\\CloudCredentials\\secret_cleared", L"" );
-		}
-		else
-			SetStatus( "Textes\\UI\\CloudCredentials\\save_failed", WideFromUtf8( NCloudSync::LastError() ) );
+		// empty box preserves the stored secrets. Pending, not immediate:
+		// the stored document is rewritten only when the form itself is
+		// persisted (OK, or the connection test), so Cancel discards this
+		// along with everything else typed.
+		bPendingClearSecrets = true;
+		for ( size_t i = 0; i < fields.size(); ++i )
+			if ( fields[i].IsMasked() )
+			{
+				fields[i].bStoredSecret = false;
+				fields[i].bTouched = false;
+				fields[i].szValue.clear();
+			}
+		LayoutRows();
+		SetStatus( "Textes\\UI\\CloudCredentials\\secret_cleared", L"" );
 		return true;
 	default:
 		if ( !bFinished && msg.nEventID >= E_CYCLE_BASE && msg.nEventID < E_CYCLE_BASE + E_ROW_COUNT )
@@ -1149,6 +1160,7 @@ void CInterfaceCloudCredentials::StartInterface()
 	nCatalogueHandle = -1;
 	bCatalogueReady = false;
 	bShowAdvanced = false;
+	bPendingClearSecrets = false;
 	nScroll = 0;
 	fields.clear();
 	visibleRows.clear();

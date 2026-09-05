@@ -61,6 +61,7 @@ class CInterfaceCloudCredentials : public CInterfaceScreenBase
 	std::vector<std::pair<std::string, std::string> > storedOptions;
 	std::vector<std::string> storedSecretNames;
 	bool bLoadFailed;								// present but unreadable: refuse to overwrite
+	bool bPendingClearSecrets;			// Forget clicked; applied when the form is persisted, discarded by Cancel
 
 	// Poll handles: the connection test and the catalogue fetch, -1 when idle.
 	int nTestHandle;
