@@ -185,7 +185,7 @@ public:
 	void STDCALL Invalidate() { UnRegister(); bValid = false; }
 	void STDCALL Visit( ISelectorVisitor *pVisitor ) const;
 	void SendAcknowledgement( interface IAILogic *pAILogic );
-	void UpdateSelection( IMOContainer *pContainer );
+	void UpdateSelection( DWORD dwContainerToken );
 	SSelectionGroup& GetSelectionGroup( const int nIndex ) { return groups[nIndex]; }
 	int operator&( IStructureSaver &ss );
 };

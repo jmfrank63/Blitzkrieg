@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+
+#include <cstdio>
+#include <cstdlib>
 #include "../Platform/Debug.h"
 #include "../Platform/LegacyText.h"
 
@@ -287,11 +290,25 @@ void CSelector::UnRegister()
 	nSelectionGroupID = -1;
 	bValid = true;
 }
-void CSelector::UpdateSelection( IMOContainer *pContainer )
+void CSelector::UpdateSelection( DWORD dwContainerToken )
 {
-	if ( objset.find(pContainer) == objset.end() ) 
-		return;
-	DoneSelection();
+	// A game message carries 32 bits, so a container reporting a passenger
+	// change sends the low half of its address. The full pointer used to
+	// travel through the message and stopped matching the day pointers
+	// outgrew int, which froze the who-is-inside strip; comparing under
+	// the same truncation finds the selected container on any pointer
+	// width. IMOContainer sits at the head of every map object, so the
+	// tokens agree.
+	for ( CMapObjectsList::const_iterator it = objects.begin(); it != objects.end(); ++it )
+	{
+		SMapObject *pObject = *it;
+		if ( DWORD( reinterpret_cast<std::uintptr_t>( pObject ) ) == dwContainerToken )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: who-in-container token matched selection, rebuilding strip\n" );
+			DoneSelection();
+			return;
+		}
+	}
 }
 void CSelector::DoneSelection()
 {
@@ -1337,8 +1354,9 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 			return true;
 
 		case MC_UPDATE_WHO_IN_CONTAINER:
-			selunits.UpdateSelection( reinterpret_cast<IMOContainer*>(msg.nParam) );
-			selbuildings.UpdateSelection( reinterpret_cast<IMOContainer*>(msg.nParam) );
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: who-in-container update, token %08x\n", (unsigned)msg.nParam );
+			selunits.UpdateSelection( DWORD( msg.nParam ) );
+			selbuildings.UpdateSelection( DWORD( msg.nParam ) );
 			break;
 
 		case WCC_SHOW_AI_INFO:

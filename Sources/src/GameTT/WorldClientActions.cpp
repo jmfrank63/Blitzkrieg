@@ -184,6 +184,7 @@ void CWorldClient::DoAction( const SGameMessage &msg )
 	const SMapObject *pMO = GetFirstPick( SGVOGT_FENCE, true, false );
 	const int _nAction = DetermineBestAutoAction( pMO );
 	const int nAction = _nAction & 0x00007fff;
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: order click at (%.0f,%.0f): action %d raw %08x pick=%d selempty=%d\n", vPos.x, vPos.y, nAction, (unsigned)_nAction, (int)( pMO != 0 ), (int)IsSelectionEmpty() );
 	const int nType = _nAction & 0x80000000 ? SActionDesc::FORCED : SActionDesc::AUTO;
 	const bool bSelfAction = ( _nAction & 0x00008000 ) != 0;
 	if ( ( _nAction & 0x00008000 ) != 0 ) 
