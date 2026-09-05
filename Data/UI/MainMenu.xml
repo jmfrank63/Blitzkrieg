@@ -1744,7 +1744,7 @@
 			<!--cloud sync indicator, one line above the profile label (21000); a button so the label itself is the skip-to-offline click while a sync runs; text set from code, no appearance quads so only the text draws. Children add front-of-list, so this sits LAST to be picked FIRST: the full-screen state containers otherwise swallow the click over empty space-->
 			<ShadowShift x="1" y="2"/>
 			<TextPos x="0" y="0"/>
-			<WindowPos x="10" y="104"/>
+			<WindowPos x="10" y="88"/>
 			<WindowSize x="640" y="50"/>
 			<States>
 				<item>
