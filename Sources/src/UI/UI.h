@@ -71,10 +71,11 @@ enum
 	UI_SW_HIDE_MODAL				= 0x300,
 
 };
+#include <stdint.h>
 struct SUIMessage
 {
 	int nMessageCode;			//message code, see file UIMessages.h
-	int nFirst;						//first parameter, depends upon message code
+	intptr_t nFirst;			//first parameter, depends upon message code; pointer-wide, it mirrors SGameMessage::nParam
 	int nSecond;					//second parameter, depends upon message code
 };
 const int NOTIFY_PARENT_FLAG = 0x10000000;

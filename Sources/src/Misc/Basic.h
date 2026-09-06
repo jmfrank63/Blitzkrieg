@@ -2,6 +2,7 @@
 #define __BASIC_H__
 #pragma ONCE
 #include "../Platform/Compiler.h"
+#include <stdint.h>
 #include "../Platform/LegacyTypes.h"
 #include "../Platform/LegacyVariant.h"
 #include "../zlib/zlib.h"
@@ -499,10 +500,10 @@ inline TOut const_cast_gdb( const CGDBPtr<TUserObj> &ptr )
 struct SGameMessage
 {
 	int nEventID;													// message event ID
-	int nParam;														// optional parameter
+	intptr_t nParam;													// optional parameter; pointer-wide, several messages carry an object address
 	SGameMessage()
 		: nEventID( -1 ), nParam( 0 ) {  }
-	explicit SGameMessage( int _nEventID, int _nParam = 0 )
+	explicit SGameMessage( int _nEventID, intptr_t _nParam = 0 )
 		: nEventID( _nEventID ), nParam( _nParam ) {  }
 };
 struct STextMessage

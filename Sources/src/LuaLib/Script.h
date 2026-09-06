@@ -67,6 +67,13 @@ public:
 			const double f = lua_tonumber(GetState(), m_stackIndex);
 			return ( f >= 0.0 && f < 18446744073709551616.0 ) ? (uintptr_t)f : 0;
 		}
+		// Signed twin of GetPointerValue for message parameters, which carry
+		// either an object address or a small (possibly negative) id.
+		intptr_t GetIntPtrValue() const
+		{
+			const double f = lua_tonumber(GetState(), m_stackIndex);
+			return ( f >= -9223372036854775808.0 && f < 9223372036854775808.0 ) ? (intptr_t)f : 0;
+		}
 		float GetNumber() const				{  return (float)lua_tonumber(GetState(), m_stackIndex);  }
 		const char* GetString() const		{  return lua_tostring(GetState(), m_stackIndex);  }
 		operator const char *() const		{ return GetString(); }

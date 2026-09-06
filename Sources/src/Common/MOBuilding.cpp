@@ -139,8 +139,8 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 			pIcon->UnlockBarColor();
 	}
 
-	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: building passengers changed, token %08x\n", (unsigned)reinterpret_cast<std::uintptr_t>( static_cast<IMOContainer*>(this) ) );
-	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, static_cast<int>( reinterpret_cast<std::uintptr_t>( static_cast<IMOContainer*>(this) ) )) );
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: building passengers changed, container %p\n", (void*)static_cast<IMOContainer*>(this) );
+	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( static_cast<IMOContainer*>(this) )) );
 	UpdatePassangers();
 	return true;
 }
