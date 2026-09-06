@@ -486,6 +486,7 @@ int CWorldClient::operator&( IStructureSaver &ss )
 		vLastPickPos = VNULL2;
 		ResetPreSelection();
 		statusObject.Clear();
+		bReconcileSelection = true;
 	}
 	saver.Add( 18, &aviationCircles );
 	saver.Add( 19, &availCrossActions );
@@ -505,6 +506,7 @@ CWorldClient::CWorldClient()
 	bActionModifierForcedMove = false;
 	bActionModifierForcedAttack = false;
 	bCheckDiplomacy = true;
+	bReconcileSelection = false;
 	nLastAvailableActionsSet = 0;
 	timeLastPick = 0;
 	vLastPickPos = VNULL2;
@@ -635,6 +637,11 @@ void CWorldClient::NewObjectAdded( SMapObject *pMO )
 void CWorldClient::Update( const NTimer::STime &currTime )
 {
 	CWorldBase::Update( currTime );
+	if ( bReconcileSelection )
+	{
+		bReconcileSelection = false;
+		ReconcileSelection();
+	}
 	while ( const char *pszString = GetSingleton<IConsoleBuffer>()->ReadASCII(CONSOLE_STREAM_WORLD) )
 	{
 		NStr::DebugTrace( "Got command: %s\n", pszString );
@@ -964,6 +971,39 @@ void CWorldClient::Select( SMapObject *pMO )
 		lst.push_back( pMO );
 		Select( lst, true );
 	}
+}
+// Selection after a load. Icons save their colour, and the saver reads a
+// pointed-to object after the structure that points to it, so the alpha a
+// visual applies to its icons while reading is overwritten by the icon's
+// saved colour a moment later: an HP bar keeps the brightness it had when
+// the save was written. Older builds also brightened a passenger's bar
+// with the container carrying him, so that saved brightness can be wrong.
+// Once everything is read, re-apply every visual's selection state to its
+// own icons - and drop a "selected" visual that is in neither selector.
+void CWorldClient::ReconcileSelection()
+{
+	int nRefreshed = 0, nDropped = 0;
+	for ( iterator it = begin(); it != end(); ++it )
+	{
+		SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
+		if ( pMO == 0 || !pMO->pVisObj.IsValid() )
+			continue;
+		const EVisObjSelectionState state = pMO->pVisObj->GetSelectionState();
+		if ( state == SGVOSS_SELECTED && !selunits.IsSelected( pMO ) && !selbuildings.IsSelected( pMO ) )
+		{
+			if ( IMOSelectable *pSelMO = dynamic_cast<IMOSelectable*>( pMO ) )
+				pSelMO->Select( &selunits, false, false );
+			else
+				pMO->pVisObj->Select( SGVOSS_UNSELECTED );
+			++nDropped;
+		}
+		else
+		{
+			pMO->pVisObj->Select( state );
+			++nRefreshed;
+		}
+	}
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ReconcileSelection refreshed=%d dropped=%d\n", nRefreshed, nDropped );
 }
 void CWorldClient::ResetSelection( SMapObject *pMO )
 {

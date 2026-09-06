@@ -226,6 +226,7 @@ class CWorldClient : public CWorldBase
 	std::list< CPtr<IVisObj> > hiddenObjects;
 	bool bSetPlayerTooltip;               // set when player tooltip might be shown
 	bool bCheckDiplomacy;									// do we need check diplomacy during FoF operations ? (for editor mode)
+	bool bReconcileSelection;						// run ReconcileSelection on the next Update (not saved: set by a load)
 	typedef std::vector<SSelectionGroup> CSelectionsList;
 	CSelectionsList selectionGroups;			// selection groups
 	CSelector selunits, selbuildings;			// selected units & buildings
@@ -300,6 +301,7 @@ class CWorldClient : public CWorldBase
 	void DeselectUnits( const std::vector<IMOUnit*> &units, IMOContainer *pContainer );
 	void SelectBuilding( IVisObj *pObj, bool bAddAction );
 	virtual void ResetSelection( SMapObject *pMO );
+	void ReconcileSelection();
 	void PickFoF( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &friends, CMapObjectsPtrList &foes, CMapObjectsPtrList &neutrals );
 	void Pick( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &objects );
 	void PickAll( const CVec2 &vPos, CMapObjectsPtrList &objects, EObjGameType upto = SGVOGT_MINE, bool bVisible = false, bool bAliveUnits = true, bool bAliveOther = true );
