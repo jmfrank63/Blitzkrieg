@@ -1740,5 +1740,19 @@
 				</item>
 			</States>
 		</item>
+		<item ClassTypeID="268439811" ElementID="21001" PositionFlag="0x0031" Background="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34" VisibleFlag="0" ActiveFlag="1" CurrentState="0">
+			<!--cloud sync indicator, one line above the profile label (21000); a button so the label itself is the skip-to-offline click while a sync runs; text set from code, no appearance quads so only the text draws. Children add front-of-list, so this sits LAST to be picked FIRST: the full-screen state containers otherwise swallow the click over empty space-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="0" y="0"/>
+			<WindowPos x="10" y="88"/>
+			<WindowSize x="640" y="50"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
 	</Children>
 </base>

@@ -53,9 +53,15 @@ public:
 
 		// Out-of-range doubles are UB in a plain (int) cast; MSVC's _ftol
 		// returned 0x80000000 there, which this reproduces for both builds.
+		// A DWORD bit mask that reached Lua through a pointer-wide message
+		// parameter arrives positive above INT_MAX; it used to wrap negative
+		// through int on the way in, so the unsigned 32-bit range wraps here
+		// the same way and keeps every bit.
 		int GetInteger() const
 		{
 			const double f = lua_tonumber(GetState(), m_stackIndex);
+			if ( f >= 2147483648.0 && f < 4294967296.0 )
+				return (int)( (long long)f - 4294967296LL );
 			return ( f >= -2147483648.0 && f < 2147483648.0 ) ? (int)f : ( -2147483647 - 1 );
 		}
 		operator int() const				{ return GetInteger(); }
@@ -66,6 +72,13 @@ public:
 		{
 			const double f = lua_tonumber(GetState(), m_stackIndex);
 			return ( f >= 0.0 && f < 18446744073709551616.0 ) ? (uintptr_t)f : 0;
+		}
+		// Signed twin of GetPointerValue for message parameters, which carry
+		// either an object address or a small (possibly negative) id.
+		intptr_t GetIntPtrValue() const
+		{
+			const double f = lua_tonumber(GetState(), m_stackIndex);
+			return ( f >= -9223372036854775808.0 && f < 9223372036854775808.0 ) ? (intptr_t)f : 0;
 		}
 		float GetNumber() const				{  return (float)lua_tonumber(GetState(), m_stackIndex);  }
 		const char* GetString() const		{  return lua_tostring(GetState(), m_stackIndex);  }

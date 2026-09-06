@@ -117,6 +117,14 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
         copyMetadata(io, repo, destination, options.layout.metadata_files) catch |err| return failStep("copy package metadata", err);
+        // rclone is MIT: the copy of its binary staged beside the game has to
+        // travel with its copyright line and permission notice, and its
+        // official archive carries no COPYING to stage. The notice is a file we
+        // own and review, staged at the root beside LICENSE.md rather than left
+        // in Data, so it sits with the licences a player looks for and stays
+        // present under --link-data, which replaces the staged Data tree with a
+        // link into the repository.
+        copyFile(io, repo, runtime_verify.third_party_notices_source, destination, runtime_verify.third_party_notices_name) catch |err| return failStep("copy third-party notices", err);
         destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
         switch (options.data_mode) {
             .copy => syncData(io, allocator, repo, destination) catch |err| return failStep("syncData", err),
@@ -125,6 +133,7 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
                 linkData(io, allocator, repo, destination) catch |err| return failStep("linkData", err);
             },
         }
+        verifyStagedPayload(io, destination, options.layout) catch |err| return failStep("verify staged payload", err);
     } else if (!options.layout.editors_supported) {
         return error.EditorsUnsupported;
     }
@@ -134,6 +143,25 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         if (!options.layout.editors_supported) return error.EditorsUnsupported;
         try copyEditors(io, repo, destination);
     }
+}
+
+/// Everything the staged layout promises to hold, checked once where it is
+/// produced, so a package that is wrong is wrong here rather than at a player's
+/// install. The bundled rclone is one of the runtime files, so the binary and
+/// the third-party notice MIT requires beside it are asserted together: neither
+/// may ship without the other.
+fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, layout: RuntimeLayout) !void {
+    try requireStagedFile(io, destination, layout.game_name);
+    for (layout.runtime_files) |name| try requireStagedFile(io, destination, name);
+    for (layout.metadata_files) |name| try requireStagedFile(io, destination, name);
+    try requireStagedFile(io, destination, runtime_verify.third_party_notices_name);
+}
+
+fn requireStagedFile(io: std.Io, destination: std.Io.Dir, name: []const u8) !void {
+    destination.access(io, name, .{}) catch |err| {
+        std.debug.print("stage: staged layout is missing '{s}': {s}\n", .{ name, @errorName(err) });
+        return error.MissingStagedFile;
+    };
 }
 
 fn failStep(step: []const u8, err: anyerror) anyerror {

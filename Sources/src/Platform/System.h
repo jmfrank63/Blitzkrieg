@@ -16,6 +16,11 @@ bool OpenUrl( const char *url );
 bool OpenFile( const char *path );
 void SetUiHandlers( UiHandler errorHandler, UiHandler openHandler );
 bool RunProcess( const std::vector<std::string> &arguments, const std::string &workingDirectory, int *exitCode );
+// The system clipboard, through SDL when its video subsystem is up (the
+// game), and a process-local string otherwise (tests, headless tools) so
+// the paste path stays exercisable without a display. Main thread only.
+bool SetClipboardText( const char *text );
+std::string GetClipboardText();
 }
 
 #endif

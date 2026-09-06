@@ -1,6 +1,7 @@
 #ifndef __OPTIONENTRYWRAPPER_H__
 #define __OPTIONENTRYWRAPPER_H__
 #pragma ONCE
+#include <map>
 #include "InterMission.h"
 #include "iMission.h"
 #include "UIOptions.h"
@@ -63,6 +64,11 @@ private:
 	mutable std::wstring szWideGameSpyCache;
 };
 typedef std::list<SOptionDesc> OptionDescs;
+// Values a screen supplies for a droplist row in place of the option
+// system's fill - for rows whose list the option bridge cannot build itself.
+// The cloud Provider row is the case: its values come from the cloud facade,
+// which the streamio library does not link. Keyed by option name.
+typedef std::map< std::string, std::vector<SOptionDropListValue> > OptionDropOverrides;
 class COptionsListWrapper : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( COptionsListWrapper );
@@ -75,12 +81,14 @@ class COptionsListWrapper : public IRefCount
 	
 	CPtr<IOptionSystem> pSetOptionSystem;		// where to set options ( custom option system )
 	bool bDisableChange;
+	OptionDropOverrides dropOverrides;
 
 	void InitList( const bool bDefault );
 public:
 	COptionsListWrapper() {  }
 	COptionsListWrapper( const DWORD _dwFlags, IUIListControl * _pList, const int _nIDToStartFrom, IOptionSystem * pSystem = 0, const bool bDisableChange = false );
 	COptionsListWrapper( IUIListControl * _pList, OptionDescs & optionDescs, const int _nIDToStartFrom, IOptionSystem * pSystem = 0, const bool bDisableChange = false );
+	COptionsListWrapper( IUIListControl * _pList, OptionDescs & optionDescs, const int _nIDToStartFrom, const OptionDropOverrides &overrides, IOptionSystem * pSystem = 0, const bool bDisableChange = false );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 
 	bool ChangeSelectedOption( const bool bNext );

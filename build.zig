@@ -652,6 +652,8 @@ const game_sources = &.{
     "Sources/src/Game/GameFrame.cpp",
     "Sources/src/Game/SysKeys.cpp",
     "Sources/src/Game/MouseCapture.cpp",
+    "Sources/src/Main/CloudSyncFacade.cpp",
+    "Sources/src/Platform/CloudSyncLoader.cpp",
     "Sources/src/Platform/SDLApplication.cpp",
 };
 const windows_game_sources = &.{
@@ -731,11 +733,22 @@ const cppflags_game_release = &.{
 };
 
 pub fn build(b: *std.Build) void {
+    // The default target follows the host CPU on Linux as it already did on
+    // macOS. This branch used to hardcode x86_64, so a plain `zig build` on an
+    // arm64 Linux host silently cross-compiled for x86_64 and then failed to
+    // find /usr/lib/x86_64-linux-gnu/libstdc++.so.6.
     const default_target: std.Target.Query = switch (b.graph.host.result.os.tag) {
-        .linux => .{
-            .cpu_arch = .x86_64,
-            .os_tag = .linux,
-            .abi = .gnu,
+        .linux => switch (b.graph.host.result.cpu.arch) {
+            .aarch64 => .{
+                .cpu_arch = .aarch64,
+                .os_tag = .linux,
+                .abi = .gnu,
+            },
+            else => .{
+                .cpu_arch = .x86_64,
+                .os_tag = .linux,
+                .abi = .gnu,
+            },
         },
         .windows => .{
             .cpu_arch = .x86_64,
@@ -1228,6 +1241,17 @@ pub fn build(b: *std.Build) void {
     stage_test_step.dependOn(&stage_tests.step);
     if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
 
+    const package_tests_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/package_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const package_tests = b.addTest(.{ .root_module = package_tests_module });
+    const package_tests_run = b.addRunArtifact(package_tests);
+    const package_test_step = b.step("test-package", "Run release zip writer tests");
+    package_test_step.dependOn(&package_tests.step);
+    if (test_mode == .run) package_test_step.dependOn(&package_tests_run.step);
+
     const present_fit_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/present_fit.zig"),
         .target = b.graph.host,
@@ -1495,11 +1519,23 @@ pub fn build(b: *std.Build) void {
     const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_root, variant_suffix });
     const stage_game_name = platform_policy.executable_name;
     const stage_metadata_files = package_policy.required_metadata_files[0..];
-    const stage_runtime_files = switch (target.result.os.tag) {
-        .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-        .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
-        .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
-        else => &[_][]const u8{stage_game_name},
+    // rclone ships beside the game so cloud sync works on a machine with
+    // nothing on PATH: daemon discovery already searches the executable's own
+    // directory before PATH, so bundling is entirely a staging job and needs no
+    // discovery change. stage.zig copies these names out of zig-out/bin, which
+    // is why the binary is installed there first, below game-all.
+    const rclone_bundle = build_support.bundledRclone(platform);
+    const stage_runtime_files = stage_files: {
+        const engine_files: []const []const u8 = switch (target.result.os.tag) {
+            .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
+            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+            .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
+            else => &[_][]const u8{stage_game_name},
+        };
+        const files = b.allocator.alloc([]const u8, engine_files.len + 1) catch @panic("OOM");
+        @memcpy(files[0..engine_files.len], engine_files);
+        files[engine_files.len] = rclone_bundle.installed_name;
+        break :stage_files files;
     };
     const stage_debug_files = if (target.result.os.tag == .windows)
         &[_][]const u8{ "Game.pdb", "StreamIO.pdb", "StreamIOOptionsAbi.pdb", "Anim.pdb", "GFXGPU.pdb", "Image.pdb", "Input.pdb", "Net.pdb", "SFX.pdb", "UI.pdb", "Scene.pdb", "AILogic.pdb", "GameTT.pdb" }
@@ -1669,6 +1705,11 @@ pub fn build(b: *std.Build) void {
     // mode either way).
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
     const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, streamio_fast);
+    // Cloud profile sync. Nothing loads it yet — the C++ facade arrives with
+    // P06-M01 — so it is built and exercised by test-cloudsync-abi rather than
+    // installed into the game layout; the packet that gives the game a reason
+    // to load it is the packet that adds it to the staged runtime files.
+    const cloudsync = addCloudSync(b, target, optimize, toolchain);
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
@@ -1739,6 +1780,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(ailogic);
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
+    b.installArtifact(cloudsync);
     b.installArtifact(game);
     b.installArtifact(gfx_gpu_zig);
 
@@ -1906,6 +1948,29 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(net, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(cloudsync, .{}).step);
+
+    // Only the archive matching -Dtarget is ever asked for, and it is lazy, so
+    // the ~31 MB download is not part of the eager dependency set.
+    const rclone_dependency = b.lazyDependency(rclone_bundle.dependency, .{}) orelse return;
+    const rclone_archive_member = rclone_dependency.path(rclone_bundle.archive_member);
+    // Zig's zip extraction does not carry a member's unix mode, so the archive
+    // copy of rclone arrives as 0644 and every copy after it inherits that:
+    // Step.installFile and stage.zig's copyFile both preserve the source's
+    // permissions. A staged rclone without the executable bit is found by
+    // discovery and then rejected as .not_executable, which is a confusing way
+    // to fail, so the bit goes on once here — before zig-out/bin — and staging
+    // and packaging carry it from there. Windows has no such bit and no
+    // `install`, so there it is a plain file copy.
+    const install_rclone = install_rclone: {
+        if (b.graph.host.result.os.tag == .windows)
+            break :install_rclone b.addInstallBinFile(rclone_archive_member, rclone_bundle.installed_name);
+        const mark_executable = b.addSystemCommand(&.{ "install", "-m", "0755" });
+        mark_executable.addFileArg(rclone_archive_member);
+        const executable_copy = mark_executable.addOutputFileArg(rclone_bundle.installed_name);
+        break :install_rclone b.addInstallBinFile(executable_copy, rclone_bundle.installed_name);
+    };
+    game_all_step.dependOn(&install_rclone.step);
 
     const stage_tool = b.addExecutable(.{
         .name = "stage-game",
@@ -1916,6 +1981,10 @@ pub fn build(b: *std.Build) void {
     install_game_cmd.addArg(".");
     install_game_cmd.addArg(stage_root);
     addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
+    // Staging copies the third-party notice out of a plain path, the way it
+    // copies the shader blobs, so an edited licence text has to be part of the
+    // cache key or the staged and packaged copies keep the superseded notice.
+    install_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
     if (!copy_data) install_game_cmd.addArg("--link-data");
     if (!use_prebuilt_shaders) {
         install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
@@ -2066,17 +2135,24 @@ pub fn build(b: *std.Build) void {
     const endurance_step = b.step("verify-gfxgpu-endurance", "Run SDL GPU resize, restart, and endurance validation");
     endurance_step.dependOn(&endurance_cmd.step);
 
+    // The tree the zip is built from. It was `<stage_root>/game`, which on a
+    // case-insensitive filesystem is the staged `Game` executable sitting in
+    // that same directory, so every macOS package run died in stage-game with
+    // `NotDir` before it copied a byte. `package` collides with nothing the
+    // layout stages, and the name says what the directory is for.
+    const package_stage_root = b.fmt("{s}/package", .{stage_root});
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
-    stage_package_game_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
+    stage_package_game_cmd.addArg(package_stage_root);
     addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
+    stage_package_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
 
     const package_tool = b.addExecutable(.{
         .name = "package",
         .root_module = package_module,
     });
     const package_tool_run = b.addRunArtifact(package_tool);
-    package_tool_run.addArg(b.fmt("{s}/game", .{stage_root}));
+    package_tool_run.addArg(package_stage_root);
     package_tool_run.addArg(b.fmt("{s}/Blitzkrieg-game.zip", .{package_root}));
     package_tool_run.step.dependOn(&stage_package_game_cmd.step);
 
@@ -2088,7 +2164,7 @@ pub fn build(b: *std.Build) void {
 
     const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_editors_cmd.addArg(".");
-    stage_package_game_editors_cmd.addArg(b.fmt("{s}/game", .{stage_root}));
+    stage_package_game_editors_cmd.addArg(package_stage_root);
     addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
@@ -2096,7 +2172,7 @@ pub fn build(b: *std.Build) void {
 
     const package_tool_editors = b.addRunArtifact(package_tool);
     package_tool_editors.step.dependOn(&stage_package_game_editors_cmd.step);
-    package_tool_editors.addArg(b.fmt("{s}/game", .{stage_root}));
+    package_tool_editors.addArg(package_stage_root);
     package_tool_editors.addArg(b.fmt("{s}/Blitzkrieg-game-with-editors.zip", .{package_root}));
 
     const package_game_editors_step = b.step("package-game-editors", "Create installation zip package with editor tools");
@@ -2153,6 +2229,221 @@ pub fn build(b: *std.Build) void {
     const test_streamio_step = b.step("test-streamio", "Run Zig StreamIO unit tests");
     test_streamio_step.dependOn(&streamio_unit_tests.step);
     if (test_mode == .run) test_streamio_step.dependOn(&run_streamio_unit_tests.step);
+    const cloudsync_rc_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/rc_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_rc_unit_tests = b.addTest(.{ .root_module = cloudsync_rc_test_module });
+    const run_cloudsync_rc_unit_tests = b.addRunArtifact(cloudsync_rc_unit_tests);
+    const test_cloudsync_rc_step = b.step("test-cloudsync-rc", "Run Zig CloudSync rc client unit tests");
+    test_cloudsync_rc_step.dependOn(&cloudsync_rc_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_rc_step.dependOn(&run_cloudsync_rc_unit_tests.step);
+    const cloudsync_daemon_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/daemon_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_daemon_unit_tests = b.addTest(.{ .root_module = cloudsync_daemon_test_module });
+    const run_cloudsync_daemon_unit_tests = b.addRunArtifact(cloudsync_daemon_unit_tests);
+    const test_cloudsync_daemon_step = b.step("test-cloudsync-daemon", "Run Zig CloudSync rclone discovery unit tests");
+    test_cloudsync_daemon_step.dependOn(&cloudsync_daemon_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_daemon_step.dependOn(&run_cloudsync_daemon_unit_tests.step);
+    const cloudsync_plan_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/plan_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_plan_unit_tests = b.addTest(.{ .root_module = cloudsync_plan_test_module });
+    const run_cloudsync_plan_unit_tests = b.addRunArtifact(cloudsync_plan_unit_tests);
+    const test_cloudsync_plan_step = b.step("test-cloudsync-plan", "Run Zig CloudSync sync planning unit tests");
+    test_cloudsync_plan_step.dependOn(&cloudsync_plan_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_plan_step.dependOn(&run_cloudsync_plan_unit_tests.step);
+    const cloudsync_engine_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/engine_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_engine_unit_tests = b.addTest(.{ .root_module = cloudsync_engine_test_module });
+    const run_cloudsync_engine_unit_tests = b.addRunArtifact(cloudsync_engine_unit_tests);
+    const test_cloudsync_engine_step = b.step("test-cloudsync-engine", "Run Zig CloudSync sync engine tests");
+    test_cloudsync_engine_step.dependOn(&cloudsync_engine_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_engine_step.dependOn(&run_cloudsync_engine_unit_tests.step);
+    const cloudsync_creds_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/creds_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_creds_unit_tests = b.addTest(.{ .root_module = cloudsync_creds_test_module });
+    const run_cloudsync_creds_unit_tests = b.addRunArtifact(cloudsync_creds_unit_tests);
+    const test_cloudsync_creds_step = b.step("test-cloudsync-creds", "Run Zig CloudSync credentials tests");
+    test_cloudsync_creds_step.dependOn(&cloudsync_creds_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_creds_step.dependOn(&run_cloudsync_creds_unit_tests.step);
+    const cloudsync_backend_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/backend_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_backend_unit_tests = b.addTest(.{ .root_module = cloudsync_backend_test_module });
+    const run_cloudsync_backend_unit_tests = b.addRunArtifact(cloudsync_backend_unit_tests);
+    const test_cloudsync_backend_step = b.step("test-cloudsync-backend", "Run Zig CloudSync backend integration tests");
+    test_cloudsync_backend_step.dependOn(&cloudsync_backend_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_backend_step.dependOn(&run_cloudsync_backend_unit_tests.step);
+    const cloudsync_backup_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/backup_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_backup_unit_tests = b.addTest(.{ .root_module = cloudsync_backup_test_module });
+    const run_cloudsync_backup_unit_tests = b.addRunArtifact(cloudsync_backup_unit_tests);
+    const test_cloudsync_backup_step = b.step("test-cloudsync-backup", "Run Zig CloudSync config backup tests");
+    test_cloudsync_backup_step.dependOn(&cloudsync_backup_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_backup_step.dependOn(&run_cloudsync_backup_unit_tests.step);
+    // The catalogue tests read a committed snapshot of one rclone version's
+    // `config/providers` reply rather than a live daemon, so they stay offline;
+    // the fixture reaches `@embedFile` as an anonymous import because it lives
+    // outside the module's own directory.
+    const cloudsync_catalogue_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/catalogue_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    cloudsync_catalogue_test_module.addAnonymousImport("config_providers_fixture", .{
+        .root_source_file = b.path("tools/zig/fixtures/config_providers.json"),
+    });
+    const cloudsync_catalogue_unit_tests = b.addTest(.{ .root_module = cloudsync_catalogue_test_module });
+    const run_cloudsync_catalogue_unit_tests = b.addRunArtifact(cloudsync_catalogue_unit_tests);
+    const test_cloudsync_catalogue_step = b.step("test-cloudsync-catalogue", "Run Zig CloudSync provider catalogue tests");
+    test_cloudsync_catalogue_step.dependOn(&cloudsync_catalogue_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_catalogue_step.dependOn(&run_cloudsync_catalogue_unit_tests.step);
+    // The form model derives widgets from the same committed snapshot the
+    // catalogue tests read, so its fixture arrives the same way.
+    const cloudsync_form_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/form_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    cloudsync_form_test_module.addAnonymousImport("config_providers_fixture", .{
+        .root_source_file = b.path("tools/zig/fixtures/config_providers.json"),
+    });
+    const cloudsync_form_unit_tests = b.addTest(.{ .root_module = cloudsync_form_test_module });
+    const run_cloudsync_form_unit_tests = b.addRunArtifact(cloudsync_form_unit_tests);
+    const test_cloudsync_form_step = b.step("test-cloudsync-form", "Run Zig CloudSync form model tests");
+    test_cloudsync_form_step.dependOn(&cloudsync_form_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_form_step.dependOn(&run_cloudsync_form_unit_tests.step);
+    const cloudsync_worker_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/worker_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_worker_unit_tests = b.addTest(.{ .root_module = cloudsync_worker_test_module });
+    const run_cloudsync_worker_unit_tests = b.addRunArtifact(cloudsync_worker_unit_tests);
+    const test_cloudsync_worker_step = b.step("test-cloudsync-worker", "Run Zig CloudSync worker thread tests");
+    test_cloudsync_worker_step.dependOn(&cloudsync_worker_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_worker_step.dependOn(&run_cloudsync_worker_unit_tests.step);
+    const cloudsync_oauth_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/oauth_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_oauth_unit_tests = b.addTest(.{ .root_module = cloudsync_oauth_test_module });
+    const run_cloudsync_oauth_unit_tests = b.addRunArtifact(cloudsync_oauth_unit_tests);
+    const test_cloudsync_oauth_step = b.step("test-cloudsync-oauth", "Run Zig CloudSync config state machine tests");
+    test_cloudsync_oauth_step.dependOn(&cloudsync_oauth_unit_tests.step);
+    if (test_mode == .run) test_cloudsync_oauth_step.dependOn(&run_cloudsync_oauth_unit_tests.step);
+    // The C ABI is proven from both sides in one step: the zig tests below
+    // cover the discovery cache and its threading contract, and the C++ smoke
+    // consumer links the real shared library and calls every export, which is
+    // the only thing that can catch an export that compiles but is not
+    // reachable from C++ (a missing .def entry, above all).
+    const cloudsync_abi_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/cloudsync.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const cloudsync_abi_unit_tests = b.addTest(.{ .root_module = cloudsync_abi_test_module });
+    const run_cloudsync_abi_unit_tests = b.addRunArtifact(cloudsync_abi_unit_tests);
+    const cloudsync_abi_consumer_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    cloudsync_abi_consumer_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/cloudsync_abi_test.cpp"},
+        // Deliberately C-runtime only: pulling MSVC's STL objects (locale,
+        // iostreams, <thread>) into this consumer starts a RuntimeLibrary
+        // fight with the mixed link line that the game itself never has to
+        // win. The consumer proves the ABI, not the STL.
+        .flags = &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, cloudsync_abi_consumer_module, toolchain);
+    addMsvcLibraryPaths(b, cloudsync_abi_consumer_module, toolchain);
+    cloudsync_abi_consumer_module.linkLibrary(cloudsync);
+    linkMsvcRuntime(cloudsync_abi_consumer_module, optimize);
+    applyLoaderPath(target, cloudsync_abi_consumer_module);
+    const cloudsync_abi_consumer = b.addExecutable(.{
+        .name = "cloudsync-abi-test",
+        .root_module = cloudsync_abi_consumer_module,
+    });
+    if (target.result.os.tag == .windows) {
+        cloudsync_abi_consumer.subsystem = .console;
+        cloudsync_abi_consumer.entry = .{ .symbol_name = "main" };
+    }
+    const run_cloudsync_abi_consumer = b.addRunArtifact(cloudsync_abi_consumer);
+    const test_cloudsync_abi_step = b.step("test-cloudsync-abi", "Run the CloudSync C ABI tests and C++ smoke consumer");
+    test_cloudsync_abi_step.dependOn(&cloudsync_abi_unit_tests.step);
+    test_cloudsync_abi_step.dependOn(&cloudsync_abi_consumer.step);
+    if (test_mode == .run) {
+        test_cloudsync_abi_step.dependOn(&run_cloudsync_abi_unit_tests.step);
+        test_cloudsync_abi_step.dependOn(&run_cloudsync_abi_consumer.step);
+    }
+    // The facade loads the library at runtime, so unlike the ABI consumer it
+    // links nothing: the two run modes prove the degraded path (no library
+    // anywhere near the working directory) and the live path (cwd holding
+    // the freshly built artifact).
+    const cloudsync_facade_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    cloudsync_facade_test_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/cloudsync_facade_test.cpp", "Sources/src/Main/CloudSyncFacade.cpp", "Sources/src/Platform/CloudSyncLoader.cpp" },
+        .flags = &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, cloudsync_facade_test_module, toolchain);
+    addMsvcLibraryPaths(b, cloudsync_facade_test_module, toolchain);
+    linkMsvcRuntime(cloudsync_facade_test_module, optimize);
+    applyLoaderPath(target, cloudsync_facade_test_module);
+    const cloudsync_facade_test = b.addExecutable(.{
+        .name = "cloudsync-facade-test",
+        .root_module = cloudsync_facade_test_module,
+    });
+    if (target.result.os.tag == .windows) {
+        cloudsync_facade_test.subsystem = .console;
+        cloudsync_facade_test.entry = .{ .symbol_name = "main" };
+    }
+    // -fentry=main skips the CRT's argv setup, so the mode travels by env.
+    const run_facade_absent = b.addRunArtifact(cloudsync_facade_test);
+    run_facade_absent.setEnvironmentVariable("BK_FACADE_MODE", "absent");
+    const run_facade_present = b.addRunArtifact(cloudsync_facade_test);
+    run_facade_present.setEnvironmentVariable("BK_FACADE_MODE", "present");
+    run_facade_present.setCwd(cloudsync.getEmittedBin().dirname());
+    const test_cloudsync_facade_step = b.step("test-cloudsync-facade", "Run the CloudSync C++ facade tests");
+    test_cloudsync_facade_step.dependOn(&cloudsync_facade_test.step);
+    if (test_mode == .run) {
+        test_cloudsync_facade_step.dependOn(&run_facade_absent.step);
+        test_cloudsync_facade_step.dependOn(&run_facade_present.step);
+    }
     const streamio_platform_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
         .target = target,
@@ -2397,6 +2688,38 @@ fn addStreamIOZig(
         .name = "StreamIO",
         .linkage = .dynamic,
         .root_module = streamio_module,
+        .win32_module_definition = b.path(def_path),
+    });
+}
+
+fn addCloudSync(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    // Pure zig, unlike StreamIO: there is no C++ bridge here, because the
+    // whole point of the C ABI below is that C++ never sees a zig type.
+    const cloudsync_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/CloudSync/cloudsync.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    addMsvcIncludePaths(b, cloudsync_module, toolchain);
+    addMsvcLibraryPaths(b, cloudsync_module, toolchain);
+    linkMsvcRuntime(cloudsync_module, optimize);
+    // x86 exports carry a leading underscore that does not exist on x86_64,
+    // so the def file is per-arch exactly as StreamIO's is.
+    const def_path = if (target.result.cpu.arch == .x86)
+        "Sources/src/CloudSync/CloudSync.def"
+    else
+        "Sources/src/CloudSync/CloudSync.x64.def";
+    applyLoaderPath(target, cloudsync_module);
+    return b.addLibrary(.{
+        .name = "CloudSync",
+        .linkage = .dynamic,
+        .root_module = cloudsync_module,
         .win32_module_definition = b.path(def_path),
     });
 }

@@ -1,5 +1,0 @@
-.symfix
-.sympath+ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug
-.reload
-~*k
-qd

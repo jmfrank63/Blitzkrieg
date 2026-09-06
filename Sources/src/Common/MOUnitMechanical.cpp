@@ -198,7 +198,7 @@ bool CMOUnitMechanical::Load( IMOUnit *pMO, bool bEnter )
 		}
 		RemovePassanger( passangers, pMO, GetVisObj() );
 	}
-	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, static_cast<int>( reinterpret_cast<std::uintptr_t>( static_cast<IMOContainer*>(this) ) )) );
+	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( static_cast<IMOContainer*>(this) )) );
 	UpdatePassangers();
 	return true;
 }

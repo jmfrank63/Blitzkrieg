@@ -1,5 +1,6 @@
 #include "SDLApplication.h"
 #include "Clock.h"
+#include "System.h"
 
 #include <SDL3/SDL.h>
 
@@ -255,16 +256,13 @@ bool SDLApplication::SetCursorVisible(bool visible)
 bool SDLApplication::SetClipboardText(const char *text)
 {
 	if ( !OnMainThread() ) return false;
-	return SDL_SetClipboardText( text ? text : "" );
+	return NPlatform::SetClipboardText( text );
 }
 
 std::string SDLApplication::GetClipboardText() const
 {
 	if ( !OnMainThread() ) return std::string();
-	char *text = SDL_GetClipboardText();
-	std::string result = text ? text : "";
-	if ( text ) SDL_free( text );
-	return result;
+	return NPlatform::GetClipboardText();
 }
 
 bool SDLApplication::GetControllerName(int deviceId, char *destination, std::size_t capacity) const

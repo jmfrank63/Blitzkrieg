@@ -135,7 +135,8 @@ void CSoldier::SetInTransport( class CMilitaryCar *pUnit )
 
 	updater.Update( ACTION_NOTIFY_ENTRANCE_STATE, this );
 	ChangeWarFogState();
-	SetSelectable( false );
+	// A transport's load stays selectable, the way a building's occupants
+	// are: the who-is-inside strip picks squads to send out of either.
 }
 void CSoldier::SetFree()
 {

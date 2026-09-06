@@ -1,0 +1,22 @@
+run A: consent to completion against the local provider
+  question 'config_is_local' -> answering 'true'
+  consent card is up (url withheld from this transcript)
+  browser followed the consent url -> HTTP 200
+  question 'config_change_team_drive' -> answering 'false'
+  settled: state=5 error="unknown: couldn't find root directory ID: googleapi: Error 401: Request "
+  provider served 1 consent redirect(s), 1 token exchange(s)
+  rclone.conf holds the fake token - storage, not a log; the dance really landed
+  cloud.credentials holds the token too - the P03-M03 read-back
+run B: the token survives the next job - no new consent demanded
+  question 'config_refresh_token' -> answering 'false'
+  question 'config_change_team_drive' -> answering 'false'
+  settled: state=5 error="unknown: couldn't find root directory ID: googleapi: Error 401: Request "
+  no new consent; rclone.conf still holds the token after the next job
+run C: the cancel path, from a clean slate
+  question 'config_is_local' -> answering 'true'
+  consent card is up (url withheld from this transcript)
+  cancelling at the consent screen
+  settled: state=5 error='Cancelled'
+scan: no token, secret, or authorization code in the daemon log
+  rcd.log clean of credentials (2124 bytes scanned)
+evidence run complete

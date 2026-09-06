@@ -1,5 +1,8 @@
 #include "StdAfx.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "WorldClient.h"
 #include "../Common/Actions.h"
 #include "../Formats/fmtTerrain.h"
@@ -181,6 +184,7 @@ void CWorldClient::DoAction( const SGameMessage &msg )
 	const SMapObject *pMO = GetFirstPick( SGVOGT_FENCE, true, false );
 	const int _nAction = DetermineBestAutoAction( pMO );
 	const int nAction = _nAction & 0x00007fff;
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: order click at (%.0f,%.0f): action %d raw %08x pick=%d selempty=%d\n", vPos.x, vPos.y, nAction, (unsigned)_nAction, (int)( pMO != 0 ), (int)IsSelectionEmpty() );
 	const int nType = _nAction & 0x80000000 ? SActionDesc::FORCED : SActionDesc::AUTO;
 	const bool bSelfAction = ( _nAction & 0x00008000 ) != 0;
 	if ( ( _nAction & 0x00008000 ) != 0 ) 
@@ -593,6 +597,34 @@ bool CWorldClient::ActionLeave( const CVec2 &vPos2, bool bAddAction )
 			if ( pContainer->GetPassangers(0) != 0 ) 
 				return PerformActionPos( ACTION_COMMAND_UNLOAD, vPos2, bAddAction );
 		}
+		// Squads picked in the who-is-inside strip: the selected units are the
+		// passengers themselves, and they leave the way a building unloads its
+		// load - to the clicked spot.
+		for ( CMapObjectsList::const_iterator it = visitor.GetObjects().begin(); it != visitor.GetObjects().end(); ++it )
+		{
+			SMapObject *pMO = *it;
+			IMOUnit *pUnit = dynamic_cast<IMOUnit*>( pMO );
+			if ( pUnit != 0 && pUnit->GetContainer() != 0 )
+				passangers.push_back( pUnit );
+		}
+		if ( !passangers.empty() )
+		{
+			const int nNumObjects = passangers.size();
+			IRefCount **ppAIObjects = GetTempBuffer<IRefCount*>( nNumObjects );
+			IRefCount **ppTempObjects = ppAIObjects;
+			for ( std::vector<IMOUnit*>::iterator it = passangers.begin(); it != passangers.end(); ++it )
+				*ppTempObjects++ = (*it)->GetAIObj();
+			const int nLocalSelectionGroup = pTransceiver->CommandRegisterGroup( ppAIObjects, nNumObjects );
+			CVec3 vPos;
+			GetPos3( &vPos, vPos2 );
+			Vis2AI( &vPos );
+			cmd.cmdType = ACTION_COMMAND_LEAVE;
+			cmd.vPos.x = vPos.x;
+			cmd.vPos.y = vPos.y;
+			pTransceiver->CommandGroupCommand( &cmd, nLocalSelectionGroup, bAddAction );
+			pTransceiver->CommandUnregisterGroup( nLocalSelectionGroup );
+			return true;
+		}
 	}
 	return false;
 }
@@ -854,6 +886,7 @@ bool CWorldClient::ActionBuildFenceMsg( const SGameMessage &msg, bool bForced )
 		cmd.vPos.x = vPos.x / SAIConsts::TILE_SIZE;
 		cmd.vPos.y = vPos.y / SAIConsts::TILE_SIZE;
 		fencePoints.push_back( cmd );
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client fence BEGIN tile (%.1f,%.1f)\n", cmd.vPos.x, cmd.vPos.y );
 		pBoldLine = CreateObject<IBoldLineVisObj>( SCENE_BOLD_LINE );
 		pScene->AddLine( pBoldLine );
 		return false;
@@ -869,6 +902,16 @@ bool CWorldClient::ActionBuildFenceMsg( const SGameMessage &msg, bool bForced )
 			cmd.vPos.y = prevCmd.vPos.y;
 		else
 			cmd.vPos.x = prevCmd.vPos.x;
+		// A red line is refused outright: the build would skip the bad tiles
+		// and leave holes. The drag stays alive so the end point can move.
+		if ( !pAILogic->CanBuildLongObjectLine( false,
+				CVec2( prevCmd.vPos.x * SAIConsts::TILE_SIZE, prevCmd.vPos.y * SAIConsts::TILE_SIZE ),
+				CVec2( cmd.vPos.x * SAIConsts::TILE_SIZE, cmd.vPos.y * SAIConsts::TILE_SIZE ) ) )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client fence END refused, line not fully buildable\n" );
+			return false;
+		}
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client fence END tiles (%.1f,%.1f)->(%.1f,%.1f) group=%d\n", prevCmd.vPos.x, prevCmd.vPos.y, cmd.vPos.x, cmd.vPos.y, selunits.GetAIGroup() );
 		pTransceiver->CommandGroupCommand( &prevCmd, selunits.GetAIGroup(), bActionModifierAdd );
 		pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), true );
 		ResetPoints();
@@ -898,6 +941,13 @@ bool CWorldClient::ActionBuildEntrenchmentMsg( const SGameMessage &msg, bool bFo
 		cmd.cmdType = ACTION_COMMAND_ENTRENCH_END;
 		cmd.vPos.x = vPos.x;
 		cmd.vPos.y = vPos.y;
+		// A red line is refused outright; see the fence branch.
+		if ( !pAILogic->CanBuildLongObjectLine( true,
+				CVec2( prevCmd.vPos.x, prevCmd.vPos.y ), CVec2( cmd.vPos.x, cmd.vPos.y ) ) )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: client trench END refused, line not fully diggable\n" );
+			return false;
+		}
 		pTransceiver->CommandGroupCommand( &prevCmd, selunits.GetAIGroup(), bActionModifierAdd );
 		pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), true );
 		ResetPoints();

@@ -1257,7 +1257,7 @@ static int IsActiveBit( struct lua_State *state )
 {
 	Script script(state);
 	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//��� ���������
-	DWORD n = script.GetObject( -2 );
+	const DWORD n = DWORD( script.GetObject( -2 ).GetIntPtrValue() );
 	int nBit = script.GetObject( -1 );
 	int nRes = (bool) ( n & ( 1 << nBit ) );
 	script.PushNumber( nRes );
@@ -1268,7 +1268,7 @@ static int ProcessMessageWithLink( struct lua_State *state )
 {
 	Script script(state);
 	const int nEventID = script.GetObject( 1 );
-	const int nParam = script.GetObject( 2 );
+	const intptr_t nParam = script.GetObject( 2 ).GetIntPtrValue();
 	
 	script.PushNumber( GetSingleton<IMessageLinkContainer>()->ProcessMessage( SGameMessage( nEventID, nParam ) ) );
 	return 1;
@@ -2483,7 +2483,7 @@ int CMultipleWindow::AddMessage( lua_State *pLuaState )
 
 	SUIMessage msg;
 	msg.nMessageCode = script.GetObject( -3 );
-	msg.nFirst = script.GetObject( -2 );
+	msg.nFirst = script.GetObject( -2 ).GetIntPtrValue();
 	msg.nSecond = script.GetObject( -1 );
 	
 #ifdef _DEBUG

@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+
+#include <cstdio>
+#include <cstdlib>
 #include "../Platform/Debug.h"
 #include "../Platform/LegacyText.h"
 
@@ -287,17 +290,64 @@ void CSelector::UnRegister()
 	nSelectionGroupID = -1;
 	bValid = true;
 }
-void CSelector::UpdateSelection( IMOContainer *pContainer )
+void CSelector::UpdateSelection( intptr_t nContainerToken )
 {
-	if ( objset.find(pContainer) == objset.end() ) 
+	// A container reporting a passenger change sends its own address; the
+	// message parameter is pointer-wide since the 64-bit port, so the
+	// comparison is a plain pointer identity. IMOContainer sits at the
+	// head of every map object, so the addresses agree.
+	// The selection may be the container itself, or the passengers the
+	// strip shows - a change in either case redraws it (or clears it, once
+	// the selected units have left).
+	if ( pStripContainer != 0 && reinterpret_cast<std::intptr_t>( pStripContainer ) == nContainerToken )
+	{
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: who-in-container matched the strip's container, rebuilding strip\n" );
+		DoneSelection();
 		return;
-	DoneSelection();
+	}
+	for ( CMapObjectsList::const_iterator it = objects.begin(); it != objects.end(); ++it )
+	{
+		SMapObject *pObject = *it;
+		if ( reinterpret_cast<std::intptr_t>( pObject ) == nContainerToken )
+		{
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: who-in-container token matched selection, rebuilding strip\n" );
+			DoneSelection();
+			return;
+		}
+	}
+}
+// The container whose passengers the strip should show: the single selected
+// container itself, or the one every selected unit is riding in - clicking
+// a portrait selects that squad, and the strip must stay for the next click.
+static IMOContainer* StripContainer( const CMapObjectsList &objects )
+{
+	if ( objects.empty() )
+		return 0;
+	if ( objects.size() == 1 )
+	{
+		IMOContainer *pContainer = static_cast_ptr<IMOContainer*>( objects.back() );
+		if ( pContainer->GetPassangers( 0 ) > 0 )
+			return pContainer;
+	}
+	IMOContainer *pShared = 0;
+	for ( CMapObjectsList::const_iterator it = objects.begin(); it != objects.end(); ++it )
+	{
+		SMapObject *pMO = *it;
+		IMOUnit *pUnit = dynamic_cast<IMOUnit*>( pMO );
+		IMOContainer *pContainer = pUnit ? pUnit->GetContainer() : 0;
+		if ( pContainer == 0 || ( pShared != 0 && pContainer != pShared ) )
+			return 0;
+		pShared = pContainer;
+	}
+	return pShared;
 }
 void CSelector::DoneSelection()
 {
-	if ( objects.size() == 1 ) 
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: DoneSelection objects=%d strip container=%p\n", (int)objects.size(), (void*)StripContainer( objects ) );
+	pStripContainer = StripContainer( objects );
+	if ( pStripContainer != 0 ) 
 	{
-		const int nNumPassangers = static_cast_ptr<IMOContainer*>( objects.back() )->GetPassangers( 0 );
+		const int nNumPassangers = pStripContainer->GetPassangers( 0 );
 		if ( nNumPassangers > 0 ) 
 		{
 			IUIScreen *pUIScreen = GetSingleton<IScene>()->GetMissionScreen();
@@ -310,7 +360,7 @@ void CSelector::DoneSelection()
 				CTRect<float> rcScreen;
 				pUIScreen->GetWindowPlacement( 0, 0, &rcScreen );
 				std::vector<IMOUnit*> passangers( nNumPassangers );
-				static_cast_ptr<IMOContainer*>( objects.back() )->GetPassangers( &(passangers[0]) );
+				pStripContainer->GetPassangers( &(passangers[0]) );
 				std::list<CUISquadElement*> squadElements;
 				for ( std::vector<IMOUnit*>::iterator it = passangers.begin(); it != passangers.end(); ++it )
 				{
@@ -335,6 +385,11 @@ void CSelector::DoneSelection()
 					pObserver->SetSquad( pSquad );
 					(*it)->SetObserver( pObserver );
 					pSquad->AddPassanger( pObserver );
+					if ( objset.find( *it ) != objset.end() )
+					{
+						pObserver->SetSelected( true );
+						pSquad->SetSelected( true );
+					}
 				}
 				CVec2 vPos( 5.0f, 5.0f ), vSize( 200, 32 );
 				for ( std::list<CUISquadElement*>::iterator it = squadElements.begin(); it != squadElements.end(); ++it )
@@ -862,7 +917,7 @@ int CWorldClient::Select( IVisObj **newObjects, int nNumObjects )
 	ResetPreSelection( 0 );
 	return 1;
 }
-void CWorldClient::Select( CMapObjectsPtrList &mapObjects, bool bMerge )
+void CWorldClient::Select( CMapObjectsPtrList &mapObjects, bool bMerge, bool bSelectSuper )
 {
 	if ( !bMerge )
 		ResetSelection();
@@ -874,13 +929,32 @@ void CWorldClient::Select( CMapObjectsPtrList &mapObjects, bool bMerge )
 		if ( !pMO->IsAlive() ) 
 			continue;
 		if ( !selunits.IsSelected(pMO) ) 
-			selunits.Select( pMO, true, true );
+			selunits.Select( pMO, true, bSelectSuper );
 		else if ( bMerge && (nNumSelectedObjects == 1) )
 			ResetSelection( pMO );
 	}
 	selunits.SendAcknowledgement( pAILogic );
 	selunits.DoneSelection();
 	GetSingleton<IScene>()->AddSound( "int_selectunit", VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
+}
+// Units leaving the selection from the who-is-inside strip; when nothing is
+// left the container they ride in takes the selection back, so the strip
+// and its exit button stay in reach.
+void CWorldClient::DeselectUnits( const std::vector<IMOUnit*> &units, IMOContainer *pContainer )
+{
+	for ( std::vector<IMOUnit*>::const_iterator it = units.begin(); it != units.end(); ++it )
+		ResetSelection( *it );
+	if ( IsSelectionEmpty() && pContainer != 0 )
+	{
+		SMapObject *pMO = static_cast<SMapObject*>( pContainer );
+		if ( pMO->pDesc->eGameType == SGVOGT_BUILDING )
+		{
+			selbuildings.Select( pMO, true, false );
+			selbuildings.DoneSelection();
+		}
+		else
+			Select( pMO );
+	}
 }
 void CWorldClient::Select( SMapObject *pMO )
 {
@@ -1337,8 +1411,9 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 			return true;
 
 		case MC_UPDATE_WHO_IN_CONTAINER:
-			selunits.UpdateSelection( reinterpret_cast<IMOContainer*>(msg.nParam) );
-			selbuildings.UpdateSelection( reinterpret_cast<IMOContainer*>(msg.nParam) );
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: who-in-container update, container %p\n", (void*)msg.nParam );
+			selunits.UpdateSelection( msg.nParam );
+			selbuildings.UpdateSelection( msg.nParam );
 			break;
 
 		case WCC_SHOW_AI_INFO:
@@ -1416,14 +1491,54 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 
 		case WCC_UI_SQUAD_SEL:
 			{
-				CMapObjectsPtrList lst;
-				lst.push_back( reinterpret_cast<IMOUnit*>(msg.nParam) );
-				Select( lst, false );
+				// A cell in the who-is-inside strip. Plain click: every occupant
+				// of the container, alone. Shift-click: that one soldier joins the
+				// selection, or leaves it when it is in. DoneSelection keeps the
+				// strip up either way.
+				IMOUnit *pUnit = reinterpret_cast<IMOUnit*>( msg.nParam );
+				if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: strip cell, shift=%d selected=%d\n", (int)bActionModifierAdd, (int)selunits.IsSelected( pUnit ) );
+				if ( bActionModifierAdd && selunits.IsSelected( pUnit ) )
+				{
+					std::vector<IMOUnit*> units( 1, pUnit );
+					DeselectUnits( units, pUnit->GetContainer() );
+				}
+				else if ( bActionModifierAdd )
+				{
+					// The soldier joins whichever fellow occupants are selected;
+					// the container itself drops out so the strip stays theirs.
+					std::vector<IMOUnit*> occupants;
+					if ( IMOContainer *pContainer = pUnit->GetContainer() )
+						::GetPassangers( pContainer, occupants, true );
+					CMapObjectsPtrList lst;
+					for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
+					{
+						if ( *it == pUnit || selunits.IsSelected( *it ) )
+							lst.push_back( *it );
+					}
+					if ( lst.empty() )
+						lst.push_back( pUnit );
+					Select( lst, false, false );
+				}
+				else
+				{
+					std::vector<IMOUnit*> occupants;
+					if ( IMOContainer *pContainer = pUnit->GetContainer() )
+						::GetPassangers( pContainer, occupants, true );
+					CMapObjectsPtrList lst;
+					for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
+						lst.push_back( *it );
+					if ( lst.empty() )
+						lst.push_back( pUnit );
+					Select( lst, false, false );
+				}
 			}
 			break;
-
 		case WCC_UI_SQUAD_DESEL:
-			ResetSelection( reinterpret_cast<IMOUnit*>(msg.nParam) );
+			{
+				IMOUnit *pUnit = reinterpret_cast<IMOUnit*>( msg.nParam );
+				std::vector<IMOUnit*> units( 1, pUnit );
+				DeselectUnits( units, pUnit->GetContainer() );
+			}
 			break;
 
 		case WCC_OBJECTIVES_CLOSED:
@@ -1799,7 +1914,20 @@ void CWorldClient::OnMouseMove( const CVec2 &vPos, interface IUIElement *pUIPick
 			AI2Vis( &vStartPos );
 			AI2Vis( &vEndPos );
 
-			pBoldLine->Setup( vStartPos, vEndPos, fWorldCellSize / 2, 0xffff0000 );
+			// The line answers before the click does: green when the fence
+			// line would build, red when it would be refused. The click snaps
+			// the end point onto the axis (ActionBuildFenceMsg), so the query
+			// must judge that snapped line, not the raw cursor position.
+			float fEndTileX = vPos3.x / SAIConsts::TILE_SIZE;
+			float fEndTileY = vPos3.y / SAIConsts::TILE_SIZE;
+			if ( fabs( fEndTileX - prevCmd.vPos.x ) > fabs( fEndTileY - prevCmd.vPos.y ) )
+				fEndTileY = prevCmd.vPos.y;
+			else
+				fEndTileX = prevCmd.vPos.x;
+			const bool bCanBuild = pAILogic->CanBuildLongObjectLine( false,
+				CVec2( prevCmd.vPos.x * SAIConsts::TILE_SIZE, prevCmd.vPos.y * SAIConsts::TILE_SIZE ),
+				CVec2( fEndTileX * SAIConsts::TILE_SIZE, fEndTileY * SAIConsts::TILE_SIZE ) );
+			pBoldLine->Setup( vStartPos, vEndPos, fWorldCellSize / 2, bCanBuild ? 0xff00ff00 : 0xffff0000 );
 		}
 		else if ( fencePoints.back().cmdType == ACTION_COMMAND_ENTRENCH_BEGIN )
 		{
@@ -1809,7 +1937,13 @@ void CWorldClient::OnMouseMove( const CVec2 &vPos, interface IUIElement *pUIPick
 			CVec3 vStartPos( prevCmd.vPos.x, prevCmd.vPos.y, 0 );
 			AI2Vis( &vStartPos );
 
-			pBoldLine->Setup( vStartPos, vPos3, fWorldCellSize / 2, 0xffff0000 );
+			// Same feedback for the trench: the check runs in AI coordinates,
+			// the drawing stays in vis coordinates.
+			CVec3 vEndAI = vPos3;
+			Vis2AI( &vEndAI );
+			const bool bCanBuild = pAILogic->CanBuildLongObjectLine( true,
+				CVec2( prevCmd.vPos.x, prevCmd.vPos.y ), CVec2( vEndAI.x, vEndAI.y ) );
+			pBoldLine->Setup( vStartPos, vPos3, fWorldCellSize / 2, bCanBuild ? 0xff00ff00 : 0xffff0000 );
 		}
 	}
 }

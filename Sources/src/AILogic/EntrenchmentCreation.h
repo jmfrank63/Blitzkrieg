@@ -53,10 +53,10 @@ class CEntrenchmentCreation : public CLongObjectCreation
 	DECLARE_SERIALIZE;
 	OBJECT_COMPLETE_METHODS( CEntrenchmentCreation );
 
-	WORD GetLineAngle( const CVec2 &vBegin, const CVec2 &vEnd ) const;
+	static WORD GetLineAngle( const CVec2 &vBegin, const CVec2 &vEnd );
 	float GetTrenchWidth( int nType );// 0 - секци€ , 1 - поворот
 	
-	void SplitLineToSegrments( std::vector<CVec2> *vPoints, CVec2 vBegin, CVec2 vEnd, float TRENCHWIDTH );
+	static void SplitLineToSegrments( std::vector<CVec2> *vPoints, CVec2 vBegin, CVec2 vEnd, float TRENCHWIDTH );
 	
 private:
 	CObj<CEntrenchment> pFullEntrenchment;
@@ -77,7 +77,7 @@ private:
 	CTilesSet tilesUnder;									// “јйлы под следующим сегментом
 
 	
-	bool CanDig( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex );
+	static bool CanDig( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex );
 	CEntrenchmentPart * AddElement( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex );
 	void CreateNewEndTerminator();
 	void CalcTilesUnder();
@@ -88,6 +88,10 @@ public:
 	CEntrenchmentCreation( const int nPlayer );
 	
 	static bool SearchTrenches( const CVec2 &vCenter, const SRect &rectToTest );
+	// The build-preview's question, and only that: would ENTRENCH_END accept
+	// this whole line? Pure - creates nothing, never advances the synced
+	// random sequence - so the client may ask it every frame.
+	static bool CanDigLine( const CVec2 &vFrom, const CVec2 &vTo );
 
 
 	bool PreCreate( const CVec2 &vFrom, const CVec2 &vTo );
@@ -133,6 +137,8 @@ class CFenceCreation : public CLongObjectCreation
 public:
 	CFenceCreation()  {  }
 	CFenceCreation( const int nPlayer );
+	// The build-preview's question for fences; see CanDigLine.
+	static bool CanBuildLine( const CVec2 &vFrom, const CVec2 &vTo );
 
 	bool PreCreate( const CVec2 &vFrom, const CVec2 &vTo );
 	virtual CLine2 GetCurLine() { return line; }

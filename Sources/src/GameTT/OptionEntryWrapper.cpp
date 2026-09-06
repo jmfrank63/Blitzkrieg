@@ -27,7 +27,8 @@ enum EUIElements
 static bool IsGeneratedSelectionText( const char *pszOptionName )
 {
 	return (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Mode" ) == 0) ||
-		     (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Monitor" ) == 0);
+		     (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Monitor" ) == 0) ||
+		     (NStr::CompareAsciiNoCase( pszOptionName, "Cloud.Provider" ) == 0);		// rclone ids, shown as they are
 }
 
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )
@@ -314,6 +315,11 @@ COptionsListWrapper::COptionsListWrapper( IUIListControl * _pList, OptionDescs &
 {
 	InitList( false );
 }
+COptionsListWrapper::COptionsListWrapper( IUIListControl * _pList, OptionDescs & _optionDescs, const int _nIDToStartFrom, const OptionDropOverrides &overrides, IOptionSystem * pSystem, const bool _bDisableChange )
+: pList( _pList ), optionsDescs( _optionDescs ), nIDToStartFrom( _nIDToStartFrom ), bDisableChange( _bDisableChange ), pSetOptionSystem( pSystem ), dropOverrides( overrides )
+{
+	InitList( false );
+}
 void COptionsListWrapper::InitList( const bool bDefault )
 {
 	std::vector< CPtr<IOption> > optionsToGive;
@@ -375,7 +381,8 @@ void COptionsListWrapper::InitList( const bool bDefault )
 			{
 				NI_ASSERT_T( pDesc->nDataType == VT_BSTR, NStr::Format( "EOET_CLICK_SWITCHES is allowed only for VT_BSTR type (option %s)", pDesc->szName.c_str() ) );
 
-				const std::vector<SOptionDropListValue>& values = pSystem->GetDropValues( pDesc->szName );
+				const OptionDropOverrides::const_iterator itOverride = dropOverrides.find( pDesc->szName );
+				const std::vector<SOptionDropListValue>& values = itOverride != dropOverrides.end() ? itOverride->second : pSystem->GetDropValues( pDesc->szName );
 				NI_ASSERT_T( !values.empty(), NStr::Format( "cannot fill selections for %s", pDesc->szName.c_str() ) );
 				std::wstring szCurrent;
 				variant_t val;

@@ -30,6 +30,8 @@
 #include <filesystem>
 #include "../StreamIO/OptionSystem.h"
 
+#include "../AILogic/AILogic.h"
+#include "../Main/CloudSyncFacade.h"
 #include "../Main/iMain.h"
 #include "../Main/GameDB.h"
 #include "../Main/GameStats.h"
@@ -46,6 +48,7 @@
 #include "../Platform/Debug.h"
 #include "../Platform/Clock.h"
 #include "../Platform/DynamicLibrary.h"
+#include "../Platform/Event.h"
 
 #if !defined(_WIN32) && !defined(_WIN64)
 namespace NWinFrame
@@ -232,6 +235,96 @@ static void ArmAllModulesLeakOnExit()
 void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
 static std::string szLaunchDirectory;
+
+// The active cloud sync's handle - startup pull, post-save push or exit
+// push, one at a time - polled by the main loop until it settles; the sync
+// indicator packet will own presenting its state.
+static int g_nCloudStartupSync = -1;
+// Post-save coalescing: the save counter last observed, and when the
+// pending push is allowed to start (0 = nothing pending). Every further
+// save pushes the due time out, so a burst of autosaves is one sync.
+static int g_nCloudSavesSeen = 0;
+static std::uint64_t g_nCloudSyncDueMs = 0;
+
+// A Cloud.* option's value through the live option system - available once
+// the config has been read, unlike the raw-scan path the startup window
+// needs. Empty when unset.
+static std::string CloudSyncOptionValue( const char *pszKey )
+{
+	variant_t var;
+	if ( !GetSingleton<IOptionSystem>()->Get( pszKey, &var ) )
+		return std::string();
+	return std::string( (const char*)bstr_t( var ) );
+}
+static bool CloudSyncOptionOn( const char *pszKey )
+{
+	return CloudSyncOptionValue( pszKey ) == "ON";
+}
+
+// A Cloud.* option's value in the profile's config - by a minimal scan of
+// the raw XML, because this is asked before the option system has
+// initialised (the whole point of the startup window is that the config has
+// not been read yet). Inside an item the live <Var> comes first and the
+// <Default> block - with its own inner <Var> - sits between it and
+// <KeyName>, so the scan must take the FIRST <Var> after the enclosing
+// item's start; the nearest one before the key is always the default.
+// Anything missing or malformed is empty.
+static std::string CloudOptionValue( const std::string &szConfigPath, const char *pszKey )
+{
+	std::ifstream file( szConfigPath, std::ios::binary );
+	if ( !file )
+		return std::string();
+	std::string szContent( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+
+	const std::string szNeedle = std::string( "<KeyName>" ) + pszKey + "</KeyName>";
+	const std::string::size_type nKeyAt = szContent.find( szNeedle );
+	if ( nKeyAt == std::string::npos )
+		return std::string();
+	const std::string::size_type nItemAt = szContent.rfind( "<item", nKeyAt );
+	if ( nItemAt == std::string::npos )
+		return std::string();
+	const std::string::size_type nVarAt = szContent.find( "<Var>", nItemAt );
+	if ( nVarAt == std::string::npos || nVarAt > nKeyAt )
+		return std::string();
+	const std::string::size_type nVarEnd = szContent.find( "</Var>", nVarAt );
+	if ( nVarEnd == std::string::npos || nVarEnd > nKeyAt )
+		return std::string();
+	return szContent.substr( nVarAt + 5, nVarEnd - nVarAt - 5 );
+}
+static bool CloudOptionIsOn( const std::string &szConfigPath, const char *pszKey )
+{
+	return CloudOptionValue( szConfigPath, pszKey ) == "ON";
+}
+
+// Cloud.Provider is the switch. "Off" - and the pre-row "ON"/"OFF" values a
+// profile written before it may still carry - mean cloud sync is off;
+// anything else is the rclone backend id the profile syncs with.
+static bool CloudProviderSelected( const std::string &szProvider )
+{
+	return !szProvider.empty() &&
+		NStr::CompareAsciiNoCase( szProvider.c_str(), "Off" ) != 0 &&
+		NStr::CompareAsciiNoCase( szProvider.c_str(), "On" ) != 0;
+}
+// The saved credentials must name the chosen backend. The row is changed
+// casually (an arrow key steps it), the document only by a deliberate save
+// in Config..., and a sync must never run against a service whose setup was
+// never saved. Loads the library, never probes for rclone.
+static bool CloudCredentialsMatch( const std::string &szProvider )
+{
+	char szBackend[256];
+	const int nLength = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
+	return nLength > 0 && nLength < (int)sizeof szBackend && szProvider == szBackend;
+}
+// The indicator's "chosen but not set up" line. No job exists to publish
+// from, so the state is written directly; the menu maps the error text to
+// textes\ui\cloudsync\unconfigured.
+static void PublishCloudUnconfigured()
+{
+	SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_FAILED );
+	SetGlobalVar( "CloudSync.Outcome", (int)NCloudSync::OUTCOME_FAILED );
+	SetGlobalVar( "CloudSync.Error", "unconfigured" );
+	NStr::DebugTrace( "cloud sync: provider chosen but not set up\n" );
+}
 int RunGame( const BkGameLaunchInfo &launch )
 {
 	const NPlatform::Arguments &arguments = launch.arguments;
@@ -356,6 +449,50 @@ int RunGame( const BkGameLaunchInfo &launch )
 					continue;
 				for ( const auto &entry : std::filesystem::directory_iterator( from, pathError ) )
 					std::filesystem::rename( entry.path(), to / entry.path().filename(), pathError );
+			}
+		}
+	}
+	{
+		// Cloud sync's one startup window: the active profile is settled but
+		// its config has not been read yet (SerializeConfig below), so a
+		// staged restore applied here is exactly what that read will see.
+		// This is the only point where no SerializeConfig can have run,
+		// which is why restores stage instead of writing (P04-M03). The
+		// apply is unconditional and purely local: a restore the player
+		// already downloaded finishes even with cloud sync off or rclone
+		// missing, and "nothing staged" is the ordinary cheap answer.
+		const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+		if ( NCloudSync::ApplyPendingRestore( szProfile.c_str() ) == 1 )
+			NStr::DebugTrace( "cloud sync: applied a staged config restore for \"%s\"\n", szProfile.c_str() );
+
+		// Cloud.Sync.OnStartup lives in that same unread config, so the
+		// option system cannot answer yet - it has not initialised. A
+		// minimal scan of the raw file for the Cloud keys is deliberate,
+		// and anything missing or unparsable means disabled: a first
+		// launch, a corrupt config, and a profile that predates the
+		// feature must all do nothing and add no startup latency. The
+		// option checks run before Available(), because Available() is
+		// what probes for rclone. Cloud.Provider is read the same way, and
+		// a chosen provider whose credentials are missing or name another
+		// backend publishes the unconfigured indicator instead of syncing.
+		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
+		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
+		if ( CloudProviderSelected( szProvider ) )
+		{
+			if ( !CloudCredentialsMatch( szProvider ) )
+				PublishCloudUnconfigured();
+			else if ( CloudOptionIsOn( szConfigPath, "Cloud.Sync.OnStartup" ) && NCloudSync::Available() )
+			{
+				// Begin only enqueues - the daemon spawn (reaping any orphan
+				// from a crashed run first, the P00-M03 identity-checked path)
+				// and the run itself happen on the library's worker, and the
+				// main loop polls. A slow link can never stall the first frame.
+				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(),
+					CloudOptionIsOn( szConfigPath, "Cloud.Config.Backup" ) );
+				if ( g_nCloudStartupSync >= 0 )
+					NStr::DebugTrace( "cloud sync: startup sync begun for \"%s\"\n", szProfile.c_str() );
+				else
+					NStr::DebugTrace( "cloud sync: startup sync refused: %s\n", NCloudSync::LastError() );
 			}
 		}
 	}
@@ -843,11 +980,97 @@ int RunGame( const BkGameLaunchInfo &launch )
 				SetGlobalVar( "MovieDir", cmdp.szMovieDir.c_str() );
 			NWinFrame::PumpMessages();
 			bool bActive = NWinFrame::IsActive();
+			// The active cloud sync, observed rather than awaited: Poll is a
+			// futex and a struct copy, no I/O. The menu's indicator (element
+			// 21001) renders from the CloudSync.* global vars published here,
+			// and its skip-to-offline click lands as a global var because the
+			// handle lives here. The traces stay: they are the headless
+			// evidence channel.
+			if ( GetGlobalVar( "CloudSync.SkipToOffline", 0 ) )
+			{
+				// Consumed even with no handle - a click racing the settle
+				// must not cancel a future sync.
+				RemoveGlobalVar( "CloudSync.SkipToOffline" );
+				if ( g_nCloudStartupSync >= 0 )
+				{
+					NCloudSync::Cancel( g_nCloudStartupSync );
+					NStr::DebugTrace( "cloud sync: skip to offline requested\n" );
+				}
+			}
+			if ( GetGlobalVar( "CloudSync.Recheck", 0 ) )
+			{
+				// The settings screen closed: re-evaluate "chosen but not set
+				// up" for the indicator. Only while no run holds the handle - a
+				// run's own settle owns the state until it lands.
+				RemoveGlobalVar( "CloudSync.Recheck" );
+				if ( g_nCloudStartupSync < 0 )
+				{
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( CloudProviderSelected( szProvider ) && !CloudCredentialsMatch( szProvider ) )
+						PublishCloudUnconfigured();
+					else if ( std::string( GetGlobalVar( "CloudSync.Error", "" ) ) == "unconfigured" )
+					{
+						SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_IDLE );
+						SetGlobalVar( "CloudSync.Error", "" );
+					}
+				}
+			}
+			if ( g_nCloudStartupSync >= 0 )
+			{
+				const NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				SetGlobalVar( "CloudSync.State", (int)eCloudState );
+				if ( eCloudState == NCloudSync::STATE_DONE || eCloudState == NCloudSync::STATE_FAILED )
+				{
+					SetGlobalVar( "CloudSync.Outcome", (int)NCloudSync::Outcome( g_nCloudStartupSync ) );
+					SetGlobalVar( "CloudSync.Error",
+						eCloudState == NCloudSync::STATE_FAILED ? NCloudSync::Error( g_nCloudStartupSync ) : "" );
+					if ( eCloudState == NCloudSync::STATE_FAILED )
+						NStr::DebugTrace( "cloud sync: sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
+					else
+						NStr::DebugTrace( "cloud sync: sync finished (%s)\n",
+							NCloudSync::Outcome( g_nCloudStartupSync ) == NCloudSync::OUTCOME_PAIRED ? "paired" : "synced" );
+					NCloudSync::Release( g_nCloudStartupSync );
+					g_nCloudStartupSync = -1;
+				}
+			}
+			// Post-save push. Saves bump a counter (CMainLoop::Command); every
+			// bump pushes the due time out five seconds, so a burst of
+			// autosaves coalesces into one sync. The push waits for a quiet
+			// moment: never mid-mission - a network stall must not touch
+			// frame pacing during play - and never while another run holds
+			// the handle. The option checks come before Available(), which
+			// is the one that probes for rclone.
+			{
+				const int nSavesSeen = GetGlobalVar( "CloudSync.SavesSeen", 0 );
+				if ( nSavesSeen != g_nCloudSavesSeen )
+				{
+					g_nCloudSavesSeen = nSavesSeen;
+					g_nCloudSyncDueMs = NPlatform::MonotonicMilliseconds() + 5000;
+				}
+				if ( g_nCloudSyncDueMs != 0 && g_nCloudStartupSync < 0 &&
+						 NPlatform::MonotonicMilliseconds() >= g_nCloudSyncDueMs &&
+						 !GetGlobalVar( "AreWeInMission", 0 ) )
+				{
+					g_nCloudSyncDueMs = 0;
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( CloudProviderSelected( szProvider ) && CloudCredentialsMatch( szProvider ) && CloudSyncOptionOn( "Cloud.Sync.OnSave" ) &&
+							 NCloudSync::Available() )
+					{
+						const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+						g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+						if ( g_nCloudStartupSync >= 0 )
+							NStr::DebugTrace( "cloud sync: post-save sync begun for \"%s\"\n", szProfile.c_str() );
+					}
+				}
+			}
 			// BK_AUTO_UI="frame:action,..." drives the UI without a human, the way
 			// BK_GFX_TRACE watches the mode changes. Actions: settings | ok |
 			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |
 			// cmd=<id> | click=<x>x<y> | key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE>
-			// (a real key press through the bind chain) | wheel=<delta> (a wheel
+			// (a real key press through the bind chain) | clip=<utf8> (set the
+			// clipboard) | paste (press the real Cmd+V chord) | text=<utf8> (typed into
+			// the focused edit box through the platform text path; no commas or
+			// colons - they are the schedule's separators) | wheel=<delta> (a wheel
 			// notch, positive up) | set=<option>=<value> | var=<name>=<value>.
 			// It also reports frame timing every 120 frames, which is how the menu
 			// frame rate is measured headless.
@@ -916,6 +1139,61 @@ int RunGame( const BkGameLaunchInfo &launch )
 					else if ( szAction == "cancel" ) pInput->AddMessage( SGameMessage( 10001 ) );	// IMC_CANCEL
 					else if ( szAction.compare( 0, 4, "msg=" ) == 0 ) pInput->AddMessage( SGameMessage( (int)strtol( szAction.c_str() + 4, 0, 0 ) ) );
 					else if ( szAction.compare( 0, 4, "cmd=" ) == 0 ) pMainLoop->Command( (int)strtol( szAction.c_str() + 4, 0, 0 ), "" );
+					else if ( szAction.compare( 0, 6, "probe=" ) == 0 )
+					{
+						// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence): asks the AI
+						// whether the line builds, in AI world coordinates - the
+						// build-preview query without driving the UI.
+						int nX1 = 0, nY1 = 0, nX2 = 0, nY2 = 0;
+						const char cKind = szAction[6];
+						if ( sscanf( szAction.c_str() + 7, "%dx%dx%dx%d", &nX1, &nY1, &nX2, &nY2 ) == 4 )
+						{
+							const bool bResult = GetSingleton<IAILogic>()->CanBuildLongObjectLine( cKind == 't',
+								CVec2( float( nX1 ), float( nY1 ) ), CVec2( float( nX2 ), float( nY2 ) ) );
+							fprintf( stderr, "BK_AUTO_UI: probe %c (%d,%d)-(%d,%d) -> %s\n",
+								cKind, nX1, nY1, nX2, nY2, bResult ? "GREEN" : "RED" );
+						}
+					}
+					else if ( szAction.compare( 0, 5, "clip=" ) == 0 )
+					{
+						// Seeds the clipboard for a following paste action; commas
+						// and colons are the schedule's separators, like text=.
+						NPlatform::SetClipboardText( szAction.c_str() + 5 );
+					}
+					else if ( szAction == "paste" )
+					{
+						// The real chord through the real path, MODIFIER INCLUDED:
+						// a player's Cmd is physically down around the V press and
+						// its own keydown reaches the screens first - the original
+						// synthetic press skipped it, which hid the edit box
+						// dropping pasted characters while the modifier was held.
+						NPlatform::PlatformEvent event;
+						event.type = NPlatform::EventType::keyDown;
+						event.key = 0x400000e3;		// SDLK_LGUI
+						event.scancode = 227;			// SDL_SCANCODE_LGUI
+						event.modifiers = NPlatform::modifierGui;
+						pInput->ConsumePlatformEvent( event );
+						event.key = 'v';
+						event.scancode = 25;			// SDL_SCANCODE_V
+						pInput->ConsumePlatformEvent( event );
+						event.type = NPlatform::EventType::keyUp;
+						pInput->ConsumePlatformEvent( event );
+						event.key = 0x400000e3;
+						event.scancode = 227;
+						event.modifiers = 0;
+						pInput->ConsumePlatformEvent( event );
+					}
+					else if ( szAction.compare( 0, 5, "text=" ) == 0 )
+					{
+						// Types into the focused edit box through the real text
+						// path: a synthetic platform textInput event feeds the
+						// same UTF-8 queue the SDL pump fills. Click the box
+						// first - focus is what routes the characters.
+						NPlatform::PlatformEvent event;
+						event.type = NPlatform::EventType::textInput;
+						strncpy( event.text, szAction.c_str() + 5, sizeof( event.text ) - 1 );
+						pInput->ConsumePlatformEvent( event );
+					}
 					else if ( szAction.compare( 0, 6, "click=" ) == 0 )
 					{
 						int nClickX = 0, nClickY = 0;
@@ -1180,6 +1458,48 @@ int RunGame( const BkGameLaunchInfo &launch )
 		pMainLoop->ResetStack();
 		UnRegisterSingleton( IMainLoop::tidTypeID );
 		SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );
+		{
+			// The exit push, after the config write so a backup snapshots the
+			// final settings and the last saves are on disk. Honours
+			// Cloud.Sync.OnExit under a chosen and set-up provider, and also
+			// flushes a post-save push that was still coalescing rather than
+			// dropping it. The wait is bounded: on timeout the run is
+			// abandoned - the profile simply stays ahead of the cloud and the
+			// next startup pull converges - and Shutdown() runs on this path
+			// regardless, so the daemon dies with the game (a crash skips all
+			// of this; the Windows job object and the next launch's
+			// identity-checked reap cover it).
+			const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+			const bool bExitSyncWanted = CloudProviderSelected( szProvider ) && CloudCredentialsMatch( szProvider ) &&
+				( CloudSyncOptionOn( "Cloud.Sync.OnExit" ) || g_nCloudSyncDueMs != 0 ) &&
+				NCloudSync::Available();
+			if ( g_nCloudStartupSync < 0 && bExitSyncWanted )
+			{
+				const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+			}
+			if ( g_nCloudStartupSync >= 0 )
+			{
+				NStr::DebugTrace( "cloud sync: finishing before exit\n" );
+				const std::uint64_t nDeadlineMs = NPlatform::MonotonicMilliseconds() + 15000;
+				NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				while ( eCloudState != NCloudSync::STATE_DONE && eCloudState != NCloudSync::STATE_FAILED &&
+								NPlatform::MonotonicMilliseconds() < nDeadlineMs )
+				{
+					NPlatform::SleepMilliseconds( 100 );
+					eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
+				}
+				if ( eCloudState == NCloudSync::STATE_DONE )
+					NStr::DebugTrace( "cloud sync: exit sync finished\n" );
+				else if ( eCloudState == NCloudSync::STATE_FAILED )
+					NStr::DebugTrace( "cloud sync: exit sync failed: %s\n", NCloudSync::Error( g_nCloudStartupSync ) );
+				else
+					NStr::DebugTrace( "cloud sync: exit sync timed out; the next startup pull converges\n" );
+				NCloudSync::Release( g_nCloudStartupSync );
+				g_nCloudStartupSync = -1;
+			}
+			NCloudSync::Shutdown();
+		}
 	}
 #ifdef _FINALRELEASE
 	}
