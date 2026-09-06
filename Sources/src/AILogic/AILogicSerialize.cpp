@@ -6,7 +6,11 @@
 #include "UnitCreation.h"
 #include "Updater.h"
 #include "Trigonometry.h"
+#include "UnitsIterators.h"
+#include "Soldier.h"
+#include "Diplomacy.h"
 extern NTimer::STime curTime;
+extern CDiplomacy theDipl;
 int CAILogic::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -39,6 +43,18 @@ int CAILogic::operator&( IStructureSaver &ss )
 	saver.Add( 18, &bNetGameStarted );
 	saver.Add( 19, &reservePositions );
 	
+	if ( saver.IsReading() )
+	{
+		// Saves written while a transport's load was flagged unselectable
+		// keep that flag. The player's soldiers inside a transport are
+		// selectable now: put the flag back and let the client hear of it.
+		for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+		{
+			CSoldier *pSoldier = dynamic_cast<CSoldier*>( *iter );
+			if ( pSoldier && pSoldier->IsInTransport() && !pSoldier->IsSelectable() && pSoldier->GetPlayer() == theDipl.GetMyNumber() )
+				pSoldier->SetSelectable( true );
+		}
+	}
 	return 0;
 }
 int CUnitCreation::STankPitInfo::operator&( IDataTree  &ss )

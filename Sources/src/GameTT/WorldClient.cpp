@@ -1491,8 +1491,8 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 
 		case WCC_UI_SQUAD_SEL:
 			{
-				// A cell in the who-is-inside strip. Plain click: the whole squad
-				// of that soldier, alone. Shift-click: that one soldier joins the
+				// A cell in the who-is-inside strip. Plain click: every occupant
+				// of the container, alone. Shift-click: that one soldier joins the
 				// selection, or leaves it when it is in. DoneSelection keeps the
 				// strip up either way.
 				IMOUnit *pUnit = reinterpret_cast<IMOUnit*>( msg.nParam );
@@ -1502,11 +1502,34 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 					std::vector<IMOUnit*> units( 1, pUnit );
 					DeselectUnits( units, pUnit->GetContainer() );
 				}
+				else if ( bActionModifierAdd )
+				{
+					// The soldier joins whichever fellow occupants are selected;
+					// the container itself drops out so the strip stays theirs.
+					std::vector<IMOUnit*> occupants;
+					if ( IMOContainer *pContainer = pUnit->GetContainer() )
+						::GetPassangers( pContainer, occupants, true );
+					CMapObjectsPtrList lst;
+					for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
+					{
+						if ( *it == pUnit || selunits.IsSelected( *it ) )
+							lst.push_back( *it );
+					}
+					if ( lst.empty() )
+						lst.push_back( pUnit );
+					Select( lst, false, false );
+				}
 				else
 				{
+					std::vector<IMOUnit*> occupants;
+					if ( IMOContainer *pContainer = pUnit->GetContainer() )
+						::GetPassangers( pContainer, occupants, true );
 					CMapObjectsPtrList lst;
-					lst.push_back( pUnit );
-					Select( lst, bActionModifierAdd, !bActionModifierAdd );
+					for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
+						lst.push_back( *it );
+					if ( lst.empty() )
+						lst.push_back( pUnit );
+					Select( lst, false, false );
 				}
 			}
 			break;
