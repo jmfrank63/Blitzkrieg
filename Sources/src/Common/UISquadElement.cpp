@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+#include <cstdio>
+#include <cstdlib>
+#include <iterator>
 
 #include "UISquadElement.h"
 
@@ -119,6 +122,11 @@ void CUISquadElement::Visit( interface ISceneVisitor *pVisitor )
 		rect.rect.Set( fX, fY - rcWindow.Height(), fX + rcWindow.Height(), fY);
 		rect.maps.Set( 0, 0, 1, 1 );
 		rect.maps.Move( 0.5f / pSquadIcon->GetSizeX(0), 0.5f / pSquadIcon->GetSizeY(0) );
+		// The cell background is the only thing that changes with selection:
+		// full brightness for a selected squad, a little dimmer otherwise, so
+		// the unit glyphs drawn over it keep their own colours. (An overlay
+		// would not do - solid rects render after textured ones.)
+		rect.color = (*it)->IsSelected() ? 0xffffffff : 0xffc0c0c0;
 		if ( !(*(passangers.begin()))->GetMOUnit()->CanSelect() )
 		{
 			rect.color = 0xff808080;
@@ -126,7 +134,10 @@ void CUISquadElement::Visit( interface ISceneVisitor *pVisitor )
 		pVisitor->VisitUIRects( pSquadIcon, 3, &rect, 1 );
 		fX += rcWindow.Height();
 	}
-	vSize.x = fX;
+	// width is what was drawn, not where it was drawn: the old fX carried
+	// rcWindow.x1 into the size, so a cell further right claimed clicks meant
+	// for its neighbours
+	vSize.x = fX - rcWindow.x1;
 	rcWindow.x2 = rcWindow.x1 + vSize.x;
 	fX = rcWindow.x1;
 	for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
@@ -312,35 +323,33 @@ bool CUISquadElement::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, f
 {
 	return IsInside( vPos );
 }
+bool CUISquadElement::HasUnit( const IMOUnit *pUnit ) const
+{
+	for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
+		if ( (*it)->GetMOUnit() == pUnit )
+			return true;
+	return false;
+}
 bool CUISquadElement::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
-	bSelected = !bSelected;
-	if ( !passangers.empty() )
-	{
-		SGameMessage msg = SGameMessage( 0 );
-		msg.nEventID = bSelected ? WCC_UI_SQUAD_SEL : WCC_UI_SQUAD_DESEL;
-		if ( bSelected )
-		{
-			CUIUnitObserver *observer = *(passangers.begin());
-			if ( observer->GetMOUnit()->CanSelect() )
-			{
-				msg.nParam = reinterpret_cast<std::intptr_t>( observer->GetMOUnit() );
-				GetSingleton<IInput>()->AddMessage( msg );
-			}
-		}
-		else
-		{
-			for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
-			{
-				CUIUnitObserver *observer = *(it);
-				if ( observer->GetMOUnit()->CanSelect() )
-				{
-					msg.nParam = reinterpret_cast<std::intptr_t>( observer->GetMOUnit() );
-					GetSingleton<IInput>()->AddMessage( msg );
-				}
-			}
-		}
-	}
+	// The cell under the cursor names the soldier. What the click means
+	// (the squad, or with shift that one soldier) is the world client's
+	// call - it holds the selection and the modifier.
+	if ( passangers.empty() )
+		return IsInside( vPos );
+	int nCell = (int)( ( vPos.x - rcWindow.x1 ) / rcWindow.Height() );
+	if ( nCell < 0 )
+		nCell = 0;
+	if ( nCell >= (int)passangers.size() )
+		nCell = (int)passangers.size() - 1;
+	CPassangersList::iterator it = passangers.begin();
+	std::advance( it, nCell );
+	IMOUnit *pUnit = (*it)->GetMOUnit();
+	if ( pUnit == 0 || !pUnit->CanSelect() )
+		return IsInside( vPos );
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: portrait down at (%d,%d) cell %d of %d, rect (%d,%d)-(%d,%d)\n", (int)vPos.x, (int)vPos.y, nCell, (int)passangers.size(), (int)rcWindow.x1, (int)rcWindow.y1, (int)rcWindow.x2, (int)rcWindow.y2 );
+	SGameMessage msg( WCC_UI_SQUAD_SEL, reinterpret_cast<std::intptr_t>( pUnit ) );
+	GetSingleton<IInput>()->AddMessage( msg );
 	return true;
 }
 bool CUISquadElement::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )

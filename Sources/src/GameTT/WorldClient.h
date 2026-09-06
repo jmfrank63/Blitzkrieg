@@ -161,13 +161,13 @@ class CSelector : public ISelector
 	void ClearWhoInContainer();
 public:
 	CSelector() 
-		: nSelectionGroupID( -1 ), bValid( false ), groups( 10 )
+		: nSelectionGroupID( -1 ), bValid( false ), groups( 10 ), pStripContainer( 0 )
 	{  
 		for ( int i = 0; i < groups.size(); ++i )
 			groups[i].nVisGroupID = i;
 	}
 	CSelector( ITransceiver *pTrans )
-		: pTransceiver( pTrans ), nSelectionGroupID( -1 ), bValid( false ), groups( 10 )
+		: pTransceiver( pTrans ), nSelectionGroupID( -1 ), bValid( false ), groups( 10 ), pStripContainer( 0 )
 	{  
 		for ( int i = 0; i < groups.size(); ++i )
 			groups[i].nVisGroupID = i;
@@ -186,6 +186,7 @@ public:
 	void STDCALL Visit( ISelectorVisitor *pVisitor ) const;
 	void SendAcknowledgement( interface IAILogic *pAILogic );
 	void UpdateSelection( intptr_t nContainerToken );
+	IMOContainer *pStripContainer;	// whose passengers the who-is-inside strip shows, 0 for none
 	SSelectionGroup& GetSelectionGroup( const int nIndex ) { return groups[nIndex]; }
 	int operator&( IStructureSaver &ss );
 };
@@ -295,7 +296,8 @@ class CWorldClient : public CWorldBase
 	bool IsUnitsSelected() const { return !selunits.IsEmpty(); }
 	bool IsBuildingsSelected() const { return !selbuildings.IsEmpty(); }
 	bool IsSelectionEmpty() const { return selunits.IsEmpty(); }
-	void Select( CMapObjectsPtrList &mapObjects, bool bMerge );
+	void Select( CMapObjectsPtrList &mapObjects, bool bMerge, bool bSelectSuper = true );
+	void DeselectUnits( const std::vector<IMOUnit*> &units, IMOContainer *pContainer );
 	void SelectBuilding( IVisObj *pObj, bool bAddAction );
 	virtual void ResetSelection( SMapObject *pMO );
 	void PickFoF( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &friends, CMapObjectsPtrList &foes, CMapObjectsPtrList &neutrals );

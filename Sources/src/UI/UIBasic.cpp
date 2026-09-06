@@ -1257,7 +1257,7 @@ static int IsActiveBit( struct lua_State *state )
 {
 	Script script(state);
 	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//��� ���������
-	DWORD n = script.GetObject( -2 );
+	const DWORD n = DWORD( script.GetObject( -2 ).GetIntPtrValue() );
 	int nBit = script.GetObject( -1 );
 	int nRes = (bool) ( n & ( 1 << nBit ) );
 	script.PushNumber( nRes );

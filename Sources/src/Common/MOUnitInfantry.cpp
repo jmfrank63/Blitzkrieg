@@ -121,8 +121,10 @@ void CMOUnitInfantry::GetActions( CUserActions *pActions, EActionsType eActions 
 			pActions->SetAction( USER_ACTION_MOVE );
 		if ( acts.HasAction(USER_ACTION_BOARD) ) 
 			pActions->SetAction( USER_ACTION_BOARD );
-		if ( acts.HasAction(USER_ACTION_LEAVE) ) 
-			pActions->SetAction( USER_ACTION_LEAVE );
+		// inside a building or a transport the exit is always on offer - the
+		// container's own LEAVE covers everyone, this one covers the squads
+		// picked in the who-is-inside strip
+		pActions->SetAction( USER_ACTION_LEAVE );
 	}
 	else
 	{

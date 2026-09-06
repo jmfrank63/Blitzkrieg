@@ -597,6 +597,34 @@ bool CWorldClient::ActionLeave( const CVec2 &vPos2, bool bAddAction )
 			if ( pContainer->GetPassangers(0) != 0 ) 
 				return PerformActionPos( ACTION_COMMAND_UNLOAD, vPos2, bAddAction );
 		}
+		// Squads picked in the who-is-inside strip: the selected units are the
+		// passengers themselves, and they leave the way a building unloads its
+		// load - to the clicked spot.
+		for ( CMapObjectsList::const_iterator it = visitor.GetObjects().begin(); it != visitor.GetObjects().end(); ++it )
+		{
+			SMapObject *pMO = *it;
+			IMOUnit *pUnit = dynamic_cast<IMOUnit*>( pMO );
+			if ( pUnit != 0 && pUnit->GetContainer() != 0 )
+				passangers.push_back( pUnit );
+		}
+		if ( !passangers.empty() )
+		{
+			const int nNumObjects = passangers.size();
+			IRefCount **ppAIObjects = GetTempBuffer<IRefCount*>( nNumObjects );
+			IRefCount **ppTempObjects = ppAIObjects;
+			for ( std::vector<IMOUnit*>::iterator it = passangers.begin(); it != passangers.end(); ++it )
+				*ppTempObjects++ = (*it)->GetAIObj();
+			const int nLocalSelectionGroup = pTransceiver->CommandRegisterGroup( ppAIObjects, nNumObjects );
+			CVec3 vPos;
+			GetPos3( &vPos, vPos2 );
+			Vis2AI( &vPos );
+			cmd.cmdType = ACTION_COMMAND_LEAVE;
+			cmd.vPos.x = vPos.x;
+			cmd.vPos.y = vPos.y;
+			pTransceiver->CommandGroupCommand( &cmd, nLocalSelectionGroup, bAddAction );
+			pTransceiver->CommandUnregisterGroup( nLocalSelectionGroup );
+			return true;
+		}
 	}
 	return false;
 }
