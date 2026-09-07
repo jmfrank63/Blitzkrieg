@@ -261,7 +261,7 @@ void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg,
 		{
 			IUIDialog *pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_TIMEOUT_DIALOG ) );
 			IUIStatic *pCounter = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_TIMEOUT_COUNTER ) );
-			SetUIWindowText( pCounter, NStr::ToUnicode( NStr::Format( "%d", msg.nParam ) ) );
+			SetUIWindowText( pCounter, NStr::ToUnicode( NStr::Format( "%d", (int)msg.nParam ) ) );
 		}
 		break;
 

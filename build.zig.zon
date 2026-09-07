@@ -35,6 +35,49 @@
             .hash = "N-V-__8AADq1MQCCoUh-qOkYXGvqKFClPzdiedYrsGFYzTV9",
             .lazy = true,
         },
+        // The rclone binary the game ships with, one official archive per
+        // target triple. `build.zig` asks for exactly one of these, chosen by
+        // -Dtarget, so only the archive for the platform being built is ever
+        // fetched; `bundledRclone` in tools/zig/build_support.zig maps a
+        // PlatformTarget to the entry below.
+        //
+        // This file is a static literal: there is no way to interpolate one
+        // version into five URLs, so the version is written out five times.
+        // To move to a new rclone, for each of the five entries:
+        //   1. replace every occurrence of the old version, in both the URL and
+        //      the surrounding name, with the new one;
+        //   2. run `zig fetch https://downloads.rclone.org/vX.Y.Z/rclone-vX.Y.Z-<platform>.zip`
+        //      from the repository root and paste the printed hash into `.hash`;
+        //   3. rebuild `install-game` on at least one native target and confirm
+        //      the staged `rclone version` reports the new version.
+        // Nothing derives the version from these strings, so a URL and a hash
+        // that disagree fail the fetch rather than shipping the wrong binary.
+        .rclone_macos_x64 = .{
+            .url = "https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-osx-amd64.zip",
+            .hash = "N-V-__8AAIZrTAb2NBX_Odue_j51AE3sH1dFr7tXDA_LA1Lg",
+            .lazy = true,
+        },
+        .rclone_macos_arm64 = .{
+            .url = "https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-osx-arm64.zip",
+            .hash = "N-V-__8AALjJ3wUvQhJA5ZuKG4bR9hJi2cR7gO9bqVwYa77h",
+            .lazy = true,
+        },
+        .rclone_linux_x64 = .{
+            .url = "https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip",
+            .hash = "N-V-__8AAHgLsQXR1eqkfVkvy0n1Wsahv08iINa0fCOl86aC",
+            .lazy = true,
+        },
+        .rclone_linux_arm64 = .{
+            .url = "https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-arm64.zip",
+            .hash = "N-V-__8AAHgbRgUAPfiA99n7v-j7OirMcz84WP6-NldLiKgf",
+            .lazy = true,
+        },
+        // Both Windows flavours, MSVC and MinGW, run the same x64 executable.
+        .rclone_windows_x64 = .{
+            .url = "https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-windows-amd64.zip",
+            .hash = "N-V-__8AAM-7sgXITmWaD_9BvQlgH78yyBEbVFq55XfD4JW-",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

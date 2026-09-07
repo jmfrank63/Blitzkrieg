@@ -4,23 +4,24 @@
 class CUIEditBox : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
-	int nCursorPos;									//позиция курсора в текущей редактируемой строке
-	bool bShowCursor;								//для мигания курсора
-	bool bFocused;									//для отображения курсора
-	DWORD dwLastCursorAnimatedTime;	//для анимации курсора
-	int m_nBeginSel;								//начало выделения
-	int m_nEndSel;									//конец выделения
-	DWORD dwSelColor;								//цвет для выделенного текста
-	int m_nBeginDragSel;						//начало выделения мышкой
-	bool bNumericMode;							//вводятся только числа
-	bool bGameSpySymbols;						//ограничение на вводимые символы
+	int nCursorPos;									//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bShowCursor;								//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bFocused;									//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	DWORD dwLastCursorAnimatedTime;	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int m_nBeginSel;								//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int m_nEndSel;									//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	DWORD dwSelColor;								//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	int m_nBeginDragSel;						//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bNumericMode;							//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	bool bGameSpySymbols;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	bool bLocalPlayerNameMode;			// local player's name allowed symbols
-	bool bFileNameSymbols;					//символы доступные для имени файла
-	int nMaxLength;									//если эта переменная установлена, то включено ограничение на количество символов в тексте
+	bool bFileNameSymbols;					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	int nMaxLength;									//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 	std::wstring wszFullText;
-	int nBeginText;		//с этой позиции начинается отображение текста szFullText
-	bool bTextScroll;	//если установлена эта переменная, то можно вводить текст шире поля edit box
+	int nBeginText;		//пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ szFullText
+	bool bTextScroll;	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ edit box
+	std::u16string wszReturnText;	// owned storage behind GetWindowText's returned pointer
 
 	bool IsValidSymbol( int nAsciiCode );
 public:
@@ -33,6 +34,7 @@ public:
 	virtual bool STDCALL OnRButtonDown( const CVec2 &vPos, EMouseState mouseState );
 
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
+	virtual const WORD* STDCALL GetWindowText( int nState );
 	virtual void STDCALL SetFocus( bool bFocus );
 	virtual void STDCALL SetCursor( int nPos );
 	virtual int  STDCALL GetCursor() { return nCursorPos; }

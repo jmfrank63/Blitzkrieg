@@ -121,8 +121,10 @@ void CMOUnitInfantry::GetActions( CUserActions *pActions, EActionsType eActions 
 			pActions->SetAction( USER_ACTION_MOVE );
 		if ( acts.HasAction(USER_ACTION_BOARD) ) 
 			pActions->SetAction( USER_ACTION_BOARD );
-		if ( acts.HasAction(USER_ACTION_LEAVE) ) 
-			pActions->SetAction( USER_ACTION_LEAVE );
+		// inside a building or a transport the exit is always on offer - the
+		// container's own LEAVE covers everyone, this one covers the squads
+		// picked in the who-is-inside strip
+		pActions->SetAction( USER_ACTION_LEAVE );
 	}
 	else
 	{
@@ -381,13 +383,18 @@ void CMOUnitInfantry::SetSquad( interface IMOSquad *_pSquad )
 	if ( pSquad )
 	{
 		pSquad->Load( this, true );
-		GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, static_cast<int>( reinterpret_cast<std::uintptr_t>( GetContainer() ) )) );
+		GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( GetContainer() )) );
 	}
 	else
 	{
 		if ( GetObserver() )
 			GetObserver()->RemoveUnit();
 		SetObserver( 0 );
+		// A dissolved squad inside a container: the strip loses this
+		// soldier's cell with the observer, so ask for a rebuild in which he
+		// gets a cell of his own.
+		if ( GetContainer() )
+			GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( GetContainer() )) );
 	}
 }
 void CMOUnitInfantry::SetContainer( IMOContainer *_pContainer )

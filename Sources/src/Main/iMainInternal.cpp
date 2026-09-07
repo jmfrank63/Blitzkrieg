@@ -655,6 +655,12 @@ void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 			AppendOpenVideoTrace( "mainloop queue video command 0x%x config \"%s\"\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
 			NStr::DebugTrace( "Open video command: queue id 0x%x config \"%s\".\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
 		}
+		// Every save - quick, auto, mission dialog - funnels through this
+		// command, so one counter here is the "a save happened" signal the
+		// cloud sync loop coalesces on. A global var rather than a new
+		// interface: the observer lives in another module.
+		if ( nCommandID == MAIN_COMMAND_SAVE )
+			SetGlobalVar( "CloudSync.SavesSeen", GetGlobalVar( "CloudSync.SavesSeen", 0 ) + 1 );
 		IInterfaceCommand *pCmd = CreateObject<IInterfaceCommand>( nCommandID );
 		NI_ASSERT_TF( pCmd != 0, NStr::Format("Can't create command 0x%x", nCommandID), return );
 		// Message-only ids (CMD_*) have no command class registered; in release

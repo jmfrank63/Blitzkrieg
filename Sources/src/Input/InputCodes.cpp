@@ -200,6 +200,38 @@ std::size_t DecodeUtf8(const char *text, std::uint16_t *output, std::size_t capa
 	return count;
 }
 
+bool IsPasteChord( int keycode, int modifiers )
+{
+	if ( keycode != 'v' ) return false;
+	const bool bCtrlOrGui = ( modifiers & ( 0x00c0 | 0x0c00 ) ) != 0;	// SDL_KMOD_CTRL | SDL_KMOD_GUI
+	const bool bAlt = ( modifiers & 0x0300 ) != 0;						// SDL_KMOD_ALT
+	return bCtrlOrGui && !bAlt;
+}
+std::string SanitizeClipboardText( const std::string &text )
+{
+	// 4096 bytes is far past any credential or path and keeps a runaway
+	// clipboard from stalling the char queue.
+	const std::size_t nCap = 4096;
+	std::string out;
+	out.reserve( text.size() < nCap ? text.size() : nCap );
+	for ( std::size_t i = 0; i != text.size(); ++i )
+	{
+		const unsigned char c = static_cast<unsigned char>( text[i] );
+		if ( c < 0x20 || c == 0x7f ) continue;						// controls, DEL
+		if ( out.size() >= nCap ) break;
+		if ( ( c & 0xc0 ) != 0x80 )									// lead or ASCII byte:
+		{
+			// a multi-byte sequence must fit whole, or stop before it.
+			std::size_t nLen = 1;
+			if ( ( c & 0xe0 ) == 0xc0 ) nLen = 2;
+			else if ( ( c & 0xf0 ) == 0xe0 ) nLen = 3;
+			else if ( ( c & 0xf8 ) == 0xf0 ) nLen = 4;
+			if ( out.size() + nLen > nCap ) break;
+		}
+		out += static_cast<char>( c );
+	}
+	return out;
+}
 uint16_t CharacterFromKeycode( int keycode, int modifiers )
 {
 	if ( keycode < 32 || keycode > 126 ) return 0;

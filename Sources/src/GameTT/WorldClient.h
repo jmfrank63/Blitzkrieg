@@ -161,13 +161,13 @@ class CSelector : public ISelector
 	void ClearWhoInContainer();
 public:
 	CSelector() 
-		: nSelectionGroupID( -1 ), bValid( false ), groups( 10 )
+		: nSelectionGroupID( -1 ), bValid( false ), groups( 10 ), pStripContainer( 0 )
 	{  
 		for ( int i = 0; i < groups.size(); ++i )
 			groups[i].nVisGroupID = i;
 	}
 	CSelector( ITransceiver *pTrans )
-		: pTransceiver( pTrans ), nSelectionGroupID( -1 ), bValid( false ), groups( 10 )
+		: pTransceiver( pTrans ), nSelectionGroupID( -1 ), bValid( false ), groups( 10 ), pStripContainer( 0 )
 	{  
 		for ( int i = 0; i < groups.size(); ++i )
 			groups[i].nVisGroupID = i;
@@ -185,7 +185,8 @@ public:
 	void STDCALL Invalidate() { UnRegister(); bValid = false; }
 	void STDCALL Visit( ISelectorVisitor *pVisitor ) const;
 	void SendAcknowledgement( interface IAILogic *pAILogic );
-	void UpdateSelection( IMOContainer *pContainer );
+	void UpdateSelection( intptr_t nContainerToken );
+	IMOContainer *pStripContainer;	// whose passengers the who-is-inside strip shows, 0 for none
 	SSelectionGroup& GetSelectionGroup( const int nIndex ) { return groups[nIndex]; }
 	int operator&( IStructureSaver &ss );
 };
@@ -225,6 +226,7 @@ class CWorldClient : public CWorldBase
 	std::list< CPtr<IVisObj> > hiddenObjects;
 	bool bSetPlayerTooltip;               // set when player tooltip might be shown
 	bool bCheckDiplomacy;									// do we need check diplomacy during FoF operations ? (for editor mode)
+	bool bReconcileSelection;						// run ReconcileSelection on the next Update (not saved: set by a load)
 	typedef std::vector<SSelectionGroup> CSelectionsList;
 	CSelectionsList selectionGroups;			// selection groups
 	CSelector selunits, selbuildings;			// selected units & buildings
@@ -295,9 +297,11 @@ class CWorldClient : public CWorldBase
 	bool IsUnitsSelected() const { return !selunits.IsEmpty(); }
 	bool IsBuildingsSelected() const { return !selbuildings.IsEmpty(); }
 	bool IsSelectionEmpty() const { return selunits.IsEmpty(); }
-	void Select( CMapObjectsPtrList &mapObjects, bool bMerge );
+	void Select( CMapObjectsPtrList &mapObjects, bool bMerge, bool bSelectSuper = true );
+	void DeselectUnits( const std::vector<IMOUnit*> &units, IMOContainer *pContainer );
 	void SelectBuilding( IVisObj *pObj, bool bAddAction );
 	virtual void ResetSelection( SMapObject *pMO );
+	void ReconcileSelection();
 	void PickFoF( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &friends, CMapObjectsPtrList &foes, CMapObjectsPtrList &neutrals );
 	void Pick( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &objects );
 	void PickAll( const CVec2 &vPos, CMapObjectsPtrList &objects, EObjGameType upto = SGVOGT_MINE, bool bVisible = false, bool bAliveUnits = true, bool bAliveOther = true );

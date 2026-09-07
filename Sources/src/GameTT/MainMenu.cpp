@@ -3,6 +3,7 @@
 #include "MainMenu.h"
 
 #include "../Main/ScenarioTracker.h"
+#include "../Main/iMainCommands.h"
 #include "MultiplayerCommandManager.h"
 #include "../StreamIO/OptionSystem.h"
 #include "../Platform/System.h"
@@ -78,7 +79,7 @@ int CICMainMenu::operator&( IStructureSaver &ss )
 	saver.Add( 3, &szNextICConfig );
 	return 0;
 }
-CInterfaceMainMenu::CInterfaceMainMenu() : CInterfaceInterMission( "InterMission" ), nActiveState( 0 )
+CInterfaceMainMenu::CInterfaceMainMenu() : CInterfaceInterMission( "InterMission" ), nActiveState( 0 ), nCloudLastState( 0 ), bCloudSkipRequested( false )
 {
 	mainMenuState.Init( this );
 	newGameState.Init( this );
@@ -247,8 +248,130 @@ void CInterfaceMainMenu::Create( int nState )
 		::OutputDebugStringA( "BK_STARTUP: main menu created\n" );
 	}
 }
+// Which text under textes\ui\cloudsync\ a failure maps to. The classified
+// outcome leads the failure text ("auth_failed: ..." - the worker's
+// contract), so the branch reads the first word; "Cancelled" is the
+// player's own skip and reads as offline, and anything unrecognized falls
+// back to the generic message rather than a raw error on the menu.
+// "unconfigured" is not a run outcome - the main loop publishes it when a
+// provider is chosen but the saved credentials do not name it.
+static const char *CloudFailureTextKey( const std::string &szError )
+{
+	if ( szError == "Cancelled" )
+		return "offline";
+	static const char *pszOutcomes[] = { "unconfigured", "needs_resync", "too_many_deletes", "name_too_long",
+		"out_of_sync", "auth_failed", "remote_unreachable", "remote_missing",
+		"daemon_gone", "timed_out", 0 };
+	for ( int i = 0; pszOutcomes[i] != 0; ++i )
+	{
+		const int nLen = strlen( pszOutcomes[i] );
+		if ( szError.compare( 0, nLen, pszOutcomes[i] ) == 0 )
+			return pszOutcomes[i];
+	}
+	return "failed";
+}
+// The lower-left sync indicator (element 21001). The sync itself is owned
+// by the main loop, which publishes CloudSync.State/Outcome/Error as
+// global vars and honours CloudSync.SkipToOffline; the menu only renders
+// and clicks. While a run is live the label is a button - the click is
+// the skip - and once it settles it goes inert and just reports.
+void CInterfaceMainMenu::RefreshCloudIndicator()
+{
+	if ( pUIScreen == 0 )
+		return;
+	IUIElement *pElement = pUIScreen->GetChildByID( 21001 );
+	if ( pElement == 0 )
+		return;
+	const int nState = GetGlobalVar( "CloudSync.State", 0 );
+	const bool bRunning = nState >= 1 && nState <= 3;
+	// The skip choice outlives the run it cancelled: the eventual settle
+	// text ("Cancelled", or whatever a hung transfer dies of later) must
+	// not overwrite the player's answer. What clears it: a clean finish,
+	// idle, or a settled->running edge - that is a new run's beginning.
+	if ( nState == 4 || nState == 0 || ( bRunning && !( nCloudLastState >= 1 && nCloudLastState <= 3 ) ) )
+		bCloudSkipRequested = false;
+	nCloudLastState = nState;
+	std::string szKey;
+	bool bClickable = false;
+	switch ( nState )
+	{
+		case 1:		// starting
+		case 3:		// syncing
+			szKey = "syncing";
+			bClickable = true;
+			break;
+		case 2:		// pairing
+			szKey = "pairing";
+			bClickable = true;
+			break;
+		case 4:		// done
+			szKey = GetGlobalVar( "CloudSync.Outcome", 0 ) == 1 ? "paired" : "synced";
+			break;
+		case 5:		// failed
+			szKey = bCloudSkipRequested ? "offline" : CloudFailureTextKey( GetGlobalVar( "CloudSync.Error", "" ) );
+			break;
+		default:	// idle, or a state this menu does not narrate
+			break;
+	}
+	if ( bCloudSkipRequested && bRunning )
+	{
+		// The click answers immediately; the cancel settles a moment later
+		// and lands on the same text, so nothing flickers.
+		szKey = "offline";
+		bClickable = false;
+	}
+	if ( szKey == szCloudShownKey )
+		return;
+	szCloudShownKey = szKey;
+	if ( szKey.empty() )
+	{
+		pElement->ShowWindow( UI_SW_HIDE );
+		return;
+	}
+	std::wstring wszText;
+	if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetDialog( ( "textes\\ui\\cloudsync\\" + szKey ).c_str() ) )
+		wszText = MakeWideStringFromWordString( pText->GetString() );
+	else
+		wszText = L"Cloud: " + NStr::ToUnicode( szKey );
+	pElement->SetWindowText( 0, ToWordString( wszText ) );
+	pElement->EnableWindow( bClickable );
+	pElement->ShowWindow( UI_SW_SHOW_DONT_MOVE_UP );
+}
+bool CInterfaceMainMenu::StepLocal( bool bAppActive )
+{
+	RefreshCloudIndicator();
+	return CInterfaceInterMission::StepLocal( bAppActive );
+}
 bool CInterfaceMainMenu::ProcessMessage( const SGameMessage &msg )
 {
+	if ( msg.nEventID == CMD_END_ACTION1 )
+	{
+		// Skip to offline. The menu screen is modal (the exit-confirm
+		// dialog's ModalFlag), so mouse picking only ever reaches the
+		// active state dialog - a click on the lower-left indicator is
+		// never consumed by the UI, and the button-up falls through to
+		// here carrying its position. Hit-test it against the element's
+		// own rect. The main loop owns the handle and does the
+		// cancelling; the profile simply stays ahead of the cloud and a
+		// later sync converges. Only meaningful mid-run.
+		const int nState = GetGlobalVar( "CloudSync.State", 0 );
+		if ( nState >= 1 && nState <= 3 && !bCloudSkipRequested && pUIScreen )
+		{
+			if ( IUIElement *pElement = pUIScreen->GetChildByID( 21001 ) )
+			{
+				const CVec2 vClick = ( msg.nParam & 0x40000000 )
+					? CVec2( msg.nParam & 0x7fff, ( msg.nParam >> 15 ) & 0x7fff )
+					: pCursor->GetPos();
+				if ( pElement->IsVisible() && pElement->IsInside( vClick ) )
+				{
+					SetGlobalVar( "CloudSync.SkipToOffline", 1 );
+					bCloudSkipRequested = true;
+					RefreshCloudIndicator();
+					return true;
+				}
+			}
+		}
+	}
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
 		return true;
 

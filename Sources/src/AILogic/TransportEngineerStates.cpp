@@ -1,5 +1,8 @@
 #include "StdAfx.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include <float.h>
 
 #include "TransportStates.h"
@@ -737,6 +740,7 @@ void CTransportBuildState::Segment()
 
 		break;
 	case ETBS_END_POINT_READY:
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: build endpoint ready: workdone=%d resources=%d\n", (int)IsWorkDone(), (int)IsEnoughResources() );
 		if ( IsWorkDone() )
 		{
 			pUnit->SendAcknowledgement( ACK_CANNOT_START_BUILD );
@@ -805,6 +809,7 @@ void CTransportBuildState::Segment()
 			else
 			{
 				pEngineers = theUnitCreation.CreateResupplyEngineers( pUnit );
+				if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: build squad created: %d\n", (int)( pEngineers != 0 ) );
 				pUnit->Lock( pEngineers );
 			}
 		}
@@ -824,6 +829,7 @@ void CTransportBuildState::Segment()
 			if ( IsValidObj( pEngineers ) )
 				pEngineers->Disappear();
 			
+			if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: build squad returned: workdone=%d resources=%d\n", (int)IsWorkDone(), (int)IsEnoughResources() );
 			if ( IsWorkDone() )
 				TryInterruptState( 0 );
 			else if ( !IsEnoughResources() )

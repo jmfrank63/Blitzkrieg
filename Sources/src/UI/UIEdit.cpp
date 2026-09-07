@@ -98,10 +98,15 @@ int CUIEditBox::GetSelection( int nX )
 }
 void CUIEditBox::SetCursor( int nPos )
 {
-	if ( nPos < 0 )
+	if ( nPos < 0 || nPos > int( wszFullText.length() ) )
 		nCursorPos = wszFullText.length();
 	else
-		nCursorPos = nPos; 
+		nCursorPos = nPos;
+	// Placing the caret means showing it. The masked fields set their whole
+	// star string first - SetWindowText resets the scroll to zero - and
+	// without the re-scroll here a value wider than the box rendered from
+	// position zero and wrapped onto a second line below the row.
+	EnsureCursorVisible();
 }
 void CUIEditBox::SetFocus( bool bFocus )
 {
@@ -222,7 +227,14 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 
 	std::wstring wszOldText = wszFullText;
 	int nOldCursorPos = nCursorPos;
-	if ( ( keyState == E_KEYBOARD_FREE || keyState == E_SHIFT_KEY_DOWN ) && IsValidSymbol(nAsciiCode) )
+	// A message with no virtual key carries only text - an SDL text event's
+	// extra units, or the paste feed - and text is text no matter which
+	// modifier is physically down. The gate below still applies to
+	// key-derived characters, so a held Ctrl/Cmd keeps chords from typing
+	// their letter; without the exemption the pasted characters drained
+	// while the player still held Cmd and every one of them was dropped.
+	const bool bPureText = nVirtualKey == 0;
+	if ( ( keyState == E_KEYBOARD_FREE || keyState == E_SHIFT_KEY_DOWN || bPureText ) && IsValidSymbol(nAsciiCode) )
 	{
 		DeleteSelection();
 		wszFullText.insert( Min( int(wszFullText.size()), nBeginText+nCursorPos), 1, nAsciiCode );
@@ -671,6 +683,15 @@ void CUIEditBox::SetWindowText( int nState, const WORD *pszText )
 	nCursorPos = 0;
 	m_nBeginDragSel = m_nBeginSel = m_nEndSel = -1;
 	CSimpleWindow::SetWindowText( nState, pszText );
+}
+const WORD* CUIEditBox::GetWindowText( int nState )
+{
+	// The state's own text is only the visible, scrolled slice; a caller
+	// asking an edit box for its text means everything that was typed.
+	// Without this, any scrolling box (chat entry, a long path) read back
+	// only what happened to fit its width.
+	wszReturnText = ToWordText( wszFullText.c_str() );
+	return NPlatform::WordStringData( wszReturnText );
 }
 void CUIEditBox::EnsureCursorVisible()
 {

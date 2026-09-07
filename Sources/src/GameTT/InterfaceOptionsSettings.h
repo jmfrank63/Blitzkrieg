@@ -3,7 +3,8 @@
 #pragma ONCE
 #include "InterMission.h"
 #include "iMission.h"
-class COptionsListWrapper;
+#include "../StreamIO/OptionSystem.h"
+#include "OptionEntryWrapper.h"
 class CInterfaceOptionsSettings : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceOptionsSettings );
@@ -14,15 +15,28 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	int nMaxDivision;											// total number of divisions.
 	int nMinDifficulty;
 	int nActiveNavButton;									// button the last Tab press parked the cursor on, -1 when none
+	int nCloudDivision;										// tab index of the "Cloud" division, -1 when absent
 
 	CPtr<IInputSlider> pWheelScroll;			// own view of the mouse wheel for the whole-screen list scroll
+
+	OptionDescs cloudDescs;								// every Cloud.* descriptor, kept to rebuild the tab's list
+	std::string szCloudProvider;						// Cloud.Provider as last built; a change rebuilds the list
+	std::vector<std::string> cloudDestinations;	// the catalogue's destination list, empty until fetched
+	int nCatalogueHandle;									// the catalogue fetch job, -1 when idle
+	static bool IsCloudProviderOff( const std::string &szValue );
+	std::string ReadCloudProvider() const;
+	void BuildCloudList();
+	void BeginCloudCatalogue();
+	void LoadCloudDestinations();
+	void RefreshCloudButtons();
+	IUIElement *CloudButton( int nID );
 
 	NInput::CCommandRegistrator commandMsgs;
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );
 
 	virtual ~CInterfaceOptionsSettings() {  }
-	CInterfaceOptionsSettings() : CInterfaceInterMission( /*"InterMission"*/"Current" ), nActive( -1 ), nMaxDivision( 0 ), nActiveNavButton( -1 ) {  }
+	CInterfaceOptionsSettings() : CInterfaceInterMission( /*"InterMission"*/"Current" ), nActive( -1 ), nMaxDivision( 0 ), nActiveNavButton( -1 ), nCloudDivision( -1 ), nCatalogueHandle( -1 ) {  }
 
 	virtual void SuspendAILogic( bool bSuspend );
 	void OnChangeDivision( const int nDivision );

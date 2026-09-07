@@ -49,6 +49,15 @@ std::string QuoteWindowsArgument( const std::string &argument )
 
 namespace NPlatform
 {
+
+namespace
+{
+std::string &FallbackClipboard()
+{
+	static std::string clipboard;
+	return clipboard;
+}
+}
 std::string ExecutablePath()
 {
 	const char *basePath = SDL_GetBasePath();
@@ -164,4 +173,24 @@ bool RunProcess( const std::vector<std::string> &arguments, const std::string &w
 	return WIFEXITED( status );
 #endif
 }
+bool SetClipboardText( const char *text )
+{
+	if ( SDL_WasInit( SDL_INIT_VIDEO ) != 0 )
+		return SDL_SetClipboardText( text != nullptr ? text : "" );
+	FallbackClipboard() = text != nullptr ? text : "";
+	return true;
+}
+
+std::string GetClipboardText()
+{
+	if ( SDL_WasInit( SDL_INIT_VIDEO ) != 0 )
+	{
+		char *text = SDL_GetClipboardText();
+		std::string result = text != nullptr ? text : "";
+		if ( text != nullptr ) SDL_free( text );
+		return result;
+	}
+	return FallbackClipboard();
+}
+
 }

@@ -352,6 +352,18 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 				{
 					FillOnOff( &droplist );
 				}
+				else if ( pOpt->szActionFill == "GetCloudProvider" )
+				{
+					// Kept in step with the two bridges; the Zig options
+					// bridge is what actually serves the menu.
+					static const char *pszProviders[] = { "Off", "S3", "WebDAV" };
+					for ( int i = 0; i < 3; ++i )
+					{
+						SOptionDropListValue val;
+						val.szProgName = pszProviders[i];
+						droplist.push_back( val );
+					}
+				}
 				else if ( pOpt->szActionFill == "GetVideoModes" ) 
 				{
 					const SGFXDisplayMode *pMode = GetSingleton<IGFX>()->GetDisplayModes();

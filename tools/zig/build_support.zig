@@ -293,6 +293,37 @@ pub fn defFile(platform: PlatformTarget, arch: TargetArch) ?[]const u8 {
     return if (arch == .x86_64) "Sources/src/StreamIOZig/StreamIO.x64.def" else null;
 }
 
+// The rclone binary the game ships with. Cloud sync must work on a machine
+// with nothing on PATH, and daemon discovery already looks in the executable's
+// own directory first, so the whole job is getting the right archive's
+// executable into the staged layout.
+pub const BundledRclone = struct {
+    /// The build.zig.zon dependency holding this platform's official archive.
+    dependency: []const u8,
+    /// The member to take out of it. Zig strips the archive's single root
+    /// directory, so the executable sits at the package root.
+    archive_member: []const u8,
+    /// What it is installed and staged as, which is also the name discovery
+    /// looks for beside the game.
+    installed_name: []const u8,
+};
+
+pub fn bundledRclone(platform: PlatformTarget) BundledRclone {
+    // Both Windows ABI flavours run the same x64 executable; the MinGW build is
+    // still a Windows program looking for rclone.exe.
+    return switch (platform) {
+        .windows_x64, .windows_x64_gnu => .{
+            .dependency = "rclone_windows_x64",
+            .archive_member = "rclone.exe",
+            .installed_name = "rclone.exe",
+        },
+        .linux_x64 => .{ .dependency = "rclone_linux_x64", .archive_member = "rclone", .installed_name = "rclone" },
+        .linux_arm64 => .{ .dependency = "rclone_linux_arm64", .archive_member = "rclone", .installed_name = "rclone" },
+        .macos_x64 => .{ .dependency = "rclone_macos_x64", .archive_member = "rclone", .installed_name = "rclone" },
+        .macos_arm64 => .{ .dependency = "rclone_macos_arm64", .archive_member = "rclone", .installed_name = "rclone" },
+    };
+}
+
 pub fn parseTestMode(value: []const u8) !TestMode {
     if (std.mem.eql(u8, value, "compile")) return .compile;
     if (std.mem.eql(u8, value, "run")) return .run;
@@ -314,6 +345,26 @@ test "supported target table" {
     try std.testing.expectEqual(PlatformTarget.linux_arm64, try classifyDescriptor(.{ .arch = .aarch64, .os = .linux, .abi = .gnu }));
     try std.testing.expectEqual(PlatformTarget.macos_x64, try classifyDescriptor(.{ .arch = .x86_64, .os = .macos, .abi = .none }));
     try std.testing.expectEqual(PlatformTarget.macos_arm64, try classifyDescriptor(.{ .arch = .aarch64, .os = .macos, .abi = .none }));
+}
+
+test "every supported target names its own rclone archive" {
+    // One archive per platform and no sharing except the two Windows ABIs,
+    // which really do run the same executable. A platform pointing at another
+    // platform's dependency would stage a binary that cannot run.
+    const platforms = [_]PlatformTarget{ .windows_x64, .windows_x64_gnu, .linux_x64, .linux_arm64, .macos_x64, .macos_arm64 };
+    var seen: [platforms.len][]const u8 = undefined;
+    for (platforms, 0..) |platform, index| {
+        const bundle = bundledRclone(platform);
+        const expected_name = if (isWindows(platform)) "rclone.exe" else "rclone";
+        try std.testing.expectEqualStrings(expected_name, bundle.installed_name);
+        try std.testing.expectEqualStrings(expected_name, bundle.archive_member);
+        for (seen[0..index], platforms[0..index]) |other, other_platform| {
+            if (isWindows(platform) and isWindows(other_platform)) continue;
+            try std.testing.expect(!std.mem.eql(u8, other, bundle.dependency));
+        }
+        seen[index] = bundle.dependency;
+    }
+    try std.testing.expectEqualStrings(bundledRclone(.windows_x64).dependency, bundledRclone(.windows_x64_gnu).dependency);
 }
 
 test "unsupported target diagnostics" {

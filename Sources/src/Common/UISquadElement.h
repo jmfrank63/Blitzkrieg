@@ -27,9 +27,12 @@ class CUIUnitObserver : public CTRefCount<IUnitStateObserver>
 	std::list<SIconDesc> icons;						// icons of this passanger
 	CPtr<CUISquadElement> pSquad;					// squad to report about unit changes
 	CPtr<IMOUnit> pMOUnit;                // corresponding map object
+	bool bSelected;											// this soldier is in the game selection (its cell lights up)
 public:
-	CUIUnitObserver() : fHP( 0 ) {  }
-	CUIUnitObserver( IMOUnit *_pMOUnit ) : fHP( 0 ) { pMOUnit = _pMOUnit; }
+	CUIUnitObserver() : fHP( 0 ), bSelected( false ) {  }
+	CUIUnitObserver( IMOUnit *_pMOUnit ) : fHP( 0 ), bSelected( false ) { pMOUnit = _pMOUnit; }
+	void SetSelected( bool bSelect ) { bSelected = bSelect; }
+	bool IsSelected() const { return bSelected; }
 	virtual void STDCALL AddIcon( const int nType, interface ISceneIcon *pIcon );
 	virtual void STDCALL RemoveIcon( const int nType );
 	virtual void STDCALL UpdateHP( const float fValue );
@@ -122,6 +125,12 @@ public:
 	virtual void STDCALL RemovePassanger( IUnitStateObserver *pObserver );
 	virtual int STDCALL GetPassangerCount();
 	virtual void STDCALL SetSquadIcon( IGFXTexture *pTexSquadIcon ) { pSquadIcon = pTexSquadIcon; }
+	// The strip outlives a selection change now (the selector rebuilds it for
+	// the container the selected units sit in), so the highlight follows the
+	// game selection rather than the last click.
+	void SetSelected( bool bSelect ) { bSelected = bSelect; }
+	bool IsSelected() const { return bSelected; }
+	bool HasUnit( const IMOUnit *pUnit ) const;
 };
 class CIconsVisitor : public ISceneVisitor
 {

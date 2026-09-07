@@ -166,5 +166,12 @@ interface IAILogic : public IRefCount
 	virtual bool STDCALL IsNoWin() const = 0;
 	
 	virtual void STDCALL GetGridUnitsCoordinates( const int nGroup, const CVec2 &vGridCenter, CVec2 **pCoord, int *pnLen ) = 0;
+
+	// Whether the whole fence (bEntrenchment false) or entrenchment line
+	// from vFrom to vTo - both in AI world coordinates - would be accepted
+	// by the corresponding build command. The build-preview line's colour
+	// asks this every frame: the answer is pure, creates nothing, and
+	// never advances the synced random sequence.
+	virtual bool STDCALL CanBuildLongObjectLine( const bool bEntrenchment, const CVec2 &vFrom, const CVec2 &vTo ) = 0;
 };
 #endif // __AI_LOGIC_H__

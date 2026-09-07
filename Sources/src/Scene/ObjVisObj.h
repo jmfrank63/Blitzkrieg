@@ -54,9 +54,13 @@ public:
 	virtual void STDCALL Select( EVisObjSelectionState state ) 
 	{ 
 		selectionState = state;
+		// Only this object's own icons follow its selection. Ids from 10000
+		// up are passengers' HP bars ported onto a container (and packed
+		// group/level ids): a passenger's bar is bright when the passenger
+		// is selected, not when the truck or building carrying him is.
 		for ( CIconsList::iterator it = icons.begin(); it != icons.end(); ++it )
 		{
-			if ( it->nID < 10100 ) 
+			if ( it->nID < 10000 ) 
 				it->pIcon->SetAlpha( selectionState == SGVOSS_SELECTED ? 0xff : 0x60 );
 		}
 	}
@@ -85,7 +89,8 @@ public:
 			icons.back().vAddValue = vAddValue;
 			icons.back().vAddStep = vAddStep;
 
-			pIcon->SetAlpha( selectionState == SGVOSS_SELECTED ? 0xff : 0x60 );
+			if ( nID < 10000 )
+				pIcon->SetAlpha( selectionState == SGVOSS_SELECTED ? 0xff : 0x60 );
 		}
 		if ( bReposition ) 
 			RepositionIcons();

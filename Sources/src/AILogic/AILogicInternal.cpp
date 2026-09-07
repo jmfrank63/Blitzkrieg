@@ -1579,6 +1579,10 @@ bool CAILogic::IsFrozenByState( IRefCount *pObj ) const
 	else
 		return false;
 }
+bool CAILogic::CanBuildLongObjectLine( const bool bEntrenchment, const CVec2 &vFrom, const CVec2 &vTo )
+{
+	return bEntrenchment ? CEntrenchmentCreation::CanDigLine( vFrom, vTo ) : CFenceCreation::CanBuildLine( vFrom, vTo );
+}
 void CAILogic::GetGridUnitsCoordinates( const int nGroup, const CVec2 &vGridCenter, CVec2 **pCoord, int *pnLen )
 {
 	CGrid grid( vGridCenter, nGroup, CVec2( 1.0f, 0.0f ) );

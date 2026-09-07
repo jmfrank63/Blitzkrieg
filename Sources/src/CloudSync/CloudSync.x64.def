@@ -1,0 +1,36 @@
+LIBRARY "CloudSync"
+EXPORTS
+    bk_cloudsync_available @1
+    bk_cloudsync_discovery_status @2
+    bk_cloudsync_refresh_discovery @3
+    bk_cloudsync_shutdown @4
+    bk_cloudsync_last_error @5
+    bk_cloudsync_begin @6
+    bk_cloudsync_poll @7
+    bk_cloudsync_outcome @8
+    bk_cloudsync_error @9
+    bk_cloudsync_cancel @10
+    bk_cloudsync_release @11
+    bk_cloudsync_creds_load @12
+    bk_cloudsync_creds_save @13
+    bk_cloudsync_creds_clear_secret @14
+    bk_cloudsync_creds_present @15
+    bk_cloudsync_test_connection @16
+    bk_cloudsync_backup_list @17
+    bk_cloudsync_backup_entry @18
+    bk_cloudsync_backup_restore @19
+    bk_cloudsync_apply_pending_restore @20
+    bk_cloudsync_restore_undo @21
+    bk_cloudsync_restore_undo_available @22
+    bk_cloudsync_creds_fingerprint @23
+    bk_cloudsync_creds_clear_option @24
+    bk_cloudsync_catalogue_ensure @25
+    bk_cloudsync_catalogue_providers @26
+    bk_cloudsync_catalogue_options @27
+    bk_cloudsync_catalogue_form @28
+    bk_cloudsync_catalogue_destinations @29
+    bk_cloudsync_error_detail @30
+    bk_cloudsync_config_begin @31
+    bk_cloudsync_config_question @32
+    bk_cloudsync_config_answer @33
+    bk_cloudsync_creds_backend @34
