@@ -56,8 +56,14 @@ pub const remote_root_label = "Folder on the service";
 pub const remote_root_help =
     "Where the game keeps its saves on the service - an S3 bucket " ++
     "(optionally with a path inside it), a directory, or empty when the " ++
-    "connection details already name one. If the service needs a folder " ++
-    "and this is missing, the connection test will say so.";
+    "connection details already name one. The connection test creates " ++
+    "the folder when it does not exist yet.";
+/// The folder a player gets without typing one. Carried as the field's
+/// placeholder - the channel rclone defaults already use - and the dialog
+/// prefills a fresh configuration's box with it, so the value is saved as
+/// the real root: a default that lives only in the reader would silently
+/// move every existing empty-root configuration.
+pub const remote_root_default = "Blitzkrieg_Cloud_Sync";
 
 pub const Field = struct {
     role: Role = .option,
@@ -152,6 +158,7 @@ pub fn buildForm(
         .widget = .text,
         // Deliberately not required: see the module doc.
         .required = false,
+        .placeholder = remote_root_default,
     });
 
     return .{

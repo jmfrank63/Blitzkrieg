@@ -57,6 +57,10 @@ test "the four fixture backends split into basic and advanced with the root appe
         try std.testing.expect(root.widget == .text);
         try std.testing.expect(root.label.len != 0);
         try std.testing.expect(root.help.len != 0);
+        // The folder a gamer gets without typing one: the dialog prefills
+        // it from the placeholder, the same channel rclone defaults use.
+        try std.testing.expectEqualStrings("Blitzkrieg_Cloud_Sync", form.remote_root_default);
+        try std.testing.expectEqualStrings(form.remote_root_default, root.placeholder);
     }
 }
 

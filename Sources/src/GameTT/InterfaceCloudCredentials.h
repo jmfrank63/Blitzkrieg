@@ -44,7 +44,7 @@ class CInterfaceCloudCredentials : public CInterfaceScreenBase
 		SField() : nRole( 0 ), bRequired( false ), bAdvanced( false ), bIsPassword( false ), bStoredSecret( false ), bTouched( false ) {}
 		bool IsMasked() const { return szWidget == "masked"; }
 	};
-	std::vector<SField> fields;			// model order: basic, then advanced, then rclone
+	std::vector<SField> fields;			// model order: basic, then advanced, then rclone (advanced too)
 	std::vector<int> visibleRows;		// indexes into fields under the advanced filter
 	int nScroll;
 	bool bShowAdvanced;

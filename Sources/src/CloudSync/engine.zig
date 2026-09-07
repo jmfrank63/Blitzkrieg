@@ -41,11 +41,42 @@ const path = Io.Dir.path;
 /// How often a running bisync job is asked how it is doing.
 const job_poll_ms: u32 = 250;
 
-/// How long one bisync run may take before the engine stops waiting. Profile
-/// payloads are small — saves and options — so minutes mean a wedged run, not
-/// a slow one. The job keeps running server-side; P02-M03 owns what to tell
-/// the player.
-const job_timeout_ms: u32 = 120_000;
+/// How long a bisync run may go without any of its counters moving before
+/// the engine stops waiting. Wall-clock time is the wrong measure: a
+/// profile's first upload is every save it has — tens of megabytes on a
+/// home uplink take minutes, and every one of those minutes shows bytes
+/// flowing. Only a run whose bytes, checks, listings and transfers are all
+/// frozen for this long is wedged. The job keeps running server-side;
+/// P02-M03 owns what to tell the player.
+pub const default_job_stall_ms: u32 = 120_000;
+
+/// How often the running job's counters are asked for while it is waited
+/// on: `core/stats` for its group, between the cheaper status polls.
+pub const default_stats_probe_ms: u32 = 2_000;
+
+/// The stall clock: waiting counts against the budget until a progress
+/// reading differs from the last one, which resets it. Pure so the
+/// arithmetic is testable without a daemon; `runBisync` feeds it.
+pub const StallGuard = struct {
+    budget_ms: u32,
+    idle_ms: u32 = 0,
+    last: ?u64 = null,
+
+    /// Account `elapsed_ms` of waiting during which the counters read
+    /// `signature` — null when they were not consulted this round, which
+    /// is not progress. True when the budget is spent.
+    pub fn observe(self: *StallGuard, signature: ?u64, elapsed_ms: u32) bool {
+        if (signature) |now| {
+            if (self.last == null or self.last.? != now) {
+                self.last = now;
+                self.idle_ms = 0;
+                return false;
+            }
+        }
+        self.idle_ms +|= elapsed_ms;
+        return self.idle_ms >= self.budget_ms;
+    }
+};
 
 /// What this machine knows about one profile's pairing. Serialised as JSON at
 /// `<stateRoot>/state/<profile>.json`; unknown fields are ignored on read so
@@ -287,6 +318,10 @@ pub const Engine = struct {
     /// arbitrary catalogue backend calls its secrets.
     extra_markers: [][]u8 = &.{},
     extra_values: [][]u8 = &.{},
+    /// The stall budget and probe cadence for a bisync wait; tests shrink
+    /// them to make a throttled transfer outlast the budget.
+    job_stall_ms: u32 = default_job_stall_ms,
+    stats_probe_ms: u32 = default_stats_probe_ms,
 
     pub fn init(gpa: Allocator, io: Io, client: *rc.Client) Engine {
         return .{ .gpa = gpa, .io = io, .client = client };
@@ -651,22 +686,50 @@ pub const Engine = struct {
         try config.put(self.gpa, "Timeout", .{ .string = "5s" });
         try object.put(self.gpa, "_config", .{ .object = config });
 
-        var reply = self.client.call("operations/list", .{ .object = object }) catch |err| {
-            const outcome: Outcome = switch (err) {
-                error.RcFailed => blk: {
-                    const failure = self.client.lastFailure() orelse break :blk .unknown;
-                    self.recordError(failure.message, null);
-                    break :blk classify(failure, "");
-                },
-                else => other: {
-                    self.recordError(@errorName(err), null);
-                    break :other classifyTransport(err);
-                },
+        // A root that does not exist yet is created, not reported: a fresh
+        // folder on the service is every player's first sync, and the
+        // probe below then proves it writable. One retry of the listing
+        // after the mkdir; anything else the mkdir says is the outcome.
+        var attempt: u2 = 0;
+        while (true) : (attempt += 1) {
+            var reply = self.client.call("operations/list", .{ .object = object }) catch |err| {
+                const outcome: Outcome = switch (err) {
+                    error.RcFailed => blk: {
+                        const failure = self.client.lastFailure() orelse break :blk .unknown;
+                        self.recordError(failure.message, null);
+                        break :blk classify(failure, "");
+                    },
+                    else => other: {
+                        self.recordError(@errorName(err), null);
+                        break :other classifyTransport(err);
+                    },
+                };
+                if (outcome == .remote_missing and attempt == 0 and !self.cancelled()) {
+                    self.mkdirRemote(fs_spec) catch |mkdir_err| {
+                        const mkdir_outcome: Outcome = switch (mkdir_err) {
+                            error.OutOfMemory => return error.OutOfMemory,
+                            error.RcFailed => blk: {
+                                const failure = self.client.lastFailure() orelse break :blk .unknown;
+                                self.recordError(failure.message, null);
+                                break :blk classify(failure, "");
+                            },
+                            error.Transport, error.Unauthorized, error.BadJson, error.Timeout => |transport_err| other: {
+                                self.recordError(@errorName(transport_err), null);
+                                break :other classifyTransport(transport_err);
+                            },
+                        };
+                        self.last_outcome = mkdir_outcome;
+                        return .{ .ok = false, .outcome = mkdir_outcome };
+                    };
+                    self.clearLastError();
+                    continue;
+                }
+                self.last_outcome = outcome;
+                return .{ .ok = false, .outcome = outcome };
             };
-            self.last_outcome = outcome;
-            return .{ .ok = false, .outcome = outcome };
-        };
-        reply.deinit();
+            reply.deinit();
+            break;
+        }
         return self.probeWritability(remote);
     }
 
@@ -853,7 +916,8 @@ pub const Engine = struct {
         if (self.cancelled()) return error.Cancelled;
         const job = try self.client.callAsync("sync/bisync", params);
 
-        var waited: u32 = 0;
+        var guard: StallGuard = .{ .budget_ms = self.job_stall_ms };
+        var since_probe: u32 = 0;
         while (true) {
             if (self.cancelled()) return error.Cancelled;
             var status = try self.client.jobStatus(job);
@@ -867,10 +931,50 @@ pub const Engine = struct {
                 return error.SyncFailed;
             }
 
-            if (waited >= job_timeout_ms) return error.Timeout;
             sleepMs(self.io, job_poll_ms);
-            waited += job_poll_ms;
+            since_probe +|= job_poll_ms;
+            var signature: ?u64 = null;
+            if (since_probe >= self.stats_probe_ms) {
+                since_probe = 0;
+                signature = self.progressSignature(job, status.group);
+            }
+            if (guard.observe(signature, job_poll_ms)) return error.Timeout;
         }
+    }
+
+    /// The job's counters folded into one number that changes whenever any
+    /// of them does — bytes (in-flight transfers included), checks, listed
+    /// entries, transfers, deletes, renames and errors are all monotonic,
+    /// so a differing sum is movement. Null when the daemon would not say:
+    /// a failed probe is not progress, and the status poll is what decides
+    /// whether the daemon is gone.
+    fn progressSignature(self: *Engine, job: rc.JobId, group: []const u8) ?u64 {
+        var group_buffer: [32]u8 = undefined;
+        const group_name = if (group.len != 0)
+            group
+        else
+            std.fmt.bufPrint(&group_buffer, "job/{d}", .{job}) catch return null;
+
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(self.gpa);
+        object.put(self.gpa, "group", .{ .string = group_name }) catch return null;
+        var reply = self.client.call("core/stats", .{ .object = object }) catch return null;
+        defer reply.deinit();
+        const stats = switch (reply.value) {
+            .object => |o| o,
+            else => return null,
+        };
+
+        var sum: u64 = 0;
+        for ([_][]const u8{ "bytes", "checks", "listed", "transfers", "deletes", "renames", "errors" }) |name| {
+            const value = stats.get(name) orelse continue;
+            sum +|= switch (value) {
+                .integer => |n| if (n < 0) 0 else @as(u64, @intCast(n)),
+                .float => |f| if (f < 0) 0 else @as(u64, @intFromFloat(f)),
+                else => 0,
+            };
+        }
+        return sum;
     }
 
     fn cancelled(self: *const Engine) bool {

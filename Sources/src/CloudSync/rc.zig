@@ -77,6 +77,9 @@ pub const JobStatus = struct {
     /// The whole `output` object. For bisync, `output.output` holds the run
     /// log, which is the only place an abort explains itself.
     output: std.json.Value,
+    /// The job's stats group (`job/<id>`), as rclone names it — what
+    /// `core/stats` wants to report this job's counters alone.
+    group: []const u8,
 
     pub fn outputText(self: JobStatus) ?[]const u8 {
         const obj = switch (self.output) {
@@ -210,6 +213,7 @@ pub const Client = struct {
             .success = boolField(object, "success"),
             .error_text = stringField(object, "error"),
             .output = object.get("output") orelse .null,
+            .group = stringField(object, "group"),
         };
     }
 

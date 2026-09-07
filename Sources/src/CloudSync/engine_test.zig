@@ -364,6 +364,25 @@ test "transport errors classify without a log" {
     try std.testing.expectEqual(engine.Outcome.unknown, engine.classifyTransport(error.BadJson));
 }
 
+test "the stall guard resets on progress and expires only without it" {
+    var guard: engine.StallGuard = .{ .budget_ms = 1_000 };
+    // Nothing observed yet: waiting counts against the budget.
+    try std.testing.expect(!guard.observe(null, 400));
+    try std.testing.expect(!guard.observe(null, 400));
+    // A first reading is progress from "nothing known".
+    try std.testing.expect(!guard.observe(10, 400));
+    try std.testing.expectEqual(@as(u32, 0), guard.idle_ms);
+    // The same reading again is not.
+    try std.testing.expect(!guard.observe(10, 600));
+    try std.testing.expect(!guard.observe(null, 300));
+    // Movement resets the clock, however small.
+    try std.testing.expect(!guard.observe(11, 100));
+    try std.testing.expectEqual(@as(u32, 0), guard.idle_ms);
+    // And a wedged run — counters frozen — expires exactly at the budget.
+    try std.testing.expect(!guard.observe(11, 999));
+    try std.testing.expect(guard.observe(11, 1));
+}
+
 test "the support log tail is bounded and redacted" {
     const gpa = std.testing.allocator;
 
@@ -619,13 +638,23 @@ test "connection outcomes are classified against a live server" {
     try std.testing.expect(!unreachable_result.ok);
     try std.testing.expectEqual(engine.Outcome.remote_unreachable, unreachable_result.outcome);
 
-    // Server fine, configured root absent: the missing-bucket shape.
+    // Server fine, configured root absent: the missing-bucket shape. The
+    // test creates the folder rather than reporting it - a fresh remote is
+    // every player's first sync - and the probe then runs inside it.
     try createConfigRemote(gpa, &client, "cmiss", &.{
         .{ "type", "alias" }, .{ "remote", "cok:no-such-dir" },
     });
     const missing = try eng.testConnection("cmiss");
-    try std.testing.expect(!missing.ok);
-    try std.testing.expectEqual(engine.Outcome.remote_missing, missing.outcome);
+    try std.testing.expect(missing.ok);
+    const created = try path.join(gpa, &.{ dav_data, "no-such-dir" });
+    defer gpa.free(created);
+    const created_stat = try std.Io.Dir.cwd().statFile(tio, created, .{});
+    try std.testing.expect(created_stat.kind == .directory);
+    // Nothing of the probe is left behind in the new folder.
+    var created_dir = try std.Io.Dir.cwd().openDir(tio, created, .{ .iterate = true });
+    defer created_dir.close(tio);
+    var walk = created_dir.iterate();
+    try std.testing.expect((try walk.next(tio)) == null);
 }
 
 test "the connection test probes writability, not just listing" {
@@ -1045,6 +1074,114 @@ test "pairing an empty remote pairs once and the second run does not resync" {
     defer gpa.free(run_id);
     try expectFileContent(gpa, &.{ cloud, "profiles", "hero", "quick.sav" }, "v2");
     try expectFileContent(gpa, &.{ profile_dir, "quick.sav" }, "v2");
+}
+
+test "a slow first upload is progress, not a stall" {
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const dav_data = try fixture.makeDir("dav");
+    defer gpa.free(dav_data);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+
+    // A save the size of a real one is what the first pairing uploads; at
+    // the bandwidth cap below it needs several times the stall budget.
+    const save = try path.join(gpa, &.{ profile_dir, "big.sav" });
+    defer gpa.free(save);
+    const payload = try gpa.alloc(u8, 400_000);
+    defer gpa.free(payload);
+    var prng = std.Random.DefaultPrng.init(7);
+    prng.random().bytes(payload);
+    try fixture.write(save, payload);
+
+    // The alias must point at a *network* remote: a local target is copied
+    // server-side, outside the bandwidth accounting, and finishes at once.
+    const port = try reservePort(tio);
+    var addr_buffer: [32]u8 = undefined;
+    const addr = std.fmt.bufPrint(&addr_buffer, "127.0.0.1:{d}", .{port}) catch unreachable;
+    var serve_environ = try parentEnviron(gpa);
+    defer serve_environ.deinit();
+    var serve = std.process.spawn(tio, .{
+        .argv = &.{ binary, "serve", "webdav", dav_data, "--addr", addr, "--user", "dav", "--pass", "dav-secret-123" },
+        .environ_map = &serve_environ,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    }) catch return error.ServeSpawnFailed;
+    defer serve.kill(tio);
+    try std.testing.expect(waitTcp(tio, port, 15_000));
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+
+    const url = try std.fmt.allocPrint(gpa, "http://127.0.0.1:{d}", .{port});
+    defer gpa.free(url);
+    try createConfigRemote(gpa, &client, "dav", &.{
+        .{ "type", "webdav" }, .{ "url", url }, .{ "vendor", "owncloud" },
+        .{ "user", "dav" },    .{ "pass", "dav-secret-123" },
+    });
+    try createConfigRemote(gpa, &client, "bkremote", &.{
+        .{ "type", "alias" }, .{ "remote", "dav:" },
+    });
+
+    // 100 KiB/s: the 400 KB save takes about four seconds to arrive.
+    {
+        var object: std.json.ObjectMap = .empty;
+        defer object.deinit(gpa);
+        try object.put(gpa, "rate", .{ .string = "100k" });
+        var reply = try client.call("core/bwlimit", .{ .object = object });
+        reply.deinit();
+    }
+
+    var eng = engine.Engine.init(gpa, tio, &client);
+    defer eng.deinit();
+    eng.job_stall_ms = 1_000;
+    eng.stats_probe_ms = 250;
+
+    const ctx: engine.RunContext = .{
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .game_dir = game_dir,
+        .profile_id = "hero-id",
+        .remote_fingerprint = "alias:dav",
+    };
+
+    // Four seconds of transfer against a one-second budget: the counters
+    // move, so the wait continues and the pairing lands.
+    var outcome = eng.pair(ctx) catch |err| {
+        try std.testing.expectEqualStrings("", eng.lastErrorText());
+        return err;
+    };
+    defer outcome.deinit(gpa);
+    const uploaded_path = try path.join(gpa, &.{ dav_data, "profiles", "hero", "big.sav" });
+    defer gpa.free(uploaded_path);
+    const uploaded = try std.Io.Dir.cwd().readFileAlloc(io, uploaded_path, gpa, .limited(1 << 20));
+    defer gpa.free(uploaded);
+    try std.testing.expectEqualSlices(u8, payload, uploaded);
+    var loaded = engine.loadPairingState(gpa, io, game_dir, "hero").?;
+    defer loaded.deinit();
+    try std.testing.expect(loaded.state().paired);
+
+    // The same transfer with the counters never consulted is what the old
+    // wall-clock cap saw: a run that "took too long", however alive.
+    try fixture.write(save, payload[0 .. payload.len / 2]);
+    eng.stats_probe_ms = std.math.maxInt(u32);
+    try std.testing.expectError(error.Timeout, eng.syncOnce(ctx));
 }
 
 test "pairing preserves the newer side in both directions and trashes the loser" {

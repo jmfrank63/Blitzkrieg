@@ -401,17 +401,21 @@ void CInterfaceCloudCredentials::RebuildForm( bool bPreserveTyped )
 	}
 	// The rclone override is ours, not the catalogue's: a local path, kept
 	// even across a backend switch - it names a binary, not a credential.
+	// Under Advanced: a gamer never needs it, the bundled rclone is found
+	// on its own.
 	{
 		SField field;
 		field.nRole = 2;
 		field.szLabel = TextOrFallback( "Textes\\UI\\CloudCredentials\\label_rclone", L"rclone path" );
 		field.szWidget = "text";
+		field.bAdvanced = true;
 		field.szValue = WideFromUtf8( szStoredRclone );
 		fields.push_back( field );
 	}
 
 	// Values: preserved-typed on a rebuild, stored on a fresh build of the
-	// stored backend, empty otherwise. A field surviving a rebuild does not
+	// stored backend, empty otherwise except for the folder, which starts
+	// at the model's default. A field surviving a rebuild does not
 	// mean its value did - a closed field keeps a value only while it is
 	// still among the newly filtered examples; preserving on existence
 	// alone would resubmit a value the new vendor never offers.
@@ -454,7 +458,17 @@ void CInterfaceCloudCredentials::RebuildForm( bool bPreserveTyped )
 				break;
 			}
 		}
-		else if ( szBackend == szStoredBackend )
+		else if ( szBackend != szStoredBackend )
+		{
+			// A configuration this backend has never had: the folder starts
+			// as the model's default, saved as the real root on OK, so a
+			// player who types only the two credentials still gets a folder
+			// of the game's own. A stored configuration keeps its folder,
+			// an empty one included.
+			if ( field.nRole == 1 )
+				field.szValue = WideFromUtf8( field.szPlaceholder );
+		}
+		else
 		{
 			if ( field.nRole == 1 )
 				field.szValue = WideFromUtf8( szStoredRoot );
