@@ -390,6 +390,11 @@ void CMOUnitInfantry::SetSquad( interface IMOSquad *_pSquad )
 		if ( GetObserver() )
 			GetObserver()->RemoveUnit();
 		SetObserver( 0 );
+		// A dissolved squad inside a container: the strip loses this
+		// soldier's cell with the observer, so ask for a rebuild in which he
+		// gets a cell of his own.
+		if ( GetContainer() )
+			GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( GetContainer() )) );
 	}
 }
 void CMOUnitInfantry::SetContainer( IMOContainer *_pContainer )

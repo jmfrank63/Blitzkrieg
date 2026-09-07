@@ -15,6 +15,7 @@
 #include "../Main/TextSystem.h"
 #include "../Main/GameStats.h"
 #include "../Common/UISquadElement.h"
+#include <algorithm>
 #include "../Common/PauseGame.h"
 #include "../Main/iMainCommands.h"
 
@@ -364,14 +365,21 @@ void CSelector::DoneSelection()
 				std::list<CUISquadElement*> squadElements;
 				for ( std::vector<IMOUnit*>::iterator it = passangers.begin(); it != passangers.end(); ++it )
 				{
+					// One element per squad; a soldier whose squad was dissolved
+					// has no squad to share, so he gets a cell of his own (all
+					// squadless soldiers used to share the null key and showed
+					// as one squad row).
 					IRefCount *pAISquad = (*it)->GetSquad();
 					CUISquadElement *pSquad = 0;
-					for ( CSquadsAIList::iterator squad = squadsAI.begin(); squad != squadsAI.end(); ++squad )
+					if ( pAISquad != 0 )
 					{
-						if ( squad->first == pAISquad ) 
+						for ( CSquadsAIList::iterator squad = squadsAI.begin(); squad != squadsAI.end(); ++squad )
 						{
-							pSquad = squad->second;
-							break;
+							if ( squad->first == pAISquad ) 
+							{
+								pSquad = squad->second;
+								break;
+							}
 						}
 					}
 					if ( pSquad == 0 ) 
@@ -379,7 +387,8 @@ void CSelector::DoneSelection()
 						pSquad = new CUISquadElement;
 						squads.push_back( pSquad );
 						squadElements.push_back( pSquad );
-						squadsAI.push_back( CSquadAIPair(pAISquad, pSquad) );
+						if ( pAISquad != 0 )
+							squadsAI.push_back( CSquadAIPair(pAISquad, pSquad) );
 					}
 					CUIUnitObserver *pObserver = new CUIUnitObserver(*it);
 					pObserver->SetSquad( pSquad );
@@ -1532,27 +1541,37 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 		case WCC_UI_SQUAD_SEL:
 			{
 				// A cell in the who-is-inside strip. Plain click: every occupant
-				// of the container, alone. Shift-click: that one soldier joins the
-				// selection, or leaves it when it is in. DoneSelection keeps the
-				// strip up either way.
+				// of the container, alone. Shift-click: the clicked soldier's
+				// squad - the mates riding in the same container - joins the
+				// selection, or leaves it when the soldier is in; a soldier whose
+				// squad was dissolved comes and goes alone. DoneSelection keeps
+				// the strip up either way.
 				IMOUnit *pUnit = reinterpret_cast<IMOUnit*>( msg.nParam );
-				if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: strip cell, shift=%d selected=%d\n", (int)bActionModifierAdd, (int)selunits.IsSelected( pUnit ) );
+				std::vector<IMOUnit*> occupants;
+				if ( IMOContainer *pContainer = pUnit->GetContainer() )
+					::GetPassangers( pContainer, occupants, true );
+				IMOSquad *pSquad = pUnit->GetSquad();
+				std::vector<IMOUnit*> group;
+				for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
+				{
+					if ( *it == pUnit || ( pSquad != 0 && (*it)->GetSquad() == pSquad ) )
+						group.push_back( *it );
+				}
+				if ( group.empty() )
+					group.push_back( pUnit );
+				if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: strip cell, shift=%d selected=%d squad=%p group=%d occupants=%d\n", (int)bActionModifierAdd, (int)selunits.IsSelected( pUnit ), (void*)pSquad, (int)group.size(), (int)occupants.size() );
 				if ( bActionModifierAdd && selunits.IsSelected( pUnit ) )
 				{
-					std::vector<IMOUnit*> units( 1, pUnit );
-					DeselectUnits( units, pUnit->GetContainer() );
+					DeselectUnits( group, pUnit->GetContainer() );
 				}
 				else if ( bActionModifierAdd )
 				{
-					// The soldier joins whichever fellow occupants are selected;
+					// The group joins whichever fellow occupants are selected;
 					// the container itself drops out so the strip stays theirs.
-					std::vector<IMOUnit*> occupants;
-					if ( IMOContainer *pContainer = pUnit->GetContainer() )
-						::GetPassangers( pContainer, occupants, true );
 					CMapObjectsPtrList lst;
 					for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
 					{
-						if ( *it == pUnit || selunits.IsSelected( *it ) )
+						if ( selunits.IsSelected( *it ) || std::find( group.begin(), group.end(), *it ) != group.end() )
 							lst.push_back( *it );
 					}
 					if ( lst.empty() )
@@ -1561,9 +1580,6 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 				}
 				else
 				{
-					std::vector<IMOUnit*> occupants;
-					if ( IMOContainer *pContainer = pUnit->GetContainer() )
-						::GetPassangers( pContainer, occupants, true );
 					CMapObjectsPtrList lst;
 					for ( std::vector<IMOUnit*>::iterator it = occupants.begin(); it != occupants.end(); ++it )
 						lst.push_back( *it );

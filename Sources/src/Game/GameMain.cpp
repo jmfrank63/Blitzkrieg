@@ -1110,6 +1110,16 @@ int RunGame( const BkGameLaunchInfo &launch )
 					const unsigned nGameTime = GetSingleton<IGameTimer>() ? unsigned( GetSingleton<IGameTimer>()->GetGameTime() ) : 0;
 					fprintf( stderr, "BK_AUTO_UI: frame %d at %u ms game %u ms\n", nAutoUIFrame, unsigned( NPlatform::MonotonicMilliseconds() ), nGameTime );
 				}
+				// The UI resolves a click at the cursor, not at the packed position,
+				// and a physical mouse motion pumped between the click= action and
+				// the frame that consumes the message moves the cursor away from the
+				// target (a run watched with the mouse in hand clicked the map
+				// instead of the strip). Hold the cursor on the target for as long as
+				// the button is down.
+				if ( nAutoUIRelease != 0 )
+					GetSingleton<ICursor>()->SetPos( vAutoUIReleasePos[0], vAutoUIReleasePos[1] );
+				if ( nAutoUIRelease2 != 0 )
+					GetSingleton<ICursor>()->SetPos( vAutoUIRelease2Pos[0], vAutoUIRelease2Pos[1] );
 				if ( nAutoUIRelease != 0 && nAutoUIFrame >= nAutoUIRelease )
 				{
 					const int nPacked = ( vAutoUIReleasePos[0] & 0x7fff ) | ( ( vAutoUIReleasePos[1] & 0x7fff ) << 15 ) | 0x40000000;
