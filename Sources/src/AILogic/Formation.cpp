@@ -600,6 +600,15 @@ bool CFormation::IsEveryUnitInTransport() const
 		bAllInside = operator[](i)->IsInTransport();
 	return bAllInside;
 }
+bool CFormation::IsAnyUnitInTransport() const
+{
+	for ( int i = 0; i < Size(); ++i )
+	{
+		if ( operator[](i)->IsInTransport() )
+			return true;
+	}
+	return false;
+}
 bool CFormation::IsMemberResting( CSoldier *pSoldier ) const
 {
 	IUnitState *pState = pSoldier->GetState();

@@ -139,7 +139,9 @@ void CWorldClient::DoAction( const SGameMessage &msg )
 	{
 		CVec3 vCommandPoint;
 		GetPos3( &vCommandPoint, vPos );
-		if ( DoAction(nForcedAction, SActionDesc::FORCED , msg) == true )
+		const bool bForcedDone = DoAction(nForcedAction, SActionDesc::FORCED , msg);
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: forced order click at (%.0f,%.0f): action %d done=%d selempty=%d\n", vPos.x, vPos.y, nForcedAction, (int)bForcedDone, (int)IsSelectionEmpty() );
+		if ( bForcedDone )
 		{
 			if ( nForcedAction == USER_ACTION_MOVE || nForcedAction == USER_ACTION_SWARM || nForcedAction == USER_ACTION_MOVE_TO_GRID )
 			{

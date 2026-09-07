@@ -1,6 +1,8 @@
 #include "StdAfx.h"
 
 #include <float.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include "FormationStates.h"
 #include "Formation.h"
@@ -198,6 +200,10 @@ IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand 
 			{
 				pResult = CFormationLeaveBuildingState::Instance( pFormation, pFormation->GetBuilding(), cmd.vPos );
 			}
+			else if ( pFormation->IsInTransport() )
+			{
+				pResult = CFormationLeaveTransportState::Instance( pFormation, pFormation->GetTransportUnit(), cmd.vPos );
+			}
 			else
 			{
 				StopAllUnits( pFormation );
@@ -267,6 +273,8 @@ IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand 
 				pResult = CFormationLeaveBuildingState::Instance( pFormation, pFormation->GetBuilding(), cmd.vPos );
 			else if ( pFormation->IsInEntrenchment() )
 				pResult = CFormationLeaveEntrenchmentState::Instance( pFormation, pFormation->GetEntrenchment(), cmd.vPos );
+			else if ( pFormation->IsInTransport() )
+				pResult = CFormationLeaveTransportState::Instance( pFormation, pFormation->GetTransportUnit(), cmd.vPos );
 
 			break;
 		case ACTION_MOVE_PLACEMINE:
@@ -1167,6 +1175,63 @@ ETryStateInterruptResult CFormationLeaveEntrenchmentState::TryInterruptState( cl
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
+IUnitState* CFormationLeaveTransportState::Instance( CFormation *pFormation, CMilitaryCar *pTransport, const CVec2 &point )
+{
+	return new CFormationLeaveTransportState( pFormation, pTransport, point );
+}
+CFormationLeaveTransportState::CFormationLeaveTransportState( CFormation *_pFormation, CMilitaryCar *_pTransport, const CVec2 &_point )
+: pFormation( _pFormation ), pTransport( _pTransport ), point( _point )
+{
+}
+void CFormationLeaveTransportState::Segment()
+{
+	// The soldiers step out the way the transport's land sequence puts them out
+	// (CTransportLandState::LandPassenger): at the entrance point, right away,
+	// then the squad walks to the clicked spot. A towed gun's crew stays aboard,
+	// the land sequence keeps it too.
+	if ( IsValidObj( pTransport ) && pTransport->IsAlive() && pFormation != pTransport->GetTowedArtilleryCrew() )
+	{
+		const CVec3 vExit( pTransport->GetEntrancePoint(), 0 );
+		pFormation->SetNewCoordinates( vExit );
+
+		int nLanded = 0;
+		for ( int i = 0; i < pFormation->Size(); ++i )
+		{
+			CSoldier *pSoldier = (*pFormation)[i];
+			if ( !pSoldier->IsInTransport() )
+				continue;
+
+			if ( pSoldier->IsInSolidPlace() )
+				pSoldier->SetCoordWOUpdate( vExit );
+			else
+				pSoldier->SetNewCoordinates( vExit );
+
+			pSoldier->SetFree();
+			pTransport->DelPassenger( pSoldier );
+			pSoldier->GetState()->TryInterruptState( 0 );
+			updater.Update( ACTION_NOTIFY_ENTRANCE_STATE, pSoldier );
+			++nLanded;
+		}
+		pFormation->SetFree();
+
+		CVec2 vRand;
+		RandUniformlyInCircle( 1.5f * SConsts::TILE_SIZE, &vRand );
+		theGroupLogic.PushFrontUnitCommand( SAIUnitCmd( ACTION_COMMAND_MOVE_TO, point.x + vRand.x, point.y + vRand.y ), pFormation );
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai leave transport: %d of %d soldiers out at (%.0f,%.0f), going to (%.0f,%.0f)\n", nLanded, pFormation->Size(), vExit.x, vExit.y, point.x, point.y );
+	}
+	else
+	{
+		pFormation->SendAcknowledgement( ACK_NEGATIVE, true );
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai leave transport REFUSED, transport gone or squad is the gun crew\n" );
+	}
+
+	pFormation->SetCommandFinished();
+}
+ETryStateInterruptResult CFormationLeaveTransportState::TryInterruptState( class CAICommand *pCommand )
+{
+	pFormation->SetCommandFinished();
+	return TSIR_YES_IMMIDIATELY;
+}
 IUnitState* CFormationAttackUnitState::Instance( CFormation *pFormation, CAIUnit *pEnemy, const bool bSwarmAttack )
 {
 	return new CFormationAttackUnitState( pFormation, pEnemy, bSwarmAttack );
@@ -1558,11 +1623,16 @@ ETryStateInterruptResult CFormationIdleTransportState::TryInterruptState( class 
 {
 	if ( !pCommand ||
 			pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_MOVE_TO  || 
+			pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_LEAVE ||
 			pCommand->ToUnitCmd().cmdType == ACTION_MOVE_REPAIR_UNIT ||
 			pCommand->ToUnitCmd().cmdType == ACTION_MOVE_RESUPPLY_UNIT )
 	{
 		pFormation->SetCommandFinished();
-		pFormation->SetFree();
+		// The transport's own land sequence puts the soldiers out before it sends
+		// the squad on, so the squad is free by now. A squad ordered out while
+		// still aboard keeps its transport: the leave state lands it.
+		if ( !pCommand || !pFormation->IsAnyUnitInTransport() )
+			pFormation->SetFree();
 		return TSIR_YES_IMMIDIATELY;
 	}
 

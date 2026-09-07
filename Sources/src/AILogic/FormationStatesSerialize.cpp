@@ -71,6 +71,16 @@ int CFormationLeaveBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
+int CFormationLeaveTransportState::operator&( IStructureSaver &ss )
+{
+	CSaverAccessor saver = &ss;
+
+	SerializeOwner( 1, &pFormation, &saver );
+	saver.Add( 2, &pTransport );
+	saver.Add( 3, &point );
+
+	return 0;
+}
 int CFormationLeaveEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

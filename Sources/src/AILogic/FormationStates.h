@@ -260,6 +260,32 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_GO_OUT_ENTRENCHMENT; }
 };
+// A squad ordered out of a transport by the who-is-inside strip: the soldiers
+// step out at the entrance point and walk to the clicked spot, the way a
+// squad leaves a building.
+class CFormationLeaveTransportState : public IUnitState
+{
+	OBJECT_COMPLETE_METHODS( CFormationLeaveTransportState );
+	DECLARE_SERIALIZE;
+
+	class CFormation *pFormation;
+	CPtr<CMilitaryCar> pTransport;
+	CVec2 point;
+
+public:
+	static IUnitState* Instance( class CFormation *pFormation, class CMilitaryCar *pTransport, const CVec2 &point );
+
+	CFormationLeaveTransportState() : pFormation( 0 ) { }
+	CFormationLeaveTransportState( class CFormation *pFormation, class CMilitaryCar *pTransport, const CVec2 &point );
+
+	virtual void Segment();
+
+	virtual ETryStateInterruptResult TryInterruptState( class CAICommand *pCommand );
+	virtual bool IsAttackingState() const { return false; }
+	virtual const CVec2 GetPurposePoint() const { return point; }
+
+	virtual EUnitStateNames GetName() { return EUSN_GO_OUT; }
+};
 class CFormationPlaceMine : public IEngineerFormationState
 {
 	OBJECT_COMPLETE_METHODS( CFormationPlaceMine );

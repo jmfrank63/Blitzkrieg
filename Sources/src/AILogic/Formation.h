@@ -245,6 +245,7 @@ public:
 	virtual bool IsTurning() const { return false; }
 	bool IsEveryUnitResting() const;
 	bool IsEveryUnitInTransport() const;
+	bool IsAnyUnitInTransport() const;
 	virtual void StopUnit();
 	virtual void StopTurning();
 	virtual void ForceGoByRightDir() {}
