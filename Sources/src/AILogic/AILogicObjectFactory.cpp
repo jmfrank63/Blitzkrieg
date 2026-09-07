@@ -148,6 +148,7 @@ CAILogicObjectFactory::CAILogicObjectFactory()
 	REGISTER_CLASS( this, AI_FORMATION_IDLE_ENTRENCHMENT_STATE, CFormationIdleEntrenchmentState );
 	REGISTER_CLASS( this, AI_FORMATION_LEAVE_BUILDING_STATE, CFormationLeaveBuildingState );
 	REGISTER_CLASS( this, AI_FORMATION_LEAVE_ENTRENCHMNENT_STATE, CFormationLeaveEntrenchmentState );
+	REGISTER_CLASS( this, AI_FORMATION_LEAVE_TRANSPORT_STATE, CFormationLeaveTransportState );
 	REGISTER_CLASS( this, AI_FORMATION_PLACE_MINE, CFormationPlaceMine );
 	REGISTER_CLASS( this, AI_FORMATION_CLEAR_MINE, CFormationClearMine );
 	REGISTER_CLASS( this, AI_FORMATION_ATTACK_UNIT_STATE, CFormationAttackUnitState );
