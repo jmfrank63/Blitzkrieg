@@ -245,6 +245,10 @@ static int g_nCloudStartupSync = -1;
 // save pushes the due time out, so a burst of autosaves is one sync.
 static int g_nCloudSavesSeen = 0;
 static std::uint64_t g_nCloudSyncDueMs = 0;
+// The exit command asked for its sync (CloudSync.ExitRequested) and the
+// loop answered: whatever run the shutdown screen waited on is the exit
+// sync, and the post-loop path must not begin a second one.
+static bool g_bCloudExitSyncHandled = false;
 
 // A Cloud.* option's value through the live option system - available once
 // the config has been read, unlike the raw-scan path the startup window
@@ -1015,6 +1019,36 @@ int RunGame( const BkGameLaunchInfo &launch )
 					}
 				}
 			}
+			if ( GetGlobalVar( "CloudSync.ExitRequested", 0 ) )
+			{
+				// The exit command (CICExitGame) pushed the shutdown screen and asks
+				// here whether an exit sync is due - the handle and the option
+				// checks live here, and the screen only watches CloudSync.ExitSync:
+				// 1 while a run holds the handle, 0 when there is nothing to wait
+				// for; the settle below flips it. The config is written first, as
+				// the post-loop path writes it, so a config backup snapshots the
+				// final settings. A run already in flight - a startup pull, a
+				// post-save push - is simply the run waited for.
+				RemoveGlobalVar( "CloudSync.ExitRequested" );
+				g_bCloudExitSyncHandled = true;
+				SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );
+				if ( g_nCloudStartupSync < 0 )
+				{
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( CloudProviderSelected( szProvider ) && CloudCredentialsMatch( szProvider ) &&
+							 ( CloudSyncOptionOn( "Cloud.Sync.OnExit" ) || g_nCloudSyncDueMs != 0 ) &&
+							 NCloudSync::Available() )
+					{
+						g_nCloudSyncDueMs = 0;
+						const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+						g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+						if ( g_nCloudStartupSync >= 0 )
+							NStr::DebugTrace( "cloud sync: exit sync begun for \"%s\"\n", szProfile.c_str() );
+					}
+				}
+				SetGlobalVar( "CloudSync.ExitSync", g_nCloudStartupSync >= 0 ? 1 : 0 );
+				NStr::DebugTrace( "cloud sync: exit requested, %s\n", g_nCloudStartupSync >= 0 ? "waiting for the run" : "nothing to wait for" );
+			}
 			if ( g_nCloudStartupSync >= 0 )
 			{
 				const NCloudSync::EState eCloudState = NCloudSync::Poll( g_nCloudStartupSync );
@@ -1031,6 +1065,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 							NCloudSync::Outcome( g_nCloudStartupSync ) == NCloudSync::OUTCOME_PAIRED ? "paired" : "synced" );
 					NCloudSync::Release( g_nCloudStartupSync );
 					g_nCloudStartupSync = -1;
+					if ( g_bCloudExitSyncHandled )
+						SetGlobalVar( "CloudSync.ExitSync", 0 );
 				}
 			}
 			// Post-save push. Saves bump a counter (CMainLoop::Command); every
@@ -1483,7 +1519,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			const bool bExitSyncWanted = CloudProviderSelected( szProvider ) && CloudCredentialsMatch( szProvider ) &&
 				( CloudSyncOptionOn( "Cloud.Sync.OnExit" ) || g_nCloudSyncDueMs != 0 ) &&
 				NCloudSync::Available();
-			if ( g_nCloudStartupSync < 0 && bExitSyncWanted )
+			if ( g_nCloudStartupSync < 0 && bExitSyncWanted && !g_bCloudExitSyncHandled )
 			{
 				const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );

@@ -241,7 +241,16 @@ void CICExitGame::Exec( IMainLoop *pML )
 	ArmAllModulesLeakOnExit();
 	GetSingleton<ISFX>()->StopStream();
 	pML->ResetStack();
-	pML->Command( MISSION_COMMAND_VIDEO, "demo\\exit;-1" );
+	// The exit-time cloud sync used to run after this loop had ended, with
+	// nothing drawing under the OS's busy cursor. The shutdown screen goes
+	// where the bare exit video went: it shows a notice while the main loop
+	// - which owns the sync handle and decides whether a sync is due at all
+	// - runs the sync, and plays the exit video itself once CloudSync.ExitSync
+	// reports settled. The stack is empty here, so this same command must
+	// push the screen: an empty stack ends the loop on its next step.
+	SetGlobalVar( "CloudSync.ExitRequested", 1 );
+	SetGlobalVar( "CloudSync.ExitSync", -1 );
+	pML->Command( MISSION_COMMAND_CLOUD_SHUTDOWN, 0 );
 }
 void ClearMOD()
 {

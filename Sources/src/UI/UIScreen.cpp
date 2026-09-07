@@ -27,6 +27,7 @@ static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 	{
 		"ui\\AddressBook",
 		"ui\\AddUnitToMission",
+		"ui\\CloudShutdown",
 		"ui\\common\\campaign",
 		"ui\\common\\chapter",
 		"ui\\common\\mission",

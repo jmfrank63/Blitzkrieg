@@ -647,6 +647,13 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm300   /Zm300 </AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="InterfaceCloudShutdown.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm300   /Zm300 </AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="InterfaceCloudCredentials.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
@@ -907,6 +914,7 @@
     <ClInclude Include="InterfaceStartDialog.h" />
     <ClInclude Include="InterfaceCloudCredentials.h" />
     <ClInclude Include="InterfaceCloudBackups.h" />
+    <ClInclude Include="InterfaceCloudShutdown.h" />
     <ClInclude Include="MapSettingsWrapper.h" />
     <ClInclude Include="BaseList.h" />
     <ClInclude Include="CustomCampaign.h" />

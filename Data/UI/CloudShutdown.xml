@@ -1,0 +1,81 @@
+<!-- The shutdown screen (InterfaceCloudShutdown.cpp): the credits backdrop -
+     the main menu plate the credits roll over - with a three-line notice the
+     code shows only while the exit-time cloud sync is running. No buttons:
+     the screen leaves on its own when the main loop reports the sync settled. -->
+<base Background="1">
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Children>
+		<item ClassTypeID="0x10001105" ElementID="3101" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="0" TextAlign="0x0022" FontSize="2" TextColor="0xFFFDF2DB">
+			<!--caption: syncing to the cloud-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="0" y="0"/>
+			<WindowPos x="0" y="330"/>
+			<WindowSize x="1024" y="40"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\CloudShutdown\caption</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="3102" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="0" TextAlign="0x0022" FontSize="1" TextColor="0xffffbe34">
+			<!--please wait-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="0" y="0"/>
+			<WindowPos x="0" y="384"/>
+			<WindowSize x="1024" y="28"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\CloudShutdown\wait</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="3103" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="0" TextAlign="0x0022" FontSize="1" TextColor="0xffffbe34">
+			<!--do not turn off-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="0" y="0"/>
+			<WindowPos x="0" y="414"/>
+			<WindowSize x="1024" y="28"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\CloudShutdown\warning</TextKey>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>
