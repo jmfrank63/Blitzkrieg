@@ -469,7 +469,6 @@ test "a worker pairs and syncs through begin and poll alone" {
     try std.testing.expectEqualStrings("v2", resynced);
 }
 
-
 // -- The catalogue job -------------------------------------------------------
 //
 // `ensureCatalogue` is a job, not a function call, because fetching means
@@ -901,6 +900,17 @@ const readback_seed_doc =
     \\"secret_options":["pass","token"],"password_options":["pass"],
     \\"rclone_path":null}
 ;
+// The same document before its first sign-in: no token, so a config job
+// still enters rclone's machine and parks on its question - the
+// deterministic mid-job moment the tests below need. (With a token saved
+// the job is a plain probe; see "a saved token makes the config job a
+// plain probe".)
+const unsigned_seed_doc =
+    \\{"backend":"drive","remote_root":"","fingerprint":"drive:#seed",
+    \\"options":{"pass":"hunter2"},
+    \\"secret_options":["pass"],"password_options":["pass"],
+    \\"rclone_path":null}
+;
 
 fn readDoc(gpa: std.mem.Allocator, game_dir: []const u8) !creds.Loaded {
     const at = try path.join(gpa, &.{ game_dir, creds.default_path });
@@ -1087,7 +1097,7 @@ test "a save during the job wins over the read-back" {
     defer gpa.free(game_dir);
     const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
     defer gpa.free(creds_at);
-    try fixture.write(creds_at, readback_seed_doc);
+    try fixture.write(creds_at, unsigned_seed_doc);
 
     // A config job parks on a question — the deterministic moment a
     // player can save new credentials while the job is in flight. The
@@ -1155,6 +1165,68 @@ test "a save during the job wins over the read-back" {
     defer doc.deinit();
     try std.testing.expectEqualStrings("PLAYERS-NEW-TOKEN", doc.creds.option("token").?.value);
     try std.testing.expectEqualStrings("drive:#new", doc.creds.fingerprint);
+}
+
+test "a saved token makes the config job a plain probe, never a question" {
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, readback_seed_doc);
+
+    // The document already holds a token: the remote is configured, and
+    // the Test button means "test that configuration". rclone's machine
+    // would open with "Token already configured - replace it?" — and drive
+    // re-asks its team-drive question after that — on every run: questions
+    // that reconfigure rather than test. With a token saved, the job goes
+    // straight to the probe: after applyCredentials' two creates, the
+    // third request is the listing, not an async config/create, and the
+    // snapshot never reports a question.
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        ok200("{}"), // operations/list — the probe, immediately
+        ok200("{}"), // probe copy up
+        ok200("{}"), // probe copy down
+        ok200("{}"), // probe delete
+        ok200(
+            \\{"type":"drive","pass":"OBSCURED-BY-RCLONE","token":"OLD-TOKEN"}
+        ), // config/get after the job
+        ok200(
+            \\{"type":"drive","pass":"OBSCURED-BY-RCLONE","token":"OLD-TOKEN"}
+        ), // config/get at teardown
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+    });
+    // Deferred, so a failed expectation below still joins the worker
+    // before the server goes — declared after the server so it runs first.
+    defer w.destroy();
+
+    try w.begin(.{ .kind = .config_create });
+    var waited: u32 = 0;
+    while (waited < 10_000) : (waited += 25) {
+        const snap = w.poll();
+        try std.testing.expect(snap.state != .awaiting_input);
+        if (snap.state == .failed or snap.state == .done) break;
+        sleepMs(tio, 25);
+    }
+    const settled = w.poll();
+    try std.testing.expect(settled.state == .failed or settled.state == .done);
+    try std.testing.expect(std.mem.startsWith(u8, server.requestLine(2), "POST /operations/list "));
+    sleepMs(tio, 300);
 }
 
 test "a section of the wrong backend is never merged" {
@@ -1379,7 +1451,7 @@ test "a run finishing after an identity rotation cannot resurrect the retired pa
     defer gpa.free(game_dir);
     const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
     defer gpa.free(creds_at);
-    try fixture.write(creds_at, readback_seed_doc);
+    try fixture.write(creds_at, unsigned_seed_doc);
 
     // A config job parked on its question is the deterministic stand-in
     // for any long-running job. While it waits: the player saves a new

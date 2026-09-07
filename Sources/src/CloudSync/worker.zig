@@ -565,30 +565,33 @@ pub const Worker = struct {
             },
             .restore_undo, .fetch_catalogue => unreachable, // handled above
             .config_create => self.runConfigCreate(eng),
-            .test_connection => {
-                const result = eng.testConnection(box.ctx.remote) catch {
-                    self.publishFailureText("out of memory testing the connection");
-                    return;
-                };
-                if (result.ok) {
-                    self.publishDone(.connection_ok);
-                } else {
-                    // The classified outcome leads the text, so the caller
-                    // can branch on it while the human still gets rclone's
-                    // (already redacted) words. Full-length on the heap:
-                    // the snapshot truncation is publishFailureText's.
-                    const text = std.fmt.allocPrint(self.gpa, "{s}: {s}", .{
-                        @tagName(result.outcome),
-                        eng.lastErrorText(),
-                    }) catch null;
-                    if (text) |owned| {
-                        defer self.gpa.free(owned);
-                        self.publishFailureText(owned);
-                    } else {
-                        self.publishFailureText(@tagName(result.outcome));
-                    }
-                }
-            },
+            .test_connection => self.probeAndPublish(eng, box.ctx.remote),
+        }
+    }
+
+    /// The connection probe as a job's whole outcome: `.connection_ok`, or
+    /// a failure whose text the classified outcome leads, so the caller
+    /// can branch on it while the human still gets rclone's (already
+    /// redacted) words. Full-length on the heap: the snapshot truncation
+    /// is publishFailureText's.
+    fn probeAndPublish(self: *Worker, eng: *engine.Engine, remote: []const u8) void {
+        const result = eng.testConnection(remote) catch {
+            self.publishFailureText("out of memory testing the connection");
+            return;
+        };
+        if (result.ok) {
+            self.publishDone(.connection_ok);
+            return;
+        }
+        const text = std.fmt.allocPrint(self.gpa, "{s}: {s}", .{
+            @tagName(result.outcome),
+            eng.lastErrorText(),
+        }) catch null;
+        if (text) |owned| {
+            defer self.gpa.free(owned);
+            self.publishFailureText(owned);
+        } else {
+            self.publishFailureText(@tagName(result.outcome));
         }
     }
 
@@ -866,6 +869,21 @@ pub const Worker = struct {
         };
         defer loaded.deinit();
 
+        // A token already saved means the remote is configured, and this
+        // job exists to test what is saved. Entered anyway, rclone's
+        // machine opens with "Token already configured - replace it?" -
+        // and drive re-asks its shared-drive question after that - on
+        // every run: questions that reconfigure rather than test, and that
+        // no player pressing "Test connection" meant to be asked. So with a
+        // token in hand the job is the probe alone. Replacing a token is a
+        // different action; it starts by forgetting the saved one.
+        if (loaded.creds.option("token")) |token| {
+            if (token.value.len != 0) {
+                self.probeAndPublish(eng, creds.sync_remote_name);
+                return;
+            }
+        }
+
         var params = creds.remoteParams(self.gpa, loaded.creds) catch {
             self.publishFailureText("out of memory building remote parameters");
             return;
@@ -959,24 +977,7 @@ pub const Worker = struct {
         }
 
         // Completion runs the same probe a saved credential change gets.
-        const test_result = eng.testConnection(creds.sync_remote_name) catch {
-            self.publishFailureText("out of memory testing the connection");
-            return;
-        };
-        if (test_result.ok) {
-            self.publishDone(.connection_ok);
-            return;
-        }
-        const text = std.fmt.allocPrint(self.gpa, "{s}: {s}", .{
-            @tagName(test_result.outcome),
-            eng.lastErrorText(),
-        }) catch null;
-        if (text) |owned| {
-            defer self.gpa.free(owned);
-            self.publishFailureText(owned);
-        } else {
-            self.publishFailureText(@tagName(test_result.outcome));
-        }
+        self.probeAndPublish(eng, creds.sync_remote_name);
     }
 
     /// How often a pending config exchange is polled. Wall clock, like the
@@ -1070,7 +1071,7 @@ pub const Worker = struct {
     };
 
     fn classifyFromCatalogue(context: ?*const anyopaque, name: []const u8) ?creds.ReadBackFlags {
-        const ctx: *const ClassifyContext = @alignCast(@ptrCast(context orelse return null));
+        const ctx: *const ClassifyContext = @ptrCast(@alignCast(context orelse return null));
         const backend = ctx.cat.backend(ctx.backend) orelse return null;
         const option = backend.option(name) orelse return null;
         return .{ .secret = option.isSecret(), .is_password = option.is_password };
