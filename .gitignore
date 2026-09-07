@@ -83,3 +83,6 @@ zig-pkg/
 # Subagent-driven-development scratch (ledger, briefs, review packages)
 .superpowers/
 node_modules/
+
+# macOS Finder metadata
+.DS_Store
