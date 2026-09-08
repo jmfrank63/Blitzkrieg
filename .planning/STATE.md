@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-status: unknown
-stopped_at: "Phase 2 verification complete: human_needed (10/10 truths verified, in-game rows outstanding)"
+status: phase-2-executed-human-verification-outstanding
+stopped_at: "Phase 2 review fixes applied (zoom bound, idempotent minimap flex, immediate geometry); in-game sign-off outstanding"
 last_updated: "2026-09-08T21:20:53.785Z"
-state_head: 820d691101aa21ff371110bba08f0999f8862dbb
+state_head: 6e61ad416
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 3
   completed_plans: 3
-  percent: 0
+  percent: 85
 current_phase_name: variable-zoom-and-minimap-scaling
 ---
 
@@ -24,13 +24,16 @@ current_phase_name: variable-zoom-and-minimap-scaling
 
 ## Current summary
 
-Phase 2 (variable zoom and minimap scaling) executed: all 3 plans complete,
-source verification 10/10, review fixes applied (zoom bound scale match,
-minimap flex, immediate fixup geometry). Windows build via zig cross-compile
-clean. In-game sign-off rows outstanding — see
-`.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
+Phase 2 (variable zoom and minimap scaling) executed: all 3 plans complete.
+Two review rounds applied: (1) zoom bound matches floored render scale, (2)
+minimap flex with idempotent absolute baselines + 4:3 negative-size guard,
+(3) fixup geometry applied immediately. Zig cross-compile (full game incl.
+Metal shaders) clean. In-game sign-off rows outstanding — see
+`.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`
+(its 10/10 source claims superseded by the review findings; corrected
+behavior needs the in-game rows).
 
-## Phase 4 runtime stability closeout
+## Phase 4 runtime stability closeout (prior milestone work — historical)
 
 - phase: 4
 - phaseName: Runtime stability and compatibility
@@ -48,8 +51,8 @@ clean. In-game sign-off rows outstanding — see
 
 ## Next actions
 
-1. Complete manual runtime verification rows in `.planning/phase-4/VERIFICATION.md` for tutorial and mission startup at required resolutions and switch loop.
-2. Mark startup stability as PASS/FAIL and finalize Phase 4 status based on manual verification outcome.
+1. Run in-game sign-off rows from `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md` on the Windows build: zoom bounds at 640/1024/1920/3440, cursor anchoring, Shift+wheel (both shifts), J/K hold-repeat, L reset, mission restart/load reset, mid-mission resolution change, minimap cluster geometry + 2:1 diamond, fractional-zoom visuals, 1024×768 z=1 regression.
+2. Record PASS/FAIL per row in the verification report; finalize Phase 2 status.
 
 ## Session
 

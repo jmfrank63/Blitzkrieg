@@ -6,7 +6,47 @@ timestamp: 2026-09-08
 
 # Phase 2 Verification — Variable zoom and minimap scaling
 
-Goal-backward, read-only verification against the phase goal. All 10 truths verified at source level with file:line evidence. Build and all in-game rows remain outstanding (no MSVC/Windows SDK on the verification host) → **human_needed**.
+Goal-backward, read-only verification against the phase goal. The original
+run verified 10/10 truths at source level — **REVISED after two
+implementation reviews**, which disproved three of those claims (zoom-bound
+scale math, unapplied minimap flex, non-immediate fixup geometry, plus
+round-2 negative-size and compounding findings). All review findings are
+FIXED (commits `e3ad446d3`, `6e61ad416`); the zig cross-compile of the full
+game passes. The corrected behavior needs the in-game rows below →
+**human_needed**. The original truth table remains as a historical record;
+T2 (zoom bound) and T7 (cluster flex) rest on the review-fix commits.
+
+## Review round 1 findings (fixed in `e3ad446d3`)
+
+1. **High — zoom-in bounds used fractional base scale** vs the floored scale
+   the renderer uses (`GetMaxZoomSteps` vs `GetGameplayScale`). At 1920×1080
+   and 3440×1440 zoom-in capped prematurely. **Fix:** `GetMaxZoomSteps` now
+   floors the base scale identically to `GetGameplayScale`; the GPU mirror
+   was already floored-correct.
+2. **High — `nClusterTarget` computed but never applied** (flex branch
+   missing). **Fix:** dialog (5000) + diamond (element 20000) now flex when
+   the cluster content exceeds the 50% target.
+3. **Medium — fixup geometry not applied immediately** (SetWindowPlacement
+   only stores; the mission-creation path repositioned before the fixup ran).
+   **Fix:** the fixup ends with `pScreen->Reposition(...)`, so placements
+   render this frame.
+
+## Review round 2 findings (fixed in `6e61ad416`)
+
+1. **Critical — negative dialog sizes at 4:3 resolutions:** at 640×480 /
+   800×600 / 1024×768 the fixed rail + status bar already exceed half the
+   drawable, making `nDialogMax` negative and feeding negative sizes into
+   `GetNextPow2`. **Fix:** the flex branch now requires
+   `nClusterTarget > nRail + nStatusbar` — at those resolutions the 50%
+   target is unreachable without resizing rail/status-bar content (forbidden
+   by D-13), so the legacy cluster is kept (the documented deviation).
+   Verified numerically: 640/800/1024 keep the legacy cluster; 1920 → dialog
+   flexes 371→219; 3440 → no flex (content = target).
+2. **High — repeated fixups compounded the shrink** (multiplying current
+   sizes) and a larger resolution never restored. **Fix:** all flex sizes are
+   now ABSOLUTE baselines recomputed from legacy geometry (264/155/256/128 ×
+   fHudScale × flex factor) every run — idempotent across runs, restoring
+   automatically on resolution increase.
 
 ## Goal-backward analysis
 
@@ -68,14 +108,14 @@ Code-level verification is complete; the following rows require in-game sign-off
 
 none
 
-## Deviations acknowledged
+## Deviations acknowledged (original run; item 5 superseded by review-round-1 fix 2)
 
 All are documented in the SUMMARYs and none violates plan semantics:
 
 1. **GPU mirror local replication** (01-SUMMARY §Deviations 1): `UpdatePresentOffsets` replicates the ~15-line clamp locally with a "SceneScreenScale.h is the canonical math" comment because `Sources/src/Scene` is not on the GFXGPU module's include path; the plan explicitly authorized replication ("acceptance is behavioral, not structural"). Verified in sync at GraphicsEngineGpu.cpp:1022-1045.
 2. **`GetPos3` returns void** (02-SUMMARY §Deviations): the plan's "if GetPos3 fails, skip the anchor shift" branch is unimplementable (Scene.h:495, no failure signal); the plane-solve variant always yields a point, so the out-of-rect center fallback (:832-833) is the only fallback — documented instead of a dead validity check.
 3. **`grep "0.5" UIMiniMap.cpp → 0 hits` gate unsatisfiable** (03-SUMMARY §Deviations): pre-existing half-texel `0.5f` UV-inset terms (UIMiniMap.cpp:28-31, :1064-1065) are unrelated to cluster math; gate intent verified — zero cluster-arithmetic references in UIMiniMap.cpp, the 50% target lives only in `FixupHudClusterLayout` (iMissionInternal.cpp:1019).
-4. **Build deferred to Windows CI** (all three SUMMARYs): no MSVC/Windows SDK on the macOS host; zig cross-build panics at build.zig:894 without explicit SDK paths. Every edited TU passed clang `-fsyntax-only`, and every symbol used was checked against its declaring header; the full compile+link lands with the Windows CI run — listed under Human verification needed.
-5. **Minimap element "flex" branch** (03-PLAN 03-T1 step 3e): the fixup computes `nClusterTarget` (:1019) but does not implement an element-20000 shrink branch — at every reachable resolution the target resolves to content (wide drawables: 0.5·W ≥ 791·s_hud so no flex is demanded; cfg-equal 4:3 the content clamp is the documented T10 deviation), so the branch would be dead code; consistent with the pinned "target 50%, clamped to content" arithmetic, flagged here for completeness.
+4. **Build verification path** (all three SUMMARYs): no MSVC/Windows SDK on the macOS host — the build now runs via `zig build install-game --release=fast` on the HOST (native target; passes 128/128 steps incl. Metal shader cross-compilation, latest run after `6e61ad416`). The MSVC Debug build for Windows CI remains an available cross-check.
+5. ~~Minimap element "flex" branch~~ **SUPERSEDED by review round 1 finding 2:** the flex branch was missing and is now implemented (dialog + element 20000, idempotent absolute baselines, 4:3 guarded — see Review round 2 above).
 
 status: human_needed
