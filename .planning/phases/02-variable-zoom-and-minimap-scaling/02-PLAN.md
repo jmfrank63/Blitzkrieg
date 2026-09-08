@@ -57,7 +57,9 @@ inherited unchanged (LANDMINE-L9).
 - Sources/src/Scene/SceneInternal.cpp lines 930-960 (GetPos3 signature and bOnZero plane-solve variant)
 - Sources/src/Scene/Camera.cpp lines 56-123 (Update snapping, rcBounds clamp, pause behavior) and Camera.h lines 38-42 (SetAnchor contract)
 - .planning/phases/02-variable-zoom-and-minimap-scaling/02-RESEARCH.md §R2 (the two-GetPos3 formula)
+- .planning/phases/02-variable-zoom-and-minimap-scaling/02-CONTEXT.md (locked decisions D-07, D-08, LANDMINE-L3, LANDMINE-L9)
 - Sources/src/GameTT/iMission.h (MC_ZOOM_* values from Plan 01)
+- Sources/src/Scene/Camera.cpp lines 73-74 (trace fprintf pattern to reuse for the ApplyZoomStep trace line)
 </read_first>
 
 <action>
@@ -77,9 +79,10 @@ inherited unchanged (LANDMINE-L9).
       variant).
    d. Apply the step: `nSteps = Clamp( nSteps + nDelta, 0, GetMaxZoomSteps(...) )`,
       `SetGlobalVar( "GFX.World.ZoomSteps", nSteps )` (unchanged from Plan 01).
-   e. `pScene->GetPos3( &vPosNew, cursor2, true )` (new zoom — matrix
-      re-derives per call from the global, SceneInternal.cpp:941 /
-      SceneDraw.cpp:404-420; no cache invalidation).
+    e. `pScene->GetPos3( &vPosNew, cursor2, true )` (new zoom — matrix
+       re-derives per call from the global, SceneInternal.cpp:404-420
+       (UpdateTransformMatrix) and SceneInternal.cpp:941 (GetPos3); no cache
+       invalidation).
    f. `ICamera::SetAnchor( pCamera->GetAnchor() + ( vPosOld - vPosNew ) )`
       — sets both vAnchor and vAnchor1 (Camera.h:41), so the value survives
       until the next Update. If GetPos3 returns VNULL3 / fails both
@@ -90,6 +93,11 @@ inherited unchanged (LANDMINE-L9).
       it, expose a narrow `IViewer`/IScene method or route the call through
       CScene — pick the path with the smallest interface change; do NOT
       duplicate terrain internals in GameTT).
+   h. Emit a `BK_INPUT_TRACE` (or `BK_GFX_TRACE`) fprintf line inside
+      ApplyZoomStep logging the old anchor, the new anchor, and the resulting
+      z — event-down binds and camera-anchor traces fire nothing today
+      (Camera.cpp:73-74 traces only strafe/fwd deltas), so this line is the
+      per-step trace gate (pattern = Camera.cpp:73-74 getenv + fprintf).
 3. Keep the reset semantics from Plan 01 (ZoomSteps=0 in Init /
    CMD_LOAD_FINISHED) untouched.
 </action>
@@ -99,7 +107,7 @@ inherited unchanged (LANDMINE-L9).
 - `grep -n "SetAnchor" Sources/src/GameTT/iMissionInternal.cpp` → 1 hit inside ApplyZoomStep.
 - `grep -n "ResetPosition" Sources/src/GameTT/iMissionInternal.cpp` → 1 hit inside ApplyZoomStep.
 - Source assertion: the two GetPos3 calls bracket exactly one `SetGlobalVar( "GFX.World.ZoomSteps", ... )` write.
-- Trace assertion (BK_INPUT_TRACE=1, BK_GFX_TRACE=1): hold J at a fixed cursor position over terrain → repeated steps log; camera anchor trace line changes per step; world point under the cursor visually fixed (manual row).
+- Trace assertion (BK_INPUT_TRACE=1, BK_GFX_TRACE=1): hold J at a fixed cursor position over terrain → repeated steps log; each step emits the new ApplyZoomStep trace line (old anchor, new anchor, z); world point under the cursor visually fixed (manual row).
 - Build Game (Debug) succeeds.
 </acceptance_criteria>
 
