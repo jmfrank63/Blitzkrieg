@@ -841,6 +841,12 @@ bool CInterfaceMission::Init()
 	pFrameSelection = pScene->GetFrameSelection();
 	missionMsgs.Init( pInput, missionCommands );
 	pZoomWheelSlider = GetSingleton<IInput>()->CreateSlider( "zoom_wheel" );
+	// D-16: zoom is session-local - reset at mission start AND restart
+	// (restart funnels through Init). GFX.*-prefixed, so savegames never
+	// carry it (GlobalVars.h operator&); the explicit reset covers the live
+	// session globals that survive loads by design.
+	SetGlobalVar( "GFX.World.ZoomSteps", 0 );
+	SetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
 	// Keep whatever anchor the camera already carries. Init runs before
 	// NewMission on a fresh start, where the anchor is still the default, but
 	// during deserialization on a load - and hardcoding the origin here threw
@@ -1920,6 +1926,11 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			break;
 		case CMD_LOAD_FINISHED:
 			{
+				// D-16: load does not re-run Init and live GFX.* globals
+				// survive loads by design - reset zoom before anything
+				// repositions against it.
+				SetGlobalVar( "GFX.World.ZoomSteps", 0 );
+				SetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
 				SyncMissionModeFromInterMission();
 				ChangeResolution();
 				CheckResolution();
