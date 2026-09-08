@@ -192,8 +192,8 @@ Goals:
 settings resolution (max zoom-out limit) and 640x480 effective viewport (max
 zoom-in limit), decouple the minimap from map zoom by giving it a fixed size
 relative to screen width (sized so minimap + command/unit detail panel occupies
-half the available width), and add zoom controls: Shift+mouse wheel, T (zoom
-in), G (zoom out), B (reset zoom).
+half the available width), and add zoom controls: Shift+mouse wheel, J (zoom
+in), K (zoom out), L (reset zoom).
 
 **Requirements**: TBD
 **Depends on:** Phase 1

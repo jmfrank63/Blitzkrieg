@@ -34,6 +34,9 @@ rebuild trigger are Plan 02.
 
 ## must_haves
 
+- H0: Keyboard zoom J = zoom in, K = zoom out, L = reset (D-01), and zoom is
+  STEPPED — each J/K press and each wheel notch applies exactly one discrete
+  step (D-05), never smooth/continuous interpolation.
 - H1: Globals `GFX.World.ZoomSteps` (int) and `GFX.World.ZoomFactor` (float)
   exist. The `GFX.` prefix keeps them out of savegames (GlobalVars.h:124-155
   policy) — LANDMINE-L6 satisfied for the serialization half.
