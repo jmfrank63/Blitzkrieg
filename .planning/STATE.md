@@ -1,3 +1,17 @@
+---
+gsd_state_version: "1.0"
+status: unknown
+stopped_at: Phase 2 context gathered
+last_updated: "2026-09-08T05:48:27.775Z"
+state_head: 30ee5e7c96f7a6038682106845f8babab5e16394
+progress:
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+---
+
 ﻿# Project state
 
 - status: phase-4-execution-in-progress
@@ -32,3 +46,9 @@ Dialog coverage baseline is implemented through central legacy-layout scaling po
 
 1. Complete manual runtime verification rows in `.planning/phase-4/VERIFICATION.md` for tutorial and mission startup at required resolutions and switch loop.
 2. Mark startup stability as PASS/FAIL and finalize Phase 4 status based on manual verification outcome.
+
+## Session
+
+**Last session:** 2026-09-08T05:48:27.764Z
+**Stopped at:** Phase 2 context gathered
+**Resume file:** .planning/phases/02-variable-zoom-and-minimap-scaling/02-CONTEXT.md
