@@ -786,7 +786,7 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 }
 static void SyncMissionModeFromInterMission();
 static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor );
-static void FixupHudClusterLayout( CUIScreen *pScreen );
+static void FixupHudClusterLayout( IUIScreen *pScreen );
 // Where the player's troops stand, averaged. Only a fallback for maps that
 // author no camera anchor at all: the anchor the designers set is the better
 // answer everywhere it exists, because it frames the opening situation rather
@@ -987,7 +987,7 @@ static void SyncMissionModeFromInterMission()
 // instead of the legacy gap. Sizes are untouched (owned by ScaleLayout /
 // mission.xml, D-13); only vPos.x moves. At a 1024x768 world base the clamp
 // resolves to the legacy layout (documented deviation).
-static void FixupHudClusterLayout( CUIScreen *pScreen )
+static void FixupHudClusterLayout( IUIScreen *pScreen )
 {
 	if ( pScreen == 0 )
 		return;
@@ -1007,15 +1007,14 @@ static void FixupHudClusterLayout( CUIScreen *pScreen )
 
 	CVec2 vDialogPos, vDialogSize;
 	pDialog->GetWindowPlacement( &vDialogPos, &vDialogSize, 0 );
-	CVec2 vRailSize;
-	pRail->GetWindowPlacement( 0, &vRailSize, 0 );
 
 	// Legacy widths from mission.xml: dialog 264, rail 114, status bar 413.
 	const int nDialog = static_cast<int>( 264.0f * fHudScale + 0.5f );
 	const int nRail = static_cast<int>( 114.0f * fHudScale + 0.5f );
 	const int nStatusbar = static_cast<int>( 413.0f * fHudScale + 0.5f );
 	const int nClusterContent = nDialog + nRail + nStatusbar;
-	const int nDrawableWidth = pScreen->GetScreenRect().Width();
+	const RECT rcDrawable = GetSingleton<IGFX>()->GetScreenRect();
+	const int nDrawableWidth = rcDrawable.right - rcDrawable.left;
 	const int nClusterTarget = Min( static_cast<int>( 0.5f * nDrawableWidth + 0.5f ), nClusterContent );
 
 	CVec2 vRailPos( static_cast<float>( nDialog ), vDialogPos.y );
