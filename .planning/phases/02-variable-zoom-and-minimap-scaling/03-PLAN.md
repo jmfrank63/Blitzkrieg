@@ -7,6 +7,7 @@ depends_on: []
 files_modified:
   - Sources/src/UI/UIMiniMap.h
   - Sources/src/UI/UIMiniMap.cpp
+  - Sources/src/GameTT/iMissionInternal.cpp
 autonomous: true
 requirements: [D-11, D-12, D-13, D-14, LANDMINE-L4, LANDMINE-L5]
 ---
@@ -23,9 +24,17 @@ total width is `min(50% of the drawable width, what the cluster content
 needs at that resolution)`. The minimap element (20000) is the flexible
 member. The minimap resizes ONLY on resolution change (D-12) via a new
 `CUIMiniMap::Reposition` override that recreates the overlay textures when
-the element rect changes (LANDMINE-L5). The minimap stays decoupled from map
-zoom (D-14 — the camera-frame polygon already follows zoom via GetPos3;
-no code needed).
+the element rect changes (LANDMINE-L5). Closing the 123px legacy
+dialog↔status-bar gap at wide drawables requires moving the status bar, which
+a minimap-local override cannot reach: a status-bar/dialog/rail reposition
+fixup is therefore implemented in `CInterfaceMission`
+(Sources/src/GameTT/iMissionInternal.cpp), running after
+`pUIScreen->Reposition(...)` at the two precedent sites — `CheckResolution`
+(iMissionInternal.cpp:887-914, which already reaches children 110/40000 via
+`pUIScreen->GetChildByID` at 904-909) and the `CMD_LOAD_FINISHED` handler
+(iMissionInternal.cpp:1861-1870, which already calls
+`pUIScreen->Reposition`). The minimap stays decoupled from map zoom (D-14 —
+the camera-frame polygon already follows zoom via GetPos3; no code needed).
 
 ## The pinned arithmetic (LANDMINE-L4 — the "exactly 50%" resolution)
 
@@ -55,7 +64,20 @@ clamped to content minimum"**:
 - 4:3 drawable = BaseSize: cluster = 800*s_hud = 78% of width — same as
   today, arrangement untouched (D-13).
 The sizing code computes the ratio and applies it; no arithmetic beyond
-`s_hud`, one `Min`, and right-edge pinning. **Flagged for the user:** at
+`s_hud`, one `Min`, and right-edge pinning. The gap closure at wide drawables
+is a two-part implementation: (a) the `CUIMiniMap::Reposition` override pins
+the minimap element and recreates textures (below), and (b) a
+status-bar/dialog/rail reposition fixup in `CInterfaceMission` (tasked in
+03-T1) rebuilds the cluster layout after `pUIScreen->Reposition(...)` at
+`CheckResolution` and `CMD_LOAD_FINISHED`: dialog 5000 stays left-anchored at
+its scaled x=0, rail 100 is placed at the dialog's right edge, and status bar
+40000 has its `vPos.x` set so its left edge = rail right edge — closing the
+123px legacy gap at wide drawables. Widths per research §R6 table:
+dialog = round(264*s_hud), rail = round(114*s_hud), statusbar =
+round(413*s_hud); cluster right edge = dialog+rail+statusbar; target =
+min(0.5*drawableWidth, clusterContentWidth). At 1024×768 the content clamp
+retains the legacy proportions and the gap stays 123px (documented
+deviation). **Flagged for the user:** at
 1024x768 (and any cfg-equal 4:3 drawable) the 50% target is unattainable
 without violating D-13; the plan implements "target 50%, clamp to content"
 rather than ask mid-execution. D-11's "exactly" is honored as "pinned
@@ -86,22 +108,28 @@ files; verified not regressed in validation.
 - H3: The diamond stays 2:1: `FittedMiniMapSize` is NOT edited; the element
   resize applies width and height with the same scale factor (anisotropic
   diamond stretching is the docs/scaling.md closing-warning failure).
-- H4: Dialog 5000, rail 100, status bar 40000 keep their legacy sizes and
+- H4: Dialog 5000, rail 100, status bar 40000 keep their legacy SIZES and
   relative arrangement (D-13); only the minimap element 20000 flexes, and
-  only when the pinned arithmetic demands it; the dialog↔status-bar gap
-  (387-264=123 legacy px) closes via right-edge pinning at wide drawables.
+  only when the pinned arithmetic demands it. The dialog↔status-bar gap
+  (387-264=123 legacy px) closes at wide drawables via the CInterfaceMission
+  reposition fixup (rail placed at dialog right edge, status bar 40000
+  vPos.x placed at rail right edge); the gap is unchanged at 1024×768 due to
+  the content clamp.
 - H5: The minimap never resizes from map zoom (D-14): no zoom-global reads
   anywhere in UIMiniMap.cpp after this plan.
-- H6: On 16:9 the cluster lands ~41.7% (target-met, gap closed); on 1024x768
-  it stays 78% (content clamp); the ratio is computed, not hard-coded.
+- H6: On 16:9 the cluster lands ~41.7% (target-met, gap closed via the
+  CInterfaceMission fixup: status bar left edge = rail right edge); on
+  1024x768 it stays 78% with the legacy gap intact (content clamp); the
+  ratio is computed, not hard-coded.
 - H7: Status bar behavior unregressed: `MinPos x=-413` slide-out animation
   offsets (scaled via ScaleLayout, UIBasic.cpp:1734-1749) and
-  CheckResolution's hide-below-800 rule keep working — this plan does not
-  move or resize 40000.
+  CheckResolution's hide-below-800 rule keep working. The fixup sets only
+  40000's `vPos.x` (its size is untouched); at 1024×768 the fixup target
+  equals the legacy position (no visual change — content clamp).
 
 ## Tasks
 
-### 03-T1: CUIMiniMap::Reposition override with cluster arithmetic + texture recreation (files: Sources/src/UI/UIMiniMap.h, Sources/src/UI/UIMiniMap.cpp)
+### 03-T1: CUIMiniMap::Reposition override + CInterfaceMission cluster fixup + texture recreation (files: Sources/src/UI/UIMiniMap.h, Sources/src/UI/UIMiniMap.cpp, Sources/src/GameTT/iMissionInternal.cpp)
 
 <read_first>
 - Sources/src/UI/UIMiniMap.h (whole class — esp. FittedMiniMapSize at lines 147-152, nSize member, CreateMiniMapTextures decl at line 177)
@@ -109,7 +137,8 @@ files; verified not regressed in validation.
 - Sources/src/UI/UIBasic.h + UIBasic.cpp lines 580-673 (CSimpleWindow::Reposition — wndRect computation from nPositionFlag + vPos/vSize) and lines 371-408 (ScaleLayout)
 - Sources/src/UI/UIScreen.cpp lines 186-263 (CUIScreen::Reposition — s_hud = min(BaseW/1024, BaseH/768), ScaleLayout(vDeltaScale), edge anchoring)
 - Data/UI/mission.xml lines 8277-8635 (dialog 5000 pos/size 264x155 at (0,0)), 8418-8421 (element 20000 at (6,3) 256x128), 6+1790-1791 (rail 100 at (265,0) 114x88), 1939+2580-2581 (status bar 40000 at (387,0) 413x85)
-- Sources/src/GameTT/iMissionInternal.cpp lines 885-915 (CheckResolution hide-below-800 — must keep working, world-base-locked)
+- Sources/src/GameTT/iMissionInternal.cpp lines 885-915 (CheckResolution hide-below-800 + pUIScreen->GetChildByID at 904-909 — the precedent site for the fixup), 1861-1870 (CMD_LOAD_FINISHED handler — second pUIScreen->Reposition site)
+- .planning/phases/02-variable-zoom-and-minimap-scaling/02-CONTEXT.md (locked decisions D-11..D-14, LANDMINE-L4/L5)
 - docs/scaling.md § "Case study: the minimap overlay offset" + closing 2:1 warning
 - .planning/phases/02-variable-zoom-and-minimap-scaling/02-RESEARCH.md §R6 (a)(b)(c)(d)
 </read_first>
@@ -121,29 +150,39 @@ files; verified not regressed in validation.
    b. Read `nBaseW = GetGlobalVar( "GFX.World.BaseSizeX", 0 )`,
       `nBaseH = GetGlobalVar( "GFX.World.BaseSizeY", 0 )` (0 outside missions — in that case return after the base call, no override).
    c. Compute `fHudScale = min( nBaseW/1024.0, nBaseH/768.0 )` (the same s_hud CUIScreen::Reposition uses).
-   d. Cluster content width: `nDialogContent = round(264*fHudScale) + round(114*fHudScale)` (dialog + rail; status bar 40000 is NOT part of the width budget — it is right-pinned overlay, sized 413*fHudScale, hidden by default).
-   e. Pin: `nClusterWidth = min( round(0.5*drawableWidth), nDialogContent )`; `nDialogTarget = round(264*fHudScale)` (unchanged — the dialog keeps legacy size, D-13); the GAP absorbs the pinning: `nGap = drawableWidth - nClusterWidth - (width of status bar region)` resolves implicitly because the dialog is LEFT-anchored at x=0 and the status bar is right-pinned — the implementation must move the status bar's `vPos.x` to `drawableWidth - statusbarWidth` ONLY IF the status bar element is reachable from this override via the parent screen (if not reachable without new plumbing, pin only the minimap element and document the gap as unchanged — DO NOT add cross-element plumbing; the gap closure is satisfied by the 16:9 case where the content clamp already leaves the gap < legacy).
+   d. Cluster content width: `nClusterContentWidth = round(264*fHudScale) + round(114*fHudScale) + round(413*fHudScale)` (dialog + rail + status bar, research §R6 table).
+   e. Cluster fixup: `nClusterTarget = min( round(0.5*drawableWidth), nClusterContentWidth )`; the cluster right edge = dialog + rail + statusbar widths. The dialog keeps legacy size `round(264*fHudScale)` (D-13). Because the gap closure requires moving the status bar and rail — which live on the mission screen, not inside this window — the override delegates cluster layout to the CInterfaceMission fixup (step 3): the override pins only the minimap element (step f) and recreates textures on wndRect change. The dialog's own rect is unchanged (it stays left-anchored at its scaled x=0).
    f. Flex the minimap element 20000: compute its target rect inside the dialog so the diamond keeps 2:1 and fits `FittedMiniMapSize` — set element `vSize` = `(nElementW, round(nElementW/2))` where `nElementW` derives from the dialog's fixed 264*fHudScale minus its 6px inset, UNLESS the pinned arithmetic (step e) shrinks the dialog budget, in which case scale the element by the same factor as the dialog. Apply the SAME factor to width and height (H3).
-   g. Recompute `wndRect` from the adjusted vPos/vSize the same way `CSimpleWindow::Reposition` does (nPositionFlag 0x0011 + scaled pos/size), then if wndRect changed from the pre-override value: `CreateMiniMapTextures()` (the existing function re-derives GetNextPow2 sizes from wndRect, UIMiniMap.cpp:87).
-   h. Guard: keep a member copy of the last-applied wndRect (or compare before/after) so the recreation runs once per resolution change, not per frame.
-3. Do NOT edit: `FittedMiniMapSize` (H3), `PointToTextureMiniMap`, `CMarkPixelFunctional`, `GetZeroPoint` frame-centering (UIMiniMap.cpp:225-227), any `isLeftTop` argument.
-4. Do NOT add zoom-global reads to this file (D-14/H5).
+   g. Emit a `BK_UI_TRACE` fprintf line (pattern = Camera.cpp:73-74 getenv + fprintf) logging the element ID, the old wndRect, the new wndRect, and the textures-recreated bool — CUIMiniMap::Reposition emits nothing today, so this line is the once-per-change trace gate.
+   h. Recompute `wndRect` from the adjusted vPos/vSize the same way `CSimpleWindow::Reposition` does (nPositionFlag 0x0011 + scaled pos/size), then if wndRect changed from the pre-override value: `CreateMiniMapTextures()` (the existing function re-derives GetNextPow2 sizes from wndRect, UIMiniMap.cpp:87).
+   i. Guard: keep a member copy of the last-applied wndRect (or compare before/after) so the recreation runs once per resolution change, not per frame.
+3. iMissionInternal.cpp — status-bar/dialog/rail reposition fixup in CInterfaceMission: add a small private helper (e.g. `FixupHudClusterLayout()`) and call it AFTER `pUIScreen->Reposition(...)` at the two precedent sites — in `CheckResolution` (iMissionInternal.cpp:887-914, which already reaches children 110/40000 via `pUIScreen->GetChildByID` at 904-909) and in the `CMD_LOAD_FINISHED` handler (iMissionInternal.cpp:1861-1870, which already calls `pUIScreen->Reposition`). The helper recomputes the cluster layout:
+   a. Read `s_hud = min( BaseSizeX/1024, BaseSizeY/768 )` from the GFX.World base globals (as in CUIScreen::Reposition); if the base is unset (0), return.
+   b. Widths per research §R6 table: `nDialog = round(264*s_hud)`, `nRail = round(114*s_hud)`, `nStatusbar = round(413*s_hud)`.
+   c. Reach children 5000 (minimap dialog), 100 (rail), 40000 (status bar) via `pUIScreen->GetChildByID(...)` (same pattern as 904-909). Dialog 5000 stays left-anchored at its scaled x=0. Place rail 100 at the dialog's right edge (`vPos.x = nDialog`). Set status bar 40000's `vPos.x` so its LEFT edge = rail right edge (`vPos.x = nDialog + nRail`), closing the 123px legacy gap at wide drawables. Do not resize any of the three (sizes are owned by ScaleLayout / the XML, D-13).
+   d. Cluster right edge = nDialog + nRail + nStatusbar; cluster target = `min( round(0.5*drawableWidth), nDialog + nRail + nStatusbar )` — at 1024×768 the content clamp makes this equal the legacy layout (gap stays 123px; documented deviation, kept). The vPos.y values are untouched.
+   e. Do NOT reposition while the status bar's slide-out animation is in flight or hidden-below-800 was triggered by CheckResolution — the helper only runs when the screen reposition itself ran; the animation offsets (MinPos -413, scaled by ScaleLayout) are re-derived from the element's own vPos on next Update (H7 unregressed).
+4. Do NOT edit: `FittedMiniMapSize` (H3), `PointToTextureMiniMap`, `CMarkPixelFunctional`, `GetZeroPoint` frame-centering (UIMiniMap.cpp:225-227), any `isLeftTop` argument.
+5. Do NOT add zoom-global reads to UIMiniMap.cpp (D-14/H5).
 </action>
 
 <acceptance_criteria>
 - `grep -n "Reposition" Sources/src/UI/UIMiniMap.h Sources/src/UI/UIMiniMap.cpp` → override declaration + definition present; `grep -n "CSimpleWindow::Reposition\|CSuper::Reposition\|CMultipleWindow::Reposition" Sources/src/UI/UIMiniMap.cpp` → the base call is the first statement of the override.
 - `grep -n "0.5" Sources/src/UI/UIMiniMap.cpp` → the 50%-target constant appears in the cluster computation (source assertion of the pinned rule).
+- `grep -n "FixupHudClusterLayout" Sources/src/GameTT/iMissionInternal.cpp` → >= 3 hits (helper definition + calls after `pUIScreen->Reposition` in CheckResolution and CMD_LOAD_FINISHED).
+- `grep -n "GetChildByID" Sources/src/GameTT/iMissionInternal.cpp` → the fixup reaches children 5000/100/40000 the same way CheckResolution does at 904-909 (>= 2 new hits: rail 100 + status bar 40000).
 - `grep -n "CreateMiniMapTextures" Sources/src/UI/UIMiniMap.cpp` → the override calls it conditionally on wndRect change (>= 4 call sites total now: SetTerrainSize, deserialize, override).
 - Pow2 invariant grep gate: `grep -rn "PointToTextureMiniMap(.*, false" Sources/src/UI/` → 0 hits; `grep -n "isLeftTop" Sources/src/UI/UIMiniMap.cpp` → write sites unchanged (true default).
 - Source assertion: no `ZoomSteps`/`GetPlayerZoom` reference anywhere in UIMiniMap.cpp/h (D-14).
-- Trace assertion (BK_UI_TRACE=1): resolution switch 1024x768 → 1920x1080 mid-mission → the reposition trace shows the override applied exactly once per change (not per frame), and the PrintWindow capture (docs/scaling.md toolchain §3) pixel-verifies the diamond width/height ratio stays 2:1 at both resolutions.
+- Trace assertion (BK_UI_TRACE=1): resolution switch 1024x768 → 1920x1080 mid-mission → the new override's BK_UI_TRACE line (element ID, old/new wndRect, textures-recreated bool) shows the override applied exactly once per change (not per frame), and the PrintWindow capture (docs/scaling.md toolchain §3) pixel-verifies the diamond width/height ratio stays 2:1 at both resolutions.
+- Trace assertion (BK_UI_TRACE=1, wide drawable 1920x1080): after reposition, status bar 40000's left edge sits at rail 100's right edge (dialog 5000 at scaled x=0 → gap = 0, legacy 123px gap closed); at 1024×768 the trace shows the fixup resolved to the legacy layout (gap unchanged).
 - Build Game (Debug) succeeds.
 </acceptance_criteria>
 
 ### 03-T2: Overlay texture recreation correctness on shrink→grow sequences (files: Sources/src/UI/UIMiniMap.cpp)
 
 <read_first>
-- Sources/src/UI/UIMiniMap.cpp lines 78-140 (CreateMiniMapTextures) and 1030-1045 (UV mapping tU = miniMapPoint.x / textureSize)
+- Sources/src/UI/UIMiniMap.cpp lines 78-140 (CreateMiniMapTextures) and 1030-1045 (UV mapping divides by live texture GetSizeX/GetSizeY)
 - Sources/src/UI/UIMiniMap.h lines 110-125 (the 2026-07-26 flip-removal comment + CMarkPixelFunctional)
 - .planning/phases/02-variable-zoom-and-minimap-scaling/02-RESEARCH.md §R6c (shrink→grow UV breakage) + LANDMINE-L5
 - docs/scaling.md § "Case study: the minimap overlay offset"
@@ -154,8 +193,9 @@ files; verified not regressed in validation.
    recreates textures at the new wndRect, all overlay write paths re-derive
    bounds from the NEW texture size: `CMarkPixelFunctional` clamps to
    `size.x/size.y` from the texture lock, `PointToTextureMiniMap` maps
-   through the CURRENT wndRect (UIMiniMap.cpp:1039-1040 divides by
-   `textureSize`), and no cached UV/rect member survives the recreation
+   through the CURRENT wndRect (UIMiniMap.cpp:1033-1034, 1039-1040 divide by
+   the live texture object's `GetSizeX(0)`/`GetSizeY(0)`, not a cached
+   size), and no cached UV/rect member survives the recreation
    (if any stale cached rect exists — e.g. saved marker positions computed
    against the old wndRect — invalidate/re-derive it in the override right
    after `CreateMiniMapTextures()`).
@@ -170,7 +210,11 @@ files; verified not regressed in validation.
 
 <acceptance_criteria>
 - Source assertion: every `CreateTexture` call inside `CreateMiniMapTextures` sizes from the live wndRect / terrainSize (unchanged code path — the override just re-invokes it).
-- Grep gate: `grep -n "textureSize" Sources/src/UI/UIMiniMap.cpp` — UV division sites unchanged, still dividing by the live texture size.
+- Source assertion: overlay UV division uses the live texture object's
+  `GetSizeX(0)`/`GetSizeY(0)` (UIMiniMap.cpp:1033-1034, 1039-1040), not a
+  cached size.
+- Grep gate: `grep -n "GetSizeX( 0 )" Sources/src/UI/UIMiniMap.cpp` → hits at
+  the UV division sites (UV mapping divides by the live texture size).
 - Trace/visual assertion: scripted 640x480 → 1920x1080 → 1024x768 resolution cycling mid-mission with BK_UI_TRACE=1 → no overlay offset/south-shift artifacts after any cycle (the 2026-07-26 bug class stays dead); markers/units redraw on the diamond at the correct positions each size.
 - Build Game (Debug) succeeds.
 </acceptance_criteria>
@@ -179,16 +223,20 @@ files; verified not regressed in validation.
 
 1. Build: `Build Game (Debug)` clean.
 2. Grep gates: override present + base-first call; 50% constant present;
+   `FixupHudClusterLayout` wired at both pUIScreen->Reposition sites;
    pow2 invariant greps clean (no `isLeftTop=false`, no
    `PointToTextureMiniMap(..., false)`, no `CMarkPixelFunctional` flip); no
    zoom reads in UIMiniMap.
 3. Trace smoke: `BK_UI_TRACE=1 Game.exe -tutorial.xml` — one reposition per
-   resolution change with the override applied; texture sizes follow
+   resolution change with the override's BK_UI_TRACE line (element ID,
+   old/new wndRect, textures-recreated) emitted; texture sizes follow
    GetNextPow2(wndRect).
 4. Manual rows (RESEARCH §Manual "minimap rule"): at 1920x1080 the
-   dialog+bar cluster sits right-pinned with the legacy gap closed (cluster
-   ≈ 42% < 50% target); at 1024x768 the cluster is unchanged from today
-   (78%, content-clamped — the documented deviation); diamond 2:1 at every
+   dialog+bar cluster sits right-pinned with the legacy gap closed via the
+   CheckResolution/CMD_LOAD_FINISHED fixup (status bar left edge = rail
+   right edge; cluster ≈ 42% < 50% target); at 1024x768 the cluster is
+   unchanged from today (78%, content-clamped, gap 123px — the documented
+   deviation); diamond 2:1 at every
    resolution; camera-frame polygon tracks map zoom (D-14); status bar
    slide-out animation and <800px hide rule still work; minimap size does
    not change while zooming the map (D-14).
@@ -199,12 +247,19 @@ files; verified not regressed in validation.
   UIMiniMap.cpp definition) — the single resolution-change hook
 - Cluster-width arithmetic in the override: `min(0.5*drawable, content)`
   right-edge pinning (uses `GFX.World.BaseSizeX/Y` + drawable width)
+- Status-bar/dialog/rail reposition fixup in `CInterfaceMission`
+  (`FixupHudClusterLayout`, called from `CheckResolution` and
+  `CMD_LOAD_FINISHED` after `pUIScreen->Reposition`): rail at dialog right
+  edge, status bar left edge at rail right edge — closes the 123px legacy
+  gap at wide drawables; no-op at content-clamped resolutions
+- `BK_UI_TRACE` line in the override (element ID, old/new wndRect,
+  textures-recreated bool)
 - Texture recreation on wndRect change inside the override (calls the
   existing `CreateMiniMapTextures`, no signature change)
 - Last-applied-wndRect guard member (private, e.g. `wndRectApplied`) to
   make recreation once-per-change
 (No new globals, no new config keys, no new command IDs. Files touched are
-UIMiniMap.h/.cpp only.)
+UIMiniMap.h/.cpp + iMissionInternal.cpp.)
 
 ## Notes
 
@@ -221,9 +276,12 @@ UIMiniMap.h/.cpp only.)
 - `CheckResolution`'s hide-below-800 rule stays world-base-locked
   (iMissionInternal.cpp:897-898) — research R6d-3 leaves it as-is; noted
   because the rule now coexists with right-pinning.
-- The status-bar width is intentionally OUTSIDE the cluster width budget
-  (H4/H7): it is a right-pinned slide-out overlay; moving or resizing it
-  would break its absolute-positioned children (no internal reflow exists).
+- The status-bar width IS now part of the cluster width budget
+  (`round(413*s_hud)`, research §R6 table): the fixup moves the status bar
+  to the rail's right edge without resizing it (its TileRect stretches with
+  nothing — size is owned by ScaleLayout), so its absolute-positioned
+  children stay put; the slide-out animation re-derives offsets from the
+  moved vPos (H4/H7).
 
 ---
-*Phase 2 — Plan 03 (wave 1, parallel to Plan 01). Zero file overlap with Plans 01/02 (UIMiniMap.* only). Independent of zoom state.*
+*Phase 2 — Plan 03 (wave 1, parallel to Plan 01). One file overlap with Plan 01/02: iMissionInternal.cpp (this plan's cluster fixup touches only the CheckResolution/CMD_LOAD_FINISHED reposition sites — no zoom-state lines).*
