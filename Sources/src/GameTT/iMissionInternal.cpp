@@ -1012,6 +1012,10 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	pDialog->GetWindowPlacement( &vDialogPos, &vDialogSize, 0 );
 
 	// Legacy widths from mission.xml: dialog 264, rail 114, status bar 413.
+	// All sizes here are ABSOLUTE baselines recomputed from the legacy
+	// geometry and fHudScale on every run -- never derived from the current
+	// widget sizes -- so repeated fixups are idempotent and a resolution
+	// change restores full sizes (no compounding shrink).
 	int nDialog = static_cast<int>( 264.0f * fHudScale + 0.5f );
 	const int nRail = static_cast<int>( 114.0f * fHudScale + 0.5f );
 	const int nStatusbar = static_cast<int>( 413.0f * fHudScale + 0.5f );
@@ -1022,26 +1026,33 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 
 	// D-11 flex: shrink the dialog (and the diamond with it) when the cluster
 	// content cannot fit the 50% target. The dialog is the flexible element;
-	// rail and status bar keep their scaled sizes.
-	if ( nClusterTarget < nClusterContent && nClusterContent > nRail + nStatusbar )
+	// rail and status bar keep their scaled sizes. Guarded: when the fixed
+	// elements alone exceed the target (small 4:3 resolutions such as
+	// 640x480/800x600/1024x768, where the clamp resolves to the legacy
+	// cluster), nDialogMax would go negative -- there the target is
+	// unreachable without resizing the rail/status bar content, which D-13
+	// forbids, so the dialog keeps its scaled legacy size (the documented
+	// deviation instead of a negative-size blowup).
+	if ( nClusterTarget < nClusterContent && nClusterTarget > nRail + nStatusbar )
 	{
 		const int nDialogMax = nClusterTarget - nRail - nStatusbar;
 		if ( nDialogMax < nDialog )
 		{
+			// Absolute flex baseline: legacy dialog geometry scaled by the
+			// flex factor, not the current widget size (idempotent).
 			const float fDialogFlex = static_cast<float>( nDialogMax ) / static_cast<float>( nDialog );
-			CVec2 vDialogNewSize( floor( vDialogSize.x * fDialogFlex ), floor( vDialogSize.y * fDialogFlex ) );
+			CVec2 vDialogNewSize( floor( 264.0f * fHudScale * fDialogFlex ), floor( 155.0f * fHudScale * fDialogFlex ) );
 			pDialog->SetWindowPlacement( 0, &vDialogNewSize );
 
 			// The diamond (element 20000, the CUIMiniMap inside the dialog)
-			// flexes by the same factor so its 2:1 diamond mapping survives
-			// (anisotropic scaling breaks it, see docs/scaling.md).
+			// flexes to the same absolute baseline (legacy 256x128 at a
+			// (6,3) inset) by the same factor so its 2:1 diamond mapping
+			// survives (anisotropic scaling breaks it, see docs/scaling.md).
 			if ( IUIContainer *pDialogContainer = checked_cast<IUIContainer*>( pDialog ) )
 			{
 				if ( IUIElement *pMinimap = pDialogContainer->GetChildByID( 20000 ) )
 				{
-					CVec2 vMinimapPos, vMinimapSize;
-					pMinimap->GetWindowPlacement( &vMinimapPos, &vMinimapSize, 0 );
-					CVec2 vMinimapNewSize( floor( vMinimapSize.x * fDialogFlex ), floor( vMinimapSize.y * fDialogFlex ) );
+					CVec2 vMinimapNewSize( floor( 256.0f * fHudScale * fDialogFlex ), floor( 128.0f * fHudScale * fDialogFlex ) );
 					pMinimap->SetWindowPlacement( 0, &vMinimapNewSize );
 				}
 			}
