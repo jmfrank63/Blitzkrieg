@@ -329,6 +329,51 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 		}
 	}
 }
+void CInterfaceScreenBase::DrawSyncActivityBar( const CTRect<float> &rcTrack, const bool bActive )
+{
+	if ( !bActive || pGFX == 0 || pTimer == 0 )
+		return;
+	// Map the authored canvas rect to the display exactly as CUIScreen::
+	// Reposition lays the scaled screens out: one scale for both axes from
+	// the height (width follows), the 4:3 canvas centred in the leftovers.
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	const float fScale = Min( rcScreen.Width() / 1024.0f, rcScreen.Height() / 768.0f );
+	const float fCanvasX1 = rcScreen.x1 + ( rcScreen.Width() - 1024.0f * fScale ) * 0.5f;
+	const float fCanvasY1 = rcScreen.y1 + ( rcScreen.Height() - 768.0f * fScale ) * 0.5f;
+	const float fTrackX1 = fCanvasX1 + rcTrack.x1 * fScale;
+	const float fTrackY1 = fCanvasY1 + rcTrack.y1 * fScale;
+	const float fTrackX2 = fCanvasX1 + rcTrack.x2 * fScale;
+	const float fTrackY2 = fCanvasY1 + rcTrack.y2 * fScale;
+
+	// A segment a quarter of the track long sweeps left to right and wraps:
+	// its unclipped x runs from -segW to trackW, and clamping to the track
+	// edges makes it grow in on the left and shrink out on the right. The
+	// sync has no honest percentage to show (the worker publishes states
+	// only), so the bar says "moving", not "how much".
+	const float fTrackW = fTrackX2 - fTrackX1;
+	const float fSegW = fTrackW * 0.25f;
+	const NTimer::STime timeAbs = pTimer->GetAbsTime();
+	const float fSweep = ( float( timeAbs % 1400 ) / 1400.0f ) * ( fTrackW + fSegW );
+	float fSegX1 = fTrackX1 + fSweep - fSegW;
+	float fSegX2 = fSegX1 + fSegW;
+	if ( fSegX1 < fTrackX1 )
+		fSegX1 = fTrackX1;
+	if ( fSegX2 > fTrackX2 )
+		fSegX2 = fTrackX2;
+
+	SGFXRect2 rects[2];
+	rects[0].rect.Set( fTrackX1, fTrackY1, fTrackX2, fTrackY2 );
+	rects[0].maps.SetEmpty();
+	rects[0].color = 0xff17140f;		// dark warm track over the backdrop
+	rects[1].rect.Set( fSegX1, fTrackY1, fSegX2, fTrackY2 );
+	rects[1].maps.SetEmpty();
+	rects[1].color = 0xffffbe34;		// the gold the cloud text uses
+	pGFX->SetupDirectTransform();
+	pGFX->SetTexture( 0, 0 );
+	pGFX->SetShadingEffect( 3 );
+	pGFX->DrawRects( rects, 2, true );
+	pGFX->RestoreTransform();
+}
 void CInterfaceScreenBase::AddStatistics()
 {
 	double fTimePassed = NHPTimer::GetTimePassed( &time );

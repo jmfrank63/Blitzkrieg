@@ -87,6 +87,12 @@ protected:
 	virtual void SuspendAILogic( bool bSuspend );
 	virtual bool STDCALL StepLocal( bool bAppActive ) { return bAppActive; }
 	virtual void STDCALL DrawAdd() {  }
+	// One indeterminate sync-activity bar: a dark track with a gold segment
+	// sweeping it while bActive, nothing drawn when inactive. rcTrack is
+	// authored in the 1024x768 canvas the scaled screens are laid out in and
+	// is mapped to the real display the same way CUIScreen::Reposition maps
+	// them - one scale from the height, canvas centred.
+	void DrawSyncActivityBar( const CTRect<float> &rcTrack, bool bActive );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg ) = 0;
 	virtual bool STDCALL OnCursorMove( const CVec2 &vPos );
 	void SetTutorialNumber( const int _nHelpContext ) { nHelpContextNumber = _nHelpContext; }
