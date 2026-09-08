@@ -1011,7 +1011,11 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
         }
     }
     // Mirror of NSceneScreenScale::GetGameplayScale (docs/scaling.md): the
-    // mission world zoom is legacy_step(base) * fill(scene/base). The sprite
+    // mission world zoom is legacy_step(base) * fill(scene/base) * z, where
+    // z = pow(GFX.World.ZoomFactor, GFX.World.ZoomSteps) clamped so the
+    // zoomed view never shows less than a 640x480-effective viewport
+    // (replicated here because Sources/src/Scene is not on this module's
+    // include path; SceneScreenScale.h is the canonical math). The sprite
     // shadow pass switches to linear filtering when it is fractional; see
     // SetTexture. Unset base globals mean a non-Mission screen, whose zoom is
     // a whole step by construction.
@@ -1023,7 +1027,17 @@ void GraphicsEngineGpu::UpdatePresentOffsets()
         {
             const float fLegacyStep = Max( 1.0f, floorf( Min( fBaseW / 1024.0f, fBaseH / 768.0f ) ) );
             const float fFill = Max( 1.0f, Min( float( width_ ) / fBaseW, float( height_ ) / fBaseH ) );
-            const float fZoom = fLegacyStep * fFill;
+            const float fBaseZoom = fLegacyStep * fFill;
+            const float fFactor = GetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
+            const float fZMax = Min( Max( width_ / ( fBaseZoom * 640.0f ), 1.0f ), Max( height_ / ( fBaseZoom * 480.0f ), 1.0f ) );
+            float fZ = 1.0f;
+            for ( int nStep = 0; nStep < GetGlobalVar( "GFX.World.ZoomSteps", 0 ) && nStep < 8; ++nStep )
+            {
+                if ( fZ * fFactor > fZMax )
+                    break;
+                fZ *= fFactor;
+            }
+            const float fZoom = fBaseZoom * fZ;
             bFractional = fabsf( fZoom - floorf( fZoom + 0.5f ) ) > 0.001f;
         }
         world_zoom_fractional_ = bFractional;
