@@ -14,6 +14,7 @@
 #include "../Misc/HPTimer.h"
 #include "../Anim/Animation.h"
 #include "../Scene/Terrain.h"
+#include "../Scene/SceneScreenScale.h"
 #include "../Main/GameDB.h"
 #include "../Main/CommandsHistoryInterface.h"
 #include "../AILogic/AILogic.h"
@@ -146,6 +147,9 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "leave_ingame_editor"	, MC_LEAVE_INGAME_EDITOR	},
 	{ "save_scene"					, MC_SAVE_SCENE						},
 #endif // !defined(_FINALRELEASE) || defined( _PROFILER )
+	{ "zoom_in"							, MC_ZOOM_IN							},
+	{ "zoom_out"						, MC_ZOOM_OUT							},
+	{ "zoom_reset"					, MC_ZOOM_RESET						},
 	{ "show_avia_buttons"		,	MC_SHOW_AVIA_BUTTONS		},
 	{ "add_action_on"				,	MC_ADD_ACTION_ON				},
 	{ "add_action_off"			,	MC_ADD_ACTION_OFF				},
@@ -810,6 +814,16 @@ static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlaye
 		return VNULL3;
 	return CVec3( vSum.x / nUnits, vSum.y / nUnits, 0.0f );
 }
+// Stepped zoom state change (D-05): clamps against the D-09 zoom-in bound and
+// writes the step count global. Screen-center scaling only in this plan; the
+// cursor-anchored application replaces the body in the follow-up task.
+void CInterfaceMission::ZoomStepMission( int nDelta )
+{
+	const int nSteps = Clamp( GetGlobalVar( "GFX.World.ZoomSteps", 0 ) + nDelta, 0, NSceneScreenScale::GetMaxZoomSteps( pGFX->GetScreenRect() ) );
+	SetGlobalVar( "GFX.World.ZoomSteps", nSteps );
+	if ( getenv( "BK_INPUT_TRACE" ) )
+		fprintf( stderr, "BK_INPUT_TRACE: zoom step delta=%d steps=%d\n", nDelta, nSteps );
+}
 bool CInterfaceMission::Init()
 {
 	SyncMissionModeFromInterMission();
@@ -826,6 +840,7 @@ bool CInterfaceMission::Init()
 	pAckManager = GetSingleton<IClientAckManager>();
 	pFrameSelection = pScene->GetFrameSelection();
 	missionMsgs.Init( pInput, missionCommands );
+	pZoomWheelSlider = GetSingleton<IInput>()->CreateSlider( "zoom_wheel" );
 	// Keep whatever anchor the camera already carries. Init runs before
 	// NewMission on a fresh start, where the anchor is still the default, but
 	// during deserialization on a load - and hardcoding the origin here threw
@@ -1378,6 +1393,38 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 	bWasSpeedUpDown = bSpeedUpDown;
 	bWasSpeedDownDown = bSpeedDownDown;
 
+	// Shift+wheel zoom (D-02): the zoom_wheel combo slider accumulates
+	// power-scaled wheel deltas (120 delta x Power 40 x 0.001 = 4.8 per
+	// notch); one stepped zoom per accumulated quantum, fraction carried
+	// over. The same pause gate as the MC_ZOOM_* dispatch applies. Wheel
+	// up must zoom IN - flip the sign mapping at runtime trace if inverted.
+	if ( pZoomWheelSlider )
+	{
+		static float fZoomWheelAccum = 0.0f;
+		fZoomWheelAccum += pZoomWheelSlider->GetDelta();
+		const float fZoomWheelQuantum = 4.8f;
+		while ( fZoomWheelAccum >= fZoomWheelQuantum )
+		{
+			if ( pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL )
+			{
+				fZoomWheelAccum = 0.0f;
+				break;
+			}
+			ZoomStepMission( +1 );
+			fZoomWheelAccum -= fZoomWheelQuantum;
+		}
+		while ( fZoomWheelAccum <= -fZoomWheelQuantum )
+		{
+			if ( pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL )
+			{
+				fZoomWheelAccum = 0.0f;
+				break;
+			}
+			ZoomStepMission( -1 );
+			fZoomWheelAccum += fZoomWheelQuantum;
+		}
+	}
+
 	++nStartPauseCounter;
 	if ( nStartPauseCounter == 2 )
 		GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_PREMISSION );
@@ -1795,6 +1842,19 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			break;
 		case MC_SHOW_UI:
 			pScene->ToggleShow( SCENE_SHOW_UI );
+			break;
+		case MC_ZOOM_IN:
+		case MC_ZOOM_OUT:
+		case MC_ZOOM_RESET:
+			// One shared pause gate for all three zoom commands (RESET must
+			// not work while paused either) - the generic guard above only
+			// covers event IDs < 512.
+			if ( pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL )
+				break;
+			if ( msg.nEventID == MC_ZOOM_RESET )
+				SetGlobalVar( "GFX.World.ZoomSteps", 0 );
+			else
+				ZoomStepMission( msg.nEventID == MC_ZOOM_IN ? +1 : -1 );
 			break;
 		case MC_SHOW_AVIA_BUTTONS:
 			GetSingleton<IInput>()->AddMessage( SGameMessage( UI_NEXT_STATE_MESSAGE, 12003 ) );

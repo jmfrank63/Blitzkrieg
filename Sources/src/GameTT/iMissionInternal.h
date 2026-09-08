@@ -206,6 +206,7 @@ private:
 	bool bForceRotation;
 	int nStartPauseCounter;								// mission start pause counter
 	NInput::CCommandRegistrator missionMsgs;
+	CPtr<IInputSlider> pZoomWheelSlider;		// Shift+wheel zoom slider (zoom_wheel binds)
 	bool bEditMode;												// edit mode (obsolete)
 	bool bEnableStatistics;								// enable statistics drawing
 	int nDirection;												// rotation direction
@@ -231,6 +232,7 @@ private:
 	void BeginAction( const SGameMessage &msg );
 	void GetPos3( CVec3 *pPos, const CVec2 &pos );
 	void GetPos3( CVec3 *pPos, float x, float y );
+	static void ZoomStepMission( int nDelta );
 	void VisualizeFeedback( const int nFeedBack, const int nParam );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL ProcessMessageLocal( const SGameMessage &msg );
