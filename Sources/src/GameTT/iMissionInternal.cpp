@@ -819,7 +819,7 @@ static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlaye
 // cursor-anchored application replaces the body in the follow-up task.
 void CInterfaceMission::ZoomStepMission( int nDelta )
 {
-	const int nSteps = Clamp( GetGlobalVar( "GFX.World.ZoomSteps", 0 ) + nDelta, 0, NSceneScreenScale::GetMaxZoomSteps( pGFX->GetScreenRect() ) );
+	const int nSteps = Clamp( GetGlobalVar( "GFX.World.ZoomSteps", 0 ) + nDelta, 0, NSceneScreenScale::GetMaxZoomSteps( GetSingleton<IGFX>()->GetScreenRect() ) );
 	SetGlobalVar( "GFX.World.ZoomSteps", nSteps );
 	if ( getenv( "BK_INPUT_TRACE" ) )
 		fprintf( stderr, "BK_INPUT_TRACE: zoom step delta=%d steps=%d\n", nDelta, nSteps );
