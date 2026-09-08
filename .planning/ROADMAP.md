@@ -3,11 +3,13 @@
 ## Phase 1 – Stabilize build and runtime environment
 
 Goals:
+
 - Confirm current MSVC build and runtime path.
 - Add explicit VS Code build/debug tasks and documentation.
 - Capture the project scope and success criteria in planning docs.
 
 Key outcomes:
+
 - Clean `Debug | Win32` build of `Game`.
 - Working Game runtime from `Sources/src/Game/Debug/Game.exe`.
 - Documented build/run/debug workflow in `.planning/PROJECT.md` and `README.md`.
@@ -15,11 +17,13 @@ Key outcomes:
 ## Phase 2 – Modern debugging and developer workflow
 
 Goals:
+
 - Ensure native VS Code debugging is reliable.
 - Verify WinDbg support for low-level runtime inspection.
 - Improve tooling for working with legacy code.
 
 Key outcomes:
+
 - Configured VS Code tasks and launch settings for `Game` and `ELK`.
 - Confirmed debugger attach/launch workflows.
 - Added developer notes for VS Code and MSVC toolchain requirements.
@@ -27,11 +31,13 @@ Key outcomes:
 ## Phase 3 – Dependency replacement planning
 
 Goals:
+
 - Audit proprietary SDK usage in the codebase.
 - Evaluate open-source replacements for FMOD, BINK, and Stingray.
 - Start isolating legacy libraries behind migration boundaries.
 
 Key outcomes:
+
 - Inventory of proprietary dependencies.
 - Replacement strategy for audio, video codec, and UI.
 - Prototype or stubbed integration points for alternatives.
@@ -39,11 +45,13 @@ Key outcomes:
 ## Phase 4 – Runtime stability and compatibility
 
 Goals:
+
 - Reduce remaining runtime exceptions and crashes.
 - Harden the game runtime for the legacy tutorial path.
 - Preserve compatibility with data and asset loading.
 
 Key outcomes:
+
 - Stable tutorial and mission startup in `Debug` build.
 - Clear regression tests or manual validation checklist.
 - Runtime stability improvements documented in `.planning/STATE.md`.
@@ -51,11 +59,13 @@ Key outcomes:
 ## Phase 5 – Zig migration pilot preparation
 
 Goals:
+
 - Create a small pilot plan for migrating a targeted subsystem to Zig.
 - Preserve the C++ branch while preparing for hybrid evolution.
 - Keep the overall game runnable as the migration proceeds.
 
 Key outcomes:
+
 - Pilot scope and success criteria for Zig porting.
 - Clear boundary between legacy C++ and new Zig code.
 - A follow-up roadmap item for `/gsd-plan-phase 2` or later.
@@ -63,6 +73,7 @@ Key outcomes:
 ## Phase 6 – 64-bit transition (branch: 64transition)
 
 Goals:
+
 - Move the whole game from x86 to x86_64.
 - Build infrastructure is already done: every module compiles and links for
   `x86_64-windows-msvc` (`zig build -Dtarget=x86_64-windows-msvc`); the only
@@ -174,3 +185,20 @@ Goals:
   out not to load in the x64 build, do NOT add compatibility shims to the
   engine; write a standalone converter utility instead (or accept fresh
   saves). The x64 engine reads/writes only its native format.
+
+### Phase 2: Variable zoom and minimap scaling
+
+**Goal:** Add player-controlled variable map zoom bounded between the configured
+settings resolution (max zoom-out limit) and 640x480 effective viewport (max
+zoom-in limit), decouple the minimap from map zoom by giving it a fixed size
+relative to screen width (sized so minimap + command/unit detail panel occupies
+half the available width), and add zoom controls: Shift+mouse wheel, T (zoom
+in), G (zoom out), B (reset zoom).
+
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 2 to break down)
