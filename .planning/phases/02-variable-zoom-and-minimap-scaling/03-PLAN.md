@@ -4,6 +4,12 @@ phase: 2
 title: Minimap fixed sizing — cluster rule, resolution-change-only resize, texture recreation
 wave: 1
 depends_on: []
+ordering_note: >-
+  Same-wave serialization with Plan 01 on the shared file
+  Sources/src/GameTT/iMissionInternal.cpp: Plan 01's iMissionInternal.cpp
+  edits execute FIRST; this plan re-reads the file from disk and applies
+  FixupHudClusterLayout after (see the execution ordering note below).
+  Not a wave dependency — all other files stay parallel.
 files_modified:
   - Sources/src/UI/UIMiniMap.h
   - Sources/src/UI/UIMiniMap.cpp
@@ -65,10 +71,12 @@ clamped to content minimum"**:
   today, arrangement untouched (D-13).
 The sizing code computes the ratio and applies it; no arithmetic beyond
 `s_hud`, one `Min`, and right-edge pinning. The gap closure at wide drawables
-is a two-part implementation: (a) the `CUIMiniMap::Reposition` override pins
-the minimap element and recreates textures (below), and (b) a
+is a two-part implementation: (a) the `CUIMiniMap::Reposition` override
+recreates the overlay textures when its wndRect changes (below), and (b) a
 status-bar/dialog/rail reposition fixup in `CInterfaceMission` (tasked in
-03-T1) rebuilds the cluster layout after `pUIScreen->Reposition(...)` at
+03-T1) owns the full cluster arithmetic — the 50% target, the content
+clamp, and the minimap element's flexible size when the cluster math
+demands it — running after `pUIScreen->Reposition(...)` at
 `CheckResolution` and `CMD_LOAD_FINISHED`: dialog 5000 stays left-anchored at
 its scaled x=0, rail 100 is placed at the dialog's right edge, and status bar
 40000 has its `vPos.x` set so its left edge = rail right edge — closing the
@@ -96,10 +104,14 @@ files; verified not regressed in validation.
 
 - H1: A `CUIMiniMap::Reposition` override exists (UIMiniMap.h declaration +
   UIMiniMap.cpp definition) that calls `CSimpleWindow::Reposition` first,
-  then adjusts the element-20000 `vSize`/`vPos` to the pinned arithmetic,
-  recomputes its own `wndRect`, and recreates textures — runs on EVERY
-  reposition path (CScene::Reposition on resolution change;
-  CMD_LOAD_FINISHED) (D-12, LANDMINE-L5).
+  then detects a wndRect change, recreates textures when it changed, and
+  emits a BK_UI_TRACE line (element ID, old/new wndRect,
+  textures-recreated) — runs on EVERY reposition path (CScene::Reposition
+  on resolution change; CMD_LOAD_FINISHED) (D-12, LANDMINE-L5). The
+  override contains no 50% arithmetic of its own — the cluster math (and
+  thus when the minimap element flexes) lives in the
+  `FixupHudClusterLayout` fixup in iMissionInternal.cpp; the minimap
+  element flexes when the fixup's cluster math demands it.
 - H2: Texture recreation happens iff the reposition changed wndRect:
   `CreateMiniMapTextures()` re-sizes pInstantObjects (and pWarFog is
   terrain-driven, untouched by reposition); the 2026-07-26 pow2 overlay
@@ -110,7 +122,10 @@ files; verified not regressed in validation.
   diamond stretching is the docs/scaling.md closing-warning failure).
 - H4: Dialog 5000, rail 100, status bar 40000 keep their legacy SIZES and
   relative arrangement (D-13); only the minimap element 20000 flexes, and
-  only when the pinned arithmetic demands it. The dialog↔status-bar gap
+  only when the fixup's cluster math demands it — the element target size is
+  set by `FixupHudClusterLayout` in iMissionInternal.cpp (no unreachable
+  "future scaffolding" 50% branch left inside the override). The
+  dialog↔status-bar gap
   (387-264=123 legacy px) closes at wide drawables via the CInterfaceMission
   reposition fixup (rail placed at dialog right edge, status bar 40000
   vPos.x placed at rail right edge); the gap is unchanged at 1024×768 due to
@@ -145,30 +160,46 @@ files; verified not regressed in validation.
 
 <action>
 1. UIMiniMap.h: declare `virtual void STDCALL Reposition( const CTRect<int> &rcScreen );` on CUIMiniMap (match the exact base signature used by CSimpleWindow — verify `Reposition`'s parameter type and STDCALL-ness in UIBasic.h before writing; the base is `CSimpleWindow::Reposition` reached via `CMultipleWindow::Reposition` recursion).
-2. UIMiniMap.cpp — implement the override:
+2. UIMiniMap.cpp — implement the override (keep it minimal: NO cluster
+   arithmetic here — the 50% target and the element flex live in the
+   iMissionInternal.cpp fixup, step 3):
    a. Call the base Reposition first (normal scaling/layout pass).
-   b. Read `nBaseW = GetGlobalVar( "GFX.World.BaseSizeX", 0 )`,
-      `nBaseH = GetGlobalVar( "GFX.World.BaseSizeY", 0 )` (0 outside missions — in that case return after the base call, no override).
-   c. Compute `fHudScale = min( nBaseW/1024.0, nBaseH/768.0 )` (the same s_hud CUIScreen::Reposition uses).
-   d. Cluster content width: `nClusterContentWidth = round(264*fHudScale) + round(114*fHudScale) + round(413*fHudScale)` (dialog + rail + status bar, research §R6 table).
-   e. Cluster fixup: `nClusterTarget = min( round(0.5*drawableWidth), nClusterContentWidth )`; the cluster right edge = dialog + rail + statusbar widths. The dialog keeps legacy size `round(264*fHudScale)` (D-13). Because the gap closure requires moving the status bar and rail — which live on the mission screen, not inside this window — the override delegates cluster layout to the CInterfaceMission fixup (step 3): the override pins only the minimap element (step f) and recreates textures on wndRect change. The dialog's own rect is unchanged (it stays left-anchored at its scaled x=0).
-   f. Flex the minimap element 20000: compute its target rect inside the dialog so the diamond keeps 2:1 and fits `FittedMiniMapSize` — set element `vSize` = `(nElementW, round(nElementW/2))` where `nElementW` derives from the dialog's fixed 264*fHudScale minus its 6px inset, UNLESS the pinned arithmetic (step e) shrinks the dialog budget, in which case scale the element by the same factor as the dialog. Apply the SAME factor to width and height (H3).
-   g. Emit a `BK_UI_TRACE` fprintf line (pattern = Camera.cpp:73-74 getenv + fprintf) logging the element ID, the old wndRect, the new wndRect, and the textures-recreated bool — CUIMiniMap::Reposition emits nothing today, so this line is the once-per-change trace gate.
-   h. Recompute `wndRect` from the adjusted vPos/vSize the same way `CSimpleWindow::Reposition` does (nPositionFlag 0x0011 + scaled pos/size), then if wndRect changed from the pre-override value: `CreateMiniMapTextures()` (the existing function re-derives GetNextPow2 sizes from wndRect, UIMiniMap.cpp:87).
-   i. Guard: keep a member copy of the last-applied wndRect (or compare before/after) so the recreation runs once per resolution change, not per frame.
-3. iMissionInternal.cpp — status-bar/dialog/rail reposition fixup in CInterfaceMission: add a small private helper (e.g. `FixupHudClusterLayout()`) and call it AFTER `pUIScreen->Reposition(...)` at the two precedent sites — in `CheckResolution` (iMissionInternal.cpp:887-914, which already reaches children 110/40000 via `pUIScreen->GetChildByID` at 904-909) and in the `CMD_LOAD_FINISHED` handler (iMissionInternal.cpp:1861-1870, which already calls `pUIScreen->Reposition`). The helper recomputes the cluster layout:
+   b. Detect whether the reposition changed this window's wndRect (compare
+      before/after the base call).
+   c. If wndRect changed: `CreateMiniMapTextures()` (the existing function
+      re-derives GetNextPow2 sizes from wndRect, UIMiniMap.cpp:87).
+   d. Emit a `BK_UI_TRACE` fprintf line (pattern = Camera.cpp:73-74 getenv
+      + fprintf) logging the element ID, the old wndRect, the new wndRect,
+      and the textures-recreated bool — CUIMiniMap::Reposition emits
+      nothing today, so this line is the once-per-change trace gate.
+   e. Guard: keep a member copy of the last-applied wndRect (or compare
+      before/after) so the recreation runs once per resolution change, not
+      per frame.
+3. iMissionInternal.cpp — status-bar/dialog/rail reposition fixup in CInterfaceMission: add a **file-static free function** `static void FixupHudClusterLayout( CUIScreen *pScreen )` in iMissionInternal.cpp (NO iMissionInternal.h change — keeps files_modified accurate and avoids a second header overlap with Plan 01), called as `FixupHudClusterLayout( pUIScreen )` AFTER `pUIScreen->Reposition(...)` at the two precedent sites — in `CheckResolution` (iMissionInternal.cpp:887-914, which already reaches children 110/40000 via `pUIScreen->GetChildByID` at 904-909) and in the `CMD_LOAD_FINISHED` handler (iMissionInternal.cpp:1861-1870, which already calls `pUIScreen->Reposition`). The helper recomputes the cluster layout:
    a. Read `s_hud = min( BaseSizeX/1024, BaseSizeY/768 )` from the GFX.World base globals (as in CUIScreen::Reposition); if the base is unset (0), return.
    b. Widths per research §R6 table: `nDialog = round(264*s_hud)`, `nRail = round(114*s_hud)`, `nStatusbar = round(413*s_hud)`.
    c. Reach children 5000 (minimap dialog), 100 (rail), 40000 (status bar) via `pUIScreen->GetChildByID(...)` (same pattern as 904-909). Dialog 5000 stays left-anchored at its scaled x=0. Place rail 100 at the dialog's right edge (`vPos.x = nDialog`). Set status bar 40000's `vPos.x` so its LEFT edge = rail right edge (`vPos.x = nDialog + nRail`), closing the 123px legacy gap at wide drawables. Do not resize any of the three (sizes are owned by ScaleLayout / the XML, D-13).
-   d. Cluster right edge = nDialog + nRail + nStatusbar; cluster target = `min( round(0.5*drawableWidth), nDialog + nRail + nStatusbar )` — at 1024×768 the content clamp makes this equal the legacy layout (gap stays 123px; documented deviation, kept). The vPos.y values are untouched.
-   e. Do NOT reposition while the status bar's slide-out animation is in flight or hidden-below-800 was triggered by CheckResolution — the helper only runs when the screen reposition itself ran; the animation offsets (MinPos -413, scaled by ScaleLayout) are re-derived from the element's own vPos on next Update (H7 unregressed).
+   d. The 50% target lives HERE (moved out of the minimap override):
+      `nClusterTarget = min( round(0.5*drawableWidth), nDialog + nRail + nStatusbar )` — at 1024×768 the content clamp makes this equal the legacy layout (gap stays 123px; documented deviation, kept). The vPos.y values are untouched.
+   e. Flex the minimap element 20000 when the cluster math demands it: reach
+      element 20000 via the dialog child (`pScreen->GetChildByID(5000)` then
+      its child 20000, same GetChildByID pattern). Compute the element's
+      target width inside the dialog so the diamond keeps 2:1 and fits
+      `FittedMiniMapSize` — set element `vSize` = `(nElementW, round(nElementW/2))`
+      where `nElementW` derives from the dialog's fixed 264*s_hud minus its
+      6px inset, UNLESS `nClusterTarget` shrinks the dialog budget (i.e.
+      `nClusterTarget < nDialog + nRail + nStatusbar`), in which case scale
+      the element by the same factor as the dialog. Apply the SAME factor to
+      width and height (H3). At content-clamped resolutions this is a no-op.
+   f. Do NOT reposition while the status bar's slide-out animation is in flight or hidden-below-800 was triggered by CheckResolution — the helper only runs when the screen reposition itself ran; the animation offsets (MinPos -413, scaled by ScaleLayout) are re-derived from the element's own vPos on next Update (H7 unregressed).
 4. Do NOT edit: `FittedMiniMapSize` (H3), `PointToTextureMiniMap`, `CMarkPixelFunctional`, `GetZeroPoint` frame-centering (UIMiniMap.cpp:225-227), any `isLeftTop` argument.
 5. Do NOT add zoom-global reads to UIMiniMap.cpp (D-14/H5).
 </action>
 
 <acceptance_criteria>
 - `grep -n "Reposition" Sources/src/UI/UIMiniMap.h Sources/src/UI/UIMiniMap.cpp` → override declaration + definition present; `grep -n "CSimpleWindow::Reposition\|CSuper::Reposition\|CMultipleWindow::Reposition" Sources/src/UI/UIMiniMap.cpp` → the base call is the first statement of the override.
-- `grep -n "0.5" Sources/src/UI/UIMiniMap.cpp` → the 50%-target constant appears in the cluster computation (source assertion of the pinned rule).
+- `grep -n "0.5" Sources/src/GameTT/iMissionInternal.cpp` → the 50%-target constant appears inside `FixupHudClusterLayout`'s cluster computation (source assertion of the pinned rule); `grep -n "0.5" Sources/src/UI/UIMiniMap.cpp` → 0 hits (no dead/unreachable override-side 50% computation).
+- `grep -n "static void FixupHudClusterLayout( CUIScreen" Sources/src/GameTT/iMissionInternal.cpp` → 1 hit (file-static free function definition); `grep -n "FixupHudClusterLayout" Sources/src/GameTT/iMissionInternal.h` → 0 hits (no header change).
 - `grep -n "FixupHudClusterLayout" Sources/src/GameTT/iMissionInternal.cpp` → >= 3 hits (helper definition + calls after `pUIScreen->Reposition` in CheckResolution and CMD_LOAD_FINISHED).
 - `grep -n "GetChildByID" Sources/src/GameTT/iMissionInternal.cpp` → the fixup reaches children 5000/100/40000 the same way CheckResolution does at 904-909 (>= 2 new hits: rail 100 + status bar 40000).
 - `grep -n "CreateMiniMapTextures" Sources/src/UI/UIMiniMap.cpp` → the override calls it conditionally on wndRect change (>= 4 call sites total now: SetTerrainSize, deserialize, override).
@@ -219,14 +250,35 @@ files; verified not regressed in validation.
 - Build Game (Debug) succeeds.
 </acceptance_criteria>
 
+## Execution ordering note (shared file: iMissionInternal.cpp)
+
+This plan and Plan 01 (same wave) both edit
+`Sources/src/GameTT/iMissionInternal.cpp`, including the SAME
+`CMD_LOAD_FINISHED` case body (Plan 01 inserts SetGlobalVar calls at the
+case top ~1861; this plan inserts the `FixupHudClusterLayout` call after
+`pUIScreen->Reposition` in the same case). Within wave 1, **Plan 01's
+iMissionInternal.cpp edits execute FIRST** (missionCommands[] ~127-172, Init
+~828, StepLocal ~1356, ProcessMessageLocal ~1764, CMD_LOAD_FINISHED
+case-top insertion ~1861); this plan's fixup edits execute AFTER them. The
+executor of this plan MUST re-read iMissionInternal.cpp fresh from disk
+(the file-on-disk state, not memory) after Plan 01's edits are applied,
+then add the `FixupHudClusterLayout` helper and the two
+after-`pUIScreen->Reposition` call sites (including the same
+`CMD_LOAD_FINISHED` case body Plan 01 edited). Do not parallelize the two
+plans' iMissionInternal.cpp edits; all other wave-1 work (UIMiniMap.h/.cpp)
+is unaffected and stays parallel.
+
 ## Verification criteria (plan-level)
 
 1. Build: `Build Game (Debug)` clean.
-2. Grep gates: override present + base-first call; 50% constant present;
-   `FixupHudClusterLayout` wired at both pUIScreen->Reposition sites;
-   pow2 invariant greps clean (no `isLeftTop=false`, no
-   `PointToTextureMiniMap(..., false)`, no `CMarkPixelFunctional` flip); no
-   zoom reads in UIMiniMap.
+2. Grep gates: override present + base-first call; 50% constant present in
+   `FixupHudClusterLayout` (iMissionInternal.cpp) and absent from
+   UIMiniMap.cpp; file-static helper form
+   (`static void FixupHudClusterLayout( CUIScreen *pScreen )`, no
+   iMissionInternal.h change); `FixupHudClusterLayout` wired at both
+   pUIScreen->Reposition sites; pow2 invariant greps clean (no
+   `isLeftTop=false`, no `PointToTextureMiniMap(..., false)`, no
+   `CMarkPixelFunctional` flip); no zoom reads in UIMiniMap.
 3. Trace smoke: `BK_UI_TRACE=1 Game.exe -tutorial.xml` — one reposition per
    resolution change with the override's BK_UI_TRACE line (element ID,
    old/new wndRect, textures-recreated) emitted; texture sizes follow
@@ -244,14 +296,19 @@ files; verified not regressed in validation.
 ## Artifacts this phase produces (this plan)
 
 - `CUIMiniMap::Reposition` override (UIMiniMap.h:~160 declaration,
-  UIMiniMap.cpp definition) — the single resolution-change hook
-- Cluster-width arithmetic in the override: `min(0.5*drawable, content)`
-  right-edge pinning (uses `GFX.World.BaseSizeX/Y` + drawable width)
+  UIMiniMap.cpp definition) — the single resolution-change hook: wndRect
+  change detection, texture recreation, BK_UI_TRACE line (no cluster
+  arithmetic in the override)
+- Cluster-width arithmetic in `FixupHudClusterLayout` (iMissionInternal.cpp):
+  `min(0.5*drawable, content)` right-edge pinning + minimap element flex
+  when the cluster math demands it (uses `GFX.World.BaseSizeX/Y` + drawable
+  width)
 - Status-bar/dialog/rail reposition fixup in `CInterfaceMission`
-  (`FixupHudClusterLayout`, called from `CheckResolution` and
-  `CMD_LOAD_FINISHED` after `pUIScreen->Reposition`): rail at dialog right
-  edge, status bar left edge at rail right edge — closes the 123px legacy
-  gap at wide drawables; no-op at content-clamped resolutions
+  (`static void FixupHudClusterLayout( CUIScreen *pScreen )` — file-static
+  free function, no iMissionInternal.h change, called from `CheckResolution`
+  and `CMD_LOAD_FINISHED` after `pUIScreen->Reposition`): rail at dialog
+  right edge, status bar left edge at rail right edge — closes the 123px
+  legacy gap at wide drawables; no-op at content-clamped resolutions
 - `BK_UI_TRACE` line in the override (element ID, old/new wndRect,
   textures-recreated bool)
 - Texture recreation on wndRect change inside the override (calls the
@@ -284,4 +341,4 @@ UIMiniMap.h/.cpp + iMissionInternal.cpp.)
   moved vPos (H4/H7).
 
 ---
-*Phase 2 — Plan 03 (wave 1, parallel to Plan 01). One file overlap with Plan 01/02: iMissionInternal.cpp (this plan's cluster fixup touches only the CheckResolution/CMD_LOAD_FINISHED reposition sites — no zoom-state lines).*
+*Phase 2 — Plan 03 (wave 1, parallel to Plan 01). One file overlap with Plan 01/02: iMissionInternal.cpp (this plan's cluster fixup touches only the CheckResolution/CMD_LOAD_FINISHED reposition sites — no zoom-state lines). Ordering: Plan 01's iMissionInternal.cpp edits run FIRST within wave 1; this plan re-reads the file from disk afterward — see the execution ordering note above.*

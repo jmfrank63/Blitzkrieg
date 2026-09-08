@@ -52,8 +52,9 @@ rebuild trigger are Plan 02.
   `MC_ZOOM_RESET=0x00200076` exist in `EMissionCommands`; entries
   `zoom_in`/`zoom_out`/`zoom_reset` are registered in `missionCommands[]`
   OUTSIDE the `#if !defined(_FINALRELEASE)` guard; dispatched in
-  `ProcessMessageLocal` behind a pause gate
-  (`pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL` → skip) — LANDMINE-L7.
+  `ProcessMessageLocal` behind one shared pause gate covering all three
+  commands (`pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL` → skip) —
+  LANDMINE-L7 (RESET/L must not work while paused either).
 - H6: `defconf.cfg` `game_mission` has `zoom_in`(J), `zoom_out`(K),
   `zoom_reset`(L) as `event down`, and two `zoom_wheel` `slider minus` binds
   on {LSHIFT, MOUSE_AXIS_Z} and {RSHIFT, MOUSE_AXIS_Z}. Combo-subset
@@ -175,9 +176,12 @@ canonical. Acceptance is behavioral, not structural.
    `pZoomWheelSlider = GetSingleton<IInput>()->CreateSlider( "zoom_wheel" );`
 6. ProcessMessageLocal switch: add cases `MC_ZOOM_IN` → `ZoomStepMission( +1 )`,
    `MC_ZOOM_OUT` → `ZoomStepMission( -1 )`, `MC_ZOOM_RESET` →
-   `SetGlobalVar( "GFX.World.ZoomSteps", 0 )`. Each MC_ZOOM_IN/OUT case first
-   checks `pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL` and does nothing
-   if paused (LANDMINE-L7). Add a static helper `ZoomStepMission( int nDelta )`
+   `SetGlobalVar( "GFX.World.ZoomSteps", 0 )`. ALL THREE MC_ZOOM_* cases
+   (IN, OUT, RESET) are subject to one shared pause gate
+   `pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL` → do nothing if paused
+   (LANDMINE-L7): either one shared gate check before the zoom-case bodies in
+   the switch, or an identical check inside each case body — L must not work
+   while paused either. Add a static helper `ZoomStepMission( int nDelta )`
    in iMissionInternal.cpp that (this plan) clamps
    `nSteps = Clamp( nSteps + nDelta, 0, GetMaxZoomSteps( pGFX->GetScreenRect() ) )`
    and `SetGlobalVar( "GFX.World.ZoomSteps", nSteps )` — Plan 02 replaces the
@@ -199,7 +203,7 @@ canonical. Acceptance is behavioral, not structural.
 - `grep -n "MC_ZOOM_IN\|MC_ZOOM_OUT\|MC_ZOOM_RESET" Sources/src/GameTT/iMission.h` → exactly 3 hits with values 0x00200074/75/76.
 - `grep -n "zoom_in\|zoom_out\|zoom_reset" Sources/src/GameTT/iMissionInternal.cpp` → 3 missionCommands entries located between the `_FINALRELEASE` `#endif` and `show_avia_buttons`.
 - `grep -n "zoom_wheel" Data/Configs/defconf.cfg` → 2 hits inside the game_mission section (LSHIFT and RSHIFT variants); `grep -n "begin_timeout" Data/Configs/defconf.cfg` still shows the untouched bare-T bind (D-04).
-- `grep -n "GetPauseReason" Sources/src/GameTT/iMissionInternal.cpp` shows the gate inside the MC_ZOOM_IN/OUT handling.
+- `grep -n "GetPauseReason" Sources/src/GameTT/iMissionInternal.cpp` shows the gate inside the MC_ZOOM_* handling (covers IN, OUT, and RESET).
 - Trace assertion (BK_INPUT_TRACE=1): pressing J emits the new BK_INPUT_TRACE
   line from the MC_ZOOM_* dispatch path (command id + resulting zoom step);
   Shift+wheel logs the zoom_wheel combo activating and the bare `mouse_wheel`
@@ -229,6 +233,22 @@ canonical. Acceptance is behavioral, not structural.
 - Trace assertion: BK_GFX_TRACE=1 mission launch → zoom steps via J → save → load → effective zoom is 1 (steps reset) while the step-cap logic still works.
 - Source assertion: the two SetGlobalVar names are `GFX.`-prefixed (excluded from savegames per GlobalVars.h:124-155).
 </acceptance_criteria>
+
+## Execution ordering note (shared file: iMissionInternal.cpp)
+
+This plan and Plan 03 (same wave) both edit
+`Sources/src/GameTT/iMissionInternal.cpp`, including the SAME
+`CMD_LOAD_FINISHED` case body. Within wave 1, **this plan's
+iMissionInternal.cpp edits execute FIRST** (missionCommands[] ~127-172, Init
+~828, StepLocal ~1356, ProcessMessageLocal ~1764, CMD_LOAD_FINISHED
+case-top insertion ~1861), and Plan 03's fixup edits execute AFTER it.
+The Plan 03 executor must re-read iMissionInternal.cpp from disk (the
+file-on-disk state, not memory) after this plan's edits are applied before
+adding `FixupHudClusterLayout` (helper + the two after-`pUIScreen->Reposition`
+call sites, one of which is inside the same `CMD_LOAD_FINISHED` case body
+this plan edits). Executors of both plans must re-read the file from disk
+after the other plan's edits land. Do not parallelize the two plans'
+iMissionInternal.cpp edits; keep all other wave-1 work parallel.
 
 ## Verification criteria (plan-level)
 
@@ -279,4 +299,4 @@ SceneDraw scale-delta rebuild; Plan 03 adds `CUIMiniMap::Reposition`.)
   ChangeResolution); the step count survives resolution changes by design.
 
 ---
-*Phase 2 — Plan 01 (wave 1). Depends on nothing. Plans 02 (wave 2) and 03 (wave 1, parallel) build on this.*
+*Phase 2 — Plan 01 (wave 1). Depends on nothing. Plans 02 (wave 2) and 03 (wave 1, parallel) build on this. 01's iMissionInternal.cpp edits run BEFORE 03's within wave 1 — see the execution ordering note above.*
