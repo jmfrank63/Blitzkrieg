@@ -342,6 +342,15 @@ bool CInterfaceMainMenu::StepLocal( bool bAppActive )
 	RefreshCloudIndicator();
 	return CInterfaceInterMission::StepLocal( bAppActive );
 }
+// The activity bar under the lower-left profile/cloud labels (21000/21001):
+// a gold sweep on a dark track while a run is live, nothing otherwise. The
+// labels sit 88 and 54 above the bottom edge in the 1024x768 canvas, so the
+// track is authored at 24..32 above it, left-aligned with their text.
+void CInterfaceMainMenu::DrawAdd()
+{
+	const int nState = GetGlobalVar( "CloudSync.State", 0 );
+	CInterfaceScreenBase::DrawSyncActivityBar( CTRect<float>( 10.0f, 736.0f, 350.0f, 744.0f ), nState >= 1 && nState <= 3 );
+}
 bool CInterfaceMainMenu::ProcessMessage( const SGameMessage &msg )
 {
 	if ( msg.nEventID == CMD_END_ACTION1 )

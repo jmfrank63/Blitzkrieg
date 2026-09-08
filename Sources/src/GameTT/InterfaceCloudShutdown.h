@@ -27,6 +27,7 @@ class CInterfaceCloudShutdown : public CInterfaceScreenBase
 
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg ) { return false; }
 	virtual bool STDCALL StepLocal( bool bAppActive );
+	virtual void STDCALL DrawAdd();
 	virtual ~CInterfaceCloudShutdown() {}
 protected:
 	CInterfaceCloudShutdown() : CInterfaceScreenBase( "Current" ), bNoticeShown( false ), bLeft( false ), nStartedMs( 0 ) {  }

@@ -76,3 +76,10 @@ bool CInterfaceCloudShutdown::StepLocal( bool bAppActive )
 	}
 	return bAppActive;
 }
+// The activity bar under the notice: a gold sweep on a dark track while the
+// exit sync holds the handle. The notice's three lines end at canvas y=232
+// (upper third), so the track is authored just below them, centred.
+void CInterfaceCloudShutdown::DrawAdd()
+{
+	CInterfaceScreenBase::DrawSyncActivityBar( CTRect<float>( 312.0f, 252.0f, 712.0f, 262.0f ), bNoticeShown && !bLeft );
+}

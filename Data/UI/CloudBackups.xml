@@ -253,7 +253,7 @@
 					</item>
 				</States>
 			</item>
-			<item ClassTypeID="0x10001103" ElementID="10030" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1">
+			<item ClassTypeID="0x10001103" ElementID="10030" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
 				<WindowPos x="30" y="470"/>
 				<WindowSize x="320" y="49"/>
 				<States>
@@ -280,7 +280,7 @@
 					</item>
 				</States>
 			</item>
-			<item ClassTypeID="0x10001103" ElementID="10031" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1">
+			<item ClassTypeID="0x10001103" ElementID="10031" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
 				<WindowPos x="386" y="470"/>
 				<WindowSize x="320" y="49"/>
 				<States>

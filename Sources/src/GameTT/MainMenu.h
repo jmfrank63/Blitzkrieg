@@ -10,6 +10,7 @@ class CInterfaceMainMenu : public CInterfaceInterMission
 	NInput::CCommandRegistrator commandMsgs;
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );
+	virtual void STDCALL DrawAdd();
 	virtual ~CInterfaceMainMenu();
 	CInterfaceMainMenu();
 
