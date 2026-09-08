@@ -489,6 +489,31 @@ void CUIMiniMap::GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, 
 	GetHorizontalClippedScreenEdge( CTPoint<float>( v0.x, v0.y ), CTPoint<float>( v3.x, v3.y ), pvPoints );
 }
 
+// Re-run texture creation when a reposition changes this window's rect: the
+// instant-objects overlay texture is sized from wndRect (GetNextPow2), so a
+// resolution change without recreation breaks the overlay UV mapping on
+// shrink->grow sequences. Runs once per actual change, not per frame. The
+// cluster arithmetic (the 50% rule) lives in CInterfaceMission's fixup, not
+// here -- this override only follows whatever rect the layout gives us.
+void CUIMiniMap::Reposition( const CTRect<float> &rcParent )
+{
+	const CTRect<float> wndRectOld = wndRect;
+
+	CSimpleWindow::Reposition( rcParent );
+
+	if ( !IsInitialized() )
+		return;
+
+	if ( wndRect.x1 != wndRectOld.x1 || wndRect.y1 != wndRectOld.y1 || wndRect.x2 != wndRectOld.x2 || wndRect.y2 != wndRectOld.y2 )
+	{
+		CreateMiniMapTextures();
+		if ( getenv( "BK_UI_TRACE" ) )
+			fprintf( stderr, "BK_UI_TRACE: minimap reposition id=20000 wndRect old=(%.0f,%.0f)-(%.0f,%.0f) new=(%.0f,%.0f)-(%.0f,%.0f) textures-recreated=1\n",
+				wndRectOld.x1, wndRectOld.y1, wndRectOld.right, wndRectOld.bottom,
+				wndRect.x1, wndRect.y1, wndRect.right, wndRect.bottom );
+	}
+}
+
 void CUIMiniMap::SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount )
 {
 	terrainSize.x = nXTerrainSize;

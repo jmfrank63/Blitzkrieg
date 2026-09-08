@@ -786,6 +786,7 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 }
 static void SyncMissionModeFromInterMission();
 static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor );
+static void FixupHudClusterLayout( CUIScreen *pScreen );
 // Where the player's troops stand, averaged. Only a fallback for maps that
 // author no camera anchor at all: the anchor the designers set is the better
 // answer everywhere it exists, because it frames the opening situation rather
@@ -959,6 +960,8 @@ void CInterfaceMission::CheckResolution()
 		pUIScreen->GetChildByID( 110 )->ShowWindow( UI_SW_HIDE );
 		pUIScreen->GetChildByID( 110 )->SetState( 0 );
 	}
+
+	FixupHudClusterLayout( pUIScreen );
 }
 static void SyncMissionModeFromInterMission()
 {
@@ -972,6 +975,58 @@ static void SyncMissionModeFromInterMission()
 	SetGlobalVar( "GFX.Mode.Mission.BPP", nInterMissionBPP );
 	SetGlobalVar( "GFX.Mode.Mission.FullScreen", nInterMissionFullScreen );
 	SetGlobalVar( "GFX.Mode.Mission.Frequency", nInterMissionFrequency );
+}
+
+// HUD cluster layout fixup (D-11/D-13): the minimap dialog (5000), the
+// command rail (100) and the animated status bar (40000) form one bottom-left
+// cluster in legacy 1024x768 coordinates, with a 123px gap between the rail
+// and the status bar that only closed by accident at the authored width. The
+// cluster here is laid out as one unit -- dialog left-anchored at its scaled
+// x, rail at the dialog's right edge, status bar at the rail's right edge --
+// so the cluster tracks the D-11 target (min(50% of the drawable, content))
+// instead of the legacy gap. Sizes are untouched (owned by ScaleLayout /
+// mission.xml, D-13); only vPos.x moves. At a 1024x768 world base the clamp
+// resolves to the legacy layout (documented deviation).
+static void FixupHudClusterLayout( CUIScreen *pScreen )
+{
+	if ( pScreen == 0 )
+		return;
+
+	const int nWorldBaseX = GetGlobalVar( "GFX.World.BaseSizeX", 0 );
+	const int nWorldBaseY = GetGlobalVar( "GFX.World.BaseSizeY", 0 );
+	if ( nWorldBaseX <= 0 || nWorldBaseY <= 0 )
+		return;
+
+	const float fHudScale = Min( static_cast<float>( nWorldBaseX ) / 1024.0f, static_cast<float>( nWorldBaseY ) / 768.0f );
+
+	IUIElement *pDialog = pScreen->GetChildByID( 5000 );
+	IUIElement *pRail = pScreen->GetChildByID( 100 );
+	IUIElement *pStatusBar = pScreen->GetChildByID( 40000 );
+	if ( !pDialog || !pRail || !pStatusBar )
+		return;
+
+	CVec2 vDialogPos, vDialogSize;
+	pDialog->GetWindowPlacement( &vDialogPos, &vDialogSize, 0 );
+	CVec2 vRailSize;
+	pRail->GetWindowPlacement( 0, &vRailSize, 0 );
+
+	// Legacy widths from mission.xml: dialog 264, rail 114, status bar 413.
+	const int nDialog = static_cast<int>( 264.0f * fHudScale + 0.5f );
+	const int nRail = static_cast<int>( 114.0f * fHudScale + 0.5f );
+	const int nStatusbar = static_cast<int>( 413.0f * fHudScale + 0.5f );
+	const int nClusterContent = nDialog + nRail + nStatusbar;
+	const int nDrawableWidth = pScreen->GetScreenRect().Width();
+	const int nClusterTarget = Min( static_cast<int>( 0.5f * nDrawableWidth + 0.5f ), nClusterContent );
+
+	CVec2 vRailPos( static_cast<float>( nDialog ), vDialogPos.y );
+	pRail->SetWindowPlacement( &vRailPos, 0 );
+
+	CVec2 vStatusbarPos( static_cast<float>( nDialog + nRail ), vDialogPos.y );
+	pStatusBar->SetWindowPlacement( &vStatusbarPos, 0 );
+
+	if ( getenv( "BK_UI_TRACE" ) )
+		fprintf( stderr, "BK_UI_TRACE: hud cluster fixup s_hud=%.3f target=%d content=%d dialog=%d rail=%d statusbar=%d\n",
+			fHudScale, nClusterTarget, nClusterContent, nDialog, nRail, nStatusbar );
 }
 static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor )
 {
@@ -1963,6 +2018,7 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 				CheckResolution();
 				if ( pUIScreen )
 					pUIScreen->Reposition( pGFX->GetScreenRect() );
+				FixupHudClusterLayout( pUIScreen );
 				SetMissionCameraPlacement( pGFX, pCamera, pCamera->GetAnchor() );
 				GetSingleton<IScenarioTracker>()->UpdateMinimumDifficulty();
 			}

@@ -248,7 +248,8 @@ public:
 	{
 	}
 
-  virtual void STDCALL SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount );
+	virtual void STDCALL SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount );
+	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	virtual void STDCALL SetBackgroundTexture( IGFXTexture *_pBackgroundTexture )
 	{
 		pBackgroundTexture = _pBackgroundTexture;
