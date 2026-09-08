@@ -984,9 +984,12 @@ static void SyncMissionModeFromInterMission()
 // cluster here is laid out as one unit -- dialog left-anchored at its scaled
 // x, rail at the dialog's right edge, status bar at the rail's right edge --
 // so the cluster tracks the D-11 target (min(50% of the drawable, content))
-// instead of the legacy gap. Sizes are untouched (owned by ScaleLayout /
-// mission.xml, D-13); only vPos.x moves. At a 1024x768 world base the clamp
-// resolves to the legacy layout (documented deviation).
+// instead of the legacy gap. At a 1024x768 world base the clamp resolves to
+// the legacy layout (documented deviation). When the content exceeds the
+// 50% target, the minimap dialog and the diamond inside it (element 20000)
+// flex down uniformly (same factor for both axes -- anisotropic scaling
+// breaks the diamond's 2:1 mapping, see docs/scaling.md); the rail and
+// status bar keep their sizes so their content stays legible.
 static void FixupHudClusterLayout( IUIScreen *pScreen )
 {
 	if ( pScreen == 0 )
@@ -1009,19 +1012,60 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	pDialog->GetWindowPlacement( &vDialogPos, &vDialogSize, 0 );
 
 	// Legacy widths from mission.xml: dialog 264, rail 114, status bar 413.
-	const int nDialog = static_cast<int>( 264.0f * fHudScale + 0.5f );
+	int nDialog = static_cast<int>( 264.0f * fHudScale + 0.5f );
 	const int nRail = static_cast<int>( 114.0f * fHudScale + 0.5f );
 	const int nStatusbar = static_cast<int>( 413.0f * fHudScale + 0.5f );
-	const int nClusterContent = nDialog + nRail + nStatusbar;
+	int nClusterContent = nDialog + nRail + nStatusbar;
 	const RECT rcDrawable = GetSingleton<IGFX>()->GetScreenRect();
 	const int nDrawableWidth = rcDrawable.right - rcDrawable.left;
 	const int nClusterTarget = Min( static_cast<int>( 0.5f * nDrawableWidth + 0.5f ), nClusterContent );
+
+	// D-11 flex: shrink the dialog (and the diamond with it) when the cluster
+	// content cannot fit the 50% target. The dialog is the flexible element;
+	// rail and status bar keep their scaled sizes.
+	if ( nClusterTarget < nClusterContent && nClusterContent > nRail + nStatusbar )
+	{
+		const int nDialogMax = nClusterTarget - nRail - nStatusbar;
+		if ( nDialogMax < nDialog )
+		{
+			const float fDialogFlex = static_cast<float>( nDialogMax ) / static_cast<float>( nDialog );
+			CVec2 vDialogNewSize( floor( vDialogSize.x * fDialogFlex ), floor( vDialogSize.y * fDialogFlex ) );
+			pDialog->SetWindowPlacement( 0, &vDialogNewSize );
+
+			// The diamond (element 20000, the CUIMiniMap inside the dialog)
+			// flexes by the same factor so its 2:1 diamond mapping survives
+			// (anisotropic scaling breaks it, see docs/scaling.md).
+			if ( IUIContainer *pDialogContainer = checked_cast<IUIContainer*>( pDialog ) )
+			{
+				if ( IUIElement *pMinimap = pDialogContainer->GetChildByID( 20000 ) )
+				{
+					CVec2 vMinimapPos, vMinimapSize;
+					pMinimap->GetWindowPlacement( &vMinimapPos, &vMinimapSize, 0 );
+					CVec2 vMinimapNewSize( floor( vMinimapSize.x * fDialogFlex ), floor( vMinimapSize.y * fDialogFlex ) );
+					pMinimap->SetWindowPlacement( 0, &vMinimapNewSize );
+				}
+			}
+		}
+	}
+
+	CVec2 vDialogPosNew, vDialogSizeNew;
+	pDialog->GetWindowPlacement( &vDialogPosNew, &vDialogSizeNew, 0 );
+	nDialog = static_cast<int>( vDialogSizeNew.x );
+	nClusterContent = nDialog + nRail + nStatusbar;
 
 	CVec2 vRailPos( static_cast<float>( nDialog ), vDialogPos.y );
 	pRail->SetWindowPlacement( &vRailPos, 0 );
 
 	CVec2 vStatusbarPos( static_cast<float>( nDialog + nRail ), vDialogPos.y );
 	pStatusBar->SetWindowPlacement( &vStatusbarPos, 0 );
+
+	// SetWindowPlacement only stores the new pos/size; wndRect values are
+	// recomputed by a Reposition pass. Re-run the screen's reposition here so
+	// the flexed sizes and shifted positions render on this frame instead of
+	// waiting for the next reposition event (the mission-creation path runs
+	// the fixup after its own reposition; the load path would mask this by
+	// repositioning later, but both paths need the geometry applied now).
+	pScreen->Reposition( GetSingleton<IGFX>()->GetScreenRect() );
 
 	if ( getenv( "BK_UI_TRACE" ) )
 		fprintf( stderr, "BK_UI_TRACE: hud cluster fixup s_hud=%.3f target=%d content=%d dialog=%d rail=%d statusbar=%d\n",

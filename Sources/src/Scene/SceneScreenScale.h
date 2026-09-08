@@ -20,14 +20,19 @@ namespace NSceneScreenScale
 
 	// Largest step count n >= 0 with factor^n within the D-09 zoom-in bound
 	// (the un-zoomed view may shrink to a 640x480-effective viewport). Base
-	// globals unset (menus, legacy path) means no zoom: 0.
+	// globals unset (menus, legacy path) means no zoom: 0. The base scale
+	// here must match GetGameplayScale's FLOORED legacy_step -- the bound is
+	// computed against the scale the renderer actually uses, and a fractional
+	// fBaseScale would under-report the visible world on any base whose
+	// min-axis ratio is not an exact integer (e.g. 1920x1080 or 3440x1440),
+	// prematurely capping zoom-in.
 	inline int GetMaxZoomSteps( const CTRect<float> &rcScreen )
 	{
 		const float fBaseW = float( GetGlobalVar( "GFX.World.BaseSizeX", 0 ) );
 		const float fBaseH = float( GetGlobalVar( "GFX.World.BaseSizeY", 0 ) );
 		if ( fBaseW < 1.0f || fBaseH < 1.0f )
 			return 0;
-		const float fBaseScale = Max( 1.0f, Min( fBaseW / LEGACY_GAMEPLAY_WIDTH, fBaseH / LEGACY_GAMEPLAY_HEIGHT ) );
+		const float fBaseScale = Max( 1.0f, floorf( Min( fBaseW / LEGACY_GAMEPLAY_WIDTH, fBaseH / LEGACY_GAMEPLAY_HEIGHT ) ) );
 		const float fFill = Max( 1.0f, Min( rcScreen.Width() / fBaseW, rcScreen.Height() / fBaseH ) );
 		const float fBaseZoom = fBaseScale * fFill;
 		const float visW = Max( rcScreen.Width() / fBaseZoom, 1.0f );
