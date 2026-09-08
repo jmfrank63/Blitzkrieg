@@ -197,8 +197,13 @@ in), K (zoom out), L (reset zoom).
 
 **Requirements**: TBD
 **Depends on:** Phase 1
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 2 to break down)
+- [x] 01 — zoom state, bounds, input binds, GPU mirror, persistence resets (complete)
+- [x] 02 — cursor-anchored zoom application and terrain rebuild trigger (complete)
+- [x] 03 — minimap cluster sizing, texture recreation (complete)
+
+Executed and verified (source level); in-game sign-off rows outstanding —
+see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.

@@ -15,17 +15,20 @@ current_phase_name: variable-zoom-and-minimap-scaling
 
 # Project state
 
-- status: phase-4-execution-in-progress
+- status: phase-2-executed-human-verification-outstanding
 - projectName: Blitzkrieg Reloaded
-- branch: feature/run-game
+- branch: workspace/variable-zoom
 - created: 2026-06-06
 - repoRoot: Blitzkrieg
 - workflow: gsd-execute-phase
 
 ## Current summary
 
-Phase 4 runtime stability and compatibility execution is underway.
-Dialog coverage baseline is implemented through central legacy-layout scaling policy expansion and artifact-backed inventory mapping.
+Phase 2 (variable zoom and minimap scaling) executed: all 3 plans complete,
+source verification 10/10, review fixes applied (zoom bound scale match,
+minimap flex, immediate fixup geometry). Windows build via zig cross-compile
+clean. In-game sign-off rows outstanding — see
+`.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
 
 ## Phase 4 runtime stability closeout
 
