@@ -10,6 +10,52 @@ namespace NSceneScreenScale
 {
 	static const float LEGACY_GAMEPLAY_WIDTH = 1024.0f;
 	static const float LEGACY_GAMEPLAY_HEIGHT = 768.0f;
+	static const float ZOOM_MIN_VIEW_WIDTH = 640.0f;
+	static const float ZOOM_MIN_VIEW_HEIGHT = 480.0f;
+
+	inline float GetZoomStepFactor()
+	{
+		return GetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
+	}
+
+	// Largest step count n >= 0 with factor^n within the D-09 zoom-in bound
+	// (the un-zoomed view may shrink to a 640x480-effective viewport). Base
+	// globals unset (menus, legacy path) means no zoom: 0.
+	inline int GetMaxZoomSteps( const CTRect<float> &rcScreen )
+	{
+		const float fBaseW = float( GetGlobalVar( "GFX.World.BaseSizeX", 0 ) );
+		const float fBaseH = float( GetGlobalVar( "GFX.World.BaseSizeY", 0 ) );
+		if ( fBaseW < 1.0f || fBaseH < 1.0f )
+			return 0;
+		const float fBaseScale = Max( 1.0f, Min( fBaseW / LEGACY_GAMEPLAY_WIDTH, fBaseH / LEGACY_GAMEPLAY_HEIGHT ) );
+		const float fFill = Max( 1.0f, Min( rcScreen.Width() / fBaseW, rcScreen.Height() / fBaseH ) );
+		const float fBaseZoom = fBaseScale * fFill;
+		const float visW = Max( rcScreen.Width() / fBaseZoom, 1.0f );
+		const float visH = Max( rcScreen.Height() / fBaseZoom, 1.0f );
+		const float fZMax = Min( visW / ZOOM_MIN_VIEW_WIDTH, visH / ZOOM_MIN_VIEW_HEIGHT );
+		int nSteps = 0;
+		float fZ = 1.0f;
+		while ( nSteps < 8 )
+		{
+			const float fNext = fZ * GetZoomStepFactor();
+			if ( fNext > fZMax )
+				break;
+			fZ = fNext;
+			++nSteps;
+		}
+		return nSteps;
+	}
+
+	// Player zoom z = factor^steps, clamped at read time (D-15: a stale step
+	// count re-clamps against the live screen; D-10: z never < 1). With
+	// ZoomSteps == 0 this returns exactly 1.0f (powf(x,0)==1), so the
+	// pre-phase scale product is bit-identical.
+	inline float GetPlayerZoom( const CTRect<float> &rcScreen )
+	{
+		const int nSteps = GetGlobalVar( "GFX.World.ZoomSteps", 0 );
+		const float fFactor = GetZoomStepFactor();
+		return Min( powf( fFactor, nSteps ), powf( fFactor, GetMaxZoomSteps( rcScreen ) ) );
+	}
 
 	inline float GetGameplayScale( const CTRect<float> &rcScreen )
 	{
@@ -36,7 +82,7 @@ namespace NSceneScreenScale
 			return Max( 1.0f, floorf( Min( fWidth / LEGACY_GAMEPLAY_WIDTH, fHeight / LEGACY_GAMEPLAY_HEIGHT ) ) );
 		const float fLegacyStep = Max( 1.0f, floorf( Min( fBaseW / LEGACY_GAMEPLAY_WIDTH, fBaseH / LEGACY_GAMEPLAY_HEIGHT ) ) );
 		const float fFill = Max( 1.0f, Min( fWidth / fBaseW, fHeight / fBaseH ) );
-		return fLegacyStep * fFill;
+		return fLegacyStep * fFill * GetPlayerZoom( rcScreen );
 	}
 
 	// Scale-supplied overload for hot per-vertex loops (CTerrain::ReBuildMeshes):
