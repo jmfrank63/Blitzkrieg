@@ -148,7 +148,9 @@ canonical. Acceptance is behavioral, not structural.
 - Sources/src/GameTT/iMissionInternal.cpp lines 125-175 (missionCommands[]), 810-840 (Init), 1350-1382 (StepLocal), 1745-1775 (ProcessMessageLocal + pause guard)
 - Data/Configs/defconf.cfg lines 891-1000 (game_mission section), 288-296 (MOUSE_AXIS_Z Power 40), 371-377 (mouse_wheel slider minus bind)
 - .planning/phases/02-variable-zoom-and-minimap-scaling/02-RESEARCH.md §R3, §R5
+- .planning/phases/02-variable-zoom-and-minimap-scaling/02-CONTEXT.md (locked decisions D-02, D-03, D-04, D-08)
 - Sources/src/UI/UIScreen.cpp lines 120-125 (CreateSlider pattern)
+- Sources/src/Scene/Camera.cpp lines 73-74 (BK_INPUT_TRACE getenv fprintf pattern to reuse)
 </read_first>
 
 <action>
@@ -165,9 +167,10 @@ canonical. Acceptance is behavioral, not structural.
    `slider minus` / {RSHIFT, MOUSE_AXIS_Z}. Use the exact XML item shape of
    the existing `begin_timeout`/`stop_timeout` entries. Do not touch the bare
    `mouse_wheel` bind or bare T.
-4. iMissionInternal.h: add member `CPtr<NInput::IInputSlider> pZoomWheelSlider;`
-   to CInterfaceMission (guard the type with the same include pattern
-   UIScreen.cpp uses for IInputSlider).
+4. iMissionInternal.h: add member `CPtr<IInputSlider> pZoomWheelSlider;`
+   (IInputSlider is at global scope, Input.h:39; precedent
+   `CPtr<IInputSlider> pMouseWheelSlider;` — UI/UIScreen.h:29; guard the type
+   with the same include pattern UIScreen.cpp uses for IInputSlider).
 5. Init (iMissionInternal.cpp ~828, near `missionMsgs.Init`):
    `pZoomWheelSlider = GetSingleton<IInput>()->CreateSlider( "zoom_wheel" );`
 6. ProcessMessageLocal switch: add cases `MC_ZOOM_IN` → `ZoomStepMission( +1 )`,
@@ -178,7 +181,12 @@ canonical. Acceptance is behavioral, not structural.
    in iMissionInternal.cpp that (this plan) clamps
    `nSteps = Clamp( nSteps + nDelta, 0, GetMaxZoomSteps( pGFX->GetScreenRect() ) )`
    and `SetGlobalVar( "GFX.World.ZoomSteps", nSteps )` — Plan 02 replaces the
-   body with cursor anchoring.
+   body with cursor anchoring. In the MC_ZOOM_* dispatch path (the
+   ZoomStepMission helper or the ProcessMessageLocal cases), emit a
+   `BK_INPUT_TRACE` fprintf line logging the command id and the resulting
+   zoom step (event-down binds trace nothing today — InputBinder.cpp:224-225
+   traces SLIDER activation only; pattern = Camera.cpp:73-74
+   `getenv( "BK_INPUT_TRACE" )` + fprintf).
 7. StepLocal (~1356): poll the wheel — accumulate `pZoomWheelSlider->GetDelta()`
    into a `static float fZoomWheelAccum`; apply `ZoomStepMission( +1 )` per
    +4.8f accumulated and `ZoomStepMission( -1 )` per -4.8f, subtracting the
@@ -192,7 +200,10 @@ canonical. Acceptance is behavioral, not structural.
 - `grep -n "zoom_in\|zoom_out\|zoom_reset" Sources/src/GameTT/iMissionInternal.cpp` → 3 missionCommands entries located between the `_FINALRELEASE` `#endif` and `show_avia_buttons`.
 - `grep -n "zoom_wheel" Data/Configs/defconf.cfg` → 2 hits inside the game_mission section (LSHIFT and RSHIFT variants); `grep -n "begin_timeout" Data/Configs/defconf.cfg` still shows the untouched bare-T bind (D-04).
 - `grep -n "GetPauseReason" Sources/src/GameTT/iMissionInternal.cpp` shows the gate inside the MC_ZOOM_IN/OUT handling.
-- Trace assertion (BK_INPUT_TRACE=1): pressing J logs the zoom bind activation; Shift+wheel logs the zoom_wheel combo activating and the bare `mouse_wheel` slider NOT activating during formed notches.
+- Trace assertion (BK_INPUT_TRACE=1): pressing J emits the new BK_INPUT_TRACE
+  line from the MC_ZOOM_* dispatch path (command id + resulting zoom step);
+  Shift+wheel logs the zoom_wheel combo activating and the bare `mouse_wheel`
+  slider NOT activating during formed notches (InputBinder.cpp:224-225).
 - Build Game (Debug) succeeds.
 </acceptance_criteria>
 
@@ -202,6 +213,7 @@ canonical. Acceptance is behavioral, not structural.
 - Sources/src/GameTT/iMissionInternal.cpp lines 810-840 (Init) and 1855-1875 (CMD_LOAD_FINISHED)
 - Sources/src/Common/InterfaceScreenBase.cpp lines 451-676 (ChangeResolution — must NOT touch zoom)
 - Sources/src/StreamIO/GlobalVars.h lines 124-155 (GFX.* save exclusion)
+- .planning/phases/02-variable-zoom-and-minimap-scaling/02-CONTEXT.md (locked decisions D-15, D-16)
 - .planning/phases/02-variable-zoom-and-minimap-scaling/02-RESEARCH.md §R4
 </read_first>
 
@@ -224,7 +236,8 @@ canonical. Acceptance is behavioral, not structural.
 2. Grep gates: all per-task greps above pass; additionally
    `grep -rn "E_SHIFT_KEY_DOWN" Sources/src/GameTT/` → no hits (LANDMINE-L2 respected).
 3. Trace smoke: `BK_GFX_TRACE=1 BK_INPUT_TRACE=1 Game.exe -tutorial.xml` —
-   J/K presses log bind activation; Shift+wheel logs zoom_wheel slider
+   J/K presses emit the new MC_ZOOM_* BK_INPUT_TRACE lines (command id +
+   resulting zoom step); Shift+wheel logs zoom_wheel slider
    activation with bare mouse_wheel suppressed; world-base trace lines
    (`GFX.World.BaseSizeX`) unchanged by zooming.
 4. Manual row (from RESEARCH §Validation): at 640x480 cfg, J/K produce zero
