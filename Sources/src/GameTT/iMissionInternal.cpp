@@ -815,14 +815,41 @@ static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlaye
 	return CVec3( vSum.x / nUnits, vSum.y / nUnits, 0.0f );
 }
 // Stepped zoom state change (D-05): clamps against the D-09 zoom-in bound and
-// writes the step count global. Screen-center scaling only in this plan; the
-// cursor-anchored application replaces the body in the follow-up task.
-void CInterfaceMission::ZoomStepMission( int nDelta )
+// writes the step count global. Cursor-anchored (D-07): the world point under
+// the cursor before the step is re-projected after it and the camera anchor is
+// shifted by the difference, so the anchored world point stays fixed on
+// screen. GetPos3 re-derives the gameplay projection from the zoom global on
+// every call, so no cache invalidation is needed between the two samples.
+// ResetPosition forces the terrain mesh rebuild: the CScene::Draw heuristic
+// keys on screen size/projection-bool/anchor-delta and misses zoom steps whose
+// anchor does not move (zoom at screen center).
+void CInterfaceMission::ApplyZoomStep( int nDelta )
 {
-	const int nSteps = Clamp( GetGlobalVar( "GFX.World.ZoomSteps", 0 ) + nDelta, 0, NSceneScreenScale::GetMaxZoomSteps( GetSingleton<IGFX>()->GetScreenRect() ) );
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	CVec2 vCursor = pCursor->GetPos();
+	if ( !rcScreen.IsInside( vCursor ) )
+		vCursor.Set( rcScreen.Width() / 2, rcScreen.Height() / 2 );
+
+	// GetPos3's plane-solve variant always yields a point (bOnZero=true
+	// solves the ground plane from the transform matrix), so validity
+	// tracking is unnecessary; the pre/post pair brackets exactly one
+	// ZoomSteps write.
+	CVec3 vPosOld( 0, 0, 0 ), vPosNew( 0, 0, 0 );
+	pScene->GetPos3( &vPosOld, vCursor, true );
+
+	const int nSteps = Clamp( GetGlobalVar( "GFX.World.ZoomSteps", 0 ) + nDelta, 0, NSceneScreenScale::GetMaxZoomSteps( rcScreen ) );
 	SetGlobalVar( "GFX.World.ZoomSteps", nSteps );
+
+	pScene->GetPos3( &vPosNew, vCursor, true );
+
+	pCamera->SetAnchor( pCamera->GetAnchor() + ( vPosOld - vPosNew ) );
+
+	if ( ITerrain *pTerrain = pScene->GetTerrain() )
+		pTerrain->ResetPosition();
+
 	if ( getenv( "BK_INPUT_TRACE" ) )
-		fprintf( stderr, "BK_INPUT_TRACE: zoom step delta=%d steps=%d\n", nDelta, nSteps );
+		fprintf( stderr, "BK_INPUT_TRACE: zoom step delta=%d steps=%d anchor=(%.1f,%.1f) old=(%.1f,%.1f) new=(%.1f,%.1f)\n",
+			nDelta, nSteps, pCamera->GetAnchor().x, pCamera->GetAnchor().y, vPosOld.x, vPosOld.y, vPosNew.x, vPosNew.y );
 }
 bool CInterfaceMission::Init()
 {
@@ -1416,7 +1443,7 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 				fZoomWheelAccum = 0.0f;
 				break;
 			}
-			ZoomStepMission( +1 );
+			ApplyZoomStep( +1 );
 			fZoomWheelAccum -= fZoomWheelQuantum;
 		}
 		while ( fZoomWheelAccum <= -fZoomWheelQuantum )
@@ -1426,7 +1453,7 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 				fZoomWheelAccum = 0.0f;
 				break;
 			}
-			ZoomStepMission( -1 );
+			ApplyZoomStep( -1 );
 			fZoomWheelAccum += fZoomWheelQuantum;
 		}
 	}
@@ -1860,7 +1887,7 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			if ( msg.nEventID == MC_ZOOM_RESET )
 				SetGlobalVar( "GFX.World.ZoomSteps", 0 );
 			else
-				ZoomStepMission( msg.nEventID == MC_ZOOM_IN ? +1 : -1 );
+				ApplyZoomStep( msg.nEventID == MC_ZOOM_IN ? +1 : -1 );
 			break;
 		case MC_SHOW_AVIA_BUTTONS:
 			GetSingleton<IInput>()->AddMessage( SGameMessage( UI_NEXT_STATE_MESSAGE, 12003 ) );

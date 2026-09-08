@@ -232,7 +232,7 @@ private:
 	void BeginAction( const SGameMessage &msg );
 	void GetPos3( CVec3 *pPos, const CVec2 &pos );
 	void GetPos3( CVec3 *pPos, float x, float y );
-	static void ZoomStepMission( int nDelta );
+	void ApplyZoomStep( int nDelta );
 	void VisualizeFeedback( const int nFeedBack, const int nParam );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL ProcessMessageLocal( const SGameMessage &msg );

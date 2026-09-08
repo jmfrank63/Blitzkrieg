@@ -264,13 +264,20 @@ void CScene::Draw( ICamera *pCamera )
 	static int nLastGameplayScreenWidth = 0;
 	static int nLastGameplayScreenHeight = 0;
 	static bool bLastScaleGameplayProjection = false;
+	static float fLastPlayerZoom = 1.0f;
+	// Defense-in-depth for the per-step ResetPosition in
+	// CInterfaceMission::ApplyZoomStep: this frame-rate check also catches zoom
+	// changes made outside that path (resolution+zoom combinations, future
+	// wheel/script zoom), so stale meshes cannot survive either way.
+	const float fPlayerZoom = NSceneScreenScale::GetPlayerZoom( rcGameplayScreen );
 	if ( pTerrain && ( nLastGameplayScreenWidth != rcScreenRect.Width() || nLastGameplayScreenHeight != rcScreenRect.Height() ||
-		                 bLastScaleGameplayProjection != bScaleGameplayProjection ) )
+		                 bLastScaleGameplayProjection != bScaleGameplayProjection || fabsf( fPlayerZoom - fLastPlayerZoom ) > 0.001f ) )
 	{
 		pTerrain->ResetPosition();
 		nLastGameplayScreenWidth = rcScreenRect.Width();
 		nLastGameplayScreenHeight = rcScreenRect.Height();
 		bLastScaleGameplayProjection = bScaleGameplayProjection;
+		fLastPlayerZoom = fPlayerZoom;
 	}
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
