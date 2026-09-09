@@ -9,8 +9,10 @@
 Add player-controlled variable map zoom to the mission view, bounded between
 the configured settings resolution (maximum zoom-out, never beyond) and an
 effective 640×480 viewport (maximum zoom-in). Give the minimap a fixed size
-that is independent of map zoom and resolution-scaled layout: minimap plus
-command/unit status bar together occupy exactly half the drawable width. Add
+that is independent of map zoom and
+resolution-scaled layout: minimap plus navigation rail together occupy
+exactly half the drawable width, with the unit-details status bar extending
+to their right (past the 50% line). Add
 zoom controls: Shift+mouse wheel, J (zoom in), K (zoom out), L (reset zoom).
 
 Out of scope: minimap content redesign, new HUD capabilities beyond the
@@ -56,16 +58,22 @@ smooth/continuous zoom animation.
   any configured resolution, zoom-out never goes beyond the un-zoomed view.
 
 ### Minimap sizing
-- **D-11:** Minimap diamond + command/unit status bar TOGETHER = exactly 50%
-  of the drawable width. Strict rule, always — even if low resolutions make
-  panel content tight. The minimap is the flexible element; the panel keeps
-  its content.
+- **D-11:** Minimap diamond dialog + navigation rail TOGETHER = exactly 50%
+  of the drawable width; the unit-details status bar sits right of the rail
+  and MAY EXTEND BEYOND the 50% line. Strict rule, always — even if low
+  resolutions make panel content tight. The minimap is the flexible element;
+  the panel keeps its content. (Clarified 2026-09-09: the original wording
+  included the status bar in the 50% budget, which shrank the minimap below
+  what the user wanted; the final intent is the 2-element rule above. At
+  4:3 resolutions where even the minimap+rail pair cannot reach 50%, the
+  legacy cluster is kept — the documented deviation.)
 - **D-12:** Minimap resizes only on resolution change (settings switch / mode
   apply). The window is fixed-size by design (2026-08-12 decision), so
   resolution change is the only size-changing event. Minimap textures must be
   recreated on resize (they are sized from the widget rect).
-- **D-13:** Keep the original arrangement: diamond top-right, status bar
-  beneath it, both in the right half. No UI redesign.
+- **D-13:** Keep the original arrangement: diamond top-right, rail beneath
+  it, status bar right of the rail — all in the right half, with the status
+  bar allowed past the 50% line (see D-11). No UI redesign.
 - **D-14:** The minimap must be decoupled from map zoom: zooming the map
   never changes the minimap size. The minimap camera-frame polygon already
   follows zoom via `GetPos3` projection.
