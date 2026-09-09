@@ -106,8 +106,13 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
         // into another - and SetupShaders gives it POINT. It was missing here,
         // so the pass inherited whatever the previous effect left, normally
         // linear, and the mask bled across its atlas cell.
-        1, 3, 14, 100, 111 => false,
-        2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
+        // 3 is the UI window pass (panels, nav rail, status bar): its art is
+        // authored at 1024x768 and stretched by the HUD scale (1.4-1.9x on
+        // modern drawables), where point sampling renders every texel as a
+        // block of screen pixels. Linear plus the half-texel inset
+        // VisitUIRects already applies keeps the atlas cells separated.
+        1, 14, 100, 111 => false,
+        2, 3, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
         else => null,
     };
 }
@@ -401,14 +406,16 @@ test "UI and alpha reference fixtures" {
     // The sampler is a per-effect state too: the sprite cutouts are point
     // sampled and the lit and blended passes are filtered, and an effect that
     // sets neither inherits whatever the last one left.
-    try std.testing.expectEqual(false, linearFilterChangeFor(3).?);
     try std.testing.expectEqual(false, linearFilterChangeFor(1).?);
     try std.testing.expectEqual(false, linearFilterChangeFor(14).?);
     try std.testing.expectEqual(false, linearFilterChangeFor(111).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(8).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(112).?);
-    // The terrain cross pass is point sampled in SetupShaders. Leaving it out
-    // let it inherit the previous effect's filter.
+    // The UI window pass (3) is linear: its art is HUD-scaled, and point
+    // sampling blocks. The terrain cross pass is point sampled in
+    // SetupShaders; leaving it out let it inherit the previous effect's
+    // filter.
+    try std.testing.expectEqual(true, linearFilterChangeFor(3).?);
     try std.testing.expectEqual(false, linearFilterChangeFor(100).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(4).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(5).?);

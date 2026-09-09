@@ -833,13 +833,22 @@ bool STDCALL GraphicsEngineGpu::SetTexture( int stage, IGFXBaseTexture *texture 
         if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
     }
     const GfxGpuHandle handle = gpu_texture ? gpu_texture->Handle() : 0;
-    // The bind-time reset normally forces point sampling (the effect table
-    // re-applies its own filter when the effect changes, not when a texture
-    // binds). The one exception: sprite shadows (effect 111) under a
-    // fractional world zoom sample linearly, or their dithered alpha clumps
-    // into grey blotches. The scene side pairs this with half-texel-inset
-    // sprite UVs (SceneDraw.cpp, g_bShadowSpritePass).
-    const uint64_t sampler = ( shade_effect_ == 111 && world_zoom_fractional_ ) ? 2 : 1;
+    // D3D's stage-0 filter is sticky: a texture bind never touches it, only
+    // an effect change (or an explicit SetSamplerState) does. The old
+    // bind-time reset to point clobbered exactly that stickiness -- the
+    // minimap diamond pass (effect 21, declared linear in SetupShaders) binds
+    // its three textures AFTER SetShadingEffect(21), so every bind shoved the
+    // filter back to point and the scaled-up diamond rendered as blocky
+    // pixels. Re-assert the current sticky filter here; the effect change
+    // path (setState, SHADE_EFFECT in abi.zig) keeps owning the transitions,
+    // including the special case: sprite shadows (111) under a fractional
+    // world zoom sample linearly regardless, or their dithered alpha clumps
+    // into grey blotches (SceneDraw.cpp, g_bShadowSpritePass, pairs with
+    // half-texel-inset sprite UVs).
+    bool bLinear = sampler_linear_;
+    if ( shade_effect_ == 111 && world_zoom_fractional_ )
+        bLinear = true;
+    const uint64_t sampler = bLinear ? 2 : 1;
     if ( api_.set_texture_stage )
     {
         const bool result = Check( api_.set_texture_stage( renderer_, static_cast<uint32_t>( stage ), handle ), "set_texture_stage" );
@@ -1543,5 +1552,23 @@ int STDCALL GraphicsEngineGpu::GetNumPassedPrimitives() const { return passed_pr
 bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect )
 {
     shade_effect_ = effect;
+    // Keep the C++-side sticky filter in sync with the effect table the Zig
+    // side applies (abi.zig SHADE_EFFECT -> effects.linearFilterChangeFor).
+    // SetTexture reads sampler_linear_ at bind time; without this mirror a
+    // bind between an effect change and its first draw would re-assert the
+    // previous effect's filter.
+    switch ( effect )
+    {
+        case 1: case 14: case 100: case 111:
+            sampler_linear_ = false;
+            break;
+        case 2: case 3: case 4: case 5: case 8: case 9: case 10: case 12: case 15:
+        case 16: case 17: case 19: case 20: case 21: case 101: case 102:
+        case 103: case 104: case 112: case 200: case 303:
+            sampler_linear_ = true;
+            break;
+        default:
+            break;	// inherits the previous effect's filter, as in D3D
+    }
     return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" );
 }

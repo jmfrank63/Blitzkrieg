@@ -146,6 +146,11 @@ private:
     // gameplay zoom is fractional - point sampling clumps the shadows' dithered
     // alpha into blotches. SetTexture picks the sampler from these two.
     int shade_effect_ = 0;
+    // D3D's stage-0 MAGFILTER/MINFILTER is sticky state: it changes only when
+    // an effect (or an explicit SetSamplerState) writes it, never on a texture
+    // bind. Mirrored here so a bind can re-assert the current effect's filter
+    // instead of clobbering it back to point.
+    bool sampler_linear_ = false;
     bool world_zoom_fractional_ = false;
     bool frame_pending_ = false;
     bool api_valid_ = false;
