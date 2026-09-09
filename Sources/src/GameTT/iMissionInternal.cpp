@@ -1072,11 +1072,22 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	nDialog = static_cast<int>( vDialogSizeNew.x );
 	nClusterContent = nDialog + nRail + nStatusbar;
 
-	CVec2 vRailPos( static_cast<float>( nDialog ), vDialogPos.y );
-	pRail->SetWindowPlacement( &vRailPos, 0 );
+	// Gap closure (D-11) only where the 50% target is actually enforced. On
+	// guarded 4:3 resolutions the flex was skipped because the target is
+	// unreachable without touching rail/status-bar content (D-13) -- there
+	// the whole fixup stands down and the authored mission.xml arrangement,
+	// gaps included, is what renders (ScaleLayout already scaled it). Moving
+	// the rail/status bar here would close the authored low-resolution gaps
+	// and contradict the documented legacy-layout claim.
+	const bool bFlexEngaged = fDialogFlex < 1.0f;
+	if ( bFlexEngaged )
+	{
+		CVec2 vRailPos( static_cast<float>( nDialog ), vDialogPos.y );
+		pRail->SetWindowPlacement( &vRailPos, 0 );
 
-	CVec2 vStatusbarPos( static_cast<float>( nDialog + nRail ), vDialogPos.y );
-	pStatusBar->SetWindowPlacement( &vStatusbarPos, 0 );
+		CVec2 vStatusbarPos( static_cast<float>( nDialog + nRail ), vDialogPos.y );
+		pStatusBar->SetWindowPlacement( &vStatusbarPos, 0 );
+	}
 
 	// SetWindowPlacement only stores the new pos/size; wndRect values are
 	// recomputed by a Reposition pass. Re-run the screen's reposition here so
