@@ -10,11 +10,14 @@ Goal-backward, read-only verification against the phase goal. The original
 run verified 10/10 truths at source level — **REVISED after two
 implementation reviews**, which disproved three of those claims (zoom-bound
 scale math, unapplied minimap flex, non-immediate fixup geometry, plus
-round-2 negative-size and compounding findings). All review findings are
-FIXED (commits `e3ad446d3`, `6e61ad416`); the zig cross-compile of the full
-game passes. The corrected behavior needs the in-game rows below →
-**human_needed**. The original truth table remains as a historical record;
-T2 (zoom bound) and T7 (cluster flex) rest on the review-fix commits.
+round-2 negative-size and compounding findings) and a **third review**, which
+caught the flex-size restore gap (finding 1 below). Review fixes are applied
+in source (commits `e3ad446d3`, `6e61ad416`, and the round-3 unconditional-
+size fix); the zig cross-compile of the full game passes each time. The
+corrected in-game behavior — including the flex→no-flex restore transition —
+still needs the sign-off rows below → **human_needed**. The original truth
+table remains as a historical record; T2 (zoom bound) and T7 (cluster flex)
+rest on the review-fix commits.
 
 ## Review round 1 findings (fixed in `e3ad446d3`)
 
@@ -43,10 +46,16 @@ T2 (zoom bound) and T7 (cluster flex) rest on the review-fix commits.
    Verified numerically: 640/800/1024 keep the legacy cluster; 1920 → dialog
    flexes 371→219; 3440 → no flex (content = target).
 2. **High — repeated fixups compounded the shrink** (multiplying current
-   sizes) and a larger resolution never restored. **Fix:** all flex sizes are
-   now ABSOLUTE baselines recomputed from legacy geometry (264/155/256/128 ×
-   fHudScale × flex factor) every run — idempotent across runs, restoring
-   automatically on resolution increase.
+   sizes) and a larger resolution never restored. **Fix (round 2):** flex
+   sizes use absolute baselines recomputed from legacy geometry (264/155/256/
+   128 × fHudScale × flex factor) — idempotent at a fixed resolution.
+   **Fix (round 3, `c98f607a1`-successor):** the dialog and diamond sizes are
+   now set UNCONDITIONALLY — full baseline when no flex (or the guarded 4:3
+   case), flexed baseline when flexing — because ScaleLayout only scales
+   current metrics by the resolution delta and never reloads the XML
+   baseline; writing only inside the flex branch left a shrunken dialog stuck
+   at its flexed size after a resolution increase. Verified numerically:
+   1920 (flex, dialog 219) → 3440 restores 495; 3440 → 1024 restores 264.
 
 ## Goal-backward analysis
 
