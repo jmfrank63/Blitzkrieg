@@ -78,6 +78,10 @@ test "stages through a destination path with spaces and non-ASCII characters" {
         .data = "license fixture",
     });
     try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "Data/THIRD-PARTY-NOTICES.txt" }),
+        .data = "notices fixture",
+    });
+    try tmp.dir.writeFile(io, .{
         .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "README.md" }),
         .data = "readme fixture",
     });
@@ -123,6 +127,7 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try expectStagedFile(destination, io, allocator, "config.cfg", "default fixture");
     try expectStagedFile(destination, io, allocator, "defconf.cfg", "default fixture");
     try expectStagedFile(destination, io, allocator, "LICENSE.md", "license fixture");
+    try expectStagedFile(destination, io, allocator, "THIRD-PARTY-NOTICES.txt", "notices fixture");
     try expectStagedFile(destination, io, allocator, "README.md", "readme fixture");
     for ([_][]const u8{
         "Data/cache/compiled.bin",
@@ -216,6 +221,7 @@ fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.te
         .{ .path = "zig-out/bin/Game", .data = "game fixture" },
         .{ .path = "Data/Configs/defconf.cfg", .data = "default fixture" },
         .{ .path = "LICENSE.md", .data = "license fixture" },
+        .{ .path = "Data/THIRD-PARTY-NOTICES.txt", .data = "notices fixture" },
         .{ .path = "README.md", .data = "readme fixture" },
         .{ .path = "Data/Maps/kept.map", .data = "kept fixture" },
         .{ .path = "Data/Maps/edited.map", .data = "edited fixture" },
