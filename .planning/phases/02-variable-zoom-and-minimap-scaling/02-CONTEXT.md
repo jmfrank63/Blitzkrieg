@@ -56,10 +56,14 @@ smooth/continuous zoom animation.
   any configured resolution, zoom-out never goes beyond the un-zoomed view.
 
 ### Minimap sizing
-- **D-11:** Minimap diamond + command/unit status bar TOGETHER = exactly 50%
-  of the drawable width. Strict rule, always — even if low resolutions make
-  panel content tight. The minimap is the flexible element; the panel keeps
-  its content.
+- **D-11:** Minimap diamond + command/unit status bar TOGETHER = target 50%
+  of the drawable width, with the minimap dialog as the flexible element and
+  its flex CAPPED both ways (clarified 2026-09-09 after in-game review of
+  both extremes): the dialog never shrinks below its authored 264·s_hud
+  baseline (a shrunken diamond is unreadable) and never grows past 1.5× that
+  baseline (a giant diamond is no longer a minimap). Where the 50% target
+  lies outside that band the cap wins and the cluster misses 50% (rail and
+  status bar keep their sizes; resizing their content is forbidden by D-13).
 - **D-12:** Minimap resizes only on resolution change (settings switch / mode
   apply). The window is fixed-size by design (2026-08-12 decision), so
   resolution change is the only size-changing event. Minimap textures must be

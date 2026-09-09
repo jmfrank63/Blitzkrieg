@@ -985,11 +985,15 @@ static void SyncMissionModeFromInterMission()
 // x, rail at the dialog's right edge, status bar at the rail's right edge --
 // so the cluster tracks the D-11 target (min(50% of the drawable, content))
 // instead of the legacy gap. At a 1024x768 world base the clamp resolves to
-// the legacy layout (documented deviation). When the content exceeds the
-// 50% target, the minimap dialog and the diamond inside it (element 20000)
-// flex down uniformly (same factor for both axes -- anisotropic scaling
-// breaks the diamond's 2:1 mapping, see docs/scaling.md); the rail and
-// status bar keep their sizes so their content stays legible.
+// the legacy layout (documented deviation). The minimap dialog and the
+// diamond inside it (element 20000) flex uniformly (same factor for both
+// axes -- anisotropic scaling breaks the diamond's 2:1 mapping, see
+// docs/scaling.md), both ways but CAPPED: the dialog never shrinks below its
+// authored 264*s_hud baseline (a shrunken diamond stops being readable) and
+// never grows past 1.5x that baseline (a giant diamond stops being a
+// minimap -- user-verified bounds, 2026-09-09). Where the 50% target lies
+// outside that band the cap wins and the cluster may exceed 50% (rail +
+// status bar keep their sizes so their content stays legible).
 static void FixupHudClusterLayout( IUIScreen *pScreen )
 {
 	if ( pScreen == 0 )
@@ -1022,34 +1026,49 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	int nClusterContent = nDialog + nRail + nStatusbar;
 	const RECT rcDrawable = GetSingleton<IGFX>()->GetScreenRect();
 	const int nDrawableWidth = rcDrawable.right - rcDrawable.left;
-	const int nClusterTarget = Min( static_cast<int>( 0.5f * nDrawableWidth + 0.5f ), nClusterContent );
+	// The target is the raw 50% of the drawable -- deliberately NOT clamped
+	// to the cluster content: the dialog flexes toward the target from both
+	// sides (down to the authored baseline when content overflows, up to the
+	// 1.5x cap when content falls short). The cap, not a content clamp, is
+	// what bounds the growth.
+	const int nClusterTarget = static_cast<int>( 0.5f * nDrawableWidth + 0.5f );
 
-	// D-11 flex: shrink the dialog (and the diamond with it) when the cluster
-	// content cannot fit the 50% target. The dialog is the flexible element;
-	// rail and status bar keep their scaled sizes. Guarded: when the fixed
-	// elements alone exceed the target (small 4:3 resolutions such as
-	// 640x480/800x600/1024x768, where the clamp resolves to the legacy
-	// cluster), nDialogMax would go negative -- there the target is
-	// unreachable without resizing the rail/status bar content, which D-13
-	// forbids, so the dialog keeps its scaled legacy size (the documented
-	// deviation instead of a negative-size blowup).
+	// D-11 flex, capped both ways (user-verified bounds, 2026-09-09): the
+	// dialog (and the diamond with it) flexes toward the 50% target but is
+	// clamped to [authored 264*s_hud, 1.5x authored] -- never smaller (a
+	// shrunken diamond is unreadable) and never larger (a giant diamond is
+	// no longer a minimap). Where the target lies outside the band the cap
+	// wins and the cluster misses 50% (documented; D-13 forbids resizing
+	// rail/status-bar content).
 	//
 	// The dialog and the diamond (element 20000) sizes are set UNCONDITIONALLY
-	// -- either the full baseline (no flex, or the guarded 4:3 case) or the
-	// flexed baseline -- because ScaleLayout only scales the current metrics
-	// by the resolution delta and never reloads the XML baseline. Writing only
-	// inside the flex branch would leave a previously shrunken dialog stuck at
-	// its flexed size after a resolution increase.
+	// -- authored baseline, flexed-down, or flexed-up -- because ScaleLayout
+	// only scales the current metrics by the resolution delta and never
+	// reloads the XML baseline. Writing only inside a flex branch would leave
+	// a previously flexed dialog stuck at its flexed size after a resolution
+	// change.
+	const float fFlexMax = 1.5f;
 	int nDialogTarget = nDialog;
 	float fDialogFlex = 1.0f;
 	if ( nClusterTarget < nClusterContent && nClusterTarget > nRail + nStatusbar )
 	{
+		// Target below content: shrink toward the target but not below the
+		// authored baseline.
 		const int nDialogMax = nClusterTarget - nRail - nStatusbar;
 		if ( nDialogMax < nDialog )
 		{
 			fDialogFlex = static_cast<float>( nDialogMax ) / static_cast<float>( nDialog );
 			nDialogTarget = static_cast<int>( floor( 264.0f * fHudScale * fDialogFlex ) );
 		}
+	}
+	else if ( nClusterTarget > nClusterContent )
+	{
+		// Target above content: grow toward the target, capped at 1.5x the
+		// authored baseline.
+		const int nDialogMax = nClusterTarget - nRail - nStatusbar;
+		const int nDialogGrowCap = static_cast<int>( floor( 264.0f * fHudScale * fFlexMax ) );
+		nDialogTarget = Min( nDialogMax, nDialogGrowCap );
+		fDialogFlex = static_cast<float>( nDialogTarget ) / static_cast<float>( nDialog );
 	}
 	CVec2 vDialogNewSize( static_cast<float>( nDialogTarget ), floor( 155.0f * fHudScale * fDialogFlex ) );
 	pDialog->SetWindowPlacement( 0, &vDialogNewSize );
@@ -1072,14 +1091,14 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	nDialog = static_cast<int>( vDialogSizeNew.x );
 	nClusterContent = nDialog + nRail + nStatusbar;
 
-	// Gap closure (D-11) only where the 50% target is actually enforced. On
-	// guarded 4:3 resolutions the flex was skipped because the target is
-	// unreachable without touching rail/status-bar content (D-13) -- there
-	// the whole fixup stands down and the authored mission.xml arrangement,
-	// gaps included, is what renders (ScaleLayout already scaled it). Moving
-	// the rail/status bar here would close the authored low-resolution gaps
-	// and contradict the documented legacy-layout claim.
-	const bool bFlexEngaged = fDialogFlex < 1.0f;
+	// Contiguous layout whenever the dialog flexed off its authored size (in
+	// either direction): rail right after the dialog, status bar right after
+	// the rail. On 4:3 resolutions where the flex stands down entirely the
+	// authored mission.xml arrangement, gaps included, is what renders
+	// (ScaleLayout already scaled it) -- moving the rail/status bar there
+	// would close the authored low-resolution gaps and contradict the
+	// documented legacy-layout claim.
+	const bool bFlexEngaged = fabsf( fDialogFlex - 1.0f ) > 0.001f;
 	if ( bFlexEngaged )
 	{
 		// Contiguous D-11 layout: rail right after the (flexed) dialog, status
@@ -1114,8 +1133,8 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	pScreen->Reposition( GetSingleton<IGFX>()->GetScreenRect() );
 
 	if ( getenv( "BK_UI_TRACE" ) )
-		fprintf( stderr, "BK_UI_TRACE: hud cluster fixup s_hud=%.3f target=%d content=%d dialog=%d rail=%d statusbar=%d\n",
-			fHudScale, nClusterTarget, nClusterContent, nDialog, nRail, nStatusbar );
+		fprintf( stderr, "BK_UI_TRACE: hud cluster fixup s_hud=%.3f target=%d content=%d dialog=%d flex=%.2f rail=%d statusbar=%d\n",
+			fHudScale, nClusterTarget, nClusterContent, nDialog, fDialogFlex, nRail, nStatusbar );
 }
 static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor )
 {
