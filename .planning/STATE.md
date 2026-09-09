@@ -1,9 +1,9 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: "Phase 2 review round 4 applied (gap closure only when flex engages); in-game sign-off outstanding"
+stopped_at: "Phase 2 review round 5 clean (position restore verified); awaiting Windows in-game sign-off rows"
 last_updated: "2026-09-09T00:00:00Z"
-state_head: aeb7578e4
+state_head: eb867eb54
 progress:
   total_phases: 1
   completed_phases: 0
@@ -56,6 +56,6 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-08T21:20:53.718Z
-**Stopped at:** Phase 2 verification complete: human_needed (10/10 truths verified, in-game rows outstanding)
+**Last session:** 2026-09-09T00:00:00Z
+**Stopped at:** Phase 2 review round 5 clean — no code findings; position restore verified; awaiting Windows in-game sign-off rows
 **Resume file:** .planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md
