@@ -1036,10 +1036,13 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	// D-11 flex, capped both ways (user-verified bounds, 2026-09-09): the
 	// dialog (and the diamond with it) flexes toward the 50% target but is
 	// clamped to [authored 264*s_hud, 1.5x authored] -- never smaller (a
-	// shrunken diamond is unreadable) and never larger (a giant diamond is
-	// no longer a minimap). Where the target lies outside the band the cap
-	// wins and the cluster misses 50% (documented; D-13 forbids resizing
-	// rail/status-bar content).
+	// shrunken diamond is unreadable; the round-5 shrink path had no floor
+	// and crushed the dialog to a sliver at ~1000-wide drawables) and never
+	// larger (a giant diamond is no longer a minimap). Where the target lies
+	// below the authored baseline the 50% rule is unreachable (same
+	// arithmetic class as the 4:3 resolutions) and the fixup stands down to
+	// the authored layout -- the documented deviation. Where it lies above
+	// the cap the cap wins and the cluster stays under 50%.
 	//
 	// The dialog and the diamond (element 20000) sizes are set UNCONDITIONALLY
 	// -- authored baseline, flexed-down, or flexed-up -- because ScaleLayout
@@ -1048,26 +1051,14 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	// a previously flexed dialog stuck at its flexed size after a resolution
 	// change.
 	const float fFlexMax = 1.5f;
+	const int nDialogGrowCap = static_cast<int>( floor( 264.0f * fHudScale * fFlexMax ) );
 	int nDialogTarget = nDialog;
 	float fDialogFlex = 1.0f;
-	if ( nClusterTarget < nClusterContent && nClusterTarget > nRail + nStatusbar )
+	if ( nClusterTarget > nRail + nStatusbar )
 	{
-		// Target below content: shrink toward the target but not below the
-		// authored baseline.
-		const int nDialogMax = nClusterTarget - nRail - nStatusbar;
-		if ( nDialogMax < nDialog )
-		{
-			fDialogFlex = static_cast<float>( nDialogMax ) / static_cast<float>( nDialog );
-			nDialogTarget = static_cast<int>( floor( 264.0f * fHudScale * fDialogFlex ) );
-		}
-	}
-	else if ( nClusterTarget > nClusterContent )
-	{
-		// Target above content: grow toward the target, capped at 1.5x the
-		// authored baseline.
-		const int nDialogMax = nClusterTarget - nRail - nStatusbar;
-		const int nDialogGrowCap = static_cast<int>( floor( 264.0f * fHudScale * fFlexMax ) );
-		nDialogTarget = Min( nDialogMax, nDialogGrowCap );
+		const int nDialogDesired = nClusterTarget - nRail - nStatusbar;
+		nDialogTarget = Max( nDialogDesired, nDialog );
+		nDialogTarget = Min( nDialogTarget, nDialogGrowCap );
 		fDialogFlex = static_cast<float>( nDialogTarget ) / static_cast<float>( nDialog );
 	}
 	CVec2 vDialogNewSize( static_cast<float>( nDialogTarget ), floor( 155.0f * fHudScale * fDialogFlex ) );
