@@ -1082,11 +1082,27 @@ static void FixupHudClusterLayout( IUIScreen *pScreen )
 	const bool bFlexEngaged = fDialogFlex < 1.0f;
 	if ( bFlexEngaged )
 	{
+		// Contiguous D-11 layout: rail right after the (flexed) dialog, status
+		// bar right after the rail.
 		CVec2 vRailPos( static_cast<float>( nDialog ), vDialogPos.y );
 		pRail->SetWindowPlacement( &vRailPos, 0 );
 
 		CVec2 vStatusbarPos( static_cast<float>( nDialog + nRail ), vDialogPos.y );
 		pStatusBar->SetWindowPlacement( &vStatusbarPos, 0 );
+	}
+	else
+	{
+		// No flex: restore the authored mission.xml positions (scaled) rather
+		// than leaving whatever a previous flexed-resolution run stored --
+		// Reposition scales current metrics, so without this write a rail
+		// moved to a flexed dialog's right edge would stay misplaced (and
+		// could overlap the restored dialog) after leaving that resolution.
+		// Authored positions: dialog (0,0), rail (265,0), status bar (387,0).
+		CVec2 vRailRestored( floor( 265.0f * fHudScale + 0.5f ), vDialogPos.y );
+		pRail->SetWindowPlacement( &vRailRestored, 0 );
+
+		CVec2 vStatusbarRestored( floor( 387.0f * fHudScale + 0.5f ), vDialogPos.y );
+		pStatusBar->SetWindowPlacement( &vStatusbarRestored, 0 );
 	}
 
 	// SetWindowPlacement only stores the new pos/size; wndRect values are
