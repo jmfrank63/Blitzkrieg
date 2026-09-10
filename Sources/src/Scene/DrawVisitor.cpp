@@ -234,11 +234,24 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 		uiObjects.back().nShadingEffect = nShadingEffect;
 	}
 	{
-		float fTexDiffX = 0, fTexDiffY = 0, fScrDiff = -0.5f;
+		// Half-texel UV inset, applied INWARD on both edges of the mapped
+		// rect (same shift-vs-inset split as the sprite packs in
+		// SceneDraw.cpp and the tileset/crosset atlases in
+		// TerrainInternal.cpp). The UI window pass (effect 3) samples
+		// linearly (effects.zig), so a sample on an atlas cell's boundary
+		// would blend the neighboring cell's art; putting the outermost
+		// samples on the outermost texels' centers keeps every filtered
+		// tap strictly inside the mapped rect. The old uniform
+		// -0.5/size shift only pulled the max edge inward -- the min edge
+		// landed half a texel OUTSIDE the cell and bled the neighbor
+		// (round-5 review). Point sampling is unharmed: at a texel center
+		// floor() picks the same texel the boundary sample did.
+		const float fScrDiff = -0.5f;
+		float fTexInsetX = 0, fTexInsetY = 0;
 		if ( pTexture ) 
 		{
-			fTexDiffX = -0.5f / float ( pTexture->GetSizeX(0) );
-			fTexDiffY = -0.5f / float ( pTexture->GetSizeY(0) );
+			fTexInsetX = 0.5f / float ( pTexture->GetSizeX(0) );
+			fTexInsetY = 0.5f / float ( pTexture->GetSizeY(0) );
 		}
 		SUIObject &obj = uiObjects.back();
 		obj.rects.reserve( obj.rects.size() + nNumRects );
@@ -248,7 +261,10 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 			{
 				obj.rects.push_back( pRects[i] );
 				obj.rects.back().rect.Move( fScrDiff, fScrDiff );
-				obj.rects.back().maps.Move( fTexDiffX, fTexDiffY );
+				obj.rects.back().maps.minx += fTexInsetX;
+				obj.rects.back().maps.miny += fTexInsetY;
+				obj.rects.back().maps.maxx -= fTexInsetX;
+				obj.rects.back().maps.maxy -= fTexInsetY;
 			}
 		}
 	}

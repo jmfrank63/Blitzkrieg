@@ -109,8 +109,11 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
         // 3 is the UI window pass (panels, nav rail, status bar): its art is
         // authored at 1024x768 and stretched by the HUD scale (1.4-1.9x on
         // modern drawables), where point sampling renders every texel as a
-        // block of screen pixels. Linear plus the half-texel inset
-        // VisitUIRects already applies keeps the atlas cells separated.
+        // block of screen pixels. Linear is safe against atlas bleed only
+        // together with VisitUIRects's true inward half-texel UV inset on
+        // BOTH edges (DrawVisitor.cpp) -- the old uniform -0.5/size shift
+        // left the min edge half a texel outside the cell, sampling the
+        // neighbor (round-5 review).
         1, 14, 100, 111 => false,
         2, 3, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
         else => null,
