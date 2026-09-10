@@ -112,8 +112,9 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
         // linear filter bled their atlas neighbours into each other as grid
         // marks (round-6 in-game report). The UI window art draws under 305
         // instead -- a clone of 3 with the linear filter -- which is safe
-        // there because VisitUIRects insets its UVs half a texel inward on
-        // both edges.
+        // there because VisitUIRects normalizes the legacy max UV (one
+        // texel past the last texel's center) back onto that center, so
+        // filtered taps never leave the mapped atlas cell.
         1, 3, 14, 100, 111 => false,
         2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303, 305 => true,
         else => null,
@@ -426,11 +427,11 @@ test "UI and alpha reference fixtures" {
     try std.testing.expectEqual(true, linearFilterChangeFor(8).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(112).?);
     // The UI window pass draws under 305 -- a clone of 3 with a linear
-    // filter (safe there: VisitUIRects insets its UVs inward on both
-    // edges) -- while 3 itself stays point for the world sprite passes
-    // that share it (round-6). The terrain cross pass is point sampled in
-    // SetupShaders; leaving it out let it inherit the previous effect's
-    // filter.
+    // filter (safe there: VisitUIRects pulls the legacy max UV back onto
+    // the last texel's center) -- while 3 itself stays point for the world
+    // sprite passes that share it (round-6). The terrain cross pass is
+    // point sampled in SetupShaders; leaving it out let it inherit the
+    // previous effect's filter.
     try std.testing.expectEqual(false, linearFilterChangeFor(3).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(305).?);
     // 305 must be a state-for-state clone of 3 apart from the filter:

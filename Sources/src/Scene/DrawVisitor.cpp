@@ -234,25 +234,29 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 		uiObjects.back().nShadingEffect = nShadingEffect;
 	}
 	{
-		// Half-texel UV inset, applied INWARD on both edges of the mapped
-		// rect (same shift-vs-inset split as the sprite packs in
-		// SceneDraw.cpp and the tileset/crosset atlases in
-		// TerrainInternal.cpp). Effect 3 -- which draws these rects -- is
-		// shared with the world sprite passes and therefore point-sampled
-		// (effects.zig), where this inset changes nothing visible: at a
-		// texel center floor() picks the same texel the boundary sample
-		// did, just robust against float jitter. The inset exists so the
-		// UI path is atlas-safe the moment anyone makes a UI-only linear
-		// effect: with the old uniform -0.5/size shift the min edge landed
-		// half a texel OUTSIDE the cell and bled the neighbor (round-5
-		// review), and linear filtering would spread that across both
-		// edges.
+		// Normalize this engine's UI UV convention for filtered sampling.
+		// Every Maps/TileRects converter (UIInternal.cpp:114-145, :524-527)
+		// emits min = (first + 0.5) / size -- the FIRST texel's center, al-
+		// ready correct for linear -- and max = (first + size + 0.5) / size
+		// -- the center of the texel ONE PAST the cell. That overshoot is
+		// deliberate legacy: under point sampling paired with the -0.5
+		// screen shift it made the last sampled texel the cell's own last
+		// texel. Under linear it is fatal: the max edge lands on the
+		// boundary between the cell's last texel and whatever follows in
+		// the atlas (for the status-bar plate fill, an alpha-0 gutter), so
+		// every tiled quad renders a half-transparent seam line at its edge
+		// -- the 16-texel-period grid on the status bar (round-7 report).
+		// Subtracting one full texel from the max moves it back onto the
+		// last texel's CENTER: every filtered tap stays strictly inside
+		// the mapped cell, on both filters (point at a texel center floors
+		// to the same texel). The min is left untouched: it is already the
+		// first texel's center, and insetting it would crop real art.
 		const float fScrDiff = -0.5f;
 		float fTexInsetX = 0, fTexInsetY = 0;
 		if ( pTexture ) 
 		{
-			fTexInsetX = 0.5f / float ( pTexture->GetSizeX(0) );
-			fTexInsetY = 0.5f / float ( pTexture->GetSizeY(0) );
+			fTexInsetX = 1.0f / float ( pTexture->GetSizeX(0) );
+			fTexInsetY = 1.0f / float ( pTexture->GetSizeY(0) );
 		}
 		SUIObject &obj = uiObjects.back();
 		obj.rects.reserve( obj.rects.size() + nNumRects );
@@ -262,8 +266,6 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 			{
 				obj.rects.push_back( pRects[i] );
 				obj.rects.back().rect.Move( fScrDiff, fScrDiff );
-				obj.rects.back().maps.minx += fTexInsetX;
-				obj.rects.back().maps.miny += fTexInsetY;
 				obj.rects.back().maps.maxx -= fTexInsetX;
 				obj.rects.back().maps.maxy -= fTexInsetY;
 			}
