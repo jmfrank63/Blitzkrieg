@@ -649,6 +649,10 @@ void CAIUnit::TakeDamage( const float fDamage, const SWeaponRPGStats::SShell *pS
 }
 void CAIUnit::Fired( const float fGunRadius, const int nGun )
 {
+	if ( getenv("BK_AA_TRACE") && GetFirstArtilleryGun() )
+		fprintf( stderr, "BK_AA_TRACE: artillery shot id=%d player=%d party=%d at (%.1f,%.1f) revealR=%.1f aa=%p\n",
+			(int)GetID(), (int)GetPlayer(), (int)GetParty(), GetCenter().x, GetCenter().y, fGunRadius, (void*)pAntiArtillery.GetPtr() );
+
 	if ( pAntiArtillery != 0 && fGunRadius != 0.0f )
 		pAntiArtillery->Fired( fGunRadius, GetCenter() );
 

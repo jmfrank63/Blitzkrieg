@@ -234,6 +234,7 @@ public:
 
 
 	void CreateAntiArtillery( const float fMaxRevealRadius );
+	class CAntiArtillery* GetAntiArtillery() const { return pAntiArtillery; }
 	virtual void Fired( const float fGunRadius, const int nGun );
 	virtual NTimer::STime GetDisappearInterval() const { return SConsts::TIME_TO_DISAPPEAR; }
 

@@ -147,6 +147,7 @@ int CGeneralArtilleryTask::operator&( IStructureSaver &ss )
 	SerializeOwner( 11, &pOwner, &saver );
 	saver.Add( 12, &nCellNumber );
 	saver.Add( 13, &nParty );
+	saver.Add( 14, &timeBombardmentStarted );
 
 	return 0;
 }

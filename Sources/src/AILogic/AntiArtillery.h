@@ -30,6 +30,7 @@ class CAntiArtillery : public CLinkObject
 	int nParty;
 
 	NTimer::STime lastScan;
+	NTimer::STime lastFireTime;										// when this gun last fired, regardless of who heard it
 	std::vector<NTimer::STime> lastShotTime;
 	std::vector<NTimer::STime> lastRevealCircleTime;
 
@@ -40,7 +41,7 @@ class CAntiArtillery : public CLinkObject
 
 	void Scan( const CVec2 &center );
 public:
-	CAntiArtillery() { }
+	CAntiArtillery() : lastFireTime( 0 ) { }
 	explicit CAntiArtillery( class CAIUnit *pOwner );
 	
 	void SetParty( const int _nParty ) { nParty = _nParty; }
@@ -52,6 +53,7 @@ public:
 
 	const CCircle GetRevealCircle( const int nParty ) const;
 	const NTimer::STime GetLastHeardTime( const int nParty ) const;
+	const NTimer::STime GetLastFireTime() const { return lastFireTime; }
 
 	virtual const bool IsVisible( const BYTE party ) const { return true; }
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const { pTiles->clear(); }

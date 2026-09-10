@@ -24,6 +24,7 @@ int CAntiArtillery::operator&( IStructureSaver &ss )
 	saver.Add( 7, &lastRevealCenter );
 	saver.Add( 8, &lastShotTime );
 	saver.Add( 9, &lastRevealCircleTime );
+	saver.Add( 10, &lastFireTime );
 	saver.AddTypedSuper( 11, static_cast<CLinkObject*>(this) );
 
 	return 0;

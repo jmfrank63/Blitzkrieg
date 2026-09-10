@@ -688,6 +688,13 @@ void CUpdater::GetRevealCircles( CCircle **pCircleBuffer, int *pnLen )
 		for ( CComplexUpdatesSet::iterator iter = complexUpdates[ACTION_NOTIFY_REVEAL_ARTILLERY >> 4].begin(); iter != complexUpdates[ACTION_NOTIFY_REVEAL_ARTILLERY >> 4].end(); ++iter )
 			iter->second->GetRevealCircle( &(*pCircleBuffer)[(*pnLen)++] );
 
+		if ( *pnLen > 0 && getenv("BK_AA_TRACE") )
+		{
+			for ( int i = 0; i < *pnLen; ++i )
+				fprintf( stderr, "BK_AA_TRACE: client reveal circle[%d] ai=(%.1f,%.1f) r=%.1f\n",
+					i, (*pCircleBuffer)[i].center.x, (*pCircleBuffer)[i].center.y, (*pCircleBuffer)[i].r );
+		}
+
 		ClearAllUpdates( ACTION_NOTIFY_REVEAL_ARTILLERY );
 	}
 }

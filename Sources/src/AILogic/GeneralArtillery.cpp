@@ -34,9 +34,13 @@ bool CanUnitBombardRegion( CAIUnit *pUnit, const CVec2 &vRegionCenter )
 		vBattlePos = pUnit->GetCenter();
 
 	const float fDistToRegion2 = fabs2( vRegionCenter - vBattlePos );
-	const float fFireRange2 = sqr( pUnit->GetFirstArtilleryGun()->GetFireRange( 0 ) );
+	CBasicGun *pGun = pUnit->GetFirstArtilleryGun();
+	const float fFireRange2 = sqr( pGun->GetFireRange( 0 ) );
 
-	return fFireRange2 > fDistToRegion2;
+	// a battery without shells cannot bombard anything: tasking it produces a fire
+	// mission that never fires, and the mission alone announces "enemy artillery
+	// detected" to the other side
+	return pGun->GetNAmmo() > 0 && fFireRange2 > fDistToRegion2;
 }
 bool IsArtilleryFree( CAIUnit *pUnit )
 {
@@ -268,7 +272,7 @@ CGeneralArtilleryTask::SBombardmentUnitState::SBombardmentUnitState( CAIUnit *_p
 CGeneralArtilleryTask::CGeneralArtilleryTask( CGeneralArtillery *_pOwner, std::list<CAIUnit*> &givenUnits, bool bAntiArtilleryFight, const CVec2 &vCenter, const float fRadius, const int _nCellNumber )
 : pOwner( _pOwner ), bIsAntiArtilleryFight( bAntiArtilleryFight ),
 	bBombardmentFinished( false ), eState( EBS_START ), vBombardmentCenter( vCenter ),
-	fBombardmentRadius( fRadius ), timeToSendAntiArtilleryAck( 0 ),
+	fBombardmentRadius( fRadius ), timeToSendAntiArtilleryAck( 0 ), timeBombardmentStarted( 0 ),
 	nCellNumber( _nCellNumber ), nParty( _pOwner->GetParty() )
 {
 	for ( std::list<CAIUnit*>::iterator iter = givenUnits.begin(); iter != givenUnits.end(); ++iter )
@@ -426,6 +430,10 @@ void CGeneralArtilleryTask::Rotating()
 				{
 					CAIUnit *pUnit = iter->pUnit;
 					
+					if ( getenv("BK_AA_TRACE") )
+						fprintf( stderr, "BK_AA_TRACE: bombardment order id=%d party=%d at (%.1f,%.1f) -> (%.1f,%.1f) antiart=%d\n",
+							(int)pUnit->GetID(), (int)pUnit->GetParty(), pUnit->GetCenter().x, pUnit->GetCenter().y,
+							iter->vAttackPos.x, iter->vAttackPos.y, (int)bIsAntiArtilleryFight );
 					theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_ART_BOMBARDMENT, iter->vAttackPos ), pUnit, false );
 
 					CBasicGun *pGun = pUnit->GetFirstArtilleryGun();
@@ -485,10 +493,19 @@ void CGeneralArtilleryTask::CalculateTimeToSendAntiArtilleryAck()
 	{
 		if ( !iter->pGoToPosition )
 		{
-			++cnt;
-			vAntiArtilleryAckCenter += iter->vAttackPos;
-
 			CAIUnit *pUnit = iter->pUnit;
+
+			++cnt;
+			// the ack marks the battery that was detected, not the place it shells
+			vAntiArtilleryAckCenter += pUnit->GetCenter();
+
+			if ( getenv("BK_AA_TRACE") )
+				fprintf( stderr, "BK_AA_TRACE:   ack gun id=%d player=%d party=%d taskParty=%d myParty=%d aa=%p lastFire=%d at (%.1f,%.1f) shooting at (%.1f,%.1f)\n",
+					(int)pUnit->GetID(), (int)pUnit->GetPlayer(), (int)pUnit->GetParty(), (int)nParty, (int)theDipl.GetMyParty(),
+					(void*)pUnit->GetAntiArtillery(),
+					pUnit->GetAntiArtillery() ? (int)pUnit->GetAntiArtillery()->GetLastFireTime() : -1,
+					pUnit->GetCenter().x, pUnit->GetCenter().y, iter->vAttackPos.x, iter->vAttackPos.y );
+
 			if ( CBasicGun *pGun = pUnit->GetFirstArtilleryGun() )
 			{
 				IBallisticTraj *pTraj = pGun->CreateTraj( iter->vAttackPos );
@@ -503,6 +520,7 @@ void CGeneralArtilleryTask::CalculateTimeToSendAntiArtilleryAck()
 	}
 
 	vAntiArtilleryAckCenter /= float( cnt );
+	timeBombardmentStarted = curTime;
 	if ( maxTimeToWait != 0 )
 		timeToSendAntiArtilleryAck = curTime + maxTimeToWait;
 	else
@@ -553,8 +571,30 @@ void CGeneralArtilleryTask::Segment()
 
 					if ( bIsAntiArtilleryFight && timeToSendAntiArtilleryAck != 0 && timeToSendAntiArtilleryAck <= curTime )
 					{
-						NI_ASSERT_T( vAntiArtilleryAckCenter.x >= 0.0f && vAntiArtilleryAckCenter.y >= 0.0f, NStr::Format( "Wrong vAntiArtilleryAckCenter (%g,%g)", vAntiArtilleryAckCenter.x, vAntiArtilleryAckCenter.y ) );
-						updater.AddFeedBack( SAIFeedBack( EFB_ENEMY_STARTED_ANTIARTILLERY, MAKELONG( vAntiArtilleryAckCenter.x, vAntiArtilleryAckCenter.y ) ) );
+						// a mission that never fired a shell reveals nothing: without this the
+						// timer alone announces "enemy artillery detected" over the units being
+						// shelled, i.e. over the player's own battery
+						bool bBatteryFired = false;
+						for ( std::list<SBombardmentUnitState>::iterator it = bombardmentUnits.begin(); it != bombardmentUnits.end() && !bBatteryFired; ++it )
+						{
+							if ( !it->pGoToPosition && IsValidObj( it->pUnit ) )
+							{
+								CAntiArtillery *pAA = it->pUnit->GetAntiArtillery();
+								// a gun with no reveal radius has no CAntiArtillery to ask
+								bBatteryFired = !pAA || pAA->GetLastFireTime() > timeBombardmentStarted;
+							}
+						}
+
+						if ( getenv("BK_AA_TRACE") )
+							fprintf( stderr, "BK_AA_TRACE: EFB_ENEMY_STARTED_ANTIARTILLERY generalParty=%d center=(%.1f,%.1f) send=%d\n",
+								(int)nParty, vAntiArtilleryAckCenter.x, vAntiArtilleryAckCenter.y, (int)bBatteryFired );
+
+						if ( bBatteryFired )
+						{
+							NI_ASSERT_T( vAntiArtilleryAckCenter.x >= 0.0f && vAntiArtilleryAckCenter.y >= 0.0f, NStr::Format( "Wrong vAntiArtilleryAckCenter (%g,%g)", vAntiArtilleryAckCenter.x, vAntiArtilleryAckCenter.y ) );
+							updater.AddFeedBack( SAIFeedBack( EFB_ENEMY_STARTED_ANTIARTILLERY, MAKELONG( vAntiArtilleryAckCenter.x, vAntiArtilleryAckCenter.y ) ) );
+						}
+
 						timeToSendAntiArtilleryAck = 0;
 					}
 				}

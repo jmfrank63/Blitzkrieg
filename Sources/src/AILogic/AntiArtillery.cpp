@@ -26,6 +26,7 @@ void CAntiArtillery::Init( const float _fMaxRadius, const int _nParty )
 	nParty = _nParty;
 
 	lastScan = 0;
+	lastFireTime = 0;
 
 	closestEnemyDist2.resize( 3 );
 	lastHeardPos.resize( 3 );
@@ -37,7 +38,7 @@ void CAntiArtillery::Init( const float _fMaxRadius, const int _nParty )
 }
 void CAntiArtillery::Scan( const CVec2 &center )
 {
-	memset( &(closestEnemyDist2[0]), 0, closestEnemyDist2.size() );
+	memset( &(closestEnemyDist2[0]), 0, closestEnemyDist2.size() * sizeof( closestEnemyDist2[0] ) );
 	
 	for ( CUnitsIter<0,3> iter( nParty, EDI_ENEMY, center, fMaxRadius ); !iter.IsFinished(); iter.Iterate() )
 	{
@@ -66,6 +67,12 @@ void CAntiArtillery::Fired( const float fGunRadius, const CVec2 &center )
 	if ( curTime - lastScan >= SConsts::ANTI_ARTILLERY_SCAN_TIME )
 		Scan( center );
 	theAAManager.AddAA( this );
+	lastFireTime = curTime;
+
+	if ( getenv("BK_AA_TRACE") )
+		fprintf( stderr, "BK_AA_TRACE: Fired aa=%p party=%d center=(%.1f,%.1f) gunR=%.1f closestEnemy=[%.1f,%.1f,%.1f]\n",
+			(void*)this, nParty, center.x, center.y, fGunRadius,
+			closestEnemyDist2[0], closestEnemyDist2[1], closestEnemyDist2[2] );
 
 	const float fGunRadius2 = sqr( fGunRadius );
 	for ( int i = 0; i < 2; ++i )
@@ -149,6 +156,10 @@ void CAntiArtillery::Fired( const float fGunRadius, const CVec2 &center )
 				}
 			}
 
+			if ( getenv("BK_AA_TRACE") )
+				fprintf( stderr, "BK_AA_TRACE:   heard by party=%d shots=%d revealCenter=(%.1f,%.1f)\n",
+					i, (int)nHeardShots[i], newCenter.x, newCenter.y );
+
 			lastHeardPos[i] = center;
 			lastRevealCenter[i] = newCenter;
 
@@ -183,7 +194,15 @@ void CAntiArtillery::Segment( bool bOwnerVisible )
 			lastRevealCircleTime[nIterParty] = curTime;
 
 			CPtr<CRevealCircle> pCircle = new CRevealCircle( GetRevealCircle( 1 - nParty ) );
-			
+
+			if ( getenv("BK_AA_TRACE") )
+			{
+				const CCircle c = GetRevealCircle( 1 - nParty );
+				fprintf( stderr, "BK_AA_TRACE: Segment aa=%p aaParty=%d iterParty=%d myParty=%d ownerVisible=%d circle=(%.1f,%.1f)r%.1f send=%d\n",
+					(void*)this, nParty, nIterParty, nMyParty, (int)bOwnerVisible,
+					c.center.x, c.center.y, c.r, (int)( nMyParty == nIterParty && !bOwnerVisible ) );
+			}
+
 			if ( nMyParty == nIterParty && !bOwnerVisible )
 			{
 				if ( !theCheats.IsHistoryPlaying() )

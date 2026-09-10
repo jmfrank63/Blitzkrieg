@@ -42,6 +42,7 @@ class CGeneralArtilleryTask
 	float fBombardmentRadius;
 	NTimer::STime timeToFinishBombardment;
 	NTimer::STime timeToSendAntiArtilleryAck;
+	NTimer::STime timeBombardmentStarted;
 	CVec2 vAntiArtilleryAckCenter;
 	bool bIsAntiArtilleryFight;
 	NTimer::STime startRotatingTime;
@@ -81,7 +82,7 @@ class CGeneralArtilleryTask
 
 	void SetBombardmentFinished();
 public:
-	CGeneralArtilleryTask() : bBombardmentFinished( true ), bIsAntiArtilleryFight( false ) { }
+	CGeneralArtilleryTask() : bBombardmentFinished( true ), bIsAntiArtilleryFight( false ), timeBombardmentStarted( 0 ) { }
 	CGeneralArtilleryTask( CGeneralArtillery *pOwner, std::list<CAIUnit*> &givenUnits, bool bAntiArtilleryFight, const CVec2 &vCenter, const float fRadius, const int nCellNumber );
 
 	void Segment();
