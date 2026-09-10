@@ -46,7 +46,7 @@ created: 2026-09-08
 | pause-guard | 01 | 1 | research L7 | — | — | source assertion | `MC_ZOOM_*` handlers gate on `GetPauseReason() > PAUSE_TYPE_NO_CONTROL` | grep | pending |
 | terrain-rebuild | 02 | 2 | research L3 | — | — | source assertion | zoom step path calls `pTerrain->ResetPosition()` | grep | pending |
 | cursor-anchor | 02 | 2 | D-07 | — | — | source + trace | anchor delta = `P_old − P_new` via two `GetPos3` calls; `SetAnchor` before next `Update` | build + trace | pending |
-| minimap-sizing | 03 | 3 | D-11..D-14 | — | — | trace + manual | `CUIMiniMap::Reposition` override applies pinned 50% arithmetic once per resolution change; `CreateMiniMapTextures` recreated on wndRect change; no new `PointToTextureMiniMap(..., false)` | grep + BK_UI_TRACE | pending |
+| minimap-sizing | 03 | 3 | D-11..D-14 | — | — | trace + manual | `FixupHudClusterLayout` writes authored dialog/diamond baselines unconditionally once per resolution change (D-11 as amended 2026-09-10 — dialog/diamond never resize); rail/status-bar gap closure on wide drawables; `CreateMiniMapTextures` recreated on wndRect change; no new `PointToTextureMiniMap(..., false)` | grep + BK_UI_TRACE | pending |
 | fractional-sync | (in 01/02) | 1–2 | research L1 | — | — | trace | `world_zoom_fractional_` reflects `s*zoom` at fractional steps (BK_GFX_TRACE present-offsets lines) | trace | pending |
 | manual-matrix | — | — | all D-xx | — | — | manual | research §Manual rows: zoom-bounds at 640/1024/1920/3440; cursor anchor; input matrix; fractional visuals; minimap rule; res-change matrix; persistence; 1024×768 z=1 regression | in-game | pending |
 

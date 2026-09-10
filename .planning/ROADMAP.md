@@ -191,9 +191,12 @@ Goals:
 **Goal:** Add player-controlled variable map zoom bounded between the configured
 settings resolution (max zoom-out limit) and 640x480 effective viewport (max
 zoom-in limit), decouple the minimap from map zoom by giving it a fixed size
-relative to screen width (sized so minimap + command/unit detail panel occupies
-half the available width), and add zoom controls: Shift+mouse wheel, J (zoom
-in), K (zoom out), L (reset zoom).
+relative to screen width (minimap dialog + diamond hold their authored
+baselines at every resolution; the layout fixup closes the legacy
+rail/status-bar gap on wide drawables — amended 2026-09-10, the original
+"half the available width" rule was unreachable with the dialog's
+fixed-size multi-tile art), and add zoom controls: Shift+mouse wheel, J
+(zoom in), K (zoom out), L (reset zoom).
 
 **Requirements**: TBD
 **Depends on:** Phase 1

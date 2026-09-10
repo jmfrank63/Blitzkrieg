@@ -983,9 +983,10 @@ static void SyncMissionModeFromInterMission()
 // and the status bar that only closed by accident at the authored width. The
 // cluster here is laid out as one unit -- dialog left-anchored at its scaled
 // x, rail at the dialog's right edge, status bar at the rail's right edge --
-// so the cluster tracks the D-11 target (min(50% of the drawable, content))
-// instead of the legacy gap. At a 1024x768 world base the clamp resolves to
-// the legacy layout (documented deviation).
+// closing the legacy rail/status-bar gap wherever the 50% gate (min(50% of
+// the drawable, content)) engages. At 4:3 resolutions the gate stands down
+// and the authored mission.xml arrangement renders (specified behavior since
+// the 2026-09-10 D-11 amendment).
 //
 // The dialog does NOT resize: both in-game attempts at moving it off its
 // authored baseline were rejected (2026-09-09). Shrinking it crushed the

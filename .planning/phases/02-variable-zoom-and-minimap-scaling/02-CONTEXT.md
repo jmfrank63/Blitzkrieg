@@ -9,8 +9,12 @@
 Add player-controlled variable map zoom to the mission view, bounded between
 the configured settings resolution (maximum zoom-out, never beyond) and an
 effective 640×480 viewport (maximum zoom-in). Give the minimap a fixed size
-that is independent of map zoom and resolution-scaled layout: minimap plus
-command/unit status bar together occupy exactly half the drawable width. Add
+that is independent of map zoom and resolution-scaled layout: the minimap
+dialog and diamond hold their authored baselines at every resolution and the
+layout fixup closes the legacy rail/status-bar gap on wide drawables
+(amended 2026-09-10 — the original "exactly half the drawable width" rule
+was unreachable with the dialog's fixed-size multi-tile background art;
+both resize directions were rejected in-game — see D-11). Add
 zoom controls: Shift+mouse wheel, J (zoom in), K (zoom out), L (reset zoom).
 
 Out of scope: minimap content redesign, new HUD capabilities beyond the
@@ -56,14 +60,23 @@ smooth/continuous zoom animation.
   any configured resolution, zoom-out never goes beyond the un-zoomed view.
 
 ### Minimap sizing
-- **D-11:** Minimap diamond + command/unit status bar TOGETHER = target 50%
-  of the drawable width, with the minimap dialog as the flexible element and
-  its flex CAPPED both ways (clarified 2026-09-09 after in-game review of
-  both extremes): the dialog never shrinks below its authored 264·s_hud
-  baseline (a shrunken diamond is unreadable) and never grows past 1.5× that
-  baseline (a giant diamond is no longer a minimap). Where the 50% target
-  lies outside that band the cap wins and the cluster misses 50% (rail and
-  status bar keep their sizes; resizing their content is forbidden by D-13).
+- **D-11 (amended 2026-09-10 — supersedes the 50% flexible-minimap rule):**
+  The minimap dialog (5000) and its diamond (20000) keep their authored
+  baselines — 264/155 and 256×128, scaled by s_hud — at every resolution.
+  The dialog's background is multi-tile art that cannot follow a resized
+  window: both resize directions were built and rejected in-game
+  (2026-09-09) — shrinking crushed the diamond to an unreadable sliver at
+  ~1000-wide drawables; growing left the background unpainted
+  (SetWindowPlacement regenerates multi-tile backgrounds only for
+  single-tile windows) and stretching the 2-tile art would distort the
+  ornamental frame. The 50% cluster target is therefore
+  unreachable-by-design; re-introducing flex would require a 9-slice-style
+  resize path for the tile-rect model (separate phase, out of scope). The
+  fixup writes the authored baselines unconditionally (a resolution change
+  must always restore them) and flexes only the rail/status-bar POSITIONS
+  to close the legacy 123px gap on wide drawables; at 4:3 the authored
+  mission.xml arrangement renders untouched (documented behavior, not a
+  deviation).
 - **D-12:** Minimap resizes only on resolution change (settings switch / mode
   apply). The window is fixed-size by design (2026-08-12 decision), so
   resolution change is the only size-changing event. Minimap textures must be
@@ -196,9 +209,12 @@ smooth/continuous zoom animation.
   over smooth).
 - Cursor-anchored zoom was called "the standard RTS feel" (Supreme Commander,
   Beyond All Reason were the mental model).
-- The minimap sizing rule is a hard requirement: "half of the available
-  width" for minimap + commands + unit details combined, strict at all
-  resolutions.
+- The minimap sizing rule began as a hard requirement: "half of the
+  available width" for minimap + commands + unit details combined, strict at
+  all resolutions. Amended 2026-09-10 (see D-11): the strict-50% reading was
+  formally dropped after every way of honoring it was rejected in-game
+  (shrink, growth, art stretch); the shipped contract is authored baselines
+  plus rail/status-bar gap closure.
 - 640×480 is the original engine's minimum; the user wants it as the exact
   zoom floor, with 640×480 settings resolution giving zero zoom range.
 
