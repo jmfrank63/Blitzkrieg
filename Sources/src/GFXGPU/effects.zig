@@ -106,16 +106,17 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
         // into another - and SetupShaders gives it POINT. It was missing here,
         // so the pass inherited whatever the previous effect left, normally
         // linear, and the mask bled across its atlas cell.
-        // 3 is the UI window pass (panels, nav rail, status bar): its art is
-        // authored at 1024x768 and stretched by the HUD scale (1.4-1.9x on
-        // modern drawables), where point sampling renders every texel as a
-        // block of screen pixels. Linear is safe against atlas bleed only
-        // together with VisitUIRects's true inward half-texel UV inset on
-        // BOTH edges (DrawVisitor.cpp) -- the old uniform -0.5/size shift
-        // left the min edge half a texel outside the cell, sampling the
-        // neighbor (round-5 review).
-        1, 14, 100, 111 => false,
-        2, 3, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
+        // 3 was briefly linear here (to smooth the HUD-scaled window art),
+        // but the effect is SHARED by the world sprite passes -- units,
+        // buildings and objects at SceneDraw.cpp DrawSprites sites -- whose
+        // quads carry the point-era half-texel shift correction, so linear
+        // bled their atlas neighbours into each other as grid marks
+        // (round-6 in-game report). 3 stays point; smoothing the UI needs a
+        // separate UI-only effect id, not a global filter flip. VisitUIRects
+        // keeps its inward half-texel inset: it is point-safe (samples at
+        // texel centres) and is the prerequisite for such a split.
+        1, 3, 14, 100, 111 => false,
+        2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
         else => null,
     };
 }
@@ -414,11 +415,12 @@ test "UI and alpha reference fixtures" {
     try std.testing.expectEqual(false, linearFilterChangeFor(111).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(8).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(112).?);
-    // The UI window pass (3) is linear: its art is HUD-scaled, and point
-    // sampling blocks. The terrain cross pass is point sampled in
-    // SetupShaders; leaving it out let it inherit the previous effect's
-    // filter.
-    try std.testing.expectEqual(true, linearFilterChangeFor(3).?);
+    // The UI window pass (3) is point sampled again: the effect is shared
+    // with the world sprite passes, whose shift-corrected quads bleed under
+    // a linear filter (round-6). Smoothing the HUD needs a UI-only effect
+    // id. The terrain cross pass is point sampled in SetupShaders; leaving
+    // it out let it inherit the previous effect's filter.
+    try std.testing.expectEqual(false, linearFilterChangeFor(3).?);
     try std.testing.expectEqual(false, linearFilterChangeFor(100).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(4).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(5).?);

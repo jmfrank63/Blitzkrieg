@@ -237,15 +237,16 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 		// Half-texel UV inset, applied INWARD on both edges of the mapped
 		// rect (same shift-vs-inset split as the sprite packs in
 		// SceneDraw.cpp and the tileset/crosset atlases in
-		// TerrainInternal.cpp). The UI window pass (effect 3) samples
-		// linearly (effects.zig), so a sample on an atlas cell's boundary
-		// would blend the neighboring cell's art; putting the outermost
-		// samples on the outermost texels' centers keeps every filtered
-		// tap strictly inside the mapped rect. The old uniform
-		// -0.5/size shift only pulled the max edge inward -- the min edge
-		// landed half a texel OUTSIDE the cell and bled the neighbor
-		// (round-5 review). Point sampling is unharmed: at a texel center
-		// floor() picks the same texel the boundary sample did.
+		// TerrainInternal.cpp). Effect 3 -- which draws these rects -- is
+		// shared with the world sprite passes and therefore point-sampled
+		// (effects.zig), where this inset changes nothing visible: at a
+		// texel center floor() picks the same texel the boundary sample
+		// did, just robust against float jitter. The inset exists so the
+		// UI path is atlas-safe the moment anyone makes a UI-only linear
+		// effect: with the old uniform -0.5/size shift the min edge landed
+		// half a texel OUTSIDE the cell and bled the neighbor (round-5
+		// review), and linear filtering would spread that across both
+		// edges.
 		const float fScrDiff = -0.5f;
 		float fTexInsetX = 0, fTexInsetY = 0;
 		if ( pTexture ) 
