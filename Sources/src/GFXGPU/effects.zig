@@ -58,7 +58,7 @@ pub fn alphaRefFor(id: u32) u8 {
         13 => 10,
         12 => 5,
         111, 200 => 50,
-        3, 8, 10, 19, 21, 303 => 1,
+        3, 8, 10, 19, 21, 303, 305 => 1,
         else => 0,
     };
 }
@@ -106,17 +106,16 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
         // into another - and SetupShaders gives it POINT. It was missing here,
         // so the pass inherited whatever the previous effect left, normally
         // linear, and the mask bled across its atlas cell.
-        // 3 was briefly linear here (to smooth the HUD-scaled window art),
-        // but the effect is SHARED by the world sprite passes -- units,
-        // buildings and objects at SceneDraw.cpp DrawSprites sites -- whose
-        // quads carry the point-era half-texel shift correction, so linear
-        // bled their atlas neighbours into each other as grid marks
-        // (round-6 in-game report). 3 stays point; smoothing the UI needs a
-        // separate UI-only effect id, not a global filter flip. VisitUIRects
-        // keeps its inward half-texel inset: it is point-safe (samples at
-        // texel centres) and is the prerequisite for such a split.
+        // 3 must stay POINT: it is shared by the world sprite passes
+        // (units, buildings, objects at SceneDraw.cpp's DrawSprites sites),
+        // whose quads carry the point-era half-texel shift correction, so a
+        // linear filter bled their atlas neighbours into each other as grid
+        // marks (round-6 in-game report). The UI window art draws under 305
+        // instead -- a clone of 3 with the linear filter -- which is safe
+        // there because VisitUIRects insets its UVs half a texel inward on
+        // both edges.
         1, 3, 14, 100, 111 => false,
-        2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303 => true,
+        2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303, 305 => true,
         else => null,
     };
 }
@@ -257,6 +256,17 @@ pub const specs = [_]EffectSpec{
     make(21, .ui, .textured, 1, state_alpha_blend),
     make(22, .ui, .textured, 1, state_alpha_blend),
     make(23, .ui, .textured, 1, state_alpha_blend),
+    // 305 is the UI window pass's own id: a state-for-state clone of 3
+    // (alpha test at ref 1, straight alpha, the .ui shader) whose ONLY
+    // difference is the stage-0 filter -- linear, because the UI rect path
+    // (VisitUIRects) insets its UVs half a texel inward on both edges, so
+    // filtered taps stay inside the atlas cell. 3 itself must stay POINT:
+    // the world sprite passes (units, buildings, objects at SceneDraw.cpp's
+    // DrawSprites sites) share the id and carry the point-era shift
+    // correction, which bleeds under a linear filter (round-6 in-game
+    // report -- the horizontal/vertical grid marks). SceneDraw maps the
+    // visitor's UI rects from 3 to 305 at the single TYPE_RECTS draw site.
+    make(305, .ui, .ui, 1, state_alpha_test | state_alpha_blend),
     // 100-104 are the terrain passes, and their blend modes come straight from
     // the D3D states CGraphicsEngine::SetShadingEffect sets. 102 is alpha
     // blended there despite the name, and 103/104 use SRCBLEND=DESTCOLOR with
@@ -415,12 +425,24 @@ test "UI and alpha reference fixtures" {
     try std.testing.expectEqual(false, linearFilterChangeFor(111).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(8).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(112).?);
-    // The UI window pass (3) is point sampled again: the effect is shared
-    // with the world sprite passes, whose shift-corrected quads bleed under
-    // a linear filter (round-6). Smoothing the HUD needs a UI-only effect
-    // id. The terrain cross pass is point sampled in SetupShaders; leaving
-    // it out let it inherit the previous effect's filter.
+    // The UI window pass draws under 305 -- a clone of 3 with a linear
+    // filter (safe there: VisitUIRects insets its UVs inward on both
+    // edges) -- while 3 itself stays point for the world sprite passes
+    // that share it (round-6). The terrain cross pass is point sampled in
+    // SetupShaders; leaving it out let it inherit the previous effect's
+    // filter.
     try std.testing.expectEqual(false, linearFilterChangeFor(3).?);
+    try std.testing.expectEqual(true, linearFilterChangeFor(305).?);
+    // 305 must be a state-for-state clone of 3 apart from the filter:
+    // same straight-alpha blend, same alpha test at reference 1, same
+    // modulate colour op, same single-texture combine.
+    try std.testing.expectEqual(linearFilterChangeFor(3), linearFilterChangeFor(14));
+    try std.testing.expectEqual(blendChangeFor(3), blendChangeFor(305));
+    try std.testing.expectEqual(alphaRefFor(3), alphaRefFor(305));
+    try std.testing.expectEqual(colorOpFor(3), colorOpFor(305));
+    try std.testing.expectEqual(combineFor(3), combineFor(305));
+    try std.testing.expectEqual(find(3).?.depth_write, find(305).?.depth_write);
+    try std.testing.expectEqual(find(3).?.shader_effect, find(305).?.shader_effect);
     try std.testing.expectEqual(false, linearFilterChangeFor(100).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(4).?);
     try std.testing.expectEqual(true, linearFilterChangeFor(5).?);

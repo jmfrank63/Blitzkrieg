@@ -1564,7 +1564,7 @@ bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect )
             break;
         case 2: case 4: case 5: case 8: case 9: case 10: case 12: case 15:
         case 16: case 17: case 19: case 20: case 21: case 101: case 102:
-        case 103: case 104: case 112: case 200: case 303:
+        case 103: case 104: case 112: case 200: case 303: case 305:
             sampler_linear_ = true;
             break;
         default:

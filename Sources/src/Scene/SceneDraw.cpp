@@ -652,8 +652,17 @@ void CScene::Draw( ICamera *pCamera )
 			{
 				case SUIObject::TYPE_RECTS:
 					pGFX->SetTexture( 0, it->pTexture );
-					if ( it->nShadingEffect != -1 ) 
-						pGFX->SetShadingEffect( it->nShadingEffect );
+					if ( it->nShadingEffect != -1 )
+					{
+						// The UI rect path draws under 305, the UI-only clone
+						// of effect 3 with a linear sampler (effects.zig):
+						// every VisitUIRects caller records 3, but 3 is shared
+						// with the world sprite passes and must stay point
+						// there. VisitUIRects's inward half-texel UV inset is
+						// what makes linear safe against atlas bleed on this
+						// path.
+						pGFX->SetShadingEffect( it->nShadingEffect == 3 ? 305 : it->nShadingEffect );
+					}
 					pGFX->DrawRects( &(it->rects[0]), it->rects.size() );
 					break;
 				case SUIObject::TYPE_TEXT:
