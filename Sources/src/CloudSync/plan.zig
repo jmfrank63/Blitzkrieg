@@ -338,14 +338,16 @@ pub fn canonicalPath(gpa: Allocator, remote: []const u8) Allocator.Error![]u8 {
 /// Mirror of `bilib.SessionName`: the base name of every bisync state file
 /// for this pair, and the exact bytes the budget is spent on.
 pub fn sessionName(gpa: Allocator, p1: Endpoint, p2: Endpoint) Allocator.Error![]u8 {
-    const c1 = try canonicalEndpoint(gpa, p1);
+    const c1 = try sessionHalf(gpa, p1);
     defer gpa.free(c1);
-    const c2 = try canonicalEndpoint(gpa, p2);
+    const c2 = try sessionHalf(gpa, p2);
     defer gpa.free(c2);
     return std.mem.concat(gpa, u8, &.{ c1, "..", c2 });
 }
 
-fn canonicalEndpoint(gpa: Allocator, endpoint: Endpoint) Allocator.Error![]u8 {
+/// One side's contribution to the session name: `canon(fsPath(endpoint))`.
+/// Public so the stale-lock sweep can match on the exact Path1 half.
+pub fn sessionHalf(gpa: Allocator, endpoint: Endpoint) Allocator.Error![]u8 {
     const fs_path = try fsPath(gpa, endpoint.path, endpoint.kind);
     defer gpa.free(fs_path);
     return canonicalPath(gpa, fs_path);
@@ -383,6 +385,69 @@ pub fn checkSessionBudget(
     defer gpa.free(name);
     projected.* = name.len;
     if (name.len > session_budget) return error.SessionNameTooLong;
+}
+
+/// The session name rclone will produce for one run of `ctx` — the one
+/// formula the budget check and the lock path share:
+/// `canon(Path1 + sep) .. canon(<remote_target>/profiles/<profile> + "/")`.
+pub fn syncSessionName(gpa: Allocator, ctx: SyncContext) Allocator.Error![]u8 {
+    const path2 = try resolvedProfileRoot(gpa, ctx);
+    defer gpa.free(path2);
+    return sessionName(gpa, .{ .path = ctx.path1, .kind = .local }, .{ .path = path2, .kind = .remote });
+}
+
+/// Path2 as rclone resolves it: the alias dereferenced to
+/// `<remote_target>/profiles/<profile>`, or `remoteProfileRoot` when the
+/// target is unknown.
+///
+/// Measured (v1.75.0, memory and WebDAV backends): the alias joins its
+/// target and root with Go's `path.Join`, so runs of `/` collapse and a
+/// trailing one vanishes — mirrored here, since it is the alias's doing
+/// and the same for every backend. What the backend then does to the root
+/// is its own: both measured ones trimmed a leading `/`, but a local
+/// backend makes it absolute. That half is left as given, so the
+/// projection can only ever over-count, by the slash — never under.
+pub fn resolvedProfileRoot(gpa: Allocator, ctx: SyncContext) Allocator.Error![]u8 {
+    if (ctx.remote_target.len == 0) return remoteProfileRoot(gpa, ctx.remote, ctx.profile);
+
+    const joined = try std.fmt.allocPrint(gpa, "{s}/profiles/{s}", .{ ctx.remote_target, ctx.profile });
+    defer gpa.free(joined);
+
+    // Collapse runs of `/` in the path part, after the remote's colon. A
+    // target naming no remote is measured whole.
+    const colon = std.mem.indexOfScalar(u8, joined, ':') orelse return gpa.dupe(u8, joined);
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(gpa);
+    try out.appendSlice(gpa, joined[0 .. colon + 1]);
+    for (joined[colon + 1 ..]) |byte| {
+        if (byte == '/' and out.items.len > colon + 1 and out.items[out.items.len - 1] == '/') continue;
+        try out.append(gpa, byte);
+    }
+    // `bkraw:` with an empty root joins to `bkraw:/profiles/…`, which the
+    // alias writes as `bkraw:profiles/…` (measured: `bkraw_profiles_<name>`).
+    if (out.items.len > colon + 1 and out.items[colon + 1] == '/' and
+        std.mem.endsWith(u8, ctx.remote_target, ":"))
+    {
+        _ = out.orderedRemove(colon + 1);
+    }
+    return out.toOwnedSlice(gpa);
+}
+
+/// `checkSessionBudget` for one run of `ctx`, measured on `syncSessionName`.
+pub fn checkSyncBudget(gpa: Allocator, ctx: SyncContext, projected: *usize) SessionBudgetError!void {
+    const name = try syncSessionName(gpa, ctx);
+    defer gpa.free(name);
+    projected.* = name.len;
+    if (name.len > session_budget) return error.SessionNameTooLong;
+}
+
+/// Where bisync will keep the lock of one run of `ctx`.
+pub fn syncLockPath(gpa: Allocator, ctx: SyncContext) Allocator.Error![]u8 {
+    const workdir = try workdirPath(gpa, ctx.game_dir);
+    defer gpa.free(workdir);
+    const session = try syncSessionName(gpa, ctx);
+    defer gpa.free(session);
+    return lockFilePath(gpa, workdir, session);
 }
 
 // -- Machine-local state paths -----------------------------------------------
@@ -618,6 +683,12 @@ pub const SyncContext = struct {
     path1: []const u8,
     /// The rclone remote name, without the colon.
     remote: []const u8,
+    /// What `remote` is an alias of — `bkraw:<remote_root>`, exactly the
+    /// `remote =` line `creds.aliasTarget` configures. rclone names the
+    /// session after this, not after the alias, so the budget is measured
+    /// on it. Empty when unknown (no credentials document): Path2 is then
+    /// measured as named, the only thing known.
+    remote_target: []const u8 = "",
     /// The profile name as it appears under `<remote>:profiles/`.
     profile: []const u8,
     /// Where machine-local state lives; see `stateRoot`.
@@ -644,22 +715,21 @@ pub const BisyncParams = struct {
 
 /// Assemble the rc parameters for one run. The session budget is checked
 /// here, on every call, because the profile name is part of Path2 and a
-/// rename can push a fitting pair over the limit between runs. A caller that
-/// wants the offending number for the player calls `sessionName` itself.
+/// rename can push a fitting pair over the limit between runs — and it is
+/// measured on the session rclone will actually name (`syncSessionName`,
+/// the alias resolved), because the alias name is not what reaches the
+/// filesystem. A caller that wants the offending number for the player
+/// calls `checkSyncBudget` itself.
 pub fn bisyncParams(gpa: Allocator, ctx: SyncContext) BisyncParamsError!BisyncParams {
     var arena: std.heap.ArenaAllocator = .init(gpa);
     errdefer arena.deinit();
     const alloc = arena.allocator();
 
-    const path2 = try remoteProfileRoot(alloc, ctx.remote, ctx.profile);
-
     var projected: usize = 0;
-    try checkSessionBudget(
-        alloc,
-        .{ .path = ctx.path1, .kind = .local },
-        .{ .path = path2, .kind = .remote },
-        &projected,
-    );
+    try checkSyncBudget(alloc, ctx, &projected);
+
+    // On the wire Path2 stays the alias: resolution is measured, never sent.
+    const path2 = try remoteProfileRoot(alloc, ctx.remote, ctx.profile);
 
     var object: std.json.ObjectMap = .empty;
     try object.put(alloc, "path1", .{ .string = try alloc.dupe(u8, ctx.path1) });

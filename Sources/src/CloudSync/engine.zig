@@ -237,6 +237,9 @@ pub const RunContext = struct {
     path1: []const u8,
     /// The rclone remote name, without the colon.
     remote: []const u8,
+    /// What `remote` is an alias of (`bkraw:<remote_root>`), for measuring
+    /// the session name rclone will produce; see `plan.SyncContext`.
+    remote_target: []const u8 = "",
     /// The profile name under `<remote>:profiles/`.
     profile: []const u8,
     /// Where `cloudsync/` lives. Absolute.
@@ -490,6 +493,7 @@ pub const Engine = struct {
             .profile = ctx.profile,
             .game_dir = ctx.game_dir,
             .run_id = run_id,
+            .remote_target = ctx.remote_target,
             .mode = .pairing,
         });
         defer params.deinit();
@@ -524,6 +528,7 @@ pub const Engine = struct {
             .profile = ctx.profile,
             .game_dir = ctx.game_dir,
             .run_id = run_id,
+            .remote_target = ctx.remote_target,
             .mode = .steady,
         });
         defer params.deinit();
@@ -1062,9 +1067,7 @@ pub const Engine = struct {
 
         // The exact Path1 half of the session name, as `plan.sessionName`
         // builds it, plus the separator.
-        const fs_path = try plan.fsPath(self.gpa, path1, .local);
-        defer self.gpa.free(fs_path);
-        const canonical = try plan.canonicalPath(self.gpa, fs_path);
+        const canonical = try plan.sessionHalf(self.gpa, .{ .path = path1, .kind = .local });
         defer self.gpa.free(canonical);
         const prefix = try std.mem.concat(self.gpa, u8, &.{ canonical, ".." });
         defer self.gpa.free(prefix);
