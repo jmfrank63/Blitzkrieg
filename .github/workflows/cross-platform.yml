@@ -94,7 +94,9 @@ jobs:
 
       - name: Backtrace the GFX GPU factory test
         if: failure() && steps.gfxgpu-factory-test.outcome == 'failure'
-        run: gdb -batch -ex run -ex bt -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so
+        run: |
+          sudo apt-get install -y --no-install-recommends gdb
+          gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so
 
       - name: Upload generated outputs
         if: always()
