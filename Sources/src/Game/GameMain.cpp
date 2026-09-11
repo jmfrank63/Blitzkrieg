@@ -334,7 +334,7 @@ static void PublishCloudUnconfigured()
 	NStr::DebugTrace( "cloud sync: provider chosen but not set up\n" );
 }
 // A retry that could not start. The indicator stays failed, with Retry
-// back beside it so the player can try again once the cause is gone, and
+// back on the menu so the player can try again once the cause is gone, and
 // the error names no run outcome - there was no run - so the menu falls
 // back to its generic textes\ui\cloudsync\failed line. The reason goes to
 // the trace only.
