@@ -82,6 +82,42 @@ jobs:
       - name: Run native staging tests
         run: zig build test-stage -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Run diagnostics facade tests
+        run: zig build test-platform-debug -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU factory test
+        id: gfxgpu-factory-test
+        run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Backtrace the GFX GPU factory test
+        if: failure() && steps.gfxgpu-factory-test.outcome == 'failure'
+        run: |
+          sudo apt-get install -y --no-install-recommends gdb binutils
+          echo "=== ld.so init/fini calls, with the shared-object finalizer tracing its handle"
+          BK_SO_FINALIZE_TRACE=1 LD_DEBUG=files zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | grep -iE "calling (init|fini)|finalize" | tail -20 || true
+          echo "=== libGFXGPU.so: fini tags, finalizer and dso_handle symbols, handle passed to __cxa_atexit"
+          readelf -dW zig-out/lib/libGFXGPU.so | grep -iE "fini|init" || true
+          nm -C zig-out/lib/libGFXGPU.so | grep -iE "FinalizeSharedObject|__dso_handle|__cxa_(atexit|finalize)" || true
+          readelf -xW .fini_array zig-out/lib/libGFXGPU.so || true
+          objdump -dr -C zig-out/lib/libGFXGPU.so | grep -B6 -E "call.*__cxa_atexit" | grep -E "__dso_handle|__cxa_atexit|lea|mov" | head -30 || true
+          objdump -d -C zig-out/lib/libGFXGPU.so --disassemble='FinalizeSharedObject()' | head -40 || true
+          echo "=== gdb"
+          gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | tee gdb.log || true
+          echo "=== fault address resolved against the objects the harness listed before dlclose"
+          fault=$(grep -m1 -oE '^#0 +0x[0-9a-f]+' gdb.log | grep -oE '0x[0-9a-f]+' || true)
+          grep 'gfxgpu-factory-test: object ' gdb.log | while read -r _ _ base path; do
+            [ -n "$fault" ] || break
+            off=$(( fault - base ))
+            if [ "$off" -ge 0 ] && [ "$off" -lt 33554432 ]; then
+              printf 'fault %s = %s + 0x%x\n' "$fault" "$path" "$off"
+              [ -f "$path" ] && addr2line -f -C -e "$path" "$(printf 0x%x "$off")" || true
+              [ -f "$path" ] && nm -nC --defined-only "$path" | awk -v o="$off" 'BEGIN{o=o+0} {a=strtonum("0x"$1); if (a<=o) last=$0} END{print "nearest symbol at or below: " last}' || true
+            fi
+          done
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -176,6 +212,15 @@ jobs:
       - name: Run native staging tests
         run: zig build test-stage -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Run diagnostics facade tests
+        run: zig build test-platform-debug -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Run GFX GPU effect table tests
+        run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Run GFX GPU factory test
+        run: zig build gfxgpu-factory-test -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -266,6 +311,15 @@ jobs:
       - name: Run native staging tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-stage -Dtarget=aarch64-macos -Dtest-mode=run
 
+      - name: Run diagnostics facade tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-debug -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Run GFX GPU factory test
+        run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -353,6 +407,15 @@ jobs:
       - name: Run native staging tests
         run: zig build test-stage -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
+      - name: Run diagnostics facade tests
+        run: zig build test-platform-debug -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build test-gfxgpu-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU factory test
+        run: zig build gfxgpu-factory-test -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -428,6 +491,17 @@ jobs:
 
       - name: Run native staging tests
         run: zig build test-stage -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run diagnostics facade tests
+        run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      # No factory test on mingw: it links Formats, which cannot build with that
+      # toolchain at all - Platform/LegacyVariant.h reaches for MSVC's
+      # comutil.h on any _WIN32 target and mingw does not ship it. Pre-existing
+      # and unrelated to this test.
 
       - name: Upload generated outputs
         if: always()
@@ -514,6 +588,15 @@ jobs:
 
       - name: Run native staging tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-stage -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run diagnostics facade tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Compile GFX GPU factory test
+        run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=x86_64-macos -Dtest-mode=compile
 
       - name: Upload generated outputs
         if: always()

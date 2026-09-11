@@ -54,6 +54,14 @@ typedef void *(BK_PLATFORM_CALL *BkPlatformAllocFn)(void *user_data, uint64_t si
 typedef void (BK_PLATFORM_CALL *BkPlatformFreeFn)(void *user_data, void *memory);
 typedef void (BK_PLATFORM_CALL *BkPlatformLogFn)(void *user_data, uint32_t level, BkPlatformUtf8Span message);
 
+/* Diagnostic levels for diagnostic_write. A host log callback always receives
+   every level. Without a callback the runtime falls back to stderr, and a
+   release build prints only messages the user asked for: DEFAULT is the
+   engine's own commentary and is suppressed unless BK_DEBUG_LOG is set, while
+   TRACE and above carry an explicitly enabled trace channel and always print. */
+#define BK_PLATFORM_DIAGNOSTIC_LEVEL_DEFAULT 1u
+#define BK_PLATFORM_DIAGNOSTIC_LEVEL_TRACE 2u
+
 typedef struct BkPlatformAllocatorCallbacks {
     uint32_t struct_size;
     BkPlatformAllocFn alloc;

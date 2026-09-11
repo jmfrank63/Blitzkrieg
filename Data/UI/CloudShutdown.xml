@@ -1,7 +1,9 @@
 <!-- The shutdown screen (InterfaceCloudShutdown.cpp): the credits backdrop -
      the main menu plate the credits roll over - with a three-line notice the
-     code shows only while the exit-time cloud sync is running. No buttons:
-     the screen leaves on its own when the main loop reports the sync settled. -->
+     code shows only while the exit-time cloud sync is running, and under it
+     one button (3104) that skips the wait: it cancels the sync and the screen
+     leaves when the main loop reports the settle. With nothing to wait for
+     the screen leaves on its own and none of this is ever shown. -->
 <base Background="1">
 	<States>
 		<item EventID="-1">
@@ -34,6 +36,10 @@
 			</AppearancePushed>
 		</item>
 	</States>
+	<!-- A button's click is a state-change notify that only the screen script
+	     turns into an element message (CloudShutdown.lua), as MainMenu and
+	     CloudBackups do; without it 3104 would never reach ProcessMessage. -->
+	<Script>ui\CloudShutdown</Script>
 	<Children>
 		<item ClassTypeID="0x10001105" ElementID="3101" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="0" TextAlign="0x0022" FontSize="2" TextColor="0xFFFDF2DB">
 			<!--caption: syncing to the cloud; upper third of the screen so it reads over the backdrop-->
@@ -74,6 +80,34 @@
 					<PushSound/>
 					<ClickSound/>
 					<TextKey>Textes\UI\CloudShutdown\warning</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="3104" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
+			<!--skip and exit now: below the activity bar (y 252-262), centred like it-->
+			<WindowPos x="352" y="284"/>
+			<WindowSize x="320" y="49"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="590" y1="957" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="590" y1="888" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="590" y1="888" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff777777">
+						<Maps x1="590" y1="957" x2="433" y2="66"/>
+						<Texture>ui\IntermissionTextures\back-settings</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+					<TextKey>Textes\UI\CloudShutdown\skip</TextKey>
 				</item>
 			</States>
 		</item>

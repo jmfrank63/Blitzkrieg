@@ -135,7 +135,7 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
         static const char *pszSpriteTrace = getenv( "BK_SPRITE_TRACE" );
         if ( pszSpriteTrace != 0 )
         {
-            NPlatform::DebugWriteFormat( "BK_SPRITE_TRACE: load texture=%p format=%d %dx%d mips=%d name=%s\n",
+            NPlatform::TraceWriteFormat( "BK_SPRITE_TRACE: load texture=%p format=%d %dx%d mips=%d name=%s\n",
                 static_cast<const void *>( this ), int( format ), int( header.dwWidth ), int( header.dwHeight ),
                 mip_count, name_.c_str() );
         }

@@ -12,6 +12,9 @@
 // Formats.lib's mesh serializer references this small Misc helper.  Keep the
 // standalone adapter harness independent from the full Misc runtime library.
 namespace NStr {
+int ToInt( const char * ) { return 0; }
+float ToFloat( const char * ) { return 0.0f; }
+const char *Format( const char *, ... ) { return ""; }
 void ToLower( std::string &value ) {
     std::transform( value.begin(), value.end(), value.begin(), []( unsigned char c ) {
         return static_cast<char>( std::tolower( c ) );
@@ -19,22 +22,205 @@ void ToLower( std::string &value ) {
 }
 }
 
+#if defined(_WIN32)
 #include <windows.h>
+#include <shellapi.h>
+#else
+#include <dlfcn.h>
+#endif
 
+#include <SDL3/SDL.h>
+
+#include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+#if defined(__linux__)
+#include <link.h>
+#endif
+// backtrace() is glibc and Apple libc; musl has no execinfo.h.
+#if defined(__GLIBC__) || defined(__APPLE__)
+#define HARNESS_HAS_BACKTRACE 1
+#include <execinfo.h>
+#endif
 
-ISingleton *g_pGlobalSingleton = nullptr;
+// Where the harness is. It used to print nothing until the very end, so a
+// crash on a platform nobody can attach a debugger to - a CI runner - left no
+// clue which call died. Every step now announces itself, and a crash handler
+// names the step it happened in (with the frames, where the platform has
+// backtrace()). Not async-signal-safe, and deliberately so: the process is
+// dying anyway, and a garbled line beats none.
+namespace {
+const char *current_stage = "start";
+void Stage( const char *name )
+{
+    current_stage = name;
+    std::fprintf( stderr, "gfxgpu-factory-test: %s\n", name );
+    std::fflush( stderr );
+}
+#if defined(_WIN32)
+LONG WINAPI OnUnhandledException( EXCEPTION_POINTERS *info )
+{
+    std::fprintf( stderr, "gfxgpu-factory-test: exception 0x%08lx at %p during \"%s\"\n",
+        info != nullptr && info->ExceptionRecord != nullptr ? info->ExceptionRecord->ExceptionCode : 0ul,
+        info != nullptr && info->ExceptionRecord != nullptr ? info->ExceptionRecord->ExceptionAddress : nullptr,
+        current_stage );
+    std::fflush( stderr );
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+void InstallCrashHandler() { SetUnhandledExceptionFilter( OnUnhandledException ); }
+#else
+void OnCrash( int signal_number )
+{
+    std::fprintf( stderr, "gfxgpu-factory-test: signal %d during \"%s\"\n", signal_number, current_stage );
+    std::fflush( stderr );
+#if defined(HARNESS_HAS_BACKTRACE)
+    void *frames[64];
+    const int count = backtrace( frames, 64 );
+    backtrace_symbols_fd( frames, count, STDERR_FILENO );
+#endif
+    std::_Exit( 128 + signal_number );
+}
+void InstallCrashHandler()
+{
+    std::signal( SIGSEGV, OnCrash );
+    std::signal( SIGBUS, OnCrash );
+    std::signal( SIGABRT, OnCrash );
+    std::signal( SIGILL, OnCrash );
+}
+#endif
+}
+
+// The module under test is a DLL on Windows and a shared object everywhere
+// else, so the loader calls cannot be the Win32 ones directly.
+namespace {
+void *OpenModule( const char *path )
+{
+#if defined(_WIN32)
+    return reinterpret_cast<void *>( LoadLibraryA( path ) );
+#else
+    return dlopen( path, RTLD_NOW | RTLD_LOCAL );
+#endif
+}
+
+void *FindModuleSymbol( void *module, const char *name )
+{
+#if defined(_WIN32)
+    return reinterpret_cast<void *>( GetProcAddress( reinterpret_cast<HMODULE>( module ), name ) );
+#else
+    return dlsym( module, name );
+#endif
+}
+
+void CloseModule( void *module )
+{
+#if defined(_WIN32)
+    FreeLibrary( reinterpret_cast<HMODULE>( module ) );
+#else
+    dlclose( module );
+#endif
+}
+
+enum { MAX_PATH_BUFFER = 1024 };
+// The module path argument, or null when there is none.
+const char *ModulePathFromCommandLine( int argc, char **argv, char *buffer, size_t buffer_size )
+{
+#if defined(_WIN32)
+    (void)argc; (void)argv;
+    int wide_count = 0;
+    wchar_t **wide_args = CommandLineToArgvW( GetCommandLineW(), &wide_count );
+    if ( wide_args == nullptr ) return nullptr;
+    const char *result = nullptr;
+    if ( wide_count > 1 )
+    {
+        const int length = WideCharToMultiByte( CP_ACP, 0, wide_args[1], -1, buffer, static_cast<int>( buffer_size ), nullptr, nullptr );
+        if ( length > 0 ) result = buffer;
+    }
+    LocalFree( wide_args );
+    return result;
+#else
+    (void)buffer; (void)buffer_size;
+    return argc > 1 ? argv[1] : nullptr;
+#endif
+}
+
+// The loaded objects and their bases, printed before the module is closed:
+// a crash in code that dlclose unmapped shows up as an address in no loaded
+// image, and this is what turns that address back into a library and offset.
+void PrintLoadedObjects()
+{
+#if defined(__linux__)
+    dl_iterate_phdr( []( struct dl_phdr_info *info, size_t, void * ) -> int
+    {
+        std::fprintf( stderr, "gfxgpu-factory-test: object 0x%lx %s\n",
+            static_cast<unsigned long>( info->dlpi_addr ), info->dlpi_name != nullptr && info->dlpi_name[0] != 0 ? info->dlpi_name : "(main program)" );
+        return 0;
+    }, nullptr );
+    std::fflush( stderr );
+#endif
+}
+
+void ReportOpenFailure( const char *path )
+{
+#if defined(_WIN32)
+    std::fprintf( stderr, "LoadLibrary failed for %s (%lu)\n", path, GetLastError() );
+#else
+    const char *error = dlerror();
+    std::fprintf( stderr, "dlopen failed for %s (%s)\n", path, error != nullptr ? error : "unknown error" );
+#endif
+}
+}
+
+// An empty singleton registry rather than no registry at all: GetSingleton<>
+// dereferences g_pGlobalSingleton unconditionally, and the engine reads its
+// settings through GetGlobalVar during Init, so a null one crashed the harness
+// before it ever reached the factory. Get() returning nothing leaves every
+// lookup on its documented default.
+namespace {
+struct EmptySingleton : public ISingleton
+{
+    bool Register( int, IRefCount * ) override { return false; }
+    bool UnRegister( int ) override { return false; }
+    bool UnRegister( IRefCount * ) override { return false; }
+    IRefCount *Get( int ) override { return nullptr; }
+    int GetAllObjects( IRefCount ***, int * ) override { return 0; }
+    void Done() override {}
+};
+EmptySingleton g_emptySingleton;
+}
+
+ISingleton *g_pGlobalSingleton = &g_emptySingleton;
 ISaveLoadSystem *g_pGlobalSaveLoadSystem = nullptr;
 
+// FontGpu is dynamic_cast to in GraphicsEngineGpu, so this harness needs its
+// vtable and typeinfo. They are emitted next to its key function - the first
+// non-inline virtual - which lives in GfxGpuObjectFactory.cpp, a translation
+// unit that would drag the whole Misc object factory in behind it. Defining
+// the out-of-line virtuals here instead keeps the harness standalone, the way
+// the NStr helpers above already do.
+FontGpu::~FontGpu() {}
+int FontGpu::operator&( IStructureSaver & ) { return 0; }
+void FontGpu::SwapData( ISharedResource * ) {}
+bool FontGpu::Load( bool ) { return true; }
+int FontGpu::GetTextWidth( const char *, int ) const { return 0; }
+int FontGpu::GetTextWidth( const WORD *, int ) const { return 0; }
 float FontGpu::TextWidthFloat( const WORD *, int ) const { return 0.0f; }
-bool FontGpu::AppendGeometry( const wchar_t *, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> & ) const { return true; }
+bool FontGpu::AppendGeometry( const wchar_t *, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float ) const { return true; }
+bool FontGpu::AppendGeometry( const wchar_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float ) const { return true; }
+
 
 namespace NPlatform
 {
 void DebugWrite( const char * ) {}
 void DebugWriteFormatV( const char *, va_list ) {}
 void DebugWriteFormat( const char *, ... ) {}
+void TraceWrite( const char * ) {}
+void TraceWriteFormatV( const char *, va_list ) {}
+void TraceWriteFormat( const char *, ... ) {}
+bool IsDiagnosticStderrEnabled() { return false; }
 bool IsDebuggerAttached() { return false; }
 void BreakIntoDebugger() {}
 }
@@ -43,10 +229,30 @@ namespace
 {
     char trace[256]{};
     size_t trace_length = 0;
-    int borrowed_window_marker = 0;
+    // SetMode queries the display and window flags through SDL now, so a bare
+    // marker pointer no longer stands in for a borrowed window: the adapter
+    // needs one SDL really owns. The dummy video driver gives us that with no
+    // display server, which is also what a CI runner has.
+    SDL_Window *borrowed_window = nullptr;
+    bool EnsureBorrowedWindow()
+    {
+        if ( borrowed_window != nullptr ) return true;
+        SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
+        if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) )
+        {
+            std::fprintf( stderr, "SDL_InitSubSystem(VIDEO) failed: %s\n", SDL_GetError() );
+            return false;
+        }
+        borrowed_window = SDL_CreateWindow( "gfxgpu-factory-test", 800, 600, 0 );
+        if ( borrowed_window == nullptr )
+            std::fprintf( stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError() );
+        return borrowed_window != nullptr;
+    }
     int texture_creates = 0, texture_uploads = 0, texture_releases = 0, target_creates = 0, target_binds = 0, buffer_creates = 0, buffer_uploads = 0, buffer_releases = 0;
-    void record( char value ) { trace[trace_length++] = value; }
-    GfxGpuResult fakeCreate( const GfxGpuCreateInfo *info, GfxGpuRenderer **out ) { if ( !info || info->sdl_window != &borrowed_window_marker ) return GFXGPU_INVALID_ARGUMENT; record( 'C' ); *out = reinterpret_cast<GfxGpuRenderer *>( 1 ); return GFXGPU_OK; }
+    // Bounded: the adapter makes more calls than this buffer holds as the API
+    // grows, and an unchecked write here smashes the globals next to it.
+    void record( char value ) { if ( trace_length + 1 < sizeof( trace ) ) trace[trace_length++] = value; }
+    GfxGpuResult fakeCreate( const GfxGpuCreateInfo *info, GfxGpuRenderer **out ) { if ( !info || info->sdl_window != borrowed_window ) return GFXGPU_INVALID_ARGUMENT; record( 'C' ); *out = reinterpret_cast<GfxGpuRenderer *>( 1 ); return GFXGPU_OK; }
     void fakeDestroy( GfxGpuRenderer * ) { record( 'D' ); }
     GfxGpuResult fakeBegin( GfxGpuRenderer * ) { record( 'B' ); return GFXGPU_OK; }
     GfxGpuResult fakeEnd( GfxGpuRenderer * ) { record( 'E' ); return GFXGPU_OK; }
@@ -56,11 +262,26 @@ namespace
     GfxGpuResult fakeResize( GfxGpuRenderer *, uint32_t width, uint32_t height ) { if ( width != 800 || height != 600 ) return GFXGPU_INVALID_ARGUMENT; record( 'R' ); return GFXGPU_OK; }
     GfxGpuResult fakeViewport( GfxGpuRenderer *, const GfxGpuViewportInfo *info ) { if ( !info || info->width != 800.0f ) return GFXGPU_INVALID_ARGUMENT; record( 'V' ); return GFXGPU_OK; }
     GfxGpuResult fakeTransform( GfxGpuRenderer *, const GfxGpuMatrixInfo *, const GfxGpuMatrixInfo * ) { record( 'T' ); return GFXGPU_OK; }
-    GfxGpuResult fakeState( GfxGpuRenderer *, const GfxGpuStateInfo *info ) { if ( !info || info->kind != GFXGPU_STATE_WIREFRAME || info->value != 1 ) return GFXGPU_INVALID_ARGUMENT; record( 'S' ); return GFXGPU_OK; }
+    // The adapter announces the primitive topology before every draw now, so a
+    // fake that only understood the wireframe state failed each Draw call.
+    GfxGpuResult fakeState( GfxGpuRenderer *, const GfxGpuStateInfo *info )
+    {
+        if ( !info ) return GFXGPU_INVALID_ARGUMENT;
+        if ( info->kind == GFXGPU_STATE_TOPOLOGY ) return GFXGPU_OK;
+        if ( info->kind != GFXGPU_STATE_WIREFRAME || info->value != 1 ) return GFXGPU_INVALID_ARGUMENT;
+        record( 'S' );
+        return GFXGPU_OK;
+    }
     GfxGpuResult fakeSetTexture( GfxGpuRenderer *, GfxGpuHandle handle ) { return handle == 42 ? GFXGPU_OK : GFXGPU_INVALID_HANDLE; }
     GfxGpuResult fakeCreateTexture( GfxGpuRenderer *, const GfxGpuTextureCreateInfo *info, GfxGpuHandle *out ) { if ( !info || !out || info->width != 2 || info->height != 2 ) return GFXGPU_INVALID_ARGUMENT; ++texture_creates; *out = 42; return GFXGPU_OK; }
     GfxGpuResult fakeUploadTexture( GfxGpuRenderer *, GfxGpuHandle handle, const GfxGpuTextureUploadInfo *info ) { if ( handle != 42 || !info || info->byte_length != 16 || info->row_pitch != 8 ) return GFXGPU_INVALID_ARGUMENT; ++texture_uploads; return GFXGPU_OK; }
-    GfxGpuResult fakeDestroyTexture( GfxGpuRenderer *, GfxGpuHandle handle ) { if ( handle != 42 ) return GFXGPU_INVALID_ARGUMENT; ++texture_releases; return GFXGPU_OK; }
+    GfxGpuResult fakeDestroyTexture( GfxGpuRenderer *, GfxGpuHandle handle )
+    {
+        if ( handle == 43 ) return GFXGPU_OK;   // the render target's own handle
+        if ( handle != 42 ) return GFXGPU_INVALID_ARGUMENT;
+        ++texture_releases;
+        return GFXGPU_OK;
+    }
     GfxGpuResult fakeCreateTarget( GfxGpuRenderer *, const GfxGpuRenderTargetCreateInfo *, GfxGpuHandle *out ) { ++target_creates; *out = 43; return GFXGPU_OK; }
     GfxGpuResult fakeBindTarget( GfxGpuRenderer *, GfxGpuHandle handle ) { if ( handle != 0 && handle != 43 ) return GFXGPU_INVALID_HANDLE; ++target_binds; return GFXGPU_OK; }
     GfxGpuResult fakeCreateBuffer( GfxGpuRenderer *, const GfxGpuBufferCreateInfo *, GfxGpuHandle *out ) { ++buffer_creates; *out = 44 + buffer_creates; return GFXGPU_OK; }
@@ -87,16 +308,24 @@ static int RunRecordingTest()
     api.draw = fakeDraw; api.draw_indexed = fakeDrawIndexed;
     api.bind_vertex_buffer = fakeBindVertexBuffer;
     GraphicsEngineGpu adapter( api );
-    if ( !adapter.Init( nullptr, GFXNativeWindow( &borrowed_window_marker ) ) ) return 10;
+    Stage( "SDL video init and dummy window" );
+    if ( !EnsureBorrowedWindow() ) return 9;
+    Stage( "adapter Init" );
+    if ( !adapter.Init( nullptr, GFXNativeWindow( borrowed_window ) ) ) return 10;
+    Stage( "SetMode 800x600 windowed" );
     if ( !adapter.SetMode( 800, 600, 32, 0, GFXFS_WINDOWED ) ) return 11;
+    Stage( "ChangeViewport" );
     if ( !adapter.ChangeViewport( 800, 600 ) ) return 12;
+    Stage( "SetWireframe" );
     if ( !adapter.SetWireframe( true ) ) return 13;
+    Stage( "BeginScene/Clear/SetViewTransform/EndScene/Flip" );
     if ( !adapter.BeginScene() ) return 14;
     RECT rect{};
     if ( !adapter.Clear( 0, &rect, GFXCLEAR_TARGET, 0x12345678u ) ) return 15;
     SHMatrix matrix{};
     if ( !adapter.SetViewTransform( matrix ) ) return 16;
     if ( !adapter.EndScene() || !adapter.Flip() ) return 17;
+    Stage( "CreateTexture/Lock/Unlock/SetTexture" );
     IGFXTexture *texture = adapter.CreateTexture( 2, 2, 1, GFXPF_ARGB8888, GFXD_STATIC );
     if ( !texture ) return 20;
     texture->AddRef();
@@ -104,12 +333,14 @@ static int RunRecordingTest()
     if ( !texture->Lock( 0, &lock ) || lock.nPitch != 8 || !texture->Unlock( 0 ) ) return 21;
     if ( !adapter.SetTexture( 0, texture ) || !adapter.SetTexture( 1, texture ) ) return 22;
     texture->Release();
+    Stage( "CreateRTexture/SetRenderTarget" );
     IGFXRTexture *target = adapter.CreateRTexture( 2, 2 );
     if ( !target ) return 23;
     target->AddRef();
     if ( !adapter.SetRenderTarget( target ) || !adapter.SetRenderTarget( nullptr ) ) return 24;
     target->Release();
     if ( texture_creates != 1 || texture_uploads != 1 || texture_releases != 1 || target_creates != 1 || target_binds != 2 ) return 25;
+    Stage( "CreateVertices/CreateIndices/Draw" );
     IGFXVertices *vertices = adapter.CreateVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST, GFXD_STATIC );
     IGFXIndices *indices = adapter.CreateIndices( 3, GFXIF_INDEX16, GFXPT_TRIANGLELIST, GFXD_STATIC );
     if ( !vertices || !indices ) return 26;
@@ -119,12 +350,18 @@ static int RunRecordingTest()
     if ( !adapter.Draw( vertices, indices ) ) return 28;
     vertices->Release(); indices->Release();
     if ( buffer_creates != 2 || buffer_uploads != 2 || buffer_releases != 2 ) return 29;
+    Stage( "GetTempVertices/GetTempIndices/DrawTemp" );
     void *temporary_vertices = adapter.GetTempVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST );
     void *temporary_indices = adapter.GetTempIndices( 3, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
     if ( !temporary_vertices || !temporary_indices ) return 30;
-    std::memset( temporary_vertices, 0, 3 * 32 );
+    // One XYZ vertex is 12 bytes, not 32: the adapter sizes its temporary arena
+    // by the format's true stride (GraphicsEngineGpu.cpp, FvfStride), so the old
+    // fixed 32 wrote 96 bytes into a 36-byte allocation. glibc caught it as
+    // "corrupted size vs. prev_size"; macOS just tolerated the overwrite.
+    std::memset( temporary_vertices, 0, 3 * 3 * sizeof( float ) );
     std::memset( temporary_indices, 0, 3 * sizeof( uint16_t ) );
     if ( !adapter.DrawTemp() ) return 30;
+    Stage( "MeshGpu Build/DrawMesh" );
     SMeshFormat mesh_data;
     mesh_data.geoms.push_back( CVec3( 0, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 1, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 0, 1, 0 ) );
     mesh_data.norms.push_back( CVec3( 0, 0, 1 ) ); mesh_data.texes.push_back( CVec2( 0, 0 ) );
@@ -136,36 +373,52 @@ static int RunRecordingTest()
     if ( !mesh.Build( mesh_data_list, mesh_bounds ) ) return 31;
     SHMatrix mesh_matrix{};
     if ( !adapter.DrawMesh( &mesh, &mesh_matrix, 1 ) ) return 32;
+    Stage( "DrawRects" );
     SGFXRect2 rectangle;
     rectangle.rect.minx = 0.0f; rectangle.rect.miny = 0.0f; rectangle.rect.maxx = 10.0f; rectangle.rect.maxy = 10.0f;
     if ( !adapter.DrawRects( &rectangle, 1, true ) ) return 33;
+    Stage( "gamma and recorded trace" );
     adapter.SetGammaCorrectionValues( 0.1f, 0.2f, 0.3f );
     float brightness = 0.0f, contrast = 0.0f, gamma = 0.0f;
     adapter.GetGammaCorrectionValues( &brightness, &contrast, &gamma );
     if ( brightness != 0.1f || contrast != 0.2f || gamma != 0.3f ) return 34;
-    if ( std::strcmp( trace, "CRVSBTLTEP" ) != 0 ) return 18;
+    // C then B,E,P before the resize: SetMode presents one black frame into the
+    // still-hidden window so the pipeline warm-up is paid before anything is
+    // visible (GraphicsEngineGpu.cpp, "Present a black frame"). The clear in
+    // that frame carries GFXCLEAR_ALL, which this harness's fake rejects
+    // without recording, and the adapter ignores its result by design.
+    if ( std::strcmp( trace, "CBEPRVSBTLTEP" ) != 0 ) { std::fprintf( stderr, "recorded call trace was \"%s\"\n", trace ); return 18; }
+    Stage( "adapter Done" );
     adapter.Done();
-    if ( std::strcmp( trace, "CRVSBTLTEPD" ) != 0 ) return 19;
+    if ( std::strcmp( trace, "CBEPRVSBTLTEPD" ) != 0 ) { std::fprintf( stderr, "recorded call trace after Done was \"%s\"\n", trace ); return 19; }
     return 0;
 }
 
 int main( int argc, char **argv )
 {
+    InstallCrashHandler();
     const int recording = RunRecordingTest();
     if ( recording != 0 ) { std::fprintf( stderr, "recording test failed: %d\n", recording ); return recording; }
-    const char *path = argc > 1 ? argv[1] : "zig-out/bin/GFXGPU.dll";
-    HMODULE module = LoadLibraryA( path );
+    // On Windows this executable enters at main itself, not through the CRT
+    // (build.zig explains why), so argc/argv hold whatever the kernel left in
+    // the registers. The command line comes from Win32 instead.
+    char module_path_buffer[MAX_PATH_BUFFER] = {};
+    const char *path = ModulePathFromCommandLine( argc, argv, module_path_buffer, sizeof module_path_buffer );
+    if ( path == nullptr ) path = "zig-out/bin/GFXGPU.dll";
+    Stage( "open the GFXGPU module" );
+    void *module = OpenModule( path );
     if ( !module )
     {
-        std::fprintf( stderr, "LoadLibrary failed for %s (%lu)\n", path, GetLastError() );
+        ReportOpenFailure( path );
         return 1;
     }
 
-    const auto getDescriptor = reinterpret_cast<GETMODULEDESCRIPTOR>( GetProcAddress( module, "GetModuleDescriptor" ) );
+    Stage( "GetModuleDescriptor" );
+    const auto getDescriptor = reinterpret_cast<GETMODULEDESCRIPTOR>( FindModuleSymbol( module, "GetModuleDescriptor" ) );
     if ( !getDescriptor )
     {
         std::fprintf( stderr, "GetModuleDescriptor export is missing\n" );
-        FreeLibrary( module );
+        CloseModule( module );
         return 2;
     }
 
@@ -173,20 +426,24 @@ int main( int argc, char **argv )
     if ( !descriptor || descriptor->nType != GFX_GFX || !descriptor->pFactory )
     {
         std::fprintf( stderr, "invalid GFXGPU module descriptor\n" );
-        FreeLibrary( module );
+        CloseModule( module );
         return 3;
     }
 
+    Stage( "CreateObject( GFX_GFX )" );
     IRefCount *object = descriptor->pFactory->CreateObject( GFX_GFX );
     if ( !object || !object->IsValid() )
     {
         std::fprintf( stderr, "GFX_GFX factory object was not created\n" );
-        FreeLibrary( module );
+        CloseModule( module );
         return 4;
     }
 
+    Stage( "Release the GFX object" );
     object->Release();
-    FreeLibrary( module );
+    Stage( "close the module" );
+    PrintLoadedObjects();
+    CloseModule( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;
 }

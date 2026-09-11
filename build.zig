@@ -949,6 +949,7 @@ pub fn build(b: *std.Build) void {
     // build failing to link every WSA* symbol in SocketWin32.cpp.
     if (build_support.isWindows(platform)) platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     applyLoaderPath(target, platform_runtime_module);
+    addSharedObjectFinalizer(b, target, platform_runtime_module);
     const platform_runtime = b.addLibrary(.{
         .name = "PlatformRuntime",
         .linkage = .dynamic,
@@ -1125,13 +1126,6 @@ pub fn build(b: *std.Build) void {
     platform_debug_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
 
-    const sdl_c_dep = b.dependency("sdl", .{
-        .target = dependency_target,
-        .optimize = optimize,
-        .preferred_linkage = .static,
-        .install_build_config_h = true,
-    });
-    const sdl_c = sdl_c_dep.artifact("SDL3");
     const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
     platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = if (platform == .windows_x64) cppflags_release else &.{} });
     if (platform == .windows_x64) {
@@ -1879,7 +1873,11 @@ pub fn build(b: *std.Build) void {
     });
     gfx_gpu_factory_test_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
-        .flags = cppflagsForTarget(target, optimize),
+        // These are the real engine sources, so they need the portable CRT
+        // shim that every other non-Windows build force-includes: bare
+        // -std=c++17 leaves LARGE_INTEGER and QueryPerformanceCounter
+        // undefined and the test cannot compile off Windows at all.
+        .flags = cppflagsForOptimize(optimize),
     });
     addProjectIncludePaths(b, gfx_gpu_factory_test_module);
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
@@ -1887,23 +1885,63 @@ pub fn build(b: *std.Build) void {
     addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
     addLinuxCxxIncludePaths(b, gfx_gpu_factory_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
+    addMacosSysrootPaths(b, gfx_gpu_factory_test_module, target);
     linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
-    gfx_gpu_factory_test_module.linkLibrary(sdl_c);
+    // gfx_gpu_zig already brings the dynamic SDL3 in, the same copy the GFXGPU
+    // module this harness dlopens was linked against. Linking the static SDL3
+    // on top of it put two SDL runtimes into one process: the ObjC runtime
+    // flagged the duplicate Metal classes on macOS, and on Linux and Windows
+    // the run died in SDL before the harness printed anything. Take the same
+    // SDL the module takes (addGFXGPU), so there is exactly one.
+    if (target.result.os.tag == .macos) {
+        gfx_gpu_factory_test_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(gfx_gpu_factory_test_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
     gfx_gpu_factory_test_module.linkLibrary(formats);
-    gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+    if (target.result.os.tag == .windows) {
+        gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+        // CommandLineToArgvW, see the entry-point note below.
+        gfx_gpu_factory_test_module.linkSystemLibrary("shell32", .{});
+    }
     const gfx_gpu_factory_test = b.addExecutable(.{
         .name = "gfxgpu-factory-test",
         .root_module = gfx_gpu_factory_test_module,
     });
     gfx_gpu_factory_test.subsystem = .console;
-    gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
+    // Mach-O and ELF entry points are not literally called "main"; forcing the
+    // symbol left the test unlinkable anywhere but Windows. On Windows the
+    // entry stays at main itself: the CRT's mainCRTStartup cannot be linked
+    // here - the Zig GPU library brings Zig's libc objects and the engine
+    // sources the MSVC runtime, and the startup object makes the two collide
+    // on _wctype and friends. Entering at main skips the CRT's argv setup, so
+    // the harness reads its command line through Win32 instead
+    // (gfxgpu_factory_test.cpp, ModulePathFromCommandLine).
+    if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
     const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    // The module's own dependencies: on Windows a DLL's imports resolve from
+    // the executable's directory and PATH, not from the DLL's, so the runtime
+    // DLLs the module needs are installed and the install directory put on the
+    // PATH (the pattern of the other module tests). ELF and Mach-O carry
+    // loader-relative rpaths and need neither.
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    gfx_gpu_factory_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
     gfx_gpu_factory_test_run.setCwd(b.path("."));
-    gfx_gpu_factory_test_run.addArg("zig-out/bin/GFXGPU.dll");
+    // The built module is GFXGPU.dll, libGFXGPU.dylib or libGFXGPU.so depending
+    // on the host, so hand the test the artifact's own path rather than the
+    // Windows file name.
+    gfx_gpu_factory_test_run.addFileArg(gfx_gpu.getEmittedBin());
     const gfx_gpu_factory_test_step = b.step("gfxgpu-factory-test", "Load the SDL GPU GFX DLL and create its IGFX object");
-    gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
+    // Honour -Dtest-mode=compile like every other test step: this one ran the
+    // artifact unconditionally, so it could not be built without executing it.
+    gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test.step);
+    // Installed as well, so a CI job that saw it crash can rerun the same
+    // binary under a debugger from the repository root.
+    gfx_gpu_factory_test_step.dependOn(&b.addInstallArtifact(gfx_gpu_factory_test, .{}).step);
+    if (test_mode == .run) gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
 
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
@@ -2631,6 +2669,7 @@ fn addOptionsBridge(
     module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     applyLoaderPath(target, module);
+    addSharedObjectFinalizer(b, target, module);
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
 }
 
@@ -2684,6 +2723,7 @@ fn addStreamIOZig(
     else
         "Sources/src/StreamIOZig/StreamIO.x64.def";
     applyLoaderPath(target, streamio_module);
+    addSharedObjectFinalizer(b, target, streamio_module);
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
@@ -2818,6 +2858,7 @@ fn addLegacyProjectDll(
         linkComSupport(module, optimize);
     }
     applyLoaderPath(target, module);
+    addSharedObjectFinalizer(b, target, module);
     const library = b.addLibrary(.{
         .name = name,
         .linkage = .dynamic,
@@ -3106,6 +3147,7 @@ fn addImage(
     if (target.result.os.tag == .windows) image_module.linkSystemLibrary("user32", .{});
 
     applyLoaderPath(target, image_module);
+    addSharedObjectFinalizer(b, target, image_module);
     return b.addLibrary(.{
         .name = "Image",
         .linkage = .dynamic,
@@ -3177,6 +3219,7 @@ fn addNet(
     }
 
     applyLoaderPath(target, net_module);
+    addSharedObjectFinalizer(b, target, net_module);
     return b.addLibrary(.{
         .name = "Net",
         .linkage = .dynamic,
@@ -3303,6 +3346,7 @@ fn addInput(
     }
 
     applyLoaderPath(target, input_module);
+    addSharedObjectFinalizer(b, target, input_module);
     return b.addLibrary(.{
         .name = "Input",
         .linkage = .dynamic,
@@ -3417,6 +3461,7 @@ fn addAnim(
     if (target.result.os.tag == .windows) linkComSupport(anim_module, optimize);
 
     applyLoaderPath(target, anim_module);
+    addSharedObjectFinalizer(b, target, anim_module);
     return b.addLibrary(.{
         .name = "Anim",
         .linkage = .dynamic,
@@ -3506,6 +3551,7 @@ fn addUI(
     if (target.result.os.tag == .windows) linkComSupport(ui_module, optimize);
 
     applyLoaderPath(target, ui_module);
+    addSharedObjectFinalizer(b, target, ui_module);
     return b.addLibrary(.{
         .name = "UI",
         .linkage = .dynamic,
@@ -3610,6 +3656,7 @@ fn addSFX(
     }
 
     applyLoaderPath(target, sfx_module);
+    addSharedObjectFinalizer(b, target, sfx_module);
     return b.addLibrary(.{
         .name = "SFX",
         .linkage = .dynamic,
@@ -3699,6 +3746,7 @@ fn addGFX(
     }
 
     applyLoaderPath(target, gfx_module);
+    addSharedObjectFinalizer(b, target, gfx_module);
     return b.addLibrary(.{
         .name = "GFX",
         .linkage = .dynamic,
@@ -3752,6 +3800,7 @@ fn addGFXGPU(
     }
 
     applyLoaderPath(target, gfx_gpu_module);
+    addSharedObjectFinalizer(b, target, gfx_gpu_module);
     return b.addLibrary(.{
         .name = "GFXGPU",
         .linkage = .dynamic,
@@ -3909,6 +3958,17 @@ const ToolchainIncludes = struct {
     library_arch: []const u8,
 };
 
+// zig resolves macOS frameworks from the native SDK on its own, but a build
+// driven with an explicit --sysroot (which is how CI invokes every macOS step)
+// searches no framework directory at all, so anything that links SDL fails with
+// "unable to find framework 'Cocoa'". Point the module at the sysroot's own
+// framework and library directories.
+fn addMacosSysrootPaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
+    if (target.result.os.tag != .macos) return;
+    const sysroot = b.sysroot orelse return;
+    module.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+}
+
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
     if (!build_target_msvc) return;
     module.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
@@ -3941,6 +4001,15 @@ fn addMacosCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
 /// Without this the staged layout only resolves against the build-time
 /// .zig-cache paths Zig records, and Game fails to launch
 /// ("libPlatformRuntime.so: cannot open shared object file" on Linux).
+// Every C++ shared object gets Platform/SharedObjectFinalize.cpp: Zig links no
+// crtbegin into a shared object, so without it nothing calls __cxa_finalize at
+// dlclose and the library's static destructors run at exit() in unmapped code.
+// Linux only; dyld and the Windows loader handle this themselves.
+fn addSharedObjectFinalizer(b: *std.Build, target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
+    if (target.result.os.tag != .linux) return;
+    module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SharedObjectFinalize.cpp"), .flags = &.{"-std=c++17"} });
+}
+
 fn applyLoaderPath(target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
     switch (target.result.os.tag) {
         .linux => module.addRPathSpecial("$ORIGIN"),
