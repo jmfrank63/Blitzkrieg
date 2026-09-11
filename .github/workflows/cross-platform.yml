@@ -96,8 +96,14 @@ jobs:
         if: failure() && steps.gfxgpu-factory-test.outcome == 'failure'
         run: |
           sudo apt-get install -y --no-install-recommends gdb binutils
-          echo "=== ld.so init/fini calls"
-          LD_DEBUG=files zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | grep -iE "calling (init|fini)|file=" | tail -40 || true
+          echo "=== ld.so init/fini calls, with the shared-object finalizer tracing its handle"
+          BK_SO_FINALIZE_TRACE=1 LD_DEBUG=files zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | grep -iE "calling (init|fini)|finalize" | tail -20 || true
+          echo "=== libGFXGPU.so: fini tags, finalizer and dso_handle symbols, handle passed to __cxa_atexit"
+          readelf -dW zig-out/lib/libGFXGPU.so | grep -iE "fini|init" || true
+          nm -C zig-out/lib/libGFXGPU.so | grep -iE "FinalizeSharedObject|__dso_handle|__cxa_(atexit|finalize)" || true
+          readelf -xW .fini_array zig-out/lib/libGFXGPU.so || true
+          objdump -dr -C zig-out/lib/libGFXGPU.so | grep -B6 -E "call.*__cxa_atexit" | grep -E "__dso_handle|__cxa_atexit|lea|mov" | head -30 || true
+          objdump -d -C zig-out/lib/libGFXGPU.so --disassemble='FinalizeSharedObject()' | head -40 || true
           echo "=== gdb"
           gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | tee gdb.log || true
           echo "=== fault address resolved against the objects the harness listed before dlclose"

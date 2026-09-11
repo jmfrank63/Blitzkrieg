@@ -15,11 +15,19 @@
 // addSharedObjectFinalizer). Calling __cxa_finalize twice for one handle
 // is harmless: it runs what is registered and removes it.
 #if defined(__linux__)
+#include <cstdio>
+#include <cstdlib>
+
 extern "C" void *__dso_handle;
 extern "C" int __cxa_finalize( void * );
 
-__attribute__(( destructor )) static void FinalizeSharedObject()
+// BK_SO_FINALIZE_TRACE=1 reports each finalization with the handle it used,
+// which is what to compare against the handle the static registrations
+// passed (objdump around the __cxa_atexit calls) when unload misbehaves.
+__attribute__(( used, destructor )) static void FinalizeSharedObject()
 {
+    if ( std::getenv( "BK_SO_FINALIZE_TRACE" ) != nullptr )
+        std::fprintf( stderr, "shared object finalize: handle %p (value %p)\n", static_cast<void *>( &__dso_handle ), __dso_handle );
     __cxa_finalize( &__dso_handle );
 }
 #endif
