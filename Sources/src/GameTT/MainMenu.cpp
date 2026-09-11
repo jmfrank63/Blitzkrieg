@@ -275,7 +275,7 @@ static const char *CloudFailureTextKey( const std::string &szError )
 // global vars and honours CloudSync.SkipToOffline and CloudSync.Retry; the
 // menu only renders and clicks. While a run is live the label is a button -
 // the click is the skip - and once it settles it goes inert and just
-// reports, with Retry (element 21002) beside it after a failure.
+// reports, with Retry (element 21002) under the activity bar after a failure.
 void CInterfaceMainMenu::RefreshCloudIndicator()
 {
 	if ( pUIScreen == 0 )

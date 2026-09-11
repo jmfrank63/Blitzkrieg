@@ -1741,11 +1741,11 @@
 			</States>
 		</item>
 		<item ClassTypeID="268439811" ElementID="21002" PositionFlag="0x0031" Background="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34" VisibleFlag="0" ActiveFlag="1" CurrentState="0">
-			<!--cloud sync Retry, shown by code after a failed or skipped sync; the indicator's family and style, on its line (same y/height/TextAlign, so the same baseline) just past the right end of its 640-wide rect: the rects never overlap, so the order between the two is free, but like 21001 it must come after the full-screen state containers or they swallow the click; clear of the version label (666), whose text is right-aligned at the far edge-->
+			<!--cloud sync Retry, shown by code after a failed or skipped sync: the indicator's family and style, left-aligned with the labels and the activity bar and just below the bar (DrawAdd, 736..744), in the 24 rows left above the canvas bottom: 745..767 holds the 20-row medium font with a clear row under the bar and its 2-row shadow still on the canvas. The bar only draws while a run is live and Retry only shows once one has failed, so the two never share the space. Like 21001 it must come after the full-screen state containers or they swallow the click-->
 			<ShadowShift x="1" y="2"/>
 			<TextPos x="0" y="0"/>
-			<WindowPos x="660" y="54"/>
-			<WindowSize x="120" y="50"/>
+			<WindowPos x="10" y="1"/>
+			<WindowSize x="120" y="22"/>
 			<States>
 				<item>
 					<PushSound/>
