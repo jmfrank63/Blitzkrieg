@@ -89,7 +89,12 @@ jobs:
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Run GFX GPU factory test
+        id: gfxgpu-factory-test
         run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Backtrace the GFX GPU factory test
+        if: steps.gfxgpu-factory-test.outcome == 'failure'
+        run: gdb -batch -ex run -ex bt -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so
 
       - name: Upload generated outputs
         if: always()

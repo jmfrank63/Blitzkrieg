@@ -1906,10 +1906,21 @@ pub fn build(b: *std.Build) void {
     });
     gfx_gpu_factory_test.subsystem = .console;
     // Mach-O and ELF entry points are not literally called "main"; forcing the
-    // symbol left the test unlinkable anywhere but Windows.
-    if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
+    // symbol left the test unlinkable anywhere but Windows. And on Windows the
+    // entry is the CRT's startup, as every other test here has it: entering at
+    // main itself skips the runtime's initialisation, so argc/argv were never
+    // filled in and the harness fell back to its default module path.
+    if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    // The module's own dependencies: on Windows a DLL's imports resolve from
+    // the executable's directory and PATH, not from the DLL's, so the runtime
+    // DLLs the module needs are installed and the install directory put on the
+    // PATH (the pattern of the other module tests). ELF and Mach-O carry
+    // loader-relative rpaths and need neither.
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    gfx_gpu_factory_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
     gfx_gpu_factory_test_run.setCwd(b.path("."));
     // The built module is GFXGPU.dll, libGFXGPU.dylib or libGFXGPU.so depending
     // on the host, so hand the test the artifact's own path rather than the
@@ -1919,6 +1930,9 @@ pub fn build(b: *std.Build) void {
     // Honour -Dtest-mode=compile like every other test step: this one ran the
     // artifact unconditionally, so it could not be built without executing it.
     gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test.step);
+    // Installed as well, so a CI job that saw it crash can rerun the same
+    // binary under a debugger from the repository root.
+    gfx_gpu_factory_test_step.dependOn(&b.addInstallArtifact(gfx_gpu_factory_test, .{}).step);
     if (test_mode == .run) gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
 
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");

@@ -385,8 +385,9 @@ int main( int argc, char **argv )
         return 4;
     }
 
-    Stage( "Release and close the module" );
+    Stage( "Release the GFX object" );
     object->Release();
+    Stage( "close the module" );
     CloseModule( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;
