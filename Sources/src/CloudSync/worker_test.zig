@@ -616,6 +616,79 @@ const CannedServer = struct {
     }
 };
 
+test "cancelling a running sync stops the bisync job instead of abandoning it" {
+    // An abandoned job kept running in the daemon, and the daemon was then
+    // terminated under it — which is how a skipped sync stranded the lock
+    // that blocked every later start. The cancel must reach rclone as
+    // `job/stop`, and the run must wait for the job to report finished.
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const link_root = try fixture.makeDir("links");
+    defer gpa.free(link_root);
+
+    try engine.savePairingState(gpa, io, game_dir, "hero", .{
+        .paired = true,
+        .last_success_unix = 1,
+        .remote_fingerprint = "fp",
+    });
+
+    const replies = [_][]const u8{
+        ok200("{\"jobid\":7}"), // sync/bisync
+        ok200("{\"finished\":false,\"success\":false,\"error\":\"\",\"group\":\"job/7\"}"), // job/status, held
+        ok200("{}"), // job/stop
+        ok200("{\"finished\":true,\"success\":false,\"error\":\"context canceled\",\"group\":\"job/7\"}"), // job/status
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    server.hold_at = 1;
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+        .link_roots = .{ .link_root = link_root },
+    });
+    defer w.destroy();
+
+    try w.begin(.{
+        .kind = .sync,
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .profile_id = "hero-id",
+        .remote_fingerprint = "fp",
+    });
+
+    // Cancel while the job is known to be running: inside its first
+    // status poll.
+    var waited: u32 = 0;
+    while (!server.held.load(.acquire) and waited < 10_000) : (waited += 10) sleepMs(tio, 10);
+    try std.testing.expect(server.held.load(.acquire));
+    w.cancel();
+    server.releaseHold();
+
+    const settled = pollUntilSettled(w, tio, 15_000);
+    try std.testing.expectEqual(worker.State.failed, settled.state);
+    try std.testing.expectEqualStrings("Cancelled", settled.errorText());
+
+    try std.testing.expectEqual(@as(usize, 4), server.served);
+    try std.testing.expectEqualStrings("POST /sync/bisync HTTP/1.1", server.requestLine(0));
+    try std.testing.expectEqualStrings("POST /job/status HTTP/1.1", server.requestLine(1));
+    try std.testing.expectEqualStrings("POST /job/stop HTTP/1.1", server.requestLine(2));
+    // And it waited for the stopped job to say it finished.
+    try std.testing.expectEqualStrings("POST /job/status HTTP/1.1", server.requestLine(3));
+}
+
 fn httpReply(comptime status_line: []const u8, comptime json_body: []const u8) []const u8 {
     return status_line ++ "\r\n" ++
         "content-type: application/json\r\n" ++

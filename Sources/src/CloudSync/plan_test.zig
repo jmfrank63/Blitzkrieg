@@ -879,9 +879,74 @@ test "pairing params carry every required key and value" {
     try std.testing.expectEqual(true, object.get("resync").?.bool);
     try std.testing.expectEqualStrings("newer", paramString(params, "resyncMode").?);
 
+    // An interrupted pairing must not leave a lock that never expires, and
+    // rclone accepts `recover` alongside `resync` (measured, v1.75.0).
+    try std.testing.expectEqualStrings("2m", paramString(params, "maxLock").?);
+    try std.testing.expectEqual(true, object.get("recover").?.bool);
+
     // Never: force disables the excess-deletes guard along with the
     // all-changed guard, and the sentinel already covers the latter.
     try std.testing.expect(object.get("force") == null);
+
+    // The exact key set: a key added or dropped without a decision here
+    // is a behaviour change nobody reviewed.
+    const expected_keys = [_][]const u8{
+        "path1",      "path2",     "workdir",    "filtersFile", "conflictResolve",
+        "_async",     "maxDelete", "maxLock",    "recover",     "backupDir1",
+        "backupDir2", "resync",    "resyncMode",
+    };
+    try std.testing.expectEqual(expected_keys.len, object.count());
+    for (expected_keys) |key| try std.testing.expect(object.get(key) != null);
+}
+
+test "steady params carry the lock expiry and interruption recovery" {
+    const gpa = std.testing.allocator;
+
+    var params = try plan.bisyncParams(gpa, testContext(.steady));
+    defer params.deinit();
+    const object = params.value.object;
+
+    // Captured: without maxLock, rclone's lock expires two hundred years
+    // out, and one interrupted run blocked every later one.
+    try std.testing.expectEqualStrings("2m", paramString(params, "maxLock").?);
+    // Measured: the run after a stopped one syncs with `recover` instead
+    // of demanding a confirmed re-pair.
+    try std.testing.expectEqual(true, object.get("recover").?.bool);
+
+    const expected_keys = [_][]const u8{
+        "path1",      "path2",     "workdir", "filtersFile", "conflictResolve",
+        "_async",     "maxDelete", "maxLock", "recover",     "backupDir1",
+        "backupDir2",
+    };
+    try std.testing.expectEqual(expected_keys.len, object.count());
+    for (expected_keys) |key| try std.testing.expect(object.get(key) != null);
+}
+
+test "the lock path is the measured session name plus .lck" {
+    // The live evidence, verbatim: the lock that blocked every start on
+    // 2026-09-11. Path2 contributes what rclone resolved the `bkremote:`
+    // alias to — the backend remote `bkraw` and its root — not the alias.
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    const session = try plan.sessionName(
+        gpa,
+        .{ .path = "/Users/johannes/Library/Caches/blitzkrieg/p2", .kind = .local },
+        .{ .path = "bkraw:Blitzkrieg Cloud Sync/profiles/Johannes", .kind = .remote },
+    );
+    defer gpa.free(session);
+    try std.testing.expectEqualStrings(
+        "Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes",
+        session,
+    );
+
+    const lock = try plan.lockFilePath(gpa, "/games/bk/cloudsync/workdir", session);
+    defer gpa.free(lock);
+    try std.testing.expectEqualStrings(
+        "/games/bk/cloudsync/workdir/" ++
+            "Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes.lck",
+        lock,
+    );
 }
 
 test "assertNoResyncWhenPaired" {
@@ -902,6 +967,8 @@ test "assertNoResyncWhenPaired" {
     try std.testing.expect(object.get("force") == null);
     try std.testing.expect(object.get("backupDir1") != null);
     try std.testing.expect(object.get("backupDir2") != null);
+    try std.testing.expectEqualStrings("2m", paramString(params, "maxLock").?);
+    try std.testing.expectEqual(true, object.get("recover").?.bool);
 }
 
 test "resync_preserves_newer_side" {

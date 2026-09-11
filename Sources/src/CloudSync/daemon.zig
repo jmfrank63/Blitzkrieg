@@ -856,6 +856,40 @@ pub fn processStartTime(io: Io, pid: Pid) ?i64 {
     };
 }
 
+/// When the process with `pid` started, as UNIX seconds on the wall clock,
+/// or null when no process runs under that pid. Unlike `processStartTime`
+/// this number *is* interpreted: it is compared with a file's modification
+/// time to tell a lock's writer from an unrelated process that inherited
+/// its recycled pid. Second granularity is all that comparison needs.
+pub fn processStartUnixSeconds(io: Io, pid: Pid) ?i64 {
+    const raw = processStartTime(io, pid) orelse return null;
+    switch (builtin.os.tag) {
+        // `p_starttime.tv_sec`: already epoch seconds.
+        .macos, .ios, .tvos, .watchos, .visionos => return raw,
+        // Ticks since boot, in USER_HZ — which the kernel fixes at 100 for
+        // every userspace ABI, whatever the internal tick rate.
+        .linux => {
+            const boot = linuxBootUnixSeconds(io) orelse return null;
+            return boot + @divFloor(raw, 100);
+        },
+        // A FILETIME: 100 ns ticks since 1601-01-01.
+        .windows => return @divFloor(raw, 10_000_000) - 11_644_473_600,
+        else => return null,
+    }
+}
+
+/// `btime` from `/proc/stat`: when the machine booted, in epoch seconds.
+fn linuxBootUnixSeconds(io: Io) ?i64 {
+    var buffer: [16 * 1024]u8 = undefined;
+    const text = Io.Dir.cwd().readFile(io, "/proc/stat", &buffer) catch return null;
+    var lines = std.mem.tokenizeScalar(u8, text, '\n');
+    while (lines.next()) |line| {
+        if (!std.mem.startsWith(u8, line, "btime ")) continue;
+        return std.fmt.parseInt(i64, std.mem.trim(u8, line["btime ".len..], " "), 10) catch null;
+    }
+    return null;
+}
+
 /// `sysctl({CTL_KERN, KERN_PROC, KERN_PROC_PID, pid})` fills a `kinfo_proc`.
 /// Its first member is `kp_proc`, a `struct extern_proc`, which opens with a
 /// union whose `timeval` arm is `p_starttime` — so the start time is the first

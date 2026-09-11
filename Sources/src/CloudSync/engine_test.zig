@@ -354,6 +354,281 @@ test "every outcome maps to its recovery and the delete guard is never forced" {
     try std.testing.expectEqual(engine.Recovery.show_log, engine.recovery(.unknown));
 }
 
+/// The lock refusal, captured live (rclone v1.75.0, 2026-09-11): the job's
+/// error text. The cause is only here — the run log around it names no
+/// cause at all, just the lock it found. (The log's JSON indent is a tab in
+/// the capture; a Zig multiline literal cannot hold one.)
+const fixture_locked_error =
+    \\prior lock file found: /Users/johannes/Projects/src/Blitzkrieg/zig-out/game/macos/arm64/release/cloudsync/workdir/Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes.lck
+    \\Tip: this indicates that another bisync run (of these same paths) either is still running or was interrupted before completion.
+    \\If you're SURE you want to override this safety feature, you can delete the lock file with the following command, then run bisync again:
+    \\rclone deletefile "/Users/johannes/Projects/src/Blitzkrieg/zig-out/game/macos/arm64/release/cloudsync/workdir/Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes.lck"
+;
+
+const fixture_locked_log =
+    \\2026/09/11 14:31:28 INFO  : Setting --ignore-listing-checksum as neither --checksum nor --compare checksum are set.
+    \\2026/09/11 14:31:28 INFO  : /Users/johannes/Projects/src/Blitzkrieg/zig-out/game/macos/arm64/release/cloudsync/workdir/Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes.lck: Valid lock file found. Expires at 2226-07-25 11:27:37.605792 +0200 CEST. (1751996h56m9s from now)
+    \\2026/09/11 14:31:28 INFO  : Lockfile info:
+    \\{
+    \\    "Session": "/Users/johannes/Projects/src/Blitzkrieg/zig-out/game/macos/arm64/release/cloudsync/workdir/Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes",
+    \\    "PID": "81597",
+    \\    "TimeRenewed": "2026-09-11T11:27:37.605792+02:00",
+    \\    "TimeExpires": "2226-07-25T11:27:37.605792+02:00"
+    \\}
+;
+
+test "a prior lock classifies as locked and offers a retry" {
+    const failure: rc.RcFailure = .{ .message = fixture_locked_error, .status = 500 };
+    try std.testing.expectEqual(engine.Outcome.locked, engine.classify(failure, fixture_locked_log));
+    // Not a listing problem: it must never be answered with a re-pair, and
+    // it is tested before the trailer that would say so.
+    const with_trailer = fixture_locked_error ++ "\nBisync aborted. Must run --resync to recover.";
+    try std.testing.expectEqual(engine.Outcome.locked, engine.classify(bare_reply, with_trailer));
+    try std.testing.expectEqual(engine.Recovery.retry, engine.recovery(.locked));
+    // The tag is the worker's failure-text prefix, and the menu's word.
+    try std.testing.expectEqualStrings("locked", @tagName(engine.Outcome.locked));
+}
+
+test "the lock check's note travels under the failure line" {
+    const gpa = std.testing.allocator;
+    var client = try rc.Client.init(gpa, io, .{ .host = "127.0.0.1", .port = 1, .user = "x", .pass = "x" });
+    defer client.deinit();
+    var eng = engine.Engine.init(gpa, io, &client);
+    defer eng.deinit();
+
+    eng.run_note_owned = try gpa.dupe(u8, "bisync lock /w/s.lck is held by running process 1; left in place");
+    eng.recordError(fixture_locked_error, fixture_locked_log);
+    try std.testing.expectEqual(engine.Outcome.locked, eng.lastOutcome());
+    const text = eng.lastErrorText();
+    try std.testing.expect(std.mem.startsWith(u8, text, "prior lock file found: "));
+    try std.testing.expect(std.mem.indexOf(u8, text, "\nbisync lock /w/s.lck is held by running process 1; left in place\n") != null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "Valid lock file found") != null);
+}
+
+// -- Stale locks --------------------------------------------------------------
+
+/// A scripted process table for the lock decision: `pid` -> start time.
+const FakeProcesses = struct {
+    entries: []const struct { pid: i64, start_unix: i64 },
+
+    fn startUnix(context: ?*const anyopaque, pid: i64) ?i64 {
+        const self: *const FakeProcesses = @ptrCast(@alignCast(context.?));
+        for (self.entries) |entry| {
+            if (entry.pid == pid) return entry.start_unix;
+        }
+        return null;
+    }
+};
+
+/// Write a lock the way rclone does, then pin its modification time.
+fn plantLock(lock_path: []const u8, content: []const u8, written_unix: i64) !void {
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = lock_path, .data = content });
+    try std.Io.Dir.cwd().setTimestamps(io, lock_path, .{
+        .modify_timestamp = .{ .new = .fromNanoseconds(@as(i96, written_unix) * std.time.ns_per_s) },
+    });
+}
+
+fn lockJson(comptime pid: []const u8) []const u8 {
+    return "{\"Session\":\"/w/s\",\"PID\":\"" ++ pid ++
+        "\",\"TimeRenewed\":\"2026-09-11T11:27:37.605792+02:00\"," ++
+        "\"TimeExpires\":\"2226-07-25T11:27:37.605792+02:00\"}";
+}
+
+fn fileExists(file_path: []const u8) bool {
+    _ = std.Io.Dir.cwd().statFile(io, file_path, .{}) catch return false;
+    return true;
+}
+
+test "the lock decision removes only locks whose holder is provably gone" {
+    const gpa = std.testing.allocator;
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const workdir = try fixture.makeDir("workdir");
+    defer gpa.free(workdir);
+    const lock = try path.join(gpa, &.{ workdir, "p2..bkraw_root_profiles_hero.lck" });
+    defer gpa.free(lock);
+
+    const written: i64 = 1_789_000_000;
+    // 700 runs our daemon since before the lock; 800 is a live foreign
+    // process that started before it; 900 started an hour after it.
+    const table: FakeProcesses = .{ .entries = &.{
+        .{ .pid = 700, .start_unix = written - 60 },
+        .{ .pid = 800, .start_unix = written - 3_600 },
+        .{ .pid = 900, .start_unix = written + 3_600 },
+    } };
+    const probe: engine.LockProbe = .{
+        .own_daemon_pid = 700,
+        .context = @ptrCast(&table),
+        .process_start_unix = FakeProcesses.startUnix,
+        .now_unix = written + 30,
+    };
+
+    // No lock: nothing to do.
+    try std.testing.expectEqual(engine.LockVerdict.absent, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+
+    // The captured case: the holder is gone.
+    try plantLock(lock, lockJson("81597"), written);
+    var check = engine.clearStaleLock(gpa, io, lock, probe);
+    try std.testing.expectEqual(engine.LockVerdict.removed_dead_holder, check.verdict);
+    try std.testing.expectEqual(@as(?i64, 81597), check.pid);
+    try std.testing.expect(!fileExists(lock));
+
+    // Our own daemon, running no job of ours: our own leftover.
+    try plantLock(lock, lockJson("700"), written);
+    check = engine.clearStaleLock(gpa, io, lock, probe);
+    try std.testing.expectEqual(engine.LockVerdict.removed_own_daemon, check.verdict);
+    try std.testing.expect(!fileExists(lock));
+
+    // A live process that was running when the lock was written: left.
+    try plantLock(lock, lockJson("800"), written);
+    check = engine.clearStaleLock(gpa, io, lock, probe);
+    try std.testing.expectEqual(engine.LockVerdict.kept_live_holder, check.verdict);
+    try std.testing.expectEqual(@as(?i64, 800), check.pid);
+    try std.testing.expect(fileExists(lock));
+
+    // The same pid, once our daemon is known to still run a job of ours
+    // (no own pid in the probe), is judged like anyone else: it started
+    // before the lock, so it stays.
+    try plantLock(lock, lockJson("700"), written);
+    var busy = probe;
+    busy.own_daemon_pid = null;
+    try std.testing.expectEqual(engine.LockVerdict.kept_live_holder, engine.clearStaleLock(gpa, io, lock, busy).verdict);
+    try std.testing.expect(fileExists(lock));
+
+    // A recycled pid: the process under it started after the lock was
+    // last written, so it cannot be the writer.
+    try plantLock(lock, lockJson("900"), written);
+    check = engine.clearStaleLock(gpa, io, lock, probe);
+    try std.testing.expectEqual(engine.LockVerdict.removed_reused_pid, check.verdict);
+    try std.testing.expect(!fileExists(lock));
+
+    // An integer pid is read too.
+    try plantLock(lock, "{\"PID\":81597}", written);
+    try std.testing.expectEqual(engine.LockVerdict.removed_dead_holder, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+
+    // Unreadable: recent is left alone, old is abandoned. A non-positive
+    // pid is unreadable, never "dead" — POSIX reads it as a process group.
+    try plantLock(lock, "{torn", written);
+    try std.testing.expectEqual(engine.LockVerdict.kept_unreadable_recent, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+    try std.testing.expect(fileExists(lock));
+    try plantLock(lock, "{\"PID\":\"0\"}", written);
+    try std.testing.expectEqual(engine.LockVerdict.kept_unreadable_recent, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+    var later = probe;
+    later.now_unix = written + engine.unreadable_lock_grace_s + 1;
+    check = engine.clearStaleLock(gpa, io, lock, later);
+    try std.testing.expectEqual(engine.LockVerdict.removed_unreadable, check.verdict);
+    try std.testing.expect(!fileExists(lock));
+}
+
+test "the sweep touches only this session's Path1 and reports each lock" {
+    const gpa = std.testing.allocator;
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const workdir = try fixture.makeDir("workdir");
+    defer gpa.free(workdir);
+
+    const written: i64 = 1_789_000_000;
+    const table: FakeProcesses = .{ .entries = &.{} };
+    const probe: engine.LockProbe = .{
+        .context = @ptrCast(&table),
+        .process_start_unix = FakeProcesses.startUnix,
+        .now_unix = written,
+    };
+
+    const ours = try path.join(gpa, &.{ workdir, "Users_x_p2..bkraw_Cloud_profiles_hero.lck" });
+    defer gpa.free(ours);
+    // Another slot's session and a listing of ours: neither is this run's lock.
+    const other_slot = try path.join(gpa, &.{ workdir, "Users_x_p21..bkraw_Cloud_profiles_ally.lck" });
+    defer gpa.free(other_slot);
+    const listing = try path.join(gpa, &.{ workdir, "Users_x_p2..bkraw_Cloud_profiles_hero.path1.lst" });
+    defer gpa.free(listing);
+    try plantLock(ours, lockJson("81597"), written);
+    try plantLock(other_slot, lockJson("81597"), written);
+    try plantLock(listing, "# bisync listing v1", written);
+
+    const reports = try engine.sweepStaleLocks(gpa, io, workdir, "Users_x_p2..", probe);
+    defer engine.freeLockReports(gpa, reports);
+    try std.testing.expectEqual(@as(usize, 1), reports.len);
+    try std.testing.expectEqualStrings("Users_x_p2..bkraw_Cloud_profiles_hero.lck", reports[0].name);
+    try std.testing.expectEqual(engine.LockVerdict.removed_dead_holder, reports[0].check.verdict);
+    try std.testing.expect(!fileExists(ours));
+    try std.testing.expect(fileExists(other_slot));
+    try std.testing.expect(fileExists(listing));
+
+    const line = (try engine.lockNoteLine(gpa, workdir, reports[0])).?;
+    defer gpa.free(line);
+    try std.testing.expect(std.mem.startsWith(u8, line, "removed stale bisync lock "));
+    try std.testing.expect(std.mem.endsWith(u8, line, "pid 81597 is no longer running"));
+
+    // A workdir that does not exist yet is the first run on this machine.
+    const missing = try path.join(gpa, &.{ fixture.root, "nowhere" });
+    defer gpa.free(missing);
+    const none = try engine.sweepStaleLocks(gpa, io, missing, "Users_x_p2..", probe);
+    defer engine.freeLockReports(gpa, none);
+    try std.testing.expectEqual(@as(usize, 0), none.len);
+}
+
+/// The platform's own answer, as the engine asks it.
+fn systemStartUnix(context: ?*const anyopaque, pid: i64) ?i64 {
+    _ = context;
+    const native = std.math.cast(daemon.Pid, pid) orelse return null;
+    return daemon.processStartUnixSeconds(io, native);
+}
+
+/// The pid of a process that has run and been reaped.
+fn deadPid(target_io: std.Io) !i64 {
+    var child = try std.process.spawn(target_io, .{
+        .argv = &.{ "/bin/sh", "-c", "exit 0" },
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    });
+    const pid: i64 = child.id.?;
+    _ = try child.wait(target_io);
+    return pid;
+}
+
+test "the lock decision against real processes" {
+    // POSIX: the dead pid comes from a reaped `/bin/sh`.
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const workdir = try fixture.makeDir("workdir");
+    defer gpa.free(workdir);
+    const lock = try path.join(gpa, &.{ workdir, "p2..bkraw_root.lck" });
+    defer gpa.free(lock);
+
+    const now = std.Io.Clock.now(.real, io).toSeconds();
+    const probe: engine.LockProbe = .{
+        .process_start_unix = systemStartUnix,
+        .now_unix = now,
+    };
+
+    // This test process is alive and started before the lock it is about
+    // to write: a live foreign holder, left alone.
+    const self_pid: i64 = daemon.currentPid();
+    const started = daemon.processStartUnixSeconds(io, daemon.currentPid()).?;
+    try std.testing.expect(started <= now);
+    const live = try std.fmt.allocPrint(gpa, "{{\"PID\":\"{d}\"}}", .{self_pid});
+    defer gpa.free(live);
+    try plantLock(lock, live, now);
+    try std.testing.expectEqual(engine.LockVerdict.kept_live_holder, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+
+    // The same pid on a lock written before this process existed: reused.
+    try plantLock(lock, live, started - 3_600);
+    try std.testing.expectEqual(engine.LockVerdict.removed_reused_pid, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+
+    // A reaped child: gone.
+    const dead = try deadPid(io);
+    try std.testing.expect(daemon.processStartUnixSeconds(io, @intCast(dead)) == null);
+    const gone = try std.fmt.allocPrint(gpa, "{{\"PID\":\"{d}\"}}", .{dead});
+    defer gpa.free(gone);
+    try plantLock(lock, gone, now);
+    try std.testing.expectEqual(engine.LockVerdict.removed_dead_holder, engine.clearStaleLock(gpa, io, lock, probe).verdict);
+    try std.testing.expect(!fileExists(lock));
+}
+
 test "transport errors classify without a log" {
     try std.testing.expectEqual(engine.Outcome.timed_out, engine.classifyTransport(error.Timeout));
     try std.testing.expectEqual(engine.Outcome.daemon_gone, engine.classifyTransport(error.Transport));
@@ -1074,6 +1349,128 @@ test "pairing an empty remote pairs once and the second run does not resync" {
     defer gpa.free(run_id);
     try expectFileContent(gpa, &.{ cloud, "profiles", "hero", "quick.sav" }, "v2");
     try expectFileContent(gpa, &.{ profile_dir, "quick.sav" }, "v2");
+}
+
+/// Write a bisync lock the way rclone does — the captured shape, expiry two
+/// hundred years out — naming `pid`.
+fn writeRcloneLock(gpa: std.mem.Allocator, lock_path: []const u8, pid: i64) !void {
+    const text = try std.fmt.allocPrint(
+        gpa,
+        "{{\"Session\":\"x\",\"PID\":\"{d}\",\"TimeRenewed\":\"2026-09-11T11:27:37.605792+02:00\"," ++
+            "\"TimeExpires\":\"2226-07-25T11:27:37.605792+02:00\"}}",
+        .{pid},
+    );
+    defer gpa.free(text);
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = lock_path, .data = text });
+}
+
+test "a stranded lock no longer blocks the next sync, and a held one reports locked" {
+    // POSIX: the dead holder is a reaped `/bin/sh`.
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const cloud = try fixture.makeDir("cloud");
+    defer gpa.free(cloud);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const save = try path.join(gpa, &.{ profile_dir, "quick.sav" });
+    defer gpa.free(save);
+    try fixture.write(save, "v1");
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    try createAliasRemote(gpa, &client, "bkremote", cloud);
+
+    var eng = engine.Engine.init(gpa, tio, &client);
+    defer eng.deinit();
+
+    const ctx: engine.RunContext = .{
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .game_dir = game_dir,
+        .profile_id = "hero-id",
+        .remote_fingerprint = "alias:cloud",
+    };
+    var outcome = eng.pair(ctx) catch |err| {
+        try std.testing.expectEqualStrings("", eng.lastErrorText());
+        return err;
+    };
+    outcome.deinit(gpa);
+
+    // The session is whatever rclone named the listings: the lock is the
+    // same name with `.lck`.
+    const workdir = try plan.workdirPath(gpa, game_dir);
+    defer gpa.free(workdir);
+    const session = session: {
+        var dir = try std.Io.Dir.cwd().openDir(tio, workdir, .{ .iterate = true });
+        defer dir.close(tio);
+        var it = dir.iterate();
+        while (try it.next(tio)) |entry| {
+            const suffix = ".path1.lst";
+            if (std.mem.endsWith(u8, entry.name, suffix)) {
+                break :session try gpa.dupe(u8, entry.name[0 .. entry.name.len - suffix.len]);
+            }
+        }
+        return error.TestUnexpectedResult;
+    };
+    defer gpa.free(session);
+    const lock = try plan.lockFilePath(gpa, workdir, session);
+    defer gpa.free(lock);
+
+    // The 2026-09-11 failure: a lock stranded by an interrupted run, whose
+    // holder is long gone and whose expiry is two centuries out.
+    try writeRcloneLock(gpa, lock, try deadPid(tio));
+    try fixture.write(save, "v2");
+    {
+        const run_id = eng.syncOnce(ctx) catch |err| {
+            try std.testing.expectEqualStrings("", eng.lastErrorText());
+            return err;
+        };
+        gpa.free(run_id);
+    }
+    try expectFileContent(gpa, &.{ cloud, "profiles", "hero", "quick.sav" }, "v2");
+    try std.testing.expect(!fileExists(lock));
+    try std.testing.expect(std.mem.indexOf(u8, eng.runNote(), "is no longer running") != null);
+
+    // Our own daemon's pid, with no job of ours running: our own leftover.
+    eng.daemon_pid = d.pid;
+    try writeRcloneLock(gpa, lock, d.pid);
+    {
+        const run_id = eng.syncOnce(ctx) catch |err| {
+            try std.testing.expectEqualStrings("", eng.lastErrorText());
+            return err;
+        };
+        gpa.free(run_id);
+    }
+    try std.testing.expect(!fileExists(lock));
+    try std.testing.expect(std.mem.indexOf(u8, eng.runNote(), "own rclone daemon") != null);
+    eng.daemon_pid = null;
+
+    // A live process that was running when the lock was written — this
+    // test — holds it: left alone, and the refusal classifies as locked,
+    // with the note saying why the lock stayed.
+    try writeRcloneLock(gpa, lock, daemon.currentPid());
+    try std.testing.expectError(error.SyncFailed, eng.syncOnce(ctx));
+    try std.testing.expectEqual(engine.Outcome.locked, eng.lastOutcome());
+    try std.testing.expect(std.mem.startsWith(u8, eng.lastErrorText(), "prior lock file found"));
+    try std.testing.expect(std.mem.indexOf(u8, eng.lastErrorText(), "left in place") != null);
+    try std.testing.expect(fileExists(lock));
 }
 
 test "a slow first upload is progress, not a stall" {
