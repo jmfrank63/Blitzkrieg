@@ -515,6 +515,25 @@ pub fn deleteWithinRatio(old_count: usize, deletes: usize) bool {
     return deletes * 100 <= old_count * max_delete_percent;
 }
 
+// -- Lock file ---------------------------------------------------------------
+
+/// bisync's `maxLock`: rclone's minimum. Short, because the lock only has
+/// to outlive the gap between two renewals of a live run, and anything
+/// longer is how long an interrupted run keeps blocking the next one.
+pub const max_lock = "2m";
+
+/// The suffix rclone gives a session's lock file.
+pub const lock_suffix = ".lck";
+
+/// `<workdir>/<session>.lck` — where bisync keeps the lock of the session
+/// `session` (see `sessionName`). The session must be built from what
+/// rclone resolves Path2 to, not from the alias the call names: rclone
+/// dereferences `bkremote:` to the backend remote and its root, so the
+/// measured lock is `…p2..bkraw_<root>_profiles_<name>.lck`.
+pub fn lockFilePath(gpa: Allocator, workdir: []const u8, session: []const u8) Allocator.Error![]u8 {
+    return std.fmt.allocPrint(gpa, "{s}{c}{s}" ++ lock_suffix, .{ workdir, path.sep, session });
+}
+
 // -- Sentinel ----------------------------------------------------------------
 
 /// The one file guaranteed present and unchanged in every paired profile.
@@ -653,6 +672,18 @@ pub fn bisyncParams(gpa: Allocator, ctx: SyncContext) BisyncParamsError!BisyncPa
     // maxDelete aborts on *any* delete — the CLI's default of 50 is applied
     // in cmd.go, which the rc path never runs.
     try object.put(alloc, "maxDelete", .{ .integer = @intCast(max_delete_percent) });
+    // Without `maxLock` rclone writes a lock that never expires (captured:
+    // `TimeExpires` two hundred years out), so a single interrupted run —
+    // a skipped sync, a quit, a crash — blocked every later run with
+    // `prior lock file found`. With it, rclone renews the lock while the run
+    // is alive and treats it as expired `maxLock` after the last renewal.
+    try object.put(alloc, "maxLock", .{ .string = max_lock });
+    // And the run after an interruption recovers from the listings the
+    // interrupted run left, rather than demanding a confirmed re-pair
+    // (measured, v1.75.0: a job stopped mid-transfer reports `Must run
+    // --resync to recover`; the next run with `recover` syncs cleanly).
+    // Sent on pairing runs too: rclone accepts it alongside `resync`.
+    try object.put(alloc, "recover", .{ .bool = true });
 
     // Two trashes, one per side, both scoped to this run. rclone requires
     // each backup directory on its own side's filesystem, and it overwrites

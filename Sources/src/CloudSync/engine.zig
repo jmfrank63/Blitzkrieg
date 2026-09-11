@@ -31,6 +31,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const catalogue = @import("catalogue.zig");
+const daemon = @import("daemon.zig");
 const rc = @import("rc.zig");
 const plan = @import("plan.zig");
 
@@ -46,13 +47,22 @@ const job_poll_ms: u32 = 250;
 /// profile's first upload is every save it has — tens of megabytes on a
 /// home uplink take minutes, and every one of those minutes shows bytes
 /// flowing. Only a run whose bytes, checks, listings and transfers are all
-/// frozen for this long is wedged. The job keeps running server-side;
-/// P02-M03 owns what to tell the player.
+/// frozen for this long is wedged. The job is stopped, not abandoned — an
+/// abandoned bisync kept its lock — and P02-M03 owns what to tell the player.
 pub const default_job_stall_ms: u32 = 120_000;
 
 /// How often the running job's counters are asked for while it is waited
 /// on: `core/stats` for its group, between the cheaper status polls.
 pub const default_stats_probe_ms: u32 = 2_000;
+
+/// How long a stopped bisync job gets to wind down before the engine stops
+/// waiting on it. Measured (v1.75.0): a job stopped mid-transfer finishes
+/// within about a second and removes its lock on the way out.
+pub const default_job_stop_wait_ms: u32 = 10_000;
+
+/// The per-POST budget of the stop and its status polls: a daemon that
+/// cannot answer these quickly is wedged or gone, and no wait helps.
+const stop_call_deadline: rc.Deadline = .{ .connect_ms = 2_000, .read_ms = 3_000 };
 
 /// The stall clock: waiting counts against the budget until a progress
 /// reading differs from the last one, which resets it. Pure so the
@@ -239,7 +249,8 @@ pub const RunContext = struct {
 
 pub const PairError = error{
     /// The engine's cancel flag went true while the run was in flight. The
-    /// rclone job keeps running server-side; only the wait is abandoned.
+    /// rclone job was stopped (and waited on, bounded) before this returned,
+    /// so it does not strand its lock.
     Cancelled,
     /// This profile is already paired here. A resync after real divergence
     /// overwrites one side; recovery is a player action through P02-M03.
@@ -289,9 +300,27 @@ pub const Engine = struct {
     /// text, and the run log when there is one. P02-M03 classifies it.
     last_error_owned: ?[]u8 = null,
     /// When set, checked between the bounded phases of a run — before the
-    /// job starts and between status polls. A true value abandons the wait
-    /// with `error.Cancelled`; the worker's shutdown path owns setting it.
+    /// job starts and between status polls. A true value stops the running
+    /// job (`job/stop`, then a bounded wait for it to finish, so bisync
+    /// removes its own lock) and returns `error.Cancelled`; the worker's
+    /// cancel and shutdown paths own setting it.
     cancel: ?*const std.atomic.Value(bool) = null,
+    /// The pid of the rclone daemon behind `client`, when the owner spawned
+    /// it. The stale-lock check treats a lock naming this pid as our own
+    /// leftover while no job of ours runs. Null when the endpoint was
+    /// handed in, which only makes the check more conservative.
+    daemon_pid: ?i64 = null,
+    /// The bisync job this engine started and has not seen finish: set
+    /// between `callAsync` and the finished status, and left set only when
+    /// a stop could not be confirmed inside its budget. The next run (and
+    /// the worker's teardown) stops it again before anything else.
+    active_job: ?rc.JobId = null,
+    /// How long a stopped job gets to finish its own cleanup, wall clock.
+    job_stop_wait_ms: u32 = default_job_stop_wait_ms,
+    /// What the pre-run lock check did, when it did anything: one line per
+    /// lock, carried into the failure detail if the run then fails. Owned,
+    /// redacted, cleared at the start of every run.
+    run_note_owned: ?[]u8 = null,
     /// The classification of the most recent `error.SyncFailed`, `.unknown`
     /// until one happens. Transport-level errors never get here; classify
     /// those with `classifyTransport` at the call site.
@@ -330,7 +359,19 @@ pub const Engine = struct {
     pub fn deinit(self: *Engine) void {
         self.clearSecretRedactions();
         self.clearLastError();
+        self.clearRunNote();
         self.* = undefined;
+    }
+
+    /// The lock check's note for the most recent run, or "" when it found
+    /// nothing to report.
+    pub fn runNote(self: *const Engine) []const u8 {
+        return self.run_note_owned orelse "";
+    }
+
+    fn clearRunNote(self: *Engine) void {
+        if (self.run_note_owned) |owned| self.gpa.free(owned);
+        self.run_note_owned = null;
     }
 
     /// Replace the credential-derived redaction set: `names` are the
@@ -655,6 +696,7 @@ pub const Engine = struct {
     /// every other failure.
     pub fn testConnection(self: *Engine, remote: []const u8) Allocator.Error!TestResult {
         self.clearLastError();
+        self.clearRunNote();
         self.last_outcome = .unknown;
 
         // A connection test is a settings-screen probe, not a transfer: it
@@ -910,11 +952,28 @@ pub const Engine = struct {
     /// Start the job and poll it to completion. `_async` plus polling rather
     /// than a synchronous call, because a bisync can outlive any reasonable
     /// single-request deadline and the rc transport's budget is per POST.
+    ///
+    /// A run never abandons its job: every way out before the job is seen
+    /// finished — cancellation, the stall guard, a failed status poll —
+    /// stops it and waits, bounded, for bisync to wind down and remove its
+    /// own lock. Abandoning it was how one skipped or interrupted sync left
+    /// a lock that blocked every later one.
     fn runBisync(self: *Engine, params: std.json.Value) (rc.RcError || error{ SyncFailed, Cancelled } || Allocator.Error)!void {
         self.clearLastError();
+        self.clearRunNote();
+
+        if (self.cancelled()) return error.Cancelled;
+
+        // A job an earlier run could not confirm stopped is still ours, and
+        // still holding its lock: settle it before judging any lock.
+        self.stopActiveJob(self.job_stop_wait_ms);
+        try self.recoverStaleLocks(params);
 
         if (self.cancelled()) return error.Cancelled;
         const job = try self.client.callAsync("sync/bisync", params);
+        self.active_job = job;
+        var settled = false;
+        defer if (!settled) self.stopActiveJob(self.job_stop_wait_ms);
 
         var guard: StallGuard = .{ .budget_ms = self.job_stall_ms };
         var since_probe: u32 = 0;
@@ -924,6 +983,8 @@ pub const Engine = struct {
             defer status.deinit();
 
             if (status.finished) {
+                settled = true;
+                self.active_job = null;
                 if (status.success) return;
                 // The rc error is terse ("bisync aborted"); the run log in
                 // `output.output` is where rclone explains itself. Keep both.
@@ -940,6 +1001,91 @@ pub const Engine = struct {
             }
             if (guard.observe(signature, job_poll_ms)) return error.Timeout;
         }
+    }
+
+    /// Stop the job this engine still has running, if any, waiting up to
+    /// `budget_ms` for it to finish. Best-effort: a stop that cannot be
+    /// confirmed leaves `active_job` set for the next caller to try again,
+    /// and never changes the error its caller is already returning.
+    pub fn stopActiveJob(self: *Engine, budget_ms: u32) void {
+        const job = self.active_job orelse return;
+        if (self.stopJob(job, budget_ms)) self.active_job = null;
+    }
+
+    /// `job/stop`, then `job/status` until the job reports finished or
+    /// `budget_ms` of wall clock has passed. True when the job is known to
+    /// be finished — or no longer known to the daemon at all, which only
+    /// happens long after it finished.
+    fn stopJob(self: *Engine, job: rc.JobId, budget_ms: u32) bool {
+        const saved = self.client.deadline;
+        self.client.deadline = .{
+            .connect_ms = @min(saved.connect_ms, stop_call_deadline.connect_ms),
+            .read_ms = @min(saved.read_ms, stop_call_deadline.read_ms),
+        };
+        defer self.client.deadline = saved;
+        const started = Io.Clock.now(.awake, self.io).nanoseconds;
+
+        {
+            var object: std.json.ObjectMap = .empty;
+            defer object.deinit(self.gpa);
+            object.put(self.gpa, "jobid", .{ .integer = job }) catch return false;
+            var reply = self.client.call("job/stop", .{ .object = object }) catch |err| switch (err) {
+                // "job not found": expired from the daemon's list.
+                error.RcFailed => return true,
+                // Gone or wedged: nothing will answer a wait either.
+                else => return false,
+            };
+            reply.deinit();
+        }
+
+        while (true) {
+            var status = self.client.jobStatus(job) catch |err| return err == error.RcFailed;
+            const finished = status.finished;
+            status.deinit();
+            if (finished) return true;
+            const waited_ms = @divFloor(Io.Clock.now(.awake, self.io).nanoseconds - started, std.time.ns_per_ms);
+            if (waited_ms >= budget_ms) return false;
+            sleepMs(self.io, job_poll_ms);
+        }
+    }
+
+    /// Clear the stale locks of this run's session before bisync sees them,
+    /// and note what was done. Nothing here fails the run: a lock that
+    /// stays is bisync's to refuse, and the note says why it stayed.
+    fn recoverStaleLocks(self: *Engine, params: std.json.Value) Allocator.Error!void {
+        const object = switch (params) {
+            .object => |o| o,
+            else => return,
+        };
+        const path1 = stringValue(object.get("path1")) orelse return;
+        const workdir = stringValue(object.get("workdir")) orelse return;
+
+        // The exact Path1 half of the session name, as `plan.sessionName`
+        // builds it, plus the separator.
+        const fs_path = try plan.fsPath(self.gpa, path1, .local);
+        defer self.gpa.free(fs_path);
+        const canonical = try plan.canonicalPath(self.gpa, fs_path);
+        defer self.gpa.free(canonical);
+        const prefix = try std.mem.concat(self.gpa, u8, &.{ canonical, ".." });
+        defer self.gpa.free(prefix);
+
+        const probe = systemLockProbe(&self.io, if (self.active_job == null) self.daemon_pid else null);
+        const reports = try sweepStaleLocks(self.gpa, self.io, workdir, prefix, probe);
+        defer freeLockReports(self.gpa, reports);
+
+        var note: std.ArrayList(u8) = .empty;
+        defer note.deinit(self.gpa);
+        for (reports) |report| {
+            const line = (try lockNoteLine(self.gpa, workdir, report)) orelse continue;
+            defer self.gpa.free(line);
+            if (note.items.len != 0) try note.append(self.gpa, '\n');
+            try note.appendSlice(self.gpa, line);
+        }
+        if (note.items.len == 0) return;
+
+        const extra: ExtraRedactions = .{ .markers = self.extra_markers, .values = self.extra_values };
+        self.clearRunNote();
+        self.run_note_owned = try redactedText(self.gpa, note.items, extra);
     }
 
     /// The job's counters folded into one number that changes whenever any
@@ -1039,7 +1185,17 @@ pub const Engine = struct {
             .markers = self.extra_markers,
             .values = self.extra_values,
         };
-        const safe_text = redactedText(self.gpa, error_text, extra) catch null;
+        const redacted = redactedText(self.gpa, error_text, extra) catch null;
+        // What the lock check did this run goes right under rclone's own
+        // line: a `locked` failure is explained by it, and any other
+        // failure after a lock was cleared should say so in the report.
+        const safe_text: ?[]u8 = with_note: {
+            const text = redacted orelse break :with_note null;
+            const note = self.run_note_owned orelse break :with_note text;
+            defer self.gpa.free(text);
+            break :with_note std.fmt.allocPrint(self.gpa, "{s}\n{s}", .{ text, note }) catch
+                self.gpa.dupe(u8, text) catch null;
+        };
         self.last_error_owned = owned: {
             const text = safe_text orelse break :owned null;
             const log = run_log orelse break :owned text;
@@ -1204,6 +1360,241 @@ fn daysFromCivil(year: i64, month: u32, day: u32) i64 {
     return era * 146_097 + doe - 719_468;
 }
 
+// -- Stale bisync locks ------------------------------------------------------
+//
+// bisync takes `<workdir>/<session>.lck` for the length of a run and refuses
+// to start while one exists (`prior lock file found`). An interrupted run —
+// a skipped sync, the exit-time abandon, a quit, a crash, a reaped orphan
+// daemon — used to leave its lock behind, and without `maxLock` that lock
+// never expired: one interruption blocked every later start. `maxLock` stops
+// new locks from living forever, but it does not override a lock already on
+// disk (measured), so every run first clears a lock whose holder is provably
+// gone. "Provably" is the whole design: a lock a live process holds is left
+// alone, because deleting it would let two bisyncs rewrite one set of
+// listings at once.
+//
+// The session is `<Path1>..<Path2>` as rclone mangles them, and only the
+// Path1 half is ours to compute exactly — Path2 is whatever rclone resolves
+// the `bkremote:` alias to (measured: `bkraw_<root>_profiles_<name>`, the
+// backend's own root normalisation included). So the check takes every lock
+// whose name starts with this run's exact Path1 half: the short-link slot
+// is this profile's alone, and the pid test decides each lock on its merits.
+
+/// How old an unreadable lock must be before it counts as abandoned. A lock
+/// is written in one call, so a torn or foreign-shaped file younger than
+/// this may still be some writer's work in progress.
+pub const unreadable_lock_grace_s: i64 = 10 * 60;
+
+/// What the lock check needs to know about processes, injected so the
+/// decision is testable without real pids.
+pub const LockProbe = struct {
+    /// The pid of the daemon this engine's own jobs run in, when it has no
+    /// job of ours still running. The worker runs one job at a time and
+    /// every run stops its job before it returns, so a lock naming this pid
+    /// is left over from one of our own interrupted runs.
+    own_daemon_pid: ?i64 = null,
+    context: ?*const anyopaque = null,
+    /// When `pid` started, in UNIX seconds on the wall clock, or null when
+    /// no process runs under it.
+    process_start_unix: *const fn (context: ?*const anyopaque, pid: i64) ?i64,
+    /// Now, in UNIX seconds: consulted only for an unreadable lock's age.
+    now_unix: i64,
+};
+
+pub const LockVerdict = enum {
+    /// No lock file.
+    absent,
+    /// Removed: it names this engine's own daemon, which runs no job of ours.
+    removed_own_daemon,
+    /// Removed: no process runs under the pid it names.
+    removed_dead_holder,
+    /// Removed: the pid it names belongs to a process that started after
+    /// the lock was last written — a recycled number, not the writer.
+    removed_reused_pid,
+    /// Removed: it names no pid and is older than `unreadable_lock_grace_s`.
+    removed_unreadable,
+    /// Kept: a live process that started before the lock was written holds
+    /// it. The run will report `.locked`.
+    kept_live_holder,
+    /// Kept: it names no pid, but it is too recent to call abandoned.
+    kept_unreadable_recent,
+    /// Stale, but the file would not delete. The run will report `.locked`.
+    remove_failed,
+
+    pub fn removed(self: LockVerdict) bool {
+        return switch (self) {
+            .removed_own_daemon, .removed_dead_holder, .removed_reused_pid, .removed_unreadable => true,
+            .absent, .kept_live_holder, .kept_unreadable_recent, .remove_failed => false,
+        };
+    }
+};
+
+pub const LockCheck = struct {
+    verdict: LockVerdict,
+    /// The pid the lock named, when it named a usable one.
+    pid: ?i64 = null,
+};
+
+/// Decide whether the lock at `lock_path` is stale, and delete it if so.
+/// Never throws: a lock that cannot be read or deleted is reported, and
+/// bisync's own refusal then says the rest.
+pub fn clearStaleLock(gpa: Allocator, io: Io, lock_path: []const u8, probe: LockProbe) LockCheck {
+    const stat = Io.Dir.cwd().statFile(io, lock_path, .{}) catch return .{ .verdict = .absent };
+    // rclone rewrites the lock on every renewal, so the modification time
+    // is "last known alive" for its writer.
+    const written_unix = stat.mtime.toSeconds();
+    const pid = lockHolderPid(gpa, io, lock_path);
+
+    const stale: LockVerdict = decide: {
+        const holder = pid orelse {
+            if (probe.now_unix - written_unix > unreadable_lock_grace_s) break :decide .removed_unreadable;
+            return .{ .verdict = .kept_unreadable_recent };
+        };
+        if (probe.own_daemon_pid) |own| {
+            if (own == holder) break :decide .removed_own_daemon;
+        }
+        const started = probe.process_start_unix(probe.context, holder) orelse
+            break :decide .removed_dead_holder;
+        // The writer was running when it wrote; a process that started
+        // later cannot be it. Same-second is left alone: ambiguous.
+        if (started > written_unix) break :decide .removed_reused_pid;
+        return .{ .verdict = .kept_live_holder, .pid = holder };
+    };
+
+    Io.Dir.cwd().deleteFile(io, lock_path) catch |err| switch (err) {
+        // Gone meanwhile — the holder finished after all. Same outcome.
+        error.FileNotFound => {},
+        else => return .{ .verdict = .remove_failed, .pid = pid },
+    };
+    return .{ .verdict = stale, .pid = pid };
+}
+
+/// The pid a bisync lock names — `{"PID": "81597", ...}`, a string in
+/// every captured lock; an integer is accepted too — or null when the file
+/// is unreadable or names nothing usable. Never a non-positive pid: those
+/// mean process groups to POSIX, not processes.
+fn lockHolderPid(gpa: Allocator, io: Io, lock_path: []const u8) ?i64 {
+    const text = Io.Dir.cwd().readFileAlloc(io, lock_path, gpa, .limited(64 * 1024)) catch return null;
+    defer gpa.free(text);
+    const parsed = std.json.parseFromSlice(std.json.Value, gpa, text, .{}) catch return null;
+    defer parsed.deinit();
+    const object = switch (parsed.value) {
+        .object => |o| o,
+        else => return null,
+    };
+    const field = object.get("PID") orelse return null;
+    const pid: i64 = switch (field) {
+        .string => |s| std.fmt.parseInt(i64, std.mem.trim(u8, s, " "), 10) catch return null,
+        .integer => |n| n,
+        else => return null,
+    };
+    return if (pid > 0) pid else null;
+}
+
+/// One lock the sweep looked at: its file name (owned) and what happened.
+pub const LockReport = struct {
+    name: []u8,
+    check: LockCheck,
+};
+
+pub fn freeLockReports(gpa: Allocator, reports: []LockReport) void {
+    for (reports) |report| gpa.free(report.name);
+    gpa.free(reports);
+}
+
+/// `clearStaleLock` for every `*.lck` in `workdir` whose name starts with
+/// `name_prefix` — the exact Path1 half of the session name plus `..`. An
+/// absent workdir is an empty sweep. The caller frees the reports with
+/// `freeLockReports`.
+pub fn sweepStaleLocks(
+    gpa: Allocator,
+    io: Io,
+    workdir: []const u8,
+    name_prefix: []const u8,
+    probe: LockProbe,
+) Allocator.Error![]LockReport {
+    var names: std.ArrayList([]u8) = .empty;
+    defer {
+        for (names.items) |name| gpa.free(name);
+        names.deinit(gpa);
+    }
+    {
+        var dir = Io.Dir.cwd().openDir(io, workdir, .{ .iterate = true }) catch return &.{};
+        defer dir.close(io);
+        // Collect first, act after: deleting under a live iterator is
+        // platform-defined behaviour.
+        var it = dir.iterate();
+        while (it.next(io) catch null) |entry| {
+            if (entry.kind != .file) continue;
+            if (!std.mem.startsWith(u8, entry.name, name_prefix)) continue;
+            if (!std.mem.endsWith(u8, entry.name, plan.lock_suffix)) continue;
+            const owned = try gpa.dupe(u8, entry.name);
+            errdefer gpa.free(owned);
+            try names.append(gpa, owned);
+        }
+    }
+
+    var reports: std.ArrayList(LockReport) = .empty;
+    errdefer {
+        for (reports.items) |report| gpa.free(report.name);
+        reports.deinit(gpa);
+    }
+    for (names.items) |name| {
+        const lock_path = try path.join(gpa, &.{ workdir, name });
+        defer gpa.free(lock_path);
+        const check = clearStaleLock(gpa, io, lock_path, probe);
+        const owned = try gpa.dupe(u8, name);
+        errdefer gpa.free(owned);
+        try reports.append(gpa, .{ .name = owned, .check = check });
+    }
+    return reports.toOwnedSlice(gpa);
+}
+
+/// One human line for what the check did about one lock, or null when
+/// there is nothing to say. Worded for a support report: the full path, so
+/// the reader can find the file the line is about.
+pub fn lockNoteLine(gpa: Allocator, workdir: []const u8, report: LockReport) Allocator.Error!?[]u8 {
+    const lock_path = try path.join(gpa, &.{ workdir, report.name });
+    defer gpa.free(lock_path);
+    const pid = report.check.pid orelse 0;
+    return switch (report.check.verdict) {
+        .absent => null,
+        .removed_own_daemon => try std.fmt.allocPrint(gpa, "removed stale bisync lock {s}: pid {d} is this game's own rclone daemon, which was running no sync", .{ lock_path, pid }),
+        .removed_dead_holder => try std.fmt.allocPrint(gpa, "removed stale bisync lock {s}: pid {d} is no longer running", .{ lock_path, pid }),
+        .removed_reused_pid => try std.fmt.allocPrint(gpa, "removed stale bisync lock {s}: pid {d} now belongs to a process started after the lock was written", .{ lock_path, pid }),
+        .removed_unreadable => try std.fmt.allocPrint(gpa, "removed stale bisync lock {s}: unreadable and older than {d} minutes", .{ lock_path, @divFloor(unreadable_lock_grace_s, 60) }),
+        .kept_live_holder => try std.fmt.allocPrint(gpa, "bisync lock {s} is held by running process {d}; left in place", .{ lock_path, pid }),
+        .kept_unreadable_recent => try std.fmt.allocPrint(gpa, "bisync lock {s} is unreadable but recent; left in place", .{lock_path}),
+        .remove_failed => try std.fmt.allocPrint(gpa, "stale bisync lock {s} could not be removed", .{lock_path}),
+    };
+}
+
+fn stringValue(value: ?std.json.Value) ?[]const u8 {
+    const present = value orelse return null;
+    return switch (present) {
+        .string => |s| s,
+        else => null,
+    };
+}
+
+/// The probe the shipped game uses: the platform's own process table and
+/// wall clock. `io` must outlive every use of the probe.
+pub fn systemLockProbe(io: *const Io, own_daemon_pid: ?i64) LockProbe {
+    return .{
+        .own_daemon_pid = own_daemon_pid,
+        .context = @ptrCast(io),
+        .process_start_unix = systemProcessStartUnix,
+        .now_unix = Io.Clock.now(.real, io.*).toSeconds(),
+    };
+}
+
+/// `LockProbe.process_start_unix` over the platform. `context` is an `Io`.
+fn systemProcessStartUnix(context: ?*const anyopaque, pid: i64) ?i64 {
+    const io: *const Io = @ptrCast(@alignCast(context orelse return null));
+    const native = std.math.cast(daemon.Pid, pid) orelse return null;
+    return daemon.processStartUnixSeconds(io.*, native);
+}
+
 // -- Failure classification --------------------------------------------------
 //
 // The rc reply for a failed bisync says only `{"error": "bisync aborted",
@@ -1249,6 +1640,12 @@ pub const Outcome = enum {
     daemon_gone,
     /// The run outlived its budget.
     timed_out,
+    /// bisync refused to start: `prior lock file found`. The engine
+    /// clears a lock whose holder is provably gone before every run, so
+    /// what remains is a lock a live process holds — or one that would
+    /// not delete. Either way nothing about the pairing is wrong, and the
+    /// next attempt is the recovery.
+    locked,
     unknown,
 };
 
@@ -1281,7 +1678,7 @@ pub fn recovery(outcome: Outcome) Recovery {
         // remote is a property of the account or folder chosen — the
         // credentials dialog is where a different one gets picked.
         .auth_failed, .remote_missing, .remote_unwritable => .open_credentials,
-        .timed_out, .remote_unreachable, .daemon_gone => .retry,
+        .timed_out, .remote_unreachable, .daemon_gone, .locked => .retry,
         .unknown => .show_log,
     };
 }
@@ -1347,6 +1744,13 @@ fn classifyText(text: []const u8) ?Outcome {
     if (containsIgnoreCase(text, "syntax error detected in your path")) return .name_too_long;
 
     if (containsIgnoreCase(text, "path1 and path2 are out of sync")) return .out_of_sync;
+
+    // A lock refusal is a cause, not a listing problem: captured (v1.75.0,
+    // 2026-09-11) as the job's error text `prior lock file found: <lock>`
+    // with an empty-of-causes run log. Before the trailer, so a lock can
+    // never be answered with an offer to re-pair.
+    if (containsIgnoreCase(text, "prior lock file found")) return .locked;
+
     if (containsIgnoreCase(text, "must run --resync to recover")) return .needs_resync;
 
     return null;
