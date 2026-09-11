@@ -17,9 +17,11 @@ class CInterfaceMainMenu : public CInterfaceInterMission
 	// The cloud sync indicator (element 21001): what it currently shows,
 	// the state seen last frame (a settled->running edge means a new run),
 	// and whether the player clicked skip while a sync was still running.
+	// Its Retry (element 21002) hides on click until the main loop answers.
 	std::string szCloudShownKey;
 	int nCloudLastState;
 	bool bCloudSkipRequested;
+	bool bCloudRetryRequested;
 	void RefreshCloudIndicator();
 
 	CUIMainMenuState mainMenuState;

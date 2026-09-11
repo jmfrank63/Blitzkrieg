@@ -79,7 +79,7 @@ int CICMainMenu::operator&( IStructureSaver &ss )
 	saver.Add( 3, &szNextICConfig );
 	return 0;
 }
-CInterfaceMainMenu::CInterfaceMainMenu() : CInterfaceInterMission( "InterMission" ), nActiveState( 0 ), nCloudLastState( 0 ), bCloudSkipRequested( false )
+CInterfaceMainMenu::CInterfaceMainMenu() : CInterfaceInterMission( "InterMission" ), nActiveState( 0 ), nCloudLastState( 0 ), bCloudSkipRequested( false ), bCloudRetryRequested( false )
 {
 	mainMenuState.Init( this );
 	newGameState.Init( this );
@@ -261,7 +261,7 @@ static const char *CloudFailureTextKey( const std::string &szError )
 		return "offline";
 	static const char *pszOutcomes[] = { "unconfigured", "needs_resync", "too_many_deletes", "name_too_long",
 		"out_of_sync", "auth_failed", "remote_unreachable", "remote_missing",
-		"daemon_gone", "timed_out", 0 };
+		"remote_unwritable", "daemon_gone", "timed_out", "locked", 0 };
 	for ( int i = 0; pszOutcomes[i] != 0; ++i )
 	{
 		const int nLen = strlen( pszOutcomes[i] );
@@ -272,9 +272,10 @@ static const char *CloudFailureTextKey( const std::string &szError )
 }
 // The lower-left sync indicator (element 21001). The sync itself is owned
 // by the main loop, which publishes CloudSync.State/Outcome/Error as
-// global vars and honours CloudSync.SkipToOffline; the menu only renders
-// and clicks. While a run is live the label is a button - the click is
-// the skip - and once it settles it goes inert and just reports.
+// global vars and honours CloudSync.SkipToOffline and CloudSync.Retry; the
+// menu only renders and clicks. While a run is live the label is a button -
+// the click is the skip - and once it settles it goes inert and just
+// reports, with Retry (element 21002) beside it after a failure.
 void CInterfaceMainMenu::RefreshCloudIndicator()
 {
 	if ( pUIScreen == 0 )
@@ -291,6 +292,18 @@ void CInterfaceMainMenu::RefreshCloudIndicator()
 	if ( nState == 4 || nState == 0 || ( bRunning && !( nCloudLastState >= 1 && nCloudLastState <= 3 ) ) )
 		bCloudSkipRequested = false;
 	nCloudLastState = nState;
+	// The retry click hides Retry until the main loop answers, which it does
+	// in one pass: a begun run publishes State 1 in the same breath as it
+	// consumes CloudSync.Retry, so any state but failed is the answer. Still
+	// failed with the request consumed is a refusal - Retry comes back, and
+	// the refusal's text replaces a skip's "offline", because the retry was
+	// the player's newer answer.
+	if ( bCloudRetryRequested && ( nState != 5 || GetGlobalVar( "CloudSync.Retry", 0 ) == 0 ) )
+	{
+		if ( nState == 5 )
+			bCloudSkipRequested = false;
+		bCloudRetryRequested = false;
+	}
 	std::string szKey;
 	bool bClickable = false;
 	switch ( nState )
@@ -319,6 +332,34 @@ void CInterfaceMainMenu::RefreshCloudIndicator()
 		// and lands on the same text, so nothing flickers.
 		szKey = "offline";
 		bClickable = false;
+	}
+	// Retry only where a new run can change the answer: a settled failure,
+	// the player's own skip included (retrying it means going online). Not
+	// where the text sends the player to Settings for a decision no run can
+	// make - missing credentials, lost records, disagreeing copies, a mass
+	// delete, a name over budget: another run fails the same way. Never
+	// mid-run: the handle is taken, the loop would drop it.
+	static const char *pszSettingsOnly[] = { "unconfigured", "needs_resync", "out_of_sync",
+		"too_many_deletes", "name_too_long", 0 };
+	bool bSettingsOnly = false;
+	for ( int i = 0; pszSettingsOnly[i] != 0; ++i )
+		bSettingsOnly = bSettingsOnly || szKey == pszSettingsOnly[i];
+	if ( IUIElement *pRetry = pUIScreen->GetChildByID( 21002 ) )
+	{
+		const bool bShowRetry = nState == 5 && !bCloudRetryRequested && !szKey.empty() && !bSettingsOnly;
+		if ( bShowRetry != pRetry->IsVisible() )
+		{
+			if ( bShowRetry )
+			{
+				std::wstring wszRetry = L"Retry";
+				if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetDialog( "textes\\ui\\cloudsync\\retry" ) )
+					wszRetry = MakeWideStringFromWordString( pText->GetString() );
+				pRetry->SetWindowText( 0, ToWordString( wszRetry ) );
+				pRetry->ShowWindow( UI_SW_SHOW_DONT_MOVE_UP );
+			}
+			else
+				pRetry->ShowWindow( UI_SW_HIDE );
+		}
 	}
 	if ( szKey == szCloudShownKey )
 		return;
@@ -364,17 +405,33 @@ bool CInterfaceMainMenu::ProcessMessage( const SGameMessage &msg )
 		// cancelling; the profile simply stays ahead of the cloud and a
 		// later sync converges. Only meaningful mid-run.
 		const int nState = GetGlobalVar( "CloudSync.State", 0 );
+		const CVec2 vClick = ( msg.nParam & 0x40000000 )
+			? CVec2( msg.nParam & 0x7fff, ( msg.nParam >> 15 ) & 0x7fff )
+			: pCursor->GetPos();
 		if ( nState >= 1 && nState <= 3 && !bCloudSkipRequested && pUIScreen )
 		{
 			if ( IUIElement *pElement = pUIScreen->GetChildByID( 21001 ) )
 			{
-				const CVec2 vClick = ( msg.nParam & 0x40000000 )
-					? CVec2( msg.nParam & 0x7fff, ( msg.nParam >> 15 ) & 0x7fff )
-					: pCursor->GetPos();
 				if ( pElement->IsVisible() && pElement->IsInside( vClick ) )
 				{
 					SetGlobalVar( "CloudSync.SkipToOffline", 1 );
 					bCloudSkipRequested = true;
+					RefreshCloudIndicator();
+					return true;
+				}
+			}
+		}
+		// Retry, by the same route. Its visibility already carries every
+		// condition (settled failure, not unconfigured, no retry pending);
+		// the main loop re-checks the options and owns the new run.
+		if ( pUIScreen )
+		{
+			if ( IUIElement *pRetry = pUIScreen->GetChildByID( 21002 ) )
+			{
+				if ( pRetry->IsVisible() && pRetry->IsInside( vClick ) )
+				{
+					SetGlobalVar( "CloudSync.Retry", 1 );
+					bCloudRetryRequested = true;
 					RefreshCloudIndicator();
 					return true;
 				}
