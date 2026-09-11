@@ -2,6 +2,7 @@
 #define __INTERFACECLOUDSHUTDOWN_H__
 #pragma ONCE
 #include "../Common/InterfaceScreenBase.h"
+#include "../Input/InputHelper.h"
 #include "iMission.h"
 #include <cstdint>
 // The shutdown screen: what the player sees while the exit-time cloud sync
@@ -13,24 +14,31 @@
 // -1 until it has looked, 1 while a run holds the handle, 0 once settled or
 // when there was nothing to do. This screen shows the credits backdrop with
 // a please-wait notice while that says 1, and plays the exit video - the
-// old exit path, unchanged - once it says 0.
+// old exit path, unchanged - once it says 0. The notice carries one button,
+// skip (also Escape): it asks the main loop to cancel the run through
+// CloudSync.SkipToOffline - the same request the main menu's indicator
+// makes - and the cancelled run settles through the ordinary path above.
 class CInterfaceCloudShutdown : public CInterfaceScreenBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceCloudShutdown );
 
+	NInput::CCommandRegistrator msgs;
 	bool bNoticeShown;
 	bool bLeft;
+	bool bSkipRequested;
 	std::uint64_t nStartedMs;
+	std::uint64_t nSkipRequestedMs;
 
 	void ShowNotice( bool bShow );
+	void RequestSkip();
 	void Leave();
 
-	virtual bool STDCALL ProcessMessage( const SGameMessage &msg ) { return false; }
+	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );
 	virtual void STDCALL DrawAdd();
 	virtual ~CInterfaceCloudShutdown() {}
 protected:
-	CInterfaceCloudShutdown() : CInterfaceScreenBase( "Current" ), bNoticeShown( false ), bLeft( false ), nStartedMs( 0 ) {  }
+	CInterfaceCloudShutdown() : CInterfaceScreenBase( "Current" ), bNoticeShown( false ), bLeft( false ), bSkipRequested( false ), nStartedMs( 0 ), nSkipRequestedMs( 0 ) {  }
 public:
 	virtual bool STDCALL Init();
 	virtual void STDCALL StartInterface();

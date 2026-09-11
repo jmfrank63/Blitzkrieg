@@ -317,7 +317,11 @@ static bool CloudCredentialsMatch( const std::string &szProvider )
 {
 	char szBackend[256];
 	const int nLength = NCloudSync::CredentialsBackend( szBackend, sizeof szBackend );
-	return nLength > 0 && nLength < (int)sizeof szBackend && szProvider == szBackend;
+	const bool bMatch = nLength > 0 && nLength < (int)sizeof szBackend && szProvider == szBackend;
+	if ( !bMatch )
+		NStr::DebugTrace( "cloud sync: Cloud.Provider is \"%s\" but the saved credentials name \"%s\"\n",
+			szProvider.c_str(), nLength > 0 && nLength < (int)sizeof szBackend ? szBackend : "nothing" );
+	return bMatch;
 }
 // The indicator's "chosen but not set up" line. No job exists to publish
 // from, so the state is written directly; the menu maps the error text to
@@ -479,25 +483,41 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// what probes for rclone. Cloud.Provider is read the same way, and
 		// a chosen provider whose credentials are missing or name another
 		// backend publishes the unconfigured indicator instead of syncing.
+		// Every gate that stops the sync says so in the trace: a startup
+		// sync that silently does not happen - after a failed run, on the
+		// next launch - is otherwise indistinguishable from one that was
+		// never due, and nothing here persists a failure, so the gate that
+		// refused is the only evidence there is.
 		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
 		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
-		if ( CloudProviderSelected( szProvider ) )
+		if ( !CloudProviderSelected( szProvider ) )
+			NStr::DebugTrace( "cloud sync: off for \"%s\" (Cloud.Provider=\"%s\" in %s)\n",
+				szProfile.c_str(), szProvider.c_str(), szConfigPath.c_str() );
+		else if ( !CloudCredentialsMatch( szProvider ) )
+			PublishCloudUnconfigured();
+		else if ( !CloudOptionIsOn( szConfigPath, "Cloud.Sync.OnStartup" ) )
+			NStr::DebugTrace( "cloud sync: no startup sync for \"%s\" (Cloud.Sync.OnStartup=\"%s\")\n",
+				szProfile.c_str(), CloudOptionValue( szConfigPath, "Cloud.Sync.OnStartup" ).c_str() );
+		else if ( !NCloudSync::Available() )
 		{
-			if ( !CloudCredentialsMatch( szProvider ) )
-				PublishCloudUnconfigured();
-			else if ( CloudOptionIsOn( szConfigPath, "Cloud.Sync.OnStartup" ) && NCloudSync::Available() )
-			{
-				// Begin only enqueues - the daemon spawn (reaping any orphan
-				// from a crashed run first, the P00-M03 identity-checked path)
-				// and the run itself happen on the library's worker, and the
-				// main loop polls. A slow link can never stall the first frame.
-				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(),
-					CloudOptionIsOn( szConfigPath, "Cloud.Config.Backup" ) );
-				if ( g_nCloudStartupSync >= 0 )
-					NStr::DebugTrace( "cloud sync: startup sync begun for \"%s\"\n", szProfile.c_str() );
-				else
-					NStr::DebugTrace( "cloud sync: startup sync refused: %s\n", NCloudSync::LastError() );
-			}
+			// DiscoveryStatus is the rclone probe's verdict; it is empty when
+			// the library itself never loaded, and LastError says why then.
+			const char *pszStatus = NCloudSync::DiscoveryStatus();
+			NStr::DebugTrace( "cloud sync: startup sync skipped, rclone unavailable: %s\n",
+				pszStatus != 0 && pszStatus[0] != 0 ? pszStatus : NCloudSync::LastError() );
+		}
+		else
+		{
+			// Begin only enqueues - the daemon spawn (reaping any orphan
+			// from a crashed run first, the P00-M03 identity-checked path)
+			// and the run itself happen on the library's worker, and the
+			// main loop polls. A slow link can never stall the first frame.
+			g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(),
+				CloudOptionIsOn( szConfigPath, "Cloud.Config.Backup" ) );
+			if ( g_nCloudStartupSync >= 0 )
+				NStr::DebugTrace( "cloud sync: startup sync begun for \"%s\"\n", szProfile.c_str() );
+			else
+				NStr::DebugTrace( "cloud sync: startup sync refused: %s\n", NCloudSync::LastError() );
 		}
 	}
 	if ( cmdp.bReferenceScene )
@@ -1523,6 +1543,18 @@ int RunGame( const BkGameLaunchInfo &launch )
 			{
 				const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 				g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+			}
+			if ( g_nCloudStartupSync >= 0 && GetGlobalVar( "CloudSync.ExitAbandoned", 0 ) )
+			{
+				// The shutdown screen gave up on this run - the player skipped
+				// it and the cancel never settled, or it outran the screen's
+				// cap. Waiting on it again here would hold a frozen window for
+				// another 15 s after they asked to leave; the next startup pull
+				// converges instead.
+				NStr::DebugTrace( "cloud sync: exit sync abandoned by the shutdown screen; not waiting\n" );
+				NCloudSync::Cancel( g_nCloudStartupSync );
+				NCloudSync::Release( g_nCloudStartupSync );
+				g_nCloudStartupSync = -1;
 			}
 			if ( g_nCloudStartupSync >= 0 )
 			{
