@@ -3800,6 +3800,7 @@ fn addGFXGPU(
     }
 
     applyLoaderPath(target, gfx_gpu_module);
+    addSharedObjectFinalizer(b, target, gfx_gpu_module);
     return b.addLibrary(.{
         .name = "GFXGPU",
         .linkage = .dynamic,
@@ -3821,7 +3822,6 @@ fn addGfxGpuZig(
         .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
     });
     applyLoaderPath(target, gfx_gpu_module);
-    addSharedObjectFinalizer(b, target, gfx_gpu_module);
 
     return b.addLibrary(.{
         .name = "GfxGpuZig",
