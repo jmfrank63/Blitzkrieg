@@ -24,6 +24,7 @@ void ToLower( std::string &value ) {
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <shellapi.h>
 #else
 #include <dlfcn.h>
 #endif
@@ -35,8 +36,12 @@ void ToLower( std::string &value ) {
 #include <cstdlib>
 #include <cstring>
 #if !defined(_WIN32)
-#include <execinfo.h>
 #include <unistd.h>
+#endif
+// backtrace() is glibc and Apple libc; musl has no execinfo.h.
+#if defined(__GLIBC__) || defined(__APPLE__)
+#define HARNESS_HAS_BACKTRACE 1
+#include <execinfo.h>
 #endif
 
 // Where the harness is. It used to print nothing until the very end, so a
@@ -69,9 +74,11 @@ void OnCrash( int signal_number )
 {
     std::fprintf( stderr, "gfxgpu-factory-test: signal %d during \"%s\"\n", signal_number, current_stage );
     std::fflush( stderr );
+#if defined(HARNESS_HAS_BACKTRACE)
     void *frames[64];
     const int count = backtrace( frames, 64 );
     backtrace_symbols_fd( frames, count, STDERR_FILENO );
+#endif
     std::_Exit( 128 + signal_number );
 }
 void InstallCrashHandler()
@@ -111,6 +118,29 @@ void CloseModule( void *module )
     FreeLibrary( reinterpret_cast<HMODULE>( module ) );
 #else
     dlclose( module );
+#endif
+}
+
+enum { MAX_PATH_BUFFER = 1024 };
+// The module path argument, or null when there is none.
+const char *ModulePathFromCommandLine( int argc, char **argv, char *buffer, size_t buffer_size )
+{
+#if defined(_WIN32)
+    (void)argc; (void)argv;
+    int wide_count = 0;
+    wchar_t **wide_args = CommandLineToArgvW( GetCommandLineW(), &wide_count );
+    if ( wide_args == nullptr ) return nullptr;
+    const char *result = nullptr;
+    if ( wide_count > 1 )
+    {
+        const int length = WideCharToMultiByte( CP_ACP, 0, wide_args[1], -1, buffer, static_cast<int>( buffer_size ), nullptr, nullptr );
+        if ( length > 0 ) result = buffer;
+    }
+    LocalFree( wide_args );
+    return result;
+#else
+    (void)buffer; (void)buffer_size;
+    return argc > 1 ? argv[1] : nullptr;
 #endif
 }
 
@@ -350,7 +380,12 @@ int main( int argc, char **argv )
     InstallCrashHandler();
     const int recording = RunRecordingTest();
     if ( recording != 0 ) { std::fprintf( stderr, "recording test failed: %d\n", recording ); return recording; }
-    const char *path = argc > 1 ? argv[1] : "zig-out/bin/GFXGPU.dll";
+    // On Windows this executable enters at main itself, not through the CRT
+    // (build.zig explains why), so argc/argv hold whatever the kernel left in
+    // the registers. The command line comes from Win32 instead.
+    char module_path_buffer[MAX_PATH_BUFFER] = {};
+    const char *path = ModulePathFromCommandLine( argc, argv, module_path_buffer, sizeof module_path_buffer );
+    if ( path == nullptr ) path = "zig-out/bin/GFXGPU.dll";
     Stage( "open the GFXGPU module" );
     void *module = OpenModule( path );
     if ( !module )

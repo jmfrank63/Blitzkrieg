@@ -1899,18 +1899,25 @@ pub fn build(b: *std.Build) void {
         linkSdlRuntime(gfx_gpu_factory_test_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
     }
     gfx_gpu_factory_test_module.linkLibrary(formats);
-    if (target.result.os.tag == .windows) gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+    if (target.result.os.tag == .windows) {
+        gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+        // CommandLineToArgvW, see the entry-point note below.
+        gfx_gpu_factory_test_module.linkSystemLibrary("shell32", .{});
+    }
     const gfx_gpu_factory_test = b.addExecutable(.{
         .name = "gfxgpu-factory-test",
         .root_module = gfx_gpu_factory_test_module,
     });
     gfx_gpu_factory_test.subsystem = .console;
     // Mach-O and ELF entry points are not literally called "main"; forcing the
-    // symbol left the test unlinkable anywhere but Windows. And on Windows the
-    // entry is the CRT's startup, as every other test here has it: entering at
-    // main itself skips the runtime's initialisation, so argc/argv were never
-    // filled in and the harness fell back to its default module path.
-    if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    // symbol left the test unlinkable anywhere but Windows. On Windows the
+    // entry stays at main itself: the CRT's mainCRTStartup cannot be linked
+    // here - the Zig GPU library brings Zig's libc objects and the engine
+    // sources the MSVC runtime, and the startup object makes the two collide
+    // on _wctype and friends. Entering at main skips the CRT's argv setup, so
+    // the harness reads its command line through Win32 instead
+    // (gfxgpu_factory_test.cpp, ModulePathFromCommandLine).
+    if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
     const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
     // The module's own dependencies: on Windows a DLL's imports resolve from
