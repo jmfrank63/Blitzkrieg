@@ -88,12 +88,8 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
-      # Build everywhere - that is what caught this harness rotting into a
-      # Windows-only test - but only run it where its runtime side is known
-      # good. Headless Linux segfaults and Windows exits 5 inside SDL before the
-      # harness prints anything; neither has ever been exercised there.
-      - name: Build GFX GPU factory test
-        run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=compile
+      - name: Run GFX GPU factory test
+        run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Upload generated outputs
         if: always()
@@ -195,12 +191,8 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      # Build everywhere - that is what caught this harness rotting into a
-      # Windows-only test - but only run it where its runtime side is known
-      # good. Headless Linux segfaults and Windows exits 5 inside SDL before the
-      # harness prints anything; neither has ever been exercised there.
-      - name: Build GFX GPU factory test
-        run: zig build gfxgpu-factory-test -Dtarget=x86_64-windows-msvc -Dtest-mode=compile "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Run GFX GPU factory test
+        run: zig build gfxgpu-factory-test -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Upload generated outputs
         if: always()
@@ -394,12 +386,8 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
-      # Build everywhere - that is what caught this harness rotting into a
-      # Windows-only test - but only run it where its runtime side is known
-      # good. Headless Linux segfaults and Windows exits 5 inside SDL before the
-      # harness prints anything; neither has ever been exercised there.
-      - name: Build GFX GPU factory test
-        run: zig build gfxgpu-factory-test -Dtarget=aarch64-linux-gnu -Dtest-mode=compile
+      - name: Run GFX GPU factory test
+        run: zig build gfxgpu-factory-test -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
       - name: Upload generated outputs
         if: always()

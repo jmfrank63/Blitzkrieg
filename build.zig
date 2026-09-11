@@ -1125,13 +1125,6 @@ pub fn build(b: *std.Build) void {
     platform_debug_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
 
-    const sdl_c_dep = b.dependency("sdl", .{
-        .target = dependency_target,
-        .optimize = optimize,
-        .preferred_linkage = .static,
-        .install_build_config_h = true,
-    });
-    const sdl_c = sdl_c_dep.artifact("SDL3");
     const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
     platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = if (platform == .windows_x64) cppflags_release else &.{} });
     if (platform == .windows_x64) {
@@ -1894,7 +1887,17 @@ pub fn build(b: *std.Build) void {
     addMacosSysrootPaths(b, gfx_gpu_factory_test_module, target);
     linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
-    gfx_gpu_factory_test_module.linkLibrary(sdl_c);
+    // gfx_gpu_zig already brings the dynamic SDL3 in, the same copy the GFXGPU
+    // module this harness dlopens was linked against. Linking the static SDL3
+    // on top of it put two SDL runtimes into one process: the ObjC runtime
+    // flagged the duplicate Metal classes on macOS, and on Linux and Windows
+    // the run died in SDL before the harness printed anything. Take the same
+    // SDL the module takes (addGFXGPU), so there is exactly one.
+    if (target.result.os.tag == .macos) {
+        gfx_gpu_factory_test_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(gfx_gpu_factory_test_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
     gfx_gpu_factory_test_module.linkLibrary(formats);
     if (target.result.os.tag == .windows) gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
     const gfx_gpu_factory_test = b.addExecutable(.{
