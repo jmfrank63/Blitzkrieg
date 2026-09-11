@@ -949,6 +949,7 @@ pub fn build(b: *std.Build) void {
     // build failing to link every WSA* symbol in SocketWin32.cpp.
     if (build_support.isWindows(platform)) platform_runtime_module.linkSystemLibrary("ws2_32", .{});
     applyLoaderPath(target, platform_runtime_module);
+    addSharedObjectFinalizer(b, target, platform_runtime_module);
     const platform_runtime = b.addLibrary(.{
         .name = "PlatformRuntime",
         .linkage = .dynamic,
@@ -2668,6 +2669,7 @@ fn addOptionsBridge(
     module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     applyLoaderPath(target, module);
+    addSharedObjectFinalizer(b, target, module);
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
 }
 
@@ -2721,6 +2723,7 @@ fn addStreamIOZig(
     else
         "Sources/src/StreamIOZig/StreamIO.x64.def";
     applyLoaderPath(target, streamio_module);
+    addSharedObjectFinalizer(b, target, streamio_module);
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
@@ -2855,6 +2858,7 @@ fn addLegacyProjectDll(
         linkComSupport(module, optimize);
     }
     applyLoaderPath(target, module);
+    addSharedObjectFinalizer(b, target, module);
     const library = b.addLibrary(.{
         .name = name,
         .linkage = .dynamic,
@@ -3143,6 +3147,7 @@ fn addImage(
     if (target.result.os.tag == .windows) image_module.linkSystemLibrary("user32", .{});
 
     applyLoaderPath(target, image_module);
+    addSharedObjectFinalizer(b, target, image_module);
     return b.addLibrary(.{
         .name = "Image",
         .linkage = .dynamic,
@@ -3214,6 +3219,7 @@ fn addNet(
     }
 
     applyLoaderPath(target, net_module);
+    addSharedObjectFinalizer(b, target, net_module);
     return b.addLibrary(.{
         .name = "Net",
         .linkage = .dynamic,
@@ -3340,6 +3346,7 @@ fn addInput(
     }
 
     applyLoaderPath(target, input_module);
+    addSharedObjectFinalizer(b, target, input_module);
     return b.addLibrary(.{
         .name = "Input",
         .linkage = .dynamic,
@@ -3454,6 +3461,7 @@ fn addAnim(
     if (target.result.os.tag == .windows) linkComSupport(anim_module, optimize);
 
     applyLoaderPath(target, anim_module);
+    addSharedObjectFinalizer(b, target, anim_module);
     return b.addLibrary(.{
         .name = "Anim",
         .linkage = .dynamic,
@@ -3543,6 +3551,7 @@ fn addUI(
     if (target.result.os.tag == .windows) linkComSupport(ui_module, optimize);
 
     applyLoaderPath(target, ui_module);
+    addSharedObjectFinalizer(b, target, ui_module);
     return b.addLibrary(.{
         .name = "UI",
         .linkage = .dynamic,
@@ -3647,6 +3656,7 @@ fn addSFX(
     }
 
     applyLoaderPath(target, sfx_module);
+    addSharedObjectFinalizer(b, target, sfx_module);
     return b.addLibrary(.{
         .name = "SFX",
         .linkage = .dynamic,
@@ -3736,6 +3746,7 @@ fn addGFX(
     }
 
     applyLoaderPath(target, gfx_module);
+    addSharedObjectFinalizer(b, target, gfx_module);
     return b.addLibrary(.{
         .name = "GFX",
         .linkage = .dynamic,
@@ -3810,6 +3821,7 @@ fn addGfxGpuZig(
         .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
     });
     applyLoaderPath(target, gfx_gpu_module);
+    addSharedObjectFinalizer(b, target, gfx_gpu_module);
 
     return b.addLibrary(.{
         .name = "GfxGpuZig",
@@ -3989,6 +4001,15 @@ fn addMacosCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
 /// Without this the staged layout only resolves against the build-time
 /// .zig-cache paths Zig records, and Game fails to launch
 /// ("libPlatformRuntime.so: cannot open shared object file" on Linux).
+// Every C++ shared object gets Platform/SharedObjectFinalize.cpp: Zig links no
+// crtbegin into a shared object, so without it nothing calls __cxa_finalize at
+// dlclose and the library's static destructors run at exit() in unmapped code.
+// Linux only; dyld and the Windows loader handle this themselves.
+fn addSharedObjectFinalizer(b: *std.Build, target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
+    if (target.result.os.tag != .linux) return;
+    module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SharedObjectFinalize.cpp"), .flags = &.{"-std=c++17"} });
+}
+
 fn applyLoaderPath(target: std.Build.ResolvedTarget, module: *std.Build.Module) void {
     switch (target.result.os.tag) {
         .linux => module.addRPathSpecial("$ORIGIN"),
