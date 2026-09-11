@@ -95,8 +95,22 @@ jobs:
       - name: Backtrace the GFX GPU factory test
         if: failure() && steps.gfxgpu-factory-test.outcome == 'failure'
         run: |
-          sudo apt-get install -y --no-install-recommends gdb
-          gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so
+          sudo apt-get install -y --no-install-recommends gdb binutils
+          echo "=== ld.so init/fini calls"
+          LD_DEBUG=files zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | grep -iE "calling (init|fini)|file=" | tail -40 || true
+          echo "=== gdb"
+          gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | tee gdb.log || true
+          echo "=== fault address resolved against the objects the harness listed before dlclose"
+          fault=$(grep -m1 -oE '^#0 +0x[0-9a-f]+' gdb.log | grep -oE '0x[0-9a-f]+' || true)
+          grep 'gfxgpu-factory-test: object ' gdb.log | while read -r _ _ base path; do
+            [ -n "$fault" ] || break
+            off=$(( fault - base ))
+            if [ "$off" -ge 0 ] && [ "$off" -lt 33554432 ]; then
+              printf 'fault %s = %s + 0x%x\n' "$fault" "$path" "$off"
+              [ -f "$path" ] && addr2line -f -C -e "$path" "$(printf 0x%x "$off")" || true
+              [ -f "$path" ] && nm -nC --defined-only "$path" | awk -v o="$off" 'BEGIN{o=o+0} {a=strtonum("0x"$1); if (a<=o) last=$0} END{print "nearest symbol at or below: " last}' || true
+            fi
+          done
 
       - name: Upload generated outputs
         if: always()

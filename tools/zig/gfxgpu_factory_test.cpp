@@ -38,6 +38,9 @@ void ToLower( std::string &value ) {
 #if !defined(_WIN32)
 #include <unistd.h>
 #endif
+#if defined(__linux__)
+#include <link.h>
+#endif
 // backtrace() is glibc and Apple libc; musl has no execinfo.h.
 #if defined(__GLIBC__) || defined(__APPLE__)
 #define HARNESS_HAS_BACKTRACE 1
@@ -141,6 +144,22 @@ const char *ModulePathFromCommandLine( int argc, char **argv, char *buffer, size
 #else
     (void)buffer; (void)buffer_size;
     return argc > 1 ? argv[1] : nullptr;
+#endif
+}
+
+// The loaded objects and their bases, printed before the module is closed:
+// a crash in code that dlclose unmapped shows up as an address in no loaded
+// image, and this is what turns that address back into a library and offset.
+void PrintLoadedObjects()
+{
+#if defined(__linux__)
+    dl_iterate_phdr( []( struct dl_phdr_info *info, size_t, void * ) -> int
+    {
+        std::fprintf( stderr, "gfxgpu-factory-test: object 0x%lx %s\n",
+            static_cast<unsigned long>( info->dlpi_addr ), info->dlpi_name != nullptr && info->dlpi_name[0] != 0 ? info->dlpi_name : "(main program)" );
+        return 0;
+    }, nullptr );
+    std::fflush( stderr );
 #endif
 }
 
@@ -423,6 +442,7 @@ int main( int argc, char **argv )
     Stage( "Release the GFX object" );
     object->Release();
     Stage( "close the module" );
+    PrintLoadedObjects();
     CloseModule( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;
