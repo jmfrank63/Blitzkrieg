@@ -6,13 +6,15 @@
 
 namespace {
 uint32_t callbackCount = 0;
+uint32_t lastLevel = 0;
 BkPlatformResult nestedResult = BK_PLATFORM_OK;
 bool throwCallback = false;
 
-void BK_PLATFORM_CALL captureLog(void *, uint32_t, BkPlatformUtf8Span message)
+void BK_PLATFORM_CALL captureLog(void *, uint32_t level, BkPlatformUtf8Span message)
 {
 	if ( message.data == nullptr || message.length == 0 ) return;
 	++callbackCount;
+	lastLevel = level;
 	if ( throwCallback ) throw 1;
 	const char nestedText[] = "nested diagnostic";
 	const BkPlatformUtf8Span nested = {sizeof( BkPlatformUtf8Span ), nestedText, static_cast<uint32_t>( sizeof( nestedText ) - 1 )};
@@ -43,7 +45,30 @@ int main()
 	NPlatform::DebugWrite( "throwing callback diagnostic\n" );
 	throwCallback = false;
 	if ( callbackCount != 2 ) return 4;
+
+	// A trace channel must reach an attached host's callback exactly like a
+	// diagnostic does, and must carry the trace level so that the runtime's
+	// stderr fallback never suppresses it.
+	callbackCount = 0;
+	lastLevel = 0;
+	NPlatform::DebugWrite( "levelled diagnostic\n" );
+	if ( callbackCount != 1 || lastLevel != BK_PLATFORM_DIAGNOSTIC_LEVEL_DEFAULT ) return 5;
+	callbackCount = 0;
+	lastLevel = 0;
+	NPlatform::TraceWrite( "levelled trace\n" );
+	if ( callbackCount != 1 || lastLevel != BK_PLATFORM_DIAGNOSTIC_LEVEL_TRACE ) return 6;
+	callbackCount = 0;
+	lastLevel = 0;
+	NPlatform::TraceWriteFormat( "levelled trace %d\n", 42 );
+	if ( callbackCount != 1 || lastLevel != BK_PLATFORM_DIAGNOSTIC_LEVEL_TRACE ) return 7;
+
 	BkPlatform::Client::Destroy();
+
+	// With no host attached a trace still reaches stderr, whatever this build
+	// says about the engine's own commentary.
+	NPlatform::TraceWrite( "unattached trace reaches stderr\n" );
+
+	std::printf( "diagnostic stderr enabled: %s\n", NPlatform::IsDiagnosticStderrEnabled() ? "yes" : "no" );
 	std::printf( "debugger attached: %s\n", NPlatform::IsDebuggerAttached() ? "yes" : "no" );
 	return 0;
 }

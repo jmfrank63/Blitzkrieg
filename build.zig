@@ -1879,7 +1879,11 @@ pub fn build(b: *std.Build) void {
     });
     gfx_gpu_factory_test_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
-        .flags = cppflagsForTarget(target, optimize),
+        // These are the real engine sources, so they need the portable CRT
+        // shim that every other non-Windows build force-includes: bare
+        // -std=c++17 leaves LARGE_INTEGER and QueryPerformanceCounter
+        // undefined and the test cannot compile off Windows at all.
+        .flags = cppflagsForOptimize(optimize),
     });
     addProjectIncludePaths(b, gfx_gpu_factory_test_module);
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
@@ -1887,23 +1891,32 @@ pub fn build(b: *std.Build) void {
     addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
     addLinuxCxxIncludePaths(b, gfx_gpu_factory_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
+    addMacosSysrootPaths(b, gfx_gpu_factory_test_module, target);
     linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
     gfx_gpu_factory_test_module.linkLibrary(sdl_c);
     gfx_gpu_factory_test_module.linkLibrary(formats);
-    gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+    if (target.result.os.tag == .windows) gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
     const gfx_gpu_factory_test = b.addExecutable(.{
         .name = "gfxgpu-factory-test",
         .root_module = gfx_gpu_factory_test_module,
     });
     gfx_gpu_factory_test.subsystem = .console;
-    gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
+    // Mach-O and ELF entry points are not literally called "main"; forcing the
+    // symbol left the test unlinkable anywhere but Windows.
+    if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
     const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
     gfx_gpu_factory_test_run.setCwd(b.path("."));
-    gfx_gpu_factory_test_run.addArg("zig-out/bin/GFXGPU.dll");
+    // The built module is GFXGPU.dll, libGFXGPU.dylib or libGFXGPU.so depending
+    // on the host, so hand the test the artifact's own path rather than the
+    // Windows file name.
+    gfx_gpu_factory_test_run.addFileArg(gfx_gpu.getEmittedBin());
     const gfx_gpu_factory_test_step = b.step("gfxgpu-factory-test", "Load the SDL GPU GFX DLL and create its IGFX object");
-    gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
+    // Honour -Dtest-mode=compile like every other test step: this one ran the
+    // artifact unconditionally, so it could not be built without executing it.
+    gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test.step);
+    if (test_mode == .run) gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
 
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
@@ -3908,6 +3921,17 @@ const ToolchainIncludes = struct {
     windows_sdk_lib: []const u8,
     library_arch: []const u8,
 };
+
+// zig resolves macOS frameworks from the native SDK on its own, but a build
+// driven with an explicit --sysroot (which is how CI invokes every macOS step)
+// searches no framework directory at all, so anything that links SDL fails with
+// "unable to find framework 'Cocoa'". Point the module at the sysroot's own
+// framework and library directories.
+fn addMacosSysrootPaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
+    if (target.result.os.tag != .macos) return;
+    const sysroot = b.sysroot orelse return;
+    module.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+}
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
     if (!build_target_msvc) return;

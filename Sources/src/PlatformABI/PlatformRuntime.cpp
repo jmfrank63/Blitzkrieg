@@ -3,6 +3,7 @@
 #include "Platform/Socket.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <condition_variable>
 #include <chrono>
@@ -675,6 +676,21 @@ uint32_t BK_PLATFORM_CALL get_live_sync_handles() {
     std::lock_guard<std::mutex> lock(sync_registry_mutex);
     return bk_platform_state().live_sync_handles;
 }
+// Without a host log callback the diagnostics fall back to stderr. A release
+// build stays quiet there unless BK_DEBUG_LOG is set; a host that installs a
+// callback asked for the messages and always gets them, as does anyone who
+// enabled a trace channel (level TRACE and above). Mirrors Platform/Debug.cpp.
+bool diagnostic_stderr_enabled() {
+#if defined(NDEBUG) || defined(_FINALRELEASE)
+    static const bool enabled = [] {
+        const char *enabled_env = std::getenv("BK_DEBUG_LOG");
+        return enabled_env != nullptr && enabled_env[0] != 0 && enabled_env[0] != '0';
+    }();
+    return enabled;
+#else
+    return true;
+#endif
+}
 BkPlatformResult BK_PLATFORM_CALL diagnostic_write(uint32_t level, BkPlatformUtf8Span message) {
     BkPlatformState &state = bk_platform_state();
     if (message.struct_size < sizeof(BkPlatformUtf8Span) || (message.length != 0 && message.data == nullptr)) return set_error(BK_PLATFORM_ERROR_INVALID_ARGUMENT, "invalid diagnostic message");
@@ -689,7 +705,7 @@ BkPlatformResult BK_PLATFORM_CALL diagnostic_write(uint32_t level, BkPlatformUtf
         }
         diagnostic_callback_active = false;
     }
-    else if (message.data != nullptr) {
+    else if (message.data != nullptr && (level >= BK_PLATFORM_DIAGNOSTIC_LEVEL_TRACE || diagnostic_stderr_enabled())) {
         std::fwrite(message.data, 1, message.length, stderr);
         std::fflush(stderr);
     }

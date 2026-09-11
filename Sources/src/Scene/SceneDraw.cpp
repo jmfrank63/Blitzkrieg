@@ -1049,7 +1049,7 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 			if ( ( nCalls++ % 120 ) == 0 )
 			{
 				const SSpriteInfo *pFirst = sprites[0];
-				NPlatform::DebugWriteFormat( "BK_SPRITE_TRACE: single pack=%d texture=%p maps=(%.4f,%.4f)-(%.4f,%.4f) color=%08x\n",
+				NPlatform::TraceWriteFormat( "BK_SPRITE_TRACE: single pack=%d texture=%p maps=(%.4f,%.4f)-(%.4f,%.4f) color=%08x\n",
 					nNumSprites, (const void *)pFirst->pTexture,
 					pFirst->maps.x1, pFirst->maps.y1, pFirst->maps.x2, pFirst->maps.y2, pFirst->color );
 			}
@@ -1128,7 +1128,7 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 			{
 				const SComplexSpriteInfo *pFirst = sprites[0];
 				const int nSquares = pFirst->pSprite != 0 ? int( pFirst->pSprite->squares.size() ) : -1;
-				NPlatform::DebugWriteFormat( "BK_SPRITE_TRACE: complex pack=%d squares=%d texture=%p color=%08x\n",
+				NPlatform::TraceWriteFormat( "BK_SPRITE_TRACE: complex pack=%d squares=%d texture=%p color=%08x\n",
 					nNumSprites, nSquares, (const void *)pFirst->pTexture, pFirst->color );
 			}
 		}
