@@ -211,6 +211,13 @@ pub const Worker = struct {
     /// the player just chose. Null when the job found no document.
     applied_creds_raw: ?[]u8 = null,
 
+    /// What the `bkremote` alias points at for the current job —
+    /// `bkraw:<remote_root>`, as `applyCredentials` configured it — or
+    /// null when no credentials document was applied. gpa-owned. rclone
+    /// names the bisync session after this, so the session budget is
+    /// measured on it.
+    remote_target: ?[]u8 = null,
+
     /// The config machine's mailboxes, mutex-guarded. While a
     /// `.config_create` job waits on a human, the pending question sits in
     /// `config_question` (the form's wire JSON plus an `error` key) with
@@ -261,6 +268,7 @@ pub const Worker = struct {
         if (self.config_question) |owned| self.gpa.free(owned);
         if (self.config_answer) |owned| self.gpa.free(owned);
         if (self.applied_creds_raw) |owned| self.gpa.free(owned);
+        if (self.remote_target) |owned| self.gpa.free(owned);
         self.gpa.free(self.game_dir);
         const gpa = self.gpa;
         self.* = undefined;
@@ -487,6 +495,8 @@ pub const Worker = struct {
         // BINARY is still the session's: an rclone_path change takes effect
         // on the next daemon, not mid-session.)
         if (!self.applyCredentials(session)) return;
+        // Owned by the worker until the next job's credentials replace it.
+        box.ctx.remote_target = self.remote_target orelse "";
 
         // And read back after every session job, failed ones included: the
         // token refresh happens before the operation that then failed, and
@@ -706,6 +716,10 @@ pub const Worker = struct {
         const raw_document = self.readCredsRaw(creds_path);
         creds.document_mutex.unlock(self.io);
 
+        // Whatever the previous job's document pointed the alias at no
+        // longer describes this one.
+        self.setRemoteTarget(null);
+
         const raw = raw_document orelse {
             eng.setSecretRedactions(&.{}, &.{}) catch {};
             self.setAppliedCreds(null);
@@ -769,7 +783,20 @@ pub const Worker = struct {
             self.publishFailureText("cloud credentials could not be applied to the daemon");
             return false;
         };
+        // Kept for the budget check: rclone names the session after this
+        // target, not after the alias.
+        const kept = self.gpa.dupe(u8, target) catch {
+            self.publishFailureText("out of memory building the sync alias");
+            return false;
+        };
+        self.setRemoteTarget(kept);
         return true;
+    }
+
+    /// Install what the sync alias points at (owned), or null to clear.
+    fn setRemoteTarget(self: *Worker, target: ?[]u8) void {
+        if (self.remote_target) |owned| self.gpa.free(owned);
+        self.remote_target = target;
     }
 
     /// `config/create` with `opt.obscure`: rclone transforms password-typed

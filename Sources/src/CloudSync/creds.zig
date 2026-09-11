@@ -98,8 +98,9 @@ pub const file_name = "cloud.credentials";
 pub const default_path = "profiles/" ++ file_name;
 
 /// The raw backend remote's name in `rclone.conf`. Never used as Path2
-/// directly — the sync always goes through the `bkremote` alias, so the
-/// session name stays short and constant regardless of root or URL length.
+/// directly — the sync always goes through the `bkremote` alias. The alias
+/// keeps the URL out of the session name, but not the root: rclone names
+/// the session after what the alias resolves to, `bkraw:<remote_root>/…`.
 pub const backend_remote_name = "bkraw";
 
 /// The alias every sync run uses as Path2's remote. Its target is
@@ -830,10 +831,11 @@ pub fn remoteParams(gpa: Allocator, creds: Credentials) Allocator.Error!RemotePa
     return .{ .arena = arena, .value = .{ .object = object } };
 }
 
-/// The short stable name the sync uses. Path2 contributes only `name:root`
-/// to the session name — `bilib.FsPath` charges full length to the `local`
-/// branch alone — and this keeps that contribution constant however long a
-/// backend name grows.
+/// The short stable name the sync uses. It keeps the backend's name out of
+/// every rc call, but not out of the session name: rclone resolves the
+/// alias before naming the session, so Path2 contributes
+/// `bkraw:<remote_root>/profiles/<profile>` (measured, v1.75.0) — which is
+/// why the budget check measures `aliasTarget`, not this.
 pub fn remoteName(creds: Credentials) []const u8 {
     _ = creds;
     return sync_remote_name;

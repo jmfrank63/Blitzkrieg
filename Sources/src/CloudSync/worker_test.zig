@@ -985,6 +985,78 @@ const unsigned_seed_doc =
     \\"rclone_path":null}
 ;
 
+test "a remote root too long for the session name is refused before bisync runs" {
+    // rclone names the session after what `bkremote:` resolves to —
+    // `bkraw:<remote_root>/profiles/<profile>` — so the root the player
+    // typed is spent on the filename budget. The worker must hand that
+    // target to the budget check; measured against the alias name, this
+    // root passed and bisync died on `file name too long`.
+    const gpa = std.testing.allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const link_root = try fixture.makeDir("links");
+    defer gpa.free(link_root);
+    const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
+    defer gpa.free(creds_at);
+    try fixture.write(creds_at, "{\"backend\":\"webdav\",\"remote_root\":\"" ++ ("R" ** 240) ++
+        "\",\"fingerprint\":\"webdav:#long\",\"options\":{\"url\":\"http://127.0.0.1:9\"}," ++
+        "\"secret_options\":[],\"password_options\":[],\"rclone_path\":null}");
+    try engine.savePairingState(gpa, io, game_dir, "hero", .{
+        .paired = true,
+        .last_success_unix = 1,
+        .remote_fingerprint = "webdav:#long",
+    });
+
+    const refused = httpReply("HTTP/1.1 500 Internal Server Error",
+        \\{"error":"not in this test","status":500}
+    );
+    const replies = [_][]const u8{
+        ok200("{}"), // config/create bkraw
+        ok200("{}"), // config/create bkremote
+        refused, // config/get: the job's read-back
+        refused, // config/get: the teardown read-back
+    };
+    var server: CannedServer = undefined;
+    try server.start(tio, &replies);
+    defer server.stop();
+
+    var w = try worker.Worker.create(gpa, tio, .{
+        .game_dir = game_dir,
+        .endpoint = server.endpoint(),
+        .deadline = .{ .connect_ms = 1_000, .read_ms = 1_000 },
+        .link_roots = .{ .link_root = link_root },
+    });
+    defer w.destroy();
+
+    try w.begin(.{
+        .kind = .sync,
+        .path1 = profile_dir,
+        .remote = creds.sync_remote_name,
+        .profile = "hero",
+        .profile_id = "hero-id",
+        .remote_fingerprint = "webdav:#long",
+    });
+    const settled = pollUntilSettled(w, tio, 10_000);
+    try std.testing.expectEqual(worker.State.failed, settled.state);
+    try std.testing.expectEqualStrings("SessionNameTooLong", settled.errorText());
+
+    try std.testing.expectEqualStrings("POST /config/create HTTP/1.1", server.requestLine(0));
+    try std.testing.expectEqualStrings("POST /config/create HTTP/1.1", server.requestLine(1));
+    // No bisync was ever started.
+    var index: usize = 0;
+    while (index < @min(server.served, server.lines.len)) : (index += 1) {
+        try std.testing.expect(!std.mem.eql(u8, "POST /sync/bisync HTTP/1.1", server.requestLine(index)));
+    }
+}
+
 fn readDoc(gpa: std.mem.Allocator, game_dir: []const u8) !creds.Loaded {
     const at = try path.join(gpa, &.{ game_dir, creds.default_path });
     defer gpa.free(at);

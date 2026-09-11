@@ -949,6 +949,154 @@ test "the lock path is the measured session name plus .lck" {
     );
 }
 
+// -- The resolved session name ------------------------------------------------
+//
+// rclone names the session after what the `bkremote:` alias resolves to —
+// `bkraw:<remote_root>/profiles/<profile>` — never after the alias. Every
+// expected name below is a real listing rclone wrote into the player's
+// workdir (2026-08-31 to 2026-09-11) or into the scratch reproduction
+// against the staged v1.75.0.
+
+/// The player's context: slot p2, the root chosen in the dialog.
+fn resolvedContext(slot_link: []const u8, remote_target: []const u8, profile: []const u8) plan.SyncContext {
+    return .{
+        .path1 = slot_link,
+        .remote = "bkremote",
+        .remote_target = remote_target,
+        .profile = profile,
+        .game_dir = "/games/bk",
+        .run_id = "20260911T112737Z-a1b2c3d4",
+        .mode = .steady,
+    };
+}
+
+test "the session and lock are named after the resolved alias, as rclone names them" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    const cases = [_]struct { target: []const u8, slot: []const u8, profile: []const u8, expected: []const u8 }{
+        // 2026-09-11, the lock that blocked every start.
+        .{ .target = "bkraw:Blitzkrieg Cloud Sync", .slot = "p2", .profile = "Johannes", .expected = "Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes" },
+        // 2026-09-06: an empty root — the backend's configuration names the tree.
+        .{ .target = "bkraw:", .slot = "p2", .profile = "Johannes", .expected = "Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_profiles_Johannes" },
+        // 2026-08-31: an S3 bucket.
+        .{ .target = "bkraw:bk-saves", .slot = "p0", .profile = "P05", .expected = "Users_johannes_Library_Caches_blitzkrieg_p0..bkraw_bk-saves_profiles_P05" },
+    };
+    for (cases) |case| {
+        const slot_link = try std.fmt.allocPrint(gpa, "/Users/johannes/Library/Caches/blitzkrieg/{s}", .{case.slot});
+        defer gpa.free(slot_link);
+        const ctx = resolvedContext(slot_link, case.target, case.profile);
+
+        const session = try plan.syncSessionName(gpa, ctx);
+        defer gpa.free(session);
+        try std.testing.expectEqualStrings(case.expected, session);
+
+        // The lock path is the same formula, not a second derivation.
+        const lock = try plan.syncLockPath(gpa, ctx);
+        defer gpa.free(lock);
+        const expected_lock = try std.fmt.allocPrint(gpa, "/games/bk/cloudsync/workdir/{s}.lck", .{case.expected});
+        defer gpa.free(expected_lock);
+        try std.testing.expectEqualStrings(expected_lock, lock);
+    }
+}
+
+test "the projected length is the resolved session's, exactly" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    const ctx = resolvedContext("/Users/johannes/Library/Caches/blitzkrieg/p2", "bkraw:Blitzkrieg Cloud Sync", "Johannes");
+    var projected: usize = 0;
+    try plan.checkSyncBudget(gpa, ctx, &projected);
+    // "Users_johannes_Library_Caches_blitzkrieg_p2" (43) + ".." (2)
+    // + "bkraw_Blitzkrieg_Cloud_Sync_profiles_Johannes" (45).
+    try std.testing.expectEqual(@as(usize, 90), projected);
+
+    // Measured against the alias name, the same pair projected 71 — the
+    // number the player would have been shown was never the one rclone hit.
+    var by_alias = ctx;
+    by_alias.remote_target = "";
+    try plan.checkSyncBudget(gpa, by_alias, &projected);
+    try std.testing.expectEqual(@as(usize, 71), projected);
+}
+
+test "a long remote root the alias name hid is refused before rclone would fail" {
+    const gpa = std.testing.allocator;
+
+    // The scratch reproduction's shape: a Path1 half of 109 bytes, and a
+    // root long enough that the resolved session passes 241 while the
+    // alias-named one stays far below it.
+    const slot_link = if (builtin.os.tag == .windows)
+        "C:\\" ++ ("d" ** 106) // `C__` + 106
+    else
+        "/" ++ ("d" ** 109);
+    const root = "R" ** 120;
+    var ctx = resolvedContext(slot_link, "bkraw:" ++ root, "Johannes");
+    ctx.mode = .steady;
+
+    // The old measure — Path2 as named — fits with room to spare...
+    var by_alias = ctx;
+    by_alias.remote_target = "";
+    var alias_params = try plan.bisyncParams(gpa, by_alias);
+    alias_params.deinit();
+
+    // ...but rclone would mangle the resolved root in, and the lock alone
+    // (`.lck`, the first file bisync writes) would already be refused by
+    // the filesystem: 109 + 2 + 6 + 120 + 18 = 255 bytes of session.
+    try std.testing.expectError(error.SessionNameTooLong, plan.bisyncParams(gpa, ctx));
+    var projected: usize = 0;
+    try std.testing.expectError(error.SessionNameTooLong, plan.checkSyncBudget(gpa, ctx, &projected));
+    try std.testing.expectEqual(@as(usize, 255), projected);
+    try std.testing.expect(projected > plan.session_budget);
+}
+
+test "short roots are measured as before and still fit" {
+    const gpa = std.testing.allocator;
+    const slot_link = if (builtin.os.tag == .windows) "C:\\bk\\p0" else "/tmp/bk/p0";
+
+    for ([_][]const u8{ "bkraw:", "bkraw:bk", "bkraw:Blitzkrieg_Cloud_Sync" }) |target| {
+        var params = try plan.bisyncParams(gpa, resolvedContext(slot_link, target, "Panzerkommandant"));
+        defer params.deinit();
+        // Path2 on the wire is still the alias: resolution is measured,
+        // never sent.
+        try std.testing.expectEqualStrings("bkremote:profiles/Panzerkommandant", paramString(params, "path2").?);
+    }
+
+    // Without a target (no credentials document) the measure is Path2 as
+    // named — the only thing known — exactly as before.
+    var projected: usize = 0;
+    try plan.checkSyncBudget(gpa, resolvedContext(slot_link, "", "hero"), &projected);
+    const as_named = try plan.sessionName(
+        gpa,
+        .{ .path = slot_link, .kind = .local },
+        .{ .path = "bkremote:profiles/hero", .kind = .remote },
+    );
+    defer gpa.free(as_named);
+    try std.testing.expectEqual(as_named.len, projected);
+}
+
+test "slashes in the root are measured as rclone cleans them, never under" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    // Measured, v1.75.0, on a memory and a WebDAV backend alike: the alias
+    // joins with path.Join, so doubled and trailing slashes vanish; the
+    // leading one is the backend's to trim, and both trimmed it.
+    const cases = [_]struct { target: []const u8, measured: []const u8 }{
+        .{ .target = "bkraw:a//b", .measured = "bkraw_a_b_profiles_J" },
+        .{ .target = "bkraw:trail/", .measured = "bkraw_trail_profiles_J" },
+        .{ .target = "bkraw:/lead slash/", .measured = "bkraw_lead_slash_profiles_J" },
+    };
+    for (cases) |case| {
+        const session = try plan.syncSessionName(gpa, resolvedContext("/x/p1", case.target, "J"));
+        defer gpa.free(session);
+        const half = session[std.mem.indexOf(u8, session, "..").? + 2 ..];
+        // Exact where the alias decides; at most the leading slash over
+        // where the backend does. Never shorter than what rclone wrote.
+        try std.testing.expect(half.len >= case.measured.len);
+        try std.testing.expect(half.len <= case.measured.len + 1);
+    }
+}
+
 test "assertNoResyncWhenPaired" {
     const gpa = std.testing.allocator;
 
