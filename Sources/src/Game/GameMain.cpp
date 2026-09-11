@@ -333,6 +333,18 @@ static void PublishCloudUnconfigured()
 	SetGlobalVar( "CloudSync.Error", "unconfigured" );
 	NStr::DebugTrace( "cloud sync: provider chosen but not set up\n" );
 }
+// A retry that could not start. The indicator stays failed, with Retry
+// back beside it so the player can try again once the cause is gone, and
+// the error names no run outcome - there was no run - so the menu falls
+// back to its generic textes\ui\cloudsync\failed line. The reason goes to
+// the trace only.
+static void PublishCloudRetryRefused( const char *pszWhy, const char *pszDetail )
+{
+	SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_FAILED );
+	SetGlobalVar( "CloudSync.Outcome", (int)NCloudSync::OUTCOME_FAILED );
+	SetGlobalVar( "CloudSync.Error", "failed" );
+	NStr::DebugTrace( "cloud sync: retry requested, %s: %s\n", pszWhy, pszDetail != 0 ? pszDetail : "" );
+}
 int RunGame( const BkGameLaunchInfo &launch )
 {
 	const NPlatform::Arguments &arguments = launch.arguments;
@@ -1007,9 +1019,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// The active cloud sync, observed rather than awaited: Poll is a
 			// futex and a struct copy, no I/O. The menu's indicator (element
 			// 21001) renders from the CloudSync.* global vars published here,
-			// and its skip-to-offline click lands as a global var because the
-			// handle lives here. The traces stay: they are the headless
-			// evidence channel.
+			// and its skip-to-offline and Retry clicks land as global vars
+			// because the handle lives here. The traces stay: they are the
+			// headless evidence channel.
 			if ( GetGlobalVar( "CloudSync.SkipToOffline", 0 ) )
 			{
 				// Consumed even with no handle - a click racing the settle
@@ -1019,6 +1031,62 @@ int RunGame( const BkGameLaunchInfo &launch )
 				{
 					NCloudSync::Cancel( g_nCloudStartupSync );
 					NStr::DebugTrace( "cloud sync: skip to offline requested\n" );
+				}
+			}
+			if ( GetGlobalVar( "CloudSync.Retry", 0 ) )
+			{
+				// The menu's Retry, after a failed or skipped run. Consumed even
+				// when it cannot act, like the skip: a click racing a settle
+				// must not start a surprise run later. The player asked, so
+				// Cloud.Sync.OnStartup is not consulted - the provider and
+				// credentials gates are, from the live options. Discovery is
+				// re-run before Available() so rclone installed since the
+				// failure counts; it may spawn "rclone version", a moment the
+				// click can afford. A begun run publishes STARTING at once:
+				// the menu's pending-retry latch clears on that, never on a
+				// stale failed state.
+				RemoveGlobalVar( "CloudSync.Retry" );
+				if ( g_nCloudStartupSync >= 0 )
+					NStr::DebugTrace( "cloud sync: retry ignored, a run is already live\n" );
+				else
+				{
+					const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( !CloudProviderSelected( szProvider ) )
+					{
+						// Turned off since the failure: nothing to retry, and the
+						// stale failure line goes with the feature.
+						SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_IDLE );
+						SetGlobalVar( "CloudSync.Error", "" );
+						NStr::DebugTrace( "cloud sync: retry ignored, cloud sync is off (Cloud.Provider=\"%s\")\n", szProvider.c_str() );
+					}
+					else if ( !CloudCredentialsMatch( szProvider ) )
+						PublishCloudUnconfigured();
+					else
+					{
+						NCloudSync::RefreshDiscovery();
+						if ( !NCloudSync::Available() )
+						{
+							const char *pszStatus = NCloudSync::DiscoveryStatus();
+							PublishCloudRetryRefused( "rclone unavailable",
+								pszStatus != 0 && pszStatus[0] != 0 ? pszStatus : NCloudSync::LastError() );
+						}
+						else
+						{
+							g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+							if ( g_nCloudStartupSync >= 0 )
+							{
+								// The run pushes everything, so a post-save push
+								// already due is folded into it.
+								g_nCloudSyncDueMs = 0;
+								SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_STARTING );
+								SetGlobalVar( "CloudSync.Error", "" );
+								NStr::DebugTrace( "cloud sync: retry requested, sync begun for \"%s\"\n", szProfile.c_str() );
+							}
+							else
+								PublishCloudRetryRefused( "sync refused", NCloudSync::LastError() );
+						}
+					}
 				}
 			}
 			if ( GetGlobalVar( "CloudSync.Recheck", 0 ) )

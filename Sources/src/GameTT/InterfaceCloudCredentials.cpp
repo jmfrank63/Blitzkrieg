@@ -127,7 +127,7 @@ static const char *CloudOutcomeTextKey( const std::string &szError )
 		return "offline";
 	static const char *pszOutcomes[] = { "needs_resync", "too_many_deletes", "name_too_long",
 		"out_of_sync", "auth_failed", "remote_unreachable", "remote_missing",
-		"remote_unwritable", "daemon_gone", "timed_out", 0 };
+		"remote_unwritable", "daemon_gone", "timed_out", "locked", 0 };
 	for ( int i = 0; pszOutcomes[i] != 0; ++i )
 	{
 		const int nLen = (int)strlen( pszOutcomes[i] );
