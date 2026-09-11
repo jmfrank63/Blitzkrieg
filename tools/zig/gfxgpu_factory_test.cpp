@@ -30,8 +30,59 @@ void ToLower( std::string &value ) {
 
 #include <SDL3/SDL.h>
 
+#include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#if !defined(_WIN32)
+#include <execinfo.h>
+#include <unistd.h>
+#endif
+
+// Where the harness is. It used to print nothing until the very end, so a
+// crash on a platform nobody can attach a debugger to - a CI runner - left no
+// clue which call died. Every step now announces itself, and a crash handler
+// names the step it happened in (with the frames, where the platform has
+// backtrace()). Not async-signal-safe, and deliberately so: the process is
+// dying anyway, and a garbled line beats none.
+namespace {
+const char *current_stage = "start";
+void Stage( const char *name )
+{
+    current_stage = name;
+    std::fprintf( stderr, "gfxgpu-factory-test: %s\n", name );
+    std::fflush( stderr );
+}
+#if defined(_WIN32)
+LONG WINAPI OnUnhandledException( EXCEPTION_POINTERS *info )
+{
+    std::fprintf( stderr, "gfxgpu-factory-test: exception 0x%08lx at %p during \"%s\"\n",
+        info != nullptr && info->ExceptionRecord != nullptr ? info->ExceptionRecord->ExceptionCode : 0ul,
+        info != nullptr && info->ExceptionRecord != nullptr ? info->ExceptionRecord->ExceptionAddress : nullptr,
+        current_stage );
+    std::fflush( stderr );
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+void InstallCrashHandler() { SetUnhandledExceptionFilter( OnUnhandledException ); }
+#else
+void OnCrash( int signal_number )
+{
+    std::fprintf( stderr, "gfxgpu-factory-test: signal %d during \"%s\"\n", signal_number, current_stage );
+    std::fflush( stderr );
+    void *frames[64];
+    const int count = backtrace( frames, 64 );
+    backtrace_symbols_fd( frames, count, STDERR_FILENO );
+    std::_Exit( 128 + signal_number );
+}
+void InstallCrashHandler()
+{
+    std::signal( SIGSEGV, OnCrash );
+    std::signal( SIGBUS, OnCrash );
+    std::signal( SIGABRT, OnCrash );
+    std::signal( SIGILL, OnCrash );
+}
+#endif
+}
 
 // The module under test is a DLL on Windows and a shared object everywhere
 // else, so the loader calls cannot be the Win32 ones directly.
@@ -208,17 +259,24 @@ static int RunRecordingTest()
     api.draw = fakeDraw; api.draw_indexed = fakeDrawIndexed;
     api.bind_vertex_buffer = fakeBindVertexBuffer;
     GraphicsEngineGpu adapter( api );
+    Stage( "SDL video init and dummy window" );
     if ( !EnsureBorrowedWindow() ) return 9;
+    Stage( "adapter Init" );
     if ( !adapter.Init( nullptr, GFXNativeWindow( borrowed_window ) ) ) return 10;
+    Stage( "SetMode 800x600 windowed" );
     if ( !adapter.SetMode( 800, 600, 32, 0, GFXFS_WINDOWED ) ) return 11;
+    Stage( "ChangeViewport" );
     if ( !adapter.ChangeViewport( 800, 600 ) ) return 12;
+    Stage( "SetWireframe" );
     if ( !adapter.SetWireframe( true ) ) return 13;
+    Stage( "BeginScene/Clear/SetViewTransform/EndScene/Flip" );
     if ( !adapter.BeginScene() ) return 14;
     RECT rect{};
     if ( !adapter.Clear( 0, &rect, GFXCLEAR_TARGET, 0x12345678u ) ) return 15;
     SHMatrix matrix{};
     if ( !adapter.SetViewTransform( matrix ) ) return 16;
     if ( !adapter.EndScene() || !adapter.Flip() ) return 17;
+    Stage( "CreateTexture/Lock/Unlock/SetTexture" );
     IGFXTexture *texture = adapter.CreateTexture( 2, 2, 1, GFXPF_ARGB8888, GFXD_STATIC );
     if ( !texture ) return 20;
     texture->AddRef();
@@ -226,12 +284,14 @@ static int RunRecordingTest()
     if ( !texture->Lock( 0, &lock ) || lock.nPitch != 8 || !texture->Unlock( 0 ) ) return 21;
     if ( !adapter.SetTexture( 0, texture ) || !adapter.SetTexture( 1, texture ) ) return 22;
     texture->Release();
+    Stage( "CreateRTexture/SetRenderTarget" );
     IGFXRTexture *target = adapter.CreateRTexture( 2, 2 );
     if ( !target ) return 23;
     target->AddRef();
     if ( !adapter.SetRenderTarget( target ) || !adapter.SetRenderTarget( nullptr ) ) return 24;
     target->Release();
     if ( texture_creates != 1 || texture_uploads != 1 || texture_releases != 1 || target_creates != 1 || target_binds != 2 ) return 25;
+    Stage( "CreateVertices/CreateIndices/Draw" );
     IGFXVertices *vertices = adapter.CreateVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST, GFXD_STATIC );
     IGFXIndices *indices = adapter.CreateIndices( 3, GFXIF_INDEX16, GFXPT_TRIANGLELIST, GFXD_STATIC );
     if ( !vertices || !indices ) return 26;
@@ -241,6 +301,7 @@ static int RunRecordingTest()
     if ( !adapter.Draw( vertices, indices ) ) return 28;
     vertices->Release(); indices->Release();
     if ( buffer_creates != 2 || buffer_uploads != 2 || buffer_releases != 2 ) return 29;
+    Stage( "GetTempVertices/GetTempIndices/DrawTemp" );
     void *temporary_vertices = adapter.GetTempVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST );
     void *temporary_indices = adapter.GetTempIndices( 3, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
     if ( !temporary_vertices || !temporary_indices ) return 30;
@@ -251,6 +312,7 @@ static int RunRecordingTest()
     std::memset( temporary_vertices, 0, 3 * 3 * sizeof( float ) );
     std::memset( temporary_indices, 0, 3 * sizeof( uint16_t ) );
     if ( !adapter.DrawTemp() ) return 30;
+    Stage( "MeshGpu Build/DrawMesh" );
     SMeshFormat mesh_data;
     mesh_data.geoms.push_back( CVec3( 0, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 1, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 0, 1, 0 ) );
     mesh_data.norms.push_back( CVec3( 0, 0, 1 ) ); mesh_data.texes.push_back( CVec2( 0, 0 ) );
@@ -262,9 +324,11 @@ static int RunRecordingTest()
     if ( !mesh.Build( mesh_data_list, mesh_bounds ) ) return 31;
     SHMatrix mesh_matrix{};
     if ( !adapter.DrawMesh( &mesh, &mesh_matrix, 1 ) ) return 32;
+    Stage( "DrawRects" );
     SGFXRect2 rectangle;
     rectangle.rect.minx = 0.0f; rectangle.rect.miny = 0.0f; rectangle.rect.maxx = 10.0f; rectangle.rect.maxy = 10.0f;
     if ( !adapter.DrawRects( &rectangle, 1, true ) ) return 33;
+    Stage( "gamma and recorded trace" );
     adapter.SetGammaCorrectionValues( 0.1f, 0.2f, 0.3f );
     float brightness = 0.0f, contrast = 0.0f, gamma = 0.0f;
     adapter.GetGammaCorrectionValues( &brightness, &contrast, &gamma );
@@ -275,6 +339,7 @@ static int RunRecordingTest()
     // that frame carries GFXCLEAR_ALL, which this harness's fake rejects
     // without recording, and the adapter ignores its result by design.
     if ( std::strcmp( trace, "CBEPRVSBTLTEP" ) != 0 ) { std::fprintf( stderr, "recorded call trace was \"%s\"\n", trace ); return 18; }
+    Stage( "adapter Done" );
     adapter.Done();
     if ( std::strcmp( trace, "CBEPRVSBTLTEPD" ) != 0 ) { std::fprintf( stderr, "recorded call trace after Done was \"%s\"\n", trace ); return 19; }
     return 0;
@@ -282,9 +347,11 @@ static int RunRecordingTest()
 
 int main( int argc, char **argv )
 {
+    InstallCrashHandler();
     const int recording = RunRecordingTest();
     if ( recording != 0 ) { std::fprintf( stderr, "recording test failed: %d\n", recording ); return recording; }
     const char *path = argc > 1 ? argv[1] : "zig-out/bin/GFXGPU.dll";
+    Stage( "open the GFXGPU module" );
     void *module = OpenModule( path );
     if ( !module )
     {
@@ -292,6 +359,7 @@ int main( int argc, char **argv )
         return 1;
     }
 
+    Stage( "GetModuleDescriptor" );
     const auto getDescriptor = reinterpret_cast<GETMODULEDESCRIPTOR>( FindModuleSymbol( module, "GetModuleDescriptor" ) );
     if ( !getDescriptor )
     {
@@ -308,6 +376,7 @@ int main( int argc, char **argv )
         return 3;
     }
 
+    Stage( "CreateObject( GFX_GFX )" );
     IRefCount *object = descriptor->pFactory->CreateObject( GFX_GFX );
     if ( !object || !object->IsValid() )
     {
@@ -316,6 +385,7 @@ int main( int argc, char **argv )
         return 4;
     }
 
+    Stage( "Release and close the module" );
     object->Release();
     CloseModule( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
