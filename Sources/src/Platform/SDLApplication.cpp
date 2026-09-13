@@ -471,9 +471,20 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 		// held key from its activation stamp to CInputAPI's clock, so mixing the
 		// two made one tap of an arrow key look like days of holding it and the
 		// camera jumped straight to the edge of the map.
-		event.timestamp = static_cast<std::uint32_t>( SDL_NS_TO_MS( event.timestamp ) + TimestampBase() );
+		// ...and still off it after that. SDL's Cocoa backend pins NSEvent stamps,
+		// which stop while the Mac sleeps, to its tick clock, which does not, once
+		// at the first event, and afterwards only pulls back stamps that land in
+		// the future. Every sleep with the game open left each later event that
+		// much further in the past, and the arrow keys went back to throwing the
+		// camera at the map edge until a restart. An event polled now happened
+		// after the previous drain found the queue empty and before this poll, so
+		// the stamp is held to that window; the spacing survives inside it.
+		const std::uint64_t now = NPlatform::MonotonicMilliseconds64();
+		const std::uint64_t stamp = SDL_NS_TO_MS( event.timestamp ) + TimestampBase();
+		event.timestamp = static_cast<std::uint32_t>( std::clamp( stamp, std::min( last_drain_ms_, now ), now ) );
 		return true;
 	}
+	last_drain_ms_ = NPlatform::MonotonicMilliseconds64();
 	return false;
 }
 
