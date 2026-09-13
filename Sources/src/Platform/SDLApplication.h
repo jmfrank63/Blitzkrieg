@@ -118,6 +118,8 @@ private:
 	bool initialized_ = false;
 	bool visible_ = false;
 	bool event_overflow_episode_ = false;
+	// When PollEvent last found the queue empty, on the engine's clock.
+	std::uint64_t last_drain_ms_ = 0;
 	struct GamepadRecord
 	{
 		int device_id = 0;
