@@ -223,8 +223,20 @@ void CUIScreen::Reposition( const CTRect<float> &rcScreen )
 		CVec2 vNewScale( fScale, fScale );
 		if ( bRestoredScaledLayout )
 		{
-			vLayoutScale = vNewScale;
-			ApplyTextLayoutScale( vNewScale );
+			// A saved game brings its widgets back at the scale they had when
+			// it was saved, which is not the scale this display wants: a save
+			// made at 1440x900 and loaded on a 1920x1080 monitor kept its 1.17
+			// frame art while the mission's cluster fixup sized the minimap for
+			// 1.41, so the map ran out of its frame. Every window records the
+			// scale ScaleLayout has applied to it, and it is saved, so resume
+			// from that and let the delta below bring the layout to this one.
+			const CVec2 vSavedScale = GetLayoutScale();
+			const CVec2 vRestoredScale = vSavedScale.x > 0.0f && vSavedScale.y > 0.0f ? vSavedScale : vNewScale;
+			if ( getenv( "BK_UI_TRACE" ) )
+				fprintf( stderr, "BK_UI_TRACE: restored \"%s\" layout at scale %.3f,%.3f\n",
+					szResourceName.c_str(), vRestoredScale.x, vRestoredScale.y );
+			vLayoutScale = vRestoredScale;
+			ApplyTextLayoutScale( vRestoredScale );
 			bRestoredScaledLayout = false;
 		}
 		CVec2 vDeltaScale( vNewScale.x / vLayoutScale.x, vNewScale.y / vLayoutScale.y );
