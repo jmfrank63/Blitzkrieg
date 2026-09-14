@@ -5068,7 +5068,8 @@ fn addSdlEventTest(
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_event_test.cpp" },
+        // SDLApplication forwards clipboard calls to System.cpp.
+        .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/System.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_event_test.cpp" },
         .flags = &.{"-std=c++17"},
     });
     module.linkLibrary(platform_runtime);
@@ -5080,7 +5081,11 @@ fn addSdlEventTest(
             linkMsvcRuntime(module, .Debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => module.linkSystemLibrary("c++", .{}),
+        .macos => {
+            module.linkSystemLibrary("c++", .{});
+            // SDLApplication::SetAppIcon, as in the game executable.
+            module.linkSystemLibrary("objc", .{});
+        },
         else => {},
     }
     const test_exe = b.addExecutable(.{ .name = "platform-event-test", .root_module = module });
