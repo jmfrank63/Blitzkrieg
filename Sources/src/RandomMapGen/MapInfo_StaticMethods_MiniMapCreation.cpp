@@ -675,7 +675,14 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 			pColorCorrectedCompressedMiniMapImage = pCompressedMiniMapImage;
 		}
 
-		if ( imageCreateParameterIterator->bDDS )
+		if ( imageCreateParameterIterator->bUltra )
+		{
+			if ( !SaveImageToUltraDDSImageResource( pColorCorrectedCompressedMiniMapImage, imageCreateParameterIterator->szImageFileName ) )
+			{
+				return false;
+			}
+		}
+		else if ( imageCreateParameterIterator->bDDS )
 		{
 			if ( !SaveImageToDDSImageResource( pColorCorrectedCompressedMiniMapImage, imageCreateParameterIterator->szImageFileName ) )
 			{

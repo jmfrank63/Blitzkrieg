@@ -3,6 +3,7 @@
 #pragma ONCE
 #include "../GFX/GFX.H"
 #include "../GFX/GFXHelper.h"
+#include "../Image/Image.h"
 #include "UIBasic.h"
 #include "../AILogic/aiconsts.h"
 #include "../AILogic/AITypes.h"
@@ -172,9 +173,19 @@ class CUIMiniMap : public CSimpleWindow
   CPtr<IGFXTexture> pInstantObjectsTexture;
   CPtr<IGFXTexture> pBackgroundTexture;
   CPtr<IGFXTexture> pMarkerTexture;
+	// The map picture drawn one texel per screen pixel. Drawing the square map
+	// image as a textured diamond stretches it one way and squeezes it two to
+	// one the other, and without mipmaps the squeeze skips texels, so a larger
+	// source image only came out grainier. The picture is instead resampled
+	// once per layout change, averaging every source texel under each pixel.
+	// Only the stream name is saved; the decoded image is read back from it.
+	std::string szBackgroundImageName;
+	CPtr<IImage> pBackgroundImage;
+	CPtr<IGFXTexture> pSharpBackground;
 
 
 	void CreateMiniMapTextures();
+	void CreateSharpBackground();
   void GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool isTopLeft = true );
   void PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos , bool isLeftTop = true );
 	void TextureMiniMapToPoint( float fXMiniMapPos, float fYMiniMapPos, float *pfXPos, float *pfYPos , bool isLeftTop = true );
@@ -254,6 +265,7 @@ public:
 	{
 		pBackgroundTexture = _pBackgroundTexture;
 	}
+	virtual void STDCALL SetBackgroundImage( const char *pszStreamName );
 
 	virtual bool STDCALL AddWarFogData( const BYTE *pVizBuffer, int nLength );
 	virtual void STDCALL AddUnitsData( const struct SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount );
@@ -285,6 +297,7 @@ class CUIMiniMapBridge : public IUIMiniMap, public CUIMiniMap
 
   virtual void STDCALL SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount ) { CSuper::SetTerrainSize( nXTerrainSize, nYTerrainSize, _nPlayersCount ); }
 	virtual void STDCALL SetBackgroundTexture( IGFXTexture *_pBackgroundTexture )  { CSuper::SetBackgroundTexture( _pBackgroundTexture ); }
+	virtual void STDCALL SetBackgroundImage( const char *pszStreamName ) { CSuper::SetBackgroundImage( pszStreamName ); }
 	virtual bool STDCALL AddWarFogData( const BYTE *pVizBuffer, int nLength ) { return CSuper::AddWarFogData( pVizBuffer, nLength ); }
 	virtual void STDCALL AddUnitsData( const struct SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount )  { CSuper::AddUnitsData( pUnitsBuffer, nUnitsCount ); }
 	virtual void STDCALL AddFireRangeAreas( const struct SShootAreas *pShootAreasBuffer, int nShootAreasCount )  { CSuper::AddFireRangeAreas( pShootAreasBuffer, nShootAreasCount ); }

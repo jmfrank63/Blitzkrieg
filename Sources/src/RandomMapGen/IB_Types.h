@@ -19,6 +19,11 @@ inline std::string GetDDSImageExtention( ECompressionType compressionType )
 	}
 	return "";
 }
+// ITextureManager::TEXTURE_QUALITY_ULTRA looks for this suffix first.
+inline std::string GetUltraDDSImageExtention()
+{
+	return "_u.dds";
+}
 class CUnsafeImageAccessor
 {
 	IImage *pImage;

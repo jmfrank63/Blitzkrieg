@@ -355,6 +355,10 @@ interface IUIMiniMap : public IUIElement
 {
   virtual void STDCALL SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount ) = 0;
 	virtual void STDCALL SetBackgroundTexture( IGFXTexture *_pBackgroundTexture ) = 0;
+	// The same map picture as a DDS stream the minimap decodes itself, so it can
+	// resample it to its on-screen size; SetBackgroundTexture's texture is drawn
+	// only while no such image could be read.
+	virtual void STDCALL SetBackgroundImage( const char *pszStreamName ) = 0;
 	virtual bool STDCALL AddWarFogData( const BYTE *pVizBuffer, int nLength ) = 0;
 	virtual void STDCALL AddUnitsData( const struct SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount ) = 0;
 	virtual void STDCALL AddFireRangeAreas( const struct SShootAreas *pShootAreasBuffer, int nShootAreasCount ) = 0;

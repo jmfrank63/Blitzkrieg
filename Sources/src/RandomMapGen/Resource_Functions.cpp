@@ -90,6 +90,36 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 	}
 }
 
+// The Ultra texture tier's image: uncompressed and on its own, because it
+// exists only for the "_u.dds" lookup and the three legacy tiers keep their
+// original-sized files.
+bool SaveImageToUltraDDSImageResource( IImage *pImage, const std::string &rszDDSImageResourceFileName )
+{
+	try
+	{
+		CPtr<IImageProcessor> pImageProcessor = GetSingleton<IImageProcessor>();
+		std::string szDDSImageResourceFileName = rszDDSImageResourceFileName;
+		NStr::ToLower( szDDSImageResourceFileName );
+		if ( ( szDDSImageResourceFileName.size() < 2 ) || szDDSImageResourceFileName[1] != ':' )
+		{
+			CPtr<IDataStorage> pDataStorage = GetSingleton<IDataStorage>();
+			szDDSImageResourceFileName = pDataStorage->GetName() + szDDSImageResourceFileName;
+		}
+		CPtr<IDDSImage> pDDSImage = pImageProcessor->Compress( pImage, GFXPF_ARGB8888 );
+		CPtr<IDataStream> pDDSStream = CreateFileStream( ( szDDSImageResourceFileName + GetUltraDDSImageExtention() ).c_str(), STREAM_ACCESS_WRITE );
+		if ( !pDDSImage || !pDDSStream )
+		{
+			return false;
+		}
+		pImageProcessor->SaveImageAsDDS( pDDSStream, pDDSImage );
+		return true;
+	}
+	catch ( ... )
+	{
+		return false;
+	}
+}
+
 IImage* LoadImageFromTGAImageResource( const std::string &rszTGAImageResourceFileName )
 {
 	try

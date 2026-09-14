@@ -16,22 +16,27 @@ struct SRMImageCreateParameter
 	float fBrightness;
 	float fContrast;
 	float fGamma;
+	// Written as the "_u.dds" Ultra image alone, uncompressed, instead of the
+	// "_c"/"_l"/"_h" trio. Runtime only: not part of the saved parameters.
+	bool bUltra;
 
-	SRMImageCreateParameter() : size( 0, 0 ), bDDS( true ),	bColorCorrection( false ), fBrightness( 0.0f ), fContrast( 0.0f ), fGamma( 0.0f ) {}
+	SRMImageCreateParameter() : size( 0, 0 ), bDDS( true ),	bColorCorrection( false ), fBrightness( 0.0f ), fContrast( 0.0f ), fGamma( 0.0f ), bUltra( false ) {}
 	SRMImageCreateParameter( const std::string &rszImageFileName,
 													 const CTPoint<int> &rSize,
 													 bool _bDDS,
 													 bool _bColorCorrection = false,
 													 float _fBrightness = 0.0f,
 													 float _fContrast = 0.0f,
-													 float _fGamma = 0.0f )
+													 float _fGamma = 0.0f,
+													 bool _bUltra = false )
 		: szImageFileName( rszImageFileName ),
 			size( rSize ),
 			bDDS( _bDDS ),
 			bColorCorrection( _bColorCorrection ),
 			fBrightness( _fBrightness ),
 			fContrast( _fContrast ),
-			fGamma( _fGamma ) {}
+			fGamma( _fGamma ),
+			bUltra( _bUltra ) {}
 	SRMImageCreateParameter( const SRMImageCreateParameter &rImageCreateParameter )
 		: szImageFileName( rImageCreateParameter.szImageFileName ),
 			size( rImageCreateParameter.size ),
@@ -39,7 +44,8 @@ struct SRMImageCreateParameter
 			bColorCorrection( rImageCreateParameter.bColorCorrection ),
 			fBrightness( rImageCreateParameter.fBrightness ),
 			fContrast( rImageCreateParameter.fContrast ),
-			fGamma( rImageCreateParameter.fGamma ) {}
+			fGamma( rImageCreateParameter.fGamma ),
+			bUltra( rImageCreateParameter.bUltra ) {}
 	SRMImageCreateParameter& operator=( const SRMImageCreateParameter &rImageCreateParameter )
 	{
 		if( &rImageCreateParameter != this )
@@ -51,6 +57,7 @@ struct SRMImageCreateParameter
 			fBrightness = rImageCreateParameter.fBrightness;
 			fContrast = rImageCreateParameter.fContrast;
 			fGamma = rImageCreateParameter.fGamma;
+			bUltra = rImageCreateParameter.bUltra;
 		}
 		return *this;
 	}	

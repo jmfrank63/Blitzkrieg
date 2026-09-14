@@ -197,6 +197,10 @@ private:
 	CObj<IWorldClient> pWorld;						// world - all game data
 	CVec3 vCameraStartPos;								// camera start position
 	std::string szCurrMapName;						// map name
+	// The picture the minimap was last given and the texture quality it was
+	// chosen for; not saved, so a loaded game picks one again.
+	std::string szMiniMapImageName;
+	std::string szMiniMapQuality;
 	bool bCycledLaunch;										// cycled launch or normal
 	CVisObjList preselectedObjects;
 	CPickVisObjList selectedObjects;			// currently picked objects
@@ -250,6 +254,7 @@ public:
 	bool NewMission( const std::string &_szMapName, bool _bCycledLaunch );
 	void CheckResolution();
 	void ConfigureInterfacePreferences();
+	void RefreshMiniMapImage();
 };
 class CICMission : public CInterfaceCommandBase<CInterfaceMission, MISSION_INTERFACE_MISSION>
 {
