@@ -3,6 +3,8 @@
 #include "Resource_Types.h"
 #include "../Platform/System.h"
 
+#include <filesystem>
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -90,23 +92,29 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 	}
 }
 
-// The Ultra texture tier's image: uncompressed and on its own, because it
-// exists only for the "_u.dds" lookup and the three legacy tiers keep their
-// original-sized files.
-bool SaveImageToUltraDDSImageResource( IImage *pImage, const std::string &rszDDSImageResourceFileName )
+// The Ultra texture tier's image: uncompressed and on its own, written to a
+// file outside the data storage - the user's cache - because an installed
+// game's Data directory need not be writable. The directories are created as
+// needed. szFilePath is a full path, taken as given: no lowercasing and no
+// data-directory prefix.
+bool SaveImageToUltraDDSFile( IImage *pImage, const std::string &szFilePath )
 {
 	try
 	{
-		CPtr<IImageProcessor> pImageProcessor = GetSingleton<IImageProcessor>();
-		std::string szDDSImageResourceFileName = rszDDSImageResourceFileName;
-		NStr::ToLower( szDDSImageResourceFileName );
-		if ( ( szDDSImageResourceFileName.size() < 2 ) || szDDSImageResourceFileName[1] != ':' )
+		std::string szEnginePath = szFilePath;
+		std::string szHostPath = szFilePath;
+		for ( int i = 0; i < szEnginePath.size(); ++i )
 		{
-			CPtr<IDataStorage> pDataStorage = GetSingleton<IDataStorage>();
-			szDDSImageResourceFileName = pDataStorage->GetName() + szDDSImageResourceFileName;
+			if ( szEnginePath[i] == '/' ) szEnginePath[i] = '\\';
+#if !defined(_WIN32)
+			if ( szHostPath[i] == '\\' ) szHostPath[i] = '/';
+#endif
 		}
+		std::error_code error;
+		std::filesystem::create_directories( std::filesystem::path( szHostPath ).parent_path(), error );
+		CPtr<IImageProcessor> pImageProcessor = GetSingleton<IImageProcessor>();
 		CPtr<IDDSImage> pDDSImage = pImageProcessor->Compress( pImage, GFXPF_ARGB8888 );
-		CPtr<IDataStream> pDDSStream = CreateFileStream( ( szDDSImageResourceFileName + GetUltraDDSImageExtention() ).c_str(), STREAM_ACCESS_WRITE );
+		CPtr<IDataStream> pDDSStream = CreateFileStream( szEnginePath.c_str(), STREAM_ACCESS_WRITE );
 		if ( !pDDSImage || !pDDSStream )
 		{
 			return false;

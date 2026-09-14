@@ -60,6 +60,7 @@ void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, co
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../StreamIO/ProgressHook.h"
 #include "../StreamIO/OptionSystem.h"
+#include "../Platform/Paths.h"
 #include "../Misc/Win32Helper.h"
 
 #include "../Common/PauseGame.h"
@@ -795,10 +796,46 @@ static std::string GetTextureQualityOption()
 		return "High";
 	return std::string( (const char*)bstr_t( var ) );
 }
+// Where a map's Ultra minimap picture is kept: in the user's writable cache
+// rather than beside the map, since an installed game's Data directory need not
+// be writable, and under the active mod, since two mods can ship different
+// maps under one name. A full path with backslashes, as the storage layer
+// takes them.
+static std::string GetUltraMiniMapCachePath( const std::string &szTerrainName )
+{
+	std::string szMod;
+	for ( const char c : GetSingleton<IUserProfile>()->GetMOD() )
+	{
+		const unsigned char u = static_cast<unsigned char>( c );
+		if ( c == '\\' || c == '/' )
+			continue;
+		szMod += ( isalnum( u ) || c == '-' || c == '_' || c == '.' ) ? c : '_';
+	}
+	if ( szMod.empty() || szMod == "." || szMod == ".." )
+		szMod = "base";
+	std::string szPath = NPlatform::Paths::CacheRoot() + "\\minimaps\\" + szMod + "\\" + szTerrainName + GetUltraDDSImageExtention();
+	for ( int i = 0; i < szPath.size(); ++i )
+	{
+		if ( szPath[i] == '/' )
+			szPath[i] = '\\';
+	}
+	const size_t nRelative = NPlatform::Paths::CacheRoot().size();
+	std::string szRelative = szPath.substr( nRelative );
+	NStr::ToLower( szRelative );
+	return szPath.substr( 0, nRelative ) + szRelative;
+}
+static bool GetFileStats( const std::string &szPath, SStorageElementStats *pStats )
+{
+	const size_t nSlash = szPath.rfind( '\\' );
+	if ( nSlash == std::string::npos )
+		return false;
+	CPtr<IDataStorage> pDirectory = OpenStorage( szPath.substr( 0, nSlash + 1 ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	return pDirectory && pDirectory->GetStreamStats( szPath.substr( nSlash + 1 ).c_str(), pStats );
+}
 // Generates the Ultra minimap picture from the map data when it is missing or
 // older than the map. It comes from the map rather than from the 256x256
 // files a map ships with, so mod maps get the same detail as the base game.
-static void CreateUltraMiniMapImage( const std::string &szTerrainName )
+static void CreateUltraMiniMapImage( const std::string &szTerrainName, const std::string &szCachePath )
 {
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	SStorageElementStats statsXML, statsBZM, statsUltra;
@@ -807,7 +844,7 @@ static void CreateUltraMiniMapImage( const std::string &szTerrainName )
 	Zero( statsUltra );
 	pStorage->GetStreamStats( ( szTerrainName + ".xml" ).c_str(), &statsXML );
 	pStorage->GetStreamStats( ( szTerrainName + ".bzm" ).c_str(), &statsBZM );
-	pStorage->GetStreamStats( ( szTerrainName + GetUltraDDSImageExtention() ).c_str(), &statsUltra );
+	GetFileStats( szCachePath, &statsUltra );
 	const bool bXML = statsXML.mtime > statsBZM.mtime;
 	const SStorageElementStats &statsMap = bXML ? statsXML : statsBZM;
 	if ( statsMap.mtime == 0 || !( statsMap.mtime > statsUltra.mtime ) )
@@ -839,7 +876,7 @@ static void CreateUltraMiniMapImage( const std::string &szTerrainName )
 			return;
 		mapInfo.UnpackFrameIndices();
 		CRMImageCreateParameterList imageCreateParameterList;
-		imageCreateParameterList.push_back( SRMImageCreateParameter( szTerrainName, CTPoint<int>( 0x200, 0x200 ), true, false, 0.0f, 0.0f, 0.0f, true ) );
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szCachePath, CTPoint<int>( 0x200, 0x200 ), true, false, 0.0f, 0.0f, 0.0f, true ) );
 		bCreated = mapInfo.CreateMiniMapImage( imageCreateParameterList );
 	}
 	catch ( ... )
@@ -847,8 +884,8 @@ static void CreateUltraMiniMapImage( const std::string &szTerrainName )
 		bCreated = false;
 	}
 	if ( getenv( "BK_UI_TRACE" ) )
-		fprintf( stderr, "BK_UI_TRACE: ultra minimap \"%s\" generated=%d in %.0f ms\n",
-			szTerrainName.c_str(), bCreated ? 1 : 0, NHPTimer::GetTimePassed( &timeStart ) * 1000.0 );
+		fprintf( stderr, "BK_UI_TRACE: ultra minimap \"%s\" -> \"%s\" generated=%d in %.0f ms\n",
+			szTerrainName.c_str(), szCachePath.c_str(), bCreated ? 1 : 0, NHPTimer::GetTimePassed( &timeStart ) * 1000.0 );
 }
 // Hands the minimap the picture the texture manager would pick at the current
 // quality, generating the Ultra one first if needed. Runs when a mission
@@ -866,10 +903,16 @@ void CInterfaceMission::RefreshMiniMapImage()
 	const std::string szQuality = GetTextureQualityOption();
 	szMiniMapQuality = szQuality;
 	std::vector<std::string> suffixes;
+	std::string szImageName;
 	if ( szQuality == "Ultra" )
 	{
-		CreateUltraMiniMapImage( szTerrainName );
-		suffixes.push_back( GetUltraDDSImageExtention() );
+		// Falls through to the shipped pictures when the cache cannot be written.
+		const std::string szCachePath = GetUltraMiniMapCachePath( szTerrainName );
+		CreateUltraMiniMapImage( szTerrainName, szCachePath );
+		SStorageElementStats statsUltra;
+		Zero( statsUltra );
+		if ( GetFileStats( szCachePath, &statsUltra ) )
+			szImageName = szCachePath;
 	}
 	else if ( szQuality == "Compressed" )
 		suffixes.push_back( GetDDSImageExtention( COMPRESSION_DXT ) );
@@ -878,7 +921,6 @@ void CInterfaceMission::RefreshMiniMapImage()
 	suffixes.push_back( GetDDSImageExtention( COMPRESSION_HIGH_QUALITY ) );
 	suffixes.push_back( GetDDSImageExtention( COMPRESSION_DXT ) );
 	suffixes.push_back( GetDDSImageExtention( COMPRESSION_LOW_QUALITY ) );
-	std::string szImageName;
 	for ( int i = 0; i < suffixes.size() && szImageName.empty(); ++i )
 	{
 		if ( GetSingleton<IDataStorage>()->IsStreamExist( ( szTerrainName + suffixes[i] ).c_str() ) )
