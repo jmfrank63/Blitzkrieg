@@ -16,8 +16,10 @@ struct SRMImageCreateParameter
 	float fBrightness;
 	float fContrast;
 	float fGamma;
-	// Written as the "_u.dds" Ultra image alone, uncompressed, instead of the
-	// "_c"/"_l"/"_h" trio. Runtime only: not part of the saved parameters.
+	// Written as the Ultra image alone, uncompressed, instead of the
+	// "_c"/"_l"/"_h" trio, and szImageFileName is then the full path of the
+	// file rather than a data-storage name. Runtime only: not part of the saved
+	// parameters.
 	bool bUltra;
 
 	SRMImageCreateParameter() : size( 0, 0 ), bDDS( true ),	bColorCorrection( false ), fBrightness( 0.0f ), fContrast( 0.0f ), fGamma( 0.0f ), bUltra( false ) {}

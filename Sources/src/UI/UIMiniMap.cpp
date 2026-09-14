@@ -148,7 +148,10 @@ static IImage *LoadMiniMapImage( const std::string &szStreamName )
 	IImageProcessor *pImageProcessor = GetSingleton<IImageProcessor>();
 	if ( !pStorage || !pImageProcessor )
 		return 0;
-	CPtr<IDataStream> pStream = pStorage->OpenStream( szStreamName.c_str(), STREAM_ACCESS_READ );
+	// A full path is a file outside the data storage: the Ultra picture in the
+	// user's cache.
+	const bool bFilePath = szStreamName[0] == '\\' || szStreamName[0] == '/' || ( szStreamName.size() > 1 && szStreamName[1] == ':' );
+	CPtr<IDataStream> pStream = bFilePath ? OpenFileStream( szStreamName, STREAM_ACCESS_READ ) : pStorage->OpenStream( szStreamName.c_str(), STREAM_ACCESS_READ );
 	if ( !pStream )
 		return 0;
 	CPtr<IDDSImage> pDDSImage = pImageProcessor->LoadDDSImage( pStream );
