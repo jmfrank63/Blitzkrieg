@@ -805,6 +805,19 @@ fn resolveCaseInsensitivePath(path: []const u8) ?[:0]u8 {
     return result;
 }
 
+// resolveCaseInsensitivePath for a file that does not exist yet: the directory
+// is resolved, the last component is kept as given.
+fn resolveCaseInsensitiveParent(path: []const u8) ?[:0]u8 {
+    var split = path.len;
+    while (split > 0 and path[split - 1] != '/' and path[split - 1] != '\\') split -= 1;
+    const leaf = path[split..];
+    if (leaf.len == 0) return null;
+    if (split == 0) return allocator.dupeZ(u8, leaf) catch null;
+    const directory = resolveCaseInsensitivePath(path[0 .. split - 1]) orelse return null;
+    defer allocator.free(directory);
+    return std.fmt.allocPrintSentinel(allocator, "{s}/{s}", .{ directory, leaf }, 0) catch null;
+}
+
 fn storageNameLessThan(_: void, left: [:0]u8, right: [:0]u8) bool {
     return std.mem.order(u8, left, right) == .lt;
 }
@@ -947,8 +960,21 @@ fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*
     }
     if (file == null and builtin.os.tag != .windows) {
         allocator.free(path);
-        path = resolveCaseInsensitivePath(raw_path[0 .. raw_path.len - 1]) orelse return null;
-        file = fopen(path.ptr, if (can_read and !can_write) "rb" else "rb+");
+        const wanted = raw_path[0 .. raw_path.len - 1];
+        if (resolveCaseInsensitivePath(wanted)) |resolved| {
+            path = resolved;
+            // An existing file under another spelling keeps the mode the exact
+            // one would have got: a write-only stream still replaces it whole.
+            file = fopen(path.ptr, if (can_write and !can_read and !append_only) "wb+" else if (can_read and !can_write) "rb" else "rb+");
+        } else if (can_write) {
+            // A new file has no spelling to match, but its directory does. The
+            // legacy writers lowercase the whole name - the minimap generator
+            // writes maps\ussr\stalingrad\stalingrad_u.dds into
+            // Data/Maps/USSR/Stalingrad - so resolve the directory and keep the
+            // file name as given.
+            path = resolveCaseInsensitiveParent(wanted) orelse return null;
+            file = fopen(path.ptr, "wb+");
+        } else return null;
     }
     if (file == null) {
         allocator.free(path);

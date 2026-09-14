@@ -48,3 +48,29 @@ test "DOS timestamps clamp and preserve date/time fields" {
     try std.testing.expectEqual(max_date, @as(u16, @truncate(maximum >> 16)));
     try std.testing.expect((known >> 16) != 0 and (known & 0xffff) != 0);
 }
+
+test "a written stream lands in the mixed-case directory its lowercase name means" {
+    if (@import("builtin").os.tag == .windows) return;
+    // The minimap generator writes "maps\ussr\stalingrad\stalingrad_u.dds",
+    // lowercased, into Data/Maps/USSR/Stalingrad. A new file there has no
+    // spelling to resolve against, and an existing one must still be replaced
+    // whole rather than overwritten from the start.
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(std.testing.io, "Maps/USSR/Stalingrad");
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "Maps/USSR/Stalingrad/stalingrad_h.dds", .data = "the old, longer picture" });
+
+    const base = try std.fmt.allocPrintSentinel(std.testing.allocator, ".zig-cache/tmp/{s}/maps\\ussr\\stalingrad\\", .{tmp.sub_path}, 0);
+    defer std.testing.allocator.free(base);
+    const handle = streamio.bk_storage_create(base.ptr, 2, 0) orelse return error.TestUnexpectedResult;
+    defer streamio.bk_storage_destroy(handle);
+    for ([_][*:0]const u8{ "stalingrad_u.dds", "stalingrad_h.dds" }) |name| {
+        const stream = streamio.bk_storage_create_stream(handle, name, 2) orelse return error.TestUnexpectedResult;
+        try std.testing.expectEqual(@as(c_int, 3), streamio.bk_stream_write(stream, "new", 3));
+        streamio.bk_stream_destroy(stream);
+    }
+
+    var buffer: [64]u8 = undefined;
+    try std.testing.expectEqualStrings("new", try tmp.dir.readFile(std.testing.io, "Maps/USSR/Stalingrad/stalingrad_u.dds", &buffer));
+    try std.testing.expectEqualStrings("new", try tmp.dir.readFile(std.testing.io, "Maps/USSR/Stalingrad/stalingrad_h.dds", &buffer));
+}
