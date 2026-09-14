@@ -59,6 +59,7 @@ void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, co
 #include "../RandomMapGen/MiniMap_Types.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../StreamIO/ProgressHook.h"
+#include "../StreamIO/OptionSystem.h"
 #include "../Misc/Win32Helper.h"
 
 #include "../Common/PauseGame.h"
@@ -785,6 +786,111 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	return 0;
 }
 static void SyncMissionModeFromInterMission();
+// GFX.Texture.Quality as the option system holds it ("Ultra", "High",
+// "Compressed" or "Low"); the texture manager keeps no readable copy.
+static std::string GetTextureQualityOption()
+{
+	variant_t var;
+	if ( !GetSingleton<IOptionSystem>()->Get( "GFX.Texture.Quality", &var ) )
+		return "High";
+	return std::string( (const char*)bstr_t( var ) );
+}
+// Generates the Ultra minimap picture from the map data when it is missing or
+// older than the map. It comes from the map rather than from the 256x256
+// files a map ships with, so mod maps get the same detail as the base game.
+static void CreateUltraMiniMapImage( const std::string &szTerrainName )
+{
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	SStorageElementStats statsXML, statsBZM, statsUltra;
+	Zero( statsXML );
+	Zero( statsBZM );
+	Zero( statsUltra );
+	pStorage->GetStreamStats( ( szTerrainName + ".xml" ).c_str(), &statsXML );
+	pStorage->GetStreamStats( ( szTerrainName + ".bzm" ).c_str(), &statsBZM );
+	pStorage->GetStreamStats( ( szTerrainName + GetUltraDDSImageExtention() ).c_str(), &statsUltra );
+	const bool bXML = statsXML.mtime > statsBZM.mtime;
+	const SStorageElementStats &statsMap = bXML ? statsXML : statsBZM;
+	if ( statsMap.mtime == 0 || !( statsMap.mtime > statsUltra.mtime ) )
+		return;
+	NHPTimer::STime timeStart = 0;
+	NHPTimer::GetTime( &timeStart );
+	bool bCreated = false;
+	try
+	{
+		CMapInfo mapInfo;
+		if ( bXML )
+		{
+			CPtr<IDataStream> pStream = pStorage->OpenStream( ( szTerrainName + ".xml" ).c_str(), STREAM_ACCESS_READ );
+			if ( !pStream )
+				return;
+			CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+			saver.AddTypedSuper( &mapInfo );
+		}
+		else
+		{
+			CPtr<IDataStream> pStream = pStorage->OpenStream( ( szTerrainName + ".bzm" ).c_str(), STREAM_ACCESS_READ );
+			if ( !pStream )
+				return;
+			CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::READ );
+			CSaverAccessor saver = pSaver;
+			saver.Add( 1, &mapInfo );
+		}
+		if ( !mapInfo.IsValid() )
+			return;
+		mapInfo.UnpackFrameIndices();
+		CRMImageCreateParameterList imageCreateParameterList;
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szTerrainName, CTPoint<int>( 0x200, 0x200 ), true, false, 0.0f, 0.0f, 0.0f, true ) );
+		bCreated = mapInfo.CreateMiniMapImage( imageCreateParameterList );
+	}
+	catch ( ... )
+	{
+		bCreated = false;
+	}
+	if ( getenv( "BK_UI_TRACE" ) )
+		fprintf( stderr, "BK_UI_TRACE: ultra minimap \"%s\" generated=%d in %.0f ms\n",
+			szTerrainName.c_str(), bCreated ? 1 : 0, NHPTimer::GetTimePassed( &timeStart ) * 1000.0 );
+}
+// Hands the minimap the picture the texture manager would pick at the current
+// quality, generating the Ultra one first if needed. Runs when a mission
+// starts and then from StepLocal whenever the quality differs from the one the
+// picture was chosen for - which is also the case right after a saved game is
+// loaded, since neither is saved.
+void CInterfaceMission::RefreshMiniMapImage()
+{
+	if ( !pUIScreen || szCurrMapName.empty() )
+		return;
+	IUIMiniMap *pUIMiniMap = checked_cast<IUIMiniMap*>( pUIScreen->GetChildByID( 20000 ) );
+	if ( !pUIMiniMap )
+		return;
+	const std::string szTerrainName = std::string( "maps\\" ) + szCurrMapName.substr( 0, szCurrMapName.rfind( '.' ) );
+	const std::string szQuality = GetTextureQualityOption();
+	szMiniMapQuality = szQuality;
+	std::vector<std::string> suffixes;
+	if ( szQuality == "Ultra" )
+	{
+		CreateUltraMiniMapImage( szTerrainName );
+		suffixes.push_back( GetUltraDDSImageExtention() );
+	}
+	else if ( szQuality == "Compressed" )
+		suffixes.push_back( GetDDSImageExtention( COMPRESSION_DXT ) );
+	else if ( szQuality == "Low" )
+		suffixes.push_back( GetDDSImageExtention( COMPRESSION_LOW_QUALITY ) );
+	suffixes.push_back( GetDDSImageExtention( COMPRESSION_HIGH_QUALITY ) );
+	suffixes.push_back( GetDDSImageExtention( COMPRESSION_DXT ) );
+	suffixes.push_back( GetDDSImageExtention( COMPRESSION_LOW_QUALITY ) );
+	std::string szImageName;
+	for ( int i = 0; i < suffixes.size() && szImageName.empty(); ++i )
+	{
+		if ( GetSingleton<IDataStorage>()->IsStreamExist( ( szTerrainName + suffixes[i] ).c_str() ) )
+			szImageName = szTerrainName + suffixes[i];
+	}
+	if ( szImageName == szMiniMapImageName )
+		return;
+	szMiniMapImageName = szImageName;
+	pUIMiniMap->SetBackgroundImage( szImageName.c_str() );
+	if ( getenv( "BK_UI_TRACE" ) )
+		fprintf( stderr, "BK_UI_TRACE: minimap image \"%s\" quality=%s\n", szImageName.c_str(), szQuality.c_str() );
+}
 static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor );
 static void FixupHudClusterLayout( IUIScreen *pScreen );
 // Where the player's troops stand, averaged. Only a fallback for maps that
@@ -1466,6 +1572,9 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			}
 
 			pUIMiniMap->SetBackgroundTexture( GetSingleton<ITextureManager>()->GetTexture( szTextureName.c_str() ) );
+			szMiniMapImageName.clear();
+			szMiniMapQuality.clear();
+			RefreshMiniMapImage();
 			std::string szMissionName = GetGlobalVar( "Mission.Current.Name" );
 			const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
 			if ( pMissionStats != 0 )
@@ -1538,6 +1647,8 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 		return false;
 
 	const bool bInterfaceActive = pScene->GetMissionScreen() == pScene->GetUIScreen();
+	if ( GetTextureQualityOption() != szMiniMapQuality )
+		RefreshMiniMapImage();
 	static bool bWasSpeedUpDown = false;
 	static bool bWasSpeedDownDown = false;
 	// Speed is also bound via the input config (game_speed_inc/dec on "=" / "-"

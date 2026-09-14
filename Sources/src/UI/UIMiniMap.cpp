@@ -137,6 +137,139 @@ void CUIMiniMap::CreateMiniMapTextures()
 			isInstantObjectsNeedUpdate = false;
 		}
 	}
+	CreateSharpBackground();
+}
+
+static IImage *LoadMiniMapImage( const std::string &szStreamName )
+{
+	if ( szStreamName.empty() )
+		return 0;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	IImageProcessor *pImageProcessor = GetSingleton<IImageProcessor>();
+	if ( !pStorage || !pImageProcessor )
+		return 0;
+	CPtr<IDataStream> pStream = pStorage->OpenStream( szStreamName.c_str(), STREAM_ACCESS_READ );
+	if ( !pStream )
+		return 0;
+	CPtr<IDDSImage> pDDSImage = pImageProcessor->LoadDDSImage( pStream );
+	return pDDSImage ? pImageProcessor->Decompress( pDDSImage ) : 0;
+}
+
+void CUIMiniMap::SetBackgroundImage( const char *pszStreamName )
+{
+	szBackgroundImageName = pszStreamName != 0 ? pszStreamName : "";
+	pBackgroundImage = LoadMiniMapImage( szBackgroundImageName );
+	CreateSharpBackground();
+}
+
+// Every screen pixel of the frame is sampled 6x6 times through the same
+// screen-to-map mapping hit testing uses, each sample taking the image texel
+// under it, so a pixel is the average of the image under it however large the
+// image is. Bilinear samples blur a second time on top of that average and
+// came out visibly soft. Samples off the map count as transparent, which also
+// smooths the diamond's edges. A light unsharp mask then gives back the
+// crispness the averaging takes out, inside the map only so its outline gets
+// no halo. On Stalingrad at 360x180 the original textured diamond aliases
+// (stair-stepped railways and river banks); this does not, and keeps about
+// 90% of its local contrast from the 512x512 Ultra image.
+void CUIMiniMap::CreateSharpBackground()
+{
+	pSharpBackground = 0;
+	if ( !IsInitialized() || !pBackgroundImage )
+		return;
+	const int nFrameWidth = static_cast<int>( wndRect.right - wndRect.left );
+	const int nFrameHeight = static_cast<int>( wndRect.bottom - wndRect.top );
+	const int nImageWidth = pBackgroundImage->GetSizeX();
+	const int nImageHeight = pBackgroundImage->GetSizeY();
+	if ( nFrameWidth <= 0 || nFrameHeight <= 0 || nImageWidth <= 0 || nImageHeight <= 0 )
+		return;
+	IGFX *_pGFX = GetSingleton<IGFX>();
+	if ( !_pGFX )
+		return;
+	CPtr<IGFXTexture> pTexture = _pGFX->CreateTexture( GetNextPow2( nFrameWidth ), GetNextPow2( nFrameHeight ), 1, GFXPF_ARGB8888, GFXD_STATIC );
+	if ( !pTexture )
+		return;
+	nSize = FittedMiniMapSize();
+
+	const int SUBSAMPLES = 6;
+	const float UNSHARP_AMOUNT = 0.5f;
+	const SColor *pImage = pBackgroundImage->GetLFB();
+	// Averaged colour and alpha per frame pixel, and how many samples hit the map.
+	std::vector<float> pixels( static_cast<size_t>( nFrameWidth ) * nFrameHeight * 4, 0.0f );
+	std::vector<int> coverage( static_cast<size_t>( nFrameWidth ) * nFrameHeight, 0 );
+	for ( int nY = 0; nY < nFrameHeight; ++nY )
+	{
+		for ( int nX = 0; nX < nFrameWidth; ++nX )
+		{
+			float *pPixel = &pixels[( static_cast<size_t>( nY ) * nFrameWidth + nX ) * 4];
+			int nInside = 0;
+			for ( int nSubY = 0; nSubY < SUBSAMPLES; ++nSubY )
+			{
+				for ( int nSubX = 0; nSubX < SUBSAMPLES; ++nSubX )
+				{
+					float fXPos = 0.0f, fYPos = 0.0f;
+					TextureMiniMapToPoint( nX + ( nSubX + 0.5f ) / SUBSAMPLES, nY + ( nSubY + 0.5f ) / SUBSAMPLES, &fXPos, &fYPos );
+					if ( !InMiniMap( fXPos, fYPos ) )
+						continue;
+					// The picture's top row is the map's far edge (y = terrainSize.y),
+					// as the old textured diamond had it.
+					const int nU = Clamp( static_cast<int>( fXPos / terrainSize.x * nImageWidth ), 0, nImageWidth - 1 );
+					const int nV = Clamp( static_cast<int>( ( 1.0f - fYPos / terrainSize.y ) * nImageHeight ), 0, nImageHeight - 1 );
+					const SColor &color = pImage[nV * nImageWidth + nU];
+					pPixel[0] += color.r;
+					pPixel[1] += color.g;
+					pPixel[2] += color.b;
+					pPixel[3] += color.a;
+					++nInside;
+				}
+			}
+			coverage[static_cast<size_t>( nY ) * nFrameWidth + nX] = nInside;
+			if ( nInside > 0 )
+			{
+				pPixel[0] /= nInside;
+				pPixel[1] /= nInside;
+				pPixel[2] /= nInside;
+				pPixel[3] /= SUBSAMPLES * SUBSAMPLES;
+			}
+		}
+	}
+	{
+		CTextureLock<SGFXColor8888> textureLock( pTexture, 0 );
+		if ( textureLock.GetSizeY() <= 0 )
+			return;
+		const int nFull = SUBSAMPLES * SUBSAMPLES;
+		for ( int nY = 0; nY < textureLock.GetSizeY(); ++nY )
+		{
+			SGFXColor8888 *pRow = textureLock[nY];
+			for ( int nX = 0; nX < textureLock.GetSizeX(); ++nX )
+			{
+				pRow[nX] = SGFXColor8888( 0 );
+				if ( nX >= nFrameWidth || nY >= nFrameHeight || coverage[static_cast<size_t>( nY ) * nFrameWidth + nX] == 0 )
+					continue;
+				const size_t nIndex = static_cast<size_t>( nY ) * nFrameWidth + nX;
+				const float *pPixel = &pixels[nIndex * 4];
+				float fChannels[3] = { pPixel[0], pPixel[1], pPixel[2] };
+				const bool bInterior = nX > 0 && nY > 0 && nX + 1 < nFrameWidth && nY + 1 < nFrameHeight &&
+					coverage[nIndex] == nFull && coverage[nIndex - 1] == nFull && coverage[nIndex + 1] == nFull &&
+					coverage[nIndex - nFrameWidth] == nFull && coverage[nIndex + nFrameWidth] == nFull;
+				if ( bInterior )
+				{
+					for ( int k = 0; k < 3; ++k )
+					{
+						const float fNeighbours = ( pixels[( nIndex - 1 ) * 4 + k] + pixels[( nIndex + 1 ) * 4 + k] +
+							pixels[( nIndex - nFrameWidth ) * 4 + k] + pixels[( nIndex + nFrameWidth ) * 4 + k] ) / 4.0f;
+						fChannels[k] = Clamp( pPixel[k] + UNSHARP_AMOUNT * ( pPixel[k] - fNeighbours ), 0.0f, 255.0f );
+					}
+				}
+				pRow[nX] = SGFXColor8888( static_cast<BYTE>( pPixel[3] + 0.5f ), static_cast<BYTE>( fChannels[0] + 0.5f ),
+					static_cast<BYTE>( fChannels[1] + 0.5f ), static_cast<BYTE>( fChannels[2] + 0.5f ) );
+			}
+		}
+	}
+	pSharpBackground = pTexture;
+	if ( getenv( "BK_UI_TRACE" ) )
+		fprintf( stderr, "BK_UI_TRACE: minimap resampled \"%s\" %dx%d onto %dx%d\n",
+			szBackgroundImageName.c_str(), nImageWidth, nImageHeight, nFrameWidth, nFrameHeight );
 }
 
 int CUIMiniMap::operator&( IDataTree &ss )
@@ -174,9 +307,11 @@ int CUIMiniMap::operator&( IStructureSaver &ss )
 	saver.Add( 17, &pWarFogValues );
 	saver.Add( 18, &nPlayersCount );
 	saver.Add( 19, &units );
+	saver.Add( 20, &szBackgroundImageName );
 
 	if ( saver.IsReading() )
 	{
+		pBackgroundImage = LoadMiniMapImage( szBackgroundImageName );
 		CreateMiniMapTextures();
 	}
 	return 0;
@@ -1030,10 +1165,42 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		CTPoint<float> miniMapPoint;
 
 		_pGFX->SetShadingEffect( 21 );
-		
+
+		// The resampled picture covers the whole frame, one texel per pixel,
+		// with its own transparent corners around the diamond.
+		if ( pSharpBackground )
+		{
+			const float fWidth = static_cast<float>( static_cast<int>( wndRect.right - wndRect.left ) );
+			const float fHeight = static_cast<float>( static_cast<int>( wndRect.bottom - wndRect.top ) );
+			// Half a texel in, the D3D9 pixel-centre convention the instant-objects
+			// layer below follows too; without it every pixel read the average of
+			// four texels and the picture came out soft.
+			const float fU0 = 0.5f / pSharpBackground->GetSizeX( 0 );
+			const float fV0 = 0.5f / pSharpBackground->GetSizeY( 0 );
+			const float fU = fU0 + fWidth / pSharpBackground->GetSizeX( 0 );
+			const float fV = fV0 + fHeight / pSharpBackground->GetSizeY( 0 );
+			CTempBufferLock<SGFXLVertex> vertices = _pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
+			CTempBufferLock<WORD> indices = _pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
+			// Same winding as the diamond below: top-left, bottom-left, bottom-right, top-right.
+			vertices[0].Setup( wndRect.left, wndRect.top, zCoord, 1.0f, 0xFFffFFff, 0xFF000000, fU0, fV0 );
+			vertices[1].Setup( wndRect.left, wndRect.top + fHeight, zCoord, 1.0f, 0xFFffFFff, 0xFF000000, fU0, fV );
+			vertices[2].Setup( wndRect.left + fWidth, wndRect.top + fHeight, zCoord, 1.0f, 0xFFffFFff, 0xFF000000, fU, fV );
+			vertices[3].Setup( wndRect.left + fWidth, wndRect.top, zCoord, 1.0f, 0xFFffFFff, 0xFF000000, fU, fV0 );
+			indices[0] = 0;
+			indices[1] = 1;
+			indices[2] = 2;
+			indices[3] = 0;
+			indices[4] = 2;
+			indices[5] = 3;
+			_pGFX->SetTexture( 0, pSharpBackground );
+			_pGFX->DrawTemp();
+		}
+
 		IGFXTexture *pTextures[3] = { pBackgroundTexture, pWarFogTexture, pInstantObjectsTexture };
 		for ( int textureIndex = 0; textureIndex < 3; ++textureIndex )
 		{
+			if ( textureIndex == 0 && pSharpBackground )
+				continue;
 			CTempBufferLock<SGFXLVertex> vertices = _pGFX->GetTempVertices( vPoints.size(), SGFXLVertex::format, GFXPT_TRIANGLELIST );
 			CTempBufferLock<WORD> indices = _pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
 

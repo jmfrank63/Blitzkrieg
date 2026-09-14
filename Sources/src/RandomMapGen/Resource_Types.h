@@ -267,6 +267,7 @@ extern bool SaveImageToDDSImageResource( interface IImage *pImage, const std::st
 																				 EGFXPixelFormat nCompressedFormat = GFXPF_DXT1,
 																				 EGFXPixelFormat nLowFormat = GFXPF_ARGB0565,
 																				 EGFXPixelFormat nHighFormat = GFXPF_ARGB8888 );
+extern bool SaveImageToUltraDDSImageResource( interface IImage *pImage, const std::string &rszDDSImageResourceFileName );
 
 extern interface IImage* LoadImageFromTGAImageResource( const std::string &rszTGAImageResourceFileName );
 extern interface IImage* LoadImageFromDDSImageResource( const std::string &rszDDSImageResourceFileName );
