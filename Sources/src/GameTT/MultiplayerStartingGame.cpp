@@ -275,10 +275,8 @@ void CInterfaceMPStartingGame::ConfigureStagingRoom( SUIStagingRoomConfigure *pI
 	if ( !pInfo->szMapLocation.empty() )
 	{
 		const std::string szFullPathName = "maps\\" + pInfo->szMapLocation;
-		CMinimapCreation::Create1Minimap( szFullPathName, szFullPathName );
-	
 		IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( 100 ) );
-		IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture(  CUIConsts::CreateTexturePathFromMapPath( pInfo->szMapLocation.c_str() ).c_str() );
+		CPtr<IGFXTexture> pTexture = CMinimapCreation::GetMapImageTexture( szFullPathName, CUIConsts::CreateTexturePathFromMapPath( pInfo->szMapLocation.c_str() ) );
 		NI_ASSERT_T( pTexture != 0, "Mission map texture is invalid" );
 		pMap->SetMapTexture( pTexture );
 		pMap->Init();
