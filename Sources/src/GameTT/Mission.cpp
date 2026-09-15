@@ -183,7 +183,6 @@ void CInterfaceAboutMission::StartInterface()
 	}
 
 	const std::string szFullMapName = "maps\\" + pStats->szFinalMap;
-	CMinimapCreation::Create1Minimap( szFullMapName, pStats->szMapImage );
 
 
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
@@ -193,7 +192,7 @@ void CInterfaceAboutMission::StartInterface()
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	
 	IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( 100 ) );
-	IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture( pStats->szMapImage.c_str() );
+	CPtr<IGFXTexture> pTexture = CMinimapCreation::GetMapImageTexture( szFullMapName, pStats->szMapImage );
 	NI_ASSERT_T( pTexture != 0, "Mission map texture is invalid" );
 
 	pMap->SetMapTexture( pTexture );

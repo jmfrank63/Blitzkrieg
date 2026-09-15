@@ -198,8 +198,6 @@ void CInterfaceMPCreateGame::PrepareMapsList()
 			std::wstring wszMapSize = NStr::ToUnicode( NStr::Format( "%d", pInfo->mapInfo.size.x ) );
 			pMapSize->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( wszMapSize.c_str() ) ) );
 
-			const std::string szMapName = "maps\\" + pInfo->szPath;
-			CMinimapCreation::Create1Minimap( szMapName, szMapName );
 		}
 		pProgress->Step();
 	}
@@ -230,11 +228,11 @@ void CInterfaceMPCreateGame::OnSelectionChanged()
 
 	if ( pInfo )
 	{
+		// Generated on selection only: the list used to regenerate every map's
+		// pictures as it filled, which is what wrote them into Data.
 		const std::string szMapName = "maps\\" + pInfo->szPath;
-		CMinimapCreation::Create1Minimap( szMapName, szMapName );
-		
 		IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( E_MINIMAP ) );
-		IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture(  CUIConsts::CreateTexturePathFromMapPath( pInfo->szPath.c_str() ).c_str() );
+		CPtr<IGFXTexture> pTexture = CMinimapCreation::GetMapImageTexture( szMapName, CUIConsts::CreateTexturePathFromMapPath( pInfo->szPath.c_str() ) );
 		if ( pTexture )
 		{
 			NI_ASSERT_T( pTexture != 0, "Mission map texture is invalid" );
