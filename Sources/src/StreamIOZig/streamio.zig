@@ -1204,20 +1204,51 @@ pub export fn bk_storage_create_stream(handle: ?*anyopaque, name: [*:0]const u8,
     return openStream(storage, stream_name, @truncate(access), true);
 }
 
+// Follows the same order as bk_storage_open - overlays, last added first, then
+// this storage's loose files, then its archives - so a file's reported date is
+// the date of the file that opening the name would actually read. Reading only
+// the loose base file reported a mod's map as the base game's, and a map inside
+// a .pak as missing; both are how the engine decides whether a map's minimap
+// pictures are out of date.
+fn storageStats(storage: *const Storage, name: []const u8, name_ptr: [*:0]const u8, stats: *StorageStats) bool {
+    var index = storage.overlays.items.len;
+    while (index > 0) {
+        index -= 1;
+        if (storageStats(storage.overlays.items[index].storage, name, name_ptr, stats)) return true;
+    }
+    if (statFile(storage, name)) |metadata| {
+        if (metadata.size <= std.math.maxInt(c_int)) {
+            stats.* = .{
+                .name = name_ptr,
+                .element_type = 2,
+                .size = @intCast(metadata.size),
+                .creation_time = 0,
+                .modification_time = dosTimestamp(metadata.mtime),
+                .access_time = if (metadata.atime) |atime| dosTimestamp(atime) else 0,
+            };
+            return true;
+        }
+    }
+    if (archiveEntry(storage, name)) |match| {
+        if (match.entry.uncompressed_size <= std.math.maxInt(c_int)) {
+            stats.* = .{
+                .name = name_ptr,
+                .element_type = 2,
+                .size = @intCast(match.entry.uncompressed_size),
+                .creation_time = 0,
+                .modification_time = match.entry.dos_modified,
+                .access_time = 0,
+            };
+            return true;
+        }
+    }
+    return false;
+}
+
 pub export fn bk_storage_stats(handle: ?*anyopaque, name: [*:0]const u8, output: ?*StorageStats) callconv(.c) bool {
     const storage = fromHandle(Storage, handle) orelse return false;
     const stats = output orelse return false;
-    const metadata = statFile(storage, std.mem.span(name)) orelse return false;
-    if (metadata.size > std.math.maxInt(c_int)) return false;
-    stats.* = .{
-        .name = name,
-        .element_type = 2,
-        .size = @intCast(metadata.size),
-        .creation_time = 0,
-        .modification_time = dosTimestamp(metadata.mtime),
-        .access_time = if (metadata.atime) |atime| dosTimestamp(atime) else 0,
-    };
-    return true;
+    return storageStats(storage, std.mem.span(name), name, stats);
 }
 
 pub export fn bk_stream_stats(handle: ?*anyopaque, output: ?*StorageStats) callconv(.c) bool {
@@ -2431,6 +2462,11 @@ test "storage overlay exposes child archive entries" {
     try std.testing.expect(bk_storage_exists(base_handle, entry_name.ptr));
     const stream_handle = bk_storage_open(base_handle, entry_name.ptr, 1) orelse return error.TestUnexpectedResult;
     bk_stream_destroy(stream_handle);
+    // An entry only an overlay's archive holds still has to report its date and
+    // size: stats follow the same order as open.
+    var stats: StorageStats = undefined;
+    try std.testing.expect(bk_storage_stats(base_handle, entry_name.ptr, &stats));
+    try std.testing.expect(stats.size > 0 and stats.modification_time != 0);
     try std.testing.expect(bk_storage_remove(base_handle, "elk") == child_handle);
 }
 

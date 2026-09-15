@@ -74,3 +74,40 @@ test "a written stream lands in the mixed-case directory its lowercase name mean
     try std.testing.expectEqualStrings("new", try tmp.dir.readFile(std.testing.io, "Maps/USSR/Stalingrad/stalingrad_u.dds", &buffer));
     try std.testing.expectEqualStrings("new", try tmp.dir.readFile(std.testing.io, "Maps/USSR/Stalingrad/stalingrad_h.dds", &buffer));
 }
+
+test "a file's date comes from the overlay that would be opened, not the base" {
+    if (@import("builtin").os.tag == .windows) return;
+    // A mod is an overlay over the game's data. The engine asks for a map's
+    // date to decide whether its minimap pictures are out of date; reading the
+    // base game's file there reported a mod's newer map as the base one's.
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(std.testing.io, "base/maps");
+    try tmp.dir.createDirPath(std.testing.io, "mod/maps");
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "base/maps/town.bzm", .data = "base" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "mod/maps/town.bzm", .data = "the mod's own map" });
+
+    const base_name = try std.fmt.allocPrintSentinel(std.testing.allocator, ".zig-cache/tmp/{s}/base/", .{tmp.sub_path}, 0);
+    defer std.testing.allocator.free(base_name);
+    const mod_name = try std.fmt.allocPrintSentinel(std.testing.allocator, ".zig-cache/tmp/{s}/mod/", .{tmp.sub_path}, 0);
+    defer std.testing.allocator.free(mod_name);
+    const base = streamio.bk_storage_create(base_name.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    defer streamio.bk_storage_destroy(base);
+    const mod = streamio.bk_storage_create(mod_name.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    defer streamio.bk_storage_destroy(mod);
+
+    var stats: extern struct {
+        name: ?[*:0]const u8,
+        element_type: c_int,
+        size: c_int,
+        creation_time: u32,
+        modification_time: u32,
+        access_time: u32,
+    } = undefined;
+    try std.testing.expect(streamio.bk_storage_stats(base, "maps\\town.bzm", @ptrCast(&stats)));
+    try std.testing.expectEqual(@as(c_int, 4), stats.size);
+    try std.testing.expect(streamio.bk_storage_add(base, mod, "MOD"));
+    try std.testing.expect(streamio.bk_storage_stats(base, "maps\\town.bzm", @ptrCast(&stats)));
+    try std.testing.expectEqual(@as(c_int, 17), stats.size);
+    try std.testing.expect(streamio.bk_storage_remove(base, "MOD") == mod);
+}
