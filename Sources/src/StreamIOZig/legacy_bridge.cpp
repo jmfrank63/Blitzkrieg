@@ -61,6 +61,8 @@ extern "C" int bk_global_key_at(int index, char *buffer, int capacity);
 extern "C" void bk_global_clear();
 extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
+extern "C" unsigned int bk_random_get_state();
+extern "C" void bk_random_set_state(unsigned int state);
 static char FoldAscii(char value) { return value >= 'A' && value <= 'Z' ? static_cast<char>(value + ('a' - 'A')) : value; }
 static bool EqualAsciiIgnoreCase(const char *left, const char *right) {
     if (!left || !right) return left == right;
@@ -627,7 +629,7 @@ public:
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return true; }
     void BK_STDCALL Init() override {
-        rnd_.cnt = 0;
+        rnd_.cnt = bk_random_get();  // the generator state a seed carries, see GeneratorState
         for (int i = 0; i != RAND_SIZE; ++i) { rnd_.rsl[i] = bk_random_get(); rnd_.mem[i] = bk_random_get(); }
         rnd_.a = bk_random_get(); rnd_.b = bk_random_get(); rnd_.c = bk_random_get();
     }
@@ -635,6 +637,11 @@ public:
     int BK_STDCALL SerializeTree(void *) override { return 0; }
     void BK_STDCALL Store(IDataStream *stream) override { if (stream) stream->Write(&rnd_, sizeof(rnd_)); }
     void BK_STDCALL Restore(IDataStream *stream) override { if (stream) stream->Read(&rnd_, sizeof(rnd_)); }
+    // The replacement generator (bk_random_get) keeps one 32-bit state rather
+    // than ISAAC's; a seed carries it in the first word of its blob, so the
+    // blob's size and the files and saves holding it are unchanged.
+    unsigned int GeneratorState() const { return rnd_.cnt; }
+    void SetGeneratorState(unsigned int state) { std::memset(&rnd_, 0, sizeof(rnd_)); rnd_.cnt = state; }
     // Savegame serialization, mirroring CRandomGenSeed::operator&
     // (StreamIO/RandomGenInternal.cpp) — the whole ISAAC state round-trips.
     int BK_STDCALL operator&(IStructureSaver &ss) override {
@@ -1634,8 +1641,20 @@ public:
     void BK_STDCALL Release(int, int) override {}
     bool BK_STDCALL IsValid() const override { return true; }
     void BK_STDCALL Init() override { bk_random_init(); }
-    void BK_STDCALL SetSeed(void *) override {}
-    void *BK_STDCALL GetSeed() override { return 0; }
+    // Were no-ops, and GetSeed returned null: generating a template mission's
+    // random map dereferenced it and crashed, and a save made on one could not
+    // regenerate the same map. Seeds come only from STREAMIO_RANDOM_GEN_SEED,
+    // which this file registers as RandomGenSeed.
+    void BK_STDCALL SetSeed(void *seed) override
+    {
+        if (seed) bk_random_set_state(static_cast<RandomGenSeed *>(static_cast<IRandomGenSeed *>(seed))->GeneratorState());
+    }
+    void *BK_STDCALL GetSeed() override
+    {
+        RandomGenSeed *seed = new RandomGenSeed();
+        seed->SetGeneratorState(bk_random_get_state());
+        return static_cast<IRandomGenSeed *>(seed);
+    }
     unsigned int BK_STDCALL Get() override { return bk_random_get(); }
     void BK_STDCALL Store(void *) override {}
     void BK_STDCALL Restore(void *) override {}

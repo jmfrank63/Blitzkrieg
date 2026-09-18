@@ -5,6 +5,14 @@
 
 #include <filesystem>
 
+// A resource name is relative to the data storage and lowercased there; a
+// full path - a drive-letter one, or the POSIX absolute one the generated-data
+// directory has on macOS and Linux - is written where it says, as given.
+static bool IsFullResourcePath( const std::string &szName )
+{
+	return !szName.empty() && ( szName[0] == '/' || szName[0] == '\\' || ( szName.size() > 1 && szName[1] == ':' ) );
+}
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -17,9 +25,9 @@ bool SaveImageToTGAImageResource( IImage *pImage, const std::string &rszTGAImage
 	{
 		CPtr<IImageProcessor> pImageProcessor = GetSingleton<IImageProcessor>();
 		std::string szTGAImageResourceFileName = rszTGAImageResourceFileName;
-		NStr::ToLower( szTGAImageResourceFileName );
-		if ( ( szTGAImageResourceFileName.size() < 2 ) || szTGAImageResourceFileName[1] != ':' )
+		if ( !IsFullResourcePath( szTGAImageResourceFileName ) )
 		{
+			NStr::ToLower( szTGAImageResourceFileName );
 			CPtr<IDataStorage> pDataStorage = GetSingleton<IDataStorage>();
 			szTGAImageResourceFileName = pDataStorage->GetName() + szTGAImageResourceFileName;
 		}
@@ -47,9 +55,9 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 	{
 		CPtr<IImageProcessor> pImageProcessor = GetSingleton<IImageProcessor>();
 		std::string szDDSImageResourceFileName = rszDDSImageResourceFileName;
-		NStr::ToLower( szDDSImageResourceFileName );
-		if ( ( szDDSImageResourceFileName.size() < 2 ) || szDDSImageResourceFileName[1] != ':' )
+		if ( !IsFullResourcePath( szDDSImageResourceFileName ) )
 		{
+			NStr::ToLower( szDDSImageResourceFileName );
 			CPtr<IDataStorage> pDataStorage = GetSingleton<IDataStorage>();
 			szDDSImageResourceFileName = pDataStorage->GetName() + szDDSImageResourceFileName;
 		}

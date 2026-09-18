@@ -7,6 +7,8 @@
 #include "AddUnitToMission.h"
 #include "CommonId.h"
 #include "MinimapCreation.h"
+#include "../StreamIO/GeneratedData.h"
+#include "../Main/ScenarioTracker.h"
 #include "UIConsts.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
@@ -68,7 +70,12 @@ void CInterfaceAboutMission::StartInterface()
 	}
 	nLevel = pChapterStats->missions[nMissionIndex].nMissionDifficulty;
 
-	if ( pStats->IsTemplate() && ( GetGlobalVar( szVarName.c_str(), 0 ) != 1 ) )
+	// Also when the flag says the map was generated but this profile's generated
+	// data does not hold it (another profile's campaign, a cleared cache): the
+	// briefing would otherwise go on to a map that is not there.
+	const std::string szMOD = GetSingleton<IUserProfile>()->GetMOD();
+	const bool bGeneratedMapMissing = pStats->IsTemplate() && !NGeneratedData::Exists( szMOD, "maps\\" + pStats->szFinalMap + ".bzm" );
+	if ( pStats->IsTemplate() && ( GetGlobalVar( szVarName.c_str(), 0 ) != 1 || bGeneratedMapMissing ) )
 	{
 		const std::string szMissionName = pStats->szParentName;
 		SetGlobalVar( ("Mission." + szMissionName + ".Random").c_str(), 1 );
@@ -158,7 +165,8 @@ void CInterfaceAboutMission::StartInterface()
 		}
 
 		SRMUsedTemplateInfo usedTemplateInfo;
-		bool bRes = CMapInfo::CreateRandomMap( const_cast<SMissionStats*>( pStats ), szChapterUnitsTableFileName, nLevel, nFoundGraphIndex, nFoundAngle, true, true, &usedTemplateInfo, pProgress );
+		const std::string szGeneratedRoot = NGeneratedData::Root( szMOD );
+		bool bRes = CMapInfo::CreateRandomMap( const_cast<SMissionStats*>( pStats ), szChapterUnitsTableFileName, nLevel, nFoundGraphIndex, nFoundAngle, true, true, &usedTemplateInfo, pProgress, szGeneratedRoot );
 		GetSingleton<IUserProfile>()->AddUsedTemplate( usedTemplateInfo.szTemplateName, 1, usedTemplateInfo.szGraphName, ( bOnlyGraph ? 2 : 1 ), usedTemplateInfo.nGraphAngle, ( bOnlyAngle ? 2 : 1 ) );
 
 		pProgress->Stop();
@@ -171,9 +179,11 @@ void CInterfaceAboutMission::StartInterface()
 		SetGlobalVar( "Chapter.Units.Table.GraphName", usedTemplateInfo.szGraphName.c_str() );
 		SetGlobalVar( "Chapter.Units.Table.Angle", usedTemplateInfo.nGraphAngle );
 
-		IDataStorage *pStorage = GetSingleton<IDataStorage>();
-		const std::string szFullMissionName = pStorage->GetName() + szMissionName + ".xml";
+		const std::string szFullMissionName = szGeneratedRoot + szMissionName + ".xml";
+		NGeneratedData::CreateParentDirectories( szFullMissionName );
 		CPtr<IDataStream> pStream = CreateFileStream( szFullMissionName.c_str(), STREAM_ACCESS_WRITE );
+		if ( getenv( "BK_UI_TRACE" ) )
+			fprintf( stderr, "BK_UI_TRACE: random mission \"%s\" generated=%d into \"%s\"\n", szMissionName.c_str(), bRes ? 1 : 0, szGeneratedRoot.c_str() );
 		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
 		saver.Add( "RPG", const_cast<SMissionStats*>(pStats) );
 	}

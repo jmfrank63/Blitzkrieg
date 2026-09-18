@@ -8,6 +8,7 @@
 #include "../UI/UIMessages.h"
 #include "OptionEntryWrapper.h"
 #include "../StreamIO/ProfilePaths.h"
+#include "../StreamIO/GeneratedData.h"
 #include <fstream>
 #include <filesystem>
 static const NInput::SRegisterCommandEntry commands[] = 
@@ -178,6 +179,7 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			if ( bActive )
 			{
 				SetGlobalVar( "Profile.Name", szTarget.c_str() );
+				NGeneratedData::Mount( GetSingleton<IUserProfile>()->GetMOD() );
 				std::ofstream active( "profiles/active.cfg", std::ios::trunc );
 				if ( active )
 					active << szTarget;
@@ -224,6 +226,8 @@ void CInterfacePlayerProfile::SwitchToProfile( const std::string &szNewProfile, 
 		// its own player name intact.
 		pML->SerializeConfig( false, 0xffffffff );
 		SetGlobalVar( "Profile.Name", szNewProfile.c_str() );
+		// Random missions this profile generated, not the previous profile's.
+		NGeneratedData::Mount( GetSingleton<IUserProfile>()->GetMOD() );
 		std::error_code pathError;
 		std::filesystem::create_directories( "profiles/" + szNewProfile + "/saves", pathError );
 		std::filesystem::create_directories( "profiles/" + szNewProfile + "/screenshots", pathError );
