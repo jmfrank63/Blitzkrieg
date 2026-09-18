@@ -1148,6 +1148,15 @@ pub export fn bk_random_get() callconv(.c) c_uint {
     random_state = random_state *% 1664525 +% 1013904223;
     return random_state;
 }
+// The generator's whole state, for IRandomGen::GetSeed/SetSeed: a template
+// mission's random map is generated from a seed stored beside it and in every
+// save made on it, and loading such a save regenerates the map from that seed.
+pub export fn bk_random_get_state() callconv(.c) c_uint {
+    return random_state;
+}
+pub export fn bk_random_set_state(state: c_uint) callconv(.c) void {
+    random_state = state;
+}
 
 pub export fn bk_storage_name(handle: ?*anyopaque) callconv(.c) ?[*:0]const u8 {
     const storage = fromHandle(Storage, handle) orelse return null;
