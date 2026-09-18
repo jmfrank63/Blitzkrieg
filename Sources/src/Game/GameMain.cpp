@@ -25,6 +25,7 @@
 
 #include "../StreamIO/OptionSystem.h"
 #include "../StreamIO/ProfilePaths.h"
+#include "../StreamIO/GeneratedData.h"
 #include "../StreamIO/RandomGen.h"
 #include <fstream>
 #include <filesystem>
@@ -927,6 +928,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 			GetSingleton<ICursor>()->Acquire( true );
 		{
 			const std::string szMOD = !cmdp.szModName.empty() ? cmdp.szModName : GetSingleton<IUserProfile>()->GetMOD();
+			// The profile's generated data (random missions); switching the mod
+			// below mounts it again for that mod.
+			NGeneratedData::Mount( std::string() );
 			if ( !szMOD.empty() ) 
 				pMainLoop->Command( MAIN_COMMAND_CHANGE_MOD, szMOD.c_str() );
 		}
@@ -1205,6 +1209,30 @@ int RunGame( const BkGameLaunchInfo &launch )
 					else if ( szAction == "cancel" ) pInput->AddMessage( SGameMessage( 10001 ) );	// IMC_CANCEL
 					else if ( szAction.compare( 0, 4, "msg=" ) == 0 ) pInput->AddMessage( SGameMessage( (int)strtol( szAction.c_str() + 4, 0, 0 ) ) );
 					else if ( szAction.compare( 0, 4, "cmd=" ) == 0 ) pMainLoop->Command( (int)strtol( szAction.c_str() + 4, 0, 0 ), "" );
+					else if ( szAction.compare( 0, 9, "campaign=" ) == 0 )
+					{
+						// campaign=<index>=<campaign stats name>: starts a single-player
+						// campaign as the main menu's campaign buttons do (UIState.cpp),
+						// minus the intro movie, so a chapter and its missions can be
+						// driven with the player's campaign in place.
+						const std::string szCampaign = szAction.substr( 9 );
+						const size_t nEq = szCampaign.find( '=' );
+						if ( nEq != std::string::npos )
+						{
+							SetGlobalVar( "Campaign.Current", atoi( szCampaign.substr( 0, nEq ).c_str() ) );
+							SetGlobalVar( "Campaign.Current.Name", szCampaign.substr( nEq + 1 ).c_str() );
+							GetSingleton<IScenarioTracker>()->StartCampaign( szCampaign.substr( nEq + 1 ).c_str(), CAMPAIGN_TYPE_SINGLE );
+						}
+					}
+					else if ( szAction.compare( 0, 5, "cmdc=" ) == 0 )
+					{
+						// cmdc=<id>=<configuration>: a main-loop command that needs its
+						// configuration string, e.g. cmdc=<MAIN_COMMAND_SAVE>=Name.sav;0.
+						const std::string szCommand = szAction.substr( 5 );
+						const size_t nEq = szCommand.find( '=' );
+						if ( nEq != std::string::npos )
+							pMainLoop->Command( (int)strtol( szCommand.substr( 0, nEq ).c_str(), 0, 0 ), szCommand.substr( nEq + 1 ).c_str() );
+					}
 					else if ( szAction.compare( 0, 6, "probe=" ) == 0 )
 					{
 						// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence): asks the AI

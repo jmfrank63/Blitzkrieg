@@ -317,7 +317,7 @@ public:
 	static bool FillObjectSet( SLoadMapInfo *pLoadMapInfo, const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const CRMObjectSet &rObjectSet, CArray2D<BYTE> *pTileMap = 0 );
 	static bool FillProfilePattern( STerrainInfo *pTerrainInfo, const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const struct SVAGradient &rGradient, const CTPoint<int> &rPatternSize, float fPositiveRatio, std::unordered_map<LPARAM, float> *pDistances = 0 );
 
-	static bool CreateRandomMap( struct SMissionStats *pMissionStats, const std::string &rszContextFileName, int nLevel, int nGraph = ( -1 ), int nAngle = ( -1 ), bool bSaveAsBZM = true, bool bSaveAsDDS = true, SRMUsedTemplateInfo *pRMUsedTemplateInfo = 0, interface IProgressHook *pProgressHook = 0 );
+	static bool CreateRandomMap( struct SMissionStats *pMissionStats, const std::string &rszContextFileName, int nLevel, int nGraph = ( -1 ), int nAngle = ( -1 ), bool bSaveAsBZM = true, bool bSaveAsDDS = true, SRMUsedTemplateInfo *pRMUsedTemplateInfo = 0, interface IProgressHook *pProgressHook = 0, const std::string &rszOutputRoot = std::string() );
 
 	static bool GetScenarioObjects( const std::string &rszMapInfoFileName, std::vector<SMapObjectInfo> *pMapObjects );
 	

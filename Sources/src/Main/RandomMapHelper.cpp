@@ -8,6 +8,8 @@
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
 #include "../Misc/FileUtils.h"
+#include "../StreamIO/GeneratedData.h"
+#include "ScenarioTracker.h"
 void STDCALL StoreRandomMap( const std::string &szMissionName, NSaveLoad::SRandomHeader *pRndHdr, CPtr<IRandomGenSeed> *ppSeed )
 {
 	const SMissionStats *pMission = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
@@ -31,8 +33,14 @@ void STDCALL RestoreRandomMap( const std::string &szMissionName, const NSaveLoad
 	if ( const SMissionStats *pMission = NGDB::GetGameStats<SMissionStats>(szMissionName.c_str(), IObjectsDB::MISSION) ) 
 	{
 		SStorageElementStats stats;
-		GetSingleton<IDataStorage>()->GetStreamStats( ("maps\\" + pMission->szFinalMap + ".seed").c_str(), &stats );
-		if ( stats.mtime != rndhdr.dwRandomDateTime ) 
+		Zero( stats );
+		const bool bSeedFound = GetSingleton<IDataStorage>()->GetStreamStats( ("maps\\" + pMission->szFinalMap + ".seed").c_str(), &stats );
+		if ( getenv( "BK_UI_TRACE" ) )
+			fprintf( stderr, "BK_UI_TRACE: restore random map \"%s\" seed found=%d time=%08x saved=%08x regenerate=%d\n", pMission->szFinalMap.c_str(),
+				bSeedFound ? 1 : 0, (unsigned)DWORD( stats.mtime ), (unsigned)rndhdr.dwRandomDateTime, ( !bSeedFound || stats.mtime != rndhdr.dwRandomDateTime ) ? 1 : 0 );
+		// A missing seed file means a missing map - another machine, a cleared
+		// cache - and has to regenerate however the times compare.
+		if ( !bSeedFound || stats.mtime != rndhdr.dwRandomDateTime )
 		{
 			GetSingleton<IRandomGen>()->SetSeed( pSeed );
 			CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
@@ -62,16 +70,18 @@ void STDCALL RestoreRandomMap( const std::string &szMissionName, const NSaveLoad
 				nFoundGraphIndex = -1;
 				nFoundAngle = -1;
 			}
-			const bool bRes = CMapInfo::CreateRandomMap( const_cast<SMissionStats*>( pMission ), rndhdr.szChapterUnitsTableFileName, rndhdr.nLevel, nFoundGraphIndex, nFoundAngle, true, true, 0, pProgress );
+			// Into the profile's generated data, as the briefing generates it.
+			const std::string szGeneratedRoot = NGeneratedData::Root( GetSingleton<IUserProfile>()->GetMOD() );
+			const bool bRes = CMapInfo::CreateRandomMap( const_cast<SMissionStats*>( pMission ), rndhdr.szChapterUnitsTableFileName, rndhdr.nLevel, nFoundGraphIndex, nFoundAngle, true, true, 0, pProgress, szGeneratedRoot );
 			pProgress->Stop();
 			NI_ASSERT_T( bRes != false, NStr::Format("Can not generate random map \"%s\"", szMissionName.c_str()) );
 
-			IDataStorage *pStorage = GetSingleton<IDataStorage>();
-			const std::string szFullMissionName = pStorage->GetName() + szMissionName + ".xml";
+			const std::string szFullMissionName = szGeneratedRoot + szMissionName + ".xml";
+			NGeneratedData::CreateParentDirectories( szFullMissionName );
 			CPtr<IDataStream> pStream = CreateFileStream( szFullMissionName.c_str(), STREAM_ACCESS_WRITE );
 			CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
 			saver.Add( "RPG", const_cast<SMissionStats*>(pMission) );
-			const std::string szFullFileName = GetSingleton<IDataStorage>()->GetName() + std::string("maps\\") + pMission->szFinalMap + ".seed";
+			const std::string szFullFileName = szGeneratedRoot + std::string("maps\\") + pMission->szFinalMap + ".seed";
 			{
 				SWin32Time w32time = rndhdr.dwRandomDateTime;
 				FILETIME localfiletime, filetime;
@@ -83,6 +93,8 @@ void STDCALL RestoreRandomMap( const std::string &szMissionName, const NSaveLoad
 	}
 	else
 	{
+		if ( getenv( "BK_UI_TRACE" ) )
+			fprintf( stderr, "BK_UI_TRACE: restore random map: no mission stats for \"%s\"\n", szMissionName.c_str() );
 		NI_ASSERT_T( false, NStr::Format("Can't find mission stats (\"%s\") for random mission to re-create map", szMissionName.c_str()) );
 	}
 }

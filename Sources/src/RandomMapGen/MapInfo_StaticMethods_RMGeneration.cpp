@@ -1,6 +1,8 @@
 
 #include "StdAfx.h"
 
+#include <filesystem>
+
 #include "MapInfo_Types.h"
 #include "RMG_Types.h"
 #include "LA_Types.h"
@@ -787,7 +789,7 @@ bool CMapInfo::FillProfilePattern( STerrainInfo *pTerrainInfo,
 	return true;
 }
 
-bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string &rszContextFileName, int nLevel,  int nGraph, int nAngle, bool bSaveAsBZM, bool bSaveAsDDS, SRMUsedTemplateInfo *pRMUsedTemplateInfo, IProgressHook *pProgressHook )
+bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string &rszContextFileName, int nLevel,  int nGraph, int nAngle, bool bSaveAsBZM, bool bSaveAsDDS, SRMUsedTemplateInfo *pRMUsedTemplateInfo, IProgressHook *pProgressHook, const std::string &rszOutputRoot )
 {
 	STraceTimeKeeper timeKeeper;
 	
@@ -864,10 +866,14 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 	}
 
+	// Everything this writes lands under rszOutputRoot when one is given - the
+	// game's generated-data directory (StreamIO/GeneratedData.h) - and under
+	// the data storage's own directory otherwise, as the tools always had it.
+	const std::string szOutputRoot = rszOutputRoot.empty() ? std::string( pDataStorage->GetName() ) : rszOutputRoot;
 	std::string szRandomMapName;
 	if ( ( pMissionStats->szFinalMap.size() < 2 ) || ( pMissionStats->szFinalMap[1] != ':' ) )
 	{
-		szRandomMapName = pDataStorage->GetName() + std::string( "maps\\" ) + pMissionStats->szFinalMap;
+		szRandomMapName = szOutputRoot + std::string( "maps\\" ) + pMissionStats->szFinalMap;
 	}
 	else
 	{
@@ -878,6 +884,19 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								NStr::Format( "CreateRandomMap,  invalid nDefaultFieldIndex %d [%d...%d]", randomMapTemplate.nDefaultFieldIndex, 0, randomMapTemplate.fields.size() ), 
 								return false );
 
+	{
+		// The directories a generated map goes into need not exist yet.
+		std::string szHostDirectory = szRandomMapName.substr( 0, szRandomMapName.find_last_of( "\\/" ) + 1 );
+#if !defined(_WIN32)
+		for ( int i = 0; i < szHostDirectory.size(); ++i )
+		{
+			if ( szHostDirectory[i] == '\\' )
+				szHostDirectory[i] = '/';
+		}
+#endif
+		std::error_code directoryError;
+		std::filesystem::create_directories( szHostDirectory, directoryError );
+	}
 	{
 		CPtr<IRandomGenSeed> pRandomGenSeed = pRandomGen->GetSeed();
 		NI_ASSERT_TF( pRandomGenSeed != 0,
@@ -1802,7 +1821,21 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 	timeKeeper.Trace( "CreateRandomMap. Place objectives." );
 
 	CRMImageCreateParameterList imageCreateParameterList;
-	imageCreateParameterList.push_back( SRMImageCreateParameter( pMissionStats->szMapImage, CTPoint<int>( 0x200, 0x200 ), bSaveAsDDS, false, SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) ); 
+	const std::string szMapImageName = rszOutputRoot.empty() ? pMissionStats->szMapImage : rszOutputRoot + pMissionStats->szMapImage;
+	if ( !rszOutputRoot.empty() )
+	{
+		std::string szHostDirectory = szMapImageName.substr( 0, szMapImageName.find_last_of( "\\/" ) + 1 );
+#if !defined(_WIN32)
+		for ( int i = 0; i < szHostDirectory.size(); ++i )
+		{
+			if ( szHostDirectory[i] == '\\' )
+				szHostDirectory[i] = '/';
+		}
+#endif
+		std::error_code directoryError;
+		std::filesystem::create_directories( szHostDirectory, directoryError );
+	}
+	imageCreateParameterList.push_back( SRMImageCreateParameter( szMapImageName, CTPoint<int>( 0x200, 0x200 ), bSaveAsDDS, false, SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) );
 	imageCreateParameterList.push_back( SRMImageCreateParameter( szRandomMapName, CTPoint<int>( 0x100, 0x100 ), bSaveAsDDS ) ); 
 	bResult = mapInfo.CreateMiniMapImage( imageCreateParameterList, pProgressHook );
 	NI_ASSERT_TF( bResult,

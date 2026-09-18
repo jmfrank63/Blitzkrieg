@@ -11,6 +11,7 @@
 #include "../StreamIO/RandomGen.h"
 #include "../StreamIO/StreamIOTypes.h"
 #include "../StreamIO/ProfilePaths.h"
+#include "../StreamIO/GeneratedData.h"
 #include "../Misc/FileUtils.h"
 #include "../StreamIO/StreamAdaptor.h"
 #include "../StreamIO/ProgressHook.h"
@@ -259,6 +260,7 @@ void ClearMOD()
 	RemoveGlobalVar( "MOD.Name" );
 	RemoveGlobalVar( "MOD.Version" );
 	GetSingleton<IUserProfile>()->SetMOD( "" );
+	NGeneratedData::Mount( "" );
 }
 void CICChangeMOD::Configure( const char *pszConfig ) 
 { 
@@ -292,6 +294,8 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 			SetGlobalVar( "MOD.Name", szMODName.c_str() );
 			SetGlobalVar( "MOD.Version", szMODVersion.c_str() );			
 			GetSingleton<IUserProfile>()->SetMOD( szMOD );
+			// Above the mod, which the generated data overrides.
+			NGeneratedData::Mount( szMOD );
 		}
 		else
 			ClearMOD();

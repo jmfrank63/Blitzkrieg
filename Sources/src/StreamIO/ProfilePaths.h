@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <algorithm>
 #include "Globals.h"
+#include "../Platform/Paths.h"
 
 // Player profiles. Each profile owns every piece of per-player data - saves,
 // replays, screenshots and config.cfg - under <game>/profiles/<name>/. The
@@ -107,6 +108,15 @@ inline std::vector<std::string> List()
 	return names;
 }
 
+// Where the game keeps what it generates for a profile - random missions'
+// maps and mission files (see GeneratedData.h): in the user's writable cache,
+// not under profiles/, since a save can regenerate all of it from the seed it
+// stores. A host path.
+inline std::string GeneratedDirectory( const std::string &name )
+{
+	return ( std::filesystem::path( NPlatform::Paths::CacheRoot() ) / "generated" / Sanitize( name ) ).string();
+}
+
 // Renames profiles/<from> to profiles/<to>. Refuses when <to> already
 // exists as another profile - one directory cannot be two profiles. On
 // failure returns false with the filesystem's message in *pError (which
@@ -148,6 +158,13 @@ inline bool Rename( const std::string &from, const std::string &to, std::string 
 			*pError = ec.message();
 		return false;
 	}
+	// The generated data follows, best effort: a save regenerates whatever
+	// did not come along.
+	std::error_code generatedError;
+	const std::string szGeneratedTemp = GeneratedDirectory( szTo ) + ".tmp-rename";
+	std::filesystem::rename( GeneratedDirectory( szFrom ), szGeneratedTemp, generatedError );
+	if ( !generatedError )
+		std::filesystem::rename( szGeneratedTemp, GeneratedDirectory( szTo ), generatedError );
 	return true;
 }
 
@@ -163,6 +180,8 @@ inline bool Delete( const std::string &name, std::string *pError )
 			*pError = ec.message();
 		return false;
 	}
+	std::error_code generatedError;
+	std::filesystem::remove_all( GeneratedDirectory( name ), generatedError );
 	return true;
 }
 }
