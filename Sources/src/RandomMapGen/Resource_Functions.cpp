@@ -104,7 +104,9 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 // file outside the data storage - the user's cache - because an installed
 // game's Data directory need not be writable. The directories are created as
 // needed. szFilePath is a full path, taken as given: no lowercasing and no
-// data-directory prefix.
+// data-directory prefix. The file is written under a temporary name and
+// renamed into place once complete, so an interrupted write never leaves a
+// truncated picture under the name readers look for.
 bool SaveImageToUltraDDSFile( IImage *pImage, const std::string &szFilePath )
 {
 	try
@@ -122,12 +124,26 @@ bool SaveImageToUltraDDSFile( IImage *pImage, const std::string &szFilePath )
 		std::filesystem::create_directories( std::filesystem::path( szHostPath ).parent_path(), error );
 		CPtr<IImageProcessor> pImageProcessor = GetSingleton<IImageProcessor>();
 		CPtr<IDDSImage> pDDSImage = pImageProcessor->Compress( pImage, GFXPF_ARGB8888 );
-		CPtr<IDataStream> pDDSStream = CreateFileStream( szEnginePath.c_str(), STREAM_ACCESS_WRITE );
-		if ( !pDDSImage || !pDDSStream )
+		if ( !pDDSImage )
 		{
 			return false;
 		}
-		pImageProcessor->SaveImageAsDDS( pDDSStream, pDDSImage );
+		{
+			// The stream writes its file when it is released, at the end of
+			// this scope.
+			CPtr<IDataStream> pDDSStream = CreateFileStream( ( szEnginePath + ".partial" ).c_str(), STREAM_ACCESS_WRITE );
+			if ( !pDDSStream )
+			{
+				return false;
+			}
+			pImageProcessor->SaveImageAsDDS( pDDSStream, pDDSImage );
+		}
+		std::filesystem::rename( szHostPath + ".partial", szHostPath, error );
+		if ( error )
+		{
+			std::filesystem::remove( szHostPath + ".partial", error );
+			return false;
+		}
 		return true;
 	}
 	catch ( ... )

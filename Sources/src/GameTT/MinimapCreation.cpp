@@ -135,6 +135,23 @@ namespace
 			std::filesystem::remove( others[i], error );
 		}
 	}
+	// A cached picture is used only when it is whole: a 512x512 32-bit DDS with
+	// all of its pixel data. A truncated or damaged one would otherwise stand in
+	// for the shipped picture it replaces and fail to load.
+	bool IsValidCachedImage( const std::string &szPath )
+	{
+		IImageProcessor *pImageProcessor = GetSingleton<IImageProcessor>();
+		CPtr<IDataStream> pStream = OpenFileStream( szPath, STREAM_ACCESS_READ );
+		if ( !pImageProcessor || !pStream )
+			return false;
+		const int IMAGE_SIZE = 0x200;
+		const int DDS_HEADER_BYTES = 128;
+		if ( pStream->GetSize() < DDS_HEADER_BYTES + IMAGE_SIZE * IMAGE_SIZE * 4 )
+			return false;
+		CPtr<IDDSImage> pDDSImage = pImageProcessor->LoadDDSImage( pStream );
+		return pDDSImage && pDDSImage->GetGFXFormat() == GFXPF_ARGB8888 &&
+			pDDSImage->GetSizeX( 0 ) == IMAGE_SIZE && pDDSImage->GetSizeY( 0 ) == IMAGE_SIZE;
+	}
 	// A DDS file outside the data storage as a texture. The texture manager
 	// only finds names inside it, so the cached picture is decoded here.
 	CPtr<IGFXTexture> LoadTextureFromFile( const std::string &szPath )
@@ -188,7 +205,16 @@ std::string CMinimapCreation::GetCachedMapImage( const std::string &szTerrainNam
 	SStorageElementStats statsCache;
 	Zero( statsCache );
 	if ( GetFileStats( szCachePath, &statsCache ) )
-		return szCachePath;
+	{
+		if ( IsValidCachedImage( szCachePath ) )
+			return szCachePath;
+		// Rebuilt rather than trusted; while that fails, callers fall back to
+		// the shipped picture.
+		std::error_code error;
+		std::filesystem::remove( HostPath( szCachePath ), error );
+		if ( getenv( "BK_UI_TRACE" ) )
+			fprintf( stderr, "BK_UI_TRACE: minimap cache \"%s\" unreadable, rebuilding\n", szCachePath.c_str() );
+	}
 
 	NHPTimer::STime timeStart = 0;
 	NHPTimer::GetTime( &timeStart );
@@ -215,7 +241,7 @@ std::string CMinimapCreation::GetCachedMapImage( const std::string &szTerrainNam
 				mapInfo.UnpackFrameIndices();
 				CRMImageCreateParameterList imageCreateParameterList;
 				imageCreateParameterList.push_back( SRMImageCreateParameter( szCachePath, CTPoint<int>( 0x200, 0x200 ), true, false, 0.0f, 0.0f, 0.0f, true ) );
-				bCreated = mapInfo.CreateMiniMapImage( imageCreateParameterList ) && GetFileStats( szCachePath, &statsCache );
+				bCreated = mapInfo.CreateMiniMapImage( imageCreateParameterList ) && IsValidCachedImage( szCachePath );
 			}
 		}
 	}
