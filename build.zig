@@ -3846,7 +3846,6 @@ fn addEditorImgui(
     const module = b.createModule(.{
         .target = target,
         .optimize = optimize,
-        .link_libcpp = target.result.os.tag != .windows,
     });
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addIncludePath(b.path("vendor/dcimgui/backends"));
