@@ -1367,6 +1367,30 @@ pub fn build(b: *std.Build) void {
     const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
     const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
     editor_imgui_step.dependOn(&editor_imgui.step);
+    const editor_imgui_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/imgui/imgui.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    editor_imgui_module.addIncludePath(b.path("Sources/editor/imgui"));
+    editor_imgui_module.linkLibrary(editor_imgui);
+
+    const editor_overlay_spike_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/editor_overlay_spike.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl3 },
+            .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
+    });
+    const editor_overlay_spike = b.addExecutable(.{ .name = "editor-overlay-spike", .root_module = editor_overlay_spike_module });
+    if (target.result.os.tag == .windows) editor_overlay_spike.subsystem = .console;
+    const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
+    const editor_overlay_spike_build_step = b.step("editor-overlay-spike-build", "Build the Map Editor ImGui overlay spike");
+    editor_overlay_spike_build_step.dependOn(&editor_overlay_spike_install.step);
     addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
@@ -1600,6 +1624,16 @@ pub fn build(b: *std.Build) void {
     }
     const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
+
+    const editor_overlay_spike_run = b.addRunArtifact(editor_overlay_spike);
+    editor_overlay_spike_run.step.dependOn(&editor_overlay_spike_install.step);
+    editor_overlay_spike_run.step.dependOn(gfx_gpu_shaders_step);
+    editor_overlay_spike_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
+    editor_overlay_spike_run.setCwd(b.path("."));
+    if (target.result.os.tag == .linux) editor_overlay_spike_run.setEnvironmentVariable("LD_LIBRARY_PATH", "zig-out/bin:zig-out/lib");
+    if (b.args) |args| editor_overlay_spike_run.addArgs(args);
+    const editor_overlay_spike_step = b.step("editor-overlay-spike", "Run the Map Editor ImGui overlay spike");
+    editor_overlay_spike_step.dependOn(&editor_overlay_spike_run.step);
 
     const gfx_reference_compare_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compare_gfx_reference.zig"),
@@ -3865,6 +3899,7 @@ fn addEditorImgui(
             "vendor/dcimgui/src-docking/cimgui.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
+            "Sources/editor/imgui/imgui_backend.cpp",
         },
         .flags = cppflagsForTarget(target, optimize),
     });
