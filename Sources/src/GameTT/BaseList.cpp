@@ -20,10 +20,13 @@ void CGetAllDirsRelative::operator() ( const NFile::CFileIterator &it )
 {
 	if ( it.IsDirectory() )
 	{
-		std::string szName = it.GetFilePath();
-		NI_ASSERT_T( szName.size() > szInitDir.size(), "Wrong name size" );
-		szName = szName.substr( szInitDir.size() );
-		pFileVector->push_back( szName );
+		// The listing does not recurse, so the relative name is the directory's
+		// own name. Stripping szInitDir's length instead depended on both paths
+		// being spelled alike: on macOS the base dir is ".../release/" plus an
+		// appended '\\', one character longer than the enumerator's
+		// ".../release/mods", so every mod lost its first letter and the Load
+		// Mod list showed each one as "Unsupported MOD". See CGetFiles2Load.
+		pFileVector->push_back( it.GetFileName() );
 	}
 }
 CInterfaceBaseList::~CInterfaceBaseList()
