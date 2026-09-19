@@ -81,6 +81,28 @@ static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 	return false;
 }
 
+// Opens a layout by its data name. A mod restyles a screen by shipping a layout
+// of the same name, but for a screen this port has changed (the settings gained
+// a Cloud tab) a mod's copy would lack the new parts, and a mod that never
+// restyled a screen leaves it in the base game's look. The repository can carry
+// a layout restyled for one mod, from that mod's own pictures, as
+// ui\ModStyles\<mod folder>\<name>.xml; it is used while that mod is loaded.
+// The screen keeps the requested name, so scaling and saves treat it as the
+// screen it restyles.
+static CPtr<IDataStream> OpenLayoutStream( const std::string &szResourceName )
+{
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	std::string szMOD = GetGlobalVar( "MOD.Folder", "" );
+	while ( !szMOD.empty() && ( szMOD[szMOD.size() - 1] == '\\' || szMOD[szMOD.size() - 1] == '/' ) )
+		szMOD.erase( szMOD.size() - 1 );
+	if ( !szMOD.empty() && szResourceName.size() > 3 && NStr::CompareAsciiNoCase( szResourceName.substr( 0, 3 ).c_str(), "ui\\" ) == 0 )
+	{
+		const std::string szStyled = "ui\\ModStyles\\" + szMOD + "\\" + szResourceName.substr( 3 ) + ".xml";
+		if ( CPtr<IDataStream> pStyled = pStorage->OpenStream( szStyled.c_str(), STREAM_ACCESS_READ ) )
+			return pStyled;
+	}
+	return pStorage->OpenStream( ( szResourceName + ".xml" ).c_str(), STREAM_ACCESS_READ );
+}
 // The in-mission HUD is the one screen built out of edge-anchored clusters
 // rather than composed against the 1024x768 canvas: the minimap, the command
 // buttons and the status bar are all BOTTOM|LEFT, a couple of counters are
@@ -157,7 +179,7 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 	if ( bRelative )
 	{
 		szResourceName = pszResourceName;
-		pStream = GetSingleton<IDataStorage>()->OpenStream( (szResourceName + ".xml").c_str(), STREAM_ACCESS_READ );
+		pStream = OpenLayoutStream( szResourceName );
 	}
 	else
 		pStream = OpenFileStream( pszResourceName, STREAM_ACCESS_READ );
