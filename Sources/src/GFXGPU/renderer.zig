@@ -19,6 +19,14 @@ const io_c = @cImport({
 // cannot fall behind the enum.
 const shader_variant_count = @typeInfo(Renderer.ShaderVariant).@"enum".fields.len;
 
+// Called once per presented frame, after the scene has been drawn onto the
+// frame's colour target and before the command buffer is submitted. The
+// callback owns any passes it opens on `command_buffer` and must end them
+// before it returns; `target` is a colour target of width x height pixels in
+// the swapchain's format. The editor draws its ImGui panels here.
+pub const OverlayCallback = *const fn (user: ?*anyopaque, command_buffer: *anyopaque, target: *anyopaque, width: u32, height: u32) callconv(.c) void;
+pub const Overlay = struct { callback: OverlayCallback, user: ?*anyopaque };
+
 pub const Renderer = struct {
     allocator: std.mem.Allocator,
     device: ?device_mod.Device = null,
@@ -92,6 +100,16 @@ pub const Renderer = struct {
     present_mode: sdl.PresentMode = .vsync,
     scene_texture: ?*sdl.GpuTexture = null,
     scene_depth: ?*sdl.GpuTexture = null,
+    overlay: ?Overlay = null,
+    // A capture composes the next frame (scene and overlay) into
+    // capture_texture instead of the swapchain and then copies it across, so
+    // what was presented can be read back. The swapchain itself is not
+    // readable on every backend.
+    capture_requested: bool = false,
+    capture_ready: bool = false,
+    capture_texture: ?*sdl.GpuTexture = null,
+    capture_width: u32 = 0,
+    capture_height: u32 = 0,
     shader_directory: ?[]u8 = null,
     // Pipelines are derived from the FVF of the vertex buffer being drawn and
     // cached on (fvf, textured, blend). Hardcoding one attribute set per
@@ -430,6 +448,7 @@ pub const Renderer = struct {
             while (texture_iterator.next()) |texture| sdl.releaseTexture(gpu_device, texture.gpu);
             if (self.scene_texture) |texture| sdl.releaseTexture(gpu_device, texture);
             if (self.scene_depth) |texture| sdl.releaseTexture(gpu_device, texture);
+            if (self.capture_texture) |texture| sdl.releaseTexture(gpu_device, texture);
             var pipeline_iterator = self.pipelines.valueIterator();
             while (pipeline_iterator.next()) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline.*)));
             for (self.fragment_shaders) |shader| {
@@ -580,13 +599,21 @@ pub const Renderer = struct {
             self.frame.render_pass = null;
             self.frame.endPass() catch return error.InvalidState;
         }
+        const command = self.frame.command_buffer orelse return error.InvalidState;
+        const swapchain: *sdl.GpuTexture = @ptrCast(@alignCast(self.frame.swapchain_texture orelse return error.InvalidState));
+        const capturing = self.capture_requested;
+        const target: *sdl.GpuTexture = if (capturing) try self.ensureCaptureTexture(self.drawable_width, self.drawable_height) else swapchain;
         if (self.scene_texture) |scene| {
-            const command = self.frame.command_buffer orelse return error.InvalidState;
-            const swapchain = self.frame.swapchain_texture orelse return error.InvalidState;
             if (self.present_fit)
-                sdl.blitTextureFit(@ptrCast(@alignCast(command)), scene, self.scene_width, self.scene_height, @ptrCast(@alignCast(swapchain)), self.drawable_width, self.drawable_height)
+                sdl.blitTextureFit(@ptrCast(@alignCast(command)), scene, self.scene_width, self.scene_height, target, self.drawable_width, self.drawable_height)
             else
-                sdl.blitTextureCentered(@ptrCast(@alignCast(command)), scene, self.scene_width, self.scene_height, @ptrCast(@alignCast(swapchain)), self.drawable_width, self.drawable_height);
+                sdl.blitTextureCentered(@ptrCast(@alignCast(command)), scene, self.scene_width, self.scene_height, target, self.drawable_width, self.drawable_height);
+        }
+        if (self.overlay) |overlay| overlay.callback(overlay.user, command, @ptrCast(target), self.drawable_width, self.drawable_height);
+        if (capturing) {
+            sdl.blitTextureCopy(@ptrCast(@alignCast(command)), target, swapchain, self.drawable_width, self.drawable_height);
+            self.capture_requested = false;
+            self.capture_ready = true;
         }
         try self.frame.end();
     }
@@ -628,6 +655,31 @@ pub const Renderer = struct {
         if (self.frame.render_pass) |pass| {
             sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
         }
+    }
+
+    pub fn setOverlay(self: *Renderer, overlay: ?Overlay) !void {
+        if (self.frame.state != .idle) return error.InvalidState;
+        self.overlay = overlay;
+    }
+
+    pub fn requestFrameCapture(self: *Renderer, enabled: bool) !void {
+        if (self.frame.state != .idle) return error.InvalidState;
+        self.capture_requested = enabled;
+    }
+
+    fn ensureCaptureTexture(self: *Renderer, width: u32, height: u32) !*sdl.GpuTexture {
+        const device = &(self.device orelse return error.NoDevice);
+        const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+        if (self.capture_texture) |texture| {
+            if (self.capture_width == width and self.capture_height == height) return texture;
+            sdl.releaseTexture(gpu_device, texture);
+            self.capture_texture = null;
+        }
+        const texture = sdl.createColorTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
+        self.capture_texture = texture;
+        self.capture_width = width;
+        self.capture_height = height;
+        return texture;
     }
 
     pub fn present(self: *Renderer) !void {
@@ -1472,8 +1524,7 @@ pub const Renderer = struct {
         sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, first_index, vertex_offset);
     }
 
-    pub fn readback(self: *Renderer, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
-        const texture = self.scene_texture orelse return error.ReadbackUnavailable;
+    fn downloadInto(self: *Renderer, texture: *sdl.GpuTexture, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
         if (width == 0 or height == 0 or row_pitch < width * 4 or destination.len < @as(usize, row_pitch) * height) return error.ReadbackInvalid;
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
@@ -1489,6 +1540,20 @@ pub const Renderer = struct {
         const mapped = sdl.mapTransferBuffer(gpu_device, transfer) orelse return error.TransferBufferMapFailed;
         @memcpy(destination[0 .. @as(usize, row_pitch) * height], @as([*]const u8, @ptrCast(mapped))[0 .. @as(usize, row_pitch) * height]);
         sdl.unmapTransferBuffer(gpu_device, transfer);
+    }
+
+    pub fn readback(self: *Renderer, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
+        const texture = self.scene_texture orelse return error.ReadbackUnavailable;
+        return self.downloadInto(texture, destination, width, height, row_pitch);
+    }
+
+    // The last captured frame as presented: scene plus overlay, at drawable
+    // size, in the swapchain's format (BGRA8 on Metal and Direct3D).
+    pub fn readbackFrame(self: *Renderer, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
+        if (!self.capture_ready) return error.ReadbackUnavailable;
+        const texture = self.capture_texture orelse return error.ReadbackUnavailable;
+        if (width != self.capture_width or height != self.capture_height) return error.ReadbackInvalid;
+        return self.downloadInto(texture, destination, width, height, row_pitch);
     }
 };
 
@@ -1773,4 +1838,95 @@ test "lit draws take their diffuse from the material" {
     renderer.lighting_enabled = false;
     renderer.material_diffuse = .{ 0, 0, 0, 0 };
     try std.testing.expectEqual([4]f32{ 1, 1, 1, 1 }, renderer.effectiveDrawColor());
+}
+
+test "the overlay runs once per frame, after the scene, on the frame's command buffer and target" {
+    const Probe = struct {
+        var calls: u32 = 0;
+        var seen_command: ?*anyopaque = null;
+        var seen_target: ?*anyopaque = null;
+        var seen_width: u32 = 0;
+        var seen_height: u32 = 0;
+        var seen_user: ?*anyopaque = null;
+        fn overlay(user: ?*anyopaque, command_buffer: *anyopaque, target: *anyopaque, width: u32, height: u32) callconv(.c) void {
+            calls += 1;
+            seen_user = user;
+            seen_command = command_buffer;
+            seen_target = target;
+            seen_width = width;
+            seen_height = height;
+        }
+        fn destroy(_: *anyopaque) void {}
+    };
+    Probe.calls = 0;
+    var api = device_mod.real_api;
+    api.destroy = Probe.destroy;
+    var renderer = Renderer.init(std.testing.allocator);
+    var handle: u8 = 0;
+    var command: u8 = 0;
+    var swapchain: u8 = 0;
+    var user: u8 = 0;
+    renderer.device = device_mod.Device{ .allocator = std.testing.allocator, .api = api, .handle = &handle };
+    defer {
+        renderer.device = null;
+        renderer.deinit();
+    }
+    try renderer.setOverlay(.{ .callback = Probe.overlay, .user = &user });
+
+    renderer.drawable_width = 640;
+    renderer.drawable_height = 480;
+    try renderer.frame.begin(true);
+    renderer.frame.command_buffer = &command;
+    renderer.frame.swapchain_texture = &swapchain;
+    try renderer.endFrame();
+
+    try std.testing.expectEqual(@as(u32, 1), Probe.calls);
+    try std.testing.expectEqual(@as(?*anyopaque, &command), Probe.seen_command);
+    try std.testing.expectEqual(@as(?*anyopaque, &swapchain), Probe.seen_target);
+    try std.testing.expectEqual(@as(?*anyopaque, &user), Probe.seen_user);
+    try std.testing.expectEqual(@as(u32, 640), Probe.seen_width);
+    try std.testing.expectEqual(@as(u32, 480), Probe.seen_height);
+    try std.testing.expectEqual(frame_mod.State.ready_to_submit, renderer.frame.state);
+    renderer.frame.cancel();
+}
+
+test "a skipped frame runs no overlay, and a cleared overlay stays silent" {
+    const Probe = struct {
+        var calls: u32 = 0;
+        fn overlay(_: ?*anyopaque, _: *anyopaque, _: *anyopaque, _: u32, _: u32) callconv(.c) void {
+            calls += 1;
+        }
+    };
+    Probe.calls = 0;
+    var renderer = Renderer.init(std.testing.allocator);
+    defer renderer.deinit();
+    try renderer.setOverlay(.{ .callback = Probe.overlay, .user = null });
+    renderer.frame.skipped = true;
+    try renderer.endFrame();
+    try std.testing.expectEqual(@as(u32, 0), Probe.calls);
+    renderer.frame.cancel();
+
+    try renderer.setOverlay(null);
+    try std.testing.expect(renderer.overlay == null);
+}
+
+test "the overlay and the capture request cannot change inside a frame" {
+    const Probe = struct {
+        fn overlay(_: ?*anyopaque, _: *anyopaque, _: *anyopaque, _: u32, _: u32) callconv(.c) void {}
+    };
+    var renderer = Renderer.init(std.testing.allocator);
+    defer renderer.deinit();
+    renderer.frame.state = .recording;
+    try std.testing.expectError(error.InvalidState, renderer.setOverlay(.{ .callback = Probe.overlay, .user = null }));
+    try std.testing.expectError(error.InvalidState, renderer.requestFrameCapture(true));
+    renderer.frame.state = .idle;
+    try renderer.requestFrameCapture(true);
+    try std.testing.expect(renderer.capture_requested);
+}
+
+test "reading a frame back before one was captured is refused" {
+    var renderer = Renderer.init(std.testing.allocator);
+    defer renderer.deinit();
+    var pixels: [16]u8 = undefined;
+    try std.testing.expectError(error.ReadbackUnavailable, renderer.readbackFrame(&pixels, 2, 2, 8));
 }
