@@ -287,8 +287,9 @@ Settled by the overlay spike (plan
 - ImGui draws at drawable resolution, independent of the scene size.
 - A capture composes the frame into a readable texture and copies it to the
   swapchain, so tests read back exactly what was presented.
-- Measured on macOS arm64 (`metal`, swapchain format `12`): the
-  panel pixel was `(255,0,255)`, the scene pixel `(0,255,0)`.
+- Measured on macOS arm64 (`metal`, swapchain format `12`, frame size
+  `320x240`): the panel pixel was `(255,0,255)`, the scene pixel
+  `(0,255,0)`.
 - Hidden window: `PASS`.
 
 ### Build and packaging
