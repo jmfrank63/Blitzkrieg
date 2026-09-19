@@ -1,0 +1,1386 @@
+<!-- The settings screen restyled for the Achtung Panzer 2 mod from its own pictures
+     (the desk and menu paper, the paper sheet and its buttons), referenced by name
+     only. Generated from ui\OptionsSettings.xml by tools/ui/modstyles/achtungpanzer2_settings.py:
+     same elements, ids and script.
+     Used instead of it while that mod is loaded; see OpenLayoutStream in UIScreen.cpp. -->
+<base Background="1">
+	<WindowSize x="1024" y="768" />
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768" />
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768" />
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768" />
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Script>ui\OptionsSettings</Script>
+	<Children>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31415">
+			<Script>ui\imtutorial</Script>
+			<WindowPos x="0" y="0" />
+			<WindowSize x="576" y="420" />
+			<States>
+				<item>
+					<TextKey>Textes\imtutorial\IMOptionsSettings</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0013" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31416">
+			<ToolTip>tt_ui_intermission_help_button</ToolTip>
+			<WindowPos x="0" y="0" />
+			<WindowSize x="0" y="0" />
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="383" x2="76" y2="59" />
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="324" x2="76" y2="59" />
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="442" x2="76" y2="59" />
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10003" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1">
+			<ShiftText x="0" y="1" />
+			<TextPos x="-15" y="0" />
+			<ShadowShift x="1" y="2" />
+			<ToolTip>Textes\UI\OptionsSettings\tt_button_default</ToolTip>
+			<WindowPos x="276" y="614" />
+			<WindowSize x="40" y="40" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="120" y1="0" x2="40" y2="40" />
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="160" y1="0" x2="40" y2="40" />
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="200" y1="0" x2="40" y2="40" />
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10002" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1">
+			<ShiftText x="0" y="1" />
+			<TextPos x="-15" y="0" />
+			<ShadowShift x="1" y="2" />
+			<ToolTip>Textes\UI\OptionsSettings\tt_button_ok</ToolTip>
+			<WindowPos x="152" y="603" />
+			<WindowSize x="88" y="56" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="88" y2="56" />
+								<size x="88" y="56" />
+								<map x1="0" y1="200" x2="88" y2="56" />
+							</item>
+							<item>
+								<rect x1="24" y1="8" x2="64" y2="48" />
+								<size x="40" y="40" />
+								<map x1="0" y1="40" x2="40" y2="40" />
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="88" y2="56" />
+								<size x="88" y="56" />
+								<map x1="0" y1="200" x2="88" y2="56" />
+							</item>
+							<item>
+								<rect x1="24" y1="8" x2="64" y2="48" />
+								<size x="40" y="40" />
+								<map x1="40" y1="40" x2="40" y2="40" />
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="88" y2="56" />
+								<size x="88" y="56" />
+								<map x1="0" y1="200" x2="88" y2="56" />
+							</item>
+							<item>
+								<rect x1="24" y1="8" x2="64" y2="48" />
+								<size x="40" y="40" />
+								<map x1="40" y1="40" x2="40" y2="40" />
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1">
+			<TextPos x="-15" y="0" />
+			<ShiftText x="0" y="1" />
+			<ShadowShift x="1" y="2" />
+			<ToolTip>Textes\UI\OptionsSettings\tt_button_cancel</ToolTip>
+			<WindowPos x="352" y="603" />
+			<WindowSize x="88" y="56" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="88" y2="56" />
+								<size x="88" y="56" />
+								<map x1="0" y1="200" x2="88" y2="56" />
+							</item>
+							<item>
+								<rect x1="24" y1="8" x2="64" y2="48" />
+								<size x="40" y="40" />
+								<map x1="120" y1="40" x2="40" y2="40" />
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="88" y2="56" />
+								<size x="88" y="56" />
+								<map x1="0" y1="200" x2="88" y2="56" />
+							</item>
+							<item>
+								<rect x1="24" y1="8" x2="64" y2="48" />
+								<size x="40" y="40" />
+								<map x1="160" y1="40" x2="40" y2="40" />
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="88" y2="56" />
+								<size x="88" y="56" />
+								<map x1="0" y1="200" x2="88" y2="56" />
+							</item>
+							<item>
+								<rect x1="24" y1="8" x2="64" y2="48" />
+								<size x="40" y="40" />
+								<map x1="160" y1="40" x2="40" y2="40" />
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" TextColor="0xff815335" Background="0">
+			<TextPos x="30" y="0" />
+			<ShadowShift x="1" y="2" />
+			<WindowPos x="610" y="180" />
+			<WindowSize x="400" y="50" />
+			<States>
+				<item>
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+					<PushSound />
+					<ClickSound />
+					<TextKey>Textes\UI\OptionsSettings\caption_settings</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="21000" PositionFlag="0x0031" Background="0" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34" VisibleFlag="1">
+			<ShadowShift x="1" y="2" />
+			<TextPos x="0" y="0" />
+			<WindowPos x="0" y="0" />
+			<WindowSize x="0" y="0" />
+			<States>
+				<item>
+					<PushSound />
+					<ClickSound />
+					<TextKey />
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10007" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" VisibleFlag="0">
+			<ToolTip />
+			<WindowPos x="650" y="274" />
+			<WindowSize x="320" y="50" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10008" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" VisibleFlag="0">
+			<ToolTip />
+			<WindowPos x="650" y="339" />
+			<WindowSize x="320" y="50" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10009" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" VisibleFlag="0">
+			<ToolTip />
+			<WindowPos x="650" y="404" />
+			<WindowSize x="320" y="50" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10010" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" VisibleFlag="0">
+			<ToolTip />
+			<WindowPos x="650" y="469" />
+			<WindowSize x="320" y="50" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10011" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" VisibleFlag="0">
+			<ToolTip />
+			<WindowPos x="650" y="534" />
+			<WindowSize x="320" y="50" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10012" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" VisibleFlag="0">
+			<ToolTip />
+			<WindowPos x="650" y="599" />
+			<WindowSize x="320" y="50" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1000" PositionFlag="0x0011" FontSize="1" TextColor="0xffffffffff" VisibleFlag="0" Background="0" HSubSpace="0" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="5">
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<rect x1="0" y1="0" x2="4" y2="22" />
+					<size x="4" y="22" />
+					<map x1="206" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="4" y1="0" x2="408" y2="22" />
+					<size x="26" y="22" />
+					<map x1="210" y1="63" x2="26" y2="22" />
+				</item>
+				<item>
+					<rect x1="408" y1="0" x2="412" y2="22" />
+					<size x="4" y="22" />
+					<map x1="236" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="0" y1="22" x2="4" y2="34" />
+					<size x="4" y="12" />
+					<map x1="206" y1="76" x2="4" y2="12" />
+				</item>
+				<item>
+					<rect x1="4" y1="22" x2="408" y2="34" />
+					<size x="26" y="12" />
+					<map x1="210" y1="76" x2="26" y2="12" />
+				</item>
+				<item>
+					<rect x1="408" y1="22" x2="412" y2="34" />
+					<size x="4" y="12" />
+					<map x1="236" y1="76" x2="4" y2="12" />
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="275">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+							<WindowSize x="41" y="0" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0" />
+					<WindowSize x="45" y="0" />
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xff000000">
+					<TextPos x="20" y="4" />
+					<ShadowShift x="1" y="2" />
+					<WindowPos x="10" y="0" />
+					<WindowSize x="410" y="85" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip />
+					<WindowPos x="420" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="62" y="86" />
+			<WindowSize x="469" y="500" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1001" PositionFlag="0x0011" FontSize="1" TextColor="0xffffffffff" VisibleFlag="0" Background="0" HSubSpace="0" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="5">
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<rect x1="0" y1="0" x2="4" y2="22" />
+					<size x="4" y="22" />
+					<map x1="206" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="4" y1="0" x2="408" y2="22" />
+					<size x="26" y="22" />
+					<map x1="210" y1="63" x2="26" y2="22" />
+				</item>
+				<item>
+					<rect x1="408" y1="0" x2="412" y2="22" />
+					<size x="4" y="22" />
+					<map x1="236" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="0" y1="22" x2="4" y2="34" />
+					<size x="4" y="12" />
+					<map x1="206" y1="76" x2="4" y2="12" />
+				</item>
+				<item>
+					<rect x1="4" y1="22" x2="408" y2="34" />
+					<size x="26" y="12" />
+					<map x1="210" y1="76" x2="26" y2="12" />
+				</item>
+				<item>
+					<rect x1="408" y1="22" x2="412" y2="34" />
+					<size x="4" y="12" />
+					<map x1="236" y1="76" x2="4" y2="12" />
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="275">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+							<WindowSize x="41" y="0" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0" />
+					<WindowSize x="45" y="0" />
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xff000000">
+					<TextPos x="20" y="4" />
+					<ShadowShift x="1" y="2" />
+					<WindowPos x="10" y="0" />
+					<WindowSize x="410" y="85" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip />
+					<WindowPos x="420" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="62" y="86" />
+			<WindowSize x="469" y="500" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1002" PositionFlag="0x0011" VisibleFlag="0" Background="0" HSubSpace="0" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="5">
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<rect x1="0" y1="0" x2="4" y2="22" />
+					<size x="4" y="22" />
+					<map x1="206" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="4" y1="0" x2="408" y2="22" />
+					<size x="26" y="22" />
+					<map x1="210" y1="63" x2="26" y2="22" />
+				</item>
+				<item>
+					<rect x1="408" y1="0" x2="412" y2="22" />
+					<size x="4" y="22" />
+					<map x1="236" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="0" y1="22" x2="4" y2="34" />
+					<size x="4" y="12" />
+					<map x1="206" y1="76" x2="4" y2="12" />
+				</item>
+				<item>
+					<rect x1="4" y1="22" x2="408" y2="34" />
+					<size x="26" y="12" />
+					<map x1="210" y1="76" x2="26" y2="12" />
+				</item>
+				<item>
+					<rect x1="408" y1="22" x2="412" y2="34" />
+					<size x="4" y="12" />
+					<map x1="236" y1="76" x2="4" y2="12" />
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="275">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+							<WindowSize x="41" y="0" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0" />
+					<WindowSize x="45" y="0" />
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xff000000">
+					<TextPos x="20" y="4" />
+					<ShadowShift x="1" y="2" />
+					<WindowPos x="10" y="0" />
+					<WindowSize x="410" y="85" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip />
+					<WindowPos x="420" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="62" y="86" />
+			<WindowSize x="469" y="500" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1003" PositionFlag="0x0011" VisibleFlag="0" Background="0" HSubSpace="0" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="5">
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<rect x1="0" y1="0" x2="4" y2="22" />
+					<size x="4" y="22" />
+					<map x1="206" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="4" y1="0" x2="408" y2="22" />
+					<size x="26" y="22" />
+					<map x1="210" y1="63" x2="26" y2="22" />
+				</item>
+				<item>
+					<rect x1="408" y1="0" x2="412" y2="22" />
+					<size x="4" y="22" />
+					<map x1="236" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="0" y1="22" x2="4" y2="34" />
+					<size x="4" y="12" />
+					<map x1="206" y1="76" x2="4" y2="12" />
+				</item>
+				<item>
+					<rect x1="4" y1="22" x2="408" y2="34" />
+					<size x="26" y="12" />
+					<map x1="210" y1="76" x2="26" y2="12" />
+				</item>
+				<item>
+					<rect x1="408" y1="22" x2="412" y2="34" />
+					<size x="4" y="12" />
+					<map x1="236" y1="76" x2="4" y2="12" />
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="275">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+							<WindowSize x="41" y="0" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0" />
+					<WindowSize x="45" y="0" />
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xff000000">
+					<TextPos x="20" y="4" />
+					<ShadowShift x="1" y="2" />
+					<WindowPos x="10" y="0" />
+					<WindowSize x="410" y="85" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip />
+					<WindowPos x="420" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="62" y="86" />
+			<WindowSize x="469" y="500" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1004" PositionFlag="0x0011" VisibleFlag="0" Background="0" HSubSpace="0" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="5">
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<rect x1="0" y1="0" x2="4" y2="22" />
+					<size x="4" y="22" />
+					<map x1="206" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="4" y1="0" x2="408" y2="22" />
+					<size x="26" y="22" />
+					<map x1="210" y1="63" x2="26" y2="22" />
+				</item>
+				<item>
+					<rect x1="408" y1="0" x2="412" y2="22" />
+					<size x="4" y="22" />
+					<map x1="236" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="0" y1="22" x2="4" y2="34" />
+					<size x="4" y="12" />
+					<map x1="206" y1="76" x2="4" y2="12" />
+				</item>
+				<item>
+					<rect x1="4" y1="22" x2="408" y2="34" />
+					<size x="26" y="12" />
+					<map x1="210" y1="76" x2="26" y2="12" />
+				</item>
+				<item>
+					<rect x1="408" y1="22" x2="412" y2="34" />
+					<size x="4" y="12" />
+					<map x1="236" y1="76" x2="4" y2="12" />
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="275">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+							<WindowSize x="41" y="0" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0" />
+					<WindowSize x="45" y="0" />
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xff000000">
+					<TextPos x="20" y="4" />
+					<ShadowShift x="1" y="2" />
+					<WindowPos x="10" y="0" />
+					<WindowSize x="410" y="85" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip />
+					<WindowPos x="420" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10013" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+					<ToolTip />
+					<WindowPos x="20" y="440" />
+					<WindowSize x="190" y="36" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff7a6a55">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\CloudCredentials\open_button</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10014" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+					<ToolTip />
+					<WindowPos x="225" y="440" />
+					<WindowSize x="190" y="36" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff7a6a55">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\CloudBackups\open_button</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="62" y="86" />
+			<WindowSize x="469" y="500" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1005" PositionFlag="0x0011" VisibleFlag="0" Background="0" HSubSpace="0" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="5">
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<rect x1="0" y1="0" x2="4" y2="22" />
+					<size x="4" y="22" />
+					<map x1="206" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="4" y1="0" x2="408" y2="22" />
+					<size x="26" y="22" />
+					<map x1="210" y1="63" x2="26" y2="22" />
+				</item>
+				<item>
+					<rect x1="408" y1="0" x2="412" y2="22" />
+					<size x="4" y="22" />
+					<map x1="236" y1="63" x2="4" y2="22" />
+				</item>
+				<item>
+					<rect x1="0" y1="22" x2="4" y2="34" />
+					<size x="4" y="12" />
+					<map x1="206" y1="76" x2="4" y2="12" />
+				</item>
+				<item>
+					<rect x1="4" y1="22" x2="408" y2="34" />
+					<size x="26" y="12" />
+					<map x1="210" y1="76" x2="26" y2="12" />
+				</item>
+				<item>
+					<rect x1="408" y1="22" x2="412" y2="34" />
+					<size x="4" y="12" />
+					<map x1="236" y1="76" x2="4" y2="12" />
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="275">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<WindowSize x="45" y="58" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58" />
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+							<WindowSize x="41" y="0" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="108" y1="0" x2="40" y2="33" />
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0" />
+					<WindowSize x="45" y="0" />
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xff000000">
+					<TextPos x="20" y="4" />
+					<ShadowShift x="1" y="2" />
+					<WindowPos x="10" y="0" />
+					<WindowSize x="410" y="85" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip />
+					<WindowPos x="420" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="62" y="86" />
+			<WindowSize x="469" y="500" />
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="439" y1="788" x2="324" y2="50" />
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="31500" PositionFlag="0x0011" Background="1">
+			<WindowPos x="40" y="66" />
+			<WindowSize x="512" y="630" />
+			<States>
+				<item>
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="512" y2="630" />
+						<Texture>ui\IntermissionTextures\menu-popups</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="512" y2="630" />
+						<Texture>ui\IntermissionTextures\menu-popups</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="512" y2="630" />
+						<Texture>ui\IntermissionTextures\menu-popups</Texture>
+					</AppearancePushed>
+					<PushSound />
+					<ClickSound />
+					<TextKey />
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

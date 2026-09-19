@@ -258,6 +258,7 @@ void ClearMOD()
 	GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
 	RemoveGlobalVar( "MOD.Active" );
 	RemoveGlobalVar( "MOD.Name" );
+	RemoveGlobalVar( "MOD.Folder" );
 	RemoveGlobalVar( "MOD.Version" );
 	GetSingleton<IUserProfile>()->SetMOD( "" );
 	NGeneratedData::Mount( "" );
@@ -292,6 +293,8 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 			}
 			SetGlobalVar( "MOD.Active", 1 );
 			SetGlobalVar( "MOD.Name", szMODName.c_str() );
+			// The folder under mods\, for the UI to find layouts restyled for it.
+			SetGlobalVar( "MOD.Folder", szMOD.c_str() );
 			SetGlobalVar( "MOD.Version", szMODVersion.c_str() );			
 			GetSingleton<IUserProfile>()->SetMOD( szMOD );
 			// Above the mod, which the generated data overrides.
