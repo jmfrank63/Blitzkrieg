@@ -1364,6 +1364,9 @@ pub fn build(b: *std.Build) void {
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
+    const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
+    const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
+    editor_imgui_step.dependOn(&editor_imgui.step);
     addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
@@ -3828,6 +3831,45 @@ fn addGfxGpuZig(
         .linkage = if (target.result.os.tag == .linux) .dynamic else .static,
         .root_module = gfx_gpu_module,
     });
+}
+
+// Dear ImGui (docking branch) with the dear_bindings C API and the SDL3 +
+// SDL GPU backends, for the portable editors. Static: it lives inside the
+// editor executable and shares the one dynamic SDL3 the game ships.
+fn addEditorImgui(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    sdl_include: std.Build.LazyPath,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libcpp = target.result.os.tag != .windows,
+    });
+    module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    module.addIncludePath(b.path("vendor/dcimgui/backends"));
+    module.addIncludePath(b.path("Sources/editor/imgui"));
+    module.addIncludePath(sdl_include);
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    linkMsvcRuntime(module, optimize);
+    module.addCSourceFiles(.{
+        .files = &.{
+            "vendor/dcimgui/src-docking/imgui.cpp",
+            "vendor/dcimgui/src-docking/imgui_demo.cpp",
+            "vendor/dcimgui/src-docking/imgui_draw.cpp",
+            "vendor/dcimgui/src-docking/imgui_tables.cpp",
+            "vendor/dcimgui/src-docking/imgui_widgets.cpp",
+            "vendor/dcimgui/src-docking/cimgui.cpp",
+            "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
+            "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
+        },
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
