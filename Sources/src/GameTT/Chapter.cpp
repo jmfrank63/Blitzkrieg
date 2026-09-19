@@ -8,6 +8,7 @@
 #include "../Misc/Checker.h"
 #include "../Main/GameStats.h"
 #include "../Main/ScenarioTracker.h"
+#include "../StreamIO/GeneratedData.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
 #include "Campaign.h"
@@ -254,8 +255,12 @@ void CInterfaceChapter::IncrementChapterVisited()
 		pChapterStats->missions = oldMissions;
 	}
 
-	IDataStorage *pStorage = GetSingleton<IDataStorage>();
-	const std::string szChapterFileName = pStorage->GetName() + szChapterName + ".xml";
+	// The chapter with its generated missions goes to the profile's generated
+	// data, mounted over Data and any mod, as the missions themselves do. In
+	// Data it overwrote the shipped chapter, and failed for a mod's chapter,
+	// which has no directory there.
+	const std::string szChapterFileName = NGeneratedData::Root( GetSingleton<IUserProfile>()->GetMOD() ) + szChapterName + ".xml";
+	NGeneratedData::CreateParentDirectories( szChapterFileName );
 	{
 		if ( CPtr<IDataStream> pStream = CreateFileStream( szChapterFileName.c_str(), STREAM_ACCESS_WRITE ) )
 		{

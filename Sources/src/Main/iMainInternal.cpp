@@ -23,6 +23,7 @@
 #include "../Platform/Paths.h"
 #include "../Platform/System.h"
 #include "../StreamIO/ProfilePaths.h"
+#include "../StreamIO/GeneratedData.h"
 namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
@@ -303,11 +304,17 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 				pNCChapter->RemoveTemplateMissions();
 				for ( int i = 0; i < missions.size(); ++i )
 					pNCChapter->AddMission( missions[i] );
-				IDataStorage *pStorage = GetSingleton<IDataStorage>();
-				const std::string szChapterFileName = pStorage->GetName() + szChapterName + ".xml";
-				CPtr<IDataStream> pStream = CreateFileStream( szChapterFileName.c_str(), STREAM_ACCESS_WRITE );
-				CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
-				saver.Add( "RPG", pNCChapter );
+				// Into the profile's generated data, where the chapter screen
+				// writes it too: Data may be read-only, and a mod's chapter has
+				// no directory there at all - the null stream crashed every
+				// load of a mod campaign save.
+				const std::string szChapterFileName = NGeneratedData::Root( GetSingleton<IUserProfile>()->GetMOD() ) + szChapterName + ".xml";
+				NGeneratedData::CreateParentDirectories( szChapterFileName );
+				if ( CPtr<IDataStream> pStream = CreateFileStream( szChapterFileName.c_str(), STREAM_ACCESS_WRITE ) )
+				{
+					CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
+					saver.Add( "RPG", pNCChapter );
+				}
 				TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize chapter templates end" );
 			}
 			else
