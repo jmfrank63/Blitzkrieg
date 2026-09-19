@@ -12,6 +12,10 @@ int main()
     if ( api.abi_version != GFXGPU_ABI_VERSION || api.struct_size != sizeof( api ) ) return 2;
     if ( gfxgpu_get_api( GFXGPU_ABI_VERSION + 1u, &api ) != GFXGPU_UNSUPPORTED ) return 3;
 
+    // The editor's entry points reach C callers in the header's order.
+    if ( api.set_overlay == nullptr || api.get_gpu_device == nullptr || api.set_frame_capture == nullptr ) return 40;
+    if ( api.set_overlay( nullptr, nullptr, nullptr ) != GFXGPU_INVALID_HANDLE ) return 41;
+
     // A caller compiled before set_present_fit and set_present_mode were
     // appended asks for the shorter table. It has to be served - that is what
     // struct_size is for - and served without a single byte landing past the

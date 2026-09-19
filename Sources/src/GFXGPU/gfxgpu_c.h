@@ -147,6 +147,12 @@ enum {
     GFXGPU_STATE_TEXTURE_MATRIX = 10,
 };
 
+/* Called once per presented frame after the scene, before submit. The
+   callback owns and must end any pass it opens on command_buffer
+   (an SDL_GPUCommandBuffer*); target is an SDL_GPUTexture* colour target of
+   width x height pixels in the swapchain's format. */
+typedef void (*GfxGpuOverlayCallback)(void *user, void *command_buffer, void *target, uint32_t width, uint32_t height);
+
 typedef struct GfxGpuApi {
     uint32_t abi_version;
     uint32_t struct_size;
@@ -192,10 +198,20 @@ typedef struct GfxGpuApi {
        option applies without a restart. An unsupported mode degrades to
        vsync rather than failing. */
     GfxGpuResult (*set_present_mode)(GfxGpuRenderer *, uint32_t);
+    /* Appended: the editor's overlay; NULL clears it. Refused inside a frame. */
+    GfxGpuResult (*set_overlay)(GfxGpuRenderer *, GfxGpuOverlayCallback, void *);
+    /* Appended: the SDL_GPUDevice* and the swapchain's SDL_GPUTextureFormat. */
+    GfxGpuResult (*get_gpu_device)(GfxGpuRenderer *, void **, uint32_t *);
+    /* Appended: nonzero captures the next presented frame for
+       gfxgpu_readback_frame. Refused inside a frame. */
+    GfxGpuResult (*set_frame_capture)(GfxGpuRenderer *, uint32_t);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);
 GfxGpuResult gfxgpu_readback(GfxGpuRenderer *, GfxGpuReadbackInfo *);
+/* The last captured frame as presented (scene and overlay), at drawable
+   size, in the swapchain's byte order. GFXGPU_UNSUPPORTED before a capture. */
+GfxGpuResult gfxgpu_readback_frame(GfxGpuRenderer *, GfxGpuReadbackInfo *);
 
 #ifdef __cplusplus
 }
