@@ -601,7 +601,8 @@ pub const Renderer = struct {
         }
         const command = self.frame.command_buffer orelse return error.InvalidState;
         const swapchain: *sdl.GpuTexture = @ptrCast(@alignCast(self.frame.swapchain_texture orelse return error.InvalidState));
-        const capturing = self.capture_requested;
+        // Without a scene texture the capture texture is never initialised, so a capture request must be ignored rather than blit from it.
+        const capturing = self.capture_requested and self.scene_texture != null;
         const target: *sdl.GpuTexture = if (capturing) try self.ensureCaptureTexture(self.drawable_width, self.drawable_height) else swapchain;
         if (self.scene_texture) |scene| {
             if (self.present_fit)
