@@ -80,11 +80,10 @@ pub fn main(init: std.process.Init) !void {
 
     // The capture has the drawable's size, which the renderer refreshes on
     // every swapchain acquire and which equals the window's size in pixels.
-    // If gfxgpu_readback_frame answers invalid_state, the two differ: query
-    // the size again after the first presented frame.
     var pixel_width: c_int = 0;
     var pixel_height: c_int = 0;
-    _ = sdl3.c.SDL_GetWindowSizeInPixels(window, &pixel_width, &pixel_height);
+    if (!sdl3.c.SDL_GetWindowSizeInPixels(window, &pixel_width, &pixel_height)) return error.SdlWindowSizeFailed;
+    if (pixel_width <= 0 or pixel_height <= 0) return error.SdlWindowSizeFailed;
     const width: u32 = @intCast(pixel_width);
     const height: u32 = @intCast(pixel_height);
     const scale: f32 = @as(f32, @floatFromInt(width)) / window_width;
@@ -135,7 +134,13 @@ pub fn main(init: std.process.Init) !void {
         }
     }
     if (!captured) {
-        std.debug.print("overlay-spike: FAIL no frame could be presented in {} attempts (hidden={})\n", .{ attempt, hidden });
+        // A skipped acquire (no swapchain texture, e.g. occluded) and a real
+        // begin_frame error both fall through to here identically; the
+        // renderer keeps the name of its last error, so surface it too.
+        var diagnostic: [256]u8 = undefined;
+        var diagnostic_length: u32 = 0;
+        _ = api.get_last_error(renderer, &diagnostic, diagnostic.len, &diagnostic_length);
+        std.debug.print("overlay-spike: FAIL no frame could be presented in {} attempts (hidden={}) last_error={s}\n", .{ attempt, hidden, diagnostic[0..diagnostic_length] });
         std.process.exit(2);
     }
 

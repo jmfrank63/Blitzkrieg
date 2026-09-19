@@ -473,7 +473,7 @@ fn getGpuDevice(handle: ?*RendererHandle, out_device: ?*?*anyopaque, out_format:
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (out_device == null or out_format == null) return errors.invalid_argument;
     const device = renderer.device orelse return errors.invalid_state;
-    out_device.?.* = device.handle;
+    out_device.?.* = device.handle orelse return errors.invalid_state;
     out_format.?.* = renderer.swapchain_format;
     return errors.ok;
 }
@@ -639,10 +639,12 @@ const api = Api{
 
 // The size of the table as it shipped before the presentation entry points
 // were appended. A caller compiled against that layout asks for exactly this
-// many bytes, and the two appended function pointers do not exist in its
-// struct at all - so requiring @sizeOf(Api) here would reject every such
-// caller, which is what "appended, callers that predate it keep working via
-// the struct_size check" is supposed to rule out.
+// many bytes, and the function pointers appended since (there are five now:
+// set_present_fit, set_present_mode, set_overlay, get_gpu_device and
+// set_frame_capture) do not exist in its struct at all - so requiring
+// @sizeOf(Api) here would reject every such caller, which is what
+// "appended, callers that predate it keep working via the struct_size
+// check" is supposed to rule out.
 const api_base_size: u32 = @offsetOf(Api, "set_present_fit");
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {

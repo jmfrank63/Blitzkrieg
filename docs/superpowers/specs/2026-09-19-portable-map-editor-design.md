@@ -276,7 +276,9 @@ frame, then the frame is presented. The GPU renderer has no such hook today
 (`GraphicsEngineGpu.h`; GFXGPU exports only `gfxgpu_get_api` and
 `gfxgpu_readback`). M1 adds one: an overlay callback that runs after the
 engine's last pass and before present, and receives the frame's SDL GPU
-command buffer and swapchain texture. ImGui's SDL-GPU backend renders there.
+command buffer and colour target (the swapchain texture normally, or the
+capture texture while a capture is in progress). ImGui's SDL-GPU backend
+renders there.
 
 Settled by the overlay spike (plan
 `docs/superpowers/plans/2026-09-19-map-editor-01-overlay-spike.md`):
