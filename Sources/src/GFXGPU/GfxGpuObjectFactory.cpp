@@ -295,7 +295,17 @@ public:
     bool STDCALL Init() override { return true; }
     void STDCALL SetSerialMode( ESharedDataSerialMode ) override {}
     void STDCALL SetShareMode( ESharedDataSharingMode ) override {}
-    void STDCALL Clear( EClearMode, int, int ) override {}
+    // CFontManager drops every font on CLEAR_ALL, as the texture manager does.
+    // A mod switch relies on it: with the cache kept, "fonts\medium" stayed
+    // the base game's font for the whole session after a mod was loaded (or
+    // started with), and only a save load, which rebuilds the map, brought in
+    // the mod's own font. Fonts still held elsewhere stay alive through their
+    // references until those screens are rebuilt.
+    void STDCALL Clear( EClearMode mode, int, int ) override
+    {
+        if ( mode == CLEAR_ALL )
+            fonts_.clear();
+    }
     // See TextureManagerGpu::operator& - CFontManager serializes the same way.
     int STDCALL operator&( IStructureSaver &ss ) override
     {
