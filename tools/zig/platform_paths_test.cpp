@@ -26,6 +26,20 @@ int main()
     // by parent_path, which would differ only by that separator.
     assert(NPlatform::Paths::ScreenshotRoot().rfind(NPlatform::Paths::BaseRoot(), 0) == 0);
     assert(NPlatform::Paths::ScreenshotRoot().substr(NPlatform::Paths::BaseRoot().size()) == "screenshots");
+    // A multiplayer client stores the map under the name the host sends. Only a
+    // plain relative data name may pass; anything else would write outside the
+    // directory it is joined to.
+    assert(NPlatform::Paths::IsRelativeDataName("maps\\Arnhem.bzm"));
+    assert(NPlatform::Paths::IsRelativeDataName("maps/multiplayer/Arnhem.lua"));
+    assert(!NPlatform::Paths::IsRelativeDataName(""));
+    assert(!NPlatform::Paths::IsRelativeDataName("maps\\"));
+    assert(!NPlatform::Paths::IsRelativeDataName("..\\..\\config.cfg"));
+    assert(!NPlatform::Paths::IsRelativeDataName("maps\\..\\..\\x.bzm"));
+    assert(!NPlatform::Paths::IsRelativeDataName("maps/./x.bzm"));
+    assert(!NPlatform::Paths::IsRelativeDataName("\\etc\\passwd"));
+    assert(!NPlatform::Paths::IsRelativeDataName("/etc/passwd"));
+    assert(!NPlatform::Paths::IsRelativeDataName("C:\\Windows\\x.bzm"));
+    assert(!NPlatform::Paths::IsRelativeDataName(std::string("maps\\a\0b.bzm", 12)));
     assert(std::filesystem::exists(user / "saves"));
     assert(std::filesystem::exists(user / "logs"));
     assert(std::filesystem::exists(user / "cache"));
