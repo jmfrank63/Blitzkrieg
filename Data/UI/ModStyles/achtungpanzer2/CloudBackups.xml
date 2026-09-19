@@ -1,0 +1,562 @@
+<!-- The CloudBackups screen restyled for the Achtung Panzer 2 mod from its own
+     pictures (the menu paper, its tab buttons and the paper strips), referenced
+     by name only. Generated from ui\CloudBackups.xml: same elements, ids and script.
+     Used instead of it while that mod is loaded; see OpenLayoutStream in UIScreen.cpp. -->
+<base ScreenFillColor="0xff464135">
+	<Children>
+		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
+			<Script>ui\CloudBackups</Script>
+			<WindowPos x="0" y="0" />
+			<WindowSize x="736" y="610" />
+			<Children>
+				<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xff815335">
+					<ShadowShift x="1" y="2" />
+					<TextPos x="0" y="0" />
+					<WindowPos x="40" y="24" />
+					<WindowSize x="500" y="30" />
+					<States>
+						<item>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff815335" />
+							<PushSound />
+							<ClickSound />
+							<TextKey>Textes\UI\CloudBackups\caption</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="3102" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34">
+					<ShadowShift x="1" y="2" />
+					<TextPos x="0" y="0" />
+					<WindowPos x="30" y="44" />
+					<WindowSize x="680" y="30" />
+					<States>
+						<item>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<PushSound />
+							<ClickSound />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x1000110A" ElementID="2100" PositionFlag="0x0011" ActiveFlag="1" VisibleFlag="1" HSubSpace="12" VSubSpace="5" SBWidth="28" HeaderSize="60" SBVisible="1" LeftSpace="22">
+					<Selection_Texture>UI\mapping</Selection_Texture>
+					<SelTileRects>
+						<item>
+							<rect x1="0" y1="0" x2="4" y2="26" />
+							<size x="4" y="26" />
+							<map x1="206" y1="63" x2="4" y2="26" />
+						</item>
+						<item>
+							<rect x1="4" y1="0" x2="592" y2="26" />
+							<size x="26" y="26" />
+							<map x1="210" y1="63" x2="26" y2="26" />
+						</item>
+						<item>
+							<rect x1="592" y1="0" x2="600" y2="26" />
+							<size x="8" y="26" />
+							<map x1="232" y1="63" x2="8" y2="26" />
+						</item>
+					</SelTileRects>
+					<ColumnProps>
+						<item Width="190">
+							<FileName>ui\common\goldlefttext</FileName>
+						</item>
+						<item Width="270">
+							<FileName>ui\common\goldlefttext</FileName>
+						</item>
+						<item Width="140">
+							<FileName>ui\common\goldlefttext</FileName>
+						</item>
+					</ColumnProps>
+					<Children>
+						<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15">
+							<Children>
+								<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+									<WindowSize x="45" y="58" />
+									<States>
+										<item EventID="-1">
+											<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="636" y1="769" x2="45" y2="58" />
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceNormal>
+											<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="636" y1="769" x2="45" y2="58" />
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceHighlighted>
+											<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="636" y1="769" x2="45" y2="58" />
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearancePushed>
+										</item>
+									</States>
+								</item>
+								<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+									<WindowSize x="45" y="58" />
+									<States>
+										<item EventID="-1">
+											<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="591" y1="769" x2="45" y2="58" />
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceNormal>
+											<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="591" y1="769" x2="45" y2="58" />
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearanceHighlighted>
+											<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="591" y1="769" x2="45" y2="58" />
+												<Texture>ui\IntermissionTextures\back-chapter</Texture>
+											</AppearancePushed>
+										</item>
+									</States>
+								</item>
+								<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+									<Elevator_Texture>ui\IntermissionTextures\back-settings</Elevator_Texture>
+									<Elevator_Maps x1="681" y1="783" x2="45" y2="33" />
+									<WindowSize x="41" y="0" />
+									<States>
+										<item EventID="-1">
+											<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="108" y1="0" x2="40" y2="33" />
+												<Texture>ui\slider</Texture>
+											</AppearanceNormal>
+											<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="108" y1="0" x2="40" y2="33" />
+												<Texture>ui\slider</Texture>
+											</AppearanceHighlighted>
+											<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+												<Maps x1="108" y1="0" x2="40" y2="33" />
+												<Texture>ui\slider</Texture>
+											</AppearancePushed>
+										</item>
+									</States>
+								</item>
+							</Children>
+							<WindowPos x="0" y="0" />
+							<WindowSize x="45" y="0" />
+						</item>
+						<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB">
+							<TextPos x="20" y="4" />
+							<ShadowShift x="1" y="2" />
+							<WindowPos x="0" y="6" />
+							<WindowSize x="150" y="30" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<TextKey>Textes\UI\CloudBackups\header_host</TextKey>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB">
+							<TextPos x="20" y="4" />
+							<ShadowShift x="1" y="2" />
+							<WindowPos x="0" y="6" />
+							<WindowSize x="150" y="30" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<TextKey>Textes\UI\CloudBackups\header_when</TextKey>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001105" ElementID="12" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB">
+							<TextPos x="20" y="4" />
+							<ShadowShift x="1" y="2" />
+							<WindowPos x="0" y="6" />
+							<WindowSize x="150" y="30" />
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+									<TextKey>Textes\UI\CloudBackups\header_size</TextKey>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="28" y="84" />
+					<WindowSize x="680" y="300" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="439" y1="788" x2="324" y2="50" />
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="439" y1="788" x2="324" y2="50" />
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+							</AppearanceHighlighted>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="3103" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<ShadowShift x="1" y="2" />
+					<TextPos x="0" y="0" />
+					<WindowPos x="30" y="392" />
+					<WindowSize x="680" y="76" />
+					<States>
+						<item>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
+							<PushSound />
+							<ClickSound />
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10030" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
+					<WindowPos x="30" y="470" />
+					<WindowSize x="320" y="49" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff7a6a55">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10031" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
+					<WindowPos x="386" y="470" />
+					<WindowSize x="320" y="49" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff7a6a55">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0032" ActiveFlag="1" VisibleFlag="1">
+					<ShiftText x="0" y="1" />
+					<WindowPos x="0" y="20" />
+					<WindowSize x="88" y="56" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="24" y1="8" x2="64" y2="48" />
+										<size x="40" y="40" />
+										<map x1="200" y1="40" x2="40" y2="40" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="24" y1="8" x2="64" y2="48" />
+										<size x="40" y="40" />
+										<map x1="160" y1="40" x2="40" y2="40" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="24" y1="8" x2="64" y2="48" />
+										<size x="40" y="40" />
+										<map x1="160" y1="40" x2="40" y2="40" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\buttons-ap2</Texture>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20030" PositionFlag="0x0011" ActiveFlag="0" VisibleFlag="0" Background="1">
+					<WindowPos x="0" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="720" y2="83" />
+										<size x="64" y="42" />
+										<map x1="64" y1="171" x2="64" y2="42" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="720" y2="83" />
+										<size x="64" y="42" />
+										<map x1="64" y1="171" x2="64" y2="42" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="720" y2="83" />
+										<size x="64" y="42" />
+										<map x1="64" y1="171" x2="64" y2="42" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearancePushed>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="0" Background="1" ElementID="31420">
+					<Script />
+					<WindowPos x="0" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="708" y2="497" />
+										<size x="683" y="768" />
+										<map x1="12" y1="120" x2="476" y2="500" />
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="708" y2="507" />
+										<size x="683" y="768" />
+										<map x1="12" y1="120" x2="476" y2="500" />
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="708" y2="507" />
+										<size x="683" y="768" />
+										<map x1="12" y1="120" x2="476" y2="500" />
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearancePushed>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20021" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="0" Background="1">
+					<WindowPos x="0" y="0" />
+					<WindowSize x="0" y="0" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="24" y2="24" />
+										<size x="24" y="24" />
+										<map x1="0" y1="129" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="684" y1="0" x2="708" y2="24" />
+										<size x="24" y="24" />
+										<map x1="168" y1="129" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="0" y1="483" x2="24" y2="507" />
+										<size x="24" y="24" />
+										<map x1="0" y1="232" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="684" y1="483" x2="708" y2="507" />
+										<size x="24" y="24" />
+										<map x1="168" y1="232" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="24" y1="0" x2="684" y2="8" />
+										<size x="16" y="8" />
+										<map x1="24" y1="129" x2="16" y2="8" />
+									</item>
+									<item>
+										<rect x1="24" y1="499" x2="684" y2="507" />
+										<size x="16" y="8" />
+										<map x1="24" y1="248" x2="16" y2="8" />
+									</item>
+									<item>
+										<rect x1="0" y1="24" x2="8" y2="483" />
+										<size x="8" y="16" />
+										<map x1="0" y1="153" x2="8" y2="16" />
+									</item>
+									<item>
+										<rect x1="700" y1="24" x2="708" y2="483" />
+										<size x="8" y="16" />
+										<map x1="184" y1="153" x2="8" y2="16" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="24" y2="24" />
+										<size x="24" y="24" />
+										<map x1="0" y1="129" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="684" y1="0" x2="708" y2="24" />
+										<size x="24" y="24" />
+										<map x1="168" y1="129" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="0" y1="483" x2="24" y2="507" />
+										<size x="24" y="24" />
+										<map x1="0" y1="232" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="684" y1="483" x2="708" y2="507" />
+										<size x="24" y="24" />
+										<map x1="168" y1="232" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="24" y1="0" x2="684" y2="8" />
+										<size x="16" y="8" />
+										<map x1="24" y1="129" x2="16" y2="8" />
+									</item>
+									<item>
+										<rect x1="24" y1="499" x2="684" y2="507" />
+										<size x="16" y="8" />
+										<map x1="24" y1="248" x2="16" y2="8" />
+									</item>
+									<item>
+										<rect x1="0" y1="24" x2="8" y2="483" />
+										<size x="8" y="16" />
+										<map x1="0" y1="153" x2="8" y2="16" />
+									</item>
+									<item>
+										<rect x1="700" y1="24" x2="708" y2="483" />
+										<size x="8" y="16" />
+										<map x1="184" y1="153" x2="8" y2="16" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="24" y2="24" />
+										<size x="24" y="24" />
+										<map x1="0" y1="129" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="684" y1="0" x2="708" y2="24" />
+										<size x="24" y="24" />
+										<map x1="168" y1="129" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="0" y1="483" x2="24" y2="507" />
+										<size x="24" y="24" />
+										<map x1="0" y1="232" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="684" y1="483" x2="708" y2="507" />
+										<size x="24" y="24" />
+										<map x1="168" y1="232" x2="24" y2="24" />
+									</item>
+									<item>
+										<rect x1="24" y1="0" x2="684" y2="8" />
+										<size x="16" y="8" />
+										<map x1="24" y1="129" x2="16" y2="8" />
+									</item>
+									<item>
+										<rect x1="24" y1="499" x2="684" y2="507" />
+										<size x="16" y="8" />
+										<map x1="24" y1="248" x2="16" y2="8" />
+									</item>
+									<item>
+										<rect x1="0" y1="24" x2="8" y2="483" />
+										<size x="8" y="16" />
+										<map x1="0" y1="153" x2="8" y2="16" />
+									</item>
+									<item>
+										<rect x1="700" y1="24" x2="708" y2="483" />
+										<size x="8" y="16" />
+										<map x1="184" y1="153" x2="8" y2="16" />
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\tile-background</Texture>
+							</AppearancePushed>
+							<PushSound />
+							<ClickSound />
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20020" PositionFlag="0x0012" ActiveFlag="0" VisibleFlag="1" Background="1">
+					<WindowPos x="0" y="0" />
+					<WindowSize x="736" y="610" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="0" y1="0" x2="497" y2="516" />
+								<Texture>ui\IntermissionTextures\menu-popups</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="0" y1="0" x2="497" y2="516" />
+								<Texture>ui\IntermissionTextures\menu-popups</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+								<Maps x1="0" y1="0" x2="497" y2="516" />
+								<Texture>ui\IntermissionTextures\menu-popups</Texture>
+							</AppearancePushed>
+							<PushSound />
+							<ClickSound />
+						</item>
+					</States>
+				</item>
+			</Children>
+		</item>
+	</Children>
+</base>
