@@ -278,10 +278,18 @@ frame, then the frame is presented. The GPU renderer has no such hook today
 engine's last pass and before present, and receives the frame's SDL GPU
 command buffer and swapchain texture. ImGui's SDL-GPU backend renders there.
 
-This is the riskiest piece and is the plan's first task, as a spike. If the
-callback cannot share the render pass cleanly, the fallback is to let the
-callback open its own pass on the swapchain texture with `LOAD` so it keeps
-the engine's pixels.
+Settled by the overlay spike (plan
+`docs/superpowers/plans/2026-09-19-map-editor-01-overlay-spike.md`):
+
+- The overlay callback runs in `endFrame` after the scene blit and before
+  submit. It owns its own `LOAD` render pass on the target, because ImGui's
+  SDL GPU backend uploads in a copy pass that may not overlap a render pass.
+- ImGui draws at drawable resolution, independent of the scene size.
+- A capture composes the frame into a readable texture and copies it to the
+  swapchain, so tests read back exactly what was presented.
+- Measured on macOS arm64 (`metal`, swapchain format `12`): the
+  panel pixel was `(255,0,255)`, the scene pixel `(0,255,0)`.
+- Hidden window: `PASS`.
 
 ### Build and packaging
 
