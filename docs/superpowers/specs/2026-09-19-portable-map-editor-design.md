@@ -98,7 +98,8 @@ No UI dependency, runs headless.
   the dirty flag and the file path. The source of truth for panels and undo.
 - **Commands:** paint tiles, add object, move, rotate, delete, set player,
   set diplomacy. Each has *do* and *undo*; both call the bridge and update the
-  document. Paint records the old tile per brush cell; delete records the
+  document. Paint records the tiles and crosses of its whole affected region
+  (see "Terrain edits"); delete records the
   whole object and remaps the engine id when undo re-adds it. An undo stack
   with redo, and merging of one brush drag into one command.
 - **Tools:** tile brush, object placer, select/move/rotate/delete, and the
@@ -198,12 +199,11 @@ The MFC editor saves by rebuilding the whole map from its UI and the engine,
 then recomputing shades (`TemplateEditorFrame1.cpp:2934-3291`). M1 does not.
 It saves the **snapshot with the M1 edits laid over it**:
 
-- **Terrain:** only `tiles` changes, and only in the cells a brush touched.
-  Derived data the engine recomputes for those cells (crosses in the touched
-  patches) is copied from the engine for those patches only. Everything
-  else is the snapshot's: other tiles, `patches` outside the touched area,
-  `altitudes` and their shades, `rivers`, `roads3`, tileset, crosset and
-  noise names.
+- **Terrain:** the bridge's own terrain copy (see "Terrain edits" below).
+  Only `tiles` and the crosses of `patches` can differ from the snapshot, and
+  only inside the affected regions of paint commands. `altitudes` and their
+  shades, patch heights, `rivers`, `roads3`, and the tileset, crosset and
+  noise names are always the snapshot's.
 - **Objects:**
   - An untouched object is written as its snapshot record, byte for byte
     (packed frame index, HP, script ID, link).
@@ -218,6 +218,48 @@ It saves the **snapshot with the M1 edits laid over it**:
   the per-player `unitCreation` entries that M1 edits. Nothing else in
   `unitCreation` changes.
 - **Everything else** is written from the snapshot unchanged.
+
+### Terrain edits
+
+A painted tile has derived effects the engine computes, and the saved map
+must match what the engine shows. So the rule is: **derived terrain changes
+are allowed, but only as the deterministic function below, inside the
+affected region, and the expected value in tests is built with the same
+function.** It is not "the edited tile only".
+
+The function, for one paint command with the set of painted cells `C`:
+
+1. **Affected region `R`:** every patch that contains a cell of `C` or a
+   cell next to one (8-neighbourhood). A painted cell on a patch border so
+   includes the neighbouring patch, whose crosses read the border cells.
+2. Set the tiles of `C` (tile index and noise flag).
+3. `CTerrainBuilder::PreprocessMapSegment` over the tile rectangle of `R`.
+   This pass removes one-cell-thin strips of lower-priority terrain, so it
+   can change tiles in `R` outside `C`. That is intended; it is what the
+   engine does.
+4. Regenerate the crosses (base, layer, noise) of every patch in `R` with
+   `MapSegmentGenerateCrosses` and `CopyCrosses`.
+
+Steps 3 and 4 are `CMapInfo::UpdateTerrainCrosses( terrain, R, tileset,
+crosset )` (`RandomMapGen/MapInfo_StaticMethods.cpp:420`). It needs no
+renderer, contains no randomness, and runs the same `CTerrainBuilder` code
+as the engine's `CTerrain::Update` (`Scene/TerrainEditor.cpp:103`; the two
+`TerrainBuilder.cpp` copies are identical). It does **not** run the rivers,
+roads or shades updates that `CMapInfo::UpdateTerrain` adds, and neither
+does the engine's update.
+
+The bridge applies the function to its own terrain copy, starting from the
+snapshot's terrain, and then pushes the region's tiles and crosses into the
+engine. Save writes that copy. The engine is never the source of the saved
+terrain. The engine tier checks that the engine's terrain
+(`ITerrainEditor::GetTerrainInfo`) equals the copy in `tiles` and patch
+crosses after every paint.
+
+The pass in step 3 makes the order of commands matter. So:
+- the function runs once per paint command, never batched at save;
+- a paint command records the tiles and patch crosses of all of `R` before
+  it runs;
+- undo restores exactly those, in the copy and in the engine.
 
 **References to deleted objects.** Other records can refer to an object's
 link ID: `bridges`, `startCommandsList.unitLinkIDs`, `reinforcements`,
@@ -319,8 +361,19 @@ Floats are compared exactly, because nothing is recomputed. The comparator
 is written once, in C++ next to `MapFile`, and fails on any field it does
 not know, so a new field cannot slip past it.
 
-For an edited map, the expected value is the original map with exactly the
-edits applied, and it is compared the same way.
+For an edited map, the expected value is built by an **expected-value
+builder**. It starts from the original map as read and replays the edit
+sequence:
+- a paint command runs the terrain function of "Terrain edits" (the same C++
+  code the bridge uses);
+- object and diplomacy edits apply the overlay rules of "Saving".
+
+The saved map must then be equivalent to that value. So, for terrain:
+- outside the affected regions, every tile and every patch equals the
+  original;
+- inside them, `tiles` and patch crosses equal the builder's result;
+- `altitudes`, patch heights, `rivers` and `roads3` equal the original
+  everywhere.
 
 Two further checks:
 - **Idempotent save:** saving, reading and saving again gives byte-identical
@@ -351,8 +404,9 @@ Two further checks:
     in `Data/Maps` plus a fixed sample from `Data/Scenarios`. A local step,
     `zig build test-map-files-all`, sweeps all 1,755 shipped `.bzm` files and
     the `.xml` maps.
-  - Apply the overlay for scripted edits without the engine (tiles in one
-    patch, an added object, a moved object, a deleted object with no
+  - Apply the overlay for scripted edits without the engine (tiles inside
+    one patch, tiles on a patch border, a thin strip the preprocessing pass
+    removes, paint then undo restoring the region exactly, an added object, a moved object, a deleted object with no
     references, a refused delete of a referenced object, a diplomacy change)
     and compare with the expected map.
   - A map with an unknown object keeps it through a save.
@@ -377,9 +431,10 @@ Two further checks:
 
 - **Overlay hook:** see above; settled first by the spike.
 - **Map save fidelity:** the snapshot overlay and the equivalence tests over
-  every shipped map are the guard. The remaining risk is the terrain overlay
-  for a painted cell (which derived patch data to take from the engine); the
-  map file tier pins it per patch.
+  every shipped map are the guard. The remaining risk is terrain, where the
+  engine's result could differ from the terrain function (for example
+  through a different update rectangle). The engine tier compares the two
+  after every paint.
 - **No GPU on CI runners:** engine tests cannot run there. The preservation
   invariant is therefore enforced by the data-only map file tier, which runs
   everywhere; the engine tier adds the real editing APIs on macOS.
