@@ -547,6 +547,17 @@ void CUIScreen::Draw( interface IGFX *pGFX )
 			szResult += szChatMessage;
 			pGFX->DrawString( szResult.c_str(), CHAT_MESSAGE_LEFT, rc.y1 + CHAT_MESSAGE_TOP );
 		}
+
+		// SetFont has no matching “restore previous font” call, so leaving
+		// the large font selected here would leak into every draw call after
+		// this one until somebody else sets their own font (the developer
+		// console and the stat overlay never do). Put the startup font back.
+		if ( pLargeFont != 0 )
+		{
+			IGFXFont *pMediumFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
+			if ( pMediumFont != 0 )
+				pGFX->SetFont( pMediumFont );
+		}
 	}
 }
 bool CUIScreen::Update( const NTimer::STime &currTime )
