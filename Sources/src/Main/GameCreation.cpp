@@ -21,6 +21,9 @@
 
 #include "../zlib/zlib.h"
 #include "../zlib/zconf.h"
+#include "../StreamIO/GeneratedData.h"
+#include "../Platform/Paths.h"
+#include "ScenarioTracker.h"
 
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
 #define DEBUG_NET_MESSAGES
@@ -1571,6 +1574,29 @@ void CClientGameCreation::CLoadMap::ProcessMapPacket( CStreamAccessor &pkt )
 
 	WriteDebugMessage( NStr::Format( "Packed receive: size %d, total received %d, sizeToReceive %d", nPacketSize, nReceived, nCompressedSize ) );
 }
+// Stores a file the host sent (the map, its script, its text) where the data
+// storage finds it by the same name. It used to go into the installation's
+// Data, which fails on a protected installation (and then crashed on the null
+// stream) and let a host overwrite any file there - or, with "..", anywhere -
+// by the name it sent. It now goes to the profile's generated data, which is
+// mounted over Data and any mod, and only under a plain relative name.
+static bool WriteReceivedFile( const std::string &szFileName, const void *pData, const int nSize )
+{
+	if ( !NPlatform::Paths::IsRelativeDataName( szFileName ) )
+	{
+		WriteDebugMessage( NStr::Format( "Refused to store received file \"%s\"", szFileName.c_str() ) );
+		return false;
+	}
+	const std::string szPathName = NGeneratedData::Root( GetSingleton<IUserProfile>()->GetMOD() ) + szFileName;
+	NGeneratedData::CreateParentDirectories( szPathName );
+	CPtr<IDataStream> pStream = CreateFileStream( szPathName.c_str(), STREAM_ACCESS_WRITE );
+	if ( !pStream )
+	{
+		WriteDebugMessage( NStr::Format( "Can't write received file \"%s\"", szPathName.c_str() ) );
+		return false;
+	}
+	return pStream->Write( pData, nSize ) == nSize;
+}
 void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 {
 	NI_ASSERT_T( nReceived == nCompressedSize, NStr::Format( "Received size (%d) isn't equal to map size (%d)", nReceived, nCompressedSize ) );
@@ -1603,20 +1629,14 @@ void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 			const int nInflatedSize = zstream.next_out - &(inflatedStream[0]);
 			NI_ASSERT_T( nInflatedSize == nRealSize, NStr::Format( "Wrong inflated size, %d instead of %d", nInflatedSize, nRealSize ) );
 
-			const std::string szPathName = GetSingleton<IDataStorage>()->GetName() + szFileName;
-			CPtr<IDataStream> pStream = CreateFileStream( szPathName.c_str(), STREAM_ACCESS_WRITE );
-			pStream->Write( &(inflatedStream[0]), nRealSize );
-
-			WriteDebugMessage( NStr::Format( "Inflating OK" ) );
+			if ( WriteReceivedFile( szFileName, &(inflatedStream[0]), nRealSize ) )
+				WriteDebugMessage( NStr::Format( "Inflating OK" ) );
 		}
 	}
 	else if ( nRealSize == -1 && nCompressedSize > 0 )
 	{
-		const std::string szPathName = GetSingleton<IDataStorage>()->GetName() + szFileName;
-		CPtr<IDataStream> pStream = CreateFileStream( szPathName.c_str(), STREAM_ACCESS_WRITE );
-		pStream->Write( &(stream[0]), nCompressedSize );
-
-		WriteDebugMessage( NStr::Format( "Loading OK" ) );
+		if ( WriteReceivedFile( szFileName, &(stream[0]), nCompressedSize ) )
+			WriteDebugMessage( NStr::Format( "Loading OK" ) );
 	}
 }
 void CClientGameCreation::CLoadMap::AllLoadFinished()
