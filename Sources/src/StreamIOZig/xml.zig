@@ -176,7 +176,10 @@ fn decodeEntities(allocator: std.mem.Allocator, value: []const u8) ![]const u8 {
 }
 
 pub fn parse(allocator: std.mem.Allocator, bytes: []const u8) !Document {
+    // A leading UTF-8 byte order mark is not content.
+    const utf8_bom = "\xef\xbb\xbf";
     var parser = Parser{ .bytes = bytes, .allocator = allocator };
+    if (std.mem.startsWith(u8, bytes, utf8_bom)) parser.pos = utf8_bom.len;
     return .{ .root = try parser.parseElement(), .allocator = allocator };
 }
 
@@ -204,6 +207,17 @@ test "decodes character entities in text and attributes" {
     const item = child(document.root, "item").?;
     try std.testing.expectEqualStrings("a & b \"c\"", attribute(item, "value").?);
     try std.testing.expectEqualStrings("1 < 2 > 0 \xe9'", item.text);
+}
+
+test "a UTF-8 byte order mark before the declaration is skipped" {
+    // Some mod files (Achtung Panzer 2's units\humans\other\polish\kbk29\1.xml)
+    // start with EF BB BF; the original MSXML reader accepted them, and a
+    // failed parse left the unit's stats unread and crashed the game.
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const document = try parse(arena.allocator(), "\xef\xbb\xbf<?xml version=\"1.0\"?>\r\n<base>\r\n<RPG MaxHP=\"25\"/></base>");
+    try std.testing.expectEqualStrings("base", document.root.name);
+    try std.testing.expectEqualStrings("25", attribute(child(document.root, "RPG").?, "MaxHP").?);
 }
 
 test "parses nested XML with attributes and comments" {
