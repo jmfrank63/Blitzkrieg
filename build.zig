@@ -3929,7 +3929,10 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (target.result.os.tag != .windows) return &.{"-std=c++17"};
+    // Only real MSVC needs the -fms-extensions/-fms-compatibility flags; a
+    // windows-gnu (mingw) target compiles with the plain libstdc++ flags,
+    // and previously got the MSVC set solely because its os.tag is .windows.
+    if (target.result.os.tag != .windows or target.result.abi != .msvc) return &.{"-std=c++17"};
     return cppflagsForOptimize(optimize);
 }
 
