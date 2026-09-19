@@ -517,11 +517,23 @@ void CUIScreen::Draw( interface IGFX *pGFX )
 	{
 		pGFX->SetShadingEffect( 3 );	
 		const CTRect<float> &rc = GetScreenRect();
+		// The message lines - mission dialogue, acknowledgements, chat - are
+		// drawn straight onto the screen rather than through a UI element, so
+		// the layout scale never reaches them and they kept the size they had
+		// at 640x480. Draw them in the large font, and space the lines by that
+		// font rather than by the constant written for the small one.
+		IGFXFont *pLargeFont = GetSingleton<IFontManager>()->GetFont( "fonts\\large" );
+		int nLineHeight = TEXT_VERTICAL_SIZE;
+		if ( pLargeFont != 0 )
+		{
+			pGFX->SetFont( pLargeFont );
+			nLineHeight = Max( pLargeFont->GetLineSpace(), TEXT_VERTICAL_SIZE );
+		}
 		int nCurrentY = rc.y1 + ACKS_VERTICAL_POSITION;
 		for ( CListOfAcks::iterator it = listOfAcks.begin(); it != listOfAcks.end(); ++it )
 		{
 			pGFX->DrawString( it->szString.c_str(), TEXT_LEFT_SPACE, nCurrentY, it->dwColor );
-			nCurrentY += TEXT_VERTICAL_SIZE;
+			nCurrentY += nLineHeight;
 		}
 
 		if ( bChatMode )
