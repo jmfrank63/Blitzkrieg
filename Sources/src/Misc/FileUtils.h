@@ -125,11 +125,16 @@ void EnumerateFiles(const char *start, const char *mask, TEnumFunc callback, boo
     std::string directory = start ? start : "";
     if (!directory.empty() && directory.back() != '\\' && directory.back() != '/') directory += '\\';
     for (CFileIterator it((directory + mask).c_str()); !it.IsEnd(); ++it) if (!it.IsDirectory()) callback(it);
-    if (!recurse) return;
+    // Subdirectories reach the callback whether or not they are descended into,
+    // as in the original: the mod lookup and the Load Mod list enumerate the
+    // mods folder without recursing and look only at its directories, so
+    // returning early here made every installed mod "not found".
     for (CFileIterator it((directory + "*").c_str()); !it.IsEnd(); ++it) {
         if (it.IsDirectory() && !it.IsDots()) {
-            const std::string child = it.GetFilePath() + "\\";
-            EnumerateFiles(child.c_str(), mask, callback, true);
+            if (recurse) {
+                const std::string child = it.GetFilePath() + "\\";
+                EnumerateFiles(child.c_str(), mask, callback, true);
+            }
             callback(it);
         }
     }
