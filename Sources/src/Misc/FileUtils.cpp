@@ -165,7 +165,9 @@ bool CFileIterator::Close() { entries.clear(); index = 0; return true; }
 const std::string CFileIterator::GetFileTitle() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? n : n.substr(0, p); }
 const std::string CFileIterator::GetFileExt() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? "" : n.substr(p + 1); }
 
-void DeleteFiles(const char *start, const char *mask, bool recursive) { EnumerateFiles(start, mask, [](const CFileIterator &it) { CFile::Remove(it.GetFilePath().c_str()); }, recursive); }
+// Files only: EnumerateFiles also hands over directories, which std::filesystem
+// would remove when empty where DeleteFile never touched them.
+void DeleteFiles(const char *start, const char *mask, bool recursive) { EnumerateFiles(start, mask, [](const CFileIterator &it) { if (!it.IsDirectory()) CFile::Remove(it.GetFilePath().c_str()); }, recursive); }
 void DeleteDirectory(const char *path) { std::error_code error; fs::remove_all(nativePath(path), error); }
 void CreatePath(const char *path) { std::error_code error; fs::create_directories(nativePath(path ? path : ""), error); }
 class CDirFileEnum { std::list<std::string> *names; bool dirs, files; public: CDirFileEnum(std::list<std::string> *n, bool d, bool f) : names(n), dirs(d), files(f) {} void operator()(const CFileIterator &it) { if (it.IsDirectory() ? dirs : files) names->push_back(it.GetFilePath()); } };

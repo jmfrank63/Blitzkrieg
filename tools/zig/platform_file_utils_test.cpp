@@ -91,6 +91,21 @@ int main()
         assert(data_root.substr(0, data_root.find_last_of("\\/")) == "/game/install");
     }
 
+    // A mod is found by listing the mods folder without recursing and looking
+    // at its directories. Returning before the directory pass when not
+    // recursing listed none, and every installed mod was "not found".
+    {
+        std::list<std::string> dirs;
+        NFile::GetDirNames(root.string().c_str(), &dirs, false);
+        assert(dirs.size() == 1 && dirs.front().find("nested") != std::string::npos);
+        // DeleteFiles removes files only, even now that it is handed the
+        // (here empty) directories as well.
+        NFile::CreatePath((root / "empty").string().c_str());
+        NFile::DeleteFiles(root.string().c_str(), "*.*", false);
+        assert(std::filesystem::is_directory(root / "empty"));
+        assert(std::filesystem::exists(file_name));
+    }
+
     const std::string renamed = (root / "nested" / "renamed.bin").string();
     assert(NFile::CFile::Rename(file_name.c_str(), renamed.c_str()));
     assert(NFile::IsFileExist(renamed.c_str()));

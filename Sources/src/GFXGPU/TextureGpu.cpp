@@ -171,18 +171,20 @@ bool STDCALL TextureGpu::Load( bool bPreLoad )
         return Unlock( 0 );
     }
 
+    // The renderer creates single-level textures and has no mip upload, so keep
+    // only the top level, as the decode path above does. Uploading the rest put
+    // a half-size level into the full-size texture, which the renderer rejects:
+    // the whole load failed and mods shipping mipped 32-bit DDS (Achtung Panzer
+    // 2's menus) drew as blank white and black boxes.
+    mips_ = 1;
     if ( !owner_ || !owner_->CreateTextureHandle( width_, height_, mips_, GpuFormat( format_ ), usage_, &handle_ ) ) return false;
 
-    for ( int level = 0; level < mips_; ++level )
-    {
-        SSurfaceLockInfo lock{};
-        if ( !Lock( level, &lock ) ) return false;
-        const int rows = (format_ >= GFXPF_DXT1 && format_ <= GFXPF_DXT5) ? ((GetSizeY( level ) + 3) / 4) : GetSizeY( level);
-        const size_t bytes = static_cast<size_t>( lock.nPitch ) * static_cast<size_t>( rows );
-        const bool read_ok = bytes <= static_cast<size_t>( INT_MAX ) && stream->Read( lock.pData, static_cast<int>( bytes ) ) == static_cast<int>( bytes );
-        if ( !read_ok || !Unlock( level ) ) return false;
-    }
-    return true;
+    SSurfaceLockInfo lock{};
+    if ( !Lock( 0, &lock ) ) return false;
+    const size_t bytes = static_cast<size_t>( lock.nPitch ) * static_cast<size_t>( height_ );
+    const bool read_ok = bytes <= static_cast<size_t>( INT_MAX ) && stream->Read( lock.pData, static_cast<int>( bytes ) ) == static_cast<int>( bytes );
+    if ( !read_ok ) return false;
+    return Unlock( 0 );
 }
 
 
