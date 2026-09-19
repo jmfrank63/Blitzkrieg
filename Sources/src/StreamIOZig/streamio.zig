@@ -1268,7 +1268,13 @@ pub export fn bk_stream_stats(handle: ?*anyopaque, output: ?*StorageStats) callc
     return true;
 }
 
-fn collectArchiveFiles(storage: *const Storage, enumerator: *Enumerator) void {
+// Everything bk_storage_open can reach: loose files, archives, and the same of
+// every overlay. Overlays used to contribute only their archives, so a mod
+// unpacked as loose folders (the usual way mods ship) was missing from every
+// list built by enumeration - custom campaigns, chapters, missions and
+// multiplayer maps - although each of its files opened fine by name.
+fn collectStorageFiles(storage: *const Storage, enumerator: *Enumerator) void {
+    collectFiles(storage, enumerator, "");
     for (storage.archives.items) |*loaded| {
         for (loaded.archive.entries) |*entry| {
             const name_copy = normalizedStorageName(entry.name) orelse continue;
@@ -1278,7 +1284,7 @@ fn collectArchiveFiles(storage: *const Storage, enumerator: *Enumerator) void {
     var index = storage.overlays.items.len;
     while (index > 0) {
         index -= 1;
-        collectArchiveFiles(storage.overlays.items[index].storage, enumerator);
+        collectStorageFiles(storage.overlays.items[index].storage, enumerator);
     }
 }
 
@@ -1286,9 +1292,20 @@ pub export fn bk_storage_enumerator_create(handle: ?*anyopaque) callconv(.c) ?*a
     const storage = fromHandle(Storage, handle) orelse return null;
     const enumerator = allocator.create(Enumerator) catch return null;
     enumerator.* = .{};
-    collectFiles(storage, enumerator, "");
-    collectArchiveFiles(storage, enumerator);
+    collectStorageFiles(storage, enumerator);
     std.mem.sort([:0]u8, enumerator.names.items, {}, storageNameLessThan);
+    // A name a mod overrides is present in both layers but is one file to the
+    // game, as it is to open: list it once.
+    var kept: usize = 0;
+    for (enumerator.names.items) |name| {
+        if (kept != 0 and std.mem.eql(u8, enumerator.names.items[kept - 1], name)) {
+            allocator.free(name);
+            continue;
+        }
+        enumerator.names.items[kept] = name;
+        kept += 1;
+    }
+    enumerator.names.shrinkRetainingCapacity(kept);
     return enumerator;
 }
 
@@ -2477,6 +2494,46 @@ test "storage overlay exposes child archive entries" {
     try std.testing.expect(bk_storage_stats(base_handle, entry_name.ptr, &stats));
     try std.testing.expect(stats.size > 0 and stats.modification_time != 0);
     try std.testing.expect(bk_storage_remove(base_handle, "elk") == child_handle);
+}
+
+test "storage enumeration lists an overlay's loose files once" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const io = hostIo();
+    try tmp.dir.createDirPath(io, "base/scenarios/custom/missions/kursk");
+    try tmp.dir.createDirPath(io, "mod/data/scenarios/custom/campaigns/german");
+    try tmp.dir.createDirPath(io, "mod/data/scenarios/custom/missions/kursk");
+    try tmp.dir.writeFile(io, .{ .sub_path = "base/scenarios/custom/missions/kursk/1.xml", .data = "base" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "mod/data/scenarios/custom/campaigns/german/German.xml", .data = "mod" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "mod/data/scenarios/custom/missions/kursk/1.xml", .data = "mod" });
+
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const root = buffer[0..try tmp.dir.realPath(io, &buffer)];
+    const base_mask = try std.fmt.allocPrintSentinel(allocator, "{s}/base/*.pak", .{root}, 0);
+    defer allocator.free(base_mask);
+    const mod_mask = try std.fmt.allocPrintSentinel(allocator, "{s}/mod/data/*.pak", .{root}, 0);
+    defer allocator.free(mod_mask);
+
+    const base_handle = bk_storage_create(base_mask.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(base_handle);
+    const mod_handle = bk_storage_create(mod_mask.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(mod_handle);
+    try std.testing.expect(bk_storage_add(base_handle, mod_handle, "MOD"));
+    defer _ = bk_storage_remove(base_handle, "MOD");
+
+    const enumerator_handle = bk_storage_enumerator_create(base_handle) orelse return error.TestUnexpectedResult;
+    defer bk_enumerator_destroy(enumerator_handle);
+    var campaigns: usize = 0;
+    var missions: usize = 0;
+    while (bk_enumerator_next(enumerator_handle)) {
+        var stats: StorageStats = undefined;
+        try std.testing.expect(bk_enumerator_stats(enumerator_handle, &stats));
+        const name = std.mem.span(stats.name orelse return error.TestUnexpectedResult);
+        if (std.mem.eql(u8, name, "scenarios\\custom\\campaigns\\german\\german.xml")) campaigns += 1;
+        if (std.mem.eql(u8, name, "scenarios\\custom\\missions\\kursk\\1.xml")) missions += 1;
+    }
+    try std.testing.expectEqual(@as(usize, 1), campaigns);
+    try std.testing.expectEqual(@as(usize, 1), missions);
 }
 
 test "XML table lookup reads startup attributes" {
