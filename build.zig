@@ -1401,9 +1401,7 @@ pub fn build(b: *std.Build) void {
         // ImGui only adds the C++ standard library on top. Naming the CRT
         // again here linked two of them (duplicate _cexit, _wctype, ...).
         editor_overlay_spike_module.link_libc = true;
-        editor_overlay_spike_module.linkSystemLibrary("ucrt", .{});
-        editor_overlay_spike_module.linkSystemLibrary("vcruntime", .{});
-        editor_overlay_spike_module.linkSystemLibrary("msvcprt", .{});
+
     } else {
         linkMsvcRuntime(editor_overlay_spike_module, optimize);
     }
@@ -3929,7 +3927,10 @@ fn addEditorImgui(
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
             "Sources/editor/imgui/imgui_backend.cpp",
         },
-        .flags = cppflagsForTarget(target, cxx_optimize),
+        // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
+        // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
+        // Zig programs that consume this library. ImGui needs none of it.
+        .flags = &.{"-std=c++17"},
     });
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
 }
