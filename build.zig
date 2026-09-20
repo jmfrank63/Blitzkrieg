@@ -1397,21 +1397,11 @@ pub fn build(b: *std.Build) void {
     // of them (duplicate _cexit, _wctype, ...). Everywhere else the executable
     // is the one that has to pull the C++ runtime in.
     if (target.result.abi == .msvc) {
-        // Zig supplies the CRT; only the C++ standard library the vendored
-        // ImGui needs (operator new, std::terminate) has to be named.
-        // The vendored ImGui is compiled with the MSVC flag set (/MD), so it
-        // imports the UCRT and the C++ standard library from the DLL CRT.
-        // msvcrt itself is left out: Zig's own libc already provides those
-        // entry points, and naming both links two CRTs.
-        if (optimize == .Debug) {
-            editor_overlay_spike_module.linkSystemLibrary("ucrtd", .{});
-            editor_overlay_spike_module.linkSystemLibrary("vcruntimed", .{});
-            editor_overlay_spike_module.linkSystemLibrary("msvcprtd", .{});
-        } else {
-            editor_overlay_spike_module.linkSystemLibrary("ucrt", .{});
-            editor_overlay_spike_module.linkSystemLibrary("vcruntime", .{});
-            editor_overlay_spike_module.linkSystemLibrary("msvcprt", .{});
-        }
+        // Zig supplies the CRT once the module asks for libc; the vendored
+        // ImGui only adds the C++ standard library on top. Naming the CRT
+        // again here linked two of them (duplicate _cexit, _wctype, ...).
+        editor_overlay_spike_module.link_libc = true;
+        editor_overlay_spike_module.linkSystemLibrary(if (optimize == .Debug) "msvcprtd" else "msvcprt", .{});
     } else {
         linkMsvcRuntime(editor_overlay_spike_module, optimize);
     }
