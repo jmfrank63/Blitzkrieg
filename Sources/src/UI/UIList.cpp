@@ -2,6 +2,7 @@
 #include "UIList.h"
 #include "UIListSorter.h"
 #include "UIMessages.h"
+#include "LayoutStream.h"
 #include "../GameTT/CommonId.h"
 
 static int ScaleUIPixelValue( int nValue, float fScale )
@@ -176,11 +177,9 @@ int CUIList::operator&( IDataTree &ss )
 }
 IUIElement* CUIList::CreateComponent( const char *pszFileName )
 {
-	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
-	std::string szName = pszFileName;
-	szName += ".xml";
-	CPtr<IDataStream> pStream = pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
-	NI_ASSERT_T( pStream != 0, NStr::Format("CUIList error: Can not open stream %s", szName.c_str()) );
+	const std::string szName = pszFileName;
+	CPtr<IDataStream> pStream = OpenLayoutStream( szName );
+	NI_ASSERT_T( pStream != 0, NStr::Format("CUIList error: Can not open stream %s.xml", szName.c_str()) );
 	if ( !pStream )
 		return 0;
 

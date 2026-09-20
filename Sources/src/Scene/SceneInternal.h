@@ -22,14 +22,24 @@ struct SVisObjDesc
 	int operator&( IStructureSaver &ss );
 };
 typedef std::unordered_map<IVisObj*, SVisObjDesc, SDefaultPtrHash> CVisObjDescMap;
+// The order hint's geometry, in the 640x480 pixels it was written for: how
+// wide a line may run before it wraps, the gap it keeps from its own box and
+// from the screen edge, and how far its box stands off the text. SetToolTip
+// scales all three by the font it ends up drawing in.
+const int TOOLTIP_MAX_WIDTH = 300;
+const int TOOLTIP_GAP = 5;
+const int TOOLTIP_PADDING = 3;
 struct SToolTip
 {
 	CPtr<IGFXText> pText;									// graphics text
 	CTRect<long> rcRect;									// rect of this text
 	DWORD dwBorderColor;									// border rect color
+	DWORD dwGroundColor;									// the plate the text is written on
+	int nPadding;													// gap between the text and its box, scaled with the font
+	int nFrameWidth;											// how many lines the box is framed in
 	bool bHasText;												//
 	bool bHasFont;
-	SToolTip() : dwBorderColor( 0xffffff00 ), bHasText( false ), bHasFont( false ) {  }
+	SToolTip() : dwBorderColor( 0xffffff00 ), dwGroundColor( TOOLTIP_DEFAULT_GROUND_COLOR ), nPadding( TOOLTIP_PADDING ), nFrameWidth( 1 ), bHasText( false ), bHasFont( false ) {  }
 	void Init();
 	void Clear();
 	int operator&( IStructureSaver &ss )

@@ -90,8 +90,10 @@ static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 // a layout restyled for one mod, from that mod's own pictures, as
 // ui\ModStyles\<mod folder>\<name>.xml; it is used while that mod is loaded.
 // The screen keeps the requested name, so scaling and saves treat it as the
-// screen it restyles.
-static CPtr<IDataStream> OpenLayoutStream( const std::string &szResourceName )
+// screen it restyles. A restyle reaches the pieces a screen assembles too: a
+// list loads its column templates by the same route, so a row can be restyled
+// without the whole screen being copied.
+CPtr<IDataStream> OpenLayoutStream( const std::string &szResourceName )
 {
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	std::string szMOD = GetGlobalVar( "MOD.Folder", "" );

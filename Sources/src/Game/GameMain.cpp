@@ -1126,7 +1126,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// BK_AUTO_UI="frame:action,..." drives the UI without a human, the way
 			// BK_GFX_TRACE watches the mode changes. Actions: settings | ok |
 			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |
-			// cmd=<id> | click=<x>x<y> | key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE>
+			// cmd=<id> | click=<x>x<y> | hover=<x>x<y> (park the cursor there and
+			// hold it, which is what a tooltip waits for) |
+			// key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE>
 			// (a real key press through the bind chain) | clip=<utf8> (set the
 			// clipboard) | paste (press the real Cmd+V chord) | text=<utf8> (typed into
 			// the focused edit box through the platform text path; no commas or
@@ -1143,6 +1145,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 				static int vAutoUIReleasePos[2] = { 0, 0 };
 				static int nAutoUIRelease2 = 0;		// pending right-button release (rclick=)
 				static int vAutoUIRelease2Pos[2] = { 0, 0 };
+				// hover= parks the cursor and keeps it parked. Nothing else holds
+				// it still: the device's own motion is added to the position every
+				// Update(), so a cursor merely placed once drifts off the target
+				// before the dwell a tooltip waits out has passed.
+				static int nAutoUIHoverUntil = 0;
+				static int vAutoUIHoverPos[2] = { 0, 0 };
 				// Pending key releases: one slot per key, so two overlapping key=
 				// actions (a key pressed one frame, another the next) each get
 				// their own release. A single slot let the second press overwrite
@@ -1176,6 +1184,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 				// target (a run watched with the mouse in hand clicked the map
 				// instead of the strip). Hold the cursor on the target for as long as
 				// the button is down.
+				if ( nAutoUIHoverUntil > nAutoUIFrame )
+					GetSingleton<ICursor>()->SetPos( vAutoUIHoverPos[0], vAutoUIHoverPos[1] );
 				if ( nAutoUIRelease != 0 )
 					GetSingleton<ICursor>()->SetPos( vAutoUIReleasePos[0], vAutoUIReleasePos[1] );
 				if ( nAutoUIRelease2 != 0 )
@@ -1300,6 +1310,16 @@ int RunGame( const BkGameLaunchInfo &launch )
 							pInput->AddMessage( SGameMessage( 0x00100021 /*CMD_BEGIN_ACTION1*/, nPacked ) );
 							nAutoUIRelease = nAutoUIFrame + 2;
 							vAutoUIReleasePos[0] = nClickX; vAutoUIReleasePos[1] = nClickY;
+						}
+					}
+					else if ( szAction.compare( 0, 6, "hover=" ) == 0 )
+					{
+						int nHoverX = 0, nHoverY = 0;
+						if ( sscanf( szAction.c_str() + 6, "%dx%d", &nHoverX, &nHoverY ) == 2 )
+						{
+							GetSingleton<ICursor>()->SetPos( nHoverX, nHoverY );
+							vAutoUIHoverPos[0] = nHoverX; vAutoUIHoverPos[1] = nHoverY;
+							nAutoUIHoverUntil = nAutoUIFrame + 600;
 						}
 					}
 					else if ( szAction.compare( 0, 7, "rclick=" ) == 0 )

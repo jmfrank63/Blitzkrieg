@@ -71,6 +71,9 @@ namespace NMain
 	bool STDCALL IsInitialized();
 	bool STDCALL CanLaunch();
 	void SetupGlobalVarConsts( class CTableAccessor &table );
+	// Reads ui\ModStyles\<mod folder>\consts.xml over the constants the loaded
+	// mod shipped. Call it after SetupGlobalVarConsts; see the note there.
+	void SetupModStyleConsts();
 	const SModuleDescriptor* STDCALL GetModuleDesc( int nType );
 	int STDCALL LoadAllModules( const char *pszPath );
 	void STDCALL UnloadAllModules();

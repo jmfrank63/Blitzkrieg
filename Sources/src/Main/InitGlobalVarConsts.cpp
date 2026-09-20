@@ -1,6 +1,8 @@
 #include "StdAfx.h"
+#include "../Scene/Scene.h"
 namespace NMain
 {
+DWORD GetColorValue( CTableAccessor &table, const std::string &szName, DWORD dwDefault );
 void ReadAndSetSunlightValue( CTableAccessor &table, const std::string &szSeason, const char *pszValue )
 {
 	SetGlobalVar( ("Scene.SunLight." + szSeason + "." + pszValue).c_str(), 
@@ -45,6 +47,12 @@ void ReadAndSetColors( CTableAccessor &table, const std::string &szSeason )
 	ReadAndSetColorValue( table, szSeason, "LevelUp" );
 	ReadAndSetColorValue( table, "ToolTip", "Mission" );
 	ReadAndSetColorValue( table, "ToolTip", "InterMission" );
+	// The plate the hint is written on. The original game had no say in it -
+	// the hint was a black box behind a hairline - so these default to what the
+	// scene draws without them: the near-black brown the minimap is framed in,
+	// and a frame of zero, meaning one that follows the text.
+	SetGlobalVar( "Scene.Colors.ToolTip.Ground.Color", int( GetColorValue( table, "Colors.ToolTip.Ground", 0xff2a1817 ) ) );
+	SetGlobalVar( "Scene.Colors.ToolTip.Frame.Color", int( GetColorValue( table, "Colors.ToolTip.Frame", 0 ) ) );
 	ReadAndSetColorValue( table, "ObjMap", "InterMission" );
 	ReadAndSetColorValue( table, szSeason, "Markup.Arrow" );
 	ReadAndSetColorValue( table, szSeason, "Markup.Circle" );
@@ -145,5 +153,47 @@ void SetupGlobalVarConsts( CTableAccessor &table )
 	SetGlobalVar( "BlinkSubTime", table.GetInt("UI", "BlinkSubTime", 200) );
 	SetGlobalVar( "BlinkColor0", table.GetInt("UI", "BlinkColor0", 0xffff0000 ) );
 	SetGlobalVar( "BlinkColor1", table.GetInt("UI", "BlinkColor1", 0xffff0000 ) );
+}
+// A mod restyles the screens through ui\ModStyles\<mod folder>\, and this is
+// the same door for the constants. Only the order hint's colours go through it
+// so far, and they are the reason it exists: the hint is the one panel the game
+// paints over the battlefield, the scene draws it rather than a layout, and so
+// no restyle of the screens ever reaches it. A mod that repainted its interface
+// is left showing the hint of the game it was built on.
+//
+// Called whenever the loaded mod changes. It starts from the consts.xml in
+// effect - the mod's if it shipped one, the game's own once the mod is gone -
+// so leaving a mod puts back what entering it changed, and then reads the
+// repository's restyle over the top. Every value there defaults to the one
+// already read, so the file changes only what it names.
+void SetupModStyleConsts()
+{
+	CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
+	ReadAndSetColorValue( table, "ToolTip", "Mission" );
+	ReadAndSetColorValue( table, "ToolTip", "InterMission" );
+	SetGlobalVar( "Scene.Colors.ToolTip.Ground.Color", int( GetColorValue( table, "Colors.ToolTip.Ground", TOOLTIP_DEFAULT_GROUND_COLOR ) ) );
+	SetGlobalVar( "Scene.Colors.ToolTip.Frame.Color", int( GetColorValue( table, "Colors.ToolTip.Frame", 0 ) ) );
+	std::string szMOD = GetGlobalVar( "MOD.Folder", "" );
+	while ( !szMOD.empty() && ( szMOD[szMOD.size() - 1] == '\\' || szMOD[szMOD.size() - 1] == '/' ) )
+		szMOD.erase( szMOD.size() - 1 );
+	if ( szMOD.empty() )
+		return;
+	const std::string szName = "ui\\ModStyles\\" + szMOD + "\\consts.xml";
+	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
+	if ( getenv( "BK_UI_TRACE" ) )
+		fprintf( stderr, "BK_UI_TRACE: mod style consts \"%s\" %s\n", szName.c_str(), pStream != 0 ? "read" : "absent" );
+	if ( pStream == 0 )
+		return;
+	CTableAccessor styled = ::OpenDataTable( pStream );
+	const char *pszToolTipColors[] = { "Mission", "InterMission", "Ground", "Frame" };
+	for ( int i = 0; i < int( sizeof( pszToolTipColors ) / sizeof( pszToolTipColors[0] ) ); ++i )
+	{
+		const std::string szVar = std::string( "Scene.Colors.ToolTip." ) + pszToolTipColors[i] + ".Color";
+		const DWORD dwRead = GetGlobalVar( szVar.c_str(), 0 );
+		const DWORD dwStyled = GetColorValue( styled, std::string( "Colors.ToolTip." ) + pszToolTipColors[i], dwRead );
+		SetGlobalVar( szVar.c_str(), int( dwStyled ) );
+		if ( getenv( "BK_UI_TRACE" ) )
+			fprintf( stderr, "BK_UI_TRACE:   ToolTip.%s 0x%08x -> 0x%08x\n", pszToolTipColors[i], dwRead, dwStyled );
+	}
 }
 };

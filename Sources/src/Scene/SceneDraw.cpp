@@ -690,13 +690,23 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->SetTexture( 0, 0 );
 		SGFXRect2 gfxRect;
 		gfxRect.rect.Set( tooltip.rcRect.x1, tooltip.rcRect.y1, tooltip.rcRect.x2, tooltip.rcRect.y2 );
-		gfxRect.rect.Inflate( 3, 3 );
+		gfxRect.rect.Inflate( tooltip.nPadding, tooltip.nPadding );
 		gfxRect.maps.SetEmpty();
 		gfxRect.fZ = 0;
-		gfxRect.color = 0x86000000;
+		// Opaque, and on the plate the constants name rather than a flat black.
+		// At just over half alpha the panel behind the cursor - the unit card,
+		// its bars and its numbers - read straight through the order hint, and
+		// the amber text had nothing to stand against.
+		gfxRect.color = tooltip.dwGroundColor;
 		pGFX->DrawRects( &gfxRect, 1, true );
+		// Two lines, one inside the other: at this size a single hairline is
+		// thinner than the letters it encloses and the box loses its edge.
 		gfxRect.color = tooltip.dwBorderColor;
-		pGFX->DrawRects( &gfxRect, 1, false );
+		for ( int nLine = 0; nLine < tooltip.nFrameWidth; ++nLine )
+		{
+			pGFX->DrawRects( &gfxRect, 1, false );
+			gfxRect.rect.Deflate( 1, 1 );
+		}
 		pGFX->DrawText( tooltip.pText, tooltip.rcRect, 0, FNT_FORMAT_CENTER );
 	}
 	if ( !alwaysObjects.empty() )

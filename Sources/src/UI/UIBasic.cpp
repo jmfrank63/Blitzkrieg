@@ -4,6 +4,7 @@
 #include "UIBasic.h"
 #include "UIBasicM.h"
 #include "UIMessages.h"
+#include "TextShadow.h"
 #include "../Scene/Scene.h"
 #include "../Input/Input.h"
 #include "../GameTT/CommonId.h"
@@ -860,7 +861,8 @@ void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 		nY += vShiftText.y;
 	}
 
-	if ( vShadowShift.x != 0 || vShadowShift.y != 0 )
+	if ( ( vShadowShift.x != 0 || vShadowShift.y != 0 ) &&
+	     UIShouldDrawTextShadow( dwShadowColor, states[nCurrentState].subStates[nCurrentSubState].textColor ) )
 	{
 		CTRect<float> shadowRC = textRC;
 		shadowRC.x1 += vShadowShift.x;
@@ -1012,7 +1014,8 @@ void CSimpleWindow::DrawText( IGFX *pGFX )
 		nY += vShiftText.y;
 	}
 
-	if ( vShadowShift.x != 0 || vShadowShift.y != 0 )
+	if ( ( vShadowShift.x != 0 || vShadowShift.y != 0 ) &&
+	     UIShouldDrawTextShadow( dwShadowColor, states[nCurrentState].subStates[nCurrentSubState].textColor ) )
 	{
 		CTRect<float> shadowRC = textRC;
 		shadowRC.x1 += vShadowShift.x;

@@ -986,30 +986,61 @@ void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect
 		tooltip.bHasText = false;
 	else
 	{
-		tooltip.pText->SetFont( GetSingleton<IFontManager>()->GetFont("fonts\\medium") );
+		// The hint is drawn straight onto the screen rather than through a UI
+		// element, so no layout scale ever reaches it: the font it asks for and
+		// every pixel number below are the ones written for 640x480, and on a
+		// modern screen that leaves a line of thin sixteen pixel type over the
+		// battlefield. Draw it in the large font - the one the message lines
+		// already use - and carry the wrap width and the gaps up by the same
+		// ratio, or the text would only grow inside a box built for the small
+		// one. Falls back to the font it always used if there is no large one.
+		IGFXFont *pWrittenForFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
+		IGFXFont *pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\large" );
+		if ( pFont == 0 )
+			pFont = pWrittenForFont;
+		int nGrowNum = 1, nGrowDen = 1;
+		if ( pFont != 0 && pWrittenForFont != 0 && pWrittenForFont->GetLineSpace() > 0 &&
+		     pFont->GetLineSpace() > pWrittenForFont->GetLineSpace() )
+		{
+			nGrowNum = pFont->GetLineSpace();
+			nGrowDen = pWrittenForFont->GetLineSpace();
+		}
+		const int nMaxWidth = TOOLTIP_MAX_WIDTH * nGrowNum / nGrowDen;
+		const int nGap = TOOLTIP_GAP * nGrowNum / nGrowDen;
+		tooltip.nPadding = TOOLTIP_PADDING * nGrowNum / nGrowDen;
+		// A hairline thinner than the letters it encloses loses the box its
+		// edge, so the frame gains a line for every step the font grew.
+		tooltip.nFrameWidth = nGrowNum / nGrowDen;
+		tooltip.pText->SetFont( pFont );
 		const CTRect<float> rcScreenRect = pGFX->GetScreenRect();
 		tooltip.bHasText = true;
 		tooltip.pText->SetText( pText );
 		tooltip.pText->SetColor( dwColor != 0 ? dwColor : 0xffcdcd00 );
-		const int nWidth = Min( tooltip.pText->GetWidth() + 5, 300 );
+		const int nWidth = Min( tooltip.pText->GetWidth() + nGap, nMaxWidth );
 		tooltip.pText->SetWidth( nWidth );
 		const int nHeight = tooltip.pText->GetLineSpace() * tooltip.pText->GetNumLines();
 		tooltip.rcRect.Set( vPos.x, vPos.y, vPos.x + nWidth, vPos.y + nHeight );
 		if ( rcOut.IsEmpty() ) 
 		{
 			tooltip.pText->SetWidth( rcScreenRect.Width() );
-			const int nWidth = tooltip.pText->GetWidth() + 5;
+			const int nWidth = tooltip.pText->GetWidth() + nGap;
 			tooltip.rcRect.Set( vPos.x, vPos.y, vPos.x + nWidth, vPos.y + nHeight );
 		}
-		if ( tooltip.rcRect.x1 - 5 < rcScreenRect.x1 ) 
-			tooltip.rcRect.Move( rcScreenRect.x1 - tooltip.rcRect.x1 + 5, 0 );
-		if ( tooltip.rcRect.y1 - 5 < rcScreenRect.y1 ) 
-			tooltip.rcRect.Move( 0, rcScreenRect.y1 - tooltip.rcRect.y1 + 5 );
-		if ( tooltip.rcRect.x2 + 5 >= rcScreenRect.x2 ) 
-			tooltip.rcRect.Move( rcScreenRect.x2 - tooltip.rcRect.x2 - 5, 0 );
-		if ( tooltip.rcRect.y2 + 5 >= rcScreenRect.y2 ) 
-			tooltip.rcRect.Move( 0, rcScreenRect.y2 - tooltip.rcRect.y2 - 5 );
-		tooltip.dwBorderColor = dwColor != 0 ? dwColor : 0xffcdcd00;
+		if ( tooltip.rcRect.x1 - nGap < rcScreenRect.x1 ) 
+			tooltip.rcRect.Move( rcScreenRect.x1 - tooltip.rcRect.x1 + nGap, 0 );
+		if ( tooltip.rcRect.y1 - nGap < rcScreenRect.y1 ) 
+			tooltip.rcRect.Move( 0, rcScreenRect.y1 - tooltip.rcRect.y1 + nGap );
+		if ( tooltip.rcRect.x2 + nGap >= rcScreenRect.x2 ) 
+			tooltip.rcRect.Move( rcScreenRect.x2 - tooltip.rcRect.x2 - nGap, 0 );
+		if ( tooltip.rcRect.y2 + nGap >= rcScreenRect.y2 ) 
+			tooltip.rcRect.Move( 0, rcScreenRect.y2 - tooltip.rcRect.y2 - nGap );
+		// The plate and its frame come from the constants, so a mod that
+		// repainted its interface can have the hint too - the scene draws it
+		// rather than a layout, so no restyle of the screens reaches it. A
+		// frame of zero follows the text, which is what the original game did.
+		tooltip.dwGroundColor = GetGlobalVar( "Scene.Colors.ToolTip.Ground.Color", int(TOOLTIP_DEFAULT_GROUND_COLOR) );
+		const DWORD dwFrame = GetGlobalVar( "Scene.Colors.ToolTip.Frame.Color", 0 );
+		tooltip.dwBorderColor = dwFrame != 0 ? dwFrame : ( dwColor != 0 ? dwColor : 0xffcdcd00 );
 	}
 }
 void CScene::RandomizeRainDrop( SRainDrop &drop )
