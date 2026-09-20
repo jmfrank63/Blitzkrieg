@@ -125,6 +125,9 @@ protected:
 public:
 	const int GetNFreePlaces() const;
 	const int GetNOverallPlaces() const { return nOveralPlaces; }
+	// Pushes the owner and selectable flags to the client when they change;
+	// see the note on the definition.
+	void UpdateOwner( const bool bForce = false );
 
 	virtual const SHPObjectRPGStats* GetStats() const { return pStats; }
 	virtual void SetHitPoints( const float fNewHP );

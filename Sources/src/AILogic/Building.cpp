@@ -401,6 +401,31 @@ const float CBuilding::GetEscapeHitPoints() const
 {
 	return GetStats()->fMaxHP * SConsts::HP_PERCENT_TO_ESCAPE_FROM_BUILDING;
 }
+// Tells the client who this building belongs to, whenever that changes.
+//
+// It used to be told only on the empty->occupied edge in AddSoldier, and on
+// the occupied->empty edge in DelSoldier. A garrison can change hands without
+// crossing either: the player's squad walks into a house the enemy still
+// holds, or the last defender dies while that squad stays. The client then
+// kept the first occupant's owner and, with it, a selectable flag that said
+// the building was not the player's. CWorldClient::SelectBuilding refuses a
+// building whose CanSelect() is false, and selecting the building is what
+// puts its garrison's exit on the order panel - so the units inside could not
+// be ordered out at all.
+//
+// bForce re-asserts both notifications without a change, for a load: the
+// client's copy of the flag rides along in the savegame, so a save written
+// while it was wrong comes back wrong. See the reading branch of
+// CAILogic::operator& in AILogicSerialize.cpp.
+void CBuilding::UpdateOwner( const bool bForce )
+{
+	const int nPlayer = GetPlayer();
+	if ( !bForce && nPlayer == nLastPlayer )
+		return;
+	updater.Update( ACTION_NOTIFY_UPDATE_DIPLOMACY, this );
+	updater.Update( ACTION_NOTIFY_SELECTABLE_CHANGED, this, IsSelectable() );
+	nLastPlayer = nPlayer;
+}
 void CBuilding::AddSoldier( CSoldier *pUnit )
 {
 	NI_ASSERT_T( GetNFreePlaces() != 0, "No free places in the building" );
@@ -430,13 +455,7 @@ void CBuilding::AddSoldier( CSoldier *pUnit )
 
 	startOfRest = curTime;
 
-	if ( bUpdateSelectability )
-	{
-		updater.Update( ACTION_NOTIFY_SELECTABLE_CHANGED, this, IsSelectable() );
-		updater.Update( ACTION_NOTIFY_UPDATE_DIPLOMACY, this );
-
-		nLastPlayer = GetPlayer();
-	}
+	UpdateOwner();
 }
 void CBuilding::SeatSoldierToMedicalSlot()
 {
@@ -554,11 +573,11 @@ void CBuilding::DelSoldier( CSoldier *pUnit, const bool bFillEmptyFireplace )
 			NI_ASSERT_T( false, "Wrong slot info of unit" );
 	}
 
-	if ( fire.Size() == 0 && medical.Size() == 0 && rest.Size() == 0 )
-	{
-		updater.Update( ACTION_NOTIFY_UPDATE_DIPLOMACY, this );
-		updater.Update( ACTION_NOTIFY_SELECTABLE_CHANGED, this, IsSelectable() );
-	}
+	// An emptied building reports the neutral player, so this covers the case
+	// the old "is it empty now" test covered, and the half-emptied one it did
+	// not: the last enemy leaving a house the player also occupies hands it
+	// over without emptying it.
+	UpdateOwner();
 }
 void CBuilding::SoldierDamaged( CSoldier *pUnit )
 {

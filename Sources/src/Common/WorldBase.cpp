@@ -506,8 +506,54 @@ void CWorldBase::ReconcileLoopedSounds()
 	}
 	pScene->RemoveOrphanLoopedSounds( ownedIDs.empty() ? 0 : &ownedIDs[0], ownedIDs.size() );
 }
+// BK_GARRISON_TRACE dumps every building holding passengers once, the first
+// time the world updates: whether the client thinks the building is
+// selectable, and the same for each unit inside it. Selecting a garrisoned
+// building is what puts its occupants' exit on the order panel, and both ends
+// of that depend on a flag the AI has to push to the client.
+static void TraceGarrisons( CMapObjectsMap &visobjects )
+{
+	for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
+	{
+		CMOBuilding *pBuilding = dynamic_cast<CMOBuilding*>( it->second.GetPtr() );
+		if ( pBuilding == 0 )
+			continue;
+		const int nPassangers = pBuilding->GetPassangers( 0, false );
+		if ( nPassangers == 0 )
+			continue;
+		CVec3 vPos;
+		WORD wDir = 0;
+		pBuilding->GetPlacement( &vPos, &wDir );
+		std::vector<IMOUnit*> units( nPassangers );
+		pBuilding->GetPassangers( &(units[0]), false );
+		CUserActions actions;
+		pBuilding->GetActions( &actions, IMapObj::ACTIONS_BY );
+		fprintf( stderr, "BK_GARRISON_TRACE: building \"%s\" at %.0f,%.0f canselect=%d dipl=%d passangers=%d leave=%d\n",
+		         pBuilding->pDesc ? pBuilding->pDesc->szKey.c_str() : "?",
+		         vPos.x, vPos.y, int(pBuilding->CanSelect()), int(pBuilding->diplomacy),
+		         nPassangers, int(actions.HasAction(USER_ACTION_LEAVE)) );
+		for ( int i = 0; i < nPassangers; ++i )
+		{
+			SMapObject *pMO = dynamic_cast<SMapObject*>( units[i] );
+			fprintf( stderr, "BK_GARRISON_TRACE:   unit \"%s\" canselect=%d dipl=%d player=%d\n",
+			         ( pMO && pMO->pDesc ) ? pMO->pDesc->szKey.c_str() : "?",
+			         pMO ? int(pMO->CanSelect()) : -1, pMO ? int(pMO->diplomacy) : -1,
+			         units[i]->GetPlayerIndex() );
+		}
+	}
+	fprintf( stderr, "BK_GARRISON_TRACE: end\n" );
+}
 void CWorldBase::Update( const NTimer::STime &currTime )
 {
+	// BK_GARRISON_TRACE=<n> dumps on the n'th world update (1 by default): the
+	// AI's notifications reach the client over the following segments, so a
+	// dump on the first update sees what the save restored, a later one sees
+	// what the AI has since corrected.
+	static const char *pszGarrisonTrace = getenv( "BK_GARRISON_TRACE" );
+	static const int nGarrisonTraceAt = pszGarrisonTrace != 0 ? Max( 1, atoi( pszGarrisonTrace ) ) : 0;
+	static int nGarrisonUpdates = 0;
+	if ( nGarrisonTraceAt != 0 && ++nGarrisonUpdates == nGarrisonTraceAt )
+		TraceGarrisons( visobjects );
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
 	for ( std::list< CPtr<IMOUnit> >::iterator it = updatable.begin(); it != updatable.end(); )
