@@ -1386,6 +1386,13 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_imgui", .module = editor_imgui_module },
         },
     });
+    // The spike links editor-imgui, a C++ static library, so the executable
+    // needs the C++ runtime and - on MSVC - the CRT search paths as well: a
+    // static library propagates the libraries it wants, not where to find
+    // them. Without this the Linux jobs fail on __cxa_* and _Unwind_Resume,
+    // and the MSVC job cannot find ucrtd.
+    addMsvcLibraryPaths(b, editor_overlay_spike_module, toolchain);
+    linkMsvcRuntime(editor_overlay_spike_module, optimize);
     const editor_overlay_spike = b.addExecutable(.{ .name = "editor-overlay-spike", .root_module = editor_overlay_spike_module });
     if (target.result.os.tag == .windows) editor_overlay_spike.subsystem = .console;
     const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
