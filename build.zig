@@ -1392,7 +1392,11 @@ pub fn build(b: *std.Build) void {
     // them. Without this the Linux jobs fail on __cxa_* and _Unwind_Resume,
     // and the MSVC job cannot find ucrtd.
     addMsvcLibraryPaths(b, editor_overlay_spike_module, toolchain);
-    linkMsvcRuntime(editor_overlay_spike_module, optimize);
+    // On MSVC the library already names the CRT it wants and Zig supplies its
+    // own libc for the executable; naming the CRT a second time here links two
+    // of them (duplicate _cexit, _wctype, ...). Everywhere else the executable
+    // is the one that has to pull the C++ runtime in.
+    if (target.result.abi != .msvc) linkMsvcRuntime(editor_overlay_spike_module, optimize);
     const editor_overlay_spike = b.addExecutable(.{ .name = "editor-overlay-spike", .root_module = editor_overlay_spike_module });
     if (target.result.os.tag == .windows) editor_overlay_spike.subsystem = .console;
     const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
