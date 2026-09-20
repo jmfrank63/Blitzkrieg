@@ -12,7 +12,7 @@
 				<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xff815335">
 					<ShadowShift x="1" y="2" />
 					<TextPos x="0" y="0" />
-					<WindowPos x="40" y="24" />
+					<WindowPos x="56" y="24" />
 					<WindowSize x="500" y="30" />
 					<States>
 						<item>
@@ -29,8 +29,8 @@
 				<item ClassTypeID="0x10001105" ElementID="3102" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34">
 					<ShadowShift x="1" y="2" />
 					<TextPos x="0" y="0" />
-					<WindowPos x="30" y="44" />
-					<WindowSize x="680" y="30" />
+					<WindowPos x="56" y="128" />
+					<WindowSize x="600" y="44" />
 					<States>
 						<item>
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
@@ -185,8 +185,8 @@
 							</States>
 						</item>
 					</Children>
-					<WindowPos x="28" y="84" />
-					<WindowSize x="680" y="300" />
+					<WindowPos x="28" y="168" />
+					<WindowSize x="680" y="216" />
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
@@ -203,8 +203,8 @@
 				<item ClassTypeID="0x10001105" ElementID="3103" PositionFlag="0x0011" Background="0" ActiveFlag="0" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
 					<ShadowShift x="1" y="2" />
 					<TextPos x="0" y="0" />
-					<WindowPos x="30" y="392" />
-					<WindowSize x="680" y="76" />
+					<WindowPos x="56" y="392" />
+					<WindowSize x="600" y="52" />
 					<States>
 						<item>
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000" />
@@ -218,8 +218,8 @@
 					</States>
 				</item>
 				<item ClassTypeID="0x10001103" ElementID="10030" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
-					<WindowPos x="30" y="470" />
-					<WindowSize x="320" y="49" />
+					<WindowPos x="56" y="470" />
+					<WindowSize x="280" y="49" />
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
@@ -245,8 +245,8 @@
 					</States>
 				</item>
 				<item ClassTypeID="0x10001103" ElementID="10031" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0" ActiveFlag="1" TextColor="0xff000000">
-					<WindowPos x="386" y="470" />
-					<WindowSize x="320" y="49" />
+					<WindowPos x="376" y="470" />
+					<WindowSize x="280" y="49" />
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">

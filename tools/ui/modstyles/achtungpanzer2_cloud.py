@@ -22,6 +22,17 @@ CHEVRON_DOWN = ('ui\\IntermissionTextures\\back-chapter', (591, 769, 45, 58))
 THUMB = ('ui\\slider', (108, 0, 40, 33))
 BUTTONS = 'UI\\IntermissionTextures\\buttons-ap2'
 HEADER, BLACK, RED_HI, RED_PUSH, GREY = '0xff815335', '0xff000000', '0xff841a17', '0xffb72420', '0xff7a6a55'
+# The icons in buttons-ap2 come in a silver, a gold and a red cut of each shape;
+# an appearance's Color modulates them, so the mod's own field green - the green
+# of the leather tab its popups accept on - can be had from the silver one.
+CHECK, CROSS = (0, 40), (120, 40)
+GREEN, GREEN_HI = '0xff5a7a3c', '0xff8cb45e'
+GOLD_CROSS, RED_CROSS = (160, 40), (200, 40)
+# The paper prints its own frame. Everything the dialog writes has to start
+# inside that line, not on the sheet's edge where the base layout's panel had
+# its border. Measured off the sheet: the line is at x=41 of the 736 the
+# dialog is wide, and the frame's other side at 655.
+MARGIN, CONTENT_WIDTH = 56, 600
 
 
 def kids(e):
@@ -48,13 +59,28 @@ def set_pos(it, x, y, w=None, h=None):
         s.set('x', str(w)); s.set('y', str(h))
 
 
+def place(it, x=None, y=None, w=None, h=None):
+    """Moves or resizes one element, leaving the coordinates not given alone."""
+    if it is None:
+        return
+    p = it.find('WindowPos'); size = it.find('WindowSize')
+    if x is not None:
+        p.set('x', str(x))
+    if y is not None:
+        p.set('y', str(y))
+    if w is not None:
+        size.set('x', str(w))
+    if h is not None:
+        size.set('y', str(h))
+
+
 def hide(it):
     set_pos(it, 0, 0, 0, 0)
     it.set('VisibleFlag', '0')
 
 
-def appearance(tag, tex, maps, text_color=None, tiles=None):
-    a = ET.Element(tag, {'Color': '0xffffffff', 'Specular': '0xff000000'})
+def appearance(tag, tex, maps, text_color=None, tiles=None, tint=None):
+    a = ET.Element(tag, {'Color': tint or '0xffffffff', 'Specular': '0xff000000'})
     if text_color:
         a.set('TextColor', text_color)
     if tiles:
@@ -82,7 +108,9 @@ def restyle(it, looks):
                 st.remove(child)
         for i, (name, spec) in enumerate(looks.items()):
             tex, maps, color = spec[:3]
-            st.insert(i, appearance('Appearance' + name, tex, maps, color, spec[3] if len(spec) > 3 else None))
+            st.insert(i, appearance('Appearance' + name, tex, maps, color,
+                                    spec[3] if len(spec) > 3 else None,
+                                    spec[4] if len(spec) > 4 else None))
 
 
 def plain(it, color=BLACK):
@@ -96,17 +124,17 @@ def strip(it, color=BLACK):
                  'Pushed': (*STRIP, RED_PUSH), 'Disabled': (*STRIP, GREY)})
 
 
-def tab_button(it, icon_normal, icon_hi):
+def tab_button(it, icon_normal, icon_hi, tint=None, tint_hi=None):
     """A check or a cross on the paper. The sheet's green and red tabs belong
     to the menu paper's lower edge, which these dialogs crop off, so the icon
-    stands on the paper itself - in the mod's red, as its menus mark actions."""
+    stands on the paper itself and carries the colour the tab would have."""
     def icon(m):
         return [((24, 8, 64, 48), (40, 40), (m[0], m[1], 40, 40))]
     size = it.find('WindowSize')
     size.set('x', '88'); size.set('y', '56')
-    restyle(it, {'Normal': (BUTTONS, None, None, icon(icon_normal)),
-                 'Highlighted': (BUTTONS, None, None, icon(icon_hi)),
-                 'Pushed': (BUTTONS, None, None, icon(icon_hi))})
+    restyle(it, {'Normal': (BUTTONS, None, None, icon(icon_normal), tint),
+                 'Highlighted': (BUTTONS, None, None, icon(icon_hi), tint_hi or tint),
+                 'Pushed': (BUTTONS, None, None, icon(icon_hi), tint_hi or tint)})
 
 
 # The dialog's frame layers: the mod's paper instead of the metal plate, and
@@ -125,12 +153,16 @@ title = find(root, 20000)
 if title is not None:
     title.set('FontSize', '1')
     title.set('TextColor', HEADER)
-    set_pos(title, 40, 24, 500, 30)
+    set_pos(title, MARGIN, 24, 500, 30)
     plain(title, HEADER)
 
 if 'CloudCredentials' in src:
     for eid in (3001, 3002, 3003, 3004, 3005, 3006, 3007, 3101, 3102):     # field labels and the two notes
         plain(find(root, eid))
+    for eid in (3001, 3002, 3003, 3004, 3005, 3006, 3007):                 # clear of the printed frame,
+        place(find(root, eid), x=MARGIN, w=247)                            # and still short of the edits
+    for eid in (3101, 3102):                                               # rclone's path and the status line
+        place(find(root, eid), x=MARGIN, w=CONTENT_WIDTH)
     for eid in (2001, 2002, 2003, 2004, 2005, 2006, 2007):                 # the edit fields
         strip(find(root, eid))
     for eid in (4001, 4002, 4003, 4004, 4005, 4006, 4007):                 # the per-field buttons
@@ -139,11 +171,20 @@ if 'CloudCredentials' in src:
     restyle(find(root, 4101), {n: (*CHEVRON_DOWN, None) for n in ('Normal', 'Highlighted', 'Pushed', 'Disabled')})
     for eid in (10020, 10021, 10022, 10023):                               # service, advanced, test, forget
         strip(find(root, eid))
-    tab_button(find(root, 10002), (80, 40), (40, 40))                      # check, red then yellow
-    tab_button(find(root, 10001), (200, 40), (160, 40))                    # cross, red then yellow
+    tab_button(find(root, 10002), CHECK, CHECK, GREEN, GREEN_HI)           # accept: the tab's green
+    tab_button(find(root, 10001), RED_CROSS, GOLD_CROSS)                   # cancel: red, then yellow
 else:
     for eid in (3102, 3103):                                               # the warning and the hint
         plain(find(root, eid))
+    # Both notes sat on the paper's left edge, the first of them across the
+    # caption and the rule printed under it. Below that rule, and inside the
+    # frame, they need two lines each, so the list gives up the room and
+    # keeps its own bottom.
+    place(find(root, 3102), x=MARGIN, y=128, w=CONTENT_WIDTH, h=44)
+    place(find(root, 2100), y=168, h=216)
+    place(find(root, 3103), x=MARGIN, y=392, w=CONTENT_WIDTH, h=52)
+    place(find(root, 10030), x=MARGIN, w=280)
+    place(find(root, 10031), x=376, w=280)
     lst = find(root, 2100)                                                 # the snapshot list
     if lst is not None:
         restyle(lst, {n: (*CLEAR, None) for n in ('Normal', 'Highlighted')})
@@ -158,7 +199,7 @@ else:
                 plain(head)
     for eid in (10030, 10031):                                             # the restore and delete buttons
         strip(find(root, eid))
-    tab_button(find(root, 10001), (200, 40), (160, 40))                    # cross: close
+    tab_button(find(root, 10001), RED_CROSS, GOLD_CROSS)                   # cancel: red, then yellow
 
 header = ('<!-- The %s screen restyled for the Achtung Panzer 2 mod from its own\n'
           '     pictures (the menu paper, its tab buttons and the paper strips), referenced\n'

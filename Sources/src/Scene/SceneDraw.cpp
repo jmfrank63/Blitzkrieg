@@ -693,7 +693,10 @@ void CScene::Draw( ICamera *pCamera )
 		gfxRect.rect.Inflate( 3, 3 );
 		gfxRect.maps.SetEmpty();
 		gfxRect.fZ = 0;
-		gfxRect.color = 0x86000000;
+		// Opaque. At just over half alpha the panel behind the cursor - the
+		// unit card, its bars and its numbers - read straight through the
+		// order hint, and the amber text had nothing to stand against.
+		gfxRect.color = 0xff000000;
 		pGFX->DrawRects( &gfxRect, 1, true );
 		gfxRect.color = tooltip.dwBorderColor;
 		pGFX->DrawRects( &gfxRect, 1, false );

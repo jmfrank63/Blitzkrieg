@@ -2176,6 +2176,28 @@ pub fn build(b: *std.Build) void {
     noise_seam_test.subsystem = .console;
     if (platform == .windows_x64) noise_seam_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const noise_seam_run = b.addRunArtifact(noise_seam_test);
+    // A layout's text shadow is a second draw of the same glyph. It reads as a
+    // shadow only under light text; under dark text it doubles the letters.
+    const text_shadow_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    if (platform != .windows_x64) {
+        text_shadow_module.link_libc = true;
+        text_shadow_module.link_libcpp = true;
+    }
+    text_shadow_module.addCSourceFile(.{
+        .file = b.path("tools/zig/ui_text_shadow_test.cpp"),
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, text_shadow_module, toolchain);
+    addMsvcLibraryPaths(b, text_shadow_module, toolchain);
+    linkMsvcRuntime(text_shadow_module, .Debug);
+    const text_shadow_test = b.addExecutable(.{ .name = "ui-text-shadow-test", .root_module = text_shadow_module });
+    text_shadow_test.subsystem = .console;
+    if (platform == .windows_x64) text_shadow_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const text_shadow_run = b.addRunArtifact(text_shadow_test);
+    const text_shadow_step = b.step("test-ui-text-shadow", "Check a text shadow is drawn only where it reads as a shadow");
+    text_shadow_step.dependOn(&text_shadow_test.step);
+    if (test_mode == .run) text_shadow_step.dependOn(&text_shadow_run.step);
+
     const noise_seam_step = b.step("test-terrain-noise", "Check terrain noise coordinates are continuous across patches");
     noise_seam_step.dependOn(&noise_seam_test.step);
     if (test_mode == .run) noise_seam_step.dependOn(&noise_seam_run.step);
