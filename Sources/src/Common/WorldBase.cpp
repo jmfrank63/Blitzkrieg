@@ -545,14 +545,15 @@ static void TraceGarrisons( CMapObjectsMap &visobjects )
 }
 void CWorldBase::Update( const NTimer::STime &currTime )
 {
-	// BK_GARRISON_TRACE=<n> dumps on the n'th world update (1 by default): the
-	// AI's notifications reach the client over the following segments, so a
-	// dump on the first update sees what the save restored, a later one sees
-	// what the AI has since corrected.
+	// BK_GARRISON_TRACE=<n> dumps every n'th world update (1 by default): the
+	// AI's notifications reach the client over the following segments, so the
+	// first dump sees what the save restored and the later ones see what the
+	// AI has since corrected - a building changing hands during a fight for it
+	// shows up as the owner and the selectable flag turning over.
 	static const char *pszGarrisonTrace = getenv( "BK_GARRISON_TRACE" );
-	static const int nGarrisonTraceAt = pszGarrisonTrace != 0 ? Max( 1, atoi( pszGarrisonTrace ) ) : 0;
+	static const int nGarrisonEvery = pszGarrisonTrace != 0 ? Max( 1, atoi( pszGarrisonTrace ) ) : 0;
 	static int nGarrisonUpdates = 0;
-	if ( nGarrisonTraceAt != 0 && ++nGarrisonUpdates == nGarrisonTraceAt )
+	if ( nGarrisonEvery != 0 && ( ++nGarrisonUpdates % nGarrisonEvery ) == 0 )
 		TraceGarrisons( visobjects );
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
