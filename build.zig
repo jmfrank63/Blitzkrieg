@@ -1396,7 +1396,13 @@ pub fn build(b: *std.Build) void {
     // own libc for the executable; naming the CRT a second time here links two
     // of them (duplicate _cexit, _wctype, ...). Everywhere else the executable
     // is the one that has to pull the C++ runtime in.
-    if (target.result.abi != .msvc) linkMsvcRuntime(editor_overlay_spike_module, optimize);
+    if (target.result.abi == .msvc) {
+        // Zig supplies the CRT; only the C++ standard library the vendored
+        // ImGui needs (operator new, std::terminate) has to be named.
+        editor_overlay_spike_module.linkSystemLibrary(if (optimize == .Debug) "msvcprtd" else "msvcprt", .{});
+    } else {
+        linkMsvcRuntime(editor_overlay_spike_module, optimize);
+    }
     const editor_overlay_spike = b.addExecutable(.{ .name = "editor-overlay-spike", .root_module = editor_overlay_spike_module });
     if (target.result.os.tag == .windows) editor_overlay_spike.subsystem = .console;
     const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
@@ -3899,7 +3905,10 @@ fn addEditorImgui(
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
-    linkMsvcRuntime(module, optimize);
+    // On MSVC the CRT is the consumer's business: Zig links its own libc into
+    // the Zig programs that use this library, and naming the MSVC CRT here as
+    // well links two of them (duplicate _cexit, _wctype, ...).
+    if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
     module.addCSourceFiles(.{
         .files = &.{
             "vendor/dcimgui/src-docking/imgui.cpp",
