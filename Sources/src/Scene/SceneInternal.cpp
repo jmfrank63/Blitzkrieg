@@ -1034,7 +1034,13 @@ void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect
 			tooltip.rcRect.Move( rcScreenRect.x2 - tooltip.rcRect.x2 - nGap, 0 );
 		if ( tooltip.rcRect.y2 + nGap >= rcScreenRect.y2 ) 
 			tooltip.rcRect.Move( 0, rcScreenRect.y2 - tooltip.rcRect.y2 - nGap );
-		tooltip.dwBorderColor = dwColor != 0 ? dwColor : 0xffcdcd00;
+		// The plate and its frame come from the constants, so a mod that
+		// repainted its interface can have the hint too - the scene draws it
+		// rather than a layout, so no restyle of the screens reaches it. A
+		// frame of zero follows the text, which is what the original game did.
+		tooltip.dwGroundColor = GetGlobalVar( "Scene.Colors.ToolTip.Ground.Color", int(TOOLTIP_DEFAULT_GROUND_COLOR) );
+		const DWORD dwFrame = GetGlobalVar( "Scene.Colors.ToolTip.Frame.Color", 0 );
+		tooltip.dwBorderColor = dwFrame != 0 ? dwFrame : ( dwColor != 0 ? dwColor : 0xffcdcd00 );
 	}
 }
 void CScene::RandomizeRainDrop( SRainDrop &drop )

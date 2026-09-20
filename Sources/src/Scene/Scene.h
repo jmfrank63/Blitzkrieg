@@ -421,6 +421,7 @@ enum ESoundAddMode
 	SAM_NEED_ID,													// �������� ID �����
 	SAM_ADD_N_FORGET,											// �������� 0, ����� ���� ������ ����.
 };
+const DWORD TOOLTIP_DEFAULT_GROUND_COLOR = 0xff2a1817;
 interface IScene : public IRefCount
 {
 	enum { tidTypeID = SCENE_SCENE };
@@ -479,6 +480,11 @@ interface IScene : public IRefCount
 																		IGFXTexture *pTexture, int nShadingEffect, bool bTemporary ) = 0;
 	virtual bool STDCALL RemoveMeshPair( int nID ) = 0;
 	virtual void STDCALL AddCircle( const CVec3 &vCenter, const float fRadius, const NTimer::STime &start, const NTimer::STime &duration ) = 0;
+	// The plate the order hint is drawn on, if no consts.xml names one: the
+	// near-black brown the minimap is framed in, so the one panel the scene
+	// paints over the battlefield belongs to the same furniture as the panels
+	// around it. Read from Scene.Colors.ToolTip.Ground.Color; a mod can restyle
+	// it through ui\ModStyles\<mod>\consts.xml, see NMain::SetupModStyleConsts.
 	virtual void STDCALL SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect<float> &rcOut, const DWORD dwColor = 0 ) = 0;
 	virtual bool STDCALL TransferToGraveyard( IVisObj *pObject ) = 0;
 	virtual void STDCALL SetVisibleObjects( IVisObj **ppObjects, int nNumObjects ) = 0;

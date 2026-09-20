@@ -693,12 +693,11 @@ void CScene::Draw( ICamera *pCamera )
 		gfxRect.rect.Inflate( tooltip.nPadding, tooltip.nPadding );
 		gfxRect.maps.SetEmpty();
 		gfxRect.fZ = 0;
-		// Opaque, and in the near-black brown the minimap beside it is framed
-		// in rather than a flat black. At just over half alpha the panel behind
-		// the cursor - the unit card, its bars and its numbers - read straight
-		// through the order hint, and the amber text had nothing to stand
-		// against.
-		gfxRect.color = TOOLTIP_GROUND_COLOR;
+		// Opaque, and on the plate the constants name rather than a flat black.
+		// At just over half alpha the panel behind the cursor - the unit card,
+		// its bars and its numbers - read straight through the order hint, and
+		// the amber text had nothing to stand against.
+		gfxRect.color = tooltip.dwGroundColor;
 		pGFX->DrawRects( &gfxRect, 1, true );
 		// Two lines, one inside the other: at this size a single hairline is
 		// thinner than the letters it encloses and the box loses its edge.

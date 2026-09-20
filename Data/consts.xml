@@ -439,6 +439,10 @@ fTimeToGo - = абсолютная величина((направление са
 			<ToolTip>
 				<Mission A="255" R="255" G="190" B="52"/>
 				<InterMission A="255" R="255" G="190" B="52"/>
+				<!-- The plate the hint is written on, and its frame. A frame of zero
+				     follows the text, which is what the original game drew. -->
+				<Ground A="255" R="42" G="24" B="23"/>
+				<Frame A="0" R="0" G="0" B="0"/>
 			</ToolTip>
 			<ObjMap>
 				<InterMission R="255" G="255" B="255"/>

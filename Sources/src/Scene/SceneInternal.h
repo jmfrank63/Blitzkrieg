@@ -29,20 +29,17 @@ typedef std::unordered_map<IVisObj*, SVisObjDesc, SDefaultPtrHash> CVisObjDescMa
 const int TOOLTIP_MAX_WIDTH = 300;
 const int TOOLTIP_GAP = 5;
 const int TOOLTIP_PADDING = 3;
-// The ground the order hint is drawn on: the near-black brown the minimap
-// beside it is framed in, so the one panel the game paints over the
-// battlefield belongs to the same furniture as the panels around it.
-const DWORD TOOLTIP_GROUND_COLOR = 0xff2a1817;
 struct SToolTip
 {
 	CPtr<IGFXText> pText;									// graphics text
 	CTRect<long> rcRect;									// rect of this text
 	DWORD dwBorderColor;									// border rect color
+	DWORD dwGroundColor;									// the plate the text is written on
 	int nPadding;													// gap between the text and its box, scaled with the font
 	int nFrameWidth;											// how many lines the box is framed in
 	bool bHasText;												//
 	bool bHasFont;
-	SToolTip() : dwBorderColor( 0xffffff00 ), nPadding( TOOLTIP_PADDING ), nFrameWidth( 1 ), bHasText( false ), bHasFont( false ) {  }
+	SToolTip() : dwBorderColor( 0xffffff00 ), dwGroundColor( TOOLTIP_DEFAULT_GROUND_COLOR ), nPadding( TOOLTIP_PADDING ), nFrameWidth( 1 ), bHasText( false ), bHasFont( false ) {  }
 	void Init();
 	void Clear();
 	int operator&( IStructureSaver &ss )

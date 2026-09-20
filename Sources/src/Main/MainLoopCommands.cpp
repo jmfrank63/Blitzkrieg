@@ -197,6 +197,11 @@ void CICLoad::Exec( IMainLoop *pML )
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec register load end" );
 	}
+	// A save carries a snapshot of the global vars, and loading it replaces the
+	// whole store - so the constants read out of consts.xml come back as they
+	// were the day the save was written, and any the save predates are simply
+	// gone. Read them again over the restored set.
+	NMain::SetupModStyleConsts();
 	ReportSaveLoad( "game_loaded", szFileName );
 	pML->EnableMessageProcessing( true );
 	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_LOAD_FINISHED) );
@@ -308,6 +313,9 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 	pML->ClearResources( true );
 	GetSingleton<ITextManager>()->Clear( ISharedManager::CLEAR_ALL );
 	pML->ResetStack();
+	// consts.xml is read before any mod is mounted, so the constants are the
+	// game's own until here; this is the only moment the loaded mod is known.
+	NMain::SetupModStyleConsts();
 	GetSingleton<IFilesInspector>()->Clear();
 	GetSingleton<IFilesInspector>()->InspectStorage( GetSingleton<IDataStorage>() );
 	GetSingleton<IObjectsDB>()->LoadDB();
