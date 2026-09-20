@@ -47,6 +47,13 @@ void ReadAndSetColors( CTableAccessor &table, const std::string &szSeason )
 	ReadAndSetColorValue( table, szSeason, "LevelUp" );
 	ReadAndSetColorValue( table, "ToolTip", "Mission" );
 	ReadAndSetColorValue( table, "ToolTip", "InterMission" );
+	// Every screen between missions - options, save, load, the cloud dialogs -
+	// is built as CInterfaceScreenBase("Current") and asks for this one, which
+	// no consts.xml ever defined: those hints fell back to the colour written
+	// into CScene::SetToolTip and were the only ones a restyle could not
+	// reach. The default here is that same fallback, so a game without the
+	// entry looks exactly as it did.
+	SetGlobalVar( "Scene.Colors.ToolTip.Current.Color", int( GetColorValue( table, "Colors.ToolTip.Current", 0xffcdcd00 ) ) );
 	// The plate the hint is written on. The original game had no say in it -
 	// the hint was a black box behind a hairline - so these default to what the
 	// scene draws without them: the near-black brown the minimap is framed in,
@@ -171,6 +178,7 @@ void SetupModStyleConsts()
 	CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
 	ReadAndSetColorValue( table, "ToolTip", "Mission" );
 	ReadAndSetColorValue( table, "ToolTip", "InterMission" );
+	SetGlobalVar( "Scene.Colors.ToolTip.Current.Color", int( GetColorValue( table, "Colors.ToolTip.Current", 0xffcdcd00 ) ) );
 	SetGlobalVar( "Scene.Colors.ToolTip.Ground.Color", int( GetColorValue( table, "Colors.ToolTip.Ground", TOOLTIP_DEFAULT_GROUND_COLOR ) ) );
 	SetGlobalVar( "Scene.Colors.ToolTip.Frame.Color", int( GetColorValue( table, "Colors.ToolTip.Frame", 0 ) ) );
 	std::string szMOD = GetGlobalVar( "MOD.Folder", "" );
@@ -185,7 +193,7 @@ void SetupModStyleConsts()
 	if ( pStream == 0 )
 		return;
 	CTableAccessor styled = ::OpenDataTable( pStream );
-	const char *pszToolTipColors[] = { "Mission", "InterMission", "Ground", "Frame" };
+	const char *pszToolTipColors[] = { "Mission", "InterMission", "Current", "Ground", "Frame" };
 	for ( int i = 0; i < int( sizeof( pszToolTipColors ) / sizeof( pszToolTipColors[0] ) ); ++i )
 	{
 		const std::string szVar = std::string( "Scene.Colors.ToolTip." ) + pszToolTipColors[i] + ".Color";

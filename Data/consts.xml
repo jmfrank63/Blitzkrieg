@@ -439,6 +439,10 @@ fTimeToGo - = абсолютная величина((направление са
 			<ToolTip>
 				<Mission A="255" R="255" G="190" B="52"/>
 				<InterMission A="255" R="255" G="190" B="52"/>
+				<!-- The screens between missions, all of them CInterfaceScreenBase
+				     ("Current"). This is the colour those hints always had, which
+				     until now lived only in CScene::SetToolTip. -->
+				<Current A="255" R="205" G="205" B="0"/>
 				<!-- The plate the hint is written on, and its frame. A frame of zero
 				     follows the text, which is what the original game drew. -->
 				<Ground A="255" R="42" G="24" B="23"/>
