@@ -894,6 +894,15 @@ void CWorldClient::SelectBuilding( IVisObj *pVisObj, bool bMerge )
 		ResetSelection();
 
 	SMapObject *pMO = FindByVis( pVisObj );
+	if ( getenv( "BK_GARRISON_TRACE" ) && pMO != 0 && pMO->pDesc != 0 && pMO->pDesc->eGameType == SGVOGT_BUILDING )
+	{
+		CVec3 vPos;
+		WORD wDir = 0;
+		pMO->GetPlacement( &vPos, &wDir );
+		fprintf( stderr, "BK_GARRISON_TRACE: click on building \"%s\" at %.0f,%.0f canselect=%d -> %s\n",
+		         pMO->pDesc->szKey.c_str(), vPos.x, vPos.y, int(pMO->CanSelect()),
+		         pMO->CanSelect() ? "selected" : "REFUSED" );
+	}
 	if ( (pMO == 0) || !pMO->CanSelect() || (pMO->pDesc->eGameType != SGVOGT_BUILDING) )
 		return;
 	if ( !selbuildings.IsSelected(pMO) )

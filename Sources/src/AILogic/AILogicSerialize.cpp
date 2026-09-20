@@ -9,6 +9,8 @@
 #include "UnitsIterators.h"
 #include "Soldier.h"
 #include "Diplomacy.h"
+#include "Building.h"
+#include "StaticObjectsIters.h"
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 int CAILogic::operator&( IStructureSaver &ss )
@@ -53,6 +55,19 @@ int CAILogic::operator&( IStructureSaver &ss )
 			CSoldier *pSoldier = dynamic_cast<CSoldier*>( *iter );
 			if ( pSoldier && pSoldier->IsInTransport() && !pSoldier->IsSelectable() && pSoldier->GetPlayer() == theDipl.GetMyNumber() )
 				pSoldier->SetSelectable( true );
+		}
+		// The client's copy of "can this building be selected" and of whose it
+		// is rides along in the savegame, and it was only ever pushed when a
+		// building filled from empty or emptied completely - so a save written
+		// while a garrison had changed hands in between comes back with the
+		// wrong owner, and the player cannot select the building to order his
+		// own men out of it. Re-assert both from the AI's own state, which is
+		// correct, rather than trusting what the save restored.
+		for ( CStObjGlobalIter<true> it; !it.IsFinished(); it.Iterate() )
+		{
+			CBuilding *pBuilding = dynamic_cast<CBuilding*>( *it );
+			if ( pBuilding != 0 && pBuilding->GetNFreePlaces() != pBuilding->GetNOverallPlaces() )
+				pBuilding->UpdateOwner( true );
 		}
 	}
 	return 0;
