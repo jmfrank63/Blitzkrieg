@@ -277,11 +277,24 @@ const IGDBObject* CObjectsDB::Get( const char *pszName, const char *pszParentNam
 template <class TYPE>
 TYPE* ReadRPGStats( const SGDBObjectDesc *pObj, const char *pszStatsName, const char *pszAdd = "\\1.xml" )
 {
-	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (pObj->szPath + pszAdd).c_str(), STREAM_ACCESS_READ );
+	const std::string szFileName = pObj->szPath + pszAdd;
+	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( szFileName.c_str(), STREAM_ACCESS_READ );
 	if ( pStream != 0 )
 	{
 		TYPE *pRPG = new TYPE();
 		CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
+		if ( tree == 0 )
+		{
+			// CreateDataTreeSaver comes back null when the XML cannot be parsed -
+			// the same mechanism the UTF-8 BOM fix in xml.zig addressed for four
+			// Achtung Panzer 2 unit files. tree.Add() below would dereference that
+			// null tree; any other unparsable unit XML hits the same crash. Trace
+			// the file and hand back null the way a missing file already does -
+			// callers handle it.
+			delete pRPG;
+			NStr::DebugTrace( "ReadRPGStats: failed to parse \"%s\"\n", szFileName.c_str() );
+			return 0;
+		}
 		tree.Add( pszStatsName, pRPG );
 		return pRPG;
 	}

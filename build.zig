@@ -1364,6 +1364,52 @@ pub fn build(b: *std.Build) void {
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
+    const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
+    const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
+    editor_imgui_step.dependOn(&editor_imgui.step);
+    const editor_imgui_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/imgui/imgui.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    editor_imgui_module.addIncludePath(b.path("Sources/editor/imgui"));
+    editor_imgui_module.linkLibrary(editor_imgui);
+
+    const editor_overlay_spike_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/editor_overlay_spike.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl3 },
+            .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
+    });
+    // The spike links editor-imgui, a C++ static library, so the executable
+    // needs the C++ runtime and - on MSVC - the CRT search paths as well: a
+    // static library propagates the libraries it wants, not where to find
+    // them. Without this the Linux jobs fail on __cxa_* and _Unwind_Resume,
+    // and the MSVC job cannot find ucrtd.
+    addMsvcLibraryPaths(b, editor_overlay_spike_module, toolchain);
+    // On MSVC the library already names the CRT it wants and Zig supplies its
+    // own libc for the executable; naming the CRT a second time here links two
+    // of them (duplicate _cexit, _wctype, ...). Everywhere else the executable
+    // is the one that has to pull the C++ runtime in.
+    if (target.result.abi == .msvc) {
+        // Zig supplies the CRT once the module asks for libc; the vendored
+        // ImGui only adds the C++ standard library on top. Naming the CRT
+        // again here linked two of them (duplicate _cexit, _wctype, ...).
+        editor_overlay_spike_module.link_libc = true;
+
+    } else {
+        linkMsvcRuntime(editor_overlay_spike_module, optimize);
+    }
+    const editor_overlay_spike = b.addExecutable(.{ .name = "editor-overlay-spike", .root_module = editor_overlay_spike_module });
+    if (target.result.os.tag == .windows) editor_overlay_spike.subsystem = .console;
+    const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
+    const editor_overlay_spike_build_step = b.step("editor-overlay-spike-build", "Build the Map Editor ImGui overlay spike");
+    editor_overlay_spike_build_step.dependOn(&editor_overlay_spike_install.step);
     addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
@@ -1597,6 +1643,16 @@ pub fn build(b: *std.Build) void {
     }
     const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
+
+    const editor_overlay_spike_run = b.addRunArtifact(editor_overlay_spike);
+    editor_overlay_spike_run.step.dependOn(&editor_overlay_spike_install.step);
+    editor_overlay_spike_run.step.dependOn(gfx_gpu_shaders_step);
+    editor_overlay_spike_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
+    editor_overlay_spike_run.setCwd(b.path("."));
+    if (target.result.os.tag == .linux) editor_overlay_spike_run.setEnvironmentVariable("LD_LIBRARY_PATH", "zig-out/bin:zig-out/lib");
+    if (b.args) |args| editor_overlay_spike_run.addArgs(args);
+    const editor_overlay_spike_step = b.step("editor-overlay-spike", "Run the Map Editor ImGui overlay spike");
+    editor_overlay_spike_step.dependOn(&editor_overlay_spike_run.step);
 
     const gfx_reference_compare_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compare_gfx_reference.zig"),
@@ -3830,6 +3886,55 @@ fn addGfxGpuZig(
     });
 }
 
+// Dear ImGui (docking branch) with the dear_bindings C API and the SDL3 +
+// SDL GPU backends, for the portable editors. Static: it lives inside the
+// editor executable and shares the one dynamic SDL3 the game ships.
+fn addEditorImgui(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    sdl_include: std.Build.LazyPath,
+) *std.Build.Step.Compile {
+    // Zig links the release CRT for an MSVC target even in Debug, so the C++
+    // objects are built against the release CRT too: a debug build here
+    // references the debug CRT and the two cannot be linked together.
+    const cxx_optimize = if (target.result.abi == .msvc) .ReleaseFast else optimize;
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = cxx_optimize,
+    });
+    module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    module.addIncludePath(b.path("vendor/dcimgui/backends"));
+    module.addIncludePath(b.path("Sources/editor/imgui"));
+    module.addIncludePath(sdl_include);
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    // On MSVC the CRT is the consumer's business: Zig links its own libc into
+    // the Zig programs that use this library, and naming the MSVC CRT here as
+    // well links two of them (duplicate _cexit, _wctype, ...).
+    if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    module.addCSourceFiles(.{
+        .files = &.{
+            "vendor/dcimgui/src-docking/imgui.cpp",
+            "vendor/dcimgui/src-docking/imgui_demo.cpp",
+            "vendor/dcimgui/src-docking/imgui_draw.cpp",
+            "vendor/dcimgui/src-docking/imgui_tables.cpp",
+            "vendor/dcimgui/src-docking/imgui_widgets.cpp",
+            "vendor/dcimgui/src-docking/cimgui.cpp",
+            "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
+            "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
+            "Sources/editor/imgui/imgui_backend.cpp",
+        },
+        // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
+        // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
+        // Zig programs that consume this library. ImGui needs none of it.
+        .flags = &.{"-std=c++17"},
+    });
+    return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
         .Debug => portable_cflags,
@@ -3853,7 +3958,10 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 }
 
 fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (target.result.os.tag != .windows) return &.{"-std=c++17"};
+    // Only real MSVC needs the -fms-extensions/-fms-compatibility flags; a
+    // windows-gnu (mingw) target compiles with the plain libstdc++ flags,
+    // and previously got the MSVC set solely because its os.tag is .windows.
+    if (target.result.os.tag != .windows or target.result.abi != .msvc) return &.{"-std=c++17"};
     return cppflagsForOptimize(optimize);
 }
 

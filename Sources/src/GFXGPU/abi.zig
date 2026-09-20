@@ -97,6 +97,15 @@ pub const Api = extern struct {
     set_present_fit: *const fn (?*RendererHandle, c_int) callconv(.c) Result,
     // GFXGPU_PRESENT_MODE_*: vsync, mailbox or immediate.
     set_present_mode: *const fn (?*RendererHandle, u32) callconv(.c) Result,
+    // Appended: the editor's overlay. Runs after the scene, before submit;
+    // see renderer.OverlayCallback. Null clears it. Refused inside a frame.
+    set_overlay: *const fn (?*RendererHandle, ?renderer_mod.OverlayCallback, ?*anyopaque) callconv(.c) Result,
+    // Appended: the SDL_GPUDevice* and the swapchain's SDL_GPUTextureFormat,
+    // so an overlay can create its own pipelines on the same device.
+    get_gpu_device: *const fn (?*RendererHandle, ?*?*anyopaque, ?*u32) callconv(.c) Result,
+    // Appended: nonzero captures the next presented frame for
+    // gfxgpu_readback_frame. Refused inside a frame.
+    set_frame_capture: *const fn (?*RendererHandle, u32) callconv(.c) Result,
 };
 
 pub const TemporaryIndexedGeometryInfo = extern struct {
@@ -454,6 +463,25 @@ fn setPresentMode(handle: ?*RendererHandle, mode: u32) callconv(.c) Result {
     renderer.setPresentMode(sdl.presentModeFromValue(mode)) catch return errors.sdl_error;
     return errors.ok;
 }
+fn setOverlay(handle: ?*RendererHandle, callback: ?renderer_mod.OverlayCallback, user: ?*anyopaque) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    const overlay: ?renderer_mod.Overlay = if (callback) |value| .{ .callback = value, .user = user } else null;
+    renderer.setOverlay(overlay) catch return errors.invalid_state;
+    return errors.ok;
+}
+fn getGpuDevice(handle: ?*RendererHandle, out_device: ?*?*anyopaque, out_format: ?*u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (out_device == null or out_format == null) return errors.invalid_argument;
+    const device = renderer.device orelse return errors.invalid_state;
+    out_device.?.* = device.handle orelse return errors.invalid_state;
+    out_format.?.* = renderer.swapchain_format;
+    return errors.ok;
+}
+fn setFrameCapture(handle: ?*RendererHandle, enabled: u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    renderer.requestFrameCapture(enabled != 0) catch return errors.invalid_state;
+    return errors.ok;
+}
 fn bindVertexBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (buffer == 0) return errors.invalid_argument;
@@ -553,6 +581,21 @@ pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(
     return errors.ok;
 }
 
+pub fn gfxgpu_readback_frame(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(ReadbackInfo) or info.?.width == 0 or info.?.height == 0 or info.?.data == null) return errors.invalid_argument;
+    if (info.?.row_pitch < info.?.width * 4 or info.?.byte_length < info.?.row_pitch * info.?.height) return errors.invalid_argument;
+    renderer.readbackFrame(@as([*]u8, @ptrCast(info.?.data.?))[0..info.?.byte_length], info.?.width, info.?.height, info.?.row_pitch) catch |err| {
+        renderer.last_error = @errorName(err);
+        return switch (err) {
+            error.ReadbackUnavailable => errors.unsupported,
+            error.ReadbackInvalid => errors.invalid_state,
+            error.NoDevice, error.TransferBufferCreateFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.TransferBufferMapFailed => errors.sdl_error,
+        };
+    };
+    return errors.ok;
+}
+
 const api = Api{
     .abi_version = abi_version,
     .struct_size = @sizeOf(Api),
@@ -589,14 +632,19 @@ const api = Api{
     .draw_temporary_indexed = drawTemporaryIndexed,
     .set_present_fit = setPresentFit,
     .set_present_mode = setPresentMode,
+    .set_overlay = setOverlay,
+    .get_gpu_device = getGpuDevice,
+    .set_frame_capture = setFrameCapture,
 };
 
 // The size of the table as it shipped before the presentation entry points
 // were appended. A caller compiled against that layout asks for exactly this
-// many bytes, and the two appended function pointers do not exist in its
-// struct at all - so requiring @sizeOf(Api) here would reject every such
-// caller, which is what "appended, callers that predate it keep working via
-// the struct_size check" is supposed to rule out.
+// many bytes, and the function pointers appended since (there are five now:
+// set_present_fit, set_present_mode, set_overlay, get_gpu_device and
+// set_frame_capture) do not exist in its struct at all - so requiring
+// @sizeOf(Api) here would reject every such caller, which is what
+// "appended, callers that predate it keep working via the struct_size
+// check" is supposed to rule out.
 const api_base_size: u32 = @offsetOf(Api, "set_present_fit");
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {
@@ -642,6 +690,33 @@ test "the API table is filled to the caller's size and never past it" {
     try std.testing.expectEqual(errors.ok, gfxgpu_get_api(abi_version, &full));
     try std.testing.expectEqual(@as(u32, @sizeOf(Api)), full.struct_size);
     try std.testing.expect(full.set_present_mode == api.set_present_mode);
+}
+
+test "the overlay, device and capture entry points are in the table and validate their arguments" {
+    var table: Api = undefined;
+    table.struct_size = @sizeOf(Api);
+    try std.testing.expectEqual(errors.ok, gfxgpu_get_api(abi_version, &table));
+    try std.testing.expectEqual(@as(u32, @sizeOf(Api)), table.struct_size);
+
+    try std.testing.expectEqual(errors.invalid_handle, table.set_overlay(null, null, null));
+    try std.testing.expectEqual(errors.invalid_handle, table.set_frame_capture(null, 1));
+    var device: ?*anyopaque = null;
+    var format: u32 = 0;
+    try std.testing.expectEqual(errors.invalid_handle, table.get_gpu_device(null, &device, &format));
+
+    var renderer = renderer_mod.Renderer.init(std.testing.allocator);
+    defer renderer.deinit();
+    const handle: *RendererHandle = @ptrCast(&renderer);
+    // No device yet: there is nothing to hand out.
+    try std.testing.expectEqual(errors.invalid_state, table.get_gpu_device(handle, &device, &format));
+    try std.testing.expectEqual(errors.invalid_argument, table.get_gpu_device(handle, null, &format));
+    try std.testing.expectEqual(errors.ok, table.set_frame_capture(handle, 1));
+    try std.testing.expect(renderer.capture_requested);
+    try std.testing.expectEqual(errors.ok, table.set_overlay(handle, null, null));
+
+    var pixels: [16]u8 = undefined;
+    var info = ReadbackInfo{ .struct_size = @sizeOf(ReadbackInfo), .width = 2, .height = 2, .byte_length = pixels.len, .row_pitch = 8, .data = @ptrCast(&pixels) };
+    try std.testing.expectEqual(errors.unsupported, gfxgpu_readback_frame(handle, &info));
 }
 
 test "a caller's struct is read only as far as its struct_size" {

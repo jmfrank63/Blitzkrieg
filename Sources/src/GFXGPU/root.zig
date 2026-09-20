@@ -38,6 +38,10 @@ pub export fn gfxgpu_readback(handle: ?*abi.RendererHandle, info: ?*abi.Readback
     return abi.gfxgpu_readback(handle, info);
 }
 
+pub export fn gfxgpu_readback_frame(handle: ?*abi.RendererHandle, info: ?*abi.ReadbackInfo) callconv(.c) abi.Result {
+    return abi.gfxgpu_readback_frame(handle, info);
+}
+
 test "renderer context initializes and deinitializes without SDL startup" {
     var renderer = Renderer.init(std.testing.allocator);
     renderer.deinit();

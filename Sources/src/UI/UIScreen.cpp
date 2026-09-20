@@ -27,6 +27,8 @@ static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 	{
 		"ui\\AddressBook",
 		"ui\\AddUnitToMission",
+		"ui\\CloudBackups",
+		"ui\\CloudCredentials",
 		"ui\\CloudShutdown",
 		"ui\\common\\campaign",
 		"ui\\common\\chapter",
@@ -517,11 +519,23 @@ void CUIScreen::Draw( interface IGFX *pGFX )
 	{
 		pGFX->SetShadingEffect( 3 );	
 		const CTRect<float> &rc = GetScreenRect();
+		// The message lines - mission dialogue, acknowledgements, chat - are
+		// drawn straight onto the screen rather than through a UI element, so
+		// the layout scale never reaches them and they kept the size they had
+		// at 640x480. Draw them in the large font, and space the lines by that
+		// font rather than by the constant written for the small one.
+		IGFXFont *pLargeFont = GetSingleton<IFontManager>()->GetFont( "fonts\\large" );
+		int nLineHeight = TEXT_VERTICAL_SIZE;
+		if ( pLargeFont != 0 )
+		{
+			pGFX->SetFont( pLargeFont );
+			nLineHeight = Max( pLargeFont->GetLineSpace(), TEXT_VERTICAL_SIZE );
+		}
 		int nCurrentY = rc.y1 + ACKS_VERTICAL_POSITION;
 		for ( CListOfAcks::iterator it = listOfAcks.begin(); it != listOfAcks.end(); ++it )
 		{
 			pGFX->DrawString( it->szString.c_str(), TEXT_LEFT_SPACE, nCurrentY, it->dwColor );
-			nCurrentY += TEXT_VERTICAL_SIZE;
+			nCurrentY += nLineHeight;
 		}
 
 		if ( bChatMode )
@@ -534,6 +548,17 @@ void CUIScreen::Draw( interface IGFX *pGFX )
 
 			szResult += szChatMessage;
 			pGFX->DrawString( szResult.c_str(), CHAT_MESSAGE_LEFT, rc.y1 + CHAT_MESSAGE_TOP );
+		}
+
+		// SetFont has no matching “restore previous font” call, so leaving
+		// the large font selected here would leak into every draw call after
+		// this one until somebody else sets their own font (the developer
+		// console and the stat overlay never do). Put the startup font back.
+		if ( pLargeFont != 0 )
+		{
+			IGFXFont *pMediumFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
+			if ( pMediumFont != 0 )
+				pGFX->SetFont( pMediumFont );
 		}
 	}
 }

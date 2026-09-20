@@ -234,6 +234,19 @@ pub fn blitTextureCentered(command_buffer: *GpuCommandBuffer, source: *GpuTextur
     c.SDL_BlitGPUTexture(command_buffer, &info);
 }
 
+// A 1:1 copy of a whole texture onto another of the same size. Used to move a
+// captured frame onto the swapchain.
+pub fn blitTextureCopy(command_buffer: *GpuCommandBuffer, source: *GpuTexture, destination: *GpuTexture, width: u32, height: u32) void {
+    if (width == 0 or height == 0) return;
+    const info = c.SDL_GPUBlitInfo{
+        .source = .{ .texture = source, .w = width, .h = height },
+        .destination = .{ .texture = destination, .w = width, .h = height },
+        .load_op = c.SDL_GPU_LOADOP_DONT_CARE,
+        .filter = c.SDL_GPU_FILTER_NEAREST,
+    };
+    c.SDL_BlitGPUTexture(command_buffer, &info);
+}
+
 pub fn createBuffer(device: *GpuDevice, usage: c.SDL_GPUBufferUsageFlags, size: u32) ?*GpuBuffer {
     const info = c.SDL_GPUBufferCreateInfo{ .usage = usage, .size = size, .props = 0 };
     return c.SDL_CreateGPUBuffer(device, &info);
