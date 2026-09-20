@@ -1401,7 +1401,7 @@ pub fn build(b: *std.Build) void {
         // ImGui only adds the C++ standard library on top. Naming the CRT
         // again here linked two of them (duplicate _cexit, _wctype, ...).
         editor_overlay_spike_module.link_libc = true;
-        editor_overlay_spike_module.linkSystemLibrary(if (optimize == .Debug) "msvcprtd" else "msvcprt", .{});
+        editor_overlay_spike_module.linkSystemLibrary("msvcprt", .{});
     } else {
         linkMsvcRuntime(editor_overlay_spike_module, optimize);
     }
@@ -3896,9 +3896,13 @@ fn addEditorImgui(
     toolchain: ToolchainIncludes,
     sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
+    // Zig links the release CRT for an MSVC target even in Debug, so the C++
+    // objects are built against the release CRT too: a debug build here
+    // references the debug CRT and the two cannot be linked together.
+    const cxx_optimize = if (target.result.abi == .msvc) .ReleaseFast else optimize;
     const module = b.createModule(.{
         .target = target,
-        .optimize = optimize,
+        .optimize = cxx_optimize,
     });
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addIncludePath(b.path("vendor/dcimgui/backends"));
@@ -3923,7 +3927,7 @@ fn addEditorImgui(
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
             "Sources/editor/imgui/imgui_backend.cpp",
         },
-        .flags = cppflagsForTarget(target, optimize),
+        .flags = cppflagsForTarget(target, cxx_optimize),
     });
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
 }
