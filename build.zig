@@ -1401,6 +1401,8 @@ pub fn build(b: *std.Build) void {
         // ImGui only adds the C++ standard library on top. Naming the CRT
         // again here linked two of them (duplicate _cexit, _wctype, ...).
         editor_overlay_spike_module.link_libc = true;
+        editor_overlay_spike_module.linkSystemLibrary("ucrt", .{});
+        editor_overlay_spike_module.linkSystemLibrary("vcruntime", .{});
         editor_overlay_spike_module.linkSystemLibrary("msvcprt", .{});
     } else {
         linkMsvcRuntime(editor_overlay_spike_module, optimize);
