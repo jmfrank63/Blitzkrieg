@@ -6,6 +6,10 @@
      parchment of its own unit card, in the black the rest of its paper uses,
      inside the dark brown its minimap is framed in - all three measured off a
      capture of the mod in a mission.
+     The plate is two thirds opaque: the letters are black and lose nothing by
+     it, and where the hint overhangs the paper strip along the bottom of the
+     screen the battlefield shows through instead of a solid block. The frame
+     stays opaque so the edge holds.
      Read over the mod's own consts.xml; see NMain::SetupModStyleConsts. -->
 <base>
 	<Scene>
@@ -13,7 +17,7 @@
 			<ToolTip>
 				<Mission A="255" R="0" G="0" B="0"/>
 				<InterMission A="255" R="0" G="0" B="0"/>
-				<Ground A="255" R="214" G="203" B="164"/>
+				<Ground A="170" R="214" G="203" B="164"/>
 				<Frame A="255" R="42" G="24" B="23"/>
 			</ToolTip>
 		</Colors>
