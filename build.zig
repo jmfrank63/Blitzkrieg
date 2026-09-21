@@ -5330,12 +5330,21 @@ fn addMapFileTest(
     const scratch_install = b.addInstallFileWithDir(scratch_keep, .{ .custom = "local-test" }, ".keep");
     const streamio_install = b.addInstallArtifact(streamio_zig, .{});
     const sdl_install = b.addInstallArtifact(sdl_dynamic, .{});
+    const platform_install = b.addInstallArtifact(platform_runtime, .{});
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     run.addArg(module_root);
     run.step.dependOn(&streamio_install.step);
     run.step.dependOn(&sdl_install.step);
     run.step.dependOn(&scratch_install.step);
+    run.step.dependOn(&platform_install.step);
+    // On Windows a DLL's imports resolve from the executable's directory and
+    // PATH, and this executable runs out of the build cache - so the installed
+    // runtime DLLs have to be findable. Without this the process died before
+    // main with exit code 53, which is STATUS_DLL_NOT_FOUND (0xC0000135)
+    // truncated the way Zig reports Windows crash codes. ELF and Mach-O carry
+    // loader-relative rpaths and do not need it.
+    run.addPathDir(b.path("zig-out/bin").getPath(b));
     const step = b.step("test-map-files", "Read and rewrite the shipped maps; check they are unchanged");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -5347,6 +5356,8 @@ fn addMapFileTest(
     run_all.step.dependOn(&streamio_install.step);
     run_all.step.dependOn(&sdl_install.step);
     run_all.step.dependOn(&scratch_install.step);
+    run_all.step.dependOn(&platform_install.step);
+    run_all.addPathDir(b.path("zig-out/bin").getPath(b));
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
