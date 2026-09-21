@@ -176,6 +176,35 @@ jobs:
             /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
             /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
             /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
+            # the two runners that have a GPU device pay for it; the other three
+            # have none, would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.16.0
@@ -254,6 +283,12 @@ jobs:
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # Only here and on macos-14: the probe says those are the two runners with
+      # a GPU device. The tier skips honestly where there is none, but a runner
+      # that only ever skips is a 2.3 GB checkout for a line of output.
+      - name: Engine tier
+        run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -304,6 +339,35 @@ jobs:
             /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
             /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
             /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
+            # the two runners that have a GPU device pay for it; the other three
+            # have none, would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Verify Apple Silicon host
@@ -375,6 +439,9 @@ jobs:
 
       - name: Map file tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Engine tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos

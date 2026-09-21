@@ -942,7 +942,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 7: Picking, camera, catalogue and frame
+### Task 7: Catalogue, camera and frame (picking deferred to plan 4)
 
 **Files:**
 - Modify: `Sources/src/EditorBridge/bridge.h`, `session.cpp`
@@ -1006,6 +1006,15 @@ virtual, `ResetSelection` - but its `Init` wants eleven singletons and the
 `InterfaceScreenBase` with it. That is a bigger decision than this task, and it
 belongs with whoever owns the editor's object layer.
 
+**Decided 2026-09-21: it goes in plan 4.** The editor core needs the layer to
+draw objects at all, so picking follows it rather than the other way round.
+`BkEditorObjectAt` is not part of plan 3; plan 4 adds it alongside whatever it
+builds the visuals with. The two options weighed were deriving from
+`CWorldBase` - the engine's own machinery, shared with `CWorldClient` and the
+MFC editor, at the cost of the `Common` library - and building visuals in the
+bridge with `IVisObjBuilder`, which is a smaller dependency but re-implements a
+slice of `CWorldBase` and would drift from what the game does.
+
 The rest of the task landed: the catalogue (5559 objects), the camera, a frame,
 and screen-to-world. The two conversions are checked by composing them rather
 than by returning OK - a camera put on an object and asked what is under the
@@ -1020,7 +1029,7 @@ Expected: `editor-bridge: PASS`
 
 ```bash
 git add Sources/src/EditorBridge tools/zig/editor_bridge_test.cpp
-git commit -m "feat(editor): catalogue, picking, camera and frame across the bridge
+git commit -m "feat(editor): catalogue, camera and frame across the bridge
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
@@ -1056,9 +1065,35 @@ Which of those five will actually exercise it is measured, not assumed
 Two runners running it is the point: the Direct3D path gets exercised rather
 than only compiled, which no test in this repository has ever done.
 
+**Decided 2026-09-21: only those two get the step.** The tier needs 2.3 GB of
+`Data` (Step 3), and a runner that can only ever print
+`skipped: no GPU device` would be fetching all of it for one line of output.
+`macos-14` and `windows-latest` get the wide checkout and the step;
+`ubuntu-24.04`, `ubuntu-24.04-arm` and `macos-15-intel` keep the narrow
+checkout and the map file tier, which is what covers them. The GPU probe stays
+in every job, so a runner that gains a device shows up in the probe's output
+before anyone has to guess.
+
 - [ ] **Step 3: Add the data the tier reads to the sparse checkout**
 
-It opens shipped maps and their tilesets, so `Data/Maps` and `Data/Terrain/sets/*/tileset.xml` and `crosset.xml` are already listed. If the engine turns out to need more — object models, textures — measure what and add exactly that, not all of `Data`.
+**Measured 2026-09-21, and it is nearly all of `Data`.** Built an installation
+whose `Data` was a symlink farm and added trees until the tier passed, then took
+them away again until it stopped. What it needs is 2.3 GB of the 2.8 GB tree:
+everything except `movies`, `Music`, `Old`, `Bugs`, `Medals` and `Scenarios`.
+The big items are `Units` 1.2 GB, `Buildings` 255 MB, `UI` 195 MB, `Sounds`
+186 MB, `Maps` 122 MB, `Objects` 93 MB.
+
+That is not the editor being greedy: `NMain::InitializeWithWindow` starts the
+whole game. Along the way it wanted `Data/Cursor` for `ICursor::Init`,
+`UI\escapemenu\EscapeMenuReactions.xml` for the message links,
+`units\technics\common\tankpit.xml` for `CUnitCreation::InitConsts`,
+`sin.arr` for `AILogic`'s trigonometry, and `Sounds` for the ack manager's
+constants - each one found by running into it, because every one of them is an
+unguarded dereference of the data tree that was not there rather than a message.
+
+So the sparse checkout cannot be narrowed usefully, and the cost has to be paid
+where the tier actually runs rather than in all five jobs. See the note under
+Step 2.
 
 - [ ] **Step 4: Run the branch through CI and read every job**
 
