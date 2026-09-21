@@ -37,6 +37,21 @@ static bool SamePath( const char *pszLeft, const char *pszRight )
 #endif
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#endif
+
+static void MakeDirectory( const char *pszPath )
+{
+#if defined(_WIN32) || defined(_WIN64)
+	_mkdir( pszPath );
+#else
+	mkdir( pszPath, 0755 );
+#endif
+}
+
 static int g_nFailures = 0;
 
 static bool Check( bool bCondition, const char *pszWhat )
@@ -52,7 +67,20 @@ static bool Check( bool bCondition, const char *pszWhat )
 // The same map the map-file tier uses, as a file dialog would hand the path
 // over: an OS path written with the engine's separator, because OpenFileStream
 // splits on backslash only.
+// arnheim has eleven bridge spans; dessau names "Logs08", an object the
+// database describes but whose RPG stats file is not in shipped Data.
+static const char *const BRIDGE_MAP = "Data\\Maps\\Multiplayer\\arnheim.bzm";
+static const char *const MISSING_STATS_MAP = "Data\\Maps\\dessau.bzm";
 static const char *const SHIPPED_MAP = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+
+static void Describe( const char *pszMap, const BkEditorMapSummary &rSummary )
+{
+	printf( "editor-bridge: %s is %dx%d tiles, season %d, %d players, %d objects "
+	        "(%d placed, %d unknown), %d bridge spans (%d placed)\n",
+	        pszMap, rSummary.width_tiles, rSummary.height_tiles, rSummary.season,
+	        rSummary.player_count, rSummary.object_count, rSummary.placed_object_count,
+	        rSummary.unknown_object_count, rSummary.bridge_span_count, rSummary.bridge_span_placed );
+}
 
 static void TestShippedMapOpens( BkEditorSession *pSession )
 {
@@ -63,12 +91,50 @@ static void TestShippedMapOpens( BkEditorSession *pSession )
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
 		return;
 	}
-	printf( "editor-bridge: %s is %dx%d tiles, season %d, %d players, %d objects, %d unknown\n",
-	        SHIPPED_MAP, summary.width_tiles, summary.height_tiles, summary.season,
-	        summary.player_count, summary.object_count, summary.unknown_object_count );
+	Describe( SHIPPED_MAP, summary );
 	Check( summary.width_tiles > 0 && summary.height_tiles > 0, "and reports its size" );
 	Check( summary.object_count > 0, "and its objects" );
 	Check( summary.unknown_object_count == 0, "and knows every type in it" );
+	Check( summary.placed_object_count > 0, "and the engine holds them" );
+}
+
+// A bridge's spans are not placed where they are found: they are set aside and
+// built afterwards, through the bridge that lists them, so one bridge's spans
+// end up in the file's order. Getting that wrong is silent - the spans are
+// simply missing from the engine and from the link map, and a summary that
+// counted only what the file said would still look right - so the count the
+// engine ended up holding is what is checked.
+static void TestBridgeSpansAreBuilt( BkEditorSession *pSession )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, "a map with bridges opens" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	Describe( BRIDGE_MAP, summary );
+	if ( !Check( summary.bridge_span_count > 0, "the map really has bridges" ) )
+		return;
+	Check( summary.bridge_span_placed == summary.bridge_span_count, "and every span reached the engine" );
+}
+
+// A described object whose stats file is missing has no footprint, so
+// CAIEditor::IsObjectInsideOfMap has nothing to test it against and used to
+// dereference the null it got back. Shipped Data contains one, so this is a
+// map the editor has to survive rather than a case that had to be constructed.
+static void TestMissingStatsDoNotStopTheOpen( BkEditorSession *pSession )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, MISSING_STATS_MAP, &summary ) == BK_EDITOR_OK,
+	             "a map naming an object whose stats are missing opens" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	Describe( MISSING_STATS_MAP, summary );
+	Check( summary.placed_object_count > 0, "and the rest of its objects are placed" );
 }
 
 // The case that crashes the MFC editor: it writes GetDesc( name )->eGameType
@@ -76,11 +142,15 @@ static void TestShippedMapOpens( BkEditorSession *pSession )
 // know. A map that names an object a mod no longer ships has to open, report
 // the object, and leave it alone.
 //
-// The copy is written beside the original so the files the terrain loader looks
-// for next to a map are where it expects them, and removed again afterwards.
-static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession )
+// The copy goes in the scratch directory, never in the installation: shipped
+// Data is read-only for every tier, and a run that is killed between writing
+// and removing would otherwise leave a map behind in it. Nothing is needed
+// beside the map - CTerrain::LoadLocal keeps the path only as a name and takes
+// the tileset, crosset and roadset from storage (TerrainInternal.cpp:88-110).
+static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession, const std::string &szScratch )
 {
-	const char *const pszCopy = "Data\\Maps\\Multiplayer\\coldwinter-unknown-object.bzm";
+	const std::string szCopy = szScratch + "\\coldwinter-unknown-object.bzm";
+	const char *const pszCopy = szCopy.c_str();
 	CMapInfo map;
 	std::string szError;
 	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
@@ -98,7 +168,7 @@ static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession )
 		Check( summary.unknown_object_count == 1, "and reports exactly the one unknown object" );
 	else
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
-	remove( "Data/Maps/Multiplayer/coldwinter-unknown-object.bzm" );
+	remove( szCopy.c_str() );
 }
 
 int main( int argc, char **argv )
@@ -131,6 +201,10 @@ int main( int argc, char **argv )
 	// executable's own directory unless a caller names another one.
 	const std::string szSelfDir = DirectoryOf( argv[0] != 0 ? argv[0] : "." );
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
+	// Everything this test writes goes here. Defaults beside the executable so
+	// a hand run needs no argument; the build passes zig-out/local-test.
+	const std::string szScratch = argc > 2 ? argv[2] : szSelfDir;
+	MakeDirectory( szScratch.c_str() );
 	FILE *pProbe = fopen( ( std::string( pszRoot ) + "/Data/consts.xml" ).c_str(), "rb" );
 	if ( pProbe == 0 )
 	{
@@ -182,7 +256,9 @@ int main( int argc, char **argv )
 	else
 	{
 		TestShippedMapOpens( pSession );
-		TestUnknownObjectDoesNotStopTheOpen( pSession );
+		TestBridgeSpansAreBuilt( pSession );
+		TestMissingStatsDoNotStopTheOpen( pSession );
+		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
 

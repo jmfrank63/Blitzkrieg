@@ -53,6 +53,9 @@ typedef struct
 	int player_count;
 	int object_count;          /* objects + scenarioObjects, as read */
 	int unknown_object_count;  /* in the map, not in the object database */
+	int placed_object_count;   /* objects the engine actually holds, spans included */
+	int bridge_span_count;     /* spans named by the map's bridges */
+	int bridge_span_placed;    /* and how many of those the engine holds */
 } BkEditorMapSummary;
 
 /* Opens a map and builds the engine state for it.

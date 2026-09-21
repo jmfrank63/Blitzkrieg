@@ -276,6 +276,13 @@ template<class T>
 bool CheckStaticObject( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, const T &checkFunc )
 {
 	CGDBPtr<SObjectBaseRPGStats> pStats = static_cast<const SObjectBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
+	// A described object whose stats file is missing has no footprint to test,
+	// so it is not inside the map and is not placed. GetRPGStats logs the miss
+	// and returns 0, and the dereference below used to take the caller down
+	// with it - shipped Data does this: dessau.bzm names "Logs08", whose stats
+	// at objects\simpleobjects\common\summer\logs\08 are not there.
+	if ( pStats == 0 )
+		return false;
 
 	const CVec2 vOrigin( pStats->GetOrigin( object.nFrameIndex ) );
 

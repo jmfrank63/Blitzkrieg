@@ -23,9 +23,20 @@ struct SEditorSession
 	// stays in the snapshot and is written back untouched.
 	std::unordered_map<int, CPtr<IRefCount> > byLinkID;
 	std::vector<int> unknownLinkIDs;
+	// The link IDs named by CMapInfo::bridges, and the ones of those that got an
+	// engine object. A span is built only through the bridge it belongs to, so
+	// the two differing means a bridge in the file has a span the engine has not
+	// got - which is worth reporting rather than silently drawing a gap.
+	int nBridgeSpansInMap;
+	int nBridgeSpansPlaced;
+	// Spans whose stored HP is negative: a bridge the mission builds later. The
+	// engine will not take an object with negative HP, so it is created whole
+	// and listed here for whatever draws it. The snapshot keeps the real HP, so
+	// a save is unaffected.
+	std::vector<int> futureBuildLinkIDs;
 	bool bEngineStarted;
 	bool bMapOpen;
-	SEditorSession() : bEngineStarted( false ), bMapOpen( false ) {  }
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws

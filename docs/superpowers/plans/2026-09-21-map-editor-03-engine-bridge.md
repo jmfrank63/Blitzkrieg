@@ -501,7 +501,47 @@ if ( pAIEditor->AddNewObject( *it, &pAIObject ) && pAIObject != 0 )
 Run: `zig build test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run`
 Expected: `editor-bridge: PASS`
 
-**Two things this turned up that the plan did not have:**
+**Five things this turned up that the plan did not have:**
+
+*`CAIEditor::AddNewObject` never reports success.* It ends in an unconditional
+`return false` (`AIEditorInternal.cpp:46`) and reports by writing the object out
+instead; the MFC editor tests the pointer and ignores the bool. Taking the bool
+at its word placed nothing at all, on every map, and said nothing about it - the
+summary still looked right because it counted what the file held. That is why
+the summary now also reports `placed_object_count` and `bridge_span_placed`:
+what the engine ended up holding is the only thing that can catch this.
+
+*Placing one object is more than `AddNewObject`.* The recipe is
+`CTemplateEditorFrame::AddObjectByAI` (`TemplateEditorFrame1.cpp:2778-2810`):
+clamp `fHP` to 1, zero `nFrameIndex` for a squad, and hand the engine a player
+only for a building - everything else goes in unowned and gets its player back
+from the editor above. The map keeps the real value throughout, so a save is
+unaffected.
+
+*Bridges are built afterwards, through `CMapInfo::bridges`.* A span found in
+`objects` or `scenarioObjects` is set aside, and the bridges are built from the
+link ID lists, so one bridge's spans keep the file's order
+(`TemplateEditorFrame1.cpp:1948-1979`). A span stored with negative HP is one
+the mission builds later: the engine will not take it that way, so it is created
+whole and its link ID listed. Measured: arnheim 11 spans, dessau 8, vitebsk 7,
+all placed.
+
+*A fourth unguarded null, and shipped Data trips it.* `CheckStaticObject`
+(`AIEditorInternal.cpp:278`) dereferences the RPG stats it asks for, and
+`GetRPGStats` returns 0 when the stats file is missing. `Data\Maps\dessau.bzm`
+names `Logs08`, whose stats at `objects\simpleobjects\common\summer\logs\08`
+are not in the installation. Such an object is now simply not inside the map and
+is not placed; dessau is in the test for it.
+
+*The tier writes only to a scratch directory.* Shipped `Data` is read-only for
+every tier, so the map the unknown-object case constructs goes in
+`zig-out/local-test`, passed to the executable as its second argument. Writing
+it into the installation and removing it afterwards would leave it behind on any
+run that is killed in between. Nothing else is needed beside a map:
+`CTerrain::LoadLocal` keeps the path only as a name and takes the tileset,
+crosset and roadset from storage (`TerrainInternal.cpp:88-110`).
+
+**Two more the plan did not have:**
 
 *`EnsureGlobalHooks` has to fill `g_pGlobalRandomGen` too.* It is the fourth of
 the globals every `GlobalsLoader.cpp` sets, it comes out of the singleton rather

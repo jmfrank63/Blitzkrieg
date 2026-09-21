@@ -177,6 +177,13 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 			pOut->player_count = int( rMap.diplomacies.size() );
 			pOut->object_count = int( rMap.objects.size() + rMap.scenarioObjects.size() );
 			pOut->unknown_object_count = int( pSession->unknownLinkIDs.size() );
+			// These three come from the session rather than the file: they say
+			// what the engine ended up holding, which is the only way a caller
+			// can tell a bridge that was built from one that was collected and
+			// forgotten.
+			pOut->placed_object_count = int( pSession->byLinkID.size() );
+			pOut->bridge_span_count = pSession->nBridgeSpansInMap;
+			pOut->bridge_span_placed = pSession->nBridgeSpansPlaced;
 		}
 		return BK_EDITOR_OK;
 	} );

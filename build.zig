@@ -5505,6 +5505,9 @@ fn addEditorBridgeTest(
     // relative data names resolve against.
     run.setCwd(b.path(stage_root));
     run.addArg(".");
+    // Where the test may write. Shipped Data is read-only for every tier: a run
+    // that is killed halfway must not leave a map behind in the installation.
+    run.addArg(b.pathFromRoot("zig-out/local-test"));
     run.step.dependOn(&install_exe.step);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
