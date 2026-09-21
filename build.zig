@@ -1816,6 +1816,8 @@ pub fn build(b: *std.Build) void {
     // API (which Zig's resinator does not produce correctly for runtime reads).
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
+    const editor_bridge = addEditorBridge(b, target, optimize, toolchain);
+    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, sdl_dynamic_dep.path("include"), test_mode);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const package_module = b.createModule(.{
@@ -3550,6 +3552,32 @@ fn addMapFile(
         .name = "MapFile",
         .linkage = .static,
         .root_module = map_file_module,
+    });
+}
+
+fn addEditorBridge(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    addMsvcIncludePaths(b, module, toolchain);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addCSourceFiles(.{
+        .files = &.{"Sources/src/EditorBridge/bridge.cpp"},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    return b.addLibrary(.{
+        .name = "EditorBridge",
+        .linkage = .static,
+        .root_module = module,
     });
 }
 
@@ -5388,6 +5416,76 @@ fn addMapFileTest(
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
+}
+
+fn addEditorBridgeTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    test_mode: build_support.TestMode,
+) void {
+    // The recipe of gfxgpu-factory-test, which is the C++ executable this
+    // repository already runs on Linux CI. See the note in addMapFileTest.
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{"tools/zig/editor_bridge_test.cpp"},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    // Main brings Lua (the Script class) and zlib with it, the way addGame does.
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = "editor-bridge-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    // Every shared library in the import chain, and the PATH for Windows,
+    // which has no rpath: StreamIO pulls StreamIOOptionsAbi and PlatformRuntime.
+    run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 fn addSdlEventTest(

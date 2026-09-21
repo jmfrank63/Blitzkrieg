@@ -72,12 +72,13 @@ bool Initialize() {
     if (gInitialized) createWritableRoots();
     return gInitialized;
 }
-void SetInjectedRootsForTest(const char *base, const char *preference) {
+void SetRoots(const char *base, const char *preference) {
     gBase = ensureSeparator(base ? base : "");
     gUser = ensureSeparator(preference ? preference : "");
     gInitialized = !gBase.empty() && !gUser.empty();
     if (gInitialized) createWritableRoots();
 }
+void SetInjectedRootsForTest(const char *base, const char *preference) { SetRoots(base, preference); }
 void ClearInjectedRootsForTest() { gBase.clear(); gUser.clear(); gInitialized = false; }
 const std::string &BaseRoot() { Initialize(); return gBase; }
 const std::string &UserRoot() { Initialize(); return gUser; }

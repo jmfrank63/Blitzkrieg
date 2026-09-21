@@ -344,7 +344,26 @@ machine and never be noticed.
 
 - [ ] **Step 5: Add the library and the step to build.zig**
 
-`addEditorBridge` mirrors `addMapFile`; `addEditorBridgeTest` copies `gfxgpu-factory-test`'s module configuration exactly (see Global Constraints) and links Scene, AILogic, GFXGPU and MapFile. The run step installs `streamio_zig`, `options_bridge`, `platform_runtime`, `sdl_dynamic` and `gfx_gpu`, and calls `addPathDir(zig-out/bin)`.
+`addEditorBridge` mirrors `addMapFile`; `addEditorBridgeTest` copies `gfxgpu-factory-test`'s module configuration exactly (see Global Constraints) and links `Main`, `MapFile`, `RandomMapGen`, `Formats`, `Misc`, and - because `Main` brings them - `lualib` and `zlib`. The run step installs `streamio_zig`, `options_bridge`, `platform_runtime` and `sdl_dynamic`, and calls `addPathDir(zig-out/bin)`.
+
+**The executable has to live inside the installation it starts.** Every engine
+module links its own copy of `NPlatform::Paths`, and `BaseRoot()` derives from
+`executableRoot()` - so telling the bridge which installation to use only moves
+the bridge's own copy. An executable run from the build cache makes every loaded
+dylib compute a base of `.zig-cache/...`, where there is no `libStreamIO`; their
+`GlobalsLoader` leaves `g_pGlobalSingleton` null and the first
+`GetSingleton<IGlobalVars>` dereferences it. Measured: `EXC_BAD_ACCESS` inside
+`libAILogic.dylib`, `Globals.h:19`, with no message.
+
+`NPlatform::Paths::SetRoots` (added in this task, with
+`SetInjectedRootsForTest` forwarding to it) is still needed - the editor is told
+which game directory to edit rather than inferring one - but it is not
+sufficient on its own.
+
+So this step also has to stage `editor-bridge-test` beside `Game` in the
+install layout and run it there, which means the tier depends on
+`install-game`. Until it does, the test detects the situation and skips with
+the reason; a crash with no explanation is the one outcome worse than a skip.
 
 - [ ] **Step 6: Run it**
 
