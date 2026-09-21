@@ -5257,10 +5257,15 @@ fn addMapFileTest(
     sdl_dynamic: *std.Build.Step.Compile,
     test_mode: build_support.TestMode,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+    // Shaped exactly like addInputModuleTest (build.zig:3449-3462), the
+    // established way to build a C++ test that links the engine statics: no
+    // link_libc, the engine's cppflags on Windows only, plain C++17 elsewhere.
+    // Asking Zig for libc here got a second CRT on Windows (duplicate _cexit,
+    // _invalid_parameter_noinfo, _wctype) and a second C++ standard library on
+    // Linux (ambiguous std::integral_constant) - the same trap plan 1 hit with
+    // the overlay spike.
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
     addProjectIncludePaths(b, module);
-    addMsvcIncludePaths(b, module, toolchain);
-    module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(b.path("Sources/src/Formats"));
     module.addIncludePath(b.path("Sources/src/RandomMapGen"));
     module.addIncludePath(b.path("Sources/src/Common"));
@@ -5268,8 +5273,24 @@ fn addMapFileTest(
     module.addIncludePath(b.path("Sources/src/Image"));
     module.addCSourceFiles(.{
         .files = &.{ "tools/zig/data_only_startup.cpp", "tools/zig/map_file_test.cpp" },
+        // The engine's own cppflags on every target, not just Windows: this
+        // test includes MapInfo_Types.h and the Common headers under it, which
+        // need the PortableCrt force-include for __forceinline and the warning
+        // suppressions the engine compiles itself with. A lighter test like
+        // input_module_test gets away with plain C++17 because it only touches
+        // the shallow headers.
         .flags = cppflagsForOptimize(optimize),
     });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, optimize);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
     module.linkLibrary(map_file);
     module.linkLibrary(randommapgen);
     module.linkLibrary(formats);
@@ -5278,15 +5299,6 @@ fn addMapFileTest(
     // Misc's System.cpp reaches SDL for the clipboard and the error box. The
     // tier never opens a window; this is a link dependency, not a device one.
     linkSdlImport(module, target, sdl_dynamic);
-    switch (target.result.os.tag) {
-        .windows => {
-            addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, optimize);
-        },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => module.linkSystemLibrary("c++", .{}),
-        else => {},
-    }
     const exe = b.addExecutable(.{ .name = "map-file-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
