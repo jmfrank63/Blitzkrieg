@@ -151,7 +151,11 @@ jobs:
 
   windows-platform:
     runs-on: windows-latest
-    timeout-minutes: 60
+    # Raised for the engine tier: it builds the whole game and the shadercross
+    # tool on top of everything else. Measured on run 35639094606 - the tier
+    # step alone took 38 minutes on macos-14 and the job finished in 43 of its
+    # 45; windows-latest was still building when it hit 60 and was cancelled.
+    timeout-minutes: 120
 
     steps:
       - name: Check out source
@@ -324,7 +328,11 @@ jobs:
     # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
     # native module tests cannot silently run on an Intel host.
     runs-on: macos-14
-    timeout-minutes: 45
+    # Raised for the engine tier: it builds the whole game and the shadercross
+    # tool on top of everything else. Measured on run 35639094606 - the tier
+    # step alone took 38 minutes on macos-14 and the job finished in 43 of its
+    # 45; windows-latest was still building when it hit 60 and was cancelled.
+    timeout-minutes: 90
 
     steps:
       - name: Check out source

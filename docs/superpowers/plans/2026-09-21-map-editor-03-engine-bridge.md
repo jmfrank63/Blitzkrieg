@@ -1137,7 +1137,26 @@ built the game and shadercross and then failed staging - `stage.zig` copies
 `GetFileVersionInfoSizeA`, `GetFileVersionInfoA` and `VerQueryValueA` -
 `version.lib`.
 
-Each of those costs a full CI round to discover, so the fix is the general one
+**Third run (35639094606): macOS ran the tier for real.** Not a skip - the
+whole suite, on a GitHub runner's Metal:
+
+```
+editor-bridge: Data\Maps\Multiplayer\coldwinter.bzm is 96x96 tiles, season 1, 5 players, 260 objects (243 placed, 0 unknown), 0 bridge spans (0 placed)
+editor-bridge: Data\Maps\Multiplayer\arnheim.bzm is ... 11 bridge spans (11 placed)
+editor-bridge: the catalogue has 5559 objects
+editor-bridge: the camera is on cell 83,36 and the middle of the screen is 83,36
+editor-bridge: PASS
+```
+
+Identical to a local run, including the cell the camera lands on.
+
+Windows was **cancelled, not failed**: `timeout-minutes: 60` and the job ran
+62. macOS finished in 43 of its 45, which is a coin flip rather than a pass.
+The tier step alone is 38 minutes on `macos-14` - it builds the whole game and
+the shadercross tool on top of everything else - so those two jobs go to 90 and
+120.
+
+Each missing symbol costs a full CI round to discover, so the fix is the general one
 rather than the next symbol: the test executable hosts the same engine the game
 does, so it links the same Windows imports `addGame` does, minus the
 splash-screen resources a test has no window to show. Likewise the sparse
