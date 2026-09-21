@@ -1129,6 +1129,21 @@ Note also that the workflow only triggers on `main` and on pull requests, so a
 branch push runs nothing: use `gh workflow run "Cross-platform validation"
 --ref <branch>`.
 
+**Second run (35634565482): both got further and both failed again.** macOS
+built the game and shadercross and then failed staging - `stage.zig` copies
+`Data/THIRD-PARTY-NOTICES.txt` to the install root
+(`tools/zig/verify_runtime.zig:40`) and the sparse patterns covered `.xml`,
+`.arr` and `.spp` but not `.txt`. Windows got past COM and stopped on
+`GetFileVersionInfoSizeA`, `GetFileVersionInfoA` and `VerQueryValueA` -
+`version.lib`.
+
+Each of those costs a full CI round to discover, so the fix is the general one
+rather than the next symbol: the test executable hosts the same engine the game
+does, so it links the same Windows imports `addGame` does, minus the
+splash-screen resources a test has no window to show. Likewise the sparse
+patterns now name every loose file at the top of `Data` - by name, because
+`/Data/*` would match the directories and pull the whole tree back.
+
 - [ ] **Step 5: Commit**
 
 ```bash

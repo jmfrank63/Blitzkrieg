@@ -185,6 +185,16 @@ jobs:
             /Data/*.xml
             /Data/*.arr
             /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
             /Data/AmericanELK/
             /Data/Bridges/
             /Data/Buildings/
@@ -348,6 +358,16 @@ jobs:
             /Data/*.xml
             /Data/*.arr
             /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
             /Data/AmericanELK/
             /Data/Bridges/
             /Data/Buildings/

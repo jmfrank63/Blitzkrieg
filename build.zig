@@ -5490,11 +5490,26 @@ fn addEditorBridgeTest(
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     linkMsvcRuntime(module, optimize);
-    // Main reaches COM through _com_util and _variant_t (Platform/LegacyVariant.h
-    // via Initialization.cpp), so the same libraries addAnim links are needed
-    // here: without them the link fails on VariantClear, _com_issue_error,
-    // CoCreateGuid and SysAllocString.
-    if (target.result.os.tag == .windows) linkComSupport(module, optimize);
+    // This executable hosts the same engine the game does, so on Windows it
+    // needs the same imports the game executable links. Discovering them one
+    // missing symbol at a time costs a CI round each: COM through _com_util and
+    // _variant_t (Platform/LegacyVariant.h via Initialization.cpp) brought
+    // VariantClear, _com_issue_error, CoCreateGuid and SysAllocString; the
+    // version information in Misc brought GetFileVersionInfoSizeA,
+    // GetFileVersionInfoA and VerQueryValueA. The list is addGame's, minus the
+    // splash-screen resources, which a test has no window to show.
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
     module.linkLibrary(editor_bridge);
     module.linkLibrary(map_file);
     module.linkLibrary(main_lib);
