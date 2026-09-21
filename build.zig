@@ -1314,10 +1314,10 @@ pub fn build(b: *std.Build) void {
     const platform_foundation = b.step("platform-foundation", "Build the supported portable foundation matrix");
     platform_foundation.dependOn(test_platform_foundation);
     addGameCommandLineTest(b, target, test_mode, toolchain);
-    addGameFrameTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addGameFrameTest(b, target, test_mode, toolchain, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addGameSystemKeysTest(b, target, test_mode, toolchain);
     addGameMouseCaptureTest(b, target, test_mode, toolchain);
-    addGameLoopTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addGameLoopTest(b, target, test_mode, toolchain, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addSdlApplicationTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"), platform_runtime);
     addSdlEventTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"), platform_runtime);
     addInputCodesTest(b, target, test_mode, toolchain);
@@ -4284,14 +4284,21 @@ fn addGameFrameTest(
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .Debug });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Game"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/Game/GameFrame.cpp", "Sources/src/Game/MouseCapture.cpp", "tools/zig/game_frame_test.cpp" }, .flags = &.{ "-std=c++17" } });
+    // Debug.cpp reaches PlatformABI/platform_c.h by its path from Sources/src,
+    // which nothing in this module put on the include path.
+    module.addIncludePath(b.path("Sources/src"));
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/Game/GameFrame.cpp", "Sources/src/Game/MouseCapture.cpp", "Sources/src/Game/SysKeys.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "Sources/src/Platform/System.cpp", "tools/zig/game_frame_test.cpp" }, .flags = &.{ "-std=c++17" } });
     linkSdlImport(module, target, sdl_dynamic);
+    // Debug.cpp speaks through the platform client, which lives in the
+    // shared runtime; without it the module never linked at all.
+    module.linkLibrary(platform_runtime);
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
@@ -4299,7 +4306,12 @@ fn addGameFrameTest(
             linkMsvcRuntime(module, .Debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => module.linkSystemLibrary("c++", .{}),
+        .macos => {
+            module.linkSystemLibrary("c++", .{});
+            // SDLApplication reaches AppKit through the Objective-C runtime
+            // (the Dock icon, the system pointer size), as the game does.
+            module.linkSystemLibrary("objc", .{});
+        },
         else => {},
     }
     const test_exe = b.addExecutable(.{ .name = "game-frame-test", .root_module = module });
@@ -4381,6 +4393,7 @@ fn addGameLoopTest(
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) void {
@@ -4389,8 +4402,14 @@ fn addGameLoopTest(
     module.addIncludePath(b.path("Sources/src/Game"));
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/Game/SysKeys.cpp", "Sources/src/Game/GameFrame.cpp", "Sources/src/Game/MouseCapture.cpp", "tools/zig/game_loop_test.cpp" }, .flags = &.{ "-std=c++17" } });
+    // Debug.cpp reaches PlatformABI/platform_c.h by its path from Sources/src,
+    // which nothing in this module put on the include path.
+    module.addIncludePath(b.path("Sources/src"));
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/Game/SysKeys.cpp", "Sources/src/Game/GameFrame.cpp", "Sources/src/Game/MouseCapture.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "Sources/src/Platform/System.cpp", "tools/zig/game_loop_test.cpp" }, .flags = &.{ "-std=c++17" } });
     linkSdlImport(module, target, sdl_dynamic);
+    // Debug.cpp speaks through the platform client, which lives in the
+    // shared runtime; without it the module never linked at all.
+    module.linkLibrary(platform_runtime);
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
@@ -4398,7 +4417,12 @@ fn addGameLoopTest(
             linkMsvcRuntime(module, .Debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => module.linkSystemLibrary("c++", .{}),
+        .macos => {
+            module.linkSystemLibrary("c++", .{});
+            // SDLApplication reaches AppKit through the Objective-C runtime
+            // (the Dock icon, the system pointer size), as the game does.
+            module.linkSystemLibrary("objc", .{});
+        },
         else => {},
     }
     const test_exe = b.addExecutable(.{ .name = "game-loop-test", .root_module = module });
@@ -4437,6 +4461,7 @@ fn addSdlApplicationTest(
             "Sources/src/Platform/SDLApplication.cpp",
             "Sources/src/Platform/Debug.cpp",
             "Sources/src/PlatformABI/PlatformClient.cpp",
+            "Sources/src/Platform/System.cpp",
             "tools/zig/platform_window_test.cpp",
         },
         .flags = &.{"-std=c++17"},
@@ -4451,6 +4476,9 @@ fn addSdlApplicationTest(
         module.linkSystemLibrary("stdc++", .{});
     } else if (target.result.os.tag == .macos) {
         module.linkSystemLibrary("c++", .{});
+        // SDLApplication reaches AppKit through the Objective-C runtime
+        // (the Dock icon, the system pointer size), as the game does.
+        module.linkSystemLibrary("objc", .{});
     }
     const test_exe = b.addExecutable(.{ .name = "platform-window-test", .root_module = module });
     test_exe.subsystem = .console;
