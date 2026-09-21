@@ -38,11 +38,35 @@ static bool TestReadsASmallMap()
 	return true;
 }
 
+static void TestReadsXmlAndPicksTheNewer()
+{
+	CMapInfo fromXml;
+	std::string szError;
+	// Data\Maps ships exactly two .xml maps: river3d and road3d.
+	Check( NMapFile::Read( "Data\\Maps\\river3d.xml", &fromXml, &szError ),
+	       szError.empty() ? "an .xml map reads" : szError.c_str() );
+
+	CMapInfo newest;
+	szError.clear();
+	// ReadNewest takes a storage-relative base name, not a path: it asks the
+	// storage for both files' stats, as the game does.
+	Check( NMapFile::ReadNewest( "maps\\Multiplayer\\coldwinter", &newest, &szError ),
+	       szError.empty() ? "a map name with no extension reads" : szError.c_str() );
+	Check( newest.terrain.tiles.GetSizeX() > 0, "the map picked by mtime has tiles" );
+
+	CMapInfo missing;
+	szError.clear();
+	Check( !NMapFile::ReadNewest( "maps\\Multiplayer\\no_such_map", &missing, &szError ),
+	       "a map that is not there fails" );
+	Check( !szError.empty(), "and says so" );
+}
+
 int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
 	TestReadsASmallMap();
+	TestReadsXmlAndPicksTheNewer();
 	if ( g_nFailures == 0 )
 		std::printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;

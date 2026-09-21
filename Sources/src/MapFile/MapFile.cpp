@@ -10,6 +10,23 @@
 
 namespace NMapFile
 {
+// The two formats, once. An .xml map is a data tree with the map as its typed
+// super; a .bzm is chunk 1 of a structure saver (iMissionInternal.cpp:1376-1388).
+static void ReadStream( IDataStream *pStream, bool bXml, CMapInfo *pMap )
+{
+	if ( bXml )
+	{
+		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+		saver.AddTypedSuper( pMap );
+	}
+	else
+	{
+		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::READ );
+		CSaverAccessor saver = pSaver;
+		saver.Add( 1, pMap );
+	}
+}
+
 static bool HasExtension( const char *pszPath, const char *pszExtension )
 {
 	const size_t nPath = strlen( pszPath ), nExt = strlen( pszExtension );
@@ -36,17 +53,7 @@ bool Read( const char *pszPath, CMapInfo *pMap, std::string *pError )
 			if ( pError ) *pError = std::string( pszPath ) + ": cannot open";
 			return false;
 		}
-		if ( bXml )
-		{
-			CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
-			saver.AddTypedSuper( pMap );
-		}
-		else
-		{
-			CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::READ );
-			CSaverAccessor saver = pSaver;
-			saver.Add( 1, pMap );
-		}
+		ReadStream( pStream, bXml, pMap );
 	}
 	catch ( ... )
 	{
@@ -56,6 +63,61 @@ bool Read( const char *pszPath, CMapInfo *pMap, std::string *pError )
 	if ( !pMap->IsValid() )
 	{
 		if ( pError ) *pError = std::string( pszPath ) + ": CMapInfo::IsValid() is false";
+		return false;
+	}
+	return true;
+}
+
+// The game's rule, through the game's mechanism: ask the registered storage
+// for both files' stats and take the newer (iMissionInternal.cpp:1370-1381).
+// .xml wins only when it is strictly newer, which is what lets a freshly
+// written .bzm take precedence over a stale .xml beside it. Zeroing the stats
+// first matters - GetStreamStats leaves them untouched for a file that is not
+// there, and an uninitialised mtime compares any way it likes.
+bool ReadNewest( const char *pszBase, CMapInfo *pMap, std::string *pError )
+{
+	if ( pszBase == 0 || pMap == 0 )
+		return false;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 )
+	{
+		if ( pError ) *pError = "no storage is registered; call NDataOnly::Start first";
+		return false;
+	}
+	const std::string szXml = std::string( pszBase ) + ".xml";
+	const std::string szBzm = std::string( pszBase ) + ".bzm";
+	SStorageElementStats statsXml, statsBzm;
+	Zero( statsXml );
+	Zero( statsBzm );
+	pStorage->GetStreamStats( szXml.c_str(), &statsXml );
+	pStorage->GetStreamStats( szBzm.c_str(), &statsBzm );
+	if ( statsXml.mtime == 0 && statsBzm.mtime == 0 )
+	{
+		if ( pError ) *pError = std::string( pszBase ) + ": neither .xml nor .bzm is there";
+		return false;
+	}
+	// The stream comes from the storage here, not from a path: a storage name
+	// is not a filesystem path once a .pak is mounted over it.
+	const std::string &szName = statsXml.mtime > statsBzm.mtime ? szXml : szBzm;
+	const bool bXml = statsXml.mtime > statsBzm.mtime;
+	try
+	{
+		CPtr<IDataStream> pStream = pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
+		if ( pStream == 0 )
+		{
+			if ( pError ) *pError = szName + ": the storage has stats for it but will not open it";
+			return false;
+		}
+		ReadStream( pStream, bXml, pMap );
+	}
+	catch ( ... )
+	{
+		if ( pError ) *pError = szName + ": the stream threw while reading";
+		return false;
+	}
+	if ( !pMap->IsValid() )
+	{
+		if ( pError ) *pError = szName + ": CMapInfo::IsValid() is false";
 		return false;
 	}
 	return true;
