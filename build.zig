@@ -1788,6 +1788,8 @@ pub fn build(b: *std.Build) void {
     if (!std.mem.eql(u8, renderer, "sdl_gpu") and platform != .windows_x64) @panic("legacy renderer is Windows-only; use -Drenderer=sdl_gpu");
     const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy.?;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
+    const map_file = addMapFile(b, target, optimize, toolchain);
+    addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, sdl_dynamic, test_mode);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
@@ -3504,6 +3506,34 @@ fn addFormats(
     });
 }
 
+fn addMapFile(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const map_file_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, map_file_module);
+    addMsvcIncludePaths(b, map_file_module, toolchain);
+    map_file_module.addIncludePath(b.path("Sources/src/Formats"));
+    map_file_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    map_file_module.addIncludePath(b.path("Sources/src/Common"));
+    map_file_module.addIncludePath(b.path("Sources/src/Main"));
+    map_file_module.addIncludePath(b.path("Sources/src/Image"));
+    map_file_module.addCSourceFiles(.{
+        .files = &.{"Sources/src/MapFile/MapFile.cpp"},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    return b.addLibrary(.{
+        .name = "MapFile",
+        .linkage = .static,
+        .root_module = map_file_module,
+    });
+}
+
 fn addAnim(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -5211,6 +5241,83 @@ fn addGameBootstrapSmoke(
     const step = b.step("test-game-bootstrap", "Run the SDL and GfxGpu game bootstrap smoke test");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addMapFileTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
+    addProjectIncludePaths(b, module);
+    addMsvcIncludePaths(b, module, toolchain);
+    module.addIncludePath(b.path("Sources/src"));
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/data_only_startup.cpp", "tools/zig/map_file_test.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    module.linkLibrary(map_file);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(platform_runtime);
+    // Misc's System.cpp reaches SDL for the clipboard and the error box. The
+    // tier never opens a window; this is a link dependency, not a device one.
+    linkSdlImport(module, target, sdl_dynamic);
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, optimize);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => module.linkSystemLibrary("c++", .{}),
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "map-file-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+
+    // The test loads StreamIO by path at run time, so it is told where the
+    // staged shared library is rather than relying on the loader's search path.
+    // Zig installs a .dll next to the executables and a .dylib/.so under lib.
+    const module_root = if (target.result.os.tag == .windows)
+        b.path("zig-out/bin").getPath(b)
+    else
+        b.path("zig-out/lib").getPath(b);
+    const streamio_install = b.addInstallArtifact(streamio_zig, .{});
+    const sdl_install = b.addInstallArtifact(sdl_dynamic, .{});
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    run.addArg(module_root);
+    run.step.dependOn(&streamio_install.step);
+    run.step.dependOn(&sdl_install.step);
+    const step = b.step("test-map-files", "Read and rewrite the shipped maps; check they are unchanged");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+
+    const run_all = b.addRunArtifact(exe);
+    run_all.setCwd(b.path("."));
+    run_all.addArg(module_root);
+    run_all.addArg("--all");
+    run_all.step.dependOn(&streamio_install.step);
+    run_all.step.dependOn(&sdl_install.step);
+    const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
+    step_all.dependOn(&exe.step);
+    if (test_mode == .run) step_all.dependOn(&run_all.step);
 }
 
 fn addSdlEventTest(
