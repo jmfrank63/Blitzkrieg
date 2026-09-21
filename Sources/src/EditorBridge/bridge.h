@@ -97,11 +97,32 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
    the bridge rounds once, on its way in. */
 BkEditorStatus BkEditorAddObject( BkEditorSession *session, const char *name,
                                   float x, float y, int dir, int player, int *out_link_id );
+/* All three at once. The single-field calls below are this one with the other
+   two read out of the map, and a caller dragging an object while turning it
+   wants the pair applied together rather than as two edits either of which can
+   be refused on its own. If any part is refused, none of it is kept: the map
+   and the engine both go back to what they were. */
+BkEditorStatus BkEditorPlaceObject( BkEditorSession *session, int link_id,
+                                    float x, float y, int dir, int player );
 BkEditorStatus BkEditorMoveObject( BkEditorSession *session, int link_id, float x, float y );
 BkEditorStatus BkEditorTurnObject( BkEditorSession *session, int link_id, int dir );
 BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, int player );
 BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
 BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *session, int player, int value );
+
+/* What the engine is holding for an object, which is deliberately not read out
+   of the map: it is how a caller - or a test - checks that the two agree.
+   player is -1 where the object's kind has no owner, which is not the same as
+   belonging to player -1. BK_EDITOR_REFUSED means the map may hold the object
+   but the engine does not. */
+typedef struct
+{
+	float x, y;
+	int dir;
+	int player;
+} BkEditorObjectState;
+
+BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id, BkEditorObjectState *out );
 
 /* The map's own two fields, not a player's: nType is the mission kind and
    nAttackingSide is which side attacks in it. The engine has no say in either,

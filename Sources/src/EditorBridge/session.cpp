@@ -274,6 +274,29 @@ bool EngineBelongsTo( IAIEditor *pAIEditor, IRefCount *pObject, int nPlayer )
 	const int nEnginePlayer = pAIEditor->GetPlayer( pObject );
 	return nEnginePlayer >= 0 && nEnginePlayer == nPlayer;
 }
+
+// What the engine is holding for an object, which is not always what the map
+// says: PlaceOneObject hands the engine player 0 for everything that is not a
+// building, and the map keeps the real owner. So a rollback has to put back
+// what was read here, never what the snapshot happened to say.
+SEngineObjectState ReadEngine( IAIEditor *pAIEditor, IRefCount *pObject )
+{
+	SEngineObjectState state;
+	state.vCenter = pAIEditor->GetCenter( pObject );
+	state.wDir = pAIEditor->GetDir( pObject );
+	state.nPlayer = pAIEditor->GetPlayer( pObject );
+	return state;
+}
+}
+
+bool ReadEngineObject( const SEditorSession &rSession, int nLinkID, SEngineObjectState *pOut )
+{
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = rSession.byLinkID.find( nLinkID );
+	if ( pAIEditor == 0 || it == rSession.byLinkID.end() || pOut == 0 )
+		return false;
+	*pOut = ReadEngine( pAIEditor, it->second );
+	return true;
 }
 
 const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nLinkID )
@@ -357,6 +380,9 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	}
 
 	const SMapObjectInfo before = *pObject;
+	IRefCount *pAIObject = itEngine->second;
+	const SEngineObjectState engineBefore = ReadEngine( pAIEditor, pAIObject );
+
 	NMapOverlay::SMoveObject move;
 	move.nLinkID = nLinkID;
 	move.vPos = vPos;
@@ -365,7 +391,6 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	NMapOverlay::MoveObject( &pSession->snapshot, move );
 	NMapOverlay::MoveObject( &pSession->working, move );
 
-	IRefCount *pAIObject = itEngine->second;
 	// Each field is asked for only when it is actually changing, and each is
 	// read back only when it was asked for: an object that was never turned must
 	// not be refused because its kind reports no direction.
@@ -387,6 +412,18 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	     ( bTurning && !EngineFacesDir( pAIEditor, pAIObject, nDir ) ) ||
 	     ( bReowning && !EngineBelongsTo( pAIEditor, pAIObject, nPlayer ) ) )
 	{
+		// The engine goes back as well as the map. The three changes are applied
+		// one after another, so a move that took followed by a turn that did not
+		// would otherwise leave the engine showing the object somewhere the file
+		// never records - which is the same disagreement this whole path exists
+		// to prevent, only the other way round.
+		if ( bMoving )
+			pAIEditor->MoveObject( pAIObject, ToEngineCoord( engineBefore.vCenter.x ), ToEngineCoord( engineBefore.vCenter.y ) );
+		if ( bTurning )
+			pAIEditor->TurnObject( pAIObject, engineBefore.wDir );
+		if ( bReowning && engineBefore.nPlayer >= 0 )
+			pAIEditor->SetPlayer( pAIObject, engineBefore.nPlayer );
+
 		NMapOverlay::SMoveObject back;
 		back.nLinkID = nLinkID;
 		back.vPos = before.vPos;
@@ -394,6 +431,18 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 		back.nPlayer = before.nPlayer;
 		NMapOverlay::MoveObject( &pSession->snapshot, back );
 		NMapOverlay::MoveObject( &pSession->working, back );
+
+		// A rollback that did not take is the one outcome worse than the refusal
+		// it was undoing: the map and the engine now disagree and nothing here
+		// can mend it, so it is reported as a failure rather than an ordinary no.
+		const SEngineObjectState engineNow = ReadEngine( pAIEditor, pAIObject );
+		if ( ToEngineCoord( engineNow.vCenter.x ) != ToEngineCoord( engineBefore.vCenter.x ) ||
+		     ToEngineCoord( engineNow.vCenter.y ) != ToEngineCoord( engineBefore.vCenter.y ) ||
+		     engineNow.wDir != engineBefore.wDir || engineNow.nPlayer != engineBefore.nPlayer )
+		{
+			pSession->szMessage = "the engine would not take that placement and could not be put back; reopen the map";
+			return false;
+		}
 		pSession->szMessage = "the engine would not take that placement for the object";
 		if ( pbRefused ) *pbRefused = true;
 		return false;

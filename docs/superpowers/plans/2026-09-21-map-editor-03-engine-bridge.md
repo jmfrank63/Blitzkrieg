@@ -753,7 +753,24 @@ three is now asked for only when it is changing and read back only when it was
 asked for, so an object that was never turned is not refused for having no
 direction.
 
-Two engine accessors were needed for that. `CAIEditor::GetDir` returns the
+*A refusal has to put the engine back as well as the map.* The three changes go
+to the engine one after another, so a move that takes followed by a turn that
+does not leaves the engine showing the object at a position the file never
+records - the same disagreement the refusal exists to prevent, the other way
+round. The rollback restores what the engine was *reading* beforehand, never
+what the snapshot says: `PlaceOneObject` hands the engine player 0 for
+everything that is not a building while the map keeps the real owner, so
+restoring the map's value would change the engine rather than put it back. A
+rollback that itself does not take is reported as a failure and not an ordinary
+refusal - the two now disagree and nothing in the bridge can mend it.
+
+`BkEditorPlaceObject` exists so that case is reachable at all: the single-field
+calls change one thing each, so the partial failure cannot happen through them.
+It is also what a caller dragging an object while turning it wants.
+`BkEditorEngineObjectState` reports what the engine holds rather than what the
+map says, which is how a caller - or a test - checks the two agree.
+
+Two engine accessors were needed for the read-back. `CAIEditor::GetDir` returns the
 static object's own direction rather than a flat 0, which distinguishes a
 `CTerraMeshStaticObject` that kept the turn from a `CGivenPassabilityStObject`
 that cannot - the flat 0 is also how the MFC editor writes every static object

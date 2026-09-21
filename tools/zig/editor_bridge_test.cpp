@@ -222,6 +222,64 @@ static void TestRefusedEditsReachNeither( BkEditorSession *pSession, const std::
 	remove( szSaved.c_str() );
 }
 
+// The case the single-field calls cannot reach: one call changing several
+// fields, where the first is accepted and the second is not. The engine applies
+// them one after another, so the move lands before the turn is refused, and
+// putting only the map back would leave the engine showing the object at a
+// position the file never records - the same disagreement the refusal exists to
+// prevent, the other way round.
+//
+// A tree again: its engine object takes a move and cannot take a turn, so the
+// two happen in one call by construction rather than by timing.
+static void TestPartlyRefusedEditRollsTheEngineBack( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szSaved = szScratch + "\\bridge-partial.bzm";
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map opens" ) )
+		return;
+	int nLinkID = -1;
+	if ( !Check( BkEditorAddObject( pSession, "W_BigPoplar", 100.0f, 100.0f, 0, 0, &nLinkID ) == BK_EDITOR_OK,
+	             "a tree is added" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	BkEditorObjectState engineBefore;
+	if ( !Check( BkEditorEngineObjectState( pSession, nLinkID, &engineBefore ) == BK_EDITOR_OK,
+	             "the engine holds it" ) )
+		return;
+
+	// Move and turn together. The move is fine, the turn is not.
+	Check( BkEditorPlaceObject( pSession, nLinkID, 132.0f, 100.0f, 1024, 0 ) == BK_EDITOR_REFUSED,
+	       "a move the engine takes with a turn it does not is refused whole" );
+
+	BkEditorObjectState engineAfter;
+	if ( !Check( BkEditorEngineObjectState( pSession, nLinkID, &engineAfter ) == BK_EDITOR_OK,
+	             "the engine still holds it" ) )
+		return;
+	Check( engineAfter.x == engineBefore.x && engineAfter.y == engineBefore.y,
+	       "and the engine did not keep the half of it that worked" );
+	Check( engineAfter.dir == engineBefore.dir && engineAfter.player == engineBefore.player,
+	       "nor anything else" );
+
+	// And the map agrees: the object is still where it was added.
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "it saves" ) )
+		return;
+	CMapInfo expected, saved;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	NMapOverlay::SAddObject add;
+	add.szName = "W_BigPoplar";
+	add.vPos = CVec3( 100.0f, 100.0f, 0.0f );
+	NMapOverlay::AddObject( &expected, add, 0 );
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+	       szWhere.empty() ? "with the object where it was before the refused edit"
+	                       : ( "a partly refused edit reached the file at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
 // nType and nAttackingSide are the map's own, so the only thing to prove is
 // that they reach the file and that nothing travels with them.
 static void TestMapsOwnFields( BkEditorSession *pSession, const std::string &szScratch )
@@ -438,6 +496,7 @@ int main( int argc, char **argv )
 		TestUneditedSaveIsEquivalent( pSession, szScratch );
 		TestObjectEdits( pSession, szScratch );
 		TestRefusedEditsReachNeither( pSession, szScratch );
+		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );

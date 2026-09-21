@@ -54,6 +54,21 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
 // szMessage.
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath );
 
+// What the engine holds for one object. Not the same as the map's record: a
+// non-building is handed to the engine with player 0 while the map keeps its
+// real owner, so these are the values a rollback has to restore.
+struct SEngineObjectState
+{
+	CVec2 vCenter;
+	WORD wDir;
+	int nPlayer;								// -1 when the object's kind has no owner
+	SEngineObjectState() : vCenter( VNULL2 ), wDir( 0 ), nPlayer( -1 ) {  }
+};
+
+// Reads an object's engine state. Returns false when the engine does not hold
+// the object at all.
+bool ReadEngineObject( const SEditorSession &rSession, int nLinkID, SEngineObjectState *pOut );
+
 // The edits, each applied to the snapshot and to the engine together. Every one
 // returns false with the reason in szMessage and leaves the session exactly as
 // it found it; pbRefused, where it is offered, tells a refusal - the map or the

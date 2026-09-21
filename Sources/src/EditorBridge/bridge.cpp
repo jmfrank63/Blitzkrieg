@@ -242,6 +242,44 @@ BkEditorStatus ChangeOneField( BkEditorSession *pSession, int nLinkID, int nWhic
 }
 }
 
+BkEditorStatus BkEditorPlaceObject( BkEditorSession *pSession, int nLinkID, float x, float y, int nDir, int nPlayer )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( PlaceObjectInSession( pSession, nLinkID, CVec3( x, y, 0.0f ), nDir, nPlayer, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorEngineObjectState( BkEditorSession *pSession, int nLinkID, BkEditorObjectState *pOut )
+{
+	if ( pOut != 0 )
+		memset( pOut, 0, sizeof *pOut );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		SEngineObjectState state;
+		if ( !ReadEngineObject( *pSession, nLinkID, &state ) )
+		{
+			pSession->szMessage = "the engine does not hold that object";
+			return BK_EDITOR_REFUSED;
+		}
+		pOut->x = state.vCenter.x;
+		pOut->y = state.vCenter.y;
+		pOut->dir = state.wDir;
+		pOut->player = state.nPlayer;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorMoveObject( BkEditorSession *pSession, int nLinkID, float x, float y )
 {
 	return Guarded( pSession, [=]() { return ChangeOneField( pSession, nLinkID, 0, x, y, 0 ); } );
