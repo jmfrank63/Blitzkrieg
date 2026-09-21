@@ -1438,6 +1438,8 @@ pub fn build(b: *std.Build) void {
         true,
         b.graph.host.result.os.tag != .windows,
     ) orelse return;
+    if (b.graph.host.result.os.tag == .macos)
+        addMacosSysrootPathsToModule(b, shadercross_cli.root_module);
     var dxc_runtime_path: ?[]const u8 = null;
     if (b.graph.host.result.os.tag == .windows) {
         const dxc_binary = b.lazyDependency("dxc_binary", .{}) orelse return;
@@ -3068,6 +3070,7 @@ fn addGame(
         // SDLApplication::SetAppIcon talks to AppKit through the Objective-C
         // runtime to give the bare executable a Dock icon.
         game_module.linkSystemLibrary("objc", .{});
+        addMacosSysrootPaths(b, game_module, target);
     }
     if (target.result.os.tag == .windows and std.mem.eql(u8, renderer, "legacy")) {
         game_module.linkSystemLibrary("d3d9", .{});
@@ -4179,8 +4182,26 @@ const ToolchainIncludes = struct {
 // framework and library directories.
 fn addMacosSysrootPaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
     if (target.result.os.tag != .macos) return;
+    addMacosSysrootPathsToModule(b, module);
+}
+
+/// The same for a module whose target is the host rather than a resolved one -
+/// the shadercross tool. Split out because --sysroot is global to the build, so
+/// a host tool needs the paths just as much as a cross-compiled one does.
+fn addMacosSysrootPathsToModule(b: *std.Build, module: *std.Build.Module) void {
     const sysroot = b.sysroot orelse return;
     module.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+    // libobjc and the rest of the system libraries live there as .tbd stubs.
+    // Without this, linkSystemLibrary("objc") under --sysroot fails with
+    // "unable to find dynamic system library 'objc' ... searched paths: none",
+    // which is what the engine tier hit the first time CI built the game on
+    // macOS - nothing else in CI had ever linked a system library there.
+    //
+    // Sysroot-relative, unlike the framework path above: zig prefixes --sysroot
+    // onto a library path and does not onto a framework path. Measured - an
+    // absolute one comes out as <sysroot>/<sysroot>/usr/lib and warns
+    // "unable to open library directory", then fails to find anything.
+    module.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
 }
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
@@ -5469,6 +5490,11 @@ fn addEditorBridgeTest(
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     linkMsvcRuntime(module, optimize);
+    // Main reaches COM through _com_util and _variant_t (Platform/LegacyVariant.h
+    // via Initialization.cpp), so the same libraries addAnim links are needed
+    // here: without them the link fails on VariantClear, _com_issue_error,
+    // CoCreateGuid and SysAllocString.
+    if (target.result.os.tag == .windows) linkComSupport(module, optimize);
     module.linkLibrary(editor_bridge);
     module.linkLibrary(map_file);
     module.linkLibrary(main_lib);

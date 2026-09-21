@@ -1103,6 +1103,32 @@ If a runner that should have run it skips instead, that is a regression in the
 skip logic and not a runner change: check it against the probe's output in the
 same run, which is why the probe stays in every job.
 
+**First run, 2026-09-21 (run 35628279394): both new jobs failed to build, and
+neither failure was in the bridge.** `install-game` is the first thing in this
+repository's CI that builds the game executable and the shadercross tool, so
+two gaps that had never been exercised came out at once.
+
+- macOS: `unable to find dynamic system library 'objc'` for the game, and every
+  framework missing for shadercross. `addMacosSysrootPaths` added the SDK's
+  framework directory but not its `usr/lib`, and shadercross - a host tool -
+  was never given either, because `--sysroot` is global to the build and
+  nothing had noticed. The library path has to be written *relative to the
+  sysroot* while the framework path is absolute: zig prefixes `--sysroot` onto
+  a library path and does not onto a framework path. Measured with a
+  two-line C file - an absolute one comes out as `<sysroot>/<sysroot>/usr/lib`,
+  warns `unable to open library directory`, and then finds nothing. Reproduce
+  the whole thing locally with
+  `zig build --sysroot "$(xcrun --show-sdk-path)" test-editor-bridge ...`,
+  which is the only way to see it without pushing.
+- Windows: the test executable would not link -  `VariantClear`,
+  `_com_issue_error`, `CoCreateGuid`, `SysAllocString`. `Main` reaches COM
+  through `Platform/LegacyVariant.h`, and every other module that links `Main`
+  calls `linkComSupport`; the bridge test did not.
+
+Note also that the workflow only triggers on `main` and on pull requests, so a
+branch push runs nothing: use `gh workflow run "Cross-platform validation"
+--ref <branch>`.
+
 - [ ] **Step 5: Commit**
 
 ```bash
