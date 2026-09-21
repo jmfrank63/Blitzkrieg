@@ -676,7 +676,7 @@ pub const Renderer = struct {
             sdl.releaseTexture(gpu_device, texture);
             self.capture_texture = null;
         }
-        const texture = sdl.createColorTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
+        const texture = sdl.createCaptureTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
         self.capture_texture = texture;
         self.capture_width = width;
         self.capture_height = height;

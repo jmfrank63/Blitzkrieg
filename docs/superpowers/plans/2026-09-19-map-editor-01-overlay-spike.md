@@ -8,6 +8,17 @@
 
 **Tech Stack:** Zig 0.16, SDL3 GPU (via `vendor/zig-sdl3` and the `sdl` package), Dear ImGui 1.92.9b docking (`floooh/dcimgui` v1.92.9b, backends from `ocornut/imgui` v1.92.9b-docking), C++17.
 
+> **Amended 2026-09-21 after review.** The capture texture is created by
+> `sdl.createCaptureTexture`, not `createColorTexture`: same two usages
+> (`COLOR_TARGET` for the render pass, `SAMPLER` for the blit to the swapchain)
+> but stated where the capture path can be read, so they cannot drift with
+> another caller's needs. A transfer-source usage was asked for and does not
+> exist: SDL 3.4.0 defines seven texture usages (`SDL_gpu.h:906-912`), none of
+> them transfer or copy-source, and `SDL_DownloadFromGPUTexture` documents no
+> usage requirement. The open item is not a flag but a run: the readback has
+> only ever executed on macOS/Metal, because CI runs
+> `editor-overlay-spike-build` and never the spike itself.
+
 **Spec:** `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` (section "Drawing ImGui on top of the engine", and "Testing → Overlay spike").
 
 ## The M1 plan series
@@ -235,7 +246,7 @@ Inside `Renderer`, after `setViewport`:
             sdl.releaseTexture(gpu_device, texture);
             self.capture_texture = null;
         }
-        const texture = sdl.createColorTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
+        const texture = sdl.createCaptureTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
         self.capture_texture = texture;
         self.capture_width = width;
         self.capture_height = height;

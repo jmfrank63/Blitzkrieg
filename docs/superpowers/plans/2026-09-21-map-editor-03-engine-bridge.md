@@ -161,8 +161,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   typedef struct BkEditorSession BkEditorSession;
 
   /* The last message, owned by the bridge, valid until the next call on the
-     same session. Never null: an empty string when there is nothing to say. */
+     same session. Never returns null: an empty string when there is nothing to
+     say, and a fixed string when session is null - a start that failed before
+     it had anywhere to put a message still has to be printable, and the
+     caller holds a null session exactly then. */
   const char *BkEditorLastMessage( BkEditorSession *session );
+
+  /* Why BkEditorStart takes **out: on failure it may or may not have got as far
+     as allocating a session. It sets *out to whatever it has - null if it
+     failed before allocating - so the caller can print
+     BkEditorLastMessage(*out) unconditionally. */
 
   BkEditorStatus BkEditorStart( void *window, const char *data_root, BkEditorSession **out );
   BkEditorStatus BkEditorStop( BkEditorSession *session );
@@ -197,17 +205,28 @@ int main( int argc, char **argv )
 	// BK_EDITOR_NO_DEVICE path on every machine and the tier would skip itself
 	// into always-green, which is the failure mode the map file tier already
 	// had once when it swept zero maps and passed.
+	// A headless runner has no video driver at all, and that is a legitimate
+	// skip. Anything else going wrong in SDL is a failure: calling it "no GPU
+	// device" would file a broken runner under the one outcome nobody looks at.
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
-		printf( "editor-bridge: skipped: no GPU device (SDL_Init: %s)\n", SDL_GetError() );
-		return 0;
+		const char *pszError = SDL_GetError();
+		if ( strstr( pszError, "video driver" ) != 0 || strstr( pszError, "No available" ) != 0 )
+		{
+			printf( "editor-bridge: skipped: no video driver (%s)\n", pszError );
+			return 0;
+		}
+		printf( "FAIL: SDL_Init: %s\n", pszError );
+		return 1;
 	}
 	SDL_Window *pWindow = SDL_CreateWindow( "editor-bridge-test", 640, 480, SDL_WINDOW_HIDDEN );
 	if ( pWindow == 0 )
 	{
-		printf( "editor-bridge: skipped: no GPU device (SDL_CreateWindow: %s)\n", SDL_GetError() );
+		// SDL started, so there is a video driver; failing to make a hidden
+		// window after that is a real problem and not a skip.
+		printf( "FAIL: SDL_CreateWindow: %s\n", SDL_GetError() );
 		SDL_Quit();
-		return 0;
+		return 1;
 	}
 
 	BkEditorSession *pSession = 0;
@@ -221,7 +240,11 @@ int main( int argc, char **argv )
 	}
 	if ( !Check( status == BK_EDITOR_OK, "the bridge starts" ) )
 	{
+		// pSession may be null here - the start can fail before it allocates
+		// one - which is why BkEditorLastMessage is defined for a null session.
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		SDL_DestroyWindow( pWindow );
+		SDL_Quit();
 		return 1;
 	}
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
@@ -281,6 +304,16 @@ struct SEditorSession
 ```cpp
 // Every entry point looks like this. The catch is not decoration: an engine
 // throw that escaped here would unwind through the C ABI into Zig.
+// Defined for a null session on purpose: a failed start hands the caller a null
+// session and a reason in the same breath, and the caller should not have to
+// branch to read it.
+const char *BkEditorLastMessage( BkEditorSession *pSession )
+{
+	if ( pSession == 0 )
+		return "the session could not be created";
+	return pSession->szMessage.c_str();
+}
+
 template<class F>
 static BkEditorStatus Guarded( SEditorSession *pSession, F body )
 {
