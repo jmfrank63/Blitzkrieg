@@ -31,8 +31,19 @@ namespace NDataOnly
 static std::string SharedLibraryName( const char *pszRoot )
 {
 	std::string szPath( pszRoot ? pszRoot : "." );
-	if ( !szPath.empty() && szPath[szPath.size() - 1] != '/' && szPath[szPath.size() - 1] != '\\' )
-		szPath += '/';
+#if defined(_WIN32) || defined(_WIN64)
+	const char cSeparator = '\\';
+#else
+	const char cSeparator = '/';
+#endif
+	// One separator, the platform's: the root arrives from the build with
+	// whichever the host uses, and a path that mixes them is a needless way to
+	// be wrong.
+	for ( size_t i = 0; i < szPath.size(); ++i )
+		if ( szPath[i] == '/' || szPath[i] == '\\' )
+			szPath[i] = cSeparator;
+	if ( !szPath.empty() && szPath[szPath.size() - 1] != cSeparator )
+		szPath += cSeparator;
 #if defined(_WIN32) || defined(_WIN64)
 	return szPath + "StreamIO.dll";
 #elif defined(__APPLE__)
@@ -48,7 +59,13 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 	const std::string szLibrary = SharedLibraryName( pszModuleRoot );
 	if ( !streamio.IsLoaded() && !streamio.Load( szLibrary.c_str() ) )
 	{
-		fprintf( stderr, "data-only startup: cannot load %s: %s\n", szLibrary.c_str(), streamio.GetError() );
+		// Say whether the file is even there: "load failed" alone cannot tell a
+		// missing library from one whose own imports did not resolve, and those
+		// want opposite fixes.
+		CPtr<IDataStream> pProbe = OpenFileStream( szLibrary.c_str(), STREAM_ACCESS_READ );
+		fprintf( stderr, "data-only startup: cannot load %s: %s (the file is %s)\n",
+		         szLibrary.c_str(), streamio.GetError(),
+		         pProbe != 0 ? "there, so its own imports did not resolve" : "not there" );
 		return false;
 	}
 	if ( GETSLS_HOOK hook = reinterpret_cast<GETSLS_HOOK>( streamio.GetFunction( "GetSLS_Hook" ) ) )
