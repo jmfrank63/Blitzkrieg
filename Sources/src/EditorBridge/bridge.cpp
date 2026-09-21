@@ -7,6 +7,7 @@
 #include "StdAfx.h"
 #include "bridge.h"
 #include "session.h"
+#include "../MapFile/MapOverlay.h"
 #include "../Main/iMain.h"
 #include "../GFX/GFX.H"
 #include "../Platform/Paths.h"
@@ -185,6 +186,135 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 			pOut->bridge_span_count = pSession->nBridgeSpansInMap;
 			pOut->bridge_span_placed = pSession->nBridgeSpansPlaced;
 		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorAddObject( BkEditorSession *pSession, const char *pszName,
+                                  float x, float y, int nDir, int nPlayer, int *pnLinkID )
+{
+	if ( pnLinkID != 0 )
+		*pnLinkID = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || *pszName == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		NMapOverlay::SAddObject add;
+		add.szName = pszName;
+		add.vPos = CVec3( x, y, 0.0f );
+		add.nDir = nDir;
+		add.nPlayer = nPlayer;
+		return AddObjectToSession( pSession, add, pnLinkID ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+// The three that change one field of a placed object each. They read the other
+// two back out of the snapshot rather than making the caller pass everything it
+// is not changing.
+namespace {
+BkEditorStatus ChangeOneField( BkEditorSession *pSession, int nLinkID, int nWhich, float x, float y, int nValue )
+{
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return BK_EDITOR_REFUSED;
+	}
+	const SMapObjectInfo *pObject = FindSnapshotObject( *pSession, nLinkID );
+	if ( pObject == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		return BK_EDITOR_REFUSED;
+	}
+	CVec3 vPos = pObject->vPos;
+	int nDir = pObject->nDir, nPlayer = pObject->nPlayer;
+	if ( nWhich == 0 ) { vPos.x = x; vPos.y = y; }
+	else if ( nWhich == 1 ) nDir = nValue;
+	else nPlayer = nValue;
+	bool bRefused = false;
+	if ( PlaceObjectInSession( pSession, nLinkID, vPos, nDir, nPlayer, &bRefused ) )
+		return BK_EDITOR_OK;
+	return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+}
+}
+
+BkEditorStatus BkEditorMoveObject( BkEditorSession *pSession, int nLinkID, float x, float y )
+{
+	return Guarded( pSession, [=]() { return ChangeOneField( pSession, nLinkID, 0, x, y, 0 ); } );
+}
+
+BkEditorStatus BkEditorTurnObject( BkEditorSession *pSession, int nLinkID, int nDir )
+{
+	return Guarded( pSession, [=]() { return ChangeOneField( pSession, nLinkID, 1, 0.0f, 0.0f, nDir ); } );
+}
+
+BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *pSession, int nLinkID, int nPlayer )
+{
+	return Guarded( pSession, [=]() { return ChangeOneField( pSession, nLinkID, 2, 0.0f, 0.0f, nPlayer ); } );
+}
+
+BkEditorStatus BkEditorDeleteObject( BkEditorSession *pSession, int nLinkID )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( DeleteObjectFromSession( pSession, nLinkID, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *pSession, int nPlayer, int nValue )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return SetSessionDiplomacy( pSession, nPlayer, nValue ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorSetMapType( BkEditorSession *pSession, int nType )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		// Snapshot only, and the working copy with it so the two never disagree.
+		// The engine is not told: it has no notion of what kind of mission this
+		// is, and the game reads it from the file.
+		pSession->snapshot.nType = nType;
+		pSession->working.nType = nType;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *pSession, int nSide )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		pSession->snapshot.nAttackingSide = nSide;
+		pSession->working.nAttackingSide = nSide;
 		return BK_EDITOR_OK;
 	} );
 }

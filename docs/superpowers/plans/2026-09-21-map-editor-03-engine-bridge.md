@@ -733,6 +733,32 @@ Expected: `editor-bridge: PASS`
 
 Find an object something refers to (the map-file tier's `TestObjectOverlay` shows how), delete it through the bridge, and assert `BK_EDITOR_REFUSED`, a non-empty message, and that a save afterwards is still equivalent to the unedited map.
 
+**What this turned up:**
+
+*"Refused" has to be read back from the engine.* `CAIEditor::MoveObject` and
+`TurnObject` end in the same unconditional `return false` as `AddNewObject`
+(`AIEditorInternal.cpp:126` and `161`), and they refuse silently -
+`CanSetNewCoord` and `IsRectInsideOfMap` simply leave the object where it was.
+So each edit applies the overlay, calls the engine, then asks the engine where
+the object actually is and rolls the snapshot back if the two disagree. Taking
+a return value at face value here would report every refusal as a success.
+
+*An object the map holds but the engine does not* - one outside the map, or one
+whose RPG stats are missing - is refused rather than moved in the file alone,
+which would leave the two out of step.
+
+*`CMapInfo::PackFrameIndex` was private.* The overlay deliberately leaves an
+added object's frame index at 0 because packing needs the object database, and
+the bridge has it. The plural `PackFrameIndices` is public but walks the whole
+map, rewriting every other object's index on the way, so the singular is now
+public beside it. The test adds a poplar on purpose: packing only does anything
+for a fence, an entrenchment or a span, so an ordinary object is the case where
+the extra step has to be invisible.
+
+*Diplomacy goes to the engine whole.* `IAIEditor::SetDiplomacies` takes the
+entire table, not one player, so the bridge changes the map's and hands that
+over.
+
 - [ ] **Step 7: Commit**
 
 ```bash

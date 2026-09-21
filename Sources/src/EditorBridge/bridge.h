@@ -84,6 +84,31 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEd
    exactly as it came in. */
 BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
 
+/* The edits. Each one changes the map and the engine together or neither: a
+   refusal leaves the session exactly as it was, so the editor never saves
+   something it did not show.
+
+   BK_EDITOR_REFUSED means the map or the engine said no and the reason is in
+   BkEditorLastMessage - an object still referred to by a bridge or a start
+   command, or a position the engine will not put the object at. It is an
+   ordinary answer, not a failure.
+
+   Positions are floats because a map's are; the engine takes whole units and
+   the bridge rounds once, on its way in. */
+BkEditorStatus BkEditorAddObject( BkEditorSession *session, const char *name,
+                                  float x, float y, int dir, int player, int *out_link_id );
+BkEditorStatus BkEditorMoveObject( BkEditorSession *session, int link_id, float x, float y );
+BkEditorStatus BkEditorTurnObject( BkEditorSession *session, int link_id, int dir );
+BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, int player );
+BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
+BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *session, int player, int value );
+
+/* The map's own two fields, not a player's: nType is the mission kind and
+   nAttackingSide is which side attacks in it. The engine has no say in either,
+   so they take no engine call and cannot be refused. */
+BkEditorStatus BkEditorSetMapType( BkEditorSession *session, int type );
+BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
+
 /* Safe on a null session, and safe to call twice. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
 

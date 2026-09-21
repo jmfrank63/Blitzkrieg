@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include "../RandomMapGen/MapInfo_Types.h"
+#include "../MapFile/MapOverlay.h"
 
 // One editing session.
 //
@@ -52,5 +53,24 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
 // Writes the session's map to pszPath. Returns false and leaves the reason in
 // szMessage.
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath );
+
+// The edits, each applied to the snapshot and to the engine together. Every one
+// returns false with the reason in szMessage and leaves the session exactly as
+// it found it; pbRefused, where it is offered, tells a refusal - the map or the
+// engine saying no - apart from something going wrong.
+//
+// The engine cannot be asked whether an edit took: CAIEditor::AddNewObject,
+// MoveObject and TurnObject all end in an unconditional `return false`
+// (AIEditorInternal.cpp:46, 126, 161) and report by what they leave behind. So
+// each of these reads the engine back afterwards and compares, which is the
+// only honest way to know.
+bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject &rAdd, int *pnLinkID );
+bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPos, int nDir, int nPlayer, bool *pbRefused );
+bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused );
+bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy );
+
+// Reads the object's current record out of the snapshot, so a caller changing
+// one of its three editable fields can leave the other two alone.
+const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nLinkID );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

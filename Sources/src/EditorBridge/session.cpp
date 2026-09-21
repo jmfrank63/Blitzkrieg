@@ -232,3 +232,194 @@ bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
 	// the map a fresh random frame index, in a file the editor never edited.
 	return NMapFile::Write( pszPath, pSession->snapshot, &pSession->szMessage );
 }
+
+namespace {
+
+// The object's record in whichever of the two lists holds it.
+SMapObjectInfo* FindIn( CMapInfo *pMap, int nLinkID )
+{
+	std::vector<SMapObjectInfo> *lists[2] = { &pMap->objects, &pMap->scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < (*lists[nList]).size(); ++i )
+			if ( (*lists[nList])[i].link.nLinkID == nLinkID )
+				return &(*lists[nList])[i];
+	return 0;
+}
+
+// The ABI is in floats because a map's positions are; IAIEditor::MoveObject is
+// in shorts. Rounding happens here and nowhere else, so the snapshot and the
+// engine can never end up one unit apart because two places rounded
+// differently.
+short ToEngineCoord( float f )
+{
+	return short( f < 0.0f ? f - 0.5f : f + 0.5f );
+}
+
+bool EngineIsAt( IAIEditor *pAIEditor, IRefCount *pObject, const CVec3 &vPos )
+{
+	const CVec2 vCenter = pAIEditor->GetCenter( pObject );
+	return ToEngineCoord( vCenter.x ) == ToEngineCoord( vPos.x ) &&
+	       ToEngineCoord( vCenter.y ) == ToEngineCoord( vPos.y );
+}
+}
+
+const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nLinkID )
+{
+	return FindIn( const_cast<CMapInfo*>( &rSession.snapshot ), nLinkID );
+}
+
+bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject &rAdd, int *pnLinkID )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pObjectsDB == 0 || pAIEditor == 0 )
+	{
+		pSession->szMessage = "the engine is not there";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rAdd.szName.c_str() );
+	if ( pDesc == 0 )
+	{
+		pSession->szMessage = "the object database does not know \"" + rAdd.szName + "\"";
+		return false;
+	}
+
+	int nLinkID = -1;
+	if ( !NMapOverlay::AddObject( &pSession->snapshot, rAdd, &nLinkID ) )
+	{
+		pSession->szMessage = "the map would not take the object";
+		return false;
+	}
+	// The overlay leaves the frame index at 0 because packing needs the object
+	// database. The bridge has it, so the one object it just added is packed
+	// here - a fence or a span otherwise goes out with an index that means
+	// something else.
+	if ( SMapObjectInfo *pAdded = FindIn( &pSession->snapshot, nLinkID ) )
+		CMapInfo::PackFrameIndex( pObjectsDB, pAdded );
+	NMapOverlay::AddObject( &pSession->working, rAdd, 0 );
+
+	const SMapObjectInfo *pSnapshotObject = FindIn( &pSession->snapshot, nLinkID );
+	IRefCount *pAIObject = pSnapshotObject != 0 ? PlaceOneObject( *pSnapshotObject, pDesc, pAIEditor ) : 0;
+	if ( pAIObject == 0 )
+	{
+		// The engine would not have it - outside the map, most often - so the
+		// snapshot must not keep it either, or the editor would save an object
+		// it never showed.
+		std::string szIgnored;
+		NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szIgnored );
+		NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
+		pSession->szMessage = "the engine would not place the object there";
+		return false;
+	}
+	pSession->byLinkID[nLinkID] = pAIObject;
+	if ( pnLinkID )
+		*pnLinkID = nLinkID;
+	return true;
+}
+
+bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPos, int nDir, int nPlayer, bool *pbRefused )
+{
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	SMapObjectInfo *pObject = FindIn( &pSession->snapshot, nLinkID );
+	if ( pAIEditor == 0 || pObject == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		return false;
+	}
+	std::unordered_map<int, CPtr<IRefCount> >::const_iterator itEngine = pSession->byLinkID.find( nLinkID );
+	if ( itEngine == pSession->byLinkID.end() )
+	{
+		// The map holds it but the engine never did - an object outside the map,
+		// or one whose stats are missing. Moving it in the file alone would put
+		// the two out of step, so it is refused rather than half-done.
+		pSession->szMessage = "the engine does not hold that object";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+
+	const SMapObjectInfo before = *pObject;
+	NMapOverlay::SMoveObject move;
+	move.nLinkID = nLinkID;
+	move.vPos = vPos;
+	move.nDir = nDir;
+	move.nPlayer = nPlayer;
+	NMapOverlay::MoveObject( &pSession->snapshot, move );
+	NMapOverlay::MoveObject( &pSession->working, move );
+
+	IRefCount *pAIObject = itEngine->second;
+	if ( before.vPos.x != vPos.x || before.vPos.y != vPos.y )
+		pAIEditor->MoveObject( pAIObject, ToEngineCoord( vPos.x ), ToEngineCoord( vPos.y ) );
+	if ( before.nDir != nDir )
+		pAIEditor->TurnObject( pAIObject, WORD( nDir ) );
+	if ( before.nPlayer != nPlayer )
+		pAIEditor->SetPlayer( pAIObject, nPlayer );
+
+	// The engine silently does nothing when it will not have the object where it
+	// was asked - CAIUnit::CanSetNewCoord, IsRectInsideOfMap - so the only way to
+	// know is to look.
+	if ( !EngineIsAt( pAIEditor, pAIObject, vPos ) )
+	{
+		NMapOverlay::SMoveObject back;
+		back.nLinkID = nLinkID;
+		back.vPos = before.vPos;
+		back.nDir = before.nDir;
+		back.nPlayer = before.nPlayer;
+		NMapOverlay::MoveObject( &pSession->snapshot, back );
+		NMapOverlay::MoveObject( &pSession->working, back );
+		pSession->szMessage = "the engine would not put the object there";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
+{
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	// The map decides first: something still referring to the object - a bridge,
+	// a start command, a reinforcement group, a passenger - means no, and the
+	// engine is never asked.
+	std::string szRefusal;
+	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal ) )
+	{
+		pSession->szMessage = szRefusal;
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	std::string szIgnored;
+	NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
+
+	std::unordered_map<int, CPtr<IRefCount> >::iterator itEngine = pSession->byLinkID.find( nLinkID );
+	if ( itEngine != pSession->byLinkID.end() )
+	{
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+			pAIEditor->DeleteObject( itEngine->second );
+		pSession->byLinkID.erase( itEngine );
+	}
+	return true;
+}
+
+bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	if ( !NMapOverlay::SetDiplomacy( &pSession->snapshot, nPlayer, BYTE( nDiplomacy ) ) )
+	{
+		pSession->szMessage = "no such player";
+		return false;
+	}
+	NMapOverlay::SetDiplomacy( &pSession->working, nPlayer, BYTE( nDiplomacy ) );
+	// The engine takes the whole table at once, so it is handed the map's.
+	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+		pAIEditor->SetDiplomacies( pSession->snapshot.diplomacies );
+	return true;
+}

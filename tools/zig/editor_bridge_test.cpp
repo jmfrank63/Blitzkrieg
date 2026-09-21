@@ -11,6 +11,7 @@
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
+#include "../../Sources/src/MapFile/MapOverlay.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static std::string DirectoryOf( const char *pszPath )
@@ -122,6 +123,108 @@ static void TestUneditedSaveIsEquivalent( BkEditorSession *pSession, const std::
 		return;
 	Check( NMapFile::AreEquivalent( original, saved, &szWhere ),
 	       szWhere.empty() ? "and an unedited save is equivalent" : ( "save differs at " + szWhere ).c_str() );
+}
+
+// Every edit has to change the engine and the map together, and the saved file
+// has to equal the map the overlay builds on its own with no engine in sight.
+// That equality is the point of the tier: it is what proves the two paths agree
+// rather than merely both running.
+//
+// A poplar, on purpose: PackFrameIndex only does anything for a fence, an
+// entrenchment or a bridge span, so an ordinary object is the case where the
+// bridge's extra packing step must be invisible.
+static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const char *const pszName = "W_BigPoplar";
+	const std::string szSaved = szScratch + "\\bridge-edited.bzm";
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to edit opens" ) )
+		return;
+
+	int nLinkID = -1;
+	if ( !Check( BkEditorAddObject( pSession, pszName, 100.0f, 100.0f, 0, 0, &nLinkID ) == BK_EDITOR_OK,
+	             "an object is added through the engine" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	Check( nLinkID > 0, "and comes back with a link ID" );
+	Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, 100.0f ) == BK_EDITOR_OK, "and moves" );
+	Check( BkEditorTurnObject( pSession, nLinkID, 1024 ) == BK_EDITOR_OK, "and turns" );
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and saves" ) )
+		return;
+
+	// The expected value, built by the overlay alone - no engine involved.
+	CMapInfo expected, saved;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	NMapOverlay::SAddObject add;
+	add.szName = pszName;
+	add.vPos = CVec3( 132.0f, 100.0f, 0.0f );
+	add.nDir = 1024;
+	add.nPlayer = 0;
+	int nExpectedLinkID = -1;
+	NMapOverlay::AddObject( &expected, add, &nExpectedLinkID );
+	Check( nExpectedLinkID == nLinkID, "the two paths agree on the link ID" );
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+	       szWhere.empty() ? "and the saved map is the expected one" : ( "edited save differs at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
+// nType and nAttackingSide are the map's own, so the only thing to prove is
+// that they reach the file and that nothing travels with them.
+static void TestMapsOwnFields( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szSaved = szScratch + "\\bridge-fields.bzm";
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map opens" ) )
+		return;
+	Check( BkEditorSetMapType( pSession, 1 ) == BK_EDITOR_OK, "the map type is set" );
+	Check( BkEditorSetAttackingSide( pSession, 1 ) == BK_EDITOR_OK, "and the attacking side" );
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and it saves" ) )
+		return;
+	CMapInfo fields, expected;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &fields, &szError ), szError.c_str() ) )
+		return;
+	Check( fields.nType == 1 && fields.nAttackingSide == 1, "both reached the file" );
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	expected.nType = 1;
+	expected.nAttackingSide = 1;
+	Check( NMapFile::AreEquivalent( expected, fields, &szWhere ),
+	       szWhere.empty() ? "and nothing else moved" : ( "fields save differs at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
+// A bridge names its spans by link ID, so deleting one has to be refused with
+// a reason, and the map has to be exactly as it was afterwards. A refusal that
+// left half an edit behind would save a map the editor never showed.
+static void TestDeleteIsRefusedWhileReferred( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szSaved = szScratch + "\\bridge-refused.bzm";
+	CMapInfo map;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( !map.bridges.empty() && !map.bridges[0].empty(), "the map has a bridge to refer to a span" ) )
+		return;
+	const int nSpanLinkID = map.bridges[0][0];
+
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, "the map with bridges opens" ) )
+		return;
+	Check( BkEditorDeleteObject( pSession, nSpanLinkID ) == BK_EDITOR_REFUSED, "deleting a bridge's span is refused" );
+	Check( *BkEditorLastMessage( pSession ) != 0, "and says why" );
+	printf( "editor-bridge: refused: %s\n", BkEditorLastMessage( pSession ) );
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and the map still saves" ) )
+		return;
+	CMapInfo saved;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( map, saved, &szWhere ),
+	       szWhere.empty() ? "unchanged by the refusal" : ( "refused delete left a change at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
 }
 
 // A bridge's spans are not placed where they are found: they are set aside and
@@ -284,6 +387,9 @@ int main( int argc, char **argv )
 		TestShippedMapOpens( pSession );
 		TestBridgeSpansAreBuilt( pSession );
 		TestUneditedSaveIsEquivalent( pSession, szScratch );
+		TestObjectEdits( pSession, szScratch );
+		TestMapsOwnFields( pSession, szScratch );
+		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
