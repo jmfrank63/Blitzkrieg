@@ -104,6 +104,13 @@ jobs:
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-linux-gnu
+
       - name: Run GFX GPU factory test
         id: gfxgpu-factory-test
         run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
@@ -250,6 +257,13 @@ jobs:
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Run GFX GPU factory test
         run: zig build gfxgpu-factory-test -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -365,6 +379,13 @@ jobs:
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
 
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=aarch64-macos
+
       - name: Run GFX GPU factory test
         run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=aarch64-macos -Dtest-mode=run
 
@@ -477,6 +498,13 @@ jobs:
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
 
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=aarch64-linux-gnu
+
       - name: Run GFX GPU factory test
         run: zig build gfxgpu-factory-test -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
@@ -564,6 +592,13 @@ jobs:
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-windows-gnu
 
       # No factory test on mingw: it links Formats, which cannot build with that
       # toolchain at all - Platform/LegacyVariant.h reaches for MSVC's
@@ -677,6 +712,13 @@ jobs:
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=x86_64-macos
 
       - name: Compile GFX GPU factory test
         run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=x86_64-macos -Dtest-mode=compile

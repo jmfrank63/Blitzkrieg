@@ -1644,6 +1644,25 @@ pub fn build(b: *std.Build) void {
     const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
 
+    // Does this machine have a GPU device SDL can use? Nothing in CI has ever
+    // created a real one - gfxgpu-factory-test fakes device creation and the
+    // overlay spike is only built - so the answer is unknown rather than
+    // known-bad. The probe prints it and always exits 0; it gates nothing.
+    const gpu_device_probe_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/gpu_device_probe.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{ .{ .name = "sdl3", .module = sdl3 }, .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module } },
+    });
+    const gpu_device_probe = b.addExecutable(.{ .name = "gpu-device-probe", .root_module = gpu_device_probe_module });
+    const gpu_device_probe_run = b.addRunArtifact(gpu_device_probe);
+    gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(gpu_device_probe, .{}).step);
+    gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
+    gpu_device_probe_run.setCwd(b.path("."));
+    if (target.result.os.tag == .linux) gpu_device_probe_run.setEnvironmentVariable("LD_LIBRARY_PATH", "zig-out/bin:zig-out/lib");
+    const gpu_device_probe_step = b.step("gpu-device-probe", "Report whether this machine has a GPU device SDL can use");
+    gpu_device_probe_step.dependOn(&gpu_device_probe_run.step);
+
     const editor_overlay_spike_run = b.addRunArtifact(editor_overlay_spike);
     editor_overlay_spike_run.step.dependOn(&editor_overlay_spike_install.step);
     editor_overlay_spike_run.step.dependOn(gfx_gpu_shaders_step);
