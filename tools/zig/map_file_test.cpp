@@ -296,6 +296,10 @@ int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
+	// Where every file this tier writes goes. CI starts from a bare checkout,
+	// so it is not there until someone makes it.
+	std::error_code ec;
+	std::filesystem::create_directories( "zig-out/local-test", ec );
 	std::printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();

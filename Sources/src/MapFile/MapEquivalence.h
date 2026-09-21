@@ -18,8 +18,9 @@ bool AreEquivalent( const SLoadMapInfo &rLeft, const SLoadMapInfo &rRight, std::
 // never touch them.
 bool CompareAltitudeArrays( const STerrainInfo &rLeft, const STerrainInfo &rRight );
 
-// The size the comparator was written against; the test prints it so the
-// static_assert in MapEquivalence.cpp can be updated when it fires.
+// sizeof(SLoadMapInfo), printed by the test. Informational only: it differs
+// between libstdc++ and libc++, which is why the completeness guard in
+// MapEquivalence.cpp counts members rather than bytes.
 unsigned long LoadMapInfoSize();
 }
 #endif // __MAP_EQUIVALENCE_H__

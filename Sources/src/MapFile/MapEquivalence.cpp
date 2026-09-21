@@ -3,10 +3,10 @@
 // field lists here are the ones the serialisers visit, so what is compared is
 // exactly what is written.
 //
-// The static_assert at the bottom is the point of the file. Add a field to
-// SLoadMapInfo and this stops compiling, which is the only way a new field
-// cannot slip silently past the preservation tests. When it fires: add the
-// field to CompareMap, then update the size from what the test prints.
+// AssertEveryFieldIsCompared at the bottom is the point of the file. Add a
+// field to SLoadMapInfo and it stops compiling, which is the only way a new
+// field cannot slip silently past the preservation tests. When it fires, add
+// the field to CompareMap and name it there too.
 #include "StdAfx.h"
 #include "MapEquivalence.h"
 #include "../Formats/fmtMap.h"
@@ -432,15 +432,29 @@ bool CompareAltitudeArrays( const STerrainInfo &rLeft, const STerrainInfo &rRigh
 unsigned long LoadMapInfoSize() { return (unsigned long)sizeof( SLoadMapInfo ); }
 
 // The guard. CompareMap above visits every member of SLoadMapInfo; this makes
-// that claim enforceable. Add a field and the struct grows, this stops
-// compiling, and whoever added it has to teach the comparator about it before
-// the preservation tests can pass again. Measured on a 64-bit build
-// (aarch64-macos, 2026-09-21); the test prints the live value as
-// "map-file: sizeof(SLoadMapInfo)=N" so a change is one build away from an
-// answer. 32-bit builds are not asserted: the tier's targets are all 64-bit,
-// and a second number would be a second thing to keep true.
-#if defined(__LP64__) || defined(_WIN64)
-static_assert( sizeof( SLoadMapInfo ) == 760,
-               "SLoadMapInfo changed: add the new field to CompareMap in this file, then update this size" );
-#endif
+// that claim enforceable. Binding every member by name fails to compile the
+// moment one is added or removed, so whoever changes the map struct has to
+// come here and teach the comparator about it.
+//
+// This was a static_assert on sizeof(SLoadMapInfo) first, which was wrong: the
+// struct is made of standard containers, and libstdc++ and libc++ do not lay
+// them out the same, so one number cannot be right on all six targets. A
+// structured binding counts members rather than bytes and does not care whose
+// standard library it is compiled against.
+void AssertEveryFieldIsCompared( const SLoadMapInfo &rMap )
+{
+	const auto &[ terrain, objects, scenarioObjects, entrenchments, bridges, reinforcements,
+	              szScriptFile, scriptAreas, vCameraAnchor, playersCameraAnchors, nSeason,
+	              szSeasonFolder, diplomacies, unitCreation, startCommandsList,
+	              reservePositionsList, soundsList, szForestCircleSounds, szForestAmbientSounds,
+	              szChapterName, nMissionIndex, nType, nAttackingSide, sounds, aiGeneralMapInfo,
+	              szMODName, szMODVersion ] = rMap;
+	(void)terrain; (void)objects; (void)scenarioObjects; (void)entrenchments; (void)bridges;
+	(void)reinforcements; (void)szScriptFile; (void)scriptAreas; (void)vCameraAnchor;
+	(void)playersCameraAnchors; (void)nSeason; (void)szSeasonFolder; (void)diplomacies;
+	(void)unitCreation; (void)startCommandsList; (void)reservePositionsList; (void)soundsList;
+	(void)szForestCircleSounds; (void)szForestAmbientSounds; (void)szChapterName;
+	(void)nMissionIndex; (void)nType; (void)nAttackingSide; (void)sounds; (void)aiGeneralMapInfo;
+	(void)szMODName; (void)szMODVersion;
+}
 }
