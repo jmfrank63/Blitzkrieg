@@ -20,6 +20,8 @@ namespace
 {
 NPlatform::UiHandler gErrorHandler = nullptr;
 NPlatform::UiHandler gOpenHandler = nullptr;
+// The cursor this module created, so it can be destroyed when replaced.
+SDL_Cursor *gOwnedCursor = nullptr;
 
 std::string ErrorText()
 {
@@ -191,6 +193,61 @@ std::string GetClipboardText()
 		return result;
 	}
 	return FallbackClipboard();
+}
+
+bool SetSystemCursorImage( const void *pixels, int width, int height, int pitch, int hotX, int hotY,
+	const void *detailPixels, int detailWidth, int detailHeight, int detailPitch )
+{
+	if ( SDL_WasInit( SDL_INIT_VIDEO ) == 0 || pixels == nullptr || width <= 0 || height <= 0 ) return false;
+	SDL_Surface *surface = SDL_CreateSurfaceFrom( width, height, SDL_PIXELFORMAT_ARGB8888, const_cast<void *>( pixels ), pitch );
+	if ( surface == nullptr ) return false;
+	// The high-DPI variant, if there is one: the surface keeps a reference of
+	// its own, so this one is handed back right away.
+	if ( detailPixels != nullptr && detailWidth > 0 && detailHeight > 0 )
+	{
+		if ( SDL_Surface *detail = SDL_CreateSurfaceFrom( detailWidth, detailHeight, SDL_PIXELFORMAT_ARGB8888,
+				const_cast<void *>( detailPixels ), detailPitch ) )
+		{
+			SDL_AddSurfaceAlternateImage( surface, detail );
+			SDL_DestroySurface( detail );
+		}
+	}
+	SDL_Cursor *cursor = SDL_CreateColorCursor( surface, hotX, hotY );
+	// The cursor keeps no reference to the surface or to the caller's pixels;
+	// SDL's own default-cursor path frees the surface on the next line too.
+	SDL_DestroySurface( surface );
+	if ( cursor == nullptr ) return false;
+	// Set first, destroy second: until SDL_SetCursor returns, the cursor being
+	// replaced is the one the window is still showing.
+	SDL_SetCursor( cursor );
+	if ( gOwnedCursor != nullptr ) SDL_DestroyCursor( gOwnedCursor );
+	gOwnedCursor = cursor;
+	return true;
+}
+
+void ClearSystemCursorImage()
+{
+	if ( gOwnedCursor == nullptr ) return;
+	if ( SDL_WasInit( SDL_INIT_VIDEO ) != 0 ) SDL_SetCursor( SDL_GetDefaultCursor() );
+	SDL_DestroyCursor( gOwnedCursor );
+	gOwnedCursor = nullptr;
+}
+
+bool HasSystemCursorImage()
+{
+	// Asked of SDL rather than of a flag of ours: this file is compiled into
+	// every module (Misc is a static library), so a flag would answer for the
+	// module doing the asking. The module that hands over the cursor art and the
+	// one that owns the window are not the same one.
+	if ( SDL_WasInit( SDL_INIT_VIDEO ) == 0 ) return false;
+	SDL_Cursor *current = SDL_GetCursor();
+	return current != nullptr && current != SDL_GetDefaultCursor();
+}
+
+bool ShowSystemCursor( bool show )
+{
+	if ( SDL_WasInit( SDL_INIT_VIDEO ) == 0 ) return false;
+	return show ? SDL_ShowCursor() : SDL_HideCursor();
 }
 
 }

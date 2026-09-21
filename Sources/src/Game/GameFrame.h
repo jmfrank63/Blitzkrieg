@@ -59,6 +59,7 @@ public:
 	void ReconcileMouseCapture();
 	void HoldPointerInsideWindow();
 	bool SetCursorVisible( bool visible );
+	float SystemCursorScale() const { return application_.SystemCursorScale(); }
 	void PumpMessages();
 	bool PollEvent( NPlatform::PlatformEvent &event );
 

@@ -10,6 +10,7 @@
 #include "StructureSaver.h"
 #include "DTHelper.h"
 #include "Input.h"
+#include "../Image/Image.h"
 struct SCursorMode
 {
 	CPtr<IGFXTexture> pTexture;
@@ -18,6 +19,9 @@ struct SCursorMode
 	CVec2 vHotSpot;
 	CPtr<ISpriteVisObj> pVisObj;
 	int wResourceID;
+	// The same art on the CPU, for the hardware cursor. Not serialized: it is
+	// decoded from the file the texture comes from, on first use.
+	CPtr<IImage> pCursorImage;
 	int operator&( IStructureSaver &ss );
 };
 class CCursor : public ICursor
@@ -41,8 +45,14 @@ class CCursor : public ICursor
 	CVec2 vLastPos;												// last position
 	NTimer::STime timeLast;								// last time of the posistion above
 	bool bAcquired;												// cursor area control acquired
+	// What the window system is showing, so the pointer is only rebuilt when
+	// the shape really changes - SetMode runs every frame a mission is up.
+	int nSystemMode, nSystemModifier, nSystemScale;
+	bool bSystemCursor;										// the window system draws the pointer
 	bool LoadCursor( int nMode );
 	SCursorMode* GetCursor( int nMode );
+	bool LoadCursorImage( SCursorMode *pCursorMode );
+	void ApplySystemCursor();
 	void Update();
 	void AcquireLocal();
 public:

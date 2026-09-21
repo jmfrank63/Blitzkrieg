@@ -69,6 +69,10 @@ public:
 	bool SetMouseGrab(bool enabled);
 	bool SetRelativeMouseMode(bool enabled);
 	bool SetCursorVisible(bool visible);
+	// How much the window system magnifies a cursor handed to it. 1.0 unless
+	// the OS says otherwise - on macOS, the accessibility pointer-size
+	// setting, which scales every cursor including an app's own.
+	float SystemCursorScale() const;
 	bool SetClipboardText(const char *text);
 	// Aligns SDL's tick epoch with NPlatform::MonotonicMilliseconds.
 	static std::uint64_t TimestampBase();

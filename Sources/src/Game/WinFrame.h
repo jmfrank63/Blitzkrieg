@@ -33,6 +33,7 @@ namespace NWinFrame
 	void ShowSplashScreen( HINSTANCE hInstance, bool bShow );
 	void PumpMessages();
 	void SetActive( bool bActive );
+	float SystemCursorScale();
 	void CaptureMouse();
 	void ReleaseMouse();
 	void Exit( int nExitCode );

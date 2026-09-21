@@ -190,6 +190,7 @@ class CInputAPI : public CTRefCount<IInput>
 	bool bInitialized;										// is input already initialized
 	bool bCoopLevelSet;										// is cooperative level already set ?
 	bool bFocusCaptured;									// is focus captured by this app ?
+	void (*pfnPlatformPump)();						// the window owner's event drain, or 0
 #if !defined(BK_INPUT_EVENT_ONLY)
 	void AddDevice( struct SDeviceEnumDesc *pDesc, const int nID );
 #endif
@@ -236,6 +237,8 @@ public:
 		                                 const int nValue, const DWORD time, const int nParam );
 	virtual void STDCALL ConsumePlatformEvent( const NPlatform::PlatformEvent &event );
 	virtual void STDCALL PumpMessages( const bool bFocus ) { PumpMessagesLocal( bFocus ); }
+	virtual void STDCALL SetPlatformPump( void (*_pfnPlatformPump)() ) { pfnPlatformPump = _pfnPlatformPump; }
+	virtual void STDCALL PumpPlatform() { if ( pfnPlatformPump != 0 ) pfnPlatformPump(); }
 	virtual void STDCALL AddMessage( const SGameMessage &msg ) { messages.push_back( msg ); }
 	virtual bool STDCALL GetMessage( SGameMessage *pMsg );
 	virtual bool STDCALL GetTextMessage( STextMessage *pMsg );

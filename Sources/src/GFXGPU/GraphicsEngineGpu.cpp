@@ -685,6 +685,13 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // taken its diff branch once for some OTHER reason, so an unset copy read
         // back as the freshly chosen value and a monitor-only change never fired.
         SetGlobalVar( "GFX.Monitor.Current.Index", Max( 0, GetGlobalVar( "GFX.Monitor.Index", 0 ) ) );
+        // The frame pacer needs the refresh rate of the display the window
+        // ended up on: a menu capped at a rate that does not divide it evenly
+        // presents frames one refresh apart and then two, forever, and anything
+        // drawn into those frames - the software cursor above all - moves in
+        // that same uneven rhythm.
+        if ( const SDL_DisplayMode *pCurrentMode = SDL_GetCurrentDisplayMode( SDL_GetDisplayForWindow( window ) ) )
+            SetGlobalVar( "GFX.Display.RefreshRate", pCurrentMode->refresh_rate );
     }
     width_ = nSizeX; height_ = nSizeY;
     UpdateViewportMatrix( 0, 0, nSizeX, nSizeY, 0.0f, 1.0f );

@@ -253,6 +253,35 @@ bool SDLApplication::SetCursorVisible(bool visible)
 	return visible ? SDL_ShowCursor() : SDL_HideCursor();
 }
 
+float SDLApplication::SystemCursorScale() const
+{
+#ifdef __APPLE__
+	// macOS draws every cursor - the system's and an application's own - at the
+	// accessibility pointer size, so art handed over at its own resolution
+	// comes back that many times larger. The setting lives in a preferences
+	// domain rather than behind an API; read through the Objective-C runtime
+	// because this file compiles as plain C++. Absent (the default size) the
+	// key is simply not there and the scale is 1.
+	typedef id (*IdSelChar)(id, SEL, const char *);
+	typedef id (*IdSel)(id, SEL);
+	typedef id (*IdSelId)(id, SEL, id);
+	typedef double (*DoubleSel)(id, SEL);
+	id defaults = ((IdSel)objc_msgSend)( (id)objc_getClass( "NSUserDefaults" ), sel_registerName( "standardUserDefaults" ) );
+	if ( !defaults ) return 1.0f;
+	id domainName = ((IdSelChar)objc_msgSend)( (id)objc_getClass( "NSString" ), sel_registerName( "stringWithUTF8String:" ), "com.apple.universalaccess" );
+	id domain = ((IdSelId)objc_msgSend)( defaults, sel_registerName( "persistentDomainForName:" ), domainName );
+	if ( !domain ) return 1.0f;
+	id key = ((IdSelChar)objc_msgSend)( (id)objc_getClass( "NSString" ), sel_registerName( "stringWithUTF8String:" ), "mouseDriverCursorSize" );
+	id value = ((IdSelId)objc_msgSend)( domain, sel_registerName( "objectForKey:" ), key );
+	if ( !value ) return 1.0f;
+	const double scale = ((DoubleSel)objc_msgSend)( value, sel_registerName( "doubleValue" ) );
+	return scale > 1.0 ? float( scale ) : 1.0f;
+#else
+	// Windows and Linux draw an application's cursor at the size it was given.
+	return 1.0f;
+#endif
+}
+
 bool SDLApplication::SetClipboardText(const char *text)
 {
 	if ( !OnMainThread() ) return false;
