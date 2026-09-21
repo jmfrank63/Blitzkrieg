@@ -62,7 +62,13 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 		// Say whether the file is even there: "load failed" alone cannot tell a
 		// missing library from one whose own imports did not resolve, and those
 		// want opposite fixes.
-		CPtr<IDataStream> pProbe = OpenFileStream( szLibrary.c_str(), STREAM_ACCESS_READ );
+		//
+		// fopen, not OpenFileStream: the stream helpers go through GetSLS(),
+		// and GetSLS() is null until the library that is failing to load has
+		// loaded. Reporting an error must not need the thing that broke.
+		FILE *pProbe = fopen( szLibrary.c_str(), "rb" );
+		if ( pProbe != 0 )
+			fclose( pProbe );
 		fprintf( stderr, "data-only startup: cannot load %s: %s (the file is %s)\n",
 		         szLibrary.c_str(), streamio.GetError(),
 		         pProbe != 0 ? "there, so its own imports did not resolve" : "not there" );
