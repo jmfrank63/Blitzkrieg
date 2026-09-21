@@ -85,6 +85,15 @@ namespace NMain
 	// mod shipped. Call it after SetupGlobalVarConsts; see the note there.
 	void SetupModStyleConsts();
 	const SModuleDescriptor* STDCALL GetModuleDesc( int nType );
+	// Fills this executable's g_pGlobalSingleton, g_pGlobalSaveLoadSystem and
+	// g_pfnGlobalGetTempRawBuffer from StreamIO. Every module dylib declares
+	// those as tentative definitions, so the dynamic loader coalesces them onto
+	// the host executable's copy: a module whose own static initializers read a
+	// global var - AILogic's SCheats does - crashes unless the host copy is
+	// already filled when the module is loaded. Game.exe gets this from
+	// Game/GlobalsLoader.cpp before main; a host that has no such translation
+	// unit must call this before LoadAllModules. Calling it twice is harmless.
+	void EnsureGlobalHooks();
 	int STDCALL LoadAllModules( const char *pszPath );
 	void STDCALL UnloadAllModules();
 	bool STDCALL SwitchGame( bool bOn );

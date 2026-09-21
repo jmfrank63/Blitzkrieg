@@ -10,6 +10,31 @@
 #include <SDL3/SDL.h>
 #include "../../Sources/src/EditorBridge/bridge.h"
 
+static std::string DirectoryOf( const char *pszPath )
+{
+	const std::string szPath( pszPath );
+	const std::string::size_type nCut = szPath.find_last_of( "/\\" );
+	return nCut == std::string::npos ? std::string( "." ) : szPath.substr( 0, nCut );
+}
+
+// Both sides go through the platform's canonical form first: argv[0] arrives
+// relative on one runner and absolute on the next, and a textual compare would
+// call those two different directories.
+static bool SamePath( const char *pszLeft, const char *pszRight )
+{
+#if defined(_WIN32) || defined(_WIN64)
+	char left[_MAX_PATH], right[_MAX_PATH];
+	if ( _fullpath( left, pszLeft, _MAX_PATH ) == 0 || _fullpath( right, pszRight, _MAX_PATH ) == 0 )
+		return false;
+	return _stricmp( left, right ) == 0;
+#else
+	char left[PATH_MAX], right[PATH_MAX];
+	if ( realpath( pszLeft, left ) == 0 || realpath( pszRight, right ) == 0 )
+		return false;
+	return strcmp( left, right ) == 0;
+#endif
+}
+
 static int g_nFailures = 0;
 
 static bool Check( bool bCondition, const char *pszWhat )
@@ -47,11 +72,11 @@ int main( int argc, char **argv )
 	}
 
 	// The engine tier needs an engine: an installation with the modules and
-	// Data beside each other, which is what install-game stages. The repository
-	// tree is not one - its dylibs are in zig-out/lib and its Data at ./Data -
-	// so point at the staged layout and say plainly when it is not there rather
-	// than failing in the middle of startup.
-	const char *pszRoot = argc > 1 ? argv[1] : "zig-out/game/macos/arm64/release";
+	// Data beside each other, which is what install-game stages, and this
+	// executable is staged into it. So the installation to edit is this
+	// executable's own directory unless a caller names another one.
+	const std::string szSelfDir = DirectoryOf( argv[0] != 0 ? argv[0] : "." );
+	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	FILE *pProbe = fopen( ( std::string( pszRoot ) + "/Data/consts.xml" ).c_str(), "rb" );
 	if ( pProbe == 0 )
 	{
@@ -62,31 +87,28 @@ int main( int argc, char **argv )
 	}
 	fclose( pProbe );
 
-	// And the executable has to live inside that installation.
+	// And the installation has to be the one this executable lives in.
 	//
 	// Every engine module derives its own roots from the running executable's
 	// location - each dylib links its own copy of NPlatform::Paths, and
 	// BaseRoot() comes from executableRoot() - so telling the bridge where the
 	// game is only moves the bridge's copy. Run this from the build cache and
-	// libAILogic computes a base of .zig-cache/..., fails to find StreamIO
-	// there, leaves its g_pGlobalSingleton null and dereferences it: an
+	// libAILogic computes a base of .zig-cache/..., finds no StreamIO there,
+	// and its static initializers dereference a null singleton: an
 	// EXC_BAD_ACCESS inside GetSingleton<IGlobalVars> with no message.
 	//
-	// Until the staging step installs this executable beside Game, say so and
-	// skip. A crash with no explanation is the one outcome worse than a skip.
+	// The build stages this executable beside Game, so a mismatch is a build
+	// or invocation mistake and fails loudly. Skipping here would be the
+	// always-green outcome this tier exists to avoid.
+	if ( !Check( SamePath( szSelfDir.c_str(), pszRoot ), "the executable lives in the installation it edits" ) )
 	{
-		const std::string szSelf = argv[0] != 0 ? argv[0] : "";
-		const std::string szRoot( pszRoot );
-		if ( szSelf.find( szRoot ) == std::string::npos )
-		{
-			printf( "editor-bridge: skipped: this executable is at %s, outside the installation at %s;\n"
-			        "               every engine module derives its roots from the executable's location,\n"
-			        "               so it has to be staged beside Game before it can start the engine\n",
-			        szSelf.c_str(), szRoot.c_str() );
-			SDL_DestroyWindow( pWindow );
-			SDL_Quit();
-			return 0;
-		}
+		printf( "editor-bridge: this executable is at %s but was told to edit %s;\n"
+		        "               every engine module derives its roots from the executable's\n"
+		        "               location, so it has to run from inside the installation\n",
+		        szSelfDir.c_str(), pszRoot );
+		SDL_DestroyWindow( pWindow );
+		SDL_Quit();
+		return 1;
 	}
 
 	BkEditorSession *pSession = 0;

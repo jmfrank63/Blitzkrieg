@@ -53,7 +53,7 @@ static std::string StreamIOPath()
 #endif
 }
 
-static void EnsureGlobalHooks()
+void EnsureGlobalHooks()
 {
     if ( GetSLS() != 0 && GetSingletonGlobal() != 0 && g_pfnGlobalGetTempRawBuffer != 0 ) return;
     static NPlatform::DynamicLibrary streamio;

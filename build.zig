@@ -1817,7 +1817,6 @@ pub fn build(b: *std.Build) void {
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     const editor_bridge = addEditorBridge(b, target, optimize, toolchain);
-    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, sdl_dynamic_dep.path("include"), test_mode);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const package_module = b.createModule(.{
@@ -2115,6 +2114,10 @@ pub fn build(b: *std.Build) void {
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
+
+    // After install-game, whose step it depends on: the tier's executable is
+    // staged into the layout that step creates.
+    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -5432,10 +5435,14 @@ fn addEditorBridgeTest(
     lualib: *std.Build.Step.Compile,
     zlib: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
-    streamio_zig: *std.Build.Step.Compile,
-    options_bridge: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
+    // install-game stages every shared library the engine needs - StreamIO,
+    // StreamIOOptionsAbi, PlatformRuntime, SDL3 and the rest - so the run step
+    // installs none of them itself. The map file tier has to; it runs from the
+    // build cache and there is nothing staged for it.
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
 ) void {
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
@@ -5473,16 +5480,29 @@ fn addEditorBridgeTest(
     const exe = b.addExecutable(.{ .name = "editor-bridge-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Loader-relative, because this binary runs from the installation and not
+    // from the build cache its link-time rpath points at.
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+
+    // Staged beside Game rather than added to the shipped file list: every
+    // engine module derives its roots from the running executable's location,
+    // so this has to live in the installation it starts - but a test binary has
+    // no business in a release layout or a package, so it is installed on its
+    // own and stage.zig never hears about it.
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
-    run.setCwd(b.path("."));
-    // Every shared library in the import chain, and the PATH for Windows,
-    // which has no rpath: StreamIO pulls StreamIOOptionsAbi and PlatformRuntime.
-    run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
-    run.step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
-    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
-    run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    // Run from the installation, and tell it so: cwd is what the engine's
+    // relative data names resolve against.
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    run.step.dependOn(&install_exe.step);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);

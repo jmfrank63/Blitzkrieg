@@ -14,9 +14,9 @@
 #include "../Main/GameDB.h"
 
 // Every module that links the engine statics defines these four and lets
-// something fill them; see any Sources/src/*/GlobalsLoader.cpp. Here the filling
-// is done by NMain::LoadAllModules, which calls EnsureGlobalHooks
-// (Main/LoadDLLs.cpp:56-67) once the modules are up. They live in the bridge
+// something fill them; see any Sources/src/*/GlobalsLoader.cpp. Here they are
+// filled by NMain::EnsureGlobalHooks (Main/LoadDLLs.cpp), called from
+// BkEditorStart before the first module is loaded. They live in the bridge
 // rather than in each caller so that an editor linking this library does not
 // have to know they exist.
 typedef void* (STDCALL *GETTEMPRAWBUFFER_HOOK)( int nAmount, int nBufferIndex );
@@ -113,6 +113,10 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 		// Game.exe does. Everything else - ModuleRoot, DataRoot, ShaderRoot -
 		// derives from this one root, exactly as it does for the game.
 		NPlatform::Paths::SetRoots( pSession->szDataRoot.c_str(), NPlatform::Paths::UserRoot().c_str() );
+		// Before any module is loaded, not after: a module's own static
+		// initializers run inside dlopen and read globals that coalesce onto this
+		// executable's copies. See the note on the declaration.
+		NMain::EnsureGlobalHooks();
 		if ( NMain::LoadAllModules( NPlatform::Paths::ModuleRoot().c_str() ) <= 0 )
 		{
 			pSession->szMessage = "no engine modules loaded from " + NPlatform::Paths::ModuleRoot();

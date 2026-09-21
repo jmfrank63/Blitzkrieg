@@ -346,24 +346,41 @@ machine and never be noticed.
 
 `addEditorBridge` mirrors `addMapFile`; `addEditorBridgeTest` copies `gfxgpu-factory-test`'s module configuration exactly (see Global Constraints) and links `Main`, `MapFile`, `RandomMapGen`, `Formats`, `Misc`, and - because `Main` brings them - `lualib` and `zlib`. The run step installs `streamio_zig`, `options_bridge`, `platform_runtime` and `sdl_dynamic`, and calls `addPathDir(zig-out/bin)`.
 
-**The executable has to live inside the installation it starts.** Every engine
-module links its own copy of `NPlatform::Paths`, and `BaseRoot()` derives from
-`executableRoot()` - so telling the bridge which installation to use only moves
-the bridge's own copy. An executable run from the build cache makes every loaded
-dylib compute a base of `.zig-cache/...`, where there is no `libStreamIO`; their
-`GlobalsLoader` leaves `g_pGlobalSingleton` null and the first
-`GetSingleton<IGlobalVars>` dereferences it. Measured: `EXC_BAD_ACCESS` inside
-`libAILogic.dylib`, `Globals.h:19`, with no message.
+**Two things beyond the library are needed before the bridge can start the
+engine, and the first one is not where it looks.**
 
-`NPlatform::Paths::SetRoots` (added in this task, with
-`SetInjectedRootsForTest` forwarding to it) is still needed - the editor is told
-which game directory to edit rather than inferring one - but it is not
-sufficient on its own.
+*The host executable's globals have to be filled before the first module
+loads.* Measured: `member call on null pointer of type 'ISingleton'` in
+`libAILogic.dylib`, `Cheats.cpp:22`, inside the `dlopen` that
+`LoadAllModules` does - `SCheats`'s static constructor reads a global var while
+the module is still being loaded. The obvious reading, that the module's own
+`GlobalsLoader` had not run, is wrong: `lldb` shows it runs first and its
+`dlopen` of `libStreamIO` succeeds. `g_pGlobalSingleton` is a tentative
+definition in every module *and* in the host, so the loader coalesces all of
+them onto the host executable's copy, and that copy is the one that was still
+null. `Game.exe` never sees this because `Sources/src/Game/GlobalsLoader.cpp`
+fills it in a static initializer before `main`; a host with no such translation
+unit has to do it itself. `NMain::EnsureGlobalHooks` is therefore made
+non-static and declared in `iMain.h`, and `BkEditorStart` calls it *before*
+`LoadAllModules` - `LoadAllModules` calls it only after its loading loop, which
+is too late.
 
-So this step also has to stage `editor-bridge-test` beside `Game` in the
-install layout and run it there, which means the tier depends on
-`install-game`. Until it does, the test detects the situation and skips with
-the reason; a crash with no explanation is the one outcome worse than a skip.
+*The executable has to live inside the installation it starts.* Every engine
+module links its own copy of `NPlatform::Paths` and `BaseRoot()` derives from
+`executableRoot()`, so telling the bridge which installation to use moves only
+the bridge's own copy; a binary run from the build cache leaves every module
+resolving data against `.zig-cache/...`. `NPlatform::Paths::SetRoots` (added in
+this task, with `SetInjectedRootsForTest` forwarding to it) is still needed -
+the editor is told which game directory to edit rather than inferring one - but
+it settles one copy out of a dozen.
+
+So this step also stages `editor-bridge-test` beside `Game` in the install
+layout and runs it there, which makes the tier depend on `install-game`.
+(`addRunArtifact` runs the installed copy once the artifact is installed, not
+the one in the cache - the cache copy cannot resolve `@rpath` from that cwd at
+all.) The test asserts the two agree rather than skipping: with the staging in
+place a mismatch is a build mistake, and skipping on it would be exactly the
+always-green outcome this tier exists to avoid.
 
 - [ ] **Step 6: Run it**
 
