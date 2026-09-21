@@ -807,13 +807,30 @@ Run the test with no display and no GPU device available and confirm it prints `
 
 Windows-MinGW cannot build the engine C++ at all (`Platform/LegacyVariant.h` needs MSVC's `comutil.h`), so it is excluded exactly as the map-file tier is. Add the step to the other five in each job's own style, with `-Dtest-mode=run`.
 
+Which of those five will actually exercise it is measured, not assumed
+(`zig build gpu-device-probe`, 2026-09-21):
+
+| Runner | What the probe said | This tier |
+|---|---|---|
+| `macos-14` | `driver=metal`, window claimed | **runs** |
+| `windows-latest` (MSVC) | `driver=direct3d12`, window claimed | **runs** |
+| `macos-15-intel` | no device: "does not meet the hardware requirements for SDL_GPU Metal" | skips |
+| `ubuntu-24.04`, `-arm` | no video device at all | skips |
+
+Two runners running it is the point: the Direct3D path gets exercised rather
+than only compiled, which no test in this repository has ever done.
+
 - [ ] **Step 3: Add the data the tier reads to the sparse checkout**
 
 It opens shipped maps and their tilesets, so `Data/Maps` and `Data/Terrain/sets/*/tileset.xml` and `crosset.xml` are already listed. If the engine turns out to need more — object models, textures — measure what and add exactly that, not all of `Data`.
 
 - [ ] **Step 4: Run the branch through CI and read every job**
 
-Expected: five jobs run the tier; those without a GPU device report the skip. Record in the commit which runners actually exercised it, because "green" and "ran" are different claims.
+Expected: five jobs build the tier, `macos-14` and `windows-latest` (MSVC) run it, and the other three print `skipped: no GPU device`. Record in the commit which runners actually exercised it, because "green" and "ran" are different claims - and here three of five green jobs will not have run a thing.
+
+If a runner that should have run it skips instead, that is a regression in the
+skip logic and not a runner change: check it against the probe's output in the
+same run, which is why the probe stays in every job.
 
 - [ ] **Step 5: Commit**
 

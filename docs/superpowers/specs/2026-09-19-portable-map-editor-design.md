@@ -311,8 +311,12 @@ Settled by the overlay spike (plan
   `(0,255,0)`.
 - Hidden window: `PASS`, with the same driver, format, size and pixels as
   the visible run. Re-measured 2026-09-21 after the capture texture moved to
-  `sdl.createCaptureTexture`. Direct3D and Vulkan are still unmeasured: CI
-  builds the spike on every platform and runs it on none.
+  `sdl.createCaptureTexture`.
+- Direct3D and Vulkan are still unmeasured, because CI builds the spike on
+  every platform and runs it on none. The device probe shows this is now
+  fixable for Direct3D: both Windows jobs get a `direct3d12` device and can
+  claim a window. Vulkan stays out of reach until the Linux jobs have a
+  video device.
 
 ### Build and packaging
 
@@ -418,9 +422,24 @@ Two further checks:
 |---|---|---|---|
 | **Core** (Zig) | nothing | all six CI targets | required |
 | **Map file** (C++) | data-only startup | the five CI targets that build the engine C++ | required |
-| **Engine** (C++) | hidden SDL window and a GPU device | macOS arm64 locally, CI where the runner has a GPU device | required locally on macOS arm64; in CI it reports "skipped: no GPU device", never a pass |
+| **Engine** (C++) | hidden SDL window and a GPU device | macOS arm64 and Windows-MSVC in CI, plus macOS arm64 locally | required on the runners that have a device; the rest report "skipped: no GPU device", never a pass |
 | **Game reads it** | the game and a window | macOS arm64 locally | required locally |
 | **Editor app** | the editor and a window | macOS arm64 locally | required locally |
+
+**Which runners have a GPU device.** Measured 2026-09-21 by
+`zig build gpu-device-probe`, a non-gating step in every job:
+
+| Runner | Result |
+|---|---|
+| `macos-14` (arm64) | `driver=metal`, window claimed, swapchain format 12 |
+| `windows-latest` (MSVC) | `driver=direct3d12`, window claimed, swapchain format 12 |
+| `windows-latest` (MinGW) | `driver=direct3d12`, window claimed - but MinGW cannot build the engine C++ |
+| `macos-15-intel` | video yes, **no device**: "does not meet the hardware requirements for SDL_GPU Metal" |
+| `ubuntu-24.04`, `ubuntu-24.04-arm` | **no video device at all** - Vulkan is never reached, so a Mesa package alone would not help; these would need a virtual display first |
+
+So the engine tier runs in CI on macOS arm64 and Windows-MSVC, which is
+more than "macOS arm64 locally" assumed, and the skip path is real rather
+than theoretical: three of the six take it.
 
 - **Core:**
   - Each command gets a do, undo, redo round trip.
