@@ -74,24 +74,26 @@
   }
   ```
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing change**
 
-Add to `tools/zig/map_file_test.cpp` — the data-only tier already runs on five targets and can prove the signature exists and links without a window:
+There is no unit test for this task and inventing one would be worse than
+saying so: the map file tier is deliberately renderer-free and does not link
+`Main`, so a symbol check there would either fail to link or quietly drag the
+renderer into a tier whose whole point is not having one. The bridge tier of
+Task 2 links `Main` and exercises the real call.
+
+The failing step is the game itself. Change `GameMain.cpp:625` first, before
+the function exists:
 
 ```cpp
-// Plan 3 Task 1: the portable entry point exists and is callable. It is not
-// called here - there is no window and no GPU device in this tier - but a
-// tier that links Main would catch its removal.
-static void TestPortableStartupIsDeclared()
-{
-	bool ( STDCALL *pfn )( GFXNativeWindow ) = &NMain::InitializeWithWindow;
-	Check( pfn != 0, "NMain::InitializeWithWindow is declared" );
-}
+	// Was: NMain::Initialize( (HWND)pWindow, 0, 0, true )
+	if ( !NMain::InitializeWithWindow( pWindow ) )
+		return 0xDEAD;
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `zig build test-map-files -Dtarget=aarch64-macos -Dtest-mode=run`
+Run: `zig build install-game -Dtarget=aarch64-macos --release=fast`
 Expected: `no member named 'InitializeWithWindow' in namespace 'NMain'`.
 
 - [ ] **Step 3: Split the body**
@@ -114,22 +116,18 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND hWndInput, HWND hWndSound, boo
 
 Declare both in `iMain.h` beside `SetupGlobalVarConsts`.
 
-- [ ] **Step 4: Switch the game and drop its cast**
+- [ ] **Step 4: Run the game smoke**
 
-`GameMain.cpp:625` currently casts its `SDL_Window*` to `HWND`. Replace that call with `NMain::InitializeWithWindow( pWindow )` and delete the cast.
-
-- [ ] **Step 5: Run the test and the game smoke**
+Run: `zig build install-game -Dtarget=aarch64-macos --release=fast`, then the staged game with `BK_AUTO_UI="900:shot,1000:exit"` and `-monitor=2`.
+Expected: exit 0 and a shot written, and the shot shows the menu rather than a black frame. The window path is the only thing that changed; a black or missing frame means the cast was load-bearing after all.
 
 Run: `zig build test-map-files -Dtarget=aarch64-macos -Dtest-mode=run`
-Expected: `map-file: PASS`
+Expected: `map-file: PASS` - unchanged, and it must stay that way. If this task made the map file tier need `Main`, the split went wrong.
 
-Run: `zig build install-game -Dtarget=aarch64-macos --release=fast`, then the staged game with `BK_AUTO_UI="900:shot,1000:exit"`.
-Expected: exit 0 and a shot written. The window path is what changed; a black or missing frame means the cast was load-bearing after all.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/src/Main/Initialization.cpp Sources/src/Main/iMain.h Sources/src/Game/GameMain.cpp tools/zig/map_file_test.cpp
+git add Sources/src/Main/Initialization.cpp Sources/src/Main/iMain.h Sources/src/Game/GameMain.cpp
 git commit -m "feat(main): a startup entry point that takes the window the renderer wants
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -195,11 +193,30 @@ static bool Check( bool bCondition, const char *pszWhat )
 
 int main( int argc, char **argv )
 {
+	// A real hidden window, not a null handle. Passing 0 here would take the
+	// BK_EDITOR_NO_DEVICE path on every machine and the tier would skip itself
+	// into always-green, which is the failure mode the map file tier already
+	// had once when it swept zero maps and passed.
+	if ( !SDL_Init( SDL_INIT_VIDEO ) )
+	{
+		printf( "editor-bridge: skipped: no GPU device (SDL_Init: %s)\n", SDL_GetError() );
+		return 0;
+	}
+	SDL_Window *pWindow = SDL_CreateWindow( "editor-bridge-test", 640, 480, SDL_WINDOW_HIDDEN );
+	if ( pWindow == 0 )
+	{
+		printf( "editor-bridge: skipped: no GPU device (SDL_CreateWindow: %s)\n", SDL_GetError() );
+		SDL_Quit();
+		return 0;
+	}
+
 	BkEditorSession *pSession = 0;
-	const BkEditorStatus status = BkEditorStart( 0, "Data", &pSession );
+	const BkEditorStatus status = BkEditorStart( pWindow, "Data", &pSession );
 	if ( status == BK_EDITOR_NO_DEVICE )
 	{
 		printf( "editor-bridge: skipped: no GPU device\n" );
+		SDL_DestroyWindow( pWindow );
+		SDL_Quit();
 		return 0;
 	}
 	if ( !Check( status == BK_EDITOR_OK, "the bridge starts" ) )
@@ -208,11 +225,15 @@ int main( int argc, char **argv )
 		return 1;
 	}
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	SDL_DestroyWindow( pWindow );
+	SDL_Quit();
 	if ( g_nFailures == 0 )
 		printf( "editor-bridge: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
 }
 ```
+
+The test includes `<SDL3/SDL.h>`; `addEditorBridgeTest` already links SDL because the bridge does. `BK_EDITOR_NO_DEVICE` must therefore mean "the renderer would not start on a real window", not "no window was passed" - a null window is a caller bug and returns `BK_EDITOR_BAD_ARGUMENT`.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -278,7 +299,15 @@ static BkEditorStatus Guarded( SEditorSession *pSession, F body )
 }
 ```
 
-`BkEditorStart` does the game's startup without `CMainLoop`: `NMain::LoadAllModules`, storage, `consts.xml` + `SetupGlobalVarConsts`, `CreateObjectsDB` + `LoadDB`, then `NMain::InitializeWithWindow( window )` and `IGFX::SetMode`. A null window, or a renderer that will not start, returns `BK_EDITOR_NO_DEVICE` — not a failure, because CI runners without a GPU must skip rather than fail.
+`BkEditorStart` does the game's startup without `CMainLoop`: `NMain::LoadAllModules`, storage, `consts.xml` + `SetupGlobalVarConsts`, `CreateObjectsDB` + `LoadDB`, then `NMain::InitializeWithWindow( window )` and `IGFX::SetMode`.
+
+The two failure modes are kept apart on purpose:
+- `window == 0` is a caller bug and returns `BK_EDITOR_BAD_ARGUMENT`.
+- A real window on which the renderer will not start - no GPU device on the
+  runner - returns `BK_EDITOR_NO_DEVICE`, which the tier reports as a skip.
+
+Collapsing the two would let a test that forgot its window skip on every
+machine and never be noticed.
 
 - [ ] **Step 5: Add the library and the step to build.zig**
 
@@ -316,8 +345,18 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
       int unknown_object_count;  /* in the snapshot, not in the engine */
   } BkEditorMapSummary;
 
+  /* An OS filesystem path ending in .bzm or .xml - what a file dialog hands
+     back - not a storage-relative name. The bridge opens it with
+     NMapFile::Read, which takes a path; NMapFile::ReadNewest is the
+     storage-relative one and is deliberately not used here, because the editor
+     opens the file the user picked rather than the newer of a pair it inferred.
+     The path is still written with the engine's separator: OpenFileStream
+     splits on backslash only. */
   BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEditorMapSummary *out );
   ```
+
+  `ITerrain::Load` takes the same path as its name argument, as the MFC editor
+  passes `szSelectedFileMapFullName` (research note, step 3).
 
 - [ ] **Step 1: Write the failing test**
 
