@@ -1789,7 +1789,7 @@ pub fn build(b: *std.Build) void {
     const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy.?;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const map_file = addMapFile(b, target, optimize, toolchain);
-    addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, sdl_dynamic, test_mode);
+    addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
@@ -5254,6 +5254,7 @@ fn addMapFileTest(
     misc: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
     streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
     test_mode: build_support.TestMode,
 ) void {
@@ -5329,6 +5330,11 @@ fn addMapFileTest(
     const scratch_keep = scratch.add(".keep", "scratch for the map file tier\n");
     const scratch_install = b.addInstallFileWithDir(scratch_keep, .{ .custom = "local-test" }, ".keep");
     const streamio_install = b.addInstallArtifact(streamio_zig, .{});
+    // StreamIO imports StreamIOOptionsAbi and PlatformRuntime. ELF and Mach-O
+    // find them by the rpath they carry; Windows has no rpath, so every one of
+    // them has to be installed and on the PATH or the load fails with nothing
+    // but "the file is there".
+    const options_install = b.addInstallArtifact(options_bridge, .{});
     const sdl_install = b.addInstallArtifact(sdl_dynamic, .{});
     const platform_install = b.addInstallArtifact(platform_runtime, .{});
     const run = b.addRunArtifact(exe);
@@ -5338,6 +5344,7 @@ fn addMapFileTest(
     run.step.dependOn(&sdl_install.step);
     run.step.dependOn(&scratch_install.step);
     run.step.dependOn(&platform_install.step);
+    run.step.dependOn(&options_install.step);
     // On Windows a DLL's imports resolve from the executable's directory and
     // PATH, and this executable runs out of the build cache - so the installed
     // runtime DLLs have to be findable. Without this the process died before
@@ -5357,6 +5364,7 @@ fn addMapFileTest(
     run_all.step.dependOn(&sdl_install.step);
     run_all.step.dependOn(&scratch_install.step);
     run_all.step.dependOn(&platform_install.step);
+    run_all.step.dependOn(&options_install.step);
     run_all.addPathDir(b.path("zig-out/bin").getPath(b));
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
