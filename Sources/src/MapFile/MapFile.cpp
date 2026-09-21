@@ -122,4 +122,53 @@ bool ReadNewest( const char *pszBase, CMapInfo *pMap, std::string *pError )
 	}
 	return true;
 }
+
+// The MFC editor's writer (TemplateEditorFrame1.cpp:3238-3258) without the
+// PackFrameIndices call in front of it: what is in rMap is what goes to disk.
+// SQuickLoadMapInfo::FillFromMapInfo (MapInfo_Methods.cpp:15-29) reads only
+// fields of the map, so the quick chunk needs no object database either.
+bool Write( const char *pszPath, const CMapInfo &rMap, std::string *pError )
+{
+	if ( pszPath == 0 )
+		return false;
+	const bool bXml = HasExtension( pszPath, ".xml" );
+	if ( !bXml && !HasExtension( pszPath, ".bzm" ) )
+	{
+		if ( pError ) *pError = std::string( pszPath ) + ": not a .bzm or .xml map";
+		return false;
+	}
+	try
+	{
+		SQuickLoadMapInfo quickLoadMapInfo;
+		quickLoadMapInfo.FillFromMapInfo( rMap );
+		CPtr<IDataStream> pStream = CreateFileStream( pszPath, STREAM_ACCESS_WRITE );
+		if ( pStream == 0 )
+		{
+			if ( pError ) *pError = std::string( pszPath ) + ": cannot create";
+			return false;
+		}
+		// The savers take a non-const reference; neither writes to the map.
+		CMapInfo &rWritable = const_cast<CMapInfo&>( rMap );
+		if ( bXml )
+		{
+			CPtr<IDataTree> pSaver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
+			CTreeAccessor saver = pSaver;
+			saver.AddTypedSuper( &rWritable );
+			saver.Add( RMGC_QUICK_LOAD_MAP_INFO_NAME, &quickLoadMapInfo );
+		}
+		else
+		{
+			CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::WRITE );
+			CSaverAccessor saver = pSaver;
+			saver.Add( 1, &rWritable );
+			saver.Add( RMGC_QUICK_LOAD_MAP_INFO_CHUNK_NUMBER, &quickLoadMapInfo );
+		}
+	}
+	catch ( ... )
+	{
+		if ( pError ) *pError = std::string( pszPath ) + ": the stream threw while writing";
+		return false;
+	}
+	return true;
+}
 }

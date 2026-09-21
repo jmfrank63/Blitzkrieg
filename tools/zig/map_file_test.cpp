@@ -61,12 +61,28 @@ static void TestReadsXmlAndPicksTheNewer()
 	Check( !szError.empty(), "and says so" );
 }
 
+static void TestWritesWhatItRead()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), "read for write test" ) )
+		return;
+	const char *pszOut = "zig-out\\local-test\\coldwinter-roundtrip.bzm";
+	Check( NMapFile::Write( pszOut, map, &szError ), szError.empty() ? "the map writes" : szError.c_str() );
+	CMapInfo reread;
+	szError.clear();
+	Check( NMapFile::Read( pszOut, &reread, &szError ), szError.empty() ? "what was written reads" : szError.c_str() );
+	Check( reread.objects.size() == map.objects.size(), "the same number of objects came back" );
+	Check( reread.terrain.tiles.GetSizeX() == map.terrain.tiles.GetSizeX(), "the terrain is the same size" );
+}
+
 int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();
+	TestWritesWhatItRead();
 	if ( g_nFailures == 0 )
 		std::printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
