@@ -5281,16 +5281,20 @@ fn addMapFileTest(
         // the shallow headers.
         .flags = cppflagsForOptimize(optimize),
     });
-    switch (target.result.os.tag) {
-        .windows => {
-            addMsvcIncludePaths(b, module, toolchain);
-            addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, optimize);
-        },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => module.linkSystemLibrary("c++", .{}),
-        else => {},
-    }
+    // The include and runtime recipe of gfxgpu-factory-test (build.zig:1940-1947),
+    // which is the C++ executable this repository already runs on Linux CI.
+    // linkSystemLibrary("stdc++") is what must not happen: Zig's Linux C++
+    // driver then injects its own libc++ headers ahead of the native ones, and
+    // two standard libraries in one translation unit is the
+    // "std_abs.h: declaration conflicts with target of using declaration"
+    // failure. addLinuxCxxIncludePaths exists to put the native libstdc++
+    // headers in as ordinary include paths instead, keeping one ABI across the
+    // engine modules.
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
     module.linkLibrary(map_file);
     module.linkLibrary(randommapgen);
     module.linkLibrary(formats);
