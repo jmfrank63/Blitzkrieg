@@ -5311,9 +5311,16 @@ fn addMapFileTest(
     else
         b.path("zig-out/lib").getPath(b);
     // Everything this tier writes goes under zig-out/local-test, which a bare
-    // checkout does not have. There is no portable mkdir in the engine and the
-    // Zig StreamIO's CreateStorage does not make one, so the build puts a file
-    // there and the directory comes with it.
+    // checkout does not have. The engine has no portable mkdir, and the Zig
+    // StreamIO's CreateStorage does not create the path the way the legacy
+    // Win32 CFileSystem did, so the build installs a file there and the
+    // directory arrives with it.
+    //
+    // Mind the prose here: tools/zig/build_hermeticity_test.zig token-matches
+    // this whole file against a list of shell and build-tool names, several of
+    // which are also ordinary English verbs. A comment that happens to use one
+    // fails the audit on every target, which is how this note came to be
+    // written twice.
     const scratch = b.addWriteFiles();
     const scratch_keep = scratch.add(".keep", "scratch for the map file tier\n");
     const scratch_install = b.addInstallFileWithDir(scratch_keep, .{ .custom = "local-test" }, ".keep");
