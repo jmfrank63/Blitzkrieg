@@ -6,8 +6,6 @@
 // storage-relative name. No window, no GFX, no object database: the object
 // database is only needed to pack frame indices, which this tier never does.
 #include "StdAfx.h"
-#include <cstdio>
-#include <string>
 #include "data_only_startup.h"
 #include "../../Sources/src/StreamIO/RandomGen.h"
 #include "../../Sources/src/Platform/DynamicLibrary.h"
@@ -50,7 +48,7 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 	const std::string szLibrary = SharedLibraryName( pszModuleRoot );
 	if ( !streamio.IsLoaded() && !streamio.Load( szLibrary.c_str() ) )
 	{
-		std::fprintf( stderr, "data-only startup: cannot load %s: %s\n", szLibrary.c_str(), streamio.GetError() );
+		fprintf( stderr, "data-only startup: cannot load %s: %s\n", szLibrary.c_str(), streamio.GetError() );
 		return false;
 	}
 	if ( GETSLS_HOOK hook = reinterpret_cast<GETSLS_HOOK>( streamio.GetFunction( "GetSLS_Hook" ) ) )
@@ -61,7 +59,7 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 		g_pfnGlobalGetTempRawBuffer = reinterpret_cast<GETTEMPRAWBUFFER_HOOK>( streamio.GetFunction( "GetTempRawBuffer_Hook" ) );
 	if ( GetSLS() == 0 || GetSingletonGlobal() == 0 || g_pfnGlobalGetTempRawBuffer == 0 )
 	{
-		std::fprintf( stderr, "data-only startup: %s loaded but a hook is missing\n", szLibrary.c_str() );
+		fprintf( stderr, "data-only startup: %s loaded but a hook is missing\n", szLibrary.c_str() );
 		return false;
 	}
 	// The same pattern the game opens (GameMain.cpp:551): the loose Data
@@ -71,7 +69,7 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 	CPtr<IDataStorage> pStorage = OpenStorage( szPattern.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 	if ( pStorage == 0 )
 	{
-		std::fprintf( stderr, "data-only startup: cannot open storage at %s\n", szPattern.c_str() );
+		fprintf( stderr, "data-only startup: cannot open storage at %s\n", szPattern.c_str() );
 		return false;
 	}
 	RegisterSingleton( IDataStorage::tidTypeID, pStorage );

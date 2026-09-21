@@ -1,10 +1,6 @@
 // The map file tier. Runs with no window and no GPU device: see
 // tools/zig/data_only_startup.cpp for what "no window" costs.
 #include "StdAfx.h"
-#include <cstdio>
-#include <cstring>
-#include <string>
-#include <vector>
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -16,7 +12,7 @@ static bool Check( bool bCondition, const char *pszWhat )
 {
 	if ( !bCondition )
 	{
-		std::printf( "FAIL: %s\n", pszWhat );
+		printf( "FAIL: %s\n", pszWhat );
 		++g_nFailures;
 	}
 	return bCondition;
@@ -165,7 +161,7 @@ static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
 	}
 	if ( nReadLeft != nSize || nReadRight != nSize )
 	{
-		std::printf( "  (identical? sizes L=%d R=%d, read L=%d R=%d)\n", nSize, pR->GetSize(), nReadLeft, nReadRight );
+		printf( "  (identical? sizes L=%d R=%d, read L=%d R=%d)\n", nSize, pR->GetSize(), nReadLeft, nReadRight );
 		return false;
 	}
 	if ( nSize == 0 || memcmp( &(left[0]), &(right[0]), nSize ) == 0 )
@@ -173,7 +169,7 @@ static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
 	for ( int i = 0; i < nSize; ++i )
 		if ( left[i] != right[i] )
 		{
-			std::printf( "  (identical? size %d, first difference at %d: %02x vs %02x)\n",
+			printf( "  (identical? size %d, first difference at %d: %02x vs %02x)\n",
 			             nSize, i, (unsigned char)left[i], (unsigned char)right[i] );
 			break;
 		}
@@ -304,7 +300,7 @@ static void SweepMaps( bool bAll )
 	else
 		for ( size_t i = 0; i < sizeof( g_pszScenarioSample ) / sizeof( g_pszScenarioSample[0] ); ++i )
 			paths.push_back( g_pszScenarioSample[i] );
-	std::printf( "map-file: sweeping %d maps\n", int( paths.size() ) );
+	printf( "map-file: sweeping %d maps\n", int( paths.size() ) );
 	// A tier that silently swept nothing would be worse than no tier: CI checks
 	// out sparsely, and Data is exactly the kind of thing that gets left out.
 	if ( !Check( paths.size() >= 50, "the sweep found the shipped maps (is Data checked out?)" ) )
@@ -312,7 +308,7 @@ static void SweepMaps( bool bAll )
 	const int nFailuresBefore = g_nFailures;
 	for ( size_t i = 0; i < paths.size(); ++i )
 		TestRoundTrip( paths[i] );
-	std::printf( "map-file: %d of %d maps round-tripped\n",
+	printf( "map-file: %d of %d maps round-tripped\n",
 	             int( paths.size() ) - ( g_nFailures - nFailuresBefore ), int( paths.size() ) );
 }
 
@@ -320,13 +316,7 @@ int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
-	// Where every file this tier writes goes. CI starts from a bare checkout,
-	// so it is not there until someone makes it; CreateStorage on a path makes
-	// the directories under it.
-	CPtr<IDataStorage> pOut = CreateStorage( "zig-out\\local-test\\", STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
-	if ( !Check( pOut != 0, "zig-out\\local-test is writable" ) )
-		return 1;
-	std::printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
+	printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();
 	TestWritesWhatItRead();
@@ -334,9 +324,9 @@ int main( int argc, char **argv )
 	TestRoundTripIsEquivalent();
 	bool bAll = false;
 	for ( int i = 1; i < argc; ++i )
-		bAll = bAll || std::strcmp( argv[i], "--all" ) == 0;
+		bAll = bAll || strcmp( argv[i], "--all" ) == 0;
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
-		std::printf( "map-file: PASS\n" );
+		printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
 }

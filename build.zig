@@ -5310,6 +5310,13 @@ fn addMapFileTest(
         b.path("zig-out/bin").getPath(b)
     else
         b.path("zig-out/lib").getPath(b);
+    // Everything this tier writes goes under zig-out/local-test, which a bare
+    // checkout does not have. There is no portable mkdir in the engine and the
+    // Zig StreamIO's CreateStorage does not make one, so the build puts a file
+    // there and the directory comes with it.
+    const scratch = b.addWriteFiles();
+    const scratch_keep = scratch.add(".keep", "scratch for the map file tier\n");
+    const scratch_install = b.addInstallFileWithDir(scratch_keep, .{ .custom = "local-test" }, ".keep");
     const streamio_install = b.addInstallArtifact(streamio_zig, .{});
     const sdl_install = b.addInstallArtifact(sdl_dynamic, .{});
     const run = b.addRunArtifact(exe);
@@ -5317,6 +5324,7 @@ fn addMapFileTest(
     run.addArg(module_root);
     run.step.dependOn(&streamio_install.step);
     run.step.dependOn(&sdl_install.step);
+    run.step.dependOn(&scratch_install.step);
     const step = b.step("test-map-files", "Read and rewrite the shipped maps; check they are unchanged");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -5327,6 +5335,7 @@ fn addMapFileTest(
     run_all.addArg("--all");
     run_all.step.dependOn(&streamio_install.step);
     run_all.step.dependOn(&sdl_install.step);
+    run_all.step.dependOn(&scratch_install.step);
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
