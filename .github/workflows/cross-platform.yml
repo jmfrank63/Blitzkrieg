@@ -500,14 +500,6 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
-            /Data/Maps/
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.16.0
@@ -561,9 +553,6 @@ jobs:
 
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Map file tier
-        run: zig build test-map-files -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu

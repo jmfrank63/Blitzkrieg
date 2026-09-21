@@ -5,8 +5,6 @@
 #include <cstring>
 #include <string>
 #include <vector>
-#include <filesystem>
-#include <system_error>
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -182,39 +180,65 @@ static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
 	return false;
 }
 
-// The shipped maps are loose files under Data, so walk the filesystem rather
-// than the storage: a storage rooted at Data mounts the .pak archives as
-// pseudo-directories, and enumerating "Maps\\*.*" descends into the whole
-// object database through them - 21,978 entries, none of them maps.
-// std::filesystem rather than <dirent.h>, because this compiles for MSVC too.
-static void CollectMaps( const char *pszFolder, std::vector<std::string> *pPaths )
+// Walks a directory through a storage of its own, opened on the folder and
+// nothing else. The registered data storage will not do: it mounts the .pak
+// archives as pseudo-directories, so enumerating "Maps\\*.*" through it
+// descends into the whole object database - 21,978 entries, none of them maps.
+// A plain file storage mounts nothing, so what it lists is what is on disk.
+//
+// std::filesystem would be the obvious tool and is not usable here: including
+// <filesystem> in a translation unit built with the engine's cppflags puts
+// libstdc++'s headers next to the engine's PortableCrt arrangement, and on
+// Linux the two collide (std_abs.h: "declaration conflicts with target of
+// using declaration already in scope").
+static void CollectMapsIn( IDataStorage *pStorage, const std::string &szPrefix,
+                           const std::string &szRoot, bool bTopLevelXmlToo,
+                           std::vector<std::string> *pPaths )
 {
-	std::error_code ec;
-	for ( std::filesystem::recursive_directory_iterator it( pszFolder, ec ), end; it != end; it.increment( ec ) )
+	CPtr<IStorageEnumerator> pEnum = pStorage->CreateEnumerator();
+	if ( pEnum == 0 )
+		return;
+	std::vector<std::string> subfolders;
+	for ( pEnum->Reset( ( szPrefix + "*.*" ).c_str() ); pEnum->Next(); )
 	{
-		if ( ec )
-			break;
-		if ( !it->is_regular_file( ec ) )
+		const SStorageElementStats *pStats = pEnum->GetStats();
+		if ( pStats == 0 || pStats->pszName == 0 )
 			continue;
-		std::string szPath = it->path().string();
-		if ( szPath.size() <= 4 )
+		const std::string szName = pStats->pszName;
+		if ( szName == "." || szName == ".." )
 			continue;
-		const std::string szExt = szPath.substr( szPath.size() - 4 );
-		// .bzm is always a map. .xml is not: under Data/Scenarios it is also
+		if ( pStats->type == SET_STORAGE )
+		{
+			subfolders.push_back( szPrefix + szName + "\\" );
+			continue;
+		}
+		if ( szName.size() <= 4 )
+			continue;
+		const char *pszExt = szName.c_str() + szName.size() - 4;
+		// .bzm is always a map. .xml is not: under Data\Scenarios it is also
 		// settings, chapter and context files, which are not maps and say so by
 		// failing IsValid. The only .xml maps shipped are the two at the top of
-		// Data/Maps, so take .xml from there and nowhere else.
-		const bool bBzm = NStr::CompareAsciiNoCase( szExt.c_str(), ".bzm" ) == 0;
-		const bool bTopLevelXml = NStr::CompareAsciiNoCase( szExt.c_str(), ".xml" ) == 0 &&
-		                          it.depth() == 0 && std::strstr( pszFolder, "Maps" ) != 0;
-		if ( !bBzm && !bTopLevelXml )
-			continue;
-		// The engine's streams split paths on backslash; hand it one.
-		for ( size_t i = 0; i < szPath.size(); ++i )
-			if ( szPath[i] == '/' )
-				szPath[i] = '\\';
-		pPaths->push_back( szPath );
+		// Data\Maps.
+		const bool bBzm = NStr::CompareAsciiNoCase( pszExt, ".bzm" ) == 0;
+		const bool bXml = NStr::CompareAsciiNoCase( pszExt, ".xml" ) == 0 &&
+		                  bTopLevelXmlToo && szPrefix.empty();
+		if ( bBzm || bXml )
+			pPaths->push_back( szRoot + szPrefix + szName );
 	}
+	// Recurse after the enumerator is done with this level: one enumerator at a
+	// time (StaticObjectsIters.h has the same rule for its own iterators).
+	pEnum = 0;
+	for ( size_t i = 0; i < subfolders.size(); ++i )
+		CollectMapsIn( pStorage, subfolders[i], szRoot, bTopLevelXmlToo, pPaths );
+}
+
+static void CollectMaps( const char *pszFolder, bool bTopLevelXmlToo, std::vector<std::string> *pPaths )
+{
+	const std::string szRoot = std::string( pszFolder ) + "\\";
+	CPtr<IDataStorage> pStorage = OpenStorage( szRoot.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	if ( pStorage == 0 )
+		return;
+	CollectMapsIn( pStorage, std::string(), szRoot, bTopLevelXmlToo, pPaths );
 }
 
 // Read a map, write it untouched, read it back: equivalent. Then write it a
@@ -274,9 +298,9 @@ static const char *g_pszScenarioSample[] = {
 static void SweepMaps( bool bAll )
 {
 	std::vector<std::string> paths;
-	CollectMaps( "Data/Maps", &paths );
+	CollectMaps( "Data\\Maps", true, &paths );
 	if ( bAll )
-		CollectMaps( "Data/Scenarios", &paths );
+		CollectMaps( "Data\\Scenarios", false, &paths );
 	else
 		for ( size_t i = 0; i < sizeof( g_pszScenarioSample ) / sizeof( g_pszScenarioSample[0] ); ++i )
 			paths.push_back( g_pszScenarioSample[i] );
@@ -297,9 +321,11 @@ int main( int argc, char **argv )
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
 	// Where every file this tier writes goes. CI starts from a bare checkout,
-	// so it is not there until someone makes it.
-	std::error_code ec;
-	std::filesystem::create_directories( "zig-out/local-test", ec );
+	// so it is not there until someone makes it; CreateStorage on a path makes
+	// the directories under it.
+	CPtr<IDataStorage> pOut = CreateStorage( "zig-out\\local-test\\", STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
+	if ( !Check( pOut != 0, "zig-out\\local-test is writable" ) )
+		return 1;
 	std::printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();

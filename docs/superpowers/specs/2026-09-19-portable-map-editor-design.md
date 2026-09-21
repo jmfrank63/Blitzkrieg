@@ -414,7 +414,7 @@ Two further checks:
 | Tier | Needs | Runs on | Gate |
 |---|---|---|---|
 | **Core** (Zig) | nothing | all six CI targets | required |
-| **Map file** (C++) | data-only startup | all six CI targets | required |
+| **Map file** (C++) | data-only startup | the five CI targets that build the engine C++ | required |
 | **Engine** (C++) | hidden SDL window and a GPU device | macOS arm64 locally, CI where the runner has a GPU device | required locally on macOS arm64; in CI it reports "skipped: no GPU device", never a pass |
 | **Game reads it** | the game and a window | macOS arm64 locally | required locally |
 | **Editor app** | the editor and a window | macOS arm64 locally | required locally |
@@ -426,7 +426,11 @@ Two further checks:
     same object, player and link ID.
   - Diplomacy edits are checked the same way.
   - A refused delete leaves the document and history unchanged.
-- **Map file:**
+- **Map file:** Windows-MinGW is the one CI target this tier cannot run on.
+  `Platform/LegacyVariant.h` includes MSVC's `comutil.h`, so `Formats`,
+  `Misc` and `RandomMapGen` do not compile for `x86_64-windows-gnu` at all -
+  which is why that job runs only the Zig and platform tiers today. The
+  other five targets, including Windows-MSVC, run it.
   - Read shipped maps and write them without edits: the result is
     equivalent, and the idempotent save holds. In CI this covers the 59 maps
     in `Data/Maps` plus a fixed sample from `Data/Scenarios`. A local step,
