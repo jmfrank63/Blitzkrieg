@@ -309,7 +309,10 @@ Settled by the overlay spike (plan
 - Measured on macOS arm64 (`metal`, swapchain format `12`, frame size
   `320x240`): the panel pixel was `(255,0,255)`, the scene pixel
   `(0,255,0)`.
-- Hidden window: `PASS`.
+- Hidden window: `PASS`, with the same driver, format, size and pixels as
+  the visible run. Re-measured 2026-09-21 after the capture texture moved to
+  `sdl.createCaptureTexture`. Direct3D and Vulkan are still unmeasured: CI
+  builds the spike on every platform and runs it on none.
 
 ### Build and packaging
 
