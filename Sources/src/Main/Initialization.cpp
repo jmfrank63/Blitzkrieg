@@ -62,7 +62,11 @@ bool STDCALL NMain::SwitchGame( bool bOn )
 	}
 	return false;
 }
-bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, bool bGame )
+// The body that was NMain::Initialize, taking the window IGFX::Init has always
+// wanted. IGFX::Init's second parameter is a GFXNativeWindow - a void*,
+// GFX/GFXPlatform.h - so nothing here ever needed an HWND; the game was casting
+// its SDL_Window* to one purely to satisfy the signature below.
+bool STDCALL NMain::InitializeWithWindow( GFXNativeWindow window )
 {
 	GetSLS()->AddFactory( GetMainObjectFactory() );
 	{
@@ -95,7 +99,7 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<IGFX> pGFX = CreateObject<IGFX>( pFactory, GFX_GFX );
-		if ( pGFX->Init(0, hWnd3D) != true )
+		if ( pGFX->Init(0, window) != true )
 			return false;
 		RegisterSingleton( IGFX::tidTypeID, pGFX );	// register GFX to singleton
 		CPtr<ITextureManager> pTM = CreateObject<ITextureManager>( pFactory, GFX_TEXTURE_MANAGER );
@@ -224,6 +228,14 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	bInitialized = true;
 	return true;
+}
+
+// Kept so existing callers still compile. hWndInput, hWndSound and bGame were
+// never read - grep this file before the split and only hWnd3D appears, once -
+// so forwarding the first and dropping the rest loses nothing.
+bool STDCALL NMain::Initialize( HWND hWnd3D, HWND hWndInput, HWND hWndSound, bool bGame )
+{
+	return InitializeWithWindow( static_cast<GFXNativeWindow>( hWnd3D ) );
 }
 bool STDCALL NMain::IsInitialized()
 {

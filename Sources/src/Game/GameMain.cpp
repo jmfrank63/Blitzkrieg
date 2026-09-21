@@ -624,7 +624,11 @@ int RunGame( const BkGameLaunchInfo &launch )
 	// device exists, and IGFX::SetMode() shows it itself (SWP_SHOWWINDOW in
 	// ResizeDeviceWindow). The splash screen covers the whole startup instead.
 	BK_STARTUP_MARKER("before NMain::Initialize");
-	if ( NMain::Initialize(reinterpret_cast<HWND>( NWinFrame::GetSDLWindow() ), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
+	// The SDL window goes in as itself. IGFX::Init has always taken a portable
+	// GFXNativeWindow (a void*, GFX/GFXPlatform.h) and NMain::Initialize's other
+	// two handles and its bGame were never read, so the cast to HWND was only
+	// ever there to satisfy a signature that did not need it.
+	if ( NMain::InitializeWithWindow( NWinFrame::GetSDLWindow() ) != true )
 	{
 		NPlatform::ShowError( "ERROR", "Can't initialize game..." );
 		return 0xDEAD;

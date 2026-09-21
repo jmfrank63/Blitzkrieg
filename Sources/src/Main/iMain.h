@@ -1,5 +1,11 @@
 #ifndef __IMAIN_H__
 #define __IMAIN_H__
+
+// For GFXNativeWindow in InitializeWithWindow below. GFXPlatform.h is 24
+// lines with no includes of its own, so this brings in the opaque window
+// handle and nothing else of GFX - iMain.h is reached from Formats and
+// RandomMapGen, which must not grow a renderer dependency.
+#include "../GFX/GFXPlatform.h"
 #pragma ONCE
 #include "iMainClassIDs.h"
 interface IInterfaceObject : public IRefCount
@@ -66,7 +72,11 @@ interface IFilesInspectorEntryCollector : public IFilesInspectorEntry
 };
 namespace NMain
 {
-	bool STDCALL Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, bool bGame );
+	// Starts the engine on the window the renderer will draw into. The
+	// four-handle form below forwards to this and is kept only so existing
+	// callers compile; its other three arguments were never read.
+	bool STDCALL InitializeWithWindow( GFXNativeWindow window );
+	bool STDCALL Initialize( HWND hWnd3D, HWND hWndInput, HWND hWndSound, bool bGame );
 	bool STDCALL Finalize();
 	bool STDCALL IsInitialized();
 	bool STDCALL CanLaunch();
