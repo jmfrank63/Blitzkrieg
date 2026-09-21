@@ -56,6 +56,14 @@ interface IInput : public IRefCount
 		                                 const int nValue, const DWORD time, const int nParam ) = 0;
 	virtual void STDCALL ConsumePlatformEvent( const NPlatform::PlatformEvent &event ) = 0;
 	virtual void STDCALL PumpMessages( const bool bFocus ) = 0;
+	// The platform event drain, callable from inside a frame. The window owner
+	// (the game executable) installs it, and the frame calls it once the
+	// blocking swapchain acquire has returned - so the cursor drawn into that
+	// frame carries the mouse position as it is now, not one sampled at the top
+	// of the loop a whole present-wait earlier. Uninstalled (tests, tools), the
+	// call does nothing.
+	virtual void STDCALL SetPlatformPump( void (*pfnPump)() ) = 0;
+	virtual void STDCALL PumpPlatform() = 0;
 	virtual void STDCALL AddMessage( const SGameMessage &msg ) = 0;
 	virtual bool STDCALL GetMessage( SGameMessage *pMsg ) = 0;
 	virtual bool STDCALL GetTextMessage( STextMessage *pMsg ) = 0;

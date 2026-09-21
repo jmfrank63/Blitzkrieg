@@ -7,6 +7,7 @@
 #include "DTHelper.h"
 #include "Input.h"
 #include "Actions.h"
+#include "../Platform/System.h"
 
 struct SCursorRegister
 {
@@ -117,6 +118,10 @@ CCursor::CCursor()
 	nCurrModifier = -1;
 	nCurrMode = -1;
 	bAcquired = false;
+	nSystemMode = -2;
+	nSystemModifier = -2;
+	nSystemScale = -1;
+	bSystemCursor = false;
 }
 void CCursor::Init( ISingleton *pSingleton )
 {
@@ -137,6 +142,8 @@ void CCursor::Done()
 {
 	DestroyContents();
 	Acquire( false );
+	NPlatform::ClearSystemCursorImage();
+	bSystemCursor = false;
 }
 void CCursor::Clear()
 {
@@ -148,6 +155,7 @@ void CCursor::Clear()
 void CCursor::Show( bool _bShow ) 
 { 
 	bShow = _bShow; 
+	ApplySystemCursor();
 }
 void CCursor::SetBounds( int x1, int y1, int x2, int y2 ) 
 { 
@@ -177,11 +185,210 @@ void CCursor::SetUpdateMode( const EUpdateMode _eUpdateMode )
 { 
 	eUpdateMode = _eUpdateMode; 
 	AcquireLocal();
+	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS )
+	{
+		nSystemMode = nSystemModifier = -2;		// nothing applied yet under this mode
+		nSystemScale = -1;
+		ApplySystemCursor();
+	}
+	else if ( bSystemCursor )
+	{
+		// Back to the cursor drawn into the frame: the window's own pointer
+		// goes down, or both would be on screen at once.
+		NPlatform::ClearSystemCursorImage();
+		NPlatform::ShowSystemCursor( false );
+		bSystemCursor = false;
+	}
 }
 void CCursor::OnSetCursor()
 {
-	// Hardware cursor resources are not part of the portable Scene boundary.
-	// The software cursor is drawn by Draw() for every update mode.
+	ApplySystemCursor();
+}
+// The cursor art on the CPU, for handing to the window system. The texture the
+// scene draws with lives on the GPU and the file it came from is the cheaper
+// source anyway: these are 32x32 images read once per shape and then cached.
+bool CCursor::LoadCursorImage( SCursorMode *pCursorMode )
+{
+	if ( pCursorMode == 0 ) 
+		return false;
+	if ( pCursorMode->pCursorImage != 0 ) 
+		return true;
+	IImageProcessor *pIP = GetImageProcessor();
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( (pIP == 0) || (pStorage == 0) ) 
+		return false;
+	// The file carries a quality suffix the lookup name does not. The window
+	// system composites the pointer at its own size whatever the scene's
+	// texture quality is, so the best file wins; the rest of the chain is there
+	// for art that ships only part of the trio (a mod's cursor folder).
+	static const char *pszSuffixes[] = { "_h.dds", "_c.dds", "_l.dds", ".dds" };
+	for ( int nSuffix = 0; nSuffix < int(sizeof(pszSuffixes)/sizeof(pszSuffixes[0])); ++nSuffix )
+	{
+		const std::string szName = pCursorMode->szTextureName + pszSuffixes[nSuffix];
+		if ( !pStorage->IsStreamExist( szName.c_str() ) ) 
+			continue;
+		CPtr<IDataStream> pStream = pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
+		if ( pStream == 0 ) 
+			continue;
+		CPtr<IDDSImage> pDDSImage = pIP->LoadDDSImage( pStream );
+		if ( pDDSImage == 0 ) 
+			continue;
+		pCursorMode->pCursorImage = pIP->Decompress( pDDSImage );
+		if ( pCursorMode->pCursorImage != 0 ) 
+			return true;
+	}
+	return false;
+}
+// Hand the current shape to the window system, which then draws the pointer
+// itself: it follows the mouse at the device's own rate instead of moving once
+// per presented frame, which is all a cursor blitted into the scene can do (and
+// on a display whose refresh the frame rate does not divide evenly, that blit
+// lands in uneven steps - the judder this exists to remove).
+void CCursor::ApplySystemCursor()
+{
+	if ( eUpdateMode != ICursor::UPDATE_MODE_WINDOWS ) 
+		return;
+	if ( !bShow || (pMode == 0) )
+	{
+		NPlatform::ShowSystemCursor( false );
+		nSystemMode = nSystemModifier = -2;
+		bSystemCursor = false;
+		return;
+	}
+	// How much of the art to hand over, which depends on where the pointer is
+	// being used. Over the map it is a tool - it has to sit on a soldier, and
+	// GFX.Cursor.Scale is the fraction that comes back the size the art was
+	// drawn for, whatever the window system does to it. Over the menus it is
+	// just a pointer among buttons, so it keeps the size the window system
+	// gives everything else, which on a machine with a magnified system
+	// pointer is the size its owner asked every pointer to be.
+	const int nScalePercent = GetGlobalVar( "AreWeInMission", 0 ) != 0 ?
+		Clamp( GetGlobalVar( "GFX.Cursor.Scale", 100 ), 10, 100 ) : 100;
+	// SetMode runs every frame of a mission (CWorldClient::SetAutoAction), so
+	// everything below is gated on the shape - or the size - actually changing.
+	if ( bSystemCursor && (nSystemMode == nCurrMode) && (nSystemModifier == nCurrModifier) &&
+		 (nSystemScale == nScalePercent) ) 
+		return;
+	nSystemMode = nCurrMode;
+	nSystemModifier = nCurrModifier;
+	nSystemScale = nScalePercent;
+	bSystemCursor = false;
+	SCursorMode *layers[2] = { pMode, pModifier };
+	const int nNumLayers = pModifier != 0 ? 2 : 1;
+	// Hot-spot space: every layer is placed so that its own hot spot sits at
+	// the origin, which is what makes the modifier line up with the shape it
+	// modifies exactly as the two blits did.
+	float fMinX = 0, fMinY = 0, fMaxX = 0, fMaxY = 0;
+	bool bAnyLayer = false;
+	for ( int nLayer = 0; nLayer < nNumLayers; ++nLayer )
+	{
+		if ( !LoadCursorImage( layers[nLayer] ) ) 
+			continue;
+		const float fX = -layers[nLayer]->vHotSpot.x;
+		const float fY = -layers[nLayer]->vHotSpot.y;
+		const float fW = float( layers[nLayer]->pCursorImage->GetSizeX() );
+		const float fH = float( layers[nLayer]->pCursorImage->GetSizeY() );
+		if ( !bAnyLayer ) 
+		{
+			fMinX = fX; fMinY = fY; fMaxX = fX + fW; fMaxY = fY + fH;
+			bAnyLayer = true;
+		}
+		else
+		{
+			fMinX = Min( fMinX, fX ); fMinY = Min( fMinY, fY );
+			fMaxX = Max( fMaxX, fX + fW ); fMaxY = Max( fMaxY, fY + fH );
+		}
+	}
+	if ( !bAnyLayer )
+	{
+		// No art to hand over (a mod without cursors, an unreadable file):
+		// Draw() blits the sprite as before and the window's pointer stays down.
+		NPlatform::ShowSystemCursor( false );
+		return;
+	}
+	// One layer is the common case by far (a modifier is only set for a few
+	// actions), and it needs no composite at all: its own image is the cursor.
+	IImage *pSingleLayer = 0;
+	int nLoadedLayers = 0;
+	for ( int nLayer = 0; nLayer < nNumLayers; ++nLayer )
+	{
+		if ( layers[nLayer] != 0 && layers[nLayer]->pCursorImage != 0 )
+		{
+			pSingleLayer = layers[nLayer]->pCursorImage;
+			++nLoadedLayers;
+		}
+	}
+	CPtr<IImage> pComposite;
+	if ( nLoadedLayers == 1 )
+		pComposite = pSingleLayer;
+	else
+	{
+		const int nWidth = int( fMaxX - fMinX );
+		const int nHeight = int( fMaxY - fMinY );
+		pComposite = GetImageProcessor()->CreateImage( nWidth, nHeight );
+		if ( pComposite == 0 )
+		{
+			NPlatform::ShowSystemCursor( false );
+			return;
+		}
+		pComposite->Set( SColor(0) );
+		for ( int nLayer = 0; nLayer < nNumLayers; ++nLayer )
+		{
+			const IImage *pSrc = layers[nLayer]->pCursorImage;
+			if ( pSrc == 0 ) 
+				continue;
+			const int nOffsetX = int( -layers[nLayer]->vHotSpot.x - fMinX );
+			const int nOffsetY = int( -layers[nLayer]->vHotSpot.y - fMinY );
+			for ( int nY = 0; nY < pSrc->GetSizeY(); ++nY )
+			{
+				const SColor *pSrcLine = pSrc->GetLine( nY );
+				SColor *pDstLine = pComposite->GetLine( nY + nOffsetY ) + nOffsetX;
+				for ( int nX = 0; nX < pSrc->GetSizeX(); ++nX )
+				{
+					const int nAlpha = pSrcLine[nX].a;
+					if ( nAlpha == 0 ) 
+						continue;
+					if ( nAlpha == 255 ) 
+					{
+						pDstLine[nX] = pSrcLine[nX];
+						continue;
+					}
+					const int nInv = 255 - nAlpha;
+					pDstLine[nX] = SColor(
+						BYTE( nAlpha + pDstLine[nX].a * nInv / 255 ),
+						BYTE( pSrcLine[nX].r + pDstLine[nX].r * nInv / 255 ),
+						BYTE( pSrcLine[nX].g + pDstLine[nX].g * nInv / 255 ),
+						BYTE( pSrcLine[nX].b + pDstLine[nX].b * nInv / 255 ) );
+				}
+			}
+		}
+	}
+	// The full-resolution image rides along as the high-DPI variant, so a
+	// pointer handed over smaller than its art still draws from every pixel of
+	// it and stays crisp however far the window system magnifies it back.
+	CPtr<IImage> pScaled;
+	if ( nScalePercent < 100 )
+	{
+		const int nScaledX = Max( 1, pComposite->GetSizeX() * nScalePercent / 100 );
+		const int nScaledY = Max( 1, pComposite->GetSizeY() * nScalePercent / 100 );
+		pScaled = GetImageProcessor()->CreateScaleBySize( pComposite, nScaledX, nScaledY, ISM_TRIANGLE );
+	}
+	const IImage *pSize = pScaled != 0 ? (const IImage*)pScaled : (const IImage*)pComposite;
+	const float fSizeScale = float( pSize->GetSizeX() ) / float( pComposite->GetSizeX() );
+	bSystemCursor = NPlatform::SetSystemCursorImage( pSize->GetLFB(), pSize->GetSizeX(), pSize->GetSizeY(),
+		pSize->GetSizeX() * sizeof(SColor), int( -fMinX * fSizeScale ), int( -fMinY * fSizeScale ),
+		pScaled != 0 ? pComposite->GetLFB() : 0, pComposite->GetSizeX(), pComposite->GetSizeY(),
+		pComposite->GetSizeX() * sizeof(SColor) );
+	NPlatform::ShowSystemCursor( bSystemCursor );
+	// The headless evidence channel: whether the window system took the art is
+	// not otherwise observable from a screenshot, because a hardware cursor is
+	// exactly the thing a screenshot of the scene does not contain.
+	if ( getenv( "BK_CURSOR_TRACE" ) )
+		fprintf( stderr, "BK_CURSOR_TRACE: mode=%d modifier=%d art %dx%d -> %dx%d (scale %d%%) hot %d,%d -> %s\n",
+			nCurrMode, nCurrModifier, pComposite->GetSizeX(), pComposite->GetSizeY(),
+			pSize->GetSizeX(), pSize->GetSizeY(), nScalePercent,
+			int( -fMinX * fSizeScale ), int( -fMinY * fSizeScale ),
+			bSystemCursor ? "system cursor" : "refused, drawing the sprite" );
 }
 void CCursor::Update()
 {
@@ -259,12 +466,14 @@ bool CCursor::SetModifier( int nMode )
 	{
 		pModifier = 0;
 		nCurrModifier = -1;
+		OnSetCursor();
 		return true;
 	}
 	else if ( SCursorMode *pCursor = GetCursor(nMode) )
 	{
 		pModifier = pCursor;
 		nCurrModifier = nMode;
+		OnSetCursor();
 		return true;
 	}
 	else
@@ -307,6 +516,17 @@ bool CCursor::Draw( interface IGFX *pGFX )
 	if ( !bShow )
 		return false;
 	Update();
+	// Re-checked every frame: leaving a mission for the intermission screens
+	// changes how big the pointer should be, and on that path nothing else
+	// necessarily sets a cursor mode. Costs two global reads when nothing has
+	// changed, which is what the gate inside it is for.
+	ApplySystemCursor();
+	// The window system is drawing the pointer. Update() still runs above - the
+	// scene's own cursor position, the sprite animation and the dwell a tooltip
+	// waits out all come from it - but blitting the art as well would put a
+	// second, frame-late copy of the cursor on the screen.
+	if ( bSystemCursor )
+		return false;
 	const bool bRetVal = DrawCursor( pMode, vPos, pGFX );
 	DrawCursor( pModifier, vPos, pGFX );
 	return bRetVal;

@@ -295,6 +295,16 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 
 	if ( !pGFX->BeginScene() )
 		return;
+	// BeginScene blocks for most of a present interval waiting for a swapchain
+	// texture (BK_PERF's begin column: ~7 ms of a 10 ms frame on a 100 Hz
+	// display). The mouse was last read before that wait, so a cursor drawn
+	// into this frame from that reading is already a wait old before the frame
+	// is even submitted. Drain the platform events again here, with the wait
+	// behind us: it costs a poll of an empty queue and takes that age off the
+	// software cursor. Only the cursor position moves - the events queued here
+	// are turned into game messages by the next frame's pump, in order, so the
+	// click that follows a motion still resolves where the motion put it.
+	pInput->PumpPlatform();
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
 	if ( bPerf ) QueryPerformanceCounter( &pf1 );
   pScene->Draw( pCamera );

@@ -1,5 +1,7 @@
 #include "GameFrame.h"
 
+#include "../Platform/System.h"
+
 namespace NGame
 {
 void FramePacingPolicy::Apply( const NPlatform::PlatformEvent &event )
@@ -70,9 +72,11 @@ void GameFrame::CaptureMouse()
 {
 	grabbed_ = true;
 	application_.SetMouseGrab( true );
-	// The engine draws its own cursor, so the system pointer stays down while
-	// the game owns the mouse - otherwise both are on screen at once.
-	application_.SetCursorVisible( false );
+	// Only the software cursor needs the system pointer taken down - otherwise
+	// both are on screen at once. With the hardware cursor the system pointer
+	// IS the game's cursor (Scene handed the window its art), so hiding it here
+	// would leave the player with nothing to aim.
+	application_.SetCursorVisible( NPlatform::HasSystemCursorImage() );
 }
 void GameFrame::ReleaseMouse()
 {

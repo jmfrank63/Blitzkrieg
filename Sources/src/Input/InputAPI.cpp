@@ -420,6 +420,7 @@ CInputAPI::CInputAPI()
 	bInitialized = false;
 	bCoopLevelSet = false;
 	bFocusCaptured = false;
+	pfnPlatformPump = 0;
 	hWindow = 0;
 	bTextMayFollowKey = false;
 	#if defined(BK_INPUT_EVENT_ONLY)

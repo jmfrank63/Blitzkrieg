@@ -155,6 +155,7 @@ void PumpMessages()
 		}
 	}
 }
+float SystemCursorScale() { return game_frame.SystemCursorScale(); }
 void CaptureMouse() { game_frame.CaptureMouse(); }
 void ReleaseMouse() { game_frame.ReleaseMouse(); }
 bool IsActive() { return game_frame.IsActive(); }
@@ -839,7 +840,25 @@ int RunGame( const BkGameLaunchInfo &launch )
 		pCursor->SetBounds( 0, 0, cmdp.nScreenSizeX, cmdp.nScreenSizeY );
 		pCursor->SetMode( 0 );
 		GetSingleton<IInput>()->SetDeviceEmulationStatus( DEVICE_TYPE_MOUSE, true );
-		pCursor->SetUpdateMode( ICursor::UPDATE_MODE_INPUT );
+		// The frame drain, installed where the window lives: the interface
+		// calls it again after the swapchain wait so the cursor it draws is not
+		// a present-interval old. Nothing else in the loop changes - this is the
+		// same function the top of the loop calls.
+		GetSingleton<IInput>()->SetPlatformPump( &NWinFrame::PumpMessages );
+		// What the window system will do to the size of the art handed to it.
+		// Scene composes the pointer at the art's own resolution and hands over
+		// the fraction of it that comes back the size the art was drawn for, so
+		// an OS-magnified pointer (macOS's accessibility pointer size) does not
+		// make the game's cursor two and a half times the size it has always
+		// been on screen.
+		SetGlobalVar( "GFX.Cursor.Scale", int( 100.0f / Max( 1.0f, NWinFrame::SystemCursorScale() ) + 0.5f ) );
+		// GFX.HWCursor decides who draws the pointer. Read from the option
+		// rather than assumed: Init() has already applied the profile's value,
+		// and forcing UPDATE_MODE_INPUT here is what used to overrule it.
+		variant_t varHWCursor;
+		const bool bHWCursor = GetSingleton<IOptionSystem>()->Get( "GFX.HWCursor", &varHWCursor ) &&
+			( std::string( (const char*)bstr_t( varHWCursor ) ) == "ON" );
+		pCursor->SetUpdateMode( bHWCursor ? ICursor::UPDATE_MODE_WINDOWS : ICursor::UPDATE_MODE_INPUT );
 	}
 	{
 		CPtr<IGFXFont> pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
@@ -1523,7 +1542,24 @@ int RunGame( const BkGameLaunchInfo &launch )
 			{
 				int nMaxFPS = GetGlobalVar( "GFX.Present.MaxFPS", 0 );
 				if ( GetGlobalVar( "AreWeInMission", 0 ) == 0 )
-					nMaxFPS = nMaxFPS > 0 ? Min( nMaxFPS, 60 ) : 60;
+				{
+					// The menu cap has to divide the display's refresh rate, or
+					// vsync hands every frame out either one refresh or two:
+					// 60 frames a second on a 100 Hz panel present 20, 20, 10 ms
+					// apart forever, and a cursor drawn into those frames moves
+					// in exactly that rhythm. Held to the nearest whole division
+					// of the refresh instead - 100 Hz gives 50, 120 gives 60,
+					// 144 gives 72 - the cadence is even. Unknown refresh (no
+					// window yet) keeps the old flat 60.
+					int nMenuFPS = 60;
+					const float fRefresh = GetGlobalVar( "GFX.Display.RefreshRate", 0.0f );
+					if ( fRefresh >= 30.0f )
+					{
+						const int nDivisor = Max( 1, int( fRefresh / 60.0f + 0.5f ) );
+						nMenuFPS = Max( 30, int( fRefresh / nDivisor + 0.5f ) );
+					}
+					nMaxFPS = nMaxFPS > 0 ? Min( nMaxFPS, nMenuFPS ) : nMenuFPS;
+				}
 				if ( nMaxFPS <= 0 )
 					nFrameDeadline = 0;
 				else

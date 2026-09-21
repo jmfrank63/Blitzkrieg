@@ -8,6 +8,7 @@
 #include "../Platform/SDLApplication.h"
 #include "../Platform/Event.h"
 #include "../Platform/Clock.h"
+#include "../Platform/System.h"
 
 #include "../Misc/Win32Helper.h"
 #include "../Main/iMain.h"
@@ -482,17 +483,18 @@ void SetActive( bool bActivate )
 	else
 		ShowWindow( hWnd, SW_RESTORE );
 }
+float SystemCursorScale() { return sdlApplication.SystemCursorScale(); }
 void CaptureMouse()
 {
 	bMouseReleased = false;
 	sdlApplication.SetMouseGrab( true );
-	// The engine draws its own cursor, so the system pointer must be hidden
-	// while the game owns the mouse - otherwise both are on screen at once.
-	// SDL_HideCursor is the only thing that takes the SDL window's default
-	// arrow down; the Win32 SetCursor(0) that did this in the DirectX build
-	// never ran here, because the window is SDL's and not one whose class
-	// cursor we control.
-	sdlApplication.SetCursorVisible( false );
+	// Only the software cursor needs the system pointer hidden while the game
+	// owns the mouse - otherwise both are on screen at once. SDL_HideCursor is
+	// the only thing that takes the SDL window's default arrow down; the Win32
+	// SetCursor(0) that did this in the DirectX build never ran here, because
+	// the window is SDL's and not one whose class cursor we control. With the
+	// hardware cursor the system pointer is the game's cursor, so it stays up.
+	sdlApplication.SetCursorVisible( NPlatform::HasSystemCursorImage() );
 	ApplyMouseClip();
 }
 void ReleaseMouse()
