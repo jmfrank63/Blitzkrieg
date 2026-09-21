@@ -6,6 +6,8 @@
 #include "MapOverlay.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/RMG_Types.h"
+#include "../Formats/fmtTerrain.h"
+#include "../RandomMapGen/Resource_Types.h"
 
 namespace NMapOverlay
 {
@@ -174,5 +176,96 @@ bool SetDiplomacy( SLoadMapInfo *pMap, int nPlayer, BYTE nDiplomacy )
 		return false;
 	pMap->diplomacies[nPlayer] = nDiplomacy;
 	return true;
+}
+}
+
+namespace NMapOverlay
+{
+// The spec's "Terrain edits", step by step. R is in patch coordinates, which is
+// what CMapInfo::UpdateTerrainCrosses iterates (MapInfo_StaticMethods.cpp:450-463);
+// handing it tile coordinates asks for a rectangle a few thousand patches wide.
+CTRect<int> AffectedPatches( const STerrainInfo &rTerrain, const std::vector<SPaintCell> &rCells )
+{
+	const int nPatchesX = rTerrain.patches.GetSizeX(), nPatchesY = rTerrain.patches.GetSizeY();
+	CTRect<int> r( nPatchesX, nPatchesY, 0, 0 );
+	for ( size_t i = 0; i < rCells.size(); ++i )
+	{
+		// The 8-neighbourhood in cells, then the patches those cells fall in: a
+		// painted cell on a patch border is read by the neighbouring patch's
+		// crosses, so that patch is in the region too.
+		const int nMinPatchX = Max( 0, ( rCells[i].nX - 1 ) ) / STerrainPatchInfo::nSizeX;
+		const int nMaxPatchX = Min( nPatchesX * STerrainPatchInfo::nSizeX - 1, rCells[i].nX + 1 ) / STerrainPatchInfo::nSizeX;
+		const int nMinPatchY = Max( 0, ( rCells[i].nY - 1 ) ) / STerrainPatchInfo::nSizeY;
+		const int nMaxPatchY = Min( nPatchesY * STerrainPatchInfo::nSizeY - 1, rCells[i].nY + 1 ) / STerrainPatchInfo::nSizeY;
+		r.minx = Min( r.minx, nMinPatchX );  r.maxx = Max( r.maxx, nMaxPatchX + 1 );
+		r.miny = Min( r.miny, nMinPatchY );  r.maxy = Max( r.maxy, nMaxPatchY + 1 );
+	}
+	if ( r.minx > r.maxx || r.miny > r.maxy )
+		return CTRect<int>( 0, 0, 0, 0 );
+	return r;
+}
+
+bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUndo *pUndo )
+{
+	if ( pMap == 0 || rCells.empty() )
+		return false;
+	STerrainInfo &rTerrain = pMap->terrain;
+	const CTRect<int> r = AffectedPatches( rTerrain, rCells );
+	if ( r.maxx <= r.minx || r.maxy <= r.miny )
+		return false;
+
+	// Record the region before anything changes. The preprocessing pass below
+	// rewrites tiles that were never painted, so the record has to cover all of
+	// R and not just the painted cells.
+	if ( pUndo )
+	{
+		pUndo->rPatches = r;
+		pUndo->tiles.clear();
+		pUndo->patches.clear();
+		for ( int y = r.miny * STerrainPatchInfo::nSizeY; y < r.maxy * STerrainPatchInfo::nSizeY; ++y )
+			for ( int x = r.minx * STerrainPatchInfo::nSizeX; x < r.maxx * STerrainPatchInfo::nSizeX; ++x )
+				pUndo->tiles.push_back( rTerrain.tiles[y][x] );
+		for ( int y = r.miny; y < r.maxy; ++y )
+			for ( int x = r.minx; x < r.maxx; ++x )
+				pUndo->patches.push_back( rTerrain.patches[y][x] );
+	}
+
+	for ( size_t i = 0; i < rCells.size(); ++i )
+	{
+		if ( rCells[i].nX < 0 || rCells[i].nY < 0 ||
+		     rCells[i].nX >= rTerrain.tiles.GetSizeX() || rCells[i].nY >= rTerrain.tiles.GetSizeY() )
+			continue;
+		rTerrain.tiles[rCells[i].nY][rCells[i].nX].tile = rCells[i].tile;
+		rTerrain.tiles[rCells[i].nY][rCells[i].nX].noise = rCells[i].noise;
+	}
+
+	// The tileset and crosset the map names, read the way CMapInfo::
+	// UpdateTerrainCrosses reads them (MapInfo_Methods.cpp:220-230). This needs
+	// the registered data storage and nothing else - no renderer, no database.
+	if ( GetSingleton<IDataStorage>() == 0 )
+		return false;
+	STilesetDesc tilesetDesc;
+	SCrossetDesc crossetDesc;
+	LoadDataResource( rTerrain.szTilesetDesc, "", false, 0, "tileset", tilesetDesc );
+	LoadDataResource( rTerrain.szCrossetDesc, "", false, 0, "crosset", crossetDesc );
+	return CMapInfo::UpdateTerrainCrosses( &rTerrain, r, tilesetDesc, crossetDesc );
+}
+
+void UndoPaint( SLoadMapInfo *pMap, const SPaintUndo &rUndo )
+{
+	if ( pMap == 0 )
+		return;
+	STerrainInfo &rTerrain = pMap->terrain;
+	const CTRect<int> &r = rUndo.rPatches;
+	size_t nTile = 0;
+	for ( int y = r.miny * STerrainPatchInfo::nSizeY; y < r.maxy * STerrainPatchInfo::nSizeY; ++y )
+		for ( int x = r.minx * STerrainPatchInfo::nSizeX; x < r.maxx * STerrainPatchInfo::nSizeX; ++x, ++nTile )
+			if ( nTile < rUndo.tiles.size() )
+				rTerrain.tiles[y][x] = rUndo.tiles[nTile];
+	size_t nPatch = 0;
+	for ( int y = r.miny; y < r.maxy; ++y )
+		for ( int x = r.minx; x < r.maxx; ++x, ++nPatch )
+			if ( nPatch < rUndo.patches.size() )
+				rTerrain.patches[y][x] = rUndo.patches[nPatch];
 }
 }

@@ -272,6 +272,133 @@ static void TestUnknownObjectSurvives()
 	       szWhere.empty() ? "the unknown object survived" : ( "unknown object changed at " + szWhere ).c_str() );
 }
 
+// The spec's terrain cases: inside one patch, across a patch border, undo
+// putting the region back exactly, and the preprocessing pass changing tiles
+// that were never painted.
+static void TestPaint()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	const CMapInfo original = map;
+	if ( !Check( original.terrain.tiles.GetSizeX() > 64, "the map is big enough to paint in" ) )
+		return;
+
+	std::vector<NMapOverlay::SPaintCell> cells;
+	NMapOverlay::SPaintCell cell;
+	cell.nX = 20; cell.nY = 20;
+	cell.noise = original.terrain.tiles[20][20].noise;
+	cell.tile = BYTE( original.terrain.tiles[20][20].tile + 1 );
+	cells.push_back( cell );
+
+	NMapOverlay::SPaintUndo undo;
+	Check( NMapOverlay::Paint( &map, cells, &undo ), "one cell paints" );
+	Check( map.terrain.tiles[20][20].tile == cell.tile, "the painted cell has the new tile" );
+
+	// The function must never touch these, anywhere.
+	Check( NMapFile::CompareAltitudeArrays( map.terrain, original.terrain ), "altitudes are untouched" );
+	std::string szWhere;
+	Check( map.terrain.rivers.size() == original.terrain.rivers.size(), "rivers are untouched" );
+	Check( map.terrain.roads3.size() == original.terrain.roads3.size(), "roads are untouched" );
+	Check( map.terrain.szTilesetDesc == original.terrain.szTilesetDesc, "the tileset is untouched" );
+
+	// Undo restores the region exactly - the whole map compares equal again.
+	NMapOverlay::UndoPaint( &map, undo );
+	szWhere.clear();
+	Check( NMapFile::AreEquivalent( original, map, &szWhere ),
+	       szWhere.empty() ? "undo put the region back" : ( "undo left " + szWhere ).c_str() );
+}
+
+// A cell on a patch border pulls in the neighbouring patch, whose crosses read
+// across the border. Patches are 16x16 (fmtMap.cpp:6-7).
+static void TestPaintOnAPatchBorder()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	std::vector<NMapOverlay::SPaintCell> cells;
+	NMapOverlay::SPaintCell cell;
+	cell.nX = STerrainPatchInfo::nSizeX - 1;   // last column of patch 0
+	cell.nY = 4;
+	cell.noise = map.terrain.tiles[cell.nY][cell.nX].noise;
+	cell.tile = BYTE( map.terrain.tiles[cell.nY][cell.nX].tile + 1 );
+	cells.push_back( cell );
+	const CTRect<int> r = NMapOverlay::AffectedPatches( map.terrain, cells );
+	Check( r.minx == 0, "the region starts at the painted cell's patch" );
+	Check( r.maxx >= 2, "and a border cell pulls in the next patch" );
+
+	// A cell in the middle of a patch does not.
+	std::vector<NMapOverlay::SPaintCell> middle;
+	NMapOverlay::SPaintCell inner;
+	inner.nX = 8; inner.nY = 8;
+	inner.noise = map.terrain.tiles[8][8].noise;
+	inner.tile = BYTE( map.terrain.tiles[8][8].tile + 1 );
+	middle.push_back( inner );
+	const CTRect<int> rInner = NMapOverlay::AffectedPatches( map.terrain, middle );
+	Check( rInner.maxx - rInner.minx == 1 && rInner.maxy - rInner.miny == 1,
+	       "a cell well inside a patch affects that patch alone" );
+}
+
+// The preprocessing pass removes one-cell-thin strips of lower-priority
+// terrain, so it can change tiles inside the region that were never painted.
+// That is the engine's behaviour and the saved map has to match it, so this
+// asserts it happens rather than tolerating it. Painting one cell with a
+// neighbour's tile is what tends to leave such a strip, so the search walks
+// cells and tries each neighbouring tile value until one does.
+static void TestPreprocessingChangesUnpaintedTiles()
+{
+	CMapInfo clean;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &clean, &szError ), szError.c_str() ) )
+		return;
+	int nFoundX = -1, nFoundY = -1, nChangedOutside = 0;
+	for ( int y = 20; y < 120 && nFoundX < 0; y += 3 )
+	{
+		for ( int x = 20; x < 120 && nFoundX < 0; x += 3 )
+		{
+			const BYTE nHere = clean.terrain.tiles[y][x].tile;
+			const BYTE nThere = clean.terrain.tiles[y][x + 2].tile;
+			if ( nHere == nThere )
+				continue;
+			CMapInfo map = clean;
+			std::vector<NMapOverlay::SPaintCell> cells;
+			NMapOverlay::SPaintCell cell;
+			cell.nX = x; cell.nY = y;
+			cell.tile = nThere;
+			cell.noise = clean.terrain.tiles[y][x].noise;
+			cells.push_back( cell );
+			NMapOverlay::SPaintUndo undo;
+			if ( !NMapOverlay::Paint( &map, cells, &undo ) )
+				continue;
+			const CTRect<int> r = undo.rPatches;
+			int nOutside = 0;
+			for ( int ty = r.miny * STerrainPatchInfo::nSizeY; ty < r.maxy * STerrainPatchInfo::nSizeY; ++ty )
+				for ( int tx = r.minx * STerrainPatchInfo::nSizeX; tx < r.maxx * STerrainPatchInfo::nSizeX; ++tx )
+				{
+					if ( tx == x && ty == y )
+						continue;
+					if ( map.terrain.tiles[ty][tx].tile != clean.terrain.tiles[ty][tx].tile )
+						++nOutside;
+				}
+			if ( nOutside > 0 )
+			{
+				nFoundX = x; nFoundY = y; nChangedOutside = nOutside;
+				// And undo still restores all of it, strip and all.
+				NMapOverlay::UndoPaint( &map, undo );
+				std::string szWhere;
+				Check( NMapFile::AreEquivalent( clean, map, &szWhere ),
+				       szWhere.empty() ? "undo restores the preprocessed tiles too"
+				                       : ( "undo left " + szWhere ).c_str() );
+			}
+		}
+	}
+	if ( Check( nFoundX >= 0, "a paint exists that the preprocessing pass widens" ) )
+		printf( "map-file: preprocessing changed %d unpainted tiles around %d,%d\n",
+		        nChangedOutside, nFoundX, nFoundY );
+}
+
 static const char *Extension( const std::string &szPath )
 {
 	return szPath.size() >= 4 && NStr::CompareAsciiNoCase( szPath.c_str() + szPath.size() - 4, ".xml" ) == 0 ? ".xml" : ".bzm";
@@ -476,6 +603,9 @@ int main( int argc, char **argv )
 	TestDeleteWithNoReferences();
 	TestDiplomacyChange();
 	TestUnknownObjectSurvives();
+	TestPaint();
+	TestPaintOnAPatchBorder();
+	TestPreprocessingChangesUnpaintedTiles();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );
