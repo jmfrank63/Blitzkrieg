@@ -75,6 +75,15 @@ typedef struct
    keeps whatever map it had open before. */
 BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEditorMapSummary *out );
 
+/* Writes the open map to path; the format comes from the extension.
+
+   What is written is the snapshot with the session's edits laid over it, never
+   the engine's own copy: the engine's has UnpackFrameIndices applied, which
+   picks a random visual variant per type, so writing it back would rewrite
+   every frame index on the map. An object the database does not know goes out
+   exactly as it came in. */
+BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
+
 /* Safe on a null session, and safe to call twice. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
 

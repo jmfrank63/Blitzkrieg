@@ -211,3 +211,24 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->bMapOpen = true;
 	return true;
 }
+
+bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
+{
+	if ( pSession == 0 )
+		return false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	if ( pszPath == 0 || *pszPath == 0 )
+	{
+		pSession->szMessage = "no map path";
+		return false;
+	}
+	// The snapshot, with whatever the editor has changed already laid over it -
+	// never pSession->working. The working copy has UnpackFrameIndices applied,
+	// so writing it back would give every fence, entrenchment and bridge span on
+	// the map a fresh random frame index, in a file the editor never edited.
+	return NMapFile::Write( pszPath, pSession->snapshot, &pSession->szMessage );
+}

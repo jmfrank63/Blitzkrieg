@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/MapFile/MapFile.h"
+#include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static std::string DirectoryOf( const char *pszPath )
@@ -96,6 +97,31 @@ static void TestShippedMapOpens( BkEditorSession *pSession )
 	Check( summary.object_count > 0, "and its objects" );
 	Check( summary.unknown_object_count == 0, "and knows every type in it" );
 	Check( summary.placed_object_count > 0, "and the engine holds them" );
+}
+
+// The spec's first engine-tier check: open a shipped map, save it with no
+// edits, and get back what was read. The bridge writes the snapshot rather
+// than the engine's copy - the engine's has UnpackFrameIndices applied, which
+// picks a random visual variant per type - so a difference here means building
+// the engine state wrote through to the snapshot, which it must not.
+static void TestUneditedSaveIsEquivalent( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szSaved = szScratch + "\\bridge-roundtrip.bzm";
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to save opens" ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "a map saves" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	CMapInfo original, saved;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( original, saved, &szWhere ),
+	       szWhere.empty() ? "and an unedited save is equivalent" : ( "save differs at " + szWhere ).c_str() );
 }
 
 // A bridge's spans are not placed where they are found: they are set aside and
@@ -257,6 +283,7 @@ int main( int argc, char **argv )
 	{
 		TestShippedMapOpens( pSession );
 		TestBridgeSpansAreBuilt( pSession );
+		TestUneditedSaveIsEquivalent( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );

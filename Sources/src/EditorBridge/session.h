@@ -49,4 +49,8 @@ struct SEditorSession
 // terrain reaches the scene, not after.
 bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
 
+// Writes the session's map to pszPath. Returns false and leaves the reason in
+// szMessage.
+bool SaveSessionMap( SEditorSession *pSession, const char *pszPath );
+
 #endif // __EDITOR_BRIDGE_SESSION_H__

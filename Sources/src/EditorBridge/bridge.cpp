@@ -189,6 +189,21 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 	} );
 }
 
+BkEditorStatus BkEditorSaveMap( BkEditorSession *pSession, const char *pszPath )
+{
+	return Guarded( pSession, [pSession, pszPath]() -> BkEditorStatus
+	{
+		if ( pszPath == 0 || *pszPath == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return SaveSessionMap( pSession, pszPath ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 {
 	// Safe on null and safe twice: the caller reaches here on every path out,
