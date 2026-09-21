@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <map>
 
 #include "fmtMap.h"
 
@@ -263,6 +264,24 @@ int SReinforcementGroupInfo::SGroupsVector::operator&( IStructureSaver &ss )
 int SReinforcementGroupInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	saver.Add( 1, &groups );
+	if ( saver.IsReading() )
+	{
+		saver.Add( 1, &groups );
+		return 0;
+	}
+	// Written in key order, not in the order the hash table happens to hand
+	// them over. std::unordered_map's iteration order depends on its insertion
+	// history, so reading a map and writing it again reordered these groups and
+	// the file changed although nothing in it did - measured on tutorial4.bzm,
+	// where 11 10 9 8 444 7 443 6 5 4 3 2 came back as 2 5 443 6 3 444 7 8 4 9
+	// 10 11. An editor that cannot save a file twice and get the same bytes
+	// cannot tell a real edit from noise.
+	//
+	// The encoding is unchanged: DoMap and DoHashMap emit the same two chunks
+	// per entry in the same order (StreamIO/SSHelper.h:270-327), so this is the
+	// same file with its entries in a defined sequence, and every reader that
+	// read the old one reads this one.
+	std::map<int, SGroupsVector> ordered( groups.begin(), groups.end() );
+	saver.Add( 1, &ordered );
 	return 0;
 }

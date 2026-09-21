@@ -163,6 +163,11 @@ bool Write( const char *pszPath, const CMapInfo &rMap, std::string *pError )
 			saver.Add( 1, &rWritable );
 			saver.Add( RMGC_QUICK_LOAD_MAP_INFO_CHUNK_NUMBER, &quickLoadMapInfo );
 		}
+		// Flush before the stream goes out of scope. Without this the bytes
+		// reach the file eventually - at process exit - but not by the time
+		// anything reads the path back, which is exactly what an editor does
+		// when it saves and then test-launches the map.
+		pStream->Flush();
 	}
 	catch ( ... )
 	{

@@ -28,6 +28,14 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Install Linux build dependencies
@@ -88,6 +96,9 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
@@ -146,6 +157,14 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.16.0
@@ -221,6 +240,9 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -254,6 +276,14 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Verify Apple Silicon host
@@ -323,6 +353,9 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=aarch64-macos -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
 
@@ -357,6 +390,14 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Verify arm64 host
@@ -422,6 +463,9 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
 
@@ -456,6 +500,14 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.16.0
@@ -510,6 +562,9 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu
 
@@ -547,6 +602,14 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Verify Intel host
@@ -609,6 +672,9 @@ jobs:
 
       - name: Run GFX GPU effect table tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Map file tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos

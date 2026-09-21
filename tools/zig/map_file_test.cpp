@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
+#include <filesystem>
+#include <system_error>
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -128,6 +131,167 @@ static void TestRoundTripIsEquivalent()
 	       szWhere.empty() ? "the round trip is equivalent" : ( "round trip differs at " + szWhere ).c_str() );
 }
 
+static const char *Extension( const std::string &szPath )
+{
+	return szPath.size() >= 4 && NStr::CompareAsciiNoCase( szPath.c_str() + szPath.size() - 4, ".xml" ) == 0 ? ".xml" : ".bzm";
+}
+
+static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
+{
+	CPtr<IDataStream> pL = OpenFileStream( pszLeft, STREAM_ACCESS_READ );
+	CPtr<IDataStream> pR = OpenFileStream( pszRight, STREAM_ACCESS_READ );
+	if ( pL == 0 || pR == 0 )
+		return false;
+	if ( pL->GetSize() != pR->GetSize() )
+		return false;
+	// Read each side whole and compare once. Reading in blocks and comparing
+	// block by block looks tidier and is wrong: IDataStream::Read may return
+	// fewer bytes than asked for without being at the end, and two streams over
+	// two files need not break at the same offsets - which made every map in
+	// the sweep look like it saved differently twice when the files were in
+	// fact identical. The largest shipped map is 1.6 MB.
+	const int nSize = pL->GetSize();
+	std::vector<char> left( nSize > 0 ? nSize : 1 ), right( nSize > 0 ? nSize : 1 );
+	int nReadLeft = 0, nReadRight = 0;
+	while ( nReadLeft < nSize )
+	{
+		const int n = pL->Read( &(left[nReadLeft]), nSize - nReadLeft );
+		if ( n <= 0 ) break;
+		nReadLeft += n;
+	}
+	while ( nReadRight < nSize )
+	{
+		const int n = pR->Read( &(right[nReadRight]), nSize - nReadRight );
+		if ( n <= 0 ) break;
+		nReadRight += n;
+	}
+	if ( nReadLeft != nSize || nReadRight != nSize )
+	{
+		std::printf( "  (identical? sizes L=%d R=%d, read L=%d R=%d)\n", nSize, pR->GetSize(), nReadLeft, nReadRight );
+		return false;
+	}
+	if ( nSize == 0 || memcmp( &(left[0]), &(right[0]), nSize ) == 0 )
+		return true;
+	for ( int i = 0; i < nSize; ++i )
+		if ( left[i] != right[i] )
+		{
+			std::printf( "  (identical? size %d, first difference at %d: %02x vs %02x)\n",
+			             nSize, i, (unsigned char)left[i], (unsigned char)right[i] );
+			break;
+		}
+	return false;
+}
+
+// The shipped maps are loose files under Data, so walk the filesystem rather
+// than the storage: a storage rooted at Data mounts the .pak archives as
+// pseudo-directories, and enumerating "Maps\\*.*" descends into the whole
+// object database through them - 21,978 entries, none of them maps.
+// std::filesystem rather than <dirent.h>, because this compiles for MSVC too.
+static void CollectMaps( const char *pszFolder, std::vector<std::string> *pPaths )
+{
+	std::error_code ec;
+	for ( std::filesystem::recursive_directory_iterator it( pszFolder, ec ), end; it != end; it.increment( ec ) )
+	{
+		if ( ec )
+			break;
+		if ( !it->is_regular_file( ec ) )
+			continue;
+		std::string szPath = it->path().string();
+		if ( szPath.size() <= 4 )
+			continue;
+		const std::string szExt = szPath.substr( szPath.size() - 4 );
+		// .bzm is always a map. .xml is not: under Data/Scenarios it is also
+		// settings, chapter and context files, which are not maps and say so by
+		// failing IsValid. The only .xml maps shipped are the two at the top of
+		// Data/Maps, so take .xml from there and nowhere else.
+		const bool bBzm = NStr::CompareAsciiNoCase( szExt.c_str(), ".bzm" ) == 0;
+		const bool bTopLevelXml = NStr::CompareAsciiNoCase( szExt.c_str(), ".xml" ) == 0 &&
+		                          it.depth() == 0 && std::strstr( pszFolder, "Maps" ) != 0;
+		if ( !bBzm && !bTopLevelXml )
+			continue;
+		// The engine's streams split paths on backslash; hand it one.
+		for ( size_t i = 0; i < szPath.size(); ++i )
+			if ( szPath[i] == '/' )
+				szPath[i] = '\\';
+		pPaths->push_back( szPath );
+	}
+}
+
+// Read a map, write it untouched, read it back: equivalent. Then write it a
+// second time and compare the two files byte for byte - the spec's idempotent
+// save. A map that survives both has not been quietly normalised. The bytes of
+// the shipped file are deliberately not the yardstick: a rewrite is not
+// byte-identical with whatever tool wrote the original, only field-equivalent.
+static void TestRoundTrip( const std::string &szPath )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szPath.c_str(), &original, &szError ), szError.empty() ? szPath.c_str() : szError.c_str() ) )
+		return;
+	const std::string szFirst = std::string( "zig-out\\local-test\\roundtrip-1" ) + Extension( szPath );
+	const std::string szSecond = std::string( "zig-out\\local-test\\roundtrip-2" ) + Extension( szPath );
+	if ( !Check( NMapFile::Write( szFirst.c_str(), original, &szError ), szError.c_str() ) )
+		return;
+	CMapInfo reread;
+	szError.clear();
+	if ( !Check( NMapFile::Read( szFirst.c_str(), &reread, &szError ), szError.c_str() ) )
+		return;
+	std::string szWhere;
+	if ( !NMapFile::AreEquivalent( original, reread, &szWhere ) )
+		Check( false, ( szPath + ": differs at " + szWhere ).c_str() );
+	if ( !Check( NMapFile::Write( szSecond.c_str(), reread, &szError ), szError.c_str() ) )
+		return;
+	if ( !FilesAreIdentical( szFirst.c_str(), szSecond.c_str() ) )
+	{
+		// Narrow it before reporting: writing the SAME map twice isolates a
+		// non-deterministic writer from a read that loses something the
+		// comparator does not know to look at.
+		const std::string szThird = std::string( "zig-out\\local-test\\roundtrip-3" ) + Extension( szPath );
+		NMapFile::Write( szThird.c_str(), original, &szError );
+		const bool bWriterDeterministic = FilesAreIdentical( szFirst.c_str(), szThird.c_str() );
+		Check( false, ( szPath + ( bWriterDeterministic
+		                           ? ": read+write is not the identity, and the comparator did not see it"
+		                           : ": the writer is not deterministic" ) ).c_str() );
+	}
+}
+
+// The CI sample: every map under Data\Maps, plus seven of the 1,696 scenario
+// patches, so the tier covers scenario maps without reading 144 MB on six
+// runners. The seven were taken with
+//   find Data/Scenarios -name '*.bzm' | sort | awk 'NR%250==1'
+// which spreads them over the seasons and patch kinds. --all sweeps
+// everything; that is the local step, test-map-files-all.
+static const char *g_pszScenarioSample[] = {
+	"Data\\Scenarios\\Patches\\Africa\\p_settle_E_1.bzm",
+	"Data\\Scenarios\\Patches\\common\\road_junc\\winter\\p_junc_gr_asph_W_1.bzm",
+	"Data\\Scenarios\\Patches\\spring_Ukraine\\p_army_N_2.bzm",
+	"Data\\Scenarios\\Patches\\spring_Ukraine\\p_troops_gr_sw_1_2.bzm",
+	"Data\\Scenarios\\Patches\\summer_Russia\\p_ambush_gr_NS_1.bzm",
+	"Data\\Scenarios\\Patches\\summer_Ukraine\\p_lg_village_a_10.bzm",
+	"Data\\Scenarios\\Patches\\winter_Russia\\p_bridge_rail_n_4.bzm",
+};
+
+static void SweepMaps( bool bAll )
+{
+	std::vector<std::string> paths;
+	CollectMaps( "Data/Maps", &paths );
+	if ( bAll )
+		CollectMaps( "Data/Scenarios", &paths );
+	else
+		for ( size_t i = 0; i < sizeof( g_pszScenarioSample ) / sizeof( g_pszScenarioSample[0] ); ++i )
+			paths.push_back( g_pszScenarioSample[i] );
+	std::printf( "map-file: sweeping %d maps\n", int( paths.size() ) );
+	// A tier that silently swept nothing would be worse than no tier: CI checks
+	// out sparsely, and Data is exactly the kind of thing that gets left out.
+	if ( !Check( paths.size() >= 50, "the sweep found the shipped maps (is Data checked out?)" ) )
+		return;
+	const int nFailuresBefore = g_nFailures;
+	for ( size_t i = 0; i < paths.size(); ++i )
+		TestRoundTrip( paths[i] );
+	std::printf( "map-file: %d of %d maps round-tripped\n",
+	             int( paths.size() ) - ( g_nFailures - nFailuresBefore ), int( paths.size() ) );
+}
+
 int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
@@ -138,6 +302,10 @@ int main( int argc, char **argv )
 	TestWritesWhatItRead();
 	TestComparatorSeesADifference();
 	TestRoundTripIsEquivalent();
+	bool bAll = false;
+	for ( int i = 1; i < argc; ++i )
+		bAll = bAll || std::strcmp( argv[i], "--all" ) == 0;
+	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		std::printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
