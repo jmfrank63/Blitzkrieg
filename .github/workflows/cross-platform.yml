@@ -29,6 +29,8 @@ jobs:
             /tools/
             /vendor/
             /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
@@ -158,6 +160,8 @@ jobs:
             /tools/
             /vendor/
             /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
@@ -277,6 +281,8 @@ jobs:
             /tools/
             /vendor/
             /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
@@ -391,6 +397,8 @@ jobs:
             /tools/
             /vendor/
             /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
@@ -592,6 +600,8 @@ jobs:
             /tools/
             /vendor/
             /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm

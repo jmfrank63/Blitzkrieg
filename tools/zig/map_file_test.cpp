@@ -293,7 +293,9 @@ static void TestPaint()
 	cells.push_back( cell );
 
 	NMapOverlay::SPaintUndo undo;
-	Check( NMapOverlay::Paint( &map, cells, &undo ), "one cell paints" );
+	if ( !Check( NMapOverlay::Paint( &map, cells, &undo ),
+	             "one cell paints (needs Data\\Terrain\\sets\\*\\tileset.xml)" ) )
+		return;
 	Check( map.terrain.tiles[20][20].tile == cell.tile, "the painted cell has the new tile" );
 
 	// The function must never touch these, anywhere.

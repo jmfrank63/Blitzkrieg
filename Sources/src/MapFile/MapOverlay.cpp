@@ -248,6 +248,13 @@ bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUnd
 	SCrossetDesc crossetDesc;
 	LoadDataResource( rTerrain.szTilesetDesc, "", false, 0, "tileset", tilesetDesc );
 	LoadDataResource( rTerrain.szCrossetDesc, "", false, 0, "crosset", crossetDesc );
+	// CTerrainBuilder::ComparePriority indexes tileset.terrtypes without
+	// checking (RandomMapGen/TerrainBuilder.cpp:34), so an unreadable tileset
+	// reaches it as an empty vector and takes the process down. Refuse here and
+	// let the caller say the descriptor is missing, which is a data problem
+	// rather than a paint that failed.
+	if ( tilesetDesc.terrtypes.empty() )
+		return false;
 	return CMapInfo::UpdateTerrainCrosses( &rTerrain, r, tilesetDesc, crossetDesc );
 }
 
