@@ -146,8 +146,14 @@ Tests that need no renderer use the data-only startup instead.
 
 There is no `CMapInfo::Load`: it is declared (`RandomMapGen/MapInfo_Types.h`)
 and never defined, and M1 does not define it. M1 adds a small, GFX-free C++
-unit, `Formats/MapFile.{h,cpp}`, with a reader and a writer for both formats.
-It is lifted from the two places that already do this correctly:
+library, `Sources/src/MapFile`, with a reader and a writer for both formats,
+an equivalence comparator, and the snapshot overlay. It is its own library
+rather than part of `Formats` because it calls `CMapInfo::IsValid`,
+`PackFrameIndices` and `UpdateTerrainCrosses`, which live in `RandomMapGen` -
+and `RandomMapGen` already includes `Formats/fmtMap.h`, so putting these files
+in `Formats` would make it depend on the library that depends on it.
+The reader and the writer are lifted from the two places that already do this
+correctly:
 
 - **Read** (the game's reader, `GameTT/iMissionInternal.cpp:1362-1404`):
   - `.xml`: `CreateDataTreeSaver( stream, IDataTree::READ )` then
@@ -192,6 +198,17 @@ Every engine object is recorded against the snapshot object it came from:
 its list (`objects` or `scenarioObjects`) and index, keyed by the object's
 **link ID**. Objects whose type is unknown are not placed in the engine. They
 are still kept in the snapshot, and the document lists them as unknown.
+
+**Frame indices and unknown types.** `CMapInfo::PackFrameIndices` and
+`UnpackFrameIndices` (`RandomMapGen/MapInfo_StaticMethods.cpp:74-118`, loops at
+606-638) look each object's type up with `pGDB->GetDesc( name )` and touch
+`nFrameIndex` only for FENCE, ENTRENCHMENT and BRIDGE objects. For a name the
+object database does not know, `GetDesc` returns null; the `NI_ASSERT_T` that
+guards the next line compiles away in release (`Misc/ModernAssert.h:57-58`) and
+the dereference crashes. Both functions iterate every object with no other
+guard. So the editor never repacks a whole map: it packs only the objects it
+added or edited, and only when their type is known. An unknown object's
+`nFrameIndex` is written back exactly as it was read.
 
 ### Saving: the snapshot and the overlay
 
