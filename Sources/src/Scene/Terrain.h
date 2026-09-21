@@ -30,8 +30,16 @@ struct SSoundTerrainInfo
 	int nTerrainType;											// type of this terrain
 	SSoundTerrainInfo() : fWeight( 0.0f ), vPos( VNULL2 ), nTerrainType( -1 ) {}
 };
+interface ITerrainEditor;
 interface ITerrain : public IRefCount
 {
+	// The same object seen as the editor's interface. ITerrainEditor is a
+	// sibling base of CTerrain and not related to ITerrain, so a caller cannot
+	// static_cast between them and a dynamic_cast would have to cross the module
+	// boundary - which returns null on the Itanium ABI, where the two modules'
+	// typeinfo copies do not unify (see the note in Common/MOBuilding.cpp). The
+	// cast belongs inside Scene, where the two are one object.
+	virtual interface ITerrainEditor* STDCALL GetEditor() = 0;
 	virtual void STDCALL Init( interface ISingleton *pSingleton ) = 0;
 	virtual void STDCALL ResetPosition() = 0;
 	virtual int STDCALL GetSizeX() const = 0;

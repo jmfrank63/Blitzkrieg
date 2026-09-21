@@ -10,6 +10,7 @@
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
 #include "../Scene/Terrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/VA_Types.h"
 
 namespace {
@@ -492,5 +493,154 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 	// The engine takes the whole table at once, so it is handed the map's.
 	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
 		pAIEditor->SetDiplomacies( pSession->snapshot.diplomacies );
+	return true;
+}
+
+namespace {
+// The engine's terrain, through the interface only Scene can hand out: a
+// dynamic_cast from ITerrain to its sibling ITerrainEditor would cross the
+// module boundary and come back null on the Itanium ABI.
+ITerrainEditor* EngineTerrain()
+{
+	IScene *pScene = GetSingleton<IScene>();
+	ITerrain *pTerrain = pScene != 0 ? pScene->GetTerrain() : 0;
+	return pTerrain != 0 ? pTerrain->GetEditor() : 0;
+}
+}
+
+bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	if ( rCells.empty() )
+		return true;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pEngineTerrain == 0 || pAIEditor == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+
+	// The region is taken before the paint, from the copy that will be saved:
+	// it depends only on which cells are named, and both copies have the same
+	// terrain size.
+	const CTRect<int> rPatches = NMapOverlay::AffectedPatches( pSession->snapshot.terrain, rCells );
+	NMapOverlay::SPaintUndo undo;
+	if ( !NMapOverlay::Paint( &pSession->snapshot, rCells, &undo ) )
+	{
+		pSession->szMessage = "the map would not take that paint (a cell outside it, or no tileset)";
+		return false;
+	}
+	// The same deterministic function on the copy the engine was built from, so
+	// the two cannot drift; TerrainMatchesEngine is what catches it if they do.
+	NMapOverlay::SPaintUndo workingUndo;
+	NMapOverlay::Paint( &pSession->working, rCells, &workingUndo );
+
+	// The engine keeps its own STerrainInfo, loaded when the map opened, so
+	// painting the bridge's copies leaves it showing the old tiles. It is given
+	// the painted cells and then runs its own Update, which is the same
+	// preprocessing pass and the same cross generation the overlay just ran -
+	// same input, same function, so the two land on the same answer, and
+	// TerrainMatchesEngine is what says so rather than this comment.
+	for ( size_t i = 0; i < rCells.size(); ++i )
+		if ( rCells[i].nX >= 0 && rCells[i].nY >= 0 &&
+		     rCells[i].nX < pSession->snapshot.terrain.tiles.GetSizeX() &&
+		     rCells[i].nY < pSession->snapshot.terrain.tiles.GetSizeY() )
+			pEngineTerrain->SetTile( rCells[i].nX, rCells[i].nY, rCells[i].tile );
+	pEngineTerrain->Update( rPatches );
+	pAIEditor->UpdateTerrain( rPatches, pSession->working.terrain );
+	return true;
+}
+
+bool TerrainMatchesEngine( SEditorSession *pSession )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const STerrainInfo &rEngine = pEngineTerrain->GetTerrainInfo();
+	// The snapshot, not the working copy: the snapshot is what gets written, so
+	// this asks the question the editor actually cares about - does the engine
+	// show what the file will hold. Shades are left out on purpose; the working
+	// copy has UpdateTerrainShades applied and the snapshot may not, and paint
+	// does not touch them.
+	const STerrainInfo &rMap = pSession->snapshot.terrain;
+	if ( rEngine.tiles.GetSizeX() != rMap.tiles.GetSizeX() || rEngine.tiles.GetSizeY() != rMap.tiles.GetSizeY() )
+	{
+		pSession->szMessage = "the engine's terrain is a different size from the map's";
+		return false;
+	}
+	for ( int y = 0; y < rMap.tiles.GetSizeY(); ++y )
+		for ( int x = 0; x < rMap.tiles.GetSizeX(); ++x )
+			if ( rEngine.tiles[y][x].tile != rMap.tiles[y][x].tile ||
+			     rEngine.tiles[y][x].noise != rMap.tiles[y][x].noise )
+			{
+				pSession->szMessage = NStr::Format( "tile %d,%d: engine has %d/%d, the map has %d/%d",
+				                                    x, y, int( rEngine.tiles[y][x].tile ), int( rEngine.tiles[y][x].noise ),
+				                                    int( rMap.tiles[y][x].tile ), int( rMap.tiles[y][x].noise ) );
+				return false;
+			}
+	if ( rEngine.patches.GetSizeX() != rMap.patches.GetSizeX() || rEngine.patches.GetSizeY() != rMap.patches.GetSizeY() )
+	{
+		pSession->szMessage = "the engine has a different number of patches from the map";
+		return false;
+	}
+	for ( int y = 0; y < rMap.patches.GetSizeY(); ++y )
+		for ( int x = 0; x < rMap.patches.GetSizeX(); ++x )
+		{
+			const STerrainPatchInfo &rEnginePatch = rEngine.patches[y][x];
+			const STerrainPatchInfo &rMapPatch = rMap.patches[y][x];
+			if ( rEnginePatch.basecrosses.size() != rMapPatch.basecrosses.size() )
+			{
+				pSession->szMessage = NStr::Format( "patch %d,%d: engine has %d crosses, the map has %d",
+				                                    x, y, int( rEnginePatch.basecrosses.size() ), int( rMapPatch.basecrosses.size() ) );
+				return false;
+			}
+			// Where the crosses are and what they join, but not which artwork was
+			// drawn for them. STileTypeDesc::GetMapsIndex picks the variant with
+			// rand() against the probability ranges in the tileset
+			// (Formats/fmtTerrain.h:84-92), so the engine and the map each roll
+			// their own and the indices differ by design - measured as
+			// "engine has 67/157, the map has 67/147", the same joined tile with
+			// a different picture of it. Everything that decides the shape of the
+			// terrain is compared; only the roll is not.
+			for ( size_t i = 0; i < rMapPatch.basecrosses.size(); ++i )
+				if ( rEnginePatch.basecrosses[i].tile != rMapPatch.basecrosses[i].tile ||
+				     rEnginePatch.basecrosses[i].x != rMapPatch.basecrosses[i].x ||
+				     rEnginePatch.basecrosses[i].y != rMapPatch.basecrosses[i].y ||
+				     rEnginePatch.basecrosses[i].flags != rMapPatch.basecrosses[i].flags )
+				{
+					pSession->szMessage = NStr::Format( "patch %d,%d cross %d: engine joins tile %d at %d,%d flags %d, the map joins tile %d at %d,%d flags %d",
+					                                    x, y, int( i ),
+					                                    int( rEnginePatch.basecrosses[i].tile ), int( rEnginePatch.basecrosses[i].x ),
+					                                    int( rEnginePatch.basecrosses[i].y ), int( rEnginePatch.basecrosses[i].flags ),
+					                                    int( rMapPatch.basecrosses[i].tile ), int( rMapPatch.basecrosses[i].x ),
+					                                    int( rMapPatch.basecrosses[i].y ), int( rMapPatch.basecrosses[i].flags ) );
+					return false;
+				}
+		}
+	return true;
+}
+
+bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY )
+{
+	if ( pSession == 0 || !pSession->bMapOpen || pnX == 0 || pnY == 0 )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	if ( !pEngineTerrain->GetTileIndex( CVec3( wx, wy, 0.0f ), pnX, pnY ) )
+	{
+		pSession->szMessage = "that point is not on the map";
+		return false;
+	}
 	return true;
 }

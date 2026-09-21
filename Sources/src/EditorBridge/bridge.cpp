@@ -324,6 +324,62 @@ BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *pSession, int nPlayer, int
 	} );
 }
 
+BkEditorStatus BkEditorPaint( BkEditorSession *pSession, const BkEditorPaintCell *pCells, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nCount < 0 || ( nCount > 0 && pCells == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<NMapOverlay::SPaintCell> cells;
+		cells.reserve( nCount );
+		for ( int i = 0; i < nCount; ++i )
+		{
+			NMapOverlay::SPaintCell cell;
+			cell.nX = pCells[i].x;
+			cell.nY = pCells[i].y;
+			cell.tile = pCells[i].tile;
+			cell.noise = pCells[i].noise;
+			cells.push_back( cell );
+		}
+		return PaintIntoSession( pSession, cells ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorWorldToTile( BkEditorSession *pSession, float wx, float wy, int *pnX, int *pnY )
+{
+	if ( pnX != 0 ) *pnX = -1;
+	if ( pnY != 0 ) *pnY = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnX == 0 || pnY == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return WorldToTile( pSession, wx, wy, pnX, pnY ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return TerrainMatchesEngine( pSession ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorSetMapType( BkEditorSession *pSession, int nType )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

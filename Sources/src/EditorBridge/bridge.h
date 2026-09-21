@@ -124,6 +124,25 @@ typedef struct
 
 BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id, BkEditorObjectState *out );
 
+/* Terrain. One paint command, however many cells the brush covered: the
+   function runs once per command on the bridge's own copy - the same
+   deterministic one the map file tier tests - and the region it touched is
+   pushed into the engine. The engine is never the source of the saved terrain,
+   because the engine's own update and that function agree only inside the
+   region. */
+typedef struct { int x, y; unsigned char tile, noise; } BkEditorPaintCell;
+BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count );
+
+/* A world point to the tile it falls in - the brush's other half, through the
+   engine's own conversion. Screen to world is BkEditorScreenToWorld; the two
+   compose. BK_EDITOR_REFUSED means the point is not on the map. */
+BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy, int *out_x, int *out_y );
+
+/* Compares the engine's terrain against the copy that will be saved, and names
+   the first difference in BkEditorLastMessage. For the engine tier: it walks
+   the whole map, and the editor has no reason to call it. */
+BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *session );
+
 /* The map's own two fields, not a player's: nType is the mission kind and
    nAttackingSide is which side attacks in it. The engine has no say in either,
    so they take no engine call and cannot be refused. */

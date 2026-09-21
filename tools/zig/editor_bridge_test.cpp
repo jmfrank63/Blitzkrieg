@@ -12,6 +12,7 @@
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/MapFile/MapOverlay.h"
+#include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static std::string DirectoryOf( const char *pszPath )
@@ -305,6 +306,127 @@ static void TestMapsOwnFields( BkEditorSession *pSession, const std::string &szS
 	remove( szSaved.c_str() );
 }
 
+// Two terrains, everything but which picture was drawn for each cross.
+//
+// STileTypeDesc::GetMapsIndex picks the artwork for a cross with rand() against
+// the tileset's probability ranges (Formats/fmtTerrain.h:84-92), so painting the
+// same cell twice gives the same terrain with different pictures on it - two
+// independently painted maps can never be equal field for field, and asking for
+// that would be asking the engine to be something it is not. Everything that
+// decides the shape of the terrain is compared; only the roll is not.
+static bool SameTerrainButForTheRoll( const STerrainInfo &rLeft, const STerrainInfo &rRight, std::string *pWhere )
+{
+	pWhere->clear();
+	if ( rLeft.tiles.GetSizeX() != rRight.tiles.GetSizeX() || rLeft.tiles.GetSizeY() != rRight.tiles.GetSizeY() )
+	{
+		*pWhere = "terrain.tiles size";
+		return false;
+	}
+	for ( int y = 0; y < rLeft.tiles.GetSizeY(); ++y )
+		for ( int x = 0; x < rLeft.tiles.GetSizeX(); ++x )
+			if ( rLeft.tiles[y][x].tile != rRight.tiles[y][x].tile || rLeft.tiles[y][x].noise != rRight.tiles[y][x].noise )
+			{
+				*pWhere = NStr::Format( "terrain.tiles[%d][%d]", y, x );
+				return false;
+			}
+	if ( rLeft.patches.GetSizeX() != rRight.patches.GetSizeX() || rLeft.patches.GetSizeY() != rRight.patches.GetSizeY() )
+	{
+		*pWhere = "terrain.patches size";
+		return false;
+	}
+	for ( int y = 0; y < rLeft.patches.GetSizeY(); ++y )
+		for ( int x = 0; x < rLeft.patches.GetSizeX(); ++x )
+		{
+			const STerrainPatchInfo &rL = rLeft.patches[y][x];
+			const STerrainPatchInfo &rR = rRight.patches[y][x];
+			if ( rL.basecrosses.size() != rR.basecrosses.size() )
+			{
+				*pWhere = NStr::Format( "terrain.patches[%d][%d].basecrosses size", y, x );
+				return false;
+			}
+			for ( size_t i = 0; i < rL.basecrosses.size(); ++i )
+				if ( rL.basecrosses[i].tile != rR.basecrosses[i].tile || rL.basecrosses[i].x != rR.basecrosses[i].x ||
+				     rL.basecrosses[i].y != rR.basecrosses[i].y || rL.basecrosses[i].flags != rR.basecrosses[i].flags )
+				{
+					*pWhere = NStr::Format( "terrain.patches[%d][%d].basecrosses[%d]", y, x, int( i ) );
+					return false;
+				}
+		}
+	return true;
+}
+
+// The spec's engine-tier terrain check: after a paint, the engine's terrain
+// equals the bridge's copy in tiles and patch crosses, and the saved file
+// equals what the overlay produces on its own. The bridge's copy is what gets
+// saved, so a disagreement means the editor draws one thing and writes another.
+static void TestPaintReachesEngineAndFile( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szSaved = szScratch + "\\bridge-painted.bzm";
+	CMapInfo expected;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( expected.terrain.tiles.GetSizeX() > 64, "the map is big enough to paint in" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to paint opens" ) )
+		return;
+
+	BkEditorPaintCell cell;
+	cell.x = 20;
+	cell.y = 20;
+	cell.noise = expected.terrain.tiles[20][20].noise;
+	cell.tile = (unsigned char)( expected.terrain.tiles[20][20].tile + 1 );
+	if ( !Check( BkEditorPaint( pSession, &cell, 1 ) == BK_EDITOR_OK, "a cell paints through the bridge" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	if ( !Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+	             "and the engine's terrain matches the copy that will be saved" ) )
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+
+	// The brush's other half: a world point becomes the cell it falls in. An
+	// object's own position, so it is inside the map by construction.
+	if ( Check( !expected.objects.empty(), "the map has an object to take a position from" ) )
+	{
+		// A map's positions are in AI coordinates and the terrain converts world
+		// ones, which is the difference the MFC editor spells AI2Vis before every
+		// such call (TemplateEditorFrame1.cpp:1747).
+		CVec3 vWorld;
+		AI2Vis( &vWorld, expected.objects[0].vPos );
+		int nTileX = -1, nTileY = -1;
+		Check( BkEditorWorldToTile( pSession, vWorld.x, vWorld.y, &nTileX, &nTileY ) == BK_EDITOR_OK,
+		       "a world point becomes a tile index" );
+		Check( nTileX >= 0 && nTileX < expected.terrain.tiles.GetSizeX() &&
+		       nTileY >= 0 && nTileY < expected.terrain.tiles.GetSizeY(), "inside the map" );
+	}
+
+	// And what was saved is what the overlay produces with no engine in sight -
+	// the same deterministic function the map file tier tests.
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "the painted map saves" ) )
+		return;
+	std::vector<NMapOverlay::SPaintCell> cells;
+	NMapOverlay::SPaintCell overlayCell;
+	overlayCell.nX = cell.x;
+	overlayCell.nY = cell.y;
+	overlayCell.tile = cell.tile;
+	overlayCell.noise = cell.noise;
+	cells.push_back( overlayCell );
+	NMapOverlay::SPaintUndo undo;
+	if ( !Check( NMapOverlay::Paint( &expected, cells, &undo ), "the overlay paints the same cell" ) )
+		return;
+	CMapInfo saved;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( saved.terrain.tiles[cell.y][cell.x].tile == cell.tile, "the painted tile reached the file" );
+	Check( SameTerrainButForTheRoll( expected.terrain, saved.terrain, &szWhere ),
+	       szWhere.empty() ? "and the saved terrain is the expected one"
+	                       : ( "painted save differs at " + szWhere ).c_str() );
+	Check( NMapFile::CompareAltitudeArrays( expected.terrain, saved.terrain ),
+	       "and painting left the altitudes alone" );
+	remove( szSaved.c_str() );
+}
+
 // A bridge names its spans by link ID, so deleting one has to be refused with
 // a reason, and the map has to be exactly as it was afterwards. A refusal that
 // left half an edit behind would save a map the editor never showed.
@@ -498,6 +620,7 @@ int main( int argc, char **argv )
 		TestRefusedEditsReachNeither( pSession, szScratch );
 		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );
+		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );

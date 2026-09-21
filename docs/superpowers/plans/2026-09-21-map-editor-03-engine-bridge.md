@@ -873,6 +873,43 @@ Note the cross-module `dynamic_cast` caveat recorded in `Common/MOBuilding.cpp`:
 
 Expected: `editor-bridge: PASS`
 
+**What this turned up:**
+
+*A cross's artwork is chosen with `rand()`.* `STileTypeDesc::GetMapsIndex`
+(`Formats/fmtTerrain.h:84-92`) rolls against the tileset's probability ranges
+every time a cross is regenerated, so painting the same cell twice gives the
+same terrain with different pictures on it. The plan asked for the engine's
+patch crosses to equal the bridge's; they never can, and neither can two
+independently painted maps. Measured as `engine has 67/157, the map has 67/147`
+- the same joined tile, a different picture of it. Both comparisons now check
+everything that decides the shape of the terrain - the tiles, and each cross's
+position, joined tile and flags - and leave the roll out. A painted map is
+therefore not byte-reproducible; the shipped-map round-trip is unaffected
+because it never repaints.
+
+*The engine keeps its own `STerrainInfo`.* `CTerrain::Load` copies the terrain
+in and `CTerrain::Update` works on that copy, so painting the bridge's map left
+the engine showing the old tiles - measured as `tile 20,20: engine has 159/1,
+the map has 160/1`. The painted cells go in through `ITerrainEditor::SetTile`
+and the engine then runs its own `Update`, which is the same preprocessing pass
+and the same cross generation the overlay just ran.
+
+*`ITerrainEditor` needed a way out of `ITerrain`.* It is a sibling base of
+`CTerrain`, not related to `ITerrain`, so there is no `static_cast` between them
+and a `dynamic_cast` would cross the module boundary and return null on the
+Itanium ABI (the note in `Common/MOBuilding.cpp`). `ITerrain::GetEditor` is new
+and does the cast inside Scene, where the two are one object.
+
+*A map's positions are AI coordinates.* `ITerrainEditor::GetTileIndex` takes a
+world point, so the test converts with `AI2Vis` before calling
+`BkEditorWorldToTile` - which is what the MFC editor spells out before every
+such call (`TemplateEditorFrame1.cpp:1747`).
+
+*Legacy sources read as binary to grep.* `RandomMapGen/TerrainBuilder.cpp` and
+several others carry Cyrillic comments in a legacy codepage, so a plain `grep`
+skips them silently and the definition of a function looks absent from the
+tree. Use `grep -a`.
+
 - [ ] **Step 5: Commit**
 
 ```bash

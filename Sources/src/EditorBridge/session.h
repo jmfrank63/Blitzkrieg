@@ -84,6 +84,18 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused );
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy );
 
+// Paints cells into the map and pushes the region they touched into the engine.
+// Returns false with the reason in szMessage.
+bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells );
+
+// Compares the engine's terrain against the copy that will be saved, in tiles
+// and patch crosses. Returns false and names the first difference in szMessage.
+// For the engine tier; the editor has no reason to call it.
+bool TerrainMatchesEngine( SEditorSession *pSession );
+
+// The tile a world point falls in, through the engine's own conversion.
+bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY );
+
 // Reads the object's current record out of the snapshot, so a caller changing
 // one of its three editable fields can leave the other two alone.
 const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nLinkID );
