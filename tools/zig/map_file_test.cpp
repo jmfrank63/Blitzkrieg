@@ -4,6 +4,7 @@
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
+#include "../../Sources/src/MapFile/MapOverlay.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static int g_nFailures = 0;
@@ -123,6 +124,152 @@ static void TestRoundTripIsEquivalent()
 	std::string szWhere;
 	Check( NMapFile::AreEquivalent( original, reread, &szWhere ),
 	       szWhere.empty() ? "the round trip is equivalent" : ( "round trip differs at " + szWhere ).c_str() );
+}
+
+static void TestObjectOverlay()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	const CMapInfo original = map;
+
+	// An added object lands at the end of its list with a fresh link ID.
+	NMapOverlay::SAddObject add;
+	add.szName = original.objects.empty() ? std::string( "Unknown_Test_Object" ) : original.objects[0].szName;
+	add.vPos = CVec3( 100.0f, 100.0f, 0.0f );
+	add.nDir = 0;
+	add.nPlayer = 0;
+	add.bScenario = false;
+	const int nExpectedLinkID = NMapOverlay::NextLinkID( original );
+	int nNewLinkID = -1;
+	Check( NMapOverlay::AddObject( &map, add, &nNewLinkID ), "an object is added" );
+	Check( map.objects.size() == original.objects.size() + 1, "at the end of the list" );
+	Check( nNewLinkID == nExpectedLinkID, "with a link ID above every one in use" );
+	if ( !map.objects.empty() )
+	{
+		const SMapObjectInfo &rAdded = map.objects.back();
+		Check( rAdded.link.nLinkID == nNewLinkID, "and the record carries it" );
+		Check( rAdded.nFrameIndex == 0, "and an unpacked frame index, for the bridge to pack" );
+	}
+
+	// A moved object keeps its record and changes three fields.
+	if ( !original.objects.empty() )
+	{
+		NMapOverlay::SMoveObject move;
+		move.nLinkID = original.objects[0].link.nLinkID;
+		move.vPos = CVec3( original.objects[0].vPos.x + 32.0f, original.objects[0].vPos.y, original.objects[0].vPos.z );
+		move.nDir = original.objects[0].nDir + 1024;
+		move.nPlayer = original.objects[0].nPlayer;
+		Check( NMapOverlay::MoveObject( &map, move ), "an object moves" );
+		Check( map.objects[0].vPos.x == move.vPos.x, "to where it was put" );
+		Check( map.objects[0].nDir == move.nDir, "and turns" );
+		Check( map.objects[0].nFrameIndex == original.objects[0].nFrameIndex, "and keeps its packed frame index" );
+		Check( map.objects[0].fHP == original.objects[0].fHP, "and its HP" );
+		Check( map.objects[0].nScriptID == original.objects[0].nScriptID, "and its script ID" );
+		Check( map.objects[0].szName == original.objects[0].szName, "and its name" );
+	}
+
+	// A referenced object refuses to be deleted, and says what holds it.
+	CMapInfo forDelete = original;
+	int nReferenced = -1;
+	for ( size_t i = 0; i < forDelete.objects.size() && nReferenced < 0; ++i )
+	{
+		std::vector<std::string> references;
+		NMapOverlay::FindReferences( forDelete, forDelete.objects[i].link.nLinkID, &references );
+		if ( !references.empty() )
+			nReferenced = forDelete.objects[i].link.nLinkID;
+	}
+	if ( nReferenced >= 0 )
+	{
+		std::string szRefusal;
+		const CMapInfo before = forDelete;
+		Check( !NMapOverlay::DeleteObject( &forDelete, nReferenced, &szRefusal ), "a referenced object refuses to go" );
+		Check( !szRefusal.empty(), "and names what refers to it" );
+		std::string szWhere;
+		Check( NMapFile::AreEquivalent( before, forDelete, &szWhere ), "and a refused delete changes nothing" );
+	}
+	else
+		printf( "map-file: (no referenced object in coldwinter; refusal case not exercised)\n" );
+}
+
+// A delete nothing refers to takes the record out and leaves every other
+// record alone - including the link IDs, which are never renumbered.
+static void TestDeleteWithNoReferences()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	int nFree = -1;
+	size_t nIndex = 0;
+	for ( size_t i = 0; i < map.objects.size() && nFree < 0; ++i )
+	{
+		std::vector<std::string> references;
+		NMapOverlay::FindReferences( map, map.objects[i].link.nLinkID, &references );
+		if ( references.empty() )
+		{
+			nFree = map.objects[i].link.nLinkID;
+			nIndex = i;
+		}
+	}
+	if ( !Check( nFree >= 0, "the map has an object nothing refers to" ) )
+		return;
+	const size_t nBefore = map.objects.size();
+	const int nNeighbourLinkID = map.objects[nIndex + 1 < nBefore ? nIndex + 1 : 0].link.nLinkID;
+	std::string szRefusal;
+	Check( NMapOverlay::DeleteObject( &map, nFree, &szRefusal ), "an unreferenced object deletes" );
+	Check( map.objects.size() == nBefore - 1, "and the list is one shorter" );
+	bool bGone = true, bNeighbourKept = false;
+	for ( size_t i = 0; i < map.objects.size(); ++i )
+	{
+		bGone = bGone && map.objects[i].link.nLinkID != nFree;
+		bNeighbourKept = bNeighbourKept || map.objects[i].link.nLinkID == nNeighbourLinkID;
+	}
+	Check( bGone, "the deleted link ID is gone" );
+	Check( bNeighbourKept, "and nothing else was renumbered" );
+}
+
+// Diplomacy is a byte per player, and changing one changes exactly one.
+static void TestDiplomacyChange()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( map.diplomacies.size() >= 2, "the map has at least two players" ) )
+		return;
+	const std::vector<BYTE> before = map.diplomacies;
+	const BYTE nNew = BYTE( before[1] == 0 ? 1 : 0 );
+	Check( NMapOverlay::SetDiplomacy( &map, 1, nNew ), "diplomacy changes" );
+	Check( map.diplomacies[1] == nNew, "for the player asked for" );
+	Check( map.diplomacies[0] == before[0], "and for no one else" );
+	Check( !NMapOverlay::SetDiplomacy( &map, int( before.size() ) + 5, 0 ),
+	       "a player that does not exist is refused" );
+}
+
+// An object whose type the database does not know is still an object: it goes
+// out exactly as it came in. This is the check that guards the frame-index
+// trap in the spec's "Frame indices and unknown types".
+static void TestUnknownObjectSurvives()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	if ( map.objects.empty() )
+		return;
+	map.objects[0].szName = "No_Such_Object_In_Any_Database";
+	map.objects[0].nFrameIndex = 12345;
+	const CMapInfo expected = map;
+	Check( NMapFile::Write( "zig-out\\local-test\\unknown-object.bzm", map, &szError ), szError.c_str() );
+	CMapInfo reread;
+	szError.clear();
+	if ( !Check( NMapFile::Read( "zig-out\\local-test\\unknown-object.bzm", &reread, &szError ), szError.c_str() ) )
+		return;
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+	       szWhere.empty() ? "the unknown object survived" : ( "unknown object changed at " + szWhere ).c_str() );
 }
 
 static const char *Extension( const std::string &szPath )
@@ -325,6 +472,10 @@ int main( int argc, char **argv )
 	bool bAll = false;
 	for ( int i = 1; i < argc; ++i )
 		bAll = bAll || strcmp( argv[i], "--all" ) == 0;
+	TestObjectOverlay();
+	TestDeleteWithNoReferences();
+	TestDiplomacyChange();
+	TestUnknownObjectSurvives();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );
