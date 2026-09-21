@@ -261,6 +261,19 @@ bool EngineIsAt( IAIEditor *pAIEditor, IRefCount *pObject, const CVec3 &vPos )
 	return ToEngineCoord( vCenter.x ) == ToEngineCoord( vPos.x ) &&
 	       ToEngineCoord( vCenter.y ) == ToEngineCoord( vPos.y );
 }
+
+bool EngineFacesDir( IAIEditor *pAIEditor, IRefCount *pObject, int nDir )
+{
+	return pAIEditor->GetDir( pObject ) == WORD( nDir );
+}
+
+bool EngineBelongsTo( IAIEditor *pAIEditor, IRefCount *pObject, int nPlayer )
+{
+	// -1 means the object's kind has no owner, which is not the same as
+	// belonging to player -1: the engine cannot hold what was asked for.
+	const int nEnginePlayer = pAIEditor->GetPlayer( pObject );
+	return nEnginePlayer >= 0 && nEnginePlayer == nPlayer;
+}
 }
 
 const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nLinkID )
@@ -353,17 +366,26 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	NMapOverlay::MoveObject( &pSession->working, move );
 
 	IRefCount *pAIObject = itEngine->second;
-	if ( before.vPos.x != vPos.x || before.vPos.y != vPos.y )
+	// Each field is asked for only when it is actually changing, and each is
+	// read back only when it was asked for: an object that was never turned must
+	// not be refused because its kind reports no direction.
+	const bool bMoving = before.vPos.x != vPos.x || before.vPos.y != vPos.y;
+	const bool bTurning = before.nDir != nDir;
+	const bool bReowning = before.nPlayer != nPlayer;
+	if ( bMoving )
 		pAIEditor->MoveObject( pAIObject, ToEngineCoord( vPos.x ), ToEngineCoord( vPos.y ) );
-	if ( before.nDir != nDir )
+	if ( bTurning )
 		pAIEditor->TurnObject( pAIObject, WORD( nDir ) );
-	if ( before.nPlayer != nPlayer )
+	if ( bReowning )
 		pAIEditor->SetPlayer( pAIObject, nPlayer );
 
-	// The engine silently does nothing when it will not have the object where it
-	// was asked - CAIUnit::CanSetNewCoord, IsRectInsideOfMap - so the only way to
-	// know is to look.
-	if ( !EngineIsAt( pAIEditor, pAIObject, vPos ) )
+	// The engine silently does nothing when it will not have what it was asked
+	// for - CAIUnit::CanSetNewCoord and IsRectInsideOfMap for a move or a turn,
+	// an empty SetPlayerForEditor for an object nobody can own - so the only way
+	// to know is to look at all three afterwards.
+	if ( ( bMoving && !EngineIsAt( pAIEditor, pAIObject, vPos ) ) ||
+	     ( bTurning && !EngineFacesDir( pAIEditor, pAIObject, nDir ) ) ||
+	     ( bReowning && !EngineBelongsTo( pAIEditor, pAIObject, nPlayer ) ) )
 	{
 		NMapOverlay::SMoveObject back;
 		back.nLinkID = nLinkID;
@@ -372,7 +394,7 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 		back.nPlayer = before.nPlayer;
 		NMapOverlay::MoveObject( &pSession->snapshot, back );
 		NMapOverlay::MoveObject( &pSession->working, back );
-		pSession->szMessage = "the engine would not put the object there";
+		pSession->szMessage = "the engine would not take that placement for the object";
 		if ( pbRefused ) *pbRefused = true;
 		return false;
 	}

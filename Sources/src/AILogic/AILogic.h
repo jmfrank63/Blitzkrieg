@@ -33,6 +33,11 @@ interface IAIEditor : public IRefCount
 	
 	virtual const CVec2& STDCALL GetCenter( IRefCount *pObj ) const = 0;
 	virtual const WORD STDCALL GetDir( IRefCount *pObj ) const = 0;
+	// The object's owner, or -1 when its kind has no owner - a tree, a
+	// formation. An editor that has just set one needs to be able to see
+	// whether it took: SetPlayer is silent either way, and CStaticObject's
+	// SetPlayerForEditor is an empty body for everything that cannot be owned.
+	virtual const int STDCALL GetPlayer( IRefCount *pObj ) const = 0;
 	
 	virtual const int STDCALL GetUnitDBID( IRefCount *pObj ) const = 0;
 	

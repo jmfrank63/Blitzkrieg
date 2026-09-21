@@ -254,12 +254,29 @@ const WORD CAIEditor::GetDir( IRefCount *pObj ) const
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
 		return pUnit->GetFrontDir();
+	// The object's own answer, not a flat zero. A static object that can be
+	// turned keeps its direction (CTerraMeshStaticObject) and one that cannot
+	// returns 0 of its own accord (CGivenPassabilityStObject), so this now
+	// distinguishes the two - which is what lets a caller tell a turn that took
+	// from one the object could not hold. Reporting 0 for both is also how the
+	// MFC editor writes every static object out facing north when it saves from
+	// the engine (TemplateEditorFrame1.cpp:3560).
 	else if ( CStaticObject *pObject = dynamic_cast<CStaticObject*>(pObj) )
-		return 0;
+		return pObject->GetDir();
 	else
 		NI_ASSERT_T( false, "Wrong object passed" );
 
 	return 0;
+}
+const int CAIEditor::GetPlayer( IRefCount *pObj ) const
+{
+	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
+		return pUnit->GetPlayer();
+	else if ( CStaticObject *pObject = dynamic_cast<CStaticObject*>(pObj) )
+		return pObject->GetPlayer();
+	// A formation, say. It has no owner of its own, and saying so is better
+	// than answering 0 and letting a caller believe it read one.
+	return -1;
 }
 const int CAIEditor::GetUnitDBID( IRefCount *pObj ) const
 {

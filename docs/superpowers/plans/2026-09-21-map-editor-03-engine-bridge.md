@@ -735,13 +735,32 @@ Find an object something refers to (the map-file tier's `TestObjectOverlay` show
 
 **What this turned up:**
 
-*"Refused" has to be read back from the engine.* `CAIEditor::MoveObject` and
-`TurnObject` end in the same unconditional `return false` as `AddNewObject`
-(`AIEditorInternal.cpp:126` and `161`), and they refuse silently -
-`CanSetNewCoord` and `IsRectInsideOfMap` simply leave the object where it was.
-So each edit applies the overlay, calls the engine, then asks the engine where
-the object actually is and rolls the snapshot back if the two disagree. Taking
-a return value at face value here would report every refusal as a success.
+*"Refused" has to be read back from the engine - and from all three fields.*
+`CAIEditor::MoveObject` and `TurnObject` end in the same unconditional
+`return false` as `AddNewObject` (`AIEditorInternal.cpp:126` and `161`), and
+they refuse silently - `CanSetNewCoord` and `IsRectInsideOfMap` simply leave
+the object where it was. So each edit applies the overlay, calls the engine,
+then asks the engine what it is actually holding and rolls the snapshot back if
+the two disagree.
+
+Reading back the position alone is not enough, and the gap is not theoretical.
+The engine's object for a simple static object is a `CGivenPassabilityStObject`,
+whose `GetDir` returns 0 whatever it is told and whose `SetPlayerForEditor` is
+`CStaticObject`'s empty body - so turning a tree or giving it to a player is
+ignored in silence. Checking only the position wrote both into the file:
+measured as `a refused edit reached the file at objects[260].nDir`. Each of the
+three is now asked for only when it is changing and read back only when it was
+asked for, so an object that was never turned is not refused for having no
+direction.
+
+Two engine accessors were needed for that. `CAIEditor::GetDir` returns the
+static object's own direction rather than a flat 0, which distinguishes a
+`CTerraMeshStaticObject` that kept the turn from a `CGivenPassabilityStObject`
+that cannot - the flat 0 is also how the MFC editor writes every static object
+out facing north when it saves from the engine
+(`TemplateEditorFrame1.cpp:3560`). `IAIEditor::GetPlayer` is new, and answers
+-1 where the object's kind has no owner, which is not the same as belonging to
+player -1.
 
 *An object the map holds but the engine does not* - one outside the map, or one
 whose RPG stats are missing - is refused rather than moved in the file alone,

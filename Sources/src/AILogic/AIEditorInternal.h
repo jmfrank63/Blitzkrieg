@@ -36,6 +36,7 @@ public:
 	
 	virtual const CVec2& STDCALL GetCenter( IRefCount *pObj ) const;
 	virtual const WORD STDCALL GetDir( IRefCount *pObj ) const;
+	virtual const int STDCALL GetPlayer( IRefCount *pObj ) const;
 	
 	virtual const int STDCALL GetUnitDBID( IRefCount *pObj ) const;
 	

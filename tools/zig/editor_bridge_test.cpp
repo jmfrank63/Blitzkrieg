@@ -130,12 +130,12 @@ static void TestUneditedSaveIsEquivalent( BkEditorSession *pSession, const std::
 // That equality is the point of the tier: it is what proves the two paths agree
 // rather than merely both running.
 //
-// A poplar, on purpose: PackFrameIndex only does anything for a fence, an
-// entrenchment or a bridge span, so an ordinary object is the case where the
-// bridge's extra packing step must be invisible.
+// A tank, on purpose. It is the one kind of object that can be moved, turned
+// and owned, so it exercises all three read-backs; and PackFrameIndex does
+// nothing for a unit, so the bridge's extra packing step has to be invisible.
 static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScratch )
 {
-	const char *const pszName = "W_BigPoplar";
+	const char *const pszName = "JS_2";
 	const std::string szSaved = szScratch + "\\bridge-edited.bzm";
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to edit opens" ) )
 		return;
@@ -150,6 +150,7 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	Check( nLinkID > 0, "and comes back with a link ID" );
 	Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, 100.0f ) == BK_EDITOR_OK, "and moves" );
 	Check( BkEditorTurnObject( pSession, nLinkID, 1024 ) == BK_EDITOR_OK, "and turns" );
+	Check( BkEditorSetObjectPlayer( pSession, nLinkID, 1 ) == BK_EDITOR_OK, "and changes hands" );
 	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and saves" ) )
 		return;
 
@@ -162,7 +163,7 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	add.szName = pszName;
 	add.vPos = CVec3( 132.0f, 100.0f, 0.0f );
 	add.nDir = 1024;
-	add.nPlayer = 0;
+	add.nPlayer = 1;
 	int nExpectedLinkID = -1;
 	NMapOverlay::AddObject( &expected, add, &nExpectedLinkID );
 	Check( nExpectedLinkID == nLinkID, "the two paths agree on the link ID" );
@@ -170,6 +171,54 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 		return;
 	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
 	       szWhere.empty() ? "and the saved map is the expected one" : ( "edited save differs at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
+// An edit the engine will not take must not reach the file either, and the
+// engine refuses in silence: CAIEditor's MoveObject, TurnObject and SetPlayer
+// all return nothing useful and simply leave the object as it was. A poplar is
+// the case that makes this visible - the engine's object for one is a
+// CGivenPassabilityStObject, which has no direction at all and no owner, so
+// both edits are asked for, both are ignored, and both have to come back
+// refused rather than be written into the map.
+static void TestRefusedEditsReachNeither( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szSaved = szScratch + "\\bridge-refused-edit.bzm";
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map opens" ) )
+		return;
+	int nLinkID = -1;
+	if ( !Check( BkEditorAddObject( pSession, "W_BigPoplar", 100.0f, 100.0f, 0, 0, &nLinkID ) == BK_EDITOR_OK,
+	             "a tree is added" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	Check( BkEditorTurnObject( pSession, nLinkID, 1024 ) == BK_EDITOR_REFUSED,
+	       "turning something the engine cannot turn is refused" );
+	Check( BkEditorSetObjectPlayer( pSession, nLinkID, 1 ) == BK_EDITOR_REFUSED,
+	       "and so is giving it to a player" );
+	printf( "editor-bridge: refused: %s\n", BkEditorLastMessage( pSession ) );
+	// Moving it is fine, so the refusals above are about those two fields and
+	// not about the object being untouchable.
+	Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, 100.0f ) == BK_EDITOR_OK, "but moving it is not" );
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and it saves" ) )
+		return;
+
+	CMapInfo expected, saved;
+	std::string szError, szWhere;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	NMapOverlay::SAddObject add;
+	add.szName = "W_BigPoplar";
+	add.vPos = CVec3( 132.0f, 100.0f, 0.0f );
+	add.nDir = 0;      // the refused turn left this alone
+	add.nPlayer = 0;   // and so did the refused change of hands
+	NMapOverlay::AddObject( &expected, add, 0 );
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+	       szWhere.empty() ? "with neither refused edit in it"
+	                       : ( "a refused edit reached the file at " + szWhere ).c_str() );
 	remove( szSaved.c_str() );
 }
 
@@ -388,6 +437,7 @@ int main( int argc, char **argv )
 		TestBridgeSpansAreBuilt( pSession );
 		TestUneditedSaveIsEquivalent( pSession, szScratch );
 		TestObjectEdits( pSession, szScratch );
+		TestRefusedEditsReachNeither( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
