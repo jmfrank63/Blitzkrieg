@@ -3524,7 +3524,7 @@ fn addMapFile(
     map_file_module.addIncludePath(b.path("Sources/src/Main"));
     map_file_module.addIncludePath(b.path("Sources/src/Image"));
     map_file_module.addCSourceFiles(.{
-        .files = &.{"Sources/src/MapFile/MapFile.cpp"},
+        .files = &.{ "Sources/src/MapFile/MapFile.cpp", "Sources/src/MapFile/MapEquivalence.cpp" },
         .flags = cppflagsForOptimize(optimize),
     });
     return b.addLibrary(.{

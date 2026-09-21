@@ -6,6 +6,7 @@
 #include <string>
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
+#include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static int g_nFailures = 0;
@@ -76,13 +77,67 @@ static void TestWritesWhatItRead()
 	Check( reread.terrain.tiles.GetSizeX() == map.terrain.tiles.GetSizeX(), "the terrain is the same size" );
 }
 
+static void TestComparatorSeesADifference()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), "read for comparator test" ) )
+		return;
+	CMapInfo same = map;
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( map, same, &szWhere ), "a copy is equivalent" );
+
+	CMapInfo moved = map;
+	if ( !moved.objects.empty() )
+	{
+		moved.objects[0].vPos.x += 1.0f;
+		szWhere.clear();
+		Check( !NMapFile::AreEquivalent( map, moved, &szWhere ), "a moved object is not equivalent" );
+		Check( szWhere.find( "objects[0].vPos" ) != std::string::npos, "and the comparator names the field" );
+	}
+
+	CMapInfo repainted = map;
+	if ( repainted.terrain.tiles.GetSizeX() > 0 )
+	{
+		repainted.terrain.tiles[0][0].tile = BYTE( repainted.terrain.tiles[0][0].tile + 1 );
+		szWhere.clear();
+		Check( !NMapFile::AreEquivalent( map, repainted, &szWhere ), "a changed tile is not equivalent" );
+		Check( szWhere.find( "terrain.tiles" ) != std::string::npos, "and it names the tile" );
+	}
+}
+
+// What the writer actually preserves, named. The round trip must be
+// equivalent; it need not be byte-identical with a file some older tool
+// wrote, which is why the spec asks for equivalence plus an idempotent save
+// rather than for the original's bytes.
+static void TestRoundTripIsEquivalent()
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &original, &szError ), "read for round trip" ) )
+		return;
+	const char *pszOut = "zig-out\\local-test\\coldwinter-roundtrip.bzm";
+	if ( !Check( NMapFile::Write( pszOut, original, &szError ), szError.c_str() ) )
+		return;
+	CMapInfo reread;
+	szError.clear();
+	if ( !Check( NMapFile::Read( pszOut, &reread, &szError ), szError.c_str() ) )
+		return;
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( original, reread, &szWhere ),
+	       szWhere.empty() ? "the round trip is equivalent" : ( "round trip differs at " + szWhere ).c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
+	std::printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();
 	TestWritesWhatItRead();
+	TestComparatorSeesADifference();
+	TestRoundTripIsEquivalent();
 	if ( g_nFailures == 0 )
 		std::printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
