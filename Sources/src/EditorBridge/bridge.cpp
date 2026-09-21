@@ -343,7 +343,7 @@ BkEditorStatus BkEditorPaint( BkEditorSession *pSession, const BkEditorPaintCell
 			cell.nX = pCells[i].x;
 			cell.nY = pCells[i].y;
 			cell.tile = pCells[i].tile;
-			cell.noise = pCells[i].noise;
+			cell.noise = 0;		// PaintIntoSession fills it from the engine
 			cells.push_back( cell );
 		}
 		return PaintIntoSession( pSession, cells ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;

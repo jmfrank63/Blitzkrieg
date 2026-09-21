@@ -371,11 +371,32 @@ static void TestPaintReachesEngineAndFile( BkEditorSession *pSession, const std:
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to paint opens" ) )
 		return;
 
+	// A tile the map records as noisy, painted into a cell beside one that
+	// already carries it. Noise belongs to the tile in the tileset and the
+	// bridge takes the engine's answer for it rather than a caller's, so a tile
+	// whose noise is 0 would leave that indistinguishable from not asking at
+	// all - and a tile dropped somewhere its neighbours do not match is written
+	// straight back out by the preprocessing pass, which is why this looks for
+	// a neighbour rather than any quiet cell.
+	unsigned char nNoisyTile = 0;
+	int nCellX = -1, nCellY = -1;
+	for ( int y = 1; y + 1 < expected.terrain.tiles.GetSizeY() && nCellX < 0; ++y )
+		for ( int x = 1; x + 1 < expected.terrain.tiles.GetSizeX() && nCellX < 0; ++x )
+			if ( expected.terrain.tiles[y][x].noise != 0 &&
+			     expected.terrain.tiles[y][x + 1].noise == 0 &&
+			     expected.terrain.tiles[y][x + 1].tile != expected.terrain.tiles[y][x].tile )
+			{
+				nNoisyTile = expected.terrain.tiles[y][x].tile;
+				nCellX = x + 1;
+				nCellY = y;
+			}
+	if ( !Check( nCellX >= 0, "the map has a noisy tile with a quiet neighbour to paint over" ) )
+		return;
+
 	BkEditorPaintCell cell;
-	cell.x = 20;
-	cell.y = 20;
-	cell.noise = expected.terrain.tiles[20][20].noise;
-	cell.tile = (unsigned char)( expected.terrain.tiles[20][20].tile + 1 );
+	cell.x = nCellX;
+	cell.y = nCellY;
+	cell.tile = nNoisyTile;
 	if ( !Check( BkEditorPaint( pSession, &cell, 1 ) == BK_EDITOR_OK, "a cell paints through the bridge" ) )
 	{
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
@@ -405,20 +426,27 @@ static void TestPaintReachesEngineAndFile( BkEditorSession *pSession, const std:
 	// the same deterministic function the map file tier tests.
 	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "the painted map saves" ) )
 		return;
+	CMapInfo saved;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
 	std::vector<NMapOverlay::SPaintCell> cells;
 	NMapOverlay::SPaintCell overlayCell;
 	overlayCell.nX = cell.x;
 	overlayCell.nY = cell.y;
 	overlayCell.tile = cell.tile;
-	overlayCell.noise = cell.noise;
+	// The noise flag belongs to the tile, and the bridge takes the engine's
+	// answer rather than a caller's; the file is read for it here so the two
+	// paints have the same input. That the value is right is not this
+	// comparison's job - BkEditorTerrainMatchesEngine above compares noise over
+	// the whole map, and that is what would catch a wrong one.
+	overlayCell.noise = saved.terrain.tiles[cell.y][cell.x].noise;
 	cells.push_back( overlayCell );
 	NMapOverlay::SPaintUndo undo;
 	if ( !Check( NMapOverlay::Paint( &expected, cells, &undo ), "the overlay paints the same cell" ) )
 		return;
-	CMapInfo saved;
-	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
-		return;
 	Check( saved.terrain.tiles[cell.y][cell.x].tile == cell.tile, "the painted tile reached the file" );
+	Check( saved.terrain.tiles[cell.y][cell.x].noise != 0,
+	       "and the noise the tile carries came with it, not the cell's old one" );
 	Check( SameTerrainButForTheRoll( expected.terrain, saved.terrain, &szWhere ),
 	       szWhere.empty() ? "and the saved terrain is the expected one"
 	                       : ( "painted save differs at " + szWhere ).c_str() );

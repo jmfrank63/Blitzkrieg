@@ -905,6 +905,27 @@ world point, so the test converts with `AI2Vis` before calling
 `BkEditorWorldToTile` - which is what the MFC editor spells out before every
 such call (`TemplateEditorFrame1.cpp:1747`).
 
+*A paint that fails has to leave the map alone.* `NMapOverlay::Paint` writes
+the cells before it loads the tileset it needs, and then has three ways out
+that return false - no storage, an unreadable tileset, a cross pass that
+refuses. Every one of them now puts the region back and empties the caller's
+undo record, so "false" means nothing happened; a caller that took it at its
+word and saved would otherwise have written a paint that never ran. The map
+file tier arranges it by naming a tileset that is not there. The bridge puts
+the engine back with it.
+
+*Noise is not the brush's to choose.* `BkEditorPaintCell` has no noise field:
+the preprocessing pass both sides run ends in `CTerrainBuilder::SetNoise`,
+which writes `HasNoise(tile)` across the region whatever was there before
+(`RandomMapGen/TerrainBuilder.cpp:257-264`), and `CTerrain::SetTile` derives it
+as well. A value passed in was discarded without a word, which is worse than
+not offering it. The map and the engine could not actually drift apart over it,
+because both recompute.
+
+*A cell off the map was skipped in silence.* `NMapOverlay::Paint` ignores one,
+so a brush that ran over the edge came back reporting success. The bridge
+refuses and names the cell.
+
 *Legacy sources read as binary to grep.* `RandomMapGen/TerrainBuilder.cpp` and
 several others carry Cyrillic comments in a legacy codepage, so a plain `grep`
 skips them silently and the definition of a function looks absent from the

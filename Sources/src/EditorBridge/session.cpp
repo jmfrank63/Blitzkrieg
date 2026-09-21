@@ -526,28 +526,64 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 	// it depends only on which cells are named, and both copies have the same
 	// terrain size.
 	const CTRect<int> rPatches = NMapOverlay::AffectedPatches( pSession->snapshot.terrain, rCells );
-	NMapOverlay::SPaintUndo undo;
-	if ( !NMapOverlay::Paint( &pSession->snapshot, rCells, &undo ) )
+
+	// The engine keeps its own STerrainInfo, loaded when the map opened, so
+	// painting the bridge's copies would leave it showing the old tiles.
+	//
+	// The noise flag is left at 0 and not asked of the caller: whether a tile is
+	// noisy belongs to the tile in the tileset, and the preprocessing pass that
+	// both sides run ends in CTerrainBuilder::SetNoise, which writes
+	// HasNoise(tile) over the whole region regardless
+	// (RandomMapGen/TerrainBuilder.cpp:257-264). A value passed in here would be
+	// overwritten without a word, which is why BkEditorPaintCell does not have
+	// the field.
+	//
+	// A cell off the map is refused rather than skipped: NMapOverlay::Paint
+	// ignores one silently, and a brush that ran off the edge would come back
+	// saying it had painted.
+	std::vector<NMapOverlay::SPaintCell> cells = rCells;
+	const CArray2D<SMainTileInfo> &rEngineTiles = pEngineTerrain->GetTerrainInfo().tiles;
+	for ( size_t i = 0; i < cells.size(); ++i )
 	{
+		if ( cells[i].nX < 0 || cells[i].nY < 0 ||
+		     cells[i].nX >= rEngineTiles.GetSizeX() || cells[i].nY >= rEngineTiles.GetSizeY() )
+		{
+			pSession->szMessage = NStr::Format( "cell %d,%d is not on the map", cells[i].nX, cells[i].nY );
+			return false;
+		}
+		cells[i].noise = 0;
+		pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, cells[i].tile );
+	}
+
+	NMapOverlay::SPaintUndo undo;
+	if ( !NMapOverlay::Paint( &pSession->snapshot, cells, &undo ) )
+	{
+		// Paint puts the map back itself when it refuses, so there is nothing to
+		// undo here - but the engine has the new tiles already, and it has to go
+		// back with the map or the editor would draw a paint the file never got.
+		for ( size_t i = 0; i < cells.size(); ++i )
+			pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, pSession->snapshot.terrain.tiles[cells[i].nY][cells[i].nX].tile );
+		pEngineTerrain->Update( rPatches );
 		pSession->szMessage = "the map would not take that paint (a cell outside it, or no tileset)";
 		return false;
 	}
 	// The same deterministic function on the copy the engine was built from, so
 	// the two cannot drift; TerrainMatchesEngine is what catches it if they do.
 	NMapOverlay::SPaintUndo workingUndo;
-	NMapOverlay::Paint( &pSession->working, rCells, &workingUndo );
+	if ( !NMapOverlay::Paint( &pSession->working, cells, &workingUndo ) )
+	{
+		NMapOverlay::UndoPaint( &pSession->snapshot, undo );
+		for ( size_t i = 0; i < cells.size(); ++i )
+			pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, pSession->snapshot.terrain.tiles[cells[i].nY][cells[i].nX].tile );
+		pEngineTerrain->Update( rPatches );
+		pSession->szMessage = "the map would not take that paint";
+		return false;
+	}
 
-	// The engine keeps its own STerrainInfo, loaded when the map opened, so
-	// painting the bridge's copies leaves it showing the old tiles. It is given
-	// the painted cells and then runs its own Update, which is the same
-	// preprocessing pass and the same cross generation the overlay just ran -
-	// same input, same function, so the two land on the same answer, and
-	// TerrainMatchesEngine is what says so rather than this comment.
-	for ( size_t i = 0; i < rCells.size(); ++i )
-		if ( rCells[i].nX >= 0 && rCells[i].nY >= 0 &&
-		     rCells[i].nX < pSession->snapshot.terrain.tiles.GetSizeX() &&
-		     rCells[i].nY < pSession->snapshot.terrain.tiles.GetSizeY() )
-			pEngineTerrain->SetTile( rCells[i].nX, rCells[i].nY, rCells[i].tile );
+	// The engine now runs its own Update over the region: the same preprocessing
+	// pass and the same cross generation the overlay just ran - same input, same
+	// function, so the two land on the same answer, and TerrainMatchesEngine is
+	// what says so rather than this comment.
 	pEngineTerrain->Update( rPatches );
 	pAIEditor->UpdateTerrain( rPatches, pSession->working.terrain );
 	return true;

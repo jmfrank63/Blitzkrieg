@@ -27,6 +27,30 @@ SMapObjectInfo* FindObject( SLoadMapInfo *pMap, int nLinkID, std::vector<SMapObj
 	return 0;
 }
 
+// Puts the region back and says no. The caller's record goes empty with it:
+// nothing happened, so there is nothing to undo.
+bool FailAndRestore( SLoadMapInfo *pMap, SPaintUndo *pCallersUndo, const SPaintUndo *pOurs )
+{
+	// Declared in MapOverlay.h, defined below.
+	UndoPaint( pMap, *pOurs );
+	if ( pCallersUndo )
+		*pCallersUndo = SPaintUndo();
+	return false;
+}
+
+void Record( const STerrainInfo &rTerrain, const CTRect<int> &r, SPaintUndo *pUndo )
+{
+	pUndo->rPatches = r;
+	pUndo->tiles.clear();
+	pUndo->patches.clear();
+	for ( int y = r.miny * STerrainPatchInfo::nSizeY; y < r.maxy * STerrainPatchInfo::nSizeY; ++y )
+		for ( int x = r.minx * STerrainPatchInfo::nSizeX; x < r.maxx * STerrainPatchInfo::nSizeX; ++x )
+			pUndo->tiles.push_back( rTerrain.tiles[y][x] );
+	for ( int y = r.miny; y < r.maxy; ++y )
+		for ( int x = r.minx; x < r.maxx; ++x )
+			pUndo->patches.push_back( rTerrain.patches[y][x] );
+}
+
 std::string Numbered( const char *pszWhat, int nIndex )
 {
 	char szBuffer[64];
@@ -216,19 +240,13 @@ bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUnd
 
 	// Record the region before anything changes. The preprocessing pass below
 	// rewrites tiles that were never painted, so the record has to cover all of
-	// R and not just the painted cells.
+	// R and not just the painted cells. One is kept here whether or not the
+	// caller asked for one, because a paint that fails halfway has to put the
+	// region back with it.
+	SPaintUndo undoForFailure;
+	Record( rTerrain, r, &undoForFailure );
 	if ( pUndo )
-	{
-		pUndo->rPatches = r;
-		pUndo->tiles.clear();
-		pUndo->patches.clear();
-		for ( int y = r.miny * STerrainPatchInfo::nSizeY; y < r.maxy * STerrainPatchInfo::nSizeY; ++y )
-			for ( int x = r.minx * STerrainPatchInfo::nSizeX; x < r.maxx * STerrainPatchInfo::nSizeX; ++x )
-				pUndo->tiles.push_back( rTerrain.tiles[y][x] );
-		for ( int y = r.miny; y < r.maxy; ++y )
-			for ( int x = r.minx; x < r.maxx; ++x )
-				pUndo->patches.push_back( rTerrain.patches[y][x] );
-	}
+		*pUndo = undoForFailure;
 
 	for ( size_t i = 0; i < rCells.size(); ++i )
 	{
@@ -239,11 +257,17 @@ bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUnd
 		rTerrain.tiles[rCells[i].nY][rCells[i].nX].noise = rCells[i].noise;
 	}
 
+	// Everything from here can still fail, and the cells above are already
+	// written, so each way out puts the region back. "false" means the map was
+	// not touched - a caller that took it at its word and saved would otherwise
+	// write a paint that never happened. The undo record is emptied with it, so
+	// a caller cannot undo a second time.
+	//
 	// The tileset and crosset the map names, read the way CMapInfo::
 	// UpdateTerrainCrosses reads them (MapInfo_Methods.cpp:220-230). This needs
 	// the registered data storage and nothing else - no renderer, no database.
 	if ( GetSingleton<IDataStorage>() == 0 )
-		return false;
+		return FailAndRestore( pMap, pUndo, &undoForFailure );
 	STilesetDesc tilesetDesc;
 	SCrossetDesc crossetDesc;
 	LoadDataResource( rTerrain.szTilesetDesc, "", false, 0, "tileset", tilesetDesc );
@@ -254,8 +278,10 @@ bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUnd
 	// let the caller say the descriptor is missing, which is a data problem
 	// rather than a paint that failed.
 	if ( tilesetDesc.terrtypes.empty() )
-		return false;
-	return CMapInfo::UpdateTerrainCrosses( &rTerrain, r, tilesetDesc, crossetDesc );
+		return FailAndRestore( pMap, pUndo, &undoForFailure );
+	if ( !CMapInfo::UpdateTerrainCrosses( &rTerrain, r, tilesetDesc, crossetDesc ) )
+		return FailAndRestore( pMap, pUndo, &undoForFailure );
+	return true;
 }
 
 void UndoPaint( SLoadMapInfo *pMap, const SPaintUndo &rUndo )

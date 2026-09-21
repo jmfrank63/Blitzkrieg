@@ -272,6 +272,39 @@ static void TestUnknownObjectSurvives()
 	       szWhere.empty() ? "the unknown object survived" : ( "unknown object changed at " + szWhere ).c_str() );
 }
 
+// A paint that fails has to leave the map exactly as it was. Paint writes the
+// cells before it loads the tileset it needs, so every way out after that has
+// to put the region back - a caller that took "false" at its word and saved
+// would otherwise write a paint that never happened.
+//
+// Naming a tileset that is not there is the arrangeable version of that: the
+// descriptor comes back empty, which Paint refuses because
+// CTerrainBuilder::ComparePriority would index it without checking.
+static void TestFailedPaintChangesNothing()
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &map, &szError ), szError.c_str() ) )
+		return;
+	map.terrain.szTilesetDesc = "terrain\\sets\\no_such_tileset_anywhere";
+	const CMapInfo before = map;
+
+	std::vector<NMapOverlay::SPaintCell> cells;
+	NMapOverlay::SPaintCell cell;
+	cell.nX = 20;
+	cell.nY = 20;
+	cell.noise = map.terrain.tiles[20][20].noise;
+	cell.tile = BYTE( map.terrain.tiles[20][20].tile + 1 );
+	cells.push_back( cell );
+
+	NMapOverlay::SPaintUndo undo;
+	Check( !NMapOverlay::Paint( &map, cells, &undo ), "a paint with no tileset is refused" );
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( before, map, &szWhere ),
+	       szWhere.empty() ? "and the map is untouched" : ( "a refused paint changed " + szWhere ).c_str() );
+	Check( undo.tiles.empty() && undo.patches.empty(), "and left nothing to undo" );
+}
+
 // The spec's terrain cases: inside one patch, across a patch border, undo
 // putting the region back exactly, and the preprocessing pass changing tiles
 // that were never painted.
@@ -606,6 +639,7 @@ int main( int argc, char **argv )
 	TestDiplomacyChange();
 	TestUnknownObjectSurvives();
 	TestPaint();
+	TestFailedPaintChangesNothing();
 	TestPaintOnAPatchBorder();
 	TestPreprocessingChangesUnpaintedTiles();
 	SweepMaps( bAll );

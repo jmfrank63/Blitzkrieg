@@ -130,7 +130,13 @@ BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id,
    pushed into the engine. The engine is never the source of the saved terrain,
    because the engine's own update and that function agree only inside the
    region. */
-typedef struct { int x, y; unsigned char tile, noise; } BkEditorPaintCell;
+/* No noise field. Whether a tile is noisy belongs to the tile in the tileset,
+   not to the brush: the preprocessing pass both the map and the engine run ends
+   in CTerrainBuilder::SetNoise, which writes HasNoise(tile) across the region
+   whatever was there before (RandomMapGen/TerrainBuilder.cpp:257-264), and
+   CTerrain::SetTile derives it too. A value passed in here would be discarded
+   without a word, so the field is gone rather than ignored. */
+typedef struct { int x, y; unsigned char tile; } BkEditorPaintCell;
 BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count );
 
 /* A world point to the tile it falls in - the brush's other half, through the
