@@ -28,4 +28,14 @@ struct SEditorSession
 	SEditorSession() : bEngineStarted( false ), bMapOpen( false ) {  }
 };
 
+// Reads pszPath into the session and builds the engine state the editor draws
+// and edits through: shades, the AI editor, the terrain in the scene, and one
+// engine object per placed map object. Returns false and leaves the reason in
+// szMessage; the session is then left with no map open.
+//
+// The order is the MFC editor's (TemplateEditorFrame1.cpp:1657-1790), which is
+// the order the engine expects - the AI editor is initialised before the
+// terrain reaches the scene, not after.
+bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
+
 #endif // __EDITOR_BRIDGE_SESSION_H__

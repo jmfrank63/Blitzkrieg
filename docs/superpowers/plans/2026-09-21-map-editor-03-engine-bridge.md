@@ -501,6 +501,23 @@ if ( pAIEditor->AddNewObject( *it, &pAIObject ) && pAIObject != 0 )
 Run: `zig build test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run`
 Expected: `editor-bridge: PASS`
 
+**Two things this turned up that the plan did not have:**
+
+*`EnsureGlobalHooks` has to fill `g_pGlobalRandomGen` too.* It is the fourth of
+the globals every `GlobalsLoader.cpp` sets, it comes out of the singleton rather
+than off a StreamIO hook, and `AILogic` reaches for it as early as
+`IAIEditor::Clear` - `Weather::SwitchAutomatic` (`Weather.cpp:38`). Measured:
+`member call on null pointer of type 'IRandomGen'` on the first `Clear`.
+
+*The unguarded `GetDesc` is not only in the MFC editor's object loop.*
+`CMapInfo::UnpackFrameIndex` and `CMapInfo::PackFrameIndex`
+(`MapInfo_StaticMethods.cpp`) do the same thing: assert with `NI_ASSERT_T`,
+which compiles away, then dereference. `UnpackFrameIndices` runs while the
+working copy is being made, so an unknown object takes the session down before
+the bridge's own guard is reached. Both now return early and leave the frame
+index exactly as it stands, which is what an untouched object needs anyway. The
+map file tier never saw this because it does not unpack.
+
 - [ ] **Step 5: Add the unknown-object case**
 
 Write a map with an object renamed to something the database cannot know (the map-file tier already has `TestUnknownObjectSurvives` to copy from), open it, and assert `summary.unknown_object_count == 1` and that the session still opened. This is the case that crashes the MFC editor.

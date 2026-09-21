@@ -3574,7 +3574,10 @@ fn addEditorBridge(
     module.addIncludePath(b.path("Sources/src/Image"));
     module.addIncludePath(b.path("Sources/src/GFX"));
     module.addCSourceFiles(.{
-        .files = &.{"Sources/src/EditorBridge/bridge.cpp"},
+        .files = &.{
+            "Sources/src/EditorBridge/bridge.cpp",
+            "Sources/src/EditorBridge/session.cpp",
+        },
         .flags = cppflagsForOptimize(optimize),
     });
     return b.addLibrary(.{

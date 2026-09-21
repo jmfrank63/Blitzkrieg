@@ -9,6 +9,8 @@
 #include "StdAfx.h"
 #include <SDL3/SDL.h>
 #include "../../Sources/src/EditorBridge/bridge.h"
+#include "../../Sources/src/MapFile/MapFile.h"
+#include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -45,6 +47,58 @@ static bool Check( bool bCondition, const char *pszWhat )
 		++g_nFailures;
 	}
 	return bCondition;
+}
+
+// The same map the map-file tier uses, as a file dialog would hand the path
+// over: an OS path written with the engine's separator, because OpenFileStream
+// splits on backslash only.
+static const char *const SHIPPED_MAP = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+
+static void TestShippedMapOpens( BkEditorSession *pSession )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, "a shipped map opens" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	printf( "editor-bridge: %s is %dx%d tiles, season %d, %d players, %d objects, %d unknown\n",
+	        SHIPPED_MAP, summary.width_tiles, summary.height_tiles, summary.season,
+	        summary.player_count, summary.object_count, summary.unknown_object_count );
+	Check( summary.width_tiles > 0 && summary.height_tiles > 0, "and reports its size" );
+	Check( summary.object_count > 0, "and its objects" );
+	Check( summary.unknown_object_count == 0, "and knows every type in it" );
+}
+
+// The case that crashes the MFC editor: it writes GetDesc( name )->eGameType
+// with no null check, and GetDesc returns 0 for a name the database does not
+// know. A map that names an object a mod no longer ships has to open, report
+// the object, and leave it alone.
+//
+// The copy is written beside the original so the files the terrain loader looks
+// for next to a map are where it expects them, and removed again afterwards.
+static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession )
+{
+	const char *const pszCopy = "Data\\Maps\\Multiplayer\\coldwinter-unknown-object.bzm";
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( !map.objects.empty(), "the map has an object to rename" ) )
+		return;
+	map.objects[0].szName = "No_Such_Object_In_Any_Database";
+	if ( !Check( NMapFile::Write( pszCopy, map, &szError ), szError.c_str() ) )
+		return;
+
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	const BkEditorStatus status = BkEditorOpenMap( pSession, pszCopy, &summary );
+	if ( Check( status == BK_EDITOR_OK, "a map naming an object the database does not know still opens" ) )
+		Check( summary.unknown_object_count == 1, "and reports exactly the one unknown object" );
+	else
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+	remove( "Data/Maps/Multiplayer/coldwinter-unknown-object.bzm" );
 }
 
 int main( int argc, char **argv )
@@ -126,7 +180,11 @@ int main( int argc, char **argv )
 	if ( !Check( status == BK_EDITOR_OK, "the bridge starts" ) )
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
 	else
+	{
+		TestShippedMapOpens( pSession );
+		TestUnknownObjectDoesNotStopTheOpen( pSession );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
 
 	SDL_DestroyWindow( pWindow );
 	SDL_Quit();

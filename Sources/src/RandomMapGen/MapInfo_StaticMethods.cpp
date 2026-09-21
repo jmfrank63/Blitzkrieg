@@ -75,6 +75,13 @@ void CMapInfo::PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( pInfo->szName.c_str() );
 	NI_ASSERT_T( pDesc != 0, NStr::Format( "Can't find descriptor for \"%s\"", pInfo->szName.c_str() ) );
+	// An object whose type the database does not know keeps the frame index it
+	// already has. The assert above says so and then compiles away in release,
+	// and the switch below dereferences a null descriptor - which is how a map
+	// naming an object a mod no longer ships takes the editor down before it
+	// gets as far as listing it.
+	if ( pDesc == 0 )
+		return;
 	switch ( pDesc->eGameType ) 
 	{
 		case SGVOGT_FENCE:
@@ -99,6 +106,13 @@ void CMapInfo::UnpackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo, int *p
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( pInfo->szName.c_str() );
 	NI_ASSERT_T( pDesc != 0, NStr::Format( "Can't find descriptor for \"%s\"", pInfo->szName.c_str() ) );
+	// An object whose type the database does not know keeps the frame index it
+	// already has. The assert above says so and then compiles away in release,
+	// and the switch below dereferences a null descriptor - which is how a map
+	// naming an object a mod no longer ships takes the editor down before it
+	// gets as far as listing it.
+	if ( pDesc == 0 )
+		return;
 	switch ( pDesc->eGameType ) 
 	{
 		case SGVOGT_FENCE:

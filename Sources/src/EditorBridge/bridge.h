@@ -45,6 +45,33 @@ const char *BkEditorLastMessage( BkEditorSession *session );
    unconditionally. */
 BkEditorStatus BkEditorStart( void *window, const char *data_root, BkEditorSession **out );
 
+/* What the caller needs to know about the map it just opened. */
+typedef struct
+{
+	int width_tiles, height_tiles;
+	int season;
+	int player_count;
+	int object_count;          /* objects + scenarioObjects, as read */
+	int unknown_object_count;  /* in the map, not in the object database */
+} BkEditorMapSummary;
+
+/* Opens a map and builds the engine state for it.
+
+   path is an OS filesystem path ending in .bzm or .xml - what a file dialog
+   hands back - and not a storage-relative name: the editor opens the file the
+   user picked rather than the newer of a pair it inferred, which is what
+   NMapFile::ReadNewest would do. It is still written with the engine's
+   separator, because OpenFileStream splits on backslash only.
+
+   An object whose type the database does not know is counted in
+   unknown_object_count, kept in the snapshot and never placed, so it survives
+   a save untouched. It is not an error: opening such a map is what crashes the
+   MFC editor.
+
+   out may be null if the caller only wants the status. On failure the session
+   keeps whatever map it had open before. */
+BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEditorMapSummary *out );
+
 /* Safe on a null session, and safe to call twice. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
 

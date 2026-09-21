@@ -155,6 +155,33 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 	} );
 }
 
+BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, BkEditorMapSummary *pOut )
+{
+	if ( pOut != 0 )
+		memset( pOut, 0, sizeof *pOut );
+	return Guarded( pSession, [pSession, pszPath, pOut]() -> BkEditorStatus
+	{
+		if ( pszPath == 0 || *pszPath == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !OpenMapIntoSession( pSession, pszPath ) )
+			return pSession->bEngineStarted ? BK_EDITOR_DATA_MISSING : BK_EDITOR_NO_SESSION;
+		if ( pOut != 0 )
+		{
+			// Sizes and counts come from the snapshot, which is the file as it
+			// was read; the working copy differs only in frame indices and in
+			// the altitudes a map without any gets.
+			const CMapInfo &rMap = pSession->snapshot;
+			pOut->width_tiles = rMap.terrain.tiles.GetSizeX();
+			pOut->height_tiles = rMap.terrain.tiles.GetSizeY();
+			pOut->season = rMap.nSeason;
+			pOut->player_count = int( rMap.diplomacies.size() );
+			pOut->object_count = int( rMap.objects.size() + rMap.scenarioObjects.size() );
+			pOut->unknown_object_count = int( pSession->unknownLinkIDs.size() );
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 {
 	// Safe on null and safe twice: the caller reaches here on every path out,
