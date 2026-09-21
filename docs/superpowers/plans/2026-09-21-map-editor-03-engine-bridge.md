@@ -989,6 +989,29 @@ Expected: `no member named 'BkEditorCatalogue'`.
 
 Picking is `IScene::Pick( point, &pObjects, &nCount, type )` filtered the way the MFC editor filters it (entrenchments and bridges dropped, `TemplateEditorFrame1.cpp:3384-3395`), then `IAIEditor::AIToLink` to turn the hit into a snapshot link ID. `BkEditorScreenToWorld` is `IScene::GetPos3`. `BkEditorSetCamera` is `ICamera::SetAnchor`.
 
+**Picking is not a one-liner, and the plan was wrong about that.**
+
+`IScene::Pick` works on the visual objects in the scene, and the bridge builds
+none: it places AI objects and loads the terrain, and that is all the scene
+holds. Measured - `Pick` at the middle of the screen over a map with 243 placed
+objects returns 0. The MFC editor gets its hits from `FindByVis`, which is
+`CWorldBase`'s (`Sources/src/Common/WorldBase.h:234`); `CWorldBase::Update`
+turns the AI's notifications into `SMapObject`s with visual objects attached,
+and both the game's `CWorldClient` and the MFC editor derive from it.
+
+So picking needs a visual-object layer, which the editor needs anyway to draw
+anything but terrain. `CWorldBase` is close to usable as it stands - one pure
+virtual, `ResetSelection` - but its `Init` wants eleven singletons and the
+`Common` library brings the map objects, the sounds, the war fog and
+`InterfaceScreenBase` with it. That is a bigger decision than this task, and it
+belongs with whoever owns the editor's object layer.
+
+The rest of the task landed: the catalogue (5559 objects), the camera, a frame,
+and screen-to-world. The two conversions are checked by composing them rather
+than by returning OK - a camera put on an object and asked what is under the
+middle of the screen answers with that object's own cell, measured as
+`the camera is on cell 83,36 and the middle of the screen is 83,36`.
+
 - [ ] **Step 4: Run the test**
 
 Expected: `editor-bridge: PASS`

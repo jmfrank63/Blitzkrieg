@@ -149,6 +149,25 @@ BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy
    the whole map, and the editor has no reason to call it. */
 BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *session );
 
+/* What the editor can place. name is a fixed buffer rather than a pointer, so
+   nothing crosses the ABI that the caller has to free; a key longer than 63
+   characters is truncated. out_count is always what the database holds, not
+   how many fitted, so a caller given BK_EDITOR_REFUSED for a short buffer can
+   size one and ask again. */
+typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
+BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
+
+/* The camera, and one frame drawn into the window the session was started on.
+   BK_EDITOR_REFUSED from BkEditorFrame is a device that would not begin a
+   scene, which is a thing that happens rather than a bug. */
+BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
+BkEditorStatus BkEditorFrame( BkEditorSession *session );
+
+/* A screen point to the world point under it, against the terrain the camera
+   is looking at - so it wants a camera that has been placed. Composes with
+   BkEditorWorldToTile to turn a click into a cell. */
+BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float sy, float *wx, float *wy );
+
 /* The map's own two fields, not a player's: nType is the mission kind and
    nAttackingSide is which side attacks in it. The engine has no say in either,
    so they take no engine call and cannot be refused. */

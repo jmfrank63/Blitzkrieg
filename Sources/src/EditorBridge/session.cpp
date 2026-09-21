@@ -9,6 +9,7 @@
 #include "../Main/GameDB.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
+#include "../GFX/GFX.H"
 #include "../Scene/Terrain.h"
 #include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/VA_Types.h"
@@ -680,3 +681,66 @@ bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *p
 	}
 	return true;
 }
+
+bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
+{
+	if ( pSession == 0 || !pSession->bEngineStarted )
+		return false;
+	ICamera *pCamera = GetSingleton<ICamera>();
+	if ( pCamera == 0 )
+	{
+		pSession->szMessage = "there is no camera";
+		return false;
+	}
+	pCamera->SetAnchor( CVec3( wx, wy, 0.0f ) );
+	pCamera->Update();
+	return true;
+}
+
+bool DrawSessionFrame( SEditorSession *pSession )
+{
+	if ( pSession == 0 || !pSession->bEngineStarted )
+		return false;
+	IGFX *pGFX = GetSingleton<IGFX>();
+	IScene *pScene = GetSingleton<IScene>();
+	ICamera *pCamera = GetSingleton<ICamera>();
+	if ( pGFX == 0 || pScene == 0 || pCamera == 0 )
+	{
+		pSession->szMessage = "the renderer is not started";
+		return false;
+	}
+	// The game's own frame without the interface over it
+	// (GameTT/iMissionInternal.cpp:2666-2671). BeginScene returning false is a
+	// lost device rather than a bug, so it is a refusal and not a failure.
+	if ( !pGFX->BeginScene() )
+	{
+		pSession->szMessage = "the device would not begin a scene";
+		return false;
+	}
+	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
+	pScene->Draw( pCamera );
+	pGFX->EndScene();
+	pGFX->Flip();
+	return true;
+}
+
+bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy )
+{
+	if ( pSession == 0 || !pSession->bEngineStarted || pwx == 0 || pwy == 0 )
+		return false;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		return false;
+	}
+	// GetPos3 answers against the terrain the camera is looking at, so it needs
+	// a camera that has been updated - which SetSessionCamera and
+	// DrawSessionFrame both do.
+	CVec3 vWorld( VNULL3 );
+	pScene->GetPos3( &vWorld, CVec2( sx, sy ) );
+	*pwx = vWorld.x;
+	*pwy = vWorld.y;
+	return true;
+}
+

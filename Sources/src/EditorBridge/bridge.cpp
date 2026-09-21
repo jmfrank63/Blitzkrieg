@@ -380,6 +380,51 @@ BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *pSession )
 	} );
 }
 
+BkEditorStatus BkEditorCatalogue( BkEditorSession *pSession, BkEditorCatalogueEntry *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		return ReadCatalogue( pSession, pOut, nCapacity, pnCount ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorSetCamera( BkEditorSession *pSession, float wx, float wy )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetSessionCamera( pSession, wx, wy ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorFrame( BkEditorSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return DrawSessionFrame( pSession ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorScreenToWorld( BkEditorSession *pSession, float sx, float sy, float *pwx, float *pwy )
+{
+	if ( pwx != 0 ) *pwx = 0.0f;
+	if ( pwy != 0 ) *pwy = 0.0f;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pwx == 0 || pwy == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		return ScreenToWorld( pSession, sx, sy, pwx, pwy ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
 BkEditorStatus BkEditorSetMapType( BkEditorSession *pSession, int nType )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

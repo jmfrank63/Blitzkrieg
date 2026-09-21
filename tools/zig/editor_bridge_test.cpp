@@ -455,6 +455,72 @@ static void TestPaintReachesEngineAndFile( BkEditorSession *pSession, const std:
 	remove( szSaved.c_str() );
 }
 
+// The catalogue, the camera, a frame, and the two conversions that turn a
+// click into a cell. The conversions are checked by composing them: a camera
+// put on a known object and asked what is under the middle of the screen has
+// to answer with that object's own cell, give or take the tile the anchor
+// falls in. Checking only that they return OK would pass on any two numbers.
+static void TestCatalogueCameraAndFrame( BkEditorSession *pSession )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map opens" ) )
+		return;
+
+	int nCount = 0;
+	Check( BkEditorCatalogue( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED,
+	       "asking with no room is refused" );
+	if ( !Check( nCount > 0, "and still says how many there are" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> entries( nCount );
+	int nRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &( entries[0] ), int( entries.size() ), &nRead ) == BK_EDITOR_OK,
+	             "the object catalogue reads" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	Check( nRead == nCount, "and reads all of them" );
+	bool bFoundPoplar = false;
+	for ( int i = 0; i < nRead && !bFoundPoplar; ++i )
+		bFoundPoplar = strcmp( entries[i].name, "W_BigPoplar" ) == 0;
+	Check( bFoundPoplar, "and holds a name the map uses" );
+	printf( "editor-bridge: the catalogue has %d objects\n", nCount );
+
+	if ( !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	Check( BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y ) == BK_EDITOR_OK, "the camera moves" );
+	if ( !Check( BkEditorFrame( pSession ) == BK_EDITOR_OK, "a frame draws" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+
+	int nAnchorX = -1, nAnchorY = -1;
+	if ( !Check( BkEditorWorldToTile( pSession, vAnchor.x, vAnchor.y, &nAnchorX, &nAnchorY ) == BK_EDITOR_OK,
+	             "the anchor is on the map" ) )
+		return;
+	float wx = 0.0f, wy = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, 320.0f, 240.0f, &wx, &wy ) == BK_EDITOR_OK,
+	             "a screen point becomes a world point" ) )
+		return;
+	int nMiddleX = -1, nMiddleY = -1;
+	if ( !Check( BkEditorWorldToTile( pSession, wx, wy, &nMiddleX, &nMiddleY ) == BK_EDITOR_OK,
+	             "and that becomes a cell" ) )
+		return;
+	printf( "editor-bridge: the camera is on cell %d,%d and the middle of the screen is %d,%d\n",
+	        nAnchorX, nAnchorY, nMiddleX, nMiddleY );
+	// The anchor is what the camera looks at, so the middle of the screen is
+	// within a tile or two of it - not exact, because the camera looks along a
+	// slope and the point lands where the ray meets the ground.
+	Check( abs( nMiddleX - nAnchorX ) <= 2 && abs( nMiddleY - nAnchorY ) <= 2,
+	       "and it is the cell the camera was put on" );
+}
+
 // A bridge names its spans by link ID, so deleting one has to be refused with
 // a reason, and the map has to be exactly as it was afterwards. A refusal that
 // left half an edit behind would save a map the editor never showed.
@@ -649,6 +715,7 @@ int main( int argc, char **argv )
 		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );
 		TestPaintReachesEngineAndFile( pSession, szScratch );
+		TestCatalogueCameraAndFrame( pSession );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );

@@ -3577,6 +3577,7 @@ fn addEditorBridge(
         .files = &.{
             "Sources/src/EditorBridge/bridge.cpp",
             "Sources/src/EditorBridge/session.cpp",
+            "Sources/src/EditorBridge/catalogue.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });

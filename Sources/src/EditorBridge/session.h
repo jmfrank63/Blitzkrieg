@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../MapFile/MapOverlay.h"
+#include "bridge.h"
 
 // One editing session.
 //
@@ -83,6 +84,16 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPos, int nDir, int nPlayer, bool *pbRefused );
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused );
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy );
+
+// Fills pOut with the object database's descriptors and pnCount with how many
+// there are - always the database's count, not how many fitted. Returns false
+// when the buffer was too small, which the caller can tell from the count.
+bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int nCapacity, int *pnCount );
+
+// The camera, one frame, and the two conversions picking needs.
+bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
+bool DrawSessionFrame( SEditorSession *pSession );
+bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
 
 // Paints cells into the map and pushes the region they touched into the engine.
 // Returns false with the reason in szMessage.
