@@ -1156,6 +1156,19 @@ The tier step alone is 38 minutes on `macos-14` - it builds the whole game and
 the shadercross tool on top of everything else - so those two jobs go to 90 and
 120.
 
+**Fourth run (35651308962): macOS passed in five minutes, Windows was cut off
+again at 120.** The interesting number is the contrast - the engine tier step
+took 59 seconds on `macos-14` and 117 minutes on `windows-latest`, and the
+2.3 GB checkout was under a minute on both, so the data was never the cost.
+
+`actions/cache` saves at the end of a job that succeeded. This job has never
+finished, so it has never cached the built game, so every run starts cold,
+takes two hours and is cancelled without saving - a closed loop. macOS was in
+the same loop until it passed once: 38 minutes cold, then 59 seconds.
+
+Decided: 240 minutes for one run to break it, then bring it back down. The
+repository is public, so the runner minutes are free and the cost is wall clock.
+
 Each missing symbol costs a full CI round to discover, so the fix is the general one
 rather than the next symbol: the test executable hosts the same engine the game
 does, so it links the same Windows imports `addGame` does, minus the

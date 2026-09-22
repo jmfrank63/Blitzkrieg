@@ -151,11 +151,14 @@ jobs:
 
   windows-platform:
     runs-on: windows-latest
-    # Raised for the engine tier: it builds the whole game and the shadercross
-    # tool on top of everything else. Measured on run 35639094606 - the tier
-    # step alone took 38 minutes on macos-14 and the job finished in 43 of its
-    # 45; windows-latest was still building when it hit 60 and was cancelled.
-    timeout-minutes: 120
+    # Four hours, for one run only, to break a closed loop: actions/cache saves
+    # at the end of a job that succeeded, this job has never finished, so it has
+    # never cached the built game and every run starts cold. Measured on run
+    # 35651308962 - the engine tier step alone ran 117 minutes here and was cut
+    # off, while the same step took 59 seconds on macos-14 off a warm cache.
+    # macOS went 38 minutes cold to 59 seconds warm after one pass; once this
+    # has done the same, bring it back down.
+    timeout-minutes: 240
 
     steps:
       - name: Check out source
