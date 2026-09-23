@@ -86,15 +86,21 @@ public:
 	virtual bool STDCALL DrawBB( IGFX *pGFX );
 	virtual bool STDCALL DrawShadow( IGFX *pGFX, const SHMatrix *pMatShadow, const CVec3 &vSunDir );
 	virtual void STDCALL Visit( ISceneVisitor *pVisitor, int nType = -1 );
-	virtual void STDCALL SetAnimation( const int nAnim ) { pAnim->SetAnimation( nAnim ); }
+	virtual void STDCALL SetAnimation( const int nAnim ) { if ( pAnim ) pAnim->SetAnimation( nAnim ); }
 	virtual IAnimation* STDCALL GetAnimation() { return pAnim; }
-	virtual void STDCALL SetAnim( interface IAnimation *_pAnim ) { pAnim = dynamic_cast<IMeshAnimation*>( _pAnim ); }
+	// Every matrix the renderer asks a mesh object for comes out of its animation,
+	// so pAnim is not optional - Update, Draw and GetMatrices all went straight
+	// through it. This was the one way an object already in the scene could lose
+	// it: the cast fails (or the caller hands over the animation of a vis obj that
+	// has none of its own) and the result, a null, was stored anyway. The next
+	// visibility pass then dereferenced it. Keeps the animation it has instead.
+	virtual void STDCALL SetAnim( interface IAnimation *_pAnim );
 	virtual IGFXMesh* STDCALL GetMesh() const { return pMesh; }
 	virtual IGFXTexture* STDCALL GetTexture() const { return pTexture; }
 	virtual const SHMatrix& STDCALL GetPlacement() const { return matPlacement; }
 	virtual const SHMatrix& STDCALL GetPlacement1() const { return matPlacement1; }
 	virtual const SHMatrix STDCALL GetBasePlacement();
-	virtual const SHMatrix* STDCALL GetMatrices() { return pAnim->GetMatrices( matPlacement1 ); }
+	virtual const SHMatrix* STDCALL GetMatrices() { return pAnim ? pAnim->GetMatrices( matPlacement1 ) : 0; }
 	virtual const SHMatrix* STDCALL GetExtMatrices( const SHMatrix &matExternal );
 	virtual DWORD STDCALL CheckForViewVolume( const SPlane *pViewVolumePlanes );
 	virtual void STDCALL AddEffector( int nID, ISceneMatrixEffector *pEffector, int nPart = -1 );

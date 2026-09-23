@@ -660,6 +660,22 @@ bool CScene::AddObject( IVisObj *pObj, EObjGameType eGameType, const SGDBObjectD
 {
 	if ( pObj == 0 )
 		return false;
+	// A sprite or mesh object is driven entirely by its animation: Update()
+	// reads the time out of it, the renderer takes its matrices from it. One
+	// that arrives without an animation cannot be drawn, and used to take the
+	// mission down on the first visibility pass that reached its map cell -
+	// which can be minutes after it was added, the moment the view first
+	// covers it. Refuse it here, where the object still has a name to report.
+	if ( IObjVisObj *pObjVis = dynamic_cast<IObjVisObj*>( pObj ) )
+	{
+		if ( pObjVis->GetAnimation() == 0 )
+		{
+			fprintf( stderr, "CScene::AddObject: \"%s\" has no animation, not added to the scene\n",
+			         ( pDesc != 0 ) ? pDesc->szKey.c_str() : "<unnamed object>" );
+			NI_ASSERT_T( false, NStr::Format( "vis obj \"%s\" has no animation", ( pDesc != 0 ) ? pDesc->szKey.c_str() : "<unnamed object>" ) );
+			return false;
+		}
+	}
 	SVisObjDesc &desc = objdescs[pObj];
 	desc.gametype = eGameType;
 	desc.pDesc = pDesc;
