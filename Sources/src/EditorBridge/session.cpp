@@ -4,6 +4,8 @@
 // not about the C boundary: it is the MFC editor's map-open sequence with the
 // MFC taken out and one guard put in.
 #include "StdAfx.h"
+#include <algorithm>
+#include <cstring>
 #include "session.h"
 #include "../MapFile/MapFile.h"
 #include "../Main/GameDB.h"
@@ -306,6 +308,32 @@ const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nL
 	return FindIn( const_cast<CMapInfo*>( &rSession.snapshot ), nLinkID );
 }
 
+bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount )
+{
+	const CMapInfo &rMap = pSession->snapshot;
+	const int nTotal = int( rMap.objects.size() + rMap.scenarioObjects.size() );
+	*pnCount = nTotal;
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	int nOut = 0;
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size() && nOut < nCapacity; ++i, ++nOut )
+		{
+			const SMapObjectInfo &rObject = (*lists[nList])[i];
+			BkEditorObjectRecord &rRecord = pOut[nOut];
+			memset( &rRecord, 0, sizeof rRecord );
+			rRecord.link_id = rObject.link.nLinkID;
+			strncpy( rRecord.name, rObject.szName.c_str(), sizeof rRecord.name - 1 );
+			rRecord.x = rObject.vPos.x;
+			rRecord.y = rObject.vPos.y;
+			rRecord.dir = rObject.nDir;
+			rRecord.player = rObject.nPlayer;
+			rRecord.scenario = nList;
+			rRecord.known = std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(),
+			                           rObject.link.nLinkID ) == pSession->unknownLinkIDs.end() ? 1 : 0;
+		}
+	return nCapacity >= nTotal;
+}
+
 bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject &rAdd, int *pnLinkID )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )
@@ -363,6 +391,14 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 		*pbRefused = false;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
+	// The preservation invariant: an object the database does not know is
+	// written back exactly as it was read, so no edit may reach it.
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
 	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
 	SMapObjectInfo *pObject = FindIn( &pSession->snapshot, nLinkID );
 	if ( pAIEditor == 0 || pObject == 0 )
@@ -458,6 +494,14 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 		*pbRefused = false;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
+	// The preservation invariant: an object the database does not know is
+	// written back exactly as it was read, so no edit may reach it.
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
 	// The map decides first: something still referring to the object - a bridge,
 	// a start command, a reinforcement group, a passenger - means no, and the
 	// engine is never asked.

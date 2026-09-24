@@ -307,6 +307,86 @@ static void TestMapsOwnFields( BkEditorSession *pSession, const std::string &szS
 	remove( szSaved.c_str() );
 }
 
+// The document is built from this, so it has to be the map as read: every
+// object in file order, objects before scenario objects, with the map's own
+// owner - not the engine's, which is 0 for anything but a building.
+static void TestObjectsReadBack( BkEditorSession *pSession )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+
+	int nCount = -1;
+	Check( BkEditorObjects( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED, "a short buffer is refused" );
+	Check( nCount == int( map.objects.size() + map.scenarioObjects.size() ), "and still reports the full count" );
+
+	std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+	if ( !Check( BkEditorObjects( pSession, &records[0], nCount, &nCount ) == BK_EDITOR_OK, "the list fits" ) )
+		return;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const bool bScenario = i >= int( map.objects.size() );
+		const SMapObjectInfo &rObject = bScenario ? map.scenarioObjects[i - map.objects.size()] : map.objects[i];
+		if ( !Check( records[i].link_id == rObject.link.nLinkID &&
+		             strcmp( records[i].name, rObject.szName.c_str() ) == 0 &&
+		             records[i].x == rObject.vPos.x && records[i].y == rObject.vPos.y &&
+		             records[i].dir == rObject.nDir && records[i].player == rObject.nPlayer &&
+		             records[i].scenario == ( bScenario ? 1 : 0 ) && records[i].known == 1,
+		             NStr::Format( "object %d reads back as the file has it", i ) ) )
+			return;
+	}
+
+	Check( summary.map_type == map.nType && summary.attacking_side == map.nAttackingSide, "the summary carries the map's own fields" );
+	for ( int nPlayer = 0; nPlayer < int( map.diplomacies.size() ); ++nPlayer )
+	{
+		int nValue = -1;
+		Check( BkEditorDiplomacy( pSession, nPlayer, &nValue ) == BK_EDITOR_OK && nValue == map.diplomacies[nPlayer],
+		       NStr::Format( "player %d's side reads back", nPlayer ) );
+	}
+	int nIgnored = 0;
+	Check( BkEditorDiplomacy( pSession, int( map.diplomacies.size() ), &nIgnored ) == BK_EDITOR_BAD_ARGUMENT, "a player past the table is a caller bug" );
+}
+
+// An object whose type the database does not know is kept as it is: the
+// preservation invariant writes it back unchanged, so no edit may reach it.
+static void TestUnknownObjectIsReadOnly( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szCopy = szScratch + "\\coldwinter-unknown-read-only.bzm";
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	map.objects[0].szName = "No_Such_Object_In_Any_Database";
+	const int nLinkID = map.objects[0].link.nLinkID;
+	if ( !Check( NMapFile::Write( szCopy.c_str(), map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szCopy.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	BkEditorObjectRecord record;
+	int nCount = 0;
+	BkEditorObjects( pSession, &record, 1, &nCount );
+	Check( record.link_id == nLinkID && record.known == 0, "the list marks it unknown" );
+	Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_REFUSED, "its delete is refused" );
+	Check( BkEditorMoveObject( pSession, nLinkID, record.x + 32, record.y ) == BK_EDITOR_REFUSED, "and so is its move" );
+
+	const std::string szSaved = szScratch + "\\coldwinter-unknown-read-only-saved.bzm";
+	CMapInfo saved;
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+	{
+		std::string szWhere;
+		Check( NMapFile::AreEquivalent( map, saved, &szWhere ), ( "and the saved map is the one read: " + szWhere ).c_str() );
+	}
+	remove( szCopy.c_str() );
+	remove( szSaved.c_str() );
+}
+
 // Two terrains, everything but which picture was drawn for each cross.
 //
 // STileTypeDesc::GetMapsIndex picks the artwork for a cross with rand() against
@@ -728,6 +808,8 @@ int main( int argc, char **argv )
 		TestRefusedEditsReachNeither( pSession, szScratch );
 		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );
+		TestObjectsReadBack( pSession );
+		TestUnknownObjectIsReadOnly( pSession, szScratch );
 		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestCatalogueCameraAndFrame( pSession );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );

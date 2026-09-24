@@ -111,4 +111,9 @@ bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *p
 // one of its three editable fields can leave the other two alone.
 const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nLinkID );
 
+// Fills pOut with one BkEditorObjectRecord per object in the snapshot, objects
+// before scenarioObjects, in file order, and pnCount with the total - always
+// the total, not how many fitted. Returns false when the buffer was too small.
+bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount );
+
 #endif // __EDITOR_BRIDGE_SESSION_H__

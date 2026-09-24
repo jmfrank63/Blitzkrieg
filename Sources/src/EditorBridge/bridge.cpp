@@ -185,6 +185,8 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 			pOut->placed_object_count = int( pSession->byLinkID.size() );
 			pOut->bridge_span_count = pSession->nBridgeSpansInMap;
 			pOut->bridge_span_placed = pSession->nBridgeSpansPlaced;
+			pOut->map_type = rMap.nType;
+			pOut->attacking_side = rMap.nAttackingSide;
 		}
 		return BK_EDITOR_OK;
 	} );
@@ -276,6 +278,41 @@ BkEditorStatus BkEditorEngineObjectState( BkEditorSession *pSession, int nLinkID
 		pOut->y = state.vCenter.y;
 		pOut->dir = state.wDir;
 		pOut->player = state.nPlayer;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorObjects( BkEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return ReadSessionObjects( pSession, pOut, nCapacity, pnCount ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorDiplomacy( BkEditorSession *pSession, int nPlayer, int *pnValue )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnValue == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nPlayer < 0 || nPlayer >= int( pSession->snapshot.diplomacies.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pnValue = pSession->snapshot.diplomacies[nPlayer];
 		return BK_EDITOR_OK;
 	} );
 }

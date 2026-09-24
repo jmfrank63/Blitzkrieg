@@ -56,6 +56,8 @@ typedef struct
 	int placed_object_count;   /* objects the engine actually holds, spans included */
 	int bridge_span_count;     /* spans named by the map's bridges */
 	int bridge_span_placed;    /* and how many of those the engine holds */
+	int map_type;        /* nType */
+	int attacking_side;  /* nAttackingSide */
 } BkEditorMapSummary;
 
 /* Opens a map and builds the engine state for it.
@@ -123,6 +125,26 @@ typedef struct
 } BkEditorObjectState;
 
 BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id, BkEditorObjectState *out );
+
+/* The map as the bridge holds it - the snapshot with the session's edits in
+   it - one record per object, objects before scenario objects, in file order.
+   Like BkEditorCatalogue, out_count is always the total, and a buffer too
+   short for it is BK_EDITOR_REFUSED with nothing written past capacity. */
+typedef struct
+{
+	int link_id;
+	char name[64];     /* truncated at 63, always terminated */
+	float x, y;        /* the map's vPos, not the engine's */
+	int dir;           /* nDir as the map holds it */
+	int player;        /* the map's owner, which the engine may not share */
+	int scenario;      /* 1: scenarioObjects, 0: objects */
+	int known;         /* 0: the database does not know the type */
+} BkEditorObjectRecord;
+BkEditorStatus BkEditorObjects( BkEditorSession *session, BkEditorObjectRecord *out, int capacity, int *out_count );
+
+/* One player's entry in the diplomacy table: 0 and 1 are the two sides, 2 is
+   neutral. A player outside the table is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorDiplomacy( BkEditorSession *session, int player, int *out_value );
 
 /* Terrain. One paint command, however many cells the brush covered: the
    function runs once per command on the bridge's own copy - the same
