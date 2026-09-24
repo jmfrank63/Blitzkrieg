@@ -2717,6 +2717,20 @@ The research names two things that decide whether option A works as written. Set
 
 Write down what you measured in this plan, under this step, the way plan 3's "Measured" notes are written. If a cast does fail, fix it the way plan 3 fixed `ITerrain`. Add a virtual accessor to the interface the object already has, returning `this` as the needed type from inside the module that defines it. Do not add a `static_cast` that assumes the type.
 
+**Measured (macOS arm64, engine tier, a scratch count in the bridge after the open's world update):**
+
+*GameTT loads in the bridge's process.* The tier prints `Loaded module Main game logic version 0x100` among its ten modules, and that is GameTT's descriptor (`GameTT/MissionObjectFactory.cpp:226`). `CreateMapObject` gets its `MISSION_MO_*` objects: coldwinter's world holds 260 map objects, all 260 in the scene (56 units, 176 objects, 9 fences, 18 terrain objects, 1 flag).
+
+*The casts survive.* Every map object is created in GameTT and cast in the bridge's copy of `Common`. Measured: `dynamic_cast<IMOSelectable*>` (`WorldBase.cpp:776`) is non-null for 56 of 56 units on coldwinter and 256 of 256 on arnheim. arnheim's squads come through too: 22 `CMOSquad`s, and 183 soldiers whose `GetSquad()` is set by `AIUpdateSquads` (which is a `static_cast`, not a `dynamic_cast`, at `:1366`). 2976 map objects, 2954 in the scene; the 22 missing are the squads, which have no visual of their own. No accessor is needed. Why these casts survive when `ITerrain` to `ITerrainEditor` did not was not measured. The likely reason is that the typeinfo of these interfaces is weak and the loader coalesces it across images.
+
+**Two more that picking needed, found while making the test pass:**
+
+*The bridge never set a projection.* The game sets an orthographic projection and the cull mode after `SetMode` (`Game/GameMain.cpp:795-801`); `StartRenderer` did not. The scene's screen transform (`CScene::UpdateTransformMatrix`, what `Pick` and `GetPos2` use) was viewport times identity times view. Measured: a world unit came out 720 pixels wide, and `Pick` found 0 objects at any of 20 cameras. `StartRenderer` now does what the game does. Plan 3's "the middle of the screen is 83,36" had passed by accident. `GetViewVolumeCrosses` is a no-op in the SDL GPU adapter, so `GetPos3` falls back to inverting that same transform, and at 720 pixels to the unit every point was within a tile of the anchor. Also, `SetMode( 0, 0, ... )` gives the window its display's desktop size (1440x900 here), not the 640x480 it was created at, so the tests now take the middle of the screen from `IGFX::GetScreenRect`.
+
+*The war fog hid every unit from `Pick`.* `CCheckObjectVisibleFunctional` drops a unit the fog hides. The MFC editor turns the fog off in the AI and in the scene once a map is in (`TemplateEditorFrame1.cpp:1703`, `:1983`), and the open now does too. Measured: with the fog on, 0 of the 3 tanks among the 20 were picked; with it off, 2 of the 3 (the third is at the map's corner, where the camera stops short of it).
+
+*Picking right at the middle misses what stands above height 0.* The camera's anchor is at height 0. A sprite's hit box rises from its foot and never reaches below it (`CSpriteAnimation::IsHit`). So an object standing higher (height 11.7 lands 9 pixels up the screen) is missed at the exact middle. Measured: 4 of 20 at the middle, 11 of 20 at 12 pixels above it, which is what the test uses (`PICK_RISE`). The remaining misses are a neighbour that the scene lists first (the MFC editor takes the first, and so does this) and the object at the corner. The bar is half, just under 11 of 20.
+
 - [ ] **Step 2: Link Common into the bridge**
 
 In `build.zig`, `addEditorBridge` adds `Sources/src/Common` as an include path only. Add `Sources/src/EditorBridge/world.cpp` to its sources. Link the static `Common` library into it the way `addLegacyProjectDll` links it for GameTT (`build.zig:1815`), then pass the library in from the call site. Run `zig test tools/zig/build_hermeticity_test.zig`.

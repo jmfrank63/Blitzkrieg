@@ -7,6 +7,8 @@
 #include "../MapFile/MapOverlay.h"
 #include "bridge.h"
 
+class CEditorWorld;
+
 // One editing session.
 //
 // The snapshot is the map exactly as read, frame indices still packed. The
@@ -61,9 +63,16 @@ struct SEditorSession
 	// One above every link ID this session has handed out or deleted, so an add
 	// never takes the ID of an object a later undo will restore.
 	int nLinkIDFloor;
+	// The engine's object layer: the map objects with visuals that the scene
+	// draws and IScene::Pick finds. Made in BkEditorStart, deleted in
+	// BkEditorStop.
+	CEditorWorld *pWorld;
+	// byLinkID the other way round, for turning a picked object into its link
+	// ID. Rebuilt whenever byLinkID changes (UpdateSessionWorld).
+	std::unordered_map<IRefCount*, int> linkByAI;
 	bool bEngineStarted;
 	bool bMapOpen;
-	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws
@@ -118,6 +127,15 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 // there are - always the database's count, not how many fitted. Returns false
 // when the buffer was too small, which the caller can tell from the count.
 bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int nCapacity, int *pnCount );
+
+// Runs one world update, so the scene holds a visual for every engine object
+// the last edit made, moved or removed, and rebuilds linkByAI from byLinkID.
+// Every edit that changes an engine object calls it once it has succeeded.
+void UpdateSessionWorld( SEditorSession *pSession );
+
+// The object under a screen point, as a link ID. Returns false with the reason
+// in szMessage; pbRefused tells "nothing pickable there" apart from a failure.
+bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool *pbRefused );
 
 // The camera, one frame, and the two conversions picking needs.
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );

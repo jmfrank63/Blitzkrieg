@@ -198,6 +198,12 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEnt
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
 BkEditorStatus BkEditorFrame( BkEditorSession *session );
 
+/* The object under a screen point, as a link ID. Bridges and entrenchments
+   are passed over, as the MFC editor passes them over
+   (TemplateEditorFrame1.cpp:3384-3400): they are edited as wholes in M2.
+   BK_EDITOR_REFUSED means nothing pickable is there. */
+BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, int *out_link_id );
+
 /* A screen point to the world point under it, against the terrain the camera
    is looking at - so it wants a camera that has been placed. Composes with
    BkEditorWorldToTile to turn a click into a cell. */

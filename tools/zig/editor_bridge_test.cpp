@@ -14,6 +14,8 @@
 #include "../../Sources/src/MapFile/MapOverlay.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
+#include "../../Sources/src/GFX/GFX.H"
+#include "../../Sources/src/Image/Image.h"
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -542,7 +544,7 @@ static void TestPaintReachesEngineAndFile( BkEditorSession *pSession, const std:
 // put on a known object and asked what is under the middle of the screen has
 // to answer with that object's own cell, give or take the tile the anchor
 // falls in. Checking only that they return OK would pass on any two numbers.
-static void TestCatalogueCameraAndFrame( BkEditorSession *pSession )
+static void TestCatalogueCameraAndFrame( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight )
 {
 	CMapInfo map;
 	std::string szError;
@@ -587,7 +589,7 @@ static void TestCatalogueCameraAndFrame( BkEditorSession *pSession )
 	             "the anchor is on the map" ) )
 		return;
 	float wx = 0.0f, wy = 0.0f;
-	if ( !Check( BkEditorScreenToWorld( pSession, 320.0f, 240.0f, &wx, &wy ) == BK_EDITOR_OK,
+	if ( !Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK,
 	             "a screen point becomes a world point" ) )
 		return;
 	int nMiddleX = -1, nMiddleY = -1;
@@ -601,6 +603,119 @@ static void TestCatalogueCameraAndFrame( BkEditorSession *pSession )
 	// slope and the point lands where the ray meets the ground.
 	Check( abs( nMiddleX - nAnchorX ) <= 2 && abs( nMiddleY - nAnchorY ) <= 2,
 	       "and it is the cell the camera was put on" );
+}
+
+// The frame just drawn, as an uncompressed 32-bit TGA, so a person can look at
+// what the pick ratio only counts. Alpha is forced opaque for the reason
+// CMainLoop gives for its own screenshots: the scene texture's alpha is
+// whatever the passes left behind.
+static bool SaveFrame( const std::string &szPath )
+{
+	IGFX *pGFX = GetSingleton<IGFX>();
+	IImageProcessor *pImages = GetImageProcessor();
+	if ( pGFX == 0 || pImages == 0 )
+		return false;
+	const RECT rcScreen = pGFX->GetScreenRect();
+	const int nWidth = rcScreen.right - rcScreen.left, nHeight = rcScreen.bottom - rcScreen.top;
+	CPtr<IImage> pImage = pImages->CreateImage( nWidth, nHeight );
+	if ( pImage == 0 || !pGFX->TakeScreenShot( pImage ) )
+		return false;
+	FILE *pFile = fopen( szPath.c_str(), "wb" );
+	if ( pFile == 0 )
+		return false;
+	// Type 2, 32 bits per pixel, top-left origin (descriptor 0x28: 8 alpha bits
+	// and the top-to-bottom flag).
+	unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	                             (unsigned char)( nWidth & 0xff ), (unsigned char)( nWidth >> 8 ),
+	                             (unsigned char)( nHeight & 0xff ), (unsigned char)( nHeight >> 8 ), 32, 0x28 };
+	fwrite( header, 1, sizeof header, pFile );
+	const SColor *pPixels = pImage->GetLFB();
+	for ( int i = 0; i < nWidth * nHeight; ++i )
+	{
+		const unsigned char bgra[4] = { (unsigned char)pPixels[i].b, (unsigned char)pPixels[i].g, (unsigned char)pPixels[i].r, 255 };
+		fwrite( bgra, 1, 4, pFile );
+	}
+	fclose( pFile );
+	return true;
+}
+
+// A camera put on an object answers, at the middle of the screen, with that
+// object - the picking half of "the camera is on cell 83,36 and the middle of
+// the screen is 83,36".
+// How far above the middle of the screen the pick is made. The camera's anchor
+// is at height 0 and an object stands on the ground, which on this map is up to
+// about 12 pixels above or below that (measured: an object at height 11.7 lands
+// 9 pixels higher on the screen, one at -17 11 pixels lower). A sprite's hit box
+// rises from its foot and never reaches below it, so a point exactly in the
+// middle misses every object standing a little higher than height 0; measured,
+// 4 of 20 were picked there and 11 of 20 at this rise.
+static const float PICK_RISE = 12.0f;
+
+static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	// Game types by name, so one frame can be kept over a unit as well as the
+	// first one over anything.
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+	int nRead = 0;
+	BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead );
+	int nPicked = 0, nTried = 0;
+	bool bSaved = false, bSavedUnit = false;
+	for ( size_t i = 0; i < map.objects.size() && nTried < 20; ++i )
+	{
+		BkEditorObjectState state;
+		if ( BkEditorEngineObjectState( pSession, map.objects[i].link.nLinkID, &state ) != BK_EDITOR_OK )
+			continue;
+		++nTried;
+		// The engine answers in AI units and the camera takes world units, as
+		// TestCatalogueCameraAndFrame converts them.
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, state.x, state.y, 0.0f );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		int nLinkID = -1;
+		if ( BkEditorObjectAt( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f - PICK_RISE, &nLinkID ) == BK_EDITOR_OK &&
+		     nLinkID == map.objects[i].link.nLinkID )
+		{
+			++nPicked;
+			// Frames to look at: over the first object picked, and over the first
+			// unit (game type 1, SGVOGT_UNIT) picked.
+			bool bUnit = false;
+			for ( int j = 0; j < nRead && !bUnit; ++j )
+				bUnit = catalogue[j].game_type == 1 && map.objects[i].szName == catalogue[j].name;
+			if ( !bSaved || ( bUnit && !bSavedUnit ) )
+			{
+				const std::string szFrame = szScratch + ( bSaved ? "/editor-bridge-unit.tga" : "/editor-bridge-objects.tga" );
+				const bool bWritten = SaveFrame( szFrame );
+				printf( "editor-bridge: %s %s (%s)\n", bWritten ? "saved" : "could not save", szFrame.c_str(), map.objects[i].szName.c_str() );
+				if ( bSaved )
+					bSavedUnit = true;
+				bSaved = true;
+				if ( bUnit )
+					bSavedUnit = true;
+			}
+		}
+	}
+	printf( "editor-bridge: %d of %d objects picked at the middle of the screen\n", nPicked, nTried );
+	// Not every one: a small object can sit behind a big neighbour, and that
+	// neighbour is a right answer too. Measured on macOS arm64 at 1440x900:
+	// 11 of 20; the misses are a neighbour the scene listed first (the MFC
+	// editor, copied here, takes the first) and one object at the map's edge
+	// where the camera stops short of it. Half is the bar, just under that.
+	Check( nTried > 0 && nPicked * 2 >= nTried, "the object under the camera is the one picked, for most objects" );
+
+	int nNothing = -1;
+	BkEditorSetCamera( pSession, 16.0f, 16.0f );
+	BkEditorFrame( pSession );
+	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nNothing ) != BK_EDITOR_FAILED, "a point over nothing is an answer, not a failure" );
+	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and nowhere to put the answer is a bad argument" );
 }
 
 // A bridge names its spans by link ID, so deleting one has to be refused with
@@ -928,7 +1043,15 @@ int main( int argc, char **argv )
 		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
-		TestCatalogueCameraAndFrame( pSession );
+		// Not the 640x480 the window was created at: BkEditorStart sets the mode
+		// with no size, and the SDL GPU adapter gives the window its display's
+		// desktop size (GraphicsEngineGpu::SetMode). The middle of the screen is
+		// the middle of what the engine draws.
+		const RECT rcScreen = GetSingleton<IGFX>()->GetScreenRect();
+		const int nScreenWidth = rcScreen.right - rcScreen.left, nScreenHeight = rcScreen.bottom - rcScreen.top;
+		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
+		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
+		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );

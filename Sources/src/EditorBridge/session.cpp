@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstring>
 #include "session.h"
+#include "world.h"
 #include "../MapFile/MapFile.h"
 #include "../Main/GameDB.h"
 #include "../AILogic/AILogic.h"
@@ -186,6 +187,7 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->undonePaints.clear();
 	pSession->tombstones.clear();
 	pSession->nLinkIDFloor = NMapOverlay::NextLinkID( pSession->snapshot );
+	pSession->linkByAI.clear();
 	MakeWorkingCopy( pSession );
 
 	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
@@ -197,11 +199,26 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		return false;
 	}
 
+	// The old map's objects leave the world before the AI they refer to is
+	// cleared. CWorldBase::Clear empties the scene and takes its terrain away
+	// too, so it comes before the new terrain is set, never after.
+	if ( pSession->pWorld != 0 )
+		pSession->pWorld->Clear();
+
 	// The AI editor first: the terrain it is initialised with is what
 	// IsObjectInsideOfMap and AddNewObject answer against below.
 	pAIEditor->Clear();
 	pAIEditor->SetDiplomacies( pSession->working.diplomacies );
 	pAIEditor->Init( pSession->working.terrain );
+	// No war fog: the editor sees every object. The MFC editor switches it off
+	// in both places once the map is in (TemplateEditorFrame1.cpp:1703 and
+	// 1983). Both calls are toggles that answer with the new state, so each is
+	// asked at most twice until it says the fog is off - an unbounded loop would
+	// hang on a toggle that never answered as expected. In the scene the fog
+	// also hides units from IScene::Pick (CCheckObjectVisibleFunctional).
+	for ( int i = 0; i < 2; ++i )
+		if ( pAIEditor->ToggleShow( 0 ) )			// true: the AI's fog is turned off
+			break;
 
 	{
 		// ITerrain::Load takes the map's own path, as the MFC editor passes
@@ -212,13 +229,29 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		pScene->SetTerrain( pTerrain );
 	}
 
+	for ( int i = 0; i < 2; ++i )
+		if ( !pScene->ToggleShow( SCENE_SHOW_WARFOG ) )	// false: the scene's fog is off
+			break;
+
 	std::vector<SMapObjectInfo> bridgeSpans;
 	PlaceObjects( pSession, pSession->working.objects, pObjectsDB, pAIEditor, &bridgeSpans );
 	PlaceObjects( pSession, pSession->working.scenarioObjects, pObjectsDB, pAIEditor, &bridgeSpans );
 	BuildBridges( pSession, bridgeSpans, pObjectsDB, pAIEditor );
+	// The AI has queued a notification for every object it took; one update
+	// turns them into map objects with visuals in the scene.
+	UpdateSessionWorld( pSession );
 
 	pSession->bMapOpen = true;
 	return true;
+}
+
+void UpdateSessionWorld( SEditorSession *pSession )
+{
+	if ( pSession->pWorld != 0 )
+		pSession->pWorld->UpdateNow();
+	pSession->linkByAI.clear();
+	for ( std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.begin(); it != pSession->byLinkID.end(); ++it )
+		pSession->linkByAI[it->second.GetPtr()] = it->first;
 }
 
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
@@ -391,6 +424,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	}
 	pSession->byLinkID[nLinkID] = pAIObject;
 	pSession->nLinkIDFloor = nLinkID + 1;
+	UpdateSessionWorld( pSession );
 	if ( pnLinkID )
 		*pnLinkID = nLinkID;
 	return true;
@@ -496,6 +530,7 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 		if ( pbRefused ) *pbRefused = true;
 		return false;
 	}
+	UpdateSessionWorld( pSession );
 	return true;
 }
 
@@ -539,6 +574,7 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	}
 	pSession->tombstones[nLinkID] = tombstone;
 	pSession->nLinkIDFloor = Max( pSession->nLinkIDFloor, nLinkID + 1 );
+	UpdateSessionWorld( pSession );
 	return true;
 }
 
@@ -588,7 +624,53 @@ bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefu
 		pSession->byLinkID[nLinkID] = pAIObject;
 	}
 	pSession->tombstones.erase( it );
+	UpdateSessionWorld( pSession );
 	return true;
+}
+
+bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool *pbRefused )
+{
+	*pbRefused = false;
+	IScene *pScene = GetSingleton<IScene>();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pScene == 0 || pAIEditor == 0 || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		return false;
+	}
+	// The MFC editor's pick (TemplateEditorFrame1.cpp:3384-3400), without the
+	// entrenchment exception it makes for a move already under way. The first
+	// object the session knows is the answer, as the MFC editor takes the first
+	// of what its pick leaves (ObjectPlacerState.cpp:453-454).
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( CVec2( sx, sy ), &pObjects, &nCount, SGVOGT_UNKNOWN );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		IVisObj *pVisObj = pObjects[i].first;
+		if ( !pSession->pWorld->IsExistByVis( pVisObj ) )
+			continue;
+		SMapObject *pMapObject = pSession->pWorld->FindByVis( pVisObj );
+		if ( pMapObject == 0 || pMapObject->pDesc == 0 || pMapObject->pAIObj == 0 )
+			continue;
+		const EObjGameType eType = pMapObject->pDesc->eGameType;
+		if ( eType == SGVOGT_BRIDGE || eType == SGVOGT_ENTRENCHMENT )
+			continue;
+		std::unordered_map<IRefCount*, int>::const_iterator it = pSession->linkByAI.find( pMapObject->pAIObj );
+		// A soldier is drawn and picked on his own, but the map holds his squad:
+		// the MFC editor goes from one to the other the same way
+		// (ObjectPlacerState.cpp:409).
+		if ( it == pSession->linkByAI.end() )
+			if ( IRefCount *pFormation = pAIEditor->GetFormationOfUnit( pMapObject->pAIObj ) )
+				it = pSession->linkByAI.find( pFormation );
+		if ( it == pSession->linkByAI.end() )
+			continue;
+		*pnLinkID = it->second;
+		return true;
+	}
+	pSession->szMessage = "nothing to pick there";
+	*pbRefused = true;
+	return false;
 }
 
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy )

@@ -7,6 +7,7 @@
 #include "StdAfx.h"
 #include "bridge.h"
 #include "session.h"
+#include "world.h"
 #include "../MapFile/MapOverlay.h"
 #include "../Main/iMain.h"
 #include "../GFX/GFX.H"
@@ -72,6 +73,18 @@ BkEditorStatus StartRenderer( BkEditorSession *pSession, void *pWindow )
 		pSession->szMessage = "IGFX::SetMode failed";
 		return BK_EDITOR_NO_DEVICE;
 	}
+	// What the game does after its mode is set (Game/GameMain.cpp:795-801). The
+	// scene's screen transform - IScene::Pick and GetPos2 - is the viewport
+	// times this projection times the view, and without it the projection is
+	// the identity: measured, a world unit came out 720 pixels wide and nothing
+	// was ever under the middle of the screen.
+	const RECT rcScreen = pGFX->GetScreenRect();
+	SHMatrix matProjection;
+	CreateOrthographicProjectionMatrixRH( &matProjection, float( rcScreen.right - rcScreen.left ), float( rcScreen.bottom - rcScreen.top ),
+	                                      1, 1024 * 8 + float( rcScreen.bottom - rcScreen.top ) * 2 );
+	pGFX->SetCullMode( GFXC_CW );		// the right-handed coordinate system
+	pGFX->SetProjectionTransform( matProjection );
+	pGFX->EnableLighting( false );
 	return BK_EDITOR_OK;
 }
 }
@@ -151,6 +164,12 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 			pSession->szMessage = "the object database would not load";
 			return BK_EDITOR_DATA_MISSING;
 		}
+		// The MFC editor's switch (MainFrm.cpp:471): without it CWorldBase::Update
+		// hands the AI's notifications on only when a game segment is due
+		// (WorldBase.cpp:574), and an edit would draw a segment late or never.
+		SetGlobalVar( "editor", 1 );
+		pSession->pWorld = new CEditorWorld;
+		pSession->pWorld->Init( GetSingletonGlobal() );
 		pSession->bEngineStarted = true;
 		return BK_EDITOR_OK;
 	} );
@@ -518,6 +537,26 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *pSession, float sx, float
 	} );
 }
 
+BkEditorStatus BkEditorObjectAt( BkEditorSession *pSession, float sx, float sy, int *pnLinkID )
+{
+	if ( pnLinkID != 0 )
+		*pnLinkID = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnLinkID == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( ObjectAt( pSession, sx, sy, pnLinkID, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorSetMapType( BkEditorSession *pSession, int nType )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -574,6 +613,11 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		return BK_EDITOR_OK;
 	try
 	{
+		// The session holds the world by a plain pointer. Its destructor empties
+		// the scene and drops the map objects, which refer to the AI objects
+		// the session holds.
+		delete pSession->pWorld;
+		pSession->pWorld = 0;
 		delete pSession;
 	}
 	catch ( ... )
