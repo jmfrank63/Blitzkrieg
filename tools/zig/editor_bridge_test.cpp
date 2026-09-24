@@ -648,14 +648,56 @@ static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWi
 	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == nWindowW && nScreenH == nWindowH,
 	       NStr::Format( "the screen is the window's size (%dx%d against %dx%d)", nScreenW, nScreenH, nWindowW, nWindowH ) );
 
+	// A resize follows the window and never touches it: not moved back to the
+	// profile's display or re-centred, not sized, and the screen is the
+	// window's size afterwards. The window is put somewhere that is not the
+	// origin first, so a re-centre would show.
+	SDL_SetWindowPosition( pWindow, 100, 80 );
+	SDL_SyncWindow( pWindow );
 	SDL_SetWindowSize( pWindow, 800, 500 );
 	SDL_SyncWindow( pWindow );
-	Check( BkEditorResize( pSession, 800, 500 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
-	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == 800 && nScreenH == 500,
-	       NStr::Format( "a resize is the new screen (%dx%d)", nScreenW, nScreenH ) );
+	int nBeforeX = 0, nBeforeY = 0, nBeforeW = 0, nBeforeH = 0;
+	SDL_GetWindowPosition( pWindow, &nBeforeX, &nBeforeY );
+	SDL_GetWindowSize( pWindow, &nBeforeW, &nBeforeH );
+	printf( "editor-bridge: before the resize the window is %dx%d at %d,%d\n", nBeforeW, nBeforeH, nBeforeX, nBeforeY );
+	Check( BkEditorResize( pSession, nBeforeW + 1, nBeforeH ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a resize to a size that is not the window's is refused" );
+	Check( BkEditorResize( pSession, nBeforeW, nBeforeH ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nAfterX = 0, nAfterY = 0;
+	SDL_GetWindowPosition( pWindow, &nAfterX, &nAfterY );
 	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
-	Check( nWindowW == 800 && nWindowH == 500, NStr::Format( "and the engine leaves the window at that size (%dx%d)", nWindowW, nWindowH ) );
-	printf( "editor-bridge: after a resize the window is %dx%d and the screen %dx%d\n", nWindowW, nWindowH, nScreenW, nScreenH );
+	Check( nAfterX == nBeforeX && nAfterY == nBeforeY,
+	       NStr::Format( "the resize leaves the window where it was (%d,%d, was %d,%d)", nAfterX, nAfterY, nBeforeX, nBeforeY ) );
+	Check( nWindowW == nBeforeW && nWindowH == nBeforeH,
+	       NStr::Format( "and at the size it was (%dx%d, was %dx%d)", nWindowW, nWindowH, nBeforeW, nBeforeH ) );
+	Check( nWindowW == 800 && nWindowH == 500, NStr::Format( "which is the size it was given (%dx%d)", nWindowW, nWindowH ) );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == nWindowW && nScreenH == nWindowH,
+	       NStr::Format( "and the screen is the window (%dx%d against %dx%d)", nScreenW, nScreenH, nWindowW, nWindowH ) );
+	printf( "editor-bridge: after a resize the window is %dx%d at %d,%d and the screen %dx%d\n", nWindowW, nWindowH, nAfterX, nAfterY, nScreenW, nScreenH );
+
+	// A window larger than its display's usable area: SetMode clamped the
+	// window and kept the larger size for the scene, so the screen stopped
+	// being the window. A resize that follows the window keeps the two equal.
+	SDL_Rect usable = { 0, 0, 0, 0 };
+	if ( Check( SDL_GetDisplayUsableBounds( SDL_GetDisplayForWindow( pWindow ), &usable ) && usable.w > 0 && usable.h > 0, "the display's usable area reads" ) )
+	{
+		SDL_SetWindowSize( pWindow, usable.w + 200, usable.h + 200 );
+		SDL_SyncWindow( pWindow );
+		SDL_GetWindowPosition( pWindow, &nBeforeX, &nBeforeY );
+		SDL_GetWindowSize( pWindow, &nBeforeW, &nBeforeH );
+		Check( BkEditorResize( pSession, nBeforeW, nBeforeH ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		SDL_GetWindowPosition( pWindow, &nAfterX, &nAfterY );
+		SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+		BkEditorScreenSize( pSession, &nScreenW, &nScreenH );
+		printf( "editor-bridge: a window larger than the usable %dx%d: %dx%d at %d,%d before, %dx%d at %d,%d after, screen %dx%d\n",
+		        usable.w, usable.h, nBeforeW, nBeforeH, nBeforeX, nBeforeY, nWindowW, nWindowH, nAfterX, nAfterY, nScreenW, nScreenH );
+		Check( nWindowW == nBeforeW && nWindowH == nBeforeH && nAfterX == nBeforeX && nAfterY == nBeforeY,
+		       "a resize leaves a window larger than its display as it is" );
+		Check( nScreenW == nWindowW && nScreenH == nWindowH, "and the screen is still the window" );
+		SDL_SetWindowSize( pWindow, 800, 500 );
+		SDL_SyncWindow( pWindow );
+		Check( BkEditorResize( pSession, 800, 500 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
 	// Screen-to-world still composes after a resize: the camera test's check,
 	// on the camera test's anchor - the shipped map's first object.
 	CMapInfo map;
@@ -676,8 +718,27 @@ static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWi
 		       NStr::Format( "after a resize the middle of the screen is still the camera's cell (%d,%d against %d,%d)", tx, ty, nAnchorX, nAnchorY ) );
 		printf( "editor-bridge: after a resize the camera is on cell %d,%d and the middle of the screen is %d,%d\n", nAnchorX, nAnchorY, tx, ty );
 	}
-	BkEditorResize( pSession, 640, 480 );
+	// Back to the size the later tests were given, window first: the resize
+	// follows the window.
 	SDL_SetWindowSize( pWindow, 640, 480 );
+	SDL_SyncWindow( pWindow );
+	Check( BkEditorResize( pSession, 640, 480 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == 640 && nScreenH == 480,
+	       NStr::Format( "and back to 640x480 (%dx%d)", nScreenW, nScreenH ) );
+}
+
+// The renderer outlives the session, and the overlay is the caller's: a stop
+// has to take it out, or the next present calls into whatever the caller freed.
+// A present straight through IGFX, with no session left to draw one.
+static int PresentThroughTheEngine()
+{
+	IGFX *pGFX = GetSingleton<IGFX>();
+	if ( pGFX == 0 || !pGFX->BeginScene() )
+		return 0;
+	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0xff000000 );
+	pGFX->EndScene();
+	pGFX->Flip();
+	return 1;
 }
 
 // The frame just drawn, as an uncompressed 32-bit TGA, so a person can look at
@@ -1369,7 +1430,18 @@ int main( int argc, char **argv )
 		TestBrokenMapKeepsTheOpenOne( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
+		// The overlay reaches a present made straight through the engine, so the
+		// check after the stop below can tell a removed overlay from a present
+		// that never happened.
+		g_nOverlayCalls = 0;
+		Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( PresentThroughTheEngine() == 1 && g_nOverlayCalls >= 1,
+		       NStr::Format( "an overlay runs in a present made through the engine (%d calls)", g_nOverlayCalls ) );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+		const int nCallsAtStop = g_nOverlayCalls;
+		PresentThroughTheEngine();
+		Check( g_nOverlayCalls == nCallsAtStop,
+		       NStr::Format( "a stop removes the overlay (%d calls after it)", g_nOverlayCalls - nCallsAtStop ) );
 	}
 
 	SDL_DestroyWindow( pWindow );

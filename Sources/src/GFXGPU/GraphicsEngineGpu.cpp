@@ -1600,3 +1600,26 @@ bool STDCALL GraphicsEngineGpu::GetGpuDevice( void **ppDevice, unsigned int *pnF
     *pnFormat = nFormat;
     return *ppDevice != nullptr;
 }
+
+// The part of SetMode that is a size change and nothing more: the screen rect,
+// the viewport, the reported mode and the scene texture. The drawable needs no
+// bookkeeping here - Flip republishes it from the window every frame
+// (UpdatePresentOffsets). What SetMode also does - pick a display, centre and
+// clamp the window, size it, show it, present a black frame - is exactly what a
+// window its user sizes must not have done to it: a resize would jump to the
+// profile's monitor, and a size larger than the display would be kept for the
+// scene while the window was clamped, so the screen was no longer the window.
+bool STDCALL GraphicsEngineGpu::FollowWindowSize()
+{
+    if ( renderer_ == nullptr || sdl_window_ == nullptr )
+        return false;
+    int nWidth = 0, nHeight = 0;
+    if ( !SDL_GetWindowSize( static_cast<SDL_Window *>( sdl_window_ ), &nWidth, &nHeight ) || nWidth <= 0 || nHeight <= 0 )
+        return fail( "the window has no size to follow" );
+    if ( !Check( api_.resize( renderer_, static_cast<uint32_t>( nWidth ), static_cast<uint32_t>( nHeight ) ), "resize" ) )
+        return false;
+    width_ = nWidth; height_ = nHeight;
+    UpdateViewportMatrix( 0, 0, nWidth, nHeight, 0.0f, 1.0f );
+    display_mode_ = { nWidth, nHeight, 32 };
+    return true;
+}

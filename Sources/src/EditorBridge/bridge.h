@@ -231,11 +231,11 @@ BkEditorStatus BkEditorFrame( BkEditorSession *session );
    BkEditorFrame, inside the engine's Flip, after the scene and before present,
    with that frame's SDL_GPUCommandBuffer and colour target (an SDL_GPUTexture
    of width x height pixels). No render pass is open: the callback opens and
-   ends its own. It must not call back into the bridge. It also runs once
-   inside BkEditorResize: a mode change presents a black frame of its own
-   (GraphicsEngineGpu::SetMode), and the overlay is drawn over that frame too,
-   at the new size. A null overlay removes it. BK_EDITOR_REFUSED means the
-   engine is not started or its renderer has no such hook. */
+   ends its own. It must not call back into the bridge. A null overlay
+   removes it, and BkEditorStop removes it too, since the renderer outlives the
+   session and the callback and user data die with the caller's own state.
+   BK_EDITOR_REFUSED means the engine is not started or its renderer has no
+   such hook. */
 typedef void (*BkEditorOverlay)( void *user, void *command_buffer, void *target, unsigned int width, unsigned int height );
 BkEditorStatus BkEditorSetOverlay( BkEditorSession *session, BkEditorOverlay overlay, void *user );
 
@@ -247,10 +247,16 @@ BkEditorStatus BkEditorGpuDevice( BkEditorSession *session, void **out_device, u
 
 /* The screen is the window: BkEditorStart sets the engine's mode to the
    window's size, so a mouse position is a screen position with no scale. Call
-   BkEditorResize after the window's size changed, with the window's size in
-   points - which is pixels, because the editor's window has no high pixel
-   density. It sets the mode and the projection again. A size that is not positive is BK_EDITOR_BAD_ARGUMENT, and a mode
-   the engine will not set is BK_EDITOR_FAILED. */
+   BkEditorResize after the window's size changed. The screen then becomes the
+   window's current size in points - which is pixels, because the editor's
+   window has no high pixel density - and the projection is set again. The
+   window itself is left alone: never moved to another display, sized or
+   shown again, and no frame is presented. width and height must be the
+   window's size as the caller just saw it; anything else is
+   BK_EDITOR_BAD_ARGUMENT and changes nothing, since a caller out of step with
+   its window would put the screen and the mouse out of step too.
+   BK_EDITOR_FAILED means the renderer would not follow the window (inside a
+   frame, or a renderer that cannot). */
 BkEditorStatus BkEditorResize( BkEditorSession *session, int width, int height );
 /* The size the engine draws at, which BkEditorScreenToWorld and
    BkEditorObjectAt take their points in. */
@@ -277,7 +283,8 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float 
 BkEditorStatus BkEditorSetMapType( BkEditorSession *session, int type );
 BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
 
-/* Safe on a null session, and safe to call twice. */
+/* Safe on a null session, and safe to call twice. Removes the overlay
+   BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
 
 #ifdef __cplusplus

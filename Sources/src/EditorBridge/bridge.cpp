@@ -28,7 +28,13 @@ ISaveLoadSystem *g_pGlobalSaveLoadSystem = 0;
 ISingleton *g_pGlobalSingleton = 0;
 GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 
-struct BkEditorSession : public SEditorSession {  };
+// The window the session was started on, which BkEditorResize reads the new
+// size of. The caller owns it and keeps it alive for the session.
+struct BkEditorSession : public SEditorSession
+{
+	void *pWindow;
+	BkEditorSession() : pWindow( 0 ) {  }
+};
 
 namespace {
 
@@ -134,6 +140,7 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 	}
 	*ppOut = pSession;
 	pSession->szDataRoot = pszDataRoot != 0 ? pszDataRoot : ".";
+	pSession->pWindow = pWindow;
 
 	return Guarded( pSession, [pSession, pWindow]() -> BkEditorStatus
 	{
@@ -622,9 +629,23 @@ BkEditorStatus BkEditorResize( BkEditorSession *pSession, int nWidth, int nHeigh
 			pSession->szMessage = "the engine is not started";
 			return BK_EDITOR_REFUSED;
 		}
-		if ( !pGFX->SetMode( nWidth, nHeight, 32, -1, GFXFS_WINDOWED, 0 ) )
+		// The window is the size; the arguments say which size the caller
+		// thinks it is. A mismatch is a caller that has not caught up with the
+		// window yet, and adopting either size silently would put the screen
+		// and the mouse out of step.
+		int nWindowWidth = 0, nWindowHeight = 0;
+		SDL_GetWindowSize( static_cast<SDL_Window*>( pSession->pWindow ), &nWindowWidth, &nWindowHeight );
+		if ( nWidth != nWindowWidth || nHeight != nWindowHeight )
 		{
-			pSession->szMessage = "IGFX::SetMode failed";
+			pSession->szMessage = NStr::Format( "%dx%d is not the window's size, %dx%d", nWidth, nHeight, nWindowWidth, nWindowHeight );
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		// Not SetMode: that picks the profile's display and re-centres, clamps
+		// and re-shows the window on it, and keeps a requested size the window
+		// was clamped away from.
+		if ( !pGFX->FollowWindowSize() )
+		{
+			pSession->szMessage = "IGFX::FollowWindowSize failed";
 			return BK_EDITOR_FAILED;
 		}
 		SetScreenProjection( pGFX );
@@ -751,6 +772,14 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		// the session holds.
 		delete pSession->pWorld;
 		pSession->pWorld = 0;
+		// The renderer outlives the session, and the overlay's function and
+		// user data are the caller's, gone with its ImGui state: left in place,
+		// the next frame or mode change would call into freed memory.
+		if ( pSession->bEngineStarted )
+		{
+			if ( IGFX *pGFX = GetSingleton<IGFX>() )
+				pGFX->SetOverlay( 0, 0 );
+		}
 		delete pSession;
 	}
 	catch ( ... )

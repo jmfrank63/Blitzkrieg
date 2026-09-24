@@ -220,5 +220,11 @@ interface IGFX : public IRefCount
 	// The SDL GPU device and the colour format the overlay draws in, for a
 	// caller that renders into the frame itself (the editor's ImGui).
 	virtual bool STDCALL GetGpuDevice( void **ppDevice, unsigned int *pnFormat ) = 0;
+	// The screen becomes the window's current size in points, and nothing else
+	// changes: unlike SetMode it never moves, sizes or shows the window, never
+	// picks a display and presents nothing. For a caller whose window is sized
+	// by its user (the editor). False when the renderer cannot (the legacy D3D
+	// engine), or inside a frame.
+	virtual bool STDCALL FollowWindowSize() = 0;
 };
 #endif // __GFX_H__
