@@ -681,6 +681,17 @@ void CInterfaceCloudCredentials::CycleExample( int nSlot )
 }
 bool CInterfaceCloudCredentials::SaveCredentials()
 {
+	// While the config machine runs, the rows are not the form: after a
+	// question is answered they still hold that one question until the flow
+	// settles. A save now would write the backend with no folder and no
+	// options over what the test began by saving, and OK's close would then
+	// cancel a consent the player may still be finishing in the browser.
+	if ( nTestHandle >= 0 )
+	{
+		SetStatus( 0, TextOrFallback( "Textes\\UI\\CloudCredentials\\flow_running",
+			L"Still connecting - finish signing in in your browser, or Cancel to stop." ) );
+		return false;
+	}
 	if ( bLoadFailed )
 	{
 		// Credentials exist but could not be read; a save built from this
