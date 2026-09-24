@@ -1,8 +1,9 @@
 //! rclone binary discovery, version gate, and the supervisor for the
 //! `rclone rcd` child the rest of the module talks to.
 //!
-//! rclone is an optional external dependency: the game neither bundles nor
-//! downloads it, so on most machines it is simply absent. Absence is not a
+//! rclone is an external program. The game ships one beside itself, but a
+//! build without the bundle, or a player who removed it, leaves the machine
+//! with none unless one is installed. Absence is not a
 //! failure — it disables cloud sync — which is why `discover` answers `null`
 //! rather than an error, and why the only error this file can return is
 //! `OutOfMemory`.
@@ -15,11 +16,14 @@
 //! version it rejected.
 //!
 //! Search order: the explicit path from `cloud.credentials`, then the game
-//! directory, then `PATH`. The explicit path never falls back — the settings
-//! dialog offers the override precisely because `PATH` may not reach a working
-//! rclone, and quietly using a different binary than the one the player named
-//! would report a working sync that their override says nothing about, while
-//! hiding a typo forever.
+//! directory, then `PATH`. An explicit path to a file that exists never falls
+//! back: a binary the player named that is too old or will not run must be
+//! reported as such, not replaced by another one. An explicit path to nothing
+//! does fall back. `cloud.credentials` outlives the binary it names — a
+//! temporary download, an uninstalled package manager copy — and a stale
+//! override would otherwise disable cloud sync on a machine that ships a
+//! working rclone beside the game. The credentials dialog prints the path it
+//! resolved, so a typo still shows as a different binary than the one typed.
 //!
 //! **Everything here blocks the calling thread**, `probeVersion` most of all:
 //! it spawns a process and waits for it. Like `rc.zig`, this belongs on the
@@ -84,7 +88,8 @@ pub const Reason = enum { not_found, too_old, not_executable };
 /// how a test excludes the machine it runs on from the search.
 pub const Search = struct {
     /// `Cloud.Rclone.Path` from `cloud.credentials`. Empty is the same as
-    /// unset; anything else is taken verbatim, and is the only candidate.
+    /// unset; anything else is taken verbatim, and is the only candidate
+    /// while a file is there.
     explicit: ?[]const u8 = null,
     game_dir: ?[]const u8 = null,
     path_env: ?[]const u8 = null,
@@ -154,9 +159,9 @@ pub fn discoverIn(gpa: Allocator, io: Io, search: Search) DiscoverError!?[]const
         if (explicit.len != 0) {
             // Executability is deliberately not required here: an unreadable
             // permission on a path the player typed must surface as
-            // `.not_executable`, not vanish into "nothing found".
-            if (!isRegularFile(io, explicit)) return null;
-            return try gpa.dupe(u8, explicit);
+            // `.not_executable`, not vanish into "nothing found". A path to
+            // nothing falls through to the ordinary search below.
+            if (isRegularFile(io, explicit)) return try gpa.dupe(u8, explicit);
         }
     }
 
