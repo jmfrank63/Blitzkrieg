@@ -2878,3 +2878,28 @@ Run the workflow and read both engine-tier logs, not only the job colour: the ma
 - **Spec coverage, "Testing → Core":** every command round-trips (Task 5), brush drag, drag-move, and delete-undo keeping object, player and link ID (Task 6), diplomacy (Task 5), and a refused delete leaving document and history unchanged (Task 5).
 - **Spec coverage, "Picking and camera":** `BkEditorObjectAt` (Task 7).
 - **Left for plan 5:** the Zig adapter over the C ABI, and an engine-tier run of the core against the real bridge. The fake's rules are pinned by Task 3's tests against what Tasks 1-2 measured on the real one, which is what keeps the two honest until then.
+
+---
+
+## Outcome (2026-09-24)
+
+All seven tasks landed, each through a task review, then a final whole-branch review and one fix wave. CI run 35981596746 (`eb03acf0c`) is green in all six jobs: the core tier runs on all six targets including MinGW, and the engine tier passes on both GPU runners, Windows-MSVC with debug asserts live included.
+
+Found and fixed along the way, beyond the tasks as written:
+- `PaintIntoSession` handed a half-open patch rectangle to `CTerrain::Update` (inclusive) and patch numbers to `IAIEditor::UpdateTerrain` (half-open tiles): one patch too many, and a read past the patch array at the far edge.
+- The bridge set no projection after `SetMode`, so screen and world conversions only agreed by accident; fog of war hid every unit from `Pick`.
+- Deleting a squad hit `CAIEditor::DeleteObject`'s "Unknown object" assert; squads are now deleted soldier by soldier, as the MFC editor does.
+- 361 of arnheim's terrain objects share link ID 0; edits of a shared link ID are refused.
+- A file that is not a map was read through a null saver and aborted; it is now refused as "not a map".
+- A deleted AI object kept its link registered (the engine frees it only in `CLinkObject::Segment`, which the editor never runs), so undo of a delete re-registered a taken link: the Windows "Repeated link" assert, a silent overwrite in release. The bridge now releases the link with `IAIEditor::ReleaseLink`, and `BkEditorWorldMatchesMap` checks the engine's link table against the session.
+
+### Carried into plan 5
+
+- Terrain draws black in parts of the mid-map frame (`editor-bridge-objects.tga`). Not from this plan; the vertical cut at about x=160 of 1440 points at screen-space clipping in `AddVertices`/`CheckForRect` or `ExtractVisiblePatches`. Compare with `BK_GFX_TRACE` against the game at the same anchor.
+- `SetMode(0)` takes the desktop size and resizes the editor's window.
+- The 361 shared-ID objects can be picked (as link 0) but not edited; `Document.find(0)` returns the first record. `placed_object_count` under-reports on arnheim (2444 of 2804).
+- Diplomacy changes reach the view only at the next object edit; the app's frame loop should update the world.
+- The pick answers the first listed object, not the frontmost; `ScreenToWorld` ignores terrain height (`GetViewVolumeCrosses` is empty in the GPU adapter).
+- The fake bridge differs from the real one in a few statuses (a diplomacy player out of range, an unknown link ID) and accepts any name on add; its header lists the differences.
+- The history and the bridge's paint records grow for the whole session.
+- Test gaps: no pick after add/restore/delete, redo of map type and attacking side, allocation-failure tests beyond `addObject`.
