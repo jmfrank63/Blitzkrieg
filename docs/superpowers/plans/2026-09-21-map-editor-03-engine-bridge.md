@@ -1186,6 +1186,15 @@ seconds. The assert in `GetRPGStats` is gone, because the function already
 handles and traces a null result: shipped maps name objects that have no stats
 file. The Windows timeout is back to 60.
 
+**Sixth and seventh runs (35957131460, 35959559701): Direct3D passes.** With
+asserts failing fast, run 35957131460 stopped after 16 minutes on the next one:
+`pDesc != 0` in `UnpackFrameIndex`, again in front of the guard plan 3 added,
+in the unknown-object test. Every test before it had passed on Direct3D. With
+that assert removed, run 35959559701 is green in all six jobs, and the
+Windows-MSVC engine tier prints the same lines as macOS, including
+`the camera is on cell 83,36 and the middle of the screen is 83,36` and
+`editor-bridge: PASS`. Task 8 is done.
+
 Each missing symbol costs a full CI round to discover, so the fix is the general one
 rather than the next symbol: the test executable hosts the same engine the game
 does, so it links the same Windows imports `addGame` does, minus the
