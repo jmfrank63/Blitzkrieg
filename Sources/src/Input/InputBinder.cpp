@@ -599,8 +599,13 @@ bool CInputBinder::SerializeConfig( IDataTree *pSS )
 		}
 		for ( std::vector<std::string>::const_iterator it = config.syscmds.begin(); it != config.syscmds.end(); ++it )
 			SetSystemCommand( *it );
+		// Loading walked every section; leave the neutral one active.
+		SetBindSection( "default" );
 	}
-	SetBindSection( "default" );
+	// A write leaves the live section alone. The config is written from
+	// inside open screens (the Cloud tab's Sync now, the exit request), and
+	// resetting to "default" there unmapped the screen's clicks: every
+	// button went dead, with no way off the screen.
 	return true;
 }
 int CInputBinder::operator&( IStructureSaver &ss )
