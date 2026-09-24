@@ -181,6 +181,11 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->nBridgeSpansPlaced = 0;
 	pSession->snapshot = read;
 	pSession->szMapPath = pszPath;
+	pSession->paints.clear();
+	pSession->appliedPaints.clear();
+	pSession->undonePaints.clear();
+	pSession->tombstones.clear();
+	pSession->nLinkIDFloor = NMapOverlay::NextLinkID( pSession->snapshot );
 	MakeWorkingCopy( pSession );
 
 	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
@@ -352,8 +357,13 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		return false;
 	}
 
+	// Never below the floor: an ID a deleted object held may be wanted back by
+	// its restore, and NextLinkID alone would hand the highest one out again.
+	// Both copies get the ID explicitly, so they cannot disagree about it.
+	NMapOverlay::SAddObject add = rAdd;
+	add.nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
 	int nLinkID = -1;
-	if ( !NMapOverlay::AddObject( &pSession->snapshot, rAdd, &nLinkID ) )
+	if ( !NMapOverlay::AddObject( &pSession->snapshot, add, &nLinkID ) )
 	{
 		pSession->szMessage = "the map would not take the object";
 		return false;
@@ -364,7 +374,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	// something else.
 	if ( SMapObjectInfo *pAdded = FindIn( &pSession->snapshot, nLinkID ) )
 		CMapInfo::PackFrameIndex( pObjectsDB, pAdded );
-	NMapOverlay::AddObject( &pSession->working, rAdd, 0 );
+	NMapOverlay::AddObject( &pSession->working, add, 0 );
 
 	const SMapObjectInfo *pSnapshotObject = FindIn( &pSession->snapshot, nLinkID );
 	IRefCount *pAIObject = pSnapshotObject != 0 ? PlaceOneObject( *pSnapshotObject, pDesc, pAIEditor ) : 0;
@@ -380,6 +390,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		return false;
 	}
 	pSession->byLinkID[nLinkID] = pAIObject;
+	pSession->nLinkIDFloor = nLinkID + 1;
 	if ( pnLinkID )
 		*pnLinkID = nLinkID;
 	return true;
@@ -505,23 +516,78 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	// The map decides first: something still referring to the object - a bridge,
 	// a start command, a reinforcement group, a passenger - means no, and the
 	// engine is never asked.
+	//
+	// Both records are kept, with their lists and places, for a restore.
+	SEditorSession::STombstone tombstone;
 	std::string szRefusal;
-	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal ) )
+	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal, &tombstone.snapshot ) )
 	{
 		pSession->szMessage = szRefusal;
 		if ( pbRefused ) *pbRefused = true;
 		return false;
 	}
 	std::string szIgnored;
-	NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
+	NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored, &tombstone.working );
 
 	std::unordered_map<int, CPtr<IRefCount> >::iterator itEngine = pSession->byLinkID.find( nLinkID );
 	if ( itEngine != pSession->byLinkID.end() )
 	{
+		tombstone.bPlaced = true;
 		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
 			pAIEditor->DeleteObject( itEngine->second );
 		pSession->byLinkID.erase( itEngine );
 	}
+	pSession->tombstones[nLinkID] = tombstone;
+	pSession->nLinkIDFloor = Max( pSession->nLinkIDFloor, nLinkID + 1 );
+	return true;
+}
+
+bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
+{
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	std::unordered_map<int, SEditorSession::STombstone>::iterator it = pSession->tombstones.find( nLinkID );
+	if ( it == pSession->tombstones.end() )
+	{
+		pSession->szMessage = "no deleted object has that link ID";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pObjectsDB == 0 || pAIEditor == 0 )
+	{
+		pSession->szMessage = "the engine is not there";
+		return false;
+	}
+	if ( !NMapOverlay::RestoreObject( &pSession->snapshot, it->second.snapshot ) )
+	{
+		pSession->szMessage = "the link ID is in use again";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	NMapOverlay::RestoreObject( &pSession->working, it->second.working );
+	// The engine object comes from the working record, whose frame index is
+	// unpacked, the way OpenMapIntoSession builds it; the snapshot keeps its
+	// packed index for the save.
+	if ( it->second.bPlaced )
+	{
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( it->second.working.object.szName.c_str() );
+		IRefCount *pAIObject = pDesc != 0 ? PlaceOneObject( it->second.working.object, pDesc, pAIEditor ) : 0;
+		if ( pAIObject == 0 )
+		{
+			std::string szIgnored;
+			NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szIgnored );
+			NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
+			pSession->szMessage = "the engine would not take the object back";
+			if ( pbRefused ) *pbRefused = true;
+			return false;
+		}
+		pSession->byLinkID[nLinkID] = pAIObject;
+	}
+	pSession->tombstones.erase( it );
 	return true;
 }
 
@@ -551,10 +617,35 @@ ITerrainEditor* EngineTerrain()
 	ITerrain *pTerrain = pScene != 0 ? pScene->GetTerrain() : 0;
 	return pTerrain != 0 ? pTerrain->GetEditor() : 0;
 }
+
+// The overlay's regions are half-open patch rectangles (AffectedPatches, and
+// SPaintUndo after it); the engine's two region calls each take something
+// else, and neither says so in its signature.
+//
+// CTerrain::Update iterates top..bottom and left..right inclusive
+// (Scene/TerrainEditor.cpp), as the MFC editor calls it: patches.GetSizeX() - 1
+// for the whole map (TemplateEditorFrame1.cpp:5175). Handed the half-open
+// rectangle it would preprocess and regenerate one patch row and column beyond
+// the region the map changed - and read past the patch array at the far edge.
+CTRect<int> InclusivePatches( const CTRect<int> &r )
+{
+	return CTRect<int>( r.minx, r.miny, r.maxx - 1, r.maxy - 1 );
 }
 
-bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells )
+// CAIEditor::UpdateTerrain takes a half-open rectangle in TILES: it doubles
+// each bound into AI tiles and takes 2 * x2 - 1 as the last
+// (AILogic/AIEditorInternal.cpp:417-423), and the MFC editor hands it
+// ( 0, 0, tiles.GetSizeX(), tiles.GetSizeY() ) (TemplateEditorFrame1.cpp:5167).
+CTRect<int> RegionTiles( const CTRect<int> &r )
 {
+	return CTRect<int>( r.minx * STerrainPatchInfo::nSizeX, r.miny * STerrainPatchInfo::nSizeY,
+	                    r.maxx * STerrainPatchInfo::nSizeX, r.maxy * STerrainPatchInfo::nSizeY );
+}
+}
+
+bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, int *pnToken )
+{
+	*pnToken = -1;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
 	if ( rCells.empty() )
@@ -608,7 +699,7 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 		// back with the map or the editor would draw a paint the file never got.
 		for ( size_t i = 0; i < cells.size(); ++i )
 			pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, pSession->snapshot.terrain.tiles[cells[i].nY][cells[i].nX].tile );
-		pEngineTerrain->Update( rPatches );
+		pEngineTerrain->Update( InclusivePatches( rPatches ) );
 		pSession->szMessage = "the map would not take that paint (a cell outside it, or no tileset)";
 		return false;
 	}
@@ -620,7 +711,7 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 		NMapOverlay::UndoPaint( &pSession->snapshot, undo );
 		for ( size_t i = 0; i < cells.size(); ++i )
 			pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, pSession->snapshot.terrain.tiles[cells[i].nY][cells[i].nX].tile );
-		pEngineTerrain->Update( rPatches );
+		pEngineTerrain->Update( InclusivePatches( rPatches ) );
 		pSession->szMessage = "the map would not take that paint";
 		return false;
 	}
@@ -629,8 +720,74 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 	// pass and the same cross generation the overlay just ran - same input, same
 	// function, so the two land on the same answer, and TerrainMatchesEngine is
 	// what says so rather than this comment.
-	pEngineTerrain->Update( rPatches );
-	pAIEditor->UpdateTerrain( rPatches, pSession->working.terrain );
+	pEngineTerrain->Update( InclusivePatches( rPatches ) );
+	pAIEditor->UpdateTerrain( RegionTiles( rPatches ), pSession->working.terrain );
+
+	SEditorSession::SPaintRecord record;
+	record.before = undo;
+	NMapOverlay::CaptureRegion( pSession->snapshot, undo.rPatches, &record.after );
+	pSession->paints.push_back( record );
+	*pnToken = int( pSession->paints.size() ) - 1;
+	pSession->appliedPaints.push_back( *pnToken );
+	pSession->undonePaints.clear();
+	return true;
+}
+
+namespace {
+// Puts one recorded region back into both copies and the engine, raw: no
+// preprocessing and no cross generation, so the engine lands on exactly the
+// tiles and crosses the record holds.
+bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRegion )
+{
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pEngineTerrain == 0 || pAIEditor == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	NMapOverlay::UndoPaint( &pSession->snapshot, rRegion );
+	NMapOverlay::UndoPaint( &pSession->working, rRegion );
+	pEngineTerrain->RestoreRegion( rRegion.rPatches, rRegion.tiles, rRegion.patches );
+	// The AI's passability follows the tiles.
+	pAIEditor->UpdateTerrain( RegionTiles( rRegion.rPatches ), pSession->working.terrain );
+	return true;
+}
+}
+
+bool UndoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	if ( pSession->appliedPaints.empty() || pSession->appliedPaints.back() != nToken )
+	{
+		pSession->szMessage = "paints are undone newest first";
+		*pbRefused = true;
+		return false;
+	}
+	if ( !PutRegionBack( pSession, pSession->paints[nToken].before ) )
+		return false;
+	pSession->appliedPaints.pop_back();
+	pSession->undonePaints.push_back( nToken );
+	return true;
+}
+
+bool RedoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	if ( pSession->undonePaints.empty() || pSession->undonePaints.back() != nToken )
+	{
+		pSession->szMessage = "paints are redone in the order they were undone";
+		*pbRefused = true;
+		return false;
+	}
+	if ( !PutRegionBack( pSession, pSession->paints[nToken].after ) )
+		return false;
+	pSession->undonePaints.pop_back();
+	pSession->appliedPaints.push_back( nToken );
 	return true;
 }
 

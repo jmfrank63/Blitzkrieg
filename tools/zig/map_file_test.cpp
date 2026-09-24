@@ -305,6 +305,80 @@ static void TestFailedPaintChangesNothing()
 	Check( undo.tiles.empty() && undo.patches.empty(), "and left nothing to undo" );
 }
 
+// A deleted object comes back exactly: same record, same list, same place in it.
+static void TestDeleteThenRestoreIsTheOriginal( const char *pszMap )
+{
+	CMapInfo map, original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+		return;
+	original = map;
+	// The first object nothing refers to.
+	int nLinkID = -1;
+	for ( size_t i = 0; i < map.objects.size() && nLinkID < 0; ++i )
+	{
+		std::vector<std::string> references;
+		NMapOverlay::FindReferences( map, map.objects[i].link.nLinkID, &references );
+		if ( references.empty() )
+			nLinkID = map.objects[i].link.nLinkID;
+	}
+	if ( !Check( nLinkID >= 0, "the map has an unreferenced object" ) )
+		return;
+	NMapOverlay::SDeletedObject deleted;
+	std::string szRefusal;
+	Check( NMapOverlay::DeleteObject( &map, nLinkID, &szRefusal, &deleted ), szRefusal.c_str() );
+	Check( deleted.object.link.nLinkID == nLinkID, "the delete hands back the record" );
+	Check( NMapOverlay::RestoreObject( &map, deleted ), "the record goes back" );
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( original, map, &szWhere ), ( "and the map is the original: " + szWhere ).c_str() );
+	Check( !NMapOverlay::RestoreObject( &map, deleted ), "a second restore is refused: the link ID is in use" );
+}
+
+// An add can be told its link ID, and is refused one already taken.
+static void TestAddTakesAGivenLinkID( const char *pszMap )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( !map.objects.empty(), "the map has objects" ) )
+		return;
+	NMapOverlay::SAddObject add;
+	add.szName = map.objects[0].szName;
+	add.nLinkID = NMapOverlay::NextLinkID( map ) + 10;
+	int nLinkID = -1;
+	Check( NMapOverlay::AddObject( &map, add, &nLinkID ) && nLinkID == add.nLinkID, "an add takes the link ID it is given" );
+	add.nLinkID = map.objects[0].link.nLinkID;
+	Check( !NMapOverlay::AddObject( &map, add, &nLinkID ), "and refuses one in use" );
+}
+
+// CaptureRegion reads what UndoPaint writes, so capture-paint-restore is the identity.
+static void TestCaptureRestoresAPaint( const char *pszMap )
+{
+	CMapInfo map, original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+		return;
+	original = map;
+	std::vector<NMapOverlay::SPaintCell> cells( 1 );
+	cells[0].nX = 5;
+	cells[0].nY = 5;
+	cells[0].tile = BYTE( ( map.terrain.tiles[5][5].tile + 1 ) % 4 );
+	NMapOverlay::SPaintUndo undo, after;
+	if ( !Check( NMapOverlay::Paint( &map, cells, &undo ), "the paint runs" ) )
+		return;
+	NMapOverlay::CaptureRegion( map, undo.rPatches, &after );
+	NMapOverlay::UndoPaint( &map, undo );
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( original, map, &szWhere ), ( "undo is the original: " + szWhere ).c_str() );
+	NMapOverlay::UndoPaint( &map, after );
+	NMapOverlay::SPaintUndo again;
+	NMapOverlay::CaptureRegion( map, undo.rPatches, &again );
+	Check( !after.tiles.empty() && again.tiles.size() == after.tiles.size() &&
+	       memcmp( &again.tiles[0], &after.tiles[0], after.tiles.size() * sizeof after.tiles[0] ) == 0,
+	       "restoring the capture is the painted state" );
+}
+
 // The spec's terrain cases: inside one patch, across a patch border, undo
 // putting the region back exactly, and the preprocessing pass changing tiles
 // that were never painted.
@@ -640,6 +714,9 @@ int main( int argc, char **argv )
 	TestUnknownObjectSurvives();
 	TestPaint();
 	TestFailedPaintChangesNothing();
+	TestDeleteThenRestoreIsTheOriginal( "Data\\Maps\\Multiplayer\\coldwinter.bzm" );
+	TestAddTakesAGivenLinkID( "Data\\Maps\\Multiplayer\\coldwinter.bzm" );
+	TestCaptureRestoresAPaint( "Data\\Maps\\Multiplayer\\coldwinter.bzm" );
 	TestPaintOnAPatchBorder();
 	TestPreprocessingChangesUnpaintedTiles();
 	SweepMaps( bAll );

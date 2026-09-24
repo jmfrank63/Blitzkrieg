@@ -141,7 +141,12 @@ bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID )
 	// one object when it places it; see the spec's "Frame indices and unknown
 	// types".
 	object.nFrameIndex = 0;
-	object.link.nLinkID = NextLinkID( *pMap );
+	// A given link ID is the caller's promise that it is free - the bridge's
+	// floor, which never hands out an ID a restore may need back. One in use is
+	// refused rather than doubled.
+	if ( rAdd.nLinkID >= 0 && FindObject( pMap, rAdd.nLinkID, 0, 0 ) != 0 )
+		return false;
+	object.link.nLinkID = rAdd.nLinkID >= 0 ? rAdd.nLinkID : NextLinkID( *pMap );
 	object.link.bIntention = false;
 	object.link.nLinkWith = -1;
 	( rAdd.bScenario ? pMap->scenarioObjects : pMap->objects ).push_back( object );
@@ -165,7 +170,7 @@ bool MoveObject( SLoadMapInfo *pMap, const SMoveObject &rMove )
 	return true;
 }
 
-bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal )
+bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDeletedObject *pDeleted )
 {
 	if ( pMap == 0 )
 		return false;
@@ -188,9 +193,25 @@ bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal )
 		if ( pRefusal ) *pRefusal = "no object with that link ID";
 		return false;
 	}
+	if ( pDeleted )
+	{
+		pDeleted->object = (*pList)[nIndex];
+		pDeleted->bScenario = pList == &pMap->scenarioObjects;
+		pDeleted->nIndex = nIndex;
+	}
 	// Erased, never renumbered: every other object keeps the link ID the rest
 	// of the map refers to it by.
 	pList->erase( pList->begin() + nIndex );
+	return true;
+}
+
+bool RestoreObject( SLoadMapInfo *pMap, const SDeletedObject &rDeleted )
+{
+	if ( pMap == 0 || FindObject( pMap, rDeleted.object.link.nLinkID, 0, 0 ) != 0 )
+		return false;
+	std::vector<SMapObjectInfo> &rList = rDeleted.bScenario ? pMap->scenarioObjects : pMap->objects;
+	const size_t nIndex = Min( rDeleted.nIndex, rList.size() );
+	rList.insert( rList.begin() + nIndex, rDeleted.object );
 	return true;
 }
 
@@ -300,5 +321,11 @@ void UndoPaint( SLoadMapInfo *pMap, const SPaintUndo &rUndo )
 		for ( int x = r.minx; x < r.maxx; ++x, ++nPatch )
 			if ( nPatch < rUndo.patches.size() )
 				rTerrain.patches[y][x] = rUndo.patches[nPatch];
+}
+
+void CaptureRegion( const SLoadMapInfo &rMap, const CTRect<int> &rPatches, SPaintUndo *pOut )
+{
+	if ( pOut != 0 )
+		Record( rMap.terrain, rPatches, pOut );
 }
 }

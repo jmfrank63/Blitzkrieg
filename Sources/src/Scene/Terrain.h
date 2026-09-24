@@ -76,6 +76,12 @@ interface ITerrainEditor
 	virtual void STDCALL SetShade( int x, int y, BYTE shade ) = 0;
 	virtual BYTE STDCALL GetShade( int x, int y ) = 0;
 	virtual void STDCALL Update( const CTRect<int> &rcPatches ) = 0;
+	// Puts a region back as it was: the tiles of its cell rectangle and its
+	// patches, row-major, in NMapOverlay::SPaintUndo's layout. Unlike Update,
+	// runs no preprocessing and regenerates nothing - undo has to land on the
+	// exact state it recorded, not on what the builder would make of it.
+	virtual void STDCALL RestoreRegion( const CTRect<int> &rcPatches, const std::vector<struct SMainTileInfo> &tiles,
+	                                    const std::vector<struct STerrainPatchInfo> &patches ) = 0;
 	virtual void STDCALL SetMarker( const CTPoint<int> *pPoints, int nNumPoints ) = 0;
 	virtual void STDCALL SampleCurve( const CVec3 *plots, int nNumPlots, float fStep, 
 		                                struct SVectorStripeObjectPoint **ppSamples, int *pnNumSamples ) = 0;

@@ -478,7 +478,8 @@ static void TestPaintReachesEngineAndFile( BkEditorSession *pSession, const std:
 	cell.x = nCellX;
 	cell.y = nCellY;
 	cell.tile = nNoisyTile;
-	if ( !Check( BkEditorPaint( pSession, &cell, 1 ) == BK_EDITOR_OK, "a cell paints through the bridge" ) )
+	int nToken = -1;
+	if ( !Check( BkEditorPaint( pSession, &cell, 1, &nToken ) == BK_EDITOR_OK, "a cell paints through the bridge" ) )
 	{
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
 		return;
@@ -704,6 +705,120 @@ static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession, cons
 	remove( szCopy.c_str() );
 }
 
+// A paint undone is the map as it was, in the file and in the engine; redone,
+// it is the paint again. Out of order is refused.
+static void TestPaintUndoIsExact( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	const unsigned char tile = (unsigned char)( ( original.terrain.tiles[20][20].tile + 1 ) % 4 );
+	BkEditorPaintCell first[] = { { 20, 20, tile }, { 21, 20, tile } };
+	BkEditorPaintCell second[] = { { 22, 20, tile } };
+	int nFirst = -1, nSecond = -1;
+	Check( BkEditorPaint( pSession, first, 2, &nFirst ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorPaint( pSession, second, 1, &nSecond ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( nFirst >= 0 && nSecond >= 0 && nFirst != nSecond, "each paint has its own token" );
+	const std::string szPainted = szScratch + "\\undo-painted.bzm";
+	Check( BkEditorSaveMap( pSession, szPainted.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	Check( BkEditorUndoPaint( pSession, nFirst ) == BK_EDITOR_REFUSED, "the older paint is not undone first" );
+	Check( BkEditorUndoPaint( pSession, nSecond ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorUndoPaint( pSession, nFirst ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	const std::string szUndone = szScratch + "\\undo-undone.bzm";
+	CMapInfo undone;
+	std::string szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szUndone.c_str(), &undone, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( original, undone, &szWhere ), ( "two paints undone are the original: " + szWhere ).c_str() );
+
+	Check( BkEditorRedoPaint( pSession, nSecond ) == BK_EDITOR_REFUSED, "redo takes the most recently undone first" );
+	Check( BkEditorRedoPaint( pSession, nFirst ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorRedoPaint( pSession, nSecond ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	CMapInfo painted, redone;
+	const std::string szRedone = szScratch + "\\undo-redone.bzm";
+	szWhere.clear();
+	if ( Check( BkEditorSaveMap( pSession, szRedone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szPainted.c_str(), &painted, &szError ), szError.c_str() ) &&
+	     Check( NMapFile::Read( szRedone.c_str(), &redone, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( painted, redone, &szWhere ), ( "redone is the paint, crosses and all: " + szWhere ).c_str() );
+
+	// A new paint ends the redo branch.
+	Check( BkEditorUndoPaint( pSession, nSecond ) == BK_EDITOR_OK, "undo once more" );
+	int nThird = -1;
+	Check( BkEditorPaint( pSession, second, 1, &nThird ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorRedoPaint( pSession, nSecond ) == BK_EDITOR_REFUSED, "a paint after an undo drops what could be redone" );
+	remove( szPainted.c_str() );
+	remove( szUndone.c_str() );
+	remove( szRedone.c_str() );
+}
+
+// Delete then restore is the original object, in the map and in the engine,
+// and add - delete - restore keeps the added object's link ID.
+static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+
+	int nLinkID = -1;
+	BkEditorObjectState before;
+	for ( size_t i = 0; i < original.objects.size() && nLinkID < 0; ++i )
+	{
+		const int nCandidate = original.objects[i].link.nLinkID;
+		if ( BkEditorEngineObjectState( pSession, nCandidate, &before ) != BK_EDITOR_OK )
+			continue;		// not placed
+		if ( BkEditorDeleteObject( pSession, nCandidate ) == BK_EDITOR_OK )
+			nLinkID = nCandidate;
+	}
+	if ( !Check( nLinkID >= 0, "some placed object can be deleted" ) )
+		return;
+	Check( BkEditorRestoreObject( pSession, nLinkID ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorObjectState after;
+	Check( BkEditorEngineObjectState( pSession, nLinkID, &after ) == BK_EDITOR_OK &&
+	       after.x == before.x && after.y == before.y && after.dir == before.dir && after.player == before.player,
+	       "the engine holds it again, where it was" );
+	const std::string szSaved = szScratch + "\\restore-saved.bzm";
+	CMapInfo saved;
+	std::string szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( original, saved, &szWhere ), ( "delete then restore is the original map: " + szWhere ).c_str() );
+	Check( BkEditorRestoreObject( pSession, nLinkID ) == BK_EDITOR_REFUSED, "nothing to restore twice" );
+
+	// The link-ID hazard: delete the highest ID, add, then undo both. The add
+	// must not have been handed the deleted object's ID.
+	int nHighest = -1;
+	for ( size_t i = 0; i < original.objects.size(); ++i )
+		nHighest = Max( nHighest, original.objects[i].link.nLinkID );
+	for ( size_t i = 0; i < original.scenarioObjects.size(); ++i )
+		nHighest = Max( nHighest, original.scenarioObjects[i].link.nLinkID );
+	if ( Check( BkEditorDeleteObject( pSession, nHighest ) == BK_EDITOR_OK, "the object with the highest link ID deletes" ) )
+	{
+		BkEditorObjectState anywhere;
+		BkEditorEngineObjectState( pSession, nLinkID, &anywhere );
+		int nAdded = -1;
+		if ( Check( BkEditorAddObject( pSession, original.objects[0].szName.c_str(), anywhere.x + 64, anywhere.y, 0, 0, &nAdded ) == BK_EDITOR_OK,
+		            BkEditorLastMessage( pSession ) ) )
+		{
+			Check( nAdded != nHighest, "an add never reuses a deleted object's link ID" );
+			Check( BkEditorDeleteObject( pSession, nAdded ) == BK_EDITOR_OK, "undo the add" );
+			Check( BkEditorRestoreObject( pSession, nHighest ) == BK_EDITOR_OK, "undo the delete" );
+			Check( BkEditorRestoreObject( pSession, nAdded ) == BK_EDITOR_OK && BkEditorDeleteObject( pSession, nAdded ) == BK_EDITOR_OK,
+			       "and the added object's own restore still finds it" );
+		}
+	}
+	remove( szSaved.c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -811,6 +926,8 @@ int main( int argc, char **argv )
 		TestObjectsReadBack( pSession );
 		TestUnknownObjectIsReadOnly( pSession, szScratch );
 		TestPaintReachesEngineAndFile( pSession, szScratch );
+		TestPaintUndoIsExact( pSession, szScratch );
+		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
 		TestCatalogueCameraAndFrame( pSession );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );

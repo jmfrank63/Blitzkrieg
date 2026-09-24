@@ -36,9 +36,34 @@ struct SEditorSession
 	// and listed here for whatever draws it. The snapshot keeps the real HP, so
 	// a save is unaffected.
 	std::vector<int> futureBuildLinkIDs;
+	// Every paint of this session, by token (its index). A paint is undone by
+	// putting back `before` and redone by putting back `after` - never by
+	// running the function again, which would pick new random cross artwork
+	// and, through the preprocessing pass, depend on everything painted since.
+	struct SPaintRecord
+	{
+		NMapOverlay::SPaintUndo before, after;
+	};
+	std::vector<SPaintRecord> paints;
+	std::vector<int> appliedPaints;		// undo takes the back
+	std::vector<int> undonePaints;		// redo takes the back; a new paint clears it
+	// Deleted objects, by link ID, for BkEditorRestoreObject: the snapshot's
+	// record and the working copy's, which differ in the frame index.
+	struct STombstone
+	{
+		NMapOverlay::SDeletedObject snapshot, working;
+		// Whether the engine held it. One it never held - outside the map, or a
+		// span set aside from every bridge - goes back into the map alone.
+		bool bPlaced;
+		STombstone() : bPlaced( false ) {  }
+	};
+	std::unordered_map<int, STombstone> tombstones;
+	// One above every link ID this session has handed out or deleted, so an add
+	// never takes the ID of an object a later undo will restore.
+	int nLinkIDFloor;
 	bool bEngineStarted;
 	bool bMapOpen;
-	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws
@@ -83,6 +108,10 @@ bool ReadEngineObject( const SEditorSession &rSession, int nLinkID, SEngineObjec
 bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject &rAdd, int *pnLinkID );
 bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPos, int nDir, int nPlayer, bool *pbRefused );
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused );
+// Puts a deleted object back from its tombstone: the same record, link ID and
+// place in its list, and a new engine object where it stood. Refused when
+// nothing with that link ID was deleted, or the ID is in use again.
+bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused );
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy );
 
 // Fills pOut with the object database's descriptors and pnCount with how many
@@ -96,8 +125,14 @@ bool DrawSessionFrame( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
 
 // Paints cells into the map and pushes the region they touched into the engine.
-// Returns false with the reason in szMessage.
-bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells );
+// Returns false with the reason in szMessage. pnToken names the paint for undo
+// and redo; it is -1 when there was nothing to paint.
+bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, int *pnToken );
+// Undo takes the newest applied paint, redo the most recently undone; any other
+// token is refused. Both put the recorded region back raw, in both copies and
+// the engine.
+bool UndoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused );
+bool RedoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused );
 
 // Compares the engine's terrain against the copy that will be saved, in tiles
 // and patch crosses. Returns false and names the first difference in szMessage.

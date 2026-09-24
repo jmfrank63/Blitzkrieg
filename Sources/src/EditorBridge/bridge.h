@@ -110,6 +110,10 @@ BkEditorStatus BkEditorMoveObject( BkEditorSession *session, int link_id, float 
 BkEditorStatus BkEditorTurnObject( BkEditorSession *session, int link_id, int dir );
 BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, int player );
 BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
+/* Puts a deleted object back as it was: same record, same link ID, same place
+   in its list, and in the engine where it stood. Undo of a delete, and redo of
+   an add. BK_EDITOR_REFUSED when there is no such deleted object. */
+BkEditorStatus BkEditorRestoreObject( BkEditorSession *session, int link_id );
 BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *session, int player, int value );
 
 /* What the engine is holding for an object, which is deliberately not read out
@@ -159,7 +163,16 @@ BkEditorStatus BkEditorDiplomacy( BkEditorSession *session, int player, int *out
    CTerrain::SetTile derives it too. A value passed in here would be discarded
    without a word, so the field is gone rather than ignored. */
 typedef struct { int x, y; unsigned char tile; } BkEditorPaintCell;
-BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count );
+/* out_token names this paint for BkEditorUndoPaint and BkEditorRedoPaint. The
+   bridge keeps the order: undo takes the newest applied paint, redo the most
+   recently undone, and a new paint drops everything undone. A token out of
+   that order is BK_EDITOR_REFUSED. Undo puts back exactly the tiles and
+   crosses the paint recorded, in the map and the engine; redo puts back
+   exactly what the paint left - it does not paint again. out_token may be
+   null; it is -1 when nothing was painted (count 0, or a refusal). */
+BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count, int *out_token );
+BkEditorStatus BkEditorUndoPaint( BkEditorSession *session, int token );
+BkEditorStatus BkEditorRedoPaint( BkEditorSession *session, int token );
 
 /* A world point to the tile it falls in - the brush's other half, through the
    engine's own conversion. Screen to world is BkEditorScreenToWorld; the two

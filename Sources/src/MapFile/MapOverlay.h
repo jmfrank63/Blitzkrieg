@@ -17,7 +17,8 @@ struct SAddObject
 	int nDir;
 	int nPlayer;
 	bool bScenario;											// scenarioObjects rather than objects
-	SAddObject() : vPos( VNULL3 ), nDir( 0 ), nPlayer( 0 ), bScenario( false ) {  }
+	int nLinkID;												// -1: NextLinkID; otherwise this one, which must be free
+	SAddObject() : vPos( VNULL3 ), nDir( 0 ), nPlayer( 0 ), bScenario( false ), nLinkID( -1 ) {  }
 };
 struct SMoveObject
 {
@@ -38,8 +39,21 @@ void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::str
 
 bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID );
 bool MoveObject( SLoadMapInfo *pMap, const SMoveObject &rMove );
-// Refuses, filling pRefusal, when anything refers to the object.
-bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal );
+// A deleted object's record, the list it was in and its place in that list:
+// what RestoreObject needs to put it back as it was.
+struct SDeletedObject
+{
+	SMapObjectInfo object;
+	bool bScenario;
+	size_t nIndex;
+	SDeletedObject() : bScenario( false ), nIndex( 0 ) {  }
+};
+// Refuses, filling pRefusal, when anything refers to the object. pDeleted, when
+// given, receives the record that was taken out.
+bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDeletedObject *pDeleted = 0 );
+// Puts the record back at its index (or the end of its list, if the list is
+// now shorter). Refuses when the link ID is in use again.
+bool RestoreObject( SLoadMapInfo *pMap, const SDeletedObject &rDeleted );
 bool SetDiplomacy( SLoadMapInfo *pMap, int nPlayer, BYTE nDiplomacy );
 
 // One painted cell: the two fields SMainTileInfo has.
@@ -72,5 +86,7 @@ CTRect<int> AffectedPatches( const struct STerrainInfo &rTerrain, const std::vec
 // Fills pUndo with the state of R beforehand.
 bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUndo *pUndo );
 void UndoPaint( SLoadMapInfo *pMap, const SPaintUndo &rUndo );
+// The region's tiles and patches as they are now, in SPaintUndo's layout.
+void CaptureRegion( const SLoadMapInfo &rMap, const CTRect<int> &rPatches, SPaintUndo *pOut );
 }
 #endif // __MAP_OVERLAY_H__

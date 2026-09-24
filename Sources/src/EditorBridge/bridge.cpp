@@ -348,6 +348,22 @@ BkEditorStatus BkEditorDeleteObject( BkEditorSession *pSession, int nLinkID )
 	} );
 }
 
+BkEditorStatus BkEditorRestoreObject( BkEditorSession *pSession, int nLinkID )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( RestoreObjectInSession( pSession, nLinkID, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *pSession, int nPlayer, int nValue )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -361,8 +377,10 @@ BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *pSession, int nPlayer, int
 	} );
 }
 
-BkEditorStatus BkEditorPaint( BkEditorSession *pSession, const BkEditorPaintCell *pCells, int nCount )
+BkEditorStatus BkEditorPaint( BkEditorSession *pSession, const BkEditorPaintCell *pCells, int nCount, int *pnToken )
 {
+	if ( pnToken != 0 )
+		*pnToken = -1;
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		if ( nCount < 0 || ( nCount > 0 && pCells == 0 ) )
@@ -383,7 +401,45 @@ BkEditorStatus BkEditorPaint( BkEditorSession *pSession, const BkEditorPaintCell
 			cell.noise = 0;		// PaintIntoSession fills it from the engine
 			cells.push_back( cell );
 		}
-		return PaintIntoSession( pSession, cells ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+		int nToken = -1;
+		if ( !PaintIntoSession( pSession, cells, &nToken ) )
+			return BK_EDITOR_REFUSED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+// Undo and redo of a paint, by the token BkEditorPaint handed out.
+BkEditorStatus BkEditorUndoPaint( BkEditorSession *pSession, int nToken )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( UndoPaintInSession( pSession, nToken, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorRedoPaint( BkEditorSession *pSession, int nToken )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( RedoPaintInSession( pSession, nToken, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
 	} );
 }
 
