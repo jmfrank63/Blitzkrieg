@@ -167,6 +167,12 @@ bool CMeshVisObj::IsHit( const SHMatrix &matTransform, const RECT &rect )
 static CMatrixStack<128> mstack;
 bool CMeshVisObj::Update( const NTimer::STime &time, bool bForced ) 
 {  
+	// No animation, nothing to draw: the placement this would compute is only
+	// ever read back through pAnim, and the line that ends this function used
+	// to dereference it. FormVisibilityLists ignores the result and Visits the
+	// object anyway, so Visit() below refuses the same object.
+	if ( pAnim == 0 )
+		return false;
 	if ( dwLastUpdateTime != time || bForced )
 	{
 		matPlacement.Set( GetPos(), quat );
@@ -208,6 +214,8 @@ bool CMeshVisObj::Update( const NTimer::STime &time, bool bForced )
 }
 bool CMeshVisObj::Draw( IGFX *pGFX )
 {
+	if ( pAnim == 0 )
+		return false;
 	pGFX->SetTexture( 0, pTexture );
 	pGFX->EnableSpecular( material.vSpecular != VNULL4 );
 	pGFX->SetMaterial( material );
@@ -215,6 +223,8 @@ bool CMeshVisObj::Draw( IGFX *pGFX )
 }
 bool CMeshVisObj::DrawShadow( IGFX *pGFX, const SHMatrix *pMatShadow, const CVec3 &vSunDir )
 {
+	if ( pAnim == 0 )
+		return false;
 	if ( pMatShadow == 0 ) 
 	{
 		if ( IMatrixEffectorLeveling *pEffector = static_cast<IMatrixEffectorLeveling*>(pAnim->GetEffector(ANIM_EFFECTOR_LEVELING, -2)) )
@@ -251,8 +261,32 @@ bool CMeshVisObj::DrawShadow( IGFX *pGFX, const SHMatrix *pMatShadow, const CVec
 	else
 		return pGFX->DrawMesh( pMesh, GetExtMatrices(*pMatShadow), pAnim->GetNumNodes() );
 }
+void CMeshVisObj::SetAnim( IAnimation *_pAnim )
+{
+	if ( IMeshAnimation *pMeshAnim = dynamic_cast<IMeshAnimation*>( _pAnim ) )
+	{
+		pAnim = pMeshAnim;
+		return;
+	}
+	// Reported once a run, and in a release build too: storing the null was what
+	// crashed a mission, so if this ever fires the log says which call did it
+	// rather than leaving the next visibility pass to find out.
+	static bool bReported = false;
+	if ( !bReported )
+	{
+		bReported = true;
+		fprintf( stderr, "CMeshVisObj::SetAnim: %s is not a mesh animation, the object keeps the one it has\n",
+		         ( _pAnim == 0 ) ? "a null animation" : "the animation given" );
+	}
+	NI_ASSERT_T( false, "mesh vis obj handed an animation that is not a mesh animation" );
+}
 void CMeshVisObj::Visit( ISceneVisitor *pVisitor, int nType )
 {
+	// An object with no animation has no matrices, so handing it to the draw
+	// list only moves the null one frame further along. Leave it out entirely,
+	// icons included - it has no place on screen at all.
+	if ( pAnim == 0 )
+		return;
 	pVisitor->VisitMeshObject( this, GetGameType(nType), GetPriority() );
 	VisitIcons( pVisitor );
 }
@@ -402,11 +436,18 @@ void CMeshVisObj::RemoveMaterialEffector()
 const SHMatrix CMeshVisObj::GetBasePlacement()
 { 
 	SHMatrix matResult; 
+	if ( pAnim == 0 )
+	{
+		Identity( &matResult );
+		return matResult;
+	}
 	pAnim->GetBaseMatrix( matPlacement1, &matResult ); 
 	return matResult; 
 }
 const SHMatrix* CMeshVisObj::GetExtMatrices( const SHMatrix &matExternal )
 {
+	if ( pAnim == 0 )
+		return 0;
 	SHMatrix matrix;
 	Multiply( &matrix, matExternal, matPlacement1 );
 	return pAnim->GetMatrices( matrix );

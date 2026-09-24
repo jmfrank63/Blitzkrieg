@@ -358,12 +358,14 @@ struct IObjectFactory {
 class FactoryAggregate final : public IObjectFactory {
     SObjectFactoryTypeInfo types_[2048] = {};
     int count_ = 0;
+    mutable std::unordered_map<const std::type_info*, int> typeIDs_;  // GetObjectTypeID's answers; cleared whenever a type is registered
 public:
     IRefCount *BK_STDCALL CreateObject(int id) override {
         for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) return types_[i].newFunc ? types_[i].newFunc() : 0;
         return 0;
     }
     void BK_STDCALL RegisterType(int id, ObjectFactoryNewFunc create) override {
+        typeIDs_.clear();
         for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) { types_[i].newFunc = create; return; }
         if (count_ < 2048) types_[count_++] = { id, 0, create };
     }
@@ -372,10 +374,12 @@ public:
     // type does not resolve — the save silently loses it.
     void RegisterTypeWithInfo(int id, ObjectFactoryNewFunc create, const std::type_info *info) {
         RegisterType(id, create);
-        for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) { types_[i].pTypeInfo = info; return; }
+        for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) { types_[i].pTypeInfo = info; break; }
+        typeIDs_.clear();
     }
     void BK_STDCALL Aggregate(IObjectFactory *factory) override {
         if (!factory) return;
+        typeIDs_.clear();
         const int count = factory->GetNumKnownTypes();
         if (count <= 0 || count > 2048) return;
         SObjectFactoryTypeInfo incoming[2048];
@@ -393,18 +397,30 @@ public:
     // name() because the game's type_info objects live in different DLLs than
     // this bridge, so pointer identity is unreliable; the mangled name is stable
     // across modules compiled by the same (clang) toolchain.
+    //
+    // A save asks this once for every object it stores - about 100,000 in a
+    // large mission - and each answer was a strcmp against up to 2048 names.
+    // The type_info of one class from one module never moves, so its answer
+    // is remembered by address; the name match still decides it the first
+    // time, and a class seen from two modules simply gets two entries.
     int BK_STDCALL GetObjectTypeID(IRefCount *pObj) const override {
         if (!pObj) return -1;
-        const char *const name = typeid(*pObj).name();
-        if (!name) return -1;
-        for (int i = 0; i != count_; ++i) {
+        const std::type_info *const info = &typeid(*pObj);
+        std::unordered_map<const std::type_info*, int>::const_iterator cached = typeIDs_.find(info);
+        if (cached != typeIDs_.end()) return cached->second;
+        int typeID = -1;
+        const char *const name = info->name();
+        for (int i = 0; name && i != count_; ++i) {
             if (types_[i].pTypeInfo) {
                 const std::type_info *registered = static_cast<const std::type_info*>(types_[i].pTypeInfo);
-                if (registered->name() && std::strcmp(registered->name(), name) == 0)
-                    return types_[i].nTypeID;
+                if (registered->name() && std::strcmp(registered->name(), name) == 0) {
+                    typeID = types_[i].nTypeID;
+                    break;
+                }
             }
         }
-        return -1;
+        typeIDs_[info] = typeID;
+        return typeID;
     }
 };
 
@@ -970,20 +986,36 @@ static void PumpLoadProgressHeartbeat() {
 // CStructureSaver2's object-graph layout. Save files are written and read by
 // the same build, so the exact byte layout only needs internal consistency.
 class ZigStructureWriter final : public IStructureSaver {
-    ZigDataStream *source_;
+    IDataStream *source_;  // only ever written to, so any stream will do - the background autosave hands in a memory stream
     void *gdb_;
     IObjectFactory *factory_;
-    typedef std::pair<unsigned char, std::vector<unsigned char> > Frame;
-    std::vector<Frame> stack_;     // main data tree (becomes top-level chunk 1)
-    std::vector<Frame> content_;   // object-content frames (become top-level chunk 2)
+    // One flat buffer per tree. StartChunk reserves the 5-byte long form of a
+    // chunk header ([id][len:u32]) and remembers where; FinishChunk fills the
+    // length in once the payload is known. A payload under 128 bytes takes the
+    // 1-byte form instead, so it moves back over the 3 unused header bytes -
+    // cheap, only small chunks ever move. The bytes are exactly those of the
+    // previous writer, which built every chunk in a vector of its own and
+    // appended it to its parent's: a heap block per chunk and every byte
+    // copied once for each level it was nested in. That was most of the time
+    // a save held the game.
+    struct Tree {
+        std::vector<unsigned char> bytes;
+        std::vector<size_t> open;  // header offsets of the chunks not finished yet
+    };
+    Tree main_;      // main data tree (becomes top-level chunk 1)
+    Tree content_;   // object content (becomes top-level chunk 2)
     std::vector<unsigned char> objDir_;  // directory records (top-level chunk 0)
     std::unordered_map<IRefCount*, unsigned int> stored_;
     std::deque<IRefCount*> toStore_;
     unsigned int nextPtrID_ = 1;   // sequential object IDs; 0 stays the null reference
     bool inContent_ = false;       // route StartChunk/DataChunk/FinishChunk to content_ while draining objects
     int refs_ = 0;
+    // What the previous save needed. The next one is nearly always the same
+    // size, and growing into it - the object map rehashing, 17 MB buffers
+    // doubling their way up - was a good part of what was left.
+    static size_t s_lastObjects, s_lastMain, s_lastContent;
 
-    static void AppendChunk(std::vector<unsigned char> &out, unsigned char id, const unsigned char *data, size_t size) {
+    static void AppendHeader(std::vector<unsigned char> &out, unsigned char id, size_t size) {
         out.push_back(id);
         const unsigned int encoded = (unsigned int)(size << 1);
         if (size < 128) {
@@ -994,6 +1026,9 @@ class ZigStructureWriter final : public IStructureSaver {
             out.push_back((unsigned char)(encoded >> 16));
             out.push_back((unsigned char)(encoded >> 24));
         }
+    }
+    static void AppendChunk(std::vector<unsigned char> &out, unsigned char id, const unsigned char *data, size_t size) {
+        AppendHeader(out, id, size);
         if (size) out.insert(out.end(), data, data + size);
     }
     static void AppendU32(std::vector<unsigned char> &out, unsigned int v) {
@@ -1002,7 +1037,15 @@ class ZigStructureWriter final : public IStructureSaver {
         out.push_back((unsigned char)((v >> 16) & 0xff));
         out.push_back((unsigned char)((v >> 24) & 0xff));
     }
-    std::vector<Frame> &Active() { return inContent_ ? content_ : stack_; }
+    Tree &Active() { return inContent_ ? content_ : main_; }
+    // Header and payload go out as two writes: gluing them into one buffer
+    // first copied the whole save once more for nothing.
+    void WriteTopChunk(unsigned char id, const std::vector<unsigned char> &payload) {
+        std::vector<unsigned char> header;
+        AppendHeader(header, id, payload.size());
+        source_->Write(&header[0], (int)header.size());
+        if (!payload.empty()) source_->Write(&payload[0], (int)payload.size());
+    }
 
     void DrainObjects() {
         // Serializing one object may StoreObject() transitively-referenced
@@ -1026,19 +1069,22 @@ class ZigStructureWriter final : public IStructureSaver {
         inContent_ = false;
     }
 public:
-    ZigStructureWriter(ZigDataStream *source, void *gdb, IObjectFactory *factory) : source_(source), gdb_(gdb), factory_(factory) {
+    ZigStructureWriter(IDataStream *source, void *gdb, IObjectFactory *factory) : source_(source), gdb_(gdb), factory_(factory) {
         source_->AddRef();
-        stack_.push_back(Frame((unsigned char)1, std::vector<unsigned char>()));
-        content_.push_back(Frame((unsigned char)2, std::vector<unsigned char>()));  // synthetic root accumulating object chunks
+        stored_.reserve(s_lastObjects);
+        objDir_.reserve(s_lastObjects * 9);
+        main_.bytes.reserve(s_lastMain);
+        content_.bytes.reserve(s_lastContent);
     }
     ~ZigStructureWriter() {
-        while (stack_.size() > 1) FinishChunk();
+        while (!main_.open.empty()) FinishChunk();
         DrainObjects();
-        std::vector<unsigned char> file;
-        AppendChunk(file, 0, objDir_.empty() ? 0 : &objDir_[0], objDir_.size());           // directory
-        AppendChunk(file, stack_[0].first, stack_[0].second.empty() ? 0 : &stack_[0].second[0], stack_[0].second.size());  // main data
-        AppendChunk(file, content_[0].first, content_[0].second.empty() ? 0 : &content_[0].second[0], content_[0].second.size());  // object content
-        source_->Write(&file[0], (int)file.size());
+        s_lastObjects = stored_.size();
+        s_lastMain = main_.bytes.size();
+        s_lastContent = content_.bytes.size();
+        WriteTopChunk(0, objDir_);          // directory
+        WriteTopChunk(1, main_.bytes);      // main data
+        WriteTopChunk(2, content_.bytes);   // object content
         source_->Flush();
         source_->Release();
     }
@@ -1046,21 +1092,34 @@ public:
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return true; }
     bool BK_STDCALL StartChunk(char id) override {
-        Active().push_back(Frame((unsigned char)id, std::vector<unsigned char>()));
+        Tree &t = Active();
+        t.open.push_back(t.bytes.size());
+        t.bytes.push_back((unsigned char)id);
+        t.bytes.insert(t.bytes.end(), 4, (unsigned char)0);
         return true;
     }
     void BK_STDCALL FinishChunk() override {
-        std::vector<Frame> &s = Active();
-        if (s.size() <= 1) return;
-        Frame top;
-        top.first = s.back().first;
-        top.second.swap(s.back().second);
-        s.pop_back();
-        AppendChunk(s.back().second, top.first, top.second.empty() ? 0 : &top.second[0], top.second.size());
+        Tree &t = Active();
+        if (t.open.empty()) return;
+        const size_t start = t.open.back();
+        t.open.pop_back();
+        const size_t size = t.bytes.size() - start - 5;
+        unsigned char *header = &t.bytes[start];
+        const unsigned int encoded = (unsigned int)(size << 1);
+        if (size < 128) {
+            header[1] = (unsigned char)encoded;
+            if (size) memmove(header + 2, header + 5, size);
+            t.bytes.resize(t.bytes.size() - 3);
+        } else {
+            header[1] = (unsigned char)(encoded | 1);
+            header[2] = (unsigned char)(encoded >> 8);
+            header[3] = (unsigned char)(encoded >> 16);
+            header[4] = (unsigned char)(encoded >> 24);
+        }
     }
     void BK_STDCALL DataChunk(char id, void *data, int size) override {
         if (size < 0 || (size > 0 && !data)) return;
-        AppendChunk(Active().back().second, (unsigned char)id, (const unsigned char *)data, (size_t)size);
+        AppendChunk(Active().bytes, (unsigned char)id, (const unsigned char *)data, (size_t)size);
     }
     void BK_STDCALL DataChunk(IDataStream *pStream) override {
         // Mirror CStructureSaver2::DataChunk(IDataStream*): two sub-chunks,
@@ -1105,10 +1164,13 @@ public:
                 toStore_.push_back(pObj);
             }
         }
-        AppendU32(Active().back().second, ptrID);
+        AppendU32(Active().bytes, ptrID);
     }
     void *BK_STDCALL GetGDB() override { return gdb_; }
 };
+size_t ZigStructureWriter::s_lastObjects = 0;
+size_t ZigStructureWriter::s_lastMain = 0;
+size_t ZigStructureWriter::s_lastContent = 0;
 
 #if 0
 static BSTR AnsiToBstr(const char *value) {
@@ -1309,10 +1371,8 @@ void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, con
 void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, void *progressHook) {
     if (!stream) return 0;
     IObjectFactory *factory = static_cast<IObjectFactory *>(GetCommonFactory());
-    if (mode == 2) {   // IStructureSaver::WRITE
-        ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
-        return new ZigStructureWriter(zig_stream, gdb_, factory);
-    }
+    if (mode == 2)   // IStructureSaver::WRITE
+        return new ZigStructureWriter(static_cast<IDataStream *>(stream), gdb_, factory);
     // READ: if the stream is actually a ZigDataStream, use its handle directly
     // (fast path; this is what every startup/mission structure read passes). If
     // it is NOT — e.g. CICLoad's CStreamRangeAdaptor wrapping the save file —

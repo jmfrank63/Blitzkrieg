@@ -8,7 +8,8 @@ class CICSave : public IInterfaceCommand
 	std::string szFileName;
 	NTimer::STime timeDelayed;
 	bool bAutoSave;												// autosave
-	CICSave() : timeDelayed( 0 ), bAutoSave( false ) {  }
+	bool bBackground;											// the -autosave ring: written by a copy of the process where there is fork(), no chat line
+	CICSave() : timeDelayed( 0 ), bAutoSave( false ), bBackground( false ) {  }
 public:
 	void STDCALL Exec( IMainLoop *pML );
 	void STDCALL Configure( const char *pszConfig ) 
@@ -17,10 +18,11 @@ public:
 		std::vector<std::string> strings;
 		NStr::SplitString( pszConfig, strings, ';' );
 	
-		if ( strings.size() == 2 ) 
+		if ( strings.size() == 2 || strings.size() == 3 ) 
 		{
 			szFileName = strings[0];
 			bAutoSave = NStr::ToInt( strings[1] );
+			bBackground = ( strings.size() == 3 ) && ( strings[2] == "background" );
 		}
 		else
 		{
