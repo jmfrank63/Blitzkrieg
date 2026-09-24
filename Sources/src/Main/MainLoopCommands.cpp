@@ -102,6 +102,11 @@ void CICSave::Exec( IMainLoop *pML )
 }
 void CICLoad::Exec( IMainLoop *pML )
 {
+	// The global vars restored below include the Profile.Name of whoever made
+	// the save, so a save carried over from another profile switched the whole
+	// session to that one - every later save, autosave and config write went
+	// into its directory. The profile is the running game's, not the save's.
+	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 	TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec begin" );
 	if ( GetGlobalVar("MultiplayerGame", 0) != 0  )
 	{
@@ -202,6 +207,10 @@ void CICLoad::Exec( IMainLoop *pML )
 	// were the day the save was written, and any the save predates are simply
 	// gone. Read them again over the restored set.
 	NMain::SetupModStyleConsts();
+	if ( szProfile.empty() )
+		RemoveGlobalVar( "Profile.Name" );
+	else
+		SetGlobalVar( "Profile.Name", szProfile.c_str() );
 	ReportSaveLoad( "game_loaded", szFileName );
 	pML->EnableMessageProcessing( true );
 	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_LOAD_FINISHED) );

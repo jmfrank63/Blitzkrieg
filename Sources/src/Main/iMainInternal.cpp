@@ -662,6 +662,12 @@ void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 			AppendOpenVideoTrace( "mainloop queue video command 0x%x config \"%s\"\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
 			NStr::DebugTrace( "Open video command: queue id 0x%x config \"%s\".\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
 		}
+		// Callers build the configuration with NStr::Format, whose one static
+		// buffer the integer SetGlobalVar below formats into as well: the save
+		// was named after the counter ("26") instead of the file it was given.
+		const std::string szConfiguration = pszConfiguration ? pszConfiguration : "";
+		if ( pszConfiguration != 0 )
+			pszConfiguration = szConfiguration.c_str();
 		// Every save - quick, auto, mission dialog - funnels through this
 		// command, so one counter here is the "a save happened" signal the
 		// cloud sync loop coalesces on. A global var rather than a new
