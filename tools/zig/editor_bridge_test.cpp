@@ -294,6 +294,11 @@ static void TestMapsOwnFields( BkEditorSession *pSession, const std::string &szS
 		return;
 	Check( BkEditorSetMapType( pSession, 1 ) == BK_EDITOR_OK, "the map type is set" );
 	Check( BkEditorSetAttackingSide( pSession, 1 ) == BK_EDITOR_OK, "and the attacking side" );
+	// Out of range is a caller bug, and reaches neither the map nor the file.
+	Check( BkEditorSetAttackingSide( pSession, 2 ) == BK_EDITOR_BAD_ARGUMENT, "an attacking side past 1 is a bad argument" );
+	Check( BkEditorSetDiplomacy( pSession, 0, 3 ) == BK_EDITOR_BAD_ARGUMENT, "a diplomacy past 2 is a bad argument" );
+	Check( BkEditorSetDiplomacy( pSession, 0, 256 ) == BK_EDITOR_BAD_ARGUMENT, "and so is one a BYTE would wrap to 0" );
+	Check( BkEditorSetDiplomacy( pSession, 0, -1 ) == BK_EDITOR_BAD_ARGUMENT, "and one below 0" );
 	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and it saves" ) )
 		return;
 	CMapInfo fields, expected;

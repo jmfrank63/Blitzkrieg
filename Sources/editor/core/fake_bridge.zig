@@ -266,7 +266,12 @@ pub const FakeBridge = struct {
 
     fn setDiplomacy(ptr: *anyopaque, player: i32, value: i32) Status {
         const self = from(ptr);
+        self.message_len = 0;
         if (player < 0 or @as(usize, @intCast(player)) >= self.diplomacy_table.items.len) return .bad_argument;
+        if (value < 0 or value > 2) {
+            self.say("{d} is no diplomacy: 0 and 1 are the two sides, 2 is neutral", .{value});
+            return .bad_argument;
+        }
         self.diplomacy_table.items[@intCast(player)] = value;
         self.record(.diplomacy, player);
         return .ok;
@@ -281,6 +286,11 @@ pub const FakeBridge = struct {
 
     fn setAttackingSide(ptr: *anyopaque, value: i32) Status {
         const self = from(ptr);
+        self.message_len = 0;
+        if (value < 0 or value > 1) {
+            self.say("{d} is no side: the attacking side is 0 or 1", .{value});
+            return .bad_argument;
+        }
         self.info.attacking_side = value;
         self.record(.attacking_side, value);
         return .ok;
@@ -412,6 +422,9 @@ test "the fake refuses what the bridge refuses" {
     var link: i32 = -1;
     try std.testing.expectEqual(Status.refused, b.addObject("T34", 9999, 10, 0, 0, &link));
     try std.testing.expectEqual(Status.bad_argument, b.setDiplomacy(7, 0));
+    try std.testing.expectEqual(Status.bad_argument, b.setDiplomacy(0, 3));
+    try std.testing.expectEqual(Status.bad_argument, b.setDiplomacy(0, -1));
+    try std.testing.expectEqual(Status.bad_argument, b.setAttackingSide(2));
 }
 
 test "the fake never reuses a deleted object's link ID" {

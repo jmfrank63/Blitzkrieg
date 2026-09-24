@@ -120,6 +120,8 @@ BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
    in its list, and in the engine where it stood. Undo of a delete, and redo of
    an add. BK_EDITOR_REFUSED when there is no such deleted object. */
 BkEditorStatus BkEditorRestoreObject( BkEditorSession *session, int link_id );
+/* value is 0 or 1, the two sides, or 2, neutral; anything else is
+   BK_EDITOR_BAD_ARGUMENT. A player outside the table is BK_EDITOR_REFUSED. */
 BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *session, int player, int value );
 
 /* What the engine is holding for an object, which is deliberately not read out
@@ -223,7 +225,8 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float 
 
 /* The map's own two fields, not a player's: nType is the mission kind and
    nAttackingSide is which side attacks in it. The engine has no say in either,
-   so they take no engine call and cannot be refused. */
+   so they take no engine call and cannot be refused. The attacking side is 0
+   or 1; anything else is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkEditorSetMapType( BkEditorSession *session, int type );
 BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
 

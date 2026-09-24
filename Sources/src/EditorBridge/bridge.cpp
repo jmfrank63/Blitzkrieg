@@ -392,6 +392,13 @@ BkEditorStatus BkEditorSetDiplomacy( BkEditorSession *pSession, int nPlayer, int
 			pSession->szMessage = "no map is open";
 			return BK_EDITOR_REFUSED;
 		}
+		// The map keeps a BYTE, so anything else would be truncated into some
+		// other value on its way in.
+		if ( nValue < 0 || nValue > 2 )
+		{
+			pSession->szMessage = NStr::Format( "%d is no diplomacy: 0 and 1 are the two sides, 2 is neutral", nValue );
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
 		return SetSessionDiplomacy( pSession, nPlayer, nValue ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
 	} );
 }
@@ -596,6 +603,11 @@ BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *pSession, int nSide )
 		{
 			pSession->szMessage = "no map is open";
 			return BK_EDITOR_REFUSED;
+		}
+		if ( nSide < 0 || nSide > 1 )
+		{
+			pSession->szMessage = NStr::Format( "%d is no side: the attacking side is 0 or 1", nSide );
+			return BK_EDITOR_BAD_ARGUMENT;
 		}
 		pSession->snapshot.nAttackingSide = nSide;
 		pSession->working.nAttackingSide = nSide;

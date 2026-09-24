@@ -481,6 +481,22 @@ test "diplomacy, map type and attacking side undo and redo" {
     try std.testing.expectEqual(@as(i32, 2), editor.document.diplomacy.items[1]);
 }
 
+test "a diplomacy or attacking side out of range is a caller bug and changes nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try std.testing.expectError(error.Failed, editor.setDiplomacy(1, 3));
+    try std.testing.expectEqualStrings("3 is no diplomacy: 0 and 1 are the two sides, 2 is neutral", editor.status());
+    try std.testing.expectError(error.Failed, editor.setDiplomacy(1, 256)); // a BYTE would make it 0
+    try std.testing.expectError(error.Failed, editor.setAttackingSide(2));
+    try std.testing.expectError(error.Failed, editor.setAttackingSide(-1));
+    try std.testing.expectEqualSlices(i32, &.{ 0, 1 }, editor.document.diplomacy.items);
+    try std.testing.expectEqualSlices(i32, &.{ 0, 1 }, fake.diplomacy_table.items);
+    try std.testing.expectEqual(@as(i32, 0), editor.document.info.attacking_side);
+    try std.testing.expect(!editor.dirty());
+}
+
 test "saving marks clean, and undoing past the save makes it dirty again" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();

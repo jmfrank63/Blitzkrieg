@@ -751,6 +751,11 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 {
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
+	if ( nDiplomacy < 0 || nDiplomacy > 2 )
+	{
+		pSession->szMessage = "no such diplomacy";
+		return false;
+	}
 	if ( !NMapOverlay::SetDiplomacy( &pSession->snapshot, nPlayer, BYTE( nDiplomacy ) ) )
 	{
 		pSession->szMessage = "no such player";
