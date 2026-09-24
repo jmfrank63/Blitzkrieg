@@ -12,19 +12,29 @@ namespace NMapFile
 {
 // The two formats, once. An .xml map is a data tree with the map as its typed
 // super; a .bzm is chunk 1 of a structure saver (iMissionInternal.cpp:1376-1388).
-static void ReadStream( IDataStream *pStream, bool bXml, CMapInfo *pMap )
+//
+// Either saver comes back null for a stream that is not one - a file that is
+// not a map at all - and the accessors call through it unchecked, so that is
+// answered here: false, "not a map", rather than a null member call.
+static bool ReadStream( IDataStream *pStream, bool bXml, CMapInfo *pMap )
 {
 	if ( bXml )
 	{
-		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+		CPtr<IDataTree> pTree = CreateDataTreeSaver( pStream, IDataTree::READ );
+		if ( pTree == 0 )
+			return false;
+		CTreeAccessor saver = pTree;
 		saver.AddTypedSuper( pMap );
 	}
 	else
 	{
 		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::READ );
+		if ( pSaver == 0 )
+			return false;
 		CSaverAccessor saver = pSaver;
 		saver.Add( 1, pMap );
 	}
+	return true;
 }
 
 static bool HasExtension( const char *pszPath, const char *pszExtension )
@@ -53,7 +63,11 @@ bool Read( const char *pszPath, CMapInfo *pMap, std::string *pError )
 			if ( pError ) *pError = std::string( pszPath ) + ": cannot open";
 			return false;
 		}
-		ReadStream( pStream, bXml, pMap );
+		if ( !ReadStream( pStream, bXml, pMap ) )
+		{
+			if ( pError ) *pError = std::string( pszPath ) + ": not a map (no structure to read in it)";
+			return false;
+		}
 	}
 	catch ( ... )
 	{
@@ -108,7 +122,11 @@ bool ReadNewest( const char *pszBase, CMapInfo *pMap, std::string *pError )
 			if ( pError ) *pError = szName + ": the storage has stats for it but will not open it";
 			return false;
 		}
-		ReadStream( pStream, bXml, pMap );
+		if ( !ReadStream( pStream, bXml, pMap ) )
+		{
+			if ( pError ) *pError = szName + ": not a map (no structure to read in it)";
+			return false;
+		}
 	}
 	catch ( ... )
 	{

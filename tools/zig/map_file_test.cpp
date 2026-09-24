@@ -60,6 +60,24 @@ static void TestReadsXmlAndPicksTheNewer()
 	Check( !szError.empty(), "and says so" );
 }
 
+// A file that is not a map at all: the structure saver will not open over it
+// and comes back null, which the reader used to call through.
+static void TestRejectsAFileThatIsNotAMap()
+{
+	// Written by hand, so with the OS's separator; read the engine's way.
+	if ( FILE *pFile = fopen( "zig-out/local-test/not-a-map.bzm", "wb" ) )
+	{
+		const char garbage[] = "this is not a map, and the reader has to say so";
+		fwrite( garbage, 1, sizeof garbage, pFile );
+		fclose( pFile );
+	}
+	CMapInfo map;
+	std::string szError;
+	Check( !NMapFile::Read( "zig-out\\local-test\\not-a-map.bzm", &map, &szError ), "a file that is not a map does not read" );
+	Check( szError.find( "not a map" ) != std::string::npos, szError.empty() ? "and says why" : szError.c_str() );
+	remove( "zig-out/local-test/not-a-map.bzm" );
+}
+
 static void TestWritesWhatItRead()
 {
 	CMapInfo map;
@@ -703,6 +721,7 @@ int main( int argc, char **argv )
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();
 	TestWritesWhatItRead();
+	TestRejectsAFileThatIsNotAMap();
 	TestComparatorSeesADifference();
 	TestRoundTripIsEquivalent();
 	bool bAll = false;
