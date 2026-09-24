@@ -24,6 +24,12 @@
 #include "RandomMapHelper.h"
 #include "../Platform/Clock.h"
 #include "../Platform/Debug.h"
+#if !defined(_WIN32)
+#include <signal.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
 	if ( pszBaseDir == 0 || pszMessage == 0 )
@@ -49,6 +55,103 @@ void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 		}
 	}
 }
+// The file header and the world, in the order CICLoad reads them back.
+static void WriteSave( IMainLoop *pML, IDataStream *pStream )
+{
+	{
+		NSaveLoad::SFileHeader hdr;
+		hdr.szTitleName = L"UNKNOWN Title";
+		hdr.szChapterName = GetGlobalVar( "Chapter.Current.Name", "UNKNOWN Chapter" );
+		hdr.szMissionName = GetGlobalVar( "Mission.Current.Name", "UNKNOWN Mission" );
+		hdr.bRandomMission = ( GetGlobalVar( "AreWeInMission", (const char*)0 ) != 0 ) &&
+			                   ( GetGlobalVar( ("Mission." + hdr.szMissionName + ".Random").c_str(), 0 ) != 0 );
+		const DWORD dwSignature = NSaveLoad::SFileHeader::SIGNATURE;
+		CStreamAccessor stream = pStream;
+		stream << dwSignature;
+		stream << hdr;
+		if ( hdr.bRandomMission )
+		{
+			NSaveLoad::SRandomHeader rndhdr;
+			CPtr<IRandomGenSeed> pSeed = 0;
+			StoreRandomMap( hdr.szMissionName, &rndhdr, &pSeed );
+			stream << rndhdr;
+			pSeed->Store( stream );
+		}
+	}
+	CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::WRITE );
+	pML->Serialize( pSS );
+}
+#if !defined(_WIN32)
+// The -autosave ring is written by a copy of the game. fork() hands the child
+// the whole process as it is at this instant - copy-on-write, nothing is
+// copied up front - and the child serializes that frozen world and writes it
+// out while the game carries on. In-line, the walk over the ~100,000 objects
+// of a large mission held the game for about 150 ms every ten seconds.
+//
+// Only the forking thread exists in the child, and a lock some other thread
+// held at the fork stays locked there, so the child keeps to memory and plain
+// stdio: the save goes into a memory stream, then out under a temporary name
+// that is renamed over the slot. A child that dies leaves the slot as it was,
+// and one that hangs is ended by the alarm.
+static pid_t s_nSaveChild = 0;
+// Reaps the last save's child if it has finished; true while it is still writing.
+static bool BackgroundSaveBusy()
+{
+	if ( s_nSaveChild <= 0 )
+		return false;
+	int nStatus = 0;
+	const pid_t nDone = waitpid( s_nSaveChild, &nStatus, WNOHANG );
+	if ( nDone == 0 )
+		return true;
+	if ( nDone == s_nSaveChild && !( WIFEXITED( nStatus ) && WEXITSTATUS( nStatus ) == 0 ) )
+		NStr::DebugTrace( "autosave: the save process %d failed (status 0x%x)\n", int( s_nSaveChild ), nStatus );
+	s_nSaveChild = 0;
+	return false;
+}
+static bool WriteStreamToFile( IDataStream *pStream, const std::string &szFileName )
+{
+	const int nSize = pStream->GetSize();
+	if ( nSize <= 0 )
+		return false;
+	std::vector<unsigned char> buffer( nSize );
+	pStream->Seek( 0, STREAM_SEEK_SET );
+	if ( pStream->Read( &buffer[0], nSize ) != nSize )
+		return false;
+	NFile::CFile file;
+	if ( !file.Open( szFileName.c_str(), NFile::CFile::modeWrite | NFile::CFile::modeCreate ) )
+		return false;
+	const bool bWritten = file.Write( &buffer[0], nSize ) == nSize && file.Flush();
+	file.Close();
+	return bWritten;
+}
+// False if there is no child to do it; the caller then saves in-line.
+static bool SaveInBackground( IMainLoop *pML, const std::string &szFullFileName )
+{
+	const pid_t nChild = fork();
+	if ( nChild < 0 )
+		return false;
+	if ( nChild > 0 )
+	{
+		s_nSaveChild = nChild;
+		return true;
+	}
+	signal( SIGALRM, SIG_DFL );
+	alarm( 60 );
+	setpriority( PRIO_PROCESS, 0, 10 );
+	bool bSaved = false;
+	CPtr<IDataStream> pStream = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
+	if ( pStream != 0 )
+	{
+		WriteSave( pML, pStream );
+		const std::string szTempName = szFullFileName + ".tmp";
+		bSaved = WriteStreamToFile( pStream, szTempName ) && NFile::CFile::Rename( szTempName.c_str(), szFullFileName.c_str() );
+		if ( !bSaved )
+			NFile::CFile::Remove( szTempName.c_str() );
+	}
+	// Straight out: no destructors, no atexit handlers - they belong to the game.
+	_exit( bSaved ? 0 : 1 );
+}
+#endif
 void CICSave::Exec( IMainLoop *pML )
 {
 	if ( GetGlobalVar("SaveHistoryFileName", (const char*)0) != 0 )
@@ -68,36 +171,33 @@ void CICSave::Exec( IMainLoop *pML )
 	const std::string szSaveDir = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\";
 	NFile::CreatePath( szSaveDir.c_str() );
 	const std::string szFullFileName = szSaveDir + szFileName;
+#if !defined(_WIN32)
+	if ( bBackground )
+	{
+		if ( BackgroundSaveBusy() )
+		{
+			NStr::DebugTrace( "autosave: %s skipped, the previous one is still being written\n", szFileName.c_str() );
+			return;
+		}
+		pML->ClearResources( false );
+		if ( SaveInBackground( pML, szFullFileName ) )
+		{
+			NStr::DebugTrace( "autosave: %s is being written by process %d\n", szFullFileName.c_str(), int( s_nSaveChild ) );
+			return;
+		}
+	}
+#endif
 	CPtr<IDataStream> pStream = CreateFileStream( szFullFileName.c_str(), STREAM_ACCESS_WRITE );
 	if ( pStream == 0 )
-		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Can't create file \"%s\" to save - skipping...", szFullFileName.c_str()), 0xffff0000 );
-	if ( pStream )
 	{
-		pML->ClearResources( false );
-		{
-			NSaveLoad::SFileHeader hdr;
-			hdr.szTitleName = L"UNKNOWN Title";
-			hdr.szChapterName = GetGlobalVar( "Chapter.Current.Name", "UNKNOWN Chapter" );
-			hdr.szMissionName = GetGlobalVar( "Mission.Current.Name", "UNKNOWN Mission" );
-			hdr.bRandomMission = ( GetGlobalVar( "AreWeInMission", (const char*)0 ) != 0 ) && 
-				                   ( GetGlobalVar( ("Mission." + hdr.szMissionName + ".Random").c_str(), 0 ) != 0 );
-			const DWORD dwSignature = NSaveLoad::SFileHeader::SIGNATURE;
-			CStreamAccessor stream = pStream;
-			stream << dwSignature;
-			stream << hdr;
-			if ( hdr.bRandomMission ) 
-			{
-				NSaveLoad::SRandomHeader rndhdr;
-				CPtr<IRandomGenSeed> pSeed = 0;
-				StoreRandomMap( hdr.szMissionName, &rndhdr, &pSeed );
-				stream << rndhdr;
-				pSeed->Store( stream );
-			}
-		}
-		CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::WRITE );
-		pML->Serialize( pSS );
+		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Can't create file \"%s\" to save - skipping...", szFullFileName.c_str()), 0xffff0000 );
+		return;
 	}
-	if ( pStream != 0 ) 
+	pML->ClearResources( false );
+	WriteSave( pML, pStream );
+	if ( bBackground )
+		NStr::DebugTrace( "saved %s\n", szFullFileName.c_str() );
+	else
 		ReportSaveLoad( "game_saved", szFileName );
 }
 void CICLoad::Exec( IMainLoop *pML )

@@ -34,8 +34,10 @@ class CMainLoop : public IMainLoop
 	bool bDeferResourcePurge;							// suppress the per-PopInterface unreferenced-purge (save-load keeps resources for merge reuse)
 	int nResumeStreamingSteps;						// >0: resume ISFX streaming after this many StepApp frames
 	std::string szBaseDir;
-	int nAutoSavePeriod;									// auto save period (in msec)
+	int nAutoSavePeriod;									// auto save period (in msec), from -autosave
 	NTimer::STime timeLastAutoSave;				// last autosave time
+	int nAutoSaveSlot;										// last auto01..auto12 slot written, 0 = not looked up yet
+	std::string szAutoSaveDir;						// the saves dir nAutoSaveSlot was looked up in
 	int nGuaranteeFPS;										// 
 	int nGuaranteeFPSTime;								//
 	int nNetAppID;												// app id to achive different apps on one port
@@ -45,6 +47,8 @@ class CMainLoop : public IMainLoop
 	NInput::CCommandRegistrator standardMsgs;
 	void ProcessStandardMsgs( const SGameMessage &msg );
 	void OnMultiplayerStateCommand( const SGameMessage &msg );
+	void StepAutoSave();
+	std::string NextAutoSaveName();
 	virtual ~CMainLoop();
 public:
 	CMainLoop();

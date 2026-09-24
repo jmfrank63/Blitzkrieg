@@ -165,6 +165,7 @@ CMainLoop::CMainLoop()
 	bDisableMessageProcessing = false;
 	nAutoSavePeriod = GetGlobalVar( "autosave", 0 ) * 1000;
 	timeLastAutoSave = 0;
+	nAutoSaveSlot = 0;
 	szBaseDir = NPlatform::ExecutablePath();
 	if ( szBaseDir.empty() )
 		szBaseDir = ".\\";
@@ -283,7 +284,11 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 		saver.Add( 14, g_pGlobalRandomGen );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize input/etc begin" );
 	saver.Add( 15, GetSingleton<IInput>() );
-	saver.Add( 16, &nAutoSavePeriod );
+	// The period belongs to this run's command line, not to the save: loading
+	// a save made without -autosave used to switch it off, and the other way
+	// round. Still written, so the chunk means the same to older builds.
+	int nSavedAutoSavePeriod = nAutoSavePeriod;
+	saver.Add( 16, &nSavedAutoSavePeriod );
 	saver.Add( 17, &timeLastAutoSave );
 	saver.Add( 18, GetSingleton<IScenarioTracker>() );
 	saver.Add( 19, &bDisableMessageProcessing );
@@ -786,22 +791,72 @@ void CMainLoop::ProcessTimeoutMsg( const SGameMessage &msg )
 	}
 }
 */
+// -autosave[N]: every N seconds (10 without a number) the running mission is
+// saved to auto01.sav .. auto12.sav in turn, so the last two minutes before a
+// crash are always on disk. Game time, so a paused game or an open menu does
+// not fill the ring with copies of one moment. Single player only, like every
+// save, and Ironman still refuses it in CICSave::Exec.
+void CMainLoop::StepAutoSave()
+{
+	if ( !GetGlobalVar( "AreWeInMission", 0 ) || GetGlobalVar( "MultiplayerGame", 0 ) )
+	{
+		timeLastAutoSave = 0;
+		return;
+	}
+	const NTimer::STime timeCurrTime = GetSingleton<IGameTimer>()->GetGameTime();
+	// A mission just started, or a save from earlier in it was loaded: count
+	// the period from here.
+	if ( timeLastAutoSave == 0 || timeCurrTime < timeLastAutoSave )
+	{
+		timeLastAutoSave = timeCurrTime;
+		return;
+	}
+	if ( timeCurrTime - timeLastAutoSave < NTimer::STime( nAutoSavePeriod ) )
+		return;
+	timeLastAutoSave = timeCurrTime;
+	// In the background, so the game does not stop for it, and without the
+	// chat line: one every ten seconds would bury the mission's own.
+	Command( MAIN_COMMAND_SAVE, NStr::Format( "%s;0;background", NextAutoSaveName().c_str() ) );
+}
+// The slot after the newest auto??.sav in the saves dir, so a restarted game
+// carries on round the ring instead of starting again at auto01 - which would
+// overwrite the saves from just before the crash it was restarted after.
+std::string CMainLoop::NextAutoSaveName()
+{
+	std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
+	if ( !szModname.empty() )
+		szModname = "mods\\" + szModname;
+	const std::string szSaveDir = szBaseDir + NProfile::Segment() + szModname + "saves\\";
+	if ( nAutoSaveSlot == 0 || szSaveDir != szAutoSaveDir )
+	{
+		szAutoSaveDir = szSaveDir;
+		nAutoSaveSlot = 0;
+		unsigned long long nNewest = 0;
+		for ( NFile::CFileIterator it( (szSaveDir + "auto*.sav").c_str() ); !it.IsEnd(); ++it )
+		{
+			const std::string szName = it.GetFileName();
+			int nSlot = 0;
+			if ( it.IsDirectory() || szName.size() != 10 || sscanf( szName.c_str() + 4, "%2d", &nSlot ) != 1 || nSlot < 1 || nSlot > 12 )
+				continue;
+			const FILETIME time = it.GetLastWriteTime();
+			const unsigned long long nTime = ( (unsigned long long)time.dwHighDateTime << 32 ) | time.dwLowDateTime;
+			if ( nAutoSaveSlot == 0 || nTime > nNewest )
+			{
+				nNewest = nTime;
+				nAutoSaveSlot = nSlot;
+			}
+		}
+	}
+	nAutoSaveSlot = nAutoSaveSlot % 12 + 1;
+	return NStr::Format( "auto%02d.sav", nAutoSaveSlot );
+}
 bool CMainLoop::StepApp( bool bActive )
 {
 	bAppIsActive = bActive;
 	if ( nResumeStreamingSteps > 0 && --nResumeStreamingSteps == 0 )
 		GetSingleton<ISFX>()->PauseStreaming( false );
-#ifndef _FINALRELEASE	
 	if ( nAutoSavePeriod > 0 ) 
-	{
-		const NTimer::STime timeCurrTime = GetSingleton<IGameTimer>()->GetGameTime();
-		if ( timeCurrTime > timeLastAutoSave + nAutoSavePeriod ) 
-		{
-			timeLastAutoSave = timeCurrTime;
-			Command( MAIN_COMMAND_SAVE, "auto.sav" );
-		}
-	}
-#endif // _FINALRELEASE
+		StepAutoSave();
 	CInterfaceCommandsList delayedCommands;
 	const NTimer::STime timeAbs = NPlatform::MonotonicMilliseconds();
 	while ( !cmds.empty() )

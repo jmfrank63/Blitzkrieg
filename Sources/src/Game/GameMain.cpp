@@ -1874,8 +1874,13 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 		}
 		else if ( szParams[i].compare(0, 9, "-autosave") == 0 )
 		{
-			pCmdParams->nAutoSavePeriod = atoi( szParams[i].c_str() + 9 );
-			SetGlobalVar( "autosave", szParams[i].c_str() + 9 );
+			// -autosave saves every 10 seconds into auto01..auto12.sav;
+			// -autosave30 (or -autosave=30) sets another period in seconds.
+			const char *pszPeriod = szParams[i].c_str() + 9;
+			if ( *pszPeriod == '=' )
+				++pszPeriod;
+			pCmdParams->nAutoSavePeriod = ( *pszPeriod != 0 ) ? atoi( pszPeriod ) : 10;
+			SetGlobalVar( "autosave", pCmdParams->nAutoSavePeriod );
 		}
 		else if ( szParams[i] == "-cycled" )
 			pCmdParams->bCycledLaunch = true;
