@@ -1579,3 +1579,24 @@ bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect )
     }
     return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" );
 }
+
+// The editor's overlay (ImGui) draws into the frame this engine presents
+// rather than into a renderer of its own. The two callback types have the same
+// shape; unsigned int and uint32_t are the same type on every target built.
+bool STDCALL GraphicsEngineGpu::SetOverlay( void (*pfnOverlay)( void*, void*, void*, unsigned int, unsigned int ), void *pUser )
+{
+    if ( renderer_ == nullptr || api_.set_overlay == nullptr )
+        return false;
+    return api_.set_overlay( renderer_, reinterpret_cast<GfxGpuOverlayCallback>( pfnOverlay ), pUser ) == GFXGPU_OK;
+}
+
+bool STDCALL GraphicsEngineGpu::GetGpuDevice( void **ppDevice, unsigned int *pnFormat )
+{
+    if ( renderer_ == nullptr || api_.get_gpu_device == nullptr || ppDevice == nullptr || pnFormat == nullptr )
+        return false;
+    uint32_t nFormat = 0;
+    if ( api_.get_gpu_device( renderer_, ppDevice, &nFormat ) != GFXGPU_OK )
+        return false;
+    *pnFormat = nFormat;
+    return *ppDevice != nullptr;
+}

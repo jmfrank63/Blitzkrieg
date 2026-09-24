@@ -1818,7 +1818,7 @@ pub fn build(b: *std.Build) void {
     // API (which Zig's resinator does not produce correctly for runtime reads).
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
-    const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common);
+    const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common, sdl_dynamic_dep.path("include"));
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const package_module = b.createModule(.{
@@ -3582,10 +3582,14 @@ fn addEditorBridge(
     // The engine's own object layer, CWorldBase, which world.cpp subclasses the
     // way the MFC editor's frame does. GameTT links the same static library.
     common: *std.Build.Step.Compile,
+    // The headers only: BkEditorStart reads the window's size to set the mode.
+    // Whatever links the bridge links SDL, as editor-bridge-test does.
+    sdl_include: std.Build.LazyPath,
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
     addProjectIncludePaths(b, module);
     addMsvcIncludePaths(b, module, toolchain);
+    module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Formats"));
     module.addIncludePath(b.path("Sources/src/RandomMapGen"));
     module.addIncludePath(b.path("Sources/src/Common"));

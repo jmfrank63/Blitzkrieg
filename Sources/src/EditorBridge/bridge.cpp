@@ -14,6 +14,7 @@
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
 #include "../Main/GameDB.h"
+#include <SDL3/SDL.h>
 
 // Every module that links the engine statics defines these four and lets
 // something fill them; see any Sources/src/*/GlobalsLoader.cpp. Here they are
@@ -30,6 +31,22 @@ GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 struct BkEditorSession : public SEditorSession {  };
 
 namespace {
+
+// The projection the game sets after every mode change (Game/GameMain.cpp:795-801).
+// The scene's screen transform - IScene::Pick and GetPos2 - is the viewport
+// times this projection times the view, and without it the projection is the
+// identity: measured, a world unit came out 720 pixels wide and nothing was
+// ever under the middle of the screen.
+void SetScreenProjection( IGFX *pGFX )
+{
+	const RECT rcScreen = pGFX->GetScreenRect();
+	SHMatrix matProjection;
+	CreateOrthographicProjectionMatrixRH( &matProjection, float( rcScreen.right - rcScreen.left ), float( rcScreen.bottom - rcScreen.top ),
+	                                      1, 1024 * 8 + float( rcScreen.bottom - rcScreen.top ) * 2 );
+	pGFX->SetCullMode( GFXC_CW );		// the right-handed coordinate system
+	pGFX->SetProjectionTransform( matProjection );
+	pGFX->EnableLighting( false );
+}
 
 // Every entry point that needs a session goes through this. The catch is not
 // decoration: an engine throw escaping here would unwind out of this module and
@@ -66,29 +83,23 @@ BkEditorStatus StartRenderer( BkEditorSession *pSession, void *pWindow )
 		pSession->szMessage = "no IGFX after a successful initialize";
 		return BK_EDITOR_NO_DEVICE;
 	}
-	// Windowed, whatever the profile's fullscreen setting says: the editor
-	// draws into the window it was handed. A size of 0 does not mean "the
-	// window's size", though: the SDL GPU adapter takes the desktop size of
-	// the display the window is on and resizes the window to it
-	// (GraphicsEngineGpu::SetMode), so the screen is that size, not the one
-	// the window was created at.
-	if ( !pGFX->SetMode( 0, 0, 32, -1, GFXFS_WINDOWED, 0 ) )
+	// Windowed, whatever the profile's fullscreen setting says, and at the
+	// window's own size: the editor draws into the window it was handed, so
+	// the screen is the window and a mouse position is a screen position. The
+	// window has no high pixel density, so its size in points is its size in
+	// pixels, and the explicit size is one the window already has.
+	int nWidth = 0, nHeight = 0;
+	if ( !SDL_GetWindowSize( static_cast<SDL_Window*>( pWindow ), &nWidth, &nHeight ) || nWidth <= 0 || nHeight <= 0 )
+	{
+		pSession->szMessage = "the window has no size";
+		return BK_EDITOR_NO_DEVICE;
+	}
+	if ( !pGFX->SetMode( nWidth, nHeight, 32, -1, GFXFS_WINDOWED, 0 ) )
 	{
 		pSession->szMessage = "IGFX::SetMode failed";
 		return BK_EDITOR_NO_DEVICE;
 	}
-	// What the game does after its mode is set (Game/GameMain.cpp:795-801). The
-	// scene's screen transform - IScene::Pick and GetPos2 - is the viewport
-	// times this projection times the view, and without it the projection is
-	// the identity: measured, a world unit came out 720 pixels wide and nothing
-	// was ever under the middle of the screen.
-	const RECT rcScreen = pGFX->GetScreenRect();
-	SHMatrix matProjection;
-	CreateOrthographicProjectionMatrixRH( &matProjection, float( rcScreen.right - rcScreen.left ), float( rcScreen.bottom - rcScreen.top ),
-	                                      1, 1024 * 8 + float( rcScreen.bottom - rcScreen.top ) * 2 );
-	pGFX->SetCullMode( GFXC_CW );		// the right-handed coordinate system
-	pGFX->SetProjectionTransform( matProjection );
-	pGFX->EnableLighting( false );
+	SetScreenProjection( pGFX );
 	return BK_EDITOR_OK;
 }
 }
@@ -552,6 +563,93 @@ BkEditorStatus BkEditorFrame( BkEditorSession *pSession )
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		return DrawSessionFrame( pSession ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorSetOverlay( BkEditorSession *pSession, BkEditorOverlay overlay, void *pUser )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		if ( pGFX == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( !pGFX->SetOverlay( overlay, pUser ) )
+		{
+			pSession->szMessage = "this renderer has no overlay";
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorGpuDevice( BkEditorSession *pSession, void **ppDevice, unsigned int *pnFormat )
+{
+	if ( ppDevice != 0 ) *ppDevice = 0;
+	if ( pnFormat != 0 ) *pnFormat = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( ppDevice == 0 || pnFormat == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		if ( pGFX == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( !pGFX->GetGpuDevice( ppDevice, pnFormat ) )
+		{
+			*ppDevice = 0;
+			*pnFormat = 0;
+			pSession->szMessage = "this renderer has no SDL GPU device";
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorResize( BkEditorSession *pSession, int nWidth, int nHeight )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nWidth <= 0 || nHeight <= 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		if ( pGFX == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( !pGFX->SetMode( nWidth, nHeight, 32, -1, GFXFS_WINDOWED, 0 ) )
+		{
+			pSession->szMessage = "IGFX::SetMode failed";
+			return BK_EDITOR_FAILED;
+		}
+		SetScreenProjection( pGFX );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorScreenSize( BkEditorSession *pSession, int *pnWidth, int *pnHeight )
+{
+	if ( pnWidth != 0 ) *pnWidth = 0;
+	if ( pnHeight != 0 ) *pnHeight = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnWidth == 0 || pnHeight == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		if ( pGFX == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const RECT rcScreen = pGFX->GetScreenRect();
+		*pnWidth = rcScreen.right - rcScreen.left;
+		*pnHeight = rcScreen.bottom - rcScreen.top;
+		return BK_EDITOR_OK;
 	} );
 }
 

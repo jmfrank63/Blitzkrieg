@@ -226,6 +226,36 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEnt
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
 BkEditorStatus BkEditorFrame( BkEditorSession *session );
 
+/* The editor's own drawing - its ImGui - goes into the engine's frame rather
+   than into a renderer of its own. overlay runs on the thread that calls
+   BkEditorFrame, inside the engine's Flip, after the scene and before present,
+   with that frame's SDL_GPUCommandBuffer and colour target (an SDL_GPUTexture
+   of width x height pixels). No render pass is open: the callback opens and
+   ends its own. It must not call back into the bridge. It also runs once
+   inside BkEditorResize: a mode change presents a black frame of its own
+   (GraphicsEngineGpu::SetMode), and the overlay is drawn over that frame too,
+   at the new size. A null overlay removes it. BK_EDITOR_REFUSED means the
+   engine is not started or its renderer has no such hook. */
+typedef void (*BkEditorOverlay)( void *user, void *command_buffer, void *target, unsigned int width, unsigned int height );
+BkEditorStatus BkEditorSetOverlay( BkEditorSession *session, BkEditorOverlay overlay, void *user );
+
+/* The engine's SDL_GPUDevice and the SDL_GPUTextureFormat of the overlay's
+   target, for building the overlay's pipelines against the device that will
+   draw them. BK_EDITOR_REFUSED means the renderer has no SDL GPU device; both
+   outputs are then null and 0. */
+BkEditorStatus BkEditorGpuDevice( BkEditorSession *session, void **out_device, unsigned int *out_format );
+
+/* The screen is the window: BkEditorStart sets the engine's mode to the
+   window's size, so a mouse position is a screen position with no scale. Call
+   BkEditorResize after the window's size changed, with the window's size in
+   points - which is pixels, because the editor's window has no high pixel
+   density. It sets the mode and the projection again. A size that is not positive is BK_EDITOR_BAD_ARGUMENT, and a mode
+   the engine will not set is BK_EDITOR_FAILED. */
+BkEditorStatus BkEditorResize( BkEditorSession *session, int width, int height );
+/* The size the engine draws at, which BkEditorScreenToWorld and
+   BkEditorObjectAt take their points in. */
+BkEditorStatus BkEditorScreenSize( BkEditorSession *session, int *out_width, int *out_height );
+
 /* The object under a screen point, as a link ID. Bridges and entrenchments
    are passed over, as the MFC editor passes them over
    (TemplateEditorFrame1.cpp:3384-3400): they are edited as wholes in M2.

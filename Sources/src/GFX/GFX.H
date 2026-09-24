@@ -210,5 +210,15 @@ interface IGFX : public IRefCount
 	virtual int STDCALL GetNumPassedPrimitives() const = 0;
 	
 	virtual bool STDCALL SetShadingEffect( int nEffect ) = 0;
+
+	// Appended, so no slot above moves.
+	// A callback the renderer runs every frame after the scene and before
+	// present, with that frame's command buffer and colour target (SDL GPU
+	// objects, as void*). Null removes it. False when the renderer has no such
+	// hook (the legacy D3D engine).
+	virtual bool STDCALL SetOverlay( void (*pfnOverlay)( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight ), void *pUser ) = 0;
+	// The SDL GPU device and the colour format the overlay draws in, for a
+	// caller that renders into the frame itself (the editor's ImGui).
+	virtual bool STDCALL GetGpuDevice( void **ppDevice, unsigned int *pnFormat ) = 0;
 };
 #endif // __GFX_H__

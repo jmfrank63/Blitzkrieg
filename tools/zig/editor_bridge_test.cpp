@@ -611,6 +611,75 @@ static void TestCatalogueCameraAndFrame( BkEditorSession *pSession, int nScreenW
 	       "and it is the cell the camera was put on" );
 }
 
+// The overlay runs inside the engine's own frame: a callback set through the
+// bridge is called once per BkEditorFrame, with a command buffer and a target,
+// and not at all once it is removed.
+static int g_nOverlayCalls = 0;
+static bool g_bOverlayHadTarget = true;
+static void CountOverlay( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight )
+{
+	++g_nOverlayCalls;
+	if ( pCommandBuffer == 0 || pTarget == 0 || nWidth == 0 || nHeight == 0 || pUser != &g_nOverlayCalls )
+		g_bOverlayHadTarget = false;
+}
+
+static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWindow )
+{
+	void *pDevice = 0;
+	unsigned int nFormat = 0;
+	Check( BkEditorGpuDevice( pSession, &pDevice, &nFormat ) == BK_EDITOR_OK && pDevice != 0 && nFormat != 0,
+	       "the engine's GPU device and colour format are handed out" );
+
+	g_nOverlayCalls = 0;
+	g_bOverlayHadTarget = true;
+	Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+	Check( g_nOverlayCalls >= 1 && g_bOverlayHadTarget, NStr::Format( "the overlay ran inside the frame (%d calls)", g_nOverlayCalls ) );
+	BkEditorSetOverlay( pSession, 0, 0 );
+	const int nCalls = g_nOverlayCalls;
+	BkEditorFrame( pSession );
+	Check( g_nOverlayCalls == nCalls, "a removed overlay is not called again" );
+
+	// The screen is the window: no desktop-size mode, no scale between a mouse
+	// position and a screen position.
+	int nWindowW = 0, nWindowH = 0, nScreenW = 0, nScreenH = 0;
+	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == nWindowW && nScreenH == nWindowH,
+	       NStr::Format( "the screen is the window's size (%dx%d against %dx%d)", nScreenW, nScreenH, nWindowW, nWindowH ) );
+
+	SDL_SetWindowSize( pWindow, 800, 500 );
+	SDL_SyncWindow( pWindow );
+	Check( BkEditorResize( pSession, 800, 500 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == 800 && nScreenH == 500,
+	       NStr::Format( "a resize is the new screen (%dx%d)", nScreenW, nScreenH ) );
+	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+	Check( nWindowW == 800 && nWindowH == 500, NStr::Format( "and the engine leaves the window at that size (%dx%d)", nWindowW, nWindowH ) );
+	printf( "editor-bridge: after a resize the window is %dx%d and the screen %dx%d\n", nWindowW, nWindowH, nScreenW, nScreenH );
+	// Screen-to-world still composes after a resize: the camera test's check,
+	// on the camera test's anchor - the shipped map's first object.
+	CMapInfo map;
+	std::string szError;
+	if ( Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) && Check( !map.objects.empty(), "the map has an object to look at" ) )
+	{
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, map.objects[0].vPos );
+		int nAnchorX = -1, nAnchorY = -1;
+		BkEditorWorldToTile( pSession, vAnchor.x, vAnchor.y, &nAnchorX, &nAnchorY );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		float wx = 0, wy = 0;
+		int tx = -1, ty = -1;
+		Check( BkEditorScreenToWorld( pSession, 400.0f, 250.0f, &wx, &wy ) == BK_EDITOR_OK &&
+		       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK &&
+		       abs( tx - nAnchorX ) <= 2 && abs( ty - nAnchorY ) <= 2,
+		       NStr::Format( "after a resize the middle of the screen is still the camera's cell (%d,%d against %d,%d)", tx, ty, nAnchorX, nAnchorY ) );
+		printf( "editor-bridge: after a resize the camera is on cell %d,%d and the middle of the screen is %d,%d\n", nAnchorX, nAnchorY, tx, ty );
+	}
+	BkEditorResize( pSession, 640, 480 );
+	SDL_SetWindowSize( pWindow, 640, 480 );
+}
+
 // The frame just drawn, as an uncompressed 32-bit TGA, so a person can look at
 // what the pick ratio only counts. Alpha is forced opaque for the reason
 // CMainLoop gives for its own screenshots: the scene texture's alpha is
@@ -1285,14 +1354,14 @@ int main( int argc, char **argv )
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
-		// Not the 640x480 the window was created at: BkEditorStart sets the mode
-		// with no size, and the SDL GPU adapter gives the window its display's
-		// desktop size (GraphicsEngineGpu::SetMode). The middle of the screen is
-		// the middle of what the engine draws.
-		const RECT rcScreen = GetSingleton<IGFX>()->GetScreenRect();
-		const int nScreenWidth = rcScreen.right - rcScreen.left, nScreenHeight = rcScreen.bottom - rcScreen.top;
+		// The 640x480 the window was created at: BkEditorStart sets the mode to
+		// the window's own size. The middle of the screen is the middle of what
+		// the engine draws, so it is read from the bridge rather than assumed.
+		int nScreenWidth = 0, nScreenHeight = 0;
+		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads" );
 		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
+		TestOverlayDeviceAndSize( pSession, pWindow );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );

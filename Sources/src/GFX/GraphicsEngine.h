@@ -278,5 +278,9 @@ public:
 	int STDCALL GetNumPassedPrimitives() const { return nNumPassedPrimitives; }
 
 	bool STDCALL SetShadingEffect( int nEffect );
+
+	// D3D has no SDL GPU overlay hook and no SDL GPU device to hand out.
+	bool STDCALL SetOverlay( void (*)( void*, void*, void*, unsigned int, unsigned int ), void* ) { return false; }
+	bool STDCALL GetGpuDevice( void **ppDevice, unsigned int *pnFormat ) { if ( ppDevice != 0 ) *ppDevice = 0; if ( pnFormat != 0 ) *pnFormat = 0; return false; }
 };
 #endif // __GRAPHICSENGINE_H__

@@ -93,6 +93,8 @@ public:
     int STDCALL GetNumPassedVertices() const override;
     int STDCALL GetNumPassedPrimitives() const override;
     bool STDCALL SetShadingEffect( int nEffect ) override;
+    bool STDCALL SetOverlay( void (*pfnOverlay)( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight ), void *pUser ) override;
+    bool STDCALL GetGpuDevice( void **ppDevice, unsigned int *pnFormat ) override;
 
     bool CreateTextureHandle( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, GfxGpuHandle *out_handle );
     bool UploadTexture( GfxGpuHandle handle, int mip, const void *data, size_t bytes, int row_pitch );
