@@ -1541,9 +1541,9 @@
 				</item>
 				<item ClassTypeID="0x10001103" ElementID="10013" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip/>
-					<!--button: cloud credentials dialog (Config...), a child of the Cloud list so its clicks arrive at all - the list's native pick absorbs clicks aimed at overlapping siblings before any message exists. The list converts every click in its rectangle to the row-cycle event (7777); ProcessMessage picks these two buttons off that event by cursor position. Shown by code only while the Cloud tab is active and a provider is chosen.-->
-					<WindowPos x="35" y="455"/>
-					<WindowSize x="170" y="46"/>
+					<!--button: cloud credentials dialog (Config...), a child of the Cloud list so its clicks arrive at all - the list's native pick absorbs clicks aimed at overlapping siblings before any message exists. The list converts every click in its rectangle to the row-cycle event (7777); ProcessMessage picks these three buttons off that event by cursor position. Shown by code only while the Cloud tab is active and a provider is chosen.-->
+					<WindowPos x="22" y="455"/>
+					<WindowSize x="118" y="46"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
@@ -1564,11 +1564,40 @@
 						</item>
 					</States>
 				</item>
+				<item ClassTypeID="0x10001103" ElementID="10015" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+					<ToolTip/>
+					<!--button: Sync now, the middle of the three - see 10013. Asks the main loop for a sync through CloudSync.SyncNow; greyed by code while a run is in flight.-->
+					<WindowPos x="150" y="455"/>
+					<WindowSize x="118" y="46"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="590" y1="957" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="590" y1="888" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="590" y1="888" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff777777">
+								<Maps x1="590" y1="957" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\CloudSync\sync_now_button</TextKey>
+						</item>
+					</States>
+				</item>
 				<item ClassTypeID="0x10001103" ElementID="10014" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip/>
-					<!--button: cloud backup browser (Backups...), the right of the pair - see 10013.-->
-					<WindowPos x="225" y="455"/>
-					<WindowSize x="170" y="46"/>
+					<!--button: cloud backup browser (Backups...), the right of the three - see 10013.-->
+					<WindowPos x="278" y="455"/>
+					<WindowSize x="118" y="46"/>
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">

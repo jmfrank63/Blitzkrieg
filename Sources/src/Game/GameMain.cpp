@@ -1067,6 +1067,42 @@ int RunGame( const BkGameLaunchInfo &launch )
 					}
 				}
 			}
+			if ( GetGlobalVar( "CloudSync.SyncNow", 0 ) )
+			{
+				// The Cloud tab's Sync now: a run on demand, past the timing
+				// options - pressing it is the player choosing when. The
+				// provider and credential gates still apply, and a run already
+				// holding the handle is the sync asked for. The config is
+				// written first so a config backup snapshots what the settings
+				// screen shows, and a pending post-save push is folded in.
+				RemoveGlobalVar( "CloudSync.SyncNow" );
+				if ( g_nCloudStartupSync >= 0 )
+					NStr::DebugTrace( "cloud sync: sync now pressed while a run is in flight\n" );
+				else
+				{
+					const std::string szProvider = CloudSyncOptionValue( "Cloud.Provider" );
+					if ( !CloudProviderSelected( szProvider ) )
+						NStr::DebugTrace( "cloud sync: sync now with no provider chosen\n" );
+					else if ( !CloudCredentialsMatch( szProvider ) )
+						PublishCloudUnconfigured();
+					else if ( !NCloudSync::Available() )
+						NStr::DebugTrace( "cloud sync: sync now skipped, rclone unavailable: %s\n", NCloudSync::LastError() );
+					else
+					{
+						SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );
+						g_nCloudSyncDueMs = 0;
+						const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
+						g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+						if ( g_nCloudStartupSync >= 0 )
+						{
+							SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_STARTING );
+							NStr::DebugTrace( "cloud sync: sync now begun for \"%s\"\n", szProfile.c_str() );
+						}
+						else
+							NStr::DebugTrace( "cloud sync: sync now refused: %s\n", NCloudSync::LastError() );
+					}
+				}
+			}
 			if ( GetGlobalVar( "CloudSync.ExitRequested", 0 ) )
 			{
 				// The exit command (CICExitGame) pushed the shutdown screen and asks
