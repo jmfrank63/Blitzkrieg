@@ -874,6 +874,48 @@ static void TestPaintUndoIsExact( BkEditorSession *pSession, const std::string &
 	remove( szRedone.c_str() );
 }
 
+// The far corner and a refusal. A cell in the last patch row and column is the
+// one InclusivePatches and RegionTiles exist for: handed the half-open region,
+// CTerrain::Update would run one patch past the end of the map. A paint with
+// one cell off the map is refused before the engine is touched, so the cell
+// that was on it is not painted there either.
+static void TestPaintAtTheEdgeAndRefused( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nSizeX = original.terrain.tiles.GetSizeX(), nSizeY = original.terrain.tiles.GetSizeY();
+	const BkEditorPaintCell corner = { nSizeX - 1, nSizeY - 1,
+	                                   (unsigned char)( ( original.terrain.tiles[nSizeY - 1][nSizeX - 1].tile + 1 ) % 4 ) };
+	int nToken = -1;
+	Check( BkEditorPaint( pSession, &corner, 1, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "a paint in the last patch row and column: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorUndoPaint( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "and its undo: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+
+	const BkEditorPaintCell partly[] = {
+		{ 5, 5, (unsigned char)( ( original.terrain.tiles[5][5].tile + 1 ) % 4 ) },
+		{ nSizeX, 5, 0 },
+	};
+	nToken = 0;
+	Check( BkEditorPaint( pSession, partly, 2, &nToken ) == BK_EDITOR_REFUSED, "a paint with a cell off the map is refused" );
+	Check( nToken == -1, "and has no token" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "and the engine did not keep the cell that was on the map: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	const std::string szSaved = szScratch + "\\edge-saved.bzm";
+	CMapInfo saved;
+	std::string szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( original, saved, &szWhere ), ( "an undone paint and a refused one leave the map as read: " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
 // Delete then restore is the original object, in the map and in the engine,
 // and add - delete - restore keeps the added object's link ID.
 static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const std::string &szScratch )
@@ -1184,6 +1226,7 @@ int main( int argc, char **argv )
 		TestUnknownObjectIsReadOnly( pSession, szScratch );
 		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestPaintUndoIsExact( pSession, szScratch );
+		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
 		// Not the 640x480 the window was created at: BkEditorStart sets the mode
 		// with no size, and the SDL GPU adapter gives the window its display's

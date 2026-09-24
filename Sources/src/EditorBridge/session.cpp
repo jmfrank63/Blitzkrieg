@@ -797,6 +797,24 @@ CTRect<int> RegionTiles( const CTRect<int> &r )
 	return CTRect<int>( r.minx * STerrainPatchInfo::nSizeX, r.miny * STerrainPatchInfo::nSizeY,
 	                    r.maxx * STerrainPatchInfo::nSizeX, r.maxy * STerrainPatchInfo::nSizeY );
 }
+
+// The engine's own tiles and patches over a region, in SPaintUndo's layout
+// (NMapOverlay::CaptureRegion's, which only reads a map): what
+// ITerrainEditor::RestoreRegion puts back, crosses and their artwork included,
+// so a paint that is refused after the engine was touched leaves it exactly as
+// it was.
+void CaptureEngineRegion( const STerrainInfo &rEngine, const CTRect<int> &rPatches, NMapOverlay::SPaintUndo *pOut )
+{
+	pOut->rPatches = rPatches;
+	pOut->tiles.clear();
+	pOut->patches.clear();
+	for ( int y = rPatches.miny * STerrainPatchInfo::nSizeY; y < rPatches.maxy * STerrainPatchInfo::nSizeY; ++y )
+		for ( int x = rPatches.minx * STerrainPatchInfo::nSizeX; x < rPatches.maxx * STerrainPatchInfo::nSizeX; ++x )
+			pOut->tiles.push_back( rEngine.tiles[y][x] );
+	for ( int y = rPatches.miny; y < rPatches.maxy; ++y )
+		for ( int x = rPatches.minx; x < rPatches.maxx; ++x )
+			pOut->patches.push_back( rEngine.patches[y][x] );
+}
 }
 
 bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, int *pnToken )
@@ -832,7 +850,8 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 	//
 	// A cell off the map is refused rather than skipped: NMapOverlay::Paint
 	// ignores one silently, and a brush that ran off the edge would come back
-	// saying it had painted.
+	// saying it had painted. Every cell is checked before the engine is touched,
+	// so a refusal leaves nothing behind.
 	std::vector<NMapOverlay::SPaintCell> cells = rCells;
 	const CArray2D<SMainTileInfo> &rEngineTiles = pEngineTerrain->GetTerrainInfo().tiles;
 	for ( size_t i = 0; i < cells.size(); ++i )
@@ -844,8 +863,16 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 			return false;
 		}
 		cells[i].noise = 0;
-		pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, cells[i].tile );
 	}
+
+	// What the engine holds over the region before SetTile changes it, for the
+	// two ways a paint can still be refused below. Putting it back raw is exact;
+	// SetTile and Update again would run the preprocessing pass and roll new
+	// cross artwork.
+	NMapOverlay::SPaintUndo engineBefore;
+	CaptureEngineRegion( pEngineTerrain->GetTerrainInfo(), rPatches, &engineBefore );
+	for ( size_t i = 0; i < cells.size(); ++i )
+		pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, cells[i].tile );
 
 	NMapOverlay::SPaintUndo undo;
 	if ( !NMapOverlay::Paint( &pSession->snapshot, cells, &undo ) )
@@ -853,9 +880,7 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 		// Paint puts the map back itself when it refuses, so there is nothing to
 		// undo here - but the engine has the new tiles already, and it has to go
 		// back with the map or the editor would draw a paint the file never got.
-		for ( size_t i = 0; i < cells.size(); ++i )
-			pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, pSession->snapshot.terrain.tiles[cells[i].nY][cells[i].nX].tile );
-		pEngineTerrain->Update( InclusivePatches( rPatches ) );
+		pEngineTerrain->RestoreRegion( engineBefore.rPatches, engineBefore.tiles, engineBefore.patches );
 		pSession->szMessage = "the map would not take that paint (a cell outside it, or no tileset)";
 		return false;
 	}
@@ -865,9 +890,7 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 	if ( !NMapOverlay::Paint( &pSession->working, cells, &workingUndo ) )
 	{
 		NMapOverlay::UndoPaint( &pSession->snapshot, undo );
-		for ( size_t i = 0; i < cells.size(); ++i )
-			pEngineTerrain->SetTile( cells[i].nX, cells[i].nY, pSession->snapshot.terrain.tiles[cells[i].nY][cells[i].nX].tile );
-		pEngineTerrain->Update( InclusivePatches( rPatches ) );
+		pEngineTerrain->RestoreRegion( engineBefore.rPatches, engineBefore.tiles, engineBefore.patches );
 		pSession->szMessage = "the map would not take that paint";
 		return false;
 	}
