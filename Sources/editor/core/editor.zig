@@ -83,10 +83,16 @@ pub const Editor = struct {
         self.selection = null;
     }
 
+    /// The new path is copied before the bridge writes: once the file is
+    /// saved, nothing here may fail and leave the document without a path.
+    /// Copying first also keeps `path` valid when it is the document's own.
     pub fn save(self: *Editor, path: []const u8) EditError!void {
+        var new_path: std.ArrayListUnmanaged(u8) = .empty;
+        errdefer new_path.deinit(self.allocator);
+        try new_path.appendSlice(self.allocator, path);
         try self.noteOutcome(self.bridge.saveMap(path));
-        self.document.path.clearRetainingCapacity();
-        try self.document.path.appendSlice(self.allocator, path);
+        self.document.path.deinit(self.allocator);
+        self.document.path = new_path;
         self.history.markClean();
     }
 
@@ -272,9 +278,12 @@ pub const Editor = struct {
         if (self.selection == link_id) self.selection = null;
     }
 
+    /// Needs one free slot in `document.objects`, which `undo` and `redo`
+    /// reserve before they replay: once the bridge has restored the object,
+    /// the document must not be able to miss it.
     fn restoreInto(self: *Editor, object: ObjectRecord, index: usize) EditError!void {
         try self.noteOutcome(self.bridge.restoreObject(object.link_id));
-        try self.document.objects.insert(self.allocator, @min(index, self.document.objects.items.len), object);
+        self.document.objects.insertAssumeCapacity(@min(index, self.document.objects.items.len), object);
     }
 
     fn drifted(err: EditError) EditError {
@@ -287,8 +296,10 @@ pub const Editor = struct {
         const count = self.history.undo_stack.items.len;
         if (count == 0) return false;
         // Room first: once the bridge has undone it, the entry must not be
-        // lost to an allocation failure.
+        // lost to an allocation failure, nor a restored object be missing
+        // from the document.
         try self.history.redo_stack.ensureUnusedCapacity(self.allocator, 1);
+        try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
         var entry = self.history.undo_stack.items[count - 1];
         self.replay(&entry.command, false) catch |err| return drifted(err);
         _ = self.history.undo_stack.pop();
@@ -300,6 +311,7 @@ pub const Editor = struct {
         const count = self.history.redo_stack.items.len;
         if (count == 0) return false;
         try self.history.undo_stack.ensureUnusedCapacity(self.allocator, 1);
+        try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
         var entry = self.history.redo_stack.items[count - 1];
         self.replay(&entry.command, true) catch |err| return drifted(err);
         _ = self.history.redo_stack.pop();
@@ -361,6 +373,24 @@ test "save moves the document to the saved path" {
     try editor.open("fixture.bzm");
     try editor.save("renamed.bzm");
     try std.testing.expectEqualStrings("renamed.bzm", editor.document.path.items);
+    try editor.save(editor.document.path.items); // the document's own path
+    try std.testing.expectEqualStrings("renamed.bzm", editor.document.path.items);
+}
+
+test "a save that cannot copy its path fails before the bridge writes, and keeps the path" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    try editor.setMapType(3);
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
+    editor.allocator = failing.allocator();
+    try std.testing.expectError(error.OutOfMemory, editor.save("renamed.bzm"));
+    editor.allocator = std.testing.allocator;
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(fake.calls.items[fake.calls.items.len - 1].kind != .save);
+    try std.testing.expect(editor.dirty());
 }
 
 fn openFixture(fake: *FakeBridge) !Editor {
@@ -536,6 +566,36 @@ test "a merge drops the redo branch too" {
     _ = try editor.undo(); // undoes the place; the place entry is now on the redo branch
     try editor.paint(&.{.{ .x = 2, .y = 1, .tile = 4 }}, gesture); // merges into the paint entry
     try std.testing.expect(!(try editor.redo()));
+}
+
+test "an undo that cannot make room restores nothing, and one that restores is in the document" {
+    // Every allocation the undo of a delete makes, failed in turn, with the
+    // document's list full so that reinserting the object would need one.
+    var fail_index: usize = 0;
+    while (fail_index < 4) : (fail_index += 1) {
+        var fake = try testFixture(std.testing.allocator);
+        defer fake.deinit();
+        var editor = try openFixture(&fake);
+        defer editor.deinit();
+        try editor.delete(1);
+        editor.document.objects.shrinkAndFree(std.testing.allocator, editor.document.objects.items.len);
+        var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = fail_index });
+        editor.allocator = failing.allocator();
+        const undone = editor.undo();
+        editor.allocator = std.testing.allocator;
+        const in_bridge = for (fake.objects_list.items) |object| {
+            if (object.link_id == 1) break true;
+        } else false;
+        try std.testing.expectEqual(in_bridge, editor.document.find(1) != null);
+        if (undone) |_| {
+            try std.testing.expect(in_bridge);
+        } else |err| {
+            try std.testing.expectEqual(error.OutOfMemory, err);
+            try std.testing.expect(!in_bridge);
+            try std.testing.expect(try editor.undo()); // and it can still be undone
+            try std.testing.expect(editor.document.find(1) != null);
+        }
+    }
 }
 
 test "an allocation failure before the bridge call leaves the bridge, document and history untouched" {
