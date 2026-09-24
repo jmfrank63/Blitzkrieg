@@ -2675,6 +2675,19 @@ pub fn build(b: *std.Build) void {
     test_gfxgpu_step.dependOn(gfx_gpu_abi_test_step);
     test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
+    // The editor core tier: plain Zig against the fake bridge, so it runs on
+    // every target, the MinGW job included.
+    const editor_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/core/root.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const editor_core_tests = b.addTest(.{ .root_module = editor_core_module });
+    const editor_core_tests_run = b.addRunArtifact(editor_core_tests);
+    const editor_core_step = b.step("test-editor-core", "Run the Map Editor core tests against the fake bridge");
+    editor_core_step.dependOn(&editor_core_tests.step);
+    if (test_mode == .run) editor_core_step.dependOn(&editor_core_tests_run.step);
+    test_step.dependOn(editor_core_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);

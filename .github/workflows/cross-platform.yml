@@ -101,6 +101,9 @@ jobs:
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
@@ -297,6 +300,9 @@ jobs:
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # Only here and on macos-14: the probe says those are the two runners with
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
@@ -468,6 +474,9 @@ jobs:
       - name: Map file tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
 
+      - name: Editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
 
@@ -590,6 +599,9 @@ jobs:
       - name: Map file tier
         run: zig build test-map-files -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
 
@@ -684,6 +696,9 @@ jobs:
 
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu
@@ -804,6 +819,9 @@ jobs:
 
       - name: Map file tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos
