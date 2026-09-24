@@ -208,9 +208,10 @@ struct SCmdParams
 	std::string szBindName;								// config file name - obsolete - unsupported
 	std::string szSaveFile;								// save file name - for direct save launch
 	std::string szModName;								// mod file name - to lauch game with particular mod added
+	bool bNoMod;													// -mod=None: the standard game, whatever the profile last played
 	std::string szProfileName;						// player profile to activate (-profile=Name)
 
-	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ) { }
+	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ), bNoMod( false ) { }
 };
 static void ArmAllModulesLeakOnExit()
 {
@@ -946,6 +947,10 @@ int RunGame( const BkGameLaunchInfo &launch )
 		if ( !cmdp.bReferenceScene )
 			GetSingleton<ICursor>()->Acquire( true );
 		{
+			// Without -mod the profile's last mod comes back; -mod=None forgets
+			// it, the same as unloading the mod in the game would.
+			if ( cmdp.bNoMod )
+				GetSingleton<IUserProfile>()->SetMOD( "" );
 			const std::string szMOD = !cmdp.szModName.empty() ? cmdp.szModName : GetSingleton<IUserProfile>()->GetMOD();
 			// The profile's generated data (random missions); switching the mod
 			// below mounts it again for that mod.
@@ -1813,13 +1818,22 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 				SetGlobalVar( "GFX.Mode.CmdLine.Value", szNormalized.c_str() );
 			}
 		}
-		else if ( szParams[i].compare(0, 4, "-mod") == 0 )
+		else if ( szParams[i] == "-mod" || szParams[i].compare(0, 5, "-mod=") == 0 )
 		{
+			// -mod=<folder> or -mod=None; ParseCommandLine has already refused
+			// every other spelling before this runs.
 			std::string szModDir = szParams[i].c_str() + 4;
+			if ( !szModDir.empty() && szModDir[0] == '=' )
+				szModDir = szModDir.substr( 1 );
 			NStr::TrimBoth( szModDir, '"' );
-			if ( !szModDir.empty() && szModDir[szModDir.size() - 1] != '\\' )
-				szModDir += '\\';
-			pCmdParams->szModName = szModDir;
+			if ( szModDir == "none" )
+				pCmdParams->bNoMod = true;
+			else if ( !szModDir.empty() )
+			{
+				if ( szModDir[szModDir.size() - 1] != '\\' )
+					szModDir += '\\';
+				pCmdParams->szModName = szModDir;
+			}
 		}
 		else if ( szParams[i].compare( 0, 8, "-profile" ) == 0 )
 		{

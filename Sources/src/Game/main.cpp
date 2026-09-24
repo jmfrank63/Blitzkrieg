@@ -98,7 +98,7 @@ const char *const kUsageText =
 "  -monitor=\"name\"               pick a display by name\n"
 "  -profile=Name                 play with this player profile\n"
 "  -mp                           multiplayer\n"
-"  -mod<dir>                     load a mod from <dir>\n"
+"  -mod=Name | -mod=None         play the mod in mods/Name, or the standard game\n"
 "\n"
 "Example: Game -windowed -mode=1024x768x32\n";
 }
@@ -159,7 +159,30 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 				result.modeError = value;
 			}
 		}
-		else if ( argument.rfind( "-mod", 0 ) == 0 ) result.modName = AttachedValue( raw, 4 );
+		else if ( argument == "-mod" || argument.rfind( "-mod=", 0 ) == 0 )
+		{
+			// -mod=AchtungPanzer2 plays that mod, -mod=None the standard game;
+			// without either the profile's last choice stands.
+			std::string value = AttachedValue( raw, 4 );
+			if ( !value.empty() && value.front() == '=' ) value = TrimQuotes( value.substr( 1 ) );
+			if ( value.empty() )
+			{
+				result.parseError = true;
+				result.modInvalid = true;
+				result.modError = raw;
+			}
+			else
+				result.modName = value;
+		}
+		else if ( argument.rfind( "-mod", 0 ) == 0 )
+		{
+			// The old spelling glued the folder on: -modAchtungPanzer2. Refused
+			// with a pointer to the new one rather than read, so a mistyped
+			// flag (-moda, -modes) cannot quietly load or drop a mod.
+			result.parseError = true;
+			result.modInvalid = true;
+			result.modError = raw;
+		}
 		else if ( argument == "-windowed" ) result.fullscreenMode = EFullscreenMode::windowed;
 		else if ( argument == "-fullscreen" ) result.fullscreenMode = EFullscreenMode::fullscreen;
 		else if ( argument.rfind( "-monitor", 0 ) == 0 )
@@ -232,6 +255,8 @@ void ReportCommandLine( const CommandLineOptions &options )
 		std::fprintf( stderr, "Error: -mode requires a value (expected WxH, WxHxBPP, or auto)\n" );
 	else if ( options.modeInvalid )
 		std::fprintf( stderr, "Error: invalid -mode value \"%s\" (expected WxH, WxHxBPP, or auto)\n", options.modeError.c_str() );
+	else if ( options.modInvalid )
+		std::fprintf( stderr, "Error: \"%s\" - a mod is chosen with -mod=Name (the folder in mods), or -mod=None for the standard game\n", options.modError.c_str() );
 	else if ( !options.unknownArguments.empty() )
 		std::fprintf( stderr, "Error: unrecognized argument \"%s\"\n", options.unknownArguments.front().c_str() );
 	else
