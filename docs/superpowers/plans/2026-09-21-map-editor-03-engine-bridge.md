@@ -1169,6 +1169,23 @@ the same loop until it passed once: 38 minutes cold, then 59 seconds.
 Decided: 240 minutes for one run to break it, then bring it back down. The
 repository is public, so the runner minutes are free and the cost is wall clock.
 
+**Fifth run (35683754678): the cold-cache diagnosis was wrong.** Windows was cut
+off at 240 as well, and the log shows why neither run was building: the cold
+build finished in 19 minutes, the test started, and 22 seconds later
+`GetRPGStats` asserted `pRPG != 0` on dessau's `Logs08`. Run 35651308962 has
+the same assert at the same point. The CRT printed it to stderr and called
+`abort()`. A Windows debug CRT reports that through `_CRT_ERROR` as a
+"Debug Error!" message box, so the process blocked on a dialog nobody could
+click until the job was cancelled and `editor-bridge-test` was killed as an
+orphan. macOS never met the assert because the portable builds don't define
+`_DEBUG` or `_DO_ASSERT_SLOW`.
+
+Two fixes. `editor_bridge_test.cpp` sends CRT asserts and errors to stderr
+and turns off the abort message, so a failed assert now ends the run in
+seconds. The assert in `GetRPGStats` is gone, because the function already
+handles and traces a null result: shipped maps name objects that have no stats
+file. The Windows timeout is back to 60.
+
 Each missing symbol costs a full CI round to discover, so the fix is the general one
 rather than the next symbol: the test executable hosts the same engine the game
 does, so it links the same Windows imports `addGame` does, minus the

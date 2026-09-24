@@ -151,14 +151,11 @@ jobs:
 
   windows-platform:
     runs-on: windows-latest
-    # Four hours, for one run only, to break a closed loop: actions/cache saves
-    # at the end of a job that succeeded, this job has never finished, so it has
-    # never cached the built game and every run starts cold. Measured on run
-    # 35651308962 - the engine tier step alone ran 117 minutes here and was cut
-    # off, while the same step took 59 seconds on macos-14 off a warm cache.
-    # macOS went 38 minutes cold to 59 seconds warm after one pass; once this
-    # has done the same, bring it back down.
-    timeout-minutes: 240
+    # The cold build of the engine tier takes about 20 minutes here (run
+    # 35683754678). The two runs that were cut off at 120 and 240 minutes were
+    # not building: the test sat behind a debug-CRT abort() message box, which
+    # editor_bridge_test.cpp now sends to stderr instead.
+    timeout-minutes: 60
 
     steps:
       - name: Check out source

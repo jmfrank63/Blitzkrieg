@@ -41,6 +41,7 @@ static bool SamePath( const char *pszLeft, const char *pszRight )
 }
 
 #if defined(_WIN32) || defined(_WIN64)
+#include <crtdbg.h>
 #include <direct.h>
 #else
 #include <sys/stat.h>
@@ -625,6 +626,19 @@ static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession, cons
 
 int main( int argc, char **argv )
 {
+	// A failed assert in a Windows debug build prints to stderr and then calls
+	// abort(), which the debug CRT reports as a "Debug Error!" message box. On a
+	// CI runner nobody clicks it: run 35683754678 sat behind one for three and a
+	// half hours. Report both to stderr and let abort() just end the process.
+#if defined(_WIN32) || defined(_WIN64)
+	_set_error_mode( _OUT_TO_STDERR );
+	_set_abort_behavior( 0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
+	_CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
+	_CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDERR );
+	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
+	_CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDERR );
+#endif
+
 	// A real hidden window, never a null handle: passing 0 would take the
 	// no-device path on every machine and the tier would skip itself into
 	// always-green.
