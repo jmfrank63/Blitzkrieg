@@ -1,8 +1,22 @@
-//! An in-memory map behind the Bridge interface, for the core tier. It
-//! follows the real bridge's rules where the core can see them - refusals,
-//! link IDs, the order paints undo and redo in, the object list's shape - and
-//! nothing else: there is no terrain function, so a paint sets exactly the
-//! cells it names. Screen and world coordinates are the same thing here.
+//! An in-memory map behind the Bridge interface, for the core tier. It keeps
+//! the real bridge's rules the core can see: the refusals (a referenced or
+//! unknown object, a shared link ID, a cell or a placement off the map, a
+//! value out of range), how link IDs are handed out, the order paints undo
+//! and redo in, what a reopen forgets, and the object list's shape. It is
+//! knowingly kinder or simpler in these ways, which a core test must not
+//! lean on:
+//!  - there is no file: a reopen forgets deleted objects and paint history,
+//!    as the real one does, but keeps objects, tiles, diplomacy and map
+//!    fields as they are, as if every edit had been saved;
+//!  - there is no terrain function: a paint sets exactly the cells it names;
+//!  - there is no engine: a known object is placed, moved, turned and
+//!    re-owned anywhere on the map, where the real engine refuses some (a
+//!    tree takes no direction and no owner);
+//!  - any name is accepted on add; the real bridge refuses one the object
+//!    database does not know;
+//!  - edits are accepted before any map is open and after a failed open;
+//!    the real bridge refuses them with "no map is open";
+//!  - screen and world coordinates are the same thing.
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const Status = bridge_mod.Status;
@@ -114,6 +128,29 @@ pub const FakeBridge = struct {
         return null;
     }
 
+    fn forgetHistory(self: *FakeBridge) void {
+        for (self.paints.items) |paint_record| {
+            self.allocator.free(paint_record.cells);
+            self.allocator.free(paint_record.before);
+        }
+        self.paints.clearRetainingCapacity();
+        self.applied.clearRetainingCapacity();
+        self.undone.clearRetainingCapacity();
+        self.tombstones.clearRetainingCapacity();
+    }
+
+    /// More than one object carrying the link ID: the real bridge cannot
+    /// tell which one an edit means, and refuses it.
+    fn shared(self: *FakeBridge, link_id: i32) bool {
+        var count: usize = 0;
+        for (self.objects_list.items) |object| {
+            if (object.link_id == link_id) count += 1;
+        }
+        if (count <= 1) return false;
+        self.say("{d} objects of the map share link ID {d}, so the editor cannot tell which of them it would change; they are kept as they are", .{ count, link_id });
+        return true;
+    }
+
     fn nextLinkId(self: *const FakeBridge) i32 {
         var next: i32 = self.link_floor;
         for (self.objects_list.items) |object| next = @max(next, object.link_id + 1);
@@ -158,6 +195,9 @@ pub const FakeBridge = struct {
             self.say("the engine threw", .{});
             return .failed;
         }
+        // What the real bridge forgets on an open: every tombstone and every
+        // paint token of the map before.
+        self.forgetHistory();
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
             @memset(self.tiles, 0);
@@ -218,6 +258,7 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         const index = self.indexOf(link_id) orelse return .bad_argument;
         const object = &self.objects_list.items[index];
+        if (self.shared(link_id)) return .refused;
         if (!object.known) {
             self.say("the object database does not know this object's type; it is kept as it is", .{});
             return .refused;
@@ -245,6 +286,7 @@ pub const FakeBridge = struct {
             self.say("the object database does not know this object's type; it is kept as it is", .{});
             return .refused;
         }
+        if (self.shared(link_id)) return .refused;
         if (self.referenced.contains(link_id)) {
             self.say("still referred to by bridge 0", .{});
             return .refused;
@@ -473,6 +515,34 @@ test "the fake's paints undo newest first and redo in undo order" {
     try std.testing.expectEqual(Status.refused, b.redoPaint(second));
     try std.testing.expectEqual(Status.ok, b.redoPaint(first));
     try std.testing.expectEqual(Status.refused, b.paint(&.{.{ .x = 8, .y = 0, .tile = 1 }}, &first)); // off the map
+}
+
+test "a reopen forgets deleted objects and paint tokens, as the bridge's does" {
+    var fake = try fixture(std.testing.allocator);
+    defer fake.deinit();
+    const b = fake.bridge();
+    var info: MapInfo = .{};
+    _ = b.openMap("fixture.bzm", &info);
+    var token: i32 = -1;
+    try std.testing.expectEqual(Status.ok, b.paint(&.{.{ .x = 1, .y = 1, .tile = 5 }}, &token));
+    try std.testing.expectEqual(Status.ok, b.deleteObject(1));
+    try std.testing.expectEqual(Status.ok, b.openMap("fixture.bzm", &info));
+    try std.testing.expectEqual(Status.refused, b.undoPaint(token));
+    try std.testing.expectEqual(Status.refused, b.restoreObject(1));
+}
+
+test "the fake refuses an edit of a link ID two objects share" {
+    var fake = try fixture(std.testing.allocator);
+    defer fake.deinit();
+    var twin: ObjectRecord = .{ .link_id = 1, .x = 60, .y = 60 };
+    twin.setName("Flowers");
+    try fake.addFixture(twin, false);
+    const b = fake.bridge();
+    var info: MapInfo = .{};
+    _ = b.openMap("fixture.bzm", &info);
+    try std.testing.expectEqual(Status.refused, b.deleteObject(1));
+    try std.testing.expectEqual(Status.refused, b.placeObject(1, 50, 50, 0, 0));
+    try std.testing.expectEqual(@as(usize, 4), fake.objects_list.items.len);
 }
 
 test "the fake lists objects the way BkEditorObjects does" {
