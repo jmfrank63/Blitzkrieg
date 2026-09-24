@@ -30,7 +30,7 @@ int main()
 		CHECK( options.startupSmoke && !options.parseError );
 	}
 	{
-		const char *argv[] = { "Game", "\"maps/My Map.xml\"", "-reference-scene", "capture.rgba", "-reference-resolution", "1280", "720", "-mod\"My Mod\"", "-movie\"Movies\"", "-password\"secret value\"" };
+		const char *argv[] = { "Game", "\"maps/My Map.xml\"", "-reference-scene", "capture.rgba", "-reference-resolution", "1280", "720", "-mod=\"My Mod\"", "-movie\"Movies\"", "-password\"secret value\"" };
 		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 10 ) );
 		CHECK( options.mapName == "maps/My Map.xml" );
 		CHECK( options.referenceScene && options.referenceScenePath == "capture.rgba" );
@@ -70,6 +70,26 @@ int main()
 		CHECK( options.parseError );
 		CHECK( options.unknownArguments.size() == 1 && options.unknownArguments[0] == "-error" );
 		CHECK( NGame::CommandLineExitCode( options ) == 2 );
+	}
+	{
+		const char *argv[] = { "Game", "-mod=AchtungPanzer2", "-mode=1024x768" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 3 ) );
+		CHECK( options.modName == "AchtungPanzer2" && options.mode == "1024x768x32" && !options.parseError );
+	}
+	{
+		const char *argv[] = { "Game", "-mod=None" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 2 ) );
+		CHECK( options.modName == "None" && !options.parseError );
+	}
+	{
+		// The old spelling, and -mod with no name, are refused rather than read.
+		const char *old[] = { "Game", "-modAchtungPanzer2" };
+		const NGame::CommandLineOptions oldOptions = NGame::ParseCommandLine( Args( old, 2 ) );
+		CHECK( oldOptions.parseError && oldOptions.modInvalid && oldOptions.modName.empty() );
+		CHECK( oldOptions.modError == "-modAchtungPanzer2" && NGame::CommandLineExitCode( oldOptions ) == 2 );
+		const char *bare[] = { "Game", "-mod=" };
+		const NGame::CommandLineOptions bareOptions = NGame::ParseCommandLine( Args( bare, 2 ) );
+		CHECK( bareOptions.parseError && bareOptions.modInvalid );
 	}
 	{
 		const char *argv[] = { "Game" };

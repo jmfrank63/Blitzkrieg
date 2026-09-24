@@ -1684,7 +1684,7 @@ void CParentFrame::OnRunGame()
 {
 	std::string szMODPath = theApp.GetDestDir();
 	int nPos = szMODPath.rfind( "\\", szMODPath.length() - 1 );
-	if ( ShellExecute( 0, "open", (theApp.GetExecDir() + "\\game.exe").c_str(), (theApp.GetExecArgs() + "-mod\"" + szMODPath.substr( nPos + 1 ) + "\"").c_str(), theApp.GetExecDir().c_str(), SW_SHOWNORMAL ) != 0 )
+	if ( ShellExecute( 0, "open", (theApp.GetExecDir() + "\\game.exe").c_str(), (theApp.GetExecArgs() + "-mod=\"" + szMODPath.substr( nPos + 1 ) + "\"").c_str(), theApp.GetExecDir().c_str(), SW_SHOWNORMAL ) != 0 )
 		AfxMessageBox( "Unable to find zip.exe!\n Path to this file should be set in your PATH environment variable." );
 }
 void CParentFrame::OnHelp() 

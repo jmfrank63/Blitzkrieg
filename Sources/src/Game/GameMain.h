@@ -45,6 +45,11 @@ struct CommandLineOptions
 	// "-mode was given an empty value".
 	bool modeInvalid = false;
 	std::string modeError;
+	// Set (with parseError) for a -mod that is not -mod=<folder>: the old
+	// -mod<folder> spelling, or -mod with nothing after it. modError holds
+	// the argument as given.
+	bool modInvalid = false;
+	std::string modError;
 	bool useDxt = false;
 	bool multiplayer = false;
 	bool cycledLaunch = false;
@@ -63,7 +68,7 @@ struct CommandLineOptions
 	std::string mapName;
 	std::string bindName = "bind.cfg";
 	std::string saveFile;
-	std::string modName;
+	std::string modName;								// -mod=<folder>, or "None" for the standard game
 	std::string dataDirectory;
 	std::string saveHistoryFile;
 	std::string loadHistoryFile;
