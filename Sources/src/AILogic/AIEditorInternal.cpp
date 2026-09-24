@@ -212,6 +212,15 @@ IRefCount* CAIEditor::LinkToAI( const int ID )
 
 	return pResult;
 }
+void CAIEditor::ReleaseLink( IRefCount *pObj )
+{
+	if ( CLinkObject *pLinkObject = dynamic_cast<CLinkObject*>( pObj ) )
+		pLinkObject->ReleaseLink();
+}
+IRefCount* CAIEditor::ObjectByLink( const int nLink ) const
+{
+	return CLinkObject::GetObjectByLink( nLink );
+}
 int CAIEditor::AIToLink( IRefCount *pObj )
 {
 	NI_ASSERT_T( dynamic_cast<CLinkObject*>( pObj ) != 0, NStr::Format("Wrong object of type \"%s\" - CLinkObject expected", typeid(*pObj).name()) );

@@ -109,6 +109,20 @@ void CLinkObject::SetLink( const int _nLink )
 		Link2Object()[nLink] = this;
 	}
 }
+void CLinkObject::ReleaseLink()
+{
+	const int nOldLink = nLink;
+	if ( nOldLink <= 0 )
+		return;
+	// The slot's CPtr may be what keeps this object's memory; the object has to
+	// outlive the line that empties it.
+	CPtr<CLinkObject> pHold = this;
+	// nLink goes to -1 first, so the destructor, whenever it runs, no longer
+	// queues the ID for Segment() to clear - by then it may be another object's.
+	SetLink( -1 );
+	if ( nOldLink < Link2Object().size() && Link2Object()[nOldLink] == this )
+		Link2Object()[nOldLink] = 0;
+}
 void CLinkObject::Mem2UniqueIdObjs()
 {
 	NI_ASSERT_T( nUniqueID > 0, "Unique id isn't set" );

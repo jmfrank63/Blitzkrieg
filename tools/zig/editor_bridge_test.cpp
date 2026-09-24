@@ -944,7 +944,13 @@ static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const st
 	}
 	if ( !Check( nLinkID >= 0, "some placed object can be deleted" ) )
 		return;
+	// The engine's link table too, which only a Windows debug build's assert
+	// ("Repeated link" in CLinkObject::SetLink) caught before: a deleted
+	// object's ID must name nothing, so that the restore can register it again,
+	// and after the restore it must name the restored object.
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after a delete: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 	Check( BkEditorRestoreObject( pSession, nLinkID ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after its restore: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 	BkEditorObjectState after;
 	Check( BkEditorEngineObjectState( pSession, nLinkID, &after ) == BK_EDITOR_OK &&
 	       after.x == before.x && after.y == before.y && after.dir == before.dir && after.player == before.player,
@@ -977,6 +983,7 @@ static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const st
 			Check( BkEditorRestoreObject( pSession, nHighest ) == BK_EDITOR_OK, "undo the delete" );
 			Check( BkEditorRestoreObject( pSession, nAdded ) == BK_EDITOR_OK && BkEditorDeleteObject( pSession, nAdded ) == BK_EDITOR_OK,
 			       "and the added object's own restore still finds it" );
+			Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the add and the deletes undone: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 		}
 	}
 	remove( szSaved.c_str() );

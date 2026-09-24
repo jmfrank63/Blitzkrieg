@@ -626,6 +626,15 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
 		{
 			IRefCount *pAIObject = itEngine->second;
+			// The ID is freed first, while the object - the formation, for a
+			// squad - still holds it. A deleted object is not destroyed on the
+			// spot (the updater and the graveyard keep it), and its link would
+			// stay registered until the game's AI segment cleared it, which the
+			// editor never runs; the restore below then registers the object
+			// again under the same ID, "Repeated link" in CLinkObject::SetLink.
+			// The MFC editor never meets this: its undo re-adds with link ID 0
+			// and it hands out every link afresh when it saves.
+			pAIEditor->ReleaseLink( pAIObject );
 			if ( pAIEditor->IsFormation( pAIObject ) )
 			{
 				// A squad is its soldiers. CAIEditor::DeleteObject knows a unit and a
@@ -1113,6 +1122,22 @@ bool WorldMatchesSession( SEditorSession *pSession )
 			return false;
 		}
 	}
+	// The engine's own link table agrees: every ID the session holds an object
+	// under names that object there, and a deleted object's ID names nothing,
+	// so that its restore can register it again. IDs of 0 and below are never
+	// registered, and a shared one names whichever object came last.
+	for ( std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.begin(); it != pSession->byLinkID.end(); ++it )
+		if ( it->first > 0 && CountIn( pSession->snapshot, it->first ) == 1 && pAIEditor->ObjectByLink( it->first ) != it->second )
+		{
+			pSession->szMessage = NStr::Format( "the engine does not have the object with link ID %d under that ID", it->first );
+			return false;
+		}
+	for ( std::unordered_map<int, SEditorSession::STombstone>::const_iterator it = pSession->tombstones.begin(); it != pSession->tombstones.end(); ++it )
+		if ( it->first > 0 && pAIEditor->ObjectByLink( it->first ) != 0 )
+		{
+			pSession->szMessage = NStr::Format( "the engine still has an object under link ID %d, which was deleted", it->first );
+			return false;
+		}
 	return true;
 }
 

@@ -58,6 +58,21 @@ interface IAIEditor : public IRefCount
 	
 	virtual void STDCALL DeleteRiver( const SVectorStripeObject &river ) = 0;
 	virtual void STDCALL AddRiver( const SVectorStripeObject &river ) = 0;
+
+	// An object about to be deleted gives up its link ID, so that the ID can be
+	// given to an object again - the same object, when an editor undoes the
+	// delete. DeleteObject alone does not free it: the deleted object lives on
+	// while the updater and the graveyard hold it, its link stays registered
+	// until it is destroyed, and only the game's AI segment (CLinkObject::Segment)
+	// clears the slot after that, which an editor never runs. Re-adding an object
+	// under the ID before then is the "Repeated link" assert in
+	// CLinkObject::SetLink, and in release the later clearing would unregister
+	// the new object. Call it before DeleteObject, while the object still holds
+	// the ID.
+	virtual void STDCALL ReleaseLink( IRefCount *pObj ) = 0;
+	// The object the engine has registered under a link ID, or 0 - LinkToAI
+	// without its assert, so a caller can check that nothing is.
+	virtual IRefCount* STDCALL ObjectByLink( const int nLink ) const = 0;
 };
 interface IAILogic : public IRefCount
 {

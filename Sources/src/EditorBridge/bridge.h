@@ -207,8 +207,9 @@ BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *session );
 
 /* Compares what the engine draws against the objects the map holds, and names
    the first difference in BkEditorLastMessage: a drawn unit or squad that is
-   no object of the map, or an object of the map that is not drawn. For the engine
-   tier, like BkEditorTerrainMatchesEngine. */
+   no object of the map, or an object of the map that is not drawn - and the
+   engine's link table: an object's link ID names it there, a deleted one's
+   names nothing. For the engine tier, like BkEditorTerrainMatchesEngine. */
 BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
 
 /* What the editor can place. name is a fixed buffer rather than a pointer, so

@@ -57,5 +57,8 @@ public:
 
 	virtual void STDCALL DeleteRiver( const SVectorStripeObject &river );
 	virtual void STDCALL AddRiver( const SVectorStripeObject &river );
+
+	virtual void STDCALL ReleaseLink( IRefCount *pObj );
+	virtual IRefCount* STDCALL ObjectByLink( const int nLink ) const;
 };
 #endif // __AI_EDITOR_INTERNAL_H__
