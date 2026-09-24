@@ -1138,7 +1138,7 @@
 				<item ClassTypeID="0x10001103" ElementID="10013" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip />
 					<WindowPos x="20" y="440" />
-					<WindowSize x="190" y="36" />
+					<WindowSize x="125" y="36" />
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
@@ -1163,10 +1163,38 @@
 						</item>
 					</States>
 				</item>
+				<item ClassTypeID="0x10001103" ElementID="10015" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+					<ToolTip />
+					<WindowPos x="155" y="440" />
+					<WindowSize x="125" y="36" />
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff841a17">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xffb72420">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff7a6a55">
+								<Maps x1="5" y1="6" x2="432" y2="30" />
+								<Texture>UI\Textures\dtf-ui-misc</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\CloudSync\sync_now_button</TextKey>
+						</item>
+					</States>
+				</item>
 				<item ClassTypeID="0x10001103" ElementID="10014" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip />
-					<WindowPos x="225" y="440" />
-					<WindowSize x="190" y="36" />
+					<WindowPos x="290" y="440" />
+					<WindowSize x="125" y="36" />
 					<States>
 						<item EventID="-1">
 							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">

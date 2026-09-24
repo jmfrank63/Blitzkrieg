@@ -29,6 +29,8 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	void BeginCloudCatalogue();
 	void LoadCloudDestinations();
 	void RefreshCloudButtons();
+	void RefreshSyncNowButton();
+	void RequestSyncNow();
 	IUIElement *CloudButton( int nID );
 
 	NInput::CCommandRegistrator commandMsgs;

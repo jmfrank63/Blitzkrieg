@@ -52,6 +52,7 @@ enum EButtonsInOptionsSettings
 	// carry a secret - so the Cloud tab opens dedicated screens for them.
 	E_BUTTON_CLOUD_CREDENTIALS	= 10013,
 	E_BUTTON_CLOUD_BACKUPS			= 10014,
+	E_BUTTON_CLOUD_SYNC_NOW		= 10015,
 };
 bool CInterfaceOptionsSettings::OpenCurtains()
 {
@@ -94,6 +95,8 @@ bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 			szCloudProvider = szProvider;
 			BuildCloudList();
 		}
+		// The run's state moves under the open screen; the button follows.
+		RefreshSyncNowButton();
 	}
 	if ( nCatalogueHandle >= 0 )
 	{
@@ -270,16 +273,41 @@ IUIElement *CInterfaceOptionsSettings::CloudButton( int nID )
 	return pList ? pList->GetChildByID( nID ) : 0;
 }
 // The cloud screens belong to the Cloud tab, and only to a chosen provider:
-// Config... sets up the service the row names, Backups... browses what that
-// service holds.
+// Config... sets up the service the row names, Sync now runs a sync with it,
+// Backups... browses what that service holds.
 void CInterfaceOptionsSettings::RefreshCloudButtons()
 {
 	const bool bShow = nActive == nCloudDivision && nCloudDivision >= 0 && !IsCloudProviderOff( szCloudProvider );
 	const int nShow = bShow ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE;
 	if ( IUIElement *pCredentials = CloudButton( E_BUTTON_CLOUD_CREDENTIALS ) )
 		pCredentials->ShowWindow( nShow );
+	if ( IUIElement *pSyncNow = CloudButton( E_BUTTON_CLOUD_SYNC_NOW ) )
+		pSyncNow->ShowWindow( nShow );
 	if ( IUIElement *pBackups = CloudButton( E_BUTTON_CLOUD_BACKUPS ) )
 		pBackups->ShowWindow( nShow );
+	RefreshSyncNowButton();
+}
+// Sync now is greyed while a run holds the main loop's handle - a startup
+// pull, a post-save push, or the one this button began - since a press then
+// would only be refused. CloudSync.State is what the main loop publishes on
+// every poll; the settled states and idle leave the button live.
+void CInterfaceOptionsSettings::RefreshSyncNowButton()
+{
+	IUIElement *pSyncNow = CloudButton( E_BUTTON_CLOUD_SYNC_NOW );
+	if ( pSyncNow == 0 )
+		return;
+	const int nState = GetGlobalVar( "CloudSync.State", 0 );
+	const bool bRunning = nState == NCloudSync::STATE_STARTING || nState == NCloudSync::STATE_PAIRING ||
+		nState == NCloudSync::STATE_SYNCING || GetGlobalVar( "CloudSync.SyncNow", 0 ) != 0;
+	pSyncNow->EnableWindow( !bRunning );
+}
+// The handle and the option gates live in the main loop, which owns every
+// other run; the button only asks. A press while the button is greyed never
+// arrives here.
+void CInterfaceOptionsSettings::RequestSyncNow()
+{
+	SetGlobalVar( "CloudSync.SyncNow", 1 );
+	RefreshSyncNowButton();
 }
 void CInterfaceOptionsSettings::Create()
 {
@@ -524,15 +552,15 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 	// The Cloud list's ForwardMouseClicks script turns ANY click inside the
 	// list rectangle into "advance the selected row" (event 7777) before a
 	// child button ever sees it - measured: a click on Config... advanced
-	// the Provider row instead. The two cloud buttons live visually inside
+	// the Provider row instead. The three cloud buttons live visually inside
 	// that rectangle, so their clicks are picked off here by cursor
 	// position, ahead of the wrapper that would otherwise consume the event.
 	if ( msg.nEventID == 7777 && msg.nParam == 7777 &&
 			 nActive == nCloudDivision && nCloudDivision >= 0 && pUIScreen != 0 )
 	{
-		static const int nCloudButtons[] = { E_BUTTON_CLOUD_CREDENTIALS, E_BUTTON_CLOUD_BACKUPS };
-		static const int nCloudCommands[] = { MISSION_COMMAND_CLOUD_CREDENTIALS, MISSION_COMMAND_CLOUD_BACKUPS };
-		for ( int i = 0; i < 2; ++i )
+		static const int nCloudButtons[] = { E_BUTTON_CLOUD_CREDENTIALS, E_BUTTON_CLOUD_SYNC_NOW, E_BUTTON_CLOUD_BACKUPS };
+		static const int nCloudCommands[] = { MISSION_COMMAND_CLOUD_CREDENTIALS, 0, MISSION_COMMAND_CLOUD_BACKUPS };
+		for ( int i = 0; i < 3; ++i )
 		{
 			IUIElement *pButton = CloudButton( nCloudButtons[i] );
 			if ( pButton == 0 || !pButton->IsVisible() )
@@ -541,7 +569,14 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 			pButton->GetWindowPlacement( 0, 0, &rcButton );
 			if ( rcButton.IsInside( pCursor->GetPos() ) )
 			{
-				GetSingleton<IMainLoop>()->Command( nCloudCommands[i], 0 );
+				// Sync now opens no screen; a greyed one swallows the click.
+				if ( nCloudButtons[i] == E_BUTTON_CLOUD_SYNC_NOW )
+				{
+					if ( pButton->IsWindowEnabled() )
+						RequestSyncNow();
+				}
+				else
+					GetSingleton<IMainLoop>()->Command( nCloudCommands[i], 0 );
 				return true;
 			}
 		}
@@ -606,6 +641,10 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 
 	case E_BUTTON_CLOUD_BACKUPS:
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CLOUD_BACKUPS, 0 );
+		return true;
+
+	case E_BUTTON_CLOUD_SYNC_NOW:
+		RequestSyncNow();
 		return true;
 
 	case IMC_CANCEL:
