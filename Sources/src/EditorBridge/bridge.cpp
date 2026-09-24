@@ -66,8 +66,12 @@ BkEditorStatus StartRenderer( BkEditorSession *pSession, void *pWindow )
 		pSession->szMessage = "no IGFX after a successful initialize";
 		return BK_EDITOR_NO_DEVICE;
 	}
-	// The editor draws into the window it was handed, so the mode follows the
-	// window rather than the profile's fullscreen settings.
+	// Windowed, whatever the profile's fullscreen setting says: the editor
+	// draws into the window it was handed. A size of 0 does not mean "the
+	// window's size", though: the SDL GPU adapter takes the desktop size of
+	// the display the window is on and resizes the window to it
+	// (GraphicsEngineGpu::SetMode), so the screen is that size, not the one
+	// the window was created at.
 	if ( !pGFX->SetMode( 0, 0, 32, -1, GFXFS_WINDOWED, 0 ) )
 	{
 		pSession->szMessage = "IGFX::SetMode failed";

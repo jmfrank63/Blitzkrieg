@@ -125,7 +125,10 @@ BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, i
 BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
 /* Puts a deleted object back as it was: same record, same link ID, same place
    in its list, and in the engine where it stood. Undo of a delete, and redo of
-   an add. BK_EDITOR_REFUSED when there is no such deleted object. */
+   an add. BK_EDITOR_REFUSED when there is no such deleted object, when its
+   link ID is in use again, or when the engine will not take the object back -
+   and then nothing is restored, in the map or the engine. Deleted objects are
+   forgotten by the next BkEditorOpenMap. */
 BkEditorStatus BkEditorRestoreObject( BkEditorSession *session, int link_id );
 /* value is 0 or 1, the two sides, or 2, neutral; anything else is
    BK_EDITOR_BAD_ARGUMENT. A player outside the table is BK_EDITOR_REFUSED. */
@@ -184,7 +187,10 @@ typedef struct { int x, y; unsigned char tile; } BkEditorPaintCell;
    that order is BK_EDITOR_REFUSED. Undo puts back exactly the tiles and
    crosses the paint recorded, in the map and the engine; redo puts back
    exactly what the paint left - it does not paint again. out_token may be
-   null; it is -1 when nothing was painted (count 0, or a refusal). */
+   null; it is -1 when nothing was painted (count 0, or a refusal). A token is
+   valid until the next BkEditorOpenMap, which forgets every paint of the map
+   before and numbers the new map's paints from 0 again, so an old token may
+   name a new paint and must not be used. */
 BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count, int *out_token );
 BkEditorStatus BkEditorUndoPaint( BkEditorSession *session, int token );
 BkEditorStatus BkEditorRedoPaint( BkEditorSession *session, int token );
@@ -222,7 +228,10 @@ BkEditorStatus BkEditorFrame( BkEditorSession *session );
 /* The object under a screen point, as a link ID. Bridges and entrenchments
    are passed over, as the MFC editor passes them over
    (TemplateEditorFrame1.cpp:3384-3400): they are edited as wholes in M2.
-   BK_EDITOR_REFUSED means nothing pickable is there. */
+   A soldier is drawn and picked on his own but the map holds his squad, so a
+   click on a soldier answers with his squad's link ID, as the MFC editor
+   selects the whole squad (ObjectPlacerState.cpp:409). BK_EDITOR_REFUSED
+   means nothing pickable is there. */
 BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, int *out_link_id );
 
 /* A screen point to the world point under it, against the terrain the camera
