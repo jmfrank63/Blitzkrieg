@@ -3,6 +3,7 @@
 pub const bridge = @import("bridge.zig");
 pub const fake_bridge = @import("fake_bridge.zig");
 pub const document = @import("document.zig");
+pub const history = @import("history.zig");
 pub const editor = @import("editor.zig");
 
 test {
