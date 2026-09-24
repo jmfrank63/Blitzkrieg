@@ -190,8 +190,15 @@ pub const Editor = struct {
         try self.noteOutcome(self.bridge.placeObject(link_id, pose.x, pose.y, pose.dir, pose.player));
         applyPose(object, pose);
         if (merging) {
-            merge_entry.?.command.place.after = pose;
-            self.history.touchTop(self.allocator);
+            const entry = merge_entry.?;
+            // A drag that ends where it began is no edit: the entry goes,
+            // and with it the dirty mark it would have left.
+            if (std.meta.eql(entry.command.place.before, pose)) {
+                self.history.dropTop(self.allocator);
+            } else {
+                entry.command.place.after = pose;
+                self.history.touchTop(self.allocator);
+            }
         } else {
             self.history.recordAssumeCapacity(self.allocator, .{ .place = .{ .link_id = link_id, .before = before, .after = pose } }, gesture);
         }
@@ -498,6 +505,25 @@ test "one gesture of moves is one undo step" {
     _ = try editor.undo();
     try std.testing.expectEqual(@as(f32, 40), editor.document.find(1).?.x);
     try std.testing.expect(!(try editor.undo()));
+}
+
+test "a gesture that ends where it began leaves no undo step and a clean map" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    try editor.place(1, .{ .x = 50, .y = 40, .dir = 0, .player = 0 }, gesture);
+    try std.testing.expect(editor.dirty());
+    try editor.place(1, .{ .x = 40, .y = 40, .dir = 0, .player = 0 }, gesture);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(!(try editor.undo()));
+    try std.testing.expectEqual(@as(f32, 40), editor.document.find(1).?.x);
+    // And the gesture can go on from there as a fresh step.
+    try editor.place(1, .{ .x = 60, .y = 40, .dir = 0, .player = 0 }, gesture);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(f32, 40), editor.document.find(1).?.x);
+    try std.testing.expect(!editor.dirty());
 }
 
 test "one gesture of paints is one undo step, undone newest first" {

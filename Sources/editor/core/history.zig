@@ -100,6 +100,21 @@ pub const History = struct {
         }
     }
 
+    /// A merge brought the top entry back to where it began, so it is no
+    /// step at all and goes, as if the gesture had never been. The redo
+    /// branch goes as with any merge. The map is now in the state before the
+    /// entry: clean if that was the saved one, and the saved state is gone if
+    /// it was the entry's own.
+    pub fn dropTop(self: *History, allocator: std.mem.Allocator) void {
+        if (self.undo_stack.items.len == 0) return;
+        self.dropRedoBranch(allocator);
+        if (self.clean_depth) |depth| {
+            if (depth == self.undo_stack.items.len) self.clean_depth = null;
+        }
+        var entry = self.undo_stack.pop().?;
+        entry.command.deinit(allocator);
+    }
+
     pub fn markClean(self: *History) void {
         self.clean_depth = self.undo_stack.items.len;
     }
@@ -116,6 +131,19 @@ pub const History = struct {
         return self.redo_stack.items.len != 0;
     }
 };
+
+test "dropping the top entry goes back to the state before it" {
+    var history: History = .{};
+    defer history.deinit(std.testing.allocator);
+    try history.record(std.testing.allocator, .{ .map_type = .{ .before = 0, .after = 1 } }, 0);
+    history.dropTop(std.testing.allocator);
+    try std.testing.expect(!history.dirty());
+    try std.testing.expect(!history.canUndo());
+    try history.record(std.testing.allocator, .{ .map_type = .{ .before = 0, .after = 1 } }, 0);
+    history.markClean(); // saved with the entry applied
+    history.dropTop(std.testing.allocator);
+    try std.testing.expect(history.dirty());
+}
 
 test "the clean mark follows the undo depth" {
     var history: History = .{};
