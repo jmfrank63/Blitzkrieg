@@ -28,10 +28,12 @@
 //! by a credentials save on the UI thread mid-spawn; an owned copy cannot.
 //!
 //! Shutdown is bounded: the cancel flag is checked between every bounded
-//! phase of a run, and each in-flight POST carries its own deadline, so
-//! `destroy` waits at most one deadline plus one poll interval — never for
-//! the rclone job itself, which keeps running server-side and is reaped with
-//! the daemon.
+//! phase of a run, and each in-flight POST carries its own deadline. A
+//! running bisync job is stopped rather than abandoned — `job/stop`, then a
+//! wait bounded by `engine.default_job_stop_wait_ms` for bisync to wind down
+//! and remove its lock — because a job still running when the daemon is
+//! terminated strands a lock that blocks every later sync. So `destroy`
+//! waits at most one deadline, one poll interval and that stop budget.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -51,6 +53,10 @@ const path = Io.Dir.path;
 /// How often the idle worker looks for newly enqueued work. Also the upper
 /// bound `destroy` waits on an idle worker.
 const idle_poll_ms: u32 = 25;
+
+/// How long the session teardown waits on a bisync job that an earlier stop
+/// could not confirm finished, before the daemon is terminated anyway.
+const teardown_stop_wait_ms: u32 = 3_000;
 
 /// New states are appended, never inserted: the ABI pins the numerics.
 pub const State = enum(u8) { idle, starting, pairing, syncing, done, failed, testing, awaiting_input };
@@ -205,6 +211,13 @@ pub const Worker = struct {
     /// the player just chose. Null when the job found no document.
     applied_creds_raw: ?[]u8 = null,
 
+    /// What the `bkremote` alias points at for the current job —
+    /// `bkraw:<remote_root>`, as `applyCredentials` configured it — or
+    /// null when no credentials document was applied. gpa-owned. rclone
+    /// names the bisync session after this, so the session budget is
+    /// measured on it.
+    remote_target: ?[]u8 = null,
+
     /// The config machine's mailboxes, mutex-guarded. While a
     /// `.config_create` job waits on a human, the pending question sits in
     /// `config_question` (the form's wire JSON plus an `error` key) with
@@ -255,6 +268,7 @@ pub const Worker = struct {
         if (self.config_question) |owned| self.gpa.free(owned);
         if (self.config_answer) |owned| self.gpa.free(owned);
         if (self.applied_creds_raw) |owned| self.gpa.free(owned);
+        if (self.remote_target) |owned| self.gpa.free(owned);
         self.gpa.free(self.game_dir);
         const gpa = self.gpa;
         self.* = undefined;
@@ -310,8 +324,9 @@ pub const Worker = struct {
         return self.snapshot;
     }
 
-    /// Abandon the wait on the current run. The job keeps running
-    /// server-side; the worker reports `.failed` with a cancellation text.
+    /// Cancel the current run. A running bisync job is stopped (bounded)
+    /// so it removes its own lock; the worker reports `.failed` with a
+    /// cancellation text.
     pub fn cancel(self: *Worker) void {
         self.cancel_flag.store(true, .release);
     }
@@ -369,7 +384,15 @@ pub const Worker = struct {
         eng: ?engine.Engine = null,
 
         fn deinit(self: *Session) void {
-            if (self.eng) |*e| e.deinit();
+            if (self.eng) |*e| {
+                // Before the daemon is terminated under it: a bisync still
+                // running in the daemon at SIGTERM strands its lock. A run
+                // stops its own job on the way out, so this only finds one
+                // whose stop could not be confirmed then — and gets a short
+                // budget, because the game is waiting to exit.
+                e.stopActiveJob(teardown_stop_wait_ms);
+                e.deinit();
+            }
             if (self.client) |*c| c.deinit();
             if (self.daemon_box) |*d| d.shutdown();
             self.* = .{};
@@ -472,6 +495,8 @@ pub const Worker = struct {
         // BINARY is still the session's: an rclone_path change takes effect
         // on the next daemon, not mid-session.)
         if (!self.applyCredentials(session)) return;
+        // Owned by the worker until the next job's credentials replace it.
+        box.ctx.remote_target = self.remote_target orelse "";
 
         // And read back after every session job, failed ones included: the
         // token refresh happens before the operation that then failed, and
@@ -651,6 +676,9 @@ pub const Worker = struct {
         // with what is on disk at its own start.
         session.eng = engine.Engine.init(self.gpa, self.io, &session.client.?);
         session.eng.?.cancel = &self.cancel_flag;
+        // Our own daemon's pid: a bisync lock naming it, while no job of
+        // ours runs, is a leftover of one of our own interrupted runs.
+        if (session.daemon_box) |*d| session.eng.?.daemon_pid = @intCast(d.pid);
         // The opportunistic half of the catalogue bootstrap: after a clean
         // sync the daemon is already up and warm, so a stale or missing
         // catalogue costs one small version call to notice and a single fetch
@@ -687,6 +715,10 @@ pub const Worker = struct {
         creds.document_mutex.lockUncancelable(self.io);
         const raw_document = self.readCredsRaw(creds_path);
         creds.document_mutex.unlock(self.io);
+
+        // Whatever the previous job's document pointed the alias at no
+        // longer describes this one.
+        self.setRemoteTarget(null);
 
         const raw = raw_document orelse {
             eng.setSecretRedactions(&.{}, &.{}) catch {};
@@ -751,7 +783,20 @@ pub const Worker = struct {
             self.publishFailureText("cloud credentials could not be applied to the daemon");
             return false;
         };
+        // Kept for the budget check: rclone names the session after this
+        // target, not after the alias.
+        const kept = self.gpa.dupe(u8, target) catch {
+            self.publishFailureText("out of memory building the sync alias");
+            return false;
+        };
+        self.setRemoteTarget(kept);
         return true;
+    }
+
+    /// Install what the sync alias points at (owned), or null to clear.
+    fn setRemoteTarget(self: *Worker, target: ?[]u8) void {
+        if (self.remote_target) |owned| self.gpa.free(owned);
+        self.remote_target = target;
     }
 
     /// `config/create` with `opt.obscure`: rclone transforms password-typed
