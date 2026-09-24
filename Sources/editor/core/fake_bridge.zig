@@ -39,6 +39,9 @@ pub const FakeBridge = struct {
     calls: std.ArrayListUnmanaged(Call) = .empty,
     message_buffer: [160]u8 = undefined,
     message_len: usize = 0,
+    /// Set by a test to make the next `objects()` call fail, as a listing
+    /// might after a successful open (a corrupt scenario, say).
+    fail_objects: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -166,6 +169,10 @@ pub const FakeBridge = struct {
 
     fn objects(ptr: *anyopaque, out: []ObjectRecord, total: *usize) Status {
         const self = from(ptr);
+        if (self.fail_objects) {
+            self.say("the object listing failed", .{});
+            return .failed;
+        }
         total.* = self.objects_list.items.len;
         const count = @min(out.len, self.objects_list.items.len);
         @memcpy(out[0..count], self.objects_list.items[0..count]);

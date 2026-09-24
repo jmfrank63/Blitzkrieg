@@ -25,7 +25,9 @@ pub const Document = struct {
 
     /// Replaces everything with what the bridge holds for the map it just
     /// opened. Asks for the object count first, the way BkEditorObjects is
-    /// meant to be called.
+    /// meant to be called. Everything - the path included - is staged in a
+    /// local first; `self` is only touched once nothing else can fail, so a
+    /// failed reload leaves `self` exactly as it was.
     pub fn reload(self: *Document, allocator: std.mem.Allocator, b: Bridge, path: []const u8, info: MapInfo) EditError!void {
         var total: usize = 0;
         var none: [0]ObjectRecord = .{};
@@ -41,8 +43,12 @@ pub const Document = struct {
         try diplomacy.resize(allocator, @intCast(info.player_count));
         for (diplomacy.items, 0..) |*side, player| try bridge_mod.check(b.diplomacy(@intCast(player), side));
 
-        self.path.clearRetainingCapacity();
-        try self.path.appendSlice(allocator, path);
+        var new_path: std.ArrayListUnmanaged(u8) = .empty;
+        errdefer new_path.deinit(allocator);
+        try new_path.appendSlice(allocator, path);
+
+        self.path.deinit(allocator);
+        self.path = new_path;
         self.objects.deinit(allocator);
         self.objects = objects;
         self.diplomacy.deinit(allocator);
