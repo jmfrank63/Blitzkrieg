@@ -45,6 +45,9 @@ pub const FakeBridge = struct {
     /// Set by a test to make `openMap` answer `failed`, as the real bridge
     /// does when the engine throws while it builds the new map.
     fail_build: bool = false,
+    /// Set by a test to make `paint` refuse cells that are on the map, as
+    /// the real bridge does when the map will not take a paint (no tileset).
+    refuse_paints: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -311,6 +314,10 @@ pub const FakeBridge = struct {
                 self.say("cell {d},{d} is not on the map", .{ cell.x, cell.y });
                 return .refused;
             }
+        }
+        if (self.refuse_paints) {
+            self.say("the map would not take that paint", .{});
+            return .refused;
         }
         const copy = self.allocator.dupe(PaintCell, cells) catch return .failed;
         const before = self.allocator.alloc(u8, cells.len) catch {

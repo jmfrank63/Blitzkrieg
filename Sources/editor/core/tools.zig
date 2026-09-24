@@ -48,7 +48,9 @@ pub const Brush = struct {
 
     /// Paints the cells under the brush that this stroke has not painted yet,
     /// in one bridge call: the terrain function runs once per call, and each
-    /// run is an undo record in the bridge.
+    /// run is an undo record in the bridge. A cell counts as painted only once
+    /// the bridge has taken it, so a refused stamp can be painted again by
+    /// the same stroke.
     fn stamp(self: *Brush, editor: *Editor, pointer: Pointer) EditError!void {
         const centre = pointer.tile orelse return;
         const allocator = editor.allocator;
@@ -63,11 +65,15 @@ pub const Brush = struct {
                 if (x < 0 or y < 0 or x >= width or y >= height) continue;
                 const cell = [2]i32{ x, y };
                 if (self.painted.contains(cell)) continue;
-                try self.painted.put(allocator, cell, {});
                 try cells.append(allocator, .{ .x = @intCast(x), .y = @intCast(y), .tile = self.tile });
             }
         }
+        if (cells.items.len == 0) return;
+        // Room to mark them first: once the bridge has painted, marking must
+        // not be able to fail.
+        try self.painted.ensureUnusedCapacity(allocator, @intCast(cells.items.len));
         try editor.paint(cells.items, self.gesture);
+        for (cells.items) |cell| self.painted.putAssumeCapacity(.{ cell.x, cell.y }, {});
     }
 };
 
@@ -174,6 +180,24 @@ test "a brush drag paints the cells it crossed, once each, as one undo step" {
     _ = try editor.undo();
     try testing.expectEqual(@as(u8, 0), fake.tile(1, 1));
     try testing.expectEqual(@as(u8, 0), fake.tile(2, 1));
+}
+
+test "a refused stamp leaves its cells for the same stroke to paint again" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var brush: Brush = .{ .tile = 7, .radius = 0 };
+    defer brush.deinit(testing.allocator);
+    fake.refuse_paints = true;
+    try testing.expectError(error.Refused, brush.handle(&editor, .{ .press = try at(&editor, 40, 40) })); // cell 1,1
+    try testing.expectEqual(@as(u8, 0), fake.tile(1, 1));
+    fake.refuse_paints = false;
+    try brush.handle(&editor, .{ .drag = try at(&editor, 45, 40) }); // still 1,1, which was never painted
+    try brush.handle(&editor, .{ .release = try at(&editor, 45, 40) });
+    try testing.expectEqual(@as(u8, 7), fake.tile(1, 1));
+    _ = try editor.undo();
+    try testing.expectEqual(@as(u8, 0), fake.tile(1, 1));
 }
 
 test "a brush with a radius paints a square, clipped to the map" {
