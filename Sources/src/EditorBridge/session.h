@@ -157,6 +157,13 @@ bool RedoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )
 // For the engine tier; the editor has no reason to call it.
 bool TerrainMatchesEngine( SEditorSession *pSession );
 
+// Compares what the world draws against what the session holds: every unit
+// and squad in the world belongs to an engine object the session knows (a
+// soldier through his squad), and every engine object the session knows has its map
+// objects in the world (a squad through its soldiers). Returns false and names
+// the first difference in szMessage. For the engine tier.
+bool WorldMatchesSession( SEditorSession *pSession );
+
 // The tile a world point falls in, through the engine's own conversion.
 bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY );
 

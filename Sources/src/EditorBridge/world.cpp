@@ -13,3 +13,10 @@ void CEditorWorld::UpdateNow()
 	pGameTimer->Update( DWORD( NHPTimer::GetSeconds( hptime ) * 1000.0f ) );
 	Update( pGameTimer->GetGameTime() );
 }
+
+void CEditorWorld::GetObjects( std::vector<SMapObject*> *pObjects )
+{
+	pObjects->clear();
+	for ( iterator it = begin(); it != end(); ++it )
+		pObjects->push_back( const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) ) );
+}

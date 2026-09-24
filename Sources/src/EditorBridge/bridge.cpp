@@ -492,6 +492,19 @@ BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *pSession )
 	} );
 }
 
+BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return WorldMatchesSession( pSession ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorCatalogue( BkEditorSession *pSession, BkEditorCatalogueEntry *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )

@@ -184,6 +184,12 @@ BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy
    the whole map, and the editor has no reason to call it. */
 BkEditorStatus BkEditorTerrainMatchesEngine( BkEditorSession *session );
 
+/* Compares what the engine draws against the objects the map holds, and names
+   the first difference in BkEditorLastMessage: a drawn unit or squad that is
+   no object of the map, or an object of the map that is not drawn. For the engine
+   tier, like BkEditorTerrainMatchesEngine. */
+BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
+
 /* What the editor can place. name is a fixed buffer rather than a pointer, so
    nothing crosses the ABI that the caller has to free; a key longer than 63
    characters is truncated. out_count is always what the database holds, not

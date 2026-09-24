@@ -16,6 +16,9 @@ public:
 	// the way the game's main loop advances it (Main/iMainInternal.cpp:889-891),
 	// then the world reads what the AI has to tell it.
 	void UpdateNow();
+	// Every map object the world holds, for the engine tier's check that the
+	// picture and the session agree (WorldMatchesSession).
+	void GetObjects( std::vector<SMapObject*> *pObjects );
 };
 
 #endif // __EDITOR_BRIDGE_WORLD_H__

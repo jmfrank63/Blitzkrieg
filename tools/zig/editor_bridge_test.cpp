@@ -934,6 +934,88 @@ static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const st
 	remove( szSaved.c_str() );
 }
 
+// A squad deletes and comes back. Its engine object is a formation, which
+// IAIEditor::DeleteObject does not know (it asserts "Unknown object"), so the
+// bridge deletes it soldier by soldier as the MFC editor does. Picking now
+// answers a soldier with his squad, so this is the delete a click leads to.
+static void TestSquadDeletesAndRestores( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+	int nRead = 0;
+	BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead );
+
+	// The first placed squad (game type 15, SGVOGT_SQUAD) the map lets go of.
+	const std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+	int nSquad = -1, nSquads = 0;
+	BkEditorObjectState before;
+	bool bPickedBefore = false;
+	for ( int nList = 0; nList < 2 && nSquad < 0; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size() && nSquad < 0; ++i )
+		{
+			const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+			bool bSquad = false;
+			for ( int j = 0; j < nRead && !bSquad; ++j )
+				bSquad = catalogue[j].game_type == 15 && rObject.szName == catalogue[j].name;
+			if ( !bSquad || BkEditorEngineObjectState( pSession, rObject.link.nLinkID, &before ) != BK_EDITOR_OK )
+				continue;
+			++nSquads;
+			// Whether a click on the squad answers with it, for the picture half
+			// of the check below.
+			CVec3 vAnchor;
+			AI2Vis( &vAnchor, before.x, before.y, 0.0f );
+			BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+			BkEditorFrame( pSession );
+			int nPicked = -1;
+			bPickedBefore = BkEditorObjectAt( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f - PICK_RISE, &nPicked ) == BK_EDITOR_OK &&
+			                nPicked == rObject.link.nLinkID;
+			if ( BkEditorDeleteObject( pSession, rObject.link.nLinkID ) == BK_EDITOR_OK )
+				nSquad = rObject.link.nLinkID;
+		}
+	printf( "editor-bridge: squad %d deleted (%d squads tried), picked by a click before: %s\n", nSquad, nSquads, bPickedBefore ? "yes" : "no" );
+	if ( !Check( nSquad >= 0, "a placed squad can be deleted" ) )
+		return;
+	BkEditorObjectState gone;
+	Check( BkEditorEngineObjectState( pSession, nSquad, &gone ) == BK_EDITOR_REFUSED, "the engine no longer holds the squad" );
+	// The picture half: no soldier of the deleted squad is still drawn.
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the squad's delete: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	BkEditorFrame( pSession );
+	int nPicked = -1;
+	Check( !( BkEditorObjectAt( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f - PICK_RISE, &nPicked ) == BK_EDITOR_OK && nPicked == nSquad ),
+	       "and a click where it stood no longer answers with it" );
+
+	if ( !Check( BkEditorRestoreObject( pSession, nSquad ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorObjectState after;
+	Check( BkEditorEngineObjectState( pSession, nSquad, &after ) == BK_EDITOR_OK &&
+	       after.x == before.x && after.y == before.y && after.dir == before.dir,
+	       "the engine holds the squad again, where it was" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the squad's restore: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	if ( bPickedBefore )
+	{
+		BkEditorFrame( pSession );
+		nPicked = -1;
+		Check( BkEditorObjectAt( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f - PICK_RISE, &nPicked ) == BK_EDITOR_OK && nPicked == nSquad,
+		       "and a click on it answers with it again" );
+	}
+	const std::string szSaved = szScratch + "\\squad-restore-saved.bzm";
+	CMapInfo saved;
+	std::string szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( original, saved, &szWhere ), ( "a squad's delete then restore is the original map: " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -1052,6 +1134,7 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );

@@ -569,7 +569,31 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	{
 		tombstone.bPlaced = true;
 		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
-			pAIEditor->DeleteObject( itEngine->second );
+		{
+			IRefCount *pAIObject = itEngine->second;
+			if ( pAIEditor->IsFormation( pAIObject ) )
+			{
+				// A squad is its soldiers. CAIEditor::DeleteObject knows a unit and a
+				// static object but not a formation, and asserts "Unknown object" on
+				// one (AIEditorInternal.cpp:128-135). The MFC editor never hands it a
+				// formation: a picked soldier selects every soldier of his squad
+				// (ObjectPlacerState.cpp:1549-1570), and Delete removes each of those
+				// with DeleteObject (ObjectPlacerState.cpp:710-719,
+				// TemplateEditorFrame1.cpp:2334). The last soldier to go takes the
+				// formation with him (CSoldier::PrepareToDelete, Soldier.cpp:688-692).
+				//
+				// The soldiers are copied out first: GetUnitsInFormation answers in a
+				// temporary buffer, and each DeleteObject shrinks the formation.
+				IRefCount **ppUnits = 0;
+				int nUnits = 0;
+				pAIEditor->GetUnitsInFormation( pAIObject, &ppUnits, &nUnits );
+				std::vector< CPtr<IRefCount> > soldiers( ppUnits, ppUnits + nUnits );
+				for ( size_t i = 0; i < soldiers.size(); ++i )
+					pAIEditor->DeleteObject( soldiers[i] );
+			}
+			else
+				pAIEditor->DeleteObject( pAIObject );
+		}
 		pSession->byLinkID.erase( itEngine );
 	}
 	pSession->tombstones[nLinkID] = tombstone;
@@ -944,6 +968,67 @@ bool TerrainMatchesEngine( SEditorSession *pSession )
 					return false;
 				}
 		}
+	return true;
+}
+
+bool WorldMatchesSession( SEditorSession *pSession )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pAIEditor == 0 || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "there is no world";
+		return false;
+	}
+	std::vector<SMapObject*> objects;
+	pSession->pWorld->GetObjects( &objects );
+	for ( size_t i = 0; i < objects.size(); ++i )
+	{
+		SMapObject *pMO = objects[i];
+		if ( pMO == 0 || pMO->pAIObj == 0 || pMO->pDesc == 0 )
+			continue;
+		// Units and squads only. The world also draws terrain objects the
+		// session never got an engine object for - measured on arnheim: 360 of
+		// them (river banks, ravines, flowers), the same number as the objects
+		// the open reports as not placed - which is a separate question from
+		// whether a deleted unit leaves anything behind.
+		if ( pMO->pDesc->eGameType != SGVOGT_UNIT && pMO->pDesc->eGameType != SGVOGT_SQUAD )
+			continue;
+		IRefCount *pOwner = pMO->pAIObj;
+		if ( pSession->linkByAI.find( pOwner ) == pSession->linkByAI.end() )
+			if ( IRefCount *pFormation = pAIEditor->GetFormationOfUnit( pOwner ) )
+				pOwner = pFormation;
+		if ( pSession->linkByAI.find( pOwner ) == pSession->linkByAI.end() )
+		{
+			pSession->szMessage = NStr::Format( "the world draws %s, which no object of the map is",
+			                                    pMO->pDesc != 0 ? pMO->pDesc->szKey.c_str() : "an object without a description" );
+			return false;
+		}
+	}
+	for ( std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.begin(); it != pSession->byLinkID.end(); ++it )
+	{
+		IRefCount *pAIObject = it->second;
+		if ( pAIEditor->IsFormation( pAIObject ) )
+		{
+			IRefCount **ppUnits = 0;
+			int nUnits = 0;
+			pAIEditor->GetUnitsInFormation( pAIObject, &ppUnits, &nUnits );
+			for ( int i = 0; i < nUnits; ++i )
+				if ( !pSession->pWorld->IsExistByAI( ppUnits[i] ) )
+				{
+					pSession->szMessage = NStr::Format( "a soldier of the squad with link ID %d is not in the world", it->first );
+					return false;
+				}
+		}
+		// A bridge span is drawn through the world's own span list, not as a map
+		// object (CWorldBase::AIUpdateBridges).
+		else if ( !pSession->pWorld->IsExistByAI( pAIObject ) && pSession->pWorld->FindSpanByAI( pAIObject ) == 0 )
+		{
+			pSession->szMessage = NStr::Format( "the object with link ID %d is not in the world", it->first );
+			return false;
+		}
+	}
 	return true;
 }
 
