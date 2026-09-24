@@ -108,32 +108,41 @@ pub const Editor = struct {
         return entry;
     }
 
+    /// Reserves whatever a fresh (non-merged) paint entry will need before
+    /// the bridge call: once the bridge has painted, recording it must not
+    /// be able to fail.
     pub fn paint(self: *Editor, cells: []const PaintCell, gesture: u32) EditError!void {
         if (cells.len == 0) return;
-        var token: i32 = -1;
-        try self.noteOutcome(self.bridge.paint(cells, &token));
         if (self.mergeable(gesture, .paint)) |entry| {
-            try entry.command.paint.tokens.append(self.allocator, token);
-            self.history.touchTop();
+            try entry.command.paint.tokens.ensureUnusedCapacity(self.allocator, 1);
+            var token: i32 = -1;
+            try self.noteOutcome(self.bridge.paint(cells, &token));
+            entry.command.paint.tokens.appendAssumeCapacity(token);
+            self.history.touchTop(self.allocator);
             return;
         }
+        try self.history.reserve(self.allocator);
         var tokens: std.ArrayListUnmanaged(i32) = .empty;
-        tokens.append(self.allocator, token) catch |err| {
+        try tokens.ensureUnusedCapacity(self.allocator, 1);
+        var token: i32 = -1;
+        self.noteOutcome(self.bridge.paint(cells, &token)) catch |err| {
             tokens.deinit(self.allocator);
             return err;
         };
-        // record owns the command from here, on error too.
-        try self.history.record(self.allocator, .{ .paint = .{ .tokens = tokens } }, gesture);
+        tokens.appendAssumeCapacity(token);
+        self.history.recordAssumeCapacity(self.allocator, .{ .paint = .{ .tokens = tokens } }, gesture);
     }
 
     pub fn addObject(self: *Editor, name: []const u8, x: f32, y: f32, dir: i32, player: i32) EditError!i32 {
+        try self.history.reserve(self.allocator);
+        try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
         var link_id: i32 = -1;
         try self.noteOutcome(self.bridge.addObject(name, x, y, dir, player, &link_id));
         var object: ObjectRecord = .{ .link_id = link_id, .x = x, .y = y, .dir = dir, .player = player };
         object.setName(name);
         const index = self.document.objects.items.len;
-        try self.document.objects.append(self.allocator, object);
-        try self.history.record(self.allocator, .{ .add = .{ .object = object, .index = index } }, 0);
+        self.document.objects.appendAssumeCapacity(object);
+        self.history.recordAssumeCapacity(self.allocator, .{ .add = .{ .object = object, .index = index } }, 0);
         return link_id;
     }
 
@@ -141,50 +150,55 @@ pub const Editor = struct {
         const object = self.document.find(link_id) orelse return error.Failed;
         const before: Pose = .{ .x = object.x, .y = object.y, .dir = object.dir, .player = object.player };
         if (std.meta.eql(before, pose)) return;
+        const merge_entry = self.mergeable(gesture, .place);
+        const merging = if (merge_entry) |entry| entry.command.place.link_id == link_id else false;
+        if (!merging) try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.placeObject(link_id, pose.x, pose.y, pose.dir, pose.player));
         applyPose(object, pose);
-        if (self.mergeable(gesture, .place)) |entry| {
-            if (entry.command.place.link_id == link_id) {
-                entry.command.place.after = pose;
-                self.history.touchTop();
-                return;
-            }
+        if (merging) {
+            merge_entry.?.command.place.after = pose;
+            self.history.touchTop(self.allocator);
+        } else {
+            self.history.recordAssumeCapacity(self.allocator, .{ .place = .{ .link_id = link_id, .before = before, .after = pose } }, gesture);
         }
-        try self.history.record(self.allocator, .{ .place = .{ .link_id = link_id, .before = before, .after = pose } }, gesture);
     }
 
     pub fn delete(self: *Editor, link_id: i32) EditError!void {
         const index = self.document.indexOf(link_id) orelse return error.Failed;
+        try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.deleteObject(link_id));
         const object = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
-        try self.history.record(self.allocator, .{ .delete = .{ .object = object, .index = index } }, 0);
+        self.history.recordAssumeCapacity(self.allocator, .{ .delete = .{ .object = object, .index = index } }, 0);
     }
 
     pub fn setDiplomacy(self: *Editor, player: i32, value: i32) EditError!void {
         if (player < 0 or @as(usize, @intCast(player)) >= self.document.diplomacy.items.len) return error.Failed;
         const slot = &self.document.diplomacy.items[@intCast(player)];
         if (slot.* == value) return;
+        try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.setDiplomacy(player, value));
         const before = slot.*;
         slot.* = value;
-        try self.history.record(self.allocator, .{ .diplomacy = .{ .player = player, .before = before, .after = value } }, 0);
+        self.history.recordAssumeCapacity(self.allocator, .{ .diplomacy = .{ .player = player, .before = before, .after = value } }, 0);
     }
 
     pub fn setMapType(self: *Editor, value: i32) EditError!void {
         const before = self.document.info.map_type;
         if (before == value) return;
+        try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.setMapType(value));
         self.document.info.map_type = value;
-        try self.history.record(self.allocator, .{ .map_type = .{ .before = before, .after = value } }, 0);
+        self.history.recordAssumeCapacity(self.allocator, .{ .map_type = .{ .before = before, .after = value } }, 0);
     }
 
     pub fn setAttackingSide(self: *Editor, value: i32) EditError!void {
         const before = self.document.info.attacking_side;
         if (before == value) return;
+        try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.setAttackingSide(value));
         self.document.info.attacking_side = value;
-        try self.history.record(self.allocator, .{ .attacking_side = .{ .before = before, .after = value } }, 0);
+        self.history.recordAssumeCapacity(self.allocator, .{ .attacking_side = .{ .before = before, .after = value } }, 0);
     }
 
     fn applyPose(object: *ObjectRecord, pose: Pose) void {
@@ -477,4 +491,31 @@ test "a new edit drops the redo branch" {
     _ = try editor.undo();
     try editor.setAttackingSide(1);
     try std.testing.expect(!(try editor.redo()));
+}
+
+test "a merge drops the redo branch too" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    try editor.paint(&.{.{ .x = 1, .y = 1, .tile = 4 }}, gesture);
+    try editor.place(1, .{ .x = 50, .y = 40, .dir = 0, .player = 0 }, gesture);
+    _ = try editor.undo(); // undoes the place; the place entry is now on the redo branch
+    try editor.paint(&.{.{ .x = 2, .y = 1, .tile = 4 }}, gesture); // merges into the paint entry
+    try std.testing.expect(!(try editor.redo()));
+}
+
+test "an allocation failure before the bridge call leaves the bridge, document and history untouched" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
+    editor.allocator = failing.allocator();
+    try std.testing.expectError(error.OutOfMemory, editor.addObject("T34", 60, 60, 0, 1));
+    editor.allocator = std.testing.allocator;
+    try std.testing.expect(fake.calls.items.len == 0 or fake.calls.items[fake.calls.items.len - 1].kind != .add);
+    try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
+    try std.testing.expect(!editor.dirty());
 }

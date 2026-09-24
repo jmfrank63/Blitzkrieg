@@ -49,16 +49,39 @@ pub const History = struct {
         self.clean_depth = 0;
     }
 
+    /// Reserves room for one more undone command without touching anything
+    /// else. Call this before the bridge call a command is about to make, so
+    /// that once the bridge has committed, recording it cannot fail.
+    pub fn reserve(self: *History, allocator: std.mem.Allocator) !void {
+        try self.undo_stack.ensureUnusedCapacity(allocator, 1);
+    }
+
+    /// Frees every command on the redo branch. Called both when a new
+    /// command is recorded and when a merge changes the top entry: either
+    /// way the branch it pointed from is no longer the one being built on.
+    fn dropRedoBranch(self: *History, allocator: std.mem.Allocator) void {
+        for (self.redo_stack.items) |*entry| entry.command.deinit(allocator);
+        self.redo_stack.clearRetainingCapacity();
+    }
+
     /// Takes ownership of the command, even on error.
     pub fn record(self: *History, allocator: std.mem.Allocator, command: Command, gesture: u32) !void {
         var owned = command;
         errdefer owned.deinit(allocator);
-        for (self.redo_stack.items) |*entry| entry.command.deinit(allocator);
-        self.redo_stack.clearRetainingCapacity();
+        try self.reserve(allocator);
+        self.recordAssumeCapacity(allocator, owned, gesture);
+    }
+
+    /// Same as `record`, but cannot fail: call `reserve` first so the append
+    /// needs no allocation. Lets a command reserve room before its bridge
+    /// call commits, so an allocation failure can never happen after the
+    /// bridge has already acted.
+    pub fn recordAssumeCapacity(self: *History, allocator: std.mem.Allocator, command: Command, gesture: u32) void {
+        self.dropRedoBranch(allocator);
         if (self.clean_depth) |depth| {
             if (depth > self.undo_stack.items.len) self.clean_depth = null;
         }
-        try self.undo_stack.append(allocator, .{ .command = owned, .gesture = gesture });
+        self.undo_stack.appendAssumeCapacity(.{ .command = command, .gesture = gesture });
     }
 
     pub fn top(self: *History) ?*Entry {
@@ -66,9 +89,12 @@ pub const History = struct {
         return &self.undo_stack.items[self.undo_stack.items.len - 1];
     }
 
-    /// A merge changed the top entry; if that entry was the saved state, the
-    /// saved state is gone.
-    pub fn touchTop(self: *History) void {
+    /// A merge changed the top entry instead of recording a new one; the
+    /// redo branch is just as unreachable from it as from a fresh command,
+    /// so it goes too. If that entry was the saved state, the saved state is
+    /// gone.
+    pub fn touchTop(self: *History, allocator: std.mem.Allocator) void {
+        self.dropRedoBranch(allocator);
         if (self.clean_depth) |depth| {
             if (depth == self.undo_stack.items.len) self.clean_depth = null;
         }
@@ -99,6 +125,6 @@ test "the clean mark follows the undo depth" {
     try std.testing.expect(history.dirty());
     history.markClean();
     try std.testing.expect(!history.dirty());
-    history.touchTop();
+    history.touchTop(std.testing.allocator);
     try std.testing.expect(history.dirty());
 }
