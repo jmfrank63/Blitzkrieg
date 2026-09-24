@@ -3,13 +3,14 @@ const bridge_mod = @import("bridge.zig");
 const fake_mod = @import("fake_bridge.zig");
 const document_mod = @import("document.zig");
 const history_mod = @import("history.zig");
+const tools = @import("tools.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
 const PaintCell = bridge_mod.PaintCell;
 const FakeBridge = fake_mod.FakeBridge;
 const Document = document_mod.Document;
-const Pose = history_mod.Pose;
+pub const Pose = history_mod.Pose;
 const Command = history_mod.Command;
 
 /// The core's one entry point for the app: every edit goes through here, so
@@ -99,6 +100,21 @@ pub const Editor = struct {
         self.next_gesture +%= 1;
         if (self.next_gesture == 0) self.next_gesture = 1;
         return gesture;
+    }
+
+    /// A screen point as the tools want it: the world point, its tile, and the
+    /// object under it. Refused when the point is off the terrain; a point on
+    /// the terrain but past the map's edge has no tile, and a point over no
+    /// object has no object - neither is an error.
+    pub fn resolve(self: *Editor, sx: f32, sy: f32) EditError!tools.Pointer {
+        var pointer: tools.Pointer = .{ .world_x = 0, .world_y = 0 };
+        try bridge_mod.check(self.bridge.screenToWorld(sx, sy, &pointer.world_x, &pointer.world_y));
+        var tx: i32 = 0;
+        var ty: i32 = 0;
+        if (self.bridge.worldToTile(pointer.world_x, pointer.world_y, &tx, &ty) == .ok) pointer.tile = .{ tx, ty };
+        var link_id: i32 = -1;
+        if (self.bridge.objectAt(sx, sy, &link_id) == .ok) pointer.object = link_id;
+        return pointer;
     }
 
     fn mergeable(self: *Editor, gesture: u32, tag: std.meta.Tag(Command)) ?*history_mod.Entry {
