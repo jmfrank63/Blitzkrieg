@@ -440,6 +440,10 @@ fn fileExists(file_path: []const u8) bool {
 }
 
 test "the lock decision removes only locks whose holder is provably gone" {
+    // plantLock pins the lock's age with Dir.setTimestamps, which Zig 0.16's
+    // std has not implemented on Windows yet (it panics). The decision under
+    // test is platform-neutral; the POSIX runs cover it.
+    if (builtin.os.tag == .windows) return;
     const gpa = std.testing.allocator;
     var fixture = try Fixture.init(gpa);
     defer fixture.deinit();
@@ -521,6 +525,10 @@ test "the lock decision removes only locks whose holder is provably gone" {
 }
 
 test "the sweep touches only this session's Path1 and reports each lock" {
+    // plantLock pins the lock's age with Dir.setTimestamps, which Zig 0.16's
+    // std has not implemented on Windows yet (it panics). The decision under
+    // test is platform-neutral; the POSIX runs cover it.
+    if (builtin.os.tag == .windows) return;
     const gpa = std.testing.allocator;
     var fixture = try Fixture.init(gpa);
     defer fixture.deinit();
