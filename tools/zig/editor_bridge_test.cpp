@@ -1064,6 +1064,51 @@ static void TestSquadDeletesAndRestores( BkEditorSession *pSession, int nScreenW
 	remove( szSaved.c_str() );
 }
 
+// A broken map is rejected as a whole and the map that was open stays open:
+// it still lists, edits and saves as itself.
+static void TestBrokenMapKeepsTheOpenOne( BkEditorSession *pSession, const std::string &szScratch )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	// Written by hand, so with the OS's separator; the bridge is handed the
+	// engine's, as every other scratch map here is.
+	const std::string szBroken = szScratch + "\\broken.bzm";
+	std::string szBrokenNative = szBroken;
+	for ( size_t i = 0; i < szBrokenNative.size(); ++i )
+		if ( szBrokenNative[i] == '\\' )
+			szBrokenNative[i] = '/';
+	if ( FILE *pFile = fopen( szBrokenNative.c_str(), "wb" ) )
+	{
+		const char garbage[] = "this is not a map, and the reader has to say so";
+		fwrite( garbage, 1, sizeof garbage, pFile );
+		fclose( pFile );
+	}
+	const std::string szMissing = szScratch + "\\no-such-map.bzm";
+	BkEditorMapSummary ignored;
+	Check( BkEditorOpenMap( pSession, szBroken.c_str(), &ignored ) == BK_EDITOR_DATA_MISSING, "a broken map is not opened" );
+	Check( *BkEditorLastMessage( pSession ) != 0, "and says why" );
+	printf( "editor-bridge: a broken map: %s\n", BkEditorLastMessage( pSession ) );
+	Check( BkEditorOpenMap( pSession, szMissing.c_str(), &ignored ) == BK_EDITOR_DATA_MISSING, "nor is a missing one" );
+	int nCount = 0;
+	Check( BkEditorObjects( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount == summary.object_count,
+	       "the map that was open still lists its objects" );
+	Check( BkEditorSetMapType( pSession, 1 ) == BK_EDITOR_OK, "and takes an edit" );
+	const std::string szSaved = szScratch + "\\kept-saved.bzm";
+	CMapInfo expected, saved;
+	std::string szError, szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) &&
+	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+	{
+		expected.nType = 1;
+		Check( NMapFile::AreEquivalent( expected, saved, &szWhere ), ( "and saves as itself: " + szWhere ).c_str() );
+	}
+	remove( szBrokenNative.c_str() );
+	remove( szSaved.c_str() );
+}
+
 // arnheim carries 361 terrain objects under link ID 0, "no link ID". The
 // engine holds and draws every one of them, but a link ID is the only name the
 // ABI has, so an edit of a shared one cannot say which object it means: it is
@@ -1245,6 +1290,7 @@ int main( int argc, char **argv )
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestSharedLinkIDIsReadOnly( pSession, szScratch );
+		TestBrokenMapKeepsTheOpenOne( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );

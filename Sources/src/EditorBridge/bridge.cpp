@@ -179,7 +179,7 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 {
 	if ( pOut != 0 )
 		memset( pOut, 0, sizeof *pOut );
-	return Guarded( pSession, [pSession, pszPath, pOut]() -> BkEditorStatus
+	const BkEditorStatus status = Guarded( pSession, [pSession, pszPath, pOut]() -> BkEditorStatus
 	{
 		if ( pszPath == 0 || *pszPath == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
@@ -209,6 +209,12 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 		}
 		return BK_EDITOR_OK;
 	} );
+	// A throw means the engine was being rebuilt for the new map, which
+	// OpenMapIntoSession has already marked as no map open. Said again here so
+	// that BK_EDITOR_FAILED means exactly that, whatever threw.
+	if ( status == BK_EDITOR_FAILED && pSession != 0 )
+		pSession->bMapOpen = false;
+	return status;
 }
 
 BkEditorStatus BkEditorAddObject( BkEditorSession *pSession, const char *pszName,

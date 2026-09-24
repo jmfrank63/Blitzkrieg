@@ -63,22 +63,34 @@ pub const Editor = struct {
         self.status_len = prefix_len + message_len;
     }
 
-    /// A failed `openMap` itself keeps the map that was open, as the bridge
-    /// keeps it. But if `openMap` succeeds and the object or diplomacy
-    /// listing then fails, the bridge no longer holds the old map either, so
-    /// the document is emptied rather than left holding stale link IDs that
-    /// edits could reach the wrong objects through.
+    /// A broken map is rejected as a whole. When `openMap` refuses the file
+    /// - it is missing or will not read, `data_missing` or `bad_argument` -
+    /// the bridge keeps the map that was open, and so does the document.
+    /// When it answers `failed`, the engine failed while the new map was
+    /// being built into it and the bridge has no map open any more; and when
+    /// `openMap` succeeds but the object or diplomacy listing then fails, the
+    /// bridge holds a map the document could not read. Either way the
+    /// document is emptied rather than left holding link IDs that edits
+    /// could reach the wrong objects through.
     pub fn open(self: *Editor, path: []const u8) EditError!void {
         var info: bridge_mod.MapInfo = .{};
-        try self.noteOutcome(self.bridge.openMap(path, &info));
-        self.document.reload(self.allocator, self.bridge, path, info) catch |err| {
-            self.setStatus("the map opened but its objects could not be read: ", self.bridge.lastMessage());
-            self.document.deinit(self.allocator);
-            self.document = .{};
-            self.history.clear(self.allocator);
-            self.selection = null;
+        const opened = self.bridge.openMap(path, &info);
+        self.noteOutcome(opened) catch |err| {
+            if (opened == .failed) self.closeDocument();
             return err;
         };
+        self.document.reload(self.allocator, self.bridge, path, info) catch |err| {
+            self.setStatus("the map opened but its objects could not be read: ", self.bridge.lastMessage());
+            self.closeDocument();
+            return err;
+        };
+        self.history.clear(self.allocator);
+        self.selection = null;
+    }
+
+    fn closeDocument(self: *Editor) void {
+        self.document.deinit(self.allocator);
+        self.document = .{};
         self.history.clear(self.allocator);
         self.selection = null;
     }
@@ -347,6 +359,21 @@ test "a failed open keeps the map that was open" {
     try std.testing.expectError(error.Failed, editor.open("missing.bzm"));
     try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
     try std.testing.expectEqualStrings("no such map", editor.status());
+}
+
+test "an open the engine failed while building empties the document" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    try editor.setMapType(3);
+    fake.fail_build = true;
+    try std.testing.expectError(error.Failed, editor.open("fixture.bzm"));
+    try std.testing.expectEqualStrings("the engine threw", editor.status());
+    try std.testing.expectEqual(@as(usize, 0), editor.document.path.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.objects.items.len);
+    try std.testing.expect(!(try editor.undo()));
 }
 
 test "a failed listing after open empties the document and says why" {

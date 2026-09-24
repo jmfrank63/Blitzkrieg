@@ -42,6 +42,9 @@ pub const FakeBridge = struct {
     /// Set by a test to make the next `objects()` call fail, as a listing
     /// might after a successful open (a corrupt scenario, say).
     fail_objects: bool = false,
+    /// Set by a test to make `openMap` answer `failed`, as the real bridge
+    /// does when the engine throws while it builds the new map.
+    fail_build: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -147,6 +150,10 @@ pub const FakeBridge = struct {
         if (std.mem.eql(u8, path, "missing.bzm")) {
             self.say("no such map", .{});
             return .data_missing;
+        }
+        if (self.fail_build) {
+            self.say("the engine threw", .{});
+            return .failed;
         }
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;

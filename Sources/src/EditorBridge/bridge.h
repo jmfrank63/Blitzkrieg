@@ -73,8 +73,15 @@ typedef struct
    a save untouched. It is not an error: opening such a map is what crashes the
    MFC editor.
 
-   out may be null if the caller only wants the status. On failure the session
-   keeps whatever map it had open before. */
+   out may be null if the caller only wants the status.
+
+   A broken map is rejected as a whole. BK_EDITOR_BAD_ARGUMENT and
+   BK_EDITOR_DATA_MISSING - no path, a file that is missing or will not read,
+   or an engine that is not all there - change nothing: the map that was open
+   stays open. BK_EDITOR_FAILED means the engine failed while the new map was
+   being built into it; the engine is cleared and rebuilt in place, so the old
+   map is gone too, and the session is left with no map open until the next
+   successful open. */
 BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEditorMapSummary *out );
 
 /* Writes the open map to path; the format comes from the extension.

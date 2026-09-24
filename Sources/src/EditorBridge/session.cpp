@@ -171,12 +171,26 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		return false;
 	}
 
-	// Nothing is disturbed until the read succeeds: a failed open leaves the
-	// session on whatever map it already had.
+	// Nothing is disturbed until the read has succeeded and the engine is known
+	// to be there: every way out before the line that clears bMapOpen leaves the
+	// session on whatever map it already had, which is what makes a broken file
+	// the common, harmless failure. NMapFile::Read answers a file that throws
+	// while it is read with false, so that is such a way out too.
 	CMapInfo read;
 	if ( !NMapFile::Read( pszPath, &read, &pSession->szMessage ) )
 		return false;
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pAIEditor == 0 || pScene == 0 || pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine is missing the AI editor, the scene or the object database";
+		return false;
+	}
 
+	// From here on the old map is gone: the engine is global, and it is cleared
+	// and rebuilt in place, so there is nothing to go back to. Only a throw can
+	// leave this path early, and it leaves the session with no map open.
 	pSession->bMapOpen = false;
 	pSession->byLinkID.clear();
 	pSession->unknownLinkIDs.clear();
@@ -192,15 +206,6 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->nLinkIDFloor = NMapOverlay::NextLinkID( pSession->snapshot );
 	pSession->linkByAI.clear();
 	MakeWorkingCopy( pSession );
-
-	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
-	IScene *pScene = GetSingleton<IScene>();
-	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
-	if ( pAIEditor == 0 || pScene == 0 || pObjectsDB == 0 )
-	{
-		pSession->szMessage = "the engine is missing the AI editor, the scene or the object database";
-		return false;
-	}
 
 	// The old map's objects leave the world before the AI they refer to is
 	// cleared. CWorldBase::Clear empties the scene and takes its terrain away

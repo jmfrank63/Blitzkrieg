@@ -78,7 +78,9 @@ struct SEditorSession
 // Reads pszPath into the session and builds the engine state the editor draws
 // and edits through: shades, the AI editor, the terrain in the scene, and one
 // engine object per placed map object. Returns false and leaves the reason in
-// szMessage; the session is then left with no map open.
+// szMessage when the map cannot be read or the engine is not there; the session
+// then keeps the map it had open. A throw while the new map is being built
+// leaves it with no map open (bMapOpen false).
 //
 // The order is the MFC editor's (TemplateEditorFrame1.cpp:1657-1790), which is
 // the order the engine expects - the AI editor is initialised before the
