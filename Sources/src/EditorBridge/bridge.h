@@ -95,6 +95,12 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
    command, or a position the engine will not put the object at. It is an
    ordinary answer, not a failure.
 
+   A link ID is the only name an object has here, and a map does not promise
+   one per object: 0 means "no link ID", and shipped maps carry hundreds of
+   terrain objects under it. Moving, turning, re-owning or deleting a link ID
+   that more than one object of the map carries is refused, because the bridge
+   cannot tell which of them would change; they are saved as they were read.
+
    Positions are floats because a map's are; the engine takes whole units and
    the bridge rounds once, on its way in. */
 BkEditorStatus BkEditorAddObject( BkEditorSession *session, const char *name,

@@ -8,6 +8,7 @@
 // tier: the map file tier once swept zero maps and reported success.
 #include "StdAfx.h"
 #include <SDL3/SDL.h>
+#include <map>
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -1016,6 +1017,65 @@ static void TestSquadDeletesAndRestores( BkEditorSession *pSession, int nScreenW
 	remove( szSaved.c_str() );
 }
 
+// arnheim carries 361 terrain objects under link ID 0, "no link ID". The
+// engine holds and draws every one of them, but a link ID is the only name the
+// ABI has, so an edit of a shared one cannot say which object it means: it is
+// refused, and the map saves as it was read. An object with an ID of its own
+// still deletes and comes back.
+static void TestSharedLinkIDIsReadOnly( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	std::map<int, int> counts;
+	const std::vector<SMapObjectInfo> *lists[2] = { &map.objects, &map.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			++counts[( *lists[nList] )[i].link.nLinkID];
+	int nShared = -1;
+	for ( std::map<int, int>::const_iterator it = counts.begin(); it != counts.end() && nShared < 0; ++it )
+		if ( it->second > 1 )
+			nShared = it->first;
+	if ( !Check( nShared >= 0, "arnheim has objects that share a link ID" ) )
+		return;
+	printf( "editor-bridge: %d objects of arnheim share link ID %d\n", counts[nShared], nShared );
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorObjectState before;
+	Check( BkEditorEngineObjectState( pSession, nShared, &before ) == BK_EDITOR_OK, "the engine holds an object under the shared ID" );
+	Check( BkEditorDeleteObject( pSession, nShared ) == BK_EDITOR_REFUSED, "deleting a shared link ID is refused" );
+	Check( strstr( BkEditorLastMessage( pSession ), "share link ID" ) != 0, "and says why" );
+	Check( BkEditorMoveObject( pSession, nShared, before.x + 32, before.y ) == BK_EDITOR_REFUSED, "and so is moving it" );
+	Check( BkEditorPlaceObject( pSession, nShared, before.x, before.y, 0, 0 ) == BK_EDITOR_REFUSED, "and placing it" );
+	BkEditorObjectState after;
+	Check( BkEditorEngineObjectState( pSession, nShared, &after ) == BK_EDITOR_OK && after.x == before.x && after.y == before.y,
+	       "the engine object has not moved" );
+	Check( BkEditorRestoreObject( pSession, nShared ) == BK_EDITOR_REFUSED, "and there is nothing to restore" );
+
+	// An object with a link ID of its own is unaffected.
+	int nOwn = -1;
+	for ( size_t i = 0; i < map.objects.size() && nOwn < 0; ++i )
+	{
+		const int nCandidate = map.objects[i].link.nLinkID;
+		BkEditorObjectState state;
+		if ( counts[nCandidate] == 1 && BkEditorEngineObjectState( pSession, nCandidate, &state ) == BK_EDITOR_OK &&
+		     BkEditorDeleteObject( pSession, nCandidate ) == BK_EDITOR_OK )
+			nOwn = nCandidate;
+	}
+	if ( Check( nOwn >= 0, "an object with its own link ID deletes" ) )
+		Check( BkEditorRestoreObject( pSession, nOwn ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	const std::string szSaved = szScratch + "\\shared-link-saved.bzm";
+	CMapInfo saved;
+	std::string szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( map, saved, &szWhere ), ( "refused edits of a shared link ID leave the map as read: " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -1136,6 +1196,7 @@ int main( int argc, char **argv )
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
+		TestSharedLinkIDIsReadOnly( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );

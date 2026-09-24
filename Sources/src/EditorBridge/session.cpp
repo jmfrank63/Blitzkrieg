@@ -101,6 +101,9 @@ void PlaceObjects( SEditorSession *pSession, const std::vector<SMapObjectInfo> &
 			pBridgeSpans->push_back( *it );
 			continue;
 		}
+		// Objects sharing a link ID (0, "none", most often) are all placed and
+		// drawn, but only the last is kept here; RefuseSharedLinkID is what
+		// keeps an edit from reaching the wrong one.
 		if ( IRefCount *pAIObject = PlaceOneObject( *it, pDesc, pAIEditor ) )
 			pSession->byLinkID[it->link.nLinkID] = pAIObject;
 	}
@@ -288,6 +291,41 @@ SMapObjectInfo* FindIn( CMapInfo *pMap, int nLinkID )
 	return 0;
 }
 
+// How many records of the map carry this link ID. A file does not promise one
+// per object: 0 is RMGC_INVALID_LINK_ID_VALUE, "no link ID", and the MFC editor
+// never needed more, because it knows its objects by their AI pointer and hands
+// out link IDs only when it saves (AIToLink, TemplateEditorFrame1.cpp:3069).
+// Measured on arnheim: 361 objects - river banks, ravines, flowers - all carry
+// 0. Every one of them is placed and drawn, but byLinkID keeps one engine
+// object per link ID, so it holds the last of them and FindIn finds the first:
+// an edit of link ID 0 would change one record in the file and another object
+// on screen.
+int CountIn( const CMapInfo &rMap, int nLinkID )
+{
+	int nCount = 0;
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < (*lists[nList]).size(); ++i )
+			if ( (*lists[nList])[i].link.nLinkID == nLinkID )
+				++nCount;
+	return nCount;
+}
+
+// A link ID more than one object of the map carries names none of them: the
+// session cannot tell which record the engine object it holds belongs to. So an
+// edit of one is refused, not guessed at. The objects stay as they are and are
+// saved as they were read.
+bool RefuseSharedLinkID( SEditorSession *pSession, int nLinkID, bool *pbRefused )
+{
+	const int nCount = CountIn( pSession->snapshot, nLinkID );
+	if ( nCount <= 1 )
+		return false;
+	pSession->szMessage = NStr::Format( "%d objects of the map share link ID %d, so the editor cannot tell which of them "
+	                                    "it would change; they are kept as they are", nCount, nLinkID );
+	if ( pbRefused ) *pbRefused = true;
+	return true;
+}
+
 // The ABI is in floats because a map's positions are; IAIEditor::MoveObject is
 // in shorts. Rounding happens here and nowhere else, so the snapshot and the
 // engine can never end up one unit apart because two places rounded
@@ -444,6 +482,8 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 		if ( pbRefused ) *pbRefused = true;
 		return false;
 	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
 	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
 	SMapObjectInfo *pObject = FindIn( &pSession->snapshot, nLinkID );
 	if ( pAIEditor == 0 || pObject == 0 )
@@ -548,6 +588,11 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 		if ( pbRefused ) *pbRefused = true;
 		return false;
 	}
+	// Before anything else: with the ID shared, "not in byLinkID" below would
+	// not mean "the engine holds nothing", and a found engine object might be
+	// another record's.
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
 	// The map decides first: something still referring to the object - a bridge,
 	// a start command, a reinforcement group, a passenger - means no, and the
 	// engine is never asked.
@@ -564,6 +609,11 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	std::string szIgnored;
 	NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored, &tombstone.working );
 
+	// With the ID the object's own, not being in byLinkID means the engine made
+	// nothing for it: outside the map (never handed over), a span no bridge
+	// names (set aside), or no stats, a missing player or objects switched off
+	// (CAILogic::AddObject creates nothing and answers 0). None of those is
+	// drawn, so the file alone is all there is to delete.
 	std::unordered_map<int, CPtr<IRefCount> >::iterator itEngine = pSession->byLinkID.find( nLinkID );
 	if ( itEngine != pSession->byLinkID.end() )
 	{
@@ -988,11 +1038,12 @@ bool WorldMatchesSession( SEditorSession *pSession )
 		SMapObject *pMO = objects[i];
 		if ( pMO == 0 || pMO->pAIObj == 0 || pMO->pDesc == 0 )
 			continue;
-		// Units and squads only. The world also draws terrain objects the
-		// session never got an engine object for - measured on arnheim: 360 of
-		// them (river banks, ravines, flowers), the same number as the objects
-		// the open reports as not placed - which is a separate question from
-		// whether a deleted unit leaves anything behind.
+		// Units and squads only. The world also draws objects that share a
+		// link ID - on arnheim 361 terrain objects (river banks, ravines,
+		// flowers) all carry 0, "no link ID", and byLinkID keeps one engine
+		// object per ID - which is a separate question from whether a deleted
+		// unit leaves anything behind. Edits of those are refused
+		// (RefuseSharedLinkID).
 		if ( pMO->pDesc->eGameType != SGVOGT_UNIT && pMO->pDesc->eGameType != SGVOGT_SQUAD )
 			continue;
 		IRefCount *pOwner = pMO->pAIObj;
