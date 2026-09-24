@@ -146,8 +146,14 @@ Tests that need no renderer use the data-only startup instead.
 
 There is no `CMapInfo::Load`: it is declared (`RandomMapGen/MapInfo_Types.h`)
 and never defined, and M1 does not define it. M1 adds a small, GFX-free C++
-unit, `Formats/MapFile.{h,cpp}`, with a reader and a writer for both formats.
-It is lifted from the two places that already do this correctly:
+library, `Sources/src/MapFile`, with a reader and a writer for both formats,
+an equivalence comparator, and the snapshot overlay. It is its own library
+rather than part of `Formats` because it calls `CMapInfo::IsValid`,
+`PackFrameIndices` and `UpdateTerrainCrosses`, which live in `RandomMapGen` -
+and `RandomMapGen` already includes `Formats/fmtMap.h`, so putting these files
+in `Formats` would make it depend on the library that depends on it.
+The reader and the writer are lifted from the two places that already do this
+correctly:
 
 - **Read** (the game's reader, `GameTT/iMissionInternal.cpp:1362-1404`):
   - `.xml`: `CreateDataTreeSaver( stream, IDataTree::READ )` then
@@ -192,6 +198,17 @@ Every engine object is recorded against the snapshot object it came from:
 its list (`objects` or `scenarioObjects`) and index, keyed by the object's
 **link ID**. Objects whose type is unknown are not placed in the engine. They
 are still kept in the snapshot, and the document lists them as unknown.
+
+**Frame indices and unknown types.** `CMapInfo::PackFrameIndices` and
+`UnpackFrameIndices` (`RandomMapGen/MapInfo_StaticMethods.cpp:74-118`, loops at
+606-638) look each object's type up with `pGDB->GetDesc( name )` and touch
+`nFrameIndex` only for FENCE, ENTRENCHMENT and BRIDGE objects. For a name the
+object database does not know, `GetDesc` returns null; the `NI_ASSERT_T` that
+guards the next line compiles away in release (`Misc/ModernAssert.h:57-58`) and
+the dereference crashes. Both functions iterate every object with no other
+guard. So the editor never repacks a whole map: it packs only the objects it
+added or edited, and only when their type is known. An unknown object's
+`nFrameIndex` is written back exactly as it was read.
 
 ### Saving: the snapshot and the overlay
 
@@ -292,7 +309,14 @@ Settled by the overlay spike (plan
 - Measured on macOS arm64 (`metal`, swapchain format `12`, frame size
   `320x240`): the panel pixel was `(255,0,255)`, the scene pixel
   `(0,255,0)`.
-- Hidden window: `PASS`.
+- Hidden window: `PASS`, with the same driver, format, size and pixels as
+  the visible run. Re-measured 2026-09-21 after the capture texture moved to
+  `sdl.createCaptureTexture`.
+- Direct3D and Vulkan are still unmeasured, because CI builds the spike on
+  every platform and runs it on none. The device probe shows this is now
+  fixable for Direct3D: both Windows jobs get a `direct3d12` device and can
+  claim a window. Vulkan stays out of reach until the Linux jobs have a
+  video device.
 
 ### Build and packaging
 
@@ -397,10 +421,25 @@ Two further checks:
 | Tier | Needs | Runs on | Gate |
 |---|---|---|---|
 | **Core** (Zig) | nothing | all six CI targets | required |
-| **Map file** (C++) | data-only startup | all six CI targets | required |
-| **Engine** (C++) | hidden SDL window and a GPU device | macOS arm64 locally, CI where the runner has a GPU device | required locally on macOS arm64; in CI it reports "skipped: no GPU device", never a pass |
+| **Map file** (C++) | data-only startup | the five CI targets that build the engine C++ | required |
+| **Engine** (C++) | hidden SDL window and a GPU device | macOS arm64 and Windows-MSVC in CI, plus macOS arm64 locally | required on the runners that have a device; the rest report "skipped: no GPU device", never a pass |
 | **Game reads it** | the game and a window | macOS arm64 locally | required locally |
 | **Editor app** | the editor and a window | macOS arm64 locally | required locally |
+
+**Which runners have a GPU device.** Measured 2026-09-21 by
+`zig build gpu-device-probe`, a non-gating step in every job:
+
+| Runner | Result |
+|---|---|
+| `macos-14` (arm64) | `driver=metal`, window claimed, swapchain format 12 |
+| `windows-latest` (MSVC) | `driver=direct3d12`, window claimed, swapchain format 12 |
+| `windows-latest` (MinGW) | `driver=direct3d12`, window claimed - but MinGW cannot build the engine C++ |
+| `macos-15-intel` | video yes, **no device**: "does not meet the hardware requirements for SDL_GPU Metal" |
+| `ubuntu-24.04`, `ubuntu-24.04-arm` | **no video device at all** - Vulkan is never reached, so a Mesa package alone would not help; these would need a virtual display first |
+
+So the engine tier runs in CI on macOS arm64 and Windows-MSVC, which is
+more than "macOS arm64 locally" assumed, and the skip path is real rather
+than theoretical: three of the six take it.
 
 - **Core:**
   - Each command gets a do, undo, redo round trip.
@@ -409,7 +448,11 @@ Two further checks:
     same object, player and link ID.
   - Diplomacy edits are checked the same way.
   - A refused delete leaves the document and history unchanged.
-- **Map file:**
+- **Map file:** Windows-MinGW is the one CI target this tier cannot run on.
+  `Platform/LegacyVariant.h` includes MSVC's `comutil.h`, so `Formats`,
+  `Misc` and `RandomMapGen` do not compile for `x86_64-windows-gnu` at all -
+  which is why that job runs only the Zig and platform tiers today. The
+  other five targets, including Windows-MSVC, run it.
   - Read shipped maps and write them without edits: the result is
     equivalent, and the idempotent save holds. In CI this covers the 59 maps
     in `Data/Maps` plus a fixed sample from `Data/Scenarios`. A local step,

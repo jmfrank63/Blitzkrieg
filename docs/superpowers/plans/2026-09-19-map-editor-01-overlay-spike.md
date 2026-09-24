@@ -8,6 +8,21 @@
 
 **Tech Stack:** Zig 0.16, SDL3 GPU (via `vendor/zig-sdl3` and the `sdl` package), Dear ImGui 1.92.9b docking (`floooh/dcimgui` v1.92.9b, backends from `ocornut/imgui` v1.92.9b-docking), C++17.
 
+> **Amended 2026-09-21 after review.** The capture texture is created by
+> `sdl.createCaptureTexture`, not `createColorTexture`: same two usages
+> (`COLOR_TARGET` for the render pass, `SAMPLER` for the blit to the swapchain)
+> but stated where the capture path can be read, so they cannot drift with
+> another caller's needs. A transfer-source usage was asked for and does not
+> exist: SDL 3.4.0 defines seven texture usages (`SDL_gpu.h:906-912`), none of
+> them transfer or copy-source, and `SDL_DownloadFromGPUTexture` documents no
+> usage requirement. The open item is not a flag but a run, and it is narrower
+> than it first looked: on Metal both the visible and the hidden spike pass and
+> were re-measured after this change - `driver=metal format=12 size=320x240
+> inside=(255,0,255) outside=(0,255,0)`, identical either way. What remains
+> unmeasured is Direct3D and Vulkan, because CI runs
+> `editor-overlay-spike-build`, which compiles the spike everywhere and runs it
+> nowhere.
+
 **Spec:** `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` (section "Drawing ImGui on top of the engine", and "Testing → Overlay spike").
 
 ## The M1 plan series
@@ -235,7 +250,7 @@ Inside `Renderer`, after `setViewport`:
             sdl.releaseTexture(gpu_device, texture);
             self.capture_texture = null;
         }
-        const texture = sdl.createColorTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
+        const texture = sdl.createCaptureTexture(gpu_device, @intCast(self.swapchain_format), width, height) orelse return error.CaptureTextureCreateFailed;
         self.capture_texture = texture;
         self.capture_width = width;
         self.capture_height = height;
@@ -1099,7 +1114,7 @@ Expected: success. If it fails in `addLinuxCxxIncludePaths` because this machine
 
 - [ ] **Step 3: Record the findings in the spec**
 
-In the section "Drawing ImGui on top of the engine", replace the paragraph starting "This is the riskiest piece" with the result, filling in the values measured in Task 4:
+In the section "Drawing ImGui on top of the engine", replace the paragraph starting "This is the riskiest piece" with the result. **Done** - the measured values below are the ones now in the spec, re-confirmed 2026-09-21 after the capture texture moved to its own helper:
 
 ```markdown
 Settled by the overlay spike (plan
@@ -1111,12 +1126,13 @@ Settled by the overlay spike (plan
 - ImGui draws at drawable resolution, independent of the scene size.
 - A capture composes the frame into a readable texture and copies it to the
   swapchain, so tests read back exactly what was presented.
-- Measured on macOS arm64 (`<driver>`, swapchain format `<format>`): the
-  panel pixel was `<inside>`, the scene pixel `<outside>`.
-- Hidden window: `<PASS, or: no swapchain texture is ever acquired>`.
+- Measured on macOS arm64 (`metal`, swapchain format `12`, frame size
+  `320x240`): the panel pixel was `(255,0,255)`, the scene pixel `(0,255,0)`.
+- Hidden window: `PASS` - same driver, format, size and pixels as the visible
+  run, so the engine tier can use a hidden window as the spec assumes.
 ```
 
-If the hidden window failed, also change the "Engine" row of the test tier table and the sentence under "Startup contract" that says engine tests use "a real, hidden SDL window": they use a small visible window instead (as `gfxgpu-smoke` does), shown for the duration of the test.
+The hidden window passed, so the "Engine" row of the test tier table and the sentence under "Startup contract" stand as written: engine tests use a real, hidden SDL window. (Had it failed, both would have had to say a small visible window instead, as `gfxgpu-smoke` uses.)
 
 - [ ] **Step 4: Commit**
 

@@ -1,5 +1,11 @@
 #ifndef __IMAIN_H__
 #define __IMAIN_H__
+
+// For GFXNativeWindow in InitializeWithWindow below. GFXPlatform.h is 24
+// lines with no includes of its own, so this brings in the opaque window
+// handle and nothing else of GFX - iMain.h is reached from Formats and
+// RandomMapGen, which must not grow a renderer dependency.
+#include "../GFX/GFXPlatform.h"
 #pragma ONCE
 #include "iMainClassIDs.h"
 interface IInterfaceObject : public IRefCount
@@ -66,7 +72,11 @@ interface IFilesInspectorEntryCollector : public IFilesInspectorEntry
 };
 namespace NMain
 {
-	bool STDCALL Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, bool bGame );
+	// Starts the engine on the window the renderer will draw into. The
+	// four-handle form below forwards to this and is kept only so existing
+	// callers compile; its other three arguments were never read.
+	bool STDCALL InitializeWithWindow( GFXNativeWindow window );
+	bool STDCALL Initialize( HWND hWnd3D, HWND hWndInput, HWND hWndSound, bool bGame );
 	bool STDCALL Finalize();
 	bool STDCALL IsInitialized();
 	bool STDCALL CanLaunch();
@@ -75,6 +85,15 @@ namespace NMain
 	// mod shipped. Call it after SetupGlobalVarConsts; see the note there.
 	void SetupModStyleConsts();
 	const SModuleDescriptor* STDCALL GetModuleDesc( int nType );
+	// Fills this executable's g_pGlobalSingleton, g_pGlobalSaveLoadSystem and
+	// g_pfnGlobalGetTempRawBuffer from StreamIO. Every module dylib declares
+	// those as tentative definitions, so the dynamic loader coalesces them onto
+	// the host executable's copy: a module whose own static initializers read a
+	// global var - AILogic's SCheats does - crashes unless the host copy is
+	// already filled when the module is loaded. Game.exe gets this from
+	// Game/GlobalsLoader.cpp before main; a host that has no such translation
+	// unit must call this before LoadAllModules. Calling it twice is harmless.
+	void EnsureGlobalHooks();
 	int STDCALL LoadAllModules( const char *pszPath );
 	void STDCALL UnloadAllModules();
 	bool STDCALL SwitchGame( bool bOn );

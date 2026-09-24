@@ -26,6 +26,10 @@ public:
 	
 	void SetUniqueId();
 	void SetLink( const int _nLink );
+	// Unregisters the object's link at once, where destruction followed by
+	// Segment() would do it only later; for an editor, which deletes objects and
+	// may place them again under the same ID without ever running a segment.
+	void ReleaseLink();
 	const int GetLink() const { return nLink; }
 	void Mem2UniqueIdObjs();
 	const int GetUniqueId() const { /*NI_ASSERT_T( nUniqueID > 0, "Unique id isn't set" ); */return nUniqueID; }

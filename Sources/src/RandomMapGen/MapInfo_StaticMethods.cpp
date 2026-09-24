@@ -74,7 +74,13 @@ bool CMapInfo::GetTileIndicesInternal( const CVec3 &rPoint, int *pnXPosition, in
 void CMapInfo::PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( pInfo->szName.c_str() );
-	NI_ASSERT_T( pDesc != 0, NStr::Format( "Can't find descriptor for \"%s\"", pInfo->szName.c_str() ) );
+	// An object whose type the database does not know keeps the frame index it
+	// already has. There was an assert here, which compiled away in release in
+	// front of a null dereference, and in a debug build stopped every open of a
+	// map naming an object a mod no longer ships - an ordinary case the editor
+	// lists rather than a bug.
+	if ( pDesc == 0 )
+		return;
 	switch ( pDesc->eGameType ) 
 	{
 		case SGVOGT_FENCE:
@@ -98,7 +104,13 @@ void CMapInfo::PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo )
 void CMapInfo::UnpackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo, int *pRandomSeed )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( pInfo->szName.c_str() );
-	NI_ASSERT_T( pDesc != 0, NStr::Format( "Can't find descriptor for \"%s\"", pInfo->szName.c_str() ) );
+	// An object whose type the database does not know keeps the frame index it
+	// already has. There was an assert here, which compiled away in release in
+	// front of a null dereference, and in a debug build stopped every open of a
+	// map naming an object a mod no longer ships - an ordinary case the editor
+	// lists rather than a bug.
+	if ( pDesc == 0 )
+		return;
 	switch ( pDesc->eGameType ) 
 	{
 		case SGVOGT_FENCE:

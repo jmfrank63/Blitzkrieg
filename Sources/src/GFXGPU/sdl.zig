@@ -128,6 +128,24 @@ pub fn endRenderPass(render_pass: *GpuRenderPass) void {
     c.SDL_EndGPURenderPass(render_pass);
 }
 
+// The frame-capture target, with its usages stated rather than inherited.
+//
+// COLOR_TARGET because endFrame renders the scene into it instead of the
+// swapchain, and SAMPLER because SDL_BlitGPUTexture samples its source when it
+// copies the capture across to the swapchain afterwards.
+//
+// Downloading it needs no third flag: SDL 3.4.0 defines exactly seven texture
+// usages (SDL_gpu.h:906-912) and none of them is a transfer or copy-source
+// flag, and SDL_DownloadFromGPUTexture documents no usage requirement - any
+// texture may be a copy-pass source. This helper exists so that reading the
+// capture path answers the question rather than leaving the next reader to
+// re-derive it from createColorTexture's flags, which belong to other callers
+// and may change.
+pub fn createCaptureTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, width: u32, height: u32) ?*GpuTexture {
+    const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = format, .usage = c.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | c.SDL_GPU_TEXTUREUSAGE_SAMPLER, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
+    return c.SDL_CreateGPUTexture(device, &info);
+}
+
 pub fn createColorTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, width: u32, height: u32) ?*GpuTexture {
     const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = format, .usage = c.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | c.SDL_GPU_TEXTUREUSAGE_SAMPLER, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
     return c.SDL_CreateGPUTexture(device, &info);

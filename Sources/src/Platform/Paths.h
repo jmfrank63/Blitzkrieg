@@ -6,6 +6,11 @@
 namespace NPlatform {
 namespace Paths {
 bool Initialize();
+// Point the engine at an installation. The editor needs this for real - the
+// user picks which game directory to edit - so it is not only a test seam;
+// SetInjectedRootsForTest forwards here and keeps its name for the tests that
+// already call it.
+void SetRoots(const char *base, const char *preference);
 void SetInjectedRootsForTest(const char *base, const char *preference);
 void ClearInjectedRootsForTest();
 const std::string &BaseRoot();

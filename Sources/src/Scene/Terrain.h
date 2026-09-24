@@ -30,8 +30,16 @@ struct SSoundTerrainInfo
 	int nTerrainType;											// type of this terrain
 	SSoundTerrainInfo() : fWeight( 0.0f ), vPos( VNULL2 ), nTerrainType( -1 ) {}
 };
+interface ITerrainEditor;
 interface ITerrain : public IRefCount
 {
+	// The same object seen as the editor's interface. ITerrainEditor is a
+	// sibling base of CTerrain and not related to ITerrain, so a caller cannot
+	// static_cast between them and a dynamic_cast would have to cross the module
+	// boundary - which returns null on the Itanium ABI, where the two modules'
+	// typeinfo copies do not unify (see the note in Common/MOBuilding.cpp). The
+	// cast belongs inside Scene, where the two are one object.
+	virtual interface ITerrainEditor* STDCALL GetEditor() = 0;
 	virtual void STDCALL Init( interface ISingleton *pSingleton ) = 0;
 	virtual void STDCALL ResetPosition() = 0;
 	virtual int STDCALL GetSizeX() const = 0;
@@ -68,6 +76,12 @@ interface ITerrainEditor
 	virtual void STDCALL SetShade( int x, int y, BYTE shade ) = 0;
 	virtual BYTE STDCALL GetShade( int x, int y ) = 0;
 	virtual void STDCALL Update( const CTRect<int> &rcPatches ) = 0;
+	// Puts a region back as it was: the tiles of its cell rectangle and its
+	// patches, row-major, in NMapOverlay::SPaintUndo's layout. Unlike Update,
+	// runs no preprocessing and regenerates nothing - undo has to land on the
+	// exact state it recorded, not on what the builder would make of it.
+	virtual void STDCALL RestoreRegion( const CTRect<int> &rcPatches, const std::vector<struct SMainTileInfo> &tiles,
+	                                    const std::vector<struct STerrainPatchInfo> &patches ) = 0;
 	virtual void STDCALL SetMarker( const CTPoint<int> *pPoints, int nNumPoints ) = 0;
 	virtual void STDCALL SampleCurve( const CVec3 *plots, int nNumPlots, float fStep, 
 		                                struct SVectorStripeObjectPoint **ppSamples, int *pnNumSamples ) = 0;

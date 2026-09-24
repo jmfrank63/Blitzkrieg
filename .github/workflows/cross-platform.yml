@@ -28,6 +28,16 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Install Linux build dependencies
@@ -88,8 +98,21 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-linux-gnu
 
       - name: Run GFX GPU factory test
         id: gfxgpu-factory-test
@@ -131,6 +154,10 @@ jobs:
 
   windows-platform:
     runs-on: windows-latest
+    # The cold build of the engine tier takes about 20 minutes here (run
+    # 35683754678). The two runs that were cut off at 120 and 240 minutes were
+    # not building: the test sat behind a debug-CRT abort() message box, which
+    # editor_bridge_test.cpp now sends to stderr instead.
     timeout-minutes: 60
 
     steps:
@@ -146,6 +173,55 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
+            # the two runners that have a GPU device pay for it; the other three
+            # have none, would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.16.0
@@ -221,8 +297,27 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # Only here and on macos-14: the probe says those are the two runners with
+      # a GPU device. The tier skips honestly where there is none, but a runner
+      # that only ever skips is a 2.3 GB checkout for a line of output.
+      - name: Engine tier
+        run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Run GFX GPU factory test
         run: zig build gfxgpu-factory-test -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
@@ -239,7 +334,11 @@ jobs:
     # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
     # native module tests cannot silently run on an Intel host.
     runs-on: macos-14
-    timeout-minutes: 45
+    # Raised for the engine tier: it builds the whole game and the shadercross
+    # tool on top of everything else. Measured on run 35639094606 - the tier
+    # step alone took 38 minutes on macos-14 and the job finished in 43 of its
+    # 45; windows-latest was still building when it hit 60 and was cancelled.
+    timeout-minutes: 90
 
     steps:
       - name: Check out source
@@ -254,6 +353,55 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
+            # the two runners that have a GPU device pay for it; the other three
+            # have none, would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Verify Apple Silicon host
@@ -323,8 +471,24 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=aarch64-macos -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Engine tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=aarch64-macos
 
       - name: Run GFX GPU factory test
         run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=aarch64-macos -Dtest-mode=run
@@ -357,6 +521,16 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Verify arm64 host
@@ -422,8 +596,21 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=aarch64-linux-gnu
 
       - name: Run GFX GPU factory test
         run: zig build gfxgpu-factory-test -Dtarget=aarch64-linux-gnu -Dtest-mode=run
@@ -510,8 +697,18 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-windows-gnu
 
       # No factory test on mingw: it links Formats, which cannot build with that
       # toolchain at all - Platform/LegacyVariant.h reaches for MSVC's
@@ -547,6 +744,16 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
+            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
+            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
+            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
+            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
+            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
           sparse-checkout-cone-mode: false
 
       - name: Verify Intel host
@@ -610,8 +817,21 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=x86_64-macos -Dtest-mode=run
 
+      - name: Map file tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=x86_64-macos -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=x86_64-macos
 
       - name: Compile GFX GPU factory test
         run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=x86_64-macos -Dtest-mode=compile

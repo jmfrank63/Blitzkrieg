@@ -4,6 +4,7 @@
 #include "../Platform/Debug.h"
 #include "../Platform/DynamicLibrary.h"
 #include "../Platform/Paths.h"
+#include "../StreamIO/RandomGen.h"
 
 namespace NMain
 {
@@ -53,9 +54,9 @@ static std::string StreamIOPath()
 #endif
 }
 
-static void EnsureGlobalHooks()
+void EnsureGlobalHooks()
 {
-    if ( GetSLS() != 0 && GetSingletonGlobal() != 0 && g_pfnGlobalGetTempRawBuffer != 0 ) return;
+    if ( GetSLS() != 0 && GetSingletonGlobal() != 0 && g_pfnGlobalGetTempRawBuffer != 0 && g_pGlobalRandomGen != 0 ) return;
     static NPlatform::DynamicLibrary streamio;
     if ( !streamio.IsLoaded() && !streamio.Load( StreamIOPath().c_str() ) ) {
         NPlatform::DebugWriteFormat( "StreamIO hook load failed: %s\n", streamio.GetError() );
@@ -64,6 +65,12 @@ static void EnsureGlobalHooks()
     if ( GetSLS() == 0 ) if ( GETSLS_HOOK hook = reinterpret_cast<GETSLS_HOOK>( streamio.GetFunction( "GetSLS_Hook" ) ) ) g_pGlobalSaveLoadSystem = hook();
     if ( GetSingletonGlobal() == 0 ) if ( GETSINGLETONGLOBAL_HOOK hook = reinterpret_cast<GETSINGLETONGLOBAL_HOOK>( streamio.GetFunction( "GetSingletonGlobal_Hook" ) ) ) g_pGlobalSingleton = hook();
     if ( g_pfnGlobalGetTempRawBuffer == 0 ) g_pfnGlobalGetTempRawBuffer = reinterpret_cast<GETTEMPRAWBUFFER_HOOK>( streamio.GetFunction( "GetTempRawBuffer_Hook" ) );
+    // The random generator comes out of the singleton rather than off a hook -
+    // StreamIO's CSingleton constructor registers it - but it is one of the four
+    // globals every GlobalsLoader.cpp fills, and AILogic reaches for it as early
+    // as IAIEditor::Clear (Weather.cpp).
+    if ( g_pGlobalRandomGen == 0 )
+        if ( ISingleton *singleton = GetSingletonGlobal() ) g_pGlobalRandomGen = GetSingleton<IRandomGen>( singleton );
 }
 
 struct SDllModule {

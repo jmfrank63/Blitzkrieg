@@ -1438,6 +1438,8 @@ pub fn build(b: *std.Build) void {
         true,
         b.graph.host.result.os.tag != .windows,
     ) orelse return;
+    if (b.graph.host.result.os.tag == .macos)
+        addMacosSysrootPathsToModule(b, shadercross_cli.root_module);
     var dxc_runtime_path: ?[]const u8 = null;
     if (b.graph.host.result.os.tag == .windows) {
         const dxc_binary = b.lazyDependency("dxc_binary", .{}) orelse return;
@@ -1644,6 +1646,25 @@ pub fn build(b: *std.Build) void {
     const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
 
+    // Does this machine have a GPU device SDL can use? Nothing in CI has ever
+    // created a real one - gfxgpu-factory-test fakes device creation and the
+    // overlay spike is only built - so the answer is unknown rather than
+    // known-bad. The probe prints it and always exits 0; it gates nothing.
+    const gpu_device_probe_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/gpu_device_probe.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{ .{ .name = "sdl3", .module = sdl3 }, .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module } },
+    });
+    const gpu_device_probe = b.addExecutable(.{ .name = "gpu-device-probe", .root_module = gpu_device_probe_module });
+    const gpu_device_probe_run = b.addRunArtifact(gpu_device_probe);
+    gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(gpu_device_probe, .{}).step);
+    gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
+    gpu_device_probe_run.setCwd(b.path("."));
+    if (target.result.os.tag == .linux) gpu_device_probe_run.setEnvironmentVariable("LD_LIBRARY_PATH", "zig-out/bin:zig-out/lib");
+    const gpu_device_probe_step = b.step("gpu-device-probe", "Report whether this machine has a GPU device SDL can use");
+    gpu_device_probe_step.dependOn(&gpu_device_probe_run.step);
+
     const editor_overlay_spike_run = b.addRunArtifact(editor_overlay_spike);
     editor_overlay_spike_run.step.dependOn(&editor_overlay_spike_install.step);
     editor_overlay_spike_run.step.dependOn(gfx_gpu_shaders_step);
@@ -1788,6 +1809,8 @@ pub fn build(b: *std.Build) void {
     if (!std.mem.eql(u8, renderer, "sdl_gpu") and platform != .windows_x64) @panic("legacy renderer is Windows-only; use -Drenderer=sdl_gpu");
     const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy.?;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
+    const map_file = addMapFile(b, target, optimize, toolchain);
+    addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
@@ -1795,6 +1818,7 @@ pub fn build(b: *std.Build) void {
     // API (which Zig's resinator does not produce correctly for runtime reads).
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
+    const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const package_module = b.createModule(.{
@@ -2092,6 +2116,10 @@ pub fn build(b: *std.Build) void {
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
+
+    // After install-game, whose step it depends on: the tier's executable is
+    // staged into the layout that step creates.
+    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -2647,6 +2675,19 @@ pub fn build(b: *std.Build) void {
     test_gfxgpu_step.dependOn(gfx_gpu_abi_test_step);
     test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
+    // The editor core tier: plain Zig against the fake bridge, so it runs on
+    // every target, the MinGW job included.
+    const editor_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/core/root.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const editor_core_tests = b.addTest(.{ .root_module = editor_core_module });
+    const editor_core_tests_run = b.addRunArtifact(editor_core_tests);
+    const editor_core_step = b.step("test-editor-core", "Run the Map Editor core tests against the fake bridge");
+    editor_core_step.dependOn(&editor_core_tests.step);
+    if (test_mode == .run) editor_core_step.dependOn(&editor_core_tests_run.step);
+    test_step.dependOn(editor_core_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
@@ -3042,6 +3083,7 @@ fn addGame(
         // SDLApplication::SetAppIcon talks to AppKit through the Objective-C
         // runtime to give the bare executable a Dock icon.
         game_module.linkSystemLibrary("objc", .{});
+        addMacosSysrootPaths(b, game_module, target);
     }
     if (target.result.os.tag == .windows and std.mem.eql(u8, renderer, "legacy")) {
         game_module.linkSystemLibrary("d3d9", .{});
@@ -3501,6 +3543,69 @@ fn addFormats(
         .name = "Formats",
         .linkage = .static,
         .root_module = formats_module,
+    });
+}
+
+fn addMapFile(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const map_file_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, map_file_module);
+    addMsvcIncludePaths(b, map_file_module, toolchain);
+    map_file_module.addIncludePath(b.path("Sources/src/Formats"));
+    map_file_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    map_file_module.addIncludePath(b.path("Sources/src/Common"));
+    map_file_module.addIncludePath(b.path("Sources/src/Main"));
+    map_file_module.addIncludePath(b.path("Sources/src/Image"));
+    map_file_module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/MapFile/MapFile.cpp", "Sources/src/MapFile/MapEquivalence.cpp", "Sources/src/MapFile/MapOverlay.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    return b.addLibrary(.{
+        .name = "MapFile",
+        .linkage = .static,
+        .root_module = map_file_module,
+    });
+}
+
+fn addEditorBridge(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    // The engine's own object layer, CWorldBase, which world.cpp subclasses the
+    // way the MFC editor's frame does. GameTT links the same static library.
+    common: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    addMsvcIncludePaths(b, module, toolchain);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/EditorBridge/bridge.cpp",
+            "Sources/src/EditorBridge/session.cpp",
+            "Sources/src/EditorBridge/catalogue.cpp",
+            "Sources/src/EditorBridge/world.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    module.linkLibrary(common);
+    return b.addLibrary(.{
+        .name = "EditorBridge",
+        .linkage = .static,
+        .root_module = module,
     });
 }
 
@@ -4095,8 +4200,26 @@ const ToolchainIncludes = struct {
 // framework and library directories.
 fn addMacosSysrootPaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
     if (target.result.os.tag != .macos) return;
+    addMacosSysrootPathsToModule(b, module);
+}
+
+/// The same for a module whose target is the host rather than a resolved one -
+/// the shadercross tool. Split out because --sysroot is global to the build, so
+/// a host tool needs the paths just as much as a cross-compiled one does.
+fn addMacosSysrootPathsToModule(b: *std.Build, module: *std.Build.Module) void {
     const sysroot = b.sysroot orelse return;
     module.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+    // libobjc and the rest of the system libraries live there as .tbd stubs.
+    // Without this, linkSystemLibrary("objc") under --sysroot fails with
+    // "unable to find dynamic system library 'objc' ... searched paths: none",
+    // which is what the engine tier hit the first time CI built the game on
+    // macOS - nothing else in CI had ever linked a system library there.
+    //
+    // Sysroot-relative, unlike the framework path above: zig prefixes --sysroot
+    // onto a library path and does not onto a framework path. Measured - an
+    // absolute one comes out as <sysroot>/<sysroot>/usr/lib and warns
+    // "unable to open library directory", then fails to find anything.
+    module.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
 }
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
@@ -5209,6 +5332,244 @@ fn addGameBootstrapSmoke(
     run.step.dependOn(&platform_runtime.step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     const step = b.step("test-game-bootstrap", "Run the SDL and GfxGpu game bootstrap smoke test");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addMapFileTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) void {
+    // Shaped exactly like addInputModuleTest (build.zig:3449-3462), the
+    // established way to build a C++ test that links the engine statics: no
+    // link_libc, the engine's cppflags on Windows only, plain C++17 elsewhere.
+    // Asking Zig for libc here got a second CRT on Windows (duplicate _cexit,
+    // _invalid_parameter_noinfo, _wctype) and a second C++ standard library on
+    // Linux (ambiguous std::integral_constant) - the same trap plan 1 hit with
+    // the overlay spike.
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/data_only_startup.cpp", "tools/zig/map_file_test.cpp" },
+        // The engine's own cppflags on every target, not just Windows: this
+        // test includes MapInfo_Types.h and the Common headers under it, which
+        // need the PortableCrt force-include for __forceinline and the warning
+        // suppressions the engine compiles itself with. A lighter test like
+        // input_module_test gets away with plain C++17 because it only touches
+        // the shallow headers.
+        .flags = cppflagsForOptimize(optimize),
+    });
+    // The include and runtime recipe of gfxgpu-factory-test (build.zig:1940-1947),
+    // which is the C++ executable this repository already runs on Linux CI.
+    // linkSystemLibrary("stdc++") is what must not happen: Zig's Linux C++
+    // driver then injects its own libc++ headers ahead of the native ones, and
+    // two standard libraries in one translation unit is the
+    // "std_abs.h: declaration conflicts with target of using declaration"
+    // failure. addLinuxCxxIncludePaths exists to put the native libstdc++
+    // headers in as ordinary include paths instead, keeping one ABI across the
+    // engine modules.
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    module.linkLibrary(map_file);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(platform_runtime);
+    // Misc's System.cpp reaches SDL for the clipboard and the error box. The
+    // tier never opens a window; this is a link dependency, not a device one.
+    linkSdlImport(module, target, sdl_dynamic);
+    const exe = b.addExecutable(.{ .name = "map-file-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+
+    // The test loads StreamIO by path at run time, so it is told where the
+    // staged shared library is rather than relying on the loader's search path.
+    // Zig installs a .dll next to the executables and a .dylib/.so under lib.
+    const module_root = if (target.result.os.tag == .windows)
+        b.path("zig-out/bin").getPath(b)
+    else
+        b.path("zig-out/lib").getPath(b);
+    // Everything this tier writes goes under zig-out/local-test, which a bare
+    // checkout does not have. The engine has no portable mkdir, and the Zig
+    // StreamIO's CreateStorage does not create the path the way the legacy
+    // Win32 CFileSystem did, so the build installs a file there and the
+    // directory arrives with it.
+    //
+    // Mind the prose here: tools/zig/build_hermeticity_test.zig token-matches
+    // this whole file against a list of shell and build-tool names, several of
+    // which are also ordinary English verbs. A comment that happens to use one
+    // fails the audit on every target, which is how this note came to be
+    // written twice.
+    const scratch = b.addWriteFiles();
+    const scratch_keep = scratch.add(".keep", "scratch for the map file tier\n");
+    const scratch_install = b.addInstallFileWithDir(scratch_keep, .{ .custom = "local-test" }, ".keep");
+    const streamio_install = b.addInstallArtifact(streamio_zig, .{});
+    // StreamIO imports StreamIOOptionsAbi and PlatformRuntime. ELF and Mach-O
+    // find them by the rpath they carry; Windows has no rpath, so every one of
+    // them has to be installed and on the PATH or the load fails with nothing
+    // but "the file is there".
+    const options_install = b.addInstallArtifact(options_bridge, .{});
+    const sdl_install = b.addInstallArtifact(sdl_dynamic, .{});
+    const platform_install = b.addInstallArtifact(platform_runtime, .{});
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("."));
+    run.addArg(module_root);
+    run.step.dependOn(&streamio_install.step);
+    run.step.dependOn(&sdl_install.step);
+    run.step.dependOn(&scratch_install.step);
+    run.step.dependOn(&platform_install.step);
+    run.step.dependOn(&options_install.step);
+    // On Windows a DLL's imports resolve from the executable's directory and
+    // PATH, and this executable runs out of the build cache - so the installed
+    // runtime DLLs have to be findable. Without this the process died before
+    // main with exit code 53, which is STATUS_DLL_NOT_FOUND (0xC0000135)
+    // truncated the way Zig reports Windows crash codes. ELF and Mach-O carry
+    // loader-relative rpaths and do not need it.
+    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    const step = b.step("test-map-files", "Read and rewrite the shipped maps; check they are unchanged");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+
+    const run_all = b.addRunArtifact(exe);
+    run_all.setCwd(b.path("."));
+    run_all.addArg(module_root);
+    run_all.addArg("--all");
+    run_all.step.dependOn(&streamio_install.step);
+    run_all.step.dependOn(&sdl_install.step);
+    run_all.step.dependOn(&scratch_install.step);
+    run_all.step.dependOn(&platform_install.step);
+    run_all.step.dependOn(&options_install.step);
+    run_all.addPathDir(b.path("zig-out/bin").getPath(b));
+    const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
+    step_all.dependOn(&exe.step);
+    if (test_mode == .run) step_all.dependOn(&run_all.step);
+}
+
+fn addEditorBridgeTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    // install-game stages every shared library the engine needs - StreamIO,
+    // StreamIOOptionsAbi, PlatformRuntime, SDL3 and the rest - so the run step
+    // installs none of them itself. The map file tier has to; it runs from the
+    // build cache and there is nothing staged for it.
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    // The recipe of gfxgpu-factory-test, which is the C++ executable this
+    // repository already runs on Linux CI. See the note in addMapFileTest.
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{"tools/zig/editor_bridge_test.cpp"},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    // This executable hosts the same engine the game does, so on Windows it
+    // needs the same imports the game executable links. Discovering them one
+    // missing symbol at a time costs a CI round each: COM through _com_util and
+    // _variant_t (Platform/LegacyVariant.h via Initialization.cpp) brought
+    // VariantClear, _com_issue_error, CoCreateGuid and SysAllocString; the
+    // version information in Misc brought GetFileVersionInfoSizeA,
+    // GetFileVersionInfoA and VerQueryValueA. The list is addGame's, minus the
+    // splash-screen resources, which a test has no window to show.
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    // Main brings Lua (the Script class) and zlib with it, the way addGame does.
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = "editor-bridge-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Loader-relative, because this binary runs from the installation and not
+    // from the build cache its link-time rpath points at.
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+
+    // Staged beside Game rather than added to the shipped file list: every
+    // engine module derives its roots from the running executable's location,
+    // so this has to live in the installation it starts - but a test binary has
+    // no business in a release layout or a package, so it is installed on its
+    // own and stage.zig never hears about it.
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+
+    const run = b.addRunArtifact(exe);
+    // Run from the installation, and tell it so: cwd is what the engine's
+    // relative data names resolve against.
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    // Where the test may write. Shipped Data is read-only for every tier: a run
+    // that is killed halfway must not leave a map behind in the installation.
+    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.step.dependOn(&install_exe.step);
+    const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

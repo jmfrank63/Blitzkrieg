@@ -146,10 +146,14 @@ private:
 	void ProcessObjectCheckSum( const char *pszObjectName, NCheckSums::SCheckSumBufferStorage *pBufRes, NCheckSums::SCheckSumBufferStorage *pBufMap );
 	
 	static bool GetTileIndicesInternal( const CVec3 &rPoint, int *pnXPosition, int *pnYPosition, const CTPoint<int> &rTerrainSize, float fCellSize, bool isYReverse );
-	static void PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pMapObjectInfo );
 	static void UnpackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pMapObjectInfo, int *pRandomSeed = 0 );
 
 public:	
+	// Public where its plural already is: an editor adding a single object has
+	// one record to pack, and PackFrameIndices would walk the whole map to do
+	// it - rewriting every other object's index on the way.
+	static void PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pMapObjectInfo );
+
 	CMapInfo()
 	{
 		vCameraAnchor = VNULL3;

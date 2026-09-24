@@ -36,6 +36,7 @@ public:
 	
 	virtual const CVec2& STDCALL GetCenter( IRefCount *pObj ) const;
 	virtual const WORD STDCALL GetDir( IRefCount *pObj ) const;
+	virtual const int STDCALL GetPlayer( IRefCount *pObj ) const;
 	
 	virtual const int STDCALL GetUnitDBID( IRefCount *pObj ) const;
 	
@@ -56,5 +57,8 @@ public:
 
 	virtual void STDCALL DeleteRiver( const SVectorStripeObject &river );
 	virtual void STDCALL AddRiver( const SVectorStripeObject &river );
+
+	virtual void STDCALL ReleaseLink( IRefCount *pObj );
+	virtual IRefCount* STDCALL ObjectByLink( const int nLink ) const;
 };
 #endif // __AI_EDITOR_INTERNAL_H__

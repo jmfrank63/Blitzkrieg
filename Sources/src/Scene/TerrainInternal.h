@@ -167,6 +167,7 @@ public:
 	virtual bool STDCALL EnableGrid( bool _bGridOn ) { bool bOld = bGridOn; bGridOn = _bGridOn; return bOld; }
 	virtual bool STDCALL EnableNoise( bool bEnable ) { bool bOld = bEnableNoise; bEnableNoise = bEnable; return bOld; }
 	virtual bool STDCALL Load( const char *pszName, const struct STerrainInfo &terrainInfo );
+	virtual ITerrainEditor* STDCALL GetEditor() { return this; }
 	virtual void STDCALL SetAIMarker( SAIPassabilityInfo *infos, int nNumInfos );
 	virtual bool STDCALL Import( interface IImage *pImage );
 	virtual interface IImage* STDCALL Export();
@@ -179,6 +180,8 @@ public:
 	virtual BYTE STDCALL GetShade( int x, int y );
 
 	virtual void STDCALL Update( const CTRect<int> &rcPatches );
+	virtual void STDCALL RestoreRegion( const CTRect<int> &rcPatches, const std::vector<SMainTileInfo> &tiles,
+	                                    const std::vector<STerrainPatchInfo> &patchInfos );
 	virtual void STDCALL SetMarker( const CTPoint<int> *pPoints, int nNumPoints );
 	virtual void STDCALL SampleCurve( const CVec3 *plots, int nNumPlots, float fStep, 
 		                                SVectorStripeObjectPoint **ppSamples, int *pnNumSamples );

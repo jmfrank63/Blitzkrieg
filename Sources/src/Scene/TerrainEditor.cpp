@@ -159,6 +159,37 @@ void CTerrain::Update( const CTRect<int> &rcPatches )
 	vOldAnchor.x = -1000000;
 	vOldAnchor.y = -1000000;
 }
+// rcPatches uses SPaintUndo's half-open miny/maxy bounds (NMapOverlay's Record),
+// not the inclusive top/bottom that Update iterates. Keep the two apart.
+void CTerrain::RestoreRegion( const CTRect<int> &rcPatches, const std::vector<SMainTileInfo> &tiles,
+                              const std::vector<STerrainPatchInfo> &patchInfos )
+{
+	if ( rcPatches.minx < 0 || rcPatches.miny < 0 ||
+	     rcPatches.maxx > terrainInfo.patches.GetSizeX() || rcPatches.maxy > terrainInfo.patches.GetSizeY() )
+		return;
+	size_t nTile = 0;
+	for ( int y = rcPatches.miny * STerrainPatchInfo::nSizeY; y < rcPatches.maxy * STerrainPatchInfo::nSizeY; ++y )
+		for ( int x = rcPatches.minx * STerrainPatchInfo::nSizeX; x < rcPatches.maxx * STerrainPatchInfo::nSizeX; ++x, ++nTile )
+			if ( nTile < tiles.size() )
+				terrainInfo.tiles[y][x] = tiles[nTile];
+	size_t nPatch = 0;
+	for ( int y = rcPatches.miny; y < rcPatches.maxy; ++y )
+		for ( int x = rcPatches.minx; x < rcPatches.maxx; ++x, ++nPatch )
+		{
+			if ( nPatch < patchInfos.size() )
+				terrainInfo.patches[y][x] = patchInfos[nPatch];
+			// The drawn patch is built from the info on demand; drop it so the
+			// next frame builds it from what was just put back.
+			for ( std::list<STerrainPatch>::iterator it = patches.begin(); it != patches.end(); ++it )
+				if ( it->nX == x && it->nY == y )
+				{
+					patches.erase( it );
+					break;
+				}
+		}
+	vOldAnchor.x = -1000000;
+	vOldAnchor.y = -1000000;
+}
 bool CTerrain::Import( IImage *pImage )
 {
 	CTerrainBuilder builder( tilesetDesc, crossetDesc/*, roadsetDesc*/ );

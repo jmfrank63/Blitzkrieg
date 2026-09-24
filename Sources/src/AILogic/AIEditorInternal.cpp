@@ -212,6 +212,15 @@ IRefCount* CAIEditor::LinkToAI( const int ID )
 
 	return pResult;
 }
+void CAIEditor::ReleaseLink( IRefCount *pObj )
+{
+	if ( CLinkObject *pLinkObject = dynamic_cast<CLinkObject*>( pObj ) )
+		pLinkObject->ReleaseLink();
+}
+IRefCount* CAIEditor::ObjectByLink( const int nLink ) const
+{
+	return CLinkObject::GetObjectByLink( nLink );
+}
 int CAIEditor::AIToLink( IRefCount *pObj )
 {
 	NI_ASSERT_T( dynamic_cast<CLinkObject*>( pObj ) != 0, NStr::Format("Wrong object of type \"%s\" - CLinkObject expected", typeid(*pObj).name()) );
@@ -254,12 +263,29 @@ const WORD CAIEditor::GetDir( IRefCount *pObj ) const
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
 		return pUnit->GetFrontDir();
+	// The object's own answer, not a flat zero. A static object that can be
+	// turned keeps its direction (CTerraMeshStaticObject) and one that cannot
+	// returns 0 of its own accord (CGivenPassabilityStObject), so this now
+	// distinguishes the two - which is what lets a caller tell a turn that took
+	// from one the object could not hold. Reporting 0 for both is also how the
+	// MFC editor writes every static object out facing north when it saves from
+	// the engine (TemplateEditorFrame1.cpp:3560).
 	else if ( CStaticObject *pObject = dynamic_cast<CStaticObject*>(pObj) )
-		return 0;
+		return pObject->GetDir();
 	else
 		NI_ASSERT_T( false, "Wrong object passed" );
 
 	return 0;
+}
+const int CAIEditor::GetPlayer( IRefCount *pObj ) const
+{
+	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
+		return pUnit->GetPlayer();
+	else if ( CStaticObject *pObject = dynamic_cast<CStaticObject*>(pObj) )
+		return pObject->GetPlayer();
+	// A formation, say. It has no owner of its own, and saying so is better
+	// than answering 0 and letting a caller believe it read one.
+	return -1;
 }
 const int CAIEditor::GetUnitDBID( IRefCount *pObj ) const
 {
@@ -276,6 +302,13 @@ template<class T>
 bool CheckStaticObject( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, const T &checkFunc )
 {
 	CGDBPtr<SObjectBaseRPGStats> pStats = static_cast<const SObjectBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
+	// A described object whose stats file is missing has no footprint to test,
+	// so it is not inside the map and is not placed. GetRPGStats logs the miss
+	// and returns 0, and the dereference below used to take the caller down
+	// with it - shipped Data does this: dessau.bzm names "Logs08", whose stats
+	// at objects\simpleobjects\common\summer\logs\08 are not there.
+	if ( pStats == 0 )
+		return false;
 
 	const CVec2 vOrigin( pStats->GetOrigin( object.nFrameIndex ) );
 
