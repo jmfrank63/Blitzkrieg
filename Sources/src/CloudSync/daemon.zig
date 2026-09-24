@@ -601,6 +601,11 @@ pub const Daemon = struct {
             // Windows only: assign to the job before a single instruction of
             // rclone runs, so nothing escapes the job by spawning first.
             .start_suspended = builtin.os.tag == .windows,
+            // Windows only: rclone is a console program, and without this it
+            // opens a console window of its own. That window takes the focus,
+            // and a fullscreen game that loses the focus minimises itself.
+            // `std.process.run` sets it by default; `spawn` does not.
+            .create_no_window = true,
         }) catch return error.SpawnFailed;
         errdefer child.kill(io);
 
