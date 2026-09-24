@@ -261,7 +261,43 @@ test "an absent rclone is null, not an error" {
     try std.testing.expect(availability.unavailable.path == null);
 }
 
-test "an explicit path that leads nowhere never falls back to PATH" {
+test "an explicit path that leads nowhere falls back to the ordinary search" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+
+    const on_path = try fixture.stub("path-bin", daemon.exe_name, "rclone v1.75.0");
+    defer gpa.free(on_path);
+    const bin_dir = try fixture.join(&.{"path-bin"});
+    defer gpa.free(bin_dir);
+    const path_env = try pathList(gpa, &.{bin_dir});
+    defer gpa.free(path_env);
+    const gone = try fixture.join(&.{ "deleted-download", daemon.exe_name });
+    defer gpa.free(gone);
+
+    // cloud.credentials outlives the binary it names; a stale override must
+    // not disable cloud sync while a working rclone is there to be found.
+    const found = (try daemon.discoverIn(gpa, io, .{
+        .explicit = gone,
+        .game_dir = "",
+        .path_env = path_env,
+    })) orelse return error.TestUnexpectedResult;
+    defer gpa.free(found);
+    try std.testing.expectEqualStrings(on_path, found);
+
+    var availability = try daemon.resolveIn(gpa, io, .{
+        .explicit = gone,
+        .game_dir = "",
+        .path_env = path_env,
+    });
+    defer availability.deinit(gpa);
+    try std.testing.expect(availability == .ready);
+    try std.testing.expectEqualStrings(on_path, availability.ready.path);
+}
+
+test "an explicit path to an unusable file never falls back to PATH" {
     if (builtin.os.tag == .windows) return;
     const gpa = std.testing.allocator;
 
@@ -274,26 +310,20 @@ test "an explicit path that leads nowhere never falls back to PATH" {
     defer gpa.free(bin_dir);
     const path_env = try pathList(gpa, &.{bin_dir});
     defer gpa.free(path_env);
-    const missing = try fixture.join(&.{ "typo", daemon.exe_name });
-    defer gpa.free(missing);
+    const too_old = try fixture.stub("player", daemon.exe_name, "rclone v1.50.0");
+    defer gpa.free(too_old);
 
-    // Silently using the PATH copy would report a working cloud sync that the
-    // player's override says nothing about, and hide the typo forever.
-    const found = try daemon.discoverIn(gpa, io, .{
-        .explicit = missing,
-        .game_dir = "",
-        .path_env = path_env,
-    });
-    try std.testing.expect(found == null);
-
+    // The player named this binary; reporting a working sync through the
+    // PATH copy would say nothing about why theirs does not work.
     var availability = try daemon.resolveIn(gpa, io, .{
-        .explicit = missing,
+        .explicit = too_old,
         .game_dir = "",
         .path_env = path_env,
     });
     defer availability.deinit(gpa);
     try std.testing.expect(availability == .unavailable);
-    try std.testing.expectEqual(daemon.Reason.not_found, availability.unavailable.reason);
+    try std.testing.expectEqual(daemon.Reason.too_old, availability.unavailable.reason);
+    try std.testing.expectEqualStrings(too_old, availability.unavailable.path.?);
 }
 
 test "probeVersion reads the leading version out of the version banner" {
