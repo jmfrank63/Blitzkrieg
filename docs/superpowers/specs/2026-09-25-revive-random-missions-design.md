@@ -49,7 +49,7 @@ mission, map and script unchanged. The mission-related differences are:
 | `Scenarios/Chapters/German/France/context.xml` | ours is `data.pak`'s; `update-1.pak` replaces it | take `update-1.pak`'s |
 | `Scenarios/Chapters/German/France/1.xml`, `USSR/Leningrad/1.xml` | three generated random missions baked in, from when the game wrote into `Data` | restore GOG |
 | `Scenarios/TemplateMissions/All/summer_france/securearea0{1,5}/1.xml` | objective positions from one generator run written back | restore GOG |
-| `Scenarios/Chapters/German/Barbarossa/context.xml` | `BM_13` where GOG has `T34_Calliope_USA` (commit `8662b2ac6`) | **keep**, deliberate |
+| `Scenarios/Chapters/German/Barbarossa/context.xml` | `BM_13` where GOG has the American `T34_Calliope_USA` as a German reward; ours came with the first data import (`5e48dedd8`), not from a port change | **keep**, recorded as a deviation |
 | `Scenarios/Chapters/USSR/Finland/1.xml` | float formatting only | restore GOG |
 
 Out of scope: the ~30 UI, options and text files that differ from GOG as
@@ -62,10 +62,14 @@ part of the port's own changes, and GOG's `terrain/sets/terrain/...` and
 
 Copy the files in the table above from the GOG layers into `Data`, in
 `update-1.pak`-over-`patch-*`-over-`data.pak` order, except Barbarossa's
-`context.xml`. A manifest, `Data/Scenarios/gog-1.2-scenarios.sha256`, lists
-the SHA-256 of every GOG file under `scenarios/` as GOG resolves it (the
-highest layer wins), keyed by lower-case path, with the deliberate
-deviations listed separately and each given a reason. A data check (below)
+`context.xml`, and delete the generated maps an old build wrote into
+`Data/Maps/templatemaps`. A manifest, `tools/data/gog-1.2-scenarios.sha256`,
+lists the SHA-256 of every GOG file under `scenarios/` as GOG resolves it
+(the highest layer wins), keyed by lower-case path; XML and Lua are hashed
+after normalising line endings, `<History>` blocks, comments and
+whitespace between tags, the same way on both sides. The deliberate
+deviations are listed in `tools/data/gog-1.2-deviations.txt`, each with a
+reason. A data check (below)
 compares `Data/Scenarios` against it, so the files cannot drift again. The
 manifest is generated once by a small script in `tools/data/` that reads the
 local GOG copy; the script is committed, the GOG files are not.
@@ -107,7 +111,8 @@ the gated chapters have 4 to 24 templates and 7 to 10 placeholders each.
 
 ### 4. Tests
 
-- **Data check** (`zig build test-mission-data`, CI on all targets): the
+- **Data check** (`zig build test-mission-data`, in CI on Linux, since the data is the
+  same for every target): the
   manifest comparison of section 1; every campaign template resolves to a
   mission file whose `TemplateMap`, description texts and setting exist;
   the per-chapter template and placeholder counts of section 3, for the
@@ -117,11 +122,18 @@ the gated chapters have 4 to 24 templates and 7 to 10 placeholders each.
   Windows): a headless C++ test executable, built the way
   `editor-bridge-test` is, that for each chapter of the three campaigns and
   each template of that chapter's setting, at each of the three
-  difficulties (the first chapters have none), runs the random map generator with a fixed seed into a
-  scratch generated-data root under `zig-out/local-test`, loads the
-  resulting map, and checks that every `AnchorScriptID` the template's
-  objectives name exists on it. A failure names the chapter, template and
-  difficulty. Windows CRT asserts and aborts are routed to stderr.
+  difficulties (the first chapters have none), runs the random map generator
+  into a scratch generated-data root under `zig-out/local-test`, loads the
+  resulting map in the engine, and checks that every `AnchorScriptID` the
+  template's objectives name exists on it and that each anchored objective
+  lands on the briefing map. For the first case of each template it also
+  regenerates the map from the stored seed, as loading a save does
+  (`Main/RandomMapHelper.cpp`), and requires the same map. A failure names
+  the chapter, template and difficulty and keeps the generated files.
+  Windows CRT asserts and aborts are routed to stderr. CI runs the full
+  sweep when it takes 15 minutes or less on a runner; otherwise CI runs the
+  cover sweep (every chapter and template pair once, difficulties rotating)
+  and the full sweep is a local step before merging.
 - **Game run** (local, needs a GPU; `BK_AUTO_UI`): for one defend, one
   escort, one hunt and one secure-area mission, in a throw-away profile, the
   harness enters a chapter from a prepared save, starts the random mission,
