@@ -284,3 +284,144 @@ artefact of the two processes deleting each other's case directories.) A debug
   "All table entries has zero weights ... Override unit to: Humber_MK1_GB" and
   places the override. This is not a failure of any check. It is worth a look
   in Task 8 if the enemy mix looks wrong in play.
+
+## Game runs (Task 8)
+
+Four runs of `tools/missions/run_random_mission.sh`, one per kind of random
+mission's chapter, against the worktree's staged debug game (`zig build
+install-game`, HEAD `3f3774641` plus this task's own script fix below),
+throw-away profile `MissionRun`. Screenshots and logs are under
+`zig-out/local-test/mission-run/`.
+
+1. `defend00` (USSR, kursk): `run1-defend00-kursk.png` /
+   `scenarios_templatemissions_all_summer_ukraine_defend00_1.log`. **PASS**
+   first try. No Lua/script errors in the log; exit action reached.
+2. `escort00` (German, kharkov42): `run2-escort00-kharkov42.png` /
+   `scenarios_templatemissions_all_summer_ukraine_escort00_1.log`. **PASS**
+   first try. No Lua/script errors; exit action reached.
+3. `hunt00` (USSR, rumania): `run3-hunt00-rumania.png` /
+   `run3-hunt00-rumania-attempt1.log`, `run3-hunt00-rumania-attempt2.log`.
+   **PASS** on three of four attempts. The first attempt crashed instead of
+   reaching `exit` — see "Crash finding" below; the log for that specific
+   attempt was overwritten by a same-named retry before it could be saved
+   separately (a process mistake, not lost data: the panic text and the
+   macOS crash report were both captured, see below). The three PASSing
+   attempts show no Lua/script errors.
+4. `securearea01` (German, france): `run4-securearea01-france.png` /
+   `scenarios_templatemissions_all_summer_france_securearea01_1.log`.
+   **FAIL** with the script's original three-click post-win sequence, then
+   **PASS** after fixing the script (see "Script fix" below). No Lua/script
+   errors in either the failing or the passing log.
+
+### Crash finding (not fixed here — for the controller to turn into a fix task)
+
+One `hunt00`/rumania attempt (of four total across this task) crashed instead
+of finishing. The crash report is saved at
+`zig-out/local-test/mission-run/Game-2026-09-25-162739.ips` (SIGABRT,
+`EXC_CRASH`, PID matches the run). stderr showed a Zig-runtime panic, not an
+engine assert:
+
+```
+thread 41146928 panic: signed integer overflow: 2098179 + 2147318400 cannot be represented in type 'int'
+Sources/src/GameTT/MessageReactionINternal.h:37:29: 0x113bde907 in operator()
+  ... SPairHash::operator()( const std::pair<int,int> &incomingPair ) const
+        { return incomingPair.first + incomingPair.second; }
+Sources/src/GameTT/MessageReactionINternal.cpp:223:52: in CMessageLink::Configure
+Sources/src/GameTT/MessageReactionINternal.cpp:527:27: in CMessageLinkContainer::ProcessMessage
+Sources/src/UI/UIBasic.cpp:1276:60: in ProcessMessageWithLink
+... (Lua call into the mission's message-reaction script) ...
+Sources/src/Main/iMainInternal.cpp:914:23: in StepApp
+```
+
+`CMessageLinkContainer::ProcessMessage` (`MessageReactionINternal.cpp:527`)
+calls `Configure( msg.nEventID, msg.nParam )`, but `Configure`'s signature
+takes `int nParam` — `SGameMessage::nParam` is `intptr_t` (pointer-wide, per
+this codebase's own convention: message params are never safe to narrow to
+`int`). The truncated value lands near `INT_MAX` (`2147318400`), and
+`SPairHash::operator()` then adds it to the message ID without overflow
+checking, which the Zig-built binary's UBSan-style integer-overflow check
+catches as a panic (a release build would not panic here, but the underlying
+truncation and wraparound is the same undefined behaviour). This reproduced
+once in four attempts of the exact same command — a pre-existing race or
+data-dependent condition in the mission's message-reaction setup, not
+something this task's script or Task 7's fix touches. Not fixed here per this
+task's brief; the controller should open a fix task against
+`CMessageLinkContainer::Configure`'s `int nParam` and `SPairHash`.
+
+### Script fix: a rank/medal popup after a first random win
+
+Run 4 (France chapter) failed the script's post-win check: the chapter never
+showed `offers historical mission "scenarios\scenariomissions\german\france\1"`
+after the win. Screenshots taken by hand (per this project's
+measure-don't-guess rule) showed why: this mission's first win awards the
+"Panzer Badge 4th Class", which pops a rank/medal dialog
+(`ui\Popup\PlayerRank`) on top of the personal-card/stats screen
+(`ui\PlayerStats`) that Task 7's script did not know about. That popup is
+modal, so the script's existing `click=1200x825` (meant for the stats
+screen's own checkmark) landed on nothing, and the run stalled short of
+returning to the chapter screen.
+
+Fixed by inserting one more click, `705x765` (the popup's own checkmark),
+between the win dialog's "Finish Mission" click and the stats-screen click:
+
+```
+schedule="$schedule,2100:click=718x495,2150:click=705x765,2200:click=1200x825,2300:click=1180x825,2500:shot,2600:exit"
+```
+
+Verified safe for chapters/runs that earn no medal (this click is then a
+no-op on empty background, confirmed against the Stalingrad
+`after_click.png` screenshot from Task 7, which has no popup at that
+position and an empty medal grid). Re-ran the Task 7 Stalingrad case after
+this change to confirm no regression:
+
+```
+tools/missions/run_random_mission.sh 1 'scenarios\campaigns\ussr\ussr' \
+  'scenarios\chapters\ussr\finland\1' 'scenarios\chapters\ussr\stalingrad\1' \
+  'scenarios\templatemissions\all\winter_russia\securearea04\1' \
+  'scenarios\scenariomissions\ussr\stalingrad\1'
+```
+
+`PASS: scenarios\templatemissions\all\winter_russia\securearea04\1 in
+scenarios\chapters\ussr\stalingrad\1` — unchanged from Task 7. Re-ran run 4
+after the fix: `PASS: scenarios\templatemissions\all\summer_france\securearea01\1
+in scenarios\chapters\german\france\1`.
+
+### The AchtungPanzer2 mod (local check only, not committed)
+
+The mod's campaign XML (`data/scenarios/campaigns/german/german.xml`, copied
+locally from the release build's staged mod, never committed) defines one
+campaign (`PlayerAllianceSide=German`, campaign index 0) with 12 chapters.
+Drove the debug game with `-mod=AchtungPanzer2 -profile=MissionRun`,
+`campaign=0=scenarios\campaigns\german\german`, then each chapter in turn
+(resetting `Mission.Last.FinishStatus` between them, as Task 7's script
+does), `shot`, `exit`. Log: `zig-out/local-test/mission-run/mod-chapter-check.log`;
+screenshot: `mod-chapter-check-epilogue.png` (the last chapter visited).
+
+| Chapter | Offers at least one mission |
+|---|---|
+| gcz_ap2ost_p01_prologue | yes — historical `gcz_ap2_00_tutorial` |
+| gcz_ap2ost_p02_weiss | yes — historical `gcz_ap2_01_casus_belli` |
+| gcz_ap2ost_p03_barbarossa | yes — historical `gcz_ap2_05_barbarossa` |
+| gcz_ap2ost_p04_typhoon | yes — historical `gcz_ap2_12_typhoon` |
+| gcz_ap2ost_p05_winterschlacht | yes — historical `gcz_ap2_16_rzhev` |
+| gcz_ap2ost_p06_blau | yes — historical `gcz_ap2_20_kharkov_42` |
+| gcz_ap2ost_p07_donbas | yes — historical `gcz_ap2_27_winter_storm` |
+| gcz_ap2ost_p08_zitadelle | yes — historical `gcz_ap2_33_citadel` |
+| gcz_ap2ost_p09_dnieper | yes — historical `gcz_ap2_35_mius` |
+| gcz_ap2ost_p10_ostland | yes — historical `gcz_ap2_39_narva` |
+| gcz_ap2ost_p11_hungary | yes — historical `gcz_ap2_43_turda` |
+| gcz_ap2ost_p12_epilogue | yes — historical `gcz_ap2_49_bautzen` |
+
+All 12 chapters offer at least one mission. Every chapter offered only its
+historical mission (no random templates), consistent with Task 7's fix: a
+chapter offers random missions only once its script has enabled them, which
+requires a prior win in that chapter — none of these chapters had been
+played yet in this fresh profile. No Lua/script errors in the log. The mod
+copy was removed afterward
+(`rm -rf zig-out/game/macos/arm64/debug/mods/AchtungPanzer2`); `git status`
+shows no trace of it (only `tools/missions/run_random_mission.sh` modified).
+
+### Files changed
+
+- `tools/missions/run_random_mission.sh` — added the `705x765` click and its
+  comment (see "Script fix" above).
