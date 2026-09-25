@@ -97,6 +97,9 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 {
 	std::vector<SCase> cases;
 	std::set<std::string> regenerated;
+	// Chapter and template names are compared lower-cased, so the filter is too.
+	const bool bOnly = szSweep.compare( 0, 5, "only=" ) == 0;
+	const std::string szOnly = bOnly ? Lower( szSweep.substr( 5 ) ) : std::string();
 	for ( const char *pszCampaign : CAMPAIGNS )
 	{
 		const SCampaignStats *pCampaign = NGDB::GetGameStats<SCampaignStats>( pszCampaign, IObjectsDB::CAMPAIGN );
@@ -126,7 +129,7 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 				{
 					if ( szSweep == "cover" && nDifficulty != nPair % 3 )
 						continue;
-					if ( szSweep.compare( 0, 5, "only=" ) == 0 && szChapter.find( szSweep.substr( 5 ) ) == std::string::npos && szTemplate.find( szSweep.substr( 5 ) ) == std::string::npos )
+					if ( bOnly && szChapter.find( szOnly ) == std::string::npos && szTemplate.find( szOnly ) == std::string::npos )
 						continue;
 					SCase c;
 					c.szCampaign = pszCampaign;
@@ -331,7 +334,8 @@ int main( int argc, char **argv )
 	{
 		const auto start = std::chrono::steady_clock::now();
 		const std::vector<SCase> cases = CollectCases( szSweep );
-		Check( szSweep.compare( 0, 5, "only=" ) == 0 || cases.size() > 150, "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
+		// A sweep that selects nothing (a mistyped only= filter) tests nothing and must not pass.
+		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
 		int nFailedCases = 0;
 		for ( const SCase &c : cases )
 			if ( !RunCase( pSession, c, scratch ) )
