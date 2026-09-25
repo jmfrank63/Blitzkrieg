@@ -1799,8 +1799,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 				{	
 					if ( mapInfo.scenarioObjects[nObjectIndex].nScriptID == objectiveIterator->nAnchorScriptID )
 					{
-						objectiveIterator->vPosOnMap.x += mapInfo.objects[nObjectIndex].vPos.x;
-						objectiveIterator->vPosOnMap.y += mapInfo.objects[nObjectIndex].vPos.y;
+						// The scenario object's own position: this read objects[] with
+						// the scenario-object index - another object's position, and
+						// past the end of objects when there are more scenario objects.
+						objectiveIterator->vPosOnMap.x += mapInfo.scenarioObjects[nObjectIndex].vPos.x;
+						objectiveIterator->vPosOnMap.y += mapInfo.scenarioObjects[nObjectIndex].vPos.y;
 						++nObjectsCount;
 						if ( bOnlyOneObject )
 						{
