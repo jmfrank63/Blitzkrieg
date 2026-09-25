@@ -310,8 +310,15 @@ throw-away profile `MissionRun`. Screenshots and logs are under
 4. `securearea01` (German, france): `run4-securearea01-france.png` /
    `scenarios_templatemissions_all_summer_france_securearea01_1.log`.
    **FAIL** with the script's original three-click post-win sequence, then
-   **PASS** after fixing the script (see "Script fix" below). No Lua/script
-   errors in either the failing or the passing log.
+   **PASS** after fixing the script (see "Script fix" below). The script
+   writes each template's log to a fixed name, so the failing attempt's log
+   was overwritten by the passing rerun before it could be saved separately
+   (same process mistake as the hunt00 case above) — no Lua/script errors in
+   the passing log; the failing attempt's is not available to check. The
+   screenshots taken by hand of the rank/medal popup that caused the failure
+   (see "Script fix" below) were scratch probes, not kept after the fix was
+   verified, so no image of that popup survives either; `run4-securearea01-france.png`
+   is the final, post-fix chapter screen only.
 
 ### Crash finding (not fixed here — for the controller to turn into a fix task)
 
