@@ -316,12 +316,15 @@ jobs:
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # Debug-only: NI_ASSERT lives in the debug build alone (RC2's
-      # SRMMiniMapCreateParameter guard). summer_ukraine covers defend,
-      # escort and hunt across Kursk, Rumania and Kharkov42, so the assert
-      # runs on the revived mission types without paying for a debug `all`
-      # sweep (about 3 h; see Task 5's report).
+      # SRMMiniMapCreateParameter guard). kharkov42 selects its chapter's
+      # four summer_ukraine templates (defend00, defend01, escort00, hunt00)
+      # at three difficulties, 12 cases, so the assert runs on the revived
+      # mission types without paying for a debug `all` sweep (about 3 h; see
+      # Task 5's report). only=summer_ukraine would also match the
+      # summer_ukraine\securearea* template paths (setting summer_russia),
+      # about 96 cases.
       - name: Random missions tier (debug asserts)
-        run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=summer_ukraine "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+        run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
