@@ -61,6 +61,7 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/temp" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/saves" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/logs" }));
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Objects/SimpleObjects/common/summer/logs/01" }));
     try tmp.dir.writeFile(io, .{
         .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "zig-out/bin/Game" }),
         .data = "game fixture",
@@ -105,6 +106,10 @@ test "stages through a destination path with spaces and non-ASCII characters" {
         .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "Data/logs/stage.log" }),
         .data = "log fixture",
     });
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "Data/Objects/SimpleObjects/common/summer/logs/01/1.xml" }),
+        .data = "log pile fixture",
+    });
 
     try stage.stage(io, allocator, .{
         .repo_root = repo_path,
@@ -129,6 +134,7 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try expectStagedFile(destination, io, allocator, "LICENSE.md", "license fixture");
     try expectStagedFile(destination, io, allocator, "THIRD-PARTY-NOTICES.txt", "notices fixture");
     try expectStagedFile(destination, io, allocator, "README.md", "readme fixture");
+    try expectStagedFile(destination, io, allocator, "Data/Objects/SimpleObjects/common/summer/logs/01/1.xml", "log pile fixture");
     for ([_][]const u8{
         "Data/cache/compiled.bin",
         "Data/temp/session.bin",
