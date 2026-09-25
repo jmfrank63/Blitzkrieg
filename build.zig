@@ -848,6 +848,21 @@ pub fn build(b: *std.Build) void {
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
 
+    // Data/Scenarios against GOG Blitzkrieg 1.2 and the chapter screen's rules
+    // (docs/superpowers/specs/2026-09-25-revive-random-missions-design.md).
+    // Reads Data, so it runs from the repository root.
+    const mission_data_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mission_data_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const mission_data_tests = b.addTest(.{ .root_module = mission_data_module });
+    const mission_data_run = b.addRunArtifact(mission_data_tests);
+    mission_data_run.setCwd(b.path("."));
+    const mission_data_step = b.step("test-mission-data", "Check Data/Scenarios against GOG 1.2 and the chapter rules");
+    mission_data_step.dependOn(&mission_data_tests.step);
+    if (test_mode == .run) mission_data_step.dependOn(&mission_data_run.step);
+
     const platform_linkage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_linkage_test.zig"),
         .target = b.graph.host,
