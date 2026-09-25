@@ -425,32 +425,9 @@ void CInterfaceChapter::InitWindow()
 		missionIndeces.push_back( i );
 	}
 
-	if ( missionIndeces.empty() )
-	{
-		NStr::DebugTrace( "CInterfaceChapter::InitWindow(), no enabled scenario missions for chapter \"%s\", using fallback list\n", GetGlobalVar( "Chapter.Current.Name", "" ) );
-		for ( int i = 0; i < pStats->missions.size(); ++i )
-		{
-			std::string szMissionName = pStats->missions[i].szMission;
-			NStr::ToLower( szMissionName );
-			const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
-			if ( pMissionStats == 0 || pMissionStats->IsTemplate() )
-				continue;
-
-			CPtr<IUIElement> pMissionButton;
-			missionButtonSaver.Add( "Element", &pMissionButton );
-			CVec2 size;
-			pMissionButton->GetWindowPlacement( 0, &size, 0 );
-
-			CVec2 vPos = pStats->missions[i].vPosOnMap;
-			vPos.x -= size.x / 2;
-			vPos.y -= size.y / 2;
-			pMissionButton->SetWindowPlacement( &vPos, 0 );
-			pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
-			pMap->AddChild( pMissionButton );
-			pMissionButton->ScaleLayout( vMapLayoutScale );
-			missionIndeces.push_back( i );
-		}
-	}
+	// Only what the chapter script has enabled. Before the chapter's first random
+	// win that is nothing, and the screen offers only random missions: the
+	// original's design (Data/Scenarios/Chapters/*/*/script.lua, MissionFinished).
 	nNumberOfScenarioMissions = missionIndeces.size();
 	
 	for ( int i = 0; i < pStats->missions.size(); ++i )
