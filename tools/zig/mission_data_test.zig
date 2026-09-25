@@ -11,7 +11,7 @@ const max_file = 64 * 1024 * 1024;
 
 const campaigns = [_]struct { file: []const u8, template_count: usize }{
     .{ .file = "scenarios/campaigns/german/german.xml", .template_count = 76 },
-    .{ .file = "scenarios/campaigns/allies/allies.xml", .template_count = 63 },
+    .{ .file = "scenarios/campaigns/allies/allies.xml", .template_count = 34 },
     .{ .file = "scenarios/campaigns/ussr/ussr.xml", .template_count = 63 },
 };
 

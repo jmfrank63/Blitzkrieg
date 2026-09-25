@@ -15,8 +15,8 @@ offers only random missions. The port breaks this in two places:
 
 1. **Data.** Commit `c1532955b` ("restrict campaign random templates to
    secure areas") cut the defend, escort and hunt templates from the three
-   campaign files, 63 → 43 entries each for USSR and Allies, 76 → 56 for
-   German. In the shipped data the `summer_ukraine` secure-area templates
+   campaign files, USSR 63 → 43, Allies 34 → 26, German 76 → 56. In the
+   shipped data the `summer_ukraine` secure-area templates
    carry the `summer_russia` setting, so chapters set in `summer_ukraine`
    (USSR Kursk, USSR Rumania, German Kharkov42) were left with no template at
    all, and Moscow, Stalingrad, Ukraine and both Ardennes with 4–6 instead
@@ -145,7 +145,7 @@ the gated chapters have 4 to 24 templates and 7 to 10 placeholders each.
 
 ## Success criteria
 
-- The three campaign files list GOG's 63/76/63 templates, and
+- The three campaign files list GOG's German 76, Allies 34, USSR 63 templates, and
   `Data/Scenarios` matches the GOG manifest except the recorded deviations.
 - `test-mission-data` and `test-random-missions` pass in CI; the latter
   generates every template of every chapter at every difficulty.

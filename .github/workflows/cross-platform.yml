@@ -101,6 +101,9 @@ jobs:
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Mission data tier
+        run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Editor core tier
         run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 

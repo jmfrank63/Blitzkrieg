@@ -1,6 +1,4 @@
 <?xml version="1.0"?>
-<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Nasdaq Boom (World of Cracking) -->
-<!-- deleted comment here -->
 <!-- deleted comment here -->
 <!--\German\France\-->
 <base>
@@ -1380,14 +1378,10 @@
 								<key>armor medium</key>
 								<data>
 									<Elements>
-										<item>S35_Somua_France</item>
-									</Elements>
-									<Elements>
 										<item>Humber_MK1_GB</item>
 									</Elements>
 									<Weights>
 										<item data="1"/>
-										<item data="3"/>
 									</Weights>
 								</data>
 							</item>
@@ -2097,14 +2091,10 @@
 								<key>armor medium</key>
 								<data>
 									<Elements>
-										<item>S35_Somua_France</item>
-									</Elements>
-									<Elements>
 										<item>Humber_MK1_GB</item>
 									</Elements>
 									<Weights>
 										<item data="1"/>
-										<item data="2"/>
 									</Weights>
 								</data>
 							</item>
