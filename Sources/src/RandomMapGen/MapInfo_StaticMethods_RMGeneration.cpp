@@ -913,6 +913,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		// jitter (NWin32Random in RandomizeEdges) draw from generators the seed does
 		// not hold: seed both from it, so a save regenerates the same map.
 		const unsigned int nLegacySeed = Random();
+		// That draw advanced IRandomGen past the state just stored: put it back,
+		// so IRandomGen's draws during generation are exactly those that follow
+		// the stored seed.
+		pRandomGen->SetSeed( pRandomGenSeed );
 		NWin32Random::Seed( int( nLegacySeed ) );
 		srand( nLegacySeed );
 	}
