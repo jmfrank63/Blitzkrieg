@@ -1631,6 +1631,21 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
+### Task 8.1: The message-reaction hash must not overflow
+
+**Files:**
+- Modify: `Sources/src/GameTT/MessageReactionINternal.h:33-39` (`SPairHash`)
+- Read: `Sources/src/GameTT/MessageReactionINternal.cpp:221` (`CMessageLink::Configure`) and `:527` (its caller)
+
+One of four hunt00 runs in Task 8 aborted in the debug build: `signed integer overflow: 2098179 + 2147318400 cannot be represented in type 'int'` in `SPairHash::operator()`, from `CMessageLink::Configure` via `CMessageLinkContainer::ProcessMessage`. `SGameMessage::nParam` is pointer-wide (`intptr_t`); `ProcessMessage` passes it to `Configure( int nMessageID, int nParam )`, so a pointer-valued parameter is narrowed, and the hash then adds two `int`s with signed overflow — undefined behaviour that the debug build traps and a release build silently wraps. Evidence: findings, "Game runs" → "Crash finding"; `zig-out/local-test/mission-run/Game-2026-09-25-162739.ips`.
+
+- [ ] **Step 1: Confirm the cause.** Find which message reaches `ProcessMessage` with a parameter that does not fit an `int` (a trace of `msg.nEventID`/`msg.nParam` when `nParam` is outside `int`'s range, in a hunt00 run), and whether any configured reaction could match a narrowed pointer. Record it in the task report.
+- [ ] **Step 2: Fix the hash.** `SPairHash` computes in unsigned arithmetic, e.g. `return size_t( unsigned( incomingPair.first ) ) * 0x9E3779B1u ^ size_t( unsigned( incomingPair.second ) );` — no signed overflow for any input. If Step 1 shows a pointer parameter can wrongly match a configured reaction after narrowing, also make the narrowing explicit and safe at `ProcessMessage` (a parameter outside `int`'s range matches no configured reaction), with a comment; otherwise leave `Configure`'s signature alone.
+- [ ] **Step 3: Verify.** `zig build install-game`, then run the hunt00 game run (Task 8's command for `scenarios\chapters\ussr\rumania\1`) four times in the debug build: four PASS, no panic. Also re-run one other kind (defend00 in Kursk) once: PASS.
+- [ ] **Step 4: Commit** `fix(ui): a pointer-wide message parameter no longer overflows the reaction lookup`.
+
+---
+
 ### Task 9: The random missions tier in CI
 
 **Files:**
