@@ -177,7 +177,7 @@ void CInterfaceChapter::IncrementChapterVisited()
 			
 			templates.push_back( temp );
 		}
-		
+
 		if ( nTotalProbability == 0 )
 		{
 			NStr::DebugTrace( "CInterfaceChapter::IncrementChapterVisited(), no template missions for chapter \"%s\" (setting \"%s\")\n", szChapterName.c_str(), pChapterStats->szSettingName.c_str() );
@@ -489,6 +489,17 @@ void CInterfaceChapter::InitWindow()
 		pMap->GetWindowPlacement( &pos, &size, &rect );
 		fprintf( stderr, "BK_UI_TRACE: chapter map final pos=(%.1f,%.1f) size=(%.1f,%.1f) rect=(%.1f,%.1f)-(%.1f,%.1f)\n",
 			pos.x, pos.y, size.x, size.y, rect.x1, rect.y1, rect.x2, rect.y2 );
+	}
+	// What the chapter screen offers, for harness runs: the random missions it
+	// generated and the historical ones the chapter script has enabled.
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		for ( int i = 0; i < missionIndeces.size(); ++i )
+		{
+			const SChapterStats::SMission &offered = pStats->missions[ missionIndeces[i] ];
+			fprintf( stderr, "BK_UI_TRACE: chapter \"%s\" offers %s mission \"%s\"\n", GetGlobalVar( "Chapter.Current.Name", "" ),
+			         ( offered.pMission != 0 && offered.pMission->IsTemplate() ) ? "random" : "historical", offered.szMission.c_str() );
+		}
 	}
 	if ( !missionIndeces.empty() )
 		SetGlobalVar( "NumberOfButtons", (int) missionIndeces.size() - 1 );
