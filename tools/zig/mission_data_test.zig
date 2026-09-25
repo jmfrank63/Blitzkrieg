@@ -291,9 +291,10 @@ test "every campaign template resolves and every gated chapter can offer random 
             const setting = tagValue(chapter_xml, "SettingName");
             const template_count = per_setting.get(setting) orelse 0;
             const placeholders = std.mem.count(u8, section(chapter_xml, "PlaceHolders"), "<Position");
-            std.debug.print("{s}: {d} templates for {s}, {d} placeholders\n", .{ chapter, template_count, setting, placeholders });
+            // Printed only on failure: any stderr output makes zig's build
+            // runner show a passing test as a "failed command".
             if (template_count < 3 or placeholders < 3) {
-                std.debug.print("  cannot offer one random mission per difficulty\n", .{});
+                std.debug.print("{s}: {d} templates for {s}, {d} placeholders: cannot offer one random mission per difficulty\n", .{ chapter, template_count, setting, placeholders });
                 failures += 1;
             }
         }
