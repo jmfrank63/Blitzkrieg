@@ -32,9 +32,15 @@ enum ECustomCheckReturn
 
 struct SPairHash
 {
-	int operator()( const std::pair<int,int> &incomingPair ) const
+	// Some messages carry a pointer-wide SGameMessage::nParam narrowed to this
+	// pair's int (CMessageLinkContainer::ProcessMessage -> CMessageLink::Configure,
+	// e.g. MC_UPDATE_WHO_IN_CONTAINER's IMOContainer* address); adding two ints
+	// can then overflow. Compute in unsigned arithmetic so any int input,
+	// including one reinterpreted from a truncated pointer, hashes without
+	// signed-overflow undefined behaviour.
+	size_t operator()( const std::pair<int,int> &incomingPair ) const
 	{
-		return incomingPair.first + incomingPair.second;
+		return size_t( unsigned( incomingPair.first ) ) * 0x9E3779B1u ^ size_t( unsigned( incomingPair.second ) );
 	}
 };
 struct SMessageAtomReactionForLoad
