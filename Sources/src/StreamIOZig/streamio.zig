@@ -1145,8 +1145,17 @@ test "global store grows beyond the legacy startup working set" {
 // data read at startup, so each launch drew different random missions; a
 // constant here made every launch draw the same ones. Whatever has to repeat -
 // a random map regenerated from a save, multiplayer lockstep, a replay - sets
-// the state through SetSeed, never through this.
+// the state through SetSeed, never through this. -reference-scene sets the
+// global "fixrandom" first and needs the same draws every run: the original
+// zeroed its seed then (CRandomGenSeed::Init), this keeps the constant start.
+// "fixrandom" is read as the original's GetGlobalVar("fixrandom", 0) != 0.
 pub export fn bk_random_init() callconv(.c) void {
+    if (bk_global_get("fixrandom")) |value| {
+        if ((parseTreeInt(std.mem.span(value)) catch 0) != 0) {
+            random_state = 0x9e3779b9;
+            return;
+        }
+    }
     var bytes: [4]u8 = undefined;
     hostIo().random(&bytes);
     const state = std.mem.readInt(u32, &bytes, .little);
@@ -1175,6 +1184,24 @@ test "each random generator start draws a different sequence" {
     const second = bk_random_get();
     // Seeded from entropy: an equal pair is a 1-in-2^32 event.
     try std.testing.expect(first != second);
+}
+
+test "fixrandom keeps the constant start, for -reference-scene" {
+    const saved = bk_random_get_state();
+    defer bk_random_set_state(saved);
+    bk_global_set("fixrandom", "1");
+    defer bk_global_remove("fixrandom");
+    bk_random_init();
+    const first = bk_random_get();
+    bk_random_init();
+    try std.testing.expectEqual(first, bk_random_get());
+    try std.testing.expectEqual(@as(c_uint, 0x9e3779b9) *% 1664525 +% 1013904223, first);
+    // "0" is off, as GetGlobalVar("fixrandom", 0) != 0 read it.
+    bk_global_set("fixrandom", "0");
+    bk_random_init();
+    const a = bk_random_get();
+    bk_random_init();
+    try std.testing.expect(a != bk_random_get());
 }
 
 test "a saved random generator state restores exactly" {
