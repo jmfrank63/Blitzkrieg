@@ -236,13 +236,24 @@ static bool RunCase( BkEditorSession *pSession, const SCase &c, const std::files
 				if ( Check( pSeedStream != 0, szName + ": the seed was stored" ) )
 				{
 					pSeed->Restore( pSeedStream );
+					pSeedStream = 0;					// regeneration rewrites this file; an open stream depends on share modes, which differ on Windows.
 					GetSingleton<IRandomGen>()->SetSeed( pSeed );
-					const std::string szRootB = GeneratedRoot( dir / "b" );
-					const bool bAgain = CMapInfo::CreateRandomMap( pMission, c.szContext, c.nDifficulty, GraphIndex( pMission, used.szGraphName ), used.nGraphAngle, true, true, 0, 0, szRootB );
+					// Keep the first run's map, since regenerating overwrites it
+					// in place: the game regenerates into the same root it
+					// generated into (Main/RandomMapHelper.cpp, GameTT/Mission.cpp).
+					// szMap is spelled with backslashes throughout (GeneratedRoot,
+					// and szFinalMap may itself have subdirectories); std::filesystem
+					// only recognizes the native separator.
+					std::string szMapNative = szMap;
+					for ( char &ch : szMapNative )
+						if ( ch == '\\' )
+							ch = '/';
+					std::filesystem::copy_file( szMapNative, dir / "first.bzm", std::filesystem::copy_options::overwrite_existing );
+					const bool bAgain = CMapInfo::CreateRandomMap( pMission, c.szContext, c.nDifficulty, GraphIndex( pMission, used.szGraphName ), used.nGraphAngle, true, true, 0, 0, szRoot );
 					CMapInfo again;
 					std::string szWhere;
 					if ( Check( bAgain, szName + ": regenerates from its seed" )
-					     && Check( NMapFile::Read( ( szRootB + "maps\\" + pMission->szFinalMap + ".bzm" ).c_str(), &again, &szError ), szName + ": the regenerated map reads" ) )
+					     && Check( NMapFile::Read( szMap.c_str(), &again, &szError ), szName + ": the regenerated map reads" ) )
 						Check( NMapFile::AreEquivalent( map, again, &szWhere ), szName + ": the seed gives the same map (differs at " + szWhere + ")" );
 				}
 			}
