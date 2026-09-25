@@ -538,6 +538,14 @@ void CInterfaceChapter::InitWindow()
 	{
 		SetGlobalVar( "NumberOfButtons", 0 );
 		NStr::DebugTrace( "CInterfaceChapter::InitWindow(), chapter has no missions after initialization\n" );
+		// A stale LOSE (or any non-win status) makes IncrementChapterVisited
+		// keep the stored mission set, and that set can hold nothing to offer:
+		// a profile last in Kursk, Rumania or Kharkov42 from before those
+		// chapters had templates stores only the not-yet-enabled historical
+		// mission. Without this the player bounces between this screen and the
+		// campaign screen for ever; with the status gone, the next entry
+		// regenerates the chapter's random missions.
+		RemoveGlobalVar( "Mission.Last.FinishStatus" );
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CAMPAIGN, 0 );
 		return;
 	}

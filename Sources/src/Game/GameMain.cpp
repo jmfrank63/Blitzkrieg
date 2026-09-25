@@ -1349,7 +1349,10 @@ int RunGame( const BkGameLaunchInfo &launch )
 						// Needs campaign= first.
 						std::string szChapter = szAction.substr( 8 );
 						NStr::ToLower( szChapter );
-						SetGlobalVar( NStr::Format( "Chapter.%s.Status", szChapter.c_str() ), 1 );
+						// A copy: SetGlobalVar( name, int ) formats the value with NStr::Format,
+						// whose one buffer the name would otherwise still point into.
+						const std::string szStatusVar = NStr::Format( "Chapter.%s.Status", szChapter.c_str() );
+						SetGlobalVar( szStatusVar.c_str(), 1 );
 						SetGlobalVar( "Chapter.Current.Name", szChapter.c_str() );
 						pMainLoop->Command( MISSION_COMMAND_CHAPTER, "" );
 					}
