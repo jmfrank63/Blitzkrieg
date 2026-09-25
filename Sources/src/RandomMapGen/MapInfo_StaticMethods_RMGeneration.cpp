@@ -17,6 +17,7 @@
 #include "../AILogic/aiconsts.h"
 #include "../StreamIO/ProgressHook.h"
 #include "../Platform/Clock.h"
+#include "../Misc/Win32Random.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -907,7 +908,14 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 									NStr::Format( "CreateRandomMap, Can't create stream: %s", ( szRandomMapName + ".seed" ).c_str() ), 
 									return false );
 		pRandomGenSeed->Store( pRandomSeedStream );
-	}	
+
+		// The tile variants (rand() in STileTypeDesc::GetMapsIndex) and the polygon
+		// jitter (NWin32Random in RandomizeEdges) draw from generators the seed does
+		// not hold: seed both from it, so a save regenerates the same map.
+		const unsigned int nLegacySeed = Random();
+		NWin32Random::Seed( int( nLegacySeed ) );
+		srand( nLegacySeed );
+	}
 
 	CMapInfo mapInfo;
 	bResult = mapInfo.Create( randomMapTemplate.size, randomMapTemplate.nSeason, randomMapTemplate.szSeasonFolder, 0, randomMapTemplate.nType );

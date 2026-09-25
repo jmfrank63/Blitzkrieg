@@ -18,6 +18,12 @@ Apple M1 (macOS, `--release=fast`), HEAD 7f530496f.
   alongside). `cover`: 208 cases, 0 failed, 82 s (measured alone).
 - The debug build aborts at its first case (RC2). With RC2 patched, a debug
   `cover` sweep passes: 208 cases, 0 failed, 3807 s.
+- Task 5.4 landed the RC3 fix for real (seeding `NWin32Random` and `rand()`
+  from the stored seed in `MapInfo_StaticMethods_RMGeneration.cpp`, RC1-RC4 all
+  now fixed in tree): `only=spring_ukraine` gives `60 cases, 0 failed`; the
+  full `all` sweep gives **624 cases, 0 failed, 201 s** (3:31 wall,
+  `--release=fast`); `cover` gives **208 cases, 0 failed, 77 s** (1:28 wall) —
+  above the ≥150 floor a later CI decision needs.
 
 For Task 9: a release `all` takes about 3.5 min of test time on an M1, and
 `cover` about 1.4 min. A debug `cover` takes about 63 min. No other check (generates, reads, anchor, briefing map,
@@ -134,7 +140,11 @@ Test: `zig build test-random-missions -Dtest-mode=run -Drandom-missions-sweep=on
 ### RC3: the generator draws from two process-global generators that the stored seed does not restore: `NWin32Random` and the C runtime's `rand()`
 
 The stored `.seed` (`MapInfo_StaticMethods_RMGeneration.cpp:901-909`) only holds
-the `IRandomGen` (ISAAC) state. The generator also draws from:
+the `IRandomGen` state. Correction: the port's `IRandomGen` is not ISAAC but a
+32-bit LCG (`Sources/src/StreamIOZig/legacy_bridge.cpp` `RandomGen`,
+`streamio.zig` `bk_random_*`), whose `Init()` starts from a constant (Task 5.5
+fixes that, seeding it from entropy each launch instead). The generator also
+draws from:
 - `NWin32Random` (a static LCG in `Sources/src/Misc/Win32Random.cpp`, never
   seeded anywhere in the tree). It drives the polygon edge jitter in
   `RandomizeEdges`/`GetRandomBetweenPoint` (`Sources/src/RandomMapGen/Polygons_Types.h:1058,1061,1112,1152`),
@@ -189,9 +199,13 @@ Fix (options):
    the process-wide `rand()` (harmless, the game already seeds it from the
    clock), and it assumes no other thread calls `rand()` during generation. The
    sweep shows none in the test, but that was not checked in the running game.
-   `NWin32Random` is only a
-   visual/effects generator elsewhere (`Scene`, `MOUnit*`), and generation runs
-   in the briefing, so reseeding it there changes nothing a player sees.
+   `NWin32Random` is also a
+   visual/effects generator elsewhere (`Scene`, `MOUnit*`), and it drives
+   `ScenarioTracker2Internal.cpp` (reincarnation), `PlayerSkill.cpp` and
+   `iMainInternal.cpp`. Reseeding it at generation time does not change the
+   distribution any of those draw from, only where in the sequence a later
+   draw lands; generation runs in the briefing, before those systems have
+   drawn anything for the mission, so this changes nothing a player sees.
 2. Route every generator draw through `IRandomGen`: give `GetMapsIndex` an
    overload that takes the draw (`GetMapsIndex( Random( 10000 ) )` at the three
    generator call sites), and make `RandomizeEdges`/`GetRandomBetweenPoint`
@@ -204,7 +218,10 @@ Fix (options):
 Test: after the RC1 and RC4 fixes,
 `zig build test-random-missions --release=fast -Dtest-mode=run -Drandom-missions-sweep=only=spring_ukraine`
 fails before (`10 failed`, "the seed gives the same map (differs at
-terrain.patches[0][0].basecrosses.size)") and passes after (`0 failed`).
+terrain.patches[0][0].basecrosses.size)") and passes after (`0 failed`). Landed
+as the real fix (Task 5.4): `only=spring_ukraine` gives `60 cases, 0 failed`;
+the full `all` sweep gives `624 cases, 0 failed, 201 s`; `cover` gives `208
+cases, 0 failed, 77 s`.
 
 ### RC4 (test): the regeneration writes to another root, and the map records its own path, so "same map" can never pass
 
