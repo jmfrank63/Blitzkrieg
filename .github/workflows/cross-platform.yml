@@ -31,13 +31,11 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            # The mission data tier compares Data/Scenarios (144 MB) against
+            # GOG 1.2's manifest, and the random missions tier's generator
+            # reads templates, settings, chapters, contexts, patches,
+            # scripts, fieldsets and graphs out of it.
+            /Data/Scenarios/
           sparse-checkout-cone-mode: false
 
       - name: Install Linux build dependencies
@@ -179,19 +177,14 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            /Data/Scenarios/
             # The engine tier starts the whole game, so it needs nearly all of Data.
             # Measured 2026-09-21 by adding trees to a symlink farm until it ran
             # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
-            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
-            # the two runners that have a GPU device pay for it; the other three
-            # have none, would skip, and keep the narrow checkout.
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
             /Data/*.xml
             /Data/*.arr
             /Data/*.spp
@@ -373,19 +366,14 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            /Data/Scenarios/
             # The engine tier starts the whole game, so it needs nearly all of Data.
             # Measured 2026-09-21 by adding trees to a symlink farm until it ran
             # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
-            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
-            # the two runners that have a GPU device pay for it; the other three
-            # have none, would skip, and keep the narrow checkout.
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
             /Data/*.xml
             /Data/*.arr
             /Data/*.spp
