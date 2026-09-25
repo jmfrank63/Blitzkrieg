@@ -191,6 +191,10 @@ static bool RunCase( BkEditorSession *pSession, const SCase &c, const std::files
 	int nGraph = -1;
 	int nAngle = -1;
 	Check( ChooseGraphAndAngle( pMission, &nGraph, &nAngle ), szName + ": its template has graphs" );
+	// Before the generator runs: if it takes the process down, this is the
+	// line that names the case, and the graph and angle reproduce it.
+	printf( "random-missions: %s %s start graph=%d angle=%d\n", c.szCampaign.c_str(), szName.c_str(), nGraph, nAngle );
+	fflush( stdout );
 	const auto start = std::chrono::steady_clock::now();
 	SRMUsedTemplateInfo used;
 	const bool bGenerated = CMapInfo::CreateRandomMap( pMission, c.szContext, c.nDifficulty, nGraph, nAngle, true, true, &used, 0, szRoot );
