@@ -1238,6 +1238,84 @@ A root cause in data (a wrong setting, a missing file) is fixed in `Data` only i
 
 ---
 
+### Task 5.1: Stage the game's `logs` objects (RC1)
+
+**Files:**
+- Modify: `tools/zig/stage.zig:379-386` (`isForbiddenStagedPath`)
+- Modify: `tools/zig/verify_runtime.zig:286-295` (`isForbiddenArtifactPath`)
+- Modify: `tools/zig/stage_test.zig` (a fixture that must be staged)
+
+Staging skips every path with a component named like a user-write, temp or cache directory, at any depth, so `Data/Objects/SimpleObjects/common/summer/logs` (the `Logs01`-`Logs08` log piles, 144 files) never reaches a staged game. Their stats are missing, the generator dereferences null in `ApplyTilesInObjectsPassability` (`LA_Types.h:267`) when a spring_Ukraine patch places one, and historical maps (Kursk, Kharkov42, tutorial3, several multiplayer maps) lose the objects too. Findings: RC1.
+
+- [ ] **Step 1: See it fail.** Add to `tools/zig/stage_test.zig`, beside the existing `Data/logs/stage.log` fixture (which must stay excluded), a fixture file `Data/Objects/SimpleObjects/common/summer/logs/01/1.xml` and an assertion that it IS staged. Run the stage test (`zig build test-stage -Dtest-mode=run`, or the step that runs `stage_test.zig`; find it in build.zig). Expected: the new assertion fails, the `Data/logs/stage.log` exclusion still holds.
+- [ ] **Step 2: Fix.** In both functions, apply the directory-name rules (`isCacheName`, `isTempName`, `isUserWriteName` as names) only where a user-writable or cache directory can actually be: in `stage.zig` the first component of the `Data`-relative path; in `verify_runtime.zig` the first component of the stage-relative path, and the second when the first is `Data`. Keep the file-suffix rules (`.log`, `.lock`, `.tmp`, `.temp`, `.stale`) applying to the last component at any depth. Comment why: a game asset directory may be called `logs` (the log-pile objects).
+- [ ] **Step 3: See it pass.** The stage test passes; `zig build install-game --release=fast` then `ls zig-out/game/macos/arm64/release/Data/Objects/SimpleObjects/common/summer/logs/02/1.xml` exists; `zig build test-random-missions --release=fast -Dtest-mode=run -Drandom-missions-sweep=only=spring_ukraine` runs all 60 cases with no crash (the "same map" failures remain until Tasks 5.3-5.4). Run `zig build verify-runtime` or whichever step runs `verify_runtime.zig` over the staged tree, and it passes.
+- [ ] **Step 4: Commit** `fix(stage): the game's log-pile objects are staged again` — the body names the maps that lost them and the commit that introduced the rule (e892d195c).
+
+### Task 5.2: Initialise the minimap creation parameters (RC2)
+
+**Files:** Modify: `Sources/src/RandomMapGen/MiniMap_Types.h:117`
+
+`SRMMiniMapCreateParameter` has no constructor; `CTreeAccessor::AddIntData<bool>` loads the uninitialised `bAllBuildingPassability` before reading the file, and UBSan aborts every debug generation. Findings: RC2.
+
+- [ ] **Step 1: See it fail.** `zig build test-random-missions -Dtest-mode=run "-Drandom-missions-sweep=only=summer_france\securearea01"` (debug). Expected: `panic: load of value …, which is not valid for type 'bool'` after the first `start` line.
+- [ ] **Step 2: Fix.** After `DWORD dwBridgeWidth;` add
+  `SRMMiniMapCreateParameter() : nWoodRadius( 0 ), fTerrainShadeRatio( 0.0f ), bAllBuildingPassability( false ), bTerrainShades( false ), dwMinAlpha( 0 ), dwBridgeWidth( 0 ) {}`
+  (check every member of the struct is in the list, in declaration order). Give `SMiniMapLayer` (`MiniMap_Types.h:95-108`) a constructor initialising its members too (`bScaleNoise`, the `EMBOSS_TYPE` member and the rest): the same class of defect, safe today only while its loader value-initialises vector elements.
+- [ ] **Step 3: See it pass.** The same debug command reaches its result line (the "same map" failures remain until Tasks 5.3-5.4).
+- [ ] **Step 4: Commit** `fix(rmg): the minimap parameters start initialised`.
+
+### Task 5.3: Regenerate into the same root, as the game does (RC4)
+
+**Files:** Modify: `tools/zig/random_missions_test.cpp:240-245`
+
+The test regenerates into `<case>/b`, but a generated map records its own path (`szScriptFile`, `MapInfo_StaticMethods_RMGeneration.cpp:948`), so the maps can never compare equal. The game regenerates into the root it generated into (`Main/RandomMapHelper.cpp:74-75`, `GameTT/Mission.cpp:168-169`). Findings: RC4.
+
+- [ ] **Step 1: Fix.** Regenerate into `szRoot` itself and read the regenerated map from there; the first map is already in memory as `map`. Drop `szRootB`. Release the `.seed` stream (`pSeedStream = 0` once `pSeed->Restore` has read it) before regenerating, because the regeneration rewrites that file; an open stream depends on share modes, which differ on Windows. Before regenerating, copy the first run's `.bzm` to `<case>/first.bzm`, so a kept failure directory still holds both maps.
+- [ ] **Step 2: Verify.** `zig build test-random-missions --release=fast -Dtest-mode=run -Drandom-missions-sweep=only=spring_ukraine`: the regeneration failures now report a terrain difference (`basecrosses…`), never `szScriptFile` — the remaining difference is RC3's.
+- [ ] **Step 3: Commit** `test(missions): regenerate a map where the game would`.
+
+### Task 5.4: Seed the generator's other random sources from the stored seed (RC3)
+
+**Files:** Modify: `Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp` (after the seed is stored, line ~909)
+
+The `.seed` restores only `IRandomGen`; the generator also draws from `NWin32Random` (polygon jitter) and the C `rand()` (tile variants), so a save that regenerates its map gets a different one. Inherited from the original. Findings: RC3, option 1.
+
+- [ ] **Step 1: See it fail.** `zig build test-random-missions --release=fast -Dtest-mode=run -Drandom-missions-sweep=only=spring_ukraine`. Expected: `10 failed`, each "the seed gives the same map (differs at terrain…)".
+- [ ] **Step 2: Fix.** After `pRandomGenSeed->Store( pRandomSeedStream );` add
+
+```cpp
+	// The tile variants (rand() in STileTypeDesc::GetMapsIndex) and the polygon
+	// jitter (NWin32Random in RandomizeEdges) draw from generators the seed does
+	// not hold: seed both from it, so a save regenerates the same map.
+	const unsigned int nLegacySeed = Random();
+	NWin32Random::Seed( int( nLegacySeed ) );
+	srand( nLegacySeed );
+```
+
+  and `#include "../Misc/Win32Random.h"` (check the header's real name and that `NWin32Random::Seed` exists; if it does not, add it to `Misc/Win32Random.{h,cpp}` setting the LCG state).
+- [ ] **Step 3: See it pass.** The same command: `0 failed`. Then the full sweep, `-Drandom-missions-sweep=all`: `624 cases, 0 failed`; record its time in the findings' numbers.
+- [ ] **Step 3b: Correct the findings.** In the findings' RC3 section: the port's `IRandomGen` is not ISAAC but a 32-bit LCG (`Sources/src/StreamIOZig/legacy_bridge.cpp` `RandomGen`, `streamio.zig` `bk_random_*`), whose `Init()` starts from a constant (Task 5.5 fixes that); `NWin32Random` also drives `ScenarioTracker2Internal.cpp` (reincarnation), `PlayerSkill.cpp` and `iMainInternal.cpp`, so reseeding it at generation changes those draws' sequence, not their distribution.
+- [ ] **Step 4: Commit** `fix(rmg): a save regenerates the same random map`.
+
+---
+
+### Task 5.5: The random generator starts from a different state each launch
+
+**Files:**
+- Modify: `Sources/src/StreamIOZig/streamio.zig` (`bk_random_init`, ~line 1144) and its tests
+- Read first: every `IRandomGen` `Init()`/`SetSeed()` caller (`grep -rn "IRandomGen" Sources/src`, excluding `MapEditor/` and `editor/`)
+
+The port's `IRandomGen` is a 32-bit LCG whose `Init()` sets the state to the constant `0x9e3779b9`, and `GameMain.cpp:594` calls it once at startup. So every launch draws the same sequence: a template's map, its units and its bonuses come out the same on each fresh launch whenever the same draws happen in the same order. The original's ISAAC seeded itself from data read at startup (`StreamIO/RandomGenInternal.cpp`, `FillRandRsl`). With Task 5.4 seeding `rand()` and `NWin32Random` from `Random()`, the constant start would also remove the clock entropy `rand()` had. Found by the Task 5 review.
+
+- [ ] **Step 1: Check who relies on the constant.** Read every `Init()` and `SetSeed()` caller. Multiplayer and replays must stay in sync through `SetSeed`, not through `Init()`'s constant; confirm that no code path calls `Init()` and then expects two machines, or a replay, to draw the same numbers. If one does, stop and report it (NEEDS_CONTEXT) with the path.
+- [ ] **Step 2: See it fail.** Add a Zig test beside the existing `bk_random_*` tests: two `bk_random_init()` calls followed by `bk_random_get()` must not give the same first value (seed from entropy, so a collision is a 1-in-2^32 event; if the existing test style needs determinism, make the entropy source injectable and test that `bk_random_init` uses it). Run the StreamIO Zig tests (find the build step that runs `streamio.zig`'s tests). Expected: fails.
+- [ ] **Step 3: Fix.** `bk_random_init` seeds `random_state` from the OS entropy source (`std.crypto.random` or the 0.16 equivalent), never leaving it zero. Keep `bk_random_set_state`/`get_state` unchanged: saved seeds must still restore exactly.
+- [ ] **Step 4: See it pass**, and re-run `zig build test-random-missions --release=fast -Dtest-mode=run -Drandom-missions-sweep=cover`: `208 cases, 0 failed` (regeneration goes through the stored seed, not `Init()`).
+- [ ] **Step 5: Commit** `fix(random): each launch draws different random missions, as the original did`.
+
+---
+
 ### Task 6: Harness verbs to enter a chapter, start a random mission and win it
 
 **Files:**
