@@ -432,3 +432,9 @@ shows no trace of it (only `tools/missions/run_random_mission.sh` modified).
 
 - `tools/missions/run_random_mission.sh` — added the `705x765` click and its
   comment (see "Script fix" above).
+
+## Hand play (Task 10)
+
+Johannes played random missions in the branch's release build on
+2026-09-27 and confirmed the random missions are back ("we have the random
+missions back"). No defects were reported.
