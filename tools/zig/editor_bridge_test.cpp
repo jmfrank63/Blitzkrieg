@@ -741,38 +741,31 @@ static int PresentThroughTheEngine()
 	return 1;
 }
 
-// The frame just drawn, as an uncompressed 32-bit TGA, so a person can look at
-// what the pick ratio only counts. Alpha is forced opaque for the reason
-// CMainLoop gives for its own screenshots: the scene texture's alpha is
-// whatever the passes left behind.
-static bool SaveFrame( const std::string &szPath )
+// The frame at the camera, as an uncompressed 32-bit TGA, so a person can look
+// at what the pick ratio only counts. Written by BkEditorCaptureFrame, which the
+// app's own check reads as well, so the file is checked here to be the
+// screen's size and top row first: a capture of the wrong size would pass
+// the app's check at a pixel that happened to fall inside.
+static bool SaveFrame( BkEditorSession *pSession, const std::string &szPath )
 {
-	IGFX *pGFX = GetSingleton<IGFX>();
-	IImageProcessor *pImages = GetImageProcessor();
-	if ( pGFX == 0 || pImages == 0 )
+	if ( !Check( BkEditorCaptureFrame( pSession, szPath.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return false;
-	const RECT rcScreen = pGFX->GetScreenRect();
-	const int nWidth = rcScreen.right - rcScreen.left, nHeight = rcScreen.bottom - rcScreen.top;
-	CPtr<IImage> pImage = pImages->CreateImage( nWidth, nHeight );
-	if ( pImage == 0 || !pGFX->TakeScreenShot( pImage ) )
-		return false;
-	FILE *pFile = fopen( szPath.c_str(), "wb" );
-	if ( pFile == 0 )
-		return false;
-	// Type 2, 32 bits per pixel, top-left origin (descriptor 0x28: 8 alpha bits
-	// and the top-to-bottom flag).
-	unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	                             (unsigned char)( nWidth & 0xff ), (unsigned char)( nWidth >> 8 ),
-	                             (unsigned char)( nHeight & 0xff ), (unsigned char)( nHeight >> 8 ), 32, 0x28 };
-	fwrite( header, 1, sizeof header, pFile );
-	const SColor *pPixels = pImage->GetLFB();
-	for ( int i = 0; i < nWidth * nHeight; ++i )
+	int nScreenW = 0, nScreenH = 0;
+	BkEditorScreenSize( pSession, &nScreenW, &nScreenH );
+	unsigned char header[18] = { 0 };
+	FILE *pFile = fopen( szPath.c_str(), "rb" );
+	const bool bRead = pFile != 0 && fread( header, 1, sizeof header, pFile ) == sizeof header;
+	long nLength = 0;
+	if ( pFile != 0 )
 	{
-		const unsigned char bgra[4] = { (unsigned char)pPixels[i].b, (unsigned char)pPixels[i].g, (unsigned char)pPixels[i].r, 255 };
-		fwrite( bgra, 1, 4, pFile );
+		fseek( pFile, 0, SEEK_END );
+		nLength = ftell( pFile );
+		fclose( pFile );
 	}
-	fclose( pFile );
-	return true;
+	const int nWidth = header[12] | ( header[13] << 8 ), nHeight = header[14] | ( header[15] << 8 );
+	return Check( bRead && header[2] == 2 && header[16] == 32 && ( header[17] & 0x20 ) != 0 &&
+	              nWidth == nScreenW && nHeight == nScreenH && nLength == 18 + long( nWidth ) * nHeight * 4,
+	              NStr::Format( "the captured frame is a %dx%d top-first 32-bit TGA of %ld bytes, the screen %dx%d", nWidth, nHeight, nLength, nScreenW, nScreenH ) );
 }
 
 // A camera put on an object answers, at the middle of the screen, with that
@@ -829,7 +822,7 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 			if ( !bSaved || ( bUnit && !bSavedUnit ) )
 			{
 				const std::string szFrame = szScratch + ( bSaved ? "/editor-bridge-unit.tga" : "/editor-bridge-objects.tga" );
-				const bool bWritten = SaveFrame( szFrame );
+				const bool bWritten = SaveFrame( pSession, szFrame );
 				printf( "editor-bridge: %s %s (%s)\n", bWritten ? "saved" : "could not save", szFrame.c_str(), map.objects[i].szName.c_str() );
 				if ( bSaved )
 					bSavedUnit = true;

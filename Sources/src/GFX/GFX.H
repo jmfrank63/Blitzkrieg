@@ -226,5 +226,14 @@ interface IGFX : public IRefCount
 	// by its user (the editor). False when the renderer cannot (the legacy D3D
 	// engine), or inside a frame.
 	virtual bool STDCALL FollowWindowSize() = 0;
+	// TakeScreenShot reads the scene, which the overlay is not in. These read
+	// the frame as it was presented: CaptureNextFrame( true ) keeps the next
+	// frame presented - the scene with the overlay over it - and
+	// ReadCapturedFrame copies that frame into pImage, which has to be the
+	// screen's size. CaptureNextFrame( false ) withdraws a request no frame
+	// has taken yet. False when the renderer cannot (the legacy D3D engine),
+	// inside a frame, or, for the read, before a frame was kept.
+	virtual bool STDCALL CaptureNextFrame( bool bCapture ) = 0;
+	virtual bool STDCALL ReadCapturedFrame( interface IImage *pImage ) = 0;
 };
 #endif // __GFX_H__

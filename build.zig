@@ -1389,6 +1389,10 @@ pub fn build(b: *std.Build) void {
     });
     editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     editor_imgui_module.addIncludePath(b.path("Sources/editor/imgui"));
+    // cimgui.h includes <assert.h>. A consumer that does not link libc
+    // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
+    // its @cImport on MSVC, so name the MSVC and UCRT ones here.
+    addMsvcIncludePaths(b, editor_imgui_module, toolchain);
     editor_imgui_module.linkLibrary(editor_imgui);
 
     const editor_overlay_spike_module = b.createModule(.{
@@ -2136,6 +2140,10 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    // The editor's two platforms; everywhere else there is no MapEditor.
+    const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
+        (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
+    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, sdl3, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, stage_root, install_game_step);
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
@@ -5593,6 +5601,101 @@ fn addEditorBridgeTest(
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addMapEditor(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    sdl3: *std.Build.Module,
+    editor_imgui_module: *std.Build.Module,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+) void {
+    // The union of two recipes: the engine half is addEditorBridgeTest's (the
+    // same static libraries, imports and CRT), the ImGui half the overlay
+    // spike's (the sdl3 and editor_imgui modules, the MSVC library paths).
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl3 },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
+    });
+    // bridge.h, for host.zig's @cImport.
+    module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    // The engine's statics are built against the debug CRT in Debug, so the
+    // executable links the one they want, as editor-bridge-test does; no
+    // link_libc, which would have Zig bring a second CRT.
+    linkMsvcRuntime(module, optimize);
+    if (target.result.os.tag == .windows) {
+        // addEditorBridgeTest's import list: the engine the game hosts.
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    // The sdl3 module already links SDL3; on macOS a second link is a second
+    // LC_LOAD_DYLIB for @rpath/libSDL3.dylib, which dyld refuses ("duplicate
+    // linked dylib"), as addGFXGPU and gfxgpu-factory-test note.
+    if (target.result.os.tag != .macos) linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
+    if (target.result.os.tag == .windows) {
+        exe.subsystem = .console;
+        // The CRT's entry, so the CRT is initialised and the engine statics'
+        // constructors run; main.zig exports the C main it calls.
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    // Engine modules resolve RTTI and the coalesced host globals (the host's
+    // g_pGlobalSingleton copy wins) from the executable, as they do from Game.
+    if (target.result.os.tag == .macos) exe.rdynamic = true;
+    // Loader-relative: it runs from the installation, not the build cache.
+    if (target.result.os.tag == .macos) exe.root_module.addRPathSpecial("@executable_path");
+
+    // Beside Game, because the engine's roots are the installation it runs in.
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+    const install_step = b.step("install-map-editor", "Install MapEditor into the game installation");
+    install_step.dependOn(&install_exe.step);
+
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path(stage_root));
+    run.addArgs(&.{ "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
+    run.step.dependOn(&install_exe.step);
+    const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
+    check_step.dependOn(&run.step);
 }
 
 fn addRandomMissionsTest(

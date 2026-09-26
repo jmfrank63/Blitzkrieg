@@ -1623,3 +1623,31 @@ bool STDCALL GraphicsEngineGpu::FollowWindowSize()
     display_mode_ = { nWidth, nHeight, 32 };
     return true;
 }
+
+// The frame as presented, overlay included: the renderer composes the next
+// frame into a texture of its own before it reaches the swapchain, which is
+// not readable on every backend (renderer.zig endFrame).
+bool STDCALL GraphicsEngineGpu::CaptureNextFrame( bool bCapture )
+{
+    if ( renderer_ == nullptr || api_.set_frame_capture == nullptr )
+        return false;
+    return Check( api_.set_frame_capture( renderer_, bCapture ? 1u : 0u ), "set_frame_capture" );
+}
+
+// The captured frame is in the swapchain's format, as the scene TakeScreenShot
+// reads is, and is copied the same way.
+bool STDCALL GraphicsEngineGpu::ReadCapturedFrame( IImage *image )
+{
+    if ( !image || !renderer_ ) return fail( "SDL GPU frame readback is unavailable" );
+    const uint32_t width = static_cast<uint32_t>( image->GetSizeX() );
+    const uint32_t height = static_cast<uint32_t>( image->GetSizeY() );
+    if ( width == 0 || height == 0 ) return fail( "frame image has invalid dimensions" );
+    std::vector<unsigned char> pixels;
+    try { pixels.resize( static_cast<size_t>( width ) * height * sizeof( SColor ) ); } catch ( ... ) { return fail( "frame readback allocation failed" ); }
+    GfxGpuReadbackInfo info{ sizeof( info ), width, height, static_cast<uint32_t>( pixels.size() ), static_cast<uint32_t>( width * sizeof( SColor ) ), pixels.data() };
+    if ( !Check( gfxgpu_readback_frame( renderer_, &info ), "readback_frame" ) ) return false;
+    if ( info.row_pitch < width * sizeof( SColor ) || info.byte_length < info.row_pitch * height ) return fail( "frame readback returned an invalid layout" );
+    SColor *destination = image->GetLFB();
+    for ( uint32_t row = 0; row < height; ++row ) std::memcpy( destination + static_cast<size_t>( row ) * width, pixels.data() + static_cast<size_t>( row ) * info.row_pitch, width * sizeof( SColor ) );
+    return true;
+}

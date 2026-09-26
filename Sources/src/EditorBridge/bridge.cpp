@@ -11,6 +11,7 @@
 #include "../MapFile/MapOverlay.h"
 #include "../Main/iMain.h"
 #include "../GFX/GFX.H"
+#include "../Image/Image.h"
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
 #include "../Main/GameDB.h"
@@ -72,6 +73,42 @@ BkEditorStatus Guarded( BkEditorSession *pSession, F body )
 		pSession->szMessage = "the engine threw";
 		return BK_EDITOR_FAILED;
 	}
+}
+
+// A frame as an uncompressed 32-bit TGA: type 2, top-left origin (descriptor
+// 0x28: 8 alpha bits and the top-to-bottom flag), BGRA, alpha forced opaque
+// for the reason CMainLoop gives for its own screenshots - the frame's alpha is
+// whatever the passes left behind.
+bool WriteFrame( BkEditorSession *pSession, const char *pszPath, const SColor *pPixels, int nWidth, int nHeight )
+{
+	FILE *pFile = fopen( pszPath, "wb" );
+	if ( pFile == 0 )
+	{
+		pSession->szMessage = std::string( "could not write " ) + pszPath;
+		return false;
+	}
+	const unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	                                   (unsigned char)( nWidth & 0xff ), (unsigned char)( nWidth >> 8 ),
+	                                   (unsigned char)( nHeight & 0xff ), (unsigned char)( nHeight >> 8 ), 32, 0x28 };
+	bool bWritten = fwrite( header, 1, sizeof header, pFile ) == sizeof header;
+	std::vector<unsigned char> row( size_t( nWidth ) * 4 );
+	for ( int y = 0; y < nHeight && bWritten; ++y )
+	{
+		for ( int x = 0; x < nWidth; ++x )
+		{
+			const SColor &color = pPixels[size_t( y ) * nWidth + x];
+			row[x * 4 + 0] = (unsigned char)color.b;
+			row[x * 4 + 1] = (unsigned char)color.g;
+			row[x * 4 + 2] = (unsigned char)color.r;
+			row[x * 4 + 3] = 255;
+		}
+		bWritten = fwrite( &row[0], 1, row.size(), pFile ) == row.size();
+	}
+	if ( fclose( pFile ) != 0 )
+		bWritten = false;
+	if ( !bWritten )
+		pSession->szMessage = std::string( "could not write all of " ) + pszPath;
+	return bWritten;
 }
 
 // The renderer's own start, separated so a machine without a device is told
@@ -671,6 +708,43 @@ BkEditorStatus BkEditorScreenSize( BkEditorSession *pSession, int *pnWidth, int 
 		*pnWidth = rcScreen.right - rcScreen.left;
 		*pnHeight = rcScreen.bottom - rcScreen.top;
 		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorCaptureFrame( BkEditorSession *pSession, const char *pszPath )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszPath == 0 || pszPath[0] == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		IImageProcessor *pImages = pSession->bEngineStarted ? GetImageProcessor() : 0;
+		if ( pGFX == 0 || pImages == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		// Not TakeScreenShot: that reads the scene, and the overlay is drawn
+		// over the scene only on its way to the window.
+		if ( !pGFX->CaptureNextFrame( true ) )
+		{
+			pSession->szMessage = "this renderer cannot capture a presented frame";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( !DrawSessionFrame( pSession ) )
+		{
+			pGFX->CaptureNextFrame( false );
+			return BK_EDITOR_REFUSED;
+		}
+		const RECT rcScreen = pGFX->GetScreenRect();
+		const int nWidth = rcScreen.right - rcScreen.left, nHeight = rcScreen.bottom - rcScreen.top;
+		CPtr<IImage> pImage = pImages->CreateImage( nWidth, nHeight );
+		if ( pImage == 0 || !pGFX->ReadCapturedFrame( pImage ) )
+		{
+			pSession->szMessage = "the renderer would not read the presented frame back";
+			return BK_EDITOR_REFUSED;
+		}
+		return WriteFrame( pSession, pszPath, pImage->GetLFB(), nWidth, nHeight ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
 	} );
 }
 

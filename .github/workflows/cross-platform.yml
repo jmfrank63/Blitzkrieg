@@ -305,6 +305,11 @@ jobs:
       - name: Engine tier
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        run: zig build map-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Random missions tier
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -484,6 +489,11 @@ jobs:
 
       - name: Engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-host-check -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Random missions tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all

@@ -262,6 +262,15 @@ BkEditorStatus BkEditorResize( BkEditorSession *session, int width, int height )
    BkEditorObjectAt take their points in. */
 BkEditorStatus BkEditorScreenSize( BkEditorSession *session, int *out_width, int *out_height );
 
+/* Draws one frame, as BkEditorFrame does, and writes it to path_tga as it was
+   presented - the scene with the overlay over it - as an uncompressed 32-bit
+   TGA of the screen's size, top row first, alpha opaque. For the engine tier
+   and the app's own check, which have no other way to see the overlay; the
+   editor does not call it. BK_EDITOR_REFUSED is a device that would not begin
+   a scene or a renderer that cannot capture; BK_EDITOR_FAILED a file that
+   would not write. */
+BkEditorStatus BkEditorCaptureFrame( BkEditorSession *session, const char *path_tga );
+
 /* The object under a screen point, as a link ID. Bridges and entrenchments
    are passed over, as the MFC editor passes them over
    (TemplateEditorFrame1.cpp:3384-3400): they are edited as wholes in M2.
