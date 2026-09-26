@@ -4,7 +4,8 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
-pub const c = @cImport(@cInclude("bridge.h"));
+/// bridge.h, translated once for the app (c_bridge.zig).
+pub const c = @import("c_bridge.zig").c;
 
 pub const HostError = error{ SdlInitFailed, WindowFailed, EngineFailed, NoDevice, ImguiFailed, FrameFailed };
 
