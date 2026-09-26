@@ -283,14 +283,37 @@ fn hasKnownShaderExtension(name: []const u8) bool {
         (name.len > ".msl".len and std.mem.endsWith(u8, name, ".msl"));
 }
 
+/// `path` is relative to the stage root (e.g. `Data/Objects/.../logs/01/1.xml`
+/// or `saves/profile.sav`). A user-write or cache directory can only be the
+/// root's own top level, or the top level of `Data` within it, so the
+/// directory-name rules check the first component, and the second when the
+/// first is `Data`. Anywhere deeper, a same-named directory is a game asset,
+/// not a place the game or a stray tool writes to - e.g. the Logs01-08
+/// log-pile objects live under `Data/Objects/SimpleObjects/common/summer/logs`,
+/// five components deep. The file-suffix rules apply to the last component at
+/// any depth, since a stray `*.log`/`*.tmp`/`*.stale` file can appear
+/// anywhere in the tree.
 fn isForbiddenArtifactPath(path: []const u8) bool {
     var parts = std.mem.splitAny(u8, path, "/\\");
-    while (parts.next()) |part| {
-        if (part.len == 0) continue;
-        if (isCacheName(part) or isTempName(part) or isUserWriteName(part)) return true;
-        if (endsWithIgnoreCase(part, ".stale")) return true;
+    var last: []const u8 = path;
+    if (parts.next()) |first| {
+        if (first.len != 0) {
+            last = first;
+            if (isCacheName(first) or isTempDirName(first) or isUserWriteDirName(first)) return true;
+            if (eqlIgnoreCase(first, "Data")) {
+                if (parts.next()) |second| {
+                    if (second.len != 0) {
+                        last = second;
+                        if (isCacheName(second) or isTempDirName(second) or isUserWriteDirName(second)) return true;
+                    }
+                }
+            }
+        }
     }
-    return false;
+    while (parts.next()) |part| if (part.len != 0) {
+        last = part;
+    };
+    return isForbiddenSuffix(last);
 }
 
 fn isCacheName(name: []const u8) bool {
@@ -299,20 +322,24 @@ fn isCacheName(name: []const u8) bool {
         startsWithIgnoreCase(name, "cache-") or startsWithIgnoreCase(name, "cache_");
 }
 
-fn isTempName(name: []const u8) bool {
+fn isTempDirName(name: []const u8) bool {
     return eqlIgnoreCase(name, "temp") or eqlIgnoreCase(name, "tmp") or
         startsWithIgnoreCase(name, "temp-") or startsWithIgnoreCase(name, "temp_") or
         startsWithIgnoreCase(name, "temp.") or startsWithIgnoreCase(name, "tmp-") or
-        startsWithIgnoreCase(name, "tmp_") or startsWithIgnoreCase(name, "tmp.") or
-        endsWithIgnoreCase(name, ".tmp") or endsWithIgnoreCase(name, ".temp");
+        startsWithIgnoreCase(name, "tmp_") or startsWithIgnoreCase(name, "tmp.");
 }
 
-fn isUserWriteName(name: []const u8) bool {
+fn isUserWriteDirName(name: []const u8) bool {
     return eqlIgnoreCase(name, "saves") or eqlIgnoreCase(name, "save") or
         eqlIgnoreCase(name, "userdata") or eqlIgnoreCase(name, "user-data") or
         eqlIgnoreCase(name, "logs") or eqlIgnoreCase(name, "crashdumps") or
-        eqlIgnoreCase(name, "crash-dumps") or endsWithIgnoreCase(name, ".log") or
-        endsWithIgnoreCase(name, ".lock");
+        eqlIgnoreCase(name, "crash-dumps");
+}
+
+fn isForbiddenSuffix(name: []const u8) bool {
+    return endsWithIgnoreCase(name, ".log") or endsWithIgnoreCase(name, ".lock") or
+        endsWithIgnoreCase(name, ".tmp") or endsWithIgnoreCase(name, ".temp") or
+        endsWithIgnoreCase(name, ".stale");
 }
 
 fn eqlIgnoreCase(left: []const u8, right: []const u8) bool {
@@ -450,6 +477,17 @@ test "staged layout verifier rejects unsafe and writable artifacts" {
     try expectLinuxManifestError("temp-runtime.dll", error.ForbiddenArtifact);
     try expectLinuxManifestError("Game.exe.stale", error.ForbiddenArtifact);
     try expectLinuxManifestError("saves/profile.sav", error.ForbiddenArtifact);
+    try expectLinuxManifestError("Data/logs/stage.log", error.ForbiddenArtifact);
+    try expectLinuxManifestError("Data/saves/profile.sav", error.ForbiddenArtifact);
+}
+
+test "forbidden-artifact rule spares a nested game asset directory named like a user-write directory" {
+    // The Logs01-08 log-pile objects live at this path; only the stage root's
+    // own top level, and Data's top level, are treated as user-write/cache
+    // directories.
+    try std.testing.expect(!isForbiddenArtifactPath("Data/Objects/SimpleObjects/common/summer/logs/01/1.xml"));
+    try std.testing.expect(isForbiddenArtifactPath("Data/logs/stage.log"));
+    try std.testing.expect(isForbiddenArtifactPath("logs/stage.log"));
 }
 
 test "staged layout verifier rejects duplicate entries and foreign target assets" {

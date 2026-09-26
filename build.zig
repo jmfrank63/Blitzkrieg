@@ -848,6 +848,21 @@ pub fn build(b: *std.Build) void {
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
 
+    // Data/Scenarios against GOG Blitzkrieg 1.2 and the chapter screen's rules
+    // (docs/superpowers/specs/2026-09-25-revive-random-missions-design.md).
+    // Reads Data, so it runs from the repository root.
+    const mission_data_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mission_data_test.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const mission_data_tests = b.addTest(.{ .root_module = mission_data_module });
+    const mission_data_run = b.addRunArtifact(mission_data_tests);
+    mission_data_run.setCwd(b.path("."));
+    const mission_data_step = b.step("test-mission-data", "Check Data/Scenarios against GOG 1.2 and the chapter rules");
+    mission_data_step.dependOn(&mission_data_tests.step);
+    if (test_mode == .run) mission_data_step.dependOn(&mission_data_run.step);
+
     const platform_linkage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_linkage_test.zig"),
         .target = b.graph.host,
@@ -1785,6 +1800,7 @@ pub fn build(b: *std.Build) void {
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
+    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover or only=<text> (default all)") orelse "all";
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
@@ -2120,6 +2136,7 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -5574,6 +5591,118 @@ fn addEditorBridgeTest(
     run.addArg(b.pathFromRoot("zig-out/local-test"));
     run.step.dependOn(&install_exe.step);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+fn addRandomMissionsTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    // install-game stages every shared library the engine needs - StreamIO,
+    // StreamIOOptionsAbi, PlatformRuntime, SDL3 and the rest - so the run step
+    // installs none of them itself. The map file tier has to; it runs from the
+    // build cache and there is nothing staged for it.
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+    sweep: []const u8,
+) void {
+    // The recipe of gfxgpu-factory-test, which is the C++ executable this
+    // repository already runs on Linux CI. See the note in addMapFileTest.
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{"tools/zig/random_missions_test.cpp"},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    // This executable hosts the same engine the game does, so on Windows it
+    // needs the same imports the game executable links. Discovering them one
+    // missing symbol at a time costs a CI round each: COM through _com_util and
+    // _variant_t (Platform/LegacyVariant.h via Initialization.cpp) brought
+    // VariantClear, _com_issue_error, CoCreateGuid and SysAllocString; the
+    // version information in Misc brought GetFileVersionInfoSizeA,
+    // GetFileVersionInfoA and VerQueryValueA. The list is addGame's, minus the
+    // splash-screen resources, which a test has no window to show.
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    // Main brings Lua (the Script class) and zlib with it, the way addGame does.
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = "random-missions-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Loader-relative, because this binary runs from the installation and not
+    // from the build cache its link-time rpath points at.
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+
+    // Staged beside Game rather than added to the shipped file list: every
+    // engine module derives its roots from the running executable's location,
+    // so this has to live in the installation it starts - but a test binary has
+    // no business in a release layout or a package, so it is installed on its
+    // own and stage.zig never hears about it.
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+
+    const run = b.addRunArtifact(exe);
+    // Run from the installation, and tell it so: cwd is what the engine's
+    // relative data names resolve against.
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    // Where the test may write. Shipped Data is read-only for every tier: a run
+    // that is killed halfway must not leave a map behind in the installation.
+    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(sweep);
+    run.step.dependOn(&install_exe.step);
+    const step = b.step("test-random-missions", "Generate every random mission a chapter can offer and open it in the engine");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

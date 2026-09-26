@@ -3,6 +3,8 @@ Sources/src/.vs/
 Sources/src/editor/bin/
 Versions/
 **/Data
+# core.ignorecase makes **/Data match tools/data too; keep it tracked.
+!/tools/data/
 !/Data/
 !/Data/**
 /Data/Configs/config.cfg

@@ -376,13 +376,30 @@ fn copyTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
     }
 }
 
+/// `path` is relative to whichever tree the caller is copying: the
+/// repository's `Data` directory for game data (syncTree/pruneStagedTree), or
+/// the built shader tree for `Shaders/GfxGpu` (copyShaderAssets). A
+/// user-write or cache directory (saves, logs, cache, temp, ...) can only
+/// ever be a direct child of that tree's root, so the directory-name rules
+/// apply to the path's first component only. Anywhere deeper, a directory
+/// with the same name is a game asset, not a place the game or a stray tool
+/// writes to - e.g. the Logs01-08 log-pile objects live under
+/// `Objects/SimpleObjects/common/summer/logs`, four levels under `Data`. The
+/// file-suffix rules apply to the last component at any depth, since a stray
+/// `*.log`/`*.tmp`/`*.stale` file can appear anywhere in the tree.
 fn isForbiddenStagedPath(path: []const u8) bool {
     var parts = std.mem.splitAny(u8, path, "/\\");
+    var first: ?[]const u8 = null;
+    var last: []const u8 = path;
     while (parts.next()) |part| {
         if (part.len == 0) continue;
-        if (isCacheName(part) or isTempName(part) or isUserWriteName(part)) return true;
+        if (first == null) first = part;
+        last = part;
     }
-    return false;
+    if (first) |name| {
+        if (isCacheName(name) or isTempDirName(name) or isUserWriteDirName(name)) return true;
+    }
+    return isForbiddenSuffix(last);
 }
 
 fn isCacheName(name: []const u8) bool {
@@ -391,20 +408,24 @@ fn isCacheName(name: []const u8) bool {
         startsWithIgnoreCase(name, "cache-") or startsWithIgnoreCase(name, "cache_");
 }
 
-fn isTempName(name: []const u8) bool {
+fn isTempDirName(name: []const u8) bool {
     return eqlIgnoreCase(name, "temp") or eqlIgnoreCase(name, "tmp") or
         startsWithIgnoreCase(name, "temp-") or startsWithIgnoreCase(name, "temp_") or
         startsWithIgnoreCase(name, "temp.") or startsWithIgnoreCase(name, "tmp-") or
-        startsWithIgnoreCase(name, "tmp_") or startsWithIgnoreCase(name, "tmp.") or
-        endsWithIgnoreCase(name, ".tmp") or endsWithIgnoreCase(name, ".temp");
+        startsWithIgnoreCase(name, "tmp_") or startsWithIgnoreCase(name, "tmp.");
 }
 
-fn isUserWriteName(name: []const u8) bool {
+fn isUserWriteDirName(name: []const u8) bool {
     return eqlIgnoreCase(name, "saves") or eqlIgnoreCase(name, "save") or
         eqlIgnoreCase(name, "userdata") or eqlIgnoreCase(name, "user-data") or
         eqlIgnoreCase(name, "logs") or eqlIgnoreCase(name, "crashdumps") or
-        eqlIgnoreCase(name, "crash-dumps") or endsWithIgnoreCase(name, ".log") or
-        endsWithIgnoreCase(name, ".lock");
+        eqlIgnoreCase(name, "crash-dumps");
+}
+
+fn isForbiddenSuffix(name: []const u8) bool {
+    return endsWithIgnoreCase(name, ".log") or endsWithIgnoreCase(name, ".lock") or
+        endsWithIgnoreCase(name, ".tmp") or endsWithIgnoreCase(name, ".temp") or
+        endsWithIgnoreCase(name, ".stale");
 }
 
 fn eqlIgnoreCase(left: []const u8, right: []const u8) bool {

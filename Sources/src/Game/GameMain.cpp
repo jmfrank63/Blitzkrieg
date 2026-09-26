@@ -1342,6 +1342,64 @@ int RunGame( const BkGameLaunchInfo &launch )
 							GetSingleton<IScenarioTracker>()->StartCampaign( szCampaign.substr( nEq + 1 ).c_str(), CAMPAIGN_TYPE_SINGLE );
 						}
 					}
+					else if ( szAction.compare( 0, 8, "chapter=" ) == 0 )
+					{
+						// chapter=<chapter stats name>: enables the chapter and opens its
+						// screen, as picking it on the campaign map does (Campaign.cpp).
+						// Needs campaign= first.
+						std::string szChapter = szAction.substr( 8 );
+						NStr::ToLower( szChapter );
+						// A copy: SetGlobalVar( name, int ) formats the value with NStr::Format,
+						// whose one buffer the name would otherwise still point into.
+						const std::string szStatusVar = NStr::Format( "Chapter.%s.Status", szChapter.c_str() );
+						SetGlobalVar( szStatusVar.c_str(), 1 );
+						SetGlobalVar( "Chapter.Current.Name", szChapter.c_str() );
+						pMainLoop->Command( MISSION_COMMAND_CHAPTER, "" );
+					}
+					else if ( szAction.compare( 0, 8, "mission=" ) == 0 )
+					{
+						// mission=<template mission name>: opens that random mission's
+						// briefing from the chapter screen, which generates its map - what
+						// the chapter's OK does for a selected mission, except that the
+						// harness names the template instead of taking one of the three
+						// the chapter happened to generate. The difficulty is that of the
+						// chapter's entry for this template, or of its first random entry.
+						std::string szMission = szAction.substr( 8 );
+						NStr::ToLower( szMission );
+						std::string szChapter = GetGlobalVar( "Chapter.Current.Name", "" );
+						NStr::ToLower( szChapter );
+						int nIndex = -1;
+						if ( const SChapterStats *pChapter = NGDB::GetGameStats<SChapterStats>( szChapter.c_str(), IObjectsDB::CHAPTER ) )
+						{
+							for ( int i = 0; i < pChapter->missions.size(); ++i )
+							{
+								std::string szEntry = pChapter->missions[i].szMission;
+								NStr::ToLower( szEntry );
+								const bool bTemplate = pChapter->missions[i].pMission != 0 && pChapter->missions[i].pMission->IsTemplate();
+								if ( szEntry == szMission || ( nIndex == -1 && bTemplate ) )
+									nIndex = i;
+								if ( szEntry == szMission )
+									break;
+							}
+						}
+						if ( nIndex == -1 )
+							fprintf( stderr, "BK_AUTO_UI: mission=%s: chapter \"%s\" has no random mission entry\n", szMission.c_str(), szChapter.c_str() );
+						else
+						{
+							SetGlobalVar( "Mission.Current.Index", nIndex );
+							SetGlobalVar( "Mission.Current.IsTemplate", 1 );
+							SetGlobalVar( "Mission.Current.Name", szMission.c_str() );
+							pMainLoop->Command( MISSION_COMMAND_ABOUT_MISSION, "" );
+						}
+					}
+					else if ( szAction.compare( 0, 4, "lua=" ) == 0 )
+					{
+						// lua=<call>: runs a call in the mission's script, e.g. lua=Win(0)
+						// to win through the mission's own Win - the path its objectives
+						// take. Only meaningful while a mission runs.
+						if ( IAILogic *pAI = GetSingleton<IAILogic>() )
+							pAI->CallScriptFunction( szAction.c_str() + 4 );
+					}
 					else if ( szAction.compare( 0, 5, "cmdc=" ) == 0 )
 					{
 						// cmdc=<id>=<configuration>: a main-loop command that needs its
