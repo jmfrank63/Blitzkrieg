@@ -17,6 +17,7 @@
 #include "../AILogic/aiconsts.h"
 #include "../StreamIO/ProgressHook.h"
 #include "../Platform/Clock.h"
+#include "../Misc/Win32Random.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -907,7 +908,18 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 									NStr::Format( "CreateRandomMap, Can't create stream: %s", ( szRandomMapName + ".seed" ).c_str() ), 
 									return false );
 		pRandomGenSeed->Store( pRandomSeedStream );
-	}	
+
+		// The tile variants (rand() in STileTypeDesc::GetMapsIndex) and the polygon
+		// jitter (NWin32Random in RandomizeEdges) draw from generators the seed does
+		// not hold: seed both from it, so a save regenerates the same map.
+		const unsigned int nLegacySeed = Random();
+		// That draw advanced IRandomGen past the state just stored: put it back,
+		// so IRandomGen's draws during generation are exactly those that follow
+		// the stored seed.
+		pRandomGen->SetSeed( pRandomGenSeed );
+		NWin32Random::Seed( int( nLegacySeed ) );
+		srand( nLegacySeed );
+	}
 
 	CMapInfo mapInfo;
 	bResult = mapInfo.Create( randomMapTemplate.size, randomMapTemplate.nSeason, randomMapTemplate.szSeasonFolder, 0, randomMapTemplate.nType );
@@ -1799,8 +1811,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 				{	
 					if ( mapInfo.scenarioObjects[nObjectIndex].nScriptID == objectiveIterator->nAnchorScriptID )
 					{
-						objectiveIterator->vPosOnMap.x += mapInfo.objects[nObjectIndex].vPos.x;
-						objectiveIterator->vPosOnMap.y += mapInfo.objects[nObjectIndex].vPos.y;
+						// The scenario object's own position: this read objects[] with
+						// the scenario-object index - another object's position, and
+						// past the end of objects when there are more scenario objects.
+						objectiveIterator->vPosOnMap.x += mapInfo.scenarioObjects[nObjectIndex].vPos.x;
+						objectiveIterator->vPosOnMap.y += mapInfo.scenarioObjects[nObjectIndex].vPos.y;
 						++nObjectsCount;
 						if ( bOnlyOneObject )
 						{

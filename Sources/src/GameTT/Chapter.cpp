@@ -177,7 +177,7 @@ void CInterfaceChapter::IncrementChapterVisited()
 			
 			templates.push_back( temp );
 		}
-		
+
 		if ( nTotalProbability == 0 )
 		{
 			NStr::DebugTrace( "CInterfaceChapter::IncrementChapterVisited(), no template missions for chapter \"%s\" (setting \"%s\")\n", szChapterName.c_str(), pChapterStats->szSettingName.c_str() );
@@ -425,32 +425,9 @@ void CInterfaceChapter::InitWindow()
 		missionIndeces.push_back( i );
 	}
 
-	if ( missionIndeces.empty() )
-	{
-		NStr::DebugTrace( "CInterfaceChapter::InitWindow(), no enabled scenario missions for chapter \"%s\", using fallback list\n", GetGlobalVar( "Chapter.Current.Name", "" ) );
-		for ( int i = 0; i < pStats->missions.size(); ++i )
-		{
-			std::string szMissionName = pStats->missions[i].szMission;
-			NStr::ToLower( szMissionName );
-			const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
-			if ( pMissionStats == 0 || pMissionStats->IsTemplate() )
-				continue;
-
-			CPtr<IUIElement> pMissionButton;
-			missionButtonSaver.Add( "Element", &pMissionButton );
-			CVec2 size;
-			pMissionButton->GetWindowPlacement( 0, &size, 0 );
-
-			CVec2 vPos = pStats->missions[i].vPosOnMap;
-			vPos.x -= size.x / 2;
-			vPos.y -= size.y / 2;
-			pMissionButton->SetWindowPlacement( &vPos, 0 );
-			pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
-			pMap->AddChild( pMissionButton );
-			pMissionButton->ScaleLayout( vMapLayoutScale );
-			missionIndeces.push_back( i );
-		}
-	}
+	// Only what the chapter script has enabled. Before the chapter's first random
+	// win that is nothing, and the screen offers only random missions: the
+	// original's design (Data/Scenarios/Chapters/*/*/script.lua, MissionFinished).
 	nNumberOfScenarioMissions = missionIndeces.size();
 	
 	for ( int i = 0; i < pStats->missions.size(); ++i )
@@ -489,6 +466,17 @@ void CInterfaceChapter::InitWindow()
 		pMap->GetWindowPlacement( &pos, &size, &rect );
 		fprintf( stderr, "BK_UI_TRACE: chapter map final pos=(%.1f,%.1f) size=(%.1f,%.1f) rect=(%.1f,%.1f)-(%.1f,%.1f)\n",
 			pos.x, pos.y, size.x, size.y, rect.x1, rect.y1, rect.x2, rect.y2 );
+	}
+	// What the chapter screen offers, for harness runs: the random missions it
+	// generated and the historical ones the chapter script has enabled.
+	if ( getenv( "BK_UI_TRACE" ) )
+	{
+		for ( int i = 0; i < missionIndeces.size(); ++i )
+		{
+			const SChapterStats::SMission &offered = pStats->missions[ missionIndeces[i] ];
+			fprintf( stderr, "BK_UI_TRACE: chapter \"%s\" offers %s mission \"%s\"\n", GetGlobalVar( "Chapter.Current.Name", "" ),
+			         ( offered.pMission != 0 && offered.pMission->IsTemplate() ) ? "random" : "historical", offered.szMission.c_str() );
+		}
 	}
 	if ( !missionIndeces.empty() )
 		SetGlobalVar( "NumberOfButtons", (int) missionIndeces.size() - 1 );
@@ -550,6 +538,14 @@ void CInterfaceChapter::InitWindow()
 	{
 		SetGlobalVar( "NumberOfButtons", 0 );
 		NStr::DebugTrace( "CInterfaceChapter::InitWindow(), chapter has no missions after initialization\n" );
+		// A stale LOSE (or any non-win status) makes IncrementChapterVisited
+		// keep the stored mission set, and that set can hold nothing to offer:
+		// a profile last in Kursk, Rumania or Kharkov42 from before those
+		// chapters had templates stores only the not-yet-enabled historical
+		// mission. Without this the player bounces between this screen and the
+		// campaign screen for ever; with the status gone, the next entry
+		// regenerates the chapter's random missions.
+		RemoveGlobalVar( "Mission.Last.FinishStatus" );
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CAMPAIGN, 0 );
 		return;
 	}

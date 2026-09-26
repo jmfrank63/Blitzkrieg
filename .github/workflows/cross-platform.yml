@@ -31,13 +31,11 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            # The mission data tier compares Data/Scenarios (144 MB) against
+            # GOG 1.2's manifest, and the random missions tier's generator
+            # reads templates, settings, chapters, contexts, patches,
+            # scripts, fieldsets and graphs out of it.
+            /Data/Scenarios/
           sparse-checkout-cone-mode: false
 
       - name: Install Linux build dependencies
@@ -100,6 +98,9 @@ jobs:
 
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Mission data tier
+        run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Editor core tier
         run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
@@ -176,19 +177,14 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            /Data/Scenarios/
             # The engine tier starts the whole game, so it needs nearly all of Data.
             # Measured 2026-09-21 by adding trees to a symlink farm until it ran
             # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
-            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
-            # the two runners that have a GPU device pay for it; the other three
-            # have none, would skip, and keep the narrow checkout.
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
             /Data/*.xml
             /Data/*.arr
             /Data/*.spp
@@ -309,6 +305,20 @@ jobs:
       - name: Engine tier
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Random missions tier
+        run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # Debug-only: NI_ASSERT lives in the debug build alone (RC2's
+      # SRMMiniMapCreateParameter guard). kharkov42 selects its chapter's
+      # four summer_ukraine templates (defend00, defend01, escort00, hunt00)
+      # at three difficulties, 12 cases, so the assert runs on the revived
+      # mission types without paying for a debug `all` sweep (about 3 h; see
+      # Task 5's report). only=summer_ukraine would also match the
+      # summer_ukraine\securearea* template paths (setting summer_russia),
+      # about 96 cases.
+      - name: Random missions tier (debug asserts)
+        run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -356,19 +366,14 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            /Data/Scenarios/
             # The engine tier starts the whole game, so it needs nearly all of Data.
             # Measured 2026-09-21 by adding trees to a symlink farm until it ran
             # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
-            # everything but movies, Music, Old, Bugs, Medals and Scenarios. Only
-            # the two runners that have a GPU device pay for it; the other three
-            # have none, would skip, and keep the narrow checkout.
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
             /Data/*.xml
             /Data/*.arr
             /Data/*.spp
@@ -479,6 +484,9 @@ jobs:
 
       - name: Engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Random missions tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos

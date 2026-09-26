@@ -1,0 +1,3 @@
+# Files under Data/Scenarios that deliberately differ from GOG Blitzkrieg 1.2.
+# <lower-case path><TAB><reason>. Read by tools/zig/mission_data_test.zig.
+scenarios/chapters/german/barbarossa/context.xml	GOG offers the American T34_Calliope_USA as a German random-mission reward; ours has BM_13, as the repository's first data import (5e48dedd8) had it.

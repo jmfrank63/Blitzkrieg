@@ -777,6 +777,11 @@ void CInterfaceScreenBase::RestoreScreen()
 }
 void CInterfaceScreenBase::ShowTutorialIfNotShown()
 {
+	// A harness run with BK_NO_HELP skips the help screens a fresh profile gets
+	// the first time a screen opens: its scripted actions would land on them.
+	static const bool bNoHelp = getenv( "BK_AUTO_UI" ) != 0 && getenv( "BK_NO_HELP" ) != 0;
+	if ( bNoHelp )
+		return;
 	if ( !GetSingleton<IUserProfile>()->IsHelpCalled( GetCommonFactory()->GetObjectTypeID( this ), nHelpContextNumber ) )
 	{	//ShowTutorial();
 		pInput->AddMessage( SGameMessage( TUTORIAL_WINDOW_ID ) );

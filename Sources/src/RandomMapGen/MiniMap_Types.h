@@ -104,17 +104,21 @@ struct SRMMiniMapCreateParameter
 		bool bScaleNoise;
 		EImageScaleMethod scaleMethod;
 
+		SMiniMapLayer() : color( 0 ), borderColor( 0 ), shadowPoint( 0, 0 ), embossPoint( 0, 0 ), embossFilterSize( 0 ), embossType( ET_INNER ), bScaleNoise( false ), scaleMethod( ISM_FILTER ) {}
+
 		virtual int STDCALL operator&( IStructureSaver &ss );
 		virtual int STDCALL operator&( IDataTree &ss );
 	};
-	
+
 	std::vector<SMiniMapLayer> layers;
-	int nWoodRadius; 
+	int nWoodRadius;
 	float fTerrainShadeRatio;
 	bool bAllBuildingPassability;
 	bool bTerrainShades;
 	DWORD dwMinAlpha;
 	DWORD dwBridgeWidth;
+
+	SRMMiniMapCreateParameter() : nWoodRadius( 0 ), fTerrainShadeRatio( 0.0f ), bAllBuildingPassability( false ), bTerrainShades( false ), dwMinAlpha( 0 ), dwBridgeWidth( 0 ) {}
 
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
