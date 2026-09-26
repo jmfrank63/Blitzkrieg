@@ -2143,7 +2143,7 @@ pub fn build(b: *std.Build) void {
     // The editor's two platforms; everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
-    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, sdl3, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, stage_root, install_game_step);
+    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step);
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
@@ -5608,7 +5608,6 @@ fn addMapEditor(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
-    sdl3: *std.Build.Module,
     editor_imgui_module: *std.Build.Module,
     editor_bridge: *std.Build.Step.Compile,
     map_file: *std.Build.Step.Compile,
@@ -5620,18 +5619,31 @@ fn addMapEditor(
     zlib: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
 ) void {
     // The union of two recipes: the engine half is addEditorBridgeTest's (the
     // same static libraries, imports and CRT), the ImGui half the overlay
-    // spike's (the sdl3 and editor_imgui modules, the MSVC library paths).
+    // spike's (the editor_imgui module, the MSVC library paths). SDL is not
+    // the spike's sdl3 module: that links libc, and on MSVC Zig's libc is its
+    // static release CRT, which the Windows job measured colliding with the
+    // engine's debug DLL CRT (duplicate _cexit, _wctype, __pctype_func and
+    // _invalid_parameter_noinfo: libucrt.lib against ucrtd.lib). The app takes
+    // the headers and library of the SDL the engine links instead.
+    const sdl_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/sdl3.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    sdl_module.addIncludePath(sdl_include);
+    addMsvcIncludePaths(b, sdl_module, toolchain);
     const module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/main.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "sdl3", .module = sdl3 },
+            .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
         },
     });
@@ -5665,10 +5677,7 @@ fn addMapEditor(
     module.linkLibrary(lualib);
     module.linkLibrary(zlib);
     module.linkLibrary(platform_runtime);
-    // The sdl3 module already links SDL3; on macOS a second link is a second
-    // LC_LOAD_DYLIB for @rpath/libSDL3.dylib, which dyld refuses ("duplicate
-    // linked dylib"), as addGFXGPU and gfxgpu-factory-test note.
-    if (target.result.os.tag != .macos) linkSdlImport(module, target, sdl_dynamic);
+    linkSdlImport(module, target, sdl_dynamic);
 
     const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
     if (target.result.os.tag == .windows) {
