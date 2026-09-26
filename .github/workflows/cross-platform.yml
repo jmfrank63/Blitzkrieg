@@ -159,7 +159,10 @@ jobs:
     # 35683754678). The two runs that were cut off at 120 and 240 minutes were
     # not building: the test sat behind a debug-CRT abort() message box, which
     # editor_bridge_test.cpp now sends to stderr instead.
-    timeout-minutes: 60
+    # Raised to 75: run 36271881570 had every step green and was cancelled at
+    # 60 minutes during post-job cleanup, after the random missions tiers
+    # (37 minutes together) and a 5.5 minute upload of zig-out.
+    timeout-minutes: 75
 
     steps:
       - name: Check out source

@@ -436,6 +436,24 @@ Root source `Sources/editor/app/main.zig`; the `bridge.h` include path (`Sources
 
 **The CRT is the measured part.** Build it on macOS first; then push and read the Windows job. The engine statics are compiled `-D_DEBUG -D_MT -D_DLL` in Debug and want the debug CRT (`linkMsvcRuntime`); `addEditorImgui` builds ImGui ReleaseFast against whatever the consumer links. The spike used `link_libc = true` on MSVC and no `linkMsvcRuntime`; the bridge test used `linkMsvcRuntime` and no `link_libc`. Start with the bridge test's recipe (`linkMsvcRuntime`, no `link_libc`). If the link fails on `_ITERATOR_DEBUG_LEVEL` or `RuntimeLibrary` mismatches between ImGui's objects and the engine's, build ImGui for the app with the engine's debug flags (a second `addEditorImgui` call parameterised by the flags, or a flag on the existing one) rather than changing the engine's. Record which it was, with the linker's message, in this plan under this step.
 
+**Measured (Windows job, runs 36267843459 to 36271881570).** The CRT did not clash between ImGui and the engine: no `_ITERATOR_DEBUG_LEVEL` or `RuntimeLibrary` mismatch, and ImGui stays ReleaseFast. What clashed was a second CRT that came in through the spike's `sdl3` module (vendor/zig-sdl3), which links libc. On MSVC Zig's libc is its static release CRT, and next to the engine's debug DLL CRT the link failed:
+
+```
+error: lld-link: duplicate symbol: _cexit
+    note: defined at minkernel\crts\ucrt\src\appcrt\startup\exit.cpp:321
+    note:            libucrt.lib(exit.obj)
+    note: defined at ucrtd.lib(ucrtbased.dll)
+```
+
+The same happened for `_invalid_parameter_noinfo`, `_wctype` and `__pctype_func`. So the app does not import that module. `Sources/editor/app/sdl3.zig` exposes the same `c` namespace from a translate-c of the headers of the SDL the engine links (`sdl_dynamic`). That module's `link_libc` is forced false, and `SIZE_MAX` is defined as zig-sdl3 defines it, because Zig 0.16's translate-c rejects MSVC's `ui64` suffix. A plain `@cImport` of `SDL.h` failed as well: with no libc in the compilation it found "libc headers not available". Three smaller changes followed:
+- `editor_imgui`'s module gets the MSVC include paths, for `<assert.h>` in its `@cImport`.
+- `imm32` is linked, for ImGui's default IME hook.
+- On Windows the entry point is the CRT's `mainCRTStartup`, as for editor-bridge-test, so the CRT initialises and the engine statics' constructors run. With no libc, Zig does not export a C `main`, so `main.zig` exports one itself and reads the arguments from the PEB.
+
+The capture is not `IGFX::TakeScreenShot`, whatever Step 1 says: that reads the scene texture, and the overlay is drawn only into the presented frame. Measured, the probe's centre came back as the map, `(0,11,17)`. `IGFX` gains `CaptureNextFrame`/`ReadCapturedFrame` over the renderer's existing frame capture (`set_frame_capture`, `gfxgpu_readback_frame`), and `BkEditorCaptureFrame` uses those. The check also moves the camera to the map's middle. It opens on the corner, where the screen's centre is the clear colour.
+
+Results: `map-editor: host check PASS (metal, 1280x800)` on macos-14 and `map-editor: host check PASS (direct3d12, 1008x681)` on windows-latest. The runner's desktop clamps the window.
+
 Steps:
 - `install-map-editor`: installs `MapEditor` into the stage root (depends on `install-game`).
 - `map-editor-host-check`: runs `MapEditor --check Data\Maps\Multiplayer\coldwinter.bzm zig-out/local-test/map-editor-check.tga` with the working directory set to the stage root, exactly like `test-editor-bridge`'s run step (`setCwd(stage_root)`), and an absolute output path.
