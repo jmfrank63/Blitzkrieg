@@ -6,7 +6,6 @@
 //! "map-editor: host check PASS (<driver>, <w>x<h>)" and exits 0, or a
 //! "FAIL:" line naming what was wrong and exits 1.
 const std = @import("std");
-const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const host_mod = @import("host.zig");
