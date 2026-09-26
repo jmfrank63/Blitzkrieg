@@ -5679,6 +5679,8 @@ fn addMapEditor(
         module.linkSystemLibrary("user32", .{});
         module.linkSystemLibrary("gdi32", .{});
         module.linkSystemLibrary("shell32", .{});
+        // ImGui's default IME hook (imgui.cpp Platform_SetImeDataFn_DefaultImpl).
+        module.linkSystemLibrary("imm32", .{});
     }
     module.linkLibrary(editor_bridge);
     module.linkLibrary(map_file);
