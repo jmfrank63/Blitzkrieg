@@ -4,4 +4,4 @@
 //! engine's statics need the debug DLL CRT - measured on the Windows job, the
 //! two collide (lld-link: duplicate symbol: _cexit, libucrt.lib against
 //! ucrtd.lib). The same `c` namespace, so host.zig reads as it would with it.
-pub const c = @cImport(@cInclude("SDL3/SDL.h"));
+pub const c = @import("sdl_c");

@@ -5631,13 +5631,25 @@ fn addMapEditor(
     // engine's debug DLL CRT (duplicate _cexit, _wctype, __pctype_func and
     // _invalid_parameter_noinfo: libucrt.lib against ucrtd.lib). The app takes
     // the headers and library of the SDL the engine links instead.
+    //
+    // Translated as vendor/zig-sdl3 translates it, not by @cImport: an
+    // @cImport in a compilation without libc has no libc headers on MSVC
+    // ("libc headers not available"), and Zig 0.16's translate-c rejects the
+    // `ui64` suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses. The
+    // translation step may use libc headers; the module it makes must not
+    // link libc, or the collision above comes back.
+    const sdl_header = b.addWriteFiles().add("sdl3.h", "#include <SDL3/SDL.h>\n");
+    const sdl_translate = b.addTranslateC(.{ .root_source_file = sdl_header, .target = target, .optimize = optimize });
+    sdl_translate.addIncludePath(sdl_include);
+    if (target.result.os.tag == .windows) sdl_translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
+    const sdl_c = sdl_translate.createModule();
+    sdl_c.link_libc = false;
     const sdl_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/sdl3.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{.{ .name = "sdl_c", .module = sdl_c }},
     });
-    sdl_module.addIncludePath(sdl_include);
-    addMsvcIncludePaths(b, sdl_module, toolchain);
     const module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/main.zig"),
         .target = target,
