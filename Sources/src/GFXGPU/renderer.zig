@@ -666,6 +666,10 @@ pub const Renderer = struct {
     pub fn requestFrameCapture(self: *Renderer, enabled: bool) !void {
         if (self.frame.state != .idle) return error.InvalidState;
         self.capture_requested = enabled;
+        // A request is for the next frame: until one is kept, a read has to
+        // fail rather than hand back an older capture (a skipped frame keeps
+        // nothing).
+        if (enabled) self.capture_ready = false;
     }
 
     fn ensureCaptureTexture(self: *Renderer, width: u32, height: u32) !*sdl.GpuTexture {
