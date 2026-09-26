@@ -144,6 +144,13 @@ bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
 bool DrawSessionFrame( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
 
+// True when every cell's tile is one the map's tileset has a terrain type for.
+// False with the reason in szMessage; *pbBadTile says the caller named a tile
+// the tileset lacks, rather than the engine having no terrain or tileset.
+bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile );
+// The tile the engine holds at a cell. False with the reason in szMessage when
+// no map is open or the cell is off the map.
+bool EngineTile( SEditorSession *pSession, int nX, int nY, BYTE *pTile );
 // Paints cells into the map and pushes the region they touched into the engine.
 // Returns false with the reason in szMessage. pnToken names the paint for undo
 // and redo; it is -1 when there was nothing to paint.

@@ -1044,6 +1044,38 @@ static void TestPaintAtTheEdgeAndRefused( BkEditorSession *pSession, const std::
 	remove( szSaved.c_str() );
 }
 
+// A tile the map's tileset has no terrain type for is the caller's mistake:
+// BK_EDITOR_BAD_ARGUMENT, naming the tile, and nothing painted - not even the
+// cells beside it that name a good tile. Tile 1 is in none of the shipped
+// tilesets; 255 is what a caller's -1 becomes in the cell's unsigned char.
+static void TestPaintRefusesTileOutsideTileset( BkEditorSession *pSession )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	unsigned char before[2] = { 0, 0 };
+	if ( !Check( BkEditorEngineTile( pSession, 30, 30, &before[0] ) == BK_EDITOR_OK &&
+	             BkEditorEngineTile( pSession, 31, 30, &before[1] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const unsigned char badTiles[] = { 1, (unsigned char)-1 };
+	for ( int i = 0; i < 2; ++i )
+	{
+		// The good cell first, so a check that stopped at it would paint it.
+		const BkEditorPaintCell cells[] = { { 30, 30, (unsigned char)( before[0] == 0 ? 2 : 0 ) }, { 31, 30, badTiles[i] } };
+		int nToken = 0;
+		const std::string szWhat = NStr::Format( "tile %d", int( badTiles[i] ) );
+		Check( BkEditorPaint( pSession, cells, 2, &nToken ) == BK_EDITOR_BAD_ARGUMENT, ( "a paint naming " + szWhat + " outside the tileset is a bad argument" ).c_str() );
+		Check( nToken == -1, "and has no token" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( szWhat ) != std::string::npos,
+		       ( std::string( "and the message names the tile: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		unsigned char after[2] = { 0, 0 };
+		BkEditorEngineTile( pSession, 30, 30, &after[0] );
+		BkEditorEngineTile( pSession, 31, 30, &after[1] );
+		Check( after[0] == before[0] && after[1] == before[1], "and the engine's tiles are as they were" );
+		Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+		       ( std::string( "and the map's terrain still matches the engine's: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	}
+}
+
 // Delete then restore is the original object, in the map and in the engine,
 // and add - delete - restore keeps the added object's link ID.
 static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const std::string &szScratch )
@@ -1407,6 +1439,7 @@ int main( int argc, char **argv )
 		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
+		TestPaintRefusesTileOutsideTileset( pSession );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
 		// The 640x480 the window was created at: BkEditorStart sets the mode to
 		// the window's own size. The middle of the screen is the middle of what

@@ -190,10 +190,20 @@ typedef struct { int x, y; unsigned char tile; } BkEditorPaintCell;
    null; it is -1 when nothing was painted (count 0, or a refusal). A token is
    valid until the next BkEditorOpenMap, which forgets every paint of the map
    before and numbers the new map's paints from 0 again, so an old token may
-   name a new paint and must not be used. */
+   name a new paint and must not be used.
+   Every cell's tile must be one the open map's tileset has a terrain type for
+   (the shipped tilesets skip indices: 1 is in none of them). A cell naming any
+   other tile is BK_EDITOR_BAD_ARGUMENT, with the tile in BkEditorLastMessage,
+   and nothing is painted - the check runs over all cells before the terrain
+   is touched. A cell off the map is BK_EDITOR_REFUSED, also before anything
+   is painted. */
 BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count, int *out_token );
 BkEditorStatus BkEditorUndoPaint( BkEditorSession *session, int token );
 BkEditorStatus BkEditorRedoPaint( BkEditorSession *session, int token );
+/* The tile the engine holds at a cell, as it draws it - for the engine tier
+   and for an eyedropper. BK_EDITOR_REFUSED when no map is open or the cell is
+   off the map. */
+BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsigned char *out_tile );
 
 /* A world point to the tile it falls in - the brush's other half, through the
    engine's own conversion. Screen to world is BkEditorScreenToWorld; the two

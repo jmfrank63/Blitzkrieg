@@ -836,6 +836,67 @@ void CaptureEngineRegion( const STerrainInfo &rEngine, const CTRect<int> &rPatch
 }
 }
 
+// A tile the tileset has no terrain type for reaches CTerrain::SetTile, whose
+// CTerrainBuilder::HasNoise indexes tileset.terrtypes with the -1 that
+// GetTerrainType answers for it (RandomMapGen/TerrainBuilder.cpp), so every
+// cell is checked against the tileset the engine loaded for the map before
+// anything is painted.
+bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile )
+{
+	*pbBadTile = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const STilesetDesc &rTileset = pEngineTerrain->GetTilesetDesc();
+	if ( rTileset.terrtypes.empty() )
+	{
+		pSession->szMessage = "the map's tileset has no terrain types";
+		return false;
+	}
+	for ( size_t i = 0; i < rCells.size(); ++i )
+	{
+		bool bFound = false;
+		for ( size_t t = 0; t < rTileset.terrtypes.size() && !bFound; ++t )
+		{
+			const std::vector<SMainTileDesc> &rTiles = rTileset.terrtypes[t].tiles;
+			for ( size_t k = 0; k < rTiles.size() && !bFound; ++k )
+				bFound = rTiles[k].nIndex == int( rCells[i].tile );
+		}
+		if ( !bFound )
+		{
+			pSession->szMessage = NStr::Format( "tile %d is not in the map's tileset (cell %d,%d)", int( rCells[i].tile ), rCells[i].nX, rCells[i].nY );
+			*pbBadTile = true;
+			return false;
+		}
+	}
+	return true;
+}
+
+bool EngineTile( SEditorSession *pSession, int nX, int nY, BYTE *pTile )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const CArray2D<SMainTileInfo> &rTiles = pEngineTerrain->GetTerrainInfo().tiles;
+	if ( nX < 0 || nY < 0 || nX >= rTiles.GetSizeX() || nY >= rTiles.GetSizeY() )
+	{
+		pSession->szMessage = NStr::Format( "cell %d,%d is not on the map", nX, nY );
+		return false;
+	}
+	*pTile = rTiles[nY][nX].tile;
+	return true;
+}
+
 bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, int *pnToken )
 {
 	*pnToken = -1;

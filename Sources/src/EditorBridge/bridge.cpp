@@ -492,11 +492,37 @@ BkEditorStatus BkEditorPaint( BkEditorSession *pSession, const BkEditorPaintCell
 			cell.noise = 0;		// PaintIntoSession fills it from the engine
 			cells.push_back( cell );
 		}
+		// Before anything is painted: a tile the tileset lacks is the caller's
+		// mistake, and the engine would index its terrain types with -1 for it.
+		bool bBadTile = false;
+		if ( !PaintTilesInTileset( pSession, cells, &bBadTile ) )
+			return bBadTile ? BK_EDITOR_BAD_ARGUMENT : BK_EDITOR_REFUSED;
 		int nToken = -1;
 		if ( !PaintIntoSession( pSession, cells, &nToken ) )
 			return BK_EDITOR_REFUSED;
 		if ( pnToken != 0 )
 			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorEngineTile( BkEditorSession *pSession, int nX, int nY, unsigned char *pOut )
+{
+	if ( pOut != 0 )
+		*pOut = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		BYTE tile = 0;
+		if ( !EngineTile( pSession, nX, nY, &tile ) )
+			return BK_EDITOR_REFUSED;
+		*pOut = tile;
 		return BK_EDITOR_OK;
 	} );
 }
