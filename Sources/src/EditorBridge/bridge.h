@@ -108,8 +108,9 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
    that more than one object of the map carries is refused, because the bridge
    cannot tell which of them would change; they are saved as they were read.
 
-   Positions are floats because a map's are; the engine takes whole units and
-   the bridge rounds once, on its way in. */
+   Positions are floats because a map's are, in map units (see
+   BkEditorScreenToWorld); the engine takes whole units and the bridge rounds
+   once, on its way in. */
 BkEditorStatus BkEditorAddObject( BkEditorSession *session, const char *name,
                                   float x, float y, int dir, int player, int *out_link_id );
 /* All three at once. The single-field calls below are this one with the other
@@ -213,7 +214,7 @@ BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsig
    no map is open. */
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *out, int capacity, int *out_count );
 
-/* A world point to the tile it falls in - the brush's other half, through the
+/* A world point (world units, not map units) to the tile it falls in - the brush's other half, through the
    engine's own conversion. Screen to world is BkEditorScreenToWorld; the two
    compose. BK_EDITOR_REFUSED means the point is not on the map. */
 BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy, int *out_x, int *out_y );
@@ -238,7 +239,8 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
 typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
-/* The camera, and one frame drawn into the window the session was started on.
+/* The camera, placed in world units, and one frame drawn into the window the
+   session was started on.
    BK_EDITOR_REFUSED from BkEditorFrame is a device that would not begin a
    scene, which is a thing that happens rather than a bug. */
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
@@ -300,8 +302,25 @@ BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, i
 
 /* A screen point to the world point under it, against the terrain the camera
    is looking at - so it wants a camera that has been placed. Composes with
-   BkEditorWorldToTile to turn a click into a cell. */
+   BkEditorWorldToTile to turn a click into a cell.
+
+   Two units cross this ABI, and a point in one is not a point in the other.
+   World units are the scene's: the camera (BkEditorSetCamera), this call and
+   BkEditorWorldToTile. Map units are the file's and the AI's: every object
+   position - BkEditorAddObject, BkEditorPlaceObject and the calls built on it,
+   BkEditorObjects, BkEditorEngineObjectState. A map unit is sqrt 2 world
+   units' worth smaller (AI2Vis, Formats/fmtTerrain.h), so a click's world
+   point handed straight to BkEditorAddObject places the object at 0.7 of
+   the way from the map's corner to where it was clicked - off the screen,
+   drawn and picked there, which is how plan 5's smoke first met it.
+   BkEditorWorldToMap is the one conversion. */
 BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float sy, float *wx, float *wy );
+
+/* A world point as the map position an object placed there takes, through
+   the engine's own conversion (Vis2AIFast). Unrounded: the object calls
+   round once, on their way in. Needs no map and no camera, and cannot be
+   refused; only a missing out pointer is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorWorldToMap( BkEditorSession *session, float wx, float wy, float *mx, float *my );
 
 /* The map's own two fields, not a player's: nType is the mission kind and
    nAttackingSide is which side attacks in it. The engine has no say in either,

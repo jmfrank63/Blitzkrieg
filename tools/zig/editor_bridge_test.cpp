@@ -907,6 +907,140 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and nowhere to put the answer is a bad argument" );
 }
 
+// A captured frame's pixels, BGRA, top row first (SaveFrame checked the
+// header). Empty when the file does not read.
+static std::vector<unsigned char> ReadFramePixels( const std::string &szPath, int *pnWidth, int *pnHeight )
+{
+	std::vector<unsigned char> file;
+	if ( FILE *pFile = fopen( szPath.c_str(), "rb" ) )
+	{
+		fseek( pFile, 0, SEEK_END );
+		file.resize( size_t( ftell( pFile ) ) );
+		fseek( pFile, 0, SEEK_SET );
+		if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
+			file.clear();
+		fclose( pFile );
+	}
+	if ( file.size() <= 18 )
+		return std::vector<unsigned char>();
+	*pnWidth = file[12] | ( file[13] << 8 );
+	*pnHeight = file[14] | ( file[15] << 8 );
+	return std::vector<unsigned char>( file.begin() + 18, file.end() );
+}
+
+// How many pixels of a box differ between two frames by more than a little -
+// the "something is drawn there now" half of a placed object.
+static int ChangedPixels( const std::vector<unsigned char> &rBefore, const std::vector<unsigned char> &rAfter,
+                          int nWidth, int nHeight, int nLeft, int nTop, int nRight, int nBottom )
+{
+	if ( rBefore.size() != rAfter.size() || rBefore.size() < size_t( nWidth ) * nHeight * 4 )
+		return -1;
+	int nChanged = 0;
+	for ( int y = Max( 0, nTop ); y < Min( nHeight, nBottom ); ++y )
+		for ( int x = Max( 0, nLeft ); x < Min( nWidth, nRight ); ++x )
+		{
+			const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+			if ( abs( int( rBefore[n] ) - rAfter[n] ) + abs( int( rBefore[n + 1] ) - rAfter[n + 1] ) +
+			     abs( int( rBefore[n + 2] ) - rAfter[n + 2] ) > 48 )
+				++nChanged;
+		}
+	return nChanged;
+}
+
+// An object the editor places is drawn where it was put and answers a click
+// there, as the map's own objects do. The editor's placer goes from the click
+// to the object the way this check does - the screen point to the world point
+// under it (BkEditorScreenToWorld), that to the map position
+// (BkEditorWorldToMap), then BkEditorAddObject - for a static object and for a
+// unit. Found by the app's smoke (plan 5, Task 7): the bridge held the object
+// and saved it, but no frame showed it and no click found it. The placer handed
+// the world point to BkEditorAddObject, which takes map units, so the object
+// went in at 0.7 of the clicked point's distance from the map's corner - drawn
+// and pickable, but off the screen. Measured with the world point passed
+// straight in: nothing picked and 0 pixels changed for either object; with the
+// map position, both picked and about 1000 pixels changed.
+//
+// The box compared is above the click, where an object standing on the ground
+// there is drawn: a sprite rises from its foot. Measured at 640x480: the poplar
+// changes 1209 of its 1664 pixels, the T-34 1015.
+static const int PLACED_BOX_HALF_WIDTH = 16, PLACED_BOX_HEIGHT = 48, PLACED_MIN_CHANGED = 40;
+
+static void TestPlacedObjectDrawsAndPicks( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	static const char *const names[] = { "W_BigPoplar", "T-34" };
+	for ( int nName = 0; nName < 2; ++nName )
+	{
+		const char *pszName = names[nName];
+		if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		CMapInfo map;
+		std::string szError;
+		if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+			return;
+		// Bare ground on screen to place on: the first point, on a ring round
+		// the middle of the screen with the camera on the map's first object,
+		// that no object answers at.
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, map.objects[0].vPos );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		BkEditorFrame( pSession );
+		float sx = -1.0f, sy = -1.0f;
+		for ( int nTry = 0; nTry < 16 && sx < 0.0f; ++nTry )
+		{
+			const float fX = nScreenWidth / 2.0f + ( ( nTry % 4 ) - 1.5f ) * 100.0f;
+			const float fY = nScreenHeight / 2.0f + ( ( nTry / 4 ) - 1.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+			int nIgnored = -1;
+			bool bClear = true;
+			for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+				for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+					bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+			if ( bClear )
+			{
+				sx = fX;
+				sy = fY;
+			}
+		}
+		if ( !Check( sx >= 0.0f, "there is bare ground on screen to place on" ) )
+			return;
+		const std::string szBefore = szScratch + "/editor-bridge-placed-before.tga";
+		const std::string szAfter = szScratch + NStr::Format( "/editor-bridge-placed-%d.tga", nName );
+		if ( !SaveFrame( pSession, szBefore ) )
+			return;
+		float wx = 0.0f, wy = 0.0f;
+		if ( !Check( BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		float mx = 0.0f, my = 0.0f;
+		if ( !Check( BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		Check( fabs( mx - wx * FP_SQRT_2 ) < 0.01f && fabs( my - wy * FP_SQRT_2 ) < 0.01f,
+		       NStr::Format( "a map unit is sqrt 2 world units' worth smaller (world %.1f,%.1f is map %.1f,%.1f)", wx, wy, mx, my ) );
+		int nLinkID = -1;
+		if ( !Check( BkEditorAddObject( pSession, pszName, mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK,
+		             NStr::Format( "%s is placed at the map position under %.0f,%.0f: %s", pszName, sx, sy, BkEditorLastMessage( pSession ) ) ) )
+			return;
+		BkEditorObjectState state;
+		BkEditorEngineObjectState( pSession, nLinkID, &state );
+		for ( int i = 0; i < 4; ++i )
+			BkEditorFrame( pSession );
+		int nPicked = -1;
+		bool bPicked = false;
+		for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && !bPicked; dy += 4 )
+			bPicked = BkEditorObjectAt( pSession, sx, sy - dy, &nPicked ) == BK_EDITOR_OK && nPicked == nLinkID;
+		const bool bSaved = SaveFrame( pSession, szAfter );
+		int nWidth = 0, nHeight = 0;
+		const std::vector<unsigned char> before = ReadFramePixels( szBefore, &nWidth, &nHeight );
+		const std::vector<unsigned char> after = ReadFramePixels( szAfter, &nWidth, &nHeight );
+		const int nChanged = bSaved ? ChangedPixels( before, after, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT,
+		                                             int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 ) : -1;
+		printf( "editor-bridge: %s placed at screen %.0f,%.0f = world %.1f,%.1f = map %.1f,%.1f; the engine holds it at %.1f,%.1f; "
+		        "picked there: %s; %d pixels changed above it\n",
+		        pszName, sx, sy, wx, wy, mx, my, state.x, state.y, bPicked ? "yes" : "no", nChanged );
+		Check( bPicked, NStr::Format( "a click where %s was placed answers with it (link ID %d, answered %d)", pszName, nLinkID, nPicked ) );
+		Check( nChanged >= PLACED_MIN_CHANGED, NStr::Format( "%s is drawn where it was placed (%d pixels changed, bar %d)", pszName, nChanged, PLACED_MIN_CHANGED ) );
+	}
+}
+
 // A bridge names its spans by link ID, so deleting one has to be refused with
 // a reason, and the map has to be exactly as it was afterwards. A refusal that
 // left half an edit behind would save a map the editor never showed.
@@ -1558,6 +1692,7 @@ int main( int argc, char **argv )
 		TestTerrainUnderTheCamera( pSession, szScratch );
 		TestOverlayDeviceAndSize( pSession, pWindow );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestSharedLinkIDIsReadOnly( pSession, szScratch );

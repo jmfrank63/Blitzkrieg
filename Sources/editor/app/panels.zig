@@ -486,14 +486,14 @@ fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     text(line);
 }
 
-/// The tool, the hovered tile and world point, then the editor's last
+/// The tool, the hovered tile and map position, then the editor's last
 /// refusal or failure and the view's own failures.
 fn statusLine(state: *State, buffer: []u8) []const u8 {
     var len: usize = 0;
     append(buffer, &len, "{t}", .{state.view.tool});
     if (state.view.hover) |hover| {
         if (hover.tile) |tile| append(buffer, &len, " | tile {d},{d}", .{ tile[0], tile[1] });
-        append(buffer, &len, " | world {d:.0},{d:.0}", .{ hover.world_x, hover.world_y });
+        append(buffer, &len, " | map {d:.0},{d:.0}", .{ hover.map_x, hover.map_y });
     }
     const editor_status = state.editor.status();
     const view_status = state.view.statusLine();

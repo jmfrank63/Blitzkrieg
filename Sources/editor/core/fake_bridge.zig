@@ -62,6 +62,11 @@ pub const FakeBridge = struct {
     /// Set by a test to make `paint` refuse cells that are on the map, as
     /// the real bridge does when the map will not take a paint (no tileset).
     refuse_paints: bool = false,
+    /// Map units per world unit. 1 keeps screen, world and map the same
+    /// point, which most tests read most easily; the real engine's is
+    /// sqrt 2 (BkEditorWorldToMap), and a test sets another to catch a
+    /// world point used as a map position.
+    map_per_world: f32 = 1,
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -121,6 +126,11 @@ pub const FakeBridge = struct {
             y < @as(f32, @floatFromInt(self.info.height_tiles)) * tile_size;
     }
 
+    /// onMap for a map position rather than a world point.
+    fn onMapAt(self: *const FakeBridge, x: f32, y: f32) bool {
+        return self.onMap(x / self.map_per_world, y / self.map_per_world);
+    }
+
     fn indexOf(self: *const FakeBridge, link_id: i32) ?usize {
         for (self.objects_list.items, 0..) |object, index| {
             if (object.link_id == link_id) return index;
@@ -175,6 +185,7 @@ pub const FakeBridge = struct {
         .redoPaint = redoPaint,
         .screenToWorld = screenToWorld,
         .worldToTile = worldToTile,
+        .worldToMap = worldToMap,
         .objectAt = objectAt,
     };
 
@@ -240,7 +251,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         if (name.len == 0) return .bad_argument;
-        if (!self.onMap(x, y)) {
+        if (!self.onMapAt(x, y)) {
             self.say("the engine would not place the object there", .{});
             return .refused;
         }
@@ -263,7 +274,7 @@ pub const FakeBridge = struct {
             self.say("the object database does not know this object's type; it is kept as it is", .{});
             return .refused;
         }
-        if (!self.onMap(x, y)) {
+        if (!self.onMapAt(x, y)) {
             self.say("the engine would not take that placement for the object", .{});
             return .refused;
         }
@@ -429,6 +440,13 @@ pub const FakeBridge = struct {
         return .ok;
     }
 
+    fn worldToMap(ptr: *anyopaque, wx: f32, wy: f32, mx: *f32, my: *f32) Status {
+        const self = from(ptr);
+        mx.* = wx * self.map_per_world;
+        my.* = wy * self.map_per_world;
+        return .ok;
+    }
+
     fn objectAt(ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status {
         const self = from(ptr);
         // The last one listed wins, as the topmost drawn would.
@@ -437,7 +455,11 @@ pub const FakeBridge = struct {
             index -= 1;
             const object = self.objects_list.items[index];
             if (!object.known) continue; // never placed, so never drawn
-            if (@abs(object.x - sx) <= pick_radius and @abs(object.y - sy) <= pick_radius) {
+            // The screen is the world here; the object is drawn at its map
+            // position's world point.
+            const x = object.x / self.map_per_world;
+            const y = object.y / self.map_per_world;
+            if (@abs(x - sx) <= pick_radius and @abs(y - sy) <= pick_radius) {
                 link_id.* = object.link_id;
                 return .ok;
             }

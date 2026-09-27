@@ -803,6 +803,19 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *pSession, float sx, float
 	} );
 }
 
+BkEditorStatus BkEditorWorldToMap( BkEditorSession *pSession, float wx, float wy, float *pmx, float *pmy )
+{
+	if ( pmx != 0 ) *pmx = 0.0f;
+	if ( pmy != 0 ) *pmy = 0.0f;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pmx == 0 || pmy == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		WorldToMap( wx, wy, pmx, pmy );
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorObjectAt( BkEditorSession *pSession, float sx, float sy, int *pnLinkID )
 {
 	if ( pnLinkID != 0 )

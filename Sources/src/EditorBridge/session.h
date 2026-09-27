@@ -143,6 +143,9 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
 bool DrawSessionFrame( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
+// World units (the scene's) to map units (the file's and the AI's): the
+// engine's AI2Vis the other way round. See BkEditorScreenToWorld.
+void WorldToMap( float wx, float wy, float *pmx, float *pmy );
 
 // True when every cell's tile is one the map's tileset has a terrain type for.
 // False with the reason in szMessage; *pbBadTile says the caller named a tile

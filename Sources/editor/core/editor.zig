@@ -125,8 +125,9 @@ pub const Editor = struct {
     /// the terrain but past the map's edge has no tile, and a point over no
     /// object has no object - neither is an error.
     pub fn resolve(self: *Editor, sx: f32, sy: f32) EditError!tools.Pointer {
-        var pointer: tools.Pointer = .{ .world_x = 0, .world_y = 0 };
+        var pointer: tools.Pointer = .{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
         try bridge_mod.check(self.bridge.screenToWorld(sx, sy, &pointer.world_x, &pointer.world_y));
+        try bridge_mod.check(self.bridge.worldToMap(pointer.world_x, pointer.world_y, &pointer.map_x, &pointer.map_y));
         var tx: i32 = 0;
         var ty: i32 = 0;
         if (self.bridge.worldToTile(pointer.world_x, pointer.world_y, &tx, &ty) == .ok) pointer.tile = .{ tx, ty };

@@ -1338,3 +1338,10 @@ bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, fl
 	return true;
 }
 
+void WorldToMap( float wx, float wy, float *pmx, float *pmy )
+{
+	CVec3 vMap( VNULL3 );
+	Vis2AIFast( &vMap, wx, wy, 0.0f );
+	*pmx = vMap.x;
+	*pmy = vMap.y;
+}

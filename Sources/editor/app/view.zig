@@ -37,7 +37,7 @@ pub const View = struct {
 
     map: view_math.MapSize = .{},
     panning: bool = false,
-    pan_anchor: tools.Pointer = .{ .world_x = 0, .world_y = 0 },
+    pan_anchor: tools.Pointer = .{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 },
     /// True between a left press the view saw and its release: an open
     /// tool gesture, which keeps the view routing motion and the release
     /// even if the cursor strays over an ImGui panel mid-drag.
@@ -175,7 +175,7 @@ pub const View = struct {
                         // was routed here at all): the last known point
                         // ends the gesture cleanly rather than leaving it
                         // open for a later press to merge into.
-                        const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0 });
+                        const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
                         self.hover = pointer;
                         self.left_button_down = false;
                         self.dispatch(editor, .{ .release = pointer });
@@ -245,7 +245,7 @@ pub const View = struct {
     /// press on the new tool would merge into it as one undo step.
     fn switchTool(self: *View, editor: *Editor, tool: Tool) void {
         if (self.left_button_down) {
-            const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0 };
+            const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
             self.dispatch(editor, .{ .release = pointer });
             self.left_button_down = false;
         }

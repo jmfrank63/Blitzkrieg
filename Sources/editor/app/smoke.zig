@@ -13,13 +13,10 @@
 //! so events swallowed on the way (a panel's capture, a hidden window) fail
 //! the smoke rather than pass it silently.
 //!
-//! The placed object is turned while the placer's selection still holds it;
-//! click-select, drag and delete work on an object of the map instead. An
-//! object added through the bridge is in the world (BkEditorWorldMatchesMap
-//! agrees) but is neither drawn nor found by a click - measured, anywhere on
-//! the screen and for seconds after, for a unit and a tree alike (see the
-//! task report) - and the map's objects near the centre are all static ones,
-//! which the engine will not turn.
+//! Select, turn, drag and delete act on the object the script placed,
+//! clicked where it was put: a unit, which the engine turns (it turns none
+//! of the map's static objects near the centre). One click on an object of
+//! the map keeps a loaded object's pick covered.
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
@@ -73,11 +70,14 @@ pub const Expect = enum {
     nothing_selected,
     /// The map's object under `target_pick` is selected.
     target_selected,
-    /// The target has left where the map had it.
-    moved,
-    /// The placed object, still selected, turned a sixteenth clockwise.
+    /// The placed object, found by a click where it was put, is selected.
+    placed_selected,
+    /// The placed object turned a sixteenth clockwise, and the engine agrees.
     rotated,
-    /// The target is gone.
+    /// The placed object has left where it was put, is still selected, and
+    /// the engine agrees.
+    moved,
+    /// The placed object is gone, and the engine agrees.
     deleted,
     /// Nothing left to undo: the count, the target's pose and the two cells
     /// as the map had them, the placed object gone, the document clean, and
@@ -102,12 +102,15 @@ const ground_a: Pos = .{ .dx = -120, .dy = -160 };
 const ground_between: Pos = .{ .dx = -95, .dy = -160 };
 const ground_b: Pos = .{ .dx = -70, .dy = -160 };
 const place_at: Pos = .{ .dx = -40, .dy = -120 };
+/// Where a click finds the placed object: above its foot, as a sprite's hit
+/// box rises from it (the engine tier's PICK_RISE).
+const placed_pick: Pos = .{ .dx = -40, .dy = -132 };
+const drag_via: Pos = .{ .dx = -20, .dy = -132 };
+const drag_to: Pos = .{ .dx = 0, .dy = -132 };
 /// Ground with no object on it, for a click that selects nothing.
 const empty_ground: Pos = .{ .dx = 100, .dy = -140 };
 /// An object of the map, editable (not one of several sharing a link ID).
 const target_pick: Pos = .{ .dx = -20, .dy = 140 };
-const drag_via: Pos = .{ .dx = 0, .dy = 140 };
-const drag_to: Pos = .{ .dx = 20, .dy = 140 };
 
 fn plain(key: sdl.SDL_Keycode, scancode: sdl.SDL_Scancode) Input {
     return .{ .key = .{ .key = key, .scancode = scancode } };
@@ -122,12 +125,11 @@ pub const script = [_]Step{
     .{ .name = "key 3 chooses the placer", .inputs = &.{plain(sdl.SDLK_3, sdl.SDL_SCANCODE_3)}, .expect = .tool_place },
     .{ .name = "a click places an object", .inputs = &.{ .{ .press = place_at }, .{ .release = place_at } }, .expect = .placed },
     .{ .name = "key 1 chooses the selector, the new object still selected", .inputs = &.{plain(sdl.SDLK_1, sdl.SDL_SCANCODE_1)}, .expect = .tool_select },
-    // The map's objects near the centre are all static, and the engine turns
-    // none of them; the placed unit turns.
-    .{ .name = "E turns the selected object", .inputs = &.{plain(sdl.SDLK_E, sdl.SDL_SCANCODE_E)}, .expect = .rotated },
     .{ .name = "a click on bare ground selects nothing", .inputs = &.{ .{ .press = empty_ground }, .{ .release = empty_ground } }, .expect = .nothing_selected },
-    .{ .name = "a click on an object selects it", .inputs = &.{ .{ .press = target_pick }, .{ .release = target_pick } }, .expect = .target_selected },
-    .{ .name = "a drag moves it", .inputs = &.{ .{ .press = target_pick }, .{ .drag = drag_via }, .{ .drag = drag_to }, .{ .release = drag_to } }, .expect = .moved },
+    .{ .name = "a click on an object of the map selects it", .inputs = &.{ .{ .press = target_pick }, .{ .release = target_pick } }, .expect = .target_selected },
+    .{ .name = "a click on the placed object selects it", .inputs = &.{ .{ .press = placed_pick }, .{ .release = placed_pick } }, .expect = .placed_selected },
+    .{ .name = "E turns it", .inputs = &.{plain(sdl.SDLK_E, sdl.SDL_SCANCODE_E)}, .expect = .rotated },
+    .{ .name = "a drag moves it", .inputs = &.{ .{ .press = placed_pick }, .{ .drag = drag_via }, .{ .drag = drag_to }, .{ .release = drag_to } }, .expect = .moved },
     .{ .name = "Delete deletes it", .inputs = &.{plain(sdl.SDLK_DELETE, sdl.SDL_SCANCODE_DELETE)}, .expect = .deleted },
     // Paint, place, turn, move, delete: five edits, five undos.
     .{ .name = "Ctrl+Z undoes all of it", .inputs = &.{ undo_key, undo_key, undo_key, undo_key, undo_key }, .expect = .all_undone },
@@ -164,7 +166,7 @@ pub const Script = struct {
     placed: i32 = -1,
     target: i32 = -1,
     target_pose: Pose = .{ .x = 0, .y = 0, .dir = 0, .player = 0 },
-    placed_dir: i32 = 0,
+    placed_pose: Pose = .{ .x = 0, .y = 0, .dir = 0, .player = 0 },
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
@@ -202,7 +204,9 @@ pub const Script = struct {
             return self.fail("the tileset does not offer tile {d}", .{self.view.brush.tile});
         const empty = self.resolveAt(empty_ground) orelse return self.fail("empty_ground is off the terrain", .{});
         if (empty.object) |link_id| return self.fail("empty_ground has object {d} on it", .{link_id});
-        for ([_]Pos{ ground_a, ground_b, place_at }) |pos| {
+        // Nothing of the map where the placed object is put and clicked, so
+        // a click there that answers can only answer with it.
+        for ([_]Pos{ ground_a, ground_b, place_at, placed_pick }) |pos| {
             const point = self.resolveAt(pos) orelse return self.fail("{any} is off the terrain", .{pos});
             if (point.object) |link_id| return self.fail("{any} has object {d} on it", .{ pos, link_id });
         }
@@ -339,25 +343,29 @@ pub const Script = struct {
                 const last = editor.document.objects.items[objects - 1];
                 if (editor.selection != last.link_id) return self.stepFail(step, "the new object {d} is not selected", .{last.link_id});
                 self.placed = last.link_id;
-                self.placed_dir = last.dir;
+                self.placed_pose = .{ .x = last.x, .y = last.y, .dir = last.dir, .player = last.player };
             },
             .nothing_selected => if (editor.selection) |link_id| return self.stepFail(step, "object {d} is selected", .{link_id}),
             .target_selected => if (editor.selection != self.target) return self.stepFail(step, "the selection is {?d}, want {d}", .{ editor.selection, self.target }),
-            .moved => {
-                const object = editor.document.find(self.target) orelse return self.stepFail(step, "object {d} is gone", .{self.target});
-                if (object.x == self.target_pose.x and object.y == self.target_pose.y)
-                    return self.stepFail(step, "object {d} is still at {d},{d}", .{ self.target, object.x, object.y });
-                if (editor.selection != self.target) return self.stepFail(step, "the selection is {?d}, want {d}", .{ editor.selection, self.target });
-            },
+            .placed_selected => if (editor.selection != self.placed) return self.stepFail(step, "the selection is {?d}, want the placed object {d}", .{ editor.selection, self.placed }),
             .rotated => {
-                const object = editor.document.find(self.placed) orelse return self.stepFail(step, "the new object {d} is gone", .{self.placed});
-                const want = @mod(self.placed_dir + core.tools.rotate_step, 65536);
+                const object = editor.document.find(self.placed) orelse return self.stepFail(step, "the placed object {d} is gone", .{self.placed});
+                const want = @mod(self.placed_pose.dir + core.tools.rotate_step, 65536);
                 if (object.dir != want) return self.stepFail(step, "direction {d}, want {d}", .{ object.dir, want });
+                if (!self.engineAgrees(step)) return false;
+            },
+            .moved => {
+                const object = editor.document.find(self.placed) orelse return self.stepFail(step, "the placed object {d} is gone", .{self.placed});
+                if (object.x == self.placed_pose.x and object.y == self.placed_pose.y)
+                    return self.stepFail(step, "the placed object is still at {d},{d}", .{ object.x, object.y });
+                if (editor.selection != self.placed) return self.stepFail(step, "the selection is {?d}, want {d}", .{ editor.selection, self.placed });
+                if (!self.engineAgrees(step)) return false;
             },
             .deleted => {
-                if (editor.document.find(self.target) != null) return self.stepFail(step, "object {d} is still there", .{self.target});
-                if (objects != self.original_objects) return self.stepFail(step, "{d} objects, want {d} (one placed, one deleted)", .{ objects, self.original_objects });
+                if (editor.document.find(self.placed) != null) return self.stepFail(step, "the placed object {d} is still there", .{self.placed});
+                if (objects != self.original_objects) return self.stepFail(step, "{d} objects, want {d} (one placed and deleted)", .{ objects, self.original_objects });
                 if (editor.selection != null) return self.stepFail(step, "the deleted object is still selected", .{});
+                if (!self.engineAgrees(step)) return false;
             },
             .all_undone => {
                 if (editor.history.canUndo()) return self.stepFail(step, "{d} edits are left to undo", .{editor.history.undo_stack.items.len});

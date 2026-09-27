@@ -72,6 +72,7 @@ pub const RealBridge = struct {
         .redoPaint = redoPaint,
         .screenToWorld = screenToWorld,
         .worldToTile = worldToTile,
+        .worldToMap = worldToMap,
         .objectAt = objectAt,
     };
 
@@ -199,6 +200,10 @@ pub const RealBridge = struct {
 
     fn worldToTile(ptr: *anyopaque, wx: f32, wy: f32, tx: *i32, ty: *i32) Status {
         return status(c.BkEditorWorldToTile(from(ptr).session, wx, wy, tx, ty));
+    }
+
+    fn worldToMap(ptr: *anyopaque, wx: f32, wy: f32, mx: *f32, my: *f32) Status {
+        return status(c.BkEditorWorldToMap(from(ptr).session, wx, wy, mx, my));
     }
 
     fn objectAt(ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status {

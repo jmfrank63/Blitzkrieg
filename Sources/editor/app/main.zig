@@ -23,9 +23,11 @@
 //!
 //! The smoke runs the interactive mode's own loop (`run`) with the window
 //! hidden and smoke.zig's script feeding it synthetic SDL events: the tools
-//! chosen by key, a brush stroke, an object placed and turned, one of the
-//! map's selected by a click, dragged and deleted, all of it undone, Save As
-//! to <out.bzm> and that file opened again with the original's object count. Prints "map-editor: smoke PASS"
+//! chosen by key, a brush stroke, an object placed, one of the map's
+//! selected by a click, the placed one clicked, turned, dragged and deleted,
+//! all of it undone, Save As to <out.bzm> (deleted first, so an old file
+//! cannot pass) and that file opened again with the original's object count.
+//! Prints "map-editor: smoke PASS"
 //! and exits 0, or a "smoke FAIL:" line naming the step and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
@@ -172,6 +174,15 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
 /// person to show a message box to.
 fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8) !bool {
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
+    // A file left by an earlier run would let the reopen step pass on a save
+    // that never happened.
+    std.Io.Dir.cwd().deleteFile(io, output) catch |err| switch (err) {
+        error.FileNotFound => {},
+        else => {
+            std.debug.print("map-editor: smoke FAIL: the last run's {s} would not go ({s})\n", .{ output, @errorName(err) });
+            return false;
+        },
+    };
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
         std.debug.print("map-editor: smoke FAIL: the host did not start ({s})\n", .{@errorName(err)});
         return false;
