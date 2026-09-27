@@ -1600,6 +1600,73 @@ static void TestSharedLinkIDIsReadOnly( BkEditorSession *pSession, const std::st
 	remove( szSaved.c_str() );
 }
 
+// Every kind of object the palette offers can be asked for, and each answer is
+// a status, never a crash. Johannes placed a sound from the palette and the
+// release editor died in CheckStaticObject: a sound's stats are an
+// SSoundRPGStats, not an SObjectBaseRPGStats, and the static_cast there read
+// a passability array out of something that has none. So one entry of every
+// game type the catalogue holds is added at the map's middle - what the
+// middle of the screen shows after an open - and each must come back OK, or
+// refused with a message that names the object. What was added is deleted
+// again, and the engine has to agree with the map afterwards.
+static void TestEveryGameTypeAnswers( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::map<int, std::string> firstOfType;
+	std::map<int, int> countOfType;
+	for ( int i = 0; i < nRead; ++i )
+	{
+		++countOfType[catalogue[i].game_type];
+		if ( firstOfType.find( catalogue[i].game_type ) == firstOfType.end() )
+			firstOfType[catalogue[i].game_type] = catalogue[i].name;
+	}
+	Check( firstOfType.find( 100 ) != firstOfType.end(), "the catalogue offers a sound (game type 100), the case that crashed" );
+
+	float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+	BkEditorFrame( pSession );
+	if ( !Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK &&
+	             BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	for ( std::map<int, std::string>::const_iterator it = firstOfType.begin(); it != firstOfType.end(); ++it )
+	{
+		const char *pszName = it->second.c_str();
+		// Said before the call, so a crash leaves the object that caused it as
+		// the last line of the log.
+		printf( "editor-bridge: adding game type %d (%d in the catalogue) as %s at map %.0f,%.0f\n",
+		        it->first, countOfType[it->first], pszName, mx, my );
+		fflush( stdout );
+		int nLinkID = -1;
+		const BkEditorStatus status = BkEditorAddObject( pSession, pszName, mx, my, 0, 0, &nLinkID );
+		const std::string szMessage = BkEditorLastMessage( pSession );
+		printf( "editor-bridge:   -> status %d%s%s\n", int( status ), status == BK_EDITOR_OK ? "" : ": ", status == BK_EDITOR_OK ? "" : szMessage.c_str() );
+		if ( status == BK_EDITOR_OK )
+		{
+			Check( nLinkID > 0, NStr::Format( "%s comes back with a link ID", pszName ) );
+			Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_OK,
+			       NStr::Format( "the added %s is undone: %s", pszName, BkEditorLastMessage( pSession ) ) );
+		}
+		else
+		{
+			Check( status == BK_EDITOR_REFUSED || status == BK_EDITOR_BAD_ARGUMENT,
+			       NStr::Format( "adding %s (game type %d) is OK, refused or a bad argument, not status %d", pszName, it->first, int( status ) ) );
+			Check( szMessage.find( pszName ) != std::string::npos,
+			       NStr::Format( "the refusal of %s names it: \"%s\"", pszName, szMessage.c_str() ) );
+			Check( nLinkID == -1, NStr::Format( "a refused %s has no link ID", pszName ) );
+		}
+	}
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "after every game type was asked for: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -1727,6 +1794,7 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestSharedLinkIDIsReadOnly( pSession, szScratch );

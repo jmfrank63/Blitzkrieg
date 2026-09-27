@@ -69,6 +69,19 @@ pub fn gameTypeName(game_type: i32) []const u8 {
     };
 }
 
+/// Whether an object of this game type can be put on a map, and so belongs
+/// in the palette. A sound (100) and a tank pit (5) are in the object
+/// database but are not map objects: a map keeps its sounds in their own
+/// list, and tank pits are dug during play. The bridge refuses both
+/// (WhyNotAMapObject, Sources/src/EditorBridge/session.cpp) and the MFC
+/// editor's palette never listed either (TabSimpleObjectsDialog.cpp:158).
+pub fn isPlaceable(game_type: i32) bool {
+    return switch (game_type) {
+        5, 100 => false,
+        else => true,
+    };
+}
+
 /// The palette's filter: a case-insensitive substring. An empty filter
 /// matches everything.
 pub fn matchesFilter(name: []const u8, filter: []const u8) bool {
@@ -289,6 +302,12 @@ test "the palette's filter is a case-insensitive substring, and types have their
     try std.testing.expectEqualStrings("SGVOGT_UNIT", gameTypeName(1));
     try std.testing.expectEqualStrings("SGVOGT_SQUAD", gameTypeName(15));
     try std.testing.expectEqualStrings("SGVOGT_SOUND", gameTypeName(100));
+}
+
+test "the palette leaves out the types a map cannot hold" {
+    try std.testing.expect(!isPlaceable(100));
+    try std.testing.expect(!isPlaceable(5));
+    for ([_]i32{ 1, 2, 3, 4, 6, 7, 8, 9, 10, 15, 17 }) |game_type| try std.testing.expect(isPlaceable(game_type));
 }
 
 test "unknown and shared-ID objects are kept as they are" {

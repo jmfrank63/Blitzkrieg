@@ -1112,9 +1112,35 @@ Added by the controller after Johannes's hand try (2026-09-27): placing a sound 
 
 **Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check.
 
-- [ ] **Step 1: Make the engine tier catch it.** An engine-tier check that adds, through `BkEditorAddObject`, one catalogue entry of every game type the catalogue offers (sound included), each at a free on-map point, and requires every call to return a status (OK, or REFUSED / BAD_ARGUMENT with a message naming the object) and never crash; objects that were added are undone. Write it first; it crashes today.
-- [ ] **Step 2: Measure.** Find what is null for a sound (the description, its RPG stats, their type — a sound's stats may not be an `SObjectBaseRPGStats` at all — or the passability) and what the game and the MFC editor do with sound objects (are they placed as map objects, or kept elsewhere, e.g. the map's sound list?). Record it in the plan.
-- [ ] **Step 3: Fix.** The bridge refuses, with a message, any object it cannot place (guarded with `if`s at the bridge, and the engine's null dereference guarded where it happens), or places it correctly if the game places such objects. If a game type cannot be placed at all, the object palette leaves it out or marks it. Run `test-editor-bridge`, `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke`, then CI on both GPU runners.
+- [x] **Step 1: Make the engine tier catch it.** An engine-tier check that adds, through `BkEditorAddObject`, one catalogue entry of every game type the catalogue offers (sound included), each at a free on-map point, and requires every call to return a status (OK, or REFUSED / BAD_ARGUMENT with a message naming the object) and never crash; objects that were added are undone. Write it first; it crashes today.
+
+  Done: `TestEveryGameTypeAnswers`. It opens coldwinter and adds the first catalogue entry of each of the 14 game types in the catalogue at the map's middle (map 3072,3072: the screen's middle after an open, through `BkEditorScreenToWorld` and `BkEditorWorldToMap`). An OK add must have a link ID and is deleted again. A refusal must be REFUSED or BAD_ARGUMENT, name the object and give no link ID. At the end `BkEditorWorldMatchesMap` must hold. RED (debug): SIGSEGV on the fifth type, `TankPit` (5), at address 0 in `CheckStaticObject<CCheckInside>`. The stack is the one in Johannes's crash report. After the tank pit and sound guard, a second RED: `A_Fence` (9) crashed in the same function, first as a UBSan float-to-int panic at `AIEditorInternal.cpp:352`, then as SIGBUS in `CArray2D::operator[]`.
+- [x] **Step 2: Measure.** Find what is null for a sound (the description, its RPG stats, their type — a sound's stats may not be an `SObjectBaseRPGStats` at all — or the passability) and what the game and the MFC editor do with sound objects (are they placed as map objects, or kept elsewhere, e.g. the map's sound list?). Record it in the plan.
+
+  Done. Nothing is null for a sound. The description exists and `GetRPGStats` returns stats. The problem is the stats' type: `CObjectsDB::GetRPGStats` (`GameDB.cpp`) picks the stats class from the game type alone, and five types get a class that is not an `SStaticObjectRPGStats`:
+  - a unit or a tank pit gets `SMechUnitRPGStats` (or `SInfantryRPGStats`);
+  - an entrenchment gets `SEntrenchmentRPGStats`;
+  - a squad gets `SSquadRPGStats`;
+  - a sound gets `SSoundRPGStats`, which derives only from `SCommonRPGStats`.
+
+  `CAIEditor::IsObjectInsideOfMap` sends every type except unit, squad and entrenchment to `CheckStaticObject`. That function `static_cast`s the stats to `SObjectBaseRPGStats` and calls the virtual `GetOrigin`/`GetPassability`. For a sound or a tank pit, those calls go through vtable slots the object does not have, hence the call to address 0.
+
+  How the game and the MFC editor treat these types:
+  - **Sounds.** A map keeps its sounds in `CMapInfo::soundsList` (`SMapSoundInfo`, `fmtMap.h`). The game hands that list to `IScene::InitMapSounds` (`iMissionInternal.cpp:1532`), and the MFC editor edits it in its own dialog (`MapSoundInfo.cpp`). The game's `CAILogic::AddObject` returns 0 for `SGVOGT_SOUND`.
+  - **Tank pits.** Engineers dig them during play. `AddObject` has no case for one, so its unit stats would reach `AddNewStaticObject` as a static object's.
+  - **The MFC palette** lists neither. It shows only paths under buildings, objects, squads and units, and drops tank_pit, humans, aviation, 3dcoast and entrenchment (`TabSimpleObjectsDialog.cpp:158-174`).
+
+  The catalogue holds 4385 sounds and 7 tank pits among its 5559 entries.
+
+  **Second cause: the fence.** `AddObjectToSession` gave the engine the snapshot's record. `PackFrameIndex` has just turned that record's frame index into a type, so the engine got a type where it expects a segment index. The open and the restore place the working record instead, whose index is a segment. Measured with a temporary trace: `A_Fence` snapshot 65537 (`FENCE_TYPE_NORMAL | FENCE_DIRECTION_0`) against working 0; `AsphaltBridge_01` 1 against 0; `Entrenchment` 2 against 0. The fence read an origin and a passability from far past its segment array. The bridge span and the entrenchment were placed silently from segments 1 and 2 instead of 0.
+- [x] **Step 3: Fix.** The bridge refuses, with a message, any object it cannot place (guarded with `if`s at the bridge, and the engine's null dereference guarded where it happens), or places it correctly if the game places such objects. If a game type cannot be placed at all, the object palette leaves it out or marks it. Run `test-editor-bridge`, `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke`, then CI on both GPU runners.
+
+  Done:
+  - **Engine** (`AIEditorInternal.cpp`): `CheckStaticObject` returns false, meaning not inside the map, for a null description and for any game type whose stats have no static footprint (`HasStaticFootprint`: unit, tank pit, entrenchment, squad, sound). It tests the game type rather than `dynamic_cast`ing the stats, because the stats come from another module. With the bridge's refusal switched off for one run, both types came back refused by the engine (`the engine would not place "TankPit" there`), with no crash.
+  - **Bridge** (`session.cpp`): new `WhyNotAMapObject`. `AddObjectToSession` refuses a sound or a tank pit before it touches the map, with a message naming the object (`"20mm_aviacannon" is a sound; a map keeps its sounds in their own list, not among its objects`). `PlaceOneObject` checks the same thing, so a map that lists one is opened without placing it. The add now places the working record (segment frame index), as the open and the restore do. The add's other refusals name the object too.
+  - **Palette** (`panels.zig`, `panels_logic.zig`): new `isPlaceable`. The palette leaves out sounds and tank pits, as the MFC palette did. New panels test.
+  - **macOS debug:** `test-editor-bridge` PASS. All 14 types answer: 11 OK and undone; TankPit and the sound refused by the new check; 3DCoast and Bomb refused because their stats files are missing. `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke`, `test-map-editor-panels` and `test-editor-core` all PASS.
+  - **macOS release (`--release=fast`), Johannes's build:** `install-map-editor` is rebuilt. `test-editor-bridge` PASS runs the same 14 adds through the release `libAILogic`; `map-editor-smoke` PASS.
 - [ ] **Step 4: Commit** with a message naming the cause.
 
 ### Task 7.3: A two-finger trackpad swipe scrolls — in the editor, the game's map and the game's menus

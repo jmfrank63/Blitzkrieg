@@ -115,8 +115,19 @@ pub const State = struct {
     fn loadCatalogue(self: *State) !void {
         const entries = try self.real.catalogue(self.allocator);
         errdefer self.allocator.free(entries);
-        const order = try self.allocator.alloc(u32, entries.len);
-        for (order, 0..) |*index, i| index.* = @intCast(i);
+        // Only what can be placed: a sound or a tank pit picked from the
+        // palette could only ever be refused (logic.isPlaceable).
+        var placeable: usize = 0;
+        for (entries) |entry| {
+            if (logic.isPlaceable(entry.game_type)) placeable += 1;
+        }
+        const order = try self.allocator.alloc(u32, placeable);
+        var next: usize = 0;
+        for (entries, 0..) |entry, i| {
+            if (!logic.isPlaceable(entry.game_type)) continue;
+            order[next] = @intCast(i);
+            next += 1;
+        }
         std.sort.insertion(u32, order, entries, struct {
             fn less(context: []CatalogueEntry, a: u32, b: u32) bool {
                 return context[a].game_type < context[b].game_type;

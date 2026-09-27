@@ -102,6 +102,10 @@ struct SEngineObjectState
 	SEngineObjectState() : vCenter( VNULL2 ), wDir( 0 ), nPlayer( -1 ) {  }
 };
 
+// Why an object of this game type cannot be put on a map, or 0 if it can.
+// The reason reads after the object's name.
+const char* WhyNotAMapObject( int nGameType );
+
 // Reads an object's engine state. Returns false when the engine does not hold
 // the object at all.
 bool ReadEngineObject( const SEditorSession &rSession, int nLinkID, SEngineObjectState *pOut );

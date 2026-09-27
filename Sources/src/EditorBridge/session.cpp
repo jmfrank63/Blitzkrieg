@@ -17,6 +17,25 @@
 #include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/VA_Types.h"
 
+// A sound and a tank pit are in the object database, and so in the catalogue,
+// but neither is a map object. A map keeps its sounds in CMapInfo::soundsList
+// (the MFC editor edits them in their own dialog, MapSoundInfo.cpp, and the
+// game hands that list to IScene::InitMapSounds), and the game's
+// CAILogic::AddObject returns 0 for a sound. A tank pit is dug by engineers
+// during play; AddObject has no case for one and would treat its unit stats
+// as a static object's. The MFC editor's palette leaves both out: it lists only
+// paths under buildings, objects, squads and units, and drops tank_pit
+// (TabSimpleObjectsDialog.cpp:158-174). Asking the engine anyway is what
+// crashed the editor, in CheckStaticObject, reading a footprint neither has.
+const char* WhyNotAMapObject( int nGameType )
+{
+	if ( nGameType == SGVOGT_SOUND )
+		return "is a sound; a map keeps its sounds in their own list, not among its objects";
+	if ( nGameType == SGVOGT_TANK_PIT )
+		return "is a tank pit, which engineers dig during play; a map cannot hold one";
+	return 0;
+}
+
 namespace {
 
 // The snapshot keeps frame indices packed; the working copy is unpacked,
@@ -51,6 +70,8 @@ void MakeWorkingCopy( SEditorSession *pSession )
 // says nothing about it.
 IRefCount* PlaceOneObject( const SMapObjectInfo &rObject, const SGDBObjectDesc *pDesc, IAIEditor *pAIEditor )
 {
+	if ( pDesc == 0 || WhyNotAMapObject( pDesc->eGameType ) != 0 )
+		return 0;
 	SMapObjectInfo object = rObject;
 	if ( object.fHP > 1.0f )
 		object.fHP = 1.0f;
@@ -441,6 +462,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		pSession->szMessage = "the object database does not know \"" + rAdd.szName + "\"";
 		return false;
 	}
+	if ( const char *pszWhy = WhyNotAMapObject( pDesc->eGameType ) )
+	{
+		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
+		return false;
+	}
 
 	// Never below the floor: an ID a deleted object held may be wanted back by
 	// its restore, and NextLinkID alone would hand the highest one out again.
@@ -450,7 +476,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	int nLinkID = -1;
 	if ( !NMapOverlay::AddObject( &pSession->snapshot, add, &nLinkID ) )
 	{
-		pSession->szMessage = "the map would not take the object";
+		pSession->szMessage = "the map would not take \"" + rAdd.szName + "\"";
 		return false;
 	}
 	// The overlay leaves the frame index at 0 because packing needs the object
@@ -461,8 +487,15 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		CMapInfo::PackFrameIndex( pObjectsDB, pAdded );
 	NMapOverlay::AddObject( &pSession->working, add, 0 );
 
-	const SMapObjectInfo *pSnapshotObject = FindIn( &pSession->snapshot, nLinkID );
-	IRefCount *pAIObject = pSnapshotObject != 0 ? PlaceOneObject( *pSnapshotObject, pDesc, pAIEditor ) : 0;
+	// The engine object comes from the working record, as OpenMapIntoSession
+	// and RestoreObjectInSession build theirs: its frame index is a segment,
+	// while the snapshot's was just packed into a type. Handing the engine the
+	// packed one had it index a fence's segments with 65537 - FENCE_TYPE_NORMAL
+	// | FENCE_DIRECTION_0 - and read an origin and a passability from far past
+	// their end, and built a bridge span and an entrenchment from segments 1
+	// and 2 where segment 0 was meant.
+	const SMapObjectInfo *pWorkingObject = FindIn( &pSession->working, nLinkID );
+	IRefCount *pAIObject = pWorkingObject != 0 ? PlaceOneObject( *pWorkingObject, pDesc, pAIEditor ) : 0;
 	if ( pAIObject == 0 )
 	{
 		// The engine would not have it - outside the map, most often - so the
@@ -471,7 +504,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		std::string szIgnored;
 		NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szIgnored );
 		NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
-		pSession->szMessage = "the engine would not place the object there";
+		pSession->szMessage = "the engine would not place \"" + rAdd.szName + "\" there";
 		return false;
 	}
 	pSession->byLinkID[nLinkID] = pAIObject;
