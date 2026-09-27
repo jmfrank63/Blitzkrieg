@@ -423,6 +423,7 @@ CInputAPI::CInputAPI()
 	pfnPlatformPump = 0;
 	nTrackpadX = 0;
 	nTrackpadY = 0;
+	fTrackpadSensitivity = 1.0f;
 	hWindow = 0;
 	bTextMayFollowKey = false;
 	#if defined(BK_INPUT_EVENT_ONLY)
@@ -1101,13 +1102,20 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 			// where it began, and a second notch the same way repeated the value
 			// and was ignored. The axis gets the running sum now; an event with
 			// no vertical part (a sideways swipe) leaves it where it is.
-			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, wheelAxis.Feed( event.y ), time, 0 );
+		{
+			// A swipe is scaled by the player's trackpad sensitivity, for the
+			// lists it scrolls and the map it pans alike; a wheel never is.
+			int nX = event.x, nY = event.y;
+			if ( event.trackpad )
+				trackpadScale.Scale( event.x, event.y, fTrackpadSensitivity, &nX, &nY );
+			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, wheelAxis.Feed( nY ), time, 0 );
 			if ( event.trackpad && ( event.modifiers & NPlatform::modifierShift ) == 0 )
 			{
-				nTrackpadX += event.x;
-				nTrackpadY += event.y;
+				nTrackpadX += nX;
+				nTrackpadY += nY;
 			}
 			break;
+		}
 		case NPlatform::EventType::controllerAdded:
 #if defined(BK_INPUT_EVENT_ONLY)
 			HandleControllerAdded( event );

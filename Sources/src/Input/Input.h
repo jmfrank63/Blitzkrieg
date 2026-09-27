@@ -82,5 +82,9 @@ interface IInput : public IRefCount
 	// physical wheel keeps its original meaning - and not while Shift is held
 	// (Shift+wheel zooms). The mission pans its camera by it.
 	virtual void STDCALL TakeTrackpadScroll( float *pfX, float *pfY ) = 0;
+	// The player's trackpad sensitivity (GamePlay.TrackpadScroll, see
+	// WheelScroll.h TrackpadSensitivityFromOption): multiplies what a swipe
+	// pans the map and scrolls a list by. A physical wheel is not affected.
+	virtual void STDCALL SetTrackpadSensitivity( float fScale ) = 0;
 };
 #endif // __INPUT_H__

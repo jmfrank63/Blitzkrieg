@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 static int failures = 0;
@@ -268,8 +269,45 @@ static void TestPan()
 	CHECK( Near( fTotal, 30.0f, 0.1f ) );
 }
 
+static void TestSensitivity()
+{
+	CHECK( NPlatform::TrackpadSensitivityFromOption( NPlatform::kTrackpadSensitivityDefault ) == 1.0f );	// the default is today's behaviour
+	CHECK( Near( NPlatform::TrackpadSensitivityFromOption( 0 ), 0.25f ) );
+	CHECK( Near( NPlatform::TrackpadSensitivityFromOption( 100 ), 4.0f ) );
+	CHECK( Near( NPlatform::TrackpadSensitivityFromOption( -5 ), 0.25f ) && Near( NPlatform::TrackpadSensitivityFromOption( 250 ), 4.0f ) );
+	for ( int n = 0; n < 100; ++n )
+		CHECK( NPlatform::TrackpadSensitivityFromOption( n ) < NPlatform::TrackpadSensitivityFromOption( n + 1 ) );
+	// 1x passes a swipe's integers through untouched.
+	NPlatform::CTrackpadScale same;
+	int nX = 0, nY = 0;
+	for ( int i = 0; i < 20; ++i )
+	{
+		same.Scale( 7, -13, 1.0f, &nX, &nY );
+		CHECK( nX == 7 && nY == -13 );
+	}
+	// Other settings scale what a swipe pans and scrolls, monotonically in
+	// the setting, with the fraction carried.
+	int nPrevious = -1;
+	for ( int nSlider = 0; nSlider <= 100; nSlider += 10 )
+	{
+		NPlatform::CTrackpadScale scale;
+		const float fScale = NPlatform::TrackpadSensitivityFromOption( nSlider );
+		int nTotal = 0;
+		for ( int i = 0; i < 100; ++i )
+		{
+			scale.Scale( 5, 0, fScale, &nX, &nY );
+			CHECK( nX >= 0 );
+			nTotal += nX;
+		}
+		CHECK( std::abs( nTotal - int( 500 * fScale ) ) <= 1 );
+		CHECK( nTotal > nPrevious );
+		nPrevious = nTotal;
+	}
+}
+
 int main()
 {
+	TestSensitivity();
 	TestResidual();
 	TestSwipeNoLongerOscillates();
 	TestMixedSignJitterNetsOut();

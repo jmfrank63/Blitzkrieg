@@ -195,6 +195,8 @@ class CInputAPI : public CTRefCount<IInput>
 	NPlatform::CWheelAxis wheelAxis;			// MOUSE_AXIS_Z's absolute position, see ConsumePlatformEvent
 	int nTrackpadX;												// trackpad swipe since the last TakeTrackpadScroll, WHEEL_DELTA units
 	int nTrackpadY;
+	float fTrackpadSensitivity;						// GamePlay.TrackpadScroll as a multiplier, 1 by default
+	NPlatform::CTrackpadScale trackpadScale;	// its fraction, carried from swipe event to swipe event
 #if !defined(BK_INPUT_EVENT_ONLY)
 	void AddDevice( struct SDeviceEnumDesc *pDesc, const int nID );
 #endif
@@ -255,6 +257,7 @@ public:
 	}
 	virtual void STDCALL SetCodePage( const int _nCodePage ) { nCodePage = _nCodePage; }
 	virtual void STDCALL TakeTrackpadScroll( float *pfX, float *pfY );
+	virtual void STDCALL SetTrackpadSensitivity( float fScale ) { fTrackpadSensitivity = fScale; }
 	const DWORD GetCurrentTime() const { return dwLastPumpingTime; }
 	void AddEventLocal( const int nEventID, const int nParam ) { messages.push_back( SGameMessage(nEventID, nParam) ); }
 	EInputTextMode GetTextModeLocal() const { return eTextMode; }

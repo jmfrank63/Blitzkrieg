@@ -1611,6 +1611,15 @@ int RunGame( const BkGameLaunchInfo &launch )
 					}
 				}
 			}
+			// The trackpad sensitivity option, read every frame so a change on
+			// the settings screen applies at once, wherever it is made.
+			{
+				variant_t varTrackpad;
+				int nTrackpad = NPlatform::kTrackpadSensitivityDefault;
+				if ( GetSingleton<IOptionSystem>()->Get( "GamePlay.TrackpadScroll", &varTrackpad ) )
+					nTrackpad = int( short( varTrackpad ) );
+				pInput->SetTrackpadSensitivity( NPlatform::TrackpadSensitivityFromOption( nTrackpad ) );
+			}
 			pInput->PumpMessages( bActive );
 			if ( NWinFrame::IsExit() )
 			{

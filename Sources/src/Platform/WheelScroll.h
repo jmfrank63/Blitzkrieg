@@ -119,6 +119,42 @@ inline void TrackpadPanPixels( int nX, int nY, float *pfX, float *pfY )
 	*pfY = -float( nY ) * kTrackpadPixelsPerWheelDelta;
 }
 
+// The player's trackpad scroll sensitivity, the GamePlay.TrackpadScroll
+// option's slider position 0-100, as a multiplier: 50 (the default) is 1x -
+// the map following the fingers one to one - and each 50 either side is a
+// factor of four, so the slider spans 0.25x to 4x evenly by ear.
+constexpr int kTrackpadSensitivityDefault = 50;
+inline float TrackpadSensitivityFromOption( int nSlider )
+{
+	if ( nSlider < 0 ) nSlider = 0;
+	if ( nSlider > 100 ) nSlider = 100;
+	if ( nSlider == kTrackpadSensitivityDefault )
+		return 1.0f;
+	return float( std::pow( 4.0, double( nSlider - kTrackpadSensitivityDefault ) / 50.0 ) );
+}
+
+// A trackpad event's WHEEL_DELTA integers times the sensitivity, the fraction
+// carried like CWheelResidual's. At 1x the integers pass through untouched.
+class CTrackpadScale
+{
+	double fX = 0;
+	double fY = 0;
+	static int Take( double &fAcc, int nDelta, float fScale )
+	{
+		fAcc += double( nDelta ) * double( fScale );
+		const double fNearest = std::round( fAcc );
+		const double fWhole = std::fabs( fAcc - fNearest ) < 1e-3 ? fNearest : std::trunc( fAcc );
+		fAcc -= fWhole;
+		return int( fWhole );
+	}
+public:
+	void Scale( int nX, int nY, float fScale, int *pnX, int *pnY )
+	{
+		*pnX = Take( fX, nX, fScale );
+		*pnY = Take( fY, nY, fScale );
+	}
+};
+
 // A list's wheel step, for the UI controls whose scroll position is an int.
 // A step of a pixel or more (a notch is 21) goes through unchanged, the way it
 // always did - Sub returns false and the caller keeps its own expression. A
