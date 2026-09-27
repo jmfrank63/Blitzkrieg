@@ -9,9 +9,11 @@
 #include "WinFrame.h"
 #else
 #include "GameFrame.h"
+#endif
+// The platform event and the wheel translation, for the BK_AUTO_UI wheel and
+// swipe verbs and the trackpad sensitivity option, on every platform.
 #include "../Platform/Event.h"
 #include "../Platform/WheelScroll.h"
-#endif
 #include "SysKeys.h"
 
 #include "../GFX/GFX.H"
