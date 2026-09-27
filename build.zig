@@ -5730,6 +5730,16 @@ fn addMapEditor(
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
     check_step.dependOn(&run.step);
+    // The same map as an absolute path in the host's own form, as a person
+    // types it or a shell expands it: forward slashes on macOS, which the
+    // engine's file layer does not split on until MapEditor converts them.
+    const absolute_run = b.addRunArtifact(exe);
+    absolute_run.setCwd(b.path(stage_root));
+    absolute_run.addArgs(&.{ "--check", b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), b.pathFromRoot("zig-out/local-test/map-editor-check-absolute.tga") });
+    absolute_run.step.dependOn(&install_exe.step);
+    // After the relative run, so two engines never start at once.
+    absolute_run.step.dependOn(&run.step);
+    check_step.dependOn(&absolute_run.step);
 
     // The interactive loop itself, hidden and driven by smoke.zig's scripted
     // SDL events: paint, place, select, drag, turn, delete, undo all of it,

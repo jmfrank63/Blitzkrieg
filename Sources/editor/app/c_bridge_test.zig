@@ -6,7 +6,8 @@
 const std = @import("std");
 const core = @import("editor_core");
 const crt = @import("crt.zig");
-const Host = @import("host.zig").Host;
+const host_mod = @import("host.zig");
+const Host = host_mod.Host;
 const c_bridge = @import("c_bridge.zig");
 const RealBridge = c_bridge.RealBridge;
 const c = c_bridge.c;
@@ -70,6 +71,28 @@ fn expectDocumentIsBridge(real: *RealBridge, editor: *Editor) !void {
         try std.testing.expectEqual(record.player, object.player);
         try std.testing.expectEqual(record.scenario != 0, object.scenario);
         try std.testing.expectEqual(record.known != 0, object.known);
+    }
+}
+
+// First, while no module is loaded yet: a start refused for an empty
+// installation fails before the engine loads anything (LoadAllModules finds
+// nothing and keeps nothing), so the next test starts the real one as if
+// this had not run. The start-up dialog shows failureReason(), so it has to
+// be the bridge's reason, not only the error's name.
+test "a failed start keeps the bridge's reason for the start-up dialog" {
+    var empty = std.testing.tmpDir(.{});
+    defer empty.cleanup();
+    const root = try std.fmt.allocPrintSentinel(std.testing.allocator, ".zig-cache{c}tmp{c}{s}", .{ std.fs.path.sep, std.fs.path.sep, empty.sub_path }, 0);
+    defer std.testing.allocator.free(root);
+    if (Host.start(.{ .title = "map-editor-engine", .hidden = true, .data_root = root.ptr })) |started| {
+        var host = started;
+        host.stop();
+        return error.StartedWithoutAnEngine;
+    } else |err| {
+        std.debug.print("map-editor-engine: an empty installation: {t}: {s}\n", .{ err, host_mod.failureReason() });
+        if (err == error.SdlInitFailed or err == error.WindowFailed) return error.SkipZigTest;
+        try std.testing.expectEqual(error.EngineFailed, err);
+        try std.testing.expect(std.mem.indexOf(u8, host_mod.failureReason(), "no engine modules loaded from") != null);
     }
 }
 

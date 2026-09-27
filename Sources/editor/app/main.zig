@@ -95,8 +95,10 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
 /// core's tools, until the window closes or the process is asked to quit
 /// (SDL maps SIGINT/SIGTERM to SDL_EVENT_QUIT by default).
 fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
-    var host = host_mod.Host.start(.{ .title = "Map Editor" }) catch |err|
-        fatal(startupStepName(err), @errorName(err));
+    var host = host_mod.Host.start(.{ .title = "Map Editor" }) catch |err| {
+        const reason = host_mod.failureReason();
+        fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
+    };
     defer host.stop();
 
     var real = c_bridge.RealBridge.init(host.session);
@@ -105,7 +107,9 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
 
-    if (map) |path| {
+    if (map) |typed| {
+        var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+        const path = mapArgument(&path_buffer, typed) orelse fatal("map open", "the map's path is too long");
         editor.open(path) catch {
             const reason = editor.status();
             fatal("map open", if (reason.len != 0) reason else "the map did not open");
@@ -116,10 +120,12 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
     defer state.deinit();
 
     run(&host, &editor, &view, &real, &state, null);
-    // A plain return, not std.process.exit: the deferred host.stop(),
-    // editor.deinit() and view.deinit() above must run so the engine and its
-    // GPU device shut down cleanly, which an immediate process exit would
-    // skip.
+    // A plain return, not std.process.exit, so the deferred view.deinit(),
+    // editor.deinit() and host.stop() above run: host.stop() takes the
+    // overlay and ImGui down, BkEditorStop deletes the world, and the window
+    // goes. The engine's renderer and its GPU device are not shut down - they
+    // live until the process exits, as in the game - which is why one Host
+    // per process is the contract (host.zig Host.stop).
 }
 
 /// The app's loop, shared by the interactive mode and --smoke: events to
@@ -184,7 +190,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const
         },
     };
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
-        std.debug.print("map-editor: smoke FAIL: the host did not start ({s})\n", .{@errorName(err)});
+        std.debug.print("map-editor: smoke FAIL: the host did not start ({s}: {s})\n", .{ @errorName(err), host_mod.failureReason() });
         return false;
     };
     defer host.stop();
@@ -194,7 +200,12 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const
     defer editor.deinit();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
-    editor.open(map) catch {
+    var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const path = mapArgument(&path_buffer, map) orelse {
+        std.debug.print("map-editor: smoke FAIL: the path {s} is too long\n", .{map});
+        return false;
+    };
+    editor.open(path) catch {
         std.debug.print("map-editor: smoke FAIL: {s} did not open: {s}\n", .{ map, editor.status() });
         return false;
     };
@@ -211,6 +222,15 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const
     }
     std.debug.print("map-editor: smoke PASS ({d} steps, {d} objects, saved and reopened {s})\n", .{ smoke.script.len, script.original_objects, output });
     return true;
+}
+
+/// A map path from the command line in the engine's form. It arrives as the
+/// person typed it or the shell expanded it - an absolute macOS path has
+/// forward slashes - and the engine's file layer splits only on '\', so it
+/// goes through the conversion the file dialogs' paths go through
+/// (panels_logic.enginePath). Null when it does not fit the buffer.
+fn mapArgument(buffer: *[panels_logic.PathSlot.max_path]u8, typed: []const u8) ?[]const u8 {
+    return panels_logic.enginePath(buffer, typed, .open);
 }
 
 fn startupStepName(err: host_mod.HostError) []const u8 {
@@ -261,20 +281,22 @@ fn fail(comptime format: []const u8, args: anytype) bool {
 
 fn check(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8) !bool {
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
-    const map_z = try gpa.dupeZ(u8, map);
+    var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const path = mapArgument(&path_buffer, map) orelse return fail("the path {s} is too long", .{map});
+    const map_z = try gpa.dupeZ(u8, path);
     defer gpa.free(map_z);
     const output_z = try gpa.dupeZ(u8, output);
     defer gpa.free(output_z);
 
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err|
-        return fail("the host did not start ({s})", .{@errorName(err)});
+        return fail("the host did not start ({s}: {s})", .{ @errorName(err), host_mod.failureReason() });
     defer host.stop();
 
     var summary: c.BkEditorMapSummary = std.mem.zeroes(c.BkEditorMapSummary);
     if (c.BkEditorOpenMap(host.session, map_z.ptr, &summary) != c.BK_EDITOR_OK)
         return fail("{s} did not open: {s}", .{ map, std.mem.span(c.BkEditorLastMessage(host.session)) });
-    // The camera opens on the map's corner, where half the screen is off the
-    // map; the middle of the map has ground under all of it.
+    // The open already places the camera on the map's middle; placed there
+    // again here so the check covers BkEditorSetCamera too.
     const centre_x = @as(f32, @floatFromInt(summary.width_tiles)) * world_cell_size / 2;
     const centre_y = @as(f32, @floatFromInt(summary.height_tiles)) * world_cell_size / 2;
     if (c.BkEditorSetCamera(host.session, centre_x, centre_y) != c.BK_EDITOR_OK)
@@ -336,7 +358,9 @@ fn panelSmoke(gpa: std.mem.Allocator, host: *host_mod.Host, map: []const u8, out
     defer editor.deinit();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
-    editor.open(map) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
+    var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const path = mapArgument(&path_buffer, map) orelse return fail("panels: the path {s} is too long", .{map});
+    editor.open(path) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
     var state = panels.State.init(gpa, &editor, &view, &real, host.window);
     defer state.deinit();
     if (state.catalogue.len == 0) return fail("panels: the object palette has no catalogue", .{});
