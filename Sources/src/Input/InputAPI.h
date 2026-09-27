@@ -1,6 +1,7 @@
 #ifndef __INPUTAPI_H__
 #define __INPUTAPI_H__
 #include <utility>
+#include "../Platform/WheelScroll.h"
 namespace NPlatform { struct PlatformEvent; }
 using namespace NWin32Helper;
 class CCombo;
@@ -191,6 +192,9 @@ class CInputAPI : public CTRefCount<IInput>
 	bool bCoopLevelSet;										// is cooperative level already set ?
 	bool bFocusCaptured;									// is focus captured by this app ?
 	void (*pfnPlatformPump)();						// the window owner's event drain, or 0
+	NPlatform::CWheelAxis wheelAxis;			// MOUSE_AXIS_Z's absolute position, see ConsumePlatformEvent
+	int nTrackpadX;												// trackpad swipe since the last TakeTrackpadScroll, WHEEL_DELTA units
+	int nTrackpadY;
 #if !defined(BK_INPUT_EVENT_ONLY)
 	void AddDevice( struct SDeviceEnumDesc *pDesc, const int nID );
 #endif
@@ -250,6 +254,7 @@ public:
 		return true; 
 	}
 	virtual void STDCALL SetCodePage( const int _nCodePage ) { nCodePage = _nCodePage; }
+	virtual void STDCALL TakeTrackpadScroll( float *pfX, float *pfY );
 	const DWORD GetCurrentTime() const { return dwLastPumpingTime; }
 	void AddEventLocal( const int nEventID, const int nParam ) { messages.push_back( SGameMessage(nEventID, nParam) ); }
 	EInputTextMode GetTextModeLocal() const { return eTextMode; }

@@ -9,6 +9,8 @@
 #include "WinFrame.h"
 #else
 #include "GameFrame.h"
+#include "../Platform/Event.h"
+#include "../Platform/WheelScroll.h"
 #endif
 #include "SysKeys.h"
 
@@ -1562,10 +1564,35 @@ int RunGame( const BkGameLaunchInfo &launch )
 					}
 					else if ( szAction.compare( 0, 6, "wheel=" ) == 0 )
 					{
-						// Wheel notches through the device path, positive is wheel-up;
-						// scaled to the legacy WHEEL_DELTA units the same way
-						// SDLApplication scales a real wheel event.
-						pInput->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, atoi( szAction.c_str() + 6 ) * 120, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
+						// Wheel notches, positive is wheel-up, as the platform event
+						// SDLApplication makes of a real wheel (WHEEL_DELTA units), so
+						// they take the same path into the input - the absolute axis.
+						NPlatform::PlatformEvent wheel;
+						wheel.type = NPlatform::EventType::mouseWheel;
+						wheel.timestamp = NPlatform::MonotonicMilliseconds();
+						wheel.y = atoi( szAction.c_str() + 6 ) * 120;
+						pInput->ConsumePlatformEvent( wheel );
+					}
+					else if ( szAction.compare( 0, 6, "swipe=" ) == 0 )
+					{
+						// swipe=XxY: one trackpad swipe event of SDL's deltas (0.1 is ten
+						// points of finger travel; x right, y up), as SDLApplication
+						// makes it with a finger on the trackpad. 'x' separates them
+						// because the schedule itself is comma-separated - split by
+						// hand, as sscanf's %f reads "0x0.3" as one hexadecimal float.
+						const size_t nSeparator = szAction.find( 'x', 7 );
+						if ( nSeparator != std::string::npos )
+						{
+							const float fSwipeX = float( atof( szAction.substr( 6, nSeparator - 6 ).c_str() ) );
+							const float fSwipeY = float( atof( szAction.c_str() + nSeparator + 1 ) );
+							NPlatform::PlatformEvent swipe;
+							swipe.type = NPlatform::EventType::mouseWheel;
+							swipe.timestamp = NPlatform::MonotonicMilliseconds();
+							swipe.x = int( fSwipeX * NPlatform::kWheelDelta );
+							swipe.y = int( fSwipeY * NPlatform::kWheelDelta );
+							swipe.trackpad = true;
+							pInput->ConsumePlatformEvent( swipe );
+						}
 					}
 					else if ( szAction == "exit" ) pMainLoop->Command( MAIN_COMMAND_EXIT_GAME, 0 );
 					else if ( szAction.compare( 0, 4, "var=" ) == 0 )

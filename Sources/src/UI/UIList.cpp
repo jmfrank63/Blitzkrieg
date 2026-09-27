@@ -945,6 +945,10 @@ bool CUIList::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDe
 	GetWindowPlacement( 0, 0, &rect );
 	const float fRange = listItems.size() * nItemHeight - ( rect.Height() - nTopSpace * 2 - nHeaderSize - nHeaderTopSpace );
 	const float fStep = Max( GetMouseWheelMultiplyer(), fRange / 6.0f );
-	pScrollBar->SetPosition( pScrollBar->GetPosition() + int( fDelta * fStep ) );
+	int nSubPixel = 0;
+	if ( TakeSubPixelWheelStep( fDelta * fStep, &nSubPixel ) )
+		pScrollBar->SetPosition( pScrollBar->GetPosition() + nSubPixel );
+	else
+		pScrollBar->SetPosition( pScrollBar->GetPosition() + int( fDelta * fStep ) );
 	return true;
 }

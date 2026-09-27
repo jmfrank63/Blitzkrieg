@@ -836,6 +836,10 @@ bool CUIShortcutBar::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, fl
 	if ( !pScrollBar )
 		return false;
 	
-	pScrollBar->SetPosition( pScrollBar->GetPosition() + fDelta*GetMouseWheelMultiplyer() );
+	int nSubPixel = 0;
+	if ( TakeSubPixelWheelStep( fDelta*GetMouseWheelMultiplyer(), &nSubPixel ) )
+		pScrollBar->SetPosition( pScrollBar->GetPosition() + nSubPixel );
+	else
+		pScrollBar->SetPosition( pScrollBar->GetPosition() + fDelta*GetMouseWheelMultiplyer() );
 	return true;
 }

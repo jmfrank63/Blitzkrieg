@@ -331,6 +331,11 @@ interface ICamera : public IRefCount
 	virtual void STDCALL SetScrollSpeedY( float fSpeed ) = 0;
 	virtual void STDCALL AddEarthquake( const CVec3 &vPos, const float fPower ) = 0;
 	virtual void STDCALL Update() = 0;
+	// Moves the anchor by a world distance, keeping the part below Update's
+	// whole-screen-step snapping for the next move - the way the arrow keys'
+	// sliders add up. SetAnchor( GetAnchor() + d ) starts from the snapped
+	// anchor and loses a small d every time (a slow trackpad swipe).
+	virtual void STDCALL MoveAnchor( const CVec3 &vDelta ) = 0;
 };
 #ifdef ICursor
 #undef ICursor

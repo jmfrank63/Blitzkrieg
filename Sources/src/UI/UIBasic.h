@@ -2,6 +2,7 @@
 #define __UIBASIC_H__
 #include "UIInternal.h"
 #include "../Platform/LegacyText.h"
+#include "../Platform/WheelScroll.h"
 #include "../LuaLib/Script.h"
 class CSimpleWindow;
 typedef std::list< CObj<IUIElement> > CWindowList;
@@ -179,6 +180,9 @@ class CMultipleWindow : public CSimpleWindow
 	CMessageList messageList;
 
 	float fMouseWheelMultiplyer;
+	// What a trackpad swipe's sub-pixel wheel steps have carried towards the
+	// next pixel (WheelScroll.h); runtime state, not saved or copied.
+	NPlatform::CScrollStepper wheelStepper;
 
 	std::string szLuaFileName;
 	bool bLua;																	//��������������������� �� LUA
@@ -271,6 +275,11 @@ public:
 	bool GetModalFlag() { return bModal; }
 	void SetMouseWheelMultiplyer( float fVal ) { fMouseWheelMultiplyer = fVal; }
 	float GetMouseWheelMultiplyer() { return fMouseWheelMultiplyer; }
+	// A wheel step of a pixel or more is not taken (false): the control moves
+	// its int scroll position by it exactly as it always did, a notch being
+	// 4.8 x 4.375 = 21. A smaller one - a trackpad frame, which every int()
+	// truncated to nothing - is carried until it makes a whole pixel.
+	bool TakeSubPixelWheelStep( float fAmount, int *pnStep ) { return wheelStepper.Sub( fAmount, pnStep ); }
 	
 	void CopyInternals( CMultipleWindow * pWnd );
 };

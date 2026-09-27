@@ -19,6 +19,14 @@ static bool Push(SDL_Event event)
 	return SDL_PushEvent( &event ) == 1;
 }
 
+static bool NextWheel(NPlatform::SDLApplication &app, NPlatform::PlatformEvent &event)
+{
+	for ( int attempt = 0; attempt < 4; ++attempt )
+		while ( app.PollEvent( event ) )
+			if ( event.type == NPlatform::EventType::mouseWheel ) return true;
+	return false;
+}
+
 int main()
 {
 	NPlatform::SDLApplication app;
@@ -85,5 +93,57 @@ int main()
 	CHECK( stale.type == NPlatform::EventType::keyDown && early.type == NPlatform::EventType::keyUp );
 	CHECK( stale.timestamp + 50u > drained && stale.timestamp < drained + 50u );
 	CHECK( early.timestamp <= polled && polled - early.timestamp < 50u );
+
+	// Task 7.3: a two-finger swipe as SDL 3 delivers it on macOS - many small
+	// fractional wheel events, both axes - through the real translation.
+	while ( app.PollEvent( ignored ) ) {}
+	// A slow swipe: 0.004 of a notch per event used to be int(0.48) = 0 each
+	// time. The fraction is carried now, so 250 of them are one notch.
+	for ( int i = 0; i < 250; ++i )
+	{
+		event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.x = -0.002f; event.wheel.y = 0.004f; CHECK( Push( event ) );
+	}
+	int nSumX = 0, nSumY = 0, nWheels = 0;
+	bool bMonotonic = true, bTrackpad = false;
+	while ( app.PollEvent( ignored ) )
+	{
+		if ( ignored.type != NPlatform::EventType::mouseWheel ) continue;
+		++nWheels;
+		nSumX += ignored.x;
+		nSumY += ignored.y;
+		if ( ignored.x > 0 || ignored.y < 0 ) bMonotonic = false;
+		bTrackpad = bTrackpad || ignored.trackpad;
+	}
+	CHECK( nWheels == 250 );
+	CHECK( nSumY == 120 && nSumX == -60 );
+	CHECK( bMonotonic );
+	CHECK( !bTrackpad );			// no finger down: a wheel, as far as anyone can tell
+	// Natural scrolling: a FLIPPED event keeps the sign SDL delivered.
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.x = 0.0f; event.wheel.y = -1.0f; event.wheel.direction = SDL_MOUSEWHEEL_FLIPPED; CHECK( Push( event ) );
+	NPlatform::PlatformEvent flipped{};
+	CHECK( app.PollEvent( flipped ) && flipped.type == NPlatform::EventType::mouseWheel && flipped.y == -120 );
+	// A finger on the trackpad (SDL_HINT_TRACKPAD_IS_TOUCH_ONLY makes SDL
+	// send them) marks the wheel events as the trackpad's; the finger events
+	// themselves are not the engine's business.
+	CHECK( std::strcmp( SDL_GetHint( SDL_HINT_TRACKPAD_IS_TOUCH_ONLY ) ? SDL_GetHint( SDL_HINT_TRACKPAD_IS_TOUCH_ONLY ) : "", "1" ) == 0 );
+	event = {}; event.type = SDL_EVENT_FINGER_DOWN; event.tfinger.touchID = 77; event.tfinger.fingerID = 1; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_FINGER_DOWN; event.tfinger.touchID = 77; event.tfinger.fingerID = 2; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.x = 0.3f; event.wheel.y = 0.2f; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_FINGER_UP; event.tfinger.touchID = 77; event.tfinger.fingerID = 1; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_FINGER_UP; event.tfinger.touchID = 77; event.tfinger.fingerID = 2; CHECK( Push( event ) );
+	// Momentum, right after the lift: still the trackpad's.
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.x = 0.1f; event.wheel.y = 0.1f; CHECK( Push( event ) );
+	NPlatform::PlatformEvent swipe{}, momentum{};
+	// PollEvent swallows the finger events; a poll that meets SDL's end-of-pump
+	// sentinel after them ends early, so poll again rather than count polls.
+	CHECK( NextWheel( app, swipe ) && NextWheel( app, momentum ) );
+	CHECK( swipe.type == NPlatform::EventType::mouseWheel && swipe.trackpad && swipe.x == 36 && swipe.y == 24 );
+	CHECK( momentum.type == NPlatform::EventType::mouseWheel && momentum.trackpad );
+	CHECK( !app.PollEvent( ignored ) );
+	// Long after the momentum: a notch is a wheel's again.
+	SDL_Delay( 300 );
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.y = 1.0f; CHECK( Push( event ) );
+	NPlatform::PlatformEvent notch{};
+	CHECK( app.PollEvent( notch ) && notch.type == NPlatform::EventType::mouseWheel && !notch.trackpad && notch.y == 120 );
 	return 0;
 }

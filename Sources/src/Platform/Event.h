@@ -44,6 +44,7 @@ enum class PlatformKey : int
 enum PlatformModifier : int
 {
 	modifierNone = 0x0000,
+	modifierShift = 0x0003,
 	modifierControl = 0x00c0,
 	modifierAlt = 0x0300,
 	modifierGui = 0x0c00,
@@ -66,6 +67,11 @@ struct PlatformEvent
 	int control = 0;
 	int value = 0;
 	bool repeat = false;
+	// mouseWheel: the event came from a trackpad swipe, not a wheel (a finger
+	// was down on a touch device, or the swipe's momentum is still coming -
+	// WheelScroll.h's CWheelSource). x/y are the deltas in WHEEL_DELTA units,
+	// the fraction carried from event to event; modifiers is the key state.
+	bool trackpad = false;
 	char text[64] = {};
 };
 }
