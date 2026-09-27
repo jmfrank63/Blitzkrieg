@@ -33,12 +33,22 @@ pub const Camera = struct {
     /// Arrow keys, WASD and edge-scrolling add up (holding two opposite
     /// directions cancels, same as any other input system); the result is
     /// clamped to the map so the camera never looks past its edge.
+    ///
+    /// The directions are the screen's: the bridge places the camera the way
+    /// the game does (yaw 45, pitch 30), so screen right is world (+1, +1)
+    /// and screen up world (-1, +1), both over sqrt(2). Up and down move twice
+    /// as far in the world, as CCamera::Update's forward does, because the
+    /// pitch halves how far a world step goes up the screen.
     pub fn scroll(self: *Camera, dir: Scroll, dt_seconds: f32, map: MapSize) void {
-        const delta = scroll_speed * dt_seconds;
-        if (dir.left) self.x -= delta;
-        if (dir.right) self.x += delta;
-        if (dir.up) self.y -= delta;
-        if (dir.down) self.y += delta;
+        const delta = scroll_speed * dt_seconds / std.math.sqrt2;
+        var right: f32 = 0;
+        var up: f32 = 0;
+        if (dir.left) right -= delta;
+        if (dir.right) right += delta;
+        if (dir.up) up += 2 * delta;
+        if (dir.down) up -= 2 * delta;
+        self.x += right - up;
+        self.y += right + up;
         self.clamp(map);
     }
 
@@ -73,11 +83,28 @@ pub fn kindOf(event: ButtonEvent) ?EventKind {
 test "scroll speed: edge and keys add up, and clamp at the map" {
     var camera: Camera = .{ .x = 100, .y = 100 };
     camera.scroll(.{ .left = true }, 0.5, .{ .width_tiles = 96, .height_tiles = 96 });
-    try std.testing.expect(camera.x < 100);
+    try std.testing.expect(camera.x < 100 and camera.y < 100);
     camera = .{ .x = 0, .y = 0 };
-    camera.scroll(.{ .left = true, .up = true }, 10, .{ .width_tiles = 96, .height_tiles = 96 });
+    camera.scroll(.{ .left = true }, 10, .{ .width_tiles = 96, .height_tiles = 96 });
     try std.testing.expectEqual(@as(f32, 0), camera.x);
     try std.testing.expectEqual(@as(f32, 0), camera.y);
+}
+
+test "scroll follows the screen of the game's camera: up is world (-1, +1), at twice the step" {
+    const map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
+    var camera: Camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .up = true }, 0.1, map);
+    const step = scroll_speed * 0.1 / std.math.sqrt2;
+    try std.testing.expectApproxEqAbs(@as(f32, 2000) - 2 * step, camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2000) + 2 * step, camera.y, 0.01);
+    camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .right = true }, 0.1, map);
+    try std.testing.expectApproxEqAbs(@as(f32, 2000) + step, camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2000) + step, camera.y, 0.01);
+    camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .up = true, .down = true, .left = true, .right = true }, 0.1, map);
+    try std.testing.expectEqual(@as(f32, 2000), camera.x);
+    try std.testing.expectEqual(@as(f32, 2000), camera.y);
 }
 
 const sdl_left_down: ButtonEvent = .{ .button = sdl_button_left, .down = true };
@@ -90,7 +117,7 @@ test "a mouse button maps to a tool event, and only the left button edits" {
 
 test "scroll clamps at the far edge too" {
     var camera: Camera = .{ .x = 3000, .y = 3000 };
-    camera.scroll(.{ .right = true, .down = true }, 10, .{ .width_tiles = 96, .height_tiles = 96 });
+    camera.scroll(.{ .right = true }, 10, .{ .width_tiles = 96, .height_tiles = 96 });
     const max = @as(f32, 96) * world_cell_size;
     try std.testing.expectEqual(max, camera.x);
     try std.testing.expectEqual(max, camera.y);

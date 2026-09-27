@@ -964,17 +964,31 @@ Carried from plan 4: in parts of the map the terrain draws black under objects t
 
 **Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check.
 
-- [ ] **Step 1: Measure first**
+- [x] **Step 1: Measure first**
 
 With the app of Tasks 2-5 at the same camera anchor as `editor-bridge-objects.tga`, and the game at the same anchor on coldwinter (`BK_AUTO_UI` `camera=XxY`, then `shot` — see `Game/GameMain.cpp:1234-1512`), capture both with `BK_GFX_TRACE` on and compare the terrain draw calls (effects 101, 2 and 100) and their vertex counts. The game is the reference: if the game draws the terrain there, the editor is missing a step the game does (a per-frame terrain update, the camera's view volume, the screen rectangle); if the game draws it black too, the cause is in the engine and the fix is there. Record the measurements in the plan.
 
-- [ ] **Step 2: Make the engine tier catch it**
+Measured (macOS arm64, 640x480, coldwinter, anchor 3756,2714 = the map's first object, W_BigPoplar, the camera test's anchor). `BK_GFX_TRACE` logs mode changes and failures but no draw calls, so a temporary trace in `CTerrain::Draw` (removed again) printed the camera anchor, the screen rectangle, where the map's corner lands on screen (`MovePatches`' `vScreenO`), the visible patch set, and the vertex counts of the meshes effects 101 (`mshNoiseTiles`), 2 (`mshNoNoiseTiles`) and 100 (`mshBaseCrosses`) draw:
+
+| | patches | map corner on screen | effect 101 / 2 / 100 vertices | lower half black |
+|---|---|---|---|---|
+| game (`Game -windowed -mode=640x480 -profile=MissionRun Multiplayer/coldwinter.bzm`, `BK_AUTO_UI=400:camera=3756x2714,460:shot`) | 15, [3..5]x[0..4] | -1182, -1664 | 916 / 476 / 492 | 1.7% (the HUD) |
+| bridge, before | 15, [3..5]x[0..4] | -3436, -913 | 0 / 0 / 0 | 80.4% |
+| bridge, after | 15, [3..5]x[0..4] | -1183, -1664 | 916 / 476 / 492 | 0.5% |
+
+The game draws the ground there, and the editor picks the same patches but lays them out 2254 pixels further left, where `AddVertices` clips every tile. Over the 20 anchors of the pick test the same: 0 terrain vertices on 8, a partial set on the other 12 (the diagonal band in `editor-bridge-unit.tga`). The corner's x is exactly `320 - 3756`: the view matrix has world x along screen x, i.e. yaw 0. Cause: the bridge only ever called `ICamera::SetAnchor`, so the camera kept `CCamera`'s constructor placement (yaw 0, pitch 45, rod 1000) instead of the game's (`SetMissionCameraPlacement`, `GameTT/iMissionInternal.cpp:1161`: yaw 45, pitch 30, rod 4096 + screen height). Objects go through the view matrix and drew wherever that camera put them; the terrain is laid out in screen space by fixed pixel steps for the game's camera (`MovePatches`, `ExtractVisiblePatches`), so it ended up off screen. Not the view volume (`GetViewVolume` still returns zero planes, which culls nothing), not the screen rectangle (640x480 in both).
+
+- [x] **Step 2: Make the engine tier catch it**
 
 Add an engine-tier check that a frame at that anchor has terrain: in the captured TGA, the fraction of black pixels in the screen's lower half (below the sky gradient) is under a threshold measured on a frame known to be good. Print the fraction. Write it before the fix so it fails; it is the regression test.
 
-- [ ] **Step 3: Fix, run both tiers, commit**
+Done: `TestTerrainUnderTheCamera` in `tools/zig/editor_bridge_test.cpp` captures `zig-out/local-test/editor-bridge-terrain.tga` at that anchor and counts pixels with B, G and R all under 16 in the lower half; the bar is 10% (good frames: 0.5% bridge, 1.7% game with its HUD). RED before the fix: `the lower half of the frame at 3756,2714 is 80.4% black` and `FAIL: the ground is drawn under the camera`. GREEN after: `0.5% black`.
+
+- [x] **Step 3: Fix, run both tiers, commit**
 
 Fix where the measurement pointed. Run `test-editor-bridge` and `map-editor-host-check`; look at the new frame. Commit with a message naming the cause.
+
+Done: `SetSessionCamera` (`EditorBridge/session.cpp`) places the camera with the game's `SetPlacement` arguments on every move instead of only setting the anchor. Not the renderer or the game, so the game's frame is unchanged. The app's arrow-key and edge scrolling (`view_math.zig`) followed the old camera's axes, so it now moves along the screen's axes for the game's camera (right = world (+1, +1), up = world (-1, +1), up and down twice the step as in `CCamera::Update`); middle-drag panning goes through `resolve` and needed nothing. `test-editor-bridge` PASS (the pick ratio went from 11 to 16 of 20), `test-map-editor-engine` PASS, `test-map-editor-view` PASS, `map-editor-host-check` PASS; `map-editor-panels.tga` shows snow ground under the objects at 1280x800.
 
 ---
 

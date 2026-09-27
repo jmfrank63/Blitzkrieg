@@ -1276,7 +1276,17 @@ bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
 		pSession->szMessage = "there is no camera";
 		return false;
 	}
-	pCamera->SetAnchor( CVec3( wx, wy, 0.0f ) );
+	// Placed the way the game places its mission camera
+	// (GameTT/iMissionInternal.cpp, SetMissionCameraPlacement), not only moved:
+	// CCamera's own default looks along yaw 0 at pitch 45, and the terrain is
+	// laid out in screen space for yaw 45 and pitch 30 (CTerrain::MovePatches
+	// steps its patches by fixed pixel offsets from where the map's corner
+	// lands). Objects go through the view matrix and drew in place; the ground
+	// was laid out thousands of pixels away and clipped, and stayed black.
+	IGFX *pGFX = GetSingleton<IGFX>();
+	const RECT rcScreen = pGFX != 0 ? pGFX->GetScreenRect() : RECT();
+	const float fGameplayCameraHeight = float( rcScreen.bottom - rcScreen.top );
+	pCamera->SetPlacement( CVec3( wx, wy, 0.0f ), 1024 * 4 + fGameplayCameraHeight, -ToRadian( 90.0f + 30.0f ), ToRadian( 45.0f ) );
 	pCamera->Update();
 	return true;
 }

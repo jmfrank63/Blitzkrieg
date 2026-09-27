@@ -768,6 +768,64 @@ static bool SaveFrame( BkEditorSession *pSession, const std::string &szPath )
 	              NStr::Format( "the captured frame is a %dx%d top-first 32-bit TGA of %ld bytes, the screen %dx%d", nWidth, nHeight, nLength, nScreenW, nScreenH ) );
 }
 
+// The ground is drawn wherever the camera looks. The terrain is laid out in
+// screen space for the game's own camera - yaw 45, pitch 30, the rod of
+// iMissionInternal.cpp's SetMissionCameraPlacement - while objects go through
+// the view matrix, so a camera placed any other way draws the objects and
+// leaves the ground black under them. Measured on the anchor below (the
+// shipped map's first object, W_BigPoplar, the camera test's anchor) at
+// 640x480: the game's own frame there has 1.7% black pixels in the lower half
+// (its HUD), the bridge's frame 80.4% before its camera was placed like the
+// game's and 0.5% after. The lower half is below the haze, which fades to
+// black at the top.
+static const float TERRAIN_BLACK_BAR = 0.10f;
+
+static void TestTerrainUnderTheCamera( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+	const std::string szFrame = szScratch + "/editor-bridge-terrain.tga";
+	if ( !SaveFrame( pSession, szFrame ) )
+		return;
+	std::vector<unsigned char> file;
+	if ( FILE *pFile = fopen( szFrame.c_str(), "rb" ) )
+	{
+		fseek( pFile, 0, SEEK_END );
+		file.resize( size_t( ftell( pFile ) ) );
+		fseek( pFile, 0, SEEK_SET );
+		if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
+			file.clear();
+		fclose( pFile );
+	}
+	if ( !Check( file.size() > 18, "the terrain frame reads back" ) )
+		return;
+	// SaveFrame checked the header: top row first, 32 bits, BGRA.
+	const int nWidth = file[12] | ( file[13] << 8 ), nHeight = file[14] | ( file[15] << 8 );
+	const unsigned char *pPixels = &file[18];
+	int nBlack = 0, nCounted = 0;
+	for ( int y = nHeight / 2; y < nHeight; ++y )
+	{
+		for ( int x = 0; x < nWidth; ++x, ++nCounted )
+		{
+			const unsigned char *p = pPixels + ( size_t( y ) * nWidth + x ) * 4;
+			if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+				++nBlack;
+		}
+	}
+	const float fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+	printf( "editor-bridge: the lower half of the frame at %.0f,%.0f is %.1f%% black (%s, bar %.0f%%)\n",
+	        vAnchor.x, vAnchor.y, fBlack * 100.0f, map.objects[0].szName.c_str(), TERRAIN_BLACK_BAR * 100.0f );
+	Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the ground is drawn under the camera (%.1f%% of the lower half black)", fBlack * 100.0f ) );
+}
+
 // A camera put on an object answers, at the middle of the screen, with that
 // object - the picking half of "the camera is on cell 83,36 and the middle of
 // the screen is 83,36".
@@ -835,8 +893,10 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 	printf( "editor-bridge: %d of %d objects picked at the middle of the screen\n", nPicked, nTried );
 	// Not every one: a small object can sit behind a big neighbour, and that
 	// neighbour is a right answer too. Measured on macOS arm64 at 1440x900:
-	// 11 of 20; the misses are a neighbour the scene listed first (the MFC
-	// editor, copied here, takes the first) and one object at the map's edge
+	// 11 of 20 with CCamera's default placement, and 16 of 20 at 640x480 once
+	// the camera was placed like the game's (pitch 30, not 45). The misses are
+	// a neighbour the scene listed first (the MFC editor, copied here, takes the
+	// first) and one object at the map's edge
 	// where the camera stops short of it. Half is the bar, just under that.
 	Check( nTried > 0 && nPicked * 2 >= nTried, "the object under the camera is the one picked, for most objects" );
 
@@ -1495,6 +1555,7 @@ int main( int argc, char **argv )
 		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads" );
 		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
+		TestTerrainUnderTheCamera( pSession, szScratch );
 		TestOverlayDeviceAndSize( pSession, pWindow );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
