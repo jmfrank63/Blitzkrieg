@@ -1152,10 +1152,45 @@ Added by the controller at Johannes's request (2026-09-27): on a Mac trackpad, a
 
 **Files:** determined by the diagnosis — `Sources/editor/app/view.zig`/`view_math.zig` for the editor; the game's SDL input path (`Platform`/`Input`) and the UI's wheel handling for the game.
 
-- [ ] **Step 1: Measure.** Record what SDL delivers for a two-finger swipe on macOS (`SDL_EVENT_MOUSE_WHEEL` with fractional `x`/`y`, `direction`, and whether it arrives as `SDL_EVENT_FINGER_*` too), and where the game consumes wheel events today: what a mouse wheel does on the map and in list controls, and why a trackpad's small fractional deltas are lost (integer truncation of `wheel.y`, only `y` read, a per-notch threshold). Record in the plan.
-- [ ] **Step 2: Tests first.** Pure tests of the translation: fractional deltas accumulate until they make a step (lists) or map directly to camera movement (map, editor); horizontal and vertical both scroll the map; the natural-scrolling direction (`SDL_MOUSEWHEEL_FLIPPED`) is honoured; a real mouse wheel's notches behave exactly as before.
-- [ ] **Step 3: Fix** in the editor (wheel/trackpad scrolls the camera; ImGui panels keep their own scrolling when the pointer is over them) and in the game (map scroll and list scroll). Check by hand on the MacBook's trackpad; the game's existing mouse-wheel behaviour must not change. Run the editor steps and the game's tests; CI on both runners.
-- [ ] **Step 4: Commit.**
+- [x] **Step 1: Measure.** Record what SDL delivers for a two-finger swipe on macOS (`SDL_EVENT_MOUSE_WHEEL` with fractional `x`/`y`, `direction`, and whether it arrives as `SDL_EVENT_FINGER_*` too), and where the game consumes wheel events today: what a mouse wheel does on the map and in list controls, and why a trackpad's small fractional deltas are lost (integer truncation of `wheel.y`, only `y` read, a per-notch threshold). Record in the plan.
+
+  **Measured (2026-09-27)** from SDL 3.4.0's source and our code; the full notes are in `.superpowers/sdd/2026-09-24-map-editor-05-editor-app/task-7.3-report.md`.
+  - **Johannes's report.** The swipe is "erratic forth and back and mainly stays around the point where it started". That is in the game only: its map, its menus and its lists and selectors. The editor's map had no wheel case.
+  - **What SDL delivers.** A swipe is a stream of `SDL_EVENT_MOUSE_WHEEL` only, one per NSEvent, through the momentum phase after the fingers lift (`SDL_cocoamouse.m:612-632`).
+    - `x = -scrollingDeltaX` and `y = scrollingDeltaY`. With precise deltas both are multiplied by 0.1, so one unit is 10 points of finger travel and a slow swipe gives 0.1-0.5 per event. A wheel gives about ±1 per notch.
+    - The values already carry the natural-scrolling setting. `direction` only reports it (FLIPPED), and applying it again would scroll against the fingers.
+    - `which` is 0 for both devices, and fractions do not tell them apart either.
+    - No `SDL_EVENT_FINGER_*` by default: the touches get `SDL_MOUSE_TOUCHID` and are dropped. With `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY=1` they arrive as FINGER events on their own device, and no mouse input is synthesised from them. Nothing arrives as a middle button or as motion.
+  - **The game's shared cause.**
+    - `SDLApplication.cpp` sent `int(y*120)` per event (x dropped), and `InputAPI.cpp` passed it to `MOUSE_AXIS_Z`.
+    - `CControlAxis::ChangeState` reads an absolute position and emits new-minus-last. The Win32 original fed it a running `absZ` (`WinFrame.cpp:224-229`).
+    - The binder sums those offsets, so the sum telescoped to 40 x the last event's delta. The list went forth while the swipe sped up, back while it slowed down, and ended where it began. That feeds every `mouse_wheel` list and selector (`CUIScreen::Update`) and Shift+swipe zoom.
+    - A physical wheel had the same bug: a second notch the same way repeated 120 and was ignored, and a reversal doubled.
+    - Per frame, the lists also truncated sub-pixel steps (`int(fDelta*fStep)`, `SetPosition(int)`).
+    - A plain wheel does nothing on the game's map, in the original and now: the camera sliders are bound to the arrow keys only. Shift+wheel zooms.
+  - **Decision.**
+    - The game's wheel axis gets a running absolute position, with the fraction carried from event to event (`Platform/WheelScroll.h`). That fixes the lists and zoom for both devices, and a notch is still 120 x 40 x 0.001 = 4.8, the value the first notch always had.
+    - The lists carry sub-pixel steps and drop them on a change of direction. A step of a pixel or more takes each control's old expression unchanged.
+    - A two-finger swipe also pans the game's map, 1:1 with the fingers, and only where the cursor is on the map rather than on the interface. A physical wheel keeps doing nothing there, as in the original.
+    - SDL has no field that tells the two apart, so the game sets `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY` and calls a wheel event a swipe while a trackpad finger is down, or within 150 ms of the last swipe event (the momentum). If macOS delivers no touches, the swipe falls back to a wheel's behaviour: lists and zoom scroll, the map does not pan.
+    - In the editor, a wheel or swipe pans the map at 20 px per SDL unit, and a wheel over an ImGui panel stays the panel's.
+- [x] **Step 2: Tests first.** Pure tests of the translation: fractional deltas accumulate until they make a step (lists) or map directly to camera movement (map, editor); horizontal and vertical both scroll the map; the natural-scrolling direction (`SDL_MOUSEWHEEL_FLIPPED`) is honoured; a real mouse wheel's notches behave exactly as before.
+  - Editor: `view_math.zig`'s wheel tests, and the smoke's swipe steps (there and back, flipped, and over the left panel), which were RED before `View.handleWheel`.
+  - Game: `tools/zig/wheel_scroll_test.cpp` (`test-wheel-scroll`, in `zig build test`) replays the engine's axis chain both ways: the old feeding goes forth and back, the new one is monotonic, and the notches repeat -4.8 each. It also covers the stepper, the swipe/wheel classifier and the sensitivity.
+  - `tools/zig/platform_event_test.cpp` pushes fractional, flipped and finger-marked wheel events through the real `SDLApplication`. It was RED before the residual.
+- [x] **Step 3: Fix** in the editor (wheel/trackpad scrolls the camera; ImGui panels keep their own scrolling when the pointer is over them) and in the game (map scroll and list scroll). Check by hand on the MacBook's trackpad; the game's existing mouse-wheel behaviour must not change. Run the editor steps and the game's tests; CI on both runners.
+  - **Harness, debug stage, throw-away profiles.** On the chapter screen, `wheel=1` x3 then `-1` gave slider powers -4800, -4800, -4800, +4800. Before the fix the second and third were ignored and the reversal doubled. A slow `swipe` gave +240 on every event.
+  - In a mission, `swipe=0.3x0` panned 3 px per event with the anchor on world (+1,+1). `swipe=0x0.3` panned 3 px up with the anchor on world (-1,+1). Over the bottom panel: "over interface, not panned". A physical `wheel=` on the map did not pan.
+  - Unscripted real trackpad swipes on the game window during these runs were classified as swipes (finger events) and panned the map.
+  - Johannes then found the pan right on the map and asked for a sensitivity setting.
+  - **Added: the trackpad sensitivity.**
+    - The game gets a Gameplay option, **Trackpad Scrolling** (`GamePlay.TrackpadScroll`, a slider under Mouse Sensitivity). It runs 0-100, and the default 50 is 1x, today's pan. Each 50 either side is a factor of four (0.25x-4x).
+    - It scales a swipe's deltas for the lists and the map pan alike, one setting for both, and never a physical wheel's. The game had no scroll-speed option to honour; Mouse Sensitivity is the cursor's.
+    - The editor has the same multiplier as the constant `view_math.wheel_sensitivity = 1.0`, with a TODO for plan 6's settings.
+    - Checked in a fresh throw-away profile: the slider sits at the middle, a click moves it to 93, and OK writes `Var="93" Type="3"`. A run with the value at 100 read back from the profile's config panned in 4x steps.
+  - **Local.** The editor steps pass (smoke 19 steps). `zig build test` passes (102/102). `test-platform-events`, `test-input-state`, `test-input-bindings` and `test-wheel-scroll` pass. Johannes's release stage is rebuilt.
+  - **CI:** run 36313377108 failed on windows-platform. GameMain's new includes sat in the non-Windows branch, fixed in `06fff59f1`. Run **36314200294** on `06fff59f1`: all six jobs green (macos, linux, linux-arm, windows, windows-mingw, macos-intel).
+- [x] **Step 4: Commit.** Editor: `bd263648e` and `1c6a200a3`. Game: `0d7bab3c0`, `a9d4aed00` and `06fff59f1`.
 
 ---
 
