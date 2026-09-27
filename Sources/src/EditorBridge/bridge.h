@@ -205,6 +205,14 @@ BkEditorStatus BkEditorRedoPaint( BkEditorSession *session, int token );
    off the map. */
 BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsigned char *out_tile );
 
+/* The tiles BkEditorPaint takes on the open map: every index its tileset has a
+   terrain type for, once each, ascending - what a brush's palette offers.
+   Like BkEditorObjects, out_count is always the total, and a buffer too short
+   for it is BK_EDITOR_REFUSED with nothing written past capacity; out may be
+   null when capacity is 0, to ask for the count. BK_EDITOR_REFUSED too when
+   no map is open. */
+BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *out, int capacity, int *out_count );
+
 /* A world point to the tile it falls in - the brush's other half, through the
    engine's own conversion. Screen to world is BkEditorScreenToWorld; the two
    compose. BK_EDITOR_REFUSED means the point is not on the map. */

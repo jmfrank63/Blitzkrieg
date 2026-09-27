@@ -1076,6 +1076,52 @@ static void TestPaintRefusesTileOutsideTileset( BkEditorSession *pSession )
 	}
 }
 
+// The brush's palette: every tile BkEditorTilesetTiles hands out paints, and
+// tile 1, which no shipped tileset has, is not among them. The count comes
+// first with no buffer, and a buffer one short is refused with nothing
+// written past it.
+static void TestTilesetTilesAllPaint( BkEditorSession *pSession )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCount = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount > 1,
+	             NStr::Format( "the tileset's tile count comes back with no buffer (%d): %s", nCount, BkEditorLastMessage( pSession ) ) ) )
+		return;
+	std::vector<unsigned char> tiles( size_t( nCount ) + 1, 0xAB );
+	int nShort = -1;
+	Check( BkEditorTilesetTiles( pSession, &( tiles[0] ), nCount - 1, &nShort ) == BK_EDITOR_REFUSED && nShort == nCount,
+	       "a buffer one short is refused and still told the total" );
+	Check( tiles[size_t( nCount ) - 1] == 0xAB && tiles[size_t( nCount )] == 0xAB, "and nothing is written past its capacity" );
+	int nRead = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, &( tiles[0] ), nCount, &nRead ) == BK_EDITOR_OK && nRead == nCount,
+	             BkEditorLastMessage( pSession ) ) )
+		return;
+	bool bAscending = true;
+	for ( int i = 1; i < nCount; ++i )
+		bAscending = bAscending && tiles[i - 1] < tiles[i];
+	Check( bAscending, "the tiles come once each, ascending" );
+	bool bHasOne = false;
+	for ( int i = 0; i < nCount; ++i )
+		bHasOne = bHasOne || tiles[i] == 1;
+	Check( !bHasOne, "tile 1, in no shipped tileset, is not offered" );
+	int nPainted = 0;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const BkEditorPaintCell cell = { 30, 30, tiles[i] };
+		int nToken = -1;
+		const BkEditorStatus painted = BkEditorPaint( pSession, &cell, 1, &nToken );
+		if ( Check( painted == BK_EDITOR_OK, NStr::Format( "tileset tile %d paints: %s", int( tiles[i] ), BkEditorLastMessage( pSession ) ) ) )
+		{
+			++nPainted;
+			BkEditorUndoPaint( pSession, nToken );
+		}
+	}
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "and after painting each and undoing it the terrain still matches: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	printf( "editor-bridge: the tileset of %s offers %d tiles, %d painted\n", SHIPPED_MAP, nCount, nPainted );
+}
+
 // Delete then restore is the original object, in the map and in the engine,
 // and add - delete - restore keeps the added object's link ID.
 static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const std::string &szScratch )
@@ -1440,6 +1486,7 @@ int main( int argc, char **argv )
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
+		TestTilesetTilesAllPaint( pSession );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
 		// The 640x480 the window was created at: BkEditorStart sets the mode to
 		// the window's own size. The middle of the screen is the middle of what

@@ -527,6 +527,23 @@ BkEditorStatus BkEditorEngineTile( BkEditorSession *pSession, int nX, int nY, un
 	} );
 }
 
+BkEditorStatus BkEditorTilesetTiles( BkEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return TilesetTiles( pSession, pOut, nCapacity, pnCount ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
 // Undo and redo of a paint, by the token BkEditorPaint handed out.
 BkEditorStatus BkEditorUndoPaint( BkEditorSession *pSession, int nToken )
 {

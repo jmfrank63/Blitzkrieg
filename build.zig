@@ -2727,6 +2727,21 @@ pub fn build(b: *std.Build) void {
     view_math_step.dependOn(&view_math_tests.step);
     if (test_mode == .run) view_math_step.dependOn(&view_math_tests_run.step);
     test_step.dependOn(view_math_step);
+    // The panels' pure parts (the file dialogs' hand-over and the file
+    // actions, the palette's filter, directions, the title): plain Zig
+    // against the core's fake bridge, no SDL, ImGui or engine.
+    const panels_logic_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/panels_logic.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+        .imports = &.{.{ .name = "editor_core", .module = editor_core_module }},
+    });
+    const panels_logic_tests = b.addTest(.{ .root_module = panels_logic_module });
+    const panels_logic_tests_run = b.addRunArtifact(panels_logic_tests);
+    const panels_logic_step = b.step("test-map-editor-panels", "Run the panels' pure file-action, palette and properties tests");
+    panels_logic_step.dependOn(&panels_logic_tests.step);
+    if (test_mode == .run) panels_logic_step.dependOn(&panels_logic_tests_run.step);
+    test_step.dependOn(panels_logic_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);

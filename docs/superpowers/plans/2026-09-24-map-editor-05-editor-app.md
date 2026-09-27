@@ -916,7 +916,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Consumes: `Editor` (document, status, undo/redo, the setters), `View` (tool, brush, placer), `RealBridge.catalogue`.
 - Produces (panels.zig): `pub fn draw(state: *State) void` with `State` holding the editor, the view, the catalogue, the palette filter and the file actions requested this frame (`open_requested`, `save_requested`, `save_as_requested`, `quit_requested`).
 
-- [ ] **Step 1: The panels**
+- [x] **Step 1: The panels**
 
 Each in its own ImGui window, docked to the window's edges with `igSetNextWindowPos/Size` on first use (`ImGuiCond_FirstUseEver`); the map view is everything the panels do not cover.
 
@@ -927,15 +927,27 @@ Each in its own ImGui window, docked to the window's edges with `igSetNextWindow
 - **Players and diplomacy:** one row per player with a combo of side 0, side 1, neutral (`editor.setDiplomacy`); the map type and the attacking side (`setMapType`, `setAttackingSide`).
 - **Status bar:** `editor.status()` (the last refusal or failure), the hovered tile and world point, the tool.
 
-- [ ] **Step 2: A panel smoke in the host check**
+What was built (`panels.zig`, its window-free half in `panels_logic.zig`, tested by `zig build test-map-editor-panels` against the core's fake bridge):
+
+- **The brush's tiles come from the engine.** The shipped tilesets skip indices (tile 1 is in none), so "0 to the count" would offer tiles `BkEditorPaint` refuses. The bridge gained `BkEditorTilesetTiles(session, out, capacity, &count)` — every tile the open map's tileset has a terrain type for, once each, ascending, read from the same `STilesetDesc` `PaintTilesInTileset` checks against; `BkEditorObjects`' sizing contract (count always the total, a short buffer `BK_EDITOR_REFUSED`), through `Guarded`, documented in `bridge.h`. `tools/zig/editor_bridge_test.cpp` `TestTilesetTilesAllPaint`: coldwinter's tileset offers 184 tiles, all 184 paint `BK_EDITOR_OK` (each undone), tile 1 is not among them, a buffer one short is refused with nothing written past it. `RealBridge.tilesetTiles` hands them to the palette, a combo of exactly those tiles; after every open the brush keeps its tile if the new tileset has it, else takes the first.
+- **File dialogs.** SDL's callback may run on another thread (`SDL_dialog.h`, not only "on the main thread through the event loop"), so it only writes the path into `panels_logic.PathSlot` — an atomic state (idle → waiting → arrived/failed) guarding one buffer, one dialog at a time — and `panels.act`, after each frame, acts on what arrived: open or save through `Editor`, so the document, history and status follow. SDL's filter pattern is the extensions alone (`"bzm;xml"`); a Save As name without `.bzm`/`.xml` gets `.bzm`, since the bridge picks the format from the extension. The dialog's OS path is written with the engine's separator before it reaches the bridge (`OpenFileStream` splits on backslash only) — the panel smoke proves an absolute macOS path so converted saves and reopens.
+- **Properties.** Fields load from the selected object whenever none was active last frame; an edit commits as one `editor.place(..., 0)` on `igIsItemDeactivatedAfterEdit`. The direction is taken from the degrees field only if it was changed, so editing x alone cannot turn an object by a rounding step. A click on the map that changes the selection mid-typing commits the typed value to the object it was typed for. Unknown objects and objects whose link ID the map shares show "kept as it is" and the reason, with no fields.
+- **Status bar.** The tool, the hovered tile and world point, `editor.status()`, and the view's own failures ("failed: FrameFailed", a failed panel edit). `View.noteEditResult` is now the one place any edit's outcome lands: a success or a refusal clears the view's own line, so a failure never outlives the edits after it.
+- **Object palette:** 5,559 catalogue entries in 14 `SGVOGT_*` groups (headers name the type and the match count; a non-empty filter opens every group with a match).
+
+- [x] **Step 2: A panel smoke in the host check**
 
 Extend `--check` so after the pixel checks it also draws one frame of the real panels over the map (with `State` from the opened map) and exits 0 when nothing failed — so CI exercises the panel code on both GPU runners without a person. Keep the magenta probe check as it is.
 
-- [ ] **Step 3: Try it by hand**
+Done: after `host check PASS`, `panelSmoke` opens the map through `Editor`, builds a `State` (catalogue, tileset tiles — tile 1 must not be offered), selects an editable object, draws a frame of the panels, then runs the file actions a dialog starts with the path handed to the slot as the callback would: Save As to `<output dir>/map-editor-check-saved.bzm`, then Open of that file (same object count), and one more frame, captured to `map-editor-panels.tga` for a person to look at. macOS: `map-editor: panel smoke PASS (5559 catalogue entries, 184 tiles, saved and reopened …/zig-out/local-test/map-editor-check-saved.bzm)`.
+
+- [ ] **Step 3: Try it by hand** — Johannes's, when the plan finishes
 
 As in Task 4, with the panels: open a map through File → Open, place an object from the palette, change its player in Properties, change a side in Players, undo and redo through the menu, save through Save As to `zig-out/local-test/`, reopen the saved file. Record it in the plan.
 
-- [ ] **Step 4: Commit**
+Ledger ruling: this shell cannot see or click a window, and SDL's file dialogs cannot be shown headlessly, so the hand try is Johannes's, done when the plan finishes. Verified from the shell instead: the panel smoke above (the dialog hand-over and both file actions, without the dialog), the `panels_logic` tests (requested → path arrived → acted on the next frame, one dialog at a time, cancel, failure), and the interactive mode from the stage root with and without a map — it runs its frame loop with no error line, and `kill -TERM` quits it with exit code 0 both ways.
+
+- [x] **Step 4: Commit**
 
 ```bash
 git add Sources/editor/app docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md

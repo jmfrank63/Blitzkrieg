@@ -148,6 +148,11 @@ bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, fl
 // False with the reason in szMessage; *pbBadTile says the caller named a tile
 // the tileset lacks, rather than the engine having no terrain or tileset.
 bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile );
+// Every tile the map's tileset has a terrain type for, ascending, into pOut;
+// pnCount is always the tileset's count, not how many fitted. False with the
+// reason in szMessage when no map is open, there is no terrain, or the buffer
+// was too short.
+bool TilesetTiles( SEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount );
 // The tile the engine holds at a cell. False with the reason in szMessage when
 // no map is open or the cell is off the map.
 bool EngineTile( SEditorSession *pSession, int nX, int nY, BYTE *pTile );

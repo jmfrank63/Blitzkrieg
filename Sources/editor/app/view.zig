@@ -20,7 +20,7 @@ pub const world_cell_size = view_math.world_cell_size;
 pub const Tool = enum { select, brush, place };
 
 /// SGVOGT_UNIT (Sources/src/Main/GameDB.h): the placer's default object,
-/// until the palette (a later task) lets the user choose one.
+/// until the object palette chooses another.
 const unit_game_type: i32 = 1;
 
 /// Screen pixels from a window edge that starts edge-scrolling.
@@ -60,9 +60,12 @@ pub const View = struct {
         self.* = undefined;
     }
 
-    /// The status bar's text: the reason for the last refusal (as the
-    /// editor already holds it), or "failed: " and the reason for anything
-    /// worse. Empty once nothing has gone wrong yet.
+    /// The view's own part of the status bar: "failed: " and the reason for
+    /// anything worse than a refusal - a tool's or a panel's failed edit, or
+    /// a lost frame main.zig reports. A refusal is not repeated here; the
+    /// editor's own status already words it. Empty after the next edit that
+    /// succeeds or is merely refused, so a failure never outlives the edits
+    /// after it.
     pub fn statusLine(self: *const View) []const u8 {
         return self.status_buffer[0..self.status_len];
     }
@@ -88,15 +91,49 @@ pub const View = struct {
         self.status_len = prefix_len + message_len;
     }
 
+    pub fn clearStatus(self: *View) void {
+        self.status_len = 0;
+    }
+
+    /// The status of an edit made anywhere - a tool, a menu, a panel -
+    /// onto the view's part of the status bar (see `statusLine`).
+    pub fn noteEditResult(self: *View, editor: *Editor, result: EditError!void) void {
+        result catch |err| return self.noteToolError(editor, err);
+        self.clearStatus();
+    }
+
+    /// The tool palette's and the menu's way to switch tools: the same as
+    /// the 1/2/3 keys, an open gesture on the old tool ended first.
+    pub fn selectTool(self: *View, editor: *Editor, tool: Tool) void {
+        self.switchTool(editor, tool);
+    }
+
+    /// The object palette's choice: the placer's object from now on. The
+    /// name is copied, so the caller's buffer may go.
+    pub fn setPlacerObject(self: *View, name: []const u8) void {
+        const len = @min(name.len, self.placer_name_storage.len);
+        @memcpy(self.placer_name_storage[0..len], name[0..len]);
+        self.placer.name = self.placer_name_storage[0..len];
+    }
+
+    /// Undo and redo for the Edit menu, reported as the keys report them.
+    pub fn undo(self: *View, editor: *Editor) void {
+        self.runUndoable(editor, .undo);
+    }
+
+    pub fn redo(self: *View, editor: *Editor) void {
+        self.runUndoable(editor, .redo);
+    }
+
     /// Centres the camera on a freshly opened map, and picks the placer's
-    /// object: the first catalogue entry of game type unit. Called once
-    /// after `editor.open` succeeds.
+    /// object if none was chosen yet: the first catalogue entry of game type
+    /// unit. Called after every `editor.open` that succeeds.
     pub fn centreOn(self: *View, real: *RealBridge, info: MapInfo) void {
         self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
         self.camera_x = @as(f32, @floatFromInt(info.width_tiles)) * world_cell_size / 2;
         self.camera_y = @as(f32, @floatFromInt(info.height_tiles)) * world_cell_size / 2;
         _ = real.setCamera(self.camera_x, self.camera_y);
-        self.pickDefaultPlacerObject(real);
+        if (self.placer.name.len == 0) self.pickDefaultPlacerObject(real);
     }
 
     fn pickDefaultPlacerObject(self: *View, real: *RealBridge) void {
@@ -104,18 +141,15 @@ pub const View = struct {
         defer self.allocator.free(entries);
         for (entries) |entry| {
             if (entry.game_type != unit_game_type) continue;
-            const name = std.mem.sliceTo(&entry.name, 0);
-            const len = @min(name.len, self.placer_name_storage.len);
-            @memcpy(self.placer_name_storage[0..len], name[0..len]);
-            self.placer.name = self.placer_name_storage[0..len];
+            self.setPlacerObject(std.mem.sliceTo(&entry.name, 0));
             return;
         }
     }
 
     /// An event `main.zig` decided (through `inputKindOf`/`shouldDeliver`)
-    /// belongs to the view. Any edit's error ends up on the status line:
-    /// `error.Refused` as the editor already worded it, anything else
-    /// prefixed "failed:".
+    /// belongs to the view. Any edit's outcome goes through
+    /// `noteEditResult`: a refusal is left to the editor's own status, a
+    /// failure is prefixed "failed:".
     pub fn handleEvent(self: *View, editor: *Editor, real: *RealBridge, event: *const sdl3.c.SDL_Event) void {
         switch (event.type) {
             sdl3.c.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl3.c.SDL_EVENT_MOUSE_BUTTON_UP => {
@@ -225,7 +259,7 @@ pub const View = struct {
             .undo => editor.undo(),
             .redo => editor.redo(),
         };
-        _ = result catch |err| self.noteToolError(editor, err);
+        if (result) |_| self.clearStatus() else |err| self.noteToolError(editor, err);
     }
 
     fn dispatch(self: *View, editor: *Editor, event: tools.Event) void {
@@ -234,15 +268,15 @@ pub const View = struct {
             .brush => self.brush.handle(editor, event),
             .place => self.placer.handle(editor, event),
         };
-        result catch |err| self.noteToolError(editor, err);
+        self.noteEditResult(editor, result);
     }
 
     /// `error.Refused` is not an error here: the editor's status line
-    /// already holds the reason. Anything else is shown too, prefixed
-    /// "failed:".
+    /// already holds the reason, so the view's part is cleared. Anything
+    /// else is shown, prefixed "failed:".
     fn noteToolError(self: *View, editor: *Editor, err: EditError) void {
         switch (err) {
-            error.Refused => self.setStatus("", editor.status()),
+            error.Refused => self.clearStatus(),
             error.OutOfMemory => self.setStatus("failed: ", "out of memory"),
             error.Failed => self.setStatus("failed: ", editor.status()),
         }

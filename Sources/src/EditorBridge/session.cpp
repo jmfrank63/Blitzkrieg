@@ -877,6 +877,52 @@ bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverla
 	return true;
 }
 
+// Every tile index the tileset the engine loaded for the map has a terrain
+// type for, once each and in ascending order: exactly the tiles
+// PaintTilesInTileset lets through, read from the same place.
+bool TilesetTiles( SEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
+{
+	*pnCount = 0;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const STilesetDesc &rTileset = pEngineTerrain->GetTilesetDesc();
+	bool bHas[256];
+	memset( bHas, 0, sizeof bHas );
+	for ( size_t t = 0; t < rTileset.terrtypes.size(); ++t )
+	{
+		const std::vector<SMainTileDesc> &rTiles = rTileset.terrtypes[t].tiles;
+		for ( size_t k = 0; k < rTiles.size(); ++k )
+		{
+			// A paint cell's tile is an unsigned char, so an index past it can
+			// never be painted and is not offered.
+			if ( rTiles[k].nIndex >= 0 && rTiles[k].nIndex < 256 )
+				bHas[rTiles[k].nIndex] = true;
+		}
+	}
+	int nCount = 0;
+	for ( int nTile = 0; nTile < 256; ++nTile )
+	{
+		if ( !bHas[nTile] )
+			continue;
+		if ( nCount < nCapacity )
+			pOut[nCount] = (unsigned char)nTile;
+		++nCount;
+	}
+	*pnCount = nCount;
+	if ( nCount > nCapacity )
+	{
+		pSession->szMessage = NStr::Format( "the tileset has %d tiles, the buffer room for %d", nCount, nCapacity );
+		return false;
+	}
+	return true;
+}
+
 bool EngineTile( SEditorSession *pSession, int nX, int nY, BYTE *pTile )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )

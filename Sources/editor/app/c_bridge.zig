@@ -230,6 +230,16 @@ pub const RealBridge = struct {
         return entries;
     }
 
+    /// The tiles the open map's tileset has, ascending, for the brush's
+    /// palette: a tile is an unsigned char, so 256 always holds them all.
+    /// Null when no map is open or the bridge would not say.
+    pub fn tilesetTiles(self: *RealBridge, out: *[256]u8) ?[]const u8 {
+        var count: c_int = 0;
+        if (c.BkEditorTilesetTiles(self.session, out, out.len, &count) != c.BK_EDITOR_OK) return null;
+        if (count < 0 or count > out.len) return null;
+        return out[0..@intCast(count)];
+    }
+
     /// The engine tier's two agreement checks, for tests.
     pub fn engineMatches(self: *RealBridge) Status {
         const terrain = status(c.BkEditorTerrainMatchesEngine(self.session));

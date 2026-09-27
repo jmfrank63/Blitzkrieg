@@ -3,8 +3,8 @@
 //!   MapEditor --check <map> [<out.tga>]     headless host check
 //!
 //! The interactive mode opens a visible window, starts the engine on it,
-//! opens <map> if one was given, and runs view.View's camera and tools until
-//! the window closes. A step that fails before there is a window to show
+//! opens <map> if one was given, and runs view.View's camera and tools under
+//! panels.zig's panels until the window closes or File > Quit. A step that fails before there is a window to show
 //! anything in (SDL, the window, the engine, ImGui, or the map itself) is
 //! reported through SDL_ShowSimpleMessageBox, naming the step, and exits
 //! non-zero; --check has no window to show a dialog over, so it keeps
@@ -13,8 +13,12 @@
 //! The host check starts the engine hidden with ImGui over it, opens the
 //! map, draws frames with a magenta ImGui window at a known place, captures
 //! one frame as it was presented and checks that both the panel and the map
-//! are in it. Prints "map-editor: host check PASS (<driver>, <w>x<h>)" and
-//! exits 0, or a "FAIL:" line naming what was wrong and exits 1.
+//! are in it, printing "map-editor: host check PASS (<driver>, <w>x<h>)".
+//! Then the panel smoke: the real panels drawn over the map with a State
+//! from the opened map, and the file actions a dialog would start - Save As
+//! to the output's directory, and opening that file again - run without the
+//! dialog, printing "map-editor: panel smoke PASS (...)". Exits 0 when both
+//! passed, or prints a "FAIL:" line naming what was wrong and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
@@ -23,6 +27,8 @@ const host_mod = @import("host.zig");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const view_math = @import("view_math.zig");
+const panels = @import("panels.zig");
+const panels_logic = @import("panels_logic.zig");
 const crt = @import("crt.zig");
 const c = host_mod.c;
 
@@ -85,8 +91,10 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
             const reason = editor.status();
             fatal("map open", if (reason.len != 0) reason else "the map did not open");
         };
-        view.centreOn(&real, editor.document.info);
     }
+    // Centres the view on the map opened above, if any (State.mapOpened).
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window);
+    defer state.deinit();
 
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
@@ -116,8 +124,11 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
         view.update(&real, host.window, dt_seconds);
 
         host.beginFrame();
-        drawStatusWindow(view.statusLine());
+        panels.draw(&state);
         host.endFrame() catch |err| view.setStatus("failed: ", @errorName(err));
+        // After the frame: Save, the dialogs Open and Save As show, a path
+        // one of them delivered during this frame's events, and Quit.
+        if (panels.act(&state)) running = false;
     }
     // A plain return, not std.process.exit: the deferred host.stop(),
     // editor.deinit() and view.deinit() above must run so the engine and its
@@ -144,19 +155,6 @@ fn fatal(step: []const u8, reason: []const u8) noreturn {
     const message = std.fmt.bufPrintZ(&buffer, "{s} failed: {s}", .{ step, reason }) catch "Map Editor failed to start";
     _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Map Editor", message, null);
     std.process.exit(1);
-}
-
-/// For now, a one-line status window (the panels of Task 5 replace this).
-fn drawStatusWindow(status: []const u8) void {
-    var buffer: [513:0]u8 = undefined;
-    const text = if (status.len == 0) "ready" else status;
-    const len = @min(text.len, buffer.len - 1);
-    @memcpy(buffer[0..len], text[0..len]);
-    buffer[len] = 0;
-    imgui.c.igSetNextWindowPos(.{ .x = 0, .y = 0 }, imgui.c.ImGuiCond_Always);
-    _ = imgui.c.igBegin("status", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings | imgui.c.ImGuiWindowFlags_AlwaysAutoResize);
-    imgui.c.igText("%s", buffer[0..len :0].ptr);
-    imgui.c.igEnd();
 }
 
 // The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why).
@@ -247,6 +245,77 @@ fn check(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8
         return fail("the screen's centre ({d},{d}) is ({d},{d},{d}), not the map", .{ outside_x, outside_y, outside.r, outside.g, outside.b });
 
     std.debug.print("map-editor: host check PASS ({s}, {d}x{d})\n", .{ driver, width, height });
+    return panelSmoke(gpa, &host, map, output);
+}
+
+/// One frame of the real panels over the map, with a State from the opened
+/// map, and the file actions the dialogs start, run with the path handed to
+/// the slot as a dialog's callback would hand it: Save As into the output's
+/// directory, then Open of what was saved. Nothing here needs a person, so
+/// CI runs the panel code on both GPU runners.
+fn panelSmoke(gpa: std.mem.Allocator, host: *host_mod.Host, map: []const u8, output: []const u8) !bool {
+    var real = c_bridge.RealBridge.init(host.session);
+    var editor = core.editor.Editor.init(gpa, real.bridge());
+    defer editor.deinit();
+    var view = view_mod.View.init(gpa);
+    defer view.deinit(gpa);
+    editor.open(map) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window);
+    defer state.deinit();
+    if (state.catalogue.len == 0) return fail("panels: the object palette has no catalogue", .{});
+    if (state.tiles.len == 0) return fail("panels: the brush has no tiles from the map's tileset", .{});
+    if (std.mem.indexOfScalar(u8, state.tiles, 1) != null) return fail("panels: tile 1, in no shipped tileset, is offered", .{});
+    // An object the properties panel can edit, so its fields are drawn too.
+    const editable: ?i32 = for (editor.document.objects.items) |object| {
+        if (panels_logic.readOnlyReason(editor.document.objects.items, object) == null) break object.link_id;
+    } else null;
+    editor.selection = editable orelse return fail("panels: no object of {s} is editable", .{map});
+
+    if (!panelFrame(host, &state)) return false;
+    const objects = editor.document.objects.items.len;
+
+    const directory = std.fs.path.dirname(output) orelse ".";
+    var saved_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const saved = std.fmt.bufPrint(&saved_buffer, "{s}{c}map-editor-check-saved.bzm", .{ directory, std.fs.path.sep }) catch
+        return fail("panels: the save path is too long", .{});
+    if (!state.actions.dialog.request(.save_as)) return fail("panels: the dialog slot was not free", .{});
+    state.actions.dialog.deliver(saved);
+    if (panels.act(&state)) return fail("panels: Save As quit the editor", .{});
+    if (view.statusLine().len != 0 or editor.status().len != 0)
+        return fail("panels: Save As to {s} failed: {s}{s}", .{ saved, view.statusLine(), editor.status() });
+    if (!std.mem.eql(u8, panels_logic.baseName(editor.document.path.items), "map-editor-check-saved.bzm"))
+        return fail("panels: after Save As the document's path is {s}", .{editor.document.path.items});
+
+    if (!state.actions.dialog.request(.open)) return fail("panels: the dialog slot was not free after Save As", .{});
+    state.actions.dialog.deliver(saved);
+    if (panels.act(&state)) return fail("panels: Open quit the editor", .{});
+    if (view.statusLine().len != 0 or editor.status().len != 0)
+        return fail("panels: opening {s} again failed: {s}{s}", .{ saved, view.statusLine(), editor.status() });
+    if (editor.document.objects.items.len != objects)
+        return fail("panels: {s} reopened with {d} objects, saved with {d}", .{ saved, editor.document.objects.items.len, objects });
+    // Opening forgets the selection; select again so the capture below
+    // has the properties panel's fields in it.
+    editor.selection = editable orelse unreachable;
+    if (!panelFrame(host, &state)) return false;
+    // What the panels look like, beside the probe's capture, for a person
+    // to look at; nothing is measured in it.
+    var shot_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const shot = std.fmt.bufPrintZ(&shot_buffer, "{s}{c}map-editor-panels.tga", .{ directory, std.fs.path.sep }) catch
+        return fail("panels: the capture path is too long", .{});
+    if (c.BkEditorCaptureFrame(host.session, shot.ptr) != c.BK_EDITOR_OK)
+        return fail("panels: the frame was not captured: {s}", .{std.mem.span(c.BkEditorLastMessage(host.session))});
+
+    std.debug.print("map-editor: panel smoke PASS ({d} catalogue entries, {d} tiles, saved and reopened {s})\n", .{ state.catalogue.len, state.tiles.len, saved });
+    return true;
+}
+
+fn panelFrame(host: *host_mod.Host, state: *panels.State) bool {
+    var event: sdl3.c.SDL_Event = undefined;
+    while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
+    host.beginFrame();
+    panels.draw(state);
+    host.endFrame() catch |err| return fail("panels: the frame failed: {s}: {s}", .{ @errorName(err), std.mem.span(c.BkEditorLastMessage(host.session)) });
+    if (state.view.statusLine().len != 0) return fail("panels: the frame left a failure: {s}", .{state.view.statusLine()});
     return true;
 }
 
