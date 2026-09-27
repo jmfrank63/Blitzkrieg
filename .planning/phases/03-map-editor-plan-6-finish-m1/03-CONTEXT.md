@@ -28,15 +28,15 @@ Plans 1–5 are merged on main (6657668a6): the bridge (`Sources/src/EditorBridg
 
 ### Camera rotate and zoom
 - **D-10:** Zoom like the game: trackpad pinch and Shift + wheel/swipe zoom; a plain two-finger swipe keeps panning (as plan 5 Task 7.3 built).
-- **D-11:** Zoom range and view angles stay within the game's own limits (what you see is what the player sees).
-- **D-12:** Rotation: the trackpad two-finger rotate gesture and Alt+Q / Alt+E turn the camera; plain Q/E keep rotating the selected object.
+- **D-11:** Zoom range stays within the game's own limits; the tilt (pitch) stays the game's. (Revised after research, 2026-09-28: the game's zoom is an orthographic rescale driven by `GFX.World.ZoomSteps` / `BaseSizeX/Y`, and the game never rotates its camera.)
+- **D-12:** Rotation: free 360° yaw at the game's fixed tilt, so the user can see behind buildings; the trackpad two-finger rotate gesture and Alt+Q / Alt+E turn the camera; plain Q/E keep rotating the selected object. (Confirmed after research: this is new behaviour — the game has no rotation; SDL3 3.4 has pinch events but no rotate event, so the gesture is tracked from finger positions.)
 - **D-13:** A key (e.g. Home) and a menu item reset rotation and zoom to the game's default view.
 - **D-14:** Zoom centres on the pointer (the world point under the cursor stays put).
 - **D-15:** The camera view is remembered per map for the current session only; a fresh start opens centred at the default view.
 - **D-16:** No whole-map overview beyond the game's limits in M1.
 
 ### Where maps live, saving
-- **D-17:** New and saved user maps default to a `maps` folder in the user data area (beside profiles/saves), where the game's custom-mission list can find them; shipped `Data` maps are never overwritten. — **Reversibility:** costly — the folder becomes where users' maps accumulate and where the game looks for them; moving it later needs a migration of existing user maps.
+- **D-17:** New and saved user maps default to a `maps` folder in the user data area (beside profiles/saves); shipped `Data` maps are never overwritten. Editor-side only in M1: the user plays them through Test in game. (Revised after research, 2026-09-28: the game's custom-mission list lists mission files, not maps; making it list user maps is a later phase.) — **Reversibility:** costly — the folder becomes where users' maps accumulate and where the game looks for them; moving it later needs a migration of existing user maps.
 - **D-18:** A shipped map (from `Data`) is read-only: Save becomes Save As, defaulting to the user maps folder.
 - **D-19:** Safe save: write a temporary file and swap it in; keep one `name.bzm.bak`, taken once per session at the first write, holding the version from when the map was opened (autosaves cannot overwrite the last good version).
 - **D-20:** Autosave writes into the map file itself.
@@ -49,10 +49,13 @@ Plans 1–5 are merged on main (6657668a6): the bridge (`Sources/src/EditorBridg
 - **D-25:** A Settings window (ImGui) edits them: scroll/swipe speed (replacing plan 5's `wheel_sensitivity` constant), autosave on/off and interval, default maps folder; recent-files length is fixed (D-27).
 - **D-26:** A mod is chosen from File → Mod (installed mods, or None) and with `-mod=Name` on the command line, like the game; switching reloads the object palette (and asks about unsaved changes per D-23).
 - **D-27:** File → Open Recent lists the last 10 maps; missing files are shown greyed and can be removed.
-- **D-28:** With a mod active, maps are saved by default to that mod's own maps folder (e.g. `mods/<Name>/maps` in user data), and the map records the mod's name as the format allows.
+- **D-28:** With a mod active, maps are saved by default to `mods/<Name>/maps` in the user data area — never into the installed, read-only `<game>/mods/<Name>/data` — and the map records the mod's name as the format allows. (Confirmed after research, 2026-09-28.)
+
+### Object palette
+- **D-29:** Palette entries show a picture of each object, rendered by the engine on demand when its palette group is opened and cached (not a per-type symbol). (Decided after research, 2026-09-28.)
 
 ### Claude's Discretion
-- Object icons in the palette, the brush outline (`BkEditorWorldToScreen`), panels following a window resize, the map's sound list editor, the unknown-objects warning, `BK_EDITOR_AUTO` and the shot comparison, the full open/save sweep, packaging on macOS and Windows (including the Windows console subsystem), and triage of plan 5's deferred minors — the builder decides, within the spec.
+- the brush outline (`BkEditorWorldToScreen`), panels following a window resize, the map's sound list editor, the unknown-objects warning, `BK_EDITOR_AUTO` and the shot comparison, the full open/save sweep, packaging on macOS and Windows (including the Windows console subsystem), and triage of plan 5's deferred minors — the builder decides, within the spec.
 - The recovery-copy location and file naming, the settings file format, and the exact default key for view reset.
 
 </decisions>
@@ -108,6 +111,7 @@ Plans 1–5 are merged on main (6657668a6): the bridge (`Sources/src/EditorBridg
 ## Deferred Ideas
 
 - A whole-map overview / zooming beyond the game's limits — with M3's minimap tools.
+- The game's Custom Mission menu listing user maps from the user maps folder (needs a mission file per map) — its own later phase.
 
 </deferred>
 
