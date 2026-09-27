@@ -1025,7 +1025,7 @@ Expected on both: `host check PASS`, the core-against-engine test passing, `smok
 
 Done: runs 36294320275 (`1ca6685e4`) and 36294387424 (`ffa93020b`), all six jobs green on both. macos-platform: `editor-bridge: PASS`, `map-editor: host check PASS (metal, 1280x800)`, `map-editor: panel smoke PASS`, `map-editor: smoke PASS (13 steps, 260 objects, saved and reopened ...)`, `map-editor-engine: PASS (260 objects)`. windows-platform: the same lines with `host check PASS (direct3d12, 1008x681)`. Windows job about 28 and 39 min.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Sources/editor/app build.zig .github/workflows/cross-platform.yml docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md
@@ -1066,6 +1066,45 @@ Added by the controller after Task 7: the smoke found that an object added throu
   Done: `b6bf6f814` fix(editor): a placed object lands under the click - the placer passed world units where the bridge takes map units; `60130ede9` the smoke's drag check.
 
 ---
+
+## Carried to plan 6
+
+From the final whole-branch review (its triage adopted: every deferred minor goes to plan 6). One line each; the evidence is in the task reports under `.superpowers/sdd/2026-09-24-map-editor-05-editor-app/`.
+
+- **Spec, Errors → Open:** objects whose type is unknown are to be listed in a warning when a map opens. Nothing owns it yet: the bridge counts them (`BkEditorMapSummary.unknown_object_count`) and keeps them unchanged through a save, but the app shows no warning.
+- **Packaging:** `MapEditor` is linked with the console subsystem on Windows (`configureMapEditorExecutable`), so it opens a console window beside its own; a packaged editor wants the windows subsystem (keeping stderr for `--check`/`--smoke`), and the packages do not carry it yet (Task 7).
+- Task 1: no tests of the BAD_ARGUMENT/REFUSED-before-start paths or of the overlay running inside a resize; the overlay check is `>= 1`, not `== 3`; a long line in `bridge.h`.
+- Task 1: `BkEditorStart` still sets the first mode through `SetMode`, so on a second monitor the window may jump to display 0 once at start.
+- Task 1: `FollowWindowSize` works in points (right only while the window has no high pixel density).
+- Task 2: a skipped frame leaves the capture request armed (`CaptureNextFrame(false)` on the read-failure path too).
+- Task 2: `BkEditorCaptureFrame` replaces `GraphicsEngineGpu::fail`'s specific message with a generic one.
+- Task 2: the magenta probe cannot see an R/B swap in the readback.
+- Task 2: `map-editor-host-check` ignores `test_mode` and fails, not skips, without a GPU.
+- Task 2: `Tga.pixel` has no bounds check (a tiny screen panics instead of printing FAIL).
+- Task 3: `message_len` is written but never read.
+- Task 3: `PaintTilesInTileset` scans cells x terrain types x tiles per paint (fine for brushes; revisit for large fills).
+- Task 3: the older engine-tier paints pick `(original+1)%4`, which depends on the map.
+- Task 4: the status line is never cleared after a later success.
+- Task 4: a middle-button release ImGui takes can leave panning stuck.
+- Task 4: no test of view.zig's event-to-tool wiring beyond the routing function.
+- Task 4: view.zig's gesture handling relies on main.zig's router filtering, with no guard of its own.
+- Task 4: wheel events are routed but not handled (zoom is out of M1).
+- Task 5: a selection change while typing makes a second, no-op `commitEdit` in the same frame, relying on `Editor.place`'s equal-pose early return.
+- Task 5: the brush says "no map open" also when `tilesetTiles` failed or is empty, dropping the bridge's reason.
+- Task 5: `std.sort.insertion` over ~5.5k catalogue entries (use block sort).
+- Task 5: `pickDefaultPlacerObject` reads the catalogue again.
+- Task 5: a second Open/Save As while a dialog is up is dropped silently.
+- Task 5: the right-hand panels do not follow a window resize; hover is stale over panels.
+- Task 6: a stale `PICK_RISE` comment and a broken wrap in the pick-ratio comment (`editor_bridge_test.cpp` ~837-900).
+- Task 6: the scroll-direction unit test restates the constants; an engine-tier `ScreenToWorld` direction check would catch a sign error.
+- Task 6: the terrain regression check uses one anchor; add a second from the pick set.
+- Task 7: the smoke sets the brush's tile directly, so the palette-to-brush path is not in it.
+- Task 7.1: the smoke's mouse is not isolated from the real cursor (imgui_impl_sdl3's global-mouse fallback while the app has keyboard focus can route a synthetic press to a panel; the local first-launch brush flake).
+- Task 7.1: `prepare` does not check that `drag_via`/`drag_to` are clear.
+- Task 7.1: `ReadFramePixels` assumes `SaveFrame`'s TGA layout without checking the descriptor.
+- Task 7.1: `bridge.h` unit wording near 1021 and a long line near 967.
+
+Resolved by the final fix wave rather than carried: the command-line map path goes through `enginePath`, the start-up dialog shows the bridge's reason, `BkEditorResize` places the camera again at its anchor and `BkEditorOpenMap` places it on the map's middle, the shutdown comment, and the engine test's screen size re-read.
 
 ## Self-review notes
 
