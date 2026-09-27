@@ -219,19 +219,62 @@ see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
 **Plans:** 15 plans (one after another in the one worktree: shared zig-out, ~13 GB free)
 
 Plans:
+**Wave 1**
 
 - [ ] 03-01-PLAN.md — the game's `-editor-test` switch: session-only MapEditorTest profile, no cloud sync, windowed, no first-visit help; BK_AUTO_UI `units=`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 03-02-PLAN.md — Test in game from the editor (F5, restart prompt, failure report) and the "game reads it" tier
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 03-03-PLAN.md — safe save: temporary file, bridge read-back, one .bak per session, atomic swap
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 03-04-PLAN.md — unsaved-changes prompt, shipped maps read-only, user maps folder
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 03-05-PLAN.md — camera zoom like the game (Shift+wheel, pinch, Home), per-map view memory, BkEditorWorldToScreen and the brush outline
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 03-06-PLAN.md — camera rotation: measure the renderer at other yaws, Johannes decides, build if it draws correctly (checkpoint)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 03-07-PLAN.md — mapeditor.cfg and the Settings window, Open Recent, autosave and recovery copies
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 03-08-PLAN.md — mods: `-mod=`, File > Mod, mod passed to the test game, mod maps in user data recording their mod
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
 - [ ] 03-09-PLAN.md — object pictures in the palette (shipped icon.tga through the engine; checkpoint on the rest)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
 - [ ] 03-10-PLAN.md — the map's sound list: listed, edited with undo, marked on the map
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
 - [ ] 03-11-PLAN.md — unknown-objects warning, panels follow a resize, gesture guard, app-side carried minors
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
 - [ ] 03-12-PLAN.md — BK_EDITOR_AUTO with shot comparison; the spec's editor-app scenario
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
 - [ ] 03-13-PLAN.md — bridge and engine-tier carried minors; host check honours test mode
+
+**Wave 14** *(blocked on Wave 13 completion)*
+
 - [ ] 03-14-PLAN.md — packaging MapEditor beside Game; Windows GUI subsystem with console attach
+
+**Wave 15** *(blocked on Wave 14 completion)*
+
 - [ ] 03-15-PLAN.md — full open/save sweep, whole suite and CI, spec updated, Johannes's M1 hand try
