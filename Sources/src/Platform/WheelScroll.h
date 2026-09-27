@@ -95,6 +95,14 @@ public:
 			}
 	}
 	int FingersDown() const { return int( fingers.size() ); }
+	// Forgets every finger and the momentum: on focus loss or when the pointer
+	// leaves the window, where a FINGER_UP can go missing. A finger left behind
+	// would otherwise make every physical wheel event a swipe for the session.
+	void Clear()
+	{
+		fingers.clear();
+		bHaveTrackpad = false;
+	}
 	bool IsTrackpad( std::uint64_t nTimestampMs )
 	{
 		const bool bMomentum = bHaveTrackpad && ( nTimestampMs < nLastTrackpadMs || nTimestampMs - nLastTrackpadMs <= kMomentumGapMs );

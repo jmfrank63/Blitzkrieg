@@ -512,6 +512,12 @@ jobs:
       - name: Map editor smoke
         run: zig build --sysroot "$MACOS_SYSROOT" map-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
 
+      # The game's SDL event translation, through the real SDLApplication and
+      # a real window: wheel deltas (a trackpad swipe's fractions, flipped,
+      # finger-marked), keys, text and timestamps. Needs a video driver.
+      - name: SDL event translation
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-events -Dtarget=aarch64-macos -Dtest-mode=run
+
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-engine -Dtarget=aarch64-macos -Dtest-mode=run

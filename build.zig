@@ -1338,7 +1338,10 @@ pub fn build(b: *std.Build) void {
     addInputCodesTest(b, target, test_mode, toolchain);
     addPlatformInputTest(b, target, test_mode, toolchain);
     addInputStateFixtureTest(b, target, test_mode, toolchain);
-    const wheel_scroll_step = addWheelScrollTest(b, target, test_mode, toolchain);
+    const wheel_scroll_step = addWheelScrollTest(b, target, platform, test_mode, toolchain);
+    // Task 7.3 review: in the foundation matrix, so every CI job builds it and
+    // the run-mode jobs run it.
+    test_platform_foundation.dependOn(wheel_scroll_step);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
     addInputTextRepeatTest(b, target, test_mode, toolchain);
     addInputControllerTest(b, target, test_mode, toolchain);
@@ -4765,24 +4768,32 @@ fn addInputStateFixtureTest(
 }
 
 /// The wheel and trackpad-swipe translation (Platform/WheelScroll.h): std-only
-/// C++, no SDL and no engine module, shaped like the input-state fixture test.
+/// C++, no SDL and no engine module. Built on the platform-client test's
+/// recipe, the C++ test test-platform-foundation already runs on every CI
+/// job: libc except under MSVC, Zig's libc++ only for MinGW, the host
+/// libstdc++ headers and soname on Linux (linkCxxRuntime) - never
+/// linkSystemLibrary("stdc++"), which pulls Zig's libc++ headers in beside them.
 fn addWheelScrollTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
+    platform: build_support.PlatformTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) *std.Build.Step {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
-    module.addCSourceFiles(.{ .files = &.{"tools/zig/wheel_scroll_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
-    switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => module.linkSystemLibrary("c++", .{}),
-        else => {},
+    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    addLinuxCxxIncludePaths(b, module);
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/wheel_scroll_test.cpp"}, .flags = &.{"-std=c++17"} });
+    linkCxxRuntime(module, target);
+    if (build_support.usesMsvc(platform)) {
+        addMsvcIncludePaths(b, module, toolchain);
+        addMsvcLibraryPaths(b, module, toolchain);
+        linkMsvcRuntime(module, .Debug);
     }
     const exe = b.addExecutable(.{ .name = "wheel-scroll-test", .root_module = module });
-    exe.subsystem = .console;
-    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    if (build_support.usesMsvc(platform)) {
+        exe.subsystem = .console;
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     const step = b.step("test-wheel-scroll", "Run the mouse wheel and trackpad swipe translation tests");

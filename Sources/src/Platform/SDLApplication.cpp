@@ -427,7 +427,11 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 		{
 			case SDL_EVENT_QUIT: event.type = EventType::quit; event.timestamp = raw.quit.timestamp; break;
 			case SDL_EVENT_WINDOW_FOCUS_GAINED: event.type = EventType::focusGained; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
-			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
+			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; wheel_source_.Clear(); break;
+			// Not the engine's business, but a finger's FINGER_UP can go missing
+			// outside the window, and a finger left down would make every later
+			// wheel event a swipe (WheelScroll.h, CWheelSource::Clear).
+			case SDL_EVENT_WINDOW_MOUSE_LEAVE: wheel_source_.Clear(); continue;
 			case SDL_EVENT_WINDOW_MOVED: event.type = EventType::windowMoved; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
 			case SDL_EVENT_WINDOW_RESIZED: event.type = EventType::windowResized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
 			case SDL_EVENT_WINDOW_DISPLAY_CHANGED:

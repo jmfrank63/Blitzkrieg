@@ -145,5 +145,13 @@ int main()
 	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.y = 1.0f; CHECK( Push( event ) );
 	NPlatform::PlatformEvent notch{};
 	CHECK( app.PollEvent( notch ) && notch.type == NPlatform::EventType::mouseWheel && !notch.trackpad && notch.y == 120 );
+	// A finger whose FINGER_UP went missing with the focus: the focus loss
+	// forgets it, so a wheel afterwards is a wheel.
+	SDL_Delay( 300 );
+	event = {}; event.type = SDL_EVENT_FINGER_DOWN; event.tfinger.touchID = 78; event.tfinger.fingerID = 5; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_WINDOW_FOCUS_LOST; CHECK( Push( event ) );
+	event = {}; event.type = SDL_EVENT_MOUSE_WHEEL; event.wheel.y = 1.0f; CHECK( Push( event ) );
+	NPlatform::PlatformEvent afterLoss{};
+	CHECK( NextWheel( app, afterLoss ) && !afterLoss.trackpad );
 	return 0;
 }

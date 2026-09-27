@@ -1578,7 +1578,13 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 bool CInterfaceMission::StepLocal( bool bAppActive )
 {
 	if ( !bAppActive )
+	{
+		// A swipe over the unfocused window is dropped, not saved up for a
+		// jump of the map on refocus.
+		float fDroppedX = 0, fDroppedY = 0;
+		pInput->TakeTrackpadScroll( &fDroppedX, &fDroppedY );
 		return false;
+	}
 
 	const bool bInterfaceActive = pScene->GetMissionScreen() == pScene->GetUIScreen();
 	if ( GetTextureQualityOption() != szMiniMapQuality )

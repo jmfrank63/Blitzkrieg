@@ -246,6 +246,14 @@ static void TestSource()
 	CHECK( source.IsTrackpad( 5000 ) );
 	source.FingerUp( 9, 4 );
 	CHECK( source.IsTrackpad( 4990 ) );			// a stamp behind the last is not a gap
+	// A FINGER_UP lost with the focus: Clear forgets the finger and the
+	// momentum, so the next wheel is a wheel again.
+	NPlatform::CWheelSource lost;
+	lost.FingerDown( 3, 1 );
+	CHECK( lost.IsTrackpad( 100 ) );
+	lost.Clear();
+	CHECK( lost.FingersDown() == 0 );
+	CHECK( !lost.IsTrackpad( 110 ) );
 }
 
 static void TestPan()
