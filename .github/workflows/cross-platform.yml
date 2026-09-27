@@ -313,6 +313,11 @@ jobs:
       - name: Map editor host
         run: zig build map-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        run: zig build map-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier
         run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
@@ -501,6 +506,11 @@ jobs:
       # frame captured as presented and checked for both.
       - name: Map editor host
         run: zig build --sysroot "$MACOS_SYSROOT" map-editor-host-check -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
 
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier

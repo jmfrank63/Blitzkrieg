@@ -998,13 +998,26 @@ Done: `SetSessionCamera` (`EditorBridge/session.cpp`) places the camera with the
 - Modify: `build.zig`, `.github/workflows/cross-platform.yml`
 - Modify: `Sources/editor/app/main.zig` (`--smoke`)
 
-- [ ] **Step 1: `--smoke`**
+- [x] **Step 1: `--smoke`**
 
 A scripted run through the real app's loop, hidden, with no person: open the map, select the tool of each kind in turn, feed synthetic SDL events (`SDL_PushEvent` of mouse down/motion/up and key presses at fixed screen positions) that paint, place, select, drag, rotate, delete, undo all of it, and save to `zig-out/local-test/map-editor-smoke.bzm`; reopen the saved map and check the object count equals the original's (everything was undone). Print `map-editor: smoke PASS` and exit 0. This is the automation plan 6's `BK_EDITOR_AUTO` will generalise; keep the event script in one table so it can.
 
-- [ ] **Step 2: CI**
+Done: `MapEditor --smoke <map> [<out.bzm>]`, build step `map-editor-smoke` (cwd the stage root, output `zig-out/local-test/map-editor-smoke.bzm`). `main.zig`'s loop is now `run(...)`, shared by the interactive mode and the smoke; the smoke passes it a `smoke.Script`, which pushes a step's events before the frame's poll and checks the step after `panels.act`. The one table is `smoke.zig`'s `script`: 13 steps (keys 2/3/1, a brush stroke, a placing click, E, a click on bare ground, a click on an object, a drag, Delete, five Ctrl+Z, Save As, reopen), each with an `Expect` that must hold after its frame - the engine's tiles changed and agree with the map, the object count, the selection, the pose, nothing left to undo, a clean document. Positions are offsets from the screen's centre (1280x800 on macOS, 1008x681 on the Windows runner), all between the panels; `prepare` resolves them through `editor.resolve` after two settle frames and fails naming the position if the ground is not what the script needs. About 2.4 s locally.
+
+Findings while writing it:
+- **An object added through the bridge is neither drawn nor pickable.** `BkEditorAddObject` succeeds, `BkEditorEngineObjectState` has it where it was put, `BkEditorWorldMatchesMap` agrees, but no frame shows it and `BkEditorObjectAt` finds it nowhere on the screen - measured over the whole 1280x800 screen at three camera positions and for 2 s of further world updates, for a unit (10.5-cm_Flak38, T-34) and a tree (W_BigPoplar) alike. The map's own objects draw and pick. So in the app a placed object is invisible and cannot be clicked. The smoke works round it (the placer leaves its object selected, so E turns it; click-select, drag and delete use a map object) and does not hide it: this is for plan 6 (or a fix task) to find in the bridge's add path (`AddObjectToSession` -> `PlaceOneObject` -> `UpdateSessionWorld`); load goes through the same calls, so the difference is elsewhere - the scene side of the world update is the next place to look.
+- The engine turns none of coldwinter's static objects (trees, fences, the toilet, the flag): every `BkEditorPlaceObject` with a new direction is refused. Only units turn.
+- The engine shows a tile of the painted tile's terrain type, not the index (`CTerrain::SetTile`), so the smoke checks the cells changed, not that they hold the brush's index; it paints 0 (or 14), as the engine tier does.
+- `editor.resolve` answers nothing useful before the first frame is drawn; the smoke settles two frames first.
+
+- [x] **Step 2: CI**
 
 Add a "Map editor smoke" step after "Map editor host" in `macos-platform` and `windows-platform`. `install-map-editor` already installs the executable into the stage root; confirm the packaged runtime list (`build.zig` ~1570-1580, `tools/zig/stage.zig`) does not need `MapEditor` added for the stage to be complete, and note that packaging it is plan 6. The legacy `Editors/MapEditor.exe` (`stage.zig:450-465`) keeps its name and place; the new one sits in the root beside `Game`. Record that the two names coexist until M3 deletes the old one.
+
+Done: "Map editor smoke" follows "Map editor host" in both jobs.
+
+- **Packaging:** the stage is complete without `MapEditor`. `stage_runtime_files` (`build.zig` ~1589-1600) lists what `tools/zig/stage.zig` copies out of `zig-out/bin`/`zig-out/lib` and `verifyStagedPayload` requires; `MapEditor` is not built into `zig-out/bin` but installed straight into the stage root by `install-map-editor` (after `install-game`), and nothing in the stage step deletes files it does not know (`copyGameRuntime` deletes only the listed runtime files and a fixed list of stale ones; `rejectStaleImages` only `*.stale`). The packages (`Blitzkrieg-game.zip`, `-with-editors.zip`) are built from their own staging with the same list, so they do not carry the new editor; putting it in them is plan 6.
+- **Names:** the legacy editor stays `Editors/MapEditor.exe` (`copyEditors`, `stage.zig` ~471-476, only with editors included, Windows only); the new one is `MapEditor` (`MapEditor.exe` on Windows) in the root beside `Game`. Different directories, so the two coexist until M3 deletes the old one.
 
 - [ ] **Step 3: Run CI and read both jobs**
 

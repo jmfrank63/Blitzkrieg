@@ -1,6 +1,7 @@
 //! MapEditor:
 //!   MapEditor [<map>]                       interactive
 //!   MapEditor --check <map> [<out.tga>]     headless host check
+//!   MapEditor --smoke <map> [<out.bzm>]     scripted run of the real loop
 //!
 //! The interactive mode opens a visible window, starts the engine on it,
 //! opens <map> if one was given, and runs view.View's camera and tools under
@@ -19,6 +20,13 @@
 //! to the output's directory, and opening that file again - run without the
 //! dialog, printing "map-editor: panel smoke PASS (...)". Exits 0 when both
 //! passed, or prints a "FAIL:" line naming what was wrong and exits 1.
+//!
+//! The smoke runs the interactive mode's own loop (`run`) with the window
+//! hidden and smoke.zig's script feeding it synthetic SDL events: the tools
+//! chosen by key, a brush stroke, a placed object selected, dragged, turned
+//! and deleted, all of it undone, Save As to <out.bzm> and that file opened
+//! again with the original's object count. Prints "map-editor: smoke PASS"
+//! and exits 0, or a "smoke FAIL:" line naming the step and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
@@ -30,9 +38,11 @@ const view_math = @import("view_math.zig");
 const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 const crt = @import("crt.zig");
+const smoke = @import("smoke.zig");
 const c = host_mod.c;
 
 const default_output = "zig-out/local-test/map-editor-check.tga";
+const default_smoke_output = "zig-out/local-test/map-editor-smoke.bzm";
 
 /// The probe window, in screen pixels (a window point is a screen pixel).
 const probe = struct {
@@ -63,6 +73,13 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const output = args.next() orelse default_output;
             if (args.next() != null) usage();
             const passed = try check(gpa, io, map, output);
+            std.process.exit(if (passed) 0 else 1);
+        }
+        if (std.mem.eql(u8, arg, "--smoke")) {
+            const map = args.next() orelse usage();
+            const output = args.next() orelse default_smoke_output;
+            if (args.next() != null) usage();
+            const passed = try smokeRun(gpa, io, map, output);
             std.process.exit(if (passed) 0 else 1);
         }
         if (args.next() != null) usage();
@@ -96,9 +113,24 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
     var state = panels.State.init(gpa, &editor, &view, &real, host.window);
     defer state.deinit();
 
+    run(&host, &editor, &view, &real, &state, null);
+    // A plain return, not std.process.exit: the deferred host.stop(),
+    // editor.deinit() and view.deinit() above must run so the engine and its
+    // GPU device shut down cleanly, which an immediate process exit would
+    // skip.
+}
+
+/// The app's loop, shared by the interactive mode and --smoke: events to
+/// ImGui and then, if ImGui does not want them, to the view; the view's
+/// per-frame scrolling; a frame of the panels over the map; the panels' file
+/// actions. With a script, the script pushes its synthetic events before
+/// each frame's poll and checks what they did after it, and ends the loop
+/// when it is done or has failed.
+fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, script: ?*smoke.Script) void {
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
     while (running) {
+        if (script) |s| if (!s.beforeFrame()) break;
         var event: sdl3.c.SDL_Event = undefined;
         while (sdl3.c.SDL_PollEvent(&event)) {
             // ImGui's backend always gets first look, so it can update its
@@ -114,26 +146,55 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
                     const kind = view_mod.inputKindOf(event.type);
                     const capture = view_mod.captureFlags();
                     if (view_math.shouldDeliver(kind, capture, view.hasActiveMouseGesture()))
-                        view.handleEvent(&editor, &real, &event);
+                        view.handleEvent(editor, real, &event);
                 },
             }
         }
         const ticks = sdl3.c.SDL_GetTicks();
         const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
         last_ticks = ticks;
-        view.update(&real, host.window, dt_seconds);
+        view.update(real, host.window, dt_seconds);
 
         host.beginFrame();
-        panels.draw(&state);
+        panels.draw(state);
         host.endFrame() catch |err| view.setStatus("failed: ", @errorName(err));
         // After the frame: Save, the dialogs Open and Save As show, a path
         // one of them delivered during this frame's events, and Quit.
-        if (panels.act(&state)) running = false;
+        if (panels.act(state)) running = false;
+        if (script) |s| {
+            if (!s.afterFrame()) running = false;
+        }
     }
-    // A plain return, not std.process.exit: the deferred host.stop(),
-    // editor.deinit() and view.deinit() above must run so the engine and its
-    // GPU device shut down cleanly, which an immediate process exit would
-    // skip.
+}
+
+/// --smoke: the interactive mode's setup, hidden, and its loop under
+/// smoke.zig's script. Failures print a "smoke FAIL:" line; there is no
+/// person to show a message box to.
+fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8) !bool {
+    if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
+    var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
+        std.debug.print("map-editor: smoke FAIL: the host did not start ({s})\n", .{@errorName(err)});
+        return false;
+    };
+    defer host.stop();
+
+    var real = c_bridge.RealBridge.init(host.session);
+    var editor = core.editor.Editor.init(gpa, real.bridge());
+    defer editor.deinit();
+    var view = view_mod.View.init(gpa);
+    defer view.deinit(gpa);
+    editor.open(map) catch {
+        std.debug.print("map-editor: smoke FAIL: {s} did not open: {s}\n", .{ map, editor.status() });
+        return false;
+    };
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window);
+    defer state.deinit();
+
+    var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
+    run(&host, &editor, &view, &real, &state, &script);
+    if (!script.passed) return false;
+    std.debug.print("map-editor: smoke PASS ({d} steps, {d} objects, saved and reopened {s})\n", .{ smoke.script.len, script.original_objects, output });
+    return true;
 }
 
 fn startupStepName(err: host_mod.HostError) []const u8 {
@@ -173,7 +234,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: MapEditor [<map>]\n       MapEditor --check <map> [<out.tga>]\n", .{});
+    std.debug.print("usage: MapEditor [<map>]\n       MapEditor --check <map> [<out.tga>]\n       MapEditor --smoke <map> [<out.bzm>]\n", .{});
     std.process.exit(2);
 }
 

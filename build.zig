@@ -5731,6 +5731,19 @@ fn addMapEditor(
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
     check_step.dependOn(&run.step);
 
+    // The interactive loop itself, hidden and driven by smoke.zig's scripted
+    // SDL events: paint, place, select, drag, turn, delete, undo all of it,
+    // Save As and reopen.
+    const smoke_run = b.addRunArtifact(exe);
+    smoke_run.setCwd(b.path(stage_root));
+    smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-smoke.bzm") });
+    // What it reads - the staged Data and engine - is not a file input of the
+    // step, so a cached pass would say nothing about the installation now.
+    smoke_run.has_side_effects = true;
+    smoke_run.step.dependOn(&install_exe.step);
+    const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
+    smoke_step.dependOn(&smoke_run.step);
+
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots
     // are the running executable's directory (SDL_GetBasePath). A Run step
