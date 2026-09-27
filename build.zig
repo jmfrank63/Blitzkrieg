@@ -6029,6 +6029,9 @@ fn addSdlEventTest(
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
+            // The CI runner links against the SDK sysroot (--sysroot), which
+            // has to be on the search path for objc and c++ to resolve.
+            addMacosSysrootPaths(b, module, target);
             module.linkSystemLibrary("c++", .{});
             // SDLApplication::SetAppIcon, as in the game executable.
             module.linkSystemLibrary("objc", .{});
