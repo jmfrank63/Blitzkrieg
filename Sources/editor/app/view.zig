@@ -339,7 +339,10 @@ pub const View = struct {
 /// What kind of routing decision an SDL event needs (`view_math.shouldDeliver`):
 /// coarser than `view_math.kindOf`, which only concerns the left mouse
 /// button's press/release mapping.
-pub fn inputKindOf(event_type: sdl3.c.SDL_EventType) view_math.InputEventKind {
+/// Takes `SDL_Event.type` as it is, a Uint32: `SDL_EventType` is the C enum,
+/// which translates to c_int on MSVC and c_uint elsewhere, so it cannot be
+/// the parameter's type on both.
+pub fn inputKindOf(event_type: @FieldType(sdl3.c.SDL_Event, "type")) view_math.InputEventKind {
     return switch (event_type) {
         sdl3.c.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl3.c.SDL_EVENT_MOUSE_BUTTON_UP => .mouse_button,
         sdl3.c.SDL_EVENT_MOUSE_MOTION => .mouse_motion,
