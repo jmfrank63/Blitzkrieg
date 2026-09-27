@@ -52,6 +52,19 @@ pub const Camera = struct {
         self.clamp(map);
     }
 
+    /// Moves the camera by a distance on the screen: `right_px` to the
+    /// right, `up_px` up. The same screen-to-world mapping as `scroll`:
+    /// one pixel is one world unit along screen right, and two along screen
+    /// up. Nothing is rounded, so many small moves add up to exactly the
+    /// one large move they sum to.
+    pub fn panScreen(self: *Camera, right_px: f32, up_px: f32, map: MapSize) void {
+        const right = right_px / std.math.sqrt2;
+        const up = 2 * up_px / std.math.sqrt2;
+        self.x += right - up;
+        self.y += right + up;
+        self.clamp(map);
+    }
+
     pub fn clamp(self: *Camera, map: MapSize) void {
         const max_x = @as(f32, @floatFromInt(map.width_tiles)) * world_cell_size;
         const max_y = @as(f32, @floatFromInt(map.height_tiles)) * world_cell_size;
@@ -59,6 +72,108 @@ pub const Camera = struct {
         self.y = std.math.clamp(self.y, 0, max_y);
     }
 };
+
+/// Screen pixels the map pans per unit of an SDL wheel event. On macOS a
+/// trackpad's unit is 10 points of finger travel (SDL multiplies the precise
+/// deltas by 0.1, SDL_cocoamouse.m), so 20 moves the map twice as far as the
+/// fingers went. A mouse wheel's notch is about one unit, so a notch pans
+/// 20 pixels, more when macOS accelerates a fast spin. SDL has no field that
+/// tells the two apart; one gain serves both.
+pub const wheel_pixels_per_unit: f32 = 20.0;
+
+/// An SDL_MouseWheelEvent's deltas, as view.zig hands them over. `flipped`
+/// is SDL_MOUSEWHEEL_FLIPPED (natural scrolling).
+pub const WheelEvent = struct { x: f32, y: f32, flipped: bool = false };
+
+/// A pan on the screen, in pixels: right and up.
+pub const ScreenPan = struct { right_px: f32, up_px: f32 };
+
+/// The pan one wheel event asks for. SDL's x is positive to the right and
+/// its y positive away from the user. Both already carry the user's
+/// natural-scrolling setting: macOS inverts scrollingDelta itself, and
+/// `direction` only reports that it did. So `flipped` is deliberately not
+/// applied again. Applying it would scroll the map against the fingers.
+/// Fractions pass through unrounded: a slow swipe's 0.1s add up; they are
+/// not truncated away or rounded into +1/-1 steps.
+pub fn wheelPan(event: WheelEvent) ScreenPan {
+    return .{ .right_px = event.x * wheel_pixels_per_unit, .up_px = event.y * wheel_pixels_per_unit };
+}
+
+const test_map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
+
+fn applyWheel(camera: *Camera, event: WheelEvent) void {
+    const pan = wheelPan(event);
+    camera.panScreen(pan.right_px, pan.up_px, test_map);
+}
+
+test "a wheel's y pans the map up and down the screen, its x across it" {
+    var camera: Camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&camera, .{ .x = 0, .y = 1 });
+    // Screen up is world (-1, +1).
+    try std.testing.expect(camera.x < 2000 and camera.y > 2000);
+    camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&camera, .{ .x = 1, .y = 0 });
+    // Screen right is world (+1, +1).
+    try std.testing.expect(camera.x > 2000 and camera.y > 2000);
+    try std.testing.expectApproxEqAbs(camera.x, camera.y, 0.001);
+    camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&camera, .{ .x = -1, .y = -1 });
+    try std.testing.expect(camera.y < 2000);
+}
+
+test "a slow swipe's small fractional deltas add up to the large one, moving the same way every event" {
+    var small: Camera = .{ .x = 2000, .y = 2000 };
+    var previous_y = small.y;
+    for (0..30) |_| {
+        applyWheel(&small, .{ .x = 0, .y = 0.1 });
+        // Monotonic: every same-sign event moves on, none steps back.
+        try std.testing.expect(small.y > previous_y);
+        previous_y = small.y;
+    }
+    var large: Camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&large, .{ .x = 0, .y = 3.0 });
+    try std.testing.expectApproxEqAbs(large.x, small.x, 0.01);
+    try std.testing.expectApproxEqAbs(large.y, small.y, 0.01);
+}
+
+test "mixed-sign micro-jitter nets out, with no step larger than the jitter itself" {
+    var camera: Camera = .{ .x = 2000, .y = 2000 };
+    const jitter = [_]f32{ 0.04, -0.03, 0.02, -0.05, 0.03, -0.01 };
+    const one_step = wheelPan(.{ .x = 0, .y = 0.05 }).up_px * 2 / std.math.sqrt2;
+    for (jitter) |y| {
+        const before = camera.y;
+        applyWheel(&camera, .{ .x = 0, .y = y });
+        try std.testing.expect(@abs(camera.y - before) <= one_step + 0.001);
+    }
+    // The six sum to zero.
+    try std.testing.expectApproxEqAbs(@as(f32, 2000), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2000), camera.y, 0.01);
+}
+
+test "natural scrolling: a flipped event pans by the sign SDL delivered, not flipped a second time" {
+    var natural: Camera = .{ .x = 2000, .y = 2000 };
+    var classic: Camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&natural, .{ .x = 0.3, .y = -0.7, .flipped = true });
+    applyWheel(&classic, .{ .x = 0.3, .y = -0.7, .flipped = false });
+    try std.testing.expectEqual(classic.x, natural.x);
+    try std.testing.expectEqual(classic.y, natural.y);
+}
+
+test "a mouse wheel's notches pan by whole, equal steps" {
+    var camera: Camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&camera, .{ .x = 0, .y = 1 });
+    const first = camera.y - 2000;
+    applyWheel(&camera, .{ .x = 0, .y = 1 });
+    try std.testing.expectApproxEqAbs(2 * first, camera.y - 2000, 0.001);
+    try std.testing.expectApproxEqAbs(wheel_pixels_per_unit * 2 / std.math.sqrt2, first, 0.001);
+}
+
+test "a wheel pan clamps at the map's edge" {
+    var camera: Camera = .{ .x = 10, .y = 10 };
+    applyWheel(&camera, .{ .x = -100, .y = 0 });
+    try std.testing.expectEqual(@as(f32, 0), camera.x);
+    try std.testing.expectEqual(@as(f32, 0), camera.y);
+}
 
 /// SDL_BUTTON_LEFT/SDL_BUTTON_RIGHT (SDL_mouse.h): fixed by SDL's own ABI,
 /// so naming them here does not need the sdl3 module.
@@ -153,7 +268,10 @@ pub const Capture = struct {
 /// view; main.zig handles quit itself before this even runs.
 pub fn shouldDeliver(kind: InputEventKind, capture: Capture, gesture_active: bool) bool {
     return switch (kind) {
-        .mouse_button, .mouse_motion, .mouse_wheel => gesture_active or !capture.mouse,
+        .mouse_button, .mouse_motion => gesture_active or !capture.mouse,
+        // A wheel is not part of a gesture: over a panel it is the panel's
+        // (ImGui scrolls it) even mid-drag, or one swipe would scroll both.
+        .mouse_wheel => !capture.mouse,
         .key => !capture.keyboard,
         .other => true,
     };
@@ -169,4 +287,13 @@ test "routing: ImGui's capture flags gate mouse and key events, but an open gest
     try std.testing.expect(!shouldDeliver(.key, busy, false));
     try std.testing.expect(shouldDeliver(.key, free, false));
     try std.testing.expect(shouldDeliver(.other, busy, false));
+}
+
+test "routing: a wheel over a panel is the panel's, even during a gesture; over the map it is the view's" {
+    const busy: Capture = .{ .mouse = true, .keyboard = true };
+    const free: Capture = .{ .mouse = false, .keyboard = false };
+    try std.testing.expect(!shouldDeliver(.mouse_wheel, busy, false));
+    try std.testing.expect(!shouldDeliver(.mouse_wheel, busy, true));
+    try std.testing.expect(shouldDeliver(.mouse_wheel, free, false));
+    try std.testing.expect(shouldDeliver(.mouse_wheel, free, true));
 }

@@ -22,6 +22,7 @@ const sdl3 = @import("sdl3");
 const core = @import("editor_core");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
+const view_math = @import("view_math.zig");
 const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 
@@ -55,6 +56,21 @@ pub const Input = union(enum) {
     /// needs a person): the smoke's output path.
     save_as,
     open_saved,
+    /// A motion to the point, then `count` wheel events of these deltas
+    /// there, as a trackpad swipe sends them: small fractions, one per
+    /// NSEvent.
+    wheel: Wheel,
+};
+
+pub const Wheel = struct {
+    /// Where the pointer is; `over_left_panel` puts it inside the left
+    /// panel instead, at the centre's height.
+    at: Pos = .{ .dx = 0, .dy = 0 },
+    over_left_panel: bool = false,
+    x: f32,
+    y: f32,
+    count: u8,
+    flipped: bool = false,
 };
 
 /// What must be true after the step's frame.
@@ -86,6 +102,15 @@ pub const Expect = enum {
     saved,
     /// The saved map, opened again, has the original's object count.
     reopened,
+    /// The camera moved from where the step started by what the step's
+    /// wheel events sum to (view_math.wheelPan), every event the same way.
+    panned,
+    /// The camera is where the step started: the step's wheel was not the
+    /// view's.
+    camera_unchanged,
+    /// ImGui wants the mouse (the pointer is over a panel), within
+    /// `max_wait_frames` frames; the camera has not moved meanwhile.
+    panel_has_pointer,
 };
 
 pub const Step = struct {
@@ -111,6 +136,9 @@ const drag_to: Pos = .{ .dx = 0, .dy = -132 };
 const empty_ground: Pos = .{ .dx = 100, .dy = -140 };
 /// An object of the map, editable (not one of several sharing a link ID).
 const target_pick: Pos = .{ .dx = -20, .dy = 140 };
+/// Inside the left panel, which ends 280 pixels from the window's left edge
+/// on every screen: an absolute x, unlike the `Pos` offsets from the centre.
+const left_panel_x: f32 = 100;
 
 fn plain(key: sdl.SDL_Keycode, scancode: sdl.SDL_Scancode) Input {
     return .{ .key = .{ .key = key, .scancode = scancode } };
@@ -135,12 +163,28 @@ pub const script = [_]Step{
     .{ .name = "Ctrl+Z undoes all of it", .inputs = &.{ undo_key, undo_key, undo_key, undo_key, undo_key }, .expect = .all_undone },
     .{ .name = "Save As writes the map", .inputs = &.{.save_as}, .expect = .saved },
     .{ .name = "the saved map opens again", .inputs = &.{.open_saved}, .expect = .reopened },
+    // Task 7.3: a two-finger swipe, as SDL delivers it on macOS - many
+    // small fractional deltas on both axes - pans the map; the same swipe
+    // back pans it back; a flipped (natural scrolling) swipe pans by the
+    // sign SDL delivered; a wheel over a panel leaves the map alone.
+    .{ .name = "a swipe pans the map", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = 0.15, .y = 0.35, .count = 12 } }}, .expect = .panned },
+    .{ .name = "the swipe back pans it back", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = -0.15, .y = -0.35, .count = 12 } }}, .expect = .panned },
+    .{ .name = "a natural-scrolling swipe pans by SDL's sign", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = -0.2, .y = 0.1, .count = 6, .flipped = true } }}, .expect = .panned },
+    // ImGui decides WantCaptureMouse in a later frame from where the
+    // pointer is (its input queue trickles one kind of event per frame, and
+    // the steps before left a backlog), so the pointer rests on the panel
+    // until ImGui has it, as a hand's would before it swipes.
+    .{ .name = "the pointer rests on the left panel", .inputs = &.{.{ .wheel = .{ .over_left_panel = true, .x = 0, .y = 0, .count = 0 } }}, .expect = .panel_has_pointer },
+    .{ .name = "a wheel over a panel leaves the map alone", .inputs = &.{.{ .wheel = .{ .over_left_panel = true, .x = 0, .y = -1, .count = 3 } }}, .expect = .camera_unchanged },
 };
 
 /// Frames drawn before the first step, so the panels have been laid out,
 /// ImGui's capture flags describe them, and the bridge has a drawn frame to
 /// resolve screen points against.
 const settle_frames = 2;
+
+/// How long a `panel_has_pointer` step may wait for ImGui.
+const max_wait_frames = 60;
 
 pub const Script = struct {
     editor: *Editor,
@@ -167,6 +211,13 @@ pub const Script = struct {
     target: i32 = -1,
     target_pose: Pose = .{ .x = 0, .y = 0, .dir = 0, .player = 0 },
     placed_pose: Pose = .{ .x = 0, .y = 0, .dir = 0, .player = 0 },
+    /// The view's camera when the step's inputs were pushed.
+    camera_before: [2]f32 = .{ 0, 0 },
+    /// The world point the drawn frame showed at the screen's centre then.
+    centre_before: ?core.tools.Pointer = null,
+    /// Frames the current step has waited (panel_has_pointer); its inputs
+    /// are not pushed again meanwhile.
+    waited: usize = 0,
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
@@ -246,6 +297,9 @@ pub const Script = struct {
     pub fn beforeFrame(self: *Script) bool {
         if (self.frame < settle_frames or self.step >= script.len) return true;
         if (self.frame == settle_frames and !self.prepare()) return false;
+        if (self.waited != 0) return true;
+        self.camera_before = .{ self.view.camera_x, self.view.camera_y };
+        self.centre_before = self.resolveAt(.{ .dx = 0, .dy = 0 });
         for (script[self.step].inputs) |input| {
             if (!self.deliver(input)) return false;
         }
@@ -257,7 +311,13 @@ pub const Script = struct {
     pub fn afterFrame(self: *Script) bool {
         defer self.frame += 1;
         if (self.frame < settle_frames) return true;
-        if (!self.check(script[self.step])) return false;
+        const step = script[self.step];
+        if (step.expect == .panel_has_pointer and !view_mod.captureFlags().mouse and self.waited < max_wait_frames) {
+            self.waited += 1;
+            return true;
+        }
+        self.waited = 0;
+        if (!self.check(step)) return false;
         self.step += 1;
         if (self.step < script.len) return true;
         self.passed = true;
@@ -276,6 +336,22 @@ pub const Script = struct {
                 self.state.actions.dialog.deliver(self.save_path);
                 return true;
             },
+            .wheel => |wheel| {
+                const point = if (wheel.over_left_panel) [2]f32{ left_panel_x, self.centre_y } else self.screen(wheel.at);
+                if (!self.pushMotionAt(point, false)) return false;
+                for (0..wheel.count) |_| {
+                    var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
+                    event.wheel.type = sdl.SDL_EVENT_MOUSE_WHEEL;
+                    event.wheel.windowID = self.window_id;
+                    event.wheel.x = wheel.x;
+                    event.wheel.y = wheel.y;
+                    event.wheel.direction = if (wheel.flipped) sdl.SDL_MOUSEWHEEL_FLIPPED else sdl.SDL_MOUSEWHEEL_NORMAL;
+                    event.wheel.mouse_x = point[0];
+                    event.wheel.mouse_y = point[1];
+                    if (!self.push(&event)) return false;
+                }
+                return true;
+            },
         }
     }
 
@@ -285,7 +361,10 @@ pub const Script = struct {
     }
 
     fn pushMotion(self: *Script, pos: Pos, left_held: bool) bool {
-        const point = self.screen(pos);
+        return self.pushMotionAt(self.screen(pos), left_held);
+    }
+
+    fn pushMotionAt(self: *Script, point: [2]f32, left_held: bool) bool {
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.motion.type = sdl.SDL_EVENT_MOUSE_MOTION;
         event.motion.windowID = self.window_id;
@@ -393,6 +472,35 @@ pub const Script = struct {
                 if (editor.status().len != 0) return self.stepFail(step, "{s}", .{editor.status()});
                 if (objects != self.original_objects) return self.stepFail(step, "{d} objects, the map had {d}", .{ objects, self.original_objects });
                 if (editor.document.find(self.target) == null) return self.stepFail(step, "object {d} is not in the saved map", .{self.target});
+            },
+            .panned => {
+                const wheel = step.inputs[0].wheel;
+                var want: view_math.Camera = .{ .x = self.camera_before[0], .y = self.camera_before[1] };
+                for (0..wheel.count) |_| {
+                    const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.flipped });
+                    want.panScreen(pan.right_px, pan.up_px, self.view.map);
+                }
+                const moved = @abs(self.view.camera_x - self.camera_before[0]) + @abs(self.view.camera_y - self.camera_before[1]);
+                if (moved < 1) return self.stepFail(step, "the camera did not move from {any}", .{self.camera_before});
+                if (@abs(self.view.camera_x - want.x) > 0.5 or @abs(self.view.camera_y - want.y) > 0.5)
+                    return self.stepFail(step, "the camera went from {any} to {d},{d}, want {d},{d}", .{ self.camera_before, self.view.camera_x, self.view.camera_y, want.x, want.y });
+                // The drawn frame moved with the view's camera: the world
+                // point at the screen's centre moved by the same amount.
+                const before = self.centre_before orelse return self.stepFail(step, "the centre was off the terrain", .{});
+                const after = self.resolveAt(.{ .dx = 0, .dy = 0 }) orelse return self.stepFail(step, "the centre is off the terrain", .{});
+                const drawn_x = after.world_x - before.world_x;
+                const drawn_y = after.world_y - before.world_y;
+                if (@abs(drawn_x - (want.x - self.camera_before[0])) > 4 or @abs(drawn_y - (want.y - self.camera_before[1])) > 4)
+                    return self.stepFail(step, "the drawn frame's centre moved by {d},{d}, the camera by {d},{d}", .{ drawn_x, drawn_y, want.x - self.camera_before[0], want.y - self.camera_before[1] });
+            },
+            .panel_has_pointer => {
+                if (!view_mod.captureFlags().mouse) return self.stepFail(step, "ImGui does not want the mouse after {d} frames", .{max_wait_frames});
+                if (self.view.camera_x != self.camera_before[0] or self.view.camera_y != self.camera_before[1])
+                    return self.stepFail(step, "the camera moved from {any} to {d},{d}", .{ self.camera_before, self.view.camera_x, self.view.camera_y });
+            },
+            .camera_unchanged => {
+                if (self.view.camera_x != self.camera_before[0] or self.view.camera_y != self.camera_before[1])
+                    return self.stepFail(step, "the camera moved from {any} to {d},{d}", .{ self.camera_before, self.view.camera_x, self.view.camera_y });
             },
         }
         return true;

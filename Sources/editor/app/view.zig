@@ -183,6 +183,7 @@ pub const View = struct {
                 }
             },
             sdl3.c.SDL_EVENT_MOUSE_MOTION => self.handleMotion(editor, real, event.motion),
+            sdl3.c.SDL_EVENT_MOUSE_WHEEL => self.handleWheel(real, event.wheel),
             sdl3.c.SDL_EVENT_KEY_DOWN => self.handleKey(editor, event.key),
             else => {},
         }
@@ -212,6 +213,21 @@ pub const View = struct {
         };
         self.hover = pointer;
         if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, .{ .drag = pointer });
+    }
+
+    /// A mouse wheel or a two-finger trackpad swipe pans the camera. SDL
+    /// sends a swipe as many small fractional wheel events on both axes.
+    /// view_math.wheelPan maps each straight to a screen pan, so the camera
+    /// follows the fingers without rounding or stepping back.
+    fn handleWheel(self: *View, real: *RealBridge, wheel: sdl3.c.SDL_MouseWheelEvent) void {
+        const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED });
+        const before_x = self.camera_x;
+        const before_y = self.camera_y;
+        var camera: view_math.Camera = .{ .x = self.camera_x, .y = self.camera_y };
+        camera.panScreen(pan.right_px, pan.up_px, self.map);
+        self.camera_x = camera.x;
+        self.camera_y = camera.y;
+        if (self.camera_x != before_x or self.camera_y != before_y) _ = real.setCamera(self.camera_x, self.camera_y);
     }
 
     /// Q/E and the 1/2/3 tool keys ignore SDL's key-repeat (rotating by 16
