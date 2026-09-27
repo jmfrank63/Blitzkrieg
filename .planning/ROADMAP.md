@@ -214,10 +214,24 @@ see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
 ### Phase 3: Map editor plan 6: finish M1
 
 **Goal:** Meet the M1 exit criteria of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: test-launch the edited map in the game (the game plays the saved map), load a mod's data like the game, camera rotate and zoom, safe save (temporary file and swap) with the unsaved-changes prompt, editor settings and recent files, `BK_EDITOR_AUTO` automation with shot comparison, the full open/save sweep of every shipped map, and packaging `MapEditor` with the game — plus the "Carried to plan 6" list of `docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md` (object icons, brush outline via world-to-screen, panels following a resize, the map's sound list, the unknown-objects warning, the Windows console subsystem, and the deferred minors). Plans 1–5 of the map editor are merged (main 6657668a6).
-**Requirements**: TBD
+**Requirements**: CONTEXT D-01..D-29, the spec's M1 exit criteria, plan 5's "Carried to plan 6" list
 **Depends on:** Map editor plans 1–5 (merged); independent of Phase 2
-**Plans:** 0 plans
+**Plans:** 15 plans (one after another in the one worktree: shared zig-out, ~13 GB free)
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 3 to break down)
+- [ ] 03-01-PLAN.md — the game's `-editor-test` switch: session-only MapEditorTest profile, no cloud sync, windowed, no first-visit help; BK_AUTO_UI `units=`
+- [ ] 03-02-PLAN.md — Test in game from the editor (F5, restart prompt, failure report) and the "game reads it" tier
+- [ ] 03-03-PLAN.md — safe save: temporary file, bridge read-back, one .bak per session, atomic swap
+- [ ] 03-04-PLAN.md — unsaved-changes prompt, shipped maps read-only, user maps folder
+- [ ] 03-05-PLAN.md — camera zoom like the game (Shift+wheel, pinch, Home), per-map view memory, BkEditorWorldToScreen and the brush outline
+- [ ] 03-06-PLAN.md — camera rotation: measure the renderer at other yaws, Johannes decides, build if it draws correctly (checkpoint)
+- [ ] 03-07-PLAN.md — mapeditor.cfg and the Settings window, Open Recent, autosave and recovery copies
+- [ ] 03-08-PLAN.md — mods: `-mod=`, File > Mod, mod passed to the test game, mod maps in user data recording their mod
+- [ ] 03-09-PLAN.md — object pictures in the palette (shipped icon.tga through the engine; checkpoint on the rest)
+- [ ] 03-10-PLAN.md — the map's sound list: listed, edited with undo, marked on the map
+- [ ] 03-11-PLAN.md — unknown-objects warning, panels follow a resize, gesture guard, app-side carried minors
+- [ ] 03-12-PLAN.md — BK_EDITOR_AUTO with shot comparison; the spec's editor-app scenario
+- [ ] 03-13-PLAN.md — bridge and engine-tier carried minors; host check honours test mode
+- [ ] 03-14-PLAN.md — packaging MapEditor beside Game; Windows GUI subsystem with console attach
+- [ ] 03-15-PLAN.md — full open/save sweep, whole suite and CI, spec updated, Johannes's M1 hand try
