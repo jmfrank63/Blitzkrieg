@@ -240,7 +240,10 @@ typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
 /* The camera, placed in world units, and one frame drawn into the window the
-   session was started on.
+   session was started on. BkEditorOpenMap places the camera on the map's
+   middle, so a frame before the first BkEditorSetCamera already looks at the
+   map; before any map is open the camera is CCamera's default placement.
+   BkEditorResize places the camera again at its current anchor.
    BK_EDITOR_REFUSED from BkEditorFrame is a device that would not begin a
    scene, which is a thing that happens rather than a bug. */
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
@@ -269,7 +272,9 @@ BkEditorStatus BkEditorGpuDevice( BkEditorSession *session, void **out_device, u
    window's size, so a mouse position is a screen position with no scale. Call
    BkEditorResize after the window's size changed. The screen then becomes the
    window's current size in points - which is pixels, because the editor's
-   window has no high pixel density - and the projection is set again. The
+   window has no high pixel density - the projection is set again, and the
+   camera is placed again at its anchor (its distance depends on the screen's
+   height), as the game does after a resolution change. The
    window itself is left alone: never moved to another display, sized or
    shown again, and no frame is presented. width and height must be the
    window's size as the caller just saw it; anything else is

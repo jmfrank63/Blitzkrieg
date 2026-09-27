@@ -11,6 +11,7 @@
 #include "../MapFile/MapOverlay.h"
 #include "../Main/iMain.h"
 #include "../GFX/GFX.H"
+#include "../Scene/Scene.h"
 #include "../Image/Image.h"
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
@@ -729,6 +730,14 @@ BkEditorStatus BkEditorResize( BkEditorSession *pSession, int nWidth, int nHeigh
 			return BK_EDITOR_FAILED;
 		}
 		SetScreenProjection( pGFX );
+		// The placement's distance depends on the screen's height, so the
+		// camera is placed again at its anchor, as the game does after a
+		// resolution change (GameTT/iMissionInternal.cpp, CMD_LOAD_FINISHED).
+		if ( ICamera *pCamera = GetSingleton<ICamera>() )
+		{
+			const CVec3 vAnchor = pCamera->GetAnchor();
+			SetSessionCamera( pSession, vAnchor.x, vAnchor.y );
+		}
 		return BK_EDITOR_OK;
 	} );
 }

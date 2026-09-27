@@ -249,6 +249,15 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	// turns them into map objects with visuals in the scene.
 	UpdateSessionWorld( pSession );
 
+	// The camera on the map's middle, placed as the game places its mission
+	// camera, so a frame drawn before the caller's first BkEditorSetCamera
+	// looks at the map rather than along CCamera's default placement. No
+	// camera is not a failed open: the frame reports that itself.
+	const float fMiddleX = float( pSession->working.terrain.tiles.GetSizeX() ) * fWorldCellSize / 2;
+	const float fMiddleY = float( pSession->working.terrain.tiles.GetSizeY() ) * fWorldCellSize / 2;
+	if ( !SetSessionCamera( pSession, fMiddleX, fMiddleY ) )
+		pSession->szMessage.clear();
+
 	pSession->bMapOpen = true;
 	return true;
 }

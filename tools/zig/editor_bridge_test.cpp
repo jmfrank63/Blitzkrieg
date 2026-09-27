@@ -556,8 +556,23 @@ static void TestCatalogueCameraAndFrame( BkEditorSession *pSession, int nScreenW
 	std::string szError;
 	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
 		return;
-	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map opens" ) )
+	BkEditorMapSummary summary;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, "the map opens" ) )
 		return;
+	// The open places the camera on the map's middle, the way the game places
+	// its mission camera, so a frame drawn before any BkEditorSetCamera already
+	// looks at the map and a screen point already has ground under it.
+	{
+		const int nCentreX = summary.width_tiles / 2, nCentreY = summary.height_tiles / 2;
+		float wx = 0.0f, wy = 0.0f;
+		int tx = -1, ty = -1;
+		Check( BkEditorFrame( pSession ) == BK_EDITOR_OK, "a frame draws before the camera is set" );
+		Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK &&
+		       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK &&
+		       abs( tx - nCentreX ) <= 2 && abs( ty - nCentreY ) <= 2,
+		       NStr::Format( "an open map is under the middle of the screen before the camera is set (cell %d,%d against the map's middle %d,%d)", tx, ty, nCentreX, nCentreY ) );
+		printf( "editor-bridge: on open the middle of the screen is cell %d,%d, the map's middle %d,%d\n", tx, ty, nCentreX, nCentreY );
+	}
 
 	int nCount = 0;
 	Check( BkEditorCatalogue( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED,
@@ -717,6 +732,21 @@ static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWi
 		       abs( tx - nAnchorX ) <= 2 && abs( ty - nAnchorY ) <= 2,
 		       NStr::Format( "after a resize the middle of the screen is still the camera's cell (%d,%d against %d,%d)", tx, ty, nAnchorX, nAnchorY ) );
 		printf( "editor-bridge: after a resize the camera is on cell %d,%d and the middle of the screen is %d,%d\n", nAnchorX, nAnchorY, tx, ty );
+
+		// A resize with the camera already placed and no BkEditorSetCamera
+		// after it: the resize places the camera again at its anchor, as the
+		// game does on a resolution change, since the placement's distance
+		// depends on the screen's height.
+		SDL_SetWindowSize( pWindow, 700, 420 );
+		SDL_SyncWindow( pWindow );
+		Check( BkEditorResize( pSession, 700, 420 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		BkEditorFrame( pSession );
+		tx = ty = -1;
+		Check( BkEditorScreenToWorld( pSession, 350.0f, 210.0f, &wx, &wy ) == BK_EDITOR_OK &&
+		       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK &&
+		       abs( tx - nAnchorX ) <= 2 && abs( ty - nAnchorY ) <= 2,
+		       NStr::Format( "a resize keeps the camera on its anchor without a new BkEditorSetCamera (%d,%d against %d,%d)", tx, ty, nAnchorX, nAnchorY ) );
+		printf( "editor-bridge: a resize with no new camera leaves the middle of the screen on %d,%d, the anchor %d,%d\n", tx, ty, nAnchorX, nAnchorY );
 	}
 	// Back to the size the later tests were given, window first: the resize
 	// follows the window.
@@ -1691,6 +1721,10 @@ int main( int argc, char **argv )
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
 		TestTerrainUnderTheCamera( pSession, szScratch );
 		TestOverlayDeviceAndSize( pSession, pWindow );
+		// Read again rather than trusting the resize test to have put the
+		// screen back at the size it was.
+		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads after the resize test" );
+		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
