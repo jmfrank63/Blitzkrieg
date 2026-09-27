@@ -1106,6 +1106,30 @@ From the final whole-branch review (its triage adopted: every deferred minor goe
 
 Resolved by the final fix wave rather than carried: the command-line map path goes through `enginePath`, the start-up dialog shows the bridge's reason, `BkEditorResize` places the camera again at its anchor and `BkEditorOpenMap` places it on the map's middle, the shutdown comment, and the engine test's screen size re-read.
 
+### Task 7.2: Placing any catalogue object never crashes the editor
+
+Added by the controller after Johannes's hand try (2026-09-27): placing a sound object from the palette crashed the release MapEditor with SIGSEGV at address 0 in `CheckStaticObject<CCheckInside>` (`AILogic/AIEditorInternal.cpp:302`), from `CAIEditor::IsObjectInsideOfMap` <- `PlaceOneObject` <- `AddObjectToSession` <- `BkEditorAddObject`. Crash report: `zig-out/local-test/mapeditor-sound-crash.ips.txt`.
+
+**Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check.
+
+- [ ] **Step 1: Make the engine tier catch it.** An engine-tier check that adds, through `BkEditorAddObject`, one catalogue entry of every game type the catalogue offers (sound included), each at a free on-map point, and requires every call to return a status (OK, or REFUSED / BAD_ARGUMENT with a message naming the object) and never crash; objects that were added are undone. Write it first; it crashes today.
+- [ ] **Step 2: Measure.** Find what is null for a sound (the description, its RPG stats, their type — a sound's stats may not be an `SObjectBaseRPGStats` at all — or the passability) and what the game and the MFC editor do with sound objects (are they placed as map objects, or kept elsewhere, e.g. the map's sound list?). Record it in the plan.
+- [ ] **Step 3: Fix.** The bridge refuses, with a message, any object it cannot place (guarded with `if`s at the bridge, and the engine's null dereference guarded where it happens), or places it correctly if the game places such objects. If a game type cannot be placed at all, the object palette leaves it out or marks it. Run `test-editor-bridge`, `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke`, then CI on both GPU runners.
+- [ ] **Step 4: Commit** with a message naming the cause.
+
+### Task 7.3: A two-finger trackpad swipe scrolls — in the editor, the game's map and the game's menus
+
+Added by the controller at Johannes's request (2026-09-27): on a Mac trackpad, a two-finger swipe does not scroll in MapEditor, on the game's map, or in the game's menus (lists).
+
+**Files:** determined by the diagnosis — `Sources/editor/app/view.zig`/`view_math.zig` for the editor; the game's SDL input path (`Platform`/`Input`) and the UI's wheel handling for the game.
+
+- [ ] **Step 1: Measure.** Record what SDL delivers for a two-finger swipe on macOS (`SDL_EVENT_MOUSE_WHEEL` with fractional `x`/`y`, `direction`, and whether it arrives as `SDL_EVENT_FINGER_*` too), and where the game consumes wheel events today: what a mouse wheel does on the map and in list controls, and why a trackpad's small fractional deltas are lost (integer truncation of `wheel.y`, only `y` read, a per-notch threshold). Record in the plan.
+- [ ] **Step 2: Tests first.** Pure tests of the translation: fractional deltas accumulate until they make a step (lists) or map directly to camera movement (map, editor); horizontal and vertical both scroll the map; the natural-scrolling direction (`SDL_MOUSEWHEEL_FLIPPED`) is honoured; a real mouse wheel's notches behave exactly as before.
+- [ ] **Step 3: Fix** in the editor (wheel/trackpad scrolls the camera; ImGui panels keep their own scrolling when the pointer is over them) and in the game (map scroll and list scroll). Check by hand on the MacBook's trackpad; the game's existing mouse-wheel behaviour must not change. Run the editor steps and the game's tests; CI on both runners.
+- [ ] **Step 4: Commit.**
+
+---
+
 ## Self-review notes
 
 - **Spec coverage, "Editor app":** SDL window, event and frame loop (Tasks 2, 4); ImGui through dcimgui with the SDL3 and SDL-GPU backends (Task 2); panels — menu bar, tool palette, object palette with filter, properties, players and diplomacy, status bar (Task 5; icons deferred, see Decisions); the map view as the window's background, input over panels to ImGui (Task 4). Settings and recent files: plan 6.
