@@ -1034,6 +1034,19 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ---
 
+### Task 7.1: A placed object draws and can be picked
+
+Added by the controller after Task 7: the smoke found that an object added through the bridge is neither drawn nor pickable (Task 7 Step 3's finding above). Placing objects is the editor's core use, and Johannes's hand try would hit it at once, so it is fixed in this plan, not in plan 6.
+
+**Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check; `Sources/editor/app/main.zig` for the smoke.
+
+- [ ] **Step 1: Make the engine tier catch it.** An engine-tier check: add an object through `BkEditorAddObject` (a unit and a static object, e.g. `W_BigPoplar`) at a point on screen, draw frames, and require that `BkEditorObjectAt` at the object's screen position returns its link ID and that the captured frame differs from the frame before the add around that position. Write it first; it fails today.
+- [ ] **Step 2: Measure.** Compare the add path with the load path, which draws (`AddObjectToSession` -> `PlaceOneObject` -> `UpdateSessionWorld` against the map load's calls), and with how the game adds an object at run time (the scene side: whatever registers a new object's visual with `IScene` / the object's `AddToScene`-like step, and the pick structures). Record what the load or the game does that the add does not.
+- [ ] **Step 3: Fix, and let the smoke use it.** Fix where the measurement points. Then change the smoke's script so select, drag, rotate and delete act on the object it placed (clicking it at its screen position), keeping the map-object steps only where they add coverage. Run `test-editor-bridge`, `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke` on macOS, then CI on both GPU runners, and read both jobs.
+- [ ] **Step 4: Commit** with a message naming the cause.
+
+---
+
 ## Self-review notes
 
 - **Spec coverage, "Editor app":** SDL window, event and frame loop (Tasks 2, 4); ImGui through dcimgui with the SDL3 and SDL-GPU backends (Task 2); panels — menu bar, tool palette, object palette with filter, properties, players and diplomacy, status bar (Task 5; icons deferred, see Decisions); the map view as the window's background, input over panels to ImGui (Task 4). Settings and recent files: plan 6.
