@@ -74,8 +74,8 @@ pub const Expect = enum {
     placed_selected,
     /// The placed object turned a sixteenth clockwise, and the engine agrees.
     rotated,
-    /// The placed object has left where it was put, is still selected, and
-    /// the engine agrees.
+    /// The placed object has left where it was put, is still selected, a
+    /// click at the drag's end finds it, and the engine agrees.
     moved,
     /// The placed object is gone, and the engine agrees.
     deleted,
@@ -359,6 +359,10 @@ pub const Script = struct {
                 if (object.x == self.placed_pose.x and object.y == self.placed_pose.y)
                     return self.stepFail(step, "the placed object is still at {d},{d}", .{ object.x, object.y });
                 if (editor.selection != self.placed) return self.stepFail(step, "the selection is {?d}, want {d}", .{ editor.selection, self.placed });
+                // It went where the cursor went: a click at the drag's end
+                // finds it.
+                const there = self.resolveAt(drag_to) orelse return self.stepFail(step, "drag_to is off the terrain", .{});
+                if (there.object != self.placed) return self.stepFail(step, "a click at the drag's end finds {?d}, want the placed object {d}", .{ there.object, self.placed });
                 if (!self.engineAgrees(step)) return false;
             },
             .deleted => {
