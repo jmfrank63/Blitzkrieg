@@ -205,7 +205,10 @@ pub const FileActions = struct {
     save_requested: bool = false,
     save_as_requested: bool = false,
     quit_requested: bool = false,
-    dialog: PathSlot = .{},
+    /// Not owned: a dialog's callback may come after whoever showed it has
+    /// gone (a quit with the dialog still up), so the slot it writes into
+    /// must outlive every FileActions - panels.zig keeps it in a global.
+    dialog: *PathSlot,
 
     pub const Step = union(enum) {
         none,
@@ -350,7 +353,8 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     defer fake.deinit();
     var editor = Editor.init(std.testing.allocator, fake.bridge());
     defer editor.deinit();
-    var actions: FileActions = .{};
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
 
     // Frame 1: the menu asked for Open; the loop is told to show the dialog.
     actions.open_requested = true;

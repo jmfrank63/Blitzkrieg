@@ -35,6 +35,11 @@ const map_filters = [_]sdl3.c.SDL_DialogFileFilter{
     .{ .name = "Blitzkrieg maps (*.bzm;*.xml)", .pattern = "bzm;xml" },
 };
 
+/// Where a dialog's callback writes its answer. A global, not a field of
+/// State: SDL may call back after the State that showed the dialog is gone
+/// (the editor quit with the dialog still up), and must find live memory.
+var dialog_slot: logic.PathSlot = .{};
+
 /// The panels' layout, in screen pixels, for their first appearance.
 const layout = struct {
     const left_width: f32 = 280;
@@ -67,7 +72,7 @@ pub const State = struct {
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
-    actions: FileActions = .{},
+    actions: FileActions = .{ .dialog = &dialog_slot },
 
     /// The properties panel's fields while they are being edited: loaded
     /// from the selected object whenever none of them was active last
@@ -186,7 +191,7 @@ fn saveToDocumentPath(state: *State) void {
 }
 
 fn showDialog(state: *State, kind: logic.DialogKind) void {
-    const slot: *logic.PathSlot = &state.actions.dialog;
+    const slot: *logic.PathSlot = state.actions.dialog;
     switch (kind) {
         .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, null, false),
         .save_as => sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, null),
