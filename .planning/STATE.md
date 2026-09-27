@@ -59,3 +59,9 @@ behavior needs the in-game rows).
 **Last session:** 2026-09-09T00:00:00Z
 **Stopped at:** Phase 2 review round 5 clean — no code findings; position restore verified; awaiting Windows in-game sign-off rows
 **Resume file:** .planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 3 added (2026-09-28): Map editor plan 6: finish M1 — branch feat/map-editor-plan-6, worktree .worktrees/map-editor-6
