@@ -220,7 +220,7 @@ pub const View = struct {
     /// view_math.wheelPan maps each straight to a screen pan, so the camera
     /// follows the fingers without rounding or stepping back.
     fn handleWheel(self: *View, real: *RealBridge, wheel: sdl3.c.SDL_MouseWheelEvent) void {
-        const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED });
+        const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED }, view_math.wheel_sensitivity);
         const before_x = self.camera_x;
         const before_y = self.camera_y;
         var camera: view_math.Camera = .{ .x = self.camera_x, .y = self.camera_y };

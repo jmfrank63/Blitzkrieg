@@ -477,7 +477,7 @@ pub const Script = struct {
                 const wheel = step.inputs[0].wheel;
                 var want: view_math.Camera = .{ .x = self.camera_before[0], .y = self.camera_before[1] };
                 for (0..wheel.count) |_| {
-                    const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.flipped });
+                    const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.flipped }, view_math.wheel_sensitivity);
                     want.panScreen(pan.right_px, pan.up_px, self.view.map);
                 }
                 const moved = @abs(self.view.camera_x - self.camera_before[0]) + @abs(self.view.camera_y - self.camera_before[1]);

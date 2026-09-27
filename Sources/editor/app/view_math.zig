@@ -81,6 +81,13 @@ pub const Camera = struct {
 /// tells the two apart; one gain serves both.
 pub const wheel_pixels_per_unit: f32 = 20.0;
 
+/// The player's wheel/trackpad sensitivity, a multiplier on
+/// `wheel_pixels_per_unit`: 1 is the gain above. The game has it as an
+/// option (GamePlay.TrackpadScroll, 0.25x-4x); the editor has no settings
+/// store yet.
+/// TODO(plan 6, editor settings): make this the editor's setting.
+pub const wheel_sensitivity: f32 = 1.0;
+
 /// An SDL_MouseWheelEvent's deltas, as view.zig hands them over. `flipped`
 /// is SDL_MOUSEWHEEL_FLIPPED (natural scrolling).
 pub const WheelEvent = struct { x: f32, y: f32, flipped: bool = false };
@@ -95,14 +102,15 @@ pub const ScreenPan = struct { right_px: f32, up_px: f32 };
 /// applied again. Applying it would scroll the map against the fingers.
 /// Fractions pass through unrounded: a slow swipe's 0.1s add up; they are
 /// not truncated away or rounded into +1/-1 steps.
-pub fn wheelPan(event: WheelEvent) ScreenPan {
-    return .{ .right_px = event.x * wheel_pixels_per_unit, .up_px = event.y * wheel_pixels_per_unit };
+pub fn wheelPan(event: WheelEvent, sensitivity: f32) ScreenPan {
+    const gain = wheel_pixels_per_unit * sensitivity;
+    return .{ .right_px = event.x * gain, .up_px = event.y * gain };
 }
 
 const test_map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
 
 fn applyWheel(camera: *Camera, event: WheelEvent) void {
-    const pan = wheelPan(event);
+    const pan = wheelPan(event, wheel_sensitivity);
     camera.panScreen(pan.right_px, pan.up_px, test_map);
 }
 
@@ -139,7 +147,7 @@ test "a slow swipe's small fractional deltas add up to the large one, moving the
 test "mixed-sign micro-jitter nets out, with no step larger than the jitter itself" {
     var camera: Camera = .{ .x = 2000, .y = 2000 };
     const jitter = [_]f32{ 0.04, -0.03, 0.02, -0.05, 0.03, -0.01 };
-    const one_step = wheelPan(.{ .x = 0, .y = 0.05 }).up_px * 2 / std.math.sqrt2;
+    const one_step = wheelPan(.{ .x = 0, .y = 0.05 }, wheel_sensitivity).up_px * 2 / std.math.sqrt2;
     for (jitter) |y| {
         const before = camera.y;
         applyWheel(&camera, .{ .x = 0, .y = y });
@@ -166,6 +174,20 @@ test "a mouse wheel's notches pan by whole, equal steps" {
     applyWheel(&camera, .{ .x = 0, .y = 1 });
     try std.testing.expectApproxEqAbs(2 * first, camera.y - 2000, 0.001);
     try std.testing.expectApproxEqAbs(wheel_pixels_per_unit * 2 / std.math.sqrt2, first, 0.001);
+}
+
+test "the sensitivity scales a pan monotonically, and the default leaves it as it was" {
+    const event: WheelEvent = .{ .x = 0.3, .y = -0.2 };
+    const default_pan = wheelPan(event, wheel_sensitivity);
+    try std.testing.expectEqual(event.x * wheel_pixels_per_unit, default_pan.right_px);
+    try std.testing.expectEqual(event.y * wheel_pixels_per_unit, default_pan.up_px);
+    var previous: f32 = 0;
+    for ([_]f32{ 0.25, 0.5, 1, 2, 4 }) |sensitivity| {
+        const pan = wheelPan(event, sensitivity);
+        try std.testing.expect(pan.right_px > previous);
+        try std.testing.expectApproxEqAbs(default_pan.right_px * sensitivity, pan.right_px, 0.0001);
+        previous = pan.right_px;
+    }
 }
 
 test "a wheel pan clamps at the map's edge" {
