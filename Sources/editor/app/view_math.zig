@@ -99,3 +99,47 @@ test "scroll clamps at the far edge too" {
 test "a release maps to a tool event too" {
     try std.testing.expectEqual(EventKind.release, kindOf(.{ .button = sdl_button_left, .down = false }).?);
 }
+
+/// What an SDL event is, for routing: `host.handleEvent`'s bool return is
+/// `ImGui_ImplSDL3_ProcessEvent`'s, which is true for every mouse/keyboard
+/// event on our window (it means "processed", not "wanted") - it cannot be
+/// used to decide whether the view should also see the event. This is a
+/// coarser classification than `EventKind`/`kindOf` above: it only tells
+/// `shouldDeliver` which of ImGui's two capture flags applies, not which
+/// tool event (if any) the event becomes.
+pub const InputEventKind = enum { mouse_button, mouse_motion, mouse_wheel, key, other };
+
+/// ImGui's own idea of who wants an event, read from `igGetIO()` after
+/// `host.handleEvent` has processed it.
+pub const Capture = struct {
+    mouse: bool = false,
+    keyboard: bool = false,
+};
+
+/// Whether the view should also see an event `host.handleEvent` already
+/// processed. A mouse event is delivered when ImGui does not want the mouse,
+/// or when the view already has an open gesture (a press it saw reach it) -
+/// so a drag or release that strays over a panel mid-gesture still reaches
+/// the tool that owns it, rather than leaving a Selector or Brush gesture
+/// open forever. A key event is delivered when ImGui does not want the
+/// keyboard. Anything else (window events, quit, ...) always reaches the
+/// view; main.zig handles quit itself before this even runs.
+pub fn shouldDeliver(kind: InputEventKind, capture: Capture, gesture_active: bool) bool {
+    return switch (kind) {
+        .mouse_button, .mouse_motion, .mouse_wheel => gesture_active or !capture.mouse,
+        .key => !capture.keyboard,
+        .other => true,
+    };
+}
+
+test "routing: ImGui's capture flags gate mouse and key events, but an open gesture overrides the mouse ones" {
+    const busy: Capture = .{ .mouse = true, .keyboard = true };
+    const free: Capture = .{ .mouse = false, .keyboard = false };
+    try std.testing.expect(!shouldDeliver(.mouse_button, busy, false));
+    try std.testing.expect(shouldDeliver(.mouse_button, busy, true)); // the release of a gesture the view started
+    try std.testing.expect(shouldDeliver(.mouse_motion, busy, true));
+    try std.testing.expect(shouldDeliver(.mouse_button, free, false));
+    try std.testing.expect(!shouldDeliver(.key, busy, false));
+    try std.testing.expect(shouldDeliver(.key, free, false));
+    try std.testing.expect(shouldDeliver(.other, busy, false));
+}

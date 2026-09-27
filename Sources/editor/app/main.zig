@@ -22,6 +22,7 @@ const core = @import("editor_core");
 const host_mod = @import("host.zig");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
+const view_math = @import("view_math.zig");
 const crt = @import("crt.zig");
 const c = host_mod.c;
 
@@ -92,22 +93,36 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
     while (running) {
         var event: sdl3.c.SDL_Event = undefined;
         while (sdl3.c.SDL_PollEvent(&event)) {
-            const taken = host.handleEvent(&event);
+            // ImGui's backend always gets first look, so it can update its
+            // own IO state (and follow a resize) - but its bool return is
+            // ImGui_ImplSDL3_ProcessEvent's "I processed this", true for
+            // every mouse/keyboard event on our window, not "I want this".
+            // Routing the view instead goes through view_math.shouldDeliver,
+            // reading igGetIO()'s capture flags fresh after this call.
+            _ = host.handleEvent(&event);
             switch (event.type) {
                 sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => running = false,
-                else => if (!taken) view.handleEvent(&editor, &real, &event),
+                else => {
+                    const kind = view_mod.inputKindOf(event.type);
+                    const capture = view_mod.captureFlags();
+                    if (view_math.shouldDeliver(kind, capture, view.hasActiveMouseGesture()))
+                        view.handleEvent(&editor, &real, &event);
+                },
             }
         }
         const ticks = sdl3.c.SDL_GetTicks();
         const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
         last_ticks = ticks;
-        view.update(&real, dt_seconds);
+        view.update(&real, host.window, dt_seconds);
 
         host.beginFrame();
         drawStatusWindow(view.statusLine());
-        host.endFrame() catch {};
+        host.endFrame() catch |err| view.setStatus("failed: ", @errorName(err));
     }
-    std.process.exit(0);
+    // A plain return, not std.process.exit: the deferred host.stop(),
+    // editor.deinit() and view.deinit() above must run so the engine and its
+    // GPU device shut down cleanly, which an immediate process exit would
+    // skip.
 }
 
 fn startupStepName(err: host_mod.HostError) []const u8 {
