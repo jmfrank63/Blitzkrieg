@@ -1194,6 +1194,16 @@ Added by the controller at Johannes's request (2026-09-27): on a Mac trackpad, a
 
 ---
 
+### Task 7.4: A swipe over a help screen scrolls only the help screen
+
+Added by the controller from Johannes's hand try of Task 7.3 (2026-09-27): with a help screen open, a two-finger swipe scrolls the help screen and also the out-of-focus screen under it. Johannes: fix it if it is easy; if it is real effort, leave it as it is. So this task is time-boxed: diagnose first; fix only if the fix is small and local (the wheel goes only to the topmost/modal screen, as clicks do).
+
+- [ ] **Step 1: Measure.** Find how a wheel event reaches both screens (the help screen is an overlay/child screen; which of `UIScreen`, the screen stack or `InterfaceScreenBase` hands the wheel to the screen underneath, and how clicks avoid it). Record it here.
+- [ ] **Step 2: Decide.** If the fix is small and local, write a test first (a wheel with a help screen open changes only the help screen's scroll position), then fix. If not, record why and what the fix would take, and stop.
+- [ ] **Step 3: Commit** (fix or findings).
+
+---
+
 ## Self-review notes
 
 - **Spec coverage, "Editor app":** SDL window, event and frame loop (Tasks 2, 4); ImGui through dcimgui with the SDL3 and SDL-GPU backends (Task 2); panels — menu bar, tool palette, object palette with filter, properties, players and diplomacy, status bar (Task 5; icons deferred, see Decisions); the map view as the window's background, input over panels to ImGui (Task 4). Settings and recent files: plan 6.
