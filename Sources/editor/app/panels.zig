@@ -67,8 +67,10 @@ pub const State = struct {
     filter: [64:0]u8 = [_:0]u8{0} ** 64,
 
     /// The tiles the open map's tileset has, for the brush's palette.
+    /// A count, not a slice: State is returned by value from `init`, and a
+    /// slice into its own buffer would point into the copy that was left.
     tile_buffer: [256]u8 = undefined,
-    tiles: []const u8 = &.{},
+    tile_count: usize = 0,
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -106,6 +108,10 @@ pub const State = struct {
         self.* = undefined;
     }
 
+    pub fn tiles(self: *const State) []const u8 {
+        return self.tile_buffer[0..self.tile_count];
+    }
+
     fn loadCatalogue(self: *State) !void {
         const entries = try self.real.catalogue(self.allocator);
         errdefer self.allocator.free(entries);
@@ -124,14 +130,15 @@ pub const State = struct {
     /// the tileset's tiles and the fields follow the new map.
     pub fn mapOpened(self: *State) void {
         self.edit = .{};
-        self.tiles = &.{};
+        self.tile_count = 0;
         if (!mapIsOpen(self.editor)) return;
         self.view.centreOn(self.real, self.editor.document.info);
-        self.tiles = self.real.tilesetTiles(&self.tile_buffer) orelse &.{};
+        self.tile_count = if (self.real.tilesetTiles(&self.tile_buffer)) |got| got.len else 0;
         // The brush keeps its tile if the new tileset has it; otherwise it
         // takes the first the tileset has, so it never paints a refusal.
-        if (self.tiles.len != 0 and std.mem.indexOfScalar(u8, self.tiles, self.view.brush.tile) == null)
-            self.view.brush.tile = self.tiles[0];
+        const offered = self.tiles();
+        if (offered.len != 0 and std.mem.indexOfScalar(u8, offered, self.view.brush.tile) == null)
+            self.view.brush.tile = offered[0];
     }
 };
 
@@ -278,13 +285,13 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         if (active) ig.igPopStyleColor();
     }
     ig.igSeparatorText("Brush");
-    if (state.tiles.len == 0) {
+    if (state.tile_count == 0) {
         text("no map open: no tiles to paint");
     } else {
         var preview: [32:0]u8 = undefined;
         const preview_text = std.fmt.bufPrintZ(&preview, "tile {d}", .{view.brush.tile}) catch "tile";
         if (ig.igBeginCombo("tile", preview_text.ptr, 0)) {
-            for (state.tiles) |tile| {
+            for (state.tiles()) |tile| {
                 var label: [32:0]u8 = undefined;
                 const label_text = std.fmt.bufPrintZ(&label, "tile {d}", .{tile}) catch continue;
                 const selected = tile == view.brush.tile;

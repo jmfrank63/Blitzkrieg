@@ -263,8 +263,8 @@ fn panelSmoke(gpa: std.mem.Allocator, host: *host_mod.Host, map: []const u8, out
     var state = panels.State.init(gpa, &editor, &view, &real, host.window);
     defer state.deinit();
     if (state.catalogue.len == 0) return fail("panels: the object palette has no catalogue", .{});
-    if (state.tiles.len == 0) return fail("panels: the brush has no tiles from the map's tileset", .{});
-    if (std.mem.indexOfScalar(u8, state.tiles, 1) != null) return fail("panels: tile 1, in no shipped tileset, is offered", .{});
+    if (state.tile_count == 0) return fail("panels: the brush has no tiles from the map's tileset", .{});
+    if (std.mem.indexOfScalar(u8, state.tiles(), 1) != null) return fail("panels: tile 1, in no shipped tileset, is offered", .{});
     // An object the properties panel can edit, so its fields are drawn too.
     const editable: ?i32 = for (editor.document.objects.items) |object| {
         if (panels_logic.readOnlyReason(editor.document.objects.items, object) == null) break object.link_id;
@@ -305,7 +305,7 @@ fn panelSmoke(gpa: std.mem.Allocator, host: *host_mod.Host, map: []const u8, out
     if (c.BkEditorCaptureFrame(host.session, shot.ptr) != c.BK_EDITOR_OK)
         return fail("panels: the frame was not captured: {s}", .{std.mem.span(c.BkEditorLastMessage(host.session))});
 
-    std.debug.print("map-editor: panel smoke PASS ({d} catalogue entries, {d} tiles, saved and reopened {s})\n", .{ state.catalogue.len, state.tiles.len, saved });
+    std.debug.print("map-editor: panel smoke PASS ({d} catalogue entries, {d} tiles, saved and reopened {s})\n", .{ state.catalogue.len, state.tile_count, saved });
     return true;
 }
 
