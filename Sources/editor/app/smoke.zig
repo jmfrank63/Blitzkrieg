@@ -153,6 +153,8 @@ pub const Script = struct {
     frame: usize = 0,
     step: usize = 0,
     passed: bool = false,
+    /// A FAIL line has been printed.
+    reported: bool = false,
 
     original_objects: usize,
     cell_a: [2]i32 = .{ 0, 0 },
@@ -391,12 +393,13 @@ pub const Script = struct {
 
     fn stepFail(self: *Script, step: Step, comptime format: []const u8, args: anytype) bool {
         std.debug.print("map-editor: smoke FAIL: {s}: " ++ format ++ " (editor status: {s})\n", .{step.name} ++ args ++ .{self.editor.status()});
+        self.reported = true;
         return false;
     }
 
     fn fail(self: *Script, comptime format: []const u8, args: anytype) bool {
-        _ = self;
         std.debug.print("map-editor: smoke FAIL: " ++ format ++ "\n", args);
+        self.reported = true;
         return false;
     }
 };

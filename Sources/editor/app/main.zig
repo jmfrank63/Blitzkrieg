@@ -23,9 +23,9 @@
 //!
 //! The smoke runs the interactive mode's own loop (`run`) with the window
 //! hidden and smoke.zig's script feeding it synthetic SDL events: the tools
-//! chosen by key, a brush stroke, a placed object selected, dragged, turned
-//! and deleted, all of it undone, Save As to <out.bzm> and that file opened
-//! again with the original's object count. Prints "map-editor: smoke PASS"
+//! chosen by key, a brush stroke, an object placed and turned, one of the
+//! map's selected by a click, dragged and deleted, all of it undone, Save As
+//! to <out.bzm> and that file opened again with the original's object count. Prints "map-editor: smoke PASS"
 //! and exits 0, or a "smoke FAIL:" line naming the step and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
@@ -192,7 +192,12 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
     run(&host, &editor, &view, &real, &state, &script);
-    if (!script.passed) return false;
+    if (!script.passed) {
+        // A step that failed has said so; a loop that ended otherwise (a
+        // quit event) has not.
+        if (!script.reported) std.debug.print("map-editor: smoke FAIL: the loop ended at step {d} of {d}\n", .{ script.step + 1, smoke.script.len });
+        return false;
+    }
     std.debug.print("map-editor: smoke PASS ({d} steps, {d} objects, saved and reopened {s})\n", .{ smoke.script.len, script.original_objects, output });
     return true;
 }
