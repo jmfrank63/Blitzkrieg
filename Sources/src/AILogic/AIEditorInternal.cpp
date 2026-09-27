@@ -298,9 +298,41 @@ void GetUnitRectByMapObject( const SMapObjectInfo &object, IObjectsDB *pIDB, con
 	CGDBPtr<SUnitBaseRPGStats> pStats = static_cast<const SUnitBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
 	GetUnitRectByStats( pStats, CVec2( object.vPos.x, object.vPos.y ), object.nDir, pRect );
 }
+// Whether a game type's stats carry a static footprint - an origin and a
+// passability - which is what CheckStaticObject reads. CObjectsDB::GetRPGStats
+// (GameDB.cpp) decides the stats class from the game type alone, and five
+// types get one that is not an SStaticObjectRPGStats: a unit and a tank pit
+// get an SMechUnitRPGStats (or SInfantryRPGStats), an entrenchment an
+// SEntrenchmentRPGStats, a squad an SSquadRPGStats and a sound an
+// SSoundRPGStats, which is only an SCommonRPGStats. Casting one of those to an
+// SObjectBaseRPGStats and calling GetOrigin calls through a virtual slot the
+// object does not have: the map editor died at address 0 placing a sound, and
+// in CheckStaticObject again placing a tank pit. The type is tested rather
+// than the stats dynamic_cast, because the stats come from another module and
+// a cross-module dynamic_cast is not reliable on macOS.
+static bool HasStaticFootprint( const EObjGameType eGameType )
+{
+	switch ( eGameType )
+	{
+		case SGVOGT_UNIT:
+		case SGVOGT_TANK_PIT:
+		case SGVOGT_ENTRENCHMENT:
+		case SGVOGT_SQUAD:
+		case SGVOGT_SOUND:
+			return false;
+		default:
+			return true;
+	}
+}
 template<class T>
 bool CheckStaticObject( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, const T &checkFunc )
 {
+	// Neither a tank pit (dug during play, never placed from a map: the game's
+	// AddObject has no case for one) nor a sound (a map keeps sounds in
+	// CMapInfo::soundsList, and the game's AddObject returns 0 for one) is an
+	// object the editor can put on the map, so it is not inside it.
+	if ( pDesc == 0 || !HasStaticFootprint( pDesc->eGameType ) )
+		return false;
 	CGDBPtr<SObjectBaseRPGStats> pStats = static_cast<const SObjectBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
 	// A described object whose stats file is missing has no footprint to test,
 	// so it is not inside the map and is not placed. GetRPGStats logs the miss

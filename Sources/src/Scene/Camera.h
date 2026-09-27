@@ -39,6 +39,7 @@ public:
 	// vAnchor1 tracks the anchor for the same reason as in SetPlacement: it is
 	// what GetAnchor answers with, and Update only refreshes it once a frame.
 	virtual void STDCALL SetAnchor( const CVec3 &_vAnchor ) { vAnchor = _vAnchor; vAnchor1 = _vAnchor; }
+	virtual void STDCALL MoveAnchor( const CVec3 &vDelta ) { vAnchor.x += vDelta.x; vAnchor.y += vDelta.y; }
 	virtual const SHMatrix STDCALL GetPlacement() const;
 	virtual const CVec3 STDCALL GetPos() const { return vPos; }
 	virtual const CVec3 STDCALL GetAnchor() { return vAnchor1; }

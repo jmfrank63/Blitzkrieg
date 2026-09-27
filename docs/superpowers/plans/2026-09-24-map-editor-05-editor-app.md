@@ -1,0 +1,1225 @@
+# Map Editor Plan 5: The Editor App Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** A `MapEditor` executable for macOS arm64 and Windows x64 (MSVC) that opens a shipped map in a window drawn by the engine, puts ImGui panels over it, and edits the map through the plan 4 core — paint, place, select, move, rotate, delete, players and diplomacy, undo and redo — and saves it.
+
+**Architecture:** A Zig executable (`Sources/editor/app`) hosts everything in one process: SDL3 owns the window and events, the C++ engine bridge (plan 3-4) starts the engine on that window, and the Zig editor core (plan 4) turns input into commands. The core reaches the real engine through a new Zig adapter over `bridge.h` (`Sources/editor/app/c_bridge.zig`) that implements the core's `Bridge` vtable. ImGui draws into the engine's own frame through a new bridge call that forwards the GFXGPU overlay hook of plan 1 to the engine's renderer, which today nothing can reach. The window's size is the engine's screen size, one to one, so a mouse position is a screen position.
+
+**Tech Stack:** Zig 0.16, SDL3 (`vendor/zig-sdl3`), Dear ImGui through dcimgui (`Sources/editor/imgui`, `vendor/dcimgui`), the C++ engine bridge and engine statics, GFXGPU (Metal on macOS, Direct3D 12 on Windows).
+
+**Spec:** `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` (sections "Editor app", "Drawing ImGui on top of the engine", "Data flow → Startup, Open, Edit, Pick", "Errors → Startup, Open, Edit", "Build and packaging", "Testing → Editor app").
+
+**Changed from the spec, by decision on 2026-09-24:** the app is first-class on **macOS arm64 and Windows x64 (MSVC)**, not macOS only. The other four CI targets keep building the core and running its tier; they do not build the app.
+
+## The M1 plan series
+
+1. **Overlay spike** (landed): GFXGPU overlay hook, frame capture, vendored ImGui.
+2. **Map files** (landed): `MapFile`, data-only startup, comparator, overlay, terrain function.
+3. **Engine bridge** (landed): `InitializeWithWindow`, `EditorBridge`, the engine tier on both GPU runners.
+4. **Editor core** (landed, merged to `main` as `38ad2bc8c`): read-back, exact undo, picking; the Zig document, commands, history, tools, fake bridge.
+5. **Editor app** (this plan): a host that starts the engine with ImGui over it, the adapter to the real bridge, the map view and its input, the panels, `install-map-editor`, an app smoke test on both GPU runners.
+6. **Files and launch:** file dialogs with the spec's safe save, the unsaved-changes prompt, recent files and settings, autosave and restore, test-launch into the game, `BK_EDITOR_AUTO`, the "game reads it" tier, packaging.
+
+Plan 5 ends with an editor you can use from a map path on the command line and from File → Open/Save through the OS dialog; plan 6 makes it safe to rely on.
+
+## Global Constraints
+
+- All work happens on branch `feat/portable-map-editor` in the worktree `.worktrees/map-editor`. Never commit in the main checkout. **Never use `git stash` in any form** — the stash stack is shared with other sessions' worktrees.
+- Every commit message ends with the line `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`.
+- Never run `zig fmt` on `build.zig`; edit it by hand. **Run `zig test tools/zig/build_hermeticity_test.zig` after any `build.zig` change.**
+- Test artifacts go under `zig-out/local-test/`, never `/tmp`.
+- Build on macOS with `-Dtarget=aarch64-macos`; the Windows CI job passes `-Dtarget=x86_64-windows-msvc` and the four `-Dmsvc-*`/`-Dwindows-sdk-*` flags. Thousands of libc header errors on macOS mean the SDK lookup is broken, not `build.zig`.
+- **An assert is not a guard, and Windows-MSVC CI is the only place asserts run.** Debug builds on Windows define `_DEBUG` and `_DO_ASSERT_SLOW`; the portable builds define neither. Guard with an `if`. Any new host `main` on Windows routes CRT asserts and aborts to stderr (`_set_error_mode`, `_set_abort_behavior`, `_CrtSetReportMode`/`_CrtSetReportFile` for `_CRT_ASSERT` and `_CRT_ERROR`) exactly as `tools/zig/editor_bridge_test.cpp:1184-1191` does, or a failed assert hangs CI behind a message box.
+- **Cross-module `dynamic_cast` fails on macOS.** Reach an interface's sibling through an in-module accessor (`ITerrain::GetEditor` is the model).
+- No C++ exception crosses the C ABI: every bridge entry point goes through `Guarded` (`bridge.cpp:37`).
+- The core (`Sources/editor/core`) stays std-only and keeps running on all six targets; the app is where SDL, ImGui and the C ABI live.
+- The engine's roots on macOS come from the **current working directory** (`Platform/Paths.cpp:36-41`, the `/proc/self/exe` fallback); on Windows from `SDL_GetBasePath()`. The app runs with its working directory set to the installation it was installed into, like `editor-bridge-test` (`build.zig` `addEditorBridgeTest`).
+- The window is created **without** `SDL_WINDOW_HIGH_PIXEL_DENSITY`, like the game's (`Platform/SDLApplication.cpp:172-182`), so a window point is a screen pixel and a mouse position is a screen position with no scale. HiDPI is out of M1.
+
+---
+
+## Decisions this plan takes
+
+**The app is a Zig executable, as the spec says, and Task 2 proves it can be.** No Zig executable here has yet linked the engine's C++ statics — built with `-D_DEBUG -D_DLL` against the debug CRT on Windows — together with ImGui, which `addEditorImgui` builds ReleaseFast and leaves to the consumer's CRT. Task 2 is a host that does exactly that and nothing more, measured on both OSes in CI before anything is built on it. If the CRTs cannot be reconciled, the fallback named there is to build ImGui with the engine's flags for the app, not to rewrite the app in C++.
+
+**ImGui reaches the engine's renderer through the bridge.** The renderer is `GraphicsEngineGpu::renderer_` inside the GFXGPU module; the app must not create a second renderer (the spike did) and must not link `gfxgpu` into itself. `IGFX` gains two virtuals appended at its end — `SetOverlay( callback, user )` and `GetGpuDevice( &device, &format )` — implemented by `GraphicsEngineGpu` over `api_.set_overlay` and `api_.get_gpu_device`, and the bridge forwards them as `BkEditorSetOverlay` and `BkEditorGpuDevice`. The overlay then runs inside the engine's own `Flip`, after the scene, before present: what plan 1 measured.
+
+**The screen is the window.** `BkEditorStart` sets the mode to the window's current size instead of `SetMode( 0, ... )`, which took the desktop size and resized the editor's window (plan 4's carried item). `BkEditorResize( w, h )` re-runs `SetMode` and the projection when the window changes. With no high pixel density and no present offset, mouse coordinates need no conversion (`GraphicsEngineGpu.cpp:975-1027` becomes the identity) — Task 1's test measures that it is.
+
+**The adapter lives in the app, not the core.** `c_bridge.zig` `@cImport`s `bridge.h`, so it cannot be in the std-only core. It implements the core's `Bridge` vtable and adds the calls the app needs that the core does not: start, stop, camera, frame, catalogue, resize, overlay, device, and the two engine-tier checks.
+
+**Camera: scroll only in M1.** The spec lists scroll, rotate and zoom. `BkEditorSetCamera` places the camera; rotation and zoom need engine support nobody has measured. Task 4 implements scrolling (keys, screen edge, middle drag) and records whether `ICamera` offers rotate and zoom; they join plan 6 or M2 on that evidence rather than on a guess.
+
+**Object palette without icons.** The spec's palette has icons; the catalogue has names and game types. Icons need textures loaded from the object database and drawn by ImGui through the engine's device, which is its own piece of work. Plan 5 filters by name and groups by game type; icons go to plan 6.
+
+---
+
+## File Structure
+
+| File | Responsibility |
+|---|---|
+| `Sources/src/GFX/GFX.h` | `IGFX::SetOverlay`, `IGFX::GetGpuDevice`, appended. |
+| `Sources/src/GFXGPU/GraphicsEngineGpu.h/.cpp` | Their implementation over `api_`. |
+| `Sources/src/GFX/GraphicsEngine.h/.cpp` | The legacy D3D engine's answer: not supported. Only if it is compiled. |
+| `Sources/src/EditorBridge/bridge.h/.cpp`, `session.cpp` | `BkEditorSetOverlay`, `BkEditorGpuDevice`, `BkEditorResize`, `BkEditorScreenSize`; `BkEditorStart` sizes the mode from the window. |
+| `tools/zig/editor_bridge_test.cpp` | Engine-tier checks for all of the above. |
+| `Sources/editor/app/main.zig` | Entry point: arguments, CRT routing, the loop. |
+| `Sources/editor/app/host.zig` | SDL window, engine start and stop, ImGui lifecycle, the overlay. |
+| `Sources/editor/app/c_bridge.zig` | The adapter: the core's `Bridge` vtable over `bridge.h`, plus the app-only calls. |
+| `Sources/editor/app/view.zig` | The map view: camera scrolling, input to tools, hover. |
+| `Sources/editor/app/panels.zig` | Menu bar, tool palette, object palette, properties, players and diplomacy, status bar. |
+| `Sources/editor/app/c_bridge_test.zig` | The core run against the real bridge: the engine tier's Zig half. |
+| `build.zig` | The app executable, its install into the game layout (`install-map-editor`), `test-map-editor-engine`, `map-editor-smoke`. |
+| `.github/workflows/cross-platform.yml` | The app's engine test and smoke on `macos-platform` and `windows-platform`. |
+
+---
+
+### Task 1: The bridge hands out the overlay, the device and the screen size
+
+**Files:**
+- Modify: `Sources/src/GFX/GFX.h:121` (`interface IGFX`, append at the end)
+- Modify: `Sources/src/GFXGPU/GraphicsEngineGpu.h`, `GraphicsEngineGpu.cpp`
+- Modify (only if compiled): `Sources/src/GFX/GraphicsEngine.h`, `GraphicsEngine.cpp`
+- Modify: `Sources/src/EditorBridge/bridge.h`, `bridge.cpp`
+- Test: `tools/zig/editor_bridge_test.cpp`
+
+**Interfaces:**
+- Consumes: `GfxGpuApi::set_overlay`, `get_gpu_device` (`GFXGPU/gfxgpu_c.h:154, 202, 204`); `GfxGpuOverlayCallback` = `void (*)( void *user, void *command_buffer, void *target, uint32_t width, uint32_t height )`.
+- Produces (GFX.h, appended to `IGFX`):
+  ```cpp
+  // A callback the renderer runs every frame after the scene and before
+  // present, with that frame's command buffer and colour target (SDL GPU
+  // objects, as void*). Null removes it. False when the renderer has no such
+  // hook (the legacy D3D engine).
+  virtual bool STDCALL SetOverlay( void (*pfnOverlay)( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight ), void *pUser ) = 0;
+  // The SDL GPU device and the colour format the overlay draws in, for a
+  // caller that renders into the frame itself (the editor's ImGui).
+  virtual bool STDCALL GetGpuDevice( void **ppDevice, unsigned int *pnFormat ) = 0;
+  ```
+- Produces (bridge.h):
+  ```c
+  typedef void (*BkEditorOverlay)( void *user, void *command_buffer, void *target, unsigned int width, unsigned int height );
+  BkEditorStatus BkEditorSetOverlay( BkEditorSession *session, BkEditorOverlay overlay, void *user );
+  BkEditorStatus BkEditorGpuDevice( BkEditorSession *session, void **out_device, unsigned int *out_format );
+  BkEditorStatus BkEditorResize( BkEditorSession *session, int width, int height );
+  BkEditorStatus BkEditorScreenSize( BkEditorSession *session, int *out_width, int *out_height );
+  ```
+
+- [ ] **Step 1: Write the failing tests**
+
+In `editor_bridge_test.cpp`, after `TestCatalogueCameraAndFrame`:
+
+```cpp
+// The overlay runs inside the engine's own frame: a callback set through the
+// bridge is called once per BkEditorFrame, with a command buffer and a target,
+// and not at all once it is removed.
+static int g_nOverlayCalls = 0;
+static bool g_bOverlayHadTarget = true;
+static void CountOverlay( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight )
+{
+	++g_nOverlayCalls;
+	if ( pCommandBuffer == 0 || pTarget == 0 || nWidth == 0 || nHeight == 0 || pUser != &g_nOverlayCalls )
+		g_bOverlayHadTarget = false;
+}
+
+static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWindow )
+{
+	void *pDevice = 0;
+	unsigned int nFormat = 0;
+	Check( BkEditorGpuDevice( pSession, &pDevice, &nFormat ) == BK_EDITOR_OK && pDevice != 0 && nFormat != 0,
+	       "the engine's GPU device and colour format are handed out" );
+
+	g_nOverlayCalls = 0;
+	g_bOverlayHadTarget = true;
+	Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+	Check( g_nOverlayCalls >= 1 && g_bOverlayHadTarget, NStr::Format( "the overlay ran inside the frame (%d calls)", g_nOverlayCalls ).c_str() );
+	BkEditorSetOverlay( pSession, 0, 0 );
+	const int nCalls = g_nOverlayCalls;
+	BkEditorFrame( pSession );
+	Check( g_nOverlayCalls == nCalls, "a removed overlay is not called again" );
+
+	// The screen is the window: no desktop-size mode, no scale between a mouse
+	// position and a screen position.
+	int nWindowW = 0, nWindowH = 0, nScreenW = 0, nScreenH = 0;
+	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == nWindowW && nScreenH == nWindowH,
+	       NStr::Format( "the screen is the window's size (%dx%d against %dx%d)", nScreenW, nScreenH, nWindowW, nWindowH ).c_str() );
+
+	SDL_SetWindowSize( pWindow, 800, 500 );
+	SDL_SyncWindow( pWindow );
+	Check( BkEditorResize( pSession, 800, 500 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == 800 && nScreenH == 500,
+	       NStr::Format( "a resize is the new screen (%dx%d)", nScreenW, nScreenH ).c_str() );
+	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+	Check( nWindowW == 800 && nWindowH == 500, NStr::Format( "and the engine leaves the window at that size (%dx%d)", nWindowW, nWindowH ).c_str() );
+	// Screen-to-world still composes after a resize: the camera test's check.
+	BkEditorSetCamera( pSession, 83 * 32.0f + 16, 36 * 32.0f + 16 );
+	BkEditorFrame( pSession );
+	float wx = 0, wy = 0;
+	int tx = -1, ty = -1;
+	Check( BkEditorScreenToWorld( pSession, 400.0f, 250.0f, &wx, &wy ) == BK_EDITOR_OK &&
+	       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK && tx == 83 && ty == 36,
+	       NStr::Format( "after a resize the middle of the screen is still the camera's cell (%d,%d)", tx, ty ).c_str() );
+	BkEditorResize( pSession, 640, 480 );
+	SDL_SetWindowSize( pWindow, 640, 480 );
+}
+```
+
+Replace `83 * 32.0f + 16` and `36 * 32.0f + 16` with however `TestCatalogueCameraAndFrame` places the camera on cell 83,36 — reuse its constants. Pass the harness's window into the test (`main` holds `pWindow`), and call it right after `TestCatalogueCameraAndFrame`.
+
+- [ ] **Step 2: Run the engine tier and watch it fail to compile**
+
+Run: `zig build test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run`
+Expected: compile errors for the four new entry points.
+
+- [ ] **Step 3: `IGFX` and the GPU engine**
+
+Append the two virtuals of the Interfaces block to `interface IGFX` in `GFX.h` — at its end, so no existing slot moves. In `GraphicsEngineGpu`:
+
+```cpp
+bool GraphicsEngineGpu::SetOverlay( void (*pfnOverlay)( void*, void*, void*, unsigned int, unsigned int ), void *pUser )
+{
+	if ( renderer_ == nullptr || api_.set_overlay == nullptr )
+		return false;
+	return api_.set_overlay( renderer_, reinterpret_cast<GfxGpuOverlayCallback>( pfnOverlay ), pUser ) == GFXGPU_OK;
+}
+
+bool GraphicsEngineGpu::GetGpuDevice( void **ppDevice, unsigned int *pnFormat )
+{
+	if ( renderer_ == nullptr || api_.get_gpu_device == nullptr || ppDevice == nullptr || pnFormat == nullptr )
+		return false;
+	uint32_t nFormat = 0;
+	if ( api_.get_gpu_device( renderer_, ppDevice, &nFormat ) != GFXGPU_OK )
+		return false;
+	*pnFormat = nFormat;
+	return *ppDevice != nullptr;
+}
+```
+
+Use the success constant `gfxgpu_c.h` actually defines (`GFXGPU_OK` or whatever it is spelled). The two function-pointer types are the same shape; if the compiler rejects the `reinterpret_cast` because `unsigned int` and `uint32_t` differ on a target, declare the `IGFX` parameter with `uint32_t` from `<stdint.h>` instead.
+
+Find every other class that implements `IGFX` (`grep -rn "public IGFX\b" Sources/src` — `GFX/GraphicsEngine.h` is one). If its `.cpp` is compiled by `build.zig` (`grep -n GraphicsEngine.cpp build.zig`), give it the two methods returning `false`. If it is not compiled, still add the two declarations and bodies so the header stays implementable; say which in the report.
+
+- [ ] **Step 4: The bridge entry points**
+
+In `bridge.cpp`, change `StartRenderer`'s `SetMode( 0, 0, 32, -1, GFXFS_WINDOWED, 0 )` to the window's own size, read with `SDL_GetWindowSize( (SDL_Window*)pWindow, &nW, &nH )` (include `<SDL3/SDL.h>`; the engine already builds against SDL3), and move the projection code into a helper both start and resize call:
+
+```cpp
+// The projection the game sets after every mode change (Game/GameMain.cpp:795-801).
+void SetScreenProjection( IGFX *pGFX )
+{
+	const RECT rcScreen = pGFX->GetScreenRect();
+	SHMatrix matProjection;
+	CreateOrthographicProjectionMatrixRH( &matProjection, float( rcScreen.right - rcScreen.left ), float( rcScreen.bottom - rcScreen.top ),
+	                                      1, 1024 * 8 + float( rcScreen.bottom - rcScreen.top ) * 2 );
+	pGFX->SetCullMode( GFXC_CW );
+	pGFX->SetProjectionTransform( matProjection );
+	pGFX->EnableLighting( false );
+}
+```
+
+Replace the comment above the `SetMode` call with one that says what is now true: the mode is the window's size, so the screen is the window and a mouse position is a screen position.
+
+Then the four entry points, after `BkEditorFrame`, each through `Guarded`, following `BkEditorSetCamera`'s shape:
+
+- `BkEditorSetOverlay`: `bEngineStarted` else REFUSED "the engine is not started"; `pGFX->SetOverlay( overlay, user )` false → REFUSED "this renderer has no overlay".
+- `BkEditorGpuDevice`: null out-pointers → BAD_ARGUMENT; `GetGpuDevice` false → REFUSED "this renderer has no SDL GPU device".
+- `BkEditorResize`: `width <= 0 || height <= 0` → BAD_ARGUMENT; `SetMode( width, height, 32, -1, GFXFS_WINDOWED, 0 )` false → FAILED "IGFX::SetMode failed"; then `SetScreenProjection( pGFX )`.
+- `BkEditorScreenSize`: null out-pointers → BAD_ARGUMENT; the width and height of `GetScreenRect()`.
+
+Document each in `bridge.h` in the file's voice. For `BkEditorSetOverlay` say: the callback runs on the thread that calls `BkEditorFrame`, inside `Flip`, after the scene and before present; no render pass is open; it must not call back into the bridge. For `BkEditorResize` say: call it after the window's size changed, with the window's size in points (which is pixels, because the editor's window has no high pixel density).
+
+`SetMode` with an explicit size resizes the window to that size in points (`GraphicsEngineGpu.cpp:538`); with points equal to pixels that is the size the window already has, so the test's "the engine leaves the window at that size" holds. If it does not — the window ends up a different size — stop and report the measured sizes instead of adjusting the test.
+
+- [ ] **Step 5: Run the engine tier**
+
+Run: `zig build test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run`
+Expected: `editor-bridge: PASS`. The existing tests that print "the screen is WxH" now print the harness window's 640x480, not the desktop's size; if any existing check assumed the desktop size, change it to take the size from `BkEditorScreenSize`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add Sources/src/GFX Sources/src/GFXGPU Sources/src/EditorBridge tools/zig/editor_bridge_test.cpp
+git commit -m "feat(editor): the bridge hands out the engine's overlay and GPU device, and the screen is the window
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 2: A Zig host that starts the engine with ImGui over it, on both OSes
+
+The riskiest step of M1's app, and so the smallest one: an executable that proves the build and nothing else.
+
+**Files:**
+- Create: `Sources/editor/app/main.zig`, `Sources/editor/app/host.zig`
+- Modify: `build.zig` (next to `addEditorBridgeTest`, ~5467)
+- Modify: `.github/workflows/cross-platform.yml` (`macos-platform`, `windows-platform`)
+
+**Interfaces:**
+- Consumes: Task 1's `BkEditorSetOverlay`, `BkEditorGpuDevice`, `BkEditorResize`, `BkEditorScreenSize`; `BkEditorStart`, `BkEditorOpenMap`, `BkEditorFrame`, `BkEditorStop`; `bk_imgui_backend_*` (`Sources/editor/imgui/imgui_backend.h`); `imgui.overlayCallback` (`Sources/editor/imgui/imgui.zig:10`).
+- Produces (host.zig):
+  ```zig
+  pub const Host = struct {
+      window: *sdl3.c.SDL_Window,
+      session: *c.BkEditorSession,
+      pub fn start(options: Options) HostError!Host;   // window, engine, ImGui, overlay
+      pub fn stop(self: *Host) void;
+      pub fn beginFrame(self: *Host) void;              // ImGui new frame
+      pub fn endFrame(self: *Host) HostError!void;      // igRender, then BkEditorFrame (the overlay draws inside it)
+      pub fn handleEvent(self: *Host, event: *const sdl3.c.SDL_Event) bool; // true: ImGui took it
+  };
+  pub const Options = struct { title: [*:0]const u8, width: c_int = 1280, height: c_int = 800, hidden: bool = false, data_root: [*:0]const u8 = "." };
+  ```
+  `c` is `@cImport` of `bridge.h`, exported from `c_bridge.zig` in Task 3; in this task `host.zig` imports it directly.
+- Produces (build.zig): executable `MapEditor` installed into the game stage root; steps `install-map-editor` and `map-editor-host-check`.
+
+- [ ] **Step 1: The host check, written first**
+
+`main.zig` in this task only knows one mode, `--check <map> [<out.rgba>]`: start hidden, open the map, draw frames with an ImGui window of a known colour at a known place, capture one frame, and verify both the map's pixels and the panel's pixels are there — plan 1's spike check, now through the engine's own frame. The capture uses the engine's existing screenshot path: `IGFX::TakeScreenShot` is reachable from the bridge through the frame-saving code Task 7 of plan 4 added to the engine tier (`editor-bridge-objects.tga`); add `BkEditorCaptureFrame( session, const char *path_tga )` to the bridge if that code lives only in the test, as a thin entry point over the same calls, with an engine-tier check that it writes a file of the screen's size. Read the TGA back in Zig (uncompressed 32-bit TGA: 18-byte header, BGRA rows, bottom-up unless bit 5 of byte 17 is set) and check:
+
+- the pixel at the centre of the ImGui window is the window's colour (magenta, `(255, 0, 255)`, within 2 per channel);
+- a pixel well outside it is not magenta and not the clear colour — the map is drawn under the panel.
+
+Print `map-editor: host check PASS (<driver>, <w>x<h>)` or a `FAIL:` line naming which pixel was wrong, and exit 0 or 1. The driver name comes from `SDL_GetGPUDeviceDriver` on the device `BkEditorGpuDevice` returns.
+
+`host.zig`:
+
+```zig
+//! The editor's process: one SDL window, the engine started on it through
+//! the bridge, and ImGui drawing into the engine's own frame. Nothing here
+//! edits; the view and the panels (Tasks 4-5) sit on top.
+const std = @import("std");
+const sdl3 = @import("sdl3");
+const imgui = @import("editor_imgui");
+pub const c = @cImport(@cInclude("bridge.h"));
+
+pub const HostError = error{ SdlInitFailed, WindowFailed, EngineFailed, NoDevice, ImguiFailed, FrameFailed };
+
+pub const Options = struct {
+    title: [*:0]const u8,
+    width: c_int = 1280,
+    height: c_int = 800,
+    hidden: bool = false,
+    data_root: [*:0]const u8 = ".",
+};
+
+pub const Host = struct {
+    window: *sdl3.c.SDL_Window,
+    session: *c.BkEditorSession,
+
+    pub fn start(options: Options) HostError!Host {
+        if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return error.SdlInitFailed;
+        errdefer sdl3.c.SDL_Quit();
+        // No SDL_WINDOW_HIGH_PIXEL_DENSITY: a point is a pixel, so a mouse
+        // position is a screen position (see the plan's Decisions).
+        var flags: sdl3.c.SDL_WindowFlags = sdl3.c.SDL_WINDOW_RESIZABLE;
+        if (options.hidden) flags |= sdl3.c.SDL_WINDOW_HIDDEN;
+        const window = sdl3.c.SDL_CreateWindow(options.title, options.width, options.height, flags) orelse return error.WindowFailed;
+        errdefer sdl3.c.SDL_DestroyWindow(window);
+
+        var session: ?*c.BkEditorSession = null;
+        const started = c.BkEditorStart(window, options.data_root, &session);
+        if (started != c.BK_EDITOR_OK) {
+            std.debug.print("map-editor: the engine did not start: {s}\n", .{std.mem.span(c.BkEditorLastMessage(session))});
+            if (session) |s| _ = c.BkEditorStop(s);
+            return if (started == c.BK_EDITOR_NO_DEVICE) error.NoDevice else error.EngineFailed;
+        }
+        errdefer _ = c.BkEditorStop(session.?);
+
+        var device: ?*anyopaque = null;
+        var format: c_uint = 0;
+        if (c.BkEditorGpuDevice(session, &device, &format) != c.BK_EDITOR_OK) return error.NoDevice;
+        _ = imgui.c.igCreateContext(null);
+        errdefer imgui.c.igDestroyContext(null);
+        imgui.c.igGetIO().*.IniFilename = null;
+        if (!imgui.c.bk_imgui_backend_init(@ptrCast(window), device, format)) return error.ImguiFailed;
+        errdefer imgui.c.bk_imgui_backend_shutdown();
+        if (c.BkEditorSetOverlay(session, overlay, null) != c.BK_EDITOR_OK) return error.ImguiFailed;
+        return .{ .window = window, .session = session.? };
+    }
+
+    pub fn stop(self: *Host) void {
+        _ = c.BkEditorSetOverlay(self.session, null, null);
+        imgui.c.bk_imgui_backend_shutdown();
+        imgui.c.igDestroyContext(null);
+        _ = c.BkEditorStop(self.session);
+        sdl3.c.SDL_DestroyWindow(self.window);
+        sdl3.c.SDL_Quit();
+        self.* = undefined;
+    }
+
+    /// True when ImGui used the event. A window resize is passed to the
+    /// engine here, so the screen stays the window.
+    pub fn handleEvent(self: *Host, event: *const sdl3.c.SDL_Event) bool {
+        if (event.type == sdl3.c.SDL_EVENT_WINDOW_RESIZED) {
+            _ = c.BkEditorResize(self.session, event.window.data1, event.window.data2);
+        }
+        return imgui.c.bk_imgui_backend_process_event(@ptrCast(event));
+    }
+
+    pub fn beginFrame(self: *Host) void {
+        _ = self;
+        imgui.c.bk_imgui_backend_new_frame();
+        imgui.c.igNewFrame();
+    }
+
+    /// Finishes ImGui's frame and draws the engine's; the overlay puts ImGui's
+    /// draw data into it before present. A lost device is a skipped frame,
+    /// not an error (BK_EDITOR_REFUSED from BkEditorFrame).
+    pub fn endFrame(self: *Host) HostError!void {
+        imgui.c.igRender();
+        const status = c.BkEditorFrame(self.session);
+        if (status != c.BK_EDITOR_OK and status != c.BK_EDITOR_REFUSED) return error.FrameFailed;
+    }
+};
+
+fn overlay(user: ?*anyopaque, command_buffer: ?*anyopaque, target: ?*anyopaque, width: c_uint, height: c_uint) callconv(.c) void {
+    _ = user;
+    _ = width;
+    _ = height;
+    imgui.c.bk_imgui_backend_render(command_buffer, target);
+}
+```
+
+Take `BkEditorStart`'s real parameter types from the `@cImport` (the window is `void *`, the out-pointer `BkEditorSession **`); adjust the casts to what the compiler says, not the names.
+
+`main.zig` for this task: parse `--check <map> [<out.tga>]` (default output `zig-out/local-test/map-editor-check.tga`), set up CRT routing on Windows (below), start the host hidden, open the map, draw 10 frames with the probe window (copy the spike's `igSetNextWindowPos`/`Size`, `igPushStyleColorImVec4` magenta, `NoDecoration | NoMove | NoSavedSettings` at `(40, 40)` size `(120, 80)`), capture, check, stop.
+
+CRT routing on Windows, as the first thing `main` does — Zig has no `_CrtSetReportMode` binding, so declare the few functions `extern` from the CRT:
+
+```zig
+const builtin = @import("builtin");
+const windows_crt = if (builtin.os.tag == .windows) struct {
+    extern "c" fn _set_error_mode(mode: c_int) c_int;
+    extern "c" fn _set_abort_behavior(flags: c_uint, mask: c_uint) c_uint;
+    extern "c" fn _CrtSetReportMode(report_type: c_int, mode: c_int) c_int;
+    extern "c" fn _CrtSetReportFile(report_type: c_int, file: ?*anyopaque) ?*anyopaque;
+} else struct {};
+
+/// A failed assert in a Windows debug build prints and then calls abort(),
+/// which the debug CRT reports as a "Debug Error!" message box that nobody
+/// on a CI runner can click. Report both to stderr instead
+/// (tools/zig/editor_bridge_test.cpp:1184-1191 does the same).
+fn routeCrtReportsToStderr() void {
+    if (builtin.os.tag != .windows) return;
+    const OUT_TO_STDERR = 1;
+    const WRITE_ABORT_MSG = 0x1;
+    const CALL_REPORTFAULT = 0x2;
+    const CRT_ERROR = 1;
+    const CRT_ASSERT = 2;
+    const CRTDBG_MODE_FILE = 0x1;
+    const CRTDBG_FILE_STDERR: ?*anyopaque = @ptrFromInt(@as(usize, @bitCast(@as(isize, -5))));
+    _ = windows_crt._set_error_mode(OUT_TO_STDERR);
+    _ = windows_crt._set_abort_behavior(0, WRITE_ABORT_MSG | CALL_REPORTFAULT);
+    _ = windows_crt._CrtSetReportMode(CRT_ASSERT, CRTDBG_MODE_FILE);
+    _ = windows_crt._CrtSetReportFile(CRT_ASSERT, CRTDBG_FILE_STDERR);
+    _ = windows_crt._CrtSetReportMode(CRT_ERROR, CRTDBG_MODE_FILE);
+    _ = windows_crt._CrtSetReportFile(CRT_ERROR, CRTDBG_FILE_STDERR);
+}
+```
+
+Check each constant against the MSVC headers (`crtdbg.h`: `_CRT_ERROR` 1, `_CRT_ASSERT` 2, `_CRTDBG_MODE_FILE` 0x1, `_CRTDBG_FILE_STDERR` `((_HFILE)-5)`; `stdlib.h`: `_OUT_TO_STDERR` 1, `_WRITE_ABORT_MSG` 0x1, `_CALL_REPORTFAULT` 0x2). `_CrtSetReportMode`/`_CrtSetReportFile` exist only in the debug CRT; in a release build they are macros that do nothing, so call them only when the build links the debug CRT (`builtin.mode == .Debug` on Windows, matching how `linkMsvcRuntime` picks it).
+
+- [ ] **Step 2: The executable in build.zig**
+
+Add `addMapEditor( b, target, optimize, toolchain, ..., stage_root, install_game_step )` beside `addEditorBridgeTest`, and call it where `addEditorBridgeTest` is called, only when the target is macOS arm64 or Windows x64 MSVC (the app's two platforms). It is the union of two existing recipes:
+
+- from `addEditorBridgeTest` (`build.zig` ~5467-5575): every static library it links (editor_bridge, map_file, main, randommapgen, formats, misc, lualib, zlib, platform_runtime), the SDL import, the full Windows import list (`linkComSupport`, version, winmm, odbc32, odbccp32, shlwapi, advapi32, user32, gdi32, shell32), the include paths, the loader-relative rpath (`@executable_path` on macOS), the install into `stage_root`, the dependency on `install_game_step`;
+- from the overlay spike (`build.zig` ~1367-1412): the `sdl3` module import, the `editor_imgui` import (`addEditorImgui`), `addMsvcLibraryPaths`, and the console subsystem on Windows;
+- from `addGame` (~3132-3138): `rdynamic = true` on macOS, because engine modules resolve RTTI and the coalesced host globals from the executable (see memory: the host's `g_pGlobalSingleton` copy wins).
+
+Root source `Sources/editor/app/main.zig`; the `bridge.h` include path (`Sources/src/EditorBridge`) added to the module so `@cImport` finds it; name `MapEditor`.
+
+**The CRT is the measured part.** Build it on macOS first; then push and read the Windows job. The engine statics are compiled `-D_DEBUG -D_MT -D_DLL` in Debug and want the debug CRT (`linkMsvcRuntime`); `addEditorImgui` builds ImGui ReleaseFast against whatever the consumer links. The spike used `link_libc = true` on MSVC and no `linkMsvcRuntime`; the bridge test used `linkMsvcRuntime` and no `link_libc`. Start with the bridge test's recipe (`linkMsvcRuntime`, no `link_libc`). If the link fails on `_ITERATOR_DEBUG_LEVEL` or `RuntimeLibrary` mismatches between ImGui's objects and the engine's, build ImGui for the app with the engine's debug flags (a second `addEditorImgui` call parameterised by the flags, or a flag on the existing one) rather than changing the engine's. Record which it was, with the linker's message, in this plan under this step.
+
+**Measured (Windows job, runs 36267843459 to 36271881570).** The CRT did not clash between ImGui and the engine: no `_ITERATOR_DEBUG_LEVEL` or `RuntimeLibrary` mismatch, and ImGui stays ReleaseFast. What clashed was a second CRT that came in through the spike's `sdl3` module (vendor/zig-sdl3), which links libc. On MSVC Zig's libc is its static release CRT, and next to the engine's debug DLL CRT the link failed:
+
+```
+error: lld-link: duplicate symbol: _cexit
+    note: defined at minkernel\crts\ucrt\src\appcrt\startup\exit.cpp:321
+    note:            libucrt.lib(exit.obj)
+    note: defined at ucrtd.lib(ucrtbased.dll)
+```
+
+The same happened for `_invalid_parameter_noinfo`, `_wctype` and `__pctype_func`. So the app does not import that module. `Sources/editor/app/sdl3.zig` exposes the same `c` namespace from a translate-c of the headers of the SDL the engine links (`sdl_dynamic`). That module's `link_libc` is forced false, and `SIZE_MAX` is defined as zig-sdl3 defines it, because Zig 0.16's translate-c rejects MSVC's `ui64` suffix. A plain `@cImport` of `SDL.h` failed as well: with no libc in the compilation it found "libc headers not available". Three smaller changes followed:
+- `editor_imgui`'s module gets the MSVC include paths, for `<assert.h>` in its `@cImport`.
+- `imm32` is linked, for ImGui's default IME hook.
+- On Windows the entry point is the CRT's `mainCRTStartup`, as for editor-bridge-test, so the CRT initialises and the engine statics' constructors run. With no libc, Zig does not export a C `main`, so `main.zig` exports one itself and reads the arguments from the PEB.
+
+The capture is not `IGFX::TakeScreenShot`, whatever Step 1 says: that reads the scene texture, and the overlay is drawn only into the presented frame. Measured, the probe's centre came back as the map, `(0,11,17)`. `IGFX` gains `CaptureNextFrame`/`ReadCapturedFrame` over the renderer's existing frame capture (`set_frame_capture`, `gfxgpu_readback_frame`), and `BkEditorCaptureFrame` uses those. The check also moves the camera to the map's middle. It opens on the corner, where the screen's centre is the clear colour.
+
+Results: `map-editor: host check PASS (metal, 1280x800)` on macos-14 and `map-editor: host check PASS (direct3d12, 1008x681)` on windows-latest. The runner's desktop clamps the window.
+
+Steps:
+- `install-map-editor`: installs `MapEditor` into the stage root (depends on `install-game`).
+- `map-editor-host-check`: runs `MapEditor --check Data\Maps\Multiplayer\coldwinter.bzm zig-out/local-test/map-editor-check.tga` with the working directory set to the stage root, exactly like `test-editor-bridge`'s run step (`setCwd(stage_root)`), and an absolute output path.
+
+- [ ] **Step 3: Run it on macOS**
+
+Run: `zig build map-editor-host-check -Dtarget=aarch64-macos`
+Expected: `map-editor: host check PASS (metal, 1280x800)`. Look at the saved TGA yourself (convert with `sips -s format png`): the map with a magenta box in the top-left.
+
+- [ ] **Step 4: CI on both GPU runners**
+
+Add a step "Map editor host" after "Engine tier" in `macos-platform` and `windows-platform`, running `zig build map-editor-host-check` with that job's exact target, sysroot and MSVC flags (copy them from the "Engine tier" step). Run `zig test tools/zig/build_hermeticity_test.zig`. Commit, push, run the workflow (`gh workflow run "Cross-platform validation" --ref feat/portable-map-editor` — it does not trigger on branch pushes), and read both jobs' output, not only their colour. Expected: `host check PASS (metal, …)` on macOS and `host check PASS (direct3d12, …)` on Windows.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/editor/app Sources/src/EditorBridge tools/zig/editor_bridge_test.cpp build.zig .github/workflows/cross-platform.yml docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md
+git commit -m "feat(editor): MapEditor starts the engine with ImGui over it, on macOS and Windows
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 3: The adapter, and the core against the real bridge
+
+**Files:**
+- Create: `Sources/editor/app/c_bridge.zig`, `Sources/editor/app/c_bridge_test.zig`
+- Modify: `Sources/editor/app/host.zig` (import `c` from `c_bridge.zig`)
+- Modify: `build.zig` (the core module for the app's target; step `test-map-editor-engine`)
+- Modify: `.github/workflows/cross-platform.yml`
+
+**Interfaces:**
+- Consumes: the core's `Bridge`, `Status`, `MapInfo`, `ObjectRecord`, `PaintCell` (`Sources/editor/core/bridge.zig`); `Editor` (`editor.zig`).
+- Produces (c_bridge.zig):
+  ```zig
+  pub const c = @cImport(@cInclude("bridge.h"));
+  pub const RealBridge = struct {
+      session: *c.BkEditorSession,
+      message: [512]u8,
+      pub fn init(session: *c.BkEditorSession) RealBridge;
+      pub fn bridge(self: *RealBridge) core.bridge.Bridge;
+      // app-only, not in the core's vtable:
+      pub fn setCamera(self: *RealBridge, wx: f32, wy: f32) core.bridge.Status;
+      pub fn screenSize(self: *RealBridge) ?[2]i32;
+      pub fn catalogue(self: *RealBridge, allocator: std.mem.Allocator) ![]c.BkEditorCatalogueEntry;
+      pub fn engineMatches(self: *RealBridge) core.bridge.Status;   // TerrainMatchesEngine and WorldMatchesMap
+  };
+  ```
+- Produces (build.zig): step `test-map-editor-engine` — `c_bridge_test.zig` as a test executable linked like `MapEditor`, run in the stage root.
+
+- [ ] **Step 1: Write the failing engine test**
+
+`c_bridge_test.zig` drives the core's `Editor` over `RealBridge` through every command, then checks the engine agrees at each step. The engine needs a window, so the test starts a hidden host (Task 2) and skips — printing `map-editor-engine: skipped: no GPU device` and passing — only on `error.NoDevice`, never otherwise:
+
+```zig
+test "the core drives the real bridge: every command, undone and redone" {
+    var host = Host.start(.{ .title = "map-editor-engine", .hidden = true }) catch |err| switch (err) {
+        error.NoDevice => {
+            std.debug.print("map-editor-engine: skipped: no GPU device\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer host.stop();
+    var real = RealBridge.init(host.session);
+    var editor = Editor.init(std.testing.allocator, real.bridge());
+    defer editor.deinit();
+
+    try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
+    const objects_at_open = editor.document.objects.items.len;
+    try std.testing.expect(objects_at_open > 0);
+
+    // A known object nothing refers to, placed in the engine: the first one
+    // whose delete the bridge accepts and whose undo brings it back.
+    const first = editor.document.objects.items[0];
+    const moved: core.editor.Pose = .{ .x = first.x + 64, .y = first.y, .dir = first.dir, .player = first.player };
+    try editor.place(first.link_id, moved, 0);
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+    _ = try editor.undo();
+    try std.testing.expectEqual(first.x, editor.document.find(first.link_id).?.x);
+
+    const gesture = editor.beginGesture();
+    try editor.paint(&.{.{ .x = 20, .y = 20, .tile = 1 }}, gesture);
+    try editor.paint(&.{.{ .x = 21, .y = 20, .tile = 1 }}, gesture);
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+    _ = try editor.undo();
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+    _ = try editor.redo();
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+
+    const added = try editor.addObject(first.nameSlice(), first.x + 96, first.y + 96, 0, 0);
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+    _ = try editor.undo();
+    try std.testing.expect(editor.document.find(added) == null);
+    _ = try editor.redo();
+    try std.testing.expect(editor.document.find(added) != null);
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+
+    try editor.delete(added);
+    _ = try editor.undo();
+    try std.testing.expectEqual(added, editor.document.find(added).?.link_id);
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+
+    try editor.setDiplomacy(1, if (editor.document.diplomacy.items[1] == 0) 1 else 0);
+    _ = try editor.undo();
+
+    // Everything undone: back to the map as opened, in the engine too.
+    while (try editor.undo()) {}
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(objects_at_open, editor.document.objects.items.len);
+    try std.testing.expectEqual(core.bridge.Status.ok, real.engineMatches());
+}
+```
+
+If `first` turns out to be something the engine refuses to move (a bridge span, an unknown object), pick the first object whose `known` is true and whose kind moves — find it by trying `editor.place` and taking the first that does not return `error.Refused`, printing which it was.
+
+- [ ] **Step 2: Run it and watch it fail to compile**
+
+Run: `zig build test-map-editor-engine -Dtarget=aarch64-macos`
+Expected: `RealBridge` undeclared (and the step missing until Step 4).
+
+- [ ] **Step 3: The adapter**
+
+```zig
+//! The core's Bridge over the real C ABI (Sources/src/EditorBridge/bridge.h).
+//! The core is std-only and runs on every target; this file is where it meets
+//! the engine, so it lives in the app. Statuses map one to one, strings are
+//! copied into NUL-terminated buffers on the way in, and the bridge's last
+//! message is copied out, because the bridge's pointer is valid only until
+//! its next call.
+const std = @import("std");
+const core = @import("editor_core");
+pub const c = @cImport(@cInclude("bridge.h"));
+
+const Status = core.bridge.Status;
+const Bridge = core.bridge.Bridge;
+const MapInfo = core.bridge.MapInfo;
+const ObjectRecord = core.bridge.ObjectRecord;
+const PaintCell = core.bridge.PaintCell;
+
+comptime {
+    // The core's PaintCell is handed to BkEditorPaint as it is.
+    std.debug.assert(@sizeOf(PaintCell) == @sizeOf(c.BkEditorPaintCell));
+    std.debug.assert(@offsetOf(PaintCell, "tile") == @offsetOf(c.BkEditorPaintCell, "tile"));
+}
+
+fn status(value: c.BkEditorStatus) Status {
+    return std.meta.intToEnum(Status, value) catch .failed;
+}
+
+pub const RealBridge = struct {
+    session: *c.BkEditorSession,
+    message: [512]u8 = undefined,
+    message_len: usize = 0,
+
+    pub fn init(session: *c.BkEditorSession) RealBridge {
+        return .{ .session = session };
+    }
+
+    pub fn bridge(self: *RealBridge) Bridge {
+        return .{ .ptr = self, .vtable = &vtable };
+    }
+
+    fn from(ptr: *anyopaque) *RealBridge {
+        return @ptrCast(@alignCast(ptr));
+    }
+
+    /// A path or name as the bridge wants it: NUL-terminated, and short enough
+    /// for the buffer - a longer one is refused rather than cut.
+    fn terminated(buffer: []u8, text: []const u8) ?[*:0]const u8 {
+        if (text.len >= buffer.len) return null;
+        @memcpy(buffer[0..text.len], text);
+        buffer[text.len] = 0;
+        return @ptrCast(buffer.ptr);
+    }
+
+    const vtable: Bridge.VTable = .{
+        .lastMessage = lastMessage,
+        .openMap = openMap,
+        .saveMap = saveMap,
+        .objects = objects,
+        .diplomacy = diplomacy,
+        .addObject = addObject,
+        .placeObject = placeObject,
+        .deleteObject = deleteObject,
+        .restoreObject = restoreObject,
+        .setDiplomacy = setDiplomacy,
+        .setMapType = setMapType,
+        .setAttackingSide = setAttackingSide,
+        .paint = paint,
+        .undoPaint = undoPaint,
+        .redoPaint = redoPaint,
+        .screenToWorld = screenToWorld,
+        .worldToTile = worldToTile,
+        .objectAt = objectAt,
+    };
+
+    fn lastMessage(ptr: *anyopaque) []const u8 {
+        const self = from(ptr);
+        const text = std.mem.span(c.BkEditorLastMessage(self.session));
+        const len = @min(text.len, self.message.len);
+        @memcpy(self.message[0..len], text[0..len]);
+        self.message_len = len;
+        return self.message[0..len];
+    }
+
+    fn openMap(ptr: *anyopaque, path: []const u8, info: *MapInfo) Status {
+        const self = from(ptr);
+        var buffer: [std.fs.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, path) orelse return .bad_argument;
+        var summary: c.BkEditorMapSummary = std.mem.zeroes(c.BkEditorMapSummary);
+        const result = status(c.BkEditorOpenMap(self.session, z, &summary));
+        if (result == .ok) info.* = .{
+            .width_tiles = summary.width_tiles,
+            .height_tiles = summary.height_tiles,
+            .season = summary.season,
+            .player_count = summary.player_count,
+            .map_type = summary.map_type,
+            .attacking_side = summary.attacking_side,
+        };
+        return result;
+    }
+
+    fn saveMap(ptr: *anyopaque, path: []const u8) Status {
+        const self = from(ptr);
+        var buffer: [std.fs.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, path) orelse return .bad_argument;
+        return status(c.BkEditorSaveMap(self.session, z));
+    }
+
+    fn objects(ptr: *anyopaque, out: []ObjectRecord, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorObjects(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        // BkEditorObjects has no offset, so the whole list is read into C
+        // records once and converted. The core has already sized `out`; this
+        // buffer lives only for the call.
+        const records = std.heap.c_allocator.alloc(c.BkEditorObjectRecord, total.*) catch return .failed;
+        defer std.heap.c_allocator.free(records);
+        var got: c_int = 0;
+        const read = status(c.BkEditorObjects(self.session, records.ptr, count, &got));
+        if (read != .ok) return read;
+        for (records, out[0..records.len]) |record, *object| object.* = toRecord(record);
+        return .ok;
+    }
+
+    fn toRecord(record: c.BkEditorObjectRecord) ObjectRecord {
+        var object: ObjectRecord = .{
+            .link_id = record.link_id,
+            .x = record.x,
+            .y = record.y,
+            .dir = record.dir,
+            .player = record.player,
+            .scenario = record.scenario != 0,
+            .known = record.known != 0,
+        };
+        object.setName(std.mem.sliceTo(&record.name, 0));
+        return object;
+    }
+
+    fn diplomacy(ptr: *anyopaque, player: i32, value: *i32) Status {
+        return status(c.BkEditorDiplomacy(from(ptr).session, player, value));
+    }
+
+    fn addObject(ptr: *anyopaque, name: []const u8, x: f32, y: f32, dir: i32, player: i32, link_id: *i32) Status {
+        var buffer: [core.bridge.name_capacity]u8 = undefined;
+        const z = terminated(&buffer, name) orelse return .bad_argument;
+        return status(c.BkEditorAddObject(from(ptr).session, z, x, y, dir, player, link_id));
+    }
+
+    fn placeObject(ptr: *anyopaque, link_id: i32, x: f32, y: f32, dir: i32, player: i32) Status {
+        return status(c.BkEditorPlaceObject(from(ptr).session, link_id, x, y, dir, player));
+    }
+
+    fn deleteObject(ptr: *anyopaque, link_id: i32) Status {
+        return status(c.BkEditorDeleteObject(from(ptr).session, link_id));
+    }
+
+    fn restoreObject(ptr: *anyopaque, link_id: i32) Status {
+        return status(c.BkEditorRestoreObject(from(ptr).session, link_id));
+    }
+
+    fn setDiplomacy(ptr: *anyopaque, player: i32, value: i32) Status {
+        return status(c.BkEditorSetDiplomacy(from(ptr).session, player, value));
+    }
+
+    fn setMapType(ptr: *anyopaque, value: i32) Status {
+        return status(c.BkEditorSetMapType(from(ptr).session, value));
+    }
+
+    fn setAttackingSide(ptr: *anyopaque, value: i32) Status {
+        return status(c.BkEditorSetAttackingSide(from(ptr).session, value));
+    }
+
+    fn paint(ptr: *anyopaque, cells: []const PaintCell, token: *i32) Status {
+        return status(c.BkEditorPaint(from(ptr).session, @ptrCast(cells.ptr), @intCast(cells.len), token));
+    }
+
+    fn undoPaint(ptr: *anyopaque, token: i32) Status {
+        return status(c.BkEditorUndoPaint(from(ptr).session, token));
+    }
+
+    fn redoPaint(ptr: *anyopaque, token: i32) Status {
+        return status(c.BkEditorRedoPaint(from(ptr).session, token));
+    }
+
+    fn screenToWorld(ptr: *anyopaque, sx: f32, sy: f32, wx: *f32, wy: *f32) Status {
+        return status(c.BkEditorScreenToWorld(from(ptr).session, sx, sy, wx, wy));
+    }
+
+    fn worldToTile(ptr: *anyopaque, wx: f32, wy: f32, tx: *i32, ty: *i32) Status {
+        return status(c.BkEditorWorldToTile(from(ptr).session, wx, wy, tx, ty));
+    }
+
+    fn objectAt(ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status {
+        return status(c.BkEditorObjectAt(from(ptr).session, sx, sy, link_id));
+    }
+
+    pub fn setCamera(self: *RealBridge, wx: f32, wy: f32) Status {
+        return status(c.BkEditorSetCamera(self.session, wx, wy));
+    }
+
+    pub fn screenSize(self: *RealBridge) ?[2]i32 {
+        var width: c_int = 0;
+        var height: c_int = 0;
+        if (c.BkEditorScreenSize(self.session, &width, &height) != c.BK_EDITOR_OK) return null;
+        return .{ width, height };
+    }
+
+    /// The object database, for the palette. Caller frees.
+    pub fn catalogue(self: *RealBridge, allocator: std.mem.Allocator) ![]c.BkEditorCatalogueEntry {
+        var count: c_int = 0;
+        _ = c.BkEditorCatalogue(self.session, null, 0, &count);
+        const entries = try allocator.alloc(c.BkEditorCatalogueEntry, @intCast(count));
+        errdefer allocator.free(entries);
+        if (c.BkEditorCatalogue(self.session, entries.ptr, count, &count) != c.BK_EDITOR_OK) return error.CatalogueFailed;
+        return entries;
+    }
+
+    /// The engine tier's two agreement checks, for tests.
+    pub fn engineMatches(self: *RealBridge) Status {
+        const terrain = status(c.BkEditorTerrainMatchesEngine(self.session));
+        if (terrain != .ok) return terrain;
+        return status(c.BkEditorWorldMatchesMap(self.session));
+    }
+};
+```
+
+In `build.zig`, the app needs the core as a module built for the app's target (the core tier's module is host-only): `b.createModule(.{ .root_source_file = b.path("Sources/editor/core/root.zig"), .target = target, .optimize = optimize })`, imported as `editor_core` by `MapEditor` and the new test. `test-map-editor-engine` is `b.addTest` over `c_bridge_test.zig` with exactly `MapEditor`'s linking (factor `addMapEditor`'s linking into a helper both use), run in the stage root.
+
+- [ ] **Step 4: Run it**
+
+Run: `zig build test-map-editor-engine -Dtarget=aarch64-macos`
+Expected: the test passes. Add the step to both GPU jobs after "Map editor host", run CI, and read both logs.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/editor/app build.zig .github/workflows/cross-platform.yml
+git commit -m "feat(editor): the core drives the real bridge through a Zig adapter, checked against the engine
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 4: The map view
+
+**Files:**
+- Create: `Sources/editor/app/view.zig`
+- Modify: `Sources/editor/app/main.zig` (the interactive loop)
+
+**Interfaces:**
+- Consumes: `Host` (Task 2), `RealBridge` (Task 3), the core's `Editor`, `tools.Brush`, `tools.Placer`, `tools.Selector`, `tools.Event`, `tools.Key`.
+- Produces (view.zig):
+  ```zig
+  pub const Tool = enum { select, brush, place };
+  pub const View = struct {
+      camera_x: f32, camera_y: f32,
+      tool: Tool,
+      brush: tools.Brush, placer: tools.Placer, selector: tools.Selector,
+      hover: ?tools.Pointer,
+      pub fn init(allocator: std.mem.Allocator) View;
+      pub fn deinit(self: *View, allocator: std.mem.Allocator) void;
+      pub fn centreOn(self: *View, real: *RealBridge, info: MapInfo) void;
+      /// An SDL event ImGui did not take. Returns the edit's error for the status line.
+      pub fn handleEvent(self: *View, editor: *Editor, real: *RealBridge, event: *const sdl3.c.SDL_Event) void;
+      /// Per frame: keyboard and edge scrolling, then the camera.
+      pub fn update(self: *View, real: *RealBridge, dt_seconds: f32) void;
+  };
+  ```
+
+- [x] **Step 1: Tests for what can be tested without a window**
+
+The view's pure parts get unit tests in `view.zig` (they build with the app, run under `test-map-editor-engine`'s linking or a plain `b.addTest` if `view.zig` imports nothing C — keep the pure functions in a separate `view_math.zig` if that is what it takes to test them without the engine):
+
+```zig
+test "scroll speed: edge and keys add up, and clamp at the map" {
+    var camera: Camera = .{ .x = 100, .y = 100 };
+    camera.scroll(.{ .left = true }, 0.5, .{ .width_tiles = 96, .height_tiles = 96 });
+    try std.testing.expect(camera.x < 100);
+    camera = .{ .x = 0, .y = 0 };
+    camera.scroll(.{ .left = true, .up = true }, 10, .{ .width_tiles = 96, .height_tiles = 96 });
+    try std.testing.expectEqual(@as(f32, 0), camera.x);
+    try std.testing.expectEqual(@as(f32, 0), camera.y);
+}
+
+test "a mouse button maps to a tool event, and only the left button edits" {
+    try std.testing.expectEqual(EventKind.press, kindOf(sdl_left_down).?);
+    try std.testing.expect(kindOf(sdl_right_down) == null);
+}
+```
+
+Fill in `Camera`, `Scroll` and `kindOf` as the implementation needs; the point is that scrolling limits and the button mapping are pinned without a GPU.
+
+`view_math.zig` holds `Camera`, `Scroll`, `MapSize`, `ButtonEvent`, `EventKind` and `kindOf` — no `sdl3`/`editor_imgui`/`editor_core` import, so it builds and runs under a plain `b.addTest`. `build.zig` gained `test-map-editor-view` (a host-target `b.addTest` on `view_math.zig` alone, folded into the top-level `test` step next to `test-editor-core`) instead of piggybacking on `test-map-editor-engine`'s heavier engine-linked build. Both brief tests are verbatim in `view_math.zig`, plus two more (clamping at the far edge, and a release mapping too) for symmetry.
+
+- [x] **Step 2: The view**
+
+- **Camera.** Confirmed: `fWorldCellSize` (`Sources/src/Formats/fmtTerrain.h`) is `fCellSizeX * sqrt(2)` with `fCellSizeX = 32`, i.e. `32 * sqrt(2)` — the same value `main.zig`'s `--check` already used and verified against the real engine (centring the camera on `coldwinter.bzm` puts ground under the whole screen). `view_math.world_cell_size` is now the one definition; `main.zig` imports it instead of keeping its own copy, so the two can no longer drift. Scroll (arrows/WASD, edge, middle-button drag) and the map-size clamp are in `view_math.Camera`; `View` keeps `camera_x`/`camera_y` as the interface specifies and stages them through a temporary `Camera` for the pure math. Middle-button drag uses the same grab-offset idea as `tools.Selector`: the world point under the cursor at press is resolved once and kept as an anchor: every motion, the camera moves by (anchor − point resolved at the new screen position with the *current*, not-yet-moved camera), which keeps the anchor under the cursor exactly, with no unbounded drift.
+- **Rotate and zoom.** `Sources/src/Scene/Scene.h`'s `ICamera` (implemented by `Sources/src/Scene/Camera.{h,cpp}`) has `SetPlacement(anchor, fDist, fPitch, fYaw)` — `fDist` is the zoom (distance from the anchor), `fPitch`/`fYaw` the rotation — plus `SetScrollSpeedX/Y` and earthquakes. So the engine's camera can rotate and zoom, but the bridge exposes none of it: `bridge.h` only has `BkEditorSetCamera(session, wx, wy)`, which (per `session.cpp`'s `SetSessionCamera`) drives the anchor alone through `GetSingleton<ICamera>()`, at whatever placement `BkEditorStart` set up. Reaching pitch/yaw/distance from the editor needs new bridge entry points (e.g. `BkEditorSetCameraPlacement`) — not implemented here, confirmed out of scope for M1 as the plan already expected, and left for plan 6 or M2.
+- **Input to tools.** Implemented as specified: left button press/drag/release resolves through `editor.resolve` and dispatches to whichever tool `View.tool` selects; the middle button is intercepted first for panning and never reaches a tool. Keys: Delete/Backspace, Q/E, 1/2/3, Cmd+Z or Ctrl+Z (undo), Shift+Cmd+Z or Ctrl+Y (redo) — `View.handleKey` reads `SDL_KMOD_CTRL | SDL_KMOD_GUI` together so the same code path covers macOS Cmd and Windows/Linux Ctrl. `error.Refused` from a tool leaves the editor's own status text as-is (`View.noteToolError` copies it unprefixed); anything else (`error.Failed`, `error.OutOfMemory`) is copied with a `"failed: "` prefix into `View`'s own status buffer, read by `main.zig`'s one-line status window through `View.statusLine()`.
+- **Hover.** Every motion event (not under a tool drag or a camera pan) resolves the pointer into `hover`, or clears it on a resolve failure (e.g. the cursor left the terrain). The brush outline is **not** implemented: `Sources/src/EditorBridge/bridge.h` has `BkEditorScreenToWorld` but no inverse — there is no `BkEditorWorldToScreen`, so a hovered tile's world-space corners cannot be turned into ImGui draw-list screen coordinates without the engine's own projection. Recorded here as the brief asked: **the bridge needs `BkEditorWorldToScreen`** before the outline can be drawn; `hover` is still tracked and available for a future status-bar readout (Task 5) even without it.
+- `main.zig`'s `interactive()` does what the brief describes: `MapEditor [<map>]` starts `Host`, opens `<map>` if given (`view.centreOn` after a successful `editor.open`), then loops polling events (`SDL_EVENT_QUIT`/`SDL_EVENT_WINDOW_CLOSE_REQUESTED` stop the loop directly; everything else goes to `host.handleEvent` first and to `view.handleEvent` only if ImGui did not take it), `view.update`, `host.beginFrame`, a one-line ImGui status window (`view.statusLine()`, or "ready"), `host.endFrame`. Per Ledger Ruling 1, a step that fails before there is a window (`Host.start`'s `SdlInitFailed`/`WindowFailed`/`EngineFailed`/`NoDevice`/`ImguiFailed`, or `editor.open` failing on the given map) shows `SDL_ShowSimpleMessageBox` naming the step and exits non-zero; `--check` is untouched and keeps failing to stderr only.
+
+- [x] **Step 3: Try it by hand, and record what you saw**
+
+Ledger ruling on Step 3 applies: this shell has no display/AX access, so there is no by-hand click-through here — Johannes does that after Task 5, when the palette and panels exist to pick a placer object and drive the tools visually. What was verified from this shell instead:
+
+- `zig build install-map-editor -Dtarget=aarch64-macos` builds and installs `MapEditor` cleanly (no errors).
+- `zig build map-editor-host-check -Dtarget=aarch64-macos` still passes: `map-editor: host check PASS (metal, 1280x800)`.
+- `zig build test-map-editor-engine -Dtarget=aarch64-macos` still passes (`map-editor-engine: PASS (260 objects)`); the `test-map-editor-view` step (new) passes silently.
+- From the stage root, `./MapEditor 'Data\Maps\Multiplayer\coldwinter.bzm'` run in the background for 20+ seconds: it loads every engine module, opens the audio device, and sits in the frame loop using ~25% CPU (it is drawing real frames) with **no error, fatal or crash line** in its output — the map opened without hitting `fatal()`'s message-box path, and `view.centreOn` (which also queries the catalogue for the placer's default object) did not crash or log a refusal.
+- Quitting: `kill -TERM <pid>` reliably becomes `SDL_EVENT_QUIT` and the process exits through the normal loop (`std.process.exit(0)`) with **exit code 0**, confirmed three times with the shell's own `wait` (not just "process gone", the tracked exit status). `kill -INT <pid>` did **not** quit the process within 20 seconds in this sandbox, tried twice; SDL's own docs say SDL installs a SIGINT and SIGTERM handler identically by default (`SDL_HINT_NO_SIGNAL_HANDLERS`), and nothing in this repository's engine code touches `SIGINT` (only `Sources/src/Main/MainLoopCommands.cpp` resets `SIGALRM`), so this reads as an environment quirk of the sandboxed shell's signal delivery (no controlling terminal / process-group oddity) rather than a bug in `view.zig` or `main.zig` — recorded here rather than chased further, since `--check`'s existing infrastructure and `kill -TERM` both already give a clean, verifiable exit path. Worth a look if it recurs once Johannes can test interactively.
+- No screenshots were taken (nothing to click in this shell); Johannes takes the per-tool screenshots by hand after Task 5, per the Ledger ruling.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add Sources/editor/app docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md
+git commit -m "feat(editor): the map view scrolls, and the mouse and keys drive the tools
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 5: The panels
+
+**Files:**
+- Create: `Sources/editor/app/panels.zig`
+- Modify: `Sources/editor/app/main.zig`, `view.zig`
+
+**Interfaces:**
+- Consumes: `Editor` (document, status, undo/redo, the setters), `View` (tool, brush, placer), `RealBridge.catalogue`.
+- Produces (panels.zig): `pub fn draw(state: *State) void` with `State` holding the editor, the view, the catalogue, the palette filter and the file actions requested this frame (`open_requested`, `save_requested`, `save_as_requested`, `quit_requested`).
+
+- [x] **Step 1: The panels**
+
+Each in its own ImGui window, docked to the window's edges with `igSetNextWindowPos/Size` on first use (`ImGuiCond_FirstUseEver`); the map view is everything the panels do not cover.
+
+- **Menu bar:** File → Open…, Save, Save As…, Quit; Edit → Undo (disabled when `!history.canUndo()`), Redo; Tools → Select, Brush, Place. Open and Save As use SDL's file dialogs (`SDL_ShowOpenFileDialog` / `SDL_ShowSaveFileDialog`, filter `*.bzm;*.xml`); their callbacks arrive asynchronously on the main thread through the event loop — keep the chosen path in `State` and act on it in the next frame. Save writes to the document's path. **This is plan 5's plain save; plan 6 replaces it with the spec's safe save and the unsaved-changes prompt.** The window title shows the map's file name and a `*` when `editor.dirty()`.
+- **Tool palette:** three buttons, the active one highlighted; the brush's tile index (0 to the tileset's count — ask the engine for the count if the bridge can say; if not, 0-15 with a note) and radius (0-4).
+- **Object palette:** the catalogue, grouped by `game_type` (collapsing headers named by the engine's `SGVOGT_*` names — copy them from `Sources/src/Formats/fmtObject.h` or wherever the enum lives), filtered by a text box (case-insensitive substring). Clicking an entry sets the placer's object and switches to the place tool. No icons (see Decisions).
+- **Properties:** for the selected object: name, link ID, position (x, y), direction in degrees (converted from the engine's 65536), player — editable with `igInputFloat`/`igSliderInt`; an edit is one `editor.place` call with `gesture` 0 when the widget is deactivated after an edit (`igIsItemDeactivatedAfterEdit`), so a typed number is one undo step. Unknown and shared-ID objects show "kept as it is" and no editable fields.
+- **Players and diplomacy:** one row per player with a combo of side 0, side 1, neutral (`editor.setDiplomacy`); the map type and the attacking side (`setMapType`, `setAttackingSide`).
+- **Status bar:** `editor.status()` (the last refusal or failure), the hovered tile and world point, the tool.
+
+What was built (`panels.zig`, its window-free half in `panels_logic.zig`, tested by `zig build test-map-editor-panels` against the core's fake bridge):
+
+- **The brush's tiles come from the engine.** The shipped tilesets skip indices (tile 1 is in none), so "0 to the count" would offer tiles `BkEditorPaint` refuses. The bridge gained `BkEditorTilesetTiles(session, out, capacity, &count)` — every tile the open map's tileset has a terrain type for, once each, ascending, read from the same `STilesetDesc` `PaintTilesInTileset` checks against; `BkEditorObjects`' sizing contract (count always the total, a short buffer `BK_EDITOR_REFUSED`), through `Guarded`, documented in `bridge.h`. `tools/zig/editor_bridge_test.cpp` `TestTilesetTilesAllPaint`: coldwinter's tileset offers 184 tiles, all 184 paint `BK_EDITOR_OK` (each undone), tile 1 is not among them, a buffer one short is refused with nothing written past it. `RealBridge.tilesetTiles` hands them to the palette, a combo of exactly those tiles; after every open the brush keeps its tile if the new tileset has it, else takes the first.
+- **File dialogs.** SDL's callback may run on another thread (`SDL_dialog.h`, not only "on the main thread through the event loop"), so it only writes the path into `panels_logic.PathSlot` — an atomic state (idle → waiting → arrived/failed) guarding one buffer, one dialog at a time — and `panels.act`, after each frame, acts on what arrived: open or save through `Editor`, so the document, history and status follow. SDL's filter pattern is the extensions alone (`"bzm;xml"`); a Save As name without `.bzm`/`.xml` gets `.bzm`, since the bridge picks the format from the extension. The dialog's OS path is written with the engine's separator before it reaches the bridge (`OpenFileStream` splits on backslash only) — the panel smoke proves an absolute macOS path so converted saves and reopens.
+- **Properties.** Fields load from the selected object whenever none was active last frame; an edit commits as one `editor.place(..., 0)` on `igIsItemDeactivatedAfterEdit`. The direction is taken from the degrees field only if it was changed, so editing x alone cannot turn an object by a rounding step. A click on the map that changes the selection mid-typing commits the typed value to the object it was typed for. Unknown objects and objects whose link ID the map shares show "kept as it is" and the reason, with no fields.
+- **Status bar.** The tool, the hovered tile and world point, `editor.status()`, and the view's own failures ("failed: FrameFailed", a failed panel edit). `View.noteEditResult` is now the one place any edit's outcome lands: a success or a refusal clears the view's own line, so a failure never outlives the edits after it.
+- **Object palette:** 5,559 catalogue entries in 14 `SGVOGT_*` groups (headers name the type and the match count; a non-empty filter opens every group with a match).
+
+- [x] **Step 2: A panel smoke in the host check**
+
+Extend `--check` so after the pixel checks it also draws one frame of the real panels over the map (with `State` from the opened map) and exits 0 when nothing failed — so CI exercises the panel code on both GPU runners without a person. Keep the magenta probe check as it is.
+
+Done: after `host check PASS`, `panelSmoke` opens the map through `Editor`, builds a `State` (catalogue, tileset tiles — tile 1 must not be offered), selects an editable object, draws a frame of the panels, then runs the file actions a dialog starts with the path handed to the slot as the callback would: Save As to `<output dir>/map-editor-check-saved.bzm`, then Open of that file (same object count), and one more frame, captured to `map-editor-panels.tga` for a person to look at. macOS: `map-editor: panel smoke PASS (5559 catalogue entries, 184 tiles, saved and reopened …/zig-out/local-test/map-editor-check-saved.bzm)`.
+
+- [ ] **Step 3: Try it by hand** — Johannes's, when the plan finishes
+
+As in Task 4, with the panels: open a map through File → Open, place an object from the palette, change its player in Properties, change a side in Players, undo and redo through the menu, save through Save As to `zig-out/local-test/`, reopen the saved file. Record it in the plan.
+
+Ledger ruling: this shell cannot see or click a window, and SDL's file dialogs cannot be shown headlessly, so the hand try is Johannes's, done when the plan finishes. Verified from the shell instead: the panel smoke above (the dialog hand-over and both file actions, without the dialog), the `panels_logic` tests (requested → path arrived → acted on the next frame, one dialog at a time, cancel, failure), and the interactive mode from the stage root with and without a map — it runs its frame loop with no error line, and `kill -TERM` quits it with exit code 0 both ways.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add Sources/editor/app docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md
+git commit -m "feat(editor): menu, tools, object palette, properties, players and status panels
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 6: Terrain draws everywhere the camera looks
+
+Carried from plan 4: in parts of the map the terrain draws black under objects that do draw (`zig-out/local-test/editor-bridge-objects.tga`, W_BigPoplar on coldwinter). Plan 4's final review traced it outside the bridge: a vertical cut at about x=160 of 1440 points at screen-space clipping in `CTerrain::AddVertices`/`CheckForRect` (`Scene/TerrainInternal.cpp:308-341`) or the rectangle `CTerrain::ExtractVisiblePatches` builds from the screen size (`Scene/TerraDraw.cpp:230-277`); `IGFX::GetViewVolume` is empty in the GPU adapter (`GraphicsEngineGpu.cpp:821`).
+
+**Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check.
+
+- [x] **Step 1: Measure first**
+
+With the app of Tasks 2-5 at the same camera anchor as `editor-bridge-objects.tga`, and the game at the same anchor on coldwinter (`BK_AUTO_UI` `camera=XxY`, then `shot` — see `Game/GameMain.cpp:1234-1512`), capture both with `BK_GFX_TRACE` on and compare the terrain draw calls (effects 101, 2 and 100) and their vertex counts. The game is the reference: if the game draws the terrain there, the editor is missing a step the game does (a per-frame terrain update, the camera's view volume, the screen rectangle); if the game draws it black too, the cause is in the engine and the fix is there. Record the measurements in the plan.
+
+Measured (macOS arm64, 640x480, coldwinter, anchor 3756,2714 = the map's first object, W_BigPoplar, the camera test's anchor). `BK_GFX_TRACE` logs mode changes and failures but no draw calls, so a temporary trace in `CTerrain::Draw` (removed again) printed the camera anchor, the screen rectangle, where the map's corner lands on screen (`MovePatches`' `vScreenO`), the visible patch set, and the vertex counts of the meshes effects 101 (`mshNoiseTiles`), 2 (`mshNoNoiseTiles`) and 100 (`mshBaseCrosses`) draw:
+
+| | patches | map corner on screen | effect 101 / 2 / 100 vertices | lower half black |
+|---|---|---|---|---|
+| game (`Game -windowed -mode=640x480 -profile=MissionRun Multiplayer/coldwinter.bzm`, `BK_AUTO_UI=400:camera=3756x2714,460:shot`) | 15, [3..5]x[0..4] | -1182, -1664 | 916 / 476 / 492 | 1.7% (the HUD) |
+| bridge, before | 15, [3..5]x[0..4] | -3436, -913 | 0 / 0 / 0 | 80.4% |
+| bridge, after | 15, [3..5]x[0..4] | -1183, -1664 | 916 / 476 / 492 | 0.5% |
+
+The game draws the ground there, and the editor picks the same patches but lays them out 2254 pixels further left, where `AddVertices` clips every tile. Over the 20 anchors of the pick test the same: 0 terrain vertices on 8, a partial set on the other 12 (the diagonal band in `editor-bridge-unit.tga`). The corner's x is exactly `320 - 3756`: the view matrix has world x along screen x, i.e. yaw 0. Cause: the bridge only ever called `ICamera::SetAnchor`, so the camera kept `CCamera`'s constructor placement (yaw 0, pitch 45, rod 1000) instead of the game's (`SetMissionCameraPlacement`, `GameTT/iMissionInternal.cpp:1161`: yaw 45, pitch 30, rod 4096 + screen height). Objects go through the view matrix and drew wherever that camera put them; the terrain is laid out in screen space by fixed pixel steps for the game's camera (`MovePatches`, `ExtractVisiblePatches`), so it ended up off screen. Not the view volume (`GetViewVolume` still returns zero planes, which culls nothing), not the screen rectangle (640x480 in both).
+
+- [x] **Step 2: Make the engine tier catch it**
+
+Add an engine-tier check that a frame at that anchor has terrain: in the captured TGA, the fraction of black pixels in the screen's lower half (below the sky gradient) is under a threshold measured on a frame known to be good. Print the fraction. Write it before the fix so it fails; it is the regression test.
+
+Done: `TestTerrainUnderTheCamera` in `tools/zig/editor_bridge_test.cpp` captures `zig-out/local-test/editor-bridge-terrain.tga` at that anchor and counts pixels with B, G and R all under 16 in the lower half; the bar is 10% (good frames: 0.5% bridge, 1.7% game with its HUD). RED before the fix: `the lower half of the frame at 3756,2714 is 80.4% black` and `FAIL: the ground is drawn under the camera`. GREEN after: `0.5% black`.
+
+- [x] **Step 3: Fix, run both tiers, commit**
+
+Fix where the measurement pointed. Run `test-editor-bridge` and `map-editor-host-check`; look at the new frame. Commit with a message naming the cause.
+
+Done: `SetSessionCamera` (`EditorBridge/session.cpp`) places the camera with the game's `SetPlacement` arguments on every move instead of only setting the anchor. Not the renderer or the game, so the game's frame is unchanged. The app's arrow-key and edge scrolling (`view_math.zig`) followed the old camera's axes, so it now moves along the screen's axes for the game's camera (right = world (+1, +1), up = world (-1, +1), up and down twice the step as in `CCamera::Update`); middle-drag panning goes through `resolve` and needed nothing. `test-editor-bridge` PASS (the pick ratio went from 11 to 16 of 20), `test-map-editor-engine` PASS, `test-map-editor-view` PASS, `map-editor-host-check` PASS; `map-editor-panels.tga` shows snow ground under the objects at 1280x800.
+
+---
+
+### Task 7: Installed next to the game, and smoke-tested on both GPU runners
+
+**Files:**
+- Modify: `build.zig`, `.github/workflows/cross-platform.yml`
+- Modify: `Sources/editor/app/main.zig` (`--smoke`)
+
+- [x] **Step 1: `--smoke`**
+
+A scripted run through the real app's loop, hidden, with no person: open the map, select the tool of each kind in turn, feed synthetic SDL events (`SDL_PushEvent` of mouse down/motion/up and key presses at fixed screen positions) that paint, place, select, drag, rotate, delete, undo all of it, and save to `zig-out/local-test/map-editor-smoke.bzm`; reopen the saved map and check the object count equals the original's (everything was undone). Print `map-editor: smoke PASS` and exit 0. This is the automation plan 6's `BK_EDITOR_AUTO` will generalise; keep the event script in one table so it can.
+
+Done: `MapEditor --smoke <map> [<out.bzm>]`, build step `map-editor-smoke` (cwd the stage root, output `zig-out/local-test/map-editor-smoke.bzm`). `main.zig`'s loop is now `run(...)`, shared by the interactive mode and the smoke; the smoke passes it a `smoke.Script`, which pushes a step's events before the frame's poll and checks the step after `panels.act`. The one table is `smoke.zig`'s `script`: 13 steps (keys 2/3/1, a brush stroke, a placing click, E, a click on bare ground, a click on an object, a drag, Delete, five Ctrl+Z, Save As, reopen), each with an `Expect` that must hold after its frame - the engine's tiles changed and agree with the map, the object count, the selection, the pose, nothing left to undo, a clean document. Positions are offsets from the screen's centre (1280x800 on macOS, 1008x681 on the Windows runner), all between the panels; `prepare` resolves them through `editor.resolve` after two settle frames and fails naming the position if the ground is not what the script needs. About 2.4 s locally.
+
+Findings while writing it:
+- **An object added through the bridge was neither drawn nor pickable where it was put - fixed by Task 7.1, commit `b6bf6f814`.** `BkEditorAddObject` succeeded, `BkEditorEngineObjectState` had it where it was put, `BkEditorWorldMatchesMap` agreed, but no frame showed it and `BkEditorObjectAt` found it nowhere on the screen (measured at three camera positions, for 10.5-cm_Flak38, T-34 and W_BigPoplar). The cause was not the scene: the placer handed `BkEditorScreenToWorld`'s world point to `BkEditorAddObject`, which takes map (AI) units, sqrt 2 larger, so the object went in at 0.707 of the clicked point - drawn and pickable, but off the screen. Task 7.1 added `BkEditorWorldToMap` and the map position on the tools' pointer; the smoke now selects, turns, drags and deletes the object it placed.
+- The engine turns none of coldwinter's static objects (trees, fences, the toilet, the flag): every `BkEditorPlaceObject` with a new direction is refused. Only units turn.
+- The engine shows a tile of the painted tile's terrain type, not the index (`CTerrain::SetTile`), so the smoke checks the cells changed, not that they hold the brush's index; it paints 0 (or 14), as the engine tier does.
+- `editor.resolve` answers nothing useful before the first frame is drawn; the smoke settles two frames first.
+
+- [x] **Step 2: CI**
+
+Add a "Map editor smoke" step after "Map editor host" in `macos-platform` and `windows-platform`. `install-map-editor` already installs the executable into the stage root; confirm the packaged runtime list (`build.zig` ~1570-1580, `tools/zig/stage.zig`) does not need `MapEditor` added for the stage to be complete, and note that packaging it is plan 6. The legacy `Editors/MapEditor.exe` (`stage.zig:450-465`) keeps its name and place; the new one sits in the root beside `Game`. Record that the two names coexist until M3 deletes the old one.
+
+Done: "Map editor smoke" follows "Map editor host" in both jobs.
+
+- **Packaging:** the stage is complete without `MapEditor`. `stage_runtime_files` (`build.zig` ~1589-1600) lists what `tools/zig/stage.zig` copies out of `zig-out/bin`/`zig-out/lib` and `verifyStagedPayload` requires; `MapEditor` is not built into `zig-out/bin` but installed straight into the stage root by `install-map-editor` (after `install-game`), and nothing in the stage step deletes files it does not know (`copyGameRuntime` deletes only the listed runtime files and a fixed list of stale ones; `rejectStaleImages` only `*.stale`). The packages (`Blitzkrieg-game.zip`, `-with-editors.zip`) are built from their own staging with the same list, so they do not carry the new editor; putting it in them is plan 6.
+- **Names:** the legacy editor stays `Editors/MapEditor.exe` (`copyEditors`, `stage.zig` ~471-476, only with editors included, Windows only); the new one is `MapEditor` (`MapEditor.exe` on Windows) in the root beside `Game`. Different directories, so the two coexist until M3 deletes the old one.
+
+- [x] **Step 3: Run CI and read both jobs**
+
+Expected on both: `host check PASS`, the core-against-engine test passing, `smoke PASS`.
+
+Done: runs 36294320275 (`1ca6685e4`) and 36294387424 (`ffa93020b`), all six jobs green on both. macos-platform: `editor-bridge: PASS`, `map-editor: host check PASS (metal, 1280x800)`, `map-editor: panel smoke PASS`, `map-editor: smoke PASS (13 steps, 260 objects, saved and reopened ...)`, `map-editor-engine: PASS (260 objects)`. windows-platform: the same lines with `host check PASS (direct3d12, 1008x681)`. Windows job about 28 and 39 min.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add Sources/editor/app build.zig .github/workflows/cross-platform.yml docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md
+git commit -m "feat(editor): MapEditor installs beside the game and passes a scripted smoke on both GPU runners
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task 7.1: A placed object draws and can be picked
+
+Added by the controller after Task 7: the smoke found that an object added through the bridge is neither drawn nor pickable (Task 7 Step 3's finding above). Placing objects is the editor's core use, and Johannes's hand try would hit it at once, so it is fixed in this plan, not in plan 6.
+
+**Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check; `Sources/editor/app/main.zig` for the smoke.
+
+- [x] **Step 1: Make the engine tier catch it.** An engine-tier check: add an object through `BkEditorAddObject` (a unit and a static object, e.g. `W_BigPoplar`) at a point on screen, draw frames, and require that `BkEditorObjectAt` at the object's screen position returns its link ID and that the captured frame differs from the frame before the add around that position. Write it first; it fails today.
+
+  Done: `TestPlacedObjectDrawsAndPicks`. It places W_BigPoplar and T-34 on bare ground found on screen, then requires a pick in a 32x48 box above the point and at least 40 changed pixels there. RED with the placer's route (screen -> `BkEditorScreenToWorld` -> `BkEditorAddObject`): `picked there: no; 0 pixels changed` and four FAIL lines. The engine held both objects at 3556,2702, the world point's numbers.
+- [x] **Step 2: Measure.** Compare the add path with the load path, which draws (`AddObjectToSession` -> `PlaceOneObject` -> `UpdateSessionWorld` against the map load's calls), and with how the game adds an object at run time (the scene side: whatever registers a new object's visual with `IScene` / the object's `AddToScene`-like step, and the pick structures). Record what the load or the game does that the add does not.
+
+  Done: neither. Load and add both go through `PlaceOneObject` -> `UpdateSessionWorld`, and `CWorldBase::AIUpdateNewObjects`/`AIUpdateNewUnits` give the new object its visual and `AddToScene` as they do at load. The object was drawn and pickable, but somewhere else. `BkEditorScreenToWorld` answers in world (scene) units, while `BkEditorAddObject`/`PlaceObject` take map (AI) units, which are sqrt 2 larger (`AI2Vis`, `fmtTerrain.h`). The placer passed the world point unchanged, so the object went in at 0.707 of the clicked point. The test's click at world 3556,2702 put it at world 2514,1910, far off a screen centred near 3756,2714. With the world point divided by `fAITileXCoeff` first, both objects picked and 1209 and 1015 pixels changed.
+- [x] **Step 3: Fix, and let the smoke use it.** Fix where the measurement points. Then change the smoke's script so select, drag, rotate and delete act on the object it placed (clicking it at its screen position), keeping the map-object steps only where they add coverage. Run `test-editor-bridge`, `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke` on macOS, then CI on both GPU runners, and read both jobs.
+
+  Done:
+  - **Bridge:** new `BkEditorWorldToMap` (the engine's `Vis2AIFast`). `bridge.h` names the two units and which calls take which.
+  - **Core:** `tools.Pointer` carries `map_x/map_y` beside `world_x/world_y`, and `resolve` fills them. The placer and the drag use the map position. The panning camera keeps using world units.
+  - **Core test:** the fake bridge has a `map_per_world`, and a core test with 2 catches a world point used as a position.
+  - **Status bar:** shows the hovered map position.
+  - **Smoke (14 steps):** after placing, it clicks bare ground, then a map object, then the placed object where it was put. It turns, drags and deletes the placed object. The drag's end must pick it. Moved, rotated and deleted each call `engineAgrees`. The output file is deleted before the run.
+  - **macOS:** `test-editor-bridge` PASS, `test-map-editor-engine` PASS, `map-editor-host-check` PASS, `map-editor-smoke` PASS, `test-editor-core` PASS, `zig build test` exit 0.
+  - **CI run 36299059793 (`b6bf6f814`):** all six jobs green.
+    - macos-platform: `editor-bridge: PASS` (both placed objects `picked there: yes`, 1209/1015 pixels), `host check PASS (metal, 1280x800)`, `panel smoke PASS`, `smoke PASS (14 steps, 260 objects, ...)`, `map-editor-engine: PASS (260 objects)`.
+    - windows-platform: the same, with `direct3d12, 1008x681` and 1209/1029 pixels. The Windows job took 36 min.
+  - **CI run 36300237870 (`60130ede9`, the drag check):** all six jobs green, and both GPU jobs print the same PASS lines as above (`smoke PASS (14 steps, ...)` on both). The Windows job took 35 min.
+- [x] **Step 4: Commit** with a message naming the cause.
+
+  Done: `b6bf6f814` fix(editor): a placed object lands under the click - the placer passed world units where the bridge takes map units; `60130ede9` the smoke's drag check.
+
+---
+
+## Carried to plan 6
+
+From the final whole-branch review (its triage adopted: every deferred minor goes to plan 6). One line each; the evidence is in the task reports under `.superpowers/sdd/2026-09-24-map-editor-05-editor-app/`.
+
+- **Spec, Errors → Open:** objects whose type is unknown are to be listed in a warning when a map opens. Nothing owns it yet: the bridge counts them (`BkEditorMapSummary.unknown_object_count`) and keeps them unchanged through a save, but the app shows no warning.
+- **Packaging:** `MapEditor` is linked with the console subsystem on Windows (`configureMapEditorExecutable`), so it opens a console window beside its own; a packaged editor wants the windows subsystem (keeping stderr for `--check`/`--smoke`), and the packages do not carry it yet (Task 7).
+- Task 1: no tests of the BAD_ARGUMENT/REFUSED-before-start paths or of the overlay running inside a resize; the overlay check is `>= 1`, not `== 3`; a long line in `bridge.h`.
+- Task 1: `BkEditorStart` still sets the first mode through `SetMode`, so on a second monitor the window may jump to display 0 once at start.
+- Task 1: `FollowWindowSize` works in points (right only while the window has no high pixel density).
+- Task 2: a skipped frame leaves the capture request armed (`CaptureNextFrame(false)` on the read-failure path too).
+- Task 2: `BkEditorCaptureFrame` replaces `GraphicsEngineGpu::fail`'s specific message with a generic one.
+- Task 2: the magenta probe cannot see an R/B swap in the readback.
+- Task 2: `map-editor-host-check` ignores `test_mode` and fails, not skips, without a GPU.
+- Task 2: `Tga.pixel` has no bounds check (a tiny screen panics instead of printing FAIL).
+- Task 3: `message_len` is written but never read.
+- Task 3: `PaintTilesInTileset` scans cells x terrain types x tiles per paint (fine for brushes; revisit for large fills).
+- Task 3: the older engine-tier paints pick `(original+1)%4`, which depends on the map.
+- Task 4: the status line is never cleared after a later success.
+- Task 4: a middle-button release ImGui takes can leave panning stuck.
+- Task 4: no test of view.zig's event-to-tool wiring beyond the routing function.
+- Task 4: view.zig's gesture handling relies on main.zig's router filtering, with no guard of its own.
+- Task 4: wheel events are routed but not handled (zoom is out of M1).
+- Task 5: a selection change while typing makes a second, no-op `commitEdit` in the same frame, relying on `Editor.place`'s equal-pose early return.
+- Task 5: the brush says "no map open" also when `tilesetTiles` failed or is empty, dropping the bridge's reason.
+- Task 5: `std.sort.insertion` over ~5.5k catalogue entries (use block sort).
+- Task 5: `pickDefaultPlacerObject` reads the catalogue again.
+- Task 5: a second Open/Save As while a dialog is up is dropped silently.
+- Task 5: the right-hand panels do not follow a window resize; hover is stale over panels.
+- Task 6: a stale `PICK_RISE` comment and a broken wrap in the pick-ratio comment (`editor_bridge_test.cpp` ~837-900).
+- Task 6: the scroll-direction unit test restates the constants; an engine-tier `ScreenToWorld` direction check would catch a sign error.
+- Task 6: the terrain regression check uses one anchor; add a second from the pick set.
+- Task 7: the smoke sets the brush's tile directly, so the palette-to-brush path is not in it.
+- Task 7.1: the smoke's mouse is not isolated from the real cursor (imgui_impl_sdl3's global-mouse fallback while the app has keyboard focus can route a synthetic press to a panel; the local first-launch brush flake).
+- Task 7.1: `prepare` does not check that `drag_via`/`drag_to` are clear.
+- Task 7.1: `ReadFramePixels` assumes `SaveFrame`'s TGA layout without checking the descriptor.
+- Task 7.1: `bridge.h` unit wording near 1021 and a long line near 967.
+
+Resolved by the final fix wave rather than carried: the command-line map path goes through `enginePath`, the start-up dialog shows the bridge's reason, `BkEditorResize` places the camera again at its anchor and `BkEditorOpenMap` places it on the map's middle, the shutdown comment, and the engine test's screen size re-read.
+
+### Task 7.2: Placing any catalogue object never crashes the editor
+
+Added by the controller after Johannes's hand try (2026-09-27): placing a sound object from the palette crashed the release MapEditor with SIGSEGV at address 0 in `CheckStaticObject<CCheckInside>` (`AILogic/AIEditorInternal.cpp:302`), from `CAIEditor::IsObjectInsideOfMap` <- `PlaceOneObject` <- `AddObjectToSession` <- `BkEditorAddObject`. Crash report: `zig-out/local-test/mapeditor-sound-crash.ips.txt`.
+
+**Files:** determined by the diagnosis; `tools/zig/editor_bridge_test.cpp` for the check.
+
+- [x] **Step 1: Make the engine tier catch it.** An engine-tier check that adds, through `BkEditorAddObject`, one catalogue entry of every game type the catalogue offers (sound included), each at a free on-map point, and requires every call to return a status (OK, or REFUSED / BAD_ARGUMENT with a message naming the object) and never crash; objects that were added are undone. Write it first; it crashes today.
+
+  Done: `TestEveryGameTypeAnswers`. It opens coldwinter and adds the first catalogue entry of each of the 13 game types in the catalogue at the map's middle (map 3072,3072: the screen's middle after an open, through `BkEditorScreenToWorld` and `BkEditorWorldToMap`). An OK add must have a link ID and is deleted again. A refusal must be REFUSED or BAD_ARGUMENT, name the object and give no link ID. At the end `BkEditorWorldMatchesMap` must hold. RED (debug): SIGSEGV on the fifth type, `TankPit` (5), at address 0 in `CheckStaticObject<CCheckInside>`. The stack is the one in Johannes's crash report. After the tank pit and sound guard, a second RED: `A_Fence` (9) crashed in the same function, first as a UBSan float-to-int panic at `AIEditorInternal.cpp:352`, then as SIGBUS in `CArray2D::operator[]`.
+- [x] **Step 2: Measure.** Find what is null for a sound (the description, its RPG stats, their type — a sound's stats may not be an `SObjectBaseRPGStats` at all — or the passability) and what the game and the MFC editor do with sound objects (are they placed as map objects, or kept elsewhere, e.g. the map's sound list?). Record it in the plan.
+
+  Done. Nothing is null for a sound. The description exists and `GetRPGStats` returns stats. The problem is the stats' type: `CObjectsDB::GetRPGStats` (`GameDB.cpp`) picks the stats class from the game type alone, and five types get a class that is not an `SStaticObjectRPGStats`:
+  - a unit or a tank pit gets `SMechUnitRPGStats` (or `SInfantryRPGStats`);
+  - an entrenchment gets `SEntrenchmentRPGStats`;
+  - a squad gets `SSquadRPGStats`;
+  - a sound gets `SSoundRPGStats`, which derives only from `SCommonRPGStats`.
+
+  `CAIEditor::IsObjectInsideOfMap` sends every type except unit, squad and entrenchment to `CheckStaticObject`. That function `static_cast`s the stats to `SObjectBaseRPGStats` and calls the virtual `GetOrigin`/`GetPassability`. For a sound or a tank pit, those calls go through vtable slots the object does not have, hence the call to address 0.
+
+  How the game and the MFC editor treat these types:
+  - **Sounds.** A map keeps its sounds in `CMapInfo::soundsList` (`SMapSoundInfo`, `fmtMap.h`). The game hands that list to `IScene::InitMapSounds` (`iMissionInternal.cpp:1532`), and the MFC editor edits it in its own dialog (`MapSoundInfo.cpp`). The game's `CAILogic::AddObject` returns 0 for `SGVOGT_SOUND`.
+  - **Tank pits.** Engineers dig them during play. `AddObject` has no case for one, so its unit stats would reach `AddNewStaticObject` as a static object's.
+  - **The MFC palette** lists neither. It shows only paths under buildings, objects, squads and units, and drops tank_pit, humans, aviation, 3dcoast and entrenchment (`TabSimpleObjectsDialog.cpp:158-174`).
+
+  The catalogue holds 4385 sounds and 7 tank pits among its 5559 entries.
+
+  **Second cause: the fence.** `AddObjectToSession` gave the engine the snapshot's record. `PackFrameIndex` has just turned that record's frame index into a type, so the engine got a type where it expects a segment index. The open and the restore place the working record instead, whose index is a segment. Measured with a temporary trace: `A_Fence` snapshot 65537 (`FENCE_TYPE_NORMAL | FENCE_DIRECTION_0`) against working 0; `AsphaltBridge_01` 1 against 0; `Entrenchment` 2 against 0. The fence read an origin and a passability from far past its segment array. The bridge span and the entrenchment were placed silently from segments 1 and 2 instead of 0.
+- [x] **Step 3: Fix.** The bridge refuses, with a message, any object it cannot place (guarded with `if`s at the bridge, and the engine's null dereference guarded where it happens), or places it correctly if the game places such objects. If a game type cannot be placed at all, the object palette leaves it out or marks it. Run `test-editor-bridge`, `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke`, then CI on both GPU runners.
+
+  Done:
+  - **Engine** (`AIEditorInternal.cpp`): `CheckStaticObject` returns false, meaning not inside the map, for a null description and for any game type whose stats have no static footprint (`HasStaticFootprint`: unit, tank pit, entrenchment, squad, sound). It tests the game type rather than `dynamic_cast`ing the stats, because the stats come from another module. With the bridge's refusal switched off for one run, both types came back refused by the engine (`the engine would not place "TankPit" there`), with no crash.
+  - **Bridge** (`session.cpp`): new `WhyNotAMapObject`. `AddObjectToSession` refuses a sound or a tank pit before it touches the map, with a message naming the object (`"20mm_aviacannon" is a sound; a map keeps its sounds in their own list, not among its objects`). `PlaceOneObject` checks the same thing, so a map that lists one is opened without placing it. The add now places the working record (segment frame index), as the open and the restore do. The add's other refusals name the object too.
+  - **Palette** (`panels.zig`, `panels_logic.zig`): new `isPlaceable`. The palette leaves out sounds and tank pits, as the MFC palette did. New panels test.
+  - **macOS debug:** `test-editor-bridge` PASS. All 13 types answer: 9 OK and undone; TankPit and the sound refused by the new check; 3DCoast and Bomb refused because their stats files are missing. `test-map-editor-engine`, `map-editor-host-check`, `map-editor-smoke`, `test-map-editor-panels` and `test-editor-core` all PASS.
+  - **CI run 36308648924 (`059f96a5b`):** all six jobs green. Both GPU jobs print the 13 answers as on macOS (9 OK, TankPit and the sound refused by name, 3DCoast and Bomb refused), `editor-bridge: PASS`, `map-editor-engine: PASS (260 objects)`, `smoke PASS (14 steps, ...)` and the host check (`metal, 1280x800` / `direct3d12, 1008x681`). The Windows job took 35 min.
+  - **macOS release (`--release=fast`), Johannes's build:** `install-map-editor` is rebuilt. `test-editor-bridge` PASS runs the same 13 adds through the release `libAILogic`; `map-editor-smoke` PASS.
+- [x] **Step 4: Commit** with a message naming the cause.
+
+  Done: `059f96a5b` fix(editor): placing a sound, tank pit or fence no longer crashes the editor. Causes: a static_cast of non-static stats (sound, tank pit) in CheckStaticObject, and the add handing the engine the snapshot's packed frame index (fence).
+
+### Task 7.3: A two-finger trackpad swipe scrolls — in the editor, the game's map and the game's menus
+
+Added by the controller at Johannes's request (2026-09-27): on a Mac trackpad, a two-finger swipe does not scroll in MapEditor, on the game's map, or in the game's menus (lists).
+
+**Files:** determined by the diagnosis — `Sources/editor/app/view.zig`/`view_math.zig` for the editor; the game's SDL input path (`Platform`/`Input`) and the UI's wheel handling for the game.
+
+- [x] **Step 1: Measure.** Record what SDL delivers for a two-finger swipe on macOS (`SDL_EVENT_MOUSE_WHEEL` with fractional `x`/`y`, `direction`, and whether it arrives as `SDL_EVENT_FINGER_*` too), and where the game consumes wheel events today: what a mouse wheel does on the map and in list controls, and why a trackpad's small fractional deltas are lost (integer truncation of `wheel.y`, only `y` read, a per-notch threshold). Record in the plan.
+
+  **Measured (2026-09-27)** from SDL 3.4.0's source and our code; the full notes are in `.superpowers/sdd/2026-09-24-map-editor-05-editor-app/task-7.3-report.md`.
+  - **Johannes's report.** The swipe is "erratic forth and back and mainly stays around the point where it started". That is in the game only: its map, its menus and its lists and selectors. The editor's map had no wheel case.
+  - **What SDL delivers.** A swipe is a stream of `SDL_EVENT_MOUSE_WHEEL` only, one per NSEvent, through the momentum phase after the fingers lift (`SDL_cocoamouse.m:612-632`).
+    - `x = -scrollingDeltaX` and `y = scrollingDeltaY`. With precise deltas both are multiplied by 0.1, so one unit is 10 points of finger travel and a slow swipe gives 0.1-0.5 per event. A wheel gives about ±1 per notch.
+    - The values already carry the natural-scrolling setting. `direction` only reports it (FLIPPED), and applying it again would scroll against the fingers.
+    - `which` is 0 for both devices, and fractions do not tell them apart either.
+    - No `SDL_EVENT_FINGER_*` by default: the touches get `SDL_MOUSE_TOUCHID` and are dropped. With `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY=1` they arrive as FINGER events on their own device, and no mouse input is synthesised from them. Nothing arrives as a middle button or as motion.
+  - **The game's shared cause.**
+    - `SDLApplication.cpp` sent `int(y*120)` per event (x dropped), and `InputAPI.cpp` passed it to `MOUSE_AXIS_Z`.
+    - `CControlAxis::ChangeState` reads an absolute position and emits new-minus-last. The Win32 original fed it a running `absZ` (`WinFrame.cpp:224-229`).
+    - The binder sums those offsets, so the sum telescoped to 40 x the last event's delta. The list went forth while the swipe sped up, back while it slowed down, and ended where it began. That feeds every `mouse_wheel` list and selector (`CUIScreen::Update`) and Shift+swipe zoom.
+    - A physical wheel had the same bug: a second notch the same way repeated 120 and was ignored, and a reversal doubled.
+    - Per frame, the lists also truncated sub-pixel steps (`int(fDelta*fStep)`, `SetPosition(int)`).
+    - A plain wheel does nothing on the game's map, in the original and now: the camera sliders are bound to the arrow keys only. Shift+wheel zooms.
+  - **Decision.**
+    - The game's wheel axis gets a running absolute position, with the fraction carried from event to event (`Platform/WheelScroll.h`). That fixes the lists and zoom for both devices, and a notch is still 120 x 40 x 0.001 = 4.8, the value the first notch always had.
+    - The lists carry sub-pixel steps and drop them on a change of direction. A step of a pixel or more takes each control's old expression unchanged.
+    - A two-finger swipe also pans the game's map, 1:1 with the fingers, and only where the cursor is on the map rather than on the interface. A physical wheel keeps doing nothing there, as in the original.
+    - SDL has no field that tells the two apart, so the game sets `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY` and calls a wheel event a swipe while a trackpad finger is down, or within 150 ms of the last swipe event (the momentum). If macOS delivers no touches, the swipe falls back to a wheel's behaviour: lists and zoom scroll, the map does not pan.
+    - In the editor, a wheel or swipe pans the map at 20 px per SDL unit, and a wheel over an ImGui panel stays the panel's.
+- [x] **Step 2: Tests first.** Pure tests of the translation: fractional deltas accumulate until they make a step (lists) or map directly to camera movement (map, editor); horizontal and vertical both scroll the map; the natural-scrolling direction (`SDL_MOUSEWHEEL_FLIPPED`) is honoured; a real mouse wheel's notches behave exactly as before.
+  - Editor: `view_math.zig`'s wheel tests, and the smoke's swipe steps (there and back, flipped, and over the left panel), which were RED before `View.handleWheel`.
+  - Game: `tools/zig/wheel_scroll_test.cpp` (`test-wheel-scroll`, in `zig build test`) replays the engine's axis chain both ways: the old feeding goes forth and back, the new one is monotonic, and the notches repeat -4.8 each. It also covers the stepper, the swipe/wheel classifier and the sensitivity.
+  - `tools/zig/platform_event_test.cpp` pushes fractional, flipped and finger-marked wheel events through the real `SDLApplication`. It was RED before the residual.
+- [x] **Step 3: Fix** in the editor (wheel/trackpad scrolls the camera; ImGui panels keep their own scrolling when the pointer is over them) and in the game (map scroll and list scroll). Check by hand on the MacBook's trackpad; the game's existing mouse-wheel behaviour must not change. Run the editor steps and the game's tests; CI on both runners.
+  - **Harness, debug stage, throw-away profiles.** On the chapter screen, `wheel=1` x3 then `-1` gave slider powers -4800, -4800, -4800, +4800. Before the fix the second and third were ignored and the reversal doubled. A slow `swipe` gave +240 on every event.
+  - In a mission, `swipe=0.3x0` panned 3 px per event with the anchor on world (+1,+1). `swipe=0x0.3` panned 3 px up with the anchor on world (-1,+1). Over the bottom panel: "over interface, not panned". A physical `wheel=` on the map did not pan.
+  - Unscripted real trackpad swipes on the game window during these runs were classified as swipes (finger events) and panned the map.
+  - Johannes then found the pan right on the map and asked for a sensitivity setting.
+  - **Added: the trackpad sensitivity.**
+    - The game gets a Gameplay option, **Trackpad Scrolling** (`GamePlay.TrackpadScroll`, a slider under Mouse Sensitivity). It runs 0-100, and the default 50 is 1x, today's pan. Each 50 either side is a factor of four (0.25x-4x).
+    - It scales a swipe's deltas for the lists and the map pan alike, one setting for both, and never a physical wheel's. The game had no scroll-speed option to honour; Mouse Sensitivity is the cursor's.
+    - The editor has the same multiplier as the constant `view_math.wheel_sensitivity = 1.0`, with a TODO for plan 6's settings.
+    - Checked in a fresh throw-away profile: the slider sits at the middle, a click moves it to 93, and OK writes `Var="93" Type="3"`. A run with the value at 100 read back from the profile's config panned in 4x steps.
+  - **Local.** The editor steps pass (smoke 19 steps). `zig build test` passes (102/102). `test-platform-events`, `test-input-state`, `test-input-bindings` and `test-wheel-scroll` pass. Johannes's release stage is rebuilt.
+  - **CI:** run 36313377108 failed on windows-platform. GameMain's new includes sat in the non-Windows branch, fixed in `06fff59f1`. Run **36314200294** on `06fff59f1`: all six jobs green (macos, linux, linux-arm, windows, windows-mingw, macos-intel).
+- [x] **Step 4: Commit.** Editor: `bd263648e` and `1c6a200a3`. Game: `0d7bab3c0`, `a9d4aed00` and `06fff59f1`.
+
+---
+
+### Task 7.4: A swipe over a help screen scrolls only the help screen
+
+Added by the controller from Johannes's hand try of Task 7.3 (2026-09-27): with a help screen open, a two-finger swipe scrolls the help screen and also the out-of-focus screen under it. Johannes: fix it if it is easy; if it is real effort, leave it as it is. So this task is time-boxed: diagnose first; fix only if the fix is small and local (the wheel goes only to the topmost/modal screen, as clicks do).
+
+- [x] **Step 1: Measure.** Find how a wheel event reaches both screens (the help screen is an overlay/child screen; which of `UIScreen`, the screen stack or `InterfaceScreenBase` hands the wheel to the screen underneath, and how clicks avoid it). Record it here.
+- [x] **Step 2: Decide.** If the fix is small and local, write a test first (a wheel with a help screen open changes only the help screen's scroll position), then fix. If not, record why and what the fix would take, and stop.
+- [x] **Step 3: Commit** (fix or findings).
+
+**Measured (2026-09-27).**
+- The help screen is `CInterfaceIMTutorial`. `PushInterface` puts it on the main loop's stack, and it adds its own UI screen to the scene on top. The screen below stays in the scene.
+- `CUIScreen::Update` gives the `mouse_wheel` slider only to the top scene screen, so the lists of the screen below never get it through the UI.
+- But `CMainLoop` steps every interface on the stack. `CInterfaceOptionsSettings::StepLocal` reads its own `mouse_wheel` slider and scrolls the active option list whenever the cursor is outside that list, which is the case when it is over the help screen. `CInterfaceCloudCredentials::StepLocal` does the same for its rows.
+- The mission's swipe pan was already gated on its screen being the top one.
+- Harness, Settings with its first-visit help screen, 16 wheel notches over the help:
+  - before the fix, the help text changed 65420 px and the options list under it 29626 px;
+  - after the fix, 65420 px and 0 px.
+
+**Decision: fixed (small and local).** Both `StepLocal` readers now also require `pScene->GetUIScreen() == pUIScreen`, the rule `CUIScreen::Update` and the mission pan already follow. Without a help screen, the wheel outside the list still scrolls the list. Report: `.superpowers/sdd/2026-09-24-map-editor-05-editor-app/task-7.4-report.md`.
+
+---
+
+## Self-review notes
+
+- **Spec coverage, "Editor app":** SDL window, event and frame loop (Tasks 2, 4); ImGui through dcimgui with the SDL3 and SDL-GPU backends (Task 2); panels — menu bar, tool palette, object palette with filter, properties, players and diplomacy, status bar (Task 5; icons deferred, see Decisions); the map view as the window's background, input over panels to ImGui (Task 4). Settings and recent files: plan 6.
+- **Spec coverage, "Data flow":** startup opens the window, starts the engine, fills the palette from the catalogue (Tasks 2, 5); open, edit and pick (Tasks 3-5); save as plain save (Task 5), safe save in plan 6; test launch: plan 6.
+- **Spec coverage, "Errors":** startup failure names the step and quits (Task 2's `Host.start` errors; the app shows them in a message box via `SDL_ShowSimpleMessageBox` before exiting — add that in Task 4 when the interactive mode lands); open keeps the previous map (plan 4); refused edits on the status bar (Tasks 4-5). Save's temporary-file swap: plan 6.
+- **Spec coverage, "Testing → Editor app":** the scripted smoke (Task 7) is the first half; `BK_EDITOR_AUTO` and the shot comparison are plan 6.
+- **Carried from plan 4:** the desktop-size mode (Task 1), black terrain (Task 6), diplomacy reaching the view (the app's frame loop calls `BkEditorFrame` every frame; if the view still lags a diplomacy change, `BkEditorFrame` needs a world update — check in Task 5's manual run and fix in the bridge if so), picking the frontmost object (still open; record in Task 5's manual run whether it bites).
+- **Spec correction for plan 6:** the spec's test launch says `-mod<dir>`; the game now takes `-mod=Name` (`game_command_line_test.cpp:74-93`). And the game loads a map only from its data storage (`GameMain.cpp:1047-1075`), so test launch needs a storage the game mounts — the profile's generated-data root (`StreamIO/GeneratedData.h:77-88`) is the likely route; plan 6 measures it.

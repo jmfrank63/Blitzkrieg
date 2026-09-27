@@ -556,8 +556,23 @@ static void TestCatalogueCameraAndFrame( BkEditorSession *pSession, int nScreenW
 	std::string szError;
 	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
 		return;
-	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map opens" ) )
+	BkEditorMapSummary summary;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, "the map opens" ) )
 		return;
+	// The open places the camera on the map's middle, the way the game places
+	// its mission camera, so a frame drawn before any BkEditorSetCamera already
+	// looks at the map and a screen point already has ground under it.
+	{
+		const int nCentreX = summary.width_tiles / 2, nCentreY = summary.height_tiles / 2;
+		float wx = 0.0f, wy = 0.0f;
+		int tx = -1, ty = -1;
+		Check( BkEditorFrame( pSession ) == BK_EDITOR_OK, "a frame draws before the camera is set" );
+		Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK &&
+		       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK &&
+		       abs( tx - nCentreX ) <= 2 && abs( ty - nCentreY ) <= 2,
+		       NStr::Format( "an open map is under the middle of the screen before the camera is set (cell %d,%d against the map's middle %d,%d)", tx, ty, nCentreX, nCentreY ) );
+		printf( "editor-bridge: on open the middle of the screen is cell %d,%d, the map's middle %d,%d\n", tx, ty, nCentreX, nCentreY );
+	}
 
 	int nCount = 0;
 	Check( BkEditorCatalogue( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED,
@@ -611,38 +626,234 @@ static void TestCatalogueCameraAndFrame( BkEditorSession *pSession, int nScreenW
 	       "and it is the cell the camera was put on" );
 }
 
-// The frame just drawn, as an uncompressed 32-bit TGA, so a person can look at
-// what the pick ratio only counts. Alpha is forced opaque for the reason
-// CMainLoop gives for its own screenshots: the scene texture's alpha is
-// whatever the passes left behind.
-static bool SaveFrame( const std::string &szPath )
+// The overlay runs inside the engine's own frame: a callback set through the
+// bridge is called once per BkEditorFrame, with a command buffer and a target,
+// and not at all once it is removed.
+static int g_nOverlayCalls = 0;
+static bool g_bOverlayHadTarget = true;
+static void CountOverlay( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight )
+{
+	++g_nOverlayCalls;
+	if ( pCommandBuffer == 0 || pTarget == 0 || nWidth == 0 || nHeight == 0 || pUser != &g_nOverlayCalls )
+		g_bOverlayHadTarget = false;
+}
+
+static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWindow )
+{
+	void *pDevice = 0;
+	unsigned int nFormat = 0;
+	Check( BkEditorGpuDevice( pSession, &pDevice, &nFormat ) == BK_EDITOR_OK && pDevice != 0 && nFormat != 0,
+	       "the engine's GPU device and colour format are handed out" );
+
+	g_nOverlayCalls = 0;
+	g_bOverlayHadTarget = true;
+	Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+	Check( g_nOverlayCalls >= 1 && g_bOverlayHadTarget, NStr::Format( "the overlay ran inside the frame (%d calls)", g_nOverlayCalls ) );
+	BkEditorSetOverlay( pSession, 0, 0 );
+	const int nCalls = g_nOverlayCalls;
+	BkEditorFrame( pSession );
+	Check( g_nOverlayCalls == nCalls, "a removed overlay is not called again" );
+
+	// The screen is the window: no desktop-size mode, no scale between a mouse
+	// position and a screen position.
+	int nWindowW = 0, nWindowH = 0, nScreenW = 0, nScreenH = 0;
+	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == nWindowW && nScreenH == nWindowH,
+	       NStr::Format( "the screen is the window's size (%dx%d against %dx%d)", nScreenW, nScreenH, nWindowW, nWindowH ) );
+
+	// A resize follows the window and never touches it: not moved back to the
+	// profile's display or re-centred, not sized, and the screen is the
+	// window's size afterwards. The window is put somewhere that is not the
+	// origin first, so a re-centre would show.
+	SDL_SetWindowPosition( pWindow, 100, 80 );
+	SDL_SyncWindow( pWindow );
+	SDL_SetWindowSize( pWindow, 800, 500 );
+	SDL_SyncWindow( pWindow );
+	int nBeforeX = 0, nBeforeY = 0, nBeforeW = 0, nBeforeH = 0;
+	SDL_GetWindowPosition( pWindow, &nBeforeX, &nBeforeY );
+	SDL_GetWindowSize( pWindow, &nBeforeW, &nBeforeH );
+	printf( "editor-bridge: before the resize the window is %dx%d at %d,%d\n", nBeforeW, nBeforeH, nBeforeX, nBeforeY );
+	Check( BkEditorResize( pSession, nBeforeW + 1, nBeforeH ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a resize to a size that is not the window's is refused" );
+	Check( BkEditorResize( pSession, nBeforeW, nBeforeH ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nAfterX = 0, nAfterY = 0;
+	SDL_GetWindowPosition( pWindow, &nAfterX, &nAfterY );
+	SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+	Check( nAfterX == nBeforeX && nAfterY == nBeforeY,
+	       NStr::Format( "the resize leaves the window where it was (%d,%d, was %d,%d)", nAfterX, nAfterY, nBeforeX, nBeforeY ) );
+	Check( nWindowW == nBeforeW && nWindowH == nBeforeH,
+	       NStr::Format( "and at the size it was (%dx%d, was %dx%d)", nWindowW, nWindowH, nBeforeW, nBeforeH ) );
+	Check( nWindowW == 800 && nWindowH == 500, NStr::Format( "which is the size it was given (%dx%d)", nWindowW, nWindowH ) );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == nWindowW && nScreenH == nWindowH,
+	       NStr::Format( "and the screen is the window (%dx%d against %dx%d)", nScreenW, nScreenH, nWindowW, nWindowH ) );
+	printf( "editor-bridge: after a resize the window is %dx%d at %d,%d and the screen %dx%d\n", nWindowW, nWindowH, nAfterX, nAfterY, nScreenW, nScreenH );
+
+	// A window larger than its display's usable area: SetMode clamped the
+	// window and kept the larger size for the scene, so the screen stopped
+	// being the window. A resize that follows the window keeps the two equal.
+	SDL_Rect usable = { 0, 0, 0, 0 };
+	if ( Check( SDL_GetDisplayUsableBounds( SDL_GetDisplayForWindow( pWindow ), &usable ) && usable.w > 0 && usable.h > 0, "the display's usable area reads" ) )
+	{
+		SDL_SetWindowSize( pWindow, usable.w + 200, usable.h + 200 );
+		SDL_SyncWindow( pWindow );
+		SDL_GetWindowPosition( pWindow, &nBeforeX, &nBeforeY );
+		SDL_GetWindowSize( pWindow, &nBeforeW, &nBeforeH );
+		Check( BkEditorResize( pSession, nBeforeW, nBeforeH ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		SDL_GetWindowPosition( pWindow, &nAfterX, &nAfterY );
+		SDL_GetWindowSize( pWindow, &nWindowW, &nWindowH );
+		BkEditorScreenSize( pSession, &nScreenW, &nScreenH );
+		printf( "editor-bridge: a window larger than the usable %dx%d: %dx%d at %d,%d before, %dx%d at %d,%d after, screen %dx%d\n",
+		        usable.w, usable.h, nBeforeW, nBeforeH, nBeforeX, nBeforeY, nWindowW, nWindowH, nAfterX, nAfterY, nScreenW, nScreenH );
+		Check( nWindowW == nBeforeW && nWindowH == nBeforeH && nAfterX == nBeforeX && nAfterY == nBeforeY,
+		       "a resize leaves a window larger than its display as it is" );
+		Check( nScreenW == nWindowW && nScreenH == nWindowH, "and the screen is still the window" );
+		SDL_SetWindowSize( pWindow, 800, 500 );
+		SDL_SyncWindow( pWindow );
+		Check( BkEditorResize( pSession, 800, 500 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+	// Screen-to-world still composes after a resize: the camera test's check,
+	// on the camera test's anchor - the shipped map's first object.
+	CMapInfo map;
+	std::string szError;
+	if ( Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) && Check( !map.objects.empty(), "the map has an object to look at" ) )
+	{
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, map.objects[0].vPos );
+		int nAnchorX = -1, nAnchorY = -1;
+		BkEditorWorldToTile( pSession, vAnchor.x, vAnchor.y, &nAnchorX, &nAnchorY );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		float wx = 0, wy = 0;
+		int tx = -1, ty = -1;
+		Check( BkEditorScreenToWorld( pSession, 400.0f, 250.0f, &wx, &wy ) == BK_EDITOR_OK &&
+		       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK &&
+		       abs( tx - nAnchorX ) <= 2 && abs( ty - nAnchorY ) <= 2,
+		       NStr::Format( "after a resize the middle of the screen is still the camera's cell (%d,%d against %d,%d)", tx, ty, nAnchorX, nAnchorY ) );
+		printf( "editor-bridge: after a resize the camera is on cell %d,%d and the middle of the screen is %d,%d\n", nAnchorX, nAnchorY, tx, ty );
+
+		// A resize with the camera already placed and no BkEditorSetCamera
+		// after it: the resize places the camera again at its anchor, as the
+		// game does on a resolution change, since the placement's distance
+		// depends on the screen's height.
+		SDL_SetWindowSize( pWindow, 700, 420 );
+		SDL_SyncWindow( pWindow );
+		Check( BkEditorResize( pSession, 700, 420 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		BkEditorFrame( pSession );
+		tx = ty = -1;
+		Check( BkEditorScreenToWorld( pSession, 350.0f, 210.0f, &wx, &wy ) == BK_EDITOR_OK &&
+		       BkEditorWorldToTile( pSession, wx, wy, &tx, &ty ) == BK_EDITOR_OK &&
+		       abs( tx - nAnchorX ) <= 2 && abs( ty - nAnchorY ) <= 2,
+		       NStr::Format( "a resize keeps the camera on its anchor without a new BkEditorSetCamera (%d,%d against %d,%d)", tx, ty, nAnchorX, nAnchorY ) );
+		printf( "editor-bridge: a resize with no new camera leaves the middle of the screen on %d,%d, the anchor %d,%d\n", tx, ty, nAnchorX, nAnchorY );
+	}
+	// Back to the size the later tests were given, window first: the resize
+	// follows the window.
+	SDL_SetWindowSize( pWindow, 640, 480 );
+	SDL_SyncWindow( pWindow );
+	Check( BkEditorResize( pSession, 640, 480 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == 640 && nScreenH == 480,
+	       NStr::Format( "and back to 640x480 (%dx%d)", nScreenW, nScreenH ) );
+}
+
+// The renderer outlives the session, and the overlay is the caller's: a stop
+// has to take it out, or the next present calls into whatever the caller freed.
+// A present straight through IGFX, with no session left to draw one.
+static int PresentThroughTheEngine()
 {
 	IGFX *pGFX = GetSingleton<IGFX>();
-	IImageProcessor *pImages = GetImageProcessor();
-	if ( pGFX == 0 || pImages == 0 )
+	if ( pGFX == 0 || !pGFX->BeginScene() )
+		return 0;
+	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0xff000000 );
+	pGFX->EndScene();
+	pGFX->Flip();
+	return 1;
+}
+
+// The frame at the camera, as an uncompressed 32-bit TGA, so a person can look
+// at what the pick ratio only counts. Written by BkEditorCaptureFrame, which the
+// app's own check reads as well, so the file is checked here to be the
+// screen's size and top row first: a capture of the wrong size would pass
+// the app's check at a pixel that happened to fall inside.
+static bool SaveFrame( BkEditorSession *pSession, const std::string &szPath )
+{
+	if ( !Check( BkEditorCaptureFrame( pSession, szPath.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return false;
-	const RECT rcScreen = pGFX->GetScreenRect();
-	const int nWidth = rcScreen.right - rcScreen.left, nHeight = rcScreen.bottom - rcScreen.top;
-	CPtr<IImage> pImage = pImages->CreateImage( nWidth, nHeight );
-	if ( pImage == 0 || !pGFX->TakeScreenShot( pImage ) )
-		return false;
-	FILE *pFile = fopen( szPath.c_str(), "wb" );
-	if ( pFile == 0 )
-		return false;
-	// Type 2, 32 bits per pixel, top-left origin (descriptor 0x28: 8 alpha bits
-	// and the top-to-bottom flag).
-	unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	                             (unsigned char)( nWidth & 0xff ), (unsigned char)( nWidth >> 8 ),
-	                             (unsigned char)( nHeight & 0xff ), (unsigned char)( nHeight >> 8 ), 32, 0x28 };
-	fwrite( header, 1, sizeof header, pFile );
-	const SColor *pPixels = pImage->GetLFB();
-	for ( int i = 0; i < nWidth * nHeight; ++i )
+	int nScreenW = 0, nScreenH = 0;
+	BkEditorScreenSize( pSession, &nScreenW, &nScreenH );
+	unsigned char header[18] = { 0 };
+	FILE *pFile = fopen( szPath.c_str(), "rb" );
+	const bool bRead = pFile != 0 && fread( header, 1, sizeof header, pFile ) == sizeof header;
+	long nLength = 0;
+	if ( pFile != 0 )
 	{
-		const unsigned char bgra[4] = { (unsigned char)pPixels[i].b, (unsigned char)pPixels[i].g, (unsigned char)pPixels[i].r, 255 };
-		fwrite( bgra, 1, 4, pFile );
+		fseek( pFile, 0, SEEK_END );
+		nLength = ftell( pFile );
+		fclose( pFile );
 	}
-	fclose( pFile );
-	return true;
+	const int nWidth = header[12] | ( header[13] << 8 ), nHeight = header[14] | ( header[15] << 8 );
+	return Check( bRead && header[2] == 2 && header[16] == 32 && ( header[17] & 0x20 ) != 0 &&
+	              nWidth == nScreenW && nHeight == nScreenH && nLength == 18 + long( nWidth ) * nHeight * 4,
+	              NStr::Format( "the captured frame is a %dx%d top-first 32-bit TGA of %ld bytes, the screen %dx%d", nWidth, nHeight, nLength, nScreenW, nScreenH ) );
+}
+
+// The ground is drawn wherever the camera looks. The terrain is laid out in
+// screen space for the game's own camera - yaw 45, pitch 30, the rod of
+// iMissionInternal.cpp's SetMissionCameraPlacement - while objects go through
+// the view matrix, so a camera placed any other way draws the objects and
+// leaves the ground black under them. Measured on the anchor below (the
+// shipped map's first object, W_BigPoplar, the camera test's anchor) at
+// 640x480: the game's own frame there has 1.7% black pixels in the lower half
+// (its HUD), the bridge's frame 80.4% before its camera was placed like the
+// game's and 0.5% after. The lower half is below the haze, which fades to
+// black at the top.
+static const float TERRAIN_BLACK_BAR = 0.10f;
+
+static void TestTerrainUnderTheCamera( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+	const std::string szFrame = szScratch + "/editor-bridge-terrain.tga";
+	if ( !SaveFrame( pSession, szFrame ) )
+		return;
+	std::vector<unsigned char> file;
+	if ( FILE *pFile = fopen( szFrame.c_str(), "rb" ) )
+	{
+		fseek( pFile, 0, SEEK_END );
+		file.resize( size_t( ftell( pFile ) ) );
+		fseek( pFile, 0, SEEK_SET );
+		if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
+			file.clear();
+		fclose( pFile );
+	}
+	if ( !Check( file.size() > 18, "the terrain frame reads back" ) )
+		return;
+	// SaveFrame checked the header: top row first, 32 bits, BGRA.
+	const int nWidth = file[12] | ( file[13] << 8 ), nHeight = file[14] | ( file[15] << 8 );
+	const unsigned char *pPixels = &file[18];
+	int nBlack = 0, nCounted = 0;
+	for ( int y = nHeight / 2; y < nHeight; ++y )
+	{
+		for ( int x = 0; x < nWidth; ++x, ++nCounted )
+		{
+			const unsigned char *p = pPixels + ( size_t( y ) * nWidth + x ) * 4;
+			if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+				++nBlack;
+		}
+	}
+	const float fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+	printf( "editor-bridge: the lower half of the frame at %.0f,%.0f is %.1f%% black (%s, bar %.0f%%)\n",
+	        vAnchor.x, vAnchor.y, fBlack * 100.0f, map.objects[0].szName.c_str(), TERRAIN_BLACK_BAR * 100.0f );
+	Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the ground is drawn under the camera (%.1f%% of the lower half black)", fBlack * 100.0f ) );
 }
 
 // A camera put on an object answers, at the middle of the screen, with that
@@ -699,7 +910,7 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 			if ( !bSaved || ( bUnit && !bSavedUnit ) )
 			{
 				const std::string szFrame = szScratch + ( bSaved ? "/editor-bridge-unit.tga" : "/editor-bridge-objects.tga" );
-				const bool bWritten = SaveFrame( szFrame );
+				const bool bWritten = SaveFrame( pSession, szFrame );
 				printf( "editor-bridge: %s %s (%s)\n", bWritten ? "saved" : "could not save", szFrame.c_str(), map.objects[i].szName.c_str() );
 				if ( bSaved )
 					bSavedUnit = true;
@@ -712,8 +923,10 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 	printf( "editor-bridge: %d of %d objects picked at the middle of the screen\n", nPicked, nTried );
 	// Not every one: a small object can sit behind a big neighbour, and that
 	// neighbour is a right answer too. Measured on macOS arm64 at 1440x900:
-	// 11 of 20; the misses are a neighbour the scene listed first (the MFC
-	// editor, copied here, takes the first) and one object at the map's edge
+	// 11 of 20 with CCamera's default placement, and 16 of 20 at 640x480 once
+	// the camera was placed like the game's (pitch 30, not 45). The misses are
+	// a neighbour the scene listed first (the MFC editor, copied here, takes the
+	// first) and one object at the map's edge
 	// where the camera stops short of it. Half is the bar, just under that.
 	Check( nTried > 0 && nPicked * 2 >= nTried, "the object under the camera is the one picked, for most objects" );
 
@@ -722,6 +935,140 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 	BkEditorFrame( pSession );
 	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nNothing ) != BK_EDITOR_FAILED, "a point over nothing is an answer, not a failure" );
 	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and nowhere to put the answer is a bad argument" );
+}
+
+// A captured frame's pixels, BGRA, top row first (SaveFrame checked the
+// header). Empty when the file does not read.
+static std::vector<unsigned char> ReadFramePixels( const std::string &szPath, int *pnWidth, int *pnHeight )
+{
+	std::vector<unsigned char> file;
+	if ( FILE *pFile = fopen( szPath.c_str(), "rb" ) )
+	{
+		fseek( pFile, 0, SEEK_END );
+		file.resize( size_t( ftell( pFile ) ) );
+		fseek( pFile, 0, SEEK_SET );
+		if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
+			file.clear();
+		fclose( pFile );
+	}
+	if ( file.size() <= 18 )
+		return std::vector<unsigned char>();
+	*pnWidth = file[12] | ( file[13] << 8 );
+	*pnHeight = file[14] | ( file[15] << 8 );
+	return std::vector<unsigned char>( file.begin() + 18, file.end() );
+}
+
+// How many pixels of a box differ between two frames by more than a little -
+// the "something is drawn there now" half of a placed object.
+static int ChangedPixels( const std::vector<unsigned char> &rBefore, const std::vector<unsigned char> &rAfter,
+                          int nWidth, int nHeight, int nLeft, int nTop, int nRight, int nBottom )
+{
+	if ( rBefore.size() != rAfter.size() || rBefore.size() < size_t( nWidth ) * nHeight * 4 )
+		return -1;
+	int nChanged = 0;
+	for ( int y = Max( 0, nTop ); y < Min( nHeight, nBottom ); ++y )
+		for ( int x = Max( 0, nLeft ); x < Min( nWidth, nRight ); ++x )
+		{
+			const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+			if ( abs( int( rBefore[n] ) - rAfter[n] ) + abs( int( rBefore[n + 1] ) - rAfter[n + 1] ) +
+			     abs( int( rBefore[n + 2] ) - rAfter[n + 2] ) > 48 )
+				++nChanged;
+		}
+	return nChanged;
+}
+
+// An object the editor places is drawn where it was put and answers a click
+// there, as the map's own objects do. The editor's placer goes from the click
+// to the object the way this check does - the screen point to the world point
+// under it (BkEditorScreenToWorld), that to the map position
+// (BkEditorWorldToMap), then BkEditorAddObject - for a static object and for a
+// unit. Found by the app's smoke (plan 5, Task 7): the bridge held the object
+// and saved it, but no frame showed it and no click found it. The placer handed
+// the world point to BkEditorAddObject, which takes map units, so the object
+// went in at 0.7 of the clicked point's distance from the map's corner - drawn
+// and pickable, but off the screen. Measured with the world point passed
+// straight in: nothing picked and 0 pixels changed for either object; with the
+// map position, both picked and about 1000 pixels changed.
+//
+// The box compared is above the click, where an object standing on the ground
+// there is drawn: a sprite rises from its foot. Measured at 640x480: the poplar
+// changes 1209 of its 1664 pixels, the T-34 1015.
+static const int PLACED_BOX_HALF_WIDTH = 16, PLACED_BOX_HEIGHT = 48, PLACED_MIN_CHANGED = 40;
+
+static void TestPlacedObjectDrawsAndPicks( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	static const char *const names[] = { "W_BigPoplar", "T-34" };
+	for ( int nName = 0; nName < 2; ++nName )
+	{
+		const char *pszName = names[nName];
+		if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		CMapInfo map;
+		std::string szError;
+		if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+			return;
+		// Bare ground on screen to place on: the first point, on a ring round
+		// the middle of the screen with the camera on the map's first object,
+		// that no object answers at.
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, map.objects[0].vPos );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		BkEditorFrame( pSession );
+		float sx = -1.0f, sy = -1.0f;
+		for ( int nTry = 0; nTry < 16 && sx < 0.0f; ++nTry )
+		{
+			const float fX = nScreenWidth / 2.0f + ( ( nTry % 4 ) - 1.5f ) * 100.0f;
+			const float fY = nScreenHeight / 2.0f + ( ( nTry / 4 ) - 1.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+			int nIgnored = -1;
+			bool bClear = true;
+			for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+				for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+					bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+			if ( bClear )
+			{
+				sx = fX;
+				sy = fY;
+			}
+		}
+		if ( !Check( sx >= 0.0f, "there is bare ground on screen to place on" ) )
+			return;
+		const std::string szBefore = szScratch + "/editor-bridge-placed-before.tga";
+		const std::string szAfter = szScratch + NStr::Format( "/editor-bridge-placed-%d.tga", nName );
+		if ( !SaveFrame( pSession, szBefore ) )
+			return;
+		float wx = 0.0f, wy = 0.0f;
+		if ( !Check( BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		float mx = 0.0f, my = 0.0f;
+		if ( !Check( BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		Check( fabs( mx - wx * FP_SQRT_2 ) < 0.01f && fabs( my - wy * FP_SQRT_2 ) < 0.01f,
+		       NStr::Format( "a map unit is sqrt 2 world units' worth smaller (world %.1f,%.1f is map %.1f,%.1f)", wx, wy, mx, my ) );
+		int nLinkID = -1;
+		if ( !Check( BkEditorAddObject( pSession, pszName, mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK,
+		             NStr::Format( "%s is placed at the map position under %.0f,%.0f: %s", pszName, sx, sy, BkEditorLastMessage( pSession ) ) ) )
+			return;
+		BkEditorObjectState state;
+		BkEditorEngineObjectState( pSession, nLinkID, &state );
+		for ( int i = 0; i < 4; ++i )
+			BkEditorFrame( pSession );
+		int nPicked = -1;
+		bool bPicked = false;
+		for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && !bPicked; dy += 4 )
+			bPicked = BkEditorObjectAt( pSession, sx, sy - dy, &nPicked ) == BK_EDITOR_OK && nPicked == nLinkID;
+		const bool bSaved = SaveFrame( pSession, szAfter );
+		int nWidth = 0, nHeight = 0;
+		const std::vector<unsigned char> before = ReadFramePixels( szBefore, &nWidth, &nHeight );
+		const std::vector<unsigned char> after = ReadFramePixels( szAfter, &nWidth, &nHeight );
+		const int nChanged = bSaved ? ChangedPixels( before, after, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT,
+		                                             int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 ) : -1;
+		printf( "editor-bridge: %s placed at screen %.0f,%.0f = world %.1f,%.1f = map %.1f,%.1f; the engine holds it at %.1f,%.1f; "
+		        "picked there: %s; %d pixels changed above it\n",
+		        pszName, sx, sy, wx, wy, mx, my, state.x, state.y, bPicked ? "yes" : "no", nChanged );
+		Check( bPicked, NStr::Format( "a click where %s was placed answers with it (link ID %d, answered %d)", pszName, nLinkID, nPicked ) );
+		Check( nChanged >= PLACED_MIN_CHANGED, NStr::Format( "%s is drawn where it was placed (%d pixels changed, bar %d)", pszName, nChanged, PLACED_MIN_CHANGED ) );
+	}
 }
 
 // A bridge names its spans by link ID, so deleting one has to be refused with
@@ -919,6 +1266,84 @@ static void TestPaintAtTheEdgeAndRefused( BkEditorSession *pSession, const std::
 	     Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
 		Check( NMapFile::AreEquivalent( original, saved, &szWhere ), ( "an undone paint and a refused one leave the map as read: " + szWhere ).c_str() );
 	remove( szSaved.c_str() );
+}
+
+// A tile the map's tileset has no terrain type for is the caller's mistake:
+// BK_EDITOR_BAD_ARGUMENT, naming the tile, and nothing painted - not even the
+// cells beside it that name a good tile. Tile 1 is in none of the shipped
+// tilesets; 255 is what a caller's -1 becomes in the cell's unsigned char.
+static void TestPaintRefusesTileOutsideTileset( BkEditorSession *pSession )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	unsigned char before[2] = { 0, 0 };
+	if ( !Check( BkEditorEngineTile( pSession, 30, 30, &before[0] ) == BK_EDITOR_OK &&
+	             BkEditorEngineTile( pSession, 31, 30, &before[1] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const unsigned char badTiles[] = { 1, (unsigned char)-1 };
+	for ( int i = 0; i < 2; ++i )
+	{
+		// The good cell first, so a check that stopped at it would paint it.
+		const BkEditorPaintCell cells[] = { { 30, 30, (unsigned char)( before[0] == 0 ? 2 : 0 ) }, { 31, 30, badTiles[i] } };
+		int nToken = 0;
+		const std::string szWhat = NStr::Format( "tile %d", int( badTiles[i] ) );
+		Check( BkEditorPaint( pSession, cells, 2, &nToken ) == BK_EDITOR_BAD_ARGUMENT, ( "a paint naming " + szWhat + " outside the tileset is a bad argument" ).c_str() );
+		Check( nToken == -1, "and has no token" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( szWhat ) != std::string::npos,
+		       ( std::string( "and the message names the tile: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		unsigned char after[2] = { 0, 0 };
+		BkEditorEngineTile( pSession, 30, 30, &after[0] );
+		BkEditorEngineTile( pSession, 31, 30, &after[1] );
+		Check( after[0] == before[0] && after[1] == before[1], "and the engine's tiles are as they were" );
+		Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+		       ( std::string( "and the map's terrain still matches the engine's: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	}
+}
+
+// The brush's palette: every tile BkEditorTilesetTiles hands out paints, and
+// tile 1, which no shipped tileset has, is not among them. The count comes
+// first with no buffer, and a buffer one short is refused with nothing
+// written past it.
+static void TestTilesetTilesAllPaint( BkEditorSession *pSession )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCount = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount > 1,
+	             NStr::Format( "the tileset's tile count comes back with no buffer (%d): %s", nCount, BkEditorLastMessage( pSession ) ) ) )
+		return;
+	std::vector<unsigned char> tiles( size_t( nCount ) + 1, 0xAB );
+	int nShort = -1;
+	Check( BkEditorTilesetTiles( pSession, &( tiles[0] ), nCount - 1, &nShort ) == BK_EDITOR_REFUSED && nShort == nCount,
+	       "a buffer one short is refused and still told the total" );
+	Check( tiles[size_t( nCount ) - 1] == 0xAB && tiles[size_t( nCount )] == 0xAB, "and nothing is written past its capacity" );
+	int nRead = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, &( tiles[0] ), nCount, &nRead ) == BK_EDITOR_OK && nRead == nCount,
+	             BkEditorLastMessage( pSession ) ) )
+		return;
+	bool bAscending = true;
+	for ( int i = 1; i < nCount; ++i )
+		bAscending = bAscending && tiles[i - 1] < tiles[i];
+	Check( bAscending, "the tiles come once each, ascending" );
+	bool bHasOne = false;
+	for ( int i = 0; i < nCount; ++i )
+		bHasOne = bHasOne || tiles[i] == 1;
+	Check( !bHasOne, "tile 1, in no shipped tileset, is not offered" );
+	int nPainted = 0;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const BkEditorPaintCell cell = { 30, 30, tiles[i] };
+		int nToken = -1;
+		const BkEditorStatus painted = BkEditorPaint( pSession, &cell, 1, &nToken );
+		if ( Check( painted == BK_EDITOR_OK, NStr::Format( "tileset tile %d paints: %s", int( tiles[i] ), BkEditorLastMessage( pSession ) ) ) )
+		{
+			++nPainted;
+			BkEditorUndoPaint( pSession, nToken );
+		}
+	}
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "and after painting each and undoing it the terrain still matches: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	printf( "editor-bridge: the tileset of %s offers %d tiles, %d painted\n", SHIPPED_MAP, nCount, nPainted );
 }
 
 // Delete then restore is the original object, in the map and in the engine,
@@ -1175,6 +1600,73 @@ static void TestSharedLinkIDIsReadOnly( BkEditorSession *pSession, const std::st
 	remove( szSaved.c_str() );
 }
 
+// Every kind of object the palette offers can be asked for, and each answer is
+// a status, never a crash. Johannes placed a sound from the palette and the
+// release editor died in CheckStaticObject: a sound's stats are an
+// SSoundRPGStats, not an SObjectBaseRPGStats, and the static_cast there read
+// a passability array out of something that has none. So one entry of every
+// game type the catalogue holds is added at the map's middle - what the
+// middle of the screen shows after an open - and each must come back OK, or
+// refused with a message that names the object. What was added is deleted
+// again, and the engine has to agree with the map afterwards.
+static void TestEveryGameTypeAnswers( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::map<int, std::string> firstOfType;
+	std::map<int, int> countOfType;
+	for ( int i = 0; i < nRead; ++i )
+	{
+		++countOfType[catalogue[i].game_type];
+		if ( firstOfType.find( catalogue[i].game_type ) == firstOfType.end() )
+			firstOfType[catalogue[i].game_type] = catalogue[i].name;
+	}
+	Check( firstOfType.find( 100 ) != firstOfType.end(), "the catalogue offers a sound (game type 100), the case that crashed" );
+
+	float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+	BkEditorFrame( pSession );
+	if ( !Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK &&
+	             BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	for ( std::map<int, std::string>::const_iterator it = firstOfType.begin(); it != firstOfType.end(); ++it )
+	{
+		const char *pszName = it->second.c_str();
+		// Said before the call, so a crash leaves the object that caused it as
+		// the last line of the log.
+		printf( "editor-bridge: adding game type %d (%d in the catalogue) as %s at map %.0f,%.0f\n",
+		        it->first, countOfType[it->first], pszName, mx, my );
+		fflush( stdout );
+		int nLinkID = -1;
+		const BkEditorStatus status = BkEditorAddObject( pSession, pszName, mx, my, 0, 0, &nLinkID );
+		const std::string szMessage = BkEditorLastMessage( pSession );
+		printf( "editor-bridge:   -> status %d%s%s\n", int( status ), status == BK_EDITOR_OK ? "" : ": ", status == BK_EDITOR_OK ? "" : szMessage.c_str() );
+		if ( status == BK_EDITOR_OK )
+		{
+			Check( nLinkID > 0, NStr::Format( "%s comes back with a link ID", pszName ) );
+			Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_OK,
+			       NStr::Format( "the added %s is undone: %s", pszName, BkEditorLastMessage( pSession ) ) );
+		}
+		else
+		{
+			Check( status == BK_EDITOR_REFUSED || status == BK_EDITOR_BAD_ARGUMENT,
+			       NStr::Format( "adding %s (game type %d) is OK, refused or a bad argument, not status %d", pszName, it->first, int( status ) ) );
+			Check( szMessage.find( pszName ) != std::string::npos,
+			       NStr::Format( "the refusal of %s names it: \"%s\"", pszName, szMessage.c_str() ) );
+			Check( nLinkID == -1, NStr::Format( "a refused %s has no link ID", pszName ) );
+		}
+	}
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK,
+	       ( std::string( "after every game type was asked for: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -1284,23 +1776,43 @@ int main( int argc, char **argv )
 		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
+		TestPaintRefusesTileOutsideTileset( pSession );
+		TestTilesetTilesAllPaint( pSession );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
-		// Not the 640x480 the window was created at: BkEditorStart sets the mode
-		// with no size, and the SDL GPU adapter gives the window its display's
-		// desktop size (GraphicsEngineGpu::SetMode). The middle of the screen is
-		// the middle of what the engine draws.
-		const RECT rcScreen = GetSingleton<IGFX>()->GetScreenRect();
-		const int nScreenWidth = rcScreen.right - rcScreen.left, nScreenHeight = rcScreen.bottom - rcScreen.top;
+		// The 640x480 the window was created at: BkEditorStart sets the mode to
+		// the window's own size. The middle of the screen is the middle of what
+		// the engine draws, so it is read from the bridge rather than assumed.
+		int nScreenWidth = 0, nScreenHeight = 0;
+		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads" );
 		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
+		TestTerrainUnderTheCamera( pSession, szScratch );
+		TestOverlayDeviceAndSize( pSession, pWindow );
+		// Read again rather than trusting the resize test to have put the
+		// screen back at the size it was.
+		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads after the resize test" );
+		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestSharedLinkIDIsReadOnly( pSession, szScratch );
 		TestBrokenMapKeepsTheOpenOne( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
+		// The overlay reaches a present made straight through the engine, so the
+		// check after the stop below can tell a removed overlay from a present
+		// that never happened.
+		g_nOverlayCalls = 0;
+		Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( PresentThroughTheEngine() == 1 && g_nOverlayCalls >= 1,
+		       NStr::Format( "an overlay runs in a present made through the engine (%d calls)", g_nOverlayCalls ) );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+		const int nCallsAtStop = g_nOverlayCalls;
+		PresentThroughTheEngine();
+		Check( g_nOverlayCalls == nCallsAtStop,
+		       NStr::Format( "a stop removes the overlay (%d calls after it)", g_nOverlayCalls - nCallsAtStop ) );
 	}
 
 	SDL_DestroyWindow( pWindow );

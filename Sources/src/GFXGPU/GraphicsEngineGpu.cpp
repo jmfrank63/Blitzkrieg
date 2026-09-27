@@ -1579,3 +1579,75 @@ bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect )
     }
     return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" );
 }
+
+// The editor's overlay (ImGui) draws into the frame this engine presents
+// rather than into a renderer of its own. The two callback types have the same
+// shape; unsigned int and uint32_t are the same type on every target built.
+bool STDCALL GraphicsEngineGpu::SetOverlay( void (*pfnOverlay)( void*, void*, void*, unsigned int, unsigned int ), void *pUser )
+{
+    if ( renderer_ == nullptr || api_.set_overlay == nullptr )
+        return false;
+    return api_.set_overlay( renderer_, reinterpret_cast<GfxGpuOverlayCallback>( pfnOverlay ), pUser ) == GFXGPU_OK;
+}
+
+bool STDCALL GraphicsEngineGpu::GetGpuDevice( void **ppDevice, unsigned int *pnFormat )
+{
+    if ( renderer_ == nullptr || api_.get_gpu_device == nullptr || ppDevice == nullptr || pnFormat == nullptr )
+        return false;
+    uint32_t nFormat = 0;
+    if ( api_.get_gpu_device( renderer_, ppDevice, &nFormat ) != GFXGPU_OK )
+        return false;
+    *pnFormat = nFormat;
+    return *ppDevice != nullptr;
+}
+
+// The part of SetMode that is a size change and nothing more: the screen rect,
+// the viewport, the reported mode and the scene texture. The drawable needs no
+// bookkeeping here - Flip republishes it from the window every frame
+// (UpdatePresentOffsets). What SetMode also does - pick a display, centre and
+// clamp the window, size it, show it, present a black frame - is exactly what a
+// window its user sizes must not have done to it: a resize would jump to the
+// profile's monitor, and a size larger than the display would be kept for the
+// scene while the window was clamped, so the screen was no longer the window.
+bool STDCALL GraphicsEngineGpu::FollowWindowSize()
+{
+    if ( renderer_ == nullptr || sdl_window_ == nullptr )
+        return false;
+    int nWidth = 0, nHeight = 0;
+    if ( !SDL_GetWindowSize( static_cast<SDL_Window *>( sdl_window_ ), &nWidth, &nHeight ) || nWidth <= 0 || nHeight <= 0 )
+        return fail( "the window has no size to follow" );
+    if ( !Check( api_.resize( renderer_, static_cast<uint32_t>( nWidth ), static_cast<uint32_t>( nHeight ) ), "resize" ) )
+        return false;
+    width_ = nWidth; height_ = nHeight;
+    UpdateViewportMatrix( 0, 0, nWidth, nHeight, 0.0f, 1.0f );
+    display_mode_ = { nWidth, nHeight, 32 };
+    return true;
+}
+
+// The frame as presented, overlay included: the renderer composes the next
+// frame into a texture of its own before it reaches the swapchain, which is
+// not readable on every backend (renderer.zig endFrame).
+bool STDCALL GraphicsEngineGpu::CaptureNextFrame( bool bCapture )
+{
+    if ( renderer_ == nullptr || api_.set_frame_capture == nullptr )
+        return false;
+    return Check( api_.set_frame_capture( renderer_, bCapture ? 1u : 0u ), "set_frame_capture" );
+}
+
+// The captured frame is in the swapchain's format, as the scene TakeScreenShot
+// reads is, and is copied the same way.
+bool STDCALL GraphicsEngineGpu::ReadCapturedFrame( IImage *image )
+{
+    if ( !image || !renderer_ ) return fail( "SDL GPU frame readback is unavailable" );
+    const uint32_t width = static_cast<uint32_t>( image->GetSizeX() );
+    const uint32_t height = static_cast<uint32_t>( image->GetSizeY() );
+    if ( width == 0 || height == 0 ) return fail( "frame image has invalid dimensions" );
+    std::vector<unsigned char> pixels;
+    try { pixels.resize( static_cast<size_t>( width ) * height * sizeof( SColor ) ); } catch ( ... ) { return fail( "frame readback allocation failed" ); }
+    GfxGpuReadbackInfo info{ sizeof( info ), width, height, static_cast<uint32_t>( pixels.size() ), static_cast<uint32_t>( width * sizeof( SColor ) ), pixels.data() };
+    if ( !Check( gfxgpu_readback_frame( renderer_, &info ), "readback_frame" ) ) return false;
+    if ( info.row_pitch < width * sizeof( SColor ) || info.byte_length < info.row_pitch * height ) return fail( "frame readback returned an invalid layout" );
+    SColor *destination = image->GetLFB();
+    for ( uint32_t row = 0; row < height; ++row ) std::memcpy( destination + static_cast<size_t>( row ) * width, pixels.data() + static_cast<size_t>( row ) * info.row_pitch, width * sizeof( SColor ) );
+    return true;
+}

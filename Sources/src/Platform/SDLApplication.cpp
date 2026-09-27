@@ -19,6 +19,18 @@ namespace
 {
 bool fail_initialization_for_tests = false;
 
+// Before the video subsystem starts (Cocoa reads it in Cocoa_VideoInit): the
+// fingers on a MacBook trackpad then arrive as SDL_EVENT_FINGER_* with their
+// own touch device instead of being dropped, which is how PollEvent tells a
+// two-finger swipe from a mouse wheel (WheelScroll.h, CWheelSource). SDL
+// synthesises no mouse input from them (their window is null), so the
+// pointer, the clicks and the wheel events themselves are unchanged. Other
+// platforms do not read the hint.
+void SetInputHints()
+{
+	SDL_SetHint( SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1" );
+}
+
 static_assert( sizeof( void * ) <= sizeof( BkPlatformWindowHandle ), "window identity cannot represent a native pointer" );
 
 BkPlatformWindowHandle EncodeWindowIdentity( void *window )
@@ -85,6 +97,7 @@ bool SDLApplication::ShowSplash( const char *bmpPath, int width, int height )
 	// The splash comes up before Initialize() has run SDL_Init, so open the
 	// video subsystem here. SDL3 refcounts it: HideSplash closes this
 	// reference and Initialize()'s own stays live for the game.
+	SetInputHints();
 	if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) ) { SetError( "SDL_InitSubSystem" ); return false; }
 	splash_video_opened_ = true;
 	// NOT_FOCUSABLE is the SWP_NOACTIVATE of the Win32 splash: the picture
@@ -168,6 +181,7 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 	if ( initialized_ ) return true;
 	if ( fail_initialization_for_tests ) { SetError( "SDL initialization failure injected" ); return false; }
 	if ( !SDL_SetAppMetadata( "Blitzkrieg", "2.0.0", "org.blitzkrieg.game" ) ) { SetError( "SDL_SetAppMetadata" ); return false; }
+	SetInputHints();
 	if ( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD ) ) { SetError( "SDL_Init" ); return false; }
 	// No SDL_WINDOW_HIGH_PIXEL_DENSITY: on a 2x Retina display it makes the
 	// drawable twice the window size in points, but the engine sizes its
@@ -413,7 +427,11 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 		{
 			case SDL_EVENT_QUIT: event.type = EventType::quit; event.timestamp = raw.quit.timestamp; break;
 			case SDL_EVENT_WINDOW_FOCUS_GAINED: event.type = EventType::focusGained; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
-			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
+			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; wheel_source_.Clear(); break;
+			// Not the engine's business, but a finger's FINGER_UP can go missing
+			// outside the window, and a finger left down would make every later
+			// wheel event a swipe (WheelScroll.h, CWheelSource::Clear).
+			case SDL_EVENT_WINDOW_MOUSE_LEAVE: wheel_source_.Clear(); continue;
 			case SDL_EVENT_WINDOW_MOVED: event.type = EventType::windowMoved; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
 			case SDL_EVENT_WINDOW_RESIZED: event.type = EventType::windowResized; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.x = raw.window.data1; event.y = raw.window.data2; break;
 			case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
@@ -464,9 +482,23 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 			// wheel quantum of 25/4.8 pixels expects 120*40*0.001 = 4.8 per notch.
 			// SDL's plain +-1 per notch starved that chain a hundredfold - every
 			// int() truncation downstream rounded the step to zero and no menu
-			// list ever scrolled. Scaling before the int cast also keeps a
-			// trackpad's fractional flicks from truncating to nothing.
-			case SDL_EVENT_MOUSE_WHEEL: event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID; event.x = static_cast<int>( raw.wheel.x * 120.0f ); event.y = static_cast<int>( raw.wheel.y * 120.0f ); event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y ); break;
+			// list ever scrolled. The fraction a cast would drop is carried to the
+			// next event, so a trackpad swipe's 0.004s add up instead of each
+			// truncating to nothing; a whole notch is still exactly 120.
+			// x/y keep the sign SDL delivered: macOS has already applied the
+			// natural-scrolling setting, and `direction` only reports it.
+			case SDL_EVENT_MOUSE_WHEEL:
+				event.type = EventType::mouseWheel; event.timestamp = raw.wheel.timestamp; event.windowId = raw.wheel.windowID;
+				wheel_residual_.Feed( raw.wheel.x, raw.wheel.y, &event.x, &event.y );
+				event.data1 = static_cast<int>( raw.wheel.mouse_x ); event.data2 = static_cast<int>( raw.wheel.mouse_y );
+				event.trackpad = wheel_source_.IsTrackpad( SDL_NS_TO_MS( raw.wheel.timestamp ) );
+				event.modifiers = static_cast<int>( SDL_GetModState() );
+				break;
+			// The fingers on a trackpad, only to tell a swipe from a wheel; the
+			// engine has no touch input.
+			case SDL_EVENT_FINGER_DOWN: wheel_source_.FingerDown( raw.tfinger.touchID, raw.tfinger.fingerID ); continue;
+			case SDL_EVENT_FINGER_UP:
+			case SDL_EVENT_FINGER_CANCELED: wheel_source_.FingerUp( raw.tfinger.touchID, raw.tfinger.fingerID ); continue;
 			case SDL_EVENT_GAMEPAD_ADDED:
 				event.type = EventType::controllerAdded; event.timestamp = raw.gdevice.timestamp; event.deviceId = static_cast<int>( raw.gdevice.which );
 				if ( SDL_Gamepad *gamepad = SDL_OpenGamepad( raw.gdevice.which ) )

@@ -210,5 +210,30 @@ interface IGFX : public IRefCount
 	virtual int STDCALL GetNumPassedPrimitives() const = 0;
 	
 	virtual bool STDCALL SetShadingEffect( int nEffect ) = 0;
+
+	// Appended, so no slot above moves.
+	// A callback the renderer runs every frame after the scene and before
+	// present, with that frame's command buffer and colour target (SDL GPU
+	// objects, as void*). Null removes it. False when the renderer has no such
+	// hook (the legacy D3D engine).
+	virtual bool STDCALL SetOverlay( void (*pfnOverlay)( void *pUser, void *pCommandBuffer, void *pTarget, unsigned int nWidth, unsigned int nHeight ), void *pUser ) = 0;
+	// The SDL GPU device and the colour format the overlay draws in, for a
+	// caller that renders into the frame itself (the editor's ImGui).
+	virtual bool STDCALL GetGpuDevice( void **ppDevice, unsigned int *pnFormat ) = 0;
+	// The screen becomes the window's current size in points, and nothing else
+	// changes: unlike SetMode it never moves, sizes or shows the window, never
+	// picks a display and presents nothing. For a caller whose window is sized
+	// by its user (the editor). False when the renderer cannot (the legacy D3D
+	// engine), or inside a frame.
+	virtual bool STDCALL FollowWindowSize() = 0;
+	// TakeScreenShot reads the scene, which the overlay is not in. These read
+	// the frame as it was presented: CaptureNextFrame( true ) keeps the next
+	// frame presented - the scene with the overlay over it - and
+	// ReadCapturedFrame copies that frame into pImage, which has to be the
+	// screen's size. CaptureNextFrame( false ) withdraws a request no frame
+	// has taken yet. False when the renderer cannot (the legacy D3D engine),
+	// inside a frame, or, for the read, before a frame was kept.
+	virtual bool STDCALL CaptureNextFrame( bool bCapture ) = 0;
+	virtual bool STDCALL ReadCapturedFrame( interface IImage *pImage ) = 0;
 };
 #endif // __GFX_H__

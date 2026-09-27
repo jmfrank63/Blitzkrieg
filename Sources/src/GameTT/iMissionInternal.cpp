@@ -1578,7 +1578,13 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 bool CInterfaceMission::StepLocal( bool bAppActive )
 {
 	if ( !bAppActive )
+	{
+		// A swipe over the unfocused window is dropped, not saved up for a
+		// jump of the map on refocus.
+		float fDroppedX = 0, fDroppedY = 0;
+		pInput->TakeTrackpadScroll( &fDroppedX, &fDroppedY );
 		return false;
+	}
 
 	const bool bInterfaceActive = pScene->GetMissionScreen() == pScene->GetUIScreen();
 	if ( GetTextureQualityOption() != szMiniMapQuality )
@@ -1610,7 +1616,15 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 	if ( pZoomWheelSlider )
 	{
 		static float fZoomWheelAccum = 0.0f;
-		fZoomWheelAccum += pZoomWheelSlider->GetDelta();
+		// A screen pushed over the mission (a help popup, a message box)
+		// keeps the wheel to itself, the same rule CUIScreen::Update and the
+		// swipe pan below already follow. Drain the slider's delta rather
+		// than skip the read, or it would release into a zoom step once the
+		// mission becomes the top screen again.
+		if ( bInterfaceActive )
+			fZoomWheelAccum += pZoomWheelSlider->GetDelta();
+		else
+			pZoomWheelSlider->GetDelta();
 		const float fZoomWheelQuantum = 4.8f;
 		while ( fZoomWheelAccum >= fZoomWheelQuantum )
 		{
@@ -1632,6 +1646,36 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 			ApplyZoomStep( -1 );
 			fZoomWheelAccum += fZoomWheelQuantum;
 		}
+	}
+
+	// A two-finger trackpad swipe pans the map (Task 7.3), the view following
+	// the fingers one to one. Only a swipe: a physical wheel still does
+	// nothing on the map, as in the original, and IInput leaves Shift+swipe
+	// to the zoom above. Over the interface the swipe belongs to the list or
+	// panel under the cursor (CUIScreen hands it the same wheel), so the map
+	// pans only where the cursor is on the map itself, and never while the
+	// game holds the player's controls (the zoom's pause gate).
+	float fTrackpadX = 0, fTrackpadY = 0;
+	pInput->TakeTrackpadScroll( &fTrackpadX, &fTrackpadY );
+	if ( ( fTrackpadX != 0 || fTrackpadY != 0 ) && bInterfaceActive && pTimer->GetPauseReason() <= PAUSE_TYPE_NO_CONTROL )
+	{
+		const CVec2 vCursor = pCursor->GetPos();
+		IUIElement *pUnder = pUIScreen != 0 ? pUIScreen->PickElement( vCursor, 1000000000 ) : 0;
+		if ( pUnder == 0 )
+		{
+			// The world point that should come to the screen's centre, through
+			// the same projection the zoom uses, so the pan is right at every
+			// zoom step and along the map's diagonal axes.
+			const CTRect<float> rcScreen = pGFX->GetScreenRect();
+			const CVec2 vCentre( rcScreen.Width() / 2, rcScreen.Height() / 2 );
+			CVec3 vFrom( 0, 0, 0 ), vTo( 0, 0, 0 );
+			pScene->GetPos3( &vFrom, vCentre, true );
+			pScene->GetPos3( &vTo, vCentre + CVec2( fTrackpadX, fTrackpadY ), true );
+			pCamera->MoveAnchor( vTo - vFrom );
+		}
+		if ( getenv( "BK_INPUT_TRACE" ) )
+			fprintf( stderr, "BK_INPUT_TRACE: trackpad pan %.1f,%.1f px %s anchor=(%.1f,%.1f)\n",
+				fTrackpadX, fTrackpadY, pUnder == 0 ? "map" : "over interface, not panned", pCamera->GetAnchor().x, pCamera->GetAnchor().y );
 	}
 
 	++nStartPauseCounter;

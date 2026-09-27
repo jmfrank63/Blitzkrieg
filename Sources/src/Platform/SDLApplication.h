@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Event.h"
+#include "WheelScroll.h"
 #include "../PlatformABI/platform_c.h"
 
 namespace NPlatform
@@ -124,6 +125,10 @@ private:
 	bool event_overflow_episode_ = false;
 	// When PollEvent last found the queue empty, on the engine's clock.
 	std::uint64_t last_drain_ms_ = 0;
+	// Wheel deltas as WHEEL_DELTA integers with the fraction carried, and the
+	// fingers on the trackpad that make a wheel event a swipe (WheelScroll.h).
+	CWheelResidual wheel_residual_;
+	CWheelSource wheel_source_;
 	struct GamepadRecord
 	{
 		int device_id = 0;

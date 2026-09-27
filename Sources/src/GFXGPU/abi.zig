@@ -717,6 +717,11 @@ test "the overlay, device and capture entry points are in the table and validate
     var pixels: [16]u8 = undefined;
     var info = ReadbackInfo{ .struct_size = @sizeOf(ReadbackInfo), .width = 2, .height = 2, .byte_length = pixels.len, .row_pitch = 8, .data = @ptrCast(&pixels) };
     try std.testing.expectEqual(errors.unsupported, gfxgpu_readback_frame(handle, &info));
+    // A new request forgets the frame an older one kept: the read waits for
+    // the next frame instead of handing back the old one.
+    renderer.capture_ready = true;
+    try std.testing.expectEqual(errors.ok, table.set_frame_capture(handle, 1));
+    try std.testing.expect(!renderer.capture_ready);
 }
 
 test "a caller's struct is read only as far as its struct_size" {

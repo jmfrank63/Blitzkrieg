@@ -159,7 +159,10 @@ jobs:
     # 35683754678). The two runs that were cut off at 120 and 240 minutes were
     # not building: the test sat behind a debug-CRT abort() message box, which
     # editor_bridge_test.cpp now sends to stderr instead.
-    timeout-minutes: 60
+    # Raised to 75: run 36271881570 had every step green and was cancelled at
+    # 60 minutes during post-job cleanup, after the random missions tiers
+    # (37 minutes together) and a 5.5 minute upload of zig-out.
+    timeout-minutes: 75
 
     steps:
       - name: Check out source
@@ -304,6 +307,20 @@ jobs:
       # that only ever skips is a 2.3 GB checkout for a line of output.
       - name: Engine tier
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        run: zig build map-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        run: zig build map-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The editor core driving the real engine through the Zig adapter.
+      - name: Map editor engine tier
+        run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Random missions tier
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
@@ -484,6 +501,26 @@ jobs:
 
       - name: Engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-host-check -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The game's SDL event translation, through the real SDLApplication and
+      # a real window: wheel deltas (a trackpad swipe's fractions, flipped,
+      # finger-marked), keys, text and timestamps. Needs a video driver.
+      - name: SDL event translation
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-events -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The editor core driving the real engine through the Zig adapter.
+      - name: Map editor engine tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-engine -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Random missions tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all

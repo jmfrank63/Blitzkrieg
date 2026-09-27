@@ -421,6 +421,9 @@ CInputAPI::CInputAPI()
 	bCoopLevelSet = false;
 	bFocusCaptured = false;
 	pfnPlatformPump = 0;
+	nTrackpadX = 0;
+	nTrackpadY = 0;
+	fTrackpadSensitivity = 1.0f;
 	hWindow = 0;
 	bTextMayFollowKey = false;
 	#if defined(BK_INPUT_EVENT_ONLY)
@@ -1091,8 +1094,28 @@ void CInputAPI::ConsumePlatformEvent( const NPlatform::PlatformEvent &event )
 			break;
 		}
 		case NPlatform::EventType::mouseWheel:
-			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, event.y, time, 0 );
+			// CControlAxis reads an absolute position and emits new-minus-last,
+			// as it did for DirectInput and for WinFrame's running absZ. Handing
+			// it each event's delta instead made the binder's sum of those
+			// differences telescope to the last delta alone: a trackpad swipe
+			// went forth while it sped up and back while it slowed down, ending
+			// where it began, and a second notch the same way repeated the value
+			// and was ignored. The axis gets the running sum now; an event with
+			// no vertical part (a sideways swipe) leaves it where it is.
+		{
+			// A swipe is scaled by the player's trackpad sensitivity, for the
+			// lists it scrolls and the map it pans alike; a wheel never is.
+			int nX = event.x, nY = event.y;
+			if ( event.trackpad )
+				trackpadScale.Scale( event.x, event.y, fTrackpadSensitivity, &nX, &nY );
+			EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, wheelAxis.Feed( nY ), time, 0 );
+			if ( event.trackpad && ( event.modifiers & NPlatform::modifierShift ) == 0 )
+			{
+				nTrackpadX += nX;
+				nTrackpadY += nY;
+			}
 			break;
+		}
 		case NPlatform::EventType::controllerAdded:
 #if defined(BK_INPUT_EVENT_ONLY)
 			HandleControllerAdded( event );
@@ -1157,6 +1180,14 @@ void CInputAPI::ClearMessages()
 	PumpMessagesLocal( bFocusCaptured );
 	messages.clear();
 	chars.clear();
+	nTrackpadX = 0;
+	nTrackpadY = 0;
+}
+void CInputAPI::TakeTrackpadScroll( float *pfX, float *pfY )
+{
+	NPlatform::TrackpadPanPixels( nTrackpadX, nTrackpadY, pfX, pfY );
+	nTrackpadX = 0;
+	nTrackpadY = 0;
 }
 #if !defined(BK_INPUT_EVENT_ONLY)
 struct SSeqNumberLessThenFunctional

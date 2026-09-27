@@ -77,5 +77,14 @@ interface IInput : public IRefCount
 	virtual EInputTextMode STDCALL GetTextMode() = 0;
 	virtual bool STDCALL SetTextMode( const EInputTextMode eMode ) = 0;
 	virtual void STDCALL SetCodePage( const int nCodePage ) = 0;
+	// The trackpad swipe since the last call, in screen pixels (x right, y
+	// down: the way the view should move), and reset. Only swipes count - a
+	// physical wheel keeps its original meaning - and not while Shift is held
+	// (Shift+wheel zooms). The mission pans its camera by it.
+	virtual void STDCALL TakeTrackpadScroll( float *pfX, float *pfY ) = 0;
+	// The player's trackpad sensitivity (GamePlay.TrackpadScroll, see
+	// WheelScroll.h TrackpadSensitivityFromOption): multiplies what a swipe
+	// pans the map and scrolls a list by. A physical wheel is not affected.
+	virtual void STDCALL SetTrackpadSensitivity( float fScale ) = 0;
 };
 #endif // __INPUT_H__

@@ -17,6 +17,25 @@
 #include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/VA_Types.h"
 
+// A sound and a tank pit are in the object database, and so in the catalogue,
+// but neither is a map object. A map keeps its sounds in CMapInfo::soundsList
+// (the MFC editor edits them in their own dialog, MapSoundInfo.cpp, and the
+// game hands that list to IScene::InitMapSounds), and the game's
+// CAILogic::AddObject returns 0 for a sound. A tank pit is dug by engineers
+// during play; AddObject has no case for one and would treat its unit stats
+// as a static object's. The MFC editor's palette leaves both out: it lists only
+// paths under buildings, objects, squads and units, and drops tank_pit
+// (TabSimpleObjectsDialog.cpp:158-174). Asking the engine anyway is what
+// crashed the editor, in CheckStaticObject, reading a footprint neither has.
+const char* WhyNotAMapObject( int nGameType )
+{
+	if ( nGameType == SGVOGT_SOUND )
+		return "is a sound; a map keeps its sounds in their own list, not among its objects";
+	if ( nGameType == SGVOGT_TANK_PIT )
+		return "is a tank pit, which engineers dig during play; a map cannot hold one";
+	return 0;
+}
+
 namespace {
 
 // The snapshot keeps frame indices packed; the working copy is unpacked,
@@ -51,6 +70,8 @@ void MakeWorkingCopy( SEditorSession *pSession )
 // says nothing about it.
 IRefCount* PlaceOneObject( const SMapObjectInfo &rObject, const SGDBObjectDesc *pDesc, IAIEditor *pAIEditor )
 {
+	if ( pDesc == 0 || WhyNotAMapObject( pDesc->eGameType ) != 0 )
+		return 0;
 	SMapObjectInfo object = rObject;
 	if ( object.fHP > 1.0f )
 		object.fHP = 1.0f;
@@ -249,6 +270,15 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	// turns them into map objects with visuals in the scene.
 	UpdateSessionWorld( pSession );
 
+	// The camera on the map's middle, placed as the game places its mission
+	// camera, so a frame drawn before the caller's first BkEditorSetCamera
+	// looks at the map rather than along CCamera's default placement. No
+	// camera is not a failed open: the frame reports that itself.
+	const float fMiddleX = float( pSession->working.terrain.tiles.GetSizeX() ) * fWorldCellSize / 2;
+	const float fMiddleY = float( pSession->working.terrain.tiles.GetSizeY() ) * fWorldCellSize / 2;
+	if ( !SetSessionCamera( pSession, fMiddleX, fMiddleY ) )
+		pSession->szMessage.clear();
+
 	pSession->bMapOpen = true;
 	return true;
 }
@@ -432,6 +462,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		pSession->szMessage = "the object database does not know \"" + rAdd.szName + "\"";
 		return false;
 	}
+	if ( const char *pszWhy = WhyNotAMapObject( pDesc->eGameType ) )
+	{
+		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
+		return false;
+	}
 
 	// Never below the floor: an ID a deleted object held may be wanted back by
 	// its restore, and NextLinkID alone would hand the highest one out again.
@@ -441,7 +476,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	int nLinkID = -1;
 	if ( !NMapOverlay::AddObject( &pSession->snapshot, add, &nLinkID ) )
 	{
-		pSession->szMessage = "the map would not take the object";
+		pSession->szMessage = "the map would not take \"" + rAdd.szName + "\"";
 		return false;
 	}
 	// The overlay leaves the frame index at 0 because packing needs the object
@@ -452,8 +487,15 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		CMapInfo::PackFrameIndex( pObjectsDB, pAdded );
 	NMapOverlay::AddObject( &pSession->working, add, 0 );
 
-	const SMapObjectInfo *pSnapshotObject = FindIn( &pSession->snapshot, nLinkID );
-	IRefCount *pAIObject = pSnapshotObject != 0 ? PlaceOneObject( *pSnapshotObject, pDesc, pAIEditor ) : 0;
+	// The engine object comes from the working record, as OpenMapIntoSession
+	// and RestoreObjectInSession build theirs: its frame index is a segment,
+	// while the snapshot's was just packed into a type. Handing the engine the
+	// packed one had it index a fence's segments with 65537 - FENCE_TYPE_NORMAL
+	// | FENCE_DIRECTION_0 - and read an origin and a passability from far past
+	// their end, and built a bridge span and an entrenchment from segments 1
+	// and 2 where segment 0 was meant.
+	const SMapObjectInfo *pWorkingObject = FindIn( &pSession->working, nLinkID );
+	IRefCount *pAIObject = pWorkingObject != 0 ? PlaceOneObject( *pWorkingObject, pDesc, pAIEditor ) : 0;
 	if ( pAIObject == 0 )
 	{
 		// The engine would not have it - outside the map, most often - so the
@@ -462,7 +504,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		std::string szIgnored;
 		NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szIgnored );
 		NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
-		pSession->szMessage = "the engine would not place the object there";
+		pSession->szMessage = "the engine would not place \"" + rAdd.szName + "\" there";
 		return false;
 	}
 	pSession->byLinkID[nLinkID] = pAIObject;
@@ -836,6 +878,113 @@ void CaptureEngineRegion( const STerrainInfo &rEngine, const CTRect<int> &rPatch
 }
 }
 
+// A tile the tileset has no terrain type for reaches CTerrain::SetTile, whose
+// CTerrainBuilder::HasNoise indexes tileset.terrtypes with the -1 that
+// GetTerrainType answers for it (RandomMapGen/TerrainBuilder.cpp), so every
+// cell is checked against the tileset the engine loaded for the map before
+// anything is painted.
+bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile )
+{
+	*pbBadTile = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const STilesetDesc &rTileset = pEngineTerrain->GetTilesetDesc();
+	if ( rTileset.terrtypes.empty() )
+	{
+		pSession->szMessage = "the map's tileset has no terrain types";
+		return false;
+	}
+	for ( size_t i = 0; i < rCells.size(); ++i )
+	{
+		bool bFound = false;
+		for ( size_t t = 0; t < rTileset.terrtypes.size() && !bFound; ++t )
+		{
+			const std::vector<SMainTileDesc> &rTiles = rTileset.terrtypes[t].tiles;
+			for ( size_t k = 0; k < rTiles.size() && !bFound; ++k )
+				bFound = rTiles[k].nIndex == int( rCells[i].tile );
+		}
+		if ( !bFound )
+		{
+			pSession->szMessage = NStr::Format( "tile %d is not in the map's tileset (cell %d,%d)", int( rCells[i].tile ), rCells[i].nX, rCells[i].nY );
+			*pbBadTile = true;
+			return false;
+		}
+	}
+	return true;
+}
+
+// Every tile index the tileset the engine loaded for the map has a terrain
+// type for, once each and in ascending order: exactly the tiles
+// PaintTilesInTileset lets through, read from the same place.
+bool TilesetTiles( SEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
+{
+	*pnCount = 0;
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const STilesetDesc &rTileset = pEngineTerrain->GetTilesetDesc();
+	bool bHas[256];
+	memset( bHas, 0, sizeof bHas );
+	for ( size_t t = 0; t < rTileset.terrtypes.size(); ++t )
+	{
+		const std::vector<SMainTileDesc> &rTiles = rTileset.terrtypes[t].tiles;
+		for ( size_t k = 0; k < rTiles.size(); ++k )
+		{
+			// A paint cell's tile is an unsigned char, so an index past it can
+			// never be painted and is not offered.
+			if ( rTiles[k].nIndex >= 0 && rTiles[k].nIndex < 256 )
+				bHas[rTiles[k].nIndex] = true;
+		}
+	}
+	int nCount = 0;
+	for ( int nTile = 0; nTile < 256; ++nTile )
+	{
+		if ( !bHas[nTile] )
+			continue;
+		if ( nCount < nCapacity )
+			pOut[nCount] = (unsigned char)nTile;
+		++nCount;
+	}
+	*pnCount = nCount;
+	if ( nCount > nCapacity )
+	{
+		pSession->szMessage = NStr::Format( "the tileset has %d tiles, the buffer room for %d", nCount, nCapacity );
+		return false;
+	}
+	return true;
+}
+
+bool EngineTile( SEditorSession *pSession, int nX, int nY, BYTE *pTile )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	const CArray2D<SMainTileInfo> &rTiles = pEngineTerrain->GetTerrainInfo().tiles;
+	if ( nX < 0 || nY < 0 || nX >= rTiles.GetSizeX() || nY >= rTiles.GetSizeY() )
+	{
+		pSession->szMessage = NStr::Format( "cell %d,%d is not on the map", nX, nY );
+		return false;
+	}
+	*pTile = rTiles[nY][nX].tile;
+	return true;
+}
+
 bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, int *pnToken )
 {
 	*pnToken = -1;
@@ -1169,7 +1318,17 @@ bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
 		pSession->szMessage = "there is no camera";
 		return false;
 	}
-	pCamera->SetAnchor( CVec3( wx, wy, 0.0f ) );
+	// Placed the way the game places its mission camera
+	// (GameTT/iMissionInternal.cpp, SetMissionCameraPlacement), not only moved:
+	// CCamera's own default looks along yaw 0 at pitch 45, and the terrain is
+	// laid out in screen space for yaw 45 and pitch 30 (CTerrain::MovePatches
+	// steps its patches by fixed pixel offsets from where the map's corner
+	// lands). Objects go through the view matrix and drew in place; the ground
+	// was laid out thousands of pixels away and clipped, and stayed black.
+	IGFX *pGFX = GetSingleton<IGFX>();
+	const RECT rcScreen = pGFX != 0 ? pGFX->GetScreenRect() : RECT();
+	const float fGameplayCameraHeight = float( rcScreen.bottom - rcScreen.top );
+	pCamera->SetPlacement( CVec3( wx, wy, 0.0f ), 1024 * 4 + fGameplayCameraHeight, -ToRadian( 90.0f + 30.0f ), ToRadian( 45.0f ) );
 	pCamera->Update();
 	return true;
 }
@@ -1221,3 +1380,10 @@ bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, fl
 	return true;
 }
 
+void WorldToMap( float wx, float wy, float *pmx, float *pmy )
+{
+	CVec3 vMap( VNULL3 );
+	Vis2AIFast( &vMap, wx, wy, 0.0f );
+	*pmx = vMap.x;
+	*pmy = vMap.y;
+}

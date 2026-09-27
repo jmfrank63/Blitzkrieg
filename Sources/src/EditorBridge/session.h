@@ -102,6 +102,10 @@ struct SEngineObjectState
 	SEngineObjectState() : vCenter( VNULL2 ), wDir( 0 ), nPlayer( -1 ) {  }
 };
 
+// Why an object of this game type cannot be put on a map, or 0 if it can.
+// The reason reads after the object's name.
+const char* WhyNotAMapObject( int nGameType );
+
 // Reads an object's engine state. Returns false when the engine does not hold
 // the object at all.
 bool ReadEngineObject( const SEditorSession &rSession, int nLinkID, SEngineObjectState *pOut );
@@ -143,7 +147,22 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
 bool DrawSessionFrame( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
+// World units (the scene's) to map units (the file's and the AI's): the
+// engine's AI2Vis the other way round. See BkEditorScreenToWorld.
+void WorldToMap( float wx, float wy, float *pmx, float *pmy );
 
+// True when every cell's tile is one the map's tileset has a terrain type for.
+// False with the reason in szMessage; *pbBadTile says the caller named a tile
+// the tileset lacks, rather than the engine having no terrain or tileset.
+bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile );
+// Every tile the map's tileset has a terrain type for, ascending, into pOut;
+// pnCount is always the tileset's count, not how many fitted. False with the
+// reason in szMessage when no map is open, there is no terrain, or the buffer
+// was too short.
+bool TilesetTiles( SEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount );
+// The tile the engine holds at a cell. False with the reason in szMessage when
+// no map is open or the cell is off the map.
+bool EngineTile( SEditorSession *pSession, int nX, int nY, BYTE *pTile );
 // Paints cells into the map and pushes the region they touched into the engine.
 // Returns false with the reason in szMessage. pnToken names the paint for undo
 // and redo; it is -1 when there was nothing to paint.

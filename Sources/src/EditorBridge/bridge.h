@@ -108,8 +108,9 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
    that more than one object of the map carries is refused, because the bridge
    cannot tell which of them would change; they are saved as they were read.
 
-   Positions are floats because a map's are; the engine takes whole units and
-   the bridge rounds once, on its way in. */
+   Positions are floats because a map's are, in map units (see
+   BkEditorScreenToWorld); the engine takes whole units and the bridge rounds
+   once, on its way in. */
 BkEditorStatus BkEditorAddObject( BkEditorSession *session, const char *name,
                                   float x, float y, int dir, int player, int *out_link_id );
 /* All three at once. The single-field calls below are this one with the other
@@ -190,12 +191,30 @@ typedef struct { int x, y; unsigned char tile; } BkEditorPaintCell;
    null; it is -1 when nothing was painted (count 0, or a refusal). A token is
    valid until the next BkEditorOpenMap, which forgets every paint of the map
    before and numbers the new map's paints from 0 again, so an old token may
-   name a new paint and must not be used. */
+   name a new paint and must not be used.
+   Every cell's tile must be one the open map's tileset has a terrain type for
+   (the shipped tilesets skip indices: 1 is in none of them). A cell naming any
+   other tile is BK_EDITOR_BAD_ARGUMENT, with the tile in BkEditorLastMessage,
+   and nothing is painted - the check runs over all cells before the terrain
+   is touched. A cell off the map is BK_EDITOR_REFUSED, also before anything
+   is painted. */
 BkEditorStatus BkEditorPaint( BkEditorSession *session, const BkEditorPaintCell *cells, int count, int *out_token );
 BkEditorStatus BkEditorUndoPaint( BkEditorSession *session, int token );
 BkEditorStatus BkEditorRedoPaint( BkEditorSession *session, int token );
+/* The tile the engine holds at a cell, as it draws it - for the engine tier
+   and for an eyedropper. BK_EDITOR_REFUSED when no map is open or the cell is
+   off the map. */
+BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsigned char *out_tile );
 
-/* A world point to the tile it falls in - the brush's other half, through the
+/* The tiles BkEditorPaint takes on the open map: every index its tileset has a
+   terrain type for, once each, ascending - what a brush's palette offers.
+   Like BkEditorObjects, out_count is always the total, and a buffer too short
+   for it is BK_EDITOR_REFUSED with nothing written past capacity; out may be
+   null when capacity is 0, to ask for the count. BK_EDITOR_REFUSED too when
+   no map is open. */
+BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *out, int capacity, int *out_count );
+
+/* A world point (world units, not map units) to the tile it falls in - the brush's other half, through the
    engine's own conversion. Screen to world is BkEditorScreenToWorld; the two
    compose. BK_EDITOR_REFUSED means the point is not on the map. */
 BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy, int *out_x, int *out_y );
@@ -220,11 +239,62 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
 typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
-/* The camera, and one frame drawn into the window the session was started on.
+/* The camera, placed in world units, and one frame drawn into the window the
+   session was started on. BkEditorOpenMap places the camera on the map's
+   middle, so a frame before the first BkEditorSetCamera already looks at the
+   map; before any map is open the camera is CCamera's default placement.
+   BkEditorResize places the camera again at its current anchor.
    BK_EDITOR_REFUSED from BkEditorFrame is a device that would not begin a
    scene, which is a thing that happens rather than a bug. */
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
 BkEditorStatus BkEditorFrame( BkEditorSession *session );
+
+/* The editor's own drawing - its ImGui - goes into the engine's frame rather
+   than into a renderer of its own. overlay runs on the thread that calls
+   BkEditorFrame, inside the engine's Flip, after the scene and before present,
+   with that frame's SDL_GPUCommandBuffer and colour target (an SDL_GPUTexture
+   of width x height pixels). No render pass is open: the callback opens and
+   ends its own. It must not call back into the bridge. A null overlay
+   removes it, and BkEditorStop removes it too, since the renderer outlives the
+   session and the callback and user data die with the caller's own state.
+   BK_EDITOR_REFUSED means the engine is not started or its renderer has no
+   such hook. */
+typedef void (*BkEditorOverlay)( void *user, void *command_buffer, void *target, unsigned int width, unsigned int height );
+BkEditorStatus BkEditorSetOverlay( BkEditorSession *session, BkEditorOverlay overlay, void *user );
+
+/* The engine's SDL_GPUDevice and the SDL_GPUTextureFormat of the overlay's
+   target, for building the overlay's pipelines against the device that will
+   draw them. BK_EDITOR_REFUSED means the renderer has no SDL GPU device; both
+   outputs are then null and 0. */
+BkEditorStatus BkEditorGpuDevice( BkEditorSession *session, void **out_device, unsigned int *out_format );
+
+/* The screen is the window: BkEditorStart sets the engine's mode to the
+   window's size, so a mouse position is a screen position with no scale. Call
+   BkEditorResize after the window's size changed. The screen then becomes the
+   window's current size in points - which is pixels, because the editor's
+   window has no high pixel density - the projection is set again, and the
+   camera is placed again at its anchor (its distance depends on the screen's
+   height), as the game does after a resolution change. The
+   window itself is left alone: never moved to another display, sized or
+   shown again, and no frame is presented. width and height must be the
+   window's size as the caller just saw it; anything else is
+   BK_EDITOR_BAD_ARGUMENT and changes nothing, since a caller out of step with
+   its window would put the screen and the mouse out of step too.
+   BK_EDITOR_FAILED means the renderer would not follow the window (inside a
+   frame, or a renderer that cannot). */
+BkEditorStatus BkEditorResize( BkEditorSession *session, int width, int height );
+/* The size the engine draws at, which BkEditorScreenToWorld and
+   BkEditorObjectAt take their points in. */
+BkEditorStatus BkEditorScreenSize( BkEditorSession *session, int *out_width, int *out_height );
+
+/* Draws one frame, as BkEditorFrame does, and writes it to path_tga as it was
+   presented - the scene with the overlay over it - as an uncompressed 32-bit
+   TGA of the screen's size, top row first, alpha opaque. For the engine tier
+   and the app's own check, which have no other way to see the overlay; the
+   editor does not call it. BK_EDITOR_REFUSED is a device that would not begin
+   a scene or a renderer that cannot capture; BK_EDITOR_FAILED a file that
+   would not write. */
+BkEditorStatus BkEditorCaptureFrame( BkEditorSession *session, const char *path_tga );
 
 /* The object under a screen point, as a link ID. Bridges and entrenchments
    are passed over, as the MFC editor passes them over
@@ -237,8 +307,25 @@ BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, i
 
 /* A screen point to the world point under it, against the terrain the camera
    is looking at - so it wants a camera that has been placed. Composes with
-   BkEditorWorldToTile to turn a click into a cell. */
+   BkEditorWorldToTile to turn a click into a cell.
+
+   Two units cross this ABI, and a point in one is not a point in the other.
+   World units are the scene's: the camera (BkEditorSetCamera), this call and
+   BkEditorWorldToTile. Map units are the file's and the AI's: every object
+   position - BkEditorAddObject, BkEditorPlaceObject and the calls built on it,
+   BkEditorObjects, BkEditorEngineObjectState. A map unit is sqrt 2 world
+   units' worth smaller (AI2Vis, Formats/fmtTerrain.h), so a click's world
+   point handed straight to BkEditorAddObject places the object at 0.7 of
+   the way from the map's corner to where it was clicked - off the screen,
+   drawn and picked there, which is how plan 5's smoke first met it.
+   BkEditorWorldToMap is the one conversion. */
 BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float sy, float *wx, float *wy );
+
+/* A world point as the map position an object placed there takes, through
+   the engine's own conversion (Vis2AIFast). Unrounded: the object calls
+   round once, on their way in. Needs no map and no camera, and cannot be
+   refused; only a missing out pointer is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorWorldToMap( BkEditorSession *session, float wx, float wy, float *mx, float *my );
 
 /* The map's own two fields, not a player's: nType is the mission kind and
    nAttackingSide is which side attacks in it. The engine has no say in either,
@@ -247,7 +334,8 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float 
 BkEditorStatus BkEditorSetMapType( BkEditorSession *session, int type );
 BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
 
-/* Safe on a null session, and safe to call twice. */
+/* Safe on a null session, and safe to call twice. Removes the overlay
+   BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
 
 #ifdef __cplusplus

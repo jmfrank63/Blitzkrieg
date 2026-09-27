@@ -9,7 +9,11 @@ const Editor = editor_mod.Editor;
 const EditError = bridge_mod.EditError;
 const PaintCell = bridge_mod.PaintCell;
 
-pub const Pointer = struct { world_x: f32, world_y: f32, tile: ?[2]i32 = null, object: ?i32 = null };
+/// world_x/world_y are the scene's units, for the camera; map_x/map_y the
+/// same point in the map's, which is what an object's position is in. The
+/// two differ by sqrt 2 (bridge.h, BkEditorScreenToWorld): a placer handed
+/// the world point put its object off the screen.
+pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null };
 pub const Key = enum { delete, rotate_left, rotate_right };
 pub const Event = union(enum) { press: Pointer, drag: Pointer, release: Pointer, key: Key };
 
@@ -84,7 +88,7 @@ pub const Placer = struct {
 
     pub fn handle(self: *Placer, editor: *Editor, event: Event) EditError!void {
         switch (event) {
-            .press => |pointer| editor.selection = try editor.addObject(self.name, pointer.world_x, pointer.world_y, self.dir, self.player),
+            .press => |pointer| editor.selection = try editor.addObject(self.name, pointer.map_x, pointer.map_y, self.dir, self.player),
             else => {},
         }
     }
@@ -105,8 +109,8 @@ pub const Selector = struct {
                 };
                 const object = editor.document.find(link_id) orelse return;
                 editor.selection = link_id;
-                self.grab_x = object.x - pointer.world_x;
-                self.grab_y = object.y - pointer.world_y;
+                self.grab_x = object.x - pointer.map_x;
+                self.grab_y = object.y - pointer.map_y;
                 self.gesture = editor.beginGesture();
             },
             .drag => |pointer| {
@@ -114,8 +118,8 @@ pub const Selector = struct {
                 const link_id = editor.selection orelse return;
                 const object = editor.document.find(link_id) orelse return;
                 const pose: editor_mod.Pose = .{
-                    .x = pointer.world_x + self.grab_x,
-                    .y = pointer.world_y + self.grab_y,
+                    .x = pointer.map_x + self.grab_x,
+                    .y = pointer.map_y + self.grab_y,
                     .dir = object.dir,
                     .player = object.player,
                 };
@@ -225,6 +229,30 @@ test "the placer adds and selects" {
     try testing.expectEqual(@as(i32, 1), editor.document.find(link).?.player);
 }
 
+test "the placer and a drag take the map position under the pointer, not the world point" {
+    // The real engine's map units are not its world units; a world point
+    // used as an object position puts the object somewhere else than the
+    // click (plan 5, Task 7.1).
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 2;
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var placer: Placer = .{ .name = "T34" };
+    try placer.handle(&editor, .{ .press = try at(&editor, 100, 60) });
+    const link = editor.selection.?;
+    try testing.expectEqual(@as(f32, 200), editor.document.find(link).?.x);
+    try testing.expectEqual(@as(f32, 120), editor.document.find(link).?.y);
+    // And a click where it was placed finds it.
+    try testing.expectEqual(@as(?i32, link), (try at(&editor, 100, 60)).object);
+    var selector: Selector = .{};
+    try selector.handle(&editor, .{ .press = try at(&editor, 105, 60) }); // 10 map units to its right
+    try selector.handle(&editor, .{ .drag = try at(&editor, 125, 70) });
+    try selector.handle(&editor, .{ .release = try at(&editor, 125, 70) });
+    try testing.expectEqual(@as(f32, 240), editor.document.find(link).?.x);
+    try testing.expectEqual(@as(f32, 140), editor.document.find(link).?.y);
+}
+
 test "drag-move moves, keeps the grab offset, and is one undo step" {
     var fake = try testFixture(testing.allocator);
     defer fake.deinit();
@@ -249,10 +277,10 @@ test "a refused position mid-drag is skipped, not the end of the drag" {
     defer editor.deinit();
     var selector: Selector = .{};
     try selector.handle(&editor, .{ .press = try at(&editor, 40, 40) });
-    try selector.handle(&editor, .{ .drag = .{ .world_x = 2, .world_y = 40 } }); // 40 - 38 would be fine
-    try selector.handle(&editor, .{ .drag = .{ .world_x = -30, .world_y = 40 } }); // off the map: refused
+    try selector.handle(&editor, .{ .drag = .{ .world_x = 2, .world_y = 40, .map_x = 2, .map_y = 40 } }); // 40 - 38 would be fine
+    try selector.handle(&editor, .{ .drag = .{ .world_x = -30, .world_y = 40, .map_x = -30, .map_y = 40 } }); // off the map: refused
     try testing.expectEqual(@as(f32, 2), editor.document.find(1).?.x);
-    try selector.handle(&editor, .{ .drag = .{ .world_x = 20, .world_y = 40 } });
+    try selector.handle(&editor, .{ .drag = .{ .world_x = 20, .world_y = 40, .map_x = 20, .map_y = 40 } });
     try testing.expectEqual(@as(f32, 20), editor.document.find(1).?.x);
 }
 
