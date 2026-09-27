@@ -1003,8 +1003,10 @@ bool CInterfaceCloudCredentials::StepLocal( bool bAppActive )
 	CInterfaceScreenBase::OnCursorMove( vPos );
 	pUIScreen->Update( pTimer->GetAbsTime() );
 	// The wheel scrolls the row window wherever it is turned; the row area
-	// has no list control of its own, so there is no double delivery.
-	if ( bAppActive && pWheelScroll != 0 && !bFinished )
+	// has no list control of its own, so there is no double delivery. Only
+	// while this screen is the top one: a screen pushed over it (a message
+	// box, a help screen) keeps the wheel to itself.
+	if ( bAppActive && pWheelScroll != 0 && !bFinished && pScene != 0 && pScene->GetUIScreen() == pUIScreen )
 	{
 		const float fDelta = pWheelScroll->GetDelta();
 		if ( fDelta != 0.0f )

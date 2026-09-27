@@ -113,8 +113,10 @@ bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 	// inside of; this covers the rest of the screen, so the wheel scrolls the
 	// option list wherever it is turned. Only outside the list rect - inside
 	// it the screen's own routing delivers the same delta and forwarding it
-	// again would scroll twice per notch.
-	if ( bAppActive && pWheelScroll && pUIScreen && nActive >= 0 )
+	// again would scroll twice per notch. Only while this screen is the top
+	// one: every interface on the stack steps, so with the help screen (or a
+	// message box) open over it the wheel belongs to that screen alone.
+	if ( bAppActive && pWheelScroll && pUIScreen && nActive >= 0 && pScene != 0 && pScene->GetUIScreen() == pUIScreen )
 	{
 		const float fDelta = pWheelScroll->GetDelta();
 		if ( fDelta != 0.0f )

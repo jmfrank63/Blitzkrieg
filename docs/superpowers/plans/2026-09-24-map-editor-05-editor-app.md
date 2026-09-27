@@ -1198,9 +1198,20 @@ Added by the controller at Johannes's request (2026-09-27): on a Mac trackpad, a
 
 Added by the controller from Johannes's hand try of Task 7.3 (2026-09-27): with a help screen open, a two-finger swipe scrolls the help screen and also the out-of-focus screen under it. Johannes: fix it if it is easy; if it is real effort, leave it as it is. So this task is time-boxed: diagnose first; fix only if the fix is small and local (the wheel goes only to the topmost/modal screen, as clicks do).
 
-- [ ] **Step 1: Measure.** Find how a wheel event reaches both screens (the help screen is an overlay/child screen; which of `UIScreen`, the screen stack or `InterfaceScreenBase` hands the wheel to the screen underneath, and how clicks avoid it). Record it here.
-- [ ] **Step 2: Decide.** If the fix is small and local, write a test first (a wheel with a help screen open changes only the help screen's scroll position), then fix. If not, record why and what the fix would take, and stop.
-- [ ] **Step 3: Commit** (fix or findings).
+- [x] **Step 1: Measure.** Find how a wheel event reaches both screens (the help screen is an overlay/child screen; which of `UIScreen`, the screen stack or `InterfaceScreenBase` hands the wheel to the screen underneath, and how clicks avoid it). Record it here.
+- [x] **Step 2: Decide.** If the fix is small and local, write a test first (a wheel with a help screen open changes only the help screen's scroll position), then fix. If not, record why and what the fix would take, and stop.
+- [x] **Step 3: Commit** (fix or findings).
+
+**Measured (2026-09-27).**
+- The help screen is `CInterfaceIMTutorial`. `PushInterface` puts it on the main loop's stack, and it adds its own UI screen to the scene on top. The screen below stays in the scene.
+- `CUIScreen::Update` gives the `mouse_wheel` slider only to the top scene screen, so the lists of the screen below never get it through the UI.
+- But `CMainLoop` steps every interface on the stack. `CInterfaceOptionsSettings::StepLocal` reads its own `mouse_wheel` slider and scrolls the active option list whenever the cursor is outside that list, which is the case when it is over the help screen. `CInterfaceCloudCredentials::StepLocal` does the same for its rows.
+- The mission's swipe pan was already gated on its screen being the top one.
+- Harness, Settings with its first-visit help screen, 16 wheel notches over the help:
+  - before the fix, the help text changed 65420 px and the options list under it 29626 px;
+  - after the fix, 65420 px and 0 px.
+
+**Decision: fixed (small and local).** Both `StepLocal` readers now also require `pScene->GetUIScreen() == pUIScreen`, the rule `CUIScreen::Update` and the mission pan already follow. Without a help screen, the wheel outside the list still scrolls the list. Report: `.superpowers/sdd/2026-09-24-map-editor-05-editor-app/task-7.4-report.md`.
 
 ---
 
