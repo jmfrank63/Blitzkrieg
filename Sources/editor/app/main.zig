@@ -1,14 +1,27 @@
-//! MapEditor. For now it knows one mode, the host check:
-//!   MapEditor --check <map> [<out.tga>]
-//! It starts the engine hidden with ImGui over it, opens the map, draws frames
-//! with a magenta ImGui window at a known place, captures one frame as it was
-//! presented and checks that both the panel and the map are in it. Prints
-//! "map-editor: host check PASS (<driver>, <w>x<h>)" and exits 0, or a
-//! "FAIL:" line naming what was wrong and exits 1.
+//! MapEditor:
+//!   MapEditor [<map>]                       interactive
+//!   MapEditor --check <map> [<out.tga>]     headless host check
+//!
+//! The interactive mode opens a visible window, starts the engine on it,
+//! opens <map> if one was given, and runs view.View's camera and tools until
+//! the window closes. A step that fails before there is a window to show
+//! anything in (SDL, the window, the engine, ImGui, or the map itself) is
+//! reported through SDL_ShowSimpleMessageBox, naming the step, and exits
+//! non-zero; --check has no window to show a dialog over, so it keeps
+//! printing to stderr instead.
+//!
+//! The host check starts the engine hidden with ImGui over it, opens the
+//! map, draws frames with a magenta ImGui window at a known place, captures
+//! one frame as it was presented and checks that both the panel and the map
+//! are in it. Prints "map-editor: host check PASS (<driver>, <w>x<h>)" and
+//! exits 0, or a "FAIL:" line naming what was wrong and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
+const core = @import("editor_core");
 const host_mod = @import("host.zig");
+const c_bridge = @import("c_bridge.zig");
+const view_mod = @import("view.zig");
 const crt = @import("crt.zig");
 const c = host_mod.c;
 
@@ -25,7 +38,8 @@ const probe = struct {
 const probe_frames = 10;
 
 /// A tile's side in world units: fWorldCellSize (Formats/fmtTerrain.h), 32 * sqrt(2).
-const world_cell_size: f32 = 32.0 * std.math.sqrt2;
+/// Shared with view.zig so the two never drift apart.
+const world_cell_size: f32 = view_mod.world_cell_size;
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
@@ -35,14 +49,99 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
     var args = try std.process.Args.Iterator.initAllocator(minimal.args, gpa);
     defer args.deinit();
     _ = args.next();
-    const mode = args.next() orelse usage();
-    if (!std.mem.eql(u8, mode, "--check")) usage();
-    const map = args.next() orelse usage();
-    const output = args.next() orelse default_output;
-    if (args.next() != null) usage();
+    const first = args.next();
+    if (first) |arg| {
+        if (std.mem.eql(u8, arg, "--check")) {
+            const map = args.next() orelse usage();
+            const output = args.next() orelse default_output;
+            if (args.next() != null) usage();
+            const passed = try check(gpa, io, map, output);
+            std.process.exit(if (passed) 0 else 1);
+        }
+        if (args.next() != null) usage();
+        try interactive(gpa, arg);
+        return;
+    }
+    try interactive(gpa, null);
+}
 
-    const passed = try check(gpa, io, map, output);
-    std.process.exit(if (passed) 0 else 1);
+/// The interactive mode: one window, the engine on it, the view driving the
+/// core's tools, until the window closes or the process is asked to quit
+/// (SDL maps SIGINT/SIGTERM to SDL_EVENT_QUIT by default).
+fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
+    var host = host_mod.Host.start(.{ .title = "Map Editor" }) catch |err|
+        fatal(startupStepName(err), @errorName(err));
+    defer host.stop();
+
+    var real = c_bridge.RealBridge.init(host.session);
+    var editor = core.editor.Editor.init(gpa, real.bridge());
+    defer editor.deinit();
+    var view = view_mod.View.init(gpa);
+    defer view.deinit(gpa);
+
+    if (map) |path| {
+        editor.open(path) catch {
+            const reason = editor.status();
+            fatal("map open", if (reason.len != 0) reason else "the map did not open");
+        };
+        view.centreOn(&real, editor.document.info);
+    }
+
+    var running = true;
+    var last_ticks: u64 = sdl3.c.SDL_GetTicks();
+    while (running) {
+        var event: sdl3.c.SDL_Event = undefined;
+        while (sdl3.c.SDL_PollEvent(&event)) {
+            const taken = host.handleEvent(&event);
+            switch (event.type) {
+                sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => running = false,
+                else => if (!taken) view.handleEvent(&editor, &real, &event),
+            }
+        }
+        const ticks = sdl3.c.SDL_GetTicks();
+        const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
+        last_ticks = ticks;
+        view.update(&real, dt_seconds);
+
+        host.beginFrame();
+        drawStatusWindow(view.statusLine());
+        host.endFrame() catch {};
+    }
+    std.process.exit(0);
+}
+
+fn startupStepName(err: host_mod.HostError) []const u8 {
+    return switch (err) {
+        error.SdlInitFailed => "SDL init",
+        error.WindowFailed => "the window",
+        error.EngineFailed => "the engine start",
+        error.NoDevice => "no GPU device",
+        error.ImguiFailed => "ImGui",
+        error.FrameFailed => "the frame",
+    };
+}
+
+/// Names the step that failed before there was a window to show anything in,
+/// through the platform's own message box, and exits. Never reached by
+/// --check, which has no window and keeps failing to stderr (see `fail`).
+fn fatal(step: []const u8, reason: []const u8) noreturn {
+    var buffer: [768]u8 = undefined;
+    const message = std.fmt.bufPrintZ(&buffer, "{s} failed: {s}", .{ step, reason }) catch "Map Editor failed to start";
+    _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Map Editor", message, null);
+    std.process.exit(1);
+}
+
+/// For now, a one-line status window (the panels of Task 5 replace this).
+fn drawStatusWindow(status: []const u8) void {
+    var buffer: [513:0]u8 = undefined;
+    const text = if (status.len == 0) "ready" else status;
+    const len = @min(text.len, buffer.len - 1);
+    @memcpy(buffer[0..len], text[0..len]);
+    buffer[len] = 0;
+    imgui.c.igSetNextWindowPos(.{ .x = 0, .y = 0 }, imgui.c.ImGuiCond_Always);
+    _ = imgui.c.igBegin("status", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings | imgui.c.ImGuiWindowFlags_AlwaysAutoResize);
+    imgui.c.igText("%s", buffer[0..len :0].ptr);
+    imgui.c.igEnd();
 }
 
 // The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why).
@@ -61,7 +160,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: MapEditor --check <map> [<out.tga>]\n", .{});
+    std.debug.print("usage: MapEditor [<map>]\n       MapEditor --check <map> [<out.tga>]\n", .{});
     std.process.exit(2);
 }
 

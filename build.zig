@@ -2713,6 +2713,20 @@ pub fn build(b: *std.Build) void {
     editor_core_step.dependOn(&editor_core_tests.step);
     if (test_mode == .run) editor_core_step.dependOn(&editor_core_tests_run.step);
     test_step.dependOn(editor_core_step);
+    // The map view's pure parts (camera scrolling, the button-to-tool-event
+    // mapping): plain Zig, no SDL or engine, so this runs without a GPU or a
+    // staged installation.
+    const view_math_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/view_math.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const view_math_tests = b.addTest(.{ .root_module = view_math_module });
+    const view_math_tests_run = b.addRunArtifact(view_math_tests);
+    const view_math_step = b.step("test-map-editor-view", "Run the map view's pure camera and input-mapping tests");
+    view_math_step.dependOn(&view_math_tests.step);
+    if (test_mode == .run) view_math_step.dependOn(&view_math_tests_run.step);
+    test_step.dependOn(view_math_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
