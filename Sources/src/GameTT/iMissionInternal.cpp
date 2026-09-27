@@ -1616,7 +1616,15 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 	if ( pZoomWheelSlider )
 	{
 		static float fZoomWheelAccum = 0.0f;
-		fZoomWheelAccum += pZoomWheelSlider->GetDelta();
+		// A screen pushed over the mission (a help popup, a message box)
+		// keeps the wheel to itself, the same rule CUIScreen::Update and the
+		// swipe pan below already follow. Drain the slider's delta rather
+		// than skip the read, or it would release into a zoom step once the
+		// mission becomes the top screen again.
+		if ( bInterfaceActive )
+			fZoomWheelAccum += pZoomWheelSlider->GetDelta();
+		else
+			pZoomWheelSlider->GetDelta();
 		const float fZoomWheelQuantum = 4.8f;
 		while ( fZoomWheelAccum >= fZoomWheelQuantum )
 		{
