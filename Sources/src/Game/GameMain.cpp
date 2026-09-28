@@ -1269,7 +1269,11 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// clipboard) | paste (press the real Cmd+V chord) | text=<utf8> (typed into
 			// the focused edit box through the platform text path; no commas or
 			// colons - they are the schedule's separators) | wheel=<delta> (a wheel
-			// notch, positive up) | set=<option>=<value> | var=<name>=<value>.
+			// notch, positive up) | set=<option>=<value> | var=<name>=<value> |
+			// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence; build-preview query) |
+			// units=<x>x<y>x<r> (counts each player's units within radius r of
+			// (x,y), in the AI's own coordinates - a harness's way to see a
+			// placed unit in the running mission without driving the UI).
 			// It also reports frame timing every 120 frames, which is how the menu
 			// frame rate is measured headless.
 			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
@@ -1450,6 +1454,50 @@ int RunGame( const BkGameLaunchInfo &launch )
 								CVec2( float( nX1 ), float( nY1 ) ), CVec2( float( nX2 ), float( nY2 ) ) );
 							fprintf( stderr, "BK_AUTO_UI: probe %c (%d,%d)-(%d,%d) -> %s\n",
 								cKind, nX1, nY1, nX2, nY2, bResult ? "GREEN" : "RED" );
+						}
+					}
+					else if ( szAction.compare( 0, 6, "units=" ) == 0 )
+					{
+						// units=<x>x<y>x<r>: counts each player's units within radius
+						// r of (x,y), in SMiniMapUnitInfo's own coordinates (the same
+						// ones GetMiniMapInfo already reports for the minimap) - a
+						// harness's way to see a placed unit in a running mission
+						// without driving the UI.
+						int nX = 0, nY = 0, nRadius = 0;
+						if ( sscanf( szAction.c_str() + 6, "%dx%dx%d", &nX, &nY, &nRadius ) == 3 )
+						{
+							IAILogic *pAI = GetSingleton<IAILogic>();
+							if ( pAI == 0 )
+								fprintf( stderr, "BK_AUTO_UI: units unavailable\n" );
+							else
+							{
+								SMiniMapUnitInfo *pUnits = 0;
+								int nLen = 0;
+								pAI->GetMiniMapInfo( &pUnits, &nLen );
+								int nCounts[16] = { 0 };
+								int nOther = 0;
+								int nTotal = 0;
+								const long long nRadiusSq = (long long)nRadius * (long long)nRadius;
+								for ( int i = 0; i < nLen; ++i )
+								{
+									const long long dx = (long long)pUnits[i].x - (long long)nX;
+									const long long dy = (long long)pUnits[i].y - (long long)nY;
+									if ( dx * dx + dy * dy > nRadiusSq )
+										continue;
+									++nTotal;
+									if ( pUnits[i].player < 16 )
+										++nCounts[pUnits[i].player];
+									else
+										++nOther;
+								}
+								std::string szLine = NStr::Format( "BK_AUTO_UI: units near %d,%d r %d: total %d", nX, nY, nRadius, nTotal );
+								for ( int nPlayer = 0; nPlayer < 16; ++nPlayer )
+									if ( nCounts[nPlayer] != 0 )
+										szLine += NStr::Format( "; player %d: %d", nPlayer, nCounts[nPlayer] );
+								if ( nOther != 0 )
+									szLine += NStr::Format( "; other: %d", nOther );
+								fprintf( stderr, "%s\n", szLine.c_str() );
+							}
 						}
 					}
 					else if ( szAction.compare( 0, 5, "clip=" ) == 0 )
