@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-09-28T04:13:28.939Z"
-state_head: 208f10d933c8a2a2bb626711743c19092059f3db
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-09-28T04:38:48.085Z"
+state_head: 878d62719194e894c5fe03579b7625f25102a612
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T04:13:28.894Z
-**Stopped at:** Completed 03-02-PLAN.md
+**Last session:** 2026-09-28T04:38:48.085Z
+**Stopped at:** Completed 03-03-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -72,6 +72,7 @@ behavior needs the in-game rows).
 |------|----------|-------|-------|
 | Phase 03-map-editor-plan-6-finish-m1 P01 | 35min | 2 tasks | 5 files |
 | Phase 03-map-editor-plan-6-finish-m1 P02 | 55min | 2 tasks | 10 files |
+| Phase 03-map-editor-plan-6-finish-m1 P03 | 23min | 2 tasks | 10 files |
 
 ## Decisions
 
@@ -79,3 +80,5 @@ behavior needs the in-game rows).
 - [Phase ?]: SMiniMapUnitInfo coordinate scale (1 unit = 2 AI tiles = 64 world units) determined by reading CAILogic::GetMiniMapInfo source directly, not by building the Map Editor app to cross-check a live dump
 - [Phase ?]: BkEditorTestMapPath's units= query for BK_AUTO_UI uses the placed object's map position, not its scene-world position (GetMiniMapInfo's AI coordinates are map units per bridge.h - confirmed empirically, corrects 03-01-SUMMARY's wording)
 - [Phase ?]: main.zig builds its own allocator-backed Io.Threaded instance instead of std.Io.Threaded.global_single_threaded, whose allocator is .failing by design and broke std.process.spawn with OutOfMemory
+- [Phase ?]: Safe save's read-back verification (D-19) lives entirely in SaveSessionMap (C++), not duplicated in Zig - Editor.save only does the temp-file/backup/swap dance around a BkEditorSaveMap call that is already safe to trust once it answers OK
+- [Phase ?]: Both shipped map formats (.bzm and .xml) round-tripped through the new read-back check with no float-rounding mismatch on this host - the spec's idempotent .xml fallback exists in the test but was never exercised
