@@ -25,6 +25,7 @@ const view_mod = @import("view.zig");
 const view_math = @import("view_math.zig");
 const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
+const imgui = @import("editor_imgui");
 
 const sdl = sdl3.c;
 const c = c_bridge.c;
@@ -247,6 +248,22 @@ const settle_frames = 2;
 /// How long a `panel_has_pointer` step may wait for ImGui.
 const max_wait_frames = 60;
 
+/// An SDL event the loop polled that the script never pushes - a focus
+/// change, the pointer entering or leaving, a resize: what a hidden window
+/// on a CI desktop still gets from the OS. Kept for a FAIL's state line.
+const Observed = struct { frame: usize, type: u32, x: f32 = 0, y: f32 = 0 };
+const observed_capacity = 12;
+
+/// The `which` of every mouse event the script pushes, so `observe` tells
+/// them from the OS's own (SDL_GLOBAL_MOUSE_ID, 0). Anything but
+/// SDL_TOUCH_MOUSEID reads as a mouse to ImGui's backend, which is all it
+/// reads `which` for; the view does not read it.
+const smoke_mouse_id: sdl.SDL_MouseID = 0x534D4B45;
+
+/// Where ImGui had the pointer during the current step, each time it moved.
+const PointerSample = struct { frame: usize, x: f32, y: f32 };
+const pointer_trail_capacity = 8;
+
 /// The sibling `<dir>/<stem>.~save<ext>` a safe save writes to before the
 /// swap (core/files.zig's tempPathFor, plan 6's D-19) - null when `path` does
 /// not fit `buffer` or has no extension to preserve.
@@ -299,6 +316,19 @@ pub const Script = struct {
     /// Frames the current step has waited (panel_has_pointer); its inputs
     /// are not pushed again meanwhile.
     waited: usize = 0,
+
+    /// For a FAIL's state line (`printState`): the last point the script
+    /// put the pointer at, the OS's own events the loop polled (the last
+    /// `observed_capacity` of `observed_total`), how many mouse events the
+    /// script pushed against how many the loop polled, and the current
+    /// step's trail of ImGui pointer positions.
+    last_pointer: [2]f32 = .{ 0, 0 },
+    observed: [observed_capacity]Observed = undefined,
+    observed_total: usize = 0,
+    pushed_mouse: usize = 0,
+    polled_mouse: usize = 0,
+    pointer_trail: [pointer_trail_capacity]PointerSample = undefined,
+    pointer_trail_len: usize = 0,
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
@@ -391,6 +421,7 @@ pub const Script = struct {
         self.zoom_steps_before = self.view.zoom_steps;
         const inputs = script[self.step].inputs;
         self.wheel_point_before = if (inputs.len != 0 and inputs[0] == .wheel) self.resolveAt(inputs[0].wheel.at) else null;
+        self.pointer_trail_len = 0;
         for (script[self.step].inputs) |input| {
             if (!self.deliver(input)) return false;
         }
@@ -409,12 +440,15 @@ pub const Script = struct {
         sdl.SDL_SetModState(0);
         if (self.frame < settle_frames) return true;
         const step = script[self.step];
+        self.notePointer();
         if (step.expect == .panel_has_pointer and !view_mod.captureFlags().mouse and self.waited < max_wait_frames) {
             self.waited += 1;
             return true;
         }
-        self.waited = 0;
+        // Reset only once the check passed, so a FAIL's state line still
+        // says how long the step waited.
         if (!self.check(step)) return false;
+        self.waited = 0;
         self.step += 1;
         if (self.step < script.len) return true;
         self.passed = true;
@@ -462,6 +496,7 @@ pub const Script = struct {
                     var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
                     event.wheel.type = sdl.SDL_EVENT_MOUSE_WHEEL;
                     event.wheel.windowID = self.window_id;
+                    event.wheel.which = smoke_mouse_id;
                     event.wheel.x = wheel.x;
                     event.wheel.y = wheel.y;
                     event.wheel.direction = if (wheel.flipped) sdl.SDL_MOUSEWHEEL_FLIPPED else sdl.SDL_MOUSEWHEEL_NORMAL;
@@ -475,8 +510,53 @@ pub const Script = struct {
     }
 
     fn push(self: *Script, event: *sdl.SDL_Event) bool {
+        if (isMouseEvent(event.type)) self.pushed_mouse += 1;
         if (sdl.SDL_PushEvent(event)) return true;
         return self.fail("SDL_PushEvent: {s}", .{sdl.SDL_GetError()});
+    }
+
+    /// Every event the loop polls, before it is routed (main.zig's `run`):
+    /// counts the mouse events and keeps the OS's own, for `printState`.
+    pub fn observe(self: *Script, event: *const sdl.SDL_Event) void {
+        var observed: Observed = .{ .frame = self.frame, .type = event.type };
+        switch (event.type) {
+            sdl.SDL_EVENT_MOUSE_MOTION => {
+                self.polled_mouse += 1;
+                if (event.motion.which == smoke_mouse_id) return;
+                observed.x = event.motion.x;
+                observed.y = event.motion.y;
+            },
+            sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP => {
+                self.polled_mouse += 1;
+                if (event.button.which == smoke_mouse_id) return;
+                observed.x = event.button.x;
+                observed.y = event.button.y;
+            },
+            sdl.SDL_EVENT_MOUSE_WHEEL => {
+                self.polled_mouse += 1;
+                if (event.wheel.which == smoke_mouse_id) return;
+                observed.x = event.wheel.mouse_x;
+                observed.y = event.wheel.mouse_y;
+            },
+            sdl.SDL_EVENT_KEY_DOWN, sdl.SDL_EVENT_KEY_UP, sdl.SDL_EVENT_WINDOW_CLOSE_REQUESTED => return,
+            else => {},
+        }
+        self.observed[self.observed_total % observed_capacity] = observed;
+        self.observed_total += 1;
+    }
+
+    /// After each frame of a step: ImGui's pointer, when it moved since the
+    /// step's last sample.
+    fn notePointer(self: *Script) void {
+        var state: imgui.c.BkImguiPointerState = undefined;
+        imgui.c.bk_imgui_backend_pointer_state(&state);
+        if (self.pointer_trail_len != 0) {
+            const last = self.pointer_trail[self.pointer_trail_len - 1];
+            if (last.x == state.mouse_x and last.y == state.mouse_y) return;
+        }
+        if (self.pointer_trail_len == pointer_trail_capacity) return;
+        self.pointer_trail[self.pointer_trail_len] = .{ .frame = self.frame, .x = state.mouse_x, .y = state.mouse_y };
+        self.pointer_trail_len += 1;
     }
 
     fn pushMotion(self: *Script, pos: Pos, left_held: bool) bool {
@@ -487,9 +567,11 @@ pub const Script = struct {
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.motion.type = sdl.SDL_EVENT_MOUSE_MOTION;
         event.motion.windowID = self.window_id;
+        event.motion.which = smoke_mouse_id;
         event.motion.state = if (left_held) sdl.SDL_BUTTON_LMASK else 0;
         event.motion.x = point[0];
         event.motion.y = point[1];
+        self.last_pointer = point;
         return self.push(&event);
     }
 
@@ -498,6 +580,7 @@ pub const Script = struct {
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.button.type = if (down) sdl.SDL_EVENT_MOUSE_BUTTON_DOWN else sdl.SDL_EVENT_MOUSE_BUTTON_UP;
         event.button.windowID = self.window_id;
+        event.button.which = smoke_mouse_id;
         event.button.button = sdl.SDL_BUTTON_LEFT;
         event.button.down = down;
         event.button.clicks = 1;
@@ -690,8 +773,64 @@ pub const Script = struct {
 
     fn stepFail(self: *Script, step: Step, comptime format: []const u8, args: anytype) bool {
         std.debug.print("map-editor: smoke FAIL: {s}: " ++ format ++ " (editor status: {s})\n", .{step.name} ++ args ++ .{self.editor.status()});
+        self.printState();
         self.reported = true;
         return false;
+    }
+
+    /// A FAIL's second line: what SDL and ImGui each make of the window and
+    /// the pointer, so a failure on a CI runner no one can watch says which
+    /// of them lost the script's input, and to what.
+    fn printState(self: *Script) void {
+        var text_buffer: [4096]u8 = undefined;
+        var writer: std.Io.Writer = .fixed(&text_buffer);
+        self.writeState(&writer) catch {};
+        std.debug.print("map-editor: smoke state: {s}\n", .{writer.buffered()});
+    }
+
+    fn writeState(self: *Script, w: *std.Io.Writer) std.Io.Writer.Error!void {
+        const window = sdl.SDL_GetWindowFromID(self.window_id);
+        var width: c_int = 0;
+        var height: c_int = 0;
+        var window_x: c_int = 0;
+        var window_y: c_int = 0;
+        var flags: sdl.SDL_WindowFlags = 0;
+        if (window) |win| {
+            _ = sdl.SDL_GetWindowSize(win, &width, &height);
+            _ = sdl.SDL_GetWindowPosition(win, &window_x, &window_y);
+            flags = sdl.SDL_GetWindowFlags(win);
+        }
+        try w.print("frame {d}, step waited {d}; script pointer {d:.0},{d:.0}; window {d}x{d} at {d},{d}", .{ self.frame, self.waited, self.last_pointer[0], self.last_pointer[1], width, height, window_x, window_y });
+        if (self.real.screenSize()) |size| try w.print(" (engine {d}x{d})", .{ size[0], size[1] });
+        try w.print(", hidden {} input focus {} mouse focus {} occluded {}", .{ flags & sdl.SDL_WINDOW_HIDDEN != 0, flags & sdl.SDL_WINDOW_INPUT_FOCUS != 0, flags & sdl.SDL_WINDOW_MOUSE_FOCUS != 0, flags & sdl.SDL_WINDOW_OCCLUDED != 0 });
+        var global_x: f32 = 0;
+        var global_y: f32 = 0;
+        const global_buttons = sdl.SDL_GetGlobalMouseState(&global_x, &global_y);
+        try w.print("; SDL keyboard focus {s}, mouse focus {s}, global mouse {d:.0},{d:.0} buttons {d}", .{ focusName(sdl.SDL_GetKeyboardFocus(), window), focusName(sdl.SDL_GetMouseFocus(), window), global_x, global_y, global_buttons });
+
+        var state: imgui.c.BkImguiPointerState = undefined;
+        imgui.c.bk_imgui_backend_pointer_state(&state);
+        try w.writeAll("; ImGui mouse ");
+        try writePos(w, state.mouse_x, state.mouse_y);
+        try w.print(" display {d:.0}x{d:.0} wants mouse {} hovered '{s}' (before clear '{s}', window at pointer '{s}')", .{ state.display_w, state.display_h, state.want_capture_mouse, std.mem.sliceTo(&state.hovered_window, 0), std.mem.sliceTo(&state.hovered_before_clear, 0), std.mem.sliceTo(&state.window_at_pointer, 0) });
+        try w.print(" down {any} owned {any} popups {d} capture override {d} focus lost {}", .{ state.mouse_down, state.mouse_down_owned, state.open_popups, state.want_capture_mouse_next_frame, state.app_focus_lost });
+        try w.print("; ImGui queue {d} (pos {d} button {d} wheel {d} key {d} focus {d})", .{ state.queued_events, state.queued_mouse_pos, state.queued_mouse_button, state.queued_mouse_wheel, state.queued_key, state.queued_focus });
+        if (state.queued_mouse_pos_valid) {
+            try w.writeAll(" heading to ");
+            try writePos(w, state.queued_mouse_x, state.queued_mouse_y);
+        }
+        try w.writeAll("; ImGui pointer this step:");
+        for (self.pointer_trail[0..self.pointer_trail_len]) |sample| {
+            try w.print(" {d}:", .{sample.frame});
+            try writePos(w, sample.x, sample.y);
+        }
+        try w.print("; mouse events pushed {d} polled {d}; OS events ({d}):", .{ self.pushed_mouse, self.polled_mouse, self.observed_total });
+        const kept = @min(self.observed_total, observed_capacity);
+        for (0..kept) |n| {
+            const event = self.observed[(self.observed_total - kept + n) % observed_capacity];
+            if (eventName(event.type)) |name| try w.print(" {s}@{d}", .{ name, event.frame }) else try w.print(" 0x{x}@{d}", .{ event.type, event.frame });
+            if (isMouseEvent(event.type)) try w.print("({d:.0},{d:.0})", .{ event.x, event.y });
+        }
     }
 
     fn fail(self: *Script, comptime format: []const u8, args: anytype) bool {
@@ -700,3 +839,51 @@ pub const Script = struct {
         return false;
     }
 };
+
+fn isMouseEvent(event_type: u32) bool {
+    return switch (event_type) {
+        sdl.SDL_EVENT_MOUSE_MOTION, sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP, sdl.SDL_EVENT_MOUSE_WHEEL => true,
+        else => false,
+    };
+}
+
+fn focusName(focus: ?*sdl.SDL_Window, ours: ?*sdl.SDL_Window) []const u8 {
+    const window = focus orelse return "none";
+    return if (window == ours) "ours" else "another window";
+}
+
+/// ImGui's "no pointer" is -FLT_MAX on both axes.
+fn writePos(w: *std.Io.Writer, x: f32, y: f32) std.Io.Writer.Error!void {
+    if (x <= -std.math.floatMax(f32) or y <= -std.math.floatMax(f32)) return w.writeAll("none");
+    try w.print("{d:.0},{d:.0}", .{ x, y });
+}
+
+/// The events a hidden window can still get from the OS, by name; null for
+/// any other type (printed as a number).
+fn eventName(event_type: u32) ?[]const u8 {
+    return switch (event_type) {
+        sdl.SDL_EVENT_WINDOW_SHOWN => "shown",
+        sdl.SDL_EVENT_WINDOW_HIDDEN => "hidden",
+        sdl.SDL_EVENT_WINDOW_EXPOSED => "exposed",
+        sdl.SDL_EVENT_WINDOW_MOVED => "moved",
+        sdl.SDL_EVENT_WINDOW_RESIZED => "resized",
+        sdl.SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED => "pixel-size",
+        sdl.SDL_EVENT_WINDOW_MINIMIZED => "minimized",
+        sdl.SDL_EVENT_WINDOW_MAXIMIZED => "maximized",
+        sdl.SDL_EVENT_WINDOW_RESTORED => "restored",
+        sdl.SDL_EVENT_WINDOW_MOUSE_ENTER => "mouse-enter",
+        sdl.SDL_EVENT_WINDOW_MOUSE_LEAVE => "mouse-leave",
+        sdl.SDL_EVENT_WINDOW_FOCUS_GAINED => "focus-gained",
+        sdl.SDL_EVENT_WINDOW_FOCUS_LOST => "focus-lost",
+        sdl.SDL_EVENT_WINDOW_OCCLUDED => "occluded",
+        sdl.SDL_EVENT_WINDOW_DISPLAY_CHANGED => "display-changed",
+        sdl.SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED => "display-scale",
+        sdl.SDL_EVENT_MOUSE_MOTION => "mouse-motion",
+        sdl.SDL_EVENT_MOUSE_BUTTON_DOWN => "button-down",
+        sdl.SDL_EVENT_MOUSE_BUTTON_UP => "button-up",
+        sdl.SDL_EVENT_MOUSE_WHEEL => "wheel",
+        sdl.SDL_EVENT_TEXT_INPUT => "text-input",
+        sdl.SDL_EVENT_KEYMAP_CHANGED => "keymap",
+        else => null,
+    };
+}

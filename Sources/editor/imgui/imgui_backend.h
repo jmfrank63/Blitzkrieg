@@ -26,6 +26,30 @@ void bk_imgui_backend_new_frame(void);
    SDL_GPUCommandBuffer*; target: SDL_GPUTexture*. No pass may be open. */
 void bk_imgui_backend_render(void *command_buffer, void *target);
 
+/* What ImGui's own state says about the pointer, for a smoke's FAIL line: its
+   position, what it hovers, its buttons, and the input events it has not yet
+   trickled in. Read between frames, so it describes the last igNewFrame.
+   Window names are cut to fit and always null-terminated, "" for none. */
+typedef struct BkImguiPointerState
+{
+    float mouse_x, mouse_y;         /* io.MousePos; -FLT_MAX when ImGui has none */
+    float display_w, display_h;     /* io.DisplaySize */
+    bool want_capture_mouse;
+    bool app_focus_lost;
+    bool mouse_down[3];             /* left, right, middle */
+    bool mouse_down_owned[3];
+    int open_popups;
+    int want_capture_mouse_next_frame; /* -1 when not overridden */
+    int queued_events;              /* still waiting in ImGui's input queue */
+    int queued_mouse_pos, queued_mouse_button, queued_mouse_wheel, queued_key, queued_focus;
+    bool queued_mouse_pos_valid;    /* the last queued MousePos, where ImGui is headed */
+    float queued_mouse_x, queued_mouse_y;
+    char hovered_window[48];        /* g.HoveredWindow */
+    char hovered_before_clear[48];  /* g.HoveredWindowBeforeClear: hovered, before modal/ownership clears it */
+    char window_at_pointer[48];     /* the frontmost active window whose rect holds io.MousePos */
+} BkImguiPointerState;
+void bk_imgui_backend_pointer_state(BkImguiPointerState *out);
+
 #ifdef __cplusplus
 }
 #endif

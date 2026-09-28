@@ -308,6 +308,7 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         if (script) |s| if (!s.beforeFrame()) break;
         var event: sdl3.c.SDL_Event = undefined;
         while (sdl3.c.SDL_PollEvent(&event)) {
+            if (script) |s| s.observe(&event);
             // ImGui's backend always gets first look, so it can update its
             // own IO state (and follow a resize) - but its bool return is
             // ImGui_ImplSDL3_ProcessEvent's "I processed this", true for
