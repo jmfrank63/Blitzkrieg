@@ -257,6 +257,49 @@ The saved map, `~/.local/share/Nival/Blitzkrieg/maps/mytest.bzm`, is identical t
 
 **Still to do:** rebuild the release stage once Johannes has left it, then retry F5 on mytest.bzm.
 
+## Gap fix: missing season textures (hand try, M1)
+
+**Found:** on winter maps (`nSeason = 1`), a mesh unit whose folder has no winter texture was drawn pure white, in the editor and in the game. An example is `Data/Units/Technics/Allies/Artillery/105mm_M2A1_USA`, which has only `1_c/_h/_l.dds`. Of the 242 unit mesh folders, 83 have no `1w` and 166 have no `1a` (counted on `Data/Units`). The original's `textures.pak` lacks them too, so data cannot fix this.
+
+**Root cause:** the unit asks for its season's texture by name:
+- `"<path>\1w"`: `MOUnitMechanical.cpp:79`
+- the damage states `"<path>\<n>w"`: `:120`
+- the passengers' `"1p"` plus the season: `:246`
+- the destroyed model's `"2"` plus the season: `:839`
+- `MOObject.cpp:57/62` and `MOEntrenchment.cpp:23`
+
+The original DX8 GFX drew a checker texture for a missing file (`GFX/Texture.cpp:97-126`). GFXGPU's `TextureManagerGpu::GetTexture` answers null, and a mesh with no texture is drawn white.
+
+**Fix** (`Sources/src/Scene/VisObjBuilder.cpp`): `CVisObjBuilder::ChangeObject` for `SGVOT_MESH` now gets both of its textures through `GetSeasonedMeshTexture`. That covers `Init` (model and texture) and `SetTexture` (texture only). When the name is missing and its last segment is digits, then an optional `p` or `b`, then a season letter (`^[0-9]+[pb]?[wa]$`), it retries without the letter: `1w`->`1`, `2w`->`2`, `1pw`->`1p`, `1bw`->`1b`, `1a`->`1`. This follows the style of MOBuilding's sprite fallback (`UpdateVisObj`).
+
+Every mesh texture path goes through this function:
+- `BuildObject(SGVOT_MESH)` goes through `CreateMeshVisObj` into `ChangeObject`.
+- The damage-state, passenger and destroyed-model call sites all call `ChangeObject` or `BuildObject` with a mesh vis type.
+- `CVisObjBuilder` is the only `IVisObjBuilder`, so the game and the editor both get the fix.
+
+A texture missing in every season still comes back null, as before.
+
+**Not done (optional miss cache in GFXGPU):** `GetTexture` still probes storage on every miss. A miss cache would outlive a file created later under the same name. The generated-data mount (`NGeneratedData`: template-mission pictures and the briefing picture) creates such files at runtime, and only a mod switch clears the texture manager. After this fix a miss costs one extra probe, and only when an object is built or changes state, never per frame. So the cache was left out as not clearly contained.
+
+**Commit:** `074d4e272` fix(03-15): a unit with no texture for the map's season is drawn in its summer one, not white.
+
+**Evidence** (debug stage in its default copy-data mode; the release stage was not touched because Johannes was running MapEditor from it):
+- New engine-tier test `TestMissingSeasonTextureFallsBack` in `tools/zig/editor_bridge_test.cpp`, run right after `TestSeasonPicksTheVisuals`. On coldwinter it places `105mm_M2A1_USA` and `10.5-cm_Flak38` on bare ground, at least 160 px apart. For each gun it reads the mesh texture it is drawn with, through `IScene::Pick` on a box round the gun and a visitor that counts meshes only. It then takes the M2A1's mean drawn colour from the pixels its placing changed.
+- **Before the fix** (test written first; `zig-out/local-test/season-fallback/before-fix-editor-bridge.out`): the M2A1's mesh was drawn with no texture (`<none>`), at a mean RGB of 211,222,216 over 1383 pixels, which is white. The Flak38 was drawn with `10_5_cm_flak38\1w`. That run's check also counted the icon sprites' `<none>`, which failed the Flak38 as well, so the check was narrowed to meshes before the fix went in.
+- **After the fix** (`fixed-editor-bridge.out`): the M2A1 is drawn with `units\technics\allies\artillery\105mm_m2a1_usa\1`, at a mean RGB of 107,114,76 (olive). The Flak38 is still drawn with `\1w`. `test-editor-bridge` PASS, including the season test (coldwinter: Flak38 1/1 and infantry 10/10 winter; arnheim: summer).
+- **Captures** (640x480):
+  - `zig-out/local-test/season-fallback/m2a1-winter-BEFORE-fix.png` (white gun at the left, grey Flak38 at the right)
+  - `m2a1-winter-AFTER-fix.png`
+  - side by side: `m2a1-winter-before-after-crop.png`
+  - also `.tga`, plus `m2a1-winter-empty.tga` for the empty ground
+- **Other tiers** (`season-fallback/verify-all.out`):
+  - `test-map-editor-engine` PASS (260 objects)
+  - `map-editor-smoke` PASS (35 steps)
+  - `map-editor-host-check` PASS: host check, unknown-object warning, panel smoke
+  - `map-editor-game-reads-it` PASS (14 units of player 0, single soldiers refused, game exit 0)
+
+**Still to do:** rebuild the release stage once Johannes has left it, then look at a US gun on coldwinter in the release MapEditor and Game.
+
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
 Still open in `.planning/WINDOWS.md` (entries 1-3, ledger `open_count: 3`):
