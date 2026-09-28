@@ -19,6 +19,10 @@ pub const world_cell_size = view_math.world_cell_size;
 
 pub const Tool = enum { select, brush, place };
 
+/// A map's camera and zoom, kept for the session only (D-15): not written
+/// anywhere, forgotten when the editor quits.
+pub const SavedView = struct { camera_x: f32, camera_y: f32, zoom_steps: i32 };
+
 /// SGVOGT_UNIT (Sources/src/Main/GameDB.h): the placer's default object,
 /// until the object palette chooses another. Also main.zig's --game-reads-it
 /// mode, which places the catalogue's first unit the same way the placer's
@@ -38,6 +42,15 @@ pub const View = struct {
     scale: f32 = 1,
     /// Carries a Shift+wheel/swipe's fractional delta between events.
     zoom_wheel: view_math.ZoomWheel = .{},
+    /// Carries a trackpad pinch's fractional delta between events; reset at
+    /// the start and end of each gesture.
+    pinch_zoom: view_math.PinchZoom = .{},
+    /// Every map's camera and zoom for the current session (D-15), keyed by
+    /// its document path; owned copies of the keys, freed in `deinit`.
+    remembered: std.StringHashMapUnmanaged(SavedView) = .empty,
+    /// The currently open map's path, as `showMap` was last called with -
+    /// what `remembered` is saved under when another map replaces it.
+    current_path: std.ArrayListUnmanaged(u8) = .empty,
     tool: Tool = .select,
     brush: tools.Brush,
     placer: tools.Placer,
@@ -66,6 +79,10 @@ pub const View = struct {
 
     pub fn deinit(self: *View, allocator: std.mem.Allocator) void {
         self.brush.deinit(allocator);
+        var keys = self.remembered.keyIterator();
+        while (keys.next()) |key| allocator.free(key.*);
+        self.remembered.deinit(allocator);
+        self.current_path.deinit(allocator);
         self.* = undefined;
     }
 
@@ -134,15 +151,49 @@ pub const View = struct {
         self.runUndoable(editor, .redo);
     }
 
-    /// Centres the camera on a freshly opened map, and picks the placer's
-    /// object if none was chosen yet: the first catalogue entry of game type
-    /// unit. Called after every `editor.open` that succeeds.
-    pub fn centreOn(self: *View, real: *RealBridge, info: MapInfo) void {
+    /// Called after every `editor.open` that succeeds: saves the outgoing
+    /// map's camera and zoom under its own path (D-15), then either restores
+    /// `path`'s remembered view or centres it unzoomed - a fresh map, or the
+    /// first one this session, always opens on its middle at zoom 0, exactly
+    /// what `BkEditorOpenMap` itself already put the camera and zoom at, so
+    /// this is belt-and-suspenders for the "not remembered" branch and the
+    /// actual behavior for a reopened one. Also picks the placer's default
+    /// object (the first catalogue entry of game type unit) if none is
+    /// chosen yet.
+    pub fn showMap(self: *View, real: *RealBridge, path: []const u8, info: MapInfo) void {
+        self.saveCurrentView();
         self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
-        self.camera_x = @as(f32, @floatFromInt(info.width_tiles)) * world_cell_size / 2;
-        self.camera_y = @as(f32, @floatFromInt(info.height_tiles)) * world_cell_size / 2;
-        _ = real.setCamera(self.camera_x, self.camera_y);
+        if (self.remembered.get(path)) |saved| {
+            self.camera_x = saved.camera_x;
+            self.camera_y = saved.camera_y;
+            _ = real.setCamera(self.camera_x, self.camera_y);
+            _ = real.setZoom(saved.zoom_steps);
+        } else {
+            self.camera_x = @as(f32, @floatFromInt(info.width_tiles)) * world_cell_size / 2;
+            self.camera_y = @as(f32, @floatFromInt(info.height_tiles)) * world_cell_size / 2;
+            _ = real.setCamera(self.camera_x, self.camera_y);
+            _ = real.setZoom(0);
+        }
+        self.syncFromBridge(real);
+        self.current_path.clearRetainingCapacity();
+        self.current_path.appendSlice(self.allocator, path) catch self.current_path.clearRetainingCapacity();
         if (self.placer.name.len == 0) self.pickDefaultPlacerObject(real);
+    }
+
+    /// Records `current_path`'s camera and zoom into `remembered`, if a map
+    /// was open. An out-of-memory here just means that map's view is not
+    /// remembered this time - never a reason to fail the map switch itself.
+    fn saveCurrentView(self: *View) void {
+        const key = self.current_path.items;
+        if (key.len == 0) return;
+        const gop = self.remembered.getOrPut(self.allocator, key) catch return;
+        if (!gop.found_existing) {
+            gop.key_ptr.* = self.allocator.dupe(u8, key) catch {
+                _ = self.remembered.remove(key);
+                return;
+            };
+        }
+        gop.value_ptr.* = .{ .camera_x = self.camera_x, .camera_y = self.camera_y, .zoom_steps = self.zoom_steps };
     }
 
     fn pickDefaultPlacerObject(self: *View, real: *RealBridge) void {
@@ -193,7 +244,9 @@ pub const View = struct {
             },
             sdl3.c.SDL_EVENT_MOUSE_MOTION => self.handleMotion(editor, real, event.motion),
             sdl3.c.SDL_EVENT_MOUSE_WHEEL => self.handleWheel(real, event.wheel),
-            sdl3.c.SDL_EVENT_KEY_DOWN => self.handleKey(editor, event.key),
+            sdl3.c.SDL_EVENT_KEY_DOWN => self.handleKey(editor, real, event.key),
+            sdl3.c.SDL_EVENT_PINCH_BEGIN, sdl3.c.SDL_EVENT_PINCH_END => self.pinch_zoom.reset(),
+            sdl3.c.SDL_EVENT_PINCH_UPDATE => self.handlePinch(real, event.pinch),
             else => {},
         }
     }
@@ -239,13 +292,32 @@ pub const View = struct {
             return;
         }
         const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED }, view_math.wheel_sensitivity);
+        // panScreen treats its pixels as world units 1:1 - true only at
+        // scale 1. Dividing by the bridge's own scale first is what makes
+        // the map follow the fingers 1:1 on screen at any zoom, the same
+        // gain a mouse-driven drag already gets for free through
+        // editor.resolve's screen-to-world conversion.
+        const scale = if (self.scale > 0) self.scale else 1;
         const before_x = self.camera_x;
         const before_y = self.camera_y;
         var camera: view_math.Camera = .{ .x = self.camera_x, .y = self.camera_y };
-        camera.panScreen(pan.right_px, pan.up_px, self.map);
+        camera.panScreen(pan.right_px / scale, pan.up_px / scale, self.map);
         self.camera_x = camera.x;
         self.camera_y = camera.y;
         if (self.camera_x != before_x or self.camera_y != before_y) _ = real.setCamera(self.camera_x, self.camera_y);
+    }
+
+    /// A trackpad pinch update (D-10): folds the gesture's scale-since-last
+    /// update into whole zoom steps and, on a whole step, zooms at wherever
+    /// the pointer is now (SDL's pinch event carries no position of its
+    /// own).
+    fn handlePinch(self: *View, real: *RealBridge, pinch: sdl3.c.SDL_PinchFingerEvent) void {
+        const steps = self.pinch_zoom.feed(pinch.scale);
+        if (steps == 0) return;
+        var mouse_x: f32 = 0;
+        var mouse_y: f32 = 0;
+        _ = sdl3.c.SDL_GetMouseState(&mouse_x, &mouse_y);
+        if (real.zoomAt(steps, mouse_x, mouse_y) == .ok) self.syncFromBridge(real);
     }
 
     /// After a zoom (Shift+wheel, pinch, Home, or a remembered view
@@ -266,8 +338,10 @@ pub const View = struct {
     /// holding Cmd/Ctrl+Z to walk back several edits, or Delete to keep
     /// pressing it while nothing is selected, are both ordinary editor
     /// habits, and a delete or undo that repeats onto nothing just answers
-    /// `error.Refused` harmlessly.
-    fn handleKey(self: *View, editor: *Editor, key: sdl3.c.SDL_KeyboardEvent) void {
+    /// `error.Refused` harmlessly. Home (D-13) resets zoom and rotation to
+    /// the game's default view - no modifier is checked, matching the menu's
+    /// "Reset view" item, which carries the same shortcut label.
+    fn handleKey(self: *View, editor: *Editor, real: *RealBridge, key: sdl3.c.SDL_KeyboardEvent) void {
         const command_or_control = key.mod & (sdl3.c.SDL_KMOD_CTRL | sdl3.c.SDL_KMOD_GUI) != 0;
         switch (key.key) {
             sdl3.c.SDLK_DELETE, sdl3.c.SDLK_BACKSPACE => self.dispatch(editor, .{ .key = .delete }),
@@ -280,8 +354,17 @@ pub const View = struct {
                 if (key.mod & sdl3.c.SDL_KMOD_SHIFT != 0) self.runUndoable(editor, .redo) else self.runUndoable(editor, .undo);
             },
             sdl3.c.SDLK_Y => if (command_or_control) self.runUndoable(editor, .redo),
+            sdl3.c.SDLK_HOME => self.resetView(real),
             else => {},
         }
+    }
+
+    /// Home and the "View > Reset view" menu item: back to the game's
+    /// default zoom (D-13), anchored at the screen's centre the way
+    /// `BkEditorSetZoom` always is - it does not re-centre the pan onto the
+    /// map's middle, only undoes the zoom.
+    pub fn resetView(self: *View, real: *RealBridge) void {
+        if (real.setZoom(0) == .ok) self.syncFromBridge(real);
     }
 
     /// Switches the active tool, ending an open left-button gesture on the
@@ -394,6 +477,7 @@ pub fn inputKindOf(event_type: @FieldType(sdl3.c.SDL_Event, "type")) view_math.I
         sdl3.c.SDL_EVENT_MOUSE_MOTION => .mouse_motion,
         sdl3.c.SDL_EVENT_MOUSE_WHEEL => .mouse_wheel,
         sdl3.c.SDL_EVENT_KEY_DOWN, sdl3.c.SDL_EVENT_KEY_UP => .key,
+        sdl3.c.SDL_EVENT_PINCH_BEGIN, sdl3.c.SDL_EVENT_PINCH_UPDATE, sdl3.c.SDL_EVENT_PINCH_END => .pinch,
         else => .other,
     };
 }

@@ -395,7 +395,7 @@ test "a release maps to a tool event too" {
 /// coarser classification than `EventKind`/`kindOf` above: it only tells
 /// `shouldDeliver` which of ImGui's two capture flags applies, not which
 /// tool event (if any) the event becomes.
-pub const InputEventKind = enum { mouse_button, mouse_motion, mouse_wheel, key, other };
+pub const InputEventKind = enum { mouse_button, mouse_motion, mouse_wheel, key, pinch, other };
 
 /// ImGui's own idea of who wants an event, read from `igGetIO()` after
 /// `host.handleEvent` has processed it.
@@ -418,6 +418,10 @@ pub fn shouldDeliver(kind: InputEventKind, capture: Capture, gesture_active: boo
         // A wheel is not part of a gesture: over a panel it is the panel's
         // (ImGui scrolls it) even mid-drag, or one swipe would scroll both.
         .mouse_wheel => !capture.mouse,
+        // A pinch is a two-finger trackpad gesture on the map, not a mouse
+        // gesture the view opened - the same "over a panel is the panel's"
+        // rule as a wheel, and never overridden by gesture_active.
+        .pinch => !capture.mouse,
         .key => !capture.keyboard,
         .other => true,
     };
@@ -442,4 +446,7 @@ test "routing: a wheel over a panel is the panel's, even during a gesture; over 
     try std.testing.expect(!shouldDeliver(.mouse_wheel, busy, true));
     try std.testing.expect(shouldDeliver(.mouse_wheel, free, false));
     try std.testing.expect(shouldDeliver(.mouse_wheel, free, true));
+    try std.testing.expect(!shouldDeliver(.pinch, busy, false));
+    try std.testing.expect(!shouldDeliver(.pinch, busy, true));
+    try std.testing.expect(shouldDeliver(.pinch, free, false));
 }

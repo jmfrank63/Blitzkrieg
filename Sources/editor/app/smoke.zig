@@ -81,6 +81,11 @@ pub const Wheel = struct {
     y: f32,
     count: u8,
     flipped: bool = false,
+    /// Held for a Shift+wheel zoom step (D-10). Pushed key events do not
+    /// change SDL's own modifier state (SDL_GetModState, which view.zig's
+    /// handleWheel reads), so the script sets it directly before pushing the
+    /// wheel events and restores it to none right after.
+    mods: sdl.SDL_Keymod = 0,
 };
 
 /// What must be true after the step's frame.
@@ -131,6 +136,11 @@ pub const Expect = enum {
     /// Save on a shipped map redirected to Save As (D-18) instead of
     /// writing the shipped file: the dialog slot is waiting for one.
     save_became_save_as,
+    /// A Shift+wheel step zoomed in (D-10): zoom_steps rose, and the world
+    /// point under the wheel's own screen position stayed put (D-14).
+    zoomed_at_pointer,
+    /// Home reset the zoom to 0 (D-13).
+    view_reset,
 };
 
 pub const Step = struct {
@@ -200,6 +210,15 @@ pub const script = [_]Step{
     .{ .name = "a swipe pans the map", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = 0.15, .y = 0.35, .count = 12 } }}, .expect = .panned },
     .{ .name = "the swipe back pans it back", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = -0.15, .y = -0.35, .count = 12 } }}, .expect = .panned },
     .{ .name = "a natural-scrolling swipe pans by SDL's sign", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = -0.2, .y = 0.1, .count = 6, .flipped = true } }}, .expect = .panned },
+    // Plan 6, D-10/D-13/D-14: run right after the swipe-pan steps above, so
+    // every step before this ran unzoomed and the pointer is still over the
+    // map (not stuck over the left panel, whose WantCaptureMouse lag the
+    // steps below this comment work around) - Shift+wheel zooms in at the
+    // pointer, a plain swipe at that zoom still follows the fingers 1:1, and
+    // Home resets the zoom.
+    .{ .name = "Shift + wheel zooms in at the pointer", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = 0, .y = 1, .count = 1, .mods = sdl.SDL_KMOD_LSHIFT } }}, .expect = .zoomed_at_pointer },
+    .{ .name = "a swipe at zoom follows the fingers", .inputs = &.{.{ .wheel = .{ .at = empty_ground, .x = 0.15, .y = 0.35, .count = 12 } }}, .expect = .panned },
+    .{ .name = "Home resets the view", .inputs = &.{plain(sdl.SDLK_HOME, sdl.SDL_SCANCODE_HOME)}, .expect = .view_reset },
     // ImGui decides WantCaptureMouse in a later frame from where the
     // pointer is (its input queue trickles one kind of event per frame, and
     // the steps before left a backlog), so the pointer rests on the panel
@@ -256,6 +275,12 @@ pub const Script = struct {
     camera_before: [2]f32 = .{ 0, 0 },
     /// The world point the drawn frame showed at the screen's centre then.
     centre_before: ?core.tools.Pointer = null,
+    /// The view's zoom_steps when the step's inputs were pushed.
+    zoom_steps_before: i32 = 0,
+    /// The world point under a wheel step's own `at` position, before its
+    /// inputs were pushed - for `zoomed_at_pointer` (D-14), since the zoom
+    /// point is not always the screen's centre.
+    wheel_point_before: ?core.tools.Pointer = null,
     /// Frames the current step has waited (panel_has_pointer); its inputs
     /// are not pushed again meanwhile.
     waited: usize = 0,
@@ -341,6 +366,9 @@ pub const Script = struct {
         if (self.waited != 0) return true;
         self.camera_before = .{ self.view.camera_x, self.view.camera_y };
         self.centre_before = self.resolveAt(.{ .dx = 0, .dy = 0 });
+        self.zoom_steps_before = self.view.zoom_steps;
+        const inputs = script[self.step].inputs;
+        self.wheel_point_before = if (inputs.len != 0 and inputs[0] == .wheel) self.resolveAt(inputs[0].wheel.at) else null;
         for (script[self.step].inputs) |input| {
             if (!self.deliver(input)) return false;
         }
@@ -351,6 +379,12 @@ pub const Script = struct {
     /// False when the loop should stop - the script finished or failed.
     pub fn afterFrame(self: *Script) bool {
         defer self.frame += 1;
+        // A Shift+wheel step's SDL_SetModState was only meant to be seen by
+        // this frame's own wheel processing, which has already happened by
+        // the time afterFrame runs; clearing it here (rather than right
+        // after pushing, in `deliver`) is what lets it survive to be read at
+        // all. Unconditional and harmless on every other frame.
+        sdl.SDL_SetModState(0);
         if (self.frame < settle_frames) return true;
         const step = script[self.step];
         if (step.expect == .panel_has_pointer and !view_mod.captureFlags().mouse and self.waited < max_wait_frames) {
@@ -394,6 +428,10 @@ pub const Script = struct {
             .wheel => |wheel| {
                 const point = if (wheel.over_left_panel) [2]f32{ left_panel_x, self.centre_y } else self.screen(wheel.at);
                 if (!self.pushMotionAt(point, false)) return false;
+                // Held through the rest of this frame (cleared in
+                // afterFrame): pushed key events do not update SDL's own
+                // modifier state, which view.zig's handleWheel reads.
+                if (wheel.mods != 0) sdl.SDL_SetModState(wheel.mods);
                 for (0..wheel.count) |_| {
                     var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
                     event.wheel.type = sdl.SDL_EVENT_MOUSE_WHEEL;
@@ -538,10 +576,14 @@ pub const Script = struct {
             },
             .panned => {
                 const wheel = step.inputs[0].wheel;
+                // Divided the same way view.zig's own handleWheel divides a
+                // screen pan by scale: at zoom the map must follow the
+                // fingers 1:1 on screen, not by panScreen's zoom-1 gain.
+                const scale = if (self.view.scale > 0) self.view.scale else 1;
                 var want: view_math.Camera = .{ .x = self.camera_before[0], .y = self.camera_before[1] };
                 for (0..wheel.count) |_| {
                     const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.flipped }, view_math.wheel_sensitivity);
-                    want.panScreen(pan.right_px, pan.up_px, self.view.map);
+                    want.panScreen(pan.right_px / scale, pan.up_px / scale, self.view.map);
                 }
                 const moved = @abs(self.view.camera_x - self.camera_before[0]) + @abs(self.view.camera_y - self.camera_before[1]);
                 if (moved < 1) return self.stepFail(step, "the camera did not move from {any}", .{self.camera_before});
@@ -583,6 +625,18 @@ pub const Script = struct {
                 // (if it ever answers) touch the shipped file.
                 self.state.actions.dialog.deliver(null);
                 _ = self.state.actions.dialog.take();
+            },
+            .zoomed_at_pointer => {
+                if (self.view.zoom_steps <= self.zoom_steps_before)
+                    return self.stepFail(step, "zoom_steps is {d}, want more than {d}", .{ self.view.zoom_steps, self.zoom_steps_before });
+                const wheel = step.inputs[0].wheel;
+                const before = self.wheel_point_before orelse return self.stepFail(step, "the zoom point was off the terrain before zooming", .{});
+                const after = self.resolveAt(wheel.at) orelse return self.stepFail(step, "the zoom point is off the terrain after zooming", .{});
+                const moved = @abs(after.world_x - before.world_x) + @abs(after.world_y - before.world_y);
+                if (moved > 2) return self.stepFail(step, "the zoom point moved by {d} world units (D-14)", .{moved});
+            },
+            .view_reset => {
+                if (self.view.zoom_steps != 0) return self.stepFail(step, "zoom_steps is {d}, want 0 (D-13)", .{self.view.zoom_steps});
             },
         }
         return true;

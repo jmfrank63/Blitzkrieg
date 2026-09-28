@@ -171,7 +171,7 @@ pub const State = struct {
         self.edit = .{};
         self.tile_count = 0;
         if (!mapIsOpen(self.editor)) return;
-        self.view.centreOn(self.real, self.editor.document.info);
+        self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info);
         self.tile_count = if (self.real.tilesetTiles(&self.tile_buffer)) |got| got.len else 0;
         // The brush keeps its tile if the new tileset has it; otherwise it
         // takes the first the tileset has, so it never paints a refusal.
@@ -485,6 +485,10 @@ fn drawMenuBar(state: *State) f32 {
         inline for (.{ .{ "Select", "1", Tool.select }, .{ "Brush", "2", Tool.brush }, .{ "Place", "3", Tool.place } }) |item| {
             if (ig.igMenuItemEx(item[0], item[1], state.view.tool == item[2], true)) state.view.selectTool(editor, item[2]);
         }
+        ig.igEndMenu();
+    }
+    if (ig.igBeginMenu("View")) {
+        if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Test")) {
