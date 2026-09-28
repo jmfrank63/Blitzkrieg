@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-11-PLAN.md
-last_updated: "2026-09-28T13:59:46.072Z"
-state_head: 7660c4353d4808312f452461a613a329275e7eda
+stopped_at: Completed 03-12-PLAN.md
+last_updated: "2026-09-28T16:54:23.575Z"
+state_head: 2f047f5bba30969fd8fb62a4186a456a0abba1c6
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T13:59:46.021Z
-**Stopped at:** Completed 03-11-PLAN.md
+**Last session:** 2026-09-28T16:54:23.518Z
+**Stopped at:** Completed 03-12-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -81,6 +81,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P09 | ~59min | 4 tasks | 8 files |
 | Phase 03-map-editor-plan-6-finish-m1 P10 | 88min | 3 tasks | 15 files |
 | Phase 03-map-editor-plan-6-finish-m1 P11 | ~57min | 3 tasks | 7 files |
+| Phase 03-map-editor-plan-6-finish-m1 P12 | 55min | 2 tasks | 8 files |
 
 ## Decisions
 
@@ -105,3 +106,5 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-10: SMapSoundInfo's binary save had nMaxRadius and bMuteDuringCombat sharing tag 6 (pre-existing bug); gave bMuteDuringCombat tag 7 - no shipped map has non-empty sounds today so nothing on disk is displaced
 - [Phase ?]: 03-11: the unknown-object host-check seam anchors on dirname(output), not process cwd, since map-editor-host-check's run step sets a staged-game cwd, not the repo root
 - [Phase ?]: 03-11: State.defaultPlacerObject must iterate self.catalogue with |*entry|, not |entry| - a by-value loop copy dangles the returned name slice the moment the function returns (found by map-editor-smoke, same bug class as loadCatalogue's sound_names)
+- [Phase ?]: 03-12: panels.zig's mapIsOpen/requestTestLaunch made pub, plus State.test_extra_env, so AutoRunner's test/waitgame handlers can drive Test in game - not in this plan's files_modified, but the least invasive way to satisfy Zig's exhaustive switch over auto.zig's Action set
+- [Phase ?]: 03-12: BK_EDITOR_AUTO's autoshot cleanup is a new Zig tool (tools/zig/delete_matching_files.zig) run via addRunArtifact, not addSystemCommand(sh/cmd) - the latter failed build_hermeticity_test.zig's forbidden-executable audit
