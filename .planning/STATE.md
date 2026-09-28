@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-10-PLAN.md
-last_updated: "2026-09-28T13:00:13.903Z"
-state_head: 66ad89f43b23b83270c5538ddd7f4e8af017a19d
+stopped_at: Completed 03-11-PLAN.md
+last_updated: "2026-09-28T13:59:46.072Z"
+state_head: 7660c4353d4808312f452461a613a329275e7eda
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 13
+  completed_plans: 14
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T13:00:13.853Z
-**Stopped at:** Completed 03-10-PLAN.md
+**Last session:** 2026-09-28T13:59:46.021Z
+**Stopped at:** Completed 03-11-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -80,6 +80,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P08 | ~60min | 3 tasks | 11 files |
 | Phase 03-map-editor-plan-6-finish-m1 P09 | ~59min | 4 tasks | 8 files |
 | Phase 03-map-editor-plan-6-finish-m1 P10 | 88min | 3 tasks | 15 files |
+| Phase 03-map-editor-plan-6-finish-m1 P11 | ~57min | 3 tasks | 7 files |
 
 ## Decisions
 
@@ -102,3 +103,5 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-09: single soldiers with no icon.tga borrow their squad's (Johannes-requested addition); coverage rose from 1073/1167 to 1126/1167 placeable objects
 - [Phase ?]: 03-10: bridge binds to CMapInfo::sounds.sounds, not soundsList as the plan named - operator& never serialises soundsList (confirmed via MapEquivalence.cpp's own comment); soundsList's own MFC-editor marker loop never populates it from a loaded file either
 - [Phase ?]: 03-10: SMapSoundInfo's binary save had nMaxRadius and bMuteDuringCombat sharing tag 6 (pre-existing bug); gave bMuteDuringCombat tag 7 - no shipped map has non-empty sounds today so nothing on disk is displaced
+- [Phase ?]: 03-11: the unknown-object host-check seam anchors on dirname(output), not process cwd, since map-editor-host-check's run step sets a staged-game cwd, not the repo root
+- [Phase ?]: 03-11: State.defaultPlacerObject must iterate self.catalogue with |*entry|, not |entry| - a by-value loop copy dangles the returned name slice the moment the function returns (found by map-editor-smoke, same bug class as loadCatalogue's sound_names)
