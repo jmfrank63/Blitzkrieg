@@ -2772,6 +2772,20 @@ pub fn build(b: *std.Build) void {
     testlaunch_step.dependOn(&testlaunch_tests.step);
     if (test_mode == .run) testlaunch_step.dependOn(&testlaunch_tests_run.step);
     test_step.dependOn(testlaunch_step);
+    // BK_EDITOR_AUTO's schedule parser and TGA comparison: plain Zig, no
+    // sdl3 and no c_bridge (auto.zig's own doc comment), so this runs on
+    // every target with no engine, GPU or staged installation.
+    const auto_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/auto.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const auto_tests = b.addTest(.{ .root_module = auto_module });
+    const auto_tests_run = b.addRunArtifact(auto_tests);
+    const auto_step = b.step("test-map-editor-auto", "Run BK_EDITOR_AUTO's schedule parser and TGA comparison tests");
+    auto_step.dependOn(&auto_tests.step);
+    if (test_mode == .run) auto_step.dependOn(&auto_tests_run.step);
+    test_step.dependOn(auto_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
@@ -5848,6 +5862,27 @@ fn addMapEditor(
     smoke_run.step.dependOn(&install_exe.step);
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
+
+    // Task 1's own proof that BK_EDITOR_AUTO drives the real loop and writes
+    // a shot: paint, then capture. Task 2 (03-12-PLAN.md) grows this into
+    // the spec's full editor-app scenario (save as, compare, test-launch).
+    // `--hidden`, like `--smoke`: the same loop, not a person watching it.
+    // Local-only (RESEARCH.md/spec: the editor-app tier is not part of CI's
+    // GPU-runner gate).
+    const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
+    const auto_run = b.addRunArtifact(exe);
+    auto_run.setCwd(b.path(stage_root));
+    auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", "3:key=2,4:press=c-120x-160,5:drag=c-95x-160,6:release=c-70x-160,8:shot=painted,9:exit");
+    // What it reads - the staged Data and engine - is not a file input of the
+    // step, so a cached pass would say nothing about the installation now.
+    auto_run.has_side_effects = true;
+    auto_run.step.dependOn(&install_exe.step);
+    // After the smoke run, so two engines never start at once.
+    auto_run.step.dependOn(&smoke_run.step);
+    const auto_step = b.step("map-editor-auto", "Run BK_EDITOR_AUTO's editor-app scenario on a shipped map");
+    auto_step.dependOn(&auto_run.step);
 
     // Task 1's headless test-launch proof (D-01..D-09): the editor places a
     // unit and the real Game plays it, no person watching. Local-only

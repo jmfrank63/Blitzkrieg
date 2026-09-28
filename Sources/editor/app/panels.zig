@@ -255,6 +255,12 @@ pub const State = struct {
     os_dialogs: bool = true,
     /// Real file dialogs asked of SDL so far; the smoke checks it stays 0.
     os_dialogs_opened: u32 = 0,
+    /// BK_EDITOR_AUTO's own `test` action (smoke.zig's `AutoRunner`): extra
+    /// environment for the next `startTestGame` spawn - BK_AUTO_UI from
+    /// BK_EDITOR_AUTO_GAME and BK_NO_HELP=1, so the child game runs and
+    /// exits unattended. Empty for every other caller (F5, the menu item),
+    /// which inherit the parent's environment unchanged, exactly as before.
+    test_extra_env: []const [2][]const u8 = &.{},
 
     /// The properties panel's fields while they are being edited: loaded
     /// from the selected object whenever none of them was active last
@@ -481,7 +487,7 @@ pub const State = struct {
     }
 };
 
-fn mapIsOpen(editor: *const Editor) bool {
+pub fn mapIsOpen(editor: *const Editor) bool {
     return editor.document.path.items.len != 0;
 }
 
@@ -1033,7 +1039,9 @@ pub fn pollTestGame(state: *State) void {
 /// The menu item or F5: asks first if one is already running (D-06);
 /// otherwise starts immediately. Never touches the document (D-01) - no
 /// unsaved-changes prompt, even when there is one (spec's own wording).
-fn requestTestLaunch(state: *State) void {
+/// `pub`: smoke.zig's `AutoRunner` (BK_EDITOR_AUTO's `test` action) calls
+/// this directly, the same way it already calls `addSoundAtViewCentre`.
+pub fn requestTestLaunch(state: *State) void {
     if (!mapIsOpen(state.editor)) return;
     if (state.test_prompt.request(state.test_game != null) == .start) startTestGame(state);
 }
@@ -1094,6 +1102,7 @@ fn startTestGame(state: *State) void {
         .mod_folder = state.modFolder(),
         .monitor = windowMonitor(state.window),
         .log_path = log_path,
+        .extra_env = state.test_extra_env,
     }) catch |err| {
         var buffer: [512]u8 = undefined;
         const message = if (err == error.FileNotFound)

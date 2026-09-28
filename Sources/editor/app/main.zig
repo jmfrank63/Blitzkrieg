@@ -52,12 +52,16 @@ const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 const crt = @import("crt.zig");
 const smoke = @import("smoke.zig");
+const auto_mod = @import("auto.zig");
 const testlaunch = @import("testlaunch.zig");
 const c = host_mod.c;
 
 const default_output = "zig-out/local-test/map-editor-check.tga";
 const default_smoke_output = "zig-out/local-test/map-editor-smoke.bzm";
 const default_game_reads_it_log = "zig-out/local-test/map-editor-game-reads-it.log";
+/// BK_EDITOR_AUTO_DIR's own default (03-12-PLAN.md Task 1): shots and
+/// references live here unless the environment overrides it.
+const default_auto_dir = "zig-out/local-test/map-editor-auto";
 
 /// The point Task 1's headless test launch places its unit at: the smoke's
 /// own measured free ground (smoke.zig's place_at), so this mode never has
@@ -98,15 +102,20 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
     defer args.deinit();
     _ = args.next();
 
-    // -mod=<Folder>/-mod=None is pulled out of the argument list first, so it
-    // is accepted in any position before the positional arguments below, in
-    // every mode - matching the doc comment atop this file.
+    // -mod=<Folder>/-mod=None and --hidden are pulled out of the argument
+    // list first, so both are accepted in any position before the positional
+    // arguments below - matching the doc comment atop this file. --hidden
+    // (03-12-PLAN.md Task 1) starts the interactive mode's own host hidden,
+    // like --smoke's, so `zig build map-editor-auto` never pops a window.
     var mod_arg: ?[]const u8 = null; // the raw text after "=", "None" included
+    var hidden = false;
     var rest: std.ArrayList([]const u8) = .empty;
     defer rest.deinit(gpa);
     while (args.next()) |arg| {
         if (parseModArg(arg)) |raw| {
             mod_arg = raw;
+        } else if (std.mem.eql(u8, arg, "--hidden")) {
+            hidden = true;
         } else {
             try rest.append(gpa, arg);
         }
@@ -139,10 +148,11 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             std.process.exit(if (passed) 0 else 1);
         }
         if (nextArg(rest.items, &index) != null) usage();
-        try interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested);
-        return;
+        const passed = try interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
+        std.process.exit(if (passed) 0 else 1);
     }
-    try interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested);
+    const passed = try interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden);
+    std.process.exit(if (passed) 0 else 1);
 }
 
 /// `-mod=<Folder>` or `-mod=None`: the raw text after `=`, or null when `arg`
@@ -181,9 +191,14 @@ fn applyModArg(real: *c_bridge.RealBridge, mod_folder: ?[]const u8, mod_requeste
 
 /// The interactive mode: one window, the engine on it, the view driving the
 /// core's tools, until the window closes or the process is asked to quit
-/// (SDL maps SIGINT/SIGTERM to SDL_EVENT_QUIT by default).
-fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool) !void {
-    var host = host_mod.Host.start(.{ .title = "Map Editor" }) catch |err| {
+/// (SDL maps SIGINT/SIGTERM to SDL_EVENT_QUIT by default). `hidden` starts
+/// the host hidden (--hidden, like --smoke's own host) - used together with
+/// BK_EDITOR_AUTO (03-12-PLAN.md), whose schedule this reads below.
+/// Returns false only for an automated (BK_EDITOR_AUTO) run whose schedule
+/// failed - `main` turns that into exit code 1; a plain interactive session
+/// always returns true.
+fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool, hidden: bool) !bool {
+    var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = hidden }) catch |err| {
         const reason = host_mod.failureReason();
         fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
     };
@@ -212,35 +227,70 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();
 
-    // D-24: mapeditor.cfg, independent of game profiles - never read or
-    // written by --check/--smoke/--game-reads-it, only interactive. Missing
-    // is not an error (a fresh install); unreadable falls back to defaults
-    // too, with a status line naming why.
+    // BK_EDITOR_AUTO (03-12-PLAN.md): read before settings/recovery below, so
+    // an automated run never reaches either (the 03-07 rule, carried into
+    // this plan's own binding constraints: automated runs never read or
+    // write the user's settings, recent list or recovery folder). Leaked
+    // deliberately, like BK_EDITOR_SETTINGS's override elsewhere in this
+    // file - a single-shot process, and auto.zig's parsed Scheduled entries
+    // borrow slices of this text for as long as the process runs.
+    const auto_text: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null;
+    const automated = auto_text != null;
+
+    var settings_path: ?[]const u8 = null;
     var settings_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const settings_path = resolveSettingsPath(&settings_path_buffer, gpa, environ, std.mem.sliceTo(&state.paths.user_root, 0));
-    if (settings_path) |path| {
-        state.settings = readSettingsFile(io, gpa, path) catch |err| switch (err) {
-            error.FileNotFound => core.settings.Settings{},
-            else => blk: {
-                view.setStatus("", "the settings file did not read: using defaults");
-                break :blk core.settings.Settings{};
-            },
-        };
+    if (!automated) {
+        // D-24: mapeditor.cfg, independent of game profiles - never read or
+        // written by --check/--smoke/--game-reads-it/BK_EDITOR_AUTO, only a
+        // plain interactive run. Missing is not an error (a fresh install);
+        // unreadable falls back to defaults too, with a status line naming
+        // why.
+        settings_path = resolveSettingsPath(&settings_path_buffer, gpa, environ, std.mem.sliceTo(&state.paths.user_root, 0));
+        if (settings_path) |path| {
+            state.settings = readSettingsFile(io, gpa, path) catch |err| switch (err) {
+                error.FileNotFound => core.settings.Settings{},
+                else => blk: {
+                    view.setStatus("", "the settings file did not read: using defaults");
+                    break :blk core.settings.Settings{};
+                },
+            };
+        }
     }
     view.wheel_sensitivity = state.settings.scroll_speed;
 
-    // D-22, spec Errors -> Crashes: offered back once, at startup, before the
-    // main loop's own autosave tick could ever write a fresh one under the
-    // same name.
-    panels.scanRecoveryOffers(&state);
+    if (!automated) {
+        // D-22, spec Errors -> Crashes: offered back once, at startup, before
+        // the main loop's own autosave tick could ever write a fresh one
+        // under the same name.
+        panels.scanRecoveryOffers(&state);
+    }
 
-    run(&host, &editor, &view, &real, &state, null, settings_path, true);
+    var auto_runner: ?smoke.AutoRunner = null;
+    if (auto_text) |text| {
+        // Automated modes must never open a real OS dialog (the same rule
+        // --smoke already follows in main.zig's smokeRun). Cursor isolation
+        // (a synthetic press must not land on a panel under the real
+        // pointer) is Task 2's own addition.
+        state.os_dialogs = false;
+        var failure: auto_mod.Failure = .{};
+        const schedule = auto_mod.parse(gpa, text, &failure) catch |err| {
+            std.debug.print("map-editor: BK_EDITOR_AUTO: bad token '{s}': {s} ({s})\n", .{ failure.token, failure.reason, @errorName(err) });
+            std.process.exit(2);
+        };
+        const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
+        const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
+        auto_runner = smoke.AutoRunner.init(&editor, &view, &real, &state, host.window, io, schedule, dir, game_env);
+    }
+
+    run(&host, &editor, &view, &real, &state, if (auto_runner) |*r| smoke.Driver{ .auto = r } else null, settings_path, !automated);
     // A plain return, not std.process.exit, so the deferred view.deinit(),
     // editor.deinit() and host.stop() above run: host.stop() takes the
     // overlay and ImGui down, BkEditorStop deletes the world, and the window
     // goes. The engine's renderer and its GPU device are not shut down - they
     // live until the process exits, as in the game - which is why one Host
-    // per process is the contract (host.zig Host.stop).
+    // per process is the contract (host.zig Host.stop). `main` does the
+    // actual std.process.exit, after this return has let those defers run.
+    return if (auto_runner) |r| !r.failed else true;
 }
 
 /// `<user_root>mapeditor/mapeditor.cfg`, or `BK_EDITOR_SETTINGS` when the
@@ -299,16 +349,19 @@ fn writeSettingsFile(io: std.Io, path: []const u8, settings: *const core.setting
 /// automated modes (which always pass null here) never write at all.
 ///
 /// `is_interactive` (D-20..D-22): only the interactive mode ticks autosave -
-/// smoke and the panel smoke run their loops with no tick at all, so they
-/// never write a map file or a recovery copy no one asked for.
-fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, script: ?*smoke.Script, settings_path: ?[]const u8, is_interactive: bool) void {
+/// smoke, BK_EDITOR_AUTO and the panel smoke run their loops with no tick at
+/// all, so they never write a map file or a recovery copy no one asked for.
+///
+/// `driver`: `.table` for --smoke's fixed script, `.auto` for BK_EDITOR_AUTO's
+/// parsed schedule (smoke.zig's `Driver`) - null for a plain interactive run.
+fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, driver: ?smoke.Driver, settings_path: ?[]const u8, is_interactive: bool) void {
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
     while (running) {
-        if (script) |s| if (!s.beforeFrame()) break;
+        if (driver) |d| if (!d.beforeFrame()) break;
         var event: sdl3.c.SDL_Event = undefined;
         while (sdl3.c.SDL_PollEvent(&event)) {
-            if (script) |s| s.observe(&event);
+            if (driver) |d| d.observe(&event);
             // ImGui's backend always gets first look, so it can update its
             // own IO state (and follow a resize) - but its bool return is
             // ImGui_ImplSDL3_ProcessEvent's "I processed this", true for
@@ -349,8 +402,8 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         // smoke never presses Test, so this is a no-op there, but the smoke's
         // own State still owns one (D-03: quitting leaves it running).
         panels.pollTestGame(state);
-        if (script) |s| {
-            if (!s.afterFrame()) running = false;
+        if (driver) |d| {
+            if (!d.afterFrame()) running = false;
         }
     }
 }
@@ -403,7 +456,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     state.os_dialogs = false;
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
-    run(&host, &editor, &view, &real, &state, &script, null, false);
+    run(&host, &editor, &view, &real, &state, smoke.Driver{ .table = &script }, null, false);
     if (!script.passed) {
         // A step that failed has said so; a loop that ended otherwise (a
         // quit event) has not.
