@@ -378,8 +378,10 @@ pub const Script = struct {
         const empty = self.resolveAt(empty_ground) orelse return self.fail("empty_ground is off the terrain", .{});
         if (empty.object) |link_id| return self.fail("empty_ground has object {d} on it", .{link_id});
         // Nothing of the map where the placed object is put and clicked, so
-        // a click there that answers can only answer with it.
-        for ([_]Pos{ ground_a, ground_b, place_at, placed_pick }) |pos| {
+        // a click there that answers can only answer with it. drag_via and
+        // drag_to too (plan 5 Task 7.1, carried): the drag step's own move
+        // must not cross another object on the way.
+        for ([_]Pos{ ground_a, ground_b, place_at, placed_pick, drag_via, drag_to }) |pos| {
             const point = self.resolveAt(pos) orelse return self.fail("{any} is off the terrain", .{pos});
             if (point.object) |link_id| return self.fail("{any} has object {d} on it", .{ pos, link_id });
         }

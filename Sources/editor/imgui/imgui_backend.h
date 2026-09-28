@@ -21,6 +21,20 @@ void bk_imgui_backend_shutdown(void);
 bool bk_imgui_backend_process_event(const void *sdl_event);
 /* Both backends' NewFrame; call before igNewFrame. */
 void bk_imgui_backend_new_frame(void);
+
+/* Isolates synthetic input (--smoke, BK_EDITOR_AUTO) from the real cursor:
+   enabled=false disables the SDL3 backend's own mouse capture (never calls
+   SDL_CaptureMouse) and clears its auto-capture hint, so a synthetic press
+   cannot claim OS capture over, or be overridden by, the real hardware
+   pointer's drag. This does not reach the backend's separate "no window is
+   hovered - fall back to SDL_GetGlobalMouseState" read inside its own
+   per-frame update: that flag (ImGui_ImplSDL3_Data::MouseCanUseGlobalState)
+   is set once at ImGui_ImplSDL3_InitForSDLGPU from a driver whitelist and
+   has no public accessor in imgui_impl_sdl3.h - the vendored backend offers
+   no switch for it (03-12-PLAN.md Task 2's own accepted fallback). Call once
+   per host, before the first automated frame; enabled=true restores the
+   backend's own default (Enabled) capture mode. */
+void bk_imgui_backend_use_global_mouse(bool enabled);
 /* Uploads the current draw data (igRender must have run) and draws it onto
    target with a LOAD pass, so what is already there stays. command_buffer:
    SDL_GPUCommandBuffer*; target: SDL_GPUTexture*. No pass may be open. */

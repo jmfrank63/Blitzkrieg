@@ -43,6 +43,14 @@ extern "C" void bk_imgui_backend_new_frame( void )
     ImGui_ImplSDL3_NewFrame();
 }
 
+extern "C" void bk_imgui_backend_use_global_mouse( bool enabled )
+{
+    // From 2.0.22, set unconditionally at Init already (#5710) - restated
+    // here so a caller reading only this function sees the full story.
+    SDL_SetHint( SDL_HINT_MOUSE_AUTO_CAPTURE, enabled ? "1" : "0" );
+    ImGui_ImplSDL3_SetMouseCaptureMode( enabled ? ImGui_ImplSDL3_MouseCaptureMode_Enabled : ImGui_ImplSDL3_MouseCaptureMode_Disabled );
+}
+
 extern "C" void bk_imgui_backend_render( void *command_buffer, void *target )
 {
     ImDrawData *draw_data = ImGui::GetDrawData();

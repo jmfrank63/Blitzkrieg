@@ -267,11 +267,11 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 
     var auto_runner: ?smoke.AutoRunner = null;
     if (auto_text) |text| {
-        // Automated modes must never open a real OS dialog (the same rule
-        // --smoke already follows in main.zig's smokeRun). Cursor isolation
-        // (a synthetic press must not land on a panel under the real
-        // pointer) is Task 2's own addition.
+        // Automated modes must never open a real OS dialog, or land a
+        // synthetic press on a panel under the real cursor - the same two
+        // rules --smoke already follows (main.zig's smokeRun).
         state.os_dialogs = false;
+        imgui.c.bk_imgui_backend_use_global_mouse(false);
         var failure: auto_mod.Failure = .{};
         const schedule = auto_mod.parse(gpa, text, &failure) catch |err| {
             std.debug.print("map-editor: BK_EDITOR_AUTO: bad token '{s}': {s} ({s})\n", .{ failure.token, failure.reason, @errorName(err) });
@@ -454,6 +454,11 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     // itself; a real OS dialog would stay up for the rest of the run and
     // take the window's focus and pointer whenever it appeared (Windows).
     state.os_dialogs = false;
+    // Isolates the script's synthetic pointer from the real cursor
+    // (03-12-PLAN.md Task 2, plan 5 Task 7.1 carried): see
+    // bk_imgui_backend_use_global_mouse's own doc comment for what this
+    // does and does not close off.
+    imgui.c.bk_imgui_backend_use_global_mouse(false);
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
     run(&host, &editor, &view, &real, &state, smoke.Driver{ .table = &script }, null, false);

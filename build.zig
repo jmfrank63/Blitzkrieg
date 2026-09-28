@@ -5863,26 +5863,52 @@ fn addMapEditor(
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
 
-    // Task 1's own proof that BK_EDITOR_AUTO drives the real loop and writes
-    // a shot: paint, then capture. Task 2 (03-12-PLAN.md) grows this into
-    // the spec's full editor-app scenario (save as, compare, test-launch).
-    // `--hidden`, like `--smoke`: the same loop, not a person watching it.
-    // Local-only (RESEARCH.md/spec: the editor-app tier is not part of CI's
-    // GPU-runner gate).
+    // The spec's editor-app tier (03-12-PLAN.md), one local command: paint,
+    // place, save as a new map, shoot and compare the frame against a local
+    // (never committed) reference, test-launch the game and wait for it to
+    // exit 0, then quit. `--hidden`, like `--smoke`: the same loop, not a
+    // person watching it. Local-only (RESEARCH.md/spec: the editor-app tier
+    // is not part of CI's GPU-runner gate) - it starts a second engine
+    // process end to end, like map-editor-game-reads-it.
     const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
+    const auto_saveas_path = b.fmt("{s}/auto.bzm", .{auto_dir});
+    // Coordinates match smoke.zig's own script exactly (ground_a/
+    // ground_between/ground_b, place_at): the same shipped map, the same
+    // screen-centre-relative convention, so both scripts paint/place on the
+    // same known-clear ground. BK_EDITOR_AUTO_GAME becomes the test game's
+    // own BK_AUTO_UI: a shot (for a person to look at, unmeasured) then exit.
     const auto_run = b.addRunArtifact(exe);
     auto_run.setCwd(b.path(stage_root));
     auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
-    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", "3:key=2,4:press=c-120x-160,5:drag=c-95x-160,6:release=c-70x-160,8:shot=painted,9:exit");
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", b.fmt(
+        "3:key=2,4:press=c-120x-160,5:drag=c-95x-160,6:drag=c-70x-160,7:release=c-70x-160,8:key=3,9:click=c-40x-120,10:saveas={s},11:shot=edited,12:compare=edited,13:test,14:waitgame=240,15:exit",
+        .{auto_saveas_path},
+    ));
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_GAME", "400:shot,440:exit");
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     auto_run.has_side_effects = true;
     auto_run.step.dependOn(&install_exe.step);
     // After the smoke run, so two engines never start at once.
     auto_run.step.dependOn(&smoke_run.step);
+    // Test in game (the schedule's own `test` action) leaves the game's own
+    // screenshot dump in the stage root it ran from (main.zig's own
+    // deleteAutoshots comment, --game-reads-it's analogous cleanup) - swept
+    // up so a repeat run is not mistaken for a stale leftover. A Zig
+    // artifact process (addRunArtifact), not an external interpreter -
+    // build_hermeticity_test.zig forbids this file spawning one of those.
+    const delete_matching_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
+    const cleanup_autoshots = b.addRunArtifact(delete_matching);
+    cleanup_autoshots.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots.step.dependOn(&auto_run.step);
     const auto_step = b.step("map-editor-auto", "Run BK_EDITOR_AUTO's editor-app scenario on a shipped map");
-    auto_step.dependOn(&auto_run.step);
+    auto_step.dependOn(&cleanup_autoshots.step);
 
     // Task 1's headless test-launch proof (D-01..D-09): the editor places a
     // unit and the real Game plays it, no person watching. Local-only
