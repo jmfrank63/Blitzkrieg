@@ -24,9 +24,9 @@ affects: [03-09-unknown-objects-warning-and-object-icons, any later M2/M3 phase 
 
 # Actuals (#2632)
 actuals:
-  tokens: 17746
+  tokens: 18367
   tasks: 3
-  commits: 3
+  commits: 6
 plan_head_before: 01a139f530e7fd13f90ae341ad9f6bec4a452a03
 
 # Tech tracking
@@ -50,6 +50,7 @@ key-files:
     - Sources/editor/app/main.zig
     - Sources/editor/app/panels.zig
     - Sources/editor/app/panels_logic.zig
+    - Sources/editor/core/files.zig
     - build.zig
     - tools/zig/editor_bridge_test.cpp
     - .gitignore
@@ -148,8 +149,9 @@ Each task was committed atomically:
 1. **Task 1: -mod=\<Folder\> mounts a mod and the palette shows its objects - bridge, CLI, fixture** - `5a6831080` (feat)
 2. **Task 2: File > Mod switches mods through the unsaved prompt, reloads the palette and reopens the map; engine-tier checks** - `e69566c71` (feat)
 3. **Task 3: Mod maps live in the user's data and record their mod** - `c86c33679` (feat)
+4. **Deviation 5 (found via CI, after all three tasks): StdFiles.dir loses its `.cwd()` default** - `4d225ab40` (fix)
 
-**Plan metadata:** commit pending (this SUMMARY + STATE.md update)
+**Plan metadata:** `63353b6ea` (SUMMARY), `d5e62480b` (STATE.md/ROADMAP.md)
 
 ## Files Created/Modified
 
@@ -207,10 +209,35 @@ Each task was committed atomically:
 - **Verification:** `zig build map-editor-host-check map-editor-smoke` compiles and all runs PASS
 - **Committed in:** `e69566c71` (Task 2 commit)
 
+**5. [Rule 3 - Blocking] Windows CI's "Editor core tier" failed to compile: `StdFiles.dir`'s `.cwd()` default is not comptime-safe**
+- **Found during:** post-Task-3 CI verification, per this plan's own dispatch note ("this will likely be the branch's first CI run for plan 6" - check CI on both GPU runners)
+- **Issue:** `zig build map-editor-host-check`'s Windows CI run failed before ever reaching the map editor: `Sources/editor/core/files.zig`'s `dir: std.Io.Dir = .cwd()` field default does not typecheck on `x86_64-windows-msvc` - `std.Io.Dir.cwd()` reads the live PEB through an `asm` block on Windows, which cannot be evaluated at compile time, and Zig evaluates a struct field's default value as part of analysing the struct declaration itself (not lazily per instantiation), so every existing caller that already overrode `.dir` explicitly (the core tier's own "on a real directory" test) did not save it either. Not caused by this plan - `StdFiles` predates it (03-03) and this exact Windows job had apparently never compiled this file before (03-01..03-07 verified only on macOS locally per their own SUMMARYs) - but it blocked every later CI step (host check, smoke, engine tier) on both Windows jobs, preventing this plan's own required CI verification ("Host check with the fixture mod on both GPU runners") from ever running.
+- **Fix:** Removed the default; every construction site (`main.zig`'s four `StdFiles` literals) now passes `.dir = .cwd()` explicitly, where it executes as ordinary runtime code inside a function body rather than a comptime-evaluated field default.
+- **Files modified:** Sources/editor/core/files.zig, Sources/editor/app/main.zig
+- **Verification:** `zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=compile` (with throwaway MSVC/SDK include/lib paths, since the core module needs none of their actual contents) went from reproducing the exact CI error to a clean compile; the full native suite still passes on aarch64-macos; confirmed on the re-triggered CI run (36397680132): Windows' "Editor core tier" now PASSES, and the run proceeds through "Engine tier", "Map editor host" and "Map editor smoke" - all PASS.
+- **Committed in:** `4d225ab40` (a fourth commit, after all three tasks - discovered only once CI actually ran)
+
 ---
 
-**Total deviations:** 4 auto-fixed (2 blocking integration/build necessities, 1 blocking gitignore fix, 1 bug in test authoring caught before any commit)
-**Impact on plan:** All four are small, necessary consequences of the plan's own described behavior (closing the map, tracking the fixture, exercising the real two-call convention, and threading a new required parameter) - no scope creep beyond what "mount a mod like the game" and "File > Mod" already implied.
+**Total deviations:** 5 auto-fixed (2 blocking integration/build necessities, 1 blocking gitignore fix, 1 bug in test authoring caught before any commit, 1 blocking pre-existing Windows compile regression found via CI)
+**Impact on plan:** All five are small, necessary consequences of the plan's own described behavior or of actually running the CI this plan's own `<verification>` requires - no scope creep beyond what "mount a mod like the game", "File > Mod" and "verify on both GPU runners" already implied.
+
+## CI Verification (per this plan's dispatch note)
+
+This branch's first CI run since plan 6 began (workflow_dispatch, since the repo's `on:` only triggers on push/PR against `main`) surfaced the Windows compile regression above (deviation 5), fixed and re-verified. The re-triggered run (https://github.com/jmfrank63/Blitzkrieg/actions/runs/36397680132) results:
+
+| Job | Result | Notes |
+|---|---|---|
+| linux-platform | PASS | 5m35s |
+| linux-arm-platform | PASS | 1m7s |
+| macos-platform | PASS | 14m46s |
+| macos-intel-platform | PASS | 1m52s |
+| windows-mingw-platform | PASS | 2m3s (no MapEditor target on this ABI) |
+| windows-platform | **timed out at 1h15m** (see below) | |
+
+`windows-platform`'s own step timeline (`gh api .../jobs/108847864525`) shows every map-editor-relevant step passing cleanly and fast: "Editor core tier" (5s, was the compile failure above), "Engine tier" (25m 25s), "Map editor host" (1m2s, **includes this plan's own `-mod=EditorTestMod` run and prints the mod line**), "Map editor smoke" (20s, **the exact step this plan's dispatch note asked to watch for a hang from 03-04's real `SDL_ShowSaveFileDialog` call - it did not hang**), "Map editor engine tier" (20s, includes `TestModsListSetAndClear`/`TestSaveRecordsTheMod`), "Random missions tier" (25m27s, PASS). The job was then killed by GitHub's 1h15m job timeout mid-way through "Random missions tier (debug asserts)" (`conclusion: cancelled`, not a real failure) - a pre-existing, unrelated test tier this plan never touches. `03-RESEARCH.md`'s own Pitfall 6 flagged this exact risk before the plan was written ("~62 of 75 minutes already consumed... ~13 minutes of headroom"); this plan's total new CI time (the third host-check run plus two small engine tests) is on the order of a minute, well inside that headroom - the job's overall budget was already this tight beforehand. Restructuring the Windows job's own step allocation (splitting it, moving "Random missions tier" out, or similar) is an architectural change to CI itself, out of this plan's scope (Rule 4 territory, not Rule 1-3) and left for a packaging/CI-focused plan or a dedicated fix.
+
+**Conclusion: every claim this plan makes about Windows behavior is verified by this run** (the compile fix, the fixture-mod host check, the no-hang smoke step, the engine-tier mod tests) - the job's failure to finish is a pre-existing, unrelated capacity ceiling, not evidence against anything this plan built.
 
 ## Issues Encountered
 
@@ -230,10 +257,10 @@ None - no external service configuration required.
 
 ## Self-Check: PASSED
 
-- `[ -f Sources/src/EditorBridge/bridge.h ]`, `[ -f Sources/src/EditorBridge/bridge.cpp ]`, `[ -f Sources/src/EditorBridge/session.h ]`, `[ -f Sources/src/EditorBridge/session.cpp ]`, `[ -f Sources/editor/app/c_bridge.zig ]`, `[ -f Sources/editor/app/main.zig ]`, `[ -f Sources/editor/app/panels.zig ]`, `[ -f Sources/editor/app/panels_logic.zig ]`, `[ -f build.zig ]`, `[ -f tools/zig/editor_bridge_test.cpp ]`, `[ -f tools/zig/fixtures/editor_mod/EditorTestMod/data/mod.xml ]` - all FOUND.
-- `git log --oneline --all --grep="03-08"` returns 3 commits (`5a6831080`, `e69566c71`, `c86c33679`) - all FOUND.
+- `[ -f Sources/src/EditorBridge/bridge.h ]`, `[ -f Sources/src/EditorBridge/bridge.cpp ]`, `[ -f Sources/src/EditorBridge/session.h ]`, `[ -f Sources/src/EditorBridge/session.cpp ]`, `[ -f Sources/editor/app/c_bridge.zig ]`, `[ -f Sources/editor/app/main.zig ]`, `[ -f Sources/editor/app/panels.zig ]`, `[ -f Sources/editor/app/panels_logic.zig ]`, `[ -f Sources/editor/core/files.zig ]`, `[ -f build.zig ]`, `[ -f tools/zig/editor_bridge_test.cpp ]`, `[ -f tools/zig/fixtures/editor_mod/EditorTestMod/data/mod.xml ]` - all FOUND.
+- `git log --oneline --all --grep="03-08"` returns 6 commits (`5a6831080`, `e69566c71`, `c86c33679`, `63353b6ea`, `d5e62480b`, `4d225ab40`) - all FOUND.
 - All task `<acceptance_criteria>` re-verified: bridge.h declares the four new entry points with argument rules and units documented; `grep -n "SetMOD" Sources/src/EditorBridge/bridge.cpp` prints nothing; the fixture is tracked (`git ls-files tools/zig/fixtures/editor_mod` lists `mod.xml`); the host check with `-mod=EditorTestMod` prints `map-editor: mod EditorTestMod (Editor Test Mod 1.0)` and PASS; panels.zig has the File > "Mod" submenu and `reloadCatalogue`; `grep -n "switch_mod" Sources/editor/app/panels_logic.zig` finds its execution; `TestModsListSetAndClear` is in `main`'s list and the tier passes; `grep -n "szMODName" Sources/src/EditorBridge/bridge.cpp` finds the stamping guarded by an active mod; `TestSaveRecordsTheMod` passes both halves - all PASS.
-- Plan-level `<verification>`: `zig test tools/zig/build_hermeticity_test.zig` (3/3 tests passed), `zig build map-editor-host-check -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` (rc=0, all three runs PASS including `-mod=EditorTestMod`), `zig build test-map-editor-panels` (rc=0), `zig build test-editor-bridge` (rc=0, `editor-bridge: PASS`, both new tests clean), `zig build map-editor-smoke map-editor-host-check` (rc=0, 4 "smoke PASS"-shaped lines), `zig build test` (core + map-file tiers, rc=0), `zig build test-map-editor-engine` (rc=0, `map-editor-engine: PASS`) - all PASS on the final committed state. CI on both GPU runners (macOS and Windows) is this branch's first run of phase 3 plan 6 and is checked separately after push, per the dispatch's own instruction, with particular attention to the Windows "Map editor smoke" step and 03-04's real `SDL_ShowSaveFileDialog` call.
+- Plan-level `<verification>`: `zig test tools/zig/build_hermeticity_test.zig` (3/3 tests passed), `zig build map-editor-host-check -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` (rc=0, all three runs PASS including `-mod=EditorTestMod`), `zig build test-map-editor-panels` (rc=0), `zig build test-editor-bridge` (rc=0, `editor-bridge: PASS`, both new tests clean), `zig build map-editor-smoke map-editor-host-check` (rc=0, 4 "smoke PASS"-shaped lines), `zig build test` (core + map-file tiers, rc=0), `zig build test-map-editor-engine` (rc=0, `map-editor-engine: PASS`) - all PASS locally on aarch64-macos. **CI on both GPU runners, per the dispatch's own instruction: verified on the re-triggered run (36397680132, see "CI Verification" above) - macOS PASS end to end; Windows' "Editor core tier" (the deviation-5 regression), "Map editor host" (including `-mod=EditorTestMod`), "Map editor smoke" (the specific step the dispatch note asked to watch for a dialog hang - none occurred) and "Map editor engine tier" (`TestModsListSetAndClear`/`TestSaveRecordsTheMod`) all PASS; the job's overall 1h15m timeout during the unrelated, pre-existing "Random missions tier (debug asserts)" tier is a known capacity ceiling (03-RESEARCH.md Pitfall 6), not a failure of anything this plan built.**
 
 ---
 *Phase: 03-map-editor-plan-6-finish-m1*
