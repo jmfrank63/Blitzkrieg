@@ -2,7 +2,9 @@
 //! Editor does the bridge calls, this file only keeps the stacks and knows
 //! whether the map differs from the last save.
 const std = @import("std");
-const ObjectRecord = @import("bridge.zig").ObjectRecord;
+const bridge_mod = @import("bridge.zig");
+const ObjectRecord = bridge_mod.ObjectRecord;
+const SoundRecord = bridge_mod.SoundRecord;
 
 pub const Pose = struct { x: f32, y: f32, dir: i32, player: i32 };
 
@@ -16,6 +18,14 @@ pub const Command = union(enum) {
     diplomacy: struct { player: i32, before: i32, after: i32 },
     map_type: struct { before: i32, after: i32 },
     attacking_side: struct { before: i32, after: i32 },
+    /// The sound as added and where the bridge's list holds it, for undo
+    /// (delete at `index`) and redo (add `record` back at `index`).
+    sound_add: struct { index: usize, record: SoundRecord },
+    /// `index` never moves for an edit - only the record at it changes.
+    sound_edit: struct { index: usize, before: SoundRecord, after: SoundRecord },
+    /// The sound as it was before it was deleted, and its index, so undo
+    /// re-adds it exactly there.
+    sound_delete: struct { index: usize, record: SoundRecord },
 
     pub fn deinit(self: *Command, allocator: std.mem.Allocator) void {
         switch (self.*) {

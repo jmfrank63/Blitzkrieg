@@ -8,6 +8,7 @@ const files_mod = @import("files.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
+const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const FakeBridge = fake_mod.FakeBridge;
 const Document = document_mod.Document;
@@ -25,6 +26,12 @@ pub const Editor = struct {
     history: history_mod.History = .{},
     selection: ?i32 = null,
     next_gesture: u32 = 1,
+    /// Bumped by every sound-list change - addSound, editSound, deleteSound,
+    /// and their undo/redo alike (`replay`'s own three cases) - so the panel
+    /// knows to read the list again; it has no mirror of its own to compare
+    /// against (unlike `document.objects`, the bridge's sound list is read
+    /// fresh through `bridge.sounds` whenever this changes).
+    sounds_generation: u32 = 0,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -338,6 +345,79 @@ pub const Editor = struct {
         self.history.recordAssumeCapacity(self.allocator, .{ .attacking_side = .{ .before = before, .after = value } }, 0);
     }
 
+    /// The bridge's sound list has no per-index read of its own (unlike an
+    /// object, which the document mirrors) - `BkEditorSounds` is the only
+    /// accessor, and it reads the whole list. `editSound` and `deleteSound`
+    /// need the record at `index` before they change it, to record it for
+    /// undo, so they read the whole list here and pick it out - the same
+    /// two-pass sizing `document.reload` uses for `bridge.objects`.
+    fn readSoundAt(self: *Editor, index: usize) EditError!SoundRecord {
+        var none: [0]SoundRecord = .{};
+        var total: usize = 0;
+        const sizing = self.bridge.sounds(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        if (index >= total) return error.Failed;
+        const buffer = self.allocator.alloc(SoundRecord, total) catch return error.OutOfMemory;
+        defer self.allocator.free(buffer);
+        try bridge_mod.check(self.bridge.sounds(buffer, &total));
+        if (index >= buffer.len) return error.Failed;
+        return buffer[index];
+    }
+
+    /// Adds `record` to the bridge's sound list at `index` (0..count inserts
+    /// there, -1 appends - BkEditorAddSound's own sentinel) and records it
+    /// for undo. The recorded index is always the one the sound actually
+    /// landed at, resolved from the list's new count when `index` was -1, so
+    /// undo always names the right position to delete from.
+    pub fn addSound(self: *Editor, index: i32, record: SoundRecord) EditError!void {
+        try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.addSound(index, record));
+        var none: [0]SoundRecord = .{};
+        var total: usize = 0;
+        _ = self.bridge.sounds(&none, &total);
+        const actual: usize = if (index >= 0) @intCast(index) else (if (total == 0) 0 else total - 1);
+        self.history.recordAssumeCapacity(self.allocator, .{ .sound_add = .{ .index = actual, .record = record } }, 0);
+        self.sounds_generation +%= 1;
+    }
+
+    /// Replaces the sound at `index` with `record`, one undo step per
+    /// gesture (merged the same way `place` merges a drag): a later edit of
+    /// the same sound within the same gesture updates the entry's `after`
+    /// rather than pushing a new one, and an edit that lands back on the
+    /// gesture's own `before` drops the entry entirely, the same as `place`.
+    pub fn editSound(self: *Editor, index: usize, record: SoundRecord, gesture: u32) EditError!void {
+        const before = try self.readSoundAt(index);
+        if (std.meta.eql(before, record)) return;
+        const merge_entry = self.mergeable(gesture, .sound_edit);
+        const merging = if (merge_entry) |entry| entry.command.sound_edit.index == index else false;
+        if (!merging) try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.setSound(@intCast(index), record));
+        if (merging) {
+            const entry = merge_entry.?;
+            if (std.meta.eql(entry.command.sound_edit.before, record)) {
+                self.history.dropTop(self.allocator);
+            } else {
+                entry.command.sound_edit.after = record;
+                self.history.touchTop(self.allocator);
+            }
+        } else {
+            self.history.recordAssumeCapacity(self.allocator, .{ .sound_edit = .{ .index = index, .before = before, .after = record } }, gesture);
+        }
+        self.sounds_generation +%= 1;
+    }
+
+    /// Reads the record at `index` first, so undo can re-add it exactly
+    /// there (BkEditorDeleteSound has no restore call of its own to undo
+    /// through, unlike an object's tombstone - a plain `addSound` at the
+    /// same index does the same job).
+    pub fn deleteSound(self: *Editor, index: usize) EditError!void {
+        const record = try self.readSoundAt(index);
+        try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.deleteSound(@intCast(index)));
+        self.history.recordAssumeCapacity(self.allocator, .{ .sound_delete = .{ .index = index, .record = record } }, 0);
+        self.sounds_generation +%= 1;
+    }
+
     fn applyPose(object: *ObjectRecord, pose: Pose) void {
         object.x = pose.x;
         object.y = pose.y;
@@ -382,6 +462,19 @@ pub const Editor = struct {
                 const value = if (forwards) s.after else s.before;
                 try self.noteOutcome(self.bridge.setAttackingSide(value));
                 self.document.info.attacking_side = value;
+            },
+            .sound_add => |a| {
+                if (forwards) try self.noteOutcome(self.bridge.addSound(@intCast(a.index), a.record)) else try self.noteOutcome(self.bridge.deleteSound(@intCast(a.index)));
+                self.sounds_generation +%= 1;
+            },
+            .sound_edit => |e| {
+                const value = if (forwards) e.after else e.before;
+                try self.noteOutcome(self.bridge.setSound(@intCast(e.index), value));
+                self.sounds_generation +%= 1;
+            },
+            .sound_delete => |d| {
+                if (forwards) try self.noteOutcome(self.bridge.deleteSound(@intCast(d.index))) else try self.noteOutcome(self.bridge.addSound(@intCast(d.index), d.record));
+                self.sounds_generation +%= 1;
             },
         }
     }
@@ -717,6 +810,78 @@ test "a refused delete leaves the document and the history unchanged" {
     try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
     try std.testing.expect(!editor.dirty());
     try std.testing.expect(!(try editor.undo()));
+}
+
+test "sound add, undo, redo" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var record: SoundRecord = .{ .x = 50, .y = 50, .repeat_ms = 1000, .min_radius = 1, .max_radius = 5 };
+    record.setName("Explosion");
+    try editor.addSound(-1, record);
+    try std.testing.expectEqual(@as(usize, 1), fake.sounds_list.items.len);
+    try std.testing.expectEqualStrings("Explosion", fake.sounds_list.items[0].nameSlice());
+    try std.testing.expect(editor.dirty());
+    const generation_after_add = editor.sounds_generation;
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 0), fake.sounds_list.items.len);
+    try std.testing.expect(editor.sounds_generation != generation_after_add);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 1), fake.sounds_list.items.len);
+}
+
+test "sound edit, undo" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var seed: SoundRecord = .{ .x = 50, .y = 50, .min_radius = 1, .max_radius = 5 };
+    seed.setName("Explosion");
+    try fake.addSoundFixture(seed);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var edited = seed;
+    edited.min_radius = 2;
+    edited.max_radius = 9;
+    try editor.editSound(0, edited, 0);
+    try std.testing.expectEqual(@as(i32, 2), fake.sounds_list.items[0].min_radius);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, 1), fake.sounds_list.items[0].min_radius);
+    try std.testing.expectEqual(@as(i32, 5), fake.sounds_list.items[0].max_radius);
+}
+
+test "delete then undo restores the same sound at the same index" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var first: SoundRecord = .{ .x = 10, .y = 10 };
+    first.setName("Wind");
+    var second: SoundRecord = .{ .x = 20, .y = 20, .max_radius = 3 };
+    second.setName("Explosion");
+    try fake.addSoundFixture(first);
+    try fake.addSoundFixture(second);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deleteSound(0);
+    try std.testing.expectEqual(@as(usize, 1), fake.sounds_list.items.len);
+    try std.testing.expectEqualStrings("Explosion", fake.sounds_list.items[0].nameSlice());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 2), fake.sounds_list.items.len);
+    try std.testing.expectEqualStrings("Wind", fake.sounds_list.items[0].nameSlice());
+    try std.testing.expectEqualStrings("Explosion", fake.sounds_list.items[1].nameSlice());
+}
+
+test "a refused sound add leaves history and generation unchanged" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var off_map: SoundRecord = .{ .x = 9999, .y = 9999 };
+    off_map.setName("Explosion");
+    const generation_before = editor.sounds_generation;
+    const undo_depth_before = editor.history.undo_stack.items.len;
+    try std.testing.expectError(error.Refused, editor.addSound(-1, off_map));
+    try std.testing.expectEqual(@as(usize, 0), fake.sounds_list.items.len);
+    try std.testing.expectEqual(generation_before, editor.sounds_generation);
+    try std.testing.expectEqual(undo_depth_before, editor.history.undo_stack.items.len);
 }
 
 test "place, undo, redo" {

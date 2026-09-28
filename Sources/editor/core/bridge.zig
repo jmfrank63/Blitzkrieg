@@ -64,6 +64,31 @@ pub const ObjectRecord = struct {
 /// straight to the C call.
 pub const PaintCell = extern struct { x: c_int, y: c_int, tile: u8 };
 
+/// BkEditorSoundRecord. Positions are world (scene) units, not map units
+/// (bridge.h's own comment on BkEditorSounds); radii are vis tiles; times
+/// are milliseconds.
+pub const SoundRecord = struct {
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    x: f32 = 0,
+    y: f32 = 0,
+    z: f32 = 0,
+    repeat_ms: i32 = 0,
+    repeat_random_ms: i32 = 0,
+    mute_in_combat: bool = false,
+    min_radius: i32 = 0,
+    max_radius: i32 = 0,
+
+    pub fn nameSlice(self: *const SoundRecord) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *SoundRecord, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+};
+
 pub const Bridge = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -90,6 +115,18 @@ pub const Bridge = struct {
         /// object position's). BkEditorWorldToMap.
         worldToMap: *const fn (ptr: *anyopaque, wx: f32, wy: f32, mx: *f32, my: *f32) Status,
         objectAt: *const fn (ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status,
+        /// BkEditorSounds. Like `objects`: `total` is always the full count,
+        /// so a caller sizes `out` from a first sizing call the way
+        /// `document.reload` does for `objects`.
+        sounds: *const fn (ptr: *anyopaque, out: []SoundRecord, total: *usize) Status,
+        /// BkEditorAddSound. `index` is 0..count to insert there, -1 to
+        /// append - the C call's own sentinel, kept as-is rather than an
+        /// optional, since the core passes it straight through.
+        addSound: *const fn (ptr: *anyopaque, index: i32, record: SoundRecord) Status,
+        /// BkEditorSetSound.
+        setSound: *const fn (ptr: *anyopaque, index: i32, record: SoundRecord) Status,
+        /// BkEditorDeleteSound.
+        deleteSound: *const fn (ptr: *anyopaque, index: i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -111,6 +148,10 @@ pub const Bridge = struct {
     pub fn worldToTile(self: Bridge, wx: f32, wy: f32, tx: *i32, ty: *i32) Status { return self.vtable.worldToTile(self.ptr, wx, wy, tx, ty); }
     pub fn worldToMap(self: Bridge, wx: f32, wy: f32, mx: *f32, my: *f32) Status { return self.vtable.worldToMap(self.ptr, wx, wy, mx, my); }
     pub fn objectAt(self: Bridge, sx: f32, sy: f32, link_id: *i32) Status { return self.vtable.objectAt(self.ptr, sx, sy, link_id); }
+    pub fn sounds(self: Bridge, out: []SoundRecord, total: *usize) Status { return self.vtable.sounds(self.ptr, out, total); }
+    pub fn addSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.addSound(self.ptr, index, rec); }
+    pub fn setSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.setSound(self.ptr, index, rec); }
+    pub fn deleteSound(self: Bridge, index: i32) Status { return self.vtable.deleteSound(self.ptr, index); }
 };
 
 test "check turns a refusal into Refused and everything else into Failed" {

@@ -12,6 +12,7 @@ const Status = core.bridge.Status;
 const Bridge = core.bridge.Bridge;
 const MapInfo = core.bridge.MapInfo;
 const ObjectRecord = core.bridge.ObjectRecord;
+const SoundRecord = core.bridge.SoundRecord;
 const PaintCell = core.bridge.PaintCell;
 
 comptime {
@@ -83,6 +84,10 @@ pub const RealBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .sounds = vtableSounds,
+        .addSound = vtableAddSound,
+        .setSound = vtableSetSound,
+        .deleteSound = vtableDeleteSound,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -217,6 +222,78 @@ pub const RealBridge = struct {
 
     fn objectAt(ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status {
         return status(c.BkEditorObjectAt(from(ptr).session, sx, sy, link_id));
+    }
+
+    /// core.bridge.SoundRecord from a BkEditorSoundRecord - `toRecord`'s own
+    /// shape, for sounds.
+    fn toSoundRecord(record: c.BkEditorSoundRecord) SoundRecord {
+        var sound: SoundRecord = .{
+            .x = record.x,
+            .y = record.y,
+            .z = record.z,
+            .repeat_ms = record.repeat_ms,
+            .repeat_random_ms = record.repeat_random_ms,
+            .mute_in_combat = record.mute_in_combat != 0,
+            .min_radius = record.min_radius,
+            .max_radius = record.max_radius,
+        };
+        sound.setName(std.mem.sliceTo(&record.name, 0));
+        return sound;
+    }
+
+    /// The other direction, for addSound/setSound: the core never builds a
+    /// BkEditorSoundRecord itself.
+    fn toCSoundRecord(record: SoundRecord) c.BkEditorSoundRecord {
+        var out: c.BkEditorSoundRecord = std.mem.zeroes(c.BkEditorSoundRecord);
+        const name = record.nameSlice();
+        const len = @min(name.len, out.name.len - 1);
+        @memcpy(out.name[0..len], name[0..len]);
+        out.x = record.x;
+        out.y = record.y;
+        out.z = record.z;
+        out.repeat_ms = record.repeat_ms;
+        out.repeat_random_ms = record.repeat_random_ms;
+        out.mute_in_combat = if (record.mute_in_combat) 1 else 0;
+        out.min_radius = record.min_radius;
+        out.max_radius = record.max_radius;
+        return out;
+    }
+
+    /// BkEditorSounds - `objects`'s own two-pass shape, for the core's
+    /// `readSoundAt`/`document`-less sound list.
+    fn vtableSounds(ptr: *anyopaque, out: []SoundRecord, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorSounds(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const records = std.heap.page_allocator.alloc(c.BkEditorSoundRecord, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(records);
+        var got: c_int = 0;
+        const read = status(c.BkEditorSounds(self.session, records.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (records, out[0..records.len]) |record, *sound| sound.* = toSoundRecord(record);
+        return .ok;
+    }
+
+    fn vtableAddSound(ptr: *anyopaque, index: i32, record: SoundRecord) Status {
+        const self = from(ptr);
+        var c_record = toCSoundRecord(record);
+        return status(c.BkEditorAddSound(self.session, index, &c_record));
+    }
+
+    fn vtableSetSound(ptr: *anyopaque, index: i32, record: SoundRecord) Status {
+        const self = from(ptr);
+        var c_record = toCSoundRecord(record);
+        return status(c.BkEditorSetSound(self.session, index, &c_record));
+    }
+
+    fn vtableDeleteSound(ptr: *anyopaque, index: i32) Status {
+        return status(c.BkEditorDeleteSound(from(ptr).session, index));
     }
 
     pub fn setCamera(self: *RealBridge, wx: f32, wy: f32) Status {
