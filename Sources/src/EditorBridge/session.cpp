@@ -259,6 +259,21 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		pScene->SetTerrain( pTerrain );
 	}
 
+	// The map's season, before a single object is built: CreateMapObject
+	// hands the world's season to every map object, which picks its winter or
+	// summer model and texture from it once, when it is made. Without this the
+	// world keeps CWorldBase's SEASON_SUMMER and a winter map's units are drawn
+	// in their summer paint. The game sets it at the same point, after the
+	// terrain and before the mission's objects (iMissionInternal.cpp:1495), and
+	// the MFC editor on every load (TemplateEditorFrame1.cpp:1683). It also sets
+	// the scene's sun and World.Season. Every map the session holds - opened,
+	// new, reloaded - comes in through here, so each one gets its own season
+	// and never the previous map's.
+	if ( pSession->pWorld != 0 )
+		pSession->pWorld->SetSeason( pSession->working.nSeason );
+	else
+		pScene->SetSeason( pSession->working.nSeason );
+
 	for ( int i = 0; i < 2; ++i )
 		if ( !pScene->ToggleShow( SCENE_SHOW_WARFOG ) )	// false: the scene's fog is off
 			break;

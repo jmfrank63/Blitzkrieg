@@ -16,6 +16,7 @@
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/GFX/GFX.H"
+#include "../../Sources/src/Scene/Scene.h"
 #include "../../Sources/src/Image/Image.h"
 #include "../../Sources/src/Platform/Paths.h"
 #include "../../Sources/src/StreamIO/GeneratedData.h"
@@ -1686,6 +1687,253 @@ static void TestPlacedObjectDrawsAndPicks( BkEditorSession *pSession, int nScree
 	}
 }
 
+// The texture each unit on screen is drawn with, read the way the renderer
+// reads it: a visit hands over the mesh's or the sprite's texture, and the
+// texture manager names it by the key it was loaded under - the model path the
+// map object chose plus its season's letter ("...\1w" in winter).
+class CTextureNameVisitor : public ISceneVisitor
+{
+public:
+	std::vector<std::string> names;
+	virtual void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) {  }
+	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) {  }
+	virtual bool STDCALL IsValid() const { return true; }
+	void Add( IGFXTexture *pTexture )
+	{
+		ITextureManager *pTM = GetSingleton<ITextureManager>();
+		std::string szName = pTexture == 0 || pTM == 0 ? "<none>" : pTM->GetTextureName( pTexture );
+		NStr::ToLower( szName );
+		names.push_back( szName );
+	}
+	virtual void STDCALL VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority ) { Add( pObj->pTexture ); }
+	virtual void STDCALL VisitMeshObject( IMeshVisObj *pObj, int nType, int nPriority ) { Add( pObj->GetTexture() ); }
+	virtual void STDCALL VisitParticles( IParticleSource *pObj ) {  }
+	virtual void STDCALL VisitSceneObject( ISceneObject *pObj ) {  }
+	virtual void STDCALL VisitText( const CVec3 &vPos, const char *pszText, IGFXFont *pFont, DWORD color ) {  }
+	virtual void STDCALL VisitBoldLine( CVec3 *corners, float fWidth, DWORD color ) {  }
+	virtual void STDCALL VisitMechTrace( const SMechTrace &trace ) {  }
+	virtual void STDCALL VisitGunTrace( const SGunTrace &trace ) {  }
+	virtual void STDCALL VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect, SGFXRect2 *rects, const int nNumRects ) {  }
+	virtual void STDCALL VisitUIText( IGFXText *pText, const CTRect<float> &rcRect, const int nY, const DWORD dwColor, const DWORD dwFlags ) {  }
+	virtual void STDCALL VisitUICustom( IUIElement *pElement ) {  }
+};
+
+// The last part of a unit texture's key without its digits: "" or "b" (blood)
+// in summer, "w" or "bw" in winter. Anything else - "default" for a texture
+// that did not load, a path outside units\ - answers with "?".
+static std::string UnitTextureSeasonLetters( const std::string &szName )
+{
+	if ( szName.compare( 0, 6, "units\\" ) != 0 )
+		return "?";
+	const size_t nSlash = szName.find_last_of( "\\/" );
+	const std::string szLast = szName.substr( nSlash + 1 );
+	size_t nDigits = 0;
+	while ( nDigits < szLast.size() && szLast[nDigits] >= '0' && szLast[nDigits] <= '9' )
+		++nDigits;
+	if ( nDigits == 0 )
+		return "?";
+	return szLast.substr( nDigits );
+}
+
+// The textures of every unit the scene has on screen now.
+static std::vector<std::string> UnitTexturesOnScreen( int nScreenWidth, int nScreenHeight )
+{
+	CTextureNameVisitor visitor;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+		return visitor.names;
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( CTRect<float>( 0.0f, 0.0f, float( nScreenWidth ), float( nScreenHeight ) ), &pObjects, &nCount, SGVOGT_UNIT );
+	for ( int i = 0; i < nCount; ++i )
+		if ( pObjects[i].first != 0 )
+			pObjects[i].first->Visit( &visitor );
+	return visitor.names;
+}
+
+// How many of a set of texture keys are unit textures, how many of those are in
+// the season's paint, and the first few that are not.
+struct SSeasonTally
+{
+	int nUnits, nRight;
+	std::string szWrong;
+	SSeasonTally() : nUnits( 0 ), nRight( 0 ) {  }
+	void Add( const std::string &szName, int nSeason )
+	{
+		const std::string szLetters = UnitTextureSeasonLetters( szName );
+		if ( szLetters == "?" )
+			return;
+		++nUnits;
+		if ( nSeason == 1 ? ( szLetters == "w" || szLetters == "bw" ) : ( szLetters == "" || szLetters == "b" ) )
+			++nRight;
+		else if ( szWrong.size() < 300 )
+			szWrong += " " + szName;
+	}
+};
+
+// Gap fix (M1 hand try): a winter map drew every unit in its summer paint -
+// the 10.5-cm Flak38 tan instead of its 1w grey, the infantry in summer
+// uniforms. CWorldBase::CreateMapObject hands the world's season to every map
+// object it builds, and the world only learns the map's season from SetSeason,
+// which the game calls before it builds a mission's objects
+// (iMissionInternal.cpp:1495) and the MFC editor on every load
+// (TemplateEditorFrame1.cpp:1683). The bridge never called it, so every world
+// stayed CWorldBase's SEASON_SUMMER. Checked here on the winter map and on a
+// summer one - opened in turn, so the second open has to undo the first's
+// season - for the map's own units, a placed Flak38 and a placed squad, by the
+// texture each of them is actually drawn with.
+static void TestSeasonPicksTheVisuals( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	struct SSeasonCase { const char *pszMap; int nSeason; const char *pszSeasonName; const char *pszTag; };
+	static const SSeasonCase cases[] = { { SHIPPED_MAP, 1, "Winter", "winter" }, { BRIDGE_MAP, 0, "Summer", "summer" } };
+	static const char *const placed[] = { "10.5-cm_Flak38", "German_rifle_39" };
+	static const char *const placedPaths[] = { "units\\technics\\german\\artillery\\10_5_cm_flak38\\", "units\\humans\\german\\" };
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+	int nRead = 0;
+	BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead );
+	std::map<std::string, int> gameTypes;
+	for ( int i = 0; i < nRead; ++i )
+		gameTypes[catalogue[i].name] = catalogue[i].game_type;
+
+	for ( int nCase = 0; nCase < 2; ++nCase )
+	{
+		const SSeasonCase &rCase = cases[nCase];
+		BkEditorMapSummary summary;
+		if ( !Check( BkEditorOpenMap( pSession, rCase.pszMap, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		Check( summary.season == rCase.nSeason, NStr::Format( "%s is a %s map (season %d)", rCase.pszMap, rCase.pszTag, summary.season ) );
+		const std::string szWorldSeason = GetGlobalVar( "World.Season", "<unset>" );
+		Check( szWorldSeason == rCase.pszSeasonName,
+		       NStr::Format( "the world is in %s's season: World.Season is \"%s\", want \"%s\"", rCase.pszMap, szWorldSeason.c_str(), rCase.pszSeasonName ) );
+
+		CMapInfo map;
+		std::string szError;
+		if ( !Check( NMapFile::Read( rCase.pszMap, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+			return;
+
+		// The map's own units and squads (game types 1 and 15), before anything
+		// is placed: the camera on each of the first few in turn.
+		SSeasonTally own;
+		int nLooked = 0;
+		const std::vector<SMapObjectInfo> *lists[2] = { &map.objects, &map.scenarioObjects };
+		for ( int nList = 0; nList < 2 && nLooked < 6; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && nLooked < 6; ++i )
+			{
+				const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+				std::map<std::string, int>::const_iterator it = gameTypes.find( rObject.szName );
+				BkEditorObjectState state;
+				if ( it == gameTypes.end() || ( it->second != 1 && it->second != 15 ) ||
+				     BkEditorEngineObjectState( pSession, rObject.link.nLinkID, &state ) != BK_EDITOR_OK )
+					continue;
+				++nLooked;
+				CVec3 vAt;
+				AI2Vis( &vAt, state.x, state.y, 0.0f );
+				BkEditorSetCamera( pSession, vAt.x, vAt.y );
+				BkEditorFrame( pSession );
+				const std::vector<std::string> names = UnitTexturesOnScreen( nScreenWidth, nScreenHeight );
+				for ( size_t j = 0; j < names.size(); ++j )
+					own.Add( names[j], rCase.nSeason );
+			}
+		printf( "editor-bridge: %s (%s): the map's own units, %d looked at: %d unit pictures, %d in the season's textures%s%s\n",
+		        rCase.pszMap, rCase.pszTag, nLooked, own.nUnits, own.nRight, own.szWrong.empty() ? "" : "; wrong:", own.szWrong.c_str() );
+		Check( own.nUnits > 0 && own.nRight == own.nUnits,
+		       NStr::Format( "%s's own units are drawn in %s textures (%d of %d)", rCase.pszMap, rCase.pszTag, own.nRight, own.nUnits ) );
+
+		// Then a Flak38 and a squad placed on bare ground, found on a wider grid
+		// than TestPlacedObjectDrawsAndPicks's: coldwinter's anchor stands in a
+		// wood, with one bare patch in that test's 4x4 ring. A patch the engine
+		// will not take an object on (arnheim has water on screen) is passed over.
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, map.objects[0].vPos );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		BkEditorFrame( pSession );
+		std::vector<CVec2> spots;
+		for ( int nTry = 0; nTry < 42; ++nTry )
+		{
+			const float fX = nScreenWidth / 2.0f + ( ( nTry % 7 ) - 3.0f ) * 80.0f;
+			const float fY = nScreenHeight / 2.0f + ( ( nTry / 7 ) - 2.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+			int nIgnored = -1;
+			bool bClear = true;
+			for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+				for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+					bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+			if ( bClear )
+				spots.push_back( CVec2( fX, fY ) );
+		}
+		const std::string szBefore = szScratch + NStr::Format( "/editor-bridge-season-%s-before.tga", rCase.pszTag );
+		if ( !SaveFrame( pSession, szBefore ) )
+			return;
+		CVec2 vPlacedAt[2];
+		size_t nSpot = 0;
+		for ( int i = 0; i < 2; ++i )
+		{
+			bool bPlaced = false;
+			for ( ; nSpot < spots.size() && !bPlaced; ++nSpot )
+			{
+				if ( i == 1 && fabs( spots[nSpot].x - vPlacedAt[0].x ) + fabs( spots[nSpot].y - vPlacedAt[0].y ) < 90.0f )
+					continue;
+				float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+				int nLinkID = -1;
+				bPlaced = BkEditorScreenToWorld( pSession, spots[nSpot].x, spots[nSpot].y, &wx, &wy ) == BK_EDITOR_OK &&
+				          BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK &&
+				          BkEditorAddObject( pSession, placed[i], mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK;
+				if ( bPlaced )
+					vPlacedAt[i] = spots[nSpot];
+			}
+			if ( !Check( bPlaced, NStr::Format( "%s is placed on bare ground on %s (%d patches found)", placed[i], rCase.pszMap, int( spots.size() ) ) ) )
+				return;
+		}
+		for ( int i = 0; i < 4; ++i )
+			BkEditorFrame( pSession );
+		const std::string szAfter = szScratch + NStr::Format( "/editor-bridge-season-%s.tga", rCase.pszTag );
+
+		// The Flak38's colour as drawn, for a person reading the log: the mean of
+		// the pixels its placing changed. Its textures average 55,48,33 (tan,
+		// 1_c.dds) and 94,95,90 (grey, 1w_c.dds).
+		if ( SaveFrame( pSession, szAfter ) )
+		{
+			int nWidth = 0, nHeight = 0;
+			const std::vector<unsigned char> before = ReadFramePixels( szBefore, &nWidth, &nHeight );
+			const std::vector<unsigned char> after = ReadFramePixels( szAfter, &nWidth, &nHeight );
+			double fSum[3] = { 0, 0, 0 };
+			int nChanged = 0;
+			if ( before.size() == after.size() && after.size() >= size_t( nWidth ) * nHeight * 4 )
+				for ( int y = Max( 0, int( vPlacedAt[0].y ) - 80 ); y < Min( nHeight, int( vPlacedAt[0].y ) + 16 ); ++y )
+					for ( int x = Max( 0, int( vPlacedAt[0].x ) - 40 ); x < Min( nWidth, int( vPlacedAt[0].x ) + 40 ); ++x )
+					{
+						const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+						if ( abs( int( before[n] ) - after[n] ) + abs( int( before[n + 1] ) - after[n + 1] ) + abs( int( before[n + 2] ) - after[n + 2] ) <= 48 )
+							continue;
+						// The TGA holds BGRA.
+						fSum[0] += after[n + 2];
+						fSum[1] += after[n + 1];
+						fSum[2] += after[n];
+						++nChanged;
+					}
+			if ( nChanged > 0 )
+				printf( "editor-bridge: on %s the placed Flak38 at %.0f,%.0f is drawn at mean RGB %.0f,%.0f,%.0f (%d pixels, %s)\n", rCase.pszMap,
+				        vPlacedAt[0].x, vPlacedAt[0].y, fSum[0] / nChanged, fSum[1] / nChanged, fSum[2] / nChanged, nChanged, szAfter.c_str() );
+		}
+
+		const std::vector<std::string> names = UnitTexturesOnScreen( nScreenWidth, nScreenHeight );
+		SSeasonTally placedTally[2];
+		for ( size_t i = 0; i < names.size(); ++i )
+			for ( int j = 0; j < 2; ++j )
+				if ( names[i].compare( 0, strlen( placedPaths[j] ), placedPaths[j] ) == 0 )
+					placedTally[j].Add( names[i], rCase.nSeason );
+		printf( "editor-bridge: %s (%s): placed Flak38 %d/%d, placed infantry %d/%d in the season's textures%s%s%s\n",
+		        rCase.pszMap, rCase.pszTag, placedTally[0].nRight, placedTally[0].nUnits, placedTally[1].nRight, placedTally[1].nUnits,
+		        placedTally[0].szWrong.empty() && placedTally[1].szWrong.empty() ? "" : "; wrong:", placedTally[0].szWrong.c_str(), placedTally[1].szWrong.c_str() );
+		Check( placedTally[0].nUnits > 0 && placedTally[0].nRight == placedTally[0].nUnits,
+		       NStr::Format( "the placed Flak38 on %s is drawn in %s textures (%d of %d)", rCase.pszMap, rCase.pszTag, placedTally[0].nRight, placedTally[0].nUnits ) );
+		Check( placedTally[1].nUnits > 0 && placedTally[1].nRight == placedTally[1].nUnits,
+		       NStr::Format( "the placed infantry on %s is drawn in %s textures (%d of %d)", rCase.pszMap, rCase.pszTag, placedTally[1].nRight, placedTally[1].nUnits ) );
+	}
+}
+
 // D-12: what the renderer actually draws when the camera is placed at yaw
 // offsets other than the game's own 45, measured rather than guessed. The
 // terrain is laid out on a fixed isometric screen grid
@@ -2998,6 +3246,7 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestSeasonPicksTheVisuals( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
 		TestObjectPictures( pSession, szScratch );
