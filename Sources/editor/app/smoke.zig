@@ -733,9 +733,12 @@ pub const Script = struct {
             .save_became_save_as => {
                 if (!self.state.actions.dialog.waiting() or self.state.actions.dialog.kind != .save_as)
                     return self.stepFail(step, "Save did not redirect to Save As on the shipped map", .{});
+                if (self.state.os_dialogs_opened != 0)
+                    return self.stepFail(step, "Save As opened {d} real file dialog(s); the script answers the slot itself", .{self.state.os_dialogs_opened});
                 // Cancels it and drains the result, freeing the slot for the
-                // next step's real Save As - never letting the real dialog
-                // (if it ever answers) touch the shipped file.
+                // next step's Save As. No OS dialog is up behind the slot
+                // (main.zig's smokeRun turns State.os_dialogs off), so
+                // nothing can answer it later and touch the shipped file.
                 self.state.actions.dialog.deliver(null);
                 _ = self.state.actions.dialog.take();
             },

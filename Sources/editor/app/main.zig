@@ -397,6 +397,10 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     };
     var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();
+    // The script answers every Open and Save As through the dialog slot
+    // itself; a real OS dialog would stay up for the rest of the run and
+    // take the window's focus and pointer whenever it appeared (Windows).
+    state.os_dialogs = false;
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
     run(&host, &editor, &view, &real, &state, &script, null, false);

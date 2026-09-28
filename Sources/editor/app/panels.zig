@@ -245,6 +245,16 @@ pub const State = struct {
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
+    /// False under main.zig's --smoke, whose script hands the dialog slot
+    /// its answer itself: `showDialog` then leaves the slot waiting without
+    /// asking SDL for a real file dialog. A real one outlives the step that
+    /// asked for it - nothing ever closes it - and on Windows SDL shows it
+    /// from its own thread whenever that thread gets there, modal to the
+    /// editor's window, so it takes the focus and the pointer from the
+    /// window in the middle of a later step.
+    os_dialogs: bool = true,
+    /// Real file dialogs asked of SDL so far; the smoke checks it stays 0.
+    os_dialogs_opened: u32 = 0,
 
     /// The properties panel's fields while they are being edited: loaded
     /// from the selected object whenever none of them was active last
@@ -983,6 +993,8 @@ fn showDialog(state: *State, kind: logic.DialogKind) void {
         std.Io.Dir.cwd().createDirPath(state.io, f) catch {};
         if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{f})) |z| default_location = z.ptr else |_| {}
     }
+    if (!state.os_dialogs) return;
+    state.os_dialogs_opened += 1;
     switch (kind) {
         .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location, false),
         .save_as => sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location),
