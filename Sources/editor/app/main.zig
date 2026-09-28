@@ -23,9 +23,12 @@
 //! printing to stderr instead.
 //!
 //! The host check starts the engine hidden with ImGui over it, opens the
-//! map, draws frames with a magenta ImGui window at a known place, captures
+//! map, draws frames with an orange ImGui window at a known place, captures
 //! one frame as it was presented and checks that both the panel and the map
-//! are in it, printing "map-editor: host check PASS (<driver>, <w>x<h>)".
+//! are in it, printing "map-editor: host check PASS (<driver>, <w>x<h>)". A
+//! runner with no GPU device prints "map-editor: host check skipped: no GPU
+//! device (<reason>)" and exits 0, the engine tier's own rule for the same
+//! failure.
 //! Then the panel smoke: the real panels drawn over the map with a State
 //! from the opened map, and the file actions a dialog would start - Save As
 //! to the output's directory, and opening that file again - run without the
@@ -724,8 +727,17 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
     const output_z = try gpa.dupeZ(u8, output);
     defer gpa.free(output_z);
 
-    var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err|
+    var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
+        // A real window on which the renderer would not start - what a
+        // runner without a GPU reports - is a skip, not a failure, the same
+        // rule test-editor-bridge's own engine tier already follows for
+        // BK_EDITOR_NO_DEVICE. Every other start failure still fails.
+        if (err == error.NoDevice) {
+            std.debug.print("map-editor: host check skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
+            return true;
+        }
         return fail("the host did not start ({s}: {s})", .{ @errorName(err), host_mod.failureReason() });
+    };
     defer host.stop();
 
     var real = c_bridge.RealBridge.init(host.session);
@@ -777,14 +789,16 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
 
     const inside_x = probe.x + probe.w / 2;
     const inside_y = probe.y + probe.h / 2;
-    const inside = image.pixel(inside_x, inside_y);
-    if (!inside.near(magenta))
-        return fail("the probe window's centre ({d},{d}) is ({d},{d},{d}), not magenta", .{ inside_x, inside_y, inside.r, inside.g, inside.b });
+    const inside = image.pixel(inside_x, inside_y) orelse
+        return fail("the probe window's centre ({d},{d}) is outside the {d}x{d} capture", .{ inside_x, inside_y, image.width, image.height });
+    if (!inside.isProbeColour())
+        return fail("the probe window's centre ({d},{d}) is ({d},{d},{d}), not orange", .{ inside_x, inside_y, inside.r, inside.g, inside.b });
     // The screen's centre is far from the probe; the map is drawn there.
     const outside_x: u32 = @intCast(@divTrunc(width, 2));
     const outside_y: u32 = @intCast(@divTrunc(height, 2));
-    const outside = image.pixel(outside_x, outside_y);
-    if (outside.near(magenta) or outside.near(clear_colour))
+    const outside = image.pixel(outside_x, outside_y) orelse
+        return fail("the screen's centre ({d},{d}) is outside the {d}x{d} capture", .{ outside_x, outside_y, image.width, image.height });
+    if (outside.isProbeColour() or outside.near(clear_colour))
         return fail("the screen's centre ({d},{d}) is ({d},{d},{d}), not the map", .{ outside_x, outside_y, outside.r, outside.g, outside.b });
 
     std.debug.print("map-editor: host check PASS ({s}, {d}x{d})\n", .{ driver, width, height });
@@ -941,7 +955,12 @@ fn panelFrame(host: *host_mod.Host, state: *panels.State) bool {
 fn drawProbe() void {
     imgui.c.igSetNextWindowPos(.{ .x = probe.x, .y = probe.y }, imgui.c.ImGuiCond_Always);
     imgui.c.igSetNextWindowSize(.{ .x = probe.w, .y = probe.h }, imgui.c.ImGuiCond_Always);
-    imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 0, .z = 1, .w = 1 });
+    // Orange (255,128,0), not magenta: a channel-swapped readback (red and
+    // blue exchanged) turns magenta (255,0,255) right back into magenta, so
+    // that colour could never see the bug it was meant to catch. Orange's
+    // channels are all different, so any swap moves the measured colour
+    // outside isProbeColour's asymmetric range below.
+    imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 128.0 / 255.0, .z = 0, .w = 1 });
     _ = imgui.c.igBegin("probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
     imgui.c.igEnd();
     imgui.c.igPopStyleColor();
@@ -959,9 +978,17 @@ const Rgb = struct {
     fn close(a: u8, b: u8) bool {
         return @abs(@as(i16, a) - @as(i16, b)) <= 2;
     }
+
+    /// The probe's orange (255,128,0), with enough slack for capture
+    /// rounding but asymmetric enough between channels that a red/blue
+    /// swap in the readback (magenta could never show this: swapping its
+    /// (255,0,255) channels gives back (255,0,255)) fails the check instead
+    /// of passing it.
+    fn isProbeColour(self: Rgb) bool {
+        return self.r > 200 and self.g > 100 and self.g < 160 and self.b < 40;
+    }
 };
 
-const magenta = Rgb{ .r = 255, .g = 0, .b = 255 };
 /// What DrawSessionFrame clears to before the scene is drawn.
 const clear_colour = Rgb{ .r = 0, .g = 0, .b = 0 };
 
@@ -985,7 +1012,11 @@ const Tga = struct {
         return .{ .width = width, .height = height, .top_first = bytes[17] & 0x20 != 0, .pixels = bytes[start .. start + length] };
     }
 
-    fn pixel(self: Tga, x: u32, y: u32) Rgb {
+    /// Null for a point outside the image (a tiny capture on a small
+    /// screen), so a caller prints a FAIL line naming the point and the
+    /// size instead of an out-of-bounds panic.
+    fn pixel(self: Tga, x: u32, y: u32) ?Rgb {
+        if (x >= self.width or y >= self.height) return null;
         const row = if (self.top_first) y else self.height - 1 - y;
         const i = (@as(usize, row) * self.width + x) * 4;
         return .{ .r = self.pixels[i + 2], .g = self.pixels[i + 1], .b = self.pixels[i] };

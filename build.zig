@@ -5827,7 +5827,10 @@ fn addMapEditor(
     run.addArgs(&.{ "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
-    check_step.dependOn(&run.step);
+    // Only builds and installs the step in .compile mode, as test-editor-bridge
+    // (addEditorBridgeTest) does - never runs a GPU-needing executable when the
+    // caller only wants to know it compiles.
+    check_step.dependOn(&install_exe.step);
     // The same map as an absolute path in the host's own form, as a person
     // types it or a shell expands it: forward slashes on macOS, which the
     // engine's file layer does not split on until MapEditor converts them.
@@ -5837,7 +5840,6 @@ fn addMapEditor(
     absolute_run.step.dependOn(&install_exe.step);
     // After the relative run, so two engines never start at once.
     absolute_run.step.dependOn(&run.step);
-    check_step.dependOn(&absolute_run.step);
 
     // 03-08 Task 1: -mod=EditorTestMod loads the fixture mod's data like the
     // game and the host check's own acceptance criterion greps this line.
@@ -5848,7 +5850,11 @@ fn addMapEditor(
     mod_run.step.dependOn(install_fixture_mod_step);
     // After the absolute-path run, so two engines never start at once.
     mod_run.step.dependOn(&absolute_run.step);
-    check_step.dependOn(&mod_run.step);
+    if (test_mode == .run) {
+        check_step.dependOn(&run.step);
+        check_step.dependOn(&absolute_run.step);
+        check_step.dependOn(&mod_run.step);
+    }
 
     // The interactive loop itself, hidden and driven by smoke.zig's scripted
     // SDL events: paint, place, select, drag, turn, delete, undo all of it,
