@@ -224,4 +224,22 @@ const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nL
 // the total, not how many fitted. Returns false when the buffer was too small.
 bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount );
 
+// The map's own sound list - CMapInfo::sounds.sounds (SMapSoundInfo), the
+// field that is actually serialised (CMapInfo::operator&, tag 17 /
+// "MapSounds"). See BkEditorSounds' own comment (bridge.h) for why this is
+// not CMapInfo::soundsList. pnCount is always the total, not how many
+// fitted, matching ReadSessionObjects and ReadCatalogue.
+bool ReadSessionSounds( SEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount );
+
+// Adds/replaces/removes one sound in the snapshot and the working copy
+// together; the engine is never touched (a sound only reaches the engine
+// when a mission starts InitMapSounds, which this bridge's headless session
+// never does). Each returns false with the reason in szMessage and leaves
+// the session exactly as it found it; pbRefused tells a refusal (the
+// record's own rules said no) apart from a caller bug bridge.cpp already
+// turned away as BK_EDITOR_BAD_ARGUMENT before calling here.
+bool AddSoundToSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused );
+bool SetSoundInSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused );
+bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
+
 #endif // __EDITOR_BRIDGE_SESSION_H__

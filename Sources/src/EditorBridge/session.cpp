@@ -488,6 +488,148 @@ bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, i
 	return nCapacity >= nTotal;
 }
 
+bool ReadSessionSounds( SEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount )
+{
+	const std::vector<SMapSoundInfo> &rSounds = pSession->snapshot.sounds.sounds;
+	const int nTotal = int( rSounds.size() );
+	*pnCount = nTotal;
+	const int nWrite = nTotal < nCapacity ? nTotal : nCapacity;
+	for ( int i = 0; i < nWrite; ++i )
+	{
+		const SMapSoundInfo &rSound = rSounds[i];
+		BkEditorSoundRecord &rRecord = pOut[i];
+		memset( &rRecord, 0, sizeof rRecord );
+		strncpy( rRecord.name, rSound.szName.c_str(), sizeof rRecord.name - 1 );
+		rRecord.x = rSound.vPos.x;
+		rRecord.y = rSound.vPos.y;
+		rRecord.z = rSound.vPos.z;
+		rRecord.repeat_ms = int( rSound.timeRepeat );
+		rRecord.repeat_random_ms = int( rSound.timeRepeatRandom );
+		rRecord.mute_in_combat = rSound.bMuteDuringCombat ? 1 : 0;
+		rRecord.min_radius = rSound.nMinRadius;
+		rRecord.max_radius = rSound.nMaxRadius;
+	}
+	return nCapacity >= nTotal;
+}
+
+namespace {
+// record->name known and valid, on the map, and its own fields sane - the
+// rules BkEditorAddSound/BkEditorSetSound document. false leaves
+// pSession->szMessage set and pOut untouched; every caller of this treats
+// that as a refusal (the caller-bug checks - null record, bad index,
+// unterminated or non-finite fields - already ran in bridge.cpp before
+// either of AddSoundToSession/SetSoundInSession got here).
+bool ValidateSoundRecord( SEditorSession *pSession, const BkEditorSoundRecord &rRecord, SMapSoundInfo *pOut )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the object database is not there";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rRecord.name );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_SOUND )
+	{
+		pSession->szMessage = std::string( "\"" ) + rRecord.name + "\" is not a known sound";
+		return false;
+	}
+	int nTileX = 0, nTileY = 0;
+	if ( !WorldToTile( pSession, rRecord.x, rRecord.y, &nTileX, &nTileY ) )
+		return false; // szMessage already set by WorldToTile
+	if ( rRecord.repeat_ms < 0 || rRecord.repeat_random_ms < 0 ||
+	     rRecord.min_radius < 0 || rRecord.max_radius < 0 || rRecord.min_radius > rRecord.max_radius )
+	{
+		pSession->szMessage = "a sound's times and radii must not be negative, and its minimum radius must not be above its maximum";
+		return false;
+	}
+	pOut->szName = rRecord.name;
+	pOut->vPos = CVec3( rRecord.x, rRecord.y, rRecord.z );
+	pOut->timeRepeat = NTimer::STime( rRecord.repeat_ms );
+	pOut->timeRepeatRandom = NTimer::STime( rRecord.repeat_random_ms );
+	pOut->bMuteDuringCombat = rRecord.mute_in_combat != 0;
+	pOut->nMinRadius = rRecord.min_radius;
+	pOut->nMaxRadius = rRecord.max_radius;
+	return true;
+}
+}
+
+bool AddSoundToSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	SMapSoundInfo info;
+	if ( !ValidateSoundRecord( pSession, rRecord, &info ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	std::vector<SMapSoundInfo> &rSnap = pSession->snapshot.sounds.sounds;
+	std::vector<SMapSoundInfo> &rWork = pSession->working.sounds.sounds;
+	const int nCount = int( rSnap.size() );
+	const int nAt = nIndex < 0 ? nCount : nIndex;
+	if ( nAt < 0 || nAt > nCount || nAt > int( rWork.size() ) )
+	{
+		pSession->szMessage = "that index is out of range";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	rSnap.insert( rSnap.begin() + nAt, info );
+	rWork.insert( rWork.begin() + nAt, info );
+	return true;
+}
+
+bool SetSoundInSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	SMapSoundInfo info;
+	if ( !ValidateSoundRecord( pSession, rRecord, &info ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	std::vector<SMapSoundInfo> &rSnap = pSession->snapshot.sounds.sounds;
+	std::vector<SMapSoundInfo> &rWork = pSession->working.sounds.sounds;
+	if ( nIndex < 0 || nIndex >= int( rSnap.size() ) || nIndex >= int( rWork.size() ) )
+	{
+		pSession->szMessage = "no sound at that index";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	rSnap[nIndex] = info;
+	rWork[nIndex] = info;
+	return true;
+}
+
+bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	std::vector<SMapSoundInfo> &rSnap = pSession->snapshot.sounds.sounds;
+	std::vector<SMapSoundInfo> &rWork = pSession->working.sounds.sounds;
+	if ( nIndex < 0 || nIndex >= int( rSnap.size() ) || nIndex >= int( rWork.size() ) )
+	{
+		pSession->szMessage = "no sound at that index";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	rSnap.erase( rSnap.begin() + nIndex );
+	rWork.erase( rWork.begin() + nIndex );
+	return true;
+}
+
 bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject &rAdd, int *pnLinkID )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )

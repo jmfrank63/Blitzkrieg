@@ -2429,6 +2429,172 @@ static void TestSaveRecordsTheMod( BkEditorSession *pSession, const std::string 
 	       NStr::Format( "with no mod active szMODVersion is untouched: \"%s\" vs shipped's \"%s\"", free.szMODVersion.c_str(), shipped.szMODVersion.c_str() ) );
 }
 
+// BkEditorSounds/AddSound/SetSound/DeleteSound against CMapInfo::sounds.sounds
+// (see bridge.h's own comment on BkEditorSounds for why this is not
+// CMapInfo::soundsList, a sibling field this bridge never touches because
+// nothing serialises it). Finds a shipped map with a non-empty sound list by
+// walking Data/Maps, at most 60 .bzm files deep; falls back to coldwinter
+// (which has none) so the rest of the test still runs against a real map.
+static void TestSoundList( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	std::string szMapPath = SHIPPED_MAP;
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	{
+		int nExamined = 0;
+		std::error_code error;
+		std::filesystem::recursive_directory_iterator it( "Data/Maps", error ), end;
+		for ( ; !error && it != end && nExamined < 60; it.increment( error ) )
+		{
+			if ( it->is_directory() )
+				continue;
+			if ( it->path().extension() != ".bzm" )
+				continue;
+			++nExamined;
+			std::string szCandidateEngine = it->path().string();
+			for ( std::string::size_type i = 0; i < szCandidateEngine.size(); ++i )
+				if ( szCandidateEngine[i] == '/' ) szCandidateEngine[i] = '\\';
+			CMapInfo candidate;
+			std::string szCandidateError;
+			if ( !NMapFile::Read( szCandidateEngine.c_str(), &candidate, &szCandidateError ) )
+				continue;
+			if ( !candidate.sounds.sounds.empty() )
+			{
+				szMapPath = szCandidateEngine;
+				original = candidate;
+				break;
+			}
+		}
+		printf( "editor-bridge: TestSoundList uses %s (%d sound(s), %d shipped maps examined)\n",
+		        szMapPath.c_str(), int( original.sounds.sounds.size() ), nExamined );
+	}
+
+	if ( !Check( BkEditorOpenMap( pSession, szMapPath.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// BkEditorSounds equals the file's list.
+	int nCount = -1;
+	BkEditorSounds( pSession, 0, 0, &nCount );
+	if ( !Check( nCount == int( original.sounds.sounds.size() ), "BkEditorSounds reports the full count with a short buffer" ) )
+		return;
+	std::vector<BkEditorSoundRecord> records( nCount > 0 ? nCount : 1 );
+	int nRead = 0;
+	if ( !Check( BkEditorSounds( pSession, &records[0], nCount, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nRead == nCount, "and reads all of them" );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const SMapSoundInfo &rSound = original.sounds.sounds[i];
+		Check( strcmp( records[i].name, rSound.szName.c_str() ) == 0 &&
+		       records[i].x == rSound.vPos.x && records[i].y == rSound.vPos.y && records[i].z == rSound.vPos.z &&
+		       records[i].repeat_ms == int( rSound.timeRepeat ) && records[i].repeat_random_ms == int( rSound.timeRepeatRandom ) &&
+		       records[i].mute_in_combat == ( rSound.bMuteDuringCombat ? 1 : 0 ) &&
+		       records[i].min_radius == rSound.nMinRadius && records[i].max_radius == rSound.nMaxRadius,
+		       NStr::Format( "sound %d reads back as the file has it", i ) );
+	}
+
+	// A known sound (the first catalogue entry of game type 100) at the map's
+	// middle: count + 1.
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nCatalogueRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &catalogue[0], nCatalogue, &nCatalogueRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::string szSoundName;
+	for ( int i = 0; i < nCatalogueRead; ++i )
+		if ( catalogue[i].game_type == 100 ) { szSoundName = catalogue[i].name; break; }
+	if ( !Check( !szSoundName.empty(), "the catalogue offers a sound (game type 100)" ) )
+		return;
+
+	BkEditorFrame( pSession );
+	float wx = 0.0f, wy = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK,
+	             "the map's middle is on the map" ) )
+		return;
+
+	BkEditorSoundRecord add;
+	memset( &add, 0, sizeof add );
+	strncpy( add.name, szSoundName.c_str(), sizeof add.name - 1 );
+	add.x = wx;
+	add.y = wy;
+	add.z = 0.0f;
+	add.repeat_ms = 1000;
+	add.repeat_random_ms = 500;
+	add.mute_in_combat = 1;
+	add.min_radius = 1;
+	add.max_radius = 5;
+	if ( !Check( BkEditorAddSound( pSession, -1, &add ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nAfterAdd = -1;
+	BkEditorSounds( pSession, 0, 0, &nAfterAdd );
+	Check( nAfterAdd == nCount + 1, "adding a sound grows the list by one" );
+
+	// Set its radii.
+	std::vector<BkEditorSoundRecord> afterAdd( nAfterAdd );
+	int nAfterAddRead = 0;
+	if ( !Check( BkEditorSounds( pSession, &afterAdd[0], nAfterAdd, &nAfterAddRead ) == BK_EDITOR_OK, "the grown list reads" ) )
+		return;
+	BkEditorSoundRecord edited = afterAdd[nAfterAdd - 1];
+	edited.min_radius = 2;
+	edited.max_radius = 9;
+	if ( !Check( BkEditorSetSound( pSession, nAfterAdd - 1, &edited ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::vector<BkEditorSoundRecord> afterSet( nAfterAdd );
+	int nAfterSetRead = 0;
+	if ( !Check( BkEditorSounds( pSession, &afterSet[0], nAfterAdd, &nAfterSetRead ) == BK_EDITOR_OK, "the edited list reads" ) )
+		return;
+	Check( afterSet[nAfterAdd - 1].min_radius == 2 && afterSet[nAfterAdd - 1].max_radius == 9, "the set radii stuck" );
+
+	// Delete it: the list equals the file's again.
+	if ( !Check( BkEditorDeleteSound( pSession, nAfterAdd - 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nAfterDelete = -1;
+	BkEditorSounds( pSession, 0, 0, &nAfterDelete );
+	Check( nAfterDelete == nCount, "deleting the added sound shrinks the list back" );
+
+	// Every refusal above leaves the list unchanged.
+	BkEditorSoundRecord bad = add;
+	strncpy( bad.name, "NoSuchSoundAtAll", sizeof bad.name - 1 );
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "an unknown name is refused" );
+	bad = add;
+	bad.x = -1000000.0f;
+	bad.y = -1000000.0f;
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "an off-map position is refused" );
+	bad = add;
+	bad.repeat_ms = -1;
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "a negative repeat is refused" );
+	bad = add;
+	bad.min_radius = 9;
+	bad.max_radius = 1;
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "min_radius above max_radius is refused" );
+	Check( BkEditorAddSound( pSession, -1, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a bad argument" );
+	Check( BkEditorAddSound( pSession, nCount + 5, &add ) == BK_EDITOR_BAD_ARGUMENT, "an index past the end is a bad argument" );
+	Check( BkEditorSetSound( pSession, nCount, &add ) == BK_EDITOR_BAD_ARGUMENT, "set past the end is a bad argument" );
+	Check( BkEditorDeleteSound( pSession, nCount ) == BK_EDITOR_BAD_ARGUMENT, "delete past the end is a bad argument" );
+	int nAfterRefusals = -1;
+	BkEditorSounds( pSession, 0, 0, &nAfterRefusals );
+	Check( nAfterRefusals == nCount, "none of the refusals changed the list" );
+
+	// Save to <scratch>/sounds.bzm and read back: sounds.sounds equals the
+	// original (preservation, T-03-10-02).
+	const std::string szSaved = szScratch + "\\sounds.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo saved;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( original, saved, &szWhere ),
+	       szWhere.empty() ? "the saved map equals the original after add+delete"
+	                       : ( "add+delete left a difference at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -2571,6 +2737,7 @@ int main( int argc, char **argv )
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		TestModsListSetAndClear( pSession, szScratch );
 		TestSaveRecordsTheMod( pSession, szScratch );
+		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

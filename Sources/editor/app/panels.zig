@@ -51,6 +51,7 @@ const layout = struct {
     const right_width: f32 = 320;
     const tools_height: f32 = 150;
     const properties_height: f32 = 250;
+    const players_height: f32 = 220;
 };
 
 /// The map types the map file names (CMapInfo::GAME_TYPE,
@@ -178,6 +179,14 @@ pub const State = struct {
     tile_buffer: [256]u8 = undefined,
     tile_count: usize = 0,
 
+    /// The open map's own sound list (CMapInfo::sounds.sounds through
+    /// RealBridge.sounds - see bridge.h's own comment on why not
+    /// CMapInfo::soundsList), for the Sounds panel. Read again whenever a map
+    /// opens (`mapOpened`); Task 2/3 also re-reads it whenever
+    /// `editor.sounds_generation` changes, since a sound edit does not go
+    /// through `mapOpened`.
+    sounds: []c.BkEditorSoundRecord = &.{},
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -216,6 +225,7 @@ pub const State = struct {
         self.pictures.deinit();
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
+        self.allocator.free(self.sounds);
         self.* = undefined;
     }
 
@@ -251,6 +261,17 @@ pub const State = struct {
         return self.tile_buffer[0..self.tile_count];
     }
 
+    /// Frees the previous sound list and reads it again from the bridge - the
+    /// open map's, or empty when none is open or the read fails. Called after
+    /// every open (`mapOpened`) and, from Task 2 onward, whenever a sound
+    /// edit bumps `editor.sounds_generation`.
+    pub fn loadSounds(self: *State) void {
+        self.allocator.free(self.sounds);
+        self.sounds = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.sounds = self.real.sounds(self.allocator) catch &.{};
+    }
+
     fn loadCatalogue(self: *State) !void {
         const entries = try self.real.catalogue(self.allocator);
         errdefer self.allocator.free(entries);
@@ -281,6 +302,7 @@ pub const State = struct {
     pub fn mapOpened(self: *State) void {
         self.edit = .{};
         self.tile_count = 0;
+        self.loadSounds();
         if (!mapIsOpen(self.editor)) return;
         self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info);
         self.tile_count = if (self.real.tilesetTiles(&self.tile_buffer)) |got| got.len else 0;
@@ -320,7 +342,8 @@ pub fn draw(state: *State) void {
     drawObjectPalette(state, .{ .x = 0, .y = body_top + layout.tools_height }, .{ .x = layout.left_width, .y = @max(body_height - layout.tools_height, 100) });
     const right_x = @max(size.x - layout.right_width, layout.left_width);
     drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = layout.right_width, .y = layout.properties_height });
-    drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = layout.right_width, .y = @max(body_height - layout.properties_height, 100) });
+    drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = layout.right_width, .y = layout.players_height });
+    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = layout.right_width, .y = @max(body_height - layout.properties_height - layout.players_height, 100) });
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
@@ -1386,6 +1409,32 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         var value: c_int = side;
         if (ig.igCombo(label_text.ptr, &value, "side 0\x00side 1\x00neutral\x00") and value != side)
             state.view.noteEditResult(editor, editor.setDiplomacy(@intCast(player), value));
+    }
+}
+
+/// The map's own sound list (Task 1: read-only - one row per sound, name and
+/// world position and radii; Task 3 adds selection, editing and markers).
+fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    const open = beginPanel("Sounds", pos, size);
+    defer endPanel(open);
+    if (!open) return;
+    if (!mapIsOpen(state.editor)) {
+        text("no map open");
+        return;
+    }
+    if (state.sounds.len == 0) {
+        text("no sounds");
+        return;
+    }
+    for (state.sounds, 0..) |sound, index| {
+        ig.igPushIDInt(@intCast(index));
+        defer ig.igPopID();
+        const name = std.mem.sliceTo(&sound.name, 0);
+        var line: [128:0]u8 = undefined;
+        const line_text = std.fmt.bufPrintZ(&line, "{s}  ({d:.0}, {d:.0})  r {d}-{d}", .{
+            name, sound.x, sound.y, sound.min_radius, sound.max_radius,
+        }) catch continue;
+        text(line_text);
     }
 }
 

@@ -31,6 +31,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 
 // Every module that links the engine statics defines these four and lets
@@ -1467,6 +1468,103 @@ BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *pSession, int nSide )
 		pSession->snapshot.nAttackingSide = nSide;
 		pSession->working.nAttackingSide = nSide;
 		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSounds( BkEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return ReadSessionSounds( pSession, pOut, nCapacity, pnCount ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+namespace {
+// record's own name and position fields are within the ABI's own bounds -
+// the caller-bug checks BkEditorAddSound/BkEditorSetSound document as
+// BK_EDITOR_BAD_ARGUMENT. Everything past this (a name the database does
+// not know as a sound, an off-map position, a bad time or radius) is a
+// refusal, checked once, in session.cpp's ValidateSoundRecord, which both
+// AddSoundToSession and SetSoundInSession call.
+bool SoundRecordWellFormed( const BkEditorSoundRecord *pRecord )
+{
+	if ( pRecord == 0 )
+		return false;
+	if ( strnlen( pRecord->name, sizeof pRecord->name ) >= sizeof pRecord->name || pRecord->name[0] == 0 )
+		return false;
+	if ( !std::isfinite( pRecord->x ) || !std::isfinite( pRecord->y ) || !std::isfinite( pRecord->z ) )
+		return false;
+	return true;
+}
+}
+
+BkEditorStatus BkEditorAddSound( BkEditorSession *pSession, int nIndex, const BkEditorSoundRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !SoundRecordWellFormed( pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		const int nCount = int( pSession->snapshot.sounds.sounds.size() );
+		if ( nIndex < -1 || nIndex > nCount )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( AddSoundToSession( pSession, nIndex, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetSound( BkEditorSession *pSession, int nIndex, const BkEditorSoundRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !SoundRecordWellFormed( pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		const int nCount = int( pSession->snapshot.sounds.sounds.size() );
+		if ( nIndex < 0 || nIndex >= nCount )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( SetSoundInSession( pSession, nIndex, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorDeleteSound( BkEditorSession *pSession, int nIndex )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		const int nCount = int( pSession->snapshot.sounds.sounds.size() );
+		if ( nIndex < 0 || nIndex >= nCount )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( DeleteSoundFromSession( pSession, nIndex, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
 	} );
 }
 

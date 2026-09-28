@@ -556,6 +556,82 @@ BkEditorStatus BkEditorWorldToMap( BkEditorSession *session, float wx, float wy,
 BkEditorStatus BkEditorSetMapType( BkEditorSession *session, int type );
 BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
 
+/* The map's own sound list.
+
+   Ground-truth correction (03-10): the map keeps two structurally similar
+   but different sound lists. CMapInfo::soundsList (Formats/fmtSound.h's
+   CMapSoundInfo - name and position only) is what the MFC editor's own
+   sound dialog and IScene::InitMapSounds read - but CMapInfo::operator&
+   (RandomMapGen/MapInfo_Methods.cpp, both the binary and the XML tree
+   writer) never serialises it, and nothing in this codebase ever populates
+   it from a loaded file (confirmed: MapFile/MapEquivalence.cpp's own
+   comment on CompareMap says so outright - "soundsList is not serialised -
+   CMapInfo::operator& writes `sounds` and derives this"). The field this
+   bridge reads and writes is CMapInfo::sounds.sounds - a
+   std::vector<SMapSoundInfo> (fmtMap.h:92-110, name/position/repeat/random
+   repeat/mute/min+max radius) - saved under tag 17 ("MapSounds" in the XML
+   tree), the one that actually round-trips through a save and reload. The
+   engine is never told, the same as BkEditorSetMapType: nothing in this
+   bridge's headless session ever starts a mission, which is the only time
+   InitMapSounds (and so soundsList) matters, and no other game system reads
+   sounds.sounds today.
+
+   Positions are world (scene) units, not map units: unlike an object's
+   vPos (BkEditorAddObject, converted through AI2Vis on its way into the
+   engine), a sound's vPos is written and read back raw - matching the MFC
+   editor's own (dead but explicit) marker code, which moved a sound's scene
+   object straight to vPos with no conversion (TemplateEditorFrame1.cpp,
+   markers placed at vPos in the scene). Radii are in vis tiles (fmtMap.h's
+   own comment on nMinRadius/nMaxRadius); times are milliseconds
+   (NTimer::STime, a DWORD). */
+typedef struct
+{
+	char name[64];
+	float x, y, z;
+	int repeat_ms, repeat_random_ms;
+	int mute_in_combat;
+	int min_radius, max_radius;
+} BkEditorSoundRecord;
+
+/* The snapshot's sound list, in file order. Like BkEditorObjects, out_count
+   is always the total, and a buffer too short for it is BK_EDITOR_REFUSED
+   with nothing written past capacity; out may be null when capacity is 0,
+   to ask for the count. BK_EDITOR_REFUSED too when no map is open. */
+BkEditorStatus BkEditorSounds( BkEditorSession *session, BkEditorSoundRecord *out, int capacity, int *out_count );
+
+/* Adds one sound to the snapshot and the working copy together; the engine
+   is untouched (see above). index is where it lands in the list: 0..count
+   inserts there, -1 appends. Any other index, or a null record, is
+   BK_EDITOR_BAD_ARGUMENT.
+
+   record->name must be null-terminated within its 64 bytes (an unterminated
+   name is BK_EDITOR_BAD_ARGUMENT, like a name over 63 characters) and must
+   name a sound the object database knows - game type 100, SGVOGT_SOUND -
+   or this is BK_EDITOR_REFUSED naming it: neither an unknown name nor an
+   object of some other game type is a sound. A non-finite x, y or z is
+   BK_EDITOR_BAD_ARGUMENT. record->x/y must land on the map (through the
+   engine's own tile lookup, the same oracle BkEditorWorldToTile uses) or
+   this is BK_EDITOR_REFUSED. A negative repeat_ms, repeat_random_ms,
+   min_radius or max_radius, or a min_radius above max_radius, is
+   BK_EDITOR_REFUSED. Every field of the record is written; there is
+   nothing in the map's own sound record this struct does not already
+   carry. A refusal changes nothing: not the snapshot, not the working
+   copy.
+
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorAddSound( BkEditorSession *session, int index, const BkEditorSoundRecord *record );
+
+/* Replaces the sound at index in both copies together, the engine
+   untouched. Same field rules as BkEditorAddSound. index outside
+   0..count-1, or a null record, is BK_EDITOR_BAD_ARGUMENT. A refusal
+   changes nothing. */
+BkEditorStatus BkEditorSetSound( BkEditorSession *session, int index, const BkEditorSoundRecord *record );
+
+/* Removes the sound at index from both copies together, the engine
+   untouched. index outside 0..count-1 is BK_EDITOR_BAD_ARGUMENT.
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorDeleteSound( BkEditorSession *session, int index );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
