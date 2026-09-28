@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-08-PLAN.md
-last_updated: "2026-09-28T08:07:28.520Z"
-state_head: 63353b6ea08d35249316d2e08270cd08c3ea6bf0
+stopped_at: Completed 03-09-PLAN.md
+last_updated: "2026-09-28T11:27:47.975Z"
+state_head: 26e58bd4b31f4aee9ef52c449116da18b6649359
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 11
+  completed_plans: 12
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T08:07:06.618Z
-**Stopped at:** Completed 03-08-PLAN.md
+**Last session:** 2026-09-28T11:27:39.040Z
+**Stopped at:** Completed 03-09-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -78,6 +78,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P06 | ~20min | 1 tasks | 6 files |
 | Phase 03-map-editor-plan-6-finish-m1 P07 | ~35min | 3 tasks | 8 files |
 | Phase 03-map-editor-plan-6-finish-m1 P08 | ~60min | 3 tasks | 11 files |
+| Phase 03-map-editor-plan-6-finish-m1 P09 | ~59min | 4 tasks | 8 files |
 
 ## Decisions
 
@@ -96,3 +97,5 @@ behavior needs the in-game rows).
 - [Phase ?]: run() takes two explicit parameters (settings_path, is_interactive) instead of one flag reused for both, so a future settings-path resolution failure cannot silently also disable autosave
 - [Phase ?]: 03-08: State.mod_folder is an owned fixed buffer (modFolder()/setModFolder), not a borrowed slice - State is returned by value from init, the same reasoning tile_count follows for tile_buffer — Avoids a dangling-slice bug the moment a field set after init pointed into anything but State's own storage
 - [Phase ?]: 03-08: BkEditorSetMod validates (bare-name check, mod.xml read) entirely before CloseSessionMap or any storage/global change, so a refusal never closes the map it was about to switch away from
+- [Phase ?]: D-29 shipped: engine decodes each object's own icon.tga, cached; a neutral named frame for the rest (Johannes's Task 2 checkpoint choice)
+- [Phase ?]: 03-09: single soldiers with no icon.tga borrow their squad's (Johannes-requested addition); coverage rose from 1073/1167 to 1126/1167 placeable objects
