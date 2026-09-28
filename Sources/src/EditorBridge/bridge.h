@@ -239,6 +239,46 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
 typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
+/* The two host roots the editor started on: NPlatform::Paths::BaseRoot() (the
+   installation - Data, the modules) and UserRoot() (where the profile,
+   config and cache live), each with the OS's own separator and a trailing
+   one, as NPlatform::Paths itself returns them - not the engine's backslash
+   form BkEditorOpenMap and BkEditorTestMapPath take.
+
+   BK_EDITOR_REFUSED with "the engine is not started" before BkEditorStart
+   has succeeded: the roots are whatever BkEditorStart set them to, and
+   before that they are either unset or left over from another caller.
+   BK_EDITOR_REFUSED too - never truncated - when a root does not fit the
+   fixed buffer; BK_EDITOR_BAD_ARGUMENT for a null out. */
+typedef struct { char base_root[1024]; char user_root[1024]; } BkEditorPathSet;
+BkEditorStatus BkEditorPaths( BkEditorSession *session, BkEditorPathSet *out );
+
+/* Where a test-launch copy of the current map goes so the game finds it: the
+   profile's own generated-data root for the given mod
+   (NProfile::GeneratedDirectory + NGeneratedData::ModKey, lower-cased first -
+   see GeneratedData.h), then "maps", then file_name - written in the
+   engine's form (backslashes), because that is what BkEditorSaveMap and
+   Game's own command line take. mod_folder may be null or "" for the base
+   game, exactly as NGeneratedData::ModKey reads it.
+
+   file_name must be a bare name (no '/' or '\\'), pass
+   NPlatform::Paths::IsRelativeDataName and end in ".bzm" - anything else,
+   including an empty name or profile, is BK_EDITOR_BAD_ARGUMENT with nothing
+   engine-specific about it: this call reaches no engine state at all, only
+   NPlatform::Paths and NProfile's own sanitizers, reused rather than
+   re-derived (security: path traversal through a profile, mod or file name
+   the caller did not choose).
+
+   On success the directories exist (created if they did not) and a stale
+   sibling with the same stem and the other extension (.xml) has been
+   removed, because the game loads the newer of a same-stem .xml/.bzm pair
+   (GameTT/iMissionInternal.cpp) - a leftover from an older test copy must
+   never outrank the one this call is about to write. BK_EDITOR_REFUSED, with
+   out[0] left at 0, when capacity is too short for the path; nothing is
+   created or removed in that case. */
+BkEditorStatus BkEditorTestMapPath( BkEditorSession *session, const char *profile, const char *mod_folder,
+                                    const char *file_name, char *out, int capacity );
+
 /* The camera, placed in world units, and one frame drawn into the window the
    session was started on. BkEditorOpenMap places the camera on the map's
    middle, so a frame before the first BkEditorSetCamera already looks at the

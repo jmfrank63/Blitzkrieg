@@ -20,8 +20,10 @@ pub const world_cell_size = view_math.world_cell_size;
 pub const Tool = enum { select, brush, place };
 
 /// SGVOGT_UNIT (Sources/src/Main/GameDB.h): the placer's default object,
-/// until the object palette chooses another.
-const unit_game_type: i32 = 1;
+/// until the object palette chooses another. Also main.zig's --game-reads-it
+/// mode, which places the catalogue's first unit the same way the placer's
+/// default does.
+pub const unit_game_type: i32 = 1;
 
 /// Screen pixels from a window edge that starts edge-scrolling.
 const edge_scroll_margin: f32 = 8.0;

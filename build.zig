@@ -2747,6 +2747,20 @@ pub fn build(b: *std.Build) void {
     panels_logic_step.dependOn(&panels_logic_tests.step);
     if (test_mode == .run) panels_logic_step.dependOn(&panels_logic_tests_run.step);
     test_step.dependOn(panels_logic_step);
+    // Test in game's argv construction and exit classification: plain Zig,
+    // no sdl3 and no c_bridge (testlaunch.zig's own doc comment), so this
+    // runs on every target with no engine, GPU or staged installation.
+    const testlaunch_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/testlaunch.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const testlaunch_tests = b.addTest(.{ .root_module = testlaunch_module });
+    const testlaunch_tests_run = b.addRunArtifact(testlaunch_tests);
+    const testlaunch_step = b.step("test-map-editor-testlaunch", "Run Test in game's argv-construction and exit-classification tests");
+    testlaunch_step.dependOn(&testlaunch_tests.step);
+    if (test_mode == .run) testlaunch_step.dependOn(&testlaunch_tests_run.step);
+    test_step.dependOn(testlaunch_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
@@ -5666,6 +5680,10 @@ fn addEditorBridgeTest(
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
     run.addArg(b.pathFromRoot("zig-out/local-test"));
+    // It reads the staged Data and engine, neither a file input of this step,
+    // so a cached pass would say nothing about the installation now (the
+    // same reason map-editor-smoke and test-map-editor-engine set this).
+    run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
@@ -5793,6 +5811,22 @@ fn addMapEditor(
     smoke_run.step.dependOn(&install_exe.step);
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
+
+    // Task 1's headless test-launch proof (D-01..D-09): the editor places a
+    // unit and the real Game plays it, no person watching. Local-only
+    // (RESEARCH.md Pitfall 6 / the spec's own test-tier table): it starts a
+    // second engine process end to end, which is not something CI's GPU
+    // runners need to gate every commit on.
+    const game_reads_it_run = b.addRunArtifact(exe);
+    game_reads_it_run.setCwd(b.path(stage_root));
+    game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it.log") });
+    // What it reads (the staged Data and Game) and the second process it
+    // starts are not file inputs of this step, so a cached pass would say
+    // nothing about the installation now.
+    game_reads_it_run.has_side_effects = true;
+    game_reads_it_run.step.dependOn(&install_exe.step);
+    const game_reads_it_step = b.step("map-editor-game-reads-it", "Test-launch a unit the editor placed and prove the real Game plays it (D-01..D-09)");
+    game_reads_it_step.dependOn(&game_reads_it_run.step);
 
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots

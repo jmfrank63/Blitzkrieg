@@ -2,6 +2,7 @@
 //!   MapEditor [<map>]                       interactive
 //!   MapEditor --check <map> [<out.tga>]     headless host check
 //!   MapEditor --smoke <map> [<out.bzm>]     scripted run of the real loop
+//!   MapEditor --game-reads-it <map> [<log>] headless test-launch, played by Game
 //!
 //! The interactive mode opens a visible window, starts the engine on it,
 //! opens <map> if one was given, and runs view.View's camera and tools under
@@ -41,10 +42,20 @@ const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 const crt = @import("crt.zig");
 const smoke = @import("smoke.zig");
+const testlaunch = @import("testlaunch.zig");
 const c = host_mod.c;
 
 const default_output = "zig-out/local-test/map-editor-check.tga";
 const default_smoke_output = "zig-out/local-test/map-editor-smoke.bzm";
+const default_game_reads_it_log = "zig-out/local-test/map-editor-game-reads-it.log";
+
+/// The point Task 1's headless test launch places its unit at: the smoke's
+/// own measured free ground (smoke.zig's place_at), so this mode never has
+/// to characterise a shipped map's terrain a second time.
+const game_reads_it_offset = struct {
+    const dx: f32 = -40;
+    const dy: f32 = -120;
+};
 
 /// The probe window, in screen pixels (a window point is a screen pixel).
 const probe = struct {
@@ -63,7 +74,15 @@ const world_cell_size: f32 = view_mod.world_cell_size;
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
     const gpa = std.heap.smp_allocator;
-    const io = std.Io.Threaded.global_single_threaded.io();
+    // Not global_single_threaded: its allocator is .failing by design (a
+    // minimal, no-concurrency fallback), which every spawnPosix/spawnWindows
+    // allocation under Test in game's std.process.spawn would then fail with
+    // OutOfMemory before the child ever runs. A real Threaded instance, with
+    // the process's own environment so PATH scanning and env-var inheritance
+    // see it too.
+    var threaded: std.Io.Threaded = .init(gpa, .{ .environ = minimal.environ });
+    defer threaded.deinit();
+    const io = threaded.io();
 
     var args = try std.process.Args.Iterator.initAllocator(minimal.args, gpa);
     defer args.deinit();
@@ -82,6 +101,13 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const output = args.next() orelse default_smoke_output;
             if (args.next() != null) usage();
             const passed = try smokeRun(gpa, io, map, output);
+            std.process.exit(if (passed) 0 else 1);
+        }
+        if (std.mem.eql(u8, arg, "--game-reads-it")) {
+            const map = args.next() orelse usage();
+            const log_path = args.next() orelse default_game_reads_it_log;
+            if (args.next() != null) usage();
+            const passed = try gameReadsIt(gpa, io, minimal.environ, map, log_path);
             std.process.exit(if (passed) 0 else 1);
         }
         if (args.next() != null) usage();
@@ -224,6 +250,184 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const
     return true;
 }
 
+/// The game-reads-it tier of the spec's test-launch section: a unit the
+/// editor placed is played by the real `Game`, headlessly, proving the whole
+/// route (BkEditorTestMapPath's generated-data mount, Game's -editor-test)
+/// without a person watching. Modelled on `smokeRun` and `check`, but the
+/// thing under test here is the game, not the editor's own frame.
+fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8) !bool {
+    var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: the host did not start ({s}: {s})\n", .{ @errorName(err), host_mod.failureReason() });
+        return false;
+    };
+    defer host.stop();
+
+    var real = c_bridge.RealBridge.init(host.session);
+    var editor = core.editor.Editor.init(gpa, real.bridge());
+    defer editor.deinit();
+    var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const path = mapArgument(&path_buffer, map) orelse {
+        std.debug.print("map-editor: game reads it FAIL: the path {s} is too long\n", .{map});
+        return false;
+    };
+    editor.open(path) catch {
+        std.debug.print("map-editor: game reads it FAIL: {s} did not open: {s}\n", .{ map, editor.status() });
+        return false;
+    };
+    // D-01: the document below must still be exactly this, unsaved - a test
+    // copy going through saveCopy, not editor.save, must never touch it.
+    const original_path = try gpa.dupe(u8, editor.document.path.items);
+    defer gpa.free(original_path);
+
+    // Two settle frames (main.zig's smokeRun/check convention): the panels
+    // have never been drawn here (this mode places directly through the
+    // editor, no panels involved), but the bridge still needs a drawn frame
+    // before it can resolve a screen point against the camera it placed.
+    var frame: u32 = 0;
+    while (frame < 2) : (frame += 1) {
+        var event: sdl3.c.SDL_Event = undefined;
+        while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
+        host.beginFrame();
+        host.endFrame() catch |err| {
+            std.debug.print("map-editor: game reads it FAIL: frame {d}: {s}\n", .{ frame, @errorName(err) });
+            return false;
+        };
+    }
+
+    const size = real.screenSize() orelse {
+        std.debug.print("map-editor: game reads it FAIL: no screen size\n", .{});
+        return false;
+    };
+    const sx = @as(f32, @floatFromInt(size[0])) / 2 + game_reads_it_offset.dx;
+    const sy = @as(f32, @floatFromInt(size[1])) / 2 + game_reads_it_offset.dy;
+    const point = editor.resolve(sx, sy) catch {
+        std.debug.print("map-editor: game reads it FAIL: {d},{d} is off the terrain\n", .{ sx, sy });
+        return false;
+    };
+
+    const entries = real.catalogue(gpa) catch {
+        std.debug.print("map-editor: game reads it FAIL: the object catalogue did not read\n", .{});
+        return false;
+    };
+    defer gpa.free(entries);
+    const unit_name: ?[]const u8 = for (entries) |entry| {
+        if (entry.game_type == view_mod.unit_game_type) break std.mem.sliceTo(&entry.name, 0);
+    } else null;
+    const name = unit_name orelse {
+        std.debug.print("map-editor: game reads it FAIL: no SGVOGT_UNIT in the catalogue\n", .{});
+        return false;
+    };
+    // D-04: player 0, the map's own diplomacy - a normal mission start.
+    _ = editor.addObject(name, point.map_x, point.map_y, 0, 0) catch {
+        std.debug.print("map-editor: game reads it FAIL: placing {s} failed: {s}\n", .{ name, editor.status() });
+        return false;
+    };
+
+    var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const test_path = real.testMapPath(testlaunch.profile_name, null, testlaunch.map_file_name, &test_path_buffer) orelse {
+        std.debug.print("map-editor: game reads it FAIL: no test map path: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
+        return false;
+    };
+    if (real.saveCopy(test_path) != .ok) {
+        std.debug.print("map-editor: game reads it FAIL: the test copy would not save: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
+        return false;
+    }
+
+    // The units= verb's coordinates are SMiniMapUnitInfo's own scale, factor
+    // 64 (03-01-SUMMARY.md) - but over the AI's own coordinate, which bridge.h
+    // documents as MAP units, not the scene "world" units BkEditorSetCamera
+    // takes (bridge.h: "Map units are the file's and the AI's"). Confirmed
+    // empirically against this same test map: querying at map_x/64,map_y/64
+    // with radius 1 finds the placed unit; the scene-world equivalent misses
+    // it by roughly 20 units of this scale (~1300 world units away) - the two
+    // coordinate systems really do disagree by more than rounding.
+    const units_x: i32 = @intFromFloat(@floor(point.map_x / 64.0));
+    const units_y: i32 = @intFromFloat(@floor(point.map_y / 64.0));
+    var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const game_path = testlaunch.gamePath(io, &game_path_buffer) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: no Game beside MapEditor: {s}\n", .{@errorName(err)});
+        return false;
+    };
+    var auto_ui_buffer: [96]u8 = undefined;
+    // A radius of 3 (192 world units, about 6 AI tiles) comfortably covers
+    // the placed unit despite the world-to-units rounding above; it is not
+    // trying to bound "nearby" tightly.
+    const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "400:units={d}x{d}x3,420:shot,440:exit", .{ units_x, units_y }) catch unreachable;
+    var running = testlaunch.start(gpa, io, environ, .{
+        .game_path = game_path,
+        .log_path = log_path,
+        .extra_env = &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" } },
+    }) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: the game would not start: {s}\n", .{@errorName(err)});
+        return false;
+    };
+    const exit = running.waitBlocking(io, 240_000) orelse {
+        running.terminate(io);
+        std.debug.print("map-editor: game reads it FAIL: the game did not exit within 240 s; its log: {s}\n", .{log_path});
+        return false;
+    };
+    if ((exit.code orelse 1) != 0 or exit.signal != null) {
+        std.debug.print("map-editor: game reads it FAIL: the game exited code={?d} signal={?d}; its log: {s}\n", .{ exit.code, exit.signal, log_path });
+        return false;
+    }
+
+    const log_bytes = std.Io.Dir.cwd().readFileAlloc(io, log_path, gpa, .limited(4 << 20)) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: the log at {s} would not read: {s}\n", .{ log_path, @errorName(err) });
+        return false;
+    };
+    defer gpa.free(log_bytes);
+    if (std.mem.indexOf(u8, log_bytes, "BK_AUTO_UI: shot written") == null) {
+        std.debug.print("map-editor: game reads it FAIL: no \"BK_AUTO_UI: shot written\" line; see {s}\n", .{log_path});
+        return false;
+    }
+    const units_count = playerZeroUnits(log_bytes) orelse {
+        std.debug.print("map-editor: game reads it FAIL: no units line naming player 0; see {s}\n", .{log_path});
+        return false;
+    };
+    if (units_count < 1) {
+        std.debug.print("map-editor: game reads it FAIL: player 0 has {d} units near the placed one; see {s}\n", .{ units_count, log_path });
+        return false;
+    }
+    if (!editor.dirty() or !std.mem.eql(u8, editor.document.path.items, original_path)) {
+        std.debug.print("map-editor: game reads it FAIL: the document changed - dirty {}, path {s} (was {s})\n", .{ editor.dirty(), editor.document.path.items, original_path });
+        return false;
+    }
+
+    deleteAutoshots(io);
+    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit, game exit 0)\n", .{units_count});
+    return true;
+}
+
+/// The count after "player 0: " in a `units=` line
+/// ("BK_AUTO_UI: units near X,Y r R: total N; player 0: M"), or null if the
+/// log has no such line - a player with a zero count is never printed
+/// (GameMain.cpp's units= handler), so its absence here is a real "0", not a
+/// parse failure to confuse with one.
+fn playerZeroUnits(log: []const u8) ?u32 {
+    const marker = "player 0: ";
+    const at = std.mem.indexOf(u8, log, marker) orelse return null;
+    const rest = log[at + marker.len ..];
+    var end: usize = 0;
+    while (end < rest.len and std.ascii.isDigit(rest[end])) : (end += 1) {}
+    if (end == 0) return null;
+    return std.fmt.parseInt(u32, rest[0..end], 10) catch null;
+}
+
+/// The game's own screenshot dump (BK_AUTO_UI's `shot` action), left in the
+/// working directory (the installation this mode ran from) rather than
+/// zig-out/local-test - swept up so a repeat run is not mistaken for a stale
+/// leftover.
+fn deleteAutoshots(io: std.Io) void {
+    var dir = std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true }) catch return;
+    defer dir.close(io);
+    var it = dir.iterate();
+    while (it.next(io) catch null) |entry| {
+        if (entry.kind != .file) continue;
+        if (std.mem.startsWith(u8, entry.name, "autoshot_") and std.mem.endsWith(u8, entry.name, ".rgba"))
+            dir.deleteFile(io, entry.name) catch {};
+    }
+}
+
 /// A map path from the command line in the engine's form. It arrives as the
 /// person typed it or the shell expanded it - an absolute macOS path has
 /// forward slashes - and the engine's file layer splits only on '\', so it
@@ -270,7 +474,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: MapEditor [<map>]\n       MapEditor --check <map> [<out.tga>]\n       MapEditor --smoke <map> [<out.bzm>]\n", .{});
+    std.debug.print("usage: MapEditor [<map>]\n       MapEditor --check <map> [<out.tga>]\n       MapEditor --smoke <map> [<out.bzm>]\n       MapEditor --game-reads-it <map> [<log>]\n", .{});
     std.process.exit(2);
 }
 

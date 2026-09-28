@@ -15,8 +15,11 @@
 #include "../Image/Image.h"
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
+#include "../StreamIO/GeneratedData.h"
+#include "../StreamIO/ProfilePaths.h"
 #include "../Main/GameDB.h"
 #include <SDL3/SDL.h>
+#include <filesystem>
 
 // Every module that links the engine statics defines these four and lets
 // something fill them; see any Sources/src/*/GlobalsLoader.cpp. Here they are
@@ -110,6 +113,20 @@ bool WriteFrame( BkEditorSession *pSession, const char *pszPath, const SColor *p
 	if ( !bWritten )
 		pSession->szMessage = std::string( "could not write all of " ) + pszPath;
 	return bWritten;
+}
+
+// BkEditorTestMapPath's file_name: a bare name (no separator of either kind,
+// checked here rather than left to IsRelativeDataName, which allows multiple
+// components) ending in ".bzm", and a relative data name by the engine's own
+// rule - reused rather than re-derived (security: path traversal through a
+// caller-chosen file name).
+bool IsBareTestMapName( const std::string &szName )
+{
+	if ( szName.find( '\\' ) != std::string::npos || szName.find( '/' ) != std::string::npos )
+		return false;
+	if ( szName.size() < 5 || szName.compare( szName.size() - 4, 4, ".bzm" ) != 0 )
+		return false;
+	return NPlatform::Paths::IsRelativeDataName( szName );
 }
 
 // The renderer's own start, separated so a machine without a device is told
@@ -895,6 +912,81 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *pSession, const char *pszPath )
 			return BK_EDITOR_REFUSED;
 		}
 		return SaveSessionMap( pSession, pszPath ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorPaths( BkEditorSession *pSession, BkEditorPathSet *pOut )
+{
+	return Guarded( pSession, [pSession, pOut]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::string &szBase = NPlatform::Paths::BaseRoot();
+		const std::string &szUser = NPlatform::Paths::UserRoot();
+		if ( szBase.size() >= sizeof( pOut->base_root ) || szUser.size() >= sizeof( pOut->user_root ) )
+		{
+			pSession->szMessage = "a root does not fit the caller's buffer";
+			return BK_EDITOR_REFUSED;
+		}
+		memcpy( pOut->base_root, szBase.c_str(), szBase.size() + 1 );
+		memcpy( pOut->user_root, szUser.c_str(), szUser.size() + 1 );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorTestMapPath( BkEditorSession *pSession, const char *pszProfile, const char *pszModFolder,
+                                    const char *pszFileName, char *pOut, int nCapacity )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( nCapacity > 0 )
+			pOut[0] = 0;
+		if ( pszProfile == 0 || *pszProfile == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		const std::string szFileName = pszFileName != 0 ? pszFileName : std::string();
+		if ( !IsBareTestMapName( szFileName ) )
+		{
+			pSession->szMessage = "\"" + szFileName + "\" is not a bare name ending in .bzm";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		// Lower-cased before ModKey, which keeps case: "Some Mod" and "some
+		// mod" must be the same generated-data folder, the way the game's own
+		// -mod= parsing already lower-cases the whole command line
+		// (GameMain.cpp's ProcessCommandLine calls NStr::ToLower on szParams
+		// before this bridge ever sees a mod name).
+		std::string szMod = pszModFolder != 0 ? pszModFolder : std::string();
+		NStr::ToLower( szMod );
+		const std::string szModKey = NGeneratedData::ModKey( szMod );
+		std::string szDir = ( std::filesystem::path( NProfile::GeneratedDirectory( pszProfile ) ) / szModKey / "maps" ).string();
+		for ( char &c : szDir )
+			if ( c == '/' ) c = '\\';
+		const std::string szFull = szDir + "\\" + szFileName;
+		if ( int( szFull.size() ) >= nCapacity )
+		{
+			pSession->szMessage = "the caller's buffer is too short for " + szFull;
+			return BK_EDITOR_REFUSED;
+		}
+		NGeneratedData::CreateParentDirectories( szFull );
+		// The game loads the newer of a same-stem .xml/.bzm pair
+		// (GameTT/iMissionInternal.cpp), so a stale sibling from an older
+		// test copy must not outrank the one this call is about to write.
+		const std::string szStem = szFileName.substr( 0, szFileName.size() - 4 );
+		std::string szSibling = szDir + "\\" + szStem + ".xml";
+#if !defined(_WIN32)
+		for ( char &c : szSibling )
+			if ( c == '\\' ) c = '/';
+#endif
+		std::error_code error;
+		std::filesystem::remove( szSibling, error );
+		memcpy( pOut, szFull.c_str(), szFull.size() + 1 );
+		return BK_EDITOR_OK;
 	} );
 }
 

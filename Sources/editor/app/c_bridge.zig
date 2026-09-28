@@ -245,6 +245,39 @@ pub const RealBridge = struct {
         return out[0..@intCast(count)];
     }
 
+    /// The engine's two host roots (BaseRoot, UserRoot), for Test in game's
+    /// log and window placement. Null on any refusal (the engine is not
+    /// started, or a root does not fit) - see BkEditorPaths' doc comment.
+    pub fn paths(self: *RealBridge, out: *c.BkEditorPathSet) Status {
+        return status(c.BkEditorPaths(self.session, out));
+    }
+
+    /// Where a test-launch copy of the current map goes (D-01, D-02, D-09):
+    /// out is written and returned as the slice up to the NUL
+    /// BkEditorTestMapPath left in it; null on any refusal, in which case
+    /// nothing was created and the profile/mod/file_name arguments (or the
+    /// buffer) are why - BkEditorLastMessage has the reason.
+    pub fn testMapPath(self: *RealBridge, profile: []const u8, mod_folder: ?[]const u8, file_name: []const u8, out: []u8) ?[]const u8 {
+        var profile_buffer: [256]u8 = undefined;
+        const profile_z = terminated(&profile_buffer, profile) orelse return null;
+        var mod_buffer: [256]u8 = undefined;
+        const mod_z: ?[*:0]const u8 = if (mod_folder) |folder| (terminated(&mod_buffer, folder) orelse return null) else null;
+        var name_buffer: [128]u8 = undefined;
+        const name_z = terminated(&name_buffer, file_name) orelse return null;
+        const capacity = std.math.cast(c_int, out.len) orelse return null;
+        if (c.BkEditorTestMapPath(self.session, profile_z, mod_z, name_z, out.ptr, capacity) != c.BK_EDITOR_OK) return null;
+        return std.mem.sliceTo(out, 0);
+    }
+
+    /// BkEditorSaveMap without touching the Editor: no path change, no
+    /// markClean (D-01 - Test in game must never mark the document saved or
+    /// move its path, only the engine's map file it wrote a copy of).
+    pub fn saveCopy(self: *RealBridge, engine_path: []const u8) Status {
+        var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, engine_path) orelse return .bad_argument;
+        return status(c.BkEditorSaveMap(self.session, z));
+    }
+
     /// The engine tier's two agreement checks, for tests.
     pub fn engineMatches(self: *RealBridge) Status {
         const terrain = status(c.BkEditorTerrainMatchesEngine(self.session));
