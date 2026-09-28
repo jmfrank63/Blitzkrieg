@@ -93,9 +93,13 @@ pub const State = struct {
     /// document - saveCopy, not editor.save (D-01).
     test_game: ?testlaunch.Running = null,
     test_prompt: TestLaunchPrompt = .{},
-    /// null or empty is the base game; a later plan (03-08, the Mod menu)
-    /// fills this in (D-09: the test loads the editor's own mod).
-    mod_folder: ?[]const u8 = null,
+    /// The active mod's folder (D-09, D-26, D-28): an owned buffer, not a
+    /// borrowed slice - State is returned by value from `init` (see
+    /// `tile_buffer`'s own comment above, the same reason), and File > Mod
+    /// sets this from a menu string with no address of its own to borrow.
+    /// Use `modFolder()`/`setModFolder` rather than these fields directly.
+    mod_folder_buffer: [64]u8 = undefined,
+    mod_folder_len: usize = 0,
     test_game_log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined,
     test_game_log_len: usize = 0,
     test_restart_popup_shown: bool = false,
@@ -125,6 +129,14 @@ pub const State = struct {
     /// and reused every frame it stays open - not once per entry per frame.
     recent_menu_open_prev: bool = false,
     recent_exists_cache: [core.settings.recent_capacity]bool = [_]bool{true} ** core.settings.recent_capacity,
+
+    /// File > Mod (D-26): the installed mods, refreshed once the frame the
+    /// submenu newly opens - the same shape as Open Recent's own cache above.
+    /// 64 comfortably holds any real installation; a longer list is REFUSED
+    /// by BkEditorMods and simply capped here rather than shown incomplete.
+    mod_menu_open_prev: bool = false,
+    mod_list_buffer: [64]c.BkEditorMod = undefined,
+    mod_list_count: usize = 0,
 
     /// D-20..D-22's schedule; `tickAutosave` keeps `enabled`/`interval_ms` in
     /// step with `settings` every frame, so a Settings-window or menu change
@@ -181,9 +193,12 @@ pub const State = struct {
 
     /// The catalogue is read once: it is the database's, not the map's.
     /// A catalogue that will not read leaves the palette empty and says so
-    /// on the status bar rather than stopping the editor.
-    pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ) State {
+    /// on the status bar rather than stopping the editor. `mod_folder` is the
+    /// mod chosen on the command line (main.zig's `-mod=`), already applied
+    /// to the bridge session before this call - `init` only records it.
+    pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ, mod_folder: ?[]const u8) State {
         var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ };
+        state.setModFolder(mod_folder);
         if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
         state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
         state.mapOpened();
@@ -194,6 +209,30 @@ pub const State = struct {
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.* = undefined;
+    }
+
+    /// The active mod's folder, or null for the base game.
+    pub fn modFolder(self: *const State) ?[]const u8 {
+        return if (self.mod_folder_len == 0) null else self.mod_folder_buffer[0..self.mod_folder_len];
+    }
+
+    /// Copies `folder` into the owned buffer (null or "" clears it) - never a
+    /// borrowed slice, per the field's own doc comment.
+    fn setModFolder(self: *State, folder: ?[]const u8) void {
+        const value = folder orelse "";
+        self.mod_folder_len = @min(value.len, self.mod_folder_buffer.len);
+        @memcpy(self.mod_folder_buffer[0..self.mod_folder_len], value[0..self.mod_folder_len]);
+    }
+
+    /// File > Mod (D-26): frees and re-reads the catalogue, so the palette
+    /// follows a mod switch. A failure leaves the palette empty and says so
+    /// on the status bar, the same as `init`'s own failure path.
+    pub fn reloadCatalogue(self: *State) void {
+        self.allocator.free(self.catalogue);
+        self.allocator.free(self.order);
+        self.catalogue = &.{};
+        self.order = &.{};
+        self.loadCatalogue() catch self.view.setStatus("failed: ", "the object catalogue did not read");
     }
 
     pub fn tiles(self: *const State) []const u8 {
@@ -335,6 +374,7 @@ pub fn act(state: *State) bool {
                 }
             },
             .dialog_failed => |message| state.view.setStatus("the file dialog failed: ", message),
+            .switch_mod => |folder| performModSwitch(state, folder),
         }
     }
 }
@@ -668,7 +708,7 @@ fn drawSettingsWindow(state: *State) void {
 
     var plain_folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var hint_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
-    const default_folder = logic.defaultMapsFolder(&plain_folder_buffer, userRoot(state), state.mod_folder) orelse "";
+    const default_folder = logic.defaultMapsFolder(&plain_folder_buffer, userRoot(state), state.modFolder()) orelse "";
     const hint_z = std.fmt.bufPrintZ(&hint_buffer, "{s}", .{default_folder}) catch "";
     _ = ig.igInputTextWithHint("Maps folder", hint_z.ptr, &state.maps_folder_edit, state.maps_folder_edit.len + 1, 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
@@ -694,7 +734,7 @@ fn showDialog(state: *State, kind: logic.DialogKind) void {
     var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     var default_location: ?[*:0]const u8 = null;
     const custom_folder = state.settings.mapsFolder();
-    const folder: ?[]const u8 = if (custom_folder.len != 0) custom_folder else logic.defaultMapsFolder(&folder_buffer, userRoot(state), state.mod_folder);
+    const folder: ?[]const u8 = if (custom_folder.len != 0) custom_folder else logic.defaultMapsFolder(&folder_buffer, userRoot(state), state.modFolder());
     if (folder) |f| {
         std.Io.Dir.cwd().createDirPath(state.io, f) catch {};
         if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{f})) |z| default_location = z.ptr else |_| {}
@@ -775,7 +815,7 @@ fn testGameLogPath(state: *State) ?[]const u8 {
 fn startTestGame(state: *State) void {
     const real = state.real;
     var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const test_path = real.testMapPath(testlaunch.profile_name, state.mod_folder, testlaunch.map_file_name, &test_path_buffer) orelse {
+    const test_path = real.testMapPath(testlaunch.profile_name, state.modFolder(), testlaunch.map_file_name, &test_path_buffer) orelse {
         state.view.setStatus("test in game: ", std.mem.span(c.BkEditorLastMessage(real.session)));
         return;
     };
@@ -795,7 +835,7 @@ fn startTestGame(state: *State) void {
     };
     const running = testlaunch.start(state.allocator, state.io, state.environ, .{
         .game_path = game_path,
-        .mod_folder = state.mod_folder,
+        .mod_folder = state.modFolder(),
         .monitor = windowMonitor(state.window),
         .log_path = log_path,
     }) catch |err| {
@@ -873,6 +913,16 @@ fn drawMenuBar(state: *State) f32 {
             ig.igEndMenu();
         } else {
             state.recent_menu_open_prev = false;
+        }
+        // D-26: None and every installed mod; the active one checked.
+        // Switching guards through the same unsaved-changes prompt as Open.
+        if (ig.igBeginMenu("Mod")) {
+            if (!state.mod_menu_open_prev) refreshModList(state);
+            state.mod_menu_open_prev = true;
+            drawModItems(state);
+            ig.igEndMenu();
+        } else {
+            state.mod_menu_open_prev = false;
         }
         if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
         if (ig.igMenuItemEx("Save As...", null, false, map_open)) state.actions.save_as_requested = true;
@@ -975,6 +1025,63 @@ fn drawOpenRecentItems(state: *State) void {
         while (state.settings.recentCount() != 0) state.settings.removeRecent(0);
         state.settings_changed = true;
     }
+}
+
+/// File > Mod (D-26): every installed mod, once for the frame the submenu
+/// newly opened - `BkEditorMods` itself, capped at the cache's own capacity.
+fn refreshModList(state: *State) void {
+    var count: c_int = 0;
+    _ = c.BkEditorMods(state.real.session, &state.mod_list_buffer, @intCast(state.mod_list_buffer.len), &count);
+    state.mod_list_count = if (count < 0) 0 else @min(@as(usize, @intCast(count)), state.mod_list_buffer.len);
+}
+
+/// The submenu's own items: "None" and each installed mod ("<name> <version>",
+/// its folder as a tooltip), the active one checked. Choosing one queues the
+/// switch through the unsaved-changes prompt (D-23) - `act` makes the actual
+/// switch once it is guarded.
+fn drawModItems(state: *State) void {
+    const active = state.modFolder();
+    if (ig.igMenuItemEx("None", null, active == null, true)) state.actions.requestSwitchMod("");
+    var i: usize = 0;
+    while (i < state.mod_list_count) : (i += 1) {
+        const mod = state.mod_list_buffer[i];
+        const folder = std.mem.sliceTo(&mod.folder, 0);
+        const checked = if (active) |a| std.mem.eql(u8, a, folder) else false;
+        var label_buffer: [130:0]u8 = undefined;
+        const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch "?";
+        if (ig.igMenuItemEx(label, null, checked, true)) state.actions.requestSwitchMod(folder);
+        if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
+            text(folder);
+            ig.igEndTooltip();
+        }
+    }
+}
+
+/// File > Mod's own step (D-26): switches through the bridge, reloads the
+/// palette, and reopens the document's own path if one was open - a Don't
+/// save on the unsaved-changes prompt has already said any edits are
+/// abandoned, the same as it does for Open (D-22/D-23's own reasoning). A
+/// refusal shows the bridge's reason on the status bar and leaves the mod
+/// (and the open map) exactly as `BkEditorSetMod`'s own contract promises.
+fn performModSwitch(state: *State, folder: []const u8) void {
+    const requested: ?[]const u8 = if (folder.len == 0) null else folder;
+    if (state.real.setMod(requested) != .ok) {
+        state.view.setStatus("the mod would not load: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+        return;
+    }
+    state.setModFolder(requested);
+    state.reloadCatalogue();
+    if (mapIsOpen(state.editor)) {
+        // Copied first: editor.open is about to replace document.path
+        // itself, the same aliasing hazard editor.save's own doc comment
+        // describes for a path argument taken from the document it owns.
+        var path_buffer: [logic.PathSlot.max_path]u8 = undefined;
+        const len = @min(state.editor.document.path.items.len, path_buffer.len);
+        @memcpy(path_buffer[0..len], state.editor.document.path.items[0..len]);
+        const result = state.editor.open(path_buffer[0..len]);
+        state.view.noteEditResult(state.editor, result);
+    }
+    state.mapOpened();
 }
 
 /// Every panel's widgets leave room for their labels to the right.
@@ -1244,10 +1351,19 @@ fn append(buffer: []u8, len: *usize, comptime format: []const u8, args: anytype)
     len.* += written.len;
 }
 
+/// D-26: the active mod's name, appended after `formatTitle`'s own suffixes -
+/// a plain post-process rather than a `formatTitle` parameter, so
+/// panels_logic.zig's own `formatTitle` tests (base game, no mod) need no
+/// change for this app-layer decoration.
 fn updateTitle(state: *State) void {
     var buffer: [256]u8 = undefined;
     const read_only = logic.isShippedMap(state.editor.document.path.items, baseRoot(state));
-    const title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty(), read_only);
+    const base_title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty(), read_only);
+    var full_buffer: [320:0]u8 = undefined;
+    const title: [:0]const u8 = if (state.real.activeMod()) |mod|
+        std.fmt.bufPrintZ(&full_buffer, "{s} [{s}]", .{ base_title, std.mem.sliceTo(&mod.name, 0) }) catch base_title
+    else
+        base_title;
     if (std.mem.eql(u8, title, state.title[0..state.title_len])) return;
     _ = sdl3.c.SDL_SetWindowTitle(state.window, title.ptr);
     const len = @min(title.len, state.title.len);

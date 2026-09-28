@@ -348,9 +348,8 @@ pub const NameText = struct {
 
 /// The action an unsaved-changes prompt is guarding: what to do once the
 /// user says it is fine to go ahead (or once a redirected save lands).
-/// `open_path` and `switch_mod` are not produced by this plan - they are
-/// here so 03-07's Open Recent and 03-08's Mod switch can guard through the
-/// same prompt without changing its shape.
+/// `open_path` (03-07's Open Recent) and `switch_mod` (03-08's Mod switch)
+/// guard through the same prompt without changing its shape.
 pub const Pending = union(enum) {
     open_dialog,
     open_path: PathText,
@@ -479,6 +478,14 @@ pub const FileActions = struct {
     /// `stepForPending` returns; slicing straight from the parameter would
     /// point into a stack frame that no longer exists.
     open_path_scratch: PathText = .{},
+    /// File > Mod (D-26, D-23): the chosen mod's folder, guarded through the
+    /// same unsaved-changes prompt as Open - an empty folder is "None" (the
+    /// base game), the same convention `RealBridge.setMod`'s null/"" already
+    /// carries, so this layer needs no separate "cleared" case.
+    switch_mod_requested: ?NameText = null,
+    /// `stepForPending`'s own copy of a `switch_mod` Pending's folder, for the
+    /// same use-after-return reason `open_path_scratch` exists.
+    switch_mod_scratch: NameText = .{},
 
     pub const Step = union(enum) {
         none,
@@ -494,12 +501,13 @@ pub const FileActions = struct {
         /// A dialog was cancelled - the prompt has already been told, if it
         /// was the one waiting on it.
         dialog_cancelled,
+        /// File > Mod: switch to this folder, or "" for None (D-26).
+        switch_mod: []const u8,
         quit,
     };
 
     /// The save `next`/`act` was told to make, for `saveFinished`, resolved
-    /// into a Step - `switch_mod` is not produced by this plan (03-08 wires
-    /// it).
+    /// into a Step.
     fn stepForPending(self: *FileActions, pending: Pending) Step {
         return switch (pending) {
             .open_dialog => if (self.dialog.request(.open)) Step{ .show_dialog = .open } else Step.none,
@@ -510,7 +518,12 @@ pub const FileActions = struct {
                 self.open_path_scratch = path;
                 break :blk Step{ .act_on_path = .{ .kind = .open, .path = self.open_path_scratch.slice() } };
             },
-            .switch_mod => .none,
+            .switch_mod => |folder| blk: {
+                // See switch_mod_scratch's own doc comment - the same
+                // use-after-return reason open_path_scratch exists for.
+                self.switch_mod_scratch = folder;
+                break :blk Step{ .switch_mod = self.switch_mod_scratch.slice() };
+            },
         };
     }
 
@@ -520,6 +533,13 @@ pub const FileActions = struct {
     /// is identical in shape to what a dialog's own choice produces).
     pub fn requestOpenPath(self: *FileActions, os_path: []const u8) void {
         self.open_path_requested = PathText.init(os_path);
+    }
+
+    /// File > Mod (D-26, D-23): guards the chosen folder ("" for None) through
+    /// the same unsaved-changes prompt; the caller (panels.zig) does the
+    /// actual switch once `next()` returns `.switch_mod`.
+    pub fn requestSwitchMod(self: *FileActions, folder: []const u8) void {
+        self.switch_mod_requested = NameText.init(folder);
     }
 
     /// The save `act` made for the prompt (plain Save or a Save As whose
@@ -591,6 +611,13 @@ pub const FileActions = struct {
         if (self.open_path_requested) |path| {
             self.open_path_requested = null;
             return switch (self.prompt.guard(dirty, .{ .open_path = path })) {
+                .proceed => |pending| self.stepForPending(pending),
+                .asked => .ask_unsaved,
+            };
+        }
+        if (self.switch_mod_requested) |folder| {
+            self.switch_mod_requested = null;
+            return switch (self.prompt.guard(dirty, .{ .switch_mod = folder })) {
                 .proceed => |pending| self.stepForPending(pending),
                 .asked => .ask_unsaved,
             };
@@ -1047,6 +1074,32 @@ test "file actions: Open Recent's path opens through the editor, converted with 
     const step = actions.next(false, false);
     try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path);
     try std.testing.expectEqualStrings("\\maps\\fixture.bzm", editor.document.path.items);
+}
+
+test "file actions: switching mods guards through the unsaved prompt, and an empty folder is None" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    // A clean map switches at once.
+    actions.requestSwitchMod("OtherMod");
+    const clean_step = actions.next(false, false);
+    try std.testing.expectEqualStrings("OtherMod", clean_step.switch_mod);
+
+    // A dirty map asks first; Cancel keeps the mod (no switch_mod step).
+    actions.requestSwitchMod("");
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    try std.testing.expect(actions.prompt.isAsking());
+    actions.answer_pending = .cancel;
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+    try std.testing.expect(!actions.prompt.isAsking());
+
+    // Don't save proceeds with the switch, folder "" naming None.
+    actions.requestSwitchMod("");
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    actions.answer_pending = .dont_save;
+    const dirty_step = actions.next(true, false);
+    try std.testing.expectEqualStrings("", dirty_step.switch_mod);
+    try std.testing.expect(!actions.prompt.isAsking());
 }
 
 test "TestLaunchPrompt: nothing running starts it directly" {

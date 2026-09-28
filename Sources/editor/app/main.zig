@@ -209,7 +209,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         };
     }
     // Centres the view on the map opened above, if any (State.mapOpened).
-    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();
 
     // D-24: mapeditor.cfg, independent of game profiles - never read or
@@ -394,7 +394,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
         std.debug.print("map-editor: smoke FAIL: {s} did not open: {s}\n", .{ map, editor.status() });
         return false;
     };
-    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
@@ -724,7 +724,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
         return fail("the screen's centre ({d},{d}) is ({d},{d},{d}), not the map", .{ outside_x, outside_y, outside.r, outside.g, outside.b });
 
     std.debug.print("map-editor: host check PASS ({s}, {d}x{d})\n", .{ driver, width, height });
-    return panelSmoke(gpa, io, environ, &host, map, output);
+    return panelSmoke(gpa, io, environ, &host, map, output, mod_folder);
 }
 
 /// One frame of the real panels over the map, with a State from the opened
@@ -777,7 +777,7 @@ fn settingsRoundTrip(gpa: std.mem.Allocator, io: std.Io, environ: std.process.En
     return true;
 }
 
-fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, host: *host_mod.Host, map: []const u8, output: []const u8) !bool {
+fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, host: *host_mod.Host, map: []const u8, output: []const u8, mod_folder: ?[]const u8) !bool {
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
@@ -788,7 +788,7 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(&path_buffer, map) orelse return fail("panels: the path {s} is too long", .{map});
     editor.open(path) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
-    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();
     if (!try settingsRoundTrip(gpa, io, environ, &state)) return false;
     if (state.catalogue.len == 0) return fail("panels: the object palette has no catalogue", .{});

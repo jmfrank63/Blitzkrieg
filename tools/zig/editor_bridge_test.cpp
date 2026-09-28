@@ -2166,6 +2166,83 @@ static void TestEveryGameTypeAnswers( BkEditorSession *pSession, int nScreenWidt
 	       ( std::string( "after every game type was asked for: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 }
 
+// D-26: BkEditorMods lists the fixture mod (tools/zig/fixtures/editor_mod,
+// staged at <install>/mods/EditorTestMod for this tier only - never the
+// unlicensed AchtungPanzer2); BkEditorSetMod switches to it and back,
+// closing the open map each time (its object database is about to change
+// under it); a bad or unknown folder is refused and changes nothing.
+static void TestModsListSetAndClear( BkEditorSession *pSession, const std::string &szScratch )
+{
+	(void)szScratch;
+	int nBaseCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nBaseCatalogue );
+
+	// The sizing call with capacity 0 is REFUSED whenever there is at least
+	// one mod - the same two-call convention BkEditorCatalogue's own sizing
+	// call follows (TestEveryGameTypeAnswers, above); only the count matters.
+	int nModCount = 0;
+	BkEditorMods( pSession, 0, 0, &nModCount );
+	if ( !Check( nModCount > 0, "at least the fixture mod is installed" ) )
+		return;
+	std::vector<BkEditorMod> mods( nModCount );
+	int nRead = 0;
+	if ( !Check( BkEditorMods( pSession, &mods[0], nModCount, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nFixture = -1;
+	for ( int i = 0; i < nRead; ++i )
+		if ( strcmp( mods[i].folder, "EditorTestMod" ) == 0 )
+			nFixture = i;
+	if ( !Check( nFixture >= 0, "BkEditorMods lists EditorTestMod" ) )
+		return;
+	Check( strcmp( mods[nFixture].name, "Editor Test Mod" ) == 0,
+	       NStr::Format( "EditorTestMod's name is \"Editor Test Mod\", got \"%s\"", mods[nFixture].name ) );
+	Check( strcmp( mods[nFixture].version, "1.0" ) == 0,
+	       NStr::Format( "EditorTestMod's version is \"1.0\", got \"%s\"", mods[nFixture].version ) );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorMod active;
+	memset( &active, 0, sizeof active );
+	if ( Check( BkEditorActiveMod( pSession, &active ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( strcmp( active.folder, "EditorTestMod" ) == 0,
+		       NStr::Format( "ActiveMod's folder is EditorTestMod, got \"%s\"", active.folder ) );
+		Check( strcmp( active.name, "Editor Test Mod" ) == 0, "ActiveMod's name follows the mod" );
+	}
+
+	// The switch closes the open map: its object database just changed.
+	int nLinkID = -1;
+	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nLinkID ) == BK_EDITOR_REFUSED,
+	       "no map is open right after the switch" );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogueWithMod = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogueWithMod );
+	Check( nCatalogueWithMod >= nBaseCatalogue,
+	       NStr::Format( "the catalogue with EditorTestMod active has %d entries, at least the base %d", nCatalogueWithMod, nBaseCatalogue ) );
+
+	Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorMod cleared;
+	memset( &cleared, 0, sizeof cleared );
+	if ( Check( BkEditorActiveMod( pSession, &cleared ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( cleared.folder[0] == 0, "ActiveMod reports none after SetMod(null)" );
+
+	Check( BkEditorSetMod( pSession, "../x" ) == BK_EDITOR_BAD_ARGUMENT, "\"../x\" is a bad argument" );
+	Check( BkEditorSetMod( pSession, "a/b" ) == BK_EDITOR_BAD_ARGUMENT, "\"a/b\" is a bad argument" );
+	const BkEditorStatus noSuchStatus = BkEditorSetMod( pSession, "NoSuchMod" );
+	const std::string szNoSuchMessage = BkEditorLastMessage( pSession );
+	Check( noSuchStatus == BK_EDITOR_REFUSED,
+	       NStr::Format( "\"NoSuchMod\" is refused, got status %d", int( noSuchStatus ) ) );
+	Check( szNoSuchMessage.find( "NoSuchMod" ) != std::string::npos,
+	       NStr::Format( "the refusal names the folder: \"%s\"", szNoSuchMessage.c_str() ) );
+
+	// Leave the session on no mod with coldwinter open, for whatever runs next.
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -2305,6 +2382,7 @@ int main( int argc, char **argv )
 		TestBrokenMapKeepsTheOpenOne( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
+		TestModsListSetAndClear( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
