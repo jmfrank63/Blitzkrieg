@@ -20,7 +20,15 @@
 #include "../StreamIO/GeneratedData.h"
 #include "../StreamIO/ProfilePaths.h"
 #include "../Main/GameDB.h"
+// The shared managers BkEditorSetMod clears (03-08, mirroring
+// CMainLoop::ClearResources(true)) other than the ones GFX.H already
+// declares (IMeshManager, ITextureManager, IFontManager).
+#include "../Scene/PFX.h"
+#include "../Anim/Animation.h"
+#include "../SFX/SFX.h"
+#include "../Main/TextSystem.h"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 
@@ -41,6 +49,11 @@ GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 struct BkEditorSession : public SEditorSession
 {
 	void *pWindow;
+	// The active mod (03-08, D-26): folder exactly as BkEditorSetMod was
+	// given (never lower-cased), and mod.xml's own name/version - all empty
+	// when none is active. BkEditorSaveMap reads these to stamp
+	// szMODName/szMODVersion (D-28).
+	std::string szModFolder, szModName, szModVersion;
 	BkEditorSession() : pWindow( 0 ) {  }
 };
 
@@ -171,6 +184,128 @@ bool IsBareTestMapName( const std::string &szName )
 	if ( szName.size() < 5 || szName.compare( szName.size() - 4, 4, ".bzm" ) != 0 )
 		return false;
 	return NPlatform::Paths::IsRelativeDataName( szName );
+}
+
+// A bare mod folder name (03-08's BkEditorSetMod/BkEditorMods): no separator
+// of either kind (checked directly, since IsRelativeDataName alone would
+// accept a multi-component relative path), not "." or "..", not over 63
+// characters (BkEditorMod::folder's capacity), and a relative data name by
+// the engine's own rule - reused rather than re-derived, the same reasoning
+// IsBareTestMapName gives for a test map's file name.
+bool IsBareModFolderName( const std::string &szFolder )
+{
+	if ( szFolder.empty() || szFolder.size() > 63 )
+		return false;
+	if ( szFolder.find( '\\' ) != std::string::npos || szFolder.find( '/' ) != std::string::npos )
+		return false;
+	if ( szFolder == "." || szFolder == ".." )
+		return false;
+	return NPlatform::Paths::IsRelativeDataName( szFolder );
+}
+
+// Truncates rszValue into a fixed buffer the way ReadCatalogue's own name
+// copy does: never refused for length, just cut, because a longer mod name
+// or version than any shipped one is a display detail, not a reason to fail
+// the whole read.
+void CopyBoundedField( char *pField, size_t nCapacity, const std::string &rszValue )
+{
+	const size_t nCopy = rszValue.size() < nCapacity - 1 ? rszValue.size() : nCapacity - 1;
+	memcpy( pField, rszValue.c_str(), nCopy );
+	pField[nCopy] = 0;
+}
+
+// <BaseRoot>mods\<folder>\, backslash-separated and trailing one - OpenStorage's
+// own convention (BkEditorTestMapPath, GeneratedData.h), matching
+// CICChangeMOD::Exec's szMODPath (MainLoopCommands.cpp:393).
+std::string ModEngineDir( const std::string &szFolder )
+{
+	std::string szBase = NPlatform::Paths::BaseRoot();
+	for ( char &c : szBase )
+		if ( c == '/' ) c = '\\';
+	return szBase + "mods\\" + szFolder + "\\";
+}
+
+// Reads folder's own mod.xml, the same way the game's mod-list screen does
+// (GameTT/InterfaceIMModsList.cpp:49-64) and CICChangeMOD::Exec mounts it
+// (MainLoopCommands.cpp:396-407): false when folder's data has no mod.xml at
+// all - not an installed mod, which is not a failure to report, only
+// something BkEditorMods leaves out and BkEditorSetMod refuses.
+bool ReadModXml( const std::string &szFolder, BkEditorMod *pOut )
+{
+	const std::string szPattern = ModEngineDir( szFolder ) + "data\\*.pak";
+	CPtr<IDataStorage> pMOD = OpenStorage( szPattern.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+	if ( pMOD == 0 )
+		return false;
+	CPtr<IDataStream> pStream = pMOD->OpenStream( "mod.xml", STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+		return false;
+	std::string szName = "MyMOD", szVersion = "1.0";
+	{
+		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+		saver.Add( "MODName", &szName );
+		saver.Add( "MODVersion", &szVersion );
+	}
+	memset( pOut, 0, sizeof *pOut );
+	CopyBoundedField( pOut->folder, sizeof pOut->folder, szFolder );
+	CopyBoundedField( pOut->name, sizeof pOut->name, szName );
+	CopyBoundedField( pOut->version, sizeof pOut->version, szVersion );
+	return true;
+}
+
+// Every installed mod, sorted by folder name: std::filesystem over
+// <BaseRoot>mods (a real OS directory listing, not through the storage
+// layer - there is no wildcard for "every subdirectory"), each candidate
+// read the way ReadModXml reads one. A missing mods directory - nothing
+// installed - is an empty list, not a failure: std::filesystem::directory_iterator's
+// own error_code overload leaves it empty rather than throwing.
+std::vector<BkEditorMod> ListInstalledMods()
+{
+	std::vector<BkEditorMod> mods;
+	std::error_code error;
+	const std::filesystem::path modsDir = std::filesystem::path( NPlatform::Paths::BaseRoot() ) / "mods";
+	std::filesystem::directory_iterator it( modsDir, error );
+	if ( error )
+		return mods;
+	for ( const std::filesystem::directory_entry &entry : it )
+	{
+		std::error_code entryError;
+		if ( !entry.is_directory( entryError ) || entryError )
+			continue;
+		BkEditorMod mod;
+		if ( ReadModXml( entry.path().filename().string(), &mod ) )
+			mods.push_back( mod );
+	}
+	std::sort( mods.begin(), mods.end(), []( const BkEditorMod &a, const BkEditorMod &b )
+	{
+		return strcmp( a.folder, b.folder ) < 0;
+	} );
+	return mods;
+}
+
+// FilesInspector, the shared managers other than IGFX, and the object
+// database - the steps CICChangeMOD::Exec takes once the MOD storage has
+// changed (MainLoopCommands.cpp:422-431), minus ResetStack (no interface
+// stack here) and the font IGFX::SetFont restores (the editor's own overlay
+// lives on that device - see bridge.h's BkEditorSetMod comment). false with
+// the reason in pSession->szMessage when the object database would not
+// reload.
+bool ReloadAfterModChange( BkEditorSession *pSession, IDataStorage *pStorage )
+{
+	GetSingleton<IFilesInspector>()->Clear();
+	GetSingleton<IFilesInspector>()->InspectStorage( pStorage );
+	GetSingleton<IParticleManager>()->Clear( ISharedManager::CLEAR_ALL );
+	GetSingleton<IAnimationManager>()->Clear( ISharedManager::CLEAR_ALL );
+	GetSingleton<ISoundManager>()->Clear( ISharedManager::CLEAR_ALL );
+	GetSingleton<IFontManager>()->Clear( ISharedManager::CLEAR_ALL );
+	GetSingleton<IMeshManager>()->Clear( ISharedManager::CLEAR_ALL );
+	GetSingleton<ITextureManager>()->Clear( ISharedManager::CLEAR_ALL );
+	GetSingleton<ITextManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
+	if ( !GetSingleton<IObjectsDB>()->LoadDB() )
+	{
+		pSession->szMessage = "the object database would not reload";
+		return false;
+	}
+	return true;
 }
 
 // The renderer's own start, separated so a machine without a device is told
@@ -703,6 +838,125 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *pSession, BkEditorCatalogueEn
 			return BK_EDITOR_REFUSED;
 		}
 		return ReadCatalogue( pSession, pOut, nCapacity, pnCount ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorMods( BkEditorSession *pSession, BkEditorMod *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::vector<BkEditorMod> mods = ListInstalledMods();
+		*pnCount = int( mods.size() );
+		const int nWrite = int( mods.size() ) < nCapacity ? int( mods.size() ) : nCapacity;
+		for ( int i = 0; i < nWrite; ++i )
+			pOut[i] = mods[i];
+		if ( int( mods.size() ) > nCapacity )
+		{
+			pSession->szMessage = NStr::Format( "there are %d mods and room was given for %d", int( mods.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSetMod( BkEditorSession *pSession, const char *pszFolder )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		IDataStorage *pStorage = GetSingleton<IDataStorage>();
+		if ( pStorage == 0 )
+		{
+			pSession->szMessage = "the data storage is not there";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::string szFolder = pszFolder != 0 ? pszFolder : std::string();
+		// null/"" clears the mod - always valid, nothing to look up.
+		if ( szFolder.empty() )
+		{
+			CloseSessionMap( pSession );
+			pStorage->RemoveStorage( "MOD" );
+			RemoveGlobalVar( "MOD.Active" );
+			RemoveGlobalVar( "MOD.Name" );
+			RemoveGlobalVar( "MOD.Folder" );
+			RemoveGlobalVar( "MOD.Version" );
+			if ( !ReloadAfterModChange( pSession, pStorage ) )
+				return BK_EDITOR_FAILED;
+			pSession->szModFolder.clear();
+			pSession->szModName.clear();
+			pSession->szModVersion.clear();
+			return BK_EDITOR_OK;
+		}
+		if ( !IsBareModFolderName( szFolder ) )
+		{
+			pSession->szMessage = "\"" + szFolder + "\" is not a bare mod folder name";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		// Read and validate before anything changes: a refusal below must
+		// leave the session's mod, its open map and the object database
+		// exactly as they were (bridge.h's own contract for this call).
+		BkEditorMod mod;
+		if ( !ReadModXml( szFolder, &mod ) )
+		{
+			pSession->szMessage = "no installed mod named \"" + szFolder + "\"";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::string szPattern = ModEngineDir( szFolder ) + "data\\*.pak";
+		CPtr<IDataStorage> pModStorage = OpenStorage( szPattern.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+		if ( pModStorage == 0 )
+		{
+			pSession->szMessage = "no installed mod named \"" + szFolder + "\"";
+			return BK_EDITOR_REFUSED;
+		}
+		CloseSessionMap( pSession );
+		pStorage->RemoveStorage( "MOD" );
+		pStorage->AddStorage( pModStorage, "MOD" );
+		SetGlobalVar( "MOD.Active", 1 );
+		SetGlobalVar( "MOD.Name", mod.name );
+		// The folder under mods\, for anything that wants to find layouts
+		// restyled for it - kept as given, the same comment CICChangeMOD::Exec
+		// makes about its own MOD.Folder (MainLoopCommands.cpp:410-411).
+		SetGlobalVar( "MOD.Folder", szFolder.c_str() );
+		SetGlobalVar( "MOD.Version", mod.version );
+		if ( !ReloadAfterModChange( pSession, pStorage ) )
+			return BK_EDITOR_FAILED;
+		pSession->szModFolder = szFolder;
+		pSession->szModName = mod.name;
+		pSession->szModVersion = mod.version;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorActiveMod( BkEditorSession *pSession, BkEditorMod *pOut )
+{
+	if ( pOut != 0 )
+		memset( pOut, 0, sizeof *pOut );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		CopyBoundedField( pOut->folder, sizeof pOut->folder, pSession->szModFolder );
+		CopyBoundedField( pOut->name, sizeof pOut->name, pSession->szModName );
+		CopyBoundedField( pOut->version, sizeof pOut->version, pSession->szModVersion );
+		return BK_EDITOR_OK;
 	} );
 }
 

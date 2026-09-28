@@ -13,6 +13,11 @@ Versions/
 /Data/vssver.scc
 !Sources/src/data/consts.xml
 !Sources/src/data/vssver.scc
+# core.ignorecase makes **/Data also match the map editor's own test-fixture
+# mods (mods/<Name>/data, the engine's own naming convention) - keep them
+# tracked; see 03-08's EditorTestMod fixture.
+!tools/zig/fixtures/editor_mod/
+!tools/zig/fixtures/editor_mod/**
 VideoAssets/Movies/
 
 

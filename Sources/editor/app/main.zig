@@ -1,9 +1,19 @@
 //! MapEditor:
-//!   MapEditor [<map>]                       interactive
-//!   MapEditor --check <map> [<out.tga>]     headless host check
-//!   MapEditor --smoke <map> [<out.bzm>]     scripted run of the real loop
-//!   MapEditor --game-reads-it <map> [<log>] headless test-launch, played by Game
+//!   MapEditor [-mod=<Folder>|-mod=None] [<map>]                       interactive
+//!   MapEditor [-mod=...] --check <map> [<out.tga>]     headless host check
+//!   MapEditor [-mod=...] --smoke <map> [<out.bzm>]     scripted run of the real loop
+//!   MapEditor [-mod=...] --game-reads-it <map> [<log>] headless test-launch, played by Game
 //!
+//! -mod=<Folder> or -mod=None (D-26, like the game's own -mod=) is accepted
+//! anywhere before the positional arguments, in every mode above: it is
+//! pulled out of the argument list first, then applied through
+//! RealBridge.setMod right after the host starts and before anything reads
+//! the catalogue or opens a map - the mod changes what both see. A refusal
+//! (an unknown folder, or a bad one) is reported the way each mode already
+//! reports its other startup failures: interactive shows it the same
+//! message-box way as any other startup step (fatal), --check prints a
+//! "FAIL:" line and exits 1. Given and valid, --check also prints
+//! "map-editor: mod <folder> (<name> <version>)" once the mod is loaded.
 //! The interactive mode opens a visible window, starts the engine on it,
 //! opens <map> if one was given, and runs view.View's camera and tools under
 //! panels.zig's panels until the window closes or File > Quit. A step that fails before there is a window to show
@@ -87,40 +97,92 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
     var args = try std.process.Args.Iterator.initAllocator(minimal.args, gpa);
     defer args.deinit();
     _ = args.next();
-    const first = args.next();
+
+    // -mod=<Folder>/-mod=None is pulled out of the argument list first, so it
+    // is accepted in any position before the positional arguments below, in
+    // every mode - matching the doc comment atop this file.
+    var mod_arg: ?[]const u8 = null; // the raw text after "=", "None" included
+    var rest: std.ArrayList([]const u8) = .empty;
+    defer rest.deinit(gpa);
+    while (args.next()) |arg| {
+        if (parseModArg(arg)) |raw| {
+            mod_arg = raw;
+        } else {
+            try rest.append(gpa, arg);
+        }
+    }
+    const mod_requested = mod_arg != null;
+    const mod_folder: ?[]const u8 = if (mod_arg) |raw| (if (std.mem.eql(u8, raw, "None")) null else raw) else null;
+
+    var index: usize = 0;
+    const first = nextArg(rest.items, &index);
     if (first) |arg| {
         if (std.mem.eql(u8, arg, "--check")) {
-            const map = args.next() orelse usage();
-            const output = args.next() orelse default_output;
-            if (args.next() != null) usage();
-            const passed = try check(gpa, io, minimal.environ, map, output);
+            const map = nextArg(rest.items, &index) orelse usage();
+            const output = nextArg(rest.items, &index) orelse default_output;
+            if (nextArg(rest.items, &index) != null) usage();
+            const passed = try check(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
             std.process.exit(if (passed) 0 else 1);
         }
         if (std.mem.eql(u8, arg, "--smoke")) {
-            const map = args.next() orelse usage();
-            const output = args.next() orelse default_smoke_output;
-            if (args.next() != null) usage();
-            const passed = try smokeRun(gpa, io, minimal.environ, map, output);
+            const map = nextArg(rest.items, &index) orelse usage();
+            const output = nextArg(rest.items, &index) orelse default_smoke_output;
+            if (nextArg(rest.items, &index) != null) usage();
+            const passed = try smokeRun(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
             std.process.exit(if (passed) 0 else 1);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it")) {
-            const map = args.next() orelse usage();
-            const log_path = args.next() orelse default_game_reads_it_log;
-            if (args.next() != null) usage();
-            const passed = try gameReadsIt(gpa, io, minimal.environ, map, log_path);
+            const map = nextArg(rest.items, &index) orelse usage();
+            const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_log;
+            if (nextArg(rest.items, &index) != null) usage();
+            const passed = try gameReadsIt(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
             std.process.exit(if (passed) 0 else 1);
         }
-        if (args.next() != null) usage();
-        try interactive(gpa, io, minimal.environ, arg);
+        if (nextArg(rest.items, &index) != null) usage();
+        try interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested);
         return;
     }
-    try interactive(gpa, io, minimal.environ, null);
+    try interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested);
+}
+
+/// `-mod=<Folder>` or `-mod=None`: the raw text after `=`, or null when `arg`
+/// is not a `-mod=` argument at all. Kept apart from "None" itself (which the
+/// caller turns into a null `mod_folder`) so a plain launch with no `-mod=`
+/// never calls `RealBridge.setMod` at all - unlike the bridge's own null/""
+/// convention, which treats "not given" and "explicitly cleared" the same,
+/// the app keeps them apart so a normal launch never pays a mod-switch's
+/// FilesInspector/managers/LoadDB cost for nothing.
+fn parseModArg(arg: []const u8) ?[]const u8 {
+    const prefix = "-mod=";
+    if (!std.mem.startsWith(u8, arg, prefix)) return null;
+    return arg[prefix.len..];
+}
+
+/// The next argument after `-mod=`/`-mod=None` has been pulled out of the
+/// list, in order, once each - `std.process.Args.Iterator`'s own `next()`
+/// shape, over the filtered slice instead of the raw argv.
+fn nextArg(items: []const []const u8, index: *usize) ?[]const u8 {
+    if (index.* >= items.len) return null;
+    defer index.* += 1;
+    return items[index.*];
+}
+
+/// Applies `-mod=`'s request, right after the host starts and before
+/// anything reads the catalogue or opens a map. Returns null on success, or
+/// the bridge's reason on a refusal/bad argument - `real.session`'s own
+/// message, valid only until the next bridge call, so callers use it at
+/// once (fatal/a FAIL line) rather than store it. A no-op, returning null,
+/// when `-mod=` was never given at all.
+fn applyModArg(real: *c_bridge.RealBridge, mod_folder: ?[]const u8, mod_requested: bool) ?[]const u8 {
+    if (!mod_requested) return null;
+    if (real.setMod(mod_folder) != .ok) return std.mem.span(c.BkEditorLastMessage(real.session));
+    return null;
 }
 
 /// The interactive mode: one window, the engine on it, the view driving the
 /// core's tools, until the window closes or the process is asked to quit
 /// (SDL maps SIGINT/SIGTERM to SDL_EVENT_QUIT by default).
-fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8) !void {
+fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool) !void {
     var host = host_mod.Host.start(.{ .title = "Map Editor" }) catch |err| {
         const reason = host_mod.failureReason();
         fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
@@ -128,6 +190,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     defer host.stop();
 
     var real = c_bridge.RealBridge.init(host.session);
+    if (applyModArg(&real, mod_folder, mod_requested)) |reason| fatal("the mod", reason);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
     // Plan 6's safe save (D-19): every mode that can save gets one real
@@ -294,7 +357,7 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
 /// --smoke: the interactive mode's setup, hidden, and its loop under
 /// smoke.zig's script. Failures print a "smoke FAIL:" line; there is no
 /// person to show a message box to.
-fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8) !bool {
+fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     // A file left by an earlier run would let the reopen step pass on a save
     // that never happened.
@@ -312,6 +375,10 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     defer host.stop();
 
     var real = c_bridge.RealBridge.init(host.session);
+    if (applyModArg(&real, mod_folder, mod_requested)) |reason| {
+        std.debug.print("map-editor: smoke FAIL: the mod would not load: {s}\n", .{reason});
+        return false;
+    }
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
     var std_files: core.files.StdFiles = .{ .io = io };
@@ -347,7 +414,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
 /// route (BkEditorTestMapPath's generated-data mount, Game's -editor-test)
 /// without a person watching. Modelled on `smokeRun` and `check`, but the
 /// thing under test here is the game, not the editor's own frame.
-fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8) !bool {
+fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
         std.debug.print("map-editor: game reads it FAIL: the host did not start ({s}: {s})\n", .{ @errorName(err), host_mod.failureReason() });
         return false;
@@ -355,6 +422,10 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     defer host.stop();
 
     var real = c_bridge.RealBridge.init(host.session);
+    if (applyModArg(&real, mod_folder, mod_requested)) |reason| {
+        std.debug.print("map-editor: game reads it FAIL: the mod would not load: {s}\n", .{reason});
+        return false;
+    }
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
     // Never exercised in this mode (D-01: a test copy goes through
@@ -571,7 +642,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: MapEditor [<map>]\n       MapEditor --check <map> [<out.tga>]\n       MapEditor --smoke <map> [<out.bzm>]\n       MapEditor --game-reads-it <map> [<log>]\n", .{});
+    std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n", .{});
     std.process.exit(2);
 }
 
@@ -580,7 +651,7 @@ fn fail(comptime format: []const u8, args: anytype) bool {
     return false;
 }
 
-fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8) !bool {
+fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(&path_buffer, map) orelse return fail("the path {s} is too long", .{map});
@@ -592,6 +663,14 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err|
         return fail("the host did not start ({s}: {s})", .{ @errorName(err), host_mod.failureReason() });
     defer host.stop();
+
+    var real = c_bridge.RealBridge.init(host.session);
+    if (applyModArg(&real, mod_folder, mod_requested)) |reason|
+        return fail("the mod would not load: {s}", .{reason});
+    if (mod_folder != null) {
+        if (real.activeMod()) |active|
+            std.debug.print("map-editor: mod {s} ({s} {s})\n", .{ std.mem.sliceTo(&active.folder, 0), std.mem.sliceTo(&active.name, 0), std.mem.sliceTo(&active.version, 0) });
+    }
 
     var summary: c.BkEditorMapSummary = std.mem.zeroes(c.BkEditorMapSummary);
     if (c.BkEditorOpenMap(host.session, map_z.ptr, &summary) != c.BK_EDITOR_OK)

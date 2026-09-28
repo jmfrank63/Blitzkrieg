@@ -308,6 +308,40 @@ pub const RealBridge = struct {
         return status(c.BkEditorSaveMap(self.session, z));
     }
 
+    /// Every installed mod (D-26), sorted by folder as the bridge lists them.
+    /// Caller frees.
+    pub fn mods(self: *RealBridge, allocator: std.mem.Allocator) ![]c.BkEditorMod {
+        var count: c_int = 0;
+        const sizing = c.BkEditorMods(self.session, null, 0, &count);
+        if (sizing != c.BK_EDITOR_OK and sizing != c.BK_EDITOR_REFUSED) return error.ModsFailed;
+        if (count < 0) return error.ModsFailed;
+        const entries = try allocator.alloc(c.BkEditorMod, @intCast(count));
+        errdefer allocator.free(entries);
+        if (count == 0) return entries;
+        if (c.BkEditorMods(self.session, entries.ptr, count, &count) != c.BK_EDITOR_OK) return error.ModsFailed;
+        if (count != entries.len) return error.ModsFailed;
+        return entries;
+    }
+
+    /// Switches the active mod (D-26, D-09): null or "" clears it (the base
+    /// game). `.refused` names an installed mod that was not found (or has no
+    /// mod.xml); `.bad_argument` a folder name that is not bare (a separator,
+    /// ".", ".." or too long). Either way nothing changed - see bridge.h's own
+    /// BkEditorSetMod comment.
+    pub fn setMod(self: *RealBridge, folder: ?[]const u8) Status {
+        var buffer: [64]u8 = undefined;
+        const z: ?[*:0]const u8 = if (folder) |f| (terminated(&buffer, f) orelse return .bad_argument) else null;
+        return status(c.BkEditorSetMod(self.session, z));
+    }
+
+    /// The session's active mod, or null when none is active.
+    pub fn activeMod(self: *RealBridge) ?c.BkEditorMod {
+        var out: c.BkEditorMod = std.mem.zeroes(c.BkEditorMod);
+        if (c.BkEditorActiveMod(self.session, &out) != c.BK_EDITOR_OK) return null;
+        if (out.folder[0] == 0) return null;
+        return out;
+    }
+
     /// The engine tier's two agreement checks, for tests.
     pub fn engineMatches(self: *RealBridge) Status {
         const terrain = status(c.BkEditorTerrainMatchesEngine(self.session));

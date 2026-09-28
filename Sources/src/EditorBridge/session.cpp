@@ -284,6 +284,27 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	return true;
 }
 
+void CloseSessionMap( SEditorSession *pSession )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return;
+	// The old map's objects leave the world before the AI they refer to is
+	// cleared - the same order OpenMapIntoSession closes the previous map in.
+	if ( pSession->pWorld != 0 )
+		pSession->pWorld->Clear();
+	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+		pAIEditor->Clear();
+	pSession->byLinkID.clear();
+	pSession->unknownLinkIDs.clear();
+	pSession->futureBuildLinkIDs.clear();
+	pSession->paints.clear();
+	pSession->appliedPaints.clear();
+	pSession->undonePaints.clear();
+	pSession->tombstones.clear();
+	pSession->linkByAI.clear();
+	pSession->bMapOpen = false;
+}
+
 void UpdateSessionWorld( SEditorSession *pSession )
 {
 	if ( pSession->pWorld != 0 )

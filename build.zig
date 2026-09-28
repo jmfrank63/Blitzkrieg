@@ -2141,13 +2141,24 @@ pub fn build(b: *std.Build) void {
     install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
 
+    // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
+    // for the engine-tier test's TestModsListSetAndClear and the host-check's
+    // -mod=EditorTestMod run below - never a dependency of install-map-editor
+    // or any package step (the fixture is not AchtungPanzer2 and is tracked,
+    // but it is still not part of what ships).
+    const install_fixture_mod = b.addInstallDirectory(.{
+        .source_dir = b.path("tools/zig/fixtures/editor_mod/EditorTestMod"),
+        .install_dir = .{ .custom = stage_root["zig-out/".len..] },
+        .install_subdir = "mods/EditorTestMod",
+    });
+
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
-    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
     // The editor's two platforms; everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
-    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
@@ -5606,6 +5617,10 @@ fn addEditorBridgeTest(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
+    // 03-08 Task 1: the fixture mod TestModsListSetAndClear needs, staged
+    // beside the test binary - never a dependency of install_exe/install-game
+    // itself (see its own doc comment at the call site).
+    install_fixture_mod_step: *std.Build.Step,
 ) void {
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
     // repository already runs on Linux CI. See the note in addMapFileTest.
@@ -5692,6 +5707,7 @@ fn addEditorBridgeTest(
     // same reason map-editor-smoke and test-map-editor-engine set this).
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_fixture_mod_step);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -5732,6 +5748,9 @@ fn addMapEditor(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
+    // 03-08 Task 1: the fixture mod the -mod=EditorTestMod host-check run
+    // below needs - never a dependency of install_exe/install-map-editor.
+    install_fixture_mod_step: *std.Build.Step,
 ) void {
     const engine: MapEditorEngine = .{
         .editor_bridge = editor_bridge,
@@ -5805,6 +5824,17 @@ fn addMapEditor(
     // After the relative run, so two engines never start at once.
     absolute_run.step.dependOn(&run.step);
     check_step.dependOn(&absolute_run.step);
+
+    // 03-08 Task 1: -mod=EditorTestMod loads the fixture mod's data like the
+    // game and the host check's own acceptance criterion greps this line.
+    const mod_run = b.addRunArtifact(exe);
+    mod_run.setCwd(b.path(stage_root));
+    mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check-mod.tga") });
+    mod_run.step.dependOn(&install_exe.step);
+    mod_run.step.dependOn(install_fixture_mod_step);
+    // After the absolute-path run, so two engines never start at once.
+    mod_run.step.dependOn(&absolute_run.step);
+    check_step.dependOn(&mod_run.step);
 
     // The interactive loop itself, hidden and driven by smoke.zig's scripted
     // SDL events: paint, place, select, drag, turn, delete, undo all of it,

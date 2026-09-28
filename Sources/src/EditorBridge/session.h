@@ -91,6 +91,16 @@ struct SEditorSession
 // terrain reaches the scene, not after.
 bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
 
+// Closes whatever map is open, without touching the mod or the object
+// database it is about to change under it: the world's objects leave the
+// scene, the AI editor is cleared, and every per-map table (byLinkID,
+// unknownLinkIDs, futureBuildLinkIDs, the paint history, tombstones,
+// linkByAI) is reset - the same map-closing steps OpenMapIntoSession takes
+// before it builds a new map in, reused here for BkEditorSetMod (03-08),
+// which must close the map before swapping the MOD storage out from under
+// it. A no-op when no map is open.
+void CloseSessionMap( SEditorSession *pSession );
+
 // Writes the session's map to pszPath. Returns false and leaves the reason in
 // szMessage.
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath );

@@ -246,6 +246,61 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
 typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
+/* A mod as BkEditorMods lists it, or BkEditorActiveMod reports it: folder is
+   the directory name under <BaseRoot>mods, exactly as it is on disk (never
+   lower-cased - BkEditorSetMod keeps it as given, the same way
+   BkEditorTestMapPath's own mod_folder argument does; the game's -mod=
+   parser lower-cases its own copy for the generated-data key, a step this
+   struct has no part in). name and version are mod.xml's own MODName and
+   MODVersion, read the same way the game's mod-list screen reads them
+   (GameTT/InterfaceIMModsList.cpp). */
+typedef struct { char folder[64]; char name[64]; char version[32]; } BkEditorMod;
+
+/* Every installed mod: a directory under <BaseRoot>mods whose data holds a
+   mod.xml (STORAGE_TYPE_COMMON over "data\*.pak", the same pattern
+   BkEditorSetMod mounts), sorted by folder name. A directory with no such
+   mod.xml is not a mod and is left out - it is not an error, since a mods
+   folder may hold anything.
+
+   Like BkEditorCatalogue, out_count is always the total, and a buffer too
+   short for it is BK_EDITOR_REFUSED with nothing written past capacity; out
+   may be null when capacity is 0, to ask for the count. BK_EDITOR_REFUSED
+   too when the engine is not started. A missing mods directory - a fresh
+   installation with none installed - is zero mods, not a refusal. */
+BkEditorStatus BkEditorMods( BkEditorSession *session, BkEditorMod *out, int capacity, int *out_count );
+
+/* Mounts folder's data as the MOD storage and reloads the object database
+   from it, mirroring CICChangeMOD::Exec (Main/MainLoopCommands.cpp:391-431)
+   without the main loop it has none of: the open map is closed first (its
+   object database is about to change from under it - nothing here saves
+   it), the MOD storage is swapped, FilesInspector re-inspects the new
+   storage set, the shared managers other than IGFX are cleared the way
+   CMainLoop::ClearResources(true) clears them (IGFX::Clear and the font
+   SetFont it restores are skipped on purpose: the editor's own overlay
+   lives on that device, and this call never owns a window to redraw), and
+   IObjectsDB::LoadDB rebuilds the catalogue from the new storage set.
+
+   folder is a bare directory name under <BaseRoot>mods, as BkEditorMods
+   lists it - never a path: a separator ('/' or '\\'), ".", "..", over 63
+   characters, or one that fails NPlatform::Paths::IsRelativeDataName is
+   BK_EDITOR_BAD_ARGUMENT, and nothing changes. null or "" clears the mod (the
+   base game) - always BK_EDITOR_OK, since there is nothing to validate. A
+   folder that does not exist, or whose data has no mod.xml, is
+   BK_EDITOR_REFUSED naming the folder in BkEditorLastMessage, and - because
+   this check runs before anything is touched - the session's mod, its open
+   map and the object database are all left exactly as they were.
+
+   Never calls IUserProfile::SetMOD: the editor has no game profile of its
+   own to remember a mod in, and a refused switch must never look like it
+   changed the player's real profile. BK_EDITOR_REFUSED too when the engine
+   is not started. */
+BkEditorStatus BkEditorSetMod( BkEditorSession *session, const char *folder );
+
+/* The session's active mod - folder[0] == 0, name and version empty, when
+   none is active. BK_EDITOR_REFUSED means the engine is not started; out is
+   then zeroed. BK_EDITOR_BAD_ARGUMENT for a null out. */
+BkEditorStatus BkEditorActiveMod( BkEditorSession *session, BkEditorMod *out );
+
 /* The two host roots the editor started on: NPlatform::Paths::BaseRoot() (the
    installation - Data, the modules) and UserRoot() (where the profile,
    config and cache live), each with the OS's own separator and a trailing
