@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-12-PLAN.md
-last_updated: "2026-09-28T16:54:23.575Z"
-state_head: 2f047f5bba30969fd8fb62a4186a456a0abba1c6
+stopped_at: Completed 03-13-PLAN.md
+last_updated: "2026-09-28T17:54:11.837Z"
+state_head: 1ff935a6effa33754cae9c683c02f0c991a8230a
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 15
+  completed_plans: 16
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T16:54:23.518Z
-**Stopped at:** Completed 03-12-PLAN.md
+**Last session:** 2026-09-28T17:54:11.779Z
+**Stopped at:** Completed 03-13-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -82,6 +82,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P10 | 88min | 3 tasks | 15 files |
 | Phase 03-map-editor-plan-6-finish-m1 P11 | ~57min | 3 tasks | 7 files |
 | Phase 03-map-editor-plan-6-finish-m1 P12 | 55min | 2 tasks | 8 files |
+| Phase 03-map-editor-plan-6-finish-m1 P13 P13 | ~58min | 3 tasks | 6 files |
 
 ## Decisions
 
@@ -108,3 +109,6 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-11: State.defaultPlacerObject must iterate self.catalogue with |*entry|, not |entry| - a by-value loop copy dangles the returned name slice the moment the function returns (found by map-editor-smoke, same bug class as loadCatalogue's sound_names)
 - [Phase ?]: 03-12: panels.zig's mapIsOpen/requestTestLaunch made pub, plus State.test_extra_env, so AutoRunner's test/waitgame handlers can drive Test in game - not in this plan's files_modified, but the least invasive way to satisfy Zig's exhaustive switch over auto.zig's Action set
 - [Phase ?]: 03-12: BK_EDITOR_AUTO's autoshot cleanup is a new Zig tool (tools/zig/delete_matching_files.zig) run via addRunArtifact, not addSystemCommand(sh/cmd) - the latter failed build_hermeticity_test.zig's forbidden-executable audit
+- [Phase 03]: 03-13: the orange probe (255,128,0) replaces magenta in the host check - magenta's own R/B swap gives back magenta, so it could never catch the readback-swap bug the check exists to detect
+- [Phase 03]: 03-13: BkEditorCaptureFrame's read-back failure gets bridge-composed distinct messages (allocation vs readback), not GraphicsEngineGpu's own internal message - IGFX has no accessor for it, and adding one is an architectural change outside a carried-minors bridge fix
+- [Phase 03]: 03-13: KeepWindowOnItsOwnDisplay's second-monitor fix was verified with a live measurement against a real second display (throwaway instrumented host.zig, reverted), not assumed from reading SelectedDisplay's source alone
