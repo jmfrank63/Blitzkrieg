@@ -186,6 +186,17 @@ const settle_frames = 2;
 /// How long a `panel_has_pointer` step may wait for ImGui.
 const max_wait_frames = 60;
 
+/// The sibling `<dir>/<stem>.~save<ext>` a safe save writes to before the
+/// swap (core/files.zig's tempPathFor, plan 6's D-19) - null when `path` does
+/// not fit `buffer` or has no extension to preserve.
+fn tempSiblingPath(buffer: []u8, path: []const u8) ?[]const u8 {
+    const ext = std.fs.path.extension(path);
+    const dir = std.fs.path.dirname(path) orelse ".";
+    const base = std.fs.path.basename(path);
+    const stem = base[0 .. base.len - ext.len];
+    return std.fmt.bufPrint(buffer, "{s}{c}{s}.~save{s}", .{ dir, std.fs.path.sep, stem, ext }) catch null;
+}
+
 pub const Script = struct {
     editor: *Editor,
     view: *View,
@@ -467,6 +478,14 @@ pub const Script = struct {
                 if (!std.mem.eql(u8, panels_logic.baseName(editor.document.path.items), std.fs.path.basename(self.save_path)))
                     return self.stepFail(step, "the document's path is {s}", .{editor.document.path.items});
                 if (editor.dirty()) return self.stepFail(step, "the document is dirty after saving", .{});
+                var temp_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+                if (tempSiblingPath(&temp_buffer, self.save_path)) |temp_path| {
+                    const left_behind = blk: {
+                        _ = std.Io.Dir.cwd().statFile(self.state.io, temp_path, .{}) catch break :blk false;
+                        break :blk true;
+                    };
+                    if (left_behind) return self.stepFail(step, "the temporary save file {s} was left behind", .{temp_path});
+                }
             },
             .reopened => {
                 if (editor.status().len != 0) return self.stepFail(step, "{s}", .{editor.status()});

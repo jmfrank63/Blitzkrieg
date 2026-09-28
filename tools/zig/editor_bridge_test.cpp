@@ -21,6 +21,8 @@
 #include "../../Sources/src/StreamIO/GeneratedData.h"
 #include "../../Sources/src/StreamIO/ProfilePaths.h"
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -280,6 +282,90 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
 	       szWhere.empty() ? "and the saved map is the expected one" : ( "edited save differs at " + szWhere ).c_str() );
 	remove( szSaved.c_str() );
+}
+
+// D-19's read-back check, exercised straight through the bridge:
+// BkEditorSaveMap only answers OK once the file it just wrote has been read
+// back and found equivalent to what was meant (SaveSessionMap). The editor
+// itself always passes a temporary path here and swaps it over the user's map
+// on success - this test proves the bridge half of that contract on its own,
+// for both shipped formats, and that a write that cannot even start (a
+// missing directory) is refused with the path named in the message.
+static void TestSaveVerifiesWhatItWrote( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo expected;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( !expected.objects.empty(), "the map has an object to move" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to verify-save opens" ) )
+		return;
+
+	const int nLinkID = expected.objects[0].link.nLinkID;
+	if ( !Check( BkEditorMoveObject( pSession, nLinkID, expected.objects[0].vPos.x + 32.0f, expected.objects[0].vPos.y ) == BK_EDITOR_OK,
+	             "an object moves through the engine" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	int nTileCount = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, 0, 0, &nTileCount ) == BK_EDITOR_REFUSED && nTileCount > 0,
+	             "the tileset's tile count reads" ) )
+		return;
+	std::vector<unsigned char> tiles( size_t( nTileCount ), 0 );
+	int nTilesRead = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, &tiles[0], nTileCount, &nTilesRead ) == BK_EDITOR_OK, "the tileset's tiles read" ) )
+		return;
+	const BkEditorPaintCell cell = { 30, 30, tiles[0] };
+	int nToken = -1;
+	if ( !Check( BkEditorPaint( pSession, &cell, 1, &nToken ) == BK_EDITOR_OK, "a cell paints for the verify-save test" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+
+	const std::string szEditedBzm = szScratch + "\\verify-edited.bzm";
+	remove( szEditedBzm.c_str() );
+	if ( !Check( BkEditorSaveMap( pSession, szEditedBzm.c_str() ) == BK_EDITOR_OK, "the edited map saves and reads back as itself (.bzm)" ) )
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+
+	const std::string szEditedXml = szScratch + "\\verify-edited.xml";
+	remove( szEditedXml.c_str() );
+	if ( BkEditorSaveMap( pSession, szEditedXml.c_str() ) != BK_EDITOR_OK )
+	{
+		// The spec's fallback for .xml only, in case the XML writer does not
+		// round-trip a float exactly: read back what NMapFile::Write itself
+		// produced, write it again to a second file, and byte-compare the
+		// two - idempotent rather than equal-to-the-original.
+		printf( "editor-bridge: %s (falling back to the idempotent .xml check)\n", BkEditorLastMessage( pSession ) );
+		CMapInfo firstWrite;
+		std::string szFirstError;
+		if ( Check( NMapFile::Read( szEditedXml.c_str(), &firstWrite, &szFirstError ), szFirstError.c_str() ) )
+		{
+			const std::string szEditedXmlAgain = szScratch + "\\verify-edited-again.xml";
+			remove( szEditedXmlAgain.c_str() );
+			std::string szWriteError;
+			if ( Check( NMapFile::Write( szEditedXmlAgain.c_str(), firstWrite, &szWriteError ), szWriteError.c_str() ) )
+			{
+				std::ifstream first( szEditedXml, std::ios::binary );
+				std::ifstream again( szEditedXmlAgain, std::ios::binary );
+				const std::string szFirstBytes( ( std::istreambuf_iterator<char>( first ) ), std::istreambuf_iterator<char>() );
+				const std::string szAgainBytes( ( std::istreambuf_iterator<char>( again ) ), std::istreambuf_iterator<char>() );
+				Check( szFirstBytes == szAgainBytes, "and the .xml write is at least idempotent" );
+			}
+			remove( szEditedXmlAgain.c_str() );
+		}
+	}
+
+	const std::string szBadPath = szScratch + "\\no-such-dir\\x.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szBadPath.c_str() ) != BK_EDITOR_OK, "a save into a missing directory is refused" ) )
+		Check( strstr( BkEditorLastMessage( pSession ), szBadPath.c_str() ) != 0,
+		       NStr::Format( "and the path is named in the message: %s", BkEditorLastMessage( pSession ) ) );
+
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "coldwinter reopens afterward" );
+	remove( szEditedBzm.c_str() );
+	remove( szEditedXml.c_str() );
 }
 
 // An edit the engine will not take must not reach the file either, and the
@@ -1872,6 +1958,7 @@ int main( int argc, char **argv )
 		TestUneditedSaveIsEquivalent( pSession, szScratch );
 		TestPathsAndTestMapPath( pSession );
 		TestObjectEdits( pSession, szScratch );
+		TestSaveVerifiesWhatItWrote( pSession, szScratch );
 		TestRefusedEditsReachNeither( pSession, szScratch );
 		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );

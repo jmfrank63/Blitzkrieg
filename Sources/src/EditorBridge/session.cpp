@@ -9,6 +9,7 @@
 #include "session.h"
 #include "world.h"
 #include "../MapFile/MapFile.h"
+#include "../MapFile/MapEquivalence.h"
 #include "../Main/GameDB.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
@@ -310,7 +311,28 @@ bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
 	// never pSession->working. The working copy has UnpackFrameIndices applied,
 	// so writing it back would give every fence, entrenchment and bridge span on
 	// the map a fresh random frame index, in a file the editor never edited.
-	return NMapFile::Write( pszPath, pSession->snapshot, &pSession->szMessage );
+	if ( !NMapFile::Write( pszPath, pSession->snapshot, &pSession->szMessage ) )
+		return false;
+
+	// D-19's safe save relies on this: the editor writes to a temporary path
+	// and swaps it in only when the write is proven. Read the file back and
+	// compare it with what was meant, so a write that silently produced
+	// something else (a truncated stream, a stale handle) is refused here,
+	// before the caller's temporary file ever replaces the user's map.
+	CMapInfo readBack;
+	std::string szReadError;
+	if ( !NMapFile::Read( pszPath, &readBack, &szReadError ) )
+	{
+		pSession->szMessage = "the written map does not read back: " + szReadError;
+		return false;
+	}
+	std::string szWhere;
+	if ( !NMapFile::AreEquivalent( pSession->snapshot, readBack, &szWhere ) )
+	{
+		pSession->szMessage = "the written map reads back different at " + szWhere;
+		return false;
+	}
+	return true;
 }
 
 namespace {

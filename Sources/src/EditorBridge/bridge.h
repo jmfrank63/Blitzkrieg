@@ -84,7 +84,14 @@ typedef struct
    successful open. */
 BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEditorMapSummary *out );
 
-/* Writes the open map to path; the format comes from the extension.
+/* Writes the open map to path; the format comes from the extension. Once the
+   write itself succeeds, the map is read back from path and compared with
+   what was meant, field by field; only then does this answer OK. A read
+   failure or a difference is BK_EDITOR_FAILED with the reason in
+   BkEditorLastMessage, and nothing at path is trusted to be right - which is
+   why the editor always passes a temporary path here and swaps it over the
+   real map itself only on success (D-19; the editor never hands this call
+   the user's own map file to write into directly).
 
    What is written is the snapshot with the session's edits laid over it, never
    the engine's own copy: the engine's has UnpackFrameIndices applied, which
