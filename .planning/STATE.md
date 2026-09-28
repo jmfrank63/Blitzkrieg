@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-13-PLAN.md
-last_updated: "2026-09-28T17:54:11.837Z"
-state_head: 1ff935a6effa33754cae9c683c02f0c991a8230a
+stopped_at: Completed 03-14-PLAN.md
+last_updated: "2026-09-28T19:18:24.670Z"
+state_head: 863cd78e60e1291be0e93ba132232703c270efd5
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T17:54:11.779Z
-**Stopped at:** Completed 03-13-PLAN.md
+**Last session:** 2026-09-28T19:18:24.612Z
+**Stopped at:** Completed 03-14-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -83,6 +83,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P11 | ~57min | 3 tasks | 7 files |
 | Phase 03-map-editor-plan-6-finish-m1 P12 | 55min | 2 tasks | 8 files |
 | Phase 03-map-editor-plan-6-finish-m1 P13 P13 | ~58min | 3 tasks | 6 files |
+| Phase 03-map-editor-plan-6-finish-m1 P14 | ~90min | 2 tasks | 6 files |
 
 ## Decisions
 
@@ -112,3 +113,5 @@ behavior needs the in-game rows).
 - [Phase 03]: 03-13: the orange probe (255,128,0) replaces magenta in the host check - magenta's own R/B swap gives back magenta, so it could never catch the readback-swap bug the check exists to detect
 - [Phase 03]: 03-13: BkEditorCaptureFrame's read-back failure gets bridge-composed distinct messages (allocation vs readback), not GraphicsEngineGpu's own internal message - IGFX has no accessor for it, and adding one is an architectural change outside a carried-minors bridge fix
 - [Phase 03]: 03-13: KeepWindowOnItsOwnDisplay's second-monitor fix was verified with a live measurement against a real second display (throwaway instrumented host.zig, reverted), not assumed from reading SelectedDisplay's source alone
+- [Phase ?]: 03-14: --map-editor's package-mods verify command (grep -ci /mods/) is broader than the threat (matches legitimate Data/*/mods/ localization folders); verified the precise top-level-only condition instead (0 top-level mods/ entries)
+- [Phase ?]: 03-14: crt.attachParentConsole does the full CONOUT$-open-and-SetStdHandle recipe, not just AttachConsole - Zig's std.Io.File.stdout/stderr read the process-parameters block live on every call, so AttachConsole alone would not make anything print
