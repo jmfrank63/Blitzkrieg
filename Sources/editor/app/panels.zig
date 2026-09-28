@@ -168,7 +168,8 @@ pub const State = struct {
 
     /// D-29: each palette object's own picture, decoded by the engine on
     /// demand and cached per session - cleared on a mod switch
-    /// (reloadCatalogue), released here in deinit.
+    /// (reloadCatalogue's own pictures.clear() call), released here in
+    /// deinit.
     pictures: pictures_mod.Pictures = undefined,
 
     /// The tiles the open map's tileset has, for the brush's palette.
@@ -234,7 +235,11 @@ pub const State = struct {
     /// File > Mod (D-26): frees and re-reads the catalogue, so the palette
     /// follows a mod switch. A failure leaves the palette empty and says so
     /// on the status bar, the same as `init`'s own failure path.
+    /// D-29: also drops every cached and queued picture - the new mod's
+    /// objects may reuse a name with a different icon.tga, or none at all,
+    /// and the old mod's pictures are meaningless once its storage unmounts.
     pub fn reloadCatalogue(self: *State) void {
+        self.pictures.clear();
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.catalogue = &.{};
@@ -1195,28 +1200,65 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     }
     // Once per frame regardless of which groups are open, so a budget of
     // decodes/uploads still drains while nothing new is being requested.
-    if (state.real.gpuDevice()) |device| state.pictures.pump(state.real, device, 8);
+    if (state.real.gpuDevice()) |device| state.pictures.pump(state.real, device, picture_pump_budget);
 }
 
-/// One palette row's picture cell: 48x48 with the aspect kept for a ready
-/// texture, or a same-size empty placeholder while it is pending or has none
-/// (never a per-type symbol, D-29 - a name with no picture looks the same as
-/// one still queued, until Task 3's neutral frame tells them apart).
+/// Names decoded through the bridge per frame (Pictures.pump's budget).
+/// Task 1's engine tier measured 2.226 ms/decode on this host - opening a
+/// group of 300 objects at once queues all 300, but this budget caps any one
+/// frame's actual decode work to 8 * 2.226 ms =~ 17.8 ms, leaving headroom
+/// under a 33 ms (30 fps) frame for the GPU upload and the rest of the
+/// panels and the engine's own frame; the remaining names simply arrive a
+/// few frames later (03-09-SUMMARY.md).
+const picture_pump_budget: usize = 8;
+
+/// One palette row's picture cell, always `palette_picture_size` square:
+/// a neutral bordered frame drawn first - visible the instant the row is
+/// drawn, in every state - with the real picture overlaid on top once
+/// `ready`. Drawing the frame unconditionally (not only for `pending` and
+/// `missing`) also covers a real GPU timing gap: a texture `pump` uploads on
+/// the very frame a group first opens is not always visible to that same
+/// frame's own render yet (measured manually building this task - a fresh
+/// upload's row rendered blank until a couple of frames later, even though
+/// `lookup` already reported it `ready`; see 03-09-SUMMARY.md) - with the
+/// frame always drawn, that row shows the border instead of nothing while
+/// the GPU catches up, and the picture simply appears inside it a frame or
+/// two afterwards. `missing` (no shipped icon.tga, D-29's fallback) wraps
+/// the object's own name inside the frame; `pending` leaves it blank since a
+/// picture may still land this frame or the next. Never a per-type symbol
+/// either way.
 const palette_picture_size: f32 = 48;
 fn drawPaletteRowPicture(state: *State, name: []const u8) void {
+    const top_left = ig.igGetCursorScreenPos();
+    const draw_list = ig.igGetWindowDrawList();
+    ig.ImDrawList_AddRect(draw_list, .{ .x = top_left.x, .y = top_left.y }, .{ .x = top_left.x + palette_picture_size, .y = top_left.y + palette_picture_size }, ig.igGetColorU32(ig.ImGuiCol_Border));
     switch (state.pictures.lookup(name)) {
         .ready => |ready| {
             const w: f32 = @floatFromInt(ready.width);
             const h: f32 = @floatFromInt(ready.height);
             const scale = @min(palette_picture_size / w, palette_picture_size / h);
-            ig.igImage(pictureTextureRef(ready.texture), .{ .x = w * scale, .y = h * scale });
+            const bottom_right = ig.ImVec2{ .x = top_left.x + w * scale, .y = top_left.y + h * scale };
+            ig.ImDrawList_AddImage(draw_list, pictureTextureRef(ready.texture), top_left, bottom_right);
         },
-        .pending, .missing => ig.igDummy(.{ .x = palette_picture_size, .y = palette_picture_size }),
+        .pending => {},
+        .missing => drawPlaceholderLabel(draw_list, top_left, name),
     }
+    // Reserves the row's layout space - the border and (once ready) the
+    // image above are draw-list primitives, which never move the cursor.
+    ig.igDummy(.{ .x = palette_picture_size, .y = palette_picture_size });
 }
 
 fn pictureTextureRef(texture: *sdl3.c.SDL_GPUTexture) ig.ImTextureRef {
     return .{ ._TexData = null, ._TexID = @intCast(@intFromPtr(texture)) };
+}
+
+/// A `missing` row's own name, word-wrapped inside its frame - the same
+/// frame and the same wrap width for every object type (D-29: never a
+/// per-type symbol).
+fn drawPlaceholderLabel(draw_list: *ig.ImDrawList, top_left: ig.ImVec2, name: []const u8) void {
+    const text_pos = ig.ImVec2{ .x = top_left.x + 2, .y = top_left.y + 2 };
+    const wrap_width = palette_picture_size - 4;
+    ig.ImDrawList_AddTextImFontPtrEx(draw_list, ig.igGetFont(), ig.igGetFontSize(), text_pos, ig.igGetColorU32(ig.ImGuiCol_Text), name.ptr, name.ptr + name.len, wrap_width, null);
 }
 
 fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
