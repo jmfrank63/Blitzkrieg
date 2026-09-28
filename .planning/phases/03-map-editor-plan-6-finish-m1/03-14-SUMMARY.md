@@ -164,9 +164,18 @@ None beyond the verify-script and platform-gating notes captured under Decisions
 None - no external service configuration required.
 
 ## Next Phase Readiness
-- D-08, CARRY-PACKAGING, CARRY-CONSOLE and M1-EXIT-BUILD are satisfied and verified (locally and on CI); plan 15 (exit-criteria sweep) can proceed - it depends on this plan.
+- D-08, CARRY-PACKAGING and CARRY-CONSOLE are satisfied, verified (locally and on CI), and marked complete via `gsd-tools requirements mark-complete`. M1-EXIT-BUILD is also satisfied here but stays unmarked: it is shared with plan 15 (`requirements.ready-ids` reports it `blocked` until every declaring plan has a SUMMARY - #2388), so it will flip to complete once plan 15 finishes.
+- None of this phase's requirement IDs (D-08, CARRY-PACKAGING, CARRY-CONSOLE, M1-EXIT-BUILD) exist in `.planning/REQUIREMENTS.md`'s traceability table - that file is the original port-level requirements doc and was never extended with phase 3's map-editor IDs. `requirements mark-complete` reports them `not_found` (no crash, no-op); pre-existing, not something this plan's scope covers.
+- Plan 15 (exit-criteria sweep) can proceed - it depends on this plan.
 - The legacy `Editors/MapEditor.exe` path (plan 5 Task 7's "two names coexist until M3") is untouched by this plan.
 
 ---
 *Phase: 03-map-editor-plan-6-finish-m1*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+
+- Files on disk: `build.zig`, `tools/zig/stage.zig`, `tools/zig/stage_test.zig`, `Sources/editor/app/crt.zig`, `Sources/editor/app/main.zig`, `.github/workflows/cross-platform.yml`, `.planning/phases/03-map-editor-plan-6-finish-m1/03-14-SUMMARY.md` - all FOUND.
+- Commits: `5291a8ce5`, `24bf274be`, `9df7094dd` - all FOUND in `git log --oneline --all`.
+- Acceptance criteria re-verified: `grep -n '"--map-editor"' tools/zig/stage.zig build.zig` finds the option and both package-staging call sites; `grep -n "AttachConsole" Sources/editor/app/crt.zig` finds the attach; `configureMapEditorExecutable` takes a `subsystem` parameter with `.windows` for `MapEditor` and `.console` for `map-editor-engine-test` - all PASS.
+- Plan-level `<verification>`: `zig test tools/zig/build_hermeticity_test.zig` (3/3, twice), `zig build test-stage -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` (25/25), `zig build map-editor-host-check map-editor-smoke test-map-editor-engine -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` (8 PASS lines, rc=0), CI run 36464351662 (all six jobs green, `windows-platform` in 55m10s including the new "Map editor is a GUI program" PE-header step) - all PASS.
