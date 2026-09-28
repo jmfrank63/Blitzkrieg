@@ -1340,6 +1340,19 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *pSession, const char *pszPath )
 			pSession->szMessage = "no map is open";
 			return BK_EDITOR_REFUSED;
 		}
+		// D-28: stamped only when a mod is active and only when it actually
+		// differs, so a save that changes nothing else does not mark the two
+		// fields dirty for no reason. With no mod active they are left exactly
+		// as SaveSessionMap will read and write them - the preservation
+		// invariant (bridge.h's own BkEditorSaveMap comment).
+		if ( !pSession->szModFolder.empty() &&
+		     ( pSession->snapshot.szMODName != pSession->szModName || pSession->snapshot.szMODVersion != pSession->szModVersion ) )
+		{
+			pSession->snapshot.szMODName = pSession->szModName;
+			pSession->snapshot.szMODVersion = pSession->szModVersion;
+			pSession->working.szMODName = pSession->szModName;
+			pSession->working.szMODVersion = pSession->szModVersion;
+		}
 		return SaveSessionMap( pSession, pszPath ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
 	} );
 }

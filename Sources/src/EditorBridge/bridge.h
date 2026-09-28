@@ -97,7 +97,16 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEd
    the engine's own copy: the engine's has UnpackFrameIndices applied, which
    picks a random visual variant per type, so writing it back would rewrite
    every frame index on the map. An object the database does not know goes out
-   exactly as it came in. */
+   exactly as it came in.
+
+   D-28: with a mod active (BkEditorSetMod), the written map's szMODName and
+   szMODVersion are stamped from that mod's own name and version, the same
+   way the MFC editor records its chosen mod (TemplateEditorFrame1.cpp) -
+   only when they differ, so an already-matching map is not marked dirty by
+   a save that changed nothing else. With no mod active the two fields are
+   left exactly as they were read: this call never invents or clears a mod
+   name the map did not already carry (the preservation invariant every
+   other untouched field of the map keeps). */
 BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
 
 /* The edits. Each one changes the map and the engine together or neither: a

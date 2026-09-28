@@ -2243,6 +2243,47 @@ static void TestModsListSetAndClear( BkEditorSession *pSession, const std::strin
 	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 }
 
+// D-28: BkEditorSaveMap stamps szMODName/szMODVersion from the active mod -
+// never from a game profile the editor has none of - and leaves the two
+// fields exactly as read when no mod is active (the preservation invariant
+// bridge.h's own BkEditorSaveMap comment describes).
+static void TestSaveRecordsTheMod( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szStamped = szScratch + "\\mod-stamped.bzm";
+	const std::string szFree = szScratch + "\\mod-free.bzm";
+
+	if ( !Check( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szStamped.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo stamped;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szStamped.c_str(), &stamped, &szError ), szError.c_str() ) )
+		return;
+	Check( stamped.szMODName == "Editor Test Mod",
+	       NStr::Format( "the mod-stamped map's szMODName is \"Editor Test Mod\", got \"%s\"", stamped.szMODName.c_str() ) );
+	Check( stamped.szMODVersion == "1.0",
+	       NStr::Format( "the mod-stamped map's szMODVersion is \"1.0\", got \"%s\"", stamped.szMODVersion.c_str() ) );
+
+	if ( !Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szFree.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo shipped, free;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &shipped, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( NMapFile::Read( szFree.c_str(), &free, &szError ), szError.c_str() ) )
+		return;
+	Check( free.szMODName == shipped.szMODName,
+	       NStr::Format( "with no mod active szMODName is untouched: \"%s\" vs shipped's \"%s\"", free.szMODName.c_str(), shipped.szMODName.c_str() ) );
+	Check( free.szMODVersion == shipped.szMODVersion,
+	       NStr::Format( "with no mod active szMODVersion is untouched: \"%s\" vs shipped's \"%s\"", free.szMODVersion.c_str(), shipped.szMODVersion.c_str() ) );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -2383,6 +2424,7 @@ int main( int argc, char **argv )
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
 		TestModsListSetAndClear( pSession, szScratch );
+		TestSaveRecordsTheMod( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
