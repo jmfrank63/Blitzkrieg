@@ -455,8 +455,12 @@ test "the dialog slot: requested, path arrived, taken once; one dialog at a time
 test "file actions: a request shows a dialog, the path it delivers is acted on the next frame" {
     var fake = try core.editor.testFixture(std.testing.allocator);
     defer fake.deinit();
+    var fake_files = core.files.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
     var editor = Editor.init(std.testing.allocator, fake.bridge());
     defer editor.deinit();
+    editor.files = fake_files.files();
     var slot: PathSlot = .{};
     var actions: FileActions = .{ .dialog = &slot };
 

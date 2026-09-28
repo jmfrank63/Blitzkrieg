@@ -16,9 +16,15 @@
 //!    database does not know;
 //!  - edits are accepted before any map is open and after a failed open;
 //!    the real bridge refuses them with "no map is open";
-//!  - screen and world coordinates are the same thing.
+//!  - screen and world coordinates are the same thing;
+//!  - `saveMap` never touches a real file on its own: the real
+//!    `BkEditorSaveMap`'s read-back verification (session.cpp,
+//!    `SaveSessionMap`) lives entirely inside the engine, invisible to this
+//!    fake, which only writes to `files` (a shared `FakeFiles`) when a test
+//!    sets it, so `Editor.save`'s temp+backup+swap has something to see land.
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
+const files_mod = @import("files.zig");
 const Status = bridge_mod.Status;
 const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -62,6 +68,15 @@ pub const FakeBridge = struct {
     /// Set by a test to make `paint` refuse cells that are on the map, as
     /// the real bridge does when the map will not take a paint (no tileset).
     refuse_paints: bool = false,
+    /// Set by a test so `saveMap` writes its result into a shared FakeFiles,
+    /// at the OS form of whatever path it is given - the same fake
+    /// filesystem `Editor.files`'s temp+backup+swap operates on, so a
+    /// plan-6 save test can see the whole dance land in one place. Not
+    /// owned: the test that sets this owns the FakeFiles.
+    files: ?*files_mod.FakeFiles = null,
+    /// Set by a test to make `saveMap` answer `failed` before writing
+    /// anything, as the real bridge does when the disk write itself fails.
+    fail_save: bool = false,
     /// Map units per world unit. 1 keeps screen, world and map the same
     /// point, which most tests read most easily; the real engine's is
     /// sqrt 2 (BkEditorWorldToMap), and a test sets another to catch a
@@ -225,6 +240,17 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         self.record(.save, 0);
         if (path.len == 0) return .bad_argument;
+        if (self.fail_save) {
+            self.say("the disk is full", .{});
+            return .failed;
+        }
+        if (self.files) |fake_files| {
+            var os_buffer: [files_mod.max_path]u8 = undefined;
+            const os_path = files_mod.osPathFromEngine(&os_buffer, path) orelse return .bad_argument;
+            var content_buffer: [64]u8 = undefined;
+            const content = std.fmt.bufPrint(&content_buffer, "fake map: {d} objects", .{self.objects_list.items.len}) catch return .failed;
+            fake_files.write(os_path, content) catch return .failed;
+        }
         return .ok;
     }
 

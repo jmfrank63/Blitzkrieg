@@ -130,6 +130,10 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
+    // Plan 6's safe save (D-19): every mode that can save gets one real
+    // StdFiles, living as long as editor does (Files.ptr points into it).
+    var std_files: core.files.StdFiles = .{ .io = io };
+    editor.files = std_files.files();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
 
@@ -228,6 +232,8 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
+    var std_files: core.files.StdFiles = .{ .io = io };
+    editor.files = std_files.files();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
@@ -269,6 +275,11 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
+    // Never exercised in this mode (D-01: a test copy goes through
+    // saveCopy, never editor.save), but wired for the same reason every
+    // other mode is: nothing here should depend on save silently no-op'ing.
+    var std_files: core.files.StdFiles = .{ .io = io };
+    editor.files = std_files.files();
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(&path_buffer, map) orelse {
         std.debug.print("map-editor: game reads it FAIL: the path {s} is too long\n", .{map});
@@ -564,6 +575,8 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
+    var std_files: core.files.StdFiles = .{ .io = io };
+    editor.files = std_files.files();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;

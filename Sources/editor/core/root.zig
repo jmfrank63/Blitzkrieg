@@ -6,6 +6,7 @@ pub const document = @import("document.zig");
 pub const history = @import("history.zig");
 pub const editor = @import("editor.zig");
 pub const tools = @import("tools.zig");
+pub const files = @import("files.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
