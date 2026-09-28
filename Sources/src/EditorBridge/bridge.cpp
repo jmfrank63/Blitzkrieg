@@ -20,6 +20,7 @@
 #include "../StreamIO/GeneratedData.h"
 #include "../StreamIO/ProfilePaths.h"
 #include "../Main/GameDB.h"
+#include "../Main/RPGStats.h"
 // The shared managers BkEditorSetMod clears (03-08, mirroring
 // CMainLoop::ClearResources(true)) other than the ones GFX.H already
 // declares (IMeshManager, ITextureManager, IFontManager).
@@ -305,6 +306,11 @@ bool ReloadAfterModChange( BkEditorSession *pSession, IDataStorage *pStorage )
 		pSession->szMessage = "the object database would not reload";
 		return false;
 	}
+	// D-29's squad-icon fallback (03-09 Task 4) is a cache over the object
+	// database just reloaded above - a name it already answered for the old
+	// mod may mean something else, or nothing, in the new one.
+	pSession->squadIconOwnerBySoldier.clear();
+	pSession->bSquadIconOwnerMapBuilt = false;
 	return true;
 }
 
@@ -841,6 +847,38 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *pSession, BkEditorCatalogueEn
 	} );
 }
 
+// D-29's squad-icon fallback (user-requested addition, 03-09 Task 4): a
+// single soldier with no icon.tga of its own borrows the icon.tga of a squad
+// that lists it as a member (e.g. Allies_Bren -> gb_bren_43). Scans every
+// SGVOGT_SQUAD object's own RPG stats (SSquadRPGStats::memberNames, the same
+// <Members> list the squad's own data reads) once, filling
+// pSession->squadIconOwnerBySoldier soldier name -> squad name. When more
+// than one squad lists the same soldier the alphabetically first squad name
+// wins - std::string's operator< - so the choice never depends on catalogue
+// order, only on the squads' own names.
+void BuildSquadIconOwnerMap( SEditorSession *pSession, IObjectsDB *pObjectsDB )
+{
+	pSession->bSquadIconOwnerMapBuilt = true;
+	const SGDBObjectDesc *pDescs = pObjectsDB->GetAllDescs();
+	const int nDescs = pObjectsDB->GetNumDescs();
+	for ( int i = 0; i < nDescs; ++i )
+	{
+		if ( pDescs[i].eGameType != SGVOGT_SQUAD )
+			continue;
+		const SSquadRPGStats *pSquad = NGDB::GetRPGStats<SSquadRPGStats>( pObjectsDB, &pDescs[i] );
+		if ( pSquad == 0 )
+			continue;
+		const std::string &szSquadName = pDescs[i].szKey;
+		for ( size_t m = 0; m < pSquad->memberNames.size(); ++m )
+		{
+			const std::string &szMember = pSquad->memberNames[m];
+			std::unordered_map<std::string, std::string>::iterator itExisting = pSession->squadIconOwnerBySoldier.find( szMember );
+			if ( itExisting == pSession->squadIconOwnerBySoldier.end() || szSquadName < itExisting->second )
+				pSession->squadIconOwnerBySoldier[szMember] = szSquadName;
+		}
+	}
+}
+
 BkEditorStatus BkEditorObjectPicture( BkEditorSession *pSession, const char *pszName,
                                       unsigned char *pOutRgba, int nCapacityBytes, int nMaxSide,
                                       int *pnOutWidth, int *pnOutHeight )
@@ -874,6 +912,22 @@ BkEditorStatus BkEditorObjectPicture( BkEditorSession *pSession, const char *psz
 		const std::string szIconPath = pDesc->szPath + "\\icon.tga";
 		CPtr<IDataStream> pStream = pStorage->OpenStream( szIconPath.c_str(), STREAM_ACCESS_READ );
 		CPtr<IImage> pImage = pStream != 0 ? pImages->LoadImage( pStream ) : 0;
+		if ( pImage == 0 )
+		{
+			// User-requested addition (03-09 Task 4): pszName may be a single
+			// soldier with no icon.tga of its own - borrow a squad's that lists
+			// it as a member, e.g. Allies_Bren -> gb_bren_43.
+			if ( !pSession->bSquadIconOwnerMapBuilt )
+				BuildSquadIconOwnerMap( pSession, pObjectsDB );
+			std::unordered_map<std::string, std::string>::const_iterator itSquad = pSession->squadIconOwnerBySoldier.find( pszName );
+			const SGDBObjectDesc *pSquadDesc = itSquad != pSession->squadIconOwnerBySoldier.end() ? pObjectsDB->GetDesc( itSquad->second.c_str() ) : 0;
+			if ( pSquadDesc != 0 )
+			{
+				const std::string szSquadIconPath = pSquadDesc->szPath + "\\icon.tga";
+				CPtr<IDataStream> pSquadStream = pStorage->OpenStream( szSquadIconPath.c_str(), STREAM_ACCESS_READ );
+				pImage = pSquadStream != 0 ? pImages->LoadImage( pSquadStream ) : 0;
+			}
+		}
 		if ( pImage == 0 )
 		{
 			pSession->szMessage = NStr::Format( "%s has no picture", pszName );

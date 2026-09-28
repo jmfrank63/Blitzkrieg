@@ -264,14 +264,25 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEnt
    ISM_LANCZOS3) - never upscaled past its own size. Written into out_rgba as
    RGBA8, top row first, exactly *out_width * *out_height * 4 bytes.
 
+   User-requested addition (03-09 Task 4): a single soldier with no icon.tga
+   of its own (e.g. Allies_Bren) borrows the icon.tga of a squad that lists it
+   as a member (e.g. gb_bren_43, RPGStats.h SSquadRPGStats::memberNames, read
+   from every SGVOGT_SQUAD object's own data) - built once per session
+   (SEditorSession::squadIconOwnerBySoldier) since it scans the whole object
+   database. Deterministic when more than one squad lists the same soldier:
+   the alphabetically first squad name wins. Still BK_EDITOR_REFUSED for a
+   name no squad lists either (terrain pieces, effects, the entrenchment, the
+   single-unit-formation squad type itself).
+
    BK_EDITOR_BAD_ARGUMENT for a null name or output, max_side outside 8..256,
    or a name the object database does not know. BK_EDITOR_REFUSED naming the
-   object when its folder has no icon.tga - not every shipped object has one,
-   and this is the ordinary way of saying so, not a failure - or when
-   capacity_bytes is too small for the decoded picture: *out_width/*out_height
-   are still set to the real size (so a caller can size a buffer and ask
-   again) but nothing is written. BK_EDITOR_REFUSED too when the engine is not
-   started, with the sizes left at 0. */
+   object when neither it nor a squad that lists it has an icon.tga - not
+   every shipped object or squad has one, and this is the ordinary way of
+   saying so, not a failure - or when capacity_bytes is too small for the
+   decoded picture: *out_width/*out_height are still set to the real size (so
+   a caller can size a buffer and ask again) but nothing is written.
+   BK_EDITOR_REFUSED too when the engine is not started, with the sizes left
+   at 0. */
 BkEditorStatus BkEditorObjectPicture( BkEditorSession *session, const char *name,
                                       unsigned char *out_rgba, int capacity_bytes, int max_side,
                                       int *out_width, int *out_height );

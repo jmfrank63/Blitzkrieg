@@ -76,7 +76,16 @@ struct SEditorSession
 	// [0, 360) by BkEditorSetYaw. SetSessionCamera adds this to the constant
 	// the game always places its mission camera at; 0 is the game's own view.
 	float fYawOffsetDegrees;
-	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ) {  }
+	// D-29's squad-icon fallback (user-requested addition, 03-09 Task 4): a
+	// single soldier with no icon.tga of its own borrows the icon.tga of a
+	// squad that lists it as a member. Soldier name -> squad name, built once
+	// per session (the whole object database is scanned to fill it) the
+	// first time BkEditorObjectPicture needs it; empty and unbuilt until
+	// then. Deterministic when more than one squad lists the same soldier:
+	// the alphabetically first squad name wins.
+	std::unordered_map<std::string, std::string> squadIconOwnerBySoldier;
+	bool bSquadIconOwnerMapBuilt;
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws

@@ -2287,6 +2287,28 @@ static void TestObjectPictures( BkEditorSession *pSession, const std::string &sz
 	}
 	else
 		printf( "editor-bridge: pictures: skipped the short-buffer check, no placeable object has a picture\n" );
+
+	// User-requested addition (03-09 Task 4): Allies_Bren has no icon.tga of
+	// its own (Data/Units/Humans/Allies/Bren has only .san/.dds files) but is
+	// a member of the gb_bren_43 squad (Data/Squads/gb_bren_43/1.xml's own
+	// <Members>), which does - BkEditorObjectPicture should borrow it rather
+	// than refuse.
+	{
+		int nBrenWidth = 0, nBrenHeight = 0;
+		const BkEditorStatus brenStatus = BkEditorObjectPicture( pSession, "Allies_Bren", &buffer[0], int( buffer.size() ), 64, &nBrenWidth, &nBrenHeight );
+		Check( brenStatus == BK_EDITOR_OK,
+		       NStr::Format( "Allies_Bren (no icon.tga of its own) should borrow its squad's, got status %d: %s", int( brenStatus ), BkEditorLastMessage( pSession ) ) );
+		if ( brenStatus == BK_EDITOR_OK )
+		{
+			Check( nBrenWidth >= 1 && nBrenWidth <= 256 && nBrenHeight >= 1 && nBrenHeight <= 256,
+			       NStr::Format( "Allies_Bren's borrowed picture is %dx%d, expected 1..256 on each side", nBrenWidth, nBrenHeight ) );
+			bool bNonBlack = false;
+			for ( int p = 0; p < nBrenWidth * nBrenHeight && !bNonBlack; ++p )
+				if ( buffer[p * 4 + 0] != 0 || buffer[p * 4 + 1] != 0 || buffer[p * 4 + 2] != 0 )
+					bNonBlack = true;
+			Check( bNonBlack, "Allies_Bren's borrowed picture has at least one non-black pixel" );
+		}
+	}
 }
 
 // D-26: BkEditorMods lists the fixture mod (tools/zig/fixtures/editor_mod,
