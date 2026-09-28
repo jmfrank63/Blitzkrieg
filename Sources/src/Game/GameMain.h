@@ -79,6 +79,12 @@ struct CommandLineOptions
 	bool oneSave = false;
 	bool showHelp = false;
 	bool parseError = false;
+	// -editor-test: launched by the Map Editor's Test in game. Session-only
+	// profile (never remembers active.cfg, never migrates legacy saves),
+	// forces windowed even if a later -fullscreen argument or the profile's
+	// own setting says otherwise, and disables cloud sync and the
+	// first-visit help screen for the run.
+	bool editorTest = false;
 	std::string renderer = "sdl_gpu";
 	std::vector<std::string> unknownArguments;
 };

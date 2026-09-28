@@ -782,6 +782,15 @@ void CInterfaceScreenBase::ShowTutorialIfNotShown()
 	static const bool bNoHelp = getenv( "BK_AUTO_UI" ) != 0 && getenv( "BK_NO_HELP" ) != 0;
 	if ( bNoHelp )
 		return;
+	// The Map Editor's Test in game (-editor-test, D-07): the mission starts
+	// clean on a fresh MapEditorTest profile, with no first-visit help over
+	// it.
+	if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
+	{
+		if ( getenv( "BK_UI_TRACE" ) != 0 )
+			fprintf( stderr, "BK_UI_TRACE: first-visit help skipped for the editor's test game\n" );
+		return;
+	}
 	if ( !GetSingleton<IUserProfile>()->IsHelpCalled( GetCommonFactory()->GetObjectTypeID( this ), nHelpContextNumber ) )
 	{	//ShowTutorial();
 		pInput->AddMessage( SGameMessage( TUTORIAL_WINDOW_ID ) );

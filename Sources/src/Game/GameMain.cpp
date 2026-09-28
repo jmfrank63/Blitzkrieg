@@ -214,8 +214,9 @@ struct SCmdParams
 	std::string szModName;								// mod file name - to lauch game with particular mod added
 	bool bNoMod;													// -mod=None: the standard game, whatever the profile last played
 	std::string szProfileName;						// player profile to activate (-profile=Name)
+	bool bEditorTest;											// -editor-test: session-only profile, windowed, no cloud sync, no first-visit help
 
-	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ), bNoMod( false ) { }
+	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ), bNoMod( false ), bEditorTest( false ) { }
 };
 static void ArmAllModulesLeakOnExit()
 {
@@ -312,6 +313,12 @@ static bool CloudOptionIsOn( const std::string &szConfigPath, const char *pszKey
 // anything else is the rclone backend id the profile syncs with.
 static bool CloudProviderSelected( const std::string &szProvider )
 {
+	// The Map Editor's Test in game (-editor-test, D-02) must never begin a
+	// cloud sync - startup, requested, periodic, on save or on exit - whatever
+	// the profile or the root config.cfg says. Every gate above funnels
+	// through this one function, so this single guard closes all of them.
+	if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
+		return false;
 	return !szProvider.empty() &&
 		NStr::CompareAsciiNoCase( szProvider.c_str(), "Off" ) != 0 &&
 		NStr::CompareAsciiNoCase( szProvider.c_str(), "On" ) != 0;
@@ -497,9 +504,21 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// config.cfg under profiles\<name>\. It must be settled before the
 		// config is read. -profile= beats the name remembered in
 		// profiles\active.cfg, which beats the default "Player".
+		//
+		// -editor-test (D-02): a session-only profile, defaulting to
+		// "MapEditorTest" when none is given on the command line.
+		// profiles/active.cfg is never read or written in this mode, and the
+		// one-time legacy-migration branch never runs (bFirstProfileRun is
+		// forced false), so the player's own remembered profile and saves
+		// are never touched by a test launch.
 		std::string szProfile = cmdp.szProfileName;
-		const bool bFirstProfileRun = !std::filesystem::exists( "profiles/active.cfg" );
-		if ( szProfile.empty() && !bFirstProfileRun )
+		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( "profiles/active.cfg" );
+		if ( cmdp.bEditorTest )
+		{
+			if ( szProfile.empty() )
+				szProfile = "MapEditorTest";
+		}
+		else if ( szProfile.empty() && !bFirstProfileRun )
 		{
 			std::ifstream file( "profiles/active.cfg" );
 			if ( file )
@@ -510,9 +529,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 		std::error_code pathError;
 		std::filesystem::create_directories( "profiles/" + szProfile + "/saves", pathError );
 		std::filesystem::create_directories( "profiles/" + szProfile + "/screenshots", pathError );
-		std::ofstream active( "profiles/active.cfg", std::ios::trunc );
-		if ( active )
-			active << szProfile;
+		if ( !cmdp.bEditorTest )
+		{
+			std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+			if ( active )
+				active << szProfile;
+		}
 		if ( bFirstProfileRun )
 		{
 			// One-time migration: the pre-profile layout kept saves and
@@ -563,7 +585,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// refused is the only evidence there is.
 		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
 		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
-		if ( !CloudProviderSelected( szProvider ) )
+		if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
+			NStr::DebugTrace( "cloud sync: off for the editor's test game\n" );
+		else if ( !CloudProviderSelected( szProvider ) )
 			NStr::DebugTrace( "cloud sync: off for \"%s\" (Cloud.Provider=\"%s\" in %s)\n",
 				szProfile.c_str(), szProvider.c_str(), szConfigPath.c_str() );
 		else if ( !CloudCredentialsMatch( szProvider ) )
@@ -2025,6 +2049,22 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			NStr::TrimBoth( szName, "\"" );
 			pCmdParams->szProfileName = szName;
 		}
+		else if ( szParams[i] == "-editor-test" )
+		{
+			// The Map Editor's Test in game (D-02, D-05, D-07): a
+			// session-only profile (handled in the profile block below),
+			// forced windowed, no cloud sync (CloudProviderSelected gates on
+			// Editor.TestLaunch) and no first-visit help
+			// (ShowTutorialIfNotShown gates on the same var). Re-applied
+			// after this parse loop so a later -fullscreen on the same
+			// command line cannot undo the windowed forcing.
+			pCmdParams->bEditorTest = true;
+			SetGlobalVar( "Editor.TestLaunch", 1 );
+			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
+			SetGlobalVar( "windowed", "1" );
+			SetGlobalVar( "fullscreen", "0" );
+			SetGlobalVar( "GFX.FullScreen.CmdLine", 0 );
+		}
 		else if ( szParams[i] == "-windowed" )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
@@ -2193,6 +2233,16 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			GetSingleton<IConsoleBuffer>()->WriteASCII( 100, szParams[i].c_str(), 0, true );
 		}
 #endif // _FINALRELEASE
+	}
+	if ( pCmdParams->bEditorTest )
+	{
+		// Order-independent (D-05): a -fullscreen anywhere else on this same
+		// command line must not win over -editor-test's windowed forcing,
+		// whichever argument came first.
+		pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
+		SetGlobalVar( "windowed", "1" );
+		SetGlobalVar( "fullscreen", "0" );
+		SetGlobalVar( "GFX.FullScreen.CmdLine", 0 );
 	}
 	if ( pCmdParams->eFullscreenMode == GFXFS_WINDOWED )
 		pCmdParams->nFreq = 0;
