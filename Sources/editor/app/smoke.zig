@@ -60,6 +60,12 @@ pub const Input = union(enum) {
     /// there, as a trackpad swipe sends them: small fractions, one per
     /// NSEvent.
     wheel: Wheel,
+    /// Pushes SDL_EVENT_WINDOW_CLOSE_REQUESTED for the window, as clicking
+    /// its close button would (D-23).
+    window_close,
+    /// Calls the unsaved-changes prompt's answer as the modal's Save/Don't
+    /// save/Cancel button would (D-23) - the smoke has no widget to click.
+    answer: panels_logic.UnsavedPrompt.Choice,
 };
 
 pub const Wheel = struct {
@@ -111,6 +117,13 @@ pub const Expect = enum {
     /// ImGui wants the mouse (the pointer is over a panel), within
     /// `max_wait_frames` frames; the camera has not moved meanwhile.
     panel_has_pointer,
+    /// The unsaved-changes prompt is asking (D-23): the map is still dirty
+    /// and the loop is still running - closing the window did not discard
+    /// anything.
+    unsaved_prompt_open,
+    /// Cancel resolved the prompt without discarding the map: not asking
+    /// any more, still dirty, still at the same path.
+    prompt_cancelled,
 };
 
 pub const Step = struct {
@@ -163,6 +176,12 @@ pub const script = [_]Step{
     .{ .name = "Ctrl+Z undoes all of it", .inputs = &.{ undo_key, undo_key, undo_key, undo_key, undo_key }, .expect = .all_undone },
     .{ .name = "Save As writes the map", .inputs = &.{.save_as}, .expect = .saved },
     .{ .name = "the saved map opens again", .inputs = &.{.open_saved}, .expect = .reopened },
+    // D-23: the unsaved-changes prompt on a window close, and Cancel.
+    .{ .name = "key 2 chooses the brush again", .inputs = &.{plain(sdl.SDLK_2, sdl.SDL_SCANCODE_2)}, .expect = .tool_brush },
+    .{ .name = "a brush stroke makes the map dirty", .inputs = &.{ .{ .press = ground_a }, .{ .drag = ground_between }, .{ .drag = ground_b }, .{ .release = ground_b } }, .expect = .painted },
+    .{ .name = "closing the window asks", .inputs = &.{.window_close}, .expect = .unsaved_prompt_open },
+    .{ .name = "Cancel keeps it", .inputs = &.{.{ .answer = .cancel }}, .expect = .prompt_cancelled },
+    .{ .name = "Ctrl+Z undoes the stroke", .inputs = &.{undo_key}, .expect = .all_undone },
     // Task 7.3: a two-finger swipe, as SDL delivers it on macOS - many
     // small fractional deltas on both axes - pans the map; the same swipe
     // back pans it back; a flipped (natural scrolling) swipe pans by the
@@ -347,6 +366,16 @@ pub const Script = struct {
                 self.state.actions.dialog.deliver(self.save_path);
                 return true;
             },
+            .window_close => {
+                var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
+                event.window.type = sdl.SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+                event.window.windowID = self.window_id;
+                return self.push(&event);
+            },
+            .answer => |choice| {
+                self.state.actions.answer_pending = choice;
+                return true;
+            },
             .wheel => |wheel| {
                 const point = if (wheel.over_left_panel) [2]f32{ left_panel_x, self.centre_y } else self.screen(wheel.at);
                 if (!self.pushMotionAt(point, false)) return false;
@@ -520,6 +549,16 @@ pub const Script = struct {
             .camera_unchanged => {
                 if (self.view.camera_x != self.camera_before[0] or self.view.camera_y != self.camera_before[1])
                     return self.stepFail(step, "the camera moved from {any} to {d},{d}", .{ self.camera_before, self.view.camera_x, self.view.camera_y });
+            },
+            .unsaved_prompt_open => {
+                if (!self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is not asking", .{});
+                if (!editor.dirty()) return self.stepFail(step, "the document is not dirty while the prompt asks", .{});
+            },
+            .prompt_cancelled => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is still asking after Cancel", .{});
+                if (!editor.dirty()) return self.stepFail(step, "the document is not dirty after Cancel", .{});
+                if (!std.mem.eql(u8, panels_logic.baseName(editor.document.path.items), std.fs.path.basename(self.save_path)))
+                    return self.stepFail(step, "the path changed to {s}", .{editor.document.path.items});
             },
         }
         return true;

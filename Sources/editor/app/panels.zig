@@ -81,6 +81,9 @@ pub const State = struct {
     test_game_log_len: usize = 0,
     test_restart_popup_shown: bool = false,
     test_report_popup_shown: bool = false,
+    /// D-23's "Unsaved changes" modal has been opened for the prompt's
+    /// current ask - so it is not re-opened every frame while it waits.
+    unsaved_popup_shown: bool = false,
 
     /// The object database, and its indices ordered by game type (stable,
     /// so a type keeps the database's order): the palette's groups are runs
@@ -203,6 +206,7 @@ pub fn draw(state: *State) void {
     drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = layout.right_width, .y = @max(body_height - layout.properties_height, 100) });
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
+    drawUnsavedPrompt(state);
     updateTitle(state);
 }
 
@@ -211,10 +215,13 @@ pub fn draw(state: *State) void {
 pub fn act(state: *State) bool {
     var quit = false;
     while (true) {
-        switch (state.actions.next()) {
-            .none => return quit,
+        // Task 2 (D-18) replaces this literal false with the real
+        // shipped-map check once needsSaveAs exists.
+        switch (state.actions.next(state.editor.dirty(), false)) {
+            .none, .ask_unsaved => return quit,
+            .dialog_cancelled => {},
             .quit => quit = true,
-            .save => saveToDocumentPath(state),
+            .save => state.actions.noteSaveOutcome(saveToDocumentPath(state)),
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
                 const result = logic.actOnPath(state.editor, chosen.kind, chosen.path);
@@ -223,6 +230,10 @@ pub fn act(state: *State) bool {
                     // A failed open may have emptied the document (editor.open
                     // says when); either way the panels follow what is open now.
                     if (result) |_| state.mapOpened() else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
+                } else {
+                    // Save As: the unsaved-changes prompt, if it asked for
+                    // this one, hears whether it landed.
+                    state.actions.noteSaveOutcome(if (result) |_| true else |_| false);
                 }
             },
             .dialog_failed => |message| state.view.setStatus("the file dialog failed: ", message),
@@ -230,11 +241,42 @@ pub fn act(state: *State) bool {
     }
 }
 
-fn saveToDocumentPath(state: *State) void {
-    if (!mapIsOpen(state.editor)) return;
-    // editor.save copies the path before it writes, so handing it its own
-    // path is safe.
-    state.view.noteEditResult(state.editor, state.editor.save(state.editor.document.path.items));
+/// Saves to the document's own path; true on success. editor.save copies
+/// the path before it writes, so handing it its own path is safe.
+fn saveToDocumentPath(state: *State) bool {
+    if (!mapIsOpen(state.editor)) return false;
+    const result = state.editor.save(state.editor.document.path.items);
+    state.view.noteEditResult(state.editor, result);
+    return if (result) |_| true else |_| false;
+}
+
+/// D-23: while the prompt asks (an Open, Quit or window close found the map
+/// dirty), a modal offers Save, Don't save or Cancel; the buttons only set
+/// what `act`'s next call to `next` picks up - no save happens here.
+fn drawUnsavedPrompt(state: *State) void {
+    const popup_id = "Unsaved changes";
+    if (state.actions.prompt.isAsking()) {
+        if (!state.unsaved_popup_shown) {
+            _ = ig.igOpenPopup(popup_id, 0);
+            state.unsaved_popup_shown = true;
+        }
+    } else {
+        state.unsaved_popup_shown = false;
+    }
+    if (!ig.igBeginPopupModal(popup_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+    var buffer: [300]u8 = undefined;
+    const name = logic.baseName(state.editor.document.path.items);
+    const shown_name = if (name.len != 0) name else "This map";
+    const message = std.fmt.bufPrint(&buffer, "{s} has changes that are not saved.", .{shown_name}) catch
+        "This map has changes that are not saved.";
+    text(message);
+    if (ig.igButton("Save")) state.actions.answer_pending = .save;
+    ig.igSameLine();
+    if (ig.igButton("Don't save")) state.actions.answer_pending = .dont_save;
+    ig.igSameLine();
+    if (ig.igButton("Cancel")) state.actions.answer_pending = .cancel;
+    if (state.actions.answer_pending != null) ig.igCloseCurrentPopup();
+    ig.igEndPopup();
 }
 
 fn showDialog(state: *State, kind: logic.DialogKind) void {

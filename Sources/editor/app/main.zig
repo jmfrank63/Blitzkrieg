@@ -179,7 +179,10 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
             // reading igGetIO()'s capture flags fresh after this call.
             _ = host.handleEvent(&event);
             switch (event.type) {
-                sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => running = false,
+                // D-23: quitting or closing the window goes through the same
+                // unsaved-changes guard as the menu's Quit - the loop ends
+                // only once `act` (below) says so.
+                sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => state.actions.quit_requested = true,
                 else => {
                     const kind = view_mod.inputKindOf(event.type);
                     const capture = view_mod.captureFlags();

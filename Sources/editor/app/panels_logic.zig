@@ -155,11 +155,12 @@ pub const PathSlot = struct {
     len: usize = 0,
 
     pub const max_path = 4096;
-    const State = enum(u8) { idle, waiting, arrived, failed };
+    const State = enum(u8) { idle, waiting, arrived, failed, cancelled };
 
     pub const Result = union(enum) {
         path: struct { kind: DialogKind, path: []const u8 },
         failed: []const u8,
+        cancelled,
     };
 
     /// Main thread, before showing a dialog. False while one is already up.
@@ -174,11 +175,13 @@ pub const PathSlot = struct {
     }
 
     /// The dialog's callback, on whatever thread SDL calls it: the chosen
-    /// path, or null for a cancel. Ignored unless a dialog was requested.
+    /// path, or null for a cancel - a result now, not silence, so the
+    /// unsaved-changes prompt can tell a cancelled Save As from one that
+    /// never happened (D-23). Ignored unless a dialog was requested.
     pub fn deliver(self: *PathSlot, path: ?[]const u8) void {
         if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
         const chosen = path orelse {
-            self.state.store(@intFromEnum(State.idle), .release);
+            self.state.store(@intFromEnum(State.cancelled), .release);
             return;
         };
         if (chosen.len > self.buffer.len) return self.deliverFailure("the chosen path is too long");
@@ -205,15 +208,157 @@ pub const PathSlot = struct {
             .idle, .waiting => return null,
             .arrived => .{ .path = .{ .kind = self.kind, .path = self.buffer[0..self.len] } },
             .failed => .{ .failed = self.buffer[0..self.len] },
+            .cancelled => .cancelled,
         };
         self.state.store(@intFromEnum(State.idle), .release);
         return result;
     }
 };
 
+/// A fixed-buffer path, for a `Pending` that must outlive the frame it was
+/// made on (no allocation, matching `PathSlot`'s own buffers).
+pub const PathText = struct {
+    buffer: [PathSlot.max_path]u8 = undefined,
+    len: usize = 0,
+
+    pub fn init(text: []const u8) PathText {
+        var self: PathText = .{};
+        self.set(text);
+        return self;
+    }
+
+    pub fn set(self: *PathText, text: []const u8) void {
+        self.len = @min(text.len, self.buffer.len);
+        @memcpy(self.buffer[0..self.len], text[0..self.len]);
+    }
+
+    pub fn slice(self: *const PathText) []const u8 {
+        return self.buffer[0..self.len];
+    }
+};
+
+/// A fixed-buffer name (a mod's folder), for the same reason as `PathText`.
+pub const NameText = struct {
+    buffer: [256]u8 = undefined,
+    len: usize = 0,
+
+    pub fn init(text: []const u8) NameText {
+        var self: NameText = .{};
+        self.set(text);
+        return self;
+    }
+
+    pub fn set(self: *NameText, text: []const u8) void {
+        self.len = @min(text.len, self.buffer.len);
+        @memcpy(self.buffer[0..self.len], text[0..self.len]);
+    }
+
+    pub fn slice(self: *const NameText) []const u8 {
+        return self.buffer[0..self.len];
+    }
+};
+
+/// The action an unsaved-changes prompt is guarding: what to do once the
+/// user says it is fine to go ahead (or once a redirected save lands).
+/// `open_path` and `switch_mod` are not produced by this plan - they are
+/// here so 03-07's Open Recent and 03-08's Mod switch can guard through the
+/// same prompt without changing its shape.
+pub const Pending = union(enum) {
+    open_dialog,
+    open_path: PathText,
+    quit,
+    switch_mod: NameText,
+};
+
+/// D-23's Open/Quit/window-close prompt: idle until a guarded action finds
+/// the map dirty, then asking until the user answers Save, Don't save or
+/// Cancel. Save moves to saving without doing any I/O itself - the caller
+/// (which owns the editor) makes the save and reports back through
+/// `saveFinished`, which continues with the guarded action only once that
+/// save actually landed.
+pub const UnsavedPrompt = struct {
+    pending: ?Pending = null,
+    phase: Phase = .idle,
+
+    const Phase = enum { idle, asking, saving };
+
+    pub const Choice = enum { save, dont_save, cancel };
+
+    pub const GuardResult = union(enum) {
+        /// The map is clean, or a save just landed: `action` may run now.
+        proceed: Pending,
+        /// The map is dirty: the modal must ask first.
+        asked,
+    };
+
+    /// Before Open, Quit or a window close: a clean map proceeds with
+    /// `action` at once; a dirty one is remembered and the modal is asked.
+    pub fn guard(self: *UnsavedPrompt, dirty: bool, action: Pending) GuardResult {
+        if (!dirty) return .{ .proceed = action };
+        self.pending = action;
+        self.phase = .asking;
+        return .asked;
+    }
+
+    pub fn isAsking(self: *const UnsavedPrompt) bool {
+        return self.phase == .asking;
+    }
+
+    pub const AnswerResult = union(enum) {
+        /// Save to the document's own path, then report through `saveFinished`.
+        save,
+        /// The map has no path yet, or is shipped: show Save As instead,
+        /// then report through `saveFinished` once its dialog resolves.
+        save_as,
+        /// Don't save, or nothing was ever guarded: go ahead with `action` at once.
+        proceed: Pending,
+        /// Cancel: the guarded action never happens.
+        dropped,
+    };
+
+    /// The modal's button. Cancel and Don't save resolve the prompt
+    /// immediately; Save only says what saving needs - the actual write
+    /// happens outside, reported back through `saveFinished`.
+    pub fn answer(self: *UnsavedPrompt, choice: Choice, needs_save_as: bool) AnswerResult {
+        if (self.phase != .asking) return .dropped;
+        switch (choice) {
+            .cancel => {
+                self.pending = null;
+                self.phase = .idle;
+                return .dropped;
+            },
+            .dont_save => {
+                const pending = self.pending;
+                self.pending = null;
+                self.phase = .idle;
+                return if (pending) |action| .{ .proceed = action } else .dropped;
+            },
+            .save => {
+                self.phase = .saving;
+                return if (needs_save_as) .save_as else .save;
+            },
+        }
+    }
+
+    /// The caller reports whether the save it was asked to make (plain or
+    /// Save As) actually landed. A cancelled Save As is reported as `false`
+    /// too - both drop the guarded action and leave the map exactly as it
+    /// was (a failed save keeps it dirty; a cancelled dialog never touched
+    /// it). A call while nothing was ever asked for is ignored.
+    pub fn saveFinished(self: *UnsavedPrompt, ok: bool) ?Pending {
+        if (self.phase != .saving) return null;
+        self.phase = .idle;
+        const pending = self.pending;
+        self.pending = null;
+        return if (ok) pending else null;
+    }
+};
+
 /// What the menu asked for this frame, and the dialog hand-over. The panels
 /// set the flags while drawing; `next` turns them, and whatever a dialog
 /// delivered, into steps for the frame loop, one at a time, until `.none`.
+/// Open and Quit are routed through `prompt`'s unsaved-changes guard (D-23);
+/// Save and Save As are not - they are themselves how the user saves.
 pub const FileActions = struct {
     open_requested: bool = false,
     save_requested: bool = false,
@@ -223,9 +368,22 @@ pub const FileActions = struct {
     /// gone (a quit with the dialog still up), so the slot it writes into
     /// must outlive every FileActions - panels.zig keeps it in a global.
     dialog: *PathSlot,
+    prompt: UnsavedPrompt = .{},
+    /// Set by the modal's Save/Don't save/Cancel buttons (and by the smoke's
+    /// `.answer`), for `next` to act on next.
+    answer_pending: ?UnsavedPrompt.Choice = null,
+    /// True while the dialog now waiting belongs to the prompt's own Save As
+    /// (asked for by `answer`), not a plain user request - so its outcome
+    /// reports back to the prompt through `saveFinished` instead of just
+    /// being an ordinary act_on_path.
+    dialog_for_prompt: bool = false,
+    /// A guarded action `saveFinished` resolved, waiting for its Step.
+    resume_pending: ?Pending = null,
 
     pub const Step = union(enum) {
         none,
+        /// The prompt is asking; the modal is (or must become) visible.
+        ask_unsaved,
         /// Show SDL's open or save dialog; the slot is already waiting for it.
         show_dialog: DialogKind,
         /// Save to the document's own path.
@@ -233,29 +391,92 @@ pub const FileActions = struct {
         /// Open, or save to, a path a dialog chose (an OS path).
         act_on_path: struct { kind: DialogKind, path: []const u8 },
         dialog_failed: []const u8,
+        /// A dialog was cancelled - the prompt has already been told, if it
+        /// was the one waiting on it.
+        dialog_cancelled,
         quit,
     };
 
-    pub fn next(self: *FileActions) Step {
-        if (self.dialog.take()) |result| return switch (result) {
-            .path => |chosen| .{ .act_on_path = .{ .kind = chosen.kind, .path = chosen.path } },
-            .failed => |message| .{ .dialog_failed = message },
+    /// The save `next`/`act` was told to make, for `saveFinished`, resolved
+    /// into a Step - `open_path` and `switch_mod` are not produced by this
+    /// plan (03-07/03-08 wire them).
+    fn stepForPending(self: *FileActions, pending: Pending) Step {
+        return switch (pending) {
+            .open_dialog => if (self.dialog.request(.open)) Step{ .show_dialog = .open } else Step.none,
+            .quit => .quit,
+            .open_path, .switch_mod => .none,
         };
+    }
+
+    /// The save `act` made for the prompt (plain Save or a Save As whose
+    /// dialog delivered a path) succeeded or failed; a step for whatever the
+    /// prompt was guarding follows on the next `next()`, if anything does.
+    /// A no-op when the prompt was not the one asking for this save.
+    pub fn noteSaveOutcome(self: *FileActions, ok: bool) void {
+        if (self.prompt.saveFinished(ok)) |pending| self.resume_pending = pending;
+    }
+
+    pub fn next(self: *FileActions, dirty: bool, needs_save_as: bool) Step {
+        if (self.dialog.take()) |result| {
+            switch (result) {
+                .path => |chosen| {
+                    self.dialog_for_prompt = false;
+                    return .{ .act_on_path = .{ .kind = chosen.kind, .path = chosen.path } };
+                },
+                .failed => |message| {
+                    self.dialog_for_prompt = false;
+                    return .{ .dialog_failed = message };
+                },
+                .cancelled => {
+                    const was_for_prompt = self.dialog_for_prompt;
+                    self.dialog_for_prompt = false;
+                    if (was_for_prompt) self.noteSaveOutcome(false);
+                    return .dialog_cancelled;
+                },
+            }
+        }
+        if (self.resume_pending) |pending| {
+            self.resume_pending = null;
+            return self.stepForPending(pending);
+        }
+        if (self.answer_pending) |choice| {
+            self.answer_pending = null;
+            return switch (self.prompt.answer(choice, needs_save_as)) {
+                .save => .save,
+                .save_as => if (self.dialog.request(.save_as)) blk: {
+                    self.dialog_for_prompt = true;
+                    break :blk Step{ .show_dialog = .save_as };
+                } else Step.none,
+                .proceed => |pending| self.stepForPending(pending),
+                .dropped => .none,
+            };
+        }
+        if (self.prompt.isAsking()) return .ask_unsaved;
         if (self.quit_requested) {
             self.quit_requested = false;
-            return .quit;
+            return switch (self.prompt.guard(dirty, .quit)) {
+                .proceed => |pending| self.stepForPending(pending),
+                .asked => .ask_unsaved,
+            };
         }
         if (self.save_requested) {
             self.save_requested = false;
+            if (needs_save_as) {
+                if (self.dialog.request(.save_as)) return .{ .show_dialog = .save_as };
+                return .none;
+            }
             return .save;
         }
-        inline for (.{ .{ "open_requested", DialogKind.open }, .{ "save_as_requested", DialogKind.save_as } }) |pair| {
-            if (@field(self, pair[0])) {
-                @field(self, pair[0]) = false;
-                // A dialog already up swallows the second request: one at a
-                // time, so the slot is never written twice.
-                if (self.dialog.request(pair[1])) return .{ .show_dialog = pair[1] };
-            }
+        if (self.open_requested) {
+            self.open_requested = false;
+            return switch (self.prompt.guard(dirty, .open_dialog)) {
+                .proceed => |pending| self.stepForPending(pending),
+                .asked => .ask_unsaved,
+            };
+        }
+        if (self.save_as_requested) {
+            self.save_as_requested = false;
+            if (self.dialog.request(.save_as)) return .{ .show_dialog = .save_as };
         }
         return .none;
     }
@@ -444,12 +665,150 @@ test "the dialog slot: requested, path arrived, taken once; one dialog at a time
 
     try std.testing.expect(slot.request(.save_as));
     slot.deliver(null);
-    try std.testing.expect(slot.take() == null);
     try std.testing.expect(!slot.waiting());
+    switch (slot.take().?) {
+        .cancelled => {},
+        else => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(slot.take() == null);
 
     try std.testing.expect(slot.request(.open));
     slot.deliverFailure("no portal");
     try std.testing.expectEqualStrings("no portal", slot.take().?.failed);
+}
+
+test "UnsavedPrompt: a clean map proceeds with Open or Quit at once" {
+    var prompt: UnsavedPrompt = .{};
+    switch (prompt.guard(false, .open_dialog)) {
+        .proceed => |pending| switch (pending) {
+            .open_dialog => {},
+            else => return error.TestUnexpectedResult,
+        },
+        .asked => return error.TestUnexpectedResult,
+    }
+    switch (prompt.guard(false, .quit)) {
+        .proceed => |pending| switch (pending) {
+            .quit => {},
+            else => return error.TestUnexpectedResult,
+        },
+        .asked => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(!prompt.isAsking());
+}
+
+test "UnsavedPrompt: a dirty map asks for both Open and Quit" {
+    var prompt: UnsavedPrompt = .{};
+    switch (prompt.guard(true, .open_dialog)) {
+        .asked => {},
+        .proceed => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(prompt.isAsking());
+    _ = prompt.answer(.dont_save, false); // resolve it before asking again
+    switch (prompt.guard(true, .quit)) {
+        .asked => {},
+        .proceed => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(prompt.isAsking());
+}
+
+test "UnsavedPrompt: Cancel drops the guarded action" {
+    var prompt: UnsavedPrompt = .{};
+    _ = prompt.guard(true, .quit);
+    switch (prompt.answer(.cancel, false)) {
+        .dropped => {},
+        else => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(!prompt.isAsking());
+    try std.testing.expect(prompt.pending == null);
+}
+
+test "UnsavedPrompt: Don't save proceeds with the guarded action" {
+    var prompt: UnsavedPrompt = .{};
+    _ = prompt.guard(true, .open_dialog);
+    switch (prompt.answer(.dont_save, false)) {
+        .proceed => |pending| switch (pending) {
+            .open_dialog => {},
+            else => return error.TestUnexpectedResult,
+        },
+        else => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(!prompt.isAsking());
+}
+
+test "UnsavedPrompt: Save with a path saves, then proceeds once it lands" {
+    var prompt: UnsavedPrompt = .{};
+    _ = prompt.guard(true, .quit);
+    switch (prompt.answer(.save, false)) {
+        .save => {},
+        else => return error.TestUnexpectedResult,
+    }
+    try std.testing.expect(!prompt.isAsking()); // now saving, not asking
+    switch (prompt.saveFinished(true) orelse return error.TestUnexpectedResult) {
+        .quit => {},
+        else => return error.TestUnexpectedResult,
+    }
+}
+
+test "UnsavedPrompt: Save on a path-less or shipped map shows Save As, proceeding only once that save lands" {
+    var prompt: UnsavedPrompt = .{};
+    _ = prompt.guard(true, .open_dialog);
+    switch (prompt.answer(.save, true)) {
+        .save_as => {},
+        else => return error.TestUnexpectedResult,
+    }
+    switch (prompt.saveFinished(true) orelse return error.TestUnexpectedResult) {
+        .open_dialog => {},
+        else => return error.TestUnexpectedResult,
+    }
+}
+
+test "UnsavedPrompt: a cancelled Save As drops the guarded action" {
+    var prompt: UnsavedPrompt = .{};
+    _ = prompt.guard(true, .quit);
+    _ = prompt.answer(.save, true); // .save_as
+    try std.testing.expect(prompt.saveFinished(false) == null);
+    try std.testing.expect(!prompt.isAsking());
+    try std.testing.expect(prompt.pending == null);
+}
+
+test "UnsavedPrompt: a failed save drops the guarded action" {
+    var prompt: UnsavedPrompt = .{};
+    _ = prompt.guard(true, .quit);
+    _ = prompt.answer(.save, false); // .save
+    try std.testing.expect(prompt.saveFinished(false) == null);
+    try std.testing.expect(!prompt.isAsking());
+}
+
+test "file actions: a dirty Quit asks; Save reports success and the quit follows" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    actions.quit_requested = true;
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    try std.testing.expect(actions.prompt.isAsking());
+
+    actions.answer_pending = .save;
+    try std.testing.expectEqual(FileActions.Step.save, actions.next(true, false));
+    actions.noteSaveOutcome(true);
+    try std.testing.expectEqual(FileActions.Step.quit, actions.next(true, false));
+    try std.testing.expect(!actions.prompt.isAsking());
+}
+
+test "file actions: a dirty Open with no path asks Save As; a cancelled dialog drops the open" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    actions.open_requested = true;
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, true));
+    actions.answer_pending = .save;
+    const step = actions.next(true, true);
+    try std.testing.expectEqual(DialogKind.save_as, step.show_dialog);
+    try std.testing.expect(actions.dialog_for_prompt);
+    actions.dialog.deliver(null);
+    try std.testing.expectEqual(FileActions.Step.dialog_cancelled, actions.next(true, true));
+    try std.testing.expect(!actions.dialog_for_prompt);
+    try std.testing.expect(!actions.prompt.isAsking());
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
 }
 
 test "file actions: a request shows a dialog, the path it delivers is acted on the next frame" {
@@ -466,32 +825,32 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
 
     // Frame 1: the menu asked for Open; the loop is told to show the dialog.
     actions.open_requested = true;
-    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .open }, actions.next());
-    try std.testing.expectEqual(FileActions.Step.none, actions.next());
+    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .open }, actions.next(false, false));
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
     // A second Open while the dialog is up does nothing.
     actions.open_requested = true;
-    try std.testing.expectEqual(FileActions.Step.none, actions.next());
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
 
     // Between frames the callback delivers; frame 2 acts on it.
     actions.dialog.deliver("/maps/fixture.bzm");
-    const step = actions.next();
+    const step = actions.next(false, false);
     try std.testing.expectEqual(DialogKind.open, step.act_on_path.kind);
     try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path);
     try std.testing.expectEqualStrings("\\maps\\fixture.bzm", editor.document.path.items);
-    try std.testing.expectEqual(FileActions.Step.none, actions.next());
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
 
     // Save As, then a plain Save to the path it chose.
     actions.save_as_requested = true;
-    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .save_as }, actions.next());
+    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .save_as }, actions.next(false, false));
     actions.dialog.deliver("/maps/copy");
-    const save_step = actions.next();
+    const save_step = actions.next(false, false);
     try actOnPath(&editor, save_step.act_on_path.kind, save_step.act_on_path.path);
     try std.testing.expectEqualStrings("\\maps\\copy.bzm", editor.document.path.items);
     actions.save_requested = true;
     actions.quit_requested = true;
-    try std.testing.expectEqual(FileActions.Step.quit, actions.next());
-    try std.testing.expectEqual(FileActions.Step.save, actions.next());
-    try std.testing.expectEqual(FileActions.Step.none, actions.next());
+    try std.testing.expectEqual(FileActions.Step.quit, actions.next(false, false));
+    try std.testing.expectEqual(FileActions.Step.save, actions.next(false, false));
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
 }
 
 test "TestLaunchPrompt: nothing running starts it directly" {
