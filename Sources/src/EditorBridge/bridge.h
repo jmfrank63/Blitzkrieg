@@ -304,8 +304,8 @@ BkEditorStatus BkEditorFrame( BkEditorSession *session );
    [0, max_zoom_steps] for the window's current size, so a stale count from
    before a resize never reads back out of range. scale is screen pixels per
    unzoomed pixel (NSceneScreenScale::GetGameplayScale): 1.0 at zoom_steps 0.
-   yaw_degrees is the camera's yaw in degrees - 45, the game's own, until a
-   later plan gives the editor rotation. */
+   yaw_degrees is the camera's yaw in degrees - the game's own 45 plus
+   whatever BkEditorSetYaw last set (D-12), 45 until then. */
 typedef struct
 {
 	float anchor_x, anchor_y;
@@ -334,6 +334,33 @@ BkEditorStatus BkEditorZoomAt( BkEditorSession *session, int delta_steps, float 
    session-remembered view (D-15). Same clamp and refusal rules as
    BkEditorZoomAt. */
 BkEditorStatus BkEditorSetZoom( BkEditorSession *session, int steps );
+
+/* D-12: degrees of yaw offset from the game's own 45 - the camera keeps the
+   game's pitch and distance, only the yaw turns. Wrapped into [0, 360) rather
+   than refused, since every value names a real angle; a non-finite degrees is
+   BK_EDITOR_BAD_ARGUMENT. Re-places the camera at its current anchor
+   (ICamera::GetAnchor) with the new yaw and runs ITerrain::ResetPosition, the
+   same pair BkEditorResize does after a placement change - a stale terrain
+   layout is what left the ground thousands of pixels away once before
+   (session.cpp's SetSessionCamera comment). BkEditorViewState's yaw_degrees
+   reports 45 + this offset.
+
+   The terrain is laid out on a fixed isometric screen grid
+   (Scene/TerrainInternal.cpp, CTerrain::MovePatches) and buildings/infantry
+   are single-direction billboard sprites (Main/GameDB.h), so only offset 0 is
+   correct: measured (engine-tier TestYawMeasurement, 03-06-SUMMARY.md) at 30,
+   90, 180 and 270 on coldwinter, neither one follows the camera - the ground
+   quad stays fixed in screen space and is progressively clipped away by the
+   yaw (0.5% black at +0 rising to 99.2% at +180), while the sprites stay
+   upright and in their pre-rotation screen positions, floating with no
+   visible ground once the terrain clips out from under them. Picking still
+   agreed with the terrain for every offset (2-3 of 2-3 on-screen objects each
+   time), because both walk the same unrotated projection - so the mismatch is
+   real but not something today's tests based on picking alone would catch.
+   Recorded in 03-06-SUMMARY.md, along with whether this call ships rotation
+   input in M1, is re-planned as engine work, or is deferred (the plan's
+   checkpoint). BK_EDITOR_REFUSED means the engine is not started. */
+BkEditorStatus BkEditorSetYaw( BkEditorSession *session, float degrees );
 
 /* The editor's own drawing - its ImGui - goes into the engine's frame rather
    than into a renderer of its own. overlay runs on the thread that calls

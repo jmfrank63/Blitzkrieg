@@ -1350,7 +1350,9 @@ bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
 	IGFX *pGFX = GetSingleton<IGFX>();
 	const RECT rcScreen = pGFX != 0 ? pGFX->GetScreenRect() : RECT();
 	const float fGameplayCameraHeight = float( rcScreen.bottom - rcScreen.top );
-	pCamera->SetPlacement( CVec3( wx, wy, 0.0f ), 1024 * 4 + fGameplayCameraHeight, -ToRadian( 90.0f + 30.0f ), ToRadian( 45.0f ) );
+	// D-12: fYawOffsetDegrees is 0 until BkEditorSetYaw sets it, so this is
+	// exactly the game's own placement until then.
+	pCamera->SetPlacement( CVec3( wx, wy, 0.0f ), 1024 * 4 + fGameplayCameraHeight, -ToRadian( 90.0f + 30.0f ), ToRadian( 45.0f + pSession->fYawOffsetDegrees ) );
 	pCamera->Update();
 	return true;
 }

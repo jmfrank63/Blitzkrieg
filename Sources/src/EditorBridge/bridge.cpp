@@ -741,9 +741,8 @@ BkEditorStatus BkEditorViewState( BkEditorSession *pSession, BkEditorView *pOut 
 		pOut->zoom_steps = nSteps;
 		pOut->max_zoom_steps = nMax;
 		pOut->scale = NSceneScreenScale::GetGameplayScale( rcScreen );
-		// The game's own yaw (session.cpp's SetSessionCamera); nothing here
-		// varies it yet.
-		pOut->yaw_degrees = 45.0f;
+		// The game's own yaw plus whatever BkEditorSetYaw last set (D-12).
+		pOut->yaw_degrees = 45.0f + pSession->fYawOffsetDegrees;
 		return BK_EDITOR_OK;
 	} );
 }
@@ -783,6 +782,39 @@ BkEditorStatus BkEditorSetZoom( BkEditorSession *pSession, int nSteps )
 		const float fCentreX = float( rcScreen.right - rcScreen.left ) / 2.0f;
 		const float fCentreY = float( rcScreen.bottom - rcScreen.top ) / 2.0f;
 		return ZoomAtScreenPoint( pSession, nSteps, fCentreX, fCentreY ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorSetYaw( BkEditorSession *pSession, float fDegrees )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !std::isfinite( fDegrees ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		// Every value names a real angle, so this wraps rather than refuses -
+		// the way BkEditorEngineObjectState's caller-facing angles never do,
+		// but a yaw offset has no "out of range" the way a zoom step does.
+		float fWrapped = fmodf( fDegrees, 360.0f );
+		if ( fWrapped < 0.0f )
+			fWrapped += 360.0f;
+		pSession->fYawOffsetDegrees = fWrapped;
+		// Re-place at the current anchor, the same way BkEditorResize does
+		// after a placement change that only the distance/pitch/yaw affects,
+		// not the anchor itself.
+		if ( ICamera *pCamera = GetSingleton<ICamera>() )
+		{
+			const CVec3 vAnchor = pCamera->GetAnchor();
+			SetSessionCamera( pSession, vAnchor.x, vAnchor.y );
+		}
+		if ( IScene *pScene = GetSingleton<IScene>() )
+			if ( ITerrain *pTerrain = pScene->GetTerrain() )
+				pTerrain->ResetPosition();
+		return BK_EDITOR_OK;
 	} );
 }
 

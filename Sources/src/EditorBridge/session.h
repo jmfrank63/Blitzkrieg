@@ -72,7 +72,11 @@ struct SEditorSession
 	std::unordered_map<IRefCount*, int> linkByAI;
 	bool bEngineStarted;
 	bool bMapOpen;
-	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
+	// Degrees of yaw offset from the game's own 45 (D-12), wrapped into
+	// [0, 360) by BkEditorSetYaw. SetSessionCamera adds this to the constant
+	// the game always places its mission camera at; 0 is the game's own view.
+	float fYawOffsetDegrees;
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws

@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -1443,6 +1444,132 @@ static void TestPlacedObjectDrawsAndPicks( BkEditorSession *pSession, int nScree
 	}
 }
 
+// D-12: what the renderer actually draws when the camera is placed at yaw
+// offsets other than the game's own 45, measured rather than guessed. The
+// terrain is laid out on a fixed isometric screen grid
+// (Scene/TerrainInternal.cpp, CTerrain::MovePatches) and buildings/infantry
+// are single-direction sprites (Main/GameDB.h), so only offset 0 is known
+// good against today's numbers (TestTerrainUnderTheCamera's bar and
+// TestObjectUnderTheCursor's half-picked bar); the rest is printed and left
+// to the plan's checkpoint decision. The camera's anchor is set once, before
+// the loop, so only the yaw changes between the five captures.
+static const int YAW_MEASURE_OFFSETS[] = { 0, 30, 90, 180, 270 };
+
+static void TestYawMeasurement( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	Check( BkEditorSetYaw( pSession, std::numeric_limits<float>::quiet_NaN() ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a non-finite yaw is a bad argument" );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+
+	// Up to 30 known objects, by the engine's own position for each (the same
+	// source TestObjectUnderTheCursor reads), gathered once at yaw 0 so the
+	// same set is checked at every offset.
+	struct SKnownObject { int nLinkID; float wx, wy; };
+	std::vector<SKnownObject> known;
+	for ( size_t i = 0; i < map.objects.size() && known.size() < 30; ++i )
+	{
+		BkEditorObjectState state;
+		if ( BkEditorEngineObjectState( pSession, map.objects[i].link.nLinkID, &state ) != BK_EDITOR_OK )
+			continue;
+		CVec3 vWorld;
+		AI2Vis( &vWorld, state.x, state.y, 0.0f );
+		SKnownObject known_object;
+		known_object.nLinkID = map.objects[i].link.nLinkID;
+		known_object.wx = vWorld.x;
+		known_object.wy = vWorld.y;
+		known.push_back( known_object );
+	}
+	Check( !known.empty(), "there are known objects to measure against" );
+
+	for ( size_t nOffsetIdx = 0; nOffsetIdx < sizeof( YAW_MEASURE_OFFSETS ) / sizeof( YAW_MEASURE_OFFSETS[0] ); ++nOffsetIdx )
+	{
+		const int nOffset = YAW_MEASURE_OFFSETS[nOffsetIdx];
+		if ( !Check( BkEditorSetYaw( pSession, float( nOffset ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			continue;
+		BkEditorView view;
+		if ( Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( fabsf( view.yaw_degrees - ( 45.0f + float( nOffset ) ) ) <= 0.01f,
+			       NStr::Format( "yaw +%d: the view reports 45+offset (%.1f)", nOffset, view.yaw_degrees ) );
+
+		BkEditorFrame( pSession );
+		BkEditorFrame( pSession );
+		const std::string szFrame = szScratch + NStr::Format( "/editor-bridge-yaw-%d.tga", nOffset );
+		SaveFrame( pSession, szFrame );
+
+		int nFrameWidth = 0, nFrameHeight = 0;
+		const std::vector<unsigned char> pixels = ReadFramePixels( szFrame, &nFrameWidth, &nFrameHeight );
+		float fBlack = 1.0f;
+		if ( !pixels.empty() )
+		{
+			int nBlack = 0, nCounted = 0;
+			for ( int y = nFrameHeight / 2; y < nFrameHeight; ++y )
+				for ( int x = 0; x < nFrameWidth; ++x, ++nCounted )
+				{
+					const unsigned char *p = &pixels[( size_t( y ) * nFrameWidth + x ) * 4];
+					if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+						++nBlack;
+				}
+			fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+		}
+
+		// (b): how many of the known objects still land on screen at this
+		// yaw. (a): of those, how many BkEditorObjectAt still finds at the
+		// same screen point. (c): of those, whether the terrain the pick
+		// solves against (BkEditorScreenToWorld -> BkEditorWorldToTile)
+		// agrees with the object's own tile (BkEditorWorldToTile of its own
+		// world position) - the ground and the object staying together.
+		int nOnScreen = 0, nPicked = 0, nTerrainAgrees = 0;
+		for ( size_t i = 0; i < known.size(); ++i )
+		{
+			float sx = 0.0f, sy = 0.0f;
+			if ( BkEditorWorldToScreen( pSession, known[i].wx, known[i].wy, &sx, &sy ) != BK_EDITOR_OK )
+				continue;
+			if ( sx < 0.0f || sy < 0.0f || sx >= float( nScreenWidth ) || sy >= float( nScreenHeight ) )
+				continue;
+			++nOnScreen;
+			int nLinkID = -1;
+			if ( BkEditorObjectAt( pSession, sx, sy - PICK_RISE, &nLinkID ) == BK_EDITOR_OK && nLinkID == known[i].nLinkID )
+				++nPicked;
+			int nOwnTileX = -1, nOwnTileY = -1;
+			float wx = 0.0f, wy = 0.0f;
+			int nPickedTileX = -1, nPickedTileY = -1;
+			if ( BkEditorWorldToTile( pSession, known[i].wx, known[i].wy, &nOwnTileX, &nOwnTileY ) == BK_EDITOR_OK &&
+			     BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) == BK_EDITOR_OK &&
+			     BkEditorWorldToTile( pSession, wx, wy, &nPickedTileX, &nPickedTileY ) == BK_EDITOR_OK &&
+			     nOwnTileX == nPickedTileX && nOwnTileY == nPickedTileY )
+				++nTerrainAgrees;
+		}
+
+		printf( "editor-bridge: yaw +%d: black %.1f%%, picked %d/%d, terrain agrees %d/%d\n",
+		        nOffset, fBlack * 100.0f, nPicked, nOnScreen, nTerrainAgrees, nOnScreen );
+
+		// Only offset 0 is a pass/fail gate: today's known-good behaviour. The
+		// rest is measurement for the checkpoint, not an assertion - the
+		// renderer is not expected to be correct at an untested yaw.
+		if ( nOffset == 0 )
+		{
+			Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "yaw +0: the ground is drawn under the camera (%.1f%% black, bar %.0f%%)", fBlack * 100.0f, TERRAIN_BLACK_BAR * 100.0f ) );
+			Check( nOnScreen > 0 && nPicked * 2 >= nOnScreen,
+			       NStr::Format( "yaw +0: at least half the on-screen objects are picked (%d/%d)", nPicked, nOnScreen ) );
+			Check( nOnScreen > 0 && nTerrainAgrees * 10 >= nOnScreen * 9,
+			       NStr::Format( "yaw +0: at least 90%% of the terrain picks agree (%d/%d)", nTerrainAgrees, nOnScreen ) );
+		}
+	}
+
+	// Reset to 0 so the tests that run after this one see the game's own yaw.
+	Check( BkEditorSetYaw( pSession, 0.0f ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
 // A bridge names its spans by link ID, so deleting one has to be refused with
 // a reason, and the map has to be exactly as it was afterwards. A refusal that
 // left half an edit behind would save a map the editor never showed.
@@ -2170,6 +2297,7 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
