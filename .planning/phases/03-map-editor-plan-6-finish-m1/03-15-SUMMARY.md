@@ -172,6 +172,33 @@ A folder of your own that happens to be called `Data` stays writable because it 
 
 **Still to do:** rebuild the release stage (`zig build install-map-editor -Dtarget=aarch64-macos --release=fast -Dcopy-data=false`) and run its `MapEditor --check`. The orchestrator does this once Johannes has left the release folder. Then retry hand-try step 2 on the main checkout's `coldwinter.bzm`. When this was written, the main checkout's `Data/Maps/Multiplayer/coldwinter.bzm` matched git (`git status` was clean, mtime 04:34) and the first try's `.bak` was already gone. This fix only read that checkout and wrote nothing to it.
 
+## Gap fix: season (hand try, M1)
+
+**Found:** on the winter map `Data/Maps/Multiplayer/coldwinter.bzm` (`nSeason = 1`), every unit was drawn with its summer textures. That covered the map's own units and every newly placed one. For example, the 10.5-cm Flak38 was tan instead of its `1w_c.dds` grey, and the infantry wore summer uniforms.
+
+**Root cause:** the bridge never told the world the map's season. `CWorldBase` starts on `SEASON_SUMMER` (`Common/WorldBase.cpp:166`). `CWorldBase::CreateMapObject` passes the world's `nSeason` to every `pMO->Create`, and each map object picks its model and texture once, when it is created: `MOUnitMechanical` picks `\1w`, `MOUnitInfantry` uses `GetNameWithSeason`, and `MOObject` and `MOBuilding` use `GetSeasonApp`. The static `CMOUnit::nSeason` is set from the same argument. The game calls `pWorld->SetSeason( mapinfo.nSeason )` after the terrain and before the mission's objects (`GameTT/iMissionInternal.cpp:1495`). The MFC editor calls it on every load (`MapEditor/TemplateEditorFrame1.cpp:1683`). `OpenMapIntoSession` did neither.
+
+**Fix** (`Sources/src/EditorBridge/session.cpp`, `OpenMapIntoSession`): after `pScene->SetTerrain` and before `PlaceObjects`/`BuildBridges`/`UpdateSessionWorld`, the session calls `pWorld->SetSeason( working.nSeason )`, in the game's order. This also sets the scene's sun (`IScene::SetSeason`), the `World.Season` global and the season's flash colours. Every world rebuild goes through this function: `BkEditorOpenMap` is its only caller, and the app's open, reopen and reload all use it. A mod switch closes the map, and the app then reopens it through the same call. Undo and redo edit the world in place and never rebuild it, so objects they add use the season already set. The editor cannot edit the season. Opening a summer map after a winter one resets the season, so no map inherits another's.
+
+**Commit:** `933f99bd4` fix(03-15): a winter map's units are drawn in their winter paint.
+
+**Evidence** (debug stage `zig-out/game/macos/arm64/debug`; the release stage was not touched because Johannes was running it):
+- New engine-tier test `TestSeasonPicksTheVisuals` in `tools/zig/editor_bridge_test.cpp`. It opens coldwinter and then arnheim (summer), so the second open has to undo the first's season. For each map it checks `summary.season` and `World.Season`. It then points the camera at the map's first 6 units and squads, places a `10.5-cm_Flak38` and a `German_rifle_39` squad on bare ground, and reads the texture each unit on screen is drawn with. It does this with an `ISceneVisitor` over `IScene::Pick(screen rect, SGVOGT_UNIT)` plus `ITextureManager::GetTextureName`, which is the key the renderer actually binds. Winter must be `<n>w`/`<n>bw` and summer `<n>`/`<n>b`.
+- Before the fix (test written first; log `zig-out/local-test/season-BEFORE-fix.log`), on coldwinter:
+  - `World.Season` was unset.
+  - 0 of 67 unit pictures of the map's own units were winter (`t_34_85\1`, `js_3\1`, ...).
+  - The placed Flak38 was 0/1 winter (`10_5_cm_flak38\1`) and the placed infantry 0/10 (`mauser\1`).
+  - The Flak38 was drawn at a mean RGB of 90,89,67.
+- After the fix (log `zig-out/local-test/season-AFTER-fix.log`):
+  - coldwinter: the map's own units were 67/67 winter, the Flak38 1/1 and the infantry 10/10. The Flak38 was drawn at a mean RGB of 124,134,125, grey (its textures average 55,48,33 summer and 94,95,90 winter).
+  - arnheim: 58/58 own, 1/1 Flak38 and 10/10 infantry stayed in summer textures.
+  - `test-editor-bridge` PASS.
+- Captures: `zig-out/local-test/season-winter-BEFORE-fix.png` and `season-winter-AFTER-fix.png` (640x480, also `.tga`). Side by side: `zig-out/local-test/season-winter-before-after-crop.png`, where the tan Flak38 becomes grey.
+- `map-editor-smoke` PASS (35 steps, coldwinter). `map-editor-host-check` PASS (host check, unknown-object warning, panel smoke).
+- `test-map-editor-engine`: 1 pass, 1 fail. The failure is `expectLoneSoldierRefused` at `Sources/editor/app/c_bridge_test.zig:87` (`placeable` expected 0, found 1). That code belongs to the lone-soldier gap fix another session had uncommitted in this worktree at the time (`catalogue.cpp`, `bridge.h`, `c_bridge_test.zig`), not to this change. The test's open, edit and command steps before that line ran with the season fix in. Re-run it once that work lands.
+
+**Still to do:** rebuild the release stage once Johannes has left it, then look at coldwinter in the release MapEditor.
+
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
 Still open in `.planning/WINDOWS.md` (entries 1-3, ledger `open_count: 3`):
