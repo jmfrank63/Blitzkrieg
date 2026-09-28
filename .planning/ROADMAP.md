@@ -216,7 +216,7 @@ see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
 **Goal:** Meet the M1 exit criteria of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: test-launch the edited map in the game (the game plays the saved map), load a mod's data like the game, camera rotate and zoom, safe save (temporary file and swap) with the unsaved-changes prompt, editor settings and recent files, `BK_EDITOR_AUTO` automation with shot comparison, the full open/save sweep of every shipped map, and packaging `MapEditor` with the game — plus the "Carried to plan 6" list of `docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md` (object icons, brush outline via world-to-screen, panels following a resize, the map's sound list, the unknown-objects warning, the Windows console subsystem, and the deferred minors). Plans 1–5 of the map editor are merged (main 6657668a6).
 **Requirements**: CONTEXT D-01..D-29, the spec's M1 exit criteria, plan 5's "Carried to plan 6" list
 **Depends on:** Map editor plans 1–5 (merged); independent of Phase 2
-**Plans:** 8/15 plans executed (one after another in the one worktree: shared zig-out, ~13 GB free)
+**Plans:** 13/15 plans executed (one after another in the one worktree: shared zig-out, ~13 GB free)
 
 Plans:
 **Wave 1**
@@ -253,23 +253,23 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 03-09-PLAN.md — object pictures in the palette (shipped icon.tga through the engine; checkpoint on the rest)
+- [x] 03-09-PLAN.md — object pictures in the palette (shipped icon.tga through the engine; checkpoint on the rest)
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 03-10-PLAN.md — the map's sound list: listed, edited with undo, marked on the map
+- [x] 03-10-PLAN.md — the map's sound list: listed, edited with undo, marked on the map
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
-- [ ] 03-11-PLAN.md — unknown-objects warning, panels follow a resize, gesture guard, app-side carried minors
+- [x] 03-11-PLAN.md — unknown-objects warning, panels follow a resize, gesture guard, app-side carried minors
 
 **Wave 12** *(blocked on Wave 11 completion)*
 
-- [ ] 03-12-PLAN.md — BK_EDITOR_AUTO with shot comparison; the spec's editor-app scenario
+- [x] 03-12-PLAN.md — BK_EDITOR_AUTO with shot comparison; the spec's editor-app scenario
 
 **Wave 13** *(blocked on Wave 12 completion)*
 
-- [ ] 03-13-PLAN.md — bridge and engine-tier carried minors; host check honours test mode
+- [x] 03-13-PLAN.md — bridge and engine-tier carried minors; host check honours test mode
 
 **Wave 14** *(blocked on Wave 13 completion)*
 
@@ -278,3 +278,15 @@ Plans:
 **Wave 15** *(blocked on Wave 14 completion)*
 
 - [ ] 03-15-PLAN.md — full open/save sweep, whole suite and CI, spec updated, Johannes's M1 hand try
+
+## Backlog
+
+### Phase 999.1: Random map generation: fast polygon fill (BACKLOG)
+
+**Goal:** Cut "CreateRandomMap. Fill polygons." (2.5–15 s per map in the Windows debug CI tier, median 10 s; "Find Polygons." is 0–1 ms) without changing a single generated map: the same seed must still produce byte-identical maps. Take it up after map editor plan 6 (Phase 3). Analysis and the proposed order (measure, determinism check, cheap fixes, then an edge grid) in `.planning/phases/999.1-random-map-generation-fast-polygon-fill/999.1-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
