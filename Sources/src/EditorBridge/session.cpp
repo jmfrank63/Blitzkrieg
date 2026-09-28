@@ -1402,6 +1402,29 @@ bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, fl
 	return true;
 }
 
+bool WorldToScreen( SEditorSession *pSession, float wx, float wy, float *psx, float *psy )
+{
+	if ( pSession == 0 || !pSession->bEngineStarted || psx == 0 || psy == 0 )
+		return false;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		return false;
+	}
+	// The world point's height, so a point above or below the ground draws
+	// where it actually is rather than where the ground under it is -
+	// IScene::GetPos2 wants all three axes.
+	float fHeight = 0.0f;
+	if ( ITerrain *pTerrain = pScene->GetTerrain() )
+		fHeight = pTerrain->GetHeight( CVec2( wx, wy ) );
+	CVec2 vScreen( 0, 0 );
+	pScene->GetPos2( &vScreen, CVec3( wx, wy, fHeight ) );
+	*psx = vScreen.x;
+	*psy = vScreen.y;
+	return true;
+}
+
 void WorldToMap( float wx, float wy, float *pmx, float *pmy )
 {
 	CVec3 vMap( VNULL3 );

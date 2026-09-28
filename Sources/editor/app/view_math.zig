@@ -107,6 +107,130 @@ pub fn wheelPan(event: WheelEvent, sensitivity: f32) ScreenPan {
     return .{ .right_px = event.x * gain, .up_px = event.y * gain };
 }
 
+/// Whether two nonzero deltas point the same way - no `std.math.sign` in
+/// this Zig; a plain comparison is enough for the residual-reversal check.
+fn sameDirection(a: f32, b: f32) bool {
+    return (a > 0 and b > 0) or (a < 0 and b < 0);
+}
+
+/// The whole steps a residual has crossed, snapping to the nearest integer
+/// first when it is within floating-point noise of one: `log(1.2, 1/1.2)` is
+/// exactly -1 in real numbers but `-0.999999...` in f32, and a plain
+/// `trunc` would silently drop that step.
+fn wholeSteps(residual: f32) i32 {
+    const rounded = @round(residual);
+    if (@abs(residual - rounded) < 0.0005) return @intFromFloat(rounded);
+    return @intFromFloat(std.math.trunc(residual));
+}
+
+/// Shift+wheel/swipe or a trackpad pinch, folded into whole zoom steps: the
+/// game's own zoom (NSceneScreenScale) moves in integer steps, and a
+/// fractional trackpad delta or pinch scale has to accumulate toward the
+/// next whole one rather than being rounded or dropped.
+pub const ZoomWheel = struct {
+    residual: f32 = 0,
+
+    /// One wheel/swipe delta in, the whole steps it crossed out (0, one, or
+    /// more for a fast spin); the leftover fraction is carried to the next
+    /// `feed`. A delta that reverses direction from the carried fraction
+    /// drops it first: the residual is "how far the finger has moved this
+    /// way", and it means nothing once the finger reverses.
+    pub fn feed(self: *ZoomWheel, delta: f32) i32 {
+        if (delta == 0) return 0;
+        if (self.residual != 0 and !sameDirection(self.residual, delta)) self.residual = 0;
+        self.residual += delta;
+        const steps = wholeSteps(self.residual);
+        self.residual -= @floatFromInt(steps);
+        return steps;
+    }
+};
+
+/// A wheel event's zoom delta: y, or x when y is 0 - macOS turns Shift + a
+/// mouse wheel's vertical notches into a horizontal scroll (the same reason
+/// `wheelPan` takes both axes for a plain pan).
+pub fn zoomDelta(x: f32, y: f32) f32 {
+    return if (y != 0) y else x;
+}
+
+/// `GFX.World.ZoomFactor`'s default (Scene/SceneScreenScale.h,
+/// `NSceneScreenScale::GetZoomStepFactor`): each zoom step scales the view by
+/// this factor, so a pinch's scale is folded into steps on a log of this base.
+pub const pinch_zoom_step_factor: f32 = 1.2;
+
+/// A trackpad pinch, folded into whole zoom steps the same way `ZoomWheel`
+/// folds a wheel/swipe delta - but on a log scale, since SDL's pinch `scale`
+/// is multiplicative (scale < 1 zooms out, > 1 zooms in) rather than additive.
+pub const PinchZoom = struct {
+    log_residual: f32 = 0,
+
+    /// The pinch update's `scale` (since the last update) in, the whole
+    /// zoom steps it crossed out. A non-positive scale (should not happen,
+    /// SDL's own doc gives no bound) folds to no steps and leaves the
+    /// residual alone rather than feeding `log` a domain error.
+    pub fn feed(self: *PinchZoom, scale: f32) i32 {
+        if (scale <= 0) return 0;
+        self.log_residual += std.math.log(f32, pinch_zoom_step_factor, scale);
+        const steps = wholeSteps(self.log_residual);
+        self.log_residual -= @floatFromInt(steps);
+        return steps;
+    }
+
+    /// Begin/end of a pinch gesture: no fraction should carry from one
+    /// gesture into the next.
+    pub fn reset(self: *PinchZoom) void {
+        self.log_residual = 0;
+    }
+};
+
+test "ZoomWheel: a mouse wheel's notches give one step each" {
+    var zoom: ZoomWheel = .{};
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(1.0));
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(1.0));
+    try std.testing.expectEqual(@as(i32, -1), zoom.feed(-1.0));
+}
+
+test "ZoomWheel: four trackpad deltas of 0.3 give one step, on the fourth" {
+    var zoom: ZoomWheel = .{};
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(0.3));
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(0.3));
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(0.3));
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(0.3));
+}
+
+test "ZoomWheel: a reversal drops the carried residual" {
+    var zoom: ZoomWheel = .{};
+    _ = zoom.feed(0.9);
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(-0.3));
+    try std.testing.expectApproxEqAbs(@as(f32, -0.3), zoom.residual, 0.0001);
+}
+
+test "zoomDelta: y wins when nonzero, x only when y is 0" {
+    try std.testing.expectEqual(@as(f32, 2), zoomDelta(1, 2));
+    try std.testing.expectEqual(@as(f32, 1), zoomDelta(1, 0));
+    try std.testing.expectEqual(@as(f32, 0), zoomDelta(0, 0));
+}
+
+test "PinchZoom: scale steps of exactly the zoom factor give one step each way" {
+    var zoom: PinchZoom = .{};
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(pinch_zoom_step_factor));
+    try std.testing.expectEqual(@as(i32, -1), zoom.feed(1 / pinch_zoom_step_factor));
+}
+
+test "PinchZoom: small scale updates accumulate toward the next step" {
+    var zoom: PinchZoom = .{};
+    var steps: i32 = 0;
+    for (0..10) |_| steps += zoom.feed(1.02);
+    try std.testing.expect(steps >= 1);
+}
+
+test "PinchZoom: reset clears a carried residual between gestures" {
+    var zoom: PinchZoom = .{};
+    _ = zoom.feed(1.1);
+    try std.testing.expect(zoom.log_residual != 0);
+    zoom.reset();
+    try std.testing.expectEqual(@as(f32, 0), zoom.log_residual);
+}
+
 const test_map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
 
 fn applyWheel(camera: *Camera, event: WheelEvent) void {

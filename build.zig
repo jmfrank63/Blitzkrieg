@@ -3669,6 +3669,13 @@ fn addEditorBridge(
     module.addIncludePath(b.path("Sources/src/Main"));
     module.addIncludePath(b.path("Sources/src/Image"));
     module.addIncludePath(b.path("Sources/src/GFX"));
+    // Scene/SceneScreenScale.h's own bare #include "Globals.h" resolves
+    // relative to Scene's directory first, same as every other module that
+    // includes it (build.zig's Scene target carries this path too) - without
+    // it, the zoom bridge's #include "../Scene/SceneScreenScale.h" fails to
+    // find Globals.h even though StdAfx.h already pulls the same header in
+    // through its own relative "../StreamIO/Globals.h" include.
+    module.addIncludePath(b.path("Sources/src/StreamIO"));
     module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/EditorBridge/bridge.cpp",

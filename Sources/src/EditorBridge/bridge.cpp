@@ -12,6 +12,8 @@
 #include "../Main/iMain.h"
 #include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
+#include "../Scene/SceneScreenScale.h"
+#include "../Scene/Terrain.h"
 #include "../Image/Image.h"
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
@@ -19,6 +21,7 @@
 #include "../StreamIO/ProfilePaths.h"
 #include "../Main/GameDB.h"
 #include <SDL3/SDL.h>
+#include <cmath>
 #include <filesystem>
 
 // Every module that links the engine statics defines these four and lets
@@ -57,6 +60,47 @@ void SetScreenProjection( IGFX *pGFX )
 	pGFX->SetCullMode( GFXC_CW );		// the right-handed coordinate system
 	pGFX->SetProjectionTransform( matProjection );
 	pGFX->EnableLighting( false );
+}
+
+// GFX.World.BaseSizeX/Y from the screen's own size, the way
+// Common/InterfaceScreenBase.cpp:704-711 publishes them for the Mission
+// screen - a path the bridge's headless startup never runs. Without this,
+// NSceneScreenScale::GetMaxZoomSteps and GetGameplayScale always see "no
+// zoom possible" (both early-return on a base below 1x1).
+void PublishWorldBase( IGFX *pGFX )
+{
+	const RECT rcScreen = pGFX->GetScreenRect();
+	SetGlobalVar( "GFX.World.BaseSizeX", int( rcScreen.right - rcScreen.left ) );
+	SetGlobalVar( "GFX.World.BaseSizeY", int( rcScreen.bottom - rcScreen.top ) );
+}
+
+// CInterfaceMission::ApplyZoomStep's recipe (GameTT/iMissionInternal.cpp:881-905),
+// copied verbatim rather than re-derived: clamps to [0, GetMaxZoomSteps] for
+// the window's current size, keeps the world point under (fSx, fSy) fixed on
+// screen by shifting the camera's anchor by exactly what the re-projection
+// moved it, and rebuilds the terrain mesh the way a zoom step in the game
+// does (CScene::Draw's rebuild heuristic misses a zoom whose anchor does not
+// move, e.g. a zoom at the screen's centre).
+bool ZoomAtScreenPoint( BkEditorSession *pSession, int nSteps, float fSx, float fSy )
+{
+	IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+	IScene *pScene = pSession->bEngineStarted ? GetSingleton<IScene>() : 0;
+	ICamera *pCamera = pSession->bEngineStarted ? GetSingleton<ICamera>() : 0;
+	if ( pGFX == 0 || pScene == 0 || pCamera == 0 )
+	{
+		pSession->szMessage = "the engine is not started";
+		return false;
+	}
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	const int nClamped = Clamp( nSteps, 0, NSceneScreenScale::GetMaxZoomSteps( rcScreen ) );
+	CVec3 vPosOld( 0, 0, 0 ), vPosNew( 0, 0, 0 );
+	pScene->GetPos3( &vPosOld, CVec2( fSx, fSy ), true );
+	SetGlobalVar( "GFX.World.ZoomSteps", nClamped );
+	pScene->GetPos3( &vPosNew, CVec2( fSx, fSy ), true );
+	pCamera->SetAnchor( pCamera->GetAnchor() + ( vPosOld - vPosNew ) );
+	if ( ITerrain *pTerrain = pScene->GetTerrain() )
+		pTerrain->ResetPosition();
+	return true;
 }
 
 // Every entry point that needs a session goes through this. The catch is not
@@ -161,6 +205,7 @@ BkEditorStatus StartRenderer( BkEditorSession *pSession, void *pWindow )
 		return BK_EDITOR_NO_DEVICE;
 	}
 	SetScreenProjection( pGFX );
+	PublishWorldBase( pGFX );
 	return BK_EDITOR_OK;
 }
 }
@@ -262,6 +307,12 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !OpenMapIntoSession( pSession, pszPath ) )
 			return pSession->bEngineStarted ? BK_EDITOR_DATA_MISSING : BK_EDITOR_NO_SESSION;
+		// A fresh map opens unzoomed (D-15); the app restores a remembered
+		// view itself, after this call, through BkEditorSetZoom.
+		SetGlobalVar( "GFX.World.ZoomSteps", 0 );
+		if ( IScene *pScene = GetSingleton<IScene>() )
+			if ( ITerrain *pTerrain = pScene->GetTerrain() )
+				pTerrain->ResetPosition();
 		if ( pOut != 0 )
 		{
 			// Sizes and counts come from the snapshot, which is the file as it
@@ -663,6 +714,78 @@ BkEditorStatus BkEditorSetCamera( BkEditorSession *pSession, float wx, float wy 
 	} );
 }
 
+BkEditorStatus BkEditorViewState( BkEditorSession *pSession, BkEditorView *pOut )
+{
+	if ( pOut != 0 )
+		memset( pOut, 0, sizeof *pOut );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		ICamera *pCamera = pSession->bEngineStarted ? GetSingleton<ICamera>() : 0;
+		if ( pGFX == 0 || pCamera == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const CTRect<float> rcScreen = pGFX->GetScreenRect();
+		const int nMax = NSceneScreenScale::GetMaxZoomSteps( rcScreen );
+		// A stale step count (a window shrunk since it was set) re-clamps at
+		// read time rather than being trusted, the same guarantee
+		// NSceneScreenScale::GetPlayerZoom gives its own callers.
+		const int nSteps = Clamp( GetGlobalVar( "GFX.World.ZoomSteps", 0 ), 0, nMax );
+		const CVec3 vAnchor = pCamera->GetAnchor();
+		pOut->anchor_x = vAnchor.x;
+		pOut->anchor_y = vAnchor.y;
+		pOut->zoom_steps = nSteps;
+		pOut->max_zoom_steps = nMax;
+		pOut->scale = NSceneScreenScale::GetGameplayScale( rcScreen );
+		// The game's own yaw (session.cpp's SetSessionCamera); nothing here
+		// varies it yet.
+		pOut->yaw_degrees = 45.0f;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorZoomAt( BkEditorSession *pSession, int nDeltaSteps, float fSx, float fSy )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !std::isfinite( fSx ) || !std::isfinite( fSy ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		const int nCurrent = GetGlobalVar( "GFX.World.ZoomSteps", 0 );
+		return ZoomAtScreenPoint( pSession, nCurrent + nDeltaSteps, fSx, fSy ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorSetZoom( BkEditorSession *pSession, int nSteps )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		IGFX *pGFX = pSession->bEngineStarted ? GetSingleton<IGFX>() : 0;
+		if ( pGFX == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const RECT rcScreen = pGFX->GetScreenRect();
+		const float fCentreX = float( rcScreen.right - rcScreen.left ) / 2.0f;
+		const float fCentreY = float( rcScreen.bottom - rcScreen.top ) / 2.0f;
+		return ZoomAtScreenPoint( pSession, nSteps, fCentreX, fCentreY ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
 BkEditorStatus BkEditorFrame( BkEditorSession *pSession )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -747,6 +870,7 @@ BkEditorStatus BkEditorResize( BkEditorSession *pSession, int nWidth, int nHeigh
 			return BK_EDITOR_FAILED;
 		}
 		SetScreenProjection( pGFX );
+		PublishWorldBase( pGFX );
 		// The placement's distance depends on the screen's height, so the
 		// camera is placed again at its anchor, as the game does after a
 		// resolution change (GameTT/iMissionInternal.cpp, CMD_LOAD_FINISHED).
@@ -826,6 +950,25 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *pSession, float sx, float
 		if ( pwx == 0 || pwy == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		return ScreenToWorld( pSession, sx, sy, pwx, pwy ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorWorldToScreen( BkEditorSession *pSession, float wx, float wy, float *psx, float *psy )
+{
+	if ( psx != 0 ) *psx = 0.0f;
+	if ( psy != 0 ) *psy = 0.0f;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( psx == 0 || psy == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !std::isfinite( wx ) || !std::isfinite( wy ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen || GetSingleton<ICamera>() == 0 )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return WorldToScreen( pSession, wx, wy, psx, psy ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
 	} );
 }
 

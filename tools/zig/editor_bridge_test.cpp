@@ -1045,6 +1045,102 @@ static void TestTerrainUnderTheCamera( BkEditorSession *pSession, const std::str
 	Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the ground is drawn under the camera (%.1f%% of the lower half black)", fBlack * 100.0f ) );
 }
 
+// D-10, D-11, D-14, D-16: the zoom is bounded by NSceneScreenScale's own
+// limit for the window's size, and a zoom stays anchored on the world point
+// under the screen point it was asked at, in either direction, past the
+// bound and back.
+static void TestZoomStepsBoundedAndAnchored( BkEditorSession *pSession, SDL_Window *pWindow, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+
+	// Larger than the other tests' 640x480, as TestOverlayDeviceAndSize
+	// resizes to: more room before the D-09 zoom-in bound (the view may
+	// shrink to a 640x480-effective viewport) is reached.
+	SDL_SetWindowSize( pWindow, 1280, 960 );
+	SDL_SyncWindow( pWindow );
+	int nWidth = 0, nHeight = 0;
+	SDL_GetWindowSize( pWindow, &nWidth, &nHeight );
+	if ( !Check( BkEditorResize( pSession, nWidth, nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorFrame( pSession );
+
+	BkEditorView view;
+	if ( !Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	printf( "editor-bridge: at %dx%d the max zoom is %d steps\n", nWidth, nHeight, view.max_zoom_steps );
+	Check( view.max_zoom_steps >= 1, NStr::Format( "the window is wide enough to zoom at least once (%d steps)", view.max_zoom_steps ) );
+
+	// Left and above the centre: the world point there should stay under it
+	// while zooming in as far as the window allows.
+	const float fPointX = float( nWidth ) / 2.0f - 120.0f, fPointY = float( nHeight ) / 2.0f - 90.0f;
+	float wxBefore = 0.0f, wyBefore = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, fPointX, fPointY, &wxBefore, &wyBefore ) == BK_EDITOR_OK, "the point is on the map before zooming" ) )
+		return;
+	Check( BkEditorZoomAt( pSession, 20, fPointX, fPointY ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK && view.zoom_steps == view.max_zoom_steps,
+	       NStr::Format( "a large zoom-in clamps at the maximum (%d against %d)", view.zoom_steps, view.max_zoom_steps ) );
+	Check( view.scale > 1.0f, NStr::Format( "the scale grew with the zoom (%.2f)", view.scale ) );
+	BkEditorFrame( pSession );
+	float wxAfter = 0.0f, wyAfter = 0.0f;
+	Check( BkEditorScreenToWorld( pSession, fPointX, fPointY, &wxAfter, &wyAfter ) == BK_EDITOR_OK &&
+	       fabsf( wxAfter - wxBefore ) <= 2.0f && fabsf( wyAfter - wyBefore ) <= 2.0f,
+	       NStr::Format( "the point stayed anchored while zooming in (%.1f,%.1f against %.1f,%.1f)", wxAfter, wyAfter, wxBefore, wyBefore ) );
+
+	const std::string szFrame = szScratch + "/editor-bridge-zoom.tga";
+	if ( SaveFrame( pSession, szFrame ) )
+	{
+		std::vector<unsigned char> file;
+		if ( FILE *pFile = fopen( szFrame.c_str(), "rb" ) )
+		{
+			fseek( pFile, 0, SEEK_END );
+			file.resize( size_t( ftell( pFile ) ) );
+			fseek( pFile, 0, SEEK_SET );
+			if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
+				file.clear();
+			fclose( pFile );
+		}
+		if ( Check( file.size() > 18, "the zoomed frame reads back" ) )
+		{
+			const int nFrameWidth = file[12] | ( file[13] << 8 ), nFrameHeight = file[14] | ( file[15] << 8 );
+			const unsigned char *pPixels = &file[18];
+			int nBlack = 0, nCounted = 0;
+			for ( int y = nFrameHeight / 2; y < nFrameHeight; ++y )
+				for ( int x = 0; x < nFrameWidth; ++x, ++nCounted )
+				{
+					const unsigned char *p = pPixels + ( size_t( y ) * nFrameWidth + x ) * 4;
+					if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+						++nBlack;
+				}
+			const float fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+			printf( "editor-bridge: at max zoom the lower half of the frame is %.1f%% black\n", fBlack * 100.0f );
+			Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the terrain rebuilt after the zoom (%.1f%% black)", fBlack * 100.0f ) );
+		}
+	}
+
+	Check( BkEditorZoomAt( pSession, -20, fPointX, fPointY ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK && view.zoom_steps == 0,
+	       NStr::Format( "a large zoom-out clamps at 0 (%d)", view.zoom_steps ) );
+
+	Check( BkEditorSetZoom( pSession, view.max_zoom_steps + 5 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK && view.zoom_steps == view.max_zoom_steps,
+	       NStr::Format( "SetZoom past the maximum clamps (%d against %d)", view.zoom_steps, view.max_zoom_steps ) );
+
+	// Back to 0 and the size the later tests expect.
+	BkEditorSetZoom( pSession, 0 );
+	SDL_SetWindowSize( pWindow, 640, 480 );
+	SDL_SyncWindow( pWindow );
+	SDL_GetWindowSize( pWindow, &nWidth, &nHeight );
+	Check( BkEditorResize( pSession, nWidth, nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
 // A camera put on an object answers, at the middle of the screen, with that
 // object - the picking half of "the camera is on cell 83,36 and the middle of
 // the screen is 83,36".
@@ -1978,6 +2074,7 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
 		TestTerrainUnderTheCamera( pSession, szScratch );
+		TestZoomStepsBoundedAndAnchored( pSession, pWindow, szScratch );
 		TestOverlayDeviceAndSize( pSession, pWindow );
 		// Read again rather than trusting the resize test to have put the
 		// screen back at the size it was.

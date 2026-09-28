@@ -296,6 +296,45 @@ BkEditorStatus BkEditorTestMapPath( BkEditorSession *session, const char *profil
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
 BkEditorStatus BkEditorFrame( BkEditorSession *session );
 
+/* The zoom is not the camera's distance: it is NSceneScreenScale's global-var
+   driven orthographic rescale (Scene/SceneScreenScale.h), the same one the
+   game's Mission screen drives through GFX.World.ZoomSteps. anchor_x/anchor_y
+   are world units (ICamera::GetAnchor - what BkEditorSetCamera places).
+   zoom_steps is the step count as applied - already clamped to
+   [0, max_zoom_steps] for the window's current size, so a stale count from
+   before a resize never reads back out of range. scale is screen pixels per
+   unzoomed pixel (NSceneScreenScale::GetGameplayScale): 1.0 at zoom_steps 0.
+   yaw_degrees is the camera's yaw in degrees - 45, the game's own, until a
+   later plan gives the editor rotation. */
+typedef struct
+{
+	float anchor_x, anchor_y;
+	int zoom_steps;
+	int max_zoom_steps;
+	float scale;
+	float yaw_degrees;
+} BkEditorView;
+
+/* BK_EDITOR_REFUSED means the engine is not started; out is then left zeroed. */
+BkEditorStatus BkEditorViewState( BkEditorSession *session, BkEditorView *out );
+
+/* Zooms by delta_steps steps (positive in, negative out), anchored so the
+   world point under the screen point (sx, sy) - screen pixels - stays under
+   it: the game's own CInterfaceMission::ApplyZoomStep recipe. The result is
+   clamped to [0, the window's current max_zoom_steps] - out to the unzoomed
+   view, in no further than the game ever goes - so a request past either end
+   is not an error; BkEditorViewState says whether it clamped. sx, sy off the
+   window still zoom, anchored at whatever GetPos3 answers for that point.
+   BK_EDITOR_REFUSED with no map open; BK_EDITOR_BAD_ARGUMENT for a
+   non-finite sx or sy. */
+BkEditorStatus BkEditorZoomAt( BkEditorSession *session, int delta_steps, float sx, float sy );
+
+/* The same recipe with an absolute step count instead of a delta, anchored at
+   the screen's centre - for Home/Reset view (D-13) and for restoring a
+   session-remembered view (D-15). Same clamp and refusal rules as
+   BkEditorZoomAt. */
+BkEditorStatus BkEditorSetZoom( BkEditorSession *session, int steps );
+
 /* The editor's own drawing - its ImGui - goes into the engine's frame rather
    than into a renderer of its own. overlay runs on the thread that calls
    BkEditorFrame, inside the engine's Flip, after the scene and before present,
@@ -367,6 +406,16 @@ BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, i
    drawn and picked there, which is how plan 5's smoke first met it.
    BkEditorWorldToMap is the one conversion. */
 BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float sy, float *wx, float *wy );
+
+/* The other direction of BkEditorScreenToWorld: a world point (world units,
+   not map units) to the screen point (pixels) it draws at, at whatever zoom
+   is set now - through the same projection BkEditorFrame draws with. The
+   world point's height is the terrain's own at (wx, wy) (IScene::GetPos2
+   wants all three axes; a point above or below the ground would otherwise
+   land where the ground is, not where the point is drawn).
+   BK_EDITOR_REFUSED with no map open or no camera; BK_EDITOR_BAD_ARGUMENT for
+   a null output or a non-finite wx or wy. */
+BkEditorStatus BkEditorWorldToScreen( BkEditorSession *session, float wx, float wy, float *sx, float *sy );
 
 /* A world point as the map position an object placed there takes, through
    the engine's own conversion (Vis2AIFast). Unrounded: the object calls

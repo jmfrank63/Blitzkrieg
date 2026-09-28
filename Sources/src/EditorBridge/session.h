@@ -147,6 +147,10 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
 bool DrawSessionFrame( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
+// The other direction: a world point (the scene's units) to the screen point
+// it draws at right now, through the terrain's own height at that point -
+// see BkEditorWorldToScreen.
+bool WorldToScreen( SEditorSession *pSession, float wx, float wy, float *psx, float *psy );
 // World units (the scene's) to map units (the file's and the AI's): the
 // engine's AI2Vis the other way round. See BkEditorScreenToWorld.
 void WorldToMap( float wx, float wy, float *pmx, float *pmy );

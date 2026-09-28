@@ -31,6 +31,13 @@ const edge_scroll_margin: f32 = 8.0;
 pub const View = struct {
     camera_x: f32 = 0,
     camera_y: f32 = 0,
+    /// The bridge's own step count and scale (BkEditorViewState), kept in
+    /// sync after every zoom (`syncFromBridge`): 0 steps, scale 1 is the
+    /// game's unzoomed view.
+    zoom_steps: i32 = 0,
+    scale: f32 = 1,
+    /// Carries a Shift+wheel/swipe's fractional delta between events.
+    zoom_wheel: view_math.ZoomWheel = .{},
     tool: Tool = .select,
     brush: tools.Brush,
     placer: tools.Placer,
@@ -217,11 +224,20 @@ pub const View = struct {
         if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, .{ .drag = pointer });
     }
 
-    /// A mouse wheel or a two-finger trackpad swipe pans the camera. SDL
-    /// sends a swipe as many small fractional wheel events on both axes.
+    /// A mouse wheel or a two-finger trackpad swipe pans the camera; with
+    /// Shift held it zooms instead (D-10), like the game. SDL sends a swipe
+    /// as many small fractional wheel events on both axes.
     /// view_math.wheelPan maps each straight to a screen pan, so the camera
-    /// follows the fingers without rounding or stepping back.
+    /// follows the fingers without rounding or stepping back; view_math's
+    /// ZoomWheel folds the same fractional deltas into whole zoom steps.
     fn handleWheel(self: *View, real: *RealBridge, wheel: sdl3.c.SDL_MouseWheelEvent) void {
+        if (sdl3.c.SDL_GetModState() & sdl3.c.SDL_KMOD_SHIFT != 0) {
+            const delta = view_math.zoomDelta(wheel.x, wheel.y);
+            const steps = self.zoom_wheel.feed(delta);
+            if (steps == 0) return;
+            if (real.zoomAt(steps, wheel.mouse_x, wheel.mouse_y) == .ok) self.syncFromBridge(real);
+            return;
+        }
         const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED }, view_math.wheel_sensitivity);
         const before_x = self.camera_x;
         const before_y = self.camera_y;
@@ -230,6 +246,18 @@ pub const View = struct {
         self.camera_x = camera.x;
         self.camera_y = camera.y;
         if (self.camera_x != before_x or self.camera_y != before_y) _ = real.setCamera(self.camera_x, self.camera_y);
+    }
+
+    /// After a zoom (Shift+wheel, pinch, Home, or a remembered view
+    /// restored): the camera, the zoom step and the scale all follow the
+    /// bridge's own view state, which is where the zoom-at recipe left them
+    /// (D-14's anchor shift moves the camera too, not just the zoom).
+    pub fn syncFromBridge(self: *View, real: *RealBridge) void {
+        const view = real.viewState() orelse return;
+        self.camera_x = view.anchor_x;
+        self.camera_y = view.anchor_y;
+        self.zoom_steps = view.zoom_steps;
+        self.scale = view.scale;
     }
 
     /// Q/E and the 1/2/3 tool keys ignore SDL's key-repeat (rotating by 16

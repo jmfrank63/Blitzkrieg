@@ -214,6 +214,36 @@ pub const RealBridge = struct {
         return status(c.BkEditorSetCamera(self.session, wx, wy));
     }
 
+    /// The bridge's view: the anchor, the zoom step (already clamped to the
+    /// window's current maximum) and the scale it draws at. Null on any
+    /// refusal (the engine is not started).
+    pub fn viewState(self: *RealBridge) ?c.BkEditorView {
+        var out: c.BkEditorView = std.mem.zeroes(c.BkEditorView);
+        if (c.BkEditorViewState(self.session, &out) != c.BK_EDITOR_OK) return null;
+        return out;
+    }
+
+    /// Zooms by `steps` (positive in, negative out) anchored at the screen
+    /// point (sx, sy) - Shift+wheel/swipe and pinch both go through this.
+    pub fn zoomAt(self: *RealBridge, steps: i32, sx: f32, sy: f32) Status {
+        return status(c.BkEditorZoomAt(self.session, steps, sx, sy));
+    }
+
+    /// The same recipe with an absolute step count, anchored at the screen's
+    /// centre: Home/Reset view and restoring a remembered view.
+    pub fn setZoom(self: *RealBridge, steps: i32) Status {
+        return status(c.BkEditorSetZoom(self.session, steps));
+    }
+
+    /// The other direction of `screenToWorld`: a world point to the screen
+    /// point it draws at now, at whatever zoom is set. Null on any refusal.
+    pub fn worldToScreen(self: *RealBridge, wx: f32, wy: f32) ?[2]f32 {
+        var sx: f32 = 0;
+        var sy: f32 = 0;
+        if (c.BkEditorWorldToScreen(self.session, wx, wy, &sx, &sy) != c.BK_EDITOR_OK) return null;
+        return .{ sx, sy };
+    }
+
     pub fn screenSize(self: *RealBridge) ?[2]i32 {
         var width: c_int = 0;
         var height: c_int = 0;
