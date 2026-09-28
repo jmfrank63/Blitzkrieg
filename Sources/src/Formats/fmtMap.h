@@ -114,6 +114,14 @@ struct SMapSoundInfo
 		return 0;
 	}
 
+	// 03-10: tags 6 and 6 collided (nMaxRadius and bMuteDuringCombat both
+	// under tag 6) - found by BkEditorSaveMap's own read-back verification
+	// refusing a kept, edited sound ("the written map reads back different
+	// at sounds.sounds[0].bMuteDuringCombat"). bMuteDuringCombat now has its
+	// own tag, 7 (the next unused one); the XML tree form below never had
+	// this bug (each field its own named key). No shipped map has a
+	// non-empty sounds.sounds today (measured: every Data/Maps .bzm and .xml
+	// this session could read), so there is nothing on disk this displaces.
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -124,7 +132,7 @@ struct SMapSoundInfo
 		saver.Add( 4, &timeRepeatRandom );
 		saver.Add( 5, &nMinRadius );
 		saver.Add( 6, &nMaxRadius );
-		saver.Add( 6, &bMuteDuringCombat );
+		saver.Add( 7, &bMuteDuringCombat );
 		return 0;
 	}
 };

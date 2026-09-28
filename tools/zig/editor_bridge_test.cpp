@@ -2550,6 +2550,31 @@ static void TestSoundList( BkEditorSession *pSession, int nScreenWidth, int nScr
 		return;
 	Check( afterSet[nAfterAdd - 1].min_radius == 2 && afterSet[nAfterAdd - 1].max_radius == 9, "the set radii stuck" );
 
+	// A kept (not deleted) edit survives a save and reload with its exact
+	// fields - the add+delete round trip below only proves the list's shape
+	// comes back; this proves a real edit's own values do too.
+	{
+		const std::string szKept = szScratch + "\\sounds-kept.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szKept.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			CMapInfo kept;
+			std::string szKeptError;
+			if ( Check( NMapFile::Read( szKept.c_str(), &kept, &szKeptError ), szKeptError.c_str() ) )
+			{
+				if ( Check( kept.sounds.sounds.size() == size_t( nAfterAdd ), "the kept map has the grown sound count" ) )
+				{
+					const SMapSoundInfo &rKept = kept.sounds.sounds[nAfterAdd - 1];
+					const BkEditorSoundRecord &rExpected = afterSet[nAfterAdd - 1];
+					Check( rKept.szName == rExpected.name && rKept.vPos.x == rExpected.x && rKept.vPos.y == rExpected.y && rKept.vPos.z == rExpected.z &&
+					           rKept.timeRepeat == NTimer::STime( rExpected.repeat_ms ) && rKept.timeRepeatRandom == NTimer::STime( rExpected.repeat_random_ms ) &&
+					           rKept.bMuteDuringCombat == ( rExpected.mute_in_combat != 0 ) && rKept.nMinRadius == rExpected.min_radius && rKept.nMaxRadius == rExpected.max_radius,
+					       "the kept sound's own fields (name, position, repeat, mute, radii) survived the save and reload" );
+				}
+			}
+		}
+		remove( szKept.c_str() );
+	}
+
 	// Delete it: the list equals the file's again.
 	if ( !Check( BkEditorDeleteSound( pSession, nAfterAdd - 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
