@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-07-PLAN.md
-last_updated: "2026-09-28T07:16:38.615Z"
-state_head: 6079dd2c764373356d53bcb9ade0be1d98425e3e
+stopped_at: Completed 03-08-PLAN.md
+last_updated: "2026-09-28T08:07:28.520Z"
+state_head: 63353b6ea08d35249316d2e08270cd08c3ea6bf0
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T07:16:38.567Z
-**Stopped at:** Completed 03-07-PLAN.md
+**Last session:** 2026-09-28T08:07:06.618Z
+**Stopped at:** Completed 03-08-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -77,6 +77,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P05 | ~58min | 3 tasks | 11 files |
 | Phase 03-map-editor-plan-6-finish-m1 P06 | ~20min | 1 tasks | 6 files |
 | Phase 03-map-editor-plan-6-finish-m1 P07 | ~35min | 3 tasks | 8 files |
+| Phase 03-map-editor-plan-6-finish-m1 P08 | ~60min | 3 tasks | 11 files |
 
 ## Decisions
 
@@ -93,3 +94,5 @@ behavior needs the in-game rows).
 - [Phase ?]: D-12 (camera rotation) deferred out of M1: yaw measurement shows terrain clips away and sprites stay fixed at any yaw but the game's own 45 degrees
 - [Phase ?]: needsSaveAs gained a user_root parameter for the D-22 recovery-folder check (a reopened recovery copy is saved with Save As) rather than a parallel function
 - [Phase ?]: run() takes two explicit parameters (settings_path, is_interactive) instead of one flag reused for both, so a future settings-path resolution failure cannot silently also disable autosave
+- [Phase ?]: 03-08: State.mod_folder is an owned fixed buffer (modFolder()/setModFolder), not a borrowed slice - State is returned by value from init, the same reasoning tile_count follows for tile_buffer — Avoids a dangling-slice bug the moment a field set after init pointed into anything but State's own storage
+- [Phase ?]: 03-08: BkEditorSetMod validates (bare-name check, mod.xml read) entirely before CloseSessionMap or any storage/global change, so a refusal never closes the map it was about to switch away from
