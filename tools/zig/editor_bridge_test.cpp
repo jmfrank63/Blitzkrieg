@@ -1934,6 +1934,142 @@ static void TestSeasonPicksTheVisuals( BkEditorSession *pSession, int nScreenWid
 	}
 }
 
+// Only the meshes' textures: a unit's icons are sprites, and some of them
+// (an icon with nothing to show) are visited without a texture.
+class CMeshTextureNameVisitor : public CTextureNameVisitor
+{
+public:
+	virtual void STDCALL VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority ) {  }
+};
+
+// The mesh textures of the units a pick of a screen box answers with.
+static std::vector<std::string> UnitMeshTexturesIn( const CTRect<float> &rcBox )
+{
+	CMeshTextureNameVisitor visitor;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+		return visitor.names;
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( rcBox, &pObjects, &nCount, SGVOGT_UNIT );
+	for ( int i = 0; i < nCount; ++i )
+		if ( pObjects[i].first != 0 )
+			pObjects[i].first->Visit( &visitor );
+	return visitor.names;
+}
+
+// Gap fix (M1 hand try): on a winter map a unit whose folder has no winter
+// texture was drawn pure white, in the editor and in the game. 83 of the 242
+// unit mesh folders have no 1w (the 105-mm M2A1 has only 1_c/_h/_l.dds), and
+// the unit asks for "<path>\1w" (MOUnitMechanical.cpp). The original DX8 GFX
+// drew a checker for a missing file; GFXGPU's texture manager answers null,
+// and a mesh with no texture is drawn white. CVisObjBuilder now falls back to
+// the season-less name. Checked on coldwinter by the texture each placed gun
+// is drawn with: the M2A1 in its summer "1", the Flak38 still in its "1w" -
+// and by the M2A1's colour as drawn, which must not be near white.
+static void TestMissingSeasonTextureFallsBack( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	static const char *const placed[] = { "105mm_M2A1_USA", "10.5-cm_Flak38" };
+	static const char *const wanted[] = { "units\\technics\\allies\\artillery\\105mm_m2a1_usa\\1",
+	                                      "units\\technics\\german\\artillery\\10_5_cm_flak38\\1w" };
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+	BkEditorFrame( pSession );
+	// Bare ground, found as TestSeasonPicksTheVisuals finds it.
+	std::vector<CVec2> spots;
+	for ( int nTry = 0; nTry < 42; ++nTry )
+	{
+		const float fX = nScreenWidth / 2.0f + ( ( nTry % 7 ) - 3.0f ) * 80.0f;
+		const float fY = nScreenHeight / 2.0f + ( ( nTry / 7 ) - 2.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+		int nIgnored = -1;
+		bool bClear = true;
+		for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+			for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+				bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+		if ( bClear )
+			spots.push_back( CVec2( fX, fY ) );
+	}
+	const std::string szBefore = szScratch + "/editor-bridge-season-fallback-before.tga";
+	if ( !SaveFrame( pSession, szBefore ) )
+		return;
+	CVec2 vPlacedAt[2];
+	size_t nSpot = 0;
+	for ( int i = 0; i < 2; ++i )
+	{
+		bool bPlaced = false;
+		for ( ; nSpot < spots.size() && !bPlaced; ++nSpot )
+		{
+			if ( i == 1 && fabs( spots[nSpot].x - vPlacedAt[0].x ) + fabs( spots[nSpot].y - vPlacedAt[0].y ) < 160.0f )
+				continue;
+			float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+			int nLinkID = -1;
+			bPlaced = BkEditorScreenToWorld( pSession, spots[nSpot].x, spots[nSpot].y, &wx, &wy ) == BK_EDITOR_OK &&
+			          BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK &&
+			          BkEditorAddObject( pSession, placed[i], mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK;
+			if ( bPlaced )
+				vPlacedAt[i] = spots[nSpot];
+		}
+		if ( !Check( bPlaced, NStr::Format( "%s is placed on bare ground on %s (%d patches found)", placed[i], SHIPPED_MAP, int( spots.size() ) ) ) )
+			return;
+	}
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	const std::string szAfter = szScratch + "/editor-bridge-season-fallback.tga";
+
+	for ( int i = 0; i < 2; ++i )
+	{
+		const CTRect<float> rcBox( vPlacedAt[i].x - 40.0f, vPlacedAt[i].y - 80.0f, vPlacedAt[i].x + 40.0f, vPlacedAt[i].y + 16.0f );
+		const std::vector<std::string> names = UnitMeshTexturesIn( rcBox );
+		bool bAllWanted = !names.empty();
+		std::string szNames;
+		for ( size_t j = 0; j < names.size(); ++j )
+		{
+			bAllWanted = bAllWanted && names[j] == wanted[i];
+			if ( szNames.size() < 300 )
+				szNames += " " + names[j];
+		}
+		printf( "editor-bridge: on %s the placed %s at %.0f,%.0f is drawn with:%s\n", SHIPPED_MAP, placed[i], vPlacedAt[i].x, vPlacedAt[i].y, szNames.c_str() );
+		Check( bAllWanted, NStr::Format( "the placed %s on %s is drawn with %s (drawn with:%s)", placed[i], SHIPPED_MAP, wanted[i], szNames.c_str() ) );
+	}
+
+	// The M2A1's colour as drawn: the mean of the pixels its placing changed.
+	// Without a texture it is drawn white.
+	if ( SaveFrame( pSession, szAfter ) )
+	{
+		int nWidth = 0, nHeight = 0;
+		const std::vector<unsigned char> before = ReadFramePixels( szBefore, &nWidth, &nHeight );
+		const std::vector<unsigned char> after = ReadFramePixels( szAfter, &nWidth, &nHeight );
+		double fSum[3] = { 0, 0, 0 };
+		int nChanged = 0;
+		if ( before.size() == after.size() && after.size() >= size_t( nWidth ) * nHeight * 4 )
+			for ( int y = Max( 0, int( vPlacedAt[0].y ) - 80 ); y < Min( nHeight, int( vPlacedAt[0].y ) + 16 ); ++y )
+				for ( int x = Max( 0, int( vPlacedAt[0].x ) - 40 ); x < Min( nWidth, int( vPlacedAt[0].x ) + 40 ); ++x )
+				{
+					const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+					if ( abs( int( before[n] ) - after[n] ) + abs( int( before[n + 1] ) - after[n + 1] ) + abs( int( before[n + 2] ) - after[n + 2] ) <= 48 )
+						continue;
+					// The TGA holds BGRA.
+					fSum[0] += after[n + 2];
+					fSum[1] += after[n + 1];
+					fSum[2] += after[n];
+					++nChanged;
+				}
+		const double fR = nChanged > 0 ? fSum[0] / nChanged : 0.0, fG = nChanged > 0 ? fSum[1] / nChanged : 0.0, fB = nChanged > 0 ? fSum[2] / nChanged : 0.0;
+		printf( "editor-bridge: on %s the placed M2A1 at %.0f,%.0f is drawn at mean RGB %.0f,%.0f,%.0f (%d pixels, %s)\n", SHIPPED_MAP,
+		        vPlacedAt[0].x, vPlacedAt[0].y, fR, fG, fB, nChanged, szAfter.c_str() );
+		Check( nChanged >= PLACED_MIN_CHANGED && Min( fR, Min( fG, fB ) ) < 180.0,
+		       NStr::Format( "the placed M2A1 is drawn, and not white (mean RGB %.0f,%.0f,%.0f over %d pixels)", fR, fG, fB, nChanged ) );
+	}
+}
+
 // D-12: what the renderer actually draws when the camera is placed at yaw
 // offsets other than the game's own 45, measured rather than guessed. The
 // terrain is laid out on a fixed isometric screen grid
@@ -3247,6 +3383,7 @@ int main( int argc, char **argv )
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSeasonPicksTheVisuals( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestMissingSeasonTextureFallsBack( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
 		TestObjectPictures( pSession, szScratch );
