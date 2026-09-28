@@ -9,6 +9,7 @@ pub const tools = @import("tools.zig");
 pub const files = @import("files.zig");
 pub const settings = @import("settings.zig");
 pub const autosave = @import("autosave.zig");
+pub const shipped = @import("shipped.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

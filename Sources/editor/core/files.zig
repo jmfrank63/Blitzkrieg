@@ -9,6 +9,7 @@
 //! `.bak` per file per session, taken before the first swap.
 const std = @import("std");
 const builtin = @import("builtin");
+const shipped = @import("shipped.zig");
 
 /// Enough for any path this editor writes: a user's map path plus the
 /// `.~save`/`.bak` suffixes this file adds to it.
@@ -33,6 +34,13 @@ pub const Files = struct {
         /// which not being there is the common case, not a failure.
         delete: *const fn (ptr: *anyopaque, os_path: []const u8) void,
         lastError: *const fn (ptr: *anyopaque) []const u8,
+        /// Whether the directory `os_dir` holds a game data root's marker
+        /// (shipped.zig's `isDataRootMarker`) at its top. False when it
+        /// does not exist or will not list.
+        isDataRoot: *const fn (ptr: *anyopaque, os_dir: []const u8) bool,
+        /// `os_path`'s canonical absolute path, symlinks resolved, in
+        /// `buffer` - null when it does not exist or will not resolve.
+        realPath: *const fn (ptr: *anyopaque, os_path: []const u8, buffer: []u8) ?[]const u8,
     };
 
     pub fn exists(self: Files, os_path: []const u8) bool {
@@ -49,6 +57,12 @@ pub const Files = struct {
     }
     pub fn lastError(self: Files) []const u8 {
         return self.vtable.lastError(self.ptr);
+    }
+    pub fn isDataRoot(self: Files, os_dir: []const u8) bool {
+        return self.vtable.isDataRoot(self.ptr, os_dir);
+    }
+    pub fn realPath(self: Files, os_path: []const u8, buffer: []u8) ?[]const u8 {
+        return self.vtable.realPath(self.ptr, os_path, buffer);
     }
 };
 
@@ -87,7 +101,27 @@ pub const StdFiles = struct {
         .rename = renameImpl,
         .delete = deleteImpl,
         .lastError = lastErrorImpl,
+        .isDataRoot = isDataRootImpl,
+        .realPath = realPathImpl,
     };
+
+    fn isDataRootImpl(ptr: *anyopaque, os_dir: []const u8) bool {
+        const self = from(ptr);
+        var dir = self.dir.openDir(self.io, os_dir, .{ .iterate = true }) catch return false;
+        defer dir.close(self.io);
+        var it = dir.iterate();
+        while (it.next(self.io) catch null) |entry| {
+            if (entry.kind == .directory) continue;
+            if (shipped.isDataRootMarker(entry.name)) return true;
+        }
+        return false;
+    }
+
+    fn realPathImpl(ptr: *anyopaque, os_path: []const u8, buffer: []u8) ?[]const u8 {
+        const self = from(ptr);
+        const len = self.dir.realPathFile(self.io, os_path, buffer) catch return null;
+        return buffer[0..len];
+    }
 
     fn existsImpl(ptr: *anyopaque, os_path: []const u8) bool {
         const self = from(ptr);
@@ -134,10 +168,18 @@ pub const FakeFiles = struct {
     op_log: std.ArrayListUnmanaged(Op) = .empty,
     fail_copy: bool = false,
     fail_rename: bool = false,
+    /// The directories `isDataRoot` answers true for, compared case- and
+    /// separator-insensitively (shipped.zig's tests). Not owned.
+    data_roots: []const []const u8 = &.{},
+    /// Fake symlinks for `realPath`: a path starting with `from` (a whole
+    /// component) resolves to `to` plus the rest; any other path is already
+    /// real and comes back unchanged. Not owned.
+    links: []const Link = &.{},
     message_buffer: [64]u8 = undefined,
     message_len: usize = 0,
 
     pub const OpKind = enum { write, copy, rename, delete };
+    pub const Link = struct { from: []const u8, to: []const u8 };
     pub const Op = struct { kind: OpKind, from: []const u8, to: []const u8 = "" };
 
     pub fn init(allocator: std.mem.Allocator) FakeFiles {
@@ -208,7 +250,36 @@ pub const FakeFiles = struct {
         .rename = renameImpl,
         .delete = deleteImpl,
         .lastError = lastErrorImpl,
+        .isDataRoot = isDataRootImpl,
+        .realPath = realPathImpl,
     };
+
+    fn samePath(a: []const u8, b: []const u8) bool {
+        if (a.len != b.len) return false;
+        for (a, b) |x, y| {
+            const nx = std.ascii.toLower(if (x == '\\') '/' else x);
+            const ny = std.ascii.toLower(if (y == '\\') '/' else y);
+            if (nx != ny) return false;
+        }
+        return true;
+    }
+
+    fn isDataRootImpl(ptr: *anyopaque, os_dir: []const u8) bool {
+        for (from(ptr).data_roots) |root| if (samePath(root, os_dir)) return true;
+        return false;
+    }
+
+    fn realPathImpl(ptr: *anyopaque, os_path: []const u8, buffer: []u8) ?[]const u8 {
+        for (from(ptr).links) |link| {
+            if (os_path.len < link.from.len or !samePath(os_path[0..link.from.len], link.from)) continue;
+            const rest = os_path[link.from.len..];
+            if (rest.len != 0 and rest[0] != '/' and rest[0] != '\\') continue;
+            return std.fmt.bufPrint(buffer, "{s}{s}", .{ link.to, rest }) catch null;
+        }
+        if (os_path.len > buffer.len) return null;
+        @memcpy(buffer[0..os_path.len], os_path);
+        return buffer[0..os_path.len];
+    }
 
     fn existsImpl(ptr: *anyopaque, os_path: []const u8) bool {
         return from(ptr).entries.contains(os_path);

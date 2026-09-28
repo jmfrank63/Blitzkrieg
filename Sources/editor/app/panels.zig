@@ -149,6 +149,13 @@ pub const State = struct {
     /// delete it and its sidecar. Set when a recovery write succeeds or a
     /// recovery copy is reopened; cleared once deleted.
     recovery_active: ?logic.PathText = null,
+    /// `documentIsShipped`'s last answer and the document path it was for:
+    /// the rule asks the disk (a realpath, the data-root markers), and the
+    /// title, `act` and autosave all ask every frame - the disk is asked
+    /// again only when the document's path changes.
+    shipped_path: logic.PathText = .{},
+    shipped_known: bool = false,
+    shipped: bool = false,
     /// What `scanRecoveryOffers` (interactive startup only) found in
     /// `<user_root>mapeditor/recovery/`: each entry's own file, its sidecar's
     /// original path and time. Never populated in an automated mode - nothing
@@ -287,6 +294,9 @@ pub const State = struct {
         var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator) };
         state.setModFolder(mod_folder);
         if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
+        // Editor.save's own read-only refusal (D-18) judges against the
+        // same installation the panels do.
+        editor.setBaseRoot(std.mem.sliceTo(&state.paths.base_root, 0));
         state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
         state.mapOpened();
         return state;
@@ -546,12 +556,31 @@ fn userRoot(state: *const State) []const u8 {
     return std.mem.sliceTo(&state.paths.user_root, 0);
 }
 
+/// Whether the open document is a shipped map (D-18, core/shipped.zig):
+/// read-only - Save becomes Save As, autosave writes only a recovery copy,
+/// the title says so. Cached per document path (`State.shipped_path`).
+pub fn documentIsShipped(state: *State) bool {
+    const path = state.editor.document.path.items;
+    if (state.shipped_known and std.mem.eql(u8, state.shipped_path.slice(), path)) return state.shipped;
+    state.shipped = logic.isShippedMap(path, baseRoot(state), state.editor.files);
+    state.shipped_path.set(path);
+    state.shipped_known = path.len <= state.shipped_path.buffer.len;
+    return state.shipped;
+}
+
+/// `logic.needsSaveAs` for the open document, through `documentIsShipped`'s
+/// cache.
+pub fn documentNeedsSaveAs(state: *State) bool {
+    const path = state.editor.document.path.items;
+    return logic.needsSaveAsKnowing(path, documentIsShipped(state), userRoot(state));
+}
+
 /// The file actions the menu asked for, and whatever a dialog delivered,
 /// after the frame. True when the editor should quit.
 pub fn act(state: *State) bool {
     var quit = false;
     while (true) {
-        const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state), userRoot(state));
+        const needs_save_as = documentNeedsSaveAs(state);
         switch (state.actions.next(state.editor.dirty(), needs_save_as)) {
             .none, .ask_unsaved => return quit,
             // Task 5, carried from plan 5: a second Open or Save As while a
@@ -659,7 +688,7 @@ pub fn tickAutosave(state: *State, now_ms: u64) void {
     const dirty = state.editor.dirty();
     state.autosave.note(now_ms, dirty);
     if (!state.autosave.due(now_ms, dirty)) return;
-    const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state), userRoot(state));
+    const needs_save_as = documentNeedsSaveAs(state);
     switch (core.autosave.target(needs_save_as)) {
         .map_file => autosaveIntoMapFile(state, now_ms),
         .recovery_copy => writeRecoveryCopy(state, now_ms),
@@ -1889,7 +1918,7 @@ fn append(buffer: []u8, len: *usize, comptime format: []const u8, args: anytype)
 /// change for this app-layer decoration.
 fn updateTitle(state: *State) void {
     var buffer: [256]u8 = undefined;
-    const read_only = logic.isShippedMap(state.editor.document.path.items, baseRoot(state));
+    const read_only = documentIsShipped(state);
     const base_title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty(), read_only);
     var full_buffer: [320:0]u8 = undefined;
     const title: [:0]const u8 = if (state.real.activeMod()) |mod|

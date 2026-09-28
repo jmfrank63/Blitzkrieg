@@ -304,46 +304,21 @@ pub fn formatTitle(buffer: []u8, path: []const u8, dirty: bool, read_only: bool)
         std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
 }
 
-/// Lowercases and unifies separators to '/' in place; null when `path` does
-/// not fit `buffer`. Used only to compare paths, never to build one the
-/// engine or the OS will see.
-fn normalizeForCompare(buffer: []u8, path: []const u8) ?[]const u8 {
-    if (path.len > buffer.len) return null;
-    for (path, buffer[0..path.len]) |char, *out| out.* = std.ascii.toLower(if (char == '\\') '/' else char);
-    return buffer[0..path.len];
-}
-
-fn isAbsolutePath(path: []const u8) bool {
-    if (path.len == 0) return false;
-    if (path[0] == '/') return true;
-    // A Windows drive letter, e.g. "c:/..." once normalised.
-    return path.len >= 2 and std.ascii.isAlphabetic(path[0]) and path[1] == ':';
-}
+const normalizeForCompare = core.shipped.normalizeForCompare;
+const isAbsolutePath = core.shipped.isAbsolutePath;
 
 /// Whether an engine-form path (the document's own, backslash-separated,
 /// possibly relative to the installation the editor runs from) names a file
-/// the game ships: under `<base_root>Data` or `<base_root>mods/<any>/data`
-/// (D-18). Separators and case are normalised - a file dialog's absolute
-/// path may use either, and Windows paths are case-insensitive anyway; a
-/// relative path (the editor's own default, and what every shipped map is
-/// opened by) is taken as already under `base_root`, since the editor and
-/// the engine both run from the installation directory.
-pub fn isShippedMap(engine_path: []const u8, base_root: []const u8) bool {
-    var path_buffer: [PathSlot.max_path]u8 = undefined;
-    var base_buffer: [PathSlot.max_path]u8 = undefined;
-    const path = normalizeForCompare(&path_buffer, engine_path) orelse return false;
-    const base = normalizeForCompare(&base_buffer, base_root) orelse return false;
-    const rel = if (isAbsolutePath(path)) blk: {
-        if (!std.mem.startsWith(u8, path, base)) return false;
-        break :blk path[base.len..];
-    } else path;
-    if (std.mem.startsWith(u8, rel, "data/")) return true;
-    if (std.mem.startsWith(u8, rel, "mods/")) {
-        const after_mods = rel["mods/".len..];
-        const slash = std.mem.indexOfScalar(u8, after_mods, '/') orelse return false;
-        return std.mem.startsWith(u8, after_mods[slash + 1 ..], "data/");
-    }
-    return false;
+/// the game ships (D-18) - core/shipped.zig's rule: under `<base_root>Data`
+/// or `<base_root>mods/<any>/data`, under any `mods/<any>/data`, or under a
+/// `Data` of ANY game installation (a marker file at its top says so), each
+/// for the path as given and for its real path. `files` answers the disk's
+/// questions (the marker, the real path); null judges the text alone -
+/// which is how another installation's Data, or this one's reached through
+/// a symlink, used to pass for a user's file (03-15's hand try: Save wrote
+/// straight into another checkout's coldwinter.bzm).
+pub fn isShippedMap(engine_path: []const u8, base_root: []const u8, files: ?core.files.Files) bool {
+    return core.shipped.isShipped(engine_path, base_root, files);
 }
 
 /// Whether an engine-form path sits inside `<user_root>mapeditor/recovery/`
@@ -367,8 +342,14 @@ fn isRecoveryPath(engine_path: []const u8, user_root: []const u8) bool {
 /// map, never saved), a shipped one, or a path inside the recovery folder -
 /// every case where writing straight to `doc_path` is either impossible or
 /// not where the map actually belongs.
-pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8, user_root: []const u8) bool {
-    return doc_path.len == 0 or isShippedMap(doc_path, base_root) or isRecoveryPath(doc_path, user_root);
+pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8, user_root: []const u8, files: ?core.files.Files) bool {
+    return needsSaveAsKnowing(doc_path, isShippedMap(doc_path, base_root, files), user_root);
+}
+
+/// `needsSaveAs` with `isShippedMap`'s answer already known - the panels
+/// cache it per document path, since it asks the disk.
+pub fn needsSaveAsKnowing(doc_path: []const u8, shipped: bool, user_root: []const u8) bool {
+    return doc_path.len == 0 or shipped or isRecoveryPath(doc_path, user_root);
 }
 
 /// `<user_root>maps`, or `<user_root>mods/<mod_folder>/maps` with a mod
@@ -1062,27 +1043,52 @@ test "the title marks a shipped map read-only, dirty or not" {
 test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {
     const base = "/Users/me/MapEditor/";
     const user_root = "/Users/me/.local/share/Nival/Blitzkrieg/";
-    try std.testing.expect(isShippedMap("Data\\Maps\\Multiplayer\\coldwinter.bzm", base));
-    try std.testing.expect(isShippedMap("/Users/me/MapEditor/Data/Maps/Multiplayer/coldwinter.bzm", base));
-    try std.testing.expect(isShippedMap("/Users/me/MapEditor/mods/X/data/maps/a.bzm", base));
-    try std.testing.expect(isShippedMap("mods\\X\\data\\maps\\a.bzm", base));
-    try std.testing.expect(!isShippedMap(user_root ++ "maps/a.bzm", base));
-    try std.testing.expect(!isShippedMap("/Users/me/MapEditor/mods/X/maps/a.bzm", base)); // no "data" segment
+    try std.testing.expect(isShippedMap("Data\\Maps\\Multiplayer\\coldwinter.bzm", base, null));
+    try std.testing.expect(isShippedMap("/Users/me/MapEditor/Data/Maps/Multiplayer/coldwinter.bzm", base, null));
+    try std.testing.expect(isShippedMap("/Users/me/MapEditor/mods/X/data/maps/a.bzm", base, null));
+    try std.testing.expect(isShippedMap("mods\\X\\data\\maps\\a.bzm", base, null));
+    try std.testing.expect(!isShippedMap(user_root ++ "maps/a.bzm", base, null));
+    try std.testing.expect(!isShippedMap("/Users/me/MapEditor/mods/X/maps/a.bzm", base, null)); // no "data" segment
     // Mixed case and separators, absolute and relative.
-    try std.testing.expect(isShippedMap("/USERS/ME/MAPEDITOR/DATA/maps/a.BZM", base));
-    try std.testing.expect(isShippedMap("DATA\\maps\\a.bzm", base));
+    try std.testing.expect(isShippedMap("/USERS/ME/MAPEDITOR/DATA/maps/a.BZM", base, null));
+    try std.testing.expect(isShippedMap("DATA\\maps\\a.bzm", base, null));
 }
 
 test "needsSaveAs: an empty path, a shipped map, or a recovery-folder path redirects Save to Save As" {
     const base = "/Users/me/MapEditor/";
     const user_root = "/Users/me/.local/share/Nival/Blitzkrieg/";
-    try std.testing.expect(needsSaveAs("", base, user_root));
-    try std.testing.expect(needsSaveAs("Data\\Maps\\Multiplayer\\coldwinter.bzm", base, user_root));
-    try std.testing.expect(!needsSaveAs(user_root ++ "maps/a.bzm", base, user_root));
-    try std.testing.expect(needsSaveAs(user_root ++ "mapeditor/recovery/coldwinter.bzm", base, user_root));
-    try std.testing.expect(needsSaveAs("/USERS/ME/.LOCAL/SHARE/NIVAL/BLITZKRIEG/mapeditor\\recovery\\a.bzm", base, user_root));
+    try std.testing.expect(needsSaveAs("", base, user_root, null));
+    try std.testing.expect(needsSaveAs("Data\\Maps\\Multiplayer\\coldwinter.bzm", base, user_root, null));
+    try std.testing.expect(!needsSaveAs(user_root ++ "maps/a.bzm", base, user_root, null));
+    try std.testing.expect(needsSaveAs(user_root ++ "mapeditor/recovery/coldwinter.bzm", base, user_root, null));
+    try std.testing.expect(needsSaveAs("/USERS/ME/.LOCAL/SHARE/NIVAL/BLITZKRIEG/mapeditor\\recovery\\a.bzm", base, user_root, null));
     // A path outside the recovery folder, still under user_root, is unaffected.
-    try std.testing.expect(!needsSaveAs(user_root ++ "mapeditor/mapeditor.cfg", base, user_root));
+    try std.testing.expect(!needsSaveAs(user_root ++ "mapeditor/mapeditor.cfg", base, user_root, null));
+}
+
+test "isShippedMap and needsSaveAs: another installation's Data, found by its marker, is read-only too" {
+    // 03-15's hand try: the release stage's MapEditor opened the main
+    // checkout's coldwinter.bzm by its absolute path, and Save wrote into it.
+    const base = "/Users/me/Blitzkrieg/.worktrees/map-editor-6/zig-out/game/macos/arm64/release/";
+    const user_root = "/Users/me/.local/share/Nival/Blitzkrieg/";
+    const other = "/Users/me/Blitzkrieg/Data/Maps/Multiplayer/coldwinter.bzm";
+    var fake = core.files.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    fake.data_roots = &.{ "/Users/me/Blitzkrieg/Data", "/Users/me/Blitzkrieg/.worktrees/map-editor-6/Data" };
+    fake.links = &.{.{ .from = base ++ "Data", .to = "/Users/me/Blitzkrieg/.worktrees/map-editor-6/Data" }};
+    const files = fake.files();
+    try std.testing.expect(!isShippedMap(other, base, null)); // the text alone cannot tell
+    try std.testing.expect(isShippedMap(other, base, files));
+    try std.testing.expect(isShippedMap("\\Users\\me\\Blitzkrieg\\Data\\Maps\\Multiplayer\\coldwinter.bzm", base, files));
+    // The stage's own Data, reached through the symlink's target.
+    try std.testing.expect(isShippedMap("/Users/me/Blitzkrieg/.worktrees/map-editor-6/Data/Maps/a.bzm", base, files));
+    try std.testing.expect(needsSaveAs(other, base, user_root, files));
+    // Autosave follows the same answer: a recovery copy, never the file.
+    try std.testing.expectEqual(core.autosave.Target.recovery_copy, core.autosave.target(needsSaveAs(other, base, user_root, files)));
+    // The user's own folders stay writable, and autosave into themselves.
+    try std.testing.expect(!needsSaveAs(user_root ++ "maps/mine.bzm", base, user_root, files));
+    try std.testing.expect(!needsSaveAs(user_root ++ "mods/MyMod/maps/mine.bzm", base, user_root, files));
+    try std.testing.expectEqual(core.autosave.Target.map_file, core.autosave.target(needsSaveAs(user_root ++ "maps/mine.bzm", base, user_root, files)));
 }
 
 test "defaultMapsFolder: the user root plus maps, or mods/<name>/maps; a bad mod folder is refused" {

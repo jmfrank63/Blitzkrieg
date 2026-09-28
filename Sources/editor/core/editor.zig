@@ -5,6 +5,7 @@ const document_mod = @import("document.zig");
 const history_mod = @import("history.zig");
 const tools = @import("tools.zig");
 const files_mod = @import("files.zig");
+const shipped_mod = @import("shipped.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -40,6 +41,11 @@ pub const Editor = struct {
     /// (D-19: once per file per session, at the first write); owned keys,
     /// freed in `deinit`.
     backed_up: std.StringHashMapUnmanaged(void) = .empty,
+    /// The installation the editor runs from (BkEditorPaths' base root),
+    /// copied by `setBaseRoot`: what `save` classifies a shipped map against
+    /// (shipped.zig's rule 1). Empty until set - rules 2 and 3 still apply.
+    base_root_buffer: [shipped_mod.max_path]u8 = undefined,
+    base_root_len: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, b: Bridge) Editor {
         return .{ .allocator = allocator, .bridge = b };
@@ -52,6 +58,18 @@ pub const Editor = struct {
         while (backed_up_keys.next()) |key| self.allocator.free(key.*);
         self.backed_up.deinit(self.allocator);
         self.* = undefined;
+    }
+
+    /// Copies `root` (truncated to the buffer, which a real root never
+    /// reaches: BkEditorPathSet's own is 1024 bytes).
+    pub fn setBaseRoot(self: *Editor, root: []const u8) void {
+        const len = @min(root.len, self.base_root_buffer.len);
+        @memcpy(self.base_root_buffer[0..len], root[0..len]);
+        self.base_root_len = len;
+    }
+
+    pub fn baseRoot(self: *const Editor) []const u8 {
+        return self.base_root_buffer[0..self.base_root_len];
     }
 
     /// The status bar's line: the bridge's reason for the last refusal or
@@ -125,6 +143,12 @@ pub const Editor = struct {
     /// first write to `path` copies whatever was there to `path.bak`; only
     /// then is the temporary file swapped over `path`. Any failure along the
     /// way deletes the temporary file and leaves `path` exactly as it was.
+    ///
+    /// D-18, defence in depth: a `path` inside any game's data (shipped.zig)
+    /// is refused before anything is written - not even the temporary file
+    /// goes beside it - whichever caller asked. The panels already turn Save
+    /// on such a map into Save As and autosave it only to a recovery copy;
+    /// this is what holds if one of them ever forgets.
     pub fn save(self: *Editor, path: []const u8) EditError!void {
         var new_path: std.ArrayListUnmanaged(u8) = .empty;
         errdefer new_path.deinit(self.allocator);
@@ -134,6 +158,16 @@ pub const Editor = struct {
             self.setStatus("", "saving needs a file system");
             return error.Failed;
         };
+
+        if (shipped_mod.isShipped(path, self.baseRoot(), files)) {
+            const cut = std.mem.lastIndexOfAny(u8, path, "/\\");
+            const name = if (cut) |c| path[c + 1 ..] else path;
+            var buffer: [200]u8 = undefined;
+            const message = std.fmt.bufPrint(&buffer, "{s} is inside a game's data folder, which is read-only - Save As into your maps folder instead", .{name}) catch
+                "a game's data folder is read-only - Save As into your maps folder instead";
+            self.setStatus("not saved: ", message);
+            return error.Refused;
+        }
 
         var temp_buffer: [files_mod.max_path]u8 = undefined;
         const temp = files_mod.tempPathFor(&temp_buffer, path) orelse {
@@ -671,6 +705,47 @@ test "save: a temp file beside the map, then the swap, in order; one .bak per se
     try editor.setMapType(3);
     try editor.save("fixture.bzm");
     try std.testing.expectEqualStrings("old bytes", fake_files.contents("fixture.bzm.bak").?);
+}
+
+test "save: a path in any game's data is refused before anything is written (D-18)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    // Another installation's Data, recognised by its marker alone.
+    fake_files.data_roots = &.{"/Games/Other/Data"};
+    fake.files = &fake_files;
+    try fake_files.write("/Games/Other/Data/Maps/coldwinter.bzm", "shipped bytes");
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    editor.files = fake_files.files();
+    editor.setBaseRoot("/Users/me/MapEditor/");
+    try editor.open("fixture.bzm");
+    try editor.setMapType(3);
+    const ops_before = fake_files.op_log.items.len;
+
+    for ([_][]const u8{
+        "/Games/Other/Data/Maps/coldwinter.bzm", // another tree's Data, absolute
+        "\\Games\\Other\\Data\\Maps\\coldwinter.bzm", // the same, in the engine's form
+        "Data\\Maps\\Multiplayer\\coldwinter.bzm", // this installation's, relative
+        "/Users/me/MapEditor/Data/Maps/a.bzm", // this installation's, absolute
+        "/Users/me/MapEditor/mods/X/data/maps/a.bzm", // a mod's data
+    }) |target| {
+        try std.testing.expectError(error.Refused, editor.save(target));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "read-only") != null);
+    }
+    // Nothing written, copied, renamed or even deleted; the document is
+    // still the one it was, and still has its changes.
+    try std.testing.expectEqual(ops_before, fake_files.op_log.items.len);
+    try std.testing.expectEqualStrings("shipped bytes", fake_files.contents("/Games/Other/Data/Maps/coldwinter.bzm").?);
+    try std.testing.expect(fake_files.contents("/Games/Other/Data/Maps/coldwinter.bzm.bak") == null);
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(editor.dirty());
+
+    // The user's own folder, even one called Data with no marker, saves.
+    try editor.save("/Users/me/Data/maps/mine.bzm");
+    try std.testing.expectEqualStrings("/Users/me/Data/maps/mine.bzm", editor.document.path.items);
+    try std.testing.expect(!editor.dirty());
 }
 
 test "save: a new file gets no .bak, but is never backed up later either" {

@@ -75,6 +75,20 @@ pub const Input = union(enum) {
     /// Calls panels.addSoundAtViewCentre directly, as the Sounds panel's
     /// "Add at view centre" button would - no widget here to click either.
     add_sound_at_view_centre,
+    /// Builds a second game installation's data tree beside the smoke's
+    /// output (`foreign_tree`: a Data folder with a data-root marker and a
+    /// copy of the smoke's own map), records the copy's bytes, inode and
+    /// mtime, and opens it by its absolute path through the Open dialog's
+    /// slot - 03-15's hand try, where MapEditor opened another checkout's
+    /// coldwinter.bzm and Save wrote into it.
+    open_foreign,
+    /// Two autosave ticks an interval apart (panels.tickAutosave, as the
+    /// interactive loop calls it - the smoke's loop never does): the second
+    /// one is due, and must go to a recovery copy (D-22), never the file.
+    autosave_due,
+    /// Calls editor.save on the document's own path directly - a caller that
+    /// forgot the read-only rule - which Editor.save itself must refuse.
+    save_in_place_forced,
 };
 
 pub const Wheel = struct {
@@ -151,6 +165,20 @@ pub const Expect = enum {
     sound_added,
     /// Ctrl+Z undid the add: the sound list is back to what the map had.
     sound_removed,
+    /// The second tree's map is open by its absolute path, and the panels
+    /// call it read-only (D-18): Save would be Save As.
+    foreign_read_only,
+    /// The title says "(read-only)", Save redirected to Save As (as
+    /// `save_became_save_as`), and the second
+    /// tree's map is byte for byte, inode and mtime what it was, with no
+    /// `.bak` and no temporary file beside it.
+    foreign_save_became_save_as,
+    /// The due autosave wrote a recovery copy into the (smoke's own) user
+    /// folder, and the second tree's map is untouched.
+    foreign_autosaved_to_recovery,
+    /// Editor.save refused the forced in-place save (error.Refused, a
+    /// "read-only" status), and the map is untouched.
+    foreign_save_refused,
 };
 
 pub const Step = struct {
@@ -239,6 +267,34 @@ pub const script = [_]Step{
     // until ImGui has it, as a hand's would before it swipes.
     .{ .name = "the pointer rests on the left panel", .inputs = &.{.{ .wheel = .{ .over_left_panel = true, .x = 0, .y = 0, .count = 0 } }}, .expect = .panel_has_pointer },
     .{ .name = "a wheel over a panel leaves the map alone", .inputs = &.{.{ .wheel = .{ .over_left_panel = true, .x = 0, .y = -1, .count = 3 } }}, .expect = .camera_unchanged },
+    // 03-15's gap fix (D-18/D-20/D-22): a map inside ANOTHER installation's
+    // Data, opened by its absolute path, is read-only too - Save becomes
+    // Save As, autosave writes a recovery copy, and Editor.save itself
+    // refuses to write there. Last, so every step above ran on the smoke's
+    // own map; the map is dirtied by a sound (no pointer involved - the
+    // pointer is still resting on the left panel).
+    .{ .name = "another installation's map opens read-only", .inputs = &.{.open_foreign}, .expect = .foreign_read_only },
+    .{ .name = "Add at view centre dirties it", .inputs = &.{.add_sound_at_view_centre}, .expect = .sound_added },
+    .{ .name = "Save on it becomes Save As, the file untouched", .inputs = &.{.save_requested}, .expect = .foreign_save_became_save_as },
+    .{ .name = "a due autosave writes a recovery copy, the file untouched", .inputs = &.{.autosave_due}, .expect = .foreign_autosaved_to_recovery },
+    .{ .name = "a forced in-place save is refused, the file untouched", .inputs = &.{.save_in_place_forced}, .expect = .foreign_save_refused },
+};
+
+/// The second installation `open_foreign` builds, beside the smoke's output
+/// (zig-out/local-test): `<dir>/foreign_tree/Data/...`, never inside the
+/// staged installation's own Data.
+pub const foreign_tree = "map-editor-smoke-foreign";
+const foreign_map = "Data" ++ std.fs.path.sep_str ++ "Maps" ++ std.fs.path.sep_str ++ "Multiplayer" ++ std.fs.path.sep_str ++ "coldwinter.bzm";
+/// Where the smoke's user root points (main.zig's smokeRun), so the due
+/// autosave's recovery copy never lands in the person's own user folder.
+pub const smoke_user_root = "map-editor-smoke-user";
+
+/// What the second tree's map was when `open_foreign` copied it.
+const FileFacts = struct {
+    size: u64,
+    inode: std.Io.File.INode,
+    mtime: i96,
+    hash: u64,
 };
 
 /// Frames drawn before the first step, so the panels have been laid out,
@@ -333,6 +389,13 @@ pub const Script = struct {
     polled_mouse: usize = 0,
     pointer_trail: [pointer_trail_capacity]PointerSample = undefined,
     pointer_trail_len: usize = 0,
+
+    /// `open_foreign`'s map: its absolute OS path, and what it was then.
+    foreign_path: panels_logic.PathText = .{},
+    foreign_facts: ?FileFacts = null,
+    /// `save_in_place_forced`'s outcome: the error Editor.save returned, or
+    /// null when it (wrongly) saved.
+    forced_save_error: ?anyerror = null,
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
@@ -491,6 +554,27 @@ pub const Script = struct {
                 panels.addSoundAtViewCentre(self.state);
                 return true;
             },
+            .open_foreign => {
+                const path = self.buildForeignTree() orelse return false;
+                if (!self.state.actions.dialog.request(.open)) return self.fail("the dialog slot was busy", .{});
+                self.state.actions.dialog.deliver(path);
+                return true;
+            },
+            .autosave_due => {
+                self.state.settings.autosave = true;
+                const interval_ms = @as(u64, self.state.settings.autosave_minutes) * std.time.ms_per_min;
+                const start_ms: u64 = 1_000_000;
+                panels.tickAutosave(self.state, start_ms);
+                panels.tickAutosave(self.state, start_ms + interval_ms);
+                return true;
+            },
+            .save_in_place_forced => {
+                self.forced_save_error = null;
+                self.editor.save(self.editor.document.path.items) catch |err| {
+                    self.forced_save_error = err;
+                };
+                return true;
+            },
             .wheel => |wheel| {
                 const point = if (wheel.over_left_panel) [2]f32{ left_panel_x, self.centre_y } else self.screen(wheel.at);
                 if (!self.pushMotionAt(point, false)) return false;
@@ -610,7 +694,9 @@ pub const Script = struct {
     fn check(self: *Script, step: Step) bool {
         const editor = self.editor;
         const objects = editor.document.objects.items.len;
-        if (self.view.statusLine().len != 0) return self.stepFail(step, "{s}", .{self.view.statusLine()});
+        // The due autosave says where it wrote on the status bar; that line
+        // is its own check's to read.
+        if (step.expect != .foreign_autosaved_to_recovery and self.view.statusLine().len != 0) return self.stepFail(step, "{s}", .{self.view.statusLine()});
         switch (step.expect) {
             .tool_brush => if (self.view.tool != .brush) return self.stepFail(step, "the tool is {s}", .{@tagName(self.view.tool)}),
             .tool_place => if (self.view.tool != .place) return self.stepFail(step, "the tool is {s}", .{@tagName(self.view.tool)}),
@@ -772,6 +858,122 @@ pub const Script = struct {
                 if (count != self.original_sounds) return self.stepFail(step, "{d} sounds, want the original {d} back", .{ count, self.original_sounds });
                 if (editor.history.canUndo()) return self.stepFail(step, "{d} edits are left to undo", .{editor.history.undo_stack.items.len});
             },
+            .foreign_read_only => {
+                if (editor.status().len != 0) return self.stepFail(step, "{s}", .{editor.status()});
+                var os_buffer: [core.files.max_path]u8 = undefined;
+                const doc_os = core.files.osPathFromEngine(&os_buffer, editor.document.path.items) orelse return self.stepFail(step, "the document path does not fit", .{});
+                if (!std.mem.eql(u8, doc_os, self.foreign_path.slice()))
+                    return self.stepFail(step, "the document is {s}, want {s}", .{ doc_os, self.foreign_path.slice() });
+                if (!panels.documentIsShipped(self.state)) return self.stepFail(step, "{s} is not read-only", .{self.foreign_path.slice()});
+                if (!panels.documentNeedsSaveAs(self.state)) return self.stepFail(step, "Save on {s} would not be Save As", .{self.foreign_path.slice()});
+                if (!self.foreignUntouched(step)) return false;
+            },
+            .foreign_save_became_save_as => {
+                // The title follows a frame behind the open (it is drawn
+                // before `act` opens the map), so it is read here.
+                const title = self.state.title[0..self.state.title_len];
+                if (std.mem.indexOf(u8, title, "(read-only)") == null) return self.stepFail(step, "the title is \"{s}\"", .{title});
+                if (!self.state.actions.dialog.waiting() or self.state.actions.dialog.kind != .save_as)
+                    return self.stepFail(step, "Save did not redirect to Save As on another installation's map", .{});
+                if (self.state.os_dialogs_opened != 0)
+                    return self.stepFail(step, "Save As opened {d} real file dialog(s); the script answers the slot itself", .{self.state.os_dialogs_opened});
+                self.state.actions.dialog.deliver(null);
+                _ = self.state.actions.dialog.take();
+                if (!editor.dirty()) return self.stepFail(step, "the map is clean - something saved it", .{});
+                if (!self.foreignUntouched(step)) return false;
+            },
+            .foreign_autosaved_to_recovery => {
+                const status = self.view.statusLine();
+                if (!std.mem.eql(u8, status, "recovery copy written")) return self.stepFail(step, "the autosave said \"{s}\"", .{status});
+                self.view.clearStatus();
+                const active = self.state.recovery_active orelse return self.stepFail(step, "no recovery copy is active", .{});
+                if (std.mem.indexOf(u8, active.slice(), smoke_user_root) == null)
+                    return self.stepFail(step, "the recovery copy went to {s}, outside the smoke's own user root", .{active.slice()});
+                _ = std.Io.Dir.cwd().statFile(self.state.io, active.slice(), .{}) catch
+                    return self.stepFail(step, "the recovery copy {s} is not there", .{active.slice()});
+                if (!editor.dirty()) return self.stepFail(step, "the map is clean - the autosave saved it in place", .{});
+                if (!self.foreignUntouched(step)) return false;
+            },
+            .foreign_save_refused => {
+                const err = self.forced_save_error orelse return self.stepFail(step, "Editor.save wrote into {s}", .{self.foreign_path.slice()});
+                if (err != error.Refused) return self.stepFail(step, "Editor.save failed with {s}, want Refused", .{@errorName(err)});
+                if (std.mem.indexOf(u8, editor.status(), "read-only") == null) return self.stepFail(step, "the status is \"{s}\"", .{editor.status()});
+                if (!editor.dirty()) return self.stepFail(step, "the map is clean after a refused save", .{});
+                if (!self.foreignUntouched(step)) return false;
+            },
+        }
+        return true;
+    }
+
+    /// `open_foreign`'s setup: `<dir of save_path>/foreign_tree/Data` with a
+    /// `consts.xml` marker (core/shipped.zig's `isDataRootMarker`, as every
+    /// shipped Data has one) and the smoke's own map copied under it, rebuilt
+    /// from nothing each run. Returns the copy's absolute OS path (in
+    /// `foreign_path`), or null after a FAIL line.
+    fn buildForeignTree(self: *Script) ?[]const u8 {
+        const io = self.state.io;
+        const cwd = std.Io.Dir.cwd();
+        const out_dir = std.fs.path.dirname(self.save_path) orelse ".";
+        var root_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+        const root = std.fmt.bufPrint(&root_buffer, "{s}{c}{s}", .{ out_dir, std.fs.path.sep, foreign_tree }) catch {
+            _ = self.fail("the second tree's path is too long", .{});
+            return null;
+        };
+        cwd.deleteTree(io, root) catch {};
+        var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+        const maps = std.fmt.bufPrint(&path_buffer, "{s}{c}Data{c}Maps{c}Multiplayer", .{ root, std.fs.path.sep, std.fs.path.sep, std.fs.path.sep }) catch unreachable;
+        cwd.createDirPath(io, maps) catch |err| {
+            _ = self.fail("{s} would not be created: {s}", .{ maps, @errorName(err) });
+            return null;
+        };
+        var marker_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+        const marker = std.fmt.bufPrint(&marker_buffer, "{s}{c}Data{c}consts.xml", .{ root, std.fs.path.sep, std.fs.path.sep }) catch unreachable;
+        cwd.writeFile(io, .{ .sub_path = marker, .data = "<?xml version=\"1.0\"?>\n<base/>\n" }) catch |err| {
+            _ = self.fail("{s} would not be written: {s}", .{ marker, @errorName(err) });
+            return null;
+        };
+        var map_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+        const map = std.fmt.bufPrint(&map_buffer, "{s}{c}{s}", .{ root, std.fs.path.sep, foreign_map }) catch unreachable;
+        // The staged installation's own copy (the smoke runs in the stage
+        // root), read and written - never touched.
+        std.Io.Dir.copyFile(cwd, foreign_map, cwd, map, io, .{}) catch |err| {
+            _ = self.fail("{s} would not be copied to {s}: {s}", .{ foreign_map, map, @errorName(err) });
+            return null;
+        };
+        self.foreign_path.set(map);
+        self.foreign_facts = self.readFacts(map) orelse {
+            _ = self.fail("{s} would not read back", .{map});
+            return null;
+        };
+        return self.foreign_path.slice();
+    }
+
+    fn readFacts(self: *Script, path: []const u8) ?FileFacts {
+        const io = self.state.io;
+        const stat = std.Io.Dir.cwd().statFile(io, path, .{}) catch return null;
+        const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, self.state.allocator, .limited(64 << 20)) catch return null;
+        defer self.state.allocator.free(bytes);
+        return .{ .size = stat.size, .inode = stat.inode, .mtime = stat.mtime.nanoseconds, .hash = std.hash.Wyhash.hash(0, bytes) };
+    }
+
+    /// The second tree's map is exactly what `open_foreign` copied - bytes,
+    /// size, inode (a safe save's rename-over would change it) and mtime -
+    /// and nothing was written beside it: no `.bak`, no `.~save` temp.
+    fn foreignUntouched(self: *Script, step: Step) bool {
+        const path = self.foreign_path.slice();
+        const before = self.foreign_facts orelse return self.stepFail(step, "the second tree was never built", .{});
+        const now = self.readFacts(path) orelse return self.stepFail(step, "{s} is gone", .{path});
+        if (!std.meta.eql(before, now)) return self.stepFail(step, "{s} changed: was {any}, now {any}", .{ path, before, now });
+        var bak_buffer: [panels_logic.PathSlot.max_path + 8]u8 = undefined;
+        const bak = std.fmt.bufPrint(&bak_buffer, "{s}.bak", .{path}) catch return self.stepFail(step, "the .bak path does not fit", .{});
+        if (std.Io.Dir.cwd().statFile(self.state.io, bak, .{})) |_| {
+            return self.stepFail(step, "{s} was written", .{bak});
+        } else |_| {}
+        var temp_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        if (tempSiblingPath(&temp_buffer, path)) |temp| {
+            if (std.Io.Dir.cwd().statFile(self.state.io, temp, .{})) |_| {
+                return self.stepFail(step, "{s} was written", .{temp});
+            } else |_| {}
         }
         return true;
     }

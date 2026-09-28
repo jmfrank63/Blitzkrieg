@@ -462,6 +462,14 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     };
     var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();
+    // The script's due autosave (smoke.zig's `autosave_due`) writes a
+    // recovery copy under the user root: beside the smoke's output, never
+    // into the person's own user folder, where the next real start would
+    // offer it back.
+    if (!pointUserRootBeside(&state, output)) {
+        std.debug.print("map-editor: smoke FAIL: the smoke's own user root beside {s} does not fit\n", .{output});
+        return false;
+    }
     // The script answers every Open and Save As through the dialog slot
     // itself; a real OS dialog would stay up for the rest of the run and
     // take the window's focus and pointer whenever it appeared (Windows).
@@ -482,6 +490,19 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     }
     script.printNote();
     std.debug.print("map-editor: smoke PASS ({d} steps, {d} objects, saved and reopened {s})\n", .{ smoke.script.len, script.original_objects, output });
+    return true;
+}
+
+/// `state.paths.user_root` becomes `<dir of output>/smoke.smoke_user_root/`
+/// (with the OS's trailing separator, as BkEditorPaths gives it). False when
+/// it does not fit.
+fn pointUserRootBeside(state: *panels.State, output: []const u8) bool {
+    const dir = std.fs.path.dirname(output) orelse ".";
+    var buffer: [@sizeOf(@TypeOf(state.paths.user_root))]u8 = undefined;
+    const root = std.fmt.bufPrint(&buffer, "{s}{c}{s}{c}", .{ dir, std.fs.path.sep, smoke.smoke_user_root, std.fs.path.sep }) catch return false;
+    if (root.len >= state.paths.user_root.len) return false;
+    @memset(&state.paths.user_root, 0);
+    @memcpy(state.paths.user_root[0..root.len], root);
     return true;
 }
 
