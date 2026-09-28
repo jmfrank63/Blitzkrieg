@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-09-PLAN.md
-last_updated: "2026-09-28T11:27:47.975Z"
-state_head: 26e58bd4b31f4aee9ef52c449116da18b6649359
+stopped_at: Completed 03-10-PLAN.md
+last_updated: "2026-09-28T13:00:13.903Z"
+state_head: 66ad89f43b23b83270c5538ddd7f4e8af017a19d
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 12
+  completed_plans: 13
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T11:27:39.040Z
-**Stopped at:** Completed 03-09-PLAN.md
+**Last session:** 2026-09-28T13:00:13.853Z
+**Stopped at:** Completed 03-10-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -79,6 +79,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P07 | ~35min | 3 tasks | 8 files |
 | Phase 03-map-editor-plan-6-finish-m1 P08 | ~60min | 3 tasks | 11 files |
 | Phase 03-map-editor-plan-6-finish-m1 P09 | ~59min | 4 tasks | 8 files |
+| Phase 03-map-editor-plan-6-finish-m1 P10 | 88min | 3 tasks | 15 files |
 
 ## Decisions
 
@@ -99,3 +100,5 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-08: BkEditorSetMod validates (bare-name check, mod.xml read) entirely before CloseSessionMap or any storage/global change, so a refusal never closes the map it was about to switch away from
 - [Phase ?]: D-29 shipped: engine decodes each object's own icon.tga, cached; a neutral named frame for the rest (Johannes's Task 2 checkpoint choice)
 - [Phase ?]: 03-09: single soldiers with no icon.tga borrow their squad's (Johannes-requested addition); coverage rose from 1073/1167 to 1126/1167 placeable objects
+- [Phase ?]: 03-10: bridge binds to CMapInfo::sounds.sounds, not soundsList as the plan named - operator& never serialises soundsList (confirmed via MapEquivalence.cpp's own comment); soundsList's own MFC-editor marker loop never populates it from a loaded file either
+- [Phase ?]: 03-10: SMapSoundInfo's binary save had nMaxRadius and bMuteDuringCombat sharing tag 6 (pre-existing bug); gave bMuteDuringCombat tag 7 - no shipped map has non-empty sounds today so nothing on disk is displaced
