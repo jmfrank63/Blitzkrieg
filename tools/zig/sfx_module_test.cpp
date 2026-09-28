@@ -3,6 +3,7 @@
 #include "Platform/DynamicLibrary.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 static bool Check(bool value, const char* message)
@@ -53,8 +54,25 @@ int main(int argc, char** argv)
 	}
 	sfx->Done();
 	sfx->Done();
+
+	// Opt-in, because CI runners have no playback device: open the real one.
+	// With BK_AUDIO_FAIL_DEFAULT=1 as well, the system default is made to fail
+	// and the engine has to come up on a fallback device instead; the log says
+	// which. Nothing is played.
+	const char* pszRealDevice = std::getenv("BK_TEST_AUDIO_DEVICE");
+	const bool bRealDevice = pszRealDevice != nullptr && pszRealDevice[0] != 0 && pszRealDevice[0] != '0';
+	if (bRealDevice)
+	{
+		if (!Check(sfx->Init(0, SFX_OUTPUT_DSOUND, 44100, 32) && sfx->IsInitialized(), "real playback device initialization"))
+		{
+			sfx->Done();
+			sfx->Release();
+			return 10;
+		}
+		sfx->Done();
+	}
 	sfx->Release();
 
-	std::puts("sfx module lifecycle passed: Sound v0100 types=6 no-device restart");
+	std::printf("sfx module lifecycle passed: Sound v0100 types=6 no-device restart%s\n", bRealDevice ? " real-device" : "");
 	return 0;
 }
