@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-09-28T04:38:48.085Z"
-state_head: 878d62719194e894c5fe03579b7625f25102a612
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-09-28T05:05:37.039Z"
+state_head: 975bffee9f84256701d5cf572ce05ded81cf8dde
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T04:38:48.085Z
-**Stopped at:** Completed 03-03-PLAN.md
+**Last session:** 2026-09-28T05:05:37.039Z
+**Stopped at:** Completed 03-04-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -73,6 +73,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P01 | 35min | 2 tasks | 5 files |
 | Phase 03-map-editor-plan-6-finish-m1 P02 | 55min | 2 tasks | 10 files |
 | Phase 03-map-editor-plan-6-finish-m1 P03 | 23min | 2 tasks | 10 files |
+| Phase 03-map-editor-plan-6-finish-m1 P04 | ~25min | 2 tasks | 4 files |
 
 ## Decisions
 
@@ -82,3 +83,5 @@ behavior needs the in-game rows).
 - [Phase ?]: main.zig builds its own allocator-backed Io.Threaded instance instead of std.Io.Threaded.global_single_threaded, whose allocator is .failing by design and broke std.process.spawn with OutOfMemory
 - [Phase ?]: Safe save's read-back verification (D-19) lives entirely in SaveSessionMap (C++), not duplicated in Zig - Editor.save only does the temp-file/backup/swap dance around a BkEditorSaveMap call that is already safe to trust once it answers OK
 - [Phase ?]: Both shipped map formats (.bzm and .xml) round-tripped through the new read-back check with no float-rounding mismatch on this host - the spec's idempotent .xml fallback exists in the test but was never exercised
+- [Phase ?]: UnsavedPrompt (D-23) is a pure state machine that never touches the bridge or filesystem itself - the caller makes the actual save and reports the outcome back through saveFinished, so its own tests need no fake bridge
+- [Phase ?]: isShippedMap (D-18) treats a relative document path as already under base_root rather than resolving it against a cwd, matching how the smoke's own map argument and every real Open of a shipped map actually arrive
