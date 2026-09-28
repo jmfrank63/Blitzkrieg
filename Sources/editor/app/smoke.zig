@@ -335,7 +335,10 @@ pub const Script = struct {
         // index (CTerrain::SetTile derives it), so the paint must change
         // terrain type to show: 0 and 14 are in every shipped tileset, in
         // different terrain types (c_bridge_test.zig picks them the same way).
-        self.view.brush.tile = if (self.tile_a != 0 and self.tile_b != 0) 0 else 14;
+        // Task 7, carried from plan 5: through State.chooseBrushTile, the
+        // same call the brush combo itself makes, so the palette-to-brush
+        // path is not left out of what the smoke exercises.
+        self.state.chooseBrushTile(if (self.tile_a != 0 and self.tile_b != 0) 0 else 14);
         if (std.mem.indexOfScalar(u8, self.state.tiles(), self.view.brush.tile) == null)
             return self.fail("the tileset does not offer tile {d}", .{self.view.brush.tile});
         const empty = self.resolveAt(empty_ground) orelse return self.fail("empty_ground is off the terrain", .{});

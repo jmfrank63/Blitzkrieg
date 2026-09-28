@@ -162,10 +162,12 @@ pub const View = struct {
     /// first one this session, always opens on its middle at zoom 0, exactly
     /// what `BkEditorOpenMap` itself already put the camera and zoom at, so
     /// this is belt-and-suspenders for the "not remembered" branch and the
-    /// actual behavior for a reopened one. Also picks the placer's default
-    /// object (the first catalogue entry of game type unit) if none is
+    /// actual behavior for a reopened one. Also picks `default_object` (the
+    /// catalogue's first entry of game type unit, State's own - Task 3,
+    /// carried from plan 5: this used to ask the bridge for the whole
+    /// catalogue again just to find it) as the placer's default if none is
     /// chosen yet.
-    pub fn showMap(self: *View, real: *RealBridge, path: []const u8, info: MapInfo) void {
+    pub fn showMap(self: *View, real: *RealBridge, path: []const u8, info: MapInfo, default_object: ?[]const u8) void {
         self.saveCurrentView();
         self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
         if (self.remembered.get(path)) |saved| {
@@ -182,7 +184,9 @@ pub const View = struct {
         self.syncFromBridge(real);
         self.current_path.clearRetainingCapacity();
         self.current_path.appendSlice(self.allocator, path) catch self.current_path.clearRetainingCapacity();
-        if (self.placer.name.len == 0) self.pickDefaultPlacerObject(real);
+        if (self.placer.name.len == 0) {
+            if (default_object) |name| self.setPlacerObject(name);
+        }
     }
 
     /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -199,16 +203,6 @@ pub const View = struct {
             };
         }
         gop.value_ptr.* = .{ .camera_x = self.camera_x, .camera_y = self.camera_y, .zoom_steps = self.zoom_steps };
-    }
-
-    fn pickDefaultPlacerObject(self: *View, real: *RealBridge) void {
-        const entries = real.catalogue(self.allocator) catch return;
-        defer self.allocator.free(entries);
-        for (entries) |entry| {
-            if (entry.game_type != unit_game_type) continue;
-            self.setPlacerObject(std.mem.sliceTo(&entry.name, 0));
-            return;
-        }
     }
 
     /// An event `main.zig` decided (through `inputKindOf`/`shouldDeliver`)

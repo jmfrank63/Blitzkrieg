@@ -689,13 +689,17 @@ pub const FileActions = struct {
         /// File > Mod: switch to this folder, or "" for None (D-26).
         switch_mod: []const u8,
         quit,
+        /// A second Open or Save As while a dialog is already up (Task 5,
+        /// carried from plan 5: this used to be dropped silently) - the
+        /// caller shows it on the status line.
+        dialog_busy,
     };
 
     /// The save `next`/`act` was told to make, for `saveFinished`, resolved
     /// into a Step.
     fn stepForPending(self: *FileActions, pending: Pending) Step {
         return switch (pending) {
-            .open_dialog => if (self.dialog.request(.open)) Step{ .show_dialog = .open } else Step.none,
+            .open_dialog => if (self.dialog.request(.open)) Step{ .show_dialog = .open } else Step.dialog_busy,
             .quit => .quit,
             .open_path => |path| blk: {
                 // See open_path_scratch's own doc comment for why this copy
@@ -765,7 +769,7 @@ pub const FileActions = struct {
                 .save_as => if (self.dialog.request(.save_as)) blk: {
                     self.dialog_for_prompt = true;
                     break :blk Step{ .show_dialog = .save_as };
-                } else Step.none,
+                } else Step.dialog_busy,
                 .proceed => |pending| self.stepForPending(pending),
                 .dropped => .none,
             };
@@ -782,7 +786,7 @@ pub const FileActions = struct {
             self.save_requested = false;
             if (needs_save_as) {
                 if (self.dialog.request(.save_as)) return .{ .show_dialog = .save_as };
-                return .none;
+                return .dialog_busy;
             }
             return .save;
         }
@@ -810,6 +814,7 @@ pub const FileActions = struct {
         if (self.save_as_requested) {
             self.save_as_requested = false;
             if (self.dialog.request(.save_as)) return .{ .show_dialog = .save_as };
+            return .dialog_busy;
         }
         return .none;
     }
@@ -1279,9 +1284,10 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     actions.open_requested = true;
     try std.testing.expectEqual(FileActions.Step{ .show_dialog = .open }, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
-    // A second Open while the dialog is up does nothing.
+    // A second Open while the dialog is up reports dialog_busy (Task 5,
+    // carried from plan 5 - this used to be dropped as a silent .none).
     actions.open_requested = true;
-    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
+    try std.testing.expectEqual(FileActions.Step.dialog_busy, actions.next(false, false));
 
     // Between frames the callback delivers; frame 2 acts on it.
     actions.dialog.deliver("/maps/fixture.bzm");
@@ -1303,6 +1309,21 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     try std.testing.expectEqual(FileActions.Step.quit, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.save, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
+}
+
+test "file actions: Save As, and Save on a path-less map, both report dialog_busy while a dialog is already up" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    actions.save_as_requested = true;
+    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .save_as }, actions.next(false, false));
+    actions.save_as_requested = true;
+    try std.testing.expectEqual(FileActions.Step.dialog_busy, actions.next(false, false));
+
+    actions.save_requested = true;
+    // needs_save_as = true: a plain Save on a new/shipped map shows Save As
+    // too, so it is just as busy while the same dialog is still up.
+    try std.testing.expectEqual(FileActions.Step.dialog_busy, actions.next(false, true));
 }
 
 test "summarizeUnknown: the fake bridge's one mystery object is one type, one object" {

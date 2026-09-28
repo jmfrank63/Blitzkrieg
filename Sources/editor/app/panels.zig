@@ -184,6 +184,13 @@ pub const State = struct {
     /// slice into its own buffer would point into the copy that was left.
     tile_buffer: [256]u8 = undefined,
     tile_count: usize = 0,
+    /// Why the brush has no tiles when a map IS open (Task 5, carried from
+    /// plan 5: the palette used to say "no map open" even then, dropping the
+    /// bridge's own reason) - BkEditorTilesetTiles's message, copied here
+    /// since the bridge's pointer is only valid until its next call and this
+    /// must survive to the next frame's draw.
+    tile_reason_buffer: [256]u8 = undefined,
+    tile_reason_len: usize = 0,
 
     /// Every distinct object type the open map has that the object database
     /// does not know, most frequent first (`summarizeUnknown`), and the
@@ -352,7 +359,10 @@ pub const State = struct {
             order[next] = @intCast(i);
             next += 1;
         }
-        std.sort.insertion(u32, order, entries, struct {
+        // ~5.5k entries: std.sort.block (stable - a type keeps the database's
+        // own order), not the O(n^2)-worst-case sort this used before (Task 5,
+        // carried from plan 5).
+        std.sort.block(u32, order, entries, struct {
             fn less(context: []CatalogueEntry, a: u32, b: u32) bool {
                 return context[a].game_type < context[b].game_type;
             }
@@ -380,11 +390,50 @@ pub const State = struct {
         self.sound_names = owned_sound_names;
     }
 
+    /// The catalogue's first entry of game type unit, for the placer's
+    /// default object (view.zig's `showMap`) - read from `catalogue`, already
+    /// loaded here, rather than asking the bridge for the whole thing again
+    /// (Task 3, carried from plan 5: `View.pickDefaultPlacerObject` used to).
+    fn defaultPlacerObject(self: *const State) ?[]const u8 {
+        // `|*entry|`, not `|entry|`: `self.catalogue` is a heap slice, but
+        // `for (self.catalogue) |entry|` copies each element into a
+        // loop-local value, and a slice of *that* dangles the moment this
+        // function returns - the same bug `loadCatalogue`'s own
+        // `sound_names` loop documents and avoids, measured there the hard
+        // way (every name printed as stack garbage). Found here by
+        // map-editor-smoke's placer trying to add an object named from
+        // whatever briefly sat in the reused stack space instead.
+        for (self.catalogue) |*entry| {
+            if (entry.game_type == view_mod.unit_game_type) return std.mem.sliceTo(&entry.name, 0);
+        }
+        return null;
+    }
+
+    /// The brush combo's own choice (drawToolPalette) and the smoke's
+    /// `prepare` both choose a tile through here (Task 7, carried from plan
+    /// 5: the smoke used to set `view.brush.tile` directly, bypassing the
+    /// palette-to-brush path it is meant to exercise).
+    pub fn chooseBrushTile(self: *State, tile: u8) void {
+        self.view.brush.tile = tile;
+    }
+
+    /// Why the brush has no tiles right now, when a map is open (`tiles()` is
+    /// empty but `mapIsOpen` is true) - empty otherwise.
+    pub fn tileReason(self: *const State) []const u8 {
+        return self.tile_reason_buffer[0..self.tile_reason_len];
+    }
+
+    fn setTileReason(self: *State, reason: []const u8) void {
+        self.tile_reason_len = @min(reason.len, self.tile_reason_buffer.len);
+        @memcpy(self.tile_reason_buffer[0..self.tile_reason_len], reason[0..self.tile_reason_len]);
+    }
+
     /// After any open that succeeded, the startup one included: the camera,
     /// the tileset's tiles and the fields follow the new map.
     pub fn mapOpened(self: *State) void {
         self.edit = .{};
         self.tile_count = 0;
+        self.tile_reason_len = 0;
         self.selected_sound = null;
         self.sound_edit.active = false;
         self.loadSounds();
@@ -393,8 +442,18 @@ pub const State = struct {
         self.unknown_objects_total = 0;
         self.unknown_popup_shown = false;
         if (!mapIsOpen(self.editor)) return;
-        self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info);
-        self.tile_count = if (self.real.tilesetTiles(&self.tile_buffer)) |got| got.len else 0;
+        self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info, self.defaultPlacerObject());
+        if (self.real.tilesetTiles(&self.tile_buffer)) |got| {
+            self.tile_count = got.len;
+            // Task 5, carried from plan 5: the palette used to say "no map
+            // open" here too, when the call succeeded but the tileset simply
+            // has no tiles to offer.
+            if (got.len == 0) self.setTileReason("the tileset has no tiles");
+        } else {
+            // Same carried item: a failed call dropped the bridge's own
+            // reason the same way.
+            self.setTileReason(self.editor.bridge.lastMessage());
+        }
         // The brush keeps its tile if the new tileset has it; otherwise it
         // takes the first the tileset has, so it never paints a refusal.
         const offered = self.tiles();
@@ -479,6 +538,12 @@ pub fn act(state: *State) bool {
         const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state), userRoot(state));
         switch (state.actions.next(state.editor.dirty(), needs_save_as)) {
             .none, .ask_unsaved => return quit,
+            // Task 5, carried from plan 5: a second Open or Save As while a
+            // dialog is already up used to be dropped silently.
+            .dialog_busy => {
+                state.view.setStatus("", "a dialog is already open");
+                return quit;
+            },
             .dialog_cancelled => {},
             // A quit that reaches here is either clean (never dirty) or
             // answered Don't save (the prompt's .proceed path) - both are
@@ -1311,7 +1376,17 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     }
     ig.igSeparatorText("Brush");
     if (state.tile_count == 0) {
-        text("no map open: no tiles to paint");
+        if (!mapIsOpen(state.editor)) {
+            text("no map open: no tiles to paint");
+        } else {
+            // Task 5, carried from plan 5: this used to say "no map open"
+            // here too, dropping the bridge's own reason (tilesetTiles
+            // failed) or saying nothing about why (the tileset is empty).
+            var buffer: [300]u8 = undefined;
+            const reason = state.tileReason();
+            const message = std.fmt.bufPrint(&buffer, "no tiles to paint: {s}", .{reason}) catch "no tiles to paint";
+            text(message);
+        }
     } else {
         var preview: [32:0]u8 = undefined;
         const preview_text = std.fmt.bufPrintZ(&preview, "tile {d}", .{view.brush.tile}) catch "tile";
@@ -1320,7 +1395,7 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
                 var label: [32:0]u8 = undefined;
                 const label_text = std.fmt.bufPrintZ(&label, "tile {d}", .{tile}) catch continue;
                 const selected = tile == view.brush.tile;
-                if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) view.brush.tile = tile;
+                if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) state.chooseBrushTile(tile);
                 if (selected) ig.igSetItemDefaultFocus();
             }
             ig.igEndCombo();
@@ -1520,6 +1595,13 @@ fn commitEdit(state: *State, link_id: i32) void {
     if (logic.readOnlyReason(editor.document.objects.items, object.*) != null) return;
     const original: core.editor.Pose = .{ .x = object.x, .y = object.y, .dir = object.dir, .player = object.player };
     const pose = logic.editedPose(original, edit.x, edit.y, edit.degrees, edit.degrees_shown, edit.player);
+    // Task 5, carried from plan 5: a selection change while typing (the check
+    // atop drawProperties) can commit here for the object that was just left,
+    // and Editor.place's own equal-pose check silently no-ops the second call
+    // that pattern used to produce - this is the same check one layer up, so
+    // the common case (nothing was actually typed) never reaches the bridge
+    // at all. Editor.place's check stays as the backstop.
+    if (pose.x == original.x and pose.y == original.y and pose.dir == original.dir and pose.player == original.player) return;
     state.view.noteEditResult(editor, editor.place(link_id, pose, 0));
 }
 

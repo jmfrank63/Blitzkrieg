@@ -41,7 +41,6 @@ pub const Picture = struct {
 pub const RealBridge = struct {
     session: *c.BkEditorSession,
     message: [512]u8 = undefined,
-    message_len: usize = 0,
 
     pub fn init(session: *c.BkEditorSession) RealBridge {
         return .{ .session = session };
@@ -95,7 +94,6 @@ pub const RealBridge = struct {
         const text = std.mem.span(c.BkEditorLastMessage(self.session));
         const len = @min(text.len, self.message.len);
         @memcpy(self.message[0..len], text[0..len]);
-        self.message_len = len;
         return self.message[0..len];
     }
 
