@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-06-PLAN.md
-last_updated: "2026-09-28T06:36:06.696Z"
-state_head: 14f0e3dc4a3cf0f4ecfd6cc0c8f4873301234871
+stopped_at: Completed 03-07-PLAN.md
+last_updated: "2026-09-28T07:16:38.615Z"
+state_head: 6079dd2c764373356d53bcb9ade0be1d98425e3e
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T06:36:06.644Z
-**Stopped at:** Completed 03-06-PLAN.md
+**Last session:** 2026-09-28T07:16:38.567Z
+**Stopped at:** Completed 03-07-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -76,6 +76,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P04 | ~25min | 2 tasks | 4 files |
 | Phase 03-map-editor-plan-6-finish-m1 P05 | ~58min | 3 tasks | 11 files |
 | Phase 03-map-editor-plan-6-finish-m1 P06 | ~20min | 1 tasks | 6 files |
+| Phase 03-map-editor-plan-6-finish-m1 P07 | ~35min | 3 tasks | 8 files |
 
 ## Decisions
 
@@ -90,3 +91,5 @@ behavior needs the in-game rows).
 - [Phase ?]: BkEditorWorldToScreen uses z=0, not the terrain's real height, because GetPos3's real-terrain ray-cast never resolves in this bridge's headless session (measured: always falls back to its own z=0-plane path) - using real height would not round-trip with ScreenToWorld and would draw the brush outline off the ground a click actually resolves against
 - [Phase ?]: CTerrain::GetTileIndex rounds to the nearest tile rather than flooring a bucket, and measures Y from the terrain's far edge, not world_y 0 - confirmed by the engine tier rather than assumed, since view.zig's brush-outline corners depend on the exact relationship
 - [Phase ?]: D-12 (camera rotation) deferred out of M1: yaw measurement shows terrain clips away and sprites stay fixed at any yaw but the game's own 45 degrees
+- [Phase ?]: needsSaveAs gained a user_root parameter for the D-22 recovery-folder check (a reopened recovery copy is saved with Save As) rather than a parallel function
+- [Phase ?]: run() takes two explicit parameters (settings_path, is_interactive) instead of one flag reused for both, so a future settings-path resolution failure cannot silently also disable autosave
