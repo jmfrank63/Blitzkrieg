@@ -2158,7 +2158,10 @@ pub fn build(b: *std.Build) void {
     // The editor's two platforms; everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
-    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
+    // Captured (rather than discarded, as before) so the package steps below
+    // can stage this exact build of MapEditor beside Game (D-08); null on
+    // every other platform, where there is no MapEditor to package.
+    const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
@@ -2330,6 +2333,14 @@ pub fn build(b: *std.Build) void {
     stage_package_game_cmd.addArg(package_stage_root);
     addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     stage_package_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
+    // D-08: the game package carries MapEditor beside Game on the editor's two
+    // platforms. addFileArg (not a hand-built path string) both resolves the
+    // exact binary this build produced and makes this Run step depend on it,
+    // so `zig build package-game` always packages a freshly built MapEditor.
+    if (map_editor_exe) |editor_exe| {
+        stage_package_game_cmd.addArg("--map-editor");
+        stage_package_game_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
 
     const package_tool = b.addExecutable(.{
         .name = "package",
@@ -2352,6 +2363,15 @@ pub fn build(b: *std.Build) void {
     addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
+    // Same reasoning as package-game above: this run reuses package_stage_root
+    // (already staged by stage_package_game_cmd, MapEditor included), but the
+    // flag and its file dependency are added here too so this step's own graph
+    // also depends on the exact MapEditor build, not only on the earlier step
+    // having run at some point.
+    if (map_editor_exe) |editor_exe| {
+        stage_package_game_editors_cmd.addArg("--map-editor");
+        stage_package_game_editors_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
     stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
 
     const package_tool_editors = b.addRunArtifact(package_tool);
@@ -5765,7 +5785,7 @@ fn addMapEditor(
     // 03-08 Task 1: the fixture mod the -mod=EditorTestMod host-check run
     // below needs - never a dependency of install_exe/install-map-editor.
     install_fixture_mod_step: *std.Build.Step,
-) void {
+) *std.Build.Step.Compile {
     const engine: MapEditorEngine = .{
         .editor_bridge = editor_bridge,
         .map_file = map_file,
@@ -5950,6 +5970,13 @@ fn addMapEditor(
     const engine_test_step = b.step("test-map-editor-engine", "Drive the real engine through the editor core's commands and check it agrees");
     engine_test_step.dependOn(&install_engine_test.step);
     if (test_mode == .run) engine_test_step.dependOn(&engine_test_run.step);
+
+    // Returned so the package steps (package-game, package-game-editors) can
+    // add --map-editor with this exact artifact's emitted binary: passing the
+    // Compile step rather than a hand-built path keeps the package's stage
+    // command dependent on this build, not on whatever happened to be on disk
+    // from a previous run.
+    return exe;
 }
 
 /// A module of MapEditor's, with everything its executables link. The union

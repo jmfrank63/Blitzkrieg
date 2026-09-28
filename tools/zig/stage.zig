@@ -17,6 +17,12 @@ pub const Options = struct {
     data_mode: DataMode = .copy,
     include_editors: bool = false,
     editors_only: bool = false,
+    // D-08: a path (absolute, or relative to repo_root) to a built MapEditor
+    // binary. When set, it is copied into the staged root under its own base
+    // name (MapEditor or MapEditor.exe) after the runtime files, and required
+    // present by verifyStagedPayload - so a package missing it fails to stage
+    // rather than shipping without the editor test-launch expects beside it.
+    map_editor: ?[]const u8 = null,
     layout: RuntimeLayout = .{
         .game_name = "Game.exe",
         .runtime_files = &.{},
@@ -80,6 +86,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
             try debug_files.append(allocator, args.next() orelse return error.InvalidArguments);
         } else if (std.mem.eql(u8, arg, "--metadata-file")) {
             try metadata_files.append(allocator, args.next() orelse return error.InvalidArguments);
+        } else if (std.mem.eql(u8, arg, "--map-editor")) {
+            options.map_editor = args.next() orelse return error.InvalidArguments;
         } else {
             return error.InvalidArguments;
         }
@@ -113,6 +121,9 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         };
         defer if (libraries) |*dir| dir.close(io);
         copyGameRuntime(io, binaries, libraries, destination, options.layout) catch |err| return failStep("copyGameRuntime", err);
+        if (options.map_editor) |map_editor_path| {
+            copyMapEditor(io, repo, map_editor_path, destination) catch |err| return failStep("copyMapEditor", err);
+        }
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
@@ -133,7 +144,7 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
                 linkData(io, allocator, repo, destination) catch |err| return failStep("linkData", err);
             },
         }
-        verifyStagedPayload(io, destination, options.layout) catch |err| return failStep("verify staged payload", err);
+        verifyStagedPayload(io, destination, options) catch |err| return failStep("verify staged payload", err);
     } else if (!options.layout.editors_supported) {
         return error.EditorsUnsupported;
     }
@@ -149,12 +160,34 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
 /// produced, so a package that is wrong is wrong here rather than at a player's
 /// install. The bundled rclone is one of the runtime files, so the binary and
 /// the third-party notice MIT requires beside it are asserted together: neither
-/// may ship without the other.
-fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, layout: RuntimeLayout) !void {
+/// may ship without the other. When options.map_editor is set (D-08), its
+/// staged base name is required too - copyMapEditor already fails the stage if
+/// the source is missing, but a layout that skipped the copy for any other
+/// reason should still be caught here, the same way every other promised file
+/// is.
+fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, options: Options) !void {
+    const layout = options.layout;
     try requireStagedFile(io, destination, layout.game_name);
     for (layout.runtime_files) |name| try requireStagedFile(io, destination, name);
     for (layout.metadata_files) |name| try requireStagedFile(io, destination, name);
     try requireStagedFile(io, destination, runtime_verify.third_party_notices_name);
+    if (options.map_editor) |map_editor_path| {
+        try requireStagedFile(io, destination, std.fs.path.basename(map_editor_path));
+    }
+}
+
+/// Copies the built MapEditor binary (D-08) into the staged root under its own
+/// base name, beside Game. `source_path` may be absolute (the common case: the
+/// package steps pass a build-system-resolved cache path) or relative to
+/// `repo`; either way, a missing source fails naming the path, rather than
+/// silently shipping a package with no editor.
+fn copyMapEditor(io: std.Io, repo: std.Io.Dir, source_path: []const u8, destination: std.Io.Dir) !void {
+    const base_name = std.fs.path.basename(source_path);
+    const source_dir = if (std.fs.path.isAbsolute(source_path)) std.Io.Dir.cwd() else repo;
+    copyFile(io, source_dir, source_path, destination, base_name) catch |err| {
+        std.debug.print("stage: map editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
+        return error.MissingMapEditor;
+    };
 }
 
 fn requireStagedFile(io: std.Io, destination: std.Io.Dir, name: []const u8) !void {

@@ -256,6 +256,73 @@ fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.te
     };
 }
 
+test "--map-editor stages the file beside the game" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    // Repo-relative, the same form a hand-run `zig build package-game`
+    // could pass; build.zig itself passes an absolute cache path
+    // (copyMapEditor's other branch), exercised implicitly by every
+    // package-game/package-game-editors build.
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/MapEditor" }),
+        .data = "map editor fixture",
+    });
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/MapEditor";
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "MapEditor", "map editor fixture");
+}
+
+test "a missing map editor binary fails the stage naming the path" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/NoSuchMapEditor";
+    try std.testing.expectError(error.MissingMapEditor, stage.stage(io, allocator, options));
+}
+
+test "a mods directory in the repository is never staged" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    // Mirrors the real layout (Sources/src/Main/MainLoopCommands.cpp): mods
+    // live at <install>/mods/<Name>/data, a sibling of Data, never a member
+    // of it - nothing in stage.zig walks or copies this tree today, and this
+    // test keeps it that way, including for the unlicensed AchtungPanzer2.
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "mods/SomeMod/data" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "mods/SomeMod/data/mod.xml" }),
+        .data = "<mod/>",
+    });
+
+    try stage.stage(io, allocator, fixture.options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedPathAbsent(destination, io, "mods");
+    try expectStagedPathAbsent(destination, io, "mods/SomeMod/data/mod.xml");
+}
+
 fn expectStagedFile(destination: std.Io.Dir, io: std.Io, allocator: std.mem.Allocator, path: []const u8, expected: []const u8) !void {
     const contents = try destination.readFileAlloc(io, path, allocator, .limited(1024));
     defer allocator.free(contents);
