@@ -145,6 +145,33 @@ Report "approved" or the failing numbers. Camera rotation is deliberately not on
 
 Result: **pending**.
 
+## Gap fix: a map in another installation's Data was saved in place (hand try, step 2)
+
+**Found:** from the release stage, File > Open of `/Users/johannes/Projects/src/Blitzkrieg/Data/Maps/Multiplayer/coldwinter.bzm` (the main checkout's Data, not the stage's), then File > Save, wrote into that file and left `coldwinter.bzm.bak` beside it. D-18 says a shipped map is read-only and Save becomes Save As.
+
+**Root cause:** `panels_logic.isShippedMap(engine_path, base_root)` compared text only: relative `data/...`, or an absolute path starting with the editor's own base root. Another installation's Data, or the stage's own Data reached through its symlink's target, looked like a user's file. Autosave (D-20) used the same answer, so it would have written into that file every 2 minutes as well.
+
+**New rule** (`Sources/editor/core/shipped.zig`, std-only, the disk questions behind `Files.isDataRoot`/`Files.realPath`): a map is read-only when, for its path as given or its real path (symlinks resolved), any of these holds:
+1. it is under `<base_root>Data/` or `<base_root>mods/<N>/data/`, checked against the base root and the base root's real path;
+2. it is under `mods/<N>/data/` anywhere;
+3. one of its ancestor folders is named `Data` (any case) and has a game data root marker at its top: `consts.xml`, `objects.xml`, `mod.xml`, `resource.description` or any `*.pak`.
+
+A folder of your own that happens to be called `Data` stays writable because it has no marker. The user maps folder, `mods/<N>/maps`, the recovery folder and the generated test-map root have no `data` segment, so they stay writable.
+
+**Where it applies:** Save turns into Save As, autosave writes only to the recovery copy (D-22), and the title says "(read-only)". The panels cache one answer per document path, so the disk is only asked again when the path changes. `Editor.save` also refuses any target inside a game's data before it writes anything, not even a temp file or a `.bak`. The status line then reads "not saved: <name> is inside a game's data folder, which is read-only - Save As into your maps folder instead". This catches any caller that forgets the rule.
+
+**Commit:** `48bf7cfe8` fix(03-15): a map inside any game's Data is read-only, not only the editor's own.
+
+**Evidence** (debug stage `zig-out/game/macos/arm64/debug`; the release stage was not touched because Johannes was running it):
+- `test-editor-core` 85/85 passed, including 9 new `shipped.zig` tests. They cover own Data relative and absolute, another tree's Data, Windows drive-letter and backslash paths, a symlinked Data both ways, a symlinked base root, `mods/<N>/data`, the user maps and recovery folders, an unmarked `Data`, and a real-disk case with a real symlink. There is also a new `Editor.save` refusal test: nothing is written, copied, renamed or deleted.
+- `test-map-editor-panels` 45/45 passed, including a new foreign-tree `needsSaveAs` test and an autosave-target test. `test-map-editor-auto` passed. `zig build test` passed 203/203.
+- `map-editor-smoke` PASS, 35 steps. The 5 new steps build `zig-out/local-test/map-editor-smoke-foreign/Data` with a `consts.xml` marker and a copied `coldwinter.bzm`, and open it by its absolute path. The map shows as read-only. After a dirtying edit, Save becomes Save As. A due autosave writes only `map-editor-smoke-user/mapeditor/recovery/coldwinter.bzm`, because the smoke points its user root under local-test and never into the real one. A forced in-place `editor.save` returns `error.Refused`. After every step the foreign file's bytes (Wyhash), size, inode and mtime are unchanged, and there is no `.bak` and no `.~save` temp.
+- Negative controls, reverted afterwards: with the panels' classifier given no `Files`, the smoke fails with "another installation's map opens read-only: ... is not read-only". With the `Editor.save` guard disabled, it fails with "Editor.save wrote into ..." and the new core test fails.
+- `map-editor-host-check` passed with the relative path, the absolute path through the stage's Data symlink, and `-mod=EditorTestMod`.
+- The core and panels tests also cross-compile for `x86_64-windows-gnu` (with `--test-no-exec`).
+
+**Still to do:** rebuild the release stage (`zig build install-map-editor -Dtarget=aarch64-macos --release=fast -Dcopy-data=false`) and run its `MapEditor --check`. The orchestrator does this once Johannes has left the release folder. Then retry hand-try step 2 on the main checkout's `coldwinter.bzm`. When this was written, the main checkout's `Data/Maps/Multiplayer/coldwinter.bzm` matched git (`git status` was clean, mtime 04:34) and the first try's `.bak` was already gone. This fix only read that checkout and wrote nothing to it.
+
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
 Still open in `.planning/WINDOWS.md` (entries 1-3, ledger `open_count: 3`):
