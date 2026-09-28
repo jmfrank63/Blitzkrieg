@@ -185,6 +185,16 @@ pub const State = struct {
     tile_buffer: [256]u8 = undefined,
     tile_count: usize = 0,
 
+    /// Every distinct object type the open map has that the object database
+    /// does not know, most frequent first (`summarizeUnknown`), and the
+    /// modal that reports them (spec Errors -> Open). 64 comfortably holds
+    /// any real mod map's distinct unknown types - the same "capped rather
+    /// than shown incomplete" convention `mod_list_buffer` already uses.
+    unknown_types: [64]logic.UnknownType = undefined,
+    unknown_types_count: usize = 0,
+    unknown_objects_total: usize = 0,
+    unknown_popup_shown: bool = false,
+
     /// The open map's own sound list (CMapInfo::sounds.sounds through
     /// RealBridge.sounds - see bridge.h's own comment on why not
     /// CMapInfo::soundsList), for the Sounds panel. Read again whenever a map
@@ -365,6 +375,9 @@ pub const State = struct {
         self.sound_edit.active = false;
         self.loadSounds();
         self.sounds_generation_seen = self.editor.sounds_generation;
+        self.unknown_types_count = 0;
+        self.unknown_objects_total = 0;
+        self.unknown_popup_shown = false;
         if (!mapIsOpen(self.editor)) return;
         self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info);
         self.tile_count = if (self.real.tilesetTiles(&self.tile_buffer)) |got| got.len else 0;
@@ -373,6 +386,15 @@ pub const State = struct {
         const offered = self.tiles();
         if (offered.len != 0 and std.mem.indexOfScalar(u8, offered, self.view.brush.tile) == null)
             self.view.brush.tile = offered[0];
+
+        // The unknown-objects warning (spec Errors -> Open): every object the
+        // open map lists that the object database does not know.
+        var unknown_total: usize = 0;
+        for (self.editor.document.objects.items) |object| {
+            if (!object.known) unknown_total += 1;
+        }
+        self.unknown_objects_total = unknown_total;
+        self.unknown_types_count = logic.summarizeUnknown(self.editor.document.objects.items, &self.unknown_types);
     }
 };
 
@@ -409,6 +431,7 @@ pub fn draw(state: *State) void {
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
+    drawUnknownObjectsPrompt(state);
     drawSettingsWindow(state);
     drawRecoveryPrompt(state);
     updateTitle(state);
@@ -748,6 +771,41 @@ fn drawUnsavedPrompt(state: *State) void {
     ig.igSameLine();
     if (ig.igButton("Cancel")) state.actions.answer_pending = .cancel;
     if (state.actions.answer_pending != null) ig.igCloseCurrentPopup();
+    ig.igEndPopup();
+}
+
+/// Spec Errors -> Open: after an open that succeeded (`State.mapOpened`)
+/// found objects the object database does not know, a modal names how many
+/// of how many types are kept unchanged and not shown, lists each type once
+/// with its count (`summarizeUnknown`, most frequent first) in a scrolling
+/// child so a mod map with many stays inside one window, and hints at the
+/// likely cause. Every name is drawn with `text` (igTextUnformattedEx, never
+/// a format string) - T-03-11-01: a map's own object names reach this popup
+/// as plain untrusted bytes.
+fn drawUnknownObjectsPrompt(state: *State) void {
+    if (state.unknown_types_count == 0) return;
+    const popup_id = "Objects this game does not know";
+    if (!state.unknown_popup_shown) {
+        _ = ig.igOpenPopup(popup_id, 0);
+        state.unknown_popup_shown = true;
+    }
+    if (!ig.igBeginPopupModal(popup_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+    var buffer: [200]u8 = undefined;
+    const message = std.fmt.bufPrint(&buffer, "{d} objects of {d} types are kept unchanged in the map and are not shown.", .{ state.unknown_objects_total, state.unknown_types_count }) catch
+        "Some objects are kept unchanged in the map and are not shown.";
+    text(message);
+    const rows = @as(f32, @floatFromInt(state.unknown_types_count));
+    const child_height = std.math.clamp(rows * ig.igGetTextLineHeightWithSpacing(), ig.igGetTextLineHeightWithSpacing(), 200);
+    if (ig.igBeginChild("unknown-types", .{ .x = 320, .y = child_height }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (state.unknown_types[0..state.unknown_types_count]) |entry| {
+            var row_buffer: [core.bridge.name_capacity + 16]u8 = undefined;
+            const row = std.fmt.bufPrint(&row_buffer, "{s} x {d}", .{ entry.nameSlice(), entry.count }) catch entry.nameSlice();
+            text(row);
+        }
+    }
+    ig.igEndChild();
+    text("Maps made for a mod need that mod: File > Mod.");
+    if (ig.igButton("OK")) ig.igCloseCurrentPopup();
     ig.igEndPopup();
 }
 

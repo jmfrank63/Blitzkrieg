@@ -238,6 +238,58 @@ pub fn readOnlyReason(objects: []const ObjectRecord, object: ObjectRecord) ?[]co
     return null;
 }
 
+/// One distinct unknown object type, and how many objects of it the map
+/// holds - `summarizeUnknown`'s own rows (spec Errors -> Open).
+pub const UnknownType = struct {
+    name: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    count: usize = 0,
+
+    pub fn nameSlice(self: *const UnknownType) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    fn setName(self: *UnknownType, text: []const u8) void {
+        const len = @min(text.len, core.bridge.name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+};
+
+/// Every unknown object's type once, with its count, most frequent first
+/// (names compared exactly) - the warning the spec's Errors -> Open asks for.
+/// Fills at most `out.len` distinct types (stable order for equal counts, so
+/// the result is deterministic); returns how many it filled. A type past
+/// `out.len` is silently left out of the summary rather than shown
+/// incomplete - the same convention `State.mod_list_buffer` already uses for
+/// a similarly-bounded list.
+pub fn summarizeUnknown(objects: []const ObjectRecord, out: []UnknownType) usize {
+    var count: usize = 0;
+    for (objects) |object| {
+        if (object.known) continue;
+        const name = object.nameSlice();
+        var found = false;
+        for (out[0..count]) |*entry| {
+            if (std.mem.eql(u8, entry.nameSlice(), name)) {
+                entry.count += 1;
+                found = true;
+                break;
+            }
+        }
+        if (!found and count < out.len) {
+            out[count] = .{};
+            out[count].setName(name);
+            out[count].count = 1;
+            count += 1;
+        }
+    }
+    std.sort.insertion(UnknownType, out[0..count], {}, struct {
+        fn lessThan(_: void, a: UnknownType, b: UnknownType) bool {
+            return a.count > b.count;
+        }
+    }.lessThan);
+    return count;
+}
+
 /// The window title: the map's file name, a `*` while it has changes the
 /// file does not, and " (read-only)" for a shipped map (D-18) - it can be
 /// both at once: a shipped map may still be edited in memory, just not
@@ -1251,6 +1303,48 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     try std.testing.expectEqual(FileActions.Step.quit, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.save, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
+}
+
+test "summarizeUnknown: the fake bridge's one mystery object is one type, one object" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    var out: [8]UnknownType = undefined;
+    const count = summarizeUnknown(editor.document.objects.items, &out);
+    try std.testing.expectEqual(@as(usize, 1), count);
+    try std.testing.expectEqualStrings("No_Such_Object", out[0].nameSlice());
+    try std.testing.expectEqual(@as(usize, 1), out[0].count);
+}
+
+test "summarizeUnknown: repeats of the same name count together, and the most frequent type comes first" {
+    var one: ObjectRecord = .{ .link_id = 1, .known = false };
+    one.setName("Alpha");
+    var two: ObjectRecord = .{ .link_id = 2, .known = false };
+    two.setName("Beta");
+    var three: ObjectRecord = .{ .link_id = 3, .known = false };
+    three.setName("Alpha");
+    var known: ObjectRecord = .{ .link_id = 4, .known = true };
+    known.setName("T34");
+    var four: ObjectRecord = .{ .link_id = 5, .known = false };
+    four.setName("Alpha");
+    const objects = [_]ObjectRecord{ one, two, three, known, four };
+    var out: [8]UnknownType = undefined;
+    const count = summarizeUnknown(&objects, &out);
+    try std.testing.expectEqual(@as(usize, 2), count);
+    try std.testing.expectEqualStrings("Alpha", out[0].nameSlice());
+    try std.testing.expectEqual(@as(usize, 3), out[0].count);
+    try std.testing.expectEqualStrings("Beta", out[1].nameSlice());
+    try std.testing.expectEqual(@as(usize, 1), out[1].count);
+}
+
+test "summarizeUnknown: no unknown objects is zero rows" {
+    var known: ObjectRecord = .{ .link_id = 1 };
+    known.setName("T34");
+    const objects = [_]ObjectRecord{known};
+    var out: [8]UnknownType = undefined;
+    try std.testing.expectEqual(@as(usize, 0), summarizeUnknown(&objects, &out));
 }
 
 test "file actions: Open Recent opens directly on a clean map, guarded on a dirty one" {

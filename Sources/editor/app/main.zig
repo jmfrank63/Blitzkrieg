@@ -834,6 +834,32 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     if (c.BkEditorCaptureFrame(host.session, shot.ptr) != c.BK_EDITOR_OK)
         return fail("panels: the frame was not captured: {s}", .{std.mem.span(c.BkEditorLastMessage(host.session))});
 
+    // Task 1 (spec Errors -> Open): test-editor-bridge's own copy of
+    // coldwinter with one object renamed to a type no database knows
+    // (TestUnknownObjectDoesNotStopTheOpen) lands in the same zig-out/local-test
+    // directory `output` lives in - both are always b.pathFromRoot-absolute,
+    // from build.zig's own run steps, so `directory` (already computed above)
+    // finds it regardless of this process's own cwd. Opened through the
+    // panels' own Open path, the way a person's Open would, so the warning
+    // this proves is the one State.mapOpened actually builds. Skipped, not
+    // failed, when that engine-tier test has not written it into this
+    // zig-out yet.
+    var unknown_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const unknown_path = std.fmt.bufPrint(&unknown_buffer, "{s}{c}coldwinter-unknown-object.bzm", .{ directory, std.fs.path.sep }) catch
+        return fail("panels: the unknown-object path is too long", .{});
+    if (std.Io.Dir.cwd().access(io, unknown_path, .{})) |_| {
+        if (!state.actions.dialog.request(.open)) return fail("panels: the dialog slot was not free for the unknown-object check", .{});
+        state.actions.dialog.deliver(unknown_path);
+        if (panels.act(&state)) return fail("panels: opening the unknown-object map quit the editor", .{});
+        if (view.statusLine().len != 0 or editor.status().len != 0)
+            return fail("panels: opening {s} failed: {s}{s}", .{ unknown_path, view.statusLine(), editor.status() });
+        if (state.unknown_types_count != 1 or state.unknown_objects_total != 1)
+            return fail("panels: {s} opened with {d} unknown types / {d} unknown objects, want 1 / 1", .{ unknown_path, state.unknown_types_count, state.unknown_objects_total });
+        std.debug.print("map-editor: unknown-object warning PASS\n", .{});
+    } else |_| {
+        std.debug.print("map-editor: unknown-object warning skipped (run test-editor-bridge first)\n", .{});
+    }
+
     std.debug.print("map-editor: panel smoke PASS ({d} catalogue entries, {d} tiles, saved and reopened {s})\n", .{ state.catalogue.len, state.tile_count, saved });
     return true;
 }
