@@ -290,3 +290,12 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: Smaller installer: derive textures instead of shipping them, modern compression (BACKLOG)
+
+**Goal:** Make the installer package as small as possible without losing any original art. Drop the `_c` (DXT) and `_l` (16-bit) copies of every texture (about 910 MB, a third of `Data`): they are plain conversions of `_h`, and the GPU renderer falls back to `_h`; a lower texture quality converts `_h` at load time instead. Generate the missing season textures (`1w`/`2w`/`1a`/`2a`, about 67 MB, `tools/zig/season_textures.zig`) at build or stage time instead of committing them; Nival's own hand-painted season textures stay as shipped. Move the installer package from zip/.pak to a modern compressor (xz or zstd; bz2 was also mentioned) while keeping fast random access for the installed data. Take it up after map editor plan 6 (Phase 3). Details in `.planning/phases/999.2-smaller-installer-derived-textures-modern-compression/999.2-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
