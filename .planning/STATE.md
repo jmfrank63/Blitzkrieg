@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Phase 3 context gathered
-last_updated: "2026-09-27T20:14:11.488Z"
-state_head: 5a690d276b5020ffa306740fadffd1b9a582137c
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-09-28T03:17:08.404Z"
+state_head: 93ac9805b3ff55e354acdb59335b3d33d7537d3e
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,12 +56,23 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-27T17:43:44.695Z
-**Stopped at:** Phase 3 context gathered
-**Resume file:** .planning/phases/03-map-editor-plan-6-finish-m1/03-CONTEXT.md
+**Last session:** 2026-09-28T03:17:02.472Z
+**Stopped at:** Completed 03-01-PLAN.md
+**Resume file:** None
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 3 added (2026-09-28): Map editor plan 6: finish M1 — branch feat/map-editor-plan-6, worktree .worktrees/map-editor-6
+
+## Performance Metrics
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 03-map-editor-plan-6-finish-m1 P01 | 35min | 2 tasks | 5 files |
+
+## Decisions
+
+- [Phase ?]: CloudProviderSelected gates on Editor.TestLaunch (one guard closes all five cloud-sync call sites) rather than gating each call site
+- [Phase ?]: SMiniMapUnitInfo coordinate scale (1 unit = 2 AI tiles = 64 world units) determined by reading CAILogic::GetMiniMapInfo source directly, not by building the Map Editor app to cross-check a live dump

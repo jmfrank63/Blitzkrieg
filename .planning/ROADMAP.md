@@ -216,12 +216,12 @@ see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
 **Goal:** Meet the M1 exit criteria of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: test-launch the edited map in the game (the game plays the saved map), load a mod's data like the game, camera rotate and zoom, safe save (temporary file and swap) with the unsaved-changes prompt, editor settings and recent files, `BK_EDITOR_AUTO` automation with shot comparison, the full open/save sweep of every shipped map, and packaging `MapEditor` with the game — plus the "Carried to plan 6" list of `docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md` (object icons, brush outline via world-to-screen, panels following a resize, the map's sound list, the unknown-objects warning, the Windows console subsystem, and the deferred minors). Plans 1–5 of the map editor are merged (main 6657668a6).
 **Requirements**: CONTEXT D-01..D-29, the spec's M1 exit criteria, plan 5's "Carried to plan 6" list
 **Depends on:** Map editor plans 1–5 (merged); independent of Phase 2
-**Plans:** 15 plans (one after another in the one worktree: shared zig-out, ~13 GB free)
+**Plans:** 1/15 plans executed (one after another in the one worktree: shared zig-out, ~13 GB free)
 
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — the game's `-editor-test` switch: session-only MapEditorTest profile, no cloud sync, windowed, no first-visit help; BK_AUTO_UI `units=`
+- [x] 03-01-PLAN.md — the game's `-editor-test` switch: session-only MapEditorTest profile, no cloud sync, windowed, no first-visit help; BK_AUTO_UI `units=`
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
