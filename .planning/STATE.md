@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-14-PLAN.md
-last_updated: "2026-09-28T19:18:24.670Z"
-state_head: 863cd78e60e1291be0e93ba132232703c270efd5
+stopped_at: Completed 03-15-PLAN.md automated tasks; hand try pending
+last_updated: "2026-09-28T20:05:43.545Z"
+state_head: a8ee30d1034673c18ef7da3a9d8caaa0dfa0ff14
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T19:18:24.612Z
-**Stopped at:** Completed 03-14-PLAN.md
+**Last session:** 2026-09-28T20:05:43.489Z
+**Stopped at:** Completed 03-15-PLAN.md automated tasks; hand try pending
 **Resume file:** None
 
 ## Accumulated Context
@@ -84,6 +84,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P12 | 55min | 2 tasks | 8 files |
 | Phase 03-map-editor-plan-6-finish-m1 P13 P13 | ~58min | 3 tasks | 6 files |
 | Phase 03-map-editor-plan-6-finish-m1 P14 | ~90min | 2 tasks | 6 files |
+| Phase 03 P15 | ~95min | 3 tasks | 1 files |
 
 ## Decisions
 
@@ -115,3 +116,5 @@ behavior needs the in-game rows).
 - [Phase 03]: 03-13: KeepWindowOnItsOwnDisplay's second-monitor fix was verified with a live measurement against a real second display (throwaway instrumented host.zig, reverted), not assumed from reading SelectedDisplay's source alone
 - [Phase ?]: 03-14: --map-editor's package-mods verify command (grep -ci /mods/) is broader than the threat (matches legitimate Data/*/mods/ localization folders); verified the precise top-level-only condition instead (0 top-level mods/ entries)
 - [Phase ?]: 03-14: crt.attachParentConsole does the full CONOUT$-open-and-SetStdHandle recipe, not just AttachConsole - Zig's std.Io.File.stdout/stderr read the process-parameters block live on every call, so AttachConsole alone would not make anything print
+- [Phase ?]: 03-15: M1 automated exit criteria met (sweep 1755/1755, 11 local tier PASS lines, CI 36473046568 six green jobs); hand try pending for Johannes
+- [Phase ?]: 03-15: spec cites commands and dates for exit criteria; CI run ids live in the SUMMARY
