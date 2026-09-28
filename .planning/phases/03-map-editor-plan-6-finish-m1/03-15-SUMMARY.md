@@ -137,7 +137,7 @@ Build: `/Users/johannes/Projects/src/Blitzkrieg/.worktrees/map-editor-6/zig-out/
 5. Close the window with changes: Save / Don't save / Cancel.
 6. Edit > Settings: swipe speed changes the pan, autosave interval; File > Open Recent.
 7. File > Mod with a mod you have installed locally (never committed).
-8. Palette pictures in a few groups: each object shows its own icon; single soldiers show their squad's icon; 41 objects show a neutral frame with their name.
+8. Palette pictures in a few groups: each object shows its own icon; 36 objects show a neutral frame with their name. Single soldiers are no longer listed (see the lone soldier gap fix below), so place their squads instead. That removes 5 of the 41 neutral frames the bridge's own picture sweep counts: the paratroopers, `Australian_Shooter` and `Finnish_Gunner_Hw`, which are soldiers that no squad lists.
 9. The Sounds panel on a map with sounds (none of the shipped maps has any, so add one at the view centre, edit it, undo and redo, save, reopen).
 10. A shipped map opens read-only (title says read-only; Save asks for a new name).
 
@@ -198,6 +198,64 @@ A folder of your own that happens to be called `Data` stays writable because it 
 - `test-map-editor-engine`: 1 pass, 1 fail. The failure is `expectLoneSoldierRefused` at `Sources/editor/app/c_bridge_test.zig:87` (`placeable` expected 0, found 1). That code belongs to the lone-soldier gap fix another session had uncommitted in this worktree at the time (`catalogue.cpp`, `bridge.h`, `c_bridge_test.zig`), not to this change. The test's open, edit and command steps before that line ran with the season fix in. Re-run it once that work lands.
 
 **Still to do:** rebuild the release stage once Johannes has left it, then look at coldwinter in the release MapEditor.
+
+## Gap fix: lone soldier crash (hand try, F5)
+
+**Found:** Johannes saved a map from coldwinter.bzm with units from the palette's SGVOGT_UNIT group. Among them was a lone sniper (`Us_Sniper`). F5 then crashed the test game during mission start:
+- `EXC_BAD_ACCESS` at `0x1b8` in `CSoldierRestState::Segment()+88`, under `CAILogic::Init -> CAILogic::Segment`.
+- Registers: `x0 = 0`, `x8 =` the `CSoldier::GetFormation` thunk.
+
+The saved map, `~/.local/share/Nival/Blitzkrieg/maps/mytest.bzm`, is identical to the test copy the game loaded. It holds `Us_Sniper` as a unit record, next to `USSR_rpd_43` squad records.
+
+**Root cause:** the map stores a soldier as a unit record, which gives it no formation, and every soldier state assumes it has one.
+- The game builds a soldier's formation only from a squad record. `CAILogic::AddObject` hands an SGVOGT_SQUAD record to `CUnitCreation::AddNewFormation`. An SGVOGT_UNIT record goes to `AddNewUnit`, which makes a bare `CSoldier`/`CSniper` for infantry.
+- `CSoldierRestState::Segment` calls `pUnit->GetFormation()->IsInWaitingState()` without a null check on the first AI segment, which runs inside `Init`. `Soldier.cpp` has 20+ more unchecked `GetFormation()->` calls, so a check at the crash site would only move the crash.
+- The MFC editor never wrote such a record. Its palette (`TabSimpleObjectsDialog.cpp` `CommonFilterName`) drops every path containing `humans`, and all 59 soldier types are `units\Humans\...`. It also drops `aisingleunitformation`. It saves squads as squad records and writes unit records only for objects with no formation.
+- None of the 1,753 shipped `.bzm` files holds a soldier record (a scan for exact-case soldier names).
+- Our palette listed every SGVOGT_UNIT (`panels_logic.isPlaceable` filters only sounds and tank pits), and the bridge placed any of them.
+
+**Links (checked, nothing to fix):** a map has no links from soldiers to their squad. A squad is one record, and the game builds its soldiers from the squad's stats. `link.nLinkWith` ties a squad or unit to the thing it is inside or towing.
+- Move changes only position, direction and player.
+- Delete is refused while anything links to the object.
+- Undo of a delete puts the saved record back unchanged: same link ID, same place in its list.
+- Add writes `nLinkWith = -1`.
+
+**Fix, editor side (valid map output, as the MFC editor):**
+- `BkEditorAddObject` refuses a single soldier. A single soldier is what `SGDBObjectDesc::IsHuman` reports: an infantry SGVOGT_UNIT, drawn as a sprite, where every vehicle and gun is a mesh.
+- The refusal message names a squad to place instead. It picks a squad of that soldier alone where the database has one (`Us_Sniper` -> `US_sniper`). Otherwise it picks the alphabetically first squad that lists the soldier (`Allies_Bren` -> `GB_bren_43`). It never suggests `AISingleUnitFormation`.
+- `BkEditorCatalogueEntry` gains `placeable`: 0 for sounds, tank pits and single soldiers. The palette and the placer's default object skip entries that are not placeable, so the 59 soldiers no longer appear under SGVOGT_UNIT. Their squads stay under SGVOGT_SQUAD.
+- A lone soldier that a map already holds is kept exactly as it was read (the preservation invariant). The game-side guard below is what makes such a map playable.
+
+**Fix, game side (a guard for malformed maps such as mytest.bzm):** `CAILogic::AddObject` gives a soldier loaded without a formation the single-unit formation the game gives any soldier left on its own in play. That is `CreateSingleUnitFormation`, the same call `CFormationDisbandState`, `CCatchFormationState` and `CTransportResupplyHumanResourcesState` make. The formation keeps the soldier's selectability. The guard is an `if`, not an assert, and does not apply in the editor's own engine (`IsEditor`). Scenario units and reinforcements are loaded through the same `AddObject`, so the guard covers them too.
+
+**Commits:**
+- `81a6cdaab` fix(03-15): a soldier a map stores on its own gets a formation, not a crash
+- `ac5c30e82` fix(03-15): a single soldier goes on a map only inside a squad
+
+**Evidence** (debug stage; the release stage was not touched because Johannes was running it):
+- **Reproduced before fixing:** the unfixed debug `Game` on a copy of mytest.bzm stopped with the UBSan error `member call on null pointer of type 'CFormation'` at `SoldierStates.cpp:353:31`, the same stack as the report, exit 134 (`zig-out/local-test/lone-soldier/repro-before.log`).
+- **New `map-editor-game-reads-it` checks:** the run now also tries to place `Us_Sniper` and `Allies_Bren` on their own, and places the squads `US_sniper` and `GB_bren_43` next to the Flak38. The game must count the unit plus all 10 squad soldiers.
+  - With both fixes switched off, the editor placed both soldiers and the game died: `the game exited code=null signal=6`, with the same UBSan error (`repro-game-reads-it.game.log`).
+  - With both fixes, both soldiers are refused with the message `"Us_Sniper" is a single soldier, and the game plays soldiers only in squads: place the squad "US_sniper" (SGVOGT_SQUAD) instead` (and `"GB_bren_43"` for the Bren). The run passed: `PASS (14 units of player 0 near the placed unit and the squads' 10 soldiers; single soldiers refused; game exit 0)`, where 14 = Flak38 with crew 4 + sniper 1 + Bren squad 9.
+- **Game guard on Johannes's own map:** the fixed `Game` on the mytest.bzm copy starts the mission. It counted 36 units (player 0: 22, player 1: 14) and exited 0 (`repro-after.log`).
+- **`test-map-editor-engine` PASS (260 objects):**
+  - The catalogue marks `Us_Sniper` and `Allies_Bren` as not placeable, and `US_sniper` and `10.5-cm_Flak38` as placeable.
+  - Both adds are refused, and the message names the squad.
+  - The document and the bridge still agree, and the engine still matches the map.
+  - The `US_sniper` squad places.
+  - The 1 failure noted in the season section above came from the moment in this work when the fix was switched off to reproduce the crash; after that, the test passes.
+- **Other tiers:** `test-editor-bridge` PASS, including the season test and the every-game-type add sweep. `map-editor-smoke` PASS (35 steps). `map-editor-host-check` PASS: host check, unknown-object warning and panel smoke for the relative path, the absolute path and `-mod=EditorTestMod`.
+
+**Deviations:**
+- The tiers ran on the debug stage in its default copy-data mode, not with `-Dcopy-data=false`. The other session in this worktree builds the same stage in copy mode. Each `-Dcopy-data=false` build deletes the staged Data and links it, and each copy build deletes the link and copies 2.7 GB back. My first `-Dcopy-data=false` run had its Data re-copied while it was running, and `MapEditor` aborted at start in `CClientAckManager::InitConsts` because `Sounds\Ack\acks.xml` was missing. Staying in one mode avoids that.
+- Test runs waited for the worktree to be idle (`zig-out/local-test/lone-soldier/run-when-idle.sh`), so they never overlapped the other session's engines.
+
+**For Johannes:**
+- Hand-try step 8's "single soldiers show their squad's icon" no longer applies, because single soldiers are no longer listed. 03-09 Task 4's squad-icon fallback stays in the bridge. If you would rather see single soldiers listed and refused on placement, the palette filter in `panels.zig` `loadCatalogue` is a one-line change.
+- `AISingleUnitFormation` is still listed under SGVOGT_SQUAD. The MFC editor hid it. Placing it gives a one-man `USSR_Mosin` squad, which is a valid map and not a crash.
+- mytest.bzm still holds its `Us_Sniper` unit record. Once the release stage is rebuilt, F5 plays it because of the game guard. To make it a map the original game could also load, delete the sniper and place the `US_sniper` squad instead.
+
+**Still to do:** rebuild the release stage once Johannes has left it, then retry F5 on mytest.bzm.
 
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
