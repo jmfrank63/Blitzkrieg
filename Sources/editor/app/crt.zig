@@ -56,3 +56,76 @@ pub fn minimalFromPeb() std.process.Init.Minimal {
 
 /// True where the executable must export its own C main (see minimalFromPeb).
 pub const exports_c_main = builtin.os.tag == .windows and !builtin.link_libc;
+
+const windows_console = if (builtin.os.tag == .windows) struct {
+    // Plain externs, matching this file's windows_crt above and
+    // Sources/src/CloudSync/daemon.zig's extern "kernel32" style - none of
+    // these are declared by Zig's own (very small) std/os/windows/kernel32.zig.
+    extern "kernel32" fn GetStdHandle(nStdHandle: std.os.windows.DWORD) callconv(.winapi) ?std.os.windows.HANDLE;
+    extern "kernel32" fn SetStdHandle(nStdHandle: std.os.windows.DWORD, hHandle: std.os.windows.HANDLE) callconv(.winapi) std.os.windows.BOOL;
+    extern "kernel32" fn AttachConsole(dwProcessId: std.os.windows.DWORD) callconv(.winapi) std.os.windows.BOOL;
+    extern "kernel32" fn CreateFileW(
+        lpFileName: [*:0]const u16,
+        dwDesiredAccess: std.os.windows.DWORD,
+        dwShareMode: std.os.windows.DWORD,
+        lpSecurityAttributes: ?*anyopaque,
+        dwCreationDisposition: std.os.windows.DWORD,
+        dwFlagsAndAttributes: std.os.windows.DWORD,
+        hTemplateFile: ?std.os.windows.HANDLE,
+    ) callconv(.winapi) std.os.windows.HANDLE;
+} else struct {};
+
+// winbase.h / wincon.h constants, named here for the same reason as
+// windows_crt's constants above: not declared by Zig's own windows.zig.
+const STD_OUTPUT_HANDLE: std.os.windows.DWORD = @bitCast(@as(i32, -11));
+const STD_ERROR_HANDLE: std.os.windows.DWORD = @bitCast(@as(i32, -12));
+const ATTACH_PARENT_PROCESS: std.os.windows.DWORD = @bitCast(@as(i32, -1));
+const GENERIC_READ: std.os.windows.DWORD = 0x80000000;
+const GENERIC_WRITE: std.os.windows.DWORD = 0x40000000;
+const FILE_SHARE_READ: std.os.windows.DWORD = 0x1;
+const FILE_SHARE_WRITE: std.os.windows.DWORD = 0x2;
+const OPEN_EXISTING: std.os.windows.DWORD = 3;
+
+/// Windows only: the packaged MapEditor.exe runs with the `.windows`
+/// subsystem (no console window on a normal double-click -
+/// build.zig's configureMapEditorExecutable), so launched from cmd.exe or
+/// PowerShell it starts with no console of its own: GetStdHandle(STD_ERROR_HANDLE)
+/// comes back null or INVALID_HANDLE_VALUE, exactly as it would from a
+/// double-click launch with no console at all. --check/--smoke/
+/// --game-reads-it and BK_EDITOR_AUTO runs (main.zig) still need their
+/// PASS/FAIL lines to reach that terminal or a CI log, so each calls this
+/// first, before printing anything: AttachConsole(ATTACH_PARENT_PROCESS)
+/// joins the shell's own console (a no-op if the parent has none, e.g.
+/// Explorer - AttachConsole then simply fails and this returns), then
+/// CONOUT$ is opened and installed as both the standard-output and
+/// standard-error handle. Zig has no separate "current stdio" table a libc
+/// freopen would need to update: std.Io.File.stdout()/stderr() read the
+/// process parameters block directly on every call, and SetStdHandle writes
+/// into that same block, so nothing else needs to change once this returns.
+/// A parent that already redirected/piped stderr (CI, `zig build ...
+/// -Dtest-mode=run`) already has a valid handle here, so this is a no-op -
+/// it never fights a real redirection. The plain interactive/double-click
+/// launch never calls this (main.zig) - there is nothing to attach to and
+/// nothing it prints. No-op on every platform but Windows.
+pub fn attachParentConsole() void {
+    if (builtin.os.tag != .windows) return;
+    if (hasUsableStandardHandle(STD_ERROR_HANDLE)) return;
+    if (!windows_console.AttachConsole(ATTACH_PARENT_PROCESS).toBool()) return;
+    const conout = windows_console.CreateFileW(
+        std.unicode.utf8ToUtf16LeStringLiteral("CONOUT$"),
+        GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        null,
+        OPEN_EXISTING,
+        0,
+        null,
+    );
+    if (conout == std.os.windows.INVALID_HANDLE_VALUE) return;
+    _ = windows_console.SetStdHandle(STD_OUTPUT_HANDLE, conout);
+    _ = windows_console.SetStdHandle(STD_ERROR_HANDLE, conout);
+}
+
+fn hasUsableStandardHandle(std_handle: std.os.windows.DWORD) bool {
+    const handle = windows_console.GetStdHandle(std_handle) orelse return false;
+    return handle != std.os.windows.INVALID_HANDLE_VALUE;
+}

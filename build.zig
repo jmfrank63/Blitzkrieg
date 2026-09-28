@@ -5834,7 +5834,10 @@ fn addMapEditor(
 
     const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
     const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
-    configureMapEditorExecutable(exe, target);
+    // .windows: the packaged, player-facing binary opens no console on a
+    // normal double-click (crt.attachParentConsole in main.zig keeps its
+    // automated modes printing).
+    configureMapEditorExecutable(exe, target, .windows);
 
     // Beside Game, because the engine's roots are the installation it runs in.
     const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
@@ -5958,7 +5961,9 @@ fn addMapEditor(
     // runs an artifact's installed copy once it has been installed.
     const engine_test_module = mapEditorModule(b, "Sources/editor/app/c_bridge_test.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
     const engine_test = b.addTest(.{ .name = "map-editor-engine-test", .root_module = engine_test_module });
-    configureMapEditorExecutable(engine_test, target);
+    // .console: a CI/local test tool, never packaged - its output is read
+    // straight off the console it always had.
+    configureMapEditorExecutable(engine_test, target, .console);
     const install_engine_test = b.addInstallArtifact(engine_test, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
     install_engine_test.step.dependOn(install_game_step);
     const engine_test_run = b.addRunArtifact(engine_test);
@@ -6041,9 +6046,15 @@ fn mapEditorModule(
 }
 
 /// Entry, symbols and rpath of a MapEditor executable, the test included.
-fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
+fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, subsystem: std.Target.SubSystem) void {
     if (target.result.os.tag == .windows) {
-        exe.subsystem = .console;
+        // MapEditor ships `.windows` (no console window on a normal
+        // double-click); map-editor-engine-test stays `.console` (a CI/local
+        // tool, never packaged - Sources/editor/app/crt.zig's
+        // attachParentConsole is what keeps MapEditor's own automated modes
+        // printing under `.windows`). Either way the entry stays the CRT's
+        // own, below.
+        exe.subsystem = subsystem;
         // The CRT's entry, so the CRT is initialised and the engine statics'
         // constructors run; the root exports the C main it calls (crt.zig).
         exe.entry = .{ .symbol_name = "mainCRTStartup" };

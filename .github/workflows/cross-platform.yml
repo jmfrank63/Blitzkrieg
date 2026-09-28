@@ -325,6 +325,27 @@ jobs:
       - name: Map editor smoke
         run: zig build map-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
+      # double-click (configureMapEditorExecutable's .windows subsystem) -
+      # confirmed by reading its own PE header rather than trusting the build
+      # config alone. e_lfanew (the PE signature's offset) sits at DOS header
+      # offset 0x3C; the Subsystem WORD sits 0x44 into the Optional Header,
+      # which itself starts right after the 4-byte PE signature and the
+      # 20-byte COFF header, i.e. at e_lfanew + 0x5C. 2 is
+      # IMAGE_SUBSYSTEM_WINDOWS_GUI (winnt.h) - the map-editor-host-check step
+      # above already built and staged this exact binary.
+      - name: Map editor is a GUI program
+        shell: pwsh
+        run: |
+          $exePath = "zig-out/game/windows/x86_64/debug/MapEditor.exe"
+          if (-not (Test-Path $exePath)) { throw "staged MapEditor.exe not found at $exePath" }
+          $bytes = [System.IO.File]::ReadAllBytes($exePath)
+          $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)
+          $subsystemOffset = $eLfanew + 0x5C
+          $subsystem = [BitConverter]::ToUInt16($bytes, $subsystemOffset)
+          Write-Host "MapEditor.exe subsystem: $subsystem (2 = IMAGE_SUBSYSTEM_WINDOWS_GUI)"
+          if ($subsystem -ne 2) { throw "MapEditor.exe subsystem is $subsystem, expected 2 (IMAGE_SUBSYSTEM_WINDOWS_GUI)" }
+
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier
         run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"

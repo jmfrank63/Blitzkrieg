@@ -239,6 +239,11 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // borrow slices of this text for as long as the process runs.
     const auto_text: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null;
     const automated = auto_text != null;
+    // A packaged (.windows subsystem) MapEditor.exe run under BK_EDITOR_AUTO
+    // still needs its frame/action log to reach the terminal or CI's log
+    // (crt.attachParentConsole's doc comment); a plain interactive session
+    // never calls this - there is nothing to attach to and nothing it prints.
+    if (automated) crt.attachParentConsole();
 
     var settings_path: ?[]const u8 = null;
     var settings_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -415,6 +420,10 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
 /// smoke.zig's script. Failures print a "smoke FAIL:" line; there is no
 /// person to show a message box to.
 fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
+    // See crt.attachParentConsole's doc comment: a packaged (.windows
+    // subsystem) MapEditor.exe run from a terminal still needs this mode's
+    // PASS/FAIL line to be visible there.
+    crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     // A file left by an earlier run would let the reopen step pass on a save
     // that never happened.
@@ -482,6 +491,10 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
 /// without a person watching. Modelled on `smokeRun` and `check`, but the
 /// thing under test here is the game, not the editor's own frame.
 fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
+    // See crt.attachParentConsole's doc comment: a packaged (.windows
+    // subsystem) MapEditor.exe run from a terminal still needs this mode's
+    // PASS/FAIL line to be visible there.
+    crt.attachParentConsole();
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
         std.debug.print("map-editor: game reads it FAIL: the host did not start ({s}: {s})\n", .{ @errorName(err), host_mod.failureReason() });
         return false;
@@ -709,6 +722,10 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 }
 
 fn usage() noreturn {
+    // See crt.attachParentConsole's doc comment: a packaged (.windows
+    // subsystem) MapEditor.exe run with bad arguments from a terminal still
+    // needs this message to be visible there.
+    crt.attachParentConsole();
     std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n", .{});
     std.process.exit(2);
 }
@@ -719,6 +736,10 @@ fn fail(comptime format: []const u8, args: anytype) bool {
 }
 
 fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
+    // See crt.attachParentConsole's doc comment: a packaged (.windows
+    // subsystem) MapEditor.exe run from a terminal still needs this mode's
+    // PASS/FAIL line to be visible there.
+    crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(&path_buffer, map) orelse return fail("the path {s} is too long", .{map});
