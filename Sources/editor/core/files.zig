@@ -52,12 +52,19 @@ pub const Files = struct {
     }
 };
 
-/// `Files` over a real `std.Io.Dir` - `dir` defaults to the process's current
-/// directory, matching where every shipped map path in this app is relative
-/// to (or an absolute path, which `std.Io.Dir` accepts from any `dir`).
+/// `Files` over a real `std.Io.Dir` - callers pass `dir` explicitly (the
+/// process's current directory, `std.Io.Dir.cwd()`, matches where every
+/// shipped map path in this app is relative to; an absolute path works from
+/// any `dir`). Deliberately no default: `std.Io.Dir.cwd()` reads the live
+/// process environment block on Windows through an `asm` block, which is not
+/// a comptime-evaluable expression - a struct field default of `.cwd()`
+/// fails to compile there even when every construction site overrides it,
+/// because Zig evaluates a field's default as part of typechecking the
+/// struct declaration itself, not lazily per instantiation. Call `.cwd()` at
+/// the call site instead, where it runs as ordinary runtime code.
 pub const StdFiles = struct {
     io: std.Io,
-    dir: std.Io.Dir = .cwd(),
+    dir: std.Io.Dir,
     message_buffer: [256]u8 = undefined,
     message_len: usize = 0,
 
