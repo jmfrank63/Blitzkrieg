@@ -112,6 +112,7 @@ Plans 1–5 are merged on main (6657668a6): the bridge (`Sources/src/EditorBridg
 
 - A whole-map overview / zooming beyond the game's limits — with M3's minimap tools.
 - The game's Custom Mission menu listing user maps from the user maps folder (needs a mission file per map) — its own later phase.
+- **D-12 (camera rotation, free 360° yaw)** — deferred out of M1 by Johannes, 2026-09-28, on 03-06 Task 1's measurement (see `03-06-SUMMARY.md`). `BkEditorSetYaw` and the engine-tier `TestYawMeasurement` capture and measure what `CTerrain::MovePatches`/`TerraDraw` actually draw at yaw offsets +0/+30/+90/+180/+270 on `coldwinter`: the lower-half black fraction rises from 0.5% at +0 to 9.4% at +30, 94.0% at +90, 99.2% at +180 and 89.8% at +270 — the terrain quad is laid out in fixed screen space (`CTerrain::MovePatches`, `Scene/TerrainInternal.cpp:237-256`) and is progressively clipped away by any yaw but the game's own 45°, while billboard sprites (`SGVOT_SPRITE`, `Main/GameDB.h:13-19`) stay upright and in their pre-rotation screen positions with no ground left under them. Delivering D-12 correctly needs the terrain drawn through the view matrix (engine/renderer work `Scene/` M1 did not scope) and buildings/infantry cannot show a back side regardless. Alt+Q/E and the trackpad two-finger rotate stay unbound; Home/View > Reset view resets zoom only (per D-13, already built in plan 5). Revisit alongside M2/M3 engine work if D-12 is still wanted.
 
 </deferred>
 
