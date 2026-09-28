@@ -3943,6 +3943,10 @@ fn addSfxModuleTest(
     run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/SFX.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libSFX.dylib" else "zig-out/lib/libSFX.so");
     run.addPathDir(b.path("zig-out/bin").getPath(b));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    // dyld ignores LD_LIBRARY_PATH: without this the module's own
+    // CGlobalsLoader cannot find libStreamIO, the singleton stays null and
+    // CSoundEngine::Init crashes reading a global var.
+    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
     run.step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);

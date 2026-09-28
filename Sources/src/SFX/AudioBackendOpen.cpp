@@ -6,6 +6,7 @@
 #include "../Platform/Debug.h"
 
 #include <atomic>
+#include <cstdio>
 #include <cstdlib>
 
 #if defined(SFX_USE_OPEN_AUDIO_BACKEND)
@@ -259,6 +260,14 @@ namespace
 			return "MA_INVALID_DEVICE_CONFIG";
 		case MA_LOOP:
 			return "MA_LOOP";
+		case MA_FAILED_TO_INIT_BACKEND:
+			return "MA_FAILED_TO_INIT_BACKEND";
+		case MA_FAILED_TO_OPEN_BACKEND_DEVICE:
+			return "MA_FAILED_TO_OPEN_BACKEND_DEVICE";
+		case MA_FAILED_TO_START_BACKEND_DEVICE:
+			return "MA_FAILED_TO_START_BACKEND_DEVICE";
+		case MA_FAILED_TO_STOP_BACKEND_DEVICE:
+			return "MA_FAILED_TO_STOP_BACKEND_DEVICE";
 		default:
 			return "MA_UNKNOWN";
 		}
@@ -287,6 +296,187 @@ namespace
 			szDeviceName,
 			pDevice->sampleRate,
 			pDevice->playback.channels );
+	}
+
+	// BK_AUDIO_FAIL_DEFAULT=1 makes every attempt on the system default device
+	// fail as the device open would, so the retry and fallback path can be
+	// exercised without an AirPlay link that is actually waking up.
+	bool ShouldFailDefaultDevice()
+	{
+		const char *pszValue = getenv( "BK_AUDIO_FAIL_DEFAULT" );
+		return pszValue && pszValue[0] && !( pszValue[0] == '0' && pszValue[1] == 0 );
+	}
+
+	// Opens g_engine on one playback device (0 = the system default) and starts
+	// it. On failure g_engine is left uninitialized and the context stays up.
+	ma_result OpenEngineOnDevice( ma_engine_config engineConfig, ma_device_id *pDeviceID, const char *pszLabel )
+	{
+		char szAction[MA_MAX_DEVICE_NAME_LENGTH + 64];
+		if ( !pDeviceID && ShouldFailDefaultDevice() )
+		{
+			snprintf( szAction, sizeof( szAction ), "engine init failed on %s (BK_AUDIO_FAIL_DEFAULT)", pszLabel );
+			TraceOpenAudioResult( szAction, MA_FAILED_TO_OPEN_BACKEND_DEVICE );
+			return MA_FAILED_TO_OPEN_BACKEND_DEVICE;
+		}
+
+		engineConfig.pPlaybackDeviceID = pDeviceID;
+		ma_result result = ma_engine_init( &engineConfig, &g_engine );
+		if ( result != MA_SUCCESS )
+		{
+			snprintf( szAction, sizeof( szAction ), "engine init failed on %s", pszLabel );
+			TraceOpenAudioResult( szAction, result );
+			return result;
+		}
+
+		result = ma_engine_start( &g_engine );
+		if ( result != MA_SUCCESS )
+		{
+			snprintf( szAction, sizeof( szAction ), "engine start failed on %s", pszLabel );
+			TraceOpenAudioResult( szAction, result );
+			ma_engine_uninit( &g_engine );
+			return result;
+		}
+		return MA_SUCCESS;
+	}
+
+	// Lower ranks are tried first. A device ranked cFallbackRankVirtual only
+	// plays when nothing physical is left: sound sent to a loopback device
+	// such as BlackHole or a conferencing app's virtual speaker is inaudible.
+	const int cFallbackRankBuiltIn = 0;
+	const int cFallbackRankPhysical = 1;
+	const int cFallbackRankWireless = 2;
+	const int cFallbackRankVirtual = 3;
+
+#if defined(MA_HAS_COREAUDIO) && defined(MA_APPLE_DESKTOP)
+	typedef CFStringRef (*TCFStringCreateWithCString)( CFAllocatorRef alloc, const char *cStr, CFStringEncoding encoding );
+
+	// miniaudio loads CoreFoundation and CoreAudio at run time, so the
+	// functions are taken from its context rather than linked into SFX.
+	bool GetCoreAudioTransportType( const ma_device_id &deviceID, UInt32 *pTransportType )
+	{
+		if ( !g_context.coreaudio.AudioObjectGetPropertyData || !g_context.coreaudio.CFRelease )
+			return false;
+#if defined(MA_NO_RUNTIME_LINKING)
+		TCFStringCreateWithCString pCreateString = CFStringCreateWithCString;
+#else
+		TCFStringCreateWithCString pCreateString = (TCFStringCreateWithCString)ma_dlsym( ma_context_get_log( &g_context ), g_context.coreaudio.hCoreFoundation, "CFStringCreateWithCString" );
+#endif
+		if ( !pCreateString )
+			return false;
+		// ma_device_id::coreaudio is the device UID.
+		CFStringRef uid = pCreateString( 0, deviceID.coreaudio, kCFStringEncodingUTF8 );
+		if ( !uid )
+			return false;
+
+		const ma_AudioObjectGetPropertyData_proc pGetPropertyData = (ma_AudioObjectGetPropertyData_proc)g_context.coreaudio.AudioObjectGetPropertyData;
+		AudioObjectPropertyAddress address;
+		address.mSelector = kAudioHardwarePropertyTranslateUIDToDevice;
+		address.mScope = kAudioObjectPropertyScopeGlobal;
+		address.mElement = kAudioObjectPropertyElementMain;
+		AudioObjectID deviceObjectID = kAudioObjectUnknown;
+		UInt32 nDataSize = sizeof( deviceObjectID );
+		OSStatus status = pGetPropertyData( kAudioObjectSystemObject, &address, sizeof( uid ), &uid, &nDataSize, &deviceObjectID );
+		( (ma_CFRelease_proc)g_context.coreaudio.CFRelease )( uid );
+		if ( status != noErr || deviceObjectID == kAudioObjectUnknown )
+			return false;
+
+		address.mSelector = kAudioDevicePropertyTransportType;
+		UInt32 nTransportType = kAudioDeviceTransportTypeUnknown;
+		nDataSize = sizeof( nTransportType );
+		status = pGetPropertyData( deviceObjectID, &address, 0, 0, &nDataSize, &nTransportType );
+		if ( status != noErr )
+			return false;
+		*pTransportType = nTransportType;
+		return true;
+	}
+
+	int GetFallbackRank( const ma_device_info &info, char *pszKind, size_t nKindSize )
+	{
+		UInt32 nTransportType = kAudioDeviceTransportTypeUnknown;
+		if ( !GetCoreAudioTransportType( info.id, &nTransportType ) )
+		{
+			snprintf( pszKind, nKindSize, "unknown" );
+			return cFallbackRankWireless;
+		}
+
+		const char szFourCC[5] = { char( ( nTransportType >> 24 ) & 0xff ), char( ( nTransportType >> 16 ) & 0xff ),
+			char( ( nTransportType >> 8 ) & 0xff ), char( nTransportType & 0xff ), 0 };
+		snprintf( pszKind, nKindSize, "%s", nTransportType == kAudioDeviceTransportTypeUnknown ? "unknown" : szFourCC );
+		switch ( nTransportType )
+		{
+		case kAudioDeviceTransportTypeBuiltIn:
+			return cFallbackRankBuiltIn;
+		case kAudioDeviceTransportTypeVirtual:
+		case kAudioDeviceTransportTypeAggregate:
+		case kAudioDeviceTransportTypeAutoAggregate:
+			return cFallbackRankVirtual;
+		// Wireless links are the ones that fail to open while waking up, so
+		// a wired device goes first.
+		case kAudioDeviceTransportTypeAirPlay:
+		case kAudioDeviceTransportTypeBluetooth:
+		case kAudioDeviceTransportTypeBluetoothLE:
+		case kAudioDeviceTransportTypeUnknown:
+			return cFallbackRankWireless;
+		default:
+			return cFallbackRankPhysical;
+		}
+	}
+#else
+	int GetFallbackRank( const ma_device_info &info, char *pszKind, size_t nKindSize )
+	{
+		( void )info;
+		snprintf( pszKind, nKindSize, "enumerated" );
+		return cFallbackRankPhysical;
+	}
+#endif
+
+	struct SFallbackDevice
+	{
+		ma_device_info info;
+		int nRank;
+	};
+
+	// The system default failed to open; try every other playback device,
+	// best rank first, enumeration order within a rank.
+	bool OpenEngineOnFallbackDevice( const ma_engine_config &engineConfig )
+	{
+		ma_device_info *pPlaybackInfos = 0;
+		ma_uint32 nPlaybackCount = 0;
+		ma_result result = ma_context_get_devices( &g_context, &pPlaybackInfos, &nPlaybackCount, 0, 0 );
+		if ( result != MA_SUCCESS )
+		{
+			TraceOpenAudioResult( "device enumeration failed", result );
+			return false;
+		}
+
+		// Copied: the context owns the enumeration buffer and may refill it.
+		std::vector<SFallbackDevice> candidates;
+		for ( ma_uint32 i = 0; i < nPlaybackCount; ++i )
+		{
+			const ma_device_info &info = pPlaybackInfos[i];
+			char szKind[16];
+			SFallbackDevice candidate;
+			candidate.info = info;
+			candidate.nRank = GetFallbackRank( info, szKind, sizeof( szKind ) );
+			NPlatform::DebugWriteFormat( "SFX open audio playback device: \"%s\", transport=%s, rank=%d%s\n",
+				info.name, szKind, candidate.nRank, info.isDefault ? ", default (skipped)" : "" );
+			if ( !info.isDefault )
+				candidates.push_back( candidate );
+		}
+		std::stable_sort( candidates.begin(), candidates.end(),
+			[]( const SFallbackDevice &a, const SFallbackDevice &b ) { return a.nRank < b.nRank; } );
+
+		for ( size_t i = 0; i < candidates.size(); ++i )
+		{
+			char szLabel[MA_MAX_DEVICE_NAME_LENGTH + 32];
+			snprintf( szLabel, sizeof( szLabel ), "fallback device \"%s\"", candidates[i].info.name );
+			if ( OpenEngineOnDevice( engineConfig, &candidates[i].info.id, szLabel ) == MA_SUCCESS )
+			{
+				NPlatform::DebugWriteFormat( "SFX open audio falling back to \"%s\"\n", candidates[i].info.name );
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// Keep disabled by default: per-read tracing runs on the mixer thread and
@@ -1031,20 +1221,28 @@ namespace NAudioBackendImpl
 		engineConfig.allocationCallbacks.onMalloc  = AudioAllocMalloc;
 		engineConfig.allocationCallbacks.onRealloc = AudioAllocRealloc;
 		engineConfig.allocationCallbacks.onFree    = AudioAllocFree;
-		result = ma_engine_init( &engineConfig, &g_engine );
-		if ( result != MA_SUCCESS )
+		// An AirPlay default output fails to open (MA_FAILED_TO_OPEN_BACKEND_DEVICE)
+		// while its link wakes up or reconnects, which left whole sessions
+		// silent. Give it two short retries, then take another real device
+		// rather than none. The waits only happen on failure.
+		const unsigned int cDefaultRetryDelaysMs[] = { 500, 1000 };
+		const int nDefaultAttempts = 1 + int( sizeof( cDefaultRetryDelaysMs ) / sizeof( cDefaultRetryDelaysMs[0] ) );
+		for ( int nAttempt = 0; nAttempt < nDefaultAttempts; ++nAttempt )
 		{
-			TraceOpenAudioResult( "engine init failed", result );
-			ma_context_uninit( &g_context );
-			g_bContextInitialized = false;
-			return false;
+			if ( nAttempt > 0 )
+			{
+				NPlatform::DebugWriteFormat( "SFX open audio retrying default device in %u ms (attempt %d of %d)\n",
+					cDefaultRetryDelaysMs[nAttempt - 1], nAttempt + 1, nDefaultAttempts );
+				NPlatform::SleepMilliseconds( cDefaultRetryDelaysMs[nAttempt - 1] );
+			}
+			result = OpenEngineOnDevice( engineConfig, 0, "default device" );
+			if ( result == MA_SUCCESS )
+				break;
 		}
 
-		result = ma_engine_start( &g_engine );
-		if ( result != MA_SUCCESS )
+		if ( result != MA_SUCCESS && !OpenEngineOnFallbackDevice( engineConfig ) )
 		{
-			TraceOpenAudioResult( "engine start failed", result );
-			ma_engine_uninit( &g_engine );
+			NPlatform::DebugWrite( "SFX open audio found no playback device that opens; sound is off\n" );
 			ma_context_uninit( &g_context );
 			g_bContextInitialized = false;
 			return false;
