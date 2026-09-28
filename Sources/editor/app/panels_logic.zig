@@ -6,6 +6,7 @@
 //! the engine's libraries or a GPU.
 const std = @import("std");
 const core = @import("editor_core");
+const testlaunch = @import("testlaunch.zig");
 
 const Editor = core.editor.Editor;
 const Pose = core.editor.Pose;
@@ -260,6 +261,90 @@ pub const FileActions = struct {
     }
 };
 
+/// D-06's "Test while a test game still runs" prompt: idle until a request
+/// while one is up, then asking_restart until the user answers, then either
+/// back to idle (Keep) or restarting - waiting for the old game to actually
+/// exit before the new one starts, so the two are never running at once
+/// under the same profile. reporting holds a failure's message until the
+/// caller shows and acknowledges it; a clean exit is never reported at all.
+pub const TestLaunchPrompt = struct {
+    state: State = .idle,
+    report_buffer: [256]u8 = undefined,
+    report_len: usize = 0,
+
+    const State = enum { idle, asking_restart, restarting, reporting };
+
+    pub const Step = enum { none, start, ask_restart };
+    pub const Answer = enum { restart, keep };
+
+    /// The menu item or F5: running says whether a test game is already up.
+    /// A pending report is not cleared by this - the caller shows both.
+    pub fn request(self: *TestLaunchPrompt, running: bool) Step {
+        if (!running) {
+            if (self.state != .reporting) self.state = .idle;
+            return .start;
+        }
+        self.state = .asking_restart;
+        return .ask_restart;
+    }
+
+    pub fn isAskingRestart(self: *const TestLaunchPrompt) bool {
+        return self.state == .asking_restart;
+    }
+
+    /// The user's answer to the still-running prompt.
+    pub fn answer(self: *TestLaunchPrompt, choice: Answer) void {
+        if (self.state != .asking_restart) return;
+        self.state = switch (choice) {
+            .keep => .idle,
+            .restart => .restarting,
+        };
+    }
+
+    /// The running game's exit reached the poll. Returns .start when this
+    /// was the old game restarting was waiting for - the caller starts the
+    /// new one immediately. A non-clean exit (describe() != .clean) is kept
+    /// as a report until acknowledgeReport(); a clean one reports nothing,
+    /// including the D-06 "Keep it running" case, since the prompt was
+    /// never re-asked for that game.
+    pub fn gameExited(self: *TestLaunchPrompt, exit: testlaunch.Exit, log_path: []const u8) Step {
+        const was_restarting = self.state == .restarting;
+        self.state = .idle;
+        if (testlaunch.describe(exit) != .clean) {
+            self.setReport(exit, log_path);
+            self.state = .reporting;
+        }
+        return if (was_restarting) .start else .none;
+    }
+
+    /// The failure report to show, or null when there is none pending.
+    pub fn report(self: *const TestLaunchPrompt) ?[]const u8 {
+        return if (self.state == .reporting) self.report_buffer[0..self.report_len] else null;
+    }
+
+    /// The caller has shown the report (an OK on its modal).
+    pub fn acknowledgeReport(self: *TestLaunchPrompt) void {
+        if (self.state == .reporting) self.state = .idle;
+    }
+
+    /// A launch that never got as far as running at all (spawn itself
+    /// failed - no game beside the editor, say): shown the same way as a bad
+    /// exit, since both are "Test in game did not work" from the player's
+    /// side.
+    pub fn reportFailure(self: *TestLaunchPrompt, message: []const u8) void {
+        const len = @min(message.len, self.report_buffer.len);
+        @memcpy(self.report_buffer[0..len], message[0..len]);
+        self.report_len = len;
+        self.state = .reporting;
+    }
+
+    fn setReport(self: *TestLaunchPrompt, exit: testlaunch.Exit, log_path: []const u8) void {
+        const seconds = @as(f64, @floatFromInt(exit.lifetime_ms)) / 1000.0;
+        const text = std.fmt.bufPrint(&self.report_buffer, "The game exited with code {d} after {d:.1} s. Its log: {s}", .{ exit.code orelse 0, seconds, log_path }) catch self.report_buffer[0..0];
+        self.report_len = text.len;
+    }
+};
+
 /// Opens or saves to a path a dialog chose, through the editor, so the
 /// document, the history and the status line follow as for any edit.
 pub fn actOnPath(editor: *Editor, kind: DialogKind, os_path: []const u8) EditError!void {
@@ -403,4 +488,49 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     try std.testing.expectEqual(FileActions.Step.quit, actions.next());
     try std.testing.expectEqual(FileActions.Step.save, actions.next());
     try std.testing.expectEqual(FileActions.Step.none, actions.next());
+}
+
+test "TestLaunchPrompt: nothing running starts it directly" {
+    var prompt: TestLaunchPrompt = .{};
+    try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.request(false));
+    try std.testing.expect(!prompt.isAskingRestart());
+}
+
+test "TestLaunchPrompt: a Test while one runs asks; Keep leaves it running" {
+    var prompt: TestLaunchPrompt = .{};
+    try std.testing.expectEqual(TestLaunchPrompt.Step.ask_restart, prompt.request(true));
+    try std.testing.expect(prompt.isAskingRestart());
+    prompt.answer(.keep);
+    try std.testing.expect(!prompt.isAskingRestart());
+    // The kept game later exits cleanly: nothing to report, and it was never
+    // the thing restarting was waiting for.
+    try std.testing.expectEqual(TestLaunchPrompt.Step.none, prompt.gameExited(.{ .code = 0, .signal = null, .lifetime_ms = 30_000 }, "log"));
+    try std.testing.expect(prompt.report() == null);
+}
+
+test "TestLaunchPrompt: Restart waits for the old game's exit, then starts the new one" {
+    var prompt: TestLaunchPrompt = .{};
+    _ = prompt.request(true);
+    prompt.answer(.restart);
+    try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.gameExited(.{ .code = 0, .signal = null, .lifetime_ms = 30_000 }, "log"));
+    try std.testing.expect(prompt.report() == null);
+}
+
+test "TestLaunchPrompt: an early failure produces a report naming the code and the log" {
+    var prompt: TestLaunchPrompt = .{};
+    _ = prompt.request(false);
+    const step = prompt.gameExited(.{ .code = 53, .signal = null, .lifetime_ms = 200 }, "zig-out/local-test/mapeditor/test-game.log");
+    try std.testing.expectEqual(TestLaunchPrompt.Step.none, step);
+    const message = prompt.report() orelse return error.TestUnexpectedResult;
+    try std.testing.expect(std.mem.indexOf(u8, message, "53") != null);
+    try std.testing.expect(std.mem.indexOf(u8, message, "zig-out/local-test/mapeditor/test-game.log") != null);
+    prompt.acknowledgeReport();
+    try std.testing.expect(prompt.report() == null);
+}
+
+test "TestLaunchPrompt: a clean exit reports nothing" {
+    var prompt: TestLaunchPrompt = .{};
+    _ = prompt.request(false);
+    _ = prompt.gameExited(.{ .code = 0, .signal = null, .lifetime_ms = 30_000 }, "log");
+    try std.testing.expect(prompt.report() == null);
 }

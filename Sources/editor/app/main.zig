@@ -93,14 +93,14 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const map = args.next() orelse usage();
             const output = args.next() orelse default_output;
             if (args.next() != null) usage();
-            const passed = try check(gpa, io, map, output);
+            const passed = try check(gpa, io, minimal.environ, map, output);
             std.process.exit(if (passed) 0 else 1);
         }
         if (std.mem.eql(u8, arg, "--smoke")) {
             const map = args.next() orelse usage();
             const output = args.next() orelse default_smoke_output;
             if (args.next() != null) usage();
-            const passed = try smokeRun(gpa, io, map, output);
+            const passed = try smokeRun(gpa, io, minimal.environ, map, output);
             std.process.exit(if (passed) 0 else 1);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it")) {
@@ -111,16 +111,16 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             std.process.exit(if (passed) 0 else 1);
         }
         if (args.next() != null) usage();
-        try interactive(gpa, arg);
+        try interactive(gpa, io, minimal.environ, arg);
         return;
     }
-    try interactive(gpa, null);
+    try interactive(gpa, io, minimal.environ, null);
 }
 
 /// The interactive mode: one window, the engine on it, the view driving the
 /// core's tools, until the window closes or the process is asked to quit
 /// (SDL maps SIGINT/SIGTERM to SDL_EVENT_QUIT by default).
-fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
+fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8) !void {
     var host = host_mod.Host.start(.{ .title = "Map Editor" }) catch |err| {
         const reason = host_mod.failureReason();
         fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
@@ -142,7 +142,7 @@ fn interactive(gpa: std.mem.Allocator, map: ?[]const u8) !void {
         };
     }
     // Centres the view on the map opened above, if any (State.mapOpened).
-    var state = panels.State.init(gpa, &editor, &view, &real, host.window);
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
     defer state.deinit();
 
     run(&host, &editor, &view, &real, &state, null);
@@ -195,6 +195,10 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         // After the frame: Save, the dialogs Open and Save As show, a path
         // one of them delivered during this frame's events, and Quit.
         if (panels.act(state)) running = false;
+        // A running test game is polled every frame, script or not - the
+        // smoke never presses Test, so this is a no-op there, but the smoke's
+        // own State still owns one (D-03: quitting leaves it running).
+        panels.pollTestGame(state);
         if (script) |s| {
             if (!s.afterFrame()) running = false;
         }
@@ -204,7 +208,7 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
 /// --smoke: the interactive mode's setup, hidden, and its loop under
 /// smoke.zig's script. Failures print a "smoke FAIL:" line; there is no
 /// person to show a message box to.
-fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8) !bool {
+fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8) !bool {
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     // A file left by an earlier run would let the reopen step pass on a save
     // that never happened.
@@ -235,7 +239,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const
         std.debug.print("map-editor: smoke FAIL: {s} did not open: {s}\n", .{ map, editor.status() });
         return false;
     };
-    var state = panels.State.init(gpa, &editor, &view, &real, host.window);
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
     defer state.deinit();
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
@@ -483,7 +487,7 @@ fn fail(comptime format: []const u8, args: anytype) bool {
     return false;
 }
 
-fn check(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8) !bool {
+fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, output: []const u8) !bool {
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(&path_buffer, map) orelse return fail("the path {s} is too long", .{map});
@@ -548,7 +552,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8
         return fail("the screen's centre ({d},{d}) is ({d},{d},{d}), not the map", .{ outside_x, outside_y, outside.r, outside.g, outside.b });
 
     std.debug.print("map-editor: host check PASS ({s}, {d}x{d})\n", .{ driver, width, height });
-    return panelSmoke(gpa, &host, map, output);
+    return panelSmoke(gpa, io, environ, &host, map, output);
 }
 
 /// One frame of the real panels over the map, with a State from the opened
@@ -556,7 +560,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, map: []const u8, output: []const u8
 /// the slot as a dialog's callback would hand it: Save As into the output's
 /// directory, then Open of what was saved. Nothing here needs a person, so
 /// CI runs the panel code on both GPU runners.
-fn panelSmoke(gpa: std.mem.Allocator, host: *host_mod.Host, map: []const u8, output: []const u8) !bool {
+fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, host: *host_mod.Host, map: []const u8, output: []const u8) !bool {
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
@@ -565,7 +569,7 @@ fn panelSmoke(gpa: std.mem.Allocator, host: *host_mod.Host, map: []const u8, out
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(&path_buffer, map) orelse return fail("panels: the path {s} is too long", .{map});
     editor.open(path) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
-    var state = panels.State.init(gpa, &editor, &view, &real, host.window);
+    var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
     defer state.deinit();
     if (state.catalogue.len == 0) return fail("panels: the object palette has no catalogue", .{});
     if (state.tile_count == 0) return fail("panels: the brush has no tiles from the map's tileset", .{});

@@ -17,6 +17,10 @@
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Image/Image.h"
+#include "../../Sources/src/Platform/Paths.h"
+#include "../../Sources/src/StreamIO/GeneratedData.h"
+#include "../../Sources/src/StreamIO/ProfilePaths.h"
+#include <filesystem>
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -103,6 +107,105 @@ static void TestShippedMapOpens( BkEditorSession *pSession )
 	Check( summary.object_count > 0, "and its objects" );
 	Check( summary.unknown_object_count == 0, "and knows every type in it" );
 	Check( summary.placed_object_count > 0, "and the engine holds them" );
+}
+
+// A BkEditorTestMapPath answer, always backslash-separated (bridge.cpp), as
+// a real host path for std::filesystem, whose separator is '/' on the
+// runners this test targets.
+static std::string HostPath( const std::string &szEnginePath )
+{
+	std::string szHost = szEnginePath;
+#if !defined(_WIN32)
+	for ( std::string::size_type i = 0; i < szHost.size(); ++i )
+		if ( szHost[i] == '\\' ) szHost[i] = '/';
+#endif
+	return szHost;
+}
+
+// BkEditorPaths and BkEditorTestMapPath (plan 03-02, D-01/D-02/D-08/D-09):
+// the two host roots, the generated-data path a test-launch copy goes to -
+// base and named mods alike - argument validation, and the stale-sibling
+// cleanup the direct map launch depends on (a same-stem .xml must never
+// outrank the .bzm this call is about to write).
+static void TestPathsAndTestMapPath( BkEditorSession *pSession )
+{
+	BkEditorPathSet paths;
+	memset( &paths, 0, sizeof paths );
+	if ( Check( BkEditorPaths( pSession, &paths ) == BK_EDITOR_OK, "BkEditorPaths reads the roots" ) )
+	{
+		Check( paths.base_root[0] != 0, "the base root is not empty" );
+		Check( paths.user_root[0] != 0, "the user root is not empty" );
+		const size_t nBaseLen = strlen( paths.base_root );
+		const size_t nUserLen = strlen( paths.user_root );
+		Check( nBaseLen > 0 && ( paths.base_root[nBaseLen - 1] == '/' || paths.base_root[nBaseLen - 1] == '\\' ),
+		       "the base root ends in a separator" );
+		Check( nUserLen > 0 && ( paths.user_root[nUserLen - 1] == '/' || paths.user_root[nUserLen - 1] == '\\' ),
+		       "the user root ends in a separator" );
+	}
+
+	char buffer[1024];
+	memset( buffer, 0x7f, sizeof buffer );
+	if ( Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK,
+	            "BkEditorTestMapPath with no mod is OK" ) )
+	{
+		const std::string szPath( buffer );
+		const char *pszTail = "cache\\generated\\MapEditorTest\\base\\maps\\mapeditor_test.bzm";
+		const size_t nTailLen = strlen( pszTail );
+		Check( szPath.size() >= nTailLen && szPath.compare( szPath.size() - nTailLen, nTailLen, pszTail ) == 0,
+		       ( "the base-mod path ends in cache\\generated\\MapEditorTest\\base\\maps\\mapeditor_test.bzm: \"" + szPath + "\"" ).c_str() );
+		std::error_code error;
+		Check( std::filesystem::exists( std::filesystem::path( HostPath( szPath ) ).parent_path(), error ),
+		       "and its directory exists" );
+
+		// A stale sibling with the other extension, sitting where the next
+		// BkEditorTestMapPath call for the same name will write: it must be
+		// gone afterwards, or the game could load it instead of the fresh copy.
+		const std::string szSiblingHost = HostPath( szPath.substr( 0, szPath.size() - 4 ) + ".xml" );
+		{
+			FILE *pStale = fopen( szSiblingHost.c_str(), "wb" );
+			if ( pStale != 0 )
+			{
+				fputs( "stale", pStale );
+				fclose( pStale );
+			}
+		}
+		Check( std::filesystem::exists( szSiblingHost, error ), "the stale sibling was created for this test" );
+		Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK,
+		       "BkEditorTestMapPath runs again over the stale sibling" );
+		Check( !std::filesystem::exists( szSiblingHost, error ), "and the stale sibling is gone" );
+	}
+
+	if ( Check( BkEditorTestMapPath( pSession, "MapEditorTest", "Some Mod", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK,
+	            "BkEditorTestMapPath with a mod is OK" ) )
+	{
+		const std::string szPath( buffer );
+		Check( szPath.find( "\\some_mod\\maps\\" ) != std::string::npos,
+		       ( "\"Some Mod\" gives the key some_mod: \"" + szPath + "\"" ).c_str() );
+	}
+
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "../x.bzm", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "\"../x.bzm\" is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "a\\b.bzm", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "\"a\\\\b.bzm\" is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "x.txt", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "\"x.txt\" is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an empty file name is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an empty profile is BK_EDITOR_BAD_ARGUMENT" );
+
+	// A buffer one byte short of the full path: refused, with nothing written.
+	std::string szFull;
+	if ( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK )
+		szFull = buffer;
+	if ( Check( !szFull.empty(), "the full path is known for the short-buffer check" ) )
+	{
+		std::vector<char> tight( szFull.size() ); // one byte short of size()+1
+		tight[0] = 0x7f;
+		Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", &tight[0], (int)tight.size() ) == BK_EDITOR_REFUSED,
+		       "a buffer one byte short is BK_EDITOR_REFUSED" );
+		Check( tight[0] == 0, "and nothing is written past out[0] == 0" );
+	}
 }
 
 // The spec's first engine-tier check: open a shipped map, save it with no
@@ -1767,6 +1870,7 @@ int main( int argc, char **argv )
 		TestShippedMapOpens( pSession );
 		TestBridgeSpansAreBuilt( pSession );
 		TestUneditedSaveIsEquivalent( pSession, szScratch );
+		TestPathsAndTestMapPath( pSession );
 		TestObjectEdits( pSession, szScratch );
 		TestRefusedEditsReachNeither( pSession, szScratch );
 		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );

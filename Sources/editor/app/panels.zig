@@ -18,6 +18,7 @@ const core = @import("editor_core");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
+const testlaunch = @import("testlaunch.zig");
 
 const ig = imgui.c;
 const Editor = core.editor.Editor;
@@ -25,8 +26,10 @@ const View = view_mod.View;
 const Tool = view_mod.Tool;
 const RealBridge = c_bridge.RealBridge;
 const CatalogueEntry = c_bridge.c.BkEditorCatalogueEntry;
+const c = c_bridge.c;
 
 pub const FileActions = logic.FileActions;
+pub const TestLaunchPrompt = logic.TestLaunchPrompt;
 
 /// The dialogs' filter. SDL wants the extensions alone, `;`-separated
 /// (SDL_DialogFileFilter), and the list must outlive the dialog, which
@@ -58,6 +61,26 @@ pub const State = struct {
     view: *View,
     real: *RealBridge,
     window: *sdl3.c.SDL_Window,
+    io: std.Io,
+    /// The parent process's environment, for testlaunch.start (Test in game
+    /// inherits it, plus whatever extra_env a later mode adds).
+    environ: std.process.Environ,
+    /// Read once at init (BkEditorPaths): the host roots, for the test
+    /// game's own log path.
+    paths: c.BkEditorPathSet = std.mem.zeroes(c.BkEditorPathSet),
+
+    /// The running test game, if F5/"Test in game" started one (D-03: the
+    /// editor keeps running and drawing beside it). None of this changes the
+    /// document - saveCopy, not editor.save (D-01).
+    test_game: ?testlaunch.Running = null,
+    test_prompt: TestLaunchPrompt = .{},
+    /// null or empty is the base game; a later plan (03-08, the Mod menu)
+    /// fills this in (D-09: the test loads the editor's own mod).
+    mod_folder: ?[]const u8 = null,
+    test_game_log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined,
+    test_game_log_len: usize = 0,
+    test_restart_popup_shown: bool = false,
+    test_report_popup_shown: bool = false,
 
     /// The object database, and its indices ordered by game type (stable,
     /// so a type keeps the database's order): the palette's groups are runs
@@ -95,8 +118,9 @@ pub const State = struct {
     /// The catalogue is read once: it is the database's, not the map's.
     /// A catalogue that will not read leaves the palette empty and says so
     /// on the status bar rather than stopping the editor.
-    pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window) State {
-        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window };
+    pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ) State {
+        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ };
+        if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
         state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
         state.mapOpened();
         return state;
@@ -162,6 +186,10 @@ fn mapIsOpen(editor: *const Editor) bool {
 /// menu asks for are left in `state.actions` for `act`.
 pub fn draw(state: *State) void {
     const menu_height = drawMenuBar(state);
+    // ImGui's own capture flag (WantTextInput, not WantCaptureKeyboard): a
+    // properties field mid-edit must keep F5 as a literal keystroke, but a
+    // window merely being focused must not swallow it.
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_F5, false) and !ig.igGetIO().*.WantTextInput) requestTestLaunch(state);
     const viewport = ig.igGetMainViewport();
     const size = viewport.*.Size;
     const status_height = ig.igGetFrameHeightWithSpacing() + 4;
@@ -174,6 +202,7 @@ pub fn draw(state: *State) void {
     drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = layout.right_width, .y = layout.properties_height });
     drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = layout.right_width, .y = @max(body_height - layout.properties_height, 100) });
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
+    drawTestLaunchModals(state);
     updateTitle(state);
 }
 
@@ -232,6 +261,143 @@ fn dialogCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filte
     slot.deliver(if (first != null) std.mem.span(first) else null);
 }
 
+/// Once per frame, after `act` (main.zig's run loop): polls the running test
+/// game without blocking and feeds its exit to the prompt (D-06). Safe to
+/// call with no test game running.
+pub fn pollTestGame(state: *State) void {
+    if (state.test_game) |*running| {
+        if (running.poll(state.io)) |exit| {
+            state.test_game = null;
+            const log_path = state.test_game_log_buffer[0..state.test_game_log_len];
+            if (state.test_prompt.gameExited(exit, log_path) == .start) startTestGame(state);
+        }
+    }
+}
+
+/// The menu item or F5: asks first if one is already running (D-06);
+/// otherwise starts immediately. Never touches the document (D-01) - no
+/// unsaved-changes prompt, even when there is one (spec's own wording).
+fn requestTestLaunch(state: *State) void {
+    if (!mapIsOpen(state.editor)) return;
+    if (state.test_prompt.request(state.test_game != null) == .start) startTestGame(state);
+}
+
+/// The window's own display, 1-based, for -monitor (D-05: beside the
+/// editor). Null lets the game choose its own default rather than guess.
+fn windowMonitor(window: *sdl3.c.SDL_Window) ?u32 {
+    const display_id = sdl3.c.SDL_GetDisplayForWindow(window);
+    if (display_id == 0) return null;
+    var count: c_int = 0;
+    const displays = sdl3.c.SDL_GetDisplays(&count) orelse return null;
+    defer sdl3.c.SDL_free(displays);
+    var i: c_int = 0;
+    while (i < count) : (i += 1) {
+        if (displays[@intCast(i)] == display_id) return @intCast(i + 1);
+    }
+    return null;
+}
+
+/// `<user_root>mapeditor/test-game.log`, in the buffer's own storage so it
+/// outlives the launch that needs it (the log path is read again when the
+/// game later exits).
+fn testGameLogPath(state: *State) ?[]const u8 {
+    const root = std.mem.sliceTo(&state.paths.user_root, 0);
+    const text_written = std.fmt.bufPrint(&state.test_game_log_buffer, "{s}mapeditor{c}test-game.log", .{ root, std.fs.path.sep }) catch return null;
+    state.test_game_log_len = text_written.len;
+    return text_written;
+}
+
+/// Writes the test copy and starts the game beside the editor (D-01, D-02,
+/// D-04, D-05, D-07, D-08, D-09). A failed copy shows the bridge's message on
+/// the status bar, like any other edit failure, and starts nothing; a spawn
+/// that cannot find Game beside MapEditor is the one launch failure the spec
+/// calls out for its own modal (Errors -> Test launch).
+fn startTestGame(state: *State) void {
+    const real = state.real;
+    var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const test_path = real.testMapPath(testlaunch.profile_name, state.mod_folder, testlaunch.map_file_name, &test_path_buffer) orelse {
+        state.view.setStatus("test in game: ", std.mem.span(c.BkEditorLastMessage(real.session)));
+        return;
+    };
+    if (real.saveCopy(test_path) != .ok) {
+        state.view.setStatus("test in game: ", std.mem.span(c.BkEditorLastMessage(real.session)));
+        return;
+    }
+    var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const game_path = testlaunch.gamePath(state.io, &game_path_buffer) catch |err| {
+        var buffer: [256]u8 = undefined;
+        state.test_prompt.reportFailure(std.fmt.bufPrint(&buffer, "No game beside the Map Editor: {s}", .{@errorName(err)}) catch "No game beside the Map Editor");
+        return;
+    };
+    const log_path = testGameLogPath(state) orelse {
+        state.view.setStatus("test in game: ", "the test log's path is too long");
+        return;
+    };
+    const running = testlaunch.start(state.allocator, state.io, state.environ, .{
+        .game_path = game_path,
+        .mod_folder = state.mod_folder,
+        .monitor = windowMonitor(state.window),
+        .log_path = log_path,
+    }) catch |err| {
+        var buffer: [512]u8 = undefined;
+        const message = if (err == error.FileNotFound)
+            std.fmt.bufPrint(&buffer, "No game beside the Map Editor at {s}", .{game_path}) catch "No game beside the Map Editor"
+        else
+            std.fmt.bufPrint(&buffer, "the game would not start: {s}", .{@errorName(err)}) catch "the game would not start";
+        state.test_prompt.reportFailure(message);
+        return;
+    };
+    state.test_game = running;
+}
+
+/// D-06's still-running prompt, and the exit report (bad code or an early
+/// failure); a clean exit is never shown at all (TestLaunchPrompt.report()).
+fn drawTestLaunchModals(state: *State) void {
+    const restart_id = "Test in game##restart";
+    if (state.test_prompt.isAskingRestart()) {
+        if (!state.test_restart_popup_shown) {
+            _ = ig.igOpenPopup(restart_id, 0);
+            state.test_restart_popup_shown = true;
+        }
+    } else {
+        state.test_restart_popup_shown = false;
+    }
+    if (ig.igBeginPopupModal(restart_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        text("A test game is still running.");
+        if (ig.igButton("Restart with this version")) {
+            state.test_prompt.answer(.restart);
+            if (state.test_game) |*running| running.terminate(state.io);
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Keep it running")) {
+            state.test_prompt.answer(.keep);
+            ig.igCloseCurrentPopup();
+        }
+        ig.igEndPopup();
+    }
+
+    const report_id = "Test in game##report";
+    if (state.test_prompt.report() != null) {
+        if (!state.test_report_popup_shown) {
+            _ = ig.igOpenPopup(report_id, 0);
+            state.test_report_popup_shown = true;
+        }
+    } else {
+        state.test_report_popup_shown = false;
+    }
+    if (state.test_prompt.report()) |message| {
+        if (ig.igBeginPopupModal(report_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            text(message);
+            if (ig.igButton("OK")) {
+                state.test_prompt.acknowledgeReport();
+                ig.igCloseCurrentPopup();
+            }
+            ig.igEndPopup();
+        }
+    }
+}
+
 /// Returns the bar's height, which the other panels start below.
 fn drawMenuBar(state: *State) f32 {
     if (!ig.igBeginMainMenuBar()) return 0;
@@ -255,6 +421,10 @@ fn drawMenuBar(state: *State) f32 {
         inline for (.{ .{ "Select", "1", Tool.select }, .{ "Brush", "2", Tool.brush }, .{ "Place", "3", Tool.place } }) |item| {
             if (ig.igMenuItemEx(item[0], item[1], state.view.tool == item[2], true)) state.view.selectTool(editor, item[2]);
         }
+        ig.igEndMenu();
+    }
+    if (ig.igBeginMenu("Test")) {
+        if (ig.igMenuItemEx("Test in game", "F5", false, map_open)) requestTestLaunch(state);
         ig.igEndMenu();
     }
     ig.igEndMainMenuBar();
