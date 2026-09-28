@@ -56,6 +56,24 @@ const layout = struct {
 /// Sources/src/RandomMapGen/MapInfo_Types.h), TYPE_COUNT of them.
 const map_type_names = [_][:0]const u8{ "single player", "flag control", "sabotage" };
 
+/// One entry of the recovery-offer modal (D-22, spec Errors -> Crashes): the
+/// recovery copy's own OS path, and its sidecar's original document path and
+/// unix time.
+const RecoveryOffer = struct {
+    file_path: [std.Io.Dir.max_path_bytes]u8 = undefined,
+    file_path_len: usize = 0,
+    original_path: [std.Io.Dir.max_path_bytes]u8 = undefined,
+    original_path_len: usize = 0,
+    unix_time: i64 = 0,
+
+    fn filePath(self: *const RecoveryOffer) []const u8 {
+        return self.file_path[0..self.file_path_len];
+    }
+    fn originalPath(self: *const RecoveryOffer) []const u8 {
+        return self.original_path[0..self.original_path_len];
+    }
+};
+
 pub const State = struct {
     allocator: std.mem.Allocator,
     editor: *Editor,
@@ -107,6 +125,26 @@ pub const State = struct {
     /// and reused every frame it stays open - not once per entry per frame.
     recent_menu_open_prev: bool = false,
     recent_exists_cache: [core.settings.recent_capacity]bool = [_]bool{true} ** core.settings.recent_capacity,
+
+    /// D-20..D-22's schedule; `tickAutosave` keeps `enabled`/`interval_ms` in
+    /// step with `settings` every frame, so a Settings-window or menu change
+    /// takes effect at once.
+    autosave: core.autosave.Autosave = .{},
+    /// This document's currently-live recovery copy (D-22), if any - its OS
+    /// path, so a later real Save/Save As or a clean/Don't-save quit can
+    /// delete it and its sidecar. Set when a recovery write succeeds or a
+    /// recovery copy is reopened; cleared once deleted.
+    recovery_active: ?logic.PathText = null,
+    /// What `scanRecoveryOffers` (interactive startup only) found in
+    /// `<user_root>mapeditor/recovery/`: each entry's own file, its sidecar's
+    /// original path and time. Never populated in an automated mode - nothing
+    /// calls `scanRecoveryOffers` there.
+    recovery_offers: [8]RecoveryOffer = undefined,
+    recovery_offers_count: usize = 0,
+    recovery_popup_shown: bool = false,
+    /// [Later] on the recovery-offer modal: leaves whatever is still listed
+    /// on disk, just stops asking again this session.
+    recovery_prompt_dismissed: bool = false,
 
     /// The object database, and its indices ordered by game type (stable,
     /// so a type keeps the database's order): the palette's groups are runs
@@ -236,6 +274,7 @@ pub fn draw(state: *State) void {
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
     drawSettingsWindow(state);
+    drawRecoveryPrompt(state);
     updateTitle(state);
 }
 
@@ -254,14 +293,23 @@ fn userRoot(state: *const State) []const u8 {
 pub fn act(state: *State) bool {
     var quit = false;
     while (true) {
-        const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state));
+        const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state), userRoot(state));
         switch (state.actions.next(state.editor.dirty(), needs_save_as)) {
             .none, .ask_unsaved => return quit,
             .dialog_cancelled => {},
-            .quit => quit = true,
+            // A quit that reaches here is either clean (never dirty) or
+            // answered Don't save (the prompt's .proceed path) - both are
+            // "this document's edits, if any, are abandoned" (D-22).
+            .quit => {
+                deleteRecoveryIfActive(state);
+                quit = true;
+            },
             .save => {
                 const ok = saveToDocumentPath(state);
-                if (ok) pushRecentFromDocument(state);
+                if (ok) {
+                    pushRecentFromDocument(state);
+                    deleteRecoveryIfActive(state);
+                }
                 state.actions.noteSaveOutcome(ok);
             },
             .show_dialog => |kind| showDialog(state, kind),
@@ -279,7 +327,10 @@ pub fn act(state: *State) bool {
                     // Save As: the unsaved-changes prompt, if it asked for
                     // this one, hears whether it landed.
                     const ok = if (result) |_| true else |_| false;
-                    if (ok) pushRecentFromDocument(state);
+                    if (ok) {
+                        pushRecentFromDocument(state);
+                        deleteRecoveryIfActive(state);
+                    }
                     state.actions.noteSaveOutcome(ok);
                 }
             },
@@ -309,6 +360,229 @@ fn saveToDocumentPath(state: *State) bool {
     const result = state.editor.save(state.editor.document.path.items);
     state.view.noteEditResult(state.editor, result);
     return if (result) |_| true else |_| false;
+}
+
+/// `<user_root>mapeditor/recovery`, an OS path (D-22's own location).
+fn recoveryFolder(buffer: []u8, state: *const State) ?[]const u8 {
+    return std.fmt.bufPrint(buffer, "{s}mapeditor{c}recovery", .{ userRoot(state), std.fs.path.sep }) catch null;
+}
+
+/// Whether a modal or file dialog is already up: autosave must never fight
+/// the user for the map (Task 3's own action item) while one of these is
+/// showing.
+fn anyModalOpen(state: *const State) bool {
+    return state.actions.dialog.waiting() or state.actions.prompt.isAsking() or state.settings_window_open or
+        state.test_prompt.isAskingRestart() or state.test_prompt.report() != null or
+        (state.recovery_offers_count != 0 and !state.recovery_prompt_dismissed);
+}
+
+/// Once per frame, interactive only (main.zig's `run` gates this on
+/// `is_interactive`), never while a modal or dialog is up (D-20..D-22): due
+/// -> the map file itself (D-20, through editor.save's own safe-save and
+/// .bak rule) when the document has a real, writable path; a recovery copy
+/// plus its sidecar (D-22) otherwise. A failure still calls `wrote` - the
+/// next try is a full interval later, not next frame.
+pub fn tickAutosave(state: *State, now_ms: u64) void {
+    state.autosave.enabled = state.settings.autosave;
+    state.autosave.interval_ms = @as(u64, state.settings.autosave_minutes) * std.time.ms_per_min;
+    if (!mapIsOpen(state.editor) or anyModalOpen(state)) {
+        // Still tracked (not ticked away): a dirty map waiting out a modal
+        // must not lose its place in the interval once the modal closes.
+        state.autosave.note(now_ms, state.editor.dirty() and mapIsOpen(state.editor));
+        return;
+    }
+    const dirty = state.editor.dirty();
+    state.autosave.note(now_ms, dirty);
+    if (!state.autosave.due(now_ms, dirty)) return;
+    const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state), userRoot(state));
+    switch (core.autosave.target(needs_save_as)) {
+        .map_file => autosaveIntoMapFile(state, now_ms),
+        .recovery_copy => writeRecoveryCopy(state, now_ms),
+    }
+}
+
+fn autosaveIntoMapFile(state: *State, now_ms: u64) void {
+    const result = state.editor.save(state.editor.document.path.items);
+    state.autosave.wrote(now_ms);
+    if (result) |_| {
+        var buffer: [64]u8 = undefined;
+        const name = logic.baseName(state.editor.document.path.items);
+        state.view.setStatus("", std.fmt.bufPrint(&buffer, "autosaved {s}", .{name}) catch "autosaved");
+    } else |_| {
+        state.view.setStatus("autosave failed: ", state.editor.status());
+    }
+}
+
+/// D-22: `real.saveCopy` into the recovery folder, plus the sidecar with the
+/// document's own OS path and the current unix time. `state.recovery_active`
+/// remembers this write's OS path so a later real Save/Save As or a
+/// clean/Don't-save quit can delete both files.
+fn writeRecoveryCopy(state: *State, now_ms: u64) void {
+    state.autosave.wrote(now_ms);
+    var name_buffer: [300]u8 = undefined;
+    const name = core.autosave.recoveryName(&name_buffer, state.editor.document.path.items) orelse {
+        state.view.setStatus("autosave failed: ", "the recovery file name is too long");
+        return;
+    };
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = recoveryFolder(&folder_buffer, state) orelse {
+        state.view.setStatus("autosave failed: ", "the recovery folder's path is too long");
+        return;
+    };
+    std.Io.Dir.cwd().createDirPath(state.io, folder) catch {};
+    var os_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const os_path = std.fmt.bufPrint(&os_path_buffer, "{s}{c}{s}", .{ folder, std.fs.path.sep, name }) catch {
+        state.view.setStatus("autosave failed: ", "the recovery path is too long");
+        return;
+    };
+    var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const engine_path = logic.enginePath(&engine_buffer, os_path, .open) orelse {
+        state.view.setStatus("autosave failed: ", "the recovery path is too long");
+        return;
+    };
+    if (state.real.saveCopy(engine_path) != .ok) {
+        state.view.setStatus("autosave failed: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+        return;
+    }
+    writeRecoverySidecar(state, os_path);
+    state.recovery_active = logic.PathText.init(os_path);
+    state.view.setStatus("", "recovery copy written");
+}
+
+/// `<recovery copy>.txt`: the original OS path, then the unix time, one per
+/// line - `scanRecoveryOffers` reads both back for the modal.
+fn writeRecoverySidecar(state: *State, recovery_os_path: []const u8) void {
+    var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const sidecar_path = std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{recovery_os_path}) catch return;
+    var doc_os_buffer: [core.files.max_path]u8 = undefined;
+    const original_os_path = core.files.osPathFromEngine(&doc_os_buffer, state.editor.document.path.items) orelse return;
+    const unix_seconds = std.Io.Clock.real.now(state.io).toSeconds();
+    var sidecar_text_buffer: [core.files.max_path + 64]u8 = undefined;
+    const sidecar_text = std.fmt.bufPrint(&sidecar_text_buffer, "{s}\n{d}\n", .{ original_os_path, unix_seconds }) catch return;
+    std.Io.Dir.cwd().writeFile(state.io, .{ .sub_path = sidecar_path, .data = sidecar_text }) catch {};
+}
+
+/// D-22: after a real save lands, or a clean/Don't-save quit, this document's
+/// recovery copy (if it had one) is no longer needed.
+fn deleteRecoveryIfActive(state: *State) void {
+    const active = state.recovery_active orelse return;
+    var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    if (std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{active.slice()})) |sidecar| {
+        std.Io.Dir.cwd().deleteFile(state.io, sidecar) catch {};
+    } else |_| {}
+    std.Io.Dir.cwd().deleteFile(state.io, active.slice()) catch {};
+    state.recovery_active = null;
+}
+
+/// Interactive startup only: what `<user_root>mapeditor/recovery/` holds
+/// right now, each `.bzm` paired with its own `<name>.bzm.txt` sidecar. A
+/// recovery file with no readable sidecar (or one whose folder does not
+/// exist yet - a fresh install) is simply not offered; nothing here is a
+/// reason to fail startup.
+pub fn scanRecoveryOffers(state: *State) void {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = recoveryFolder(&folder_buffer, state) orelse return;
+    var dir = std.Io.Dir.cwd().openDir(state.io, folder, .{ .iterate = true }) catch return;
+    defer dir.close(state.io);
+    var it = dir.iterate();
+    while (state.recovery_offers_count < state.recovery_offers.len) {
+        const entry = (it.next(state.io) catch break) orelse break;
+        if (entry.kind != .file) continue;
+        if (!std.ascii.endsWithIgnoreCase(entry.name, ".bzm")) continue;
+        var offer: RecoveryOffer = .{};
+        const file_path = std.fmt.bufPrint(&offer.file_path, "{s}{c}{s}", .{ folder, std.fs.path.sep, entry.name }) catch continue;
+        offer.file_path_len = file_path.len;
+        var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const sidecar_path = std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{file_path}) catch continue;
+        const sidecar_bytes = std.Io.Dir.cwd().readFileAlloc(state.io, sidecar_path, state.allocator, .limited(4096)) catch continue;
+        defer state.allocator.free(sidecar_bytes);
+        var lines = std.mem.splitScalar(u8, sidecar_bytes, '\n');
+        const original = lines.next() orelse continue;
+        const time_text = std.mem.trim(u8, lines.next() orelse "0", " \r\n\t");
+        offer.unix_time = std.fmt.parseInt(i64, time_text, 10) catch 0;
+        offer.original_path_len = @min(original.len, offer.original_path.len);
+        @memcpy(offer.original_path[0..offer.original_path_len], original[0..offer.original_path_len]);
+        state.recovery_offers[state.recovery_offers_count] = offer;
+        state.recovery_offers_count += 1;
+    }
+}
+
+/// D-22, spec Errors -> Crashes: at the next start, every recovery copy found
+/// is offered back - Open reopens it (through the recovery folder itself, so
+/// it keeps autosaving there per D-22 until its own Save As), Discard drops
+/// it unopened, and Later leaves the list for next time without asking again
+/// this session.
+fn drawRecoveryPrompt(state: *State) void {
+    if (state.recovery_offers_count == 0 or state.recovery_prompt_dismissed) return;
+    const popup_id = "Unsaved work from an earlier session";
+    if (!state.recovery_popup_shown) {
+        _ = ig.igOpenPopup(popup_id, 0);
+        state.recovery_popup_shown = true;
+    }
+    if (!ig.igBeginPopupModal(popup_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+    var index: usize = 0;
+    while (index < state.recovery_offers_count) {
+        const offer = state.recovery_offers[index];
+        ig.igPushIDInt(@intCast(index));
+        var line: [400]u8 = undefined;
+        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ logic.baseName(offer.originalPath()), offer.unix_time }) catch "?";
+        text(label);
+        ig.igSameLine();
+        const opened = ig.igSmallButton("Open");
+        ig.igSameLine();
+        const discarded = ig.igSmallButton("Discard");
+        ig.igPopID();
+        if (opened) {
+            openRecoveryOffer(state, offer);
+            removeRecoveryOffer(state, index);
+            ig.igCloseCurrentPopup();
+            break;
+        } else if (discarded) {
+            discardRecoveryOffer(state, offer);
+            removeRecoveryOffer(state, index);
+        } else {
+            index += 1;
+        }
+    }
+    if (state.recovery_offers_count == 0) {
+        ig.igCloseCurrentPopup();
+    } else if (ig.igButton("Later")) {
+        state.recovery_prompt_dismissed = true;
+        ig.igCloseCurrentPopup();
+    }
+    ig.igEndPopup();
+}
+
+fn openRecoveryOffer(state: *State, offer: RecoveryOffer) void {
+    var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const engine_path = logic.enginePath(&engine_buffer, offer.filePath(), .open) orelse {
+        state.view.setStatus("failed: ", "the recovery path is too long");
+        return;
+    };
+    const result = state.editor.open(engine_path);
+    if (result) |_| {
+        state.mapOpened();
+        // needsSaveAs's own recovery-folder check (Task 3) keeps this
+        // document on Save As until it leaves the recovery folder for real;
+        // recovery_active lets autosave keep writing this same file until then.
+        state.recovery_active = logic.PathText.init(offer.filePath());
+    } else |_| {
+        state.view.setStatus("failed: ", state.editor.status());
+    }
+}
+
+fn discardRecoveryOffer(state: *State, offer: RecoveryOffer) void {
+    var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    if (std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{offer.filePath()})) |sidecar| {
+        std.Io.Dir.cwd().deleteFile(state.io, sidecar) catch {};
+    } else |_| {}
+    std.Io.Dir.cwd().deleteFile(state.io, offer.filePath()) catch {};
+}
+
+fn removeRecoveryOffer(state: *State, index: usize) void {
+    var i = index;
+    while (i + 1 < state.recovery_offers_count) : (i += 1) state.recovery_offers[i] = state.recovery_offers[i + 1];
+    state.recovery_offers_count -= 1;
 }
 
 /// D-23: while the prompt asks (an Open, Quit or window close found the map
@@ -602,6 +876,13 @@ fn drawMenuBar(state: *State) f32 {
         }
         if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
         if (ig.igMenuItemEx("Save As...", null, false, map_open)) state.actions.save_as_requested = true;
+        ig.igSeparator();
+        // D-21: switchable from the menu, not only the Settings window.
+        var autosave_on = state.settings.autosave;
+        if (ig.igMenuItemBoolPtr("Autosave", null, &autosave_on, true)) {
+            state.settings.autosave = autosave_on;
+            applySettings(state);
+        }
         ig.igSeparator();
         if (ig.igMenuItemEx("Quit", null, false, true)) state.actions.quit_requested = true;
         ig.igEndMenu();

@@ -161,11 +161,29 @@ pub fn isShippedMap(engine_path: []const u8, base_root: []const u8) bool {
     return false;
 }
 
-/// Whether Save must behave like Save As (D-18): an empty path (a new map,
-/// never saved) or a shipped one - both cases where writing straight to
-/// `doc_path` is either impossible or forbidden.
-pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8) bool {
-    return doc_path.len == 0 or isShippedMap(doc_path, base_root);
+/// Whether an engine-form path sits inside `<user_root>mapeditor/recovery/`
+/// (D-22): a reopened recovery copy is saved with Save As, the same as a
+/// shipped map, since the recovery folder is never the map's real home. Only
+/// an absolute path can be inside it - `user_root` is always absolute, and a
+/// relative document path (every shipped map, and every map opened by a bare
+/// relative argument) can never resolve there.
+fn isRecoveryPath(engine_path: []const u8, user_root: []const u8) bool {
+    if (user_root.len == 0) return false;
+    var path_buffer: [PathSlot.max_path]u8 = undefined;
+    var root_buffer: [PathSlot.max_path]u8 = undefined;
+    const path = normalizeForCompare(&path_buffer, engine_path) orelse return false;
+    const root = normalizeForCompare(&root_buffer, user_root) orelse return false;
+    if (!isAbsolutePath(path)) return false;
+    if (!std.mem.startsWith(u8, path, root)) return false;
+    return std.mem.startsWith(u8, path[root.len..], "mapeditor/recovery/");
+}
+
+/// Whether Save must behave like Save As (D-18, D-22): an empty path (a new
+/// map, never saved), a shipped one, or a path inside the recovery folder -
+/// every case where writing straight to `doc_path` is either impossible or
+/// not where the map actually belongs.
+pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8, user_root: []const u8) bool {
+    return doc_path.len == 0 or isShippedMap(doc_path, base_root) or isRecoveryPath(doc_path, user_root);
 }
 
 /// `<user_root>maps`, or `<user_root>mods/<mod_folder>/maps` with a mod
@@ -761,11 +779,16 @@ test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, sepa
     try std.testing.expect(isShippedMap("DATA\\maps\\a.bzm", base));
 }
 
-test "needsSaveAs: an empty path or a shipped map redirects Save to Save As" {
+test "needsSaveAs: an empty path, a shipped map, or a recovery-folder path redirects Save to Save As" {
     const base = "/Users/me/MapEditor/";
-    try std.testing.expect(needsSaveAs("", base));
-    try std.testing.expect(needsSaveAs("Data\\Maps\\Multiplayer\\coldwinter.bzm", base));
-    try std.testing.expect(!needsSaveAs("/Users/me/.local/share/Nival/Blitzkrieg/maps/a.bzm", base));
+    const user_root = "/Users/me/.local/share/Nival/Blitzkrieg/";
+    try std.testing.expect(needsSaveAs("", base, user_root));
+    try std.testing.expect(needsSaveAs("Data\\Maps\\Multiplayer\\coldwinter.bzm", base, user_root));
+    try std.testing.expect(!needsSaveAs(user_root ++ "maps/a.bzm", base, user_root));
+    try std.testing.expect(needsSaveAs(user_root ++ "mapeditor/recovery/coldwinter.bzm", base, user_root));
+    try std.testing.expect(needsSaveAs("/USERS/ME/.LOCAL/SHARE/NIVAL/BLITZKRIEG/mapeditor\\recovery\\a.bzm", base, user_root));
+    // A path outside the recovery folder, still under user_root, is unaffected.
+    try std.testing.expect(!needsSaveAs(user_root ++ "mapeditor/mapeditor.cfg", base, user_root));
 }
 
 test "defaultMapsFolder: the user root plus maps, or mods/<name>/maps; a bad mod folder is refused" {

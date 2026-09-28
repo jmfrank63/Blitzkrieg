@@ -166,7 +166,12 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     }
     view.wheel_sensitivity = state.settings.scroll_speed;
 
-    run(&host, &editor, &view, &real, &state, null, settings_path);
+    // D-22, spec Errors -> Crashes: offered back once, at startup, before the
+    // main loop's own autosave tick could ever write a fresh one under the
+    // same name.
+    panels.scanRecoveryOffers(&state);
+
+    run(&host, &editor, &view, &real, &state, null, settings_path, true);
     // A plain return, not std.process.exit, so the deferred view.deinit(),
     // editor.deinit() and host.stop() above run: host.stop() takes the
     // overlay and ImGui down, BkEditorStop deletes the world, and the window
@@ -229,7 +234,11 @@ fn writeSettingsFile(io: std.Io, path: []const u8, settings: *const core.setting
 /// `state.settings_changed`, writes `mapeditor.cfg` back through a temporary
 /// file and rename, then clears the flag - never per keystroke, and the
 /// automated modes (which always pass null here) never write at all.
-fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, script: ?*smoke.Script, settings_path: ?[]const u8) void {
+///
+/// `is_interactive` (D-20..D-22): only the interactive mode ticks autosave -
+/// smoke and the panel smoke run their loops with no tick at all, so they
+/// never write a map file or a recovery copy no one asked for.
+fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, script: ?*smoke.Script, settings_path: ?[]const u8, is_interactive: bool) void {
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
     while (running) {
@@ -271,6 +280,7 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
             if (settings_path) |path| writeSettingsFile(state.io, path, &state.settings) catch {};
             state.settings_changed = false;
         }
+        if (is_interactive) panels.tickAutosave(state, ticks);
         // A running test game is polled every frame, script or not - the
         // smoke never presses Test, so this is a no-op there, but the smoke's
         // own State still owns one (D-03: quitting leaves it running).
@@ -321,7 +331,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     defer state.deinit();
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
-    run(&host, &editor, &view, &real, &state, &script, null);
+    run(&host, &editor, &view, &real, &state, &script, null, false);
     if (!script.passed) {
         // A step that failed has said so; a loop that ended otherwise (a
         // quit event) has not.
