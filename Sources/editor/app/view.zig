@@ -386,6 +386,35 @@ pub const View = struct {
         return imgui.c.igColorConvertFloat4ToU32(.{ .x = 1, .y = 1, .z = 0, .w = 1 });
     }
 
+    /// A sound marker's own colour - distinct from the brush outline's
+    /// yellow, so the two are never confused when both happen to be visible.
+    fn soundMarkerColor() imgui.c.ImU32 {
+        return imgui.c.igColorConvertFloat4ToU32(.{ .x = 0.25, .y = 0.65, .z = 1.0, .w = 1 });
+    }
+
+    /// Each sound is marked on the map: a small diamond at its position
+    /// (BkEditorWorldToScreen) with its name beside it, the selected one
+    /// highlighted in the brush outline's own colour. Skipped, per sound,
+    /// when the conversion fails - off the current view, or no camera yet.
+    fn drawSoundMarkers(real: *RealBridge, sounds: []const core.bridge.SoundRecord, selected_sound: ?usize) void {
+        if (sounds.len == 0) return;
+        const draw_list = imgui.c.igGetBackgroundDrawList();
+        for (sounds, 0..) |sound, index| {
+            const screen = real.worldToScreen(sound.x, sound.y) orelse continue;
+            const selected = selected_sound != null and selected_sound.? == index;
+            const half: f32 = if (selected) 7.0 else 5.0;
+            const color = if (selected) outlineColor() else soundMarkerColor();
+            const top: imgui.c.ImVec2 = .{ .x = screen[0], .y = screen[1] - half };
+            const right: imgui.c.ImVec2 = .{ .x = screen[0] + half, .y = screen[1] };
+            const bottom: imgui.c.ImVec2 = .{ .x = screen[0], .y = screen[1] + half };
+            const left: imgui.c.ImVec2 = .{ .x = screen[0] - half, .y = screen[1] };
+            imgui.c.ImDrawList_AddQuadFilled(draw_list, top, right, bottom, left, color);
+            imgui.c.ImDrawList_AddQuad(draw_list, top, right, bottom, left, outlineColor());
+            const name = std.mem.sliceTo(&sound.name, 0);
+            imgui.c.ImDrawList_AddTextEx(draw_list, .{ .x = screen[0] + half + 3, .y = screen[1] - half }, outlineColor(), name.ptr, name.ptr + name.len);
+        }
+    }
+
     /// Where the brush will paint, drawn on the terrain under the pointer at
     /// every zoom (carried from plan 5): with the brush tool active, a
     /// hovered tile, and the pointer not over a panel, the outline of the
@@ -393,8 +422,9 @@ pub const View = struct {
     /// its boundary - not just its four outer corners - so the line follows
     /// the ground the way BkEditorWorldToScreen sees it, on sloped terrain.
     /// Nothing is drawn if any corner fails to convert (off the map, or no
-    /// camera).
-    pub fn drawOverlay(self: *View, real: *RealBridge) void {
+    /// camera). The sound markers above draw regardless of the active tool.
+    pub fn drawOverlay(self: *View, real: *RealBridge, sounds: []const core.bridge.SoundRecord, selected_sound: ?usize) void {
+        drawSoundMarkers(real, sounds, selected_sound);
         if (self.tool != .brush) return;
         if (captureFlags().mouse) return;
         const hover = self.hover orelse return;

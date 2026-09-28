@@ -90,6 +90,44 @@ pub fn matchesFilter(name: []const u8, filter: []const u8) bool {
     return std.ascii.indexOfIgnoreCase(name, filter) != null;
 }
 
+/// SMapSoundInfo's timeRepeat/timeRepeatRandom are milliseconds
+/// (NTimer::STime); the Sounds panel shows them in seconds.
+pub fn msToSeconds(ms: i32) f32 {
+    return @as(f32, @floatFromInt(ms)) / 1000.0;
+}
+
+/// The other direction: rounded to the nearest millisecond. A non-finite
+/// input (an empty or mid-edit field ImGui left at NaN) is 0 rather than an
+/// undefined cast - BkEditorAddSound/SetSound would refuse a negative one
+/// anyway, but this must never be a trap.
+pub fn secondsToMs(seconds: f32) i32 {
+    if (!std.math.isFinite(seconds)) return 0;
+    const rounded: f64 = @round(@as(f64, seconds) * 1000.0);
+    const clamped = std.math.clamp(rounded, @as(f64, @floatFromInt(std.math.minInt(i32))), @as(f64, @floatFromInt(std.math.maxInt(i32))));
+    return @intFromFloat(clamped);
+}
+
+/// Sorts `names` case-insensitively in place, for the Sounds panel's "known
+/// sounds" combo (catalogue entries of game type 100) - the list is built
+/// once, from the catalogue's own name buffers, so sorting a caller-owned
+/// slice of borrowed strings (rather than returning a new one) is enough.
+pub fn sortNamesIgnoreCase(names: [][]const u8) void {
+    std.sort.insertion([]const u8, names, {}, struct {
+        fn lessThan(_: void, a: []const u8, b: []const u8) bool {
+            return std.ascii.lessThanIgnoreCase(a, b);
+        }
+    }.lessThan);
+}
+
+/// A message for the Sounds panel's own fields, shown next to them so an
+/// impossible radius pair is visible before the bridge ever sees it (which
+/// would otherwise only report it after the fact, in the status bar).
+/// BkEditorAddSound/SetSound refuse the same thing themselves.
+pub fn soundRadiusError(min_radius: i32, max_radius: i32) ?[]const u8 {
+    if (min_radius > max_radius) return "minimum radius is above maximum";
+    return null;
+}
+
 /// The object pictures cache's ordering and dedup rules (D-29), pure enough
 /// to run under this file's own tests with no GPU or bridge: `request`
 /// queues a name once, `take` serves up to a per-frame budget in request
@@ -857,6 +895,30 @@ test "the palette leaves out the types a map cannot hold" {
     try std.testing.expect(!isPlaceable(100));
     try std.testing.expect(!isPlaceable(5));
     for ([_]i32{ 1, 2, 3, 4, 6, 7, 8, 9, 10, 15, 17 }) |game_type| try std.testing.expect(isPlaceable(game_type));
+}
+
+test "sound times: milliseconds to seconds and back, non-finite is 0" {
+    try std.testing.expectEqual(@as(f32, 1.5), msToSeconds(1500));
+    try std.testing.expectEqual(@as(f32, 0), msToSeconds(0));
+    try std.testing.expectEqual(@as(i32, 1500), secondsToMs(1.5));
+    try std.testing.expectEqual(@as(i32, 0), secondsToMs(0));
+    try std.testing.expectEqual(@as(i32, 0), secondsToMs(std.math.nan(f32)));
+    var ms: i32 = 250;
+    while (ms < 10000) : (ms += 250) try std.testing.expectEqual(ms, secondsToMs(msToSeconds(ms)));
+}
+
+test "sortNamesIgnoreCase sorts case-insensitively" {
+    var names = [_][]const u8{ "Wind", "amb_forest", "Explosion" };
+    sortNamesIgnoreCase(&names);
+    try std.testing.expectEqualStrings("amb_forest", names[0]);
+    try std.testing.expectEqualStrings("Explosion", names[1]);
+    try std.testing.expectEqualStrings("Wind", names[2]);
+}
+
+test "soundRadiusError names a min above max, and nothing else" {
+    try std.testing.expect(soundRadiusError(5, 1) != null);
+    try std.testing.expect(soundRadiusError(1, 5) == null);
+    try std.testing.expect(soundRadiusError(3, 3) == null);
 }
 
 test "PictureQueue: a name is queued once, served in request order" {

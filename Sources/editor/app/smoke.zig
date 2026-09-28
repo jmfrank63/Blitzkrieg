@@ -70,6 +70,9 @@ pub const Input = union(enum) {
     /// Calls the unsaved-changes prompt's answer as the modal's Save/Don't
     /// save/Cancel button would (D-23) - the smoke has no widget to click.
     answer: panels_logic.UnsavedPrompt.Choice,
+    /// Calls panels.addSoundAtViewCentre directly, as the Sounds panel's
+    /// "Add at view centre" button would - no widget here to click either.
+    add_sound_at_view_centre,
 };
 
 pub const Wheel = struct {
@@ -141,6 +144,11 @@ pub const Expect = enum {
     zoomed_at_pointer,
     /// Home reset the zoom to 0 (D-13).
     view_reset,
+    /// "Add at view centre" added one sound through the bridge's own list
+    /// (T-03-10-01/02's own ABI), as one undo step.
+    sound_added,
+    /// Ctrl+Z undid the add: the sound list is back to what the map had.
+    sound_removed,
 };
 
 pub const Step = struct {
@@ -197,6 +205,10 @@ pub const script = [_]Step{
     .{ .name = "Save on a shipped map becomes Save As", .inputs = &.{.save_requested}, .expect = .save_became_save_as },
     .{ .name = "Save As writes the map", .inputs = &.{.save_as}, .expect = .saved },
     .{ .name = "the saved map opens again", .inputs = &.{.open_saved}, .expect = .reopened },
+    // The Sounds panel (Task 3): "Add at view centre" adds a sound as one
+    // undo step; Ctrl+Z removes it, back to what the reopened map had.
+    .{ .name = "Add at view centre adds a sound", .inputs = &.{.add_sound_at_view_centre}, .expect = .sound_added },
+    .{ .name = "Ctrl+Z removes it", .inputs = &.{undo_key}, .expect = .sound_removed },
     // D-23: the unsaved-changes prompt on a window close, and Cancel.
     .{ .name = "key 2 chooses the brush again", .inputs = &.{plain(sdl.SDLK_2, sdl.SDL_SCANCODE_2)}, .expect = .tool_brush },
     .{ .name = "a brush stroke makes the map dirty", .inputs = &.{ .{ .press = ground_a }, .{ .drag = ground_between }, .{ .drag = ground_b }, .{ .release = ground_b } }, .expect = .painted },
@@ -263,6 +275,9 @@ pub const Script = struct {
     reported: bool = false,
 
     original_objects: usize,
+    /// The map's own sound count, read once at init through the same bridge
+    /// call `sound_added`/`sound_removed` check against.
+    original_sounds: usize = 0,
     cell_a: [2]i32 = .{ 0, 0 },
     cell_b: [2]i32 = .{ 0, 0 },
     tile_a: u8 = 0,
@@ -287,6 +302,9 @@ pub const Script = struct {
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
+        var none: [0]core.bridge.SoundRecord = .{};
+        var sounds_count: usize = 0;
+        _ = editor.bridge.sounds(&none, &sounds_count);
         return .{
             .editor = editor,
             .view = view,
@@ -295,6 +313,7 @@ pub const Script = struct {
             .window_id = sdl.SDL_GetWindowID(window),
             .save_path = save_path,
             .original_objects = editor.document.objects.items.len,
+            .original_sounds = sounds_count,
         };
     }
 
@@ -423,6 +442,10 @@ pub const Script = struct {
             },
             .save_requested => {
                 self.state.actions.save_requested = true;
+                return true;
+            },
+            .add_sound_at_view_centre => {
+                panels.addSoundAtViewCentre(self.state);
                 return true;
             },
             .wheel => |wheel| {
@@ -637,6 +660,21 @@ pub const Script = struct {
             },
             .view_reset => {
                 if (self.view.zoom_steps != 0) return self.stepFail(step, "zoom_steps is {d}, want 0 (D-13)", .{self.view.zoom_steps});
+            },
+            .sound_added => {
+                var count: usize = 0;
+                var none: [0]core.bridge.SoundRecord = .{};
+                _ = editor.bridge.sounds(&none, &count);
+                if (count != self.original_sounds + 1) return self.stepFail(step, "{d} sounds, the map had {d}", .{ count, self.original_sounds });
+                if (editor.history.undo_stack.items.len != 1) return self.stepFail(step, "{d} edits recorded, want the add as one", .{editor.history.undo_stack.items.len});
+                if (self.state.selected_sound == null) return self.stepFail(step, "the added sound is not selected", .{});
+            },
+            .sound_removed => {
+                var count: usize = 0;
+                var none: [0]core.bridge.SoundRecord = .{};
+                _ = editor.bridge.sounds(&none, &count);
+                if (count != self.original_sounds) return self.stepFail(step, "{d} sounds, want the original {d} back", .{ count, self.original_sounds });
+                if (editor.history.canUndo()) return self.stepFail(step, "{d} edits are left to undo", .{editor.history.undo_stack.items.len});
             },
         }
         return true;

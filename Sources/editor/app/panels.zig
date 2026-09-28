@@ -167,6 +167,12 @@ pub const State = struct {
     order: []u32 = &.{},
     filter: [64:0]u8 = [_:0]u8{0} ** 64,
 
+    /// The catalogue's own sound entries (game type 100), sorted
+    /// case-insensitively, for the Sounds panel's combo - slices into
+    /// `catalogue`'s own name buffers (built and freed alongside it), never
+    /// owned separately.
+    sound_names: [][]const u8 = &.{},
+
     /// D-29: each palette object's own picture, decoded by the engine on
     /// demand and cached per session - cleared on a mod switch
     /// (reloadCatalogue's own pictures.clear() call), released here in
@@ -182,10 +188,28 @@ pub const State = struct {
     /// The open map's own sound list (CMapInfo::sounds.sounds through
     /// RealBridge.sounds - see bridge.h's own comment on why not
     /// CMapInfo::soundsList), for the Sounds panel. Read again whenever a map
-    /// opens (`mapOpened`); Task 2/3 also re-reads it whenever
-    /// `editor.sounds_generation` changes, since a sound edit does not go
-    /// through `mapOpened`.
-    sounds: []c.BkEditorSoundRecord = &.{},
+    /// opens (`mapOpened`) or `editor.sounds_generation` moves past
+    /// `sounds_generation_seen` (`draw`'s own check) - a sound edit does not
+    /// go through `mapOpened`.
+    sounds: []core.bridge.SoundRecord = &.{},
+    sounds_generation_seen: u32 = 0,
+
+    /// The Sounds panel's selected row, and its fields while they are being
+    /// edited - `drawProperties`' own commit-on-deactivate pattern (edit.zig
+    /// there, this one here since a sound is not an ObjectRecord).
+    selected_sound: ?usize = null,
+    sound_edit: struct {
+        index: usize = 0,
+        name_buffer: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+        x: f32 = 0,
+        y: f32 = 0,
+        repeat_seconds: f32 = 0,
+        repeat_random_seconds: f32 = 0,
+        mute_in_combat: bool = false,
+        min_radius: c_int = 0,
+        max_radius: c_int = 0,
+        active: bool = false,
+    } = .{},
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -225,6 +249,7 @@ pub const State = struct {
         self.pictures.deinit();
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
+        self.allocator.free(self.sound_names);
         self.allocator.free(self.sounds);
         self.* = undefined;
     }
@@ -252,8 +277,10 @@ pub const State = struct {
         self.pictures.clear();
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
+        self.allocator.free(self.sound_names);
         self.catalogue = &.{};
         self.order = &.{};
+        self.sound_names = &.{};
         self.loadCatalogue() catch self.view.setStatus("failed: ", "the object catalogue did not read");
     }
 
@@ -261,15 +288,28 @@ pub const State = struct {
         return self.tile_buffer[0..self.tile_count];
     }
 
-    /// Frees the previous sound list and reads it again from the bridge - the
-    /// open map's, or empty when none is open or the read fails. Called after
-    /// every open (`mapOpened`) and, from Task 2 onward, whenever a sound
-    /// edit bumps `editor.sounds_generation`.
+    /// Frees the previous sound list and reads it again through the core's
+    /// own bridge (the vtable Task 2 added) - the open map's, or empty when
+    /// none is open or the read fails. Called after every open (`mapOpened`)
+    /// and whenever `editor.sounds_generation` moves past
+    /// `sounds_generation_seen` (`draw`'s own check): a sound edit does not
+    /// go through `mapOpened`. The same two-pass sizing `document.reload`
+    /// uses for `bridge.objects`.
     pub fn loadSounds(self: *State) void {
         self.allocator.free(self.sounds);
         self.sounds = &.{};
         if (!mapIsOpen(self.editor)) return;
-        self.sounds = self.real.sounds(self.allocator) catch &.{};
+        var none: [0]core.bridge.SoundRecord = .{};
+        var total: usize = 0;
+        const sizing = self.editor.bridge.sounds(&none, &total);
+        if (sizing != .ok and sizing != .refused) return;
+        const buffer = self.allocator.alloc(core.bridge.SoundRecord, total) catch return;
+        var got: usize = total;
+        if (self.editor.bridge.sounds(buffer, &got) != .ok or got != buffer.len) {
+            self.allocator.free(buffer);
+            return;
+        }
+        self.sounds = buffer;
     }
 
     fn loadCatalogue(self: *State) !void {
@@ -295,6 +335,25 @@ pub const State = struct {
         }.less);
         self.catalogue = entries;
         self.order = order;
+
+        // The Sounds panel's "known sounds" combo (game type 100, SGVOGT_SOUND):
+        // slices into `entries`' own name buffers, sorted once here rather than
+        // filtered and sorted again every frame the combo is open. Pointer
+        // capture (`|*entry|`) matters: `entries` is a heap slice, but `for
+        // (entries) |entry|` copies each element into a loop-local value, and
+        // a slice of *that* dangles the moment the loop moves on - measured
+        // the hard way (every name printed as stack garbage until this was
+        // `|*entry|`). An empty name is left out too: BkEditorAddSound/
+        // SetSound refuse one anyway, and it would otherwise sort first,
+        // ahead of every real sound.
+        var sound_names: std.ArrayListUnmanaged([]const u8) = .empty;
+        errdefer sound_names.deinit(self.allocator);
+        for (entries) |*entry| {
+            if (entry.game_type == 100 and entry.name[0] != 0) try sound_names.append(self.allocator, std.mem.sliceTo(&entry.name, 0));
+        }
+        const owned_sound_names = try sound_names.toOwnedSlice(self.allocator);
+        logic.sortNamesIgnoreCase(owned_sound_names);
+        self.sound_names = owned_sound_names;
     }
 
     /// After any open that succeeded, the startup one included: the camera,
@@ -302,7 +361,10 @@ pub const State = struct {
     pub fn mapOpened(self: *State) void {
         self.edit = .{};
         self.tile_count = 0;
+        self.selected_sound = null;
+        self.sound_edit.active = false;
         self.loadSounds();
+        self.sounds_generation_seen = self.editor.sounds_generation;
         if (!mapIsOpen(self.editor)) return;
         self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info);
         self.tile_count = if (self.real.tilesetTiles(&self.tile_buffer)) |got| got.len else 0;
@@ -326,7 +388,7 @@ pub fn draw(state: *State) void {
     // calls - it targets the background draw list (behind the panels'
     // window draw lists regardless of call order), so this is about
     // reading this frame's hover/tool state before anything else changes it.
-    state.view.drawOverlay(state.real);
+    state.view.drawOverlay(state.real, state.sounds, state.selected_sound);
     const menu_height = drawMenuBar(state);
     // ImGui's own capture flag (WantTextInput, not WantCaptureKeyboard): a
     // properties field mid-edit must keep F5 as a literal keystroke, but a
@@ -1412,30 +1474,174 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     }
 }
 
-/// The map's own sound list (Task 1: read-only - one row per sound, name and
-/// world position and radii; Task 3 adds selection, editing and markers).
+/// The map's own sound list: one row per sound, name and world position and
+/// radii; a selected row's fields below the list, committed on deactivation
+/// as one `editor.editSound` (`drawProperties`' own pattern) - and "Add at
+/// view centre"/"Delete". View markers are `View.drawOverlay`'s (view.zig).
 fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     const open = beginPanel("Sounds", pos, size);
     defer endPanel(open);
     if (!open) return;
-    if (!mapIsOpen(state.editor)) {
+    const editor = state.editor;
+    if (state.sounds_generation_seen != editor.sounds_generation) {
+        state.loadSounds();
+        state.sounds_generation_seen = editor.sounds_generation;
+    }
+    if (!mapIsOpen(editor)) {
         text("no map open");
         return;
     }
+    // A click on another row, or the selected one going away from under it
+    // (undo/redo, a delete elsewhere), while a field was mid-edit commits it
+    // first - the same reason `drawProperties` does this for objects.
+    if (state.sound_edit.active and (state.selected_sound == null or state.selected_sound.? != state.sound_edit.index))
+        commitSoundEdit(state, state.sound_edit.index);
+
     if (state.sounds.len == 0) {
         text("no sounds");
+    } else {
+        for (state.sounds, 0..) |sound, index| {
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            const name = std.mem.sliceTo(&sound.name, 0);
+            var line: [96:0]u8 = undefined;
+            const line_text = std.fmt.bufPrintZ(&line, "{s}  ({d:.0}, {d:.0})", .{ name, sound.x, sound.y }) catch continue;
+            const selected = state.selected_sound != null and state.selected_sound.? == index;
+            if (ig.igSelectableEx(line_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) state.selected_sound = index;
+        }
+    }
+
+    ig.igSeparator();
+    if (ig.igButton("Add at view centre")) addSoundAtViewCentre(state);
+    ig.igSameLine();
+    if (ig.igButton("Delete")) {
+        if (state.selected_sound) |index| if (index < state.sounds.len) {
+            state.view.noteEditResult(editor, editor.deleteSound(index));
+            state.selected_sound = null;
+            state.sound_edit.active = false;
+            state.loadSounds();
+            state.sounds_generation_seen = editor.sounds_generation;
+        };
+    }
+
+    const index = state.selected_sound orelse {
+        state.sound_edit.active = false;
+        return;
+    };
+    if (index >= state.sounds.len) {
+        state.selected_sound = null;
+        state.sound_edit.active = false;
         return;
     }
-    for (state.sounds, 0..) |sound, index| {
-        ig.igPushIDInt(@intCast(index));
-        defer ig.igPopID();
-        const name = std.mem.sliceTo(&sound.name, 0);
-        var line: [128:0]u8 = undefined;
-        const line_text = std.fmt.bufPrintZ(&line, "{s}  ({d:.0}, {d:.0})  r {d}-{d}", .{
-            name, sound.x, sound.y, sound.min_radius, sound.max_radius,
-        }) catch continue;
-        text(line_text);
+    ig.igSeparator();
+    const sound = state.sounds[index];
+    const edit = &state.sound_edit;
+    if (edit.index != index or !edit.active) {
+        edit.* = .{
+            .index = index,
+            .x = sound.x,
+            .y = sound.y,
+            .repeat_seconds = logic.msToSeconds(sound.repeat_ms),
+            .repeat_random_seconds = logic.msToSeconds(sound.repeat_random_ms),
+            .mute_in_combat = sound.mute_in_combat,
+            .min_radius = sound.min_radius,
+            .max_radius = sound.max_radius,
+        };
+        setSoundName(&edit.name_buffer, std.mem.sliceTo(&sound.name, 0));
     }
+
+    var active = false;
+    var committed = false;
+    if (ig.igBeginCombo("sound", &edit.name_buffer, 0)) {
+        for (state.sound_names) |candidate| {
+            ig.igPushIDPtr(candidate.ptr);
+            defer ig.igPopID();
+            var row: [core.bridge.name_capacity + 1:0]u8 = undefined;
+            const row_text = std.fmt.bufPrintZ(&row, "{s}", .{candidate}) catch continue;
+            const row_selected = std.mem.eql(u8, candidate, std.mem.sliceTo(&edit.name_buffer, 0));
+            if (ig.igSelectableEx(row_text.ptr, row_selected, 0, .{ .x = 0, .y = 0 })) {
+                setSoundName(&edit.name_buffer, candidate);
+                committed = true;
+            }
+        }
+        ig.igEndCombo();
+    }
+    _ = ig.igInputFloatEx("x", &edit.x, 0, 0, "%.1f", 0);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    _ = ig.igInputFloatEx("y", &edit.y, 0, 0, "%.1f", 0);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    _ = ig.igInputFloatEx("repeat (s)", &edit.repeat_seconds, 0, 0, "%.1f", 0);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    _ = ig.igInputFloatEx("random repeat (s)", &edit.repeat_random_seconds, 0, 0, "%.1f", 0);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    if (ig.igCheckbox("mute in combat", &edit.mute_in_combat)) committed = true;
+    _ = ig.igSliderInt("min radius", &edit.min_radius, 0, 50);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    _ = ig.igSliderInt("max radius", &edit.max_radius, 0, 50);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    if (logic.soundRadiusError(edit.min_radius, edit.max_radius)) |message| text(message);
+    edit.active = active;
+
+    if (committed) commitSoundEdit(state, index);
+}
+
+/// `name_buffer` is always null-terminated within its own capacity, the
+/// `maps_folder_edit`/`filter` fields' own pattern above.
+fn setSoundName(name_buffer: *[core.bridge.name_capacity:0]u8, name: []const u8) void {
+    @memset(name_buffer, 0);
+    const len = @min(name.len, name_buffer.len);
+    @memcpy(name_buffer[0..len], name[0..len]);
+}
+
+/// The Sounds panel's selected fields as one `editor.editSound`, one undo
+/// step - `commitEdit`'s own pattern for objects. A refused edit leaves the
+/// sound as it was; the fields reload from it next frame.
+fn commitSoundEdit(state: *State, index: usize) void {
+    const editor = state.editor;
+    const edit = &state.sound_edit;
+    if (index >= state.sounds.len) return;
+    var record: core.bridge.SoundRecord = .{
+        .x = edit.x,
+        .y = edit.y,
+        .z = state.sounds[index].z,
+        .repeat_ms = logic.secondsToMs(edit.repeat_seconds),
+        .repeat_random_ms = logic.secondsToMs(edit.repeat_random_seconds),
+        .mute_in_combat = edit.mute_in_combat,
+        .min_radius = edit.min_radius,
+        .max_radius = edit.max_radius,
+    };
+    record.setName(std.mem.sliceTo(&edit.name_buffer, 0));
+    state.view.noteEditResult(editor, editor.editSound(index, record, 0));
+    state.loadSounds();
+    state.sounds_generation_seen = editor.sounds_generation;
+}
+
+/// "Add at view centre" (Task 3): the world point under the screen's centre
+/// - `editor.resolve`, the same conversion the properties/place tools use -
+/// with the first known sound (the sorted catalogue's own order) and the
+/// default radii. Nothing happens with no known sound in the catalogue.
+/// Public: smoke.zig's own `add_sound_at_view_centre` step calls this
+/// directly, the same way it sets `state.actions.save_requested` for a menu
+/// item with no widget to click in the smoke's hidden window.
+pub fn addSoundAtViewCentre(state: *State) void {
+    const editor = state.editor;
+    if (!mapIsOpen(editor)) return;
+    if (state.sound_names.len == 0) return;
+    const screen = state.real.screenSize() orelse return;
+    const pointer = editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0) catch return;
+    var record: core.bridge.SoundRecord = .{ .x = pointer.world_x, .y = pointer.world_y };
+    record.setName(state.sound_names[0]);
+    state.view.noteEditResult(editor, editor.addSound(-1, record));
+    state.loadSounds();
+    state.sounds_generation_seen = editor.sounds_generation;
+    state.selected_sound = if (state.sounds.len != 0) state.sounds.len - 1 else null;
+    state.sound_edit.active = false;
 }
 
 fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {

@@ -351,25 +351,6 @@ pub const RealBridge = struct {
         return entries;
     }
 
-    /// The map's own sound list (CMapInfo::sounds.sounds - see bridge.h's own
-    /// comment on BkEditorSounds for why not CMapInfo::soundsList), for the
-    /// Sounds panel. A direct method for now, the same way `catalogue` is:
-    /// Task 2 adds the vtable entries (addSound/setSound/deleteSound) that
-    /// make sound edits undoable core commands; this read has no undo state
-    /// of its own to keep in step with. Caller frees.
-    pub fn sounds(self: *RealBridge, allocator: std.mem.Allocator) ![]c.BkEditorSoundRecord {
-        var count: c_int = 0;
-        const sizing = c.BkEditorSounds(self.session, null, 0, &count);
-        if (sizing != c.BK_EDITOR_OK and sizing != c.BK_EDITOR_REFUSED) return error.SoundsFailed;
-        if (count < 0) return error.SoundsFailed;
-        const records = try allocator.alloc(c.BkEditorSoundRecord, @intCast(count));
-        errdefer allocator.free(records);
-        if (count == 0) return records;
-        if (c.BkEditorSounds(self.session, records.ptr, count, &count) != c.BK_EDITOR_OK) return error.SoundsFailed;
-        if (count != records.len) return error.SoundsFailed;
-        return records;
-    }
-
     /// D-29: one object's own picture (its icon.tga, decoded and scaled by
     /// the engine - BkEditorObjectPicture), for the palette. `buffer` must
     /// hold at least `max_side * max_side * 4` bytes (the worst case, no
