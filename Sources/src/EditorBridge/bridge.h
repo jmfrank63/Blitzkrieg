@@ -409,12 +409,15 @@ BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float 
 
 /* The other direction of BkEditorScreenToWorld: a world point (world units,
    not map units) to the screen point (pixels) it draws at, at whatever zoom
-   is set now - through the same projection BkEditorFrame draws with. The
-   world point's height is the terrain's own at (wx, wy) (IScene::GetPos2
-   wants all three axes; a point above or below the ground would otherwise
-   land where the ground is, not where the point is drawn).
-   BK_EDITOR_REFUSED with no map open or no camera; BK_EDITOR_BAD_ARGUMENT for
-   a null output or a non-finite wx or wy. */
+   is set now - through the same projection BkEditorFrame draws with. z is 0,
+   matching BkEditorScreenToWorld's own convention: the ray-cast against the
+   real terrain height GetPos3 tries first does not resolve in this bridge's
+   headless session (no CMainLoop, no running mission - measured: it always
+   falls through to the z=0-plane algebraic fallback), so BkEditorScreenToWorld's
+   x,y already assume z=0 - composing the two at a nonzero height would not
+   round-trip, and would draw off the ground a click actually resolves
+   against. BK_EDITOR_REFUSED with no map open or no camera; BK_EDITOR_BAD_ARGUMENT
+   for a null output or a non-finite wx or wy. */
 BkEditorStatus BkEditorWorldToScreen( BkEditorSession *session, float wx, float wy, float *sx, float *sy );
 
 /* A world point as the map position an object placed there takes, through

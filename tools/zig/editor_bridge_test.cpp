@@ -1141,6 +1141,93 @@ static void TestZoomStepsBoundedAndAnchored( BkEditorSession *pSession, SDL_Wind
 	Check( BkEditorResize( pSession, nWidth, nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 }
 
+// One round trip at whatever zoom the camera is at now: the centre and four
+// points 150-200 px off it should come back within 2 px, and screen
+// right/up should be the world directions the camera was placed for (the
+// direction check carried from plan 5 Task 6).
+static void CheckWorldToScreenRoundTrip( BkEditorSession *pSession, float fCentreX, float fCentreY, const char *pszWhen )
+{
+	float wx0 = 0.0f, wy0 = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, fCentreX, fCentreY, &wx0, &wy0 ) == BK_EDITOR_OK, "the centre is on the map" ) )
+		return;
+	float sx0 = 0.0f, sy0 = 0.0f;
+	Check( BkEditorWorldToScreen( pSession, wx0, wy0, &sx0, &sy0 ) == BK_EDITOR_OK &&
+	       fabsf( sx0 - fCentreX ) <= 2.0f && fabsf( sy0 - fCentreY ) <= 2.0f,
+	       NStr::Format( "%s: the centre round-trips (%.1f,%.1f against %.1f,%.1f)", pszWhen, sx0, sy0, fCentreX, fCentreY ) );
+
+	static const float offsets[4][2] = { { -180, -150 }, { 180, -150 }, { -180, 150 }, { 180, 150 } };
+	for ( int i = 0; i < 4; ++i )
+	{
+		const float sx = fCentreX + offsets[i][0], sy = fCentreY + offsets[i][1];
+		float wx = 0.0f, wy = 0.0f;
+		if ( BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) != BK_EDITOR_OK )
+			continue;	// off the terrain at this zoom/window size - nothing to round-trip
+		float sx2 = 0.0f, sy2 = 0.0f;
+		Check( BkEditorWorldToScreen( pSession, wx, wy, &sx2, &sy2 ) == BK_EDITOR_OK &&
+		       fabsf( sx2 - sx ) <= 2.0f && fabsf( sy2 - sy ) <= 2.0f,
+		       NStr::Format( "%s: point %d round-trips (%.1f,%.1f against %.1f,%.1f)", pszWhen, i, sx2, sy2, sx, sy ) );
+	}
+
+	float wxRight = 0.0f, wyRight = 0.0f, wxUp = 0.0f, wyUp = 0.0f;
+	if ( Check( BkEditorScreenToWorld( pSession, fCentreX + 100.0f, fCentreY, &wxRight, &wyRight ) == BK_EDITOR_OK &&
+	            BkEditorScreenToWorld( pSession, fCentreX, fCentreY - 100.0f, &wxUp, &wyUp ) == BK_EDITOR_OK,
+	            "right and up of the centre are on the map" ) )
+	{
+		Check( wxRight > wx0 && wyRight > wy0,
+		       NStr::Format( "%s: screen right is world (+x,+y) (%.1f,%.1f against %.1f,%.1f)", pszWhen, wxRight, wyRight, wx0, wy0 ) );
+		Check( wxUp < wx0 && wyUp > wy0,
+		       NStr::Format( "%s: screen up is world (-x,+y) (%.1f,%.1f against %.1f,%.1f)", pszWhen, wxUp, wyUp, wx0, wy0 ) );
+	}
+}
+
+// BkEditorWorldToScreen: composes with BkEditorScreenToWorld at any zoom,
+// the direction check carries from plan 5 Task 6, and BkEditorWorldToTile's
+// world-corner convention is what view.zig's brush outline relies on.
+static void TestWorldToScreenRoundTrip( BkEditorSession *pSession, int nWidth, int nHeight )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	BkEditorMapSummary summary;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+
+	const float fCentreX = float( nWidth ) / 2.0f, fCentreY = float( nHeight ) / 2.0f;
+	CheckWorldToScreenRoundTrip( pSession, fCentreX, fCentreY, "at zoom 0" );
+
+	BkEditorView view;
+	if ( Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) && view.max_zoom_steps > 0 )
+	{
+		Check( BkEditorSetZoom( pSession, view.max_zoom_steps ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		BkEditorFrame( pSession );
+		CheckWorldToScreenRoundTrip( pSession, fCentreX, fCentreY, "at max zoom" );
+		BkEditorSetZoom( pSession, 0 );
+	}
+
+	// CTerrain's own GetTileIndex (Scene/TerrainEditor.cpp) rounds to the
+	// NEAREST tile rather than flooring into a bucket (WorldToTile's default
+	// isExact=false), so a tile's centre - not a corner - is a plain
+	// index * fWorldCellSize for X; Y is measured from the terrain's far
+	// edge, not from world_y 0, so its centre is (height_tiles - row) *
+	// fWorldCellSize instead. A cell's corner therefore sits half a cell
+	// off its centre - minus in X, plus in Y (the flip) - which is exactly
+	// what view.zig's drawOverlay needs to walk a brush's boundary: this
+	// confirms the relationship rather than assuming it.
+	int nTileX = -1, nTileY = -1;
+	const float fCentreWX = 10.0f * fWorldCellSize;
+	const float fCentreWY = float( summary.height_tiles - 8 ) * fWorldCellSize;
+	const float fCornerX = fCentreWX - fWorldCellSize / 2.0f;
+	const float fCornerY = fCentreWY + fWorldCellSize / 2.0f;
+	Check( BkEditorWorldToTile( pSession, fCornerX + fWorldCellSize / 2.0f, fCornerY - fWorldCellSize / 2.0f, &nTileX, &nTileY ) == BK_EDITOR_OK &&
+	       nTileX == 10 && nTileY == 8,
+	       NStr::Format( "a tile's world corner plus half a cell gives that tile (%d,%d against 10,8)", nTileX, nTileY ) );
+}
+
 // A camera put on an object answers, at the middle of the screen, with that
 // object - the picking half of "the camera is on cell 83,36 and the middle of
 // the screen is 83,36".
@@ -2075,6 +2162,7 @@ int main( int argc, char **argv )
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
 		TestTerrainUnderTheCamera( pSession, szScratch );
 		TestZoomStepsBoundedAndAnchored( pSession, pWindow, szScratch );
+		TestWorldToScreenRoundTrip( pSession, nScreenWidth, nScreenHeight );
 		TestOverlayDeviceAndSize( pSession, pWindow );
 		// Read again rather than trusting the resize test to have put the
 		// screen back at the size it was.

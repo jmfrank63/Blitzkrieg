@@ -1412,14 +1412,17 @@ bool WorldToScreen( SEditorSession *pSession, float wx, float wy, float *psx, fl
 		pSession->szMessage = "there is no scene";
 		return false;
 	}
-	// The world point's height, so a point above or below the ground draws
-	// where it actually is rather than where the ground under it is -
-	// IScene::GetPos2 wants all three axes.
-	float fHeight = 0.0f;
-	if ( ITerrain *pTerrain = pScene->GetTerrain() )
-		fHeight = pTerrain->GetHeight( CVec2( wx, wy ) );
+	// z=0, matching ScreenToWorld/GetPos3: IAILogic::GetIntersectionWithTerrain
+	// - the real terrain ray-cast GetPos3 tries first - does not succeed in
+	// this bridge's headless session (measured: it always falls through to
+	// GetPos3's own z=0-plane algebraic fallback, regardless of the point's
+	// true height), so ScreenToWorld's x,y already assume z=0. Using the
+	// terrain's real height here instead would draw the brush outline off
+	// the very ground a click resolves against - self-consistency with the
+	// rest of the picking pipeline (ScreenToWorld, WorldToTile, ObjectAt)
+	// matters more than a height this bridge cannot round-trip anyway.
 	CVec2 vScreen( 0, 0 );
-	pScene->GetPos2( &vScreen, CVec3( wx, wy, fHeight ) );
+	pScene->GetPos2( &vScreen, CVec3( wx, wy, 0.0f ) );
 	*psx = vScreen.x;
 	*psy = vScreen.y;
 	return true;

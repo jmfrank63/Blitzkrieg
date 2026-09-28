@@ -189,6 +189,11 @@ fn mapIsOpen(editor: *const Editor) bool {
 /// Edits made through them go to the editor at once; the file actions the
 /// menu asks for are left in `state.actions` for `act`.
 pub fn draw(state: *State) void {
+    // Drawn first so the brush outline sits under the panels' own draw
+    // calls - it targets the background draw list (behind the panels'
+    // window draw lists regardless of call order), so this is about
+    // reading this frame's hover/tool state before anything else changes it.
+    state.view.drawOverlay(state.real);
     const menu_height = drawMenuBar(state);
     // ImGui's own capture flag (WantTextInput, not WantCaptureKeyboard): a
     // properties field mid-edit must keep F5 as a literal keystroke, but a

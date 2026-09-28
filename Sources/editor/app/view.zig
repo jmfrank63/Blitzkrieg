@@ -367,6 +367,91 @@ pub const View = struct {
         if (real.setZoom(0) == .ok) self.syncFromBridge(real);
     }
 
+    /// The largest square the brush tool paints (tools.Brush.radius, 0-4),
+    /// in corners along one side of that square of cells.
+    const max_brush_corners: usize = 2 * 4 + 2;
+    /// The perimeter of that square has 4*(n-1) corners for n corners per
+    /// side (a plain rectangle's corner count, walked as one loop); the
+    /// buffer is sized for the largest brush the slider allows.
+    const max_outline_points: usize = 4 * (max_brush_corners - 1);
+
+    /// A bright, easy-to-see outline colour, converted once through ImGui's
+    /// own packer rather than hand-assuming its byte order.
+    fn outlineColor() imgui.c.ImU32 {
+        return imgui.c.igColorConvertFloat4ToU32(.{ .x = 1, .y = 1, .z = 0, .w = 1 });
+    }
+
+    /// Where the brush will paint, drawn on the terrain under the pointer at
+    /// every zoom (carried from plan 5): with the brush tool active, a
+    /// hovered tile, and the pointer not over a panel, the outline of the
+    /// brush's square of cells as a closed polyline through every corner on
+    /// its boundary - not just its four outer corners - so the line follows
+    /// the ground the way BkEditorWorldToScreen sees it, on sloped terrain.
+    /// Nothing is drawn if any corner fails to convert (off the map, or no
+    /// camera).
+    pub fn drawOverlay(self: *View, real: *RealBridge) void {
+        if (self.tool != .brush) return;
+        if (captureFlags().mouse) return;
+        const hover = self.hover orelse return;
+        const tile = hover.tile orelse return;
+        const radius = self.brush.radius;
+        const n: i32 = 2 * radius + 2; // corners along one side
+        // The engine tier confirms this against BkEditorWorldToTile: a
+        // tile's CENTRE - not a corner - is a plain index * world_cell_size
+        // in X (CTerrain::GetTileIndex rounds to the nearest tile rather
+        // than flooring), but (height_tiles - row) * world_cell_size in Y,
+        // which it measures from the terrain's far edge, not world_y 0. A
+        // cell's corner sits half a cell off its centre either way - the
+        // -0.5 baked into base_x/base_y below, kept in these "corner index"
+        // units rather than converted to world units yet, so every corner
+        // along the boundary is a whole step of 1.0 from the last.
+        const base_x = @as(f32, @floatFromInt(tile[0] - radius)) - 0.5;
+        const base_y = @as(f32, @floatFromInt(tile[1] - radius)) - 0.5;
+        const height_tiles = @as(f32, @floatFromInt(self.map.height_tiles));
+
+        var points: [max_outline_points]imgui.c.ImVec2 = undefined;
+        var count: usize = 0;
+        // Walks the rectangle's perimeter once, clockwise from the top-left
+        // corner, never repeating the corner it started at (AddPolyline's
+        // Closed flag draws that last edge itself).
+        var x: i32 = 0;
+        while (x < n) : (x += 1) {
+            if (!addCorner(real, &points, &count, base_x + toF(x), base_y, height_tiles)) return;
+        }
+        var y: i32 = 1;
+        while (y < n) : (y += 1) {
+            if (!addCorner(real, &points, &count, base_x + toF(n - 1), base_y + toF(y), height_tiles)) return;
+        }
+        x = n - 2;
+        while (x >= 0) : (x -= 1) {
+            if (!addCorner(real, &points, &count, base_x + toF(x), base_y + toF(n - 1), height_tiles)) return;
+        }
+        y = n - 2;
+        while (y >= 1) : (y -= 1) {
+            if (!addCorner(real, &points, &count, base_x, base_y + toF(y), height_tiles)) return;
+        }
+
+        const draw_list = imgui.c.igGetBackgroundDrawList();
+        imgui.c.ImDrawList_AddPolyline(draw_list, &points, @intCast(count), outlineColor(), 2.0, imgui.c.ImDrawFlags_Closed);
+    }
+
+    fn toF(value: i32) f32 {
+        return @floatFromInt(value);
+    }
+
+    /// One outline corner: a corner index (`cx`, `cy` - a whole or
+    /// half-integer offset from the map's own tile grid) to its world
+    /// point, then to the screen point `points[count]` holds. False (and
+    /// `count` unmoved) on any conversion failure.
+    fn addCorner(real: *RealBridge, points: []imgui.c.ImVec2, count: *usize, cx: f32, cy: f32, height_tiles: f32) bool {
+        const wx = cx * world_cell_size;
+        const wy = (height_tiles - cy) * world_cell_size;
+        const screen = real.worldToScreen(wx, wy) orelse return false;
+        points[count.*] = .{ .x = screen[0], .y = screen[1] };
+        count.* += 1;
+        return true;
+    }
+
     /// Switches the active tool, ending an open left-button gesture on the
     /// old one first: without this, painting or dragging with the mouse
     /// still held while pressing 1/2/3 would leave the old tool's gesture
