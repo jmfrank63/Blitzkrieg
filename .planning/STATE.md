@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-09-28T03:17:08.404Z"
-state_head: 93ac9805b3ff55e354acdb59335b3d33d7537d3e
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-09-28T04:13:28.939Z"
+state_head: 208f10d933c8a2a2bb626711743c19092059f3db
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 18
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T03:17:02.472Z
-**Stopped at:** Completed 03-01-PLAN.md
+**Last session:** 2026-09-28T04:13:28.894Z
+**Stopped at:** Completed 03-02-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -71,8 +71,11 @@ behavior needs the in-game rows).
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 03-map-editor-plan-6-finish-m1 P01 | 35min | 2 tasks | 5 files |
+| Phase 03-map-editor-plan-6-finish-m1 P02 | 55min | 2 tasks | 10 files |
 
 ## Decisions
 
 - [Phase ?]: CloudProviderSelected gates on Editor.TestLaunch (one guard closes all five cloud-sync call sites) rather than gating each call site
 - [Phase ?]: SMiniMapUnitInfo coordinate scale (1 unit = 2 AI tiles = 64 world units) determined by reading CAILogic::GetMiniMapInfo source directly, not by building the Map Editor app to cross-check a live dump
+- [Phase ?]: BkEditorTestMapPath's units= query for BK_AUTO_UI uses the placed object's map position, not its scene-world position (GetMiniMapInfo's AI coordinates are map units per bridge.h - confirmed empirically, corrects 03-01-SUMMARY's wording)
+- [Phase ?]: main.zig builds its own allocator-backed Io.Threaded instance instead of std.Io.Threaded.global_single_threaded, whose allocator is .failing by design and broke std.process.spawn with OutOfMemory
