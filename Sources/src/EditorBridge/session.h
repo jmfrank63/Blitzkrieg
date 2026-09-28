@@ -8,6 +8,8 @@
 #include "bridge.h"
 
 class CEditorWorld;
+struct IObjectsDB;
+struct SGDBObjectDesc;
 
 // One editing session.
 //
@@ -156,6 +158,12 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 // there are - always the database's count, not how many fitted. Returns false
 // when the buffer was too small, which the caller can tell from the count.
 bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int nCapacity, int *pnCount );
+
+// Why an object of this type cannot be added to a map on its own, or "" if it
+// can: a soldier goes on a map only inside a squad. The reason reads after the
+// object's name and names a squad to place instead where the database has one.
+// Only an add asks this - a lone soldier a map already holds is kept as read.
+std::string WhyNotPlacedAlone( IObjectsDB *pObjectsDB, const SGDBObjectDesc &rDesc );
 
 // Runs one world update, so the scene holds a visual for every engine object
 // the last edit made, moved or removed, and rebuilds linkByAI from byLinkID.

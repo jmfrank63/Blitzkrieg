@@ -116,7 +116,9 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
    BK_EDITOR_REFUSED means the map or the engine said no and the reason is in
    BkEditorLastMessage - an object still referred to by a bridge or a start
    command, or a position the engine will not put the object at. It is an
-   ordinary answer, not a failure.
+   ordinary answer, not a failure. BkEditorAddObject also refuses every type
+   the catalogue marks not placeable - a single soldier among them, with a
+   squad to place instead named in the message.
 
    A link ID is the only name an object has here, and a map does not promise
    one per object: 0 means "no link ID", and shipped maps carry hundreds of
@@ -252,8 +254,15 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
    nothing crosses the ABI that the caller has to free; a key longer than 63
    characters is truncated. out_count is always what the database holds, not
    how many fitted, so a caller given BK_EDITOR_REFUSED for a short buffer can
-   size one and ask again. */
-typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
+   size one and ask again.
+
+   placeable is 1 when BkEditorAddObject takes the type and 0 when it refuses
+   it whatever the position: a sound or a tank pit, which no map holds, and a
+   single soldier (every infantry SGVOGT_UNIT), which the game plays only
+   inside a squad - a map's infantry is its SGVOGT_SQUAD records. The MFC
+   editor's palette never offered a single soldier either
+   (TabSimpleObjectsDialog.cpp CommonFilterName drops units\Humans). */
+typedef struct { char name[64]; int game_type; int placeable; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
 /* D-29: the palette's own picture for one object - the icon.tga in its

@@ -373,15 +373,18 @@ pub const State = struct {
         const entries = try self.real.catalogue(self.allocator);
         errdefer self.allocator.free(entries);
         // Only what can be placed: a sound or a tank pit picked from the
-        // palette could only ever be refused (logic.isPlaceable).
+        // palette could only ever be refused (logic.isPlaceable), and so could
+        // a single soldier - the bridge's own `placeable`, 0 for every
+        // infantry unit, which goes on a map only inside a squad (the MFC
+        // palette never listed units\Humans either).
         var placeable: usize = 0;
         for (entries) |entry| {
-            if (logic.isPlaceable(entry.game_type)) placeable += 1;
+            if (logic.isPlaceable(entry.game_type) and entry.placeable != 0) placeable += 1;
         }
         const order = try self.allocator.alloc(u32, placeable);
         var next: usize = 0;
         for (entries, 0..) |entry, i| {
-            if (!logic.isPlaceable(entry.game_type)) continue;
+            if (!logic.isPlaceable(entry.game_type) or entry.placeable == 0) continue;
             order[next] = @intCast(i);
             next += 1;
         }
@@ -430,7 +433,7 @@ pub const State = struct {
         // map-editor-smoke's placer trying to add an object named from
         // whatever briefly sat in the reused stack space instead.
         for (self.catalogue) |*entry| {
-            if (entry.game_type == view_mod.unit_game_type) return std.mem.sliceTo(&entry.name, 0);
+            if (entry.game_type == view_mod.unit_game_type and entry.placeable != 0) return std.mem.sliceTo(&entry.name, 0);
         }
         return null;
     }

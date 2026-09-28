@@ -667,6 +667,12 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
 		return false;
 	}
+	const std::string szAloneWhy = WhyNotPlacedAlone( pObjectsDB, *pDesc );
+	if ( !szAloneWhy.empty() )
+	{
+		pSession->szMessage = "\"" + rAdd.szName + "\" " + szAloneWhy;
+		return false;
+	}
 
 	// Never below the floor: an ID a deleted object held may be wanted back by
 	// its restore, and NextLinkID alone would hand the highest one out again.

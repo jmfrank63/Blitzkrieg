@@ -74,6 +74,24 @@ const game_reads_it_offset = struct {
     const dy: f32 = -120;
 };
 
+/// 03-15 gap fix (lone soldier crash): the single soldiers --game-reads-it
+/// tries to place - the sniper type Johannes placed from the palette's unit
+/// group, and a Bren gunner - each with the squad the bridge's refusal must
+/// name. Placed as units, both crashed the game's first AI segment
+/// (CSoldierRestState::Segment on a null formation).
+const lone_soldiers = [_]struct { soldier: []const u8, squad: []const u8 }{
+    .{ .soldier = "Us_Sniper", .squad = "US_sniper" },
+    .{ .soldier = "Allies_Bren", .squad = "GB_bren_43" },
+};
+
+/// The squads placed beside the unit instead, in map units from it, with the
+/// soldiers each brings (Data/Squads/<name>/1.xml's first formation): the
+/// one-man sniper squad and the nine-man Bren squad.
+const game_reads_it_squads = [_]struct { name: []const u8, dx: f32, dy: f32, soldiers: u32 }{
+    .{ .name = "US_sniper", .dx = 128, .dy = 0, .soldiers = 1 },
+    .{ .name = "GB_bren_43", .dx = 0, .dy = 128, .soldiers = 9 },
+};
+
 /// The probe window, in screen pixels (a window point is a screen pixel).
 const probe = struct {
     const x = 40;
@@ -580,7 +598,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     };
     defer gpa.free(entries);
     const unit_name: ?[]const u8 = for (entries) |entry| {
-        if (entry.game_type == view_mod.unit_game_type) break std.mem.sliceTo(&entry.name, 0);
+        if (entry.game_type == view_mod.unit_game_type and entry.placeable != 0) break std.mem.sliceTo(&entry.name, 0);
     } else null;
     const name = unit_name orelse {
         std.debug.print("map-editor: game reads it FAIL: no SGVOGT_UNIT in the catalogue\n", .{});
@@ -591,6 +609,30 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: game reads it FAIL: placing {s} failed: {s}\n", .{ name, editor.status() });
         return false;
     };
+    // A single soldier must be refused, naming its squad. One the editor
+    // does place anyway is remembered and failed only after the game has
+    // run, so a regression shows what the game makes of it too.
+    var lone_placed: ?[]const u8 = null;
+    for (lone_soldiers) |lone| {
+        if (editor.addObject(lone.soldier, point.map_x + 64, point.map_y + 64, 0, 0)) |_| {
+            lone_placed = lone.soldier;
+            std.debug.print("map-editor: game reads it: the single soldier {s} was placed\n", .{lone.soldier});
+        } else |_| {
+            if (std.mem.indexOf(u8, editor.status(), lone.squad) == null) {
+                std.debug.print("map-editor: game reads it FAIL: {s} was refused without naming the squad {s}: {s}\n", .{ lone.soldier, lone.squad, editor.status() });
+                return false;
+            }
+            std.debug.print("map-editor: game reads it: {s} refused: {s}\n", .{ lone.soldier, editor.status() });
+        }
+    }
+    var squad_soldiers: u32 = 0;
+    for (game_reads_it_squads) |squad| {
+        _ = editor.addObject(squad.name, point.map_x + squad.dx, point.map_y + squad.dy, 0, 0) catch {
+            std.debug.print("map-editor: game reads it FAIL: placing the squad {s} failed: {s}\n", .{ squad.name, editor.status() });
+            return false;
+        };
+        squad_soldiers += squad.soldiers;
+    }
 
     var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const test_path = real.testMapPath(testlaunch.profile_name, null, testlaunch.map_file_name, &test_path_buffer) orelse {
@@ -618,10 +660,12 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return false;
     };
     var auto_ui_buffer: [96]u8 = undefined;
-    // A radius of 3 (192 world units, about 6 AI tiles) comfortably covers
-    // the placed unit despite the world-to-units rounding above; it is not
-    // trying to bound "nearby" tightly.
-    const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "400:units={d}x{d}x3,420:shot,440:exit", .{ units_x, units_y }) catch unreachable;
+    // A radius of 5 (320 map units, about 10 AI tiles) comfortably covers
+    // the placed unit and both squads (128 map units off, their soldiers
+    // spread around that) despite the world-to-units rounding above; it is
+    // not trying to bound "nearby" tightly.
+    const game_reads_it_radius = 5;
+    const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "400:units={d}x{d}x{d},420:shot,440:exit", .{ units_x, units_y, game_reads_it_radius }) catch unreachable;
     var running = testlaunch.start(gpa, io, environ, .{
         .game_path = game_path,
         .log_path = log_path,
@@ -653,8 +697,13 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: game reads it FAIL: no units line naming player 0; see {s}\n", .{log_path});
         return false;
     };
-    if (units_count < 1) {
-        std.debug.print("map-editor: game reads it FAIL: player 0 has {d} units near the placed one; see {s}\n", .{ units_count, log_path });
+    // The unit (at least itself) and every soldier of both squads.
+    if (units_count < 1 + squad_soldiers) {
+        std.debug.print("map-editor: game reads it FAIL: player 0 has {d} units near the placed ones, fewer than the unit and the squads' {d} soldiers; see {s}\n", .{ units_count, squad_soldiers, log_path });
+        return false;
+    }
+    if (lone_placed) |soldier| {
+        std.debug.print("map-editor: game reads it FAIL: the editor placed the single soldier {s}; a soldier goes on a map only inside a squad\n", .{soldier});
         return false;
     }
     if (!editor.dirty() or !std.mem.eql(u8, editor.document.path.items, original_path)) {
@@ -663,7 +712,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     }
 
     deleteAutoshots(io);
-    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit, game exit 0)\n", .{units_count});
+    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit and the squads' {d} soldiers; single soldiers refused; game exit 0)\n", .{ units_count, squad_soldiers });
     return true;
 }
 
