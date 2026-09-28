@@ -944,9 +944,9 @@ BkEditorStatus BkEditorObjectPicture( BkEditorSession *pSession, const char *psz
 		// icons are the MFC palette's own thumbnails and most are already small.
 		if ( nWidth > nMaxSide || nHeight > nMaxSide )
 		{
-			const float fScale = std::min( float( nMaxSide ) / float( nWidth ), float( nMaxSide ) / float( nHeight ) );
-			const int nScaledWidth = std::max( 1, int( float( nWidth ) * fScale + 0.5f ) );
-			const int nScaledHeight = std::max( 1, int( float( nHeight ) * fScale + 0.5f ) );
+			const float fScale = Min( float( nMaxSide ) / float( nWidth ), float( nMaxSide ) / float( nHeight ) );
+			const int nScaledWidth = Max( 1, int( float( nWidth ) * fScale + 0.5f ) );
+			const int nScaledHeight = Max( 1, int( float( nHeight ) * fScale + 0.5f ) );
 			CPtr<IImage> pScaled = pImages->CreateScaleBySize( pImage, nScaledWidth, nScaledHeight, ISM_LANCZOS3 );
 			if ( pScaled == 0 )
 			{
