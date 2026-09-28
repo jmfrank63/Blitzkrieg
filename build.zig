@@ -1711,6 +1711,34 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| gfx_reference_compare_run.addArgs(args);
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
+
+    // The missing winter/Africa unit textures, derived from the summer ones:
+    // `zig build season-textures -- Data [--dry-run] [--only Units/...]`.
+    // A host tool; ReleaseFast writes the same bytes as Debug (no fast-math),
+    // in a fraction of the time over all of Data/Units.
+    const season_textures_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/season_textures.zig"),
+        .target = b.graph.host,
+        .optimize = .ReleaseFast,
+    });
+    const season_textures = b.addExecutable(.{
+        .name = "season-textures",
+        .root_module = season_textures_module,
+    });
+    const season_textures_run = b.addRunArtifact(season_textures);
+    season_textures_run.setCwd(b.path("."));
+    if (b.args) |args| season_textures_run.addArgs(args);
+    const season_textures_step = b.step("season-textures", "Generate the missing winter/Africa unit textures in a Data tree");
+    season_textures_step.dependOn(&season_textures_run.step);
+    const season_textures_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/season_textures.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const season_textures_tests = b.addTest(.{ .root_module = season_textures_test_module });
+    const season_textures_test_step = b.step("test-season-textures", "Run the season texture tool's codec and transform tests");
+    season_textures_test_step.dependOn(&season_textures_tests.step);
+    if (test_mode == .run) season_textures_test_step.dependOn(&b.addRunArtifact(season_textures_tests).step);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
