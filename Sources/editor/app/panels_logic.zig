@@ -105,14 +105,84 @@ pub fn readOnlyReason(objects: []const ObjectRecord, object: ObjectRecord) ?[]co
     return null;
 }
 
-/// The window title: the map's file name, and a `*` while it has changes
-/// the file does not.
-pub fn formatTitle(buffer: []u8, path: []const u8, dirty: bool) [:0]const u8 {
+/// The window title: the map's file name, a `*` while it has changes the
+/// file does not, and " (read-only)" for a shipped map (D-18) - it can be
+/// both at once: a shipped map may still be edited in memory, just not
+/// saved back over itself.
+pub fn formatTitle(buffer: []u8, path: []const u8, dirty: bool, read_only: bool) [:0]const u8 {
     const plain = "Map Editor";
     if (path.len == 0) return std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
     const name = baseName(path);
-    return std.fmt.bufPrintZ(buffer, plain ++ " - {s}{s}", .{ name, if (dirty) "*" else "" }) catch
+    const star = if (dirty) "*" else "";
+    const suffix = if (read_only) " (read-only)" else "";
+    return std.fmt.bufPrintZ(buffer, plain ++ " - {s}{s}{s}", .{ name, star, suffix }) catch
         std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
+}
+
+/// Lowercases and unifies separators to '/' in place; null when `path` does
+/// not fit `buffer`. Used only to compare paths, never to build one the
+/// engine or the OS will see.
+fn normalizeForCompare(buffer: []u8, path: []const u8) ?[]const u8 {
+    if (path.len > buffer.len) return null;
+    for (path, buffer[0..path.len]) |char, *out| out.* = std.ascii.toLower(if (char == '\\') '/' else char);
+    return buffer[0..path.len];
+}
+
+fn isAbsolutePath(path: []const u8) bool {
+    if (path.len == 0) return false;
+    if (path[0] == '/') return true;
+    // A Windows drive letter, e.g. "c:/..." once normalised.
+    return path.len >= 2 and std.ascii.isAlphabetic(path[0]) and path[1] == ':';
+}
+
+/// Whether an engine-form path (the document's own, backslash-separated,
+/// possibly relative to the installation the editor runs from) names a file
+/// the game ships: under `<base_root>Data` or `<base_root>mods/<any>/data`
+/// (D-18). Separators and case are normalised - a file dialog's absolute
+/// path may use either, and Windows paths are case-insensitive anyway; a
+/// relative path (the editor's own default, and what every shipped map is
+/// opened by) is taken as already under `base_root`, since the editor and
+/// the engine both run from the installation directory.
+pub fn isShippedMap(engine_path: []const u8, base_root: []const u8) bool {
+    var path_buffer: [PathSlot.max_path]u8 = undefined;
+    var base_buffer: [PathSlot.max_path]u8 = undefined;
+    const path = normalizeForCompare(&path_buffer, engine_path) orelse return false;
+    const base = normalizeForCompare(&base_buffer, base_root) orelse return false;
+    const rel = if (isAbsolutePath(path)) blk: {
+        if (!std.mem.startsWith(u8, path, base)) return false;
+        break :blk path[base.len..];
+    } else path;
+    if (std.mem.startsWith(u8, rel, "data/")) return true;
+    if (std.mem.startsWith(u8, rel, "mods/")) {
+        const after_mods = rel["mods/".len..];
+        const slash = std.mem.indexOfScalar(u8, after_mods, '/') orelse return false;
+        return std.mem.startsWith(u8, after_mods[slash + 1 ..], "data/");
+    }
+    return false;
+}
+
+/// Whether Save must behave like Save As (D-18): an empty path (a new map,
+/// never saved) or a shipped one - both cases where writing straight to
+/// `doc_path` is either impossible or forbidden.
+pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8) bool {
+    return doc_path.len == 0 or isShippedMap(doc_path, base_root);
+}
+
+/// `<user_root>maps`, or `<user_root>mods/<mod_folder>/maps` with a mod
+/// active (D-17, D-28) - written with `user_root`'s own separator (it
+/// already ends with one, BkEditorPaths' doc comment). Null when the buffer
+/// is too small, or `mod_folder` is unsafe as a directory component: empty,
+/// a separator, "." or ".." (the same refusal GeneratedData.h's ModKey
+/// makes, for the same reason - this would-be folder name came from a mod's
+/// own name, not something the editor chose).
+pub fn defaultMapsFolder(buffer: []u8, user_root: []const u8, mod_folder: ?[]const u8) ?[]const u8 {
+    const sep: u8 = if (std.mem.indexOfScalar(u8, user_root, '\\') != null) '\\' else '/';
+    if (mod_folder) |folder| {
+        if (folder.len == 0 or std.mem.eql(u8, folder, ".") or std.mem.eql(u8, folder, "..")) return null;
+        if (std.mem.indexOfAny(u8, folder, "/\\") != null) return null;
+        return std.fmt.bufPrint(buffer, "{s}mods{c}{s}{c}maps", .{ user_root, sep, folder, sep }) catch null;
+    }
+    return std.fmt.bufPrint(buffer, "{s}maps", .{user_root}) catch null;
 }
 
 /// The last component of a path written with either separator: the engine
@@ -633,9 +703,46 @@ test "unknown and shared-ID objects are kept as they are" {
 
 test "the title names the map's file and marks changes" {
     var buffer: [128]u8 = undefined;
-    try std.testing.expectEqualStrings("Map Editor", formatTitle(&buffer, "", false));
-    try std.testing.expectEqualStrings("Map Editor - coldwinter.bzm", formatTitle(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", false));
-    try std.testing.expectEqualStrings("Map Editor - mine.xml*", formatTitle(&buffer, "/Users/me/mine.xml", true));
+    try std.testing.expectEqualStrings("Map Editor", formatTitle(&buffer, "", false, false));
+    try std.testing.expectEqualStrings("Map Editor - coldwinter.bzm", formatTitle(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", false, false));
+    try std.testing.expectEqualStrings("Map Editor - mine.xml*", formatTitle(&buffer, "/Users/me/mine.xml", true, false));
+}
+
+test "the title marks a shipped map read-only, dirty or not" {
+    var buffer: [128]u8 = undefined;
+    try std.testing.expectEqualStrings("Map Editor - coldwinter.bzm (read-only)", formatTitle(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", false, true));
+    try std.testing.expectEqualStrings("Map Editor - coldwinter.bzm* (read-only)", formatTitle(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", true, true));
+}
+
+test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {
+    const base = "/Users/me/MapEditor/";
+    const user_root = "/Users/me/.local/share/Nival/Blitzkrieg/";
+    try std.testing.expect(isShippedMap("Data\\Maps\\Multiplayer\\coldwinter.bzm", base));
+    try std.testing.expect(isShippedMap("/Users/me/MapEditor/Data/Maps/Multiplayer/coldwinter.bzm", base));
+    try std.testing.expect(isShippedMap("/Users/me/MapEditor/mods/X/data/maps/a.bzm", base));
+    try std.testing.expect(isShippedMap("mods\\X\\data\\maps\\a.bzm", base));
+    try std.testing.expect(!isShippedMap(user_root ++ "maps/a.bzm", base));
+    try std.testing.expect(!isShippedMap("/Users/me/MapEditor/mods/X/maps/a.bzm", base)); // no "data" segment
+    // Mixed case and separators, absolute and relative.
+    try std.testing.expect(isShippedMap("/USERS/ME/MAPEDITOR/DATA/maps/a.BZM", base));
+    try std.testing.expect(isShippedMap("DATA\\maps\\a.bzm", base));
+}
+
+test "needsSaveAs: an empty path or a shipped map redirects Save to Save As" {
+    const base = "/Users/me/MapEditor/";
+    try std.testing.expect(needsSaveAs("", base));
+    try std.testing.expect(needsSaveAs("Data\\Maps\\Multiplayer\\coldwinter.bzm", base));
+    try std.testing.expect(!needsSaveAs("/Users/me/.local/share/Nival/Blitzkrieg/maps/a.bzm", base));
+}
+
+test "defaultMapsFolder: the user root plus maps, or mods/<name>/maps; a bad mod folder is refused" {
+    var buffer: [256]u8 = undefined;
+    try std.testing.expectEqualStrings("/Users/me/Blitzkrieg/maps", defaultMapsFolder(&buffer, "/Users/me/Blitzkrieg/", null).?);
+    try std.testing.expectEqualStrings("/Users/me/Blitzkrieg/mods/MyMod/maps", defaultMapsFolder(&buffer, "/Users/me/Blitzkrieg/", "MyMod").?);
+    try std.testing.expect(defaultMapsFolder(&buffer, "/Users/me/Blitzkrieg/", "..") == null);
+    try std.testing.expect(defaultMapsFolder(&buffer, "/Users/me/Blitzkrieg/", ".") == null);
+    try std.testing.expect(defaultMapsFolder(&buffer, "/Users/me/Blitzkrieg/", "a/b") == null);
+    try std.testing.expect(defaultMapsFolder(&buffer, "/Users/me/Blitzkrieg/", "") == null);
 }
 
 test "a dialog's path is written with the engine's separator, and a save gets an extension" {

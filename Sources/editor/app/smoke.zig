@@ -63,6 +63,10 @@ pub const Input = union(enum) {
     /// Pushes SDL_EVENT_WINDOW_CLOSE_REQUESTED for the window, as clicking
     /// its close button would (D-23).
     window_close,
+    /// Sets state.actions.save_requested, as the Save menu item would - to
+    /// prove a shipped map's Save redirects to Save As (D-18) without a
+    /// widget.
+    save_requested,
     /// Calls the unsaved-changes prompt's answer as the modal's Save/Don't
     /// save/Cancel button would (D-23) - the smoke has no widget to click.
     answer: panels_logic.UnsavedPrompt.Choice,
@@ -124,6 +128,9 @@ pub const Expect = enum {
     /// Cancel resolved the prompt without discarding the map: not asking
     /// any more, still dirty, still at the same path.
     prompt_cancelled,
+    /// Save on a shipped map redirected to Save As (D-18) instead of
+    /// writing the shipped file: the dialog slot is waiting for one.
+    save_became_save_as,
 };
 
 pub const Step = struct {
@@ -174,6 +181,10 @@ pub const script = [_]Step{
     .{ .name = "Delete deletes it", .inputs = &.{plain(sdl.SDLK_DELETE, sdl.SDL_SCANCODE_DELETE)}, .expect = .deleted },
     // Paint, place, turn, move, delete: five edits, five undos.
     .{ .name = "Ctrl+Z undoes all of it", .inputs = &.{ undo_key, undo_key, undo_key, undo_key, undo_key }, .expect = .all_undone },
+    // D-18: the smoke's own map is opened by its shipped relative path
+    // ("Data\..."), so Save on it must redirect to Save As rather than
+    // overwrite the shipped file.
+    .{ .name = "Save on a shipped map becomes Save As", .inputs = &.{.save_requested}, .expect = .save_became_save_as },
     .{ .name = "Save As writes the map", .inputs = &.{.save_as}, .expect = .saved },
     .{ .name = "the saved map opens again", .inputs = &.{.open_saved}, .expect = .reopened },
     // D-23: the unsaved-changes prompt on a window close, and Cancel.
@@ -376,6 +387,10 @@ pub const Script = struct {
                 self.state.actions.answer_pending = choice;
                 return true;
             },
+            .save_requested => {
+                self.state.actions.save_requested = true;
+                return true;
+            },
             .wheel => |wheel| {
                 const point = if (wheel.over_left_panel) [2]f32{ left_panel_x, self.centre_y } else self.screen(wheel.at);
                 if (!self.pushMotionAt(point, false)) return false;
@@ -559,6 +574,15 @@ pub const Script = struct {
                 if (!editor.dirty()) return self.stepFail(step, "the document is not dirty after Cancel", .{});
                 if (!std.mem.eql(u8, panels_logic.baseName(editor.document.path.items), std.fs.path.basename(self.save_path)))
                     return self.stepFail(step, "the path changed to {s}", .{editor.document.path.items});
+            },
+            .save_became_save_as => {
+                if (!self.state.actions.dialog.waiting() or self.state.actions.dialog.kind != .save_as)
+                    return self.stepFail(step, "Save did not redirect to Save As on the shipped map", .{});
+                // Cancels it and drains the result, freeing the slot for the
+                // next step's real Save As - never letting the real dialog
+                // (if it ever answers) touch the shipped file.
+                self.state.actions.dialog.deliver(null);
+                _ = self.state.actions.dialog.take();
             },
         }
         return true;

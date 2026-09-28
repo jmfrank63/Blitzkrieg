@@ -9,8 +9,9 @@
 //! hand-over, the file actions, the palette's filter, the direction
 //! conversion, what may be edited, the title - is in panels_logic.zig.
 //!
-//! Save is plan 5's plain save: it writes to the document's path. Plan 6
-//! replaces it with the spec's safe save and the unsaved-changes prompt.
+//! Save goes through editor.save's safe-save contract (03-03), redirects to
+//! Save As for a new or shipped map (D-18), and Open/Quit/a window close
+//! all go through the unsaved-changes prompt (D-23) before they run.
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
@@ -210,14 +211,23 @@ pub fn draw(state: *State) void {
     updateTitle(state);
 }
 
+/// The base root as `BkEditorPaths` gave it at init, sliced to its content.
+fn baseRoot(state: *const State) []const u8 {
+    return std.mem.sliceTo(&state.paths.base_root, 0);
+}
+
+/// The user root the same way.
+fn userRoot(state: *const State) []const u8 {
+    return std.mem.sliceTo(&state.paths.user_root, 0);
+}
+
 /// The file actions the menu asked for, and whatever a dialog delivered,
 /// after the frame. True when the editor should quit.
 pub fn act(state: *State) bool {
     var quit = false;
     while (true) {
-        // Task 2 (D-18) replaces this literal false with the real
-        // shipped-map check once needsSaveAs exists.
-        switch (state.actions.next(state.editor.dirty(), false)) {
+        const needs_save_as = logic.needsSaveAs(state.editor.document.path.items, baseRoot(state));
+        switch (state.actions.next(state.editor.dirty(), needs_save_as)) {
             .none, .ask_unsaved => return quit,
             .dialog_cancelled => {},
             .quit => quit = true,
@@ -279,11 +289,23 @@ fn drawUnsavedPrompt(state: *State) void {
     ig.igEndPopup();
 }
 
+/// D-17: Open and Save As both start in the user maps folder (or the active
+/// mod's), created first if it does not exist yet - a fresh install has
+/// none of it. A folder that cannot be resolved (a bad mod folder name) or
+/// created just leaves SDL to its own default_location rather than failing
+/// the dialog.
 fn showDialog(state: *State, kind: logic.DialogKind) void {
     const slot: *logic.PathSlot = state.actions.dialog;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    if (logic.defaultMapsFolder(&folder_buffer, userRoot(state), state.mod_folder)) |folder| {
+        std.Io.Dir.cwd().createDirPath(state.io, folder) catch {};
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    }
     switch (kind) {
-        .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, null, false),
-        .save_as => sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, null),
+        .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location, false),
+        .save_as => sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location),
     }
 }
 
@@ -742,7 +764,8 @@ fn append(buffer: []u8, len: *usize, comptime format: []const u8, args: anytype)
 
 fn updateTitle(state: *State) void {
     var buffer: [256]u8 = undefined;
-    const title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty());
+    const read_only = logic.isShippedMap(state.editor.document.path.items, baseRoot(state));
+    const title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty(), read_only);
     if (std.mem.eql(u8, title, state.title[0..state.title_len])) return;
     _ = sdl3.c.SDL_SetWindowTitle(state.window, title.ptr);
     const len = @min(title.len, state.title.len);
