@@ -449,6 +449,18 @@ pub const FileActions = struct {
     dialog_for_prompt: bool = false,
     /// A guarded action `saveFinished` resolved, waiting for its Step.
     resume_pending: ?Pending = null,
+    /// File > Open Recent (D-27): an OS path to open, guarded through the
+    /// same unsaved-changes prompt as a plain Open.
+    open_path_requested: ?PathText = null,
+    /// `stepForPending`'s own copy of an `open_path` Pending's bytes: a
+    /// `Pending` travels by value through `UnsavedPrompt.pending`, `answer`'s
+    /// and `guard`'s return values, and `stepForPending`'s own parameter -
+    /// each a fresh stack copy. Copying into this field (owned by `self`,
+    /// which outlives every one of those stack frames) before returning a
+    /// `Step.act_on_path.path` slice is what keeps that slice valid once
+    /// `stepForPending` returns; slicing straight from the parameter would
+    /// point into a stack frame that no longer exists.
+    open_path_scratch: PathText = .{},
 
     pub const Step = union(enum) {
         none,
@@ -468,14 +480,28 @@ pub const FileActions = struct {
     };
 
     /// The save `next`/`act` was told to make, for `saveFinished`, resolved
-    /// into a Step - `open_path` and `switch_mod` are not produced by this
-    /// plan (03-07/03-08 wire them).
+    /// into a Step - `switch_mod` is not produced by this plan (03-08 wires
+    /// it).
     fn stepForPending(self: *FileActions, pending: Pending) Step {
         return switch (pending) {
             .open_dialog => if (self.dialog.request(.open)) Step{ .show_dialog = .open } else Step.none,
             .quit => .quit,
-            .open_path, .switch_mod => .none,
+            .open_path => |path| blk: {
+                // See open_path_scratch's own doc comment for why this copy
+                // has to happen before the slice is built.
+                self.open_path_scratch = path;
+                break :blk Step{ .act_on_path = .{ .kind = .open, .path = self.open_path_scratch.slice() } };
+            },
+            .switch_mod => .none,
         };
+    }
+
+    /// File > Open Recent (D-27, D-23): guards through the same
+    /// unsaved-changes prompt Open itself uses, and converts/opens through
+    /// `actOnPath` (the `.act_on_path` Step `next()` returns, once guarded,
+    /// is identical in shape to what a dialog's own choice produces).
+    pub fn requestOpenPath(self: *FileActions, os_path: []const u8) void {
+        self.open_path_requested = PathText.init(os_path);
     }
 
     /// The save `act` made for the prompt (plain Save or a Save As whose
@@ -540,6 +566,13 @@ pub const FileActions = struct {
         if (self.open_requested) {
             self.open_requested = false;
             return switch (self.prompt.guard(dirty, .open_dialog)) {
+                .proceed => |pending| self.stepForPending(pending),
+                .asked => .ask_unsaved,
+            };
+        }
+        if (self.open_path_requested) |path| {
+            self.open_path_requested = null;
+            return switch (self.prompt.guard(dirty, .{ .open_path = path })) {
                 .proceed => |pending| self.stepForPending(pending),
                 .asked => .ask_unsaved,
             };
@@ -958,6 +991,39 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     try std.testing.expectEqual(FileActions.Step.quit, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.save, actions.next(false, false));
     try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
+}
+
+test "file actions: Open Recent opens directly on a clean map, guarded on a dirty one" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    actions.requestOpenPath("/maps/recent.bzm");
+    const clean_step = actions.next(false, false);
+    try std.testing.expectEqual(DialogKind.open, clean_step.act_on_path.kind);
+    try std.testing.expectEqualStrings("/maps/recent.bzm", clean_step.act_on_path.path);
+
+    actions.requestOpenPath("/maps/another.bzm");
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    try std.testing.expect(actions.prompt.isAsking());
+    actions.answer_pending = .dont_save;
+    const dirty_step = actions.next(true, false);
+    try std.testing.expectEqual(DialogKind.open, dirty_step.act_on_path.kind);
+    try std.testing.expectEqualStrings("/maps/another.bzm", dirty_step.act_on_path.path);
+    try std.testing.expect(!actions.prompt.isAsking());
+}
+
+test "file actions: Open Recent's path opens through the editor, converted with enginePath" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    actions.requestOpenPath("/maps/fixture.bzm");
+    const step = actions.next(false, false);
+    try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path);
+    try std.testing.expectEqualStrings("\\maps\\fixture.bzm", editor.document.path.items);
 }
 
 test "TestLaunchPrompt: nothing running starts it directly" {

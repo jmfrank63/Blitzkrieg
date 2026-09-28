@@ -13,6 +13,7 @@
 //! file degrades to defaults for whatever it could not make sense of, never
 //! an error the caller has to handle.
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const min_scroll_speed: f32 = 0.25;
 pub const max_scroll_speed: f32 = 4.0;
@@ -69,7 +70,45 @@ pub const Settings = struct {
     pub fn recentAt(self: *const Settings, index: usize) []const u8 {
         return self.recent_storage[index].slice();
     }
+
+    /// D-27: `os_path` to the front. An entry already in the list (byte-equal
+    /// - case-insensitive on Windows, where two spellings of a drive letter
+    /// or a path segment name the same file) moves up instead of repeating;
+    /// past `recent_capacity` entries, the oldest (last) one drops off.
+    pub fn pushRecent(self: *Settings, os_path: []const u8) void {
+        var existing: ?usize = null;
+        var i: usize = 0;
+        while (i < self.recent_count) : (i += 1) {
+            if (sameOsPath(self.recent_storage[i].slice(), os_path)) {
+                existing = i;
+                break;
+            }
+        }
+        // Shifting right by one opens a slot at 0 for the new (or moved)
+        // entry; walking from the far end down to 1 means every write lands
+        // in a slot whose old value has already moved on, so nothing is lost
+        // to being overwritten before it is read.
+        const start = existing orelse @min(self.recent_count, recent_capacity - 1);
+        var shift = start;
+        while (shift > 0) : (shift -= 1) self.recent_storage[shift] = self.recent_storage[shift - 1];
+        self.recent_storage[0].set(os_path);
+        if (existing == null) self.recent_count = @min(self.recent_count + 1, recent_capacity);
+    }
+
+    /// D-27: removes a stale (missing-on-disk) entry by its index, shifting
+    /// the rest up. Out of range is a no-op.
+    pub fn removeRecent(self: *Settings, index: usize) void {
+        if (index >= self.recent_count) return;
+        var i = index;
+        while (i + 1 < self.recent_count) : (i += 1) self.recent_storage[i] = self.recent_storage[i + 1];
+        self.recent_count -= 1;
+    }
 };
+
+fn sameOsPath(a: []const u8, b: []const u8) bool {
+    if (builtin.os.tag == .windows) return std.ascii.eqlIgnoreCase(a, b);
+    return std.mem.eql(u8, a, b);
+}
 
 fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
     if (std.mem.eql(u8, key, "scroll_speed")) {
@@ -201,5 +240,57 @@ test "comment and blank lines (leading '#', with or without indent) are skipped"
 test "a malformed line with no '=' is skipped, not fatal to the rest of the file" {
     const settings = parse("this has no equals\nscroll_speed=2\n");
     try std.testing.expectEqual(@as(f32, 2), settings.scroll_speed);
+}
+
+test "pushRecent: most recent first" {
+    var settings: Settings = .{};
+    settings.pushRecent("a");
+    settings.pushRecent("b");
+    settings.pushRecent("c");
+    try std.testing.expectEqual(@as(usize, 3), settings.recentCount());
+    try std.testing.expectEqualStrings("c", settings.recentAt(0));
+    try std.testing.expectEqualStrings("b", settings.recentAt(1));
+    try std.testing.expectEqualStrings("a", settings.recentAt(2));
+}
+
+test "pushRecent: an equal path moves to the front instead of repeating" {
+    var settings: Settings = .{};
+    settings.pushRecent("a");
+    settings.pushRecent("b");
+    settings.pushRecent("a");
+    try std.testing.expectEqual(@as(usize, 2), settings.recentCount());
+    try std.testing.expectEqualStrings("a", settings.recentAt(0));
+    try std.testing.expectEqualStrings("b", settings.recentAt(1));
+}
+
+test "pushRecent: the 11th drops the oldest" {
+    var settings: Settings = .{};
+    var buffer: [8]u8 = undefined;
+    var i: u8 = 0;
+    while (i < 11) : (i += 1) {
+        const path = std.fmt.bufPrint(&buffer, "{d}", .{i}) catch unreachable;
+        settings.pushRecent(path);
+    }
+    try std.testing.expectEqual(@as(usize, recent_capacity), settings.recentCount());
+    try std.testing.expectEqualStrings("10", settings.recentAt(0));
+    try std.testing.expectEqualStrings("1", settings.recentAt(recent_capacity - 1));
+}
+
+test "removeRecent: removes by index and shifts the rest up" {
+    var settings: Settings = .{};
+    settings.pushRecent("a");
+    settings.pushRecent("b");
+    settings.pushRecent("c"); // c, b, a
+    settings.removeRecent(1); // removes "b"
+    try std.testing.expectEqual(@as(usize, 2), settings.recentCount());
+    try std.testing.expectEqualStrings("c", settings.recentAt(0));
+    try std.testing.expectEqualStrings("a", settings.recentAt(1));
+}
+
+test "removeRecent: an out-of-range index is a no-op" {
+    var settings: Settings = .{};
+    settings.pushRecent("a");
+    settings.removeRecent(5);
+    try std.testing.expectEqual(@as(usize, 1), settings.recentCount());
 }
 

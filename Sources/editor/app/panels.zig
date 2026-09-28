@@ -102,6 +102,12 @@ pub const State = struct {
     /// back into `settings` once editing is deactivated (not per keystroke).
     maps_folder_edit: [core.settings.max_path:0]u8 = [_:0]u8{0} ** core.settings.max_path,
 
+    /// File > Open Recent (D-27): whether each entry's file still exists,
+    /// checked once (std.Io.Dir access) the frame the submenu newly opens
+    /// and reused every frame it stays open - not once per entry per frame.
+    recent_menu_open_prev: bool = false,
+    recent_exists_cache: [core.settings.recent_capacity]bool = [_]bool{true} ** core.settings.recent_capacity,
+
     /// The object database, and its indices ordered by game type (stable,
     /// so a type keeps the database's order): the palette's groups are runs
     /// of this order.
@@ -253,7 +259,11 @@ pub fn act(state: *State) bool {
             .none, .ask_unsaved => return quit,
             .dialog_cancelled => {},
             .quit => quit = true,
-            .save => state.actions.noteSaveOutcome(saveToDocumentPath(state)),
+            .save => {
+                const ok = saveToDocumentPath(state);
+                if (ok) pushRecentFromDocument(state);
+                state.actions.noteSaveOutcome(ok);
+            },
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
                 const result = logic.actOnPath(state.editor, chosen.kind, chosen.path);
@@ -261,16 +271,35 @@ pub fn act(state: *State) bool {
                 if (chosen.kind == .open) {
                     // A failed open may have emptied the document (editor.open
                     // says when); either way the panels follow what is open now.
-                    if (result) |_| state.mapOpened() else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
+                    if (result) |_| {
+                        state.mapOpened();
+                        pushRecentFromDocument(state);
+                    } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
                 } else {
                     // Save As: the unsaved-changes prompt, if it asked for
                     // this one, hears whether it landed.
-                    state.actions.noteSaveOutcome(if (result) |_| true else |_| false);
+                    const ok = if (result) |_| true else |_| false;
+                    if (ok) pushRecentFromDocument(state);
+                    state.actions.noteSaveOutcome(ok);
                 }
             },
             .dialog_failed => |message| state.view.setStatus("the file dialog failed: ", message),
         }
     }
+}
+
+/// D-27: after every successful Open, Save or Save As, the document's OS
+/// path goes to the front of the recent list, and main.zig's `run` is asked
+/// to write it back. The automated modes call this exactly as often as the
+/// interactive one (nothing here is gated on mode) - what keeps them from
+/// ever touching mapeditor.cfg is that they always pass a null settings_path
+/// to `run`, so the write itself never happens; only this in-memory list,
+/// discarded when the process exits, ever changes.
+fn pushRecentFromDocument(state: *State) void {
+    var buffer: [core.files.max_path]u8 = undefined;
+    const os_path = core.files.osPathFromEngine(&buffer, state.editor.document.path.items) orelse return;
+    state.settings.pushRecent(os_path);
+    state.settings_changed = true;
 }
 
 /// Saves to the document's own path; true on success. editor.save copies
@@ -563,6 +592,14 @@ fn drawMenuBar(state: *State) f32 {
     const map_open = mapIsOpen(editor);
     if (ig.igBeginMenu("File")) {
         if (ig.igMenuItemEx("Open...", null, false, true)) state.actions.open_requested = true;
+        if (ig.igBeginMenu("Open Recent")) {
+            if (!state.recent_menu_open_prev) refreshRecentExistsCache(state);
+            state.recent_menu_open_prev = true;
+            drawOpenRecentItems(state);
+            ig.igEndMenu();
+        } else {
+            state.recent_menu_open_prev = false;
+        }
         if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
         if (ig.igMenuItemEx("Save As...", null, false, map_open)) state.actions.save_as_requested = true;
         ig.igSeparator();
@@ -592,6 +629,71 @@ fn drawMenuBar(state: *State) f32 {
     }
     ig.igEndMainMenuBar();
     return height;
+}
+
+/// File > Open Recent (D-27): every entry's existence, checked once for the
+/// frame the submenu newly opened - std.Io.Dir access, so it never runs more
+/// than once per entry per opening, not once per entry per frame it stays
+/// open.
+fn refreshRecentExistsCache(state: *State) void {
+    var i: usize = 0;
+    while (i < state.settings.recentCount()) : (i += 1) {
+        state.recent_exists_cache[i] = pathExists(state.io, state.settings.recentAt(i));
+    }
+}
+
+fn pathExists(io: std.Io, os_path: []const u8) bool {
+    _ = std.Io.Dir.cwd().statFile(io, os_path, .{}) catch return false;
+    return true;
+}
+
+/// The submenu's own items: each entry shows its file name (the full path as
+/// a tooltip), disabled with a "Remove" beside it when the cached check found
+/// it missing; choosing an existing one guards through the unsaved-changes
+/// prompt like Open itself (D-23, D-27). "Clear list" empties it outright.
+fn drawOpenRecentItems(state: *State) void {
+    const count = state.settings.recentCount();
+    if (count == 0) {
+        ig.igTextDisabled("(none)");
+        return;
+    }
+    var index: usize = 0;
+    while (index < count) {
+        const path = state.settings.recentAt(index);
+        const exists = state.recent_exists_cache[index];
+        ig.igPushIDInt(@intCast(index));
+        var name_buffer: [300:0]u8 = undefined;
+        const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{logic.baseName(path)}) catch "?";
+        var removed = false;
+        if (ig.igMenuItemEx(name_z, null, false, exists)) state.actions.requestOpenPath(path);
+        if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
+            text(path);
+            ig.igEndTooltip();
+        }
+        if (!exists) {
+            ig.igSameLine();
+            if (ig.igSmallButton("Remove")) {
+                state.settings.removeRecent(index);
+                state.settings_changed = true;
+                removed = true;
+            }
+        }
+        ig.igPopID();
+        // A removal shifted every later entry down one index; the cache
+        // needs the same shift so it still names the right file next frame -
+        // simplest is to fully refresh it now, while `index` stays put to
+        // draw whatever moved into this slot.
+        if (removed) {
+            refreshRecentExistsCache(state);
+        } else {
+            index += 1;
+        }
+    }
+    ig.igSeparator();
+    if (ig.igMenuItemEx("Clear list", null, false, true)) {
+        while (state.settings.recentCount() != 0) state.settings.removeRecent(0);
+        state.settings_changed = true;
+    }
 }
 
 /// Every panel's widgets leave room for their labels to the right.
