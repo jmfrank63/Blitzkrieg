@@ -40,6 +40,11 @@ pub const View = struct {
     /// game's unzoomed view.
     zoom_steps: i32 = 0,
     scale: f32 = 1,
+    /// The Settings window's "Scroll and swipe speed" (D-25): a multiplier
+    /// on a plain pan's pixels-per-unit gain, applied in `handleWheel`.
+    /// Defaults to view_math's own constant until the app loads (or changes)
+    /// `core.settings.Settings.scroll_speed`.
+    wheel_sensitivity: f32 = view_math.wheel_sensitivity,
     /// Carries a Shift+wheel/swipe's fractional delta between events.
     zoom_wheel: view_math.ZoomWheel = .{},
     /// Carries a trackpad pinch's fractional delta between events; reset at
@@ -291,7 +296,7 @@ pub const View = struct {
             if (real.zoomAt(steps, wheel.mouse_x, wheel.mouse_y) == .ok) self.syncFromBridge(real);
             return;
         }
-        const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED }, view_math.wheel_sensitivity);
+        const pan = view_math.wheelPan(.{ .x = wheel.x, .y = wheel.y, .flipped = wheel.direction == sdl3.c.SDL_MOUSEWHEEL_FLIPPED }, self.wheel_sensitivity);
         // panScreen treats its pixels as world units 1:1 - true only at
         // scale 1. Dividing by the bridge's own scale first is what makes
         // the map follow the fingers 1:1 on screen at any zoom, the same

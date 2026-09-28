@@ -149,7 +149,24 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
     defer state.deinit();
 
-    run(&host, &editor, &view, &real, &state, null);
+    // D-24: mapeditor.cfg, independent of game profiles - never read or
+    // written by --check/--smoke/--game-reads-it, only interactive. Missing
+    // is not an error (a fresh install); unreadable falls back to defaults
+    // too, with a status line naming why.
+    var settings_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const settings_path = resolveSettingsPath(&settings_path_buffer, gpa, environ, std.mem.sliceTo(&state.paths.user_root, 0));
+    if (settings_path) |path| {
+        state.settings = readSettingsFile(io, gpa, path) catch |err| switch (err) {
+            error.FileNotFound => core.settings.Settings{},
+            else => blk: {
+                view.setStatus("", "the settings file did not read: using defaults");
+                break :blk core.settings.Settings{};
+            },
+        };
+    }
+    view.wheel_sensitivity = state.settings.scroll_speed;
+
+    run(&host, &editor, &view, &real, &state, null, settings_path);
     // A plain return, not std.process.exit, so the deferred view.deinit(),
     // editor.deinit() and host.stop() above run: host.stop() takes the
     // overlay and ImGui down, BkEditorStop deletes the world, and the window
@@ -158,13 +175,61 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // per process is the contract (host.zig Host.stop).
 }
 
+/// `<user_root>mapeditor/mapeditor.cfg`, or `BK_EDITOR_SETTINGS` when the
+/// environment carries it - a test seam (Task 1's own verify uses it from
+/// `--check`'s panel smoke; nothing else in this app ever sets it). Null
+/// when `user_root` is empty (no engine paths, which does not happen once
+/// the engine has started) or neither path fits `buffer`.
+fn resolveSettingsPath(buffer: []u8, gpa: std.mem.Allocator, environ: std.process.Environ, user_root: []const u8) ?[]const u8 {
+    if (environ.getAlloc(gpa, "BK_EDITOR_SETTINGS")) |override| {
+        defer gpa.free(override);
+        if (override.len > buffer.len) return null;
+        @memcpy(buffer[0..override.len], override);
+        return buffer[0..override.len];
+    } else |_| {}
+    if (user_root.len == 0) return null;
+    return std.fmt.bufPrint(buffer, "{s}mapeditor{c}mapeditor.cfg", .{ user_root, std.fs.path.sep }) catch null;
+}
+
+/// Reads and parses `path`, capped at 64 KiB (T-03-07-01: a malformed or huge
+/// settings file must not be a denial-of-service or an unbounded read).
+/// `error.FileNotFound` is the caller's "use the defaults" case, same as any
+/// other read failure - both are handled by the caller, not here.
+fn readSettingsFile(io: std.Io, gpa: std.mem.Allocator, path: []const u8) !core.settings.Settings {
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 * 1024));
+    defer gpa.free(bytes);
+    return core.settings.parse(bytes);
+}
+
+/// Writes `settings` to `path` through a temporary file beside it and a
+/// rename over the real path (D-24's own "atomic write"), matching the
+/// safe-save recipe's shape without needing its read-back verification (a
+/// settings file is not the user's map - losing this write to a crash mid-
+/// write is not the D-19 concern that recipe exists for).
+fn writeSettingsFile(io: std.Io, path: []const u8, settings: *const core.settings.Settings) !void {
+    var text_buffer: [8192]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&text_buffer);
+    try core.settings.format(settings, &writer);
+    if (std.fs.path.dirname(path)) |dir| try std.Io.Dir.cwd().createDirPath(io, dir);
+    var temp_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const temp_path = std.fmt.bufPrint(&temp_buffer, "{s}.tmp", .{path}) catch return error.NameTooLong;
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = temp_path, .data = writer.buffered() });
+    try std.Io.Dir.rename(std.Io.Dir.cwd(), temp_path, std.Io.Dir.cwd(), path, io);
+}
+
 /// The app's loop, shared by the interactive mode and --smoke: events to
 /// ImGui and then, if ImGui does not want them, to the view; the view's
 /// per-frame scrolling; a frame of the panels over the map; the panels' file
 /// actions. With a script, the script pushes its synthetic events before
 /// each frame's poll and checks what they did after it, and ends the loop
 /// when it is done or has failed.
-fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, script: ?*smoke.Script) void {
+///
+/// `settings_path`, non-null only from the interactive mode (D-24): after the
+/// frame a Settings-window control (or --check's own round trip) marks
+/// `state.settings_changed`, writes `mapeditor.cfg` back through a temporary
+/// file and rename, then clears the flag - never per keystroke, and the
+/// automated modes (which always pass null here) never write at all.
+fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, script: ?*smoke.Script, settings_path: ?[]const u8) void {
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
     while (running) {
@@ -202,6 +267,10 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         // After the frame: Save, the dialogs Open and Save As show, a path
         // one of them delivered during this frame's events, and Quit.
         if (panels.act(state)) running = false;
+        if (state.settings_changed) {
+            if (settings_path) |path| writeSettingsFile(state.io, path, &state.settings) catch {};
+            state.settings_changed = false;
+        }
         // A running test game is polled every frame, script or not - the
         // smoke never presses Test, so this is a no-op there, but the smoke's
         // own State still owns one (D-03: quitting leaves it running).
@@ -252,7 +321,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     defer state.deinit();
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
-    run(&host, &editor, &view, &real, &state, &script);
+    run(&host, &editor, &view, &real, &state, &script, null);
     if (!script.passed) {
         // A step that failed has said so; a loop that ended otherwise (a
         // quit event) has not.
@@ -574,6 +643,51 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
 /// the slot as a dialog's callback would hand it: Save As into the output's
 /// directory, then Open of what was saved. Nothing here needs a person, so
 /// CI runs the panel code on both GPU runners.
+/// Task 1's own verify: the BK_EDITOR_SETTINGS test seam. Skipped (true,
+/// nothing printed) when the env var is unset - every real `--check` run.
+/// With it set: loads the file it names, checks the view picked up its
+/// scroll_speed, changes autosave_minutes through `panels.applySettings` (the
+/// same path the Settings window's own controls use), writes the file back
+/// and reads it again to confirm the change landed, then prints
+/// "map-editor: settings round trip PASS (<path>)".
+fn settingsRoundTrip(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, state: *panels.State) !bool {
+    const path = environ.getAlloc(gpa, "BK_EDITOR_SETTINGS") catch |err| {
+        if (err == error.EnvironmentVariableMissing) return true;
+        return fail("settings: BK_EDITOR_SETTINGS did not read: {s}", .{@errorName(err)});
+    };
+    defer gpa.free(path);
+
+    const loaded = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 * 1024)) catch |err|
+        return fail("settings: {s} did not read: {s}", .{ path, @errorName(err) });
+    defer gpa.free(loaded);
+    state.settings = core.settings.parse(loaded);
+    panels.applySettings(state);
+    if (state.view.wheel_sensitivity != state.settings.scroll_speed)
+        return fail("settings: the view's sensitivity did not follow scroll_speed", .{});
+
+    state.settings.autosave_minutes = if (state.settings.autosave_minutes < core.settings.max_autosave_minutes)
+        state.settings.autosave_minutes + 1
+    else
+        state.settings.autosave_minutes - 1;
+    panels.applySettings(state);
+
+    var text_buffer: [8192]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&text_buffer);
+    try core.settings.format(&state.settings, &writer);
+    std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = writer.buffered() }) catch |err|
+        return fail("settings: {s} did not write: {s}", .{ path, @errorName(err) });
+
+    const reread = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 * 1024)) catch |err|
+        return fail("settings: {s} did not read back: {s}", .{ path, @errorName(err) });
+    defer gpa.free(reread);
+    const reparsed = core.settings.parse(reread);
+    if (reparsed.autosave_minutes != state.settings.autosave_minutes)
+        return fail("settings: autosave_minutes did not round-trip", .{});
+
+    std.debug.print("map-editor: settings round trip PASS ({s})\n", .{path});
+    return true;
+}
+
 fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, host: *host_mod.Host, map: []const u8, output: []const u8) !bool {
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
@@ -587,6 +701,7 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     editor.open(path) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
     var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ);
     defer state.deinit();
+    if (!try settingsRoundTrip(gpa, io, environ, &state)) return false;
     if (state.catalogue.len == 0) return fail("panels: the object palette has no catalogue", .{});
     if (state.tile_count == 0) return fail("panels: the brush has no tiles from the map's tileset", .{});
     if (std.mem.indexOfScalar(u8, state.tiles(), 1) != null) return fail("panels: tile 1, in no shipped tileset, is offered", .{});

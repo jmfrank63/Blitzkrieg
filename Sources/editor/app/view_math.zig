@@ -83,9 +83,10 @@ pub const wheel_pixels_per_unit: f32 = 20.0;
 
 /// The player's wheel/trackpad sensitivity, a multiplier on
 /// `wheel_pixels_per_unit`: 1 is the gain above. The game has it as an
-/// option (GamePlay.TrackpadScroll, 0.25x-4x); the editor has no settings
-/// store yet.
-/// TODO(plan 6, editor settings): make this the editor's setting.
+/// option (GamePlay.TrackpadScroll, 0.25x-4x); this is only the documented
+/// default for a fresh `View.wheel_sensitivity` field (plan 6) - the app
+/// overrides it from `core.settings.Settings.scroll_speed` once the
+/// settings file loads, or the Settings window changes it (D-25).
 pub const wheel_sensitivity: f32 = 1.0;
 
 /// An SDL_MouseWheelEvent's deltas, as view.zig hands them over. `flipped`

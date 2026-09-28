@@ -86,6 +86,22 @@ pub const State = struct {
     /// current ask - so it is not re-opened every frame while it waits.
     unsaved_popup_shown: bool = false,
 
+    /// mapeditor.cfg's fields (D-24, D-25, D-27): loaded once by main.zig
+    /// (interactive), or by `--check`'s panel smoke under the BK_EDITOR_SETTINGS
+    /// test seam; defaults otherwise (the automated modes never load a file).
+    settings: core.settings.Settings = .{},
+    /// Set by `applySettings` whenever a control in the Settings window (or
+    /// the BK_EDITOR_SETTINGS round trip) changes a value: main.zig's `run`
+    /// writes `mapeditor.cfg` back once, after the frame this became true,
+    /// then clears it - never per keystroke, and never at all when nothing
+    /// changed.
+    settings_changed: bool = false,
+    settings_window_open: bool = false,
+    /// The Settings window's "Maps folder" field, loaded from `settings`
+    /// whenever the window is (re)opened, edited in place, and only copied
+    /// back into `settings` once editing is deactivated (not per keystroke).
+    maps_folder_edit: [core.settings.max_path:0]u8 = [_:0]u8{0} ** core.settings.max_path,
+
     /// The object database, and its indices ordered by game type (stable,
     /// so a type keeps the database's order): the palette's groups are runs
     /// of this order.
@@ -213,6 +229,7 @@ pub fn draw(state: *State) void {
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
+    drawSettingsWindow(state);
     updateTitle(state);
 }
 
@@ -294,19 +311,90 @@ fn drawUnsavedPrompt(state: *State) void {
     ig.igEndPopup();
 }
 
+/// The Settings window's controls (D-25) and `--check`'s round trip (Task 1's
+/// own verify) both go through this single path, so the two can never drift:
+/// what a setting changes live in the app (today, only the scroll speed) and
+/// the flag that tells main.zig's `run` to write `mapeditor.cfg` back.
+pub fn applySettings(state: *State) void {
+    state.view.wheel_sensitivity = state.settings.scroll_speed;
+    state.settings_changed = true;
+}
+
+/// Edit > "Settings...": (re)opens the window and loads the maps-folder
+/// field's editing buffer fresh from `settings`, so a stale in-progress edit
+/// from a previous opening is never shown.
+fn openSettingsWindow(state: *State) void {
+    state.settings_window_open = true;
+    const folder = state.settings.mapsFolder();
+    @memset(&state.maps_folder_edit, 0);
+    @memcpy(state.maps_folder_edit[0..folder.len], folder);
+}
+
+/// D-25's Settings window: scroll/swipe speed, autosave on/off and interval,
+/// and the default maps folder. Every control applies at once through
+/// `applySettings`; a slider drags live (`state.view.wheel_sensitivity`
+/// tracks it every frame) but only marks `settings_changed` - and so only
+/// asks main.zig's `run` to write the file - once the drag or the typed text
+/// is deactivated, never once per frame of a drag or per keystroke.
+fn drawSettingsWindow(state: *State) void {
+    if (!state.settings_window_open) return;
+    if (!ig.igBegin("Settings", &state.settings_window_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        ig.igEnd();
+        return;
+    }
+    defer ig.igEnd();
+
+    var scroll_speed = state.settings.scroll_speed;
+    if (ig.igSliderFloatEx("Scroll and swipe speed", &scroll_speed, core.settings.min_scroll_speed, core.settings.max_scroll_speed, "%.2f", ig.ImGuiSliderFlags_Logarithmic)) {
+        state.settings.scroll_speed = scroll_speed;
+        state.view.wheel_sensitivity = scroll_speed;
+    }
+    if (ig.igIsItemDeactivatedAfterEdit()) applySettings(state);
+
+    var autosave = state.settings.autosave;
+    if (ig.igCheckbox("Autosave", &autosave)) {
+        state.settings.autosave = autosave;
+        applySettings(state);
+    }
+
+    var minutes: c_int = @intCast(state.settings.autosave_minutes);
+    if (ig.igSliderInt("Every ... minutes", &minutes, @intCast(core.settings.min_autosave_minutes), @intCast(core.settings.max_autosave_minutes))) {
+        state.settings.autosave_minutes = @intCast(minutes);
+    }
+    if (ig.igIsItemDeactivatedAfterEdit()) applySettings(state);
+
+    var plain_folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var hint_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    const default_folder = logic.defaultMapsFolder(&plain_folder_buffer, userRoot(state), state.mod_folder) orelse "";
+    const hint_z = std.fmt.bufPrintZ(&hint_buffer, "{s}", .{default_folder}) catch "";
+    _ = ig.igInputTextWithHint("Maps folder", hint_z.ptr, &state.maps_folder_edit, state.maps_folder_edit.len + 1, 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        state.settings.setMapsFolder(std.mem.sliceTo(&state.maps_folder_edit, 0));
+        applySettings(state);
+    }
+    if (ig.igButton("Use default")) {
+        state.settings.setMapsFolder("");
+        @memset(&state.maps_folder_edit, 0);
+        applySettings(state);
+    }
+}
+
 /// D-17: Open and Save As both start in the user maps folder (or the active
 /// mod's), created first if it does not exist yet - a fresh install has
-/// none of it. A folder that cannot be resolved (a bad mod folder name) or
-/// created just leaves SDL to its own default_location rather than failing
-/// the dialog.
+/// none of it. D-25: the Settings window's own "Maps folder", when set,
+/// overrides that default outright. A folder that cannot be resolved (a bad
+/// mod folder name) or created just leaves SDL to its own default_location
+/// rather than failing the dialog.
 fn showDialog(state: *State, kind: logic.DialogKind) void {
     const slot: *logic.PathSlot = state.actions.dialog;
     var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     var default_location: ?[*:0]const u8 = null;
-    if (logic.defaultMapsFolder(&folder_buffer, userRoot(state), state.mod_folder)) |folder| {
-        std.Io.Dir.cwd().createDirPath(state.io, folder) catch {};
-        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    const custom_folder = state.settings.mapsFolder();
+    const folder: ?[]const u8 = if (custom_folder.len != 0) custom_folder else logic.defaultMapsFolder(&folder_buffer, userRoot(state), state.mod_folder);
+    if (folder) |f| {
+        std.Io.Dir.cwd().createDirPath(state.io, f) catch {};
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{f})) |z| default_location = z.ptr else |_| {}
     }
     switch (kind) {
         .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location, false),
@@ -484,6 +572,8 @@ fn drawMenuBar(state: *State) f32 {
     if (ig.igBeginMenu("Edit")) {
         if (ig.igMenuItemEx("Undo", "Ctrl+Z", false, editor.history.canUndo())) state.view.undo(editor);
         if (ig.igMenuItemEx("Redo", "Ctrl+Y", false, editor.history.canRedo())) state.view.redo(editor);
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Settings...", null, false, true)) openSettingsWindow(state);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Tools")) {
