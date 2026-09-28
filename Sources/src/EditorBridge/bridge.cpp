@@ -315,6 +315,37 @@ bool ReloadAfterModChange( BkEditorSession *pSession, IDataStorage *pStorage )
 	return true;
 }
 
+// A window opened on a non-primary display otherwise jumps to
+// GraphicsEngineGpu.cpp's SelectedDisplay default (GFX.Monitor.Index unset,
+// which resolves to SDL_GetDisplays()'s first entry) the moment SetMode
+// below runs. Measured directly (03-13 Task 2): the editor's own hidden
+// window, moved onto this development machine's second display (an
+// AirPlay-mirrored TV - Johannes's own second-monitor setup, see project
+// memory) before BkEditorStart, reported SDL_GetDisplayForWindow one display
+// lower right after SetMode returned. Publishing the window's own display as
+// GFX.Monitor.Index first - the same global a profile's GFX.Monitor setting
+// would set - keeps SelectedDisplay on the display the caller actually
+// opened the window on.
+void KeepWindowOnItsOwnDisplay( void *pWindow )
+{
+	const SDL_DisplayID windowDisplay = SDL_GetDisplayForWindow( static_cast<SDL_Window*>( pWindow ) );
+	if ( windowDisplay == 0 )
+		return;
+	int nCount = 0;
+	SDL_DisplayID *pDisplays = SDL_GetDisplays( &nCount );
+	if ( pDisplays == 0 )
+		return;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		if ( pDisplays[i] == windowDisplay )
+		{
+			SetGlobalVar( "GFX.Monitor.Index", i );
+			break;
+		}
+	}
+	SDL_free( pDisplays );
+}
+
 // The renderer's own start, separated so a machine without a device is told
 // apart from a machine where something else went wrong.
 BkEditorStatus StartRenderer( BkEditorSession *pSession, void *pWindow )
@@ -341,6 +372,7 @@ BkEditorStatus StartRenderer( BkEditorSession *pSession, void *pWindow )
 		pSession->szMessage = "the window has no size";
 		return BK_EDITOR_NO_DEVICE;
 	}
+	KeepWindowOnItsOwnDisplay( pWindow );
 	if ( !pGFX->SetMode( nWidth, nHeight, 32, -1, GFXFS_WINDOWED, 0 ) )
 	{
 		pSession->szMessage = "IGFX::SetMode failed";
@@ -1289,6 +1321,21 @@ BkEditorStatus BkEditorResize( BkEditorSession *pSession, int nWidth, int nHeigh
 			pSession->szMessage = NStr::Format( "%dx%d is not the window's size, %dx%d", nWidth, nHeight, nWindowWidth, nWindowHeight );
 			return BK_EDITOR_BAD_ARGUMENT;
 		}
+		// FollowWindowSize (below) resizes the renderer to the window's size
+		// in points, the same size BkEditorStart's own SetMode used (no
+		// SDL_WINDOW_HIGH_PIXEL_DENSITY - host.zig's own comment). A window
+		// whose backing pixel size differs from its point size - a high pixel
+		// density the editor does not scale for in M1 - would resize the
+		// renderer to fewer pixels than the window's surface actually has,
+		// so the refusal here is explicit rather than a silently blurry
+		// M1 editor.
+		int nPixelWidth = 0, nPixelHeight = 0;
+		SDL_GetWindowSizeInPixels( static_cast<SDL_Window*>( pSession->pWindow ), &nPixelWidth, &nPixelHeight );
+		if ( nPixelWidth != nWindowWidth || nPixelHeight != nWindowHeight )
+		{
+			pSession->szMessage = "the window has a high pixel density, which the editor does not support in M1";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
 		// Not SetMode: that picks the profile's display and re-centres, clamps
 		// and re-shows the window on it, and keeps a requested size the window
 		// was clamped away from.
@@ -1360,9 +1407,21 @@ BkEditorStatus BkEditorCaptureFrame( BkEditorSession *pSession, const char *pszP
 		const RECT rcScreen = pGFX->GetScreenRect();
 		const int nWidth = rcScreen.right - rcScreen.left, nHeight = rcScreen.bottom - rcScreen.top;
 		CPtr<IImage> pImage = pImages->CreateImage( nWidth, nHeight );
+		// The read-back failure path left the capture armed, so a caller that
+		// tried once and gave up left every later frame paying the capture's
+		// cost for a request nobody would ever read (T-03-13-02). Disarmed
+		// here the same way the DrawSessionFrame failure above already is.
+		// IGFX has no accessor for GraphicsEngineGpu's own fail() message
+		// (adding one would mean a new virtual method on every IGFX backend,
+		// not a bridge-local change): pImage == 0 (allocation) and a false
+		// ReadCapturedFrame (readback) get their own distinct message instead
+		// of one line silently covering both.
 		if ( pImage == 0 || !pGFX->ReadCapturedFrame( pImage ) )
 		{
-			pSession->szMessage = "the renderer would not read the presented frame back";
+			pGFX->CaptureNextFrame( false );
+			pSession->szMessage = pImage == 0
+				? "the frame's image could not be allocated"
+				: "the renderer would not read the presented frame back";
 			return BK_EDITOR_REFUSED;
 		}
 		return WriteFrame( pSession, pszPath, pImage->GetLFB(), nWidth, nHeight ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;

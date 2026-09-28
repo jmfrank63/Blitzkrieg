@@ -1068,6 +1068,14 @@ void CaptureEngineRegion( const STerrainInfo &rEngine, const CTRect<int> &rPatch
 // GetTerrainType answers for it (RandomMapGen/TerrainBuilder.cpp), so every
 // cell is checked against the tileset the engine loaded for the map before
 // anything is painted.
+//
+// Cost: cells x terrain types x tiles per paint, a linear scan with no index
+// from a tile number back to its terrain type. A brush (a handful of cells,
+// checked once per stroke) is fine; a large fill painting thousands of cells
+// against a tileset with many terrain types would want a tile-number-to-type
+// lookup built once from rTileset instead of this triple loop repeated per
+// cell (plan 5 Task 3 carried; no fill tool exists yet, so no behaviour
+// change here).
 bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile )
 {
 	*pbBadTile = false;

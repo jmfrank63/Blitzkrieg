@@ -230,9 +230,10 @@ BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsig
    no map is open. */
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *out, int capacity, int *out_count );
 
-/* A world point (world units, not map units) to the tile it falls in - the brush's other half, through the
-   engine's own conversion. Screen to world is BkEditorScreenToWorld; the two
-   compose. BK_EDITOR_REFUSED means the point is not on the map. */
+/* A world point (world units, not map units) to the tile it falls in - the
+   brush's other half, through the engine's own conversion. Screen to world
+   is BkEditorScreenToWorld; the two compose. BK_EDITOR_REFUSED means the
+   point is not on the map. */
 BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy, int *out_x, int *out_y );
 
 /* Compares the engine's terrain against the copy that will be saved, and names
