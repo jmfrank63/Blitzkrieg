@@ -545,16 +545,42 @@ pub const View = struct {
         self.camera_y = camera.y;
     }
 
-    /// Per frame: keyboard and edge scrolling, then the camera. Keys only
-    /// scroll when ImGui does not want the keyboard; edge-scrolling reads
-    /// the mouse directly (SDL_GetMouseState), so it still works while the
-    /// view itself never saw a motion event this frame - but only while our
-    /// own window has mouse focus and ImGui does not want the mouse, or the
-    /// cursor sitting over another window, or a panel's edge, would scroll
-    /// the map underneath it.
-    pub fn update(self: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, dt_seconds: f32) void {
-        var dir: view_math.Scroll = .{};
+    /// Per frame: the stale-gesture guard, then keyboard and edge scrolling,
+    /// then the camera. Keys only scroll when ImGui does not want the
+    /// keyboard; edge-scrolling reads the mouse directly (SDL_GetMouseState),
+    /// so it still works while the view itself never saw a motion event this
+    /// frame - but only while our own window has mouse focus and ImGui does
+    /// not want the mouse, or the cursor sitting over another window, or a
+    /// panel's edge, would scroll the map underneath it.
+    pub fn update(self: *View, editor: *Editor, real: *RealBridge, window: *sdl3.c.SDL_Window, dt_seconds: f32) void {
+        // One SDL_GetMouseState call for both the stale-gesture guard below
+        // (needs the button mask, read every frame regardless of focus or
+        // ImGui capture) and edge-scrolling further down (needs the position,
+        // gated on focus/capture) - the position is simply unused when that
+        // gate does not hold.
+        var mouse_x: f32 = -1;
+        var mouse_y: f32 = -1;
+        const buttons = sdl3.c.SDL_GetMouseState(&mouse_x, &mouse_y);
         const capture = captureFlags();
+        // Task 2 (carried from plan 5): a pan or a left-button tool gesture
+        // whose release ImGui or another window took, rather than the view
+        // itself, would otherwise never end - the view's own press/release
+        // handlers are the only place panning/left_button_down used to clear.
+        const stale = view_math.staleGesture(buttons, self.panning, self.left_button_down);
+        if (stale.end_pan) self.panning = false;
+        if (stale.end_left) {
+            const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+            self.dispatch(editor, .{ .release = pointer });
+            self.left_button_down = false;
+        }
+        // Stale hover over a panel: the hovered tile and the brush outline
+        // (drawOverlay checks captureFlags().mouse itself) must disappear
+        // while ImGui has the mouse and no gesture the view started is still
+        // open - a gesture in progress keeps its last hover so its own
+        // release still resolves correctly.
+        if (capture.mouse and !self.hasActiveMouseGesture()) self.hover = null;
+
+        var dir: view_math.Scroll = .{};
         if (!capture.keyboard) {
             var count: c_int = 0;
             if (sdl3.c.SDL_GetKeyboardState(&count)) |keys| {
@@ -565,9 +591,6 @@ pub const View = struct {
             }
         }
         if (!capture.mouse and sdl3.c.SDL_GetMouseFocus() == window) {
-            var mouse_x: f32 = -1;
-            var mouse_y: f32 = -1;
-            _ = sdl3.c.SDL_GetMouseState(&mouse_x, &mouse_y);
             if (real.screenSize()) |size| {
                 const width: f32 = @floatFromInt(size[0]);
                 const height: f32 = @floatFromInt(size[1]);

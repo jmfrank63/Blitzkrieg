@@ -322,10 +322,18 @@ test "a wheel pan clamps at the map's edge" {
     try std.testing.expectEqual(@as(f32, 0), camera.y);
 }
 
-/// SDL_BUTTON_LEFT/SDL_BUTTON_RIGHT (SDL_mouse.h): fixed by SDL's own ABI,
-/// so naming them here does not need the sdl3 module.
+/// SDL_BUTTON_LEFT/SDL_BUTTON_MIDDLE/SDL_BUTTON_RIGHT (SDL_mouse.h): fixed by
+/// SDL's own ABI, so naming them here does not need the sdl3 module.
 pub const sdl_button_left: u8 = 1;
+pub const sdl_button_middle: u8 = 2;
 pub const sdl_button_right: u8 = 3;
+
+/// SDL_BUTTON_MASK(X) (SDL_mouse.h): `1u << (X - 1)`, as SDL_GetMouseState's
+/// return value and SDL_MouseMotionEvent.state report it - SDL_BUTTON_LMASK
+/// and SDL_BUTTON_MMASK, named here for the same ABI reason as the button
+/// numbers above.
+pub const sdl_button_lmask: u32 = 1 << (sdl_button_left - 1);
+pub const sdl_button_mmask: u32 = 1 << (sdl_button_middle - 1);
 
 /// The two ends of a mouse-button press, as SDL_MouseButtonEvent reports
 /// them (view.zig hands over event.button and event.down, not the whole
@@ -340,6 +348,44 @@ pub const EventKind = enum { press, release };
 pub fn kindOf(event: ButtonEvent) ?EventKind {
     if (event.button != sdl_button_left) return null;
     return if (event.down) .press else .release;
+}
+
+/// A pan or a left-button tool gesture whose button `view.zig`'s own press
+/// and release handlers never saw let go: a release ImGui or another window
+/// took (Task 2, carried from plan 5: "a middle-button release ImGui takes
+/// can leave panning stuck" / "view.zig's gesture handling relies on
+/// main.zig's router filtering, with no guard of its own"). Read every frame
+/// from `SDL_GetMouseState`'s own button mask, which reports the buttons
+/// actually down right now regardless of which window - if any - got the
+/// release event.
+pub const StaleGesture = struct { end_pan: bool = false, end_left: bool = false };
+
+pub fn staleGesture(buttons_down_mask: u32, panning: bool, left_down: bool) StaleGesture {
+    return .{
+        .end_pan = panning and buttons_down_mask & sdl_button_mmask == 0,
+        .end_left = left_down and buttons_down_mask & sdl_button_lmask == 0,
+    };
+}
+
+test "staleGesture: panning ends once the middle button is no longer down, not before" {
+    try std.testing.expect(staleGesture(0, true, false).end_pan);
+    try std.testing.expect(!staleGesture(sdl_button_mmask, true, false).end_pan);
+    try std.testing.expect(!staleGesture(0, false, false).end_pan);
+}
+
+test "staleGesture: a left gesture ends once the left button is no longer down, not before" {
+    try std.testing.expect(staleGesture(0, false, true).end_left);
+    try std.testing.expect(!staleGesture(sdl_button_lmask, false, true).end_left);
+    try std.testing.expect(!staleGesture(0, false, false).end_left);
+}
+
+test "staleGesture: both can end in the same frame, and the other button's own state never saves one" {
+    const both = staleGesture(0, true, true);
+    try std.testing.expect(both.end_pan);
+    try std.testing.expect(both.end_left);
+    const left_only = staleGesture(sdl_button_mmask, true, true);
+    try std.testing.expect(!left_only.end_pan);
+    try std.testing.expect(left_only.end_left);
 }
 
 test "scroll speed: edge and keys add up, and clamp at the map" {

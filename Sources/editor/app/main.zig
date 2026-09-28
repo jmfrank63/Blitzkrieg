@@ -331,7 +331,7 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         const ticks = sdl3.c.SDL_GetTicks();
         const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
         last_ticks = ticks;
-        view.update(real, host.window, dt_seconds);
+        view.update(editor, real, host.window, dt_seconds);
 
         host.beginFrame();
         panels.draw(state);

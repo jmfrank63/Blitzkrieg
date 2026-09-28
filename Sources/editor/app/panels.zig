@@ -195,6 +195,20 @@ pub const State = struct {
     unknown_objects_total: usize = 0,
     unknown_popup_shown: bool = false,
 
+    /// The panels' own current column widths (Task 2, carried from plan 5):
+    /// `layout.left_width`/`right_width` until a panel's live width is read
+    /// back after its own `igBegin` - kept here, not just passed through, so
+    /// a viewport-size change can re-place a column at its new edge with
+    /// `ImGuiCond_Always` without also resetting a width the user dragged.
+    left_width: f32 = layout.left_width,
+    right_width: f32 = layout.right_width,
+    /// The main viewport's size as of the last frame's `draw` - a change is
+    /// how `draw` notices a resize happened at all (ImGuiCond_FirstUseEver
+    /// only ever applies once per window, ever, so re-passing the same
+    /// condition after the first frame is a no-op: this is what let the
+    /// carried "right-hand panels do not follow a resize" bug happen).
+    last_viewport_size: ig.ImVec2 = .{ .x = 0, .y = 0 },
+
     /// The open map's own sound list (CMapInfo::sounds.sounds through
     /// RealBridge.sounds - see bridge.h's own comment on why not
     /// CMapInfo::soundsList), for the Sounds panel. Read again whenever a map
@@ -418,16 +432,26 @@ pub fn draw(state: *State) void {
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_F5, false) and !ig.igGetIO().*.WantTextInput) requestTestLaunch(state);
     const viewport = ig.igGetMainViewport();
     const size = viewport.*.Size;
+    // Task 2, carried from plan 5: ImGuiCond_FirstUseEver only ever applies
+    // the first time a window is drawn, so a plain resize's own
+    // igSetNextWindowPos/Size calls below were no-ops after that - the
+    // right-hand panels stayed wherever they first landed. Always for the one
+    // frame the viewport itself changes size re-applies pos and height;
+    // size.x is handed back exactly as `beginPanel` last read it
+    // (state.left_width/right_width), so a width the user dragged survives.
+    const resized = size.x != state.last_viewport_size.x or size.y != state.last_viewport_size.y;
+    state.last_viewport_size = size;
+    const cond: ig.ImGuiCond = if (resized) ig.ImGuiCond_Always else ig.ImGuiCond_FirstUseEver;
     const status_height = ig.igGetFrameHeightWithSpacing() + 4;
     const body_top = menu_height;
     const body_height = @max(size.y - menu_height - status_height, 100);
 
-    drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = layout.left_width, .y = layout.tools_height });
-    drawObjectPalette(state, .{ .x = 0, .y = body_top + layout.tools_height }, .{ .x = layout.left_width, .y = @max(body_height - layout.tools_height, 100) });
-    const right_x = @max(size.x - layout.right_width, layout.left_width);
-    drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = layout.right_width, .y = layout.properties_height });
-    drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = layout.right_width, .y = layout.players_height });
-    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = layout.right_width, .y = @max(body_height - layout.properties_height - layout.players_height, 100) });
+    drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = state.left_width, .y = layout.tools_height }, cond);
+    drawObjectPalette(state, .{ .x = 0, .y = body_top + layout.tools_height }, .{ .x = state.left_width, .y = @max(body_height - layout.tools_height, 100) }, cond);
+    const right_x = @max(size.x - state.right_width, state.left_width);
+    drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
+    drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);
+    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height, 100) }, cond);
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
@@ -1242,11 +1266,23 @@ fn performModSwitch(state: *State, folder: []const u8) void {
 /// Every panel's widgets leave room for their labels to the right.
 const label_room: f32 = 110;
 
-fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2) bool {
-    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
-    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+/// `cond` is `ImGuiCond_FirstUseEver` on an ordinary frame (a no-op once the
+/// window has been drawn once - Dear ImGui's own behavior) or
+/// `ImGuiCond_Always` for the one frame after the viewport itself resized
+/// (Task 2, carried from plan 5: the right-hand panels used to stay wherever
+/// `FirstUseEver` first put them, since a plain resize never re-applied).
+/// `track_width`, when given, is written back with the window's own live
+/// width right after `igBegin` - the caller's column keeps whatever width the
+/// user last dragged it to, even on an `Always` frame, because `size.x` was
+/// itself read back from here the frame before.
+fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond, track_width: ?*f32) bool {
+    ig.igSetNextWindowPos(pos, cond);
+    ig.igSetNextWindowSize(size, cond);
     const open = ig.igBegin(name, null, ig.ImGuiWindowFlags_NoCollapse);
-    if (open) ig.igPushItemWidth(-label_room);
+    if (open) {
+        ig.igPushItemWidth(-label_room);
+        if (track_width) |w| w.* = ig.igGetWindowWidth();
+    }
     return open;
 }
 
@@ -1260,8 +1296,8 @@ fn text(slice: []const u8) void {
     ig.igTextUnformattedEx(slice.ptr, slice.ptr + slice.len);
 }
 
-fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
-    const open = beginPanel("Tools", pos, size);
+fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = beginPanel("Tools", pos, size, cond, &state.left_width);
     defer endPanel(open);
     if (!open) return;
     const view = state.view;
@@ -1294,8 +1330,8 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     if (ig.igSliderInt("radius", &radius, 0, 4)) view.brush.radius = radius;
 }
 
-fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
-    const open = beginPanel("Objects", pos, size);
+fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = beginPanel("Objects", pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
     _ = ig.igInputTextWithHint("##filter", "filter", &state.filter, state.filter.len + 1, 0);
@@ -1404,8 +1440,8 @@ fn drawPlaceholderLabel(draw_list: *ig.ImDrawList, top_left: ig.ImVec2, name: []
     ig.ImDrawList_AddTextImFontPtrEx(draw_list, ig.igGetFont(), ig.igGetFontSize(), text_pos, ig.igGetColorU32(ig.ImGuiCol_Text), name.ptr, name.ptr + name.len, wrap_width, null);
 }
 
-fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
-    const open = beginPanel("Properties", pos, size);
+fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = beginPanel("Properties", pos, size, cond, &state.right_width);
     defer endPanel(open);
     if (!open) return;
     const editor = state.editor;
@@ -1493,8 +1529,8 @@ fn labelled(label: []const u8, value: []const u8) void {
     text(value);
 }
 
-fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
-    const open = beginPanel("Players", pos, size);
+fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = beginPanel("Players", pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
     const editor = state.editor;
@@ -1536,8 +1572,8 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 /// radii; a selected row's fields below the list, committed on deactivation
 /// as one `editor.editSound` (`drawProperties`' own pattern) - and "Add at
 /// view centre"/"Delete". View markers are `View.drawOverlay`'s (view.zig).
-fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
-    const open = beginPanel("Sounds", pos, size);
+fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = beginPanel("Sounds", pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
     const editor = state.editor;
