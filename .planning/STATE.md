@@ -1,9 +1,9 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-09-28T05:05:37.039Z"
-state_head: 975bffee9f84256701d5cf572ce05ded81cf8dde
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-09-28T06:12:22.801Z"
+state_head: 78b9729acade71124515f0e491777cc51ce6f5d5
 progress:
   total_phases: 2
   completed_phases: 0
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T05:05:37.039Z
-**Stopped at:** Completed 03-04-PLAN.md
+**Last session:** 2026-09-28T06:12:22.754Z
+**Stopped at:** Completed 03-05-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -74,6 +74,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P02 | 55min | 2 tasks | 10 files |
 | Phase 03-map-editor-plan-6-finish-m1 P03 | 23min | 2 tasks | 10 files |
 | Phase 03-map-editor-plan-6-finish-m1 P04 | ~25min | 2 tasks | 4 files |
+| Phase 03-map-editor-plan-6-finish-m1 P05 | ~58min | 3 tasks | 11 files |
 
 ## Decisions
 
@@ -85,3 +86,5 @@ behavior needs the in-game rows).
 - [Phase ?]: Both shipped map formats (.bzm and .xml) round-tripped through the new read-back check with no float-rounding mismatch on this host - the spec's idempotent .xml fallback exists in the test but was never exercised
 - [Phase ?]: UnsavedPrompt (D-23) is a pure state machine that never touches the bridge or filesystem itself - the caller makes the actual save and reports the outcome back through saveFinished, so its own tests need no fake bridge
 - [Phase ?]: isShippedMap (D-18) treats a relative document path as already under base_root rather than resolving it against a cwd, matching how the smoke's own map argument and every real Open of a shipped map actually arrive
+- [Phase ?]: BkEditorWorldToScreen uses z=0, not the terrain's real height, because GetPos3's real-terrain ray-cast never resolves in this bridge's headless session (measured: always falls back to its own z=0-plane path) - using real height would not round-trip with ScreenToWorld and would draw the brush outline off the ground a click actually resolves against
+- [Phase ?]: CTerrain::GetTileIndex rounds to the nearest tile rather than flooring a bucket, and measures Y from the terrain's far edge, not world_y 0 - confirmed by the engine tier rather than assumed, since view.zig's brush-outline corners depend on the exact relationship
