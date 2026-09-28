@@ -20,6 +20,7 @@ const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
 const testlaunch = @import("testlaunch.zig");
+const pictures_mod = @import("pictures.zig");
 
 const ig = imgui.c;
 const Editor = core.editor.Editor;
@@ -165,6 +166,11 @@ pub const State = struct {
     order: []u32 = &.{},
     filter: [64:0]u8 = [_:0]u8{0} ** 64,
 
+    /// D-29: each palette object's own picture, decoded by the engine on
+    /// demand and cached per session - cleared on a mod switch
+    /// (reloadCatalogue), released here in deinit.
+    pictures: pictures_mod.Pictures = undefined,
+
     /// The tiles the open map's tileset has, for the brush's palette.
     /// A count, not a slice: State is returned by value from `init`, and a
     /// slice into its own buffer would point into the copy that was left.
@@ -197,7 +203,7 @@ pub const State = struct {
     /// mod chosen on the command line (main.zig's `-mod=`), already applied
     /// to the bridge session before this call - `init` only records it.
     pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ, mod_folder: ?[]const u8) State {
-        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ };
+        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator) };
         state.setModFolder(mod_folder);
         if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
         state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
@@ -206,6 +212,7 @@ pub const State = struct {
     }
 
     pub fn deinit(self: *State) void {
+        self.pictures.deinit();
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.* = undefined;
@@ -1172,6 +1179,13 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
             if (!logic.matchesFilter(name, filter)) continue;
             ig.igPushIDInt(@intCast(index));
             defer ig.igPopID();
+            // D-29: a picture per object, decoded by the engine on demand -
+            // requested only for an open group's rows, drawn from whatever
+            // pump already has for it (a same-size placeholder while it is
+            // still queued or has none).
+            state.pictures.request(name);
+            drawPaletteRowPicture(state, name);
+            ig.igSameLine();
             const selected = state.view.tool == .place and std.mem.eql(u8, name, placing);
             if (ig.igSelectableEx(&entry.name, selected, 0, .{ .x = 0, .y = 0 })) {
                 state.view.setPlacerObject(name);
@@ -1179,6 +1193,30 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
             }
         }
     }
+    // Once per frame regardless of which groups are open, so a budget of
+    // decodes/uploads still drains while nothing new is being requested.
+    if (state.real.gpuDevice()) |device| state.pictures.pump(state.real, device, 8);
+}
+
+/// One palette row's picture cell: 48x48 with the aspect kept for a ready
+/// texture, or a same-size empty placeholder while it is pending or has none
+/// (never a per-type symbol, D-29 - a name with no picture looks the same as
+/// one still queued, until Task 3's neutral frame tells them apart).
+const palette_picture_size: f32 = 48;
+fn drawPaletteRowPicture(state: *State, name: []const u8) void {
+    switch (state.pictures.lookup(name)) {
+        .ready => |ready| {
+            const w: f32 = @floatFromInt(ready.width);
+            const h: f32 = @floatFromInt(ready.height);
+            const scale = @min(palette_picture_size / w, palette_picture_size / h);
+            ig.igImage(pictureTextureRef(ready.texture), .{ .x = w * scale, .y = h * scale });
+        },
+        .pending, .missing => ig.igDummy(.{ .x = palette_picture_size, .y = palette_picture_size }),
+    }
+}
+
+fn pictureTextureRef(texture: *sdl3.c.SDL_GPUTexture) ig.ImTextureRef {
+    return .{ ._TexData = null, ._TexID = @intCast(@intFromPtr(texture)) };
 }
 
 fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {

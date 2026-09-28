@@ -66,6 +66,36 @@ static void MakeDirectory( const char *pszPath )
 #endif
 }
 
+// A visual sample of a decoded picture (D-29): RGBA8, top row first - the
+// same layout BkEditorObjectPicture writes - as an uncompressed 32-bit TGA,
+// swapped to the BGRA row order the format wants (the bridge's own WriteFrame
+// does the same swap for a captured frame). For a human to look at, not for
+// the pass/fail checks above it.
+static bool WriteRgbaTga( const char *pszPath, const unsigned char *pRgba, int nWidth, int nHeight )
+{
+	FILE *pFile = fopen( pszPath, "wb" );
+	if ( pFile == 0 )
+		return false;
+	const unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	                                   (unsigned char)( nWidth & 0xff ), (unsigned char)( nWidth >> 8 ),
+	                                   (unsigned char)( nHeight & 0xff ), (unsigned char)( nHeight >> 8 ), 32, 0x28 };
+	bool bWritten = fwrite( header, 1, sizeof header, pFile ) == sizeof header;
+	std::vector<unsigned char> row( size_t( nWidth ) * 4 );
+	for ( int y = 0; y < nHeight && bWritten; ++y )
+	{
+		for ( int x = 0; x < nWidth; ++x )
+		{
+			const unsigned char *pPixel = pRgba + ( size_t( y ) * nWidth + x ) * 4;
+			row[x * 4 + 0] = pPixel[2];
+			row[x * 4 + 1] = pPixel[1];
+			row[x * 4 + 2] = pPixel[0];
+			row[x * 4 + 3] = pPixel[3];
+		}
+		bWritten = fwrite( &row[0], 1, row.size(), pFile ) == row.size();
+	}
+	return fclose( pFile ) == 0 && bWritten;
+}
+
 static int g_nFailures = 0;
 
 static bool Check( bool bCondition, const char *pszWhat )
@@ -2166,6 +2196,99 @@ static void TestEveryGameTypeAnswers( BkEditorSession *pSession, int nScreenWidt
 	       ( std::string( "after every game type was asked for: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 }
 
+// D-29: BkEditorObjectPicture over every placeable catalogue entry (every
+// game type but the sound list, 100, and the tank pit, 5 - the same
+// placeable rule TestEveryGameTypeAnswers' own catalogue loop follows, and
+// panels_logic.isPlaceable's Zig-side equivalent) - the coverage measurement
+// the plan's checkpoint decision is made from.
+static void TestObjectPictures( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	std::vector<unsigned char> buffer( 256 * 256 * 4 );
+	int nPlaceable = 0, nWithPicture = 0;
+	std::map<int, int> missingByType;
+	std::string szFirstWithPicture;
+	bool bCheckedFirstUnit = false;
+	double fTotalSeconds = 0.0;
+
+	for ( int i = 0; i < nRead; ++i )
+	{
+		// 5: tank pit, 100: sound - neither is a map object (WhyNotAMapObject,
+		// session.cpp), so neither is ever offered a picture in the palette.
+		if ( catalogue[i].game_type == 5 || catalogue[i].game_type == 100 )
+			continue;
+		++nPlaceable;
+		int nWidth = 0, nHeight = 0;
+		const Uint64 nStart = SDL_GetPerformanceCounter();
+		const BkEditorStatus status = BkEditorObjectPicture( pSession, catalogue[i].name, &buffer[0], int( buffer.size() ), 64, &nWidth, &nHeight );
+		const Uint64 nEnd = SDL_GetPerformanceCounter();
+		fTotalSeconds += double( nEnd - nStart ) / double( SDL_GetPerformanceFrequency() );
+		if ( status == BK_EDITOR_OK )
+		{
+			++nWithPicture;
+			if ( szFirstWithPicture.empty() )
+			{
+				szFirstWithPicture = catalogue[i].name;
+				// One sample, for a human to look at rather than trust the
+				// checks below alone (03-09's checkpoint asks for it).
+				const std::string szSample = szScratch + "/03-09-sample-picture.tga";
+				const bool bSampleWritten = WriteRgbaTga( szSample.c_str(), &buffer[0], nWidth, nHeight );
+				printf( "editor-bridge: %s %s (%s, %dx%d)\n", bSampleWritten ? "saved" : "could not save", szSample.c_str(), catalogue[i].name, nWidth, nHeight );
+			}
+			// 1: SGVOGT_UNIT (Main/GameDB.h) - the first unit with a picture,
+			// checked for a sane decode rather than trusting the status alone.
+			if ( !bCheckedFirstUnit && catalogue[i].game_type == 1 )
+			{
+				bCheckedFirstUnit = true;
+				Check( nWidth >= 1 && nWidth <= 256 && nHeight >= 1 && nHeight <= 256,
+				       NStr::Format( "%s's picture is %dx%d, expected 1..256 on each side", catalogue[i].name, nWidth, nHeight ) );
+				bool bNonBlack = false;
+				for ( int p = 0; p < nWidth * nHeight && !bNonBlack; ++p )
+					if ( buffer[p * 4 + 0] != 0 || buffer[p * 4 + 1] != 0 || buffer[p * 4 + 2] != 0 )
+						bNonBlack = true;
+				Check( bNonBlack, NStr::Format( "%s's picture has at least one non-black pixel", catalogue[i].name ) );
+			}
+		}
+		else
+		{
+			Check( status == BK_EDITOR_REFUSED,
+			       NStr::Format( "%s with no picture is refused, got status %d: %s", catalogue[i].name, int( status ), BkEditorLastMessage( pSession ) ) );
+			++missingByType[catalogue[i].game_type];
+		}
+	}
+	printf( "editor-bridge: pictures: %d of %d placeable objects have one\n", nWithPicture, nPlaceable );
+	printf( "editor-bridge: pictures: %.3f ms per decode (%d decodes, %.3f s total)\n",
+	        nPlaceable != 0 ? fTotalSeconds * 1000.0 / nPlaceable : 0.0, nPlaceable, fTotalSeconds );
+	for ( std::map<int, int>::const_iterator it = missingByType.begin(); it != missingByType.end(); ++it )
+		printf( "editor-bridge: pictures: game type %d has %d without one\n", it->first, it->second );
+
+	int nUnknownWidth = 0, nUnknownHeight = 0;
+	Check( BkEditorObjectPicture( pSession, "NoSuchObjectAtAll", &buffer[0], int( buffer.size() ), 64, &nUnknownWidth, &nUnknownHeight ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an unknown name is a bad argument" );
+
+	if ( !szFirstWithPicture.empty() )
+	{
+		unsigned char smallBuffer[16];
+		int nShortWidth = 0, nShortHeight = 0;
+		const BkEditorStatus shortStatus = BkEditorObjectPicture( pSession, szFirstWithPicture.c_str(), smallBuffer, sizeof smallBuffer, 64, &nShortWidth, &nShortHeight );
+		Check( shortStatus == BK_EDITOR_REFUSED,
+		       NStr::Format( "a 16-byte buffer is refused for %s, got status %d", szFirstWithPicture.c_str(), int( shortStatus ) ) );
+		Check( nShortWidth > 0 && nShortHeight > 0, "a short buffer still reports the real sizes" );
+	}
+	else
+		printf( "editor-bridge: pictures: skipped the short-buffer check, no placeable object has a picture\n" );
+}
+
 // D-26: BkEditorMods lists the fixture mod (tools/zig/fixtures/editor_mod,
 // staged at <install>/mods/EditorTestMod for this tier only - never the
 // unlicensed AchtungPanzer2); BkEditorSetMod switches to it and back,
@@ -2417,6 +2540,7 @@ int main( int argc, char **argv )
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
+		TestObjectPictures( pSession, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestSharedLinkIDIsReadOnly( pSession, szScratch );

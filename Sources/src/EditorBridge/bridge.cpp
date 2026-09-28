@@ -841,6 +841,93 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *pSession, BkEditorCatalogueEn
 	} );
 }
 
+BkEditorStatus BkEditorObjectPicture( BkEditorSession *pSession, const char *pszName,
+                                      unsigned char *pOutRgba, int nCapacityBytes, int nMaxSide,
+                                      int *pnOutWidth, int *pnOutHeight )
+{
+	if ( pnOutWidth != 0 ) *pnOutWidth = 0;
+	if ( pnOutHeight != 0 ) *pnOutHeight = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || *pszName == 0 || pOutRgba == 0 || pnOutWidth == 0 || pnOutHeight == 0 ||
+		     nCapacityBytes < 0 || nMaxSide < 8 || nMaxSide > 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+		IDataStorage *pStorage = GetSingleton<IDataStorage>();
+		IImageProcessor *pImages = GetImageProcessor();
+		if ( pObjectsDB == 0 || pStorage == 0 || pImages == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pszName );
+		if ( pDesc == 0 )
+		{
+			pSession->szMessage = NStr::Format( "the object database does not know \"%s\"", pszName );
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		const std::string szIconPath = pDesc->szPath + "\\icon.tga";
+		CPtr<IDataStream> pStream = pStorage->OpenStream( szIconPath.c_str(), STREAM_ACCESS_READ );
+		CPtr<IImage> pImage = pStream != 0 ? pImages->LoadImage( pStream ) : 0;
+		if ( pImage == 0 )
+		{
+			pSession->szMessage = NStr::Format( "%s has no picture", pszName );
+			return BK_EDITOR_REFUSED;
+		}
+		int nWidth = pImage->GetSizeX(), nHeight = pImage->GetSizeY();
+		if ( nWidth <= 0 || nHeight <= 0 )
+		{
+			pSession->szMessage = NStr::Format( "%s's icon.tga decoded to an empty image", pszName );
+			return BK_EDITOR_FAILED;
+		}
+		// Only scaled down, and only when it does not already fit: the shipped
+		// icons are the MFC palette's own thumbnails and most are already small.
+		if ( nWidth > nMaxSide || nHeight > nMaxSide )
+		{
+			const float fScale = std::min( float( nMaxSide ) / float( nWidth ), float( nMaxSide ) / float( nHeight ) );
+			const int nScaledWidth = std::max( 1, int( float( nWidth ) * fScale + 0.5f ) );
+			const int nScaledHeight = std::max( 1, int( float( nHeight ) * fScale + 0.5f ) );
+			CPtr<IImage> pScaled = pImages->CreateScaleBySize( pImage, nScaledWidth, nScaledHeight, ISM_LANCZOS3 );
+			if ( pScaled == 0 )
+			{
+				pSession->szMessage = NStr::Format( "could not scale %s's picture", pszName );
+				return BK_EDITOR_FAILED;
+			}
+			pImage = pScaled;
+			nWidth = nScaledWidth;
+			nHeight = nScaledHeight;
+		}
+		// The real size, even if capacity turns out too short below: a caller
+		// sizing a buffer from a REFUSED answer needs it.
+		*pnOutWidth = nWidth;
+		*pnOutHeight = nHeight;
+		const int nNeeded = nWidth * nHeight * 4;
+		if ( nNeeded > nCapacityBytes )
+		{
+			pSession->szMessage = NStr::Format( "%s's picture needs %d bytes and room was given for %d", pszName, nNeeded, nCapacityBytes );
+			return BK_EDITOR_REFUSED;
+		}
+		// SColor's r/g/b/a accessors already name the right channel regardless
+		// of the union's in-memory byte order (WriteFrame's own b,g,r,a TGA row
+		// relies on the same accessors) - written out here as r,g,b,a because
+		// that is what an SDL_GPU R8G8B8A8_UNORM texture wants.
+		const SColor *pPixels = pImage->GetLFB();
+		for ( int i = 0; i < nWidth * nHeight; ++i )
+		{
+			pOutRgba[i * 4 + 0] = (unsigned char)pPixels[i].r;
+			pOutRgba[i * 4 + 1] = (unsigned char)pPixels[i].g;
+			pOutRgba[i * 4 + 2] = (unsigned char)pPixels[i].b;
+			pOutRgba[i * 4 + 3] = (unsigned char)pPixels[i].a;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorMods( BkEditorSession *pSession, BkEditorMod *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )

@@ -255,6 +255,27 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
 typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
+/* D-29: the palette's own picture for one object - the icon.tga in its
+   data-storage folder (<szPath>\icon.tga, opened through the data storage so
+   a mounted mod's own icon wins), the same file the MFC editor's palette
+   loaded (TabSimpleObjectsDialog.cpp:716-760), decoded with the engine's own
+   image processor and, only when larger, scaled down keeping the aspect to
+   fit within max_side pixels on each side (IImageProcessor::CreateScaleBySize,
+   ISM_LANCZOS3) - never upscaled past its own size. Written into out_rgba as
+   RGBA8, top row first, exactly *out_width * *out_height * 4 bytes.
+
+   BK_EDITOR_BAD_ARGUMENT for a null name or output, max_side outside 8..256,
+   or a name the object database does not know. BK_EDITOR_REFUSED naming the
+   object when its folder has no icon.tga - not every shipped object has one,
+   and this is the ordinary way of saying so, not a failure - or when
+   capacity_bytes is too small for the decoded picture: *out_width/*out_height
+   are still set to the real size (so a caller can size a buffer and ask
+   again) but nothing is written. BK_EDITOR_REFUSED too when the engine is not
+   started, with the sizes left at 0. */
+BkEditorStatus BkEditorObjectPicture( BkEditorSession *session, const char *name,
+                                      unsigned char *out_rgba, int capacity_bytes, int max_side,
+                                      int *out_width, int *out_height );
+
 /* A mod as BkEditorMods lists it, or BkEditorActiveMod reports it: folder is
    the directory name under <BaseRoot>mods, exactly as it is on disk (never
    lower-cased - BkEditorSetMod keeps it as given, the same way

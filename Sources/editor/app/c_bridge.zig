@@ -28,6 +28,15 @@ fn status(value: c.BkEditorStatus) Status {
     return std.enums.fromInt(Status, value) orelse .failed;
 }
 
+/// One object's decoded picture (D-29): `bytes` is RGBA8, top row first,
+/// `width * height * 4` of it - a slice of the caller's own buffer, valid
+/// only as long as that buffer is.
+pub const Picture = struct {
+    width: i32,
+    height: i32,
+    bytes: []const u8,
+};
+
 pub const RealBridge = struct {
     session: *c.BkEditorSession,
     message: [512]u8 = undefined,
@@ -265,6 +274,27 @@ pub const RealBridge = struct {
         return entries;
     }
 
+    /// D-29: one object's own picture (its icon.tga, decoded and scaled by
+    /// the engine - BkEditorObjectPicture), for the palette. `buffer` must
+    /// hold at least `max_side * max_side * 4` bytes (the worst case, no
+    /// scaling below that); the returned `bytes` is only the decoded
+    /// width*height*4 prefix of it. Null on any refusal (no such picture,
+    /// an unknown name, or `buffer` too short for the real size) - the
+    /// caller has no use for a short-buffer retry here, unlike `catalogue`'s
+    /// two-call convention, because `max_side` already bounds the size.
+    pub fn objectPicture(self: *RealBridge, name: []const u8, buffer: []u8, max_side: i32) ?Picture {
+        var name_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const z = terminated(&name_buffer, name) orelse return null;
+        var width: c_int = 0;
+        var height: c_int = 0;
+        const capacity = std.math.cast(c_int, buffer.len) orelse return null;
+        if (c.BkEditorObjectPicture(self.session, z, buffer.ptr, capacity, max_side, &width, &height) != c.BK_EDITOR_OK) return null;
+        if (width <= 0 or height <= 0) return null;
+        const needed: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
+        if (needed > buffer.len) return null;
+        return .{ .width = width, .height = height, .bytes = buffer[0..needed] };
+    }
+
     /// The tiles the open map's tileset has, ascending, for the brush's
     /// palette: a tile is an unsigned char, so 256 always holds them all.
     /// Null when no map is open or the bridge would not say.
@@ -340,6 +370,16 @@ pub const RealBridge = struct {
         if (c.BkEditorActiveMod(self.session, &out) != c.BK_EDITOR_OK) return null;
         if (out.folder[0] == 0) return null;
         return out;
+    }
+
+    /// The engine's SDL_GPUDevice (BkEditorGpuDevice), for building the
+    /// palette's picture textures against the device that will draw them -
+    /// see pictures.zig. Null when the renderer has none.
+    pub fn gpuDevice(self: *RealBridge) ?*anyopaque {
+        var device: ?*anyopaque = null;
+        var format: c_uint = 0;
+        if (c.BkEditorGpuDevice(self.session, &device, &format) != c.BK_EDITOR_OK) return null;
+        return device;
     }
 
     /// The engine tier's two agreement checks, for tests.
