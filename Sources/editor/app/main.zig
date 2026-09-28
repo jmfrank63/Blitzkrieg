@@ -406,6 +406,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
         if (!script.reported) std.debug.print("map-editor: smoke FAIL: the loop ended at step {d} of {d}\n", .{ script.step + 1, smoke.script.len });
         return false;
     }
+    script.printNote();
     std.debug.print("map-editor: smoke PASS ({d} steps, {d} objects, saved and reopened {s})\n", .{ smoke.script.len, script.original_objects, output });
     return true;
 }

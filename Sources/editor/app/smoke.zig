@@ -325,6 +325,9 @@ pub const Script = struct {
     last_pointer: [2]f32 = .{ 0, 0 },
     observed: [observed_capacity]Observed = undefined,
     observed_total: usize = 0,
+    /// The OS's events that came once the settle frames were drawn, while
+    /// the script ran - `printNote` reports them on a PASS.
+    observed_during_script: usize = 0,
     pushed_mouse: usize = 0,
     polled_mouse: usize = 0,
     pointer_trail: [pointer_trail_capacity]PointerSample = undefined,
@@ -543,6 +546,7 @@ pub const Script = struct {
         }
         self.observed[self.observed_total % observed_capacity] = observed;
         self.observed_total += 1;
+        if (self.frame >= settle_frames) self.observed_during_script += 1;
     }
 
     /// After each frame of a step: ImGui's pointer, when it moved since the
@@ -824,13 +828,35 @@ pub const Script = struct {
             try w.print(" {d}:", .{sample.frame});
             try writePos(w, sample.x, sample.y);
         }
-        try w.print("; mouse events pushed {d} polled {d}; OS events ({d}):", .{ self.pushed_mouse, self.polled_mouse, self.observed_total });
+        try w.print("; mouse events pushed {d} polled {d}", .{ self.pushed_mouse, self.polled_mouse });
+        try self.writeObserved(w);
+    }
+
+    /// The OS's own events, the last `observed_capacity` of them, each with
+    /// the frame it was polled in (and a mouse event's position).
+    fn writeObserved(self: *const Script, w: *std.Io.Writer) std.Io.Writer.Error!void {
+        try w.print("; OS events ({d}):", .{self.observed_total});
         const kept = @min(self.observed_total, observed_capacity);
         for (0..kept) |n| {
             const event = self.observed[(self.observed_total - kept + n) % observed_capacity];
             if (eventName(event.type)) |name| try w.print(" {s}@{d}", .{ name, event.frame }) else try w.print(" 0x{x}@{d}", .{ event.type, event.frame });
             if (isMouseEvent(event.type)) try w.print("({d:.0},{d:.0})", .{ event.x, event.y });
         }
+    }
+
+    /// On a PASS: says so when the OS reached the window while the script
+    /// ran. The window is not really hidden (GFXGPU's SetMode shows it), so
+    /// a focus change or the real pointer can land on it mid-step - silent
+    /// when nothing did, a warning of a race the steps only won this time
+    /// when something did.
+    pub fn printNote(self: *const Script) void {
+        if (self.observed_during_script == 0) return;
+        var text_buffer: [1024]u8 = undefined;
+        var writer: std.Io.Writer = .fixed(&text_buffer);
+        const window = sdl.SDL_GetWindowFromID(self.window_id);
+        writer.print("{d} OS event(s) reached the window while the script ran (from frame {d}); SDL keyboard focus {s}, mouse focus {s}", .{ self.observed_during_script, settle_frames, focusName(sdl.SDL_GetKeyboardFocus(), window), focusName(sdl.SDL_GetMouseFocus(), window) }) catch {};
+        self.writeObserved(&writer) catch {};
+        std.debug.print("map-editor: smoke note: {s}\n", .{writer.buffered()});
     }
 
     fn fail(self: *Script, comptime format: []const u8, args: anytype) bool {
