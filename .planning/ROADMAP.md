@@ -294,6 +294,50 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 4 to break down)
 
+### Phase 5: Map editor M3: random map templates, minimap tools, full parity
+
+**Goal:** Map Editor M3 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: random map templates and generation from the editor, minimap tools, and every remaining feature of the MFC map editor (`Sources/src/MapEditor`) so the portable editor reaches full parity. When parity is shown by a feature-by-feature checklist against the MFC editor, delete the MFC map editor from the tree.
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 5 to break down)
+
+### Phase 6: Resource Editor: portable port of editor.exe
+
+**Goal:** Port the MFC resource editor (`Sources/src/editor`, `editor.exe`, about 64,000 lines, more than 20 sub-editors: units, weapons, buildings, objects, effects, bridges, fences, entrenchments, particles, animations and the rest) to the portable editor stack (Zig app + Dear ImGui + C bridge to the engine) on macOS and Windows, with its own design spec, undo, safe save, output the game reads unchanged, and CI tiers like the map editor. Every sub-editor is ported; the MFC resource editor is deleted when parity is shown.
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 6 to break down)
+
+### Phase 7: ELK: portable localisation kit
+
+**Goal:** Port ELK, the Blitzkrieg localisation kit (`Sources/src/ELK`, about 12,000 lines: text database, import from game/PAK/XLS, export, translation editing with filters, statistics, spell check, fonts), to the portable stack on macOS and Windows with its own design spec; its output must be read by the game unchanged. Delete the MFC ELK when parity is shown.
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 7 to break down)
+
+### Phase 8: Small tools: portable converters and checkers
+
+**Goal:** Port or replace the remaining Windows-only tools (`ExcelExporter`, `FontGen`, `bzmconvertor`, `imagedefrag`, `WhereIS`, `spcomp`, `OffsetRomb`, `betakeygen` and the rest found by an inventory) with portable command-line tools built by `zig build` on macOS and Windows, each with tests; decide per tool (port, replace with an existing path, or drop with a written reason). Remove the shipped Windows binaries from `Sources/Tools` that are replaced.
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 8 to break down)
+
 ## Backlog
 
 ### Phase 999.1: Random map generation: fast polygon fill (BACKLOG)
