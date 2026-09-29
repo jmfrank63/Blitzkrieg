@@ -6104,9 +6104,21 @@ fn addMapEditor(
         "17:do=camera_clear:neutral",
         "18:expect=anchor_unset:neutral",
         "19:expect=undo_depth:3",
-        b.fmt("20:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "21:shot=m2_anchor",
-        "22:exit",
+        // 04-03 Task 3: the gestures and keys reach Select, which ignores them
+        // (a tool that takes no right button or double click is not even
+        // handed them), so nothing new is recorded. `text=` has no focused
+        // field to reach here; it only proves the event is pushed and drawn
+        // past without a failure.
+        "20:tool=select",
+        "21:rclick=c0x0",
+        "22:dblclick=c10x10",
+        "23:key=INSERT",
+        "24:key=ESCAPE",
+        "25:text=Area1",
+        "27:expect=undo_depth:3",
+        b.fmt("28:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "29:shot=m2_anchor",
+        "30:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

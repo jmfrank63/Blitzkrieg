@@ -28,6 +28,7 @@ const panels_logic = @import("panels_logic.zig");
 const imgui = @import("editor_imgui");
 const auto_mod = @import("auto.zig");
 const commands = @import("commands.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const sdl = sdl3.c;
 const c = c_bridge.c;
@@ -1588,10 +1589,17 @@ pub const AutoRunner = struct {
         std.debug.print("map-editor: BK_EDITOR_AUTO: frame {d} action {s}\n", .{ self.frame, item.text });
         switch (item.action) {
             .key => |key| return self.runKey(key),
-            .press => |point| return self.runPress(point),
-            .drag => |point| return self.runDrag(point),
-            .release => |point| return self.runRelease(point),
-            .click => |point| return self.runClick(point),
+            .press => |point| return self.runPress(point, .left),
+            .drag => |point| return self.runDrag(point, .left),
+            .release => |point| return self.runRelease(point, .left),
+            .click => |point| return self.runClick(point, .left),
+            .rpress => |point| return self.runPress(point, .right),
+            .rdrag => |point| return self.runDrag(point, .right),
+            .rrelease => |point| return self.runRelease(point, .right),
+            .rclick => |point| return self.runClick(point, .right),
+            .dblclick => |point| return self.runDoubleClick(point),
+            .tool => |label| return self.runTool(label),
+            .text => |typed| return self.runText(typed),
             .wheel => |wheel| return self.runWheel(wheel),
             .open => |path| {
                 self.state.actions.requestOpenPath(path);
@@ -1650,25 +1658,57 @@ pub const AutoRunner = struct {
         return self.pushKey(mapped, mod, true) and self.pushKey(mapped, mod, false);
     }
 
-    fn runPress(self: *AutoRunner, point: auto_mod.Point) bool {
+    fn runPress(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
-        return self.pushMotion(p, false) and self.pushButton(p, true);
+        return self.pushMotion(p, 0) and self.pushButton(p, true, button, 1);
     }
 
-    fn runDrag(self: *AutoRunner, point: auto_mod.Point) bool {
-        return self.pushMotion(self.screen(point), true);
+    fn runDrag(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
+        return self.pushMotion(self.screen(point), button.mask());
     }
 
-    fn runRelease(self: *AutoRunner, point: auto_mod.Point) bool {
+    fn runRelease(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
-        return self.pushMotion(p, true) and self.pushButton(p, false);
+        return self.pushMotion(p, button.mask()) and self.pushButton(p, false, button, 1);
     }
 
     /// Presses and releases at the point in one action - there is no
     /// in-between frame for a drag to happen, unlike press/drag*/release.
-    fn runClick(self: *AutoRunner, point: auto_mod.Point) bool {
+    fn runClick(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
-        return self.pushMotion(p, false) and self.pushButton(p, true) and self.pushButton(p, false);
+        return self.pushMotion(p, 0) and self.pushButton(p, true, button, 1) and self.pushButton(p, false, button, 1);
+    }
+
+    /// SDL's own order (Pitfall 13): a down/up pair with clicks 1, then a
+    /// down/up pair with clicks 2, at the same point.
+    fn runDoubleClick(self: *AutoRunner, point: auto_mod.Point) bool {
+        const p = self.screen(point);
+        return self.pushMotion(p, 0) and
+            self.pushButton(p, true, .left, 1) and self.pushButton(p, false, .left, 1) and
+            self.pushButton(p, true, .left, 2) and self.pushButton(p, false, .left, 2);
+    }
+
+    /// `tool=<label>`: through the view's own switching path (the same one a
+    /// digit key and the palette take), so an open gesture ends first.
+    fn runTool(self: *AutoRunner, label: []const u8) bool {
+        const id = tool_registry.byLabel(label) orelse return self.fail("tool={s}: no such tool", .{label});
+        self.view.selectTool(self.editor, id);
+        return true;
+    }
+
+    /// `text=<text>`: one SDL text-input event, which ImGui's backend feeds to
+    /// whichever field has the keyboard focus (nothing happens when none has).
+    /// SDL copies the text of a pushed text event, so a local buffer is enough.
+    fn runText(self: *AutoRunner, typed: []const u8) bool {
+        var buffer: [auto_mod.max_arg_len + 1:0]u8 = undefined;
+        const len = @min(typed.len, auto_mod.max_arg_len);
+        @memcpy(buffer[0..len], typed[0..len]);
+        buffer[len] = 0;
+        var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
+        event.text.type = sdl.SDL_EVENT_TEXT_INPUT;
+        event.text.windowID = self.window_id;
+        event.text.text = &buffer;
+        return self.push(&event);
     }
 
     fn runWheel(self: *AutoRunner, wheel: auto_mod.Wheel) bool {
@@ -1802,26 +1842,47 @@ pub const AutoRunner = struct {
         return self.fail("SDL_PushEvent: {s}", .{sdl.SDL_GetError()});
     }
 
-    fn pushMotion(self: *AutoRunner, point: [2]f32, left_held: bool) bool {
+    /// The mouse buttons the schedule drives.
+    const Button = enum {
+        left,
+        right,
+
+        fn sdlButton(self: Button) u8 {
+            return switch (self) {
+                .left => sdl.SDL_BUTTON_LEFT,
+                .right => sdl.SDL_BUTTON_RIGHT,
+            };
+        }
+
+        /// The held-buttons mask a motion event of a drag carries.
+        fn mask(self: Button) u32 {
+            return switch (self) {
+                .left => sdl.SDL_BUTTON_LMASK,
+                .right => sdl.SDL_BUTTON_RMASK,
+            };
+        }
+    };
+
+    fn pushMotion(self: *AutoRunner, point: [2]f32, held_mask: u32) bool {
         self.last_point = point;
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.motion.type = sdl.SDL_EVENT_MOUSE_MOTION;
         event.motion.windowID = self.window_id;
         event.motion.which = smoke_mouse_id;
-        event.motion.state = if (left_held) sdl.SDL_BUTTON_LMASK else 0;
+        event.motion.state = held_mask;
         event.motion.x = point[0];
         event.motion.y = point[1];
         return self.push(&event);
     }
 
-    fn pushButton(self: *AutoRunner, point: [2]f32, down: bool) bool {
+    fn pushButton(self: *AutoRunner, point: [2]f32, down: bool, button: Button, clicks: u8) bool {
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.button.type = if (down) sdl.SDL_EVENT_MOUSE_BUTTON_DOWN else sdl.SDL_EVENT_MOUSE_BUTTON_UP;
         event.button.windowID = self.window_id;
         event.button.which = smoke_mouse_id;
-        event.button.button = sdl.SDL_BUTTON_LEFT;
+        event.button.button = button.sdlButton();
         event.button.down = down;
-        event.button.clicks = 1;
+        event.button.clicks = clicks;
         event.button.x = point[0];
         event.button.y = point[1];
         return self.push(&event);
@@ -1897,6 +1958,7 @@ fn keyFromName(name: []const u8) ?NamedKey {
         .{ .name = "DELETE", .key = .{ .key = sdl.SDLK_DELETE, .scancode = sdl.SDL_SCANCODE_DELETE } },
         .{ .name = "BACKSPACE", .key = .{ .key = sdl.SDLK_BACKSPACE, .scancode = sdl.SDL_SCANCODE_BACKSPACE } },
         .{ .name = "HOME", .key = .{ .key = sdl.SDLK_HOME, .scancode = sdl.SDL_SCANCODE_HOME } },
+        .{ .name = "INSERT", .key = .{ .key = sdl.SDLK_INSERT, .scancode = sdl.SDL_SCANCODE_INSERT } },
         .{ .name = "END", .key = .{ .key = sdl.SDLK_END, .scancode = sdl.SDL_SCANCODE_END } },
         .{ .name = "ESCAPE", .key = .{ .key = sdl.SDLK_ESCAPE, .scancode = sdl.SDL_SCANCODE_ESCAPE } },
         .{ .name = "ESC", .key = .{ .key = sdl.SDLK_ESCAPE, .scancode = sdl.SDL_SCANCODE_ESCAPE } },
