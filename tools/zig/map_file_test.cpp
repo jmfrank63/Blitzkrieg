@@ -1367,6 +1367,331 @@ static void TestM2RecordOps()
 	printf( "map-file: M2 record ops ok (%d cases)\n", g_nM2Cases );
 }
 
+// ---------------------------------------------------------------------------
+// D-04 at the map-file tier: what names an object is found correctly, and a
+// delete edits those records the way the MFC editor does, with an exact undo.
+// ---------------------------------------------------------------------------
+
+// Up to nWanted objects of the file with a link ID of their own (nonzero, held
+// by one object) whose delete the overlay does not refuse, in file order.
+static std::vector<int> FindUsableLinkIDs( const SLoadMapInfo &rMap, size_t nWanted )
+{
+	std::map<int, int> counts;
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		++counts[rMap.objects[i].link.nLinkID];
+	for ( size_t i = 0; i < rMap.scenarioObjects.size(); ++i )
+		++counts[rMap.scenarioObjects[i].link.nLinkID];
+	std::vector<int> found;
+	for ( size_t i = 0; i < rMap.objects.size() && found.size() < nWanted; ++i )
+	{
+		const int nLinkID = rMap.objects[i].link.nLinkID;
+		if ( nLinkID == 0 || counts[nLinkID] != 1 )
+			continue;
+		SLoadMapInfo copy = rMap;
+		std::string szRefusal;
+		if ( NMapOverlay::DeleteObject( &copy, nLinkID, &szRefusal ) )
+			found.push_back( nLinkID );
+	}
+	return found;
+}
+
+// A script ID no object of the map carries.
+static int FreeScriptID( const SLoadMapInfo &rMap )
+{
+	int nMax = 0;
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		nMax = Max( nMax, rMap.objects[i].nScriptID );
+	for ( size_t i = 0; i < rMap.scenarioObjects.size(); ++i )
+		nMax = Max( nMax, rMap.scenarioObjects[i].nScriptID );
+	return nMax + 1;
+}
+
+static bool HasReference( const std::vector<std::string> &rReferences, const char *pszPrefix )
+{
+	for ( size_t i = 0; i < rReferences.size(); ++i )
+		if ( rReferences[i].compare( 0, strlen( pszPrefix ), pszPrefix ) == 0 )
+			return true;
+	return false;
+}
+
+static SAIStartCommand MakeStartCommand( int nUnitA, int nUnitB, int nTarget )
+{
+	SAIStartCommand command;
+	if ( nUnitA >= 0 )
+		command.unitLinkIDs.push_back( nUnitA );
+	if ( nUnitB >= 0 )
+		command.unitLinkIDs.push_back( nUnitB );
+	command.linkID = nTarget;
+	return command;
+}
+
+static bool PutMobileScriptID( SLoadMapInfo *pMap, int nScriptID )
+{
+	NMapRecords::SAIGeneralSidePut put;
+	NMapRecords::GetAIGeneralSide( *pMap, 0, &put );
+	put.nSideCount = Max( put.nSideCount, 1 );
+	put.nSide = 0;
+	put.info.mobileScriptIDs.push_back( nScriptID );
+	return NMapRecords::PutAIGeneralSide( pMap, put );
+}
+
+static void TestM2FindReferences()
+{
+	const char *pszCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo map;
+	if ( !ReadFresh( pszCold, &map ) )
+		return;
+	const std::vector<int> ids = FindUsableLinkIDs( map, 6 );
+	if ( !Check( ids.size() == 6, "coldwinter has six objects to refer to" ) )
+		return;
+	const int nA = ids[0], nB = ids[1], nC = ids[2], nD = ids[3], nE = ids[4], nF = ids[5];
+	const int nScript = FreeScriptID( map );
+
+	// A: a script ID a reinforcement group and the AI general's mobile
+	// reinforcements hold.
+	Check( NMapRecords::SetObjectScriptID( &map, nA, nScript ), "A takes a script ID" );
+	const int nGroup = NMapRecords::FirstFreeGroupID( map, 5 );
+	std::vector<int> groupIDs( 1, nScript );
+	Check( NMapRecords::PutReinforcementGroup( &map, nGroup, groupIDs ), "the group holds A's script ID" );
+	Check( PutMobileScriptID( &map, nScript ), "side 0's mobile reinforcements hold it too" );
+	// F: the old bug. A group's ids are script IDs; this one holds a number that
+	// equals F's LINK ID, and F's script ID is something else.
+	Check( ObjectByLinkID( map, nF )->nScriptID != nF, "F's script ID differs from its link ID" );
+	const int nGroupOfF = NMapRecords::FirstFreeGroupID( map, nGroup + 1 );
+	std::vector<int> groupOfF( 1, nF );
+	Check( NMapRecords::PutReinforcementGroup( &map, nGroupOfF, groupOfF ), "a group holds a number equal to F's link ID" );
+	// B: a start command's unit and another's target.
+	NMapRecords::InsertStartCommand( &map, -1, MakeStartCommand( nB, -1, 0 ) );
+	NMapRecords::InsertStartCommand( &map, -1, MakeStartCommand( nA, -1, nB ) );
+	// C: a trench piece. D and E: a reserve position's artillery and truck.
+	SEntrenchmentInfo trench;
+	trench.sections.push_back( SEntrenchmentInfo::TSegment( 1, nC ) );
+	NMapRecords::InsertEntrenchment( &map, -1, trench );
+	NMapRecords::InsertReservePosition( &map, -1, SBattlePosition( nD, 0, CVec2( 100.0f, 100.0f ) ) );
+	NMapRecords::InsertReservePosition( &map, -1, SBattlePosition( 0, nE, CVec2( 120.0f, 100.0f ) ) );
+	// Link ID 0 everywhere a record uses it for "none".
+	NMapRecords::InsertStartCommand( &map, -1, MakeStartCommand( 0, -1, 0 ) );
+
+	std::vector<std::string> refs;
+	NMapOverlay::FindReferences( map, nA, &refs );
+	Check( HasReference( refs, "reinforcement group" ) && HasReference( refs, "AI general side" ), "a group and the AI general are found by the script ID" );
+	Check( HasReference( refs, "start command" ), "A is found as a unit of a start command" );
+	NMapOverlay::FindReferences( map, nB, &refs );
+	Check( HasReference( refs, "start command" ) && refs.size() == 2, "B is found as a unit and as a target, in both commands" );
+	NMapOverlay::FindReferences( map, nC, &refs );
+	Check( HasReference( refs, "entrenchment" ), "C is found as a trench piece" );
+	NMapOverlay::FindReferences( map, nD, &refs );
+	Check( HasReference( refs, "reserve position" ), "D is found as reserve artillery" );
+	NMapOverlay::FindReferences( map, nE, &refs );
+	Check( HasReference( refs, "reserve position" ), "E is found as a reserve truck" );
+	NMapOverlay::FindReferences( map, nF, &refs );
+	Check( refs.empty(), "F is not found by a group holding a number equal to its link ID" );
+	NMapOverlay::FindReferences( map, 0, &refs );
+	Check( refs.empty(), "link ID 0 finds nothing, though records list it" );
+	printf( "map-file: M2 find references ok\n" );
+}
+
+typedef std::function<void( const SLoadMapInfo&, const NMapOverlay::SDeletedObject& )> TCascadeVerify;
+
+// One cascade rule: the delete written, read back and compared, its restore
+// byte-exact (RunM2Case), and then the rule itself on one more fresh read.
+static void RunCascadeCase( const char *pszName, int nTarget, const TMapOp &setup, const TCascadeVerify &verify )
+{
+	const char *pszCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	NMapOverlay::SDeletedObject deleted;
+	RunM2Case( pszCold, pszName, setup,
+	           [&]( SLoadMapInfo *p ) { std::string szRefusal; return NMapOverlay::DeleteObject( p, nTarget, &szRefusal, &deleted ); },
+	           [&]( SLoadMapInfo *p ) { return NMapOverlay::RestoreObject( p, deleted ); } );
+	CMapInfo map;
+	if ( !ReadFresh( pszCold, &map ) )
+		return;
+	ApplyOp( setup, &map );
+	NMapOverlay::SDeletedObject once;
+	std::string szRefusal;
+	if ( Check( NMapOverlay::DeleteObject( &map, nTarget, &szRefusal, &once ), ( std::string( "cascade case \"" ) + pszName + "\" deletes: " + szRefusal ).c_str() ) )
+		verify( map, once );
+}
+
+static void RunCascadeRefusal( const char *pszName, int nTarget, const char *pszWhy, const TMapOp &setup )
+{
+	const char *pszCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	RunM2Refusal( pszCold, pszName, setup, [&]( SLoadMapInfo *p ) { std::string szRefusal; return NMapOverlay::DeleteObject( p, nTarget, &szRefusal ); } );
+	CMapInfo map;
+	if ( !ReadFresh( pszCold, &map ) )
+		return;
+	ApplyOp( setup, &map );
+	std::string szRefusal;
+	NMapOverlay::DeleteObject( &map, nTarget, &szRefusal );
+	Check( szRefusal.find( pszWhy ) != std::string::npos, ( std::string( "refusal \"" ) + pszName + "\" says \"" + pszWhy + "\", not \"" + szRefusal + "\"" ).c_str() );
+}
+
+static void TestM2CascadeKinds()
+{
+	const char *pszCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo probe;
+	if ( !ReadFresh( pszCold, &probe ) )
+		return;
+	const std::vector<int> ids = FindUsableLinkIDs( probe, 2 );
+	if ( !Check( ids.size() == 2, "coldwinter has two objects for the cascade cases" ) )
+		return;
+	const int nU = ids[0], nV = ids[1];
+	const size_t nCommands = probe.startCommandsList.size(), nReserves = probe.reservePositionsList.size();
+	const int nScript = FreeScriptID( probe );
+	const size_t nGroups = probe.reinforcements.groups.size();
+
+	RunCascadeCase( "cascade: unit removed from a command", nU,
+	                [=]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nU, nV, 0 ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( m.startCommandsList.size() == nCommands + 1, "the command stays" );
+		                Check( m.startCommandsList.back().unitLinkIDs.size() == 1 && m.startCommandsList.back().unitLinkIDs[0] == nV, "and loses only the deleted unit" );
+		                Check( d.cascade.startCommands.size() == 1 && !d.cascade.startCommands[0].bErased, "the cascade records an edit, not an erase" );
+	                } );
+	RunCascadeCase( "cascade: empty command erased", nU,
+	                [=]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nU, -1, 0 ) ) &&
+	                                                NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nV, -1, 0 ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( m.startCommandsList.size() == nCommands + 1, "the command that named only the unit is gone" );
+		                Check( m.startCommandsList.back().unitLinkIDs.size() == 1 && m.startCommandsList.back().unitLinkIDs[0] == nV, "and the one after it is untouched" );
+		                Check( d.cascade.startCommands.size() == 1 && d.cascade.startCommands[0].bErased, "the cascade records an erase" );
+	                } );
+	RunCascadeCase( "cascade: target cleared to 0", nU,
+	                [=]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nV, -1, nU ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( m.startCommandsList.size() == nCommands + 1, "the command stays" );
+		                Check( m.startCommandsList.back().linkID == 0, "with target link ID 0, not a dangling link" );
+		                Check( m.startCommandsList.back().unitLinkIDs.size() == 1 && m.startCommandsList.back().unitLinkIDs[0] == nV, "and its units as they were" );
+		                Check( d.cascade.startCommands.size() == 1 && d.cascade.startCommands[0].bTargetCleared, "the cascade records the cleared target" );
+	                } );
+	RunCascadeCase( "cascade: a command with the unit as unit and target is erased", nU,
+	                [=]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nU, -1, nU ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject & )
+	                {
+		                Check( m.startCommandsList.size() == nCommands, "the command goes" );
+	                } );
+	RunCascadeCase( "cascade: reserve position erased as artillery", nU,
+	                [=]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, -1, SBattlePosition( nU, nV, CVec2( 100.0f, 100.0f ) ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( m.reservePositionsList.size() == nReserves, "the position that named it as artillery is gone" );
+		                Check( d.cascade.reservePositions.size() == 1, "and the cascade holds it" );
+	                } );
+	RunCascadeCase( "cascade: reserve position erased as truck", nU,
+	                [=]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, -1, SBattlePosition( nV, nU, CVec2( 100.0f, 100.0f ) ) ) &&
+	                                                NMapRecords::InsertReservePosition( p, -1, SBattlePosition( nV, nV, CVec2( 140.0f, 100.0f ) ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject & )
+	                {
+		                Check( m.reservePositionsList.size() == nReserves + 1, "the position that named it as truck is gone, the other stays" );
+		                Check( m.reservePositionsList.back().nArtilleryLinkID == nV && m.reservePositionsList.back().nTruckLinkID == nV, "untouched" );
+	                } );
+	// Reinforcement groups and mobileScriptIDs are never edited; the note says so.
+	const TMapOp scriptSetup = [=]( SLoadMapInfo *p )
+	{
+		std::vector<int> group( 1, nScript );
+		return NMapRecords::SetObjectScriptID( p, nU, nScript ) &&
+		       NMapRecords::PutReinforcementGroup( p, NMapRecords::FirstFreeGroupID( *p, 5 ), group ) &&
+		       PutMobileScriptID( p, nScript );
+	};
+	RunCascadeCase( "cascade: groups and mobile script IDs untouched, with a note", nU, scriptSetup,
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( m.reinforcements.groups.size() == nGroups + 1, "the group is still there" );
+		                Check( !m.aiGeneralMapInfo.sidesInfo.empty() && !m.aiGeneralMapInfo.sidesInfo[0].mobileScriptIDs.empty() &&
+		                       m.aiGeneralMapInfo.sidesInfo[0].mobileScriptIDs.back() == nScript, "and so is the mobile reinforcement" );
+		                Check( d.cascade.notes.size() == 2, "two notes: the group and the AI general" );
+		                std::string szLine;
+		                NMapOverlay::DescribeCascade( d.cascade, &szLine );
+		                char szNeedle[32];
+		                snprintf( szNeedle, sizeof szNeedle, "script ID %d", nScript );
+		                Check( szLine.find( szNeedle ) != std::string::npos, ( "the summary names the script ID: " + szLine ).c_str() );
+	                } );
+	RunCascadeCase( "cascade: no note while another object carries the script ID", nU,
+	                [=]( SLoadMapInfo *p ) { return scriptSetup( p ) && NMapRecords::SetObjectScriptID( p, nV, nScript ); },
+	                [=]( const SLoadMapInfo &, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( d.cascade.notes.empty(), "V still carries the script ID, so nothing is said" );
+	                } );
+	// Link ID 0 is no link ID: records that list it are not naming the object.
+	const TMapOp zeroSetup = [=]( SLoadMapInfo *p )
+	{
+		bool bHasZero = false;
+		for ( size_t i = 0; i < p->objects.size(); ++i )
+			bHasZero = bHasZero || p->objects[i].link.nLinkID == 0;
+		if ( !bHasZero )
+		{
+			NMapOverlay::SAddObject add;
+			add.szName = p->objects[0].szName;
+			add.nLinkID = 0;
+			if ( !NMapOverlay::AddObject( p, add, 0 ) )
+				return false;
+		}
+		return NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( 0, nV, 0 ) ) &&
+		       NMapRecords::InsertReservePosition( p, -1, SBattlePosition( 0, 0, CVec2( 100.0f, 100.0f ) ) );
+	};
+	// A real object's delete leaves a command's 0 alone: it removes U and nothing else.
+	RunCascadeCase( "cascade: link ID 0 in a command survives another unit's delete", nU,
+	                [=]( SLoadMapInfo *p ) { return zeroSetup( p ) && NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( 0, nU, 0 ) ); },
+	                [=]( const SLoadMapInfo &m, const NMapOverlay::SDeletedObject &d )
+	                {
+		                Check( m.startCommandsList.size() == nCommands + 2, "both commands stay" );
+		                Check( m.startCommandsList.back().unitLinkIDs.size() == 1 && m.startCommandsList.back().unitLinkIDs[0] == 0, "the command keeps its 0" );
+		                Check( d.cascade.startCommands.size() == 1 && d.cascade.reservePositions.empty(), "and only that command was edited" );
+	                } );
+	// Deleting an object whose link ID is 0 (the session never asks: it refuses a
+	// shared ID) is not a reference either: the records listing 0 stay as they are.
+	{
+		CMapInfo map;
+		if ( ReadFresh( pszCold, &map ) )
+		{
+			++g_nM2Cases;
+			zeroSetup( &map );
+			NMapOverlay::SDeletedObject once;
+			std::string szRefusal;
+			if ( Check( NMapOverlay::DeleteObject( &map, 0, &szRefusal, &once ), "an object with link ID 0 deletes" ) )
+			{
+				Check( map.startCommandsList.size() == nCommands + 1 && map.startCommandsList.back().unitLinkIDs.size() == 2, "the command listing 0 is untouched" );
+				Check( map.reservePositionsList.size() == nReserves + 1, "and so is the reserve position" );
+				Check( once.cascade.startCommands.empty() && once.cascade.reservePositions.empty() && once.cascade.notes.empty(), "the cascade is empty" );
+			}
+		}
+	}
+
+	// What is still refused: a bridge span, a trench piece, a vehicle holding a
+	// passenger. Each changes nothing and says why.
+	RunCascadeRefusal( "cascade refusal: bridge span", nU, "still referred to by bridge",
+	                   [=]( SLoadMapInfo *p ) { return NMapRecords::InsertBridgeEntry( p, -1, std::vector<int>( 1, nU ) ); } );
+	RunCascadeRefusal( "cascade refusal: trench piece", nU, "still part of entrenchment",
+	                   [=]( SLoadMapInfo *p )
+	                   {
+		                   SEntrenchmentInfo trench;
+		                   trench.sections.push_back( SEntrenchmentInfo::TSegment( 1, nU ) );
+		                   return NMapRecords::InsertEntrenchment( p, -1, trench );
+	                   } );
+	RunCascadeRefusal( "cascade refusal: vehicle with a passenger", nU, "still referred to by object",
+	                   [=]( SLoadMapInfo *p )
+	                   {
+		                   for ( size_t i = 0; i < p->objects.size(); ++i )
+			                   if ( p->objects[i].link.nLinkID == nV )
+			                   {
+				                   p->objects[i].link.nLinkWith = nU;
+				                   return true;
+			                   }
+		                   return false;
+	                   } );
+	// A start command naming a span does not lift the refusal, and the refused
+	// delete leaves the command alone.
+	RunCascadeRefusal( "cascade refusal: a span named by a start command too", nU, "still referred to by bridge",
+	                   [=]( SLoadMapInfo *p )
+	                   {
+		                   return NMapRecords::InsertBridgeEntry( p, -1, std::vector<int>( 1, nU ) ) &&
+		                          NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nU, nV, 0 ) );
+	                   } );
+	RemoveM2Files();
+	printf( "map-file: M2 cascade kinds ok\n" );
+}
+
 // Read a map, write it untouched, read it back: equivalent. Then write it a
 // second time and compare the two files byte for byte - the spec's idempotent
 // save. A map that survives both has not been quietly normalised. The bytes of
@@ -1469,6 +1794,8 @@ int main( int argc, char **argv )
 	TestPreprocessingChangesUnpaintedTiles();
 	TestCameraAnchorRecords();
 	TestM2RecordOps();
+	TestM2FindReferences();
+	TestM2CascadeKinds();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

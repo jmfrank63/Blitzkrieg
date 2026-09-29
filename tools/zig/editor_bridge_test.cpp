@@ -3824,6 +3824,8 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 	if ( !Check( NMapFile::Read( SHIPPED_MAP, &scratch, &szError ), szError.c_str() ) )
 		return;
 	const size_t nCommandsBefore = scratch.startCommandsList.size();
+	const size_t nReservesBefore = scratch.reservePositionsList.size();
+	const int nScriptID = 77;
 	{
 		SAIStartCommand a, b;
 		a.unitLinkIDs.push_back( nU );
@@ -3831,6 +3833,21 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 		b.unitLinkIDs.push_back( nV );
 		NMapRecords::InsertStartCommand( &scratch, -1, a );
 		NMapRecords::InsertStartCommand( &scratch, -1, b );
+	}
+	if ( bAllKinds )
+	{
+		// A reserve position holding U as artillery and V as truck, a command of
+		// V's with U as its target, and U's script ID held by a group.
+		for ( size_t i = 0; i < scratch.objects.size(); ++i )
+			if ( !Check( scratch.objects[i].nScriptID != nScriptID, "no object of coldwinter carries script ID 77 already" ) )
+				return;
+		SAIStartCommand c;
+		c.unitLinkIDs.push_back( nV );
+		c.linkID = nU;
+		Check( NMapRecords::InsertStartCommand( &scratch, -1, c ), "the target command is laid over the map" );
+		Check( NMapRecords::InsertReservePosition( &scratch, -1, SBattlePosition( nU, nV, CVec2( 100.0f, 100.0f ) ) ), "the reserve position is laid over the map" );
+		Check( NMapRecords::SetObjectScriptID( &scratch, nU, nScriptID ), "U takes script ID 77" );
+		Check( NMapRecords::PutReinforcementGroup( &scratch, NMapRecords::FirstFreeGroupID( scratch, 5 ), std::vector<int>( 1, nScriptID ) ), "a group holds it" );
 	}
 	if ( !Check( NMapFile::Write( szMap.c_str(), scratch, &szError ), szError.c_str() ) )
 		return;
@@ -3845,6 +3862,11 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 	const std::string szMessage = BkEditorLastMessage( pSession );
 	printf( "editor-bridge: cascade delete says: %s\n", szMessage.c_str() );
 	Check( szMessage.find( "start command" ) != std::string::npos, "the delete says what it changed in the start commands" );
+	if ( bAllKinds )
+	{
+		Check( szMessage.find( "reserve position" ) != std::string::npos, "and the reserve position it erased" );
+		Check( szMessage.find( "script ID 77" ) != std::string::npos, "and that script ID 77 is still named by a group" );
+	}
 	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the cascade delete: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 
 	// Saved, it is the map the same overlay call builds.
@@ -3853,7 +3875,8 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 		return;
 	std::string szRefusal;
 	Check( NMapOverlay::DeleteObject( &expected, nU, &szRefusal ), "the expected map takes the delete" );
-	Check( expected.startCommandsList.size() == nCommandsBefore + 1, "the expected map lost the command that named only U" );
+	Check( expected.startCommandsList.size() == nCommandsBefore + ( bAllKinds ? 2 : 1 ), "the expected map lost the command that named only U" );
+	Check( expected.reservePositionsList.size() == nReservesBefore, "and the reserve position" );
 	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 	{
 		CMapInfo saved;
@@ -3862,6 +3885,12 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 			std::string szWhere;
 			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
 			       szWhere.empty() ? "the saved map equals the expected map" : ( "the cascade save differs at " + szWhere ).c_str() );
+			Check( saved.reservePositionsList.size() == nReservesBefore, "the saved map holds no reserve position naming U" );
+			if ( bAllKinds )
+			{
+				Check( !saved.startCommandsList.empty() && saved.startCommandsList.back().linkID == 0, "the saved command's target is link ID 0" );
+				Check( saved.reinforcements.groups.size() == expected.reinforcements.groups.size(), "and the group is still saved" );
+			}
 		}
 	}
 
@@ -3873,8 +3902,7 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 	const char *const files[] = { szMap.c_str(), szUnedited.c_str(), szEdited.c_str(), szUndone.c_str() };
 	for ( size_t i = 0; i < sizeof files / sizeof files[0]; ++i )
 		remove( OsPath( files[i] ).c_str() );
-	printf( "editor-bridge: M2 cascade delete (start commands) ok\n" );
-	( void )bAllKinds;
+	printf( bAllKinds ? "editor-bridge: M2 cascade delete (all kinds) ok\n" : "editor-bridge: M2 cascade delete (start commands) ok\n" );
 }
 
 int main( int argc, char **argv )
@@ -4028,6 +4056,7 @@ int main( int argc, char **argv )
 		TestM2CameraAnchors( pSession, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );
+		TestM2CascadeDelete( pSession, szScratch, true );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
