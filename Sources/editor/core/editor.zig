@@ -13,6 +13,7 @@ const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const FakeBridge = fake_mod.FakeBridge;
+const FakeStartCommand = fake_mod.FakeStartCommand;
 const Document = document_mod.Document;
 pub const Pose = history_mod.Pose;
 const Command = history_mod.Command;
@@ -93,6 +94,19 @@ pub const Editor = struct {
         @memcpy(self.status_buffer[0..len], message[0..len]);
         self.status_len = len;
         return bridge_mod.check(status_code);
+    }
+
+    /// After a delete (or its redo) that answered ok: the bridge's summary of
+    /// what else the delete changed - start commands it left, a script ID a
+    /// group still names - goes into the status as a note. It is not an error;
+    /// the next command's outcome replaces it, so a later scripted save is not
+    /// judged failed by it.
+    fn noteCascade(self: *Editor) void {
+        const message = self.bridge.lastMessage();
+        if (message.len == 0) return;
+        const len = @min(message.len, self.status_buffer.len);
+        @memcpy(self.status_buffer[0..len], message[0..len]);
+        self.status_len = len;
     }
 
     /// Copies `prefix` then `message` into the status buffer, truncating
@@ -362,6 +376,7 @@ pub const Editor = struct {
         const index = self.document.indexOf(link_id) orelse return error.Failed;
         try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.deleteObject(link_id));
+        self.noteCascade();
         const object = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
         self.history.recordAssumeCapacity(self.allocator, .{ .delete = .{ .object = object, .index = index } }, 0);
@@ -622,6 +637,7 @@ pub const Editor = struct {
     fn removeFrom(self: *Editor, link_id: i32) EditError!void {
         const index = self.document.indexOf(link_id) orelse return error.Failed;
         try self.noteOutcome(self.bridge.deleteObject(link_id));
+        self.noteCascade();
         _ = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
     }
@@ -1005,6 +1021,37 @@ test "delete then undo restores the same object, player and link ID" {
     try std.testing.expectEqual(@as(usize, 0), editor.document.indexOf(1).?);
     try std.testing.expect(try editor.redo());
     try std.testing.expect(editor.document.find(1) == null);
+}
+
+test "deleting a unit named by a start command cascades and undo restores it" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixture(&.{1}, 0); // A: only unit 1, so the delete erases it
+    try fake.addStartCommandFixture(&.{ 1, 3 }, 0); // B: units 1 and 3, so the delete edits it
+    try fake.addStartCommandFixture(&.{3}, 0); // C: not naming unit 1, never touched
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.delete(1);
+    try std.testing.expect(editor.document.find(1) == null);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(usize, 2), fake.start_commands.items.len);
+    try std.testing.expectEqualSlices(i32, &.{3}, fake.start_commands.items[0].units[0..fake.start_commands.items[0].unit_count]);
+    try std.testing.expectEqualSlices(i32, &.{3}, fake.start_commands.items[1].units[0..fake.start_commands.items[1].unit_count]);
+    try std.testing.expectEqualStrings("also start command 0 erased; removed from start command 1", editor.status());
+    const after_delete = try std.testing.allocator.dupe(FakeStartCommand, fake.start_commands.items);
+    defer std.testing.allocator.free(after_delete);
+
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.document.find(1) != null);
+    try std.testing.expectEqual(@as(usize, 3), fake.start_commands.items.len);
+    try std.testing.expectEqualSlices(i32, &.{1}, fake.start_commands.items[0].units[0..fake.start_commands.items[0].unit_count]);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 3 }, fake.start_commands.items[1].units[0..fake.start_commands.items[1].unit_count]);
+    try std.testing.expectEqualSlices(i32, &.{3}, fake.start_commands.items[2].units[0..fake.start_commands.items[2].unit_count]);
+    try std.testing.expectEqual(@as(usize, 0), editor.status().len);
+
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqualSlices(FakeStartCommand, after_delete, fake.start_commands.items);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
 }
 
 test "a refused delete leaves the document and the history unchanged" {
