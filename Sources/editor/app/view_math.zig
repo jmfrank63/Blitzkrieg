@@ -413,61 +413,74 @@ pub const sdl_button_middle: u8 = 2;
 pub const sdl_button_right: u8 = 3;
 
 /// SDL_BUTTON_MASK(X) (SDL_mouse.h): `1u << (X - 1)`, as SDL_GetMouseState's
-/// return value and SDL_MouseMotionEvent.state report it - SDL_BUTTON_LMASK
-/// and SDL_BUTTON_MMASK, named here for the same ABI reason as the button
-/// numbers above.
+/// return value and SDL_MouseMotionEvent.state report it - SDL_BUTTON_LMASK,
+/// SDL_BUTTON_MMASK and SDL_BUTTON_RMASK, named here for the same ABI reason
+/// as the button numbers above.
 pub const sdl_button_lmask: u32 = 1 << (sdl_button_left - 1);
 pub const sdl_button_mmask: u32 = 1 << (sdl_button_middle - 1);
+pub const sdl_button_rmask: u32 = 1 << (sdl_button_right - 1);
 
 /// The two ends of a mouse-button press, as SDL_MouseButtonEvent reports
-/// them (view.zig hands over event.button and event.down, not the whole
-/// SDL_Event).
-pub const ButtonEvent = struct { button: u8, down: bool };
+/// them (view.zig hands over event.button's fields, not the whole SDL_Event).
+/// `clicks` is SDL's own click count: 1 for a single click, 2 for the second
+/// of a double click.
+pub const ButtonEvent = struct { button: u8, down: bool, clicks: u8 = 1 };
 
-pub const EventKind = enum { press, release };
+pub const EventKind = enum { press, release, right_press, right_release, double_click };
 
-/// Only the left button drives an edit; any other button is not a tool
-/// event at all (the middle button pans the camera in view.zig, and the
-/// right button does nothing yet).
+/// Which tool event a button event is, if any. The left button presses and
+/// releases; the right button does the same on its own; the middle button
+/// pans the camera in view.zig and is no tool event. SDL sends a double click
+/// as a press and release with `clicks == 1`, then another pair with `clicks
+/// == 2` (Pitfall 13): the second press is a `double_click` on top of the
+/// single click that already arrived, and the second release ends nothing (no
+/// press was opened for it).
 pub fn kindOf(event: ButtonEvent) ?EventKind {
-    if (event.button != sdl_button_left) return null;
-    return if (event.down) .press else .release;
+    switch (event.button) {
+        sdl_button_left => {
+            if (event.down) return if (event.clicks == 2) .double_click else .press;
+            return if (event.clicks == 2) null else .release;
+        },
+        sdl_button_right => return if (event.down) .right_press else .right_release,
+        else => return null,
+    }
 }
 
-/// A pan or a left-button tool gesture whose button `view.zig`'s own press
-/// and release handlers never saw let go: a release ImGui or another window
-/// took (Task 2, carried from plan 5: "a middle-button release ImGui takes
-/// can leave panning stuck" / "view.zig's gesture handling relies on
-/// main.zig's router filtering, with no guard of its own"). Read every frame
-/// from `SDL_GetMouseState`'s own button mask, which reports the buttons
-/// actually down right now regardless of which window - if any - got the
-/// release event.
-pub const StaleGesture = struct { end_pan: bool = false, end_left: bool = false };
+/// A pan or a tool gesture whose button `view.zig`'s own press and release
+/// handlers never saw let go: a release ImGui or another window took (Task 2,
+/// carried from plan 5: "a middle-button release ImGui takes can leave
+/// panning stuck" / "view.zig's gesture handling relies on main.zig's router
+/// filtering, with no guard of its own"). Read every frame from
+/// `SDL_GetMouseState`'s own button mask, which reports the buttons actually
+/// down right now regardless of which window - if any - got the release
+/// event. Each button ends only its own gesture.
+pub const StaleGesture = struct { end_pan: bool = false, end_left: bool = false, end_right: bool = false };
 
-pub fn staleGesture(buttons_down_mask: u32, panning: bool, left_down: bool) StaleGesture {
+pub fn staleGesture(buttons_down_mask: u32, panning: bool, left_down: bool, right_down: bool) StaleGesture {
     return .{
         .end_pan = panning and buttons_down_mask & sdl_button_mmask == 0,
         .end_left = left_down and buttons_down_mask & sdl_button_lmask == 0,
+        .end_right = right_down and buttons_down_mask & sdl_button_rmask == 0,
     };
 }
 
 test "staleGesture: panning ends once the middle button is no longer down, not before" {
-    try std.testing.expect(staleGesture(0, true, false).end_pan);
-    try std.testing.expect(!staleGesture(sdl_button_mmask, true, false).end_pan);
-    try std.testing.expect(!staleGesture(0, false, false).end_pan);
+    try std.testing.expect(staleGesture(0, true, false, false).end_pan);
+    try std.testing.expect(!staleGesture(sdl_button_mmask, true, false, false).end_pan);
+    try std.testing.expect(!staleGesture(0, false, false, false).end_pan);
 }
 
 test "staleGesture: a left gesture ends once the left button is no longer down, not before" {
-    try std.testing.expect(staleGesture(0, false, true).end_left);
-    try std.testing.expect(!staleGesture(sdl_button_lmask, false, true).end_left);
-    try std.testing.expect(!staleGesture(0, false, false).end_left);
+    try std.testing.expect(staleGesture(0, false, true, false).end_left);
+    try std.testing.expect(!staleGesture(sdl_button_lmask, false, true, false).end_left);
+    try std.testing.expect(!staleGesture(0, false, false, false).end_left);
 }
 
 test "staleGesture: both can end in the same frame, and the other button's own state never saves one" {
-    const both = staleGesture(0, true, true);
+    const both = staleGesture(0, true, true, false);
     try std.testing.expect(both.end_pan);
     try std.testing.expect(both.end_left);
-    const left_only = staleGesture(sdl_button_mmask, true, true);
+    const left_only = staleGesture(sdl_button_mmask, true, true, false);
     try std.testing.expect(!left_only.end_pan);
     try std.testing.expect(left_only.end_left);
 }
@@ -514,9 +527,37 @@ test "scroll follows the screen of the game's camera: 0.1 s of up is 141.42 worl
 const sdl_left_down: ButtonEvent = .{ .button = sdl_button_left, .down = true };
 const sdl_right_down: ButtonEvent = .{ .button = sdl_button_right, .down = true };
 
-test "a mouse button maps to a tool event, and only the left button edits" {
+test "a mouse button maps to a tool event: left and right edit, the middle button does not" {
     try std.testing.expectEqual(EventKind.press, kindOf(sdl_left_down).?);
-    try std.testing.expect(kindOf(sdl_right_down) == null);
+    try std.testing.expectEqual(EventKind.right_press, kindOf(sdl_right_down).?);
+    try std.testing.expectEqual(EventKind.right_release, kindOf(.{ .button = sdl_button_right, .down = false }).?);
+    try std.testing.expect(kindOf(.{ .button = sdl_button_middle, .down = true }) == null);
+    try std.testing.expect(kindOf(.{ .button = 4, .down = true }) == null);
+}
+
+test "kindOf: the second click of a double click is a double_click, its release ends nothing" {
+    try std.testing.expectEqual(EventKind.press, kindOf(.{ .button = sdl_button_left, .down = true, .clicks = 1 }).?);
+    try std.testing.expectEqual(EventKind.release, kindOf(.{ .button = sdl_button_left, .down = false, .clicks = 1 }).?);
+    try std.testing.expectEqual(EventKind.double_click, kindOf(.{ .button = sdl_button_left, .down = true, .clicks = 2 }).?);
+    try std.testing.expect(kindOf(.{ .button = sdl_button_left, .down = false, .clicks = 2 }) == null);
+    // A third click is an ordinary press again.
+    try std.testing.expectEqual(EventKind.press, kindOf(.{ .button = sdl_button_left, .down = true, .clicks = 3 }).?);
+    try std.testing.expectEqual(EventKind.release, kindOf(.{ .button = sdl_button_left, .down = false, .clicks = 3 }).?);
+    // The right button has no double click of its own.
+    try std.testing.expectEqual(EventKind.right_press, kindOf(.{ .button = sdl_button_right, .down = true, .clicks = 2 }).?);
+}
+
+test "staleGesture: a right gesture ends once the right button is no longer down, independently of left and middle" {
+    try std.testing.expect(staleGesture(0, false, false, true).end_right);
+    try std.testing.expect(!staleGesture(sdl_button_rmask, false, false, true).end_right);
+    try std.testing.expect(!staleGesture(0, false, false, false).end_right);
+    // Left and middle held do not keep a right gesture alive, and a right
+    // button held does not keep a left one.
+    try std.testing.expect(staleGesture(sdl_button_lmask | sdl_button_mmask, true, true, true).end_right);
+    const right_only = staleGesture(sdl_button_rmask, true, true, true);
+    try std.testing.expect(right_only.end_pan);
+    try std.testing.expect(right_only.end_left);
+    try std.testing.expect(!right_only.end_right);
 }
 
 test "scroll clamps at the far edge too" {

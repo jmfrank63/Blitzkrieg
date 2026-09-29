@@ -23,6 +23,7 @@ const logic = @import("panels_logic.zig");
 const testlaunch = @import("testlaunch.zig");
 const pictures_mod = @import("pictures.zig");
 const marker_logic = @import("marker_logic.zig");
+const tool_registry = @import("tool_registry.zig");
 const markers = @import("markers.zig");
 const commands = @import("commands.zig");
 const panels_m2 = @import("panels_m2.zig");
@@ -30,7 +31,6 @@ const panels_m2 = @import("panels_m2.zig");
 const ig = imgui.c;
 const Editor = core.editor.Editor;
 const View = view_mod.View;
-const Tool = view_mod.Tool;
 const RealBridge = c_bridge.RealBridge;
 const CatalogueEntry = c_bridge.c.BkEditorCatalogueEntry;
 const c = c_bridge.c;
@@ -1349,8 +1349,10 @@ fn drawMenuBar(state: *State) f32 {
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Tools")) {
-        inline for (.{ .{ "Select", "1", Tool.select }, .{ "Brush", "2", Tool.brush }, .{ "Place", "3", Tool.place } }) |item| {
-            if (ig.igMenuItemEx(item[0], item[1], state.view.tool == item[2], true)) state.view.selectTool(editor, item[2]);
+        for (&tool_registry.entries) |*item| {
+            var shortcut_buffer: [2:0]u8 = undefined;
+            const shortcut = tool_registry.shortcutText(item, &shortcut_buffer);
+            if (ig.igMenuItemEx(item.label, if (shortcut.len == 0) null else shortcut.ptr, state.view.tool == item.id, true)) state.view.selectTool(editor, item.id);
         }
         ig.igEndMenu();
     }
@@ -1611,12 +1613,12 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     defer endPanel(open);
     if (!open) return;
     const view = state.view;
-    inline for (.{ .{ "Select", Tool.select }, .{ "Brush", Tool.brush }, .{ "Place", Tool.place } }, 0..) |item, index| {
+    for (&tool_registry.entries, 0..) |*item, index| {
         if (index != 0) ig.igSameLine();
-        const active = view.tool == item[1];
+        const active = view.tool == item.id;
         // The active tool's button wears the pressed colour.
         if (active) ig.igPushStyleColorImVec4(ig.ImGuiCol_Button, ig.igGetStyleColorVec4(ig.ImGuiCol_ButtonActive).*);
-        if (ig.igButton(item[0])) view.selectTool(state.editor, item[1]);
+        if (ig.igButton(item.label)) view.selectTool(state.editor, item.id);
         if (active) ig.igPopStyleColor();
     }
     ig.igSeparatorText("Brush");

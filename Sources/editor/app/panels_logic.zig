@@ -2291,4 +2291,5 @@ test "parseAnchorSlot takes neutral and players below the record's capacity" {
 
 test {
     _ = @import("marker_logic.zig");
+    _ = @import("tool_registry.zig");
 }

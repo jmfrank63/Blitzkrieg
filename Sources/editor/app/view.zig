@@ -10,6 +10,7 @@ const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
 const view_math = @import("view_math.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const Editor = core.editor.Editor;
 const MapInfo = core.bridge.MapInfo;
@@ -18,7 +19,9 @@ const tools = core.tools;
 
 pub const world_cell_size = view_math.world_cell_size;
 
-pub const Tool = enum { select, brush, place };
+/// The active tool's id; what each tool takes as input (the right button,
+/// double click, Ctrl-as-right) and its shortcut are in tool_registry.zig.
+pub const Tool = tool_registry.ToolId;
 
 /// A map's camera and zoom, kept for the session only (D-15): not written
 /// anywhere, forgotten when the editor quits.
@@ -113,6 +116,11 @@ pub fn ViewWith(comptime Input: type) type {
         /// tool gesture, which keeps the view routing motion and the release
         /// even if the cursor strays over an ImGui panel mid-drag.
         left_button_down: bool = false,
+        /// The same for the right button - or for Ctrl+left, in a tool whose
+        /// registry entry has `ctrl_click_is_right` (`right_via_ctrl`): the
+        /// left button's own events then become right ones until its release.
+        right_button_down: bool = false,
+        right_via_ctrl: bool = false,
         placer_name_storage: [64]u8 = undefined,
         /// The view's part of the status bar (see `statusLine`).
         status: view_math.StatusSlot = .{},
@@ -151,7 +159,7 @@ pub fn ViewWith(comptime Input: type) type {
         /// reaching the view even if the cursor drifts over an ImGui panel
         /// before it ends.
         pub fn hasActiveMouseGesture(self: *const Self) bool {
-            return self.left_button_down or self.panning;
+            return self.left_button_down or self.right_button_down or self.panning;
         }
 
         /// `error.Refused` is not an error here: the editor's status line
@@ -254,6 +262,8 @@ pub fn ViewWith(comptime Input: type) type {
             self.hover = null;
             self.panning = false;
             self.left_button_down = false;
+            self.right_button_down = false;
+            self.right_via_ctrl = false;
             self.zoom_wheel = .{};
             self.pinch_zoom = .{};
             self.selector = .{};
@@ -290,13 +300,22 @@ pub fn ViewWith(comptime Input: type) type {
                         self.handleMiddleButton(editor, button);
                         return;
                     }
-                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down }) orelse return;
+                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down, .clicks = button.clicks }) orelse return;
+                    const spec = tool_registry.entry(self.tool);
                     switch (kind) {
                         .press => {
                             // A press that cannot resolve starts no gesture: the
                             // tool has nothing to press on.
                             const pointer = editor.resolve(button.x, button.y) catch return;
                             self.hover = pointer;
+                            // Ctrl+left is the right button in the tools that
+                            // ask for it (macOS trackpads have one button).
+                            if (spec.needs_right_button and spec.ctrl_click_is_right and Input.modState() & sdl3.c.SDL_KMOD_CTRL != 0) {
+                                self.right_button_down = true;
+                                self.right_via_ctrl = true;
+                                self.dispatch(editor, .{ .right_press = pointer });
+                                return;
+                            }
                             self.left_button_down = true;
                             self.dispatch(editor, .{ .press = pointer });
                         },
@@ -309,8 +328,36 @@ pub fn ViewWith(comptime Input: type) type {
                             // open for a later press to merge into.
                             const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
                             self.hover = pointer;
+                            if (self.right_via_ctrl) {
+                                self.right_button_down = false;
+                                self.right_via_ctrl = false;
+                                self.dispatch(editor, .{ .right_release = pointer });
+                                return;
+                            }
                             self.left_button_down = false;
                             self.dispatch(editor, .{ .release = pointer });
+                        },
+                        .right_press => {
+                            if (!spec.needs_right_button) return;
+                            const pointer = editor.resolve(button.x, button.y) catch return;
+                            self.hover = pointer;
+                            self.right_button_down = true;
+                            self.right_via_ctrl = false;
+                            self.dispatch(editor, .{ .right_press = pointer });
+                        },
+                        .right_release => {
+                            if (!self.right_button_down or self.right_via_ctrl) return;
+                            const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
+                            self.hover = pointer;
+                            self.right_button_down = false;
+                            self.dispatch(editor, .{ .right_release = pointer });
+                        },
+                        .double_click => {
+                            // After the single click's own press and release.
+                            if (!spec.needs_double_click) return;
+                            const pointer = editor.resolve(button.x, button.y) catch return;
+                            self.hover = pointer;
+                            self.dispatch(editor, .{ .double_click = pointer });
                         },
                     }
                 },
@@ -346,6 +393,13 @@ pub fn ViewWith(comptime Input: type) type {
                 return;
             };
             self.hover = pointer;
+            if (self.right_button_down) {
+                // A right gesture (its own button, or Ctrl+left) drags as a
+                // right one; the left button's motion is then the same gesture.
+                const held = if (self.right_via_ctrl) view_math.sdl_button_lmask else view_math.sdl_button_rmask;
+                if (motion.state & held != 0) self.dispatch(editor, .{ .right_drag = pointer });
+                return;
+            }
             if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, .{ .drag = pointer });
         }
 
@@ -419,15 +473,20 @@ pub fn ViewWith(comptime Input: type) type {
                 sdl3.c.SDLK_DELETE, sdl3.c.SDLK_BACKSPACE => self.dispatch(editor, .{ .key = .delete }),
                 sdl3.c.SDLK_Q => if (!key.repeat) self.dispatch(editor, .{ .key = .rotate_left }),
                 sdl3.c.SDLK_E => if (!key.repeat) self.dispatch(editor, .{ .key = .rotate_right }),
-                sdl3.c.SDLK_1 => if (!key.repeat) self.switchTool(editor, .select),
-                sdl3.c.SDLK_2 => if (!key.repeat) self.switchTool(editor, .brush),
-                sdl3.c.SDLK_3 => if (!key.repeat) self.switchTool(editor, .place),
+                sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER => if (!key.repeat) self.dispatch(editor, .{ .key = .enter }),
+                sdl3.c.SDLK_INSERT => if (!key.repeat) self.dispatch(editor, .{ .key = .insert }),
+                sdl3.c.SDLK_ESCAPE => if (!key.repeat) self.dispatch(editor, .{ .key = .escape }),
+                sdl3.c.SDLK_SPACE => if (!key.repeat) self.dispatch(editor, .{ .key = .space }),
                 sdl3.c.SDLK_Z => if (command_or_control) {
                     if (key.mod & sdl3.c.SDL_KMOD_SHIFT != 0) self.runUndoable(editor, .redo) else self.runUndoable(editor, .undo);
                 },
                 sdl3.c.SDLK_Y => if (command_or_control) self.runUndoable(editor, .redo),
                 sdl3.c.SDLK_HOME => self.resetView(real),
-                else => {},
+                // The registry's bare-digit shortcuts: 1, 2, 3 and the keys
+                // the M2 tools take (4-9).
+                else => if (!key.repeat) {
+                    if (tool_registry.byShortcut(key.key)) |id| self.switchTool(editor, id);
+                },
             }
         }
 
@@ -565,7 +624,7 @@ pub fn ViewWith(comptime Input: type) type {
             return true;
         }
 
-        /// Switches the active tool, ending an open left-button gesture on the
+        /// Switches the active tool, ending an open left- or right-button gesture on the
         /// old one first: without this, painting or dragging with the mouse
         /// still held while pressing 1/2/3 would leave the old tool's gesture
         /// open (`Brush.gesture`/`Selector.gesture` non-zero), and the next
@@ -575,6 +634,12 @@ pub fn ViewWith(comptime Input: type) type {
                 const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
                 self.dispatch(editor, .{ .release = pointer });
                 self.left_button_down = false;
+            }
+            if (self.right_button_down) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .right_release = pointer });
+                self.right_button_down = false;
+                self.right_via_ctrl = false;
             }
             self.tool = tool;
         }
@@ -644,12 +709,20 @@ pub fn ViewWith(comptime Input: type) type {
             // whose release ImGui or another window took, rather than the view
             // itself, would otherwise never end - the view's own press/release
             // handlers are the only place panning/left_button_down used to clear.
-            const stale = view_math.staleGesture(buttons, self.panning, self.left_button_down);
+            // Ctrl+left as the right button holds the LEFT mask.
+            const right_mask_held = buttons & (if (self.right_via_ctrl) view_math.sdl_button_lmask else view_math.sdl_button_rmask) != 0;
+            const stale = view_math.staleGesture(if (right_mask_held) buttons | view_math.sdl_button_rmask else buttons & ~view_math.sdl_button_rmask, self.panning, self.left_button_down, self.right_button_down);
             if (stale.end_pan) self.panning = false;
             if (stale.end_left) {
                 const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
                 self.dispatch(editor, .{ .release = pointer });
                 self.left_button_down = false;
+            }
+            if (stale.end_right) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .right_release = pointer });
+                self.right_button_down = false;
+                self.right_via_ctrl = false;
             }
             // Stale hover over a panel: the hovered tile and the brush outline
             // (drawOverlay checks Input.capture().mouse itself) must disappear
@@ -1268,4 +1341,72 @@ test "view: centreOn puts the camera at the point, clamped to the map, and tells
     try testing.expect(rig.view.camera_y < 100000);
     try testing.expectEqual(rig.view.camera_x, rig.camera.anchor_x);
     try testing.expectEqual(rig.view.camera_y, rig.camera.anchor_y);
+}
+
+fn doubleClickDown(x: f32, y: f32) sdl3.c.SDL_Event {
+    var event = mouseButton(button_left, true, x, y);
+    event.button.clicks = 2;
+    return event;
+}
+
+test "view: the right button, a double click and the new keys reach no gesture in tools that do not ask for them" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    for ([_]Tool{ .select, .brush, .place }) |tool| {
+        rig.view.selectTool(&rig.editor, tool);
+        const depth = rig.editor.history.undo_stack.items.len;
+        rig.send(mouseButton(button_right, true, 40, 40));
+        try testing.expect(!rig.view.hasActiveMouseGesture());
+        rig.send(mouseMotion(60, 40, view_math.sdl_button_rmask));
+        rig.send(mouseButton(button_right, false, 60, 40));
+        rig.send(doubleClickDown(40, 40));
+        rig.send(mouseButton(button_left, false, 40, 40)); // clicks 1 here: a plain release
+        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_4, sdl3.c.SDLK_9 }) |key| {
+            rig.send(keyDown(key, 0, false));
+        }
+        try testing.expectEqual(depth, rig.editor.history.undo_stack.items.len);
+        try testing.expectEqual(tool, rig.view.tool);
+        try testing.expect(!rig.view.hasActiveMouseGesture());
+    }
+}
+
+test "view: Ctrl+left is only the right button in a tool that asks for it, so a select press is still a press" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    FakeInput.mod = sdl3.c.SDL_KMOD_CTRL;
+    rig.send(mouseButton(button_left, true, 40, 40));
+    // Select does not ask: the press is an ordinary left press.
+    try testing.expect(rig.view.left_button_down);
+    try testing.expect(!rig.view.right_button_down);
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+}
+
+test "view: a second click of a double click opens no gesture and its release ends nothing" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    rig.send(doubleClickDown(40, 40));
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    var up = mouseButton(button_left, false, 40, 40);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    // The single click selected the tank; the double click did not deselect it.
+    try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+}
+
+test "view: the registry's shortcuts still switch the M1 tools" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_3, 0, false));
+    try testing.expectEqual(Tool.place, rig.view.tool);
+    rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
+    try testing.expectEqual(Tool.brush, rig.view.tool);
+    rig.send(keyDown(sdl3.c.SDLK_1, 0, false));
+    try testing.expectEqual(Tool.select, rig.view.tool);
+    // Keys the registry does not know change nothing.
+    rig.send(keyDown(sdl3.c.SDLK_7, 0, false));
+    try testing.expectEqual(Tool.select, rig.view.tool);
 }
