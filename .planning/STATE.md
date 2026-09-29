@@ -1,9 +1,9 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-15-PLAN.md automated tasks; hand try pending
-last_updated: "2026-09-28T20:05:43.545Z"
-state_head: a8ee30d1034673c18ef7da3a9d8caaa0dfa0ff14
+stopped_at: Completed 03-15-PLAN.md (hand try approved 2026-09-29; CI run 36543562810 green)
+last_updated: "2026-09-29T09:13:44.959Z"
+state_head: af00ffa810ec38031ffd491f9e62e76536ce0bc2
 progress:
   total_phases: 2
   completed_phases: 0
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-28T20:05:43.489Z
-**Stopped at:** Completed 03-15-PLAN.md automated tasks; hand try pending
+**Last session:** 2026-09-29T09:13:44.902Z
+**Stopped at:** Completed 03-15-PLAN.md (hand try approved 2026-09-29; CI run 36543562810 green)
 **Resume file:** None
 
 ## Accumulated Context
@@ -85,6 +85,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P13 P13 | ~58min | 3 tasks | 6 files |
 | Phase 03-map-editor-plan-6-finish-m1 P14 | ~90min | 2 tasks | 6 files |
 | Phase 03 P15 | ~95min | 3 tasks | 1 files |
+| Phase 03 P15 | ~4h20min incl. hand-try gap fixes | 3 tasks | 44 files |
 
 ## Decisions
 
@@ -118,3 +119,5 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-14: crt.attachParentConsole does the full CONOUT$-open-and-SetStdHandle recipe, not just AttachConsole - Zig's std.Io.File.stdout/stderr read the process-parameters block live on every call, so AttachConsole alone would not make anything print
 - [Phase ?]: 03-15: M1 automated exit criteria met (sweep 1755/1755, 11 local tier PASS lines, CI 36473046568 six green jobs); hand try pending for Johannes
 - [Phase ?]: 03-15: spec cites commands and dates for exit criteria; CI run ids live in the SUMMARY
+- [Phase ?]: 03-15: generated winter/Africa unit textures are a build output staged beside Data as SeasonData/SeasonTextures.pak (one stored .pak for the zip entry limit), mounted over the base Data below any mod; Data is never written
+- [Phase ?]: 03-15: Cmd+W closes the map, not the editor (SDL's Window > Close loses its key equivalent on macOS); hand try approved 2026-09-29

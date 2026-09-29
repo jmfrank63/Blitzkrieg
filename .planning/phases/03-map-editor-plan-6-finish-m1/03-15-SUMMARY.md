@@ -9,16 +9,16 @@ requires:
   - phase: 03-map-editor-plan-6-finish-m1 (plans 01-14)
     provides: "The whole M1 editor: test launch, safe save, settings/autosave/recovery, mods, palette pictures, sound list, BK_EDITOR_AUTO, packaging"
 provides:
-  - "M1 exit-criteria evidence: full sweep 1,755/1,755, local tiers 11 PASS lines, CI run 36473046568 green on all six jobs"
+  - "M1 exit-criteria evidence: full sweep 1,755/1,755, local tiers 11 PASS lines, CI run 36473046568 green on all six jobs, and after the gap fixes CI run 36543562810 green on all six jobs at af00ffa81"
   - "The portable-map-editor spec corrected to the built M1 (test launch, -mod=Name, safe save, user data, camera decision, pictures, sound list, packaging, BK_EDITOR_AUTO, exit criteria)"
   - "A release-variant Game + MapEditor stage for Johannes's hand try, approved 2026-09-29 after the gap fixes below"
   - "The build generates the missing winter/Africa unit textures (SeasonData/SeasonTextures.pak) on every staging and package, cached, never writing into Data; the game and the editor mount it over Data"
 affects: [/gsd-verify-work for phase 3, M2 planning]
 
 actuals:
-  tokens: 9200
+  tokens: 101750  # chars/4 over the added lines of 87a2028f0..af00ffa81, gap fixes included (44 files, +6858/-253)
   tasks: 3
-  commits: 1
+  commits: 33  # git rev-list --count 87a2028f0..af00ffa81; 2 of them are main's, merged in 1c71b2879
 plan_head_before: 87a2028f0
 
 tech-stack:
@@ -73,6 +73,9 @@ coverage:
       - kind: e2e
         ref: "CI run 36473046568 at a8ee30d10: all six jobs success"
         status: pass
+      - kind: e2e
+        ref: "CI run 36543562810 at af00ffa81 (after the hand-try gap fixes): all six jobs success"
+        status: pass
     human_judgment: false
   - id: D3
     description: "Engine, game-reads-it and editor-app tiers pass locally on macOS arm64"
@@ -107,7 +110,7 @@ coverage:
         status: pass
     human_judgment: false
 
-duration: ~95min (including ~27min unattended CI wait and a ~4min release build)
+duration: ~95min for Tasks 1-3 (including ~27min unattended CI wait and a ~4min release build); the continuation after the approval ~2h45min (including ~70min of CI)
 completed: 2026-09-29
 status: complete
 ---
@@ -147,6 +150,18 @@ status: complete
   Windows budget check (research Pitfall 6): 26.8 min of the 110-minute timeout, well inside it; the earlier 55-min run (36464351662) was a cold-cache run.
 - **Spec:** `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` updated in `a8ee30d10`: M1 scope (camera rotation deferred with its 03-06 measurements, `-mod=Name`, sound list, Windows app), preservation invariant (sounds now edited), settings location, new sections "Object palette pictures", "Editor: sound list" and "User data: maps, settings and mods", packaging beside the game with the Windows GUI subsystem, the test launch as built (`-editor-test`, MapEditorTest generated-data root), safe save with `.bak`, BK_EDITOR_AUTO grammar and automated shot comparison, and each exit criterion marked with evidence.
 - **Continuation after the approval (2026-09-29, at `71bd19230`):** `zig build test -Dtarget=aarch64-macos -Dcopy-data=false` rc=0 (`03-15-c2-test.log`). The six tiers rc=0 in 3 min 08 s with 11 PASS/done lines (`03-15-c2-tiers2.log`): `editor-bridge: PASS`, `map-editor-engine: PASS (260 objects)`, three `host check PASS (metal, 1280x800)` with their panel smokes and the `mod switch PASS`, `smoke PASS (52 steps, 260 objects, ...)`, `game reads it PASS (14 units ...; the map's sound Amb_Water_circle started; game exit 0)`, `BK_EDITOR_AUTO: done (13 actions)`. `test-sfx-module`, `test-season-textures` (12), `test-stage` (27) and `test-platform-paths`: 33/33 steps, 39/39 tests (`03-15-c2-units.log`).
+- **CI after the approval:** run 36543562810 (`workflow_dispatch` on `feat/map-editor-plan-6`, head `af00ffa81`), all six jobs success:
+
+  | Job | Result | Time |
+  |---|---|---|
+  | linux-platform | success | 5.5 min |
+  | linux-arm-platform | success | 1.1 min |
+  | macos-platform | success | 17.3 min |
+  | macos-intel-platform | success | 1.7 min |
+  | windows-mingw-platform | success | 1.6 min |
+  | windows-platform | success | 37.9 min |
+
+  Windows budget: 37.9 of the 110-minute timeout. The Windows job's own `test-editor-bridge` printed `with SeasonData the placed 105mm_M2A1_USA ... is drawn with: units\technics\allies\artillery\105mm_m2a1_usa\1w` and `editor-bridge: PASS`, so the generation, the stage and the mount work on Windows too. Two runs before it failed and were fixed (see Deviations): 36541298956 at `47bc97a54` (four jobs, sparse checkout; Windows, a macro) and 36542557590 at `6d549f2d0` (cancelled once the Windows cause was known).
 - **Release stage:** `zig build install-map-editor -Dtarget=aarch64-macos --release=fast -Dcopy-data=false` rc=0; `Game` and `MapEditor` in `/Users/johannes/Projects/src/Blitzkrieg/.worktrees/map-editor-6/zig-out/game/macos/arm64/release/`. `MapEditor --check Data\Maps\Multiplayer\coldwinter.bzm` printed `host check PASS (metal, 1280x800)`, `unknown-object warning PASS`, `panel smoke PASS`; `Game -help` starts and exits 0. Disk after build: 13 GB free.
 
 ## Task Commits
@@ -567,7 +582,21 @@ See key-decisions in the frontmatter.
 
 ## Deviations from Plan
 
-None - plan executed as written. The plan's own CI-run instruction was followed with an explicit `gh workflow run`, since a push alone does not trigger the workflow on this branch.
+Tasks 1-3 ran as written. The plan's own CI-run instruction was followed with an explicit `gh workflow run`, since a push alone does not trigger the workflow on this branch. The hand try's gap fixes are recorded in their own sections above. Two CI failures in the continuation were fixed:
+
+**1. [Rule 3 - Blocking] A checkout without Data/Units did not configure**
+- **Found during:** CI run 36541298956 (linux-platform, linux-arm-platform, windows-mingw-platform, macos-intel-platform)
+- **Issue:** those jobs' sparse checkouts leave out `Data/Units`, and the configure-time walk for the SeasonData cache key panicked (`SeasonData inputs: FileNotFound`) before any step ran.
+- **Fix:** a missing `Data/Units` gives empty inputs; a staging without it still fails in the generation step. Checked locally by configuring `test-stage` with `Data/Units` moved aside and back.
+- **Files modified:** `build.zig`
+- **Commit:** `6d549f2d0`
+
+**2. [Rule 1 - Bug] editor-bridge-test did not compile on Windows**
+- **Found during:** CI run 36541298956 (windows-platform)
+- **Issue:** `54cc41060` (tile pictures, earlier in this plan) named a buffer `small`, which the Windows SDK's `rpcndr.h` defines as a macro for `char`.
+- **Fix:** renamed to `tinyBuffer`, with a comment.
+- **Files modified:** `tools/zig/editor_bridge_test.cpp`
+- **Commit:** `af00ffa81`
 
 ## Issues Encountered
 
@@ -594,6 +623,14 @@ None.
 *Completed: 2026-09-29*
 
 ## Self-Check: PASSED
+
+Continuation (2026-09-29):
+- Commits exist on `feat/map-editor-plan-6` and on origin: `cedcfb2e8`, `b7112103a`, `479e82974`, `71bd19230`, `47bc97a54`, `6d549f2d0`, `af00ffa81`.
+- `Sources/src/StreamIO/SeasonData.h` exists; `git status --porcelain --untracked-files=all Data/` is empty.
+- CI run 36543562810 head SHA equals `af00ffa81...`; six jobs success.
+- `git rev-list --count 87a2028f0..af00ffa81` = 33, matching `actuals.commits`.
+
+Tasks 1-3 (2026-09-28):
 
 - Spec exists and holds the commit: `git log` shows `a8ee30d10` on `feat/map-editor-plan-6`, pushed (origin at the same head when CI ran).
 - CI run 36473046568 head SHA equals `a8ee30d10...`; six jobs success.
