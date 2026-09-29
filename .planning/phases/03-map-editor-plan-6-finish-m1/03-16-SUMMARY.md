@@ -175,3 +175,33 @@ WINDOWS.md open_count is 0. The remaining human items in 03-VERIFICATION.md are 
 - The created files exist: Sources/editor/app/testing/imgui_stub.zig, 03-16-PLAN.md.
 - `git log --oneline --grep="03-16"` shows 9 commits.
 - Local suite and CI run 36558559070 are green, as above.
+
+## Follow-up: the release Windows package
+
+`zig build install-map-editor package-game-editors --release=fast` failed on win-home (`stage: step 'copyGameRuntime' failed: FileNotFound`), while the debug `package-game-editors` passed.
+
+**Root cause: a build-graph race, not a release-only file.** stage.zig copies the runtime from `zig-out/bin`/`zig-out/lib` and the shader blobs from `zig-out/shaders` by plain path, so the graph cannot see that it reads them. `install-game`'s stage-game run was ordered after `game-all` by hand. The two package runs were not: `package-game` and `package-game-editors` depended on `game-all` *beside* their stage-game run, not before it. The shader compile had the same problem.
+- In the Blitzkrieg-plan6 clone the release build was the first build, so `zig-out/bin` did not exist yet. The package staging started as soon as MapEditor and SeasonData were ready, while the optimised DLLs were still compiling. The empty `release/package` dir (18:48) predates every file in `zig-out/bin`.
+- The debug run passed only because it came second and found the binaries the failed release run had installed afterwards. With an existing `zig-out/bin` the race does not fail. It stages whatever is there, so a release zip could have shipped Debug binaries, or the reverse.
+- `package-game` has the same bug. The run that failed in the log is its stage-game run, which `package-game-editors` builds on.
+- macOS: the release `package-game` works (Game, MapEditor, SeasonData/SeasonTextures.pak, Game matches zig-out/bin). `package-game-editors` stops with `EditorsUnsupported` on macOS in both variants. This is the pre-existing Windows-only gate on the legacy Editors (see 03-14-SUMMARY), not this bug.
+
+**Fix.**
+- a1d7b7a15: every stage-game run goes through `addStageGameRun` in build.zig. It orders the run after `game-all` and `gfxgpu-shaders` and declares the notice and shader inputs.
+- stage.zig names a runtime file that is in neither `zig-out/bin` nor `zig-out/lib`: `MissingRuntimeFile` instead of a bare `FileNotFound`.
+- stage_test.zig tests:
+  - a runtime file that is not built yet fails the stage by name;
+  - the Windows release layout stages with no .pdb files;
+  - build.zig has no `addRunArtifact(stage_tool)` outside the helper, and the helper depends on both steps. This test fails against the old build.zig.
+- CI, 5509a62c5: the windows-platform job also runs `package-game-editors --release=fast`, and the check step covers both variants. The release zips must carry the Game.exe the release build installed. aeb021c7c made the graph test find the helper's end under CI's CRLF checkout (run 36566281803 failed on it everywhere and was cancelled).
+
+**Verification.**
+- `zig build test-stage`: 30/30. `zig test tools/zig/build_hermeticity_test.zig`: 3/3.
+- win-home, Blitzkrieg-plan6 at a1d7b7a15, with `zig-out/bin` deleted first: `zig build install-map-editor package-game-editors --release=fast` succeeds in 4.8 min. Both zips are in `zig-out\packages\windows\x86_64\release\`:
+  - Blitzkrieg-game.zip: 63,907 entries, 3.10 GB.
+  - Blitzkrieg-game-with-editors.zip: 63,911 entries, 3.12 GB, 4 Editors/ entries.
+  - Both have Game.exe (3,452,928 bytes, the release build's, against 22 MB for Debug) and MapEditor.exe at the root, SeasonData/SeasonTextures.pak, and no mods/.
+- CI run 36566653814 is green on all six jobs. macos-intel was rerun after a runner DNS failure at checkout.
+  - Windows job: 47 min of its 110.
+  - Release package step: 3m56s. The release engine is already built by the random missions tier.
+  - Release zips: 60,220 and 60,224 entries, 2.53 and 2.55 GB, Game.exe 3,453,440 bytes, the same as zig-out/bin.
