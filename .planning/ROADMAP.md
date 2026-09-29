@@ -288,7 +288,7 @@ Plans:
 **Goal:** Map Editor M2 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` ("The editor set"): edit what M1 only preserves — roads and rivers, bridges (including rotating them, deferred from M1) and entrenchments, AI and unit groups (reinforcements, start commands, reserve positions, AI general data), scripts and script areas — with the same undo, save-preservation, test-in-game and CI standards as M1. Revisit free camera rotation (D-12, deferred with evidence in 03-06). Scope to be settled in discuss-phase; may split into several phases.
 **Requirements**: CONTEXT D-01..D-25 (04-CONTEXT.md) and the M2 rows of 04-PARITY.md
 **Depends on:** Phase 3
-**Plans:** 2/13 plans executed (D-24's eight split for one agent context each; executed one after another in the shared worktree)
+**Plans:** 3/13 plans executed (D-24's eight split for one agent context each; executed one after another in the shared worktree)
 
 Plans:
 **Wave 1**
@@ -301,7 +301,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-03-PLAN.md — app foundations: named commands and predicates, camera-anchor UI, marker layer, right button/double click/keys, tool registry, automation verbs, map-editor-auto-m2
+- [x] 04-03-PLAN.md — app foundations: named commands and predicates, camera-anchor UI, marker layer, right button/double click/keys, tool registry, automation verbs, map-editor-auto-m2
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
