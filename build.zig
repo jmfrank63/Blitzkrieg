@@ -6169,6 +6169,26 @@ fn addMapEditor(
     const game_reads_it_step = b.step("map-editor-game-reads-it", "Test-launch a unit the editor placed and prove the real Game plays it (D-01..D-09)");
     game_reads_it_step.dependOn(&game_reads_it_run.step);
 
+    // Phase 4's M2 game-reads-it scenario (04-04): the same shape - edit
+    // through the core Editor on the real bridge, save the test copy, play it
+    // with the real Game - but the assertions are on the game's own
+    // BK_MAP_TRACE report of what it consumed (the camera anchor here; each
+    // later M2 plan adds its edit to game_reads_m2.zig). Local-only like its
+    // M1 sibling, and after it, so two games never start at once.
+    const game_reads_it_m2_run = b.addRunArtifact(exe);
+    game_reads_it_m2_run.setCwd(b.path(stage_root));
+    game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m2.log") });
+    game_reads_it_m2_run.has_side_effects = true;
+    game_reads_it_m2_run.step.dependOn(&install_exe.step);
+    game_reads_it_m2_run.step.dependOn(&game_reads_it_run.step);
+    // The games' own screenshot dumps stay in the stage root they ran from;
+    // swept even when the scenario's own sweep was skipped by an early return.
+    const cleanup_autoshots_game_reads_m2 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_game_reads_m2.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_game_reads_m2.step.dependOn(&game_reads_it_m2_run.step);
+    const game_reads_it_m2_step = b.step("map-editor-game-reads-it-m2", "Test-launch M2 edits and prove from the game's own BK_MAP_TRACE report that it read them (D-22, D-25)");
+    game_reads_it_m2_step.dependOn(&cleanup_autoshots_game_reads_m2.step);
+
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots
     // are the running executable's directory (SDL_GetBasePath). A Run step
