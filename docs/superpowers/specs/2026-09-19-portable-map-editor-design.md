@@ -59,7 +59,8 @@ In:
 - Undo and redo for every edit.
 - Test-launch the map in the game.
 - Load a mod's data (`-mod=Name`, `-mod=None`), like the game; File → Mod
-  switches it live, reloading the object palette. **Changed from the spec,
+  switches it live, closing the open map and reloading the object palette
+  (D-26, revised 2026-09-29 in the hand try). **Changed from the spec,
   by decision during 03-08:** the spec originally said `-mod<dir>`; the game
   now takes `-mod=Name` (confirmed by plan 5's own spec-correction note).
 - Editor settings, recent files and autosave with crash recovery, all
@@ -433,15 +434,25 @@ Settled by the overlay spike (plan
   redirected) autosaves to a recovery copy in the user data area with a
   sidecar instead. The next start offers every recovery copy found back
   (Open / Discard / Later); a real Save, Save As, or a clean/Don't-save Quit
-  deletes that document's own recovery copy.
+  deletes that document's own recovery copy, and so does a mod switch that
+  closes it.
 - **A mod** is chosen from File → Mod (`None` or an installed mod) or
   `-mod=Name`/`-mod=None` on the command line — mirrors `CICChangeMOD::Exec`
   without a main loop (closes the open map, swaps the mod's data storage,
   re-inspects it, clears the shared managers other than `IGFX`, reloads the
   object database) and never calls `IUserProfile::SetMOD`, since the editor
   has no game profile of its own. Switching asks first when there are
-  unsaved changes (Save / Don't save / Cancel), reloads the object palette,
-  and reopens the current map under the new mod.
+  unsaved changes (Save / Don't save / Cancel; Save on a new, shipped or
+  read-only map goes through Save As, and cancelling that cancels the
+  switch), then closes the map, switches the mod and reloads the object
+  palette. The editor is left with no map open (title and status bar say
+  so, the undo history is cleared, autosave is idle); the Open dialog then
+  starts in the new mod's maps folder. Choosing the mod that is already
+  active does nothing. **Revised 2026-09-29 in the hand try (Johannes's
+  decision):** the switch used to reopen the current map under the new mod,
+  which mixed object databases - a map saved under AchtungPanzer2, switched
+  to None, showed 1359 unknown objects. A running test game is its own
+  process on its own copy and keeps running.
 
 ## Data flow
 

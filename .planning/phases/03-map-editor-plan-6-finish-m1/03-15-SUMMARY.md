@@ -34,6 +34,7 @@ key-decisions:
   - "Task 1 changed no source: every shipped map already round-trips, so MapFile.cpp and MapEquivalence.cpp were not touched"
   - "The spec cites CI by the 03-14 run for the build criterion and points here for this plan's own run, so the spec needs no edit after each CI run"
   - "Spec exit criterion 3 records that 'rotates units' means object rotation (Q/E); camera rotation is the separately deferred D-12"
+  - "D-26 revised 2026-09-29 (Johannes, hand try step 7): switching mod closes the map (prompt first, then close, then switch); the active mod again is a no-op"
 
 requirements-completed: [M1-EXIT-SWEEP, M1-EXIT-BUILD, M1-EXIT-TIERS]
 
@@ -299,6 +300,40 @@ A texture missing in every season still comes back null, as before.
   - `map-editor-game-reads-it` PASS (14 units of player 0, single soldiers refused, game exit 0)
 
 **Still to do:** rebuild the release stage once Johannes has left it, then look at a US gun on coldwinter in the release MapEditor and Game.
+
+## Gap fix: switching mod closes the map (hand try, step 7)
+
+**Found:** a map opened and saved under AchtungPanzer2, then File > Mod > None, showed 1359 unknown objects. File > Mod (plan 03-08, D-26) reopened the current map under the new mod, so a map read under one object database was shown under another.
+
+**Johannes's decision** (D-26 revised 2026-09-29, recorded in `03-CONTEXT.md` and the spec): switching closes the map.
+1. A dirty map asks first (D-23): Save / Don't save / Cancel. Cancel means no switch. Save on a new, shipped or read-only map goes through Save As, and cancelling that Save As cancels the switch.
+2. Then the map is closed and the mod switched. The editor has no document: the title is "Map Editor [<mod>]", the status bar says "no map open", the undo history is cleared, autosave is idle, and the view and per-map panels are as at a start with no map. The palette reloads from the new mod.
+3. The editor stays empty. The Open dialog starts in the new mod's user maps folder (`<user root>mods/<Folder>/maps`, or `<user root>maps` for None). This already worked through `state.modFolder()`, and the smoke now asserts it.
+4. Choosing the mod that is already active does nothing: no prompt, no close.
+
+**Change** (commit `68cd1d79e`):
+- `core/editor.zig`: `Editor.close()` forgets the document, history, selection and status.
+- `panels_logic.zig`: `requestSwitchMod(folder, active)` ignores the active mod (`isSameMod`). `switchModClosingMap` calls the bridge's `setMod` and then closes the document on `ok`, and also on `failed`, because the engine's map is already gone then. On a refusal (`refused`, `bad_argument`, `no_session`) it keeps the map and the mod, as `BkEditorSetMod` checks before it touches anything.
+- `panels.zig`: `performModSwitch` closes through `switchModClosingMap`, then `mapClosed`: `view.closeMap()` (remembers the camera per D-15, clears map size, gestures and the placer's old-database object), `mapOpened()` resets the per-map panels, autosave's dirty clock is cleared, and the closed map's recovery copy is deleted. That is the same rule as a clean or Don't-save quit (D-22); a Save through the prompt had already deleted it. The palette is reloaded (`catalogue_generation` counts reads).
+- A running test game is its own process on its own copy (D-01/D-03) and keeps running. `pollTestGame` still reports its exit, and Test in game with no map open does nothing, as before.
+- The bridge needed no change: `BkEditorSetMod` already closes the open map and works with none open. `test-editor-bridge` now also switches to None and back with no map open.
+
+**Evidence** (debug stage in its default copy-data mode; the release stage Johannes is running was not built into or run from):
+- `test-editor-core` 86/86 passed, including the new `Editor.close` test.
+- `test-map-editor-panels` 52/52 passed. The new tests cover: Cancel keeps the map and mod; Don't save closes and switches, then a switch with no map open goes straight through with None reaching the bridge as null; Save waits for the save and then switches; a failed Save or a cancelled Save As cancels the switch and a landed Save As lets it through; the same mod on a dirty map is a no-op; a refusal keeps the map and a failure partway closes it; `isSameMod`.
+- `test-map-editor-auto` 8/8 passed.
+- `map-editor-smoke` PASS, 44 steps (9 new, on the tracked fixture `EditorTestMod`, which the build now stages for the smoke). They run on the dirty read-only foreign map with an active recovery copy:
+  - None (already active) changes nothing.
+  - File > Mod EditorTestMod asks; Cancel keeps the map and mod.
+  - Asked again, Save becomes Save As; cancelling it cancels the switch.
+  - Asked a third time, Don't save closes the map and switches. Checked afterwards: no document, no history, no selection, no view map, no tiles, no sounds, no unknown objects; the panels and the bridge both on EditorTestMod; palette re-read and equal to the bridge's catalogue; Open folder `.../mods/EditorTestMod/maps`; autosave idle; recovery copy deleted; the foreign file untouched.
+  - None with no map open switches back without asking; Open folder `.../map-editor-smoke-user/maps`.
+- Negative control, reverted afterwards: with `switchModClosingMap` not closing on `ok`, the smoke fails at "Don't save closes the map and switches the mod: ...coldwinter.bzm is still open".
+- `map-editor-host-check` PASS on all three runs. The `-mod=EditorTestMod` run adds a File > Mod leg through `panels.act`: the active mod is a no-op; None on a map dirtied by a sound asks and changes nothing; Don't save closes the map and switches; switching back with no map open works. It prints `map-editor: mod switch PASS (EditorTestMod -> None -> EditorTestMod; asked first, map closed, palette 5559 -> 5559 entries)`.
+- `test-editor-bridge`: every check passed except one, and nothing in the mod test failed (including the new switches with no map open). The failing check is `TestMissingSeasonTextureFallsBack`: "the placed 105mm_M2A1_USA ... is drawn with ...\1 (drawn with: ...\1w)". It is not caused by this change. The worktree's untracked, generated `Data/Units/**/1w_*.dds` (from `season-textures`, commit `c5cff9022`) now give the M2A1 a winter texture, so the fixture that expected a missing one no longer holds. Logged in `deferred-items.md`.
+- Logs: `zig-out/local-test/modclose-*.log`.
+
+**Still to do:** rebuild the release stage once Johannes has left it, then retry hand-try step 7: open a map under AchtungPanzer2, then File > Mod > None. The prompt should ask if the map is dirty, then the editor should be empty.
 
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
