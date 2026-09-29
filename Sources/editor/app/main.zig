@@ -44,6 +44,7 @@
 //! Prints "map-editor: smoke PASS"
 //! and exits 0, or a "smoke FAIL:" line naming the step and exits 1.
 const std = @import("std");
+const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
@@ -938,6 +939,10 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
         return fail("the screen's centre ({d},{d}) is outside the {d}x{d} capture", .{ outside_x, outside_y, image.width, image.height });
     if (outside.isProbeColour() or outside.near(clear_colour))
         return fail("the screen's centre ({d},{d}) is ({d},{d},{d}), not the map", .{ outside_x, outside_y, outside.r, outside.g, outside.b });
+
+    // Cmd+W is File > Close, not SDL's Window > Close (which quits).
+    if (builtin.os.tag == .macos and !host_mod.command_w_freed)
+        return fail("Cmd+W still belongs to the Window menu's Close, which would quit the editor", .{});
 
     std.debug.print("map-editor: host check PASS ({s}, {d}x{d})\n", .{ driver, width, height });
     return panelSmoke(gpa, io, environ, &host, map, output, mod_folder);
