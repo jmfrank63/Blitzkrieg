@@ -1,6 +1,9 @@
 // The map file tier. Runs with no window and no GPU device: see
 // tools/zig/data_only_startup.cpp for what "no window" costs.
 #include "StdAfx.h"
+#include <functional>
+#include <limits>
+#include <map>
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -721,6 +724,627 @@ static void CollectMaps( const char *pszFolder, bool bTopLevelXmlToo, std::vecto
 	CollectMapsIn( pStorage, std::string(), szRoot, bTopLevelXmlToo, pPaths );
 }
 
+// ---------------------------------------------------------------------------
+// D-01 at the map-file tier: every M2 collection has a record-level overlay
+// operation, and an edit followed by its inverse writes the unedited file byte
+// for byte. Each case reads the map FRESH for every write it compares (never a
+// copy: SVertexAltitude's padding bytes are written raw, see
+// TestCameraAnchorRecords), applies an optional setup, and then
+//   - forward: the edited map, written and read back, equals the map the same
+//     call builds on another fresh read (and differs from the unedited one);
+//   - inverse: forward then inverse writes exactly the setup-only bytes.
+// ---------------------------------------------------------------------------
+typedef std::function<bool( SLoadMapInfo* )> TMapOp;
+
+static int g_nM2Cases = 0;
+
+static const char *const M2_BASELINE = "zig-out\\local-test\\m2-baseline.bzm";
+static const char *const M2_EDITED = "zig-out\\local-test\\m2-edited.bzm";
+static const char *const M2_UNDONE = "zig-out\\local-test\\m2-undone.bzm";
+
+static bool ReadFresh( const std::string &szPath, CMapInfo *pMap )
+{
+	std::string szError;
+	return Check( NMapFile::Read( szPath.c_str(), pMap, &szError ), szError.empty() ? szPath.c_str() : szError.c_str() );
+}
+
+static bool ApplyOp( const TMapOp &rOp, CMapInfo *pMap )
+{
+	return !rOp || rOp( pMap );
+}
+
+static void RemoveM2Files()
+{
+	remove( "zig-out/local-test/m2-baseline.bzm" );
+	remove( "zig-out/local-test/m2-edited.bzm" );
+	remove( "zig-out/local-test/m2-undone.bzm" );
+}
+
+// One collection operation, forwards and back. `setup` may be empty.
+static void RunM2Case( const std::string &szPath, const char *pszName, const TMapOp &setup, const TMapOp &forward, const TMapOp &inverse )
+{
+	++g_nM2Cases;
+	const std::string szName = std::string( "M2 case \"" ) + pszName + "\" (" + szPath + "): ";
+	std::string szError;
+
+	CMapInfo unedited;
+	if ( !ReadFresh( szPath, &unedited ) )
+		return;
+	if ( !Check( ApplyOp( setup, &unedited ), ( szName + "the setup applies" ).c_str() ) )
+		return;
+	if ( !Check( NMapFile::Write( M2_BASELINE, unedited, &szError ), ( szName + "the unedited map writes: " + szError ).c_str() ) )
+		return;
+
+	// The edit, saved and read back, is the map the same call builds.
+	CMapInfo edited;
+	if ( !ReadFresh( szPath, &edited ) )
+		return;
+	ApplyOp( setup, &edited );
+	if ( !Check( forward( &edited ), ( szName + "the forward operation is accepted" ).c_str() ) )
+		return;
+	if ( !Check( NMapFile::Write( M2_EDITED, edited, &szError ), ( szName + "the edited map writes: " + szError ).c_str() ) )
+		return;
+	CMapInfo reread;
+	if ( !Check( NMapFile::Read( M2_EDITED, &reread, &szError ), ( szName + "the edited map reads back: " + szError ).c_str() ) )
+		return;
+	CMapInfo expected;
+	if ( !ReadFresh( szPath, &expected ) )
+		return;
+	ApplyOp( setup, &expected );
+	forward( &expected );
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+	       ( szName + "the saved edit differs from the expected map at " + szWhere ).c_str() );
+	szWhere.clear();
+	Check( !NMapFile::AreEquivalent( unedited, reread, &szWhere ), ( szName + "the edit changed nothing the comparator sees" ).c_str() );
+
+	// Forward, then the inverse: the unedited bytes.
+	CMapInfo undone;
+	if ( !ReadFresh( szPath, &undone ) )
+		return;
+	ApplyOp( setup, &undone );
+	forward( &undone );
+	if ( !Check( inverse( &undone ), ( szName + "the inverse is accepted" ).c_str() ) )
+		return;
+	if ( !Check( NMapFile::Write( M2_UNDONE, undone, &szError ), ( szName + "the undone map writes: " + szError ).c_str() ) )
+		return;
+	Check( FilesAreIdentical( M2_BASELINE, M2_UNDONE ), ( szName + "an edit and its inverse write the unedited file byte for byte" ).c_str() );
+}
+
+// An operation with a bad index or value is refused and the file's bytes do not
+// move.
+static void RunM2Refusal( const std::string &szPath, const char *pszName, const TMapOp &setup, const TMapOp &badOp )
+{
+	++g_nM2Cases;
+	const std::string szName = std::string( "M2 refusal \"" ) + pszName + "\" (" + szPath + "): ";
+	std::string szError;
+	CMapInfo unedited;
+	if ( !ReadFresh( szPath, &unedited ) )
+		return;
+	ApplyOp( setup, &unedited );
+	if ( !Check( NMapFile::Write( M2_BASELINE, unedited, &szError ), ( szName + "the unedited map writes" ).c_str() ) )
+		return;
+	CMapInfo touched;
+	if ( !ReadFresh( szPath, &touched ) )
+		return;
+	ApplyOp( setup, &touched );
+	Check( !badOp( &touched ), ( szName + "is refused" ).c_str() );
+	if ( !Check( NMapFile::Write( M2_UNDONE, touched, &szError ), ( szName + "the map writes" ).c_str() ) )
+		return;
+	Check( FilesAreIdentical( M2_BASELINE, M2_UNDONE ), ( szName + "and the map is byte for byte unchanged" ).c_str() );
+}
+
+// The first shipped map with each collection non-empty, found in one pass over
+// Data\Maps (at most 60 maps read), so the erase and replace cases run on data
+// a real map holds where one exists.
+struct SM2Maps
+{
+	std::string szScriptFile, szScriptAreas, szGroups, szStartCommands, szReserve, szAISides, szRoads, szRivers, szBridges, szEntrenchments;
+};
+
+static SM2Maps FindM2Maps()
+{
+	SM2Maps found;
+	std::vector<std::string> paths;
+	CollectMaps( "Data\\Maps", true, &paths );
+	int nRead = 0;
+	for ( size_t i = 0; i < paths.size() && nRead < 60; ++i )
+	{
+		CMapInfo map;
+		std::string szError;
+		if ( !NMapFile::Read( paths[i].c_str(), &map, &szError ) )
+			continue;
+		++nRead;
+		if ( found.szScriptFile.empty() && !map.szScriptFile.empty() ) found.szScriptFile = paths[i];
+		if ( found.szScriptAreas.empty() && !map.scriptAreas.empty() ) found.szScriptAreas = paths[i];
+		if ( found.szGroups.empty() && !map.reinforcements.groups.empty() ) found.szGroups = paths[i];
+		if ( found.szStartCommands.empty() && !map.startCommandsList.empty() ) found.szStartCommands = paths[i];
+		if ( found.szReserve.empty() && !map.reservePositionsList.empty() ) found.szReserve = paths[i];
+		if ( found.szAISides.empty() && !map.aiGeneralMapInfo.sidesInfo.empty() ) found.szAISides = paths[i];
+		if ( found.szRoads.empty() && !map.terrain.roads3.empty() ) found.szRoads = paths[i];
+		if ( found.szRivers.empty() && !map.terrain.rivers.empty() ) found.szRivers = paths[i];
+		if ( found.szBridges.empty() && !map.bridges.empty() ) found.szBridges = paths[i];
+		if ( found.szEntrenchments.empty() && !map.entrenchments.empty() ) found.szEntrenchments = paths[i];
+	}
+	printf( "map-file: M2 data found in %d maps: script file %s, areas %s, groups %s, start commands %s, reserve %s, AI sides %s, roads %s, rivers %s, bridges %s, entrenchments %s\n",
+	        nRead, found.szScriptFile.c_str(), found.szScriptAreas.c_str(), found.szGroups.c_str(), found.szStartCommands.c_str(),
+	        found.szReserve.c_str(), found.szAISides.c_str(), found.szRoads.c_str(), found.szRivers.c_str(), found.szBridges.c_str(),
+	        found.szEntrenchments.c_str() );
+	return found;
+}
+
+static SScriptArea MakeArea( const char *pszName, float fX, float fY, float fR )
+{
+	SScriptArea area;
+	area.eType = SScriptArea::EAT_CIRCLE;
+	area.szName = pszName;
+	area.center = CVec2( fX, fY );
+	area.fR = fR;
+	return area;
+}
+
+static SAIStartCommand MakeStartCommand( float fX, float fY, int nUnit )
+{
+	std::vector<int> units;
+	units.push_back( nUnit );
+	return SAIStartCommand( ACTION_COMMAND_MOVE_TO, units, 0, CVec2( fX, fY ), false, 0.0f );
+}
+
+static SVectorStripeObject MakeVso( int nID, float fX, float fY )
+{
+	SVectorStripeObject vso;
+	vso.szDescName = "m2 test descriptor";
+	vso.nID = nID;
+	vso.controlpoints.push_back( CVec3( fX, fY, 0.0f ) );
+	vso.controlpoints.push_back( CVec3( fX + 64.0f, fY + 32.0f, 0.0f ) );
+	for ( size_t i = 0; i < vso.controlpoints.size(); ++i )
+	{
+		SVectorStripeObjectPoint point;
+		point.vPos = vso.controlpoints[i];
+		point.fWidth = 8.0f;
+		point.bKeyPoint = true;
+		vso.points.push_back( point );
+	}
+	return vso;
+}
+
+// An object of the map whose link ID is nonzero and unique, for the two object
+// field edits. Returns 0 when there is none.
+static int FindUsableLinkID( const SLoadMapInfo &rMap )
+{
+	std::map<int, int> counts;
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		++counts[rMap.objects[i].link.nLinkID];
+	for ( size_t i = 0; i < rMap.scenarioObjects.size(); ++i )
+		++counts[rMap.scenarioObjects[i].link.nLinkID];
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		if ( rMap.objects[i].link.nLinkID != 0 && counts[rMap.objects[i].link.nLinkID] == 1 )
+			return rMap.objects[i].link.nLinkID;
+	return 0;
+}
+
+static const SMapObjectInfo* ObjectByLinkID( const SLoadMapInfo &rMap, int nLinkID )
+{
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		if ( rMap.objects[i].link.nLinkID == nLinkID ) return &rMap.objects[i];
+	for ( size_t i = 0; i < rMap.scenarioObjects.size(); ++i )
+		if ( rMap.scenarioObjects[i].link.nLinkID == nLinkID ) return &rMap.scenarioObjects[i];
+	return 0;
+}
+
+static void TestM2RecordOps()
+{
+	const std::string szCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	const std::string szArnheim = "Data\\Maps\\Multiplayer\\arnheim.bzm";
+	const SM2Maps found = FindM2Maps();
+	const TMapOp none;
+
+	// ---- The script file: an exact put, the check a NEW name passes apart ----
+	{
+		std::string szOld;
+		RunM2Case( szCold, "script file put",
+		           none,
+		           [&]( SLoadMapInfo *p ) { szOld = p->szScriptFile; return NMapRecords::PutScriptFile( p, "m2_script" ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutScriptFile( p, szOld ); } );
+		if ( !found.szScriptFile.empty() )
+			RunM2Case( found.szScriptFile, "script file cleared",
+			           none,
+			           [&]( SLoadMapInfo *p ) { szOld = p->szScriptFile; return NMapRecords::PutScriptFile( p, "" ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::PutScriptFile( p, szOld ); } );
+		// An odd name a file held is kept verbatim and put back exactly.
+		RunM2Case( szCold, "script file with an odd name kept",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutScriptFile( p, "..\\odd name.lua" ); },
+		           [&]( SLoadMapInfo *p ) { szOld = p->szScriptFile; return NMapRecords::PutScriptFile( p, "m2_script" ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutScriptFile( p, szOld ); } );
+		const char *pszGood[] = { "m2_script", "Script.v2", "" };
+		for ( int i = 0; i < 3; ++i, ++g_nM2Cases )
+			Check( NMapRecords::IsBareScriptName( pszGood[i] ), ( std::string( "IsBareScriptName accepts \"" ) + pszGood[i] + "\"" ).c_str() );
+		const std::string bad[] = { "..", "a/b", "a\\b", "C:x", ".hidden", "x.lua", "X.LUA", "a..b", std::string( 64, 'a' ) };
+		for ( int i = 0; i < 9; ++i, ++g_nM2Cases )
+			Check( !NMapRecords::IsBareScriptName( bad[i] ), ( "IsBareScriptName refuses \"" + bad[i] + "\"" ).c_str() );
+		Check( NMapRecords::IsBareScriptName( std::string( 63, 'a' ) ), "IsBareScriptName accepts 63 characters" );
+		SLoadMapInfo *pNull = 0;
+		Check( !NMapRecords::PutScriptFile( pNull, "x" ), "PutScriptFile refuses a null map" );
+	}
+
+	// ---- Script areas ----
+	{
+		const SScriptArea areaA = MakeArea( "M2 area A", 100.0f, 120.0f, 10.0f );
+		const SScriptArea areaB = MakeArea( "M2 area B", 200.0f, 220.0f, 20.0f );
+		int nAt = 0;
+		SScriptArea saved;
+		RunM2Case( szCold, "script area appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->scriptAreas.size() ); return NMapRecords::InsertScriptArea( p, -1, areaA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, nAt ); } );
+		RunM2Case( szCold, "script area inserted in front",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, -1, areaA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, 0, areaB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, 0 ); } );
+		RunM2Case( szCold, "script area replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, -1, areaA ); },
+		           [&]( SLoadMapInfo *p ) { const int n = int( p->scriptAreas.size() ) - 1; saved = p->scriptAreas[n]; return NMapRecords::ReplaceScriptArea( p, n, areaB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceScriptArea( p, int( p->scriptAreas.size() ) - 1, saved ); } );
+		RunM2Case( szCold, "script area erased and put back at its index",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, -1, areaA ) && NMapRecords::InsertScriptArea( p, -1, areaB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, int( p->scriptAreas.size() ) - 2, &saved ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, int( p->scriptAreas.size() ) - 1, saved ); } );
+		if ( !found.szScriptAreas.empty() )
+			RunM2Case( found.szScriptAreas, "a shipped map's first script area erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, 0, &saved ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, 0, saved ); } );
+		RunM2Refusal( szCold, "script area replace past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceScriptArea( p, int( p->scriptAreas.size() ), areaA ); } );
+		RunM2Refusal( szCold, "script area erase of a negative index", none, [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, -1 ); } );
+		RunM2Refusal( szCold, "script area insert past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, int( p->scriptAreas.size() ) + 1, areaA ); } );
+		RunM2Refusal( szCold, "script area insert at -2", none, [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, -2, areaA ); } );
+
+		CMapInfo map;
+		if ( ReadFresh( szCold, &map ) )
+		{
+			NMapRecords::InsertScriptArea( &map, -1, areaA );
+			NMapRecords::InsertScriptArea( &map, -1, areaB );
+			g_nM2Cases += 4;
+			Check( !NMapRecords::IsAreaNameFree( map, "M2 area A", -1 ), "a taken area name is not free" );
+			Check( NMapRecords::IsAreaNameFree( map, "M2 area A", int( map.scriptAreas.size() ) - 2 ), "a name is free for the area that holds it (a rename)" );
+			Check( NMapRecords::IsAreaNameFree( map, "m2 area a", -1 ), "area names are case-sensitive (Pitfall 14)" );
+			Check( !NMapRecords::IsAreaNameFree( map, "", -1 ), "an empty area name is never free" );
+		}
+	}
+
+	// ---- Reinforcement groups ----
+	{
+		std::vector<int> ids5, ids9;
+		ids5.push_back( 1 ); ids5.push_back( 2 );
+		ids9.push_back( 9 );
+		std::vector<int> saved;
+		int nFree = 0;
+		RunM2Case( szCold, "group created",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nFree = NMapRecords::FirstFreeGroupID( *p, 0 ); return NMapRecords::PutReinforcementGroup( p, nFree, ids5 ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReinforcementGroup( p, nFree ); } );
+		RunM2Case( szCold, "group ids replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, 5, ids5 ); },
+		           [&]( SLoadMapInfo *p ) { saved = p->reinforcements.groups[5].ids; return NMapRecords::PutReinforcementGroup( p, 5, ids9 ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, 5, saved ); } );
+		RunM2Case( szCold, "group erased and put back",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, 5, ids5 ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReinforcementGroup( p, 5, &saved ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, 5, saved ); } );
+		if ( !found.szGroups.empty() )
+			RunM2Case( found.szGroups, "a shipped map's first group erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { nFree = p->reinforcements.groups.begin()->first; return NMapRecords::EraseReinforcementGroup( p, nFree, &saved ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, nFree, saved ); } );
+		RunM2Refusal( szCold, "group erase of one that is not there", none, [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReinforcementGroup( p, 424242 ); } );
+		RunM2Refusal( szCold, "group put with a negative ID", none, [&]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, -1, ids5 ); } );
+
+		// Written sorted: the order the groups were put in is not in the file.
+		CMapInfo first, second;
+		if ( ReadFresh( szCold, &first ) && ReadFresh( szCold, &second ) )
+		{
+			std::vector<int> one( 1, 11 ), two( 1, 22 );
+			NMapRecords::PutReinforcementGroup( &first, 7, one );
+			NMapRecords::PutReinforcementGroup( &first, 3, two );
+			NMapRecords::PutReinforcementGroup( &second, 3, two );
+			NMapRecords::PutReinforcementGroup( &second, 7, one );
+			std::string szError;
+			NMapFile::Write( M2_EDITED, first, &szError );
+			NMapFile::Write( M2_UNDONE, second, &szError );
+			++g_nM2Cases;
+			Check( FilesAreIdentical( M2_EDITED, M2_UNDONE ), "groups put as 7, 3 write the same bytes as 3, 7" );
+		}
+		CMapInfo map;
+		if ( ReadFresh( szCold, &map ) )
+		{
+			g_nM2Cases += 3;
+			NMapRecords::PutReinforcementGroup( &map, 0, ids5 );
+			NMapRecords::PutReinforcementGroup( &map, 1, ids5 );
+			NMapRecords::PutReinforcementGroup( &map, 3, ids5 );
+			Check( NMapRecords::FirstFreeGroupID( map, 0 ) == 2, "FirstFreeGroupID skips the taken IDs from 0 up" );
+			Check( NMapRecords::FirstFreeGroupID( map, 3 ) == 4, "and from 3 up" );
+			Check( NMapRecords::FirstFreeGroupID( map, -5 ) == 2, "and clamps a negative start to 0" );
+		}
+	}
+
+	// ---- Start commands (std::list) ----
+	{
+		const SAIStartCommand commandA = MakeStartCommand( 10.0f, 20.0f, 5 );
+		const SAIStartCommand commandB = MakeStartCommand( 30.0f, 40.0f, 6 );
+		SAIStartCommand saved;
+		int nAt = 0;
+		RunM2Case( szCold, "start command appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->startCommandsList.size() ); return NMapRecords::InsertStartCommand( p, -1, commandA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseStartCommand( p, nAt ); } );
+		RunM2Case( szCold, "start command inserted in front",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, commandA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, 0, commandB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseStartCommand( p, 0 ); } );
+		RunM2Case( szCold, "start command replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, commandA ); },
+		           [&]( SLoadMapInfo *p ) { saved = p->startCommandsList.back(); return NMapRecords::ReplaceStartCommand( p, int( p->startCommandsList.size() ) - 1, commandB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceStartCommand( p, int( p->startCommandsList.size() ) - 1, saved ); } );
+		RunM2Case( szCold, "start command erased and put back at its index",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, -1, commandA ) && NMapRecords::InsertStartCommand( p, -1, commandB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseStartCommand( p, int( p->startCommandsList.size() ) - 2, &saved ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, int( p->startCommandsList.size() ) - 1, saved ); } );
+		if ( !found.szStartCommands.empty() )
+			RunM2Case( found.szStartCommands, "a shipped map's first start command erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseStartCommand( p, 0, &saved ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, 0, saved ); } );
+		RunM2Refusal( szCold, "start command replace past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceStartCommand( p, int( p->startCommandsList.size() ), commandA ); } );
+		RunM2Refusal( szCold, "start command insert past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::InsertStartCommand( p, int( p->startCommandsList.size() ) + 1, commandA ); } );
+	}
+
+	// ---- Reserve positions (std::list) ----
+	{
+		const SBattlePosition positionA( 11, 12, CVec2( 50.0f, 60.0f ) );
+		const SBattlePosition positionB( 13, 0, CVec2( 70.0f, 80.0f ) );
+		SBattlePosition saved;
+		int nAt = 0;
+		RunM2Case( szCold, "reserve position appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->reservePositionsList.size() ); return NMapRecords::InsertReservePosition( p, -1, positionA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReservePosition( p, nAt ); } );
+		RunM2Case( szCold, "reserve position inserted in front",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, -1, positionA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, 0, positionB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReservePosition( p, 0 ); } );
+		RunM2Case( szCold, "reserve position replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, -1, positionA ); },
+		           [&]( SLoadMapInfo *p ) { saved = p->reservePositionsList.back(); return NMapRecords::ReplaceReservePosition( p, int( p->reservePositionsList.size() ) - 1, positionB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceReservePosition( p, int( p->reservePositionsList.size() ) - 1, saved ); } );
+		RunM2Case( szCold, "reserve position erased and put back at its index",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, -1, positionA ) && NMapRecords::InsertReservePosition( p, -1, positionB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReservePosition( p, int( p->reservePositionsList.size() ) - 2, &saved ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, int( p->reservePositionsList.size() ) - 1, saved ); } );
+		if ( !found.szReserve.empty() )
+			RunM2Case( found.szReserve, "a shipped map's first reserve position erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReservePosition( p, 0, &saved ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, 0, saved ); } );
+		RunM2Refusal( szCold, "reserve position erase past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::EraseReservePosition( p, int( p->reservePositionsList.size() ) ); } );
+		RunM2Refusal( szCold, "reserve position insert past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::InsertReservePosition( p, int( p->reservePositionsList.size() ) + 1, positionA ); } );
+	}
+
+	// ---- The AI general: a side and the side count together ----
+	{
+		SAIGeneralSideInfo sideInfo;
+		sideInfo.mobileScriptIDs.push_back( 4 );
+		sideInfo.mobileScriptIDs.push_back( 8 );
+		SAIGeneralParcelInfo parcel;
+		parcel.eType = SAIGeneralParcelInfo::EPATCH_DEFENCE;
+		parcel.vCenter = CVec2( 300.0f, 310.0f );
+		parcel.fRadius = 256.0f;
+		parcel.wDefenceDirection = 1000;
+		parcel.reinforcePoints.push_back( SAIGeneralParcelInfo::SReinforcePointInfo( CVec2( 20.0f, 30.0f ), 5 ) );
+		sideInfo.parcels.push_back( parcel );
+		NMapRecords::SAIGeneralSidePut before;
+		// Side 2 created on a map with fewer sides: the lower ones come out
+		// empty, and the put of the old count takes them away again.
+		RunM2Case( szCold, "AI general side 2 created (lower sides created empty)",
+		           none,
+		           [&]( SLoadMapInfo *p )
+		           {
+			           NMapRecords::GetAIGeneralSide( *p, 2, &before );
+			           NMapRecords::SAIGeneralSidePut put;
+			           put.nSideCount = Max( before.nSideCount, 3 );
+			           put.nSide = 2;
+			           put.info = sideInfo;
+			           return NMapRecords::PutAIGeneralSide( p, put );
+		           },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutAIGeneralSide( p, before ); } );
+		RunM2Case( szCold, "AI general side replaced",
+		           [&]( SLoadMapInfo *p )
+		           {
+			           NMapRecords::SAIGeneralSidePut put;
+			           put.nSideCount = 2;
+			           put.nSide = 1;
+			           put.info = sideInfo;
+			           return NMapRecords::PutAIGeneralSide( p, put );
+		           },
+		           [&]( SLoadMapInfo *p )
+		           {
+			           NMapRecords::GetAIGeneralSide( *p, 1, &before );
+			           NMapRecords::SAIGeneralSidePut put;
+			           put.nSideCount = 2;
+			           put.nSide = 1;
+			           put.info = SAIGeneralSideInfo();
+			           return NMapRecords::PutAIGeneralSide( p, put );
+		           },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::PutAIGeneralSide( p, before ); } );
+		if ( !found.szAISides.empty() )
+			RunM2Case( found.szAISides, "a shipped map's side 0 changed and put back",
+			           none,
+			           [&]( SLoadMapInfo *p )
+			           {
+				           NMapRecords::GetAIGeneralSide( *p, 0, &before );
+				           NMapRecords::SAIGeneralSidePut put = before;
+				           put.info = SAIGeneralSideInfo();
+				           put.info.mobileScriptIDs.push_back( 77 );
+				           return NMapRecords::PutAIGeneralSide( p, put );
+			           },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::PutAIGeneralSide( p, before ); } );
+		RunM2Refusal( szCold, "AI general negative side count", none,
+		              [&]( SLoadMapInfo *p ) { NMapRecords::SAIGeneralSidePut put; put.nSideCount = -1; return NMapRecords::PutAIGeneralSide( p, put ); } );
+		RunM2Refusal( szCold, "AI general absurd side count", none,
+		              [&]( SLoadMapInfo *p ) { NMapRecords::SAIGeneralSidePut put; put.nSideCount = NMapRecords::nMaxAIGeneralSides + 1; return NMapRecords::PutAIGeneralSide( p, put ); } );
+	}
+
+	// ---- Roads and rivers ----
+	{
+		SVectorStripeObject saved;
+		const SVectorStripeObject vsoA = MakeVso( 9001, 100.0f, 100.0f );
+		const SVectorStripeObject vsoB = MakeVso( 9002, 300.0f, 200.0f );
+		int nAt = 0;
+		RunM2Case( szCold, "road appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->terrain.roads3.size() ); return NMapRecords::InsertVso( p, NMapRecords::VSO_ROAD, -1, vsoA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseVso( p, NMapRecords::VSO_ROAD, nAt ); } );
+		RunM2Case( szCold, "river appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->terrain.rivers.size() ); return NMapRecords::InsertVso( p, NMapRecords::VSO_RIVER, -1, vsoA ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseVso( p, NMapRecords::VSO_RIVER, nAt ); } );
+		RunM2Case( szCold, "road replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertVso( p, NMapRecords::VSO_ROAD, -1, vsoA ); },
+		           [&]( SLoadMapInfo *p ) { const int n = int( p->terrain.roads3.size() ) - 1; saved = p->terrain.roads3[n]; return NMapRecords::ReplaceVso( p, NMapRecords::VSO_ROAD, n, vsoB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceVso( p, NMapRecords::VSO_ROAD, int( p->terrain.roads3.size() ) - 1, saved ); } );
+		RunM2Case( szCold, "river erased and put back at its index",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertVso( p, NMapRecords::VSO_RIVER, -1, vsoA ) && NMapRecords::InsertVso( p, NMapRecords::VSO_RIVER, -1, vsoB ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseVso( p, NMapRecords::VSO_RIVER, int( p->terrain.rivers.size() ) - 2, &saved ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertVso( p, NMapRecords::VSO_RIVER, int( p->terrain.rivers.size() ) - 1, saved ); } );
+		if ( !found.szRoads.empty() )
+			RunM2Case( found.szRoads, "a shipped road erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseVso( p, NMapRecords::VSO_ROAD, 0, &saved ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertVso( p, NMapRecords::VSO_ROAD, 0, saved ); } );
+		if ( !found.szRivers.empty() )
+			RunM2Case( found.szRivers, "a shipped river erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseVso( p, NMapRecords::VSO_RIVER, 0, &saved ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertVso( p, NMapRecords::VSO_RIVER, 0, saved ); } );
+		RunM2Refusal( szCold, "road erase past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::EraseVso( p, NMapRecords::VSO_ROAD, int( p->terrain.roads3.size() ) ); } );
+		RunM2Refusal( szCold, "river replace past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceVso( p, NMapRecords::VSO_RIVER, int( p->terrain.rivers.size() ), vsoA ); } );
+		SLoadMapInfo *pNullMap = 0;
+		++g_nM2Cases;
+		Check( !NMapRecords::InsertVso( pNullMap, NMapRecords::VSO_ROAD, -1, vsoA ), "InsertVso refuses a null map" );
+
+		// NextVsoID is above every road and river ID, arnheim's included.
+		CMapInfo map;
+		if ( ReadFresh( szArnheim, &map ) )
+		{
+			++g_nM2Cases;
+			const int nNext = NMapRecords::NextVsoID( map );
+			bool bAbove = nNext >= 1;
+			for ( size_t i = 0; i < map.terrain.roads3.size(); ++i ) bAbove = bAbove && nNext > map.terrain.roads3[i].nID;
+			for ( size_t i = 0; i < map.terrain.rivers.size(); ++i ) bAbove = bAbove && nNext > map.terrain.rivers[i].nID;
+			Check( bAbove, "NextVsoID on arnheim is above every road and river nID" );
+			printf( "map-file: arnheim has %d roads and %d rivers, NextVsoID %d\n", int( map.terrain.roads3.size() ), int( map.terrain.rivers.size() ), nNext );
+		}
+	}
+
+	// ---- Bridge and entrenchment entries ----
+	{
+		std::vector<int> savedEntry;
+		SEntrenchmentInfo savedTrench;
+		std::vector<int> spans;
+		spans.push_back( 101 ); spans.push_back( 102 ); spans.push_back( 103 );
+		std::vector<int> otherSpans( 1, 201 );
+		SEntrenchmentInfo trench;
+		trench.sections.push_back( std::vector<int>( 3, 301 ) );
+		trench.sections[0][1] = 302; trench.sections[0][2] = 303;
+		SEntrenchmentInfo otherTrench;
+		otherTrench.sections.push_back( std::vector<int>( 2, 401 ) );
+		otherTrench.sections.push_back( std::vector<int>( 1, 402 ) );
+		int nAt = 0;
+		RunM2Case( szCold, "bridge entry appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->bridges.size() ); return NMapRecords::InsertBridgeEntry( p, -1, spans ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseBridgeEntry( p, nAt ); } );
+		RunM2Case( szCold, "bridge entry replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertBridgeEntry( p, -1, spans ); },
+		           [&]( SLoadMapInfo *p ) { const int n = int( p->bridges.size() ) - 1; savedEntry = p->bridges[n]; return NMapRecords::ReplaceBridgeEntry( p, n, otherSpans ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceBridgeEntry( p, int( p->bridges.size() ) - 1, savedEntry ); } );
+		if ( !found.szBridges.empty() )
+			RunM2Case( found.szBridges, "a shipped bridge entry erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseBridgeEntry( p, 0, &savedEntry ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertBridgeEntry( p, 0, savedEntry ); } );
+		RunM2Case( szCold, "entrenchment appended",
+		           none,
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->entrenchments.size() ); return NMapRecords::InsertEntrenchment( p, -1, trench ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseEntrenchment( p, nAt ); } );
+		RunM2Case( szCold, "entrenchment replaced",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertEntrenchment( p, -1, trench ); },
+		           [&]( SLoadMapInfo *p ) { const int n = int( p->entrenchments.size() ) - 1; savedTrench = p->entrenchments[n]; return NMapRecords::ReplaceEntrenchment( p, n, otherTrench ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceEntrenchment( p, int( p->entrenchments.size() ) - 1, savedTrench ); } );
+		RunM2Case( szCold, "entrenchment erased and put back at its index",
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertEntrenchment( p, -1, trench ) && NMapRecords::InsertEntrenchment( p, -1, otherTrench ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseEntrenchment( p, int( p->entrenchments.size() ) - 2, &savedTrench ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertEntrenchment( p, int( p->entrenchments.size() ) - 1, savedTrench ); } );
+		if ( !found.szEntrenchments.empty() )
+			RunM2Case( found.szEntrenchments, "a shipped entrenchment erased and put back",
+			           none,
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseEntrenchment( p, 0, &savedTrench ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertEntrenchment( p, 0, savedTrench ); } );
+		RunM2Refusal( szCold, "bridge entry erase past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::EraseBridgeEntry( p, int( p->bridges.size() ) ); } );
+		RunM2Refusal( szCold, "entrenchment replace past the end", none, [&]( SLoadMapInfo *p ) { return NMapRecords::ReplaceEntrenchment( p, int( p->entrenchments.size() ), trench ); } );
+	}
+
+	// ---- An object's script ID and HP ----
+	{
+		CMapInfo probe;
+		int nLinkID = 0;
+		if ( ReadFresh( szCold, &probe ) )
+			nLinkID = FindUsableLinkID( probe );
+		if ( Check( nLinkID != 0, "coldwinter has an object with a unique nonzero link ID" ) )
+		{
+			int nOldScript = 0;
+			float fOldHP = 0.0f;
+			RunM2Case( szCold, "object script ID set",
+			           none,
+			           [&]( SLoadMapInfo *p ) { nOldScript = ObjectByLinkID( *p, nLinkID )->nScriptID; return NMapRecords::SetObjectScriptID( p, nLinkID, 4242 ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, nOldScript ); } );
+			RunM2Case( szCold, "object script ID cleared to -1",
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, 12 ); },
+			           [&]( SLoadMapInfo *p ) { nOldScript = ObjectByLinkID( *p, nLinkID )->nScriptID; return NMapRecords::SetObjectScriptID( p, nLinkID, -1 ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, nOldScript ); } );
+			RunM2Case( szCold, "object HP set",
+			           none,
+			           [&]( SLoadMapInfo *p ) { fOldHP = ObjectByLinkID( *p, nLinkID )->fHP; return NMapRecords::SetObjectHP( p, nLinkID, fOldHP == 0.5f ? 0.25f : 0.5f ); },
+			           [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectHP( p, nLinkID, fOldHP ); } );
+			RunM2Refusal( szCold, "script ID above 32000", none, [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, 32001 ); } );
+			RunM2Refusal( szCold, "script ID below -1", none, [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, -2 ); } );
+			RunM2Refusal( szCold, "script ID on link ID 0", none, [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, 0, 5 ); } );
+			RunM2Refusal( szCold, "script ID on an unknown link", none, [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, 987654321, 5 ); } );
+			RunM2Refusal( szCold, "HP that is not a number", none, [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectHP( p, nLinkID, std::numeric_limits<float>::quiet_NaN() ); } );
+			RunM2Refusal( szCold, "HP on link ID 0", none, [&]( SLoadMapInfo *p ) { return NMapRecords::SetObjectHP( p, 0, 0.5f ); } );
+		}
+		// An add's three fields reach the record (Pitfall 5); the defaults keep
+		// the M1 values.
+		CMapInfo map;
+		if ( ReadFresh( szCold, &map ) )
+		{
+			g_nM2Cases += 2;
+			NMapOverlay::SAddObject add;
+			add.szName = "M2_object";
+			int nDefault = 0, nGiven = 0;
+			NMapOverlay::AddObject( &map, add, &nDefault );
+			add.nFrameIndex = 3; add.fHP = 0.5f; add.nScriptID = 77;
+			NMapOverlay::AddObject( &map, add, &nGiven );
+			const SMapObjectInfo *pDefault = ObjectByLinkID( map, nDefault ), *pGiven = ObjectByLinkID( map, nGiven );
+			Check( pDefault != 0 && pDefault->nFrameIndex == 0 && pDefault->fHP == 1.0f && pDefault->nScriptID == -1, "an add's defaults are the M1 values" );
+			Check( pGiven != 0 && pGiven->nFrameIndex == 3 && pGiven->fHP == 0.5f && pGiven->nScriptID == 77, "an add's frame index, HP and script ID reach the record" );
+		}
+	}
+
+	RemoveM2Files();
+	Check( g_nM2Cases >= 30, "at least 30 M2 cases were checked" );
+	printf( "map-file: M2 record ops ok (%d cases)\n", g_nM2Cases );
+}
+
 // Read a map, write it untouched, read it back: equivalent. Then write it a
 // second time and compare the two files byte for byte - the spec's idempotent
 // save. A map that survives both has not been quietly normalised. The bytes of
@@ -822,6 +1446,7 @@ int main( int argc, char **argv )
 	TestPaintOnAPatchBorder();
 	TestPreprocessingChangesUnpaintedTiles();
 	TestCameraAnchorRecords();
+	TestM2RecordOps();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

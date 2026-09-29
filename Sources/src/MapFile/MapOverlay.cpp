@@ -134,13 +134,13 @@ bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID )
 	object.vPos = rAdd.vPos;
 	object.nDir = rAdd.nDir;
 	object.nPlayer = rAdd.nPlayer;
-	object.nScriptID = -1;
-	object.fHP = 1.0f;
-	// Left unpacked: packing needs the object database to know the type, and
-	// for a type it does not know it dereferences null. The bridge packs this
-	// one object when it places it; see the spec's "Frame indices and unknown
-	// types".
-	object.nFrameIndex = 0;
+	object.nScriptID = rAdd.nScriptID;
+	object.fHP = rAdd.fHP;
+	// Left as the caller gave it, which is 0 unless it knows better: packing
+	// needs the object database to know the type, and for a type it does not
+	// know it dereferences null. The bridge packs this one object when it
+	// places it; see the spec's "Frame indices and unknown types".
+	object.nFrameIndex = rAdd.nFrameIndex;
 	// A given link ID is the caller's promise that it is free - the bridge's
 	// floor, which never hands out an ID a restore may need back. One in use is
 	// refused rather than doubled.
