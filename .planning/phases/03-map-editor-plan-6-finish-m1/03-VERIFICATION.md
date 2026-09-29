@@ -1,7 +1,7 @@
 ---
 phase: 03-map-editor-plan-6-finish-m1
 verified: 2026-09-29T09:22:26Z
-status: human_needed
+status: passed
 score: 19/20 roadmap truths verified (18 verified + 1 override; 1 open pending decision; 2 plan-level truths present, behavior-unverified)
 covered_files:
   - .github/workflows/cross-platform.yml
@@ -331,3 +331,11 @@ One concrete defect found while reading the code is worth fixing along with ledg
 
 _Verified: 2026-09-29T09:22:26Z_
 _Verifier: Claude (gsd-verifier)_
+
+## Resolution (2026-09-29)
+
+- Human verification: both behavior-unverified items passed in 03-UAT.md (D-15 camera restore; crash-recovery offer after kill -9).
+- Plan-5 leftovers (WINDOWS.md 1-3), the Restart exit popup and the game-reads-it baseline: fixed in gap-closure plan 03-16.
+- Windows: release package builds (a1d7b7a15, CI builds and checks it); MapEditor finds its installation from any working directory (296118b26, 8ee15cb2e); Johannes's real-Windows hand try passed.
+- CI run 36588755990 green on all six jobs.
+- Status set to passed.
