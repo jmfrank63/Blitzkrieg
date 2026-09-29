@@ -6333,7 +6333,13 @@ const SeasonDataInputs = struct {
 // walking Data/Units takes a few milliseconds.
 fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
     const io = b.graph.io;
-    var dir = try b.build_root.handle.openDir(io, "Data/Units", .{ .iterate = true });
+    var dir = b.build_root.handle.openDir(io, "Data/Units", .{ .iterate = true }) catch |err| switch (err) {
+        // CI's sparse checkouts for the jobs that never stage the game (the
+        // Linux, MinGW and Intel macOS ones) leave out Data/Units. Staging
+        // without it fails in the generation step itself, which reads it.
+        error.FileNotFound => return .{ .sources = &.{}, .listing = "" },
+        else => return err,
+    };
     defer dir.close(io);
     var walker = try dir.walk(b.allocator);
     defer walker.deinit();
