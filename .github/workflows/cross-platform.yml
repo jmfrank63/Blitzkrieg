@@ -399,6 +399,61 @@ jobs:
       - name: Run GFX GPU factory test
         run: zig build gfxgpu-factory-test -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # The Windows package, built for real: until 03-16 no job ran any package
+      # step (03-VERIFICATION.md). Last, after the mid-job cache saves, so a
+      # slow package run never costs the next run its warm cache. It stages a
+      # second copy of the checked-out Data and writes two stored zips
+      # (package-game-editors builds Blitzkrieg-game.zip on the way), so the
+      # free space is printed first.
+      - name: Package the game with the editors
+        run: |
+          Get-PSDrive -PSProvider FileSystem | Format-Table Name, @{n='FreeGB';e={[math]::Round($_.Free / 1GB, 1)}}, @{n='UsedGB';e={[math]::Round($_.Used / 1GB, 1)}}
+          zig build package-game-editors -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # D-08: MapEditor.exe sits beside Game.exe at the package root, with the
+      # generated SeasonData and the legacy Editors, and no repository mods/.
+      # The zip format counts entries in 16 bits and package.zig refuses more
+      # than 65,535 (Data alone is 63,809 files), so the count is printed and
+      # checked too. The package outputs are deleted afterwards: zig-out is
+      # uploaded below, and they are two more copies of Data.
+      - name: Check the Windows package
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $packages = "zig-out/packages/windows/x86_64/debug"
+          try {
+            foreach ($zipName in @("Blitzkrieg-game.zip", "Blitzkrieg-game-with-editors.zip")) {
+              $zipPath = Join-Path $packages $zipName
+              if (-not (Test-Path $zipPath)) { throw "$zipName was not written to $packages" }
+              $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $zipPath).Path)
+              try {
+                $names = @($zip.Entries | ForEach-Object { $_.FullName })
+                $sizeGB = [math]::Round((Get-Item $zipPath).Length / 1GB, 2)
+                Write-Host "${zipName}: $($names.Count) entries, $sizeGB GB"
+                if ($names.Count -gt 65535) { throw "${zipName} has $($names.Count) entries, more than a zip without Zip64 can count" }
+                foreach ($required in @("Game.exe", "MapEditor.exe")) {
+                  if ($names -notcontains $required) { throw "${zipName} has no $required at its root" }
+                }
+                $seasonData = @($names | Where-Object { $_ -like "SeasonData/*" })
+                if ($seasonData.Count -eq 0) { throw "${zipName} has no SeasonData/" }
+                Write-Host "  SeasonData: $($seasonData -join ', ')"
+                if (@($names | Where-Object { $_ -like "mods/*" }).Count -ne 0) { throw "${zipName} has a top-level mods/" }
+                $editors = @($names | Where-Object { $_ -like "Editors/*" })
+                if ($zipName -eq "Blitzkrieg-game-with-editors.zip") {
+                  if ($editors.Count -eq 0) { throw "${zipName} has no Editors/" }
+                  Write-Host "  Editors: $($editors -join ', ')"
+                } elseif ($editors.Count -ne 0) {
+                  throw "${zipName} has Editors/ entries: $($editors -join ', ')"
+                }
+              } finally {
+                $zip.Dispose()
+              }
+            }
+          } finally {
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "zig-out/packages", "zig-out/game/windows/x86_64/debug/package"
+          }
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
