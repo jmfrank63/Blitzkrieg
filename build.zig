@@ -2196,7 +2196,8 @@ pub fn build(b: *std.Build) void {
     // Captured (rather than discarded, as before) so the package steps below
     // can stage this exact build of MapEditor beside Game (D-08); null on
     // every other platform, where there is no MapEditor to package.
-    const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
+    const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
+    const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
@@ -2799,6 +2800,9 @@ pub fn build(b: *std.Build) void {
     const view_math_step = b.step("test-map-editor-view", "Run the map view's pure camera and input-mapping tests");
     view_math_step.dependOn(&view_math_tests.step);
     if (test_mode == .run) view_math_step.dependOn(&view_math_tests_run.step);
+    // view.zig's own event-wiring tests (WINDOWS.md 2) need the app's SDL
+    // headers, so they exist only where MapEditor builds.
+    if (map_editor) |built| view_math_step.dependOn(built.view_test_step);
     test_step.dependOn(view_math_step);
     // The panels' pure parts (the file dialogs' hand-over and the file
     // actions, the palette's filter, directions, the title): plain Zig
@@ -5803,6 +5807,14 @@ const MapEditorEngine = struct {
     sdl_dynamic: *std.Build.Step.Compile,
 };
 
+/// What addMapEditor hands back: the MapEditor executable (the package
+/// steps stage its exact binary) and view.zig's test step, which
+/// test-map-editor-view depends on.
+const MapEditorBuild = struct {
+    exe: *std.Build.Step.Compile,
+    view_test_step: *std.Build.Step,
+};
+
 fn addMapEditor(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -5826,7 +5838,7 @@ fn addMapEditor(
     // 03-08 Task 1: the fixture mod the -mod=EditorTestMod host-check run
     // below needs - never a dependency of install_exe/install-map-editor.
     install_fixture_mod_step: *std.Build.Step,
-) *std.Build.Step.Compile {
+) MapEditorBuild {
     const engine: MapEditorEngine = .{
         .editor_bridge = editor_bridge,
         .map_file = map_file,
@@ -5872,6 +5884,33 @@ fn addMapEditor(
         .optimize = optimize,
     });
     const stage_suffix = stage_root["zig-out/".len..];
+
+    // view.zig's own tests (WINDOWS.md 2): real SDL events through the view's
+    // wiring, the tools editing the core's fake bridge and the camera a fake
+    // of the bridge's. The app's SDL module gives the event types and
+    // constants; no SDL function is referenced, so none is linked. The core
+    // is this target's, and editor_imgui a stand-in nothing the tests reach
+    // uses. No engine, GPU or staged installation.
+    const view_imgui_stub = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/testing/imgui_stub.zig"),
+        .target = target,
+        .optimize = .Debug,
+    });
+    const view_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/view.zig"),
+        .target = target,
+        .optimize = .Debug,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl_module },
+            .{ .name = "editor_core", .module = core_module },
+            .{ .name = "editor_imgui", .module = view_imgui_stub },
+        },
+    });
+    const view_tests = b.addTest(.{ .name = "map-editor-view-test", .root_module = view_test_module });
+    const view_tests_run = b.addRunArtifact(view_tests);
+    const view_test_step = b.step("test-map-editor-view-events", "Run view.zig's SDL event-wiring tests against fake bridges");
+    view_test_step.dependOn(&view_tests.step);
+    if (test_mode == .run) view_test_step.dependOn(&view_tests_run.step);
 
     const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
     const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
@@ -6026,7 +6065,7 @@ fn addMapEditor(
     // Compile step rather than a hand-built path keeps the package's stage
     // command dependent on this build, not on whatever happened to be on disk
     // from a previous run.
-    return exe;
+    return .{ .exe = exe, .view_test_step = view_test_step };
 }
 
 /// A module of MapEditor's, with everything its executables link. The union

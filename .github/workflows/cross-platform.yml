@@ -309,6 +309,12 @@ jobs:
       - name: Editor core tier
         run: zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # The app's own unit tests: view.zig's SDL event wiring against fake
+      # bridges (WINDOWS.md 2), the panels' logic, Test in game's launch and
+      # exit handling, BK_EDITOR_AUTO's parser. No engine or GPU.
+      - name: Map editor unit tier
+        run: zig build test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # Only here and on macos-14: the probe says those are the two runners with
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
@@ -542,6 +548,10 @@ jobs:
 
       - name: Editor core tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The app's own unit tests (see the Windows job's step of this name).
+      - name: Map editor unit tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
