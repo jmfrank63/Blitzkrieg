@@ -4,6 +4,8 @@
 // the tests here build their expected map with them.
 #include "StdAfx.h"
 #include "MapOverlay.h"
+#include "MapRecords.h"
+#include <algorithm>
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/RMG_Types.h"
 #include "../Formats/fmtTerrain.h"
@@ -56,6 +58,116 @@ std::string Numbered( const char *pszWhat, int nIndex )
 	char szBuffer[64];
 	snprintf( szBuffer, sizeof szBuffer, "%s %d", pszWhat, nIndex );
 	return szBuffer;
+}
+
+// Why a delete of nLinkID is refused, or false if it is not. Only what the
+// game's loaders assert on and what M3's links depend on refuses: a bridge span
+// (LoadBridges asserts every link), a trench piece (LoadEntrenchments does),
+// and a vehicle a passenger's nLinkWith still points at. Everything else that
+// names the object is edited by the cascade. Link ID 0 is "no link ID" and is
+// never a reference.
+bool WhyRefused( const SLoadMapInfo &rMap, int nLinkID, std::string *pReason )
+{
+	if ( nLinkID == 0 )
+		return false;
+	std::vector<std::string> referrers, pieces;
+	for ( size_t i = 0; i < rMap.bridges.size(); ++i )
+		for ( size_t j = 0; j < rMap.bridges[i].size(); ++j )
+			if ( rMap.bridges[i][j] == nLinkID )
+			{
+				referrers.push_back( Numbered( "bridge", int( i ) ) );
+				break;
+			}
+	for ( size_t i = 0; i < rMap.entrenchments.size(); ++i )
+	{
+		bool bHit = false;
+		const std::vector<SEntrenchmentInfo::TSegment> &rSections = rMap.entrenchments[i].sections;
+		for ( size_t j = 0; j < rSections.size() && !bHit; ++j )
+			for ( size_t k = 0; k < rSections[j].size() && !bHit; ++k )
+				bHit = rSections[j][k] == nLinkID;
+		if ( bHit )
+			pieces.push_back( Numbered( "entrenchment", int( i ) ) );
+	}
+	// A passenger whose nLinkWith points at a vehicle holds that vehicle: the
+	// spec refuses the vehicle's delete while the passenger is inside it.
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	const char *pszListName[2] = { "object", "scenario object" };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+		{
+			const SMapObjectInfo &rObject = (*lists[nList])[i];
+			if ( rObject.link.nLinkID != nLinkID && rObject.link.nLinkWith == nLinkID )
+				referrers.push_back( Numbered( pszListName[nList], int( i ) ) + " (" + rObject.szName + ")" );
+		}
+	if ( referrers.empty() && pieces.empty() )
+		return false;
+	if ( pReason )
+	{
+		pReason->clear();
+		if ( !referrers.empty() )
+		{
+			*pReason = "still referred to by ";
+			for ( size_t i = 0; i < referrers.size(); ++i )
+				*pReason += ( i == 0 ? "" : ", " ) + referrers[i];
+		}
+		if ( !pieces.empty() )
+		{
+			*pReason += pReason->empty() ? "still part of " : "; still part of ";
+			for ( size_t i = 0; i < pieces.size(); ++i )
+				*pReason += ( i == 0 ? "" : ", " ) + pieces[i];
+		}
+	}
+	return true;
+}
+
+// Takes nLinkID out of every start command's units, in list order. A command
+// left with no unit is erased, as the MFC editor does (RemoveObjectFromAIStartCommand);
+// a command that held none of it is not touched, so it stays byte for byte.
+void RemoveFromStartCommands( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascade )
+{
+	size_t nPosition = 0;
+	for ( SLoadMapInfo::TStartCommandsList::iterator it = pMap->startCommandsList.begin();
+	      it != pMap->startCommandsList.end(); )
+	{
+		std::vector<int> &rUnits = it->unitLinkIDs;
+		if ( std::find( rUnits.begin(), rUnits.end(), nLinkID ) == rUnits.end() )
+		{
+			++it;
+			++nPosition;
+			continue;
+		}
+		SStartCommandChange change;
+		change.nPosition = nPosition;
+		change.before = *it;
+		change.bUnitRemoved = true;
+		rUnits.erase( std::remove( rUnits.begin(), rUnits.end(), nLinkID ), rUnits.end() );
+		if ( rUnits.empty() )
+		{
+			change.bErased = true;
+			it = pMap->startCommandsList.erase( it );
+		}
+		else
+		{
+			++it;
+			++nPosition;
+		}
+		pCascade->startCommands.push_back( change );
+	}
+}
+
+// "2", "2 and 5", "2, 5 and 7".
+std::string JoinNumbers( const std::vector<int> &rNumbers )
+{
+	std::string szOut;
+	for ( size_t i = 0; i < rNumbers.size(); ++i )
+	{
+		char szNumber[32];
+		snprintf( szNumber, sizeof szNumber, "%d", rNumbers[i] );
+		if ( i > 0 )
+			szOut += i + 1 == rNumbers.size() ? " and " : ", ";
+		szOut += szNumber;
+	}
+	return szOut;
 }
 }
 
@@ -174,16 +286,11 @@ bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDele
 {
 	if ( pMap == 0 )
 		return false;
-	std::vector<std::string> references;
-	FindReferences( *pMap, nLinkID, &references );
-	if ( !references.empty() )
+	std::string szReason;
+	if ( WhyRefused( *pMap, nLinkID, &szReason ) )
 	{
 		if ( pRefusal )
-		{
-			*pRefusal = "still referred to by ";
-			for ( size_t i = 0; i < references.size(); ++i )
-				*pRefusal += ( i == 0 ? "" : ", " ) + references[i];
-		}
+			*pRefusal = szReason;
 		return false;
 	}
 	std::vector<SMapObjectInfo> *pList = 0;
@@ -193,15 +300,19 @@ bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDele
 		if ( pRefusal ) *pRefusal = "no object with that link ID";
 		return false;
 	}
-	if ( pDeleted )
-	{
-		pDeleted->object = (*pList)[nIndex];
-		pDeleted->bScenario = pList == &pMap->scenarioObjects;
-		pDeleted->nIndex = nIndex;
-	}
+	SDeletedObject deleted;
+	deleted.object = (*pList)[nIndex];
+	deleted.bScenario = pList == &pMap->scenarioObjects;
+	deleted.nIndex = nIndex;
 	// Erased, never renumbered: every other object keeps the link ID the rest
 	// of the map refers to it by.
 	pList->erase( pList->begin() + nIndex );
+	// Link ID 0 is no link ID: a start command listing 0 is not naming this
+	// object, so the cascade never runs for it.
+	if ( nLinkID != 0 )
+		RemoveFromStartCommands( pMap, nLinkID, &deleted.cascade );
+	if ( pDeleted )
+		*pDeleted = deleted;
 	return true;
 }
 
@@ -209,10 +320,66 @@ bool RestoreObject( SLoadMapInfo *pMap, const SDeletedObject &rDeleted )
 {
 	if ( pMap == 0 || FindObject( pMap, rDeleted.object.link.nLinkID, 0, 0 ) != 0 )
 		return false;
+	// Reverse order of application: a later erase shifted the positions after it,
+	// so the last change is undone first.
+	const SCascade &rCascade = rDeleted.cascade;
+	for ( size_t i = rCascade.startCommands.size(); i-- > 0; )
+	{
+		const SStartCommandChange &rChange = rCascade.startCommands[i];
+		const int nPosition = int( Min( rChange.nPosition, pMap->startCommandsList.size() ) );
+		if ( rChange.bErased )
+			NMapRecords::InsertStartCommand( pMap, nPosition, rChange.before );
+		else
+			NMapRecords::ReplaceStartCommand( pMap, nPosition, rChange.before );
+	}
 	std::vector<SMapObjectInfo> &rList = rDeleted.bScenario ? pMap->scenarioObjects : pMap->objects;
 	const size_t nIndex = Min( rDeleted.nIndex, rList.size() );
 	rList.insert( rList.begin() + nIndex, rDeleted.object );
 	return true;
+}
+
+void DescribeCascade( const SCascade &rCascade, std::string *pOut )
+{
+	if ( pOut == 0 )
+		return;
+	pOut->clear();
+	// The positions the player knows are the ones before the delete: an erase
+	// shifted every later position down by one, so add back what went before.
+	std::vector<int> removedFrom, erased, cleared, reserves;
+	int nErased = 0;
+	for ( size_t i = 0; i < rCascade.startCommands.size(); ++i )
+	{
+		const SStartCommandChange &rChange = rCascade.startCommands[i];
+		const int nOriginal = int( rChange.nPosition ) + nErased;
+		if ( rChange.bErased )
+		{
+			erased.push_back( nOriginal );
+			++nErased;
+		}
+		else if ( rChange.bUnitRemoved )
+			removedFrom.push_back( nOriginal );
+		if ( rChange.bTargetCleared && !rChange.bErased )
+			cleared.push_back( nOriginal );
+	}
+	nErased = 0;
+	for ( size_t i = 0; i < rCascade.reservePositions.size(); ++i )
+	{
+		reserves.push_back( int( rCascade.reservePositions[i].nPosition ) + nErased );
+		++nErased;
+	}
+	std::vector<std::string> parts;
+	if ( !removedFrom.empty() )
+		parts.push_back( std::string( "removed from start command" ) + ( removedFrom.size() > 1 ? "s " : " " ) + JoinNumbers( removedFrom ) );
+	if ( !erased.empty() )
+		parts.push_back( std::string( "start command" ) + ( erased.size() > 1 ? "s " : " " ) + JoinNumbers( erased ) + " erased" );
+	if ( !cleared.empty() )
+		parts.push_back( std::string( cleared.size() > 1 ? "targets of start commands " : "target of start command " ) + JoinNumbers( cleared ) + " cleared" );
+	if ( !reserves.empty() )
+		parts.push_back( std::string( "reserve position" ) + ( reserves.size() > 1 ? "s " : " " ) + JoinNumbers( reserves ) + " erased" );
+	for ( size_t i = 0; i < parts.size(); ++i )
+		*pOut += ( i == 0 ? "also " : "; " ) + parts[i];
+	for ( size_t i = 0; i < rCascade.notes.size(); ++i )
+		*pOut += ( pOut->empty() ? "" : "; " ) + rCascade.notes[i];
 }
 
 bool SetDiplomacy( SLoadMapInfo *pMap, int nPlayer, BYTE nDiplomacy )

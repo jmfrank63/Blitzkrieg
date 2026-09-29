@@ -192,27 +192,49 @@ static void TestObjectOverlay()
 		Check( map.objects[0].szName == original.objects[0].szName, "and its name" );
 	}
 
-	// A referenced object refuses to be deleted, and says what holds it.
+	// An object a start command or reserve position names cascades (D-04) and
+	// its restore gives the map back. Coldwinter names none of its objects that
+	// way, so the reference is laid over a copy through NMapRecords.
 	CMapInfo forDelete = original;
-	int nReferenced = -1;
-	for ( size_t i = 0; i < forDelete.objects.size() && nReferenced < 0; ++i )
+	int nNamed = -1;
+	for ( size_t i = 0; i < forDelete.objects.size() && nNamed < 0; ++i )
 	{
+		const int nCandidate = forDelete.objects[i].link.nLinkID;
 		std::vector<std::string> references;
-		NMapOverlay::FindReferences( forDelete, forDelete.objects[i].link.nLinkID, &references );
-		if ( !references.empty() )
-			nReferenced = forDelete.objects[i].link.nLinkID;
+		NMapOverlay::FindReferences( forDelete, nCandidate, &references );
+		if ( nCandidate != 0 && references.empty() )
+			nNamed = nCandidate;
 	}
-	if ( nReferenced >= 0 )
+	if ( Check( nNamed >= 0, "coldwinter has an object nothing refers to" ) )
 	{
-		std::string szRefusal;
+		SAIStartCommand command;
+		command.unitLinkIDs.push_back( nNamed );
+		NMapRecords::InsertStartCommand( &forDelete, -1, command );
 		const CMapInfo before = forDelete;
-		Check( !NMapOverlay::DeleteObject( &forDelete, nReferenced, &szRefusal ), "a referenced object refuses to go" );
-		Check( !szRefusal.empty(), "and names what refers to it" );
+		NMapOverlay::SDeletedObject deleted;
+		std::string szRefusal;
+		Check( NMapOverlay::DeleteObject( &forDelete, nNamed, &szRefusal, &deleted ), "an object a start command names goes, the command with it" );
+		Check( forDelete.startCommandsList.size() + 1 == before.startCommandsList.size(), "and the command left with no unit is erased" );
+		Check( NMapOverlay::RestoreObject( &forDelete, deleted ), "and it restores" );
 		std::string szWhere;
-		Check( NMapFile::AreEquivalent( before, forDelete, &szWhere ), "and a refused delete changes nothing" );
+		Check( NMapFile::AreEquivalent( before, forDelete, &szWhere ), "with the start command back as it was" );
 	}
-	else
-		printf( "map-file: (no referenced object in coldwinter; refusal case not exercised)\n" );
+
+	// A bridge span still refuses to be deleted, says what holds it, and changes
+	// nothing.
+	if ( nNamed >= 0 )
+	{
+		CMapInfo withBridge = original;
+		std::vector<int> span;
+		span.push_back( nNamed );
+		NMapRecords::InsertBridgeEntry( &withBridge, -1, span );
+		const CMapInfo before = withBridge;
+		std::string szRefusal;
+		Check( !NMapOverlay::DeleteObject( &withBridge, span[0], &szRefusal ), "a bridge span refuses to go" );
+		Check( szRefusal.find( "still referred to by bridge" ) != std::string::npos, "and names the bridge" );
+		std::string szWhere;
+		Check( NMapFile::AreEquivalent( before, withBridge, &szWhere ), "and a refused delete changes nothing" );
+	}
 }
 
 // A delete nothing refers to takes the record out and leaves every other

@@ -131,7 +131,8 @@ BkEditorStatus BkEditorCloseMap( BkEditorSession *session );
    BK_EDITOR_REFUSED means the map or the engine said no and the reason is in
    BkEditorLastMessage - an object still referred to by a bridge or a start
    command, or a position the engine will not put the object at. It is an
-   ordinary answer, not a failure. BkEditorAddObject also refuses every type
+   ordinary answer, not a failure. (Since M2 a start command or reserve
+   position no longer refuses a delete: see BkEditorDeleteObject.) BkEditorAddObject also refuses every type
    the catalogue marks not placeable - a single soldier among them, with a
    squad to place instead named in the message, and (M2, D-05) a bridge span,
    a trench piece and a fence, which the Bridge, Entrenchment and Fence tools
@@ -159,6 +160,20 @@ BkEditorStatus BkEditorPlaceObject( BkEditorSession *session, int link_id,
 BkEditorStatus BkEditorMoveObject( BkEditorSession *session, int link_id, float x, float y );
 BkEditorStatus BkEditorTurnObject( BkEditorSession *session, int link_id, int dir );
 BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, int player );
+/* Deletes the object as the MFC editor's delete does (D-04): it also leaves
+   every start command's unit list (a command left with no unit is erased), is
+   cleared from a start command's target (set to 0), and takes with it every
+   reserve position naming it as artillery or truck. Reinforcement groups and
+   the AI general's mobile reinforcements name SCRIPT IDs and are never edited.
+   BK_EDITOR_OK, and BkEditorLastMessage then says what else changed ("also
+   removed from start command 2; reserve position 1 erased") and notes a
+   script ID a group or the AI general still names - empty when nothing but the
+   object went. One call, one undo step: BkEditorRestoreObject puts back the
+   object and every one of those changes exactly. BK_EDITOR_REFUSED, changing
+   nothing, for the three things the game's loaders and M3's links depend on: a
+   bridge span, a trench piece, and an object carrying a passenger; and for an
+   object the database does not know, and one whose link ID other objects
+   share. */
 BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
 /* Puts a deleted object back as it was: same record, same link ID, same place
    in its list, and in the engine where it stood. Undo of a delete, and redo of

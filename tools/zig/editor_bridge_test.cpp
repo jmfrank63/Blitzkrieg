@@ -3774,6 +3774,109 @@ static void TestM2CameraAnchors( BkEditorSession *pSession, const std::string &s
 	printf( "editor-bridge: M2 camera anchors ok\n" );
 }
 
+// D-04 (M2): deleting an object other records name is no longer refused; it
+// cascades through the start commands (and, with bAllKinds, the reserve
+// positions, the targets and the script-ID note), in one step that
+// BkEditorRestoreObject undoes exactly. The scratch map is coldwinter with the
+// records this test lays over it through NMapRecords, so the expected map is
+// built by the same NMapOverlay::DeleteObject on a fresh read of that file.
+static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &szScratch, bool bAllKinds )
+{
+	// Two units the session can delete: placed by the engine, a link ID of their
+	// own, and nothing that refuses a delete (a span, a piece, a passenger).
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo base;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &base, &szError ), szError.c_str() ) )
+		return;
+	int nU = -1, nV = -1;
+	for ( size_t i = 0; i < base.objects.size() && nV < 0; ++i )
+	{
+		const int nCandidate = base.objects[i].link.nLinkID;
+		if ( nCandidate == 0 )
+			continue;
+		int nSharing = 0;
+		for ( size_t j = 0; j < base.objects.size(); ++j )
+			nSharing += base.objects[j].link.nLinkID == nCandidate ? 1 : 0;
+		for ( size_t j = 0; j < base.scenarioObjects.size(); ++j )
+			nSharing += base.scenarioObjects[j].link.nLinkID == nCandidate ? 1 : 0;
+		if ( nSharing != 1 )
+			continue;
+		BkEditorObjectState engineState;
+		if ( BkEditorEngineObjectState( pSession, nCandidate, &engineState ) != BK_EDITOR_OK )
+			continue;
+		CMapInfo copy = base;
+		std::string szRefusal;
+		if ( !NMapOverlay::DeleteObject( &copy, nCandidate, &szRefusal ) )
+			continue;
+		( nU < 0 ? nU : nV ) = nCandidate;
+	}
+	if ( !Check( nU >= 0 && nV >= 0, "coldwinter has two deletable placed objects for the cascade test" ) )
+		return;
+
+	// The scratch map: base plus the records that name U and V.
+	const std::string szMap = szScratch + "\\cascade-scratch.bzm";
+	const std::string szUnedited = szScratch + "\\cascade-unedited.bzm";
+	const std::string szEdited = szScratch + "\\cascade-edited.bzm";
+	const std::string szUndone = szScratch + "\\cascade-undone.bzm";
+	CMapInfo scratch;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &scratch, &szError ), szError.c_str() ) )
+		return;
+	const size_t nCommandsBefore = scratch.startCommandsList.size();
+	{
+		SAIStartCommand a, b;
+		a.unitLinkIDs.push_back( nU );
+		b.unitLinkIDs.push_back( nU );
+		b.unitLinkIDs.push_back( nV );
+		NMapRecords::InsertStartCommand( &scratch, -1, a );
+		NMapRecords::InsertStartCommand( &scratch, -1, b );
+	}
+	if ( !Check( NMapFile::Write( szMap.c_str(), scratch, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The delete cascades and says so.
+	if ( !Check( BkEditorDeleteObject( pSession, nU ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szMessage = BkEditorLastMessage( pSession );
+	printf( "editor-bridge: cascade delete says: %s\n", szMessage.c_str() );
+	Check( szMessage.find( "start command" ) != std::string::npos, "the delete says what it changed in the start commands" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the cascade delete: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+
+	// Saved, it is the map the same overlay call builds.
+	CMapInfo expected;
+	if ( !Check( NMapFile::Read( szMap.c_str(), &expected, &szError ), szError.c_str() ) )
+		return;
+	std::string szRefusal;
+	Check( NMapOverlay::DeleteObject( &expected, nU, &szRefusal ), "the expected map takes the delete" );
+	Check( expected.startCommandsList.size() == nCommandsBefore + 1, "the expected map lost the command that named only U" );
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo saved;
+		if ( Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+			       szWhere.empty() ? "the saved map equals the expected map" : ( "the cascade save differs at " + szWhere ).c_str() );
+		}
+	}
+
+	// One restore undoes all of it: the unedited bytes.
+	Check( BkEditorRestoreObject( pSession, nU ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the restore: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "a cascade delete and its restore save the unedited file byte for byte" );
+	const char *const files[] = { szMap.c_str(), szUnedited.c_str(), szEdited.c_str(), szUndone.c_str() };
+	for ( size_t i = 0; i < sizeof files / sizeof files[0]; ++i )
+		remove( OsPath( files[i] ).c_str() );
+	printf( "editor-bridge: M2 cascade delete (start commands) ok\n" );
+	( void )bAllKinds;
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -3924,6 +4027,7 @@ int main( int argc, char **argv )
 		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2CameraAnchors( pSession, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
+		TestM2CascadeDelete( pSession, szScratch, false );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

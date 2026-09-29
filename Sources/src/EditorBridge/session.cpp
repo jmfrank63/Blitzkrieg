@@ -870,11 +870,13 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	// another record's.
 	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
 		return false;
-	// The map decides first: something still referring to the object - a bridge,
-	// a start command, a reinforcement group, a passenger - means no, and the
-	// engine is never asked.
+	// The map decides first: a bridge span, a trench piece or a vehicle with a
+	// passenger means no, and the engine is never asked. Anything else that
+	// names the object - start commands, reserve positions - is edited by the
+	// map's cascade, the same on both copies because both lists are equal.
 	//
-	// Both records are kept, with their lists and places, for a restore.
+	// Both records are kept, with their lists, places and cascades, for a
+	// restore.
 	SEditorSession::STombstone tombstone;
 	std::string szRefusal;
 	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal, &tombstone.snapshot ) )
@@ -935,6 +937,8 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	pSession->tombstones[nLinkID] = tombstone;
 	pSession->nLinkIDFloor = Max( pSession->nLinkIDFloor, nLinkID + 1 );
 	UpdateSessionWorld( pSession );
+	// What else changed, for the status bar; empty when only the object went.
+	NMapOverlay::DescribeCascade( tombstone.snapshot.cascade, &pSession->szMessage );
 	return true;
 }
 

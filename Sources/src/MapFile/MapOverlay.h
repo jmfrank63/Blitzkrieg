@@ -38,26 +38,67 @@ struct SMoveObject
 // reference held elsewhere in the map.
 int NextLinkID( const SLoadMapInfo &rMap );
 
-// Everything that refers to nLinkID, named for the status bar. Empty means the
-// object can be deleted.
+// Everything that refers to nLinkID, named for the status bar: bridges, trench
+// pieces, start commands (as a unit or as the target), reserve positions,
+// reinforcement groups and the AI general's mobile reinforcements (both by the
+// object's SCRIPT ID, never its link ID), and a passenger holding it as its
+// vehicle. Link ID 0 is "no link ID" - hundreds of shipped objects carry it -
+// and finds nothing. Not the same as what refuses a delete: see DeleteObject.
 void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::string> *pReferences );
 
 bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID );
 bool MoveObject( SLoadMapInfo *pMap, const SMoveObject &rMove );
-// A deleted object's record, the list it was in and its place in that list:
-// what RestoreObject needs to put it back as it was.
+// What deleting an object changed besides the object, in the order it was
+// applied, so RestoreObject can undo it in reverse. Positions are indices in
+// the list at the moment of the change (an earlier erase has already shifted
+// the later ones); nothing is renumbered and the other records are untouched.
+struct SStartCommandChange
+{
+	size_t nPosition;
+	SAIStartCommand before;						// the record as it was, to put back
+	bool bErased;											// erased (no unit left) rather than edited
+	bool bUnitRemoved;								// the object was in unitLinkIDs
+	bool bTargetCleared;							// the target linkID was set to 0
+	SStartCommandChange() : nPosition( 0 ), bErased( false ), bUnitRemoved( false ), bTargetCleared( false ) {  }
+};
+struct SReservePositionChange
+{
+	size_t nPosition;
+	SBattlePosition before;						// the erased record
+	SReservePositionChange() : nPosition( 0 ) {  }
+};
+struct SCascade
+{
+	std::vector<SStartCommandChange> startCommands;
+	std::vector<SReservePositionChange> reservePositions;
+	// Things a delete leaves alone but the player should hear about: a script
+	// ID a reinforcement group or the AI general still names.
+	std::vector<std::string> notes;
+};
+// One short English line for the status bar; empty when nothing else changed.
+void DescribeCascade( const SCascade &rCascade, std::string *pOut );
+
+// A deleted object's record, the list it was in and its place in that list,
+// and the cascade: what RestoreObject needs to put it all back as it was.
 struct SDeletedObject
 {
 	SMapObjectInfo object;
 	bool bScenario;
 	size_t nIndex;
+	SCascade cascade;
 	SDeletedObject() : bScenario( false ), nIndex( 0 ) {  }
 };
-// Refuses, filling pRefusal, when anything refers to the object. pDeleted, when
-// given, receives the record that was taken out.
+// Removes the object and, as the MFC editor's delete does, takes it out of the
+// records that name it: start commands lose it from their units (a command left
+// with no unit is erased) and are cleared of it as target, reserve positions
+// naming it are erased. Refuses, filling pRefusal and changing nothing, only
+// for what the game's loaders and the links of M3 depend on: a bridge span, a
+// trench piece, and a vehicle that holds a passenger. pDeleted, when given,
+// receives the record that was taken out and the cascade.
 bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDeletedObject *pDeleted = 0 );
-// Puts the record back at its index (or the end of its list, if the list is
-// now shorter). Refuses when the link ID is in use again.
+// Puts the cascade back in reverse and the record at its index (or the end of
+// its list, if the list is now shorter). Refuses, changing nothing, when the
+// link ID is in use again.
 bool RestoreObject( SLoadMapInfo *pMap, const SDeletedObject &rDeleted );
 bool SetDiplomacy( SLoadMapInfo *pMap, int nPlayer, BYTE nDiplomacy );
 

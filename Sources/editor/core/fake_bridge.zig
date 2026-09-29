@@ -1,5 +1,5 @@
 //! An in-memory map behind the Bridge interface, for the core tier. It keeps
-//! the real bridge's rules the core can see: the refusals (a referenced or
+//! the real bridge's rules the core can see: the refusals (a bridge span, an
 //! unknown object, a shared link ID, a cell or a placement off the map, a
 //! value out of range), how link IDs are handed out, the order paints undo
 //! and redo in, what a reopen forgets, and the object list's shape. It is
@@ -18,6 +18,12 @@
 //!  - edits are accepted before any map is open and after a failed open;
 //!    the real bridge refuses them with "no map is open";
 //!  - screen and world coordinates are the same thing;
+//!  - references are modelled only as far as a delete reads them: a bridge
+//!    span (`bridge_spans`, link ID to bridge index) refuses, and start
+//!    commands (`start_commands`, at most 8 units each) are edited by the
+//!    cascade the way the real bridge edits the map's; the real map holds
+//!    more kinds (reserve positions, groups, entrenchments) which later
+//!    fixtures add;
 //!  - the ground is flat: `groundHeight` answers 0 on the map, where the real
 //!    one reads the terrain's altitudes;
 //!  - `saveMap` never touches a real file on its own: the real
@@ -44,7 +50,35 @@ pub const pick_radius: f32 = 16.0;
 pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
-const Tombstone = struct { record: ObjectRecord, index: usize };
+/// One start command as far as a delete reads it: up to eight units (link
+/// IDs) and the target's link ID, 0 meaning none.
+pub const FakeStartCommand = struct {
+    units: [8]i32 = @splat(0),
+    unit_count: usize = 0,
+    target: i32 = 0,
+
+    fn holds(self: *const FakeStartCommand, link_id: i32) bool {
+        for (self.units[0..self.unit_count]) |unit| {
+            if (unit == link_id) return true;
+        }
+        return false;
+    }
+
+    fn remove(self: *FakeStartCommand, link_id: i32) void {
+        var kept: usize = 0;
+        for (self.units[0..self.unit_count]) |unit| {
+            if (unit == link_id) continue;
+            self.units[kept] = unit;
+            kept += 1;
+        }
+        self.unit_count = kept;
+    }
+};
+/// What a delete did to one start command: its position when it was changed
+/// (an earlier erase had already shifted the later ones), the record as it
+/// was, and whether the command went. Undone in reverse.
+const StartChange = struct { position: usize, before: FakeStartCommand, erased: bool };
+const Tombstone = struct { record: ObjectRecord, index: usize, changes: std.ArrayListUnmanaged(StartChange) = .empty };
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
 const PaintRecord = struct { cells: []PaintCell, before: []u8 };
@@ -61,7 +95,11 @@ pub const FakeBridge = struct {
     /// The map's camera anchors (BkEditorCameraAnchors): world units, kept
     /// across a fake reopen like the sounds. `setCameraAnchorsFixture` seeds it.
     camera_anchors: records.CameraAnchors = .{},
-    referenced: std.AutoHashMapUnmanaged(i32, void) = .empty,
+    /// Bridge spans: link ID to the bridge that holds it. A span cannot be
+    /// deleted singly (the game's loaders assert every link of a bridge).
+    bridge_spans: std.AutoHashMapUnmanaged(i32, i32) = .empty,
+    /// The map's start commands, in file order. `addStartCommandFixture`.
+    start_commands: std.ArrayListUnmanaged(FakeStartCommand) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
     tiles: []u8 = &no_tiles,
@@ -113,7 +151,9 @@ pub const FakeBridge = struct {
         self.undone.deinit(self.allocator);
         self.objects_list.deinit(self.allocator);
         self.sounds_list.deinit(self.allocator);
-        self.referenced.deinit(self.allocator);
+        self.bridge_spans.deinit(self.allocator);
+        self.start_commands.deinit(self.allocator);
+        self.freeTombstones();
         self.tombstones.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
         self.calls.deinit(self.allocator);
@@ -121,11 +161,21 @@ pub const FakeBridge = struct {
         self.* = undefined;
     }
 
-    /// An object in the map before it opens; `referenced` makes its delete
-    /// refused, as a bridge or start command holding it would.
-    pub fn addFixture(self: *FakeBridge, new_record: ObjectRecord, referenced: bool) !void {
+    /// An object in the map before it opens; `bridge_span` makes it a span of
+    /// bridge 0, so its delete is refused as the real bridge refuses one.
+    pub fn addFixture(self: *FakeBridge, new_record: ObjectRecord, bridge_span: bool) !void {
         try self.objects_list.append(self.allocator, new_record);
-        if (referenced) try self.referenced.put(self.allocator, new_record.link_id, {});
+        if (bridge_span) try self.bridge_spans.put(self.allocator, new_record.link_id, 0);
+    }
+
+    /// A start command in the map before it opens: the unit link IDs it
+    /// commands (at most eight) and its target's link ID (0: none).
+    pub fn addStartCommandFixture(self: *FakeBridge, units: []const i32, target: i32) !void {
+        var command: FakeStartCommand = .{ .target = target };
+        std.debug.assert(units.len <= command.units.len);
+        @memcpy(command.units[0..units.len], units);
+        command.unit_count = units.len;
+        try self.start_commands.append(self.allocator, command);
     }
 
     /// A sound in the map before it opens, for a test to seed the list
@@ -186,7 +236,32 @@ pub const FakeBridge = struct {
         self.paints.clearRetainingCapacity();
         self.applied.clearRetainingCapacity();
         self.undone.clearRetainingCapacity();
+        self.freeTombstones();
         self.tombstones.clearRetainingCapacity();
+    }
+
+    fn freeTombstones(self: *FakeBridge) void {
+        var tombstones = self.tombstones.valueIterator();
+        while (tombstones.next()) |tombstone| tombstone.changes.deinit(self.allocator);
+    }
+
+    /// The real bridge's summary of what a delete changed besides the object,
+    /// in the message buffer: "also removed from start command 0; start
+    /// command 3 erased". Positions are the ones before the delete.
+    fn describeCascade(self: *FakeBridge, changes: []const StartChange) void {
+        self.message_len = 0;
+        var erased_before: usize = 0;
+        for (changes) |change| {
+            const original = change.position + erased_before;
+            const prefix: []const u8 = if (self.message_len == 0) "also " else "; ";
+            const rest = self.message_buffer[self.message_len..];
+            const text = if (change.erased)
+                std.fmt.bufPrint(rest, "{s}start command {d} erased", .{ prefix, original }) catch break
+            else
+                std.fmt.bufPrint(rest, "{s}removed from start command {d}", .{ prefix, original }) catch break;
+            self.message_len += text.len;
+            if (change.erased) erased_before += 1;
+        }
     }
 
     /// More than one object carrying the link ID: the real bridge cannot
@@ -356,13 +431,36 @@ pub const FakeBridge = struct {
             return .refused;
         }
         if (self.shared(link_id)) return .refused;
-        if (self.referenced.contains(link_id)) {
-            self.say("still referred to by bridge 0", .{});
+        if (self.bridge_spans.get(link_id)) |bridge_index| {
+            self.say("still referred to by bridge {d}", .{bridge_index});
             return .refused;
         }
+        // Everything that can fail comes first, so a failure leaves the map as it was.
+        var changes: std.ArrayListUnmanaged(StartChange) = .empty;
+        errdefer changes.deinit(self.allocator);
+        changes.ensureTotalCapacity(self.allocator, self.start_commands.items.len) catch return .failed;
+        self.tombstones.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+
         const removed = self.objects_list.orderedRemove(index);
-        self.tombstones.put(self.allocator, link_id, .{ .record = removed, .index = index }) catch return .failed;
+        // Link ID 0 is "none": a command listing 0 is not naming this object.
+        if (link_id != 0) {
+            var position: usize = 0;
+            while (position < self.start_commands.items.len) {
+                const command = &self.start_commands.items[position];
+                if (!command.holds(link_id)) {
+                    position += 1;
+                    continue;
+                }
+                const before = command.*;
+                command.remove(link_id);
+                const erased = command.unit_count == 0;
+                changes.appendAssumeCapacity(.{ .position = position, .before = before, .erased = erased });
+                if (erased) _ = self.start_commands.orderedRemove(position) else position += 1;
+            }
+        }
+        self.tombstones.putAssumeCapacity(link_id, .{ .record = removed, .index = index, .changes = changes });
         self.link_floor = @max(self.link_floor, link_id + 1);
+        self.describeCascade(changes.items);
         self.record(.delete, link_id);
         return .ok;
     }
@@ -370,7 +468,7 @@ pub const FakeBridge = struct {
     fn restoreObject(ptr: *anyopaque, link_id: i32) Status {
         const self = from(ptr);
         self.message_len = 0;
-        const tombstone = self.tombstones.get(link_id) orelse {
+        const tombstone = self.tombstones.getPtr(link_id) orelse {
             self.say("no deleted object has that link ID", .{});
             return .refused;
         };
@@ -378,8 +476,22 @@ pub const FakeBridge = struct {
             self.say("the link ID is in use again", .{});
             return .refused;
         }
+        self.objects_list.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.start_commands.ensureUnusedCapacity(self.allocator, tombstone.changes.items.len) catch return .failed;
+        // Reverse order of application: a later erase shifted the positions after it.
+        var back = tombstone.changes.items.len;
+        while (back != 0) {
+            back -= 1;
+            const change = tombstone.changes.items[back];
+            if (change.erased) {
+                self.start_commands.insertAssumeCapacity(@min(change.position, self.start_commands.items.len), change.before);
+            } else {
+                self.start_commands.items[change.position] = change.before;
+            }
+        }
         const index = @min(tombstone.index, self.objects_list.items.len);
-        self.objects_list.insert(self.allocator, index, tombstone.record) catch return .failed;
+        self.objects_list.insertAssumeCapacity(index, tombstone.record);
+        tombstone.changes.deinit(self.allocator);
         _ = self.tombstones.remove(link_id);
         self.record(.restore, link_id);
         return .ok;
