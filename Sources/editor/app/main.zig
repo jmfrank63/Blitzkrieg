@@ -612,6 +612,43 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: game reads it FAIL: no SGVOGT_UNIT in the catalogue\n", .{});
         return false;
     };
+    // The units= verb's coordinates are SMiniMapUnitInfo's own scale, factor
+    // 64 (03-01-SUMMARY.md) - but over the AI's own coordinate, which bridge.h
+    // documents as MAP units, not the scene "world" units BkEditorSetCamera
+    // takes (bridge.h: "Map units are the file's and the AI's"). Confirmed
+    // empirically against this same test map: querying at map_x/64,map_y/64
+    // with radius 1 finds the placed unit; the scene-world equivalent misses
+    // it by roughly 20 units of this scale (~1300 world units away) - the two
+    // coordinate systems really do disagree by more than rounding.
+    const units_x: i32 = @intFromFloat(@floor(point.map_x / 64.0));
+    const units_y: i32 = @intFromFloat(@floor(point.map_y / 64.0));
+    var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const test_path = real.testMapPath(testlaunch.profile_name, null, testlaunch.map_file_name, &test_path_buffer) orelse {
+        std.debug.print("map-editor: game reads it FAIL: no test map path: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
+        return false;
+    };
+    var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const game_path = testlaunch.gamePath(io, &game_path_buffer) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: no Game beside MapEditor: {s}\n", .{@errorName(err)});
+        return false;
+    };
+
+    // The baseline: player 0's units at that spot on the map as shipped,
+    // counted by the game before anything is placed, so the check below
+    // asserts what the edits added rather than relying on the spot being
+    // empty ground (03-VERIFICATION.md: an undeclared precondition).
+    if (real.saveCopy(test_path) != .ok) {
+        std.debug.print("map-editor: game reads it FAIL: the unedited test copy would not save: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
+        return false;
+    }
+    var baseline_log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const baseline_log = std.fmt.bufPrint(&baseline_log_buffer, "{s}.baseline.log", .{log_path}) catch {
+        std.debug.print("map-editor: game reads it FAIL: the path {s} is too long\n", .{log_path});
+        return false;
+    };
+    const baseline = gameReadsItBaseline(gpa, io, environ, game_path, baseline_log, units_x, units_y) orelse return false;
+    std.debug.print("map-editor: game reads it: player 0 has {d} units there on the unedited map\n", .{baseline});
+
     // D-04: player 0, the map's own diplomacy - a normal mission start.
     _ = editor.addObject(name, point.map_x, point.map_y, 0, 0) catch {
         std.debug.print("map-editor: game reads it FAIL: placing {s} failed: {s}\n", .{ name, editor.status() });
@@ -663,37 +700,12 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return false;
     };
 
-    var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const test_path = real.testMapPath(testlaunch.profile_name, null, testlaunch.map_file_name, &test_path_buffer) orelse {
-        std.debug.print("map-editor: game reads it FAIL: no test map path: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
-        return false;
-    };
     if (real.saveCopy(test_path) != .ok) {
         std.debug.print("map-editor: game reads it FAIL: the test copy would not save: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
         return false;
     }
 
-    // The units= verb's coordinates are SMiniMapUnitInfo's own scale, factor
-    // 64 (03-01-SUMMARY.md) - but over the AI's own coordinate, which bridge.h
-    // documents as MAP units, not the scene "world" units BkEditorSetCamera
-    // takes (bridge.h: "Map units are the file's and the AI's"). Confirmed
-    // empirically against this same test map: querying at map_x/64,map_y/64
-    // with radius 1 finds the placed unit; the scene-world equivalent misses
-    // it by roughly 20 units of this scale (~1300 world units away) - the two
-    // coordinate systems really do disagree by more than rounding.
-    const units_x: i32 = @intFromFloat(@floor(point.map_x / 64.0));
-    const units_y: i32 = @intFromFloat(@floor(point.map_y / 64.0));
-    var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const game_path = testlaunch.gamePath(io, &game_path_buffer) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: no Game beside MapEditor: {s}\n", .{@errorName(err)});
-        return false;
-    };
     var auto_ui_buffer: [160]u8 = undefined;
-    // A radius of 5 (320 map units, about 10 AI tiles) comfortably covers
-    // the placed unit and both squads (128 map units off, their soldiers
-    // spread around that) despite the world-to-units rounding above; it is
-    // not trying to bound "nearby" tightly.
-    const game_reads_it_radius = 5;
     // camera= at frame 150: the mission (and its own start view) is up by
     // then (frame 120 already reports game time), and the sound scene
     // looks at the map's sounds near the view every 3 s. Exit at 700, about
@@ -730,13 +742,14 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: game reads it FAIL: no \"BK_AUTO_UI: shot written\" line; see {s}\n", .{log_path});
         return false;
     }
-    const units_count = playerZeroUnits(log_bytes) orelse {
-        std.debug.print("map-editor: game reads it FAIL: no units line naming player 0; see {s}\n", .{log_path});
+    const units_count = testlaunch.playerUnitsNear(log_bytes, 0) orelse {
+        std.debug.print("map-editor: game reads it FAIL: no units= line; see {s}\n", .{log_path});
         return false;
     };
-    // The unit (at least itself) and every soldier of both squads.
-    if (units_count < 1 + squad_soldiers) {
-        std.debug.print("map-editor: game reads it FAIL: player 0 has {d} units near the placed ones, fewer than the unit and the squads' {d} soldiers; see {s}\n", .{ units_count, squad_soldiers, log_path });
+    // What was there already, plus the unit (at least itself) and every
+    // soldier of both squads.
+    if (units_count < baseline + 1 + squad_soldiers) {
+        std.debug.print("map-editor: game reads it FAIL: player 0 has {d} units near the placed ones, fewer than the {d} there before plus the unit and the squads' {d} soldiers; see {s}\n", .{ units_count, baseline, squad_soldiers, log_path });
         return false;
     }
     if (lone_placed) |soldier| {
@@ -763,23 +776,49 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     }
 
     deleteAutoshots(io);
-    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit and the squads' {d} soldiers; single soldiers refused; the map's sound {s} started; game exit 0)\n", .{ units_count, squad_soldiers, sound_name });
+    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit, {d} before placing, plus the unit and the squads' {d} soldiers; single soldiers refused; the map's sound {s} started; game exit 0)\n", .{ units_count, baseline, squad_soldiers, sound_name });
     return true;
 }
 
-/// The count after "player 0: " in a `units=` line
-/// ("BK_AUTO_UI: units near X,Y r R: total N; player 0: M"), or null if the
-/// log has no such line - a player with a zero count is never printed
-/// (GameMain.cpp's units= handler), so its absence here is a real "0", not a
-/// parse failure to confuse with one.
-fn playerZeroUnits(log: []const u8) ?u32 {
-    const marker = "player 0: ";
-    const at = std.mem.indexOf(u8, log, marker) orelse return null;
-    const rest = log[at + marker.len ..];
-    var end: usize = 0;
-    while (end < rest.len and std.ascii.isDigit(rest[end])) : (end += 1) {}
-    if (end == 0) return null;
-    return std.fmt.parseInt(u32, rest[0..end], 10) catch null;
+/// A radius of 5 (320 map units, about 10 AI tiles) comfortably covers the
+/// placed unit and both squads (128 map units off, their soldiers spread
+/// around that) despite the world-to-units rounding; it is not trying to
+/// bound "nearby" tightly. The baseline query uses the same radius.
+const game_reads_it_radius = 5;
+
+/// --game-reads-it's baseline run: the unedited test copy (already saved)
+/// played by the game just long enough to answer `units=` at the spot the
+/// edits will go, frame 400 as in the edited run. Player 0's count there, or
+/// null after printing why it could not be had.
+fn gameReadsItBaseline(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, game_path: []const u8, log_path: []const u8, units_x: i32, units_y: i32) ?u32 {
+    var auto_ui_buffer: [96]u8 = undefined;
+    const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "400:units={d}x{d}x{d},410:exit", .{ units_x, units_y, game_reads_it_radius }) catch unreachable;
+    var running = testlaunch.start(gpa, io, environ, .{
+        .game_path = game_path,
+        .log_path = log_path,
+        .extra_env = &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" }, .{ "BK_AUDIO_NULL", "1" } },
+    }) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: the baseline game would not start: {s}\n", .{@errorName(err)});
+        return null;
+    };
+    const exit = running.waitBlocking(io, 240_000) orelse {
+        running.terminate(io);
+        std.debug.print("map-editor: game reads it FAIL: the baseline game did not exit within 240 s; its log: {s}\n", .{log_path});
+        return null;
+    };
+    if ((exit.code orelse 1) != 0 or exit.signal != null) {
+        std.debug.print("map-editor: game reads it FAIL: the baseline game exited code={?d} signal={?d}; its log: {s}\n", .{ exit.code, exit.signal, log_path });
+        return null;
+    }
+    const log_bytes = std.Io.Dir.cwd().readFileAlloc(io, log_path, gpa, .limited(4 << 20)) catch |err| {
+        std.debug.print("map-editor: game reads it FAIL: the baseline log at {s} would not read: {s}\n", .{ log_path, @errorName(err) });
+        return null;
+    };
+    defer gpa.free(log_bytes);
+    return testlaunch.playerUnitsNear(log_bytes, 0) orelse {
+        std.debug.print("map-editor: game reads it FAIL: the baseline run printed no units= line; see {s}\n", .{log_path});
+        return null;
+    };
 }
 
 /// The game's own screenshot dump (BK_AUTO_UI's `shot` action), left in the

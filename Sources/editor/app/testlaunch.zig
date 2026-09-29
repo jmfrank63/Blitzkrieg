@@ -163,6 +163,25 @@ pub fn mapSoundTrace(log: []const u8, object: []const u8, x: f32, y: f32) MapSou
     return result;
 }
 
+/// A player's unit count from the game's `units=` report (BK_AUTO_UI,
+/// Game/GameMain.cpp): "BK_AUTO_UI: units near X,Y r R: total N; player P: M
+/// ...". The game names only players with units, so a line without this
+/// player is a real 0. Null when the log has no such line at all - the query
+/// never ran, which must not be mistaken for an empty spot. The first line
+/// counts.
+pub fn playerUnitsNear(log: []const u8, player: u32) ?u32 {
+    const at = std.mem.indexOf(u8, log, "BK_AUTO_UI: units near ") orelse return null;
+    const end = std.mem.indexOfScalarPos(u8, log, at, '\n') orelse log.len;
+    const line = std.mem.trimEnd(u8, log[at..end], "\r");
+    var marker_buffer: [32]u8 = undefined;
+    const marker = std.fmt.bufPrint(&marker_buffer, "; player {d}: ", .{player}) catch return null;
+    const found = std.mem.indexOf(u8, line, marker) orelse return 0;
+    const rest = line[found + marker.len ..];
+    var digits: usize = 0;
+    while (digits < rest.len and std.ascii.isDigit(rest[digits])) : (digits += 1) {}
+    return std.fmt.parseInt(u32, rest[0..digits], 10) catch null;
+}
+
 fn quotedField(line: []const u8, key: []const u8) ?[]const u8 {
     const at = std.mem.indexOf(u8, line, key) orelse return null;
     const rest = line[at + key.len ..];
@@ -413,4 +432,20 @@ test "mapSoundTrace: another place, another sound, or a refused name is not this
     try std.testing.expect(!trace.registered);
     try std.testing.expect(!trace.started);
     try std.testing.expect(!mapSoundTrace("", "Amb_Water_circle", 0, 0).started);
+}
+
+test "playerUnitsNear: a player's count, a player the game did not name, and no query at all" {
+    const log =
+        "BK_AUTO_UI: frame 400 at 1 ms game 2 ms\n" ++
+        "BK_AUTO_UI: units near 38,41 r 5: total 23; player 0: 14; player 1: 9\r\n" ++
+        "BK_AUTO_UI: shot written\n";
+    try std.testing.expectEqual(@as(?u32, 14), playerUnitsNear(log, 0));
+    try std.testing.expectEqual(@as(?u32, 9), playerUnitsNear(log, 1));
+    try std.testing.expectEqual(@as(?u32, 0), playerUnitsNear(log, 2));
+    // Player 10's count is not player 0's.
+    try std.testing.expectEqual(@as(?u32, 0), playerUnitsNear("BK_AUTO_UI: units near 1,1 r 5: total 3; player 10: 3\n", 0));
+    // An empty spot: the line is there, naming nobody.
+    try std.testing.expectEqual(@as(?u32, 0), playerUnitsNear("BK_AUTO_UI: units near 1,1 r 5: total 0\n", 0));
+    try std.testing.expectEqual(@as(?u32, null), playerUnitsNear("BK_AUTO_UI: shot written\n", 0));
+    try std.testing.expectEqual(@as(?u32, null), playerUnitsNear("", 0));
 }
