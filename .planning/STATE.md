@@ -65,6 +65,8 @@ behavior needs the in-game rows).
 ### Roadmap Evolution
 
 - Phase 3 added (2026-09-28): Map editor plan 6: finish M1 — branch feat/map-editor-plan-6, worktree .worktrees/map-editor-6
+- Phase 3 complete (2026-09-29), merged into main 32b9233ce
+- Phase 4 added (2026-09-29): Map editor M2: roads, rivers, bridges, AI groups, scripts — branch feat/map-editor-m2, worktree .worktrees/map-editor-6
 
 ## Performance Metrics
 
