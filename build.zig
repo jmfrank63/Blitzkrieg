@@ -2013,9 +2013,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     gfx_gpu_factory_test_module.addCSourceFiles(.{
-        // Paths.cpp: GraphicsEngineGpu reads its shader directory from
-        // NPlatform::Paths::ShaderRoot(), beside the executable.
-        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp", "Sources/src/Platform/Paths.cpp" },
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
         // These are the real engine sources, so they need the portable CRT
         // shim that every other non-Windows build force-includes: bare
         // -std=c++17 leaves LARGE_INTEGER and QueryPerformanceCounter
