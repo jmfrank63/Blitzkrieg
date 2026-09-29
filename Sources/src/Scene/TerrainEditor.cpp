@@ -339,11 +339,16 @@ bool CTerrain::UpdateRoad( const int nRoadID )
 
 bool CTerrain::RemoveRoad( const int nRoadID )
 {
+	// True when the road was there and is gone, as RemoveRiver answers. It
+	// used to return false after removing the road all the same, so nothing
+	// that asked could tell a removed road from an unknown ID.
+	bool bRemoved = false;
 	for ( int i = 0; i != terrainInfo.roads3.size(); ++i )
 	{
 		if ( terrainInfo.roads3[i].nID == nRoadID )
 		{
 			terrainInfo.roads3.erase( terrainInfo.roads3.begin() + i );
+			bRemoved = true;
 			break;
 		}
 	}
@@ -352,10 +357,11 @@ bool CTerrain::RemoveRoad( const int nRoadID )
 		if ( roads[i].GetID() == nRoadID )
 		{
 			roads.erase( roads.begin() + i );
+			bRemoved = true;
 			break;
 		}
 	}
-	return false;
+	return bRemoved;
 }
 
 int SliceSpline( const CAnalyticBSpline2 &spline, std::list<SVectorStripeObjectPoint> *points, float *pfRest, const float fStep )
