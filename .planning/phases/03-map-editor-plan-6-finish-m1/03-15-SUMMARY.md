@@ -11,7 +11,8 @@ requires:
 provides:
   - "M1 exit-criteria evidence: full sweep 1,755/1,755, local tiers 11 PASS lines, CI run 36473046568 green on all six jobs"
   - "The portable-map-editor spec corrected to the built M1 (test launch, -mod=Name, safe save, user data, camera decision, pictures, sound list, packaging, BK_EDITOR_AUTO, exit criteria)"
-  - "A release-variant Game + MapEditor stage for Johannes's hand try"
+  - "A release-variant Game + MapEditor stage for Johannes's hand try, approved 2026-09-29 after the gap fixes below"
+  - "The build generates the missing winter/Africa unit textures (SeasonData/SeasonTextures.pak) on every staging and package, cached, never writing into Data; the game and the editor mount it over Data"
 affects: [/gsd-verify-work for phase 3, M2 planning]
 
 actuals:
@@ -26,17 +27,35 @@ tech-stack:
     - "Exit criteria in the spec cite the command and date, not an ephemeral CI run number for this plan; the run id lives in the SUMMARY"
 
 key-files:
-  created: []
+  created:
+    - Sources/src/StreamIO/SeasonData.h
   modified:
     - docs/superpowers/specs/2026-09-19-portable-map-editor-design.md
+    - build.zig
+    - tools/zig/season_textures.zig
+    - tools/zig/stage.zig
+    - tools/zig/stage_test.zig
+    - Sources/src/Platform/Paths.h
+    - Sources/src/Platform/Paths.cpp
+    - Sources/src/Game/GameMain.cpp
+    - Sources/src/EditorBridge/bridge.cpp
+    - Sources/src/Scene/VisObjBuilder.cpp
+    - tools/zig/editor_bridge_test.cpp
+    - tools/zig/platform_paths_test.cpp
+    - Sources/editor/app/host.zig
+    - Sources/editor/app/main.zig
+    - Sources/src/SFX/AudioBackendOpen.cpp
+    - tools/zig/sfx_module_test.cpp
 
 key-decisions:
   - "Task 1 changed no source: every shipped map already round-trips, so MapFile.cpp and MapEquivalence.cpp were not touched"
   - "The spec cites CI by the 03-14 run for the build criterion and points here for this plan's own run, so the spec needs no edit after each CI run"
   - "Spec exit criterion 3 records that 'rotates units' means object rotation (Q/E); camera rotation is the separately deferred D-12"
   - "D-26 revised 2026-09-29 (Johannes, hand try step 7): switching mod closes the map (prompt first, then close, then switch); the active mod again is a no-op"
+  - "Generated season textures are a build output staged beside Data as SeasonData (one stored .pak, not 1428 loose files: the package zip is near its 65,535-entry limit), mounted over the base Data and below any mod; Data is never written, so -Dcopy-data=false (Data a link into the repo) works unchanged"
+  - "Cmd+W closes the map, not the editor: SDL's Window > Close loses its key equivalent on macOS; the red close button still quits"
 
-requirements-completed: [M1-EXIT-SWEEP, M1-EXIT-BUILD, M1-EXIT-TIERS]
+requirements-completed: [M1-EXIT-SWEEP, M1-EXIT-BUILD, M1-EXIT-TIERS, M1-EXIT-HANDTRY]
 
 coverage:
   - id: D1
@@ -74,9 +93,19 @@ coverage:
   - id: D5
     description: "Johannes's hand try on macOS arm64 with the release build (M1-EXIT-HANDTRY)"
     requirement: "M1-EXIT-HANDTRY"
-    verification: []
+    verification:
+      - kind: manual
+        ref: "Johannes, 2026-09-29, after the gap fixes below: \"Yes, it does. Everything approved\" (Cmd+W and the sound confirmed live)"
+        status: pass
     human_judgment: true
-    rationale: "Real trackpad, real window, real play; cannot be driven from the agent shell. PENDING: result not yet reported."
+    rationale: "Real trackpad, real window, real play; cannot be driven from the agent shell. Approved 2026-09-29."
+  - id: D6
+    description: "The staged game and the packages carry the generated winter/Africa textures without writing into Data"
+    verification:
+      - kind: integration
+        ref: "zig build test-season-textures test-stage test-platform-paths; release -Dcopy-data=false test-editor-bridge: a placed 105mm_M2A1_USA on coldwinter drawn with the generated ...\\1w; release Game logs 'season data mounted from .../release/SeasonData/*.pak'"
+        status: pass
+    human_judgment: false
 
 duration: ~95min (including ~27min unattended CI wait and a ~4min release build)
 completed: 2026-09-29
@@ -85,14 +114,14 @@ status: complete
 
 # Phase 3 Plan 15: M1 exit sweep, suite, CI, spec and hand-try hand-over Summary
 
-**All automated M1 exit criteria are met with evidence (1,755/1,755 shipped maps round-trip, 11 local tier PASS lines, CI green on all six jobs), the spec now describes what plan 6 built and decided, and a release Game plus MapEditor stage is ready for Johannes's hand try, which is still pending.**
+**All M1 exit criteria are met: 1,755/1,755 shipped maps round-trip, the local tiers pass, CI is green on all six jobs, the spec describes what plan 6 built and decided, and Johannes approved the hand try on the release build on 2026-09-29 after eleven gap fixes, the last ones Cmd+W closing only the map, sounds starting without a click, and the winter/Africa unit textures generated by the build instead of written into Data.**
 
 ## Performance
 
 - **Duration:** ~95 min, of which about 27 min was waiting for the Windows CI job and about 4 min was the release build
 - **Completed:** 2026-09-29
-- **Tasks:** 3 (Task 3's human check is pending, see below)
-- **Files modified:** 1 (the spec)
+- **Tasks:** 3 (Task 3's hand try approved 2026-09-29), plus the hand-try gap fixes below
+- **Files modified:** the spec for Tasks 1-3; the gap fixes touched the files listed in key-files
 
 ## Accomplishments
 
@@ -117,6 +146,7 @@ status: complete
 
   Windows budget check (research Pitfall 6): 26.8 min of the 110-minute timeout, well inside it; the earlier 55-min run (36464351662) was a cold-cache run.
 - **Spec:** `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` updated in `a8ee30d10`: M1 scope (camera rotation deferred with its 03-06 measurements, `-mod=Name`, sound list, Windows app), preservation invariant (sounds now edited), settings location, new sections "Object palette pictures", "Editor: sound list" and "User data: maps, settings and mods", packaging beside the game with the Windows GUI subsystem, the test launch as built (`-editor-test`, MapEditorTest generated-data root), safe save with `.bak`, BK_EDITOR_AUTO grammar and automated shot comparison, and each exit criterion marked with evidence.
+- **Continuation after the approval (2026-09-29, at `71bd19230`):** `zig build test -Dtarget=aarch64-macos -Dcopy-data=false` rc=0 (`03-15-c2-test.log`). The six tiers rc=0 in 3 min 08 s with 11 PASS/done lines (`03-15-c2-tiers2.log`): `editor-bridge: PASS`, `map-editor-engine: PASS (260 objects)`, three `host check PASS (metal, 1280x800)` with their panel smokes and the `mod switch PASS`, `smoke PASS (52 steps, 260 objects, ...)`, `game reads it PASS (14 units ...; the map's sound Amb_Water_circle started; game exit 0)`, `BK_EDITOR_AUTO: done (13 actions)`. `test-sfx-module`, `test-season-textures` (12), `test-stage` (27) and `test-platform-paths`: 33/33 steps, 39/39 tests (`03-15-c2-units.log`).
 - **Release stage:** `zig build install-map-editor -Dtarget=aarch64-macos --release=fast -Dcopy-data=false` rc=0; `Game` and `MapEditor` in `/Users/johannes/Projects/src/Blitzkrieg/.worktrees/map-editor-6/zig-out/game/macos/arm64/release/`. `MapEditor --check Data\Maps\Multiplayer\coldwinter.bzm` printed `host check PASS (metal, 1280x800)`, `unknown-object warning PASS`, `panel smoke PASS`; `Game -help` starts and exits 0. Disk after build: 13 GB free.
 
 ## Task Commits
@@ -125,9 +155,11 @@ status: complete
 2. **Task 2: whole suite locally and in CI, spec brought up to date** - `a8ee30d10` (docs)
 3. **Task 3: release build for the hand try** - no commit (build artifacts are gitignored; spec hand-try line to be finalised when Johannes reports)
 
-**Plan metadata:** the docs commit carrying this SUMMARY and STATE.md.
+Gap-fix commits during the hand try (each section below names its own): `48bf7cfe8`, `933f99bd4`, `81a6cdaab`, `ac5c30e82`, `074d4e272`, `c5cff9022`, `68cd1d79e`, `54cc41060`, `043611098`, `bce85c9bf`, `219bebe13`, `cedcfb2e8`, `b7112103a`, `479e82974`, `71bd19230`, and their docs commits. `1c71b2879` merged main's AirPlay sound fallback.
 
-## Hand-try checklist (Task 3, PENDING for Johannes)
+**Plan metadata:** the docs commits carrying this SUMMARY and STATE.md.
+
+## Hand-try checklist (Task 3, approved 2026-09-29)
 
 Build: `/Users/johannes/Projects/src/Blitzkrieg/.worktrees/map-editor-6/zig-out/game/macos/arm64/release/`. Start `MapEditor` from that folder (`cd` there, then `./MapEditor`). This is the worktree's own stage; his live installation and profile are not involved, and the test game uses the `MapEditorTest` profile.
 
@@ -144,7 +176,7 @@ Build: `/Users/johannes/Projects/src/Blitzkrieg/.worktrees/map-editor-6/zig-out/
 
 Report "approved" or the failing numbers. Camera rotation is deliberately not on the list (deferred in 03-06).
 
-Result: **pending**.
+Result: **approved** on 2026-09-29. Johannes: "Yes, it does. Everything approved", after all the gap fixes below; the last two, Cmd+W and the sound click, he confirmed live (Cmd+W unloads the map and keeps the editor; a T-26 tank "sounded ok"). Every "Still to do" in the gap-fix sections below was covered by that final hand try on the rebuilt release stage.
 
 ## Gap fix: a map in another installation's Data was saved in place (hand try, step 2)
 
@@ -459,6 +491,64 @@ A texture missing in every season still comes back null, as before.
 
 **Still to do:** rebuild the release stage once Johannes has left it. Then press F5 on mytest.bzm, scroll to the sound, and listen.
 
+## Gap fix: Cmd+W closed the editor (hand try, M1)
+
+**Found:** Johannes: "Close should not end the editor, it should just unload the map." Cmd+W quit MapEditor instead of running File > Close.
+
+**Root cause:** SDL3's macOS menu bar has Window > Close with the key equivalent Cmd+W. AppKit handles a menu key equivalent before the key reaches SDL's event queue, so the window closed, which quits the editor. File > Close never saw the key.
+
+**Fix** (`cedcfb2e8`, `Sources/editor/app/host.zig` `freeCommandW`, called from `main.zig` after `SDL_Init`): the Window > Close item's key equivalent is cleared through the Objective-C runtime SDL already loaded. Cmd+W then reaches File > Close and unloads the map, leaving the editor as it starts, with no map. The red close button still quits (with the save prompt). The host check fails on macOS if the key was not freed.
+
+**Evidence:** `map-editor-host-check` PASS; Johannes confirmed live: Cmd+W unloads the map and keeps the editor.
+
+## Gap fix: sounds started with a click (hand try, M1)
+
+**Found:** Johannes heard the map's cannon and tanks starting their engines as a sharp click.
+
+**Root cause** (`Sources/src/SFX/AudioBackendOpen.cpp`): the backend asked miniaudio for a start ramp (0 to the mix volume), but miniaudio keeps one pending fade per sound until its next mix period (40 ms). The game sends a volume, pan or 3D update every frame, and each replaced the ramp with a chase "from the current fader volume". A new `ma_sound`'s fader sits at 1.0, so the voice began at full scale, 5-14x its mix volume. Measured with `BK_AUDIO_CAPTURE` in the real game (mytest.bzm, null device): the mission music began at gain 0.91 for a mix volume of 0.09; 7 of 31 sample starts lost their ramp that way. Stops were hard cuts: `StopChannel` uninitialised a voice mid-waveform, and a volume update during a pause replaced the pause's fade-out.
+
+**Fix** (`b7112103a`):
+- A new voice's fader is set to 0 before its first mix, so every ramp starts where the voice really is. A fresh sample ramps in over 5 ms (was 60, which dulled a shot's attack); an update while that ramp is pending keeps its length. Resume keeps 60 ms, streams 80 ms.
+- `StopChannel` fades a sounding sample out over 10 ms in its slot before the slot is reused.
+- No volume request while paused, so the pause fade-out stands.
+- Diagnostics: `BK_AUDIO_CAPTURE=<file.wav>` records the final mix; `BK_SOUND_TRACE` also names each voice start, release and hard cut.
+
+**Evidence:** offline test `BkSFXRenderVoiceTest` in `tools/zig/sfx_module_test.cpp` (`test-sfx-module`) renders a constant voice through the backend for start-with-update, stop and pause. Before: start jump 0.4998 at level 0.1255, stop and pause steps 0.1255. After: largest step between frames 0.00057 in all three. Captures in `zig-out/local-test/sfx-click/`. Johannes confirmed by ear (a T-26 tank "sounded ok").
+
+## Gap fix: the generated season textures ship through the build, not in Data (hand try, M1)
+
+**Found:** `c5cff9022` added `tools/zig/season_textures.zig` and `zig build season-textures -- Data`, which wrote 1428 generated files (winter and Africa `_c/_h/_l.dds`, ~70 MB) into the worktree's source `Data/` as untracked files. Committing them was not wanted (67+ MB), and without them the staged game and the packages had no generated textures. `-Dcopy-data=false` stages `Data` as a link into the repository, so the files could not be written into the staged Data either.
+
+**Design** (`479e82974`):
+- **Generation is a cached build step** (`build.zig` `addSeasonData`): the host tool (ReleaseFast, ~2 s) reads `Data/Units` and writes one stored zip, `SeasonTextures.pak` (1428 entries, 69.8 MB), into a cache output directory. Its cache key holds every summer texture under `Data/Units` as a file input plus a listing of every `.mod` and season texture name there, found at configure time (walking `Data/Units` takes a few ms). It regenerates exactly when an input changes or a folder gains or loses a season file, and is a cache hit otherwise (`generate SeasonData cached`). Deterministic: fixed entry date, planned order.
+- **One .pak, not loose files:** the package zip has no Zip64 and Data already holds 63,809 files of its 65,535-entry limit. 1428 loose files would have left about 250 entries of headroom; one pak leaves about 1,700. The engine reads a stored .pak natively (`StreamIOZig/zip.zig`); the cost is ~70 MB of RAM, since archives are read whole.
+- **Staged beside Data** (`tools/zig/stage.zig` `--season-data <dir>`): synced to `<install>/SeasonData` in both copy and `--link-data` mode, compared by contents (a season file keeps its summer file's size, and going back to an earlier input brings back an older cached output). `install-game` passes it, so `install-map-editor` and every tier staged on it get it, as do `package-game` and `package-game-editors`. Every CI job that stages (macOS and Windows `test-editor-bridge`, `map-editor-*`, `test-random-missions`) runs the step.
+- **Mounted by the engine** (`Sources/src/StreamIO/SeasonData.h`, `NPlatform::Paths::SeasonDataRoot/SeasonDataArchivePattern`): the game (default Data only, not `-DataDir`) and the editor bridge mount `SeasonData/*.pak` right after the base storage opens, above the base Data and below any mod mounted later. An installation without SeasonData (another game's Data picked in the editor) mounts nothing and keeps the summer fallback of `074d4e272`.
+- The tool now needs `--out <dir> [--pak <name>]` or `--dry-run`; it never writes into the Data it reads.
+- `BK_SEASON_TRACE=1` prints each mesh texture asked for and any fallback (`VisObjBuilder.cpp`); `BK_UI_TRACE` prints the mount.
+
+**Cleanup:** the 1428 untracked generated files were deleted from the worktree's `Data/` (listed with `git ls-files -o --exclude-standard Data/`, every one matching `/(1|2|1p)[wa]_[chl]\.dds$`; no tracked file touched). `git status` shows no untracked files under Data.
+
+**Evidence:**
+- `test-season-textures` 12/12 (new: generate into a tree and into a pak, Data untouched, a hand-painted `1w` never regenerated, the pak read back by `std.zip`, the same bytes twice; plan-name classification).
+- `test-stage` 27/27 (new: SeasonData staged in both data modes, a same-size regeneration restaged, a dropped file pruned, a missing directory fails the stage).
+- `test-platform-paths`: SeasonDataRoot sits beside Data under BaseRoot.
+- Release stage (`zig build install-map-editor -Dtarget=aarch64-macos --release=fast -Dcopy-data=false`): `SeasonData/SeasonTextures.pak` staged, `unzip -t` clean; `test-editor-bridge` at `--release=fast -Dcopy-data=false`: a placed `105mm_M2A1_USA` on coldwinter is drawn with the generated `units\technics\allies\artillery\105mm_m2a1_usa\1w`, `editor-bridge: PASS` (`zig-out/local-test/season-bridge-release.log`). The release Game under `map-editor-game-reads-it` logs `season data mounted from ".../release/SeasonData/*.pak"` (`zig-out/local-test/map-editor-game-reads-it.log`). The shipped Ardennes and Norway campaign maps turned out to be summer maps (`...\1` in `BK_SEASON_TRACE`), so the game-side check of a US unit in its generated winter paint is the engine tier's, which uses the same `CVisObjBuilder` and storage stack.
+
+**Known limit:** a mod that replaces a unit's summer texture (or its mesh) without shipping its own `1w`/`1a` gets the base game's generated season texture on winter/Africa maps, derived from the base summer paint. Before, such a unit fell back to the mod's summer texture. A mod that ships its own season files is unaffected (mods mount on top).
+
+## Gap fix: the season fallback test with generated textures present
+
+**Found:** `deferred-items.md`: `test-editor-bridge`'s `TestMissingSeasonTextureFallsBack` failed once generated textures existed, because the M2A1 then has a `1w` and is drawn with it, not with the fallback `1`.
+
+**Fix** (`71bd19230`): the fallback is checked with SeasonData unmounted (and remounted on every way out), so the M2A1 has no winter texture whatever the build generated; a `1w` in Data itself fails with a message saying generated textures belong in SeasonData. With SeasonData mounted again, a second M2A1 must be drawn with the generated `1w`; an installation without SeasonData prints that this part is skipped. The deferred item is removed.
+
+**Evidence:** debug and release (`-Dcopy-data=false`) runs: first M2A1 drawn with `...\105mm_m2a1_usa\1` at mean RGB 107,113,75, the Flak38 with its own `\1w`, the second M2A1 with the generated `\1w`; `editor-bridge: PASS`.
+
+## Not fixed here: the same RNG overflow in RandomMapGen
+
+The 32-bit overflow fixed in the map-sound timer (`219bebe13`: `rand() * n / RAND_MAX` with macOS's `RAND_MAX` of 2^31-1) still sits in RandomMapGen: `Sources/src/RandomMapGen/MapInfo_StaticMethods.cpp` (1944-2000) and `MapInfo_StaticMethods_SoundsCreation.cpp` (148, 204) use `rand() * n / (RAND_MAX + 1)`, where `RAND_MAX + 1` overflows `int` on macOS and Linux. Tracked for backlog 999.1 (random map generation), whose rule is that a seed must keep producing byte-identical maps, so the fix belongs with that work's determinism check.
+
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
 Still open in `.planning/WINDOWS.md` (entries 1-3, ledger `open_count: 3`):
@@ -481,6 +571,8 @@ None - plan executed as written. The plan's own CI-run instruction was followed 
 
 ## Issues Encountered
 
+- **`map-editor-auto`'s local reference was stale.** The first tier run of the continuation failed `compare=edited: 1.1582% of pixels differ, want at most 1.00%`. The reference (`zig-out/local-test/map-editor-auto/reference/edited.tga`, local, never committed) was seeded 2026-09-28 23:50, before the approved gap fixes. Compared by eye (`zig-out/local-test/season-auto/reference.png` and `now.png`), every difference is one of them: the Flak38 in its winter paint (`933f99bd4`), the Brush's tile picture and name (`043611098`), SGVOGT_UNIT 288 -> 229 without the single soldiers (`ac5c30e82`), and the Sounds panel's note (`bce85c9bf`). The Flak38 has its own `1w`, so the season-texture change does not show in this shot. The old reference was moved to `zig-out/local-test/season-auto/reference-2026-09-28-edited.tga`, the next run seeded a new one, and the runs after it compared at 0.1458% and 0.0078%.
+
 - `.planning/REQUIREMENTS.md` is the old port-level document and has no `M1-EXIT-*` IDs, so `requirements mark-complete` is a no-op for them, as in plans 05, 11 and 14. `M1-EXIT-HANDTRY` stays unmarked until Johannes reports.
 - The worktree's untracked `.gsd/` and `.planning/milestone.lock` were left alone.
 
@@ -494,8 +586,8 @@ None.
 
 ## Next Phase Readiness
 
-- M1's automated exit criteria are met. Remaining: Johannes's hand try, then `/gsd-verify-work` for phase 3 (harvesting the `human_judgment` items across the summaries), then the decision on the three open ledger entries.
-- On "approved", a continuation records the result here and marks the spec's hand-try line met; on failures, the failing numbers become gaps for `/gsd-verify-work`.
+- Every M1 exit criterion is met, the hand try included (approved 2026-09-29; the spec's hand-try line is marked met). Remaining: `/gsd-verify-work` for phase 3 (harvesting the `human_judgment` items across the summaries), then the decision on the three open ledger entries.
+- Backlog: 999.1 takes the RandomMapGen RNG overflow above; 999.2 (smaller installer) can build on the SeasonData step, since derived textures are now a build output.
 
 ---
 *Phase: 03-map-editor-plan-6-finish-m1*

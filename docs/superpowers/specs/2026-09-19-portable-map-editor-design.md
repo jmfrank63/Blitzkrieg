@@ -412,6 +412,12 @@ Settled by the overlay spike (plan
   parameters block live rather than caching a handle `AttachConsole` alone
   would update). `map-editor-engine-test` (the CI test executable) stays
   console-subsystem.
+- **Added during the hand try (2026-09-29, 03-15):** every staging and
+  package carries `SeasonData/SeasonTextures.pak`, the winter and Africa unit
+  textures the shipped Data lacks, generated from the summer ones by a cached
+  build step (`tools/zig/season_textures.zig`) and never written into Data.
+  The game and the editor mount it over the base Data, below any mod
+  (`Sources/src/StreamIO/SeasonData.h`).
 
 ### User data: maps, settings and mods
 
@@ -685,7 +691,8 @@ than theoretical: three of the six take it.
   rotation with Q/E, not camera rotation — see the M1 scope note on D-12
   above, deferred separately). Automated evidence: `map-editor-game-reads-it`,
   `map-editor-auto` and `map-editor-smoke` (03-12, 03-15). Human
-  confirmation: Johannes's hand try on the release build (03-15-SUMMARY.md).
+  confirmation: **Met** — Johannes's hand try on the release build,
+  approved 2026-09-29 after the gap fixes it found (03-15-SUMMARY.md).
 - Opening and saving any shipped map unchanged (the full local sweep) gives an
   equivalent map, as defined under Testing. **Met** — `zig build
   test-map-files-all -Dtarget=aarch64-macos -Dcopy-data=false
