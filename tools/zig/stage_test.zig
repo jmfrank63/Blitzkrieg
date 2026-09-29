@@ -468,7 +468,9 @@ test "every stage-game run in build.zig is ordered after game-all and the shader
 
     try std.testing.expect(std.mem.indexOf(u8, text, "addRunArtifact(stage_tool)") == null);
     const helper_start = std.mem.indexOf(u8, text, "\nfn addStageGameRun(") orelse return error.MissingStageGameHelper;
-    const helper_end = std.mem.indexOfPos(u8, text, helper_start, "\n}\n") orelse return error.MissingStageGameHelper;
+    // The function ends at its column-0 brace; "\n}" rather than "\n}\n" because
+    // CI checks build.zig out with CRLF line endings.
+    const helper_end = std.mem.indexOfPos(u8, text, helper_start + 1, "\n}") orelse return error.MissingStageGameHelper;
     const helper = text[helper_start..helper_end];
     try std.testing.expect(std.mem.indexOf(u8, helper, "run.step.dependOn(inputs.game_all_step);") != null);
     try std.testing.expect(std.mem.indexOf(u8, helper, "run.step.dependOn(shaders_step);") != null);
