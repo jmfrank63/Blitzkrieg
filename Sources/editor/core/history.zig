@@ -5,6 +5,7 @@ const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
+const records = @import("records.zig");
 
 pub const Pose = struct { x: f32, y: f32, dir: i32, player: i32 };
 
@@ -26,10 +27,19 @@ pub const Command = union(enum) {
     /// The sound as it was before it was deleted, and its index, so undo
     /// re-adds it exactly there.
     sound_delete: struct { index: usize, record: SoundRecord },
+    /// The generic record command (D-02): one whole record before and after.
+    /// `key` is an index, an ID, or 0 for a singleton record (the camera
+    /// anchors). Undo and redo put `before` / `after` back through the same
+    /// bridge call the edit used. The command owns both values.
+    record_edit: struct { kind: records.Kind, key: i32, before: records.Value, after: records.Value },
 
     pub fn deinit(self: *Command, allocator: std.mem.Allocator) void {
         switch (self.*) {
             .paint => |*p| p.tokens.deinit(allocator),
+            .record_edit => |*e| {
+                e.before.deinit(allocator);
+                e.after.deinit(allocator);
+            },
             else => {},
         }
     }

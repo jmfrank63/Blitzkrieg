@@ -5,6 +5,7 @@
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/MapFile/MapOverlay.h"
+#include "../../Sources/src/MapFile/MapRecords.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 
 static int g_nFailures = 0;
@@ -577,6 +578,88 @@ static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
 	return false;
 }
 
+// D-01/D-22 at the map-file tier: setting player 5's camera anchor pads the
+// vector (never shrinks it), the saved map reads back equal to the map the same
+// call builds, and putting the original vector back writes the unedited file
+// byte for byte.
+static void TestCameraAnchorRecords()
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &original, &szError ), "read for the camera anchor test" ) )
+		return;
+	NMapRecords::SCameraAnchors before;
+	NMapRecords::GetCameraAnchors( original, &before );
+	printf( "map-file: coldwinter has %d camera anchor slots, neutral %s\n",
+	        int( before.players.size() ), before.vNeutral == VNULL3 ? "unset" : "set" );
+	const CVec3 vAnchor( 100.0f, 120.0f, 4.0f );
+
+	// The expected map: the same calls on a second copy.
+	CMapInfo expected = original;
+	NMapRecords::SCameraAnchors wanted = before;
+	Check( NMapRecords::SetPlayerCameraAnchor( &wanted, 5, vAnchor ), "the anchor is set on the value" );
+	Check( NMapRecords::PutCameraAnchors( &expected, wanted ), "the expected map takes it" );
+	Check( int( expected.playersCameraAnchors.size() ) == Max( int( before.players.size() ), 6 ),
+	       "the vector is padded to player 5 + 1 and never shrunk" );
+	Check( expected.playersCameraAnchors[5] == vAnchor, "and holds the anchor in its slot" );
+	for ( size_t i = before.players.size(); i < 5; ++i )
+		Check( expected.playersCameraAnchors[i] == VNULL3, "a padded slot is unset" );
+
+	// The bytes are compared between maps READ from the file, never between a
+	// map and a copy of it: SVertexAltitude is written as a raw struct, its
+	// three padding bytes included, and a copied map holds whatever the copy
+	// left there. That is a property of the test's copies, not of an edit.
+	CMapInfo edited;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &edited, &szError ), "read the map to edit" ) )
+		return;
+	NMapRecords::SCameraAnchors again;
+	NMapRecords::GetCameraAnchors( edited, &again );
+	NMapRecords::SetPlayerCameraAnchor( &again, 5, vAnchor );
+	NMapRecords::PutCameraAnchors( &edited, again );
+	const char *pszUnedited = "zig-out\\local-test\\anchors-unedited.bzm";
+	const char *pszEdited = "zig-out\\local-test\\anchors-edited.bzm";
+	const char *pszUndone = "zig-out\\local-test\\anchors-undone.bzm";
+	Check( NMapFile::Write( pszEdited, edited, &szError ), szError.c_str() );
+	CMapInfo reread;
+	szError.clear();
+	if ( Check( NMapFile::Read( pszEdited, &reread, &szError ), szError.c_str() ) )
+	{
+		std::string szWhere;
+		Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+		       szWhere.empty() ? "the saved map equals the expected map" : ( "the anchor edit differs at " + szWhere ).c_str() );
+		szWhere.clear();
+		Check( !NMapFile::AreEquivalent( original, reread, &szWhere ) && szWhere.find( "playersCameraAnchors" ) != std::string::npos,
+		       "and the comparator sees the anchor edit" );
+	}
+
+	// The inverse: the original vector back, byte for byte.
+	NMapRecords::PutCameraAnchors( &edited, before );
+	Check( NMapFile::Write( pszUndone, edited, &szError ), szError.c_str() );
+	CMapInfo unedited;
+	if ( !Check( NMapFile::Read( "Data\\Maps\\Multiplayer\\coldwinter.bzm", &unedited, &szError ), "read the map to write unedited" ) )
+		return;
+	Check( NMapFile::Write( pszUnedited, unedited, &szError ), szError.c_str() );
+	const bool bIdentical = Check( FilesAreIdentical( pszUnedited, pszUndone ), "an anchor edit and its inverse write the unedited file byte for byte" );
+
+	// Clearing is in place: no shrink.
+	NMapRecords::SCameraAnchors cleared = wanted;
+	Check( NMapRecords::ClearPlayerCameraAnchor( &cleared, 5 ), "an anchor clears" );
+	Check( cleared.players.size() == wanted.players.size() && cleared.players[5] == VNULL3, "clearing keeps the size" );
+	Check( NMapRecords::ClearPlayerCameraAnchor( &cleared, 50 ), "clearing a player past the end is already done" );
+	Check( cleared.players.size() == wanted.players.size(), "and does not grow the vector" );
+	Check( !NMapRecords::SetPlayerCameraAnchor( &cleared, -1, vAnchor ), "a negative player is refused" );
+	Check( !NMapRecords::SetPlayerCameraAnchor( &cleared, NMapRecords::nMaxCameraAnchorPlayers, vAnchor ), "an absurd player is refused" );
+	Check( cleared.players.size() == wanted.players.size(), "a refusal changes nothing" );
+	// Kept when the bytes differ, for whoever has to look at them.
+	if ( bIdentical )
+	{
+		remove( "zig-out/local-test/anchors-unedited.bzm" );
+		remove( "zig-out/local-test/anchors-edited.bzm" );
+		remove( "zig-out/local-test/anchors-undone.bzm" );
+	}
+	printf( "map-file: M2 camera anchor records ok\n" );
+}
+
 // Walks a directory through a storage of its own, opened on the folder and
 // nothing else. The registered data storage will not do: it mounts the .pak
 // archives as pseudo-directories, so enumerating "Maps\\*.*" through it
@@ -738,6 +821,7 @@ int main( int argc, char **argv )
 	TestCaptureRestoresAPaint( "Data\\Maps\\Multiplayer\\coldwinter.bzm" );
 	TestPaintOnAPatchBorder();
 	TestPreprocessingChangesUnpaintedTiles();
+	TestCameraAnchorRecords();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

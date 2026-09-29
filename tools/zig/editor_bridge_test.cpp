@@ -14,6 +14,7 @@
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/MapFile/MapOverlay.h"
+#include "../../Sources/src/MapFile/MapRecords.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/GFX/GFX.H"
@@ -23,6 +24,7 @@
 #include "../../Sources/src/StreamIO/GeneratedData.h"
 #include "../../Sources/src/StreamIO/SeasonData.h"
 #include "../../Sources/src/StreamIO/ProfilePaths.h"
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -161,6 +163,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorMod modEntries[1]; memset( modEntries, 0, sizeof modEntries );
 	BkEditorSoundRecord soundRecord; memset( &soundRecord, 0, sizeof soundRecord );
 	soundRecord.name[0] = 'x'; // SoundRecordWellFormed: non-empty, finite x/y/z (0 is finite)
+	BkEditorCameraAnchorRecord anchorRecord; memset( &anchorRecord, 0, sizeof anchorRecord );
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
@@ -220,6 +223,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorAddSound", [&] { return BkEditorAddSound( 0, 0, &soundRecord ); } },
 		{ "BkEditorSetSound", [&] { return BkEditorSetSound( 0, 0, &soundRecord ); } },
 		{ "BkEditorDeleteSound", [&] { return BkEditorDeleteSound( 0, 0 ); } },
+		{ "BkEditorCameraAnchors", [&] { return BkEditorCameraAnchors( 0, &anchorRecord ); } },
+		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( 0, &anchorRecord ); } },
+		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( 0, 0, 0, &fFloat ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -263,6 +269,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorAddSound", [&] { return BkEditorAddSound( pSession, 0, &soundRecord ); } },
 		{ "BkEditorSetSound", [&] { return BkEditorSetSound( pSession, 0, &soundRecord ); } },
 		{ "BkEditorDeleteSound", [&] { return BkEditorDeleteSound( pSession, 0 ); } },
+		{ "BkEditorCameraAnchors", [&] { return BkEditorCameraAnchors( pSession, &anchorRecord ); } },
+		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( pSession, &anchorRecord ); } },
+		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( pSession, 0, 0, &fFloat ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -3489,6 +3498,145 @@ static void TestSoundList( BkEditorSession *pSession, int nScreenWidth, int nScr
 	remove( szSaved.c_str() );
 }
 
+// The engine takes a path with backslashes on every platform; the C library
+// and the standard streams do not, so a path this test opens itself goes
+// through here first (Windows takes the forward slashes as well).
+static std::string OsPath( std::string szPath )
+{
+	for ( std::string::size_type i = 0; i < szPath.size(); ++i )
+		if ( szPath[i] == '\\' ) szPath[i] = '/';
+	return szPath;
+}
+
+// The bytes of two files are the same. Read whole; the largest shipped map is
+// 1.6 MB.
+static bool SameBytes( const std::string &szLeft, const std::string &szRight )
+{
+	std::ifstream left( OsPath( szLeft ).c_str(), std::ios::binary ), right( OsPath( szRight ).c_str(), std::ios::binary );
+	if ( !left || !right )
+		return false;
+	const std::string szL( ( std::istreambuf_iterator<char>( left ) ), std::istreambuf_iterator<char>() );
+	const std::string szR( ( std::istreambuf_iterator<char>( right ) ), std::istreambuf_iterator<char>() );
+	return szL == szR;
+}
+
+static bool SameAnchors( const BkEditorCameraAnchorRecord &rLeft, const BkEditorCameraAnchorRecord &rRight )
+{
+	return memcmp( &rLeft, &rRight, sizeof rLeft ) == 0;
+}
+
+// D-22's data path, on the real engine: the camera anchors read as the file
+// has them, a player's anchor set through the bridge pads the vector and saves
+// as the NMapRecords-built expected map, the exact put of the old value brings
+// back the unedited file byte for byte, and every refusal leaves the read
+// unchanged. Also BkEditorGroundHeight, which the editor takes an anchor's z
+// from.
+static void TestM2CameraAnchors( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The read equals the file.
+	BkEditorCameraAnchorRecord before;
+	memset( &before, 0, sizeof before );
+	if ( !Check( BkEditorCameraAnchors( pSession, &before ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( before.player_count == int( original.playersCameraAnchors.size() ), "the anchors read with the file's own vector size" );
+	Check( before.neutral.x == original.vCameraAnchor.x && before.neutral.y == original.vCameraAnchor.y && before.neutral.z == original.vCameraAnchor.z,
+	       "the neutral anchor reads as the file has it" );
+	for ( int i = 0; i < before.player_count && i < int( original.playersCameraAnchors.size() ); ++i )
+		Check( before.players[i].x == original.playersCameraAnchors[i].x && before.players[i].y == original.playersCameraAnchors[i].y &&
+		       before.players[i].z == original.playersCameraAnchors[i].z, NStr::Format( "player %d's anchor reads as the file has it", i ) );
+	Check( BkEditorCameraAnchors( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
+
+	// An unedited save first, for the byte comparison at the end.
+	const std::string szUnedited = szScratch + "\\anchors-unedited.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The ground height: the map's middle answers, a point off the map is
+	// refused and leaves *z as the caller had it (zeroed by the entry point).
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	float fZ = -1.0f;
+	if ( !Check( BkEditorGroundHeight( pSession, fMiddleX, fMiddleY, &fZ ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( std::isfinite( fZ ), "the ground height at the map's middle is a number" );
+	float fOffZ = 7.0f;
+	Check( BkEditorGroundHeight( pSession, -500.0f, -500.0f, &fOffZ ) == BK_EDITOR_REFUSED, "a ground height off the map is refused" );
+	Check( fOffZ == 0.0f, "and leaves z zeroed" );
+	Check( BkEditorGroundHeight( pSession, fMiddleX, fMiddleY, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null z is a bad argument" );
+
+	// Set player 2 through the padded value.
+	BkEditorCameraAnchorRecord padded = before;
+	padded.player_count = before.player_count > 3 ? before.player_count : 3;
+	padded.players[2].x = fMiddleX;
+	padded.players[2].y = fMiddleY;
+	padded.players[2].z = fZ;
+	if ( !Check( BkEditorSetCameraAnchors( pSession, &padded ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorCameraAnchorRecord after;
+	memset( &after, 0, sizeof after );
+	Check( BkEditorCameraAnchors( pSession, &after ) == BK_EDITOR_OK && SameAnchors( after, padded ), "the set anchors read back as they were put" );
+
+	// Saved, it is the map the same NMapRecords calls build.
+	CMapInfo expected = original;
+	NMapRecords::SCameraAnchors anchors;
+	NMapRecords::GetCameraAnchors( expected, &anchors );
+	NMapRecords::SetPlayerCameraAnchor( &anchors, 2, CVec3( fMiddleX, fMiddleY, fZ ) );
+	NMapRecords::PutCameraAnchors( &expected, anchors );
+	const std::string szEdited = szScratch + "\\anchors-edited.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo saved;
+		if ( Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+			       szWhere.empty() ? "the saved map equals the expected map" : ( "the anchor save differs at " + szWhere ).c_str() );
+			Check( saved.playersCameraAnchors.size() == size_t( padded.player_count ), "the saved vector is padded and never shrunk" );
+		}
+	}
+
+	// Every refusal leaves the read unchanged.
+	BkEditorCameraAnchorRecord bad = padded;
+	bad.player_count = 33;
+	Check( BkEditorSetCameraAnchors( pSession, &bad ) == BK_EDITOR_BAD_ARGUMENT, "33 players is a bad argument" );
+	bad = padded;
+	bad.players[0].x = std::numeric_limits<float>::quiet_NaN();
+	Check( BkEditorSetCameraAnchors( pSession, &bad ) == BK_EDITOR_BAD_ARGUMENT, "a NaN anchor is a bad argument" );
+	bad = padded;
+	bad.players[1].x = -5000.0f;
+	bad.players[1].y = -5000.0f;
+	Check( BkEditorSetCameraAnchors( pSession, &bad ) == BK_EDITOR_REFUSED, "an anchor off the map is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "player 1" ) != std::string::npos, "and names the slot" );
+	bad = padded;
+	bad.neutral.x = 1.0e9f;
+	Check( BkEditorSetCameraAnchors( pSession, &bad ) == BK_EDITOR_REFUSED, "a neutral anchor off the map is refused" );
+	Check( BkEditorSetCameraAnchors( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a bad argument" );
+	BkEditorCameraAnchorRecord unchanged;
+	memset( &unchanged, 0, sizeof unchanged );
+	Check( BkEditorCameraAnchors( pSession, &unchanged ) == BK_EDITOR_OK && SameAnchors( unchanged, padded ), "none of the refusals changed the anchors" );
+
+	// The exact put of the before value brings back the unedited file.
+	if ( !Check( BkEditorSetCameraAnchors( pSession, &before ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorCameraAnchorRecord restored;
+	memset( &restored, 0, sizeof restored );
+	Check( BkEditorCameraAnchors( pSession, &restored ) == BK_EDITOR_OK && SameAnchors( restored, before ), "the old value puts back exactly, size included" );
+	const std::string szUndone = szScratch + "\\anchors-undone.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "an anchor edit and its inverse save the unedited file byte for byte" );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	printf( "editor-bridge: M2 camera anchors ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -3637,6 +3785,7 @@ int main( int argc, char **argv )
 		TestModsListSetAndClear( pSession, szScratch );
 		TestSaveRecordsTheMod( pSession, szScratch );
 		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestM2CameraAnchors( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

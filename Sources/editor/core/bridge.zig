@@ -4,6 +4,7 @@
 //! C type: this file is plain Zig so the core builds on every target,
 //! including x86_64-windows-gnu, where the engine C++ does not.
 const std = @import("std");
+const records = @import("records.zig");
 
 pub const Status = enum(c_int) {
     ok = 0,
@@ -127,6 +128,18 @@ pub const Bridge = struct {
         setSound: *const fn (ptr: *anyopaque, index: i32, record: SoundRecord) Status,
         /// BkEditorDeleteSound.
         deleteSound: *const fn (ptr: *anyopaque, index: i32) Status,
+        /// Reads the whole record of `kind` at `key` (an index or ID; 0 for a
+        /// singleton) into `out`, allocating any owned memory with `allocator`.
+        /// The camera anchors: BkEditorCameraAnchors, world units.
+        readRecord: *const fn (ptr: *anyopaque, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status,
+        /// A raw put of the whole record at `key`, the kind taken from the
+        /// union tag: the same call an edit, an undo and a redo all use. The
+        /// camera anchors: BkEditorSetCameraAnchors, an exact put (the vector
+        /// becomes exactly `player_count` long), world units.
+        putRecord: *const fn (ptr: *anyopaque, key: i32, value: *const records.Value) Status,
+        /// BkEditorGroundHeight: the terrain height at a world point, world
+        /// units in and out. Refused off the map.
+        groundHeight: *const fn (ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -152,6 +165,9 @@ pub const Bridge = struct {
     pub fn addSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.addSound(self.ptr, index, rec); }
     pub fn setSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.setSound(self.ptr, index, rec); }
     pub fn deleteSound(self: Bridge, index: i32) Status { return self.vtable.deleteSound(self.ptr, index); }
+    pub fn readRecord(self: Bridge, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status { return self.vtable.readRecord(self.ptr, kind, key, allocator, out); }
+    pub fn putRecord(self: Bridge, key: i32, value: *const records.Value) Status { return self.vtable.putRecord(self.ptr, key, value); }
+    pub fn groundHeight(self: Bridge, wx: f32, wy: f32, z: *f32) Status { return self.vtable.groundHeight(self.ptr, wx, wy, z); }
 };
 
 test "check turns a refusal into Refused and everything else into Failed" {

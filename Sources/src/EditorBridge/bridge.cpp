@@ -1889,6 +1889,79 @@ BkEditorStatus BkEditorDeleteSound( BkEditorSession *pSession, int nIndex )
 	} );
 }
 
+BkEditorStatus BkEditorCameraAnchors( BkEditorSession *pSession, BkEditorCameraAnchorRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( ReadSessionCameraAnchors( pSession, pOut, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+namespace {
+// The caller-bug checks BkEditorSetCameraAnchors documents as
+// BK_EDITOR_BAD_ARGUMENT: a record, a count the ABI carries and finite
+// coordinates. Everything past this (an anchor off the map, a file with too
+// many anchors) is a refusal decided once, in session_records.cpp.
+bool CameraAnchorsWellFormed( const BkEditorCameraAnchorRecord *pAnchors )
+{
+	if ( pAnchors == 0 )
+		return false;
+	if ( pAnchors->player_count < 0 || pAnchors->player_count > int( sizeof pAnchors->players / sizeof pAnchors->players[0] ) )
+		return false;
+	if ( !std::isfinite( pAnchors->neutral.x ) || !std::isfinite( pAnchors->neutral.y ) || !std::isfinite( pAnchors->neutral.z ) )
+		return false;
+	for ( int i = 0; i < pAnchors->player_count; ++i )
+		if ( !std::isfinite( pAnchors->players[i].x ) || !std::isfinite( pAnchors->players[i].y ) || !std::isfinite( pAnchors->players[i].z ) )
+			return false;
+	return true;
+}
+}
+
+BkEditorStatus BkEditorSetCameraAnchors( BkEditorSession *pSession, const BkEditorCameraAnchorRecord *pAnchors )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !CameraAnchorsWellFormed( pAnchors ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetSessionCameraAnchors( pSession, *pAnchors, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorGroundHeight( BkEditorSession *pSession, float fX, float fY, float *pfZ )
+{
+	if ( pfZ != 0 )
+		*pfZ = 0.0f;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pfZ == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return GroundHeightInSession( pSession, fX, fY, pfZ ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
 BkEditorStatus BkEditorSaveMap( BkEditorSession *pSession, const char *pszPath )
 {
 	return Guarded( pSession, [pSession, pszPath]() -> BkEditorStatus

@@ -250,4 +250,18 @@ bool AddSoundToSession( SEditorSession *pSession, int nIndex, const BkEditorSoun
 bool SetSoundInSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused );
 bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
 
+// The M2 record functions (session_records.cpp). Each edits the snapshot and
+// the working copy together through NMapRecords, leaves the engine alone unless
+// its collection feeds it, and returns false with the reason in szMessage and
+// the session exactly as it found it; pbRefused tells a refusal apart from a
+// failure, as for the sounds.
+//
+// The camera anchors, world units. A vector of more than 32 entries is
+// readable-refused and setting is refused: the file keeps it byte-exact.
+bool ReadSessionCameraAnchors( SEditorSession *pSession, BkEditorCameraAnchorRecord *pOut, bool *pbRefused );
+bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnchorRecord &rAnchors, bool *pbRefused );
+// The terrain height at a world point, through CVSOBuilder::UpdateZ on the
+// working copy's altitudes. False with the reason in szMessage off the map.
+bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ );
+
 #endif // __EDITOR_BRIDGE_SESSION_H__

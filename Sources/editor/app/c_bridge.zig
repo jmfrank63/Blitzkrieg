@@ -13,6 +13,7 @@ const Bridge = core.bridge.Bridge;
 const MapInfo = core.bridge.MapInfo;
 const ObjectRecord = core.bridge.ObjectRecord;
 const SoundRecord = core.bridge.SoundRecord;
+const record_types = core.records;
 const PaintCell = core.bridge.PaintCell;
 
 comptime {
@@ -21,6 +22,11 @@ comptime {
     std.debug.assert(@offsetOf(PaintCell, "x") == @offsetOf(c.BkEditorPaintCell, "x"));
     std.debug.assert(@offsetOf(PaintCell, "y") == @offsetOf(c.BkEditorPaintCell, "y"));
     std.debug.assert(@offsetOf(PaintCell, "tile") == @offsetOf(c.BkEditorPaintCell, "tile"));
+    // The core's camera anchors are read and put field by field, but the C
+    // record's layout is part of the ABI: 12 (neutral) + 4 (count) + 32 * 12.
+    std.debug.assert(@sizeOf(c.BkEditorVec3) == 12);
+    std.debug.assert(@sizeOf(c.BkEditorCameraAnchorRecord) == 12 + 4 + record_types.max_camera_players * 12);
+    std.debug.assert(@typeInfo(@TypeOf(@as(c.BkEditorCameraAnchorRecord, undefined).players)).array.len == record_types.max_camera_players);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -87,6 +93,9 @@ pub const RealBridge = struct {
         .addSound = vtableAddSound,
         .setSound = vtableSetSound,
         .deleteSound = vtableDeleteSound,
+        .readRecord = vtableReadRecord,
+        .putRecord = vtablePutRecord,
+        .groundHeight = vtableGroundHeight,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -292,6 +301,63 @@ pub const RealBridge = struct {
 
     fn vtableDeleteSound(ptr: *anyopaque, index: i32) Status {
         return status(c.BkEditorDeleteSound(from(ptr).session, index));
+    }
+
+    fn toVec3(point: c.BkEditorVec3) record_types.Vec3 {
+        return .{ .x = point.x, .y = point.y, .z = point.z };
+    }
+
+    fn toCVec3(point: record_types.Vec3) c.BkEditorVec3 {
+        return .{ .x = point.x, .y = point.y, .z = point.z };
+    }
+
+    /// BkEditorCameraAnchors into the core's record, slot by slot: a count
+    /// outside 0..32 from the bridge would be a bridge bug, and is a failure.
+    fn toCameraAnchors(record: c.BkEditorCameraAnchorRecord) ?record_types.CameraAnchors {
+        if (record.player_count < 0 or record.player_count > record_types.max_camera_players) return null;
+        var anchors: record_types.CameraAnchors = .{ .neutral = toVec3(record.neutral), .player_count = @intCast(record.player_count) };
+        for (0..anchors.player_count) |index| anchors.players[index] = toVec3(record.players[index]);
+        return anchors;
+    }
+
+    fn toCCameraAnchors(anchors: record_types.CameraAnchors) c.BkEditorCameraAnchorRecord {
+        var record: c.BkEditorCameraAnchorRecord = std.mem.zeroes(c.BkEditorCameraAnchorRecord);
+        record.neutral = toCVec3(anchors.neutral);
+        record.player_count = @intCast(anchors.player_count);
+        for (0..anchors.player_count) |index| record.players[index] = toCVec3(anchors.players[index]);
+        return record;
+    }
+
+    /// The generic record read: one switch arm per kind, each over its own C
+    /// call. The camera anchors are a singleton, so `key` is 0.
+    fn vtableReadRecord(ptr: *anyopaque, kind: record_types.Kind, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
+        _ = allocator; // the kinds so far own no memory
+        const self = from(ptr);
+        switch (kind) {
+            .camera_anchors => {
+                if (key != 0) return .bad_argument;
+                var record: c.BkEditorCameraAnchorRecord = std.mem.zeroes(c.BkEditorCameraAnchorRecord);
+                const result = status(c.BkEditorCameraAnchors(self.session, &record));
+                if (result != .ok) return result;
+                out.* = .{ .camera_anchors = toCameraAnchors(record) orelse return .failed };
+                return .ok;
+            },
+        }
+    }
+
+    fn vtablePutRecord(ptr: *anyopaque, key: i32, value: *const record_types.Value) Status {
+        const self = from(ptr);
+        switch (value.*) {
+            .camera_anchors => |anchors| {
+                if (key != 0) return .bad_argument;
+                const record = toCCameraAnchors(anchors);
+                return status(c.BkEditorSetCameraAnchors(self.session, &record));
+            },
+        }
+    }
+
+    fn vtableGroundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {
+        return status(c.BkEditorGroundHeight(from(ptr).session, wx, wy, z));
     }
 
     pub fn setCamera(self: *RealBridge, wx: f32, wy: f32) Status {

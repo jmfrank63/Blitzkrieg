@@ -3762,7 +3762,7 @@ fn addMapFile(
     map_file_module.addIncludePath(b.path("Sources/src/Main"));
     map_file_module.addIncludePath(b.path("Sources/src/Image"));
     map_file_module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/MapFile/MapFile.cpp", "Sources/src/MapFile/MapEquivalence.cpp", "Sources/src/MapFile/MapOverlay.cpp" },
+        .files = &.{ "Sources/src/MapFile/MapFile.cpp", "Sources/src/MapFile/MapEquivalence.cpp", "Sources/src/MapFile/MapOverlay.cpp", "Sources/src/MapFile/MapRecords.cpp" },
         .flags = cppflagsForOptimize(optimize),
     });
     return b.addLibrary(.{
@@ -3805,6 +3805,7 @@ fn addEditorBridge(
         .files = &.{
             "Sources/src/EditorBridge/bridge.cpp",
             "Sources/src/EditorBridge/session.cpp",
+            "Sources/src/EditorBridge/session_records.cpp",
             "Sources/src/EditorBridge/catalogue.cpp",
             "Sources/src/EditorBridge/world.cpp",
         },

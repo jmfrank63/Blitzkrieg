@@ -74,6 +74,15 @@ fn expectDocumentIsBridge(real: *RealBridge, editor: *Editor) !void {
     }
 }
 
+/// The camera anchors read straight through the C ABI, not through
+/// RealBridge, for the same reason `expectDocumentIsBridge` reads raw
+/// records: an adapter conversion bug reaches the core and RealBridge alike.
+fn rawAnchors(real: *RealBridge) !c.BkEditorCameraAnchorRecord {
+    var record: c.BkEditorCameraAnchorRecord = std.mem.zeroes(c.BkEditorCameraAnchorRecord);
+    try std.testing.expect(c.BkEditorCameraAnchors(real.session, &record) == c.BK_EDITOR_OK);
+    return record;
+}
+
 /// A single soldier (an infantry SGVOGT_UNIT) is never put on a map on its
 /// own: the game plays soldiers only inside a squad, and one saved as a unit
 /// crashed Test in game in CSoldierRestState::Segment (03-15 gap fix). The
@@ -219,5 +228,33 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expectEqual(objects_at_open, editor.document.objects.items.len);
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
+
+    // M2 (04-01): a camera anchor end to end on the real engine, the smallest
+    // real record edit. Player 0's anchor goes to the map's middle (world
+    // units), the engine still agrees with the map, and each undo puts the
+    // anchors back exactly as the bridge held them, vector size included.
+    const world_cell: f32 = 32.0 * @sqrt(2.0);
+    const middle_x = @as(f32, @floatFromInt(editor.document.info.width_tiles)) * world_cell / 2.0;
+    const middle_y = @as(f32, @floatFromInt(editor.document.info.height_tiles)) * world_cell / 2.0;
+    const anchors_before = try rawAnchors(&real);
+    try editor.setCameraAnchor(0, middle_x, middle_y);
+    try expectEngineMatches(&real);
+    const anchors_set = try rawAnchors(&real);
+    try std.testing.expect(anchors_set.player_count >= 1);
+    try std.testing.expectEqual(middle_x, anchors_set.players[0].x);
+    try std.testing.expectEqual(middle_y, anchors_set.players[0].y);
+    try std.testing.expect(editor.dirty());
+    _ = try editor.undo();
+    try expectEngineMatches(&real);
+    try std.testing.expectEqualSlices(u8, std.mem.asBytes(&anchors_before), std.mem.asBytes(&try rawAnchors(&real)));
+    _ = try editor.redo();
+    try std.testing.expectEqualSlices(u8, std.mem.asBytes(&anchors_set), std.mem.asBytes(&try rawAnchors(&real)));
+    _ = try editor.undo();
+    try std.testing.expectEqualSlices(u8, std.mem.asBytes(&anchors_before), std.mem.asBytes(&try rawAnchors(&real)));
+    try std.testing.expectError(error.Refused, editor.setCameraAnchor(0, -5000, -5000));
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    std.debug.print("map-editor-engine: M2 camera anchors round trip ok\n", .{});
+
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }
