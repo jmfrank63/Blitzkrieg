@@ -286,13 +286,62 @@ Plans:
 ### Phase 4: Map editor M2: roads, rivers, bridges, AI groups, scripts
 
 **Goal:** Map Editor M2 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` ("The editor set"): edit what M1 only preserves — roads and rivers, bridges (including rotating them, deferred from M1) and entrenchments, AI and unit groups (reinforcements, start commands, reserve positions, AI general data), scripts and script areas — with the same undo, save-preservation, test-in-game and CI standards as M1. Revisit free camera rotation (D-12, deferred with evidence in 03-06). Scope to be settled in discuss-phase; may split into several phases.
-**Requirements**: TBD
+**Requirements**: CONTEXT D-01..D-25 (04-CONTEXT.md) and the M2 rows of 04-PARITY.md
 **Depends on:** Phase 3
-**Plans:** 0 plans
+**Plans:** 13 plans (D-24's eight split for one agent context each; executed one after another in the shared worktree)
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 4 to break down)
+- [ ] 04-01-PLAN.md — record foundation: NMapRecords for every M2 collection, generic record_edit command traced by camera anchors, palette filter, spec and decision-log amendments
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-02-PLAN.md — cascade delete and fixed FindReferences (start commands, reserve positions, script-ID notes)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-03-PLAN.md — app foundations: named commands and predicates, camera-anchor UI, marker layer, right button/double click/keys, tool registry, automation verbs, map-editor-auto-m2
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-04-PLAN.md — BK_MAP_TRACE game seam and Lua Trace mirror, map-editor-game-reads-it-m2 (camera anchor), GFXGPU road/river render proof
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04-05-PLAN.md — roads and rivers: edit log, CVSOBuilder derive, river passability, MFC gestures, panel and markers
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 04-06-PLAN.md — bridges: PlanBridge, draw/select/delete as wholes, rotate (_01/_02), built during play with its mark
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 04-07-PLAN.md — fences: PlanFences, AI tile mapping, Fence tool
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 04-08-PLAN.md — entrenchments: PlanEntrenchment port with property tests, draw/select/delete as wholes; mid-phase CI gate
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 04-09-PLAN.md — script IDs and reinforcement groups: Script ID field, Group Manager, Hide checked, Select objects
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [ ] 04-10-PLAN.md — script file (dialog, copies beside map/test map/Save As) and script areas (tool, panel, handles); the game runs the script
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [ ] 04-11-PLAN.md — start commands and artillery reserve positions
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [ ] 04-12-PLAN.md — AI general: sides, mobile script IDs, parcels and reinforce points
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [ ] 04-13-PLAN.md — integration and exit: full game-reads-it and editor-app scenarios, preservation sweeps, CI and win-home, release walk-through, parity evidence
 
 ### Phase 5: Map editor M3: random map templates, minimap tools, full parity
 
