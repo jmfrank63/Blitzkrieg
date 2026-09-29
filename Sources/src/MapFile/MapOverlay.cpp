@@ -120,9 +120,11 @@ bool WhyRefused( const SLoadMapInfo &rMap, int nLinkID, std::string *pReason )
 	return true;
 }
 
-// Takes nLinkID out of every start command's units, in list order. A command
-// left with no unit is erased, as the MFC editor does (RemoveObjectFromAIStartCommand);
-// a command that held none of it is not touched, so it stays byte for byte.
+// Takes nLinkID out of every start command that names it, in list order: out of
+// the units (a command left with no unit is erased, as the MFC editor does -
+// RemoveObjectFromAIStartCommand) and, as a target, set to link ID 0
+// (RMGC_INVALID_LINK_ID_VALUE, C3) rather than left dangling. A command that
+// names none of it is not touched, so it stays byte for byte.
 void RemoveFromStartCommands( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascade )
 {
 	size_t nPosition = 0;
@@ -130,7 +132,9 @@ void RemoveFromStartCommands( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascad
 	      it != pMap->startCommandsList.end(); )
 	{
 		std::vector<int> &rUnits = it->unitLinkIDs;
-		if ( std::find( rUnits.begin(), rUnits.end(), nLinkID ) == rUnits.end() )
+		const bool bUnit = std::find( rUnits.begin(), rUnits.end(), nLinkID ) != rUnits.end();
+		const bool bTarget = it->linkID == nLinkID;
+		if ( !bUnit && !bTarget )
 		{
 			++it;
 			++nPosition;
@@ -139,20 +143,101 @@ void RemoveFromStartCommands( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascad
 		SStartCommandChange change;
 		change.nPosition = nPosition;
 		change.before = *it;
-		change.bUnitRemoved = true;
-		rUnits.erase( std::remove( rUnits.begin(), rUnits.end(), nLinkID ), rUnits.end() );
-		if ( rUnits.empty() )
+		change.bUnitRemoved = bUnit;
+		if ( bUnit )
+			rUnits.erase( std::remove( rUnits.begin(), rUnits.end(), nLinkID ), rUnits.end() );
+		if ( bUnit && rUnits.empty() )
 		{
+			// Nobody left to command: the command goes, whatever its target was.
 			change.bErased = true;
 			it = pMap->startCommandsList.erase( it );
 		}
 		else
 		{
+			if ( bTarget )
+			{
+				it->linkID = 0;
+				change.bTargetCleared = true;
+			}
 			++it;
 			++nPosition;
 		}
 		pCascade->startCommands.push_back( change );
 	}
+}
+
+// Erases every reserve position that names nLinkID as its artillery or its
+// truck (MFC RemoveObjectFromReservePositions, C3), in list order.
+void RemoveFromReservePositions( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascade )
+{
+	size_t nPosition = 0;
+	for ( SLoadMapInfo::TReservePositionsList::iterator it = pMap->reservePositionsList.begin();
+	      it != pMap->reservePositionsList.end(); )
+	{
+		if ( it->nArtilleryLinkID != nLinkID && it->nTruckLinkID != nLinkID )
+		{
+			++it;
+			++nPosition;
+			continue;
+		}
+		SReservePositionChange change;
+		change.nPosition = nPosition;
+		change.before = *it;
+		it = pMap->reservePositionsList.erase( it );
+		pCascade->reservePositions.push_back( change );
+	}
+}
+
+// The group IDs whose ids hold nScriptID, ascending, so what a message says does
+// not depend on the hash map's order.
+std::vector<int> GroupsHolding( const SLoadMapInfo &rMap, int nScriptID )
+{
+	std::vector<int> groups;
+	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.begin();
+	      it != rMap.reinforcements.groups.end(); ++it )
+		if ( std::find( it->second.ids.begin(), it->second.ids.end(), nScriptID ) != it->second.ids.end() )
+			groups.push_back( it->first );
+	std::sort( groups.begin(), groups.end() );
+	return groups;
+}
+
+// The AI general sides whose mobile reinforcements name nScriptID, ascending.
+std::vector<int> SidesHolding( const SLoadMapInfo &rMap, int nScriptID )
+{
+	std::vector<int> sides;
+	const std::vector<SAIGeneralSideInfo> &rSides = rMap.aiGeneralMapInfo.sidesInfo;
+	for ( size_t i = 0; i < rSides.size(); ++i )
+		if ( std::find( rSides[i].mobileScriptIDs.begin(), rSides[i].mobileScriptIDs.end(), nScriptID ) != rSides[i].mobileScriptIDs.end() )
+			sides.push_back( int( i ) );
+	return sides;
+}
+
+std::string ScriptIDNote( int nScriptID, const char *pszWho, int nWho )
+{
+	char szBuffer[128];
+	snprintf( szBuffer, sizeof szBuffer, "script ID %d is still used by %s %d", nScriptID, pszWho, nWho );
+	return szBuffer;
+}
+
+// Reinforcement groups and the AI general's mobile reinforcements name SCRIPT
+// IDs, which other objects and the Lua script may share, so a delete never edits
+// them. It says so when the last object carrying a script ID they name is gone.
+// Called after the object has been removed.
+void NoteScriptIDStillNamed( const SLoadMapInfo &rMap, int nScriptID, SCascade *pCascade )
+{
+	if ( nScriptID < 0 )
+		return;
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			if ( (*lists[nList])[i].nScriptID == nScriptID )
+				return;
+	const std::vector<int> groups = GroupsHolding( rMap, nScriptID );
+	for ( size_t i = 0; i < groups.size(); ++i )
+		pCascade->notes.push_back( ScriptIDNote( nScriptID, "reinforcement group", groups[i] ) );
+	const std::vector<int> sides = SidesHolding( rMap, nScriptID );
+	for ( size_t i = 0; i < sides.size(); ++i )
+		pCascade->notes.push_back( ScriptIDNote( nScriptID, "the AI general of side", sides[i] ) );
 }
 
 // "2", "2 and 5", "2, 5 and 7".
@@ -189,12 +274,20 @@ int NextLinkID( const SLoadMapInfo &rMap )
 }
 
 // The spec's list, one loop each. They are not collapsed on purpose: the string
-// each contributes is what the editor shows the player when it refuses.
+// each contributes is what the editor shows the player.
+//
+// Link ID 0 is "no link ID" (RMGC_INVALID_LINK_ID_VALUE): hundreds of shipped
+// objects carry it, start commands and reserve positions use it for "none", so
+// it is never a reference and finds nothing (C11). Reinforcement groups and the
+// AI general's mobile reinforcements hold SCRIPT IDs, not link IDs, so they are
+// matched against the object's script ID - never its link ID.
 void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::string> *pReferences )
 {
 	if ( pReferences == 0 )
 		return;
 	pReferences->clear();
+	if ( nLinkID == 0 )
+		return;
 
 	for ( size_t i = 0; i < rMap.bridges.size(); ++i )
 		for ( size_t j = 0; j < rMap.bridges[i].size(); ++j )
@@ -203,6 +296,17 @@ void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::str
 				pReferences->push_back( Numbered( "bridge", int( i ) ) );
 				break;
 			}
+
+	for ( size_t i = 0; i < rMap.entrenchments.size(); ++i )
+	{
+		bool bHit = false;
+		const std::vector<SEntrenchmentInfo::TSegment> &rSections = rMap.entrenchments[i].sections;
+		for ( size_t j = 0; j < rSections.size() && !bHit; ++j )
+			for ( size_t k = 0; k < rSections[j].size() && !bHit; ++k )
+				bHit = rSections[j][k] == nLinkID;
+		if ( bHit )
+			pReferences->push_back( Numbered( "entrenchment", int( i ) ) );
+	}
 
 	int nCommand = 0;
 	for ( SLoadMapInfo::TStartCommandsList::const_iterator it = rMap.startCommandsList.begin();
@@ -215,14 +319,22 @@ void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::str
 			pReferences->push_back( Numbered( "start command", nCommand ) );
 	}
 
-	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.begin();
-	      it != rMap.reinforcements.groups.end(); ++it )
-		for ( size_t j = 0; j < it->second.ids.size(); ++j )
-			if ( it->second.ids[j] == nLinkID )
-			{
-				pReferences->push_back( Numbered( "reinforcement group", it->first ) );
-				break;
-			}
+	int nPosition = 0;
+	for ( SLoadMapInfo::TReservePositionsList::const_iterator it = rMap.reservePositionsList.begin();
+	      it != rMap.reservePositionsList.end(); ++it, ++nPosition )
+		if ( it->nArtilleryLinkID == nLinkID || it->nTruckLinkID == nLinkID )
+			pReferences->push_back( Numbered( "reserve position", nPosition ) );
+
+	const SMapObjectInfo *pObject = FindObject( const_cast<SLoadMapInfo*>( &rMap ), nLinkID, 0, 0 );
+	if ( pObject != 0 && pObject->nScriptID >= 0 )
+	{
+		const std::vector<int> groups = GroupsHolding( rMap, pObject->nScriptID );
+		for ( size_t i = 0; i < groups.size(); ++i )
+			pReferences->push_back( Numbered( "reinforcement group", groups[i] ) );
+		const std::vector<int> sides = SidesHolding( rMap, pObject->nScriptID );
+		for ( size_t i = 0; i < sides.size(); ++i )
+			pReferences->push_back( Numbered( "AI general side", sides[i] ) );
+	}
 
 	// A passenger whose nLinkWith points at a vehicle holds that vehicle: the
 	// spec refuses the vehicle's delete while the passenger is inside it.
@@ -310,7 +422,11 @@ bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDele
 	// Link ID 0 is no link ID: a start command listing 0 is not naming this
 	// object, so the cascade never runs for it.
 	if ( nLinkID != 0 )
+	{
 		RemoveFromStartCommands( pMap, nLinkID, &deleted.cascade );
+		RemoveFromReservePositions( pMap, nLinkID, &deleted.cascade );
+		NoteScriptIDStillNamed( *pMap, deleted.object.nScriptID, &deleted.cascade );
+	}
 	if ( pDeleted )
 		*pDeleted = deleted;
 	return true;
@@ -323,6 +439,11 @@ bool RestoreObject( SLoadMapInfo *pMap, const SDeletedObject &rDeleted )
 	// Reverse order of application: a later erase shifted the positions after it,
 	// so the last change is undone first.
 	const SCascade &rCascade = rDeleted.cascade;
+	for ( size_t i = rCascade.reservePositions.size(); i-- > 0; )
+	{
+		const SReservePositionChange &rChange = rCascade.reservePositions[i];
+		NMapRecords::InsertReservePosition( pMap, int( Min( rChange.nPosition, pMap->reservePositionsList.size() ) ), rChange.before );
+	}
 	for ( size_t i = rCascade.startCommands.size(); i-- > 0; )
 	{
 		const SStartCommandChange &rChange = rCascade.startCommands[i];
