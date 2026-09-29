@@ -25,6 +25,11 @@ const std::string &LogPath();
 const std::string &ErrorLogPath();
 const std::string &CacheRoot();
 const std::string &DataArchivePattern();
+// The generated winter/Africa unit textures, a build output staged beside Data
+// and mounted over it (StreamIO/SeasonData.h). Data is never written, so a
+// staged Data may be a link into the source tree.
+const std::string &SeasonDataRoot();
+const std::string &SeasonDataArchivePattern();
 
 // Whether a name, as another machine sends it, is a plain relative data name
 // ("maps\\x.bzm"): not empty, not rooted, no drive, no "." or ".." component

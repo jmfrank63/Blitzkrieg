@@ -19,6 +19,7 @@
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
 #include "../StreamIO/GeneratedData.h"
+#include "../StreamIO/SeasonData.h"
 #include "../StreamIO/ProfilePaths.h"
 #include "../Main/GameDB.h"
 #include "../Main/RPGStats.h"
@@ -448,6 +449,9 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 				pSession->szMessage = "no data storage at " + NPlatform::Paths::DataArchivePattern();
 				return BK_EDITOR_DATA_MISSING;
 			}
+			// As the game does: the picked installation's generated season
+			// textures, if it has them, below any mod mounted later.
+			NSeasonData::Mount( pStorage );
 			RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 		}
 		{

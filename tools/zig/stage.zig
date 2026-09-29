@@ -23,6 +23,13 @@ pub const Options = struct {
     // present by verifyStagedPayload - so a package missing it fails to stage
     // rather than shipping without the editor test-launch expects beside it.
     map_editor: ?[]const u8 = null,
+    // The generated winter/Africa unit textures (tools/zig/season_textures.zig):
+    // a directory (absolute, or relative to repo_root) laid out like Data,
+    // synced to <install>/SeasonData, which the engine mounts over Data
+    // (Sources/src/StreamIO/SeasonData.h). A build output rather than part of
+    // Data, so it is staged the same way under --link-data, where Data is a
+    // link into the repository and must not be written.
+    season_data: ?[]const u8 = null,
     layout: RuntimeLayout = .{
         .game_name = "Game.exe",
         .runtime_files = &.{},
@@ -88,6 +95,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
             try metadata_files.append(allocator, args.next() orelse return error.InvalidArguments);
         } else if (std.mem.eql(u8, arg, "--map-editor")) {
             options.map_editor = args.next() orelse return error.InvalidArguments;
+        } else if (std.mem.eql(u8, arg, "--season-data")) {
+            options.season_data = args.next() orelse return error.InvalidArguments;
         } else {
             return error.InvalidArguments;
         }
@@ -144,6 +153,9 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
                 linkData(io, allocator, repo, destination) catch |err| return failStep("linkData", err);
             },
         }
+        if (options.season_data) |season_data_path| {
+            syncSeasonData(io, allocator, repo, season_data_path, destination) catch |err| return failStep("syncSeasonData", err);
+        }
         verifyStagedPayload(io, destination, options) catch |err| return failStep("verify staged payload", err);
     } else if (!options.layout.editors_supported) {
         return error.EditorsUnsupported;
@@ -174,6 +186,27 @@ fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, options: Options) !v
     if (options.map_editor) |map_editor_path| {
         try requireStagedFile(io, destination, std.fs.path.basename(map_editor_path));
     }
+    if (options.season_data != null) try requireStagedFile(io, destination, season_data_dir);
+}
+
+/// Where the staged layout keeps the generated season textures, beside Data.
+/// The engine's name for it is NPlatform::Paths::SeasonDataRoot().
+pub const season_data_dir = "SeasonData";
+
+/// Syncs the generated season textures into <install>/SeasonData the way Data
+/// is synced: changed files copied, files the generation no longer makes
+/// removed, current ones left alone.
+fn syncSeasonData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, source_path: []const u8, destination: std.Io.Dir) !void {
+    const source_root = if (std.fs.path.isAbsolute(source_path)) std.Io.Dir.cwd() else repo;
+    var source = source_root.openDir(io, source_path, .{ .iterate = true }) catch |err| {
+        std.debug.print("stage: season data '{s}' could not be opened: {s}\n", .{ source_path, @errorName(err) });
+        return err;
+    };
+    defer source.close(io);
+    try destination.createDirPath(io, season_data_dir);
+    var staged = try destination.openDir(io, season_data_dir, .{ .iterate = true, .access_sub_paths = true });
+    defer staged.close(io);
+    try syncTree(io, allocator, source, staged, .contents);
 }
 
 /// Copies the built MapEditor binary (D-08) into the staged root under its own
@@ -288,7 +321,7 @@ fn syncData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destinat
     try destination.createDirPath(io, "Data");
     var destination_data = try destination.openDir(io, "Data", .{ .iterate = true, .access_sub_paths = true });
     defer destination_data.close(io);
-    try syncTree(io, allocator, data, destination_data);
+    try syncTree(io, allocator, data, destination_data, .size_and_time);
 }
 
 /// An earlier --link-data run leaves Data as a link into the repository.
@@ -303,7 +336,14 @@ fn removeDataLinkIfPresent(io: std.Io, destination: std.Io.Dir) !void {
     try removeTreeIfPresent(io, destination, "Data");
 }
 
-fn syncTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destination: std.Io.Dir) !void {
+/// How syncTree decides a staged file is already the copy it would write.
+/// Data is compared by size and time: 2.7 GB, and a file only ever moves
+/// forward in time. A generated tree is compared by contents: a season file
+/// has its summer file's size, and going back to an earlier input brings back
+/// an older cached output, which size and time would read as current.
+const CurrentCheck = enum { size_and_time, contents };
+
+fn syncTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destination: std.Io.Dir, check: CurrentCheck) !void {
     var staged: std.StringHashMapUnmanaged(void) = .empty;
     defer {
         var keys = staged.keyIterator();
@@ -318,7 +358,11 @@ fn syncTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
         const path = try allocator.dupe(u8, entry.path);
         errdefer allocator.free(path);
         try staged.put(allocator, path, {});
-        if (isStagedCopyCurrent(io, entry.dir, entry.basename, destination, entry.path)) continue;
+        const current = switch (check) {
+            .size_and_time => isStagedCopyCurrent(io, entry.dir, entry.basename, destination, entry.path),
+            .contents => isStagedCopySame(io, allocator, entry.dir, entry.basename, destination, entry.path),
+        };
+        if (current) continue;
         copyFile(io, entry.dir, entry.basename, destination, entry.path) catch |err| {
             std.debug.print("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
             return err;
@@ -337,6 +381,15 @@ fn isStagedCopyCurrent(io: std.Io, source_dir: std.Io.Dir, source: []const u8, d
     if (staged_info.kind != .file) return false;
     if (staged_info.size != source_info.size) return false;
     return staged_info.mtime.nanoseconds >= source_info.mtime.nanoseconds;
+}
+
+fn isStagedCopySame(io: std.Io, allocator: std.mem.Allocator, source_dir: std.Io.Dir, source: []const u8, destination_dir: std.Io.Dir, destination: []const u8) bool {
+    const limit: std.Io.Limit = .limited(64 << 20);
+    const staged = destination_dir.readFileAlloc(io, destination, allocator, limit) catch return false;
+    defer allocator.free(staged);
+    const wanted = source_dir.readFileAlloc(io, source, allocator, limit) catch return false;
+    defer allocator.free(wanted);
+    return std.mem.eql(u8, staged, wanted);
 }
 
 fn pruneStagedTree(io: std.Io, allocator: std.mem.Allocator, destination: std.Io.Dir, staged: std.StringHashMapUnmanaged(void)) !void {

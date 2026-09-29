@@ -17,12 +17,19 @@
 //! Every texture exists as three quality files, <name>_c/_h/_l.dds. Each
 //! generated file keeps its summer file's header, pixel format, size and mip
 //! count byte for byte; only the pixel data changes (mips, if any, are rebuilt
-//! from the transformed top level). Existing files are never overwritten. The
-//! output is deterministic: the same input gives the same bytes.
+//! from the transformed top level). A season file Data already has is never
+//! generated. The output is deterministic: the same input gives the same bytes.
 //!
-//! usage: season_textures <Data dir> [--dry-run] [--only <path under Data>]
+//! The build runs it on every staging (see build.zig, addSeasonData): the
+//! output, one stored archive SeasonTextures.pak, goes to a cached build
+//! directory, is staged beside Data as SeasonData, and the engine mounts it
+//! over Data (Sources/src/StreamIO/SeasonData.h). Data itself is never written.
+//!
+//! usage: season_textures <Data dir> --out <dir> [--only <path under Data>]
+//!        season_textures <Data dir> --dry-run [--only <path under Data>]
 //!        season_textures <Data dir> --derive-africa-lut
-//! or:    zig build season-textures -- Data [--dry-run] [--only Units/...]
+//! or:    zig build season-textures -- Data --dry-run [--only Units/...]
+//!        (paths relative to the repository root)
 const std = @import("std");
 
 // ---------------------------------------------------------------------------
@@ -774,13 +781,182 @@ fn deriveAfricaLut(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, o
 
 fn usage() noreturn {
     std.debug.print(
-        \\usage: season_textures <Data dir> [--dry-run] [--only <path under Data>]
+        \\usage: season_textures <Data dir> --out <dir> [--pak <name>] [--only <path under Data>]
+        \\       season_textures <Data dir> --dry-run [--only <path under Data>]
         \\       season_textures <Data dir> --derive-africa-lut
         \\Writes the missing winter (w) and Africa (a) textures of every mesh folder
-        \\under <Data dir>/Units (or --only). Never overwrites an existing file.
+        \\under <Data dir>/Units (or --only) into <dir>, under the same relative
+        \\paths, or with --pak into one stored archive <dir>/<name> the engine
+        \\reads as a .pak. Nothing is written into <Data dir>.
         \\
     , .{});
     std.process.exit(2);
+}
+
+/// Whether a file under a mesh folder decides what `generate` writes: the
+/// folder's .mod (which makes it a mesh folder) and every texture the plan
+/// looks at, summer or season. `name` is lower case. build.zig keys the
+/// generated tree's cache on these names, so it is rebuilt when a folder
+/// gains or loses one.
+pub fn isPlanName(name: []const u8) bool {
+    if (std.mem.endsWith(u8, name, ".mod")) return true;
+    return isSummerSource(name) or isSeasonTarget(name);
+}
+
+/// A summer texture a season file is derived from: `<base>_<q>.dds`. Its
+/// bytes decide the generated file's, so build.zig makes it a file input.
+pub fn isSummerSource(name: []const u8) bool {
+    for (bases) |base| for (qualities) |quality| {
+        if (textureNameIs(name, base, "", quality)) return true;
+    };
+    return false;
+}
+
+fn isSeasonTarget(name: []const u8) bool {
+    for (bases) |base| for (seasons) |season| for (qualities) |quality| {
+        if (textureNameIs(name, base, season.suffix(), quality)) return true;
+    };
+    return false;
+}
+
+fn textureNameIs(name: []const u8, base: []const u8, season: []const u8, quality: []const u8) bool {
+    var buffer: [32]u8 = undefined;
+    const expected = std.fmt.bufPrint(&buffer, "{s}{s}_{s}.dds", .{ base, season, quality }) catch return false;
+    return std.mem.eql(u8, name, expected);
+}
+
+pub const Stats = struct {
+    folders: usize = 0,
+    touched: usize = 0,
+    textures: [2]usize = .{ 0, 0 },
+    files: [2]usize = .{ 0, 0 },
+    bytes: [2]usize = .{ 0, 0 },
+    failed: usize = 0,
+};
+
+/// Where `generate` puts what it makes.
+pub const Sink = union(enum) {
+    dry_run,
+    /// Loose files under the same relative paths as in Data.
+    dir: std.Io.Dir,
+    /// One archive, entries named by the same relative paths.
+    pak: *Pak,
+};
+
+/// A stored (uncompressed) zip, which is what the engine reads as a .pak
+/// (Sources/src/StreamIOZig/zip.zig). The build ships the generated textures
+/// as one: 1428 loose files would take most of the headroom the package's
+/// 65,535-entry zip limit has left (tools/zig/package.zig). Entries go in the
+/// order they are added, with a fixed date, so the same input gives the same
+/// bytes.
+pub const Pak = struct {
+    bytes: std.ArrayList(u8) = .empty,
+    central: std.ArrayList(u8) = .empty,
+    count: u16 = 0,
+
+    // 1980-01-01 00:00, the first date MS-DOS time can hold.
+    const dos_date: u16 = (1 << 5) | 1;
+
+    fn putInt(list: *std.ArrayList(u8), allocator: std.mem.Allocator, comptime T: type, value: T) !void {
+        var buffer: [@sizeOf(T)]u8 = undefined;
+        std.mem.writeInt(T, &buffer, value, .little);
+        try list.appendSlice(allocator, &buffer);
+    }
+
+    /// `name` uses forward slashes, relative to Data.
+    pub fn add(pak: *Pak, allocator: std.mem.Allocator, name: []const u8, data: []const u8) !void {
+        if (pak.count == std.math.maxInt(u16)) return error.TooManyEntries;
+        const offset = std.math.cast(u32, pak.bytes.items.len) orelse return error.ArchiveTooLarge;
+        const size = std.math.cast(u32, data.len) orelse return error.ArchiveTooLarge;
+        const name_len = std.math.cast(u16, name.len) orelse return error.NameTooLong;
+        const crc = std.hash.Crc32.hash(data);
+
+        const local = &pak.bytes;
+        try local.appendSlice(allocator, "PK\x03\x04");
+        for ([_]u16{ 20, 0, 0, 0, dos_date }) |value| try putInt(local, allocator, u16, value);
+        for ([_]u32{ crc, size, size }) |value| try putInt(local, allocator, u32, value);
+        for ([_]u16{ name_len, 0 }) |value| try putInt(local, allocator, u16, value);
+        try local.appendSlice(allocator, name);
+        try local.appendSlice(allocator, data);
+        _ = std.math.cast(u32, local.items.len) orelse return error.ArchiveTooLarge;
+
+        const central = &pak.central;
+        try central.appendSlice(allocator, "PK\x01\x02");
+        for ([_]u16{ 20, 20, 0, 0, 0, dos_date }) |value| try putInt(central, allocator, u16, value);
+        for ([_]u32{ crc, size, size }) |value| try putInt(central, allocator, u32, value);
+        for ([_]u16{ name_len, 0, 0, 0, 0 }) |value| try putInt(central, allocator, u16, value);
+        for ([_]u32{ 0, offset }) |value| try putInt(central, allocator, u32, value);
+        try central.appendSlice(allocator, name);
+        pak.count += 1;
+    }
+
+    /// The whole archive: the entries, the central directory and its end.
+    pub fn finish(pak: *Pak, allocator: std.mem.Allocator) ![]const u8 {
+        const central_offset = std.math.cast(u32, pak.bytes.items.len) orelse return error.ArchiveTooLarge;
+        const central_size = std.math.cast(u32, pak.central.items.len) orelse return error.ArchiveTooLarge;
+        try pak.bytes.appendSlice(allocator, pak.central.items);
+        try pak.bytes.appendSlice(allocator, "PK\x05\x06");
+        for ([_]u16{ 0, 0, pak.count, pak.count }) |value| try putInt(&pak.bytes, allocator, u16, value);
+        for ([_]u32{ central_size, central_offset }) |value| try putInt(&pak.bytes, allocator, u32, value);
+        try putInt(&pak.bytes, allocator, u16, 0);
+        _ = std.math.cast(u32, pak.bytes.items.len) orelse return error.ArchiveTooLarge;
+        return pak.bytes.items;
+    }
+};
+
+/// Derives the season files the mesh folders under `data`/`subtree` lack and
+/// puts them in `sink`. Never writes into `data`: what it makes is a build
+/// output, staged beside the game's Data as SeasonData and mounted over it.
+pub fn generate(io: std.Io, allocator: std.mem.Allocator, data: std.Io.Dir, sink: Sink, subtree: []const u8) !Stats {
+    const folders = try scanFolders(io, allocator, data, subtree);
+    var jobs: std.ArrayList(Job) = .empty;
+    defer jobs.deinit(allocator);
+    for (folders) |*folder| try planFolder(allocator, folder, &jobs);
+
+    var stats = Stats{ .folders = folders.len };
+    var last_folder: []const u8 = "";
+    for (jobs.items) |job| {
+        var scratch_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer scratch_state.deinit();
+        const scratch = scratch_state.allocator();
+        const source_path = try std.fs.path.join(scratch, &.{ job.folder, job.source });
+        const target_path = try std.fs.path.join(scratch, &.{ job.folder, job.target });
+        const source = try data.readFileAlloc(io, source_path, scratch, .limited(64 << 20));
+        const generated = makeSeasonDds(scratch, source, job.season) catch |err| {
+            std.debug.print("skip {s}: {s}\n", .{ source_path, @errorName(err) });
+            stats.failed += 1;
+            continue;
+        };
+        switch (sink) {
+            .dry_run => {},
+            .dir => |out_dir| {
+                out_dir.createDirPath(io, job.folder) catch |err| {
+                    std.debug.print("cannot create {s}: {s}\n", .{ job.folder, @errorName(err) });
+                    stats.failed += 1;
+                    continue;
+                };
+                out_dir.writeFile(io, .{ .sub_path = target_path, .data = generated }) catch |err| {
+                    std.debug.print("cannot write {s}: {s}\n", .{ target_path, @errorName(err) });
+                    stats.failed += 1;
+                    continue;
+                };
+            },
+            .pak => |pak| {
+                const entry_name = try allocator.dupe(u8, target_path);
+                std.mem.replaceScalar(u8, entry_name, std.fs.path.sep, '/');
+                try pak.add(allocator, entry_name, generated);
+            },
+        }
+        const s = @intFromEnum(job.season);
+        stats.files[s] += 1;
+        stats.bytes[s] += generated.len;
+        if (std.mem.endsWith(u8, job.target, "_h.dds")) stats.textures[s] += 1;
+        if (!std.mem.eql(u8, last_folder, job.folder)) {
+            stats.touched += 1;
+            last_folder = job.folder;
+        }
+    }
+    return stats;
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -793,6 +969,8 @@ pub fn main(init: std.process.Init) !void {
     defer iterator.deinit();
     _ = iterator.skip();
     var data_path: ?[]const u8 = null;
+    var out_path: ?[]const u8 = null;
+    var pak_name: ?[]const u8 = null;
     var only: []const u8 = "Units";
     var dry_run = false;
     var derive = false;
@@ -803,6 +981,10 @@ pub fn main(init: std.process.Init) !void {
             derive = true;
         } else if (std.mem.eql(u8, arg, "--only")) {
             only = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--out")) {
+            out_path = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--pak")) {
+            pak_name = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.startsWith(u8, arg, "-") or data_path != null) {
             usage();
         } else {
@@ -810,6 +992,8 @@ pub fn main(init: std.process.Init) !void {
         }
     }
     const data = data_path orelse usage();
+    if (!derive and (out_path == null) == !dry_run) usage();
+    if (pak_name != null and out_path == null) usage();
     // Paths under Data use the native separator.
     const only_native = try arena.dupe(u8, std.mem.trimEnd(u8, only, "/\\"));
     for (only_native) |*c| {
@@ -827,52 +1011,25 @@ pub fn main(init: std.process.Init) !void {
         return out.flush();
     }
 
-    const folders = try scanFolders(io, arena, root, only_native);
-    var jobs: std.ArrayList(Job) = .empty;
-    for (folders) |*folder| try planFolder(arena, folder, &jobs);
-
-    var files = [_]usize{ 0, 0 };
-    var bytes = [_]usize{ 0, 0 };
-    var textures = [_]usize{ 0, 0 };
-    var failed: usize = 0;
-    var touched: usize = 0;
-    var last_folder: []const u8 = "";
-    for (jobs.items) |job| {
-        var scratch_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        defer scratch_state.deinit();
-        const scratch = scratch_state.allocator();
-        const source_path = try std.fs.path.join(scratch, &.{ job.folder, job.source });
-        const target_path = try std.fs.path.join(scratch, &.{ job.folder, job.target });
-        const source = try root.readFileAlloc(io, source_path, scratch, .limited(64 << 20));
-        const generated = makeSeasonDds(scratch, source, job.season) catch |err| {
-            std.debug.print("skip {s}: {s}\n", .{ source_path, @errorName(err) });
-            failed += 1;
-            continue;
-        };
-        if (!dry_run) {
-            root.writeFile(io, .{ .sub_path = target_path, .data = generated, .flags = .{ .exclusive = true } }) catch |err| {
-                std.debug.print("cannot write {s}: {s}\n", .{ target_path, @errorName(err) });
-                failed += 1;
-                continue;
-            };
-        }
-        const s = @intFromEnum(job.season);
-        files[s] += 1;
-        bytes[s] += generated.len;
-        if (std.mem.endsWith(u8, job.target, "_h.dds")) textures[s] += 1;
-        if (!std.mem.eql(u8, last_folder, job.folder)) {
-            touched += 1;
-            last_folder = job.folder;
-        }
+    var out_dir: ?std.Io.Dir = null;
+    if (out_path) |path| {
+        try std.Io.Dir.cwd().createDirPath(io, path);
+        out_dir = try std.Io.Dir.cwd().openDir(io, path, .{});
     }
-    try out.print("{s}mesh folders: {d} under {s}{c}{s}, {d} gain season files\n", .{ if (dry_run) "dry run: " else "", folders.len, data, std.fs.path.sep, only_native, touched });
+    defer if (out_dir) |*dir| dir.close(io);
+
+    var pak: Pak = .{};
+    const sink: Sink = if (out_dir) |dir| (if (pak_name != null) .{ .pak = &pak } else .{ .dir = dir }) else .dry_run;
+    const stats = try generate(io, arena, root, sink, only_native);
+    if (pak_name) |name| try out_dir.?.writeFile(io, .{ .sub_path = name, .data = try pak.finish(arena) });
+    try out.print("{s}mesh folders: {d} under {s}{c}{s}, {d} gain season files\n", .{ if (dry_run) "dry run: " else "", stats.folders, data, std.fs.path.sep, only_native, stats.touched });
     for (seasons) |season| {
         const s = @intFromEnum(season);
-        try out.print("  {s}: {d} textures, {d} files, {d} bytes\n", .{ @tagName(season), textures[s], files[s], bytes[s] });
+        try out.print("  {s}: {d} textures, {d} files, {d} bytes\n", .{ @tagName(season), stats.textures[s], stats.files[s], stats.bytes[s] });
     }
-    try out.print("  total: {d} files, {d} bytes{s}\n", .{ files[0] + files[1], bytes[0] + bytes[1], if (failed > 0) " (some failed, see above)" else "" });
+    try out.print("  total: {d} files, {d} bytes{s}\n", .{ stats.files[0] + stats.files[1], stats.bytes[0] + stats.bytes[1], if (stats.failed > 0) " (some failed, see above)" else "" });
     try out.flush();
-    if (failed > 0) return error.SomeTexturesFailed;
+    if (stats.failed > 0) return error.SomeTexturesFailed;
 }
 
 // ---------------------------------------------------------------------------
@@ -1101,4 +1258,89 @@ test "plans only missing season files and never an existing one" {
     for (expected, targets.items) |e, t| try testing.expectEqualStrings(e, t);
     // The source keeps the file's real spelling.
     try testing.expectEqualStrings("1_H.dds", jobs.items[1].source);
+}
+
+test "generate writes into the output tree and never into Data" {
+    const io = testing.io;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var tmp = testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+
+    // A 4x4 A8R8G8B8 summer texture, in a mesh folder that already has its
+    // winter "_h" and in a sprite folder (no .mod) that is left alone.
+    const format = Format{ .rgb = .{ .bytes = 4, .masks = .{ 0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000 } } };
+    const header = testHeader(4, 4, 1, format);
+    var dds: [128 + 64]u8 = undefined;
+    @memcpy(dds[0..128], &header);
+    for (dds[128..], 0..) |*byte, i| byte.* = @truncate(i * 37 + 11);
+    try tmp.dir.createDirPath(io, "Data/Units/Tank");
+    try tmp.dir.createDirPath(io, "Data/Units/Soldier");
+    try tmp.dir.writeFile(io, .{ .sub_path = "Data/Units/Tank/1.mod", .data = "mesh" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "Data/Units/Tank/1_h.dds", .data = &dds });
+    try tmp.dir.writeFile(io, .{ .sub_path = "Data/Units/Tank/1w_h.dds", .data = "painted by hand" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "Data/Units/Soldier/1_h.dds", .data = &dds });
+
+    var data = try tmp.dir.openDir(io, "Data", .{ .iterate = true });
+    defer data.close(io);
+    try tmp.dir.createDirPath(io, "out");
+    var out = try tmp.dir.openDir(io, "out", .{ .iterate = true });
+    defer out.close(io);
+    const sep = std.fs.path.sep_str;
+    const stats = try generate(io, arena, data, .{ .dir = out }, "Units");
+    try testing.expectEqual(@as(usize, 1), stats.folders);
+    try testing.expectEqual(@as(usize, 0), stats.failed);
+    try testing.expectEqual(@as(usize, 0), stats.files[@intFromEnum(Season.winter)]);
+    try testing.expectEqual(@as(usize, 1), stats.files[@intFromEnum(Season.africa)]);
+
+    // The Africa file is in the output, under Data's relative path, and is
+    // what makeSeasonDds makes of the summer file.
+    const generated = try out.readFileAlloc(io, "Units" ++ sep ++ "Tank" ++ sep ++ "1a_h.dds", arena, .limited(1 << 20));
+    try testing.expectEqualSlices(u8, try makeSeasonDds(arena, &dds, .africa), generated);
+    // Nothing else is in the output: not the winter file Data has, not the
+    // sprite folder's.
+    var files: usize = 0;
+    var walker = try out.walk(arena);
+    defer walker.deinit();
+    while (try walker.next(io)) |entry| {
+        if (entry.kind == .file) files += 1;
+    }
+    try testing.expectEqual(@as(usize, 1), files);
+    // Data is as it was.
+    try testing.expectError(error.FileNotFound, data.access(io, "Units" ++ sep ++ "Tank" ++ sep ++ "1a_h.dds", .{}));
+    try testing.expectEqualStrings("painted by hand", try data.readFileAlloc(io, "Units" ++ sep ++ "Tank" ++ sep ++ "1w_h.dds", arena, .limited(64)));
+
+    // The same input gives the same bytes on a second run.
+    try tmp.dir.createDirPath(io, "again");
+    var again = try tmp.dir.openDir(io, "again", .{});
+    defer again.close(io);
+    _ = try generate(io, arena, data, .{ .dir = again }, "Units");
+    try testing.expectEqualSlices(u8, generated, try again.readFileAlloc(io, "Units" ++ sep ++ "Tank" ++ sep ++ "1a_h.dds", arena, .limited(1 << 20)));
+
+    // As a pak: the same file under the same name, forward slashes, readable
+    // by a standard zip reader, and the same bytes on every run.
+    var pak: Pak = .{};
+    _ = try generate(io, arena, data, .{ .pak = &pak }, "Units");
+    const pak_bytes = try pak.finish(arena);
+    var pak_again: Pak = .{};
+    _ = try generate(io, arena, data, .{ .pak = &pak_again }, "Units");
+    try testing.expectEqualSlices(u8, pak_bytes, try pak_again.finish(arena));
+    try tmp.dir.writeFile(io, .{ .sub_path = "Season.pak", .data = pak_bytes });
+    try tmp.dir.createDirPath(io, "unpacked");
+    var unpacked = try tmp.dir.openDir(io, "unpacked", .{});
+    defer unpacked.close(io);
+    var pak_file = try tmp.dir.openFile(io, "Season.pak", .{});
+    defer pak_file.close(io);
+    var read_buffer: [4096]u8 = undefined;
+    var pak_reader = pak_file.reader(io, &read_buffer);
+    try std.zip.extract(unpacked, &pak_reader, .{});
+    try testing.expectEqualSlices(u8, generated, try unpacked.readFileAlloc(io, "Units" ++ sep ++ "Tank" ++ sep ++ "1a_h.dds", arena, .limited(1 << 20)));
+}
+
+test "plan names cover the textures and meshes the plan reads" {
+    for ([_][]const u8{ "1.mod", "1_c.dds", "2_h.dds", "1p_l.dds", "1w_h.dds", "2a_c.dds", "1pw_l.dds" }) |name| try testing.expect(isPlanName(name));
+    for ([_][]const u8{ "icon_h.dds", "1b_h.dds", "1_x.dds", "11_h.dds", "1.xml" }) |name| try testing.expect(!isPlanName(name));
+    try testing.expect(isSummerSource("1p_h.dds"));
+    try testing.expect(!isSummerSource("1w_h.dds"));
 }

@@ -30,6 +30,7 @@
 #include "../StreamIO/OptionSystem.h"
 #include "../StreamIO/ProfilePaths.h"
 #include "../StreamIO/GeneratedData.h"
+#include "../StreamIO/SeasonData.h"
 #include "../StreamIO/RandomGen.h"
 #include <fstream>
 #include <filesystem>
@@ -644,7 +645,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 				pStorage = OpenStorage( (szDataDir + "\\data\\*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 		}
 		else
+		{
 			pStorage = OpenStorage( NPlatform::Paths::DataArchivePattern().c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
+			// The generated season textures of this installation's Data, before
+			// any mod goes on top (a -DataDir Data has none of its own).
+			NSeasonData::Mount( pStorage );
+		}
 		RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 	}
 	BK_STARTUP_MARKER("after OpenStorage");

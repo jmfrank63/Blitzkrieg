@@ -1,6 +1,7 @@
 const std = @import("std");
 const build_support = @import("tools/zig/build_support.zig");
 const package_policy = @import("tools/zig/verify_runtime.zig");
+const season_textures_plan = @import("tools/zig/season_textures.zig");
 
 /// Single source of truth for the game version. Bump the patch component with
 /// every change. The version is embedded into Game.exe as a Win32 VERSIONINFO
@@ -1739,6 +1740,10 @@ pub fn build(b: *std.Build) void {
     const season_textures_test_step = b.step("test-season-textures", "Run the season texture tool's codec and transform tests");
     season_textures_test_step.dependOn(&season_textures_tests.step);
     if (test_mode == .run) season_textures_test_step.dependOn(&b.addRunArtifact(season_textures_tests).step);
+    // The same tool, run by every staging (install-game, and so
+    // install-map-editor and every tier staged on it, package-game and
+    // package-game-editors, with or without -Dcopy-data): see addSeasonData.
+    const season_data = addSeasonData(b, season_textures);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
@@ -2156,6 +2161,8 @@ pub fn build(b: *std.Build) void {
     // cache key or the staged and packaged copies keep the superseded notice.
     install_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
     if (!copy_data) install_game_cmd.addArg("--link-data");
+    install_game_cmd.addArg("--season-data");
+    install_game_cmd.addDirectoryArg(season_data);
     if (!use_prebuilt_shaders) {
         install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
         // Staging copies the compiled shader blobs out of a plain path, so the same
@@ -2361,6 +2368,8 @@ pub fn build(b: *std.Build) void {
     stage_package_game_cmd.addArg(package_stage_root);
     addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
     stage_package_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
+    stage_package_game_cmd.addArg("--season-data");
+    stage_package_game_cmd.addDirectoryArg(season_data);
     // D-08: the game package carries MapEditor beside Game on the editor's two
     // platforms. addFileArg (not a hand-built path string) both resolves the
     // exact binary this build produced and makes this Run step depend on it,
@@ -6286,6 +6295,69 @@ fn linkSdlImport(
         .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
         else => module.linkLibrary(sdl_dynamic),
     }
+}
+
+// The winter ("w") and Africa ("a") unit textures Data lacks, derived from the
+// summer ones by tools/zig/season_textures.zig. A build output, not a source:
+// generated into the cache (one stored .pak of 1428 files, ~70 MB, about 2 s;
+// one file rather than 1428 because the package's zip has little of its
+// 65,535-entry limit left), staged beside Data as SeasonData by stage-game and
+// mounted over Data by the engine (Sources/src/StreamIO/SeasonData.h). Nothing
+// is written into Data, which -Dcopy-data=false stages as a link into this
+// repository.
+fn addSeasonData(b: *std.Build, tool: *std.Build.Step.Compile) std.Build.LazyPath {
+    const run = b.addRunArtifact(tool);
+    run.setName("generate SeasonData");
+    run.addDirectoryArg(b.path("Data"));
+    run.addArg("--out");
+    const out = run.addOutputDirectoryArg("SeasonData");
+    run.addArgs(&.{ "--pak", "SeasonTextures.pak" });
+    // A directory argument is hashed by its path only, so what the tool reads
+    // goes into the cache key explicitly, and the output is regenerated
+    // exactly when that changes.
+    const inputs = seasonDataInputs(b) catch |err| std.debug.panic("SeasonData inputs: {s}", .{@errorName(err)});
+    for (inputs.sources) |source| run.addFileInput(b.path(source));
+    run.addFileInput(b.addWriteFiles().add("season-data-inputs.txt", inputs.listing));
+    return out;
+}
+
+const SeasonDataInputs = struct {
+    /// The summer textures, whose bytes decide the generated files'.
+    sources: []const []const u8,
+    /// Every mesh and season texture name the plan looks at, one per line: a
+    /// folder that gains a hand-painted 1w, or a new unit, changes it.
+    listing: []const u8,
+};
+
+// Found at configure time, the way shaderSourceFiles finds the shaders:
+// walking Data/Units takes a few milliseconds.
+fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
+    const io = b.graph.io;
+    var dir = try b.build_root.handle.openDir(io, "Data/Units", .{ .iterate = true });
+    defer dir.close(io);
+    var walker = try dir.walk(b.allocator);
+    defer walker.deinit();
+    var names: std.ArrayList([]const u8) = .empty;
+    var sources: std.ArrayList([]const u8) = .empty;
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const lower = try std.ascii.allocLowerString(b.allocator, entry.basename);
+        if (!season_textures_plan.isPlanName(lower)) continue;
+        // Forward slashes, so the listing is the same on every host.
+        const relative = try std.mem.replaceOwned(u8, b.allocator, entry.path, "\\", "/");
+        const path = b.fmt("Data/Units/{s}", .{relative});
+        try names.append(b.allocator, path);
+        if (season_textures_plan.isSummerSource(lower)) try sources.append(b.allocator, path);
+    }
+    const Sort = struct {
+        fn less(_: void, left: []const u8, right: []const u8) bool {
+            return std.mem.order(u8, left, right) == .lt;
+        }
+    };
+    // The walk's order is the filesystem's; the key must not be.
+    std.mem.sort([]const u8, names.items, {}, Sort.less);
+    std.mem.sort([]const u8, sources.items, {}, Sort.less);
+    return .{ .sources = sources.items, .listing = try std.mem.join(b.allocator, "\n", names.items) };
 }
 
 // Every file the shader driver reads: the manifest plus the .hlsl sources beside

@@ -99,4 +99,6 @@ const std::string &LogPath() { static std::string value; value = join(join(UserR
 const std::string &ErrorLogPath() { static std::string value; value = join(join(UserRoot(), "logs"), "error.txt"); return value; }
 const std::string &CacheRoot() { static std::string value; value = join(UserRoot(), "cache"); return value; }
 const std::string &DataArchivePattern() { static std::string value; value = join(DataRoot(), "*.pak"); return value; }
+const std::string &SeasonDataRoot() { static std::string value; value = join(BaseRoot(), "SeasonData"); return value; }
+const std::string &SeasonDataArchivePattern() { static std::string value; value = join(SeasonDataRoot(), "*.pak"); return value; }
 }

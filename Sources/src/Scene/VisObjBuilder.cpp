@@ -137,10 +137,23 @@ CEffectVisObj* CVisObjBuilder::CreateEffectVisObj( const std::string &szName )
 // the mesh is drawn white. So a last segment of digits, an optional "p" or
 // "b", and a season letter ("1w", "2a", "1pw", "1bw") retries without the
 // letter, as MOBuilding's UpdateVisObj retries a sprite without its season.
+// A staged game has every unit's season textures - the build generates the
+// missing ones into SeasonData (StreamIO/SeasonData.h) - so this is for a Data
+// without them, such as another installation's picked in the editor.
+// BK_SEASON_TRACE=1 prints which texture each mesh asked for and got.
+static bool SeasonTrace()
+{
+	static const bool bTrace = getenv( "BK_SEASON_TRACE" ) != 0;
+	return bTrace;
+}
 static IGFXTexture* GetSeasonedMeshTexture( ITextureManager *pTM, const char *pszTextureName )
 {
 	if ( IGFXTexture *pTexture = pTM->GetTexture( pszTextureName ) )
+	{
+		if ( SeasonTrace() )
+			fprintf( stderr, "BK_SEASON_TRACE: mesh texture \"%s\"\n", pszTextureName );
 		return pTexture;
+	}
 	if ( pszTextureName == 0 )
 		return 0;
 	const std::string szName = pszTextureName;
@@ -155,7 +168,10 @@ static IGFXTexture* GetSeasonedMeshTexture( ITextureManager *pTM, const char *ps
 		++nPos;
 	if ( nPos + 1 != szName.size() || (szName[nPos] != 'w' && szName[nPos] != 'a') )
 		return 0;
-	return pTM->GetTexture( szName.substr(0, nPos).c_str() );
+	IGFXTexture *pSeasonless = pTM->GetTexture( szName.substr(0, nPos).c_str() );
+	if ( SeasonTrace() )
+		fprintf( stderr, "BK_SEASON_TRACE: mesh texture \"%s\" missing, %s \"%s\"\n", pszTextureName, pSeasonless != 0 ? "drawn with" : "and no", szName.substr(0, nPos).c_str() );
+	return pSeasonless;
 }
 bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, const char *pszTextureName, EObjVisType type )
 {

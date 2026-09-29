@@ -332,3 +332,60 @@ fn expectStagedFile(destination: std.Io.Dir, io: std.Io, allocator: std.mem.Allo
 fn expectStagedPathAbsent(destination: std.Io.Dir, io: std.Io, path: []const u8) !void {
     try std.testing.expectError(error.FileNotFound, destination.access(io, path, .{}));
 }
+
+test "--season-data stages the generated textures beside Data, in both data modes" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    const generated = try std.fs.path.join(allocator, &.{ try tmp.dir.realPathFileAlloc(io, ".", allocator), "generated" });
+    try tmp.dir.createDirPath(io, "generated/Units/Tank");
+    try tmp.dir.writeFile(io, .{ .sub_path = "generated/Units/Tank/1w_h.dds", .data = "winter A" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "generated/Units/Tank/1a_h.dds", .data = "africa" });
+    var options = fixture.options;
+    options.season_data = generated;
+    try stage.stage(io, allocator, options);
+
+    var destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    try expectStagedFile(destination, io, allocator, "SeasonData/Units/Tank/1w_h.dds", "winter A");
+    try expectStagedFile(destination, io, allocator, "SeasonData/Units/Tank/1a_h.dds", "africa");
+    // Never into Data: under --link-data that is the repository's own tree.
+    try expectStagedPathAbsent(destination, io, "Data/Units/Tank/1w_h.dds");
+    destination.close(io);
+
+    // Regenerated: one file changes at the same size (as a season file keeps
+    // its summer file's), one is no longer made. Staged under --link-data this
+    // time, where SeasonData is still a copy and Data a link.
+    try tmp.dir.writeFile(io, .{ .sub_path = "generated/Units/Tank/1w_h.dds", .data = "winter B" });
+    try tmp.dir.deleteFile(io, "generated/Units/Tank/1a_h.dds");
+    options.data_mode = .link;
+    stage.stage(io, allocator, options) catch |err| switch (err) {
+        // A Windows runner without symlink rights cannot take --link-data.
+        error.DataLinkPermissionDenied => return,
+        else => return err,
+    };
+    destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "SeasonData/Units/Tank/1w_h.dds", "winter B");
+    try expectStagedPathAbsent(destination, io, "SeasonData/Units/Tank/1a_h.dds");
+    try expectStagedFile(destination, io, allocator, "Data/Maps/kept.map", "kept fixture");
+    try std.testing.expectError(error.FileNotFound, tmp.dir.access(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "Data/Units" }), .{}));
+}
+
+test "a missing season data directory fails the stage" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.season_data = "no-such-season-data";
+    try std.testing.expectError(error.FileNotFound, stage.stage(io, allocator, options));
+}
