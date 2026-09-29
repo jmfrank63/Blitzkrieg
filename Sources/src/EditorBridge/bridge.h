@@ -32,7 +32,10 @@ typedef struct BkEditorSession BkEditorSession;
 const char *BkEditorLastMessage( BkEditorSession *session );
 
 /* Starts the engine on a window the caller owns and keeps alive for the
-   session. data_root is the directory holding Data and the shared libraries.
+   session. data_root is the directory holding Data and the shared libraries;
+   null or "" means the running executable's own directory
+   (NPlatform::Paths::BaseRoot), never the working directory. A relative
+   data_root is taken relative to the working directory.
 
    window must not be null - that is BK_EDITOR_BAD_ARGUMENT, a caller bug.
    BK_EDITOR_NO_DEVICE means a real window on which the renderer would not

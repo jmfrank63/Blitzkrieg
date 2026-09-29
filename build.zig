@@ -5964,9 +5964,19 @@ fn addMapEditor(
     const install_step = b.step("install-map-editor", "Install MapEditor into the game installation");
     install_step.dependOn(&install_exe.step);
 
+    // Launched from zig-out, not the installation: MapEditor finds its
+    // modules, Data, SeasonData and Shaders beside its own executable
+    // whatever the working directory is (a Windows shortcut, the Start menu
+    // or Explorer start it elsewhere), and a relative map on the command line
+    // is relative to where it was launched - here the stage path from zig-out,
+    // in the engine's backslash form after it. Not the build root: on macOS
+    // every Mach-O the build links carries Zig's cwd-relative build-cache
+    // rpaths ahead of @executable_path, so from there
+    // dyld loads a second libSDL3/libPlatformRuntime out of the cache
+    // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
-    run.setCwd(b.path(stage_root));
-    run.addArgs(&.{ "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
+    run.setCwd(b.path("zig-out"));
+    run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
     // Only builds and installs the step in .compile mode, as test-editor-bridge
@@ -5976,8 +5986,10 @@ fn addMapEditor(
     // The same map as an absolute path in the host's own form, as a person
     // types it or a shell expands it: forward slashes on macOS, which the
     // engine's file layer does not split on until MapEditor converts them.
+    // Also launched from outside the installation, like `run` above; the
+    // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
-    absolute_run.setCwd(b.path(stage_root));
+    absolute_run.setCwd(b.path("zig-out"));
     absolute_run.addArgs(&.{ "--check", b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), b.pathFromRoot("zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
     // After the relative run, so two engines never start at once.

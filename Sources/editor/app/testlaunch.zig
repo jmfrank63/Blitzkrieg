@@ -299,11 +299,11 @@ pub const Running = struct {
 };
 
 /// Opens log_path truncated (creating its directory first if needed) and
-/// spawns game_path with buildArgv's argv: stdin ignored, stdout and stderr
-/// both to the log, no console window of its own (Windows). environ is
-/// copied into a fresh map only when extra_env is non-empty - the common
-/// launch (no extra_env) inherits the parent's environment directly, which
-/// needs no copy at all.
+/// spawns game_path with buildArgv's argv, in game_path's own directory:
+/// stdin ignored, stdout and stderr both to the log, no console window of
+/// its own (Windows). environ is copied into a fresh map only when
+/// extra_env is non-empty - the common launch (no extra_env) inherits the
+/// parent's environment directly, which needs no copy at all.
 pub fn start(gpa: std.mem.Allocator, io: Io, environ: std.process.Environ, options: Options) !Running {
     var storage: ArgvStorage = .{};
     const argv = buildArgv(&storage, options);
@@ -328,6 +328,11 @@ pub fn start(gpa: std.mem.Allocator, io: Io, environ: std.process.Environ, optio
         .stdout = .{ .file = log },
         .stderr = .{ .file = log },
         .create_no_window = true,
+        // The game's own directory, not the editor's working directory: the
+        // game writes some files (BK_AUTO_UI's autoshots, its traces) where
+        // it runs, and an editor started from a shortcut or another shell
+        // has some unrelated cwd.
+        .cwd = if (std.fs.path.dirname(options.game_path)) |directory| .{ .path = directory } else .inherit,
     });
 
     return .{ .child = child, .started = Io.Clock.Timestamp.now(io, .awake) };

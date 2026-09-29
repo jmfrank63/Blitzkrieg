@@ -243,7 +243,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 
     if (map) |typed| {
         var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-        const path = mapArgument(&path_buffer, typed) orelse fatal("map open", "the map's path is too long");
+        const path = mapArgument(io, &path_buffer, typed) orelse fatal("map open", "the map's path is too long");
         editor.open(path) catch {
             const reason = editor.status();
             fatal("map open", if (reason.len != 0) reason else "the map did not open");
@@ -478,7 +478,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-    const path = mapArgument(&path_buffer, map) orelse {
+    const path = mapArgument(io, &path_buffer, map) orelse {
         std.debug.print("map-editor: smoke FAIL: the path {s} is too long\n", .{map});
         return false;
     };
@@ -561,7 +561,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var std_files: core.files.StdFiles = .{ .io = io, .dir = .cwd() };
     editor.files = std_files.files();
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-    const path = mapArgument(&path_buffer, map) orelse {
+    const path = mapArgument(io, &path_buffer, map) orelse {
         std.debug.print("map-editor: game reads it FAIL: the path {s} is too long\n", .{map});
         return false;
     };
@@ -775,7 +775,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return false;
     }
 
-    deleteAutoshots(io);
+    deleteAutoshots(io, game_path);
     std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit, {d} before placing, plus the unit and the squads' {d} soldiers; single soldiers refused; the map's sound {s} started; game exit 0)\n", .{ units_count, baseline, squad_soldiers, sound_name });
     return true;
 }
@@ -822,11 +822,12 @@ fn gameReadsItBaseline(gpa: std.mem.Allocator, io: std.Io, environ: std.process.
 }
 
 /// The game's own screenshot dump (BK_AUTO_UI's `shot` action), left in the
-/// working directory (the installation this mode ran from) rather than
-/// zig-out/local-test - swept up so a repeat run is not mistaken for a stale
-/// leftover.
-fn deleteAutoshots(io: std.Io) void {
-    var dir = std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true }) catch return;
+/// game's working directory - its installation, where testlaunch.start runs
+/// it - rather than zig-out/local-test, swept up so a repeat run is not
+/// mistaken for a stale leftover.
+fn deleteAutoshots(io: std.Io, game_path: []const u8) void {
+    const game_dir = std.fs.path.dirname(game_path) orelse return;
+    var dir = std.Io.Dir.cwd().openDir(io, game_dir, .{ .iterate = true }) catch return;
     defer dir.close(io);
     var it = dir.iterate();
     while (it.next(io) catch null) |entry| {
@@ -841,8 +842,18 @@ fn deleteAutoshots(io: std.Io) void {
 /// forward slashes - and the engine's file layer splits only on '\', so it
 /// goes through the conversion the file dialogs' paths go through
 /// (panels_logic.enginePath). Null when it does not fit the buffer.
-fn mapArgument(buffer: *[panels_logic.PathSlot.max_path]u8, typed: []const u8) ?[]const u8 {
-    return panels_logic.enginePath(buffer, typed, .open);
+///
+/// A relative path is relative to the directory the editor was launched from
+/// and is made absolute here (panels_logic.absoluteFromLaunchDir), so nothing
+/// after it - the document path, Open Recent, recovery, the shipped-map check
+/// - depends on the working directory. The installation itself never does:
+/// the engine finds it from the executable (host.zig's Options.data_root).
+fn mapArgument(io: std.Io, buffer: *[panels_logic.PathSlot.max_path]u8, typed: []const u8) ?[]const u8 {
+    var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cwd_len = std.process.currentPath(io, &cwd_buffer) catch return panels_logic.enginePath(buffer, typed, .open);
+    var absolute_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const absolute = panels_logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], typed) orelse return null;
+    return panels_logic.enginePath(buffer, absolute, .open);
 }
 
 fn startupStepName(err: host_mod.HostError) []const u8 {
@@ -902,7 +913,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
     crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-    const path = mapArgument(&path_buffer, map) orelse return fail("the path {s} is too long", .{map});
+    const path = mapArgument(io, &path_buffer, map) orelse return fail("the path {s} is too long", .{map});
     const map_z = try gpa.dupeZ(u8, path);
     defer gpa.free(map_z);
     const output_z = try gpa.dupeZ(u8, output);
@@ -1049,7 +1060,7 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-    const path = mapArgument(&path_buffer, map) orelse return fail("panels: the path {s} is too long", .{map});
+    const path = mapArgument(io, &path_buffer, map) orelse return fail("panels: the path {s} is too long", .{map});
     editor.open(path) catch return fail("panels: {s} did not open through the editor: {s}", .{ map, editor.status() });
     var state = panels.State.init(gpa, &editor, &view, &real, host.window, io, environ, mod_folder);
     defer state.deinit();

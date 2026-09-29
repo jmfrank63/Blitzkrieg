@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "../Platform/LegacyText.h"
+#include "../Platform/Paths.h"
 
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
@@ -274,7 +275,12 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     sdl_window_ = window.value;
     info.width = width_ > 0 ? static_cast<uint32_t>( width_ ) : GFX_DEFAULT_SCREEN_WIDTH;
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
-    info.shader_directory_utf8 = "Shaders/GfxGpu";
+    // Under the installation the running executable is in (Paths::ShaderRoot,
+    // SDL_GetBasePath), not the working directory: a game or editor started
+    // from a shortcut, the Start menu or another directory found no shaders,
+    // and its first scene would not begin.
+    const std::string shader_directory = NPlatform::Paths::ShaderRoot() + "/GfxGpu";
+    info.shader_directory_utf8 = shader_directory.c_str();
     info.preferred_driver_utf8 = pszAdapterName;
     present_mode_ = ResolvePresentMode();
     info.present_mode = present_mode_;

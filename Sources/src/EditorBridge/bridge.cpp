@@ -422,7 +422,19 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 		return BK_EDITOR_FAILED;
 	}
 	*ppOut = pSession;
-	pSession->szDataRoot = pszDataRoot != 0 ? pszDataRoot : ".";
+	// null or "": the installation this executable runs from, as every engine
+	// module derives its own roots (NPlatform::Paths, SDL_GetBasePath), never
+	// the working directory, which a shortcut, the Start menu or another
+	// shell's directory sets to anything. Asked of SDL afresh, not
+	// Paths::BaseRoot(): an earlier start in this process may have pointed
+	// that elsewhere.
+	if ( pszDataRoot != 0 && pszDataRoot[0] != 0 )
+		pSession->szDataRoot = pszDataRoot;
+	else
+	{
+		const char *pszBase = SDL_GetBasePath();
+		pSession->szDataRoot = pszBase != 0 ? pszBase : ".";
+	}
 	pSession->pWindow = pWindow;
 
 	return Guarded( pSession, [pSession, pWindow]() -> BkEditorStatus

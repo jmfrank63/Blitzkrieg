@@ -1081,12 +1081,12 @@ fn drawSettingsWindow(state: *State) void {
 /// Where the Open and Save As dialogs start: the Settings window's maps
 /// folder when one is set (D-25), otherwise the user maps folder of the
 /// active mod - `<user_root>mods/<Folder>/maps`, or `<user_root>maps` for
-/// None (D-28) - so after File > Mod it follows the new mod. Null when the
-/// path does not fit `buffer`.
+/// None (D-28) - so after File > Mod it follows the new mod. A relative
+/// maps folder typed into Settings is under the user root, never the working
+/// directory (panels_logic.dialogFolderFor). Null when the path does not fit
+/// `buffer`.
 pub fn dialogFolder(state: *const State, buffer: []u8) ?[]const u8 {
-    const custom_folder = state.settings.mapsFolder();
-    if (custom_folder.len != 0) return custom_folder;
-    return logic.defaultMapsFolder(buffer, userRoot(state), state.modFolder());
+    return logic.dialogFolderFor(buffer, state.settings.mapsFolder(), userRoot(state), state.modFolder());
 }
 
 fn showDialog(state: *State, kind: logic.DialogKind) void {

@@ -1,5 +1,5 @@
 #include "Paths.h"
-#if !defined(BLITZKRIEG_PATHS_TEST) && defined(_WIN32)
+#if !defined(BLITZKRIEG_PATHS_TEST)
 #include <SDL3/SDL.h>
 #endif
 #if !defined(_WIN32)
@@ -33,7 +33,18 @@ void createWritableRoots() {
     std::filesystem::create_directories(join(gBase, "screenshots"), error);
 }
 #if !defined(_WIN32)
+// The running executable's directory, never the working directory: a game or
+// editor started from a shortcut, the Start menu, Finder or another shell's
+// directory has some other cwd, and every module (each dylib links its own
+// copy of this file) has to agree on the installation. SDL_GetBasePath is
+// what Windows already used and what Main's GetBaseDir uses on every OS
+// (/proc/self/exe on Linux, the executable's bundle directory on macOS - a
+// plain, unbundled binary's own directory). /proc/self/exe does not exist on
+// macOS, so reading it there fell back to the cwd.
 std::string executableRoot() {
+#if !defined(BLITZKRIEG_PATHS_TEST)
+    if (const char *base = SDL_GetBasePath()) return base;
+#endif
     std::error_code error;
     const std::filesystem::path executable = std::filesystem::read_symlink("/proc/self/exe", error);
     if (!error) return executable.parent_path().string();

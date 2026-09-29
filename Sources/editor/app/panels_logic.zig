@@ -5,6 +5,7 @@
 //! `zig build test-map-editor-panels` against the core's fake bridge, without
 //! the engine's libraries or a GPU.
 const std = @import("std");
+const builtin = @import("builtin");
 const core = @import("editor_core");
 const testlaunch = @import("testlaunch.zig");
 const view_math = @import("view_math.zig");
@@ -483,6 +484,17 @@ pub fn defaultMapsFolder(buffer: []u8, user_root: []const u8, mod_folder: ?[]con
     return std.fmt.bufPrint(buffer, "{s}maps", .{user_root}) catch null;
 }
 
+/// Where the Open and Save As dialogs start (panels.zig's dialogFolder): the
+/// Settings window's maps folder when one is set (D-25), otherwise
+/// `defaultMapsFolder`. The maps folder is typed text: a relative one is
+/// taken under `user_root`, never the working directory, which a shortcut or
+/// the Start menu sets to anything.
+pub fn dialogFolderFor(buffer: []u8, custom_folder: []const u8, user_root: []const u8, mod_folder: ?[]const u8) ?[]const u8 {
+    if (custom_folder.len == 0) return defaultMapsFolder(buffer, user_root, mod_folder);
+    if (std.fs.path.isAbsolute(custom_folder) or user_root.len == 0) return custom_folder;
+    return std.fmt.bufPrint(buffer, "{s}{s}", .{ user_root, custom_folder }) catch null;
+}
+
 /// The last component of a path written with either separator: the engine
 /// uses backslashes on every OS, a file dialog the OS's own.
 pub fn baseName(path: []const u8) []const u8 {
@@ -501,6 +513,26 @@ pub fn enginePath(buffer: []u8, os_path: []const u8, kind: DialogKind) ?[]const 
     for (os_path, buffer[0..os_path.len]) |char, *out| out.* = if (char == '/') '\\' else char;
     @memcpy(buffer[os_path.len..][0..extension.len], extension);
     return buffer[0 .. os_path.len + extension.len];
+}
+
+/// A path typed on the command line, made absolute against the directory the
+/// editor was launched from (`cwd`) - the one place a relative path means the
+/// launch directory. Absolute from here on, so the document path, Open Recent,
+/// the recovery sidecar and the shipped-map check never depend on the working
+/// directory again. `typed` may use the engine's backslashes on any OS (the
+/// build's own tiers pass `Data\Maps\...`); on POSIX they become '/' first,
+/// so "." and ".." components resolve. Null when the result does not fit
+/// `buffer`.
+pub fn absoluteFromLaunchDir(buffer: []u8, cwd: []const u8, typed: []const u8) ?[]const u8 {
+    var typed_buffer: [PathSlot.max_path]u8 = undefined;
+    if (typed.len > typed_buffer.len) return null;
+    for (typed, typed_buffer[0..typed.len]) |char, *out| out.* = if (builtin.os.tag != .windows and char == '\\') '/' else char;
+    var scratch: [4 * PathSlot.max_path]u8 = undefined;
+    var fixed: std.heap.FixedBufferAllocator = .init(&scratch);
+    const resolved = std.fs.path.resolve(fixed.allocator(), &.{ cwd, typed_buffer[0..typed.len] }) catch return null;
+    if (resolved.len > buffer.len) return null;
+    @memcpy(buffer[0..resolved.len], resolved);
+    return buffer[0..resolved.len];
 }
 
 fn hasMapExtension(path: []const u8) bool {
@@ -2188,4 +2220,32 @@ test "Test in game status: a success clears only its own line, never another ope
     status.set(.frame, "failed: ", "DeviceLost");
     prompt.noteLaunch(.started, &status);
     try std.testing.expectEqualStrings("failed: DeviceLost", status.line());
+}
+
+test "command line: a relative map resolves against the launch directory, not the installation" {
+    var buffer: [PathSlot.max_path]u8 = undefined;
+    if (builtin.os.tag == .windows) {
+        try std.testing.expectEqualStrings("C:\\Users\\me\\maps\\x.bzm", absoluteFromLaunchDir(&buffer, "C:\\Users\\me", "maps\\x.bzm").?);
+        try std.testing.expectEqualStrings("C:\\Games\\BK\\Data\\Maps\\a.bzm", absoluteFromLaunchDir(&buffer, "C:\\Users\\me", "C:\\Games\\BK\\Data\\Maps\\a.bzm").?);
+        try std.testing.expectEqualStrings("C:\\Users\\x.bzm", absoluteFromLaunchDir(&buffer, "C:\\Users\\me", "..\\x.bzm").?);
+    } else {
+        // The build's tiers pass the engine's backslashes on every OS.
+        try std.testing.expectEqualStrings("/stage/Data/Maps/Multiplayer/coldwinter.bzm", absoluteFromLaunchDir(&buffer, "/stage", "Data\\Maps\\Multiplayer\\coldwinter.bzm").?);
+        try std.testing.expectEqualStrings("/Users/me/maps/x.bzm", absoluteFromLaunchDir(&buffer, "/Users/me", "maps/x.bzm").?);
+        try std.testing.expectEqualStrings("/Games/BK/Data/a.bzm", absoluteFromLaunchDir(&buffer, "/Users/me", "/Games/BK/Data/a.bzm").?);
+        try std.testing.expectEqualStrings("/Users/x.bzm", absoluteFromLaunchDir(&buffer, "/Users/me", "./../x.bzm").?);
+    }
+    var tiny: [4]u8 = undefined;
+    try std.testing.expect(absoluteFromLaunchDir(&tiny, "/Users/me", "maps/x.bzm") == null);
+}
+
+test "dialog folder: a relative maps folder is under the user root, not the working directory" {
+    var buffer: [PathSlot.max_path]u8 = undefined;
+    const root = if (builtin.os.tag == .windows) "C:\\Users\\me\\AppData\\Blitzkrieg\\" else "/Users/me/.local/share/Nival/Blitzkrieg/";
+    const absolute = if (builtin.os.tag == .windows) "D:\\Maps" else "/Volumes/Maps";
+    try std.testing.expectEqualStrings(absolute, dialogFolderFor(&buffer, absolute, root, null).?);
+    const expected_relative = if (builtin.os.tag == .windows) "C:\\Users\\me\\AppData\\Blitzkrieg\\mine" else "/Users/me/.local/share/Nival/Blitzkrieg/mine";
+    try std.testing.expectEqualStrings(expected_relative, dialogFolderFor(&buffer, "mine", root, null).?);
+    const expected_default = if (builtin.os.tag == .windows) "C:\\Users\\me\\AppData\\Blitzkrieg\\maps" else "/Users/me/.local/share/Nival/Blitzkrieg/maps";
+    try std.testing.expectEqualStrings(expected_default, dialogFolderFor(&buffer, "", root, null).?);
 }

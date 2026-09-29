@@ -15,7 +15,11 @@ pub const Options = struct {
     width: c_int = 1280,
     height: c_int = 800,
     hidden: bool = false,
-    data_root: [*:0]const u8 = ".",
+    /// The installation to edit. Null: the one this executable runs from
+    /// (the bridge's NPlatform::Paths::BaseRoot, SDL_GetBasePath) - never the
+    /// working directory, which a shortcut, the Start menu, Explorer or
+    /// Finder sets to something else.
+    data_root: ?[*:0]const u8 = null,
 };
 
 pub const Host = struct {
