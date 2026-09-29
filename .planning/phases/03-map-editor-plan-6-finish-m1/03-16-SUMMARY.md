@@ -205,3 +205,37 @@ WINDOWS.md open_count is 0. The remaining human items in 03-VERIFICATION.md are 
   - Windows job: 47 min of its 110.
   - Release package step: 3m56s. The release engine is already built by the random missions tier.
   - Release zips: 60,220 and 60,224 entries, 2.53 and 2.55 GB, Game.exe 3,453,440 bytes, the same as zig-out/bin.
+
+## Follow-up: MapEditor only started from its own folder
+
+Johannes's real-Windows test: MapEditor.exe started from any other working directory failed with "the engine start failed: no engine modules loaded from .\". A shortcut, the Start menu or Explorer do not always start a program in its own folder. On macOS he always ran `./MapEditor` from its folder, so it went unnoticed.
+
+**Root cause.** host.zig's `Options.data_root` defaulted to `"."`, and main.zig never set it. BkEditorStart passes it to `NPlatform::Paths::SetRoots`, so ModuleRoot, DataRoot, SeasonData and ShaderRoot were all the working directory. Two more cwd dependencies came up while fixing it:
+- Paths.cpp `executableRoot()` read `/proc/self/exe` on every non-Windows OS. macOS has no /proc, so every module's copy of Paths fell back to the cwd there. This affects the Game on macOS as well as the editor. Windows (SDL_GetBasePath) and Linux were right.
+- GFXGPU passed the relative `"Shaders/GfxGpu"` as its shader directory. From any other cwd the first scene would not begin ("the device would not begin a scene"). This affects the game and the editor on every OS.
+
+**Fix (296118b26, then 8b1843345 and 8ee15cb2e for gfxgpu-factory-test).**
+- host.zig: `data_root` defaults to null. bridge.cpp takes null or "" to mean the running executable's directory, asked of SDL_GetBasePath afresh. It does not use `Paths::BaseRoot()`, because an earlier start in the same process may have pointed that elsewhere (the engine tier's empty-installation test does exactly that).
+- Paths.cpp: `executableRoot()` uses SDL_GetBasePath on every OS. That is what Windows and Main's GetBaseDir already used. /proc/self/exe and then the cwd remain as fallbacks.
+- GraphicsEngineGpu.cpp: shaders come from `SDL_GetBasePath() + "Shaders/GfxGpu"`, the same base that `Paths::ShaderRoot()` uses. It calls SDL directly because gfxgpu-factory-test builds this file on its own. The first try used `Paths::ShaderRoot()`: linking Paths.cpp into that test failed on macOS and Linux (undefined `ShaderRoot`, run 36581255842), and on MSVC its `<filesystem>` collided with the test's CRT (`__pctype_func` and three others, run 36583166010).
+
+**Every cwd-relative path in Sources/editor/app and core, and how each is handled now:**
+- **Installation** (modules, Data, SeasonData, Shaders): from the executable, as above.
+- **Map on the command line** (interactive, --check, --smoke, --game-reads-it): relative to the launch cwd on purpose. `mapArgument` makes it absolute against the cwd right away (`panels_logic.absoluteFromLaunchDir`, with unit tests). The document path, Open Recent, recovery sidecars and the shipped-map classifier never see a relative path after that.
+- **Test in game**: the Game path already came from `std.process.executableDirPath`. `testlaunch.start` now also spawns Game in its own directory, because the game writes autoshots and traces to its cwd. `--game-reads-it` sweeps autoshots from that directory.
+- **Settings and user-root files**: `mapeditor.cfg`, the recovery folder and its sidecars, the test-game log and the generated test-map path all come from the engine's user root, which is absolute (SDL_GetPrefPath, or XDG/HOME).
+- **Open/Save As default folder**: absolute, under the user root. A relative "Maps folder" typed into Settings is now taken under the user root (`panels_logic.dialogFolderFor`, with unit tests), not the cwd.
+- **Open Recent**: stores absolute paths now. An entry left relative by an older build is still checked against the cwd.
+- **Shipped-map classifier**: keeps its "relative = relative to the installation" rule as a fallback. No relative path reaches it any more.
+- **Deliberately relative to the launch cwd**: the developer and test modes' default outputs (`zig-out/local-test/...` for --check, --smoke and --game-reads-it), `BK_EDITOR_AUTO_DIR`, and the `BK_EDITOR_SETTINGS` test seam. The build always passes these as absolute paths.
+- `StdFiles{ .dir = .cwd() }`: only ever handed absolute paths, apart from the rules above.
+
+**Regression test.** `map-editor-host-check`, which CI runs on Windows and macOS, runs its first --check from `zig-out` with the map relative to that cwd (`game/<os>/<arch>/<mode>\Data\Maps\...`). The absolute-path run is also launched from `zig-out`. The -mod= run stays in the stage, so the launch from inside the installation is still covered. On Windows the module load fails before the renderer starts, so a runner without a GPU still catches this bug; it does not skip. The steps are unchanged and no run was added, so the Windows job's time budget is unaffected.
+
+**Known quirk, not fixed.** Every Mach-O the build links carries Zig's cwd-relative build-cache rpaths (added for every dynamic library linked with `linkLibrary`) ahead of `@executable_path`/`@loader_path`. When a staged binary is started from the build root of the checkout that built it, dyld loads a second libSDL3/libPlatformRuntime out of the cache, and objc warns about duplicate classes. The host check still passes from there, but that is why the regression runs from `zig-out` rather than the build root. A package run from anywhere else is not affected.
+
+**Verification.**
+- macOS, release `install-map-editor --release=fast -Dcopy-data=false`: `MapEditor --check` passes (host check PASS metal 1280x800, panel smoke PASS) from the worktree root, from zig-out/local-test/cwd-fix and from `/`, with a relative, forward-slash or absolute map. Before the fix, with only Paths.cpp changed, the zig-out/local-test run failed with "the device would not begin a scene".
+- macOS debug: `map-editor-host-check` (all 3 runs), `map-editor-smoke`, `test-map-editor-engine`, `test-editor-bridge`, `map-editor-game-reads-it` (the Game spawned in its own directory, game exit 0), `test-map-editor-panels`, `test-map-editor-testlaunch`, and `zig test tools/zig/build_hermeticity_test.zig` all pass.
+- win-home, Blitzkrieg-plan6 at 8ee15cb2e: `zig build install-map-editor package-game-editors --release=fast` succeeds (94 s, incremental). Over ssh, the release MapEditor.exe `--check` was started (Start-Process -WorkingDirectory) twice: from the clone root with the map relative to it, and from zig-out\local-test\cwd-check with the map absolute. Both runs get past module loading, the data storage, consts.xml and the objects database, and stop at the renderer: "host check skipped: no GPU device (the renderer would not start on this window)", exit 0. An ssh session has no desktop, so there is no GPU device there. The old failure, "no engine modules loaded from .\", comes before the renderer and would have failed the check rather than skipped it. The full host check on Windows runs in CI (direct3d12).
+- CI run 36588755990 (8ee15cb2e) is green on all six jobs. The Windows job took 46.5 min of its 110. The Windows and macOS `map-editor-host-check` runs pass their two runs from zig-out (direct3d12 and metal) and the -mod= run. Run 36581255842 (296118b26, cancelled) and run 36583166010 (8b1843345) failed on gfxgpu-factory-test, as described under the fix.
