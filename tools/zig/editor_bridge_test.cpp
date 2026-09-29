@@ -2706,8 +2706,9 @@ static void TestTilePicturesAndClose( BkEditorSession *pSession, const std::stri
 	Check( BkEditorTilePicture( pSession, 1, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED, "tile 1 has no picture" );
 	Check( BkEditorTilePicture( pSession, -1, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "tile -1 is a bad argument" );
 	Check( BkEditorTilePicture( pSession, tiles[0], &buffer[0], int( buffer.size() ), 4, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "max_side 4 is a bad argument" );
-	unsigned char small[16];
-	Check( BkEditorTilePicture( pSession, tiles[0], small, sizeof small, nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED && nWidth > 0 && nHeight > 0,
+	// Not "small": the Windows SDK's rpcndr.h defines that as a macro for char.
+	unsigned char tinyBuffer[16];
+	Check( BkEditorTilePicture( pSession, tiles[0], tinyBuffer, sizeof tinyBuffer, nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED && nWidth > 0 && nHeight > 0,
 	       "a 16-byte buffer is refused and still told the real size" );
 	// Scaled to fit a smaller side, keeping the shape.
 	Check( BkEditorTilePicture( pSession, tiles[0], &buffer[0], int( buffer.size() ), 16, &nWidth, &nHeight ) == BK_EDITOR_OK && nWidth <= 16 && nHeight <= 16 && nWidth > nHeight,
