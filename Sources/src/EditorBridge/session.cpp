@@ -9,6 +9,7 @@
 #include "session.h"
 #include "world.h"
 #include "../MapFile/MapFile.h"
+#include "../MapFile/MapEquivalence.h"
 #include "../Main/GameDB.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
@@ -258,6 +259,21 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		pScene->SetTerrain( pTerrain );
 	}
 
+	// The map's season, before a single object is built: CreateMapObject
+	// hands the world's season to every map object, which picks its winter or
+	// summer model and texture from it once, when it is made. Without this the
+	// world keeps CWorldBase's SEASON_SUMMER and a winter map's units are drawn
+	// in their summer paint. The game sets it at the same point, after the
+	// terrain and before the mission's objects (iMissionInternal.cpp:1495), and
+	// the MFC editor on every load (TemplateEditorFrame1.cpp:1683). It also sets
+	// the scene's sun and World.Season. Every map the session holds - opened,
+	// new, reloaded - comes in through here, so each one gets its own season
+	// and never the previous map's.
+	if ( pSession->pWorld != 0 )
+		pSession->pWorld->SetSeason( pSession->working.nSeason );
+	else
+		pScene->SetSeason( pSession->working.nSeason );
+
 	for ( int i = 0; i < 2; ++i )
 		if ( !pScene->ToggleShow( SCENE_SHOW_WARFOG ) )	// false: the scene's fog is off
 			break;
@@ -281,6 +297,27 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 
 	pSession->bMapOpen = true;
 	return true;
+}
+
+void CloseSessionMap( SEditorSession *pSession )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+		return;
+	// The old map's objects leave the world before the AI they refer to is
+	// cleared - the same order OpenMapIntoSession closes the previous map in.
+	if ( pSession->pWorld != 0 )
+		pSession->pWorld->Clear();
+	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+		pAIEditor->Clear();
+	pSession->byLinkID.clear();
+	pSession->unknownLinkIDs.clear();
+	pSession->futureBuildLinkIDs.clear();
+	pSession->paints.clear();
+	pSession->appliedPaints.clear();
+	pSession->undonePaints.clear();
+	pSession->tombstones.clear();
+	pSession->linkByAI.clear();
+	pSession->bMapOpen = false;
 }
 
 void UpdateSessionWorld( SEditorSession *pSession )
@@ -310,7 +347,28 @@ bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
 	// never pSession->working. The working copy has UnpackFrameIndices applied,
 	// so writing it back would give every fence, entrenchment and bridge span on
 	// the map a fresh random frame index, in a file the editor never edited.
-	return NMapFile::Write( pszPath, pSession->snapshot, &pSession->szMessage );
+	if ( !NMapFile::Write( pszPath, pSession->snapshot, &pSession->szMessage ) )
+		return false;
+
+	// D-19's safe save relies on this: the editor writes to a temporary path
+	// and swaps it in only when the write is proven. Read the file back and
+	// compare it with what was meant, so a write that silently produced
+	// something else (a truncated stream, a stale handle) is refused here,
+	// before the caller's temporary file ever replaces the user's map.
+	CMapInfo readBack;
+	std::string szReadError;
+	if ( !NMapFile::Read( pszPath, &readBack, &szReadError ) )
+	{
+		pSession->szMessage = "the written map does not read back: " + szReadError;
+		return false;
+	}
+	std::string szWhere;
+	if ( !NMapFile::AreEquivalent( pSession->snapshot, readBack, &szWhere ) )
+	{
+		pSession->szMessage = "the written map reads back different at " + szWhere;
+		return false;
+	}
+	return true;
 }
 
 namespace {
@@ -445,6 +503,148 @@ bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, i
 	return nCapacity >= nTotal;
 }
 
+bool ReadSessionSounds( SEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount )
+{
+	const std::vector<SMapSoundInfo> &rSounds = pSession->snapshot.sounds.sounds;
+	const int nTotal = int( rSounds.size() );
+	*pnCount = nTotal;
+	const int nWrite = nTotal < nCapacity ? nTotal : nCapacity;
+	for ( int i = 0; i < nWrite; ++i )
+	{
+		const SMapSoundInfo &rSound = rSounds[i];
+		BkEditorSoundRecord &rRecord = pOut[i];
+		memset( &rRecord, 0, sizeof rRecord );
+		strncpy( rRecord.name, rSound.szName.c_str(), sizeof rRecord.name - 1 );
+		rRecord.x = rSound.vPos.x;
+		rRecord.y = rSound.vPos.y;
+		rRecord.z = rSound.vPos.z;
+		rRecord.repeat_ms = int( rSound.timeRepeat );
+		rRecord.repeat_random_ms = int( rSound.timeRepeatRandom );
+		rRecord.mute_in_combat = rSound.bMuteDuringCombat ? 1 : 0;
+		rRecord.min_radius = rSound.nMinRadius;
+		rRecord.max_radius = rSound.nMaxRadius;
+	}
+	return nCapacity >= nTotal;
+}
+
+namespace {
+// record->name known and valid, on the map, and its own fields sane - the
+// rules BkEditorAddSound/BkEditorSetSound document. false leaves
+// pSession->szMessage set and pOut untouched; every caller of this treats
+// that as a refusal (the caller-bug checks - null record, bad index,
+// unterminated or non-finite fields - already ran in bridge.cpp before
+// either of AddSoundToSession/SetSoundInSession got here).
+bool ValidateSoundRecord( SEditorSession *pSession, const BkEditorSoundRecord &rRecord, SMapSoundInfo *pOut )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the object database is not there";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rRecord.name );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_SOUND )
+	{
+		pSession->szMessage = std::string( "\"" ) + rRecord.name + "\" is not a known sound";
+		return false;
+	}
+	int nTileX = 0, nTileY = 0;
+	if ( !WorldToTile( pSession, rRecord.x, rRecord.y, &nTileX, &nTileY ) )
+		return false; // szMessage already set by WorldToTile
+	if ( rRecord.repeat_ms < 0 || rRecord.repeat_random_ms < 0 ||
+	     rRecord.min_radius < 0 || rRecord.max_radius < 0 || rRecord.min_radius > rRecord.max_radius )
+	{
+		pSession->szMessage = "a sound's times and radii must not be negative, and its minimum radius must not be above its maximum";
+		return false;
+	}
+	pOut->szName = rRecord.name;
+	pOut->vPos = CVec3( rRecord.x, rRecord.y, rRecord.z );
+	pOut->timeRepeat = NTimer::STime( rRecord.repeat_ms );
+	pOut->timeRepeatRandom = NTimer::STime( rRecord.repeat_random_ms );
+	pOut->bMuteDuringCombat = rRecord.mute_in_combat != 0;
+	pOut->nMinRadius = rRecord.min_radius;
+	pOut->nMaxRadius = rRecord.max_radius;
+	return true;
+}
+}
+
+bool AddSoundToSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	SMapSoundInfo info;
+	if ( !ValidateSoundRecord( pSession, rRecord, &info ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	std::vector<SMapSoundInfo> &rSnap = pSession->snapshot.sounds.sounds;
+	std::vector<SMapSoundInfo> &rWork = pSession->working.sounds.sounds;
+	const int nCount = int( rSnap.size() );
+	const int nAt = nIndex < 0 ? nCount : nIndex;
+	if ( nAt < 0 || nAt > nCount || nAt > int( rWork.size() ) )
+	{
+		pSession->szMessage = "that index is out of range";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	rSnap.insert( rSnap.begin() + nAt, info );
+	rWork.insert( rWork.begin() + nAt, info );
+	return true;
+}
+
+bool SetSoundInSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	SMapSoundInfo info;
+	if ( !ValidateSoundRecord( pSession, rRecord, &info ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	std::vector<SMapSoundInfo> &rSnap = pSession->snapshot.sounds.sounds;
+	std::vector<SMapSoundInfo> &rWork = pSession->working.sounds.sounds;
+	if ( nIndex < 0 || nIndex >= int( rSnap.size() ) || nIndex >= int( rWork.size() ) )
+	{
+		pSession->szMessage = "no sound at that index";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	rSnap[nIndex] = info;
+	rWork[nIndex] = info;
+	return true;
+}
+
+bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	std::vector<SMapSoundInfo> &rSnap = pSession->snapshot.sounds.sounds;
+	std::vector<SMapSoundInfo> &rWork = pSession->working.sounds.sounds;
+	if ( nIndex < 0 || nIndex >= int( rSnap.size() ) || nIndex >= int( rWork.size() ) )
+	{
+		pSession->szMessage = "no sound at that index";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	rSnap.erase( rSnap.begin() + nIndex );
+	rWork.erase( rWork.begin() + nIndex );
+	return true;
+}
+
 bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject &rAdd, int *pnLinkID )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )
@@ -465,6 +665,12 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	if ( const char *pszWhy = WhyNotAMapObject( pDesc->eGameType ) )
 	{
 		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
+		return false;
+	}
+	const std::string szAloneWhy = WhyNotPlacedAlone( pObjectsDB, *pDesc );
+	if ( !szAloneWhy.empty() )
+	{
+		pSession->szMessage = "\"" + rAdd.szName + "\" " + szAloneWhy;
 		return false;
 	}
 
@@ -883,6 +1089,14 @@ void CaptureEngineRegion( const STerrainInfo &rEngine, const CTRect<int> &rPatch
 // GetTerrainType answers for it (RandomMapGen/TerrainBuilder.cpp), so every
 // cell is checked against the tileset the engine loaded for the map before
 // anything is painted.
+//
+// Cost: cells x terrain types x tiles per paint, a linear scan with no index
+// from a tile number back to its terrain type. A brush (a handful of cells,
+// checked once per stroke) is fine; a large fill painting thousands of cells
+// against a tileset with many terrain types would want a tile-number-to-type
+// lookup built once from rTileset instead of this triple loop repeated per
+// cell (plan 5 Task 3 carried; no fill tool exists yet, so no behaviour
+// change here).
 bool PaintTilesInTileset( SEditorSession *pSession, const std::vector<NMapOverlay::SPaintCell> &rCells, bool *pbBadTile )
 {
 	*pbBadTile = false;
@@ -1328,7 +1542,9 @@ bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
 	IGFX *pGFX = GetSingleton<IGFX>();
 	const RECT rcScreen = pGFX != 0 ? pGFX->GetScreenRect() : RECT();
 	const float fGameplayCameraHeight = float( rcScreen.bottom - rcScreen.top );
-	pCamera->SetPlacement( CVec3( wx, wy, 0.0f ), 1024 * 4 + fGameplayCameraHeight, -ToRadian( 90.0f + 30.0f ), ToRadian( 45.0f ) );
+	// D-12: fYawOffsetDegrees is 0 until BkEditorSetYaw sets it, so this is
+	// exactly the game's own placement until then.
+	pCamera->SetPlacement( CVec3( wx, wy, 0.0f ), 1024 * 4 + fGameplayCameraHeight, -ToRadian( 90.0f + 30.0f ), ToRadian( 45.0f + pSession->fYawOffsetDegrees ) );
 	pCamera->Update();
 	return true;
 }
@@ -1377,6 +1593,32 @@ bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, fl
 	pScene->GetPos3( &vWorld, CVec2( sx, sy ) );
 	*pwx = vWorld.x;
 	*pwy = vWorld.y;
+	return true;
+}
+
+bool WorldToScreen( SEditorSession *pSession, float wx, float wy, float *psx, float *psy )
+{
+	if ( pSession == 0 || !pSession->bEngineStarted || psx == 0 || psy == 0 )
+		return false;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		return false;
+	}
+	// z=0, matching ScreenToWorld/GetPos3: IAILogic::GetIntersectionWithTerrain
+	// - the real terrain ray-cast GetPos3 tries first - does not succeed in
+	// this bridge's headless session (measured: it always falls through to
+	// GetPos3's own z=0-plane algebraic fallback, regardless of the point's
+	// true height), so ScreenToWorld's x,y already assume z=0. Using the
+	// terrain's real height here instead would draw the brush outline off
+	// the very ground a click resolves against - self-consistency with the
+	// rest of the picking pipeline (ScreenToWorld, WorldToTile, ObjectAt)
+	// matters more than a height this bridge cannot round-trip anyway.
+	CVec2 vScreen( 0, 0 );
+	pScene->GetPos2( &vScreen, CVec3( wx, wy, 0.0f ) );
+	*psx = vScreen.x;
+	*psy = vScreen.y;
 	return true;
 }
 

@@ -9,6 +9,7 @@
 #include "StdAfx.h"
 #include <SDL3/SDL.h>
 #include <map>
+#include <set>
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -16,7 +17,17 @@
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/GFX/GFX.H"
+#include "../../Sources/src/Scene/Scene.h"
 #include "../../Sources/src/Image/Image.h"
+#include "../../Sources/src/Platform/Paths.h"
+#include "../../Sources/src/StreamIO/GeneratedData.h"
+#include "../../Sources/src/StreamIO/SeasonData.h"
+#include "../../Sources/src/StreamIO/ProfilePaths.h"
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iterator>
+#include <limits>
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -59,6 +70,36 @@ static void MakeDirectory( const char *pszPath )
 #endif
 }
 
+// A visual sample of a decoded picture (D-29): RGBA8, top row first - the
+// same layout BkEditorObjectPicture writes - as an uncompressed 32-bit TGA,
+// swapped to the BGRA row order the format wants (the bridge's own WriteFrame
+// does the same swap for a captured frame). For a human to look at, not for
+// the pass/fail checks above it.
+static bool WriteRgbaTga( const char *pszPath, const unsigned char *pRgba, int nWidth, int nHeight )
+{
+	FILE *pFile = fopen( pszPath, "wb" );
+	if ( pFile == 0 )
+		return false;
+	const unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	                                   (unsigned char)( nWidth & 0xff ), (unsigned char)( nWidth >> 8 ),
+	                                   (unsigned char)( nHeight & 0xff ), (unsigned char)( nHeight >> 8 ), 32, 0x28 };
+	bool bWritten = fwrite( header, 1, sizeof header, pFile ) == sizeof header;
+	std::vector<unsigned char> row( size_t( nWidth ) * 4 );
+	for ( int y = 0; y < nHeight && bWritten; ++y )
+	{
+		for ( int x = 0; x < nWidth; ++x )
+		{
+			const unsigned char *pPixel = pRgba + ( size_t( y ) * nWidth + x ) * 4;
+			row[x * 4 + 0] = pPixel[2];
+			row[x * 4 + 1] = pPixel[1];
+			row[x * 4 + 2] = pPixel[0];
+			row[x * 4 + 3] = pPixel[3];
+		}
+		bWritten = fwrite( &row[0], 1, row.size(), pFile ) == row.size();
+	}
+	return fclose( pFile ) == 0 && bWritten;
+}
+
 static int g_nFailures = 0;
 
 static bool Check( bool bCondition, const char *pszWhat )
@@ -89,6 +130,167 @@ static void Describe( const char *pszMap, const BkEditorMapSummary &rSummary )
 	        rSummary.unknown_object_count, rSummary.bridge_span_count, rSummary.bridge_span_placed );
 }
 
+// Run first, right after the start, before any map is open (Task 1 carried:
+// the BAD_ARGUMENT/REFUSED-before-start paths had no tests at all). Three
+// things, on the entry points that take arguments to exercise them with:
+//  1. A null session answers BK_EDITOR_NO_SESSION for every entry point that
+//     takes one - BkEditorStart (which creates the session) and BkEditorStop
+//     (documented safe on null) excluded.
+//  2. Every map-needing entry point answers BK_EDITOR_REFUSED, naming
+//     "no map is open", on the real started-but-mapless session -
+//     BkEditorOpenMap itself excluded, since a map is exactly what it is
+//     about to open.
+//  3. A representative set of null-output arguments answer BK_EDITOR_BAD_ARGUMENT.
+static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
+{
+	struct Call
+	{
+		const char *name;
+		std::function<BkEditorStatus()> fn;
+	};
+
+	int nInt = 0, nInt2 = 0;
+	float fFloat = 0.0f, fFloat2 = 0.0f;
+	unsigned char cChar = 0;
+	char cBuf[8] = { 0 };
+	unsigned char rgba[64] = { 0 };
+	BkEditorMapSummary summary; memset( &summary, 0, sizeof summary );
+	BkEditorObjectState objState; memset( &objState, 0, sizeof objState );
+	BkEditorObjectRecord objRecords[1]; memset( objRecords, 0, sizeof objRecords );
+	BkEditorCatalogueEntry catEntries[1]; memset( catEntries, 0, sizeof catEntries );
+	BkEditorMod modEntries[1]; memset( modEntries, 0, sizeof modEntries );
+	BkEditorSoundRecord soundRecord; memset( &soundRecord, 0, sizeof soundRecord );
+	soundRecord.name[0] = 'x'; // SoundRecordWellFormed: non-empty, finite x/y/z (0 is finite)
+	BkEditorPaintCell cell = { 0, 0, 0 };
+	BkEditorView view; memset( &view, 0, sizeof view );
+	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
+	BkEditorTile tileInfo; memset( &tileInfo, 0, sizeof tileInfo );
+	void *pDevice = 0; unsigned int nFormat = 0;
+
+	const std::vector<Call> noSession = {
+		{ "BkEditorOpenMap", [&] { return BkEditorOpenMap( 0, SHIPPED_MAP, &summary ); } },
+		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( 0, "zig-out/local-test/should-not-exist.bzm" ); } },
+		{ "BkEditorAddObject", [&] { return BkEditorAddObject( 0, "x", 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorPlaceObject", [&] { return BkEditorPlaceObject( 0, 0, 0, 0, 0, 0 ); } },
+		{ "BkEditorMoveObject", [&] { return BkEditorMoveObject( 0, 0, 0, 0 ); } },
+		{ "BkEditorTurnObject", [&] { return BkEditorTurnObject( 0, 0, 0 ); } },
+		{ "BkEditorSetObjectPlayer", [&] { return BkEditorSetObjectPlayer( 0, 0, 0 ); } },
+		{ "BkEditorDeleteObject", [&] { return BkEditorDeleteObject( 0, 0 ); } },
+		{ "BkEditorRestoreObject", [&] { return BkEditorRestoreObject( 0, 0 ); } },
+		{ "BkEditorSetDiplomacy", [&] { return BkEditorSetDiplomacy( 0, 0, 0 ); } },
+		{ "BkEditorEngineObjectState", [&] { return BkEditorEngineObjectState( 0, 0, &objState ); } },
+		{ "BkEditorObjects", [&] { return BkEditorObjects( 0, objRecords, 1, &nInt ); } },
+		{ "BkEditorDiplomacy", [&] { return BkEditorDiplomacy( 0, 0, &nInt ); } },
+		{ "BkEditorPaint", [&] { return BkEditorPaint( 0, &cell, 1, &nInt ); } },
+		{ "BkEditorUndoPaint", [&] { return BkEditorUndoPaint( 0, 0 ); } },
+		{ "BkEditorRedoPaint", [&] { return BkEditorRedoPaint( 0, 0 ); } },
+		{ "BkEditorEngineTile", [&] { return BkEditorEngineTile( 0, 0, 0, &cChar ); } },
+		{ "BkEditorTilesetTiles", [&] { return BkEditorTilesetTiles( 0, &cChar, 1, &nInt ); } },
+		{ "BkEditorWorldToTile", [&] { return BkEditorWorldToTile( 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorTerrainMatchesEngine", [&] { return BkEditorTerrainMatchesEngine( 0 ); } },
+		{ "BkEditorWorldMatchesMap", [&] { return BkEditorWorldMatchesMap( 0 ); } },
+		{ "BkEditorCatalogue", [&] { return BkEditorCatalogue( 0, catEntries, 1, &nInt ); } },
+		{ "BkEditorObjectPicture", [&] { return BkEditorObjectPicture( 0, "x", rgba, sizeof rgba, 16, &nInt, &nInt2 ); } },
+		{ "BkEditorCloseMap", [&] { return BkEditorCloseMap( 0 ); } },
+		{ "BkEditorDescribeTile", [&] { return BkEditorDescribeTile( 0, 0, &tileInfo ); } },
+		{ "BkEditorTilePicture", [&] { return BkEditorTilePicture( 0, 0, rgba, sizeof rgba, 16, &nInt, &nInt2 ); } },
+		{ "BkEditorMods", [&] { return BkEditorMods( 0, modEntries, 1, &nInt ); } },
+		{ "BkEditorSetMod", [&] { return BkEditorSetMod( 0, 0 ); } },
+		{ "BkEditorActiveMod", [&] { return BkEditorActiveMod( 0, &modEntries[0] ); } },
+		{ "BkEditorPaths", [&] { return BkEditorPaths( 0, &paths ); } },
+		{ "BkEditorTestMapPath", [&] { return BkEditorTestMapPath( 0, "p", 0, "f", cBuf, sizeof cBuf ); } },
+		{ "BkEditorSetCamera", [&] { return BkEditorSetCamera( 0, 0, 0 ); } },
+		{ "BkEditorFrame", [&] { return BkEditorFrame( 0 ); } },
+		{ "BkEditorViewState", [&] { return BkEditorViewState( 0, &view ); } },
+		{ "BkEditorZoomAt", [&] { return BkEditorZoomAt( 0, 0, 0, 0 ); } },
+		{ "BkEditorSetZoom", [&] { return BkEditorSetZoom( 0, 0 ); } },
+		{ "BkEditorSetYaw", [&] { return BkEditorSetYaw( 0, 0 ); } },
+		{ "BkEditorSetOverlay", [&] { return BkEditorSetOverlay( 0, 0, 0 ); } },
+		{ "BkEditorGpuDevice", [&] { return BkEditorGpuDevice( 0, &pDevice, &nFormat ); } },
+		{ "BkEditorResize", [&] { return BkEditorResize( 0, 640, 480 ); } },
+		{ "BkEditorScreenSize", [&] { return BkEditorScreenSize( 0, &nInt, &nInt2 ); } },
+		{ "BkEditorCaptureFrame", [&] { return BkEditorCaptureFrame( 0, "zig-out/local-test/should-not-exist.tga" ); } },
+		{ "BkEditorObjectAt", [&] { return BkEditorObjectAt( 0, 0, 0, &nInt ); } },
+		{ "BkEditorScreenToWorld", [&] { return BkEditorScreenToWorld( 0, 0, 0, &fFloat, &fFloat2 ); } },
+		{ "BkEditorWorldToScreen", [&] { return BkEditorWorldToScreen( 0, 0, 0, &fFloat, &fFloat2 ); } },
+		{ "BkEditorWorldToMap", [&] { return BkEditorWorldToMap( 0, 0, 0, &fFloat, &fFloat2 ); } },
+		{ "BkEditorSetMapType", [&] { return BkEditorSetMapType( 0, 0 ); } },
+		{ "BkEditorSetAttackingSide", [&] { return BkEditorSetAttackingSide( 0, 0 ); } },
+		{ "BkEditorSounds", [&] { return BkEditorSounds( 0, &soundRecord, 1, &nInt ); } },
+		{ "BkEditorAddSound", [&] { return BkEditorAddSound( 0, 0, &soundRecord ); } },
+		{ "BkEditorSetSound", [&] { return BkEditorSetSound( 0, 0, &soundRecord ); } },
+		{ "BkEditorDeleteSound", [&] { return BkEditorDeleteSound( 0, 0 ); } },
+	};
+	int nNoSessionFailures = 0;
+	for ( const Call &c : noSession )
+		if ( !Check( c.fn() == BK_EDITOR_NO_SESSION, ( std::string( c.name ) + " with a null session is BK_EDITOR_NO_SESSION" ).c_str() ) )
+			++nNoSessionFailures;
+	printf( "editor-bridge: %d/%zu entry points answered NO_SESSION for a null session\n",
+	        int( noSession.size() ) - nNoSessionFailures, noSession.size() );
+
+	// Every map-needing entry point, on the real (started) session before any
+	// map has been opened. Arguments are chosen to be otherwise well-formed,
+	// so each call actually reaches its own "no map is open" check rather
+	// than stopping earlier at an argument check.
+	const std::vector<Call> noMap = {
+		{ "BkEditorAddObject", [&] { return BkEditorAddObject( pSession, "x", 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorPlaceObject", [&] { return BkEditorPlaceObject( pSession, 0, 0, 0, 0, 0 ); } },
+		{ "BkEditorMoveObject", [&] { return BkEditorMoveObject( pSession, 0, 0, 0 ); } },
+		{ "BkEditorTurnObject", [&] { return BkEditorTurnObject( pSession, 0, 0 ); } },
+		{ "BkEditorSetObjectPlayer", [&] { return BkEditorSetObjectPlayer( pSession, 0, 0 ); } },
+		{ "BkEditorDeleteObject", [&] { return BkEditorDeleteObject( pSession, 0 ); } },
+		{ "BkEditorRestoreObject", [&] { return BkEditorRestoreObject( pSession, 0 ); } },
+		{ "BkEditorSetDiplomacy", [&] { return BkEditorSetDiplomacy( pSession, 0, 0 ); } },
+		{ "BkEditorObjects", [&] { return BkEditorObjects( pSession, objRecords, 1, &nInt ); } },
+		{ "BkEditorDiplomacy", [&] { return BkEditorDiplomacy( pSession, 0, &nInt ); } },
+		{ "BkEditorPaint", [&] { return BkEditorPaint( pSession, &cell, 1, &nInt ); } },
+		{ "BkEditorUndoPaint", [&] { return BkEditorUndoPaint( pSession, 0 ); } },
+		{ "BkEditorRedoPaint", [&] { return BkEditorRedoPaint( pSession, 0 ); } },
+		{ "BkEditorEngineTile", [&] { return BkEditorEngineTile( pSession, 0, 0, &cChar ); } },
+		{ "BkEditorTilesetTiles", [&] { return BkEditorTilesetTiles( pSession, &cChar, 1, &nInt ); } },
+		{ "BkEditorDescribeTile", [&] { return BkEditorDescribeTile( pSession, 0, &tileInfo ); } },
+		{ "BkEditorTilePicture", [&] { return BkEditorTilePicture( pSession, 0, rgba, sizeof rgba, 16, &nInt, &nInt2 ); } },
+		{ "BkEditorWorldToTile", [&] { return BkEditorWorldToTile( pSession, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorTerrainMatchesEngine", [&] { return BkEditorTerrainMatchesEngine( pSession ); } },
+		{ "BkEditorWorldMatchesMap", [&] { return BkEditorWorldMatchesMap( pSession ); } },
+		{ "BkEditorZoomAt", [&] { return BkEditorZoomAt( pSession, 0, 0, 0 ); } },
+		{ "BkEditorSetZoom", [&] { return BkEditorSetZoom( pSession, 0 ); } },
+		{ "BkEditorWorldToScreen", [&] { return BkEditorWorldToScreen( pSession, 0, 0, &fFloat, &fFloat2 ); } },
+		{ "BkEditorObjectAt", [&] { return BkEditorObjectAt( pSession, 0, 0, &nInt ); } },
+		{ "BkEditorSetMapType", [&] { return BkEditorSetMapType( pSession, 0 ); } },
+		{ "BkEditorSetAttackingSide", [&] { return BkEditorSetAttackingSide( pSession, 0 ); } },
+		{ "BkEditorSounds", [&] { return BkEditorSounds( pSession, &soundRecord, 1, &nInt ); } },
+		{ "BkEditorAddSound", [&] { return BkEditorAddSound( pSession, 0, &soundRecord ); } },
+		{ "BkEditorSetSound", [&] { return BkEditorSetSound( pSession, 0, &soundRecord ); } },
+		{ "BkEditorDeleteSound", [&] { return BkEditorDeleteSound( pSession, 0 ); } },
+		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
+	};
+	int nNoMapFailures = 0;
+	for ( const Call &c : noMap )
+	{
+		const BkEditorStatus status = c.fn();
+		const bool bOk = Check( status == BK_EDITOR_REFUSED, ( std::string( c.name ) + " before a map is open is BK_EDITOR_REFUSED" ).c_str() ) &&
+		                 Check( std::string( BkEditorLastMessage( pSession ) ) == "no map is open", ( std::string( c.name ) + " names \"no map is open\"" ).c_str() );
+		if ( !bOk )
+			++nNoMapFailures;
+	}
+	printf( "editor-bridge: %d/%zu map-needing entry points refused \"no map is open\"\n",
+	        int( noMap.size() ) - nNoMapFailures, noMap.size() );
+	// File > Close (03-15 gap fix) with nothing open is not a refusal.
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, "BkEditorCloseMap with no map open is OK (nothing to close)" );
+
+	// A representative set of null-output arguments, on the real session -
+	// map open or not does not matter, since the argument check runs first
+	// in every one of these.
+	Check( BkEditorScreenSize( pSession, 0, &nInt ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorScreenSize with a null out_width is BAD_ARGUMENT" );
+	Check( BkEditorObjects( pSession, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorObjects with a null out_count is BAD_ARGUMENT" );
+	Check( BkEditorEngineTile( pSession, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorEngineTile with a null out_tile is BAD_ARGUMENT" );
+	Check( BkEditorWorldToTile( pSession, 0, 0, 0, &nInt ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorWorldToTile with a null out_x is BAD_ARGUMENT" );
+	Check( BkEditorDiplomacy( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorDiplomacy with a null out_value is BAD_ARGUMENT" );
+	Check( BkEditorScreenToWorld( pSession, 0, 0, 0, &fFloat ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorScreenToWorld with a null wx is BAD_ARGUMENT" );
+	Check( BkEditorWorldToMap( pSession, 0, 0, 0, &fFloat ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorWorldToMap with a null mx is BAD_ARGUMENT" );
+}
+
 static void TestShippedMapOpens( BkEditorSession *pSession )
 {
 	BkEditorMapSummary summary;
@@ -103,6 +305,105 @@ static void TestShippedMapOpens( BkEditorSession *pSession )
 	Check( summary.object_count > 0, "and its objects" );
 	Check( summary.unknown_object_count == 0, "and knows every type in it" );
 	Check( summary.placed_object_count > 0, "and the engine holds them" );
+}
+
+// A BkEditorTestMapPath answer, always backslash-separated (bridge.cpp), as
+// a real host path for std::filesystem, whose separator is '/' on the
+// runners this test targets.
+static std::string HostPath( const std::string &szEnginePath )
+{
+	std::string szHost = szEnginePath;
+#if !defined(_WIN32)
+	for ( std::string::size_type i = 0; i < szHost.size(); ++i )
+		if ( szHost[i] == '\\' ) szHost[i] = '/';
+#endif
+	return szHost;
+}
+
+// BkEditorPaths and BkEditorTestMapPath (plan 03-02, D-01/D-02/D-08/D-09):
+// the two host roots, the generated-data path a test-launch copy goes to -
+// base and named mods alike - argument validation, and the stale-sibling
+// cleanup the direct map launch depends on (a same-stem .xml must never
+// outrank the .bzm this call is about to write).
+static void TestPathsAndTestMapPath( BkEditorSession *pSession )
+{
+	BkEditorPathSet paths;
+	memset( &paths, 0, sizeof paths );
+	if ( Check( BkEditorPaths( pSession, &paths ) == BK_EDITOR_OK, "BkEditorPaths reads the roots" ) )
+	{
+		Check( paths.base_root[0] != 0, "the base root is not empty" );
+		Check( paths.user_root[0] != 0, "the user root is not empty" );
+		const size_t nBaseLen = strlen( paths.base_root );
+		const size_t nUserLen = strlen( paths.user_root );
+		Check( nBaseLen > 0 && ( paths.base_root[nBaseLen - 1] == '/' || paths.base_root[nBaseLen - 1] == '\\' ),
+		       "the base root ends in a separator" );
+		Check( nUserLen > 0 && ( paths.user_root[nUserLen - 1] == '/' || paths.user_root[nUserLen - 1] == '\\' ),
+		       "the user root ends in a separator" );
+	}
+
+	char buffer[1024];
+	memset( buffer, 0x7f, sizeof buffer );
+	if ( Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK,
+	            "BkEditorTestMapPath with no mod is OK" ) )
+	{
+		const std::string szPath( buffer );
+		const char *pszTail = "cache\\generated\\MapEditorTest\\base\\maps\\mapeditor_test.bzm";
+		const size_t nTailLen = strlen( pszTail );
+		Check( szPath.size() >= nTailLen && szPath.compare( szPath.size() - nTailLen, nTailLen, pszTail ) == 0,
+		       ( "the base-mod path ends in cache\\generated\\MapEditorTest\\base\\maps\\mapeditor_test.bzm: \"" + szPath + "\"" ).c_str() );
+		std::error_code error;
+		Check( std::filesystem::exists( std::filesystem::path( HostPath( szPath ) ).parent_path(), error ),
+		       "and its directory exists" );
+
+		// A stale sibling with the other extension, sitting where the next
+		// BkEditorTestMapPath call for the same name will write: it must be
+		// gone afterwards, or the game could load it instead of the fresh copy.
+		const std::string szSiblingHost = HostPath( szPath.substr( 0, szPath.size() - 4 ) + ".xml" );
+		{
+			FILE *pStale = fopen( szSiblingHost.c_str(), "wb" );
+			if ( pStale != 0 )
+			{
+				fputs( "stale", pStale );
+				fclose( pStale );
+			}
+		}
+		Check( std::filesystem::exists( szSiblingHost, error ), "the stale sibling was created for this test" );
+		Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK,
+		       "BkEditorTestMapPath runs again over the stale sibling" );
+		Check( !std::filesystem::exists( szSiblingHost, error ), "and the stale sibling is gone" );
+	}
+
+	if ( Check( BkEditorTestMapPath( pSession, "MapEditorTest", "Some Mod", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK,
+	            "BkEditorTestMapPath with a mod is OK" ) )
+	{
+		const std::string szPath( buffer );
+		Check( szPath.find( "\\some_mod\\maps\\" ) != std::string::npos,
+		       ( "\"Some Mod\" gives the key some_mod: \"" + szPath + "\"" ).c_str() );
+	}
+
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "../x.bzm", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "\"../x.bzm\" is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "a\\b.bzm", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "\"a\\\\b.bzm\" is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "x.txt", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "\"x.txt\" is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an empty file name is BK_EDITOR_BAD_ARGUMENT" );
+	Check( BkEditorTestMapPath( pSession, "", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an empty profile is BK_EDITOR_BAD_ARGUMENT" );
+
+	// A buffer one byte short of the full path: refused, with nothing written.
+	std::string szFull;
+	if ( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", buffer, sizeof buffer ) == BK_EDITOR_OK )
+		szFull = buffer;
+	if ( Check( !szFull.empty(), "the full path is known for the short-buffer check" ) )
+	{
+		std::vector<char> tight( szFull.size() ); // one byte short of size()+1
+		tight[0] = 0x7f;
+		Check( BkEditorTestMapPath( pSession, "MapEditorTest", "", "mapeditor_test.bzm", &tight[0], (int)tight.size() ) == BK_EDITOR_REFUSED,
+		       "a buffer one byte short is BK_EDITOR_REFUSED" );
+		Check( tight[0] == 0, "and nothing is written past out[0] == 0" );
+	}
 }
 
 // The spec's first engine-tier check: open a shipped map, save it with no
@@ -177,6 +478,90 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
 	       szWhere.empty() ? "and the saved map is the expected one" : ( "edited save differs at " + szWhere ).c_str() );
 	remove( szSaved.c_str() );
+}
+
+// D-19's read-back check, exercised straight through the bridge:
+// BkEditorSaveMap only answers OK once the file it just wrote has been read
+// back and found equivalent to what was meant (SaveSessionMap). The editor
+// itself always passes a temporary path here and swaps it over the user's map
+// on success - this test proves the bridge half of that contract on its own,
+// for both shipped formats, and that a write that cannot even start (a
+// missing directory) is refused with the path named in the message.
+static void TestSaveVerifiesWhatItWrote( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo expected;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( !expected.objects.empty(), "the map has an object to move" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "the map to verify-save opens" ) )
+		return;
+
+	const int nLinkID = expected.objects[0].link.nLinkID;
+	if ( !Check( BkEditorMoveObject( pSession, nLinkID, expected.objects[0].vPos.x + 32.0f, expected.objects[0].vPos.y ) == BK_EDITOR_OK,
+	             "an object moves through the engine" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	int nTileCount = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, 0, 0, &nTileCount ) == BK_EDITOR_REFUSED && nTileCount > 0,
+	             "the tileset's tile count reads" ) )
+		return;
+	std::vector<unsigned char> tiles( size_t( nTileCount ), 0 );
+	int nTilesRead = -1;
+	if ( !Check( BkEditorTilesetTiles( pSession, &tiles[0], nTileCount, &nTilesRead ) == BK_EDITOR_OK, "the tileset's tiles read" ) )
+		return;
+	const BkEditorPaintCell cell = { 30, 30, tiles[0] };
+	int nToken = -1;
+	if ( !Check( BkEditorPaint( pSession, &cell, 1, &nToken ) == BK_EDITOR_OK, "a cell paints for the verify-save test" ) )
+	{
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+
+	const std::string szEditedBzm = szScratch + "\\verify-edited.bzm";
+	remove( szEditedBzm.c_str() );
+	if ( !Check( BkEditorSaveMap( pSession, szEditedBzm.c_str() ) == BK_EDITOR_OK, "the edited map saves and reads back as itself (.bzm)" ) )
+		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+
+	const std::string szEditedXml = szScratch + "\\verify-edited.xml";
+	remove( szEditedXml.c_str() );
+	if ( BkEditorSaveMap( pSession, szEditedXml.c_str() ) != BK_EDITOR_OK )
+	{
+		// The spec's fallback for .xml only, in case the XML writer does not
+		// round-trip a float exactly: read back what NMapFile::Write itself
+		// produced, write it again to a second file, and byte-compare the
+		// two - idempotent rather than equal-to-the-original.
+		printf( "editor-bridge: %s (falling back to the idempotent .xml check)\n", BkEditorLastMessage( pSession ) );
+		CMapInfo firstWrite;
+		std::string szFirstError;
+		if ( Check( NMapFile::Read( szEditedXml.c_str(), &firstWrite, &szFirstError ), szFirstError.c_str() ) )
+		{
+			const std::string szEditedXmlAgain = szScratch + "\\verify-edited-again.xml";
+			remove( szEditedXmlAgain.c_str() );
+			std::string szWriteError;
+			if ( Check( NMapFile::Write( szEditedXmlAgain.c_str(), firstWrite, &szWriteError ), szWriteError.c_str() ) )
+			{
+				std::ifstream first( szEditedXml, std::ios::binary );
+				std::ifstream again( szEditedXmlAgain, std::ios::binary );
+				const std::string szFirstBytes( ( std::istreambuf_iterator<char>( first ) ), std::istreambuf_iterator<char>() );
+				const std::string szAgainBytes( ( std::istreambuf_iterator<char>( again ) ), std::istreambuf_iterator<char>() );
+				Check( szFirstBytes == szAgainBytes, "and the .xml write is at least idempotent" );
+			}
+			remove( szEditedXmlAgain.c_str() );
+		}
+	}
+
+	const std::string szBadPath = szScratch + "\\no-such-dir\\x.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szBadPath.c_str() ) != BK_EDITOR_OK, "a save into a missing directory is refused" ) )
+		Check( strstr( BkEditorLastMessage( pSession ), szBadPath.c_str() ) != 0,
+		       NStr::Format( "and the path is named in the message: %s", BkEditorLastMessage( pSession ) ) );
+
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, "coldwinter reopens afterward" );
+	remove( szEditedBzm.c_str() );
+	remove( szEditedXml.c_str() );
 }
 
 // An edit the engine will not take must not reach the file either, and the
@@ -650,7 +1035,9 @@ static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWi
 	Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	for ( int i = 0; i < 3; ++i )
 		BkEditorFrame( pSession );
-	Check( g_nOverlayCalls >= 1 && g_bOverlayHadTarget, NStr::Format( "the overlay ran inside the frame (%d calls)", g_nOverlayCalls ) );
+	// Exactly once per present, not "at least once": a present that skipped
+	// the overlay would still pass a >= 1 check on the third frame alone.
+	Check( g_nOverlayCalls == 3 && g_bOverlayHadTarget, NStr::Format( "the overlay ran exactly once per present (%d calls for 3 frames)", g_nOverlayCalls ) );
 	BkEditorSetOverlay( pSession, 0, 0 );
 	const int nCalls = g_nOverlayCalls;
 	BkEditorFrame( pSession );
@@ -755,6 +1142,14 @@ static void TestOverlayDeviceAndSize( BkEditorSession *pSession, SDL_Window *pWi
 	Check( BkEditorResize( pSession, 640, 480 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenW == 640 && nScreenH == 480,
 	       NStr::Format( "and back to 640x480 (%dx%d)", nScreenW, nScreenH ) );
+	// The overlay still runs in the frame right after a resize: nothing in
+	// BkEditorResize's own path (SetScreenProjection, PublishWorldBase, the
+	// re-placed camera) touches the overlay callback, but that was untested.
+	g_nOverlayCalls = 0;
+	Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorFrame( pSession );
+	Check( g_nOverlayCalls == 1, NStr::Format( "the overlay ran in the frame after a resize (%d calls)", g_nOverlayCalls ) );
+	BkEditorSetOverlay( pSession, 0, 0 );
 }
 
 // The renderer outlives the session, and the overlay is the caller's: a stop
@@ -798,6 +1193,11 @@ static bool SaveFrame( BkEditorSession *pSession, const std::string &szPath )
 	              NStr::Format( "the captured frame is a %dx%d top-first 32-bit TGA of %ld bytes, the screen %dx%d", nWidth, nHeight, nLength, nScreenW, nScreenH ) );
 }
 
+// Defined below (after TestObjectUnderTheCursor); forward-declared here so
+// TestTerrainUnderTheCamera's second anchor can reuse it instead of the
+// hand-rolled read its first anchor used to do alone (Task 6 carried).
+static std::vector<unsigned char> ReadFramePixels( const std::string &szPath, int *pnWidth, int *pnHeight );
+
 // The ground is drawn wherever the camera looks. The terrain is laid out in
 // screen space for the game's own camera - yaw 45, pitch 30, the rod of
 // iMissionInternal.cpp's SetMissionCameraPlacement - while objects go through
@@ -810,7 +1210,77 @@ static bool SaveFrame( BkEditorSession *pSession, const std::string &szPath )
 // black at the top.
 static const float TERRAIN_BLACK_BAR = 0.10f;
 
+// The lower half's black fraction of a captured, top-first 32-bit BGRA frame
+// (SaveFrame/ReadFramePixels's own layout) - factored out of
+// TestTerrainUnderTheCamera so the same check runs at more than one anchor.
+static float LowerHalfBlackFraction( const std::vector<unsigned char> &pixels, int nWidth, int nHeight )
+{
+	int nBlack = 0, nCounted = 0;
+	for ( int y = nHeight / 2; y < nHeight; ++y )
+	{
+		for ( int x = 0; x < nWidth; ++x, ++nCounted )
+		{
+			const unsigned char *p = &pixels[( size_t( y ) * nWidth + x ) * 4];
+			if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+				++nBlack;
+		}
+	}
+	return nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+}
+
 static void TestTerrainUnderTheCamera( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	// Two anchors from the pick set: TestObjectUnderTheCursor's own scan of
+	// the first up-to-20 map objects the engine actually holds (its own
+	// 16/20 picking bar), not an arbitrary map index - the map's last object
+	// by file order sits at the map's edge (measured: 79.2% black, since the
+	// camera runs out of ground before its full view), which an unfiltered
+	// "first and last" pick would have hit. The first of the pick set and
+	// one partway through it are two different, engine-known-good objects,
+	// so one anchor's coincidentally-clear ground cannot say "the ground is
+	// always drawn under the camera" on its own (Task 6 carried).
+	std::vector<size_t> pickSet;
+	for ( size_t i = 0; i < map.objects.size() && pickSet.size() < 20; ++i )
+	{
+		BkEditorObjectState state;
+		if ( BkEditorEngineObjectState( pSession, map.objects[i].link.nLinkID, &state ) == BK_EDITOR_OK )
+			pickSet.push_back( i );
+	}
+	if ( !Check( pickSet.size() >= 2, "the pick set has two objects to look at" ) )
+		return;
+	const size_t anchorIndices[] = { pickSet[0], pickSet[pickSet.size() / 2] };
+	for ( size_t n = 0; n < 2; ++n )
+	{
+		const auto &object = map.objects[anchorIndices[n]];
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, object.vPos );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		const std::string szFrame = szScratch + ( n == 0 ? "/editor-bridge-terrain.tga" : "/editor-bridge-terrain-2.tga" );
+		if ( !SaveFrame( pSession, szFrame ) )
+			continue;
+		int nWidth = 0, nHeight = 0;
+		const std::vector<unsigned char> pixels = ReadFramePixels( szFrame, &nWidth, &nHeight );
+		if ( !Check( !pixels.empty(), "the terrain frame reads back" ) )
+			continue;
+		const float fBlack = LowerHalfBlackFraction( pixels, nWidth, nHeight );
+		printf( "editor-bridge: the lower half of the frame at %.0f,%.0f is %.1f%% black (%s, bar %.0f%%)\n",
+		        vAnchor.x, vAnchor.y, fBlack * 100.0f, object.szName.c_str(), TERRAIN_BLACK_BAR * 100.0f );
+		Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the ground is drawn under the camera (%.1f%% of the lower half black)", fBlack * 100.0f ) );
+	}
+}
+
+// D-10, D-11, D-14, D-16: the zoom is bounded by NSceneScreenScale's own
+// limit for the window's size, and a zoom stays anchored on the world point
+// under the screen point it was asked at, in either direction, past the
+// bound and back.
+static void TestZoomStepsBoundedAndAnchored( BkEditorSession *pSession, SDL_Window *pWindow, const std::string &szScratch )
 {
 	CMapInfo map;
 	std::string szError;
@@ -821,39 +1291,172 @@ static void TestTerrainUnderTheCamera( BkEditorSession *pSession, const std::str
 	CVec3 vAnchor;
 	AI2Vis( &vAnchor, map.objects[0].vPos );
 	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+
+	// Larger than the other tests' 640x480, as TestOverlayDeviceAndSize
+	// resizes to: more room before the D-09 zoom-in bound (the view may
+	// shrink to a 640x480-effective viewport) is reached.
+	SDL_SetWindowSize( pWindow, 1280, 960 );
+	SDL_SyncWindow( pWindow );
+	int nWidth = 0, nHeight = 0;
+	SDL_GetWindowSize( pWindow, &nWidth, &nHeight );
+	if ( !Check( BkEditorResize( pSession, nWidth, nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
 	BkEditorFrame( pSession );
-	const std::string szFrame = szScratch + "/editor-bridge-terrain.tga";
-	if ( !SaveFrame( pSession, szFrame ) )
+
+	BkEditorView view;
+	if ( !Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
-	std::vector<unsigned char> file;
-	if ( FILE *pFile = fopen( szFrame.c_str(), "rb" ) )
-	{
-		fseek( pFile, 0, SEEK_END );
-		file.resize( size_t( ftell( pFile ) ) );
-		fseek( pFile, 0, SEEK_SET );
-		if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
-			file.clear();
-		fclose( pFile );
-	}
-	if ( !Check( file.size() > 18, "the terrain frame reads back" ) )
+	printf( "editor-bridge: at %dx%d the max zoom is %d steps\n", nWidth, nHeight, view.max_zoom_steps );
+	Check( view.max_zoom_steps >= 1, NStr::Format( "the window is wide enough to zoom at least once (%d steps)", view.max_zoom_steps ) );
+
+	// Left and above the centre: the world point there should stay under it
+	// while zooming in as far as the window allows.
+	const float fPointX = float( nWidth ) / 2.0f - 120.0f, fPointY = float( nHeight ) / 2.0f - 90.0f;
+	float wxBefore = 0.0f, wyBefore = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, fPointX, fPointY, &wxBefore, &wyBefore ) == BK_EDITOR_OK, "the point is on the map before zooming" ) )
 		return;
-	// SaveFrame checked the header: top row first, 32 bits, BGRA.
-	const int nWidth = file[12] | ( file[13] << 8 ), nHeight = file[14] | ( file[15] << 8 );
-	const unsigned char *pPixels = &file[18];
-	int nBlack = 0, nCounted = 0;
-	for ( int y = nHeight / 2; y < nHeight; ++y )
+	Check( BkEditorZoomAt( pSession, 20, fPointX, fPointY ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK && view.zoom_steps == view.max_zoom_steps,
+	       NStr::Format( "a large zoom-in clamps at the maximum (%d against %d)", view.zoom_steps, view.max_zoom_steps ) );
+	Check( view.scale > 1.0f, NStr::Format( "the scale grew with the zoom (%.2f)", view.scale ) );
+	BkEditorFrame( pSession );
+	float wxAfter = 0.0f, wyAfter = 0.0f;
+	Check( BkEditorScreenToWorld( pSession, fPointX, fPointY, &wxAfter, &wyAfter ) == BK_EDITOR_OK &&
+	       fabsf( wxAfter - wxBefore ) <= 2.0f && fabsf( wyAfter - wyBefore ) <= 2.0f,
+	       NStr::Format( "the point stayed anchored while zooming in (%.1f,%.1f against %.1f,%.1f)", wxAfter, wyAfter, wxBefore, wyBefore ) );
+
+	const std::string szFrame = szScratch + "/editor-bridge-zoom.tga";
+	if ( SaveFrame( pSession, szFrame ) )
 	{
-		for ( int x = 0; x < nWidth; ++x, ++nCounted )
+		std::vector<unsigned char> file;
+		if ( FILE *pFile = fopen( szFrame.c_str(), "rb" ) )
 		{
-			const unsigned char *p = pPixels + ( size_t( y ) * nWidth + x ) * 4;
-			if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
-				++nBlack;
+			fseek( pFile, 0, SEEK_END );
+			file.resize( size_t( ftell( pFile ) ) );
+			fseek( pFile, 0, SEEK_SET );
+			if ( fread( file.data(), 1, file.size(), pFile ) != file.size() )
+				file.clear();
+			fclose( pFile );
+		}
+		if ( Check( file.size() > 18, "the zoomed frame reads back" ) )
+		{
+			const int nFrameWidth = file[12] | ( file[13] << 8 ), nFrameHeight = file[14] | ( file[15] << 8 );
+			const unsigned char *pPixels = &file[18];
+			int nBlack = 0, nCounted = 0;
+			for ( int y = nFrameHeight / 2; y < nFrameHeight; ++y )
+				for ( int x = 0; x < nFrameWidth; ++x, ++nCounted )
+				{
+					const unsigned char *p = pPixels + ( size_t( y ) * nFrameWidth + x ) * 4;
+					if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+						++nBlack;
+				}
+			const float fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+			printf( "editor-bridge: at max zoom the lower half of the frame is %.1f%% black\n", fBlack * 100.0f );
+			Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the terrain rebuilt after the zoom (%.1f%% black)", fBlack * 100.0f ) );
 		}
 	}
-	const float fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
-	printf( "editor-bridge: the lower half of the frame at %.0f,%.0f is %.1f%% black (%s, bar %.0f%%)\n",
-	        vAnchor.x, vAnchor.y, fBlack * 100.0f, map.objects[0].szName.c_str(), TERRAIN_BLACK_BAR * 100.0f );
-	Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "the ground is drawn under the camera (%.1f%% of the lower half black)", fBlack * 100.0f ) );
+
+	Check( BkEditorZoomAt( pSession, -20, fPointX, fPointY ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK && view.zoom_steps == 0,
+	       NStr::Format( "a large zoom-out clamps at 0 (%d)", view.zoom_steps ) );
+
+	Check( BkEditorSetZoom( pSession, view.max_zoom_steps + 5 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK && view.zoom_steps == view.max_zoom_steps,
+	       NStr::Format( "SetZoom past the maximum clamps (%d against %d)", view.zoom_steps, view.max_zoom_steps ) );
+
+	// Back to 0 and the size the later tests expect.
+	BkEditorSetZoom( pSession, 0 );
+	SDL_SetWindowSize( pWindow, 640, 480 );
+	SDL_SyncWindow( pWindow );
+	SDL_GetWindowSize( pWindow, &nWidth, &nHeight );
+	Check( BkEditorResize( pSession, nWidth, nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
+// One round trip at whatever zoom the camera is at now: the centre and four
+// points 150-200 px off it should come back within 2 px, and screen
+// right/up should be the world directions the camera was placed for (the
+// direction check carried from plan 5 Task 6).
+static void CheckWorldToScreenRoundTrip( BkEditorSession *pSession, float fCentreX, float fCentreY, const char *pszWhen )
+{
+	float wx0 = 0.0f, wy0 = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, fCentreX, fCentreY, &wx0, &wy0 ) == BK_EDITOR_OK, "the centre is on the map" ) )
+		return;
+	float sx0 = 0.0f, sy0 = 0.0f;
+	Check( BkEditorWorldToScreen( pSession, wx0, wy0, &sx0, &sy0 ) == BK_EDITOR_OK &&
+	       fabsf( sx0 - fCentreX ) <= 2.0f && fabsf( sy0 - fCentreY ) <= 2.0f,
+	       NStr::Format( "%s: the centre round-trips (%.1f,%.1f against %.1f,%.1f)", pszWhen, sx0, sy0, fCentreX, fCentreY ) );
+
+	static const float offsets[4][2] = { { -180, -150 }, { 180, -150 }, { -180, 150 }, { 180, 150 } };
+	for ( int i = 0; i < 4; ++i )
+	{
+		const float sx = fCentreX + offsets[i][0], sy = fCentreY + offsets[i][1];
+		float wx = 0.0f, wy = 0.0f;
+		if ( BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) != BK_EDITOR_OK )
+			continue;	// off the terrain at this zoom/window size - nothing to round-trip
+		float sx2 = 0.0f, sy2 = 0.0f;
+		Check( BkEditorWorldToScreen( pSession, wx, wy, &sx2, &sy2 ) == BK_EDITOR_OK &&
+		       fabsf( sx2 - sx ) <= 2.0f && fabsf( sy2 - sy ) <= 2.0f,
+		       NStr::Format( "%s: point %d round-trips (%.1f,%.1f against %.1f,%.1f)", pszWhen, i, sx2, sy2, sx, sy ) );
+	}
+
+	float wxRight = 0.0f, wyRight = 0.0f, wxUp = 0.0f, wyUp = 0.0f;
+	if ( Check( BkEditorScreenToWorld( pSession, fCentreX + 100.0f, fCentreY, &wxRight, &wyRight ) == BK_EDITOR_OK &&
+	            BkEditorScreenToWorld( pSession, fCentreX, fCentreY - 100.0f, &wxUp, &wyUp ) == BK_EDITOR_OK,
+	            "right and up of the centre are on the map" ) )
+	{
+		Check( wxRight > wx0 && wyRight > wy0,
+		       NStr::Format( "%s: screen right is world (+x,+y) (%.1f,%.1f against %.1f,%.1f)", pszWhen, wxRight, wyRight, wx0, wy0 ) );
+		Check( wxUp < wx0 && wyUp > wy0,
+		       NStr::Format( "%s: screen up is world (-x,+y) (%.1f,%.1f against %.1f,%.1f)", pszWhen, wxUp, wyUp, wx0, wy0 ) );
+	}
+}
+
+// BkEditorWorldToScreen: composes with BkEditorScreenToWorld at any zoom,
+// the direction check carries from plan 5 Task 6, and BkEditorWorldToTile's
+// world-corner convention is what view.zig's brush outline relies on.
+static void TestWorldToScreenRoundTrip( BkEditorSession *pSession, int nWidth, int nHeight )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	BkEditorMapSummary summary;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+
+	const float fCentreX = float( nWidth ) / 2.0f, fCentreY = float( nHeight ) / 2.0f;
+	CheckWorldToScreenRoundTrip( pSession, fCentreX, fCentreY, "at zoom 0" );
+
+	BkEditorView view;
+	if ( Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) && view.max_zoom_steps > 0 )
+	{
+		Check( BkEditorSetZoom( pSession, view.max_zoom_steps ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		BkEditorFrame( pSession );
+		CheckWorldToScreenRoundTrip( pSession, fCentreX, fCentreY, "at max zoom" );
+		BkEditorSetZoom( pSession, 0 );
+	}
+
+	// CTerrain's own GetTileIndex (Scene/TerrainEditor.cpp) rounds to the
+	// NEAREST tile rather than flooring into a bucket (WorldToTile's default
+	// isExact=false), so a tile's centre - not a corner - is a plain
+	// index * fWorldCellSize for X; Y is measured from the terrain's far
+	// edge, not from world_y 0, so its centre is (height_tiles - row) *
+	// fWorldCellSize instead. A cell's corner therefore sits half a cell
+	// off its centre - minus in X, plus in Y (the flip) - which is exactly
+	// what view.zig's drawOverlay needs to walk a brush's boundary: this
+	// confirms the relationship rather than assuming it.
+	int nTileX = -1, nTileY = -1;
+	const float fCentreWX = 10.0f * fWorldCellSize;
+	const float fCentreWY = float( summary.height_tiles - 8 ) * fWorldCellSize;
+	const float fCornerX = fCentreWX - fWorldCellSize / 2.0f;
+	const float fCornerY = fCentreWY + fWorldCellSize / 2.0f;
+	Check( BkEditorWorldToTile( pSession, fCornerX + fWorldCellSize / 2.0f, fCornerY - fWorldCellSize / 2.0f, &nTileX, &nTileY ) == BK_EDITOR_OK &&
+	       nTileX == 10 && nTileY == 8,
+	       NStr::Format( "a tile's world corner plus half a cell gives that tile (%d,%d against 10,8)", nTileX, nTileY ) );
 }
 
 // A camera put on an object answers, at the middle of the screen, with that
@@ -864,8 +1467,12 @@ static void TestTerrainUnderTheCamera( BkEditorSession *pSession, const std::str
 // about 12 pixels above or below that (measured: an object at height 11.7 lands
 // 9 pixels higher on the screen, one at -17 11 pixels lower). A sprite's hit box
 // rises from its foot and never reaches below it, so a point exactly in the
-// middle misses every object standing a little higher than height 0; measured,
-// 4 of 20 were picked there and 11 of 20 at this rise.
+// middle misses every object standing a little higher than height 0. The
+// "4 of 20 without a rise, 11 of 20 with this rise" this comment used to cite
+// was measured before the camera was placed like the game's own (see
+// TestObjectUnderTheCursor's own note); today's count with this rise and the
+// game's placement is that note's 16 of 20, not restated here to avoid a
+// second copy drifting stale again.
 static const float PICK_RISE = 12.0f;
 
 static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
@@ -925,9 +1532,9 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 	// neighbour is a right answer too. Measured on macOS arm64 at 1440x900:
 	// 11 of 20 with CCamera's default placement, and 16 of 20 at 640x480 once
 	// the camera was placed like the game's (pitch 30, not 45). The misses are
-	// a neighbour the scene listed first (the MFC editor, copied here, takes the
-	// first) and one object at the map's edge
-	// where the camera stops short of it. Half is the bar, just under that.
+	// a neighbour the scene listed first (the MFC editor, copied here, takes
+	// the first) and one object at the map's edge where the camera stops
+	// short of it. Half is the bar, just under that.
 	Check( nTried > 0 && nPicked * 2 >= nTried, "the object under the camera is the one picked, for most objects" );
 
 	int nNothing = -1;
@@ -938,7 +1545,11 @@ static void TestObjectUnderTheCursor( BkEditorSession *pSession, int nScreenWidt
 }
 
 // A captured frame's pixels, BGRA, top row first (SaveFrame checked the
-// header). Empty when the file does not read.
+// header). Empty when the file does not read, or when its type, bit depth
+// or descriptor do not match SaveFrame's own layout - assumed without a
+// check until now, so a differently-shaped TGA (a truncated capture, or the
+// wrong file handed in by mistake) silently read as noise instead of
+// failing with a reason (Task 7.1 carried).
 static std::vector<unsigned char> ReadFramePixels( const std::string &szPath, int *pnWidth, int *pnHeight )
 {
 	std::vector<unsigned char> file;
@@ -953,8 +1564,23 @@ static std::vector<unsigned char> ReadFramePixels( const std::string &szPath, in
 	}
 	if ( file.size() <= 18 )
 		return std::vector<unsigned char>();
+	// Type 2 (uncompressed truecolour), 32 bits, descriptor bit 5 set (top
+	// row first) - exactly what SaveFrame writes and what every caller here
+	// assumes.
+	if ( file[2] != 2 || file[16] != 32 || ( file[17] & 0x20 ) == 0 )
+	{
+		printf( "editor-bridge: %s is not a top-first 32-bit uncompressed TGA (type %d, %d bits, descriptor 0x%02x)\n",
+		        szPath.c_str(), int( file[2] ), int( file[16] ), int( file[17] ) );
+		return std::vector<unsigned char>();
+	}
 	*pnWidth = file[12] | ( file[13] << 8 );
 	*pnHeight = file[14] | ( file[15] << 8 );
+	const size_t nExpected = 18 + size_t( *pnWidth ) * size_t( *pnHeight ) * 4;
+	if ( file.size() < nExpected )
+	{
+		printf( "editor-bridge: %s is %zu bytes, a %dx%d 32-bit TGA needs %zu\n", szPath.c_str(), file.size(), *pnWidth, *pnHeight, nExpected );
+		return std::vector<unsigned char>();
+	}
 	return std::vector<unsigned char>( file.begin() + 18, file.end() );
 }
 
@@ -1071,6 +1697,581 @@ static void TestPlacedObjectDrawsAndPicks( BkEditorSession *pSession, int nScree
 	}
 }
 
+// The texture each unit on screen is drawn with, read the way the renderer
+// reads it: a visit hands over the mesh's or the sprite's texture, and the
+// texture manager names it by the key it was loaded under - the model path the
+// map object chose plus its season's letter ("...\1w" in winter).
+class CTextureNameVisitor : public ISceneVisitor
+{
+public:
+	std::vector<std::string> names;
+	virtual void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) {  }
+	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) {  }
+	virtual bool STDCALL IsValid() const { return true; }
+	void Add( IGFXTexture *pTexture )
+	{
+		ITextureManager *pTM = GetSingleton<ITextureManager>();
+		std::string szName = pTexture == 0 || pTM == 0 ? "<none>" : pTM->GetTextureName( pTexture );
+		NStr::ToLower( szName );
+		names.push_back( szName );
+	}
+	virtual void STDCALL VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority ) { Add( pObj->pTexture ); }
+	virtual void STDCALL VisitMeshObject( IMeshVisObj *pObj, int nType, int nPriority ) { Add( pObj->GetTexture() ); }
+	virtual void STDCALL VisitParticles( IParticleSource *pObj ) {  }
+	virtual void STDCALL VisitSceneObject( ISceneObject *pObj ) {  }
+	virtual void STDCALL VisitText( const CVec3 &vPos, const char *pszText, IGFXFont *pFont, DWORD color ) {  }
+	virtual void STDCALL VisitBoldLine( CVec3 *corners, float fWidth, DWORD color ) {  }
+	virtual void STDCALL VisitMechTrace( const SMechTrace &trace ) {  }
+	virtual void STDCALL VisitGunTrace( const SGunTrace &trace ) {  }
+	virtual void STDCALL VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect, SGFXRect2 *rects, const int nNumRects ) {  }
+	virtual void STDCALL VisitUIText( IGFXText *pText, const CTRect<float> &rcRect, const int nY, const DWORD dwColor, const DWORD dwFlags ) {  }
+	virtual void STDCALL VisitUICustom( IUIElement *pElement ) {  }
+};
+
+// The last part of a unit texture's key without its digits: "" or "b" (blood)
+// in summer, "w" or "bw" in winter. Anything else - "default" for a texture
+// that did not load, a path outside units\ - answers with "?".
+static std::string UnitTextureSeasonLetters( const std::string &szName )
+{
+	if ( szName.compare( 0, 6, "units\\" ) != 0 )
+		return "?";
+	const size_t nSlash = szName.find_last_of( "\\/" );
+	const std::string szLast = szName.substr( nSlash + 1 );
+	size_t nDigits = 0;
+	while ( nDigits < szLast.size() && szLast[nDigits] >= '0' && szLast[nDigits] <= '9' )
+		++nDigits;
+	if ( nDigits == 0 )
+		return "?";
+	return szLast.substr( nDigits );
+}
+
+// The textures of every unit the scene has on screen now.
+static std::vector<std::string> UnitTexturesOnScreen( int nScreenWidth, int nScreenHeight )
+{
+	CTextureNameVisitor visitor;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+		return visitor.names;
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( CTRect<float>( 0.0f, 0.0f, float( nScreenWidth ), float( nScreenHeight ) ), &pObjects, &nCount, SGVOGT_UNIT );
+	for ( int i = 0; i < nCount; ++i )
+		if ( pObjects[i].first != 0 )
+			pObjects[i].first->Visit( &visitor );
+	return visitor.names;
+}
+
+// How many of a set of texture keys are unit textures, how many of those are in
+// the season's paint, and the first few that are not.
+struct SSeasonTally
+{
+	int nUnits, nRight;
+	std::string szWrong;
+	SSeasonTally() : nUnits( 0 ), nRight( 0 ) {  }
+	void Add( const std::string &szName, int nSeason )
+	{
+		const std::string szLetters = UnitTextureSeasonLetters( szName );
+		if ( szLetters == "?" )
+			return;
+		++nUnits;
+		if ( nSeason == 1 ? ( szLetters == "w" || szLetters == "bw" ) : ( szLetters == "" || szLetters == "b" ) )
+			++nRight;
+		else if ( szWrong.size() < 300 )
+			szWrong += " " + szName;
+	}
+};
+
+// Gap fix (M1 hand try): a winter map drew every unit in its summer paint -
+// the 10.5-cm Flak38 tan instead of its 1w grey, the infantry in summer
+// uniforms. CWorldBase::CreateMapObject hands the world's season to every map
+// object it builds, and the world only learns the map's season from SetSeason,
+// which the game calls before it builds a mission's objects
+// (iMissionInternal.cpp:1495) and the MFC editor on every load
+// (TemplateEditorFrame1.cpp:1683). The bridge never called it, so every world
+// stayed CWorldBase's SEASON_SUMMER. Checked here on the winter map and on a
+// summer one - opened in turn, so the second open has to undo the first's
+// season - for the map's own units, a placed Flak38 and a placed squad, by the
+// texture each of them is actually drawn with.
+static void TestSeasonPicksTheVisuals( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	struct SSeasonCase { const char *pszMap; int nSeason; const char *pszSeasonName; const char *pszTag; };
+	static const SSeasonCase cases[] = { { SHIPPED_MAP, 1, "Winter", "winter" }, { BRIDGE_MAP, 0, "Summer", "summer" } };
+	static const char *const placed[] = { "10.5-cm_Flak38", "German_rifle_39" };
+	static const char *const placedPaths[] = { "units\\technics\\german\\artillery\\10_5_cm_flak38\\", "units\\humans\\german\\" };
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+	int nRead = 0;
+	BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead );
+	std::map<std::string, int> gameTypes;
+	for ( int i = 0; i < nRead; ++i )
+		gameTypes[catalogue[i].name] = catalogue[i].game_type;
+
+	for ( int nCase = 0; nCase < 2; ++nCase )
+	{
+		const SSeasonCase &rCase = cases[nCase];
+		BkEditorMapSummary summary;
+		if ( !Check( BkEditorOpenMap( pSession, rCase.pszMap, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		Check( summary.season == rCase.nSeason, NStr::Format( "%s is a %s map (season %d)", rCase.pszMap, rCase.pszTag, summary.season ) );
+		const std::string szWorldSeason = GetGlobalVar( "World.Season", "<unset>" );
+		Check( szWorldSeason == rCase.pszSeasonName,
+		       NStr::Format( "the world is in %s's season: World.Season is \"%s\", want \"%s\"", rCase.pszMap, szWorldSeason.c_str(), rCase.pszSeasonName ) );
+
+		CMapInfo map;
+		std::string szError;
+		if ( !Check( NMapFile::Read( rCase.pszMap, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+			return;
+
+		// The map's own units and squads (game types 1 and 15), before anything
+		// is placed: the camera on each of the first few in turn.
+		SSeasonTally own;
+		int nLooked = 0;
+		const std::vector<SMapObjectInfo> *lists[2] = { &map.objects, &map.scenarioObjects };
+		for ( int nList = 0; nList < 2 && nLooked < 6; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && nLooked < 6; ++i )
+			{
+				const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+				std::map<std::string, int>::const_iterator it = gameTypes.find( rObject.szName );
+				BkEditorObjectState state;
+				if ( it == gameTypes.end() || ( it->second != 1 && it->second != 15 ) ||
+				     BkEditorEngineObjectState( pSession, rObject.link.nLinkID, &state ) != BK_EDITOR_OK )
+					continue;
+				++nLooked;
+				CVec3 vAt;
+				AI2Vis( &vAt, state.x, state.y, 0.0f );
+				BkEditorSetCamera( pSession, vAt.x, vAt.y );
+				BkEditorFrame( pSession );
+				const std::vector<std::string> names = UnitTexturesOnScreen( nScreenWidth, nScreenHeight );
+				for ( size_t j = 0; j < names.size(); ++j )
+					own.Add( names[j], rCase.nSeason );
+			}
+		printf( "editor-bridge: %s (%s): the map's own units, %d looked at: %d unit pictures, %d in the season's textures%s%s\n",
+		        rCase.pszMap, rCase.pszTag, nLooked, own.nUnits, own.nRight, own.szWrong.empty() ? "" : "; wrong:", own.szWrong.c_str() );
+		Check( own.nUnits > 0 && own.nRight == own.nUnits,
+		       NStr::Format( "%s's own units are drawn in %s textures (%d of %d)", rCase.pszMap, rCase.pszTag, own.nRight, own.nUnits ) );
+
+		// Then a Flak38 and a squad placed on bare ground, found on a wider grid
+		// than TestPlacedObjectDrawsAndPicks's: coldwinter's anchor stands in a
+		// wood, with one bare patch in that test's 4x4 ring. A patch the engine
+		// will not take an object on (arnheim has water on screen) is passed over.
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, map.objects[0].vPos );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		BkEditorFrame( pSession );
+		BkEditorFrame( pSession );
+		std::vector<CVec2> spots;
+		for ( int nTry = 0; nTry < 42; ++nTry )
+		{
+			const float fX = nScreenWidth / 2.0f + ( ( nTry % 7 ) - 3.0f ) * 80.0f;
+			const float fY = nScreenHeight / 2.0f + ( ( nTry / 7 ) - 2.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+			int nIgnored = -1;
+			bool bClear = true;
+			for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+				for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+					bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+			if ( bClear )
+				spots.push_back( CVec2( fX, fY ) );
+		}
+		const std::string szBefore = szScratch + NStr::Format( "/editor-bridge-season-%s-before.tga", rCase.pszTag );
+		if ( !SaveFrame( pSession, szBefore ) )
+			return;
+		CVec2 vPlacedAt[2];
+		size_t nSpot = 0;
+		for ( int i = 0; i < 2; ++i )
+		{
+			bool bPlaced = false;
+			for ( ; nSpot < spots.size() && !bPlaced; ++nSpot )
+			{
+				if ( i == 1 && fabs( spots[nSpot].x - vPlacedAt[0].x ) + fabs( spots[nSpot].y - vPlacedAt[0].y ) < 90.0f )
+					continue;
+				float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+				int nLinkID = -1;
+				bPlaced = BkEditorScreenToWorld( pSession, spots[nSpot].x, spots[nSpot].y, &wx, &wy ) == BK_EDITOR_OK &&
+				          BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK &&
+				          BkEditorAddObject( pSession, placed[i], mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK;
+				if ( bPlaced )
+					vPlacedAt[i] = spots[nSpot];
+			}
+			if ( !Check( bPlaced, NStr::Format( "%s is placed on bare ground on %s (%d patches found)", placed[i], rCase.pszMap, int( spots.size() ) ) ) )
+				return;
+		}
+		for ( int i = 0; i < 4; ++i )
+			BkEditorFrame( pSession );
+		const std::string szAfter = szScratch + NStr::Format( "/editor-bridge-season-%s.tga", rCase.pszTag );
+
+		// The Flak38's colour as drawn, for a person reading the log: the mean of
+		// the pixels its placing changed. Its textures average 55,48,33 (tan,
+		// 1_c.dds) and 94,95,90 (grey, 1w_c.dds).
+		if ( SaveFrame( pSession, szAfter ) )
+		{
+			int nWidth = 0, nHeight = 0;
+			const std::vector<unsigned char> before = ReadFramePixels( szBefore, &nWidth, &nHeight );
+			const std::vector<unsigned char> after = ReadFramePixels( szAfter, &nWidth, &nHeight );
+			double fSum[3] = { 0, 0, 0 };
+			int nChanged = 0;
+			if ( before.size() == after.size() && after.size() >= size_t( nWidth ) * nHeight * 4 )
+				for ( int y = Max( 0, int( vPlacedAt[0].y ) - 80 ); y < Min( nHeight, int( vPlacedAt[0].y ) + 16 ); ++y )
+					for ( int x = Max( 0, int( vPlacedAt[0].x ) - 40 ); x < Min( nWidth, int( vPlacedAt[0].x ) + 40 ); ++x )
+					{
+						const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+						if ( abs( int( before[n] ) - after[n] ) + abs( int( before[n + 1] ) - after[n + 1] ) + abs( int( before[n + 2] ) - after[n + 2] ) <= 48 )
+							continue;
+						// The TGA holds BGRA.
+						fSum[0] += after[n + 2];
+						fSum[1] += after[n + 1];
+						fSum[2] += after[n];
+						++nChanged;
+					}
+			if ( nChanged > 0 )
+				printf( "editor-bridge: on %s the placed Flak38 at %.0f,%.0f is drawn at mean RGB %.0f,%.0f,%.0f (%d pixels, %s)\n", rCase.pszMap,
+				        vPlacedAt[0].x, vPlacedAt[0].y, fSum[0] / nChanged, fSum[1] / nChanged, fSum[2] / nChanged, nChanged, szAfter.c_str() );
+		}
+
+		const std::vector<std::string> names = UnitTexturesOnScreen( nScreenWidth, nScreenHeight );
+		SSeasonTally placedTally[2];
+		for ( size_t i = 0; i < names.size(); ++i )
+			for ( int j = 0; j < 2; ++j )
+				if ( names[i].compare( 0, strlen( placedPaths[j] ), placedPaths[j] ) == 0 )
+					placedTally[j].Add( names[i], rCase.nSeason );
+		printf( "editor-bridge: %s (%s): placed Flak38 %d/%d, placed infantry %d/%d in the season's textures%s%s%s\n",
+		        rCase.pszMap, rCase.pszTag, placedTally[0].nRight, placedTally[0].nUnits, placedTally[1].nRight, placedTally[1].nUnits,
+		        placedTally[0].szWrong.empty() && placedTally[1].szWrong.empty() ? "" : "; wrong:", placedTally[0].szWrong.c_str(), placedTally[1].szWrong.c_str() );
+		Check( placedTally[0].nUnits > 0 && placedTally[0].nRight == placedTally[0].nUnits,
+		       NStr::Format( "the placed Flak38 on %s is drawn in %s textures (%d of %d)", rCase.pszMap, rCase.pszTag, placedTally[0].nRight, placedTally[0].nUnits ) );
+		Check( placedTally[1].nUnits > 0 && placedTally[1].nRight == placedTally[1].nUnits,
+		       NStr::Format( "the placed infantry on %s is drawn in %s textures (%d of %d)", rCase.pszMap, rCase.pszTag, placedTally[1].nRight, placedTally[1].nUnits ) );
+	}
+}
+
+// Only the meshes' textures: a unit's icons are sprites, and some of them
+// (an icon with nothing to show) are visited without a texture.
+class CMeshTextureNameVisitor : public CTextureNameVisitor
+{
+public:
+	virtual void STDCALL VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority ) {  }
+};
+
+// The mesh textures of the units a pick of a screen box answers with.
+static std::vector<std::string> UnitMeshTexturesIn( const CTRect<float> &rcBox )
+{
+	CMeshTextureNameVisitor visitor;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+		return visitor.names;
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( rcBox, &pObjects, &nCount, SGVOGT_UNIT );
+	for ( int i = 0; i < nCount; ++i )
+		if ( pObjects[i].first != 0 )
+			pObjects[i].first->Visit( &visitor );
+	return visitor.names;
+}
+
+// Gap fix (M1 hand try): on a winter map a unit whose folder has no winter
+// texture was drawn pure white, in the editor and in the game. 83 of the 242
+// unit mesh folders have no 1w (the 105-mm M2A1 has only 1_c/_h/_l.dds), and
+// the unit asks for "<path>\1w" (MOUnitMechanical.cpp). The original DX8 GFX
+// drew a checker for a missing file; GFXGPU's texture manager answers null,
+// and a mesh with no texture is drawn white. CVisObjBuilder now falls back to
+// the season-less name. Checked on coldwinter by the texture each placed gun
+// is drawn with: the M2A1 in its summer "1", the Flak38 still in its "1w" -
+// and by the M2A1's colour as drawn, which must not be near white.
+//
+// The build now generates the missing season textures (SeasonData, mounted
+// over Data - StreamIO/SeasonData.h), so the M2A1 has a 1w in a staged game.
+// The fallback is checked with that mount taken away, which leaves the M2A1
+// with no winter texture whether or not the build generated one; then, with
+// it mounted again, a second M2A1 must be drawn with the generated "1w".
+static void TestMissingSeasonTextureFallsBack( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	static const char *const placed[] = { "105mm_M2A1_USA", "10.5-cm_Flak38" };
+	static const char *const wanted[] = { "units\\technics\\allies\\artillery\\105mm_m2a1_usa\\1",
+	                                      "units\\technics\\german\\artillery\\10_5_cm_flak38\\1w" };
+	static const char *const pszM2A1Winter = "units\\technics\\allies\\artillery\\105mm_m2a1_usa\\1w_h.dds";
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( !Check( pStorage != 0, "the data storage is registered" ) )
+		return;
+	// Remounted on every way out, so the tests after this one see the
+	// installation's storage as the game would.
+	struct SRemount
+	{
+		IDataStorage *pStorage;
+		bool bMounted;
+		~SRemount() { if ( bMounted ) NSeasonData::Mount( pStorage ); }
+	} remount = { pStorage, NSeasonData::Unmount( pStorage ) };
+	printf( "editor-bridge: SeasonData %s for the fallback check\n", remount.bMounted ? "unmounted" : "is not mounted" );
+	if ( !Check( !pStorage->IsStreamExist( pszM2A1Winter ),
+	             "the M2A1 has no winter texture in Data itself (generated season textures belong in SeasonData, never in Data)" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+	BkEditorFrame( pSession );
+	// Bare ground, found as TestSeasonPicksTheVisuals finds it.
+	std::vector<CVec2> spots;
+	for ( int nTry = 0; nTry < 42; ++nTry )
+	{
+		const float fX = nScreenWidth / 2.0f + ( ( nTry % 7 ) - 3.0f ) * 80.0f;
+		const float fY = nScreenHeight / 2.0f + ( ( nTry / 7 ) - 2.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+		int nIgnored = -1;
+		bool bClear = true;
+		for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+			for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+				bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+		if ( bClear )
+			spots.push_back( CVec2( fX, fY ) );
+	}
+	const std::string szBefore = szScratch + "/editor-bridge-season-fallback-before.tga";
+	if ( !SaveFrame( pSession, szBefore ) )
+		return;
+	CVec2 vPlacedAt[2];
+	size_t nSpot = 0;
+	for ( int i = 0; i < 2; ++i )
+	{
+		bool bPlaced = false;
+		for ( ; nSpot < spots.size() && !bPlaced; ++nSpot )
+		{
+			if ( i == 1 && fabs( spots[nSpot].x - vPlacedAt[0].x ) + fabs( spots[nSpot].y - vPlacedAt[0].y ) < 160.0f )
+				continue;
+			float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+			int nLinkID = -1;
+			bPlaced = BkEditorScreenToWorld( pSession, spots[nSpot].x, spots[nSpot].y, &wx, &wy ) == BK_EDITOR_OK &&
+			          BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK &&
+			          BkEditorAddObject( pSession, placed[i], mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK;
+			if ( bPlaced )
+				vPlacedAt[i] = spots[nSpot];
+		}
+		if ( !Check( bPlaced, NStr::Format( "%s is placed on bare ground on %s (%d patches found)", placed[i], SHIPPED_MAP, int( spots.size() ) ) ) )
+			return;
+	}
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	const std::string szAfter = szScratch + "/editor-bridge-season-fallback.tga";
+
+	for ( int i = 0; i < 2; ++i )
+	{
+		const CTRect<float> rcBox( vPlacedAt[i].x - 40.0f, vPlacedAt[i].y - 80.0f, vPlacedAt[i].x + 40.0f, vPlacedAt[i].y + 16.0f );
+		const std::vector<std::string> names = UnitMeshTexturesIn( rcBox );
+		bool bAllWanted = !names.empty();
+		std::string szNames;
+		for ( size_t j = 0; j < names.size(); ++j )
+		{
+			bAllWanted = bAllWanted && names[j] == wanted[i];
+			if ( szNames.size() < 300 )
+				szNames += " " + names[j];
+		}
+		printf( "editor-bridge: on %s the placed %s at %.0f,%.0f is drawn with:%s\n", SHIPPED_MAP, placed[i], vPlacedAt[i].x, vPlacedAt[i].y, szNames.c_str() );
+		Check( bAllWanted, NStr::Format( "the placed %s on %s is drawn with %s (drawn with:%s)", placed[i], SHIPPED_MAP, wanted[i], szNames.c_str() ) );
+	}
+
+	// The M2A1's colour as drawn: the mean of the pixels its placing changed.
+	// Without a texture it is drawn white.
+	if ( SaveFrame( pSession, szAfter ) )
+	{
+		int nWidth = 0, nHeight = 0;
+		const std::vector<unsigned char> before = ReadFramePixels( szBefore, &nWidth, &nHeight );
+		const std::vector<unsigned char> after = ReadFramePixels( szAfter, &nWidth, &nHeight );
+		double fSum[3] = { 0, 0, 0 };
+		int nChanged = 0;
+		if ( before.size() == after.size() && after.size() >= size_t( nWidth ) * nHeight * 4 )
+			for ( int y = Max( 0, int( vPlacedAt[0].y ) - 80 ); y < Min( nHeight, int( vPlacedAt[0].y ) + 16 ); ++y )
+				for ( int x = Max( 0, int( vPlacedAt[0].x ) - 40 ); x < Min( nWidth, int( vPlacedAt[0].x ) + 40 ); ++x )
+				{
+					const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+					if ( abs( int( before[n] ) - after[n] ) + abs( int( before[n + 1] ) - after[n + 1] ) + abs( int( before[n + 2] ) - after[n + 2] ) <= 48 )
+						continue;
+					// The TGA holds BGRA.
+					fSum[0] += after[n + 2];
+					fSum[1] += after[n + 1];
+					fSum[2] += after[n];
+					++nChanged;
+				}
+		const double fR = nChanged > 0 ? fSum[0] / nChanged : 0.0, fG = nChanged > 0 ? fSum[1] / nChanged : 0.0, fB = nChanged > 0 ? fSum[2] / nChanged : 0.0;
+		printf( "editor-bridge: on %s the placed M2A1 at %.0f,%.0f is drawn at mean RGB %.0f,%.0f,%.0f (%d pixels, %s)\n", SHIPPED_MAP,
+		        vPlacedAt[0].x, vPlacedAt[0].y, fR, fG, fB, nChanged, szAfter.c_str() );
+		Check( nChanged >= PLACED_MIN_CHANGED && Min( fR, Min( fG, fB ) ) < 180.0,
+		       NStr::Format( "the placed M2A1 is drawn, and not white (mean RGB %.0f,%.0f,%.0f over %d pixels)", fR, fG, fB, nChanged ) );
+	}
+
+	// With SeasonData mounted again, a new M2A1 is drawn with the generated
+	// winter texture. A texture is looked up when its unit is built, and the
+	// failed lookup above is not cached, so no reload is needed.
+	if ( !remount.bMounted )
+	{
+		printf( "editor-bridge: this installation has no SeasonData; the generated winter texture is not checked\n" );
+		return;
+	}
+	remount.bMounted = false;
+	if ( !Check( NSeasonData::Mount( pStorage ), "SeasonData mounts again" ) ||
+	     !Check( pStorage->IsStreamExist( pszM2A1Winter ), "SeasonData has the M2A1's generated winter texture" ) )
+		return;
+	CVec2 vGenerated;
+	bool bPlaced = false;
+	for ( ; nSpot < spots.size() && !bPlaced; ++nSpot )
+	{
+		if ( fabs( spots[nSpot].x - vPlacedAt[0].x ) + fabs( spots[nSpot].y - vPlacedAt[0].y ) < 160.0f ||
+		     fabs( spots[nSpot].x - vPlacedAt[1].x ) + fabs( spots[nSpot].y - vPlacedAt[1].y ) < 160.0f )
+			continue;
+		float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+		int nLinkID = -1;
+		bPlaced = BkEditorScreenToWorld( pSession, spots[nSpot].x, spots[nSpot].y, &wx, &wy ) == BK_EDITOR_OK &&
+		          BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK &&
+		          BkEditorAddObject( pSession, placed[0], mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK;
+		if ( bPlaced )
+			vGenerated = spots[nSpot];
+	}
+	if ( !Check( bPlaced, NStr::Format( "a second %s is placed on bare ground on %s", placed[0], SHIPPED_MAP ) ) )
+		return;
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	const std::string szGeneratedWanted = std::string( wanted[0] ) + "w";
+	const std::vector<std::string> names = UnitMeshTexturesIn( CTRect<float>( vGenerated.x - 40.0f, vGenerated.y - 80.0f, vGenerated.x + 40.0f, vGenerated.y + 16.0f ) );
+	bool bAllGenerated = !names.empty();
+	std::string szNames;
+	for ( size_t j = 0; j < names.size(); ++j )
+	{
+		bAllGenerated = bAllGenerated && names[j] == szGeneratedWanted;
+		if ( szNames.size() < 300 )
+			szNames += " " + names[j];
+	}
+	printf( "editor-bridge: with SeasonData the placed %s at %.0f,%.0f is drawn with:%s\n", placed[0], vGenerated.x, vGenerated.y, szNames.c_str() );
+	Check( bAllGenerated, NStr::Format( "with SeasonData the placed %s is drawn with %s (drawn with:%s)", placed[0], szGeneratedWanted.c_str(), szNames.c_str() ) );
+}
+
+// D-12: what the renderer actually draws when the camera is placed at yaw
+// offsets other than the game's own 45, measured rather than guessed. The
+// terrain is laid out on a fixed isometric screen grid
+// (Scene/TerrainInternal.cpp, CTerrain::MovePatches) and buildings/infantry
+// are single-direction sprites (Main/GameDB.h), so only offset 0 is known
+// good against today's numbers (TestTerrainUnderTheCamera's bar and
+// TestObjectUnderTheCursor's half-picked bar); the rest is printed and left
+// to the plan's checkpoint decision. The camera's anchor is set once, before
+// the loop, so only the yaw changes between the five captures.
+static const int YAW_MEASURE_OFFSETS[] = { 0, 30, 90, 180, 270 };
+
+static void TestYawMeasurement( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	Check( BkEditorSetYaw( pSession, std::numeric_limits<float>::quiet_NaN() ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a non-finite yaw is a bad argument" );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+
+	// Up to 30 known objects, by the engine's own position for each (the same
+	// source TestObjectUnderTheCursor reads), gathered once at yaw 0 so the
+	// same set is checked at every offset.
+	struct SKnownObject { int nLinkID; float wx, wy; };
+	std::vector<SKnownObject> known;
+	for ( size_t i = 0; i < map.objects.size() && known.size() < 30; ++i )
+	{
+		BkEditorObjectState state;
+		if ( BkEditorEngineObjectState( pSession, map.objects[i].link.nLinkID, &state ) != BK_EDITOR_OK )
+			continue;
+		CVec3 vWorld;
+		AI2Vis( &vWorld, state.x, state.y, 0.0f );
+		SKnownObject known_object;
+		known_object.nLinkID = map.objects[i].link.nLinkID;
+		known_object.wx = vWorld.x;
+		known_object.wy = vWorld.y;
+		known.push_back( known_object );
+	}
+	Check( !known.empty(), "there are known objects to measure against" );
+
+	for ( size_t nOffsetIdx = 0; nOffsetIdx < sizeof( YAW_MEASURE_OFFSETS ) / sizeof( YAW_MEASURE_OFFSETS[0] ); ++nOffsetIdx )
+	{
+		const int nOffset = YAW_MEASURE_OFFSETS[nOffsetIdx];
+		if ( !Check( BkEditorSetYaw( pSession, float( nOffset ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			continue;
+		BkEditorView view;
+		if ( Check( BkEditorViewState( pSession, &view ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( fabsf( view.yaw_degrees - ( 45.0f + float( nOffset ) ) ) <= 0.01f,
+			       NStr::Format( "yaw +%d: the view reports 45+offset (%.1f)", nOffset, view.yaw_degrees ) );
+
+		BkEditorFrame( pSession );
+		BkEditorFrame( pSession );
+		const std::string szFrame = szScratch + NStr::Format( "/editor-bridge-yaw-%d.tga", nOffset );
+		SaveFrame( pSession, szFrame );
+
+		int nFrameWidth = 0, nFrameHeight = 0;
+		const std::vector<unsigned char> pixels = ReadFramePixels( szFrame, &nFrameWidth, &nFrameHeight );
+		float fBlack = 1.0f;
+		if ( !pixels.empty() )
+		{
+			int nBlack = 0, nCounted = 0;
+			for ( int y = nFrameHeight / 2; y < nFrameHeight; ++y )
+				for ( int x = 0; x < nFrameWidth; ++x, ++nCounted )
+				{
+					const unsigned char *p = &pixels[( size_t( y ) * nFrameWidth + x ) * 4];
+					if ( p[0] < 16 && p[1] < 16 && p[2] < 16 )
+						++nBlack;
+				}
+			fBlack = nCounted > 0 ? float( nBlack ) / nCounted : 1.0f;
+		}
+
+		// (b): how many of the known objects still land on screen at this
+		// yaw. (a): of those, how many BkEditorObjectAt still finds at the
+		// same screen point. (c): of those, whether the terrain the pick
+		// solves against (BkEditorScreenToWorld -> BkEditorWorldToTile)
+		// agrees with the object's own tile (BkEditorWorldToTile of its own
+		// world position) - the ground and the object staying together.
+		int nOnScreen = 0, nPicked = 0, nTerrainAgrees = 0;
+		for ( size_t i = 0; i < known.size(); ++i )
+		{
+			float sx = 0.0f, sy = 0.0f;
+			if ( BkEditorWorldToScreen( pSession, known[i].wx, known[i].wy, &sx, &sy ) != BK_EDITOR_OK )
+				continue;
+			if ( sx < 0.0f || sy < 0.0f || sx >= float( nScreenWidth ) || sy >= float( nScreenHeight ) )
+				continue;
+			++nOnScreen;
+			int nLinkID = -1;
+			if ( BkEditorObjectAt( pSession, sx, sy - PICK_RISE, &nLinkID ) == BK_EDITOR_OK && nLinkID == known[i].nLinkID )
+				++nPicked;
+			int nOwnTileX = -1, nOwnTileY = -1;
+			float wx = 0.0f, wy = 0.0f;
+			int nPickedTileX = -1, nPickedTileY = -1;
+			if ( BkEditorWorldToTile( pSession, known[i].wx, known[i].wy, &nOwnTileX, &nOwnTileY ) == BK_EDITOR_OK &&
+			     BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) == BK_EDITOR_OK &&
+			     BkEditorWorldToTile( pSession, wx, wy, &nPickedTileX, &nPickedTileY ) == BK_EDITOR_OK &&
+			     nOwnTileX == nPickedTileX && nOwnTileY == nPickedTileY )
+				++nTerrainAgrees;
+		}
+
+		printf( "editor-bridge: yaw +%d: black %.1f%%, picked %d/%d, terrain agrees %d/%d\n",
+		        nOffset, fBlack * 100.0f, nPicked, nOnScreen, nTerrainAgrees, nOnScreen );
+
+		// Only offset 0 is a pass/fail gate: today's known-good behaviour. The
+		// rest is measurement for the checkpoint, not an assertion - the
+		// renderer is not expected to be correct at an untested yaw.
+		if ( nOffset == 0 )
+		{
+			Check( fBlack < TERRAIN_BLACK_BAR, NStr::Format( "yaw +0: the ground is drawn under the camera (%.1f%% black, bar %.0f%%)", fBlack * 100.0f, TERRAIN_BLACK_BAR * 100.0f ) );
+			Check( nOnScreen > 0 && nPicked * 2 >= nOnScreen,
+			       NStr::Format( "yaw +0: at least half the on-screen objects are picked (%d/%d)", nPicked, nOnScreen ) );
+			Check( nOnScreen > 0 && nTerrainAgrees * 10 >= nOnScreen * 9,
+			       NStr::Format( "yaw +0: at least 90%% of the terrain picks agree (%d/%d)", nTerrainAgrees, nOnScreen ) );
+		}
+	}
+
+	// Reset to 0 so the tests that run after this one see the game's own yaw.
+	Check( BkEditorSetYaw( pSession, 0.0f ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
 // A bridge names its spans by link ID, so deleting one has to be refused with
 // a reason, and the map has to be exactly as it was afterwards. A refusal that
 // left half an edit behind would save a map the editor never showed.
@@ -1145,10 +2346,22 @@ static void TestMissingStatsDoNotStopTheOpen( BkEditorSession *pSession )
 // the object, and leave it alone.
 //
 // The copy goes in the scratch directory, never in the installation: shipped
-// Data is read-only for every tier, and a run that is killed between writing
-// and removing would otherwise leave a map behind in it. Nothing is needed
-// beside the map - CTerrain::LoadLocal keeps the path only as a name and takes
-// the tileset, crosset and roadset from storage (TerrainInternal.cpp:88-110).
+// Data is read-only for every tier. Nothing is needed beside the map -
+// CTerrain::LoadLocal keeps the path only as a name and takes the tileset,
+// crosset and roadset from storage (TerrainInternal.cpp:88-110).
+//
+// Left in place on purpose, not removed at the end: the app tier's own host
+// check (03-11's panelSmoke, main.zig) opens this exact file afterward to
+// prove its unknown-objects warning against a real Open, found via
+// dirname(output) (main.zig's own comment). A `remove()` here used to run
+// unconditionally, and its success is platform-dependent for a path built
+// with a literal backslash: POSIX `remove()` (macOS) does not treat '\' as a
+// separator, so the delete silently failed there and the file stayed,
+// while on Windows it succeeded and removed the very fixture the host check
+// needed - the check ran (PASS) on one platform and printed "skipped" on the
+// other for a reason that had nothing to do with whether the warning itself
+// worked. Keeping the file unconditionally makes the two tiers agree on
+// every platform instead of one depending on the other's cleanup rules.
 static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession, const std::string &szScratch )
 {
 	const std::string szCopy = szScratch + "\\coldwinter-unknown-object.bzm";
@@ -1170,7 +2383,28 @@ static void TestUnknownObjectDoesNotStopTheOpen( BkEditorSession *pSession, cons
 		Check( summary.unknown_object_count == 1, "and reports exactly the one unknown object" );
 	else
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
-	remove( szCopy.c_str() );
+}
+
+// A tile the open map's tileset actually offers (BkEditorTilesetTiles),
+// different from current. The older paint tests used to guess
+// (current+1)%4, which depends on the map: tile 1 is in none of the shipped
+// tilesets (TestPaintRefusesTileOutsideTileset's own comment), so a current
+// tile of 0 wrapped a guess straight into a tile the paint would refuse
+// instead of the good, different tile the test wanted (Task 3 carried).
+// Falls back to current itself if the tileset somehow offers nothing else,
+// so a caller's own Check still names a sensible failure rather than an
+// empty read silently picking tile 0.
+static unsigned char OtherTilesetTile( BkEditorSession *pSession, unsigned char current )
+{
+	int nCount = 0;
+	BkEditorTilesetTiles( pSession, 0, 0, &nCount );
+	std::vector<unsigned char> tiles( size_t( nCount > 0 ? nCount : 1 ) );
+	int nRead = 0;
+	BkEditorTilesetTiles( pSession, &tiles[0], nCount, &nRead );
+	for ( int i = 0; i < nRead; ++i )
+		if ( tiles[i] != current )
+			return tiles[i];
+	return current;
 }
 
 // A paint undone is the map as it was, in the file and in the engine; redone,
@@ -1183,7 +2417,7 @@ static void TestPaintUndoIsExact( BkEditorSession *pSession, const std::string &
 	std::string szError;
 	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
 		return;
-	const unsigned char tile = (unsigned char)( ( original.terrain.tiles[20][20].tile + 1 ) % 4 );
+	const unsigned char tile = OtherTilesetTile( pSession, original.terrain.tiles[20][20].tile );
 	BkEditorPaintCell first[] = { { 20, 20, tile }, { 21, 20, tile } };
 	BkEditorPaintCell second[] = { { 22, 20, tile } };
 	int nFirst = -1, nSecond = -1;
@@ -1241,7 +2475,7 @@ static void TestPaintAtTheEdgeAndRefused( BkEditorSession *pSession, const std::
 		return;
 	const int nSizeX = original.terrain.tiles.GetSizeX(), nSizeY = original.terrain.tiles.GetSizeY();
 	const BkEditorPaintCell corner = { nSizeX - 1, nSizeY - 1,
-	                                   (unsigned char)( ( original.terrain.tiles[nSizeY - 1][nSizeX - 1].tile + 1 ) % 4 ) };
+	                                   OtherTilesetTile( pSession, original.terrain.tiles[nSizeY - 1][nSizeX - 1].tile ) };
 	int nToken = -1;
 	Check( BkEditorPaint( pSession, &corner, 1, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
@@ -1251,7 +2485,7 @@ static void TestPaintAtTheEdgeAndRefused( BkEditorSession *pSession, const std::
 	       ( std::string( "and its undo: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 
 	const BkEditorPaintCell partly[] = {
-		{ 5, 5, (unsigned char)( ( original.terrain.tiles[5][5].tile + 1 ) % 4 ) },
+		{ 5, 5, OtherTilesetTile( pSession, original.terrain.tiles[5][5].tile ) },
 		{ nSizeX, 5, 0 },
 	};
 	nToken = 0;
@@ -1344,6 +2578,154 @@ static void TestTilesetTilesAllPaint( BkEditorSession *pSession )
 	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK,
 	       ( std::string( "and after painting each and undoing it the terrain still matches: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 	printf( "editor-bridge: the tileset of %s offers %d tiles, %d painted\n", SHIPPED_MAP, nCount, nPainted );
+}
+
+// 03-15 gap fix (Johannes's M1 hand try: "tile 0", "tile 1", ... could only
+// be told apart by painting each): BkEditorDescribeTile names every tile the
+// tileset offers by its terrain type, and BkEditorTilePicture cuts each one's
+// diamond out of the tileset texture. On coldwinter: every offered tile
+// decodes to a picture that is not empty, not one flat colour, transparent in
+// its corners and opaque in its middle; tiles of different terrain types
+// differ; the refusals follow the contract. All of them are written side by
+// side to <scratch>/03-15-tile-pictures.tga for a person to look at. Then
+// BkEditorCloseMap closes the map (File > Close) and the map-needing calls
+// refuse again, and coldwinter is reopened for whatever runs next.
+static void TestTilePicturesAndClose( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	unsigned char tiles[256];
+	int nCount = 0;
+	if ( !Check( BkEditorTilesetTiles( pSession, tiles, 256, &nCount ) == BK_EDITOR_OK && nCount > 1, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	const int nSide = 64;
+	std::vector<unsigned char> buffer( nSide * nSide * 4 );
+	// Every picture, for the contact sheet: a cell per tile, 16 to a row.
+	const int nColumns = 16, nCellWidth = nSide + 4, nCellHeight = nSide / 2 + 4;
+	const int nRows = ( nCount + nColumns - 1 ) / nColumns;
+	std::vector<unsigned char> sheet( size_t( nColumns * nCellWidth ) * size_t( nRows * nCellHeight ) * 4, 0 );
+	for ( size_t i = 3; i < sheet.size(); i += 4 )
+		sheet[i] = 255;
+
+	std::string szTileset;
+	std::map<int, std::string> terrainNames;
+	std::map<int, std::vector<unsigned char> > firstOfTerrain;
+	std::set<std::vector<unsigned char> > distinct;
+	int nGood = 0;
+	double fFirstSeconds = 0.0, fRestSeconds = 0.0;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const int nTile = tiles[i];
+		BkEditorTile info;
+		if ( !Check( BkEditorDescribeTile( pSession, nTile, &info ) == BK_EDITOR_OK,
+		             NStr::Format( "tile %d describes: %s", nTile, BkEditorLastMessage( pSession ) ) ) )
+			continue;
+		Check( info.terrain[0] != 0 && info.terrain_index >= 0, NStr::Format( "tile %d has a terrain type name (%d '%s')", nTile, info.terrain_index, info.terrain ) );
+		if ( szTileset.empty() )
+			szTileset = info.tileset;
+		Check( szTileset == info.tileset && !szTileset.empty(), NStr::Format( "tile %d names the same tileset (%s, %s)", nTile, szTileset.c_str(), info.tileset ) );
+		terrainNames[info.terrain_index] = info.terrain;
+
+		int nWidth = 0, nHeight = 0;
+		const Uint64 nStart = SDL_GetPerformanceCounter();
+		const BkEditorStatus status = BkEditorTilePicture( pSession, nTile, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight );
+		const double fSeconds = double( SDL_GetPerformanceCounter() - nStart ) / double( SDL_GetPerformanceFrequency() );
+		( i == 0 ? fFirstSeconds : fRestSeconds ) += fSeconds;
+		if ( !Check( status == BK_EDITOR_OK, NStr::Format( "tile %d has a picture: %s", nTile, BkEditorLastMessage( pSession ) ) ) )
+			continue;
+		if ( !Check( nWidth >= 8 && nWidth <= nSide && nHeight >= 4 && nHeight <= nSide,
+		             NStr::Format( "tile %d's picture is %dx%d", nTile, nWidth, nHeight ) ) )
+			continue;
+		// The diamond: its middle opaque, its four corners transparent.
+		const unsigned char *pMiddle = &buffer[( size_t( nHeight / 2 ) * nWidth + nWidth / 2 ) * 4];
+		Check( pMiddle[3] == 255, NStr::Format( "tile %d's middle is opaque (alpha %d)", nTile, int( pMiddle[3] ) ) );
+		Check( buffer[3] == 0 && buffer[( size_t( nWidth ) - 1 ) * 4 + 3] == 0 &&
+		       buffer[( size_t( nHeight - 1 ) * nWidth ) * 4 + 3] == 0 && buffer[( size_t( nHeight ) * nWidth - 1 ) * 4 + 3] == 0,
+		       NStr::Format( "tile %d's corners are transparent", nTile ) );
+		// Not one flat colour: the opaque pixels vary.
+		int nMinLuma = 256 * 3, nMaxLuma = -1, nOpaque = 0;
+		for ( int p = 0; p < nWidth * nHeight; ++p )
+		{
+			if ( buffer[p * 4 + 3] != 255 )
+				continue;
+			++nOpaque;
+			const int nLuma = buffer[p * 4 + 0] + buffer[p * 4 + 1] + buffer[p * 4 + 2];
+			nMinLuma = Min( nMinLuma, nLuma );
+			nMaxLuma = Max( nMaxLuma, nLuma );
+		}
+		const bool bOk = Check( nOpaque >= nWidth * nHeight / 3, NStr::Format( "tile %d's diamond covers a third of its box or more (%d of %d)", nTile, nOpaque, nWidth * nHeight ) ) &&
+		                 Check( nMaxLuma - nMinLuma >= 12, NStr::Format( "tile %d's picture is not one flat colour (luma %d..%d)", nTile, nMinLuma, nMaxLuma ) ) &&
+		                 Check( nMaxLuma > 0, NStr::Format( "tile %d's picture is not black", nTile ) );
+		if ( !bOk )
+			continue;
+		++nGood;
+		const std::vector<unsigned char> picture( buffer.begin(), buffer.begin() + size_t( nWidth ) * nHeight * 4 );
+		distinct.insert( picture );
+		if ( firstOfTerrain.find( info.terrain_index ) == firstOfTerrain.end() )
+			firstOfTerrain[info.terrain_index] = picture;
+		// Onto the contact sheet, over black.
+		const int nCellX = ( i % nColumns ) * nCellWidth + 2, nCellY = ( i / nColumns ) * nCellHeight + 2;
+		for ( int y = 0; y < nHeight && y < nCellHeight - 4; ++y )
+			for ( int x = 0; x < nWidth && x < nCellWidth - 4; ++x )
+			{
+				const unsigned char *pPixel = &picture[( size_t( y ) * nWidth + x ) * 4];
+				unsigned char *pTarget = &sheet[( size_t( nCellY + y ) * ( nColumns * nCellWidth ) + nCellX + x ) * 4];
+				for ( int ch = 0; ch < 3; ++ch )
+					pTarget[ch] = (unsigned char)( pPixel[ch] * pPixel[3] / 255 );
+			}
+	}
+	Check( nGood == nCount, NStr::Format( "every offered tile has a good picture (%d of %d)", nGood, nCount ) );
+	// Tiles of different terrain types show different ground.
+	int nSamePairs = 0;
+	for ( std::map<int, std::vector<unsigned char> >::const_iterator a = firstOfTerrain.begin(); a != firstOfTerrain.end(); ++a )
+		for ( std::map<int, std::vector<unsigned char> >::const_iterator b = a; ++b != firstOfTerrain.end(); )
+			if ( a->second == b->second )
+				++nSamePairs;
+	Check( firstOfTerrain.size() >= 2 && nSamePairs == 0,
+	       NStr::Format( "the first tiles of the %d terrain types all differ (%d identical pairs)", int( firstOfTerrain.size() ), nSamePairs ) );
+	Check( int( distinct.size() ) * 2 >= nCount, NStr::Format( "most tiles have a picture of their own (%d distinct of %d)", int( distinct.size() ), nCount ) );
+	std::string szTerrains;
+	for ( std::map<int, std::string>::const_iterator it = terrainNames.begin(); it != terrainNames.end(); ++it )
+		szTerrains += ( szTerrains.empty() ? "" : ", " ) + it->second;
+	printf( "editor-bridge: tile pictures: %s's tileset %s: %d tiles, %d distinct pictures, %d terrain types (%s)\n",
+	        SHIPPED_MAP, szTileset.c_str(), nCount, int( distinct.size() ), int( terrainNames.size() ), szTerrains.c_str() );
+	printf( "editor-bridge: tile pictures: first %.2f ms (decodes the texture), then %.3f ms each\n",
+	        fFirstSeconds * 1000.0, nCount > 1 ? fRestSeconds * 1000.0 / ( nCount - 1 ) : 0.0 );
+	const std::string szSheet = szScratch + "/03-15-tile-pictures.tga";
+	const bool bSheetWritten = WriteRgbaTga( szSheet.c_str(), &sheet[0], nColumns * nCellWidth, nRows * nCellHeight );
+	printf( "editor-bridge: tile pictures: %s %s\n", bSheetWritten ? "saved" : "could not save", szSheet.c_str() );
+
+	// The contract's refusals.
+	BkEditorTile info;
+	Check( BkEditorDescribeTile( pSession, 1, &info ) == BK_EDITOR_REFUSED && info.terrain_index == -1 && info.terrain[0] == 0,
+	       "tile 1, in no shipped tileset, is refused and zeroed" );
+	Check( BkEditorDescribeTile( pSession, 256, &info ) == BK_EDITOR_BAD_ARGUMENT, "tile 256 is a bad argument" );
+	Check( BkEditorDescribeTile( pSession, tiles[0], 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
+	int nWidth = 0, nHeight = 0;
+	Check( BkEditorTilePicture( pSession, 1, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED, "tile 1 has no picture" );
+	Check( BkEditorTilePicture( pSession, -1, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "tile -1 is a bad argument" );
+	Check( BkEditorTilePicture( pSession, tiles[0], &buffer[0], int( buffer.size() ), 4, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "max_side 4 is a bad argument" );
+	// Not "small": the Windows SDK's rpcndr.h defines that as a macro for char.
+	unsigned char tinyBuffer[16];
+	Check( BkEditorTilePicture( pSession, tiles[0], tinyBuffer, sizeof tinyBuffer, nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED && nWidth > 0 && nHeight > 0,
+	       "a 16-byte buffer is refused and still told the real size" );
+	// Scaled to fit a smaller side, keeping the shape.
+	Check( BkEditorTilePicture( pSession, tiles[0], &buffer[0], int( buffer.size() ), 16, &nWidth, &nHeight ) == BK_EDITOR_OK && nWidth <= 16 && nHeight <= 16 && nWidth > nHeight,
+	       NStr::Format( "max_side 16 scales the picture down to fit, still wider than tall (%dx%d)", nWidth, nHeight ) );
+
+	// File > Close: the map is gone from the session and from the engine.
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nAfter = -1;
+	Check( BkEditorTilesetTiles( pSession, tiles, 256, &nAfter ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ) == "no map is open",
+	       "after BkEditorCloseMap the tileset is refused: no map is open" );
+	Check( BkEditorTilePicture( pSession, 0, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED, "and so is a tile picture" );
+	int nObjects = -1;
+	Check( BkEditorObjects( pSession, 0, 0, &nObjects ) == BK_EDITOR_REFUSED, "and the object list" );
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, "a second close is harmless" );
+	Check( BkEditorFrame( pSession ) == BK_EDITOR_OK, NStr::Format( "a frame still draws with no map open: %s", BkEditorLastMessage( pSession ) ) );
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, NStr::Format( "coldwinter opens again after the close: %s", BkEditorLastMessage( pSession ) ) );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, NStr::Format( "and the world matches it: %s", BkEditorLastMessage( pSession ) ) );
 }
 
 // Delete then restore is the original object, in the map and in the engine,
@@ -1667,6 +3049,446 @@ static void TestEveryGameTypeAnswers( BkEditorSession *pSession, int nScreenWidt
 	       ( std::string( "after every game type was asked for: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 }
 
+// D-29: BkEditorObjectPicture over every placeable catalogue entry (every
+// game type but the sound list, 100, and the tank pit, 5 - the same
+// placeable rule TestEveryGameTypeAnswers' own catalogue loop follows, and
+// panels_logic.isPlaceable's Zig-side equivalent) - the coverage measurement
+// the plan's checkpoint decision is made from.
+static void TestObjectPictures( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	std::vector<unsigned char> buffer( 256 * 256 * 4 );
+	int nPlaceable = 0, nWithPicture = 0;
+	std::map<int, int> missingByType;
+	std::string szFirstWithPicture;
+	bool bCheckedFirstUnit = false;
+	double fTotalSeconds = 0.0;
+
+	for ( int i = 0; i < nRead; ++i )
+	{
+		// 5: tank pit, 100: sound - neither is a map object (WhyNotAMapObject,
+		// session.cpp), so neither is ever offered a picture in the palette.
+		if ( catalogue[i].game_type == 5 || catalogue[i].game_type == 100 )
+			continue;
+		++nPlaceable;
+		int nWidth = 0, nHeight = 0;
+		const Uint64 nStart = SDL_GetPerformanceCounter();
+		const BkEditorStatus status = BkEditorObjectPicture( pSession, catalogue[i].name, &buffer[0], int( buffer.size() ), 64, &nWidth, &nHeight );
+		const Uint64 nEnd = SDL_GetPerformanceCounter();
+		fTotalSeconds += double( nEnd - nStart ) / double( SDL_GetPerformanceFrequency() );
+		if ( status == BK_EDITOR_OK )
+		{
+			++nWithPicture;
+			if ( szFirstWithPicture.empty() )
+			{
+				szFirstWithPicture = catalogue[i].name;
+				// One sample, for a human to look at rather than trust the
+				// checks below alone (03-09's checkpoint asks for it).
+				const std::string szSample = szScratch + "/03-09-sample-picture.tga";
+				const bool bSampleWritten = WriteRgbaTga( szSample.c_str(), &buffer[0], nWidth, nHeight );
+				printf( "editor-bridge: %s %s (%s, %dx%d)\n", bSampleWritten ? "saved" : "could not save", szSample.c_str(), catalogue[i].name, nWidth, nHeight );
+			}
+			// 1: SGVOGT_UNIT (Main/GameDB.h) - the first unit with a picture,
+			// checked for a sane decode rather than trusting the status alone.
+			if ( !bCheckedFirstUnit && catalogue[i].game_type == 1 )
+			{
+				bCheckedFirstUnit = true;
+				Check( nWidth >= 1 && nWidth <= 256 && nHeight >= 1 && nHeight <= 256,
+				       NStr::Format( "%s's picture is %dx%d, expected 1..256 on each side", catalogue[i].name, nWidth, nHeight ) );
+				bool bNonBlack = false;
+				for ( int p = 0; p < nWidth * nHeight && !bNonBlack; ++p )
+					if ( buffer[p * 4 + 0] != 0 || buffer[p * 4 + 1] != 0 || buffer[p * 4 + 2] != 0 )
+						bNonBlack = true;
+				Check( bNonBlack, NStr::Format( "%s's picture has at least one non-black pixel", catalogue[i].name ) );
+			}
+		}
+		else
+		{
+			Check( status == BK_EDITOR_REFUSED,
+			       NStr::Format( "%s with no picture is refused, got status %d: %s", catalogue[i].name, int( status ), BkEditorLastMessage( pSession ) ) );
+			++missingByType[catalogue[i].game_type];
+		}
+	}
+	printf( "editor-bridge: pictures: %d of %d placeable objects have one\n", nWithPicture, nPlaceable );
+	printf( "editor-bridge: pictures: %.3f ms per decode (%d decodes, %.3f s total)\n",
+	        nPlaceable != 0 ? fTotalSeconds * 1000.0 / nPlaceable : 0.0, nPlaceable, fTotalSeconds );
+	for ( std::map<int, int>::const_iterator it = missingByType.begin(); it != missingByType.end(); ++it )
+		printf( "editor-bridge: pictures: game type %d has %d without one\n", it->first, it->second );
+
+	int nUnknownWidth = 0, nUnknownHeight = 0;
+	Check( BkEditorObjectPicture( pSession, "NoSuchObjectAtAll", &buffer[0], int( buffer.size() ), 64, &nUnknownWidth, &nUnknownHeight ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an unknown name is a bad argument" );
+
+	if ( !szFirstWithPicture.empty() )
+	{
+		unsigned char smallBuffer[16];
+		int nShortWidth = 0, nShortHeight = 0;
+		const BkEditorStatus shortStatus = BkEditorObjectPicture( pSession, szFirstWithPicture.c_str(), smallBuffer, sizeof smallBuffer, 64, &nShortWidth, &nShortHeight );
+		Check( shortStatus == BK_EDITOR_REFUSED,
+		       NStr::Format( "a 16-byte buffer is refused for %s, got status %d", szFirstWithPicture.c_str(), int( shortStatus ) ) );
+		Check( nShortWidth > 0 && nShortHeight > 0, "a short buffer still reports the real sizes" );
+	}
+	else
+		printf( "editor-bridge: pictures: skipped the short-buffer check, no placeable object has a picture\n" );
+
+	// User-requested addition (03-09 Task 4): Allies_Bren has no icon.tga of
+	// its own (Data/Units/Humans/Allies/Bren has only .san/.dds files) but is
+	// a member of the gb_bren_43 squad (Data/Squads/gb_bren_43/1.xml's own
+	// <Members>), which does - BkEditorObjectPicture should borrow it rather
+	// than refuse.
+	{
+		int nBrenWidth = 0, nBrenHeight = 0;
+		const BkEditorStatus brenStatus = BkEditorObjectPicture( pSession, "Allies_Bren", &buffer[0], int( buffer.size() ), 64, &nBrenWidth, &nBrenHeight );
+		Check( brenStatus == BK_EDITOR_OK,
+		       NStr::Format( "Allies_Bren (no icon.tga of its own) should borrow its squad's, got status %d: %s", int( brenStatus ), BkEditorLastMessage( pSession ) ) );
+		if ( brenStatus == BK_EDITOR_OK )
+		{
+			Check( nBrenWidth >= 1 && nBrenWidth <= 256 && nBrenHeight >= 1 && nBrenHeight <= 256,
+			       NStr::Format( "Allies_Bren's borrowed picture is %dx%d, expected 1..256 on each side", nBrenWidth, nBrenHeight ) );
+			bool bNonBlack = false;
+			for ( int p = 0; p < nBrenWidth * nBrenHeight && !bNonBlack; ++p )
+				if ( buffer[p * 4 + 0] != 0 || buffer[p * 4 + 1] != 0 || buffer[p * 4 + 2] != 0 )
+					bNonBlack = true;
+			Check( bNonBlack, "Allies_Bren's borrowed picture has at least one non-black pixel" );
+		}
+	}
+}
+
+// D-26: BkEditorMods lists the fixture mod (tools/zig/fixtures/editor_mod,
+// staged at <install>/mods/EditorTestMod for this tier only - never the
+// unlicensed AchtungPanzer2); BkEditorSetMod switches to it and back,
+// closing the open map each time (its object database is about to change
+// under it); a bad or unknown folder is refused and changes nothing.
+static void TestModsListSetAndClear( BkEditorSession *pSession, const std::string &szScratch )
+{
+	(void)szScratch;
+	int nBaseCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nBaseCatalogue );
+
+	// The sizing call with capacity 0 is REFUSED whenever there is at least
+	// one mod - the same two-call convention BkEditorCatalogue's own sizing
+	// call follows (TestEveryGameTypeAnswers, above); only the count matters.
+	int nModCount = 0;
+	BkEditorMods( pSession, 0, 0, &nModCount );
+	if ( !Check( nModCount > 0, "at least the fixture mod is installed" ) )
+		return;
+	std::vector<BkEditorMod> mods( nModCount );
+	int nRead = 0;
+	if ( !Check( BkEditorMods( pSession, &mods[0], nModCount, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nFixture = -1;
+	for ( int i = 0; i < nRead; ++i )
+		if ( strcmp( mods[i].folder, "EditorTestMod" ) == 0 )
+			nFixture = i;
+	if ( !Check( nFixture >= 0, "BkEditorMods lists EditorTestMod" ) )
+		return;
+	Check( strcmp( mods[nFixture].name, "Editor Test Mod" ) == 0,
+	       NStr::Format( "EditorTestMod's name is \"Editor Test Mod\", got \"%s\"", mods[nFixture].name ) );
+	Check( strcmp( mods[nFixture].version, "1.0" ) == 0,
+	       NStr::Format( "EditorTestMod's version is \"1.0\", got \"%s\"", mods[nFixture].version ) );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorMod active;
+	memset( &active, 0, sizeof active );
+	if ( Check( BkEditorActiveMod( pSession, &active ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( strcmp( active.folder, "EditorTestMod" ) == 0,
+		       NStr::Format( "ActiveMod's folder is EditorTestMod, got \"%s\"", active.folder ) );
+		Check( strcmp( active.name, "Editor Test Mod" ) == 0, "ActiveMod's name follows the mod" );
+	}
+
+	// The switch closes the open map: its object database just changed.
+	int nLinkID = -1;
+	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nLinkID ) == BK_EDITOR_REFUSED,
+	       "no map is open right after the switch" );
+
+	// D-26, revised 2026-09-29: the editor now closes the map on every
+	// switch, so a switch with no map open is the common case - to None and
+	// back again, each one OK, and still no map open after either.
+	Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK,
+	       NStr::Format( "SetMod(null) with no map open: %s", BkEditorLastMessage( pSession ) ) );
+	if ( !Check( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK,
+	             NStr::Format( "SetMod(EditorTestMod) with no map open: %s", BkEditorLastMessage( pSession ) ) ) )
+		return;
+	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nLinkID ) == BK_EDITOR_REFUSED,
+	       "still no map open after two switches with none open" );
+	BkEditorMod again;
+	memset( &again, 0, sizeof again );
+	if ( Check( BkEditorActiveMod( pSession, &again ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( strcmp( again.folder, "EditorTestMod" ) == 0,
+		       NStr::Format( "ActiveMod's folder is EditorTestMod after switching with no map open, got \"%s\"", again.folder ) );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCatalogueWithMod = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogueWithMod );
+	Check( nCatalogueWithMod >= nBaseCatalogue,
+	       NStr::Format( "the catalogue with EditorTestMod active has %d entries, at least the base %d", nCatalogueWithMod, nBaseCatalogue ) );
+
+	Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorMod cleared;
+	memset( &cleared, 0, sizeof cleared );
+	if ( Check( BkEditorActiveMod( pSession, &cleared ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( cleared.folder[0] == 0, "ActiveMod reports none after SetMod(null)" );
+
+	Check( BkEditorSetMod( pSession, "../x" ) == BK_EDITOR_BAD_ARGUMENT, "\"../x\" is a bad argument" );
+	Check( BkEditorSetMod( pSession, "a/b" ) == BK_EDITOR_BAD_ARGUMENT, "\"a/b\" is a bad argument" );
+	const BkEditorStatus noSuchStatus = BkEditorSetMod( pSession, "NoSuchMod" );
+	const std::string szNoSuchMessage = BkEditorLastMessage( pSession );
+	Check( noSuchStatus == BK_EDITOR_REFUSED,
+	       NStr::Format( "\"NoSuchMod\" is refused, got status %d", int( noSuchStatus ) ) );
+	Check( szNoSuchMessage.find( "NoSuchMod" ) != std::string::npos,
+	       NStr::Format( "the refusal names the folder: \"%s\"", szNoSuchMessage.c_str() ) );
+
+	// Leave the session on no mod with coldwinter open, for whatever runs next.
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
+// D-28: BkEditorSaveMap stamps szMODName/szMODVersion from the active mod -
+// never from a game profile the editor has none of - and leaves the two
+// fields exactly as read when no mod is active (the preservation invariant
+// bridge.h's own BkEditorSaveMap comment describes).
+static void TestSaveRecordsTheMod( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::string szStamped = szScratch + "\\mod-stamped.bzm";
+	const std::string szFree = szScratch + "\\mod-free.bzm";
+
+	if ( !Check( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szStamped.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo stamped;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szStamped.c_str(), &stamped, &szError ), szError.c_str() ) )
+		return;
+	Check( stamped.szMODName == "Editor Test Mod",
+	       NStr::Format( "the mod-stamped map's szMODName is \"Editor Test Mod\", got \"%s\"", stamped.szMODName.c_str() ) );
+	Check( stamped.szMODVersion == "1.0",
+	       NStr::Format( "the mod-stamped map's szMODVersion is \"1.0\", got \"%s\"", stamped.szMODVersion.c_str() ) );
+
+	if ( !Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szFree.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo shipped, free;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &shipped, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( NMapFile::Read( szFree.c_str(), &free, &szError ), szError.c_str() ) )
+		return;
+	Check( free.szMODName == shipped.szMODName,
+	       NStr::Format( "with no mod active szMODName is untouched: \"%s\" vs shipped's \"%s\"", free.szMODName.c_str(), shipped.szMODName.c_str() ) );
+	Check( free.szMODVersion == shipped.szMODVersion,
+	       NStr::Format( "with no mod active szMODVersion is untouched: \"%s\" vs shipped's \"%s\"", free.szMODVersion.c_str(), shipped.szMODVersion.c_str() ) );
+}
+
+// BkEditorSounds/AddSound/SetSound/DeleteSound against CMapInfo::sounds.sounds
+// (see bridge.h's own comment on BkEditorSounds for why this is not
+// CMapInfo::soundsList, a sibling field this bridge never touches because
+// nothing serialises it). Finds a shipped map with a non-empty sound list by
+// walking Data/Maps, at most 60 .bzm files deep; falls back to coldwinter
+// (which has none) so the rest of the test still runs against a real map.
+static void TestSoundList( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	std::string szMapPath = SHIPPED_MAP;
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	{
+		int nExamined = 0;
+		std::error_code error;
+		std::filesystem::recursive_directory_iterator it( "Data/Maps", error ), end;
+		for ( ; !error && it != end && nExamined < 60; it.increment( error ) )
+		{
+			if ( it->is_directory() )
+				continue;
+			if ( it->path().extension() != ".bzm" )
+				continue;
+			++nExamined;
+			std::string szCandidateEngine = it->path().string();
+			for ( std::string::size_type i = 0; i < szCandidateEngine.size(); ++i )
+				if ( szCandidateEngine[i] == '/' ) szCandidateEngine[i] = '\\';
+			CMapInfo candidate;
+			std::string szCandidateError;
+			if ( !NMapFile::Read( szCandidateEngine.c_str(), &candidate, &szCandidateError ) )
+				continue;
+			if ( !candidate.sounds.sounds.empty() )
+			{
+				szMapPath = szCandidateEngine;
+				original = candidate;
+				break;
+			}
+		}
+		printf( "editor-bridge: TestSoundList uses %s (%d sound(s), %d shipped maps examined)\n",
+		        szMapPath.c_str(), int( original.sounds.sounds.size() ), nExamined );
+	}
+
+	if ( !Check( BkEditorOpenMap( pSession, szMapPath.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// BkEditorSounds equals the file's list.
+	int nCount = -1;
+	BkEditorSounds( pSession, 0, 0, &nCount );
+	if ( !Check( nCount == int( original.sounds.sounds.size() ), "BkEditorSounds reports the full count with a short buffer" ) )
+		return;
+	std::vector<BkEditorSoundRecord> records( nCount > 0 ? nCount : 1 );
+	int nRead = 0;
+	if ( !Check( BkEditorSounds( pSession, &records[0], nCount, &nRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nRead == nCount, "and reads all of them" );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const SMapSoundInfo &rSound = original.sounds.sounds[i];
+		Check( strcmp( records[i].name, rSound.szName.c_str() ) == 0 &&
+		       records[i].x == rSound.vPos.x && records[i].y == rSound.vPos.y && records[i].z == rSound.vPos.z &&
+		       records[i].repeat_ms == int( rSound.timeRepeat ) && records[i].repeat_random_ms == int( rSound.timeRepeatRandom ) &&
+		       records[i].mute_in_combat == ( rSound.bMuteDuringCombat ? 1 : 0 ) &&
+		       records[i].min_radius == rSound.nMinRadius && records[i].max_radius == rSound.nMaxRadius,
+		       NStr::Format( "sound %d reads back as the file has it", i ) );
+	}
+
+	// A known sound (the first catalogue entry of game type 100) at the map's
+	// middle: count + 1.
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nCatalogueRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &catalogue[0], nCatalogue, &nCatalogueRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::string szSoundName;
+	for ( int i = 0; i < nCatalogueRead; ++i )
+		if ( catalogue[i].game_type == 100 ) { szSoundName = catalogue[i].name; break; }
+	if ( !Check( !szSoundName.empty(), "the catalogue offers a sound (game type 100)" ) )
+		return;
+
+	BkEditorFrame( pSession );
+	float wx = 0.0f, wy = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f, &wx, &wy ) == BK_EDITOR_OK,
+	             "the map's middle is on the map" ) )
+		return;
+
+	BkEditorSoundRecord add;
+	memset( &add, 0, sizeof add );
+	strncpy( add.name, szSoundName.c_str(), sizeof add.name - 1 );
+	add.x = wx;
+	add.y = wy;
+	add.z = 0.0f;
+	add.repeat_ms = 1000;
+	add.repeat_random_ms = 500;
+	add.mute_in_combat = 1;
+	add.min_radius = 1;
+	add.max_radius = 5;
+	if ( !Check( BkEditorAddSound( pSession, -1, &add ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nAfterAdd = -1;
+	BkEditorSounds( pSession, 0, 0, &nAfterAdd );
+	Check( nAfterAdd == nCount + 1, "adding a sound grows the list by one" );
+
+	// Set its radii.
+	std::vector<BkEditorSoundRecord> afterAdd( nAfterAdd );
+	int nAfterAddRead = 0;
+	if ( !Check( BkEditorSounds( pSession, &afterAdd[0], nAfterAdd, &nAfterAddRead ) == BK_EDITOR_OK, "the grown list reads" ) )
+		return;
+	BkEditorSoundRecord edited = afterAdd[nAfterAdd - 1];
+	edited.min_radius = 2;
+	edited.max_radius = 9;
+	if ( !Check( BkEditorSetSound( pSession, nAfterAdd - 1, &edited ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::vector<BkEditorSoundRecord> afterSet( nAfterAdd );
+	int nAfterSetRead = 0;
+	if ( !Check( BkEditorSounds( pSession, &afterSet[0], nAfterAdd, &nAfterSetRead ) == BK_EDITOR_OK, "the edited list reads" ) )
+		return;
+	Check( afterSet[nAfterAdd - 1].min_radius == 2 && afterSet[nAfterAdd - 1].max_radius == 9, "the set radii stuck" );
+
+	// A kept (not deleted) edit survives a save and reload with its exact
+	// fields - the add+delete round trip below only proves the list's shape
+	// comes back; this proves a real edit's own values do too.
+	{
+		const std::string szKept = szScratch + "\\sounds-kept.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szKept.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			CMapInfo kept;
+			std::string szKeptError;
+			if ( Check( NMapFile::Read( szKept.c_str(), &kept, &szKeptError ), szKeptError.c_str() ) )
+			{
+				if ( Check( kept.sounds.sounds.size() == size_t( nAfterAdd ), "the kept map has the grown sound count" ) )
+				{
+					const SMapSoundInfo &rKept = kept.sounds.sounds[nAfterAdd - 1];
+					const BkEditorSoundRecord &rExpected = afterSet[nAfterAdd - 1];
+					Check( rKept.szName == rExpected.name && rKept.vPos.x == rExpected.x && rKept.vPos.y == rExpected.y && rKept.vPos.z == rExpected.z &&
+					           rKept.timeRepeat == NTimer::STime( rExpected.repeat_ms ) && rKept.timeRepeatRandom == NTimer::STime( rExpected.repeat_random_ms ) &&
+					           rKept.bMuteDuringCombat == ( rExpected.mute_in_combat != 0 ) && rKept.nMinRadius == rExpected.min_radius && rKept.nMaxRadius == rExpected.max_radius,
+					       "the kept sound's own fields (name, position, repeat, mute, radii) survived the save and reload" );
+				}
+			}
+		}
+		remove( szKept.c_str() );
+	}
+
+	// Delete it: the list equals the file's again.
+	if ( !Check( BkEditorDeleteSound( pSession, nAfterAdd - 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nAfterDelete = -1;
+	BkEditorSounds( pSession, 0, 0, &nAfterDelete );
+	Check( nAfterDelete == nCount, "deleting the added sound shrinks the list back" );
+
+	// Every refusal above leaves the list unchanged.
+	BkEditorSoundRecord bad = add;
+	strncpy( bad.name, "NoSuchSoundAtAll", sizeof bad.name - 1 );
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "an unknown name is refused" );
+	bad = add;
+	bad.x = -1000000.0f;
+	bad.y = -1000000.0f;
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "an off-map position is refused" );
+	bad = add;
+	bad.repeat_ms = -1;
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "a negative repeat is refused" );
+	bad = add;
+	bad.min_radius = 9;
+	bad.max_radius = 1;
+	Check( BkEditorAddSound( pSession, -1, &bad ) == BK_EDITOR_REFUSED, "min_radius above max_radius is refused" );
+	Check( BkEditorAddSound( pSession, -1, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a bad argument" );
+	Check( BkEditorAddSound( pSession, nCount + 5, &add ) == BK_EDITOR_BAD_ARGUMENT, "an index past the end is a bad argument" );
+	Check( BkEditorSetSound( pSession, nCount, &add ) == BK_EDITOR_BAD_ARGUMENT, "set past the end is a bad argument" );
+	Check( BkEditorDeleteSound( pSession, nCount ) == BK_EDITOR_BAD_ARGUMENT, "delete past the end is a bad argument" );
+	int nAfterRefusals = -1;
+	BkEditorSounds( pSession, 0, 0, &nAfterRefusals );
+	Check( nAfterRefusals == nCount, "none of the refusals changed the list" );
+
+	// Save to <scratch>/sounds.bzm and read back: sounds.sounds equals the
+	// original (preservation, T-03-10-02).
+	const std::string szSaved = szScratch + "\\sounds.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo saved;
+	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( original, saved, &szWhere ),
+	       szWhere.empty() ? "the saved map equals the original after add+delete"
+	                       : ( "add+delete left a difference at " + szWhere ).c_str() );
+	remove( szSaved.c_str() );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -1764,10 +3586,14 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
 	else
 	{
+		// First, before any map is open (Task 1 carried).
+		TestEntryPointsBeforeAMap( pSession );
 		TestShippedMapOpens( pSession );
 		TestBridgeSpansAreBuilt( pSession );
 		TestUneditedSaveIsEquivalent( pSession, szScratch );
+		TestPathsAndTestMapPath( pSession );
 		TestObjectEdits( pSession, szScratch );
+		TestSaveVerifiesWhatItWrote( pSession, szScratch );
 		TestRefusedEditsReachNeither( pSession, szScratch );
 		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
 		TestMapsOwnFields( pSession, szScratch );
@@ -1778,6 +3604,7 @@ int main( int argc, char **argv )
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
+		TestTilePicturesAndClose( pSession, szScratch );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
 		// The 640x480 the window was created at: BkEditorStart sets the mode to
 		// the window's own size. The middle of the screen is the middle of what
@@ -1787,6 +3614,8 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
 		TestTerrainUnderTheCamera( pSession, szScratch );
+		TestZoomStepsBoundedAndAnchored( pSession, pWindow, szScratch );
+		TestWorldToScreenRoundTrip( pSession, nScreenWidth, nScreenHeight );
 		TestOverlayDeviceAndSize( pSession, pWindow );
 		// Read again rather than trusting the resize test to have put the
 		// screen back at the size it was.
@@ -1794,13 +3623,20 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestSeasonPicksTheVisuals( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestMissingSeasonTextureFallsBack( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
+		TestObjectPictures( pSession, szScratch );
 		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
 		TestSharedLinkIDIsReadOnly( pSession, szScratch );
 		TestBrokenMapKeepsTheOpenOne( pSession, szScratch );
 		TestMissingStatsDoNotStopTheOpen( pSession );
 		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
+		TestModsListSetAndClear( pSession, szScratch );
+		TestSaveRecordsTheMod( pSession, szScratch );
+		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

@@ -256,6 +256,73 @@ fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.te
     };
 }
 
+test "--map-editor stages the file beside the game" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    // Repo-relative, the same form a hand-run `zig build package-game`
+    // could pass; build.zig itself passes an absolute cache path
+    // (copyMapEditor's other branch), exercised implicitly by every
+    // package-game/package-game-editors build.
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/MapEditor" }),
+        .data = "map editor fixture",
+    });
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/MapEditor";
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "MapEditor", "map editor fixture");
+}
+
+test "a missing map editor binary fails the stage naming the path" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/NoSuchMapEditor";
+    try std.testing.expectError(error.MissingMapEditor, stage.stage(io, allocator, options));
+}
+
+test "a mods directory in the repository is never staged" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    // Mirrors the real layout (Sources/src/Main/MainLoopCommands.cpp): mods
+    // live at <install>/mods/<Name>/data, a sibling of Data, never a member
+    // of it - nothing in stage.zig walks or copies this tree today, and this
+    // test keeps it that way, including for the unlicensed AchtungPanzer2.
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "mods/SomeMod/data" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "mods/SomeMod/data/mod.xml" }),
+        .data = "<mod/>",
+    });
+
+    try stage.stage(io, allocator, fixture.options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedPathAbsent(destination, io, "mods");
+    try expectStagedPathAbsent(destination, io, "mods/SomeMod/data/mod.xml");
+}
+
 fn expectStagedFile(destination: std.Io.Dir, io: std.Io, allocator: std.mem.Allocator, path: []const u8, expected: []const u8) !void {
     const contents = try destination.readFileAlloc(io, path, allocator, .limited(1024));
     defer allocator.free(contents);
@@ -264,4 +331,150 @@ fn expectStagedFile(destination: std.Io.Dir, io: std.Io, allocator: std.mem.Allo
 
 fn expectStagedPathAbsent(destination: std.Io.Dir, io: std.Io, path: []const u8) !void {
     try std.testing.expectError(error.FileNotFound, destination.access(io, path, .{}));
+}
+
+test "--season-data stages the generated textures beside Data, in both data modes" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    const generated = try std.fs.path.join(allocator, &.{ try tmp.dir.realPathFileAlloc(io, ".", allocator), "generated" });
+    try tmp.dir.createDirPath(io, "generated/Units/Tank");
+    try tmp.dir.writeFile(io, .{ .sub_path = "generated/Units/Tank/1w_h.dds", .data = "winter A" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "generated/Units/Tank/1a_h.dds", .data = "africa" });
+    var options = fixture.options;
+    options.season_data = generated;
+    try stage.stage(io, allocator, options);
+
+    var destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    try expectStagedFile(destination, io, allocator, "SeasonData/Units/Tank/1w_h.dds", "winter A");
+    try expectStagedFile(destination, io, allocator, "SeasonData/Units/Tank/1a_h.dds", "africa");
+    // Never into Data: under --link-data that is the repository's own tree.
+    try expectStagedPathAbsent(destination, io, "Data/Units/Tank/1w_h.dds");
+    destination.close(io);
+
+    // Regenerated: one file changes at the same size (as a season file keeps
+    // its summer file's), one is no longer made. Staged under --link-data this
+    // time, where SeasonData is still a copy and Data a link.
+    try tmp.dir.writeFile(io, .{ .sub_path = "generated/Units/Tank/1w_h.dds", .data = "winter B" });
+    try tmp.dir.deleteFile(io, "generated/Units/Tank/1a_h.dds");
+    options.data_mode = .link;
+    stage.stage(io, allocator, options) catch |err| switch (err) {
+        // A Windows runner without symlink rights cannot take --link-data.
+        error.DataLinkPermissionDenied => return,
+        else => return err,
+    };
+    destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "SeasonData/Units/Tank/1w_h.dds", "winter B");
+    try expectStagedPathAbsent(destination, io, "SeasonData/Units/Tank/1a_h.dds");
+    try expectStagedFile(destination, io, allocator, "Data/Maps/kept.map", "kept fixture");
+    try std.testing.expectError(error.FileNotFound, tmp.dir.access(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "Data/Units" }), .{}));
+}
+
+test "a missing season data directory fails the stage" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.season_data = "no-such-season-data";
+    try std.testing.expectError(error.FileNotFound, stage.stage(io, allocator, options));
+}
+
+test "a runtime file that is not built yet fails the stage naming it" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    // No zig-out/lib at all, then an empty one: both are how a tree looks while
+    // the installs a stage-game run was not ordered after are still running.
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.layout.runtime_files = &.{ "Game", "libSDL3.dylib" };
+    try std.testing.expectError(error.MissingRuntimeFile, stage.stage(io, allocator, options));
+
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/lib" }));
+    try std.testing.expectError(error.MissingRuntimeFile, stage.stage(io, allocator, options));
+
+    // Once the library is installed, the same run stages it out of zig-out/lib.
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/lib/libSDL3.dylib" }),
+        .data = "sdl fixture",
+    });
+    try stage.stage(io, allocator, options);
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "libSDL3.dylib", "sdl fixture");
+}
+
+test "the Windows release layout stages without the Debug-only program databases" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    // What package-game(-editors) --release=fast passes on Windows: every
+    // runtime file is required, a .pdb the optimised build did not write is not.
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    const runtime_files = [_][]const u8{ "Game.exe", "PlatformRuntime.dll", "SDL3.dll", "rclone.exe" };
+    for (runtime_files) |name| try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin", name }),
+        .data = name,
+    });
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/MapEditor.exe" }),
+        .data = "map editor fixture",
+    });
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/MapEditor.exe";
+    options.layout = .{
+        .game_name = "Game.exe",
+        .runtime_files = &runtime_files,
+        .debug_files = &.{ "Game.pdb", "SDL3.pdb" },
+        .editors_supported = true,
+    };
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    for (runtime_files) |name| try expectStagedFile(destination, io, allocator, name, name);
+    try expectStagedFile(destination, io, allocator, "MapEditor.exe", "map editor fixture");
+    try expectStagedPathAbsent(destination, io, "Game.pdb");
+}
+
+// stage.zig reads zig-out/bin, zig-out/lib and zig-out/shaders by plain path,
+// which the build graph cannot see, so each stage-game run has to be ordered
+// after game-all and the shader compile by hand. The package runs were not,
+// and a --release=fast package on a fresh Windows tree raced the installs
+// into FileNotFound. addStageGameRun is the one place that orders them; this
+// holds build.zig to it.
+test "every stage-game run in build.zig is ordered after game-all and the shaders" {
+    const text = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, "build.zig", std.testing.allocator, .limited(20 * 1024 * 1024));
+    defer std.testing.allocator.free(text);
+
+    try std.testing.expect(std.mem.indexOf(u8, text, "addRunArtifact(stage_tool)") == null);
+    const helper_start = std.mem.indexOf(u8, text, "\nfn addStageGameRun(") orelse return error.MissingStageGameHelper;
+    // The function ends at its column-0 brace; "\n}" rather than "\n}\n" because
+    // CI checks build.zig out with CRLF line endings.
+    const helper_end = std.mem.indexOfPos(u8, text, helper_start + 1, "\n}") orelse return error.MissingStageGameHelper;
+    const helper = text[helper_start..helper_end];
+    try std.testing.expect(std.mem.indexOf(u8, helper, "run.step.dependOn(inputs.game_all_step);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, helper, "run.step.dependOn(shaders_step);") != null);
+    // install-game, package-game and package-game-editors.
+    try std.testing.expectEqual(@as(usize, 4), std.mem.count(u8, text, "addStageGameRun("));
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, text, "b.addRunArtifact(inputs.tool)"));
 }

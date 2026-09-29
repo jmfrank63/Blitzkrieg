@@ -93,6 +93,16 @@ namespace
 		float f3DPan;
 		bool bUse3DPan;
 		bool bPaused;
+		// Stopped by the game but still fading out (StopChannel): the game
+		// has forgotten the slot, so it reads as free, and it is reused once
+		// the fade has run.
+		bool bReleasing;
+		// The start or resume ramp has been asked for but the mixer has not
+		// taken it up yet; a volume change then keeps the ramp's length.
+		bool bStartRampPending;
+		unsigned int nStartRampMs;
+		// Unpaused at least once: a later unpause resumes, the first starts.
+		bool bStarted;
 		unsigned int nPausedPosition;
 		unsigned int nStartSerial;
 	};
@@ -614,6 +624,35 @@ namespace
 		0
 	};
 
+	// BK_SOUND_TRACE=1 (the sound scene's switch) also names every voice the
+	// backend starts and every one it cuts off while still sounding.
+	bool IsVoiceTraceOn()
+	{
+		static const bool bOn = getenv( "BK_SOUND_TRACE" ) != 0;
+		return bOn;
+	}
+
+	// The sample value (full scale 1.0, first channel) under a voice's cursor:
+	// how far the waveform jumps when the voice is cut there.
+	float SampleAmplitudeAt( const SOpenSample *pSample, unsigned int nFrame )
+	{
+		if ( !pSample || pSample->nBlockAlign == 0 || pSample->pcmData.empty() )
+			return 0.0f;
+		const unsigned int nFrames = pSample->nPcmBytes / pSample->nBlockAlign;
+		if ( nFrame >= nFrames )
+			return 0.0f;
+		const char *pFrame = &pSample->pcmData[0] + size_t( nFrame ) * pSample->nBlockAlign;
+		switch ( pSample->format )
+		{
+		case ma_format_u8:
+			return ( float( static_cast<unsigned char>( pFrame[0] ) ) - 128.0f ) / 128.0f;
+		case ma_format_s16:
+			return float( ma_int16( static_cast<unsigned char>( pFrame[0] ) | ( static_cast<unsigned char>( pFrame[1] ) << 8 ) ) ) / 32768.0f;
+		default:
+			return 0.0f;
+		}
+	}
+
 	void ResetChannel( int nChannel )
 	{
 		if ( nChannel < 0 || nChannel >= cMaxOpenChannels )
@@ -621,6 +660,16 @@ namespace
 
 		if ( g_channels[nChannel].bSoundInitialized )
 		{
+			if ( IsVoiceTraceOn() && ma_sound_is_playing( &g_channels[nChannel].sound ) && !ma_sound_at_end( &g_channels[nChannel].sound ) )
+			{
+				ma_uint64 nCursor = 0;
+				ma_sound_get_cursor_in_pcm_frames( &g_channels[nChannel].sound, &nCursor );
+				const float fGain = ma_sound_get_current_fade_volume( &g_channels[nChannel].sound );
+				fprintf( stderr, "BK_SOUND_TRACE: voice cut at=%llu ch=%d sample=%p cursor=%llu/%u gain=%.3f amp=%.3f\n", (unsigned long long)ma_engine_get_time_in_pcm_frames( &g_engine ), nChannel,
+					(void*)g_channels[nChannel].pSample, (unsigned long long)nCursor,
+					g_channels[nChannel].pSample && g_channels[nChannel].pSample->nBlockAlign ? g_channels[nChannel].pSample->nPcmBytes / g_channels[nChannel].pSample->nBlockAlign : 0u,
+					fGain, fGain * SampleAmplitudeAt( g_channels[nChannel].pSample, unsigned( nCursor ) ) );
+			}
 			ma_sound_set_end_callback( &g_channels[nChannel].sound, 0, 0 );
 			ma_sound_stop( &g_channels[nChannel].sound );
 			ma_sound_uninit( &g_channels[nChannel].sound );
@@ -651,6 +700,10 @@ namespace
 		g_channels[nChannel].f3DPan = 0.0f;
 		g_channels[nChannel].bUse3DPan = false;
 		g_channels[nChannel].bPaused = false;
+		g_channels[nChannel].bReleasing = false;
+		g_channels[nChannel].bStartRampPending = false;
+		g_channels[nChannel].nStartRampMs = 0;
+		g_channels[nChannel].bStarted = false;
 		g_channels[nChannel].nPausedPosition = 0;
 		g_channels[nChannel].nStartSerial = 0;
 	}
@@ -660,6 +713,60 @@ namespace
 		return g_channels[nChannel].fBaseVolume * g_channels[nChannel].fDistanceVolume;
 	}
 
+	// A fresh sample voice ramps in over a few milliseconds: enough to hide a
+	// start that is not at a zero crossing (a loop resumed mid-sample by the
+	// sound scene), short enough to keep a shot's own attack. FMOD, which the
+	// game was made with, started voices at full volume.
+	const unsigned int cSampleStartRampMs = 5;
+	// Resuming from a pause ramps in as the pause ramped out.
+	const unsigned int cSampleResumeRampMs = 60;
+	const unsigned int cSamplePauseRampMs = 60;
+	const unsigned int cStreamStartRampMs = 80;
+	// StopChannel: a voice cut mid-waveform clicks; a short release does not.
+	const unsigned int cSampleStopRampMs = 10;
+	const unsigned int cVolumeChaseMs = 40;
+
+	bool IsLiveChannel( int nChannel )
+	{
+		return nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized && !g_channels[nChannel].bReleasing;
+	}
+
+	// ma_sound_set_fade_* only posts a request (one slot: a later request
+	// replaces an earlier one the mixer has not taken up yet) and the mixer
+	// resolves volumeBeg -1 against the fader's own state when it takes it
+	// up. A new ma_sound's fader sits at 1.0, full scale, so a start whose
+	// ramp request was replaced by a volume update before the mixer's next
+	// period (a 40 ms window; the game updates volume and 3D position every
+	// frame) began at full scale and dropped to the mix volume over 40 ms:
+	// the sharp crack heard on map sounds and engine starts, and on the
+	// music at the start of a mission. The sound is not being mixed yet, so
+	// its fader can be set directly to silence; every later request then
+	// ramps from where the voice really is.
+	void SeedSilentFader( int nChannel )
+	{
+		ma_fader_set_fade( &g_channels[nChannel].sound.engineNode.fader, 0.0f, 0.0f, 0 );
+	}
+
+	// True while the mixer has not yet taken up the last fade request.
+	bool IsFadeRequestPending( ma_sound *pSound )
+	{
+		return ma_atomic_uint64_get( &pSound->engineNode.fadeSettings.fadeLengthInFrames ) != ~(ma_uint64)0;
+	}
+
+	void ApplyChannelPan( int nChannel )
+	{
+		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].bUse3DPan ? g_channels[nChannel].f3DPan : g_channels[nChannel].fUserPan );
+	}
+
+	// Starts or resumes a voice's ramp from where its fader is to the mix
+	// volume.
+	void StartChannelRamp( int nChannel, unsigned int nRampMs )
+	{
+		g_channels[nChannel].bStartRampPending = true;
+		g_channels[nChannel].nStartRampMs = nRampMs;
+		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, -1.0f, ChannelTargetVolume( nChannel ), nRampMs );
+	}
+
 	// Volume changes ride the sound's FADER (short chase ramp), never an
 	// instant ma_sound_set_volume: the engine updates volumes once per main-
 	// loop tick, and when that thread is busy (menu init after the intro
@@ -667,26 +774,24 @@ namespace
 	// of a fading music stream then zipper audibly ("stuttering"). The fader
 	// runs on the mixer thread, so a 40ms ramp per update stays smooth no
 	// matter how coarse the updates are. volumeBeg -1 = chase from current.
+	// A paused voice keeps its fade-out request: replacing it would cut the
+	// voice off at the scheduled stop instead of fading it. The resume ramp
+	// picks up the latest volume.
 	void ApplyChannelMix( int nChannel )
 	{
-		if ( nChannel < 0 || nChannel >= cMaxOpenChannels || !g_channels[nChannel].bSoundInitialized )
+		if ( !IsLiveChannel( nChannel ) )
 			return;
 
-		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, -1.0f, ChannelTargetVolume( nChannel ), 40 );
-		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].bUse3DPan ? g_channels[nChannel].f3DPan : g_channels[nChannel].fUserPan );
-	}
-
-	// For sound STARTS: the fader must sit at the target before the first
-	// frame (a chase from the default 1.0 would blip one-shots louder than
-	// their mix volume).
-	void ApplyChannelMixInstant( int nChannel )
-	{
-		if ( nChannel < 0 || nChannel >= cMaxOpenChannels || !g_channels[nChannel].bSoundInitialized )
+		ApplyChannelPan( nChannel );
+		if ( g_channels[nChannel].bPaused )
 			return;
-
-		const float fTarget = ChannelTargetVolume( nChannel );
-		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, fTarget, fTarget, 0 );
-		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].bUse3DPan ? g_channels[nChannel].f3DPan : g_channels[nChannel].fUserPan );
+		SOpenChannel &channel = g_channels[nChannel];
+		if ( channel.bStartRampPending && !IsFadeRequestPending( &channel.sound ) )
+			channel.bStartRampPending = false;
+		if ( channel.bStartRampPending && IsVoiceTraceOn() )
+			fprintf( stderr, "BK_SOUND_TRACE: voice volume set before its start ramp was mixed at=%llu ch=%d\n", (unsigned long long)ma_engine_get_time_in_pcm_frames( &g_engine ), nChannel );
+		const unsigned int nRampMs = channel.bStartRampPending ? channel.nStartRampMs : cVolumeChaseMs;
+		ma_sound_set_fade_in_milliseconds( &channel.sound, -1.0f, ChannelTargetVolume( nChannel ), nRampMs );
 	}
 
 	float CalculateDistanceVolume( const SOpenSample *pSample, const CVec3 &vPos )
@@ -761,7 +866,8 @@ namespace
 		for ( int i = 0; i < nCount; ++i )
 		{
 			const int nChannel = nBegin + (*pNextChannel - nBegin + i) % nCount;
-			if ( !g_channels[nChannel].bSoundInitialized || ma_sound_at_end( &g_channels[nChannel].sound ) )
+			if ( !g_channels[nChannel].bSoundInitialized || ma_sound_at_end( &g_channels[nChannel].sound ) ||
+				( g_channels[nChannel].bReleasing && !ma_sound_is_playing( &g_channels[nChannel].sound ) ) )
 			{
 				ResetChannel( nChannel );
 				*pNextChannel = nBegin + (nChannel - nBegin + 1) % nCount;
@@ -782,11 +888,18 @@ namespace
 		if ( nFree != -1 )
 			return nFree;
 
+		// A voice still fading out after its stop goes first.
 		int nOldest = -1;
 		for ( int i = 0; i < g_nMaxSampleChannels; ++i )
 		{
 			if ( !g_channels[i].bSoundInitialized || g_channels[i].pStream || g_channels[i].bPaused )
 				continue;
+			if ( nOldest != -1 && g_channels[nOldest].bReleasing != g_channels[i].bReleasing )
+			{
+				if ( g_channels[i].bReleasing )
+					nOldest = i;
+				continue;
+			}
 			if ( nOldest == -1 || g_channels[i].nStartSerial < g_channels[nOldest].nStartSerial )
 				nOldest = i;
 		}
@@ -1070,6 +1183,80 @@ namespace
 		return true;
 	}
 
+	// BK_AUDIO_CAPTURE=<file.wav> records the engine's final mix (32-bit
+	// float WAV at the engine rate) from the mixer thread: what reaches the
+	// device, so clicks and levels can be measured instead of guessed. With
+	// BK_AUDIO_NULL=1 it records a run that plays nothing aloud.
+	FILE *g_pCaptureFile = 0;
+	unsigned int g_nCaptureChannels = 0;
+	unsigned long long g_nCaptureFrames = 0;
+
+	void WriteCaptureU32( unsigned int nValue )
+	{
+		const unsigned char bytes[4] = { (unsigned char)( nValue & 0xff ), (unsigned char)( ( nValue >> 8 ) & 0xff ), (unsigned char)( ( nValue >> 16 ) & 0xff ), (unsigned char)( ( nValue >> 24 ) & 0xff ) };
+		fwrite( bytes, 1, 4, g_pCaptureFile );
+	}
+
+	void WriteCaptureU16( unsigned int nValue )
+	{
+		const unsigned char bytes[2] = { (unsigned char)( nValue & 0xff ), (unsigned char)( ( nValue >> 8 ) & 0xff ) };
+		fwrite( bytes, 1, 2, g_pCaptureFile );
+	}
+
+	void WriteCaptureHeader( unsigned int nSampleRate )
+	{
+		const unsigned int nDataBytes = unsigned( Min( g_nCaptureFrames * g_nCaptureChannels * 4ull, 0xffffff00ull ) );
+		fseek( g_pCaptureFile, 0, SEEK_SET );
+		fwrite( "RIFF", 1, 4, g_pCaptureFile );
+		WriteCaptureU32( 36 + nDataBytes );
+		fwrite( "WAVEfmt ", 1, 8, g_pCaptureFile );
+		WriteCaptureU32( 16 );
+		WriteCaptureU16( 3 );
+		WriteCaptureU16( g_nCaptureChannels );
+		WriteCaptureU32( nSampleRate );
+		WriteCaptureU32( nSampleRate * g_nCaptureChannels * 4 );
+		WriteCaptureU16( g_nCaptureChannels * 4 );
+		WriteCaptureU16( 32 );
+		fwrite( "data", 1, 4, g_pCaptureFile );
+		WriteCaptureU32( nDataBytes );
+	}
+
+	void CaptureEngineOutput( void *pUserData, float *pFramesOut, ma_uint64 nFrameCount )
+	{
+		( void )pUserData;
+		if ( g_pCaptureFile && pFramesOut )
+		{
+			fwrite( pFramesOut, sizeof( float ) * g_nCaptureChannels, size_t( nFrameCount ), g_pCaptureFile );
+			g_nCaptureFrames += nFrameCount;
+		}
+	}
+
+	void OpenCapture()
+	{
+		const char *pszPath = getenv( "BK_AUDIO_CAPTURE" );
+		if ( !pszPath || !pszPath[0] )
+			return;
+		g_nCaptureChannels = ma_engine_get_channels( &g_engine );
+		g_nCaptureFrames = 0;
+		g_pCaptureFile = fopen( pszPath, "wb" );
+		if ( !g_pCaptureFile )
+		{
+			NPlatform::DebugWriteFormat( "SFX open audio capture: cannot write %s\n", pszPath );
+			return;
+		}
+		WriteCaptureHeader( ma_engine_get_sample_rate( &g_engine ) );
+		NPlatform::DebugWriteFormat( "SFX open audio capture: recording the mix to %s\n", pszPath );
+	}
+
+	void CloseCapture()
+	{
+		if ( !g_pCaptureFile )
+			return;
+		WriteCaptureHeader( ma_engine_get_sample_rate( &g_engine ) );
+		fclose( g_pCaptureFile );
+		g_pCaptureFile = 0;
+	}
+
 	void TraceOpenStream( const char *pszStatus, const SOpenStream *pOpenStream )
 	{
 		const int nBytes = pOpenStream ? static_cast<int>( pOpenStream->encodedData.size() ) : 0;
@@ -1121,10 +1308,27 @@ namespace NAudioBackendImpl
 	{
 	}
 
+	// BK_AUDIO_NULL=1 plays into miniaudio's null device only. Everything
+	// above the device still runs - voices start, advance and finish - but
+	// nothing reaches a speaker, so a headless harness can run the real game
+	// with sound on (map-editor-game-reads-it checks a map sound starts)
+	// without playing it through the default output.
+	bool IsNullAudioRequested()
+	{
+		const char *pszValue = getenv( "BK_AUDIO_NULL" );
+		return pszValue && pszValue[0] && !( pszValue[0] == '0' && pszValue[1] == 0 );
+	}
+
 	ma_uint32 SelectBackends( ESFXOutputType output, ma_backend *pBackends, ma_uint32 nCapacity )
 	{
 		if ( !pBackends || nCapacity < 4 )
 			return 0;
+
+		if ( IsNullAudioRequested() )
+		{
+			pBackends[0] = ma_backend_null;
+			return 1;
+		}
 
 #if defined(_WIN32) || defined(_WIN64)
 		pBackends[0] = ma_backend_wasapi;
@@ -1217,6 +1421,7 @@ namespace NAudioBackendImpl
 		// decoded to PCM at init time, so the mixer callback only copies
 		// samples — zero allocations, zero decode, zero disk I/O.
 		engineConfig.periodSizeInMilliseconds = 40;
+		engineConfig.onProcess = CaptureEngineOutput;
 		engineConfig.allocationCallbacks.pUserData = 0;
 		engineConfig.allocationCallbacks.onMalloc  = AudioAllocMalloc;
 		engineConfig.allocationCallbacks.onRealloc = AudioAllocRealloc;
@@ -1251,13 +1456,17 @@ namespace NAudioBackendImpl
 		g_bEngineInitialized = true;
 		NPlatform::DebugWrite( "SFX open audio backend initialized miniaudio\n" );
 		TraceOpenAudioDevice();
+		OpenCapture();
 		return true;
 	}
 
 	void CloseDevice()
 	{
 		if ( g_bEngineInitialized )
+		{
 			ma_engine_stop( &g_engine );
+			CloseCapture();
+		}
 
 		for ( int i = 0; i < cMaxOpenChannels; ++i )
 			ResetChannel( i );
@@ -1375,8 +1584,7 @@ namespace NAudioBackendImpl
 
 	bool IsChannelPlayingSample( int nChannel, void *pSample )
 	{
-		return nChannel >= 0 && nChannel < cMaxOpenChannels &&
-			g_channels[nChannel].bSoundInitialized &&
+		return IsLiveChannel( nChannel ) &&
 			g_channels[nChannel].pSample == pSample &&
 			ma_sound_is_playing( &g_channels[nChannel].sound ) != 0;
 	}
@@ -1427,13 +1635,14 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].nStartSerial = ++g_nStartSerial;
 		ApplySampleLoopPoints( &g_channels[nChannel], pOpenSample );
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
-		ApplyChannelMixInstant( nChannel );
+		SeedSilentFader( nChannel );
+		ApplyChannelPan( nChannel );
 		return nChannel;
 	}
 
 	void SetChannelVolume( int nChannel, int nVolume )
 	{
-		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		if ( IsLiveChannel( nChannel ) )
 		{
 			g_channels[nChannel].fBaseVolume = ClampFloat( static_cast<float>( nVolume ) / 255.0f, 0.0f, 1.0f );
 			ApplyChannelMix( nChannel );
@@ -1442,7 +1651,7 @@ namespace NAudioBackendImpl
 
 	void SetChannelPan( int nChannel, int nPan )
 	{
-		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		if ( IsLiveChannel( nChannel ) )
 		{
 			g_channels[nChannel].fUserPan = ClampFloat( (static_cast<float>( nPan ) - 128.0f) / 128.0f, -1.0f, 1.0f );
 			ApplyChannelMix( nChannel );
@@ -1451,7 +1660,7 @@ namespace NAudioBackendImpl
 
 	void SetChannelPaused( int nChannel, bool bPaused )
 	{
-		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		if ( IsLiveChannel( nChannel ) )
 		{
 			if ( bPaused )
 			{
@@ -1459,25 +1668,45 @@ namespace NAudioBackendImpl
 				g_channels[nChannel].bPaused = true;
 				// Abruptly stopping mid-waveform is an audible pop (the "stutter"
 				// heard at save-load start); ramp to silence first.
-				ma_sound_stop_with_fade_in_milliseconds( &g_channels[nChannel].sound, 60 );
+				ma_sound_stop_with_fade_in_milliseconds( &g_channels[nChannel].sound, cSamplePauseRampMs );
 			}
 			else
 			{
+				const bool bFirstStart = !g_channels[nChannel].bStarted;
+				g_channels[nChannel].bStarted = true;
 				if ( g_channels[nChannel].bPaused )
 					ma_sound_seek_to_pcm_frame( &g_channels[nChannel].sound, g_channels[nChannel].nPausedPosition );
 				g_channels[nChannel].bPaused = false;
 				// The fade-stop above leaves a scheduled stop + zero fade on the
 				// sound; clear it and ramp back in, or the restart pops too.
 				ma_sound_reset_stop_time_and_fade( &g_channels[nChannel].sound );
-				ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, 0.0f, ChannelTargetVolume( nChannel ), 60 );
+				ApplyChannelPan( nChannel );
+				StartChannelRamp( nChannel, bFirstStart ? cSampleStartRampMs : cSampleResumeRampMs );
 				if ( ma_sound_start( &g_channels[nChannel].sound ) != MA_SUCCESS )
 					NPlatform::DebugWrite( "SFX open audio failed to start sample channel\n" );
+				if ( IsVoiceTraceOn() && g_channels[nChannel].pSample )
+					fprintf( stderr, "BK_SOUND_TRACE: voice start at=%llu ch=%d sample=%p from=%u/%u rate=%u looped=%d volume=%.3f\n", (unsigned long long)ma_engine_get_time_in_pcm_frames( &g_engine ), nChannel,
+						(void*)g_channels[nChannel].pSample, g_channels[nChannel].nPausedPosition, GetSampleFrameCount( g_channels[nChannel].pSample ),
+						g_channels[nChannel].pSample->nSampleRate, int( g_channels[nChannel].pSample->bLooped ), ChannelTargetVolume( nChannel ) );
 			}
 		}
 	}
 
+	// The game forgets the channel at once; a sample voice still sounding
+	// fades out over a few milliseconds in its slot first (a hard cut of an
+	// engine loop or a mixed-down group clicks), then the slot is reused.
 	void StopChannel( int nChannel )
 	{
+		if ( IsLiveChannel( nChannel ) && !g_channels[nChannel].pStream && !g_channels[nChannel].bPaused &&
+			ma_sound_is_playing( &g_channels[nChannel].sound ) && !ma_sound_at_end( &g_channels[nChannel].sound ) )
+		{
+			if ( IsVoiceTraceOn() )
+				fprintf( stderr, "BK_SOUND_TRACE: voice release at=%llu ch=%d sample=%p\n", (unsigned long long)ma_engine_get_time_in_pcm_frames( &g_engine ), nChannel, (void*)g_channels[nChannel].pSample );
+			g_channels[nChannel].bReleasing = true;
+			g_channels[nChannel].bStartRampPending = false;
+			ma_sound_stop_with_fade_in_milliseconds( &g_channels[nChannel].sound, cSampleStopRampMs );
+			return;
+		}
 		ResetChannel( nChannel );
 	}
 
@@ -1493,8 +1722,7 @@ namespace NAudioBackendImpl
 
 	bool IsChannelPlaying( int nChannel )
 	{
-		return nChannel >= 0 && nChannel < cMaxOpenChannels &&
-			g_channels[nChannel].bSoundInitialized &&
+		return IsLiveChannel( nChannel ) &&
 			(g_channels[nChannel].bPaused || ma_sound_is_playing( &g_channels[nChannel].sound ) != 0);
 	}
 
@@ -1509,7 +1737,7 @@ namespace NAudioBackendImpl
 
 	unsigned int GetChannelPosition( int nChannel )
 	{
-		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		if ( IsLiveChannel( nChannel ) )
 		{
 			ma_uint64 nCursor = 0;
 			if ( ma_sound_get_cursor_in_pcm_frames( &g_channels[nChannel].sound, &nCursor ) == MA_SUCCESS )
@@ -1520,7 +1748,7 @@ namespace NAudioBackendImpl
 
 	void SetChannelPosition( int nChannel, unsigned int nPosition )
 	{
-		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		if ( IsLiveChannel( nChannel ) )
 		{
 			ma_sound_seek_to_pcm_frame( &g_channels[nChannel].sound, nPosition );
 			if ( g_channels[nChannel].bPaused )
@@ -1535,7 +1763,7 @@ namespace NAudioBackendImpl
 
 	void SetChannel3DAttributes( int nChannel, const CVec3 &vPos )
 	{
-		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		if ( IsLiveChannel( nChannel ) )
 		{
 			g_channels[nChannel].fDistanceVolume = CalculateDistanceVolume( g_channels[nChannel].pSample, vPos );
 			g_channels[nChannel].f3DPan = CalculatePan( vPos );
@@ -1705,11 +1933,13 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].bPaused = false;
 		g_channels[nChannel].nPausedPosition = 0;
 		g_channels[nChannel].nStartSerial = ++g_nStartSerial;
+		g_channels[nChannel].bStarted = true;
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenStream->bLooped ? MA_TRUE : MA_FALSE );
-		ApplyChannelMixInstant( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
 		// Streams ramp in from silence to their mix volume — no start transient.
-		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, 0.0f, ChannelTargetVolume( nChannel ), 80 );
+		SeedSilentFader( nChannel );
+		ApplyChannelPan( nChannel );
+		StartChannelRamp( nChannel, cStreamStartRampMs );
 		if ( ma_sound_start( &g_channels[nChannel].sound ) != MA_SUCCESS )
 		{
 			TraceOpenStream( "start failed", pOpenStream );
@@ -1724,6 +1954,94 @@ namespace NAudioBackendImpl
 	{
 		SetChannelPan( nChannel, 128 );
 	}
+}
+
+// Test entry (tools/zig/sfx_module_test.cpp): plays a synthetic voice
+// through this backend on an engine without a device and returns the
+// rendered stereo mix, so a test can measure its gain and every step in the
+// waveform. The voice is a constant 0.5 (a click or a gain jump shows as a
+// step). Scenarios, each driven the way CSoundEngine drives a voice:
+//   1 start: play paused, set volume and pan, unpause, then one more volume
+//     update before the mixer's next period (the game updates every frame);
+//   2 stop: a looped voice at its mix volume is stopped mid-play;
+//   3 pause: a playing voice is paused and its volume updated while paused.
+// Returns the frames rendered, or a negative number on failure; the engine
+// is closed again either way. Not for use while the game's own engine runs.
+extern "C" BK_EXPORT int STDCALL BkSFXRenderVoiceTest( int nScenario, float *pStereoOut, int nFrames )
+{
+	using namespace NAudioBackendImpl;
+	if ( g_bEngineInitialized || !pStereoOut || nFrames <= 0 )
+		return -1;
+
+	ma_engine_config engineConfig = ma_engine_config_init();
+	engineConfig.noDevice = MA_TRUE;
+	engineConfig.channels = 2;
+	engineConfig.sampleRate = 44100;
+	if ( ma_engine_init( &engineConfig, &g_engine ) != MA_SUCCESS )
+		return -2;
+	g_bEngineInitialized = true;
+
+	// One second of a constant 0.5, 16-bit mono PCM in a RIFF/WAVE image.
+	const unsigned int nSampleFrames = 44100;
+	std::vector<char> wave( 44 + nSampleFrames * 2 );
+	const unsigned int header[] = { 0x46464952u, 36 + nSampleFrames * 2, 0x45564157u, 0x20746d66u, 16, 0x00010001u, 44100, 88200, 0x00100002u, 0x61746164u, nSampleFrames * 2 };
+	for ( unsigned int i = 0; i < sizeof( header ) / sizeof( header[0] ); ++i )
+		for ( int b = 0; b < 4; ++b )
+			wave[i * 4 + b] = char( ( header[i] >> ( 8 * b ) ) & 0xff );
+	for ( unsigned int i = 0; i < nSampleFrames; ++i )
+	{
+		wave[44 + i * 2] = char( 0x00 );
+		wave[44 + i * 2 + 1] = char( 0x40 );
+	}
+	void *pSample = LoadSampleFromMemory( &wave[0], int( wave.size() ), GetSampleMode2D() );
+
+	int nRendered = 0;
+	const int nChunk = 441;
+	const int nVolume = 64;
+	auto render = [&]( int nCount ) {
+		while ( nCount > 0 && nRendered < nFrames )
+		{
+			const int nNow = Min( Min( nChunk, nCount ), nFrames - nRendered );
+			ma_engine_read_pcm_frames( &g_engine, pStereoOut + nRendered * 2, ma_uint64( nNow ), 0 );
+			nRendered += nNow;
+			nCount -= nNow;
+		}
+	};
+
+	int nResult = -3;
+	if ( pSample )
+	{
+		SetSampleLoop( pSample, nScenario == 2 );
+		const int nChannel = PlaySamplePaused( pSample );
+		if ( nChannel >= 0 )
+		{
+			SetChannelVolume( nChannel, nVolume );
+			SetChannelPan( nChannel, 128 );
+			SetChannelPaused( nChannel, false );
+			if ( nScenario == 1 )
+			{
+				SetChannelVolume( nChannel, nVolume );
+				render( nFrames );
+			}
+			else if ( nScenario == 2 )
+			{
+				render( nFrames / 2 );
+				StopChannel( nChannel );
+				render( nFrames );
+			}
+			else if ( nScenario == 3 )
+			{
+				render( nFrames / 2 );
+				SetChannelPaused( nChannel, true );
+				SetChannelVolume( nChannel, nVolume );
+				render( nFrames );
+			}
+			nResult = nRendered;
+		}
+		FreeSample( pSample );
+	}
+	CloseDevice();
+	return nResult;
 }
 
 #endif // defined(SFX_USE_OPEN_AUDIO_BACKEND)

@@ -99,6 +99,7 @@ const char *const kUsageText =
 "  -profile=Name                 play with this player profile\n"
 "  -mp                           multiplayer\n"
 "  -mod=Name | -mod=None         play the mod in mods/Name, or the standard game\n"
+"  -editor-test                  play a map from the Map Editor: session-only profile, windowed, no cloud sync, no first-visit help\n"
 "\n"
 "Example: Game -windowed -mode=1024x768x32\n";
 }
@@ -183,6 +184,7 @@ CommandLineOptions ParseCommandLine(const NPlatform::Arguments &arguments)
 			result.modInvalid = true;
 			result.modError = raw;
 		}
+		else if ( argument == "-editor-test" ) result.editorTest = true;
 		else if ( argument == "-windowed" ) result.fullscreenMode = EFullscreenMode::windowed;
 		else if ( argument == "-fullscreen" ) result.fullscreenMode = EFullscreenMode::fullscreen;
 		else if ( argument.rfind( "-monitor", 0 ) == 0 )

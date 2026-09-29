@@ -128,6 +128,51 @@ CEffectVisObj* CVisObjBuilder::CreateEffectVisObj( const std::string &szName )
 	pEffect->SetEffectDirection( MONE );
 	return pEffect;
 }
+// A mesh's texture for the map's season, or its season-less one when the
+// season's is missing. A unit asks for "<path>\1w" in winter and "<path>\1a"
+// in autumn (MOUnitMechanical, MOObject, MOEntrenchment; "1p"/"2" plus the
+// season for its passengers and its destroyed model), but 83 of the 242 unit
+// mesh folders have no 1w and 166 no 1a, the shipped textures.pak included.
+// The original GFX drew a checker for a missing file; GFXGPU answers null and
+// the mesh is drawn white. So a last segment of digits, an optional "p" or
+// "b", and a season letter ("1w", "2a", "1pw", "1bw") retries without the
+// letter, as MOBuilding's UpdateVisObj retries a sprite without its season.
+// A staged game has every unit's season textures - the build generates the
+// missing ones into SeasonData (StreamIO/SeasonData.h) - so this is for a Data
+// without them, such as another installation's picked in the editor.
+// BK_SEASON_TRACE=1 prints which texture each mesh asked for and got.
+static bool SeasonTrace()
+{
+	static const bool bTrace = getenv( "BK_SEASON_TRACE" ) != 0;
+	return bTrace;
+}
+static IGFXTexture* GetSeasonedMeshTexture( ITextureManager *pTM, const char *pszTextureName )
+{
+	if ( IGFXTexture *pTexture = pTM->GetTexture( pszTextureName ) )
+	{
+		if ( SeasonTrace() )
+			fprintf( stderr, "BK_SEASON_TRACE: mesh texture \"%s\"\n", pszTextureName );
+		return pTexture;
+	}
+	if ( pszTextureName == 0 )
+		return 0;
+	const std::string szName = pszTextureName;
+	const std::string::size_type nSlash = szName.find_last_of( "\\/" );
+	const std::string::size_type nStart = nSlash == std::string::npos ? 0 : nSlash + 1;
+	std::string::size_type nPos = nStart;
+	while ( nPos < szName.size() && szName[nPos] >= '0' && szName[nPos] <= '9' )
+		++nPos;
+	if ( nPos == nStart )
+		return 0;
+	if ( nPos < szName.size() && (szName[nPos] == 'p' || szName[nPos] == 'b') )
+		++nPos;
+	if ( nPos + 1 != szName.size() || (szName[nPos] != 'w' && szName[nPos] != 'a') )
+		return 0;
+	IGFXTexture *pSeasonless = pTM->GetTexture( szName.substr(0, nPos).c_str() );
+	if ( SeasonTrace() )
+		fprintf( stderr, "BK_SEASON_TRACE: mesh texture \"%s\" missing, %s \"%s\"\n", pszTextureName, pSeasonless != 0 ? "drawn with" : "and no", szName.substr(0, nPos).c_str() );
+	return pSeasonless;
+}
 bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, const char *pszTextureName, EObjVisType type )
 {
 	if ( type == SGVOT_MESH )
@@ -140,14 +185,14 @@ bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, cons
 			IMeshAnimation *pAnimation = pAM->GetMeshAnimation( (szModelName + ".mod").c_str() );
 			if ( (pMesh != 0) && (pAnimation != 0) )
 			{
-				IGFXTexture *pTexture = pTM->GetTexture( pszTextureName );
+				IGFXTexture *pTexture = GetSeasonedMeshTexture( pTM, pszTextureName );
 				pVO->Init( pMesh, pAnimation, pTexture );
 				return true;
 			}
 		}
 		else if ( pszModelName == 0 )
 		{
-			IGFXTexture *pTexture = pTM->GetTexture( pszTextureName );
+			IGFXTexture *pTexture = GetSeasonedMeshTexture( pTM, pszTextureName );
 			pVO->SetTexture( pTexture );
 			return true;
 		}

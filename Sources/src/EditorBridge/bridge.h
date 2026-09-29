@@ -32,7 +32,10 @@ typedef struct BkEditorSession BkEditorSession;
 const char *BkEditorLastMessage( BkEditorSession *session );
 
 /* Starts the engine on a window the caller owns and keeps alive for the
-   session. data_root is the directory holding Data and the shared libraries.
+   session. data_root is the directory holding Data and the shared libraries;
+   null or "" means the running executable's own directory
+   (NPlatform::Paths::BaseRoot), never the working directory. A relative
+   data_root is taken relative to the working directory.
 
    window must not be null - that is BK_EDITOR_BAD_ARGUMENT, a caller bug.
    BK_EDITOR_NO_DEVICE means a real window on which the renderer would not
@@ -84,14 +87,42 @@ typedef struct
    successful open. */
 BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEditorMapSummary *out );
 
-/* Writes the open map to path; the format comes from the extension.
+/* Writes the open map to path; the format comes from the extension. Once the
+   write itself succeeds, the map is read back from path and compared with
+   what was meant, field by field; only then does this answer OK. A read
+   failure or a difference is BK_EDITOR_FAILED with the reason in
+   BkEditorLastMessage, and nothing at path is trusted to be right - which is
+   why the editor always passes a temporary path here and swaps it over the
+   real map itself only on success (D-19; the editor never hands this call
+   the user's own map file to write into directly).
 
    What is written is the snapshot with the session's edits laid over it, never
    the engine's own copy: the engine's has UnpackFrameIndices applied, which
    picks a random visual variant per type, so writing it back would rewrite
    every frame index on the map. An object the database does not know goes out
-   exactly as it came in. */
+   exactly as it came in.
+
+   D-28: with a mod active (BkEditorSetMod), the written map's szMODName and
+   szMODVersion are stamped from that mod's own name and version, the same
+   way the MFC editor records its chosen mod (TemplateEditorFrame1.cpp) -
+   only when they differ, so an already-matching map is not marked dirty by
+   a save that changed nothing else. With no mod active the two fields are
+   left exactly as they were read: this call never invents or clears a mod
+   name the map did not already carry (the preservation invariant every
+   other untouched field of the map keeps). */
 BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
+
+/* Closes the open map (File > Close, 03-15 gap fix): the world's objects and
+   the terrain leave the scene, the AI editor is cleared, and every per-map
+   table of the session is reset - CloseSessionMap, the same steps
+   BkEditorSetMod takes before it swaps the object database, here without the
+   swap. Nothing is saved: the editor has already asked about unsaved changes
+   (D-23) before it calls this. The mod, the object database and the camera's
+   yaw are left as they are. BK_EDITOR_OK with no map open too (nothing to
+   close); BK_EDITOR_REFUSED only when the engine is not started. Every
+   map-needing entry point answers "no map is open" afterwards, exactly as
+   before the first BkEditorOpenMap. */
+BkEditorStatus BkEditorCloseMap( BkEditorSession *session );
 
 /* The edits. Each one changes the map and the engine together or neither: a
    refusal leaves the session exactly as it was, so the editor never saves
@@ -100,7 +131,9 @@ BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
    BK_EDITOR_REFUSED means the map or the engine said no and the reason is in
    BkEditorLastMessage - an object still referred to by a bridge or a start
    command, or a position the engine will not put the object at. It is an
-   ordinary answer, not a failure.
+   ordinary answer, not a failure. BkEditorAddObject also refuses every type
+   the catalogue marks not placeable - a single soldier among them, with a
+   squad to place instead named in the message.
 
    A link ID is the only name an object has here, and a map does not promise
    one per object: 0 means "no link ID", and shipped maps carry hundreds of
@@ -214,9 +247,60 @@ BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsig
    no map is open. */
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *out, int capacity, int *out_count );
 
-/* A world point (world units, not map units) to the tile it falls in - the brush's other half, through the
-   engine's own conversion. Screen to world is BkEditorScreenToWorld; the two
-   compose. BK_EDITOR_REFUSED means the point is not on the map. */
+/* One tile of the open map's tileset, for the Brush's tile picker (03-15 gap
+   fix). terrain is the name (<name>, STerrTypeDesc::szName) of the first
+   terrain type of the tileset's description that lists the tile - "Snow",
+   "Ice", "Asphalt" - and terrain_index that terrain type's position in the
+   description, so a picker can group tiles by it in the tileset's own order.
+   tileset is the tileset's own name in the data storage
+   (STerrainInfo::szTilesetDesc, e.g. "terrain\sets\2\tileset"): the same
+   tile index in another tileset is another picture, so a caller keys a cache
+   of BkEditorTilePicture's pictures on it. Both strings are cut to fit and
+   always NUL-terminated.
+
+   BK_EDITOR_BAD_ARGUMENT for a null out or a tile outside 0..255 (a paint
+   cell's tile is an unsigned char). BK_EDITOR_REFUSED when no map is open, or
+   for a tile no terrain type of the tileset lists - one BkEditorTilesetTiles
+   does not offer and BkEditorPaint refuses; out is zeroed then. */
+typedef struct { int terrain_index; char terrain[64]; char tileset[128]; } BkEditorTile;
+BkEditorStatus BkEditorDescribeTile( BkEditorSession *session, int tile, BkEditorTile *out );
+
+/* One tile's picture, for the Brush's tile picker (03-15 gap fix): the tile's
+   diamond cut out of the tileset's texture, the way the MFC editor's tile
+   palette cut its thumbnails (MapEditor/TabTileEditDialog.cpp,
+   CreateImageList) - the cell the tileset description's four corners
+   (<tilemaps>, STileMapsDesc: maps0 top, maps1 right, maps2 left, maps3
+   bottom) span, flipped the way a tile whose corners name the cell the other
+   way round is drawn, and transparent outside the diamond (the MFC palette
+   masked it with editor\terrain\tilemask.tga to the same shape). RGBA8,
+   top row first - BkEditorObjectPicture's layout - scaled down only when a
+   side exceeds max_side, keeping the shape (a shipped tile is 64x32).
+
+   The corners are the description's own, read from the tileset's .xml, not
+   the engine's loaded copy: CTerrain::LoadLocal pulls those in by a few
+   texels that depend on the screen's width (CorrectUVMaps), which would make
+   the picture's size depend on the window. The texture is the tileset's
+   "_h.dds" (the uncompressed one the MFC palette and the minimap builder
+   read), else "_c.dds", else "_l.dds". The decoded texture and the
+   description are kept for the session, for the tileset last asked about,
+   so a picker asking for every tile decodes the texture once; BkEditorSetMod
+   drops them (the same name may be another file under the new mod).
+
+   BK_EDITOR_BAD_ARGUMENT for a null output, max_side outside 8..256 or a tile
+   outside 0..255. BK_EDITOR_REFUSED when no map is open, for a tile the
+   tileset does not list (see BkEditorDescribeTile), when the tileset's .xml
+   or texture will not load, or when capacity_bytes is too small for the
+   picture - *out_width/*out_height are still set to the real size then, as
+   BkEditorObjectPicture does, and nothing is written. BK_EDITOR_FAILED when
+   the picture could not be cut or scaled. */
+BkEditorStatus BkEditorTilePicture( BkEditorSession *session, int tile,
+                                    unsigned char *out_rgba, int capacity_bytes, int max_side,
+                                    int *out_width, int *out_height );
+
+/* A world point (world units, not map units) to the tile it falls in - the
+   brush's other half, through the engine's own conversion. Screen to world
+   is BkEditorScreenToWorld; the two compose. BK_EDITOR_REFUSED means the
+   point is not on the map. */
 BkEditorStatus BkEditorWorldToTile( BkEditorSession *session, float wx, float wy, int *out_x, int *out_y );
 
 /* Compares the engine's terrain against the copy that will be saved, and names
@@ -235,9 +319,143 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
    nothing crosses the ABI that the caller has to free; a key longer than 63
    characters is truncated. out_count is always what the database holds, not
    how many fitted, so a caller given BK_EDITOR_REFUSED for a short buffer can
-   size one and ask again. */
-typedef struct { char name[64]; int game_type; } BkEditorCatalogueEntry;
+   size one and ask again.
+
+   placeable is 1 when BkEditorAddObject takes the type and 0 when it refuses
+   it whatever the position: a sound or a tank pit, which no map holds, and a
+   single soldier (every infantry SGVOGT_UNIT), which the game plays only
+   inside a squad - a map's infantry is its SGVOGT_SQUAD records. The MFC
+   editor's palette never offered a single soldier either
+   (TabSimpleObjectsDialog.cpp CommonFilterName drops units\Humans). */
+typedef struct { char name[64]; int game_type; int placeable; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
+
+/* D-29: the palette's own picture for one object - the icon.tga in its
+   data-storage folder (<szPath>\icon.tga, opened through the data storage so
+   a mounted mod's own icon wins), the same file the MFC editor's palette
+   loaded (TabSimpleObjectsDialog.cpp:716-760), decoded with the engine's own
+   image processor and, only when larger, scaled down keeping the aspect to
+   fit within max_side pixels on each side (IImageProcessor::CreateScaleBySize,
+   ISM_LANCZOS3) - never upscaled past its own size. Written into out_rgba as
+   RGBA8, top row first, exactly *out_width * *out_height * 4 bytes.
+
+   User-requested addition (03-09 Task 4): a single soldier with no icon.tga
+   of its own (e.g. Allies_Bren) borrows the icon.tga of a squad that lists it
+   as a member (e.g. gb_bren_43, RPGStats.h SSquadRPGStats::memberNames, read
+   from every SGVOGT_SQUAD object's own data) - built once per session
+   (SEditorSession::squadIconOwnerBySoldier) since it scans the whole object
+   database. Deterministic when more than one squad lists the same soldier:
+   the alphabetically first squad name wins. Still BK_EDITOR_REFUSED for a
+   name no squad lists either (terrain pieces, effects, the entrenchment, the
+   single-unit-formation squad type itself).
+
+   BK_EDITOR_BAD_ARGUMENT for a null name or output, max_side outside 8..256,
+   or a name the object database does not know. BK_EDITOR_REFUSED naming the
+   object when neither it nor a squad that lists it has an icon.tga - not
+   every shipped object or squad has one, and this is the ordinary way of
+   saying so, not a failure - or when capacity_bytes is too small for the
+   decoded picture: *out_width/*out_height are still set to the real size (so
+   a caller can size a buffer and ask again) but nothing is written.
+   BK_EDITOR_REFUSED too when the engine is not started, with the sizes left
+   at 0. */
+BkEditorStatus BkEditorObjectPicture( BkEditorSession *session, const char *name,
+                                      unsigned char *out_rgba, int capacity_bytes, int max_side,
+                                      int *out_width, int *out_height );
+
+/* A mod as BkEditorMods lists it, or BkEditorActiveMod reports it: folder is
+   the directory name under <BaseRoot>mods, exactly as it is on disk (never
+   lower-cased - BkEditorSetMod keeps it as given, the same way
+   BkEditorTestMapPath's own mod_folder argument does; the game's -mod=
+   parser lower-cases its own copy for the generated-data key, a step this
+   struct has no part in). name and version are mod.xml's own MODName and
+   MODVersion, read the same way the game's mod-list screen reads them
+   (GameTT/InterfaceIMModsList.cpp). */
+typedef struct { char folder[64]; char name[64]; char version[32]; } BkEditorMod;
+
+/* Every installed mod: a directory under <BaseRoot>mods whose data holds a
+   mod.xml (STORAGE_TYPE_COMMON over "data\*.pak", the same pattern
+   BkEditorSetMod mounts), sorted by folder name. A directory with no such
+   mod.xml is not a mod and is left out - it is not an error, since a mods
+   folder may hold anything.
+
+   Like BkEditorCatalogue, out_count is always the total, and a buffer too
+   short for it is BK_EDITOR_REFUSED with nothing written past capacity; out
+   may be null when capacity is 0, to ask for the count. BK_EDITOR_REFUSED
+   too when the engine is not started. A missing mods directory - a fresh
+   installation with none installed - is zero mods, not a refusal. */
+BkEditorStatus BkEditorMods( BkEditorSession *session, BkEditorMod *out, int capacity, int *out_count );
+
+/* Mounts folder's data as the MOD storage and reloads the object database
+   from it, mirroring CICChangeMOD::Exec (Main/MainLoopCommands.cpp:391-431)
+   without the main loop it has none of: the open map is closed first (its
+   object database is about to change from under it - nothing here saves
+   it), the MOD storage is swapped, FilesInspector re-inspects the new
+   storage set, the shared managers other than IGFX are cleared the way
+   CMainLoop::ClearResources(true) clears them (IGFX::Clear and the font
+   SetFont it restores are skipped on purpose: the editor's own overlay
+   lives on that device, and this call never owns a window to redraw), and
+   IObjectsDB::LoadDB rebuilds the catalogue from the new storage set.
+
+   folder is a bare directory name under <BaseRoot>mods, as BkEditorMods
+   lists it - never a path: a separator ('/' or '\\'), ".", "..", over 63
+   characters, or one that fails NPlatform::Paths::IsRelativeDataName is
+   BK_EDITOR_BAD_ARGUMENT, and nothing changes. null or "" clears the mod (the
+   base game) - always BK_EDITOR_OK, since there is nothing to validate. A
+   folder that does not exist, or whose data has no mod.xml, is
+   BK_EDITOR_REFUSED naming the folder in BkEditorLastMessage, and - because
+   this check runs before anything is touched - the session's mod, its open
+   map and the object database are all left exactly as they were.
+
+   Never calls IUserProfile::SetMOD: the editor has no game profile of its
+   own to remember a mod in, and a refused switch must never look like it
+   changed the player's real profile. BK_EDITOR_REFUSED too when the engine
+   is not started. */
+BkEditorStatus BkEditorSetMod( BkEditorSession *session, const char *folder );
+
+/* The session's active mod - folder[0] == 0, name and version empty, when
+   none is active. BK_EDITOR_REFUSED means the engine is not started; out is
+   then zeroed. BK_EDITOR_BAD_ARGUMENT for a null out. */
+BkEditorStatus BkEditorActiveMod( BkEditorSession *session, BkEditorMod *out );
+
+/* The two host roots the editor started on: NPlatform::Paths::BaseRoot() (the
+   installation - Data, the modules) and UserRoot() (where the profile,
+   config and cache live), each with the OS's own separator and a trailing
+   one, as NPlatform::Paths itself returns them - not the engine's backslash
+   form BkEditorOpenMap and BkEditorTestMapPath take.
+
+   BK_EDITOR_REFUSED with "the engine is not started" before BkEditorStart
+   has succeeded: the roots are whatever BkEditorStart set them to, and
+   before that they are either unset or left over from another caller.
+   BK_EDITOR_REFUSED too - never truncated - when a root does not fit the
+   fixed buffer; BK_EDITOR_BAD_ARGUMENT for a null out. */
+typedef struct { char base_root[1024]; char user_root[1024]; } BkEditorPathSet;
+BkEditorStatus BkEditorPaths( BkEditorSession *session, BkEditorPathSet *out );
+
+/* Where a test-launch copy of the current map goes so the game finds it: the
+   profile's own generated-data root for the given mod
+   (NProfile::GeneratedDirectory + NGeneratedData::ModKey, lower-cased first -
+   see GeneratedData.h), then "maps", then file_name - written in the
+   engine's form (backslashes), because that is what BkEditorSaveMap and
+   Game's own command line take. mod_folder may be null or "" for the base
+   game, exactly as NGeneratedData::ModKey reads it.
+
+   file_name must be a bare name (no '/' or '\\'), pass
+   NPlatform::Paths::IsRelativeDataName and end in ".bzm" - anything else,
+   including an empty name or profile, is BK_EDITOR_BAD_ARGUMENT with nothing
+   engine-specific about it: this call reaches no engine state at all, only
+   NPlatform::Paths and NProfile's own sanitizers, reused rather than
+   re-derived (security: path traversal through a profile, mod or file name
+   the caller did not choose).
+
+   On success the directories exist (created if they did not) and a stale
+   sibling with the same stem and the other extension (.xml) has been
+   removed, because the game loads the newer of a same-stem .xml/.bzm pair
+   (GameTT/iMissionInternal.cpp) - a leftover from an older test copy must
+   never outrank the one this call is about to write. BK_EDITOR_REFUSED, with
+   out[0] left at 0, when capacity is too short for the path; nothing is
+   created or removed in that case. */
+BkEditorStatus BkEditorTestMapPath( BkEditorSession *session, const char *profile, const char *mod_folder,
+                                    const char *file_name, char *out, int capacity );
 
 /* The camera, placed in world units, and one frame drawn into the window the
    session was started on. BkEditorOpenMap places the camera on the map's
@@ -248,6 +466,72 @@ BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEnt
    scene, which is a thing that happens rather than a bug. */
 BkEditorStatus BkEditorSetCamera( BkEditorSession *session, float wx, float wy );
 BkEditorStatus BkEditorFrame( BkEditorSession *session );
+
+/* The zoom is not the camera's distance: it is NSceneScreenScale's global-var
+   driven orthographic rescale (Scene/SceneScreenScale.h), the same one the
+   game's Mission screen drives through GFX.World.ZoomSteps. anchor_x/anchor_y
+   are world units (ICamera::GetAnchor - what BkEditorSetCamera places).
+   zoom_steps is the step count as applied - already clamped to
+   [0, max_zoom_steps] for the window's current size, so a stale count from
+   before a resize never reads back out of range. scale is screen pixels per
+   unzoomed pixel (NSceneScreenScale::GetGameplayScale): 1.0 at zoom_steps 0.
+   yaw_degrees is the camera's yaw in degrees - the game's own 45 plus
+   whatever BkEditorSetYaw last set (D-12), 45 until then. */
+typedef struct
+{
+	float anchor_x, anchor_y;
+	int zoom_steps;
+	int max_zoom_steps;
+	float scale;
+	float yaw_degrees;
+} BkEditorView;
+
+/* BK_EDITOR_REFUSED means the engine is not started; out is then left zeroed. */
+BkEditorStatus BkEditorViewState( BkEditorSession *session, BkEditorView *out );
+
+/* Zooms by delta_steps steps (positive in, negative out), anchored so the
+   world point under the screen point (sx, sy) - screen pixels - stays under
+   it: the game's own CInterfaceMission::ApplyZoomStep recipe. The result is
+   clamped to [0, the window's current max_zoom_steps] - out to the unzoomed
+   view, in no further than the game ever goes - so a request past either end
+   is not an error; BkEditorViewState says whether it clamped. sx, sy off the
+   window still zoom, anchored at whatever GetPos3 answers for that point.
+   BK_EDITOR_REFUSED with no map open; BK_EDITOR_BAD_ARGUMENT for a
+   non-finite sx or sy. */
+BkEditorStatus BkEditorZoomAt( BkEditorSession *session, int delta_steps, float sx, float sy );
+
+/* The same recipe with an absolute step count instead of a delta, anchored at
+   the screen's centre - for Home/Reset view (D-13) and for restoring a
+   session-remembered view (D-15). Same clamp and refusal rules as
+   BkEditorZoomAt. */
+BkEditorStatus BkEditorSetZoom( BkEditorSession *session, int steps );
+
+/* D-12: degrees of yaw offset from the game's own 45 - the camera keeps the
+   game's pitch and distance, only the yaw turns. Wrapped into [0, 360) rather
+   than refused, since every value names a real angle; a non-finite degrees is
+   BK_EDITOR_BAD_ARGUMENT. Re-places the camera at its current anchor
+   (ICamera::GetAnchor) with the new yaw and runs ITerrain::ResetPosition, the
+   same pair BkEditorResize does after a placement change - a stale terrain
+   layout is what left the ground thousands of pixels away once before
+   (session.cpp's SetSessionCamera comment). BkEditorViewState's yaw_degrees
+   reports 45 + this offset.
+
+   The terrain is laid out on a fixed isometric screen grid
+   (Scene/TerrainInternal.cpp, CTerrain::MovePatches) and buildings/infantry
+   are single-direction billboard sprites (Main/GameDB.h), so only offset 0 is
+   correct: measured (engine-tier TestYawMeasurement, 03-06-SUMMARY.md) at 30,
+   90, 180 and 270 on coldwinter, neither one follows the camera - the ground
+   quad stays fixed in screen space and is progressively clipped away by the
+   yaw (0.5% black at +0 rising to 99.2% at +180), while the sprites stay
+   upright and in their pre-rotation screen positions, floating with no
+   visible ground once the terrain clips out from under them. Picking still
+   agreed with the terrain for every offset (2-3 of 2-3 on-screen objects each
+   time), because both walk the same unrotated projection - so the mismatch is
+   real but not something today's tests based on picking alone would catch.
+   Recorded in 03-06-SUMMARY.md, along with whether this call ships rotation
+   input in M1, is re-planned as engine work, or is deferred (the plan's
+   checkpoint). BK_EDITOR_REFUSED means the engine is not started. */
+BkEditorStatus BkEditorSetYaw( BkEditorSession *session, float degrees );
 
 /* The editor's own drawing - its ImGui - goes into the engine's frame rather
    than into a renderer of its own. overlay runs on the thread that calls
@@ -321,6 +605,19 @@ BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, i
    BkEditorWorldToMap is the one conversion. */
 BkEditorStatus BkEditorScreenToWorld( BkEditorSession *session, float sx, float sy, float *wx, float *wy );
 
+/* The other direction of BkEditorScreenToWorld: a world point (world units,
+   not map units) to the screen point (pixels) it draws at, at whatever zoom
+   is set now - through the same projection BkEditorFrame draws with. z is 0,
+   matching BkEditorScreenToWorld's own convention: the ray-cast against the
+   real terrain height GetPos3 tries first does not resolve in this bridge's
+   headless session (no CMainLoop, no running mission - measured: it always
+   falls through to the z=0-plane algebraic fallback), so BkEditorScreenToWorld's
+   x,y already assume z=0 - composing the two at a nonzero height would not
+   round-trip, and would draw off the ground a click actually resolves
+   against. BK_EDITOR_REFUSED with no map open or no camera; BK_EDITOR_BAD_ARGUMENT
+   for a null output or a non-finite wx or wy. */
+BkEditorStatus BkEditorWorldToScreen( BkEditorSession *session, float wx, float wy, float *sx, float *sy );
+
 /* A world point as the map position an object placed there takes, through
    the engine's own conversion (Vis2AIFast). Unrounded: the object calls
    round once, on their way in. Needs no map and no camera, and cannot be
@@ -333,6 +630,86 @@ BkEditorStatus BkEditorWorldToMap( BkEditorSession *session, float wx, float wy,
    or 1; anything else is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkEditorSetMapType( BkEditorSession *session, int type );
 BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
+
+/* The map's own sound list.
+
+   Ground-truth correction (03-10): the map keeps two structurally similar
+   but different sound lists. CMapInfo::soundsList (Formats/fmtSound.h's
+   CMapSoundInfo - name and position only) is what the MFC editor's own
+   sound dialog and IScene::InitMapSounds read - but CMapInfo::operator&
+   (RandomMapGen/MapInfo_Methods.cpp, both the binary and the XML tree
+   writer) never serialises it, and nothing in this codebase ever populates
+   it from a loaded file (confirmed: MapFile/MapEquivalence.cpp's own
+   comment on CompareMap says so outright - "soundsList is not serialised -
+   CMapInfo::operator& writes `sounds` and derives this"). The field this
+   bridge reads and writes is CMapInfo::sounds.sounds - a
+   std::vector<SMapSoundInfo> (fmtMap.h:92-110, name/position/repeat/random
+   repeat/mute/min+max radius) - saved under tag 17 ("MapSounds" in the XML
+   tree), the one that actually round-trips through a save and reload. The
+   engine is never told, the same as BkEditorSetMapType: nothing in this
+   bridge's headless session ever starts a mission, which is the only time
+   InitMapSounds (and so soundsList) matters. The game reads sounds.sounds
+   only there: at mission start GameTT/iMissionInternal.cpp appends each
+   entry's name and position to soundsList (03-15 gap fix - before it
+   nothing read this list, and a placed sound was silent in the game).
+   Repeat, random repeat, mute and the radii have no reader: the sound
+   scene's map sounds follow the sound's own entry and its own timing.
+
+   Positions are world (scene) units, not map units: unlike an object's
+   vPos (BkEditorAddObject, converted through AI2Vis on its way into the
+   engine), a sound's vPos is written and read back raw - matching the MFC
+   editor's own (dead but explicit) marker code, which moved a sound's scene
+   object straight to vPos with no conversion (TemplateEditorFrame1.cpp,
+   markers placed at vPos in the scene). Radii are in vis tiles (fmtMap.h's
+   own comment on nMinRadius/nMaxRadius); times are milliseconds
+   (NTimer::STime, a DWORD). */
+typedef struct
+{
+	char name[64];
+	float x, y, z;
+	int repeat_ms, repeat_random_ms;
+	int mute_in_combat;
+	int min_radius, max_radius;
+} BkEditorSoundRecord;
+
+/* The snapshot's sound list, in file order. Like BkEditorObjects, out_count
+   is always the total, and a buffer too short for it is BK_EDITOR_REFUSED
+   with nothing written past capacity; out may be null when capacity is 0,
+   to ask for the count. BK_EDITOR_REFUSED too when no map is open. */
+BkEditorStatus BkEditorSounds( BkEditorSession *session, BkEditorSoundRecord *out, int capacity, int *out_count );
+
+/* Adds one sound to the snapshot and the working copy together; the engine
+   is untouched (see above). index is where it lands in the list: 0..count
+   inserts there, -1 appends. Any other index, or a null record, is
+   BK_EDITOR_BAD_ARGUMENT.
+
+   record->name must be null-terminated within its 64 bytes (an unterminated
+   name is BK_EDITOR_BAD_ARGUMENT, like a name over 63 characters) and must
+   name a sound the object database knows - game type 100, SGVOGT_SOUND -
+   or this is BK_EDITOR_REFUSED naming it: neither an unknown name nor an
+   object of some other game type is a sound. A non-finite x, y or z is
+   BK_EDITOR_BAD_ARGUMENT. record->x/y must land on the map (through the
+   engine's own tile lookup, the same oracle BkEditorWorldToTile uses) or
+   this is BK_EDITOR_REFUSED. A negative repeat_ms, repeat_random_ms,
+   min_radius or max_radius, or a min_radius above max_radius, is
+   BK_EDITOR_REFUSED. Every field of the record is written; there is
+   nothing in the map's own sound record this struct does not already
+   carry. A refusal changes nothing: not the snapshot, not the working
+   copy.
+
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorAddSound( BkEditorSession *session, int index, const BkEditorSoundRecord *record );
+
+/* Replaces the sound at index in both copies together, the engine
+   untouched. Same field rules as BkEditorAddSound. index outside
+   0..count-1, or a null record, is BK_EDITOR_BAD_ARGUMENT. A refusal
+   changes nothing. */
+BkEditorStatus BkEditorSetSound( BkEditorSession *session, int index, const BkEditorSoundRecord *record );
+
+/* Removes the sound at index from both copies together, the engine
+   untouched. index outside 0..count-1 is BK_EDITOR_BAD_ARGUMENT.
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorDeleteSound( BkEditorSession *session, int index );
 
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */

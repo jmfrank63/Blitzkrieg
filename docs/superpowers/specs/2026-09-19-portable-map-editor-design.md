@@ -35,24 +35,52 @@ parity, then it is deleted.
 In:
 
 - Open and save `.bzm` maps, in the format the game and the MFC editor read.
-- View the map with the game's own renderer; camera scroll, rotate and zoom.
+- View the map with the game's own renderer; camera scroll and zoom, pointer
+  anchored, in the game's own steps. **Changed from the spec, by decision on
+  2026-09-28 (03-06):** free camera rotation (D-12) is deferred out of M1 —
+  measured, not assumed. An engine-tier measurement at yaw offsets
+  +0/+30/+90/+180/+270 on `coldwinter` showed the lower half of the frame
+  going from 0.5% black at the game's own 45° to 9.4%, 94.0%, 99.2% and 89.8%
+  black at the other offsets: the terrain quad is laid out in fixed screen
+  space (`CTerrain::MovePatches`, `Scene/TerrainInternal.cpp:237-256`) and is
+  progressively clipped away by any yaw but the game's own, while billboard
+  sprites (`SGVOT_SPRITE`) stay upright and fixed in their pre-rotation
+  screen positions with no ground left under them. Delivering it correctly
+  needs terrain rendering through the view matrix, engine/renderer work
+  outside M1's scope. `BkEditorSetYaw` and the measurement stay in the
+  bridge as evidence for a future M2/M3 revisit; no input is wired to them.
 - Paint terrain tiles with a brush.
 - Place, select, move, rotate and delete objects and units, from a palette
-  built from the object database.
+  built from the object database, each shown with its own picture (see
+  "Object palette pictures" below).
 - Edit players and diplomacy (side of each player, attacking side).
+- Edit the map's sound list: add (at the view's centre), edit and delete,
+  each marked on the map and one undo step (see "Editor: sound list" below).
 - Undo and redo for every edit.
 - Test-launch the map in the game.
-- Load a mod's data (`-mod<dir>`), like the game.
-- macOS arm64 builds and runs; the other five CI targets build and run the
-  headless tests.
+- Load a mod's data (`-mod=Name`, `-mod=None`), like the game; File → Mod
+  switches it live, closing the open map and reloading the object palette
+  (D-26, revised 2026-09-29 in the hand try). **Changed from the spec,
+  by decision during 03-08:** the spec originally said `-mod<dir>`; the game
+  now takes `-mod=Name` (confirmed by plan 5's own spec-correction note).
+- Editor settings, recent files and autosave with crash recovery, all
+  independent of game profiles (see "User data: maps, settings and mods"
+  below).
+- macOS arm64 and Windows x64 (MSVC) build and run the editor app.
+  **Changed from the spec, by decision on 2026-09-24 (plan 5):** not macOS
+  only. The other four CI targets build and run the core and map file tiers
+  only.
 
 **Preservation invariant.** Every part of a map that M1 does not edit is
 written back exactly as it was read, including the parts M1 cannot show or
 edit (roads, rivers, bridges, entrenchments, scripts, script areas,
-reinforcements, start commands, reserve positions, unit creation, sounds, AI
-general data, camera anchors, mod name and version) and objects whose type
-the object database does not know. M1 never drops, reorders or recomputes
-data it did not change. See "Saving: the snapshot and the overlay".
+reinforcements, start commands, reserve positions, unit creation, AI general
+data, camera anchors, mod name and version) and objects whose type the object
+database does not know. **Changed from the spec, by decision during 03-10:**
+the map's sound list (`CMapInfo::sounds.sounds`, not `soundsList` — see
+"Editor: sound list" below) is edited by M1, with its own undo/redo; M1 never
+drops, reorders or recomputes any of the rest of the data it did not change.
+See "Saving: the snapshot and the overlay".
 
 Out (later milestones): roads, rivers, fences and bridges drawing; AI groups,
 reinforcements and scripts; areas and script areas; random map template
@@ -117,8 +145,11 @@ No UI dependency, runs headless.
   properties of the selection, players and diplomacy, status bar. The map view
   is the window's background; input over it goes to the active tool, input
   over a panel goes to ImGui.
-- Settings and recent files in the user's profile folder, via
-  `Platform/Paths`.
+- Settings and recent files in the editor's own file
+  (`<UserRoot>mapeditor/mapeditor.cfg`, via `Platform/Paths`; `BK_EDITOR_SETTINGS`
+  is a test seam), independent of game profiles and never cloud-synced with
+  game saves. **Changed from the spec, by decision during 03-07:** not the
+  game's own profile folder.
 
 ### Startup contract
 
@@ -286,6 +317,50 @@ until M2 can edit those references. Deleting an object that nothing refers
 to always works. The only exception is a passenger whose `nLinkWith` points
 at a deleted vehicle: the vehicle's delete is refused too.
 
+### Object palette pictures
+
+**Changed from the spec, by decision on 2026-09-28 (03-09, D-29):** the
+palette shows each object's own picture rather than a per-type symbol,
+rendered by the engine on demand and cached per session. The shipped data
+already carries one per object — `<szPath>\icon.tga`, the same file the MFC
+editor's own palette decoded — for 1073 of 1167 placeable objects (92%);
+Johannes chose to decode and cache those shipped pictures rather than build a
+new off-screen render path. A single soldier with no icon of its own borrows
+its squad's (built from every squad's own `<Members>` list, the
+alphabetically first squad winning a tie), raising coverage to 1126 of 1167
+(96%). The remaining 41 objects show a neutral frame with the object's own
+name inside — the same frame every row shows first, unconditionally, before
+its picture (if any) is decoded and uploaded, so a row is never blank while a
+GPU upload catches up.
+
+### Editor: sound list
+
+The map's sound list is `CMapInfo::sounds.sounds` (`SSoundInfo::sounds`,
+`std::vector<SMapSoundInfo>`, saved under tag 17, `"MapSounds"`) — **not**
+`CMapInfo::soundsList` as an earlier draft of this spec and plan 6's own
+objective for it named. **Changed from the spec, by decision during 03-10:**
+`soundsList`'s element type (`CMapSoundInfo`, `Formats/fmtSound.h`) carries
+only a name and a position; `CMapInfo::operator&` (both the binary and the
+XML tree form) never serialises it, and nothing in this codebase populates it
+from a loaded file — the MFC editor's own sound tab was already non-functional
+here. Binding the editor's Sounds panel to `soundsList` would have made every
+add, edit and delete a no-op the instant the map was saved and reopened.
+
+The Sounds panel (under Players) lists the open map's sounds; a selected
+row's fields (a filtered, known-sound combo; position; repeat and random
+repeat in seconds; mute in combat; min/max radius) commit on deactivation as
+one undo step. "Add at view centre" and "Delete" are the other two edits.
+Positions are world (scene) units. Every sound is marked on the map (a small
+diamond and its name), the selected one highlighted, regardless of the active
+tool. Placing a sound from the object palette stays refused, as plan 5 built
+— the Sounds panel is where sounds are edited.
+
+A pre-existing binary-format bug surfaced while proving a save-and-reload
+round trip: `SMapSoundInfo::operator&`'s binary form wrote `nMaxRadius` and
+`bMuteDuringCombat` under the same tag (6); `bMuteDuringCombat` now has its
+own tag (7). No shipped map has a non-empty sound list today, so the change
+displaces nothing on disk.
+
 ### Drawing ImGui on top of the engine
 
 Each frame the engine draws the map, ImGui draws its panels into the same
@@ -324,7 +399,66 @@ Settled by the overlay spike (plan
   engine dylibs it loads, in the same layout as the game install.
 - `zig build test` runs the core and map file tiers on every target. A
   separate step, `zig build test-map-editor-engine`, runs the engine tier.
-- Packaged separately from the game; a release may ship both.
+- **Changed from the spec, by decision on 2026-09-28 (03-14):** packaged
+  *beside* the game, not separately. `zig build package-game` and
+  `package-game-editors` stage `MapEditor`(`.exe`) next to `Game`(`.exe`) via
+  `stage.zig --map-editor` (the package's build-graph node depends on the
+  exact build, not whatever happens to be on disk); no package ever carries a
+  `mods/` folder. On Windows the packaged `MapEditor.exe` is a GUI-subsystem
+  program — no console window on a normal double-click — while
+  `--check`/`--smoke`/`--game-reads-it`/`BK_EDITOR_AUTO` still print, through
+  `crt.attachParentConsole()` (joins the parent's console and reopens
+  `CONOUT$` via `SetStdHandle`, since Zig's own stdio reads the process
+  parameters block live rather than caching a handle `AttachConsole` alone
+  would update). `map-editor-engine-test` (the CI test executable) stays
+  console-subsystem.
+- **Added during the hand try (2026-09-29, 03-15):** every staging and
+  package carries `SeasonData/SeasonTextures.pak`, the winter and Africa unit
+  textures the shipped Data lacks, generated from the summer ones by a cached
+  build step (`tools/zig/season_textures.zig`) and never written into Data.
+  The game and the editor mount it over the base Data, below any mod
+  (`Sources/src/StreamIO/SeasonData.h`).
+
+### User data: maps, settings and mods
+
+- **New and saved user maps** default to `<UserRoot>maps` (created if
+  missing); with a mod active, to `<UserRoot>mods/<Folder>/maps` — never the
+  installed, read-only `<install>/mods/<Folder>/data`. A shipped map (from
+  `Data`) is read-only: Save becomes Save As. A saved map with a mod active
+  records the mod's name and version in `szMODName`/`szMODVersion`, left
+  untouched with no mod active — the preservation invariant every other
+  untouched field keeps.
+- **Editor settings and recent files** live in `mapeditor.cfg` (see
+  "Architecture" above) — a lenient `key=value` format (unknown keys ignored,
+  malformed lines skipped, out-of-range numbers clamped, whole-line `#`
+  comments only). It holds scroll/swipe speed, autosave on/off and interval
+  (default 2 minutes, on by default, ticking only while there are unsaved
+  changes), the default maps folder, and the last 10 opened maps (a missing
+  file shown greyed with Remove).
+- **Autosave** writes into the map file itself once it has a real path;
+  before its first Save As, a never-saved map (new, or a shipped map not yet
+  redirected) autosaves to a recovery copy in the user data area with a
+  sidecar instead. The next start offers every recovery copy found back
+  (Open / Discard / Later); a real Save, Save As, or a clean/Don't-save Quit
+  deletes that document's own recovery copy, and so does a mod switch that
+  closes it.
+- **A mod** is chosen from File → Mod (`None` or an installed mod) or
+  `-mod=Name`/`-mod=None` on the command line — mirrors `CICChangeMOD::Exec`
+  without a main loop (closes the open map, swaps the mod's data storage,
+  re-inspects it, clears the shared managers other than `IGFX`, reloads the
+  object database) and never calls `IUserProfile::SetMOD`, since the editor
+  has no game profile of its own. Switching asks first when there are
+  unsaved changes (Save / Don't save / Cancel; Save on a new, shipped or
+  read-only map goes through Save As, and cancelling that cancels the
+  switch), then closes the map, switches the mod and reloads the object
+  palette. The editor is left with no map open (title and status bar say
+  so, the undo history is cleared, autosave is idle); the Open dialog then
+  starts in the new mod's maps folder. Choosing the mod that is already
+  active does nothing. **Revised 2026-09-29 in the hand try (Johannes's
+  decision):** the switch used to reopen the current map under the new mod,
+  which mixed object databases - a map saved under AchtungPanzer2, switched
+  to None, showed 1359 unknown objects. A running test game is its own
+  process on its own copy and keeps running.
 
 ## Data flow
 
@@ -346,9 +480,28 @@ returns the world point and the object under it. The active tool decides.
 snapshot and the overlay") and writes it with `MapFile` in the file's own
 format. The written map becomes the new snapshot.
 
-**Test launch.** Save to a temporary map in the profile's cache (never into
-Data), start the Game executable with that map, `-mod<dir>` when a mod is
-loaded, and `-windowed`. The editor stays open.
+**Test launch.** **Changed from the spec, by decision during 03-01/03-02:**
+the game loads a map only from its own data storage, so "the profile's
+cache" is the `MapEditorTest` profile's generated-data root, and the game
+needs its own dedicated command-line switch. `BkEditorTestMapPath` writes a
+copy of the current state into that root
+(`NProfile::GeneratedDirectory` + `NGeneratedData::ModKey` for the editor's
+active mod, lower-cased, then `maps`, then `mapeditor_test.bzm` — never into
+`Data`), removing a stale same-stem `.xml` sibling first, since the game
+loads the newer of a same-stem `.xml`/`.bzm` pair. The editor then spawns
+`Game -editor-test -profile=MapEditorTest -mod=<Folder>|-mod=None -windowed
+[-monitor<n>] mapeditor_test.bzm` as an argv array — never a shell string, so
+a mod folder with a space stays one argument. `-editor-test` is the game's own
+test-launch switch: a session-only profile (`active.cfg` is never read or
+written, no legacy save/screenshot migration), every cloud-sync gate closed,
+the first-visit help skipped, and windowed forced order-independently of any
+later `-fullscreen` on the same command line — so a test launch can never
+touch Johannes's own profile, saves, settings or cloud state. The editor
+stays open, keeps drawing, and polls the game's lifetime without blocking a
+frame; quitting the game returns to the editor with the map and its undo
+history intact. Pressing Test again while one still runs offers Restart
+(close and relaunch with the current state) or Keep (leave the running one
+alone).
 
 ## Errors
 
@@ -362,9 +515,19 @@ loaded, and `-windowed`. The editor stays open.
   document unchanged. Edits outside the map are refused. A placement the
   engine rejects is a status bar note, not an error. So is a refused delete
   of a referenced object.
-- **Save:** write to a temporary file, swap it in only on success, then read
-  it back to verify. On failure the original stays untouched and the map stays
-  dirty. Close and Open ask first when there are unsaved changes.
+- **Save:** write to a temporary file beside the real one (the map's own
+  extension, `<stem>.~save<ext>`), have `SaveSessionMap` read it back and
+  compare it to what was meant to be written — `BK_EDITOR_FAILED` naming
+  where they differ, or that the write did not read back at all — before
+  swapping it over the real path, and keep one `<name><ext>.bak` per file per
+  session (taken once, on the session's first write to a path that already
+  exists, holding the version from when the map was opened, so an autosave
+  can never overwrite the last good version). On failure the original stays
+  untouched, the temporary file is removed, and the map stays dirty. A
+  shipped map is read-only: Save becomes Save As, defaulting to the user maps
+  folder. Close, Open and Quit ask first (Save / Don't save / Cancel) when
+  there are unsaved changes; Save through that prompt goes through Save As
+  when the map needs it.
 - **Test launch:** a missing game or an immediate exit shows the exit code
   and the game log's path.
 - **Crashes:** an autosave into the profile's cache every few minutes,
@@ -474,10 +637,26 @@ than theoretical: three of the six take it.
 - **Game reads it:** a map saved by the editor is loaded by the game under
   `BK_AUTO_UI`, shot and exited cleanly, and the placed unit is there.
 - **Editor app:**
-  - An automation variable like the game's (`BK_EDITOR_AUTO`: clicks, keys,
-    shots, exit), with shots in `zig-out/local-test`.
-  - A smoke script opens a map, paints, places a unit, saves, test-launches
-    and quits. For now I compare the shots by hand.
+  - **Changed from the spec, by decision during 03-12:** `BK_EDITOR_AUTO`
+    ships as `"frame:action,frame:action,..."`, generalising the game's own
+    `BK_AUTO_UI` and the fixed `--smoke` table into one scripting mechanism:
+    `key=`, `press=`/`drag=`/`release=`/`click=` (a point is absolute pixels
+    or `c<dx>x<dy>` from the screen's own centre), `wheel=`, `open=`, `save`,
+    `saveas=`, `test`, `waitgame=<seconds>`, `shot=<name>` and
+    `compare=<name>[@<percent>]`, and `exit`; a malformed token is rejected,
+    naming the offending entry.
+  - **Changed from the spec:** shot comparison is automated, not by hand —
+    `compare=` runs a hand-rolled, uncompressed-32-bit-TGA reader and a
+    pixel-tolerance comparison (no new image-diff dependency, matching the
+    project's existing TGA-by-hand convention), seeding a local,
+    never-committed reference on its first run and comparing against it
+    thereafter.
+  - `zig build map-editor-auto` runs the spec's whole editor-app scenario as
+    one local command: paint, place, save as, shot, compare, test-launch,
+    wait for the game's clean exit, quit — shots live in `zig-out/local-test`.
+  - A fixed `--smoke` table (the same synthetic-event machinery
+    `BK_EDITOR_AUTO` uses) opens a map, paints, places a unit, saves,
+    test-launches and quits.
 - **Overlay spike:** a readback check that the frame holds both the map's
   pixels and an ImGui panel's pixels, measured from the image.
 
@@ -498,10 +677,24 @@ than theoretical: three of the six take it.
 ## Exit criteria for M1
 
 - `zig build install-map-editor` builds on all six CI targets, and the core
-  and map file tiers pass there.
-- The engine, game and editor app tiers pass locally on macOS arm64.
+  and map file tiers pass there. **Met** — CI run 36464351662 (03-14): all
+  six jobs green; re-confirmed by this plan's own CI run (03-15-SUMMARY.md)
+  and locally with `zig build test -Dtarget=aarch64-macos -Dcopy-data=false`.
+- The engine, game and editor app tiers pass locally on macOS arm64. **Met**
+  — `zig build test-editor-bridge test-map-editor-engine map-editor-host-check
+  map-editor-smoke map-editor-game-reads-it map-editor-auto
+  -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run`, 2026-09-29: 11
+  PASS/done lines, rc=0 (03-15-SUMMARY.md).
 - On macOS arm64 the editor opens a shipped map, paints tiles, places, moves,
   rotates and deletes units, edits diplomacy, undoes and redoes all of it,
-  saves, and the game plays the saved map.
-- Opening and saving any shipped map unchanged (the full local sweep) gives an equivalent map, as
-  defined under Testing.
+  saves, and the game plays the saved map ("rotates ... units" is object
+  rotation with Q/E, not camera rotation — see the M1 scope note on D-12
+  above, deferred separately). Automated evidence: `map-editor-game-reads-it`,
+  `map-editor-auto` and `map-editor-smoke` (03-12, 03-15). Human
+  confirmation: **Met** — Johannes's hand try on the release build,
+  approved 2026-09-29 after the gap fixes it found (03-15-SUMMARY.md).
+- Opening and saving any shipped map unchanged (the full local sweep) gives an
+  equivalent map, as defined under Testing. **Met** — `zig build
+  test-map-files-all -Dtarget=aarch64-macos -Dcopy-data=false
+  -Dtest-mode=run`, 2026-09-29: 1,755 of 1,755 maps round-tripped, 0 FAIL
+  (03-15-SUMMARY.md).

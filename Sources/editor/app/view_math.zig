@@ -20,6 +20,83 @@ pub const Scroll = struct {
     down: bool = false,
 };
 
+/// Who put the view's status message up. Most messages are `general`: the
+/// next edit that succeeds (or is merely refused) clears them, whoever set
+/// them. A message from an operation that can later succeed on its own,
+/// with no edit in between, is tagged, so that success clears it: a Test in
+/// game that failed and then launched (WINDOWS.md 1), a frame that failed
+/// and then presented, a dialog that was busy and has since ended.
+pub const StatusSource = enum { general, test_launch, frame, dialog };
+
+/// The view's part of the status bar: one message, and the source that set
+/// it. `clearFrom` erases the message only if that source set it, so one
+/// operation's success never wipes another's failure.
+pub const StatusSlot = struct {
+    buffer: [512]u8 = undefined,
+    len: usize = 0,
+    source: StatusSource = .general,
+
+    pub fn line(self: *const StatusSlot) []const u8 {
+        return self.buffer[0..self.len];
+    }
+
+    /// `prefix` then `message`, cut to the buffer. Replaces whatever was
+    /// there, from any source.
+    pub fn set(self: *StatusSlot, source: StatusSource, prefix: []const u8, message: []const u8) void {
+        const prefix_len = @min(prefix.len, self.buffer.len);
+        @memcpy(self.buffer[0..prefix_len], prefix[0..prefix_len]);
+        const message_len = @min(message.len, self.buffer.len - prefix_len);
+        @memcpy(self.buffer[prefix_len..][0..message_len], message[0..message_len]);
+        self.len = prefix_len + message_len;
+        self.source = source;
+    }
+
+    /// Clears the message, whoever set it.
+    pub fn clear(self: *StatusSlot) void {
+        self.len = 0;
+        self.source = .general;
+    }
+
+    /// Clears the message only if `source` set it.
+    pub fn clearFrom(self: *StatusSlot, source: StatusSource) void {
+        if (self.source == source) self.clear();
+    }
+};
+
+test "StatusSlot: a source clears its own message, never another's" {
+    var slot: StatusSlot = .{};
+    slot.set(.test_launch, "test in game: ", "the copy would not save");
+    try std.testing.expectEqualStrings("test in game: the copy would not save", slot.line());
+    slot.clearFrom(.frame);
+    try std.testing.expectEqualStrings("test in game: the copy would not save", slot.line());
+    slot.clearFrom(.test_launch);
+    try std.testing.expectEqualStrings("", slot.line());
+
+    slot.set(.general, "autosave failed: ", "disk full");
+    slot.clearFrom(.test_launch);
+    try std.testing.expectEqualStrings("autosave failed: disk full", slot.line());
+    slot.clear();
+    try std.testing.expectEqualStrings("", slot.line());
+}
+
+test "StatusSlot: a later message from another source takes the slot over" {
+    var slot: StatusSlot = .{};
+    slot.set(.test_launch, "test in game: ", "no test path");
+    slot.set(.frame, "failed: ", "DeviceLost");
+    slot.clearFrom(.test_launch);
+    try std.testing.expectEqualStrings("failed: DeviceLost", slot.line());
+    slot.clearFrom(.frame);
+    try std.testing.expectEqualStrings("", slot.line());
+}
+
+test "StatusSlot: an over-long message is cut to the buffer, never overrun" {
+    var slot: StatusSlot = .{};
+    const long = [_]u8{'x'} ** 600;
+    slot.set(.general, "failed: ", &long);
+    try std.testing.expectEqual(slot.buffer.len, slot.line().len);
+    try std.testing.expectEqualStrings("failed: ", slot.line()[0..8]);
+}
+
 /// What the camera is clamped to: the map's size in tiles.
 pub const MapSize = struct {
     width_tiles: i32 = 0,
@@ -83,9 +160,10 @@ pub const wheel_pixels_per_unit: f32 = 20.0;
 
 /// The player's wheel/trackpad sensitivity, a multiplier on
 /// `wheel_pixels_per_unit`: 1 is the gain above. The game has it as an
-/// option (GamePlay.TrackpadScroll, 0.25x-4x); the editor has no settings
-/// store yet.
-/// TODO(plan 6, editor settings): make this the editor's setting.
+/// option (GamePlay.TrackpadScroll, 0.25x-4x); this is only the documented
+/// default for a fresh `View.wheel_sensitivity` field (plan 6) - the app
+/// overrides it from `core.settings.Settings.scroll_speed` once the
+/// settings file loads, or the Settings window changes it (D-25).
 pub const wheel_sensitivity: f32 = 1.0;
 
 /// An SDL_MouseWheelEvent's deltas, as view.zig hands them over. `flipped`
@@ -107,6 +185,130 @@ pub fn wheelPan(event: WheelEvent, sensitivity: f32) ScreenPan {
     return .{ .right_px = event.x * gain, .up_px = event.y * gain };
 }
 
+/// Whether two nonzero deltas point the same way - no `std.math.sign` in
+/// this Zig; a plain comparison is enough for the residual-reversal check.
+fn sameDirection(a: f32, b: f32) bool {
+    return (a > 0 and b > 0) or (a < 0 and b < 0);
+}
+
+/// The whole steps a residual has crossed, snapping to the nearest integer
+/// first when it is within floating-point noise of one: `log(1.2, 1/1.2)` is
+/// exactly -1 in real numbers but `-0.999999...` in f32, and a plain
+/// `trunc` would silently drop that step.
+fn wholeSteps(residual: f32) i32 {
+    const rounded = @round(residual);
+    if (@abs(residual - rounded) < 0.0005) return @intFromFloat(rounded);
+    return @intFromFloat(std.math.trunc(residual));
+}
+
+/// Shift+wheel/swipe or a trackpad pinch, folded into whole zoom steps: the
+/// game's own zoom (NSceneScreenScale) moves in integer steps, and a
+/// fractional trackpad delta or pinch scale has to accumulate toward the
+/// next whole one rather than being rounded or dropped.
+pub const ZoomWheel = struct {
+    residual: f32 = 0,
+
+    /// One wheel/swipe delta in, the whole steps it crossed out (0, one, or
+    /// more for a fast spin); the leftover fraction is carried to the next
+    /// `feed`. A delta that reverses direction from the carried fraction
+    /// drops it first: the residual is "how far the finger has moved this
+    /// way", and it means nothing once the finger reverses.
+    pub fn feed(self: *ZoomWheel, delta: f32) i32 {
+        if (delta == 0) return 0;
+        if (self.residual != 0 and !sameDirection(self.residual, delta)) self.residual = 0;
+        self.residual += delta;
+        const steps = wholeSteps(self.residual);
+        self.residual -= @floatFromInt(steps);
+        return steps;
+    }
+};
+
+/// A wheel event's zoom delta: y, or x when y is 0 - macOS turns Shift + a
+/// mouse wheel's vertical notches into a horizontal scroll (the same reason
+/// `wheelPan` takes both axes for a plain pan).
+pub fn zoomDelta(x: f32, y: f32) f32 {
+    return if (y != 0) y else x;
+}
+
+/// `GFX.World.ZoomFactor`'s default (Scene/SceneScreenScale.h,
+/// `NSceneScreenScale::GetZoomStepFactor`): each zoom step scales the view by
+/// this factor, so a pinch's scale is folded into steps on a log of this base.
+pub const pinch_zoom_step_factor: f32 = 1.2;
+
+/// A trackpad pinch, folded into whole zoom steps the same way `ZoomWheel`
+/// folds a wheel/swipe delta - but on a log scale, since SDL's pinch `scale`
+/// is multiplicative (scale < 1 zooms out, > 1 zooms in) rather than additive.
+pub const PinchZoom = struct {
+    log_residual: f32 = 0,
+
+    /// The pinch update's `scale` (since the last update) in, the whole
+    /// zoom steps it crossed out. A non-positive scale (should not happen,
+    /// SDL's own doc gives no bound) folds to no steps and leaves the
+    /// residual alone rather than feeding `log` a domain error.
+    pub fn feed(self: *PinchZoom, scale: f32) i32 {
+        if (scale <= 0) return 0;
+        self.log_residual += std.math.log(f32, pinch_zoom_step_factor, scale);
+        const steps = wholeSteps(self.log_residual);
+        self.log_residual -= @floatFromInt(steps);
+        return steps;
+    }
+
+    /// Begin/end of a pinch gesture: no fraction should carry from one
+    /// gesture into the next.
+    pub fn reset(self: *PinchZoom) void {
+        self.log_residual = 0;
+    }
+};
+
+test "ZoomWheel: a mouse wheel's notches give one step each" {
+    var zoom: ZoomWheel = .{};
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(1.0));
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(1.0));
+    try std.testing.expectEqual(@as(i32, -1), zoom.feed(-1.0));
+}
+
+test "ZoomWheel: four trackpad deltas of 0.3 give one step, on the fourth" {
+    var zoom: ZoomWheel = .{};
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(0.3));
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(0.3));
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(0.3));
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(0.3));
+}
+
+test "ZoomWheel: a reversal drops the carried residual" {
+    var zoom: ZoomWheel = .{};
+    _ = zoom.feed(0.9);
+    try std.testing.expectEqual(@as(i32, 0), zoom.feed(-0.3));
+    try std.testing.expectApproxEqAbs(@as(f32, -0.3), zoom.residual, 0.0001);
+}
+
+test "zoomDelta: y wins when nonzero, x only when y is 0" {
+    try std.testing.expectEqual(@as(f32, 2), zoomDelta(1, 2));
+    try std.testing.expectEqual(@as(f32, 1), zoomDelta(1, 0));
+    try std.testing.expectEqual(@as(f32, 0), zoomDelta(0, 0));
+}
+
+test "PinchZoom: scale steps of exactly the zoom factor give one step each way" {
+    var zoom: PinchZoom = .{};
+    try std.testing.expectEqual(@as(i32, 1), zoom.feed(pinch_zoom_step_factor));
+    try std.testing.expectEqual(@as(i32, -1), zoom.feed(1 / pinch_zoom_step_factor));
+}
+
+test "PinchZoom: small scale updates accumulate toward the next step" {
+    var zoom: PinchZoom = .{};
+    var steps: i32 = 0;
+    for (0..10) |_| steps += zoom.feed(1.02);
+    try std.testing.expect(steps >= 1);
+}
+
+test "PinchZoom: reset clears a carried residual between gestures" {
+    var zoom: PinchZoom = .{};
+    _ = zoom.feed(1.1);
+    try std.testing.expect(zoom.log_residual != 0);
+    zoom.reset();
+    try std.testing.expectEqual(@as(f32, 0), zoom.log_residual);
+}
+
 const test_map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
 
 fn applyWheel(camera: *Camera, event: WheelEvent) void {
@@ -114,19 +316,26 @@ fn applyWheel(camera: *Camera, event: WheelEvent) void {
     camera.panScreen(pan.right_px, pan.up_px, test_map);
 }
 
-test "a wheel's y pans the map up and down the screen, its x across it" {
+test "a wheel notch up pans the map 20 px toward the screen's top: 28.28 world units along (-1, +1)" {
+    // Literal positions (WINDOWS.md 3): SDL's y is positive away from the
+    // user, a notch is 20 screen px, and screen up is world (-1, +1) at two
+    // world units per pixel over sqrt(2); screen right (+1, +1) at one.
     var camera: Camera = .{ .x = 2000, .y = 2000 };
     applyWheel(&camera, .{ .x = 0, .y = 1 });
-    // Screen up is world (-1, +1).
-    try std.testing.expect(camera.x < 2000 and camera.y > 2000);
+    try std.testing.expectApproxEqAbs(@as(f32, 1971.716), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2028.284), camera.y, 0.001);
+    camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&camera, .{ .x = 0, .y = -1 });
+    try std.testing.expectApproxEqAbs(@as(f32, 2028.284), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 1971.716), camera.y, 0.001);
     camera = .{ .x = 2000, .y = 2000 };
     applyWheel(&camera, .{ .x = 1, .y = 0 });
-    // Screen right is world (+1, +1).
-    try std.testing.expect(camera.x > 2000 and camera.y > 2000);
-    try std.testing.expectApproxEqAbs(camera.x, camera.y, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2014.142), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2014.142), camera.y, 0.001);
     camera = .{ .x = 2000, .y = 2000 };
     applyWheel(&camera, .{ .x = -1, .y = -1 });
-    try std.testing.expect(camera.y < 2000);
+    try std.testing.expectApproxEqAbs(@as(f32, 2014.142), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 1957.574), camera.y, 0.001);
 }
 
 test "a slow swipe's small fractional deltas add up to the large one, moving the same way every event" {
@@ -173,7 +382,7 @@ test "a mouse wheel's notches pan by whole, equal steps" {
     const first = camera.y - 2000;
     applyWheel(&camera, .{ .x = 0, .y = 1 });
     try std.testing.expectApproxEqAbs(2 * first, camera.y - 2000, 0.001);
-    try std.testing.expectApproxEqAbs(wheel_pixels_per_unit * 2 / std.math.sqrt2, first, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 28.284), first, 0.001);
 }
 
 test "the sensitivity scales a pan monotonically, and the default leaves it as it was" {
@@ -197,10 +406,18 @@ test "a wheel pan clamps at the map's edge" {
     try std.testing.expectEqual(@as(f32, 0), camera.y);
 }
 
-/// SDL_BUTTON_LEFT/SDL_BUTTON_RIGHT (SDL_mouse.h): fixed by SDL's own ABI,
-/// so naming them here does not need the sdl3 module.
+/// SDL_BUTTON_LEFT/SDL_BUTTON_MIDDLE/SDL_BUTTON_RIGHT (SDL_mouse.h): fixed by
+/// SDL's own ABI, so naming them here does not need the sdl3 module.
 pub const sdl_button_left: u8 = 1;
+pub const sdl_button_middle: u8 = 2;
 pub const sdl_button_right: u8 = 3;
+
+/// SDL_BUTTON_MASK(X) (SDL_mouse.h): `1u << (X - 1)`, as SDL_GetMouseState's
+/// return value and SDL_MouseMotionEvent.state report it - SDL_BUTTON_LMASK
+/// and SDL_BUTTON_MMASK, named here for the same ABI reason as the button
+/// numbers above.
+pub const sdl_button_lmask: u32 = 1 << (sdl_button_left - 1);
+pub const sdl_button_mmask: u32 = 1 << (sdl_button_middle - 1);
 
 /// The two ends of a mouse-button press, as SDL_MouseButtonEvent reports
 /// them (view.zig hands over event.button and event.down, not the whole
@@ -217,6 +434,44 @@ pub fn kindOf(event: ButtonEvent) ?EventKind {
     return if (event.down) .press else .release;
 }
 
+/// A pan or a left-button tool gesture whose button `view.zig`'s own press
+/// and release handlers never saw let go: a release ImGui or another window
+/// took (Task 2, carried from plan 5: "a middle-button release ImGui takes
+/// can leave panning stuck" / "view.zig's gesture handling relies on
+/// main.zig's router filtering, with no guard of its own"). Read every frame
+/// from `SDL_GetMouseState`'s own button mask, which reports the buttons
+/// actually down right now regardless of which window - if any - got the
+/// release event.
+pub const StaleGesture = struct { end_pan: bool = false, end_left: bool = false };
+
+pub fn staleGesture(buttons_down_mask: u32, panning: bool, left_down: bool) StaleGesture {
+    return .{
+        .end_pan = panning and buttons_down_mask & sdl_button_mmask == 0,
+        .end_left = left_down and buttons_down_mask & sdl_button_lmask == 0,
+    };
+}
+
+test "staleGesture: panning ends once the middle button is no longer down, not before" {
+    try std.testing.expect(staleGesture(0, true, false).end_pan);
+    try std.testing.expect(!staleGesture(sdl_button_mmask, true, false).end_pan);
+    try std.testing.expect(!staleGesture(0, false, false).end_pan);
+}
+
+test "staleGesture: a left gesture ends once the left button is no longer down, not before" {
+    try std.testing.expect(staleGesture(0, false, true).end_left);
+    try std.testing.expect(!staleGesture(sdl_button_lmask, false, true).end_left);
+    try std.testing.expect(!staleGesture(0, false, false).end_left);
+}
+
+test "staleGesture: both can end in the same frame, and the other button's own state never saves one" {
+    const both = staleGesture(0, true, true);
+    try std.testing.expect(both.end_pan);
+    try std.testing.expect(both.end_left);
+    const left_only = staleGesture(sdl_button_mmask, true, true);
+    try std.testing.expect(!left_only.end_pan);
+    try std.testing.expect(left_only.end_left);
+}
+
 test "scroll speed: edge and keys add up, and clamp at the map" {
     var camera: Camera = .{ .x = 100, .y = 100 };
     camera.scroll(.{ .left = true }, 0.5, .{ .width_tiles = 96, .height_tiles = 96 });
@@ -227,17 +482,29 @@ test "scroll speed: edge and keys add up, and clamp at the map" {
     try std.testing.expectEqual(@as(f32, 0), camera.y);
 }
 
-test "scroll follows the screen of the game's camera: up is world (-1, +1), at twice the step" {
+test "scroll follows the screen of the game's camera: 0.1 s of up is 141.42 world units along (-1, +1), of right 70.71 along (+1, +1)" {
+    // Literal positions, not ones worked out from scroll_speed (WINDOWS.md
+    // 3): the game's camera (yaw 45, pitch 30) puts screen up along world
+    // (-1, +1) and screen right along (+1, +1) - the engine tier checks the
+    // same directions against BkEditorScreenToWorld - and 1000 world units
+    // a second, twice that up the screen, is 100 and 200 in 0.1 s.
     const map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
     var camera: Camera = .{ .x = 2000, .y = 2000 };
     camera.scroll(.{ .up = true }, 0.1, map);
-    const step = scroll_speed * 0.1 / std.math.sqrt2;
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) - 2 * step, camera.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) + 2 * step, camera.y, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 1858.579), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2141.421), camera.y, 0.01);
+    camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .down = true }, 0.1, map);
+    try std.testing.expectApproxEqAbs(@as(f32, 2141.421), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 1858.579), camera.y, 0.01);
     camera = .{ .x = 2000, .y = 2000 };
     camera.scroll(.{ .right = true }, 0.1, map);
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) + step, camera.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) + step, camera.y, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2070.711), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2070.711), camera.y, 0.01);
+    camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .left = true }, 0.1, map);
+    try std.testing.expectApproxEqAbs(@as(f32, 1929.289), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 1929.289), camera.y, 0.01);
     camera = .{ .x = 2000, .y = 2000 };
     camera.scroll(.{ .up = true, .down = true, .left = true, .right = true }, 0.1, map);
     try std.testing.expectEqual(@as(f32, 2000), camera.x);
@@ -271,7 +538,7 @@ test "a release maps to a tool event too" {
 /// coarser classification than `EventKind`/`kindOf` above: it only tells
 /// `shouldDeliver` which of ImGui's two capture flags applies, not which
 /// tool event (if any) the event becomes.
-pub const InputEventKind = enum { mouse_button, mouse_motion, mouse_wheel, key, other };
+pub const InputEventKind = enum { mouse_button, mouse_motion, mouse_wheel, key, pinch, other };
 
 /// ImGui's own idea of who wants an event, read from `igGetIO()` after
 /// `host.handleEvent` has processed it.
@@ -294,6 +561,10 @@ pub fn shouldDeliver(kind: InputEventKind, capture: Capture, gesture_active: boo
         // A wheel is not part of a gesture: over a panel it is the panel's
         // (ImGui scrolls it) even mid-drag, or one swipe would scroll both.
         .mouse_wheel => !capture.mouse,
+        // A pinch is a two-finger trackpad gesture on the map, not a mouse
+        // gesture the view opened - the same "over a panel is the panel's"
+        // rule as a wheel, and never overridden by gesture_active.
+        .pinch => !capture.mouse,
         .key => !capture.keyboard,
         .other => true,
     };
@@ -318,4 +589,7 @@ test "routing: a wheel over a panel is the panel's, even during a gesture; over 
     try std.testing.expect(!shouldDeliver(.mouse_wheel, busy, true));
     try std.testing.expect(shouldDeliver(.mouse_wheel, free, false));
     try std.testing.expect(shouldDeliver(.mouse_wheel, free, true));
+    try std.testing.expect(!shouldDeliver(.pinch, busy, false));
+    try std.testing.expect(!shouldDeliver(.pinch, busy, true));
+    try std.testing.expect(shouldDeliver(.pinch, free, false));
 }

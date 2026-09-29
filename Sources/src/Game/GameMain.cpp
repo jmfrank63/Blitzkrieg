@@ -30,6 +30,7 @@
 #include "../StreamIO/OptionSystem.h"
 #include "../StreamIO/ProfilePaths.h"
 #include "../StreamIO/GeneratedData.h"
+#include "../StreamIO/SeasonData.h"
 #include "../StreamIO/RandomGen.h"
 #include <fstream>
 #include <filesystem>
@@ -214,8 +215,9 @@ struct SCmdParams
 	std::string szModName;								// mod file name - to lauch game with particular mod added
 	bool bNoMod;													// -mod=None: the standard game, whatever the profile last played
 	std::string szProfileName;						// player profile to activate (-profile=Name)
+	bool bEditorTest;											// -editor-test: session-only profile, windowed, no cloud sync, no first-visit help
 
-	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ), bNoMod( false ) { }
+	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ), bNoMod( false ), bEditorTest( false ) { }
 };
 static void ArmAllModulesLeakOnExit()
 {
@@ -312,6 +314,12 @@ static bool CloudOptionIsOn( const std::string &szConfigPath, const char *pszKey
 // anything else is the rclone backend id the profile syncs with.
 static bool CloudProviderSelected( const std::string &szProvider )
 {
+	// The Map Editor's Test in game (-editor-test, D-02) must never begin a
+	// cloud sync - startup, requested, periodic, on save or on exit - whatever
+	// the profile or the root config.cfg says. Every gate above funnels
+	// through this one function, so this single guard closes all of them.
+	if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
+		return false;
 	return !szProvider.empty() &&
 		NStr::CompareAsciiNoCase( szProvider.c_str(), "Off" ) != 0 &&
 		NStr::CompareAsciiNoCase( szProvider.c_str(), "On" ) != 0;
@@ -497,9 +505,21 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// config.cfg under profiles\<name>\. It must be settled before the
 		// config is read. -profile= beats the name remembered in
 		// profiles\active.cfg, which beats the default "Player".
+		//
+		// -editor-test (D-02): a session-only profile, defaulting to
+		// "MapEditorTest" when none is given on the command line.
+		// profiles/active.cfg is never read or written in this mode, and the
+		// one-time legacy-migration branch never runs (bFirstProfileRun is
+		// forced false), so the player's own remembered profile and saves
+		// are never touched by a test launch.
 		std::string szProfile = cmdp.szProfileName;
-		const bool bFirstProfileRun = !std::filesystem::exists( "profiles/active.cfg" );
-		if ( szProfile.empty() && !bFirstProfileRun )
+		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( "profiles/active.cfg" );
+		if ( cmdp.bEditorTest )
+		{
+			if ( szProfile.empty() )
+				szProfile = "MapEditorTest";
+		}
+		else if ( szProfile.empty() && !bFirstProfileRun )
 		{
 			std::ifstream file( "profiles/active.cfg" );
 			if ( file )
@@ -510,9 +530,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 		std::error_code pathError;
 		std::filesystem::create_directories( "profiles/" + szProfile + "/saves", pathError );
 		std::filesystem::create_directories( "profiles/" + szProfile + "/screenshots", pathError );
-		std::ofstream active( "profiles/active.cfg", std::ios::trunc );
-		if ( active )
-			active << szProfile;
+		if ( !cmdp.bEditorTest )
+		{
+			std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+			if ( active )
+				active << szProfile;
+		}
 		if ( bFirstProfileRun )
 		{
 			// One-time migration: the pre-profile layout kept saves and
@@ -563,7 +586,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// refused is the only evidence there is.
 		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
 		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
-		if ( !CloudProviderSelected( szProvider ) )
+		if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
+			NStr::DebugTrace( "cloud sync: off for the editor's test game\n" );
+		else if ( !CloudProviderSelected( szProvider ) )
 			NStr::DebugTrace( "cloud sync: off for \"%s\" (Cloud.Provider=\"%s\" in %s)\n",
 				szProfile.c_str(), szProvider.c_str(), szConfigPath.c_str() );
 		else if ( !CloudCredentialsMatch( szProvider ) )
@@ -620,7 +645,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 				pStorage = OpenStorage( (szDataDir + "\\data\\*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 		}
 		else
+		{
 			pStorage = OpenStorage( NPlatform::Paths::DataArchivePattern().c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
+			// The generated season textures of this installation's Data, before
+			// any mod goes on top (a -DataDir Data has none of its own).
+			NSeasonData::Mount( pStorage );
+		}
 		RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 	}
 	BK_STARTUP_MARKER("after OpenStorage");
@@ -1245,7 +1275,11 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// clipboard) | paste (press the real Cmd+V chord) | text=<utf8> (typed into
 			// the focused edit box through the platform text path; no commas or
 			// colons - they are the schedule's separators) | wheel=<delta> (a wheel
-			// notch, positive up) | set=<option>=<value> | var=<name>=<value>.
+			// notch, positive up) | set=<option>=<value> | var=<name>=<value> |
+			// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence; build-preview query) |
+			// units=<x>x<y>x<r> (counts each player's units within radius r of
+			// (x,y), in the AI's own coordinates - a harness's way to see a
+			// placed unit in the running mission without driving the UI).
 			// It also reports frame timing every 120 frames, which is how the menu
 			// frame rate is measured headless.
 			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
@@ -1426,6 +1460,50 @@ int RunGame( const BkGameLaunchInfo &launch )
 								CVec2( float( nX1 ), float( nY1 ) ), CVec2( float( nX2 ), float( nY2 ) ) );
 							fprintf( stderr, "BK_AUTO_UI: probe %c (%d,%d)-(%d,%d) -> %s\n",
 								cKind, nX1, nY1, nX2, nY2, bResult ? "GREEN" : "RED" );
+						}
+					}
+					else if ( szAction.compare( 0, 6, "units=" ) == 0 )
+					{
+						// units=<x>x<y>x<r>: counts each player's units within radius
+						// r of (x,y), in SMiniMapUnitInfo's own coordinates (the same
+						// ones GetMiniMapInfo already reports for the minimap) - a
+						// harness's way to see a placed unit in a running mission
+						// without driving the UI.
+						int nX = 0, nY = 0, nRadius = 0;
+						if ( sscanf( szAction.c_str() + 6, "%dx%dx%d", &nX, &nY, &nRadius ) == 3 )
+						{
+							IAILogic *pAI = GetSingleton<IAILogic>();
+							if ( pAI == 0 )
+								fprintf( stderr, "BK_AUTO_UI: units unavailable\n" );
+							else
+							{
+								SMiniMapUnitInfo *pUnits = 0;
+								int nLen = 0;
+								pAI->GetMiniMapInfo( &pUnits, &nLen );
+								int nCounts[16] = { 0 };
+								int nOther = 0;
+								int nTotal = 0;
+								const long long nRadiusSq = (long long)nRadius * (long long)nRadius;
+								for ( int i = 0; i < nLen; ++i )
+								{
+									const long long dx = (long long)pUnits[i].x - (long long)nX;
+									const long long dy = (long long)pUnits[i].y - (long long)nY;
+									if ( dx * dx + dy * dy > nRadiusSq )
+										continue;
+									++nTotal;
+									if ( pUnits[i].player < 16 )
+										++nCounts[pUnits[i].player];
+									else
+										++nOther;
+								}
+								std::string szLine = NStr::Format( "BK_AUTO_UI: units near %d,%d r %d: total %d", nX, nY, nRadius, nTotal );
+								for ( int nPlayer = 0; nPlayer < 16; ++nPlayer )
+									if ( nCounts[nPlayer] != 0 )
+										szLine += NStr::Format( "; player %d: %d", nPlayer, nCounts[nPlayer] );
+								if ( nOther != 0 )
+									szLine += NStr::Format( "; other: %d", nOther );
+								fprintf( stderr, "%s\n", szLine.c_str() );
+							}
 						}
 					}
 					else if ( szAction.compare( 0, 5, "clip=" ) == 0 )
@@ -2025,6 +2103,22 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			NStr::TrimBoth( szName, "\"" );
 			pCmdParams->szProfileName = szName;
 		}
+		else if ( szParams[i] == "-editor-test" )
+		{
+			// The Map Editor's Test in game (D-02, D-05, D-07): a
+			// session-only profile (handled in the profile block below),
+			// forced windowed, no cloud sync (CloudProviderSelected gates on
+			// Editor.TestLaunch) and no first-visit help
+			// (ShowTutorialIfNotShown gates on the same var). Re-applied
+			// after this parse loop so a later -fullscreen on the same
+			// command line cannot undo the windowed forcing.
+			pCmdParams->bEditorTest = true;
+			SetGlobalVar( "Editor.TestLaunch", 1 );
+			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
+			SetGlobalVar( "windowed", "1" );
+			SetGlobalVar( "fullscreen", "0" );
+			SetGlobalVar( "GFX.FullScreen.CmdLine", 0 );
+		}
 		else if ( szParams[i] == "-windowed" )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
@@ -2193,6 +2287,16 @@ void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams )
 			GetSingleton<IConsoleBuffer>()->WriteASCII( 100, szParams[i].c_str(), 0, true );
 		}
 #endif // _FINALRELEASE
+	}
+	if ( pCmdParams->bEditorTest )
+	{
+		// Order-independent (D-05): a -fullscreen anywhere else on this same
+		// command line must not win over -editor-test's windowed forcing,
+		// whichever argument came first.
+		pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
+		SetGlobalVar( "windowed", "1" );
+		SetGlobalVar( "fullscreen", "0" );
+		SetGlobalVar( "GFX.FullScreen.CmdLine", 0 );
 	}
 	if ( pCmdParams->eFullscreenMode == GFXFS_WINDOWED )
 		pCmdParams->nFreq = 0;

@@ -74,6 +74,26 @@ fn expectDocumentIsBridge(real: *RealBridge, editor: *Editor) !void {
     }
 }
 
+/// A single soldier (an infantry SGVOGT_UNIT) is never put on a map on its
+/// own: the game plays soldiers only inside a squad, and one saved as a unit
+/// crashed Test in game in CSoldierRestState::Segment (03-15 gap fix). The
+/// catalogue marks it not placeable, an add is refused naming the squad to
+/// place instead, and neither the map nor the engine changes.
+fn expectLoneSoldierRefused(real: *RealBridge, editor: *Editor, catalogue: []const c.BkEditorCatalogueEntry, soldier: []const u8, squad: []const u8, x: f32, y: f32) !void {
+    const entry = for (catalogue) |*candidate| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&candidate.name, 0), soldier)) break candidate;
+    } else return error.SoldierNotInCatalogue;
+    try std.testing.expectEqual(@as(c_int, 1), entry.game_type);
+    try std.testing.expectEqual(@as(c_int, 0), entry.placeable);
+    const objects_before = editor.document.objects.items.len;
+    try std.testing.expectError(error.Refused, editor.addObject(soldier, x, y, 0, 0));
+    std.debug.print("map-editor-engine: {s} refused: {s}\n", .{ soldier, editor.status() });
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), squad) != null);
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try expectEngineMatches(real);
+    try expectDocumentIsBridge(real, editor);
+}
+
 // First, while no module is loaded yet: a start refused for an empty
 // installation fails before the engine loads anything (LoadAllModules finds
 // nothing and keeps nothing), so the next test starts the real one as if
@@ -176,6 +196,22 @@ test "the core drives the real bridge: every command, undone and redone" {
     var bridge_side: c_int = -1;
     try std.testing.expect(c.BkEditorDiplomacy(real.session, 1, &bridge_side) == c.BK_EDITOR_OK);
     try std.testing.expectEqual(side, bridge_side);
+
+    // A single soldier is refused - the sniper Johannes placed and a Bren
+    // gunner, whose squads differ in kind (a one-man squad, and a squad the
+    // soldier is one of nine in) - and the squad it names places instead.
+    const catalogue = try real.catalogue(std.testing.allocator);
+    defer std.testing.allocator.free(catalogue);
+    for (catalogue) |*entry| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&entry.name, 0), "US_sniper")) try std.testing.expectEqual(@as(c_int, 1), entry.placeable);
+        if (std.mem.eql(u8, std.mem.sliceTo(&entry.name, 0), "10.5-cm_Flak38")) try std.testing.expectEqual(@as(c_int, 1), entry.placeable);
+    }
+    try expectLoneSoldierRefused(&real, &editor, catalogue, "Us_Sniper", "\"US_sniper\"", first.x + 160, first.y);
+    try expectLoneSoldierRefused(&real, &editor, catalogue, "Allies_Bren", "\"GB_bren_43\"", first.x + 160, first.y);
+    const squad = try editor.addObject("US_sniper", first.x + 160, first.y, 0, 0);
+    try std.testing.expect(editor.document.find(squad) != null);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
 
     // Everything undone: back to the map as opened, in the engine too.
     while (try editor.undo()) {}

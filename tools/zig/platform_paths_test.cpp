@@ -26,6 +26,13 @@ int main()
     // by parent_path, which would differ only by that separator.
     assert(NPlatform::Paths::ScreenshotRoot().rfind(NPlatform::Paths::BaseRoot(), 0) == 0);
     assert(NPlatform::Paths::ScreenshotRoot().substr(NPlatform::Paths::BaseRoot().size()) == "screenshots");
+    // The generated season textures sit beside Data, not in it: a staged Data
+    // may be a link into the source tree (stage-game --link-data).
+    assert(NPlatform::Paths::SeasonDataRoot().rfind(NPlatform::Paths::BaseRoot(), 0) == 0);
+    assert(NPlatform::Paths::SeasonDataRoot().substr(NPlatform::Paths::BaseRoot().size()) == "SeasonData");
+    assert(NPlatform::Paths::SeasonDataArchivePattern().rfind(NPlatform::Paths::SeasonDataRoot(), 0) == 0);
+    assert(NPlatform::Paths::SeasonDataArchivePattern().size() == NPlatform::Paths::SeasonDataRoot().size() + 6);
+    assert(NPlatform::Paths::SeasonDataArchivePattern().substr(NPlatform::Paths::SeasonDataRoot().size() + 1) == "*.pak");
     // A multiplayer client stores the map under the name the host sends. Only a
     // plain relative data name may pass; anything else would write outside the
     // directory it is joined to.

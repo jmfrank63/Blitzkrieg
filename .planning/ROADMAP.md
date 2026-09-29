@@ -210,3 +210,96 @@ Plans:
 
 Executed and verified (source level); in-game sign-off rows outstanding —
 see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
+
+### Phase 3: Map editor plan 6: finish M1
+
+**Goal:** Meet the M1 exit criteria of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: test-launch the edited map in the game (the game plays the saved map), load a mod's data like the game, camera rotate and zoom, safe save (temporary file and swap) with the unsaved-changes prompt, editor settings and recent files, `BK_EDITOR_AUTO` automation with shot comparison, the full open/save sweep of every shipped map, and packaging `MapEditor` with the game — plus the "Carried to plan 6" list of `docs/superpowers/plans/2026-09-24-map-editor-05-editor-app.md` (object icons, brush outline via world-to-screen, panels following a resize, the map's sound list, the unknown-objects warning, the Windows console subsystem, and the deferred minors). Plans 1–5 of the map editor are merged (main 6657668a6).
+**Requirements**: CONTEXT D-01..D-29, the spec's M1 exit criteria, plan 5's "Carried to plan 6" list
+**Depends on:** Map editor plans 1–5 (merged); independent of Phase 2
+**Plans:** 16/16 plans complete (15 planned + gap closure 03-16). **Complete 2026-09-29** — verified (03-VERIFICATION.md passed, 03-UAT.md 2/2), Johannes's M1 hand try approved on macOS and Windows, CI run 36588755990 green.
+
+Plans:
+**Wave 1**
+
+- [x] 03-01-PLAN.md — the game's `-editor-test` switch: session-only MapEditorTest profile, no cloud sync, windowed, no first-visit help; BK_AUTO_UI `units=`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 03-02-PLAN.md — Test in game from the editor (F5, restart prompt, failure report) and the "game reads it" tier
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 03-03-PLAN.md — safe save: temporary file, bridge read-back, one .bak per session, atomic swap
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 03-04-PLAN.md — unsaved-changes prompt, shipped maps read-only, user maps folder
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 03-05-PLAN.md — camera zoom like the game (Shift+wheel, pinch, Home), per-map view memory, BkEditorWorldToScreen and the brush outline
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 03-06-PLAN.md — camera rotation: measure the renderer at other yaws, Johannes decides, build if it draws correctly (checkpoint)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 03-07-PLAN.md — mapeditor.cfg and the Settings window, Open Recent, autosave and recovery copies
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [x] 03-08-PLAN.md — mods: `-mod=`, File > Mod, mod passed to the test game, mod maps in user data recording their mod
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 03-09-PLAN.md — object pictures in the palette (shipped icon.tga through the engine; checkpoint on the rest)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [x] 03-10-PLAN.md — the map's sound list: listed, edited with undo, marked on the map
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [x] 03-11-PLAN.md — unknown-objects warning, panels follow a resize, gesture guard, app-side carried minors
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [x] 03-12-PLAN.md — BK_EDITOR_AUTO with shot comparison; the spec's editor-app scenario
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [x] 03-13-PLAN.md — bridge and engine-tier carried minors; host check honours test mode
+
+**Wave 14** *(blocked on Wave 13 completion)*
+
+- [x] 03-14-PLAN.md — packaging MapEditor beside Game; Windows GUI subsystem with console attach
+
+**Wave 15** *(blocked on Wave 14 completion)*
+
+- [x] 03-15-PLAN.md — full open/save sweep, whole suite and CI, spec updated, Johannes's M1 hand try
+
+**Gap closure**
+
+- [x] 03-16-PLAN.md — plan-5 leftovers (status line, view.zig tests, literal scroll test), Restart exit popup, game-reads-it baseline, CI package job, release package ordering, editor independent of the working directory
+
+## Backlog
+
+### Phase 999.1: Random map generation: fast polygon fill (BACKLOG)
+
+**Goal:** Cut "CreateRandomMap. Fill polygons." (2.5–15 s per map in the Windows debug CI tier, median 10 s; "Find Polygons." is 0–1 ms) without changing a single generated map: the same seed must still produce byte-identical maps. Take it up after map editor plan 6 (Phase 3). Analysis and the proposed order (measure, determinism check, cheap fixes, then an edge grid) in `.planning/phases/999.1-random-map-generation-fast-polygon-fill/999.1-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: Smaller installer: derive textures instead of shipping them, modern compression (BACKLOG)
+
+**Goal:** Make the **download** as small as possible; installed size does not matter (decision 2026-09-29: a few GB on disk is fine). Ship only what cannot be derived — drop the `_c` (DXT) and `_l` (16-bit) copies of every texture (about 910 MB, a third of `Data`) and the generated season textures (about 67 MB) from the download and recreate them at install time (or have the renderer use `_h` directly), never touching Nival's hand-painted season textures. Compress the download as hard as possible (xz or zstd at maximum settings, long window), then unpack fully on install; `.pak` stays supported (mods, GeneratedData), and a `.pak` can travel inside the compressed download and be written back out as `.pak` at install. Take it up after map editor plan 6 (Phase 3). Details in `.planning/phases/999.2-smaller-installer-derived-textures-modern-compression/999.2-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)

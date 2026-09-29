@@ -12,6 +12,7 @@ const Status = core.bridge.Status;
 const Bridge = core.bridge.Bridge;
 const MapInfo = core.bridge.MapInfo;
 const ObjectRecord = core.bridge.ObjectRecord;
+const SoundRecord = core.bridge.SoundRecord;
 const PaintCell = core.bridge.PaintCell;
 
 comptime {
@@ -28,10 +29,18 @@ fn status(value: c.BkEditorStatus) Status {
     return std.enums.fromInt(Status, value) orelse .failed;
 }
 
+/// One object's decoded picture (D-29): `bytes` is RGBA8, top row first,
+/// `width * height * 4` of it - a slice of the caller's own buffer, valid
+/// only as long as that buffer is.
+pub const Picture = struct {
+    width: i32,
+    height: i32,
+    bytes: []const u8,
+};
+
 pub const RealBridge = struct {
     session: *c.BkEditorSession,
     message: [512]u8 = undefined,
-    message_len: usize = 0,
 
     pub fn init(session: *c.BkEditorSession) RealBridge {
         return .{ .session = session };
@@ -74,6 +83,10 @@ pub const RealBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .sounds = vtableSounds,
+        .addSound = vtableAddSound,
+        .setSound = vtableSetSound,
+        .deleteSound = vtableDeleteSound,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -81,7 +94,6 @@ pub const RealBridge = struct {
         const text = std.mem.span(c.BkEditorLastMessage(self.session));
         const len = @min(text.len, self.message.len);
         @memcpy(self.message[0..len], text[0..len]);
-        self.message_len = len;
         return self.message[0..len];
     }
 
@@ -210,8 +222,110 @@ pub const RealBridge = struct {
         return status(c.BkEditorObjectAt(from(ptr).session, sx, sy, link_id));
     }
 
+    /// core.bridge.SoundRecord from a BkEditorSoundRecord - `toRecord`'s own
+    /// shape, for sounds.
+    fn toSoundRecord(record: c.BkEditorSoundRecord) SoundRecord {
+        var sound: SoundRecord = .{
+            .x = record.x,
+            .y = record.y,
+            .z = record.z,
+            .repeat_ms = record.repeat_ms,
+            .repeat_random_ms = record.repeat_random_ms,
+            .mute_in_combat = record.mute_in_combat != 0,
+            .min_radius = record.min_radius,
+            .max_radius = record.max_radius,
+        };
+        sound.setName(std.mem.sliceTo(&record.name, 0));
+        return sound;
+    }
+
+    /// The other direction, for addSound/setSound: the core never builds a
+    /// BkEditorSoundRecord itself.
+    fn toCSoundRecord(record: SoundRecord) c.BkEditorSoundRecord {
+        var out: c.BkEditorSoundRecord = std.mem.zeroes(c.BkEditorSoundRecord);
+        const name = record.nameSlice();
+        const len = @min(name.len, out.name.len - 1);
+        @memcpy(out.name[0..len], name[0..len]);
+        out.x = record.x;
+        out.y = record.y;
+        out.z = record.z;
+        out.repeat_ms = record.repeat_ms;
+        out.repeat_random_ms = record.repeat_random_ms;
+        out.mute_in_combat = if (record.mute_in_combat) 1 else 0;
+        out.min_radius = record.min_radius;
+        out.max_radius = record.max_radius;
+        return out;
+    }
+
+    /// BkEditorSounds - `objects`'s own two-pass shape, for the core's
+    /// `readSoundAt`/`document`-less sound list.
+    fn vtableSounds(ptr: *anyopaque, out: []SoundRecord, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorSounds(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const records = std.heap.page_allocator.alloc(c.BkEditorSoundRecord, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(records);
+        var got: c_int = 0;
+        const read = status(c.BkEditorSounds(self.session, records.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (records, out[0..records.len]) |record, *sound| sound.* = toSoundRecord(record);
+        return .ok;
+    }
+
+    fn vtableAddSound(ptr: *anyopaque, index: i32, record: SoundRecord) Status {
+        const self = from(ptr);
+        var c_record = toCSoundRecord(record);
+        return status(c.BkEditorAddSound(self.session, index, &c_record));
+    }
+
+    fn vtableSetSound(ptr: *anyopaque, index: i32, record: SoundRecord) Status {
+        const self = from(ptr);
+        var c_record = toCSoundRecord(record);
+        return status(c.BkEditorSetSound(self.session, index, &c_record));
+    }
+
+    fn vtableDeleteSound(ptr: *anyopaque, index: i32) Status {
+        return status(c.BkEditorDeleteSound(from(ptr).session, index));
+    }
+
     pub fn setCamera(self: *RealBridge, wx: f32, wy: f32) Status {
         return status(c.BkEditorSetCamera(self.session, wx, wy));
+    }
+
+    /// The bridge's view: the anchor, the zoom step (already clamped to the
+    /// window's current maximum) and the scale it draws at. Null on any
+    /// refusal (the engine is not started).
+    pub fn viewState(self: *RealBridge) ?c.BkEditorView {
+        var out: c.BkEditorView = std.mem.zeroes(c.BkEditorView);
+        if (c.BkEditorViewState(self.session, &out) != c.BK_EDITOR_OK) return null;
+        return out;
+    }
+
+    /// Zooms by `steps` (positive in, negative out) anchored at the screen
+    /// point (sx, sy) - Shift+wheel/swipe and pinch both go through this.
+    pub fn zoomAt(self: *RealBridge, steps: i32, sx: f32, sy: f32) Status {
+        return status(c.BkEditorZoomAt(self.session, steps, sx, sy));
+    }
+
+    /// The same recipe with an absolute step count, anchored at the screen's
+    /// centre: Home/Reset view and restoring a remembered view.
+    pub fn setZoom(self: *RealBridge, steps: i32) Status {
+        return status(c.BkEditorSetZoom(self.session, steps));
+    }
+
+    /// The other direction of `screenToWorld`: a world point to the screen
+    /// point it draws at now, at whatever zoom is set. Null on any refusal.
+    pub fn worldToScreen(self: *RealBridge, wx: f32, wy: f32) ?[2]f32 {
+        var sx: f32 = 0;
+        var sy: f32 = 0;
+        if (c.BkEditorWorldToScreen(self.session, wx, wy, &sx, &sy) != c.BK_EDITOR_OK) return null;
+        return .{ sx, sy };
     }
 
     pub fn screenSize(self: *RealBridge) ?[2]i32 {
@@ -235,6 +349,58 @@ pub const RealBridge = struct {
         return entries;
     }
 
+    /// D-29: one object's own picture (its icon.tga, decoded and scaled by
+    /// the engine - BkEditorObjectPicture), for the palette. `buffer` must
+    /// hold at least `max_side * max_side * 4` bytes (the worst case, no
+    /// scaling below that); the returned `bytes` is only the decoded
+    /// width*height*4 prefix of it. Null on any refusal (no such picture,
+    /// an unknown name, or `buffer` too short for the real size) - the
+    /// caller has no use for a short-buffer retry here, unlike `catalogue`'s
+    /// two-call convention, because `max_side` already bounds the size.
+    pub fn objectPicture(self: *RealBridge, name: []const u8, buffer: []u8, max_side: i32) ?Picture {
+        var name_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const z = terminated(&name_buffer, name) orelse return null;
+        var width: c_int = 0;
+        var height: c_int = 0;
+        const capacity = std.math.cast(c_int, buffer.len) orelse return null;
+        if (c.BkEditorObjectPicture(self.session, z, buffer.ptr, capacity, max_side, &width, &height) != c.BK_EDITOR_OK) return null;
+        if (width <= 0 or height <= 0) return null;
+        const needed: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
+        if (needed > buffer.len) return null;
+        return .{ .width = width, .height = height, .bytes = buffer[0..needed] };
+    }
+
+    /// 03-15 gap fix: one tile's picture for the Brush's picker (its diamond
+    /// out of the tileset texture - BkEditorTilePicture), the same buffer
+    /// contract as `objectPicture`. Null on any refusal (no map open, a tile
+    /// the tileset does not list, a texture that will not load).
+    pub fn tilePicture(self: *RealBridge, tile: u8, buffer: []u8, max_side: i32) ?Picture {
+        var width: c_int = 0;
+        var height: c_int = 0;
+        const capacity = std.math.cast(c_int, buffer.len) orelse return null;
+        if (c.BkEditorTilePicture(self.session, tile, buffer.ptr, capacity, max_side, &width, &height) != c.BK_EDITOR_OK) return null;
+        if (width <= 0 or height <= 0) return null;
+        const needed: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
+        if (needed > buffer.len) return null;
+        return .{ .width = width, .height = height, .bytes = buffer[0..needed] };
+    }
+
+    /// 03-15 gap fix: the terrain type a tile belongs to and the tileset's
+    /// storage name (BkEditorDescribeTile), for the picker's sections and
+    /// its per-tileset picture cache. Null on any refusal.
+    pub fn describeTile(self: *RealBridge, tile: u8) ?c.BkEditorTile {
+        var out: c.BkEditorTile = std.mem.zeroes(c.BkEditorTile);
+        if (c.BkEditorDescribeTile(self.session, tile, &out) != c.BK_EDITOR_OK) return null;
+        return out;
+    }
+
+    /// File > Close (03-15 gap fix): closes the engine's map
+    /// (BkEditorCloseMap); OK with none open. The document is the caller's
+    /// to close (`panels_logic.closeMapAndDocument`).
+    pub fn closeMap(self: *RealBridge) Status {
+        return status(c.BkEditorCloseMap(self.session));
+    }
+
     /// The tiles the open map's tileset has, ascending, for the brush's
     /// palette: a tile is an unsigned char, so 256 always holds them all.
     /// Null when no map is open or the bridge would not say.
@@ -243,6 +409,83 @@ pub const RealBridge = struct {
         if (c.BkEditorTilesetTiles(self.session, out, out.len, &count) != c.BK_EDITOR_OK) return null;
         if (count < 0 or count > out.len) return null;
         return out[0..@intCast(count)];
+    }
+
+    /// The engine's two host roots (BaseRoot, UserRoot), for Test in game's
+    /// log and window placement. Null on any refusal (the engine is not
+    /// started, or a root does not fit) - see BkEditorPaths' doc comment.
+    pub fn paths(self: *RealBridge, out: *c.BkEditorPathSet) Status {
+        return status(c.BkEditorPaths(self.session, out));
+    }
+
+    /// Where a test-launch copy of the current map goes (D-01, D-02, D-09):
+    /// out is written and returned as the slice up to the NUL
+    /// BkEditorTestMapPath left in it; null on any refusal, in which case
+    /// nothing was created and the profile/mod/file_name arguments (or the
+    /// buffer) are why - BkEditorLastMessage has the reason.
+    pub fn testMapPath(self: *RealBridge, profile: []const u8, mod_folder: ?[]const u8, file_name: []const u8, out: []u8) ?[]const u8 {
+        var profile_buffer: [256]u8 = undefined;
+        const profile_z = terminated(&profile_buffer, profile) orelse return null;
+        var mod_buffer: [256]u8 = undefined;
+        const mod_z: ?[*:0]const u8 = if (mod_folder) |folder| (terminated(&mod_buffer, folder) orelse return null) else null;
+        var name_buffer: [128]u8 = undefined;
+        const name_z = terminated(&name_buffer, file_name) orelse return null;
+        const capacity = std.math.cast(c_int, out.len) orelse return null;
+        if (c.BkEditorTestMapPath(self.session, profile_z, mod_z, name_z, out.ptr, capacity) != c.BK_EDITOR_OK) return null;
+        return std.mem.sliceTo(out, 0);
+    }
+
+    /// BkEditorSaveMap without touching the Editor: no path change, no
+    /// markClean (D-01 - Test in game must never mark the document saved or
+    /// move its path, only the engine's map file it wrote a copy of).
+    pub fn saveCopy(self: *RealBridge, engine_path: []const u8) Status {
+        var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, engine_path) orelse return .bad_argument;
+        return status(c.BkEditorSaveMap(self.session, z));
+    }
+
+    /// Every installed mod (D-26), sorted by folder as the bridge lists them.
+    /// Caller frees.
+    pub fn mods(self: *RealBridge, allocator: std.mem.Allocator) ![]c.BkEditorMod {
+        var count: c_int = 0;
+        const sizing = c.BkEditorMods(self.session, null, 0, &count);
+        if (sizing != c.BK_EDITOR_OK and sizing != c.BK_EDITOR_REFUSED) return error.ModsFailed;
+        if (count < 0) return error.ModsFailed;
+        const entries = try allocator.alloc(c.BkEditorMod, @intCast(count));
+        errdefer allocator.free(entries);
+        if (count == 0) return entries;
+        if (c.BkEditorMods(self.session, entries.ptr, count, &count) != c.BK_EDITOR_OK) return error.ModsFailed;
+        if (count != entries.len) return error.ModsFailed;
+        return entries;
+    }
+
+    /// Switches the active mod (D-26, D-09): null or "" clears it (the base
+    /// game). `.refused` names an installed mod that was not found (or has no
+    /// mod.xml); `.bad_argument` a folder name that is not bare (a separator,
+    /// ".", ".." or too long). Either way nothing changed - see bridge.h's own
+    /// BkEditorSetMod comment.
+    pub fn setMod(self: *RealBridge, folder: ?[]const u8) Status {
+        var buffer: [64]u8 = undefined;
+        const z: ?[*:0]const u8 = if (folder) |f| (terminated(&buffer, f) orelse return .bad_argument) else null;
+        return status(c.BkEditorSetMod(self.session, z));
+    }
+
+    /// The session's active mod, or null when none is active.
+    pub fn activeMod(self: *RealBridge) ?c.BkEditorMod {
+        var out: c.BkEditorMod = std.mem.zeroes(c.BkEditorMod);
+        if (c.BkEditorActiveMod(self.session, &out) != c.BK_EDITOR_OK) return null;
+        if (out.folder[0] == 0) return null;
+        return out;
+    }
+
+    /// The engine's SDL_GPUDevice (BkEditorGpuDevice), for building the
+    /// palette's picture textures against the device that will draw them -
+    /// see pictures.zig. Null when the renderer has none.
+    pub fn gpuDevice(self: *RealBridge) ?*anyopaque {
+        var device: ?*anyopaque = null;
+        var format: c_uint = 0;
+        if (c.BkEditorGpuDevice(self.session, &device, &format) != c.BK_EDITOR_OK) return null;
+        return device;
     }
 
     /// The engine tier's two agreement checks, for tests.

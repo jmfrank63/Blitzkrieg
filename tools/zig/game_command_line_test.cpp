@@ -96,6 +96,21 @@ int main()
 		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 1 ) );
 		CHECK( options.mapName.empty() && options.saveFile.empty() );
 		CHECK( options.screenWidth == 1024 && options.screenHeight == 768 );
+		CHECK( !options.editorTest );
+	}
+	{
+		const char *argv[] = { "Game", "-editor-test", "-profile=MapEditorTest", "-mod=None", "-windowed", "mapeditor_test.bzm" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 6 ) );
+		CHECK( options.editorTest && !options.parseError );
+		CHECK( options.modName == "None" );
+		CHECK( options.mapName == "mapeditor_test.bzm" );
+		CHECK( options.fullscreenMode == NGame::EFullscreenMode::windowed );
+	}
+	{
+		const char *argv[] = { "Game", "-editor-testx" };
+		const NGame::CommandLineOptions options = NGame::ParseCommandLine( Args( argv, 2 ) );
+		CHECK( options.parseError );
+		CHECK( options.unknownArguments.size() == 1 && options.unknownArguments[0] == "-editor-testx" );
 	}
 	return 0;
 }

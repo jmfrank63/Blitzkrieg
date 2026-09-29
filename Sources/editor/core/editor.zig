@@ -4,9 +4,12 @@ const fake_mod = @import("fake_bridge.zig");
 const document_mod = @import("document.zig");
 const history_mod = @import("history.zig");
 const tools = @import("tools.zig");
+const files_mod = @import("files.zig");
+const shipped_mod = @import("shipped.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
+const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const FakeBridge = fake_mod.FakeBridge;
 const Document = document_mod.Document;
@@ -24,6 +27,25 @@ pub const Editor = struct {
     history: history_mod.History = .{},
     selection: ?i32 = null,
     next_gesture: u32 = 1,
+    /// Bumped by every sound-list change - addSound, editSound, deleteSound,
+    /// and their undo/redo alike (`replay`'s own three cases) - so the panel
+    /// knows to read the list again; it has no mirror of its own to compare
+    /// against (unlike `document.objects`, the bridge's sound list is read
+    /// fresh through `bridge.sounds` whenever this changes).
+    sounds_generation: u32 = 0,
+    /// null in a mode that never saves (a headless tier with no need to);
+    /// `save` refuses with "saving needs a file system" rather than write
+    /// unsafely when this is unset (D-19).
+    files: ?files_mod.Files = null,
+    /// The OS paths `save` has already taken this session's one `.bak` for
+    /// (D-19: once per file per session, at the first write); owned keys,
+    /// freed in `deinit`.
+    backed_up: std.StringHashMapUnmanaged(void) = .empty,
+    /// The installation the editor runs from (BkEditorPaths' base root),
+    /// copied by `setBaseRoot`: what `save` classifies a shipped map against
+    /// (shipped.zig's rule 1). Empty until set - rules 2 and 3 still apply.
+    base_root_buffer: [shipped_mod.max_path]u8 = undefined,
+    base_root_len: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, b: Bridge) Editor {
         return .{ .allocator = allocator, .bridge = b };
@@ -32,7 +54,22 @@ pub const Editor = struct {
     pub fn deinit(self: *Editor) void {
         self.document.deinit(self.allocator);
         self.history.deinit(self.allocator);
+        var backed_up_keys = self.backed_up.keyIterator();
+        while (backed_up_keys.next()) |key| self.allocator.free(key.*);
+        self.backed_up.deinit(self.allocator);
         self.* = undefined;
+    }
+
+    /// Copies `root` (truncated to the buffer, which a real root never
+    /// reaches: BkEditorPathSet's own is 1024 bytes).
+    pub fn setBaseRoot(self: *Editor, root: []const u8) void {
+        const len = @min(root.len, self.base_root_buffer.len);
+        @memcpy(self.base_root_buffer[0..len], root[0..len]);
+        self.base_root_len = len;
+    }
+
+    pub fn baseRoot(self: *const Editor) []const u8 {
+        return self.base_root_buffer[0..self.base_root_len];
     }
 
     /// The status bar's line: the bridge's reason for the last refusal or
@@ -88,6 +125,18 @@ pub const Editor = struct {
         self.selection = null;
     }
 
+    /// Forgets the open document: no path, no objects, nothing to undo or
+    /// redo, nothing selected, a clean status. The bridge's own map is the
+    /// caller's to close - File > Mod (D-26, revised 2026-09-29) calls this
+    /// right after `BkEditorSetMod`, which closes the engine's map itself
+    /// before it swaps the object database. The session's `.bak` bookkeeping
+    /// (`backed_up`) is kept: D-19's "once per file per session" outlives a
+    /// close, exactly as it outlives an Open of another map.
+    pub fn close(self: *Editor) void {
+        self.closeDocument();
+        self.status_len = 0;
+    }
+
     fn closeDocument(self: *Editor) void {
         self.document.deinit(self.allocator);
         self.document = .{};
@@ -98,14 +147,113 @@ pub const Editor = struct {
     /// The new path is copied before the bridge writes: once the file is
     /// saved, nothing here may fail and leave the document without a path.
     /// Copying first also keeps `path` valid when it is the document's own.
+    ///
+    /// D-19's safe save: `path` (the engine's form - see `files_mod`) is
+    /// never written to directly. The bridge writes and verifies a temporary
+    /// file beside it (`tempPathFor`), which itself reads back and compares
+    /// what it wrote (BkEditorSaveMap -> SaveSessionMap); this session's
+    /// first write to `path` copies whatever was there to `path.bak`; only
+    /// then is the temporary file swapped over `path`. Any failure along the
+    /// way deletes the temporary file and leaves `path` exactly as it was.
+    ///
+    /// D-18, defence in depth: a `path` inside any game's data (shipped.zig)
+    /// is refused before anything is written - not even the temporary file
+    /// goes beside it - whichever caller asked. The panels already turn Save
+    /// on such a map into Save As and autosave it only to a recovery copy;
+    /// this is what holds if one of them ever forgets.
     pub fn save(self: *Editor, path: []const u8) EditError!void {
         var new_path: std.ArrayListUnmanaged(u8) = .empty;
         errdefer new_path.deinit(self.allocator);
         try new_path.appendSlice(self.allocator, path);
-        try self.noteOutcome(self.bridge.saveMap(path));
+
+        const files = self.files orelse {
+            self.setStatus("", "saving needs a file system");
+            return error.Failed;
+        };
+
+        if (shipped_mod.isShipped(path, self.baseRoot(), files)) {
+            const cut = std.mem.lastIndexOfAny(u8, path, "/\\");
+            const name = if (cut) |c| path[c + 1 ..] else path;
+            var buffer: [200]u8 = undefined;
+            const message = std.fmt.bufPrint(&buffer, "{s} is inside a game's data folder, which is read-only - Save As into your maps folder instead", .{name}) catch
+                "a game's data folder is read-only - Save As into your maps folder instead";
+            self.setStatus("not saved: ", message);
+            return error.Refused;
+        }
+
+        var temp_buffer: [files_mod.max_path]u8 = undefined;
+        const temp = files_mod.tempPathFor(&temp_buffer, path) orelse {
+            self.setStatus("", "the path is too long to save safely");
+            return error.Failed;
+        };
+        var temp_os_buffer: [files_mod.max_path]u8 = undefined;
+        const temp_os = files_mod.osPathFromEngine(&temp_os_buffer, temp) orelse {
+            self.setStatus("", "the path is too long to save safely");
+            return error.Failed;
+        };
+        // A stale temp from an earlier failed save must not be mistaken for
+        // this save's write, nor left behind if this one fails before ever
+        // reaching the bridge.
+        files.delete(temp_os);
+
+        self.noteOutcome(self.bridge.saveMap(temp)) catch |err| {
+            files.delete(temp_os);
+            return err;
+        };
+
+        var path_os_buffer: [files_mod.max_path]u8 = undefined;
+        const path_os = files_mod.osPathFromEngine(&path_os_buffer, path) orelse {
+            files.delete(temp_os);
+            self.setStatus("", "the path is too long to keep a backup of");
+            return error.Failed;
+        };
+
+        if (!self.backed_up.contains(path_os)) {
+            if (files.exists(path_os)) {
+                var backup_buffer: [files_mod.max_path]u8 = undefined;
+                const backup_os = files_mod.backupPathFor(&backup_buffer, path_os) orelse {
+                    files.delete(temp_os);
+                    self.setStatus("", "the path is too long to keep a backup of");
+                    return error.Failed;
+                };
+                files.copy(path_os, backup_os) catch {
+                    files.delete(temp_os);
+                    self.saveFailureStatus("could not keep a backup of ", path_os, files.lastError());
+                    return error.Failed;
+                };
+            }
+            // Recorded even when `path_os` did not exist yet, so a file
+            // created this session never gets a .bak of a later version.
+            const owned_key = self.allocator.dupe(u8, path_os) catch |err| {
+                files.delete(temp_os);
+                return err;
+            };
+            self.backed_up.put(self.allocator, owned_key, {}) catch |err| {
+                self.allocator.free(owned_key);
+                files.delete(temp_os);
+                return err;
+            };
+        }
+
+        files.rename(temp_os, path_os) catch {
+            files.delete(temp_os);
+            self.saveFailureStatus("could not replace ", path_os, files.lastError());
+            return error.Failed;
+        };
+
         self.document.path.deinit(self.allocator);
         self.document.path = new_path;
         self.history.markClean();
+    }
+
+    /// "<prefix><name>: <reason>", the name being `path_os`'s last
+    /// component - the status bar names the file, not its full path.
+    fn saveFailureStatus(self: *Editor, comptime prefix: []const u8, path_os: []const u8, reason: []const u8) void {
+        const cut = std.mem.lastIndexOfAny(u8, path_os, "/\\");
+        const name = if (cut) |c| path_os[c + 1 ..] else path_os;
+        var buffer: [200]u8 = undefined;
+        const combined = std.fmt.bufPrint(&buffer, "{s}: {s}", .{ name, reason }) catch buffer[0..];
+        self.setStatus(prefix, combined);
     }
 
     pub fn dirty(self: *const Editor) bool {
@@ -243,6 +391,79 @@ pub const Editor = struct {
         self.history.recordAssumeCapacity(self.allocator, .{ .attacking_side = .{ .before = before, .after = value } }, 0);
     }
 
+    /// The bridge's sound list has no per-index read of its own (unlike an
+    /// object, which the document mirrors) - `BkEditorSounds` is the only
+    /// accessor, and it reads the whole list. `editSound` and `deleteSound`
+    /// need the record at `index` before they change it, to record it for
+    /// undo, so they read the whole list here and pick it out - the same
+    /// two-pass sizing `document.reload` uses for `bridge.objects`.
+    fn readSoundAt(self: *Editor, index: usize) EditError!SoundRecord {
+        var none: [0]SoundRecord = .{};
+        var total: usize = 0;
+        const sizing = self.bridge.sounds(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        if (index >= total) return error.Failed;
+        const buffer = self.allocator.alloc(SoundRecord, total) catch return error.OutOfMemory;
+        defer self.allocator.free(buffer);
+        try bridge_mod.check(self.bridge.sounds(buffer, &total));
+        if (index >= buffer.len) return error.Failed;
+        return buffer[index];
+    }
+
+    /// Adds `record` to the bridge's sound list at `index` (0..count inserts
+    /// there, -1 appends - BkEditorAddSound's own sentinel) and records it
+    /// for undo. The recorded index is always the one the sound actually
+    /// landed at, resolved from the list's new count when `index` was -1, so
+    /// undo always names the right position to delete from.
+    pub fn addSound(self: *Editor, index: i32, record: SoundRecord) EditError!void {
+        try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.addSound(index, record));
+        var none: [0]SoundRecord = .{};
+        var total: usize = 0;
+        _ = self.bridge.sounds(&none, &total);
+        const actual: usize = if (index >= 0) @intCast(index) else (if (total == 0) 0 else total - 1);
+        self.history.recordAssumeCapacity(self.allocator, .{ .sound_add = .{ .index = actual, .record = record } }, 0);
+        self.sounds_generation +%= 1;
+    }
+
+    /// Replaces the sound at `index` with `record`, one undo step per
+    /// gesture (merged the same way `place` merges a drag): a later edit of
+    /// the same sound within the same gesture updates the entry's `after`
+    /// rather than pushing a new one, and an edit that lands back on the
+    /// gesture's own `before` drops the entry entirely, the same as `place`.
+    pub fn editSound(self: *Editor, index: usize, record: SoundRecord, gesture: u32) EditError!void {
+        const before = try self.readSoundAt(index);
+        if (std.meta.eql(before, record)) return;
+        const merge_entry = self.mergeable(gesture, .sound_edit);
+        const merging = if (merge_entry) |entry| entry.command.sound_edit.index == index else false;
+        if (!merging) try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.setSound(@intCast(index), record));
+        if (merging) {
+            const entry = merge_entry.?;
+            if (std.meta.eql(entry.command.sound_edit.before, record)) {
+                self.history.dropTop(self.allocator);
+            } else {
+                entry.command.sound_edit.after = record;
+                self.history.touchTop(self.allocator);
+            }
+        } else {
+            self.history.recordAssumeCapacity(self.allocator, .{ .sound_edit = .{ .index = index, .before = before, .after = record } }, gesture);
+        }
+        self.sounds_generation +%= 1;
+    }
+
+    /// Reads the record at `index` first, so undo can re-add it exactly
+    /// there (BkEditorDeleteSound has no restore call of its own to undo
+    /// through, unlike an object's tombstone - a plain `addSound` at the
+    /// same index does the same job).
+    pub fn deleteSound(self: *Editor, index: usize) EditError!void {
+        const record = try self.readSoundAt(index);
+        try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.deleteSound(@intCast(index)));
+        self.history.recordAssumeCapacity(self.allocator, .{ .sound_delete = .{ .index = index, .record = record } }, 0);
+        self.sounds_generation +%= 1;
+    }
+
     fn applyPose(object: *ObjectRecord, pose: Pose) void {
         object.x = pose.x;
         object.y = pose.y;
@@ -287,6 +508,19 @@ pub const Editor = struct {
                 const value = if (forwards) s.after else s.before;
                 try self.noteOutcome(self.bridge.setAttackingSide(value));
                 self.document.info.attacking_side = value;
+            },
+            .sound_add => |a| {
+                if (forwards) try self.noteOutcome(self.bridge.addSound(@intCast(a.index), a.record)) else try self.noteOutcome(self.bridge.deleteSound(@intCast(a.index)));
+                self.sounds_generation +%= 1;
+            },
+            .sound_edit => |e| {
+                const value = if (forwards) e.after else e.before;
+                try self.noteOutcome(self.bridge.setSound(@intCast(e.index), value));
+                self.sounds_generation +%= 1;
+            },
+            .sound_delete => |d| {
+                if (forwards) try self.noteOutcome(self.bridge.deleteSound(@intCast(d.index))) else try self.noteOutcome(self.bridge.addSound(@intCast(d.index), d.record));
+                self.sounds_generation +%= 1;
             },
         }
     }
@@ -400,11 +634,41 @@ test "a failed listing after open empties the document and says why" {
     try std.testing.expectEqual(@as(i32, 0), editor.document.info.width_tiles);
 }
 
-test "save moves the document to the saved path" {
+test "close forgets the document, its history and selection, and leaves it clean" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
     var editor = Editor.init(std.testing.allocator, fake.bridge());
     defer editor.deinit();
+    try editor.open("fixture.bzm");
+    const link = try editor.addObject("T34", 60, 60, 0, 1);
+    editor.selection = link;
+    try std.testing.expect(editor.dirty());
+    editor.close();
+    try std.testing.expectEqual(@as(usize, 0), editor.document.path.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.objects.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.diplomacy.items.len);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.history.canRedo());
+    try std.testing.expect(!(try editor.undo()));
+    try std.testing.expect(editor.selection == null);
+    try std.testing.expectEqual(@as(usize, 0), editor.status().len);
+    // A second close, or one with nothing open, is harmless; the map opens again.
+    editor.close();
+    try editor.open("fixture.bzm");
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(!editor.dirty());
+}
+
+test "save moves the document to the saved path" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    editor.files = fake_files.files();
     try editor.open("fixture.bzm");
     try editor.save("renamed.bzm");
     try std.testing.expectEqualStrings("renamed.bzm", editor.document.path.items);
@@ -415,8 +679,12 @@ test "save moves the document to the saved path" {
 test "a save that cannot copy its path fails before the bridge writes, and keeps the path" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
     var editor = Editor.init(std.testing.allocator, fake.bridge());
     defer editor.deinit();
+    editor.files = fake_files.files();
     try editor.open("fixture.bzm");
     try editor.setMapType(3);
     var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{ .fail_index = 0 });
@@ -425,6 +693,185 @@ test "a save that cannot copy its path fails before the bridge writes, and keeps
     editor.allocator = std.testing.allocator;
     try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
     try std.testing.expect(fake.calls.items[fake.calls.items.len - 1].kind != .save);
+    try std.testing.expect(editor.dirty());
+}
+
+test "save: a temp file beside the map, then the swap, in order; one .bak per session" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
+    // The "old" bytes at fixture.bzm's OS path, as if it already existed on
+    // disk - the first save's backup copies exactly these.
+    try fake_files.write("fixture.bzm", "old bytes");
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    editor.files = fake_files.files();
+    try editor.open("fixture.bzm");
+
+    try editor.save("fixture.bzm");
+    try std.testing.expectEqualStrings("old bytes", fake_files.contents("fixture.bzm.bak").?);
+    try std.testing.expectEqualStrings("fake map: 3 objects", fake_files.contents("fixture.bzm").?);
+    try std.testing.expect(fake_files.contents("fixture.~save.bzm") == null); // swapped away
+    // The op order: the temp is written (fake_bridge.saveMap -> FakeFiles.write),
+    // then copied to .bak, then the temp is renamed over the real path.
+    var saw_write = false;
+    var saw_copy = false;
+    var saw_rename = false;
+    for (fake_files.op_log.items) |op| {
+        switch (op.kind) {
+            .write => if (std.mem.eql(u8, op.from, "fixture.~save.bzm")) {
+                try std.testing.expect(!saw_copy and !saw_rename);
+                saw_write = true;
+            },
+            .copy => if (std.mem.eql(u8, op.from, "fixture.bzm")) {
+                try std.testing.expect(saw_write and !saw_rename);
+                saw_copy = true;
+            },
+            .rename => if (std.mem.eql(u8, op.from, "fixture.~save.bzm")) {
+                try std.testing.expect(saw_write and saw_copy);
+                saw_rename = true;
+            },
+            .delete => {},
+        }
+    }
+    try std.testing.expect(saw_write and saw_copy and saw_rename);
+
+    // A second save in the same session does not copy the backup again -
+    // the .bak still reads the very first "old bytes".
+    try editor.setMapType(3);
+    try editor.save("fixture.bzm");
+    try std.testing.expectEqualStrings("old bytes", fake_files.contents("fixture.bzm.bak").?);
+}
+
+test "save: a path in any game's data is refused before anything is written (D-18)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    // Another installation's Data, recognised by its marker alone.
+    fake_files.data_roots = &.{"/Games/Other/Data"};
+    fake.files = &fake_files;
+    try fake_files.write("/Games/Other/Data/Maps/coldwinter.bzm", "shipped bytes");
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    editor.files = fake_files.files();
+    editor.setBaseRoot("/Users/me/MapEditor/");
+    try editor.open("fixture.bzm");
+    try editor.setMapType(3);
+    const ops_before = fake_files.op_log.items.len;
+
+    for ([_][]const u8{
+        "/Games/Other/Data/Maps/coldwinter.bzm", // another tree's Data, absolute
+        "\\Games\\Other\\Data\\Maps\\coldwinter.bzm", // the same, in the engine's form
+        "Data\\Maps\\Multiplayer\\coldwinter.bzm", // this installation's, relative
+        "/Users/me/MapEditor/Data/Maps/a.bzm", // this installation's, absolute
+        "/Users/me/MapEditor/mods/X/data/maps/a.bzm", // a mod's data
+    }) |target| {
+        try std.testing.expectError(error.Refused, editor.save(target));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "read-only") != null);
+    }
+    // Nothing written, copied, renamed or even deleted; the document is
+    // still the one it was, and still has its changes.
+    try std.testing.expectEqual(ops_before, fake_files.op_log.items.len);
+    try std.testing.expectEqualStrings("shipped bytes", fake_files.contents("/Games/Other/Data/Maps/coldwinter.bzm").?);
+    try std.testing.expect(fake_files.contents("/Games/Other/Data/Maps/coldwinter.bzm.bak") == null);
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(editor.dirty());
+
+    // The user's own folder, even one called Data with no marker, saves.
+    try editor.save("/Users/me/Data/maps/mine.bzm");
+    try std.testing.expectEqualStrings("/Users/me/Data/maps/mine.bzm", editor.document.path.items);
+    try std.testing.expect(!editor.dirty());
+}
+
+test "save: a new file gets no .bak, but is never backed up later either" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    editor.files = fake_files.files();
+
+    try editor.save("new-map.bzm"); // nothing existed at new-map.bzm before
+    try std.testing.expect(fake_files.contents("new-map.bzm.bak") == null);
+    try editor.setMapType(3);
+    try editor.save("new-map.bzm"); // a later version exists now - still no .bak
+    try std.testing.expect(fake_files.contents("new-map.bzm.bak") == null);
+}
+
+test "save: a refused bridge write leaves the original bytes, no temp, the map dirty" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
+    try fake_files.write("fixture.bzm", "original");
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    editor.files = fake_files.files();
+    try editor.setMapType(3);
+
+    fake.fail_save = true;
+    try std.testing.expectError(error.Failed, editor.save("fixture.bzm"));
+    try std.testing.expectEqualStrings("original", fake_files.contents("fixture.bzm").?);
+    try std.testing.expect(fake_files.contents("fixture.~save.bzm") == null);
+    try std.testing.expect(fake_files.contents("fixture.bzm.bak") == null);
+    try std.testing.expect(editor.dirty());
+}
+
+test "save: a failed swap leaves the original bytes and no temp" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
+    try fake_files.write("fixture.bzm", "original");
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    editor.files = fake_files.files();
+    try editor.setMapType(3);
+
+    fake_files.fail_rename = true;
+    try std.testing.expectError(error.Failed, editor.save("fixture.bzm"));
+    try std.testing.expectEqualStrings("original", fake_files.contents("fixture.bzm").?);
+    try std.testing.expect(fake_files.contents("fixture.~save.bzm") == null);
+    try std.testing.expect(std.mem.startsWith(u8, editor.status(), "could not replace fixture.bzm: "));
+    try std.testing.expect(editor.dirty());
+}
+
+test "save: a failed backup stops before the swap" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
+    try fake_files.write("fixture.bzm", "original");
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    editor.files = fake_files.files();
+    try editor.setMapType(3);
+
+    fake_files.fail_copy = true;
+    try std.testing.expectError(error.Failed, editor.save("fixture.bzm"));
+    try std.testing.expectEqualStrings("original", fake_files.contents("fixture.bzm").?);
+    try std.testing.expect(fake_files.contents("fixture.~save.bzm") == null);
+    try std.testing.expect(fake_files.contents("fixture.bzm.bak") == null);
+    try std.testing.expect(std.mem.startsWith(u8, editor.status(), "could not keep a backup of fixture.bzm: "));
+    try std.testing.expect(editor.dirty());
+}
+
+test "save: with no files, saving is refused rather than done unsafely" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setMapType(3);
+    try std.testing.expectError(error.Failed, editor.save("fixture.bzm"));
+    try std.testing.expectEqualStrings("saving needs a file system", editor.status());
     try std.testing.expect(editor.dirty());
 }
 
@@ -476,6 +923,78 @@ test "a refused delete leaves the document and the history unchanged" {
     try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
     try std.testing.expect(!editor.dirty());
     try std.testing.expect(!(try editor.undo()));
+}
+
+test "sound add, undo, redo" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var record: SoundRecord = .{ .x = 50, .y = 50, .repeat_ms = 1000, .min_radius = 1, .max_radius = 5 };
+    record.setName("Explosion");
+    try editor.addSound(-1, record);
+    try std.testing.expectEqual(@as(usize, 1), fake.sounds_list.items.len);
+    try std.testing.expectEqualStrings("Explosion", fake.sounds_list.items[0].nameSlice());
+    try std.testing.expect(editor.dirty());
+    const generation_after_add = editor.sounds_generation;
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 0), fake.sounds_list.items.len);
+    try std.testing.expect(editor.sounds_generation != generation_after_add);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 1), fake.sounds_list.items.len);
+}
+
+test "sound edit, undo" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var seed: SoundRecord = .{ .x = 50, .y = 50, .min_radius = 1, .max_radius = 5 };
+    seed.setName("Explosion");
+    try fake.addSoundFixture(seed);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var edited = seed;
+    edited.min_radius = 2;
+    edited.max_radius = 9;
+    try editor.editSound(0, edited, 0);
+    try std.testing.expectEqual(@as(i32, 2), fake.sounds_list.items[0].min_radius);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, 1), fake.sounds_list.items[0].min_radius);
+    try std.testing.expectEqual(@as(i32, 5), fake.sounds_list.items[0].max_radius);
+}
+
+test "delete then undo restores the same sound at the same index" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var first: SoundRecord = .{ .x = 10, .y = 10 };
+    first.setName("Wind");
+    var second: SoundRecord = .{ .x = 20, .y = 20, .max_radius = 3 };
+    second.setName("Explosion");
+    try fake.addSoundFixture(first);
+    try fake.addSoundFixture(second);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deleteSound(0);
+    try std.testing.expectEqual(@as(usize, 1), fake.sounds_list.items.len);
+    try std.testing.expectEqualStrings("Explosion", fake.sounds_list.items[0].nameSlice());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 2), fake.sounds_list.items.len);
+    try std.testing.expectEqualStrings("Wind", fake.sounds_list.items[0].nameSlice());
+    try std.testing.expectEqualStrings("Explosion", fake.sounds_list.items[1].nameSlice());
+}
+
+test "a refused sound add leaves history and generation unchanged" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var off_map: SoundRecord = .{ .x = 9999, .y = 9999 };
+    off_map.setName("Explosion");
+    const generation_before = editor.sounds_generation;
+    const undo_depth_before = editor.history.undo_stack.items.len;
+    try std.testing.expectError(error.Refused, editor.addSound(-1, off_map));
+    try std.testing.expectEqual(@as(usize, 0), fake.sounds_list.items.len);
+    try std.testing.expectEqual(generation_before, editor.sounds_generation);
+    try std.testing.expectEqual(undo_depth_before, editor.history.undo_stack.items.len);
 }
 
 test "place, undo, redo" {
@@ -584,8 +1103,12 @@ test "a diplomacy or attacking side out of range is a caller bug and changes not
 test "saving marks clean, and undoing past the save makes it dirty again" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
+    var fake_files = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake_files.deinit();
+    fake.files = &fake_files;
     var editor = try openFixture(&fake);
     defer editor.deinit();
+    editor.files = fake_files.files();
     try editor.setMapType(3);
     try editor.save("fixture.bzm");
     try std.testing.expect(!editor.dirty());

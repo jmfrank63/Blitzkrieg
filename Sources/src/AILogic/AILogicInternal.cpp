@@ -61,6 +61,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "Artillery.h"
 #include "Technics.h"
 #include "Formation.h"
+#include "Soldier.h"
 #include "Shell.h"
 
 #include "../Main/ScenarioTracker.h"
@@ -255,6 +256,27 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 						id = theUnitCreation.AddNewUnit( object.szName, pIDB, object.fHP, object.vPos.x, object.vPos.y, object.vPos.z, wDir, nPlayer, bInitialization, IsEditor );
 
 					pResult = units[id];
+					// A soldier is only ever played inside a formation: its states
+					// read GetFormation() without a check from the first segment on,
+					// and CSoldierRestState::Segment faults on a null one inside Init.
+					// Infantry comes in as SGVOGT_SQUAD, which AddNewFormation builds
+					// whole; no shipped map has a soldier on its own, because the MFC
+					// editor's palette never offered one. A map that has one anyway
+					// gets the single-unit formation the game gives every soldier left
+					// on its own in play (CFormationDisbandState, CCatchFormationState,
+					// CTransportResupplyHumanResourcesState). The editor's engine keeps
+					// the soldier bare, as it always has.
+					if ( !IsEditor )
+					{
+						if ( CSoldier *pSoldier = dynamic_cast<CSoldier*>( units[id] ) )
+						{
+							if ( pSoldier->GetFormation() == 0 )
+							{
+								CCommonUnit *pSingleFormation = theUnitCreation.CreateSingleUnitFormation( pSoldier );
+								pSingleFormation->SetSelectable( pSoldier->IsSelectable() );
+							}
+						}
+					}
 					scripts.AddObjToScriptGroup( units[id], object.nScriptID );
 
 					if ( !GetGlobalVar( "nogeneral", 0 ) &&

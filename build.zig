@@ -1,6 +1,7 @@
 const std = @import("std");
 const build_support = @import("tools/zig/build_support.zig");
 const package_policy = @import("tools/zig/verify_runtime.zig");
+const season_textures_plan = @import("tools/zig/season_textures.zig");
 
 /// Single source of truth for the game version. Bump the patch component with
 /// every change. The version is embedded into Game.exe as a Win32 VERSIONINFO
@@ -1246,6 +1247,10 @@ pub fn build(b: *std.Build) void {
     });
     const stage_tests = b.addTest(.{ .root_module = stage_tests_module });
     const stage_tests_run = b.addRunArtifact(stage_tests);
+    // One test reads build.zig (every stage-game run goes through
+    // addStageGameRun), so the run starts in the build root wherever zig build
+    // was invoked from.
+    stage_tests_run.setCwd(b.path("."));
     const stage_test_step = b.step("test-stage", "Run shell-free runtime staging tests");
     stage_test_step.dependOn(&stage_tests.step);
     if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
@@ -1711,6 +1716,38 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| gfx_reference_compare_run.addArgs(args);
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
+
+    // The missing winter/Africa unit textures, derived from the summer ones:
+    // `zig build season-textures -- Data [--dry-run] [--only Units/...]`.
+    // A host tool; ReleaseFast writes the same bytes as Debug (no fast-math),
+    // in a fraction of the time over all of Data/Units.
+    const season_textures_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/season_textures.zig"),
+        .target = b.graph.host,
+        .optimize = .ReleaseFast,
+    });
+    const season_textures = b.addExecutable(.{
+        .name = "season-textures",
+        .root_module = season_textures_module,
+    });
+    const season_textures_run = b.addRunArtifact(season_textures);
+    season_textures_run.setCwd(b.path("."));
+    if (b.args) |args| season_textures_run.addArgs(args);
+    const season_textures_step = b.step("season-textures", "Generate the missing winter/Africa unit textures in a Data tree");
+    season_textures_step.dependOn(&season_textures_run.step);
+    const season_textures_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/season_textures.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const season_textures_tests = b.addTest(.{ .root_module = season_textures_test_module });
+    const season_textures_test_step = b.step("test-season-textures", "Run the season texture tool's codec and transform tests");
+    season_textures_test_step.dependOn(&season_textures_tests.step);
+    if (test_mode == .run) season_textures_test_step.dependOn(&b.addRunArtifact(season_textures_tests).step);
+    // The same tool, run by every staging (install-game, and so
+    // install-map-editor and every tier staged on it, package-game and
+    // package-game-editors, with or without -Dcopy-data): see addSeasonData.
+    const season_data = addSeasonData(b, season_textures);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
@@ -2119,35 +2156,47 @@ pub fn build(b: *std.Build) void {
         .root_module = stage_module,
     });
 
-    const install_game_cmd = b.addRunArtifact(stage_tool);
-    install_game_cmd.addArg(".");
-    install_game_cmd.addArg(stage_root);
-    addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
-    // Staging copies the third-party notice out of a plain path, the way it
-    // copies the shader blobs, so an edited licence text has to be part of the
-    // cache key or the staged and packaged copies keep the superseded notice.
-    install_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
+    const stage_game_inputs: StageGameInputs = .{
+        .tool = stage_tool,
+        .game_all_step = game_all_step,
+        .shaders_step = if (use_prebuilt_shaders) null else gfx_gpu_shaders_step,
+        .shader_sources = shader_sources,
+        .game_name = stage_game_name,
+        .runtime_files = stage_runtime_files,
+        .debug_files = stage_debug_files,
+        .metadata_files = stage_metadata_files,
+        .editors_supported = target.result.os.tag == .windows,
+    };
+    const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
-    if (!use_prebuilt_shaders) {
-        install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
-        // Staging copies the compiled shader blobs out of a plain path, so the same
-        // sources have to be part of its cache key or an edited shader never reaches
-        // the install layout. It cannot simply always run: it deletes and re-copies
-        // the whole 2.7 GB Data tree.
-        for (shader_sources) |source| install_game_cmd.addFileInput(b.path(source));
-    }
+    install_game_cmd.addArg("--season-data");
+    install_game_cmd.addDirectoryArg(season_data);
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
-    install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
+
+    // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
+    // for the engine-tier test's TestModsListSetAndClear and the host-check's
+    // -mod=EditorTestMod run below - never a dependency of install-map-editor
+    // or any package step (the fixture is not AchtungPanzer2 and is tracked,
+    // but it is still not part of what ships).
+    const install_fixture_mod = b.addInstallDirectory(.{
+        .source_dir = b.path("tools/zig/fixtures/editor_mod/EditorTestMod"),
+        .install_dir = .{ .custom = stage_root["zig-out/".len..] },
+        .install_subdir = "mods/EditorTestMod",
+    });
 
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
-    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
     // The editor's two platforms; everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
-    if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    // Captured (rather than discarded, as before) so the package steps below
+    // can stage this exact build of MapEditor beside Game (D-08); null on
+    // every other platform, where there is no MapEditor to package.
+    const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
+    const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
 
     // Backwards-compatible alias for the older command used in project scripts.
@@ -2314,11 +2363,17 @@ pub fn build(b: *std.Build) void {
     // `NotDir` before it copied a byte. `package` collides with nothing the
     // layout stages, and the name says what the directory is for.
     const package_stage_root = b.fmt("{s}/package", .{stage_root});
-    const stage_package_game_cmd = b.addRunArtifact(stage_tool);
-    stage_package_game_cmd.addArg(".");
-    stage_package_game_cmd.addArg(package_stage_root);
-    addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
-    stage_package_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
+    const stage_package_game_cmd = addStageGameRun(b, stage_game_inputs, package_stage_root);
+    stage_package_game_cmd.addArg("--season-data");
+    stage_package_game_cmd.addDirectoryArg(season_data);
+    // D-08: the game package carries MapEditor beside Game on the editor's two
+    // platforms. addFileArg (not a hand-built path string) both resolves the
+    // exact binary this build produced and makes this Run step depend on it,
+    // so `zig build package-game` always packages a freshly built MapEditor.
+    if (map_editor_exe) |editor_exe| {
+        stage_package_game_cmd.addArg("--map-editor");
+        stage_package_game_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
 
     const package_tool = b.addExecutable(.{
         .name = "package",
@@ -2335,12 +2390,18 @@ pub fn build(b: *std.Build) void {
     package_game_step.dependOn(&stage_package_game_cmd.step);
     package_game_step.dependOn(&package_tool_run.step);
 
-    const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
-    stage_package_game_editors_cmd.addArg(".");
-    stage_package_game_editors_cmd.addArg(package_stage_root);
-    addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
+    const stage_package_game_editors_cmd = addStageGameRun(b, stage_game_inputs, package_stage_root);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
+    // Same reasoning as package-game above: this run reuses package_stage_root
+    // (already staged by stage_package_game_cmd, MapEditor included), but the
+    // flag and its file dependency are added here too so this step's own graph
+    // also depends on the exact MapEditor build, not only on the earlier step
+    // having run at some point.
+    if (map_editor_exe) |editor_exe| {
+        stage_package_game_editors_cmd.addArg("--map-editor");
+        stage_package_game_editors_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
     stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
 
     const package_tool_editors = b.addRunArtifact(package_tool);
@@ -2731,6 +2792,9 @@ pub fn build(b: *std.Build) void {
     const view_math_step = b.step("test-map-editor-view", "Run the map view's pure camera and input-mapping tests");
     view_math_step.dependOn(&view_math_tests.step);
     if (test_mode == .run) view_math_step.dependOn(&view_math_tests_run.step);
+    // view.zig's own event-wiring tests (WINDOWS.md 2) need the app's SDL
+    // headers, so they exist only where MapEditor builds.
+    if (map_editor) |built| view_math_step.dependOn(built.view_test_step);
     test_step.dependOn(view_math_step);
     // The panels' pure parts (the file dialogs' hand-over and the file
     // actions, the palette's filter, directions, the title): plain Zig
@@ -2747,12 +2811,87 @@ pub fn build(b: *std.Build) void {
     panels_logic_step.dependOn(&panels_logic_tests.step);
     if (test_mode == .run) panels_logic_step.dependOn(&panels_logic_tests_run.step);
     test_step.dependOn(panels_logic_step);
+    // Test in game's argv construction and exit classification: plain Zig,
+    // no sdl3 and no c_bridge (testlaunch.zig's own doc comment), so this
+    // runs on every target with no engine, GPU or staged installation.
+    const testlaunch_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/testlaunch.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const testlaunch_tests = b.addTest(.{ .root_module = testlaunch_module });
+    const testlaunch_tests_run = b.addRunArtifact(testlaunch_tests);
+    const testlaunch_step = b.step("test-map-editor-testlaunch", "Run Test in game's argv-construction and exit-classification tests");
+    testlaunch_step.dependOn(&testlaunch_tests.step);
+    if (test_mode == .run) testlaunch_step.dependOn(&testlaunch_tests_run.step);
+    test_step.dependOn(testlaunch_step);
+    // BK_EDITOR_AUTO's schedule parser and TGA comparison: plain Zig, no
+    // sdl3 and no c_bridge (auto.zig's own doc comment), so this runs on
+    // every target with no engine, GPU or staged installation.
+    const auto_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/auto.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const auto_tests = b.addTest(.{ .root_module = auto_module });
+    const auto_tests_run = b.addRunArtifact(auto_tests);
+    const auto_step = b.step("test-map-editor-auto", "Run BK_EDITOR_AUTO's schedule parser and TGA comparison tests");
+    auto_step.dependOn(&auto_tests.step);
+    if (test_mode == .run) auto_step.dependOn(&auto_tests_run.step);
+    test_step.dependOn(auto_step);
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 
     b.default_step = game_all_step;
+}
+
+/// What every stage-game run is built from. See addStageGameRun.
+const StageGameInputs = struct {
+    tool: *std.Build.Step.Compile,
+    game_all_step: *std.Build.Step,
+    /// null under -Duse-prebuilt-shaders, which reuses zig-out/shaders as is.
+    shaders_step: ?*std.Build.Step,
+    shader_sources: []const []const u8,
+    game_name: []const u8,
+    runtime_files: []const []const u8,
+    debug_files: []const []const u8,
+    metadata_files: []const []const u8,
+    editors_supported: bool,
+};
+
+/// The one way to create a stage-game run (install-game, package-game,
+/// package-game-editors). stage.zig copies the runtime out of zig-out/bin and
+/// zig-out/lib and the shader blobs out of zig-out/shaders by plain path, so
+/// the build graph cannot see that it reads them: the run has to be ordered
+/// after the installs that write them by hand. Only install-game was. The two
+/// package runs hung off package-game(-editors) beside game-all, not after
+/// it, so in a tree with no zig-out/bin yet they raced the installs and died
+/// in copyGameRuntime with FileNotFound - reliably under --release=fast, whose
+/// optimised compiles lose that race - and in a tree that had one they
+/// zipped whatever binaries an earlier build had left there, a Debug Game in
+/// a release package included. stage_test.zig holds every stage-game run in
+/// build.zig to this helper.
+fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const u8) *std.Build.Step.Run {
+    const run = b.addRunArtifact(inputs.tool);
+    run.addArg(".");
+    run.addArg(install_dir);
+    addStageLayoutArgs(run, inputs.game_name, inputs.runtime_files, inputs.debug_files, inputs.metadata_files, inputs.editors_supported);
+    run.step.dependOn(inputs.game_all_step);
+    // Staging copies the third-party notice out of a plain path, the way it
+    // copies the shader blobs, so an edited licence text has to be part of the
+    // cache key or the staged and packaged copies keep the superseded notice.
+    run.addFileInput(b.path(package_policy.third_party_notices_source));
+    if (inputs.shaders_step) |shaders_step| {
+        run.step.dependOn(shaders_step);
+        // Staging copies the compiled shader blobs out of a plain path, so the same
+        // sources have to be part of its cache key or an edited shader never reaches
+        // the install layout. It cannot simply always run: it deletes and re-copies
+        // the whole 2.7 GB Data tree.
+        for (inputs.shader_sources) |source| run.addFileInput(b.path(source));
+    }
+    return run;
 }
 
 fn addStageLayoutArgs(run: anytype, game_name: []const u8, runtime_files: []const []const u8, debug_files: []const []const u8, metadata_files: []const []const u8, editors_supported: bool) void {
@@ -3655,6 +3794,13 @@ fn addEditorBridge(
     module.addIncludePath(b.path("Sources/src/Main"));
     module.addIncludePath(b.path("Sources/src/Image"));
     module.addIncludePath(b.path("Sources/src/GFX"));
+    // Scene/SceneScreenScale.h's own bare #include "Globals.h" resolves
+    // relative to Scene's directory first, same as every other module that
+    // includes it (build.zig's Scene target carries this path too) - without
+    // it, the zoom bridge's #include "../Scene/SceneScreenScale.h" fails to
+    // find Globals.h even though StdAfx.h already pulls the same header in
+    // through its own relative "../StreamIO/Globals.h" include.
+    module.addIncludePath(b.path("Sources/src/StreamIO"));
     module.addCSourceFiles(.{
         .files = &.{
             "Sources/src/EditorBridge/bridge.cpp",
@@ -5589,6 +5735,10 @@ fn addEditorBridgeTest(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
+    // 03-08 Task 1: the fixture mod TestModsListSetAndClear needs, staged
+    // beside the test binary - never a dependency of install_exe/install-game
+    // itself (see its own doc comment at the call site).
+    install_fixture_mod_step: *std.Build.Step,
 ) void {
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
     // repository already runs on Linux CI. See the note in addMapFileTest.
@@ -5670,7 +5820,12 @@ fn addEditorBridgeTest(
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
     run.addArg(b.pathFromRoot("zig-out/local-test"));
+    // It reads the staged Data and engine, neither a file input of this step,
+    // so a cached pass would say nothing about the installation now (the
+    // same reason map-editor-smoke and test-map-editor-engine set this).
+    run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_fixture_mod_step);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -5689,6 +5844,14 @@ const MapEditorEngine = struct {
     zlib: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
+};
+
+/// What addMapEditor hands back: the MapEditor executable (the package
+/// steps stage its exact binary) and view.zig's test step, which
+/// test-map-editor-view depends on.
+const MapEditorBuild = struct {
+    exe: *std.Build.Step.Compile,
+    view_test_step: *std.Build.Step,
 };
 
 fn addMapEditor(
@@ -5711,7 +5874,10 @@ fn addMapEditor(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
-) void {
+    // 03-08 Task 1: the fixture mod the -mod=EditorTestMod host-check run
+    // below needs - never a dependency of install_exe/install-map-editor.
+    install_fixture_mod_step: *std.Build.Step,
+) MapEditorBuild {
     const engine: MapEditorEngine = .{
         .editor_bridge = editor_bridge,
         .map_file = map_file,
@@ -5758,9 +5924,39 @@ fn addMapEditor(
     });
     const stage_suffix = stage_root["zig-out/".len..];
 
+    // view.zig's own tests (WINDOWS.md 2): real SDL events through the view's
+    // wiring, the tools editing the core's fake bridge and the camera a fake
+    // of the bridge's. The app's SDL module gives the event types and
+    // constants; no SDL function is referenced, so none is linked. The core
+    // is this target's, and editor_imgui a stand-in nothing the tests reach
+    // uses. No engine, GPU or staged installation.
+    const view_imgui_stub = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/testing/imgui_stub.zig"),
+        .target = target,
+        .optimize = .Debug,
+    });
+    const view_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/view.zig"),
+        .target = target,
+        .optimize = .Debug,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl_module },
+            .{ .name = "editor_core", .module = core_module },
+            .{ .name = "editor_imgui", .module = view_imgui_stub },
+        },
+    });
+    const view_tests = b.addTest(.{ .name = "map-editor-view-test", .root_module = view_test_module });
+    const view_tests_run = b.addRunArtifact(view_tests);
+    const view_test_step = b.step("test-map-editor-view-events", "Run view.zig's SDL event-wiring tests against fake bridges");
+    view_test_step.dependOn(&view_tests.step);
+    if (test_mode == .run) view_test_step.dependOn(&view_tests_run.step);
+
     const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
     const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
-    configureMapEditorExecutable(exe, target);
+    // .windows: the packaged, player-facing binary opens no console on a
+    // normal double-click (crt.attachParentConsole in main.zig keeps its
+    // automated modes printing).
+    configureMapEditorExecutable(exe, target, .windows);
 
     // Beside Game, because the engine's roots are the installation it runs in.
     const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
@@ -5768,22 +5964,51 @@ fn addMapEditor(
     const install_step = b.step("install-map-editor", "Install MapEditor into the game installation");
     install_step.dependOn(&install_exe.step);
 
+    // Launched from zig-out, not the installation: MapEditor finds its
+    // modules, Data, SeasonData and Shaders beside its own executable
+    // whatever the working directory is (a Windows shortcut, the Start menu
+    // or Explorer start it elsewhere), and a relative map on the command line
+    // is relative to where it was launched - here the stage path from zig-out,
+    // in the engine's backslash form after it. Not the build root: on macOS
+    // every Mach-O the build links carries Zig's cwd-relative build-cache
+    // rpaths ahead of @executable_path, so from there
+    // dyld loads a second libSDL3/libPlatformRuntime out of the cache
+    // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
-    run.setCwd(b.path(stage_root));
-    run.addArgs(&.{ "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
+    run.setCwd(b.path("zig-out"));
+    run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
-    check_step.dependOn(&run.step);
+    // Only builds and installs the step in .compile mode, as test-editor-bridge
+    // (addEditorBridgeTest) does - never runs a GPU-needing executable when the
+    // caller only wants to know it compiles.
+    check_step.dependOn(&install_exe.step);
     // The same map as an absolute path in the host's own form, as a person
     // types it or a shell expands it: forward slashes on macOS, which the
     // engine's file layer does not split on until MapEditor converts them.
+    // Also launched from outside the installation, like `run` above; the
+    // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
-    absolute_run.setCwd(b.path(stage_root));
+    absolute_run.setCwd(b.path("zig-out"));
     absolute_run.addArgs(&.{ "--check", b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), b.pathFromRoot("zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
     // After the relative run, so two engines never start at once.
     absolute_run.step.dependOn(&run.step);
-    check_step.dependOn(&absolute_run.step);
+
+    // 03-08 Task 1: -mod=EditorTestMod loads the fixture mod's data like the
+    // game and the host check's own acceptance criterion greps this line.
+    const mod_run = b.addRunArtifact(exe);
+    mod_run.setCwd(b.path(stage_root));
+    mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check-mod.tga") });
+    mod_run.step.dependOn(&install_exe.step);
+    mod_run.step.dependOn(install_fixture_mod_step);
+    // After the absolute-path run, so two engines never start at once.
+    mod_run.step.dependOn(&absolute_run.step);
+    if (test_mode == .run) {
+        check_step.dependOn(&run.step);
+        check_step.dependOn(&absolute_run.step);
+        check_step.dependOn(&mod_run.step);
+    }
 
     // The interactive loop itself, hidden and driven by smoke.zig's scripted
     // SDL events: paint, place, select, drag, turn, delete, undo all of it,
@@ -5795,8 +6020,75 @@ fn addMapEditor(
     // step, so a cached pass would say nothing about the installation now.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
+    // D-26 (revised 2026-09-29): the script's last steps switch to the
+    // fixture mod and back, closing the map - staged here, never a
+    // dependency of install-map-editor.
+    smoke_run.step.dependOn(install_fixture_mod_step);
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
+
+    // The spec's editor-app tier (03-12-PLAN.md), one local command: paint,
+    // place, save as a new map, shoot and compare the frame against a local
+    // (never committed) reference, test-launch the game and wait for it to
+    // exit 0, then quit. `--hidden`, like `--smoke`: the same loop, not a
+    // person watching it. Local-only (RESEARCH.md/spec: the editor-app tier
+    // is not part of CI's GPU-runner gate) - it starts a second engine
+    // process end to end, like map-editor-game-reads-it.
+    const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
+    const auto_saveas_path = b.fmt("{s}/auto.bzm", .{auto_dir});
+    // Coordinates match smoke.zig's own script exactly (ground_a/
+    // ground_between/ground_b, place_at): the same shipped map, the same
+    // screen-centre-relative convention, so both scripts paint/place on the
+    // same known-clear ground. BK_EDITOR_AUTO_GAME becomes the test game's
+    // own BK_AUTO_UI: a shot (for a person to look at, unmeasured) then exit.
+    const auto_run = b.addRunArtifact(exe);
+    auto_run.setCwd(b.path(stage_root));
+    auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", b.fmt(
+        "3:key=2,4:press=c-120x-160,5:drag=c-95x-160,6:drag=c-70x-160,7:release=c-70x-160,8:key=3,9:click=c-40x-120,10:saveas={s},11:shot=edited,12:compare=edited,13:test,14:waitgame=240,15:exit",
+        .{auto_saveas_path},
+    ));
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_GAME", "400:shot,440:exit");
+    // What it reads - the staged Data and engine - is not a file input of the
+    // step, so a cached pass would say nothing about the installation now.
+    auto_run.has_side_effects = true;
+    auto_run.step.dependOn(&install_exe.step);
+    // After the smoke run, so two engines never start at once.
+    auto_run.step.dependOn(&smoke_run.step);
+    // Test in game (the schedule's own `test` action) leaves the game's own
+    // screenshot dump in the stage root it ran from (main.zig's own
+    // deleteAutoshots comment, --game-reads-it's analogous cleanup) - swept
+    // up so a repeat run is not mistaken for a stale leftover. A Zig
+    // artifact process (addRunArtifact), not an external interpreter -
+    // build_hermeticity_test.zig forbids this file spawning one of those.
+    const delete_matching_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
+    const cleanup_autoshots = b.addRunArtifact(delete_matching);
+    cleanup_autoshots.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots.step.dependOn(&auto_run.step);
+    const auto_step = b.step("map-editor-auto", "Run BK_EDITOR_AUTO's editor-app scenario on a shipped map");
+    auto_step.dependOn(&cleanup_autoshots.step);
+
+    // Task 1's headless test-launch proof (D-01..D-09): the editor places a
+    // unit and the real Game plays it, no person watching. Local-only
+    // (RESEARCH.md Pitfall 6 / the spec's own test-tier table): it starts a
+    // second engine process end to end, which is not something CI's GPU
+    // runners need to gate every commit on.
+    const game_reads_it_run = b.addRunArtifact(exe);
+    game_reads_it_run.setCwd(b.path(stage_root));
+    game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it.log") });
+    // What it reads (the staged Data and Game) and the second process it
+    // starts are not file inputs of this step, so a cached pass would say
+    // nothing about the installation now.
+    game_reads_it_run.has_side_effects = true;
+    game_reads_it_run.step.dependOn(&install_exe.step);
+    const game_reads_it_step = b.step("map-editor-game-reads-it", "Test-launch a unit the editor placed and prove the real Game plays it (D-01..D-09)");
+    game_reads_it_step.dependOn(&game_reads_it_run.step);
 
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots
@@ -5804,7 +6096,9 @@ fn addMapEditor(
     // runs an artifact's installed copy once it has been installed.
     const engine_test_module = mapEditorModule(b, "Sources/editor/app/c_bridge_test.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
     const engine_test = b.addTest(.{ .name = "map-editor-engine-test", .root_module = engine_test_module });
-    configureMapEditorExecutable(engine_test, target);
+    // .console: a CI/local test tool, never packaged - its output is read
+    // straight off the console it always had.
+    configureMapEditorExecutable(engine_test, target, .console);
     const install_engine_test = b.addInstallArtifact(engine_test, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
     install_engine_test.step.dependOn(install_game_step);
     const engine_test_run = b.addRunArtifact(engine_test);
@@ -5816,6 +6110,13 @@ fn addMapEditor(
     const engine_test_step = b.step("test-map-editor-engine", "Drive the real engine through the editor core's commands and check it agrees");
     engine_test_step.dependOn(&install_engine_test.step);
     if (test_mode == .run) engine_test_step.dependOn(&engine_test_run.step);
+
+    // Returned so the package steps (package-game, package-game-editors) can
+    // add --map-editor with this exact artifact's emitted binary: passing the
+    // Compile step rather than a hand-built path keeps the package's stage
+    // command dependent on this build, not on whatever happened to be on disk
+    // from a previous run.
+    return .{ .exe = exe, .view_test_step = view_test_step };
 }
 
 /// A module of MapEditor's, with everything its executables link. The union
@@ -5880,9 +6181,15 @@ fn mapEditorModule(
 }
 
 /// Entry, symbols and rpath of a MapEditor executable, the test included.
-fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
+fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, subsystem: std.Target.SubSystem) void {
     if (target.result.os.tag == .windows) {
-        exe.subsystem = .console;
+        // MapEditor ships `.windows` (no console window on a normal
+        // double-click); map-editor-engine-test stays `.console` (a CI/local
+        // tool, never packaged - Sources/editor/app/crt.zig's
+        // attachParentConsole is what keeps MapEditor's own automated modes
+        // printing under `.windows`). Either way the entry stays the CRT's
+        // own, below.
+        exe.subsystem = subsystem;
         // The CRT's entry, so the CRT is initialised and the engine statics'
         // constructors run; the root exports the C main it calls (crt.zig).
         exe.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -6078,6 +6385,75 @@ fn linkSdlImport(
         .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
         else => module.linkLibrary(sdl_dynamic),
     }
+}
+
+// The winter ("w") and Africa ("a") unit textures Data lacks, derived from the
+// summer ones by tools/zig/season_textures.zig. A build output, not a source:
+// generated into the cache (one stored .pak of 1428 files, ~70 MB, about 2 s;
+// one file rather than 1428 because the package's zip has little of its
+// 65,535-entry limit left), staged beside Data as SeasonData by stage-game and
+// mounted over Data by the engine (Sources/src/StreamIO/SeasonData.h). Nothing
+// is written into Data, which -Dcopy-data=false stages as a link into this
+// repository.
+fn addSeasonData(b: *std.Build, tool: *std.Build.Step.Compile) std.Build.LazyPath {
+    const run = b.addRunArtifact(tool);
+    run.setName("generate SeasonData");
+    run.addDirectoryArg(b.path("Data"));
+    run.addArg("--out");
+    const out = run.addOutputDirectoryArg("SeasonData");
+    run.addArgs(&.{ "--pak", "SeasonTextures.pak" });
+    // A directory argument is hashed by its path only, so what the tool reads
+    // goes into the cache key explicitly, and the output is regenerated
+    // exactly when that changes.
+    const inputs = seasonDataInputs(b) catch |err| std.debug.panic("SeasonData inputs: {s}", .{@errorName(err)});
+    for (inputs.sources) |source| run.addFileInput(b.path(source));
+    run.addFileInput(b.addWriteFiles().add("season-data-inputs.txt", inputs.listing));
+    return out;
+}
+
+const SeasonDataInputs = struct {
+    /// The summer textures, whose bytes decide the generated files'.
+    sources: []const []const u8,
+    /// Every mesh and season texture name the plan looks at, one per line: a
+    /// folder that gains a hand-painted 1w, or a new unit, changes it.
+    listing: []const u8,
+};
+
+// Found at configure time, the way shaderSourceFiles finds the shaders:
+// walking Data/Units takes a few milliseconds.
+fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
+    const io = b.graph.io;
+    var dir = b.build_root.handle.openDir(io, "Data/Units", .{ .iterate = true }) catch |err| switch (err) {
+        // CI's sparse checkouts for the jobs that never stage the game (the
+        // Linux, MinGW and Intel macOS ones) leave out Data/Units. Staging
+        // without it fails in the generation step itself, which reads it.
+        error.FileNotFound => return .{ .sources = &.{}, .listing = "" },
+        else => return err,
+    };
+    defer dir.close(io);
+    var walker = try dir.walk(b.allocator);
+    defer walker.deinit();
+    var names: std.ArrayList([]const u8) = .empty;
+    var sources: std.ArrayList([]const u8) = .empty;
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const lower = try std.ascii.allocLowerString(b.allocator, entry.basename);
+        if (!season_textures_plan.isPlanName(lower)) continue;
+        // Forward slashes, so the listing is the same on every host.
+        const relative = try std.mem.replaceOwned(u8, b.allocator, entry.path, "\\", "/");
+        const path = b.fmt("Data/Units/{s}", .{relative});
+        try names.append(b.allocator, path);
+        if (season_textures_plan.isSummerSource(lower)) try sources.append(b.allocator, path);
+    }
+    const Sort = struct {
+        fn less(_: void, left: []const u8, right: []const u8) bool {
+            return std.mem.order(u8, left, right) == .lt;
+        }
+    };
+    // The walk's order is the filesystem's; the key must not be.
+    std.mem.sort([]const u8, names.items, {}, Sort.less);
+    std.mem.sort([]const u8, sources.items, {}, Sort.less);
+    return .{ .sources = sources.items, .listing = try std.mem.join(b.allocator, "\n", names.items) };
 }
 
 // Every file the shader driver reads: the manifest plus the .hlsl sources beside

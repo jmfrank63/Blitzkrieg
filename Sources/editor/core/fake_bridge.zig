@@ -12,16 +12,24 @@
 //!  - there is no engine: a known object is placed, moved, turned and
 //!    re-owned anywhere on the map, where the real engine refuses some (a
 //!    tree takes no direction and no owner);
-//!  - any name is accepted on add; the real bridge refuses one the object
-//!    database does not know;
+//!  - any name is accepted on add, for an object or a sound; the real bridge
+//!    refuses one the object database does not know (a sound additionally
+//!    checked as game type 100);
 //!  - edits are accepted before any map is open and after a failed open;
 //!    the real bridge refuses them with "no map is open";
-//!  - screen and world coordinates are the same thing.
+//!  - screen and world coordinates are the same thing;
+//!  - `saveMap` never touches a real file on its own: the real
+//!    `BkEditorSaveMap`'s read-back verification (session.cpp,
+//!    `SaveSessionMap`) lives entirely inside the engine, invisible to this
+//!    fake, which only writes to `files` (a shared `FakeFiles`) when a test
+//!    sets it, so `Editor.save`'s temp+backup+swap has something to see land.
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
+const files_mod = @import("files.zig");
 const Status = bridge_mod.Status;
 const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
+const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const Bridge = bridge_mod.Bridge;
 
@@ -30,7 +38,7 @@ pub const tile_size: f32 = 32.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 const Tombstone = struct { record: ObjectRecord, index: usize };
@@ -42,6 +50,11 @@ pub const FakeBridge = struct {
     allocator: std.mem.Allocator,
     info: MapInfo,
     objects_list: std.ArrayListUnmanaged(ObjectRecord) = .empty,
+    /// The map's own sound list (CMapInfo::sounds.sounds - see bridge.h's
+    /// own comment on BkEditorSounds). Kept across a fake reopen, the same
+    /// simplification `objects_list`/`tiles`/`diplomacy_table` make: there is
+    /// no file, so nothing here is actually lost.
+    sounds_list: std.ArrayListUnmanaged(SoundRecord) = .empty,
     referenced: std.AutoHashMapUnmanaged(i32, void) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
@@ -62,6 +75,15 @@ pub const FakeBridge = struct {
     /// Set by a test to make `paint` refuse cells that are on the map, as
     /// the real bridge does when the map will not take a paint (no tileset).
     refuse_paints: bool = false,
+    /// Set by a test so `saveMap` writes its result into a shared FakeFiles,
+    /// at the OS form of whatever path it is given - the same fake
+    /// filesystem `Editor.files`'s temp+backup+swap operates on, so a
+    /// plan-6 save test can see the whole dance land in one place. Not
+    /// owned: the test that sets this owns the FakeFiles.
+    files: ?*files_mod.FakeFiles = null,
+    /// Set by a test to make `saveMap` answer `failed` before writing
+    /// anything, as the real bridge does when the disk write itself fails.
+    fail_save: bool = false,
     /// Map units per world unit. 1 keeps screen, world and map the same
     /// point, which most tests read most easily; the real engine's is
     /// sqrt 2 (BkEditorWorldToMap), and a test sets another to catch a
@@ -84,6 +106,7 @@ pub const FakeBridge = struct {
         self.applied.deinit(self.allocator);
         self.undone.deinit(self.allocator);
         self.objects_list.deinit(self.allocator);
+        self.sounds_list.deinit(self.allocator);
         self.referenced.deinit(self.allocator);
         self.tombstones.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
@@ -97,6 +120,12 @@ pub const FakeBridge = struct {
     pub fn addFixture(self: *FakeBridge, new_record: ObjectRecord, referenced: bool) !void {
         try self.objects_list.append(self.allocator, new_record);
         if (referenced) try self.referenced.put(self.allocator, new_record.link_id, {});
+    }
+
+    /// A sound in the map before it opens, for a test to seed the list
+    /// `sounds()`/`editSound`/`deleteSound` then see.
+    pub fn addSoundFixture(self: *FakeBridge, new_record: SoundRecord) !void {
+        try self.sounds_list.append(self.allocator, new_record);
     }
 
     pub fn tile(self: *const FakeBridge, x: i32, y: i32) u8 {
@@ -187,6 +216,10 @@ pub const FakeBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .sounds = sounds,
+        .addSound = addSound,
+        .setSound = setSound,
+        .deleteSound = deleteSound,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -225,6 +258,17 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         self.record(.save, 0);
         if (path.len == 0) return .bad_argument;
+        if (self.fail_save) {
+            self.say("the disk is full", .{});
+            return .failed;
+        }
+        if (self.files) |fake_files| {
+            var os_buffer: [files_mod.max_path]u8 = undefined;
+            const os_path = files_mod.osPathFromEngine(&os_buffer, path) orelse return .bad_argument;
+            var content_buffer: [64]u8 = undefined;
+            const content = std.fmt.bufPrint(&content_buffer, "fake map: {d} objects", .{self.objects_list.items.len}) catch return .failed;
+            fake_files.write(os_path, content) catch return .failed;
+        }
         return .ok;
     }
 
@@ -356,6 +400,67 @@ pub const FakeBridge = struct {
         }
         self.info.attacking_side = value;
         self.record(.attacking_side, value);
+        return .ok;
+    }
+
+    fn sounds(ptr: *anyopaque, out: []SoundRecord, total: *usize) Status {
+        const self = from(ptr);
+        total.* = self.sounds_list.items.len;
+        const count = @min(out.len, self.sounds_list.items.len);
+        @memcpy(out[0..count], self.sounds_list.items[0..count]);
+        return if (out.len >= self.sounds_list.items.len) .ok else .refused;
+    }
+
+    /// The real bridge's rules the core can see: a non-empty name (the real
+    /// one additionally checks the object database knows it as a sound,
+    /// which this fake has no database for - any non-empty name is accepted,
+    /// the same simplification `addObject`'s own doc comment above makes for
+    /// objects), a position on the map (`tile_size` standing in for
+    /// `fWorldCellSize`, `onMap`'s own reasoning), and non-negative times and
+    /// radii with min <= max.
+    fn validSound(self: *FakeBridge, sound: SoundRecord) Status {
+        if (sound.nameSlice().len == 0) return .bad_argument;
+        if (!self.onMap(sound.x, sound.y)) {
+            self.say("that position is not on the map", .{});
+            return .refused;
+        }
+        if (sound.repeat_ms < 0 or sound.repeat_random_ms < 0 or sound.min_radius < 0 or sound.max_radius < 0 or sound.min_radius > sound.max_radius) {
+            self.say("a sound's times and radii must not be negative, and its minimum radius must not be above its maximum", .{});
+            return .refused;
+        }
+        return .ok;
+    }
+
+    fn addSound(ptr: *anyopaque, index: i32, new_record: SoundRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const valid = self.validSound(new_record);
+        if (valid != .ok) return valid;
+        const count: i32 = @intCast(self.sounds_list.items.len);
+        if (index < -1 or index > count) return .bad_argument;
+        const at: usize = if (index < 0) self.sounds_list.items.len else @intCast(index);
+        self.sounds_list.insert(self.allocator, at, new_record) catch return .failed;
+        self.record(.sound_add, @intCast(at));
+        return .ok;
+    }
+
+    fn setSound(ptr: *anyopaque, index: i32, new_record: SoundRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (index < 0 or index >= @as(i32, @intCast(self.sounds_list.items.len))) return .bad_argument;
+        const valid = self.validSound(new_record);
+        if (valid != .ok) return valid;
+        self.sounds_list.items[@intCast(index)] = new_record;
+        self.record(.sound_edit, index);
+        return .ok;
+    }
+
+    fn deleteSound(ptr: *anyopaque, index: i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (index < 0 or index >= @as(i32, @intCast(self.sounds_list.items.len))) return .bad_argument;
+        _ = self.sounds_list.orderedRemove(@intCast(index));
+        self.record(.sound_delete, index);
         return .ok;
     }
 

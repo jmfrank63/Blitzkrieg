@@ -8,6 +8,8 @@
 #include "bridge.h"
 
 class CEditorWorld;
+struct IObjectsDB;
+struct SGDBObjectDesc;
 
 // One editing session.
 //
@@ -72,7 +74,20 @@ struct SEditorSession
 	std::unordered_map<IRefCount*, int> linkByAI;
 	bool bEngineStarted;
 	bool bMapOpen;
-	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ) {  }
+	// Degrees of yaw offset from the game's own 45 (D-12), wrapped into
+	// [0, 360) by BkEditorSetYaw. SetSessionCamera adds this to the constant
+	// the game always places its mission camera at; 0 is the game's own view.
+	float fYawOffsetDegrees;
+	// D-29's squad-icon fallback (user-requested addition, 03-09 Task 4): a
+	// single soldier with no icon.tga of its own borrows the icon.tga of a
+	// squad that lists it as a member. Soldier name -> squad name, built once
+	// per session (the whole object database is scanned to fill it) the
+	// first time BkEditorObjectPicture needs it; empty and unbuilt until
+	// then. Deterministic when more than one squad lists the same soldier:
+	// the alphabetically first squad name wins.
+	std::unordered_map<std::string, std::string> squadIconOwnerBySoldier;
+	bool bSquadIconOwnerMapBuilt;
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws
@@ -86,6 +101,16 @@ struct SEditorSession
 // the order the engine expects - the AI editor is initialised before the
 // terrain reaches the scene, not after.
 bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
+
+// Closes whatever map is open, without touching the mod or the object
+// database it is about to change under it: the world's objects leave the
+// scene, the AI editor is cleared, and every per-map table (byLinkID,
+// unknownLinkIDs, futureBuildLinkIDs, the paint history, tombstones,
+// linkByAI) is reset - the same map-closing steps OpenMapIntoSession takes
+// before it builds a new map in, reused here for BkEditorSetMod (03-08),
+// which must close the map before swapping the MOD storage out from under
+// it. A no-op when no map is open.
+void CloseSessionMap( SEditorSession *pSession );
 
 // Writes the session's map to pszPath. Returns false and leaves the reason in
 // szMessage.
@@ -134,6 +159,12 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 // when the buffer was too small, which the caller can tell from the count.
 bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int nCapacity, int *pnCount );
 
+// Why an object of this type cannot be added to a map on its own, or "" if it
+// can: a soldier goes on a map only inside a squad. The reason reads after the
+// object's name and names a squad to place instead where the database has one.
+// Only an add asks this - a lone soldier a map already holds is kept as read.
+std::string WhyNotPlacedAlone( IObjectsDB *pObjectsDB, const SGDBObjectDesc &rDesc );
+
 // Runs one world update, so the scene holds a visual for every engine object
 // the last edit made, moved or removed, and rebuilds linkByAI from byLinkID.
 // Every edit that changes an engine object calls it once it has succeeded.
@@ -147,6 +178,10 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
 bool DrawSessionFrame( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
+// The other direction: a world point (the scene's units) to the screen point
+// it draws at right now, through the terrain's own height at that point -
+// see BkEditorWorldToScreen.
+bool WorldToScreen( SEditorSession *pSession, float wx, float wy, float *psx, float *psy );
 // World units (the scene's) to map units (the file's and the AI's): the
 // engine's AI2Vis the other way round. See BkEditorScreenToWorld.
 void WorldToMap( float wx, float wy, float *pmx, float *pmy );
@@ -196,5 +231,23 @@ const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nL
 // before scenarioObjects, in file order, and pnCount with the total - always
 // the total, not how many fitted. Returns false when the buffer was too small.
 bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount );
+
+// The map's own sound list - CMapInfo::sounds.sounds (SMapSoundInfo), the
+// field that is actually serialised (CMapInfo::operator&, tag 17 /
+// "MapSounds"). See BkEditorSounds' own comment (bridge.h) for why this is
+// not CMapInfo::soundsList. pnCount is always the total, not how many
+// fitted, matching ReadSessionObjects and ReadCatalogue.
+bool ReadSessionSounds( SEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount );
+
+// Adds/replaces/removes one sound in the snapshot and the working copy
+// together; the engine is never touched (a sound only reaches the engine
+// when a mission starts InitMapSounds, which this bridge's headless session
+// never does). Each returns false with the reason in szMessage and leaves
+// the session exactly as it found it; pbRefused tells a refusal (the
+// record's own rules said no) apart from a caller bug bridge.cpp already
+// turned away as BK_EDITOR_BAD_ARGUMENT before calling here.
+bool AddSoundToSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused );
+bool SetSoundInSession( SEditorSession *pSession, int nIndex, const BkEditorSoundRecord &rRecord, bool *pbRefused );
+bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

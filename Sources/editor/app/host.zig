@@ -2,6 +2,7 @@
 //! the bridge, and ImGui drawing into the engine's own frame. Nothing here
 //! edits; the view and the panels (Tasks 4-5) sit on top.
 const std = @import("std");
+const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 /// bridge.h, translated once for the app (c_bridge.zig).
@@ -14,7 +15,11 @@ pub const Options = struct {
     width: c_int = 1280,
     height: c_int = 800,
     hidden: bool = false,
-    data_root: [*:0]const u8 = ".",
+    /// The installation to edit. Null: the one this executable runs from
+    /// (the bridge's NPlatform::Paths::BaseRoot, SDL_GetBasePath) - never the
+    /// working directory, which a shortcut, the Start menu, Explorer or
+    /// Finder sets to something else.
+    data_root: ?[*:0]const u8 = null,
 };
 
 pub const Host = struct {
@@ -27,6 +32,7 @@ pub const Host = struct {
         failure_len = 0;
         if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return failWith(error.SdlInitFailed, sdlError());
         errdefer sdl3.c.SDL_Quit();
+        freeCommandW();
         // No SDL_WINDOW_HIGH_PIXEL_DENSITY: a point is a pixel, so a mouse
         // position is a screen position (see the plan's Decisions).
         var flags: sdl3.c.SDL_WindowFlags = sdl3.c.SDL_WINDOW_RESIZABLE;
@@ -125,6 +131,39 @@ fn failWith(err: HostError, reason: []const u8) HostError {
 fn sdlError() []const u8 {
     return std.mem.span(sdl3.c.SDL_GetError());
 }
+
+/// SDL's macOS menu bar has Window > Close on Cmd+W: AppKit takes the key
+/// before SDL sees it and closes the window, which quits the editor. Cmd+W
+/// is File > Close (the map), so the item loses its key equivalent and the
+/// key reaches the editor. The red close button still quits. The menus exist
+/// once SDL_Init has started the video subsystem (Cocoa_RegisterApp).
+/// libobjc is AppKit's, loaded by SDL, so it is looked up rather than linked.
+/// `command_w_freed` says whether it worked (the host check requires it).
+fn freeCommandW() void {
+    if (builtin.os.tag != .macos) return;
+    const Id = ?*anyopaque;
+    const default_handle: ?*anyopaque = @ptrFromInt(@as(usize, @bitCast(@as(isize, -2)))); // RTLD_DEFAULT
+    const get_class: *const fn ([*:0]const u8) callconv(.c) Id = @ptrCast(@alignCast(std.c.dlsym(default_handle, "objc_getClass") orelse return));
+    const register_name: *const fn ([*:0]const u8) callconv(.c) Id = @ptrCast(@alignCast(std.c.dlsym(default_handle, "sel_registerName") orelse return));
+    const msg_send = std.c.dlsym(default_handle, "objc_msgSend") orelse return;
+    const send0: *const fn (Id, Id) callconv(.c) Id = @ptrCast(@alignCast(msg_send));
+    const send_id: *const fn (Id, Id, Id) callconv(.c) Id = @ptrCast(@alignCast(msg_send));
+    const send_str: *const fn (Id, Id, [*:0]const u8) callconv(.c) Id = @ptrCast(@alignCast(msg_send));
+
+    const string_class = get_class("NSString") orelse return;
+    const app = send0(get_class("NSApplication"), register_name("sharedApplication")) orelse return;
+    const window_menu = send0(app, register_name("windowsMenu")) orelse return;
+    const close_title = send_str(string_class, register_name("stringWithUTF8String:"), "Close") orelse return;
+    const close_item = send_id(window_menu, register_name("itemWithTitle:"), close_title) orelse return;
+    const empty = send_str(string_class, register_name("stringWithUTF8String:"), "") orelse return;
+    _ = send_id(close_item, register_name("setKeyEquivalent:"), empty);
+    const key = send0(close_item, register_name("keyEquivalent")) orelse return;
+    const length: *const fn (Id, Id) callconv(.c) usize = @ptrCast(@alignCast(msg_send));
+    command_w_freed = length(key, register_name("length")) == 0;
+}
+
+/// True once Window > Close no longer owns Cmd+W (macOS; `freeCommandW`).
+pub var command_w_freed = false;
 
 fn overlay(user: ?*anyopaque, command_buffer: ?*anyopaque, target: ?*anyopaque, width: c_uint, height: c_uint) callconv(.c) void {
     _ = user;

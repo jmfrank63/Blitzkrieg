@@ -112,7 +112,15 @@ void CMapSounds::CMapSoundCell::Update( class CSoundScene * pScene, const CMapSo
 {
 	if ( timeNextRun < CSoundScene::GetCurTime() )
 	{
-		if ( 0 != playingLoopedSound.wSoundTypeID && cellSounds[playingLoopedSound.wSoundTypeID].nCount < SSoundSceneConsts::MIN_SOUND_COUNT_TO_PLAY_LOOPED )
+		// The playing loop stops once its own kind has fallen below the count
+		// a loop needs in this cell - counted among the looped sounds. This
+		// counted it among the one-shots (cellSounds), where a looped kind
+		// never is: every update stopped the loop and started it again from
+		// the top (BK_SOUND_TRACE: a remove and an add of the same map loop
+		// every 3 s), and operator[] left an empty entry behind each time.
+		CellSounds::const_iterator playingKind = cellLoopedSounds.find( playingLoopedSound.wSoundTypeID );
+		if ( 0 != playingLoopedSound.wSoundTypeID &&
+				 ( playingKind == cellLoopedSounds.end() || playingKind->second.nCount < SSoundSceneConsts::MIN_SOUND_COUNT_TO_PLAY_LOOPED ) )
 		{
 			pScene->RemoveSound( playingLoopedSound.wSceneID );
 			playingLoopedSound.Clear();
@@ -158,7 +166,11 @@ void CMapSounds::CMapSoundCell::Update( class CSoundScene * pScene, const CMapSo
 
 		}
 
-		timeNextRun = CSoundScene::GetCurTime() + SSoundSceneConsts::SS_MAP_SOUND_PERIOND + rand() * SSoundSceneConsts::SS_MAP_SOUND_PERIOND_RANDOM / RAND_MAX;
+		// The random part in floating point: rand() * PeriodRandom in 32-bit
+		// STime overflows once RAND_MAX is 2^31-1 (macOS, Linux; Windows has
+		// 32767), which left it at 0 - every map sound every 3 s, not 3-13 s.
+		const NTimer::STime timeRandom = NTimer::STime( float( rand() ) / float( RAND_MAX ) * float( SSoundSceneConsts::SS_MAP_SOUND_PERIOND_RANDOM ) );
+		timeNextRun = CSoundScene::GetCurTime() + SSoundSceneConsts::SS_MAP_SOUND_PERIOND + timeRandom;
 	}
 }
 void CMapSounds::SetSoundScene( class CSoundScene *_pSoundScene )
@@ -983,8 +995,13 @@ void CSoundScene::InitMap( const struct CMapSoundInfo *pSound, int nElements )
 {
 	for ( int nSoundIndex = 0; nSoundIndex < nElements; ++nSoundIndex )
 	{
-		AddSoundToMap( pSound[nSoundIndex].szName.c_str(), pSound[nSoundIndex].vPos );
+		const WORD wInstanceID = AddSoundToMap( pSound[nSoundIndex].szName.c_str(), pSound[nSoundIndex].vPos );
 		NStr::DebugTrace( "added sound to map \"%s\", to (%.2f, %.2f, %.2f)\n", pSound[nSoundIndex].szName.c_str(), pSound[nSoundIndex].vPos.x, pSound[nSoundIndex].vPos.y, pSound[nSoundIndex].vPos.z );
+		// Registered is not started: CMapSounds starts it only while the camera
+		// is near (the "add" line from AddSound). Instance 0 is a name the
+		// object database does not know as a sound.
+		if ( IsSoundTraceOn() )
+			fprintf( stderr, "BK_SOUND_TRACE: map sound object=\"%s\" pos=(%.0f,%.0f) instance=%d\n", pSound[nSoundIndex].szName.c_str(), pSound[nSoundIndex].vPos.x, pSound[nSoundIndex].vPos.y, int(wInstanceID) );
 	}
 }
 void CSoundScene::InitTerrain( interface ITerrain *pTerrain )
@@ -1217,7 +1234,7 @@ WORD CSoundScene::AddSound( const char *pszName, const CVec3 &vPos,
 																	  fMaxDist* fWorldCellSize * vScreenResize.y );
 		pSnd->SetBeginTime( GetCurTime() - nTimeAfterStart );
 		if ( IsSoundTraceOn() && ( bNeedID || bLooped ) )
-			fprintf( stderr, "BK_SOUND_TRACE: add id=%d name=\"%s\" looped=%d mix=%d pos=(%.0f,%.0f) t=%u\n", int(wID), pszSoundPath, int(bLooped), int(eMixMode), vRealSoundPos.x, vRealSoundPos.y, unsigned(GetCurTime()) );
+			fprintf( stderr, "BK_SOUND_TRACE: add id=%d name=\"%s\" object=\"%s\" looped=%d mix=%d pos=(%.0f,%.0f) t=%u\n", int(wID), pszSoundPath, pszName, int(bLooped), int(eMixMode), vRealSoundPos.x, vRealSoundPos.y, unsigned(GetCurTime()) );
 		if ( bToCell )
 		{
 			const SIntPair vCell( vRealSoundPos.x / SSoundSceneConsts::SS_SOUND_CELL_SIZE,

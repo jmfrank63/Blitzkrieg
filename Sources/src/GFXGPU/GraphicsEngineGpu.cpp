@@ -274,7 +274,16 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     sdl_window_ = window.value;
     info.width = width_ > 0 ? static_cast<uint32_t>( width_ ) : GFX_DEFAULT_SCREEN_WIDTH;
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
-    info.shader_directory_utf8 = "Shaders/GfxGpu";
+    // Under the installation the running executable is in (SDL_GetBasePath,
+    // which NPlatform::Paths' roots come from too), not the working
+    // directory: a game or editor started from a shortcut, the Start menu or
+    // another directory found no shaders, and its first scene would not
+    // begin. SDL directly rather than Paths::ShaderRoot(), so the factory
+    // test, which builds this file on its own, needs no Paths.cpp (on MSVC
+    // its <filesystem> use collides with the test's CRT).
+    const char *pszBase = SDL_GetBasePath();
+    const std::string shader_directory = std::string( pszBase != nullptr ? pszBase : "" ) + "Shaders/GfxGpu";
+    info.shader_directory_utf8 = shader_directory.c_str();
     info.preferred_driver_utf8 = pszAdapterName;
     present_mode_ = ResolvePresentMode();
     info.present_mode = present_mode_;
