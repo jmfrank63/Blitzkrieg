@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 03-15-PLAN.md (hand try approved 2026-09-29; CI run 36543562810 green)
-last_updated: "2026-09-29T09:13:44.959Z"
-state_head: af00ffa810ec38031ffd491f9e62e76536ce0bc2
+stopped_at: Completed 03-16-PLAN.md (gap closure; CI run 36558559070 green)
+last_updated: "2026-09-29T11:39:12.429Z"
+state_head: 88461a3520189781fe7df26c17a1e6e78246a614
 progress:
   total_phases: 2
   completed_phases: 0
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 19
+  completed_plans: 19
   percent: 0
 current_phase_name: "Map editor plan 6: finish M1"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-29T09:13:44.902Z
-**Stopped at:** Completed 03-15-PLAN.md (hand try approved 2026-09-29; CI run 36543562810 green)
+**Last session:** 2026-09-29T11:39:12.343Z
+**Stopped at:** Completed 03-16-PLAN.md (gap closure; CI run 36558559070 green)
 **Resume file:** None
 
 ## Accumulated Context
@@ -86,6 +86,7 @@ behavior needs the in-game rows).
 | Phase 03-map-editor-plan-6-finish-m1 P14 | ~90min | 2 tasks | 6 files |
 | Phase 03 P15 | ~95min | 3 tasks | 1 files |
 | Phase 03 P15 | ~4h20min incl. hand-try gap fixes | 3 tasks | 44 files |
+| Phase 03 P16 | 107min | 6 tasks | 13 files |
 
 ## Decisions
 
