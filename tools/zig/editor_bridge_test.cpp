@@ -2991,6 +2991,22 @@ static void TestModsListSetAndClear( BkEditorSession *pSession, const std::strin
 	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nLinkID ) == BK_EDITOR_REFUSED,
 	       "no map is open right after the switch" );
 
+	// D-26, revised 2026-09-29: the editor now closes the map on every
+	// switch, so a switch with no map open is the common case - to None and
+	// back again, each one OK, and still no map open after either.
+	Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK,
+	       NStr::Format( "SetMod(null) with no map open: %s", BkEditorLastMessage( pSession ) ) );
+	if ( !Check( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK,
+	             NStr::Format( "SetMod(EditorTestMod) with no map open: %s", BkEditorLastMessage( pSession ) ) ) )
+		return;
+	Check( BkEditorObjectAt( pSession, 0.0f, 0.0f, &nLinkID ) == BK_EDITOR_REFUSED,
+	       "still no map open after two switches with none open" );
+	BkEditorMod again;
+	memset( &again, 0, sizeof again );
+	if ( Check( BkEditorActiveMod( pSession, &again ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( strcmp( again.folder, "EditorTestMod" ) == 0,
+		       NStr::Format( "ActiveMod's folder is EditorTestMod after switching with no map open, got \"%s\"", again.folder ) );
+
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
 	int nCatalogueWithMod = 0;

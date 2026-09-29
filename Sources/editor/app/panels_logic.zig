@@ -705,10 +705,14 @@ pub const FileActions = struct {
         self.open_path_requested = PathText.init(os_path);
     }
 
-    /// File > Mod (D-26, D-23): guards the chosen folder ("" for None) through
-    /// the same unsaved-changes prompt; the caller (panels.zig) does the
-    /// actual switch once `next()` returns `.switch_mod`.
-    pub fn requestSwitchMod(self: *FileActions, folder: []const u8) void {
+    /// File > Mod (D-26, D-23; revised 2026-09-29): guards the chosen folder
+    /// ("" for None) through the same unsaved-changes prompt; the caller
+    /// (panels.zig) closes the map and makes the switch once `next()` returns
+    /// `.switch_mod` (`switchModClosingMap`). `active` is the mod active now
+    /// (null for None): choosing it again is a no-op - nothing is queued, so
+    /// no prompt asks and the open map stays open.
+    pub fn requestSwitchMod(self: *FileActions, folder: []const u8, active: ?[]const u8) void {
+        if (isSameMod(folder, active)) return;
         self.switch_mod_requested = NameText.init(folder);
     }
 
@@ -884,6 +888,55 @@ pub const TestLaunchPrompt = struct {
         self.report_len = text.len;
     }
 };
+
+/// Whether File > Mod's `folder` ("" for None) is the mod already active
+/// (`active`, null for None) - the same exact comparison the menu's own
+/// checkmark makes (panels.zig's drawModItems).
+pub fn isSameMod(folder: []const u8, active: ?[]const u8) bool {
+    const current = active orelse "";
+    return std.mem.eql(u8, folder, current);
+}
+
+/// What `switchModClosingMap` did.
+pub const ModSwitchOutcome = enum {
+    /// The mod is switched and the map closed: the editor has no document.
+    switched,
+    /// The bridge refused before touching anything (an unknown or bad
+    /// folder - BkEditorSetMod's own contract): the mod and the open map are
+    /// exactly as they were.
+    refused,
+    /// The bridge failed partway (the engine's map is already closed, the
+    /// object database may be half-loaded): the document is closed too, so
+    /// it never claims a map the engine no longer has.
+    failed,
+};
+
+/// File > Mod's guarded step (D-26, revised 2026-09-29 in the hand try:
+/// switching closes the map). By the time this runs the unsaved-changes
+/// prompt (D-23) has already been answered - Save landed, or Don't save
+/// abandoned the edits - so the map is closed, not reopened under the new
+/// mod: a map read under one object database and shown under another is
+/// what mixed the databases (a map saved under a mod, switched to None,
+/// showed 1359 unknown objects). `switcher` is anything with
+/// `setMod(?[]const u8) core.bridge.Status` - `RealBridge` in the app, a
+/// recording fake in the tests; BkEditorSetMod closes the engine's own map
+/// before it swaps the database, and works with no map open at all.
+/// `folder` "" is None.
+pub fn switchModClosingMap(editor: *Editor, switcher: anytype, folder: []const u8) ModSwitchOutcome {
+    const requested: ?[]const u8 = if (folder.len == 0) null else folder;
+    return switch (switcher.setMod(requested)) {
+        .ok => blk: {
+            editor.close();
+            break :blk .switched;
+        },
+        // Checked before anything changed: the map and the mod stay.
+        .refused, .bad_argument, .no_session => .refused,
+        else => blk: {
+            editor.close();
+            break :blk .failed;
+        },
+    };
+}
 
 /// Opens or saves to a path a dialog chose, through the editor, so the
 /// document, the history and the status line follow as for any edit.
@@ -1412,12 +1465,12 @@ test "file actions: switching mods guards through the unsaved prompt, and an emp
     var actions: FileActions = .{ .dialog = &slot };
 
     // A clean map switches at once.
-    actions.requestSwitchMod("OtherMod");
+    actions.requestSwitchMod("OtherMod", null);
     const clean_step = actions.next(false, false);
     try std.testing.expectEqualStrings("OtherMod", clean_step.switch_mod);
 
     // A dirty map asks first; Cancel keeps the mod (no switch_mod step).
-    actions.requestSwitchMod("");
+    actions.requestSwitchMod("", "OtherMod");
     try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
     try std.testing.expect(actions.prompt.isAsking());
     actions.answer_pending = .cancel;
@@ -1425,12 +1478,203 @@ test "file actions: switching mods guards through the unsaved prompt, and an emp
     try std.testing.expect(!actions.prompt.isAsking());
 
     // Don't save proceeds with the switch, folder "" naming None.
-    actions.requestSwitchMod("");
+    actions.requestSwitchMod("", "OtherMod");
     try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
     actions.answer_pending = .dont_save;
     const dirty_step = actions.next(true, false);
     try std.testing.expectEqualStrings("", dirty_step.switch_mod);
     try std.testing.expect(!actions.prompt.isAsking());
+}
+
+test "isSameMod: the active mod, or None while none is active" {
+    try std.testing.expect(isSameMod("", null));
+    try std.testing.expect(isSameMod("MyMod", "MyMod"));
+    try std.testing.expect(!isSameMod("MyMod", null));
+    try std.testing.expect(!isSameMod("", "MyMod"));
+    try std.testing.expect(!isSameMod("OtherMod", "MyMod"));
+}
+
+/// What `switchModClosingMap` hands the bridge, and what it answers - a
+/// stand-in for `RealBridge.setMod`, which needs the engine.
+const RecordingModSwitcher = struct {
+    answer: core.bridge.Status = .ok,
+    calls: usize = 0,
+    last: NameText = .{},
+    last_was_null: bool = false,
+
+    pub fn setMod(self: *RecordingModSwitcher, folder: ?[]const u8) core.bridge.Status {
+        self.calls += 1;
+        self.last_was_null = folder == null;
+        self.last = NameText.init(folder orelse "");
+        return self.answer;
+    }
+};
+
+/// Opens the fake's fixture and makes one edit, so the map is dirty.
+fn openDirtyFixture(editor: *Editor) !void {
+    try editor.open("fixture.bzm");
+    _ = try editor.addObject("T34", 60, 60, 0, 1);
+    try std.testing.expect(editor.dirty());
+}
+
+fn expectNoMapOpen(editor: *const Editor) !void {
+    try std.testing.expectEqual(@as(usize, 0), editor.document.path.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.objects.items.len);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.history.canRedo());
+    try std.testing.expect(editor.selection == null);
+}
+
+test "mod switch (D-26 revised): Cancel on a dirty map leaves the map open and the mod unchanged" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try openDirtyFixture(&editor);
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    actions.requestSwitchMod("OtherMod", null);
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(editor.dirty(), false));
+    actions.answer_pending = .cancel;
+    // No switch_mod step ever comes: nothing reaches the bridge.
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(editor.dirty(), false));
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(editor.dirty(), false));
+    try std.testing.expect(!actions.prompt.isAsking());
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(editor.dirty());
+}
+
+test "mod switch (D-26 revised): Don't save closes the map, then switches" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try openDirtyFixture(&editor);
+    editor.selection = 1;
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+    var switcher: RecordingModSwitcher = .{};
+
+    actions.requestSwitchMod("OtherMod", null);
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(editor.dirty(), false));
+    actions.answer_pending = .dont_save;
+    const step = actions.next(editor.dirty(), false);
+    try std.testing.expectEqualStrings("OtherMod", step.switch_mod);
+    try std.testing.expectEqual(ModSwitchOutcome.switched, switchModClosingMap(&editor, &switcher, step.switch_mod));
+    try std.testing.expectEqual(@as(usize, 1), switcher.calls);
+    try std.testing.expectEqualStrings("OtherMod", switcher.last.slice());
+    try expectNoMapOpen(&editor);
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(editor.dirty(), false));
+
+    // With no map open a switch goes straight through (nothing to guard),
+    // and None reaches the bridge as null.
+    actions.requestSwitchMod("", "OtherMod");
+    const back = actions.next(editor.dirty(), false);
+    try std.testing.expectEqualStrings("", back.switch_mod);
+    try std.testing.expectEqual(ModSwitchOutcome.switched, switchModClosingMap(&editor, &switcher, back.switch_mod));
+    try std.testing.expect(switcher.last_was_null);
+    try expectNoMapOpen(&editor);
+}
+
+test "mod switch (D-26 revised): Save saves first, then closes and switches" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try openDirtyFixture(&editor);
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+    var switcher: RecordingModSwitcher = .{};
+
+    // A map with a writable path: a plain Save, reported back.
+    actions.requestSwitchMod("OtherMod", null);
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(editor.dirty(), false));
+    actions.answer_pending = .save;
+    try std.testing.expectEqual(FileActions.Step.save, actions.next(editor.dirty(), false));
+    // The switch waits for the save's outcome.
+    try std.testing.expectEqual(@as(usize, 0), switcher.calls);
+    editor.history.markClean(); // what a landed save leaves behind
+    actions.noteSaveOutcome(true);
+    const step = actions.next(editor.dirty(), false);
+    try std.testing.expectEqualStrings("OtherMod", step.switch_mod);
+    try std.testing.expectEqual(ModSwitchOutcome.switched, switchModClosingMap(&editor, &switcher, step.switch_mod));
+    try expectNoMapOpen(&editor);
+}
+
+test "mod switch (D-26 revised): a failed Save, or a cancelled Save As, cancels the switch" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try openDirtyFixture(&editor);
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    // A plain save that failed: no switch, the map still dirty and open.
+    actions.requestSwitchMod("OtherMod", null);
+    _ = actions.next(true, false);
+    actions.answer_pending = .save;
+    try std.testing.expectEqual(FileActions.Step.save, actions.next(true, false));
+    actions.noteSaveOutcome(false);
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+
+    // A read-only/shipped/new map: Save becomes Save As, whose dialog the
+    // user cancels - no switch either.
+    actions.requestSwitchMod("OtherMod", null);
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, true));
+    actions.answer_pending = .save;
+    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .save_as }, actions.next(true, true));
+    slot.deliver(null);
+    try std.testing.expectEqual(FileActions.Step.dialog_cancelled, actions.next(true, true));
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, true));
+    try std.testing.expect(!actions.prompt.isAsking());
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(editor.dirty());
+
+    // Save As that lands (the dialog's path acted on, then reported): the
+    // switch follows.
+    actions.requestSwitchMod("OtherMod", null);
+    _ = actions.next(true, true);
+    actions.answer_pending = .save;
+    try std.testing.expectEqual(FileActions.Step{ .show_dialog = .save_as }, actions.next(true, true));
+    slot.deliver("/maps/mine.bzm");
+    const chosen = actions.next(true, true);
+    try std.testing.expectEqual(DialogKind.save_as, chosen.act_on_path.kind);
+    actions.noteSaveOutcome(true);
+    try std.testing.expectEqualStrings("OtherMod", actions.next(false, false).switch_mod);
+}
+
+test "mod switch (D-26 revised): the active mod again is a no-op, even on a dirty map" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+    actions.requestSwitchMod("MyMod", "MyMod");
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+    try std.testing.expect(!actions.prompt.isAsking());
+    actions.requestSwitchMod("", null);
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+    try std.testing.expect(!actions.prompt.isAsking());
+}
+
+test "mod switch (D-26 revised): a refusal keeps the map; a failure partway closes it" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try openDirtyFixture(&editor);
+
+    var refusing: RecordingModSwitcher = .{ .answer = .refused };
+    try std.testing.expectEqual(ModSwitchOutcome.refused, switchModClosingMap(&editor, &refusing, "NoSuchMod"));
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(editor.dirty());
+    var bad: RecordingModSwitcher = .{ .answer = .bad_argument };
+    try std.testing.expectEqual(ModSwitchOutcome.refused, switchModClosingMap(&editor, &bad, "../x"));
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+
+    var failing: RecordingModSwitcher = .{ .answer = .failed };
+    try std.testing.expectEqual(ModSwitchOutcome.failed, switchModClosingMap(&editor, &failing, "OtherMod"));
+    try expectNoMapOpen(&editor);
 }
 
 test "TestLaunchPrompt: nothing running starts it directly" {

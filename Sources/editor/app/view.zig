@@ -189,6 +189,28 @@ pub const View = struct {
         }
     }
 
+    /// The map was closed (File > Mod, D-26 revised 2026-09-29): the view is
+    /// what it is with no map open at startup - no map size to clamp the
+    /// camera to, no current path, no open gesture or hover. The closed
+    /// map's camera and zoom are remembered first (D-15), so reopening it
+    /// this session lands where it was. The placer forgets its object: it
+    /// named an entry of the old object database, which the switch has just
+    /// replaced - the next `showMap` picks the new catalogue's default.
+    pub fn closeMap(self: *View) void {
+        self.saveCurrentView();
+        self.current_path.clearRetainingCapacity();
+        self.map = .{};
+        self.hover = null;
+        self.panning = false;
+        self.left_button_down = false;
+        self.zoom_wheel = .{};
+        self.pinch_zoom = .{};
+        self.selector = .{};
+        self.brush.gesture = 0;
+        self.brush.painted.clearRetainingCapacity();
+        self.placer.name = "";
+    }
+
     /// Records `current_path`'s camera and zoom into `remembered`, if a map
     /// was open. An out-of-memory here just means that map's view is not
     /// remembered this time - never a reason to fail the map switch itself.

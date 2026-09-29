@@ -1030,7 +1030,70 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     }
 
     std.debug.print("map-editor: panel smoke PASS ({d} catalogue entries, {d} tiles, saved and reopened {s})\n", .{ state.catalogue.len, state.tile_count, saved });
+    if (mod_folder) |folder| return modSwitchClosesMap(host, &state, folder);
     return true;
+}
+
+/// D-26, revised 2026-09-29 in the hand try: with `-mod=<folder>` (the
+/// host check's own -mod=EditorTestMod run), File > Mod through the panels'
+/// own `act`: choosing the active mod again changes nothing; choosing None on
+/// a dirty map asks first (D-23) and changes nothing yet; Don't save then
+/// closes the map and switches, the palette re-read from the new database;
+/// and switching back with no map open goes straight through. Prints
+/// "map-editor: mod switch PASS (...)".
+fn modSwitchClosesMap(host: *host_mod.Host, state: *panels.State, folder: []const u8) bool {
+    const editor = state.editor;
+    if (!panels.mapIsOpen(editor)) return fail("mod switch: no map is open to start with", .{});
+
+    state.actions.requestSwitchMod(folder, state.modFolder());
+    if (panels.act(state)) return fail("mod switch: choosing the active mod quit the editor", .{});
+    if (!panels.mapIsOpen(editor) or state.actions.prompt.isAsking())
+        return fail("mod switch: choosing the active mod {s} again was not a no-op", .{folder});
+
+    panels.addSoundAtViewCentre(state);
+    if (!editor.dirty()) return fail("mod switch: adding a sound did not dirty the map: {s}{s}", .{ state.view.statusLine(), editor.status() });
+    const generation = state.catalogue_generation;
+    state.actions.requestSwitchMod("", state.modFolder());
+    if (panels.act(state)) return fail("mod switch: File > Mod None quit the editor", .{});
+    if (!state.actions.prompt.isAsking()) return fail("mod switch: File > Mod on a dirty map did not ask first", .{});
+    if (!panels.mapIsOpen(editor) or !editor.dirty()) return fail("mod switch: the dirty map changed before the prompt was answered", .{});
+    if (!modFolderIs(state, folder)) return fail("mod switch: the mod changed before the prompt was answered", .{});
+    if (!panelFrame(host, state)) return false;
+
+    state.actions.answer_pending = .dont_save;
+    if (panels.act(state)) return fail("mod switch: Don't save quit the editor", .{});
+    if (state.view.statusLine().len != 0) return fail("mod switch: {s}", .{state.view.statusLine()});
+    if (panels.mapIsOpen(editor)) return fail("mod switch: {s} is still open after switching to None", .{editor.document.path.items});
+    if (editor.dirty() or editor.history.canUndo()) return fail("mod switch: the closed map's undo history was kept", .{});
+    if (!modFolderIs(state, null)) return fail("mod switch: the mod is not None after switching to None", .{});
+    if (state.catalogue_generation == generation or state.catalogue.len == 0)
+        return fail("mod switch: the palette was not re-read from the base game", .{});
+    const base_entries = state.catalogue.len;
+    if (!panelFrame(host, state)) return false;
+
+    const generation_none = state.catalogue_generation;
+    state.actions.requestSwitchMod(folder, state.modFolder());
+    if (panels.act(state)) return fail("mod switch: switching back quit the editor", .{});
+    if (state.actions.prompt.isAsking()) return fail("mod switch: a switch with no map open asked", .{});
+    if (state.view.statusLine().len != 0) return fail("mod switch: {s}", .{state.view.statusLine()});
+    if (panels.mapIsOpen(editor)) return fail("mod switch: a map opened on switching back", .{});
+    if (!modFolderIs(state, folder)) return fail("mod switch: the mod is not {s} after switching back", .{folder});
+    if (state.catalogue_generation == generation_none or state.catalogue.len == 0)
+        return fail("mod switch: the palette was not re-read from {s}", .{folder});
+    if (!panelFrame(host, state)) return false;
+
+    std.debug.print("map-editor: mod switch PASS ({s} -> None -> {s}; asked first, map closed, palette {d} -> {d} entries)\n", .{ folder, folder, base_entries, state.catalogue.len });
+    return true;
+}
+
+/// The panels' mod and the bridge's both `want` (null: None).
+fn modFolderIs(state: *panels.State, want: ?[]const u8) bool {
+    const want_text = want orelse "";
+    if (!std.mem.eql(u8, state.modFolder() orelse "", want_text)) return false;
+    // `|*m|`: a slice of a by-value capture would dangle once the `if` ends.
+    var active = state.real.activeMod();
+    const bridge_folder: []const u8 = if (active) |*m| std.mem.sliceTo(&m.folder, 0) else "";
+    return std.mem.eql(u8, bridge_folder, want_text);
 }
 
 fn panelFrame(host: *host_mod.Host, state: *panels.State) bool {

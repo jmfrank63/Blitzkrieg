@@ -172,6 +172,11 @@ pub const State = struct {
     /// of this order.
     catalogue: []CatalogueEntry = &.{},
     order: []u32 = &.{},
+    /// Bumped every time the catalogue is read from the bridge (`init`, and
+    /// each `reloadCatalogue` a mod switch makes), so the smoke and the host
+    /// check can tell a palette the switch re-read from one merely left over
+    /// - the fixture mod adds no objects, so the entries alone look the same.
+    catalogue_generation: u32 = 0,
     filter: [64:0]u8 = [_:0]u8{0} ** 64,
 
     /// The catalogue's own sound entries (game type 100), sorted
@@ -370,6 +375,7 @@ pub const State = struct {
     }
 
     fn loadCatalogue(self: *State) !void {
+        self.catalogue_generation +%= 1;
         const entries = try self.real.catalogue(self.allocator);
         errdefer self.allocator.free(entries);
         // Only what can be placed: a sound or a tank pit picked from the
@@ -1020,13 +1026,23 @@ fn drawSettingsWindow(state: *State) void {
 /// overrides that default outright. A folder that cannot be resolved (a bad
 /// mod folder name) or created just leaves SDL to its own default_location
 /// rather than failing the dialog.
+/// Where the Open and Save As dialogs start: the Settings window's maps
+/// folder when one is set (D-25), otherwise the user maps folder of the
+/// active mod - `<user_root>mods/<Folder>/maps`, or `<user_root>maps` for
+/// None (D-28) - so after File > Mod it follows the new mod. Null when the
+/// path does not fit `buffer`.
+pub fn dialogFolder(state: *const State, buffer: []u8) ?[]const u8 {
+    const custom_folder = state.settings.mapsFolder();
+    if (custom_folder.len != 0) return custom_folder;
+    return logic.defaultMapsFolder(buffer, userRoot(state), state.modFolder());
+}
+
 fn showDialog(state: *State, kind: logic.DialogKind) void {
     const slot: *logic.PathSlot = state.actions.dialog;
     var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     var default_location: ?[*:0]const u8 = null;
-    const custom_folder = state.settings.mapsFolder();
-    const folder: ?[]const u8 = if (custom_folder.len != 0) custom_folder else logic.defaultMapsFolder(&folder_buffer, userRoot(state), state.modFolder());
+    const folder = dialogFolder(state, &folder_buffer);
     if (folder) |f| {
         std.Io.Dir.cwd().createDirPath(state.io, f) catch {};
         if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{f})) |z| default_location = z.ptr else |_| {}
@@ -1334,11 +1350,12 @@ fn refreshModList(state: *State) void {
 
 /// The submenu's own items: "None" and each installed mod ("<name> <version>",
 /// its folder as a tooltip), the active one checked. Choosing one queues the
-/// switch through the unsaved-changes prompt (D-23) - `act` makes the actual
-/// switch once it is guarded.
+/// switch through the unsaved-changes prompt (D-23) - `act` closes the map
+/// and makes the actual switch once it is guarded; choosing the active one
+/// again does nothing at all (`requestSwitchMod`'s own no-op).
 fn drawModItems(state: *State) void {
     const active = state.modFolder();
-    if (ig.igMenuItemEx("None", null, active == null, true)) state.actions.requestSwitchMod("");
+    if (ig.igMenuItemEx("None", null, active == null, true)) state.actions.requestSwitchMod("", active);
     var i: usize = 0;
     while (i < state.mod_list_count) : (i += 1) {
         const mod = state.mod_list_buffer[i];
@@ -1346,7 +1363,7 @@ fn drawModItems(state: *State) void {
         const checked = if (active) |a| std.mem.eql(u8, a, folder) else false;
         var label_buffer: [130:0]u8 = undefined;
         const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch "?";
-        if (ig.igMenuItemEx(label, null, checked, true)) state.actions.requestSwitchMod(folder);
+        if (ig.igMenuItemEx(label, null, checked, true)) state.actions.requestSwitchMod(folder, active);
         if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
             text(folder);
             ig.igEndTooltip();
@@ -1354,31 +1371,58 @@ fn drawModItems(state: *State) void {
     }
 }
 
-/// File > Mod's own step (D-26): switches through the bridge, reloads the
-/// palette, and reopens the document's own path if one was open - a Don't
-/// save on the unsaved-changes prompt has already said any edits are
-/// abandoned, the same as it does for Open (D-22/D-23's own reasoning). A
-/// refusal shows the bridge's reason on the status bar and leaves the mod
-/// (and the open map) exactly as `BkEditorSetMod`'s own contract promises.
+/// File > Mod's own step (D-26, revised 2026-09-29 in the hand try:
+/// switching closes the map). The unsaved-changes prompt (D-23) has already
+/// been answered by the time `act` gets here - a Save landed, or Don't save
+/// abandoned the edits - so the map is closed rather than reopened under the
+/// new mod: a map read under one object database and shown under another
+/// mixed the two (saved under AchtungPanzer2, switched to None: 1359 unknown
+/// objects). The editor is left with no document - title, status, undo
+/// history, autosave, the view and the panels all as at a start with no
+/// map - and the palette follows the new mod. The Open dialog's default
+/// folder follows it too, through `showDialog`'s own `state.modFolder()`.
+///
+/// A refusal (BkEditorSetMod checks the folder before touching anything)
+/// shows the bridge's reason and leaves the mod and the open map exactly as
+/// they were. A failure partway has already closed the engine's map, so the
+/// document is closed too and the palette re-read from whatever the engine
+/// now holds.
+///
+/// A running test game is its own process on its own copy of the map
+/// (D-01/D-03) and keeps running; `pollTestGame` still reports its exit.
 fn performModSwitch(state: *State, folder: []const u8) void {
-    const requested: ?[]const u8 = if (folder.len == 0) null else folder;
-    if (state.real.setMod(requested) != .ok) {
-        state.view.setStatus("the mod would not load: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
-        return;
+    const had_map = mapIsOpen(state.editor);
+    switch (logic.switchModClosingMap(state.editor, state.real, folder)) {
+        .refused => {
+            state.view.setStatus("the mod would not load: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+            return;
+        },
+        .failed => {
+            state.view.setStatus("failed: the mod switch did not finish: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+        },
+        .switched => {
+            state.setModFolder(if (folder.len == 0) null else folder);
+            state.view.clearStatus();
+        },
     }
-    state.setModFolder(requested);
+    mapClosed(state, had_map);
     state.reloadCatalogue();
-    if (mapIsOpen(state.editor)) {
-        // Copied first: editor.open is about to replace document.path
-        // itself, the same aliasing hazard editor.save's own doc comment
-        // describes for a path argument taken from the document it owns.
-        var path_buffer: [logic.PathSlot.max_path]u8 = undefined;
-        const len = @min(state.editor.document.path.items.len, path_buffer.len);
-        @memcpy(path_buffer[0..len], state.editor.document.path.items[0..len]);
-        const result = state.editor.open(path_buffer[0..len]);
-        state.view.noteEditResult(state.editor, result);
-    }
+}
+
+/// Everything that followed the document, once `editor.close` has emptied
+/// it: the view as with no map, the panels' per-map state (`mapOpened`
+/// already resets it all when no map is open), the autosave schedule idle,
+/// and this document's recovery copy deleted - the map was either saved
+/// (which deleted it already) or its edits abandoned by Don't save, the
+/// same rule a quit follows (D-22). `had_map` false (the switch ran with no
+/// map open) leaves the recovery bookkeeping alone: there was no document
+/// for it to belong to.
+fn mapClosed(state: *State, had_map: bool) void {
+    state.view.closeMap();
     state.mapOpened();
+    state.autosave.note(0, false);
+    if (had_map) deleteRecoveryIfActive(state);
+    state.shipped_known = false;
 }
 
 /// Every panel's widgets leave room for their labels to the right.
@@ -1884,11 +1928,13 @@ fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     text(line);
 }
 
-/// The tool, the hovered tile and map position, then the editor's last
+/// The tool, the hovered tile and map position (or "no map open" - at a
+/// start with no map, or after File > Mod closed it), then the editor's last
 /// refusal or failure and the view's own failures.
 fn statusLine(state: *State, buffer: []u8) []const u8 {
     var len: usize = 0;
     append(buffer, &len, "{t}", .{state.view.tool});
+    if (!mapIsOpen(state.editor)) append(buffer, &len, " | no map open", .{});
     if (state.view.hover) |hover| {
         if (hover.tile) |tile| append(buffer, &len, " | tile {d},{d}", .{ tile[0], tile[1] });
         append(buffer, &len, " | map {d:.0},{d:.0}", .{ hover.map_x, hover.map_y });

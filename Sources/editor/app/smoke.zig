@@ -89,6 +89,15 @@ pub const Input = union(enum) {
     /// Calls editor.save on the document's own path directly - a caller that
     /// forgot the read-only rule - which Editor.save itself must refuse.
     save_in_place_forced,
+    /// Chooses a mod in File > Mod, as its menu item would (D-26): this
+    /// folder, "" for None, through `requestSwitchMod` with the mod active
+    /// now - no widget here to click.
+    switch_mod: []const u8,
+    /// Cancels the file dialog the slot is waiting on, as the dialog's own
+    /// Cancel button would - unlike `save_became_save_as`'s own drain, the
+    /// cancel reaches `act`, so the unsaved-changes prompt that asked for
+    /// the dialog hears it.
+    cancel_dialog,
 };
 
 pub const Wheel = struct {
@@ -179,6 +188,27 @@ pub const Expect = enum {
     /// Editor.save refused the forced in-place save (error.Refused, a
     /// "read-only" status), and the map is untouched.
     foreign_save_refused,
+    /// File > Mod chose the mod already active (D-26, revised 2026-09-29):
+    /// nothing happened - no prompt, the same map open and still dirty, the
+    /// same mod, the palette not re-read.
+    mod_switch_no_op,
+    /// File > Mod on a dirty map asked first (D-23): the prompt is asking,
+    /// the map is still open and dirty, and the mod has not changed yet.
+    mod_switch_asked,
+    /// Save on the prompt, for a read-only map, became Save As: the dialog
+    /// slot waits for one, no real dialog was opened, the mod unchanged.
+    mod_switch_save_as_waiting,
+    /// The prompt's Cancel, or a cancelled Save As, cancelled the switch:
+    /// nothing asking or saving, the map open and dirty, the mod unchanged.
+    mod_switch_cancelled,
+    /// Don't save closed the map and switched (D-26 revised): no map open,
+    /// nothing to undo, the new mod active in the panels and the bridge, the
+    /// palette re-read from it, the view and the per-map panels as with no
+    /// map, autosave idle, and the map's recovery copy deleted (D-22).
+    mod_switched_map_closed,
+    /// A switch with no map open went straight through (nothing to guard):
+    /// None again, still no map, the palette re-read once more.
+    mod_switched_without_map,
 };
 
 pub const Step = struct {
@@ -278,7 +308,26 @@ pub const script = [_]Step{
     .{ .name = "Save on it becomes Save As, the file untouched", .inputs = &.{.save_requested}, .expect = .foreign_save_became_save_as },
     .{ .name = "a due autosave writes a recovery copy, the file untouched", .inputs = &.{.autosave_due}, .expect = .foreign_autosaved_to_recovery },
     .{ .name = "a forced in-place save is refused, the file untouched", .inputs = &.{.save_in_place_forced}, .expect = .foreign_save_refused },
+    // D-26, revised 2026-09-29 in the hand try: switching the mod closes the
+    // map (a map read under one object database and shown under another
+    // mixed them). The read-only map from the steps above is still open and
+    // dirty, with a recovery copy active. The fixture mod (EditorTestMod,
+    // staged for this step by build.zig - never AchtungPanzer2).
+    .{ .name = "File > Mod None, already active, changes nothing", .inputs = &.{.{ .switch_mod = "" }}, .expect = .mod_switch_no_op },
+    .{ .name = "File > Mod on the dirty map asks first", .inputs = &.{.{ .switch_mod = smoke_mod }}, .expect = .mod_switch_asked },
+    .{ .name = "Cancel keeps the map and the mod", .inputs = &.{.{ .answer = .cancel }}, .expect = .mod_switch_cancelled },
+    .{ .name = "File > Mod asks again", .inputs = &.{.{ .switch_mod = smoke_mod }}, .expect = .mod_switch_asked },
+    .{ .name = "Save on the read-only map becomes Save As", .inputs = &.{.{ .answer = .save }}, .expect = .mod_switch_save_as_waiting },
+    .{ .name = "cancelling that Save As cancels the switch", .inputs = &.{.cancel_dialog}, .expect = .mod_switch_cancelled },
+    .{ .name = "File > Mod asks a third time", .inputs = &.{.{ .switch_mod = smoke_mod }}, .expect = .mod_switch_asked },
+    .{ .name = "Don't save closes the map and switches the mod", .inputs = &.{.{ .answer = .dont_save }}, .expect = .mod_switched_map_closed },
+    .{ .name = "File > Mod None with no map open switches back", .inputs = &.{.{ .switch_mod = "" }}, .expect = .mod_switched_without_map },
 };
+
+/// The mod the smoke switches to: the tracked fixture
+/// (tools/zig/fixtures/editor_mod), which build.zig stages at
+/// `<stage>/mods/EditorTestMod` before `map-editor-smoke` runs.
+pub const smoke_mod = "EditorTestMod";
 
 /// The second installation `open_foreign` builds, beside the smoke's output
 /// (zig-out/local-test): `<dir>/foreign_tree/Data/...`, never inside the
@@ -396,6 +445,13 @@ pub const Script = struct {
     /// `save_in_place_forced`'s outcome: the error Editor.save returned, or
     /// null when it (wrongly) saved.
     forced_save_error: ?anyerror = null,
+    /// The recovery copy `foreign_autosaved_to_recovery` found, for
+    /// `mod_switched_map_closed` to see deleted.
+    recovery_path: panels_logic.PathText = .{},
+    /// The palette's `catalogue_generation` and the document's path when the
+    /// step's inputs were pushed.
+    catalogue_generation_before: u32 = 0,
+    path_before: panels_logic.PathText = .{},
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
@@ -488,6 +544,8 @@ pub const Script = struct {
         self.camera_before = .{ self.view.camera_x, self.view.camera_y };
         self.centre_before = self.resolveAt(.{ .dx = 0, .dy = 0 });
         self.zoom_steps_before = self.view.zoom_steps;
+        self.catalogue_generation_before = self.state.catalogue_generation;
+        self.path_before.set(self.editor.document.path.items);
         const inputs = script[self.step].inputs;
         self.wheel_point_before = if (inputs.len != 0 and inputs[0] == .wheel) self.resolveAt(inputs[0].wheel.at) else null;
         self.pointer_trail_len = 0;
@@ -566,6 +624,15 @@ pub const Script = struct {
                 const start_ms: u64 = 1_000_000;
                 panels.tickAutosave(self.state, start_ms);
                 panels.tickAutosave(self.state, start_ms + interval_ms);
+                return true;
+            },
+            .switch_mod => |folder| {
+                self.state.actions.requestSwitchMod(folder, self.state.modFolder());
+                return true;
+            },
+            .cancel_dialog => {
+                if (!self.state.actions.dialog.waiting()) return self.fail("no dialog is waiting to be cancelled", .{});
+                self.state.actions.dialog.deliver(null);
                 return true;
             },
             .save_in_place_forced => {
@@ -891,6 +958,7 @@ pub const Script = struct {
                     return self.stepFail(step, "the recovery copy went to {s}, outside the smoke's own user root", .{active.slice()});
                 _ = std.Io.Dir.cwd().statFile(self.state.io, active.slice(), .{}) catch
                     return self.stepFail(step, "the recovery copy {s} is not there", .{active.slice()});
+                self.recovery_path = active;
                 if (!editor.dirty()) return self.stepFail(step, "the map is clean - the autosave saved it in place", .{});
                 if (!self.foreignUntouched(step)) return false;
             },
@@ -901,7 +969,130 @@ pub const Script = struct {
                 if (!editor.dirty()) return self.stepFail(step, "the map is clean after a refused save", .{});
                 if (!self.foreignUntouched(step)) return false;
             },
+            .mod_switch_no_op => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "choosing the active mod asked about unsaved changes", .{});
+                if (!self.mapStillOpen(step)) return false;
+                if (!self.modIs(step, null)) return false;
+                if (self.state.catalogue_generation != self.catalogue_generation_before)
+                    return self.stepFail(step, "the palette was re-read for a switch that did not happen", .{});
+            },
+            .mod_switch_asked => {
+                if (!self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is not asking", .{});
+                if (!self.mapStillOpen(step)) return false;
+                if (!self.modIs(step, null)) return false;
+            },
+            .mod_switch_save_as_waiting => {
+                if (!self.state.actions.dialog.waiting() or self.state.actions.dialog.kind != .save_as)
+                    return self.stepFail(step, "Save on the read-only map did not become Save As", .{});
+                if (self.state.os_dialogs_opened != 0)
+                    return self.stepFail(step, "Save As opened {d} real file dialog(s); the script answers the slot itself", .{self.state.os_dialogs_opened});
+                if (!self.mapStillOpen(step)) return false;
+                if (!self.modIs(step, null)) return false;
+                if (!self.foreignUntouched(step)) return false;
+            },
+            .mod_switch_cancelled => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is still asking", .{});
+                if (self.state.actions.prompt.phase != .idle) return self.stepFail(step, "the prompt is still {t}", .{self.state.actions.prompt.phase});
+                if (self.state.actions.dialog.waiting()) return self.stepFail(step, "a dialog is still waiting", .{});
+                if (!self.mapStillOpen(step)) return false;
+                if (!self.modIs(step, null)) return false;
+                if (self.state.catalogue_generation != self.catalogue_generation_before)
+                    return self.stepFail(step, "the palette was re-read for a cancelled switch", .{});
+                if (!self.foreignUntouched(step)) return false;
+            },
+            .mod_switched_map_closed => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is still asking", .{});
+                if (!self.noMapOpen(step)) return false;
+                if (!self.modIs(step, smoke_mod)) return false;
+                if (!self.paletteReRead(step)) return false;
+                if (!self.openFolderFollows(step, smoke_mod)) return false;
+                if (self.state.autosave.dirty_since_ms != null) return self.stepFail(step, "autosave still counts a dirty map", .{});
+                if (self.state.recovery_active != null) return self.stepFail(step, "a recovery copy is still active", .{});
+                const recovery = self.recovery_path.slice();
+                if (recovery.len == 0) return self.stepFail(step, "no recovery copy was recorded to check", .{});
+                if (std.Io.Dir.cwd().statFile(self.state.io, recovery, .{})) |_| {
+                    return self.stepFail(step, "the closed map's recovery copy {s} is still there", .{recovery});
+                } else |_| {}
+                // Don't save: the file on disk is what it always was.
+                if (!self.foreignUntouched(step)) return false;
+            },
+            .mod_switched_without_map => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "a switch with no map open asked", .{});
+                if (!self.noMapOpen(step)) return false;
+                if (!self.modIs(step, null)) return false;
+                if (!self.paletteReRead(step)) return false;
+                if (!self.openFolderFollows(step, null)) return false;
+            },
         }
+        return true;
+    }
+
+    /// The map the step started with is still the one open, and still dirty.
+    fn mapStillOpen(self: *Script, step: Step) bool {
+        const path = self.editor.document.path.items;
+        if (path.len == 0) return self.stepFail(step, "the map was closed", .{});
+        if (!std.mem.eql(u8, path, self.path_before.slice())) return self.stepFail(step, "the document is {s}, was {s}", .{ path, self.path_before.slice() });
+        if (!self.editor.dirty()) return self.stepFail(step, "the map is no longer dirty", .{});
+        return true;
+    }
+
+    /// The editor has no document, and nothing that followed the old one
+    /// is left over: history, selection, the view's map, the per-map panels.
+    fn noMapOpen(self: *Script, step: Step) bool {
+        const editor = self.editor;
+        if (panels.mapIsOpen(editor)) return self.stepFail(step, "{s} is still open", .{editor.document.path.items});
+        if (editor.document.objects.items.len != 0) return self.stepFail(step, "{d} objects are left in the document", .{editor.document.objects.items.len});
+        if (editor.dirty()) return self.stepFail(step, "the empty document is dirty", .{});
+        if (editor.history.canUndo() or editor.history.canRedo()) return self.stepFail(step, "the undo history was kept", .{});
+        if (editor.selection != null) return self.stepFail(step, "object {?d} is still selected", .{editor.selection});
+        if (self.view.current_path.items.len != 0) return self.stepFail(step, "the view still shows {s}", .{self.view.current_path.items});
+        if (self.view.map.width_tiles != 0 or self.view.map.height_tiles != 0) return self.stepFail(step, "the view still has a {d}x{d} map", .{ self.view.map.width_tiles, self.view.map.height_tiles });
+        if (self.state.tile_count != 0) return self.stepFail(step, "the brush still offers {d} tiles", .{self.state.tile_count});
+        if (self.state.sounds.len != 0) return self.stepFail(step, "the Sounds panel still lists {d} sounds", .{self.state.sounds.len});
+        if (self.state.unknown_objects_total != 0) return self.stepFail(step, "{d} unknown objects are still reported", .{self.state.unknown_objects_total});
+        return true;
+    }
+
+    /// The panels' mod and the bridge's agree, and are `want` (null: None).
+    fn modIs(self: *Script, step: Step, want: ?[]const u8) bool {
+        const panels_mod = self.state.modFolder();
+        // `|*m|`: a slice of a by-value capture would dangle once the `if` ends.
+        var bridge_mod = self.real.activeMod();
+        const bridge_folder: ?[]const u8 = if (bridge_mod) |*m| std.mem.sliceTo(&m.folder, 0) else null;
+        const want_text = want orelse "None";
+        if (!std.mem.eql(u8, panels_mod orelse "None", want_text))
+            return self.stepFail(step, "the panels' mod is {s}, want {s}", .{ panels_mod orelse "None", want_text });
+        const bridge_text = if (bridge_folder) |f| (if (f.len == 0) "None" else f) else "None";
+        if (!std.mem.eql(u8, bridge_text, want_text))
+            return self.stepFail(step, "the bridge's mod is {s}, want {s}", .{ bridge_text, want_text });
+        return true;
+    }
+
+    /// The palette was read again this step, and holds what the bridge's
+    /// object database (the new mod's) holds now.
+    fn paletteReRead(self: *Script, step: Step) bool {
+        if (self.state.catalogue_generation == self.catalogue_generation_before)
+            return self.stepFail(step, "the palette was not re-read", .{});
+        if (self.state.catalogue.len == 0) return self.stepFail(step, "the palette is empty", .{});
+        const fresh = self.real.catalogue(self.state.allocator) catch return self.stepFail(step, "the bridge's catalogue did not read", .{});
+        defer self.state.allocator.free(fresh);
+        if (fresh.len != self.state.catalogue.len)
+            return self.stepFail(step, "the palette has {d} entries, the new mod's database {d}", .{ self.state.catalogue.len, fresh.len });
+        return true;
+    }
+
+    /// The Open dialog would start in the user maps folder of `want`'s mod
+    /// (null: None) - `<user root>mods/<want>/maps`, or `<user root>maps`.
+    fn openFolderFollows(self: *Script, step: Step, want: ?[]const u8) bool {
+        var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const folder = panels.dialogFolder(self.state, &buffer) orelse return self.stepFail(step, "the Open dialog's folder does not fit", .{});
+        const sep = std.fs.path.sep_str;
+        var tail_buffer: [128]u8 = undefined;
+        const tail = if (want) |mod|
+            std.fmt.bufPrint(&tail_buffer, sep ++ "mods" ++ sep ++ "{s}" ++ sep ++ "maps", .{mod}) catch unreachable
+        else
+            smoke_user_root ++ sep ++ "maps";
+        if (!std.mem.endsWith(u8, folder, tail)) return self.stepFail(step, "the Open dialog would start in {s}, want ...{s}", .{ folder, tail });
         return true;
     }
 

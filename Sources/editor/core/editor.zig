@@ -125,6 +125,18 @@ pub const Editor = struct {
         self.selection = null;
     }
 
+    /// Forgets the open document: no path, no objects, nothing to undo or
+    /// redo, nothing selected, a clean status. The bridge's own map is the
+    /// caller's to close - File > Mod (D-26, revised 2026-09-29) calls this
+    /// right after `BkEditorSetMod`, which closes the engine's map itself
+    /// before it swaps the object database. The session's `.bak` bookkeeping
+    /// (`backed_up`) is kept: D-19's "once per file per session" outlives a
+    /// close, exactly as it outlives an Open of another map.
+    pub fn close(self: *Editor) void {
+        self.closeDocument();
+        self.status_len = 0;
+    }
+
     fn closeDocument(self: *Editor) void {
         self.document.deinit(self.allocator);
         self.document = .{};
@@ -620,6 +632,32 @@ test "a failed listing after open empties the document and says why" {
     try std.testing.expectEqual(@as(usize, 0), editor.document.objects.items.len);
     try std.testing.expectEqual(@as(usize, 0), editor.document.diplomacy.items.len);
     try std.testing.expectEqual(@as(i32, 0), editor.document.info.width_tiles);
+}
+
+test "close forgets the document, its history and selection, and leaves it clean" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    const link = try editor.addObject("T34", 60, 60, 0, 1);
+    editor.selection = link;
+    try std.testing.expect(editor.dirty());
+    editor.close();
+    try std.testing.expectEqual(@as(usize, 0), editor.document.path.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.objects.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.diplomacy.items.len);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.history.canRedo());
+    try std.testing.expect(!(try editor.undo()));
+    try std.testing.expect(editor.selection == null);
+    try std.testing.expectEqual(@as(usize, 0), editor.status().len);
+    // A second close, or one with nothing open, is harmless; the map opens again.
+    editor.close();
+    try editor.open("fixture.bzm");
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expect(!editor.dirty());
 }
 
 test "save moves the document to the saved path" {

@@ -5917,6 +5917,10 @@ fn addMapEditor(
     // step, so a cached pass would say nothing about the installation now.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
+    // D-26 (revised 2026-09-29): the script's last steps switch to the
+    // fixture mod and back, closing the map - staged here, never a
+    // dependency of install-map-editor.
+    smoke_run.step.dependOn(install_fixture_mod_step);
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
 
