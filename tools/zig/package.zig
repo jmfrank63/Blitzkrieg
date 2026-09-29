@@ -187,9 +187,12 @@ fn measureFile(io: std.Io, file: std.Io.File) !FileInfo {
 ///
 /// Windows has no mode at all, and packaging from a Windows host still has to
 /// produce an archive a POSIX extractor can use, so its one meaningful bit is
-/// mapped onto the conventional pair.
+/// mapped onto the conventional pair. The READONLY attribute is read directly:
+/// Zig 0.16's own `Permissions.readOnly()` names a
+/// `windows.FILE_ATTRIBUTE_READONLY` its std no longer has, so calling it does
+/// not compile for Windows (found by CI's first Windows package run, 03-16).
 fn unixMode(permissions: std.Io.File.Permissions) u16 {
-    if (builtin.os.tag == .windows) return if (permissions.readOnly()) 0o444 else 0o644;
+    if (builtin.os.tag == .windows) return if (permissions.toAttributes().READONLY) 0o444 else 0o644;
     return @intCast(permissions.toMode() & 0o7777);
 }
 
