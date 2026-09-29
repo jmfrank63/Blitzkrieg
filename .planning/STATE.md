@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Phase 3 complete — all phases complete
-last_updated: "2026-09-29T21:58:15.263Z"
-state_head: 7fa192dabedad791786d6cfa54ccdb25332088c7
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-09-29T22:33:01.627Z"
+state_head: f541d132c48072d732942ad0961d410f03dca9f2
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 19
+  completed_plans: 20
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-29T11:39:12.343Z
-**Stopped at:** Phase 3 complete — all phases complete
+**Last session:** 2026-09-29T22:33:01.567Z
+**Stopped at:** Completed 04-01-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -89,6 +89,7 @@ behavior needs the in-game rows).
 | Phase 03 P15 | ~95min | 3 tasks | 1 files |
 | Phase 03 P15 | ~4h20min incl. hand-try gap fixes | 3 tasks | 44 files |
 | Phase 03 P16 | 107min | 6 tasks | 13 files |
+| Phase 04 P01 | 40min | 3 tasks | 24 files |
 
 ## Decisions
 
@@ -124,3 +125,6 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-15: spec cites commands and dates for exit criteria; CI run ids live in the SUMMARY
 - [Phase ?]: 03-15: generated winter/Africa unit textures are a build output staged beside Data as SeasonData/SeasonTextures.pak (one stored .pak for the zip entry limit), mounted over the base Data below any mod; Data is never written
 - [Phase ?]: 03-15: Cmd+W closes the map, not the editor (SDL's Window > Close loses its key equivalent on macOS); hand try approved 2026-09-29
+- [Phase 04]: 04-01: camera-anchor C ABI struct is BkEditorCameraAnchorRecord because a C typedef and a function share one namespace — The plan named both the struct and the entry point BkEditorCameraAnchors
+- [Phase 04]: 04-01: byte-identity tests read the map fresh for every write they compare, never a copy of a map — SVertexAltitude is written as a raw struct, so a copied map's three padding bytes per vertex differ from a read map's; later plans follow the rule
+- [Phase 04]: 04-01: camera-anchor set validates only the slots it changes; NextVsoID floors at 1; PutScriptFile is exact and IsBareScriptName checks new names — An off-map anchor a file already holds must not block other edits; undo must be able to restore any name a file held
