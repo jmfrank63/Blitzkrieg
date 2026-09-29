@@ -146,7 +146,19 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     };
     std.debug.print("map-editor: {s}: baseline camera {d:.0},{d:.0},{d:.0} source={s}\n", .{ label, baseline_camera.x, baseline_camera.y, baseline_camera.z, @tagName(baseline_camera.source) });
-    std.debug.print("map-editor: {s}: baseline roads={?d} rivers={?d}\n", .{ label, baseline.trace.roads, baseline.trace.rivers });
+    // The counts later plans compare against ("baseline + my edit"); null is
+    // "the game did not report it", which is not a zero.
+    const base = baseline.trace;
+    std.debug.print("map-editor: {s}: baseline roads={?d} rivers={?d} bridges={?d} entrenchments={?d} startcmd={?d} reserve={?d}\n", .{ label, base.roads, base.rivers, base.bridges, base.entrenchments, base.startcmd_launched, base.reserve_applied });
+    std.debug.print("map-editor: {s}: baseline areas={d} groups={d} generals={d} parcels={d} lua={d} script={s}\n", .{
+        label,
+        base.areas.seen,
+        base.groups.seen,
+        base.generals.seen,
+        base.parcels.seen,
+        base.lua.seen,
+        if (base.script) |*script| script.name.slice() else "not reported",
+    });
 
     // D-22: player 0's anchor, far from where that camera stood.
     const anchor_at = chooseAnchor(editor, .{ baseline_camera.x, baseline_camera.y }) orelse {

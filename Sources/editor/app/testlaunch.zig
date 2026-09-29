@@ -185,18 +185,83 @@ pub fn playerUnitsNear(log: []const u8, player: u32) ?u32 {
 /// What the game reported it consumed from the map (04-04, research Pattern
 /// 6): one `BK_MAP_TRACE: <kind> key=value ...` line per item, printed only
 /// when the game runs with BK_MAP_TRACE set (GameTT/iMissionInternal.cpp and
-/// the AI's own loaders). Every field is optional: null means the game did
-/// not report that item (an older Game, a truncated log), which is not the
-/// same as a reported zero. Unknown kinds and keys are ignored, so a newer
-/// game never breaks an older parser.
+/// the AI's own loaders). Every scalar is optional and every list starts
+/// empty: null or `seen == 0` means the game did not report that item (an
+/// older Game, a truncated log, a map without it), which is not the same as a
+/// reported zero. Unknown kinds and keys are ignored, so a newer game never
+/// breaks an older parser. Names (an area's, the script's) are printed in
+/// double quotes by the game so they may hold spaces.
 pub const CameraSource = enum { player, neutral, units, unknown };
 pub const TraceCamera = struct { x: f32, y: f32, z: f32, source: CameraSource };
+
+/// A copy of a name or a Lua line, cut to fit: the summary owns its bytes, so
+/// it outlives the log it was read from.
+pub const text_capacity = 96;
+pub const TraceText = struct {
+    buffer: [text_capacity]u8 = undefined,
+    len: u8 = 0,
+
+    fn from(text: []const u8) TraceText {
+        var result: TraceText = .{};
+        const n = @min(text.len, text_capacity);
+        @memcpy(result.buffer[0..n], text[0..n]);
+        result.len = @intCast(n);
+        return result;
+    }
+
+    pub fn slice(self: *const TraceText) []const u8 {
+        return self.buffer[0..self.len];
+    }
+};
+
+/// The first `capacity` items of a kind, and how many the game printed in all.
+fn Kept(comptime T: type, comptime capacity: usize) type {
+    return struct {
+        items: [capacity]T = undefined,
+        seen: u32 = 0,
+
+        fn add(self: *@This(), item: T) void {
+            if (self.seen < capacity) self.items[self.seen] = item;
+            self.seen +|= 1;
+        }
+
+        pub fn slice(self: *const @This()) []const T {
+            return self.items[0..@min(self.seen, capacity)];
+        }
+    };
+}
+
+pub const TraceScript = struct { name: TraceText, loaded: bool, init: bool };
+/// An area's centre is in AI (map) units, raw as the game stores it.
+pub const TraceArea = struct { name: TraceText, cx: f32, cy: f32 };
+/// `held` is how many map objects the game held back for reinforcement group `id`.
+pub const TraceGroup = struct { id: i32, held: u32 };
+pub const TraceGeneral = struct { side: i32, parcels: u32, mobile: u32 };
+/// A general's parcel: centre and radius in AI units, `dir` the stored WORD direction.
+pub const TraceParcel = struct { side: i32, idx: u32, kind: i32, cx: f32, cy: f32, r: f32, dir: u32 };
+
+pub const max_areas = 32;
+pub const max_groups = 32;
+pub const max_generals = 8;
+pub const max_parcels = 32;
+pub const max_lua_lines = 16;
 
 pub const MapTraceSummary = struct {
     /// The first `camera` line: where the mission put the view at its start.
     camera: ?TraceCamera = null,
     roads: ?u32 = null,
     rivers: ?u32 = null,
+    script: ?TraceScript = null,
+    areas: Kept(TraceArea, max_areas) = .{},
+    groups: Kept(TraceGroup, max_groups) = .{},
+    bridges: ?u32 = null,
+    entrenchments: ?u32 = null,
+    startcmd_launched: ?u32 = null,
+    reserve_applied: ?u32 = null,
+    generals: Kept(TraceGeneral, max_generals) = .{},
+    parcels: Kept(TraceParcel, max_parcels) = .{},
+    /// The map's own Lua `Trace` calls, in order, the text as the script made it.
+    lua: Kept(TraceText, max_lua_lines) = .{},
 };
 
 const map_trace_prefix = "BK_MAP_TRACE: ";
@@ -219,6 +284,19 @@ fn floatField(rest: []const u8, key: []const u8) ?f32 {
 
 fn countField(rest: []const u8, key: []const u8) ?u32 {
     return std.fmt.parseInt(u32, tokenValue(rest, key) orelse return null, 10) catch null;
+}
+
+fn intField(rest: []const u8, key: []const u8) ?i32 {
+    return std.fmt.parseInt(i32, tokenValue(rest, key) orelse return null, 10) catch null;
+}
+
+/// What follows the closing quote of the first quoted field: the numbers
+/// after a name are read from here, so a name that looks like `cx=5` cannot
+/// stand in for one.
+fn afterQuoted(rest: []const u8) []const u8 {
+    const open = std.mem.indexOfScalar(u8, rest, '"') orelse return "";
+    const close = std.mem.indexOfScalarPos(u8, rest, open + 1, '"') orelse return "";
+    return rest[close + 1 ..];
 }
 
 /// Reads the trace lines out of a test game's log. Lines are split at `\n`
@@ -246,6 +324,48 @@ pub fn parseMapTrace(log: []const u8) MapTraceSummary {
         } else if (std.mem.eql(u8, kind, "terrain")) {
             if (summary.roads == null) summary.roads = countField(rest, "roads");
             if (summary.rivers == null) summary.rivers = countField(rest, "rivers");
+        } else if (std.mem.eql(u8, kind, "script")) {
+            if (summary.script != null) continue;
+            const name = quotedField(rest, "name=\"") orelse continue;
+            const numbers = afterQuoted(rest);
+            const loaded = countField(numbers, "loaded") orelse continue;
+            const init = countField(numbers, "init") orelse continue;
+            summary.script = .{ .name = .from(name), .loaded = loaded != 0, .init = init != 0 };
+        } else if (std.mem.eql(u8, kind, "area")) {
+            const name = quotedField(rest, "name=\"") orelse continue;
+            const numbers = afterQuoted(rest);
+            const cx = floatField(numbers, "cx") orelse continue;
+            const cy = floatField(numbers, "cy") orelse continue;
+            summary.areas.add(.{ .name = .from(name), .cx = cx, .cy = cy });
+        } else if (std.mem.eql(u8, kind, "group")) {
+            const id = intField(rest, "id") orelse continue;
+            const held = countField(rest, "held") orelse continue;
+            summary.groups.add(.{ .id = id, .held = held });
+        } else if (std.mem.eql(u8, kind, "bridges")) {
+            if (summary.bridges == null) summary.bridges = countField(rest, "n");
+        } else if (std.mem.eql(u8, kind, "entrenchments")) {
+            if (summary.entrenchments == null) summary.entrenchments = countField(rest, "n");
+        } else if (std.mem.eql(u8, kind, "startcmd")) {
+            if (summary.startcmd_launched == null) summary.startcmd_launched = countField(rest, "launched");
+        } else if (std.mem.eql(u8, kind, "reserve")) {
+            if (summary.reserve_applied == null) summary.reserve_applied = countField(rest, "applied");
+        } else if (std.mem.eql(u8, kind, "general")) {
+            const side = intField(rest, "side") orelse continue;
+            const parcels = countField(rest, "parcels") orelse continue;
+            const mobile = countField(rest, "mobile") orelse continue;
+            summary.generals.add(.{ .side = side, .parcels = parcels, .mobile = mobile });
+        } else if (std.mem.eql(u8, kind, "parcel")) {
+            const side = intField(rest, "side") orelse continue;
+            const idx = countField(rest, "idx") orelse continue;
+            const parcel_kind = intField(rest, "type") orelse continue;
+            const cx = floatField(rest, "cx") orelse continue;
+            const cy = floatField(rest, "cy") orelse continue;
+            const r = floatField(rest, "r") orelse continue;
+            const dir = countField(rest, "dir") orelse continue;
+            summary.parcels.add(.{ .side = side, .idx = idx, .kind = parcel_kind, .cx = cx, .cy = cy, .r = r, .dir = dir });
+        } else if (std.mem.eql(u8, kind, "lua")) {
+            const text = if (std.mem.startsWith(u8, rest, " ")) rest[1..] else rest;
+            summary.lua.add(.from(text));
         }
     }
     return summary;
@@ -568,4 +688,129 @@ test "parseMapTrace: a truncated or malformed line leaves its fields unset" {
     try std.testing.expectEqual(@as(?u32, null), cut.rivers);
     // A line that only resembles ours is not ours.
     try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("xBK_MAP_TRACE: camera x=1 y=2 z=3 source=player\n").camera);
+}
+
+test "parseMapTrace: the script, by its file name" {
+    const trace = parseMapTrace("BK_MAP_TRACE: script name=\"coldwinter\" loaded=1 init=1\n");
+    try std.testing.expectEqualStrings("coldwinter", trace.script.?.name.slice());
+    try std.testing.expect(trace.script.?.loaded);
+    try std.testing.expect(trace.script.?.init);
+    const missing = parseMapTrace("BK_MAP_TRACE: script name=\"\" loaded=0 init=0\n");
+    try std.testing.expectEqualStrings("", missing.script.?.name.slice());
+    try std.testing.expect(!missing.script.?.loaded);
+    try std.testing.expect(!missing.script.?.init);
+    try std.testing.expectEqual(@as(?TraceScript, null), parseMapTrace("").script);
+}
+
+test "parseMapTrace: areas keep their names (with spaces) and centres, and the first 32" {
+    const one = parseMapTrace("BK_MAP_TRACE: area name=\"Hill 4 cx=9\" cx=120 cy=340\r\nBK_MAP_TRACE: area name=\"A2\" cx=-5 cy=6\n");
+    try std.testing.expectEqual(@as(u32, 2), one.areas.seen);
+    try std.testing.expectEqualStrings("Hill 4 cx=9", one.areas.slice()[0].name.slice());
+    try std.testing.expectEqual(@as(f32, 120), one.areas.slice()[0].cx);
+    try std.testing.expectEqual(@as(f32, 340), one.areas.slice()[0].cy);
+    try std.testing.expectEqual(@as(f32, -5), one.areas.slice()[1].cx);
+    // More lines than the summary keeps: all are counted, the first are kept.
+    var log: [40 * 48]u8 = undefined;
+    var len: usize = 0;
+    for (0..40) |n| len += (std.fmt.bufPrint(log[len..], "BK_MAP_TRACE: area name=\"a{d}\" cx={d} cy=0\n", .{ n, n }) catch unreachable).len;
+    const many = parseMapTrace(log[0..len]);
+    try std.testing.expectEqual(@as(u32, 40), many.areas.seen);
+    try std.testing.expectEqual(@as(usize, max_areas), many.areas.slice().len);
+    try std.testing.expectEqualStrings("a31", many.areas.slice()[31].name.slice());
+    try std.testing.expectEqual(@as(u32, 0), parseMapTrace("BK_MAP_TRACE: camera x=1 y=2 z=3 source=player\n").areas.seen);
+}
+
+test "parseMapTrace: groups, bridges, entrenchments, start commands, reserve positions" {
+    const log =
+        "BK_MAP_TRACE: group id=1 held=6\n" ++
+        "BK_MAP_TRACE: group id=12 held=0\n" ++
+        "BK_MAP_TRACE: bridges n=2\n" ++
+        "BK_MAP_TRACE: entrenchments n=0\n" ++
+        "BK_MAP_TRACE: startcmd launched=3\n" ++
+        "BK_MAP_TRACE: reserve applied=4\n";
+    const trace = parseMapTrace(log);
+    try std.testing.expectEqual(@as(u32, 2), trace.groups.seen);
+    try std.testing.expectEqual(@as(i32, 1), trace.groups.slice()[0].id);
+    try std.testing.expectEqual(@as(u32, 6), trace.groups.slice()[0].held);
+    try std.testing.expectEqual(@as(i32, 12), trace.groups.slice()[1].id);
+    try std.testing.expectEqual(@as(u32, 0), trace.groups.slice()[1].held);
+    try std.testing.expectEqual(@as(?u32, 2), trace.bridges);
+    try std.testing.expectEqual(@as(?u32, 0), trace.entrenchments);
+    try std.testing.expectEqual(@as(?u32, 3), trace.startcmd_launched);
+    try std.testing.expectEqual(@as(?u32, 4), trace.reserve_applied);
+    // Not reported is not zero.
+    const none = parseMapTrace("BK_AUTO_UI: shot written\n");
+    try std.testing.expectEqual(@as(?u32, null), none.bridges);
+    try std.testing.expectEqual(@as(?u32, null), none.entrenchments);
+    try std.testing.expectEqual(@as(?u32, null), none.startcmd_launched);
+    try std.testing.expectEqual(@as(?u32, null), none.reserve_applied);
+    try std.testing.expectEqual(@as(u32, 0), none.groups.seen);
+}
+
+test "parseMapTrace: generals and their parcels" {
+    const log =
+        "BK_MAP_TRACE: general side=1 parcels=2 mobile=1\n" ++
+        "BK_MAP_TRACE: parcel side=1 idx=0 type=1 cx=800 cy=900 r=320 dir=16384\n" ++
+        "BK_MAP_TRACE: parcel side=1 idx=1 type=2 cx=100 cy=200 r=64 dir=0\n";
+    const trace = parseMapTrace(log);
+    try std.testing.expectEqual(@as(u32, 1), trace.generals.seen);
+    try std.testing.expectEqual(@as(i32, 1), trace.generals.slice()[0].side);
+    try std.testing.expectEqual(@as(u32, 2), trace.generals.slice()[0].parcels);
+    try std.testing.expectEqual(@as(u32, 1), trace.generals.slice()[0].mobile);
+    try std.testing.expectEqual(@as(u32, 2), trace.parcels.seen);
+    const first = trace.parcels.slice()[0];
+    try std.testing.expectEqual(@as(i32, 1), first.side);
+    try std.testing.expectEqual(@as(u32, 0), first.idx);
+    try std.testing.expectEqual(@as(i32, 1), first.kind);
+    try std.testing.expectEqual(@as(f32, 800), first.cx);
+    try std.testing.expectEqual(@as(f32, 900), first.cy);
+    try std.testing.expectEqual(@as(f32, 320), first.r);
+    try std.testing.expectEqual(@as(u32, 16384), first.dir);
+    try std.testing.expectEqual(@as(i32, 2), trace.parcels.slice()[1].kind);
+}
+
+test "parseMapTrace: the Lua Trace lines keep their text, cut to fit, the first 16" {
+    const trace = parseMapTrace("BK_MAP_TRACE: lua hello 12 world\r\nBK_MAP_TRACE: lua second\n");
+    try std.testing.expectEqual(@as(u32, 2), trace.lua.seen);
+    try std.testing.expectEqualStrings("hello 12 world", trace.lua.slice()[0].slice());
+    try std.testing.expectEqualStrings("second", trace.lua.slice()[1].slice());
+    var long_line: [text_capacity * 2 + 32]u8 = undefined;
+    const prefix = "BK_MAP_TRACE: lua ";
+    @memcpy(long_line[0..prefix.len], prefix);
+    @memset(long_line[prefix.len..][0 .. text_capacity * 2], 'x');
+    const cut = parseMapTrace(long_line[0 .. prefix.len + text_capacity * 2]);
+    try std.testing.expectEqual(@as(usize, text_capacity), cut.lua.slice()[0].slice().len);
+    var log: [20 * 32]u8 = undefined;
+    var len: usize = 0;
+    for (0..20) |n| len += (std.fmt.bufPrint(log[len..], "BK_MAP_TRACE: lua line {d}\n", .{n}) catch unreachable).len;
+    const many = parseMapTrace(log[0..len]);
+    try std.testing.expectEqual(@as(u32, 20), many.lua.seen);
+    try std.testing.expectEqual(@as(usize, max_lua_lines), many.lua.slice().len);
+    try std.testing.expectEqualStrings("line 15", many.lua.slice()[15].slice());
+}
+
+test "parseMapTrace: truncated lines of every kind add nothing" {
+    const log =
+        "BK_MAP_TRACE: script name=\"cold\n" ++
+        "BK_MAP_TRACE: script name=\"cold\" loaded=1\n" ++
+        "BK_MAP_TRACE: area name=\"Ar\n" ++
+        "BK_MAP_TRACE: area name=\"Area\" cx=1\n" ++
+        "BK_MAP_TRACE: group id=3 held=\n" ++
+        "BK_MAP_TRACE: group id=x held=1\n" ++
+        "BK_MAP_TRACE: bridges n=\n" ++
+        "BK_MAP_TRACE: entrenchments\n" ++
+        "BK_MAP_TRACE: startcmd launched=-1\n" ++
+        "BK_MAP_TRACE: reserve appl\n" ++
+        "BK_MAP_TRACE: general side=1 parcels=2\n" ++
+        "BK_MAP_TRACE: parcel side=1 idx=0 type=1 cx=8 cy=9 r=3\n";
+    const trace = parseMapTrace(log);
+    try std.testing.expectEqual(@as(?TraceScript, null), trace.script);
+    try std.testing.expectEqual(@as(u32, 0), trace.areas.seen);
+    try std.testing.expectEqual(@as(u32, 0), trace.groups.seen);
+    try std.testing.expectEqual(@as(?u32, null), trace.bridges);
+    try std.testing.expectEqual(@as(?u32, null), trace.entrenchments);
+    try std.testing.expectEqual(@as(?u32, null), trace.startcmd_launched);
+    try std.testing.expectEqual(@as(?u32, null), trace.reserve_applied);
+    try std.testing.expectEqual(@as(u32, 0), trace.generals.seen);
+    try std.testing.expectEqual(@as(u32, 0), trace.parcels.seen);
 }

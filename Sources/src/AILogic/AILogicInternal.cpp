@@ -460,16 +460,35 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 
 	return pResult;
 }
+// BK_MAP_TRACE=1: one "BK_MAP_TRACE: key=value ..." line per map item read
+// here (GameTT/iMissionInternal.cpp says why). Nothing is printed without it.
+static bool IsMapTraceOn()
+{
+	static const bool bOn = getenv( "BK_MAP_TRACE" ) != 0;
+	return bOn;
+}
 void CAILogic::LoadUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksInfo )
 {
 	CPtr<IObjectsDB> pIDB = GetSingleton<IObjectsDB>();
 
+	// Objects held back per reinforcement group (BK_MAP_TRACE), every group the
+	// map names counting from zero.
+	std::map<int, int> heldBack;
+	if ( IsMapTraceOn() )
+	{
+		for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = mapInfo.reinforcements.groups.begin(); it != mapInfo.reinforcements.groups.end(); ++it )
+			heldBack[it->first] = 0;
+	}
 	std::list<int> transports;
 	for ( int i = 0; i < mapInfo.objects.size(); ++i )
 	{
 		const int nGroup = mapInfo.reinforcements.GetGroupById( mapInfo.objects[i].nScriptID );
 		if ( nGroup != -1 )
+		{
 			scripts.AddUnitToReinforcGroup( mapInfo.objects[i], nGroup, 0, 0 );
+			if ( IsMapTraceOn() )
+				++heldBack[nGroup];
+		}
 		else
 		{
 			const IGDBObject *pObject = NGDB::GetRPGStats<IGDBObject>( mapInfo.objects[i].szName.c_str() );
@@ -484,6 +503,12 @@ void CAILogic::LoadUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksInfo )
 
 	for ( std::list<int>::iterator iter = transports.begin(); iter != transports.end(); ++iter )
 		AddObject( mapInfo.objects[*iter], pIDB, linksInfo, true, false, 0 );
+
+	if ( IsMapTraceOn() )
+	{
+		for ( std::map<int, int>::const_iterator it = heldBack.begin(); it != heldBack.end(); ++it )
+			fprintf( stderr, "BK_MAP_TRACE: group id=%d held=%d\n", it->first, it->second );
+	}
 }
 void CAILogic::InitLinks( LinkInfo &linksInfo )
 {
@@ -622,6 +647,8 @@ void CAILogic::LoadEntrenchments( const std::vector<SEntrenchmentInfo> &entrench
 			theStatObjs.AddNewEntrencment( &(segments[0]), segments.size(), pFullEntrenchment, true );
 		}
 	}
+	if ( IsMapTraceOn() )
+		fprintf( stderr, "BK_MAP_TRACE: entrenchments n=%d\n", int( entrenchments.size() ) );
 }
 void CAILogic::LoadBridges( const std::vector< std::vector<int> > &bridgesInfo )
 {
@@ -642,6 +669,8 @@ void CAILogic::LoadBridges( const std::vector< std::vector<int> > &bridgesInfo )
 		}
 		bridges.push_back( bridge );
 	}
+	if ( IsMapTraceOn() )
+		fprintf( stderr, "BK_MAP_TRACE: bridges n=%d\n", int( bridgesInfo.size() ) );
 }
 void CAILogic::LaunchStartCommand( const SAIStartCommand &startCommand, IRefCount **pUnitsBuffer, const int nSize )
 {
@@ -662,6 +691,7 @@ void CAILogic::LaunchStartCommand( const SAIStartCommand &startCommand, IRefCoun
 }
 void CAILogic::InitStartCommands()
 {
+	int nLaunched = 0;
 	for ( SLoadMapInfo::TStartCommandsList::const_iterator iter = startCmds.begin(); iter != startCmds.end(); ++iter )
 	{
 		if ( !iter->unitLinkIDs.empty() )
@@ -672,8 +702,11 @@ void CAILogic::InitStartCommands()
 				unitsBuffer[i] = CLinkObject::GetObjectByLink( iter->unitLinkIDs[i] );
 
 			LaunchStartCommand( *iter, &(unitsBuffer[0]), nSize );
+			++nLaunched;
 		}
 	}
+	if ( IsMapTraceOn() )
+		fprintf( stderr, "BK_MAP_TRACE: startcmd launched=%d\n", nLaunched );
 }
 void CAILogic::InitStartCommands( const LinkInfo &linksInfo, std::unordered_map<int, int> &old2NewLinks )
 {
@@ -702,6 +735,7 @@ void CAILogic::InitStartCommands( const LinkInfo &linksInfo, std::unordered_map<
 }
 void CAILogic::InitReservePositions()
 {
+	int nApplied = 0;
 	for ( SLoadMapInfo::TReservePositionsList::const_iterator iter = reservePositions.begin(); iter != reservePositions.end(); ++iter )
 	{
 		CLinkObject *pLinkObject = CLinkObject::GetObjectByLink( iter->nArtilleryLinkID );
@@ -709,6 +743,7 @@ void CAILogic::InitReservePositions()
 		{
 			CAIUnit *pUnit = checked_cast<CAIUnit*>( pLinkObject );
 			pUnit->SetBattlePos( iter->vPos );
+			++nApplied;
 
 			CLinkObject *pLinkTruck = CLinkObject::GetObjectByLink( iter->nTruckLinkID );
 			if ( pLinkTruck && pLinkTruck->IsValid() && pLinkTruck->IsAlive() )
@@ -719,6 +754,8 @@ void CAILogic::InitReservePositions()
 			}
 		}
 	}
+	if ( IsMapTraceOn() )
+		fprintf( stderr, "BK_MAP_TRACE: reserve applied=%d\n", nApplied );
 }
 void CAILogic::InitReservePositions( std::unordered_map<int, int> &old2NewLinks )
 {

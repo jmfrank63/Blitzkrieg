@@ -446,10 +446,23 @@ void CGeneral::Init()
 
 	curProcessed = enemys.begin();
 }
+// BK_MAP_TRACE=1: one "BK_MAP_TRACE: key=value ..." line per map item read
+// here (GameTT/iMissionInternal.cpp says why). Nothing is printed without it.
+static bool IsMapTraceOn()
+{
+	static const bool bOn = getenv( "BK_MAP_TRACE" ) != 0;
+	return bOn;
+}
 void CGeneral::Init( const SAIGeneralSideInfo &mapInfo )
 {
 	for ( int i = 0; i < mapInfo.mobileScriptIDs.size(); ++i )
 		mobileReinforcementGroupIDs.insert( mapInfo.mobileScriptIDs[i] );
+	if ( IsMapTraceOn() )
+	{
+		fprintf( stderr, "BK_MAP_TRACE: general side=%d parcels=%d mobile=%d\n", nParty, int( mapInfo.parcels.size() ), int( mapInfo.mobileScriptIDs.size() ) );
+		for ( int i = 0; i < mapInfo.parcels.size(); ++i )
+			fprintf( stderr, "BK_MAP_TRACE: parcel side=%d idx=%d type=%d cx=%.0f cy=%.0f r=%.0f dir=%d\n", nParty, i, mapInfo.parcels[i].eType, mapInfo.parcels[i].vCenter.x, mapInfo.parcels[i].vCenter.y, mapInfo.parcels[i].fRadius, int( mapInfo.parcels[i].wDefenceDirection ) );
+	}
 
 	Init();
 	
