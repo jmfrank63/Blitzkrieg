@@ -644,10 +644,12 @@ pub fn act(state: *State) bool {
             // Task 5, carried from plan 5: a second Open or Save As while a
             // dialog is already up used to be dropped silently.
             .dialog_busy => {
-                state.view.setStatus("", "a dialog is already open");
+                state.view.setStatusFrom(.dialog, "", "a dialog is already open");
                 return quit;
             },
-            .dialog_cancelled => {},
+            // The dialog that was busy has ended: "a dialog is already
+            // open" (or an earlier dialog's failure) is no longer true.
+            .dialog_cancelled => state.view.clearStatusFrom(.dialog),
             // A quit that reaches here is either clean (never dirty) or
             // answered Don't save (the prompt's .proceed path) - both are
             // "this document's edits, if any, are abandoned" (D-22).
@@ -685,7 +687,7 @@ pub fn act(state: *State) bool {
                     state.actions.noteSaveOutcome(ok);
                 }
             },
-            .dialog_failed => |message| state.view.setStatus("the file dialog failed: ", message),
+            .dialog_failed => |message| state.view.setStatusFrom(.dialog, "the file dialog failed: ", message),
             .switch_mod => |folder| performModSwitch(state, folder),
             .close => performClose(state),
         }
@@ -1170,31 +1172,33 @@ fn testGameLogPath(state: *State) ?[]const u8 {
 }
 
 /// Writes the test copy and starts the game beside the editor (D-01, D-02,
-/// D-04, D-05, D-07, D-08, D-09). A failed copy shows the bridge's message on
+/// D-04, D-05, D-07, D-08, D-09), then reports how that went through
+/// `TestLaunchPrompt.noteLaunch`, which keeps the status line right for
+/// every outcome (WINDOWS.md 1): a failed copy shows the bridge's message on
 /// the status bar, like any other edit failure, and starts nothing; a spawn
 /// that cannot find Game beside MapEditor is the one launch failure the spec
-/// calls out for its own modal (Errors -> Test launch).
+/// calls out for its own modal (Errors -> Test launch); a start clears an
+/// earlier attempt's failure from the status bar.
 fn startTestGame(state: *State) void {
+    var buffer: [512]u8 = undefined;
+    const attempt = launchTestGame(state, &buffer);
+    state.test_prompt.noteLaunch(attempt, &state.view.status);
+}
+
+/// One launch attempt, for `startTestGame`. `buffer` holds a formatted
+/// message the returned attempt may point into.
+fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
     const real = state.real;
     var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const test_path = real.testMapPath(testlaunch.profile_name, state.modFolder(), testlaunch.map_file_name, &test_path_buffer) orelse {
-        state.view.setStatus("test in game: ", std.mem.span(c.BkEditorLastMessage(real.session)));
-        return;
-    };
-    if (real.saveCopy(test_path) != .ok) {
-        state.view.setStatus("test in game: ", std.mem.span(c.BkEditorLastMessage(real.session)));
-        return;
-    }
+    const test_path = real.testMapPath(testlaunch.profile_name, state.modFolder(), testlaunch.map_file_name, &test_path_buffer) orelse
+        return .{ .status_failure = std.mem.span(c.BkEditorLastMessage(real.session)) };
+    if (real.saveCopy(test_path) != .ok)
+        return .{ .status_failure = std.mem.span(c.BkEditorLastMessage(real.session)) };
     var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const game_path = testlaunch.gamePath(state.io, &game_path_buffer) catch |err| {
-        var buffer: [256]u8 = undefined;
-        state.test_prompt.reportFailure(std.fmt.bufPrint(&buffer, "No game beside the Map Editor: {s}", .{@errorName(err)}) catch "No game beside the Map Editor");
-        return;
-    };
-    const log_path = testGameLogPath(state) orelse {
-        state.view.setStatus("test in game: ", "the test log's path is too long");
-        return;
-    };
+    const game_path = testlaunch.gamePath(state.io, &game_path_buffer) catch |err|
+        return .{ .report_failure = std.fmt.bufPrint(buffer, "No game beside the Map Editor: {s}", .{@errorName(err)}) catch "No game beside the Map Editor" };
+    const log_path = testGameLogPath(state) orelse
+        return .{ .status_failure = "the test log's path is too long" };
     const running = testlaunch.start(state.allocator, state.io, state.environ, .{
         .game_path = game_path,
         .mod_folder = state.modFolder(),
@@ -1202,15 +1206,14 @@ fn startTestGame(state: *State) void {
         .log_path = log_path,
         .extra_env = state.test_extra_env,
     }) catch |err| {
-        var buffer: [512]u8 = undefined;
         const message = if (err == error.FileNotFound)
-            std.fmt.bufPrint(&buffer, "No game beside the Map Editor at {s}", .{game_path}) catch "No game beside the Map Editor"
+            std.fmt.bufPrint(buffer, "No game beside the Map Editor at {s}", .{game_path}) catch "No game beside the Map Editor"
         else
-            std.fmt.bufPrint(&buffer, "the game would not start: {s}", .{@errorName(err)}) catch "the game would not start";
-        state.test_prompt.reportFailure(message);
-        return;
+            std.fmt.bufPrint(buffer, "the game would not start: {s}", .{@errorName(err)}) catch "the game would not start";
+        return .{ .report_failure = message };
     };
     state.test_game = running;
+    return .started;
 }
 
 /// D-06's still-running prompt, and the exit report (bad code or an early

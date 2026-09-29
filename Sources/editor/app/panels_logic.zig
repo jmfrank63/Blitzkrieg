@@ -7,6 +7,7 @@
 const std = @import("std");
 const core = @import("editor_core");
 const testlaunch = @import("testlaunch.zig");
+const view_math = @import("view_math.zig");
 
 const Editor = core.editor.Editor;
 const Pose = core.editor.Pose;
@@ -934,6 +935,18 @@ pub const FileActions = struct {
     }
 };
 
+/// How one Test-in-game launch ended (`TestLaunchPrompt.noteLaunch`).
+pub const LaunchAttempt = union(enum) {
+    /// Failed before the game was asked to start: no test map path, the
+    /// test copy would not save, the log's path too long. The reason.
+    status_failure: []const u8,
+    /// The game could not be started: none beside the editor, or the spawn
+    /// failed. The modal's message.
+    report_failure: []const u8,
+    /// The game is running.
+    started,
+};
+
 /// D-06's "Test while a test game still runs" prompt: idle until a request
 /// while one is up, then asking_restart until the user answers, then either
 /// back to idle (Keep) or restarting - waiting for the old game to actually
@@ -998,6 +1011,25 @@ pub const TestLaunchPrompt = struct {
     /// The caller has shown the report (an OK on its modal).
     pub fn acknowledgeReport(self: *TestLaunchPrompt) void {
         if (self.state == .reporting) self.state = .idle;
+    }
+
+    /// Every way one Test-in-game launch can end (panels.zig's
+    /// startTestGame), and what it leaves on the status line
+    /// (WINDOWS.md 1: a later success used to leave an earlier failure's
+    /// "test in game: ..." there for good). A failure before the game was
+    /// asked to start is shown on the status line, tagged as Test in game's
+    /// own. A spawn failure is reported in the modal instead, and a start
+    /// is a success: both clear that tagged line, and only it, so another
+    /// operation's message on the status line survives.
+    pub fn noteLaunch(self: *TestLaunchPrompt, attempt: LaunchAttempt, status: *view_math.StatusSlot) void {
+        switch (attempt) {
+            .status_failure => |reason| status.set(.test_launch, "test in game: ", reason),
+            .report_failure => |message| {
+                status.clearFrom(.test_launch);
+                self.reportFailure(message);
+            },
+            .started => status.clearFrom(.test_launch),
+        }
     }
 
     /// A launch that never got as far as running at all (spawn itself
@@ -2070,4 +2102,60 @@ test "TestLaunchPrompt: a clean exit reports nothing" {
     _ = prompt.request(false);
     _ = prompt.gameExited(.{ .code = 0, .signal = null, .lifetime_ms = 30_000 }, "log");
     try std.testing.expect(prompt.report() == null);
+}
+
+test "Test in game status: a failure is shown, and a later successful launch clears it (WINDOWS.md 1)" {
+    var prompt: TestLaunchPrompt = .{};
+    var status: view_math.StatusSlot = .{};
+    try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.request(false));
+    prompt.noteLaunch(.{ .status_failure = "the test copy would not save" }, &status);
+    try std.testing.expectEqualStrings("test in game: the test copy would not save", status.line());
+    try std.testing.expect(prompt.report() == null);
+
+    try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.request(false));
+    prompt.noteLaunch(.started, &status);
+    try std.testing.expectEqualStrings("", status.line());
+    try std.testing.expect(prompt.report() == null);
+}
+
+test "Test in game status: each pre-start failure replaces the last one's reason" {
+    var prompt: TestLaunchPrompt = .{};
+    var status: view_math.StatusSlot = .{};
+    prompt.noteLaunch(.{ .status_failure = "no test map path" }, &status);
+    prompt.noteLaunch(.{ .status_failure = "the test log's path is too long" }, &status);
+    try std.testing.expectEqualStrings("test in game: the test log's path is too long", status.line());
+}
+
+test "Test in game status: a spawn failure goes to the modal and takes the stale status line with it" {
+    var prompt: TestLaunchPrompt = .{};
+    var status: view_math.StatusSlot = .{};
+    prompt.noteLaunch(.{ .status_failure = "the test copy would not save" }, &status);
+    prompt.noteLaunch(.{ .report_failure = "No game beside the Map Editor at /stage/Game" }, &status);
+    try std.testing.expectEqualStrings("", status.line());
+    const message = prompt.report() orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("No game beside the Map Editor at /stage/Game", message);
+    prompt.acknowledgeReport();
+
+    // The next launch starts: nothing on the status line, no report.
+    try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.request(false));
+    prompt.noteLaunch(.started, &status);
+    try std.testing.expectEqualStrings("", status.line());
+    try std.testing.expect(prompt.report() == null);
+}
+
+test "Test in game status: a success clears only its own line, never another operation's message" {
+    var prompt: TestLaunchPrompt = .{};
+    var status: view_math.StatusSlot = .{};
+    status.set(.general, "autosave failed: ", "disk full");
+    prompt.noteLaunch(.started, &status);
+    try std.testing.expectEqualStrings("autosave failed: disk full", status.line());
+    prompt.noteLaunch(.{ .report_failure = "the game would not start: AccessDenied" }, &status);
+    try std.testing.expectEqualStrings("autosave failed: disk full", status.line());
+
+    // And a newer message from elsewhere is not the old failure's to clear.
+    prompt.acknowledgeReport();
+    prompt.noteLaunch(.{ .status_failure = "no test map path" }, &status);
+    status.set(.frame, "failed: ", "DeviceLost");
+    prompt.noteLaunch(.started, &status);
+    try std.testing.expectEqualStrings("failed: DeviceLost", status.line());
 }

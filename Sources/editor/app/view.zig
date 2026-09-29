@@ -70,8 +70,8 @@ pub const View = struct {
     /// even if the cursor strays over an ImGui panel mid-drag.
     left_button_down: bool = false,
     placer_name_storage: [64]u8 = undefined,
-    status_buffer: [512]u8 = undefined,
-    status_len: usize = 0,
+    /// The view's part of the status bar (see `statusLine`).
+    status: view_math.StatusSlot = .{},
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) View {
@@ -98,7 +98,7 @@ pub const View = struct {
     /// succeeds or is merely refused, so a failure never outlives the edits
     /// after it.
     pub fn statusLine(self: *const View) []const u8 {
-        return self.status_buffer[0..self.status_len];
+        return self.status.line();
     }
 
     /// True while a mouse gesture the view started (a left-button tool
@@ -115,15 +115,22 @@ pub const View = struct {
     /// "failed:". Exposed for main.zig to report failures view.zig itself
     /// did not cause (a lost GPU frame, say).
     pub fn setStatus(self: *View, prefix: []const u8, message: []const u8) void {
-        const prefix_len = @min(prefix.len, self.status_buffer.len);
-        @memcpy(self.status_buffer[0..prefix_len], prefix[0..prefix_len]);
-        const message_len = @min(message.len, self.status_buffer.len - prefix_len);
-        @memcpy(self.status_buffer[prefix_len..][0..message_len], message[0..message_len]);
-        self.status_len = prefix_len + message_len;
+        self.status.set(.general, prefix, message);
+    }
+
+    /// A message the operation that set it clears again once it succeeds
+    /// (`clearStatusFrom`), with no edit needed in between.
+    pub fn setStatusFrom(self: *View, source: view_math.StatusSource, prefix: []const u8, message: []const u8) void {
+        self.status.set(source, prefix, message);
     }
 
     pub fn clearStatus(self: *View) void {
-        self.status_len = 0;
+        self.status.clear();
+    }
+
+    /// Clears the message only if `source` set it.
+    pub fn clearStatusFrom(self: *View, source: view_math.StatusSource) void {
+        self.status.clearFrom(source);
     }
 
     /// The status of an edit made anywhere - a tool, a menu, a panel -

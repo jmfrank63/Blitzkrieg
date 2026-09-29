@@ -20,6 +20,83 @@ pub const Scroll = struct {
     down: bool = false,
 };
 
+/// Who put the view's status message up. Most messages are `general`: the
+/// next edit that succeeds (or is merely refused) clears them, whoever set
+/// them. A message from an operation that can later succeed on its own,
+/// with no edit in between, is tagged, so that success clears it: a Test in
+/// game that failed and then launched (WINDOWS.md 1), a frame that failed
+/// and then presented, a dialog that was busy and has since ended.
+pub const StatusSource = enum { general, test_launch, frame, dialog };
+
+/// The view's part of the status bar: one message, and the source that set
+/// it. `clearFrom` erases the message only if that source set it, so one
+/// operation's success never wipes another's failure.
+pub const StatusSlot = struct {
+    buffer: [512]u8 = undefined,
+    len: usize = 0,
+    source: StatusSource = .general,
+
+    pub fn line(self: *const StatusSlot) []const u8 {
+        return self.buffer[0..self.len];
+    }
+
+    /// `prefix` then `message`, cut to the buffer. Replaces whatever was
+    /// there, from any source.
+    pub fn set(self: *StatusSlot, source: StatusSource, prefix: []const u8, message: []const u8) void {
+        const prefix_len = @min(prefix.len, self.buffer.len);
+        @memcpy(self.buffer[0..prefix_len], prefix[0..prefix_len]);
+        const message_len = @min(message.len, self.buffer.len - prefix_len);
+        @memcpy(self.buffer[prefix_len..][0..message_len], message[0..message_len]);
+        self.len = prefix_len + message_len;
+        self.source = source;
+    }
+
+    /// Clears the message, whoever set it.
+    pub fn clear(self: *StatusSlot) void {
+        self.len = 0;
+        self.source = .general;
+    }
+
+    /// Clears the message only if `source` set it.
+    pub fn clearFrom(self: *StatusSlot, source: StatusSource) void {
+        if (self.source == source) self.clear();
+    }
+};
+
+test "StatusSlot: a source clears its own message, never another's" {
+    var slot: StatusSlot = .{};
+    slot.set(.test_launch, "test in game: ", "the copy would not save");
+    try std.testing.expectEqualStrings("test in game: the copy would not save", slot.line());
+    slot.clearFrom(.frame);
+    try std.testing.expectEqualStrings("test in game: the copy would not save", slot.line());
+    slot.clearFrom(.test_launch);
+    try std.testing.expectEqualStrings("", slot.line());
+
+    slot.set(.general, "autosave failed: ", "disk full");
+    slot.clearFrom(.test_launch);
+    try std.testing.expectEqualStrings("autosave failed: disk full", slot.line());
+    slot.clear();
+    try std.testing.expectEqualStrings("", slot.line());
+}
+
+test "StatusSlot: a later message from another source takes the slot over" {
+    var slot: StatusSlot = .{};
+    slot.set(.test_launch, "test in game: ", "no test path");
+    slot.set(.frame, "failed: ", "DeviceLost");
+    slot.clearFrom(.test_launch);
+    try std.testing.expectEqualStrings("failed: DeviceLost", slot.line());
+    slot.clearFrom(.frame);
+    try std.testing.expectEqualStrings("", slot.line());
+}
+
+test "StatusSlot: an over-long message is cut to the buffer, never overrun" {
+    var slot: StatusSlot = .{};
+    const long = [_]u8{'x'} ** 600;
+    slot.set(.general, "failed: ", &long);
+    try std.testing.expectEqual(slot.buffer.len, slot.line().len);
+    try std.testing.expectEqualStrings("failed: ", slot.line()[0..8]);
+}
+
 /// What the camera is clamped to: the map's size in tiles.
 pub const MapSize = struct {
     width_tiles: i32 = 0,

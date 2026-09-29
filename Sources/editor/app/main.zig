@@ -420,7 +420,10 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
 
         host.beginFrame();
         panels.draw(state);
-        host.endFrame() catch |err| view.setStatus("failed: ", @errorName(err));
+        // A lost frame is reported until the next frame presents: it is
+        // the frame's own message, not an edit's, so no edit is needed to
+        // clear it (the status line's source tag, WINDOWS.md 1).
+        if (host.endFrame()) |_| view.clearStatusFrom(.frame) else |err| view.setStatusFrom(.frame, "failed: ", @errorName(err));
         // After the frame: Save, the dialogs Open and Save As show, a path
         // one of them delivered during this frame's events, and Quit.
         if (panels.act(state)) running = false;
