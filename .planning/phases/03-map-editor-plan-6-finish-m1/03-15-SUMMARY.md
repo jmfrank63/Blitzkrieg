@@ -403,6 +403,62 @@ A texture missing in every season still comes back null, as before.
 
 **Still to do:** rebuild the release stage once Johannes has left it, then try the picker and File > Close by hand. The picker's grid is six 64-pixel columns and fills about 60% of the window's height.
 
+## Gap fix: map sound in the test game (hand try, M1)
+
+**Found:** Johannes placed a sound on mytest.bzm (Sounds panel, Add at view centre), saved, pressed F5, and heard nothing in the game.
+
+**What the map holds** (read with `zig-out/local-test/mapsound/bzm_sounds.py`, a reader for the binary chunk format):
+- mytest.bzm and the test copy (`cache/generated/MapEditorTest/base/maps/mapeditor_test.bzm`) are byte-identical. Both hold one MapSounds entry: `30mm_aviacannon` at world 3224,2505, z 0, repeat 0, random repeat 0, min and max radius 0, mute in combat off. `mytest.bzm.bak` (before) holds none. Saving and the test copy were fine.
+- The default name was the catalogue's alphabetical first, `20mm_aviacannon`, and `30mm_aviacannon` is the next one down. Both are single weapon reports (`Data/Sounds/Weapons/Other/AVIACANNON30.XML`: one sample, MinDist 25, MaxDist 40, not looped, not peaceful). Both are in the database as sounds.
+- Player 0's view starts at 3843,579 (the map's player anchor). The sound is about 2,000 world units away, beyond hearing range even once it plays.
+
+**Root cause:** the game never read MapSounds.
+- A mission hands the sound scene one list, `soundsList`, through `IScene::InitMapSounds`. `GameTT/iMissionInternal.cpp` filled it only from the map's rivers (`AddSounds(RIVERS)`). Nothing in the game read `CMapInfo::sounds` (MapSounds, tag 17), and nothing read its repeat, radius or mute fields. The original import (`7f0f4be5c`) is the same.
+- The MFC editor's sound tab wrote `soundsList`, which `CMapInfo::operator&` never saves. None of the 1,753 shipped `.bzm` files and no XML map has a MapSounds entry. Map-placed sounds never worked in any version.
+- **Observed before the fix** (`run-johannes-map.sh`, `red-johannes-map.log`): the debug `Game` on Johannes's own test copy, with the view moved onto the sound (`camera=3224x2505`), started 79 other sounds (Amb_WinterForest and Amb_Wind at their places). It never registered or started `30mm_aviacannon`.
+- Ruled out: the save format, the test copy, the name (known to the database), and the audio device (the same run started everything else).
+
+**Fix** (`219bebe13`, game side):
+- At mission start, each MapSounds entry's name and position join `soundsList` beside the rivers'. The sound scene's map sounds (`CMapSounds`, which a saved game carries) then play it:
+  - only while the view is near it
+  - a looped sound without a break, any other every few seconds
+  - as far and as loud as the sound's own entry says, muted in combat if that entry is peaceful
+
+  The record's repeat, random repeat, radius and mute fields still have no reader. The scene has its own rules for all of them, and bridge.h now says so.
+- Two bugs in the same path showed up in the trace and were fixed:
+  - `CMapSoundCell::Update` compared a playing loop against the one-shots' counts, where a looped kind never is. Every cell update stopped the loop and started it again, a remove and an add every 3 s. This is in the original too. The loop is now counted among the loops.
+  - The random part of a cell's next run, `rand() * PeriodRandom / RAND_MAX`, overflowed the 32-bit `STime` with macOS's `RAND_MAX` (2^31-1), so every map sound (rivers and buildings too) came every 3 s instead of 3-13 s. It is now computed in floating point.
+- Test support:
+  - `BK_SOUND_TRACE` names the sound object on every start and prints each map sound the mission registers.
+  - `BK_AUDIO_NULL=1` plays into miniaudio's null device only, so a harness can run the game with sound on without it reaching the TV.
+
+**Fix** (`bce85c9bf`, editor side):
+- Add at view centre now uses `Amb_Water_circle`, the rivers' own loop, or the first name if a mod lacks it.
+- Under its buttons, the Sounds panel says that the game plays a map sound only while the view is near it, that the sound decides reach and combat muting, and that repeat, radius and mute are saved but unused.
+
+**Evidence** (debug stage in copy-data mode, audio into the null device):
+- **Johannes's map after the fix** (`green2-johannes-map.log`): `map sound object="30mm_aviacannon" pos=(3224,2505) instance=1`. It started at t+6.1 s and again at t+15.1 s (9 s apart, inside 3-13 s).
+- **`map-editor-game-reads-it` PASS:** "...the map's sound Amb_Water_circle started; game exit 0". The run places the default sound where the unit stands, moves the game's view there, and checks three things in the trace: registered, started, and the loop started only once in about 23 s. The run now exits at frame 700, not 440.
+  - With the mission fix reverted, it fails: "the game never handed the map's sound Amb_Water_circle at 1974,2314 to its sound scene".
+  - With the loop fix reverted, it fails: "the map's looped sound Amb_Water_circle was started 2 times" (at t+0 and t+15 s).
+- **Other tiers:**
+  - `test-map-editor-testlaunch` passes, with 4 new trace-parser tests.
+  - `test-map-editor-panels` passes, with a new `defaultSoundName` test.
+  - `map-editor-smoke` PASS, 52 steps; the add steps check that the default was used.
+  - `map-editor-host-check` PASS.
+  - `test-map-editor-engine` PASS (260 objects) when run alone. In one combined run beside the smoke it failed after printing its own PASS.
+  - `test-sfx-module` aborts on this branch with or without these changes, because it cannot load libStreamIO. Main's `6c6cefe4e` fixes that with `DYLD_LIBRARY_PATH`. Run that way, it passes with and without `BK_AUDIO_NULL`.
+
+**For Johannes:**
+- To hear a placed sound in the test game, scroll the view to it. A sound carries about a screen (MaxDist in vis tiles, times 45 world units). Your sound is about 2,000 units from player 0's start.
+- A one-shot such as the cannon report plays once every 3-13 s. A loop such as `Amb_Water_circle` plays on.
+- In one 500-unit cell, only the kind of sound with the most instances plays. So a placed sound next to a building's own ambient sound of another kind may lose to it.
+- This branch does not have main's AirPlay fallback (`6c6cefe4e`). If the TV output fails to open, the whole test game is silent until main is merged.
+
+**Follow-ups, not done here:** `RandomMapGen/MapInfo_StaticMethods.cpp` (1944-2000) and `MapInfo_StaticMethods_SoundsCreation.cpp` (148, 204) use `rand() * n / (RAND_MAX + 1)`. `RAND_MAX + 1` overflows `int` on macOS and Linux, which is the same class of bug as the map-sound timer.
+
+**Still to do:** rebuild the release stage once Johannes has left it. Then press F5 on mytest.bzm, scroll to the sound, and listen.
+
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
 Still open in `.planning/WINDOWS.md` (entries 1-3, ledger `open_count: 3`):
