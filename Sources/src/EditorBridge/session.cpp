@@ -37,6 +37,20 @@ const char* WhyNotAMapObject( int nGameType )
 	return 0;
 }
 
+// D-05. Kept apart from WhyNotAMapObject on purpose: that one guards
+// PlaceOneObject too, and a loaded map's bridge spans, trench pieces and fences
+// must keep being placed in the engine.
+const char* WhyNotPlacedByPalette( int nGameType )
+{
+	if ( nGameType == SGVOGT_ENTRENCHMENT )
+		return "is a trench piece; entrenchments are drawn with the Entrenchment tool";
+	if ( nGameType == SGVOGT_BRIDGE )
+		return "is a bridge span; bridges are drawn with the Bridge tool";
+	if ( nGameType == SGVOGT_FENCE )
+		return "is a fence; fences are drawn with the Fence tool";
+	return 0;
+}
+
 namespace {
 
 // The snapshot keeps frame indices packed; the working copy is unpacked,
@@ -663,6 +677,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		return false;
 	}
 	if ( const char *pszWhy = WhyNotAMapObject( pDesc->eGameType ) )
+	{
+		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
+		return false;
+	}
+	if ( const char *pszWhy = WhyNotPlacedByPalette( pDesc->eGameType ) )
 	{
 		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
 		return false;

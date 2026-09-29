@@ -89,3 +89,64 @@
 - Object fade near the cursor.
 - The rotation renderer and art work.
 - Everything in 05-PARITY owned by M3.
+
+---
+
+## Planning amendments (2026-09-30)
+
+Written by plan 04-01, after research and planning found places where
+04-CONTEXT.md's wording differs from the code, and where one agent context
+could not hold D-24's first plan. Executors and verifiers read the amended plan
+set, not D-24's original list. The run is autonomous: each item took the
+research recommendation.
+
+**D-24 split and renumbering.** D-24's eight plans become thirteen sequential
+plans, in the same order and with the same intent of waves, one agent context
+each (research "Size warning" and Open Question 9). 04-01 Foundations is split
+into 04-01 (records, the camera-anchor tracer, palette filter, spec), 04-02
+(cascade delete), 04-03 (app input, tool registry, markers, verbs) and 04-04
+(game seam, render proof). The feature plans are renumbered: 04-05 roads and
+rivers, 04-06 bridges, 04-07 fences, 04-08 entrenchments, 04-09 script IDs and
+groups, 04-10 script file and areas, 04-11 start commands and reserve
+positions, 04-12 AI general, 04-13 integration and exit. The sequential
+execution rule is D-24's.
+
+**Research corrections C1-C13, as taken:**
+
+| # | Taken |
+|---|---|
+| C1 | The "built during play" mark is implemented with `IVisObj::SetSpecular` in 04-06 (nothing drew `futureBuildLinkIDs`), and re-applied on undo, redo, rotate and reopen. |
+| C2 | A new parcel's radius, and its minimum while dragging, is 256 AI units (4 map tiles), not "4 cells". |
+| C3 | A reserve position is erased when either its artillery or its truck is deleted (MFC parity); a start command loses the deleted unit, is erased when empty, and gets target link 0 when the deleted object was its target. D-04's "clear the truck field" is amended. |
+| C4 | Reserve-position role checks live in the bridge (they need the object database): a squad is refused in either role; truck 0 means none and is refused for towed guns; link ID 0 and "both 0" are refused. |
+| C5 | Geometry is plain-number C++ shared by the bridge and the map-file tier; the data-only startup has no object database, and the spec sentence saying it had is corrected (04-01). |
+| C6 | The snapshot saves the packed type of a span, fence piece or trench piece (a pure function of role and direction); the working copy and the engine get a seeded index, never `rand()`. |
+| C7 | A script-ID edit changes the snapshot and the working copy only (`IAIEditor` has no setter); the engine tier checks it by save, reopen and `GetObjectScriptID`. |
+| C8 | The camera-anchor resize on open is the fifth MFC rewrite not copied; nothing resizes on open, setting player N pads to N + 1 and never shrinks; creating an AI side creates every lower side empty, and undo restores the old count. |
+| C9 | The New group ID field is bumped to the first unused ID at or above it. |
+| C10 | Roads and rivers are sampled with `CVSOBuilder` (`CreateVSO`, `Update`, `UpdateZ`), not `ITerrainEditor::SampleCurve`. |
+| C11 | Link ID 0 is "no link" and is ignored in every reference match. |
+| C12 | No second engine-linking test executable is added on Windows. |
+| C13 | The right button, double click and the Enter, Insert, Escape and Space keys come to the core `Event` and `Key`; Ctrl+left is read as a right click only in the tools that use the right button, never in the Fence tool (Ctrl is its modifier). |
+
+**Other resolutions.**
+- Open Question 3, "Hide checked" (04-09): opacity 0 plus a bridge-side hidden
+  set that picking skips, so D-16's "hidden" holds without depending on
+  assumption A6.
+- Open Question 7 (Insert and Delete of a control point): they act on the last
+  grabbed or hovered control point, a recorded parity deviation for trackpads.
+- D-25.9, the M1-style hand try: replaced by an agent-run scripted walk-through
+  on the release build plus a run on win-home, both recorded in 04-13
+  (Johannes's autonomy order: no questions, no hand try).
+
+**Plan 04-01 decisions and one correction of its own.**
+- The C ABI record for the camera anchors is `BkEditorCameraAnchorRecord`. The
+  plan named it `BkEditorCameraAnchors`, which is also the entry point's name;
+  a C typedef and a function share one namespace, so the struct took the
+  `...Record` name the sounds already use.
+- Byte-identity tests read the map fresh from the file for every write they
+  compare, never a copy of a map: `SVertexAltitude` is written as a raw
+  struct, so a copied map's three padding bytes per vertex are whatever the
+  copy left there, and an edit-plus-inverse would look different from the
+  unedited file for no reason of its own. Later plans' tests follow the same
+  rule.

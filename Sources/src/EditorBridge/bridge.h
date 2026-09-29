@@ -133,7 +133,10 @@ BkEditorStatus BkEditorCloseMap( BkEditorSession *session );
    command, or a position the engine will not put the object at. It is an
    ordinary answer, not a failure. BkEditorAddObject also refuses every type
    the catalogue marks not placeable - a single soldier among them, with a
-   squad to place instead named in the message.
+   squad to place instead named in the message, and (M2, D-05) a bridge span,
+   a trench piece and a fence, which the Bridge, Entrenchment and Fence tools
+   draw as a whole. Such an object a loaded map already holds still loads,
+   draws and moves.
 
    A link ID is the only name an object has here, and a map does not promise
    one per object: 0 means "no link ID", and shipped maps carry hundreds of
@@ -326,7 +329,10 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
    single soldier (every infantry SGVOGT_UNIT), which the game plays only
    inside a squad - a map's infantry is its SGVOGT_SQUAD records. The MFC
    editor's palette never offered a single soldier either
-   (TabSimpleObjectsDialog.cpp CommonFilterName drops units\Humans). */
+   (TabSimpleObjectsDialog.cpp CommonFilterName drops units\Humans). Since M2
+   a bridge span (6), a trench piece (4) and a fence (9) are 0 as well: each
+   only makes sense inside its bridge, trench or fence run, which its own tool
+   draws. */
 typedef struct { char name[64]; int game_type; int placeable; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 

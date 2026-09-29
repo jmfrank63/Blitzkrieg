@@ -72,15 +72,22 @@ pub fn gameTypeName(game_type: i32) []const u8 {
     };
 }
 
-/// Whether an object of this game type can be put on a map, and so belongs
-/// in the palette. A sound (100) and a tank pit (5) are in the object
-/// database but are not map objects: a map keeps its sounds in their own
-/// list, and tank pits are dug during play. The bridge refuses both
-/// (WhyNotAMapObject, Sources/src/EditorBridge/session.cpp) and the MFC
-/// editor's palette never listed either (TabSimpleObjectsDialog.cpp:158).
+/// Whether an object of this game type belongs in the palette. A sound (100)
+/// and a tank pit (5) are in the object database but are not map objects: a
+/// map keeps its sounds in their own list, and tank pits are dug during play.
+/// The bridge refuses both (WhyNotAMapObject, Sources/src/EditorBridge/
+/// session.cpp) and the MFC editor's palette never listed either
+/// (TabSimpleObjectsDialog.cpp:158).
+///
+/// D-05 (M2): an entrenchment piece (4), a bridge span (6) and a fence (9) are
+/// out too. They only make sense inside their entry - a trench, a bridge, a
+/// fence run - which the Entrenchment, Bridge and Fence tools draw, so a piece
+/// placed alone would be an object the map's own lists do not know about. The
+/// bridge says the same through `WhyNotPlacedByPalette`, and such objects in a
+/// loaded map still load, draw and move.
 pub fn isPlaceable(game_type: i32) bool {
     return switch (game_type) {
-        5, 100 => false,
+        4, 5, 6, 9, 100 => false,
         else => true,
     };
 }
@@ -1197,10 +1204,16 @@ test "the palette's filter is a case-insensitive substring, and types have their
     try std.testing.expectEqualStrings("SGVOGT_SOUND", gameTypeName(100));
 }
 
-test "the palette leaves out the types a map cannot hold" {
+test "the palette leaves out the types a map cannot hold and the pieces that need their tool" {
     try std.testing.expect(!isPlaceable(100));
     try std.testing.expect(!isPlaceable(5));
-    for ([_]i32{ 1, 2, 3, 4, 6, 7, 8, 9, 10, 15, 17 }) |game_type| try std.testing.expect(isPlaceable(game_type));
+    // D-05: a trench piece (4), a bridge span (6) and a fence (9) are drawn
+    // with their own tool in M2, never placed one by one from the palette.
+    try std.testing.expect(!isPlaceable(4));
+    try std.testing.expect(!isPlaceable(6));
+    try std.testing.expect(!isPlaceable(9));
+    // A unit (1), a building (2) and the rest stay in the palette.
+    for ([_]i32{ 1, 2, 3, 7, 8, 10, 15, 17 }) |game_type| try std.testing.expect(isPlaceable(game_type));
 }
 
 test "sound times: milliseconds to seconds and back, non-finite is 0" {

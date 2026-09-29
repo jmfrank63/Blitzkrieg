@@ -131,6 +131,16 @@ struct SEngineObjectState
 // The reason reads after the object's name.
 const char* WhyNotAMapObject( int nGameType );
 
+// Why an object of this game type is not offered by the palette (D-05), or 0.
+// A trench piece, a bridge span and a fence only make sense inside their own
+// entry, which the Entrenchment, Bridge and Fence tools draw, so the catalogue
+// reports them not placeable and BkEditorAddObject refuses them naming the
+// tool. This is NOT WhyNotAMapObject, which also guards PlaceOneObject and
+// must keep accepting these types: a loaded map's spans, pieces and fences
+// still load, draw and move. The M2 tools add their objects through their own
+// session functions, never AddObjectToSession.
+const char* WhyNotPlacedByPalette( int nGameType );
+
 // Reads an object's engine state. Returns false when the engine does not hold
 // the object at all.
 bool ReadEngineObject( const SEditorSession &rSession, int nLinkID, SEngineObjectState *pOut );
