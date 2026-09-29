@@ -92,6 +92,10 @@ const game_reads_it_squads = [_]struct { name: []const u8, dx: f32, dy: f32, sol
     .{ .name = "GB_bren_43", .dx = 0, .dy = 128, .soldiers = 9 },
 };
 
+/// SGVOGT_SOUND: the catalogue's game type for a sound, the one the Sounds
+/// panel lists (panels.zig's own `sound_names`).
+const sound_game_type: i32 = 100;
+
 /// The probe window, in screen pixels (a window point is a screen pixel).
 const probe = struct {
     const x = 40;
@@ -634,6 +638,27 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         squad_soldiers += squad.soldiers;
     }
 
+    // 03-15 gap fix (map sound in the test game): the Sounds panel's own
+    // default sound, placed where the unit stands. The game plays a map
+    // sound only while the view is near it, so the schedule below moves the
+    // view there (camera=, world units - a sound's own) and BK_SOUND_TRACE
+    // names what the sound scene registers and starts.
+    var sound_names: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer sound_names.deinit(gpa);
+    for (entries) |*entry| {
+        if (entry.game_type == sound_game_type and entry.name[0] != 0) try sound_names.append(gpa, std.mem.sliceTo(&entry.name, 0));
+    }
+    const sound_name = panels_logic.defaultSoundName(sound_names.items) orelse {
+        std.debug.print("map-editor: game reads it FAIL: no sound in the catalogue\n", .{});
+        return false;
+    };
+    var sound: core.bridge.SoundRecord = .{ .x = point.world_x, .y = point.world_y };
+    sound.setName(sound_name);
+    editor.addSound(-1, sound) catch {
+        std.debug.print("map-editor: game reads it FAIL: placing the sound {s} failed: {s}\n", .{ sound_name, editor.status() });
+        return false;
+    };
+
     var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const test_path = real.testMapPath(testlaunch.profile_name, null, testlaunch.map_file_name, &test_path_buffer) orelse {
         std.debug.print("map-editor: game reads it FAIL: no test map path: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
@@ -659,17 +684,25 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: game reads it FAIL: no Game beside MapEditor: {s}\n", .{@errorName(err)});
         return false;
     };
-    var auto_ui_buffer: [96]u8 = undefined;
+    var auto_ui_buffer: [160]u8 = undefined;
     // A radius of 5 (320 map units, about 10 AI tiles) comfortably covers
     // the placed unit and both squads (128 map units off, their soldiers
     // spread around that) despite the world-to-units rounding above; it is
     // not trying to bound "nearby" tightly.
     const game_reads_it_radius = 5;
-    const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "400:units={d}x{d}x{d},420:shot,440:exit", .{ units_x, units_y, game_reads_it_radius }) catch unreachable;
+    // camera= at frame 150: the mission (and its own start view) is up by
+    // then (frame 120 already reports game time), and the sound scene
+    // looks at the map's sounds near the view every 3 s. Exit at 700, about
+    // 23 s of a debug build's game time: a map sound cell runs again 3 to
+    // 13 s after it last did, so a loop still stopped and restarted there
+    // (the looped_starts check below) shows a second start well before.
+    const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "150:camera={d:.0}x{d:.0},400:units={d}x{d}x{d},420:shot,700:exit", .{ point.world_x, point.world_y, units_x, units_y, game_reads_it_radius }) catch unreachable;
+    // BK_AUDIO_NULL: the sound scene runs in full (the trace needs it), but
+    // into the null device - nothing plays through the Mac's own output.
     var running = testlaunch.start(gpa, io, environ, .{
         .game_path = game_path,
         .log_path = log_path,
-        .extra_env = &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" } },
+        .extra_env = &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" }, .{ "BK_SOUND_TRACE", "1" }, .{ "BK_AUDIO_NULL", "1" } },
     }) catch |err| {
         std.debug.print("map-editor: game reads it FAIL: the game would not start: {s}\n", .{@errorName(err)});
         return false;
@@ -706,13 +739,27 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: game reads it FAIL: the editor placed the single soldier {s}; a soldier goes on a map only inside a squad\n", .{soldier});
         return false;
     }
+    const sound_trace = testlaunch.mapSoundTrace(log_bytes, sound_name, point.world_x, point.world_y);
+    if (!sound_trace.registered) {
+        std.debug.print("map-editor: game reads it FAIL: the game never handed the map's sound {s} at {d:.0},{d:.0} to its sound scene; see {s}\n", .{ sound_name, point.world_x, point.world_y, log_path });
+        return false;
+    }
+    if (!sound_trace.started) {
+        std.debug.print("map-editor: game reads it FAIL: the map's sound {s} at {d:.0},{d:.0} was registered but never started with the view on it; see {s}\n", .{ sound_name, point.world_x, point.world_y, log_path });
+        return false;
+    }
+    // The view never leaves it, so a loop starts once and plays on.
+    if (sound_trace.looped_starts > 1) {
+        std.debug.print("map-editor: game reads it FAIL: the map's looped sound {s} was started {d} times with the view on it - stopped and started again, not playing on; see {s}\n", .{ sound_name, sound_trace.looped_starts, log_path });
+        return false;
+    }
     if (!editor.dirty() or !std.mem.eql(u8, editor.document.path.items, original_path)) {
         std.debug.print("map-editor: game reads it FAIL: the document changed - dirty {}, path {s} (was {s})\n", .{ editor.dirty(), editor.document.path.items, original_path });
         return false;
     }
 
     deleteAutoshots(io);
-    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit and the squads' {d} soldiers; single soldiers refused; game exit 0)\n", .{ units_count, squad_soldiers });
+    std.debug.print("map-editor: game reads it PASS ({d} units of player 0 near the placed unit and the squads' {d} soldiers; single soldiers refused; the map's sound {s} started; game exit 0)\n", .{ units_count, squad_soldiers, sound_name });
     return true;
 }
 

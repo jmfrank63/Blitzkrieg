@@ -120,6 +120,58 @@ pub fn describe(exit: Exit) Outcome {
     return if (exit.lifetime_ms < 5000) .early_failure else .failure;
 }
 
+/// What a test game's log says about one map sound, read from the lines
+/// BK_SOUND_TRACE=1 writes (Scene/SoundScene.cpp): `map sound object="N"
+/// pos=(X,Y) instance=I` when the mission hands the sound to the sound scene
+/// (instance 0: the scene refused the name), and `add id=.. name="<path>"
+/// object="N" ... pos=(X,Y) ...` every time the scene starts it, which it
+/// does only while the view is near. Positions match within one unit: the
+/// log rounds them. `looped_starts` counts the starts marked looped=1: a
+/// loop the view stays near starts once and plays on, where it used to be
+/// stopped and started again every 3 s (CMapSoundCell::Update).
+pub const MapSoundTrace = struct { registered: bool = false, started: bool = false, looped_starts: u32 = 0 };
+
+pub fn mapSoundTrace(log: []const u8, object: []const u8, x: f32, y: f32) MapSoundTrace {
+    var result: MapSoundTrace = .{};
+    var lines = std.mem.splitScalar(u8, log, '\n');
+    while (lines.next()) |raw_line| {
+        const line = std.mem.trimEnd(u8, raw_line, "\r");
+        const is_registration = std.mem.startsWith(u8, line, "BK_SOUND_TRACE: map sound ");
+        const is_start = std.mem.startsWith(u8, line, "BK_SOUND_TRACE: add ");
+        if (!is_registration and !is_start) continue;
+        const name = quotedField(line, "object=\"") orelse continue;
+        if (!std.ascii.eqlIgnoreCase(name, object)) continue;
+        const pos = tracePos(line) orelse continue;
+        if (@abs(pos[0] - x) > 1 or @abs(pos[1] - y) > 1) continue;
+        if (is_start) {
+            result.started = true;
+            if (std.mem.indexOf(u8, line, " looped=1 ") != null) result.looped_starts += 1;
+        } else if (std.mem.indexOf(u8, line, "instance=")) |at| {
+            const instance = std.fmt.parseInt(u32, line[at + "instance=".len ..], 10) catch 0;
+            if (instance != 0) result.registered = true;
+        }
+    }
+    return result;
+}
+
+fn quotedField(line: []const u8, key: []const u8) ?[]const u8 {
+    const at = std.mem.indexOf(u8, line, key) orelse return null;
+    const rest = line[at + key.len ..];
+    const end = std.mem.indexOfScalar(u8, rest, '"') orelse return null;
+    return rest[0..end];
+}
+
+fn tracePos(line: []const u8) ?[2]f32 {
+    const at = std.mem.indexOf(u8, line, "pos=(") orelse return null;
+    const rest = line[at + "pos=(".len ..];
+    const comma = std.mem.indexOfScalar(u8, rest, ',') orelse return null;
+    const close = std.mem.indexOfScalar(u8, rest, ')') orelse return null;
+    if (close < comma) return null;
+    const px = std.fmt.parseFloat(f32, rest[0..comma]) catch return null;
+    const py = std.fmt.parseFloat(f32, rest[comma + 1 .. close]) catch return null;
+    return .{ px, py };
+}
+
 const five_seconds: Io.Clock.Duration = .{ .raw = .fromSeconds(5), .clock = .awake };
 
 fn sleepMs(io: Io, ms: u32) void {
@@ -299,4 +351,45 @@ test "describe: a clean exit, an early failure, and a later failure" {
     try std.testing.expectEqual(Outcome.early_failure, describe(.{ .code = null, .signal = 11, .lifetime_ms = 4999 }));
     try std.testing.expectEqual(Outcome.failure, describe(.{ .code = 1, .signal = null, .lifetime_ms = 30000 }));
     try std.testing.expectEqual(Outcome.clean, describe(.{ .code = 0, .signal = null, .lifetime_ms = 30000 }));
+}
+
+test "mapSoundTrace: registered, then started, at the placed point" {
+    const log =
+        "BK_AUTO_UI: frame 120 at 1 ms game 2 ms\n" ++
+        "BK_SOUND_TRACE: map sound object=\"Amb_Water_circle\" pos=(1500,2400) instance=1\r\n" ++
+        "BK_SOUND_TRACE: add id=7 name=\"Sounds\\Ambient\\water\\circle\" object=\"Amb_Water_circle\" looped=1 mix=1 pos=(1500,2401) t=1004000\n";
+    const trace = mapSoundTrace(log, "amb_water_circle", 1500.4, 2400.4);
+    try std.testing.expect(trace.registered);
+    try std.testing.expect(trace.started);
+    try std.testing.expectEqual(@as(u32, 1), trace.looped_starts);
+}
+
+test "mapSoundTrace: a loop started again counts every start; a one-shot counts none" {
+    const add_loop = "BK_SOUND_TRACE: add id=6 name=\"Sounds\\Ambient\\water\\circle\" object=\"Amb_Water_circle\" looped=1 mix=0 pos=(1974,2314) t=1000050\n";
+    const remove_loop = "BK_SOUND_TRACE: remove id=6 known=1 found=1 name=\"Sounds\\Ambient\\water\\circle\" looped=1 t=1003059\n";
+    const restarted = mapSoundTrace(add_loop ++ remove_loop ++ add_loop ++ remove_loop ++ add_loop, "Amb_Water_circle", 1974, 2314);
+    try std.testing.expectEqual(@as(u32, 3), restarted.looped_starts);
+    const one_shot = "BK_SOUND_TRACE: add id=23 name=\"Sounds\\Weapons\\other\\aviacannon30\" object=\"30mm_aviacannon\" looped=0 mix=0 pos=(3224,2505) t=1006065\n";
+    const shots = mapSoundTrace(one_shot ++ one_shot, "30mm_aviacannon", 3224, 2505);
+    try std.testing.expect(shots.started);
+    try std.testing.expectEqual(@as(u32, 0), shots.looped_starts);
+}
+
+test "mapSoundTrace: registered but never started - the view never came near" {
+    const log = "BK_SOUND_TRACE: map sound object=\"Amb_Water_circle\" pos=(1500,2400) instance=3\n";
+    const trace = mapSoundTrace(log, "Amb_Water_circle", 1500, 2400);
+    try std.testing.expect(trace.registered);
+    try std.testing.expect(!trace.started);
+}
+
+test "mapSoundTrace: another place, another sound, or a refused name is not this sound" {
+    const log =
+        "BK_SOUND_TRACE: map sound object=\"Amb_Water_circle\" pos=(1500,2400) instance=0\n" ++
+        "BK_SOUND_TRACE: add id=7 name=\"Sounds\\Ambient\\water\\circle\" object=\"Amb_Water_circle\" looped=1 mix=1 pos=(1510,2400) t=1\n" ++
+        "BK_SOUND_TRACE: add id=8 name=\"Sounds\\Ambient\\field\\1\" object=\"Amb_Field\" looped=0 mix=1 pos=(1500,2400) t=1\n" ++
+        "BK_SOUND_TRACE: dump t=1 camera=(1500,2400) cells=1 sounds=1\n";
+    const trace = mapSoundTrace(log, "Amb_Water_circle", 1500, 2400);
+    try std.testing.expect(!trace.registered);
+    try std.testing.expect(!trace.started);
+    try std.testing.expect(!mapSoundTrace("", "Amb_Water_circle", 0, 0).started);
 }

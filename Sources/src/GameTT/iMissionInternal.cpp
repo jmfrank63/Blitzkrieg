@@ -1463,6 +1463,23 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 	GetSingleton<IScenarioTracker>()->StartMission( GetGlobalVar("Mission.Current.Name", "UNKNOWN") );
 
 	mapinfo.AddSounds( &( mapinfo.soundsList ), CMapInfo::SOUND_TYPE_BITS_RIVERS );
+	// The map's own sounds (MapSounds - the list the Map Editor's Sounds panel
+	// writes) join the rivers' here. Nothing read them before: the only sounds
+	// a map handed the sound scene were the ones generated from its rivers
+	// above, and the MFC editor's own sound tab wrote soundsList, which is
+	// never saved - so a placed sound was silent in the game. They now play as
+	// the rivers' do (Scene/SoundScene.cpp CMapSounds): only while the view is
+	// near, a looped sound without a break, any other every few seconds, as
+	// far and as loud as the sound's own entry says, muted in combat if that
+	// entry is peaceful. A record's repeat, radius and mute fields are kept in
+	// the map but have no reader; the scene has its own rules for all three.
+	for ( std::vector<SMapSoundInfo>::const_iterator it = mapinfo.sounds.sounds.begin(); it != mapinfo.sounds.sounds.end(); ++it )
+	{
+		CMapSoundInfo sound;
+		sound.szName = it->szName;
+		sound.vPos = it->vPos;
+		mapinfo.soundsList.push_back( sound );
+	}
 	
 	vCameraStartPos = mapinfo.vCameraAnchor;
 	{

@@ -645,8 +645,12 @@ BkEditorStatus BkEditorSetAttackingSide( BkEditorSession *session, int side );
    tree), the one that actually round-trips through a save and reload. The
    engine is never told, the same as BkEditorSetMapType: nothing in this
    bridge's headless session ever starts a mission, which is the only time
-   InitMapSounds (and so soundsList) matters, and no other game system reads
-   sounds.sounds today.
+   InitMapSounds (and so soundsList) matters. The game reads sounds.sounds
+   only there: at mission start GameTT/iMissionInternal.cpp appends each
+   entry's name and position to soundsList (03-15 gap fix - before it
+   nothing read this list, and a placed sound was silent in the game).
+   Repeat, random repeat, mute and the radii have no reader: the sound
+   scene's map sounds follow the sound's own entry and its own timing.
 
    Positions are world (scene) units, not map units: unlike an object's
    vPos (BkEditorAddObject, converted through AI2Vis on its way into the

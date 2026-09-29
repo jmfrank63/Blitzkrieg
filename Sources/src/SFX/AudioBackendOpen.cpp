@@ -931,10 +931,27 @@ namespace NAudioBackendImpl
 	{
 	}
 
+	// BK_AUDIO_NULL=1 plays into miniaudio's null device only. Everything
+	// above the device still runs - voices start, advance and finish - but
+	// nothing reaches a speaker, so a headless harness can run the real game
+	// with sound on (map-editor-game-reads-it checks a map sound starts)
+	// without playing it through the default output.
+	bool IsNullAudioRequested()
+	{
+		const char *pszValue = getenv( "BK_AUDIO_NULL" );
+		return pszValue && pszValue[0] && !( pszValue[0] == '0' && pszValue[1] == 0 );
+	}
+
 	ma_uint32 SelectBackends( ESFXOutputType output, ma_backend *pBackends, ma_uint32 nCapacity )
 	{
 		if ( !pBackends || nCapacity < 4 )
 			return 0;
+
+		if ( IsNullAudioRequested() )
+		{
+			pBackends[0] = ma_backend_null;
+			return 1;
+		}
 
 #if defined(_WIN32) || defined(_WIN64)
 		pBackends[0] = ma_backend_wasapi;
