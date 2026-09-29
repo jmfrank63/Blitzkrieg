@@ -34,7 +34,21 @@
 //!                                   `percent` (default 1.0) is the greatest
 //!                                   acceptable percentage of differing
 //!                                   pixels
+//!   do=<name>[:<arg>]              run a named editor command (commands.zig:
+//!                                   the same one a menu item or panel button
+//!                                   runs); the run fails when the name is
+//!                                   unknown, the argument is bad or the
+//!                                   command is refused
+//!   expect=<name>[:<arg>]          ask a named predicate (commands.zig); the
+//!                                   run fails "expect=<name>:<arg> was false"
+//!                                   when it does not hold
 //!   exit                           end the run
+//!
+//! `do=`/`expect=`'s name is `[A-Za-z0-9_]{1,32}`; the argument, when there
+//! is one after the name's ':', is printable ASCII without a space or comma
+//! (a comma ends the entry) and at most 64 characters (T-04-03-01). The
+//! frame's own ':' is the first one in the entry, so `3:do=camera_player:0`
+//! is frame 3, action `do=camera_player:0`.
 //!
 //! `shot=`/`compare=`'s own name (T-03-12-01: names become file paths inside
 //! one fixed directory) is restricted to `[A-Za-z0-9_-]{1,64}`; every other
@@ -90,6 +104,17 @@ pub const max_name_len = 64;
 /// when a channel differs by more than 24" (03-12-PLAN.md Task 2).
 pub const default_channel_tolerance: u8 = 24;
 
+/// A named command or predicate call: `do=<name>[:<arg>]`, `expect=...`.
+pub const Named = struct {
+    name: []const u8,
+    /// Empty when the entry has no ':<arg>'.
+    arg: []const u8 = "",
+};
+
+/// `do=`/`expect=`'s own limits (T-04-03-01).
+pub const max_named_len = 32;
+pub const max_arg_len = 64;
+
 pub const Action = union(enum) {
     key: Key,
     press: Point,
@@ -104,6 +129,8 @@ pub const Action = union(enum) {
     waitgame: u32,
     shot: []const u8,
     compare: Compare,
+    do: Named,
+    expect: Named,
     exit,
 };
 
@@ -127,8 +154,12 @@ pub const ParseError = error{
     /// did not parse as a number.
     BadNumber,
     /// An unknown modifier, an empty key name, or a shot/compare name
-    /// outside `[A-Za-z0-9_-]{1,64}`.
+    /// outside `[A-Za-z0-9_-]{1,64}`, or a do/expect name outside
+    /// `[A-Za-z0-9_]{1,32}`.
     BadName,
+    /// A do/expect argument that is too long or holds a character outside
+    /// printable ASCII (or a space).
+    BadArgument,
 } || std.mem.Allocator.Error;
 
 /// What went wrong, and the exact entry ("frame:action") that said so - for
@@ -214,6 +245,10 @@ fn parseAction(text: []const u8, entry: []const u8, failure: *Failure) ParseErro
     }
     if (std.mem.eql(u8, name, "compare"))
         return .{ .compare = try parseCompare(value orelse return fail(failure, entry, "compare needs a name", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "do"))
+        return .{ .do = try parseNamed(value orelse return fail(failure, entry, "do needs a name", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "expect"))
+        return .{ .expect = try parseNamed(value orelse return fail(failure, entry, "expect needs a name", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "exit")) {
         if (value != null) return fail(failure, entry, "exit takes no value", error.BadAction);
         return .exit;
@@ -294,6 +329,29 @@ fn parseCompare(text: []const u8, entry: []const u8, failure: *Failure) ParseErr
     if (at) |i|
         percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "compare's percent is not a number", error.BadNumber);
     return .{ .name = name, .percent = percent };
+}
+
+/// `<name>[:<arg>]`.
+fn parseNamed(text: []const u8, entry: []const u8, failure: *Failure) ParseError!Named {
+    const colon = std.mem.indexOfScalar(u8, text, ':');
+    const name = if (colon) |i| text[0..i] else text;
+    const arg = if (colon) |i| text[i + 1 ..] else "";
+    if (name.len == 0 or name.len > max_named_len) return fail(failure, entry, "the name must be 1-32 characters", error.BadName);
+    for (name) |ch| {
+        const ok = (ch >= 'A' and ch <= 'Z') or (ch >= 'a' and ch <= 'z') or (ch >= '0' and ch <= '9') or ch == '_';
+        if (!ok) return fail(failure, entry, "the name may only use letters, digits and '_'", error.BadName);
+    }
+    try validateArgument(arg, entry, failure);
+    return .{ .name = name, .arg = arg };
+}
+
+/// Printable ASCII without a space, at most `max_arg_len` characters; empty
+/// is fine (a command with no argument).
+fn validateArgument(arg: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
+    if (arg.len > max_arg_len) return fail(failure, entry, "the argument must be at most 64 characters", error.BadArgument);
+    for (arg) |ch| {
+        if (ch <= ' ' or ch > '~') return fail(failure, entry, "the argument may only use printable ASCII without spaces", error.BadArgument);
+    }
 }
 
 fn validateName(name: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
@@ -402,6 +460,10 @@ test "parse: every action" {
     try expectAction("3:shot=painted", .{ .shot = "painted" });
     try expectAction("3:compare=painted", .{ .compare = .{ .name = "painted", .percent = default_compare_percent } });
     try expectAction("3:compare=painted@2.5", .{ .compare = .{ .name = "painted", .percent = 2.5 } });
+    try expectAction("3:do=camera_player:0", .{ .do = .{ .name = "camera_player", .arg = "0" } });
+    try expectAction("3:do=camera_neutral", .{ .do = .{ .name = "camera_neutral", .arg = "" } });
+    try expectAction("3:expect=anchor_set:neutral", .{ .expect = .{ .name = "anchor_set", .arg = "neutral" } });
+    try expectAction("3:expect=undo_depth:12", .{ .expect = .{ .name = "undo_depth", .arg = "12" } });
     try expectAction("3:exit", .exit);
 }
 
@@ -447,6 +509,21 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:shot=", error.BadName); // empty name
     try expectBad("3:compare=painted@soon", error.BadNumber); // percent not a number
     try expectBad("3:shot=" ++ ("a" ** 65), error.BadName); // over max_name_len
+    try expectBad("3:do", error.BadAction); // do needs a name
+    try expectBad("3:expect", error.BadAction); // expect needs a name
+    try expectBad("3:do=", error.BadName); // empty name
+    try expectBad("3:do=:5", error.BadName); // empty name before the argument
+    try expectBad("3:do=bad-name:1", error.BadName); // '-' is not allowed in a command name
+    try expectBad("3:expect=bad$name", error.BadName);
+    try expectBad("3:do=" ++ ("a" ** 33), error.BadName); // over max_named_len
+    try expectBad("3:do=camera_player:" ++ ("9" ** 65), error.BadArgument); // argument over 64
+    try expectBad("3:do=camera_player:a b", error.BadArgument); // a space in the argument
+    try expectBad("3:expect=anchor_set:caf\xc3\xa9", error.BadArgument); // non-ASCII
+    try expectBad("3:do=camera_player:tab\there", error.BadArgument); // a control character
+}
+
+test "parse: a do argument may hold its own ':' and '='" {
+    try expectAction("3:do=name:a:b=c", .{ .do = .{ .name = "name", .arg = "a:b=c" } });
 }
 
 fn writeTga(buffer: []u8, width: u16, height: u16, top_first: bool, pixels_bgra: []const u8) []const u8 {

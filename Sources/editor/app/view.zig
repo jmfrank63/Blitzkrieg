@@ -439,6 +439,17 @@ pub fn ViewWith(comptime Input: type) type {
             if (real.setZoom(0) == .ok) self.syncFromBridge(real);
         }
 
+        /// Puts the world point (x, y) at the middle of the view: a camera
+        /// anchor's or an area's "Go to". Clamped to the map like every other
+        /// camera move.
+        pub fn centreOn(self: *Self, real: anytype, x: f32, y: f32) void {
+            var camera: view_math.Camera = .{ .x = x, .y = y };
+            camera.clamp(self.map);
+            self.camera_x = camera.x;
+            self.camera_y = camera.y;
+            _ = real.setCamera(self.camera_x, self.camera_y);
+        }
+
         /// The largest square the brush tool paints (tools.Brush.radius, 0-4),
         /// in corners along one side of that square of cells.
         const max_brush_corners: usize = 2 * 4 + 2;
@@ -1241,4 +1252,20 @@ test "view: a failed edit shows 'failed: ', the next good edit clears it; a tagg
     try testing.expectEqualStrings("failed: DeviceLost", rig.view.statusLine());
     rig.view.clearStatusFrom(.frame);
     try testing.expectEqualStrings("", rig.view.statusLine());
+}
+
+test "view: centreOn puts the camera at the point, clamped to the map, and tells the engine" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.view.centreOn(&rig.camera, 100, 120);
+    try testing.expectEqual(@as(f32, 100), rig.view.camera_x);
+    try testing.expectEqual(@as(f32, 120), rig.view.camera_y);
+    try testing.expectEqual(@as(f32, 100), rig.camera.anchor_x);
+    try testing.expectEqual(@as(f32, 120), rig.camera.anchor_y);
+    // Off the map: clamped like every other camera move.
+    rig.view.centreOn(&rig.camera, -50, 100000);
+    try testing.expectEqual(@as(f32, 0), rig.view.camera_x);
+    try testing.expect(rig.view.camera_y < 100000);
+    try testing.expectEqual(rig.view.camera_x, rig.camera.anchor_x);
+    try testing.expectEqual(rig.view.camera_y, rig.camera.anchor_y);
 }

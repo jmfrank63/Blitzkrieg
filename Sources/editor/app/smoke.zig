@@ -27,6 +27,7 @@ const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 const imgui = @import("editor_imgui");
 const auto_mod = @import("auto.zig");
+const commands = @import("commands.zig");
 
 const sdl = sdl3.c;
 const c = c_bridge.c;
@@ -1607,12 +1608,36 @@ pub const AutoRunner = struct {
             .waitgame => |seconds| return self.runWaitgame(seconds),
             .shot => |name| return self.runShot(name),
             .compare => |compare| return self.runCompare(compare),
+            .do => |named| return self.runDo(named),
+            .expect => |named| return self.runExpect(named),
             .exit => {
                 std.debug.print("map-editor: BK_EDITOR_AUTO: done ({d} actions)\n", .{self.actions_run});
                 self.done = true;
                 return false;
             },
         }
+    }
+
+    /// `do=<name>[:<arg>]`: the named command (commands.zig), the same code a
+    /// menu item or a panel button runs. A refusal has already put its reason
+    /// on the status line; it is repeated here so the log names the entry.
+    fn runDo(self: *AutoRunner, named: auto_mod.Named) bool {
+        return switch (commands.run(self.state, named.name, named.arg)) {
+            .ok => true,
+            .unknown_name => self.fail("do={s}: no such command", .{named.name}),
+            .bad_arg => self.fail("do={s}:{s}: bad argument", .{ named.name, named.arg }),
+            .refused => self.fail("do={s}:{s}: refused: {s}{s}", .{ named.name, named.arg, self.state.view.statusLine(), self.state.editor.status() }),
+        };
+    }
+
+    /// `expect=<name>[:<arg>]`: the named predicate (commands.zig) must hold.
+    fn runExpect(self: *AutoRunner, named: auto_mod.Named) bool {
+        return switch (commands.check(self.state, named.name, named.arg)) {
+            .ok => true,
+            .unknown_name => self.fail("expect={s}: no such predicate", .{named.name}),
+            .bad_arg => self.fail("expect={s}:{s}: bad argument", .{ named.name, named.arg }),
+            .refused => self.fail("expect={s}:{s} was false", .{ named.name, named.arg }),
+        };
     }
 
     fn runKey(self: *AutoRunner, key: auto_mod.Key) bool {

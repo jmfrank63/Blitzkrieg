@@ -6089,6 +6089,58 @@ fn addMapEditor(
     const auto_step = b.step("map-editor-auto", "Run BK_EDITOR_AUTO's editor-app scenario on a shipped map");
     auto_step.dependOn(&cleanup_autoshots.step);
 
+    // Phase 4's M2 scenario (04-03): the same loop and the same shipped map,
+    // scripted with the named commands and predicates (do=/expect=) instead
+    // of coordinates, so each M2 plan appends its own segment here. The
+    // schedule is a Zig array of entries joined with commas (research Q5) -
+    // frames ascending, one entry per line, so a later plan's segment is a
+    // block of lines and never an edit of one long string. No `test` action:
+    // the M2 game-reads-it checks belong to the plans that add them.
+    const auto_m2_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2");
+    const auto_m2_entries = [_][]const u8{
+        // 04-03: camera anchors, the tracer. coldwinter already holds anchors
+        // for players 0-3, so the segment works on player 4 and the neutral
+        // anchor, both unset there: set player 4 at the view centre, undo it
+        // (unset again), redo it, set the neutral one, go to player 0's
+        // anchor, clear the neutral one, then save and shoot the markers.
+        "3:do=camera_player:4",
+        "4:expect=anchor_set:4",
+        "5:expect=undo_depth:1",
+        "6:key=Z+ctrl",
+        "8:expect=anchor_unset:4",
+        "9:key=Y+ctrl",
+        "11:expect=anchor_set:4",
+        "12:expect=undo_depth:1",
+        "13:do=camera_neutral",
+        "14:expect=anchor_set:neutral",
+        "15:expect=undo_depth:2",
+        "16:do=camera_goto:0",
+        "17:do=camera_clear:neutral",
+        "18:expect=anchor_unset:neutral",
+        "19:expect=undo_depth:3",
+        b.fmt("20:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "21:shot=m2_anchor",
+        "22:exit",
+    };
+    const auto_m2_run = b.addRunArtifact(exe);
+    auto_m2_run.setCwd(b.path(stage_root));
+    auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m2_entries) catch @panic("OOM"));
+    // What it reads - the staged Data and engine - is not a file input of the
+    // step, so a cached pass would say nothing about the installation now.
+    auto_m2_run.has_side_effects = true;
+    auto_m2_run.step.dependOn(&install_exe.step);
+    // After map-editor-auto (which itself runs after the smoke), so two
+    // engines never start at once: this Zig has no ordering-only edge
+    // (Build.Step has no mustRunAfter), so the M1 scenario runs first.
+    auto_m2_run.step.dependOn(&cleanup_autoshots.step);
+    const cleanup_autoshots_m2 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_m2.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_m2.step.dependOn(&auto_m2_run.step);
+    const auto_m2_step = b.step("map-editor-auto-m2", "Run BK_EDITOR_AUTO's M2 scenario (named commands and predicates) on a shipped map");
+    auto_m2_step.dependOn(&cleanup_autoshots_m2.step);
+
     // Task 1's headless test-launch proof (D-01..D-09): the editor places a
     // unit and the real Game plays it, no person watching. Local-only
     // (RESEARCH.md Pitfall 6 / the spec's own test-tier table): it starts a

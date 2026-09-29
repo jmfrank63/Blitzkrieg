@@ -22,6 +22,10 @@ const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
 const testlaunch = @import("testlaunch.zig");
 const pictures_mod = @import("pictures.zig");
+const marker_logic = @import("marker_logic.zig");
+const markers = @import("markers.zig");
+const commands = @import("commands.zig");
+const panels_m2 = @import("panels_m2.zig");
 
 const ig = imgui.c;
 const Editor = core.editor.Editor;
@@ -53,6 +57,7 @@ const layout = struct {
     const tools_height: f32 = 150;
     const properties_height: f32 = 250;
     const players_height: f32 = 220;
+    const anchors_height: f32 = 190;
 };
 
 /// The map types the map file names (CMapInfo::GAME_TYPE,
@@ -270,6 +275,17 @@ pub const State = struct {
         max_radius: c_int = 0,
         active: bool = false,
     } = .{},
+
+    /// The open map's camera anchors (D-22), for the Camera anchors panel and
+    /// the anchor markers. Read again whenever a map opens (`mapOpened`) or
+    /// `editor.record_generations` for the anchors moves past
+    /// `anchors_generation_seen` (`refreshAnchors`, called from `draw`): an
+    /// anchor edit, undo or redo does not go through `mapOpened`.
+    anchors: core.records.CameraAnchors = .{},
+    anchors_generation_seen: u32 = 0,
+    /// View -> Markers: which M2 marker kinds are drawn (all, until switched
+    /// off). The active tool's own kinds are drawn regardless.
+    marker_set: marker_logic.MarkerSet = .{},
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -499,6 +515,17 @@ pub const State = struct {
         self.view.brush.tile = tile;
     }
 
+    /// Re-reads the camera anchors into `anchors` when the map's anchor
+    /// record moved since the last read (or no map is open: none). A read
+    /// that fails leaves them unset, which the panel and the markers show as
+    /// "unset" rather than as stale positions.
+    pub fn refreshAnchors(self: *State) void {
+        const generation = self.editor.record_generations.get(.camera_anchors);
+        if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
+        self.anchors_generation_seen = generation;
+        self.anchors = commands.readAnchors(self) orelse .{};
+    }
+
     /// Why the brush has no tiles right now, when a map is open (`tiles()` is
     /// empty but `mapIsOpen` is true) - empty otherwise.
     pub fn tileReason(self: *const State) []const u8 {
@@ -520,6 +547,8 @@ pub const State = struct {
         self.sound_edit.active = false;
         self.loadSounds();
         self.sounds_generation_seen = self.editor.sounds_generation;
+        self.anchors_generation_seen = self.editor.record_generations.get(.camera_anchors);
+        self.anchors = commands.readAnchors(self) orelse .{};
         self.unknown_types_count = 0;
         self.unknown_objects_total = 0;
         self.unknown_popup_shown = false;
@@ -566,7 +595,9 @@ pub fn draw(state: *State) void {
     // calls - it targets the background draw list (behind the panels'
     // window draw lists regardless of call order), so this is about
     // reading this frame's hover/tool state before anything else changes it.
+    state.refreshAnchors();
     state.view.drawOverlay(state.real, state.sounds, state.selected_sound);
+    markers.drawM2Markers(state, state.real);
     const menu_height = drawMenuBar(state);
     // ImGui's own capture flag (WantTextInput, not WantCaptureKeyboard): a
     // properties field mid-edit must keep F5 as a literal keystroke, but a
@@ -594,7 +625,8 @@ pub fn draw(state: *State) void {
     const right_x = @max(size.x - state.right_width, state.left_width);
     drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
     drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);
-    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height, 100) }, cond);
+    panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
+    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height + layout.anchors_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height - layout.anchors_height, 100) }, cond);
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
@@ -1312,6 +1344,10 @@ fn drawMenuBar(state: *State) f32 {
         if (ig.igMenuItemEx("Settings...", null, false, true)) openSettingsWindow(state);
         ig.igEndMenu();
     }
+    if (ig.igBeginMenu("Map")) {
+        drawMapMenu(state, map_open);
+        ig.igEndMenu();
+    }
     if (ig.igBeginMenu("Tools")) {
         inline for (.{ .{ "Select", "1", Tool.select }, .{ "Brush", "2", Tool.brush }, .{ "Place", "3", Tool.place } }) |item| {
             if (ig.igMenuItemEx(item[0], item[1], state.view.tool == item[2], true)) state.view.selectTool(editor, item[2]);
@@ -1320,6 +1356,13 @@ fn drawMenuBar(state: *State) f32 {
     }
     if (ig.igBeginMenu("View")) {
         if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
+        if (ig.igBeginMenu("Markers")) {
+            inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {
+                var on = state.marker_set.has(kind);
+                if (ig.igMenuItemBoolPtr(kind.label(), null, &on, true)) state.marker_set.setKind(kind, on);
+            }
+            ig.igEndMenu();
+        }
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Test")) {
@@ -1328,6 +1371,21 @@ fn drawMenuBar(state: *State) f32 {
     }
     ig.igEndMainMenuBar();
     return height;
+}
+
+/// Map > Player camera (D-22): the ground point under the screen's centre
+/// becomes the anchor of the current player (the placer's player) or the
+/// neutral one - the same commands the Camera anchors panel and
+/// BK_EDITOR_AUTO's `do=` run.
+fn drawMapMenu(state: *State, map_open: bool) void {
+    if (ig.igBeginMenu("Player camera")) {
+        const player: i32 = @max(state.view.placer.player, 0);
+        var label: [48:0]u8 = undefined;
+        const label_text = std.fmt.bufPrintZ(&label, "Set camera for player {d}", .{player}) catch "Set camera for player";
+        if (ig.igMenuItemEx(label_text, null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, player);
+        if (ig.igMenuItemEx("Set neutral camera", null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, commands.neutral_slot);
+        ig.igEndMenu();
+    }
 }
 
 /// File > Open Recent (D-27): every entry's existence, checked once for the
@@ -1527,7 +1585,7 @@ const label_room: f32 = 110;
 /// width right after `igBegin` - the caller's column keeps whatever width the
 /// user last dragged it to, even on an `Always` frame, because `size.x` was
 /// itself read back from here the frame before.
-fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond, track_width: ?*f32) bool {
+pub fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond, track_width: ?*f32) bool {
     ig.igSetNextWindowPos(pos, cond);
     ig.igSetNextWindowSize(size, cond);
     const open = ig.igBegin(name, null, ig.ImGuiWindowFlags_NoCollapse);
@@ -1539,12 +1597,12 @@ fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImG
 }
 
 /// Ends what beginPanel began; igEnd whether or not it was open.
-fn endPanel(open: bool) void {
+pub fn endPanel(open: bool) void {
     if (open) ig.igPopItemWidth();
     ig.igEnd();
 }
 
-fn text(slice: []const u8) void {
+pub fn text(slice: []const u8) void {
     ig.igTextUnformattedEx(slice.ptr, slice.ptr + slice.len);
 }
 

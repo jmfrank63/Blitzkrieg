@@ -2262,3 +2262,33 @@ test "dialog folder: a relative maps folder is under the user root, not the work
     const expected_default = if (builtin.os.tag == .windows) "C:\\Users\\me\\AppData\\Blitzkrieg\\maps" else "/Users/me/.local/share/Nival/Blitzkrieg/maps";
     try std.testing.expectEqualStrings(expected_default, dialogFolderFor(&buffer, "", root, null).?);
 }
+
+// ---- M2 foundations (04-03): camera anchor slots, and the pure files whose
+// tests only run when a test root imports them (Pitfall 18).
+
+/// Editor.setCameraAnchor's numbering: -1 is the neutral anchor, 0.. a
+/// player's.
+pub const neutral_anchor_slot: i32 = -1;
+
+/// `neutral`, or a player number below the anchor record's capacity (32).
+/// The argument of the camera commands and predicates.
+pub fn parseAnchorSlot(arg: []const u8) ?i32 {
+    if (std.mem.eql(u8, arg, "neutral")) return neutral_anchor_slot;
+    const player = std.fmt.parseInt(u32, arg, 10) catch return null;
+    if (player >= core.records.max_camera_players) return null;
+    return @intCast(player);
+}
+
+test "parseAnchorSlot takes neutral and players below the record's capacity" {
+    try std.testing.expectEqual(@as(?i32, -1), parseAnchorSlot("neutral"));
+    try std.testing.expectEqual(@as(?i32, 0), parseAnchorSlot("0"));
+    try std.testing.expectEqual(@as(?i32, 31), parseAnchorSlot("31"));
+    try std.testing.expectEqual(@as(?i32, null), parseAnchorSlot("32"));
+    try std.testing.expectEqual(@as(?i32, null), parseAnchorSlot("-1"));
+    try std.testing.expectEqual(@as(?i32, null), parseAnchorSlot("Neutral"));
+    try std.testing.expectEqual(@as(?i32, null), parseAnchorSlot(""));
+}
+
+test {
+    _ = @import("marker_logic.zig");
+}
