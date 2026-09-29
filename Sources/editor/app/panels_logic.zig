@@ -989,18 +989,22 @@ pub const TestLaunchPrompt = struct {
 
     /// The running game's exit reached the poll. Returns .start when this
     /// was the old game restarting was waiting for - the caller starts the
-    /// new one immediately. A non-clean exit (describe() != .clean) is kept
+    /// new one immediately. That exit is the one Restart asked for
+    /// (`Running.terminate`: TerminateProcess's code 1 on Windows, SIGTERM
+    /// or SIGKILL on POSIX), so it is expected and never reported, whatever
+    /// its shape. Any other non-clean exit (describe() != .clean) is kept
     /// as a report until acknowledgeReport(); a clean one reports nothing,
     /// including the D-06 "Keep it running" case, since the prompt was
     /// never re-asked for that game.
     pub fn gameExited(self: *TestLaunchPrompt, exit: testlaunch.Exit, log_path: []const u8) Step {
         const was_restarting = self.state == .restarting;
         self.state = .idle;
+        if (was_restarting) return .start;
         if (testlaunch.describe(exit) != .clean) {
             self.setReport(exit, log_path);
             self.state = .reporting;
         }
-        return if (was_restarting) .start else .none;
+        return .none;
     }
 
     /// The failure report to show, or null when there is none pending.
@@ -2077,12 +2081,38 @@ test "TestLaunchPrompt: a Test while one runs asks; Keep leaves it running" {
     try std.testing.expect(prompt.report() == null);
 }
 
-test "TestLaunchPrompt: Restart waits for the old game's exit, then starts the new one" {
+test "TestLaunchPrompt: Restart waits for the terminated game's exit, then starts the new one without reporting it" {
+    // The exits Running.terminate really produces: TerminateProcess's code
+    // on Windows, SIGTERM - or SIGKILL five seconds on - on POSIX, early or
+    // late in the game's life. describe() calls each a failure.
+    const terminated = [_]testlaunch.Exit{
+        .{ .code = testlaunch.windows_terminate_exit_code, .signal = null, .lifetime_ms = 30_000 },
+        .{ .code = testlaunch.windows_terminate_exit_code, .signal = null, .lifetime_ms = 800 },
+        .{ .code = null, .signal = testlaunch.posix_terminate_signal, .lifetime_ms = 30_000 },
+        .{ .code = null, .signal = testlaunch.posix_kill_signal, .lifetime_ms = 35_000 },
+    };
+    for (terminated) |exit| {
+        try std.testing.expect(testlaunch.describe(exit) != .clean);
+        var prompt: TestLaunchPrompt = .{};
+        try std.testing.expectEqual(TestLaunchPrompt.Step.ask_restart, prompt.request(true));
+        prompt.answer(.restart);
+        try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.gameExited(exit, "log"));
+        try std.testing.expect(prompt.report() == null);
+        try std.testing.expect(!prompt.isAskingRestart());
+        // The new game, once it runs, is watched like any other: its own
+        // crash is reported.
+        try std.testing.expectEqual(TestLaunchPrompt.Step.none, prompt.gameExited(.{ .code = null, .signal = 11, .lifetime_ms = 30_000 }, "log"));
+        try std.testing.expect(prompt.report() != null);
+    }
+}
+
+test "TestLaunchPrompt: a kept game that dies later is still reported" {
     var prompt: TestLaunchPrompt = .{};
     _ = prompt.request(true);
-    prompt.answer(.restart);
-    try std.testing.expectEqual(TestLaunchPrompt.Step.start, prompt.gameExited(.{ .code = 0, .signal = null, .lifetime_ms = 30_000 }, "log"));
-    try std.testing.expect(prompt.report() == null);
+    prompt.answer(.keep);
+    try std.testing.expectEqual(TestLaunchPrompt.Step.none, prompt.gameExited(.{ .code = testlaunch.windows_terminate_exit_code, .signal = null, .lifetime_ms = 60_000 }, "log"));
+    const message = prompt.report() orelse return error.TestUnexpectedResult;
+    try std.testing.expect(std.mem.indexOf(u8, message, "code 1") != null);
 }
 
 test "TestLaunchPrompt: an early failure produces a report naming the code and the log" {

@@ -107,6 +107,15 @@ pub fn gamePath(io: Io, buffer: *[Io.Dir.max_path_bytes]u8) ![]const u8 {
 
 pub const Exit = struct { code: ?u32, signal: ?u32, lifetime_ms: u64 };
 
+/// The exits `Running.terminate` produces, as `poll` reports them: Windows'
+/// TerminateProcess ends the game with this code; POSIX ends it by SIGTERM,
+/// or by SIGKILL five seconds later if it is still running. `describe` calls
+/// every one of them a failure - it cannot know the editor asked for it -
+/// so the caller that asked (TestLaunchPrompt's Restart) must.
+pub const windows_terminate_exit_code: u32 = 1;
+pub const posix_terminate_signal: u32 = 15; // SIGTERM
+pub const posix_kill_signal: u32 = 9; // SIGKILL
+
 pub const Outcome = enum { clean, early_failure, failure };
 
 /// clean: exited 0. early_failure: a nonzero exit or a signal within five
@@ -244,7 +253,7 @@ pub const Running = struct {
         if (self.exit != null) return;
         const pid = self.child.id orelse return;
         if (builtin.os.tag == .windows) {
-            _ = TerminateProcess(pid, 1);
+            _ = TerminateProcess(pid, windows_terminate_exit_code);
             return;
         }
         std.posix.kill(pid, .TERM) catch {};
@@ -351,6 +360,18 @@ test "describe: a clean exit, an early failure, and a later failure" {
     try std.testing.expectEqual(Outcome.early_failure, describe(.{ .code = null, .signal = 11, .lifetime_ms = 4999 }));
     try std.testing.expectEqual(Outcome.failure, describe(.{ .code = 1, .signal = null, .lifetime_ms = 30000 }));
     try std.testing.expectEqual(Outcome.clean, describe(.{ .code = 0, .signal = null, .lifetime_ms = 30000 }));
+}
+
+test "describe: the exits terminate() causes read as failures, so its caller has to know it asked" {
+    try std.testing.expectEqual(Outcome.failure, describe(.{ .code = windows_terminate_exit_code, .signal = null, .lifetime_ms = 30_000 }));
+    try std.testing.expectEqual(Outcome.failure, describe(.{ .code = null, .signal = posix_terminate_signal, .lifetime_ms = 30_000 }));
+    try std.testing.expectEqual(Outcome.early_failure, describe(.{ .code = null, .signal = posix_kill_signal, .lifetime_ms = 4_000 }));
+}
+
+test "the POSIX terminate signals are the platform's own SIGTERM and SIGKILL" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    try std.testing.expectEqual(posix_terminate_signal, @as(u32, @intFromEnum(std.posix.SIG.TERM)));
+    try std.testing.expectEqual(posix_kill_signal, @as(u32, @intFromEnum(std.posix.SIG.KILL)));
 }
 
 test "mapSoundTrace: registered, then started, at the placed point" {
