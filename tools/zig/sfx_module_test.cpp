@@ -2,15 +2,60 @@
 #include "SFX.h"
 #include "Platform/DynamicLibrary.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 static bool Check(bool value, const char* message)
 {
 	if (!value)
 		std::fprintf(stderr, "sfx module test failed: %s\n", message);
 	return value;
+}
+
+// Voices must start, stop and pause without a click: the backend renders a
+// constant 0.5 at volume 64/255 offline (BkSFXRenderVoiceTest) and every
+// step between two frames must be a ramp's, never a jump.
+static bool CheckVoiceRamps(NPlatform::DynamicLibrary& module)
+{
+	using RenderVoice = int (STDCALL*)(int, float*, int);
+	const RenderVoice renderVoice = reinterpret_cast<RenderVoice>(module.GetFunction("BkSFXRenderVoiceTest"));
+	if (!Check(renderVoice != nullptr, "voice render test export"))
+		return false;
+
+	const int nFrames = 8820;
+	const float fLevel = 0.5f * 64.0f / 255.0f;
+	const float fMaxStep = 0.01f;
+	const char* names[] = { "", "start", "stop", "pause" };
+	for (int nScenario = 1; nScenario <= 3; ++nScenario)
+	{
+		std::vector<float> mix(nFrames * 2, 0.0f);
+		const int nRendered = renderVoice(nScenario, mix.data(), nFrames);
+		if (!Check(nRendered == nFrames, "voice render test ran"))
+			return false;
+		float fPeak = 0.0f;
+		float fStep = std::fabs(mix[0]);
+		for (int i = 0; i < nFrames; ++i)
+		{
+			fPeak = std::fabs(mix[i * 2]) > fPeak ? std::fabs(mix[i * 2]) : fPeak;
+			if (i > 0 && std::fabs(mix[i * 2] - mix[(i - 1) * 2]) > fStep)
+				fStep = std::fabs(mix[i * 2] - mix[(i - 1) * 2]);
+		}
+		const float fMid = mix[(nFrames / 2 - 1) * 2];
+		const float fEnd = mix[(nFrames - 1) * 2];
+		std::printf("sfx voice %s: peak %.4f (mix level %.4f), largest step %.5f, at 100 ms %.4f, at the end %.4f\n", names[nScenario], fPeak, fLevel, fStep, fMid, fEnd);
+		if (!Check(fStep < fMaxStep, "a voice changes level by ramps, never by a jump (click)"))
+			return false;
+		if (!Check(fPeak <= fLevel * 1.02f, "a voice never plays louder than its mix volume"))
+			return false;
+		if (!Check(std::fabs(fMid - fLevel) < fLevel * 0.02f, "a voice reaches its mix volume"))
+			return false;
+		if (!Check(std::fabs(fEnd - (nScenario == 1 ? fLevel : 0.0f)) < 0.001f, nScenario == 1 ? "a started voice keeps playing" : "a stopped or paused voice falls silent"))
+			return false;
+	}
+	return true;
 }
 
 int main(int argc, char** argv)
@@ -31,6 +76,8 @@ int main(int argc, char** argv)
 		return 5;
 	if (!Check(descriptor->pFactory->GetNumKnownTypes() == 6, "factory type count"))
 		return 6;
+	if (!CheckVoiceRamps(module))
+		return 11;
 
 	ISFX* sfx = static_cast<ISFX*>(descriptor->pFactory->CreateObject(SFX_SFX));
 	if (!Check(sfx != nullptr, "SFX factory object"))
