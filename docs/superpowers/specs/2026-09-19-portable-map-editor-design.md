@@ -21,7 +21,7 @@ interfaces is.
 | Sub-project | Content | Status |
 |---|---|---|
 | **Map Editor M1** | core editing loop, macOS first | this document |
-| Map Editor M2 | roads and rivers, AI and unit groups, scripts and areas | later |
+| **Map Editor M2** | roads and rivers, bridges (with rotate and built during play), entrenchments, fences, script IDs and reinforcement groups, start commands, reserve positions, AI general, script file and script areas, camera anchors; see "M2 scope" | phase 4 |
 | Map Editor M3 | random map templates, minimap tools, parity; delete the MFC editor | later |
 | Resource Editor | `Sources/src/editor`, ~64k lines, 20+ sub-editors | own spec |
 | ELK | localisation kit, ~12k lines | own spec |
@@ -48,7 +48,9 @@ In:
   screen positions with no ground left under them. Delivering it correctly
   needs terrain rendering through the view matrix, engine/renderer work
   outside M1's scope. `BkEditorSetYaw` and the measurement stay in the
-  bridge as evidence for a future M2/M3 revisit; no input is wired to them.
+  bridge as evidence; no input is wired to them. **Closed for the map
+  editor on 2026-09-30 (phase 4, D-23):** not "a future M2/M3 revisit" - see
+  "M2 scope" below for the reason.
 - Paint terrain tiles with a brush.
 - Place, select, move, rotate and delete objects and units, from a palette
   built from the object database, each shown with its own picture (see
@@ -80,11 +82,61 @@ database does not know. **Changed from the spec, by decision during 03-10:**
 the map's sound list (`CMapInfo::sounds.sounds`, not `soundsList` — see
 "Editor: sound list" below) is edited by M1, with its own undo/redo; M1 never
 drops, reorders or recomputes any of the rest of the data it did not change.
-See "Saving: the snapshot and the overlay".
+See "Saving: the snapshot and the overlay". M2 (phase 4) edits the collections
+named above record by record and keeps the same invariant for every record it
+does not touch; see "M2 scope".
 
-Out (later milestones): roads, rivers, fences and bridges drawing; AI groups,
+Out of M1: roads, rivers, fences and bridges drawing; AI groups,
 reinforcements and scripts; areas and script areas; random map template
-dialogs; minimap tools; mission objectives; height editing.
+dialogs; minimap tools; mission objectives; height editing. M2 builds the
+first three of these (see "M2 scope"); the rest stays with M3.
+
+## M2 scope
+
+Phase 4 builds, for each of these, the MFC editor's editing at parity, on the
+M1 chain (tool, `Editor`, bridge vtable, C ABI, session, snapshot and working
+copy edited together):
+
+- **Roads and rivers** drawn as control-point polylines, with width and
+  opacity, sampled by `CVSOBuilder` and stored with the bridge's own `nID`.
+- **Bridges** drawn as whole span groups, rotated, deleted, and toggled
+  between intact and built during play; **entrenchments** (trenches) drawn as
+  a whole; **fences** drawn as runs. A bridge span, a trench piece and a fence
+  are no longer placed one by one from the palette (D-05, `WhyNotPlacedByPalette`),
+  while objects of those types in a loaded map still load, draw and move.
+- **Script IDs and reinforcement groups**, the **script file** beside the map
+  and **script areas** (named, unique, in AI units).
+- **Start commands**, **reserve positions** and the **AI general** (its sides
+  and parcels).
+- **Camera anchors**, one neutral and one per player.
+
+Deleting an object that other records refer to cascades instead of refusing
+(see "References to deleted objects"). Every collection is saved record by
+record (see "Saving: the snapshot and the overlay").
+
+**Built during play (correction of the parity table's wording).** The
+05-PARITY row VO3 says "destroyed/intact". What the MFC editor does
+(`RoadDrawState.cpp:1244-1272`) is toggle a bridge between intact (`fHP` 1)
+and *built during play* (`fHP` -1 on every span), and only for
+`WoodenBig_Heavy_*` bridges. M2 does exactly that; the row itself is edited in
+04-13.
+
+**Free camera rotation is closed for the map editor** (D-23, 2026-09-30). It
+is not deferred to M3 and not waiting for a later milestone. The 03-06
+measurement, on `coldwinter`, showed the lower half of the frame going from
+0.5 % black at the game's own 45 degrees to 9.4 / 94.0 / 99.2 / 89.8 % black
+at +30 / +90 / +180 / +270 degrees: `CTerrain::MovePatches`
+(`Scene/TerrainInternal.cpp:237-256`) lays the terrain out on a fixed
+isometric screen grid, and any other yaw clips it away. Rewriting the terrain
+through the view matrix would not deliver what rotation was for, either:
+every building, tree and infantry sprite and the tile art are pre-rendered
+for one angle with the lighting baked in, so rotating the view cannot show the
+back of a building. The need to see behind buildings is met instead by
+markers drawn above the sprites in M2 and by M3's Units/Objects layer
+toggles. `BkEditorSetYaw` and the engine tier's `TestYawMeasurement` stay in
+the bridge as evidence, with no input bound to them. Reopening the question
+needs a renderer phase for the terrain and new multi-angle art, not an editor
+change.
 
 ## Architecture
 
@@ -100,8 +152,15 @@ wrappers:
   mod's), read `consts.xml`, create the object database, start the engine on
   the editor's window (see "Startup contract"), `IGFX::SetMode`, `LoadDB`.
   This is the game's startup (`Game/GameMain.cpp`) without `CMainLoop` and
-  its menu screens. A data-only variant (storage, constants, object database,
-  no renderer, no window) exists for the map file tests.
+  its menu screens. A data-only variant (storage and constants only: no
+  object database, no renderer, no window) exists for the map file tests
+  (`tools/zig/data_only_startup.cpp`; the object database is created after the
+  renderer in the bridge, because `LoadDB` reads textures). Because the map
+  file tier has no object database, geometry the bridge and the tests must
+  agree on (bridge span plans, fence runs, trench pieces, area conversion) is
+  plain-number C++ shared by the bridge and the map-file tier, taking span
+  lengths, directions and index lists rather than `SBridgeRPGStats` and the
+  like.
 - **Object catalogue:** `IObjectsDB::GetAllDescs()` as plain records (name,
   kind, path, icon).
 - **Map load and save:** see "Map files", "Building the engine state" and
@@ -267,6 +326,42 @@ It saves the **snapshot with the M1 edits laid over it**:
   `unitCreation` changes.
 - **Everything else** is written from the snapshot unchanged.
 
+**M2: record by record (D-01).** Each M2 collection - the script file, camera
+anchors, script areas, reinforcement groups, start commands, reserve
+positions, the AI general's sides, roads, rivers, bridge entries, entrenchment
+entries, and an object's script ID and HP - is laid over the snapshot the same
+way:
+
+- an untouched collection is written from the snapshot byte for byte;
+- in an edited collection an untouched record stays byte-identical, an edited
+  record is replaced in place, a new record is appended, a deleted record is
+  removed, and nothing is renumbered or rebuilt;
+- list order is kept (`startCommandsList` and `reservePositionsList` are
+  `std::list`; `reinforcements.groups` is written sorted by group ID, whatever
+  order the groups were put in).
+
+The bridge keeps its own copy of every collection, in the snapshot and in the
+working copy, as it does for terrain; the engine is never the source of the
+saved data. The record-level operations are `NMapRecords` (`Sources/src/MapFile`),
+which needs neither the engine nor the object database: the bridge applies
+them to its copies and the map-file tier builds its expected maps with them.
+An edit followed by its inverse writes the unedited file byte for byte, and
+the tests prove it for every collection.
+
+The MFC editor's save-time rewrites are **not copied**. There are five:
+
+1. `HandOutLinks` link renumbering;
+2. the silent `CheckMap` fixes;
+3. the full shade recompute;
+4. the `playersCameraAnchors[0]` overwrite;
+5. the camera-anchor resize on open: `MakeCamera()` resizes
+   `playersCameraAnchors` to `diplomacies.size() - 1`, filled with `VNULL3`, on
+   every open (`TemplateEditorFrame1.cpp:3421-3435`), so an MFC save rewrites
+   the vector's size. The editor never resizes it on open. "Set camera for
+   player N" pads the vector with `VNULL3` up to N + 1 and never shrinks it
+   (`VNULL3` is "not set": the game falls back to the neutral anchor), and
+   undo restores the exact old size.
+
 ### Terrain edits
 
 A painted tile has derived effects the engine computes, and the saved map
@@ -309,13 +404,31 @@ The pass in step 3 makes the order of commands matter. So:
   it runs;
 - undo restores exactly those, in the copy and in the engine.
 
-**References to deleted objects.** Other records can refer to an object's
-link ID: `bridges`, `startCommandsList.unitLinkIDs`, `reinforcements`,
-`link.nLinkWith` of objects inside it, and groups. Deleting such an object
-in M1 is **refused**, with a status bar message naming what refers to it,
-until M2 can edit those references. Deleting an object that nothing refers
-to always works. The only exception is a passenger whose `nLinkWith` points
-at a deleted vehicle: the vehicle's delete is refused too.
+**References to deleted objects.** Other records can refer to an object: by
+link ID (`bridges`, entrenchment sections, `startCommandsList` units and
+target, `reservePositionsList` artillery and truck, `link.nLinkWith` of objects
+inside it) and by script ID (reinforcement groups, the AI general's
+`mobileScriptIDs`). Link ID 0 means "no link" and is never a reference.
+
+In M1, deleting an object that something refers to was **refused** with a
+status bar message naming what refers to it. From M2 the delete **cascades**
+(D-04, as amended by research correction C3), as one undo step that puts every
+edited record back at its index:
+
+- a reserve position is erased when its artillery **or** its truck is the
+  deleted object (what the MFC editor does; a towed gun without its truck is a
+  position the editor cannot create);
+- a start command loses the deleted unit, and is erased when no unit is left;
+  a start command whose target is the deleted object gets target link 0;
+- script-ID references are left alone: reinforcement groups and
+  `mobileScriptIDs` name script IDs, which other objects may share and Lua
+  scripts may use. The status bar notes that a script ID is still referenced
+  when the last object carrying it is deleted.
+
+A refusal stays only for a bridge span (it belongs to its bridge; delete the
+bridge), an entrenchment piece (delete the trench), and an object carrying a
+passenger, whose `nLinkWith` points at the deleted vehicle. Deleting an object
+that nothing refers to always works.
 
 ### Object palette pictures
 
@@ -514,7 +627,8 @@ alone).
 - **Edit:** a command whose bridge call fails is not recorded and leaves the
   document unchanged. Edits outside the map are refused. A placement the
   engine rejects is a status bar note, not an error. So is a refused delete
-  of a referenced object.
+  of a bridge span, an entrenchment piece or an object carrying a passenger;
+  any other delete cascades (see "References to deleted objects").
 - **Save:** write to a temporary file beside the real one (the map's own
   extension, `<stem>.~save<ext>`), have `SaveSessionMap` read it back and
   compare it to what was meant to be written — `BK_EDITOR_FAILED` naming
@@ -564,7 +678,11 @@ builder**. It starts from the original map as read and replays the edit
 sequence:
 - a paint command runs the terrain function of "Terrain edits" (the same C++
   code the bridge uses);
-- object and diplomacy edits apply the overlay rules of "Saving".
+- object and diplomacy edits apply the overlay rules of "Saving";
+- every M2 edit is built with `NMapRecords` (and, from 04-06, `NMapGeometry`,
+  the plain-number geometry unit) on the original map: the same functions the
+  bridge applies to its own copies, so the expected value never depends on the
+  engine.
 
 The saved map must then be equivalent to that value. So, for terrain:
 - outside the affected regions, every tile and every patch equals the

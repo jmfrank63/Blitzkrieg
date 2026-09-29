@@ -108,9 +108,12 @@ bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int 
 		memcpy( pOut[i].name, rszName.c_str(), nCopy );
 		pOut[i].name[nCopy] = 0;
 		pOut[i].game_type = int( pDescs[i].eGameType );
-		// The same two questions AddObjectToSession asks; the squad lookup is
+		// The same three questions AddObjectToSession asks; the squad lookup is
 		// skipped (no database passed), since only an empty answer matters here.
-		pOut[i].placeable = WhyNotAMapObject( pDescs[i].eGameType ) == 0 && WhyNotPlacedAlone( 0, pDescs[i] ).empty() ? 1 : 0;
+		// WhyNotPlacedByPalette is D-05: a span, a trench piece and a fence are
+		// drawn with their tools, not offered one by one.
+		pOut[i].placeable = WhyNotAMapObject( pDescs[i].eGameType ) == 0 && WhyNotPlacedByPalette( pDescs[i].eGameType ) == 0 &&
+		                    WhyNotPlacedAlone( 0, pDescs[i] ).empty() ? 1 : 0;
 	}
 	if ( nDescs > nCapacity )
 	{

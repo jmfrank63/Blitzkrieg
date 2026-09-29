@@ -3520,6 +3520,143 @@ static bool SameBytes( const std::string &szLeft, const std::string &szRight )
 	return szL == szR;
 }
 
+static std::vector<BkEditorObjectRecord> ReadObjectRecords( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorObjects( pSession, 0, 0, &nCount );
+	std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+	int nRead = 0;
+	if ( BkEditorObjects( pSession, &records[0], nCount, &nRead ) != BK_EDITOR_OK )
+		nRead = 0;
+	records.resize( nRead );
+	return records;
+}
+
+// D-05: a bridge span, a trench piece and a fence are drawn with their own
+// tools in M2, so the catalogue reports them not placeable and BkEditorAddObject
+// refuses them naming the tool - while a loaded map's spans, pieces and fences
+// still load, draw and move (WhyNotAMapObject, which also guards
+// PlaceOneObject, is untouched).
+static void TestM2PaletteFilter( BkEditorSession *pSession, const std::string &szScratch )
+{
+	(void)szScratch;
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	if ( !Check( nCatalogue > 0, "the catalogue has entries" ) )
+		return;
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue );
+	int nCatalogueRead = 0;
+	if ( !Check( BkEditorCatalogue( pSession, &catalogue[0], nCatalogue, &nCatalogueRead ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// Every entry of game type 4, 6 and 9 is not placeable.
+	std::string szTrench, szSpan, szFence;
+	std::set<std::string> fenceNames;
+	int nFiltered = 0;
+	for ( int i = 0; i < nCatalogueRead; ++i )
+	{
+		const int nType = catalogue[i].game_type;
+		if ( nType != 4 && nType != 6 && nType != 9 )
+			continue;
+		++nFiltered;
+		Check( catalogue[i].placeable == 0, NStr::Format( "%s (game type %d) is not placeable", catalogue[i].name, nType ) );
+		if ( nType == 4 && szTrench.empty() ) szTrench = catalogue[i].name;
+		if ( nType == 6 && szSpan.empty() ) szSpan = catalogue[i].name;
+		if ( nType == 9 ) { if ( szFence.empty() ) szFence = catalogue[i].name; fenceNames.insert( catalogue[i].name ); }
+	}
+	printf( "editor-bridge: %d catalogue entries of game type 4, 6 and 9 are not placeable\n", nFiltered );
+	Check( nFiltered > 0 && !szSpan.empty(), "the catalogue has bridge spans to filter" );
+
+	// An add of each is refused naming its tool, and the map does not change.
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const size_t nObjectsBefore = ReadObjectRecords( pSession ).size();
+	const struct { const std::string *pName; const char *pszTool; } refusals[] = { { &szSpan, "Bridge tool" }, { &szTrench, "Entrenchment tool" }, { &szFence, "Fence tool" } };
+	for ( int i = 0; i < 3; ++i )
+	{
+		if ( refusals[i].pName->empty() )
+			continue;
+		int nLinkID = -1;
+		Check( BkEditorAddObject( pSession, refusals[i].pName->c_str(), 200.0f, 200.0f, 0, 0, &nLinkID ) == BK_EDITOR_REFUSED,
+		       ( "an add of " + *refusals[i].pName + " is refused" ).c_str() );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( refusals[i].pszTool ) != std::string::npos,
+		       ( std::string( "and the message names the " ) + refusals[i].pszTool ).c_str() );
+	}
+	Check( ReadObjectRecords( pSession ).size() == nObjectsBefore, "the refused adds changed nothing in the map" );
+
+	// A loaded map's spans still load: arnheim opens with every span placed.
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( summary.bridge_span_count > 0 && summary.bridge_span_placed == summary.bridge_span_count,
+		       "arnheim still opens with every bridge span placed" );
+
+	// A loaded fence still moves. Found by reading shipped maps (lightly, not
+	// through the engine) for an object named like a catalogue fence with a
+	// nonzero link ID nothing else shares.
+	std::string szFenceMap;
+	int nFenceLink = 0;
+	{
+		int nExamined = 0;
+		std::error_code error;
+		std::filesystem::recursive_directory_iterator it( "Data/Maps", error ), end;
+		for ( ; !error && it != end && nExamined < 60 && nFenceLink == 0; it.increment( error ) )
+		{
+			if ( it->is_directory() || it->path().extension() != ".bzm" )
+				continue;
+			++nExamined;
+			std::string szCandidate = it->path().string();
+			for ( std::string::size_type i = 0; i < szCandidate.size(); ++i )
+				if ( szCandidate[i] == '/' ) szCandidate[i] = '\\';
+			CMapInfo candidate;
+			std::string szCandidateError;
+			if ( !NMapFile::Read( szCandidate.c_str(), &candidate, &szCandidateError ) )
+				continue;
+			std::map<int, int> counts;
+			for ( size_t i = 0; i < candidate.objects.size(); ++i ) ++counts[candidate.objects[i].link.nLinkID];
+			for ( size_t i = 0; i < candidate.scenarioObjects.size(); ++i ) ++counts[candidate.scenarioObjects[i].link.nLinkID];
+			for ( size_t i = 0; i < candidate.objects.size() && nFenceLink == 0; ++i )
+			{
+				const SMapObjectInfo &rObject = candidate.objects[i];
+				if ( rObject.link.nLinkID != 0 && counts[rObject.link.nLinkID] == 1 && fenceNames.count( rObject.szName ) != 0 )
+				{
+					szFenceMap = szCandidate;
+					nFenceLink = rObject.link.nLinkID;
+				}
+			}
+		}
+		printf( "editor-bridge: TestM2PaletteFilter looks for a fence in %d shipped maps: %s\n", nExamined, szFenceMap.empty() ? "none found" : szFenceMap.c_str() );
+	}
+	if ( !Check( nFenceLink != 0, "a shipped map holds a fence to move" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szFenceMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorObjectRecord fence;
+	memset( &fence, 0, sizeof fence );
+	bool bFound = false;
+	const std::vector<BkEditorObjectRecord> objects = ReadObjectRecords( pSession );
+	for ( size_t i = 0; i < objects.size(); ++i )
+		if ( objects[i].link_id == nFenceLink ) { fence = objects[i]; bFound = true; }
+	if ( !Check( bFound && fence.known != 0, "the fence reads back as a known object" ) )
+		return;
+	// A step either way, in case one side is the map's edge or blocked.
+	bool bMoved = false;
+	const float steps[2] = { 16.0f, -16.0f };
+	for ( int i = 0; i < 2 && !bMoved; ++i )
+		if ( BkEditorMoveObject( pSession, nFenceLink, fence.x + steps[i], fence.y ) == BK_EDITOR_OK )
+		{
+			bMoved = true;
+			const std::vector<BkEditorObjectRecord> after = ReadObjectRecords( pSession );
+			bool bReadBack = false;
+			for ( size_t j = 0; j < after.size(); ++j )
+				if ( after[j].link_id == nFenceLink ) bReadBack = after[j].x == fence.x + steps[i] && after[j].y == fence.y;
+			Check( bReadBack, "the moved fence reads back at its new place" );
+			Check( BkEditorMoveObject( pSession, nFenceLink, fence.x, fence.y ) == BK_EDITOR_OK, "and moves back" );
+		}
+	Check( bMoved, ( "the loaded fence " + std::string( fence.name ) + " still moves: " + BkEditorLastMessage( pSession ) ).c_str() );
+	printf( "editor-bridge: M2 palette filter ok\n" );
+}
+
 static bool SameAnchors( const BkEditorCameraAnchorRecord &rLeft, const BkEditorCameraAnchorRecord &rRight )
 {
 	return memcmp( &rLeft, &rRight, sizeof rLeft ) == 0;
@@ -3786,6 +3923,7 @@ int main( int argc, char **argv )
 		TestSaveRecordsTheMod( pSession, szScratch );
 		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2CameraAnchors( pSession, szScratch );
+		TestM2PaletteFilter( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
