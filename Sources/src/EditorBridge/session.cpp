@@ -678,6 +678,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	// its restore, and NextLinkID alone would hand the highest one out again.
 	// Both copies get the ID explicitly, so they cannot disagree about it.
 	NMapOverlay::SAddObject add = rAdd;
+	// Today's values, set explicitly so the intent is visible: a palette add is
+	// whole, has no script ID and takes its frame index from the packing below.
+	add.nFrameIndex = 0;
+	add.fHP = 1.0f;
+	add.nScriptID = -1;
 	add.nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
 	int nLinkID = -1;
 	if ( !NMapOverlay::AddObject( &pSession->snapshot, add, &nLinkID ) )

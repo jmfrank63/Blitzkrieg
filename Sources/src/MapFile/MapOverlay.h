@@ -18,7 +18,12 @@ struct SAddObject
 	int nPlayer;
 	bool bScenario;											// scenarioObjects rather than objects
 	int nLinkID;												// -1: NextLinkID; otherwise this one, which must be free
-	SAddObject() : vPos( VNULL3 ), nDir( 0 ), nPlayer( 0 ), bScenario( false ), nLinkID( -1 ) {  }
+	// The three fields an add used to hard-code. The defaults are those
+	// values, so a caller that sets none of them behaves as before.
+	int nFrameIndex;										// left 0 for the bridge to pack, unless the caller knows better
+	float fHP;													// a fraction of the maximum; 1 is whole
+	int nScriptID;											// -1: none
+	SAddObject() : vPos( VNULL3 ), nDir( 0 ), nPlayer( 0 ), bScenario( false ), nLinkID( -1 ), nFrameIndex( 0 ), fHP( 1.0f ), nScriptID( -1 ) {  }
 };
 struct SMoveObject
 {
