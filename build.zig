@@ -1247,6 +1247,10 @@ pub fn build(b: *std.Build) void {
     });
     const stage_tests = b.addTest(.{ .root_module = stage_tests_module });
     const stage_tests_run = b.addRunArtifact(stage_tests);
+    // One test reads build.zig (every stage-game run goes through
+    // addStageGameRun), so the run starts in the build root wherever zig build
+    // was invoked from.
+    stage_tests_run.setCwd(b.path("."));
     const stage_test_step = b.step("test-stage", "Run shell-free runtime staging tests");
     stage_test_step.dependOn(&stage_tests.step);
     if (test_mode == .run) stage_test_step.dependOn(&stage_tests_run.step);
@@ -2152,28 +2156,23 @@ pub fn build(b: *std.Build) void {
         .root_module = stage_module,
     });
 
-    const install_game_cmd = b.addRunArtifact(stage_tool);
-    install_game_cmd.addArg(".");
-    install_game_cmd.addArg(stage_root);
-    addStageLayoutArgs(install_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
-    // Staging copies the third-party notice out of a plain path, the way it
-    // copies the shader blobs, so an edited licence text has to be part of the
-    // cache key or the staged and packaged copies keep the superseded notice.
-    install_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
+    const stage_game_inputs: StageGameInputs = .{
+        .tool = stage_tool,
+        .game_all_step = game_all_step,
+        .shaders_step = if (use_prebuilt_shaders) null else gfx_gpu_shaders_step,
+        .shader_sources = shader_sources,
+        .game_name = stage_game_name,
+        .runtime_files = stage_runtime_files,
+        .debug_files = stage_debug_files,
+        .metadata_files = stage_metadata_files,
+        .editors_supported = target.result.os.tag == .windows,
+    };
+    const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
     install_game_cmd.addArg("--season-data");
     install_game_cmd.addDirectoryArg(season_data);
-    if (!use_prebuilt_shaders) {
-        install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
-        // Staging copies the compiled shader blobs out of a plain path, so the same
-        // sources have to be part of its cache key or an edited shader never reaches
-        // the install layout. It cannot simply always run: it deletes and re-copies
-        // the whole 2.7 GB Data tree.
-        for (shader_sources) |source| install_game_cmd.addFileInput(b.path(source));
-    }
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
-    install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
 
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
@@ -2364,11 +2363,7 @@ pub fn build(b: *std.Build) void {
     // `NotDir` before it copied a byte. `package` collides with nothing the
     // layout stages, and the name says what the directory is for.
     const package_stage_root = b.fmt("{s}/package", .{stage_root});
-    const stage_package_game_cmd = b.addRunArtifact(stage_tool);
-    stage_package_game_cmd.addArg(".");
-    stage_package_game_cmd.addArg(package_stage_root);
-    addStageLayoutArgs(stage_package_game_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
-    stage_package_game_cmd.addFileInput(b.path(package_policy.third_party_notices_source));
+    const stage_package_game_cmd = addStageGameRun(b, stage_game_inputs, package_stage_root);
     stage_package_game_cmd.addArg("--season-data");
     stage_package_game_cmd.addDirectoryArg(season_data);
     // D-08: the game package carries MapEditor beside Game on the editor's two
@@ -2395,10 +2390,7 @@ pub fn build(b: *std.Build) void {
     package_game_step.dependOn(&stage_package_game_cmd.step);
     package_game_step.dependOn(&package_tool_run.step);
 
-    const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
-    stage_package_game_editors_cmd.addArg(".");
-    stage_package_game_editors_cmd.addArg(package_stage_root);
-    addStageLayoutArgs(stage_package_game_editors_cmd, stage_game_name, stage_runtime_files, stage_debug_files, stage_metadata_files, target.result.os.tag == .windows);
+    const stage_package_game_editors_cmd = addStageGameRun(b, stage_game_inputs, package_stage_root);
     stage_package_game_editors_cmd.addArg("--include-editors");
     stage_package_game_editors_cmd.addArg("--editors-only");
     // Same reasoning as package-game above: this run reuses package_stage_root
@@ -2853,6 +2845,53 @@ pub fn build(b: *std.Build) void {
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 
     b.default_step = game_all_step;
+}
+
+/// What every stage-game run is built from. See addStageGameRun.
+const StageGameInputs = struct {
+    tool: *std.Build.Step.Compile,
+    game_all_step: *std.Build.Step,
+    /// null under -Duse-prebuilt-shaders, which reuses zig-out/shaders as is.
+    shaders_step: ?*std.Build.Step,
+    shader_sources: []const []const u8,
+    game_name: []const u8,
+    runtime_files: []const []const u8,
+    debug_files: []const []const u8,
+    metadata_files: []const []const u8,
+    editors_supported: bool,
+};
+
+/// The one way to create a stage-game run (install-game, package-game,
+/// package-game-editors). stage.zig copies the runtime out of zig-out/bin and
+/// zig-out/lib and the shader blobs out of zig-out/shaders by plain path, so
+/// the build graph cannot see that it reads them: the run has to be ordered
+/// after the installs that write them by hand. Only install-game was. The two
+/// package runs hung off package-game(-editors) beside game-all, not after
+/// it, so in a tree with no zig-out/bin yet they raced the installs and died
+/// in copyGameRuntime with FileNotFound - reliably under --release=fast, whose
+/// optimised compiles lose that race - and in a tree that had one they
+/// zipped whatever binaries an earlier build had left there, a Debug Game in
+/// a release package included. stage_test.zig holds every stage-game run in
+/// build.zig to this helper.
+fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const u8) *std.Build.Step.Run {
+    const run = b.addRunArtifact(inputs.tool);
+    run.addArg(".");
+    run.addArg(install_dir);
+    addStageLayoutArgs(run, inputs.game_name, inputs.runtime_files, inputs.debug_files, inputs.metadata_files, inputs.editors_supported);
+    run.step.dependOn(inputs.game_all_step);
+    // Staging copies the third-party notice out of a plain path, the way it
+    // copies the shader blobs, so an edited licence text has to be part of the
+    // cache key or the staged and packaged copies keep the superseded notice.
+    run.addFileInput(b.path(package_policy.third_party_notices_source));
+    if (inputs.shaders_step) |shaders_step| {
+        run.step.dependOn(shaders_step);
+        // Staging copies the compiled shader blobs out of a plain path, so the same
+        // sources have to be part of its cache key or an edited shader never reaches
+        // the install layout. It cannot simply always run: it deletes and re-copies
+        // the whole 2.7 GB Data tree.
+        for (inputs.shader_sources) |source| run.addFileInput(b.path(source));
+    }
+    return run;
 }
 
 fn addStageLayoutArgs(run: anytype, game_name: []const u8, runtime_files: []const []const u8, debug_files: []const []const u8, metadata_files: []const []const u8, editors_supported: bool) void {

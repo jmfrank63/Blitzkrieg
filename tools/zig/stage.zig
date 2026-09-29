@@ -296,14 +296,29 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, des
     }
 }
 
+/// A runtime file in neither zig-out/bin nor zig-out/lib fails naming the
+/// file. It used to surface as a bare FileNotFound from copyGameRuntime, which
+/// is all a Windows --release=fast package run said when its staging raced
+/// the installs that write those directories (see addStageGameRun in
+/// build.zig).
 fn copyRuntimeFile(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, name: []const u8, destination: std.Io.Dir) !void {
     const source = runtimeSourceName(name);
     copyFile(io, binaries, source, destination, name) catch |err| {
         if (err != error.FileNotFound) return err;
-        const lib_dir = libraries orelse return err;
-        try copyFile(io, lib_dir, source, destination, name);
-        return;
+        if (libraries) |lib_dir| {
+            copyFile(io, lib_dir, source, destination, name) catch |lib_err| {
+                if (lib_err != error.FileNotFound) return lib_err;
+                return missingRuntimeFile(source);
+            };
+            return;
+        }
+        return missingRuntimeFile(source);
     };
+}
+
+fn missingRuntimeFile(source: []const u8) anyerror {
+    std.debug.print("stage: runtime file '{s}' is in neither zig-out/bin nor zig-out/lib; build game-all first\n", .{source});
+    return error.MissingRuntimeFile;
 }
 
 /// Staging used to delete the staged Data tree and copy all of it back. On

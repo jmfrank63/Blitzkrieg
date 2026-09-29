@@ -389,3 +389,90 @@ test "a missing season data directory fails the stage" {
     options.season_data = "no-such-season-data";
     try std.testing.expectError(error.FileNotFound, stage.stage(io, allocator, options));
 }
+
+test "a runtime file that is not built yet fails the stage naming it" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    // No zig-out/lib at all, then an empty one: both are how a tree looks while
+    // the installs a stage-game run was not ordered after are still running.
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.layout.runtime_files = &.{ "Game", "libSDL3.dylib" };
+    try std.testing.expectError(error.MissingRuntimeFile, stage.stage(io, allocator, options));
+
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/lib" }));
+    try std.testing.expectError(error.MissingRuntimeFile, stage.stage(io, allocator, options));
+
+    // Once the library is installed, the same run stages it out of zig-out/lib.
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/lib/libSDL3.dylib" }),
+        .data = "sdl fixture",
+    });
+    try stage.stage(io, allocator, options);
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "libSDL3.dylib", "sdl fixture");
+}
+
+test "the Windows release layout stages without the Debug-only program databases" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    // What package-game(-editors) --release=fast passes on Windows: every
+    // runtime file is required, a .pdb the optimised build did not write is not.
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    const runtime_files = [_][]const u8{ "Game.exe", "PlatformRuntime.dll", "SDL3.dll", "rclone.exe" };
+    for (runtime_files) |name| try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin", name }),
+        .data = name,
+    });
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/MapEditor.exe" }),
+        .data = "map editor fixture",
+    });
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/MapEditor.exe";
+    options.layout = .{
+        .game_name = "Game.exe",
+        .runtime_files = &runtime_files,
+        .debug_files = &.{ "Game.pdb", "SDL3.pdb" },
+        .editors_supported = true,
+    };
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    for (runtime_files) |name| try expectStagedFile(destination, io, allocator, name, name);
+    try expectStagedFile(destination, io, allocator, "MapEditor.exe", "map editor fixture");
+    try expectStagedPathAbsent(destination, io, "Game.pdb");
+}
+
+// stage.zig reads zig-out/bin, zig-out/lib and zig-out/shaders by plain path,
+// which the build graph cannot see, so each stage-game run has to be ordered
+// after game-all and the shader compile by hand. The package runs were not,
+// and a --release=fast package on a fresh Windows tree raced the installs
+// into FileNotFound. addStageGameRun is the one place that orders them; this
+// holds build.zig to it.
+test "every stage-game run in build.zig is ordered after game-all and the shaders" {
+    const text = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, "build.zig", std.testing.allocator, .limited(20 * 1024 * 1024));
+    defer std.testing.allocator.free(text);
+
+    try std.testing.expect(std.mem.indexOf(u8, text, "addRunArtifact(stage_tool)") == null);
+    const helper_start = std.mem.indexOf(u8, text, "\nfn addStageGameRun(") orelse return error.MissingStageGameHelper;
+    const helper_end = std.mem.indexOfPos(u8, text, helper_start, "\n}\n") orelse return error.MissingStageGameHelper;
+    const helper = text[helper_start..helper_end];
+    try std.testing.expect(std.mem.indexOf(u8, helper, "run.step.dependOn(inputs.game_all_step);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, helper, "run.step.dependOn(shaders_step);") != null);
+    // install-game, package-game and package-game-editors.
+    try std.testing.expectEqual(@as(usize, 4), std.mem.count(u8, text, "addStageGameRun("));
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, text, "b.addRunArtifact(inputs.tool)"));
+}
