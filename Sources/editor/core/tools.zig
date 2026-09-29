@@ -14,8 +14,24 @@ const PaintCell = bridge_mod.PaintCell;
 /// two differ by sqrt 2 (bridge.h, BkEditorScreenToWorld): a placer handed
 /// the world point put its object off the screen.
 pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null };
-pub const Key = enum { delete, rotate_left, rotate_right };
-pub const Event = union(enum) { press: Pointer, drag: Pointer, release: Pointer, key: Key };
+/// `enter`, `insert`, `escape` and `space` are the MFC editor's keys for
+/// finishing, toggling and cancelling a gesture (04-03, C13); the M1 tools
+/// ignore them.
+pub const Key = enum { delete, rotate_left, rotate_right, enter, insert, escape, space };
+/// `right_*` are the right button's gesture (or Ctrl+left in a tool whose
+/// registry entry asks for it); `double_click` arrives after the single
+/// click's own press and release (SDL sends clicks 1, then clicks 2). The M1
+/// tools ignore all four.
+pub const Event = union(enum) {
+    press: Pointer,
+    drag: Pointer,
+    release: Pointer,
+    key: Key,
+    right_press: Pointer,
+    right_drag: Pointer,
+    right_release: Pointer,
+    double_click: Pointer,
+};
 
 /// A sixteenth of a turn. Directions are the engine's: 65536 is a full turn
 /// (SEngineObjectState::wDir is a WORD).
@@ -46,7 +62,7 @@ pub const Brush = struct {
                 self.gesture = 0;
                 self.painted.clearRetainingCapacity();
             },
-            .key => {},
+            .key, .right_press, .right_drag, .right_release, .double_click => {},
         }
     }
 
@@ -89,7 +105,7 @@ pub const Placer = struct {
     pub fn handle(self: *Placer, editor: *Editor, event: Event) EditError!void {
         switch (event) {
             .press => |pointer| editor.selection = try editor.addObject(self.name, pointer.map_x, pointer.map_y, self.dir, self.player),
-            else => {},
+            .drag, .release, .key, .right_press, .right_drag, .right_release, .double_click => {},
         }
     }
 };
@@ -129,9 +145,11 @@ pub const Selector = struct {
                 editor.place(link_id, pose, self.gesture) catch |err| if (err != error.Refused) return err;
             },
             .release => self.gesture = 0,
+            .right_press, .right_drag, .right_release, .double_click => {},
             .key => |key| {
                 const link_id = editor.selection orelse return;
                 switch (key) {
+                    .enter, .insert, .escape, .space => {},
                     .delete => try editor.delete(link_id),
                     .rotate_left, .rotate_right => {
                         const object = editor.document.find(link_id) orelse return;
@@ -325,4 +343,41 @@ test "a press on nothing clears the selection" {
     try selector.handle(&editor, .{ .press = try at(&editor, 40, 40) });
     try selector.handle(&editor, .{ .press = try at(&editor, 220, 220) });
     try testing.expectEqual(@as(?i32, null), editor.selection);
+}
+
+test "the M1 tools ignore the right button, double click and the new keys" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var brush: Brush = .{ .tile = 7, .radius = 0 };
+    defer brush.deinit(testing.allocator);
+    var placer: Placer = .{ .name = "T34" };
+    var selector: Selector = .{};
+    // The selector holds the tank, so a stray key would have something to hit.
+    try selector.handle(&editor, .{ .press = try at(&editor, 40, 40) });
+    try selector.handle(&editor, .{ .release = try at(&editor, 40, 40) });
+    const depth = editor.history.undo_stack.items.len;
+    const objects = editor.document.objects.items.len;
+    const pointer = try at(&editor, 40, 40);
+    const events = [_]Event{
+        .{ .right_press = pointer },
+        .{ .right_drag = pointer },
+        .{ .right_release = pointer },
+        .{ .double_click = pointer },
+        .{ .key = .enter },
+        .{ .key = .insert },
+        .{ .key = .escape },
+        .{ .key = .space },
+    };
+    for (events) |event| {
+        try brush.handle(&editor, event);
+        try placer.handle(&editor, event);
+        try selector.handle(&editor, event);
+    }
+    try testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try testing.expectEqual(objects, editor.document.objects.items.len);
+    try testing.expectEqual(@as(?i32, 1), editor.selection);
+    try testing.expectEqual(@as(u32, 0), brush.gesture);
+    try testing.expectEqual(@as(u32, 0), selector.gesture);
 }

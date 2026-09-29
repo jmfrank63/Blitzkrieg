@@ -14,6 +14,7 @@ const std = @import("std");
 const imgui = @import("editor_imgui");
 const panels = @import("panels.zig");
 const marker_logic = @import("marker_logic.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const ig = imgui.c;
 const State = panels.State;
@@ -33,8 +34,7 @@ fn labelColor() ig.ImU32 {
 /// Called once a frame from `panels.draw`, next to View.drawOverlay.
 pub fn drawM2Markers(state: *State, real: anytype) void {
     if (!panels.mapIsOpen(state.editor)) return;
-    // The active tool's own kinds: none of the tools so far has markers.
-    const active = marker_logic.MarkerSet.none();
+    const active = tool_registry.entry(state.view.tool).marker_kinds;
     if (marker_logic.visible(state.marker_set, .camera_anchors, active)) drawCameraAnchors(state, real);
 }
 
