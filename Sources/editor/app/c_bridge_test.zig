@@ -256,5 +256,35 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectEngineMatches(&real);
     std.debug.print("map-editor-engine: M2 camera anchors round trip ok\n", .{});
 
+    // M2 (04-02): a delete of a real unit of coldwinter, through the cascade
+    // the bridge now runs (nothing in coldwinter names it, so the cascade is
+    // empty here; the engine tier carries the records that do). Undo, redo and
+    // undo again: the document is the bridge's and the engine agrees each time.
+    const victim = pick: for (editor.document.objects.items) |candidate| {
+        if (!candidate.known) continue;
+        editor.delete(candidate.link_id) catch |err| switch (err) {
+            error.Refused => continue,
+            else => return err,
+        };
+        break :pick candidate;
+    } else return error.NoObjectDeletes;
+    try std.testing.expect(editor.document.find(victim.link_id) == null);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.undo();
+    try std.testing.expect(editor.document.find(victim.link_id) != null);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.redo();
+    try std.testing.expect(editor.document.find(victim.link_id) == null);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.undo();
+    try std.testing.expect(editor.document.find(victim.link_id) != null);
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    std.debug.print("map-editor-engine: M2 delete round trip ok\n", .{});
+
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }

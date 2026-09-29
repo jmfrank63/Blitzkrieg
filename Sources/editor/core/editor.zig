@@ -14,6 +14,7 @@ const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const FakeBridge = fake_mod.FakeBridge;
 const FakeStartCommand = fake_mod.FakeStartCommand;
+const FakeReservePosition = fake_mod.FakeReservePosition;
 const Document = document_mod.Document;
 pub const Pose = history_mod.Pose;
 const Command = history_mod.Command;
@@ -1052,6 +1053,91 @@ test "deleting a unit named by a start command cascades and undo restores it" {
     try std.testing.expect(try editor.redo());
     try std.testing.expectEqualSlices(FakeStartCommand, after_delete, fake.start_commands.items);
     try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+}
+
+test "the full cascade: units, targets and reserve positions, one undo step, exact undo and redo" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixture(&.{1}, 0); // A: only unit 1 - erased
+    try fake.addStartCommandFixture(&.{ 1, 3 }, 0); // B: unit 1 among others - edited
+    try fake.addStartCommandFixture(&.{3}, 1); // C: unit 1 is its target - cleared to 0
+    try fake.addStartCommandFixture(&.{3}, 3); // D: names neither - never touched
+    try fake.addReservePositionFixture(1, 0); // R0: unit 1 as artillery - erased
+    try fake.addReservePositionFixture(3, 3); // R1: neither - kept
+    try fake.addReservePositionFixture(0, 1); // R2: unit 1 as truck - erased
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const commands_before = try std.testing.allocator.dupe(FakeStartCommand, fake.start_commands.items);
+    defer std.testing.allocator.free(commands_before);
+    const reserves_before = try std.testing.allocator.dupe(FakeReservePosition, fake.reserve_positions.items);
+    defer std.testing.allocator.free(reserves_before);
+
+    try editor.delete(1);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(usize, 3), fake.start_commands.items.len);
+    try std.testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    try std.testing.expectEqual(@as(i32, 3), fake.reserve_positions.items[0].artillery);
+    try std.testing.expectEqual(@as(i32, 0), fake.start_commands.items[1].target); // C
+    try std.testing.expectEqual(@as(usize, 1), fake.start_commands.items[1].unit_count);
+    try std.testing.expectEqual(@as(i32, 3), fake.start_commands.items[2].target); // D, as it was
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "reserve position 0 erased") != null);
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "reserve position 2 erased") != null);
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "target of start command 2 cleared") != null);
+    const commands_after = try std.testing.allocator.dupe(FakeStartCommand, fake.start_commands.items);
+    defer std.testing.allocator.free(commands_after);
+    const reserves_after = try std.testing.allocator.dupe(FakeReservePosition, fake.reserve_positions.items);
+    defer std.testing.allocator.free(reserves_after);
+
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.document.find(1) != null);
+    try std.testing.expectEqualSlices(FakeStartCommand, commands_before, fake.start_commands.items);
+    try std.testing.expectEqualSlices(FakeReservePosition, reserves_before, fake.reserve_positions.items);
+
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqualSlices(FakeStartCommand, commands_after, fake.start_commands.items);
+    try std.testing.expectEqualSlices(FakeReservePosition, reserves_after, fake.reserve_positions.items);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+
+    // And back once more: the redo's own cascade undoes exactly too.
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualSlices(FakeStartCommand, commands_before, fake.start_commands.items);
+    try std.testing.expectEqualSlices(FakeReservePosition, reserves_before, fake.reserve_positions.items);
+}
+
+test "a span and a trench piece are refused with the document and history untouched" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixture(&.{ 1, 2 }, 0);
+    try fake.addTrenchPieceFixture(1, 4);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const commands_before = try std.testing.allocator.dupe(FakeStartCommand, fake.start_commands.items);
+    defer std.testing.allocator.free(commands_before);
+
+    try std.testing.expectError(error.Refused, editor.delete(2)); // a bridge span
+    try std.testing.expectEqualStrings("still referred to by bridge 0", editor.status());
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
+
+    try std.testing.expectError(error.Refused, editor.delete(1)); // a trench piece
+    try std.testing.expectEqualStrings("still part of entrenchment 4", editor.status());
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
+    try std.testing.expect(!editor.dirty());
+    // A refused delete never reaches the start commands either.
+    try std.testing.expectEqualSlices(FakeStartCommand, commands_before, fake.start_commands.items);
+}
+
+test "a cascade note is replaced by the next successful command" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixture(&.{ 1, 3 }, 0);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.delete(1);
+    try std.testing.expect(editor.status().len != 0);
+    _ = try editor.addObject("T34", 60, 60, 0, 1);
+    try std.testing.expectEqual(@as(usize, 0), editor.status().len);
 }
 
 test "a refused delete leaves the document and the history unchanged" {
