@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-09-29T22:56:40.774Z"
-state_head: 1f95fd866fc8a44c2642774b83da92d0c4358f88
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-09-29T23:18:05.509Z"
+state_head: 0c9a64eebf9aac22447d8b3b9cc37562c9011d88
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 21
+  completed_plans: 22
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-29T22:56:40.709Z
-**Stopped at:** Completed 04-02-PLAN.md
+**Last session:** 2026-09-29T23:18:05.443Z
+**Stopped at:** Completed 04-03-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -91,6 +91,7 @@ behavior needs the in-game rows).
 | Phase 03 P16 | 107min | 6 tasks | 13 files |
 | Phase 04 P01 | 40min | 3 tasks | 24 files |
 | Phase 04 P02 | 19 min | 3 tasks | 9 files |
+| Phase 04 P03 | 20min | 3 tasks | 13 files |
 
 ## Decisions
 
@@ -130,3 +131,4 @@ behavior needs the in-game rows).
 - [Phase 04]: 04-01: byte-identity tests read the map fresh for every write they compare, never a copy of a map — SVertexAltitude is written as a raw struct, so a copied map's three padding bytes per vertex differ from a read map's; later plans follow the rule
 - [Phase 04]: 04-01: camera-anchor set validates only the slots it changes; NextVsoID floors at 1; PutScriptFile is exact and IsBareScriptName checks new names — An off-map anchor a file already holds must not block other edits; undo must be able to restore any name a file held
 - [Phase 04]: 04-02: a delete edits the records naming the object (start-command units and targets, reserve positions) and refuses only for a bridge span, a trench piece and a vehicle holding a passenger; link ID 0 is never a reference — Matches the MFC editor's cascade with C3; refusals protect the game's loaders and M3's links
+- [Phase 04]: 04-03: tools get right-button, Ctrl-as-right and double click only when their registry entry asks; tool= uses the ToolId name; handlers return Outcome
