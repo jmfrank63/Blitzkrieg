@@ -18,6 +18,8 @@
 //!  - edits are accepted before any map is open and after a failed open;
 //!    the real bridge refuses them with "no map is open";
 //!  - screen and world coordinates are the same thing;
+//!  - the ground is flat: `groundHeight` answers 0 on the map, where the real
+//!    one reads the terrain's altitudes;
 //!  - `saveMap` never touches a real file on its own: the real
 //!    `BkEditorSaveMap`'s read-back verification (session.cpp,
 //!    `SaveSessionMap`) lives entirely inside the engine, invisible to this
@@ -26,6 +28,7 @@
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const files_mod = @import("files.zig");
+const records = @import("records.zig");
 const Status = bridge_mod.Status;
 const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -38,7 +41,7 @@ pub const tile_size: f32 = 32.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 const Tombstone = struct { record: ObjectRecord, index: usize };
@@ -55,6 +58,9 @@ pub const FakeBridge = struct {
     /// simplification `objects_list`/`tiles`/`diplomacy_table` make: there is
     /// no file, so nothing here is actually lost.
     sounds_list: std.ArrayListUnmanaged(SoundRecord) = .empty,
+    /// The map's camera anchors (BkEditorCameraAnchors): world units, kept
+    /// across a fake reopen like the sounds. `setCameraAnchorsFixture` seeds it.
+    camera_anchors: records.CameraAnchors = .{},
     referenced: std.AutoHashMapUnmanaged(i32, void) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
@@ -126,6 +132,11 @@ pub const FakeBridge = struct {
     /// `sounds()`/`editSound`/`deleteSound` then see.
     pub fn addSoundFixture(self: *FakeBridge, new_record: SoundRecord) !void {
         try self.sounds_list.append(self.allocator, new_record);
+    }
+
+    /// The camera anchors the map holds before it opens.
+    pub fn setCameraAnchorsFixture(self: *FakeBridge, anchors: records.CameraAnchors) void {
+        self.camera_anchors = anchors;
     }
 
     pub fn tile(self: *const FakeBridge, x: i32, y: i32) u8 {
@@ -220,6 +231,9 @@ pub const FakeBridge = struct {
         .addSound = addSound,
         .setSound = setSound,
         .deleteSound = deleteSound,
+        .readRecord = readRecord,
+        .putRecord = putRecord,
+        .groundHeight = groundHeight,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -464,6 +478,74 @@ pub const FakeBridge = struct {
         return .ok;
     }
 
+    fn readRecord(ptr: *anyopaque, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status {
+        _ = allocator; // the kinds so far own no memory
+        const self = from(ptr);
+        self.message_len = 0;
+        switch (kind) {
+            .camera_anchors => {
+                if (key != 0) return .bad_argument;
+                out.* = .{ .camera_anchors = self.camera_anchors };
+            },
+        }
+        return .ok;
+    }
+
+    /// The real bridge's rules the core can see: the count 0..32 and finite
+    /// coordinates are a caller bug; a slot this put changes that is not unset
+    /// must be on the map (world units), or the put is refused naming it.
+    fn putRecord(ptr: *anyopaque, key: i32, value: *const records.Value) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        switch (value.*) {
+            .camera_anchors => |wanted| {
+                if (key != 0) return .bad_argument;
+                if (wanted.player_count > records.max_camera_players) return .bad_argument;
+                if (!finite(wanted.neutral)) return .bad_argument;
+                for (wanted.players[0..wanted.player_count]) |slot| {
+                    if (!finite(slot)) return .bad_argument;
+                }
+                const current = self.camera_anchors;
+                if (!wanted.neutral.eql(current.neutral) and !wanted.neutral.isUnset() and !self.onMap(wanted.neutral.x, wanted.neutral.y)) {
+                    self.say("the neutral camera anchor is not on the map", .{});
+                    return .refused;
+                }
+                for (wanted.players[0..wanted.player_count], 0..) |slot, index| {
+                    if (slot.eql(current.slot(index)) or slot.isUnset()) continue;
+                    if (!self.onMap(slot.x, slot.y)) {
+                        self.say("the camera anchor of player {d} is not on the map", .{index});
+                        return .refused;
+                    }
+                }
+                // Exact: slots past the new count are dropped, as the real
+                // put resizes the vector.
+                var exact: records.CameraAnchors = .{};
+                exact.neutral = wanted.neutral;
+                exact.player_count = wanted.player_count;
+                @memcpy(exact.players[0..wanted.player_count], wanted.players[0..wanted.player_count]);
+                self.camera_anchors = exact;
+                self.record(.record_put, key);
+            },
+        }
+        return .ok;
+    }
+
+    fn finite(point: records.Vec3) bool {
+        return std.math.isFinite(point.x) and std.math.isFinite(point.y) and std.math.isFinite(point.z);
+    }
+
+    /// Flat ground: 0 on the map. A simplification listed in the header.
+    fn groundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        z.* = 0;
+        if (!self.onMap(wx, wy)) {
+            self.say("that point is not on the map", .{});
+            return .refused;
+        }
+        return .ok;
+    }
+
     fn paint(ptr: *anyopaque, cells: []const PaintCell, token: *i32) Status {
         const self = from(ptr);
         self.message_len = 0;
@@ -686,4 +768,39 @@ test "the fake lists objects the way BkEditorObjects does" {
     try std.testing.expectEqual(Status.ok, b.objects(&out, &total));
     try std.testing.expectEqualStrings("T34", out[0].nameSlice());
     try std.testing.expect(!out[2].known);
+}
+
+test "the fake's camera anchors refuse what the bridge refuses and put exactly" {
+    var fake = try fixture(std.testing.allocator);
+    defer fake.deinit();
+    const b = fake.bridge();
+    var info: MapInfo = .{};
+    try std.testing.expectEqual(Status.ok, b.openMap("fixture.bzm", &info));
+    var value: records.Value = undefined;
+    try std.testing.expectEqual(Status.ok, b.readRecord(.camera_anchors, 0, std.testing.allocator, &value));
+    try std.testing.expectEqual(@as(u32, 0), value.camera_anchors.player_count);
+    var wanted: records.CameraAnchors = .{};
+    wanted.player_count = 3;
+    wanted.players[2] = .{ .x = 100, .y = 100, .z = 0 };
+    var put: records.Value = .{ .camera_anchors = wanted };
+    try std.testing.expectEqual(Status.ok, b.putRecord(0, &put));
+    try std.testing.expectEqual(@as(u32, 3), fake.camera_anchors.player_count);
+    // Off the map, a count over 32 and a non-finite value.
+    put.camera_anchors.players[1] = .{ .x = 9999, .y = 1, .z = 0 };
+    try std.testing.expectEqual(Status.refused, b.putRecord(0, &put));
+    try std.testing.expect(fake.camera_anchors.players[1].isUnset());
+    put.camera_anchors.players[1] = .{};
+    put.camera_anchors.player_count = 33;
+    try std.testing.expectEqual(Status.bad_argument, b.putRecord(0, &put));
+    put.camera_anchors.player_count = 1;
+    put.camera_anchors.players[0] = .{ .x = std.math.nan(f32), .y = 0, .z = 0 };
+    try std.testing.expectEqual(Status.bad_argument, b.putRecord(0, &put));
+    // An exact put shrinks: what undo needs.
+    put.camera_anchors = .{};
+    try std.testing.expectEqual(Status.ok, b.putRecord(0, &put));
+    try std.testing.expectEqual(@as(u32, 0), fake.camera_anchors.player_count);
+    var z: f32 = 5;
+    try std.testing.expectEqual(Status.ok, b.groundHeight(10, 10, &z));
+    try std.testing.expectEqual(@as(f32, 0), z);
+    try std.testing.expectEqual(Status.refused, b.groundHeight(-1, 10, &z));
 }

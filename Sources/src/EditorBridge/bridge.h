@@ -711,6 +711,55 @@ BkEditorStatus BkEditorSetSound( BkEditorSession *session, int index, const BkEd
    BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorDeleteSound( BkEditorSession *session, int index );
 
+/* M2 records (phase 4). Every record collection the editor edits below the
+   object level goes through one small set of calls that read and put whole
+   records, so the core's generic record command (record_edit: the record
+   before and the record after) can undo an edit by putting the old record back
+   through the same call. Units, for every M2 record: object positions, areas,
+   start-command targets, reserve positions and parcels are MAP (AI) units;
+   camera positions, camera anchors, sounds and road and river points are WORLD
+   (Vis) units - BkEditorWorldToMap converts one way and is unrounded, the MFC
+   editor's Vis2AI truncates with +0.3. */
+
+typedef struct { float x, y, z; } BkEditorVec3;
+
+/* The map's camera anchors, world units. (0, 0, 0) is the file's VNULL3 and
+   means "not set": the game starts the camera at players[user] and falls back
+   to neutral when that slot is unset or absent. player_count is the size of
+   the map's playersCameraAnchors vector, 0..32; slots at or above it are
+   zero. The editor never resizes the vector on open (the MFC editor did; not
+   copied), so player_count is what the file had until an edit grows it. */
+typedef struct
+{
+	BkEditorVec3 neutral;
+	int player_count;
+	BkEditorVec3 players[32];
+} BkEditorCameraAnchorRecord;
+
+/* The snapshot's camera anchors. BK_EDITOR_BAD_ARGUMENT for a null out;
+   BK_EDITOR_REFUSED with no map open, and for a file whose vector holds more
+   than 32 entries ("this map has more camera anchors than the editor edits":
+   it saves byte-exact untouched). */
+BkEditorStatus BkEditorCameraAnchors( BkEditorSession *session, BkEditorCameraAnchorRecord *out );
+
+/* An exact put of the anchors into the snapshot and the working copy together:
+   the vector becomes exactly player_count long, so an undo can restore a
+   shorter vector than a set grew. Growing it (pad with unset slots, never
+   shrink) is the caller's rule when it builds a new value. The engine is
+   untouched: anchors matter only when a mission starts. A null record,
+   player_count outside 0..32 or a non-finite coordinate is
+   BK_EDITOR_BAD_ARGUMENT. A slot the call changes that is not unset must lie
+   on the map or this is BK_EDITOR_REFUSED naming the slot. BK_EDITOR_REFUSED
+   with no map open. A refusal changes nothing: not the snapshot, not the
+   working copy. */
+BkEditorStatus BkEditorSetCameraAnchors( BkEditorSession *session, const BkEditorCameraAnchorRecord *anchors );
+
+/* The terrain's height at a world point (x, y), into *z, in world units:
+   CVSOBuilder::UpdateZ on the working copy's altitudes, so a road, a river
+   and an anchor all take the same z. A point off the map is BK_EDITOR_REFUSED;
+   a null z is BK_EDITOR_BAD_ARGUMENT; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorGroundHeight( BkEditorSession *session, float x, float y, float *z );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

@@ -6,6 +6,7 @@ const history_mod = @import("history.zig");
 const tools = @import("tools.zig");
 const files_mod = @import("files.zig");
 const shipped_mod = @import("shipped.zig");
+const records = @import("records.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -33,6 +34,10 @@ pub const Editor = struct {
     /// against (unlike `document.objects`, the bridge's sound list is read
     /// fresh through `bridge.sounds` whenever this changes).
     sounds_generation: u32 = 0,
+    /// One counter per record kind, bumped by every record edit of that kind
+    /// and by its undo and redo (`editRecord`, `replay`), so a panel or a
+    /// marker layer knows to read the records again.
+    record_generations: std.EnumArray(records.Kind, u32) = std.EnumArray(records.Kind, u32).initFill(0),
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -464,6 +469,90 @@ pub const Editor = struct {
         self.sounds_generation +%= 1;
     }
 
+    /// The generic record command (D-02). Reads the whole record at `key`
+    /// through the bridge, puts `value` through the same bridge's `putRecord`
+    /// and records the pair for undo. An equal value records nothing; within
+    /// one gesture (same kind and key) edits merge into one undo step, and one
+    /// that lands back on the step's own before-record drops it, as `place`
+    /// and `editSound` do. History room is reserved before the bridge call, so
+    /// once the bridge has committed, recording cannot fail. A refusal changes
+    /// nothing: not the bridge, not the history, not the generation.
+    pub fn editRecord(self: *Editor, kind: records.Kind, key: i32, value: *const records.Value, gesture: u32) EditError!void {
+        if (std.meta.activeTag(value.*) != kind) return error.Failed;
+        var before: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(kind, key, self.allocator, &before));
+        errdefer before.deinit(self.allocator);
+        if (before.eql(value.*)) {
+            before.deinit(self.allocator);
+            return;
+        }
+        var after = try value.clone(self.allocator);
+        errdefer after.deinit(self.allocator);
+        const merge_entry = self.mergeable(gesture, .record_edit);
+        const merging = if (merge_entry) |entry|
+            entry.command.record_edit.kind == kind and entry.command.record_edit.key == key
+        else
+            false;
+        if (!merging) try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.putRecord(key, &after));
+        if (merging) {
+            const entry = merge_entry.?;
+            const edit = &entry.command.record_edit;
+            if (edit.before.eql(after)) {
+                after.deinit(self.allocator);
+                self.history.dropTop(self.allocator);
+            } else {
+                edit.after.deinit(self.allocator);
+                edit.after = after;
+                self.history.touchTop(self.allocator);
+            }
+            // The step keeps its own before-record; this call's is not needed.
+            before.deinit(self.allocator);
+        } else {
+            self.history.recordAssumeCapacity(self.allocator, .{ .record_edit = .{ .kind = kind, .key = key, .before = before, .after = after } }, gesture);
+            // Owned by the history now: the errdefers above cannot run after
+            // this point, since nothing below can fail.
+        }
+        self.record_generations.set(kind, self.record_generations.get(kind) +% 1);
+    }
+
+    /// Sets a camera anchor to a world point: `slot` -1 is the neutral anchor,
+    /// 0.. a player's. The z comes from the terrain (`groundHeight`), so a
+    /// point off the map is refused before anything changes. Setting player N
+    /// pads the vector with unset slots up to N + 1 and never shrinks it (C8);
+    /// one undo step, and undo puts the old vector back exactly.
+    pub fn setCameraAnchor(self: *Editor, slot: i32, wx: f32, wy: f32) EditError!void {
+        if (slot < -1) return error.Failed;
+        var z: f32 = 0;
+        try self.noteOutcome(self.bridge.groundHeight(wx, wy, &z));
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.camera_anchors, 0, self.allocator, &current));
+        defer current.deinit(self.allocator);
+        const anchor: records.Vec3 = .{ .x = wx, .y = wy, .z = z };
+        var wanted = current.camera_anchors;
+        if (slot == -1) {
+            wanted.neutral = anchor;
+        } else wanted = wanted.withPlayer(@intCast(slot), anchor) orelse {
+            self.setStatus("camera anchors: ", "the editor edits the anchors of 32 players at most");
+            return error.Refused;
+        };
+        const value: records.Value = .{ .camera_anchors = wanted };
+        try self.editRecord(.camera_anchors, 0, &value, 0);
+    }
+
+    /// Makes a camera anchor unset (`slot` -1 is the neutral one). The vector
+    /// keeps its size.
+    pub fn clearCameraAnchor(self: *Editor, slot: i32) EditError!void {
+        if (slot < -1) return error.Failed;
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.camera_anchors, 0, self.allocator, &current));
+        defer current.deinit(self.allocator);
+        var wanted = current.camera_anchors;
+        if (slot == -1) wanted.neutral = .{} else wanted = wanted.withPlayerCleared(@intCast(slot));
+        const value: records.Value = .{ .camera_anchors = wanted };
+        try self.editRecord(.camera_anchors, 0, &value, 0);
+    }
+
     fn applyPose(object: *ObjectRecord, pose: Pose) void {
         object.x = pose.x;
         object.y = pose.y;
@@ -521,6 +610,11 @@ pub const Editor = struct {
             .sound_delete => |d| {
                 if (forwards) try self.noteOutcome(self.bridge.deleteSound(@intCast(d.index))) else try self.noteOutcome(self.bridge.addSound(@intCast(d.index), d.record));
                 self.sounds_generation +%= 1;
+            },
+            .record_edit => |*e| {
+                const value = if (forwards) &e.after else &e.before;
+                try self.noteOutcome(self.bridge.putRecord(e.key, value));
+                self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
             },
         }
     }
@@ -995,6 +1089,126 @@ test "a refused sound add leaves history and generation unchanged" {
     try std.testing.expectEqual(@as(usize, 0), fake.sounds_list.items.len);
     try std.testing.expectEqual(generation_before, editor.sounds_generation);
     try std.testing.expectEqual(undo_depth_before, editor.history.undo_stack.items.len);
+}
+
+test "camera anchor: setting player 2 pads a one-anchor map to three, undo restores the old size" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var seeded: records.CameraAnchors = .{};
+    seeded.player_count = 1;
+    seeded.players[0] = .{ .x = 10, .y = 20, .z = 0 };
+    fake.setCameraAnchorsFixture(seeded);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setCameraAnchor(2, 100, 120);
+    try std.testing.expectEqual(@as(u32, 3), fake.camera_anchors.player_count);
+    try std.testing.expect(fake.camera_anchors.players[1].isUnset());
+    try std.testing.expectEqual(@as(f32, 100), fake.camera_anchors.players[2].x);
+    try std.testing.expectEqual(@as(f32, 10), fake.camera_anchors.players[0].x);
+    try std.testing.expect(editor.dirty());
+    const generation = editor.record_generations.get(.camera_anchors);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(u32, 1), fake.camera_anchors.player_count);
+    try std.testing.expect(fake.camera_anchors.eql(seeded));
+    try std.testing.expect(editor.record_generations.get(.camera_anchors) != generation);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(u32, 3), fake.camera_anchors.player_count);
+    try std.testing.expectEqual(@as(f32, 120), fake.camera_anchors.players[2].y);
+}
+
+test "camera anchor: setting a player inside the vector never shrinks it" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var seeded: records.CameraAnchors = .{};
+    seeded.player_count = 4;
+    fake.setCameraAnchorsFixture(seeded);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setCameraAnchor(0, 50, 60);
+    try std.testing.expectEqual(@as(u32, 4), fake.camera_anchors.player_count);
+    try editor.clearCameraAnchor(0);
+    try std.testing.expect(fake.camera_anchors.players[0].isUnset());
+    try std.testing.expectEqual(@as(u32, 4), fake.camera_anchors.player_count);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(f32, 50), fake.camera_anchors.players[0].x);
+}
+
+test "camera anchor: setting the same value twice records nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setCameraAnchor(1, 70, 80);
+    const depth = editor.history.undo_stack.items.len;
+    const generation = editor.record_generations.get(.camera_anchors);
+    try editor.setCameraAnchor(1, 70, 80);
+    try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation, editor.record_generations.get(.camera_anchors));
+}
+
+test "camera anchor: a refused set (off the map) leaves the history and the generation alone" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const depth = editor.history.undo_stack.items.len;
+    const generation = editor.record_generations.get(.camera_anchors);
+    try std.testing.expectError(error.Refused, editor.setCameraAnchor(0, 9999, 9999));
+    try std.testing.expect(editor.status().len != 0);
+    try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation, editor.record_generations.get(.camera_anchors));
+    try std.testing.expectEqual(@as(u32, 0), fake.camera_anchors.player_count);
+    try std.testing.expect(!editor.dirty());
+    // A player the record cannot hold is refused as well, changing nothing.
+    try std.testing.expectError(error.Refused, editor.setCameraAnchor(records.max_camera_players, 10, 10));
+    try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
+}
+
+test "camera anchor: the neutral slot edits the neutral anchor only" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var seeded: records.CameraAnchors = .{};
+    seeded.player_count = 2;
+    seeded.players[1] = .{ .x = 9, .y = 9, .z = 0 };
+    fake.setCameraAnchorsFixture(seeded);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setCameraAnchor(-1, 30, 40);
+    try std.testing.expectEqual(@as(f32, 30), fake.camera_anchors.neutral.x);
+    try std.testing.expectEqual(@as(u32, 2), fake.camera_anchors.player_count);
+    try std.testing.expectEqual(@as(f32, 9), fake.camera_anchors.players[1].x);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.camera_anchors.eql(seeded));
+}
+
+test "record edits of one gesture are one undo step, and one that returns to its start leaves none" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    var first: records.CameraAnchors = .{};
+    first.player_count = 1;
+    first.players[0] = .{ .x = 10, .y = 10, .z = 0 };
+    var second = first;
+    second.players[0].x = 20;
+    const first_value: records.Value = .{ .camera_anchors = first };
+    const second_value: records.Value = .{ .camera_anchors = second };
+    try editor.editRecord(.camera_anchors, 0, &first_value, gesture);
+    try editor.editRecord(.camera_anchors, 0, &second_value, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(f32, 20), fake.camera_anchors.players[0].x);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(u32, 0), fake.camera_anchors.player_count);
+    // A gesture that goes out and comes back is no step at all.
+    const later = editor.beginGesture();
+    const empty_value: records.Value = .{ .camera_anchors = .{} };
+    try editor.editRecord(.camera_anchors, 0, &first_value, later);
+    try editor.editRecord(.camera_anchors, 0, &empty_value, later);
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(usize, 0), fake.camera_anchors.player_count);
 }
 
 test "place, undo, redo" {
