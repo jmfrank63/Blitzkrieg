@@ -21,6 +21,7 @@
 #include "../../Sources/src/Image/Image.h"
 #include "../../Sources/src/Platform/Paths.h"
 #include "../../Sources/src/StreamIO/GeneratedData.h"
+#include "../../Sources/src/StreamIO/SeasonData.h"
 #include "../../Sources/src/StreamIO/ProfilePaths.h"
 #include <filesystem>
 #include <fstream>
@@ -1976,11 +1977,33 @@ static std::vector<std::string> UnitMeshTexturesIn( const CTRect<float> &rcBox )
 // the season-less name. Checked on coldwinter by the texture each placed gun
 // is drawn with: the M2A1 in its summer "1", the Flak38 still in its "1w" -
 // and by the M2A1's colour as drawn, which must not be near white.
+//
+// The build now generates the missing season textures (SeasonData, mounted
+// over Data - StreamIO/SeasonData.h), so the M2A1 has a 1w in a staged game.
+// The fallback is checked with that mount taken away, which leaves the M2A1
+// with no winter texture whether or not the build generated one; then, with
+// it mounted again, a second M2A1 must be drawn with the generated "1w".
 static void TestMissingSeasonTextureFallsBack( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
 {
 	static const char *const placed[] = { "105mm_M2A1_USA", "10.5-cm_Flak38" };
 	static const char *const wanted[] = { "units\\technics\\allies\\artillery\\105mm_m2a1_usa\\1",
 	                                      "units\\technics\\german\\artillery\\10_5_cm_flak38\\1w" };
+	static const char *const pszM2A1Winter = "units\\technics\\allies\\artillery\\105mm_m2a1_usa\\1w_h.dds";
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( !Check( pStorage != 0, "the data storage is registered" ) )
+		return;
+	// Remounted on every way out, so the tests after this one see the
+	// installation's storage as the game would.
+	struct SRemount
+	{
+		IDataStorage *pStorage;
+		bool bMounted;
+		~SRemount() { if ( bMounted ) NSeasonData::Mount( pStorage ); }
+	} remount = { pStorage, NSeasonData::Unmount( pStorage ) };
+	printf( "editor-bridge: SeasonData %s for the fallback check\n", remount.bMounted ? "unmounted" : "is not mounted" );
+	if ( !Check( !pStorage->IsStreamExist( pszM2A1Winter ),
+	             "the M2A1 has no winter texture in Data itself (generated season textures belong in SeasonData, never in Data)" ) )
+		return;
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
 	CMapInfo map;
@@ -2077,6 +2100,50 @@ static void TestMissingSeasonTextureFallsBack( BkEditorSession *pSession, int nS
 		Check( nChanged >= PLACED_MIN_CHANGED && Min( fR, Min( fG, fB ) ) < 180.0,
 		       NStr::Format( "the placed M2A1 is drawn, and not white (mean RGB %.0f,%.0f,%.0f over %d pixels)", fR, fG, fB, nChanged ) );
 	}
+
+	// With SeasonData mounted again, a new M2A1 is drawn with the generated
+	// winter texture. A texture is looked up when its unit is built, and the
+	// failed lookup above is not cached, so no reload is needed.
+	if ( !remount.bMounted )
+	{
+		printf( "editor-bridge: this installation has no SeasonData; the generated winter texture is not checked\n" );
+		return;
+	}
+	remount.bMounted = false;
+	if ( !Check( NSeasonData::Mount( pStorage ), "SeasonData mounts again" ) ||
+	     !Check( pStorage->IsStreamExist( pszM2A1Winter ), "SeasonData has the M2A1's generated winter texture" ) )
+		return;
+	CVec2 vGenerated;
+	bool bPlaced = false;
+	for ( ; nSpot < spots.size() && !bPlaced; ++nSpot )
+	{
+		if ( fabs( spots[nSpot].x - vPlacedAt[0].x ) + fabs( spots[nSpot].y - vPlacedAt[0].y ) < 160.0f ||
+		     fabs( spots[nSpot].x - vPlacedAt[1].x ) + fabs( spots[nSpot].y - vPlacedAt[1].y ) < 160.0f )
+			continue;
+		float wx = 0.0f, wy = 0.0f, mx = 0.0f, my = 0.0f;
+		int nLinkID = -1;
+		bPlaced = BkEditorScreenToWorld( pSession, spots[nSpot].x, spots[nSpot].y, &wx, &wy ) == BK_EDITOR_OK &&
+		          BkEditorWorldToMap( pSession, wx, wy, &mx, &my ) == BK_EDITOR_OK &&
+		          BkEditorAddObject( pSession, placed[0], mx, my, 0, 0, &nLinkID ) == BK_EDITOR_OK;
+		if ( bPlaced )
+			vGenerated = spots[nSpot];
+	}
+	if ( !Check( bPlaced, NStr::Format( "a second %s is placed on bare ground on %s", placed[0], SHIPPED_MAP ) ) )
+		return;
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	const std::string szGeneratedWanted = std::string( wanted[0] ) + "w";
+	const std::vector<std::string> names = UnitMeshTexturesIn( CTRect<float>( vGenerated.x - 40.0f, vGenerated.y - 80.0f, vGenerated.x + 40.0f, vGenerated.y + 16.0f ) );
+	bool bAllGenerated = !names.empty();
+	std::string szNames;
+	for ( size_t j = 0; j < names.size(); ++j )
+	{
+		bAllGenerated = bAllGenerated && names[j] == szGeneratedWanted;
+		if ( szNames.size() < 300 )
+			szNames += " " + names[j];
+	}
+	printf( "editor-bridge: with SeasonData the placed %s at %.0f,%.0f is drawn with:%s\n", placed[0], vGenerated.x, vGenerated.y, szNames.c_str() );
+	Check( bAllGenerated, NStr::Format( "with SeasonData the placed %s is drawn with %s (drawn with:%s)", placed[0], szGeneratedWanted.c_str(), szNames.c_str() ) );
 }
 
 // D-12: what the renderer actually draws when the camera is placed at yaw
