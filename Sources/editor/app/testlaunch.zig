@@ -182,6 +182,75 @@ pub fn playerUnitsNear(log: []const u8, player: u32) ?u32 {
     return std.fmt.parseInt(u32, rest[0..digits], 10) catch null;
 }
 
+/// What the game reported it consumed from the map (04-04, research Pattern
+/// 6): one `BK_MAP_TRACE: <kind> key=value ...` line per item, printed only
+/// when the game runs with BK_MAP_TRACE set (GameTT/iMissionInternal.cpp and
+/// the AI's own loaders). Every field is optional: null means the game did
+/// not report that item (an older Game, a truncated log), which is not the
+/// same as a reported zero. Unknown kinds and keys are ignored, so a newer
+/// game never breaks an older parser.
+pub const CameraSource = enum { player, neutral, units, unknown };
+pub const TraceCamera = struct { x: f32, y: f32, z: f32, source: CameraSource };
+
+pub const MapTraceSummary = struct {
+    /// The first `camera` line: where the mission put the view at its start.
+    camera: ?TraceCamera = null,
+    roads: ?u32 = null,
+    rivers: ?u32 = null,
+};
+
+const map_trace_prefix = "BK_MAP_TRACE: ";
+
+/// The value of `key=` among the space-separated `key=value` tokens of `rest`.
+fn tokenValue(rest: []const u8, key: []const u8) ?[]const u8 {
+    var tokens = std.mem.tokenizeScalar(u8, rest, ' ');
+    while (tokens.next()) |token| {
+        const eq = std.mem.indexOfScalar(u8, token, '=') orelse continue;
+        if (std.mem.eql(u8, token[0..eq], key)) return token[eq + 1 ..];
+    }
+    return null;
+}
+
+fn floatField(rest: []const u8, key: []const u8) ?f32 {
+    const text = tokenValue(rest, key) orelse return null;
+    const value = std.fmt.parseFloat(f32, text) catch return null;
+    return if (std.math.isFinite(value)) value else null;
+}
+
+fn countField(rest: []const u8, key: []const u8) ?u32 {
+    return std.fmt.parseInt(u32, tokenValue(rest, key) orelse return null, 10) catch null;
+}
+
+/// Reads the trace lines out of a test game's log. Lines are split at `\n`
+/// with a trailing `\r` trimmed; anything that does not start with the prefix
+/// is not ours. A line cut short (the game was killed mid-write) simply
+/// leaves the fields it never reached unset.
+pub fn parseMapTrace(log: []const u8) MapTraceSummary {
+    var summary: MapTraceSummary = .{};
+    var lines = std.mem.splitScalar(u8, log, '\n');
+    while (lines.next()) |raw_line| {
+        const line = std.mem.trimEnd(u8, raw_line, "\r");
+        if (!std.mem.startsWith(u8, line, map_trace_prefix)) continue;
+        const body = line[map_trace_prefix.len..];
+        const space = std.mem.indexOfScalar(u8, body, ' ') orelse body.len;
+        const kind = body[0..space];
+        const rest = body[space..];
+        if (std.mem.eql(u8, kind, "camera")) {
+            if (summary.camera != null) continue;
+            const x = floatField(rest, "x") orelse continue;
+            const y = floatField(rest, "y") orelse continue;
+            const z = floatField(rest, "z") orelse continue;
+            const name = tokenValue(rest, "source") orelse "";
+            const source: CameraSource = if (std.mem.eql(u8, name, "player")) .player else if (std.mem.eql(u8, name, "neutral")) .neutral else if (std.mem.eql(u8, name, "units")) .units else .unknown;
+            summary.camera = .{ .x = x, .y = y, .z = z, .source = source };
+        } else if (std.mem.eql(u8, kind, "terrain")) {
+            if (summary.roads == null) summary.roads = countField(rest, "roads");
+            if (summary.rivers == null) summary.rivers = countField(rest, "rivers");
+        }
+    }
+    return summary;
+}
+
 fn quotedField(line: []const u8, key: []const u8) ?[]const u8 {
     const at = std.mem.indexOf(u8, line, key) orelse return null;
     const rest = line[at + key.len ..];
@@ -453,4 +522,50 @@ test "playerUnitsNear: a player's count, a player the game did not name, and no 
     try std.testing.expectEqual(@as(?u32, 0), playerUnitsNear("BK_AUTO_UI: units near 1,1 r 5: total 0\n", 0));
     try std.testing.expectEqual(@as(?u32, null), playerUnitsNear("BK_AUTO_UI: shot written\n", 0));
     try std.testing.expectEqual(@as(?u32, null), playerUnitsNear("", 0));
+}
+
+test "parseMapTrace: the camera and the terrain's roads and rivers" {
+    const log =
+        "BK_AUTO_UI: frame 120 at 1 ms game 2 ms\n" ++
+        "BK_MAP_TRACE: camera x=1200 y=2500 z=31 source=player\r\n" ++
+        "BK_MAP_TRACE: terrain roads=3 rivers=0\n" ++
+        "BK_MAP_TRACE: someday-item foo=1\n";
+    const trace = parseMapTrace(log);
+    try std.testing.expectEqual(@as(f32, 1200), trace.camera.?.x);
+    try std.testing.expectEqual(@as(f32, 2500), trace.camera.?.y);
+    try std.testing.expectEqual(@as(f32, 31), trace.camera.?.z);
+    try std.testing.expectEqual(CameraSource.player, trace.camera.?.source);
+    try std.testing.expectEqual(@as(?u32, 3), trace.roads);
+    try std.testing.expectEqual(@as(?u32, 0), trace.rivers);
+}
+
+test "parseMapTrace: the other camera sources, and one the parser does not know" {
+    try std.testing.expectEqual(CameraSource.neutral, parseMapTrace("BK_MAP_TRACE: camera x=1 y=2 z=3 source=neutral\n").camera.?.source);
+    try std.testing.expectEqual(CameraSource.units, parseMapTrace("BK_MAP_TRACE: camera x=1 y=2 z=3 source=units\n").camera.?.source);
+    try std.testing.expectEqual(CameraSource.unknown, parseMapTrace("BK_MAP_TRACE: camera x=1 y=2 z=3 source=teleport\n").camera.?.source);
+    // Only the first camera line counts: the mission starts once.
+    try std.testing.expectEqual(@as(f32, 1), parseMapTrace("BK_MAP_TRACE: camera x=1 y=2 z=3 source=player\nBK_MAP_TRACE: camera x=9 y=9 z=9 source=units\n").camera.?.x);
+}
+
+test "parseMapTrace: a log without any trace line reports nothing, not zeros" {
+    const trace = parseMapTrace("BK_AUTO_UI: shot written\nBK_SOUND_TRACE: dump t=1\n");
+    try std.testing.expectEqual(@as(?TraceCamera, null), trace.camera);
+    try std.testing.expectEqual(@as(?u32, null), trace.roads);
+    try std.testing.expectEqual(@as(?u32, null), trace.rivers);
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("").camera);
+}
+
+test "parseMapTrace: a truncated or malformed line leaves its fields unset" {
+    // Killed mid-write: the y and z never arrived, so there is no camera.
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("BK_MAP_TRACE: camera x=12").camera);
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("BK_MAP_TRACE: camera x=1 y=oops z=3 source=player\n").camera);
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("BK_MAP_TRACE: camera x=nan y=1 z=3 source=player\n").camera);
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("BK_MAP_TRACE: camera\n").camera);
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("BK_MAP_TRACE: ").camera);
+    // "roads=" cut off before its digits, and a rivers value that is not one.
+    const cut = parseMapTrace("BK_MAP_TRACE: terrain roads= rivers=x2\n");
+    try std.testing.expectEqual(@as(?u32, null), cut.roads);
+    try std.testing.expectEqual(@as(?u32, null), cut.rivers);
+    // A line that only resembles ours is not ours.
+    try std.testing.expectEqual(@as(?TraceCamera, null), parseMapTrace("xBK_MAP_TRACE: camera x=1 y=2 z=3 source=player\n").camera);
 }
