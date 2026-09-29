@@ -335,6 +335,74 @@ A texture missing in every season still comes back null, as before.
 
 **Still to do:** rebuild the release stage once Johannes has left it, then retry hand-try step 7: open a map under AchtungPanzer2, then File > Mod > None. The prompt should ask if the map is dirty, then the editor should be empty.
 
+## Gap fix: tile pictures in the Brush's tile picker (hand try, M1)
+
+**Found:** Tools > Brush > "tile" was a combo of "tile 0", "tile 1", and so on. Johannes: "It would be great to see the tile as graphics next to the name and number; otherwise hard to choose and trying out several 100 is not feasible." Coldwinter's tileset offers 184 tiles.
+
+**How the engine and the MFC editor get a tile's picture:** a paint cell's tile is an index into the tileset description's `<tilemaps>`. Each entry has four texture-space corners of an isometric diamond: `maps0` top, `maps1` right, `maps2` left, `maps3` bottom. The texture is `<szTilesetDesc>_h.dds`, for example `terrain\sets\2\tileset_h.dds`, 256x512 with 64x32 tiles. The MFC tile palette (`MapEditor/TabTileEditDialog.cpp`, `CreateImageList`) cut each thumbnail as the bounding box of those corners, flipped it when `maps3` lies above `maps0`, and masked it with `editor\terrain\tilemask.tga`. The terrain type (`<terrtypes>`: "Icicle", "Ice", "Snow", "Asphalt", ...) is the only name a tile has.
+
+**Change:**
+- **Bridge** (commit `54cc41060`, `Sources/src/EditorBridge/bridge.h/.cpp`; C ABI through `Guarded`, documented in `bridge.h`):
+  - `BkEditorDescribeTile(session, tile, BkEditorTile*)` gives the tile's terrain type (name and index) and the tileset's storage name.
+  - `BkEditorTilePicture(session, tile, rgba, capacity, max_side, &w, &h)` returns the tile's diamond as RGBA8, top row first (`BkEditorObjectPicture`'s layout), transparent outside the diamond with a one-pixel fade. It reads the corners from the tileset's own `.xml`, because the engine's loaded copy is pulled in by `CorrectUVMaps` by an amount that depends on the screen width. It reads the texture from `_h.dds`, else `_c`, else `_l`. The decoded texture and description are cached per tileset for the session, and `BkEditorSetMod` drops them.
+  - Refusals: tile outside 0..255 or `max_side` outside 8..256 is `BAD_ARGUMENT`. No map open, a tile no terrain type lists, or a short buffer (real size still reported) is `REFUSED`.
+  - `BkEditorObjectPicture`'s scale-and-write tail is shared as `WritePicture`.
+- **App** (commit `043611098`):
+  - The current tile's picture sits beside the combo, and the combo reads "tile 0 - Icicle".
+  - Opening the combo shows an opaque grid of every tile's picture with its number, in sections per terrain type ("Icicle (7)", "Ice (12)", ...) in the tileset's order. The current tile is outlined and scrolled into view, each cell has a tooltip naming it, and a click chooses the tile.
+  - Pictures come through `pictures.zig` as a second cache (`Source.tile`, keyed by the tile number). They are requested only for cells in view, pumped 32 per frame, and dropped when a map with another tileset opens or the mod switches.
+  - Pure logic in `panels_logic.zig`: `sortTilesForPicker`, `nextTileGroup`, `indexOfTile`, `gridColumns`, `tileLabel`, `tileKey`/`tileFromKey`, `tilePicturesStale`.
+
+**Evidence** (debug stage in its default copy-data mode; the release stage was not built into or run from):
+- Engine tier, new `TestTilePicturesAndClose` on coldwinter (`tilepick-editor-bridge-2.log`):
+  - 184 tiles, 184 distinct pictures, 16 terrain types (Icicle, Ice, Blizzard, Dirty Snow, Snow, Ground, Snowstorm, Snowdrift, Slush, Blanket, Garden, Snowfield, Cube, Iceberg, Bottom, Asphalt).
+  - Every picture passed its checks: opaque middle, transparent corners, not one flat colour, not black.
+  - The first tiles of different terrain types all differ.
+  - The refusals follow the contract, and `max_side` 16 scales a picture down while keeping it wider than tall.
+  - Timing: 5.7 ms for the first picture (decodes the texture), then 0.14 ms each.
+  - All 184 tiles side by side: `zig-out/local-test/03-15-tile-pictures.png` (and `.tga`).
+- `test-map-editor-panels` 64/64 passed (in the shared working tree). The 4 new picker tests cover order and sections, labels, grid columns, and keys plus the stale-tileset rule.
+- `map-editor-smoke` PASS, 52 steps. After the mod steps it reopens the saved map, clicks the tile combo, and waits until every cell in view has its picture ("the tile picker shows 39 of 184 tiles, each with its picture"). It captures the frame, clicks a tile of another terrain type, and checks the brush took it and the popup closed.
+- **Capture of the open picker for Johannes:** `zig-out/local-test/03-15-tile-picker.png` (1280x800; `.tga` beside it).
+
+## Gap fix: File > Close (hand try, M1)
+
+**Found:** File had no Close. The only ways to get an empty editor were File > Mod or quitting.
+
+**Change** (bridge part in `54cc41060`, app part in `043611098`):
+- **Menu:** File > Close sits between Save As... and Autosave. The shortcut is shown as Cmd+W on macOS and Ctrl+W elsewhere; either modifier works on every platform, like Cmd/Ctrl+Z. It is not taken while a text field is being typed in, as with F5. The item is disabled, and the shortcut does nothing, with no map open.
+- **Prompt:** Close is guarded by the unsaved-changes prompt like Open (D-23; `Pending.close` / `Step.close`).
+  - Cancel keeps the map.
+  - Save on a shipped, read-only or new map goes through Save As. A failed Save or a cancelled Save As keeps the map; a landed one closes it.
+  - Don't save closes the map.
+- **Bridge:** `BkEditorCloseMap` is `CloseSessionMap` without the mod swap. The world's objects and the terrain leave the scene, and the per-map tables are reset. It is OK with no map open.
+- **App:** `closeMapAndDocument` calls it, then `Editor.close()` (from `68cd1d79e`), then `mapClosed` with the same bookkeeping as File > Mod:
+  - the view is as with no map, and the per-map panels are reset
+  - the undo history is cleared and autosave is idle
+  - the recovery copy is deleted on Don't save
+  - the title reads "Map Editor [<mod>]" and the status bar "no map open"
+
+  The document closes even if the bridge refuses or fails, so it never claims a map the engine may not have. The mod and the palette stay.
+
+**Evidence:**
+- `test-map-editor-panels`, 4 new tests: a clean close; Cancel keeps the map and Don't save closes it; the Save paths (a failed Save and a cancelled Save As keep the map, a landed Save or Save As closes it); a bridge refusal or failure still closes the document.
+- The engine tier checks that after `BkEditorCloseMap` the tileset, tile pictures and objects are refused as "no map is open", that a second close is harmless, that a frame still draws, and that coldwinter reopens with the world matching. `BkEditorCloseMap` with no map open is OK. The NO_SESSION list now has 52 entry points and the "no map is open" list 31.
+- `map-editor-smoke` steps on the dirty reopened map:
+  1. File > Close asks.
+  2. Cancel keeps the map, still dirty.
+  3. Ctrl+W, as a real key event through ImGui, asks too.
+  4. Don't save closes the map. Afterwards: no document, history, selection, view map, tiles or sounds; the bridge's tileset refused as "no map is open"; title "Map Editor"; autosave idle; no recovery copy active; mod unchanged.
+
+**Other tiers** (logs `zig-out/local-test/tilepick-*.log`):
+- `test-editor-core` 86/86.
+- `test-map-editor-engine` PASS (260 objects).
+- `map-editor-host-check` PASS on all three runs, plus the mod switch leg.
+- `test-editor-bridge`: every check passed except the known `TestMissingSeasonTextureFallsBack` (the generated `1w` textures in this worktree; see the section above).
+
+**Note for review:** another session was changing map-sound code in the same working tree at the same time: the Sounds panel note, `defaultSoundName`, a smoke check, `main.zig`, `testlaunch.zig` and the engine sound files. Those hunks were left unstaged. The two commits above contain only this fix. The tiers ran on the shared tree with both sets of changes.
+
+**Still to do:** rebuild the release stage once Johannes has left it, then try the picker and File > Close by hand. The picker's grid is six 64-pixel columns and fills about 60% of the window's height.
+
 ## Open items for Johannes to decide (plan 5 carried, not closed by any plan of phase 3)
 
 Still open in `.planning/WINDOWS.md` (entries 1-3, ledger `open_count: 3`):
