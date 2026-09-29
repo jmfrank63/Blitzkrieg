@@ -2017,6 +2017,14 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
             state.sounds_generation_seen = editor.sounds_generation;
         };
     }
+    // How the game plays these (GameTT/iMissionInternal.cpp hands them to
+    // Scene/SoundScene.cpp's map sounds, beside the rivers' own), so a test
+    // game that starts its view elsewhere is not mistaken for a silent sound.
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    text(logic.sound_panel_note);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
 
     const index = state.selected_sound orelse {
         state.sound_edit.active = false;
@@ -2118,19 +2126,20 @@ fn commitSoundEdit(state: *State, index: usize) void {
 
 /// "Add at view centre" (Task 3): the world point under the screen's centre
 /// - `editor.resolve`, the same conversion the properties/place tools use -
-/// with the first known sound (the sorted catalogue's own order) and the
-/// default radii. Nothing happens with no known sound in the catalogue.
+/// with `logic.defaultSoundName` (the rivers' loop, which the game plays
+/// without a break near the view) and the default radii. Nothing happens
+/// with no known sound in the catalogue.
 /// Public: smoke.zig's own `add_sound_at_view_centre` step calls this
 /// directly, the same way it sets `state.actions.save_requested` for a menu
 /// item with no widget to click in the smoke's hidden window.
 pub fn addSoundAtViewCentre(state: *State) void {
     const editor = state.editor;
     if (!mapIsOpen(editor)) return;
-    if (state.sound_names.len == 0) return;
+    const name = logic.defaultSoundName(state.sound_names) orelse return;
     const screen = state.real.screenSize() orelse return;
     const pointer = editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0) catch return;
     var record: core.bridge.SoundRecord = .{ .x = pointer.world_x, .y = pointer.world_y };
-    record.setName(state.sound_names[0]);
+    record.setName(name);
     state.view.noteEditResult(editor, editor.addSound(-1, record));
     state.loadSounds();
     state.sounds_generation_seen = editor.sounds_generation;

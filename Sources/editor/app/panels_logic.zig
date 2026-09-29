@@ -119,6 +119,30 @@ pub fn sortNamesIgnoreCase(names: [][]const u8) void {
     }.lessThan);
 }
 
+/// The sound "Add at view centre" starts a new map sound with: the rivers'
+/// own loop, which the game plays without a break while the view is near
+/// it. The catalogue's alphabetical first (20mm_aviacannon) was the default
+/// before - a single cannon report the game plays at most once every few
+/// seconds (Scene/SoundScene.cpp CMapSounds), easy to miss in a test game.
+pub const default_sound_name = "Amb_Water_circle";
+
+/// Under the Sounds panel's buttons: what decides whether a placed sound is
+/// heard in the game (Scene/SoundScene.cpp's map sounds), and which of the
+/// record's fields the game leaves unread.
+pub const sound_panel_note = "In the game a map sound plays only while the view is near it, " ++
+    "about a screen away: a looped one without a break, any other every few seconds. " ++
+    "The sound itself decides how far it carries and whether combat mutes it; " ++
+    "repeat, radius and mute are saved with the map, but the game does not use them.";
+
+/// `default_sound_name` when `names` knows it (a mod may not), else the
+/// first name; null for an empty list.
+pub fn defaultSoundName(names: []const []const u8) ?[]const u8 {
+    for (names) |name| {
+        if (std.ascii.eqlIgnoreCase(name, default_sound_name)) return name;
+    }
+    return if (names.len != 0) names[0] else null;
+}
+
 /// A message for the Sounds panel's own fields, shown next to them so an
 /// impossible radius pair is visible before the bridge ever sees it (which
 /// would otherwise only report it after the fact, in the status bar).
@@ -1127,6 +1151,14 @@ test "sortNamesIgnoreCase sorts case-insensitively" {
     try std.testing.expectEqualStrings("amb_forest", names[0]);
     try std.testing.expectEqualStrings("Explosion", names[1]);
     try std.testing.expectEqualStrings("Wind", names[2]);
+}
+
+test "defaultSoundName: the rivers' loop when known, else the first name, else none" {
+    const with_default = [_][]const u8{ "20mm_aviacannon", "Amb_Field", "amb_water_circle", "Zis_5" };
+    try std.testing.expectEqualStrings("amb_water_circle", defaultSoundName(&with_default).?);
+    const without_default = [_][]const u8{ "20mm_aviacannon", "Amb_Field" };
+    try std.testing.expectEqualStrings("20mm_aviacannon", defaultSoundName(&without_default).?);
+    try std.testing.expect(defaultSoundName(&.{}) == null);
 }
 
 test "soundRadiusError names a min above max, and nothing else" {

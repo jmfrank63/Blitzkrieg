@@ -1043,6 +1043,10 @@ pub const Script = struct {
                 if (count != self.original_sounds + 1) return self.stepFail(step, "{d} sounds, the map had {d}", .{ count, self.original_sounds });
                 if (editor.history.undo_stack.items.len != 1) return self.stepFail(step, "{d} edits recorded, want the add as one", .{editor.history.undo_stack.items.len});
                 if (self.state.selected_sound == null) return self.stepFail(step, "the added sound is not selected", .{});
+                // 03-15 gap fix (map sound in the test game): the default is
+                // the rivers' loop, not the catalogue's alphabetical first.
+                const added = std.mem.sliceTo(&self.state.sounds[self.state.selected_sound.?].name, 0);
+                if (!std.ascii.eqlIgnoreCase(added, panels_logic.default_sound_name)) return self.stepFail(step, "the added sound is {s}, want the default {s}", .{ added, panels_logic.default_sound_name });
             },
             .sound_removed => {
                 var count: usize = 0;
