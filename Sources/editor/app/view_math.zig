@@ -316,19 +316,26 @@ fn applyWheel(camera: *Camera, event: WheelEvent) void {
     camera.panScreen(pan.right_px, pan.up_px, test_map);
 }
 
-test "a wheel's y pans the map up and down the screen, its x across it" {
+test "a wheel notch up pans the map 20 px toward the screen's top: 28.28 world units along (-1, +1)" {
+    // Literal positions (WINDOWS.md 3): SDL's y is positive away from the
+    // user, a notch is 20 screen px, and screen up is world (-1, +1) at two
+    // world units per pixel over sqrt(2); screen right (+1, +1) at one.
     var camera: Camera = .{ .x = 2000, .y = 2000 };
     applyWheel(&camera, .{ .x = 0, .y = 1 });
-    // Screen up is world (-1, +1).
-    try std.testing.expect(camera.x < 2000 and camera.y > 2000);
+    try std.testing.expectApproxEqAbs(@as(f32, 1971.716), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2028.284), camera.y, 0.001);
+    camera = .{ .x = 2000, .y = 2000 };
+    applyWheel(&camera, .{ .x = 0, .y = -1 });
+    try std.testing.expectApproxEqAbs(@as(f32, 2028.284), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 1971.716), camera.y, 0.001);
     camera = .{ .x = 2000, .y = 2000 };
     applyWheel(&camera, .{ .x = 1, .y = 0 });
-    // Screen right is world (+1, +1).
-    try std.testing.expect(camera.x > 2000 and camera.y > 2000);
-    try std.testing.expectApproxEqAbs(camera.x, camera.y, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2014.142), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 2014.142), camera.y, 0.001);
     camera = .{ .x = 2000, .y = 2000 };
     applyWheel(&camera, .{ .x = -1, .y = -1 });
-    try std.testing.expect(camera.y < 2000);
+    try std.testing.expectApproxEqAbs(@as(f32, 2014.142), camera.x, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 1957.574), camera.y, 0.001);
 }
 
 test "a slow swipe's small fractional deltas add up to the large one, moving the same way every event" {
@@ -375,7 +382,7 @@ test "a mouse wheel's notches pan by whole, equal steps" {
     const first = camera.y - 2000;
     applyWheel(&camera, .{ .x = 0, .y = 1 });
     try std.testing.expectApproxEqAbs(2 * first, camera.y - 2000, 0.001);
-    try std.testing.expectApproxEqAbs(wheel_pixels_per_unit * 2 / std.math.sqrt2, first, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 28.284), first, 0.001);
 }
 
 test "the sensitivity scales a pan monotonically, and the default leaves it as it was" {
@@ -475,17 +482,29 @@ test "scroll speed: edge and keys add up, and clamp at the map" {
     try std.testing.expectEqual(@as(f32, 0), camera.y);
 }
 
-test "scroll follows the screen of the game's camera: up is world (-1, +1), at twice the step" {
+test "scroll follows the screen of the game's camera: 0.1 s of up is 141.42 world units along (-1, +1), of right 70.71 along (+1, +1)" {
+    // Literal positions, not ones worked out from scroll_speed (WINDOWS.md
+    // 3): the game's camera (yaw 45, pitch 30) puts screen up along world
+    // (-1, +1) and screen right along (+1, +1) - the engine tier checks the
+    // same directions against BkEditorScreenToWorld - and 1000 world units
+    // a second, twice that up the screen, is 100 and 200 in 0.1 s.
     const map: MapSize = .{ .width_tiles = 96, .height_tiles = 96 };
     var camera: Camera = .{ .x = 2000, .y = 2000 };
     camera.scroll(.{ .up = true }, 0.1, map);
-    const step = scroll_speed * 0.1 / std.math.sqrt2;
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) - 2 * step, camera.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) + 2 * step, camera.y, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 1858.579), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2141.421), camera.y, 0.01);
+    camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .down = true }, 0.1, map);
+    try std.testing.expectApproxEqAbs(@as(f32, 2141.421), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 1858.579), camera.y, 0.01);
     camera = .{ .x = 2000, .y = 2000 };
     camera.scroll(.{ .right = true }, 0.1, map);
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) + step, camera.x, 0.01);
-    try std.testing.expectApproxEqAbs(@as(f32, 2000) + step, camera.y, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2070.711), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 2070.711), camera.y, 0.01);
+    camera = .{ .x = 2000, .y = 2000 };
+    camera.scroll(.{ .left = true }, 0.1, map);
+    try std.testing.expectApproxEqAbs(@as(f32, 1929.289), camera.x, 0.01);
+    try std.testing.expectApproxEqAbs(@as(f32, 1929.289), camera.y, 0.01);
     camera = .{ .x = 2000, .y = 2000 };
     camera.scroll(.{ .up = true, .down = true, .left = true, .right = true }, 0.1, map);
     try std.testing.expectEqual(@as(f32, 2000), camera.x);
