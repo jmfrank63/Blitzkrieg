@@ -1,0 +1,325 @@
+# Phase 6: Resource Editor parity checklist
+
+Every sub-editor and every user-visible feature of the MFC resource editor
+(`Sources/src/editor`, `editor.exe`), with the plan that ports it. The MFC
+editor is deleted (06-16) only when every row is **done** with evidence, or
+marked **no behaviour in MFC** with a reason.
+
+Status values: `todo` → `done (<evidence>)`: a test name, a golden
+comparison, or a shot in `zig-out/local-test`. The evidence column is filled
+by the executing plan.
+
+Sources for this inventory: `MainFrm.cpp`, `ParentFrame.cpp`, `frames.h`,
+`TreeItemFactory.cpp`, every `*Frm.cpp` / `*TreeItem.cpp` / `*View.cpp`,
+`editor.rc` (menus `IDR_EDITORTYPE`, `IDR_INSERT_TREE_ITEM_MENU`,
+`IDR_DELETE_TREE_ITEM`, `IDR_INTERPOLATE_TREE_ITEM_MENU`,
+`IDR_KEYFRAME_ZOOM_MENU`, `IDR_ACK_MENU`, `IDR_ALIGN_MENU`,
+`IDR_TEMPLATE_MENU`; 14 toolbars; 11 dialogs; accelerators).
+
+## Plan map
+
+| Plan | Wave | Content |
+|---|---|---|
+| 06-01 | 1 | Parity oracle on win-home (MFC batch export → goldens), DXT tolerance measured, repo-owned fixture per extension, preview-scene spike (one mesh unit, one sprite object, one particle source), project-XML round-trip spike |
+| 06-02 | 2 | Editor kit extracted from the map editor (`Sources/editor/kit`); MapEditor on it, all its tiers green |
+| 06-03 | 2 | `Sources/src/ResourceModel`: portable variant/`SProp`/`CTreeItem`/factory, every item class of every sub-editor, project load/save, references, data-only resource-file tier in CI |
+| 06-04 | 3 | Resource bridge (`resource_bridge.h`, `BkRes*`) + resource core (document, generic commands, undo, fake bridge) |
+| 06-05 | 4 | `ResourceEditor` app shell: shared features below, packaging, CI, `BK_EDITOR_AUTO` extensions |
+| 06-06 | 5 | Weapon, Mine, Trench, Squad |
+| 06-07 | 5 | Sprite, Infantry |
+| 06-08 | 5 | Unit (mesh) |
+| 06-09 | 5 | Object, Fence (the `CGridFrame` tools) |
+| 06-10 | 5 | Building |
+| 06-11 | 5 | Bridge |
+| 06-12 | 5 | Particle, Effect (keyframe curve editor) |
+| 06-13 | 5 | Terrain (tileset/crosset), 3D Road, 3D River |
+| 06-14 | 5 | Mission, Chapter, Campaign, Medal (the `CImageFrame` editors) |
+| 06-15 | 5 | GUI editor (switched off in MFC; ported against the current UI XML) |
+| 06-16 | 6 | Full sweep: all goldens, `test-resources-all`, game reads a mod with one resource per kind, hand try macOS + Windows, delete the MFC editor |
+
+Each sub-editor plan (06-06..06-15) delivers, per sub-editor: the model
+export port in `ResourceModel`, goldens compared under "the game reads it
+unchanged" (spec), Import from game data, its preview and overlays, its
+tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
+
+## A. Shared features (every sub-editor)
+
+| # | MFC feature | MFC source | Plan | Status |
+|---|---|---|---|---|
+| A-01 | File → New Project (Ctrl+N), per sub-editor kind, with New Dir dialog | `ParentFrame.cpp`, `NewDirDialog` | 06-05 | todo |
+| A-02 | File → Open Project (Ctrl+O), switches sub-editor by extension | `ActivateFrameByExtension` | 06-05 | todo |
+| A-03 | File → Close Project | `ParentFrame.cpp` | 06-05 | todo |
+| A-04 | File → Save (Ctrl+S) / Save As; project XML format unchanged; `History` list (≤100) | `CTreeDockWnd::SaveTrees` | 06-03 (format), 06-05 (UI) | todo |
+| A-05 | Save keeps a backup (MFC `backup.tmp`) → safe save + `.bak` | `ParentFrame.cpp` | 06-05 | todo |
+| A-06 | Project lock `locked_<username>` on open | `ParentFrame.cpp` | 06-05 | todo |
+| A-07 | Recent files (MFC 7 entries, registry) | `MainFrm.cpp` | 06-05 | todo |
+| A-08 | File → MOD Settings (Ctrl+M): `mod.xml` name/version/description, seed `modobjects.xml` | `MODDialog` | 06-05 | todo |
+| A-09 | File → Export Result (Ctrl+E) | `OnFileExportFiles` | 06-05 (flow), each sub-editor plan (content) | todo |
+| A-10 | File → Compress current MOD to PAK (MFC: `zip.exe -9 -R -D`) → native writer | `ParentFrame.cpp` | 06-05 | todo |
+| A-11 | File → Exit (Ctrl+X) with unsaved-changes prompt | `MainFrm.cpp` | 06-05 | todo |
+| A-12 | Edit → Set Picture Options (brightness/contrast/gamma, `gamma.cfg` searched upward, preview `SingleIcon`) | `PictureOptions` | 06-05 | todo |
+| A-13 | View → Toolbar, Status Bar, Project Tree, Object Inspector toggles | `MainFrm.cpp` | 06-05 | todo |
+| A-14 | View → Direction Button (Ctrl+D) dock | `DirectionButton*` | 06-05 (widget), 06-06/06-08/06-12 (use) | todo |
+| A-15 | View → Function Window (Ctrl+F) keyframe dock | `KeyFrame*` | 06-12 | todo |
+| A-16 | View → Set Background Colour | `ParentFrame.cpp` | 06-05 | todo |
+| A-17 | View → Expand/Collapse all (Ctrl+C) | `ETreeCtrl` | 06-05 | todo |
+| A-18 | Tools → Set Directories (Ctrl+T): source, export, game exe, game args (registry) → settings file | `SetDirDialog` | 06-05 | todo |
+| A-19 | Tools → Export RPG Stats (Ctrl+R) — MFC wired for Infantry only → every sub-editor | `AnimationFrm.cpp` | 06-05 (flow), sub-editor plans | todo |
+| A-20 | Tools → Batch Mode (Ctrl+B) dialog: src, dst, mask, `-f`, `-os`, progress, failure list, missing `gamma.cfg` list | `BatchModeDialog`, `ProgressDialog` | 06-05 | todo |
+| A-21 | Command-line batch `editor.exe <*.ext> <src> <dst> [-f] [-os]`, up-to-date check | `CEditorApp::RunBatchMode`, `ExportSingleFile` | 06-05 | todo |
+| A-22 | Tools → Run Blitzkrieg (F7) with args and `-mod=` → test launch | `ParentFrame.cpp` | 06-05 | todo |
+| A-23 | Tools → SaveMapObjects | `OnSaveObjects` (no message-map entry) | 06-05 | todo — recover intent; port if clear, else "no behaviour in MFC" |
+| A-24 | Editors menu: 20 sub-editors in MFC order; last active remembered | `CFrameManager`, `SwitchActiveFrame` | 06-05 | todo |
+| A-25 | Help → About | `IDD_ABOUTBOX` | 06-05 | todo |
+| A-26 | Help → Help (F1) `reshelp.chm` | `ID_HELP` | 06-05 | todo — the `.chm` is not in the repository: Help shows the shortcut list and links the spec |
+| A-27 | Project tree: select, rename display name, expand state saved | `CTreeDockWnd`, `CETreeCtrl` | 06-05 | todo |
+| A-28 | Tree context: Insert item (per-kind child classes), Delete item | `IDR_INSERT_TREE_ITEM_MENU`, `IDR_DELETE_TREE_ITEM` | 06-04 (commands), 06-05 (UI) | todo |
+| A-29 | Object inspector: every domain type (`DT_DEC/STR/BOOL/FLOAT/COMBO/BROWSE/COLOR`) | `COI/*` | 06-05 | todo |
+| A-30 | Reference pickers: all 20 `EReferenceType` lists | `RefDlg` | 06-03 (lists), 06-05 (UI) | todo |
+| A-31 | Multi-select dialog | `MultySelDialog` | 06-05 | todo |
+| A-32 | Browse dialog (source-relative paths) | `BrowseDialog`, `MyOpenFileDialog` | 06-05 | todo |
+| A-33 | AI class combo, player sides combo | `Reference.cpp`, `UnitSide.cpp` | 06-03 | todo |
+| A-34 | Localisation items (name/desc/stats `.txt`) | `localization.*` | 06-03 | todo |
+| A-35 | Thumbnail list dock | `ThumbList*` | 06-05 (widget) | todo |
+| A-36 | Import XML file (Ctrl+I) — no handler in MFC → Import from game data | `ID_IMPORT_XML_FILE` | 06-04 (bridge), 06-05 (UI), sub-editor plans (per kind) | todo |
+| A-37 | Engine preview window (`CGameWnd`, storage + MOD, `consts.xml`, objects DB) | `GameWnd.*`, `GlobalsLoader.cpp` | 06-01 (spike), 06-04 | todo |
+| A-38 | Undo/redo for every edit (new; MFC had none outside GUI) | — | 06-04 + every sub-editor plan | todo |
+| A-39 | Autosave and crash recovery (new, as the map editor) | — | 06-05 | todo |
+
+## B. Sub-editors
+
+### B-01 Unit editor (`CMeshFrame`, `.msh`, `units\technics\`) — 06-08
+
+| # | Feature | Status |
+|---|---|---|
+| B-01.1 | Tree: Common, Defences, Graphics, Platforms (Guns), Joggings, Locators, Avia, Effects, Sound, Death craters, Track | todo |
+| B-01.2 | 3D mesh preview (`IMeshVisObj`, `AddMeshPair`) | todo |
+| B-01.3 | Show locators / show bounding box (toolbar) | todo |
+| B-01.4 | Pick a locator with right-click | todo |
+| B-01.5 | Gun point, gun part, carriage, platform dropdowns | todo |
+| B-01.6 | Combat / install / transportable model switch | todo |
+| B-01.7 | Direction arrow dock | todo |
+| B-01.8 | Export: `1.xml` `SMechUnitRPGStats`, copied `*.mod`, `1/1w/1a/2/2w/2a/1p*` DDS, `icon.tga` 64 px, `icon` DDS 128 px, `icon512`, `name/desc.txt`; auto DXT format choice | todo |
+| B-01.9 | Import from game data | todo |
+
+### B-02 Infantry editor (`CAnimationFrame`, `.unt`, `units\humans\`) — 06-07
+
+| # | Feature | Status |
+|---|---|---|
+| B-02.1 | Tree: Common, Localization, AI, Weapon, Grenade, Season directories, Animations/Frames, Actions, Exposures, Acks/Ack types | todo |
+| B-02.2 | Animation preview Run/Stop (F5) | todo |
+| B-02.3 | Frame thumbnail list | todo |
+| B-02.4 | Ack Import/Export (`IDR_ACK_MENU`; MFC has enable handlers only) | todo — recover intent; port if clear, else "no behaviour in MFC" |
+| B-02.5 | Export RPG Stats only (Ctrl+R) | todo |
+| B-02.6 | Export: `1.xml` `SInfantryRPGStats`, `1[b][w\|a].san` + DDS per season/blood variant, `name/desc/stats.txt` | todo |
+| B-02.7 | Opens every `.unt` in `Data/Old` and `WinSniper.unt` | todo |
+| B-02.8 | Import from game data | todo |
+
+### B-03 Squad editor (`CSquadFrame`, `.scp`, `squads\`) — 06-06
+
+| # | Feature | Status |
+|---|---|---|
+| B-03.1 | Tree: Common (picture, type), Members, Formations | todo |
+| B-03.2 | Formation layout: drag members | todo |
+| B-03.3 | Set zero point (toolbar) | todo |
+| B-03.4 | Direction arrow dock | todo |
+| B-03.5 | Export: `SSquadRPGStats` + copied icon | todo |
+| B-03.6 | Import from game data | todo |
+
+### B-04 Weapon editor (`CWeaponFrame`, `.wpn`, `weapons\`) — 06-06
+
+| # | Feature | Status |
+|---|---|---|
+| B-04.1 | Tree: Common, Shoot types, Damage, Sound, Effect, Flash, Craters, Effects | todo |
+| B-04.2 | Export: `SWeaponRPGStats` to `weapons\<name>.xml` | todo |
+| B-04.3 | Import from game data | todo |
+
+### B-05 Mine editor (`CMineFrame`, `.mcp`) — 06-06
+
+| # | Feature | Status |
+|---|---|---|
+| B-05.1 | Tree: Common (name, weight) | todo |
+| B-05.2 | Export: `SMineRPGStats`, `ComposeSingleObject` from `1.tga`/`1s.tga` | todo |
+| B-05.3 | Import from game data | todo |
+
+### B-06 Particle editor (`CParticleFrame`, `.pcp`, `effects\particles\`) — 06-12
+
+| # | Feature | Status |
+|---|---|---|
+| B-06.1 | Tree: Common, Source generate (spin, area, angle, opacity, speed, life, density, random spin), Particle curves (spin, weight, speed, size, opacity, texture frame), Complex source, Random life/speed | todo |
+| B-06.2 | Run/Stop preview, Camera switch | todo |
+| B-06.3 | Get particle info | todo |
+| B-06.4 | Simple / complex source toggle | todo |
+| B-06.5 | Keyframe curve editor: add/move/delete node, Reset all, Zoom in/out X and Y (`IDR_KEYFRAME_ZOOM_MENU`) | todo |
+| B-06.6 | Export: `KeyData` (`SParticleSourceData` / `SSmokinParticleSourceData`) | todo |
+| B-06.7 | Import from game data | todo |
+
+### B-07 Sprite editor (`CSpriteFrame`, `.spt`, `effects\sprites\`) — 06-07
+
+| # | Feature | Status |
+|---|---|---|
+| B-07.1 | Tree: Sprites, Sprite properties | todo |
+| B-07.2 | Run/Stop preview; thumbnail list | todo |
+| B-07.3 | Export: `1.san` + DDS (`BuildAnimations`, `SSpriteAnimationFormat`) | todo |
+| B-07.4 | Import from game data | todo |
+
+### B-08 Effect editor (`CEffectFrame`, `.eff`, `effects\effects\`) — 06-12
+
+| # | Feature | Status |
+|---|---|---|
+| B-08.1 | Tree: Common, Animations (sprites), Meshes, Function particles, Maya particles, Lights | todo |
+| B-08.2 | Run/Stop, Camera switch | todo |
+| B-08.3 | Direction arrow dock | todo |
+| B-08.4 | Interpolate Vector Items (`IDR_INTERPOLATE_TREE_ITEM_MENU`; MFC has the enable handler only) | todo — recover intent; port if clear, else "no behaviour in MFC" |
+| B-08.5 | Export: root `"effect"` = `SEffectDesc` | todo |
+| B-08.6 | Import from game data | todo |
+
+### B-09 Building editor (`CBuildingFrame`, `.bld`, `buildings\`) — 06-10
+
+| # | Feature | Status |
+|---|---|---|
+| B-09.1 | Tree: Common, Entrances, Slots, Graphics 1–3 summer/winter, Defences, Passes, Fire points, Directed explosions, Smokes | todo |
+| B-09.2 | Move object | todo |
+| B-09.3 | Draw passability grid (locked/unlocked tiles) | todo |
+| B-09.4 | Transparency dropdown and transparency cells | todo |
+| B-09.5 | Set entrance | todo |
+| B-09.6 | Set zero | todo |
+| B-09.7 | Shoot-point mode (slots) | todo |
+| B-09.8 | Fire-point mode | todo |
+| B-09.9 | Directed-explosion mode | todo |
+| B-09.10 | Smoke-point mode | todo |
+| B-09.11 | Move point, set horizontal position, set angle / cone | todo |
+| B-09.12 | Generate points | todo |
+| B-09.13 | Export: `desc` = `SBuildingRPGStats`, sprite + shadow packs with passability, `icon.tga` | todo |
+| B-09.14 | GOG `INTEX2 brandenburgertor/current.bld` exports equal to its golden (win-home) | todo |
+| B-09.15 | Import from game data | todo |
+
+### B-10 Object editor (`CObjectFrame`, `.obt`, `objects\`) — 06-09
+
+| # | Feature | Status |
+|---|---|---|
+| B-10.1 | Tree: Common, Graphics (sprite/shadow, summer/winter/Africa), Particles, Passes, Effects | todo |
+| B-10.2 | Move, Draw grid, transparency dropdown, Set zero | todo |
+| B-10.3 | One-way transparency lines (`TransLines`) | todo |
+| B-10.4 | Export: `desc` = `SObjectRPGStats`, `1/1s/1w/1ws` `.san` + DDS, icon, `name.txt` | todo |
+| B-10.5 | Import from game data | todo |
+
+### B-11 Fence editor (`CFenceFrame`, `.fnc`, `fences\`) — 06-09
+
+| # | Feature | Status |
+|---|---|---|
+| B-11.1 | Tree: Common, Directions, Insert, per-segment properties | todo |
+| B-11.2 | Move, Draw grid, transparency dropdown, Centre fence on tile | todo |
+| B-11.3 | Thumbnail list | todo |
+| B-11.4 | Export: `SFenceRPGStats`, `ComposeFences` sprites, icon | todo |
+| B-11.5 | Import from game data | todo |
+
+### B-12 Bridge editor (`CBridgeFrame`, `.bdg`, `bridges\`) — 06-11
+
+| # | Feature | Status |
+|---|---|---|
+| B-12.1 | Tree: Common, Defences, Begin/Center/End spans, Parts, Stages (damage states), Fire points, Directed explosions, Smokes | todo |
+| B-12.2 | Draw grid, draw bridge passability, transparency dropdown, Set zero | todo |
+| B-12.3 | Span marks `Begin/End/Front/Back` | todo |
+| B-12.4 | Fire points, smoke points, move point, horizontal position, angle, generate points | todo |
+| B-12.5 | Export: `SBridgeRPGStats` (segments/spans/states), sprite + shadow packs, `icon.tga` | todo |
+| B-12.6 | Import from game data | todo |
+
+### B-13 Trench editor (`CTrenchFrame`, `.trc`) — 06-06
+
+| # | Feature | Status |
+|---|---|---|
+| B-13.1 | Tree: Common, Sources (`.mod` models), Defences | todo |
+| B-13.2 | Preview of the entrenchment models | todo |
+| B-13.3 | Export: `SEntrenchmentRPGStats`, copied `.mod`, `1/1w/1a` DDS | todo |
+| B-13.4 | Import from game data | todo |
+
+### B-14 Mission editor (`CMissionFrame`, `.mip`, `scenarios\`) — 06-14
+
+| # | Feature | Status |
+|---|---|---|
+| B-14.1 | Tree: Common, Objectives, Musics | todo |
+| B-14.2 | Generate map image (`MinimapCreation`) | todo |
+| B-14.3 | Place objectives by clicking on the image | todo |
+| B-14.4 | Export: `SMissionStats`, copied `.txt`, map image via `ComposeImageToTexture`, map DDS, map `.xml` → `.bzm` | todo |
+| B-14.5 | GOG `INTEX2 ardennen40/current.mip` exports equal to its golden (win-home) | todo |
+| B-14.6 | Import from game data | todo |
+
+### B-15 Chapter editor (`CChapterFrame`, `.chc`) — 06-14
+
+| # | Feature | Status |
+|---|---|---|
+| B-15.1 | Tree: Common, Missions, Placeholders | todo |
+| B-15.2 | Show crosses mode: place mission markers on the map image | todo |
+| B-15.3 | Export: `SChapterStats`, copied `.txt` and `.lua`, image | todo |
+| B-15.4 | Import from game data | todo |
+
+### B-16 Campaign editor (`CCampaignFrame`, `.cgc`) — 06-14
+
+| # | Feature | Status |
+|---|---|---|
+| B-16.1 | Tree: Common, Chapters, Templates | todo |
+| B-16.2 | Position chapters by clicking on the map image | todo |
+| B-16.3 | Export: `SCampaignStats`, copied `.txt`, image | todo |
+| B-16.4 | Import from game data | todo |
+
+### B-17 Medal editor (`CMedalFrame`, `.mdc`, `medals\`) — 06-14
+
+| # | Feature | Status |
+|---|---|---|
+| B-17.1 | Tree: Common, Picture, Text | todo |
+| B-17.2 | Image preview | todo |
+| B-17.3 | Export: `SMedalStats`, copied `.txt`, image | todo |
+| B-17.4 | Import from game data | todo |
+
+### B-18 Terrain editor (`CTileSetFrame`, `.til`, `terrain\sets\`) — 06-13
+
+| # | Feature | Status |
+|---|---|---|
+| B-18.1 | Tree: Common, Terrains/Tiles, Crossets/Tiles, Ambient sounds, Looped sounds | todo |
+| B-18.2 | Import terrains, Import crossets (toolbar) | todo |
+| B-18.3 | Thumbnail list of tiles | todo |
+| B-18.4 | Crosset edit mode (`ID_EDIT_CROSSETS` appears only in the toolbar map) | todo — recover intent; port if clear, else "no behaviour in MFC" |
+| B-18.5 | Export: `<name>.xml` `"tileset"` = `STilesetDesc` + tileset DDS; `crosset.xml` + DDS | todo |
+| B-18.6 | Import from game data | todo |
+
+### B-19 3D Road editor (`C3DRoadFrame`, `.3rd`) — 06-13
+
+| # | Feature | Status |
+|---|---|---|
+| B-19.1 | Tree: Common, Layer | todo |
+| B-19.2 | Preview on `maps\road3d` terrain; wireframe toggle | todo |
+| B-19.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | todo |
+| B-19.4 | Import from game data | todo |
+
+### B-20 3D River editor (`C3DRiverFrame`, `.3rv`) — 06-13
+
+| # | Feature | Status |
+|---|---|---|
+| B-20.1 | Tree: Bottom layer, Layers | todo |
+| B-20.2 | Animated preview on `maps\river3d` terrain; wireframe toggle | todo |
+| B-20.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | todo |
+| B-20.4 | Import from game data | todo |
+
+### B-21 GUI editor (`CGUIFrame`, `GUIFrame2.cpp`, `.gui`; switched off in MFC) — 06-15
+
+| # | Feature | Status |
+|---|---|---|
+| B-21.1 | Tree/palette: Statics, Buttons, Sliders, Scrollbars, Status bars, Lists, Dialogs (templates from `Data/Editor/UI`) | todo |
+| B-21.2 | Place, move, resize controls on the screen preview | todo |
+| B-21.3 | Copy / Cut / Paste | todo |
+| B-21.4 | Undo (`GUIundo.h` `CSaveAllUndo`) | todo |
+| B-21.5 | Template tree (`TemplateTree`, `IDR_TEMPLATE_MENU`) | todo |
+| B-21.6 | Align menu (`IDR_ALIGN_MENU`) | todo |
+| B-21.7 | Property tree for controls (`MTree ctrl/`, `PropertyDockBar`) | todo |
+| B-21.8 | Opens and saves the game's current UI screen XML (`Data/UI/*.xml`); the game loads an edited screen | todo |
+
+## C. MFC internals not ported as such
+
+| MFC piece | Replacement |
+|---|---|
+| `LegacyUiCompat.h` Stingray shim, `SECWorkbook` etc. | ImGui docking (the header stays while the MFC map editor, until phase 5 deletes it, and MFC ELK, until phase 7, include it) |
+| Registry `HKCU\Software\Nival Interactive\...` | `resourceeditor.cfg` |
+| `zip.exe` | native PAK writer |
+| `KeyBasedData.cpp`, `RoadEditorWnd.cpp`, `COI/OIDlg.cpp` (not compiled) | nothing — dead code |
+| `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe` | deleted in 06-16 after the goldens exist |
