@@ -16,6 +16,18 @@
 //!                                   pixels) or `c<dx>x<dy>` (from the
 //!                                   screen's centre); click presses and
 //!                                   releases at the point in one action
+//!   rclick=<point>  rpress=<point>  rdrag=<point>  rrelease=<point>
+//!                                   the same for the right button (an
+//!                                   M2 tool that takes the right button, or a
+//!                                   gesture of Ctrl+left where it asks)
+//!   dblclick=<point>               a click, then its second click of a double
+//!                                   click (SDL clicks 1, then clicks 2) at the
+//!                                   point
+//!   tool=<label>                   switch to the tool of that registry label
+//!                                   (tool_registry.zig: `select`, `brush`,
+//!                                   `place`, ...), `[a-z_]{1,32}`
+//!   text=<text>                    type the text into the focused ImGui field
+//!                                   (printable ASCII, no comma, 1-64 chars)
 //!   wheel=<dx>x<dy>[x<count>][+ctrl][+shift][+alt][+cmd]
 //!                                   `count` wheel events of dx,dy (default
 //!                                   1), at wherever the last press/drag/
@@ -75,7 +87,7 @@ pub const Point = struct {
 pub const Key = struct {
     /// A single character ('0'-'9', 'A'-'Z') or a named key (DELETE, HOME,
     /// ESCAPE/ESC, SPACE, ENTER/RETURN, TAB, UP, DOWN, LEFT, RIGHT, HOME,
-    /// END, BACKSPACE) - matched case-insensitively for the named form.
+    /// END, BACKSPACE, INSERT) - matched case-insensitively for the named form.
     /// smoke.zig's `AutoRunner` maps this to an SDL keycode/scancode; auto.zig
     /// itself does not know SDL.
     name: []const u8,
@@ -121,6 +133,13 @@ pub const Action = union(enum) {
     drag: Point,
     release: Point,
     click: Point,
+    rpress: Point,
+    rdrag: Point,
+    rrelease: Point,
+    rclick: Point,
+    dblclick: Point,
+    tool: []const u8,
+    text: []const u8,
     wheel: Wheel,
     open: []const u8,
     save,
@@ -213,6 +232,26 @@ fn parseAction(text: []const u8, entry: []const u8, failure: *Failure) ParseErro
         return .{ .release = try parsePoint(value orelse return fail(failure, entry, "release needs a point", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "click"))
         return .{ .click = try parsePoint(value orelse return fail(failure, entry, "click needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rpress"))
+        return .{ .rpress = try parsePoint(value orelse return fail(failure, entry, "rpress needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rdrag"))
+        return .{ .rdrag = try parsePoint(value orelse return fail(failure, entry, "rdrag needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rrelease"))
+        return .{ .rrelease = try parsePoint(value orelse return fail(failure, entry, "rrelease needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rclick"))
+        return .{ .rclick = try parsePoint(value orelse return fail(failure, entry, "rclick needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "dblclick"))
+        return .{ .dblclick = try parsePoint(value orelse return fail(failure, entry, "dblclick needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "tool")) {
+        const label = value orelse return fail(failure, entry, "tool needs a label", error.BadAction);
+        try validateToolLabel(label, entry, failure);
+        return .{ .tool = label };
+    }
+    if (std.mem.eql(u8, name, "text")) {
+        const typed = value orelse return fail(failure, entry, "text needs the text to type", error.BadAction);
+        try validateText(typed, entry, failure);
+        return .{ .text = typed };
+    }
     if (std.mem.eql(u8, name, "wheel"))
         return .{ .wheel = try parseWheel(value orelse return fail(failure, entry, "wheel needs a value", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "open")) {
@@ -329,6 +368,23 @@ fn parseCompare(text: []const u8, entry: []const u8, failure: *Failure) ParseErr
     if (at) |i|
         percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "compare's percent is not a number", error.BadNumber);
     return .{ .name = name, .percent = percent };
+}
+
+/// A tool label: `[a-z_]{1,32}` (the registry's ToolId names).
+fn validateToolLabel(label: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
+    if (label.len == 0 or label.len > max_named_len) return fail(failure, entry, "the tool label must be 1-32 characters", error.BadName);
+    for (label) |ch| {
+        if (!((ch >= 'a' and ch <= 'z') or ch == '_')) return fail(failure, entry, "the tool label may only use lower-case letters and '_'", error.BadName);
+    }
+}
+
+/// `text=`: printable ASCII (a space is fine), 1..64 characters. A comma
+/// cannot occur: it ends the schedule entry before this is read.
+fn validateText(typed: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
+    if (typed.len == 0 or typed.len > max_arg_len) return fail(failure, entry, "the text must be 1-64 characters", error.BadArgument);
+    for (typed) |ch| {
+        if (ch < ' ' or ch > '~') return fail(failure, entry, "the text may only use printable ASCII", error.BadArgument);
+    }
 }
 
 /// `<name>[:<arg>]`.
@@ -460,6 +516,15 @@ test "parse: every action" {
     try expectAction("3:shot=painted", .{ .shot = "painted" });
     try expectAction("3:compare=painted", .{ .compare = .{ .name = "painted", .percent = default_compare_percent } });
     try expectAction("3:compare=painted@2.5", .{ .compare = .{ .name = "painted", .percent = 2.5 } });
+    try expectAction("3:rpress=c1x2", .{ .rpress = .{ .x = 1, .y = 2, .from_centre = true } });
+    try expectAction("3:rdrag=10x20", .{ .rdrag = .{ .x = 10, .y = 20 } });
+    try expectAction("3:rrelease=c0x0", .{ .rrelease = .{ .x = 0, .y = 0, .from_centre = true } });
+    try expectAction("3:rclick=c0x0", .{ .rclick = .{ .x = 0, .y = 0, .from_centre = true } });
+    try expectAction("3:dblclick=c10x10", .{ .dblclick = .{ .x = 10, .y = 10, .from_centre = true } });
+    try expectAction("3:tool=select", .{ .tool = "select" });
+    try expectAction("3:tool=roads_rivers", .{ .tool = "roads_rivers" });
+    try expectAction("3:text=Area 1", .{ .text = "Area 1" });
+    try expectAction("3:key=INSERT", .{ .key = .{ .name = "INSERT" } });
     try expectAction("3:do=camera_player:0", .{ .do = .{ .name = "camera_player", .arg = "0" } });
     try expectAction("3:do=camera_neutral", .{ .do = .{ .name = "camera_neutral", .arg = "" } });
     try expectAction("3:expect=anchor_set:neutral", .{ .expect = .{ .name = "anchor_set", .arg = "neutral" } });
@@ -509,6 +574,22 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:shot=", error.BadName); // empty name
     try expectBad("3:compare=painted@soon", error.BadNumber); // percent not a number
     try expectBad("3:shot=" ++ ("a" ** 65), error.BadName); // over max_name_len
+    try expectBad("3:rclick", error.BadAction); // rclick needs a point
+    try expectBad("3:rpress=5", error.BadNumber); // no 'x' separator
+    try expectBad("3:rdrag=axb", error.BadNumber);
+    try expectBad("3:rrelease", error.BadAction);
+    try expectBad("3:dblclick", error.BadAction);
+    try expectBad("3:dblclick=cxx", error.BadNumber);
+    try expectBad("3:tool", error.BadAction); // tool needs a label
+    try expectBad("3:tool=", error.BadName); // empty label
+    try expectBad("3:tool=Select", error.BadName); // upper case
+    try expectBad("3:tool=roads-rivers", error.BadName); // '-'
+    try expectBad("3:tool=" ++ ("a" ** 33), error.BadName); // over 32
+    try expectBad("3:text", error.BadAction); // text needs a value
+    try expectBad("3:text=", error.BadArgument); // empty
+    try expectBad("3:text=" ++ ("a" ** 65), error.BadArgument); // over 64
+    try expectBad("3:text=tab\there", error.BadArgument); // control character
+    try expectBad("3:text=caf\xc3\xa9", error.BadArgument); // non-ASCII
     try expectBad("3:do", error.BadAction); // do needs a name
     try expectBad("3:expect", error.BadAction); // expect needs a name
     try expectBad("3:do=", error.BadName); // empty name
