@@ -283,6 +283,17 @@ Plans:
 
 - [x] 03-16-PLAN.md — plan-5 leftovers (status line, view.zig tests, literal scroll test), Restart exit popup, game-reads-it baseline, CI package job, release package ordering, editor independent of the working directory
 
+### Phase 4: Map editor M2: roads, rivers, bridges, AI groups, scripts
+
+**Goal:** Map Editor M2 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` ("The editor set"): edit what M1 only preserves — roads and rivers, bridges (including rotating them, deferred from M1) and entrenchments, AI and unit groups (reinforcements, start commands, reserve positions, AI general data), scripts and script areas — with the same undo, save-preservation, test-in-game and CI standards as M1. Revisit free camera rotation (D-12, deferred with evidence in 03-06). Scope to be settled in discuss-phase; may split into several phases.
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 4 to break down)
+
 ## Backlog
 
 ### Phase 999.1: Random map generation: fast polygon fill (BACKLOG)
@@ -302,4 +313,5 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready)
