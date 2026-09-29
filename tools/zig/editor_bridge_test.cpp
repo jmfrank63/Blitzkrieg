@@ -19,6 +19,7 @@
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Scene/Scene.h"
+#include "../../Sources/src/Scene/Terrain.h"
 #include "../../Sources/src/Image/Image.h"
 #include "../../Sources/src/Platform/Paths.h"
 #include "../../Sources/src/StreamIO/GeneratedData.h"
@@ -3657,6 +3658,131 @@ static void TestM2PaletteFilter( BkEditorSession *pSession, const std::string &s
 	printf( "editor-bridge: M2 palette filter ok\n" );
 }
 
+// Phase 4 (D-09): GFXGPU draws a shipped river and a shipped road, measured
+// from pixels before the tools that edit them are built. The engine's own
+// first river (arnheim) or road (coldwinter) is taken out with
+// ITerrainEditor::RemoveRiver/RemoveRoad - the interface the M2 tools will
+// use - and the pixels inside the stripe's own screen box must change: a
+// stripe the GPU does not draw would leave them as they were.
+//
+// The box is the bounding box of the stripe's sample points near the middle of
+// the screen, with the camera centred on the stripe's middle sample, widened
+// by a margin for the stripe's own width. Rivers have an animated layer
+// (SLayer::bAnimated, effect 303): two captures a second apart at the same
+// camera are compared inside the same box, and a difference reads as "animated
+// layer observed". Assumption A7: a static engine loop may not advance it; a
+// zero there is printed, not failed.
+static ITerrainEditor* EngineTerrainEditor()
+{
+	IScene *pScene = GetSingleton<IScene>();
+	ITerrain *pTerrain = pScene != 0 ? pScene->GetTerrain() : 0;
+	return pTerrain != 0 ? pTerrain->GetEditor() : 0;
+}
+
+static const float VSO_BOX_RADIUS = 140.0f;     // screen pixels round the middle sample that the box may reach
+static const int VSO_BOX_MARGIN = 24;           // widening for the stripe's own width
+static const float VSO_MIN_CHANGED_FRACTION = 0.02f;
+
+static void MeasureVsoOnGpu( BkEditorSession *pSession, const char *pszMap, bool bRiver, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	const char *pszKind = bRiver ? "river" : "road";
+	if ( !Check( BkEditorOpenMap( pSession, pszMap, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	ITerrainEditor *pEditor = EngineTerrainEditor();
+	if ( !Check( pEditor != 0, "the engine has a terrain editor for the open map" ) )
+		return;
+	const TVSOList &rList = bRiver ? pEditor->GetTerrainInfo().rivers : pEditor->GetTerrainInfo().roads3;
+	if ( !Check( !rList.empty(), NStr::Format( "%s has a %s in the engine's terrain", pszMap, pszKind ) ) )
+		return;
+	// Copied: removing it below erases the engine's own entry.
+	const int nID = rList[0].nID;
+	const std::vector<SVectorStripeObjectPoint> points = rList[0].points;
+	if ( !Check( points.size() >= 2, NStr::Format( "the engine's first %s has sampled points (%d)", pszKind, int( points.size() ) ) ) )
+		return;
+	const SVectorStripeObjectPoint &rMiddle = points[points.size() / 2];
+	BkEditorSetCamera( pSession, rMiddle.vPos.x, rMiddle.vPos.y );
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+
+	float fCentreX = 0.0f, fCentreY = 0.0f;
+	if ( !Check( BkEditorWorldToScreen( pSession, rMiddle.vPos.x, rMiddle.vPos.y, &fCentreX, &fCentreY ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nLeft = nScreenWidth, nTop = nScreenHeight, nRight = 0, nBottom = 0;
+	int nNear = 0;
+	for ( size_t i = 0; i < points.size(); ++i )
+	{
+		float sx = 0.0f, sy = 0.0f;
+		if ( BkEditorWorldToScreen( pSession, points[i].vPos.x, points[i].vPos.y, &sx, &sy ) != BK_EDITOR_OK )
+			continue;
+		if ( hypotf( sx - fCentreX, sy - fCentreY ) > VSO_BOX_RADIUS )
+			continue;
+		++nNear;
+		nLeft = Min( nLeft, int( sx ) );
+		nRight = Max( nRight, int( sx ) );
+		nTop = Min( nTop, int( sy ) );
+		nBottom = Max( nBottom, int( sy ) );
+	}
+	if ( !Check( nNear > 0, NStr::Format( "some of the %s's points are within %.0f px of its middle sample", pszKind, VSO_BOX_RADIUS ) ) )
+		return;
+	nLeft = Max( 0, nLeft - VSO_BOX_MARGIN );
+	nTop = Max( 0, nTop - VSO_BOX_MARGIN );
+	nRight = Min( nScreenWidth, nRight + VSO_BOX_MARGIN );
+	nBottom = Min( nScreenHeight, nBottom + VSO_BOX_MARGIN );
+	const int nBoxArea = Max( 1, ( nRight - nLeft ) * ( nBottom - nTop ) );
+
+	const std::string szA = szScratch + NStr::Format( "/04-04-%s-a.tga", pszKind );
+	const std::string szA2 = szScratch + NStr::Format( "/04-04-%s-a2.tga", pszKind );
+	const std::string szB = szScratch + NStr::Format( "/04-04-%s-b.tga", pszKind );
+	if ( !SaveFrame( pSession, szA ) )
+		return;
+	// Rivers only: a second later at the same camera, for the animated layer.
+	if ( bRiver )
+	{
+		for ( int i = 0; i < 60; ++i )
+		{
+			BkEditorFrame( pSession );
+			SDL_Delay( 16 );
+		}
+		if ( !SaveFrame( pSession, szA2 ) )
+			return;
+	}
+	const bool bRemoved = bRiver ? pEditor->RemoveRiver( nID ) : pEditor->RemoveRoad( nID );
+	if ( !Check( bRemoved, NStr::Format( "the engine removes its first %s (id %d)", pszKind, nID ) ) )
+		return;
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+	const bool bSavedB = SaveFrame( pSession, szB );
+
+	int nWidth = 0, nHeight = 0;
+	const std::vector<unsigned char> before = ReadFramePixels( szA, &nWidth, &nHeight );
+	const std::vector<unsigned char> after = ReadFramePixels( szB, &nWidth, &nHeight );
+	const int nChanged = bSavedB ? ChangedPixels( before, after, nWidth, nHeight, nLeft, nTop, nRight, nBottom ) : -1;
+	if ( bRiver )
+	{
+		const std::vector<unsigned char> later = ReadFramePixels( szA2, &nWidth, &nHeight );
+		const int nAnimated = ChangedPixels( before, later, nWidth, nHeight, nLeft, nTop, nRight, nBottom );
+		printf( "editor-bridge: M2 river drawn (%d px of %d) animated=%d%s\n", nChanged, nBoxArea, nAnimated,
+		        nAnimated > 0 ? " (animated layer observed)" : " (animation unobserved (A7))" );
+	}
+	else
+		printf( "editor-bridge: M2 road drawn (%d px of %d)\n", nChanged, nBoxArea );
+	printf( "editor-bridge: M2 %s box %d,%d..%d,%d at screen %dx%d, %d of %d points near the middle; captures %s, %s\n", pszKind,
+	        nLeft, nTop, nRight, nBottom, nScreenWidth, nScreenHeight, nNear, int( points.size() ), szA.c_str(), szB.c_str() );
+	Check( nChanged > int( nBoxArea * VSO_MIN_CHANGED_FRACTION ),
+	       NStr::Format( "GFXGPU draws the %s: taking it out changes %d of the %d pixels in its box (bar %.0f%%)", pszKind, nChanged, nBoxArea, VSO_MIN_CHANGED_FRACTION * 100.0f ) );
+
+	// The engine is whole again: the map is reopened, and the bridge's copy of
+	// the terrain still equals it.
+	Check( BkEditorOpenMap( pSession, pszMap, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, "the reopened map's terrain matches the engine's again" );
+}
+
+static void TestM2VsoRendersOnGpu( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	MeasureVsoOnGpu( pSession, BRIDGE_MAP, true, nScreenWidth, nScreenHeight, szScratch );
+	MeasureVsoOnGpu( pSession, SHIPPED_MAP, false, nScreenWidth, nScreenHeight, szScratch );
+}
+
 static bool SameAnchors( const BkEditorCameraAnchorRecord &rLeft, const BkEditorCameraAnchorRecord &rRight )
 {
 	return memcmp( &rLeft, &rRight, sizeof rLeft ) == 0;
@@ -4053,6 +4179,7 @@ int main( int argc, char **argv )
 		TestModsListSetAndClear( pSession, szScratch );
 		TestSaveRecordsTheMod( pSession, szScratch );
 		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestM2VsoRendersOnGpu( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2CameraAnchors( pSession, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );
