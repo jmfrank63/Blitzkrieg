@@ -10,6 +10,11 @@
 //! budget, a missing mark that is never retried) live in
 //! `panels_logic.PictureQueue`, pure enough to run under its own tests with
 //! no GPU or bridge - only the ready textures below need either.
+//!
+//! The Brush's tile picker (03-15 gap fix) keeps a second cache of the same
+//! kind (`Source.tile`): its names are tile indices in decimal
+//! (`panels_logic.tileKey`), decoded through BkEditorTilePicture, and
+//! cleared whenever the open map's tileset is another one.
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const c_bridge = @import("c_bridge.zig");
@@ -43,8 +48,17 @@ pub const Lookup = union(enum) {
     ready: struct { texture: *sdl3.c.SDL_GPUTexture, width: i32, height: i32 },
 };
 
+/// What a cache's names are, and so which bridge call decodes them.
+pub const Source = enum {
+    /// Object names from the catalogue: BkEditorObjectPicture (D-29).
+    object,
+    /// Tile indices in decimal: BkEditorTilePicture (03-15 gap fix).
+    tile,
+};
+
 pub const Pictures = struct {
     allocator: std.mem.Allocator,
+    source: Source = .object,
     /// The engine's SDL_GPUDevice (RealBridge.gpuDevice), learned from
     /// `pump`'s own argument - `request`/`lookup`/`clear` need no device,
     /// and `init` is called before the palette's first frame has one to
@@ -60,7 +74,11 @@ pub const Pictures = struct {
     queue: PictureQueue,
 
     pub fn init(allocator: std.mem.Allocator) Pictures {
-        return .{ .allocator = allocator, .queue = PictureQueue.init(allocator) };
+        return initFor(allocator, .object);
+    }
+
+    pub fn initFor(allocator: std.mem.Allocator, source: Source) Pictures {
+        return .{ .allocator = allocator, .source = source, .queue = PictureQueue.init(allocator) };
     }
 
     pub fn deinit(self: *Pictures) void {
@@ -113,7 +131,11 @@ pub const Pictures = struct {
         var pixels: [@as(usize, @intCast(decode_max_side)) * @as(usize, @intCast(decode_max_side)) * 4]u8 = undefined;
         for (names) |name| {
             defer self.allocator.free(name);
-            const picture: Picture = real.objectPicture(name, &pixels, decode_max_side) orelse {
+            const decoded: ?Picture = switch (self.source) {
+                .object => real.objectPicture(name, &pixels, decode_max_side),
+                .tile => if (logic.tileFromKey(name)) |tile| real.tilePicture(tile, &pixels, decode_max_side) else null,
+            };
+            const picture: Picture = decoded orelse {
                 self.queue.markMissing(name);
                 continue;
             };

@@ -13,6 +13,7 @@
 //! Save As for a new or shipped map (D-18), and Open/Quit/a window close
 //! all go through the unsaved-changes prompt (D-23) before they run.
 const std = @import("std");
+const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
@@ -203,6 +204,22 @@ pub const State = struct {
     /// must survive to the next frame's draw.
     tile_reason_buffer: [256]u8 = undefined,
     tile_reason_len: usize = 0,
+    /// The Brush's tile picker (03-15 gap fix, Johannes's M1 hand try: "tile
+    /// 0", "tile 1", ... could only be told apart by painting each): every
+    /// offered tile with its terrain type (BkEditorDescribeTile), in the
+    /// picker's order (`logic.sortTilesForPicker`) - `tile_count` of them.
+    tile_entries: [256]logic.TileEntry = undefined,
+    /// Each tile's picture (BkEditorTilePicture), decoded on demand while
+    /// the picker is open or for the current tile beside it, and kept for
+    /// the tileset `tile_pictures_tileset` names: `mapOpened` drops them only
+    /// when a map with another tileset opens; a mod switch always does.
+    tile_pictures: pictures_mod.Pictures = undefined,
+    tile_pictures_tileset: logic.NameText = .{},
+    /// Where the picker's combo and each visible tile cell were drawn last
+    /// frame (screen centres), for the smoke to click as a hand would.
+    tile_combo_centre: ?ig.ImVec2 = null,
+    tile_cell_centres: [256]?ig.ImVec2 = [_]?ig.ImVec2{null} ** 256,
+    tile_picker_open: bool = false,
 
     /// Every distinct object type the open map has that the object database
     /// does not know, most frequent first (`summarizeUnknown`), and the
@@ -296,7 +313,7 @@ pub const State = struct {
     /// mod chosen on the command line (main.zig's `-mod=`), already applied
     /// to the bridge session before this call - `init` only records it.
     pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ, mod_folder: ?[]const u8) State {
-        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator) };
+        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator), .tile_pictures = pictures_mod.Pictures.initFor(allocator, .tile) };
         state.setModFolder(mod_folder);
         if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
         // Editor.save's own read-only refusal (D-18) judges against the
@@ -309,6 +326,7 @@ pub const State = struct {
 
     pub fn deinit(self: *State) void {
         self.pictures.deinit();
+        self.tile_pictures.deinit();
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
@@ -337,6 +355,9 @@ pub const State = struct {
     /// and the old mod's pictures are meaningless once its storage unmounts.
     pub fn reloadCatalogue(self: *State) void {
         self.pictures.clear();
+        // The new mod may ship the same tileset name with other pictures.
+        self.tile_pictures.clear();
+        self.tile_pictures_tileset = .{};
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
@@ -348,6 +369,32 @@ pub const State = struct {
 
     pub fn tiles(self: *const State) []const u8 {
         return self.tile_buffer[0..self.tile_count];
+    }
+
+    /// The picker's entries, in its order (see `tile_entries`).
+    pub fn tileEntries(self: *const State) []const logic.TileEntry {
+        return self.tile_entries[0..self.tile_count];
+    }
+
+    /// Names every offered tile by its terrain type and sorts them into the
+    /// picker's sections; drops the cached tile pictures when the tileset is
+    /// another one than they were decoded from (03-15 gap fix).
+    fn describeTiles(self: *State) void {
+        var tileset: logic.NameText = .{};
+        for (self.tiles(), 0..) |tile, i| {
+            var entry: logic.TileEntry = .{ .tile = tile };
+            if (self.real.describeTile(tile)) |info| {
+                entry.terrain_index = info.terrain_index;
+                entry.terrain = logic.NameText.init(std.mem.sliceTo(&info.terrain, 0));
+                if (tileset.len == 0) tileset = logic.NameText.init(std.mem.sliceTo(&info.tileset, 0));
+            }
+            self.tile_entries[i] = entry;
+        }
+        logic.sortTilesForPicker(self.tile_entries[0..self.tile_count]);
+        if (logic.tilePicturesStale(self.tile_pictures_tileset.slice(), tileset.slice())) {
+            self.tile_pictures.clear();
+            self.tile_pictures_tileset = tileset;
+        }
     }
 
     /// Frees the previous sound list and reads it again through the core's
@@ -494,6 +541,7 @@ pub const State = struct {
         const offered = self.tiles();
         if (offered.len != 0 and std.mem.indexOfScalar(u8, offered, self.view.brush.tile) == null)
             self.view.brush.tile = offered[0];
+        self.describeTiles();
 
         // The unknown-objects warning (spec Errors -> Open): every object the
         // open map lists that the object database does not know.
@@ -524,6 +572,7 @@ pub fn draw(state: *State) void {
     // properties field mid-edit must keep F5 as a literal keystroke, but a
     // window merely being focused must not swallow it.
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_F5, false) and !ig.igGetIO().*.WantTextInput) requestTestLaunch(state);
+    if (closeShortcutPressed() and mapIsOpen(state.editor)) state.actions.close_requested = true;
     const viewport = ig.igGetMainViewport();
     const size = viewport.*.Size;
     // Task 2, carried from plan 5: ImGuiCond_FirstUseEver only ever applies
@@ -638,6 +687,7 @@ pub fn act(state: *State) bool {
             },
             .dialog_failed => |message| state.view.setStatus("the file dialog failed: ", message),
             .switch_mod => |folder| performModSwitch(state, folder),
+            .close => performClose(state),
         }
     }
 }
@@ -1239,6 +1289,8 @@ fn drawMenuBar(state: *State) f32 {
         }
         if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
         if (ig.igMenuItemEx("Save As...", null, false, map_open)) state.actions.save_as_requested = true;
+        // 03-15 gap fix: through the unsaved-changes prompt (D-23), like Open.
+        if (ig.igMenuItemEx("Close", close_shortcut_label, false, map_open)) state.actions.close_requested = true;
         ig.igSeparator();
         // D-21: switchable from the menu, not only the Settings window.
         var autosave_on = state.settings.autosave;
@@ -1425,6 +1477,41 @@ fn mapClosed(state: *State, had_map: bool) void {
     state.shipped_known = false;
 }
 
+/// File > Close's own step (03-15 gap fix): the unsaved-changes prompt
+/// (D-23) has been answered by the time `act` gets here - Save landed or
+/// Don't save abandoned the edits - so the engine's map and the document
+/// close (`logic.closeMapAndDocument`) and everything that followed the
+/// document goes with them (`mapClosed`: the view as with no map, the
+/// per-map panels, autosave idle, the recovery copy deleted). The editor is
+/// left as at a start with no map: title "Map Editor [<mod>]", status bar
+/// "no map open". The mod and the palette stay as they are. A test game
+/// keeps running, as it does across a mod switch.
+fn performClose(state: *State) void {
+    const had_map = mapIsOpen(state.editor);
+    const result = logic.closeMapAndDocument(state.editor, state.real);
+    mapClosed(state, had_map);
+    if (result == .ok) {
+        state.view.clearStatus();
+    } else {
+        state.view.setStatus("the engine did not close the map cleanly: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+    }
+}
+
+/// File > Close's shortcut, as the menu shows it: Cmd+W on macOS, Ctrl+W
+/// elsewhere - `closeShortcutPressed` takes either modifier on every
+/// platform, as view.zig's own Cmd/Ctrl+Z does.
+const close_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+W" else "Ctrl+W";
+
+/// Cmd+W or Ctrl+W this frame, not while a text field is being typed in
+/// (the same WantTextInput rule F5 follows), and not held down (a held W
+/// must not close the next map the moment one opens).
+fn closeShortcutPressed() bool {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return false;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    return ig.igIsKeyPressedEx(ig.ImGuiKey_W, false);
+}
+
 /// Every panel's widgets leave room for their labels to the right.
 const label_room: f32 = 110;
 
@@ -1485,21 +1572,155 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
             text(message);
         }
     } else {
-        var preview: [32:0]u8 = undefined;
-        const preview_text = std.fmt.bufPrintZ(&preview, "tile {d}", .{view.brush.tile}) catch "tile";
-        if (ig.igBeginCombo("tile", preview_text.ptr, 0)) {
-            for (state.tiles()) |tile| {
-                var label: [32:0]u8 = undefined;
-                const label_text = std.fmt.bufPrintZ(&label, "tile {d}", .{tile}) catch continue;
-                const selected = tile == view.brush.tile;
-                if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) state.chooseBrushTile(tile);
-                if (selected) ig.igSetItemDefaultFocus();
-            }
-            ig.igEndCombo();
-        }
+        drawTilePicker(state);
     }
     var radius: c_int = view.brush.radius;
     if (ig.igSliderInt("radius", &radius, 0, 4)) view.brush.radius = radius;
+    if (state.tile_pictures.queue.pendingCount() != 0) {
+        if (state.real.gpuDevice()) |device| state.tile_pictures.pump(state.real, device, tile_picture_pump_budget);
+    }
+}
+
+/// Tile pictures decoded per frame. One is ~0.14 ms once the tileset
+/// texture is decoded (the first, ~6 ms, decodes it) - measured by the
+/// engine tier on coldwinter - so a whole tileset (184 tiles there) fills
+/// the open picker within a few frames.
+const tile_picture_pump_budget: usize = 32;
+/// A tile's cell in the picker: the picture (a shipped tile is 64x32) over
+/// its number.
+const tile_cell_width: f32 = 64;
+const tile_picture_height: f32 = 32;
+/// The current tile's picture beside the combo.
+const tile_preview_width: f32 = 40;
+/// Columns the picker's grid aims for; the popup is made that wide.
+const tile_picker_columns: f32 = 6;
+
+/// The Brush's tile picker (03-15 gap fix, Johannes's M1 hand try: "It would
+/// be great to see the tile as graphics next to the name and number;
+/// otherwise hard to choose"): the current tile's picture beside a combo
+/// naming it ("tile 12 - Snow"); the combo opens onto every tile of the
+/// tileset as a grid of pictures with their numbers, in sections headed by
+/// the terrain type, the current tile highlighted and scrolled to. Pictures
+/// are decoded by the engine on demand (BkEditorTilePicture) - the grid's
+/// own only while it is open - and kept per tileset.
+fn drawTilePicker(state: *State) void {
+    const view = state.view;
+    const entries = state.tileEntries();
+    var key_buffer: [3]u8 = undefined;
+    drawTilePicture(state, logic.tileKey(&key_buffer, view.brush.tile), tile_preview_width, tile_preview_width / 2, ig.igGetCursorScreenPos());
+    ig.igDummy(.{ .x = tile_preview_width, .y = ig.igGetFrameHeight() });
+    ig.igSameLine();
+
+    var preview: [96]u8 = undefined;
+    const current: logic.TileEntry = if (logic.indexOfTile(entries, view.brush.tile)) |index| entries[index] else .{ .tile = view.brush.tile };
+    const preview_text = logic.tileLabel(&preview, current);
+    const style = ig.igGetStyle();
+    const grid_width = tile_picker_columns * (tile_cell_width + style.*.ItemSpacing.x) + 2 * style.*.WindowPadding.x + style.*.ScrollbarSize;
+    const viewport_height = ig.igGetMainViewport().*.Size.y;
+    ig.igSetNextWindowSizeConstraints(.{ .x = grid_width, .y = 0 }, .{ .x = grid_width, .y = @max(viewport_height * 0.6, 200) }, null, null);
+    // The whole rest of the row, unlabelled: the picture beside it says what
+    // it is, and the panel is too narrow for "tile 41 - Dirty Snow" and a
+    // label both. The popup opaque: it lies over the map and the palette.
+    ig.igSetNextItemWidth(-std.math.floatMin(f32));
+    var popup_bg = ig.igGetStyleColorVec4(ig.ImGuiCol_PopupBg).*;
+    popup_bg.w = 1;
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_PopupBg, popup_bg);
+    const combo_open = ig.igBeginCombo("##tile", preview_text.ptr, ig.ImGuiComboFlags_HeightLargest);
+    // Popped in the window it was pushed in (ImGui checks each window's
+    // style stack is where its Begin left it): here when the popup is shut,
+    // after igEndCombo when it is open.
+    defer ig.igPopStyleColor();
+    // Read only while the popup is shut: once it is open, the last item is
+    // the popup window's own, not the combo.
+    if (!combo_open) {
+        const combo_min = ig.igGetItemRectMin();
+        const combo_max = ig.igGetItemRectMax();
+        state.tile_combo_centre = .{ .x = (combo_min.x + combo_max.x) / 2, .y = (combo_min.y + combo_max.y) / 2 };
+    }
+    state.tile_picker_open = combo_open;
+    state.tile_cell_centres = [_]?ig.ImVec2{null} ** 256;
+    if (!combo_open) return;
+    defer ig.igEndCombo();
+    drawTileGrid(state);
+}
+
+fn drawTileGrid(state: *State) void {
+    const entries = state.tileEntries();
+    const style = ig.igGetStyle();
+    const columns = logic.gridColumns(ig.igGetContentRegionAvail().x, tile_cell_width, style.*.ItemSpacing.x);
+    const cell_height = tile_picture_height + ig.igGetTextLineHeight() + 4;
+    var start: usize = 0;
+    while (start < entries.len) {
+        const group = logic.nextTileGroup(entries, start);
+        defer start = group.end;
+        var header: [300]u8 = undefined;
+        const terrain = entries[group.start].terrain.slice();
+        const header_text = std.fmt.bufPrintZ(&header, "{s} ({d})", .{ if (terrain.len != 0) terrain else "other tiles", group.end - group.start }) catch "tiles";
+        ig.igSeparatorText(header_text.ptr);
+        for (entries[group.start..group.end], 0..) |entry, i| {
+            if (i % columns != 0) ig.igSameLine();
+            drawTileCell(state, entry, cell_height);
+        }
+    }
+}
+
+/// One cell of the grid: a selectable the size of the picture and its
+/// number, the picture drawn over it once decoded (an empty frame until
+/// then), the current tile's cell selected and outlined. Choosing a cell
+/// sets the brush's tile (`State.chooseBrushTile`) and closes the popup.
+fn drawTileCell(state: *State, entry: logic.TileEntry, cell_height: f32) void {
+    ig.igPushIDInt(entry.tile);
+    defer ig.igPopID();
+    const selected = entry.tile == state.view.brush.tile;
+    const top_left = ig.igGetCursorScreenPos();
+    if (ig.igSelectableEx("##tile", selected, 0, .{ .x = tile_cell_width, .y = cell_height })) state.chooseBrushTile(entry.tile);
+    if (selected) {
+        ig.igSetItemDefaultFocus();
+        if (ig.igIsWindowAppearing()) ig.igSetScrollHereY(0.5);
+    }
+    const visible = ig.igIsItemVisible();
+    if (visible) state.tile_cell_centres[entry.tile] = .{ .x = top_left.x + tile_cell_width / 2, .y = top_left.y + cell_height / 2 };
+    if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
+        var label: [96]u8 = undefined;
+        text(logic.tileLabel(&label, entry));
+        ig.igEndTooltip();
+    }
+    // Requested only once the cell scrolls into view: a tileset's texture
+    // is decoded once, and its tiles cost little, but there is no call for
+    // pictures nobody looks at.
+    var key_buffer: [3]u8 = undefined;
+    const key = logic.tileKey(&key_buffer, entry.tile);
+    if (!visible) return;
+    drawTilePicture(state, key, tile_cell_width, tile_picture_height, top_left);
+    const draw_list = ig.igGetWindowDrawList();
+    var number: [4]u8 = undefined;
+    const number_text = std.fmt.bufPrint(&number, "{d}", .{entry.tile}) catch "?";
+    const text_pos = ig.ImVec2{ .x = top_left.x + 2, .y = top_left.y + tile_picture_height + 2 };
+    ig.ImDrawList_AddTextImFontPtrEx(draw_list, ig.igGetFont(), ig.igGetFontSize(), text_pos, ig.igGetColorU32(ig.ImGuiCol_Text), number_text.ptr, number_text.ptr + number_text.len, 0, null);
+    if (selected) {
+        const bottom_right = ig.ImVec2{ .x = top_left.x + tile_cell_width, .y = top_left.y + cell_height };
+        ig.ImDrawList_AddRectEx(draw_list, top_left, bottom_right, ig.igGetColorU32(ig.ImGuiCol_PlotHistogram), 0, 2, 0);
+    }
+}
+
+/// A tile's picture in a `width` x `height` box at `top_left` (screen), its
+/// shape kept and centred - requested from the tile cache if it is not
+/// there yet; a thin frame while it is pending, the frame alone if the
+/// tile has none. Draw-list only: the caller reserves the space.
+fn drawTilePicture(state: *State, key: []const u8, width: f32, height: f32, top_left: ig.ImVec2) void {
+    state.tile_pictures.request(key);
+    const draw_list = ig.igGetWindowDrawList();
+    switch (state.tile_pictures.lookup(key)) {
+        .ready => |ready| {
+            const w: f32 = @floatFromInt(ready.width);
+            const h: f32 = @floatFromInt(ready.height);
+            const scale = @min(width / w, height / h);
+            const left = top_left.x + (width - w * scale) / 2;
+            const top = top_left.y + (height - h * scale) / 2;
+            ig.ImDrawList_AddImage(draw_list, pictureTextureRef(ready.texture), .{ .x = left, .y = top }, .{ .x = left + w * scale, .y = top + h * scale });
+        },
+        .pending, .missing => ig.ImDrawList_AddRect(draw_list, top_left, .{ .x = top_left.x + width, .y = top_left.y + height }, ig.igGetColorU32(ig.ImGuiCol_Border)),
+    }
 }
 
 fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {

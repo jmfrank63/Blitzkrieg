@@ -370,6 +370,37 @@ pub const RealBridge = struct {
         return .{ .width = width, .height = height, .bytes = buffer[0..needed] };
     }
 
+    /// 03-15 gap fix: one tile's picture for the Brush's picker (its diamond
+    /// out of the tileset texture - BkEditorTilePicture), the same buffer
+    /// contract as `objectPicture`. Null on any refusal (no map open, a tile
+    /// the tileset does not list, a texture that will not load).
+    pub fn tilePicture(self: *RealBridge, tile: u8, buffer: []u8, max_side: i32) ?Picture {
+        var width: c_int = 0;
+        var height: c_int = 0;
+        const capacity = std.math.cast(c_int, buffer.len) orelse return null;
+        if (c.BkEditorTilePicture(self.session, tile, buffer.ptr, capacity, max_side, &width, &height) != c.BK_EDITOR_OK) return null;
+        if (width <= 0 or height <= 0) return null;
+        const needed: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
+        if (needed > buffer.len) return null;
+        return .{ .width = width, .height = height, .bytes = buffer[0..needed] };
+    }
+
+    /// 03-15 gap fix: the terrain type a tile belongs to and the tileset's
+    /// storage name (BkEditorDescribeTile), for the picker's sections and
+    /// its per-tileset picture cache. Null on any refusal.
+    pub fn describeTile(self: *RealBridge, tile: u8) ?c.BkEditorTile {
+        var out: c.BkEditorTile = std.mem.zeroes(c.BkEditorTile);
+        if (c.BkEditorDescribeTile(self.session, tile, &out) != c.BK_EDITOR_OK) return null;
+        return out;
+    }
+
+    /// File > Close (03-15 gap fix): closes the engine's map
+    /// (BkEditorCloseMap); OK with none open. The document is the caller's
+    /// to close (`panels_logic.closeMapAndDocument`).
+    pub fn closeMap(self: *RealBridge) Status {
+        return status(c.BkEditorCloseMap(self.session));
+    }
+
     /// The tiles the open map's tileset has, ascending, for the brush's
     /// palette: a tile is an unsigned char, so 256 always holds them all.
     /// Null when no map is open or the bridge would not say.

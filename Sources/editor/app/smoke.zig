@@ -98,6 +98,15 @@ pub const Input = union(enum) {
     /// cancel reaches `act`, so the unsaved-changes prompt that asked for
     /// the dialog hears it.
     cancel_dialog,
+    /// Clicks the Brush's tile combo where the Tools panel drew it last
+    /// frame (`State.tile_combo_centre`), as a hand would (03-15 gap fix).
+    click_tile_combo,
+    /// Clicks a visible cell of the open tile picker whose terrain type is
+    /// not the current tile's (`State.tile_cell_centres`), remembering it
+    /// as the tile to expect.
+    click_tile_cell,
+    /// Sets state.actions.close_requested, as File > Close would.
+    close_requested,
 };
 
 pub const Wheel = struct {
@@ -209,6 +218,23 @@ pub const Expect = enum {
     /// A switch with no map open went straight through (nothing to guard):
     /// None again, still no map, the palette re-read once more.
     mod_switched_without_map,
+    /// The tile picker is open (within `max_wait_frames`: ImGui opens a
+    /// combo on the click's release, a frame after its press) and every
+    /// cell it shows has its picture; the frame is captured for a person to
+    /// look at (`tile_picker_capture`), and the brush's tile is unchanged.
+    tile_picker_open,
+    /// The clicked cell's tile is the brush's now, and the picker closed.
+    tile_chosen,
+    /// File > Close (or Cmd/Ctrl+W) on the dirty map asked first (D-23): the
+    /// prompt is asking, the map still open and dirty.
+    close_asked,
+    /// Cancel kept the map: nothing asking, the map open and dirty.
+    close_cancelled,
+    /// Don't save closed the map (03-15 gap fix): no document, history,
+    /// selection, view map, tiles or sounds; the engine's map closed too
+    /// (the bridge answers "no map is open"); the mod unchanged; the title
+    /// "Map Editor"; autosave idle, no recovery copy active.
+    map_closed,
 };
 
 pub const Step = struct {
@@ -244,6 +270,12 @@ fn plain(key: sdl.SDL_Keycode, scancode: sdl.SDL_Scancode) Input {
 
 /// Ctrl+Z; view.zig takes Ctrl or Cmd on every platform.
 const undo_key: Input = .{ .key = .{ .key = sdl.SDLK_Z, .scancode = sdl.SDL_SCANCODE_Z, .mod = sdl.SDL_KMOD_LCTRL } };
+/// Ctrl+W: File > Close's shortcut; panels.zig takes Ctrl or Cmd too.
+const close_key: Input = .{ .key = .{ .key = sdl.SDLK_W, .scancode = sdl.SDL_SCANCODE_W, .mod = sdl.SDL_KMOD_LCTRL } };
+
+/// Where `tile_picker_open` captures the open picker, beside the smoke's
+/// own output (zig-out/local-test).
+pub const tile_picker_capture = "03-15-tile-picker.tga";
 
 pub const script = [_]Step{
     .{ .name = "key 2 chooses the brush", .inputs = &.{plain(sdl.SDLK_2, sdl.SDL_SCANCODE_2)}, .expect = .tool_brush },
@@ -322,6 +354,17 @@ pub const script = [_]Step{
     .{ .name = "File > Mod asks a third time", .inputs = &.{.{ .switch_mod = smoke_mod }}, .expect = .mod_switch_asked },
     .{ .name = "Don't save closes the map and switches the mod", .inputs = &.{.{ .answer = .dont_save }}, .expect = .mod_switched_map_closed },
     .{ .name = "File > Mod None with no map open switches back", .inputs = &.{.{ .switch_mod = "" }}, .expect = .mod_switched_without_map },
+    // 03-15 gap fixes from Johannes's M1 hand try: the Brush's tile picker
+    // shows each tile's picture, and File > Close closes the map through the
+    // unsaved-changes prompt. On the smoke's own saved copy, opened again.
+    .{ .name = "the saved map opens again", .inputs = &.{.open_saved}, .expect = .reopened },
+    .{ .name = "a click on the tile combo opens the picker, a picture per tile", .inputs = &.{.click_tile_combo}, .expect = .tile_picker_open },
+    .{ .name = "a click on a tile of another terrain type chooses it", .inputs = &.{.click_tile_cell}, .expect = .tile_chosen },
+    .{ .name = "Add at view centre dirties the map", .inputs = &.{.add_sound_at_view_centre}, .expect = .sound_added },
+    .{ .name = "File > Close on the dirty map asks", .inputs = &.{.close_requested}, .expect = .close_asked },
+    .{ .name = "Cancel keeps the map", .inputs = &.{.{ .answer = .cancel }}, .expect = .close_cancelled },
+    .{ .name = "Ctrl+W asks too", .inputs = &.{close_key}, .expect = .close_asked },
+    .{ .name = "Don't save closes the map", .inputs = &.{.{ .answer = .dont_save }}, .expect = .map_closed },
 };
 
 /// The mod the smoke switches to: the tracked fixture
@@ -452,6 +495,14 @@ pub const Script = struct {
     /// step's inputs were pushed.
     catalogue_generation_before: u32 = 0,
     path_before: panels_logic.PathText = .{},
+    /// The brush's tile when the step's inputs were pushed, and the tile
+    /// `click_tile_cell` clicked.
+    tile_before: u8 = 0,
+    tile_choice: ?u8 = null,
+    /// `tile_picker_open` saw every shown picture ready once already: the
+    /// frame after is the first whose draw data (what a capture presents)
+    /// was built with all of them.
+    picker_ready_seen: bool = false,
 
     /// After the map is open and State built.
     pub fn init(editor: *Editor, view: *View, real: *RealBridge, state: *panels.State, window: *sdl.SDL_Window, save_path: []const u8) Script {
@@ -546,6 +597,7 @@ pub const Script = struct {
         self.zoom_steps_before = self.view.zoom_steps;
         self.catalogue_generation_before = self.state.catalogue_generation;
         self.path_before.set(self.editor.document.path.items);
+        self.tile_before = self.view.brush.tile;
         const inputs = script[self.step].inputs;
         self.wheel_point_before = if (inputs.len != 0 and inputs[0] == .wheel) self.resolveAt(inputs[0].wheel.at) else null;
         self.pointer_trail_len = 0;
@@ -568,7 +620,7 @@ pub const Script = struct {
         if (self.frame < settle_frames) return true;
         const step = script[self.step];
         self.notePointer();
-        if (step.expect == .panel_has_pointer and !view_mod.captureFlags().mouse and self.waited < max_wait_frames) {
+        if (self.stillWaiting(step.expect) and self.waited < max_wait_frames) {
             self.waited += 1;
             return true;
         }
@@ -582,8 +634,82 @@ pub const Script = struct {
         return false;
     }
 
+    /// Whether a step that waits for ImGui (which acts on a click's release,
+    /// a frame after its press, and trickles its input queue) or for the
+    /// picture pump has not got there yet.
+    fn stillWaiting(self: *Script, expect: Expect) bool {
+        return switch (expect) {
+            .panel_has_pointer => !view_mod.captureFlags().mouse,
+            .tile_picker_open => blk: {
+                if (self.pickerPicturesShown() == null) break :blk true;
+                if (self.picker_ready_seen) break :blk false;
+                self.picker_ready_seen = true;
+                break :blk true;
+            },
+            .tile_chosen => self.state.tile_picker_open or self.tile_choice == null or self.view.brush.tile != self.tile_choice.?,
+            // The title is drawn before `act` closes the map: one more frame.
+            .map_closed => std.mem.indexOf(u8, self.state.title[0..self.state.title_len], ".bzm") != null,
+            else => false,
+        };
+    }
+
+    /// With the picker open: how many cells it shows, once every one of them
+    /// has its picture - null while it is closed, shows none, or a picture
+    /// is still to come.
+    fn pickerPicturesShown(self: *Script) ?usize {
+        if (!self.state.tile_picker_open) return null;
+        var shown: usize = 0;
+        for (self.state.tileEntries()) |entry| {
+            if (self.state.tile_cell_centres[entry.tile] == null) continue;
+            var key_buffer: [3]u8 = undefined;
+            switch (self.state.tile_pictures.lookup(panels_logic.tileKey(&key_buffer, entry.tile))) {
+                .ready => shown += 1,
+                .pending, .missing => return null,
+            }
+        }
+        return if (shown == 0) null else shown;
+    }
+
+    /// A left click at a screen point: a motion there, then the button down
+    /// and up.
+    fn clickAt(self: *Script, point: [2]f32) bool {
+        if (!self.pushMotionAt(point, false)) return false;
+        for ([_]bool{ true, false }) |down| {
+            var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
+            event.button.type = if (down) sdl.SDL_EVENT_MOUSE_BUTTON_DOWN else sdl.SDL_EVENT_MOUSE_BUTTON_UP;
+            event.button.windowID = self.window_id;
+            event.button.which = smoke_mouse_id;
+            event.button.button = sdl.SDL_BUTTON_LEFT;
+            event.button.down = down;
+            event.button.clicks = 1;
+            event.button.x = point[0];
+            event.button.y = point[1];
+            if (!self.push(&event)) return false;
+        }
+        return true;
+    }
+
     fn deliver(self: *Script, input: Input) bool {
         switch (input) {
+            .click_tile_combo => {
+                const centre = self.state.tile_combo_centre orelse return self.fail("the Tools panel drew no tile combo", .{});
+                return self.clickAt(.{ centre.x, centre.y });
+            },
+            .click_tile_cell => {
+                const entries = self.state.tileEntries();
+                const current = panels_logic.indexOfTile(entries, self.view.brush.tile) orelse return self.fail("the brush's tile {d} is not offered", .{self.view.brush.tile});
+                for (entries) |entry| {
+                    if (entry.terrain_index == entries[current].terrain_index) continue;
+                    const centre = self.state.tile_cell_centres[entry.tile] orelse continue;
+                    self.tile_choice = entry.tile;
+                    return self.clickAt(.{ centre.x, centre.y });
+                }
+                return self.fail("the picker shows no tile of another terrain type", .{});
+            },
+            .close_requested => {
+                self.state.actions.close_requested = true;
+                return true;
+            },
             .key => |key| return self.pushKey(key, true) and self.pushKey(key, false),
             .press => |pos| return self.pushMotion(pos, false) and self.pushButton(pos, true),
             .drag => |pos| return self.pushMotion(pos, true),
@@ -1015,6 +1141,47 @@ pub const Script = struct {
                 } else |_| {}
                 // Don't save: the file on disk is what it always was.
                 if (!self.foreignUntouched(step)) return false;
+            },
+            .tile_picker_open => {
+                const shown = self.pickerPicturesShown() orelse
+                    return self.stepFail(step, "after {d} frames the picker is {s}", .{ self.waited, if (self.state.tile_picker_open) "open with pictures still to come" else "not open" });
+                if (shown < 12) return self.stepFail(step, "the picker shows only {d} tiles", .{shown});
+                if (self.view.brush.tile != self.tile_before) return self.stepFail(step, "opening the picker changed the tile to {d}", .{self.view.brush.tile});
+                var path_buffer: [std.Io.Dir.max_path_bytes:0]u8 = undefined;
+                const dir = std.fs.path.dirname(self.save_path) orelse ".";
+                const path = std.fmt.bufPrintZ(&path_buffer, "{s}{c}{s}", .{ dir, std.fs.path.sep, tile_picker_capture }) catch
+                    return self.stepFail(step, "the capture path is too long", .{});
+                if (c.BkEditorCaptureFrame(self.real.session, path.ptr) != c.BK_EDITOR_OK)
+                    return self.stepFail(step, "the frame was not captured: {s}", .{std.mem.span(c.BkEditorLastMessage(self.real.session))});
+                std.debug.print("map-editor: smoke: the tile picker shows {d} of {d} tiles, each with its picture; captured {s}\n", .{ shown, self.state.tile_count, path });
+            },
+            .tile_chosen => {
+                const want = self.tile_choice orelse return self.stepFail(step, "no tile was clicked", .{});
+                if (self.view.brush.tile != want) return self.stepFail(step, "the brush's tile is {d}, the click was on {d}", .{ self.view.brush.tile, want });
+                if (self.state.tile_picker_open) return self.stepFail(step, "the picker is still open", .{});
+                if (self.editor.dirty()) return self.stepFail(step, "choosing a tile changed the map", .{});
+            },
+            .close_asked => {
+                if (!self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is not asking", .{});
+                if (!self.mapStillOpen(step)) return false;
+            },
+            .close_cancelled => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is still asking", .{});
+                if (self.state.actions.prompt.phase != .idle) return self.stepFail(step, "the prompt is still {t}", .{self.state.actions.prompt.phase});
+                if (!self.mapStillOpen(step)) return false;
+            },
+            .map_closed => {
+                if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "the prompt is still asking", .{});
+                if (!self.noMapOpen(step)) return false;
+                if (!self.modIs(step, null)) return false;
+                var tiles_buffer: [256]u8 = undefined;
+                if (self.real.tilesetTiles(&tiles_buffer) != null) return self.stepFail(step, "the engine still offers the closed map's tiles", .{});
+                if (!std.mem.eql(u8, std.mem.span(c.BkEditorLastMessage(self.real.session)), "no map is open"))
+                    return self.stepFail(step, "the bridge says \"{s}\", want \"no map is open\"", .{std.mem.span(c.BkEditorLastMessage(self.real.session))});
+                const title = self.state.title[0..self.state.title_len];
+                if (!std.mem.eql(u8, title, "Map Editor")) return self.stepFail(step, "the title is \"{s}\"", .{title});
+                if (self.state.autosave.dirty_since_ms != null) return self.stepFail(step, "autosave still counts a dirty map", .{});
+                if (self.state.recovery_active != null) return self.stepFail(step, "a recovery copy is still active", .{});
             },
             .mod_switched_without_map => {
                 if (self.state.actions.prompt.isAsking()) return self.stepFail(step, "a switch with no map open asked", .{});
