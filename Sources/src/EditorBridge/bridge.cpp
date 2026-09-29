@@ -14,6 +14,7 @@
 #include "../Scene/Scene.h"
 #include "../Scene/SceneScreenScale.h"
 #include "../Scene/Terrain.h"
+#include "../Formats/fmtTerrain.h"
 #include "../Image/Image.h"
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
@@ -56,6 +57,13 @@ struct BkEditorSession : public SEditorSession
 	// when none is active. BkEditorSaveMap reads these to stamp
 	// szMODName/szMODVersion (D-28).
 	std::string szModFolder, szModName, szModVersion;
+	// BkEditorTilePicture's cache (03-15 gap fix): the tileset last asked
+	// about, by its storage name, with its texture decoded once and its
+	// description as its own .xml has it. Dropped by BkEditorSetMod - the same
+	// name may be another file in the new mod's storage.
+	std::string szTileAtlasName;
+	CPtr<IImage> pTileAtlas;
+	STilesetDesc tileAtlasDesc;
 	BkEditorSession() : pWindow( 0 ) {  }
 };
 
@@ -912,6 +920,199 @@ void BuildSquadIconOwnerMap( SEditorSession *pSession, IObjectsDB *pObjectsDB )
 	}
 }
 
+namespace {
+
+// BkEditorObjectPicture's and BkEditorTilePicture's shared tail: pImage
+// scaled down to fit nMaxSide (keeping its shape) when it does not already,
+// then written out as RGBA8, top row first. pszWhat names the picture in a
+// message. The real size is reported even when the capacity is too short, so
+// a caller sizing a buffer from a REFUSED answer has it.
+BkEditorStatus WritePicture( BkEditorSession *pSession, IImageProcessor *pImages, CPtr<IImage> pImage, const char *pszWhat,
+                             int nMaxSide, unsigned char *pOutRgba, int nCapacityBytes, int *pnOutWidth, int *pnOutHeight )
+{
+	int nWidth = pImage->GetSizeX(), nHeight = pImage->GetSizeY();
+	if ( nWidth <= 0 || nHeight <= 0 )
+	{
+		pSession->szMessage = NStr::Format( "%s's picture decoded to an empty image", pszWhat );
+		return BK_EDITOR_FAILED;
+	}
+	// Only scaled down, and only when it does not already fit: the shipped
+	// icons are the MFC palette's own thumbnails and most are already small.
+	if ( nWidth > nMaxSide || nHeight > nMaxSide )
+	{
+		const float fScale = Min( float( nMaxSide ) / float( nWidth ), float( nMaxSide ) / float( nHeight ) );
+		const int nScaledWidth = Max( 1, int( float( nWidth ) * fScale + 0.5f ) );
+		const int nScaledHeight = Max( 1, int( float( nHeight ) * fScale + 0.5f ) );
+		CPtr<IImage> pScaled = pImages->CreateScaleBySize( pImage, nScaledWidth, nScaledHeight, ISM_LANCZOS3 );
+		if ( pScaled == 0 )
+		{
+			pSession->szMessage = NStr::Format( "could not scale %s's picture", pszWhat );
+			return BK_EDITOR_FAILED;
+		}
+		pImage = pScaled;
+		nWidth = nScaledWidth;
+		nHeight = nScaledHeight;
+	}
+	*pnOutWidth = nWidth;
+	*pnOutHeight = nHeight;
+	const int nNeeded = nWidth * nHeight * 4;
+	if ( nNeeded > nCapacityBytes )
+	{
+		pSession->szMessage = NStr::Format( "%s's picture needs %d bytes and room was given for %d", pszWhat, nNeeded, nCapacityBytes );
+		return BK_EDITOR_REFUSED;
+	}
+	// SColor's r/g/b/a accessors already name the right channel regardless
+	// of the union's in-memory byte order (WriteFrame's own b,g,r,a TGA row
+	// relies on the same accessors) - written out here as r,g,b,a because
+	// that is what an SDL_GPU R8G8B8A8_UNORM texture wants.
+	const SColor *pPixels = pImage->GetLFB();
+	for ( int i = 0; i < nWidth * nHeight; ++i )
+	{
+		pOutRgba[i * 4 + 0] = (unsigned char)pPixels[i].r;
+		pOutRgba[i * 4 + 1] = (unsigned char)pPixels[i].g;
+		pOutRgba[i * 4 + 2] = (unsigned char)pPixels[i].b;
+		pOutRgba[i * 4 + 3] = (unsigned char)pPixels[i].a;
+	}
+	return BK_EDITOR_OK;
+}
+
+void ForgetTileAtlas( BkEditorSession *pSession )
+{
+	pSession->szTileAtlasName.clear();
+	pSession->pTileAtlas = 0;
+	pSession->tileAtlasDesc = STilesetDesc();
+}
+
+// The engine's terrain for the open map (session.cpp's EngineTerrain, which
+// is not exported): what the map was loaded into, and so the tileset it
+// paints with.
+ITerrainEditor *OpenMapTerrain( BkEditorSession *pSession )
+{
+	IScene *pScene = GetSingleton<IScene>();
+	ITerrain *pTerrain = pScene != 0 ? pScene->GetTerrain() : 0;
+	ITerrainEditor *pEditor = pTerrain != 0 ? pTerrain->GetEditor() : 0;
+	if ( pEditor == 0 )
+		pSession->szMessage = "the engine has no terrain";
+	return pEditor;
+}
+
+// The first terrain type of rTileset that lists nTile, or -1 when none does -
+// the same "has a terrain type" rule BkEditorTilesetTiles offers tiles by and
+// BkEditorPaint checks them against.
+int TerrainTypeOfTile( const STilesetDesc &rTileset, int nTile )
+{
+	for ( size_t t = 0; t < rTileset.terrtypes.size(); ++t )
+	{
+		const std::vector<SMainTileDesc> &rTiles = rTileset.terrtypes[t].tiles;
+		for ( size_t k = 0; k < rTiles.size(); ++k )
+			if ( rTiles[k].nIndex == nTile )
+				return int( t );
+	}
+	return -1;
+}
+
+// Loads (once per tileset name, see BkEditorSession::szTileAtlasName) the
+// open map's tileset description from its own .xml - the way CTerrain::LoadLocal
+// reads it, before its CorrectUVMaps - and its texture: "_h.dds", else
+// "_c.dds", else "_l.dds" (RandomMapGen/IB_Types.h's GetDDSImageExtention
+// suffixes; the MFC tile palette and the minimap builder read the "_h" one).
+bool LoadTileAtlas( BkEditorSession *pSession, ITerrainEditor *pTerrain )
+{
+	const std::string &szName = pTerrain->GetTerrainInfo().szTilesetDesc;
+	if ( pSession->pTileAtlas != 0 && pSession->szTileAtlasName == szName )
+		return true;
+	ForgetTileAtlas( pSession );
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	IImageProcessor *pImages = GetImageProcessor();
+	if ( pStorage == 0 || pImages == 0 )
+	{
+		pSession->szMessage = "the engine is not started";
+		return false;
+	}
+	STilesetDesc desc;
+	{
+		CPtr<IDataStream> pStream = pStorage->OpenStream( ( szName + ".xml" ).c_str(), STREAM_ACCESS_READ );
+		if ( pStream == 0 )
+		{
+			pSession->szMessage = NStr::Format( "the tileset description %s.xml is not in the data", szName.c_str() );
+			return false;
+		}
+		CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
+		tree.Add( "tileset", &desc );
+	}
+	static const char *const suffixes[] = { "_h.dds", "_c.dds", "_l.dds" };
+	CPtr<IImage> pAtlas;
+	for ( int i = 0; i < 3 && pAtlas == 0; ++i )
+	{
+		CPtr<IDataStream> pStream = pStorage->OpenStream( ( szName + suffixes[i] ).c_str(), STREAM_ACCESS_READ );
+		if ( pStream == 0 )
+			continue;
+		CPtr<IDDSImage> pDDS = pImages->LoadDDSImage( pStream );
+		if ( pDDS != 0 )
+			pAtlas = pImages->Decompress( pDDS );
+	}
+	if ( pAtlas == 0 || pAtlas->GetSizeX() <= 0 || pAtlas->GetSizeY() <= 0 )
+	{
+		pSession->szMessage = NStr::Format( "the tileset texture %s_h.dds (or _c/_l) did not load", szName.c_str() );
+		return false;
+	}
+	pSession->szTileAtlasName = szName;
+	pSession->pTileAtlas = pAtlas;
+	pSession->tileAtlasDesc = desc;
+	return true;
+}
+
+// One tile's diamond out of the tileset texture (see BkEditorTilePicture):
+// the bounding box of its four corners, each pixel read from the cell
+// mirrored the way the corners name it (maps0 is the tile's top corner, maps3
+// its bottom, maps2 its left, maps1 its right - a tile whose maps3 lies above
+// its maps0 in the texture is drawn upside down, the MFC palette's FlipY
+// case), with an alpha that covers the diamond and fades over one pixel at
+// its edge.
+CPtr<IImage> CutTile( IImageProcessor *pImages, IImage *pAtlas, const STileMapsDesc &rMaps )
+{
+	const int nAtlasWidth = pAtlas->GetSizeX(), nAtlasHeight = pAtlas->GetSizeY();
+	float fMinX = rMaps.maps[0].x, fMaxX = fMinX, fMinY = rMaps.maps[0].y, fMaxY = fMinY;
+	for ( int k = 1; k < 4; ++k )
+	{
+		fMinX = Min( fMinX, rMaps.maps[k].x );
+		fMaxX = Max( fMaxX, rMaps.maps[k].x );
+		fMinY = Min( fMinY, rMaps.maps[k].y );
+		fMaxY = Max( fMaxY, rMaps.maps[k].y );
+	}
+	const int nLeft = Clamp( int( std::floor( fMinX * nAtlasWidth + 0.5f ) ), 0, nAtlasWidth );
+	const int nRight = Clamp( int( std::floor( fMaxX * nAtlasWidth + 0.5f ) ), 0, nAtlasWidth );
+	const int nTop = Clamp( int( std::floor( fMinY * nAtlasHeight + 0.5f ) ), 0, nAtlasHeight );
+	const int nBottom = Clamp( int( std::floor( fMaxY * nAtlasHeight + 0.5f ) ), 0, nAtlasHeight );
+	const int nWidth = nRight - nLeft, nHeight = nBottom - nTop;
+	if ( nWidth <= 0 || nHeight <= 0 )
+		return 0;
+	CPtr<IImage> pTile = pImages->CreateImage( nWidth, nHeight );
+	if ( pTile == 0 )
+		return 0;
+	const bool bFlipY = rMaps.maps[3].y < rMaps.maps[0].y;
+	const bool bFlipX = rMaps.maps[1].x < rMaps.maps[2].x;
+	const SColor *pSource = pAtlas->GetLFB();
+	SColor *pTarget = pTile->GetLFB();
+	const float fHalfWidth = nWidth * 0.5f, fHalfHeight = nHeight * 0.5f;
+	const float fEdge = Min( fHalfWidth, fHalfHeight );
+	for ( int y = 0; y < nHeight; ++y )
+	{
+		const int nSourceY = nTop + ( bFlipY ? nHeight - 1 - y : y );
+		for ( int x = 0; x < nWidth; ++x )
+		{
+			const int nSourceX = nLeft + ( bFlipX ? nWidth - 1 - x : x );
+			const SColor color = pSource[nSourceY * nAtlasWidth + nSourceX];
+			const float fDistance = std::fabs( x + 0.5f - fHalfWidth ) / fHalfWidth + std::fabs( y + 0.5f - fHalfHeight ) / fHalfHeight;
+			const float fCover = Clamp( ( 1.0f - fDistance ) * fEdge + 0.5f, 0.0f, 1.0f );
+			pTarget[y * nWidth + x] = SColor( BYTE( fCover * 255.0f + 0.5f ), BYTE( color.r ), BYTE( color.g ), BYTE( color.b ) );
+		}
+	}
+	return pTile;
+}
+
+}
+
 BkEditorStatus BkEditorObjectPicture( BkEditorSession *pSession, const char *pszName,
                                       unsigned char *pOutRgba, int nCapacityBytes, int nMaxSide,
                                       int *pnOutWidth, int *pnOutHeight )
@@ -966,52 +1167,95 @@ BkEditorStatus BkEditorObjectPicture( BkEditorSession *pSession, const char *psz
 			pSession->szMessage = NStr::Format( "%s has no picture", pszName );
 			return BK_EDITOR_REFUSED;
 		}
-		int nWidth = pImage->GetSizeX(), nHeight = pImage->GetSizeY();
-		if ( nWidth <= 0 || nHeight <= 0 )
+		return WritePicture( pSession, pImages, pImage, pszName, nMaxSide, pOutRgba, nCapacityBytes, pnOutWidth, pnOutHeight );
+	} );
+}
+
+BkEditorStatus BkEditorCloseMap( BkEditorSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bEngineStarted )
 		{
-			pSession->szMessage = NStr::Format( "%s's icon.tga decoded to an empty image", pszName );
-			return BK_EDITOR_FAILED;
-		}
-		// Only scaled down, and only when it does not already fit: the shipped
-		// icons are the MFC palette's own thumbnails and most are already small.
-		if ( nWidth > nMaxSide || nHeight > nMaxSide )
-		{
-			const float fScale = Min( float( nMaxSide ) / float( nWidth ), float( nMaxSide ) / float( nHeight ) );
-			const int nScaledWidth = Max( 1, int( float( nWidth ) * fScale + 0.5f ) );
-			const int nScaledHeight = Max( 1, int( float( nHeight ) * fScale + 0.5f ) );
-			CPtr<IImage> pScaled = pImages->CreateScaleBySize( pImage, nScaledWidth, nScaledHeight, ISM_LANCZOS3 );
-			if ( pScaled == 0 )
-			{
-				pSession->szMessage = NStr::Format( "could not scale %s's picture", pszName );
-				return BK_EDITOR_FAILED;
-			}
-			pImage = pScaled;
-			nWidth = nScaledWidth;
-			nHeight = nScaledHeight;
-		}
-		// The real size, even if capacity turns out too short below: a caller
-		// sizing a buffer from a REFUSED answer needs it.
-		*pnOutWidth = nWidth;
-		*pnOutHeight = nHeight;
-		const int nNeeded = nWidth * nHeight * 4;
-		if ( nNeeded > nCapacityBytes )
-		{
-			pSession->szMessage = NStr::Format( "%s's picture needs %d bytes and room was given for %d", pszName, nNeeded, nCapacityBytes );
+			pSession->szMessage = "the engine is not started";
 			return BK_EDITOR_REFUSED;
 		}
-		// SColor's r/g/b/a accessors already name the right channel regardless
-		// of the union's in-memory byte order (WriteFrame's own b,g,r,a TGA row
-		// relies on the same accessors) - written out here as r,g,b,a because
-		// that is what an SDL_GPU R8G8B8A8_UNORM texture wants.
-		const SColor *pPixels = pImage->GetLFB();
-		for ( int i = 0; i < nWidth * nHeight; ++i )
-		{
-			pOutRgba[i * 4 + 0] = (unsigned char)pPixels[i].r;
-			pOutRgba[i * 4 + 1] = (unsigned char)pPixels[i].g;
-			pOutRgba[i * 4 + 2] = (unsigned char)pPixels[i].b;
-			pOutRgba[i * 4 + 3] = (unsigned char)pPixels[i].a;
-		}
+		CloseSessionMap( pSession );
 		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorDescribeTile( BkEditorSession *pSession, int nTile, BkEditorTile *pOut )
+{
+	if ( pOut != 0 )
+	{
+		memset( pOut, 0, sizeof *pOut );
+		pOut->terrain_index = -1;
+	}
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 || nTile < 0 || nTile > 255 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		ITerrainEditor *pTerrain = OpenMapTerrain( pSession );
+		if ( pTerrain == 0 )
+			return BK_EDITOR_REFUSED;
+		// The engine's loaded description: its terrain types are the .xml's
+		// own (only the corners were pulled in when it was loaded).
+		const STilesetDesc &rTileset = pTerrain->GetTilesetDesc();
+		const int nType = TerrainTypeOfTile( rTileset, nTile );
+		if ( nType < 0 )
+		{
+			pSession->szMessage = NStr::Format( "tile %d is not in the map's tileset", nTile );
+			return BK_EDITOR_REFUSED;
+		}
+		pOut->terrain_index = nType;
+		CopyBoundedField( pOut->terrain, sizeof pOut->terrain, rTileset.terrtypes[nType].szName );
+		CopyBoundedField( pOut->tileset, sizeof pOut->tileset, pTerrain->GetTerrainInfo().szTilesetDesc );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorTilePicture( BkEditorSession *pSession, int nTile,
+                                    unsigned char *pOutRgba, int nCapacityBytes, int nMaxSide,
+                                    int *pnOutWidth, int *pnOutHeight )
+{
+	if ( pnOutWidth != 0 ) *pnOutWidth = 0;
+	if ( pnOutHeight != 0 ) *pnOutHeight = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOutRgba == 0 || pnOutWidth == 0 || pnOutHeight == 0 || nCapacityBytes < 0 ||
+		     nMaxSide < 8 || nMaxSide > 256 || nTile < 0 || nTile > 255 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		ITerrainEditor *pTerrain = OpenMapTerrain( pSession );
+		if ( pTerrain == 0 )
+			return BK_EDITOR_REFUSED;
+		if ( !LoadTileAtlas( pSession, pTerrain ) )
+			return BK_EDITOR_REFUSED;
+		const STilesetDesc &rTileset = pSession->tileAtlasDesc;
+		if ( TerrainTypeOfTile( rTileset, nTile ) < 0 || nTile >= int( rTileset.tilemaps.size() ) )
+		{
+			pSession->szMessage = NStr::Format( "tile %d is not in the map's tileset", nTile );
+			return BK_EDITOR_REFUSED;
+		}
+		IImageProcessor *pImages = GetImageProcessor();
+		CPtr<IImage> pTile = CutTile( pImages, pSession->pTileAtlas, rTileset.tilemaps[nTile] );
+		const std::string szWhat = NStr::Format( "tile %d", nTile );
+		if ( pTile == 0 )
+		{
+			pSession->szMessage = szWhat + "'s corners span no pixels of the tileset texture";
+			return BK_EDITOR_FAILED;
+		}
+		return WritePicture( pSession, pImages, pTile, szWhat.c_str(), nMaxSide, pOutRgba, nCapacityBytes, pnOutWidth, pnOutHeight );
 	} );
 }
 
@@ -1062,6 +1306,7 @@ BkEditorStatus BkEditorSetMod( BkEditorSession *pSession, const char *pszFolder 
 		if ( szFolder.empty() )
 		{
 			CloseSessionMap( pSession );
+			ForgetTileAtlas( pSession );
 			pStorage->RemoveStorage( "MOD" );
 			RemoveGlobalVar( "MOD.Active" );
 			RemoveGlobalVar( "MOD.Name" );
@@ -1096,6 +1341,7 @@ BkEditorStatus BkEditorSetMod( BkEditorSession *pSession, const char *pszFolder 
 			return BK_EDITOR_REFUSED;
 		}
 		CloseSessionMap( pSession );
+		ForgetTileAtlas( pSession );
 		pStorage->RemoveStorage( "MOD" );
 		pStorage->AddStorage( pModStorage, "MOD" );
 		SetGlobalVar( "MOD.Active", 1 );

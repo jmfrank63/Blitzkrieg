@@ -109,6 +109,18 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *session, const char *path, BkEd
    other untouched field of the map keeps). */
 BkEditorStatus BkEditorSaveMap( BkEditorSession *session, const char *path );
 
+/* Closes the open map (File > Close, 03-15 gap fix): the world's objects and
+   the terrain leave the scene, the AI editor is cleared, and every per-map
+   table of the session is reset - CloseSessionMap, the same steps
+   BkEditorSetMod takes before it swaps the object database, here without the
+   swap. Nothing is saved: the editor has already asked about unsaved changes
+   (D-23) before it calls this. The mod, the object database and the camera's
+   yaw are left as they are. BK_EDITOR_OK with no map open too (nothing to
+   close); BK_EDITOR_REFUSED only when the engine is not started. Every
+   map-needing entry point answers "no map is open" afterwards, exactly as
+   before the first BkEditorOpenMap. */
+BkEditorStatus BkEditorCloseMap( BkEditorSession *session );
+
 /* The edits. Each one changes the map and the engine together or neither: a
    refusal leaves the session exactly as it was, so the editor never saves
    something it did not show.
@@ -231,6 +243,56 @@ BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsig
    null when capacity is 0, to ask for the count. BK_EDITOR_REFUSED too when
    no map is open. */
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *out, int capacity, int *out_count );
+
+/* One tile of the open map's tileset, for the Brush's tile picker (03-15 gap
+   fix). terrain is the name (<name>, STerrTypeDesc::szName) of the first
+   terrain type of the tileset's description that lists the tile - "Snow",
+   "Ice", "Asphalt" - and terrain_index that terrain type's position in the
+   description, so a picker can group tiles by it in the tileset's own order.
+   tileset is the tileset's own name in the data storage
+   (STerrainInfo::szTilesetDesc, e.g. "terrain\sets\2\tileset"): the same
+   tile index in another tileset is another picture, so a caller keys a cache
+   of BkEditorTilePicture's pictures on it. Both strings are cut to fit and
+   always NUL-terminated.
+
+   BK_EDITOR_BAD_ARGUMENT for a null out or a tile outside 0..255 (a paint
+   cell's tile is an unsigned char). BK_EDITOR_REFUSED when no map is open, or
+   for a tile no terrain type of the tileset lists - one BkEditorTilesetTiles
+   does not offer and BkEditorPaint refuses; out is zeroed then. */
+typedef struct { int terrain_index; char terrain[64]; char tileset[128]; } BkEditorTile;
+BkEditorStatus BkEditorDescribeTile( BkEditorSession *session, int tile, BkEditorTile *out );
+
+/* One tile's picture, for the Brush's tile picker (03-15 gap fix): the tile's
+   diamond cut out of the tileset's texture, the way the MFC editor's tile
+   palette cut its thumbnails (MapEditor/TabTileEditDialog.cpp,
+   CreateImageList) - the cell the tileset description's four corners
+   (<tilemaps>, STileMapsDesc: maps0 top, maps1 right, maps2 left, maps3
+   bottom) span, flipped the way a tile whose corners name the cell the other
+   way round is drawn, and transparent outside the diamond (the MFC palette
+   masked it with editor\terrain\tilemask.tga to the same shape). RGBA8,
+   top row first - BkEditorObjectPicture's layout - scaled down only when a
+   side exceeds max_side, keeping the shape (a shipped tile is 64x32).
+
+   The corners are the description's own, read from the tileset's .xml, not
+   the engine's loaded copy: CTerrain::LoadLocal pulls those in by a few
+   texels that depend on the screen's width (CorrectUVMaps), which would make
+   the picture's size depend on the window. The texture is the tileset's
+   "_h.dds" (the uncompressed one the MFC palette and the minimap builder
+   read), else "_c.dds", else "_l.dds". The decoded texture and the
+   description are kept for the session, for the tileset last asked about,
+   so a picker asking for every tile decodes the texture once; BkEditorSetMod
+   drops them (the same name may be another file under the new mod).
+
+   BK_EDITOR_BAD_ARGUMENT for a null output, max_side outside 8..256 or a tile
+   outside 0..255. BK_EDITOR_REFUSED when no map is open, for a tile the
+   tileset does not list (see BkEditorDescribeTile), when the tileset's .xml
+   or texture will not load, or when capacity_bytes is too small for the
+   picture - *out_width/*out_height are still set to the real size then, as
+   BkEditorObjectPicture does, and nothing is written. BK_EDITOR_FAILED when
+   the picture could not be cut or scaled. */
+BkEditorStatus BkEditorTilePicture( BkEditorSession *session, int tile,
+                                    unsigned char *out_rgba, int capacity_bytes, int max_side,
+                                    int *out_width, int *out_height );
 
 /* A world point (world units, not map units) to the tile it falls in - the
    brush's other half, through the engine's own conversion. Screen to world

@@ -9,6 +9,7 @@
 #include "StdAfx.h"
 #include <SDL3/SDL.h>
 #include <map>
+#include <set>
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
@@ -162,6 +163,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
+	BkEditorTile tileInfo; memset( &tileInfo, 0, sizeof tileInfo );
 	void *pDevice = 0; unsigned int nFormat = 0;
 
 	const std::vector<Call> noSession = {
@@ -188,6 +190,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorWorldMatchesMap", [&] { return BkEditorWorldMatchesMap( 0 ); } },
 		{ "BkEditorCatalogue", [&] { return BkEditorCatalogue( 0, catEntries, 1, &nInt ); } },
 		{ "BkEditorObjectPicture", [&] { return BkEditorObjectPicture( 0, "x", rgba, sizeof rgba, 16, &nInt, &nInt2 ); } },
+		{ "BkEditorCloseMap", [&] { return BkEditorCloseMap( 0 ); } },
+		{ "BkEditorDescribeTile", [&] { return BkEditorDescribeTile( 0, 0, &tileInfo ); } },
+		{ "BkEditorTilePicture", [&] { return BkEditorTilePicture( 0, 0, rgba, sizeof rgba, 16, &nInt, &nInt2 ); } },
 		{ "BkEditorMods", [&] { return BkEditorMods( 0, modEntries, 1, &nInt ); } },
 		{ "BkEditorSetMod", [&] { return BkEditorSetMod( 0, 0 ); } },
 		{ "BkEditorActiveMod", [&] { return BkEditorActiveMod( 0, &modEntries[0] ); } },
@@ -242,6 +247,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorRedoPaint", [&] { return BkEditorRedoPaint( pSession, 0 ); } },
 		{ "BkEditorEngineTile", [&] { return BkEditorEngineTile( pSession, 0, 0, &cChar ); } },
 		{ "BkEditorTilesetTiles", [&] { return BkEditorTilesetTiles( pSession, &cChar, 1, &nInt ); } },
+		{ "BkEditorDescribeTile", [&] { return BkEditorDescribeTile( pSession, 0, &tileInfo ); } },
+		{ "BkEditorTilePicture", [&] { return BkEditorTilePicture( pSession, 0, rgba, sizeof rgba, 16, &nInt, &nInt2 ); } },
 		{ "BkEditorWorldToTile", [&] { return BkEditorWorldToTile( pSession, 0, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorTerrainMatchesEngine", [&] { return BkEditorTerrainMatchesEngine( pSession ); } },
 		{ "BkEditorWorldMatchesMap", [&] { return BkEditorWorldMatchesMap( pSession ); } },
@@ -268,6 +275,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	}
 	printf( "editor-bridge: %d/%zu map-needing entry points refused \"no map is open\"\n",
 	        int( noMap.size() ) - nNoMapFailures, noMap.size() );
+	// File > Close (03-15 gap fix) with nothing open is not a refusal.
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, "BkEditorCloseMap with no map open is OK (nothing to close)" );
 
 	// A representative set of null-output arguments, on the real session -
 	// map open or not does not matter, since the argument check runs first
@@ -2504,6 +2513,153 @@ static void TestTilesetTilesAllPaint( BkEditorSession *pSession )
 	printf( "editor-bridge: the tileset of %s offers %d tiles, %d painted\n", SHIPPED_MAP, nCount, nPainted );
 }
 
+// 03-15 gap fix (Johannes's M1 hand try: "tile 0", "tile 1", ... could only
+// be told apart by painting each): BkEditorDescribeTile names every tile the
+// tileset offers by its terrain type, and BkEditorTilePicture cuts each one's
+// diamond out of the tileset texture. On coldwinter: every offered tile
+// decodes to a picture that is not empty, not one flat colour, transparent in
+// its corners and opaque in its middle; tiles of different terrain types
+// differ; the refusals follow the contract. All of them are written side by
+// side to <scratch>/03-15-tile-pictures.tga for a person to look at. Then
+// BkEditorCloseMap closes the map (File > Close) and the map-needing calls
+// refuse again, and coldwinter is reopened for whatever runs next.
+static void TestTilePicturesAndClose( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	unsigned char tiles[256];
+	int nCount = 0;
+	if ( !Check( BkEditorTilesetTiles( pSession, tiles, 256, &nCount ) == BK_EDITOR_OK && nCount > 1, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	const int nSide = 64;
+	std::vector<unsigned char> buffer( nSide * nSide * 4 );
+	// Every picture, for the contact sheet: a cell per tile, 16 to a row.
+	const int nColumns = 16, nCellWidth = nSide + 4, nCellHeight = nSide / 2 + 4;
+	const int nRows = ( nCount + nColumns - 1 ) / nColumns;
+	std::vector<unsigned char> sheet( size_t( nColumns * nCellWidth ) * size_t( nRows * nCellHeight ) * 4, 0 );
+	for ( size_t i = 3; i < sheet.size(); i += 4 )
+		sheet[i] = 255;
+
+	std::string szTileset;
+	std::map<int, std::string> terrainNames;
+	std::map<int, std::vector<unsigned char> > firstOfTerrain;
+	std::set<std::vector<unsigned char> > distinct;
+	int nGood = 0;
+	double fFirstSeconds = 0.0, fRestSeconds = 0.0;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const int nTile = tiles[i];
+		BkEditorTile info;
+		if ( !Check( BkEditorDescribeTile( pSession, nTile, &info ) == BK_EDITOR_OK,
+		             NStr::Format( "tile %d describes: %s", nTile, BkEditorLastMessage( pSession ) ) ) )
+			continue;
+		Check( info.terrain[0] != 0 && info.terrain_index >= 0, NStr::Format( "tile %d has a terrain type name (%d '%s')", nTile, info.terrain_index, info.terrain ) );
+		if ( szTileset.empty() )
+			szTileset = info.tileset;
+		Check( szTileset == info.tileset && !szTileset.empty(), NStr::Format( "tile %d names the same tileset (%s, %s)", nTile, szTileset.c_str(), info.tileset ) );
+		terrainNames[info.terrain_index] = info.terrain;
+
+		int nWidth = 0, nHeight = 0;
+		const Uint64 nStart = SDL_GetPerformanceCounter();
+		const BkEditorStatus status = BkEditorTilePicture( pSession, nTile, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight );
+		const double fSeconds = double( SDL_GetPerformanceCounter() - nStart ) / double( SDL_GetPerformanceFrequency() );
+		( i == 0 ? fFirstSeconds : fRestSeconds ) += fSeconds;
+		if ( !Check( status == BK_EDITOR_OK, NStr::Format( "tile %d has a picture: %s", nTile, BkEditorLastMessage( pSession ) ) ) )
+			continue;
+		if ( !Check( nWidth >= 8 && nWidth <= nSide && nHeight >= 4 && nHeight <= nSide,
+		             NStr::Format( "tile %d's picture is %dx%d", nTile, nWidth, nHeight ) ) )
+			continue;
+		// The diamond: its middle opaque, its four corners transparent.
+		const unsigned char *pMiddle = &buffer[( size_t( nHeight / 2 ) * nWidth + nWidth / 2 ) * 4];
+		Check( pMiddle[3] == 255, NStr::Format( "tile %d's middle is opaque (alpha %d)", nTile, int( pMiddle[3] ) ) );
+		Check( buffer[3] == 0 && buffer[( size_t( nWidth ) - 1 ) * 4 + 3] == 0 &&
+		       buffer[( size_t( nHeight - 1 ) * nWidth ) * 4 + 3] == 0 && buffer[( size_t( nHeight ) * nWidth - 1 ) * 4 + 3] == 0,
+		       NStr::Format( "tile %d's corners are transparent", nTile ) );
+		// Not one flat colour: the opaque pixels vary.
+		int nMinLuma = 256 * 3, nMaxLuma = -1, nOpaque = 0;
+		for ( int p = 0; p < nWidth * nHeight; ++p )
+		{
+			if ( buffer[p * 4 + 3] != 255 )
+				continue;
+			++nOpaque;
+			const int nLuma = buffer[p * 4 + 0] + buffer[p * 4 + 1] + buffer[p * 4 + 2];
+			nMinLuma = Min( nMinLuma, nLuma );
+			nMaxLuma = Max( nMaxLuma, nLuma );
+		}
+		const bool bOk = Check( nOpaque >= nWidth * nHeight / 3, NStr::Format( "tile %d's diamond covers a third of its box or more (%d of %d)", nTile, nOpaque, nWidth * nHeight ) ) &&
+		                 Check( nMaxLuma - nMinLuma >= 12, NStr::Format( "tile %d's picture is not one flat colour (luma %d..%d)", nTile, nMinLuma, nMaxLuma ) ) &&
+		                 Check( nMaxLuma > 0, NStr::Format( "tile %d's picture is not black", nTile ) );
+		if ( !bOk )
+			continue;
+		++nGood;
+		const std::vector<unsigned char> picture( buffer.begin(), buffer.begin() + size_t( nWidth ) * nHeight * 4 );
+		distinct.insert( picture );
+		if ( firstOfTerrain.find( info.terrain_index ) == firstOfTerrain.end() )
+			firstOfTerrain[info.terrain_index] = picture;
+		// Onto the contact sheet, over black.
+		const int nCellX = ( i % nColumns ) * nCellWidth + 2, nCellY = ( i / nColumns ) * nCellHeight + 2;
+		for ( int y = 0; y < nHeight && y < nCellHeight - 4; ++y )
+			for ( int x = 0; x < nWidth && x < nCellWidth - 4; ++x )
+			{
+				const unsigned char *pPixel = &picture[( size_t( y ) * nWidth + x ) * 4];
+				unsigned char *pTarget = &sheet[( size_t( nCellY + y ) * ( nColumns * nCellWidth ) + nCellX + x ) * 4];
+				for ( int ch = 0; ch < 3; ++ch )
+					pTarget[ch] = (unsigned char)( pPixel[ch] * pPixel[3] / 255 );
+			}
+	}
+	Check( nGood == nCount, NStr::Format( "every offered tile has a good picture (%d of %d)", nGood, nCount ) );
+	// Tiles of different terrain types show different ground.
+	int nSamePairs = 0;
+	for ( std::map<int, std::vector<unsigned char> >::const_iterator a = firstOfTerrain.begin(); a != firstOfTerrain.end(); ++a )
+		for ( std::map<int, std::vector<unsigned char> >::const_iterator b = a; ++b != firstOfTerrain.end(); )
+			if ( a->second == b->second )
+				++nSamePairs;
+	Check( firstOfTerrain.size() >= 2 && nSamePairs == 0,
+	       NStr::Format( "the first tiles of the %d terrain types all differ (%d identical pairs)", int( firstOfTerrain.size() ), nSamePairs ) );
+	Check( int( distinct.size() ) * 2 >= nCount, NStr::Format( "most tiles have a picture of their own (%d distinct of %d)", int( distinct.size() ), nCount ) );
+	std::string szTerrains;
+	for ( std::map<int, std::string>::const_iterator it = terrainNames.begin(); it != terrainNames.end(); ++it )
+		szTerrains += ( szTerrains.empty() ? "" : ", " ) + it->second;
+	printf( "editor-bridge: tile pictures: %s's tileset %s: %d tiles, %d distinct pictures, %d terrain types (%s)\n",
+	        SHIPPED_MAP, szTileset.c_str(), nCount, int( distinct.size() ), int( terrainNames.size() ), szTerrains.c_str() );
+	printf( "editor-bridge: tile pictures: first %.2f ms (decodes the texture), then %.3f ms each\n",
+	        fFirstSeconds * 1000.0, nCount > 1 ? fRestSeconds * 1000.0 / ( nCount - 1 ) : 0.0 );
+	const std::string szSheet = szScratch + "/03-15-tile-pictures.tga";
+	const bool bSheetWritten = WriteRgbaTga( szSheet.c_str(), &sheet[0], nColumns * nCellWidth, nRows * nCellHeight );
+	printf( "editor-bridge: tile pictures: %s %s\n", bSheetWritten ? "saved" : "could not save", szSheet.c_str() );
+
+	// The contract's refusals.
+	BkEditorTile info;
+	Check( BkEditorDescribeTile( pSession, 1, &info ) == BK_EDITOR_REFUSED && info.terrain_index == -1 && info.terrain[0] == 0,
+	       "tile 1, in no shipped tileset, is refused and zeroed" );
+	Check( BkEditorDescribeTile( pSession, 256, &info ) == BK_EDITOR_BAD_ARGUMENT, "tile 256 is a bad argument" );
+	Check( BkEditorDescribeTile( pSession, tiles[0], 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
+	int nWidth = 0, nHeight = 0;
+	Check( BkEditorTilePicture( pSession, 1, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED, "tile 1 has no picture" );
+	Check( BkEditorTilePicture( pSession, -1, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "tile -1 is a bad argument" );
+	Check( BkEditorTilePicture( pSession, tiles[0], &buffer[0], int( buffer.size() ), 4, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "max_side 4 is a bad argument" );
+	unsigned char small[16];
+	Check( BkEditorTilePicture( pSession, tiles[0], small, sizeof small, nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED && nWidth > 0 && nHeight > 0,
+	       "a 16-byte buffer is refused and still told the real size" );
+	// Scaled to fit a smaller side, keeping the shape.
+	Check( BkEditorTilePicture( pSession, tiles[0], &buffer[0], int( buffer.size() ), 16, &nWidth, &nHeight ) == BK_EDITOR_OK && nWidth <= 16 && nHeight <= 16 && nWidth > nHeight,
+	       NStr::Format( "max_side 16 scales the picture down to fit, still wider than tall (%dx%d)", nWidth, nHeight ) );
+
+	// File > Close: the map is gone from the session and from the engine.
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nAfter = -1;
+	Check( BkEditorTilesetTiles( pSession, tiles, 256, &nAfter ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ) == "no map is open",
+	       "after BkEditorCloseMap the tileset is refused: no map is open" );
+	Check( BkEditorTilePicture( pSession, 0, &buffer[0], int( buffer.size() ), nSide, &nWidth, &nHeight ) == BK_EDITOR_REFUSED, "and so is a tile picture" );
+	int nObjects = -1;
+	Check( BkEditorObjects( pSession, 0, 0, &nObjects ) == BK_EDITOR_REFUSED, "and the object list" );
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, "a second close is harmless" );
+	Check( BkEditorFrame( pSession ) == BK_EDITOR_OK, NStr::Format( "a frame still draws with no map open: %s", BkEditorLastMessage( pSession ) ) );
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, NStr::Format( "coldwinter opens again after the close: %s", BkEditorLastMessage( pSession ) ) );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, NStr::Format( "and the world matches it: %s", BkEditorLastMessage( pSession ) ) );
+}
+
 // Delete then restore is the original object, in the map and in the engine,
 // and add - delete - restore keeps the added object's link ID.
 static void TestDeleteRestoreKeepsTheObject( BkEditorSession *pSession, const std::string &szScratch )
@@ -3380,6 +3536,7 @@ int main( int argc, char **argv )
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
+		TestTilePicturesAndClose( pSession, szScratch );
 		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
 		// The 640x480 the window was created at: BkEditorStart sets the mode to
 		// the window's own size. The middle of the screen is the middle of what
