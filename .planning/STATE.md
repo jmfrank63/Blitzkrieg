@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-06-PLAN.md
-last_updated: "2026-09-30T01:25:29.411Z"
-state_head: e4cca92ee89fef82ab202d79aa9dfe662db23c0a
+stopped_at: Completed 04-07-PLAN.md
+last_updated: "2026-09-30T01:56:10.170Z"
+state_head: 3cd3df50a498068998d579b7b33de02aca736f3d
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 25
+  completed_plans: 26
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T01:25:29.348Z
-**Stopped at:** Completed 04-06-PLAN.md
+**Last session:** 2026-09-30T01:56:10.107Z
+**Stopped at:** Completed 04-07-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -95,6 +95,7 @@ behavior needs the in-game rows).
 | Phase 04 P04 | 20min | 3 tasks | 11 files |
 | Phase 04 P05 | 53min | 4 tasks | 24 files |
 | Phase 04 P06 | 50min | 4 tasks | 25 files |
+| Phase 04 P07 | 28min | 2 tasks | 23 files |
 
 ## Decisions
 
@@ -143,3 +144,5 @@ behavior needs the in-game rows).
 - [Phase ?]: Bridge span geometry is NMapGeometry::PlanBridge (and RotatedBridgeDrag for rotate), shared by the bridge and the map-file/engine tiers; the world-unit MFC nudges are left out, one map-unit nudge kept
 - [Phase ?]: In the Bridge tool a click selects (or deselects) and never draws; a drag draws
 - [Phase ?]: BK_EDITOR_AUTO scripted presses are held across frames until their release (View.holdScripted)
+- [Phase ?]: 04-07: the fence tile mapping is the engine's GetAITileIndex (rounds), not CMapInfo::GetAITileIndices (truncates); they agree only at tile corners
+- [Phase ?]: 04-07: a fence run is one SGroupEdit with no bridges entry (SBridgeGroup.bEntry false); PlanFences also refuses a moved fence that leaves the map
