@@ -1480,6 +1480,9 @@ pub fn chooseOtherScript(state: *State) void {
         state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
         return;
     }
+    // IN-C05: with OS dialogs off nothing would ever answer the slot, so it is
+    // not taken at all (a scripted run picks through script_choose).
+    if (!state.os_dialogs) return;
     if (!script_slot.request(.open)) return;
     var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
@@ -1487,7 +1490,6 @@ pub fn chooseOtherScript(state: *State) void {
     if (dialogFolder(state, &folder_buffer)) |folder| {
         if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
     }
-    if (!state.os_dialogs) return;
     state.os_dialogs_opened += 1;
     sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &script_slot, state.window, &script_filters, script_filters.len, default_location, false);
 }
