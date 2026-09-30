@@ -2420,9 +2420,9 @@ static void TestM2TrenchOverlay()
 		Check( !NMapGeometry::PlanEntrenchment( input, nan, &plan, &szWhy ), "a NaN is refused" );
 		NMapGeometry::STrenchPlanInput none;
 		Check( !NMapGeometry::PlanEntrenchment( none, TrenchL( 100.0f, 100.0f ), &plan, &szWhy ), "no piece length is refused" );
-		std::vector<CVec2> far = TrenchL( 100.0f, 100.0f );
-		far[2].y = 5.0e7f;
-		Check( !NMapGeometry::PlanEntrenchment( input, far, &plan, &szWhy ), "a point far off every map is refused" );
+		std::vector<CVec2> distant = TrenchL( 100.0f, 100.0f );
+		distant[2].y = 5.0e7f;
+		Check( !NMapGeometry::PlanEntrenchment( input, distant, &plan, &szWhy ), "a point far off every map is refused" );
 		// With the map's extent given, a piece past it refuses the whole trench;
 		// one inside it does not.
 		NMapGeometry::STrenchPlanInput bounded = input;

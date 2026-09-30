@@ -31,6 +31,10 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
+            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
+            # road's descriptor through the storage, as the editor does.
+            /Data/Terrain/sets/*/Roads3D/*.xml
+            /Data/Terrain/sets/*/Rivers/*.xml
             # The mission data tier compares Data/Scenarios (144 MB) against
             # GOG 1.2's manifest, and the random missions tier's generator
             # reads templates, settings, chapters, contexts, patches,
@@ -698,6 +702,10 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
+            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
+            # road's descriptor through the storage, as the editor does.
+            /Data/Terrain/sets/*/Roads3D/*.xml
+            /Data/Terrain/sets/*/Rivers/*.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
@@ -921,6 +929,10 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
+            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
+            # road's descriptor through the storage, as the editor does.
+            /Data/Terrain/sets/*/Roads3D/*.xml
+            /Data/Terrain/sets/*/Rivers/*.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
