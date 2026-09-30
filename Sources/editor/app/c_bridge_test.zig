@@ -153,9 +153,11 @@ test "a failed start keeps the bridge's reason for the start-up dialog" {
 
 test "the core drives the real bridge: every command, undone and redone" {
     var host = Host.start(.{ .title = "map-editor-engine", .hidden = true }) catch |err| switch (err) {
+        // WR-C09: a skip, reported by the test runner as one ("1 skipped"),
+        // never a silent pass of the whole engine tier.
         error.NoDevice => {
             std.debug.print("map-editor-engine: skipped: no GPU device\n", .{});
-            return;
+            return error.SkipZigTest;
         },
         else => return err,
     };
@@ -332,7 +334,9 @@ test "the core drives the real bridge: every command, undone and redone" {
     // real engine (readGroup's two passes, insert refusing a taken ID, delete
     // and undo). Read back through the raw C ABI, not RealBridge.
     var groups_before: c_int = -1;
-    try std.testing.expect(c.BkEditorGroupIDs(real.session, null, 0, &groups_before) != c.BK_EDITOR_BAD_ARGUMENT);
+    const groups_sizing = c.BkEditorGroupIDs(real.session, null, 0, &groups_before);
+    try std.testing.expect(groups_sizing == c.BK_EDITOR_OK or groups_sizing == c.BK_EDITOR_REFUSED);
+    try std.testing.expect(groups_before >= 0);
     const created = try editor.newGroup(0);
     try editor.addScriptIDToGroup(created, 5000);
     try editor.addScriptIDToGroup(created, 5001);
@@ -435,16 +439,13 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     _ = try editor.redo();
     const generation_before_delete = editor.record_generations.get(.start_command);
-    editor.delete(commanded) catch |err| switch (err) {
-        error.Refused => {}, // a unit the map will not delete: the cascade is covered by the engine tier
-        else => return err,
-    };
-    if (editor.document.find(commanded) == null) {
-        try std.testing.expect(editor.record_generations.get(.start_command) != generation_before_delete);
-        try std.testing.expectEqual(commands_at_open, try startCommandCount(&editor));
-        _ = try editor.undo();
-        try std.testing.expectEqual(commands_at_open + 1, try startCommandCount(&editor));
-    }
+    // WR-C09: the delete must go through, so the cascade checks always run.
+    try editor.delete(commanded);
+    try std.testing.expect(editor.document.find(commanded) == null);
+    try std.testing.expect(editor.record_generations.get(.start_command) != generation_before_delete);
+    try std.testing.expectEqual(commands_at_open, try startCommandCount(&editor));
+    _ = try editor.undo();
+    try std.testing.expectEqual(commands_at_open + 1, try startCommandCount(&editor));
     _ = try editor.undo();
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
@@ -472,9 +473,13 @@ test "the core drives the real bridge: every command, undone and redone" {
             var points: [1]c.BkEditorAIPoint = undefined;
             var mobile: [1]c_int = undefined;
             try std.testing.expect(info.parcel_count <= 8);
-            var again: c.BkEditorAISideInfo = undefined;
+            var again: c.BkEditorAISideInfo = std.mem.zeroes(c.BkEditorAISideInfo);
             const read = c.BkEditorAIGeneralSide(real.session, @intCast(first_side), &again, &mobile, 0, &parcels, 8, &points, 0);
-            try std.testing.expect(read == c.BK_EDITOR_OK or read == c.BK_EDITOR_REFUSED);
+            // WR-C09: OK, or REFUSED only as the sizing answer for the mobile IDs
+            // or points left out here - the parcels themselves were written.
+            try std.testing.expect(read == c.BK_EDITOR_OK or (read == c.BK_EDITOR_REFUSED and (again.mobile_count > 0 or again.point_count > 0)));
+            try std.testing.expectEqual(info.parcel_count, again.parcel_count);
+            try std.testing.expect(index < @as(usize, @intCast(again.parcel_count)));
             const mine = parcels[index];
             try std.testing.expectEqual(@as(c_int, 1), mine.type);
             try std.testing.expectEqual(@as(f32, 256), mine.radius);
