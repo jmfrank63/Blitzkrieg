@@ -279,6 +279,12 @@ const SMapObjectInfo* FindSnapshotObject( const SEditorSession &rSession, int nL
 // the total, not how many fitted. Returns false when the buffer was too small.
 bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount );
 
+// An object's script ID in the snapshot and the working copy together, the
+// engine untouched (C7). False with the reason in szMessage and nothing
+// changed; pbRefused tells a refusal (a value outside -1..32000, an unknown or
+// shared link ID, link ID 0) from a failure.
+bool SetSessionObjectScriptID( SEditorSession *pSession, int nLinkID, int nScriptID, bool *pbRefused );
+
 // The map's own sound list - CMapInfo::sounds.sounds (SMapSoundInfo), the
 // field that is actually serialised (CMapInfo::operator&, tag 17 /
 // "MapSounds"). See BkEditorSounds' own comment (bridge.h) for why this is

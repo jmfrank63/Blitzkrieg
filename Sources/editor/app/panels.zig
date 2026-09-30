@@ -420,6 +420,8 @@ pub const State = struct {
         degrees: f32 = 0,
         degrees_shown: f32 = 0,
         player: c_int = 0,
+        /// The Script ID field (D-15): -1 none, else 0..32000.
+        script_id: c_int = -1,
         active: bool = false,
     } = .{},
 
@@ -2201,6 +2203,7 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
             .degrees = logic.dirToDegrees(record.dir),
             .degrees_shown = logic.dirToDegrees(record.dir),
             .player = record.player,
+            .script_id = record.script_id,
         };
     }
     var active = false;
@@ -2219,6 +2222,15 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
     _ = ig.igSliderInt("player", &edit.player, 0, player_max);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    // D-15: the object's script ID, which a reinforcement group names and a
+    // Lua script finds the object by. -1 is none.
+    _ = ig.igInputIntEx("Script ID", &edit.script_id, 1, 10, 0);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    if (edit.script_id == -1) {
+        ig.igSameLine();
+        text("none");
+    }
     edit.active = active;
 
     if (committed) {
@@ -2230,7 +2242,8 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
 /// The fields' pose, as one `editor.place` with gesture 0: one typed
 /// number, one undo step. A refused pose leaves the object as it was; the
 /// fields reload from it next frame. An object gone or no longer editable
-/// takes nothing.
+/// takes nothing. The Script ID field commits the same way, as one
+/// `editor.setScriptID` of its own.
 fn commitEdit(state: *State, link_id: i32) void {
     const editor = state.editor;
     const edit = &state.edit;
@@ -2244,8 +2257,10 @@ fn commitEdit(state: *State, link_id: i32) void {
     // that pattern used to produce - this is the same check one layer up, so
     // the common case (nothing was actually typed) never reaches the bridge
     // at all. Editor.place's check stays as the backstop.
-    if (pose.x == original.x and pose.y == original.y and pose.dir == original.dir and pose.player == original.player) return;
-    state.view.noteEditResult(editor, editor.place(link_id, pose, 0));
+    if (pose.x != original.x or pose.y != original.y or pose.dir != original.dir or pose.player != original.player)
+        state.view.noteEditResult(editor, editor.place(link_id, pose, 0));
+    if (edit.script_id != object.script_id)
+        state.view.noteEditResult(editor, editor.setScriptID(link_id, edit.script_id, editor.beginGesture()));
 }
 
 fn labelled(label: []const u8, value: []const u8) void {

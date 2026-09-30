@@ -49,6 +49,8 @@ pub const ObjectRecord = struct {
     player: i32 = 0,
     scenario: bool = false,
     known: bool = true,
+    /// The map's nScriptID: -1 none, else 0..32000 (D-15).
+    script_id: i32 = -1,
 
     pub fn nameSlice(self: *const ObjectRecord) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -305,6 +307,10 @@ pub const Bridge = struct {
         /// BkEditorGroundHeight: the terrain height at a world point, world
         /// units in and out. Refused off the map.
         groundHeight: *const fn (ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status,
+        /// BkEditorSetObjectScriptID (04-09, D-15): -1 none, else 0..32000.
+        /// Refused for an unknown or shared link ID, link ID 0 and a value out
+        /// of range.
+        setObjectScriptID: *const fn (ptr: *anyopaque, link_id: i32, script_id: i32) Status,
         /// BkEditorUndoEdit / BkEditorRedoEdit: the bridge's edit log, the
         /// paints' order (newest first; redo in the order undone). A token
         /// out of order is refused.
@@ -425,6 +431,7 @@ pub const Bridge = struct {
     pub fn readRecord(self: Bridge, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status { return self.vtable.readRecord(self.ptr, kind, key, allocator, out); }
     pub fn putRecord(self: Bridge, key: i32, value: *const records.Value) Status { return self.vtable.putRecord(self.ptr, key, value); }
     pub fn groundHeight(self: Bridge, wx: f32, wy: f32, z: *f32) Status { return self.vtable.groundHeight(self.ptr, wx, wy, z); }
+    pub fn setObjectScriptID(self: Bridge, link_id: i32, script_id: i32) Status { return self.vtable.setObjectScriptID(self.ptr, link_id, script_id); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }
     pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }

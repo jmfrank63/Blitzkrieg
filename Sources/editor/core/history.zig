@@ -20,6 +20,9 @@ pub const Command = union(enum) {
     place: struct { link_id: i32, before: Pose, after: Pose },
     delete: struct { object: ObjectRecord, index: usize },
     diplomacy: struct { player: i32, before: i32, after: i32 },
+    /// An object's script ID (D-15), -1 none; one entry per gesture, merged
+    /// while the same object's value is typed.
+    script_id: struct { link_id: i32, before: i32, after: i32 },
     map_type: struct { before: i32, after: i32 },
     attacking_side: struct { before: i32, after: i32 },
     /// The sound as added and where the bridge's list holds it, for undo

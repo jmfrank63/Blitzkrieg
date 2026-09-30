@@ -10,6 +10,7 @@
 #include "world.h"
 #include "../MapFile/MapFile.h"
 #include "../MapFile/MapEquivalence.h"
+#include "../MapFile/MapRecords.h"
 #include "../Main/GameDB.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
@@ -539,8 +540,46 @@ bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, i
 			rRecord.scenario = nList;
 			rRecord.known = std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(),
 			                           rObject.link.nLinkID ) == pSession->unknownLinkIDs.end() ? 1 : 0;
+			rRecord.script_id = rObject.nScriptID;
 		}
 	return nCapacity >= nTotal;
+}
+
+bool SetSessionObjectScriptID( SEditorSession *pSession, int nLinkID, int nScriptID, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession != 0 ) pSession->szMessage = "no map is open";
+		return false;
+	}
+	if ( nScriptID < -1 || nScriptID > 32000 )
+	{
+		pSession->szMessage = "a script ID is -1 (none) or 0..32000";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	const SMapObjectInfo *pObject = FindSnapshotObject( *pSession, nLinkID );
+	if ( nLinkID == 0 || pObject == 0 )
+	{
+		pSession->szMessage = nLinkID == 0 ? "an object with link ID 0 has no link ID to name it by, so its script ID is kept as it is"
+		                                   : "no object with that link ID";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	// Both copies together; the snapshot first, and undone if the working copy
+	// (which holds the same link IDs) somehow will not take it.
+	const int nBefore = pObject->nScriptID;
+	if ( !NMapRecords::SetObjectScriptID( &pSession->snapshot, nLinkID, nScriptID ) )
+		return false;
+	if ( !NMapRecords::SetObjectScriptID( &pSession->working, nLinkID, nScriptID ) )
+	{
+		NMapRecords::SetObjectScriptID( &pSession->snapshot, nLinkID, nBefore );
+		return false;
+	}
+	return true;
 }
 
 bool ReadSessionSounds( SEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount )

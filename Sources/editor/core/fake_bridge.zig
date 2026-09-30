@@ -69,7 +69,7 @@ pub const ai_tile_size: f32 = tile_size / 2.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, vso_edit, undo_edit, redo_edit, bridge_edit };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// One start command as far as a delete reads it: up to eight units (link
@@ -558,6 +558,7 @@ pub const FakeBridge = struct {
         .readRecord = readRecord,
         .putRecord = putRecord,
         .groundHeight = groundHeight,
+        .setObjectScriptID = setObjectScriptID,
         .undoEdit = undoEdit,
         .redoEdit = redoEdit,
         .vsoDescriptors = vsoDescriptors,
@@ -1725,6 +1726,29 @@ pub const FakeBridge = struct {
         object.dir = dir;
         object.player = player;
         self.record(.place, link_id);
+        return .ok;
+    }
+
+    /// The real bridge's rules: -1..32000, a known link ID that is not 0 and
+    /// not shared. Both refusals name why.
+    fn setObjectScriptID(ptr: *anyopaque, link_id: i32, script_id: i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (script_id < -1 or script_id > 32000) {
+            self.say("a script ID is -1 (none) or 0..32000", .{});
+            return .refused;
+        }
+        if (link_id == 0) {
+            self.say("an object with link ID 0 has no link ID to name it by, so its script ID is kept as it is", .{});
+            return .refused;
+        }
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        if (self.shared(link_id)) return .refused;
+        self.objects_list.items[index].script_id = script_id;
+        self.record(.script_id, link_id);
         return .ok;
     }
 
