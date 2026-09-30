@@ -127,6 +127,8 @@ pub const RealBridge = struct {
         .planBridge = vtablePlanBridge,
         .drawBridge = vtableDrawBridge,
         .bridges = vtableBridges,
+        .pickGroup = vtablePickGroup,
+        .deleteBridge = vtableDeleteBridge,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -596,6 +598,17 @@ pub const RealBridge = struct {
             info.setDesc(std.mem.sliceTo(&item.desc, 0));
         }
         return .ok;
+    }
+
+    fn vtablePickGroup(ptr: *anyopaque, sx: f32, sy: f32, kind: *core.bridge.GroupKind, index: *i32) Status {
+        var c_kind: c_int = -1;
+        const result = status(c.BkEditorPickGroup(from(ptr).session, sx, sy, &c_kind, index));
+        if (result == .ok) kind.* = std.enums.fromInt(core.bridge.GroupKind, c_kind) orelse return .failed;
+        return result;
+    }
+
+    fn vtableDeleteBridge(ptr: *anyopaque, index: i32, token: *i32) Status {
+        return status(c.BkEditorDeleteBridge(from(ptr).session, index, token));
     }
 
     /// The engine tier's road and river agreement check.

@@ -257,6 +257,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorPlanBridge", [&] { return BkEditorPlanBridge( 0, "x", 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawBridge", [&] { return BkEditorDrawBridge( 0, "x", 0, 0, 0, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorBridges", [&] { return BkEditorBridges( 0, &bridgeInfo, 1, &nInt ); } },
+		{ "BkEditorPickGroup", [&] { return BkEditorPickGroup( 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorDeleteBridge", [&] { return BkEditorDeleteBridge( 0, 0, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -321,6 +323,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorPlanBridge", [&] { return BkEditorPlanBridge( pSession, "x", 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawBridge", [&] { return BkEditorDrawBridge( pSession, "x", 0, 0, 0, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorBridges", [&] { return BkEditorBridges( pSession, &bridgeInfo, 1, &nInt ); } },
+		{ "BkEditorPickGroup", [&] { return BkEditorPickGroup( pSession, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorDeleteBridge", [&] { return BkEditorDeleteBridge( pSession, 0, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4851,6 +4855,124 @@ static void TestM2Bridges( BkEditorSession *pSession, const std::string &szScrat
 	printf( "editor-bridge: M2 bridges draw ok\n" );
 }
 
+// The screen point a shipped bridge's span is picked at: the camera on the
+// span, then its world point on screen, tried as it is and a little above and
+// below (a bridge's sprite need not cover its own ground point). -1 when no
+// offset picks the span's bridge.
+static bool PickBridgeAt( BkEditorSession *pSession, float fWorldX, float fWorldY, int nWanted, float *pfSx, float *pfSy )
+{
+	if ( BkEditorSetCamera( pSession, fWorldX, fWorldY ) != BK_EDITOR_OK || BkEditorFrame( pSession ) != BK_EDITOR_OK )
+		return false;
+	float fSx = 0.0f, fSy = 0.0f;
+	if ( BkEditorWorldToScreen( pSession, fWorldX, fWorldY, &fSx, &fSy ) != BK_EDITOR_OK )
+		return false;
+	const float offsets[] = { 0.0f, -8.0f, 8.0f, -16.0f, 16.0f, -24.0f };
+	for ( size_t i = 0; i < sizeof offsets / sizeof offsets[0]; ++i )
+	{
+		int nKind = -1, nIndex = -1;
+		if ( BkEditorPickGroup( pSession, fSx, fSy + offsets[i], &nKind, &nIndex ) == BK_EDITOR_OK && nKind == 1 && nIndex == nWanted )
+		{
+			*pfSx = fSx;
+			*pfSy = fSy + offsets[i];
+			return true;
+		}
+	}
+	return false;
+}
+
+// D-11 on the real engine: arnheim's first bridge is picked from a screen
+// point over one of its spans (as a group, where BkEditorObjectAt passes the
+// span over), deleted whole - the save equals the file's map with the entry
+// erased and its spans deleted, every other bridge's links still resolve -
+// and its undo saves the unedited bytes.
+static void TestM2BridgeDelete( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( original.bridges.size() >= 2, "arnheim has at least two bridges" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\bridge-delete-unedited.bzm";
+	const std::string szEdited = szScratch + "\\bridge-delete-edited.bzm";
+	const std::string szCheck = szScratch + "\\bridge-delete-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::vector<BkEditorBridgeInfo> infos = ReadBridges( pSession );
+	Check( infos.size() == original.bridges.size(), NStr::Format( "BkEditorBridges lists the file's %d bridges", int( original.bridges.size() ) ) );
+
+	// A span of bridge 0 (the middle one), on screen.
+	const int nBridge = 0;
+	const std::vector<int> &rEntry = original.bridges[nBridge];
+	const SMapObjectInfo *pSpan = 0;
+	for ( size_t i = 0; i < original.objects.size() && pSpan == 0; ++i )
+		if ( original.objects[i].link.nLinkID == rEntry[rEntry.size() / 2] )
+			pSpan = &original.objects[i];
+	if ( !Check( pSpan != 0, "the bridge's middle span is in the map" ) )
+		return;
+	const float fWorldX = pSpan->vPos.x * fAITileXCoeff, fWorldY = pSpan->vPos.y * fAITileYCoeff;
+	float fSx = 0.0f, fSy = 0.0f;
+	if ( !Check( PickBridgeAt( pSession, fWorldX, fWorldY, nBridge, &fSx, &fSy ), "BkEditorPickGroup finds bridge 0 over its span" ) )
+		return;
+	printf( "editor-bridge: bridge %d (%s, %d spans) picked at %.0f,%.0f\n", nBridge, infos.empty() ? "?" : infos[nBridge].desc, int( rEntry.size() ), fSx, fSy );
+	{
+		// BkEditorObjectAt keeps its meaning: it passes the span over.
+		int nLinkID = -1;
+		const BkEditorStatus status = BkEditorObjectAt( pSession, fSx, fSy, &nLinkID );
+		bool bSpan = false;
+		for ( size_t b = 0; b < original.bridges.size(); ++b )
+			bSpan = bSpan || std::find( original.bridges[b].begin(), original.bridges[b].end(), nLinkID ) != original.bridges[b].end();
+		Check( status == BK_EDITOR_REFUSED || ( status == BK_EDITOR_OK && !bSpan ), "BkEditorObjectAt at the same point answers no span" );
+	}
+
+	int nToken = -1;
+	if ( !Check( BkEditorDeleteBridge( pSession, nBridge, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( int( ReadBridges( pSession ).size() ) == int( original.bridges.size() ) - 1, "the entry is gone" );
+	WorldAgrees( pSession, "after a bridge was deleted" );
+	EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after a bridge was deleted" );
+	{
+		int nKind = -1, nIndex = -1;
+		const BkEditorStatus status = BkEditorPickGroup( pSession, fSx, fSy, &nKind, &nIndex );
+		Check( status == BK_EDITOR_REFUSED || nIndex != nBridge || nKind != 1 || ReadBridges( pSession ).size() < original.bridges.size(),
+		       "the deleted bridge is not picked any more" );
+	}
+	CMapInfo expected;
+	Check( NMapFile::Read( BRIDGE_MAP, &expected, &szError ), szError.c_str() );
+	std::vector<int> erased;
+	Check( NMapRecords::EraseBridgeEntry( &expected, nBridge, &erased ), "the expected map loses the entry" );
+	for ( size_t i = erased.size(); i-- > 0; )
+	{
+		std::string szRefusal;
+		Check( NMapOverlay::DeleteObject( &expected, erased[i], &szRefusal ), szRefusal.c_str() );
+	}
+	CheckSavedEquals( pSession, szEdited, expected, "a deleted bridge" );
+
+	if ( Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the delete's undo" );
+		EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after the delete's undo" );
+		const std::string szUndone = szScratch + "\\bridge-delete-undone.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), "a bridge's delete and its undo save the unedited file byte for byte" );
+		remove( OsPath( szUndone ).c_str() );
+		int nKind = -1, nIndex = -1;
+		Check( BkEditorPickGroup( pSession, fSx, fSy, &nKind, &nIndex ) == BK_EDITOR_OK && nKind == 1 && nIndex == nBridge, "and the bridge is picked again" );
+	}
+	if ( Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CheckSavedEquals( pSession, szEdited, expected, "the delete redone" );
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+	Check( BkEditorDeleteBridge( pSession, int( original.bridges.size() ), &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a bridge past the end is a bad argument" );
+	Check( BkEditorDeleteObject( pSession, rEntry[0] ) == BK_EDITOR_REFUSED, "a span alone is still refused to the object delete" );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 bridge delete ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -5008,6 +5130,7 @@ int main( int argc, char **argv )
 		TestM2Rivers( pSession, szScratch );
 		TestM2RoadEdits( pSession, szScratch );
 		TestM2Bridges( pSession, szScratch );
+		TestM2BridgeDelete( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

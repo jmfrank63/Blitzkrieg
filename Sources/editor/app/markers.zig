@@ -39,6 +39,42 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     const active = tool_registry.entry(state.view.tool).marker_kinds;
     if (marker_logic.visible(state.marker_set, .camera_anchors, active)) drawCameraAnchors(state, real);
     if (marker_logic.visible(state.marker_set, .roads_rivers, active)) drawRoadsRivers(state, real);
+    if (marker_logic.visible(state.marker_set, .selection_outline, active)) drawBridgeOutlines(state, real);
+}
+
+fn outlineColor() ig.ImU32 {
+    return color(0.2, 1.0, 0.2);
+}
+
+/// How far (world units) a bridge outline stands off its spans' centres: half
+/// a tile, so the outline clears the span it goes round.
+const bridge_outline_margin: f32 = 32.0 * std.math.sqrt2 / 2.0;
+
+/// The outline of a box given in MAP units, grown by `margin` world units,
+/// through four world corners on the z = 0 plane (Pitfall 17).
+fn drawMapBox(draw_list: *ig.ImDrawList, real: anytype, min_x: f32, min_y: f32, max_x: f32, max_y: f32, margin: f32, box_color: ig.ImU32, thickness: f32) void {
+    const low = marker_logic.aiToWorld(.{ .x = min_x, .y = min_y });
+    const high = marker_logic.aiToWorld(.{ .x = max_x, .y = max_y });
+    const corners = [4][2]f32{
+        .{ low.x - margin, low.y - margin },
+        .{ high.x + margin, low.y - margin },
+        .{ high.x + margin, high.y + margin },
+        .{ low.x - margin, high.y + margin },
+    };
+    var points: [4]ig.ImVec2 = undefined;
+    for (corners, &points) |corner, *point| point.* = screenOf(real, corner[0], corner[1]) orelse return;
+    ig.ImDrawList_AddPolyline(draw_list, &points, 4, box_color, thickness, ig.ImDrawFlags_Closed);
+}
+
+/// D-11: the Bridge tool's selected bridge, outlined round all its spans.
+fn drawBridgeOutlines(state: *State, real: anytype) void {
+    if (state.view.tool != .bridge) return;
+    state.refreshBridges();
+    const selected = state.view.bridge_tool.selected orelse return;
+    if (selected >= state.bridge_infos.len) return;
+    const info = state.bridge_infos[selected];
+    const draw_list = ig.igGetBackgroundDrawList();
+    drawMapBox(draw_list, real, info.min_x, info.min_y, info.max_x, info.max_y, bridge_outline_margin, outlineColor(), 3);
 }
 
 fn roadColor() ig.ImU32 {

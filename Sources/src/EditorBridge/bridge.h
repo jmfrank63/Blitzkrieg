@@ -955,6 +955,21 @@ typedef struct { char desc[64]; int span_count; float min_x, min_y, max_x, max_y
 /* Every bridges entry of the map, in list order; two passes like
    BkEditorBridgeDescriptors. */
 BkEditorStatus BkEditorBridges( BkEditorSession *session, BkEditorBridgeInfo *out, int capacity, int *out_count );
+/* The group under the screen point (sx, sy), window pixels: out_kind 1 and
+   the bridges index for a bridge span, 2 and the entrenchments index for a
+   trench piece. BK_EDITOR_REFUSED when neither is there (*out_kind and
+   *out_index -1). BkEditorObjectAt keeps passing spans and pieces over, so
+   the Select tool never takes one alone. A null out is
+   BK_EDITOR_BAD_ARGUMENT; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorPickGroup( BkEditorSession *session, float sx, float sy, int *out_kind, int *out_index );
+/* Deletes bridge index whole - its entry, then every span, in both copies and
+   the engine - as one edit (out_token, may be null; -1 after a refusal); its
+   undo puts the spans back and then the entry at the same index. index
+   outside 0..count-1 is BK_EDITOR_BAD_ARGUMENT. BK_EDITOR_REFUSED for a
+   bridge with a span the editor could not put back (a type the database does
+   not know, a span the engine never held, a link ID the map shares): it is
+   kept as read. */
+BkEditorStatus BkEditorDeleteBridge( BkEditorSession *session, int index, int *out_token );
 
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */

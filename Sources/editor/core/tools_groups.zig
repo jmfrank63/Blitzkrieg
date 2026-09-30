@@ -9,6 +9,12 @@
 //! axis, or one that would put a span off the map, is refused with a status
 //! note and records nothing.
 //!
+//! A click - a press released within `click_pixels` of where it began - draws
+//! nothing: on a span it selects that span's whole bridge (D-11), anywhere
+//! else it drops the selection. (The MFC tool drew a two-span bridge on any
+//! release; here a bridge is a drag, so a click can select.) Delete removes
+//! the selected bridge whole.
+//!
 //! Drags are world (Vis) units, the pointer's `world_x`/`world_y`: the bridge
 //! plans in the scene's units and converts each span to map units itself.
 const std = @import("std");
@@ -21,6 +27,9 @@ const EditError = bridge_mod.EditError;
 const Event = tools.Event;
 const Pointer = tools.Pointer;
 
+/// How far (screen pixels) a press may move and still be a click.
+pub const click_pixels: f32 = 4.0;
+
 pub const BridgeTool = struct {
     /// The type a new bridge is drawn with: a name from
     /// `Editor.bridgeDescriptors`, set by the Bridges panel.
@@ -31,7 +40,10 @@ pub const BridgeTool = struct {
     start: ?[2]f32 = null,
     current: ?[2]f32 = null,
     dragging: bool = false,
-    /// The bridges entry the tool works on: the last one drawn.
+    /// Where the press was on screen, to tell a click from a drag.
+    press_screen: [2]f32 = .{ 0, 0 },
+    /// The bridges entry the tool works on: the last one drawn, or the one a
+    /// click picked.
     selected: ?usize = null,
 
     pub fn setDesc(self: *BridgeTool, name: []const u8) void {
@@ -60,6 +72,7 @@ pub const BridgeTool = struct {
                 self.start = .{ pointer.world_x, pointer.world_y };
                 self.current = self.start;
                 self.dragging = true;
+                self.press_screen = .{ pointer.screen_x, pointer.screen_y };
             },
             .drag => |pointer| {
                 if (self.dragging) self.current = .{ pointer.world_x, pointer.world_y };
@@ -71,11 +84,30 @@ pub const BridgeTool = struct {
                 self.start = null;
                 self.current = null;
                 self.dragging = false;
+                const dx = pointer.screen_x - self.press_screen[0];
+                const dy = pointer.screen_y - self.press_screen[1];
+                if (dx * dx + dy * dy <= click_pixels * click_pixels) {
+                    // A click: the bridge under it, or none.
+                    const picked = try editor.pickGroup(pointer.screen_x, pointer.screen_y);
+                    self.selected = if (picked) |group| (if (group.kind == .bridge) group.index else null) else null;
+                    return;
+                }
                 if (self.desc_len == 0) {
                     editor.note("choose a bridge type in the Bridges panel first");
                     return;
                 }
                 self.selected = try editor.drawBridge(self.desc(), begin[0], begin[1], end[0], end[1]);
+            },
+            .key => |key| switch (key) {
+                .delete => {
+                    const index = self.selected orelse {
+                        editor.note("click a bridge to select it first");
+                        return;
+                    };
+                    self.selected = null;
+                    try editor.deleteBridge(index);
+                },
+                else => {},
             },
             else => {},
         }
@@ -227,4 +259,80 @@ test "no type chosen is a note, not a command; the ghost follows the drag" {
     try testing.expectEqual(@as(i32, 4), pieces[planned - 1].type);
     try testing.expectEqual(@as(?usize, null), try editor.planBridge("W_Fake_Bridge_01", 20, 20, 20, 150, &pieces));
     try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+test "a click on a span selects its whole bridge; a click on empty ground drops it" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("W_Fake_Bridge_01");
+    try dragAcross(&tool, &editor, 20, 150, 120, 150);
+    const drawn = tool.selected.?;
+    // The fixture's one-span bridge 0 at (100, 40).
+    try tool.handle(&editor, .{ .press = try at(&editor, 101, 41) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 102, 41) });
+    try testing.expectEqual(@as(?usize, 0), tool.selected);
+    // A span in the middle of the drawn bridge selects it.
+    try tool.handle(&editor, .{ .press = try at(&editor, 68, 150) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 68, 150) });
+    try testing.expectEqual(@as(?usize, drawn), tool.selected);
+    // Empty ground: nothing selected, and a click never draws.
+    const bridges = fake.bridgeCount();
+    try tool.handle(&editor, .{ .press = try at(&editor, 200, 220) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 201, 220) });
+    try testing.expectEqual(@as(?usize, null), tool.selected);
+    try testing.expectEqual(bridges, fake.bridgeCount());
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+}
+
+test "Delete removes the selected bridge whole, and undo puts the spans and the entry back at the same index" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("W_Fake_Bridge_01");
+    try dragAcross(&tool, &editor, 20, 150, 120, 150);
+    try dragAcross(&tool, &editor, 20, 200, 120, 200);
+    // Select the first drawn bridge (entry 1; the fixture's is 0) and delete it.
+    try tool.handle(&editor, .{ .press = try at(&editor, 36, 150) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 36, 150) });
+    try testing.expectEqual(@as(?usize, 1), tool.selected);
+    const entry = fake.bridgeEntry(1).*;
+    const last = fake.bridgeEntry(2).*;
+    const objects = editor.document.objects.items.len;
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(?usize, null), tool.selected);
+    try testing.expectEqual(@as(usize, 2), fake.bridgeCount());
+    try testing.expectEqualSlices(i32, last.linkSlice(), fake.bridgeEntry(1).linkSlice());
+    try testing.expectEqual(objects - entry.count, editor.document.objects.items.len);
+    for (entry.linkSlice()) |link| try testing.expect(editor.document.find(link) == null);
+    try testing.expectEqual(@as(usize, 3), editor.history.undo_stack.items.len);
+
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 3), fake.bridgeCount());
+    try testing.expectEqualSlices(i32, entry.linkSlice(), fake.bridgeEntry(1).linkSlice());
+    try testing.expectEqualSlices(i32, last.linkSlice(), fake.bridgeEntry(2).linkSlice());
+    for (entry.linkSlice()) |link| try testing.expect(editor.document.find(link) != null);
+    try testing.expectEqual(objects, editor.document.objects.items.len);
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(@as(usize, 2), fake.bridgeCount());
+
+    // Delete with nothing selected is a note, not a command.
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "select") != null);
+    try testing.expectEqual(@as(usize, 3), editor.history.undo_stack.items.len);
+}
+
+test "a span alone is still refused to the object delete, and the pick finds its bridge" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    try testing.expectError(error.Refused, editor.delete(2));
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "bridge 0") != null);
+    const group = (try editor.pickGroup(100, 40)).?;
+    try testing.expectEqual(bridge_mod.GroupKind.bridge, group.kind);
+    try testing.expectEqual(@as(usize, 0), group.index);
+    try testing.expectEqual(@as(?bridge_mod.GroupRef, null), try editor.pickGroup(200, 200));
 }
