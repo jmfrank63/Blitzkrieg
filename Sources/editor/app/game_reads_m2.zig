@@ -163,6 +163,44 @@ fn addBridge(editor: *core.editor.Editor, x: f32, y: f32) ?usize {
     };
 }
 
+/// 04-07 (D-14): a run of W_FactoryFence about 400 world units along x, in
+/// view of the start camera (which stands on `anchor`), through the core
+/// Editor. The engine refuses a fence on another object, so a few offsets
+/// from the anchor are tried; how many fences the run made, or null after
+/// printing why.
+fn addFences(editor: *core.editor.Editor, anchor: [2]f32) ?usize {
+    const offsets = [_][2]f32{ .{ 0, 130 }, .{ 0, -130 }, .{ 0, 220 }, .{ 0, -220 }, .{ 0, 310 }, .{ 0, -310 } };
+    const before = editor.document.objects.items.len;
+    for (offsets) |offset| {
+        editor.drawFences("W_FactoryFence", anchor[0] - 200, anchor[1] + offset[1], anchor[0] + 200, anchor[1] + offset[1], false) catch continue;
+        return editor.document.objects.items.len - before;
+    }
+    std.debug.print("map-editor: {s} FAIL: no fence run near the anchor {d:.0},{d:.0} was placed: {s}\n", .{ label, anchor[0], anchor[1], editor.status() });
+    return null;
+}
+
+/// The edited run's own screenshot dump (BK_AUTO_UI's shot, written in the
+/// game's directory and swept afterwards), copied beside the report as
+/// `<log>.edited.rgba`: 04-13 looks at it. Best effort: no shot is not a
+/// failure of the scenario.
+fn keepEditedShot(gpa: std.mem.Allocator, io: std.Io, game_path: []const u8, log_path: []const u8) void {
+    const game_dir = std.fs.path.dirname(game_path) orelse return;
+    var dir = std.Io.Dir.cwd().openDir(io, game_dir, .{ .iterate = true }) catch return;
+    defer dir.close(io);
+    var it = dir.iterate();
+    while (it.next(io) catch null) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.startsWith(u8, entry.name, "autoshot_") or !std.mem.endsWith(u8, entry.name, ".rgba")) continue;
+        const bytes = dir.readFileAlloc(io, entry.name, gpa, .limited(64 << 20)) catch return;
+        defer gpa.free(bytes);
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const kept = std.fmt.bufPrint(&path_buffer, "{s}.edited.rgba", .{log_path}) catch return;
+        std.Io.Dir.cwd().writeFile(io, .{ .sub_path = kept, .data = bytes }) catch return;
+        std.debug.print("map-editor: {s}: kept the edited game's shot {s} as {s}\n", .{ label, entry.name, kept });
+        return;
+    }
+}
+
 pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     var rig: common.Rig = .{};
     defer rig.deinit();
@@ -244,6 +282,12 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     std.debug.print("map-editor: {s}: drew bridge {d} (rotated to W_WoodenBig_Heavy_02) and bridge {d} (built during play)\n", .{ label, rotated, built });
 
+    // 04-07 (D-14): a fence run in view of the start camera. The game reads
+    // fences as ordinary objects, so the proof is that it loads the map and
+    // exits cleanly; the edited shot is kept for 04-13 to look at.
+    const fences = addFences(editor, anchor_at) orelse return false;
+    std.debug.print("map-editor: {s}: placed a run of {d} W_FactoryFence fences beside the start camera\n", .{ label, fences });
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -300,7 +344,8 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         std.debug.print("map-editor: {s} FAIL: the report {s} would not write: {s}\n", .{ label, log_path, @errorName(err) });
         return false;
     };
+    keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.? });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences });
     return true;
 }

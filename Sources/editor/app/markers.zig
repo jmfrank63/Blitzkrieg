@@ -17,6 +17,7 @@ const panels = @import("panels.zig");
 const marker_logic = @import("marker_logic.zig");
 const tool_registry = @import("tool_registry.zig");
 const core = @import("editor_core");
+const sdl3 = @import("sdl3");
 
 const ig = imgui.c;
 const State = panels.State;
@@ -40,6 +41,8 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     if (marker_logic.visible(state.marker_set, .camera_anchors, active)) drawCameraAnchors(state, real);
     if (marker_logic.visible(state.marker_set, .roads_rivers, active)) drawRoadsRivers(state, real);
     if (marker_logic.visible(state.marker_set, .selection_outline, active)) drawBridgeOutlines(state, real);
+    // The Fence tool's ghost is its own and always on while it is active.
+    if (state.view.tool == .fence) drawFenceGhost(state, real);
 }
 
 fn outlineColor() ig.ImU32 {
@@ -308,4 +311,70 @@ fn drawAnchor(draw_list: *ig.ImDrawList, real: anytype, wx: f32, wy: f32, label:
     ig.ImDrawList_AddTriangleFilled(draw_list, top, left, right, anchorColor());
     ig.ImDrawList_AddTriangle(draw_list, top, left, right, labelColor());
     ig.ImDrawList_AddTextEx(draw_list, .{ .x = screen[0] + half + 3, .y = screen[1] - half }, labelColor(), label.ptr, label.ptr + label.len);
+}
+
+/// The length (map units) of a fence's bar in the ghost: three AI tiles, the
+/// footprint of a fence segment.
+const fence_bar_length: f32 = 96.0;
+
+/// D-14: the Fence tool's ghost (research Q2: drawn by the app from the plan,
+/// no engine objects). While a drag is held it is the run from the press to
+/// the pointer; between drags it is the one fence under the pointer, flipped
+/// by Ctrl. Each planned fence is a short bar along its direction in green;
+/// a refused run (an end off the map) is the drag in red with the reason.
+/// Planned again only when the drag, the type or Ctrl changed.
+fn drawFenceGhost(state: *State, real: anytype) void {
+    const tool = &state.view.fence_tool;
+    if (tool.desc().len == 0) return;
+    var from: [2]f32 = undefined;
+    var to: [2]f32 = undefined;
+    var ctrl = sdl3.c.SDL_GetModState() & sdl3.c.SDL_KMOD_CTRL != 0;
+    if (tool.dragging) {
+        from = tool.start orelse return;
+        to = tool.current orelse return;
+        ctrl = tool.ctrl or ctrl;
+    } else {
+        const hover = state.view.hover orelse return;
+        from = .{ hover.world_x, hover.world_y };
+        to = from;
+    }
+    const draw_list = ig.igGetBackgroundDrawList();
+    const ghost = &state.fence_ghost;
+    const same_desc = std.mem.eql(u8, std.mem.sliceTo(&ghost.desc, 0), tool.desc());
+    if (!ghost.valid or !same_desc or ghost.ctrl != ctrl or ghost.from[0] != from[0] or ghost.from[1] != from[1] or ghost.to[0] != to[0] or ghost.to[1] != to[1]) {
+        ghost.valid = true;
+        ghost.from = from;
+        ghost.to = to;
+        ghost.ctrl = ctrl;
+        @memset(&ghost.desc, 0);
+        @memcpy(ghost.desc[0..tool.desc().len], tool.desc());
+        const planned = state.editor.planFences(tool.desc(), from[0], from[1], to[0], to[1], ctrl, &ghost.pieces) catch null;
+        ghost.refused = planned == null;
+        ghost.count = if (planned) |count| @min(count, ghost.pieces.len) else 0;
+        const why = if (planned == null) state.editor.bridge.lastMessage() else "";
+        ghost.why_len = @min(why.len, ghost.why.len);
+        @memcpy(ghost.why[0..ghost.why_len], why[0..ghost.why_len]);
+    }
+    if (ghost.refused or ghost.count == 0) {
+        // Only a drag in hand is worth a refusal on screen; the hover ghost
+        // off the map just goes.
+        if (!tool.dragging) return;
+        const a = screenOf(real, from[0], from[1]) orelse return;
+        const b = screenOf(real, to[0], to[1]) orelse return;
+        ig.ImDrawList_AddLineEx(draw_list, a, b, refusedColor(), 3);
+        const why = ghost.why[0..ghost.why_len];
+        ig.ImDrawList_AddTextEx(draw_list, .{ .x = b.x + 8, .y = b.y - 8 }, refusedColor(), why.ptr, why.ptr + why.len);
+        return;
+    }
+    for (ghost.pieces[0..ghost.count]) |piece| {
+        // dir 1 and 3 (bit 1 and 3 of the packed type) run along x, 0 and 2
+        // along y, in map units.
+        const horizontal = piece.type & 0b1010 != 0;
+        const half = fence_bar_length / 2;
+        const a = marker_logic.aiToWorld(.{ .x = piece.x - (if (horizontal) half else 0), .y = piece.y - (if (horizontal) 0 else half) });
+        const b = marker_logic.aiToWorld(.{ .x = piece.x + (if (horizontal) half else 0), .y = piece.y + (if (horizontal) 0 else half) });
+        const sa = screenOf(real, a.x, a.y) orelse continue;
+        const sb = screenOf(real, b.x, b.y) orelse continue;
+        ig.ImDrawList_AddLineEx(draw_list, sa, sb, outlineColor(), 4);
+    }
 }

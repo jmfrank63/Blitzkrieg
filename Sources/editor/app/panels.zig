@@ -98,6 +98,23 @@ pub const BridgeGhost = struct {
     count: usize = 0,
 };
 
+/// The Fence tool's ghost: like the bridge's, but a run has hundreds of
+/// fences, so it keeps more pieces, and the drag also carries Ctrl (a single
+/// fence's flip).
+pub const FenceGhost = struct {
+    pub const max_pieces = 1100;
+    from: [2]f32 = .{ 0, 0 },
+    to: [2]f32 = .{ 0, 0 },
+    ctrl: bool = false,
+    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    valid: bool = false,
+    refused: bool = false,
+    why: [160]u8 = undefined,
+    why_len: usize = 0,
+    pieces: [max_pieces]core.bridge.PlannedPiece = undefined,
+    count: usize = 0,
+};
+
 pub const State = struct {
     allocator: std.mem.Allocator,
     editor: *Editor,
@@ -333,6 +350,14 @@ pub const State = struct {
     /// The Bridge tool's ghost (markers.zig): the plan for the last drag it
     /// was asked for, kept while the drag does not move.
     bridge_ghost: BridgeGhost = .{},
+    /// 04-07: the object database's fence types, read when a map opens
+    /// (`refreshFenceTypes`), and how many fences the map held then, for the
+    /// scripted `fence_delta`.
+    fence_types: []core.bridge.FenceDescriptor = &.{},
+    fence_types_read: bool = false,
+    fence_count_at_open: usize = 0,
+    /// The Fence tool's ghost (markers.zig).
+    fence_ghost: FenceGhost = .{},
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -397,6 +422,7 @@ pub const State = struct {
         self.allocator.free(self.vso_types);
         self.allocator.free(self.bridge_infos);
         self.allocator.free(self.bridge_types);
+        self.allocator.free(self.fence_types);
         self.vso_line_points.deinit(self.allocator);
         self.vso_line_ends.deinit(self.allocator);
         self.vso_line_kinds.deinit(self.allocator);
@@ -641,6 +667,38 @@ pub const State = struct {
         tool.setDesc(if (self.bridge_types.len != 0) self.bridge_types[0].nameSlice() else "");
     }
 
+    /// The fence types, once per map; a tool with no type yet, or one the list
+    /// does not hold, takes the first.
+    pub fn refreshFenceTypes(self: *State) void {
+        if (self.fence_types_read) return;
+        self.allocator.free(self.fence_types);
+        self.fence_types = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.fence_types_read = true;
+        self.fence_types = self.editor.fenceDescriptors(self.allocator) catch &.{};
+        const tool = &self.view.fence_tool;
+        for (self.fence_types) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), tool.desc())) return;
+        }
+        tool.setDesc(if (self.fence_types.len != 0) self.fence_types[0].nameSlice() else "");
+    }
+
+    /// How many objects of the map are fences (a name in `fence_types`): a
+    /// fresh read of the document, for the scripted `fence_delta`.
+    pub fn fenceCount(self: *State) usize {
+        self.refreshFenceTypes();
+        var count: usize = 0;
+        for (self.editor.document.objects.items) |*object| {
+            for (self.fence_types) |*item| {
+                if (std.mem.eql(u8, item.nameSlice(), object.nameSlice())) {
+                    count += 1;
+                    break;
+                }
+            }
+        }
+        return count;
+    }
+
     pub fn refreshAnchors(self: *State) void {
         const generation = self.editor.record_generations.get(.camera_anchors);
         if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
@@ -678,6 +736,9 @@ pub const State = struct {
         self.bridge_count_at_open = self.bridge_infos.len;
         self.bridge_types_read = false;
         self.bridge_ghost = .{};
+        self.fence_types_read = false;
+        self.fence_ghost = .{};
+        self.fence_count_at_open = self.fenceCount();
         self.vso_count_at_open = .{
             self.editor.vsoCount(.road) catch 0,
             self.editor.vsoCount(.river) catch 0,
@@ -762,6 +823,8 @@ pub fn draw(state: *State) void {
         panels_m2.drawRoadsRivers(state, left_pos, left_size, cond)
     else if (state.view.tool == .bridge)
         panels_m2.drawBridges(state, left_pos, left_size, cond)
+    else if (state.view.tool == .fence)
+        panels_m2.drawFences(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);

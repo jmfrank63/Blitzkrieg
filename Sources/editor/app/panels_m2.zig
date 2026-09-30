@@ -194,3 +194,44 @@ pub fn drawBridges(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
         ig.igPopTextWrapPos();
     }
 }
+
+/// What the Fences panel says.
+pub const fences_help = "Drag along one axis to place a run of fences, one every second AI tile; click to place one. Ctrl flips a single fence. Placed fences are ordinary objects: select them with the Select tool to move or delete them.";
+
+/// D-14: the MFC Fences tab (FenceSetupWindow) - every fence type with its
+/// picture. Choosing one is a named command (commands.zig).
+pub fn drawFences(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = panels.beginPanel("Fences", pos, size, cond, null);
+    defer panels.endPanel(open);
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshFenceTypes();
+    const tool = &state.view.fence_tool;
+    ig.igSeparatorText("Type");
+    if (state.fence_types.len == 0) {
+        panels.text("the object database has no fence types");
+    } else if (ig.igBeginChild("fence-types", .{ .x = 0, .y = @max(size.y - 190, 120) }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (state.fence_types, 0..) |*item, index| {
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            state.pictures.request(item.nameSlice());
+            panels.drawPaletteRowPicture(state, item.nameSlice());
+            ig.igSameLine();
+            var line: [core.bridge.name_capacity + 8:0]u8 = undefined;
+            const label = std.fmt.bufPrintZ(&line, "{s}", .{item.nameSlice()}) catch continue;
+            const selected = std.mem.eql(u8, item.nameSlice(), tool.desc());
+            if (ig.igSelectableEx(label.ptr, selected, 0, .{ .x = 0, .y = 48 })) _ = commands.chooseFenceType(state, item.nameSlice());
+        }
+    }
+    if (state.fence_types.len != 0) ig.igEndChild();
+    if (state.real.gpuDevice()) |device| state.pictures.pump(state.real, device, panels.picture_pump_budget);
+    ig.igSeparatorText("Placing");
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(fences_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+}
