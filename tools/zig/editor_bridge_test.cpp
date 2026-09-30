@@ -8706,6 +8706,20 @@ static void TestM2Sweep( BkEditorSession *pSession, const std::string &szScratch
 	for ( std::map<std::string, int>::const_iterator it = refused.begin(); it != refused.end(); ++it )
 		szRefused += ( szRefused.empty() ? "" : ", " ) + it->first + " " + NStr::Format( "%d", it->second );
 	printf( "editor-bridge: M2 sweep edits by kind: %s; refused (recorded, not failures): %s\n", szDone.c_str(), szRefused.empty() ? "none" : szRefused.c_str() );
+	// WR-C05: a refusal is counted, not failed, so the sweep could pass having
+	// applied nothing. Every kind must have been applied on a good share of the
+	// maps (about half of what the 57 openable shipped maps give, 04-13).
+	struct SMinimum { const char *pszKind; int nAtLeast; };
+	const SMinimum minimums[] = {
+		{ "bridge drawn", 28 }, { "fence run drawn", 28 }, { "entrenchment drawn", 28 },
+		{ "shipped bridge deleted", 10 }, { "shipped entrenchment deleted", 3 }, { "cascade delete", 18 },
+	};
+	for ( size_t k = 0; k < sizeof minimums / sizeof minimums[0]; ++k )
+	{
+		const std::map<std::string, int>::const_iterator it = done.find( minimums[k].pszKind );
+		const int nDone = it == done.end() ? 0 : it->second;
+		Check( nDone >= minimums[k].nAtLeast, NStr::Format( "M2 sweep: \"%s\" applied %d times, at least %d expected", minimums[k].pszKind, nDone, minimums[k].nAtLeast ) );
+	}
 	remove( OsPath( szUnedited ).c_str() );
 	remove( OsPath( szEdited ).c_str() );
 	remove( OsPath( szUndone ).c_str() );
