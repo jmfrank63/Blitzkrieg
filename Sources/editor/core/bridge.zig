@@ -215,6 +215,21 @@ pub const BridgeInfo = struct {
     }
 };
 
+/// A fence type as BkEditorFenceDescriptors lists it (04-07, D-14): its name.
+pub const FenceDescriptor = struct {
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+
+    pub fn nameSlice(self: *const FenceDescriptor) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *FenceDescriptor, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+};
+
 /// BkEditorPickGroup's kinds: a bridge span picks its bridges entry, a trench
 /// piece its entrenchment.
 pub const GroupKind = enum(u8) { bridge = 1, entrenchment = 2 };
@@ -335,6 +350,17 @@ pub const Bridge = struct {
         /// BkEditorToggleBridgeBuild: intact <-> built during play; one edit.
         /// Refused unless a WoodenBig_Heavy_ type.
         toggleBridgeBuild: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
+        /// BkEditorFenceDescriptors: every fence type, sorted (two-pass).
+        fenceDescriptors: *const fn (ptr: *anyopaque, out: []FenceDescriptor, total: *usize) Status,
+        /// BkEditorPlanFences: the fences a drag (WORLD units) of type `desc`
+        /// would place, changing nothing (`ctrl` flips a single fence);
+        /// `total` is always the planned count. Refused naming why (a bad
+        /// type, an end off the map).
+        planFences: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []PlannedPiece, total: *usize) Status,
+        /// BkEditorDrawFences: the planned fences as objects, one edit
+        /// (`token`). Refused, changing nothing, for the plan's refusals and
+        /// a fence the engine will not place.
+        drawFences: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -383,6 +409,9 @@ pub const Bridge = struct {
     pub fn deleteBridge(self: Bridge, index: i32, token: *i32) Status { return self.vtable.deleteBridge(self.ptr, index, token); }
     pub fn rotateBridge(self: Bridge, index: i32, token: *i32) Status { return self.vtable.rotateBridge(self.ptr, index, token); }
     pub fn toggleBridgeBuild(self: Bridge, index: i32, token: *i32) Status { return self.vtable.toggleBridgeBuild(self.ptr, index, token); }
+    pub fn fenceDescriptors(self: Bridge, out: []FenceDescriptor, total: *usize) Status { return self.vtable.fenceDescriptors(self.ptr, out, total); }
+    pub fn planFences(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []PlannedPiece, total: *usize) Status { return self.vtable.planFences(self.ptr, desc, wx0, wy0, wx1, wy1, ctrl, out, total); }
+    pub fn drawFences(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status { return self.vtable.drawFences(self.ptr, desc, wx0, wy0, wx1, wy1, ctrl, token); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

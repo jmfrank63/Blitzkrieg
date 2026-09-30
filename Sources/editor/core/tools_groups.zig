@@ -1,6 +1,6 @@
 //! The group tools (04-06): the Bridge tool (D-10..D-12), the MFC Bridges tab
-//! (Sources/src/MapEditor/RoadDrawState.cpp). Entrenchments (04-08) and
-//! fences join it here.
+//! (Sources/src/MapEditor/RoadDrawState.cpp). The Fence tool (04-07, D-14) is
+//! here too, entrenchments (04-08) join it.
 //!
 //! Bridge: a press starts a drag at the pointer's world point, the drag moves
 //! `current` (the app draws the ghost from BkEditorPlanBridge between the
@@ -125,6 +125,95 @@ pub const BridgeTool = struct {
                     };
                     self.selected = null;
                     try editor.deleteBridge(index);
+                },
+                else => {},
+            },
+            else => {},
+        }
+    }
+};
+
+/// The Fence tool (04-07, D-14): the MFC Fences tab. A press starts a drag at
+/// the pointer's world point, the drag moves `current` (the app draws the
+/// ghost from BkEditorPlanFences between the two, or one fence under the
+/// pointer between drags), and the release places the run as one undo step.
+/// The bridge locks the drag to one axis and puts a fence every second AI
+/// tile; a press released within `click_pixels` of where it began is a click
+/// and places one fence (direction 0, flipped to 1 with Ctrl). A run with an
+/// end off the map is refused whole with a status note and records nothing.
+/// Placed fences are ordinary objects: the Select tool moves and deletes them.
+pub const FenceTool = struct {
+    /// The type a run is placed with: a name from `Editor.fenceDescriptors`,
+    /// set by the Fences panel.
+    desc_buffer: [bridge_mod.name_capacity]u8 = [_]u8{0} ** bridge_mod.name_capacity,
+    desc_len: usize = 0,
+    /// Where the drag began and where it is now, world units; null between
+    /// drags.
+    start: ?[2]f32 = null,
+    current: ?[2]f32 = null,
+    dragging: bool = false,
+    /// Ctrl as of the last pointer event (the ghost of a single fence flips
+    /// with it).
+    ctrl: bool = false,
+    press_screen: [2]f32 = .{ 0, 0 },
+
+    pub fn setDesc(self: *FenceTool, name: []const u8) void {
+        const len = @min(name.len, self.desc_buffer.len - 1);
+        @memset(&self.desc_buffer, 0);
+        @memcpy(self.desc_buffer[0..len], name[0..len]);
+        self.desc_len = len;
+    }
+
+    pub fn desc(self: *const FenceTool) []const u8 {
+        return self.desc_buffer[0..self.desc_len];
+    }
+
+    /// Forgets the drag, as a map change must; the type stays.
+    pub fn reset(self: *FenceTool) void {
+        self.start = null;
+        self.current = null;
+        self.dragging = false;
+        self.ctrl = false;
+    }
+
+    pub fn handle(self: *FenceTool, editor: *Editor, event: Event) EditError!void {
+        switch (event) {
+            .press => |pointer| {
+                self.start = .{ pointer.world_x, pointer.world_y };
+                self.current = self.start;
+                self.dragging = true;
+                self.ctrl = pointer.ctrl;
+                self.press_screen = .{ pointer.screen_x, pointer.screen_y };
+            },
+            .drag => |pointer| {
+                self.ctrl = pointer.ctrl;
+                if (self.dragging) self.current = .{ pointer.world_x, pointer.world_y };
+            },
+            .release => |pointer| {
+                if (!self.dragging) return;
+                const begin = self.start.?;
+                var end: [2]f32 = .{ pointer.world_x, pointer.world_y };
+                self.start = null;
+                self.current = null;
+                self.dragging = false;
+                self.ctrl = pointer.ctrl;
+                const dx = pointer.screen_x - self.press_screen[0];
+                const dy = pointer.screen_y - self.press_screen[1];
+                // A click stays on the tile it began on, whatever the pixel
+                // jitter of the release.
+                if (dx * dx + dy * dy <= click_pixels * click_pixels) end = begin;
+                if (self.desc_len == 0) {
+                    editor.note("choose a fence type in the Fences panel first");
+                    return;
+                }
+                try editor.drawFences(self.desc(), begin[0], begin[1], end[0], end[1], pointer.ctrl);
+            },
+            .key => |key| switch (key) {
+                // Escape gives the drag up.
+                .escape => {
+                    self.start = null;
+                    self.current = null;
+                    self.dragging = false;
                 },
                 else => {},
             },
@@ -440,4 +529,175 @@ test "Enter toggles a WoodenBig_Heavy bridge built during play, one step each wa
     try testing.expectError(error.Refused, other.handle(&editor, .{ .key = .enter }));
     try testing.expect(std.mem.indexOf(u8, editor.status(), "WoodenBig_Heavy") != null);
     try testing.expectEqual(depth, editor.history.undo_stack.items.len);
+}
+
+fn fenceTool(name: []const u8) FenceTool {
+    var tool: FenceTool = .{};
+    tool.setDesc(name);
+    return tool;
+}
+
+/// A press at (x0, y0), a drag and a release at (x1, y1); the screen is the
+/// world in the fake, so the drag is over its own pixels.
+fn fenceDrag(tool: *FenceTool, editor: *Editor, x0: f32, y0: f32, x1: f32, y1: f32) EditError!void {
+    try tool.handle(editor, .{ .press = try at(editor, x0, y0) });
+    try tool.handle(editor, .{ .drag = try at(editor, (x0 + x1) / 2, (y0 + y1) / 2) });
+    try tool.handle(editor, .{ .release = try at(editor, x1, y1) });
+}
+
+test "a horizontal fence drag over 10 tiles places 5 fences as one undo step" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = fenceTool("W_Fake_Fence");
+    const objects_before = editor.document.objects.items.len;
+    const generation = editor.bridges_generation;
+
+    // The fake's AI tile is 16 world units: 24 is tile 1, 168 is tile 10.
+    try tool.handle(&editor, .{ .press = try at(&editor, 24, 100) });
+    try tool.handle(&editor, .{ .drag = try at(&editor, 100, 102) });
+    try testing.expect(tool.dragging);
+    try testing.expectEqual(@as(f32, 100), tool.current.?[0]);
+    try tool.handle(&editor, .{ .release = try at(&editor, 168, 104) });
+
+    // 10 tiles inclusive, every second one: 5 fences, one entry of the history.
+    try testing.expectEqual(objects_before + 5, editor.document.objects.items.len);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expect(editor.bridges_generation != generation);
+    try testing.expect(!tool.dragging and tool.start == null);
+    // No bridges entry is made for a fence.
+    try testing.expectEqual(@as(usize, 1), fake.bridgeCount());
+
+    // The ghost (the same plan): dir 3 going right, types 8 | 0x10000, two
+    // tiles apart along x, the last one two tiles on.
+    var pieces: [16]bridge_mod.PlannedPiece = undefined;
+    const planned = (try editor.planFences("W_Fake_Fence", 24, 100, 168, 104, false, &pieces)).?;
+    try testing.expectEqual(@as(usize, 5), planned);
+    for (pieces[0..planned], 0..) |piece, index| {
+        try testing.expectEqual(@as(i32, (1 << 3) | 0x00010000), piece.type);
+        try testing.expectEqual(@as(f32, @floatFromInt(1 + 2 + index * 2)) * 16, piece.x);
+        try testing.expectEqual(@as(f32, 96), piece.y);
+    }
+}
+
+test "the four drag directions give the directions 3, 1, 0 and 2" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var pieces: [16]bridge_mod.PlannedPiece = undefined;
+    // Right, left, up (smaller y), down; the run is axis-locked, so the small
+    // cross-axis wobble changes nothing.
+    const cases = [_]struct { x0: f32, y0: f32, x1: f32, y1: f32, dir: u5 }{
+        .{ .x0 = 40, .y0 = 100, .x1 = 168, .y1 = 108, .dir = 3 },
+        .{ .x0 = 168, .y0 = 100, .x1 = 40, .y1 = 108, .dir = 1 },
+        .{ .x0 = 100, .y0 = 168, .x1 = 108, .y1 = 40, .dir = 0 },
+        .{ .x0 = 100, .y0 = 40, .x1 = 108, .y1 = 168, .dir = 2 },
+    };
+    for (cases) |case| {
+        const count = (try editor.planFences("W_Fake_Fence", case.x0, case.y0, case.x1, case.y1, false, &pieces)).?;
+        try testing.expect(count >= 2);
+        for (pieces[0..count]) |piece| try testing.expectEqual(@as(i32, (@as(i32, 1) << case.dir) | 0x00010000), piece.type);
+    }
+}
+
+test "a click places one fence, direction 0, and direction 1 with Ctrl" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = fenceTool("W_Fake_Fence");
+    const objects_before = editor.document.objects.items.len;
+
+    // A press and release on the same pixel: one fence, one undo step.
+    try tool.handle(&editor, .{ .press = try at(&editor, 120, 120) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 121, 121) });
+    try testing.expectEqual(objects_before + 1, editor.document.objects.items.len);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+
+    var pieces: [4]bridge_mod.PlannedPiece = undefined;
+    try testing.expectEqual(@as(?usize, 1), try editor.planFences("W_Fake_Fence", 120, 120, 120, 120, false, &pieces));
+    try testing.expectEqual(@as(i32, 1 | 0x00010000), pieces[0].type);
+    try testing.expectEqual(@as(?usize, 1), try editor.planFences("W_Fake_Fence", 120, 120, 120, 120, true, &pieces));
+    try testing.expectEqual(@as(i32, 2 | 0x00010000), pieces[0].type);
+
+    // Ctrl is a modifier of the click, not a right click: the tool has no
+    // right button, and the press still places its fence.
+    var press = try at(&editor, 60, 60);
+    press.ctrl = true;
+    var release = try at(&editor, 60, 60);
+    release.ctrl = true;
+    try tool.handle(&editor, .{ .press = press });
+    try tool.handle(&editor, .{ .release = release });
+    try testing.expectEqual(objects_before + 2, editor.document.objects.items.len);
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try testing.expect(!tool.dragging);
+}
+
+test "a run with an end off the map is refused whole and records nothing" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const objects_before = editor.document.objects.items.len;
+    // The map is 8 tiles of 32 units: 256 world units; an end at 300 is off.
+    // (The pointer never resolves off the map, so the editor is asked
+    // directly, as a panel or a script could.)
+    try testing.expectError(error.Refused, editor.drawFences("W_Fake_Fence", 40, 100, 300, 100, false));
+    try testing.expectEqualStrings("the fence run leaves the map", editor.status());
+    try testing.expectError(error.Refused, editor.drawFences("W_Fake_Fence", -10, 100, 100, 100, false));
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    var pieces: [4]bridge_mod.PlannedPiece = undefined;
+    try testing.expectEqual(@as(?usize, null), try editor.planFences("W_Fake_Fence", 40, 100, 300, 100, false, &pieces));
+    // An unknown type is refused too, changing nothing.
+    try testing.expectError(error.Refused, editor.drawFences("No_Such_Fence", 40, 100, 100, 100, false));
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
+}
+
+test "undo takes the run out, redo puts it back, and a fence is an ordinary object" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = fenceTool("W_Fake_Fence");
+    const objects_before = editor.document.objects.items.len;
+    try fenceDrag(&tool, &editor, 24, 100, 168, 100);
+    try testing.expectEqual(objects_before + 5, editor.document.objects.items.len);
+    const first_fence = editor.document.objects.items[objects_before].link_id;
+
+    // Ordinary: the object commands move and delete one fence.
+    try editor.delete(first_fence);
+    try testing.expectEqual(objects_before + 4, editor.document.objects.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(objects_before + 5, editor.document.objects.items.len);
+
+    // Undo the run whole, then redo it.
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try testing.expect(editor.document.find(first_fence) == null);
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(objects_before + 5, editor.document.objects.items.len);
+    try testing.expect(editor.document.find(first_fence) != null);
+}
+
+test "no type chosen is a note; Escape gives the drag up" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: FenceTool = .{};
+    const objects_before = editor.document.objects.items.len;
+    try fenceDrag(&tool, &editor, 24, 100, 168, 100);
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try testing.expect(editor.status().len != 0);
+    tool.setDesc("W_Fake_Fence");
+    try tool.handle(&editor, .{ .press = try at(&editor, 24, 100) });
+    try testing.expect(tool.dragging);
+    try tool.handle(&editor, .{ .key = .escape });
+    try testing.expect(!tool.dragging and tool.start == null);
+    try tool.handle(&editor, .{ .release = try at(&editor, 168, 100) });
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
 }

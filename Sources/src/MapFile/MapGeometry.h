@@ -90,5 +90,61 @@ void RotatedBridgeDrag( const SBridgePlanInput &rInput, const CVec2 &vCentreVis,
 // (every shipped family ships both, _01 horizontal and _02 vertical), the rest
 // of the name kept as it is. Empty for a name with neither suffix.
 std::string BridgePartnerName( const std::string &szName );
+
+// ---------------------------------------------------------------------------
+// Fences (04-07, D-14): the MFC Fences tab, RoadDrawState.cpp:122-182 (a_dirLine),
+// 519-622 (the ghost), 841-898 (the single-fence ghost) and 1034-1107 (the
+// commit). A fence run is a drag along one axis that places one fence every
+// second AI tile; its direction is in the packed frame type.
+//
+// Tiles are AI tiles (half a world cell, ITerrainEditor::GetAITileIndex), the
+// map's extent in them is 32 per patch side; a planned piece's position is in
+// map (AI) units, one AI tile being nAITileSize of them (SAIConsts::TILE_SIZE,
+// which the engine tier checks this agrees with).
+const int nAITileSize = 32;
+// FENCE_TYPE_NORMAL and the direction bit of SFenceRPGStats (Main/RPGStats.h),
+// repeated so this unit needs no stats header; the engine tier checks them.
+const int nFenceTypeNormal = 0x00010000;
+
+// The MFC editor's a_dirLine, unchanged: the tiles of the integer line from
+// `from` to `to` inclusive, in order (a Bresenham that steps the longer axis
+// and, at equal length, the x axis).
+void RasterizeLine( const CTPoint<int> &from, const CTPoint<int> &to, std::vector< CTPoint<int> > *pTiles );
+
+// What a fence plan needs of a fence type and a map: the AI-unit origin of the
+// centre segment of each of the four directions (SFenceRPGStats::GetOrigin of
+// GetCenterIndex( dir ), the seeded first one) and the map's extent in AI
+// tiles.
+struct SFencePlanInput
+{
+	CVec2 vOrigin[4];
+	int nTilesX, nTilesY;
+	SFencePlanInput() : nTilesX( 0 ), nTilesY( 0 )
+	{
+		for ( int i = 0; i < 4; ++i )
+			vOrigin[i] = VNULL2;
+	}
+};
+
+// The fences of a drag from firstTile to lastTile (AI tiles):
+//  - refused (false, the reason in pWhy) for a map with no extent, a
+//    non-finite origin, an end tile whose >> 1 cell is outside the map (the
+//    MFC refusal box, patches * 16 - 1), and a planned position outside the
+//    map's AI units; refusal is of the whole run;
+//  - a drag whose tiles are the same is one fence, direction 0, or 1 when
+//    bCtrl (the ghost's single fence); bCtrl is ignored for a longer drag;
+//  - otherwise the axis is the one with the longer tile delta (a tie is
+//    horizontal, GetCurrentDirection), the last tile is locked to the first's
+//    other coordinate, and RasterizeLine's tiles give one fence at every
+//    second tile from the first (the MFC loop advances twice);
+//  - direction: horizontal 1 when the drag goes left, else 3 and the tile
+//    moved two to the right; vertical 0 when it goes up (smaller y) and the
+//    tile moved two up, else 2;
+//  - position: the tile in AI units, AI2Vis, FitVisOrigin2AIGrid with the
+//    direction's origin, Vis2AI - the commit's own chain;
+//  - packed type ( 1 << dir ) | nFenceTypeNormal, nDir 0 (the fence's own
+//    direction is in its frame index).
+bool PlanFences( const SFencePlanInput &rInput, const CTPoint<int> &firstTile, const CTPoint<int> &lastTile, bool bCtrl,
+                 std::vector<SPlannedPiece> *pFences, std::string *pWhy );
 }
 #endif // __MAP_GEOMETRY_H__

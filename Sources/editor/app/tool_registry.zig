@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence };
 
 pub const Entry = struct {
     id: ToolId,
@@ -62,6 +62,15 @@ pub const entries = [_]Entry{
         .label = "Bridge",
         .shortcut = '5',
         .marker_kinds = marker_logic.MarkerSet.only(&.{.selection_outline}),
+    },
+    // 04-07 (D-14): the MFC Fences tab. A drag places a run of fences, a click
+    // one fence; Ctrl is a modifier there (it flips a single fence), never a
+    // right click (C13), so the flag stays off. It draws only its ghost, so
+    // it asks for no marker kind.
+    .{
+        .id = .fence,
+        .label = "Fence",
+        .shortcut = '6',
     },
 };
 
@@ -161,6 +170,14 @@ test "the Bridge tool is key 5, left button and keys only, with the selection ou
     try std.testing.expect(item.marker_kinds.has(.selection_outline));
     try std.testing.expectEqual(@as(?ToolId, .bridge), byShortcut('5'));
     try std.testing.expectEqual(@as(?ToolId, .bridge), byLabel("bridge"));
+}
+
+test "the Fence tool is key 6, left button only, and Ctrl is never a right click there" {
+    const item = entry(.fence);
+    try std.testing.expectEqual(@as(?u8, '6'), item.shortcut);
+    try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
+    try std.testing.expectEqual(@as(?ToolId, .fence), byShortcut('6'));
+    try std.testing.expectEqual(@as(?ToolId, .fence), byLabel("fence"));
 }
 
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {

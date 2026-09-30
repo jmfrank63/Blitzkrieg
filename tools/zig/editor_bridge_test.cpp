@@ -22,6 +22,7 @@
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
 #include "../../Sources/src/AILogic/AILogic.h"
+#include "../../Sources/src/AILogic/aiconsts.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Scene/Scene.h"
 #include "../../Sources/src/Scene/Terrain.h"
@@ -176,6 +177,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorVec3 vsoPoint = { 10.0f, 10.0f, 0.0f };
 	BkEditorBridgeDescriptor bridgeDescriptor; memset( &bridgeDescriptor, 0, sizeof bridgeDescriptor );
 	BkEditorPlannedPiece plannedPiece; memset( &plannedPiece, 0, sizeof plannedPiece );
+	BkEditorFenceDescriptor fenceDescriptor; memset( &fenceDescriptor, 0, sizeof fenceDescriptor );
 	BkEditorBridgeInfo bridgeInfo; memset( &bridgeInfo, 0, sizeof bridgeInfo );
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorView view; memset( &view, 0, sizeof view );
@@ -261,6 +263,10 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorDeleteBridge", [&] { return BkEditorDeleteBridge( 0, 0, &nInt ); } },
 		{ "BkEditorRotateBridge", [&] { return BkEditorRotateBridge( 0, 0, &nInt ); } },
 		{ "BkEditorToggleBridgeBuild", [&] { return BkEditorToggleBridgeBuild( 0, 0, &nInt ); } },
+		{ "BkEditorWorldToAITile", [&] { return BkEditorWorldToAITile( 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorFenceDescriptors", [&] { return BkEditorFenceDescriptors( 0, &fenceDescriptor, 1, &nInt ); } },
+		{ "BkEditorPlanFences", [&] { return BkEditorPlanFences( 0, "x", 0, 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
+		{ "BkEditorDrawFences", [&] { return BkEditorDrawFences( 0, "x", 0, 0, 0, 0, 0, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -329,6 +335,10 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorDeleteBridge", [&] { return BkEditorDeleteBridge( pSession, 0, &nInt ); } },
 		{ "BkEditorRotateBridge", [&] { return BkEditorRotateBridge( pSession, 0, &nInt ); } },
 		{ "BkEditorToggleBridgeBuild", [&] { return BkEditorToggleBridgeBuild( pSession, 0, &nInt ); } },
+		{ "BkEditorWorldToAITile", [&] { return BkEditorWorldToAITile( pSession, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorFenceDescriptors", [&] { return BkEditorFenceDescriptors( pSession, &fenceDescriptor, 1, &nInt ); } },
+		{ "BkEditorPlanFences", [&] { return BkEditorPlanFences( pSession, "x", 0, 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
+		{ "BkEditorDrawFences", [&] { return BkEditorDrawFences( pSession, "x", 0, 0, 0, 0, 0, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4859,6 +4869,349 @@ static void TestM2Bridges( BkEditorSession *pSession, const std::string &szScrat
 	printf( "editor-bridge: M2 bridges draw ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// Fences (04-07)
+// ---------------------------------------------------------------------------
+
+static const char *const FACTORY_FENCE = "W_FactoryFence";
+
+// The plan inputs of a fence type as the object database's stats give them,
+// read straight (dirs[d].centers[0]) where the bridge goes through the seeded
+// GetCenterIndex: the two must agree (the seed 0 pick is the first).
+static bool FenceInputFromStats( const char *pszType, const CMapInfo &rMap, NMapGeometry::SFencePlanInput *pInput )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( pszType ) : 0;
+	const SFenceRPGStats *pStats = pDesc != 0 ? NGDB::GetRPGStats<SFenceRPGStats>( pObjectsDB, pDesc ) : 0;
+	if ( pStats == 0 || pStats->dirs.size() < 4 )
+		return false;
+	for ( int nDir = 0; nDir < 4; ++nDir )
+	{
+		if ( pStats->dirs[nDir].centers.empty() )
+			return false;
+		pInput->vOrigin[nDir] = pStats->GetOrigin( pStats->dirs[nDir].centers[0] );
+	}
+	pInput->nTilesX = rMap.terrain.patches.GetSizeX() * 32;
+	pInput->nTilesY = rMap.terrain.patches.GetSizeY() * 32;
+	return true;
+}
+
+// A planned fence run laid over a map the way the bridge lays it: one plain
+// object per fence (the packed type, HP 1, no script ID, player 0), link IDs
+// from NextLinkID up, no bridges entry. The link IDs go to pLinkIDs.
+static bool LayFences( CMapInfo *pMap, const char *pszType, const std::vector<NMapGeometry::SPlannedPiece> &rPlan, std::vector<int> *pLinkIDs, int nFirstLinkID = -1 )
+{
+	pLinkIDs->clear();
+	for ( size_t i = 0; i < rPlan.size(); ++i )
+	{
+		NMapOverlay::SAddObject add;
+		add.szName = pszType;
+		add.vPos = rPlan[i].vPos;
+		add.nDir = rPlan[i].nDir;
+		add.nPlayer = 0;
+		add.nFrameIndex = rPlan[i].nPackedType;
+		add.fHP = 1.0f;
+		add.nScriptID = -1;
+		// A later run's IDs start at the session's floor, not at the file's next:
+		// an ID an undone edit held is never handed out again.
+		add.nLinkID = nFirstLinkID < 0 ? -1 : nFirstLinkID + int( i );
+		int nLinkID = -1;
+		if ( !NMapOverlay::AddObject( pMap, add, &nLinkID ) )
+			return false;
+		pLinkIDs->push_back( nLinkID );
+	}
+	return true;
+}
+
+// D-14/D-03/C6 on the real engine: the tile mapping is the engine's own; a
+// fence run dragged across coldwinter is planned exactly as
+// NMapGeometry::PlanFences plans it with the stats' inputs, saved as the map
+// the map-file tier's builder makes, and the placed fences are ordinary
+// objects (one moved, one deleted, both put back); undone to the unedited
+// bytes and redone; a run off the map and the wrong types are refused with
+// nothing changed.
+static void TestM2Fences( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The constants the geometry unit repeats are the engine's.
+	Check( NMapGeometry::nAITileSize == int( SAIConsts::TILE_SIZE ), "MapGeometry's AI tile size is SAIConsts::TILE_SIZE" );
+	Check( NMapGeometry::nFenceTypeNormal == int( SFenceRPGStats::FENCE_TYPE_NORMAL ), "MapGeometry's normal fence type is FENCE_TYPE_NORMAL" );
+
+	// The tile mapping (research Q6): BkEditorWorldToAITile is the engine's
+	// GetAITileIndex. It agrees with the static CMapInfo::GetAITileIndices at
+	// the tile corners - the corners of the map and its centre, five points -
+	// and NOT in between: the engine rounds half a cell, the static helper
+	// truncates. The MFC tool uses the engine's, so the tool does.
+	{
+		const float fAITile = fWorldCellSize / 2.0f;
+		const float fW = original.terrain.tiles.GetSizeX() * fWorldCellSize, fH = original.terrain.tiles.GetSizeY() * fWorldCellSize;
+		const float points[5][2] = { { 0.0f, 0.0f }, { fW, 0.0f }, { 0.0f, fH }, { fW, fH }, { float( int( fW / fAITile ) / 2 ) * fAITile, float( int( fH / fAITile ) / 2 ) * fAITile } };
+		int nAgree = 0;
+		for ( int i = 0; i < 5; ++i )
+		{
+			int nX = -1, nY = -1;
+			BkEditorWorldToAITile( pSession, points[i][0], points[i][1], &nX, &nY );
+			CTPoint<int> viaMap;
+			CMapInfo::GetAITileIndices( original.terrain, CVec3( points[i][0], points[i][1], 0.0f ), &viaMap );
+			if ( nX == viaMap.x && nY == viaMap.y )
+				++nAgree;
+			else
+				printf( "editor-bridge: AI tile at (%g, %g): engine %d,%d, CMapInfo %d,%d\n", points[i][0], points[i][1], nX, nY, viaMap.x, viaMap.y );
+		}
+		Check( nAgree == 5, NStr::Format( "BkEditorWorldToAITile equals CMapInfo::GetAITileIndices at five tile corners (%d of 5)", nAgree ) );
+		int nX = -1, nY = -1;
+		const float fInside = 5.0f * fAITile + 0.7f * fAITile;
+		Check( BkEditorWorldToAITile( pSession, fInside, fInside, &nX, &nY ) == BK_EDITOR_OK && nX == 6 && nY == 6, NStr::Format( "the engine rounds 5.7 tiles to 6 (%d, %d)", nX, nY ) );
+		CTPoint<int> viaMap;
+		CMapInfo::GetAITileIndices( original.terrain, CVec3( fInside, fInside, 0.0f ), &viaMap );
+		Check( viaMap.x == 5 && viaMap.y == 5, NStr::Format( "where CMapInfo truncates it to 5 (%d, %d): the two differ between corners", viaMap.x, viaMap.y ) );
+		Check( BkEditorWorldToAITile( pSession, -50.0f, 10.0f, &nX, &nY ) == BK_EDITOR_REFUSED && nX < 0, "a point left of the map has a tile and is refused" );
+		Check( BkEditorWorldToAITile( pSession, 0.0f, 0.0f, 0, &nY ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
+	}
+
+	// The types.
+	int nTypes = 0;
+	BkEditorFenceDescriptors( pSession, 0, 0, &nTypes );
+	std::vector<BkEditorFenceDescriptor> types( nTypes > 0 ? nTypes : 1 );
+	Check( BkEditorFenceDescriptors( pSession, &types[0], int( types.size() ), &nTypes ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	bool bFactory = false;
+	for ( int i = 0; i < nTypes; ++i )
+		bFactory = bFactory || std::string( types[i].name ) == FACTORY_FENCE;
+	printf( "editor-bridge: %d fence types\n", nTypes );
+	if ( !Check( bFactory, "W_FactoryFence is listed" ) )
+		return;
+	// A click of every type: each plans one fence or is refused with a reason,
+	// none crashes (T-04-07-01: no type reaches an index helper with an empty list).
+	{
+		int nPlanned = 0, nRefused = 0;
+		const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+		const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+		for ( int i = 0; i < nTypes; ++i )
+		{
+			BkEditorPlannedPiece piece;
+			int nCount = 0;
+			const BkEditorStatus status = BkEditorPlanFences( pSession, types[i].name, fMiddleX, fMiddleY, fMiddleX, fMiddleY, 0, &piece, 1, &nCount );
+			if ( status == BK_EDITOR_OK && nCount == 1 )
+				++nPlanned;
+			else if ( status == BK_EDITOR_REFUSED )
+				++nRefused;
+			else
+				Check( false, NStr::Format( "%s: a click plans one fence or is refused, not status %d", types[i].name, int( status ) ) );
+		}
+		printf( "editor-bridge: a click of each fence type: %d planned one fence, %d refused\n", nPlanned, nRefused );
+		Check( nPlanned > 0, "some fence type plans a click" );
+	}
+
+	NMapGeometry::SFencePlanInput input;
+	if ( !Check( FenceInputFromStats( FACTORY_FENCE, original, &input ), "W_FactoryFence's stats give the plan inputs" ) )
+		return;
+	// The literals the map-file tier plans with (map_file_test.cpp) are these.
+	{
+		bool bLiterals = input.nTilesX == original.terrain.patches.GetSizeX() * 32;
+		const float want[4][2] = { { 16.0f, 16.0f }, { 80.0f, 16.0f }, { 16.0f, 16.0f }, { 80.0f, 16.0f } };
+		for ( int nDir = 0; nDir < 4; ++nDir )
+			bLiterals = bLiterals && fabsf( input.vOrigin[nDir].x - want[nDir][0] ) < 0.01f && fabsf( input.vOrigin[nDir].y - want[nDir][1] ) < 0.01f;
+		Check( bLiterals, NStr::Format( "the stats agree with the map-file tier's literals (dir 0 %g, %g; dir 1 %g, %g; %d tiles)",
+		                                input.vOrigin[0].x, input.vOrigin[0].y, input.vOrigin[1].x, input.vOrigin[1].y, input.nTilesX ) );
+	}
+
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	// The bridge test's empty snow, along x: a rightward run.
+	const CVec2 vFirst( fMiddleX - 250.0f, fMiddleY + 250.0f ), vLast( fMiddleX + 250.0f, fMiddleY + 250.0f );
+	int nFirstX = 0, nFirstY = 0, nLastX = 0, nLastY = 0;
+	BkEditorWorldToAITile( pSession, vFirst.x, vFirst.y, &nFirstX, &nFirstY );
+	BkEditorWorldToAITile( pSession, vLast.x, vLast.y, &nLastX, &nLastY );
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !Check( NMapGeometry::PlanFences( input, CTPoint<int>( nFirstX, nFirstY ), CTPoint<int>( nLastX, nLastY ), false, &plan, &szError ), szError.c_str() ) )
+		return;
+	printf( "editor-bridge: the fence run covers AI tiles %d..%d in x at %d: %d fences\n", nFirstX, nLastX, nFirstY, int( plan.size() ) );
+
+	// The ghost's plan is the function's.
+	{
+		int nPlanned = 0;
+		std::vector<BkEditorPlannedPiece> pieces( 256 );
+		Check( BkEditorPlanFences( pSession, FACTORY_FENCE, vFirst.x, vFirst.y, vLast.x, vLast.y, 0, &pieces[0], 256, &nPlanned ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		bool bSame = nPlanned == int( plan.size() );
+		for ( int i = 0; bSame && i < nPlanned; ++i )
+			bSame = pieces[i].x == plan[i].vPos.x && pieces[i].y == plan[i].vPos.y && pieces[i].type == plan[i].nPackedType && pieces[i].dir == plan[i].nDir;
+		Check( bSame, NStr::Format( "BkEditorPlanFences plans what PlanFences plans (%d fences)", nPlanned ) );
+		Check( BkEditorPlanFences( pSession, FACTORY_FENCE, vFirst.x, vFirst.y, vLast.x, vLast.y, 0, 0, 0, &nPlanned ) == BK_EDITOR_REFUSED && nPlanned == int( plan.size() ),
+		       "a plan with no buffer is refused with the count filled" );
+		// A single fence follows ctrl.
+		BkEditorPlannedPiece one;
+		int nOne = 0;
+		Check( BkEditorPlanFences( pSession, FACTORY_FENCE, fMiddleX, fMiddleY, fMiddleX, fMiddleY, 0, &one, 1, &nOne ) == BK_EDITOR_OK && nOne == 1 && one.type == ( 1 | 0x00010000 ),
+		       "a click plans one fence, direction 0" );
+		Check( BkEditorPlanFences( pSession, FACTORY_FENCE, fMiddleX, fMiddleY, fMiddleX, fMiddleY, 1, &one, 1, &nOne ) == BK_EDITOR_OK && nOne == 1 && one.type == ( 2 | 0x00010000 ),
+		       "and with ctrl, direction 1" );
+	}
+
+	const std::string szUnedited = szScratch + "\\fences-unedited.bzm";
+	const std::string szEdited = szScratch + "\\fences-edited.bzm";
+	const std::string szCheck = szScratch + "\\fences-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const size_t nObjectsBefore = ReadObjectRecords( pSession ).size();
+	const size_t nBridgesBefore = ReadBridges( pSession ).size();
+
+	int nToken = -1;
+	if ( !Check( BkEditorDrawFences( pSession, FACTORY_FENCE, vFirst.x, vFirst.y, vLast.x, vLast.y, 0, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0, NStr::Format( "a run hands out its token (%d)", nToken ) );
+	const std::vector<BkEditorObjectRecord> after = ReadObjectRecords( pSession );
+	Check( after.size() == nObjectsBefore + plan.size(), "one object per fence" );
+	Check( ReadBridges( pSession ).size() == nBridgesBefore, "and no bridges entry" );
+	WorldAgrees( pSession, "after a fence run was drawn" );
+	std::vector<int> fenceLinks;
+	for ( size_t i = nObjectsBefore; i < after.size(); ++i )
+		fenceLinks.push_back( after[i].link_id );
+	{
+		int nMissing = 0;
+		for ( size_t i = 0; i < fenceLinks.size(); ++i )
+		{
+			BkEditorObjectState state;
+			if ( BkEditorEngineObjectState( pSession, fenceLinks[i], &state ) != BK_EDITOR_OK )
+				++nMissing;
+		}
+		Check( nMissing == 0, NStr::Format( "every fence is an engine object (%d of %d missing)", nMissing, int( fenceLinks.size() ) ) );
+	}
+	CMapInfo expected;
+	std::vector<int> expectedLinks;
+	Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() );
+	Check( LayFences( &expected, FACTORY_FENCE, plan, &expectedLinks ), "the expected run lays over the file's map" );
+	Check( expectedLinks == fenceLinks, "and takes the link IDs the bridge gave" );
+	CheckSavedEquals( pSession, szEdited, expected, "a fence run" );
+
+	// Ordinary objects: one fence moves, another deletes and comes back.
+	if ( fenceLinks.size() >= 3 )
+	{
+		const int nMoved = fenceLinks[1], nDeleted = fenceLinks[2];
+		const BkEditorObjectRecord &rMoved = after[nObjectsBefore + 1];
+		if ( Check( BkEditorMoveObject( pSession, nMoved, rMoved.x, rMoved.y + 64.0f ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+		     Check( BkEditorDeleteObject( pSession, nDeleted ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			WorldAgrees( pSession, "after a fence was moved and another deleted" );
+			CMapInfo saved;
+			const std::string szMoved = szScratch + "\\fences-moved.bzm";
+			if ( Check( BkEditorSaveMap( pSession, szMoved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szMoved.c_str(), &saved, &szError ), szError.c_str() ) )
+			{
+				bool bMoved = false, bGone = true;
+				for ( size_t i = 0; i < saved.objects.size(); ++i )
+				{
+					if ( saved.objects[i].link.nLinkID == nMoved )
+						bMoved = saved.objects[i].vPos.x == rMoved.x && saved.objects[i].vPos.y == rMoved.y + 64.0f &&
+						         saved.objects[i].nFrameIndex == plan[1].nPackedType;
+					if ( saved.objects[i].link.nLinkID == nDeleted )
+						bGone = false;
+				}
+				Check( bMoved, "the moved fence is saved where it was moved, its packed type kept" );
+				Check( bGone, "the deleted fence is gone from the saved map" );
+			}
+			remove( OsPath( szMoved ).c_str() );
+		}
+		Check( BkEditorMoveObject( pSession, nMoved, rMoved.x, rMoved.y ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorRestoreObject( pSession, nDeleted ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		WorldAgrees( pSession, "after the move and the delete were undone" );
+		CheckSavedEquals( pSession, szEdited, expected, "the run after a fence's move and delete undone" );
+	}
+
+	// Undo: the unedited bytes; redo: the expected map again.
+	if ( Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the run's undo" );
+		Check( ReadObjectRecords( pSession ).size() == nObjectsBefore, "the undo takes every fence out" );
+		const std::string szUndone = szScratch + "\\fences-undone.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), "a fence run and its undo save the unedited file byte for byte" );
+		remove( OsPath( szUndone ).c_str() );
+	}
+	if ( Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the run's redo" );
+		CheckSavedEquals( pSession, szEdited, expected, "the fence run redone" );
+	}
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// Other directions and a single fence, each drawn and undone to the same bytes.
+	// The link IDs of the run undone above are not handed out again (the
+	// session's floor), so each expected run starts after the last one's.
+	{
+		int nFloor = fenceLinks.back() + 1;
+		const struct { float x0, y0, x1, y1; int ctrl; const char *pszWhat; } runs[] = {
+			{ fMiddleX + 250.0f, fMiddleY + 250.0f, fMiddleX - 250.0f, fMiddleY + 250.0f, 0, "a leftward run" },
+			{ fMiddleX + 100.0f, fMiddleY + 60.0f, fMiddleX + 100.0f, fMiddleY + 330.0f, 0, "a downward run" },
+			{ fMiddleX + 100.0f, fMiddleY + 330.0f, fMiddleX + 100.0f, fMiddleY + 60.0f, 0, "an upward run" },
+			{ fMiddleX + 60.0f, fMiddleY + 200.0f, fMiddleX + 60.0f, fMiddleY + 200.0f, 0, "a single fence" },
+			{ fMiddleX + 60.0f, fMiddleY + 200.0f, fMiddleX + 60.0f, fMiddleY + 200.0f, 1, "a single flipped fence" },
+		};
+		for ( size_t i = 0; i < sizeof runs / sizeof runs[0]; ++i )
+		{
+			int nRunToken = -1;
+			int nFrom = 0, nFromY = 0, nTo = 0, nToY = 0;
+			BkEditorWorldToAITile( pSession, runs[i].x0, runs[i].y0, &nFrom, &nFromY );
+			BkEditorWorldToAITile( pSession, runs[i].x1, runs[i].y1, &nTo, &nToY );
+			std::vector<NMapGeometry::SPlannedPiece> runPlan;
+			if ( !Check( NMapGeometry::PlanFences( input, CTPoint<int>( nFrom, nFromY ), CTPoint<int>( nTo, nToY ), runs[i].ctrl != 0, &runPlan, &szError ), szError.c_str() ) )
+				continue;
+			if ( !Check( BkEditorDrawFences( pSession, FACTORY_FENCE, runs[i].x0, runs[i].y0, runs[i].x1, runs[i].y1, runs[i].ctrl, &nRunToken ) == BK_EDITOR_OK,
+			             NStr::Format( "%s: %s", runs[i].pszWhat, BkEditorLastMessage( pSession ) ) ) )
+				continue;
+			CMapInfo runExpected;
+			std::vector<int> runLinks;
+			NMapFile::Read( SHIPPED_MAP, &runExpected, &szError );
+			Check( LayFences( &runExpected, FACTORY_FENCE, runPlan, &runLinks, nFloor ), "the expected run lays" );
+			nFloor += int( runPlan.size() );
+			CheckSavedEquals( pSession, szEdited, runExpected, runs[i].pszWhat );
+			WorldAgrees( pSession, runs[i].pszWhat );
+			Check( BkEditorUndoEdit( pSession, nRunToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			const std::string szBack = szScratch + "\\fences-back.bzm";
+			if ( Check( BkEditorSaveMap( pSession, szBack.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szUnedited, szBack ), NStr::Format( "%s undone saves the unedited bytes (%d fences)", runs[i].pszWhat, int( runPlan.size() ) ) );
+			remove( OsPath( szBack ).c_str() );
+		}
+	}
+
+	// Refusals change nothing: the objects, the engine, the file.
+	nToken = 7;
+	const float fEdge = original.terrain.tiles.GetSizeX() * fWorldCellSize;
+	Check( BkEditorDrawFences( pSession, FACTORY_FENCE, fEdge - 200.0f, fMiddleY, fEdge + 600.0f, fMiddleY, 0, &nToken ) == BK_EDITOR_REFUSED,
+	       "a run with an end past the map's edge is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "leaves the map" ) != std::string::npos, NStr::Format( "and says so (%s)", BkEditorLastMessage( pSession ) ) );
+	Check( nToken == -1, "a refusal hands out no token" );
+	// The last fence of a rightward run is moved two AI tiles on: a run whose
+	// end tile is the map's last is refused as a whole though its end is on it.
+	{
+		int nEdgeX = 0, nEdgeY = 0;
+		BkEditorWorldToAITile( pSession, fEdge - 30.0f, fMiddleY, &nEdgeX, &nEdgeY );
+		const float fEdgeWorld = fEdge - 30.0f;
+		Check( BkEditorDrawFences( pSession, FACTORY_FENCE, fEdgeWorld - 100.0f, fMiddleY, fEdgeWorld, fMiddleY, 0, &nToken ) == BK_EDITOR_REFUSED,
+		       NStr::Format( "a rightward run ending on the map's last tile (%d) is refused whole: its last fence is moved past the edge", nEdgeX ) );
+	}
+	Check( BkEditorDrawFences( pSession, "no_such_fence", vFirst.x, vFirst.y, vLast.x, vLast.y, 0, &nToken ) == BK_EDITOR_REFUSED, "an unknown type is refused" );
+	Check( BkEditorDrawFences( pSession, WOODEN_BRIDGE, vFirst.x, vFirst.y, vLast.x, vLast.y, 0, &nToken ) == BK_EDITOR_REFUSED, "a bridge type is refused" );
+	Check( BkEditorDrawFences( pSession, "10.5-cm_Flak38", vFirst.x, vFirst.y, vLast.x, vLast.y, 0, &nToken ) == BK_EDITOR_REFUSED, "a type that is not a fence is refused" );
+	Check( BkEditorDrawFences( pSession, FACTORY_FENCE, std::numeric_limits<float>::quiet_NaN(), vFirst.y, vLast.x, vLast.y, 0, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a NaN drag is a bad argument" );
+	Check( BkEditorDrawFences( pSession, 0, vFirst.x, vFirst.y, vLast.x, vLast.y, 0, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a null type is a bad argument" );
+	Check( ReadObjectRecords( pSession ).size() == nObjectsBefore, "no refusal added an object" );
+	WorldAgrees( pSession, "after the refusals" );
+	const std::string szRefused = szScratch + "\\fences-refused.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "and the map saves unedited byte for byte" );
+	remove( OsPath( szRefused ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szCheck ).c_str() );
+	printf( "editor-bridge: M2 fences ok\n" );
+}
+
 // The screen point a shipped bridge's span is picked at: the camera on the
 // span, then its world point on screen, tried as it is and a little above and
 // below (a bridge's sprite need not cover its own ground point). -1 when no
@@ -5363,6 +5716,7 @@ int main( int argc, char **argv )
 		TestM2Bridges( pSession, szScratch );
 		TestM2BridgeDelete( pSession, szScratch );
 		TestM2BridgeRotateToggle( pSession, szScratch );
+		TestM2Fences( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

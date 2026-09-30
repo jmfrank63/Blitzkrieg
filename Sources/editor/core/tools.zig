@@ -16,7 +16,9 @@ const PaintCell = bridge_mod.PaintCell;
 /// window pixels the point was resolved from (Editor.resolve), for gestures
 /// the MFC editor measures on screen: the Roads & Rivers opacity drag,
 /// 100 pixels to 1.0.
-pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null, screen_x: f32 = 0, screen_y: f32 = 0 };
+/// `ctrl` is the modifier as the view read it with the event (04-07): the
+/// Fence tool's flip of a single fence. It is a modifier, never a right click.
+pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null, screen_x: f32 = 0, screen_y: f32 = 0, ctrl: bool = false };
 /// `enter`, `insert`, `escape` and `space` are the MFC editor's keys for
 /// finishing, toggling and cancelling a gesture (04-03, C13); the M1 tools
 /// ignore them.
