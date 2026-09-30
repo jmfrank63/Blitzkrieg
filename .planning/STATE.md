@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-10-PLAN.md
-last_updated: "2026-09-30T06:17:56.028Z"
-state_head: 7bd6314595c945e1f078485f5c6f18bfe67ce30b
+stopped_at: Completed 04-11-PLAN.md
+last_updated: "2026-09-30T07:26:51.721Z"
+state_head: c49e61b2c1d76b2b803e633cc412afa3d768724a
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 29
+  completed_plans: 30
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T06:17:55.961Z
-**Stopped at:** Completed 04-10-PLAN.md
+**Last session:** 2026-09-30T07:26:34.499Z
+**Stopped at:** Completed 04-11-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -99,6 +99,7 @@ behavior needs the in-game rows).
 | Phase 04 P08 | 2h01m | 3 tasks | 23 files |
 | Phase 04 P09 | 1h01m | 3 tasks | 21 files |
 | Phase 04 P10 | 1h02m | 4 tasks | 30 files |
+| Phase 04 P11 | 1h20m | 4 tasks | 21 files |
 
 ## Decisions
 
@@ -159,3 +160,7 @@ behavior needs the in-game rows).
 - [Phase ?]: 04-10: a script file put takes None, a bare name or exactly the value the file held at open (shipped maps hold a folder path); every copy, list and URL uses the last path component the game itself keeps (gameScriptName), so the fixed-folder-plus-validated-name mitigation holds
 - [Phase ?]: 04-10: a palette-placed object is linked with nothing (nLinkWith 0): the game lands a reinforcement only when it is 0, so an editor-placed unit in a group never landed; the group tools' spans, fences and trench pieces keep -1
 - [Phase ?]: 04-10: script areas are index-keyed records stored verbatim in AI units; the MFC Vis -> AI truncation lives once in NMapGeometry and the bridge answers drag, move and resize as pure calls; a name the file held twice can be put back as often as it held it
+- [Phase ?]: 04-11: the action list is parsed in the bridge from Data/Editor/actions.ini with the MFC table's rules (the game's StreamIO port answers nothing for OpenIniDataTable); STOP is entry 9 of 40
+- [Phase ?]: 04-11: start commands and reserve positions are judged on what a put changes, and a record the file held at open is always accepted back (openedStartCommands, openedReservePositions), so an undo of a delete of odd file data never drifts; a NEW start-command unit must be a unit or squad the database knows
+- [Phase ?]: 04-11: reserve roles (self-propelled, towed, truck) are read from the stats with dynamic_cast, never the typed lookup (it static_casts with asserts compiled out); a self-propelled gun takes no truck and a truck must pull more than the gun weighs; a set never changes from_explosion
+- [Phase ?]: 04-11: Start Target and Reserve Positions are hidden registry tools (no palette button, menu entry or key) that click on the release; a panel that uses Delete claims it per frame (View.delete_claimed) instead of capturing the keyboard, so the Select tool cannot delete the selected unit as well
