@@ -1251,3 +1251,214 @@ bool DeleteReservePositionFromSession( SEditorSession *pSession, int nIndex, boo
 	}
 	return true;
 }
+
+// ---------------------------------------------------------------------------
+// The AI general (04-12, D-19).
+// ---------------------------------------------------------------------------
+
+namespace {
+bool SameBits( float fLeft, float fRight )
+{
+	return memcmp( &fLeft, &fRight, sizeof fLeft ) == 0;
+}
+
+// Two parcels are the same when every number is, bit for bit: the file's own data is
+// compared as it is, NaN included, so a parcel that came from the file is always found.
+bool SameParcel( const SAIGeneralParcelInfo &rLeft, const SAIGeneralParcelInfo &rRight )
+{
+	if ( rLeft.eType != rRight.eType || !SameBits( rLeft.vCenter.x, rRight.vCenter.x ) || !SameBits( rLeft.vCenter.y, rRight.vCenter.y ) ||
+	     !SameBits( rLeft.fRadius, rRight.fRadius ) || rLeft.wDefenceDirection != rRight.wDefenceDirection ||
+	     rLeft.reinforcePoints.size() != rRight.reinforcePoints.size() )
+		return false;
+	for ( size_t i = 0; i < rLeft.reinforcePoints.size(); ++i )
+	{
+		const SAIGeneralParcelInfo::SReinforcePointInfo &rLeftPoint = rLeft.reinforcePoints[i];
+		const SAIGeneralParcelInfo::SReinforcePointInfo &rRightPoint = rRight.reinforcePoints[i];
+		if ( !SameBits( rLeftPoint.vCenter.x, rRightPoint.vCenter.x ) || !SameBits( rLeftPoint.vCenter.y, rRightPoint.vCenter.y ) || rLeftPoint.wDir != rRightPoint.wDir )
+			return false;
+	}
+	return true;
+}
+
+bool HoldsParcel( const SAIGeneralSideInfo &rSide, const SAIGeneralParcelInfo &rParcel )
+{
+	for ( size_t i = 0; i < rSide.parcels.size(); ++i )
+		if ( SameParcel( rSide.parcels[i], rParcel ) )
+			return true;
+	return false;
+}
+
+const SAIGeneralSideInfo* SideAt( const std::vector<SAIGeneralSideInfo> &rSides, int nSide )
+{
+	return nSide >= 0 && nSide < int( rSides.size() ) ? &rSides[nSide] : 0;
+}
+
+// The side as the snapshot holds it now, empty for one it does not have.
+SAIGeneralSideInfo CurrentSide( const SEditorSession &rSession, int nSide )
+{
+	const SAIGeneralSideInfo *pSide = SideAt( rSession.snapshot.aiGeneralMapInfo.sidesInfo, nSide );
+	return pSide != 0 ? *pSide : SAIGeneralSideInfo();
+}
+
+// T-04-12-01. The put's rules: what it ADDS is judged - a type 1 or 2, a radius above 0,
+// a centre on the map, numbers that are numbers, and mobile script IDs 0..32000 that appear
+// once. A parcel the side holds now or held when the file was opened is exempt, and so is a
+// script ID as often as either held it, so an undo can put a file's own odd data back.
+// Says why in szMessage.
+bool ValidateAISide( SEditorSession *pSession, int nSide, const SAIGeneralSideInfo &rWanted )
+{
+	const SAIGeneralSideInfo current = CurrentSide( *pSession, nSide );
+	const SAIGeneralSideInfo *pOpened = SideAt( pSession->openedAISides, nSide );
+	for ( size_t i = 0; i < rWanted.parcels.size(); ++i )
+	{
+		const SAIGeneralParcelInfo &rParcel = rWanted.parcels[i];
+		if ( HoldsParcel( current, rParcel ) || ( pOpened != 0 && HoldsParcel( *pOpened, rParcel ) ) )
+			continue;
+		if ( rParcel.eType != SAIGeneralParcelInfo::EPATCH_DEFENCE && rParcel.eType != SAIGeneralParcelInfo::EPATCH_REINFORCE )
+		{
+			pSession->szMessage = NStr::Format( "parcel %d is of type %d: a parcel is a defence (1) or a reinforce (2) parcel", int( i ), rParcel.eType );
+			return false;
+		}
+		if ( !std::isfinite( rParcel.fRadius ) || !( rParcel.fRadius > 0.0f ) )
+		{
+			pSession->szMessage = NStr::Format( "parcel %d needs a radius above 0", int( i ) );
+			return false;
+		}
+		if ( !OnTheMapInAIUnits( *pSession, rParcel.vCenter.x, rParcel.vCenter.y ) )
+		{
+			pSession->szMessage = NStr::Format( "parcel %d is not on the map", int( i ) );
+			return false;
+		}
+		for ( size_t j = 0; j < rParcel.reinforcePoints.size(); ++j )
+		{
+			const CVec2 &rPoint = rParcel.reinforcePoints[j].vCenter;
+			if ( !std::isfinite( rPoint.x ) || !std::isfinite( rPoint.y ) )
+			{
+				pSession->szMessage = NStr::Format( "point %d of parcel %d is not a number", int( j ), int( i ) );
+				return false;
+			}
+		}
+	}
+	for ( size_t i = 0; i < rWanted.mobileScriptIDs.size(); ++i )
+	{
+		const int nScriptID = rWanted.mobileScriptIDs[i];
+		const int nWanted = CountOf( rWanted.mobileScriptIDs, nScriptID );
+		int nHeld = CountOf( current.mobileScriptIDs, nScriptID );
+		if ( pOpened != 0 )
+			nHeld = Max( nHeld, CountOf( pOpened->mobileScriptIDs, nScriptID ) );
+		if ( nWanted <= nHeld )
+			continue;
+		if ( nScriptID < nMinScriptID || nScriptID > nMaxScriptID )
+		{
+			pSession->szMessage = "a mobile script ID is 0..32000";
+			return false;
+		}
+		if ( nWanted > 1 )
+		{
+			pSession->szMessage = NStr::Format( "script ID %d appears twice in the mobile list", nScriptID );
+			return false;
+		}
+	}
+	return true;
+}
+
+// The side the flattened arrays describe. Every point range was checked by the caller.
+SAIGeneralSideInfo SideFromC( const int *pnMobile, int nMobileCount, const BkEditorAIParcel *pParcels, int nParcelCount, const BkEditorAIPoint *pPoints )
+{
+	SAIGeneralSideInfo side;
+	side.mobileScriptIDs.assign( pnMobile, pnMobile + nMobileCount );
+	side.parcels.resize( nParcelCount );
+	for ( int i = 0; i < nParcelCount; ++i )
+	{
+		SAIGeneralParcelInfo &rParcel = side.parcels[i];
+		rParcel.eType = pParcels[i].type;
+		rParcel.vCenter = CVec2( pParcels[i].cx, pParcels[i].cy );
+		rParcel.fRadius = pParcels[i].radius;
+		rParcel.wDefenceDirection = WORD( pParcels[i].defence_dir );
+		rParcel.reinforcePoints.resize( pParcels[i].point_count );
+		for ( int j = 0; j < pParcels[i].point_count; ++j )
+		{
+			const BkEditorAIPoint &rPoint = pPoints[pParcels[i].first_point + j];
+			rParcel.reinforcePoints[j] = SAIGeneralParcelInfo::SReinforcePointInfo( CVec2( rPoint.x, rPoint.y ), WORD( rPoint.dir ) );
+		}
+	}
+	return side;
+}
+}
+
+bool ReadSessionAIGeneralSide( SEditorSession *pSession, int nSide, BkEditorAISideInfo *pInfo, int *pnMobile, int nMobileCap, BkEditorAIParcel *pParcels, int nParcelCap, BkEditorAIPoint *pPoints, int nPointCap )
+{
+	const SAIGeneralSideInfo side = CurrentSide( *pSession, nSide );
+	memset( pInfo, 0, sizeof *pInfo );
+	pInfo->side_count = int( pSession->snapshot.aiGeneralMapInfo.sidesInfo.size() );
+	pInfo->mobile_count = int( side.mobileScriptIDs.size() );
+	pInfo->parcel_count = int( side.parcels.size() );
+	int nPoints = 0;
+	for ( size_t i = 0; i < side.parcels.size(); ++i )
+		nPoints += int( side.parcels[i].reinforcePoints.size() );
+	pInfo->point_count = nPoints;
+	for ( int i = 0; i < nMobileCap && i < pInfo->mobile_count; ++i )
+		pnMobile[i] = side.mobileScriptIDs[i];
+	int nFirst = 0;
+	for ( int i = 0; i < pInfo->parcel_count; ++i )
+	{
+		const SAIGeneralParcelInfo &rParcel = side.parcels[i];
+		if ( i < nParcelCap )
+		{
+			BkEditorAIParcel &rOut = pParcels[i];
+			memset( &rOut, 0, sizeof rOut );
+			rOut.type = rParcel.eType;
+			rOut.cx = rParcel.vCenter.x;
+			rOut.cy = rParcel.vCenter.y;
+			rOut.radius = rParcel.fRadius;
+			rOut.defence_dir = int( rParcel.wDefenceDirection );
+			rOut.first_point = nFirst;
+			rOut.point_count = int( rParcel.reinforcePoints.size() );
+		}
+		for ( size_t j = 0; j < rParcel.reinforcePoints.size(); ++j )
+		{
+			if ( nFirst + int( j ) < nPointCap )
+			{
+				BkEditorAIPoint &rPoint = pPoints[nFirst + j];
+				rPoint.x = rParcel.reinforcePoints[j].vCenter.x;
+				rPoint.y = rParcel.reinforcePoints[j].vCenter.y;
+				rPoint.dir = int( rParcel.reinforcePoints[j].wDir );
+			}
+		}
+		nFirst += int( rParcel.reinforcePoints.size() );
+	}
+	return nMobileCap >= pInfo->mobile_count && nParcelCap >= pInfo->parcel_count && nPointCap >= pInfo->point_count;
+}
+
+bool SetSessionAIGeneralSide( SEditorSession *pSession, int nSide, int nSideCount, const int *pnMobile, int nMobileCount, const BkEditorAIParcel *pParcels, int nParcelCount, const BkEditorAIPoint *pPoints, int nPointCount, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SAIGeneralSideInfo wanted = SideFromC( pnMobile, nMobileCount, pParcels, nParcelCount, pPoints );
+	if ( nSide >= nSideCount && ( nMobileCount != 0 || nParcelCount != 0 ) )
+	{
+		pSession->szMessage = NStr::Format( "side %d is not one of the map's %d sides, so it holds nothing", nSide, nSideCount );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( nSide < nSideCount && !ValidateAISide( pSession, nSide, wanted ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	NMapRecords::SAIGeneralSidePut before;
+	NMapRecords::GetAIGeneralSide( pSession->snapshot, nSide, &before );
+	NMapRecords::SAIGeneralSidePut put;
+	put.nSideCount = nSideCount;
+	put.nSide = nSide;
+	put.info = wanted;
+	// Both copies together; the engine holds no AI general until a mission starts. A put
+	// that fails on the second copy puts the old count and the old side back on the first.
+	if ( !NMapRecords::PutAIGeneralSide( &pSession->snapshot, put ) )
+		return false;
+	if ( !NMapRecords::PutAIGeneralSide( &pSession->working, put ) )
+	{
+		NMapRecords::PutAIGeneralSide( &pSession->snapshot, before );
+		return false;
+	}
+	return true;
+}

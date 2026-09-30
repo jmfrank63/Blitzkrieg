@@ -9,6 +9,7 @@
 #include "session.h"
 #include "world.h"
 #include "../MapFile/MapOverlay.h"
+#include "../MapFile/MapRecords.h"
 #include "../Main/iMain.h"
 #include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
@@ -2419,6 +2420,66 @@ namespace {
 // there is, with room for a file's own duplicates. A larger count is a caller
 // bug, and keeps the vector the put builds bounded (T-04-09-03).
 const int nMaxGroupPutCount = 65536;
+}
+
+// ---------------------------------------------------------------------------
+// The AI general (04-12, D-19).
+// ---------------------------------------------------------------------------
+
+BkEditorStatus BkEditorAIGeneralSide( BkEditorSession *pSession, int nSide, BkEditorAISideInfo *pInfo,
+                                      int *pnMobile, int nMobileCapacity,
+                                      BkEditorAIParcel *pParcels, int nParcelCapacity,
+                                      BkEditorAIPoint *pPoints, int nPointCapacity )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pInfo == 0 || nSide < 0 || nMobileCapacity < 0 || nParcelCapacity < 0 || nPointCapacity < 0 ||
+		     ( pnMobile == 0 && nMobileCapacity > 0 ) || ( pParcels == 0 && nParcelCapacity > 0 ) || ( pPoints == 0 && nPointCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		// A buffer too short is the sizing pass of a two-pass read, not a failure worth a message.
+		return ReadSessionAIGeneralSide( pSession, nSide, pInfo, pnMobile, nMobileCapacity, pParcels, nParcelCapacity, pPoints, nPointCapacity )
+			? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorSetAIGeneralSide( BkEditorSession *pSession, int nSide, int nSideCount,
+                                         const int *pnMobile, int nMobileCount,
+                                         const BkEditorAIParcel *pParcels, int nParcelCount,
+                                         const BkEditorAIPoint *pPoints, int nPointCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nSide < 0 || nSide >= NMapRecords::nMaxAIGeneralSides || nSideCount < 0 || nSideCount > NMapRecords::nMaxAIGeneralSides ||
+		     nMobileCount < 0 || nParcelCount < 0 || nPointCount < 0 ||
+		     nMobileCount > nMaxGroupPutCount || nParcelCount > nMaxGroupPutCount || nPointCount > nMaxGroupPutCount ||
+		     ( pnMobile == 0 && nMobileCount > 0 ) || ( pParcels == 0 && nParcelCount > 0 ) || ( pPoints == 0 && nPointCount > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// Every parcel's point range is inside the points array and its direction is a WORD.
+		for ( int i = 0; i < nParcelCount; ++i )
+		{
+			const BkEditorAIParcel &rParcel = pParcels[i];
+			if ( rParcel.first_point < 0 || rParcel.point_count < 0 || rParcel.first_point > nPointCount ||
+			     rParcel.point_count > nPointCount - rParcel.first_point || rParcel.defence_dir < 0 || rParcel.defence_dir > 65535 )
+				return BK_EDITOR_BAD_ARGUMENT;
+		}
+		for ( int i = 0; i < nPointCount; ++i )
+			if ( pPoints[i].dir < 0 || pPoints[i].dir > 65535 )
+				return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetSessionAIGeneralSide( pSession, nSide, nSideCount, pnMobile, nMobileCount, pParcels, nParcelCount, pPoints, nPointCount, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
 }
 
 BkEditorStatus BkEditorGroupIDs( BkEditorSession *pSession, int *pnOut, int nCapacity, int *pnCount )

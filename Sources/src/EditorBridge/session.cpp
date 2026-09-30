@@ -258,6 +258,7 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		++pSession->openedAreaNames[read.scriptAreas[i].szName];
 	pSession->openedStartCommands.assign( read.startCommandsList.begin(), read.startCommandsList.end() );
 	pSession->openedReservePositions.assign( read.reservePositionsList.begin(), read.reservePositionsList.end() );
+	pSession->openedAISides = read.aiGeneralMapInfo.sidesInfo;
 	pSession->openedGroups.clear();
 	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
 		pSession->openedGroups[it->first] = it->second.ids;

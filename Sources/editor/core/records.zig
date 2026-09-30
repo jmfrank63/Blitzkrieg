@@ -30,6 +30,9 @@ pub const Kind = enum {
     /// An artillery reserve position (04-11, D-18): keyed by its index in the
     /// map's list, where the game puts a gun (and the truck towing it) at the start.
     reserve_position,
+    /// One side of the AI general (04-12, D-19): keyed by the side's number, holding
+    /// its mobile script IDs and parcels, and the map's side count (a put sets both).
+    ai_side,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -247,10 +250,194 @@ pub const ReservePosition = struct {
     }
 };
 
+/// A parcel's default and smallest radius, MAP (AI) units: four map tiles, the MFC
+/// editor's PARCEL_POINT_RADIUS (fWorldCellSize * 4, in AI units 256).
+pub const parcel_min_radius: f32 = 256;
+
+/// The most sides a map's AI general can have (NMapRecords::nMaxAIGeneralSides).
+pub const max_ai_sides: usize = 1024;
+
+/// A parcel's type as the file holds it: 1 a defence parcel, 2 a reinforce parcel.
+/// Non-exhaustive, so a file's own odd type (0 is the file's "unknown") comes back
+/// from an undo exactly as it was.
+pub const ParcelKind = enum(i32) { defence = 1, reinforce = 2, _ };
+
+/// A reinforce point as the file stores it: relative to its parcel's centre and
+/// rotated by minus the parcel's defence direction (the MFC formula, NMapGeometry),
+/// in MAP (AI) units; `dir` is a WORD angle (MFC scale, a turn being 0xFFFF).
+pub const ParcelPoint = struct {
+    x: f32 = 0,
+    y: f32 = 0,
+    dir: u16 = 0,
+
+    pub fn eql(a: ParcelPoint, b: ParcelPoint) bool {
+        return a.x == b.x and a.y == b.y and a.dir == b.dir;
+    }
+};
+
+/// One parcel: a circle of `radius` round (cx, cy), MAP (AI) units, with a
+/// `defence_dir` WORD angle and its reinforce points. A parcel inside an `AiSide`
+/// owns its `points` (`AiSide.deinit` frees them); one a caller builds borrows.
+pub const Parcel = struct {
+    kind: ParcelKind = .defence,
+    cx: f32 = 0,
+    cy: f32 = 0,
+    radius: f32 = parcel_min_radius,
+    defence_dir: u16 = 0,
+    points: []const ParcelPoint = &.{},
+
+    pub fn eql(a: Parcel, b: Parcel) bool {
+        if (a.kind != b.kind or a.cx != b.cx or a.cy != b.cy or a.radius != b.radius or a.defence_dir != b.defence_dir) return false;
+        if (a.points.len != b.points.len) return false;
+        for (a.points, b.points) |left, right| {
+            if (!left.eql(right)) return false;
+        }
+        return true;
+    }
+};
+
+/// One side of the AI general (D-19) together with the map's side count: the record
+/// a put replaces whole, so an undo that puts the old value back restores the old
+/// number of sides exactly (a click on side 3 of a one-side map makes sides 1 and 2
+/// empty, C8, Pitfall 11). `side` is the key; a side at or above `side_count` reads
+/// empty. The script IDs and parcels are OWNED by an `AiSide` a `Value` holds or the
+/// Editor returns (`deinit`); the functions that change one do so in place on an
+/// owned side and keep everything they free freed.
+pub const AiSide = struct {
+    side: i32 = 0,
+    side_count: u32 = 0,
+    mobile_ids: []const i32 = &.{},
+    parcels: []const Parcel = &.{},
+
+    pub fn deinit(self: *AiSide, allocator: std.mem.Allocator) void {
+        for (self.parcels) |parcel| allocator.free(parcel.points);
+        allocator.free(self.parcels);
+        allocator.free(self.mobile_ids);
+        self.mobile_ids = &.{};
+        self.parcels = &.{};
+    }
+
+    /// A deep copy the caller owns.
+    pub fn clone(self: AiSide, allocator: std.mem.Allocator) std.mem.Allocator.Error!AiSide {
+        const mobile = try allocator.dupe(i32, self.mobile_ids);
+        errdefer allocator.free(mobile);
+        const parcels = try allocator.alloc(Parcel, self.parcels.len);
+        var done: usize = 0;
+        errdefer {
+            for (parcels[0..done]) |parcel| allocator.free(parcel.points);
+            allocator.free(parcels);
+        }
+        for (self.parcels, parcels) |source, *target| {
+            target.* = source;
+            target.points = try allocator.dupe(ParcelPoint, source.points);
+            done += 1;
+        }
+        return .{ .side = self.side, .side_count = self.side_count, .mobile_ids = mobile, .parcels = parcels };
+    }
+
+    pub fn eql(a: AiSide, b: AiSide) bool {
+        if (a.side != b.side or a.side_count != b.side_count) return false;
+        if (!std.mem.eql(i32, a.mobile_ids, b.mobile_ids) or a.parcels.len != b.parcels.len) return false;
+        for (a.parcels, b.parcels) |left, right| {
+            if (!left.eql(right)) return false;
+        }
+        return true;
+    }
+
+    /// The total number of reinforce points over the parcels.
+    pub fn pointCount(self: AiSide) usize {
+        var total: usize = 0;
+        for (self.parcels) |parcel| total += parcel.points.len;
+        return total;
+    }
+
+    /// The parcels of an owned side, for in-place edits of a number (a centre, a
+    /// radius, a point). The slices are this side's own, made by `clone` or by the
+    /// functions below, so writing through them is writing to memory it owns.
+    pub fn parcelsMut(self: *AiSide) []Parcel {
+        return @constCast(self.parcels);
+    }
+
+    pub fn pointsMut(self: *AiSide, parcel: usize) []ParcelPoint {
+        return @constCast(self.parcels[parcel].points);
+    }
+
+    /// Adds `parcel` (its points copied) at the end, and raises `side_count` so that
+    /// this side exists. The caller's own `parcel.points` stay the caller's.
+    pub fn appendParcel(self: *AiSide, allocator: std.mem.Allocator, parcel: Parcel) std.mem.Allocator.Error!void {
+        const points = try allocator.dupe(ParcelPoint, parcel.points);
+        errdefer allocator.free(points);
+        const grown = try allocator.realloc(@constCast(self.parcels), self.parcels.len + 1);
+        grown[grown.len - 1] = parcel;
+        grown[grown.len - 1].points = points;
+        self.parcels = grown;
+        self.ensureSideExists();
+    }
+
+    /// Adds `point` to parcel `parcel`.
+    pub fn appendPoint(self: *AiSide, allocator: std.mem.Allocator, parcel: usize, point: ParcelPoint) std.mem.Allocator.Error!void {
+        const old = self.parcels[parcel].points;
+        const grown = try allocator.alloc(ParcelPoint, old.len + 1);
+        @memcpy(grown[0..old.len], old);
+        grown[old.len] = point;
+        allocator.free(old);
+        self.parcelsMut()[parcel].points = grown;
+    }
+
+    /// Removes parcel `index` and its points.
+    pub fn removeParcel(self: *AiSide, allocator: std.mem.Allocator, index: usize) std.mem.Allocator.Error!void {
+        const shrunk = try allocator.alloc(Parcel, self.parcels.len - 1);
+        @memcpy(shrunk[0..index], self.parcels[0..index]);
+        @memcpy(shrunk[index..], self.parcels[index + 1 ..]);
+        allocator.free(self.parcels[index].points);
+        allocator.free(self.parcels);
+        self.parcels = shrunk;
+    }
+
+    /// Removes point `index` of parcel `parcel`.
+    pub fn removePoint(self: *AiSide, allocator: std.mem.Allocator, parcel: usize, index: usize) std.mem.Allocator.Error!void {
+        const old = self.parcels[parcel].points;
+        const shrunk = try allocator.alloc(ParcelPoint, old.len - 1);
+        @memcpy(shrunk[0..index], old[0..index]);
+        @memcpy(shrunk[index..], old[index + 1 ..]);
+        allocator.free(old);
+        self.parcelsMut()[parcel].points = shrunk;
+    }
+
+    /// Adds a mobile script ID at the end.
+    pub fn appendMobile(self: *AiSide, allocator: std.mem.Allocator, id: i32) std.mem.Allocator.Error!void {
+        const grown = try allocator.realloc(@constCast(self.mobile_ids), self.mobile_ids.len + 1);
+        grown[grown.len - 1] = id;
+        self.mobile_ids = grown;
+    }
+
+    /// Removes the first mobile script ID equal to `id`; false when there is none.
+    pub fn removeMobile(self: *AiSide, allocator: std.mem.Allocator, id: i32) std.mem.Allocator.Error!bool {
+        const at = std.mem.indexOfScalar(i32, self.mobile_ids, id) orelse return false;
+        const shrunk = try allocator.alloc(i32, self.mobile_ids.len - 1);
+        @memcpy(shrunk[0..at], self.mobile_ids[0..at]);
+        @memcpy(shrunk[at..], self.mobile_ids[at + 1 ..]);
+        allocator.free(self.mobile_ids);
+        self.mobile_ids = shrunk;
+        return true;
+    }
+
+    pub fn hasMobile(self: AiSide, id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.mobile_ids, id) != null;
+    }
+
+    /// Makes `side_count` cover this side: creating side 3 on a one-side map makes the
+    /// count 4 and the sides 1 and 2 empty (the bridge does the latter).
+    pub fn ensureSideExists(self: *AiSide) void {
+        const needed: u32 = @intCast(self.side + 1);
+        if (self.side_count < needed) self.side_count = needed;
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
 /// frees them with `deinit`; the camera anchors and the script file own no
-/// memory, a group owns its script-ID list and a start command its unit list,
-/// and the three functions let the history free, copy and compare any value of
+/// memory, a group owns its script-ID list, a start command its unit list and an
+/// AI side its script IDs, parcels and points, and the three functions let the history free, copy and compare any value of
 /// any kind.
 pub const Value = union(Kind) {
     camera_anchors: CameraAnchors,
@@ -259,6 +446,7 @@ pub const Value = union(Kind) {
     script_area: ScriptArea,
     start_command: StartCommand,
     reserve_position: ReservePosition,
+    ai_side: AiSide,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
         switch (self.*) {
@@ -272,6 +460,11 @@ pub const Value = union(Kind) {
                 var emptied = command;
                 emptied.units = &.{};
                 self.* = .{ .start_command = emptied };
+            },
+            .ai_side => |*side| {
+                var owned = side.*;
+                owned.deinit(allocator);
+                self.* = .{ .ai_side = owned };
             },
         }
     }
@@ -288,6 +481,7 @@ pub const Value = union(Kind) {
                 copy.units = try allocator.dupe(i32, command.units);
                 break :blk .{ .start_command = copy };
             },
+            .ai_side => |side| .{ .ai_side = try side.clone(allocator) },
         };
     }
 
@@ -300,6 +494,7 @@ pub const Value = union(Kind) {
             .script_area => |left| left.eql(b.script_area),
             .start_command => |left| left.eql(b.start_command),
             .reserve_position => |left| left.eql(b.reserve_position),
+            .ai_side => |left| left.eql(b.ai_side),
         };
     }
 };
@@ -454,4 +649,79 @@ test "a reserve position value compares by every field and is never another kind
     copy.reserve_position.x = 101;
     try std.testing.expect(!first.eql(copy));
     try std.testing.expect(!first.eql(.{ .script_area = .{} }));
+}
+
+test "an AI side value owns, clones, compares and frees its parcels and points" {
+    const allocator = std.testing.allocator;
+    var side: AiSide = .{ .side = 1, .side_count = 2 };
+    defer side.deinit(allocator);
+    try side.appendMobile(allocator, 4245);
+    try side.appendParcel(allocator, .{ .cx = 800, .cy = 900 });
+    try side.appendPoint(allocator, 0, .{ .x = 10, .y = -20, .dir = 7 });
+    try side.appendParcel(allocator, .{ .kind = .reinforce, .cx = 100, .cy = 200, .radius = 300, .defence_dir = 16384 });
+    const first: Value = .{ .ai_side = side };
+    var copy = try first.clone(allocator);
+    defer copy.deinit(allocator);
+    try std.testing.expect(first.eql(copy));
+    try std.testing.expect(first.ai_side.parcels.ptr != copy.ai_side.parcels.ptr);
+    try std.testing.expect(first.ai_side.parcels[0].points.ptr != copy.ai_side.parcels[0].points.ptr);
+    try std.testing.expectEqual(@as(usize, 1), side.pointCount());
+    // Every field is part of the value: the side count, a point, a direction, a radius, a type.
+    copy.ai_side.side_count = 3;
+    try std.testing.expect(!first.eql(copy));
+    copy.ai_side.side_count = 2;
+    copy.ai_side.pointsMut(0)[0].dir = 8;
+    try std.testing.expect(!first.eql(copy));
+    copy.ai_side.pointsMut(0)[0].dir = 7;
+    copy.ai_side.parcelsMut()[1].radius = 301;
+    try std.testing.expect(!first.eql(copy));
+    copy.ai_side.parcelsMut()[1].radius = 300;
+    copy.ai_side.parcelsMut()[1].kind = .defence;
+    try std.testing.expect(!first.eql(copy));
+    try std.testing.expect(!first.eql(.{ .reserve_position = .{} }));
+    // An empty side is a value with nothing to free.
+    var empty: Value = .{ .ai_side = .{} };
+    var empty_copy = try empty.clone(allocator);
+    try std.testing.expect(empty.eql(empty_copy));
+    empty_copy.deinit(allocator);
+    empty.deinit(allocator);
+}
+
+test "an AI side grows and shrinks in place without leaking" {
+    const allocator = std.testing.allocator;
+    var side: AiSide = .{ .side = 3 };
+    defer side.deinit(allocator);
+    try side.appendParcel(allocator, .{});
+    try std.testing.expectEqual(@as(u32, 4), side.side_count); // side 3 exists: the count covers it
+    try side.appendPoint(allocator, 0, .{ .x = 1 });
+    try side.appendPoint(allocator, 0, .{ .x = 2 });
+    try side.appendPoint(allocator, 0, .{ .x = 3 });
+    try side.removePoint(allocator, 0, 1);
+    try std.testing.expectEqual(@as(usize, 2), side.parcels[0].points.len);
+    try std.testing.expectEqual(@as(f32, 3), side.parcels[0].points[1].x);
+    try side.appendParcel(allocator, .{ .cx = 5 });
+    try side.removeParcel(allocator, 0);
+    try std.testing.expectEqual(@as(usize, 1), side.parcels.len);
+    try std.testing.expectEqual(@as(f32, 5), side.parcels[0].cx);
+    try side.appendMobile(allocator, 7);
+    try side.appendMobile(allocator, 8);
+    try std.testing.expect(side.hasMobile(8));
+    try std.testing.expect(try side.removeMobile(allocator, 7));
+    try std.testing.expect(!try side.removeMobile(allocator, 7));
+    try std.testing.expectEqual(@as(usize, 1), side.mobile_ids.len);
+    // A parcel appended copies the caller's points.
+    const borrowed = [_]ParcelPoint{.{ .x = 9 }};
+    try side.appendParcel(allocator, .{ .points = &borrowed });
+    try std.testing.expect(side.parcels[1].points.ptr != &borrowed);
+}
+
+test "a file's own odd parcel type survives a clone" {
+    const allocator = std.testing.allocator;
+    var side: AiSide = .{ .side = 0, .side_count = 1 };
+    defer side.deinit(allocator);
+    try side.appendParcel(allocator, .{ .kind = @enumFromInt(0) });
+    var copy = try side.clone(allocator);
+    defer copy.deinit(allocator);
+    try std.testing.expectEqual(@as(i32, 0), @intFromEnum(copy.parcels[0].kind));
+    try std.testing.expect(side.eql(copy));
 }
