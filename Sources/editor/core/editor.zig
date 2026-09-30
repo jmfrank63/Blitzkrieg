@@ -910,6 +910,19 @@ pub const Editor = struct {
         return total;
     }
 
+    /// Deletes the whole entrenchment at `index` (D-13): its entry and every
+    /// piece, one undo step that puts them back at the same index. Refused
+    /// (it holds units, a piece the editor could not put back) with nothing
+    /// changed.
+    pub fn deleteEntrenchment(self: *Editor, index: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.deleteEntrenchment(@intCast(index), &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjects();
+    }
+
     /// The map's entrenchments in list order; the caller frees the slice with
     /// `allocator`. A read: the status line is left alone.
     pub fn entrenchments(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.EntrenchmentInfo {

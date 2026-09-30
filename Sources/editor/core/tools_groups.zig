@@ -238,6 +238,13 @@ pub const trench_same_point: f32 = 2.0;
 /// builds the trench from the clicks: straight runs of fireplaces and lines,
 /// arcs at turns, a terminator at each end, for `player`. The app draws the
 /// live preview from BkEditorPlanEntrenchment of the clicks and `current`.
+///
+/// With no polyline started, a press on a piece selects its whole
+/// entrenchment instead of starting one (D-11's rule for groups; the MFC tool
+/// had no selection), the entrenchment under the pointer is `hovered` (the
+/// MFC tool highlighted it, RoadDrawState.cpp:796-839), and Delete removes the
+/// selected one, else the hovered one, whole (RoadDrawState.cpp:1312-1358), one
+/// undo step. A single piece is never deleted alone (D-04).
 pub const EntrenchmentTool = struct {
     points: [max_trench_points][2]f32 = undefined,
     len: usize = 0,
@@ -246,8 +253,11 @@ pub const EntrenchmentTool = struct {
     /// Where the pointer is, world units, for the preview's last leg; null
     /// when it is off the terrain.
     current: ?[2]f32 = null,
-    /// The entrenchments entry the tool works on: the last one drawn.
+    /// The entrenchments entry the tool works on: the last one drawn, or the
+    /// one a press picked.
     selected: ?usize = null,
+    /// The entrenchment under the pointer while no polyline is started.
+    hovered: ?usize = null,
 
     pub fn pointSlice(self: *const EntrenchmentTool) []const [2]f32 {
         return self.points[0..self.len];
@@ -264,23 +274,42 @@ pub const EntrenchmentTool = struct {
         self.len = 0;
         self.current = null;
         self.selected = null;
+        self.hovered = null;
     }
 
-    /// The pointer moved with no button held: the preview's last leg.
+    /// The pointer moved with no button held: the preview's last leg, and -
+    /// with no polyline started - the entrenchment under the pointer.
     pub fn hover(self: *EntrenchmentTool, editor: *Editor, pointer: Pointer) void {
-        _ = editor;
         self.current = .{ pointer.world_x, pointer.world_y };
+        self.hovered = null;
+        if (self.drawing()) return;
+        const picked = editor.pickGroup(pointer.screen_x, pointer.screen_y) catch return;
+        if (picked) |group| {
+            if (group.kind == .entrenchment) self.hovered = group.index;
+        }
     }
 
     /// The pointer left the terrain.
     pub fn hoverNone(self: *EntrenchmentTool) void {
         self.current = null;
+        self.hovered = null;
     }
 
     pub fn handle(self: *EntrenchmentTool, editor: *Editor, event: Event) EditError!void {
         switch (event) {
             .press => |pointer| {
                 self.current = .{ pointer.world_x, pointer.world_y };
+                if (!self.drawing()) {
+                    // On a piece: its entrenchment is selected, nothing drawn.
+                    if (try editor.pickGroup(pointer.screen_x, pointer.screen_y)) |group| {
+                        if (group.kind == .entrenchment) {
+                            self.selected = group.index;
+                            self.hovered = null;
+                            return;
+                        }
+                    }
+                }
+                self.hovered = null;
                 self.addPoint(editor, pointer.world_x, pointer.world_y);
             },
             .drag => |pointer| self.current = .{ pointer.world_x, pointer.world_y },
@@ -290,6 +319,17 @@ pub const EntrenchmentTool = struct {
             .double_click => try self.commit(editor),
             .key => |key| switch (key) {
                 .escape => self.len = 0,
+                .delete => {
+                    // MFC: Delete acts only while no polyline is started.
+                    if (self.drawing()) return;
+                    const index = self.selected orelse self.hovered orelse {
+                        editor.note("click an entrenchment, or point at one, to delete it");
+                        return;
+                    };
+                    self.selected = null;
+                    self.hovered = null;
+                    try editor.deleteEntrenchment(index);
+                },
                 else => {},
             },
             else => {},
@@ -940,4 +980,82 @@ test "a trench off the map is refused whole and records nothing; the preview pla
     try testing.expectEqual(bridge_mod.trench_fireplace, pieces[2].type);
     try testing.expectEqual(@as(?usize, null), try editor.planEntrenchment(preview[0..1], &pieces));
     try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+test "a press on a piece selects its entrenchment; Delete removes it whole and undo puts it back at the same index" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: EntrenchmentTool = .{};
+    // Two trenches: entry 0 along y = 200, entry 1 along y = 60.
+    try trenchClick(&tool, &editor, 20, 200);
+    try trenchClick(&tool, &editor, 120, 200);
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 120, 200) });
+    try trenchClick(&tool, &editor, 20, 60);
+    try trenchClick(&tool, &editor, 120, 60);
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 120, 60) });
+    try testing.expectEqual(@as(usize, 2), fake.trenchCount());
+    const first = fake.trenchEntry(0).*;
+    const second = fake.trenchEntry(1).*;
+    const objects = editor.document.objects.items.len;
+
+    // A press on entry 0's middle piece (70, 200) selects it and draws nothing.
+    try tool.handle(&editor, .{ .press = try at(&editor, 70, 200) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 70, 200) });
+    try testing.expectEqual(@as(?usize, 0), tool.selected);
+    try testing.expect(!tool.drawing());
+    // Hovering over entry 1 marks it, over bare ground nothing.
+    tool.hover(&editor, try at(&editor, 120, 60));
+    try testing.expectEqual(@as(?usize, 1), tool.hovered);
+    tool.hover(&editor, try at(&editor, 200, 240));
+    try testing.expectEqual(@as(?usize, null), tool.hovered);
+
+    // Delete: the selected entrenchment goes whole, one undo step.
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 1), fake.trenchCount());
+    try testing.expectEqualSlices(i32, second.linkSlice(), fake.trenchEntry(0).linkSlice());
+    try testing.expectEqual(objects - first.count, editor.document.objects.items.len);
+    for (first.linkSlice()) |link| try testing.expect(editor.document.find(link) == null);
+    try testing.expectEqual(@as(usize, 3), editor.history.undo_stack.items.len);
+
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 2), fake.trenchCount());
+    try testing.expectEqualSlices(i32, first.linkSlice(), fake.trenchEntry(0).linkSlice());
+    try testing.expectEqualSlices(i32, second.linkSlice(), fake.trenchEntry(1).linkSlice());
+    for (first.linkSlice()) |link| try testing.expect(editor.document.find(link) != null);
+    try testing.expectEqual(objects, editor.document.objects.items.len);
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(@as(usize, 1), fake.trenchCount());
+
+    // With nothing selected, Delete takes the hovered one.
+    tool.hover(&editor, try at(&editor, 70, 60));
+    try testing.expectEqual(@as(?usize, 0), tool.hovered);
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 0), fake.trenchCount());
+    // And with neither, it is a note, not a command.
+    const depth = editor.history.undo_stack.items.len;
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "delete") != null);
+    try testing.expectEqual(depth, editor.history.undo_stack.items.len);
+}
+
+test "a trench piece alone is still refused to the object delete (D-04)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: EntrenchmentTool = .{};
+    try trenchClick(&tool, &editor, 20, 200);
+    try trenchClick(&tool, &editor, 120, 200);
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 120, 200) });
+    const piece = fake.trenchEntry(0).links[2];
+    try testing.expectError(error.Refused, editor.delete(piece));
+    try testing.expectEqualStrings("still part of entrenchment 0", editor.status());
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expect(editor.document.find(piece) != null);
+    // The pick finds the piece's entrenchment.
+    const group = (try editor.pickGroup(70, 200)).?;
+    try testing.expectEqual(bridge_mod.GroupKind.entrenchment, group.kind);
+    try testing.expectEqual(@as(usize, 0), group.index);
 }

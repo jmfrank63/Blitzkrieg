@@ -139,6 +139,7 @@ pub const RealBridge = struct {
         .planEntrenchment = vtablePlanEntrenchment,
         .drawEntrenchment = vtableDrawEntrenchment,
         .entrenchments = vtableEntrenchments,
+        .deleteEntrenchment = vtableDeleteEntrenchment,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -721,6 +722,10 @@ pub const RealBridge = struct {
         const c_points = trenchPoints(points, &buffer) orelse return .bad_argument;
         const points_ptr: [*c]const c.BkEditorVec3 = if (c_points.len == 0) null else c_points.ptr;
         return status(c.BkEditorDrawEntrenchment(self.session, points_ptr, @intCast(c_points.len), player, token, index));
+    }
+
+    fn vtableDeleteEntrenchment(ptr: *anyopaque, index: i32, token: *i32) Status {
+        return status(c.BkEditorDeleteEntrenchment(from(ptr).session, index, token));
     }
 
     /// BkEditorEntrenchments in two passes.

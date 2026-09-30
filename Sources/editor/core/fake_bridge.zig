@@ -585,6 +585,7 @@ pub const FakeBridge = struct {
         .planEntrenchment = planEntrenchment,
         .drawEntrenchment = drawEntrenchment,
         .entrenchments = entrenchments,
+        .deleteEntrenchment = deleteEntrenchment,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -1408,6 +1409,28 @@ pub const FakeBridge = struct {
             out[at] = info;
         }
         return if (out.len >= self.trench_entries.items.len) .ok else .refused;
+    }
+
+    /// The real delete's rules the core sees: every piece a known object of
+    /// the map, none holding a unit (nLinkWith is not modelled here, so that
+    /// refusal is the real bridge's alone).
+    fn deleteEntrenchment(ptr: *anyopaque, index: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (index < 0 or index >= self.trench_entries.items.len) return .bad_argument;
+        const at: usize = @intCast(index);
+        for (self.trench_entries.items[at].linkSlice()) |link| {
+            const place = self.indexOf(link) orelse {
+                self.say("piece link ID {d} of that entrenchment is not one the engine holds; the entrenchment is kept as it is", .{link});
+                return .refused;
+            };
+            if (!self.objects_list.items[place].known) {
+                self.say("piece link ID {d} of that entrenchment is not one the engine holds; the entrenchment is kept as it is", .{link});
+                return .refused;
+            }
+        }
+        return self.logBridgeEdit(.{ .before = .{ .trench = true, .entry_index = at, .entry = self.trench_entries.items[at] }, .after = null }, token);
     }
 
     /// The number of drawn entrenchments, for a test to read.

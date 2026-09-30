@@ -1,6 +1,8 @@
 // The map file tier. Runs with no window and no GPU device: see
 // tools/zig/data_only_startup.cpp for what "no window" costs.
 #include "StdAfx.h"
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <map>
@@ -2433,6 +2435,149 @@ static void TestM2TrenchOverlay()
 	printf( "map-file: M2 trench overlay ok\n" );
 }
 
+// The MFC editor cannot be run here for golden outputs, so the builder's
+// fidelity is pinned by what its rules make true of every trench, over 500
+// random polylines of 2 to 8 clicks in a 4000-unit square: a fixed-seed
+// linear congruential generator written here (no C library random call), so
+// the same 500 run everywhere.
+struct STrenchLcg
+{
+	unsigned int nState;
+	explicit STrenchLcg( unsigned int nSeed ) : nState( nSeed ) {  }
+	unsigned int Next() { nState = nState * 1664525u + 1013904223u; return nState >> 8; }
+	float Coordinate() { return float( Next() % 4000000u ) / 1000.0f; }
+	int Count( int nFrom, int nTo ) { return nFrom + int( Next() % unsigned( nTo - nFrom + 1 ) ); }
+};
+
+static bool SamePlan( const NMapGeometry::STrenchPlan &a, const NMapGeometry::STrenchPlan &b )
+{
+	if ( a.pieces.size() != b.pieces.size() || a.sections != b.sections || a.path.size() != b.path.size() )
+		return false;
+	for ( size_t i = 0; i < a.path.size(); ++i )
+		if ( a.path[i].x != b.path[i].x || a.path[i].y != b.path[i].y )
+			return false;
+	for ( size_t i = 0; i < a.pieces.size(); ++i )
+		if ( a.pieces[i].vPos.x != b.pieces[i].vPos.x || a.pieces[i].vPos.y != b.pieces[i].vPos.y ||
+		     a.pieces[i].nPackedType != b.pieces[i].nPackedType || a.pieces[i].nDir != b.pieces[i].nDir )
+			return false;
+	return true;
+}
+
+static bool IsStraight( int nType )
+{
+	return nType == NMapGeometry::TRENCH_LINE || nType == NMapGeometry::TRENCH_FIREPLACE;
+}
+
+static void TestM2TrenchProperties()
+{
+	const NMapGeometry::STrenchPlanInput input = ShippedTrenchInput();
+	STrenchLcg random( 20260930u );
+	const int nPolylines = 500;
+	int nPlanned = 0, nShort = 0, nPieces = 0, nArcs = 0, nSections = 0, nBad = 0;
+	for ( int nLine = 0; nLine < nPolylines; ++nLine )
+	{
+		std::vector<CVec2> clicks;
+		const int nClicks = random.Count( 2, 8 );
+		for ( int k = 0; k < nClicks; ++k )
+		{
+			const float fX = random.Coordinate();
+			clicks.push_back( CVec2( fX, random.Coordinate() ) );
+		}
+		NMapGeometry::STrenchPlan plan;
+		std::string szWhy;
+		if ( !NMapGeometry::PlanEntrenchment( input, clicks, &plan, &szWhy ) )
+		{
+			// The only refusal a polyline inside the square may meet: its clicks
+			// never made a path of two points (every later click within a piece
+			// of the first).
+			std::vector< CTPoint<int> > path;
+			NMapGeometry::TrenchPath( input, clicks, &path, 0 );
+			if ( !Check( szWhy.find( "shorter than one piece" ) != std::string::npos && path.size() < 2,
+			             NStr::Format( "polyline %d is refused only for being shorter than a piece (%s)", nLine, szWhy.c_str() ) ) )
+				++nBad;
+			++nShort;
+			continue;
+		}
+		++nPlanned;
+		const std::vector<NMapGeometry::SPlannedPiece> &rPieces = plan.pieces;
+		const std::vector< CTPoint<int> > &rPath = plan.path;
+		const int n = int( rPieces.size() );
+		nPieces += n;
+		nSections += int( plan.sections.size() );
+		bool bOk = n == int( rPath.size() ) + 1 && n >= 3;
+		// The terminators: the first two made, and the ends of the trench.
+		bOk = bOk && rPieces[0].nPackedType == NMapGeometry::TRENCH_TERMINATOR && rPieces[1].nPackedType == NMapGeometry::TRENCH_TERMINATOR;
+		bOk = bOk && !plan.sections.empty() && !plan.sections.front().empty() && plan.sections.front().front() == 0 && plan.sections.back().back() == 1;
+		// The begin terminator faces back along the first step: half a turn
+		// from the step's own direction, within the two truncations.
+		if ( bOk )
+		{
+			double fStep = atan2( double( rPath[1].y - rPath[0].y ), double( rPath[1].x - rPath[0].x ) );
+			if ( fStep < 0 )
+				fStep += 2.0 * 3.14159265358979323846;
+			const int nStep = int( fStep / ( 2.0 * 3.14159265358979323846 ) * 65535.0 );
+			const int nDiff = ( ( rPieces[0].nDir - nStep ) % 65535 + 65535 ) % 65535;
+			bOk = Check( nDiff >= 32766 && nDiff <= 32769, NStr::Format( "polyline %d: the begin terminator is half a turn from the first step (%d against %d)", nLine, rPieces[0].nDir, nStep ) );
+		}
+		// Every piece: a direction in 0..65535; a step piece at the Vis2AI of
+		// its step's integer midpoint, straight exactly when the step is longer
+		// than 0.9 line pieces; straight pieces alternating fireplace, line,
+		// fireplace... through the whole trench.
+		int nStraightSoFar = 0;
+		for ( int i = 0; bOk && i < n; ++i )
+		{
+			bOk = rPieces[i].nDir >= 0 && rPieces[i].nDir <= 65535;
+			if ( !bOk || i < 2 )
+				continue;
+			const CTPoint<int> &a = rPath[i - 2], &b = rPath[i - 1];
+			CVec3 vMid( float( ( a.x + b.x ) / 2 ), float( ( a.y + b.y ) / 2 ), 0.0f );
+			Vis2AI( &vMid );
+			bOk = rPieces[i].vPos.x == vMid.x && rPieces[i].vPos.y == vMid.y;
+			const bool bLong = float( std::hypot( float( b.x - a.x ), float( b.y - a.y ) ) ) > double( input.fLineWidth ) * 0.9;
+			bOk = bOk && IsStraight( rPieces[i].nPackedType ) == bLong && ( bLong || rPieces[i].nPackedType == NMapGeometry::TRENCH_ARC );
+			if ( bOk && bLong )
+			{
+				bOk = rPieces[i].nPackedType == ( nStraightSoFar % 2 == 0 ? NMapGeometry::TRENCH_FIREPLACE : NMapGeometry::TRENCH_LINE );
+				++nStraightSoFar;
+			}
+			nArcs += rPieces[i].nPackedType == NMapGeometry::TRENCH_ARC ? 1 : 0;
+		}
+		// Sections: none empty, every piece in exactly one, in trench order
+		// (the begin terminator, the steps, the end terminator), and a new one
+		// starts exactly at a straight piece that follows an arc.
+		std::vector<int> walk, starts;
+		for ( size_t sIndex = 0; bOk && sIndex < plan.sections.size(); ++sIndex )
+		{
+			bOk = !plan.sections[sIndex].empty();
+			starts.push_back( int( walk.size() ) );
+			walk.insert( walk.end(), plan.sections[sIndex].begin(), plan.sections[sIndex].end() );
+		}
+		if ( bOk )
+		{
+			std::vector<int> expectedWalk( 1, 0 );
+			for ( int i = 2; i < n; ++i )
+				expectedWalk.push_back( i );
+			expectedWalk.push_back( 1 );
+			bOk = walk == expectedWalk;
+		}
+		for ( size_t k = 1; bOk && k + 1 < walk.size(); ++k )
+		{
+			const bool bStarts = std::find( starts.begin(), starts.end(), int( k ) ) != starts.end();
+			const bool bAfterArc = IsStraight( rPieces[walk[k]].nPackedType ) && rPieces[walk[k - 1]].nPackedType == NMapGeometry::TRENCH_ARC;
+			bOk = bStarts == bAfterArc;
+		}
+		// The same clicks plan the same trench.
+		NMapGeometry::STrenchPlan again;
+		bOk = bOk && NMapGeometry::PlanEntrenchment( input, clicks, &again, 0 ) && SamePlan( plan, again );
+		if ( !Check( bOk, NStr::Format( "polyline %d (%d clicks, %d pieces, %d sections) keeps every builder property", nLine, nClicks, n, int( plan.sections.size() ) ) ) )
+			++nBad;
+	}
+	printf( "map-file: trench properties: %d planned, %d shorter than a piece, %d pieces, %d arcs, %d sections\n", nPlanned, nShort, nPieces, nArcs, nSections );
+	Check( nPlanned >= nPolylines * 9 / 10 && nArcs > 100 && nSections > nPlanned, "the random polylines exercise turns and sections, not only straight runs" );
+	if ( nBad == 0 )
+		printf( "map-file: M2 trench properties ok (%d polylines)\n", nPolylines );
+}
+
 static void TestRoundTrip( const std::string &szPath )
 {
 	CMapInfo original;
@@ -2536,6 +2681,7 @@ int main( int argc, char **argv )
 	TestM2BridgePlan();
 	TestM2FencePlan();
 	TestM2TrenchOverlay();
+	TestM2TrenchProperties();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );
