@@ -1637,15 +1637,16 @@ bool ApplyAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVert
 	NMapOverlay::CaptureAltitudeRegion( pSession->working, rGrown, &workingBefore );
 	NMapOverlay::CaptureTerrainAltitudeRegion( rEngineRead, rGrown, &engineBefore );
 
-	// Whole records built from the snapshot's own storage - the raw-struct
-	// padding rule - with the caller's heights in them; the shades the record
-	// carried do not survive the next step, which is the point.
+	// Whole records built from the snapshot's own storage - bitwise, the
+	// raw-struct padding rule (a member-wise copy would carry the heap's
+	// bytes into the file) - with the caller's heights in them; the shades
+	// the record carried do not survive the next step, which is the point.
 	std::vector<SVertexAltitude> values( nCount );
 	size_t nValue = 0;
 	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
 		for ( int x = rVertices.minx; x < rVertices.maxx; ++x, ++nValue )
 		{
-			values[nValue] = rSnapshot.altitudes[y][x];
+			memcpy( &values[nValue], &rSnapshot.altitudes[y][x], sizeof( SVertexAltitude ) );
 			values[nValue].fHeight = rHeights[nValue];
 		}
 

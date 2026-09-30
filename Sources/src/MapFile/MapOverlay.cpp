@@ -629,15 +629,19 @@ bool VertexRectValid( const STerrainInfo &rTerrain, const CTRect<int> &r )
 	       r.maxx <= rTerrain.altitudes.GetSizeX() && r.maxy <= rTerrain.altitudes.GetSizeY();
 }
 
-// Row-major over the rectangle, the layout SAltitudeUndo documents.
+// Row-major over the rectangle, the layout SAltitudeUndo documents. Every
+// copy is a memcpy: SVertexAltitude is written as a raw struct and its three
+// padding bytes must be the map's own, where a member-wise copy would leave
+// whatever the heap held there (the 04-01 rule).
 void RecordAltitudes( const STerrainInfo &rTerrain, const CTRect<int> &r, SAltitudeUndo *pOut )
 {
 	pOut->rVertices = r;
 	pOut->altitudes.clear();
-	pOut->altitudes.reserve( size_t( r.maxx - r.minx ) * size_t( r.maxy - r.miny ) );
+	pOut->altitudes.resize( size_t( r.maxx - r.minx ) * size_t( r.maxy - r.miny ) );
+	size_t nValue = 0;
 	for ( int y = r.miny; y < r.maxy; ++y )
-		for ( int x = r.minx; x < r.maxx; ++x )
-			pOut->altitudes.push_back( rTerrain.altitudes[y][x] );
+		for ( int x = r.minx; x < r.maxx; ++x, ++nValue )
+			memcpy( &( pOut->altitudes[nValue] ), &( rTerrain.altitudes[y][x] ), sizeof( SVertexAltitude ) );
 }
 }
 
@@ -674,7 +678,7 @@ bool SetTerrainAltitudeRegion( STerrainInfo *pTerrain, const CTRect<int> &rVerti
 	size_t nValue = 0;
 	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
 		for ( int x = rVertices.minx; x < rVertices.maxx; ++x, ++nValue )
-			pTerrain->altitudes[y][x] = rValues[nValue];
+			memcpy( &( pTerrain->altitudes[y][x] ), &rValues[nValue], sizeof( SVertexAltitude ) );
 	if ( pBefore )
 		*pBefore = before;
 	return true;
@@ -691,7 +695,7 @@ void UndoTerrainAltitudeRegion( STerrainInfo *pTerrain, const SAltitudeUndo &rUn
 	for ( int y = r.miny; y < r.maxy; ++y )
 		for ( int x = r.minx; x < r.maxx; ++x, ++nValue )
 			if ( nValue < rUndo.altitudes.size() )
-				pTerrain->altitudes[y][x] = rUndo.altitudes[nValue];
+				memcpy( &( pTerrain->altitudes[y][x] ), &rUndo.altitudes[nValue], sizeof( SVertexAltitude ) );
 }
 
 void CaptureAltitudeRegion( const SLoadMapInfo &rMap, const CTRect<int> &rVertices, SAltitudeUndo *pOut )

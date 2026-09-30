@@ -2693,7 +2693,16 @@ static void TestM3Altitudes( BkEditorSession *pSession, const std::string &szScr
 	       "a short buffer is refused" );
 	Check( nCount == nArea, "and still answers the total" );
 
-	// The edit, through the bridge.
+	// The edit, through the bridge. The unedited save is the SESSION's own,
+	// taken before anything changes: the snapshot's altitude padding bytes
+	// are its own heap's from the open's copy (the 04-01 raw-struct rule),
+	// so a byte compare against another read's write would measure the
+	// allocator, not the edit. Against this save the undo has to be exact -
+	// nothing outside the record ever moves.
+	const std::string szEdited = szScratch + "\\m3-altitudes-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-altitudes-undone.bzm";
+	const std::string szUnedited = szScratch + "\\m3-altitudes-unedited.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	int nToken = -1;
 	Check( BkEditorSetAltitudes( pSession, &region, &( ramp[0] ), nArea, &nToken ) == BK_EDITOR_OK,
 	       BkEditorLastMessage( pSession ) );
@@ -2709,9 +2718,11 @@ static void TestM3Altitudes( BkEditorSession *pSession, const std::string &szScr
 		for ( int x = 0; x < region.x1 - region.x0; ++x )
 		{
 			const int nX = region.x0 + x, nY = region.y0 + y;
-			SVertexAltitude value = expected.terrain.altitudes[nY][nX];
-			value.fHeight = 32.0f * float( x + y );
-			values[size_t( y * ( region.x1 - region.x0 ) + x )] = value;
+			const size_t nAt = size_t( y * ( region.x1 - region.x0 ) + x );
+			// Bitwise, so the padding bytes are the map's own (the
+			// raw-struct rule); only the height is the test's.
+			memcpy( &values[nAt], &expected.terrain.altitudes[nY][nX], sizeof( SVertexAltitude ) );
+			values[nAt].fHeight = 32.0f * float( x + y );
 		}
 	const CTRect<int> rEdit( region.x0, region.y0, region.x1, region.y1 );
 	const CTRect<int> rGrown = NMapOverlay::GrowForShades( expected, rEdit );
@@ -2720,9 +2731,6 @@ static void TestM3Altitudes( BkEditorSession *pSession, const std::string &szScr
 	       CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( expected.nSeason ) ) ),
 	       "the expected map's shades update" );
 
-	const std::string szEdited = szScratch + "\\m3-altitudes-edited.bzm";
-	const std::string szUndone = szScratch + "\\m3-altitudes-undone.bzm";
-	const std::string szUnedited = szScratch + "\\m3-altitudes-unedited.bzm";
 	CMapInfo reread;
 	std::string szWhere;
 	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
@@ -2736,17 +2744,13 @@ static void TestM3Altitudes( BkEditorSession *pSession, const std::string &szScr
 	}
 
 	// Undo puts the recorded region back raw; the file it writes is the
-	// unedited one, byte for byte.
+	// session's unedited save, byte for byte.
 	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
-	CMapInfo unedited;
-	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
-	     Check( NMapFile::Read( SHIPPED_MAP, &unedited, &szError ), szError.c_str() ) &&
-	     Check( NMapFile::Write( szUnedited.c_str(), unedited, &szError ), szError.c_str() ) )
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 	{
 		Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
-		       "an altitude edit undone writes the unedited file byte for byte" );
-		Check( NMapFile::AreEquivalent( original, reread, &szWhere ) == false, "the reread above was of the edited map" );
+		       "an altitude edit undone writes the unedited save byte for byte" );
 	}
 	// Redo, and the ramp is back.
 	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );

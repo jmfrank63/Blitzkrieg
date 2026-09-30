@@ -715,14 +715,15 @@ static void TestAltitudeRegion()
 	const CTRect<int> rEdit( 8, 8, 16, 16 );		// 8x8 vertices, interior
 
 	// The values: a smooth ramp of z values (world units), row-major, whole
-	// records so a raw undo has bytes to put back.
-	std::vector<SVertexAltitude> values;
+	// records - built bitwise, so the padding bytes are the map's own (the
+	// raw-struct rule) - for a raw undo to have bytes to put back.
+	std::vector<SVertexAltitude> values( size_t( rEdit.maxx - rEdit.minx ) * size_t( rEdit.maxy - rEdit.miny ) );
+	size_t nValue = 0;
 	for ( int y = rEdit.miny; y < rEdit.maxy; ++y )
-		for ( int x = rEdit.minx; x < rEdit.maxx; ++x )
+		for ( int x = rEdit.minx; x < rEdit.maxx; ++x, ++nValue )
 		{
-			SVertexAltitude value = original.terrain.altitudes[y][x];
-			value.fHeight = 32.0f * float( ( x - rEdit.minx ) + ( y - rEdit.miny ) );
-			values.push_back( value );
+			memcpy( &values[nValue], &original.terrain.altitudes[y][x], sizeof( SVertexAltitude ) );
+			values[nValue].fHeight = 32.0f * float( ( x - rEdit.minx ) + ( y - rEdit.miny ) );
 		}
 	const CTRect<int> rGrown = NMapOverlay::GrowForShades( original, rEdit );
 	Check( rGrown.minx == rEdit.minx - 1 && rGrown.maxx == rEdit.maxx + 1 &&
