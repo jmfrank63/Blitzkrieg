@@ -124,6 +124,11 @@ pub fn ViewWith(comptime Input: type) type {
         reserve_tool: core.tools_ai.ReservePositions = .{},
         /// 04-12: the AI General tool (D-19).
         ai_tool: core.tools_ai.AIGeneral = .{},
+        /// M3, D-18: the Heights tool. Its brush, speed, ratio and level
+        /// mode are the Heights panel's fields; the view routes the middle
+        /// button (and Alt+drag, and left+right held together) to it as the
+        /// level gesture.
+        heights_tool: core.tools_heights.Heights = .{},
         /// Set each frame by a panel that uses the Delete key itself (the Start
         /// Commands window while it is focused): the view then does not hand
         /// Delete or Backspace to the tool, which would delete the selected
@@ -143,6 +148,12 @@ pub fn ViewWith(comptime Input: type) type {
         /// left button's own events then become right ones until its release.
         right_button_down: bool = false,
         right_via_ctrl: bool = false,
+        /// The same for the middle button in the Heights tool (M3, D-18) -
+        /// or for Alt+left there (`middle_via_alt`), the trackpad's stand-in
+        /// for a middle button the MFC editor levels with. In every other
+        /// tool the middle button pans the camera, exactly as before.
+        middle_button_down: bool = false,
+        middle_via_alt: bool = false,
         /// The buttons a BK_EDITOR_AUTO schedule holds (SDL_BUTTON_*MASK
         /// bits): set by a scripted press and cleared by its scripted release
         /// (`holdScripted`). A scripted button is only an event pushed into
@@ -191,7 +202,7 @@ pub fn ViewWith(comptime Input: type) type {
         /// reaching the view even if the cursor drifts over an ImGui panel
         /// before it ends.
         pub fn hasActiveMouseGesture(self: *const Self) bool {
-            return self.left_button_down or self.right_button_down or self.panning;
+            return self.left_button_down or self.right_button_down or self.middle_button_down or self.panning;
         }
 
         /// The event with the modifier state stamped on its pointer.
@@ -199,6 +210,32 @@ pub fn ViewWith(comptime Input: type) type {
             var stamped = event;
             switch (stamped) {
                 .press, .drag, .release, .right_press, .right_drag, .right_release, .double_click => |*pointer| pointer.ctrl = ctrl,
+                .key => {},
+            }
+            return stamped;
+        }
+
+        /// Stamps which buttons are held as the event arrives, from the
+        /// view's own tracking (already updated for this event) plus the
+        /// motion's own mask when there is one (M3, D-18): a Heights stroke
+        /// changes with the combination - middle, or left and right
+        /// together, level - exactly the MFC's per-move flags
+        /// (DrawShadeState.cpp:195). `motion_state` is SDL's button mask
+        /// for a motion event, null for a press or release.
+        fn withButtons(self: *const Self, event: tools.Event, motion_state: ?u32) tools.Event {
+            var stamped = event;
+            switch (stamped) {
+                .press, .drag, .release, .right_press, .right_drag, .right_release, .double_click => |*pointer| {
+                    var left = self.left_button_down;
+                    var right = self.right_button_down;
+                    var middle = self.middle_button_down;
+                    if (motion_state) |mask| {
+                        if (mask & sdl3.c.SDL_BUTTON_LMASK != 0) left = true;
+                        if (mask & sdl3.c.SDL_BUTTON_RMASK != 0) right = true;
+                        if (mask & sdl3.c.SDL_BUTTON_MMASK != 0) middle = true;
+                    }
+                    pointer.buttons = .{ .left = left, .right = right, .middle = middle };
+                },
                 .key => {},
             }
             return stamped;
@@ -375,7 +412,13 @@ pub fn ViewWith(comptime Input: type) type {
                 sdl3.c.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl3.c.SDL_EVENT_MOUSE_BUTTON_UP => {
                     const button = event.button;
                     if (button.button == sdl3.c.SDL_BUTTON_MIDDLE) {
-                        self.handleMiddleButton(editor, button);
+                        // In the Heights tool the middle button levels (M3,
+                        // D-18); everywhere else it pans the camera, exactly
+                        // as before.
+                        if (self.tool == .heights)
+                            self.handleHeightsMiddle(editor, button)
+                        else
+                            self.handleMiddleButton(editor, button);
                         return;
                     }
                     const spec = tool_registry.entry(self.tool);
@@ -391,11 +434,22 @@ pub fn ViewWith(comptime Input: type) type {
                             if (spec.needs_right_button and spec.ctrl_click_is_right and Input.modState() & sdl3.c.SDL_KMOD_CTRL != 0) {
                                 self.right_button_down = true;
                                 self.right_via_ctrl = true;
-                                self.dispatch(editor, .{ .right_press = pointer });
+                                self.dispatch(editor, self.withButtons(.{ .right_press = pointer }, null));
+                                return;
+                            }
+                            // Alt+left is the middle button in the Heights tool
+                            // only (D-18: a trackpad's stand-in for the
+                            // level-drag); the heights tool never takes
+                            // Ctrl-as-right, so the two never collide.
+                            if (self.tool == .heights and Input.modState() & sdl3.c.SDL_KMOD_ALT != 0) {
+                                self.left_button_down = true;
+                                self.middle_button_down = true;
+                                self.middle_via_alt = true;
+                                self.dispatch(editor, self.withButtons(.{ .press = pointer }, null));
                                 return;
                             }
                             self.left_button_down = true;
-                            self.dispatch(editor, .{ .press = pointer });
+                            self.dispatch(editor, self.withButtons(.{ .press = pointer }, null));
                         },
                         .release => {
                             // Unlike a press, a release must still reach the
@@ -409,11 +463,18 @@ pub fn ViewWith(comptime Input: type) type {
                             if (self.right_via_ctrl) {
                                 self.right_button_down = false;
                                 self.right_via_ctrl = false;
-                                self.dispatch(editor, .{ .right_release = pointer });
+                                self.dispatch(editor, self.withButtons(.{ .right_release = pointer }, null));
                                 return;
                             }
+                            // An Alt-mapped middle ends with the left button's
+                            // own release, whichever left first - Alt or button.
+                            const was_alt_middle = self.middle_via_alt;
                             self.left_button_down = false;
-                            self.dispatch(editor, .{ .release = pointer });
+                            if (was_alt_middle) {
+                                self.middle_button_down = false;
+                                self.middle_via_alt = false;
+                            }
+                            self.dispatch(editor, self.withButtons(.{ .release = pointer }, null));
                         },
                         .right_press => {
                             if (!spec.needs_right_button) return;
@@ -421,21 +482,21 @@ pub fn ViewWith(comptime Input: type) type {
                             self.hover = pointer;
                             self.right_button_down = true;
                             self.right_via_ctrl = false;
-                            self.dispatch(editor, .{ .right_press = pointer });
+                            self.dispatch(editor, self.withButtons(.{ .right_press = pointer }, null));
                         },
                         .right_release => {
                             if (!self.right_button_down or self.right_via_ctrl) return;
                             const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
                             self.hover = pointer;
                             self.right_button_down = false;
-                            self.dispatch(editor, .{ .right_release = pointer });
+                            self.dispatch(editor, self.withButtons(.{ .right_release = pointer }, null));
                         },
                         .double_click => {
                             // After the single click's own press and release.
                             if (!spec.needs_double_click) return;
                             const pointer = editor.resolve(button.x, button.y) catch return;
                             self.hover = pointer;
-                            self.dispatch(editor, .{ .double_click = pointer });
+                            self.dispatch(editor, self.withButtons(.{ .double_click = pointer }, null));
                         },
                     }
                 },
@@ -445,6 +506,26 @@ pub fn ViewWith(comptime Input: type) type {
                 sdl3.c.SDL_EVENT_PINCH_BEGIN, sdl3.c.SDL_EVENT_PINCH_END => self.pinch_zoom.reset(),
                 sdl3.c.SDL_EVENT_PINCH_UPDATE => self.handlePinch(real, event.pinch),
                 else => {},
+            }
+        }
+
+        /// The Heights tool's middle button (M3, D-18): a level gesture, not
+        /// a camera pan - the press resolves (a press that cannot resolve
+        /// starts no gesture), the release reaches the tool even off the
+        /// terrain, and the mask says only the middle button.
+        fn handleHeightsMiddle(self: *Self, editor: *Editor, button: sdl3.c.SDL_MouseButtonEvent) void {
+            if (button.down) {
+                const pointer = editor.resolve(button.x, button.y) catch return;
+                self.hover = pointer;
+                self.middle_button_down = true;
+                self.middle_via_alt = false;
+                self.dispatch(editor, self.withButtons(.{ .press = pointer }, null));
+            } else {
+                const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
+                self.hover = pointer;
+                self.middle_button_down = false;
+                self.middle_via_alt = false;
+                self.dispatch(editor, self.withButtons(.{ .release = pointer }, null));
             }
         }
 
@@ -480,14 +561,24 @@ pub fn ViewWith(comptime Input: type) type {
             // The Entrenchment tool's preview follows the pointer, and so does
             // the entrenchment under it (04-08).
             if (self.tool == .entrenchment and !self.left_button_down and !self.right_button_down) self.trench_tool.hover(editor, pointer);
+            // A Heights level gesture (the middle button, or Alt+left mapped
+            // to it) drags as a left-button drag whose mask carries the
+            // middle - the tool's own precedence reads the combination.
+            if (self.middle_button_down) {
+                const held = if (self.middle_via_alt) sdl3.c.SDL_BUTTON_LMASK else sdl3.c.SDL_BUTTON_MMASK;
+                if (motion.state & held != 0 or motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) {
+                    self.dispatch(editor, self.withButtons(.{ .drag = pointer }, motion.state));
+                    return;
+                }
+            }
             if (self.right_button_down) {
                 // A right gesture (its own button, or Ctrl+left) drags as a
                 // right one; the left button's motion is then the same gesture.
                 const held = if (self.right_via_ctrl) view_math.sdl_button_lmask else view_math.sdl_button_rmask;
-                if (motion.state & held != 0) self.dispatch(editor, .{ .right_drag = pointer });
+                if (motion.state & held != 0) self.dispatch(editor, self.withButtons(.{ .right_drag = pointer }, motion.state));
                 return;
             }
-            if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, .{ .drag = pointer });
+            if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, self.withButtons(.{ .drag = pointer }, motion.state));
         }
 
         /// A mouse wheel or a two-finger trackpad swipe pans the camera; with
@@ -596,13 +687,13 @@ pub fn ViewWith(comptime Input: type) type {
             _ = real.setCamera(self.camera_x, self.camera_y);
         }
 
-        /// The largest square the brush tool paints (tools.Brush.radius, 0-4),
-        /// in corners along one side of that square of cells.
-        const max_brush_corners: usize = 2 * 4 + 2;
-        /// The perimeter of that square has 4*(n-1) corners for n corners per
-        /// side (a plain rectangle's corner count, walked as one loop); the
-        /// buffer is sized for the largest brush the slider allows.
-        const max_outline_points: usize = 4 * (max_brush_corners - 1);
+        /// The largest outline the view draws, in points along its whole
+        /// perimeter: the Brush's 16x16 stamp walks 4*16 cell corners, and
+        /// the Heights tool's brush*2-vertex pattern walks 4*(2*16 - 1)
+        /// vertices (M3, D-18/D-22) - 128 covers both with room. (The old
+        /// constant, 10 corners for M1's 9x9 ceiling, would have overrun at
+        /// the M3 combo's 16x16.)
+        const max_outline_points: usize = 4 * 32;
 
         /// A bright, easy-to-see outline colour, converted once through ImGui's
         /// own packer rather than hand-assuming its byte order.
@@ -649,14 +740,23 @@ pub fn ViewWith(comptime Input: type) type {
         /// camera). The sound markers above draw regardless of the active tool.
         pub fn drawOverlay(self: *Self, real: anytype, sounds: []const core.bridge.SoundRecord, selected_sound: ?usize) void {
             drawSoundMarkers(real, sounds, selected_sound);
-            if (self.tool != .brush) return;
+            if (self.tool != .brush and self.tool != .heights) return;
             if (Input.capture().mouse) return;
             const hover = self.hover orelse return;
             const tile = hover.tile orelse return;
-            // The stamp's top-left, not a radius: the brush is sized in
-            // cells per axis now (M3, D-22), even sizes included.
-            const origin = tools.Brush.topLeft(self.brush.size, tile);
-            const n: i32 = self.brush.size + 1; // corners along one side
+            // The stamp's shape: the Brush paints a square of CELLS - its
+            // top-left, not a radius (the brush is sized in cells per axis
+            // now, M3, D-22, even sizes included) - while the Heights tool's
+            // pattern spans brush*2 VERTICES with its corner above-left of
+            // the cursor's tile by the MFC's own arithmetic
+            // (DrawShadeState.cpp:206-207), so its outline walks the pattern's
+            // own boundary vertices (PARITY TR9: the same outline the M1
+            // brush already draws, over the heights brush's footprint).
+            const origin: [2]i32 = if (self.tool == .heights)
+                .{ tile[0] - (self.heights_tool.brush - 1), tile[1] - (self.heights_tool.brush - 1) }
+            else
+                tools.Brush.topLeft(self.brush.size, tile);
+            const n: i32 = if (self.tool == .heights) self.heights_tool.brush * 2 else self.brush.size + 1; // points along one side
             // The engine tier confirms this against BkEditorWorldToTile: a
             // tile's CENTRE - not a corner - is a plain index * world_cell_size
             // in X (CTerrain::GetTileIndex rounds to the nearest tile rather
@@ -730,6 +830,12 @@ pub fn ViewWith(comptime Input: type) type {
                 self.right_button_down = false;
                 self.right_via_ctrl = false;
             }
+            if (self.middle_button_down) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .release = pointer });
+                self.middle_button_down = false;
+                self.middle_via_alt = false;
+            }
             self.tool = tool;
         }
 
@@ -776,6 +882,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .start_target => self.start_target.handle(editor, event),
                 .reserve_positions => self.reserve_tool.handle(editor, event),
                 .ai_general => self.ai_tool.handle(editor, event),
+                .heights => self.heights_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
             // The Start Target tool takes one click: back to the tool it came from.
@@ -835,7 +942,12 @@ pub fn ViewWith(comptime Input: type) type {
             // handlers are the only place panning/left_button_down used to clear.
             // Ctrl+left as the right button holds the LEFT mask.
             const right_mask_held = buttons & (if (self.right_via_ctrl) view_math.sdl_button_lmask else view_math.sdl_button_rmask) != 0;
-            const stale = view_math.staleGesture(if (right_mask_held) buttons | view_math.sdl_button_rmask else buttons & ~view_math.sdl_button_rmask, self.panning, self.left_button_down, self.right_button_down);
+            // Alt+left as the middle button holds the LEFT mask (the
+            // right_via_ctrl trick one branch up); the middle gesture ends
+            // when neither it nor the button it rode is down.
+            const middle_mask = if (self.middle_via_alt) view_math.sdl_button_lmask else view_math.sdl_button_mmask;
+            const middle_still_down = buttons & middle_mask != 0 or buttons & view_math.sdl_button_mmask != 0;
+            const stale = view_math.staleGesture(if (right_mask_held) buttons | view_math.sdl_button_rmask else buttons & ~view_math.sdl_button_rmask, self.panning, self.left_button_down and !self.middle_via_alt, self.right_button_down);
             if (stale.end_pan) self.panning = false;
             if (stale.end_left) {
                 const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
@@ -847,6 +959,15 @@ pub fn ViewWith(comptime Input: type) type {
                 self.dispatch(editor, .{ .right_release = pointer });
                 self.right_button_down = false;
                 self.right_via_ctrl = false;
+            }
+            if (self.middle_button_down and !middle_still_down) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .release = pointer });
+                // An Alt-mapped middle rode the left button's own gesture
+                // state; both end together.
+                if (self.middle_via_alt) self.left_button_down = false;
+                self.middle_button_down = false;
+                self.middle_via_alt = false;
             }
             // Stale hover over a panel: the hovered tile and the brush outline
             // (drawOverlay checks Input.capture().mouse itself) must disappear

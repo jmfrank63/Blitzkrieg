@@ -27,6 +27,7 @@ const tool_registry = @import("tool_registry.zig");
 const markers = @import("markers.zig");
 const commands = @import("commands.zig");
 const panels_m2 = @import("panels_m2.zig");
+const panels_m3 = @import("panels_m3.zig");
 
 const ig = imgui.c;
 const Editor = core.editor.Editor;
@@ -448,6 +449,15 @@ pub const State = struct {
     /// the editor's `.group` record generation moves past
     /// `groups_generation_seen` (`refreshGroups`), or a map opens.
     groups_open: bool = false,
+    /// M3, D-18: the Heights window (Tools > Heights). Its fields are the
+    /// Heights tool's own (brush, speed, ratio, level mode); these four are
+    /// the Generate group's - the MFC dialog's own defaults
+    /// (granularity 0.3, min -3, max 3, TabTerrainAltitudesDialog.cpp:146-154).
+    heights_open: bool = false,
+    heights_generate_type: core.bridge.HeightsGenerateType = .hills,
+    heights_granularity: f32 = 0.3,
+    heights_min_z: f32 = -3.0,
+    heights_max_z: f32 = 3.0,
     groups: std.ArrayListUnmanaged(GroupRow) = .empty,
     groups_generation_seen: ?u32 = null,
     /// The groups the map held when it opened, for `groups_delta`.
@@ -1276,6 +1286,7 @@ pub fn draw(state: *State) void {
     panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
     drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height + layout.anchors_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height - layout.anchors_height, 100) }, cond);
     panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
+    panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
@@ -2246,10 +2257,18 @@ fn drawMenuBar(state: *State) f32 {
             const shortcut = tool_registry.shortcutText(item, &shortcut_buffer);
             if (ig.igMenuItemEx(item.label, if (shortcut.len == 0) null else shortcut.ptr, state.view.tool == item.id, true)) state.view.selectTool(editor, item.id);
         }
+        // M3, D-18: the Heights window (the MFC terrain tab's dialog) beside
+        // the tool it drives - the tool is the gesture, the window the fields.
+        ig.igSeparator();
+        if (ig.igMenuItemBoolPtr("Heights...", null, &state.heights_open, true)) {}
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {
         if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
+        // The floating windows the menus own (the M2/M3 panels' own View
+        // entries, D-34's show/hide every panel as it lands).
+        if (ig.igMenuItemBoolPtr("Heights", null, &state.heights_open, true)) {}
+        if (ig.igMenuItemBoolPtr("Reinforcement groups", null, &state.groups_open, map_open)) {}
         if (ig.igBeginMenu("Markers")) {
             inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {
                 var on = state.marker_set.has(kind);

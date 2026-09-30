@@ -92,6 +92,42 @@ pub const PaintCell = extern struct { x: c_int, y: c_int, tile: u8 };
 /// vertex, one more per axis than the map's tiles.
 pub const AltitudeRegion = extern struct { x0: c_int, y0: c_int, x1: c_int, y1: c_int };
 
+/// BkEditorHeightsStrokeParams (M3, D-18), layout included: one stroke step
+/// of the Heights tool. `action` 0 raise, 1 lower, 2 level; `level_mode` 0
+/// zero, 1 click tile, 2 instant average (the MFC's own default), 3 click
+/// average; `brush` the MFC slider's own 2..16 (the pattern spans brush*2
+/// vertices per axis); `height_speed` the profile gradient's ceiling and
+/// `level_ratio_percent` the level step, world z units / percent; pos the
+/// cursor now and click the stroke's start, both WORLD (Vis) units;
+/// `stroke_start` marks the first step (where the click modes' frozen
+/// targets are taken); `ctrl_held` keeps a height the engine's validity
+/// predicate refuses.
+pub const HeightsStrokeParams = extern struct {
+    action: c_int = 0,
+    level_mode: c_int = 2,
+    brush: c_int = 3,
+    height_speed: f32 = 1.0,
+    level_ratio_percent: f32 = 3.0,
+    pos_x: f32 = 0,
+    pos_y: f32 = 0,
+    click_x: f32 = 0,
+    click_y: f32 = 0,
+    stroke_start: c_int = 0,
+    ctrl_held: c_int = 0,
+};
+
+/// The Heights tool's Generate types (M3, D-18): the MFC dialog's three
+/// names; the hidden MULTI/HETERO radios are not features. The values are
+/// the engine's own ETerGenAlgs (TerrainGenerator.h:14-23).
+pub const HeightsGenerateType = enum(c_int) { hills = 0, rocks = 3, dunes = 4 };
+
+/// What a heights stroke does (the buttons decide, the MFC's own precedence).
+pub const HeightsAction = enum(c_int) { raise = 0, lower = 1, level = 2 };
+
+/// What a level stroke moves the terrain toward (the MFC's LEVEL_TO_0..3,
+/// default LEVEL_TO_2 - instant average).
+pub const HeightsLevelMode = enum(c_int) { zero = 0, click_tile = 1, instant_average = 2, click_average = 3 };
+
 /// BkEditorNewMapParams (M3, D-23), layout included. Sizes are in PATCHES
 /// per axis (1..32), season 0..3 (Summer/Winter/Africa/Spring), and the mod
 /// folder is "" (keep the current mod), "none", or a bare folder name the
@@ -429,6 +465,21 @@ pub const Bridge = struct {
         /// one, switched first when it differs) and it opens as the
         /// session's map, never-saved. The summary answers what was built.
         newMap: *const fn (ptr: *anyopaque, params: NewMapParams, info: *MapInfo) Status,
+        /// BkEditorHeightsStroke (M3, D-18): one stroke step of the Heights
+        /// tool - the MFC DrawShadeState machine over the profile pattern,
+        /// the click modes' frozen targets taken on the stroke-start step.
+        /// One bridge edit per step (the token names it for
+        /// undoEdit/redoEdit); a step whose result fails the engine's
+        /// height-validity predicate is refused ("invalid height") and
+        /// changes nothing unless ctrl_held is set.
+        heightsStroke: *const fn (ptr: *anyopaque, params: HeightsStrokeParams, token: *i32) Status,
+        /// BkEditorGenerateHeights (M3, D-18): the engine's own noise over
+        /// the whole vertex sheet, one edit. The confirmation is the
+        /// caller's.
+        generateHeights: *const fn (ptr: *anyopaque, gen_type: HeightsGenerateType, granularity: f32, min_z: f32, max_z: f32, token: *i32) Status,
+        /// BkEditorSetZeroHeights (M3, D-18): every height to 0, shades
+        /// recomputed, one edit. The confirmation is the caller's.
+        setZeroHeights: *const fn (ptr: *anyopaque, token: *i32) Status,
         /// BkEditorVsoDescriptors: the season's road or river types, bare
         /// names, sorted. `total` is always the full count (two-pass, like
         /// `sounds`).
@@ -560,6 +611,9 @@ pub const Bridge = struct {
     pub fn altitudes(self: Bridge, region: AltitudeRegion, heights: []f32, total: *usize) Status { return self.vtable.altitudes(self.ptr, region, heights, total); }
     pub fn setAltitudes(self: Bridge, region: AltitudeRegion, heights: []const f32, token: *i32) Status { return self.vtable.setAltitudes(self.ptr, region, heights, token); }
     pub fn newMap(self: Bridge, params: NewMapParams, info: *MapInfo) Status { return self.vtable.newMap(self.ptr, params, info); }
+    pub fn heightsStroke(self: Bridge, params: HeightsStrokeParams, token: *i32) Status { return self.vtable.heightsStroke(self.ptr, params, token); }
+    pub fn generateHeights(self: Bridge, gen_type: HeightsGenerateType, granularity: f32, min_z: f32, max_z: f32, token: *i32) Status { return self.vtable.generateHeights(self.ptr, gen_type, granularity, min_z, max_z, token); }
+    pub fn setZeroHeights(self: Bridge, token: *i32) Status { return self.vtable.setZeroHeights(self.ptr, token); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }
@@ -612,4 +666,14 @@ test "new map params have the C struct's layout" {
     try std.testing.expectEqual(@as(usize, 12 + 2 * name_capacity), @sizeOf(NewMapParams));
     try std.testing.expectEqual(@as(usize, 12), @offsetOf(NewMapParams, "name"));
     try std.testing.expectEqual(@as(usize, 12 + name_capacity), @offsetOf(NewMapParams, "mod_folder"));
+}
+
+test "a heights stroke has the C struct's layout" {
+    // 3 ints, 6 floats, 2 ints - 44 bytes, no padding in either run.
+    try std.testing.expectEqual(@as(usize, 44), @sizeOf(HeightsStrokeParams));
+    try std.testing.expectEqual(@as(usize, 12), @offsetOf(HeightsStrokeParams, "height_speed"));
+    try std.testing.expectEqual(@as(usize, 20), @offsetOf(HeightsStrokeParams, "pos_x"));
+    try std.testing.expectEqual(@as(usize, 28), @offsetOf(HeightsStrokeParams, "click_x"));
+    try std.testing.expectEqual(@as(usize, 36), @offsetOf(HeightsStrokeParams, "stroke_start"));
+    try std.testing.expectEqual(@as(usize, 40), @offsetOf(HeightsStrokeParams, "ctrl_held"));
 }

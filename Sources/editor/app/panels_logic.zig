@@ -2679,3 +2679,62 @@ test "enginePath: the default format is what an extensionless save gets" {
     // A path that names its format keeps it whatever the default is.
     try std.testing.expectEqualStrings("\\tmp\\b.xml", enginePath(&buffer, "/tmp/b.xml", .save_as, .bzm).?);
 }
+
+// ---------------------------------------------------------------------------
+// Heights (M3, D-18): the panel's and the commands' pure helpers - parsing
+// the fields, naming the level modes and the generate types.
+// ---------------------------------------------------------------------------
+
+/// A heights field's float: finite, dot decimal. Null for anything else (the
+/// command grammar's own printable ASCII, no space, no comma).
+pub fn parseHeightsFloat(text: []const u8) ?f32 {
+    if (text.len == 0 or text.len > 32) return null;
+    const value = std.fmt.parseFloat(f32, text) catch return null;
+    if (!std.math.isFinite(value)) return null;
+    return value;
+}
+
+/// The level modes' command names, in bridge.HeightsLevelMode's own order.
+pub const heights_mode_names = [_][]const u8{ "zero", "click_tile", "instant_average", "click_average" };
+
+/// The mode a `heights_mode:` argument names, or null.
+pub fn heightsModeFromName(text: []const u8) ?core.bridge.HeightsLevelMode {
+    for (heights_mode_names, 0..) |name, index| {
+        if (std.mem.eql(u8, text, name)) return @enumFromInt(@as(c_int, @intCast(index)));
+    }
+    return null;
+}
+
+/// The generate type a `heights_generate:` argument names (the MFC dialog's
+/// own three; the hidden MULTI/HETERO radios are not features), or null.
+pub fn heightsGenerateTypeFromName(text: []const u8) ?core.bridge.HeightsGenerateType {
+    if (std.mem.eql(u8, text, "hills")) return .hills;
+    if (std.mem.eql(u8, text, "rocks")) return .rocks;
+    if (std.mem.eql(u8, text, "dunes")) return .dunes;
+    return null;
+}
+
+test "heights fields: the floats the MFC's own edit rules would take" {
+    try std.testing.expectEqual(@as(?f32, 1.0), parseHeightsFloat("1"));
+    try std.testing.expectEqual(@as(?f32, 0.03), parseHeightsFloat("0.03"));
+    try std.testing.expectEqual(@as(?f32, -3.5), parseHeightsFloat("-3.5"));
+    try std.testing.expectEqual(@as(?f32, null), parseHeightsFloat(""));
+    try std.testing.expectEqual(@as(?f32, null), parseHeightsFloat("abc"));
+    try std.testing.expectEqual(@as(?f32, null), parseHeightsFloat("1 2"));
+    try std.testing.expectEqual(@as(?f32, null), parseHeightsFloat("nan"));
+    try std.testing.expectEqual(@as(?f32, null), parseHeightsFloat("inf"));
+}
+
+test "heights modes and generate types: the names the commands take" {
+    try std.testing.expectEqual(core.bridge.HeightsLevelMode.zero, heightsModeFromName("zero").?);
+    try std.testing.expectEqual(core.bridge.HeightsLevelMode.click_tile, heightsModeFromName("click_tile").?);
+    try std.testing.expectEqual(core.bridge.HeightsLevelMode.instant_average, heightsModeFromName("instant_average").?);
+    try std.testing.expectEqual(core.bridge.HeightsLevelMode.click_average, heightsModeFromName("click_average").?);
+    try std.testing.expectEqual(@as(?core.bridge.HeightsLevelMode, null), heightsModeFromName("Instant Average"));
+    try std.testing.expectEqual(@as(?core.bridge.HeightsLevelMode, null), heightsModeFromName(""));
+    try std.testing.expectEqual(core.bridge.HeightsGenerateType.hills, heightsGenerateTypeFromName("hills").?);
+    try std.testing.expectEqual(core.bridge.HeightsGenerateType.rocks, heightsGenerateTypeFromName("rocks").?);
+    try std.testing.expectEqual(core.bridge.HeightsGenerateType.dunes, heightsGenerateTypeFromName("dunes").?);
+    try std.testing.expectEqual(@as(?core.bridge.HeightsGenerateType, null), heightsGenerateTypeFromName("multi"));
+    try std.testing.expectEqual(@as(?core.bridge.HeightsGenerateType, null), heightsGenerateTypeFromName("hetero"));
+}

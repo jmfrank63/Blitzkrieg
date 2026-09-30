@@ -38,6 +38,16 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorNewMapParams) == 12 + 2 * core.bridge.name_capacity);
     std.debug.assert(@offsetOf(core.bridge.NewMapParams, "name") == @offsetOf(c.BkEditorNewMapParams, "szName"));
     std.debug.assert(@offsetOf(core.bridge.NewMapParams, "mod_folder") == @offsetOf(c.BkEditorNewMapParams, "szModFolder"));
+    // The heights stroke params (M3, D-18): three ints, six floats, two ints
+    // - 44 bytes - handed to BkEditorHeightsStroke as they are.
+    std.debug.assert(@sizeOf(core.bridge.HeightsStrokeParams) == @sizeOf(c.BkEditorHeightsStrokeParams));
+    std.debug.assert(@sizeOf(c.BkEditorHeightsStrokeParams) == 44);
+    std.debug.assert(@offsetOf(core.bridge.HeightsStrokeParams, "action") == @offsetOf(c.BkEditorHeightsStrokeParams, "action"));
+    std.debug.assert(@offsetOf(core.bridge.HeightsStrokeParams, "height_speed") == @offsetOf(c.BkEditorHeightsStrokeParams, "height_speed"));
+    std.debug.assert(@offsetOf(core.bridge.HeightsStrokeParams, "pos_x") == @offsetOf(c.BkEditorHeightsStrokeParams, "pos_x"));
+    std.debug.assert(@offsetOf(core.bridge.HeightsStrokeParams, "click_x") == @offsetOf(c.BkEditorHeightsStrokeParams, "click_x"));
+    std.debug.assert(@offsetOf(core.bridge.HeightsStrokeParams, "stroke_start") == @offsetOf(c.BkEditorHeightsStrokeParams, "stroke_start"));
+    std.debug.assert(@offsetOf(core.bridge.HeightsStrokeParams, "ctrl_held") == @offsetOf(c.BkEditorHeightsStrokeParams, "ctrl_held"));
     // The core's camera anchors are read and put field by field, but the C
     // record's layout is part of the ABI: 12 (neutral) + 4 (count) + 32 * 12.
     std.debug.assert(@sizeOf(c.BkEditorVec3) == 12);
@@ -157,6 +167,9 @@ pub const RealBridge = struct {
         .altitudes = vtableAltitudes,
         .setAltitudes = vtableSetAltitudes,
         .newMap = vtableNewMap,
+        .heightsStroke = vtableHeightsStroke,
+        .generateHeights = vtableGenerateHeights,
+        .setZeroHeights = vtableSetZeroHeights,
         .vsoDescriptors = vtableVsoDescriptors,
         .vsoCount = vtableVsoCount,
         .readVso = vtableReadVso,
@@ -990,6 +1003,35 @@ pub const RealBridge = struct {
             .attacking_side = summary.attacking_side,
         };
         return result;
+    }
+
+    /// BkEditorHeightsStroke: the params are layout-identical (asserted
+    /// above), so they pass straight through.
+    fn vtableHeightsStroke(ptr: *anyopaque, params: core.bridge.HeightsStrokeParams, token: *i32) Status {
+        const c_params: c.BkEditorHeightsStrokeParams = .{
+            .action = params.action,
+            .level_mode = params.level_mode,
+            .brush = params.brush,
+            .height_speed = params.height_speed,
+            .level_ratio_percent = params.level_ratio_percent,
+            .pos_x = params.pos_x,
+            .pos_y = params.pos_y,
+            .click_x = params.click_x,
+            .click_y = params.click_y,
+            .stroke_start = params.stroke_start,
+            .ctrl_held = params.ctrl_held,
+        };
+        return status(c.BkEditorHeightsStroke(from(ptr).session, &c_params, token));
+    }
+
+    /// BkEditorGenerateHeights.
+    fn vtableGenerateHeights(ptr: *anyopaque, gen_type: core.bridge.HeightsGenerateType, granularity: f32, min_z: f32, max_z: f32, token: *i32) Status {
+        return status(c.BkEditorGenerateHeights(from(ptr).session, @intFromEnum(gen_type), granularity, min_z, max_z, token));
+    }
+
+    /// BkEditorSetZeroHeights.
+    fn vtableSetZeroHeights(ptr: *anyopaque, token: *i32) Status {
+        return status(c.BkEditorSetZeroHeights(from(ptr).session, token));
     }
 
     fn kindInt(kind: VsoKind) c_int {

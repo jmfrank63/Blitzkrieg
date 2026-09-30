@@ -1353,6 +1353,41 @@ pub const Editor = struct {
         self.commitEdit(&prepared, token, gesture, .altitudes);
     }
 
+    /// One step of one Heights-tool stroke (M3, D-18): the bridge derives
+    /// the pattern and the level target, applies the D-19 function and logs
+    /// one edit; the steps of one drag (`gesture`) merge into one undo
+    /// step, exactly like a paint. A refused step - the cursor off the map,
+    /// the invalid-height rollback - changes nothing: not the bridge, not
+    /// the history, not the generation, and a tool may send the next step
+    /// of the same stroke anyway (the refused-stamp rule).
+    pub fn heightsStroke(self: *Editor, params: bridge_mod.HeightsStrokeParams, gesture: u32) EditError!void {
+        var prepared = try self.prepareEdit(gesture, .altitudes);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.heightsStroke(params, &token));
+        self.commitEdit(&prepared, token, gesture, .altitudes);
+    }
+
+    /// Generate heights (M3, D-18): the engine's own noise over the whole
+    /// sheet, one undo step. The confirmation is the caller's.
+    pub fn generateHeights(self: *Editor, gen_type: bridge_mod.HeightsGenerateType, granularity: f32, min_z: f32, max_z: f32) EditError!void {
+        var prepared = try self.prepareEdit(0, .altitudes);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.generateHeights(gen_type, granularity, min_z, max_z, &token));
+        self.commitEdit(&prepared, token, 0, .altitudes);
+    }
+
+    /// Set Zero (M3, D-18): every height to 0, one undo step. The
+    /// confirmation is the caller's.
+    pub fn setZeroHeights(self: *Editor) EditError!void {
+        var prepared = try self.prepareEdit(0, .altitudes);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.setZeroHeights(&token));
+        self.commitEdit(&prepared, token, 0, .altitudes);
+    }
+
     /// The terrain vertex heights (WORLD z units) over `region`, row-major
     /// into `out` (sized by a first sizing call, `altitudes`'s two-pass
     /// rule). A read: the status line is left alone.

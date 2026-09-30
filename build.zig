@@ -3806,6 +3806,7 @@ fn addEditorBridge(
             "Sources/src/EditorBridge/bridge.cpp",
             "Sources/src/EditorBridge/session.cpp",
             "Sources/src/EditorBridge/session_records.cpp",
+            "Sources/src/EditorBridge/session_terrain.cpp",
             "Sources/src/EditorBridge/session_vso.cpp",
             "Sources/src/EditorBridge/session_groups.cpp",
             "Sources/src/EditorBridge/catalogue.cpp",
