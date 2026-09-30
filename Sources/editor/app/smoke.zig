@@ -1658,8 +1658,13 @@ pub const AutoRunner = struct {
         return self.pushKey(mapped, mod, true) and self.pushKey(mapped, mod, false);
     }
 
+    /// A press the schedule holds until its `release=`/`rrelease=`, in this
+    /// frame or a later one: the view counts the button as held meanwhile
+    /// (View.holdScripted), so `drag=` entries in later frames reach the
+    /// same gesture.
     fn runPress(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
+        self.view.holdScripted(button.mask(), true);
         return self.pushMotion(p, 0) and self.pushButton(p, true, button, 1);
     }
 
@@ -1667,8 +1672,11 @@ pub const AutoRunner = struct {
         return self.pushMotion(self.screen(point), button.mask());
     }
 
+    /// Lets go of the scripted hold: the release event is handled in this
+    /// frame's poll, before the view's stale-gesture guard runs.
     fn runRelease(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
+        self.view.holdScripted(button.mask(), false);
         return self.pushMotion(p, button.mask()) and self.pushButton(p, false, button, 1);
     }
 

@@ -123,6 +123,15 @@ pub fn ViewWith(comptime Input: type) type {
         /// left button's own events then become right ones until its release.
         right_button_down: bool = false,
         right_via_ctrl: bool = false,
+        /// The buttons a BK_EDITOR_AUTO schedule holds (SDL_BUTTON_*MASK
+        /// bits): set by a scripted press and cleared by its scripted release
+        /// (`holdScripted`). A scripted button is only an event pushed into
+        /// SDL's queue - SDL_GetMouseState never sees it - so without this the
+        /// stale-gesture guard in `update` would end a scripted drag at the
+        /// end of the press's own frame, and the schedule's later `drag=` and
+        /// `release=` would reach a tool with nothing in hand (04-05
+        /// deviation 3, fixed in 04-06). Always 0 for a person at the mouse.
+        scripted_buttons: u32 = 0,
         placer_name_storage: [64]u8 = undefined,
         /// The view's part of the status bar (see `statusLine`).
         status: view_math.StatusSlot = .{},
@@ -207,6 +216,13 @@ pub fn ViewWith(comptime Input: type) type {
             const len = @min(name.len, self.placer_name_storage.len);
             @memcpy(self.placer_name_storage[0..len], name[0..len]);
             self.placer.name = self.placer_name_storage[0..len];
+        }
+
+        /// A scripted press (`down`) or release of the buttons in `mask`: held
+        /// across frames for the stale-gesture guard until the scripted
+        /// release, as a real held button would be (see `scripted_buttons`).
+        pub fn holdScripted(self: *Self, mask: u32, down: bool) void {
+            if (down) self.scripted_buttons |= mask else self.scripted_buttons &= ~mask;
         }
 
         /// Undo and redo for the Edit menu, reported as the keys report them.
@@ -714,7 +730,9 @@ pub fn ViewWith(comptime Input: type) type {
             // gate does not hold.
             var mouse_x: f32 = -1;
             var mouse_y: f32 = -1;
-            const buttons = Input.mouseState(&mouse_x, &mouse_y);
+            // A scripted hold counts as held (BK_EDITOR_AUTO's drags span
+            // frames); it is 0 unless a schedule pressed a button.
+            const buttons = Input.mouseState(&mouse_x, &mouse_y) | self.scripted_buttons;
             const capture = Input.capture();
             // Task 2 (carried from plan 5): a pan or a left-button tool gesture
             // whose release ImGui or another window took, rather than the view
@@ -1269,6 +1287,45 @@ test "view: a pan or stroke whose release went elsewhere ends on the next frame"
     rig.send(keyDown(sdl3.c.SDLK_Z, sdl3.c.SDL_KMOD_GUI, false));
     try testing.expectEqual(@as(u8, 9), rig.fake.tile(1, 1));
     try testing.expectEqual(@as(u8, 0), rig.fake.tile(2, 1));
+}
+
+test "view: a scripted press stays held across frames until its scripted release, so a drag spans frames as one stroke" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
+    rig.view.brush.tile = 7;
+    // BK_EDITOR_AUTO's press: the real mouse holds nothing (FakeInput.buttons
+    // stays 0), the schedule holds the left button.
+    rig.view.holdScripted(view_math.sdl_button_lmask, true);
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    // Later frames: the drags reach the same stroke.
+    rig.send(mouseMotion(72, 40, view_math.sdl_button_lmask));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    rig.send(mouseMotion(104, 40, view_math.sdl_button_lmask));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    // The scripted release, in a later frame still.
+    rig.view.holdScripted(view_math.sdl_button_lmask, false);
+    rig.send(mouseButton(button_left, false, 104, 40));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    try testing.expectEqual(@as(u32, 0), rig.view.scripted_buttons);
+    try testing.expectEqual(@as(u8, 7), rig.fake.tile(1, 1));
+    try testing.expectEqual(@as(u8, 7), rig.fake.tile(2, 1));
+    try testing.expectEqual(@as(u8, 7), rig.fake.tile(3, 1));
+    // One stroke, one undo step.
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    rig.send(keyDown(sdl3.c.SDLK_Z, sdl3.c.SDL_KMOD_GUI, false));
+    try testing.expectEqual(@as(u8, 0), rig.fake.tile(1, 1));
+    try testing.expectEqual(@as(u8, 0), rig.fake.tile(3, 1));
+    // Without the hold the guard still ends a stroke whose release went
+    // elsewhere (the M1 rule is unchanged).
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
 }
 
 test "view: a hover over a panel is dropped unless a gesture the view started is open" {
