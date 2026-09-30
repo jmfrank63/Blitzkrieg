@@ -588,6 +588,10 @@ test "a re-read that fails after an undo leaves the step on the redo stack, wher
     try testing.expectEqual(bridges_before, fake.bridgeCount());
 }
 
+test "the fake holds as many trench points and bridge spans as the tools draw (WR-B06)" {
+    try testing.expect(fake_mod.max_bridge_spans >= max_trench_points);
+}
+
 test "an undo that shifts the bridges list keeps the tool on the bridge it had selected (WR-B02)" {
     var fake = try editor_mod.testFixture(testing.allocator);
     defer fake.deinit();

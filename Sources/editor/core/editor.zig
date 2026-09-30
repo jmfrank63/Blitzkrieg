@@ -2523,6 +2523,21 @@ test "group: delete takes the group and its IDs out, undo puts both back exactly
     try expectGroup(&fake, 4, &.{ 42, 7, 9 });
 }
 
+test "group: a file group holding an odd ID (a duplicate, one out of range) comes back on undo of its delete (WR-B06)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGroupFixture(4, &.{ 7, 7, 40000 });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deleteGroup(4);
+    try std.testing.expect(try editor.undo());
+    try expectGroup(&fake, 4, &.{ 7, 7, 40000 });
+    try std.testing.expect(!editor.dirty());
+    // A NEW group is still held to the rules.
+    const value: records.Value = .{ .group = .{ .id = 9, .ids = &.{ 40000 } } };
+    try std.testing.expectError(error.Refused, editor.addRecord(.group, 9, &value));
+}
+
 test "group: New, add and delete all undone leave the map as it opened" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
