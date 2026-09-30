@@ -875,13 +875,17 @@ pub const AIGeneral = struct {
             return;
         }
         if (self.selected_point) |point_index| {
-            if (point_index < side.parcels[index].points.len) {
-                try side.removePoint(allocator, index, point_index);
+            // A point that is gone (an undo took it) is not the parcel: the
+            // Delete meant for one point never takes the whole parcel (WR-B08).
+            if (point_index >= side.parcels[index].points.len) {
                 self.selected_point = null;
-                try editor.editAiSide(self.side, side, 0);
+                editor.note("that point is gone");
                 return;
             }
+            try side.removePoint(allocator, index, point_index);
             self.selected_point = null;
+            try editor.editAiSide(self.side, side, 0);
+            return;
         }
         try side.removeParcel(allocator, index);
         self.selected_parcel = null;
@@ -1475,6 +1479,28 @@ test "AI General: a click inside a parcel adds a reinforce point stored relative
     try expectNear(200, at[1], 0.01);
     try testing.expect(try editor.undo());
     try testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].parcels[0].points.len);
+}
+
+test "AI General: Delete with a stale point selected deletes nothing, never the whole parcel (WR-B08)" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 250, 200) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 250, 200) });
+    try testing.expectEqual(@as(?usize, 0), tool.selected_point);
+    // An undo the tool did not see takes the point away; the index is stale.
+    try testing.expect(try editor.undo());
+    const depth = editor.history.undo_stack.items.len;
+    try tool.deleteSelected(&editor);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "gone") != null);
+    try testing.expectEqual(@as(?usize, null), tool.selected_point);
+    try testing.expectEqual(@as(?usize, 0), tool.selected_parcel);
 }
 
 test "AI General: a point in a parcel of direction 0 is the click less the centre, and the click is cut first" {
