@@ -42,6 +42,7 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorPlannedPiece) == 4 * 4);
     std.debug.assert(@sizeOf(c.BkEditorBridgeInfo) == core.bridge.name_capacity + 4 + 4 * 4 + 4);
     std.debug.assert(@sizeOf(c.BkEditorFenceDescriptor) == core.bridge.name_capacity);
+    std.debug.assert(@sizeOf(c.BkEditorEntrenchmentInfo) == 3 * 4 + 4 * 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -135,6 +136,9 @@ pub const RealBridge = struct {
         .fenceDescriptors = vtableFenceDescriptors,
         .planFences = vtablePlanFences,
         .drawFences = vtableDrawFences,
+        .planEntrenchment = vtablePlanEntrenchment,
+        .drawEntrenchment = vtableDrawEntrenchment,
+        .entrenchments = vtableEntrenchments,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -677,6 +681,74 @@ pub const RealBridge = struct {
         var desc_buffer: [core.bridge.name_capacity]u8 = undefined;
         const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
         return status(c.BkEditorDrawFences(self.session, desc_z, wx0, wy0, wx1, wy1, if (ctrl) 1 else 0, token));
+    }
+
+    /// The clicks as the C call takes them; null for more than the bridge
+    /// takes (it answers BK_EDITOR_BAD_ARGUMENT for over 256 anyway).
+    fn trenchPoints(points: []const record_types.Vec3, out: *[257]c.BkEditorVec3) ?[]const c.BkEditorVec3 {
+        if (points.len > out.len) return null;
+        for (points, out[0..points.len]) |point, *c_point| c_point.* = toCVec3(point);
+        return out[0..points.len];
+    }
+
+    /// BkEditorPlanEntrenchment in two passes (a long trench has hundreds of
+    /// pieces): `total` is always the planned count.
+    fn vtablePlanEntrenchment(ptr: *anyopaque, points: []const record_types.Vec3, out: []core.bridge.PlannedPiece, total: *usize) Status {
+        const self = from(ptr);
+        var buffer: [257]c.BkEditorVec3 = undefined;
+        const c_points = trenchPoints(points, &buffer) orelse return .bad_argument;
+        const points_ptr: [*c]const c.BkEditorVec3 = if (c_points.len == 0) null else c_points.ptr;
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorPlanEntrenchment(self.session, points_ptr, @intCast(c_points.len), null, 0, &count));
+        total.* = if (count < 0) 0 else @intCast(count);
+        // A refusal with nothing planned is the plan's (too short, off the map).
+        if (sizing == .ok) return .ok;
+        if (sizing != .refused or count <= 0) return sizing;
+        if (out.len < total.*) return .refused;
+        const raw = std.heap.page_allocator.alloc(c.BkEditorPlannedPiece, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(raw);
+        var got: c_int = 0;
+        const read = status(c.BkEditorPlanEntrenchment(self.session, points_ptr, @intCast(c_points.len), raw.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (raw, out[0..raw.len]) |piece, *planned| planned.* = .{ .x = piece.x, .y = piece.y, .type = piece.type, .dir = piece.dir };
+        return .ok;
+    }
+
+    fn vtableDrawEntrenchment(ptr: *anyopaque, points: []const record_types.Vec3, player: i32, token: *i32, index: *i32) Status {
+        const self = from(ptr);
+        var buffer: [257]c.BkEditorVec3 = undefined;
+        const c_points = trenchPoints(points, &buffer) orelse return .bad_argument;
+        const points_ptr: [*c]const c.BkEditorVec3 = if (c_points.len == 0) null else c_points.ptr;
+        return status(c.BkEditorDrawEntrenchment(self.session, points_ptr, @intCast(c_points.len), player, token, index));
+    }
+
+    /// BkEditorEntrenchments in two passes.
+    fn vtableEntrenchments(ptr: *anyopaque, out: []core.bridge.EntrenchmentInfo, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorEntrenchments(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const raw = std.heap.page_allocator.alloc(c.BkEditorEntrenchmentInfo, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(raw);
+        var got: c_int = 0;
+        const read = status(c.BkEditorEntrenchments(self.session, raw.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (raw, out[0..raw.len]) |item, *info| info.* = .{
+            .piece_count = item.piece_count,
+            .section_count = item.section_count,
+            .player = item.player,
+            .min_x = item.min_x,
+            .min_y = item.min_y,
+            .max_x = item.max_x,
+            .max_y = item.max_y,
+        };
+        return .ok;
     }
 
     /// The engine tier's road and river agreement check.

@@ -52,6 +52,11 @@ pub const Editor = struct {
     /// a close, so the Bridges panel and the markers read the bridges again
     /// (04-06; the bridge holds them).
     bridges_generation: u32 = 0,
+    /// The same for entrenchments (04-08): bumped with every edit of the
+    /// `objects` scope (a trench draw or delete, and every bridge or fence
+    /// edit, which may renumber nothing but costs a panel one re-read), its
+    /// undo and redo, and an open or a close.
+    entrenchments_generation: u32 = 0,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -164,6 +169,7 @@ pub const Editor = struct {
         self.selection = null;
         self.vso_generation +%= 1;
         self.bridges_generation +%= 1;
+        self.entrenchments_generation +%= 1;
     }
 
     /// Forgets the open document: no path, no objects, nothing to undo or
@@ -185,6 +191,7 @@ pub const Editor = struct {
         self.selection = null;
         self.vso_generation +%= 1;
         self.bridges_generation +%= 1;
+        self.entrenchments_generation +%= 1;
     }
 
     /// The new path is copied before the bridge writes: once the file is
@@ -628,7 +635,10 @@ pub const Editor = struct {
     fn bumpScope(self: *Editor, scope: history_mod.EditScope) void {
         switch (scope) {
             .vso => self.vso_generation +%= 1,
-            .objects => self.bridges_generation +%= 1,
+            .objects => {
+                self.bridges_generation +%= 1;
+                self.entrenchments_generation +%= 1;
+            },
         }
     }
 
@@ -867,6 +877,52 @@ pub const Editor = struct {
         return total;
     }
 
+    /// Draws the entrenchment the clicks `points` commit (WORLD units, in
+    /// order; z ignored) for `player` (D-13): the bridge runs the MFC builder
+    /// (straight runs of fireplaces and lines, arcs at turns, a terminator at
+    /// each end), adds the pieces and a new entrenchments entry as one undo
+    /// step, and the document's objects are read again (scope `objects`).
+    /// Returns the entry's index. A refusal (fewer than two points a piece
+    /// apart, a piece off the map) changes nothing: not the bridge, not the
+    /// history.
+    pub fn drawEntrenchment(self: *Editor, points: []const records.Vec3, player: i32) EditError!usize {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        var index: i32 = -1;
+        try self.noteOutcome(self.bridge.drawEntrenchment(points, player, &token, &index));
+        self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjects();
+        return if (index >= 0) @intCast(index) else 0;
+    }
+
+    /// The pieces the clicks would commit (MAP units), changing nothing - the
+    /// preview. Writes at most `out.len` and returns how many the plan has;
+    /// null when the trench is refused, the reason in `bridge.lastMessage()`.
+    /// A read: the status line is left alone (the preview asks as the
+    /// pointer moves).
+    pub fn planEntrenchment(self: *Editor, points: []const records.Vec3, out: []bridge_mod.PlannedPiece) EditError!?usize {
+        var total: usize = 0;
+        const result = self.bridge.planEntrenchment(points, out, &total);
+        if (result == .refused and total > out.len) return total;
+        if (result == .refused) return null;
+        try bridge_mod.check(result);
+        return total;
+    }
+
+    /// The map's entrenchments in list order; the caller frees the slice with
+    /// `allocator`. A read: the status line is left alone.
+    pub fn entrenchments(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.EntrenchmentInfo {
+        var total: usize = 0;
+        var none: [0]bridge_mod.EntrenchmentInfo = .{};
+        const sizing = self.bridge.entrenchments(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        const out = try allocator.alloc(bridge_mod.EntrenchmentInfo, total);
+        errdefer allocator.free(out);
+        try bridge_mod.check(self.bridge.entrenchments(out, &total));
+        return out;
+    }
+
     /// The bridge or entrenchment under a screen point (window pixels), or
     /// null. A read: the status line is left alone.
     pub fn pickGroup(self: *Editor, sx: f32, sy: f32) EditError!?bridge_mod.GroupRef {
@@ -995,6 +1051,7 @@ pub const Editor = struct {
                     .vso => self.vso_generation +%= 1,
                     .objects => {
                         self.bridges_generation +%= 1;
+                        self.entrenchments_generation +%= 1;
                         try self.reloadObjects();
                     },
                 }

@@ -378,5 +378,47 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     std.debug.print("map-editor-engine: M2 bridge round trip ok ({d} spans)\n", .{spans});
 
+    // M2 (04-08): an L-shaped entrenchment drawn through the core Editor on
+    // the real engine - the bridge runs the MFC builder, adds the pieces and
+    // the entrenchments entry as one step - then undone, redone and undone,
+    // with the engine, the world and the document agreeing with the map each
+    // time.
+    const trenches_at_open = count: {
+        const at_open = try editor.entrenchments(std.testing.allocator);
+        defer std.testing.allocator.free(at_open);
+        break :count at_open.len;
+    };
+    const objects_before_trench = editor.document.objects.items.len;
+    const clicks = [_]core.records.Vec3{
+        .{ .x = middle_x - 300, .y = middle_y - 250 },
+        .{ .x = middle_x + 300, .y = middle_y - 250 },
+        .{ .x = middle_x + 300, .y = middle_y + 250 },
+    };
+    const trench = try editor.drawEntrenchment(&clicks, 1);
+    try std.testing.expectEqual(trenches_at_open, trench);
+    const drawn_trenches = try editor.entrenchments(std.testing.allocator);
+    defer std.testing.allocator.free(drawn_trenches);
+    try std.testing.expectEqual(trenches_at_open + 1, drawn_trenches.len);
+    const pieces: usize = @intCast(drawn_trenches[trench].piece_count);
+    try std.testing.expect(pieces >= 6);
+    try std.testing.expect(drawn_trenches[trench].section_count >= 2);
+    try std.testing.expectEqual(@as(i32, 1), drawn_trenches[trench].player);
+    try std.testing.expectEqual(objects_before_trench + pieces, editor.document.objects.items.len);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.undo();
+    try std.testing.expectEqual(objects_before_trench, editor.document.objects.items.len);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.redo();
+    try std.testing.expectEqual(objects_before_trench + pieces, editor.document.objects.items.len);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    std.debug.print("map-editor-engine: M2 entrenchment round trip ok ({d} pieces, {d} sections)\n", .{ pieces, drawn_trenches[trench].section_count });
+
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }

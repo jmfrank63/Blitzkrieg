@@ -230,6 +230,26 @@ pub const FenceDescriptor = struct {
     }
 };
 
+/// BkEditorEntrenchmentInfo (04-08): one entrenchments entry - how many
+/// pieces and sections it names, its first piece's player and the box of its
+/// pieces' positions (MAP units).
+pub const EntrenchmentInfo = struct {
+    piece_count: i32 = 0,
+    section_count: i32 = 0,
+    player: i32 = 0,
+    min_x: f32 = 0,
+    min_y: f32 = 0,
+    max_x: f32 = 0,
+    max_y: f32 = 0,
+};
+
+/// The packed trench piece types a planned piece carries (BkEditorPlannedPiece
+/// .type for a trench): 1 line, 2 fireplace, 4 terminator, 8 arc.
+pub const trench_line: i32 = 1;
+pub const trench_fireplace: i32 = 2;
+pub const trench_terminator: i32 = 4;
+pub const trench_arc: i32 = 8;
+
 /// BkEditorPickGroup's kinds: a bridge span picks its bridges entry, a trench
 /// piece its entrenchment.
 pub const GroupKind = enum(u8) { bridge = 1, entrenchment = 2 };
@@ -361,6 +381,18 @@ pub const Bridge = struct {
         /// (`token`). Refused, changing nothing, for the plan's refusals and
         /// a fence the engine will not place.
         drawFences: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status,
+        /// BkEditorPlanEntrenchment (04-08): the pieces the clicks (WORLD
+        /// units) would commit, changing nothing; `total` is always the
+        /// planned count. Refused naming why (shorter than a piece, off the
+        /// map).
+        planEntrenchment: *const fn (ptr: *anyopaque, points: []const records.Vec3, out: []PlannedPiece, total: *usize) Status,
+        /// BkEditorDrawEntrenchment: the planned pieces and a new
+        /// entrenchments entry for `player`, one edit (`token`); `index` is
+        /// the entry's. Refused, changing nothing, for the plan's refusals.
+        drawEntrenchment: *const fn (ptr: *anyopaque, points: []const records.Vec3, player: i32, token: *i32, index: *i32) Status,
+        /// BkEditorEntrenchments: every entrenchments entry in list order
+        /// (two-pass).
+        entrenchments: *const fn (ptr: *anyopaque, out: []EntrenchmentInfo, total: *usize) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -412,6 +444,9 @@ pub const Bridge = struct {
     pub fn fenceDescriptors(self: Bridge, out: []FenceDescriptor, total: *usize) Status { return self.vtable.fenceDescriptors(self.ptr, out, total); }
     pub fn planFences(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []PlannedPiece, total: *usize) Status { return self.vtable.planFences(self.ptr, desc, wx0, wy0, wx1, wy1, ctrl, out, total); }
     pub fn drawFences(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status { return self.vtable.drawFences(self.ptr, desc, wx0, wy0, wx1, wy1, ctrl, token); }
+    pub fn planEntrenchment(self: Bridge, points: []const records.Vec3, out: []PlannedPiece, total: *usize) Status { return self.vtable.planEntrenchment(self.ptr, points, out, total); }
+    pub fn drawEntrenchment(self: Bridge, points: []const records.Vec3, player: i32, token: *i32, index: *i32) Status { return self.vtable.drawEntrenchment(self.ptr, points, player, token, index); }
+    pub fn entrenchments(self: Bridge, out: []EntrenchmentInfo, total: *usize) Status { return self.vtable.entrenchments(self.ptr, out, total); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

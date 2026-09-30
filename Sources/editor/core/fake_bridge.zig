@@ -59,6 +59,7 @@ const BridgeDescriptor = bridge_mod.BridgeDescriptor;
 const PlannedPiece = bridge_mod.PlannedPiece;
 const BridgeInfo = bridge_mod.BridgeInfo;
 const FenceDescriptor = bridge_mod.FenceDescriptor;
+const EntrenchmentInfo = bridge_mod.EntrenchmentInfo;
 
 /// World units per tile, standing in for the engine's own conversion.
 pub const tile_size: f32 = 32.0;
@@ -183,6 +184,9 @@ const FakeBridgeGroup = struct {
     /// A fence run (04-07) has no bridges entry: only its objects go out and
     /// come back, and `entry` just holds their link IDs.
     entryless: bool = false,
+    /// An entrenchment (04-08): the entry is in `trench_entries`, not
+    /// `bridge_entries`; otherwise the same group.
+    trench: bool = false,
     entry_index: usize = 0,
     entry: FakeBridgeEntry = .{},
     spans: [max_bridge_spans]ObjectRecord = @splat(.{}),
@@ -237,6 +241,10 @@ pub const FakeBridge = struct {
     bridge_entries: std.ArrayListUnmanaged(FakeBridgeEntry) = .empty,
     /// The fence types (`addFenceTypeFixture`).
     fence_types: std.ArrayListUnmanaged(FenceDescriptor) = .empty,
+    /// The map's entrenchments drawn with the Entrenchment tool (04-08), in
+    /// list order: the link IDs of each one's pieces (the fake keeps one
+    /// section per trench). A fixture's `trench_pieces` stay apart.
+    trench_entries: std.ArrayListUnmanaged(FakeBridgeEntry) = .empty,
     applied_edits: std.ArrayListUnmanaged(i32) = .empty,
     undone_edits: std.ArrayListUnmanaged(i32) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
@@ -301,6 +309,7 @@ pub const FakeBridge = struct {
         self.bridge_types.deinit(self.allocator);
         self.bridge_entries.deinit(self.allocator);
         self.fence_types.deinit(self.allocator);
+        self.trench_entries.deinit(self.allocator);
         self.applied_edits.deinit(self.allocator);
         self.undone_edits.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
@@ -573,6 +582,9 @@ pub const FakeBridge = struct {
         .fenceDescriptors = fenceDescriptors,
         .planFences = planFences,
         .drawFences = drawFences,
+        .planEntrenchment = planEntrenchment,
+        .drawEntrenchment = drawEntrenchment,
+        .entrenchments = entrenchments,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -1095,6 +1107,19 @@ pub const FakeBridge = struct {
                 }
             }
         }
+        at = self.trench_entries.items.len;
+        while (at != 0) {
+            at -= 1;
+            for (self.trench_entries.items[at].linkSlice()) |link| {
+                const place = self.indexOf(link) orelse continue;
+                const piece = self.objects_list.items[place];
+                if (@abs(piece.x / self.map_per_world - sx) <= pick_radius and @abs(piece.y / self.map_per_world - sy) <= pick_radius) {
+                    kind.* = .entrenchment;
+                    index.* = @intCast(at);
+                    return .ok;
+                }
+            }
+        }
         var pieces = self.trench_pieces.iterator();
         while (pieces.next()) |piece| {
             const place = self.indexOf(piece.key_ptr.*) orelse continue;
@@ -1261,6 +1286,139 @@ pub const FakeBridge = struct {
         return self.logBridgeEdit(.{ .before = null, .after = group }, token);
     }
 
+    /// The drawn entrenchment naming the piece, else a fixture piece's
+    /// (`addTrenchPieceFixture`), else null.
+    fn trenchHolding(self: *const FakeBridge, link_id: i32) ?i32 {
+        for (self.trench_entries.items, 0..) |*entry, index| {
+            if (entry.holds(link_id)) return @intCast(index);
+        }
+        return self.trench_pieces.get(link_id);
+    }
+
+    /// The real builder's rules the core can see, without its geometry: a
+    /// click within 2 world units of the one kept before it is dropped; fewer
+    /// than two kept is "shorter than one piece"; a terminator at each end
+    /// (the begin one first, then the end one, as the real plan lists them)
+    /// and one piece per step at its midpoint, fireplace and line alternating
+    /// from a fireplace; a piece off the map refuses the trench. Positions
+    /// are MAP units.
+    fn planTrenchFor(self: *FakeBridge, points: []const records.Vec3, plan: *Plan) Status {
+        if (points.len > 256) return .bad_argument;
+        for (points) |point| {
+            if (!std.math.isFinite(point.x) or !std.math.isFinite(point.y)) return .bad_argument;
+        }
+        var kept: [max_bridge_spans][2]f32 = undefined;
+        var count: usize = 0;
+        for (points) |point| {
+            if (count > 0 and std.math.hypot(point.x - kept[count - 1][0], point.y - kept[count - 1][1]) <= 2) continue;
+            if (count + 1 >= max_bridge_spans) {
+                self.say("the fake holds at most {d} pieces per trench", .{max_bridge_spans});
+                return .refused;
+            }
+            kept[count] = .{ point.x, point.y };
+            count += 1;
+        }
+        if (count < 2) {
+            self.say("the trench is shorter than one piece: click farther on, then double-click", .{});
+            return .refused;
+        }
+        plan.* = .{};
+        plan.pieces[0] = .{ .x = kept[0][0], .y = kept[0][1], .type = bridge_mod.trench_terminator };
+        plan.pieces[1] = .{ .x = kept[count - 1][0], .y = kept[count - 1][1], .type = bridge_mod.trench_terminator };
+        for (0..count - 1) |step| {
+            plan.pieces[2 + step] = .{
+                .x = (kept[step][0] + kept[step + 1][0]) / 2,
+                .y = (kept[step][1] + kept[step + 1][1]) / 2,
+                .type = if (step % 2 == 0) bridge_mod.trench_fireplace else bridge_mod.trench_line,
+            };
+        }
+        plan.count = count + 1;
+        for (plan.pieces[0..plan.count]) |*piece| {
+            if (!self.onMap(piece.x, piece.y)) {
+                self.say("the trench leaves the map", .{});
+                return .refused;
+            }
+            piece.x *= self.map_per_world;
+            piece.y *= self.map_per_world;
+        }
+        return .ok;
+    }
+
+    fn planEntrenchment(ptr: *anyopaque, points: []const records.Vec3, out: []PlannedPiece, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        var plan: Plan = .{};
+        const planned = self.planTrenchFor(points, &plan);
+        if (planned != .ok) return planned;
+        total.* = plan.count;
+        const count = @min(out.len, plan.count);
+        @memcpy(out[0..count], plan.pieces[0..count]);
+        return if (out.len >= plan.count) .ok else .refused;
+    }
+
+    fn drawEntrenchment(ptr: *anyopaque, points: []const records.Vec3, player: i32, token: *i32, index: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        index.* = -1;
+        if (player < 0 or player >= self.info.player_count) return .bad_argument;
+        var plan: Plan = .{};
+        const planned = self.planTrenchFor(points, &plan);
+        if (planned != .ok) return planned;
+        var group: FakeBridgeGroup = .{ .trench = true, .entry_index = self.trench_entries.items.len, .count = plan.count };
+        var link_id = self.nextLinkId();
+        for (plan.pieces[0..plan.count], 0..) |piece, at| {
+            var object: ObjectRecord = .{ .link_id = link_id, .x = piece.x, .y = piece.y, .dir = 0, .player = player };
+            object.setName("Entrenchment");
+            group.spans[at] = object;
+            group.places[at] = std.math.maxInt(usize); // appended
+            group.entry.links[at] = link_id;
+            link_id += 1;
+        }
+        group.entry.count = plan.count;
+        const logged = self.logBridgeEdit(.{ .before = null, .after = group }, token);
+        if (logged != .ok) return logged;
+        index.* = @intCast(group.entry_index);
+        return .ok;
+    }
+
+    fn entrenchments(ptr: *anyopaque, out: []EntrenchmentInfo, total: *usize) Status {
+        const self = from(ptr);
+        total.* = self.trench_entries.items.len;
+        for (self.trench_entries.items[0..@min(out.len, self.trench_entries.items.len)], 0..) |*entry, at| {
+            var info: EntrenchmentInfo = .{ .piece_count = @intCast(entry.count), .section_count = 1 };
+            var any = false;
+            for (entry.linkSlice()) |link| {
+                const place = self.indexOf(link) orelse continue;
+                const piece = self.objects_list.items[place];
+                if (!any) {
+                    info.player = piece.player;
+                    info.min_x = piece.x;
+                    info.max_x = piece.x;
+                    info.min_y = piece.y;
+                    info.max_y = piece.y;
+                    any = true;
+                }
+                info.min_x = @min(info.min_x, piece.x);
+                info.min_y = @min(info.min_y, piece.y);
+                info.max_x = @max(info.max_x, piece.x);
+                info.max_y = @max(info.max_y, piece.y);
+            }
+            out[at] = info;
+        }
+        return if (out.len >= self.trench_entries.items.len) .ok else .refused;
+    }
+
+    /// The number of drawn entrenchments, for a test to read.
+    pub fn trenchCount(self: *const FakeBridge) usize {
+        return self.trench_entries.items.len;
+    }
+
+    pub fn trenchEntry(self: *const FakeBridge, index: usize) *const FakeBridgeEntry {
+        return &self.trench_entries.items[index];
+    }
+
     fn putBuild(self: *FakeBridge, index: usize, built: bool) Status {
         if (index >= self.bridge_entries.items.len) return .failed;
         self.bridge_entries.items[index].built = built;
@@ -1386,10 +1544,16 @@ pub const FakeBridge = struct {
 
     /// The entry first, then the spans in descending place (the real
     /// RemoveGroup's order), their records and places kept for the way back.
+    /// The list a group's entry lives in: a trench's or a bridge's.
+    fn entryList(self: *FakeBridge, group: *const FakeBridgeGroup) *std.ArrayListUnmanaged(FakeBridgeEntry) {
+        return if (group.trench) &self.trench_entries else &self.bridge_entries;
+    }
+
     fn removeBridgeGroup(self: *FakeBridge, group: *FakeBridgeGroup) Status {
+        const list = self.entryList(group);
         if (!group.entryless) {
-            if (group.entry_index >= self.bridge_entries.items.len) return .failed;
-            const held = self.bridge_entries.items[group.entry_index];
+            if (group.entry_index >= list.items.len) return .failed;
+            const held = list.items[group.entry_index];
             if (!std.mem.eql(i32, held.linkSlice(), group.entry.linkSlice())) return .failed;
             group.entry = held;
         }
@@ -1403,7 +1567,7 @@ pub const FakeBridge = struct {
         std.mem.sort(usize, group.places[0..count], {}, std.sort.asc(usize));
         for (group.places[0..count], 0..) |place, at| group.spans[at] = self.objects_list.items[place];
         group.count = count;
-        if (!group.entryless) _ = self.bridge_entries.orderedRemove(group.entry_index);
+        if (!group.entryless) _ = list.orderedRemove(group.entry_index);
         var at = count;
         while (at != 0) {
             at -= 1;
@@ -1415,7 +1579,8 @@ pub const FakeBridge = struct {
 
     /// The spans back at their places, ascending, then the entry at its index.
     fn addBridgeGroup(self: *FakeBridge, group: *const FakeBridgeGroup) Status {
-        if (!group.entryless and group.entry_index > self.bridge_entries.items.len) return .failed;
+        const list = self.entryList(group);
+        if (!group.entryless and group.entry_index > list.items.len) return .failed;
         for (group.spans[0..group.count]) |span| {
             if (self.indexOf(span.link_id) != null) {
                 self.say("a span's link ID is in use again", .{});
@@ -1423,12 +1588,12 @@ pub const FakeBridge = struct {
             }
         }
         self.objects_list.ensureUnusedCapacity(self.allocator, group.count) catch return .failed;
-        if (!group.entryless) self.bridge_entries.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        if (!group.entryless) list.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         for (group.spans[0..group.count], group.places[0..group.count]) |span, place| {
             self.objects_list.insertAssumeCapacity(@min(place, self.objects_list.items.len), span);
             self.link_floor = @max(self.link_floor, span.link_id + 1);
         }
-        if (!group.entryless) self.bridge_entries.insertAssumeCapacity(group.entry_index, group.entry);
+        if (!group.entryless) list.insertAssumeCapacity(group.entry_index, group.entry);
         return .ok;
     }
 
@@ -1556,7 +1721,7 @@ pub const FakeBridge = struct {
             self.say("still referred to by bridge {d}", .{bridge_index});
             return .refused;
         }
-        if (self.trench_pieces.get(link_id)) |entrenchment_index| {
+        if (self.trenchHolding(link_id)) |entrenchment_index| {
             self.say("still part of entrenchment {d}", .{entrenchment_index});
             return .refused;
         }

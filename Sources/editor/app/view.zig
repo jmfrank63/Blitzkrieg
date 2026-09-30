@@ -112,6 +112,8 @@ pub fn ViewWith(comptime Input: type) type {
         /// 04-06: the Bridge tool (D-10..D-12).
         bridge_tool: core.tools_groups.BridgeTool = .{},
         fence_tool: core.tools_groups.FenceTool = .{},
+        /// 04-08: the Entrenchment tool (D-13).
+        trench_tool: core.tools_groups.EntrenchmentTool = .{},
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -263,6 +265,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.roads_rivers.reset();
             self.bridge_tool.reset();
             self.fence_tool.reset();
+            self.trench_tool.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -308,6 +311,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.roads_rivers.reset();
             self.bridge_tool.reset();
             self.fence_tool.reset();
+            self.trench_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -429,6 +433,7 @@ pub fn ViewWith(comptime Input: type) type {
             const pointer = editor.resolve(motion.x, motion.y) catch {
                 self.hover = null;
                 if (self.tool == .roads_rivers) self.roads_rivers.hoverNone();
+                if (self.tool == .entrenchment) self.trench_tool.hoverNone();
                 return;
             };
             self.hover = pointer;
@@ -436,6 +441,9 @@ pub fn ViewWith(comptime Input: type) type {
             // line's last leg, the control point Insert and Delete act on).
             // Not an edit, so it goes around dispatch and its status handling.
             if (self.tool == .roads_rivers and !self.left_button_down and !self.right_button_down) self.roads_rivers.hover(editor, pointer);
+            // The Entrenchment tool's preview follows the pointer, and so does
+            // the entrenchment under it (04-08).
+            if (self.tool == .entrenchment and !self.left_button_down and !self.right_button_down) self.trench_tool.hover(editor, pointer);
             if (self.right_button_down) {
                 // A right gesture (its own button, or Ctrl+left) drags as a
                 // right one; the left button's motion is then the same gesture.
@@ -709,6 +717,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .roads_rivers => self.roads_rivers.handle(editor, event),
                 .bridge => self.bridge_tool.handle(editor, event),
                 .fence => self.fence_tool.handle(editor, event),
+                .entrenchment => self.trench_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
         }
@@ -1547,7 +1556,10 @@ test "view: the registry's shortcuts still switch the M1 tools" {
     try testing.expectEqual(Tool.brush, rig.view.tool);
     rig.send(keyDown(sdl3.c.SDLK_1, 0, false));
     try testing.expectEqual(Tool.select, rig.view.tool);
-    // Keys the registry does not know change nothing.
-    rig.send(keyDown(sdl3.c.SDLK_7, 0, false));
+    // Keys the registry does not know change nothing (7 is the Entrenchment
+    // tool's since 04-08; 9 is nobody's).
+    rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
     try testing.expectEqual(Tool.select, rig.view.tool);
+    rig.send(keyDown(sdl3.c.SDLK_7, 0, false));
+    try testing.expectEqual(Tool.entrenchment, rig.view.tool);
 }

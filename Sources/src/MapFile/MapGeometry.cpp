@@ -303,4 +303,299 @@ bool PlanFences( const SFencePlanInput &rInput, const CTPoint<int> &firstTile, c
 		*pFences = fences;
 	return true;
 }
+
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08, D-13)
+
+namespace {
+typedef CTPoint<int> TPathPoint;
+
+// No click is farther out than this (world units): keeps every GPoint an int.
+const float fMaxTrenchCoordinate = 1.0e6f;
+// A longer path is a mistake, not a trench (the MFC editor had no limit).
+const size_t nMaxTrenchPath = 2048;
+// Twelve 30-degree steps are a full turn; an arc that has not closed by then
+// never will (the MFC loop would spin).
+const size_t nMaxArcSteps = 24;
+
+// The project's two-argument fabs (Misc/Tools.h:600) is the Euclidean length
+// of ( x, y ): hypot, never two absolute values (Pitfall 20).
+float Length( float x, float y )
+{
+	return float( std::hypot( x, y ) );
+}
+
+// CAngle's += and -= (RoadDrawState.cpp:184-237): fmod into [0, 2 pi). An
+// angle is wrapped only where the MFC code runs one of those operators; a
+// CAngle constructed from GetLineAngle keeps the value as it is.
+float WrapAngle( float fValue )
+{
+	fValue = std::fmod( fValue, FP_2PI );
+	return fValue < 0 ? FP_2PI + fValue : fValue;
+}
+
+// GetLineAngle: the direction from ( x0, y0 ) to ( x1, y1 ) in [0, 2 pi],
+// through Normalize (unchanged when already a unit vector or too short) and
+// acos. The cosine is held to [-1, 1] so a rounding of the normalised x past
+// 1 is not a NaN (the one guard added); a zero-length step still is one.
+float LineAngle( float x0, float y0, float x1, float y1 )
+{
+	float x = x1 - x0, y = y1 - y0;
+	const float u = x * x + y * y;
+	if ( !( std::fabs( u - 1.0f ) < FP_EPSILON ) && !( u < FP_EPSILON2 ) )
+	{
+		const float fInverse = float( 1.0f / std::sqrt( u ) );
+		x *= fInverse;
+		y *= fInverse;
+	}
+	float fCosine = x / Length( x, y );
+	if ( fCosine > 1.0f )
+		fCosine = 1.0f;
+	else if ( fCosine < -1.0f )
+		fCosine = -1.0f;
+	float fAngle = std::acos( fCosine );
+	if ( y < 0 )
+		fAngle = FP_2PI - fAngle;
+	return fAngle;
+}
+
+float LineAngle( const TPathPoint &a, const TPathPoint &b )
+{
+	return LineAngle( float( a.x ), float( a.y ), float( b.x ), float( b.y ) );
+}
+
+// SplitLineToSegrments: the integer points from vBegin towards vEnd, fWidth
+// apart (each one truncated, the next measured from the truncated one), the
+// begin point first when one piece fits at all. False when the line would
+// hold more than nMaxTrenchPath points.
+bool SplitLine( const CVec2 &vBegin, const CVec2 &vEnd, float fWidth, std::vector<TPathPoint> *pPoints )
+{
+	pPoints->clear();
+	TPathPoint current( int( vBegin.x ), int( vBegin.y ) );
+	if ( vBegin.x == vEnd.x && vBegin.y == vEnd.y )
+		return true;
+	const float fAngle = LineAngle( vBegin.x, vBegin.y, vEnd.x, vEnd.y );
+	const float fAll = Length( vEnd.x - vBegin.x, vEnd.y - vBegin.y );
+	const float fCos = std::cos( fAngle ), fSin = std::sin( fAngle );
+	CVec2 vAdd( fCos * fWidth + float( current.x ), fSin * fWidth + float( current.y ) );
+	if ( Length( vAdd.x - float( current.x ), vAdd.y - float( current.y ) ) < fAll )
+		pPoints->push_back( current );
+	while ( Length( vBegin.x - vAdd.x, vBegin.y - vAdd.y ) < fAll )
+	{
+		if ( pPoints->size() > nMaxTrenchPath )
+			return false;
+		current = TPathPoint( int( vAdd.x ), int( vAdd.y ) );
+		pPoints->push_back( current );
+		vAdd = CVec2( fCos * fWidth + float( current.x ), fSin * fWidth + float( current.y ) );
+	}
+	return true;
+}
+
+// CConnector: nothing for a turn under 30 degrees (the plain difference of the
+// two angles, unwrapped, as the MFC compares them); otherwise the arc points
+// both ways round - the first 15 degrees on from fBeginAngle, then 30 each,
+// until the heading is within 30 degrees of fEndAngle, each point fSegment on
+// from the one before (truncated) - and the shorter of the two (anticlockwise
+// on a tie). False for an arc that never closes.
+bool Connector( const TPathPoint &begin, float fBeginAngle, float fEndAngle, float fSegment, std::vector<TPathPoint> *pPoints )
+{
+	pPoints->clear();
+	const float fStep = FP_PI / 6.0f, fFirstStep = FP_PI / 12.0f;
+	if ( std::fabs( fEndAngle - fBeginAngle ) < fStep )
+		return true;
+	std::vector<TPathPoint> ways[2];
+	for ( int nWay = 0; nWay < 2; ++nWay )
+	{
+		std::vector<TPathPoint> &rWay = ways[nWay];
+		float fAngle = fBeginAngle;
+		while ( std::fabs( fEndAngle - fAngle ) > fStep )
+		{
+			if ( rWay.size() >= nMaxArcSteps )
+				return false;
+			const float fTurn = rWay.empty() ? fFirstStep : fStep;
+			fAngle = WrapAngle( nWay == 0 ? fAngle + fTurn : fAngle - fTurn );
+			TPathPoint p( int( fSegment * std::cos( fAngle ) ), int( fSegment * std::sin( fAngle ) ) );
+			const TPathPoint &rFrom = rWay.empty() ? begin : rWay.back();
+			p.x += rFrom.x;
+			p.y += rFrom.y;
+			rWay.push_back( p );
+		}
+	}
+	*pPoints = ways[1].size() > ways[0].size() ? ways[0] : ways[1];
+	return true;
+}
+
+void AppendAfterFirst( const std::vector<TPathPoint> &rPoints, std::vector<TPathPoint> *pPath )
+{
+	for ( size_t i = 1; i < rPoints.size(); ++i )
+		pPath->push_back( rPoints[i] );
+}
+
+bool Refuse( std::string *pWhy, const char *pszWhy )
+{
+	if ( pWhy != 0 )
+		*pWhy = pszWhy;
+	return false;
+}
+
+bool TrenchWidthUsable( float fWidth )
+{
+	return std::isfinite( fWidth ) && fWidth >= 4.0f && fWidth <= 100000.0f;
+}
+
+SPlannedPiece TrenchPiece( int nX, int nY, int nType, float fAngle )
+{
+	CVec3 vPos( float( nX ), float( nY ), 0.0f );
+	Vis2AI( &vPos );
+	SPlannedPiece piece;
+	piece.vPos = CVec3( vPos.x, vPos.y, 0.0f );
+	piece.nPackedType = nType;
+	piece.nDir = int( fAngle / FP_2PI * 65535 );
+	return piece;
+}
+}
+
+bool TrenchPath( const STrenchPlanInput &rInput, const std::vector<CVec2> &rClicksVis, std::vector< CTPoint<int> > *pPath, std::string *pWhy )
+{
+	pPath->clear();
+	if ( !TrenchWidthUsable( rInput.fLineWidth ) || !TrenchWidthUsable( rInput.fArcWidth ) )
+		return Refuse( pWhy, "the entrenchment type has no usable piece length" );
+	std::vector<TPathPoint> &rPath = *pPath;
+	std::vector<TPathPoint> points, arc;
+	for ( size_t nClick = 0; nClick < rClicksVis.size(); ++nClick )
+	{
+		const CVec2 &rClick = rClicksVis[nClick];
+		if ( !Finite( rClick ) || std::fabs( rClick.x ) > fMaxTrenchCoordinate || std::fabs( rClick.y ) > fMaxTrenchCoordinate )
+		{
+			pPath->clear();
+			return Refuse( pWhy, "a point of the trench is not on the map" );
+		}
+		// m_firstPoint is a GPoint: the click, truncated.
+		const TPathPoint first( int( rClick.x ), int( rClick.y ) );
+		bool bSplit = true;
+		if ( rPath.size() > 1 )
+		{
+			const TPathPoint last = rPath.back();
+			const float fLastAngle = LineAngle( rPath[rPath.size() - 2], last );
+			const float fMouseAngle = LineAngle( last, first );
+			if ( !Connector( last, fLastAngle, fMouseAngle, rInput.fArcWidth, &arc ) )
+			{
+				pPath->clear();
+				return Refuse( pWhy, "the trench turns in a way the builder cannot follow" );
+			}
+			if ( arc.empty() )
+			{
+				// Under 30 degrees: the last direction carried on for the click's
+				// distance.
+				const float fDistance = Length( float( last.x - first.x ), float( last.y - first.y ) );
+				const CVec2 vAdd( std::cos( fLastAngle ) * fDistance + float( last.x ), std::sin( fLastAngle ) * fDistance + float( last.y ) );
+				bSplit = SplitLine( CVec2( float( last.x ), float( last.y ) ), vAdd, rInput.fLineWidth, &points );
+				AppendAfterFirst( points, &rPath );
+			}
+			else
+			{
+				rPath.insert( rPath.end(), arc.begin(), arc.end() );
+				const TPathPoint &rArcFirst = arc.front(), &rArcLast = arc.back();
+				if ( Length( float( first.x - rArcFirst.x ), float( first.y - rArcFirst.y ) ) >= Length( float( first.x - rArcLast.x ), float( first.y - rArcLast.y ) ) )
+				{
+					float fArcAngle = arc.size() == 1 ? LineAngle( last, rArcLast ) : LineAngle( arc[arc.size() - 2], rArcLast );
+					const float fFirstArcAngle = LineAngle( last, rArcFirst );
+					if ( WrapAngle( fFirstArcAngle - fLastAngle ) < FP_PI2 )
+						fArcAngle = WrapAngle( fArcAngle + FP_PI / 12.0f );
+					else
+						fArcAngle = WrapAngle( fArcAngle - FP_PI / 12.0f );
+					const float fDistance = Length( float( first.x - rArcLast.x ), float( first.y - rArcLast.y ) );
+					const CVec2 vAdd( std::cos( fArcAngle ) * fDistance + float( rArcLast.x ), std::sin( fArcAngle ) * fDistance + float( rArcLast.y ) );
+					bSplit = SplitLine( CVec2( float( rArcLast.x ), float( rArcLast.y ) ), vAdd, rInput.fLineWidth, &points );
+					AppendAfterFirst( points, &rPath );
+				}
+			}
+		}
+		else if ( rPath.empty() )
+			rPath.push_back( first );
+		else
+		{
+			bSplit = SplitLine( CVec2( float( rPath[0].x ), float( rPath[0].y ) ), CVec2( float( first.x ), float( first.y ) ), rInput.fLineWidth, &points );
+			AppendAfterFirst( points, &rPath );
+		}
+		if ( !bSplit || rPath.size() > nMaxTrenchPath )
+		{
+			pPath->clear();
+			return Refuse( pWhy, "that trench would be too long" );
+		}
+	}
+	return true;
+}
+
+bool PlanEntrenchment( const STrenchPlanInput &rInput, const std::vector<CVec2> &rPointsVis, STrenchPlan *pPlan, std::string *pWhy )
+{
+	STrenchPlan plan;
+	if ( pPlan != 0 )
+		*pPlan = plan;
+	if ( !TrenchPath( rInput, rPointsVis, &plan.path, pWhy ) )
+		return false;
+	const std::vector<TPathPoint> &p = plan.path;
+	if ( p.size() < 2 )
+		return Refuse( pWhy, "the trench is shorter than one piece: click farther on, then double-click" );
+	const size_t nLast = p.size() - 1;
+
+	// The terminators first, as the commit makes them: the begin one turned
+	// + pi (a CAngle +=, so wrapped), the end one along the last step.
+	const float fBegin = WrapAngle( LineAngle( p[0], p[1] ) + FP_PI );
+	const float fEnd = LineAngle( p[nLast - 1], p[nLast] );
+	if ( !std::isfinite( fBegin ) || !std::isfinite( fEnd ) )
+		return Refuse( pWhy, "two points of the trench are the same" );
+	plan.pieces.push_back( TrenchPiece( p[0].x, p[0].y, TRENCH_TERMINATOR, fBegin ) );
+	plan.pieces.push_back( TrenchPiece( p[nLast].x, p[nLast].y, TRENCH_TERMINATOR, fEnd ) );
+
+	bool bSwitcher = false;
+	bool bEndIfSection = false;
+	std::vector<int> section( 1, 0 );
+	for ( size_t i = 0; i < nLast; ++i )
+	{
+		float fAngle = LineAngle( p[i], p[i + 1] );
+		const float fPrevious = i > 1 ? LineAngle( p[i - 1], p[i] ) : fAngle;
+		if ( !std::isfinite( fAngle ) || !std::isfinite( fPrevious ) )
+			return Refuse( pWhy, "two points of the trench are the same" );
+		int nType = 0;																// 0 straight, 1 arc, 2 arc turned
+		if ( Length( float( p[i + 1].x - p[i].x ), float( p[i + 1].y - p[i].y ) ) > double( rInput.fLineWidth ) * 0.9 )
+			nType = 0;
+		else
+			nType = WrapAngle( fPrevious - fAngle ) > FP_PI ? 1 : 2;
+		int nPacked = TRENCH_ARC;
+		if ( nType == 0 )
+		{
+			nPacked = bSwitcher ? TRENCH_LINE : TRENCH_FIREPLACE;
+			bSwitcher = !bSwitcher;
+		}
+		if ( nType == 2 )
+			fAngle = WrapAngle( fAngle + FP_PI );
+		// GPoint's + and / 2: integer, truncated.
+		const TPathPoint centre( ( p[i].x + p[i + 1].x ) / 2, ( p[i].y + p[i + 1].y ) / 2 );
+		const int nIndex = int( plan.pieces.size() );
+		plan.pieces.push_back( TrenchPiece( centre.x, centre.y, nPacked, fAngle ) );
+		if ( !bEndIfSection && nType != 0 )
+			bEndIfSection = true;
+		if ( bEndIfSection && nType == 0 )
+		{
+			plan.sections.push_back( section );
+			section.clear();
+			bEndIfSection = false;
+		}
+		section.push_back( nIndex );
+	}
+	if ( !section.empty() )
+		plan.sections.push_back( section );
+	plan.sections.back().push_back( 1 );
+	if ( rInput.fMapWidth > 0.0f && rInput.fMapHeight > 0.0f )
+		for ( size_t i = 0; i < plan.pieces.size(); ++i )
+		{
+			const CVec3 &rPos = plan.pieces[i].vPos;
+			if ( rPos.x < 0.0f || rPos.y < 0.0f || rPos.x >= rInput.fMapWidth || rPos.y >= rInput.fMapHeight )
+				return Refuse( pWhy, "the trench leaves the map" );
+		}
+	if ( pPlan != 0 )
+		*pPlan = plan;
+	return true;
+}
 }

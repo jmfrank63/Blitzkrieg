@@ -2257,6 +2257,182 @@ static void TestM2FencePlan()
 	printf( "map-file: M2 fence plan ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08, D-13)
+// ---------------------------------------------------------------------------
+
+// The shipped "Entrenchment" stats' piece lengths as the builder reads them
+// (GetVisAABBHalfSize().x * 2): the line segments' half size 37.1722 and the
+// arc's 11.0562 become 52 and 15 AI units in ToAIUnits (Vis2AI truncates), so
+// 2 * 52 * fAITileXCoeff and 2 * 15 * fAITileXCoeff world units. The engine
+// tier reads the real stats and checks it gets the same.
+static NMapGeometry::STrenchPlanInput ShippedTrenchInput()
+{
+	NMapGeometry::STrenchPlanInput input;
+	input.fLineWidth = 2.0f * 52.0f * fAITileXCoeff;
+	input.fArcWidth = 2.0f * 15.0f * fAITileXCoeff;
+	return input;
+}
+
+// The L the overlay and the engine tier draw: 600 world units east, then 500
+// north, in the middle of a small map.
+static std::vector<CVec2> TrenchL( float fX, float fY )
+{
+	std::vector<CVec2> points;
+	points.push_back( CVec2( fX, fY ) );
+	points.push_back( CVec2( fX + 600.0f, fY ) );
+	points.push_back( CVec2( fX + 600.0f, fY + 500.0f ) );
+	return points;
+}
+
+// The entrenchment a plan lays over a map: every piece an object of the
+// "Entrenchment" type (the packed type, HP 1, no script ID), then the entry of
+// the sections' link IDs appended - what the bridge's draw saves.
+static bool LayTrench( SLoadMapInfo *pMap, const NMapGeometry::STrenchPlan &rPlan, int nPlayer, std::vector<int> *pLinkIDs )
+{
+	pLinkIDs->clear();
+	for ( size_t i = 0; i < rPlan.pieces.size(); ++i )
+	{
+		NMapOverlay::SAddObject add;
+		add.szName = "Entrenchment";
+		add.vPos = rPlan.pieces[i].vPos;
+		add.nDir = rPlan.pieces[i].nDir;
+		add.nPlayer = nPlayer;
+		add.nFrameIndex = rPlan.pieces[i].nPackedType;
+		add.fHP = 1.0f;
+		add.nScriptID = -1;
+		int nLinkID = -1;
+		if ( !NMapOverlay::AddObject( pMap, add, &nLinkID ) )
+			return false;
+		pLinkIDs->push_back( nLinkID );
+	}
+	SEntrenchmentInfo entry;
+	for ( size_t s = 0; s < rPlan.sections.size(); ++s )
+	{
+		SEntrenchmentInfo::TSegment section;
+		for ( size_t k = 0; k < rPlan.sections[s].size(); ++k )
+			section.push_back( (*pLinkIDs)[rPlan.sections[s][k]] );
+		entry.sections.push_back( section );
+	}
+	return NMapRecords::InsertEntrenchment( pMap, -1, entry );
+}
+
+static void TestM2TrenchOverlay()
+{
+	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	const NMapGeometry::STrenchPlanInput input = ShippedTrenchInput();
+	NMapGeometry::STrenchPlan plan;
+	std::string szWhy;
+	if ( !Check( NMapGeometry::PlanEntrenchment( input, TrenchL( 1000.0f, 1000.0f ), &plan, &szWhy ), szWhy.c_str() ) )
+		return;
+	// What the L is: terminators first, a straight run east, an arc round the
+	// corner and a straight run north, in at least two sections.
+	int nArcs = 0, nStraight = 0;
+	for ( size_t i = 2; i < plan.pieces.size(); ++i )
+	{
+		nArcs += plan.pieces[i].nPackedType == NMapGeometry::TRENCH_ARC ? 1 : 0;
+		nStraight += plan.pieces[i].nPackedType == NMapGeometry::TRENCH_LINE || plan.pieces[i].nPackedType == NMapGeometry::TRENCH_FIREPLACE ? 1 : 0;
+	}
+	Check( plan.pieces.size() > 6 && plan.pieces[0].nPackedType == NMapGeometry::TRENCH_TERMINATOR &&
+	       plan.pieces[1].nPackedType == NMapGeometry::TRENCH_TERMINATOR, "the L has its two terminators first and pieces after them" );
+	Check( nArcs >= 2 && nStraight >= 10, NStr::Format( "the L turns through arcs and runs straight (%d arcs, %d straight)", nArcs, nStraight ) );
+	Check( plan.sections.size() >= 2 && plan.sections.front().front() == 0 && plan.sections.back().back() == 1,
+	       "the sections start with the begin terminator and end with the end terminator" );
+	Check( plan.pieces[2].nPackedType == NMapGeometry::TRENCH_FIREPLACE && plan.pieces[3].nPackedType == NMapGeometry::TRENCH_LINE,
+	       "the first straight run starts with a fireplace, then a line" );
+	// The first step is due east, so the begin terminator faces west: pi.
+	Check( plan.pieces[0].nDir == int( FP_PI / FP_2PI * 65535 ) && plan.pieces[2].nDir == 0,
+	       NStr::Format( "the begin terminator is turned pi from the first step (%d, %d)", plan.pieces[0].nDir, plan.pieces[2].nDir ) );
+	// A piece is the Vis2AI of its step's integer midpoint.
+	{
+		const CTPoint<int> &a = plan.path[0], &b = plan.path[1];
+		CVec3 vMid( float( ( a.x + b.x ) / 2 ), float( ( a.y + b.y ) / 2 ), 0.0f );
+		Vis2AI( &vMid );
+		Check( plan.pieces[2].vPos.x == vMid.x && plan.pieces[2].vPos.y == vMid.y, "the first piece is at its step's midpoint, in map units" );
+	}
+
+	std::vector<int> linkIDs;
+	const TMapOp addTrench = [plan, &linkIDs]( SLoadMapInfo *pMap ) -> bool { return LayTrench( pMap, plan, 1, &linkIDs ); };
+	const TMapOp removeTrench = []( SLoadMapInfo *pMap ) -> bool
+	{
+		if ( pMap->entrenchments.empty() )
+			return false;
+		// The entry first: a piece a section still names is not deleted.
+		SEntrenchmentInfo erased;
+		if ( !NMapRecords::EraseEntrenchment( pMap, int( pMap->entrenchments.size() ) - 1, &erased ) )
+			return false;
+		for ( size_t s = erased.sections.size(); s-- > 0; )
+			for ( size_t k = erased.sections[s].size(); k-- > 0; )
+			{
+				std::string szRefusal;
+				if ( !NMapOverlay::DeleteObject( pMap, erased.sections[s][k], &szRefusal ) )
+					return false;
+			}
+		return true;
+	};
+	RunM2Case( pszMap, "entrenchment drawn and removed", TMapOp(), addTrench, removeTrench );
+	// The saved pieces hold what the plan said and the sections name them.
+	{
+		CMapInfo edited;
+		if ( ReadFresh( pszMap, &edited ) && Check( addTrench( &edited ), "the entrenchment lays over the map" ) )
+		{
+			std::string szError;
+			if ( Check( NMapFile::Write( M2_EDITED, edited, &szError ), szError.c_str() ) )
+			{
+				CMapInfo reread;
+				if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) && Check( !reread.entrenchments.empty(), "the saved map has the entry" ) )
+				{
+					const SEntrenchmentInfo &rEntry = reread.entrenchments.back();
+					bool bAll = rEntry.sections.size() == plan.sections.size();
+					for ( size_t s = 0; bAll && s < rEntry.sections.size(); ++s )
+					{
+						bAll = !rEntry.sections[s].empty() && rEntry.sections[s].size() == plan.sections[s].size();
+						for ( size_t k = 0; bAll && k < rEntry.sections[s].size(); ++k )
+						{
+							const NMapGeometry::SPlannedPiece &rPiece = plan.pieces[plan.sections[s][k]];
+							const SMapObjectInfo *pPiece = ObjectByLinkID( reread, rEntry.sections[s][k] );
+							bAll = pPiece != 0 && pPiece->szName == "Entrenchment" && pPiece->vPos.x == rPiece.vPos.x && pPiece->vPos.y == rPiece.vPos.y &&
+							       pPiece->nDir == rPiece.nDir && pPiece->nFrameIndex == rPiece.nPackedType && pPiece->nPlayer == 1 &&
+							       pPiece->fHP == 1.0f && pPiece->nScriptID == -1;
+						}
+					}
+					Check( bAll, "every section of the saved entry names a saved piece where the plan put it, with its type, direction and player" );
+				}
+			}
+		}
+	}
+	// Refusals: fewer than two distinct points, a step shorter than a piece, a
+	// NaN, a width that is no width.
+	{
+		std::vector<CVec2> one( 1, CVec2( 100.0f, 100.0f ) );
+		Check( !NMapGeometry::PlanEntrenchment( input, one, &plan, &szWhy ) && plan.pieces.empty(), "one point is refused" );
+		std::vector<CVec2> same( 2, CVec2( 100.0f, 100.0f ) );
+		Check( !NMapGeometry::PlanEntrenchment( input, same, &plan, &szWhy ), "the same point twice is refused" );
+		std::vector<CVec2> close;
+		close.push_back( CVec2( 100.0f, 100.0f ) );
+		close.push_back( CVec2( 150.0f, 100.0f ) );
+		Check( !NMapGeometry::PlanEntrenchment( input, close, &plan, &szWhy ) && szWhy.find( "shorter than one piece" ) != std::string::npos,
+		       "two points closer than one line piece are refused" );
+		std::vector<CVec2> nan = TrenchL( 100.0f, 100.0f );
+		nan[1].x = std::numeric_limits<float>::quiet_NaN();
+		Check( !NMapGeometry::PlanEntrenchment( input, nan, &plan, &szWhy ), "a NaN is refused" );
+		NMapGeometry::STrenchPlanInput none;
+		Check( !NMapGeometry::PlanEntrenchment( none, TrenchL( 100.0f, 100.0f ), &plan, &szWhy ), "no piece length is refused" );
+		std::vector<CVec2> far = TrenchL( 100.0f, 100.0f );
+		far[2].y = 5.0e7f;
+		Check( !NMapGeometry::PlanEntrenchment( input, far, &plan, &szWhy ), "a point far off every map is refused" );
+		// With the map's extent given, a piece past it refuses the whole trench;
+		// one inside it does not.
+		NMapGeometry::STrenchPlanInput bounded = input;
+		bounded.fMapWidth = bounded.fMapHeight = 2048.0f;					// 2048 map units: about 1448 world units
+		Check( NMapGeometry::PlanEntrenchment( bounded, TrenchL( 100.0f, 100.0f ), &plan, &szWhy ), "an L inside a bounded map plans" );
+		Check( !NMapGeometry::PlanEntrenchment( bounded, TrenchL( 1000.0f, 100.0f ), &plan, &szWhy ) && szWhy == "the trench leaves the map",
+		       "an L running past the map's extent is refused" );
+	}
+	RemoveM2Files();
+	printf( "map-file: M2 trench overlay ok\n" );
+}
+
 static void TestRoundTrip( const std::string &szPath )
 {
 	CMapInfo original;
@@ -2359,6 +2535,7 @@ int main( int argc, char **argv )
 	TestM2VsoBuilder();
 	TestM2BridgePlan();
 	TestM2FencePlan();
+	TestM2TrenchOverlay();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

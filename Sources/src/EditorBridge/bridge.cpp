@@ -2736,6 +2736,114 @@ BkEditorStatus BkEditorDrawFences( BkEditorSession *pSession, const char *pszDes
 	} );
 }
 
+namespace {
+// The clicks of a trench, or false for a bad argument: null points with a
+// count, a count outside 0..256, a non-finite coordinate.
+bool TrenchPoints( const BkEditorVec3 *pPoints, int nCount, std::vector<CVec2> *pOut )
+{
+	if ( nCount < 0 || nCount > 256 || ( nCount > 0 && pPoints == 0 ) )
+		return false;
+	pOut->clear();
+	for ( int i = 0; i < nCount; ++i )
+	{
+		if ( !std::isfinite( pPoints[i].x ) || !std::isfinite( pPoints[i].y ) )
+			return false;
+		pOut->push_back( CVec2( pPoints[i].x, pPoints[i].y ) );
+	}
+	return true;
+}
+}
+
+BkEditorStatus BkEditorPlanEntrenchment( BkEditorSession *pSession, const BkEditorVec3 *pPoints, int nCount,
+                                         BkEditorPlannedPiece *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		std::vector<CVec2> points;
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) || !TrenchPoints( pPoints, nCount, &points ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		NMapGeometry::STrenchPlan plan;
+		bool bRefused = false;
+		if ( !PlanEntrenchmentInSession( pSession, points, &plan, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		*pnCount = int( plan.pieces.size() );
+		for ( int i = 0; i < int( plan.pieces.size() ) && i < nCapacity; ++i )
+		{
+			pOut[i].x = plan.pieces[i].vPos.x;
+			pOut[i].y = plan.pieces[i].vPos.y;
+			pOut[i].type = plan.pieces[i].nPackedType;
+			pOut[i].dir = plan.pieces[i].nDir;
+		}
+		return nCapacity >= int( plan.pieces.size() ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorDrawEntrenchment( BkEditorSession *pSession, const BkEditorVec3 *pPoints, int nCount, int nPlayer,
+                                         int *pnToken, int *pnIndex )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	if ( pnIndex != 0 ) *pnIndex = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		std::vector<CVec2> points;
+		if ( !TrenchPoints( pPoints, nCount, &points ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nPlayer < 0 || nPlayer >= int( pSession->snapshot.diplomacies.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1, nIndex = -1;
+		bool bRefused = false;
+		if ( !DrawEntrenchmentInSession( pSession, points, nPlayer, &nToken, &nIndex, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		if ( pnIndex != 0 ) *pnIndex = nIndex;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorEntrenchments( BkEditorSession *pSession, BkEditorEntrenchmentInfo *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<SEntrenchmentSummary> trenches;
+		ReadSessionEntrenchments( *pSession, &trenches );
+		*pnCount = int( trenches.size() );
+		for ( int i = 0; i < int( trenches.size() ) && i < nCapacity; ++i )
+		{
+			BkEditorEntrenchmentInfo &rOut = pOut[i];
+			memset( &rOut, 0, sizeof rOut );
+			rOut.piece_count = trenches[i].nPieces;
+			rOut.section_count = trenches[i].nSections;
+			rOut.player = trenches[i].nPlayer;
+			rOut.min_x = trenches[i].vMin.x;
+			rOut.min_y = trenches[i].vMin.y;
+			rOut.max_x = trenches[i].vMax.x;
+			rOut.max_y = trenches[i].vMax.y;
+		}
+		return nCapacity >= int( trenches.size() ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
 BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 {
 	// Safe on null and safe twice: the caller reaches here on every path out,

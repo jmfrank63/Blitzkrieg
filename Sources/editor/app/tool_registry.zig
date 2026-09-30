@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment };
 
 pub const Entry = struct {
     id: ToolId,
@@ -71,6 +71,20 @@ pub const entries = [_]Entry{
         .id = .fence,
         .label = "Fence",
         .shortcut = '6',
+    },
+    // 04-08 (D-13): the MFC trench builder. A click adds a point, a right
+    // click clears the polyline (Ctrl+click stands in for it on a one-button
+    // trackpad), a double click commits it; a click on a piece selects its
+    // entrenchment. Its markers are the preview and the hovered and selected
+    // entrenchments' outlines.
+    .{
+        .id = .entrenchment,
+        .label = "Entrenchment",
+        .shortcut = '7',
+        .needs_right_button = true,
+        .ctrl_click_is_right = true,
+        .needs_double_click = true,
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.selection_outline}),
     },
 };
 
@@ -178,6 +192,15 @@ test "the Fence tool is key 6, left button only, and Ctrl is never a right click
     try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
     try std.testing.expectEqual(@as(?ToolId, .fence), byShortcut('6'));
     try std.testing.expectEqual(@as(?ToolId, .fence), byLabel("fence"));
+}
+
+test "the Entrenchment tool is key 7: right button, Ctrl-as-right and double click, with the selection outline" {
+    const item = entry(.entrenchment);
+    try std.testing.expectEqual(@as(?u8, '7'), item.shortcut);
+    try std.testing.expect(item.needs_right_button and item.ctrl_click_is_right and item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.selection_outline));
+    try std.testing.expectEqual(@as(?ToolId, .entrenchment), byShortcut('7'));
+    try std.testing.expectEqual(@as(?ToolId, .entrenchment), byLabel("entrenchment"));
 }
 
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {

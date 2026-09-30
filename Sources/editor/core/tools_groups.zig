@@ -1,6 +1,6 @@
 //! The group tools (04-06): the Bridge tool (D-10..D-12), the MFC Bridges tab
-//! (Sources/src/MapEditor/RoadDrawState.cpp). The Fence tool (04-07, D-14) is
-//! here too, entrenchments (04-08) join it.
+//! (Sources/src/MapEditor/RoadDrawState.cpp). The Fence tool (04-07, D-14) and
+//! the Entrenchment tool (04-08, D-13) are here too.
 //!
 //! Bridge: a press starts a drag at the pointer's world point, the drag moves
 //! `current` (the app draws the ghost from BkEditorPlanBridge between the
@@ -23,6 +23,7 @@ const std = @import("std");
 const editor_mod = @import("editor.zig");
 const fake_mod = @import("fake_bridge.zig");
 const bridge_mod = @import("bridge.zig");
+const records = @import("records.zig");
 const tools = @import("tools.zig");
 const Editor = editor_mod.Editor;
 const EditError = bridge_mod.EditError;
@@ -219,6 +220,123 @@ pub const FenceTool = struct {
             },
             else => {},
         }
+    }
+};
+
+/// The most clicks one unfinished trench holds (the bridge takes at most
+/// 256); a click past it is a note.
+pub const max_trench_points = 256;
+/// A click this close (world units) to the one before it is the same point
+/// (the MFC editor's UniquePolygon test: squared distance at most 4).
+pub const trench_same_point: f32 = 2.0;
+
+/// The Entrenchment tool (04-08, D-13): the MFC trench builder's gestures
+/// (RoadDrawState.cpp). A press adds the pointer's world point to the
+/// polyline, a right press (or Ctrl+click) clears it, a double click commits
+/// it as one undo step - the double click's own first press already added its
+/// point - and Escape clears it too (an addition: MFC has none). The bridge
+/// builds the trench from the clicks: straight runs of fireplaces and lines,
+/// arcs at turns, a terminator at each end, for `player`. The app draws the
+/// live preview from BkEditorPlanEntrenchment of the clicks and `current`.
+pub const EntrenchmentTool = struct {
+    points: [max_trench_points][2]f32 = undefined,
+    len: usize = 0,
+    /// The player the pieces will belong to, set by the Entrenchments panel.
+    player: i32 = 0,
+    /// Where the pointer is, world units, for the preview's last leg; null
+    /// when it is off the terrain.
+    current: ?[2]f32 = null,
+    /// The entrenchments entry the tool works on: the last one drawn.
+    selected: ?usize = null,
+
+    pub fn pointSlice(self: *const EntrenchmentTool) []const [2]f32 {
+        return self.points[0..self.len];
+    }
+
+    /// True while a polyline is being clicked.
+    pub fn drawing(self: *const EntrenchmentTool) bool {
+        return self.len > 0;
+    }
+
+    /// Forgets the polyline and the selection, as a map change must; the
+    /// player stays.
+    pub fn reset(self: *EntrenchmentTool) void {
+        self.len = 0;
+        self.current = null;
+        self.selected = null;
+    }
+
+    /// The pointer moved with no button held: the preview's last leg.
+    pub fn hover(self: *EntrenchmentTool, editor: *Editor, pointer: Pointer) void {
+        _ = editor;
+        self.current = .{ pointer.world_x, pointer.world_y };
+    }
+
+    /// The pointer left the terrain.
+    pub fn hoverNone(self: *EntrenchmentTool) void {
+        self.current = null;
+    }
+
+    pub fn handle(self: *EntrenchmentTool, editor: *Editor, event: Event) EditError!void {
+        switch (event) {
+            .press => |pointer| {
+                self.current = .{ pointer.world_x, pointer.world_y };
+                self.addPoint(editor, pointer.world_x, pointer.world_y);
+            },
+            .drag => |pointer| self.current = .{ pointer.world_x, pointer.world_y },
+            // MFC: the right button's release clears the path; here its press
+            // does, so a right drag is nothing more.
+            .right_press => self.len = 0,
+            .double_click => try self.commit(editor),
+            .key => |key| switch (key) {
+                .escape => self.len = 0,
+                else => {},
+            },
+            else => {},
+        }
+    }
+
+    fn addPoint(self: *EntrenchmentTool, editor: *Editor, x: f32, y: f32) void {
+        if (self.len > 0) {
+            const last = self.points[self.len - 1];
+            if (std.math.hypot(x - last[0], y - last[1]) <= trench_same_point) return;
+        }
+        if (self.len == max_trench_points) {
+            editor.note("a trench takes at most 256 points: double-click to finish it");
+            return;
+        }
+        if (self.len == 0) self.selected = null;
+        self.points[self.len] = .{ x, y };
+        self.len += 1;
+    }
+
+    /// The double click: the clicks become one entrenchment, one undo step.
+    /// Fewer than two is a note, not a command, and keeps the point.
+    fn commit(self: *EntrenchmentTool, editor: *Editor) EditError!void {
+        if (self.len < 2) {
+            editor.note("a trench needs two points: click where it runs, then double-click");
+            return;
+        }
+        var points: [max_trench_points]records.Vec3 = undefined;
+        for (self.pointSlice(), points[0..self.len]) |point, *out| out.* = .{ .x = point[0], .y = point[1], .z = 0 };
+        self.selected = try editor.drawEntrenchment(points[0..self.len], self.player);
+        self.len = 0;
+    }
+
+    /// The clicks and the pointer as the preview plans them: the polyline
+    /// with the pointer as one more click (what a click there and a double
+    /// click would commit). Returns the slice of `out` used.
+    pub fn previewPoints(self: *const EntrenchmentTool, out: *[max_trench_points + 1]records.Vec3) []const records.Vec3 {
+        for (self.pointSlice(), out[0..self.len]) |point, *slot| slot.* = .{ .x = point[0], .y = point[1], .z = 0 };
+        var count = self.len;
+        if (self.current) |cursor| {
+            const same = count > 0 and std.math.hypot(cursor[0] - self.points[count - 1][0], cursor[1] - self.points[count - 1][1]) <= trench_same_point;
+            if (!same) {
+                out[count] = .{ .x = cursor[0], .y = cursor[1], .z = 0 };
+                count += 1;
+            }
+        }
+        return out[0..count];
     }
 };
 
@@ -700,4 +818,126 @@ test "no type chosen is a note; Escape gives the drag up" {
     try testing.expect(!tool.dragging and tool.start == null);
     try tool.handle(&editor, .{ .release = try at(&editor, 168, 100) });
     try testing.expectEqual(objects_before, editor.document.objects.items.len);
+}
+
+fn trenchClick(tool: *EntrenchmentTool, editor: *Editor, x: f32, y: f32) EditError!void {
+    try tool.handle(editor, .{ .press = try at(editor, x, y) });
+    try tool.handle(editor, .{ .release = try at(editor, x, y) });
+}
+
+test "three clicks and a double click draw one entrenchment as one undo step" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: EntrenchmentTool = .{ .player = 1 };
+    const objects_before = editor.document.objects.items.len;
+    const generation = editor.entrenchments_generation;
+    // A double click arrives as the single click's press and release, then
+    // double_click (SDL: clicks 1, then clicks 2).
+    try trenchClick(&tool, &editor, 20, 200);
+    try trenchClick(&tool, &editor, 120, 200);
+    try trenchClick(&tool, &editor, 120, 100);
+    try testing.expectEqual(@as(usize, 3), tool.len);
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 120, 100) });
+
+    // Two terminators and one piece per step: 4 pieces, one entry.
+    try testing.expectEqual(@as(usize, 1), fake.trenchCount());
+    try testing.expectEqual(@as(usize, 4), fake.trenchEntry(0).count);
+    try testing.expectEqual(objects_before + 4, editor.document.objects.items.len);
+    for (fake.trenchEntry(0).linkSlice()) |link| try testing.expectEqual(@as(i32, 1), editor.document.find(link).?.player);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expect(editor.entrenchments_generation != generation);
+    try testing.expect(!tool.drawing());
+    try testing.expectEqual(@as(?usize, 0), tool.selected);
+    const infos = try editor.entrenchments(testing.allocator);
+    defer testing.allocator.free(infos);
+    try testing.expectEqual(@as(usize, 1), infos.len);
+    try testing.expectEqual(@as(i32, 4), infos[0].piece_count);
+    try testing.expectEqual(@as(i32, 1), infos[0].player);
+
+    // Undo takes the pieces and the entry out, redo puts them back.
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 0), fake.trenchCount());
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try testing.expect(!editor.dirty());
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(@as(usize, 1), fake.trenchCount());
+    try testing.expectEqual(objects_before + 4, editor.document.objects.items.len);
+}
+
+test "a right click clears the polyline with no history; a click on the same point twice is one point" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: EntrenchmentTool = .{};
+    try trenchClick(&tool, &editor, 20, 200);
+    try trenchClick(&tool, &editor, 21, 201);
+    try testing.expectEqual(@as(usize, 1), tool.len);
+    try trenchClick(&tool, &editor, 120, 200);
+    try testing.expectEqual(@as(usize, 2), tool.len);
+    try tool.handle(&editor, .{ .right_press = try at(&editor, 100, 100) });
+    try tool.handle(&editor, .{ .right_release = try at(&editor, 100, 100) });
+    try testing.expect(!tool.drawing());
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    // Escape clears too.
+    try trenchClick(&tool, &editor, 20, 200);
+    try tool.handle(&editor, .{ .key = .escape });
+    try testing.expect(!tool.drawing());
+    // A double click with nothing left commits nothing.
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 20, 200) });
+    try testing.expectEqual(@as(usize, 0), fake.trenchCount());
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+test "a one-point commit is a note, not a command" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: EntrenchmentTool = .{};
+    try trenchClick(&tool, &editor, 60, 60);
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 60, 60) });
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "two points") != null);
+    try testing.expectEqual(@as(usize, 0), fake.trenchCount());
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    // The point is kept: a second click and a double click finish the trench.
+    try testing.expectEqual(@as(usize, 1), tool.len);
+    try trenchClick(&tool, &editor, 160, 60);
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 160, 60) });
+    try testing.expectEqual(@as(usize, 1), fake.trenchCount());
+}
+
+test "a trench off the map is refused whole and records nothing; the preview plans the clicks and the pointer" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const objects_before = editor.document.objects.items.len;
+    // The map is 256 world units a side. (The pointer never resolves off the
+    // map, so the editor is asked directly, as a panel or a script could.)
+    const off = [_]records.Vec3{ .{ .x = 200, .y = 100 }, .{ .x = 300, .y = 100 } };
+    try testing.expectError(error.Refused, editor.drawEntrenchment(&off, 0));
+    try testing.expectEqualStrings("the trench leaves the map", editor.status());
+    try testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    // A player the map lacks is refused too.
+    const inside = [_]records.Vec3{ .{ .x = 20, .y = 100 }, .{ .x = 120, .y = 100 } };
+    try testing.expectError(error.Failed, editor.drawEntrenchment(&inside, 9));
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+
+    var tool: EntrenchmentTool = .{};
+    try trenchClick(&tool, &editor, 20, 100);
+    tool.hover(&editor, try at(&editor, 120, 100));
+    var buffer: [max_trench_points + 1]records.Vec3 = undefined;
+    const preview = tool.previewPoints(&buffer);
+    try testing.expectEqual(@as(usize, 2), preview.len);
+    var pieces: [8]bridge_mod.PlannedPiece = undefined;
+    const planned = (try editor.planEntrenchment(preview, &pieces)).?;
+    try testing.expectEqual(@as(usize, 3), planned);
+    try testing.expectEqual(bridge_mod.trench_terminator, pieces[0].type);
+    try testing.expectEqual(bridge_mod.trench_fireplace, pieces[2].type);
+    try testing.expectEqual(@as(?usize, null), try editor.planEntrenchment(preview[0..1], &pieces));
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
 }
