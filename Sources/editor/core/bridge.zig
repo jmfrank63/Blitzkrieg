@@ -165,6 +165,56 @@ pub const VsoView = struct {
     }
 };
 
+/// Bridges (04-06, D-10..D-12). A bridge type as BkEditorBridgeDescriptors
+/// lists it: its name, its direction (the drag must run along it), whether
+/// its rotated `_01`/`_02` variant exists, and whether it may be built during
+/// play (a WoodenBig_Heavy_ type).
+pub const BridgeDirection = enum(u8) { vertical = 0, horizontal = 1 };
+
+pub const BridgeDescriptor = struct {
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    direction: BridgeDirection = .horizontal,
+    has_partner: bool = false,
+    build_during_play_allowed: bool = false,
+
+    pub fn nameSlice(self: *const BridgeDescriptor) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *BridgeDescriptor, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+};
+
+/// BkEditorPlannedPiece: one span a drag would place - its position in MAP
+/// units, its packed frame type (1 begin, 2 middle, 4 end) and its direction.
+pub const PlannedPiece = struct { x: f32 = 0, y: f32 = 0, type: i32 = 0, dir: i32 = 0 };
+
+/// BkEditorBridgeInfo: one bridges entry - its type (the first span's name),
+/// how many spans it names, the box of their positions (MAP units) and
+/// whether it is built during play.
+pub const BridgeInfo = struct {
+    desc: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    span_count: i32 = 0,
+    min_x: f32 = 0,
+    min_y: f32 = 0,
+    max_x: f32 = 0,
+    max_y: f32 = 0,
+    built_during_play: bool = false,
+
+    pub fn descSlice(self: *const BridgeInfo) []const u8 {
+        return std.mem.sliceTo(&self.desc, 0);
+    }
+
+    pub fn setDesc(self: *BridgeInfo, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.desc, 0);
+        @memcpy(self.desc[0..len], text[0..len]);
+    }
+};
+
 pub const Bridge = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -255,6 +305,19 @@ pub const Bridge = struct {
         /// BkEditorPickVso: the road or river under a world point, roads
         /// first; `cycle` skips that many earlier hits. Refused when none.
         pickVso: *const fn (ptr: *anyopaque, wx: f32, wy: f32, cycle: i32, kind: *VsoKind, index: *i32) Status,
+        /// BkEditorBridgeDescriptors: every bridge type, sorted; `total` is
+        /// always the full count (two-pass).
+        bridgeDescriptors: *const fn (ptr: *anyopaque, out: []BridgeDescriptor, total: *usize) Status,
+        /// BkEditorPlanBridge: the spans a drag (WORLD units) of type `desc`
+        /// would place, changing nothing; `total` is always the planned count.
+        /// Refused naming why (a drag along the other axis, a bad type).
+        planBridge: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []PlannedPiece, total: *usize) Status,
+        /// BkEditorDrawBridge: the planned spans and a new bridges entry, one
+        /// edit (`token`); `index` is the entry's. Refused, changing nothing,
+        /// for the plan's refusals and a span off the map.
+        drawBridge: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, token: *i32, index: *i32) Status,
+        /// BkEditorBridges: every bridges entry in list order (two-pass).
+        bridges: *const fn (ptr: *anyopaque, out: []BridgeInfo, total: *usize) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -295,6 +358,10 @@ pub const Bridge = struct {
     pub fn deleteVsoPoint(self: Bridge, kind: VsoKind, index: i32, control: i32, token: *i32) Status { return self.vtable.deleteVsoPoint(self.ptr, kind, index, control, token); }
     pub fn pickVso(self: Bridge, wx: f32, wy: f32, cycle: i32, kind: *VsoKind, index: *i32) Status { return self.vtable.pickVso(self.ptr, wx, wy, cycle, kind, index); }
     pub fn deleteVso(self: Bridge, kind: VsoKind, index: i32, token: *i32) Status { return self.vtable.deleteVso(self.ptr, kind, index, token); }
+    pub fn bridgeDescriptors(self: Bridge, out: []BridgeDescriptor, total: *usize) Status { return self.vtable.bridgeDescriptors(self.ptr, out, total); }
+    pub fn planBridge(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []PlannedPiece, total: *usize) Status { return self.vtable.planBridge(self.ptr, desc, wx0, wy0, wx1, wy1, out, total); }
+    pub fn drawBridge(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, token: *i32, index: *i32) Status { return self.vtable.drawBridge(self.ptr, desc, wx0, wy0, wx1, wy1, token, index); }
+    pub fn bridges(self: Bridge, out: []BridgeInfo, total: *usize) Status { return self.vtable.bridges(self.ptr, out, total); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

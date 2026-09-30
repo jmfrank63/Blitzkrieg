@@ -10,6 +10,7 @@
 #include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/MapFile/MapOverlay.h"
 #include "../../Sources/src/MapFile/MapRecords.h"
+#include "../../Sources/src/MapFile/MapGeometry.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
@@ -1867,6 +1868,195 @@ static void TestM2VsoBuilder()
 	printf( "map-file: M2 vso builder ok\n" );
 }
 
+// The inputs of the shipped W_WoodenBig_Heavy_01 and _02
+// (Data/Bridges/w_woodenbig_heavy/01/1.xml and 02/1.xml), read once and
+// written here as literals, as the map-file tier has no object database (C5):
+// the first line span (Spans item 1) has Length="6", so the span length is
+// 6 * fWorldCellSize / 2 world units; the begin span (Begins item 0, Spans
+// item 0, slab segment 2) has Origin x="226.274" y="113.137" in _01 and
+// x="67.8826" y="216.375" in _02, which ToAIUnits turns into the map units
+// below (Vis2AI: int( v * sqrt 2 + 0.3 )). _01 has Direction 01000000
+// (horizontal), _02 00000000 (vertical). The engine tier plans with the real
+// stats and checks the bridge's plan against these same functions.
+static NMapGeometry::SBridgePlanInput WoodenBigHeavyInput( bool bHorizontal )
+{
+	NMapGeometry::SBridgePlanInput input;
+	input.nDirection = bHorizontal ? NMapGeometry::BRIDGE_HORIZONTAL : NMapGeometry::BRIDGE_VERTICAL;
+	input.fSpanLength = 6.0f * fWorldCellSize / 2.0f;
+	input.vBeginOrigin = bHorizontal ? CVec2( 320.0f, 160.0f ) : CVec2( 96.0f, 306.0f );
+	return input;
+}
+
+// Where PlanBridge's fitted start lands, map units before the truncation: the
+// arithmetic the test compares with, not a written decimal (Pitfall 6).
+static CVec3 FittedStart( const NMapGeometry::SBridgePlanInput &rInput, float fX, float fY )
+{
+	CVec3 v( fX, fY, 0.0f );
+	FitVisOrigin2AIGrid( &v, rInput.vBeginOrigin );
+	return v;
+}
+
+static bool TypesInOrder( const std::vector<NMapGeometry::SPlannedPiece> &rSpans )
+{
+	if ( rSpans.size() < 2 || rSpans.front().nPackedType != NMapGeometry::BRIDGE_SPAN_BEGIN || rSpans.back().nPackedType != NMapGeometry::BRIDGE_SPAN_END )
+		return false;
+	for ( size_t i = 1; i + 1 < rSpans.size(); ++i )
+		if ( rSpans[i].nPackedType != NMapGeometry::BRIDGE_SPAN_CENTER )
+			return false;
+	for ( size_t i = 0; i < rSpans.size(); ++i )
+		if ( rSpans[i].nDir != 0 || rSpans[i].vPos.z != 0.0f )
+			return false;
+	return true;
+}
+
+// D-10/D-03/C6: the bridge span plan, then a planned bridge laid over a map
+// the way the bridge lays it (objects with the packed type, then the entry):
+// saved, read back, equal to the same build; its entry erased and its spans
+// deleted, in that order, write the unedited file byte for byte.
+static void TestM2BridgePlan()
+{
+	const float fL = 6.0f * fWorldCellSize / 2.0f;
+	std::vector<NMapGeometry::SPlannedPiece> spans;
+	std::string szWhy;
+
+	// Horizontal: 700 world units along x, 5 middle spans.
+	const NMapGeometry::SBridgePlanInput horizontal = WoodenBigHeavyInput( true );
+	if ( Check( NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 820.0f ), &spans, &szWhy ), szWhy.c_str() ) )
+	{
+		const int nParts = int( 700.0f / fL );
+		Check( int( spans.size() ) == nParts + 2, NStr::Format( "a 700-unit horizontal drag plans %d middle spans and the two ends (%d)", nParts, int( spans.size() ) ) );
+		Check( TypesInOrder( spans ), "begin, middles, end, direction 0, z 0" );
+		const CVec3 vStart = FittedStart( horizontal, 1000.0f, 800.0f );
+		const float fFirstX = vStart.x * fAITileXCoeff1 + 0.3f;
+		Check( spans[0].vPos.x == float( int( fFirstX ) ) - 0.1f, "the first span of a horizontal bridge is the truncated x less 0.1" );
+		const float fY = float( int( vStart.y * fAITileYCoeff1 + 0.3f ) );
+		bool bSameY = true;
+		for ( size_t i = 0; i < spans.size(); ++i )
+			bSameY = bSameY && spans[i].vPos.y == fY;
+		Check( bSameY, "every span of a horizontal bridge keeps the first point's truncated y" );
+		const float fEndX = ( vStart.x + float( nParts ) * fL ) * fAITileXCoeff1 + 0.3f;
+		Check( spans.back().vPos.x == float( int( fEndX ) ), "the end span is n span lengths on, truncated, with no nudge" );
+		const float fMidX = ( vStart.x + 0.5f * fL ) * fAITileXCoeff1 + 0.3f;
+		Check( spans[1].vPos.x == float( int( fMidX ) ), "the first middle span is half a span length on" );
+		// The same drag the other way round plans the same bridge.
+		std::vector<NMapGeometry::SPlannedPiece> reversed;
+		Check( NMapGeometry::PlanBridge( horizontal, CVec2( 1700.0f, 800.0f ), CVec2( 1000.0f, 790.0f ), &reversed, &szWhy ), szWhy.c_str() );
+		bool bSame = reversed.size() == spans.size();
+		for ( size_t i = 0; bSame && i < spans.size(); ++i )
+			bSame = reversed[i].vPos.x == spans[i].vPos.x && reversed[i].nPackedType == spans[i].nPackedType;
+		Check( bSame, "a drag right to left plans the same spans along x" );
+	}
+
+	// Vertical: the _02 variant along y.
+	const NMapGeometry::SBridgePlanInput vertical = WoodenBigHeavyInput( false );
+	if ( Check( NMapGeometry::PlanBridge( vertical, CVec2( 1000.0f, 800.0f ), CVec2( 990.0f, 1500.0f ), &spans, &szWhy ), szWhy.c_str() ) )
+	{
+		const int nParts = int( 700.0f / fL );
+		Check( int( spans.size() ) == nParts + 2, "a 700-unit vertical drag plans the same count" );
+		Check( TypesInOrder( spans ), "begin, middles, end along y" );
+		const CVec3 vStart = FittedStart( vertical, 1000.0f, 800.0f );
+		const float fLastY = ( vStart.y + float( nParts ) * fL ) * fAITileYCoeff1 + 0.3f;
+		Check( spans.back().vPos.y == float( int( fLastY ) ) + 0.1f, "the last span of a vertical bridge is the truncated y plus 0.1" );
+		Check( spans[0].vPos.y == float( int( vStart.y * fAITileYCoeff1 + 0.3f ) ), "and its first span has no nudge" );
+		const float fX = float( int( vStart.x * fAITileXCoeff1 + 0.3f ) );
+		Check( spans[0].vPos.x == fX && spans.back().vPos.x == fX, "every span keeps the first point's truncated x" );
+	}
+
+	// n = 0: a drag shorter than one span is a begin and an end span.
+	if ( Check( NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, 800.0f ), CVec2( 1000.0f + fL * 0.5f, 800.0f ), &spans, &szWhy ), szWhy.c_str() ) )
+		Check( spans.size() == 2 && TypesInOrder( spans ), "a drag shorter than a span plans a begin and an end span" );
+	Check( NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, 800.0f ), CVec2( 1000.0f, 800.0f ), &spans, &szWhy ), "a click with no drag plans a bridge of either direction" );
+
+	// Refusals.
+	szWhy.clear();
+	Check( !NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, 800.0f ), CVec2( 1010.0f, 1500.0f ), &spans, &szWhy ), "a vertical drag of a horizontal bridge is refused" );
+	Check( szWhy.find( "horizontally" ) != std::string::npos && spans.empty(), NStr::Format( "and says the bridge runs horizontally (%s)", szWhy.c_str() ) );
+	szWhy.clear();
+	Check( !NMapGeometry::PlanBridge( vertical, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 810.0f ), &spans, &szWhy ), "a horizontal drag of a vertical bridge is refused" );
+	Check( szWhy.find( "vertically" ) != std::string::npos, "and says the bridge runs vertically" );
+	NMapGeometry::SBridgePlanInput zero = horizontal;
+	zero.fSpanLength = 0.0f;
+	Check( !NMapGeometry::PlanBridge( zero, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 800.0f ), &spans, &szWhy ), "a zero span length is refused" );
+	zero.fSpanLength = std::numeric_limits<float>::quiet_NaN();
+	Check( !NMapGeometry::PlanBridge( zero, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 800.0f ), &spans, &szWhy ), "a NaN span length is refused" );
+	Check( !NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, std::numeric_limits<float>::infinity() ), CVec2( 1700.0f, 800.0f ), &spans, &szWhy ), "a non-finite point is refused" );
+
+	// The partner names.
+	Check( NMapGeometry::BridgePartnerName( "W_WoodenBig_Heavy_01" ) == "W_WoodenBig_Heavy_02", "_01's partner is _02" );
+	Check( NMapGeometry::BridgePartnerName( "asphaltbridge_02" ) == "asphaltbridge_01", "_02's partner is _01, the case of the rest kept" );
+	Check( NMapGeometry::BridgePartnerName( "SomeBridge" ).empty(), "a name without the suffix has no partner" );
+	Check( NMapGeometry::BridgePartnerName( "SomeBridge_03" ).empty() && NMapGeometry::BridgePartnerName( "_0" ).empty(), "nor has _03 or a short name" );
+
+	// A planned bridge over coldwinter, as the bridge lays it.
+	const char *pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !Check( NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 800.0f ), &plan, &szWhy ), szWhy.c_str() ) )
+		return;
+	const TMapOp addBridge = [plan]( SLoadMapInfo *pMap ) -> bool
+	{
+		std::vector<int> linkIDs;
+		for ( size_t i = 0; i < plan.size(); ++i )
+		{
+			NMapOverlay::SAddObject add;
+			add.szName = "W_WoodenBig_Heavy_01";
+			add.vPos = plan[i].vPos;
+			add.nDir = plan[i].nDir;
+			add.nPlayer = 0;
+			add.nFrameIndex = plan[i].nPackedType;
+			add.fHP = 1.0f;
+			add.nScriptID = -1;
+			int nLinkID = -1;
+			if ( !NMapOverlay::AddObject( pMap, add, &nLinkID ) )
+				return false;
+			linkIDs.push_back( nLinkID );
+		}
+		return NMapRecords::InsertBridgeEntry( pMap, -1, linkIDs );
+	};
+	const TMapOp removeBridge = []( SLoadMapInfo *pMap ) -> bool
+	{
+		if ( pMap->bridges.empty() )
+			return false;
+		std::vector<int> linkIDs;
+		// The entry first: a span a bridge still names is not deleted.
+		if ( !NMapRecords::EraseBridgeEntry( pMap, int( pMap->bridges.size() ) - 1, &linkIDs ) )
+			return false;
+		for ( size_t i = linkIDs.size(); i-- > 0; )
+		{
+			std::string szRefusal;
+			if ( !NMapOverlay::DeleteObject( pMap, linkIDs[i], &szRefusal ) )
+				return false;
+		}
+		return true;
+	};
+	RunM2Case( pszMap, "bridge drawn and removed", TMapOp(), addBridge, removeBridge );
+	// The saved spans hold what the plan said, packed type included.
+	{
+		CMapInfo edited;
+		if ( ReadFresh( pszMap, &edited ) && Check( addBridge( &edited ), "the bridge lays over the map" ) )
+		{
+			std::string szError;
+			if ( Check( NMapFile::Write( M2_EDITED, edited, &szError ), szError.c_str() ) )
+			{
+				CMapInfo reread;
+				if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) && Check( !reread.bridges.empty(), "the saved map has the entry" ) )
+				{
+					const std::vector<int> &rEntry = reread.bridges.back();
+					bool bAll = rEntry.size() == plan.size();
+					for ( size_t i = 0; bAll && i < rEntry.size(); ++i )
+					{
+						const SMapObjectInfo *pSpan = ObjectByLinkID( reread, rEntry[i] );
+						bAll = pSpan != 0 && pSpan->vPos.x == plan[i].vPos.x && pSpan->vPos.y == plan[i].vPos.y &&
+						       pSpan->nFrameIndex == plan[i].nPackedType && pSpan->fHP == 1.0f && pSpan->nScriptID == -1 && pSpan->nDir == 0;
+					}
+					Check( bAll, "every saved span is where the plan put it, with its packed type, HP 1, no script ID" );
+				}
+			}
+		}
+	}
+	RemoveM2Files();
+	printf( "map-file: M2 bridge plan ok\n" );
+}
+
 static void TestRoundTrip( const std::string &szPath )
 {
 	CMapInfo original;
@@ -1967,6 +2157,7 @@ int main( int argc, char **argv )
 	TestM2FindReferences();
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();
+	TestM2BridgePlan();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

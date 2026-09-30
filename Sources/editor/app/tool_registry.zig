@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge };
 
 pub const Entry = struct {
     id: ToolId,
@@ -52,6 +52,16 @@ pub const entries = [_]Entry{
         .ctrl_click_is_right = true,
         .needs_double_click = true,
         .marker_kinds = marker_logic.MarkerSet.only(&.{.roads_rivers}),
+    },
+    // 04-06 (D-10..D-12): the MFC Bridges tab. A drag draws, a click on a span
+    // selects its bridge; Q/E rotate, Enter toggles built during play, Delete
+    // removes it - all left-button and keys, so no right button or double
+    // click. Its markers are the ghost and the selected bridge's outline.
+    .{
+        .id = .bridge,
+        .label = "Bridge",
+        .shortcut = '5',
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.selection_outline}),
     },
 };
 
@@ -142,6 +152,15 @@ test "the Roads & Rivers tool takes the right button, Ctrl-as-right and double c
     try std.testing.expect(item.marker_kinds.has(.roads_rivers));
     try std.testing.expectEqual(@as(?ToolId, .roads_rivers), byShortcut('4'));
     try std.testing.expectEqual(@as(?ToolId, .roads_rivers), byLabel("roads_rivers"));
+}
+
+test "the Bridge tool is key 5, left button and keys only, with the selection outline" {
+    const item = entry(.bridge);
+    try std.testing.expectEqual(@as(?u8, '5'), item.shortcut);
+    try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.selection_outline));
+    try std.testing.expectEqual(@as(?ToolId, .bridge), byShortcut('5'));
+    try std.testing.expectEqual(@as(?ToolId, .bridge), byLabel("bridge"));
 }
 
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {

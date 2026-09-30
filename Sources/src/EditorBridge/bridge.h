@@ -904,6 +904,58 @@ BkEditorStatus BkEditorDeleteVso( BkEditorSession *session, int kind, int index,
    BK_EDITOR_FAILED naming the first difference. */
 BkEditorStatus BkEditorVsoMatchesEngine( BkEditorSession *session );
 
+/* Bridges (04-06, D-10..D-12): a bridge is one entry of the map's bridges
+   list - the link IDs of its spans, in order - plus its span objects, and is
+   drawn, picked, rotated, toggled and deleted as a whole. A drag is WORLD
+   (Vis) units, as the pointer is; a span's position is MAP (AI) units, as an
+   object's is. Every edit is one edit of the edit log (BkEditorUndoEdit /
+   BkEditorRedoEdit take its token) and changes the bridges entry, its spans in
+   both copies and the engine together, all or nothing; no edit ever leaves an
+   entry naming a missing object (the game's LoadBridges dereferences every
+   link). The span geometry is NMapGeometry::PlanBridge
+   (Sources/src/MapFile/MapGeometry.h), the function the map-file tier builds
+   its expected maps with.
+
+   A bridge type: its name; direction 0 vertical, 1 horizontal (the drag must
+   run along it); has_partner 1 when its rotated _01/_02 variant is in the
+   object database; build_during_play_allowed 1 for a WoodenBig_Heavy_ type
+   (the only ones the MFC editor lets be built during play). */
+typedef struct { char name[64]; int direction; int has_partner; int build_during_play_allowed; } BkEditorBridgeDescriptor;
+/* Every bridge type of the object database, sorted by name; out_count is
+   always the total, a buffer too short is BK_EDITOR_REFUSED with nothing
+   written past capacity, out may be null when capacity is 0. A null
+   out_count is BK_EDITOR_BAD_ARGUMENT; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorBridgeDescriptors( BkEditorSession *session, BkEditorBridgeDescriptor *out, int capacity, int *out_count );
+/* One planned span: its position (MAP units), its packed frame type (1 begin,
+   2 middle, 4 end, what the file holds) and its direction (0). */
+typedef struct { float x, y; int type; int dir; } BkEditorPlannedPiece;
+/* The spans a drag of the bridge type desc from (wx0, wy0) to (wx1, wy1)
+   (WORLD units) would place, changing nothing - for the tool's ghost. Two
+   passes like BkEditorBridgeDescriptors: out_count is always the planned
+   count. BK_EDITOR_REFUSED naming the reason for a desc that is not a bridge
+   type (or whose stats lack a begin, middle or end span) and a drag along the
+   other axis than the type's direction ("this bridge runs horizontally ...");
+   BK_EDITOR_BAD_ARGUMENT for a null desc or out_count, a desc of 64
+   characters or more, a non-finite coordinate. */
+BkEditorStatus BkEditorPlanBridge( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1,
+                                   BkEditorPlannedPiece *out, int capacity, int *out_count );
+/* Draws a bridge of type desc along the drag (WORLD units): the planned spans
+   become objects (HP 1, no script ID, player 0, direction 0, fresh link IDs;
+   the file gets the packed frame type) and a new bridges entry is appended;
+   out_index is that entry's index, out_token names the edit (either may be
+   null; both -1 after a refusal). The refusals of BkEditorPlanBridge, and
+   BK_EDITOR_REFUSED when the engine will not place a span (off the map): a
+   refusal changes nothing. */
+BkEditorStatus BkEditorDrawBridge( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1,
+                                   int *out_token, int *out_index );
+/* One bridges entry: the type (its first span's name), how many spans the
+   entry names, the box of their positions (MAP units) and whether it is built
+   during play (a span with negative HP in the saved map). */
+typedef struct { char desc[64]; int span_count; float min_x, min_y, max_x, max_y; int built_during_play; } BkEditorBridgeInfo;
+/* Every bridges entry of the map, in list order; two passes like
+   BkEditorBridgeDescriptors. */
+BkEditorStatus BkEditorBridges( BkEditorSession *session, BkEditorBridgeInfo *out, int capacity, int *out_count );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );
