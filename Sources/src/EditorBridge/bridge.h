@@ -877,6 +877,81 @@ BkEditorStatus BkEditorScriptAreaMoved( BkEditorSession *session, const BkEditor
 BkEditorStatus BkEditorScriptAreaResized( BkEditorSession *session, const BkEditorScriptAreaRecord *area, float wx, float wy,
                                           BkEditorScriptAreaRecord *out );
 
+/* Start commands (04-11, D-17): the map's startCommandsList, orders the game
+   gives units when the mission starts (CAILogic::InitStartCommands). A command
+   names its units by link ID (a soldier stands for his squad, which is what the
+   map holds), an action type from Data/Editor/actions.ini, and a target: a
+   unit's link ID (link_id, 0 for none - never a reference) or a point (x, y, MAP
+   (AI) units). from_explosion is the file's own field, kept as it is: a set never
+   changes it. The index is the command's place in the list; a new command
+   appends and nothing is renumbered. */
+
+/* One action type of Data/Editor/actions.ini, in the order the file lists it (a
+   name a file repeats appears once, with its last value, as the MFC editor's
+   list has it). */
+typedef struct { char name[64]; int id; } BkEditorActionCommand;
+
+/* The action types, and in *out_default_index the entry the MFC editor starts a
+   new command at (entry 9, STOP; the last entry when the file lists fewer).
+   out_count is always the total; a capacity below it is BK_EDITOR_REFUSED after
+   writing what fits, never past capacity; out may be null with capacity 0 to
+   ask for the total. A file that is not in the data (or lists nothing) is
+   BK_EDITOR_REFUSED naming why, with out_count 0. BK_EDITOR_BAD_ARGUMENT for a
+   null out_count or out_default_index or a negative capacity. */
+BkEditorStatus BkEditorActionCommands( BkEditorSession *session, BkEditorActionCommand *out, int capacity, int *out_count,
+                                       int *out_default_index );
+
+typedef struct
+{
+	int cmd_type;
+	int link_id;
+	float x, y;
+	int from_explosion;
+	float number;
+	int unit_count;
+} BkEditorStartCommandRecord;
+
+/* How many start commands the snapshot holds. BK_EDITOR_BAD_ARGUMENT for a null
+   out; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorStartCommandCount( BkEditorSession *session, int *out_count );
+
+/* The command at index (0..count-1) and its unit link IDs, in the file's order.
+   out->unit_count is always the total; a units capacity below it is
+   BK_EDITOR_REFUSED after writing what fits, never past capacity (units may be
+   null with unit_cap 0 to ask for the total: that sizing pass is REFUSED when
+   the command has units, as a buffer too short is). An index out of range, a
+   negative unit_cap or a null out is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorStartCommand( BkEditorSession *session, int index, BkEditorStartCommandRecord *out, int *units, int unit_cap );
+
+/* Inserts a command at index (0..count; -1 appends) into the snapshot and the
+   working copy together; the engine is untouched (commands run only when a
+   mission starts). units holds record->unit_count link IDs. Rules, each a
+   BK_EDITOR_REFUSED naming why with nothing changed: at least one unit; every
+   unit a link ID above 0 naming an object of the objects or scenarioObjects
+   lists that is a unit or a squad the database knows; no unit twice; link_id 0 or
+   an existing object; cmd_type one of the listed action types (the list missing
+   refuses); x and y on the map. A command the file itself held when it was
+   opened is exempt from the rules: an undo of a delete puts back whatever was
+   deleted. The record's from_explosion is stored as given (an undo needs it
+   back). A unit that carries a script ID a reinforcement group holds - the game
+   holds it back until a script brings it in - is not a refusal: the call answers
+   BK_EDITOR_OK and BkEditorLastMessage names it (assumption A3: the game may
+   dereference a held-back unit). A null record, a unit_count above 4096 or
+   below 0, a null units with a count above 0, a non-finite number, a
+   from_explosion other than 0 and 1 or an index out of range is
+   BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorAddStartCommand( BkEditorSession *session, int index, const BkEditorStartCommandRecord *record, const int *units );
+
+/* Replaces the command at index by the same rules, except that only what the set
+   changes is judged (a file's own odd command can be edited and put back), and
+   that from_explosion is taken from the command already there, never from the
+   record (D-17). */
+BkEditorStatus BkEditorSetStartCommand( BkEditorSession *session, int index, const BkEditorStartCommandRecord *record, const int *units );
+
+/* Removes the command at index; the ones after it move down one. An index out of
+   range is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorDeleteStartCommand( BkEditorSession *session, int index );
+
 /* Reinforcement groups (04-09, D-16): the map's SReinforcementGroupInfo, keyed
    by group ID, each holding the script IDs of the objects the game holds back
    for it (an object of the map's objects list whose script ID a group holds is

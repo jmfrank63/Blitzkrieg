@@ -473,6 +473,22 @@ pub const State = struct {
     area_rename_field: [core.records.area_name_capacity:0]u8 = [_:0]u8{0} ** core.records.area_name_capacity,
     area_rename_for: ?usize = null,
 
+    /// 04-11 (D-17): the Start Commands window (Unit -> Start commands...). The map's
+    /// commands (units owned) are read again when the editor's `.start_command`
+    /// record generation moves past `startcmds_generation_seen` - which a delete or
+    /// an undo of an object moves too, since its cascade edits them
+    /// (`refreshStartCommands`); `startcmds_at_open` is for `startcmds_delta`. The
+    /// action types come from Data/Editor/actions.ini, read when a map opens
+    /// (`refreshStartActions`); none listed means no command can be made.
+    startcmds_open: bool = false,
+    startcmds: []core.records.StartCommand = &.{},
+    startcmds_generation_seen: ?u32 = null,
+    startcmds_at_open: usize = 0,
+    startcmd_selected: ?usize = null,
+    startcmd_actions: []core.bridge.ActionCommand = &.{},
+    startcmd_default_action: usize = 0,
+    startcmd_actions_read: bool = false,
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -543,6 +559,8 @@ pub const State = struct {
         self.freeGroups();
         core.files.freeNames(self.allocator, &self.script_names);
         self.areas.deinit(self.allocator);
+        Editor.freeStartCommands(self.allocator, self.startcmds);
+        self.allocator.free(self.startcmd_actions);
         self.groups.deinit(self.allocator);
         self.groups_checked.deinit(self.allocator);
         self.hidden_wanted.deinit(self.allocator);
@@ -800,6 +818,34 @@ pub const State = struct {
         self.areas.appendSlice(self.allocator, list) catch {};
     }
 
+    /// The map's start commands, read again when the editor's `.start_command`
+    /// generation moved or a map opened (`mapOpened` resets the mark). A selection
+    /// past the new end (an undo took the command away) is dropped.
+    pub fn refreshStartCommands(self: *State) void {
+        const generation = self.editor.record_generations.get(.start_command);
+        if (self.startcmds_generation_seen != null and self.startcmds_generation_seen.? == generation) return;
+        self.startcmds_generation_seen = generation;
+        Editor.freeStartCommands(self.allocator, self.startcmds);
+        self.startcmds = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.startcmds = self.editor.startCommands(self.allocator) catch &.{};
+        if (self.startcmd_selected != null and self.startcmd_selected.? >= self.startcmds.len) self.startcmd_selected = null;
+    }
+
+    /// The action types of Data/Editor/actions.ini, read once per map. A file that
+    /// is missing leaves the list empty (the window says so and adding is off).
+    pub fn refreshStartActions(self: *State) void {
+        if (self.startcmd_actions_read) return;
+        self.startcmd_actions_read = true;
+        self.allocator.free(self.startcmd_actions);
+        self.startcmd_actions = &.{};
+        self.startcmd_default_action = 0;
+        if (!mapIsOpen(self.editor)) return;
+        const list = self.editor.actionCommands(self.allocator) catch return;
+        self.startcmd_actions = list.items;
+        self.startcmd_default_action = list.default_index;
+    }
+
     fn freeGroups(self: *State) void {
         for (self.groups.items) |row| self.allocator.free(row.ids);
         self.groups.clearRetainingCapacity();
@@ -984,6 +1030,12 @@ pub const State = struct {
         self.area_rename_for = null;
         self.refreshAreas();
         self.areas_at_open = self.areas.items.len;
+        self.startcmds_generation_seen = null;
+        self.startcmd_selected = null;
+        self.startcmd_actions_read = false;
+        self.refreshStartActions();
+        self.refreshStartCommands();
+        self.startcmds_at_open = self.startcmds.len;
         self.script_names_stale = true;
         self.script_generation_seen = null;
         self.script_pick_active = false;
@@ -1972,6 +2024,10 @@ fn drawMenuBar(state: *State) f32 {
         drawMapMenu(state, map_open);
         ig.igEndMenu();
     }
+    if (ig.igBeginMenu("Unit")) {
+        drawUnitMenu(state, map_open);
+        ig.igEndMenu();
+    }
     if (ig.igBeginMenu("Tools")) {
         for (&tool_registry.entries) |*item| {
             var shortcut_buffer: [2:0]u8 = undefined;
@@ -1997,6 +2053,17 @@ fn drawMenuBar(state: *State) f32 {
     }
     ig.igEndMainMenuBar();
     return height;
+}
+
+/// The Unit menu (04-11): start commands for the selected unit. "Add start
+/// command" is the MFC editor's Unit > Add Start Command, one command for the
+/// selected unit (a soldier's click already selected his squad); it needs a
+/// selected object and an action list (adding is off without
+/// Data/Editor/actions.ini, T-04-11-04).
+fn drawUnitMenu(state: *State, map_open: bool) void {
+    state.refreshStartActions();
+    const can_add = map_open and state.editor.selection != null and state.startcmd_actions.len != 0;
+    if (ig.igMenuItemEx("Add start command", null, false, can_add)) _ = commands.run(state, "startcmd_add", "");
 }
 
 /// Map > Player camera (D-22): the ground point under the screen's centre

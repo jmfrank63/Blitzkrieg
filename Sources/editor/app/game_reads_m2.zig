@@ -261,6 +261,51 @@ fn addHeldUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32) bool {
     return true;
 }
 
+/// A placeable SGVOGT_UNIT of player 0 of the catalogue's first such type, put on
+/// the first free spot of `offsets` from `anchor` (world units), through the core
+/// Editor: the engine refuses a unit on another object. Its link ID, or null after
+/// printing why; `what` says what it is for.
+fn placeUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32, offsets: []const [2]f32, what: []const u8) ?i32 {
+    const editor = &rig.editor;
+    const entries = rig.real.catalogue(gpa) catch {
+        std.debug.print("map-editor: {s} FAIL: the object catalogue did not read\n", .{label});
+        return null;
+    };
+    defer gpa.free(entries);
+    const unit_name: []const u8 = for (entries) |entry| {
+        if (entry.game_type == 1 and entry.placeable != 0) break std.mem.sliceTo(&entry.name, 0);
+    } else {
+        std.debug.print("map-editor: {s} FAIL: no placeable SGVOGT_UNIT in the catalogue\n", .{label});
+        return null;
+    };
+    for (offsets) |offset| {
+        var map_x: f32 = 0;
+        var map_y: f32 = 0;
+        if (editor.bridge.worldToMap(anchor[0] + offset[0], anchor[1] + offset[1], &map_x, &map_y) != .ok) continue;
+        const link_id = editor.addObject(unit_name, map_x, map_y, 0, 0) catch continue;
+        std.debug.print("map-editor: {s}: placed {s} (link {d}) for {s} beside the start camera\n", .{ label, unit_name, link_id, what });
+        return link_id;
+    }
+    std.debug.print("map-editor: {s} FAIL: no unit {s} near the anchor {d:.0},{d:.0} was placed for {s}: {s}\n", .{ label, unit_name, anchor[0], anchor[1], what, editor.status() });
+    return null;
+}
+
+/// 04-11 (D-17): a second unit of player 0, no script ID, given a STOP command the
+/// way Unit -> Add start command gives one. The game's InitStartCommands launches
+/// every command that names a unit and reports the count, so `startcmd launched`
+/// one above the baseline is the proof. False after printing why.
+fn addStartCommandUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32) bool {
+    const editor = &rig.editor;
+    const offsets = [_][2]f32{ .{ 0, 170 }, .{ 0, -170 }, .{ -170, 0 }, .{ 170, 60 }, .{ -170, -60 }, .{ 0, 260 }, .{ 0, -260 } };
+    const link_id = placeUnit(gpa, rig, anchor, &offsets, "a start command") orelse return false;
+    const index = editor.addStartCommand(link_id) catch {
+        std.debug.print("map-editor: {s} FAIL: the start command for unit {d} was not added: {s}\n", .{ label, link_id, editor.status() });
+        return false;
+    };
+    std.debug.print("map-editor: {s}: start command {d} (STOP) for unit {d}\n", .{ label, index, link_id });
+    return true;
+}
+
 /// 04-10 (D-20): the map names `m2_script` as its script, and the game finds the
 /// file where it looks - beside the test copy. The fixture is written beside a
 /// stand-in for the edited map (a folder of our own under zig-out/local-test:
@@ -443,6 +488,10 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     // reports how many it held per group, so `group id=900 held=1` is the proof.
     if (!addHeldUnit(gpa, &rig, anchor_at)) return false;
 
+    // 04-11 (D-17): a unit given a STOP command. The game's InitStartCommands
+    // launches every command that names a unit and reports how many.
+    if (!addStartCommandUnit(gpa, &rig, anchor_at)) return false;
+
     // 04-10 (D-20): the map's script, which lands group 900 and traces what the
     // game holds.
     if (!addScript(io, editor, &paths, log_path)) return false;
@@ -508,6 +557,17 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
     std.debug.print("map-editor: {s}: BK_MAP_TRACE group id={d} held={d}\n", .{ label, held_group, held_by_group.? });
+
+    // The game launched the new start command (InitStartCommands).
+    if (base.startcmd_launched == null or edited_trace.startcmd_launched == null) {
+        std.debug.print("map-editor: {s} FAIL: a run printed no BK_MAP_TRACE startcmd line ({?d} -> {?d}); see {s}\n", .{ label, base.startcmd_launched, edited_trace.startcmd_launched, edited_log_path });
+        return false;
+    }
+    if (edited_trace.startcmd_launched.? != base.startcmd_launched.? + 1) {
+        std.debug.print("map-editor: {s} FAIL: the game launched {d} start commands, not the baseline's {d} and one more; see {s}\n", .{ label, edited_trace.startcmd_launched.?, base.startcmd_launched.?, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE startcmd launched={d} (baseline {d})\n", .{ label, edited_trace.startcmd_launched.?, base.startcmd_launched.? });
 
     // The game loaded and ran the script the map names (Scripts.cpp Load).
     const script = edited_trace.script orelse {
@@ -584,6 +644,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, script_name, area_name });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, base.startcmd_launched.?, edited_trace.startcmd_launched.?, script_name, area_name });
     return true;
 }

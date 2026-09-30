@@ -63,6 +63,23 @@ pub const ObjectRecord = struct {
     }
 };
 
+/// One action type of Data/Editor/actions.ini as BkEditorActionCommands lists
+/// it (04-11, D-17): its name and the id a start command stores.
+pub const ActionCommand = struct {
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    id: i32 = 0,
+
+    pub fn nameSlice(self: *const ActionCommand) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *ActionCommand, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+};
+
 /// BkEditorPaintCell, layout included: the adapter hands a slice of these
 /// straight to the C call.
 pub const PaintCell = extern struct { x: c_int, y: c_int, tile: u8 };
@@ -337,6 +354,12 @@ pub const Bridge = struct {
         scriptAreaFromVis: *const fn (ptr: *anyopaque, shape: records.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8, out: *records.ScriptArea) Status,
         scriptAreaMoved: *const fn (ptr: *anyopaque, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status,
         scriptAreaResized: *const fn (ptr: *anyopaque, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status,
+        /// BkEditorActionCommands (04-11, D-17): the action types of
+        /// Data/Editor/actions.ini in the file's order, allocated with
+        /// `allocator` into `out` (the caller frees it on .ok only), and the
+        /// entry a new command starts at. Refused, naming why, when the file is
+        /// not in the data or lists nothing.
+        actionCommands: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]ActionCommand, default_index: *usize) Status,
         /// BkEditorUndoEdit / BkEditorRedoEdit: the bridge's edit log, the
         /// paints' order (newest first; redo in the order undone). A token
         /// out of order is refused.
@@ -466,6 +489,7 @@ pub const Bridge = struct {
     pub fn scriptAreaFromVis(self: Bridge, shape: records.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8, out: *records.ScriptArea) Status { return self.vtable.scriptAreaFromVis(self.ptr, shape, wx0, wy0, wx1, wy1, name, out); }
     pub fn scriptAreaMoved(self: Bridge, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status { return self.vtable.scriptAreaMoved(self.ptr, area, wx, wy, out); }
     pub fn scriptAreaResized(self: Bridge, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status { return self.vtable.scriptAreaResized(self.ptr, area, wx, wy, out); }
+    pub fn actionCommands(self: Bridge, allocator: std.mem.Allocator, out: *[]ActionCommand, default_index: *usize) Status { return self.vtable.actionCommands(self.ptr, allocator, out, default_index); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }
     pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
