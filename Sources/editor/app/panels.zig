@@ -157,6 +157,9 @@ pub const GroupRow = struct {
 /// paths and the script's name, held while the question is on screen.
 pub const ScriptCopyPending = struct {
     active: bool = false,
+    /// A different file of that name is already beside the new map: the
+    /// question is "Replace it?", and Yes overwrites it (CR-B01).
+    replace: bool = false,
     from: logic.PathText = .{},
     to: logic.PathText = .{},
     name_buffer: [core.records.script_file_capacity]u8 = undefined,
@@ -1370,7 +1373,9 @@ fn scriptValue(state: *State, buffer: *[core.records.script_file_capacity]u8) ?[
 /// the map names a script that is beside the old map and the new map is in
 /// another folder, asks whether to copy it beside the new one (`from_map` is
 /// where the map was). The question is a modal whose two buttons are the
-/// commands `script_copy_along_yes` and `_no`.
+/// commands `script_copy_along_yes` and `_no`; when a different file of that
+/// name is already beside the new map it asks "Replace it?" instead, and only
+/// that Yes overwrites it.
 fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
     const files = state.editor.files orelse return;
     var value_buffer: [core.records.script_file_capacity]u8 = undefined;
@@ -1384,6 +1389,9 @@ fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
     const new_path = core.script_file.scriptPathBeside(&beside_new, state.editor.document.path.items, name) orelse return;
     if (core.script_file.sameFile(files, path, new_path)) return;
     const pending = &state.script_copy;
+    // A different <name>.lua already there is never replaced without asking
+    // (CR-B01): the question becomes "Replace it?".
+    pending.replace = files.exists(new_path);
     pending.from.set(from_map);
     pending.to.set(state.editor.document.path.items);
     pending.name_len = @min(name.len, pending.name_buffer.len);
@@ -1392,6 +1400,9 @@ fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
 }
 
 /// The answer to that question (the modal's buttons and the two commands).
+/// False when no question was up, and when a different file of that name
+/// turned up beside the new map after a plain "Copy?" was answered: nothing
+/// is copied and the question is put again as "Replace it?".
 pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
     const pending = &state.script_copy;
     if (!pending.active) return false;
@@ -1399,8 +1410,17 @@ pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
     if (!yes) return true;
     const files = state.editor.files orelse return false;
     var note: [200]u8 = undefined;
-    switch (core.script_file.copyAlong(files, pending.from.slice(), pending.to.slice(), pending.name())) {
+    switch (core.script_file.copyAlong(files, pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
         .copied => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua copied beside the new map", .{pending.name()}) catch "copied"),
+        // A file of that name appeared beside the new map after the question
+        // was put: nothing is replaced; the question is asked again as
+        // "Replace it?".
+        .exists => {
+            pending.replace = true;
+            pending.active = true;
+            state.view.setStatus("script: ", std.fmt.bufPrint(&note, "a different {s}.lua is beside the new map now; nothing was copied", .{pending.name()}) catch "a different script is beside the new map now");
+            return false;
+        },
         .missing => state.view.setStatus("script: ", "the script is not beside the old map any more"),
         .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua could not be copied: {s}", .{ pending.name(), files.lastError() }) catch "could not be copied"),
         .not_a_bare_name => state.view.setStatus("script: ", "the script's name is not a plain name, so it was not copied"),
