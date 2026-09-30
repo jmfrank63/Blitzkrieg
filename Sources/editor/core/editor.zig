@@ -824,6 +824,49 @@ pub const Editor = struct {
         self.commitEdit(&prepared, token, 0, .objects);
     }
 
+    /// Places a fence run of type `desc` (a name from `fenceDescriptors`)
+    /// along the drag from (wx0, wy0) to (wx1, wy1), WORLD units (D-14): the
+    /// bridge plans the fences (one every second AI tile, the direction in
+    /// the frame index; a drag that stays on its tile is one fence, flipped
+    /// with `ctrl`) and adds them as one undo step; the document's objects
+    /// are read again (scope `objects`). A refusal (a run off the map, a bad
+    /// type, a fence the engine will not place) changes nothing: not the
+    /// bridge, not the history.
+    pub fn drawFences(self: *Editor, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.drawFences(desc, wx0, wy0, wx1, wy1, ctrl, &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjects();
+    }
+
+    /// The object database's fence types, sorted; the caller frees the slice
+    /// with `allocator`. A read: the status line is left alone.
+    pub fn fenceDescriptors(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.FenceDescriptor {
+        var total: usize = 0;
+        var none: [0]bridge_mod.FenceDescriptor = .{};
+        const sizing = self.bridge.fenceDescriptors(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        const out = try allocator.alloc(bridge_mod.FenceDescriptor, total);
+        errdefer allocator.free(out);
+        try bridge_mod.check(self.bridge.fenceDescriptors(out, &total));
+        return out;
+    }
+
+    /// The fences a drag would place (MAP units), changing nothing - the
+    /// ghost. Writes at most `out.len` and returns how many the plan has;
+    /// null when the run is refused, the reason in `bridge.lastMessage()`.
+    /// A read: the status line is left alone (the ghost asks every frame).
+    pub fn planFences(self: *Editor, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []bridge_mod.PlannedPiece) EditError!?usize {
+        var total: usize = 0;
+        const result = self.bridge.planFences(desc, wx0, wy0, wx1, wy1, ctrl, out, &total);
+        if (result == .refused and total > out.len) return total;
+        if (result == .refused) return null;
+        try bridge_mod.check(result);
+        return total;
+    }
+
     /// The bridge or entrenchment under a screen point (window pixels), or
     /// null. A read: the status line is left alone.
     pub fn pickGroup(self: *Editor, sx: f32, sy: f32) EditError!?bridge_mod.GroupRef {

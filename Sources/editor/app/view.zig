@@ -111,6 +111,7 @@ pub fn ViewWith(comptime Input: type) type {
         roads_rivers: core.tools_vso.RoadsRivers = .{},
         /// 04-06: the Bridge tool (D-10..D-12).
         bridge_tool: core.tools_groups.BridgeTool = .{},
+        fence_tool: core.tools_groups.FenceTool = .{},
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -174,6 +175,16 @@ pub fn ViewWith(comptime Input: type) type {
         /// before it ends.
         pub fn hasActiveMouseGesture(self: *const Self) bool {
             return self.left_button_down or self.right_button_down or self.panning;
+        }
+
+        /// The event with the modifier state stamped on its pointer.
+        fn withCtrl(event: tools.Event, ctrl: bool) tools.Event {
+            var stamped = event;
+            switch (stamped) {
+                .press, .drag, .release, .right_press, .right_drag, .right_release, .double_click => |*pointer| pointer.ctrl = ctrl,
+                .key => {},
+            }
+            return stamped;
         }
 
         /// `error.Refused` is not an error here: the editor's status line
@@ -251,6 +262,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.saveCurrentView();
             self.roads_rivers.reset();
             self.bridge_tool.reset();
+            self.fence_tool.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -295,6 +307,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.placer.name = "";
             self.roads_rivers.reset();
             self.bridge_tool.reset();
+            self.fence_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -684,13 +697,18 @@ pub fn ViewWith(comptime Input: type) type {
             if (result) |_| self.clearStatus() else |err| self.noteToolError(editor, err);
         }
 
-        fn dispatch(self: *Self, editor: *Editor, event: tools.Event) void {
+        fn dispatch(self: *Self, editor: *Editor, raw_event: tools.Event) void {
+            // The modifier travels with the pointer (04-07): the Fence tool's
+            // Ctrl flips a single fence. Read where the event is handled, so a
+            // scripted event and a real one see the same thing.
+            const event = withCtrl(raw_event, Input.modState() & sdl3.c.SDL_KMOD_CTRL != 0);
             const result = switch (self.tool) {
                 .select => self.selector.handle(editor, event),
                 .brush => self.brush.handle(editor, event),
                 .place => self.placer.handle(editor, event),
                 .roads_rivers => self.roads_rivers.handle(editor, event),
                 .bridge => self.bridge_tool.handle(editor, event),
+                .fence => self.fence_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
         }

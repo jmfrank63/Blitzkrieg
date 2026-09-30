@@ -986,6 +986,49 @@ BkEditorStatus BkEditorRotateBridge( BkEditorSession *session, int index, int *o
    index outside 0..count-1 is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkEditorToggleBridgeBuild( BkEditorSession *session, int index, int *out_token );
 
+/* Fences (04-07, D-14): the MFC Fences tab. A fence run is a drag along one
+   axis (WORLD units) that places one fence every second AI tile; the
+   direction is in the frame index the file holds, ( 1 << dir ) | 0x00010000,
+   dir 1 or 3 for a horizontal drag (left, else right with the tile moved two
+   to the right), 0 or 2 for a vertical one (up with the tile moved two up,
+   else down). A drag that does not leave its first AI tile is one fence,
+   direction 0, or 1 with ctrl. The whole run is one edit of the edit log
+   (BkEditorUndoEdit / BkEditorRedoEdit take its token) and changes both
+   copies and the engine together, all or nothing; a placed fence is an
+   ordinary object (BkEditorPlaceObject, BkEditorDeleteObject). The geometry is
+   NMapGeometry::PlanFences (Sources/src/MapFile/MapGeometry.h).
+
+   A world point to the AI tile it falls in, through the engine's own
+   ITerrainEditor::GetAITileIndex (half a world cell, rounded - not the
+   truncation of CMapInfo::GetAITileIndices, which agrees with it only at tile
+   corners). The tile is written even for a point off the map, which is
+   BK_EDITOR_REFUSED. */
+BkEditorStatus BkEditorWorldToAITile( BkEditorSession *session, float wx, float wy, int *out_x, int *out_y );
+/* A fence type: its name. */
+typedef struct { char name[64]; } BkEditorFenceDescriptor;
+/* Every fence type of the object database with stats, sorted by name; two
+   passes like BkEditorBridgeDescriptors. */
+BkEditorStatus BkEditorFenceDescriptors( BkEditorSession *session, BkEditorFenceDescriptor *out, int capacity, int *out_count );
+/* The fences a drag of the fence type desc from (wx0, wy0) to (wx1, wy1)
+   (WORLD units) would place, changing nothing - for the tool's ghost; each is
+   a BkEditorPlannedPiece: its position (MAP units), its packed frame type
+   ( 1 << dir ) | 0x00010000, dir 0 (the fence's own direction is in its
+   type). Two passes: out_count is always the planned count.
+   BK_EDITOR_REFUSED naming the reason for a desc that is not a fence type (or
+   whose stats lack a centre segment in one of four directions) and a run with
+   an end off the map ("the fence run leaves the map"); BK_EDITOR_BAD_ARGUMENT
+   for a null desc or out_count, a desc of 64 characters or more, a
+   non-finite coordinate. */
+BkEditorStatus BkEditorPlanFences( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1, int ctrl,
+                                   BkEditorPlannedPiece *out, int capacity, int *out_count );
+/* Places the planned fences as objects (HP 1, no script ID, player 0, fresh
+   link IDs; the file gets the packed frame type) as one edit; out_token names
+   it (may be null; -1 after a refusal). The refusals of BkEditorPlanFences,
+   and BK_EDITOR_REFUSED when the engine will not place a fence (on another
+   object, off the map): a refusal changes nothing. */
+BkEditorStatus BkEditorDrawFences( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1, int ctrl,
+                                   int *out_token );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

@@ -265,6 +265,10 @@ bool WorldMatchesSession( SEditorSession *pSession );
 
 // The tile a world point falls in, through the engine's own conversion.
 bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY );
+// The same for an AI tile (half a world cell), ITerrainEditor::GetAITileIndex
+// as the MFC Fences tab calls it (04-07): the index is written even for a point
+// off the map, which is then refused.
+bool WorldToAITile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY );
 
 // Reads the object's current record out of the snapshot, so a caller changing
 // one of its three editable fields can leave the other two alone.
@@ -456,5 +460,34 @@ bool ToggleBridgeBuildInSession( SEditorSession *pSession, int nIndex, int *pnTo
 // calls it after each world update, so an open, an undo, a redo and a rotate
 // all show it.
 void ApplyBridgeMarks( SEditorSession *pSession );
+
+// Fences (session_groups.cpp, 04-07, D-14): a run of ordinary fence objects
+// placed by one drag, no bridges-style entry. One logged edit (the same
+// SGroupEdit, records only), all or nothing; afterwards each fence is an
+// object like any other (move, delete).
+//
+// A fence type as the Fence tool lists it: its name.
+struct SFenceDescriptorInfo
+{
+	std::string szName;
+};
+// Every SGVOGT_FENCE type of the object database with stats, sorted by name.
+bool FenceDescriptorsInSession( SEditorSession *pSession, std::vector<SFenceDescriptorInfo> *pOut );
+// A fence type's plan inputs: the origin of the centre segment (seeded, the
+// first) of each of the four directions and the map's extent in AI tiles.
+// Refused (false, the reason in szMessage) for a name that is not a fence type
+// and for stats with fewer than four directions or a direction with no centre
+// segment (the index helpers divide by those lists' sizes, T-04-07-01).
+bool FencePlanInputFor( SEditorSession *pSession, const std::string &szDesc, NMapGeometry::SFencePlanInput *pInput );
+// The fences a drag (world units) would place (NMapGeometry::PlanFences over
+// the engine's AI tiles), changing nothing. pbRefused as PlanBridgeInSession.
+bool PlanFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
+                          std::vector<NMapGeometry::SPlannedPiece> *pFences, bool *pbRefused );
+// Places the planned fences: objects (the snapshot holds the packed type, the
+// working copy and the engine the seeded first centre segment; HP 1, player 0,
+// script ID -1, fresh link IDs) as one logged edit. Refused, changing nothing,
+// for a bad type, a run off the map and a fence the engine will not place.
+bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
+                          int *pnToken, bool *pbRefused );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

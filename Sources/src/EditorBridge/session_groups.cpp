@@ -98,7 +98,10 @@ struct SBridgeGroup
 	int nEntryIndex;
 	std::vector<int> linkIDs;
 	std::vector<NMapOverlay::SDeletedObject> snapshotSpans, workingSpans;
-	SBridgeGroup() : nEntryIndex( 0 ) {  }
+	// False for a group with no bridges entry (a fence run, 04-07): only its
+	// objects go out and come back.
+	bool bEntry;
+	SBridgeGroup() : nEntryIndex( 0 ), bEntry( true ) {  }
 };
 
 bool SameEntry( const std::vector< std::vector<int> > &rBridges, int nIndex, const std::vector<int> &rLinkIDs )
@@ -112,8 +115,9 @@ bool SameEntry( const std::vector< std::vector<int> > &rBridges, int nIndex, con
 // places included.
 bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
 {
-	if ( !SameEntry( pSession->snapshot.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ||
-	     !SameEntry( pSession->working.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) )
+	if ( pGroup->bEntry &&
+	     ( !SameEntry( pSession->snapshot.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ||
+	       !SameEntry( pSession->working.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ) )
 	{
 		pSession->szMessage = NStr::Format( "bridge %d is not the one the edit log holds", pGroup->nEntryIndex );
 		return false;
@@ -132,8 +136,11 @@ bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
 	std::sort( places.begin(), places.end(), []( const SPlace &a, const SPlace &b )
 	           { return a.bScenario != b.bScenario ? !a.bScenario : a.nIndex < b.nIndex; } );
 
-	NMapRecords::EraseBridgeEntry( &pSession->snapshot, pGroup->nEntryIndex );
-	NMapRecords::EraseBridgeEntry( &pSession->working, pGroup->nEntryIndex );
+	if ( pGroup->bEntry )
+	{
+		NMapRecords::EraseBridgeEntry( &pSession->snapshot, pGroup->nEntryIndex );
+		NMapRecords::EraseBridgeEntry( &pSession->working, pGroup->nEntryIndex );
+	}
 	pGroup->snapshotSpans.assign( places.size(), NMapOverlay::SDeletedObject() );
 	pGroup->workingSpans.assign( places.size(), NMapOverlay::SDeletedObject() );
 	for ( size_t k = places.size(); k-- > 0; )
@@ -175,7 +182,7 @@ bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRef
 {
 	*pbRefused = false;
 	const int nEntries = int( pSession->snapshot.bridges.size() );
-	if ( rGroup.nEntryIndex < 0 || rGroup.nEntryIndex > nEntries || rGroup.nEntryIndex > int( pSession->working.bridges.size() ) ||
+	if ( ( rGroup.bEntry && ( rGroup.nEntryIndex < 0 || rGroup.nEntryIndex > nEntries || rGroup.nEntryIndex > int( pSession->working.bridges.size() ) ) ) ||
 	     rGroup.snapshotSpans.size() != rGroup.workingSpans.size() )
 	{
 		pSession->szMessage = NStr::Format( "bridge %d cannot go back into the list", rGroup.nEntryIndex );
@@ -206,13 +213,19 @@ bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRef
 	if ( nPlaced != int( spans.size() ) )
 	{
 		UndoPartialAdd( pSession, rGroup, nRestored );
-		pSession->szMessage = NStr::Format( "the engine would not place %d of the bridge's %d spans there (off the map, or on another object)",
-		                                    int( spans.size() ) - nPlaced, int( spans.size() ) );
+		pSession->szMessage = rGroup.bEntry
+		    ? NStr::Format( "the engine would not place %d of the bridge's %d spans there (off the map, or on another object)",
+		                    int( spans.size() ) - nPlaced, int( spans.size() ) )
+		    : NStr::Format( "the engine would not place %d of the %d fences there (off the map, or on another object)",
+		                    int( spans.size() ) - nPlaced, int( spans.size() ) );
 		*pbRefused = true;
 		return false;
 	}
-	NMapRecords::InsertBridgeEntry( &pSession->snapshot, rGroup.nEntryIndex, rGroup.linkIDs );
-	NMapRecords::InsertBridgeEntry( &pSession->working, rGroup.nEntryIndex, rGroup.linkIDs );
+	if ( rGroup.bEntry )
+	{
+		NMapRecords::InsertBridgeEntry( &pSession->snapshot, rGroup.nEntryIndex, rGroup.linkIDs );
+		NMapRecords::InsertBridgeEntry( &pSession->working, rGroup.nEntryIndex, rGroup.linkIDs );
+	}
 	for ( size_t k = 0; k < rGroup.linkIDs.size(); ++k )
 		pSession->nLinkIDFloor = Max( pSession->nLinkIDFloor, rGroup.linkIDs[k] + 1 );
 	return true;
@@ -755,4 +768,200 @@ void ApplyBridgeMarks( SEditorSession *pSession )
 			const bool bFuture = std::find( pSession->futureBuildLinkIDs.begin(), pSession->futureBuildLinkIDs.end(), nLinkID ) != pSession->futureBuildLinkIDs.end();
 			pSpan->SetSpecular( bFuture ? 0xFF0000FF : 0x00000000 );
 		}
+}
+
+// ---------------------------------------------------------------------------
+// Fences (04-07, D-14).
+
+namespace {
+// No map of the shipped sizes holds this many; a longer run is a mistake.
+const int nMaxFencesInRun = 2048;
+
+const SFenceRPGStats* FenceStats( const std::string &szDesc, const SGDBObjectDesc **ppDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return 0;
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( szDesc.c_str() );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_FENCE )
+		return 0;
+	if ( ppDesc != 0 )
+		*ppDesc = pDesc;
+	return NGDB::GetRPGStats<SFenceRPGStats>( pObjectsDB, pDesc );
+}
+
+// The stats' centre segment of a direction (the seeded first one), or -1 when
+// the direction has none or names a segment the stats do not have. Never
+// reaches GetIndexLocal with an empty list.
+int FenceCentreIndex( const SFenceRPGStats *pStats, int nDir )
+{
+	if ( nDir < 0 || nDir >= int( pStats->dirs.size() ) || pStats->dirs[nDir].centers.empty() )
+		return -1;
+	int nSeed = 0;
+	const int nIndex = pStats->GetCenterIndex( nDir, &nSeed );
+	return nIndex >= 0 && nIndex < int( pStats->stats.size() ) ? nIndex : -1;
+}
+
+// A new group of fences from a plan: link IDs from the floor up, no entry. The
+// snapshot's record holds the packed type, the working copy's the seeded first
+// centre segment of the direction the type names.
+bool NewFenceGroupFromPlan( SEditorSession *pSession, const std::string &szDesc, const SFenceRPGStats *pStats,
+                            const std::vector<NMapGeometry::SPlannedPiece> &rPlan, SBridgeGroup *pGroup )
+{
+	int nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
+	pGroup->bEntry = false;
+	pGroup->nEntryIndex = 0;
+	pGroup->linkIDs.clear();
+	pGroup->snapshotSpans.clear();
+	pGroup->workingSpans.clear();
+	for ( size_t i = 0; i < rPlan.size(); ++i, ++nLinkID )
+	{
+		SMapObjectInfo fence;
+		fence.szName = szDesc;
+		fence.vPos = rPlan[i].vPos;
+		fence.nDir = rPlan[i].nDir;
+		fence.nPlayer = 0;
+		fence.nScriptID = -1;
+		fence.fHP = 1.0f;
+		fence.link.nLinkID = nLinkID;
+		fence.link.bIntention = false;
+		fence.link.nLinkWith = -1;
+		fence.nFrameIndex = rPlan[i].nPackedType;
+		NMapOverlay::SDeletedObject saved;
+		saved.object = fence;
+		saved.bScenario = false;
+		saved.nIndex = size_t( -1 );							// RestoreObject appends
+		int nDir = 0;
+		while ( nDir < 3 && ( ( rPlan[i].nPackedType >> nDir ) & 1 ) == 0 )
+			++nDir;
+		const int nIndex = FenceCentreIndex( pStats, nDir );
+		if ( nIndex < 0 )
+		{
+			pSession->szMessage = "the fence type \"" + szDesc + "\" has no centre segment in one of its directions";
+			return false;
+		}
+		NMapOverlay::SDeletedObject working = saved;
+		working.object.nFrameIndex = nIndex;
+		pGroup->linkIDs.push_back( nLinkID );
+		pGroup->snapshotSpans.push_back( saved );
+		pGroup->workingSpans.push_back( working );
+	}
+	return true;
+}
+}
+
+bool FenceDescriptorsInSession( SEditorSession *pSession, std::vector<SFenceDescriptorInfo> *pOut )
+{
+	pOut->clear();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the object database is not there";
+		return false;
+	}
+	const SGDBObjectDesc *pDescs = pObjectsDB->GetAllDescs();
+	const int nDescs = pObjectsDB->GetNumDescs();
+	for ( int i = 0; pDescs != 0 && i < nDescs; ++i )
+	{
+		if ( pDescs[i].eGameType != SGVOGT_FENCE )
+			continue;
+		if ( NGDB::GetRPGStats<SFenceRPGStats>( pObjectsDB, &pDescs[i] ) == 0 )
+			continue;
+		SFenceDescriptorInfo info;
+		info.szName = pDescs[i].szKey;
+		pOut->push_back( info );
+	}
+	std::sort( pOut->begin(), pOut->end(), []( const SFenceDescriptorInfo &a, const SFenceDescriptorInfo &b ) { return a.szName < b.szName; } );
+	return true;
+}
+
+bool FencePlanInputFor( SEditorSession *pSession, const std::string &szDesc, NMapGeometry::SFencePlanInput *pInput )
+{
+	const SFenceRPGStats *pStats = FenceStats( szDesc, 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "\"" + szDesc + "\" is not a fence type";
+		return false;
+	}
+	if ( pStats->dirs.size() < 4 )
+	{
+		pSession->szMessage = "the fence type \"" + szDesc + "\" has fewer than four directions";
+		return false;
+	}
+	for ( int nDir = 0; nDir < 4; ++nDir )
+	{
+		const int nIndex = FenceCentreIndex( pStats, nDir );
+		if ( nIndex < 0 )
+		{
+			pSession->szMessage = "the fence type \"" + szDesc + "\" has no centre segment in one of its directions";
+			return false;
+		}
+		pInput->vOrigin[nDir] = pStats->GetOrigin( nIndex );
+	}
+	// The map's extent in AI tiles: a patch is 16 cells a side, a cell two AI tiles.
+	pInput->nTilesX = pSession->working.terrain.patches.GetSizeX() * 32;
+	pInput->nTilesY = pSession->working.terrain.patches.GetSizeY() * 32;
+	return true;
+}
+
+bool PlanFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
+                          std::vector<NMapGeometry::SPlannedPiece> *pFences, bool *pbRefused )
+{
+	*pbRefused = false;
+	pFences->clear();
+	NMapGeometry::SFencePlanInput input;
+	if ( !FencePlanInputFor( pSession, szDesc, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	// The engine answers a tile for a point off the map too (and says so with
+	// its result), so an end off the map reaches PlanFences, whose box refuses
+	// it; only a session with no terrain stops here.
+	int nX0 = 0, nY0 = 0, nX1 = 0, nY1 = 0;
+	if ( EngineTerrain() == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	WorldToAITile( pSession, vFirst.x, vFirst.y, &nX0, &nY0 );
+	WorldToAITile( pSession, vLast.x, vLast.y, &nX1, &nY1 );
+	std::string szWhy;
+	if ( !NMapGeometry::PlanFences( input, CTPoint<int>( nX0, nY0 ), CTPoint<int>( nX1, nY1 ), bCtrl, pFences, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	if ( int( pFences->size() ) > nMaxFencesInRun )
+	{
+		pSession->szMessage = NStr::Format( "that fence run would have %d fences; the editor places at most %d", int( pFences->size() ), nMaxFencesInRun );
+		*pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
+                          int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !PlanFencesInSession( pSession, szDesc, vFirst, vLast, bCtrl, &plan, pbRefused ) )
+		return false;
+	const SFenceRPGStats *pStats = FenceStats( szDesc, 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "\"" + szDesc + "\" is not a fence type";
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bNew = true;
+	if ( !NewFenceGroupFromPlan( pSession, szDesc, pStats, plan, &edit->newGroup ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
 }

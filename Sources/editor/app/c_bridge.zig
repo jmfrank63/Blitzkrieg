@@ -41,6 +41,7 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorBridgeDescriptor) == core.bridge.name_capacity + 3 * 4);
     std.debug.assert(@sizeOf(c.BkEditorPlannedPiece) == 4 * 4);
     std.debug.assert(@sizeOf(c.BkEditorBridgeInfo) == core.bridge.name_capacity + 4 + 4 * 4 + 4);
+    std.debug.assert(@sizeOf(c.BkEditorFenceDescriptor) == core.bridge.name_capacity);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -131,6 +132,9 @@ pub const RealBridge = struct {
         .deleteBridge = vtableDeleteBridge,
         .rotateBridge = vtableRotateBridge,
         .toggleBridgeBuild = vtableToggleBridgeBuild,
+        .fenceDescriptors = vtableFenceDescriptors,
+        .planFences = vtablePlanFences,
+        .drawFences = vtableDrawFences,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -619,6 +623,60 @@ pub const RealBridge = struct {
 
     fn vtableToggleBridgeBuild(ptr: *anyopaque, index: i32, token: *i32) Status {
         return status(c.BkEditorToggleBridgeBuild(from(ptr).session, index, token));
+    }
+
+    /// BkEditorFenceDescriptors in two passes.
+    fn vtableFenceDescriptors(ptr: *anyopaque, out: []core.bridge.FenceDescriptor, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorFenceDescriptors(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const raw = std.heap.page_allocator.alloc(c.BkEditorFenceDescriptor, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(raw);
+        var got: c_int = 0;
+        const read = status(c.BkEditorFenceDescriptors(self.session, raw.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (raw, out[0..raw.len]) |item, *descriptor| {
+            descriptor.* = .{};
+            descriptor.setName(std.mem.sliceTo(&item.name, 0));
+        }
+        return .ok;
+    }
+
+    /// BkEditorPlanFences in two passes (a run has hundreds of fences, more
+    /// than a bridge's stack buffer): `total` is always the planned count.
+    fn vtablePlanFences(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []core.bridge.PlannedPiece, total: *usize) Status {
+        const self = from(ptr);
+        var desc_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
+        const flag: c_int = if (ctrl) 1 else 0;
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorPlanFences(self.session, desc_z, wx0, wy0, wx1, wy1, flag, null, 0, &count));
+        total.* = if (count < 0) 0 else @intCast(count);
+        // A refusal with nothing planned is the plan's (a bad type, off the map).
+        if (sizing == .ok) return .ok;
+        if (sizing != .refused or count <= 0) return sizing;
+        if (out.len < total.*) return .refused;
+        const raw = std.heap.page_allocator.alloc(c.BkEditorPlannedPiece, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(raw);
+        var got: c_int = 0;
+        const read = status(c.BkEditorPlanFences(self.session, desc_z, wx0, wy0, wx1, wy1, flag, raw.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (raw, out[0..raw.len]) |piece, *planned| planned.* = .{ .x = piece.x, .y = piece.y, .type = piece.type, .dir = piece.dir };
+        return .ok;
+    }
+
+    fn vtableDrawFences(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status {
+        const self = from(ptr);
+        var desc_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
+        return status(c.BkEditorDrawFences(self.session, desc_z, wx0, wy0, wx1, wy1, if (ctrl) 1 else 0, token));
     }
 
     /// The engine tier's road and river agreement check.

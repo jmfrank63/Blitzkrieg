@@ -2641,6 +2641,101 @@ BkEditorStatus BkEditorToggleBridgeBuild( BkEditorSession *pSession, int nIndex,
 	return BridgeIndexEdit( pSession, nIndex, pnToken, ToggleBridgeBuildInSession );
 }
 
+BkEditorStatus BkEditorWorldToAITile( BkEditorSession *pSession, float fWx, float fWy, int *pnX, int *pnY )
+{
+	if ( pnX != 0 ) *pnX = -1;
+	if ( pnY != 0 ) *pnY = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnX == 0 || pnY == 0 || !std::isfinite( fWx ) || !std::isfinite( fWy ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return WorldToAITile( pSession, fWx, fWy, pnX, pnY ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorFenceDescriptors( BkEditorSession *pSession, BkEditorFenceDescriptor *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<SFenceDescriptorInfo> descriptors;
+		if ( !FenceDescriptorsInSession( pSession, &descriptors ) )
+			return BK_EDITOR_FAILED;
+		*pnCount = int( descriptors.size() );
+		for ( int i = 0; i < int( descriptors.size() ) && i < nCapacity; ++i )
+		{
+			memset( &pOut[i], 0, sizeof pOut[i] );
+			CopyName( pOut[i].name, sizeof pOut[i].name, descriptors[i].szName );
+		}
+		return nCapacity >= int( descriptors.size() ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorPlanFences( BkEditorSession *pSession, const char *pszDesc, float fX0, float fY0, float fX1, float fY1, int nCtrl,
+                                   BkEditorPlannedPiece *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) || !BridgeNameFits( pszDesc ) || !FiniteDrag( fX0, fY0, fX1, fY1 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<NMapGeometry::SPlannedPiece> plan;
+		bool bRefused = false;
+		if ( !PlanFencesInSession( pSession, pszDesc, CVec2( fX0, fY0 ), CVec2( fX1, fY1 ), nCtrl != 0, &plan, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		*pnCount = int( plan.size() );
+		for ( int i = 0; i < int( plan.size() ) && i < nCapacity; ++i )
+		{
+			pOut[i].x = plan[i].vPos.x;
+			pOut[i].y = plan[i].vPos.y;
+			pOut[i].type = plan[i].nPackedType;
+			pOut[i].dir = plan[i].nDir;
+		}
+		return nCapacity >= int( plan.size() ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorDrawFences( BkEditorSession *pSession, const char *pszDesc, float fX0, float fY0, float fX1, float fY1, int nCtrl,
+                                   int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !BridgeNameFits( pszDesc ) || !FiniteDrag( fX0, fY0, fX1, fY1 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		int nToken = -1;
+		bool bRefused = false;
+		if ( !DrawFencesInSession( pSession, pszDesc, CVec2( fX0, fY0 ), CVec2( fX1, fY1 ), nCtrl != 0, &nToken, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 {
 	// Safe on null and safe twice: the caller reaches here on every path out,

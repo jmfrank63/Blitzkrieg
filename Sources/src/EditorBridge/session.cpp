@@ -1577,6 +1577,26 @@ bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *p
 	return true;
 }
 
+bool WorldToAITile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY )
+{
+	if ( pSession == 0 || !pSession->bMapOpen || pnX == 0 || pnY == 0 )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	// The fence tool's mapping (RoadDrawState.cpp:571-572): half a world cell,
+	// rounded, not the truncation CMapInfo::GetAITileIndices does.
+	if ( !pEngineTerrain->GetAITileIndex( CVec3( wx, wy, 0.0f ), pnX, pnY ) )
+	{
+		pSession->szMessage = "that point is not on the map";
+		return false;
+	}
+	return true;
+}
+
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
 {
 	if ( pSession == 0 || !pSession->bEngineStarted )

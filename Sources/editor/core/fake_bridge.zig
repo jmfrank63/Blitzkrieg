@@ -58,9 +58,13 @@ const VsoView = bridge_mod.VsoView;
 const BridgeDescriptor = bridge_mod.BridgeDescriptor;
 const PlannedPiece = bridge_mod.PlannedPiece;
 const BridgeInfo = bridge_mod.BridgeInfo;
+const FenceDescriptor = bridge_mod.FenceDescriptor;
 
 /// World units per tile, standing in for the engine's own conversion.
 pub const tile_size: f32 = 32.0;
+/// World units per AI tile (half a tile), standing in for the engine's
+/// GetAITileIndex.
+pub const ai_tile_size: f32 = tile_size / 2.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
@@ -176,6 +180,9 @@ pub const FakeBridgeEntry = struct {
 /// and its span objects with their places in the object list, in the order
 /// they go back (ascending place), as the real SBridgeGroup does.
 const FakeBridgeGroup = struct {
+    /// A fence run (04-07) has no bridges entry: only its objects go out and
+    /// come back, and `entry` just holds their link IDs.
+    entryless: bool = false,
     entry_index: usize = 0,
     entry: FakeBridgeEntry = .{},
     spans: [max_bridge_spans]ObjectRecord = @splat(.{}),
@@ -228,6 +235,8 @@ pub const FakeBridge = struct {
     /// (`addBridgeEntryFixture`, and every drawn bridge), in list order.
     bridge_types: std.ArrayListUnmanaged(FakeBridgeType) = .empty,
     bridge_entries: std.ArrayListUnmanaged(FakeBridgeEntry) = .empty,
+    /// The fence types (`addFenceTypeFixture`).
+    fence_types: std.ArrayListUnmanaged(FenceDescriptor) = .empty,
     applied_edits: std.ArrayListUnmanaged(i32) = .empty,
     undone_edits: std.ArrayListUnmanaged(i32) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
@@ -291,6 +300,7 @@ pub const FakeBridge = struct {
         self.edits.deinit(self.allocator);
         self.bridge_types.deinit(self.allocator);
         self.bridge_entries.deinit(self.allocator);
+        self.fence_types.deinit(self.allocator);
         self.applied_edits.deinit(self.allocator);
         self.undone_edits.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
@@ -357,6 +367,13 @@ pub const FakeBridge = struct {
         descriptor.setName(name);
         descriptor.build_during_play_allowed = std.mem.indexOf(u8, name, "WoodenBig_Heavy_") != null;
         try self.bridge_types.append(self.allocator, .{ .descriptor = descriptor, .span_length = span_length });
+    }
+
+    /// A fence type the object database offers.
+    pub fn addFenceTypeFixture(self: *FakeBridge, name: []const u8) !void {
+        var descriptor: FenceDescriptor = .{};
+        descriptor.setName(name);
+        try self.fence_types.append(self.allocator, descriptor);
     }
 
     /// A bridges entry naming objects already in the map (`addFixture`).
@@ -553,6 +570,9 @@ pub const FakeBridge = struct {
         .deleteBridge = deleteBridge,
         .rotateBridge = rotateBridge,
         .toggleBridgeBuild = toggleBridgeBuild,
+        .fenceDescriptors = fenceDescriptors,
+        .planFences = planFences,
+        .drawFences = drawFences,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -1108,6 +1128,139 @@ pub const FakeBridge = struct {
         return self.logBridgeEdit(.{ .before = .{ .entry_index = at, .entry = self.bridge_entries.items[at] }, .after = null }, token);
     }
 
+    /// The fake's fence types, sorted as added.
+    fn fenceDescriptors(ptr: *anyopaque, out: []FenceDescriptor, total: *usize) Status {
+        const self = from(ptr);
+        total.* = self.fence_types.items.len;
+        const count = @min(out.len, self.fence_types.items.len);
+        @memcpy(out[0..count], self.fence_types.items[0..count]);
+        return if (out.len >= self.fence_types.items.len) .ok else .refused;
+    }
+
+    fn isFenceType(self: *const FakeBridge, name: []const u8) bool {
+        for (self.fence_types.items) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), name)) return true;
+        }
+        return false;
+    }
+
+    /// The AI tile of a world point, floored (the real one rounds; the fake's
+    /// tests use points that agree).
+    fn aiTile(world: f32) i32 {
+        return @intFromFloat(@floor(world / ai_tile_size));
+    }
+
+    fn cellOnMap(self: *const FakeBridge, at: [2]i32) bool {
+        const cx = at[0] >> 1;
+        const cy = at[1] >> 1;
+        return cx >= 0 and cy >= 0 and cx < self.info.width_tiles and cy < self.info.height_tiles;
+    }
+
+    /// The real PlanFences' rules the core can see, without the grid fit: an
+    /// end tile whose cell is off the map refuses the whole run; the same tile
+    /// is one fence (direction 0, 1 with `ctrl`); otherwise the longer tile
+    /// delta is the axis (a tie is horizontal), one fence every second tile,
+    /// direction 1 going left else 3 with the tile moved +2 (horizontal) or 0
+    /// going up with the tile moved -2 else 2 (vertical); type
+    /// (1 << dir) | 0x10000. Positions are MAP units.
+    fn planFencesFor(self: *FakeBridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, plan: *Plan) Status {
+        if (desc.len == 0 or desc.len >= bridge_mod.name_capacity) return .bad_argument;
+        if (!std.math.isFinite(wx0) or !std.math.isFinite(wy0) or !std.math.isFinite(wx1) or !std.math.isFinite(wy1)) return .bad_argument;
+        if (!self.isFenceType(desc)) {
+            self.say("\"{s}\" is not a fence type", .{desc});
+            return .refused;
+        }
+        const first: [2]i32 = .{ aiTile(wx0), aiTile(wy0) };
+        const last: [2]i32 = .{ aiTile(wx1), aiTile(wy1) };
+        if (!self.cellOnMap(first) or !self.cellOnMap(last)) {
+            self.say("the fence run leaves the map", .{});
+            return .refused;
+        }
+        plan.* = .{};
+        var dir: u5 = 0;
+        var shift: [2]i32 = .{ 0, 0 };
+        var along: usize = 0; // tiles from first to last along the axis
+        var step: [2]i32 = .{ 0, 0 };
+        if (first[0] == last[0] and first[1] == last[1]) {
+            dir = if (ctrl) 1 else 0;
+        } else {
+            const dx: usize = @abs(last[0] - first[0]);
+            const dy: usize = @abs(last[1] - first[1]);
+            if (!(dx < dy)) {
+                along = dx;
+                step = .{ if (last[0] > first[0]) 1 else -1, 0 };
+                if (first[0] > last[0]) {
+                    dir = 1;
+                } else {
+                    dir = 3;
+                    shift[0] = 2;
+                }
+            } else {
+                along = dy;
+                step = .{ 0, if (last[1] > first[1]) 1 else -1 };
+                if (first[1] > last[1]) {
+                    dir = 0;
+                    shift[1] = -2;
+                } else {
+                    dir = 2;
+                }
+            }
+        }
+        const count = along / 2 + 1;
+        if (count > max_bridge_spans) {
+            self.say("the fake holds at most {d} fences per run", .{max_bridge_spans});
+            return .refused;
+        }
+        for (0..count) |index| {
+            const offset: i32 = @intCast(index * 2);
+            const tx = first[0] + step[0] * offset + shift[0];
+            const ty = first[1] + step[1] * offset + shift[1];
+            const x = @as(f32, @floatFromInt(tx)) * ai_tile_size;
+            const y = @as(f32, @floatFromInt(ty)) * ai_tile_size;
+            if (!self.onMap(x, y)) {
+                self.say("the fence run leaves the map", .{});
+                return .refused;
+            }
+            plan.pieces[index] = .{ .x = x * self.map_per_world, .y = y * self.map_per_world, .type = (@as(i32, 1) << dir) | 0x00010000, .dir = 0 };
+        }
+        plan.count = count;
+        return .ok;
+    }
+
+    fn planFences(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []PlannedPiece, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        var plan: Plan = .{};
+        const planned = self.planFencesFor(desc, wx0, wy0, wx1, wy1, ctrl, &plan);
+        if (planned != .ok) return planned;
+        total.* = plan.count;
+        const count = @min(out.len, plan.count);
+        @memcpy(out[0..count], plan.pieces[0..count]);
+        return if (out.len >= plan.count) .ok else .refused;
+    }
+
+    fn drawFences(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        var plan: Plan = .{};
+        const planned = self.planFencesFor(desc, wx0, wy0, wx1, wy1, ctrl, &plan);
+        if (planned != .ok) return planned;
+        var group: FakeBridgeGroup = .{ .entryless = true, .count = plan.count };
+        var link_id = self.nextLinkId();
+        for (plan.pieces[0..plan.count], 0..) |piece, at| {
+            var fence: ObjectRecord = .{ .link_id = link_id, .x = piece.x, .y = piece.y, .dir = 0, .player = 0 };
+            fence.setName(desc);
+            group.spans[at] = fence;
+            group.places[at] = std.math.maxInt(usize); // appended
+            group.entry.links[at] = link_id;
+            link_id += 1;
+        }
+        group.entry.count = plan.count;
+        return self.logBridgeEdit(.{ .before = null, .after = group }, token);
+    }
+
     fn putBuild(self: *FakeBridge, index: usize, built: bool) Status {
         if (index >= self.bridge_entries.items.len) return .failed;
         self.bridge_entries.items[index].built = built;
@@ -1234,10 +1387,13 @@ pub const FakeBridge = struct {
     /// The entry first, then the spans in descending place (the real
     /// RemoveGroup's order), their records and places kept for the way back.
     fn removeBridgeGroup(self: *FakeBridge, group: *FakeBridgeGroup) Status {
-        if (group.entry_index >= self.bridge_entries.items.len) return .failed;
-        const entry = self.bridge_entries.items[group.entry_index];
-        if (!std.mem.eql(i32, entry.linkSlice(), group.entry.linkSlice())) return .failed;
-        group.entry = entry;
+        if (!group.entryless) {
+            if (group.entry_index >= self.bridge_entries.items.len) return .failed;
+            const held = self.bridge_entries.items[group.entry_index];
+            if (!std.mem.eql(i32, held.linkSlice(), group.entry.linkSlice())) return .failed;
+            group.entry = held;
+        }
+        const entry = group.entry;
         var count: usize = 0;
         for (entry.linkSlice()) |link| {
             const place = self.indexOf(link) orelse continue;
@@ -1247,7 +1403,7 @@ pub const FakeBridge = struct {
         std.mem.sort(usize, group.places[0..count], {}, std.sort.asc(usize));
         for (group.places[0..count], 0..) |place, at| group.spans[at] = self.objects_list.items[place];
         group.count = count;
-        _ = self.bridge_entries.orderedRemove(group.entry_index);
+        if (!group.entryless) _ = self.bridge_entries.orderedRemove(group.entry_index);
         var at = count;
         while (at != 0) {
             at -= 1;
@@ -1259,7 +1415,7 @@ pub const FakeBridge = struct {
 
     /// The spans back at their places, ascending, then the entry at its index.
     fn addBridgeGroup(self: *FakeBridge, group: *const FakeBridgeGroup) Status {
-        if (group.entry_index > self.bridge_entries.items.len) return .failed;
+        if (!group.entryless and group.entry_index > self.bridge_entries.items.len) return .failed;
         for (group.spans[0..group.count]) |span| {
             if (self.indexOf(span.link_id) != null) {
                 self.say("a span's link ID is in use again", .{});
@@ -1267,12 +1423,12 @@ pub const FakeBridge = struct {
             }
         }
         self.objects_list.ensureUnusedCapacity(self.allocator, group.count) catch return .failed;
-        self.bridge_entries.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        if (!group.entryless) self.bridge_entries.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         for (group.spans[0..group.count], group.places[0..group.count]) |span, place| {
             self.objects_list.insertAssumeCapacity(@min(place, self.objects_list.items.len), span);
             self.link_floor = @max(self.link_floor, span.link_id + 1);
         }
-        self.bridge_entries.insertAssumeCapacity(group.entry_index, group.entry);
+        if (!group.entryless) self.bridge_entries.insertAssumeCapacity(group.entry_index, group.entry);
         return .ok;
     }
 
@@ -1793,6 +1949,8 @@ pub fn fixture(allocator: std.mem.Allocator) !FakeBridge {
     try fake.addBridgeTypeFixture("W_WoodenBig_Heavy_01", .horizontal, true, tile_size);
     try fake.addBridgeTypeFixture("W_WoodenBig_Heavy_02", .vertical, true, tile_size);
     try fake.addBridgeTypeFixture("Lonely_Bridge", .horizontal, false, tile_size);
+    try fake.addFenceTypeFixture("W_Fake_Fence");
+    try fake.addFenceTypeFixture("W_Fake_Fence_Wire");
     return fake;
 }
 

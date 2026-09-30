@@ -2057,6 +2057,206 @@ static void TestM2BridgePlan()
 	printf( "map-file: M2 bridge plan ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// Fences (04-07, D-14)
+// ---------------------------------------------------------------------------
+
+// The origins (AI units) of W_FactoryFence's centre segment of each direction,
+// as its stats give them after ToAIUnits: 11.3139 / fAITileXCoeff = 16 and
+// 56.5682 / fAITileXCoeff = 80 (the engine tier reads the real stats and
+// checks these are the same). Directions 0 and 2 are the one-tile-wide
+// vertical segments, 1 and 3 the three-tile-wide horizontal ones.
+static NMapGeometry::SFencePlanInput FactoryFenceInput( int nTiles )
+{
+	NMapGeometry::SFencePlanInput input;
+	input.vOrigin[0] = CVec2( 16.0f, 16.0f );
+	input.vOrigin[1] = CVec2( 80.0f, 16.0f );
+	input.vOrigin[2] = CVec2( 16.0f, 16.0f );
+	input.vOrigin[3] = CVec2( 80.0f, 16.0f );
+	input.nTilesX = nTiles;
+	input.nTilesY = nTiles;
+	return input;
+}
+
+// A fence at an AI tile as plain arithmetic: the tile in AI units, moved to
+// the segment's origin grid (round to 32 about the origin), which is what
+// FitVisOrigin2AIGrid does through the vis conversion and back. The origins
+// here are whole, so the truncated conversion gives the same number.
+static CVec2 FenceAtTile( int nTileX, int nTileY, const CVec2 &rOrigin )
+{
+	return CVec2( float( int( ( float( nTileX * 32 ) - rOrigin.x ) / 32.0f + 0.5f ) ) * 32.0f + rOrigin.x,
+	              float( int( ( float( nTileY * 32 ) - rOrigin.y ) / 32.0f + 0.5f ) ) * 32.0f + rOrigin.y );
+}
+
+static int PackedFence( int nDir )
+{
+	return ( 1 << nDir ) | 0x00010000;
+}
+
+// One run: the planned fences are these tiles, moved by (nShiftX, nShiftY),
+// in this direction and no others.
+static bool RunIs( const std::vector<NMapGeometry::SPlannedPiece> &rFences, const NMapGeometry::SFencePlanInput &rInput,
+                   const CTPoint<int> &rFirst, int nStepX, int nStepY, int nCount, int nShiftX, int nShiftY, int nDir )
+{
+	if ( int( rFences.size() ) != nCount )
+		return false;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const CVec2 vWant = FenceAtTile( rFirst.x + nStepX * 2 * i + nShiftX, rFirst.y + nStepY * 2 * i + nShiftY, rInput.vOrigin[nDir] );
+		if ( rFences[i].vPos.x != vWant.x || rFences[i].vPos.y != vWant.y || rFences[i].vPos.z != 0.0f ||
+		     rFences[i].nPackedType != PackedFence( nDir ) || rFences[i].nDir != 0 )
+			return false;
+	}
+	return true;
+}
+
+// D-14/C6: the fence run plan - the line rasterizer, the axis lock, one fence
+// every second tile, the direction and its shift, the single fence, the
+// refusals; then a planned run laid over a map as plain objects, saved, read
+// back equal, deleted -> the unedited bytes.
+static void TestM2FencePlan()
+{
+	std::vector< CTPoint<int> > tiles;
+	// a_dirLine, by hand: dx 5, dy 2 steps x and bumps y at e >= 0.
+	NMapGeometry::RasterizeLine( CTPoint<int>( 0, 0 ), CTPoint<int>( 5, 2 ), &tiles );
+	{
+		const int want[6][2] = { { 0, 0 }, { 1, 0 }, { 2, 1 }, { 3, 1 }, { 4, 2 }, { 5, 2 } };
+		bool bSame = tiles.size() == 6;
+		for ( size_t i = 0; bSame && i < 6; ++i )
+			bSame = tiles[i].x == want[i][0] && tiles[i].y == want[i][1];
+		Check( bSame, "RasterizeLine( 0,0 -> 5,2 ) is the six tiles a_dirLine gives" );
+	}
+	NMapGeometry::RasterizeLine( CTPoint<int>( 3, 3 ), CTPoint<int>( 0, 0 ), &tiles );
+	Check( tiles.size() == 4 && tiles[0].x == 3 && tiles[1].x == 2 && tiles[1].y == 2 && tiles[3].x == 0 && tiles[3].y == 0, "a diagonal runs down to the end tile" );
+	NMapGeometry::RasterizeLine( CTPoint<int>( 4, 4 ), CTPoint<int>( 4, 4 ), &tiles );
+	Check( tiles.size() == 1 && tiles[0].x == 4 && tiles[0].y == 4, "a point is one tile" );
+	NMapGeometry::RasterizeLine( CTPoint<int>( 2, 9 ), CTPoint<int>( 2, 5 ), &tiles );
+	Check( tiles.size() == 5 && tiles[0].y == 9 && tiles[4].y == 5, "a vertical line steps y down" );
+	NMapGeometry::RasterizeLine( CTPoint<int>( 0, 0 ), CTPoint<int>( 2, 5 ), &tiles );
+	Check( tiles.size() == 6 && tiles[5].x == 2 && tiles[5].y == 5, "a steep line steps y and ends on the end tile" );
+
+	const NMapGeometry::SFencePlanInput input = FactoryFenceInput( 128 );
+	std::vector<NMapGeometry::SPlannedPiece> fences;
+	std::string szWhy;
+
+	// Right: horizontal, direction 3, the tile moved two to the right; the last
+	// tile is locked to the first's row.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 10, 20 ), CTPoint<int>( 30, 22 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 10, 20 ), 1, 0, 11, 2, 0, 3 ),
+		       NStr::Format( "a drag to the right places 11 fences, every second tile, direction 3, moved +2 (%d planned)", int( fences.size() ) ) );
+	// Left: direction 1, no shift.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 30, 20 ), CTPoint<int>( 10, 23 ), true, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 30, 20 ), -1, 0, 11, 0, 0, 1 ), "a drag to the left is direction 1 with no shift, and ctrl is ignored for a run" );
+	// Up (smaller y): direction 0, the tile moved two up.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 20, 30 ), CTPoint<int>( 22, 10 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 20, 30 ), 0, -1, 11, 0, -2, 0 ), "a drag up is direction 0, moved -2 in y" );
+	// Down: direction 2, no shift.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 20, 10 ), CTPoint<int>( 22, 30 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 20, 10 ), 0, 1, 11, 0, 0, 2 ), "a drag down is direction 2 with no shift" );
+	// A tie of the two deltas is horizontal (GetCurrentDirection).
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 10, 10 ), CTPoint<int>( 14, 14 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 10, 10 ), 1, 0, 3, 2, 0, 3 ), "a tie of the deltas is a horizontal run" );
+	// Ten tiles, inclusive: five fences; eleven: six.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 10, 20 ), CTPoint<int>( 19, 20 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( fences.size() == 5, "a run over 10 tiles is 5 fences" );
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 10, 20 ), CTPoint<int>( 20, 20 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( fences.size() == 6, "a run over 11 tiles is 6 fences" );
+
+	// A single fence: direction 0, or 1 with ctrl; no shift, one fence.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 15, 15 ), CTPoint<int>( 15, 15 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 15, 15 ), 0, 0, 1, 0, 0, 0 ), "a click is one fence, direction 0" );
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 15, 15 ), CTPoint<int>( 15, 15 ), true, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( RunIs( fences, input, CTPoint<int>( 15, 15 ), 0, 0, 1, 0, 0, 1 ), "a click with ctrl is one fence, direction 1" );
+
+	// The independent arithmetic, spelled out for one fence: tile 12 in x, the
+	// origin 80 in x - ( 384 - 80 ) / 32 = 9.5, rounded up to 10, 320 + 80.
+	if ( Check( NMapGeometry::PlanFences( input, CTPoint<int>( 10, 20 ), CTPoint<int>( 30, 20 ), false, &fences, &szWhy ), szWhy.c_str() ) )
+		Check( fences[0].vPos.x == 400.0f && fences[0].vPos.y == 656.0f, NStr::Format( "the first fence of the rightward run is at 400, 656 (%g, %g)", fences[0].vPos.x, fences[0].vPos.y ) );
+
+	// Refusals are of the whole run and leave nothing planned.
+	szWhy.clear();
+	Check( !NMapGeometry::PlanFences( input, CTPoint<int>( 10, 10 ), CTPoint<int>( 200, 10 ), false, &fences, &szWhy ) && fences.empty() && szWhy.find( "leaves the map" ) != std::string::npos,
+	       NStr::Format( "an end past the map is refused whole (%s)", szWhy.c_str() ) );
+	Check( !NMapGeometry::PlanFences( input, CTPoint<int>( -1, 5 ), CTPoint<int>( 10, 5 ), false, &fences, &szWhy ) && fences.empty(), "a first tile at -1 is refused (its cell is -1)" );
+	Check( !NMapGeometry::PlanFences( input, CTPoint<int>( 10, 5 ), CTPoint<int>( 128, 5 ), false, &fences, &szWhy ), "a tile 128 is off a 128-tile map" );
+	Check( NMapGeometry::PlanFences( input, CTPoint<int>( 100, 5 ), CTPoint<int>( 125, 5 ), false, &fences, &szWhy ), "a run ending on tile 125 is on the map" );
+	Check( !NMapGeometry::PlanFences( input, CTPoint<int>( 100, 5 ), CTPoint<int>( 126, 5 ), false, &fences, &szWhy ) && fences.empty(),
+	       "a rightward run whose last fence is moved two tiles past the edge is refused whole" );
+	Check( NMapGeometry::PlanFences( input, CTPoint<int>( 5, 100 ), CTPoint<int>( 5, 1 ), false, &fences, &szWhy ),
+	       "an upward run ending on tile 1 stays on the map (its last fence moved to tile 0)" );
+	Check( !NMapGeometry::PlanFences( input, CTPoint<int>( 5, 100 ), CTPoint<int>( 5, 0 ), false, &fences, &szWhy ) && fences.empty(),
+	       "an upward run whose last fence is moved two tiles past the top edge is refused whole" );
+	NMapGeometry::SFencePlanInput empty = input;
+	empty.nTilesX = 0;
+	Check( !NMapGeometry::PlanFences( empty, CTPoint<int>( 1, 1 ), CTPoint<int>( 1, 1 ), false, &fences, &szWhy ), "a map with no extent is refused" );
+	NMapGeometry::SFencePlanInput bad = input;
+	bad.vOrigin[2].y = std::numeric_limits<float>::quiet_NaN();
+	Check( !NMapGeometry::PlanFences( bad, CTPoint<int>( 1, 1 ), CTPoint<int>( 1, 1 ), false, &fences, &szWhy ), "a non-finite origin is refused" );
+
+	// A planned run over coldwinter, as the bridge lays it: plain objects with
+	// the packed type, HP 1, no script ID, no bridges entry.
+	const char *pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !Check( NMapGeometry::PlanFences( input, CTPoint<int>( 40, 60 ), CTPoint<int>( 60, 60 ), false, &plan, &szWhy ), szWhy.c_str() ) )
+		return;
+	std::vector<int> linkIDs;
+	const TMapOp addRun = [plan, &linkIDs]( SLoadMapInfo *pMap ) -> bool
+	{
+		linkIDs.clear();
+		for ( size_t i = 0; i < plan.size(); ++i )
+		{
+			NMapOverlay::SAddObject add;
+			add.szName = "W_FactoryFence";
+			add.vPos = plan[i].vPos;
+			add.nDir = plan[i].nDir;
+			add.nPlayer = 0;
+			add.nFrameIndex = plan[i].nPackedType;
+			add.fHP = 1.0f;
+			add.nScriptID = -1;
+			int nLinkID = -1;
+			if ( !NMapOverlay::AddObject( pMap, add, &nLinkID ) )
+				return false;
+			linkIDs.push_back( nLinkID );
+		}
+		return true;
+	};
+	const TMapOp removeRun = [&linkIDs]( SLoadMapInfo *pMap ) -> bool
+	{
+		for ( size_t i = linkIDs.size(); i-- > 0; )
+		{
+			std::string szRefusal;
+			if ( !NMapOverlay::DeleteObject( pMap, linkIDs[i], &szRefusal ) )
+				return false;
+		}
+		return true;
+	};
+	RunM2Case( pszMap, "fence run placed and removed", TMapOp(), addRun, removeRun );
+	{
+		CMapInfo edited;
+		if ( ReadFresh( pszMap, &edited ) && Check( addRun( &edited ), "the fence run lays over the map" ) )
+		{
+			std::string szError;
+			if ( Check( NMapFile::Write( M2_EDITED, edited, &szError ), szError.c_str() ) )
+			{
+				CMapInfo reread;
+				if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) )
+				{
+					bool bAll = !linkIDs.empty();
+					for ( size_t i = 0; bAll && i < linkIDs.size(); ++i )
+					{
+						const SMapObjectInfo *pFence = ObjectByLinkID( reread, linkIDs[i] );
+						bAll = pFence != 0 && pFence->vPos.x == plan[i].vPos.x && pFence->vPos.y == plan[i].vPos.y &&
+						       pFence->nFrameIndex == plan[i].nPackedType && pFence->fHP == 1.0f && pFence->nScriptID == -1 && pFence->nPlayer == 0;
+					}
+					Check( bAll, "every saved fence is where the plan put it, with its packed type, HP 1, no script ID" );
+				}
+			}
+		}
+	}
+	RemoveM2Files();
+	printf( "map-file: M2 fence plan ok\n" );
+}
+
 static void TestRoundTrip( const std::string &szPath )
 {
 	CMapInfo original;
@@ -2158,6 +2358,7 @@ int main( int argc, char **argv )
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();
 	TestM2BridgePlan();
+	TestM2FencePlan();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );
