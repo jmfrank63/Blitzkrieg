@@ -816,6 +816,67 @@ BkEditorStatus BkEditorScriptFile( BkEditorSession *session, BkEditorScriptFileR
    BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorSetScriptFile( BkEditorSession *session, const BkEditorScriptFileRecord *record );
 
+/* Script areas (04-10, D-21): the map's scriptAreas, a list the game's Lua finds
+   by NAME (GetScriptAreaParams). The record holds the area as the file does, in
+   MAP (AI) units: type 0 a rectangle (centre cx, cy and half size hx, hy), 1 a
+   circle (centre cx, cy and radius r) - the file's own enum values. The index is
+   the area's place in the list; a new area appends, nothing is renumbered. */
+typedef struct
+{
+	char name[64];
+	int type;
+	float cx, cy, hx, hy, r;
+} BkEditorScriptAreaRecord;
+
+/* The snapshot's script areas in file order. out_count is always the total; a
+   capacity below it is BK_EDITOR_REFUSED after writing what fits, never past
+   capacity; out may be null with capacity 0 to ask for the total. A map with an
+   area whose name does not fit the record (64 characters or more) is
+   BK_EDITOR_REFUSED naming why: it saves byte-exact while nobody edits it.
+   BK_EDITOR_BAD_ARGUMENT for a null out_count or a negative capacity;
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorScriptAreas( BkEditorSession *session, BkEditorScriptAreaRecord *out, int capacity, int *out_count );
+
+/* Inserts an area at index (0..count; -1 appends), into the snapshot and the
+   working copy together; the engine is untouched (an area matters only when a
+   mission starts). Names are non-empty and unique, compared case-sensitively -
+   the game keys areas by name and a duplicate would silently replace the first
+   (Pitfall 14): an empty name is BK_EDITOR_REFUSED "an area needs a name", a name
+   another area holds "an area named <n> exists". The two exceptions are a name
+   the file itself held twice when it was opened (an undo may put such an area
+   back) and, for a set, the area's own name. A centre off the map and a negative
+   size are BK_EDITOR_REFUSED; a null record, an unterminated name, a type other
+   than 0 and 1, a non-finite number or an index out of range is
+   BK_EDITOR_BAD_ARGUMENT. A refusal changes nothing. The values are stored as
+   given: convert a drag with BkEditorScriptAreaFromVis first. */
+BkEditorStatus BkEditorAddScriptArea( BkEditorSession *session, int index, const BkEditorScriptAreaRecord *record );
+
+/* Replaces the area at index (0..count-1) with record, by the same rules; a
+   centre that has not changed is not checked against the map, so a file's own
+   odd area can be edited and put back. */
+BkEditorStatus BkEditorSetScriptArea( BkEditorSession *session, int index, const BkEditorScriptAreaRecord *record );
+
+/* Removes the area at index; the areas after it move down one. An index out of
+   range is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorDeleteScriptArea( BkEditorSession *session, int index );
+
+/* The conversions of a drag and of a handle, no map touched (D-21): the MFC
+   editor's rule, NMapGeometry::AreaFromVis, MoveArea and ResizeArea - world (Vis)
+   units in, AI units out, the truncation with Vis2AI's +0.3 applied once.
+   FromVis: type 0 takes the rectangle of a drag from (wx0, wy0) to (wx1, wy1)
+   (centre the middle, half size half the extent), type 1 the circle (centre
+   the first point, radius the distance to the last); name may be empty here.
+   Moved: the area with its centre at world point (wx, wy). Resized: the area
+   with its rectangle corner or circle edge at world point (wx, wy). A null
+   pointer, an unterminated name, a type other than 0 and 1 or a non-finite
+   number is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorScriptAreaFromVis( BkEditorSession *session, int type, float wx0, float wy0, float wx1, float wy1,
+                                          const char *name, BkEditorScriptAreaRecord *out );
+BkEditorStatus BkEditorScriptAreaMoved( BkEditorSession *session, const BkEditorScriptAreaRecord *area, float wx, float wy,
+                                        BkEditorScriptAreaRecord *out );
+BkEditorStatus BkEditorScriptAreaResized( BkEditorSession *session, const BkEditorScriptAreaRecord *area, float wx, float wy,
+                                          BkEditorScriptAreaRecord *out );
+
 /* Reinforcement groups (04-09, D-16): the map's SReinforcementGroupInfo, keyed
    by group ID, each holding the script IDs of the objects the game holds back
    for it (an object of the map's objects list whose script ID a group holds is

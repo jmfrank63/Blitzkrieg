@@ -598,4 +598,70 @@ bool PlanEntrenchment( const STrenchPlanInput &rInput, const std::vector<CVec2> 
 		*pPlan = plan;
 	return true;
 }
+
+// ---------------------------------------------------------------------------
+// Script areas (04-10, D-21); see MapGeometry.h.
+// ---------------------------------------------------------------------------
+namespace {
+// Vis2AI for one length, as CalculateAreasToAI does it: Vis2AIFast's scaling,
+// then int( x + 0.3f ). The radius goes through the x scaling, so one function
+// serves the centre, the half size and the radius.
+float VisLengthToAI( float fVis )
+{
+	return float( int( fVis * fAITileXCoeff1 + 0.3f ) );
+}
+
+CVec2 VisPointToAI( const CVec2 &rVis )
+{
+	return CVec2( VisLengthToAI( rVis.x ), VisLengthToAI( rVis.y ) );
+}
+
+// The project's two-argument fabs (Misc/Tools.h): a Euclidean length.
+float Distance( float fDx, float fDy )
+{
+	return static_cast<float>( sqrt( double( fDx * fDx + fDy * fDy ) ) );
+}
+}
+
+SScriptArea AreaFromVis( int eType, const CVec2 &vFirstVis, const CVec2 &vLastVis, const std::string &szName )
+{
+	SScriptArea area;
+	area.szName = szName;
+	if ( eType == SScriptArea::EAT_RECTANGLE )
+	{
+		area.eType = SScriptArea::EAT_RECTANGLE;
+		area.center = VisPointToAI( CVec2( ( vFirstVis.x + vLastVis.x ) / 2.0f, ( vFirstVis.y + vLastVis.y ) / 2.0f ) );
+		area.vAABBHalfSize = VisPointToAI( CVec2( std::fabs( vFirstVis.x - vLastVis.x ) / 2.0f, std::fabs( vFirstVis.y - vLastVis.y ) / 2.0f ) );
+		area.fR = 0.0f;
+	}
+	else
+	{
+		area.eType = SScriptArea::EAT_CIRCLE;
+		area.center = VisPointToAI( vFirstVis );
+		area.vAABBHalfSize = VNULL2;
+		area.fR = VisLengthToAI( Distance( vFirstVis.x - vLastVis.x, vFirstVis.y - vLastVis.y ) );
+	}
+	return area;
+}
+
+SScriptArea MoveArea( const SScriptArea &rArea, const CVec2 &vNewCentreVis )
+{
+	SScriptArea area = rArea;
+	area.center = VisPointToAI( vNewCentreVis );
+	return area;
+}
+
+SScriptArea ResizeArea( const SScriptArea &rArea, const CVec2 &vHandleVis )
+{
+	SScriptArea area = rArea;
+	// The centre in world units again, the way the MFC editor's CalculateAreas
+	// (AI2Vis) brought the stored area back on screen.
+	CVec2 vCentreVis;
+	AI2Vis( &vCentreVis, rArea.center );
+	if ( rArea.eType == SScriptArea::EAT_RECTANGLE )
+		area.vAABBHalfSize = VisPointToAI( CVec2( std::fabs( vHandleVis.x - vCentreVis.x ), std::fabs( vHandleVis.y - vCentreVis.y ) ) );
+	else
+		area.fR = VisLengthToAI( Distance( vHandleVis.x - vCentreVis.x, vHandleVis.y - vCentreVis.y ) );
+	return area;
+}
 }

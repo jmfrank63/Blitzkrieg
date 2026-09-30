@@ -4543,6 +4543,260 @@ static void TestM2ScriptFile( BkEditorSession *pSession, const std::string &szSc
 	printf( "editor-bridge: M2 script file ok\n" );
 }
 
+// The bridge's script areas, two-pass.
+static bool ReadAreasOf( BkEditorSession *pSession, std::vector<BkEditorScriptAreaRecord> *pAreas, BkEditorStatus *pStatus = 0 )
+{
+	int nCount = -2;
+	// The sizing pass is REFUSED whenever there is anything to count: a capacity
+	// below the total is (bridge.h), and *pnCount is the total all the same.
+	BkEditorStatus status = BkEditorScriptAreas( pSession, 0, 0, &nCount );
+	if ( pStatus != 0 )
+		*pStatus = status;
+	if ( ( status != BK_EDITOR_OK && status != BK_EDITOR_REFUSED ) || nCount < 0 )
+		return false;
+	pAreas->assign( nCount > 0 ? nCount : 1, BkEditorScriptAreaRecord() );
+	int nRead = -2;
+	status = BkEditorScriptAreas( pSession, &( *pAreas )[0], nCount, &nRead );
+	if ( pStatus != 0 )
+		*pStatus = status;
+	if ( status != BK_EDITOR_OK || nRead != nCount )
+		return false;
+	pAreas->resize( nCount );
+	return true;
+}
+
+static BkEditorScriptAreaRecord AreaRecordOf( const char *pszName, int nType, float fCx, float fCy, float fHx, float fHy, float fR )
+{
+	BkEditorScriptAreaRecord record;
+	memset( &record, 0, sizeof record );
+	strncpy( record.name, pszName, sizeof record.name - 1 );
+	record.type = nType;
+	record.cx = fCx; record.cy = fCy; record.hx = fHx; record.hy = fHy; record.r = fR;
+	return record;
+}
+
+static bool SameAreaValue( const BkEditorScriptAreaRecord &rRecord, const SScriptArea &rArea )
+{
+	return std::string( rRecord.name ) == rArea.szName && rRecord.type == int( rArea.eType ) && rRecord.cx == rArea.center.x && rRecord.cy == rArea.center.y &&
+	       rRecord.hx == rArea.vAABBHalfSize.x && rRecord.hy == rArea.vAABBHalfSize.y && rRecord.r == rArea.fR;
+}
+
+static bool SameAreaRecords( const BkEditorScriptAreaRecord &rLeft, const BkEditorScriptAreaRecord &rRight )
+{
+	return std::string( rLeft.name ) == rRight.name && rLeft.type == rRight.type && rLeft.cx == rRight.cx && rLeft.cy == rRight.cy &&
+	       rLeft.hx == rRight.hx && rLeft.hy == rRight.hy && rLeft.r == rRight.r;
+}
+
+// D-21 on the real engine: the areas read as the file has them; a rectangle and a
+// circle dragged in world units come back through BkEditorScriptAreaFromVis as the
+// NMapGeometry values (the MFC truncation, once), add, rename and save as the map
+// the same NMapRecords calls build, and deleted again leave the unedited bytes.
+// Names are non-empty and unique, case-sensitive; an off-map centre, a negative size,
+// a bad type or index and a non-finite number are refused and change nothing; the
+// handle conversions equal MoveArea and ResizeArea. A file's own duplicate name and
+// too-long name are kept: the pair can be put back beside its twin, the long name
+// reads as a refusal and saves byte-exact.
+static void TestM2ScriptAreas( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\areas-unedited.bzm";
+	const std::string szEdited = szScratch + "\\areas-edited.bzm";
+	const std::string szUndone = szScratch + "\\areas-undone.bzm";
+	const std::string szRefused = szScratch + "\\areas-refused.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The read equals the file.
+	std::vector<BkEditorScriptAreaRecord> before;
+	if ( !Check( ReadAreasOf( pSession, &before ), BkEditorLastMessage( pSession ) ) )
+		return;
+	bool bSame = before.size() == original.scriptAreas.size();
+	for ( size_t i = 0; i < before.size() && bSame; ++i )
+		bSame = SameAreaValue( before[i], original.scriptAreas[i] );
+	Check( bSame, NStr::Format( "the %d script areas read as the file has them", int( original.scriptAreas.size() ) ) );
+	int nSizingCount = -2;
+	const BkEditorStatus sizing = BkEditorScriptAreas( pSession, 0, 0, &nSizingCount );
+	Check( sizing == ( original.scriptAreas.empty() ? BK_EDITOR_OK : BK_EDITOR_REFUSED ) && nSizingCount == int( original.scriptAreas.size() ),
+	       "the sizing pass answers the total (REFUSED when there is something to count, as a buffer too short is)" );
+	Check( BkEditorScriptAreas( pSession, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT && BkEditorScriptAreas( pSession, 0, -1, &nSizingCount ) == BK_EDITOR_BAD_ARGUMENT, "a null count or a negative capacity is a bad argument" );
+
+	// The conversion of a drag, in world units at the map's middle.
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	BkEditorScriptAreaRecord rect, ring;
+	memset( &rect, 0x55, sizeof rect );
+	if ( !Check( BkEditorScriptAreaFromVis( pSession, 0, fMiddleX - 100.0f, fMiddleY - 60.0f, fMiddleX + 100.0f, fMiddleY + 60.0f, "m2_area", &rect ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const SScriptArea expectedRect = NMapGeometry::AreaFromVis( SScriptArea::EAT_RECTANGLE, CVec2( fMiddleX - 100.0f, fMiddleY - 60.0f ), CVec2( fMiddleX + 100.0f, fMiddleY + 60.0f ), "m2_area" );
+	Check( SameAreaValue( rect, expectedRect ), "BkEditorScriptAreaFromVis gives NMapGeometry::AreaFromVis for a rectangle" );
+	Check( BkEditorScriptAreaFromVis( pSession, 1, fMiddleX + 400.0f, fMiddleY, fMiddleX + 480.0f, fMiddleY, "m2_ring", &ring ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	const SScriptArea expectedRing = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( fMiddleX + 400.0f, fMiddleY ), CVec2( fMiddleX + 480.0f, fMiddleY ), "m2_ring" );
+	Check( SameAreaValue( ring, expectedRing ), "and for a circle" );
+	Check( rect.type == 0 && ring.type == 1 && ring.r > 0.0f && rect.hx > 0.0f, "the two shapes have their own fields" );
+	// No map is touched by a conversion.
+	std::vector<BkEditorScriptAreaRecord> stillBefore;
+	Check( ReadAreasOf( pSession, &stillBefore ) && stillBefore.size() == before.size(), "the conversion added nothing" );
+	// The handle conversions are MoveArea and ResizeArea.
+	BkEditorScriptAreaRecord moved, resized;
+	Check( BkEditorScriptAreaMoved( pSession, &rect, fMiddleX + 30.0f, fMiddleY - 20.0f, &moved ) == BK_EDITOR_OK &&
+	       SameAreaValue( moved, NMapGeometry::MoveArea( expectedRect, CVec2( fMiddleX + 30.0f, fMiddleY - 20.0f ) ) ), "BkEditorScriptAreaMoved gives NMapGeometry::MoveArea" );
+	Check( BkEditorScriptAreaResized( pSession, &ring, fMiddleX + 520.0f, fMiddleY + 10.0f, &resized ) == BK_EDITOR_OK &&
+	       SameAreaValue( resized, NMapGeometry::ResizeArea( expectedRing, CVec2( fMiddleX + 520.0f, fMiddleY + 10.0f ) ) ), "BkEditorScriptAreaResized gives NMapGeometry::ResizeArea" );
+	BkEditorScriptAreaRecord unusedOut;
+	const float fNaN = std::numeric_limits<float>::quiet_NaN();
+	Check( BkEditorScriptAreaFromVis( pSession, 2, 0, 0, 1, 1, "x", &unusedOut ) == BK_EDITOR_BAD_ARGUMENT, "a type other than 0 and 1 is a bad argument" );
+	Check( BkEditorScriptAreaFromVis( pSession, 0, fNaN, 0, 1, 1, "x", &unusedOut ) == BK_EDITOR_BAD_ARGUMENT, "a NaN drag is a bad argument" );
+	Check( BkEditorScriptAreaFromVis( pSession, 0, 0, 0, 1, 1, 0, &unusedOut ) == BK_EDITOR_BAD_ARGUMENT && BkEditorScriptAreaFromVis( pSession, 0, 0, 0, 1, 1, "x", 0 ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a null name or out is a bad argument" );
+	Check( BkEditorScriptAreaMoved( pSession, 0, 0, 0, &unusedOut ) == BK_EDITOR_BAD_ARGUMENT && BkEditorScriptAreaMoved( pSession, &rect, fNaN, 0, &unusedOut ) == BK_EDITOR_BAD_ARGUMENT, "a null area or a NaN handle is a bad argument" );
+
+	// Both are added, append order kept.
+	if ( !Check( BkEditorAddScriptArea( pSession, -1, &rect ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorAddScriptArea( pSession, int( before.size() ) + 1, &ring ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::vector<BkEditorScriptAreaRecord> after;
+	Check( ReadAreasOf( pSession, &after ) && after.size() == before.size() + 2 && SameAreaRecords( after[before.size()], rect ) && SameAreaRecords( after[before.size() + 1], ring ),
+	       "the two areas read back in the order they were added, the old ones unchanged" );
+	CMapInfo expected = original;
+	Check( NMapRecords::InsertScriptArea( &expected, -1, expectedRect ) && NMapRecords::InsertScriptArea( &expected, -1, expectedRing ), "the expected map takes both areas" );
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo saved;
+		if ( Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+			       szWhere.empty() ? "the saved map equals the expected map" : ( "the areas save differs at " + szWhere ).c_str() );
+		}
+	}
+
+	// A rename is a set of the same index; the areas' names stay unique and case-sensitive.
+	BkEditorScriptAreaRecord renamed = ring;
+	strncpy( renamed.name, "m2_zone", sizeof renamed.name - 1 );
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &renamed ) == BK_EDITOR_OK, "an area is renamed" );
+	BkEditorScriptAreaRecord upper = ring;
+	strncpy( upper.name, "M2_AREA", sizeof upper.name - 1 );
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &upper ) == BK_EDITOR_OK, "names are case-sensitive: M2_AREA is not m2_area" );
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &ring ) == BK_EDITOR_OK, "the old name goes back" );
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &ring ) == BK_EDITOR_OK, "setting a record to its own value, name included, is accepted" );
+
+	// Refusals change nothing.
+	BkEditorScriptAreaRecord clash = ring;
+	strncpy( clash.name, "m2_area", sizeof clash.name - 1 );
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &clash ) == BK_EDITOR_REFUSED, "a name another area holds is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "m2_area" ) != std::string::npos && std::string( BkEditorLastMessage( pSession ) ).find( "exists" ) != std::string::npos, "and the refusal names it" );
+	Check( BkEditorAddScriptArea( pSession, -1, &rect ) == BK_EDITOR_REFUSED, "adding the same name again is refused" );
+	BkEditorScriptAreaRecord nameless = rect;
+	nameless.name[0] = 0;
+	Check( BkEditorAddScriptArea( pSession, -1, &nameless ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "needs a name" ) != std::string::npos, "an empty name is refused, saying why" );
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &nameless ) == BK_EDITOR_REFUSED, "so is renaming to nothing" );
+	BkEditorScriptAreaRecord offMap = rect;
+	strncpy( offMap.name, "off_map", sizeof offMap.name - 1 );
+	offMap.cx = -5.0f;
+	Check( BkEditorAddScriptArea( pSession, -1, &offMap ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "centre" ) != std::string::npos, "an area centred off the map is refused" );
+	offMap.cx = 1.0e9f;
+	Check( BkEditorAddScriptArea( pSession, -1, &offMap ) == BK_EDITOR_REFUSED, "so is one far beyond the far edge" );
+	BkEditorScriptAreaRecord negative = rect;
+	strncpy( negative.name, "negative", sizeof negative.name - 1 );
+	negative.hx = -1.0f;
+	Check( BkEditorAddScriptArea( pSession, -1, &negative ) == BK_EDITOR_REFUSED, "a negative size is refused" );
+	BkEditorScriptAreaRecord badType = rect;
+	strncpy( badType.name, "bad_type", sizeof badType.name - 1 );
+	badType.type = 2;
+	Check( BkEditorAddScriptArea( pSession, -1, &badType ) == BK_EDITOR_BAD_ARGUMENT, "a type other than 0 and 1 is a bad argument" );
+	BkEditorScriptAreaRecord nonFinite = rect;
+	strncpy( nonFinite.name, "non_finite", sizeof nonFinite.name - 1 );
+	nonFinite.r = fNaN;
+	Check( BkEditorAddScriptArea( pSession, -1, &nonFinite ) == BK_EDITOR_BAD_ARGUMENT, "a NaN radius is a bad argument" );
+	BkEditorScriptAreaRecord unterminated;
+	memset( &unterminated, 'a', sizeof unterminated );
+	unterminated.type = 0;
+	Check( BkEditorAddScriptArea( pSession, -1, &unterminated ) == BK_EDITOR_BAD_ARGUMENT && BkEditorAddScriptArea( pSession, -1, 0 ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated name or a null record is a bad argument" );
+	BkEditorScriptAreaRecord fresh = AreaRecordOf( "fresh", 0, fMiddleX, fMiddleY, 10.0f, 10.0f, 0.0f );
+	Check( BkEditorAddScriptArea( pSession, -2, &fresh ) == BK_EDITOR_BAD_ARGUMENT && BkEditorAddScriptArea( pSession, int( after.size() ) + 1, &fresh ) == BK_EDITOR_BAD_ARGUMENT, "an insert index out of range is a bad argument" );
+	Check( BkEditorSetScriptArea( pSession, int( after.size() ), &fresh ) == BK_EDITOR_BAD_ARGUMENT && BkEditorSetScriptArea( pSession, -1, &fresh ) == BK_EDITOR_BAD_ARGUMENT, "a set index out of range is a bad argument" );
+	Check( BkEditorDeleteScriptArea( pSession, int( after.size() ) ) == BK_EDITOR_BAD_ARGUMENT && BkEditorDeleteScriptArea( pSession, -1 ) == BK_EDITOR_BAD_ARGUMENT, "a delete index out of range is a bad argument" );
+	std::vector<BkEditorScriptAreaRecord> unchanged;
+	bool bUnchanged = ReadAreasOf( pSession, &unchanged ) && unchanged.size() == after.size();
+	for ( size_t i = 0; i < unchanged.size() && bUnchanged; ++i )
+		bUnchanged = SameAreaRecords( unchanged[i], after[i] );
+	Check( bUnchanged, "none of the refusals changed the areas" );
+	// The edit, moved and resized, then put back: the same record twice.
+	Check( BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &resized ) == BK_EDITOR_OK && BkEditorSetScriptArea( pSession, int( before.size() ) + 1, &ring ) == BK_EDITOR_OK,
+	       "a resized area and its old value both put" );
+
+	// Deleted again, the areas are the file's and the bytes the unedited save's.
+	Check( BkEditorDeleteScriptArea( pSession, int( before.size() ) + 1 ) == BK_EDITOR_OK && BkEditorDeleteScriptArea( pSession, int( before.size() ) ) == BK_EDITOR_OK, "both areas are deleted" );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "add, edit and delete of areas save the unedited file byte for byte" );
+	// Put back at their own indexes (an undo of the deletes) the two are where they were.
+	Check( BkEditorAddScriptArea( pSession, int( before.size() ), &rect ) == BK_EDITOR_OK && BkEditorAddScriptArea( pSession, int( before.size() ) + 1, &ring ) == BK_EDITOR_OK, "the deleted areas go back at their own indexes" );
+	std::vector<BkEditorScriptAreaRecord> back;
+	bool bBack = ReadAreasOf( pSession, &back ) && back.size() == after.size();
+	for ( size_t i = 0; i < back.size() && bBack; ++i )
+		bBack = SameAreaRecords( back[i], after[i] );
+	Check( bBack, "and read as before the deletes" );
+	Check( BkEditorDeleteScriptArea( pSession, int( before.size() ) + 1 ) == BK_EDITOR_OK && BkEditorDeleteScriptArea( pSession, int( before.size() ) ) == BK_EDITOR_OK, "and are deleted once more" );
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "with all of them deleted the map saves the unedited bytes again" );
+
+	// A file's own odd data: two areas of one name, and a name too long for the record.
+	{
+		const std::string szOdd = szScratch + "\\areas-odd.bzm";
+		CMapInfo odd = original;
+		NMapRecords::InsertScriptArea( &odd, -1, NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( fMiddleX, fMiddleY ), CVec2( fMiddleX + 40.0f, fMiddleY ), "twin" ) );
+		NMapRecords::InsertScriptArea( &odd, -1, NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( fMiddleX + 200.0f, fMiddleY ), CVec2( fMiddleX + 240.0f, fMiddleY ), "twin" ) );
+		const int nTwin = int( odd.scriptAreas.size() ) - 2;
+		if ( Check( NMapFile::Write( szOdd.c_str(), odd, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szOdd.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const std::string szOddBefore = szScratch + "\\areas-odd-before.bzm", szOddAfter = szScratch + "\\areas-odd-after.bzm";
+			Check( BkEditorSaveMap( pSession, szOddBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			std::vector<BkEditorScriptAreaRecord> read;
+			Check( ReadAreasOf( pSession, &read ) && int( read.size() ) == nTwin + 2 && std::string( read[nTwin].name ) == "twin" && std::string( read[nTwin + 1].name ) == "twin", "the two areas of one name read as the file has them" );
+			const BkEditorScriptAreaRecord first = read[nTwin];
+			Check( BkEditorDeleteScriptArea( pSession, nTwin ) == BK_EDITOR_OK && BkEditorAddScriptArea( pSession, nTwin, &first ) == BK_EDITOR_OK,
+			       "one of the pair is deleted and put back beside its twin, as an undo needs" );
+			BkEditorScriptAreaRecord third = first;
+			Check( BkEditorAddScriptArea( pSession, -1, &third ) == BK_EDITOR_REFUSED, "but a third of that name is a new duplicate and is refused" );
+			if ( Check( BkEditorSaveMap( pSession, szOddAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szOddBefore, szOddAfter ), "the odd map saves the same bytes after the delete and the put back" );
+			remove( OsPath( szOddBefore ).c_str() );
+			remove( OsPath( szOddAfter ).c_str() );
+		}
+		remove( OsPath( szOdd ).c_str() );
+		const std::string szLong = szScratch + "\\areas-long.bzm";
+		CMapInfo longName = original;
+		SScriptArea longArea = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( fMiddleX, fMiddleY ), CVec2( fMiddleX + 40.0f, fMiddleY ), std::string( 70, 'n' ) );
+		NMapRecords::InsertScriptArea( &longName, -1, longArea );
+		if ( Check( NMapFile::Write( szLong.c_str(), longName, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szLong.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			std::vector<BkEditorScriptAreaRecord> read;
+			BkEditorStatus status = BK_EDITOR_OK;
+			Check( !ReadAreasOf( pSession, &read, &status ) && status == BK_EDITOR_REFUSED, "an area name of 70 characters reads as a refusal" );
+			const std::string szLongSaved = szScratch + "\\areas-long-saved.bzm";
+			CMapInfo savedLong;
+			if ( Check( BkEditorSaveMap( pSession, szLongSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szLongSaved.c_str(), &savedLong, &szError ), szError.c_str() ) )
+				Check( !savedLong.scriptAreas.empty() && savedLong.scriptAreas.back().szName == std::string( 70, 'n' ), "and the map saves it byte-exact" );
+			remove( OsPath( szLongSaved ).c_str() );
+		}
+		remove( OsPath( szLong ).c_str() );
+	}
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	printf( "editor-bridge: M2 script areas ok\n" );
+}
+
 // D-16's Hide checked, on the real engine and the real pixels. One object a
 // click picks with the camera on it, given script ID 4243 and hidden by that
 // ID: the pixels of its screen box change (above 1 % of the box, against a
@@ -7014,6 +7268,7 @@ int main( int argc, char **argv )
 		TestM2ScriptIDs( pSession, szScratch );
 		TestM2Groups( pSession, szScratch );
 		TestM2ScriptFile( pSession, szScratch );
+		TestM2ScriptAreas( pSession, szScratch );
 		TestM2HideGroups( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );

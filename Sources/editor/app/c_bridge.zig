@@ -44,6 +44,7 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorFenceDescriptor) == core.bridge.name_capacity);
     std.debug.assert(@sizeOf(c.BkEditorEntrenchmentInfo) == 3 * 4 + 4 * 4);
     std.debug.assert(@sizeOf(c.BkEditorScriptFileRecord) == core.records.script_file_capacity);
+    std.debug.assert(@sizeOf(c.BkEditorScriptAreaRecord) == core.records.area_name_capacity + 4 + 5 * 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -123,6 +124,9 @@ pub const RealBridge = struct {
         .setHiddenScriptIDs = vtableSetHiddenScriptIDs,
         .groundHeight = vtableGroundHeight,
         .setObjectScriptID = setObjectScriptID,
+        .scriptAreaFromVis = vtableScriptAreaFromVis,
+        .scriptAreaMoved = vtableScriptAreaMoved,
+        .scriptAreaResized = vtableScriptAreaResized,
         .undoEdit = vtableUndoEdit,
         .redoEdit = vtableRedoEdit,
         .vsoDescriptors = vtableVsoDescriptors,
@@ -385,6 +389,77 @@ pub const RealBridge = struct {
         return record;
     }
 
+    fn toScriptArea(record: c.BkEditorScriptAreaRecord) ?record_types.ScriptArea {
+        var area: record_types.ScriptArea = .{
+            .shape = std.enums.fromInt(record_types.AreaShape, record.type) orelse return null,
+            .cx = record.cx,
+            .cy = record.cy,
+            .hx = record.hx,
+            .hy = record.hy,
+            .r = record.r,
+        };
+        area.setName(std.mem.sliceTo(&record.name, 0));
+        return area;
+    }
+
+    fn toCScriptArea(area: record_types.ScriptArea) c.BkEditorScriptAreaRecord {
+        var record: c.BkEditorScriptAreaRecord = std.mem.zeroes(c.BkEditorScriptAreaRecord);
+        const name = area.nameSlice();
+        @memcpy(record.name[0..name.len], name);
+        record.type = @intFromEnum(area.shape);
+        record.cx = area.cx;
+        record.cy = area.cy;
+        record.hx = area.hx;
+        record.hy = area.hy;
+        record.r = area.r;
+        return record;
+    }
+
+    /// One script area by its index: the list is read whole (two-pass) and the
+    /// record picked from it; an index past the end is a bad argument.
+    fn readScriptArea(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorScriptAreas(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (key < 0 or key >= count) return .bad_argument;
+        const all = allocator.alloc(c.BkEditorScriptAreaRecord, @intCast(count)) catch return .failed;
+        defer allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorScriptAreas(self.session, all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        out.* = .{ .script_area = toScriptArea(all[@intCast(key)]) orelse return .failed };
+        return .ok;
+    }
+
+    fn vtableScriptAreaFromVis(ptr: *anyopaque, shape: record_types.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8, out: *record_types.ScriptArea) Status {
+        var name_buffer: [record_types.area_name_capacity]u8 = undefined;
+        const name_z = terminated(&name_buffer, name) orelse return .bad_argument;
+        var record: c.BkEditorScriptAreaRecord = std.mem.zeroes(c.BkEditorScriptAreaRecord);
+        const result = status(c.BkEditorScriptAreaFromVis(from(ptr).session, @intFromEnum(shape), wx0, wy0, wx1, wy1, name_z, &record));
+        if (result != .ok) return result;
+        out.* = toScriptArea(record) orelse return .failed;
+        return .ok;
+    }
+
+    fn vtableScriptAreaMoved(ptr: *anyopaque, area: record_types.ScriptArea, wx: f32, wy: f32, out: *record_types.ScriptArea) Status {
+        const record_in = toCScriptArea(area);
+        var record: c.BkEditorScriptAreaRecord = std.mem.zeroes(c.BkEditorScriptAreaRecord);
+        const result = status(c.BkEditorScriptAreaMoved(from(ptr).session, &record_in, wx, wy, &record));
+        if (result != .ok) return result;
+        out.* = toScriptArea(record) orelse return .failed;
+        return .ok;
+    }
+
+    fn vtableScriptAreaResized(ptr: *anyopaque, area: record_types.ScriptArea, wx: f32, wy: f32, out: *record_types.ScriptArea) Status {
+        const record_in = toCScriptArea(area);
+        var record: c.BkEditorScriptAreaRecord = std.mem.zeroes(c.BkEditorScriptAreaRecord);
+        const result = status(c.BkEditorScriptAreaResized(from(ptr).session, &record_in, wx, wy, &record));
+        if (result != .ok) return result;
+        out.* = toScriptArea(record) orelse return .failed;
+        return .ok;
+    }
+
     /// BkEditorGroup as a core value: two-pass, the script IDs allocated with
     /// `allocator` (the value owns them). The total comes back in `count` even
     /// when the buffer was too short, and -1 for a group that is not there.
@@ -420,6 +495,7 @@ pub const RealBridge = struct {
                 return .ok;
             },
             .group => return self.readGroup(key, allocator, out),
+            .script_area => return self.readScriptArea(key, allocator, out),
             .script_file => {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -445,6 +521,10 @@ pub const RealBridge = struct {
                 if (group.id != key) return .bad_argument;
                 return status(c.BkEditorSetGroup(self.session, key, group.ids.ptr, @intCast(group.ids.len)));
             },
+            .script_area => |area| {
+                const record = toCScriptArea(area);
+                return status(c.BkEditorSetScriptArea(self.session, key, &record));
+            },
             .script_file => |file| {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -458,6 +538,16 @@ pub const RealBridge = struct {
     fn vtableRecordKeys(ptr: *anyopaque, kind: record_types.Kind, allocator: std.mem.Allocator, out: *[]i32) Status {
         const self = from(ptr);
         switch (kind) {
+            .script_area => {
+                var count: c_int = 0;
+                const sizing = status(c.BkEditorScriptAreas(self.session, null, 0, &count));
+                if (sizing != .ok and sizing != .refused) return sizing;
+                if (count < 0) return .failed;
+                const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
+                for (keys, 0..) |*key, index| key.* = @intCast(index);
+                out.* = keys;
+                return .ok;
+            },
             .camera_anchors, .script_file => {
                 const keys = allocator.alloc(i32, 1) catch return .failed;
                 keys[0] = 0;
@@ -490,6 +580,10 @@ pub const RealBridge = struct {
         self.own_message = null;
         switch (value.*) {
             .camera_anchors, .script_file => return .bad_argument,
+            .script_area => |area| {
+                const record = toCScriptArea(area);
+                return status(c.BkEditorAddScriptArea(self.session, key, &record));
+            },
             .group => |group| {
                 if (group.id != key or key < 0) return .bad_argument;
                 var count: c_int = 0;
@@ -508,6 +602,7 @@ pub const RealBridge = struct {
         const self = from(ptr);
         switch (kind) {
             .camera_anchors, .script_file => return .bad_argument,
+            .script_area => return status(c.BkEditorDeleteScriptArea(self.session, key)),
             .group => return status(c.BkEditorDeleteGroup(self.session, key)),
         }
     }

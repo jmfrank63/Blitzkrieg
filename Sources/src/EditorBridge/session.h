@@ -58,6 +58,10 @@ struct SEditorSession
 	// a path or carry ".lua" - so a put may always bring it back (an undo),
 	// while a value NEW to the map must be a bare name.
 	std::string szScriptFileAtOpen;
+	// How many script areas held each name when the map was opened (04-10, D-21).
+	// A file may name two areas alike; an edit may not make a NEW duplicate, but an
+	// undo must be able to put an area of the file back beside its twin.
+	std::unordered_map<std::string, int> openedAreaNames;
 	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
 	// and unique, and the link IDs of the objects-list entries they name that
 	// are hidden now (their visuals at opacity 0, and picking skips them). A
@@ -335,6 +339,15 @@ bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnch
 // value the file held at open (szScriptFileAtOpen).
 bool ReadSessionScriptFile( SEditorSession *pSession, BkEditorScriptFileRecord *pOut, bool *pbRefused );
 bool SetSessionScriptFile( SEditorSession *pSession, const char *pszName, bool *pbRefused );
+// Script areas (04-10, D-21), AI units, through NMapRecords on both copies, the
+// engine untouched. The read answers the total in *pnCount and returns false
+// when the buffer was too short (nothing written past it); with *pbRefused for a
+// map whose area names do not fit. Add, Set and Delete follow the rules
+// bridge.h documents; nIndex -1 appends (Add only).
+bool ReadSessionScriptAreas( SEditorSession *pSession, BkEditorScriptAreaRecord *pOut, int nCapacity, int *pnCount, bool *pbRefused );
+bool AddScriptAreaToSession( SEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord &rRecord, bool *pbRefused );
+bool SetScriptAreaInSession( SEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord &rRecord, bool *pbRefused );
+bool DeleteScriptAreaFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
 // Reinforcement groups (04-09, D-16), through NMapRecords on both copies. The
 // two reads answer the total in *pnCount and return false when the buffer was
 // too short (nothing written past it); ReadSessionGroup also returns false

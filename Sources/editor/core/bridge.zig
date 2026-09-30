@@ -331,6 +331,12 @@ pub const Bridge = struct {
         /// Refused for an unknown or shared link ID, link ID 0 and a value out
         /// of range.
         setObjectScriptID: *const fn (ptr: *anyopaque, link_id: i32, script_id: i32) Status,
+        /// BkEditorScriptAreaFromVis / Moved / Resized (04-10, D-21): the MFC
+        /// conversion of a drag or a handle, world (Vis) units in, AI units out,
+        /// no map touched. `name` may be empty here (the add refuses that).
+        scriptAreaFromVis: *const fn (ptr: *anyopaque, shape: records.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8, out: *records.ScriptArea) Status,
+        scriptAreaMoved: *const fn (ptr: *anyopaque, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status,
+        scriptAreaResized: *const fn (ptr: *anyopaque, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status,
         /// BkEditorUndoEdit / BkEditorRedoEdit: the bridge's edit log, the
         /// paints' order (newest first; redo in the order undone). A token
         /// out of order is refused.
@@ -457,6 +463,9 @@ pub const Bridge = struct {
     pub fn setHiddenScriptIDs(self: Bridge, script_ids: []const i32) Status { return self.vtable.setHiddenScriptIDs(self.ptr, script_ids); }
     pub fn groundHeight(self: Bridge, wx: f32, wy: f32, z: *f32) Status { return self.vtable.groundHeight(self.ptr, wx, wy, z); }
     pub fn setObjectScriptID(self: Bridge, link_id: i32, script_id: i32) Status { return self.vtable.setObjectScriptID(self.ptr, link_id, script_id); }
+    pub fn scriptAreaFromVis(self: Bridge, shape: records.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8, out: *records.ScriptArea) Status { return self.vtable.scriptAreaFromVis(self.ptr, shape, wx0, wy0, wx1, wy1, name, out); }
+    pub fn scriptAreaMoved(self: Bridge, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status { return self.vtable.scriptAreaMoved(self.ptr, area, wx, wy, out); }
+    pub fn scriptAreaResized(self: Bridge, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status { return self.vtable.scriptAreaResized(self.ptr, area, wx, wy, out); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }
     pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }

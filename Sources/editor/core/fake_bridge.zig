@@ -229,6 +229,13 @@ pub const FakeBridge = struct {
     /// fake reopen like the groups. `setScriptFileFixture` seeds both.
     script_file: records.ScriptFile = .{},
     script_file_at_open: records.ScriptFile = .{},
+    /// The map's script areas (04-10, D-21), in list order, AI units as stored,
+    /// and the list as the map was opened (a name the file held twice may be put
+    /// back as often as it held it). Kept across a fake reopen. The fake takes
+    /// AI units per world unit from `map_per_world`, truncating with Vis2AI's
+    /// +0.3 as the real conversion does.
+    script_areas: std.ArrayListUnmanaged(records.ScriptArea) = .empty,
+    script_areas_at_open: std.ArrayListUnmanaged(records.ScriptArea) = .empty,
     /// The script IDs "Hide checked" holds back (04-09): objects of the
     /// objects list (not scenario objects) carrying one are skipped by
     /// `objectAt`. A view setting: forgotten by an open, as the real one.
@@ -312,6 +319,8 @@ pub const FakeBridge = struct {
         self.undone.deinit(self.allocator);
         self.objects_list.deinit(self.allocator);
         self.sounds_list.deinit(self.allocator);
+        self.script_areas.deinit(self.allocator);
+        self.script_areas_at_open.deinit(self.allocator);
         var group_values = self.groups.valueIterator();
         while (group_values.next()) |ids| self.allocator.free(ids.*);
         self.groups.deinit(self.allocator);
@@ -442,6 +451,11 @@ pub const FakeBridge = struct {
     pub fn setScriptFileFixture(self: *FakeBridge, name: []const u8) void {
         self.script_file.setName(name);
         self.script_file_at_open = self.script_file;
+    }
+
+    /// A script area the map holds before it opens (04-10), in AI units.
+    pub fn addScriptAreaFixture(self: *FakeBridge, area: records.ScriptArea) !void {
+        try self.script_areas.append(self.allocator, area);
     }
 
     /// The script IDs of group `id`, for a test to read; null when there is none.
@@ -603,6 +617,9 @@ pub const FakeBridge = struct {
         .setHiddenScriptIDs = setHiddenScriptIDs,
         .groundHeight = groundHeight,
         .setObjectScriptID = setObjectScriptID,
+        .scriptAreaFromVis = scriptAreaFromVis,
+        .scriptAreaMoved = scriptAreaMoved,
+        .scriptAreaResized = scriptAreaResized,
         .undoEdit = undoEdit,
         .redoEdit = redoEdit,
         .vsoDescriptors = vsoDescriptors,
@@ -1687,6 +1704,8 @@ pub const FakeBridge = struct {
         self.forgetHistory();
         self.hidden_script_ids.clearRetainingCapacity();
         self.script_file_at_open = self.script_file;
+        self.script_areas_at_open.clearRetainingCapacity();
+        self.script_areas_at_open.appendSlice(self.allocator, self.script_areas.items) catch return .failed;
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
             @memset(self.tiles, 0);
@@ -2020,6 +2039,10 @@ pub const FakeBridge = struct {
                 if (key != 0) return .bad_argument;
                 out.* = .{ .script_file = self.script_file };
             },
+            .script_area => {
+                if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
+                out.* = .{ .script_area = self.script_areas.items[@intCast(key)] };
+            },
         }
         return .ok;
     }
@@ -2066,6 +2089,11 @@ pub const FakeBridge = struct {
                 keys[0] = 0;
                 out.* = keys;
             },
+            .script_area => {
+                const keys = allocator.alloc(i32, self.script_areas.items.len) catch return .failed;
+                for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
+                out.* = keys;
+            },
             .group => {
                 const keys = allocator.alloc(i32, self.groups.count()) catch return .failed;
                 var index: usize = 0;
@@ -2083,6 +2111,13 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         switch (value.*) {
             .camera_anchors, .script_file => return .bad_argument,
+            .script_area => |area| {
+                if (key < 0 or key > self.script_areas.items.len) return .bad_argument;
+                if (!self.areaPutAllowed(area, null)) return .refused;
+                self.script_areas.insert(self.allocator, @intCast(key), area) catch return .failed;
+                self.record(.record_put, key);
+                return .ok;
+            },
             .group => |group| {
                 if (key < 0 or group.id != key) return .bad_argument;
                 if (self.groups.contains(key)) {
@@ -2102,6 +2137,12 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         switch (kind) {
             .camera_anchors, .script_file => return .bad_argument,
+            .script_area => {
+                if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
+                _ = self.script_areas.orderedRemove(@intCast(key));
+                self.record(.record_put, key);
+                return .ok;
+            },
             .group => {
                 const removed = self.groups.fetchRemove(key) orelse {
                     self.say("there is no reinforcement group {d}", .{key});
@@ -2166,6 +2207,12 @@ pub const FakeBridge = struct {
                 if (stored == .ok) self.record(.record_put, key);
                 return stored;
             },
+            .script_area => |wanted| {
+                if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
+                if (!self.areaPutAllowed(wanted, @intCast(key))) return .refused;
+                self.script_areas.items[@intCast(key)] = wanted;
+                self.record(.record_put, key);
+            },
             .script_file => |wanted| {
                 if (key != 0) return .bad_argument;
                 // The real bridge's rule: None, a bare name, or the value the
@@ -2179,6 +2226,105 @@ pub const FakeBridge = struct {
             },
         }
         return .ok;
+    }
+
+    /// AI units from world units, truncating with Vis2AI's +0.3 (the real rule).
+    fn visToAi(self: *const FakeBridge, vis: f32) f32 {
+        return @floatFromInt(@as(i32, @intFromFloat(vis * self.map_per_world + 0.3)));
+    }
+
+    /// World units from AI units (AI2Vis).
+    fn aiToVis(self: *const FakeBridge, ai: f32) f32 {
+        return ai / self.map_per_world;
+    }
+
+    fn scriptAreaFromVis(ptr: *anyopaque, shape: records.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8, out: *records.ScriptArea) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (name.len >= records.area_name_capacity) return .bad_argument;
+        for ([_]f32{ wx0, wy0, wx1, wy1 }) |value| if (!std.math.isFinite(value)) return .bad_argument;
+        var area: records.ScriptArea = .{ .shape = shape };
+        area.setName(name);
+        switch (shape) {
+            .rectangle => {
+                area.cx = self.visToAi((wx0 + wx1) / 2);
+                area.cy = self.visToAi((wy0 + wy1) / 2);
+                area.hx = self.visToAi(@abs(wx0 - wx1) / 2);
+                area.hy = self.visToAi(@abs(wy0 - wy1) / 2);
+            },
+            .circle => {
+                area.cx = self.visToAi(wx0);
+                area.cy = self.visToAi(wy0);
+                area.r = self.visToAi(std.math.hypot(wx0 - wx1, wy0 - wy1));
+            },
+        }
+        out.* = area;
+        return .ok;
+    }
+
+    fn scriptAreaMoved(ptr: *anyopaque, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (!std.math.isFinite(wx) or !std.math.isFinite(wy)) return .bad_argument;
+        var moved = area;
+        moved.cx = self.visToAi(wx);
+        moved.cy = self.visToAi(wy);
+        out.* = moved;
+        return .ok;
+    }
+
+    fn scriptAreaResized(ptr: *anyopaque, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (!std.math.isFinite(wx) or !std.math.isFinite(wy)) return .bad_argument;
+        var resized = area;
+        const centre_x = self.aiToVis(area.cx);
+        const centre_y = self.aiToVis(area.cy);
+        switch (area.shape) {
+            .rectangle => {
+                resized.hx = self.visToAi(@abs(wx - centre_x));
+                resized.hy = self.visToAi(@abs(wy - centre_y));
+            },
+            .circle => resized.r = self.visToAi(std.math.hypot(wx - centre_x, wy - centre_y)),
+        }
+        out.* = resized;
+        return .ok;
+    }
+
+    /// The real bridge's script-area rules: a name, unique among the areas but
+    /// the one being replaced (`replacing`), a size that is not negative, a
+    /// centre on the map when the put moves it; a name the map held twice when it
+    /// was opened may be put back as often as it held it. Says why when not.
+    fn areaPutAllowed(self: *FakeBridge, wanted: records.ScriptArea, replacing: ?usize) bool {
+        if (wanted.nameSlice().len == 0) {
+            self.say("an area needs a name", .{});
+            return false;
+        }
+        if (wanted.hx < 0 or wanted.hy < 0 or wanted.r < 0) {
+            self.say("an area's size is not negative", .{});
+            return false;
+        }
+        var others: usize = 0;
+        for (self.script_areas.items, 0..) |existing, index| {
+            if (replacing != null and replacing.? == index) continue;
+            if (std.mem.eql(u8, existing.nameSlice(), wanted.nameSlice())) others += 1;
+        }
+        if (others > 0) {
+            var opened: usize = 0;
+            for (self.script_areas_at_open.items) |existing| {
+                if (std.mem.eql(u8, existing.nameSlice(), wanted.nameSlice())) opened += 1;
+            }
+            if (others + 1 > opened) {
+                self.say("an area named {s} exists", .{wanted.nameSlice()});
+                return false;
+            }
+        }
+        const moved = if (replacing) |index| (self.script_areas.items[index].cx != wanted.cx or self.script_areas.items[index].cy != wanted.cy) else true;
+        if (moved and !self.onMapAt(wanted.cx, wanted.cy)) {
+            self.say("the area's centre is not on the map", .{});
+            return false;
+        }
+        return true;
     }
 
     fn finite(point: records.Vec3) bool {
