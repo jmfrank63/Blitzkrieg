@@ -4140,7 +4140,13 @@ static void TestM2ScriptIDs( BkEditorSession *pSession, const std::string &szScr
 	}
 
 	// Back to the shipped map: set, set back, and the bytes are the unedited ones.
+	// The unedited bytes are this open's own: SVertexAltitude's padding goes to
+	// the file raw and the session's snapshot is a copy, so two opens of one map
+	// may save different padding (04-01, 04-09) - a save is only compared with
+	// a save of the same open.
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
 	Check( BkEditorSetObjectScriptID( pSession, nTarget, 4242 ) == BK_EDITOR_OK && BkEditorSetObjectScriptID( pSession, nTarget, nOriginal ) == BK_EDITOR_OK,
 	       "the script ID goes to 4242 and back to what the file held" );
