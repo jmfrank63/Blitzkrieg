@@ -505,14 +505,19 @@ pub fn drawScriptModals(state: *State) void {
         if (!ig.igIsPopupOpen(copy_id, 0)) _ = ig.igOpenPopup(copy_id, 0);
     }
     if (ig.igBeginPopupModal(copy_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
-        var line: [160:0]u8 = undefined;
-        panels.text(std.fmt.bufPrintZ(&line, "Copy {s}.lua beside the new map?", .{state.script_copy.name()}) catch "Copy the script beside the new map?");
-        if (ig.igButton("Yes")) {
+        var line: [200:0]u8 = undefined;
+        const replace = state.script_copy.replace;
+        if (replace) {
+            panels.text(std.fmt.bufPrintZ(&line, "A different {s}.lua is already beside the new map. Replace it with the old map's?", .{state.script_copy.name()}) catch "A different script is already beside the new map. Replace it?");
+        } else {
+            panels.text(std.fmt.bufPrintZ(&line, "Copy {s}.lua beside the new map?", .{state.script_copy.name()}) catch "Copy the script beside the new map?");
+        }
+        if (ig.igButton(if (replace) "Replace" else "Yes")) {
             _ = commands.run(state, "script_copy_along_yes", "");
             ig.igCloseCurrentPopup();
         }
         ig.igSameLine();
-        if (ig.igButton("No")) {
+        if (ig.igButton(if (replace) "Keep it" else "No")) {
             _ = commands.run(state, "script_copy_along_no", "");
             ig.igCloseCurrentPopup();
         }
