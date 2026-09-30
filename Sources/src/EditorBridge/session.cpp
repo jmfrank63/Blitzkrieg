@@ -158,7 +158,10 @@ void BuildBridges( SEditorSession *pSession, const std::vector<SMapObjectInfo> &
 	const std::vector< std::vector<int> > &rBridges = pSession->working.bridges;
 	for ( size_t nBridge = 0; nBridge < rBridges.size(); ++nBridge )
 	{
-		pSession->nBridgeSpansInMap += int( rBridges[nBridge].size() );
+		// A link ID an entry names twice is one span (BuildOneBridge places it once).
+		std::vector<int> unique( rBridges[nBridge] );
+		std::sort( unique.begin(), unique.end() );
+		pSession->nBridgeSpansInMap += int( std::unique( unique.begin(), unique.end() ) - unique.begin() );
 		pSession->nBridgeSpansPlaced += BuildOneBridge( pSession, rBridges[nBridge], rSpans );
 	}
 }
@@ -182,6 +185,10 @@ int BuildOneBridge( SEditorSession *pSession, const std::vector<int> &rLinkIDs, 
 	for ( size_t nSpan = 0; nSpan < rLinkIDs.size(); ++nSpan )
 	{
 		const int nLinkID = rLinkIDs[nSpan];
+		// A link ID the entry names twice is one object: placing it again
+		// would overwrite byLinkID and orphan the first engine object.
+		if ( std::find( rLinkIDs.begin(), rLinkIDs.begin() + nSpan, nLinkID ) != rLinkIDs.begin() + nSpan )
+			continue;
 		std::vector<SMapObjectInfo>::const_iterator it = rSpans.begin();
 		for ( ; it != rSpans.end(); ++it )
 			if ( it->link.nLinkID == nLinkID )
