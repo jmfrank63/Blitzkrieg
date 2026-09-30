@@ -41,11 +41,11 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | # | MFC feature | MFC source | Owner | Portable equivalent / note | Evidence |
 |---|---|---|---|---|---|
 | M1 | Fill Entire Map | TEF:4921 | M3 05-02 | D-22 (the update-rect typo is not copied) | |
-| M2 | Player Camera: set the camera anchor per player / neutral | TEF:5035 | M2 | camera anchors | |
+| M2 | Player Camera: set the camera anchor per player / neutral | TEF:5035 | M2 | camera anchors | **Closed (M2, 04-01/04-03/04-04):** `map-file: M2 camera anchor records ok`, `editor-bridge: M2 camera anchors ok`, `map-editor-engine: M2 camera anchors round trip ok`, `map-editor-auto-m2` frames 3–19; the game starts its camera at player 0's anchor (`map-editor-game-reads-it-m2`: `camera at player 0's anchor 2172,2172, source=player`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 | M3 | Diplomacy dialog: sides, game type, attacking side | TEF:5878, TabSimpleObjectsDiplomacyDialog.cpp | M1 | Players panel | 03-VERIFICATION |
 | M4 | Diplomacy: add/delete player (≤16 + neutral), Insert/Delete/0/1 keys, popup | TabSimpleObjectsDiplomacyDialog.cpp:263, 434 | M3 05-05 | D-30 | |
 | M5 | Units Creation Info: party, aviation (5 slots × name/formation/count), paratroopers, relax time, appear points | TEF:5070, UnitCreation.cpp, PEPointsListDialog.cpp | M3 05-05 | D-30 | |
-| M6 | Script (map script file `szScriptFile`) | TEF:5102, MapOptionsDialog.cpp | M2 | scripts | |
+| M6 | Script (map script file `szScriptFile`) | TEF:5102, MapOptionsDialog.cpp | M2 | scripts | **Closed (M2, 04-10, 04-13):** `editor-bridge: M2 script file ok`; `map-editor-auto-m2` names the script, chooses it beside a user map (`script_choose`), brings it along a Save As (`script_copy_along_yes`) and Test in game runs it (`expect=test_game_script:m2_script`); `map-editor-game-reads-it-m2`: `script m2_script ran (loaded=1 init=1)`; CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 | M7 | Check Map: duplicates, links, player index, parties; report + `checkmap_log.txt` | TEF:5938, 5952–6390 | M3 05-05 | D-33 (never a silent fix on save) | |
 | M8 | Update Map (Ctrl+U): heights, terrain, shades, object/road/river Z, grid snap | TEF:5138 | M3 05-02 | D-20 | |
 | M9 | Instant Update Map Mode | TEF:5249, DrawShadeState.cpp:268 | M3 05-02 | D-20 | |
@@ -56,9 +56,9 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 
 | # | MFC feature | MFC source | Owner | Portable equivalent / note | Evidence |
 |---|---|---|---|---|---|
-| U1 | Add Start Command (property dialog, map click sets position, red lines) | TEF:3870, ObjectPlacerState.cpp:754 | M2 | | |
-| U2 | Start Commands List (Delete/Space keys) | TEF:4051, AIStartCommandsDialog.cpp | M2 | | |
-| U3 | Artillery (reserve) positions mode | TEF:4122, ObjectPlacerState.cpp:525–622, 968–1005 | M2 | | |
+| U1 | Add Start Command (property dialog, map click sets position, red lines) | TEF:3870, ObjectPlacerState.cpp:754 | M2 | Unit > Add start command, Start Commands window, Start Target tool | **Closed (M2, 04-11):** `editor-bridge: M2 start commands ok`, `map-editor-engine: M2 start command round trip ok`, `map-editor-auto-m2` frames 234–271 (red line in `m2_startcmds`); the game launches it (`startcmd launched 0 -> 1`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| U2 | Start Commands List (Delete/Space keys) | TEF:4051, AIStartCommandsDialog.cpp | M2 | Start Commands window | **Closed (M2, 04-11):** `map-editor-auto-m2` `startcmds_window:1` and shot `m2_startcmds_panel`; commands `startcmd_select`, `startcmd_delete`; core test 'Remove of the last unit deletes the command in one step'; (details: phase 4 `04-PARITY.md`) |
+| U3 | Artillery (reserve) positions mode | TEF:4122, ObjectPlacerState.cpp:525–622, 968–1005 | M2 | Reserve Positions tool, Unit > Artillery positions mode | **Closed (M2, 04-11):** `editor-bridge: M2 reserve positions ok`, `map-editor-auto-m2` frames 273–303; the game applies it (`reserve applied 0 -> 1`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 
 ## 4. Layers menu / Layers toolbar
 
@@ -155,10 +155,10 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | O13 | Garrison / tow / couple by dropping, with cursor feedback | :796–877, 1325 | M3 05-04 | D-27 | |
 | O14 | Right-click: deselect / cycle overlapping | :968–1073 | M3 05-04 | D-25 | |
 | O15 | Double-click / Enter / Space opens properties | :627, 1183 | M3 05-04 | D-26 | |
-| O16 | Delete key removes the selection (also from start commands/reserve positions) | :627–743 | M1 (single) / M3 05-04 (multi) / M2 (references) | | |
-| O17 | Properties: building (units, Script ID, player, health) | SEditorMApObject.cpp:47–65 | M3 05-04 | D-26 | |
-| O18 | Properties: trench (units, Script ID) | :220–227 | M3 05-04 (fields) / M2 (trench drawing) | | |
-| O19 | Properties: unit (units, angle, Script ID, scenario unit, player incl. flag swap, health, formation) | :295–321 | M3 05-04 | D-26 | |
+| O16 | Delete key removes the selection (also from start commands/reserve positions) | :627–743 | M1 (single) / M3 05-04 (multi) / M2 (references) | M2: the delete cascades through start commands and reserve positions and restores every reference on undo (D-04) | **M2 part closed (04-02):** `map-file: M2 cascade kinds ok`, `map-file: M2 find references ok`, `editor-bridge: M2 cascade delete (all kinds) ok`, `map-editor-engine: M2 delete round trip ok`; `test-editor-bridge-m2-sweep` cascade-deleted and restored a unit on 37 shipped maps byte-exact; (details: phase 4 `04-PARITY.md`). Multi-selection stays open for M3 05-04 |
+| O17 | Properties: building (units, Script ID, player, health) | SEditorMApObject.cpp:47–65 | M3 05-04 | D-26. M2 (04-09) delivered the single-selection Script ID field and its `script_id` command; M3 keeps the rest | Script ID part: `editor-bridge: M2 script ids ok`, `map-editor-engine: M2 script id round trip ok` (details: phase 4 `04-PARITY.md`); the row stays open for M3 |
+| O18 | Properties: trench (units, Script ID) | :220–227 | M3 05-04 (fields) / M2 (trench drawing) | M2: the Entrenchment tool draws, selects and deletes a trench whole | **M2 part (drawing) closed (04-08):** `map-file: M2 trench properties ok (500 polylines)`, `editor-bridge: M2 entrenchments draw ok`, `editor-bridge: M2 entrenchment delete ok`, `map-editor-engine: M2 entrenchment round trip ok (19 pieces, 2 sections)`; the game loads the trench (`entrenchments 0 -> 1`); (details: phase 4 `04-PARITY.md`). The fields stay open for M3 |
+| O19 | Properties: unit (units, angle, Script ID, scenario unit, player incl. flag swap, health, formation) | :295–321 | M3 05-04 | D-26. M2 (04-09) delivered the single-selection Script ID field and its `script_id` command; M3 keeps the rest | Script ID part: as O17 (details: phase 4 `04-PARITY.md`); the row stays open for M3 |
 | O20 | Properties: multi-selection (angle, Script ID, player, behaviour) | :658–681 | M3 05-04 | D-26 | |
 | O21 | Unlink a garrisoned unit (double-click in units) | TEF:3678 | M3 05-04 | D-27 | |
 | O22 | In-tab Diplomacy button | editor.rc:371 | NF | Hidden and disabled; the menu path is M3 row | |
@@ -167,22 +167,22 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 
 | # | MFC feature | MFC source | Owner | Evidence |
 |---|---|---|---|---|
-| VO1 | Fences: list, ghost (Ctrl flip), axis-locked drag | FenceSetupWindow.cpp, RoadDrawState.cpp:519–622, 841–898, 1034 | M2 | |
-| VO2 | Bridges: list, ghost, drag begin/middle/end spans, all-or-nothing commit | BridgeSetupDialog.cpp, RoadDrawState.cpp:626–667, 969 | M2 | |
-| VO3 | Bridges: Enter toggles destroyed/intact; Delete removes the span group | RoadDrawState.cpp:1241–1384 | M2 | |
-| VO4 | Entrenchments: path draw, segment/turn/terminator build, hover highlight, Enter props, Delete | RoadDrawState.cpp:673–1585 | M2 | |
-| VO5 | Roads/Rivers: width modes single/multi/all, width, opacity, type list | TabVOVSODialog.cpp | M2 | |
-| VO6 | Roads/Rivers: select/add/edit states, Insert/Delete points, width handles, opacity drag | VectorStripeObjectsState.cpp | M2 | |
-| VO7 | Rivers update AI passability | VectorStripeObjectsState.cpp:1042–1094 | M2 | |
+| VO1 | Fences: list, ghost (Ctrl flip), axis-locked drag | FenceSetupWindow.cpp, RoadDrawState.cpp:519–622, 841–898, 1034 | M2 | **Closed (04-07):** `map-file: M2 fence plan ok`, `editor-bridge: M2 fences ok`, `map-editor-auto-m2` frames 97–118; the fence run appears in the game's shot (`fences +10`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| VO2 | Bridges: list, ghost, drag begin/middle/end spans, all-or-nothing commit | BridgeSetupDialog.cpp, RoadDrawState.cpp:626–667, 969 | M2 | **Closed (04-06):** `map-file: M2 bridge plan ok`, `editor-bridge: M2 bridges draw ok`, `map-editor-engine: M2 bridge round trip ok (5 spans)`, `map-editor-auto-m2` frames 67–96; the game loads two new bridges (`bridges 0 -> 2`) and its shot shows the rotated one over the new road; CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| VO3 | Bridges: Enter toggles built during play (fHP -1), WoodenBig_Heavy only; Delete removes the span group (reworded by phase 4 D-12: the MFC toggle is "built during play", not destroyed/intact) | RoadDrawState.cpp:1241–1384 | M2 | **Closed (04-06):** `editor-bridge: M2 bridge rotate and toggle ok`, `editor-bridge: M2 bridge delete ok`; `map-editor-auto-m2` Enter, then `expect=bridge_built`, with undo and redo; the game loads a built-during-play bridge; `test-editor-bridge-m2-sweep` deleted 23 shipped bridges whole and undid each byte-exact; CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| VO4 | Entrenchments: path draw, segment/turn/terminator build, hover highlight, Enter props, Delete | RoadDrawState.cpp:673–1585 | M2 | **Closed (04-08):** as O18 drawing, plus `map-file: M2 trench overlay ok` and `map-editor-auto-m2` frames 119–139; the trench appears in the game's shot. The trench's properties (Enter props) are O18's fields, M3 05-04; CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| VO5 | Roads/Rivers: width modes single/multi/all, width, opacity, type list | TabVOVSODialog.cpp | M2 | **Closed (04-05, 04-13):** the Roads & Rivers panel; in mode All the width and opacity sliders re-width the selected line as one undo step (core test, `map-editor-auto-m2` `vso_width_mode:all` leg); (details: phase 4 `04-PARITY.md`) |
+| VO6 | Roads/Rivers: select/add/edit states, Insert/Delete points, width handles, opacity drag | VectorStripeObjectsState.cpp | M2 | **Closed (04-05):** `map-file: M2 vso builder ok`, `editor-bridge: M2 roads ok`, `editor-bridge: M2 road edits ok (8 edits)`, `map-editor-engine: M2 road round trip ok`, `map-editor-auto-m2` frames 28–66; the game reads one more road (`roads 3 -> 4`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| VO7 | Rivers update AI passability | VectorStripeObjectsState.cpp:1042–1094 | M2 | **Closed (04-05):** `editor-bridge: M2 rivers and passability ok` (present after add, gone after delete); the game reads one more river (`rivers 0 -> 1`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 
 ## 10. Map Tools, Groups, AI Settings panes
 
 | # | MFC feature | MFC source | Owner | Portable equivalent / note | Evidence |
 |---|---|---|---|---|---|
 | MT1 | Damage tool: % to add, left damage / right heal / middle repair | TabToolsDialog.cpp:95, MapToolState.cpp:29–186 | M3 05-04 | D-29 | |
-| MT2 | Script areas: rectangle/circle draw, name dialog, list centres camera, delete | MapToolState.cpp:188–274, TabToolsDialog.cpp:109–149, AreaNameDialog.cpp | M2 | | |
-| G1 | Reinforcement groups: list, new (auto-ID), delete, hide checked, script IDs per group | GroupManagerDialog.cpp, GetGroupID.cpp, EnterScriptIDDialog.cpp | M2 | | |
-| AI1 | AI general: side radios, mobile reinforcements, positions, parcels on the map, placeholders, type dialog | TabAIGeneralDialog.cpp, StateAIGeneral.cpp, TabAIGeneral*Dialog.cpp | M2 | | |
+| MT2 | Script areas: rectangle/circle draw, name dialog, list centres camera, delete | MapToolState.cpp:188–274, TabToolsDialog.cpp:109–149, AreaNameDialog.cpp | M2 | Script Areas tool (key 8) and panel | **Closed (04-10):** `map-file: M2 script areas ok`, `editor-bridge: M2 script areas ok`, `map-editor-auto-m2` frames 186–232; the game's script finds the area (`area m2_area found at 3072,3072 (lua 3072,3072)`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| G1 | Reinforcement groups: list, new (auto-ID), delete, hide checked, script IDs per group | GroupManagerDialog.cpp, GetGroupID.cpp, EnterScriptIDDialog.cpp | M2 | Groups window | **Closed (04-09):** `editor-bridge: M2 groups ok`, `editor-bridge: M2 hide checked ok`, `map-editor-engine: M2 groups round trip ok`, `map-editor-auto-m2` frames 140–185; the game holds the group's unit and lands it (`group 900 held 1`, `script group 4245 landed one unit`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
+| AI1 | AI general: side radios, mobile reinforcements, positions, parcels on the map, placeholders, type dialog | TabAIGeneralDialog.cpp, StateAIGeneral.cpp, TabAIGeneral*Dialog.cpp | M2 | AI General tool (key 9) and panel | **Closed (04-12):** `map-file: M2 parcel formulas ok`, `editor-bridge: M2 ai general ok`, `editor-bridge: M2 ai general edits ok`, `map-editor-engine: M2 ai general round trip ok`, `map-editor-auto-m2` frames 304–337; the enemy general reads the parcel (`general side 1 parcels 0 -> 1 (parcel type=1 r=256 dir=0)`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 
 ## 11. Minimap bar
 
@@ -233,7 +233,7 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | S1 | Save runs `CheckMap(false)`, fixing silently | TEF:2934 | M3 05-05 | Replaced: the check only warns (D-33). Preservation invariant | |
 | S2 | Save recomputes full-map shades | TEF:2934–3291 | M3 05-01 | Replaced: region shades at edit time and explicit Update Map (D-19, D-20) | |
 | S3 | Save writes the QuickLoadMapInfo chunk | TEF:3238–3258 | M1 | MapFile | test-map-files |
-| S4 | Save packs frame indices, writes squads once, nudges bridge spans | TEF:2934–3291 | M1 / M2 | Overlay packs only edited objects (spec); bridge spans M2 | |
+| S4 | Save packs frame indices, writes squads once, nudges bridge spans | TEF:2934–3291 | M1 / M2 | Overlay packs only edited objects (spec); bridge spans M2 | **Closed (M1 packing; M2 bridge spans, 04-06):** `editor-bridge: M2 bridges draw ok` (the save equals the `NMapGeometry::PlanBridge` map); `test-map-files-all` 1,755 of 1,755; the M2 sweeps restore every edit byte-exact (`map-file: M2 sweep 59 maps, 460 edits`, `editor-bridge: M2 sweep 57 maps, 238 edits`); (details: phase 4 `04-PARITY.md`) |
 | S5 | Load recomputes full shades with the season sun | TEF:1657 | M1 (not copied) | Engine built from the snapshot; shades unchanged | test-map-files-all |
 | S6 | Load: scenario units drawn blue; future-build bridges blue | TEF:1357–2113 | M3 05-04 / M1 | Scenario-unit tint in D-26; future-build list M1 | |
 | S7 | Load: garrisons placed beside their host | TEF:1357–2113 | M3 05-04 | Links shown and editable (D-27) | |
