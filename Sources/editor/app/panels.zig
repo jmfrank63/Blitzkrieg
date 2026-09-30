@@ -286,6 +286,22 @@ pub const State = struct {
     /// View -> Markers: which M2 marker kinds are drawn (all, until switched
     /// off). The active tool's own kinds are drawn regardless.
     marker_set: marker_logic.MarkerSet = .{},
+    /// 04-05: the Roads & Rivers panel's type list, for `vso_types_kind`;
+    /// read again when a map opens or the tool's kind changes
+    /// (`refreshVsoTypes`).
+    vso_types: []core.bridge.VsoDescriptor = &.{},
+    vso_types_kind: ?core.bridge.VsoKind = null,
+    /// Every road's and river's centre line (its key points, world units),
+    /// for the markers: `vso_line_points` flat, each line's end in
+    /// `vso_line_ends` and its kind in `vso_line_kinds`. Read again when the
+    /// editor's `vso_generation` moves past `vso_lines_generation`.
+    vso_line_points: std.ArrayListUnmanaged(core.records.Vec3) = .empty,
+    vso_line_ends: std.ArrayListUnmanaged(usize) = .empty,
+    vso_line_kinds: std.ArrayListUnmanaged(core.bridge.VsoKind) = .empty,
+    vso_lines_generation: ?u32 = null,
+    /// The roads and rivers the map held when it opened, for the scripted
+    /// `vso_delta` predicate.
+    vso_count_at_open: [2]usize = .{ 0, 0 },
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -347,6 +363,10 @@ pub const State = struct {
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
         self.allocator.free(self.sounds);
+        self.allocator.free(self.vso_types);
+        self.vso_line_points.deinit(self.allocator);
+        self.vso_line_ends.deinit(self.allocator);
+        self.vso_line_kinds.deinit(self.allocator);
         self.* = undefined;
     }
 
@@ -519,6 +539,47 @@ pub const State = struct {
     /// record moved since the last read (or no map is open: none). A read
     /// that fails leaves them unset, which the panel and the markers show as
     /// "unset" rather than as stale positions.
+    /// The Roads & Rivers panel's types for the tool's kind: read once per
+    /// map and kind. A tool with no type yet, or one the list does not hold,
+    /// takes the first.
+    pub fn refreshVsoTypes(self: *State) void {
+        const tool = &self.view.roads_rivers;
+        if (self.vso_types_kind != null and self.vso_types_kind.? == tool.kind) return;
+        self.allocator.free(self.vso_types);
+        self.vso_types = &.{};
+        self.vso_types_kind = tool.kind;
+        if (!mapIsOpen(self.editor)) return;
+        self.vso_types = self.editor.vsoDescriptors(tool.kind, self.allocator) catch &.{};
+        for (self.vso_types) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), tool.desc())) return;
+        }
+        tool.setDesc(if (self.vso_types.len != 0) self.vso_types[0].nameSlice() else "");
+    }
+
+    /// Every road's and river's key points, for the markers, read again after
+    /// any road or river change (and capped per kind, marker_logic.cap).
+    pub fn refreshVsoLines(self: *State) void {
+        const generation = self.editor.vso_generation;
+        if (self.vso_lines_generation != null and self.vso_lines_generation.? == generation) return;
+        self.vso_lines_generation = generation;
+        self.vso_line_points.clearRetainingCapacity();
+        self.vso_line_ends.clearRetainingCapacity();
+        self.vso_line_kinds.clearRetainingCapacity();
+        if (!mapIsOpen(self.editor)) return;
+        const limit = marker_logic.cap(.roads_rivers);
+        for ([_]core.bridge.VsoKind{ .road, .river }) |kind| {
+            const count = self.editor.vsoCount(kind) catch continue;
+            var index: usize = 0;
+            while (index < count and index < limit) : (index += 1) {
+                var line = self.editor.readVso(kind, index) catch continue;
+                defer line.deinit(self.allocator);
+                for (line.key_points) |key| self.vso_line_points.append(self.allocator, .{ .x = key.x, .y = key.y, .z = key.z }) catch return;
+                self.vso_line_ends.append(self.allocator, self.vso_line_points.items.len) catch return;
+                self.vso_line_kinds.append(self.allocator, kind) catch return;
+            }
+        }
+    }
+
     pub fn refreshAnchors(self: *State) void {
         const generation = self.editor.record_generations.get(.camera_anchors);
         if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
@@ -549,6 +610,12 @@ pub const State = struct {
         self.sounds_generation_seen = self.editor.sounds_generation;
         self.anchors_generation_seen = self.editor.record_generations.get(.camera_anchors);
         self.anchors = commands.readAnchors(self) orelse .{};
+        self.vso_types_kind = null;
+        self.vso_lines_generation = null;
+        self.vso_count_at_open = .{
+            self.editor.vsoCount(.road) catch 0,
+            self.editor.vsoCount(.river) catch 0,
+        };
         self.unknown_types_count = 0;
         self.unknown_objects_total = 0;
         self.unknown_popup_shown = false;
@@ -621,7 +688,14 @@ pub fn draw(state: *State) void {
     const body_height = @max(size.y - menu_height - status_height, 100);
 
     drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = state.left_width, .y = layout.tools_height }, cond);
-    drawObjectPalette(state, .{ .x = 0, .y = body_top + layout.tools_height }, .{ .x = state.left_width, .y = @max(body_height - layout.tools_height, 100) }, cond);
+    // The left column under the tools: the Roads & Rivers panel while its
+    // tool is active (04-05), the object palette otherwise.
+    const left_pos: ig.ImVec2 = .{ .x = 0, .y = body_top + layout.tools_height };
+    const left_size: ig.ImVec2 = .{ .x = state.left_width, .y = @max(body_height - layout.tools_height, 100) };
+    if (state.view.tool == .roads_rivers)
+        panels_m2.drawRoadsRivers(state, left_pos, left_size, cond)
+    else
+        drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
     drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
     drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);

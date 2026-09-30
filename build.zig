@@ -6117,9 +6117,53 @@ fn addMapEditor(
         "24:key=ESCAPE",
         "25:text=Area1",
         "27:expect=undo_depth:3",
-        b.fmt("28:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "29:shot=m2_anchor",
-        "30:exit",
+        // 04-05: Roads & Rivers, on the empty snow above the view centre (the
+        // camera stands at player 0's anchor after camera_goto:0). A road of
+        // three clicks finished by a double click; a drag of its second
+        // point, undone; Insert after that point (4 points), undone; then a
+        // river of three clicks finished by Enter and a right-drag of 50
+        // pixels down on its second point (opacity 1 -> 0.5); the markers
+        // shot. A drag's press, motions and release share one frame: the
+        // view ends a gesture whose button the real mouse does not hold at
+        // the frame's end (the stale-gesture guard), and a script's buttons
+        // are only events.
+        "28:tool=roads_rivers",
+        "29:do=vso_kind:road",
+        "30:do=vso_width:3",
+        "31:do=vso_opacity:100",
+        "32:click=c-100x-250",
+        "33:click=c50x-200",
+        "34:dblclick=c200x-250",
+        "36:expect=vso_delta:road:1",
+        "37:expect=vso_points:road:3",
+        "38:expect=undo_depth:4",
+        "39:press=c50x-200",
+        "39:drag=c50x-175",
+        "39:drag=c50x-150",
+        "39:release=c50x-150",
+        "41:expect=undo_depth:5",
+        "42:key=Z+ctrl",
+        "44:expect=vso_delta:road:1",
+        "45:expect=undo_depth:4",
+        "46:key=INSERT",
+        "48:expect=vso_points:road:4",
+        "49:key=Z+ctrl",
+        "51:expect=vso_points:road:3",
+        "52:do=vso_kind:river",
+        "53:click=c-260x-320",
+        "54:click=c-230x-250",
+        "55:click=c-250x-170",
+        "56:key=ENTER",
+        "58:expect=vso_delta:river:1",
+        "59:rpress=c-230x-250",
+        "59:rdrag=c-230x-225",
+        "59:rdrag=c-230x-200",
+        "59:rrelease=c-230x-200",
+        "61:expect=undo_depth:6",
+        "66:shot=m2_roads",
+        b.fmt("67:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "68:shot=m2_anchor",
+        "69:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));
