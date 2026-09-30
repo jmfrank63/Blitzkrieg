@@ -7724,6 +7724,60 @@ static void TestM2StartCommands( BkEditorSession *pSession, const std::string &s
 	printf( "editor-bridge: M2 start commands ok\n" );
 }
 
+// WR-A10 (Research Pitfall 8): giving a group the script ID of a unit a start
+// command names - or the unit the script ID a group holds - answers OK with a
+// note that the game holds the unit back, so the command may find nothing.
+static void TestM2GroupHoldWarning( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\group-hold-unedited.bzm";
+	const std::string szAfter = szScratch + "\\group-hold-after.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::vector<int> units;
+	int nNonUnit = -1;
+	PickCommandUnits( original, 1, &units, &nNonUnit );
+	if ( !Check( units.size() == 1, "coldwinter has a unit a start command may name" ) )
+		return;
+	const int nUnit = units[0];
+	int nScriptBefore = -1;
+	for ( size_t i = 0; i < original.objects.size(); ++i )
+		if ( original.objects[i].link.nLinkID == nUnit )
+			nScriptBefore = original.objects[i].nScriptID;
+	const int nScript = 31999;
+	int nGroup = -1;
+	if ( !Check( BkEditorFirstFreeGroupID( pSession, 900, &nGroup ) == BK_EDITOR_OK && nGroup >= 900, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nIndex = StartCommandCountOf( pSession );
+	const BkEditorStartCommandRecord stop = StartRecordOf( 9, 0, 0, 0, 0, 0, 1 );
+	if ( !Check( BkEditorAddStartCommand( pSession, nIndex, &stop, &nUnit ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int ids[1] = { nScript };
+	// The script ID first, then the group that holds it.
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, nScript ) == BK_EDITOR_OK && std::string( BkEditorLastMessage( pSession ) ).empty(),
+	       NStr::Format( "a script ID no group holds gives no note: %s", BkEditorLastMessage( pSession ) ) );
+	Check( BkEditorSetGroup( pSession, nGroup, ids, 1 ) == BK_EDITOR_OK && std::string( BkEditorLastMessage( pSession ) ).find( "held back by reinforcement group" ) != std::string::npos,
+	       NStr::Format( "a group taking the script ID of a commanded unit notes it: %s", BkEditorLastMessage( pSession ) ) );
+	// The group first, then the script ID.
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, nScriptBefore ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, nScript ) == BK_EDITOR_OK && std::string( BkEditorLastMessage( pSession ) ).find( "held back by reinforcement group" ) != std::string::npos,
+	       NStr::Format( "a commanded unit taking a group's script ID notes it: %s", BkEditorLastMessage( pSession ) ) );
+	// Back as the file was.
+	Check( BkEditorDeleteGroup( pSession, nGroup ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, nScriptBefore ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorDeleteStartCommand( pSession, nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szAfter ), "the hold-warning edits taken back save the unedited file byte for byte" );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M2 group hold warning ok\n" );
+}
+
 static std::vector<BkEditorCatalogueEntry> ReadCatalogueEntries( BkEditorSession *pSession )
 {
 	int nCount = 0;
@@ -8799,6 +8853,7 @@ int main( int argc, char **argv )
 		TestM2Entrenchments( pSession, szScratch );
 		TestM2EntrenchmentDelete( pSession, szScratch );
 		TestM2StartCommands( pSession, szScratch );
+		TestM2GroupHoldWarning( pSession, szScratch );
 		TestM2ReservePositions( pSession, szScratch );
 		TestM2AIGeneral( pSession, szScratch );
 		TestM2AISideShrinkRefused( pSession, szScratch );
