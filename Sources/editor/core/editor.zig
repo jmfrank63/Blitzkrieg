@@ -3382,3 +3382,46 @@ test "an AI side read past the count is empty with the count, and an off-map par
     try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
     try std.testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].parcels.len);
 }
+
+test "mobile script IDs: add and remove are one step each, a duplicate is a note, the range is 0..32000" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1;
+    try fake.addAiSideFixture(.{});
+    try fake.addAiSideFixture(.{});
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const depth = editor.history.undo_stack.items.len;
+    try editor.addMobileScriptID(1, 4245);
+    try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try std.testing.expectEqualSlices(i32, &.{4245}, fake.ai_sides.items[1].mobile_ids);
+    // A duplicate is a note and records nothing.
+    try editor.addMobileScriptID(1, 4245);
+    try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "already") != null);
+    // Out of range is refused with a note, and changes nothing.
+    try std.testing.expectError(error.Refused, editor.addMobileScriptID(1, 32001));
+    try std.testing.expectError(error.Refused, editor.addMobileScriptID(1, -1));
+    try editor.addMobileScriptID(1, 0);
+    try editor.addMobileScriptID(1, 32000);
+    try std.testing.expectEqualSlices(i32, &.{ 4245, 0, 32000 }, fake.ai_sides.items[1].mobile_ids);
+    try editor.removeMobileScriptID(1, 0);
+    try std.testing.expectEqualSlices(i32, &.{ 4245, 32000 }, fake.ai_sides.items[1].mobile_ids);
+    try editor.removeMobileScriptID(1, 77); // not there: a note, no step
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "not a mobile") != null);
+    try std.testing.expectEqual(depth + 4, editor.history.undo_stack.items.len);
+    // Undo walks back exactly, the other side untouched.
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualSlices(i32, &.{ 4245, 0, 32000 }, fake.ai_sides.items[1].mobile_ids);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 0), fake.ai_sides.items[1].mobile_ids.len);
+    try std.testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].mobile_ids.len);
+    try std.testing.expectEqual(@as(usize, 2), fake.ai_sides.items.len);
+    // On a side the map lacks, the first ID creates it (and the ones below), and undo takes them away.
+    try editor.addMobileScriptID(4, 9);
+    try std.testing.expectEqual(@as(usize, 5), fake.ai_sides.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 2), fake.ai_sides.items.len);
+}

@@ -6395,9 +6395,39 @@ fn addMapEditor(
         "299:key=Y+ctrl",
         "301:expect=reserve_delta:1",
         "303:shot=m2_reserve",
-        b.fmt("305:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "306:shot=m2_anchor",
-        "307:exit",
+        // 04-12: the AI general. The AI General tool on side 1 (coldwinter has two sides):
+        // a click on open ground makes a defence parcel, a click inside it a reinforce
+        // point, the undo key takes the point away and redo brings it back, Enter switches
+        // the parcel to reinforce, a mobile script ID is added through the named command,
+        // and the parcel, its arrow, the point and the panel are shot; then four undos take
+        // the script ID, the type, the point and the parcel away again (the side count never
+        // moves on an existing side).
+        "304:tool=ai_general",
+        "305:do=ai_side:1",
+        "306:click=c80x-150",
+        "308:expect=parcels:1:1",
+        "309:expect=undo_depth:22",
+        "310:click=c160x-150",
+        "312:expect=undo_depth:23",
+        "313:key=Z+ctrl",
+        "315:expect=undo_depth:22",
+        "316:key=Y+ctrl",
+        "318:expect=undo_depth:23",
+        "319:key=ENTER",
+        "321:expect=undo_depth:24",
+        "322:do=ai_mobile_add:4245",
+        "323:expect=mobile_has:1:4245",
+        "324:expect=undo_depth:25",
+        "327:shot=m2_ai_general",
+        "328:key=Z+ctrl",
+        "330:key=Z+ctrl",
+        "332:key=Z+ctrl",
+        "334:key=Z+ctrl",
+        "336:expect=parcels:1:0",
+        "337:expect=undo_depth:21",
+        b.fmt("339:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "340:shot=m2_anchor",
+        "341:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

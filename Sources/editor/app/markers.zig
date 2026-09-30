@@ -57,6 +57,9 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     // D-18: a line from each reserve position's gun through its truck to its place; the
     // Reserve Positions tool adds the choice in hand, dashed.
     if (marker_logic.visible(state.marker_set, .reserve_positions, active)) drawReserveLines(state, real);
+    // D-19: the AI general's parcels as circles with a direction arrow and their reinforce
+    // points as arrows, the tool's side bright and the others dimmed.
+    if (marker_logic.visible(state.marker_set, .parcels, active)) drawParcelMarkers(state, real);
     // D-16: "Select objects" outlines the objects of a group's script IDs.
     if (state.group_marked != null and marker_logic.visible(state.marker_set, .groups, active)) drawGroupMarks(state, real);
 }
@@ -278,6 +281,126 @@ fn drawReserveLines(state: *State, real: anytype) void {
         place = screenOf(real, world.x, world.y);
     }
     drawReserveChain(draw_list, if (tool.gun) |gun| objectScreen(state, real, gun) else null, if (tool.truck) |truck| objectScreen(state, real, truck) else null, place, color(1.0, 1.0, 0.2), 2, true);
+}
+
+/// The MFC editor's PARCEL_COLORS and POSITION_COLORS (StateAIGeneral.cpp), by the
+/// parcel's type: a defence parcel green, a reinforce parcel yellow, anything else red.
+const ParcelPalette = struct { parcel: [3]f32, point: [3]f32 };
+
+fn parcelPalette(kind: core.records.ParcelKind) ParcelPalette {
+    return switch (kind) {
+        .defence => .{ .parcel = .{ 0.5, 1.0, 0.5 }, .point = .{ 0.125, 1.0, 0.125 } },
+        .reinforce => .{ .parcel = .{ 1.0, 1.0, 0.5 }, .point = .{ 1.0, 1.0, 0.125 } },
+        else => .{ .parcel = .{ 1.0, 0.5, 0.5 }, .point = .{ 1.0, 0.125, 0.125 } },
+    };
+}
+
+fn withAlpha(rgb: [3]f32, alpha: f32) ig.ImU32 {
+    return ig.igColorConvertFloat4ToU32(.{ .x = rgb[0], .y = rgb[1], .z = rgb[2], .w = alpha });
+}
+
+/// A map point (AI units) on the screen; null when it does not convert.
+fn aiScreen(real: anytype, at: [2]f32) ?ig.ImVec2 {
+    const world = marker_logic.aiToWorld(.{ .x = at[0], .y = at[1] });
+    return screenOf(real, world.x, world.y);
+}
+
+/// The segments a parcel's ring is drawn with, and a handle's.
+const parcel_ring_segments = 64;
+const handle_ring_segments = 16;
+
+/// A ring of `radius` (AI units) about a map point, each perimeter point converted on
+/// its own, so on the iso ground it is the ellipse the terrain shows; a point that does
+/// not convert breaks the ring there.
+fn drawAiRing(draw_list: *ig.ImDrawList, real: anytype, centre: [2]f32, radius: f32, segments: usize, ring_color: ig.ImU32, thickness: f32) void {
+    var previous: ?ig.ImVec2 = null;
+    var first: ?ig.ImVec2 = null;
+    var step: usize = 0;
+    while (step < segments) : (step += 1) {
+        const angle = @as(f32, @floatFromInt(step)) * 2.0 * std.math.pi / @as(f32, @floatFromInt(segments));
+        const here = aiScreen(real, .{ centre[0] + radius * @cos(angle), centre[1] + radius * @sin(angle) });
+        if (first == null) first = here;
+        if (previous != null and here != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, here.?, ring_color, thickness);
+        previous = here;
+    }
+    if (previous != null and first != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, first.?, ring_color, thickness);
+}
+
+fn drawAiLine(draw_list: *ig.ImDrawList, real: anytype, from: [2]f32, to: [2]f32, line_color: ig.ImU32, thickness: f32) void {
+    const a = aiScreen(real, from) orelse return;
+    const b = aiScreen(real, to) orelse return;
+    ig.ImDrawList_AddLineEx(draw_list, a, b, line_color, thickness);
+}
+
+/// A filled disc at a map point: the active handle, as the MFC editor fills it with
+/// concentric circles.
+fn drawAiDisc(draw_list: *ig.ImDrawList, real: anytype, at: [2]f32, radius_pixels: f32, disc_color: ig.ImU32) void {
+    const centre = aiScreen(real, at) orelse return;
+    ig.ImDrawList_AddCircleFilled(draw_list, centre, radius_pixels, disc_color, 16);
+}
+
+/// One side's parcels (D-19, CAIGState::Draw): for each, its ring of `radius`, a line from
+/// the centre out along its direction (plus a quarter turn) and past the ring, the ring of
+/// the centre handle and of the arrow handle; for each point, its place's ring, a ring of
+/// the arrow length round it, its own arrow and the ring of its arrow handle. The selected
+/// parcel and point (while the AI General tool is in hand) are drawn thicker with their
+/// handles filled. `alpha` dims a side the tool is not editing.
+fn drawAiSide(draw_list: *ig.ImDrawList, real: anytype, side: core.records.AiSide, in_hand: bool, tool: *const core.tools_ai.AIGeneral, active_side: bool, alpha: f32, budget: *usize) void {
+    const ai = core.tools_ai;
+    for (side.parcels, 0..) |parcel, parcel_index| {
+        if (budget.* == 0) return;
+        budget.* -= 1;
+        const palette = parcelPalette(parcel.kind);
+        const parcel_color = withAlpha(palette.parcel, alpha);
+        const point_color = withAlpha(palette.point, alpha);
+        const selected = in_hand and active_side and tool.selected_parcel != null and tool.selected_parcel.? == parcel_index;
+        const centre = ai.parcelCentreHandle(parcel);
+        const arrow = ai.parcelArrowHandle(parcel);
+        const angle = ai.directionAngle(parcel.defence_dir) + std.math.pi / 2.0;
+        const tail: [2]f32 = .{ parcel.cx + (parcel.radius + ai.arrow_tail_length) * @cos(angle), parcel.cy + (parcel.radius + ai.arrow_tail_length) * @sin(angle) };
+        const thickness: f32 = if (selected and tool.selected_point == null) 3.5 else 2;
+        drawAiRing(draw_list, real, centre, parcel.radius, parcel_ring_segments, parcel_color, thickness);
+        drawAiRing(draw_list, real, centre, ai.parcel_centre_grab, handle_ring_segments, parcel_color, thickness);
+        drawAiRing(draw_list, real, arrow, ai.parcel_arrow_grab, handle_ring_segments, parcel_color, thickness);
+        drawAiLine(draw_list, real, centre, arrow, parcel_color, thickness);
+        drawAiLine(draw_list, real, arrow, tail, parcel_color, thickness);
+        if (selected and tool.selected_point == null) {
+            drawAiDisc(draw_list, real, centre, 7, parcel_color);
+            drawAiDisc(draw_list, real, arrow, 5, parcel_color);
+        }
+        for (parcel.points, 0..) |point, point_index| {
+            const point_selected = selected and tool.selected_point != null and tool.selected_point.? == point_index;
+            const place = ai.pointCentreHandle(parcel, point);
+            const point_arrow = ai.pointArrowHandle(parcel, point);
+            const point_angle = ai.directionAngle(point.dir) + std.math.pi / 2.0;
+            const point_tail = ai.pointToMap(.{ point.x + (ai.point_arrow_length + ai.arrow_tail_length) * @cos(point_angle), point.y + (ai.point_arrow_length + ai.arrow_tail_length) * @sin(point_angle) }, .{ parcel.cx, parcel.cy }, parcel.defence_dir);
+            const point_thickness: f32 = if (point_selected) 3.5 else 2;
+            drawAiLine(draw_list, real, place, point_arrow, point_color, point_thickness);
+            drawAiLine(draw_list, real, point_arrow, point_tail, point_color, point_thickness);
+            drawAiRing(draw_list, real, place, ai.point_arrow_length, handle_ring_segments, point_color, 1);
+            drawAiRing(draw_list, real, place, ai.point_centre_grab, handle_ring_segments, point_color, point_thickness);
+            drawAiRing(draw_list, real, point_arrow, ai.point_arrow_grab, handle_ring_segments, point_color, point_thickness);
+            if (point_selected) {
+                drawAiDisc(draw_list, real, place, 6, point_color);
+                drawAiDisc(draw_list, real, point_arrow, 4, point_color);
+            }
+        }
+    }
+}
+
+/// D-19: the parcels of every side the panel has read (marker_logic.cap bounds them), the
+/// tool's side bright and the rest dimmed.
+fn drawParcelMarkers(state: *State, real: anytype) void {
+    state.refreshAi();
+    const draw_list = ig.igGetBackgroundDrawList();
+    const tool = &state.view.ai_tool;
+    const in_hand = state.view.tool == .ai_general;
+    var budget: usize = marker_logic.cap(.parcels);
+    for (state.ai_sides.items, 0..) |side, index| {
+        if (index == tool.side) continue;
+        drawAiSide(draw_list, real, side, in_hand, tool, false, 0.4, &budget);
+    }
+    if (tool.side < state.ai_sides.items.len) drawAiSide(draw_list, real, state.ai_sides.items[tool.side], in_hand, tool, true, 1.0, &budget);
 }
 
 fn groupMarkColor() ig.ImU32 {

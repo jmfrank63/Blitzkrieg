@@ -95,6 +95,14 @@ fn startCommandCount(editor: *Editor) !usize {
     return listed.len;
 }
 
+/// The counts of one side of the AI general as the bridge answers them (the sizing pass).
+fn rawAiSideInfo(real: *RealBridge, side: usize) !c.BkEditorAISideInfo {
+    var info: c.BkEditorAISideInfo = std.mem.zeroes(c.BkEditorAISideInfo);
+    const status = c.BkEditorAIGeneralSide(real.session, @intCast(side), &info, null, 0, null, 0, null, 0);
+    try std.testing.expect(status == c.BK_EDITOR_OK or status == c.BK_EDITOR_REFUSED);
+    return info;
+}
+
 fn rawAnchors(real: *RealBridge) !c.BkEditorCameraAnchorRecord {
     var record: c.BkEditorCameraAnchorRecord = std.mem.zeroes(c.BkEditorCameraAnchorRecord);
     try std.testing.expect(c.BkEditorCameraAnchors(real.session, &record) == c.BK_EDITOR_OK);
@@ -429,6 +437,73 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
     std.debug.print("map-editor-engine: M2 start command round trip ok\n", .{});
+
+    // M2 (04-12): an AI general parcel end to end on the real engine. A defence parcel goes
+    // on side 1 (coldwinter has two sides) and another on a side two above the side count,
+    // which creates the side between them empty; the raw read and the editor agree, undo,
+    // redo and undo walk each back and forth, the side count coming back exactly, and a
+    // mobile script ID goes in and out the same way.
+    {
+        var map_x: f32 = 0;
+        var map_y: f32 = 0;
+        try std.testing.expect(editor.bridge.worldToMap(middle_x, middle_y, &map_x, &map_y) == .ok);
+        const sides_at_open = try editor.aiSideCount();
+        const first_side: usize = 1;
+        const parcels_before = (try rawAiSideInfo(&real, first_side)).parcel_count;
+        const index = try editor.addDefenceParcel(first_side, map_x, map_y);
+        try std.testing.expectEqual(@as(usize, @intCast(parcels_before)), index);
+        {
+            const info = try rawAiSideInfo(&real, first_side);
+            try std.testing.expectEqual(parcels_before + 1, info.parcel_count);
+            var parcels: [8]c.BkEditorAIParcel = undefined;
+            var points: [1]c.BkEditorAIPoint = undefined;
+            var mobile: [1]c_int = undefined;
+            try std.testing.expect(info.parcel_count <= 8);
+            var again: c.BkEditorAISideInfo = undefined;
+            const read = c.BkEditorAIGeneralSide(real.session, @intCast(first_side), &again, &mobile, 0, &parcels, 8, &points, 0);
+            try std.testing.expect(read == c.BK_EDITOR_OK or read == c.BK_EDITOR_REFUSED);
+            const mine = parcels[index];
+            try std.testing.expectEqual(@as(c_int, 1), mine.type);
+            try std.testing.expectEqual(@as(f32, 256), mine.radius);
+            try std.testing.expectEqual(@as(c_int, 0), mine.defence_dir);
+            try std.testing.expectEqual(@as(c_int, 0), mine.point_count);
+        }
+        try std.testing.expect(editor.dirty());
+        _ = try editor.undo();
+        try std.testing.expectEqual(parcels_before, (try rawAiSideInfo(&real, first_side)).parcel_count);
+        try std.testing.expect(!editor.dirty());
+        _ = try editor.redo();
+        try std.testing.expectEqual(parcels_before + 1, (try rawAiSideInfo(&real, first_side)).parcel_count);
+        _ = try editor.undo();
+        try std.testing.expect(!editor.dirty());
+        // A side two above the count: the side between is created empty, and undo takes both away.
+        const far_side = sides_at_open + 1;
+        _ = try editor.addDefenceParcel(far_side, map_x, map_y);
+        try std.testing.expectEqual(sides_at_open + 2, try editor.aiSideCount());
+        try std.testing.expectEqual(@as(c_int, 0), (try rawAiSideInfo(&real, sides_at_open)).parcel_count);
+        try std.testing.expectEqual(@as(c_int, 1), (try rawAiSideInfo(&real, far_side)).parcel_count);
+        _ = try editor.undo();
+        try std.testing.expectEqual(sides_at_open, try editor.aiSideCount());
+        try std.testing.expect(!editor.dirty());
+        _ = try editor.redo();
+        try std.testing.expectEqual(sides_at_open + 2, try editor.aiSideCount());
+        _ = try editor.undo();
+        try std.testing.expectEqual(sides_at_open, try editor.aiSideCount());
+        // A mobile script ID in and out, a duplicate a note.
+        const depth = editor.history.undo_stack.items.len;
+        try editor.addMobileScriptID(first_side, 4245);
+        try std.testing.expectEqual(@as(c_int, 1), (try rawAiSideInfo(&real, first_side)).mobile_count);
+        try editor.addMobileScriptID(first_side, 4245);
+        try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+        try editor.removeMobileScriptID(first_side, 4245);
+        try std.testing.expectEqual(@as(c_int, 0), (try rawAiSideInfo(&real, first_side)).mobile_count);
+        _ = try editor.undo();
+        _ = try editor.undo();
+        try std.testing.expect(!editor.dirty());
+        try expectEngineMatches(&real);
+        try expectDocumentIsBridge(&real, &editor);
+        std.debug.print("map-editor-engine: M2 ai general round trip ok\n", .{});
+    }
 
     // M2 (04-05): a road drawn through the core Editor on the real engine -
     // the bridge derives it, the engine draws it, undo and redo put the stored

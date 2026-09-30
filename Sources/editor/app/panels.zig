@@ -61,9 +61,11 @@ const script_filters = [_]sdl3.c.SDL_DialogFileFilter{
 const layout = struct {
     const left_width: f32 = 280;
     const right_width: f32 = 320;
-    // Three rows of tool buttons since the seventh (Entrenchment, 04-08),
-    // then the brush picker and its radius without a scrollbar.
-    const tools_height: f32 = 176;
+    // Three rows of tool buttons since the seventh (Entrenchment, 04-08), five
+    // since every tool is in the palette (04-12: Start Target, Reserve Positions
+    // and AI General join), then the brush picker and its radius without a
+    // scrollbar.
+    const tools_height: f32 = 228;
     const properties_height: f32 = 250;
     const players_height: f32 = 220;
     const anchors_height: f32 = 190;
@@ -502,6 +504,19 @@ pub const State = struct {
     reserve_generation_seen: ?u32 = null,
     reserve_at_open: usize = 0,
 
+    /// 04-12 (D-19): the AI general's sides (owned, side order, at most `ai_sides_cap`),
+    /// read again when the editor's `.ai_side` record generation moves past
+    /// `ai_generation_seen` (`refreshAi`); `ai_side_count` is the map's real side
+    /// count, which may be above the cache. `ai_parcels_at_open` holds each side's
+    /// parcel count when the map opened, for `parcels`; `ai_mobile_field` is the
+    /// panel's script ID field.
+    ai_sides: std.ArrayListUnmanaged(core.records.AiSide) = .empty,
+    ai_generation_seen: ?u32 = null,
+    ai_side_count: usize = 0,
+    ai_parcels_at_open: std.ArrayListUnmanaged(usize) = .empty,
+    ai_mobile_field: i32 = 0,
+    ai_arg_buffer: [16]u8 = undefined,
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -575,6 +590,8 @@ pub const State = struct {
         Editor.freeStartCommands(self.allocator, self.startcmds);
         self.allocator.free(self.startcmd_actions);
         self.allocator.free(self.reserve_list);
+        self.freeAiSides();
+        self.ai_parcels_at_open.deinit(self.allocator);
         self.groups.deinit(self.allocator);
         self.groups_checked.deinit(self.allocator);
         self.hidden_wanted.deinit(self.allocator);
@@ -862,6 +879,44 @@ pub const State = struct {
         if (tool.selected != null and tool.selected.? >= self.reserve_list.len) tool.selected = null;
     }
 
+    /// The most sides the panel and the markers keep in view; a map has two.
+    pub const ai_sides_cap: usize = 64;
+
+    fn freeAiSides(self: *State) void {
+        for (self.ai_sides.items) |*side| side.deinit(self.allocator);
+        self.ai_sides.clearRetainingCapacity();
+    }
+
+    /// The AI general's sides, read again when the editor's `.ai_side` generation
+    /// moved or a map opened (`mapOpened` resets the mark). A selection past the new
+    /// end (an undo took the parcel away) is dropped.
+    pub fn refreshAi(self: *State) void {
+        const generation = self.editor.record_generations.get(.ai_side);
+        if (self.ai_generation_seen != null and self.ai_generation_seen.? == generation) return;
+        self.ai_generation_seen = generation;
+        self.freeAiSides();
+        self.ai_side_count = 0;
+        if (!mapIsOpen(self.editor)) return;
+        self.ai_side_count = self.editor.aiSideCount() catch 0;
+        var index: usize = 0;
+        while (index < self.ai_side_count and index < ai_sides_cap) : (index += 1) {
+            var side = self.editor.aiSide(self.allocator, index) catch break;
+            self.ai_sides.append(self.allocator, side) catch {
+                side.deinit(self.allocator);
+                break;
+            };
+        }
+        const tool = &self.view.ai_tool;
+        if (tool.selected_parcel != null and tool.selected_parcel.? >= self.aiActive().parcels.len) tool.select(null, null);
+    }
+
+    /// The side the AI General tool and its panel edit; empty when the map does not
+    /// have it (or it is past the cache).
+    pub fn aiActive(self: *const State) core.records.AiSide {
+        const side = self.view.ai_tool.side;
+        return if (side < self.ai_sides.items.len) self.ai_sides.items[side] else .{ .side = @intCast(@min(side, core.records.max_ai_sides)), .side_count = @intCast(self.ai_side_count) };
+    }
+
     /// The action types of Data/Editor/actions.ini, read once per map. A file that
     /// is missing leaves the list empty (the window says so and adding is off).
     pub fn refreshStartActions(self: *State) void {
@@ -1069,6 +1124,10 @@ pub const State = struct {
         self.reserve_generation_seen = null;
         self.refreshReserve();
         self.reserve_at_open = self.reserve_list.len;
+        self.ai_generation_seen = null;
+        self.refreshAi();
+        self.ai_parcels_at_open.clearRetainingCapacity();
+        for (self.ai_sides.items) |side| self.ai_parcels_at_open.append(self.allocator, side.parcels.len) catch break;
         self.script_names_stale = true;
         self.script_generation_seen = null;
         self.script_pick_active = false;
@@ -1174,6 +1233,8 @@ pub fn draw(state: *State) void {
         panels_m2.drawScriptAreas(state, left_pos, left_size, cond)
     else if (state.view.tool == .reserve_positions)
         panels_m2.drawReservePositions(state, left_pos, left_size, cond)
+    else if (state.view.tool == .ai_general)
+        panels_m2.drawAIGeneral(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
