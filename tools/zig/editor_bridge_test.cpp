@@ -6447,6 +6447,57 @@ static void TestM2BridgeDelete( BkEditorSession *pSession, const std::string &sz
 	printf( "editor-bridge: M2 bridge delete ok\n" );
 }
 
+// WR-A02 (04 review): a bridge whose span another bridges entry also names,
+// or whose entry names a span twice, is kept as read. Before the fix the
+// delete erased the entry and took the span out of the engine before the map
+// refused it, leaving the engine short of an object the saved map names; a
+// span named twice was placed twice and orphaned the first engine object.
+static void TestM2SharedBridgeLinksKeptAsRead( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( map.bridges.size() >= 2 && !map.bridges[0].empty() && !map.bridges[1].empty(), "arnheim has two bridges with spans" ) )
+		return;
+	const int nShared = map.bridges[0][0];
+	const int nTwice = map.bridges[1][0];
+	map.bridges.push_back( std::vector<int>( 1, nShared ) );		// a second entry names bridge 0's first span
+	map.bridges[1].push_back( nTwice );							// bridge 1 names its first span twice
+	const int nLast = int( map.bridges.size() ) - 1;
+	const std::string szMap = szScratch + "\\shared-bridge-links.bzm";
+	const std::string szUnedited = szScratch + "\\shared-bridge-links-unedited.bzm";
+	const std::string szAfter = szScratch + "\\shared-bridge-links-after.bzm";
+	const std::string szCheck = szScratch + "\\shared-bridge-links-check.bzm";
+	if ( !Check( NMapFile::Write( szMap.c_str(), map, &szError ), szError.c_str() ) )
+		return;
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( summary.bridge_span_placed == summary.bridge_span_count,
+	       NStr::Format( "a span named twice by one entry is one span, placed once (%d of %d)", summary.bridge_span_placed, summary.bridge_span_count ) );
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int wanted[3] = { 0, nLast, 1 };
+	for ( int n = 0; n < 3; ++n )
+	{
+		int nToken = -1;
+		const BkEditorStatus deleted = BkEditorDeleteBridge( pSession, wanted[n], &nToken );
+		Check( deleted == BK_EDITOR_REFUSED && nToken == -1,
+		       NStr::Format( "the delete of bridge %d, whose span is shared or repeated, is refused (%d): %s", wanted[n], int( deleted ), BkEditorLastMessage( pSession ) ) );
+		const BkEditorStatus rotated = BkEditorRotateBridge( pSession, wanted[n], &nToken );
+		Check( rotated == BK_EDITOR_REFUSED, NStr::Format( "the rotate of bridge %d is refused (%d)", wanted[n], int( rotated ) ) );
+	}
+	EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after the refused deletes of shared spans" );
+	if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szAfter ), "the refused deletes of shared spans save the unedited file byte for byte" );
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M2 shared bridge links kept as read ok\n" );
+}
+
 // The screen box of a bridge (map-unit box from BkEditorBridges, grown by
 // half a tile in world units) with the camera on its centre, and a capture of
 // the frame. False when a corner does not convert.
@@ -8577,6 +8628,7 @@ int main( int argc, char **argv )
 		TestM2ShortVsoKeptAsRead( pSession, szScratch );
 		TestM2Bridges( pSession, szScratch );
 		TestM2BridgeDelete( pSession, szScratch );
+		TestM2SharedBridgeLinksKeptAsRead( pSession, szScratch );
 		TestM2BridgeRotateToggle( pSession, szScratch );
 		TestM2Fences( pSession, szScratch );
 		TestM2Entrenchments( pSession, szScratch );

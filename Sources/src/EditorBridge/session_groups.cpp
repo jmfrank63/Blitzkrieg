@@ -171,20 +171,40 @@ bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
 	}
 	pGroup->snapshotSpans.assign( places.size(), NMapOverlay::SDeletedObject() );
 	pGroup->workingSpans.assign( places.size(), NMapOverlay::SDeletedObject() );
+	// The map decides first: every span comes out of both copies before the
+	// engine is touched, so a span the map refuses (another entry names it, an
+	// object holds it) leaves the map, the entry and the engine as they were.
 	for ( size_t k = places.size(); k-- > 0; )
 	{
 		const int nLinkID = places[k].nLinkID;
-		RemoveFromEngine( pSession, nLinkID );
 		std::string szWhy;
-		if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szWhy, &pGroup->snapshotSpans[k] ) ||
-		     !NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szWhy, &pGroup->workingSpans[k] ) )
+		const bool bSnapshot = NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szWhy, &pGroup->snapshotSpans[k] );
+		if ( bSnapshot && NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szWhy, &pGroup->workingSpans[k] ) )
+			continue;
+		// Back in the reverse of the order they came out: this span's snapshot
+		// record, then every span already taken, then the entry.
+		if ( bSnapshot )
+			NMapOverlay::RestoreObject( &pSession->snapshot, pGroup->snapshotSpans[k] );
+		for ( size_t j = k + 1; j < places.size(); ++j )
 		{
-			// Nothing names a span once its entry is gone, so this is a map
-			// the session no longer understands.
-			pSession->szMessage = std::string( "an object of the " ) + GroupNoun( *pGroup ) + " would not come out of the map: " + szWhy + "; reopen the map";
-			return false;
+			NMapOverlay::RestoreObject( &pSession->snapshot, pGroup->snapshotSpans[j] );
+			NMapOverlay::RestoreObject( &pSession->working, pGroup->workingSpans[j] );
 		}
+		if ( pGroup->bTrench )
+		{
+			NMapRecords::InsertEntrenchment( &pSession->snapshot, pGroup->nEntryIndex, pGroup->trench );
+			NMapRecords::InsertEntrenchment( &pSession->working, pGroup->nEntryIndex, pGroup->trench );
+		}
+		else if ( pGroup->bEntry )
+		{
+			NMapRecords::InsertBridgeEntry( &pSession->snapshot, pGroup->nEntryIndex, pGroup->linkIDs );
+			NMapRecords::InsertBridgeEntry( &pSession->working, pGroup->nEntryIndex, pGroup->linkIDs );
+		}
+		pSession->szMessage = std::string( "an object of the " ) + GroupNoun( *pGroup ) + " would not come out of the map: " + szWhy + "; the " + GroupNoun( *pGroup ) + " is kept as it is";
+		return false;
 	}
+	for ( size_t k = places.size(); k-- > 0; )
+		RemoveFromEngine( pSession, places[k].nLinkID );
 	return true;
 }
 
@@ -615,6 +635,20 @@ bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs
 	for ( size_t i = 0; i < rLinkIDs.size(); ++i )
 	{
 		const int nLinkID = rLinkIDs[i];
+		// Named once by this group and by no other bridges or entrenchments
+		// entry: a shared or repeated link ID could neither come out (the map
+		// refuses a span another entry names) nor go back as one object each.
+		int nNamed = 0;
+		for ( size_t b = 0; b < pSession->snapshot.bridges.size(); ++b )
+			nNamed += int( std::count( pSession->snapshot.bridges[b].begin(), pSession->snapshot.bridges[b].end(), nLinkID ) );
+		for ( size_t t = 0; t < pSession->snapshot.entrenchments.size(); ++t )
+			for ( size_t k = 0; k < pSession->snapshot.entrenchments[t].sections.size(); ++k )
+				nNamed += int( std::count( pSession->snapshot.entrenchments[t].sections[k].begin(), pSession->snapshot.entrenchments[t].sections[k].end(), nLinkID ) );
+		if ( std::count( rLinkIDs.begin(), rLinkIDs.end(), nLinkID ) != 1 || nNamed != 1 )
+		{
+			*pWhy = NStr::Format( "%s %d of that %s (link ID %d) is named %d times by the map's bridges and entrenchments; the %s is kept as it is", pszPart, int( i ), pszGroup, nLinkID, nNamed, pszGroup );
+			return false;
+		}
 		int nHolders = 0;
 		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
 		for ( int nList = 0; nList < 2; ++nList )
