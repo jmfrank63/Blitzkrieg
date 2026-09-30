@@ -43,6 +43,8 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     if (marker_logic.visible(state.marker_set, .selection_outline, active)) drawBridgeOutlines(state, real);
     // The Fence tool's ghost is its own and always on while it is active.
     if (state.view.tool == .fence) drawFenceGhost(state, real);
+    // So are the Entrenchment tool's preview and outlines (04-08).
+    if (state.view.tool == .entrenchment) drawTrenchMarkers(state, real);
 }
 
 fn outlineColor() ig.ImU32 {
@@ -376,5 +378,103 @@ fn drawFenceGhost(state: *State, real: anytype) void {
         const sa = screenOf(real, a.x, a.y) orelse continue;
         const sb = screenOf(real, b.x, b.y) orelse continue;
         ig.ImDrawList_AddLineEx(draw_list, sa, sb, outlineColor(), 4);
+    }
+}
+
+/// A trench piece's colour in the preview, by its packed type: fireplace
+/// orange, line green, terminator cyan, arc yellow.
+fn trenchPieceColor(piece_type: i32) ig.ImU32 {
+    return switch (piece_type) {
+        core.bridge.trench_fireplace => color(1.0, 0.55, 0.15),
+        core.bridge.trench_line => color(0.2, 1.0, 0.2),
+        core.bridge.trench_terminator => color(0.3, 0.9, 1.0),
+        else => color(1.0, 1.0, 0.3),
+    };
+}
+
+fn hoveredColor() ig.ImU32 {
+    return color(1.0, 1.0, 0.3);
+}
+
+/// How long (world units) a planned piece's direction tick is: half a shipped
+/// line piece.
+const trench_tick_length: f32 = 36.0;
+
+/// D-13 while the Entrenchment tool is active: the highlighted entrenchment's
+/// outline (yellow, the MFC tool's hover highlight), the selected one's
+/// (green), and - while a polyline is being clicked - the live preview.
+fn drawTrenchMarkers(state: *State, real: anytype) void {
+    state.refreshTrenches();
+    const draw_list = ig.igGetBackgroundDrawList();
+    const tool = &state.view.trench_tool;
+    if (tool.hovered) |hovered| {
+        if (hovered < state.trench_infos.len and tool.selected != hovered) {
+            const info = state.trench_infos[hovered];
+            if (mapBoxCorners(real, info.min_x, info.min_y, info.max_x, info.max_y, bridge_outline_margin)) |points| drawDashed(draw_list, &points, hoveredColor(), 8, 2.5);
+        }
+    }
+    if (tool.selected) |selected| {
+        if (selected < state.trench_infos.len) {
+            const info = state.trench_infos[selected];
+            drawMapBox(draw_list, real, info.min_x, info.min_y, info.max_x, info.max_y, bridge_outline_margin, outlineColor(), 3);
+        }
+    }
+    drawTrenchPreview(state, real, draw_list);
+}
+
+/// The preview (research Q2: drawn by the app from the plan, no engine
+/// objects): the clicked polyline to the pointer, and the pieces a click
+/// there and a double click would commit - each a square at its centre in
+/// its type's colour with a tick along its direction; a refusal is the
+/// polyline in red with the reason. Planned again only when the clicks or the
+/// pointer moved.
+fn drawTrenchPreview(state: *State, real: anytype, draw_list: *ig.ImDrawList) void {
+    const tool = &state.view.trench_tool;
+    if (!tool.drawing()) return;
+    var buffer: [panels.TrenchGhost.max_points]core.records.Vec3 = undefined;
+    const points = tool.previewPoints(&buffer);
+    const ghost = &state.trench_ghost;
+    const same = ghost.valid and ghost.point_count == points.len and
+        std.mem.eql(u8, std.mem.sliceAsBytes(ghost.points[0..ghost.point_count]), std.mem.sliceAsBytes(points));
+    if (!same) {
+        ghost.valid = true;
+        ghost.point_count = points.len;
+        @memcpy(ghost.points[0..points.len], points);
+        const planned = state.editor.planEntrenchment(points, &ghost.pieces) catch null;
+        ghost.refused = planned == null;
+        ghost.count = if (planned) |count| @min(count, ghost.pieces.len) else 0;
+        const why = if (planned == null) state.editor.bridge.lastMessage() else "";
+        ghost.why_len = @min(why.len, ghost.why.len);
+        @memcpy(ghost.why[0..ghost.why_len], why[0..ghost.why_len]);
+    }
+    const line_color = if (ghost.refused and points.len >= 2) refusedColor() else color(1.0, 0.3, 0.3);
+    var previous: ?ig.ImVec2 = null;
+    for (points) |point| {
+        const at = screenOf(real, point.x, point.y) orelse {
+            previous = null;
+            continue;
+        };
+        if (previous) |from| ig.ImDrawList_AddLineEx(draw_list, from, at, line_color, 1.5);
+        drawSquare(draw_list, at, 3, line_color, true);
+        previous = at;
+    }
+    if (ghost.refused) {
+        // One point alone is not yet a trench, not a refusal worth a word.
+        if (points.len < 2) return;
+        const last = screenOf(real, points[points.len - 1].x, points[points.len - 1].y) orelse return;
+        const why = ghost.why[0..ghost.why_len];
+        ig.ImDrawList_AddTextEx(draw_list, .{ .x = last.x + 8, .y = last.y - 8 }, refusedColor(), why.ptr, why.ptr + why.len);
+        return;
+    }
+    for (ghost.pieces[0..ghost.count]) |piece| {
+        const world = marker_logic.aiToWorld(.{ .x = piece.x, .y = piece.y });
+        const at = screenOf(real, world.x, world.y) orelse continue;
+        const piece_color = trenchPieceColor(piece.type);
+        drawSquare(draw_list, at, 4, piece_color, piece.type != core.bridge.trench_arc);
+        // The piece's direction: its angle in world units (the builder works
+        // there), 65536 to a full turn.
+        const angle = @as(f32, @floatFromInt(piece.dir)) / 65535.0 * 2.0 * std.math.pi;
+        const tip = screenOf(real, world.x + @cos(angle) * trench_tick_length / 2, world.y + @sin(angle) * trench_tick_length / 2) orelse continue;
+        ig.ImDrawList_AddLineEx(draw_list, at, tip, piece_color, 2);
     }
 }

@@ -179,6 +179,24 @@ fn addFences(editor: *core.editor.Editor, anchor: [2]f32) ?usize {
     return null;
 }
 
+/// 04-08 (D-13): an L-shaped entrenchment for player 0 in view of the start
+/// camera (which stands on `anchor`), through the core Editor: 300 world
+/// units along x, then 200 along y, on the open snow in front of the fence
+/// run. The trench builder refuses a piece off the map, so a few offsets
+/// from the anchor are tried; the new entry's index, or null after printing
+/// why.
+fn addTrench(editor: *core.editor.Editor, anchor: [2]f32) ?usize {
+    const offsets = [_][2]f32{ .{ -150, -150 }, .{ -150, 250 }, .{ -150, -450 }, .{ -150, 450 } };
+    for (offsets) |offset| {
+        const x = anchor[0] + offset[0];
+        const y = anchor[1] + offset[1];
+        const clicks = [_]core.records.Vec3{ .{ .x = x, .y = y }, .{ .x = x + 300, .y = y }, .{ .x = x + 300, .y = y + 200 } };
+        return editor.drawEntrenchment(&clicks, 0) catch continue;
+    }
+    std.debug.print("map-editor: {s} FAIL: no entrenchment near the anchor {d:.0},{d:.0} was drawn: {s}\n", .{ label, anchor[0], anchor[1], editor.status() });
+    return null;
+}
+
 /// The edited run's own screenshot dump (BK_AUTO_UI's shot, written in the
 /// game's directory and swept afterwards), copied beside the report as
 /// `<log>.edited.rgba`: 04-13 looks at it. Best effort: no shot is not a
@@ -288,6 +306,17 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     const fences = addFences(editor, anchor_at) orelse return false;
     std.debug.print("map-editor: {s}: placed a run of {d} W_FactoryFence fences beside the start camera\n", .{ label, fences });
 
+    // 04-08 (D-13): an entrenchment for player 0 beside the start camera. The
+    // game's LoadEntrenchments dereferences every link of every section, so a
+    // clean run reporting one more entrenchment is the proof.
+    const trench = addTrench(editor, anchor_at) orelse return false;
+    const trench_pieces = pieces: {
+        const infos = editor.entrenchments(gpa) catch break :pieces @as(i32, 0);
+        defer gpa.free(infos);
+        break :pieces if (trench < infos.len) infos[trench].piece_count else 0;
+    };
+    std.debug.print("map-editor: {s}: drew entrenchment {d} ({d} pieces) for player 0 beside the start camera\n", .{ label, trench, trench_pieces });
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -326,6 +355,16 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
 
+    // The game grouped the new entrenchment's pieces (LoadEntrenchments).
+    if (base.entrenchments == null or edited_trace.entrenchments == null) {
+        std.debug.print("map-editor: {s} FAIL: a run printed no BK_MAP_TRACE entrenchments line ({?d} -> {?d}); see {s}\n", .{ label, base.entrenchments, edited_trace.entrenchments, edited_log_path });
+        return false;
+    }
+    if (edited_trace.entrenchments.? != base.entrenchments.? + 1) {
+        std.debug.print("map-editor: {s} FAIL: the game read {d} entrenchments, not the baseline's {d} and one more; see {s}\n", .{ label, edited_trace.entrenchments.?, base.entrenchments.?, edited_log_path });
+        return false;
+    }
+
     // Assumption A2, measured and printed, not asserted: the anchor's z as
     // the editor took it from the terrain against the z the game reports.
     std.debug.print("map-editor: {s}: anchor z {d:.1}, game camera z {d:.1}\n", .{ label, anchor_z, camera.z });
@@ -346,6 +385,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.? });
     return true;
 }

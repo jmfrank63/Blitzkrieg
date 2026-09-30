@@ -235,3 +235,56 @@ pub fn drawFences(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
     ig.igPopStyleColor();
     ig.igPopTextWrapPos();
 }
+
+/// What the Entrenchments panel says: the MFC gestures (RoadDrawState.cpp).
+pub const entrenchments_help = "Click adds a point, right-click (or Ctrl+click) clears, double-click finishes; Esc clears too. Click a trench to select it, point at one to highlight it; Delete removes the selected or highlighted trench whole.";
+
+/// D-13: the MFC Entrenchment tool's controls - the player the pieces will
+/// belong to (the Objects panel's player until chosen here), the gestures,
+/// and the selected entrenchment's piece and section counts with a Delete
+/// button. Every control runs a named command (commands.zig).
+pub fn drawEntrenchments(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = panels.beginPanel("Entrenchments", pos, size, cond, null);
+    defer panels.endPanel(open);
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshTrenches();
+    const tool = &state.view.trench_tool;
+    if (!state.trench_player_chosen) tool.player = @max(state.view.placer.player, 0);
+    ig.igSeparatorText("Player");
+    var player: c_int = tool.player;
+    const players: c_int = @max(state.editor.document.info.player_count, 1);
+    if (ig.igSliderInt("player", &player, 0, players - 1)) {
+        var buffer: [12]u8 = undefined;
+        const arg = std.fmt.bufPrint(&buffer, "{d}", .{player}) catch "0";
+        _ = commands.run(state, "trench_player", arg);
+    }
+    ig.igSeparatorText("Drawing");
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(entrenchments_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+    if (tool.drawing()) {
+        var line: [64:0]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&line, "{d} points clicked", .{tool.len}) catch "drawing";
+        panels.text(text);
+    }
+
+    ig.igSeparatorText("Selected");
+    const selected = tool.selected;
+    if (selected != null and selected.? < state.trench_infos.len) {
+        const info = state.trench_infos[selected.?];
+        var line: [96:0]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&line, "entrenchment {d}, player {d}:\n{d} pieces in {d} sections", .{ selected.?, info.player, info.piece_count, info.section_count }) catch "selected";
+        panels.text(text);
+        if (ig.igButton("Delete")) _ = commands.run(state, "trench_delete", "");
+    } else {
+        var line: [64:0]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&line, "none ({d} entrenchments on the map)", .{state.trench_infos.len}) catch "none";
+        panels.text(text);
+    }
+}
