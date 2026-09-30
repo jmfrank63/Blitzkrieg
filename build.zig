@@ -6214,9 +6214,31 @@ fn addMapEditor(
         "115:expect=fence_delta:6",
         "116:expect=undo_depth:10",
         "118:shot=m2_fences",
-        b.fmt("119:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "120:shot=m2_anchor",
-        "121:exit",
+        // 04-08: the Entrenchment tool (key 7) for player 0, an L of three
+        // clicks on the snow left of the view centre, below the river: two
+        // clicks, the pointer moved to the third point (the preview is shot
+        // there), then the double click's own first click adds that point and
+        // commits one entrenchment as one undo step; undo and redo walk it
+        // back and forth; the trench is shot, selected.
+        "119:tool=entrenchment",
+        "120:do=trench_player:0",
+        "121:click=c-330x-60",
+        "122:click=c-170x-10",
+        "123:drag=c-150x80",
+        "125:shot=m2_trench_preview",
+        "126:dblclick=c-150x80",
+        "128:expect=trench_delta:1",
+        "129:expect=undo_depth:11",
+        "130:key=Z+ctrl",
+        "132:expect=trench_delta:0",
+        "133:expect=undo_depth:10",
+        "134:key=Y+ctrl",
+        "136:expect=trench_delta:1",
+        "137:expect=undo_depth:11",
+        "139:shot=m2_trench",
+        b.fmt("140:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "141:shot=m2_anchor",
+        "142:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

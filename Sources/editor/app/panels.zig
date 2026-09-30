@@ -54,7 +54,9 @@ var dialog_slot: logic.PathSlot = .{};
 const layout = struct {
     const left_width: f32 = 280;
     const right_width: f32 = 320;
-    const tools_height: f32 = 150;
+    // Three rows of tool buttons since the seventh (Entrenchment, 04-08),
+    // then the brush picker and its radius without a scrollbar.
+    const tools_height: f32 = 176;
     const properties_height: f32 = 250;
     const players_height: f32 = 220;
     const anchors_height: f32 = 190;
@@ -107,6 +109,22 @@ pub const FenceGhost = struct {
     to: [2]f32 = .{ 0, 0 },
     ctrl: bool = false,
     desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    valid: bool = false,
+    refused: bool = false,
+    why: [160]u8 = undefined,
+    why_len: usize = 0,
+    pieces: [max_pieces]core.bridge.PlannedPiece = undefined,
+    count: usize = 0,
+};
+
+/// The Entrenchment tool's preview: the clicks and the pointer it was planned
+/// for (world units), the planned pieces (map units) or the refusal, so the
+/// markers ask the bridge only when the polyline or the pointer moved.
+pub const TrenchGhost = struct {
+    pub const max_pieces = 2100;
+    pub const max_points = core.tools_groups.max_trench_points + 1;
+    points: [max_points]core.records.Vec3 = undefined,
+    point_count: usize = 0,
     valid: bool = false,
     refused: bool = false,
     why: [160]u8 = undefined,
@@ -358,6 +376,19 @@ pub const State = struct {
     fence_count_at_open: usize = 0,
     /// The Fence tool's ghost (markers.zig).
     fence_ghost: FenceGhost = .{},
+    /// 04-08: the map's entrenchments (piece and section counts, player, box
+    /// in map units), for the Entrenchments panel and the outline markers;
+    /// read again when the editor's `entrenchments_generation` moves past
+    /// `trenches_generation_seen` (`refreshTrenches`).
+    trench_infos: []core.bridge.EntrenchmentInfo = &.{},
+    trenches_generation_seen: ?u32 = null,
+    /// The entrenchments the map held when it opened, for `trench_delta`.
+    trench_count_at_open: usize = 0,
+    /// The Entrenchment tool's preview (markers.zig).
+    trench_ghost: TrenchGhost = .{},
+    /// False until the player of new pieces is chosen for this map: until
+    /// then it follows the Objects panel's (the placer's) player.
+    trench_player_chosen: bool = false,
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -423,6 +454,7 @@ pub const State = struct {
         self.allocator.free(self.bridge_infos);
         self.allocator.free(self.bridge_types);
         self.allocator.free(self.fence_types);
+        self.allocator.free(self.trench_infos);
         self.vso_line_points.deinit(self.allocator);
         self.vso_line_ends.deinit(self.allocator);
         self.vso_line_kinds.deinit(self.allocator);
@@ -651,6 +683,17 @@ pub const State = struct {
         self.bridge_infos = self.editor.bridges(self.allocator) catch &.{};
     }
 
+    /// The map's entrenchments, read again after any change of the objects.
+    pub fn refreshTrenches(self: *State) void {
+        const generation = self.editor.entrenchments_generation;
+        if (self.trenches_generation_seen != null and self.trenches_generation_seen.? == generation) return;
+        self.trenches_generation_seen = generation;
+        self.allocator.free(self.trench_infos);
+        self.trench_infos = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.trench_infos = self.editor.entrenchments(self.allocator) catch &.{};
+    }
+
     /// The bridge types, once per map; a tool with no type yet, or one the
     /// list does not hold, takes the first.
     pub fn refreshBridgeTypes(self: *State) void {
@@ -739,6 +782,11 @@ pub const State = struct {
         self.fence_types_read = false;
         self.fence_ghost = .{};
         self.fence_count_at_open = self.fenceCount();
+        self.trenches_generation_seen = null;
+        self.refreshTrenches();
+        self.trench_count_at_open = self.trench_infos.len;
+        self.trench_ghost.valid = false;
+        self.trench_player_chosen = false;
         self.vso_count_at_open = .{
             self.editor.vsoCount(.road) catch 0,
             self.editor.vsoCount(.river) catch 0,
@@ -825,6 +873,8 @@ pub fn draw(state: *State) void {
         panels_m2.drawBridges(state, left_pos, left_size, cond)
     else if (state.view.tool == .fence)
         panels_m2.drawFences(state, left_pos, left_size, cond)
+    else if (state.view.tool == .entrenchment)
+        panels_m2.drawEntrenchments(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);

@@ -39,6 +39,8 @@ pub const command_table = [_]Entry{
     .{ .name = "bridge_toggle_build", .handler = bridgeToggleBuild },
     .{ .name = "bridge_delete", .handler = bridgeDelete },
     .{ .name = "fence_desc", .handler = fenceDesc },
+    .{ .name = "trench_player", .handler = trenchPlayer },
+    .{ .name = "trench_delete", .handler = trenchDelete },
 };
 
 pub const predicate_table = [_]Entry{
@@ -50,6 +52,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "bridge_delta", .handler = bridgeDelta },
     .{ .name = "bridge_built", .handler = bridgeBuilt },
     .{ .name = "fence_delta", .handler = fenceDelta },
+    .{ .name = "trench_delta", .handler = trenchDelta },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -379,5 +382,41 @@ fn fenceDelta(state: *State, arg: []const u8) Outcome {
     // what the count is, so a wrong expectation is one run, not a search.
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "fence_delta is {d}, not {d}", .{ delta, want }) catch "fence_delta differs");
+    return .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08, D-13).
+// ---------------------------------------------------------------------------
+
+/// `trench_player:N`: the player the next entrenchment's pieces belong to,
+/// 0..the map's players - 1. Chosen, it stops following the Objects panel's.
+fn trenchPlayer(state: *State, arg: []const u8) Outcome {
+    const player = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (player < 0 or player >= state.editor.document.info.player_count) return .bad_arg;
+    state.view.trench_tool.player = player;
+    state.trench_player_chosen = true;
+    return .ok;
+}
+
+/// The panel's Delete and `trench_delete`: the selected entrenchment, else
+/// the highlighted one, whole - what the tool's Delete key does.
+fn trenchDelete(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.view.trench_tool.handle(state.editor, .{ .key = .delete }));
+}
+
+/// `trench_delta:1`: the map holds one entrenchment more than at open.
+fn trenchDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.entrenchments(state.allocator) catch return .refused;
+    defer state.allocator.free(now);
+    const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.trench_count_at_open));
+    if (delta == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "trench_delta is {d}, not {d}", .{ delta, want }) catch "trench_delta differs");
     return .refused;
 }
