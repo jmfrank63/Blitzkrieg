@@ -1214,6 +1214,8 @@ pub const Editor = struct {
         errdefer objects.deinit(self.allocator);
         try objects.resize(self.allocator, total);
         try bridge_mod.check(self.bridge.objects(objects.items, &total));
+        // IN-B03: a second pass that answered fewer leaves no unread tail.
+        if (total < objects.items.len) objects.shrinkRetainingCapacity(total);
         self.document.objects.deinit(self.allocator);
         self.document.objects = objects;
         if (self.selection) |link_id| {
@@ -1234,7 +1236,8 @@ pub const Editor = struct {
         var index: i32 = -1;
         try self.noteOutcome(self.bridge.addVso(kind, desc, points, width_tiles, opacity, &token, &index));
         self.commitEdit(&prepared, token, 0, .vso);
-        return if (index >= 0) @intCast(index) else 0;
+        // IN-B03: an OK with no index is a bridge fault, never entry 0.
+        return if (index >= 0) @intCast(index) else error.Failed;
     }
 
     /// Deletes the whole road or river at `index` (D-08's Delete with no point
@@ -1357,7 +1360,8 @@ pub const Editor = struct {
         // re-read leaves the document short of the new spans, which the
         // status line reports; the next open or undo reads it again.
         try self.reloadObjectsAfterEdit();
-        return if (index >= 0) @intCast(index) else 0;
+        // IN-B03: an OK with no index is a bridge fault, never entry 0.
+        return if (index >= 0) @intCast(index) else error.Failed;
     }
 
     /// Deletes the whole bridge at `index` (D-11): its entry and every span,
@@ -1453,7 +1457,8 @@ pub const Editor = struct {
         try self.noteOutcome(self.bridge.drawEntrenchment(points, player, &token, &index));
         self.commitEdit(&prepared, token, 0, .objects);
         try self.reloadObjectsAfterEdit();
-        return if (index >= 0) @intCast(index) else 0;
+        // IN-B03: an OK with no index is a bridge fault, never entry 0.
+        return if (index >= 0) @intCast(index) else error.Failed;
     }
 
     /// The pieces the clicks would commit (MAP units), changing nothing - the
