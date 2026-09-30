@@ -6533,6 +6533,46 @@ static void TestM2SharedBridgeLinksKeptAsRead( BkEditorSession *pSession, const 
 	printf( "editor-bridge: M2 shared bridge links kept as read ok\n" );
 }
 
+// WR-A07 (04 review): the build-during-play toggle of a WoodenBig_Heavy bridge
+// whose span another entry also names is refused, like its delete and rotate;
+// before the fix it flipped the HP through whichever record held the link.
+static void TestM2BridgeToggleSharedRefused( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	NMapGeometry::SBridgePlanInput input;
+	if ( !Check( PlanInputFromStats( WOODEN_BRIDGE, &input ), "WoodenBig_Heavy gives plan inputs" ) )
+		return;
+	const float fMiddleX = map.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = map.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !Check( NMapGeometry::PlanBridge( input, CVec2( fMiddleX - 250.0f, fMiddleY - 250.0f ), CVec2( fMiddleX + 250.0f, fMiddleY - 250.0f ), &plan, &szError ), szError.c_str() ) )
+		return;
+	std::vector<int> linkIDs;
+	if ( !Check( LayBridge( &map, WOODEN_BRIDGE, plan, 1.0f, -1, &linkIDs ) && !linkIDs.empty(), "the WoodenBig bridge is laid" ) )
+		return;
+	const int nWood = int( map.bridges.size() ) - 1;
+	map.bridges.push_back( std::vector<int>( 1, linkIDs[0] ) );
+	const std::string szMap = szScratch + "\\bridge-toggle-shared.bzm";
+	const std::string szUnedited = szScratch + "\\bridge-toggle-shared-unedited.bzm";
+	const std::string szAfter = szScratch + "\\bridge-toggle-shared-after.bzm";
+	if ( !Check( NMapFile::Write( szMap.c_str(), map, &szError ), szError.c_str() ) ||
+	     !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ||
+	     !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nToken = -1;
+	const BkEditorStatus toggled = BkEditorToggleBridgeBuild( pSession, nWood, &nToken );
+	Check( toggled == BK_EDITOR_REFUSED && nToken == -1, NStr::Format( "the toggle of a bridge whose span another entry names is refused (%d): %s", int( toggled ), BkEditorLastMessage( pSession ) ) );
+	if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szAfter ), "the refused toggle saves the unedited file byte for byte" );
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M2 bridge toggle of a shared span refused ok\n" );
+}
+
 // The screen box of a bridge (map-unit box from BkEditorBridges, grown by
 // half a tile in world units) with the camera on its centre, and a capture of
 // the frame. False when a corner does not convert.
@@ -8714,6 +8754,7 @@ int main( int argc, char **argv )
 		TestM2BridgeDelete( pSession, szScratch );
 		TestM2SharedBridgeLinksKeptAsRead( pSession, szScratch );
 		TestM2BridgeRotateToggle( pSession, szScratch );
+		TestM2BridgeToggleSharedRefused( pSession, szScratch );
 		TestM2Fences( pSession, szScratch );
 		TestM2Entrenchments( pSession, szScratch );
 		TestM2EntrenchmentDelete( pSession, szScratch );

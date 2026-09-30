@@ -752,11 +752,26 @@ struct SBridgeBuildEdit : public IEditRecord
 	std::vector<int> linkIDs;
 	std::vector<float> before, after;
 
+	// All or nothing: every span is checked before any HP is written, and a
+	// write that still fails puts back the HPs already changed.
 	bool Put( SEditorSession *pSession, const std::vector<float> &rHPs )
 	{
+		std::vector<float> current( linkIDs.size() );
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+		{
+			const SMapObjectInfo *pSpan = linkIDs[i] == 0 ? 0 : FindObject( &pSession->snapshot, linkIDs[i], 0, 0 );
+			if ( pSpan == 0 )
+			{
+				pSession->szMessage = NStr::Format( "span link ID %d is not in the map", linkIDs[i] );
+				return false;
+			}
+			current[i] = pSpan->fHP;
+		}
 		for ( size_t i = 0; i < linkIDs.size(); ++i )
 			if ( !NMapRecords::SetObjectHP( &pSession->snapshot, linkIDs[i], rHPs[i] ) )
 			{
+				for ( size_t k = i; k-- > 0; )
+					NMapRecords::SetObjectHP( &pSession->snapshot, linkIDs[k], current[k] );
 				pSession->szMessage = NStr::Format( "span link ID %d is not in the map", linkIDs[i] );
 				return false;
 			}
@@ -842,6 +857,15 @@ bool ToggleBridgeBuildInSession( SEditorSession *pSession, int nIndex, int *pnTo
 			*pbRefused = true;
 			return false;
 		}
+	// SetObjectHP edits the first record holding a link ID: a span whose link ID
+	// is 0, shared by another record or named by another entry could flip an
+	// object that is not this bridge's (the delete and rotate's own rule).
+	if ( !CanTakeOutWhole( pSession, pSession->snapshot.bridges[nIndex], &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
 	// The MFC toggle goes by the span's own HP (RoadDrawState.cpp:1257): built
 	// during play when it is negative. All spans follow the first.
 	const bool bBuilt = spans.front()->fHP < 0;
