@@ -1482,11 +1482,6 @@ BkEditorStatus BkEditorMods( BkEditorSession *pSession, BkEditorMod *pOut, int n
 	} );
 }
 
-// The mod switch without the Guarded wrapper, for BkEditorNewMap's own
-// "otherwise a folder name that must exist in BkEditorMods" rule: same
-// validation, same refusal rules, same steps.
-static BkEditorStatus SetModCore( BkEditorSession *pSession, const char *pszFolder );
-
 BkEditorStatus BkEditorSetMod( BkEditorSession *pSession, const char *pszFolder )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
