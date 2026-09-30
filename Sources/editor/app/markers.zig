@@ -54,6 +54,9 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     // drawn thicker).
     if (marker_logic.visible(state.marker_set, .start_commands, active) or (state.startcmds_open and state.startcmd_selected != null))
         drawStartCommandLines(state, real);
+    // D-18: a line from each reserve position's gun through its truck to its place; the
+    // Reserve Positions tool adds the choice in hand, dashed.
+    if (marker_logic.visible(state.marker_set, .reserve_positions, active)) drawReserveLines(state, real);
     // D-16: "Select objects" outlines the objects of a group's script IDs.
     if (state.group_marked != null and marker_logic.visible(state.marker_set, .groups, active)) drawGroupMarks(state, real);
 }
@@ -205,6 +208,76 @@ fn drawStartCommandLines(state: *State, real: anytype) void {
         }
         drawSquare(draw_list, target, if (selected) 5 else 3, startLineColor(), true);
     }
+}
+
+fn reserveColor() ig.ImU32 {
+    return color(1.0, 0.75, 0.1);
+}
+
+/// An object's position as a screen point, from the document; null when it is not
+/// on the map or does not convert.
+fn objectScreen(state: *State, real: anytype, link_id: i32) ?ig.ImVec2 {
+    if (link_id == 0) return null;
+    const object = state.editor.document.find(link_id) orelse return null;
+    const world = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+    return screenOf(real, world.x, world.y);
+}
+
+/// A dashed line: every other stretch of `dash` pixels drawn.
+fn drawDashedLine(draw_list: *ig.ImDrawList, from: ig.ImVec2, to: ig.ImVec2, line_color: ig.ImU32, dash: f32, thickness: f32) void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = @sqrt(dx * dx + dy * dy);
+    if (length <= 0) return;
+    var at: f32 = 0;
+    while (at < length) : (at += 2 * dash) {
+        const end = @min(at + dash, length);
+        ig.ImDrawList_AddLineEx(draw_list, .{ .x = from.x + dx * at / length, .y = from.y + dy * at / length }, .{ .x = from.x + dx * end / length, .y = from.y + dy * end / length }, line_color, thickness);
+    }
+}
+
+/// The chain of one reserve position: a square at the gun, a circle at the truck, a
+/// diamond at the place, lines between them in that order. `dashed` for the choice
+/// in hand. Parts that are missing or do not convert are skipped alone.
+fn drawReserveChain(draw_list: *ig.ImDrawList, gun: ?ig.ImVec2, truck: ?ig.ImVec2, place: ?ig.ImVec2, chain_color: ig.ImU32, thickness: f32, dashed: bool) void {
+    var previous: ?ig.ImVec2 = null;
+    const parts = [3]?ig.ImVec2{ gun, truck, place };
+    for (parts, 0..) |part, index| {
+        const at = part orelse continue;
+        if (previous) |from| {
+            if (dashed) drawDashedLine(draw_list, from, at, chain_color, 7, thickness) else ig.ImDrawList_AddLineEx(draw_list, from, at, chain_color, thickness);
+        }
+        switch (index) {
+            0 => drawSquare(draw_list, at, 5, chain_color, true),
+            1 => ig.ImDrawList_AddCircleEx(draw_list, at, 5, chain_color, 16, 2.5),
+            else => ig.ImDrawList_AddQuad(draw_list, .{ .x = at.x, .y = at.y - 6 }, .{ .x = at.x + 6, .y = at.y }, .{ .x = at.x, .y = at.y + 6 }, .{ .x = at.x - 6, .y = at.y }, chain_color),
+        }
+        previous = at;
+    }
+}
+
+/// D-18: every reserve position of the map as gun -> truck -> place, the selected one
+/// thicker while the Reserve Positions tool is in hand, and - with the tool in hand - the
+/// choice it holds, dashed. Capped like every kind (marker_logic.cap).
+fn drawReserveLines(state: *State, real: anytype) void {
+    state.refreshReserve();
+    const draw_list = ig.igGetBackgroundDrawList();
+    const tool = &state.view.reserve_tool;
+    const in_hand = state.view.tool == .reserve_positions;
+    const limit = marker_logic.cap(.reserve_positions);
+    for (state.reserve_list, 0..) |position, index| {
+        if (index >= limit) break;
+        const selected = in_hand and tool.selected != null and tool.selected.? == index;
+        const world = marker_logic.aiToWorld(.{ .x = position.x, .y = position.y });
+        drawReserveChain(draw_list, objectScreen(state, real, position.artillery), objectScreen(state, real, position.truck), screenOf(real, world.x, world.y), reserveColor(), if (selected) 3.5 else 2, false);
+    }
+    if (!in_hand) return;
+    var place: ?ig.ImVec2 = null;
+    if (tool.has_place) {
+        const world = marker_logic.aiToWorld(.{ .x = tool.x, .y = tool.y });
+        place = screenOf(real, world.x, world.y);
+    }
+    drawReserveChain(draw_list, if (tool.gun) |gun| objectScreen(state, real, gun) else null, if (tool.truck) |truck| objectScreen(state, real, truck) else null, place, color(1.0, 1.0, 0.2), 2, true);
 }
 
 fn groupMarkColor() ig.ImU32 {

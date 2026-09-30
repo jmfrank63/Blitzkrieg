@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions };
 
 pub const Entry = struct {
     id: ToolId,
@@ -111,6 +111,17 @@ pub const entries = [_]Entry{
         .label = "start_target",
         .hidden = true,
         .marker_kinds = marker_logic.MarkerSet.only(&.{.start_commands}),
+    },
+    // 04-11 (D-18): the MFC editor's artillery positions mode, entered from Unit >
+    // Artillery positions mode. Clicks pick the gun, the truck and the place, Enter
+    // commits, Escape clears, Delete removes the listed position - left button and
+    // keys. No digit shortcut; hidden from the palette like Start Target. Its markers
+    // are the gun-truck-place lines.
+    .{
+        .id = .reserve_positions,
+        .label = "reserve_positions",
+        .hidden = true,
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.reserve_positions}),
     },
 };
 
@@ -247,6 +258,15 @@ test "the Start Target tool has no key, takes the left button only, and shows th
     try std.testing.expectEqual(@as(?ToolId, .start_target), byLabel("start_target"));
 }
 
+test "the Reserve Positions tool has no key, takes the left button and keys, and shows the reserve lines" {
+    const item = entry(.reserve_positions);
+    try std.testing.expectEqual(@as(?u8, null), item.shortcut);
+    try std.testing.expect(item.hidden);
+    try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.reserve_positions));
+    try std.testing.expectEqual(@as(?ToolId, .reserve_positions), byLabel("reserve_positions"));
+}
+
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {
     for (entries[0..3]) |item| {
         try std.testing.expect(!item.needs_right_button);
@@ -261,6 +281,7 @@ test "a hidden tool has no shortcut, and the tools of the palette are not hidden
         if (item.hidden) try std.testing.expectEqual(@as(?u8, null), item.shortcut);
     }
     for (entries[0..8]) |item| try std.testing.expect(!item.hidden);
+    try std.testing.expect(entry(.reserve_positions).hidden);
 }
 
 test "a tool label is a valid tool= word" {

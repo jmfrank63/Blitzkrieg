@@ -120,6 +120,8 @@ pub fn ViewWith(comptime Input: type) type {
         /// window for one click, and the tool it returns to.
         start_target: core.tools_ai.StartTarget = .{},
         start_target_return: Tool = .select,
+        /// 04-11: the Reserve Positions tool (D-18), Unit -> Artillery positions mode.
+        reserve_tool: core.tools_ai.ReservePositions = .{},
         /// Set each frame by a panel that uses the Delete key itself (the Start
         /// Commands window while it is focused): the view then does not hand
         /// Delete or Backspace to the tool, which would delete the selected
@@ -288,6 +290,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.trench_tool.reset();
             self.areas_tool.reset();
             self.start_target.reset();
+            self.reserve_tool.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -336,6 +339,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.trench_tool.reset();
             self.areas_tool.reset();
             self.start_target.reset();
+            self.reserve_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -744,6 +748,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .entrenchment => self.trench_tool.handle(editor, event),
                 .script_areas => self.areas_tool.handle(editor, event),
                 .start_target => self.start_target.handle(editor, event),
+                .reserve_positions => self.reserve_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
             // The Start Target tool takes one click: back to the tool it came from.

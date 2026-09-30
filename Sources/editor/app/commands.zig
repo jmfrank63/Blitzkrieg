@@ -70,6 +70,13 @@ pub const command_table = [_]Entry{
     .{ .name = "startcmd_delete", .handler = startcmdDelete },
     .{ .name = "startcmd_select", .handler = startcmdSelect },
     .{ .name = "startcmds_window", .handler = startcmdsWindow },
+    .{ .name = "reserve_mode", .handler = reserveMode },
+    .{ .name = "reserve_pick_here", .handler = reservePickHere },
+    .{ .name = "reserve_commit", .handler = reserveCommit },
+    .{ .name = "reserve_delete", .handler = reserveDelete },
+    .{ .name = "reserve_select", .handler = reserveSelect },
+    .{ .name = "placer_role", .handler = placerRole },
+    .{ .name = "placer_name", .handler = placerName },
 };
 
 pub const predicate_table = [_]Entry{
@@ -93,6 +100,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "startcmd_units", .handler = startcmdUnits },
     .{ .name = "startcmd_target", .handler = startcmdTargetIs },
     .{ .name = "startcmd_is", .handler = startcmdIs },
+    .{ .name = "reserve_delta", .handler = reserveDelta },
+    .{ .name = "reserve_pending", .handler = reservePending },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -1072,4 +1081,134 @@ fn startcmdIs(state: *State, arg: []const u8) Outcome {
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "start command {d} has type {d}, not {s}", .{ parsed.index, command.cmd_type, parsed.rest }) catch "type differs");
     return .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Reserve positions (04-11, D-18).
+// ---------------------------------------------------------------------------
+
+/// Unit -> Artillery positions mode: the Reserve Positions tool in hand, or - when it
+/// is - the Select tool back. Public: the menu goes through the named command.
+pub fn toggleReserveMode(state: *State) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (state.view.tool == .reserve_positions) {
+        state.view.reserve_tool.clearPending();
+        state.view.selectTool(state.editor, .select);
+    } else {
+        state.view.selectTool(state.editor, .reserve_positions);
+    }
+    return .ok;
+}
+
+/// `do=reserve_mode`: Unit -> Artillery positions mode.
+fn reserveMode(state: *State, _: []const u8) Outcome {
+    return toggleReserveMode(state);
+}
+
+/// The Reserve Positions tool, or a note that it is not in hand.
+fn reserveTool(state: *State) ?*core.tools_ai.ReservePositions {
+    if (state.view.tool != .reserve_positions) {
+        state.editor.note("Unit > Artillery positions mode first");
+        return null;
+    }
+    return &state.view.reserve_tool;
+}
+
+/// `do=reserve_pick_here`: the object at the view centre - else the ground there - is
+/// the next step of the Reserve Positions tool, as a click at the centre would be.
+fn reservePickHere(state: *State, _: []const u8) Outcome {
+    const tool = reserveTool(state) orelse return .refused;
+    const screen = state.real.screenSize() orelse return .refused;
+    const centre = state.editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0) catch return .refused;
+    return resultOutcome(state, tool.pick(state.editor, centre));
+}
+
+/// `do=reserve_commit`: Enter of the Reserve Positions tool - the pending gun, truck
+/// and place are added as one position.
+fn reserveCommit(state: *State, _: []const u8) Outcome {
+    const tool = reserveTool(state) orelse return .refused;
+    return resultOutcome(state, tool.commit(state.editor));
+}
+
+/// Deletes reserve position `index`; one undo step. Public for the panel.
+pub fn deleteReserveAt(state: *State, index: usize) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const tool = &state.view.reserve_tool;
+    if (tool.selected != null and tool.selected.? == index) tool.selected = null;
+    return resultOutcome(state, state.editor.deleteReservePosition(index));
+}
+
+/// `do=reserve_delete:0`.
+fn reserveDelete(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return deleteReserveAt(state, index);
+}
+
+/// `do=reserve_select:0`: the list's selection (Delete acts on it).
+fn reserveSelect(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.refreshReserve();
+    if (index >= state.reserve_list.len) return .refused;
+    state.view.reserve_tool.selected = index;
+    return .ok;
+}
+
+/// `do=placer_role:towed` (or `truck`, `sp`): the Place tool's object becomes the first
+/// placeable unit of the catalogue with that reserve role, read through the bridge. For
+/// a scenario that needs a gun or a truck without naming one.
+fn placerRole(state: *State, arg: []const u8) Outcome {
+    const want: core.bridge.ReserveRole = if (std.mem.eql(u8, arg, "towed")) .towed else if (std.mem.eql(u8, arg, "truck")) .truck else if (std.mem.eql(u8, arg, "sp")) .self_propelled else return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    for (state.catalogue) |*entry| {
+        if (entry.game_type != 1 or entry.placeable == 0) continue;
+        const name = std.mem.sliceTo(&entry.name, 0);
+        const role = state.editor.reserveRole(name) catch continue;
+        if (role != want) continue;
+        state.view.setPlacerObject(name);
+        return .ok;
+    }
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "the catalogue has no placeable unit of role {s}", .{arg}) catch "no such unit");
+    return .refused;
+}
+
+/// `do=placer_name:Sdkfz_8`: the Place tool's object becomes the placeable unit of the
+/// catalogue with that name. For a scenario that needs one particular unit - a truck
+/// strong enough for the gun it tows - and refused, saying so, when the catalogue has no
+/// such unit.
+fn placerName(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    for (state.catalogue) |*entry| {
+        if (entry.game_type != 1 or entry.placeable == 0) continue;
+        const name = std.mem.sliceTo(&entry.name, 0);
+        if (!std.mem.eql(u8, name, arg)) continue;
+        state.view.setPlacerObject(name);
+        return .ok;
+    }
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "the catalogue has no placeable unit named {s}", .{arg}) catch "no such unit");
+    return .refused;
+}
+
+/// `expect=reserve_delta:1`: the map holds that many reserve positions more than when
+/// it opened.
+fn reserveDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.reservePositions(state.allocator) catch return .refused;
+    defer state.allocator.free(now);
+    const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.reserve_at_open));
+    if (delta == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "reserve_delta is {d}, not {d}", .{ delta, want }) catch "reserve_delta differs");
+    return .refused;
+}
+
+/// `expect=reserve_pending:gun` (a gun is picked), `:truck`, `:place` or `:none`: what
+/// the Reserve Positions tool holds before Enter.
+fn reservePending(state: *State, arg: []const u8) Outcome {
+    const tool = &state.view.reserve_tool;
+    const holds = if (std.mem.eql(u8, arg, "gun")) tool.gun != null else if (std.mem.eql(u8, arg, "truck")) tool.truck != null else if (std.mem.eql(u8, arg, "place")) tool.has_place else if (std.mem.eql(u8, arg, "none")) (tool.gun == null and tool.truck == null and !tool.has_place) else return .bad_arg;
+    return if (holds) .ok else .refused;
 }

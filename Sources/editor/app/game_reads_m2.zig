@@ -266,7 +266,6 @@ fn addHeldUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32) bool {
 /// Editor: the engine refuses a unit on another object. Its link ID, or null after
 /// printing why; `what` says what it is for.
 fn placeUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32, offsets: []const [2]f32, what: []const u8) ?i32 {
-    const editor = &rig.editor;
     const entries = rig.real.catalogue(gpa) catch {
         std.debug.print("map-editor: {s} FAIL: the object catalogue did not read\n", .{label});
         return null;
@@ -278,6 +277,12 @@ fn placeUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32, offsets: 
         std.debug.print("map-editor: {s} FAIL: no placeable SGVOGT_UNIT in the catalogue\n", .{label});
         return null;
     };
+    return placeNamedUnit(&rig.editor, unit_name, anchor, offsets, what);
+}
+
+/// The unit `unit_name` of player 0 on the first free spot of `offsets` from `anchor`
+/// (world units); its link ID, or null after printing why.
+fn placeNamedUnit(editor: *core.editor.Editor, unit_name: []const u8, anchor: [2]f32, offsets: []const [2]f32, what: []const u8) ?i32 {
     for (offsets) |offset| {
         var map_x: f32 = 0;
         var map_y: f32 = 0;
@@ -304,6 +309,59 @@ fn addStartCommandUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32)
     };
     std.debug.print("map-editor: {s}: start command {d} (STOP) for unit {d}\n", .{ label, index, link_id });
     return true;
+}
+
+/// 04-11 (D-18): a towed gun and a truck of player 0 beside the start camera and a
+/// reserve position for them a little way off. The roles come from the bridge
+/// (`Editor.reserveRole` over the catalogue's placeable units); the bridge refuses a truck
+/// too weak for the gun, so trucks are tried one after the other, the last of the
+/// catalogue first (each is placed, and stays), until one is accepted. The game's InitReservePositions applies every position
+/// whose gun is alive and reports the count, so `reserve applied` one above the baseline
+/// is the proof. False after printing why.
+fn addReserveGun(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32) bool {
+    const editor = &rig.editor;
+    const entries = rig.real.catalogue(gpa) catch {
+        std.debug.print("map-editor: {s} FAIL: the object catalogue did not read\n", .{label});
+        return false;
+    };
+    defer gpa.free(entries);
+    var gun_name: ?[]const u8 = null;
+    var truck_names: [32][]const u8 = undefined;
+    var truck_count: usize = 0;
+    for (entries) |*entry| {
+        if (entry.game_type != 1 or entry.placeable == 0) continue;
+        const name = std.mem.sliceTo(&entry.name, 0);
+        const role = editor.reserveRole(name) catch continue;
+        if (role == .towed and gun_name == null) gun_name = name;
+        if (role == .truck and truck_count < truck_names.len) {
+            truck_names[truck_count] = name;
+            truck_count += 1;
+        }
+    }
+    const gun_type = gun_name orelse {
+        std.debug.print("map-editor: {s} FAIL: no placeable towed gun in the catalogue\n", .{label});
+        return false;
+    };
+    const gun_offsets = [_][2]f32{ .{ 240, 120 }, .{ -240, 120 }, .{ 240, -120 }, .{ -240, -120 }, .{ 300, 0 }, .{ -300, 0 } };
+    const gun = placeNamedUnit(editor, gun_type, anchor, &gun_offsets, "a reserve position's gun") orelse return false;
+    const truck_offsets = [_][2]f32{ .{ 330, 180 }, .{ -330, 180 }, .{ 330, -180 }, .{ -330, -180 }, .{ 380, 60 }, .{ -380, 60 } };
+    var map_x: f32 = 0;
+    var map_y: f32 = 0;
+    if (editor.bridge.worldToMap(anchor[0], anchor[1] - 260, &map_x, &map_y) != .ok) return false;
+    // From the last of the catalogue's alphabet backwards: the carriers that can pull a
+    // heavy gun (Sdkfz_8, Voroshilovets) come late, the light cars early.
+    var tried: usize = 0;
+    var next = truck_count;
+    while (next > 0 and tried < 8) : (tried += 1) {
+        next -= 1;
+        const truck_type = truck_names[next];
+        const truck = placeNamedUnit(editor, truck_type, anchor, &truck_offsets, "a reserve position's truck") orelse continue;
+        const index = editor.addReservePosition(.{ .artillery = gun, .truck = truck, .x = core.records.truncateToAi(map_x), .y = core.records.truncateToAi(map_y) }) catch continue;
+        std.debug.print("map-editor: {s}: reserve position {d}: {s} (link {d}) towed by {s} (link {d}) to {d:.0},{d:.0}\n", .{ label, index, gun_type, gun, truck_type, truck, map_x, map_y });
+        return true;
+    }
+    std.debug.print("map-editor: {s} FAIL: none of the {d} trucks tried could tow {s}: {s}\n", .{ label, tried, gun_type, editor.status() });
+    return false;
 }
 
 /// 04-10 (D-20): the map names `m2_script` as its script, and the game finds the
@@ -492,6 +550,10 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     // launches every command that names a unit and reports how many.
     if (!addStartCommandUnit(gpa, &rig, anchor_at)) return false;
 
+    // 04-11 (D-18): a towed gun and its truck with a reserve position. The game's
+    // InitReservePositions applies every position whose gun is alive and reports how many.
+    if (!addReserveGun(gpa, &rig, anchor_at)) return false;
+
     // 04-10 (D-20): the map's script, which lands group 900 and traces what the
     // game holds.
     if (!addScript(io, editor, &paths, log_path)) return false;
@@ -569,6 +631,17 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     }
     std.debug.print("map-editor: {s}: BK_MAP_TRACE startcmd launched={d} (baseline {d})\n", .{ label, edited_trace.startcmd_launched.?, base.startcmd_launched.? });
 
+    // The game applied the new reserve position (InitReservePositions).
+    if (base.reserve_applied == null or edited_trace.reserve_applied == null) {
+        std.debug.print("map-editor: {s} FAIL: a run printed no BK_MAP_TRACE reserve line ({?d} -> {?d}); see {s}\n", .{ label, base.reserve_applied, edited_trace.reserve_applied, edited_log_path });
+        return false;
+    }
+    if (edited_trace.reserve_applied.? != base.reserve_applied.? + 1) {
+        std.debug.print("map-editor: {s} FAIL: the game applied {d} reserve positions, not the baseline's {d} and one more; see {s}\n", .{ label, edited_trace.reserve_applied.?, base.reserve_applied.?, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE reserve applied={d} (baseline {d})\n", .{ label, edited_trace.reserve_applied.?, base.reserve_applied.? });
+
     // The game loaded and ran the script the map names (Scripts.cpp Load).
     const script = edited_trace.script orelse {
         std.debug.print("map-editor: {s} FAIL: the game printed no BK_MAP_TRACE script line; see {s}\n", .{ label, edited_log_path });
@@ -644,6 +717,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, base.startcmd_launched.?, edited_trace.startcmd_launched.?, script_name, area_name });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, base.startcmd_launched.?, edited_trace.startcmd_launched.?, base.reserve_applied.?, edited_trace.reserve_applied.?, script_name, area_name });
     return true;
 }

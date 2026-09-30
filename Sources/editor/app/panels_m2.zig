@@ -8,6 +8,7 @@ const sdl3 = @import("sdl3");
 const core = @import("editor_core");
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
+const marker_logic = @import("marker_logic.zig");
 
 const ig = imgui.c;
 const State = panels.State;
@@ -819,6 +820,103 @@ pub fn drawStartCommands(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         },
         .delete => if (selected) |index| {
             _ = commands.deleteStartCommandAt(state, index);
+        },
+    }
+}
+
+/// What one frame of the Reserve positions panel asked for, run after the list's loop.
+const ReserveAction = union(enum) {
+    none,
+    choose: usize,
+    commit,
+    clear,
+    delete,
+};
+
+/// What the Reserve positions panel says.
+pub const reserve_help = "Click a gun - a self-propelled or a towed one - then, for a towed gun, its truck, then the ground; Enter (or Add) adds the position, Escape (or Clear) drops the choice. Select a position in the list to delete it (Delete). The game puts the gun at its place when the mission starts, the truck towing it.";
+
+/// The name of the object `link_id` for a row, from the document.
+fn reserveObjectName(state: *const State, link_id: i32) []const u8 {
+    const object = state.editor.document.find(link_id) orelse return "not on the map";
+    return object.nameSlice();
+}
+
+/// D-18: the MFC editor's artillery positions mode as a panel - the choice in hand (gun,
+/// truck, place), Add and Clear, the map's positions (a click selects one and centres
+/// the view on its place), Delete. Every control runs a named command or the tool's own
+/// function (commands.zig), so BK_EDITOR_AUTO reaches it too.
+pub fn drawReservePositions(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = panels.beginPanel("Reserve positions", pos, size, cond, null);
+    defer panels.endPanel(open);
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshReserve();
+    const tool = &state.view.reserve_tool;
+    var action: ReserveAction = .none;
+
+    ig.igSeparatorText("In hand");
+    var line: [160:0]u8 = undefined;
+    if (tool.gun) |gun| {
+        panels.text(std.fmt.bufPrintZ(&line, "gun: {s} ({d}, {s})", .{ reserveObjectName(state, gun), gun, if (tool.gun_role == .towed) "towed" else "self-propelled" }) catch "gun");
+    } else panels.text("gun: click one");
+    if (tool.truck) |truck| {
+        panels.text(std.fmt.bufPrintZ(&line, "truck: {s} ({d})", .{ reserveObjectName(state, truck), truck }) catch "truck");
+    } else panels.text(if (tool.gun != null and tool.gun_role == .towed) "truck: click one" else "truck: none");
+    if (tool.has_place) {
+        panels.text(std.fmt.bufPrintZ(&line, "place: {d:.0}, {d:.0}", .{ tool.x, tool.y }) catch "place");
+    } else panels.text("place: click the ground");
+    ig.igBeginDisabled(tool.pendingRecord() == null);
+    if (ig.igButton("Add")) action = .commit;
+    ig.igEndDisabled();
+    ig.igSameLine();
+    if (ig.igButton("Clear")) action = .clear;
+
+    ig.igSeparatorText("Positions");
+    const rows = state.reserve_list;
+    if (rows.len == 0) {
+        panels.text("the map has no reserve positions");
+    } else if (ig.igBeginChild("reserve-list", .{ .x = 0, .y = 150 }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (rows, 0..) |position, index| {
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            var label: [200:0]u8 = undefined;
+            const gun_name = reserveObjectName(state, position.artillery);
+            const label_text = if (position.truck != 0)
+                std.fmt.bufPrintZ(&label, "{d}: {s} + {s}, at {d:.0}, {d:.0}", .{ index, gun_name, reserveObjectName(state, position.truck), position.x, position.y })
+            else
+                std.fmt.bufPrintZ(&label, "{d}: {s}, no truck, at {d:.0}, {d:.0}", .{ index, gun_name, position.x, position.y });
+            const selected = tool.selected != null and tool.selected.? == index;
+            if (ig.igSelectableEx((label_text catch continue).ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
+        }
+    }
+    if (rows.len != 0) ig.igEndChild();
+    ig.igBeginDisabled(tool.selected == null);
+    if (ig.igButton("Delete")) action = .delete;
+    ig.igEndDisabled();
+
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(reserve_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+
+    switch (action) {
+        .none => {},
+        .choose => |index| {
+            tool.selected = index;
+            if (index < rows.len) {
+                const world = marker_logic.aiToWorld(.{ .x = rows[index].x, .y = rows[index].y });
+                state.view.centreOn(state.real, world.x, world.y);
+            }
+        },
+        .commit => _ = commands.run(state, "reserve_commit", ""),
+        .clear => tool.clearPending(),
+        .delete => if (tool.selected) |index| {
+            _ = commands.deleteReserveAt(state, index);
         },
     }
 }

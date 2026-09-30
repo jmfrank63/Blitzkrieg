@@ -6377,9 +6377,41 @@ fn addMapEditor(
         "268:expect=undo_depth:19",
         "269:key=Z+ctrl",
         "271:expect=undo_depth:18",
-        b.fmt("273:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "274:shot=m2_anchor",
-        "275:exit",
+        // 04-11: reserve positions. The Place tool puts a towed gun and a truck of
+        // player 0 (the first towed gun the catalogue offers, found through the bridge,
+        // and Sdkfz_8, a carrier whose 24000 towing force beats its weight) on the snow
+        // left of the view centre; Unit > Artillery positions
+        // mode (the named command) puts the Reserve Positions tool in hand; a click on
+        // the gun, a click on the truck and a click on the ground form the choice,
+        // Enter commits it as one position; undo and redo walk it back and forth and
+        // the gun -> truck -> place line is shot. A placed unit is drawn above the
+        // ground point it stands on, so the picking clicks land a little above the
+        // points the placing clicks used.
+        "273:tool=place",
+        "274:do=placer_role:towed",
+        "275:click=c-230x-140",
+        "277:do=placer_name:Sdkfz_8",
+        "278:click=c-130x-120",
+        "280:expect=undo_depth:20",
+        "281:do=reserve_mode",
+        "282:click=c-230x-180",
+        "284:expect=reserve_pending:gun",
+        "285:click=c-130x-165",
+        "287:expect=reserve_pending:truck",
+        "288:click=c0x-200",
+        "290:expect=reserve_pending:place",
+        "291:key=ENTER",
+        "293:expect=reserve_delta:1",
+        "294:expect=undo_depth:21",
+        "295:expect=reserve_pending:none",
+        "296:key=Z+ctrl",
+        "298:expect=reserve_delta:0",
+        "299:key=Y+ctrl",
+        "301:expect=reserve_delta:1",
+        "303:shot=m2_reserve",
+        b.fmt("305:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "306:shot=m2_anchor",
+        "307:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

@@ -315,6 +315,127 @@ pub const StartTarget = struct {
     }
 };
 
+/// The Reserve Positions tool (04-11, D-18), the MFC editor's artillery positions mode
+/// (ObjectPlacerState.cpp lines 525-641, TemplateEditorFrame1.cpp SaveReservePosition),
+/// entered from Unit -> Artillery positions mode. The click order is the MFC
+/// editor's: a click on a gun - a self-propelled or a towed one - records it; a click
+/// on a truck able to tow (for a towed gun, optional until Enter) records that; a
+/// click on the ground records the place, the map position with the MFC
+/// truncation. Enter commits the position through `Editor.addReservePosition`: the
+/// bridge's refusal (a towed gun with no truck, a truck too weak for the gun, a place
+/// off the map) is the editor's status and the pending choice stays for another try.
+/// Escape clears the pending choice; Delete deletes the position selected in the
+/// panel's list. Every click is the release, as in the MFC editor; one undo step for
+/// a position added and one for a position deleted.
+///
+/// The pieces of a click are read through the bridge: which role a clicked object has
+/// (`Editor.reserveRole`), never guessed from its name.
+pub const ReservePositions = struct {
+    /// The pending choice: the gun and its role, the truck, and the place.
+    gun: ?i32 = null,
+    gun_role: bridge_mod.ReserveRole = .none,
+    truck: ?i32 = null,
+    has_place: bool = false,
+    x: f32 = 0,
+    y: f32 = 0,
+    /// The position the panel's list and Delete work on: an index into the map's list,
+    /// the last one committed or clicked in the list.
+    selected: ?usize = null,
+
+    /// Forgets the pending choice and the selection, as a map change must.
+    pub fn reset(self: *ReservePositions) void {
+        self.clearPending();
+        self.selected = null;
+    }
+
+    pub fn clearPending(self: *ReservePositions) void {
+        self.gun = null;
+        self.gun_role = .none;
+        self.truck = null;
+        self.has_place = false;
+        self.x = 0;
+        self.y = 0;
+    }
+
+    /// The pending choice as the record a commit would add, or null while the gun or
+    /// the place is missing.
+    pub fn pendingRecord(self: *const ReservePositions) ?records.ReservePosition {
+        const gun = self.gun orelse return null;
+        if (!self.has_place) return null;
+        return .{ .artillery = gun, .truck = self.truck orelse 0, .x = self.x, .y = self.y };
+    }
+
+    pub fn handle(self: *ReservePositions, editor: *Editor, event: Event) EditError!void {
+        switch (event) {
+            .release => |pointer| try self.pick(editor, pointer),
+            .key => |key| switch (key) {
+                .enter => try self.commit(editor),
+                .escape => self.clearPending(),
+                .delete => {
+                    const index = self.selected orelse {
+                        editor.note("select a reserve position in the list first");
+                        return;
+                    };
+                    self.selected = null;
+                    try editor.deleteReservePosition(index);
+                },
+                else => {},
+            },
+            else => {},
+        }
+    }
+
+    /// One click: the object under it if the pointer has one, else the ground.
+    pub fn pick(self: *ReservePositions, editor: *Editor, pointer: Pointer) EditError!void {
+        const link = pointer.object orelse {
+            if (self.gun == null) {
+                editor.note("click a gun first, then its truck if it is towed, then the place");
+                return;
+            }
+            self.x = records.truncateToAi(pointer.map_x);
+            self.y = records.truncateToAi(pointer.map_y);
+            self.has_place = true;
+            return;
+        };
+        const object = editor.document.find(link) orelse {
+            editor.note("that object is not on the map");
+            return;
+        };
+        const role = try editor.reserveRole(object.nameSlice());
+        switch (role) {
+            .self_propelled, .towed => {
+                // A gun: the choice starts over with it, the place kept.
+                self.gun = link;
+                self.gun_role = role;
+                self.truck = null;
+            },
+            .truck => {
+                if (self.gun == null) {
+                    editor.note("click the gun first: a truck follows a towed gun");
+                    return;
+                }
+                if (self.gun_role != .towed) {
+                    editor.note("a self-propelled gun takes no truck");
+                    return;
+                }
+                self.truck = link;
+            },
+            .none => editor.note("that is not a gun or a truck: click a self-propelled or a towed gun, or a truck"),
+        }
+    }
+
+    /// Enter: the pending choice is added. Refused, with the pending choice kept, when
+    /// the bridge says no; a note when the gun or the place is still missing.
+    pub fn commit(self: *ReservePositions, editor: *Editor) EditError!void {
+        const record = self.pendingRecord() orelse {
+            editor.note("pick a gun and a place first");
+            return;
+        };
+        self.selected = try editor.addReservePosition(record);
+        self.clearPending();
+    }
+};
+
 const testing = std.testing;
 const testFixture = editor_mod.testFixture;
 
@@ -619,4 +740,153 @@ test "Start Target: a point the bridge refuses leaves the tool active and the co
         try tool.handle(&editor, event);
     }
     try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+fn reserveFake(allocator: std.mem.Allocator) !fake_mod.FakeBridge {
+    var fake = try testFixture(allocator);
+    errdefer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try fake.setRoleFixture("Gun", .towed, 1000);
+    try fake.setRoleFixture("Truck", .truck, 2000);
+    try fake.setRoleFixture("Weak_Truck", .truck, 500);
+    try fake.setRoleFixture("Panzer", .self_propelled, 30000);
+    return fake;
+}
+
+fn clickAt(tool: *ReservePositions, editor: *Editor, fake: *const fake_mod.FakeBridge, x: f32, y: f32, object: ?i32) !void {
+    const pointer = targetPointer(fake, x, y, object);
+    try tool.handle(editor, .{ .press = pointer });
+    try tool.handle(editor, .{ .release = pointer });
+}
+
+test "Reserve Positions: a towed gun, its truck, the ground and Enter make one entry, one undo step" {
+    var fake = try reserveFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const gun = try editor.addObject("Gun", 60, 100, 0, 0);
+    const truck = try editor.addObject("Truck", 90, 100, 0, 0);
+    const depth = editor.history.undo_stack.items.len;
+    var tool: ReservePositions = .{};
+    try clickAt(&tool, &editor, &fake, 60, 100, gun);
+    try testing.expectEqual(@as(?i32, gun), tool.gun);
+    try testing.expectEqual(bridge_mod.ReserveRole.towed, tool.gun_role);
+    try clickAt(&tool, &editor, &fake, 90, 100, truck);
+    try testing.expectEqual(@as(?i32, truck), tool.truck);
+    try testing.expect(tool.pendingRecord() == null); // no place yet
+    try clickAt(&tool, &editor, &fake, 100, 60, null);
+    try testing.expect(tool.has_place);
+    try testing.expectEqual(@as(f32, 141), tool.x); // 100 * 1.4142 + 0.3, cut
+    try testing.expectEqual(@as(f32, 85), tool.y);
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    const position = fake.reserve_positions.items[0];
+    try testing.expectEqual(gun, position.artillery);
+    try testing.expectEqual(truck, position.truck);
+    try testing.expectEqual(@as(f32, 141), position.x);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try testing.expectEqual(@as(?usize, 0), tool.selected);
+    try testing.expect(tool.gun == null and !tool.has_place); // the pending choice was taken
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 0), fake.reserve_positions.items.len);
+}
+
+test "Reserve Positions: a towed gun without a truck is Refused with the history unchanged and the choice kept" {
+    var fake = try reserveFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const gun = try editor.addObject("Gun", 60, 100, 0, 0);
+    const weak = try editor.addObject("Weak_Truck", 90, 100, 0, 0);
+    var tool: ReservePositions = .{};
+    try clickAt(&tool, &editor, &fake, 60, 100, gun);
+    try clickAt(&tool, &editor, &fake, 100, 60, null);
+    const depth = editor.history.undo_stack.items.len;
+    try testing.expectError(error.Refused, tool.handle(&editor, .{ .key = .enter }));
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "towed gun needs a truck") != null);
+    try testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try testing.expectEqual(@as(?i32, gun), tool.gun);
+    try testing.expect(tool.has_place);
+    // Another try: a truck too weak for the gun is refused too, then the choice is cleared.
+    try clickAt(&tool, &editor, &fake, 90, 100, weak);
+    try testing.expectError(error.Refused, tool.handle(&editor, .{ .key = .enter }));
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "cannot tow") != null);
+    try testing.expectEqual(@as(usize, 0), fake.reserve_positions.items.len);
+    try tool.handle(&editor, .{ .key = .escape });
+    try testing.expect(tool.gun == null and tool.truck == null and !tool.has_place);
+}
+
+test "Reserve Positions: a self-propelled gun needs no truck, and a truck click after it is a note" {
+    var fake = try reserveFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const panzer = try editor.addObject("Panzer", 120, 100, 0, 0);
+    const truck = try editor.addObject("Truck", 90, 100, 0, 0);
+    var tool: ReservePositions = .{};
+    try clickAt(&tool, &editor, &fake, 120, 100, panzer);
+    try clickAt(&tool, &editor, &fake, 90, 100, truck);
+    try testing.expect(tool.truck == null);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "takes no truck") != null);
+    try clickAt(&tool, &editor, &fake, 100, 60, null);
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    try testing.expectEqual(@as(i32, 0), fake.reserve_positions.items[0].truck);
+}
+
+test "Reserve Positions: a click out of order or on the wrong thing is a note, and a second gun starts the choice over" {
+    var fake = try reserveFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const gun = try editor.addObject("Gun", 60, 100, 0, 0);
+    const other = try editor.addObject("Gun", 70, 100, 0, 0);
+    const truck = try editor.addObject("Truck", 90, 100, 0, 0);
+    var tool: ReservePositions = .{};
+    // The ground and a truck before any gun.
+    try clickAt(&tool, &editor, &fake, 100, 60, null);
+    try testing.expect(!tool.has_place);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "click a gun first") != null);
+    try clickAt(&tool, &editor, &fake, 90, 100, truck);
+    try testing.expect(tool.truck == null);
+    // A tank (role none).
+    try clickAt(&tool, &editor, &fake, 40, 40, 1);
+    try testing.expect(tool.gun == null);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "not a gun or a truck") != null);
+    // A second gun replaces the first and drops its truck, keeping the place.
+    try clickAt(&tool, &editor, &fake, 60, 100, gun);
+    try clickAt(&tool, &editor, &fake, 90, 100, truck);
+    try clickAt(&tool, &editor, &fake, 100, 60, null);
+    try clickAt(&tool, &editor, &fake, 70, 100, other);
+    try testing.expectEqual(@as(?i32, other), tool.gun);
+    try testing.expect(tool.truck == null and tool.has_place);
+    // Enter with nothing to add is a note, never an error.
+    var empty: ReservePositions = .{};
+    try empty.handle(&editor, .{ .key = .enter });
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "pick a gun and a place") != null);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len - 3); // only the three objects added
+}
+
+test "Reserve Positions: Delete removes the selected position as one step and undo brings it back" {
+    var fake = try reserveFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const panzer = try editor.addObject("Panzer", 120, 100, 0, 0);
+    _ = try editor.addReservePosition(.{ .artillery = panzer, .x = 70, .y = 80 });
+    var tool: ReservePositions = .{};
+    try tool.handle(&editor, .{ .key = .delete }); // nothing selected: a note
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "select a reserve position") != null);
+    try testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    tool.selected = 0;
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 0), fake.reserve_positions.items.len);
+    try testing.expectEqual(@as(?usize, null), tool.selected);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    // Other events are nobody's business.
+    const pointer = pointerAt(&fake, 100, 60);
+    for ([_]Event{ .{ .press = pointer }, .{ .drag = pointer }, .{ .right_press = pointer }, .{ .double_click = pointer }, .{ .key = .space } }) |event| {
+        try tool.handle(&editor, event);
+    }
 }
