@@ -189,8 +189,8 @@ pub fn applyModArg(real: *c_bridge.RealBridge, mod_folder: ?[]const u8, mod_requ
 /// the engine finds it from the executable (host.zig's Options.data_root).
 pub fn mapArgument(io: std.Io, buffer: *[panels_logic.PathSlot.max_path]u8, typed: []const u8) ?[]const u8 {
     var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const cwd_len = std.process.currentPath(io, &cwd_buffer) catch return panels_logic.enginePath(buffer, typed, .open);
+    const cwd_len = std.process.currentPath(io, &cwd_buffer) catch return panels_logic.enginePath(buffer, typed, .open, .bzm);
     var absolute_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const absolute = panels_logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], typed) orelse return null;
-    return panels_logic.enginePath(buffer, absolute, .open);
+    return panels_logic.enginePath(buffer, absolute, .open, .bzm);
 }

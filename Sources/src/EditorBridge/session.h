@@ -175,6 +175,22 @@ struct SEditorSession
 // terrain reaches the scene, not after.
 bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath );
 
+// The open path's own tail (session.cpp): reset of every per-map table, the
+// working copy, the engine rebuilt from it, the camera on the middle. Shared
+// with NewMapInSession; pszPath is what the terrain loader names its sidecar
+// files after.
+bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const char *pszPath );
+// File > New (M3, D-23): CMapInfo::Create of the size (patches, 1..32 per
+// axis) and the season (the dialog's 0..3), every tile the season's most
+// common tile, zero altitudes with the season's shades, the mod stamp named
+// by the caller (the active mod's name/version, empty for none) - then the
+// same install the open path uses, ending never-saved (the session holds no
+// path). False with the reason in szMessage; a failure before the install
+// leaves the previous map exactly as it was, one during it leaves the
+// session with no map open, exactly an open's own failure rule.
+bool NewMapInSession( SEditorSession *pSession, int nSizeX, int nSizeY, int nSeason, const char *pszName,
+                      const std::string &rszModName, const std::string &rszModVersion );
+
 // Closes whatever map is open, without touching the mod or the object
 // database it is about to change under it: the world's objects leave the
 // scene, the AI editor is cleared, and every per-map table (byLinkID,

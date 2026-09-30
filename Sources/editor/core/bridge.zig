@@ -92,6 +92,38 @@ pub const PaintCell = extern struct { x: c_int, y: c_int, tile: u8 };
 /// vertex, one more per axis than the map's tiles.
 pub const AltitudeRegion = extern struct { x0: c_int, y0: c_int, x1: c_int, y1: c_int };
 
+/// BkEditorNewMapParams (M3, D-23), layout included. Sizes are in PATCHES
+/// per axis (1..32), season 0..3 (Summer/Winter/Africa/Spring), and the mod
+/// folder is "" (keep the current mod), "none", or a bare folder name the
+/// bridge's mod list must hold.
+pub const NewMapParams = extern struct {
+    size_x: c_int = 8,
+    size_y: c_int = 8,
+    season: c_int = 0,
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    mod_folder: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+
+    pub fn nameSlice(self: *const NewMapParams) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *NewMapParams, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+
+    pub fn modSlice(self: *const NewMapParams) []const u8 {
+        return std.mem.sliceTo(&self.mod_folder, 0);
+    }
+
+    pub fn setMod(self: *NewMapParams, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.mod_folder, 0);
+        @memcpy(self.mod_folder[0..len], text[0..len]);
+    }
+};
+
 /// BkEditorSoundRecord. Positions are world (scene) units, not map units
 /// (bridge.h's own comment on BkEditorSounds); radii are vis tiles; times
 /// are milliseconds.
@@ -391,6 +423,12 @@ pub const Bridge = struct {
         /// Refused, changing nothing, for a region off the map; bad
         /// heights (null, non-finite, count mismatch) never reach the map.
         setAltitudes: *const fn (ptr: *anyopaque, region: AltitudeRegion, heights: []const f32, token: *i32) Status,
+        /// BkEditorNewMap (M3, D-23): the engine builds a map of the params
+        /// (sizes in patches 1..32, season 0..3, the name for the terrain
+        /// loader's sidecars, the mod folder - "", "none" or an installed
+        /// one, switched first when it differs) and it opens as the
+        /// session's map, never-saved. The summary answers what was built.
+        newMap: *const fn (ptr: *anyopaque, params: NewMapParams, info: *MapInfo) Status,
         /// BkEditorVsoDescriptors: the season's road or river types, bare
         /// names, sorted. `total` is always the full count (two-pass, like
         /// `sounds`).
@@ -521,6 +559,7 @@ pub const Bridge = struct {
     pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
     pub fn altitudes(self: Bridge, region: AltitudeRegion, heights: []f32, total: *usize) Status { return self.vtable.altitudes(self.ptr, region, heights, total); }
     pub fn setAltitudes(self: Bridge, region: AltitudeRegion, heights: []const f32, token: *i32) Status { return self.vtable.setAltitudes(self.ptr, region, heights, token); }
+    pub fn newMap(self: Bridge, params: NewMapParams, info: *MapInfo) Status { return self.vtable.newMap(self.ptr, params, info); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }
@@ -567,4 +606,10 @@ test "an altitude region has the C struct's layout" {
     try std.testing.expectEqual(@as(usize, 4), @offsetOf(AltitudeRegion, "y0"));
     try std.testing.expectEqual(@as(usize, 8), @offsetOf(AltitudeRegion, "x1"));
     try std.testing.expectEqual(@as(usize, 12), @offsetOf(AltitudeRegion, "y1"));
+}
+
+test "new map params have the C struct's layout" {
+    try std.testing.expectEqual(@as(usize, 12 + 2 * name_capacity), @sizeOf(NewMapParams));
+    try std.testing.expectEqual(@as(usize, 12), @offsetOf(NewMapParams, "name"));
+    try std.testing.expectEqual(@as(usize, 12 + name_capacity), @offsetOf(NewMapParams, "mod_folder"));
 }

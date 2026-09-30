@@ -886,9 +886,43 @@ BkEditorStatus BkEditorSetAltitudes( BkEditorSession *pSession, const BkEditorAl
 	} );
 }
 
-// File > New (M3, D-23). The RED stub: the entry point and its contract exist
-// (the engine tier's TestM3NewMap is written against them); the build itself
-// lands with the session's NewMapInSession in the GREEN step.
+// The mod switch without the Guarded wrapper, for BkEditorNewMap's own
+// "otherwise a folder name that must exist in BkEditorMods" rule: same
+// validation, same refusal rules, same steps. Defined beside BkEditorSetMod.
+static BkEditorStatus SetModCore( BkEditorSession *pSession, const char *pszFolder );
+
+// File > New (M3, D-23): the engine builds the map, the mod the params name
+// is switched to first (nothing to switch for "" or the active one), and the
+// summary answers what was built. A size outside 1..32 or a season outside
+// 0..3 is the caller's mistake; an unknown mod folder is an ordinary
+// refusal - and neither changes anything.
+namespace {
+// The summary of whatever map the session holds now - the same fields
+// BkEditorOpenMap answers, from the same places.
+void FillMapSummary( SEditorSession *pSession, BkEditorMapSummary *pOut )
+{
+	// Sizes and counts come from the snapshot, which is the file as it was
+	// read (or the map as it was built); the working copy differs only in
+	// frame indices and in the altitudes a map without any gets.
+	const CMapInfo &rMap = pSession->snapshot;
+	pOut->width_tiles = rMap.terrain.tiles.GetSizeX();
+	pOut->height_tiles = rMap.terrain.tiles.GetSizeY();
+	pOut->season = rMap.nSeason;
+	pOut->player_count = int( rMap.diplomacies.size() );
+	pOut->object_count = int( rMap.objects.size() + rMap.scenarioObjects.size() );
+	pOut->unknown_object_count = int( pSession->unknownLinkIDs.size() );
+	// These three come from the session rather than the file: they say
+	// what the engine ended up holding, which is the only way a caller
+	// can tell a bridge that was built from one that was collected and
+	// forgotten.
+	pOut->placed_object_count = int( pSession->byLinkID.size() );
+	pOut->bridge_span_count = pSession->nBridgeSpansInMap;
+	pOut->bridge_span_placed = pSession->nBridgeSpansPlaced;
+	pOut->map_type = rMap.nType;
+	pOut->attacking_side = rMap.nAttackingSide;
+}
+}
+
 BkEditorStatus BkEditorNewMap( BkEditorSession *pSession, const BkEditorNewMapParams *pParams, BkEditorMapSummary *pOut )
 {
 	if ( pOut != 0 )
@@ -897,8 +931,45 @@ BkEditorStatus BkEditorNewMap( BkEditorSession *pSession, const BkEditorNewMapPa
 	{
 		if ( pParams == 0 || pOut == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
-		pSession->szMessage = "a new map is not built yet";
-		return BK_EDITOR_REFUSED;
+		if ( pParams->size_x < 1 || pParams->size_x > 32 ||
+		     pParams->size_y < 1 || pParams->size_y > 32 )
+		{
+			pSession->szMessage = "a new map is 1..32 patches per axis";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		if ( pParams->season < 0 || pParams->season > 3 )
+		{
+			pSession->szMessage = "the season is Summer, Winter, Africa or Spring";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		// The mod the params name: "" keeps the current one (RMGC_CURRENT_MOD_
+		// FOLDER's own meaning), "none" is none, anything else must be
+		// installed. Only a real change switches - the switch closes the open
+		// map and rebuilds the database, none of which a new map of the active
+		// mod needs.
+		const std::string szModFolder = pParams->szModFolder;
+		if ( szModFolder != "none" && !szModFolder.empty() && szModFolder != pSession->szModFolder )
+		{
+			const BkEditorStatus switched = SetModCore( pSession, szModFolder.c_str() );
+			if ( switched != BK_EDITOR_OK )
+				return switched;
+		}
+		else if ( szModFolder == "none" && !pSession->szModFolder.empty() )
+		{
+			const BkEditorStatus switched = SetModCore( pSession, "" );
+			if ( switched != BK_EDITOR_OK )
+				return switched;
+		}
+		if ( !NewMapInSession( pSession, pParams->size_x, pParams->size_y, pParams->season, pParams->szName,
+		                       pSession->szModName, pSession->szModVersion ) )
+			return pSession->bEngineStarted ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		// A fresh map opens unzoomed (D-15), exactly an open's own rule.
+		SetGlobalVar( "GFX.World.ZoomSteps", 0 );
+		if ( IScene *pScene = GetSingleton<IScene>() )
+			if ( ITerrain *pTerrain = pScene->GetTerrain() )
+				pTerrain->ResetPosition();
+		FillMapSummary( pSession, pOut );
+		return BK_EDITOR_OK;
 	} );
 }
 
@@ -1411,10 +1482,21 @@ BkEditorStatus BkEditorMods( BkEditorSession *pSession, BkEditorMod *pOut, int n
 	} );
 }
 
+// The mod switch without the Guarded wrapper, for BkEditorNewMap's own
+// "otherwise a folder name that must exist in BkEditorMods" rule: same
+// validation, same refusal rules, same steps.
+static BkEditorStatus SetModCore( BkEditorSession *pSession, const char *pszFolder );
+
 BkEditorStatus BkEditorSetMod( BkEditorSession *pSession, const char *pszFolder )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		return SetModCore( pSession, pszFolder );
+	} );
+}
+
+static BkEditorStatus SetModCore( BkEditorSession *pSession, const char *pszFolder )
+{
 		if ( !pSession->bEngineStarted )
 		{
 			pSession->szMessage = "the engine is not started";
@@ -1482,7 +1564,6 @@ BkEditorStatus BkEditorSetMod( BkEditorSession *pSession, const char *pszFolder 
 		pSession->szModName = mod.name;
 		pSession->szModVersion = mod.version;
 		return BK_EDITOR_OK;
-	} );
 }
 
 BkEditorStatus BkEditorActiveMod( BkEditorSession *pSession, BkEditorMod *pOut )

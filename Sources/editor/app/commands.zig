@@ -32,6 +32,9 @@ pub const command_table = [_]Entry{
     .{ .name = "camera_neutral", .handler = cameraNeutral },
     .{ .name = "camera_clear", .handler = cameraClear },
     .{ .name = "camera_goto", .handler = cameraGoto },
+    .{ .name = "map_new", .handler = mapNew },
+    .{ .name = "file_save_xml", .handler = fileSaveXml },
+    .{ .name = "file_save_bzm", .handler = fileSaveBzm },
     .{ .name = "vso_kind", .handler = vsoKind },
     .{ .name = "vso_desc", .handler = vsoDesc },
     .{ .name = "vso_width", .handler = vsoWidth },
@@ -209,6 +212,68 @@ fn cameraClear(state: *State, arg: []const u8) Outcome {
 fn cameraGoto(state: *State, arg: []const u8) Outcome {
     const slot = parseSlot(arg) orelse return .bad_arg;
     return gotoAnchor(state, slot);
+}
+
+// ---------------------------------------------------------------------------
+// File (M3, D-23/D-24): New Map, Save as XML/BZM.
+// ---------------------------------------------------------------------------
+
+/// `do=map_new:WxH:season[:name][:mod]` - File > New with the dialog's
+/// fields given (the season by name: summer/winter/africa/spring; the name
+/// and the mod folder - "", "none" or a bare installed folder - optional).
+/// The map is built once the unsaved-changes prompt, if any, has been
+/// answered, exactly the menu's own route through FileActions, so `ok`
+/// means queued, not yet built. Examples: `map_new:8x8:summer`,
+/// `map_new:16x16:winter:my_map:EditorTestMod`.
+fn mapNew(state: *State, arg: []const u8) Outcome {
+    const fields = logic.NewMapFields.parse(arg) orelse return .bad_arg;
+    state.actions.requestNewMap(fields);
+    state.view.clearStatus();
+    return .ok;
+}
+
+/// A Save As with the format named (D-24: the bridge takes the format from
+/// the path's extension, so the format is what an extensionless path is
+/// given). With no argument it is the menu item - the Save As dialog, the
+/// forced format riding the request. With `:<path>` it is the scripted leg
+/// of the same: the path (an engine path, backslashes fine) is delivered
+/// through the dialog slot exactly a dialog's own choice would be, and gets
+/// the format's extension when it names none.
+fn saveAsFormat(state: *State, arg: []const u8, which: core.settings.Format) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (arg.len == 0) {
+        panels.requestSaveAsFormat(state, which);
+        return .ok;
+    }
+    if (arg.len >= core.files.max_path) return .bad_arg;
+    var path_buffer: [core.files.max_path]u8 = undefined;
+    var len = arg.len;
+    @memcpy(path_buffer[0..len], arg);
+    const extension = core.settings.formatExtension(which);
+    const has_extension = std.ascii.endsWithIgnoreCase(arg, ".bzm") or std.ascii.endsWithIgnoreCase(arg, ".xml");
+    if (!has_extension) {
+        if (len + extension.len > path_buffer.len) return .bad_arg;
+        @memcpy(path_buffer[len..][0..extension.len], extension);
+        len += extension.len;
+    }
+    // A person picks an existing folder in the dialog; a script names one
+    // that may not be there yet, so it is made (the saveas verb's own rule).
+    if (std.fs.path.dirname(arg)) |folder| std.Io.Dir.cwd().createDirPath(state.io, folder) catch {};
+    if (!state.actions.dialog.request(.save_as)) {
+        state.editor.note("a dialog is already open");
+        return .refused;
+    }
+    state.save_as_format_forced = which;
+    state.actions.dialog.deliver(path_buffer[0..len]);
+    return .ok;
+}
+
+fn fileSaveXml(state: *State, arg: []const u8) Outcome {
+    return saveAsFormat(state, arg, .xml);
+}
+
+fn fileSaveBzm(state: *State, arg: []const u8) Outcome {
+    return saveAsFormat(state, arg, .bzm);
 }
 
 fn anchorIsSet(state: *State, arg: []const u8) ?bool {

@@ -34,6 +34,19 @@ static bool ReadStream( IDataStream *pStream, bool bXml, CMapInfo *pMap )
 		CSaverAccessor saver = pSaver;
 		saver.Add( 1, pMap );
 	}
+	// F5 (M3, D-23): a map whose file lacks altitudes gets a flat sheet here,
+	// before IsValid sees it - the MFC editor's own load rule
+	// (TemplateEditorFrame1.cpp:1658), which is why maps of the game's first
+	// years could ship without the sheet at all. This reader is the editor's
+	// (the game loads its maps another way), so the rule lives here rather
+	// than in CMapInfo::IsValid, which every consumer of a map still holds to
+	// what it is handed.
+	if ( ( pMap->terrain.altitudes.GetSizeX() <= 0 ) || ( pMap->terrain.altitudes.GetSizeY() <= 0 ) )
+	{
+		pMap->terrain.altitudes.SetSizes( pMap->terrain.patches.GetSizeX() * STerrainPatchInfo::nSizeX + 1,
+		                                  pMap->terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
+		pMap->terrain.altitudes.SetZero();
+	}
 	return true;
 }
 
