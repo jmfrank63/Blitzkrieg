@@ -538,8 +538,12 @@ pub const RealBridge = struct {
     /// command has units and still answers the count.
     fn readStartCommand(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
         var record: c.BkEditorStartCommandRecord = std.mem.zeroes(c.BkEditorStartCommandRecord);
+        // WR-C02: a REFUSED that wrote no count ("no map is open") is a refusal,
+        // not the sizing pass: the sentinel tells the two apart.
+        record.unit_count = -1;
         const sizing = status(c.BkEditorStartCommand(self.session, key, &record, null, 0));
         if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and record.unit_count == -1) return .refused;
         if (record.unit_count < 0) return .failed;
         const units = allocator.alloc(i32, @intCast(record.unit_count)) catch return .failed;
         // WR-C01: an errdefer never runs here - this returns a Status, not an
@@ -570,8 +574,10 @@ pub const RealBridge = struct {
     /// value owns them). A side the map does not have reads empty with the side count.
     fn readAiSide(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
         var info: c.BkEditorAISideInfo = std.mem.zeroes(c.BkEditorAISideInfo);
+        info.side_count = -1; // WR-C02: still -1 after a REFUSED that read nothing
         const sizing = status(c.BkEditorAIGeneralSide(self.session, key, &info, null, 0, null, 0, null, 0));
         if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and info.side_count == -1) return .refused;
         if (info.side_count < 0 or info.mobile_count < 0 or info.parcel_count < 0 or info.point_count < 0) return .failed;
         const counted = info;
         const mobile = allocator.alloc(i32, @intCast(counted.mobile_count)) catch return .failed;
@@ -676,7 +682,9 @@ pub const RealBridge = struct {
     /// `allocator` (the value owns them). The total comes back in `count` even
     /// when the buffer was too short, and -1 for a group that is not there.
     fn readGroup(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
-        var count: c_int = 0;
+        // WR-C02: -2 is "nothing written" (no map is open); -1 is the bridge's
+        // "no such group"; either is a refusal, never an empty group.
+        var count: c_int = -2;
         const sizing = status(c.BkEditorGroup(self.session, key, null, 0, &count));
         if (sizing != .ok and sizing != .refused) return sizing;
         if (count < 0) return .refused;
@@ -766,9 +774,10 @@ pub const RealBridge = struct {
         const self = from(ptr);
         switch (kind) {
             .script_area => {
-                var count: c_int = 0;
+                var count: c_int = -1; // WR-C02: still -1 after a REFUSED that read nothing
                 const sizing = status(c.BkEditorScriptAreas(self.session, null, 0, &count));
                 if (sizing != .ok and sizing != .refused) return sizing;
+                if (sizing == .refused and count == -1) return .refused;
                 if (count < 0) return .failed;
                 const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
                 for (keys, 0..) |*key, index| key.* = @intCast(index);
@@ -804,8 +813,10 @@ pub const RealBridge = struct {
             .ai_side => {
                 // The sides the map has: the side count from any side's read.
                 var info: c.BkEditorAISideInfo = std.mem.zeroes(c.BkEditorAISideInfo);
+                info.side_count = -1; // WR-C02: still -1 after a REFUSED that read nothing
                 const counted = status(c.BkEditorAIGeneralSide(self.session, 0, &info, null, 0, null, 0, null, 0));
                 if (counted != .ok and counted != .refused) return counted;
+                if (counted == .refused and info.side_count == -1) return .refused;
                 if (info.side_count < 0) return .failed;
                 const keys = allocator.alloc(i32, @intCast(info.side_count)) catch return .failed;
                 for (keys, 0..) |*key, index| key.* = @intCast(index);
@@ -813,9 +824,10 @@ pub const RealBridge = struct {
                 return .ok;
             },
             .group => {
-                var count: c_int = 0;
+                var count: c_int = -1; // WR-C02: still -1 after a REFUSED that read nothing
                 const sizing = status(c.BkEditorGroupIDs(self.session, null, 0, &count));
                 if (sizing != .ok and sizing != .refused) return sizing;
+                if (sizing == .refused and count == -1) return .refused;
                 if (count < 0) return .failed;
                 const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
                 // WR-C01: freed on every non-OK exit (errdefer never runs for a Status).
@@ -855,9 +867,12 @@ pub const RealBridge = struct {
             },
             .group => |group| {
                 if (group.id != key or key < 0) return .bad_argument;
-                var count: c_int = 0;
+                // WR-C02: -2 is "nothing written" (no map is open: the probe's
+                // own refusal, passed on); -1 is "no such group", the free ID.
+                var count: c_int = -2;
                 const probe = status(c.BkEditorGroup(self.session, key, null, 0, &count));
                 if (probe != .ok and probe != .refused) return probe;
+                if (count == -2) return if (probe == .ok) .failed else probe;
                 if (count >= 0) {
                     self.own_message = "there is already a reinforcement group with that ID";
                     return .refused;
