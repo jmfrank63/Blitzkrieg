@@ -247,5 +247,36 @@ SScriptArea MoveArea( const SScriptArea &rArea, const CVec2 &vNewCentreVis );
 // centre to the handle along each axis, a circle's radius the distance to the
 // handle, converted with the rule; centre and name kept.
 SScriptArea ResizeArea( const SScriptArea &rArea, const CVec2 &vHandleVis );
+
+// ---------------------------------------------------------------------------
+// AI general parcels (04-12, D-19): the MFC editor's AI general tool,
+// StateAIGeneral.cpp (CAIGSelectState::OnLButtonDown 62-196 adds a reinforce point,
+// CAIGEditState::OnMouseMove 250-313 drags, OnKeyDown, CAIGState::Draw 402-528 draws).
+// A parcel is a circle (centre, radius, in map (AI) units) with a WORD defence
+// direction (MFC scale, a turn being 0xFFFF); a reinforce point is stored RELATIVE to
+// its parcel's centre and rotated by minus the defence direction, so turning a parcel
+// carries its points with it. Clicks and drags arrive in world (Vis) units; every
+// stored value is in AI units.
+
+// A parcel's smallest radius and the radius a new one takes (C2): four map tiles,
+// PARCEL_POINT_RADIUS / fAITileXCoeff, which is exactly 256 AI units.
+const float fParcelMinRadius = 256.0f;
+
+// The stored form of a click inside a parcel (OnLButtonDown): the click in world
+// units, Vis2AI'd (the truncation rule), less the parcel's centre, rotated by minus the
+// MFC angle of wDefenceDir. A drag of a point handle stores its new place the same way.
+CVec2 ParcelPointFromVis( const CVec2 &vClickVis, const CVec2 &vCentreAI, WORD wDefenceDir );
+// The inverse, for drawing (CAIGState::Draw): the stored point turned by the MFC angle
+// of wDefenceDir about the origin, plus the parcel's centre, all in world units. The
+// point and the centre are AI units on the way in.
+CVec2 ParcelPointToVis( const CVec2 &vPointAI, const CVec2 &vCentreAI, WORD wDefenceDir );
+// The direction an arrow handle at vArrow gives a parcel (or, relative to the point, a
+// reinforce point) about vCentre, both AI units: the MFC polar angle of the difference
+// (GetPolarAngle: -1 for no difference) less a quarter turn, wrapped into 0..2 pi
+// (OnMouseMove adds 2 pi to a negative one), as WORD( angle * 0xFFFF / 2 pi ).
+WORD DirectionFromArrow( const CVec2 &vCentre, const CVec2 &vArrow );
+// The radius an arrow handle at vArrow gives a parcel about vCentre, AI units: the
+// distance, never below fParcelMinRadius.
+float RadiusFromArrow( const CVec2 &vCentre, const CVec2 &vArrow );
 }
 #endif // __MAP_GEOMETRY_H__

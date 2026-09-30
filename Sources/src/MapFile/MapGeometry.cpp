@@ -664,4 +664,63 @@ SScriptArea ResizeArea( const SScriptArea &rArea, const CVec2 &vHandleVis )
 		area.fR = VisLengthToAI( Distance( vHandleVis.x - vCentreVis.x, vHandleVis.y - vCentreVis.y ) );
 	return area;
 }
+
+namespace {
+// The MFC angle of a WORD direction (StateAIGeneral.cpp: wDir * FP_2PI / 0xFFFF).
+float ParcelAngle( WORD wDir )
+{
+	return wDir * FP_2PI / 0xFFFF;
+}
+
+// RotatePoint (RandomMapGen/Polygons_Types.h), for a CVec2.
+CVec2 Rotated( const CVec2 &v, float fAngle )
+{
+	return CVec2( ( v.x * std::cos( fAngle ) ) - ( v.y * std::sin( fAngle ) ), ( v.x * std::sin( fAngle ) ) + ( v.y * std::cos( fAngle ) ) );
+}
+
+// GetPolarAngle (RandomMapGen/Polygons_Types.h): 0..2 pi, and -1 for no length.
+float PolarAngle( const CVec2 &v )
+{
+	if ( v.x == 0.0f && v.y == 0.0f )
+		return -1.0f;
+	if ( v.x == 0.0f )
+		return v.y > 0.0f ? FP_PI2 : FP_PI + FP_PI2;
+	const float fAngle = std::atan( v.y / v.x );
+	if ( v.x > 0.0f )
+		return v.y >= 0.0f ? fAngle : FP_2PI + fAngle;
+	return FP_PI + fAngle;
+}
+}
+
+CVec2 ParcelPointFromVis( const CVec2 &vClickVis, const CVec2 &vCentreAI, WORD wDefenceDir )
+{
+	CVec2 vPoint( vClickVis.x, vClickVis.y );
+	Vis2AI( &vPoint );
+	return Rotated( CVec2( vPoint.x - vCentreAI.x, vPoint.y - vCentreAI.y ), -ParcelAngle( wDefenceDir ) );
+}
+
+CVec2 ParcelPointToVis( const CVec2 &vPointAI, const CVec2 &vCentreAI, WORD wDefenceDir )
+{
+	CVec2 vPoint( vPointAI.x, vPointAI.y );
+	AI2Vis( &vPoint );
+	CVec2 vCentre( vCentreAI.x, vCentreAI.y );
+	AI2Vis( &vCentre );
+	const CVec2 vTurned = Rotated( vPoint, ParcelAngle( wDefenceDir ) );
+	return CVec2( vTurned.x + vCentre.x, vTurned.y + vCentre.y );
+}
+
+WORD DirectionFromArrow( const CVec2 &vCentre, const CVec2 &vArrow )
+{
+	float fAlpha = PolarAngle( CVec2( vArrow.x - vCentre.x, vArrow.y - vCentre.y ) ) - FP_PI2;
+	if ( fAlpha < 0.0f )
+		fAlpha += FP_2PI;
+	// Below 2 pi by construction; the float sum may land on it, which is 0xFFFF and no more.
+	return WORD( Min( 65535, int( fAlpha * 0xFFFF / FP_2PI ) ) );
+}
+
+float RadiusFromArrow( const CVec2 &vCentre, const CVec2 &vArrow )
+{
+	const float fRadius = Distance( vArrow.x - vCentre.x, vArrow.y - vCentre.y );
+	return fRadius < fParcelMinRadius ? fParcelMinRadius : fRadius;
+}
 }

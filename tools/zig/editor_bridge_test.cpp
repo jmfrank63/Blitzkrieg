@@ -7897,6 +7897,21 @@ static void PutExpectedAISide( CMapInfo *pMap, int nSide, int nSideCount, const 
 	NMapRecords::PutAIGeneralSide( pMap, put );
 }
 
+// One step of the gesture test: the side put, the expected map built by the map tier's own
+// put, the saved map compared with it, the side read back, and the state kept for the undo.
+static void SaveAIGestureStep( BkEditorSession *pSession, int nSide, int nCount, SAISideRead *pCurrent, CMapInfo *pExpected,
+                               std::vector<SAISideRead> *pHistory, const std::string &szPath, const char *pszWhat )
+{
+	Check( PutAISideOf( pSession, nSide, nCount, *pCurrent ) == BK_EDITOR_OK, NStr::Format( "%s is accepted: %s", pszWhat, BkEditorLastMessage( pSession ) ) );
+	PutExpectedAISide( pExpected, nSide, nCount, *pCurrent );
+	CheckSavedEquals( pSession, szPath, *pExpected, pszWhat );
+	SAISideRead again;
+	if ( Check( ReadAISideOf( pSession, nSide, &again ), NStr::Format( "%s reads back", pszWhat ) ) )
+		Check( again.parcels.size() == pCurrent->parcels.size() && again.points.size() == pCurrent->points.size() && again.mobile == pCurrent->mobile,
+		       NStr::Format( "%s reads back as it was put", pszWhat ) );
+	pHistory->push_back( *pCurrent );
+}
+
 static void TestM2AIGeneral( BkEditorSession *pSession, const std::string &szScratch )
 {
 	CMapInfo original;
@@ -8055,6 +8070,99 @@ static void TestM2AIGeneral( BkEditorSession *pSession, const std::string &szScr
 	}
 	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		Check( SameBytes( szEdited, szRefused ), "none of the refusals changed the map" );
+
+	// ---- The MFC gestures (04-12 Task 2): every value comes from NMapGeometry's functions, the
+	// saved map is compared with the expected map the map tier's own put builds, and undoing it all
+	// saves the unedited bytes. ----
+	{
+		SAISideRead start;
+		if ( !Check( ReadAISideOf( pSession, nSideA, &start ), "side 1 reads for the gestures" ) )
+			return;
+		const int nCountE = Max( start.info.side_count, nSideA + 1 );
+		SAISideRead current = start;
+		CMapInfo expectedE = original;
+		const float fCentreX0 = float( int( fMiddleX ) ), fCentreY0 = float( int( fMiddleY ) );
+		const CVec2 vCentre0( fCentreX0, fCentreY0 );
+		std::vector<SAISideRead> history;
+		history.push_back( start );
+		int nParcel = -1;
+
+		// The parcel, then a point from a click inside it.
+		current.parcels.push_back( DefenceParcelAt( vCentre0.x, vCentre0.y ) );
+		nParcel = int( current.parcels.size() ) - 1;
+		current.parcels[nParcel].first_point = int( current.points.size() );
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "the parcel" );
+		const CVec2 vClickVis( ( vCentre0.x + 100.0f ) * fAITileXCoeff, ( vCentre0.y + 50.0f ) * fAITileXCoeff );
+		const CVec2 vPointRel = NMapGeometry::ParcelPointFromVis( vClickVis, vCentre0, 0 );
+		Check( vPointRel.x == 100.0f && vPointRel.y == 50.0f, NStr::Format( "the click is 100, 50 from the centre, stored (%.3f, %.3f)", vPointRel.x, vPointRel.y ) );
+		BkEditorAIPoint point0;
+		point0.x = vPointRel.x;
+		point0.y = vPointRel.y;
+		point0.dir = 0;
+		current.points.push_back( point0 );
+		++current.parcels[nParcel].point_count;
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a reinforce point" );
+
+		// The centre moved: the point is relative, so it does not change.
+		CVec2 vNewCentre( ( vCentre0.x + 64.0f ) * fAITileXCoeff, ( vCentre0.y - 32.0f ) * fAITileXCoeff );
+		Vis2AI( &vNewCentre );
+		current.parcels[nParcel].cx = vNewCentre.x;
+		current.parcels[nParcel].cy = vNewCentre.y;
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a moved centre" );
+
+		// The arrow dragged to 300 left and 400 up the y axis of the new centre: radius 500 and its direction.
+		const CVec2 vCentre1( vNewCentre.x, vNewCentre.y );
+		const CVec2 vArrow( vCentre1.x - 300.0f, vCentre1.y + 400.0f );
+		const float fRadius = NMapGeometry::RadiusFromArrow( vCentre1, vArrow );
+		const WORD wDir = NMapGeometry::DirectionFromArrow( vCentre1, vArrow );
+		Check( fRadius == 500.0f && wDir != 0, NStr::Format( "the arrow gives radius %.2f and direction %d", fRadius, int( wDir ) ) );
+		current.parcels[nParcel].radius = fRadius;
+		current.parcels[nParcel].defence_dir = int( wDir );
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a new radius and direction" );
+		// An arrow nearer than 256 keeps the floor.
+		Check( NMapGeometry::RadiusFromArrow( vCentre1, CVec2( vCentre1.x, vCentre1.y + 40.0f ) ) == 256.0f, "an arrow within 256 gives 256" );
+
+		// A second point clicked in the turned parcel is stored turned back, and its arrow sets its direction.
+		const CVec2 vClickVis2( ( vCentre1.x + 60.0f ) * fAITileXCoeff, ( vCentre1.y + 120.0f ) * fAITileXCoeff );
+		const CVec2 vPoint2 = NMapGeometry::ParcelPointFromVis( vClickVis2, vCentre1, wDir );
+		BkEditorAIPoint point1;
+		point1.x = vPoint2.x;
+		point1.y = vPoint2.y;
+		point1.dir = int( NMapGeometry::DirectionFromArrow( vPoint2, CVec2( vPoint2.x, vPoint2.y + 90.0f ) ) );
+		current.points.push_back( point1 );
+		++current.parcels[nParcel].point_count;
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a point in the turned parcel" );
+		{
+			const CVec2 vBack = NMapGeometry::ParcelPointToVis( vPoint2, vCentre1, wDir );
+			Check( std::fabs( vBack.x - vClickVis2.x ) < 1.5f && std::fabs( vBack.y - vClickVis2.y ) < 1.5f,
+			       NStr::Format( "the stored point is drawn where it was clicked (%.2f, %.2f) for (%.2f, %.2f)", vBack.x, vBack.y, vClickVis2.x, vClickVis2.y ) );
+		}
+		// The first point's own arrow dragged: its direction from the arrow's place relative to it.
+		const int nFirstPoint = current.parcels[nParcel].first_point;
+		current.points[nFirstPoint].dir = int( NMapGeometry::DirectionFromArrow( CVec2( current.points[nFirstPoint].x, current.points[nFirstPoint].y ), CVec2( current.points[nFirstPoint].x + 50.0f, current.points[nFirstPoint].y - 70.0f ) ) );
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a point's direction" );
+
+		// The type switched to reinforce.
+		current.parcels[nParcel].type = SAIGeneralParcelInfo::EPATCH_REINFORCE;
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a type switch" );
+
+		// The first point deleted: the points after it close up and the parcel's range shrinks.
+		current.points.erase( current.points.begin() + nFirstPoint );
+		--current.parcels[nParcel].point_count;
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a point deleted" );
+		// The parcel deleted, then everything undone in reverse: each put back is accepted and
+		// the last saves the unedited bytes.
+		current.points.resize( nFirstPoint );
+		current.parcels.pop_back();
+		SaveAIGestureStep( pSession, nSideA, nCountE, &current, &expectedE, &history, szEdited, "a parcel deleted" );
+		bool bUndone = true;
+		for ( size_t i = history.size() - 1; i-- > 0; )
+			bUndone = bUndone && PutAISideOf( pSession, nSideA, i == 0 ? start.info.side_count : nCountE, history[i] ) == BK_EDITOR_OK;
+		Check( bUndone, "every step is put back in reverse" );
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), ( std::string( "undoing every gesture saves the unedited map byte for byte: " ) + DescribeDifference( szUnedited, szUndone ) ).c_str() );
+		printf( "editor-bridge: M2 ai general edits ok\n" );
+	}
 
 	remove( OsPath( szUnedited ).c_str() );
 	remove( OsPath( szEdited ).c_str() );
