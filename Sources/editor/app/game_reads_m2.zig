@@ -30,6 +30,8 @@ const label = "game reads it M2";
 /// build's anonymous import, and the bare name the map is given for it.
 const script_source = @embedFile("m2_script_lua");
 const script_name = "m2_script";
+/// The script area the scenario draws; the Lua fixture finds it by this name.
+const area_name = "m2_area";
 
 /// One world tile in world (Vis) units: fWorldCellSize, 32 * sqrt(2)
 /// (Formats/fmtTerrain.h). The anchor must be at least this many tiles from
@@ -298,6 +300,24 @@ fn addScript(io: std.Io, editor: *core.editor.Editor, paths: *const common.TestP
     return true;
 }
 
+/// 04-10 (D-21): a rectangle area named `m2_area` around the start camera (which
+/// stands on `anchor`), made the way the Script Areas tool makes one: a drag in
+/// world units through the bridge's conversion, then added. Its AI values, which
+/// the game must report back, are what `addScriptArea` stored. Null after
+/// printing why.
+fn addArea(editor: *core.editor.Editor, anchor: [2]f32) ?core.records.ScriptArea {
+    const area = editor.scriptAreaFromVis(.rectangle, anchor[0] - 120, anchor[1] - 80, anchor[0] + 120, anchor[1] + 80, area_name) catch {
+        std.debug.print("map-editor: {s} FAIL: the area drag would not convert: {s}\n", .{ label, editor.status() });
+        return null;
+    };
+    const index = editor.addScriptArea(area) catch {
+        std.debug.print("map-editor: {s} FAIL: the area {s} was not added: {s}\n", .{ label, area_name, editor.status() });
+        return null;
+    };
+    std.debug.print("map-editor: {s}: area {d} {s}, a rectangle at {d:.0},{d:.0} (map units), half size {d:.0} x {d:.0}\n", .{ label, index, area_name, area.cx, area.cy, area.hx, area.hy });
+    return area;
+}
+
 /// The edited run's own screenshot dump (BK_AUTO_UI's shot, written in the
 /// game's directory and swept afterwards), copied beside the report as
 /// `<log>.edited.rgba`: 04-13 looks at it. Best effort: no shot is not a
@@ -427,6 +447,9 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     // game holds.
     if (!addScript(io, editor, &paths, log_path)) return false;
 
+    // 04-10 (D-21): a script area the script finds by name.
+    const area = addArea(editor, anchor_at) orelse return false;
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -496,16 +519,38 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
     std.debug.print("map-editor: {s}: BK_MAP_TRACE script name={s} loaded=1 init=1\n", .{ label, script.name.slice() });
-    // The first trace is Init's 1: the script ran. The rest are Report's counts of
-    // script group 4245, which LandReinforcement queued: 0 until the game lands
-    // the unit, then 1.
-    const lua = edited_trace.lua.slice();
-    if (lua.len < 2 or !std.mem.eql(u8, lua[0].slice(), "1")) {
-        std.debug.print("map-editor: {s} FAIL: the script's first trace is not \"1\" (lua lines seen {d}); see {s}\n", .{ label, edited_trace.lua.seen, edited_log_path });
+    // The game read the area by its name (Scripts.cpp InitAreas), raw as stored.
+    var reported_area: ?testlaunch.TraceArea = null;
+    for (edited_trace.areas.slice()) |item| {
+        if (std.mem.eql(u8, item.name.slice(), area_name)) reported_area = item;
+    }
+    const seen_area = reported_area orelse {
+        std.debug.print("map-editor: {s} FAIL: the game reported no script area named {s} (areas seen {d}); see {s}\n", .{ label, area_name, edited_trace.areas.seen, edited_log_path });
+        return false;
+    };
+    if (@abs(seen_area.cx - area.cx) > 1 or @abs(seen_area.cy - area.cy) > 1) {
+        std.debug.print("map-editor: {s} FAIL: the game's area {s} is at {d:.0},{d:.0}, not the stored {d:.0},{d:.0}; see {s}\n", .{ label, area_name, seen_area.cx, seen_area.cy, area.cx, area.cy, edited_log_path });
         return false;
     }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE area name={s} cx={d:.0} cy={d:.0} (stored {d:.0},{d:.0})\n", .{ label, area_name, seen_area.cx, seen_area.cy, area.cx, area.cy });
+
+    // The script's traces: Init's 1 (it ran), then the two numbers GetScriptAreaParams
+    // gave for the area - the stored centre - then Report's counts of script group
+    // 4245, which LandReinforcement queued: 0 until the game lands the unit, then 1.
+    const lua = edited_trace.lua.slice();
+    if (lua.len < 4 or !std.mem.eql(u8, lua[0].slice(), "1")) {
+        std.debug.print("map-editor: {s} FAIL: the script's first trace is not \"1\", or it traced fewer than four lines (lua lines seen {d}); see {s}\n", .{ label, edited_trace.lua.seen, edited_log_path });
+        return false;
+    }
+    const lua_x = std.fmt.parseFloat(f32, lua[1].slice()) catch std.math.nan(f32);
+    const lua_y = std.fmt.parseFloat(f32, lua[2].slice()) catch std.math.nan(f32);
+    if (!(@abs(lua_x - area.cx) <= 1) or !(@abs(lua_y - area.cy) <= 1)) {
+        std.debug.print("map-editor: {s} FAIL: GetScriptAreaParams(\"{s}\") gave {s},{s} to the script, not the stored centre {d:.0},{d:.0}; see {s}\n", .{ label, area_name, lua[1].slice(), lua[2].slice(), area.cx, area.cy, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE lua: the script found {s} at {s},{s}\n", .{ label, area_name, lua[1].slice(), lua[2].slice() });
     var landed_at: ?usize = null;
-    for (lua[1..], 1..) |line, index| {
+    for (lua[3..], 1..) |line, index| {
         const count = std.fmt.parseInt(i32, line.slice(), 10) catch -1;
         if (count > 1) {
             std.debug.print("map-editor: {s} FAIL: the script counted {s} units in script group {d}, not at most 1; see {s}\n", .{ label, line.slice(), held_script_id, edited_log_path });
@@ -514,10 +559,10 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         if (count == 1 and landed_at == null) landed_at = index;
     }
     const landed = landed_at orelse {
-        std.debug.print("map-editor: {s} FAIL: script group {d} never held the landed unit in {d} counts (lua lines seen {d}); see {s}\n", .{ label, held_script_id, lua.len - 1, edited_trace.lua.seen, edited_log_path });
+        std.debug.print("map-editor: {s} FAIL: script group {d} never held the landed unit in {d} counts (lua lines seen {d}); see {s}\n", .{ label, held_script_id, lua.len - 3, edited_trace.lua.seen, edited_log_path });
         return false;
     };
-    std.debug.print("map-editor: {s}: BK_MAP_TRACE lua: the script ran, and script group {d} held one unit from count {d} of {d} after LandReinforcement({d})\n", .{ label, held_script_id, landed, lua.len - 1, held_group });
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE lua: script group {d} held one unit from count {d} of {d} after LandReinforcement({d})\n", .{ label, held_script_id, landed, lua.len - 3, held_group });
 
     // Assumption A2, measured and printed, not asserted: the anchor's z as
     // the editor took it from the terrain against the z the game reports.
@@ -539,6 +584,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, script {s} ran)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, script_name });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, script_name, area_name });
     return true;
 }

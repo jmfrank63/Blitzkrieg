@@ -463,6 +463,16 @@ pub const State = struct {
     script_copy: ScriptCopyPending = .{},
     script_note: [200]u8 = undefined,
 
+    /// 04-10 (D-21): the map's script areas (AI units, list order), read again
+    /// when the editor's `.script_area` record generation moves or a map opens
+    /// (`refreshAreas`); `areas_at_open` is for `areas_delta`. The Rename field
+    /// shows the selected area's name and follows the selection.
+    areas: std.ArrayListUnmanaged(core.records.ScriptArea) = .empty,
+    areas_generation_seen: ?u32 = null,
+    areas_at_open: usize = 0,
+    area_rename_field: [core.records.area_name_capacity:0]u8 = [_:0]u8{0} ** core.records.area_name_capacity,
+    area_rename_for: ?usize = null,
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -532,6 +542,7 @@ pub const State = struct {
         self.allocator.free(self.trench_infos);
         self.freeGroups();
         core.files.freeNames(self.allocator, &self.script_names);
+        self.areas.deinit(self.allocator);
         self.groups.deinit(self.allocator);
         self.groups_checked.deinit(self.allocator);
         self.hidden_wanted.deinit(self.allocator);
@@ -775,6 +786,20 @@ pub const State = struct {
         self.trench_infos = self.editor.entrenchments(self.allocator) catch &.{};
     }
 
+    /// The map's script areas, read again when the editor's `.script_area`
+    /// generation moved or a map opened (`mapOpened` resets the mark). A map whose
+    /// area names the record cannot hold reads as no areas (it saves byte-exact).
+    pub fn refreshAreas(self: *State) void {
+        const generation = self.editor.record_generations.get(.script_area);
+        if (self.areas_generation_seen != null and self.areas_generation_seen.? == generation) return;
+        self.areas_generation_seen = generation;
+        self.areas.clearRetainingCapacity();
+        if (!mapIsOpen(self.editor)) return;
+        const list = self.editor.scriptAreas(self.allocator) catch return;
+        defer self.allocator.free(list);
+        self.areas.appendSlice(self.allocator, list) catch {};
+    }
+
     fn freeGroups(self: *State) void {
         for (self.groups.items) |row| self.allocator.free(row.ids);
         self.groups.clearRetainingCapacity();
@@ -955,6 +980,10 @@ pub const State = struct {
         self.trench_player_chosen = false;
         // The bridge forgot the last map's hidden set on the open; so does the
         // panel's, and the groups are the new map's.
+        self.areas_generation_seen = null;
+        self.area_rename_for = null;
+        self.refreshAreas();
+        self.areas_at_open = self.areas.items.len;
         self.script_names_stale = true;
         self.script_generation_seen = null;
         self.script_pick_active = false;
@@ -1056,6 +1085,8 @@ pub fn draw(state: *State) void {
         panels_m2.drawFences(state, left_pos, left_size, cond)
     else if (state.view.tool == .entrenchment)
         panels_m2.drawEntrenchments(state, left_pos, left_size, cond)
+    else if (state.view.tool == .script_areas)
+        panels_m2.drawScriptAreas(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);

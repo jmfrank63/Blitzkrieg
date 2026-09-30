@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas };
 
 pub const Entry = struct {
     id: ToolId,
@@ -85,6 +85,17 @@ pub const entries = [_]Entry{
         .ctrl_click_is_right = true,
         .needs_double_click = true,
         .marker_kinds = marker_logic.MarkerSet.only(&.{.selection_outline}),
+    },
+    // 04-10 (D-21): the MFC area tab. A drag draws a rectangle or a circle, a click
+    // inside an area selects it, a drag from the selected area's centre handle moves
+    // it and from its corner or edge handle resizes it; Delete removes it. All
+    // left button and keys. Its markers are the areas themselves, whatever View ->
+    // Markers says, so the tool never edits what it cannot see.
+    .{
+        .id = .script_areas,
+        .label = "script_areas",
+        .shortcut = '8',
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.script_areas}),
     },
 };
 
@@ -201,6 +212,15 @@ test "the Entrenchment tool is key 7: right button, Ctrl-as-right and double cli
     try std.testing.expect(item.marker_kinds.has(.selection_outline));
     try std.testing.expectEqual(@as(?ToolId, .entrenchment), byShortcut('7'));
     try std.testing.expectEqual(@as(?ToolId, .entrenchment), byLabel("entrenchment"));
+}
+
+test "the Script Areas tool is key 8: left button and keys only, with the areas as its markers" {
+    const item = entry(.script_areas);
+    try std.testing.expectEqual(@as(?u8, '8'), item.shortcut);
+    try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.script_areas));
+    try std.testing.expectEqual(@as(?ToolId, .script_areas), byShortcut('8'));
+    try std.testing.expectEqual(@as(?ToolId, .script_areas), byLabel("script_areas"));
 }
 
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {

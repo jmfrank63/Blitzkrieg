@@ -541,3 +541,104 @@ pub fn openUrlWithSystem(url: [:0]const u8) ?[]const u8 {
     const reason = sdl3.c.SDL_GetError();
     return if (reason != null) std.mem.span(reason) else "the system would not open the script";
 }
+
+/// What one frame of the Script areas panel asked for, run after the list's
+/// loop: a command re-reads the rows the loop holds.
+const AreaAction = union(enum) {
+    none,
+    choose: usize,
+    rename: usize,
+    delete: usize,
+};
+
+/// What the Script areas panel says.
+pub const script_areas_help = "Drag on the map to draw an area; click inside one to select it. On the selected area drag the square at its centre to move it and the circle at its corner or edge to resize it; Delete removes it. The game finds an area by its name.";
+
+/// D-21: the MFC Areas tab as a panel - the Rectangle / Circle switch, the name of
+/// the next area (empty: the first free area_<n>), the map's areas (a click selects
+/// one and centres the view on it), and the selected area's Rename and Delete.
+/// Every control runs a named command (commands.zig), so BK_EDITOR_AUTO reaches it
+/// too.
+pub fn drawScriptAreas(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = panels.beginPanel("Script areas", pos, size, cond, null);
+    defer panels.endPanel(open);
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshAreas();
+    const tool = &state.view.areas_tool;
+    var action: AreaAction = .none;
+
+    ig.igSeparatorText("New area");
+    if (ig.igRadioButton("Rectangle", tool.shape == .rectangle)) _ = commands.run(state, "area_shape", "rect");
+    ig.igSameLine();
+    if (ig.igRadioButton("Circle", tool.shape == .circle)) _ = commands.run(state, "area_shape", "circle");
+    if (ig.igInputTextWithHint("name", "next free: area_<n>", &tool.name_buffer, tool.name_buffer.len, 0)) {
+        tool.name_len = std.mem.sliceTo(&tool.name_buffer, 0).len;
+    }
+
+    ig.igSeparatorText("Areas");
+    const rows = state.areas.items;
+    if (rows.len == 0) {
+        panels.text("the map has no script areas");
+    } else if (ig.igBeginChild("areas-list", .{ .x = 0, .y = 150 }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (rows, 0..) |area, index| {
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            var label: [96:0]u8 = undefined;
+            const label_text = std.fmt.bufPrintZ(&label, "{s} ({s})", .{ area.nameSlice(), if (area.shape == .rectangle) "rectangle" else "circle" }) catch continue;
+            const selected = tool.selected != null and tool.selected.? == index;
+            if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
+        }
+    }
+    if (rows.len != 0) ig.igEndChild();
+
+    ig.igSeparatorText("Selected");
+    if (tool.selected != null and tool.selected.? < rows.len) {
+        const index = tool.selected.?;
+        const area = rows[index];
+        // The Rename field follows the selection, and is not overwritten under
+        // the cursor while it is being typed in.
+        if (state.area_rename_for == null or state.area_rename_for.? != index) {
+            @memset(&state.area_rename_field, 0);
+            @memcpy(state.area_rename_field[0..area.nameSlice().len], area.nameSlice());
+            state.area_rename_for = index;
+        }
+        var line: [128:0]u8 = undefined;
+        const detail = if (area.shape == .rectangle)
+            std.fmt.bufPrintZ(&line, "area {d}: rectangle at {d:.0}, {d:.0}, half size {d:.0} x {d:.0}", .{ index, area.cx, area.cy, area.hx, area.hy })
+        else
+            std.fmt.bufPrintZ(&line, "area {d}: circle at {d:.0}, {d:.0}, radius {d:.0}", .{ index, area.cx, area.cy, area.r });
+        panels.text(detail catch "selected");
+        _ = ig.igInputText("rename", &state.area_rename_field, state.area_rename_field.len + 1, 0);
+        if (ig.igButton("Rename")) action = .{ .rename = index };
+        ig.igSameLine();
+        if (ig.igButton("Delete")) action = .{ .delete = index };
+    } else {
+        state.area_rename_for = null;
+        panels.text("none selected");
+    }
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(script_areas_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+
+    switch (action) {
+        .none => {},
+        .choose => |index| _ = commands.gotoArea(state, index),
+        .rename => |index| {
+            var buffer: [records.area_name_capacity]u8 = undefined;
+            const text = std.mem.sliceTo(&state.area_rename_field, 0);
+            @memcpy(buffer[0..text.len], text);
+            _ = commands.renameArea(state, index, buffer[0..text.len]);
+            state.area_rename_for = null;
+        },
+        .delete => |index| {
+            _ = commands.deleteArea(state, index);
+            state.area_rename_for = null;
+        },
+    }
+}

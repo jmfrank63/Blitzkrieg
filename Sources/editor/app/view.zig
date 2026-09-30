@@ -114,6 +114,8 @@ pub fn ViewWith(comptime Input: type) type {
         fence_tool: core.tools_groups.FenceTool = .{},
         /// 04-08: the Entrenchment tool (D-13).
         trench_tool: core.tools_groups.EntrenchmentTool = .{},
+        /// 04-10: the Script Areas tool (D-21).
+        areas_tool: core.tools_ai.ScriptAreas = .{},
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -266,6 +268,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.bridge_tool.reset();
             self.fence_tool.reset();
             self.trench_tool.reset();
+            self.areas_tool.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -312,6 +315,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.bridge_tool.reset();
             self.fence_tool.reset();
             self.trench_tool.reset();
+            self.areas_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -718,6 +722,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .bridge => self.bridge_tool.handle(editor, event),
                 .fence => self.fence_tool.handle(editor, event),
                 .entrenchment => self.trench_tool.handle(editor, event),
+                .script_areas => self.areas_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
         }
@@ -1461,7 +1466,7 @@ test "view: the right button, a double click and the new keys reach no gesture i
         rig.send(mouseButton(button_right, false, 60, 40));
         rig.send(doubleClickDown(40, 40));
         rig.send(mouseButton(button_left, false, 40, 40)); // clicks 1 here: a plain release
-        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_8, sdl3.c.SDLK_9 }) |key| {
+        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_9 }) |key| {
             rig.send(keyDown(key, 0, false));
         }
         try testing.expectEqual(depth, rig.editor.history.undo_stack.items.len);
@@ -1557,9 +1562,12 @@ test "view: the registry's shortcuts still switch the M1 tools" {
     rig.send(keyDown(sdl3.c.SDLK_1, 0, false));
     try testing.expectEqual(Tool.select, rig.view.tool);
     // Keys the registry does not know change nothing (7 is the Entrenchment
-    // tool's since 04-08; 9 is nobody's).
+    // tool's since 04-08, 8 the Script Areas tool's since 04-10; 9 is nobody's).
     rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
     try testing.expectEqual(Tool.select, rig.view.tool);
     rig.send(keyDown(sdl3.c.SDLK_7, 0, false));
     try testing.expectEqual(Tool.entrenchment, rig.view.tool);
+    // 8 is the Script Areas tool's since 04-10.
+    rig.send(keyDown(sdl3.c.SDLK_8, 0, false));
+    try testing.expectEqual(Tool.script_areas, rig.view.tool);
 }
