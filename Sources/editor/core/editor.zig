@@ -57,6 +57,10 @@ pub const Editor = struct {
     /// edit, which may renumber nothing but costs a panel one re-read), its
     /// undo and redo, and an open or a close.
     entrenchments_generation: u32 = 0,
+    /// The same for altitudes (M3, D-19): bumped by every setAltitudes, its
+    /// undo and redo, and an open or a close, so whatever shows the terrain's
+    /// heights (the minimap's gradient, the Heights panel) reads them again.
+    altitudes_generation: u32 = 0,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -184,6 +188,7 @@ pub const Editor = struct {
         self.bridges_generation +%= 1;
         self.entrenchments_generation +%= 1;
         self.sounds_generation +%= 1;
+        self.altitudes_generation +%= 1;
         for (std.enums.values(records.Kind)) |kind| self.record_generations.set(kind, self.record_generations.get(kind) +% 1);
     }
 
@@ -1199,6 +1204,7 @@ pub const Editor = struct {
                 self.bridges_generation +%= 1;
                 self.entrenchments_generation +%= 1;
             },
+            .altitudes => self.altitudes_generation +%= 1,
         }
     }
 
@@ -1299,6 +1305,31 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.deleteVsoPoint(kind, @intCast(index), @intCast(control), &token));
         self.commitEdit(&prepared, token, 0, .vso);
+    }
+
+    /// Sets the terrain vertex heights (WORLD z units) over `region`
+    /// (terrain-vertex indices, half-open, row-major like `heights`), one
+    /// bridge edit per call (M3, D-19): the bridge sets the heights,
+    /// recomputes the shades over the region grown by the shade kernel and
+    /// pushes the covering patches into the engine; undo restores the
+    /// recorded region raw, so nothing outside it moves. The calls of one
+    /// drag (`gesture`) merge into one undo step, exactly like a paint. A
+    /// refusal (a region off the map, a count that does not match the
+    /// region, a non-finite height) changes nothing: not the bridge, not
+    /// the history, not the generation.
+    pub fn setAltitudes(self: *Editor, region: bridge_mod.AltitudeRegion, heights: []const f32, gesture: u32) EditError!void {
+        var prepared = try self.prepareEdit(gesture, .altitudes);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.setAltitudes(region, heights, &token));
+        self.commitEdit(&prepared, token, gesture, .altitudes);
+    }
+
+    /// The terrain vertex heights (WORLD z units) over `region`, row-major
+    /// into `out` (sized by a first sizing call, `altitudes`'s two-pass
+    /// rule). A read: the status line is left alone.
+    pub fn altitudes(self: *Editor, region: bridge_mod.AltitudeRegion, out: []f32, total: *usize) bridge_mod.Status {
+        return self.bridge.altitudes(region, out, total);
     }
 
     /// The road or river under a world point, `cycle` skipping that many
@@ -3602,4 +3633,81 @@ test "mobile script IDs: add and remove are one step each, a duplicate is a note
     try std.testing.expectEqual(@as(usize, 5), fake.ai_sides.items.len);
     try std.testing.expect(try editor.undo());
     try std.testing.expectEqual(@as(usize, 2), fake.ai_sides.items.len);
+}
+
+test "altitude region edits: set, merge within a gesture, undo and redo (M3 D-19)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    try fake.setAltitudeFixture(4, 4, 100);
+    const region: bridge_mod.AltitudeRegion = .{ .x0 = 2, .y0 = 2, .x1 = 6, .y1 = 6 };
+    // (4,4) sits at row 2, column 2 of the region.
+    try std.testing.expectEqual(@as(f32, 100), fake.altitude(4, 4));
+    const generation_at_open = editor.altitudes_generation;
+    var ramp: [16]f32 = undefined;
+    for (&ramp, 0..) |*height, i| height.* = @floatFromInt(i);
+    const gesture = editor.beginGesture();
+    try editor.setAltitudes(region, &ramp, gesture);
+    try std.testing.expectEqual(@as(f32, 10), fake.altitude(4, 4));
+    try std.testing.expectEqual(@as(f32, 5), fake.altitude(3, 3));
+    try std.testing.expectEqual(generation_at_open + 1, editor.altitudes_generation);
+    // A second call in the same gesture merges into the one undo step.
+    try editor.setAltitudes(region, &ramp, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation_at_open + 2, editor.altitudes_generation);
+    try std.testing.expect(editor.dirty());
+    // The read is two-pass: the total is answered even to a short buffer.
+    var short: [4]f32 = undefined;
+    var read_back: [16]f32 = undefined;
+    var total: usize = 0;
+    try std.testing.expectEqual(bridge_mod.Status.refused, editor.bridge.altitudes(region, &short, &total));
+    try std.testing.expectEqual(@as(usize, 16), total);
+    try std.testing.expectEqual(bridge_mod.Status.ok, editor.bridge.altitudes(region, &read_back, &total));
+    // (4,4) sits at row 2, column 2 of the region: index 2*4+2.
+    try std.testing.expectEqual(@as(f32, 10), read_back[2 * 4 + 2]);
+    // Undo puts the recorded region back raw, redo reapplies it.
+    _ = try editor.undo();
+    try std.testing.expectEqual(@as(f32, 100), fake.altitude(4, 4));
+    try std.testing.expectEqual(@as(f32, 0), fake.altitude(3, 3));
+    try std.testing.expectEqual(generation_at_open + 3, editor.altitudes_generation);
+    _ = try editor.redo();
+    try std.testing.expectEqual(@as(f32, 10), fake.altitude(4, 4));
+    while (try editor.undo()) {}
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(f32, 100), fake.altitude(4, 4));
+}
+
+test "altitude refusals change nothing: off-map, count mismatch, empty region, non-finite" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    try fake.setAltitudeFixture(4, 4, 100);
+    const region: bridge_mod.AltitudeRegion = .{ .x0 = 2, .y0 = 2, .x1 = 6, .y1 = 6 };
+    var ramp: [16]f32 = undefined;
+    for (&ramp, 0..) |*height, i| height.* = @floatFromInt(i);
+    const good: [16]f32 = ramp;
+    // A region off the vertex sheet is Refused (an ordinary no); the count
+    // still has to match it, exactly as the C ABI orders its checks.
+    try std.testing.expectError(error.Refused, editor.setAltitudes(.{ .x0 = 8, .y0 = 8, .x1 = 12, .y1 = 12 }, &good, 0));
+    // A count mismatch, an empty region and a non-finite height are caller
+    // bugs: Failed, and nothing moves.
+    try std.testing.expectError(error.Failed, editor.setAltitudes(region, good[0..15], 0));
+    try std.testing.expectError(error.Failed, editor.setAltitudes(.{ .x0 = 2, .y0 = 2, .x1 = 2, .y1 = 6 }, &good, 0));
+    var nan_heights: [16]f32 = ramp;
+    nan_heights[7] = std.math.nan(f32);
+    try std.testing.expectError(error.Failed, editor.setAltitudes(region, &nan_heights, 0));
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(f32, 100), fake.altitude(4, 4));
+    // The generation has not moved either: the open bumped it once, and no
+    // refusal has touched it since.
+    try std.testing.expectEqual(@as(u32, 1), editor.altitudes_generation);
+    // The read refuses the same off-map region.
+    var heights: [16]f32 = undefined;
+    var total: usize = 0;
+    try std.testing.expectEqual(bridge_mod.Status.refused, editor.bridge.altitudes(.{ .x0 = 8, .y0 = 8, .x1 = 12, .y1 = 12 }, &heights, &total));
 }

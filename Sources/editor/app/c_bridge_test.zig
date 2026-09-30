@@ -647,5 +647,51 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectDocumentIsBridge(&real, &editor);
     std.debug.print("map-editor-engine: M2 entrenchment round trip ok ({d} pieces, {d} sections)\n", .{ pieces, drawn_trenches[trench].section_count });
 
+    // M3 (05-01, D-19): altitudes end to end on the real engine. A ramp goes
+    // in through the core Editor's setAltitudes - the bridge sets the
+    // heights, recomputes the shades over the shade-kernel-grown region and
+    // pushes the covering patches - and the engine agrees with the map after
+    // every step; the calls of one gesture are one undo step, undo puts the
+    // recorded region back raw and redo reapplies it, and the undo-all at the
+    // end leaves the map not dirty.
+    {
+        const region: core.bridge.AltitudeRegion = .{ .x0 = 8, .y0 = 8, .x1 = 16, .y1 = 16 };
+        const width: usize = @intCast(region.x1 - region.x0);
+        const area = width * @as(usize, @intCast(region.y1 - region.y0));
+        var heights_before: [64]f32 = undefined;
+        var total: usize = 0;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.altitudes(region, &heights_before, &total));
+        try std.testing.expectEqual(area, total);
+        var ramp: [64]f32 = undefined;
+        for (&ramp, 0..) |*height, i| height.* = @floatFromInt(i * 8);
+        const altitude_gesture = editor.beginGesture();
+        const altitudes_seen = editor.altitudes_generation;
+        try editor.setAltitudes(region, &ramp, altitude_gesture);
+        try editor.setAltitudes(region, &ramp, altitude_gesture); // the same gesture: one undo step
+        try std.testing.expectEqual(altitudes_seen + 2, editor.altitudes_generation);
+        try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+        try expectEngineMatches(&real);
+        try std.testing.expect(editor.dirty());
+        var after: [64]f32 = undefined;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.altitudes(region, &after, &total));
+        for (after, ramp) |got, want| try std.testing.expectEqual(want, got);
+        // The shades moved with the heights: the engine agrees with the map
+        // (expectEngineMatches above) and undo lands byte-raw.
+        _ = try editor.undo();
+        try expectEngineMatches(&real);
+        try std.testing.expect(!editor.dirty());
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.altitudes(region, &after, &total));
+        for (after, heights_before) |got, want| try std.testing.expectEqual(want, got);
+        _ = try editor.redo();
+        try expectEngineMatches(&real);
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.altitudes(region, &after, &total));
+        for (after, ramp) |got, want| try std.testing.expectEqual(want, got);
+        while (try editor.undo()) {}
+        try std.testing.expect(!editor.dirty());
+        try expectEngineMatches(&real);
+        try expectDocumentIsBridge(&real, &editor);
+        std.debug.print("map-editor-engine: M3 altitudes round trip ok\n", .{});
+    }
+
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }

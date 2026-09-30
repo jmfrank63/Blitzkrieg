@@ -258,6 +258,38 @@ BkEditorStatus BkEditorRedoPaint( BkEditorSession *session, int token );
    off the map. */
 BkEditorStatus BkEditorEngineTile( BkEditorSession *session, int x, int y, unsigned char *out_tile );
 
+/* Altitudes (M3, D-19): the terrain's vertex heights, editable as a region
+   under the preservation invariant. The heights are WORLD z units, exactly
+   what SVertexAltitude::fHeight holds; the shades are the bridge's own
+   business - an edit sets the heights and runs the engine's shade recompute
+   over the region grown by the shade kernel (one vertex per side), and undo
+   restores the recorded region raw, so nothing outside it moves. */
+/* Vertex indices, half-open: [x0, x1) x [y0, y1) in terrain-VERTEX
+   coordinates - altitudes are indexed by terrain vertex, one more per axis
+   than the map's tiles (a 512-tile map has 513 vertices per axis). This is
+   the region BkEditorAltitudes reads and BkEditorSetAltitudes writes. */
+typedef struct { int x0, y0, x1, y1; } BkEditorAltitudeRegion;
+/* Two-pass read of the z values (world units) over the region, row-major.
+   Like BkEditorObjects, out_count is always the total and a buffer too short
+   for it is BK_EDITOR_REFUSED with nothing written past capacity; heights may
+   be null when capacity is 0, to ask for the count. A null region, an empty
+   or inverted one, or a count that does not match the region is
+   BK_EDITOR_BAD_ARGUMENT; a region off the open map, or none open, is
+   BK_EDITOR_REFUSED. */
+BkEditorStatus BkEditorAltitudes( BkEditorSession *session, const BkEditorAltitudeRegion *region,
+                                  float *heights, int capacity, int *out_count );
+/* Sets the heights (world units) over the region, row-major: count must equal
+   the region's vertex count. Every height must be finite. Null pointers, an
+   empty or inverted region, a count mismatch or a non-finite height is
+   BK_EDITOR_BAD_ARGUMENT and nothing changes; a region off the open map, or
+   none open, is BK_EDITOR_REFUSED and nothing changes - not the map, not the
+   engine, not the history. out_token names the edit for BkEditorUndoEdit and
+   BkEditorRedoEdit (it may be null; it is -1 after a refusal or a failure).
+   Undo puts back exactly what the edit's region - the edit rectangle grown
+   by one vertex per side - held, so a redo of it restores the same bytes. */
+BkEditorStatus BkEditorSetAltitudes( BkEditorSession *session, const BkEditorAltitudeRegion *region,
+                                     const float *heights, int count, int *out_token );
+
 /* The tiles BkEditorPaint takes on the open map: every index its tileset has a
    terrain type for, once each, ascending - what a brush's palette offers.
    Like BkEditorObjects, out_count is always the total, and a buffer too short

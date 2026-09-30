@@ -26,6 +26,12 @@ comptime {
     std.debug.assert(@offsetOf(PaintCell, "x") == @offsetOf(c.BkEditorPaintCell, "x"));
     std.debug.assert(@offsetOf(PaintCell, "y") == @offsetOf(c.BkEditorPaintCell, "y"));
     std.debug.assert(@offsetOf(PaintCell, "tile") == @offsetOf(c.BkEditorPaintCell, "tile"));
+    // The core's AltitudeRegion (M3) is handed to BkEditorAltitudes and
+    // BkEditorSetAltitudes as it is: four ints, 16 bytes.
+    std.debug.assert(@sizeOf(core.bridge.AltitudeRegion) == @sizeOf(c.BkEditorAltitudeRegion));
+    std.debug.assert(@sizeOf(core.bridge.AltitudeRegion) == 16);
+    std.debug.assert(@offsetOf(core.bridge.AltitudeRegion, "x0") == @offsetOf(c.BkEditorAltitudeRegion, "x0"));
+    std.debug.assert(@offsetOf(core.bridge.AltitudeRegion, "y1") == @offsetOf(c.BkEditorAltitudeRegion, "y1"));
     // The core's camera anchors are read and put field by field, but the C
     // record's layout is part of the ABI: 12 (neutral) + 4 (count) + 32 * 12.
     std.debug.assert(@sizeOf(c.BkEditorVec3) == 12);
@@ -142,6 +148,8 @@ pub const RealBridge = struct {
         .reserveRole = vtableReserveRole,
         .undoEdit = vtableUndoEdit,
         .redoEdit = vtableRedoEdit,
+        .altitudes = vtableAltitudes,
+        .setAltitudes = vtableSetAltitudes,
         .vsoDescriptors = vtableVsoDescriptors,
         .vsoCount = vtableVsoCount,
         .readVso = vtableReadVso,
@@ -918,6 +926,38 @@ pub const RealBridge = struct {
 
     fn vtableRedoEdit(ptr: *anyopaque, token: i32) Status {
         return status(c.BkEditorRedoEdit(from(ptr).session, token));
+    }
+
+    fn toCAltitudeRegion(region: core.bridge.AltitudeRegion) c.BkEditorAltitudeRegion {
+        return .{ .x0 = region.x0, .y0 = region.y0, .x1 = region.x1, .y1 = region.y1 };
+    }
+
+    /// BkEditorAltitudes in two passes, like `vtableSounds`. A sizing pass
+    /// that answered REFUSED with no count is the refusal itself (no map,
+    /// off the map) - a real sizing answer always carries the region's
+    /// vertex count, which is never zero for a well-formed region.
+    fn vtableAltitudes(ptr: *anyopaque, region: core.bridge.AltitudeRegion, heights: []f32, total: *usize) Status {
+        const self = from(ptr);
+        const c_region = toCAltitudeRegion(region);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorAltitudes(self.session, &c_region, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and count == 0) return .refused;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (heights.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorAltitudes(self.session, &c_region, heights.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    fn vtableSetAltitudes(ptr: *anyopaque, region: core.bridge.AltitudeRegion, heights: []const f32, token: *i32) Status {
+        const count = std.math.cast(c_int, heights.len) orelse return .bad_argument;
+        const c_region = toCAltitudeRegion(region);
+        return status(c.BkEditorSetAltitudes(from(ptr).session, &c_region, heights.ptr, count, token));
     }
 
     fn kindInt(kind: VsoKind) c_int {

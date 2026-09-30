@@ -141,5 +141,53 @@ bool Paint( SLoadMapInfo *pMap, const std::vector<SPaintCell> &rCells, SPaintUnd
 void UndoPaint( SLoadMapInfo *pMap, const SPaintUndo &rUndo );
 // The region's tiles and patches as they are now, in SPaintUndo's layout.
 void CaptureRegion( const SLoadMapInfo &rMap, const CTRect<int> &rPatches, SPaintUndo *pOut );
+
+// D-19 (M3): everything an altitude region edit must remember to undo itself.
+// rVertices is in terrain-VERTEX coordinates - altitudes are indexed by
+// terrain vertex, one more per axis than the tiles - and altitudes are
+// row-major over that rectangle. The rectangle the record holds is the region
+// GROWN BY THE SHADE KERNEL (GrowForShades): a vertex's shade depends on its
+// neighbours' normals, so an edit inside R changes the shades of R's ring as
+// well, and undo has to put those back too. As with SPaintUndo, undo restores
+// exactly these rather than re-running any function, and the values must be
+// captured from the map's own storage, never a copy of it: SVertexAltitude is
+// written as a raw struct and its three padding bytes ride along with a
+// capture, whatever a copy left there.
+struct SAltitudeUndo
+{
+	CTRect<int> rVertices;								// the region, in terrain-vertex coordinates
+	std::vector<SVertexAltitude> altitudes;	// row-major over rVertices
+	SAltitudeUndo() : rVertices( 0, 0, 0, 0 ) {  }
+};
+
+// The shade kernel: a height edit changes every vertex whose normal reads it,
+// which is one vertex on each side of the edit - the MFC editor grows its
+// shade update rect the same way (DrawShadeState.cpp:210-213). Grown by one
+// vertex per side and clamped to the map's vertex bounds; a rectangle already
+// at the edge grows only the sides that have room.
+CTRect<int> GrowForShades( const SLoadMapInfo &rMap, const CTRect<int> &rVertices );
+
+// The region's altitudes as they are now, in SAltitudeUndo's layout.
+void CaptureAltitudeRegion( const SLoadMapInfo &rMap, const CTRect<int> &rVertices, SAltitudeUndo *pOut );
+// Writes the values row-major over rVertices, an in-place assignment of whole
+// SVertexAltitude records (so a raw undo can put them back). False, with the
+// map untouched, for a bad rectangle (empty, inverted or off the map) or a
+// value count that does not match the rectangle. pBefore, when given, gets
+// the region's state beforehand. The shade of each value is the caller's to
+// fill: the deterministic function of D-19 sets the heights and then runs
+// CMapInfo::UpdateTerrainShades over GrowForShades of the rectangle, which is
+// the bridge's ApplyAltitudesInSession, not this write.
+bool SetAltitudeRegion( SLoadMapInfo *pMap, const CTRect<int> &rVertices, const std::vector<SVertexAltitude> &rValues, SAltitudeUndo *pBefore );
+// Puts the recorded region back raw - heights, shades and padding bytes, and
+// nothing re-run, exactly SPaintUndo's own rule.
+void UndoAltitudeRegion( SLoadMapInfo *pMap, const SAltitudeUndo &rUndo );
+
+// The same three over a bare STerrainInfo: the engine keeps its own terrain
+// and has no per-vertex altitude call, so the bridge writes its copy in place
+// the way the MFC editor did through GetTerrainInfo (DrawShadeState.cpp:204).
+// The map-level ones above are these over pMap->terrain.
+void CaptureTerrainAltitudeRegion( const STerrainInfo &rTerrain, const CTRect<int> &rVertices, SAltitudeUndo *pOut );
+bool SetTerrainAltitudeRegion( STerrainInfo *pTerrain, const CTRect<int> &rVertices, const std::vector<SVertexAltitude> &rValues, SAltitudeUndo *pBefore );
+void UndoTerrainAltitudeRegion( STerrainInfo *pTerrain, const SAltitudeUndo &rUndo );
 }
 #endif // __MAP_OVERLAY_H__

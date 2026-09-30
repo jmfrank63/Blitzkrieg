@@ -87,6 +87,11 @@ pub const ActionCommand = struct {
 /// straight to the C call.
 pub const PaintCell = extern struct { x: c_int, y: c_int, tile: u8 };
 
+/// BkEditorAltitudeRegion (M3, D-19), layout included: terrain-VERTEX
+/// indices, half-open [x0, x1) x [y0, y1) - altitudes are indexed by terrain
+/// vertex, one more per axis than the map's tiles.
+pub const AltitudeRegion = extern struct { x0: c_int, y0: c_int, x1: c_int, y1: c_int };
+
 /// BkEditorSoundRecord. Positions are world (scene) units, not map units
 /// (bridge.h's own comment on BkEditorSounds); radii are vis tiles; times
 /// are milliseconds.
@@ -373,6 +378,19 @@ pub const Bridge = struct {
         /// out of order is refused.
         undoEdit: *const fn (ptr: *anyopaque, token: i32) Status,
         redoEdit: *const fn (ptr: *anyopaque, token: i32) Status,
+        /// BkEditorAltitudes (M3, D-19): the terrain vertex heights (WORLD z
+        /// units) over the region, row-major, two-pass like `sounds` (`total`
+        /// is always the full count; a short buffer is refused).
+        altitudes: *const fn (ptr: *anyopaque, region: AltitudeRegion, heights: []f32, total: *usize) Status,
+        /// BkEditorSetAltitudes: the heights (WORLD z units) over the region,
+        /// row-major, `count == the region's vertex count`; one edit of the
+        /// bridge's log (`token` names it for undoEdit/redoEdit). The bridge
+        /// sets the heights, recomputes the shades over the region grown by
+        /// the shade kernel (one vertex per side) and pushes the covering
+        /// patches into the engine; undo restores the recorded region raw.
+        /// Refused, changing nothing, for a region off the map; bad
+        /// heights (null, non-finite, count mismatch) never reach the map.
+        setAltitudes: *const fn (ptr: *anyopaque, region: AltitudeRegion, heights: []const f32, token: *i32) Status,
         /// BkEditorVsoDescriptors: the season's road or river types, bare
         /// names, sorted. `total` is always the full count (two-pass, like
         /// `sounds`).
@@ -501,6 +519,8 @@ pub const Bridge = struct {
     pub fn reserveRole(self: Bridge, name: []const u8, role: *i32) Status { return self.vtable.reserveRole(self.ptr, name, role); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }
     pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
+    pub fn altitudes(self: Bridge, region: AltitudeRegion, heights: []f32, total: *usize) Status { return self.vtable.altitudes(self.ptr, region, heights, total); }
+    pub fn setAltitudes(self: Bridge, region: AltitudeRegion, heights: []const f32, token: *i32) Status { return self.vtable.setAltitudes(self.ptr, region, heights, token); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }
@@ -539,4 +559,12 @@ test "check turns a refusal into Refused and everything else into Failed" {
 test "a paint cell has the C struct's layout" {
     try std.testing.expectEqual(@as(usize, 12), @sizeOf(PaintCell));
     try std.testing.expectEqual(@as(usize, 8), @offsetOf(PaintCell, "tile"));
+}
+
+test "an altitude region has the C struct's layout" {
+    try std.testing.expectEqual(@as(usize, 16), @sizeOf(AltitudeRegion));
+    try std.testing.expectEqual(@as(usize, 0), @offsetOf(AltitudeRegion, "x0"));
+    try std.testing.expectEqual(@as(usize, 4), @offsetOf(AltitudeRegion, "y0"));
+    try std.testing.expectEqual(@as(usize, 8), @offsetOf(AltitudeRegion, "x1"));
+    try std.testing.expectEqual(@as(usize, 12), @offsetOf(AltitudeRegion, "y1"));
 }
