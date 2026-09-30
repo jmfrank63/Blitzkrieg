@@ -38,6 +38,33 @@ pub const Event = union(enum) {
     double_click: Pointer,
 };
 
+/// WR-B02: where the selected item is in `items` after an undo or redo.
+/// A replay that kept the list's length (`captured_len`, the length at the
+/// capture) added or took away nothing, so no index moved: `index` stands,
+/// even when the replay changed the item itself (a rotate, a move). One that
+/// changed the length shifted the list: the item is found again by `key`, what
+/// it was at the capture - `index` itself when it still holds it, else the
+/// first equal one, else null (the item is gone).
+pub fn refind(comptime T: type, items: []const T, index: ?usize, key: T, captured_len: usize, comptime eql: fn (T, T) bool) ?usize {
+    if (index) |position| {
+        if (items.len == captured_len and position < items.len) return position;
+        if (position < items.len and eql(items[position], key)) return position;
+    }
+    for (items, 0..) |item, position| {
+        if (eql(item, key)) return position;
+    }
+    return null;
+}
+
+/// `std.meta.eql` in the shape `refind` takes.
+pub fn metaEql(comptime T: type) fn (T, T) bool {
+    return struct {
+        fn eql(a: T, b: T) bool {
+            return std.meta.eql(a, b);
+        }
+    }.eql;
+}
+
 /// A sixteenth of a turn. Directions are the engine's: 65536 is a full turn
 /// (SEngineObjectState::wDir is a WORD).
 pub const rotate_step: i32 = 4096;

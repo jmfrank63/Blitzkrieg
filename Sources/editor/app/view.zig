@@ -730,10 +730,26 @@ pub fn ViewWith(comptime Input: type) type {
         const UndoableDirection = enum { undo, redo };
 
         fn runUndoable(self: *Self, editor: *Editor, direction: UndoableDirection) void {
+            // WR-B02: every tool that selects by list index notes what it has
+            // selected before the replay and finds it again after, so an undo
+            // or redo that shifts a list never leaves a Delete, Q or Enter
+            // aimed at the item that took its place.
+            self.roads_rivers.captureSelection(editor);
+            self.bridge_tool.captureSelection(editor);
+            self.trench_tool.captureSelection(editor);
+            self.areas_tool.captureSelection(editor);
+            self.reserve_tool.captureSelection(editor);
+            self.ai_tool.captureSelection(editor);
             const result = switch (direction) {
                 .undo => editor.undo(),
                 .redo => editor.redo(),
             };
+            self.roads_rivers.resolveSelection(editor);
+            self.bridge_tool.resolveSelection(editor);
+            self.trench_tool.resolveSelection(editor);
+            self.areas_tool.resolveSelection(editor);
+            self.reserve_tool.resolveSelection(editor);
+            self.ai_tool.resolveSelection(editor);
             if (result) |_| self.clearStatus() else |err| self.noteToolError(editor, err);
         }
 

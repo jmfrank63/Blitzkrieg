@@ -70,6 +70,9 @@ pub const ScriptAreas = struct {
     /// The area the panel's list and the handles work on: an index into the map's
     /// list, the last area drawn or clicked. Follows an undo that removes it.
     selected: ?usize = null,
+    /// WR-B02: the selected area just before an undo or redo.
+    selected_key: ?records.ScriptArea = null,
+    selected_len: usize = 0,
     /// A drawing drag: where it began and where it is now, world units; null
     /// between drags. The app draws the ghost from these two.
     start: ?[2]f32 = null,
@@ -95,6 +98,29 @@ pub const ScriptAreas = struct {
 
     pub fn name(self: *const ScriptAreas) []const u8 {
         return self.name_buffer[0..self.name_len];
+    }
+
+    pub fn captureSelection(self: *ScriptAreas, editor: *Editor) void {
+        self.selected_key = null;
+        const index = self.selected orelse return;
+        const list = editor.scriptAreas(editor.allocator) catch return;
+        defer editor.allocator.free(list);
+        self.selected_len = list.len;
+        if (index < list.len) self.selected_key = list[index];
+    }
+
+    pub fn resolveSelection(self: *ScriptAreas, editor: *Editor) void {
+        const key = self.selected_key orelse {
+            self.selected = null;
+            return;
+        };
+        self.selected_key = null;
+        const list = editor.scriptAreas(editor.allocator) catch {
+            self.selected = null;
+            return;
+        };
+        defer editor.allocator.free(list);
+        self.selected = tools.refind(records.ScriptArea, list, self.selected, key, self.selected_len, records.ScriptArea.eql);
     }
 
     /// Forgets the drag and the selection, as a map change must; shape and name stay.
@@ -342,6 +368,33 @@ pub const ReservePositions = struct {
     /// the last one committed or clicked in the list.
     selected: ?usize = null,
 
+    /// WR-B02: the selected position just before an undo or redo.
+    selected_key: ?records.ReservePosition = null,
+    selected_len: usize = 0,
+
+    pub fn captureSelection(self: *ReservePositions, editor: *Editor) void {
+        self.selected_key = null;
+        const index = self.selected orelse return;
+        const list = editor.reservePositions(editor.allocator) catch return;
+        defer editor.allocator.free(list);
+        self.selected_len = list.len;
+        if (index < list.len) self.selected_key = list[index];
+    }
+
+    pub fn resolveSelection(self: *ReservePositions, editor: *Editor) void {
+        const key = self.selected_key orelse {
+            self.selected = null;
+            return;
+        };
+        self.selected_key = null;
+        const list = editor.reservePositions(editor.allocator) catch {
+            self.selected = null;
+            return;
+        };
+        defer editor.allocator.free(list);
+        self.selected = tools.refind(records.ReservePosition, list, self.selected, key, self.selected_len, records.ReservePosition.eql);
+    }
+
     /// Forgets the pending choice and the selection, as a map change must.
     pub fn reset(self: *ReservePositions) void {
         self.clearPending();
@@ -568,6 +621,12 @@ pub const AIGeneral = struct {
     /// The selection: a parcel of the side, and one of its points or none.
     selected_parcel: ?usize = null,
     selected_point: ?usize = null,
+    /// WR-B02: the selected parcel (its own fields, not its points) and point
+    /// just before an undo or redo, so `resolveSelection` finds them again.
+    selected_key: ?ParcelKey = null,
+    selected_point_key: ?records.ParcelPoint = null,
+    selected_len: usize = 0,
+    selected_points_len: usize = 0,
     /// The handle being dragged, and the gesture its edits merge under.
     grab: ?Grab = null,
     gesture: u32 = 0,
@@ -581,6 +640,72 @@ pub const AIGeneral = struct {
     };
 
     pub const Hit = struct { parcel: usize, point: ?usize, arrow: bool, handle: [2]f32 };
+
+    pub const ParcelKey = struct {
+        kind: records.ParcelKind,
+        cx: f32,
+        cy: f32,
+        radius: f32,
+        defence_dir: u16,
+
+        fn of(parcel: records.Parcel) ParcelKey {
+            return .{ .kind = parcel.kind, .cx = parcel.cx, .cy = parcel.cy, .radius = parcel.radius, .defence_dir = parcel.defence_dir };
+        }
+    };
+
+    pub fn captureSelection(self: *AIGeneral, editor: *Editor) void {
+        self.selected_key = null;
+        self.selected_point_key = null;
+        const index = self.selected_parcel orelse return;
+        var side = editor.aiSide(editor.allocator, self.side) catch return;
+        defer side.deinit(editor.allocator);
+        if (index >= side.parcels.len) return;
+        self.selected_len = side.parcels.len;
+        self.selected_points_len = side.parcels[index].points.len;
+        self.selected_key = ParcelKey.of(side.parcels[index]);
+        if (self.selected_point) |point| {
+            if (point < side.parcels[index].points.len) self.selected_point_key = side.parcels[index].points[point];
+        }
+    }
+
+    /// The drag is dropped; the parcel is found again by its own fields and the
+    /// point within it by its own (a replay that took the point away leaves the
+    /// parcel selected alone).
+    pub fn resolveSelection(self: *AIGeneral, editor: *Editor) void {
+        self.grab = null;
+        self.gesture = 0;
+        const key = self.selected_key orelse {
+            self.selected_parcel = null;
+            self.selected_point = null;
+            return;
+        };
+        const point_key = self.selected_point_key;
+        self.selected_key = null;
+        self.selected_point_key = null;
+        var side = editor.aiSide(editor.allocator, self.side) catch {
+            self.selected_parcel = null;
+            self.selected_point = null;
+            return;
+        };
+        defer side.deinit(editor.allocator);
+        const keys = editor.allocator.alloc(ParcelKey, side.parcels.len) catch {
+            self.selected_parcel = null;
+            self.selected_point = null;
+            return;
+        };
+        defer editor.allocator.free(keys);
+        for (side.parcels, keys) |parcel, *slot| slot.* = ParcelKey.of(parcel);
+        self.selected_parcel = tools.refind(ParcelKey, keys, self.selected_parcel, key, self.selected_len, tools.metaEql(ParcelKey));
+        const parcel = self.selected_parcel orelse {
+            self.selected_point = null;
+            return;
+        };
+        const wanted = point_key orelse {
+            self.selected_point = null;
+            return;
+        };
+        self.selected_point = tools.refind(records.ParcelPoint, side.parcels[parcel].points, self.selected_point, wanted, self.selected_points_len, records.ParcelPoint.eql);
+    }
 
     /// Forgets the selection and any drag, as a map change must; the side stays.
     pub fn reset(self: *AIGeneral) void {
@@ -929,6 +1054,27 @@ test "a position the bridge refuses mid-drag is skipped and the drag goes on" {
     try testing.expect(fake.script_areas.items[0].cx > at_ten);
     try tool.handle(&editor, .{ .release = pointerAt(&fake, centre_world + 20, centre_world) });
     try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+}
+
+test "an undo that shifts the areas list keeps the tool on the area it had selected (WR-B02)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var a: records.ScriptArea = .{ .shape = .circle, .cx = 40, .cy = 40, .r = 8 };
+    a.setName("a");
+    var b: records.ScriptArea = .{ .shape = .circle, .cx = 80, .cy = 80, .r = 8 };
+    b.setName("b");
+    _ = try editor.addScriptArea(a);
+    _ = try editor.addScriptArea(b);
+    try editor.deleteScriptArea(0);
+    var tool: ScriptAreas = .{};
+    tool.selected = 0; // "b", now first
+    tool.captureSelection(&editor);
+    try testing.expect(try editor.undo()); // "a" is back in front of it
+    tool.resolveSelection(&editor);
+    try testing.expectEqual(@as(?usize, 1), tool.selected);
+    try testing.expectEqualStrings("b", tool.selectedArea(&editor).?.nameSlice());
 }
 
 test "a click inside an area selects it, the last one drawn when they overlap, and Delete removes the selected one" {
