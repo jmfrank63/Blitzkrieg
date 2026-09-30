@@ -455,11 +455,26 @@ bool BridgePlanInputFor( SEditorSession *pSession, const std::string &szDesc, NM
 		pSession->szMessage = "the bridge type \"" + szDesc + "\" has no spans, or no begin, middle or end span";
 		return false;
 	}
+	// Every begin, line and end the seeded helpers can hand out (NewGroupFromPlan
+	// seeds a middle span with its place, so any line may be picked) is a span
+	// the type has, and every span's slab and girders are segments it has: the
+	// engine indexes both with asserts compiled out, so a mod descriptor that
+	// names past them is refused here, as trenches and fences are.
+	const int nSpans = int( rState.spans.size() ), nSegments = int( pStats->segments.size() );
+	const std::vector<int> *indexLists[3] = { &rState.begins, &rState.lines, &rState.ends };
+	bool bIndicesOk = true;
+	for ( int nList = 0; nList < 3 && bIndicesOk; ++nList )
+		for ( size_t i = 0; i < indexLists[nList]->size() && bIndicesOk; ++i )
+			bIndicesOk = (*indexLists[nList])[i] >= 0 && (*indexLists[nList])[i] < nSpans;
+	for ( int i = 0; i < nSpans && bIndicesOk; ++i )
+	{
+		const SBridgeRPGStats::SSpan &rSpan = rState.spans[i];
+		bIndicesOk = rSpan.nSlab >= 0 && rSpan.nSlab < nSegments && rSpan.nBackGirder < nSegments && rSpan.nFrontGirder < nSegments;
+	}
 	int nSeed = 0;
-	const int nBegin = pStats->GetRandomBeginIndex( -1, 0, &nSeed );
+	const int nBegin = bIndicesOk ? pStats->GetRandomBeginIndex( -1, 0, &nSeed ) : -1;
 	const int nLine = rState.lines[0];
-	if ( nBegin < 0 || nBegin >= int( rState.spans.size() ) || nLine < 0 || nLine >= int( rState.spans.size() ) ||
-	     rState.spans[nBegin].nSlab < 0 || rState.spans[nBegin].nSlab >= int( pStats->segments.size() ) )
+	if ( !bIndicesOk || nBegin < 0 || nBegin >= nSpans )
 	{
 		pSession->szMessage = "the bridge type \"" + szDesc + "\" names a span or segment it does not have";
 		return false;
