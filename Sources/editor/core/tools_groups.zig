@@ -48,6 +48,34 @@ pub const BridgeTool = struct {
     /// The bridges entry the tool works on: the last one drawn, or the one a
     /// click picked.
     selected: ?usize = null,
+    /// The selected bridge as it read just before an undo or redo
+    /// (`captureSelection`), so `resolveSelection` finds it again by what it
+    /// is, not by an index the replay may have shifted (WR-B02).
+    selected_key: ?bridge_mod.BridgeInfo = null,
+    selected_len: usize = 0,
+
+    pub fn captureSelection(self: *BridgeTool, editor: *Editor) void {
+        self.selected_key = null;
+        const index = self.selected orelse return;
+        const list = editor.bridges(editor.allocator) catch return;
+        defer editor.allocator.free(list);
+        self.selected_len = list.len;
+        if (index < list.len) self.selected_key = list[index];
+    }
+
+    pub fn resolveSelection(self: *BridgeTool, editor: *Editor) void {
+        const key = self.selected_key orelse {
+            self.selected = null;
+            return;
+        };
+        self.selected_key = null;
+        const list = editor.bridges(editor.allocator) catch {
+            self.selected = null;
+            return;
+        };
+        defer editor.allocator.free(list);
+        self.selected = tools.refind(bridge_mod.BridgeInfo, list, self.selected, key, self.selected_len, tools.metaEql(bridge_mod.BridgeInfo));
+    }
 
     pub fn setDesc(self: *BridgeTool, name: []const u8) void {
         const len = @min(name.len, self.desc_buffer.len - 1);
@@ -258,6 +286,34 @@ pub const EntrenchmentTool = struct {
     selected: ?usize = null,
     /// The entrenchment under the pointer while no polyline is started.
     hovered: ?usize = null,
+    /// As `BridgeTool.selected_key` (WR-B02).
+    selected_key: ?bridge_mod.EntrenchmentInfo = null,
+    selected_len: usize = 0,
+
+    pub fn captureSelection(self: *EntrenchmentTool, editor: *Editor) void {
+        self.selected_key = null;
+        const index = self.selected orelse return;
+        const list = editor.entrenchments(editor.allocator) catch return;
+        defer editor.allocator.free(list);
+        self.selected_len = list.len;
+        if (index < list.len) self.selected_key = list[index];
+    }
+
+    /// The hovered index is dropped too: the next pointer move finds it again.
+    pub fn resolveSelection(self: *EntrenchmentTool, editor: *Editor) void {
+        self.hovered = null;
+        const key = self.selected_key orelse {
+            self.selected = null;
+            return;
+        };
+        self.selected_key = null;
+        const list = editor.entrenchments(editor.allocator) catch {
+            self.selected = null;
+            return;
+        };
+        defer editor.allocator.free(list);
+        self.selected = tools.refind(bridge_mod.EntrenchmentInfo, list, self.selected, key, self.selected_len, tools.metaEql(bridge_mod.EntrenchmentInfo));
+    }
 
     pub fn pointSlice(self: *const EntrenchmentTool) []const [2]f32 {
         return self.points[0..self.len];
@@ -530,6 +586,32 @@ test "a re-read that fails after an undo leaves the step on the redo stack, wher
     try testing.expectEqual(bridges_before + 1, fake.bridgeCount());
     try testing.expect(try editor.undo());
     try testing.expectEqual(bridges_before, fake.bridgeCount());
+}
+
+test "an undo that shifts the bridges list keeps the tool on the bridge it had selected (WR-B02)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("W_Fake_Bridge_01");
+    const first = fake.bridgeCount();
+    try dragAcross(&tool, &editor, 20, 150, 120, 150);
+    try dragAcross(&tool, &editor, 20, 250, 120, 250);
+    const second_links = fake.bridgeEntry(first + 1).*;
+    // The first one deleted: the second is now at `first`, and selected there.
+    try editor.deleteBridge(first);
+    tool.selected = first;
+    // The undo brings the first back in front of it: the selection follows.
+    tool.captureSelection(&editor);
+    try testing.expect(try editor.undo());
+    tool.resolveSelection(&editor);
+    try testing.expectEqual(@as(?usize, first + 1), tool.selected);
+    try testing.expectEqualSlices(i32, second_links.linkSlice(), fake.bridgeEntry(tool.selected.?).linkSlice());
+    // An undo that takes the selected bridge away deselects it.
+    tool.captureSelection(&editor);
+    try testing.expect(try editor.undo());
+    tool.resolveSelection(&editor);
+    try testing.expectEqual(@as(?usize, null), tool.selected);
 }
 
 test "no type chosen is a note, not a command; the ghost follows the drag" {

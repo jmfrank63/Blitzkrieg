@@ -75,6 +75,10 @@ pub const RoadsRivers = struct {
     /// The road or river being edited: set by a finished line, a press on a
     /// line or a right-press cycle.
     selected: ?Selected = null,
+    /// WR-B02: the selected line's saved nID just before an undo or redo, so
+    /// `resolveSelection` finds the same line again whatever the replay did
+    /// to the list's order.
+    selected_key: ?i32 = null,
     /// Where the pointer is (world units), for the unfinished line's last
     /// leg; null off the terrain.
     cursor: ?[2]f32 = null,
@@ -143,6 +147,69 @@ pub const RoadsRivers = struct {
         self.deselect();
         self.cursor = null;
         self.cycle_at = null;
+    }
+
+    fn savedIdAt(editor: *Editor, kind: VsoKind, index: usize) ?i32 {
+        var view = editor.readVso(kind, index) catch return null;
+        defer view.deinit(editor.allocator);
+        return view.saved_id;
+    }
+
+    pub fn captureSelection(self: *RoadsRivers, editor: *Editor) void {
+        self.selected_key = null;
+        const which = self.selected orelse return;
+        self.selected_key = savedIdAt(editor, which.kind, which.index);
+    }
+
+    /// The line found again keeps its selection, and the point last grabbed
+    /// or hovered on it while that point is still there (Insert and Delete
+    /// act on it); a gesture in hand is dropped. A line that is gone is
+    /// deselected.
+    pub fn resolveSelection(self: *RoadsRivers, editor: *Editor) void {
+        const which = self.selected orelse return;
+        const key = self.selected_key orelse {
+            self.deselect();
+            return;
+        };
+        self.selected_key = null;
+        self.grab = null;
+        self.gesture = 0;
+        const count = editor.vsoCount(which.kind) catch {
+            self.deselect();
+            return;
+        };
+        var found: ?usize = null;
+        if (which.index < count and savedIdAt(editor, which.kind, which.index) == key) {
+            found = which.index;
+        } else {
+            var index: usize = 0;
+            while (index < count and found == null) : (index += 1) {
+                if (savedIdAt(editor, which.kind, index) == key) found = index;
+            }
+        }
+        const index = found orelse {
+            self.deselect();
+            return;
+        };
+        self.selected = .{ .kind = which.kind, .index = index };
+        var view = editor.readVso(which.kind, index) catch {
+            self.hovered_control = null;
+            self.last_grab = .none;
+            return;
+        };
+        defer view.deinit(editor.allocator);
+        if (self.hovered_control) |control| {
+            if (control >= view.control_points.len) self.hovered_control = null;
+        }
+        switch (self.last_grab) {
+            .none => {},
+            .control => |control| if (control >= view.control_points.len) {
+                self.last_grab = .none;
+            },
+            .key => |key_point| if (key_point >= view.key_points.len) {
+                self.last_grab = .none;
+            },
+        }
     }
 
     fn deselect(self: *RoadsRivers) void {
@@ -754,6 +821,28 @@ test "a failed replay whose own unwinding fails refuses every further undo and r
     try testing.expect(std.mem.indexOf(u8, editor.status(), "reopen the map") != null);
     try editor.open("fixture.bzm");
     try testing.expect(!editor.replay_broken);
+}
+
+test "an undo that shifts the roads list keeps the tool on the road it had selected (WR-B02)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    defer tool.deinit(testing.allocator);
+    try drawnRoad(&editor, &tool); // road 0
+    tool.reset(); // nothing selected: the next press starts a line
+    try tool.handle(&editor, .{ .press = try at(&editor, 20, 200) });
+    try tool.handle(&editor, .{ .press = try at(&editor, 100, 200) });
+    try tool.handle(&editor, .{ .key = .enter }); // road 1, selected
+    const second = fake.vso(.road, 1).controls[0];
+    try editor.deleteVso(.road, 0);
+    tool.selected = .{ .kind = .road, .index = 0 }; // the second road, now first
+    tool.captureSelection(&editor);
+    try testing.expect(try editor.undo()); // road 0 back in front of it
+    tool.resolveSelection(&editor);
+    try testing.expectEqual(@as(usize, 1), tool.selected.?.index);
+    try testing.expectEqual(second.y, fake.vso(.road, tool.selected.?.index).controls[0].y);
 }
 
 test "multi mode moves the point and every later one (earlier ones when asked); all moves every point" {
