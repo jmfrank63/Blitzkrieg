@@ -308,14 +308,28 @@ struct SGroupEdit : public IEditRecord
 		bool bRefused = false;
 		return Apply( pSession, &bRefused );
 	}
+	// Apply's mirror: when the old group will not go back in after the new one
+	// came out (a rotate's undo), the new one is put back, so the map keeps a
+	// bridge and the log still holds this edit as applied (a retry, or a redo
+	// after it, finds the group it expects).
 	virtual bool Revert( SEditorSession *pSession )
 	{
 		bool bRefused = false;
 		if ( bNew && !RemoveGroup( pSession, &newGroup ) )
 			return false;
-		const bool bOk = !bOld || AddGroup( pSession, oldGroup, &bRefused );
+		if ( bOld && !AddGroup( pSession, oldGroup, &bRefused ) )
+		{
+			const std::string szWhy = pSession->szMessage;
+			bool bIgnored = false;
+			if ( bNew && !AddGroup( pSession, newGroup, &bIgnored ) )
+				pSession->szMessage = szWhy + "; and the edit could not be put back: reopen the map";
+			else
+				pSession->szMessage = szWhy;
+			UpdateSessionWorld( pSession );
+			return false;
+		}
 		UpdateSessionWorld( pSession );
-		return bOk;
+		return true;
 	}
 };
 
