@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-09-30T00:33:14.610Z"
-state_head: 807be9dd1628edff363b683bf2bf22d7cee7276a
+stopped_at: Completed 04-06-PLAN.md
+last_updated: "2026-09-30T01:25:29.411Z"
+state_head: e4cca92ee89fef82ab202d79aa9dfe662db23c0a
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 24
+  completed_plans: 25
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T00:33:14.543Z
-**Stopped at:** Completed 04-05-PLAN.md
+**Last session:** 2026-09-30T01:25:29.348Z
+**Stopped at:** Completed 04-06-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -94,6 +94,7 @@ behavior needs the in-game rows).
 | Phase 04 P03 | 20min | 3 tasks | 13 files |
 | Phase 04 P04 | 20min | 3 tasks | 11 files |
 | Phase 04 P05 | 53min | 4 tasks | 24 files |
+| Phase 04 P06 | 50min | 4 tasks | 25 files |
 
 ## Decisions
 
@@ -138,3 +139,7 @@ behavior needs the in-game rows).
 - [Phase ?]: 04-05: roads and rivers map saved nID to engine nID by a vector parallel to the saved list, not a map keyed by nID — survives repeated nIDs; 0 of 59 shipped maps repeat one
 - [Phase ?]: 04-05: an edit of an existing road hands CVSOBuilder::Update the record's own first width and opacity, not the panel's — an edit never depends on panel state
 - [Phase ?]: 04-05: BK_EDITOR_AUTO drags keep press, drag and release in one frame — the view's stale-gesture guard ends a gesture the real mouse does not hold
+- [Phase ?]: Bridge edits are SGroupEdit records: RemoveGroup erases the entry then the spans, AddGroup restores spans then the entry, all or nothing; a new group goes in through the same AddGroup its redo uses
+- [Phase ?]: Bridge span geometry is NMapGeometry::PlanBridge (and RotatedBridgeDrag for rotate), shared by the bridge and the map-file/engine tiers; the world-unit MFC nudges are left out, one map-unit nudge kept
+- [Phase ?]: In the Bridge tool a click selects (or deselects) and never draws; a drag draws
+- [Phase ?]: BK_EDITOR_AUTO scripted presses are held across frames until their release (View.holdScripted)
