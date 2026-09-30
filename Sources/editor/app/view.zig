@@ -116,6 +116,15 @@ pub fn ViewWith(comptime Input: type) type {
         trench_tool: core.tools_groups.EntrenchmentTool = .{},
         /// 04-10: the Script Areas tool (D-21).
         areas_tool: core.tools_ai.ScriptAreas = .{},
+        /// 04-11: the Start Target tool (D-17), entered from the Start Commands
+        /// window for one click, and the tool it returns to.
+        start_target: core.tools_ai.StartTarget = .{},
+        start_target_return: Tool = .select,
+        /// Set each frame by a panel that uses the Delete key itself (the Start
+        /// Commands window while it is focused): the view then does not hand
+        /// Delete or Backspace to the tool, which would delete the selected
+        /// object too. Cleared by `panels.draw` at the start of every frame.
+        delete_claimed: bool = false,
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -227,6 +236,15 @@ pub fn ViewWith(comptime Input: type) type {
             self.switchTool(editor, tool);
         }
 
+        /// "Set target" of the Start Commands window: the Start Target tool for one
+        /// click on command `index`, returning to the tool in hand afterwards.
+        pub fn beginStartTarget(self: *Self, editor: *Editor, index: usize) void {
+            if (self.tool != .start_target) self.start_target_return = self.tool;
+            self.switchTool(editor, .start_target);
+            self.start_target.index = index;
+            self.start_target.done = false;
+        }
+
         /// The object palette's choice: the placer's object from now on. The
         /// name is copied, so the caller's buffer may go.
         pub fn setPlacerObject(self: *Self, name: []const u8) void {
@@ -269,6 +287,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.fence_tool.reset();
             self.trench_tool.reset();
             self.areas_tool.reset();
+            self.start_target.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -316,6 +335,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.fence_tool.reset();
             self.trench_tool.reset();
             self.areas_tool.reset();
+            self.start_target.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -525,7 +545,7 @@ pub fn ViewWith(comptime Input: type) type {
         fn handleKey(self: *Self, editor: *Editor, real: anytype, key: sdl3.c.SDL_KeyboardEvent) void {
             const command_or_control = key.mod & (sdl3.c.SDL_KMOD_CTRL | sdl3.c.SDL_KMOD_GUI) != 0;
             switch (key.key) {
-                sdl3.c.SDLK_DELETE, sdl3.c.SDLK_BACKSPACE => self.dispatch(editor, .{ .key = .delete }),
+                sdl3.c.SDLK_DELETE, sdl3.c.SDLK_BACKSPACE => if (!self.delete_claimed) self.dispatch(editor, .{ .key = .delete }),
                 sdl3.c.SDLK_Q => if (!key.repeat) self.dispatch(editor, .{ .key = .rotate_left }),
                 sdl3.c.SDLK_E => if (!key.repeat) self.dispatch(editor, .{ .key = .rotate_right }),
                 sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER => if (!key.repeat) self.dispatch(editor, .{ .key = .enter }),
@@ -723,8 +743,14 @@ pub fn ViewWith(comptime Input: type) type {
                 .fence => self.fence_tool.handle(editor, event),
                 .entrenchment => self.trench_tool.handle(editor, event),
                 .script_areas => self.areas_tool.handle(editor, event),
+                .start_target => self.start_target.handle(editor, event),
             };
             self.noteEditResult(editor, result);
+            // The Start Target tool takes one click: back to the tool it came from.
+            if (self.tool == .start_target and self.start_target.done) {
+                self.start_target.reset();
+                self.tool = self.start_target_return;
+            }
         }
 
         /// `error.Refused` is not an error here: the editor's status line
@@ -1570,4 +1596,46 @@ test "view: the registry's shortcuts still switch the M1 tools" {
     // 8 is the Script Areas tool's since 04-10.
     rig.send(keyDown(sdl3.c.SDLK_8, 0, false));
     try testing.expectEqual(Tool.script_areas, rig.view.tool);
+}
+
+test "view: Set target puts the Start Target tool in hand for one click, sets the point on the release and returns to the tool it came from" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    try rig.fake.addStartCommandFixtureFull(.{ .cmd_type = 0, .link_id = 1, .x = 5, .y = 5, .units = &.{1} });
+    rig.view.selectTool(&rig.editor, .brush);
+    rig.view.beginStartTarget(&rig.editor, 0);
+    try testing.expectEqual(Tool.start_target, rig.view.tool);
+    // The press changes nothing; the click is the release, as in the MFC editor.
+    rig.send(mouseButton(button_left, true, 100, 100));
+    try testing.expectEqual(Tool.start_target, rig.view.tool);
+    rig.send(mouseButton(button_left, false, 100, 100));
+    try testing.expectEqual(Tool.brush, rig.view.tool);
+    try testing.expectEqual(@as(i32, 0), rig.fake.start_commands.items[0].target);
+    try testing.expectEqual(@as(f32, 100), rig.fake.start_commands.items[0].x);
+    try testing.expectEqual(@as(f32, 100), rig.fake.start_commands.items[0].y);
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    // A second click is the brush's again, not the target's.
+    try testing.expect(!rig.view.left_button_down);
+    // Asked again from the Start Target tool itself, it still returns to the brush.
+    rig.view.beginStartTarget(&rig.editor, 0);
+    rig.view.beginStartTarget(&rig.editor, 0);
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(Tool.brush, rig.view.tool);
+    // Clicking the tank at 40,40 made it the target.
+    try testing.expectEqual(@as(i32, 1), rig.fake.start_commands.items[0].target);
+}
+
+test "view: Delete is not the tool's while a panel has claimed it" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    rig.view.delete_claimed = true;
+    rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
+    try testing.expect(rig.editor.document.find(1) != null);
+    rig.view.delete_claimed = false;
+    rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
+    try testing.expect(rig.editor.document.find(1) == null);
 }

@@ -6326,9 +6326,46 @@ fn addMapEditor(
         "229:do=script_dialog:1",
         "232:shot=m2_areas",
         "233:do=script_dialog:0",
-        b.fmt("235:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "236:shot=m2_anchor",
-        "237:exit",
+        "233:do=groups_window:0",
+        // 04-11: start commands. The Select tool clicks the tank the 04-09 segment
+        // used; Unit > Add start command (the named command) makes a STOP command
+        // for it, selected in the Start Commands window (coldwinter holds none, so
+        // it is command 0); its type becomes MOVE_TO and its number 2.5, and the
+        // view centre its target (a point; the red line from the tank to it is
+        // shot with the window closed, then the window with it open); undo and
+        // redo walk the target back and forth; Set target puts the Start Target
+        // tool in hand for one click and it hands the Select tool back.
+        "234:tool=select",
+        "235:click=c-200x150",
+        "237:do=startcmd_add",
+        "238:expect=startcmds_delta:1",
+        "239:expect=startcmd_units:0:1",
+        "240:expect=undo_depth:15",
+        "241:do=startcmd_type:MOVE_TO",
+        "242:expect=startcmd_is:0:MOVE_TO",
+        "243:expect=undo_depth:16",
+        "244:do=startcmd_number:2.5",
+        "245:expect=undo_depth:17",
+        "246:do=startcmd_target_here",
+        "247:expect=startcmd_target:0:pos",
+        "248:expect=undo_depth:18",
+        "250:shot=m2_startcmds",
+        "251:do=startcmds_window:1",
+        "254:shot=m2_startcmds_panel",
+        "255:do=startcmds_window:0",
+        "256:key=Z+ctrl",
+        "258:expect=undo_depth:17",
+        "259:key=Y+ctrl",
+        "261:expect=undo_depth:18",
+        "262:expect=startcmd_target:0:pos",
+        "264:do=startcmd_target_begin",
+        "266:click=c300x60",
+        "268:expect=undo_depth:19",
+        "269:key=Z+ctrl",
+        "271:expect=undo_depth:18",
+        b.fmt("273:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "274:shot=m2_anchor",
+        "275:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

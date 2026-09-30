@@ -62,6 +62,14 @@ pub const command_table = [_]Entry{
     .{ .name = "script_overwrite_yes", .handler = scriptOverwriteYes },
     .{ .name = "script_overwrite_no", .handler = scriptOverwriteNo },
     .{ .name = "startcmd_add", .handler = startcmdAdd },
+    .{ .name = "startcmd_type", .handler = startcmdType },
+    .{ .name = "startcmd_number", .handler = startcmdNumber },
+    .{ .name = "startcmd_add_unit", .handler = startcmdAddUnit },
+    .{ .name = "startcmd_target_here", .handler = startcmdTargetHere },
+    .{ .name = "startcmd_target_begin", .handler = startcmdTargetBegin },
+    .{ .name = "startcmd_delete", .handler = startcmdDelete },
+    .{ .name = "startcmd_select", .handler = startcmdSelect },
+    .{ .name = "startcmds_window", .handler = startcmdsWindow },
 };
 
 pub const predicate_table = [_]Entry{
@@ -82,6 +90,9 @@ pub const predicate_table = [_]Entry{
     .{ .name = "areas_delta", .handler = areasDelta },
     .{ .name = "area_named", .handler = areaNamed },
     .{ .name = "startcmds_delta", .handler = startcmdsDelta },
+    .{ .name = "startcmd_units", .handler = startcmdUnits },
+    .{ .name = "startcmd_target", .handler = startcmdTargetIs },
+    .{ .name = "startcmd_is", .handler = startcmdIs },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -857,5 +868,208 @@ fn startcmdsDelta(state: *State, arg: []const u8) Outcome {
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "startcmds_delta is {d}, not {d}", .{ delta, want }) catch "startcmds_delta differs");
+    return .refused;
+}
+
+/// The command `index` as it is now (a fresh read, never the window's cache: a
+/// predicate the frame after a command must see the command), its units owned by
+/// `state.allocator`; null when there is none.
+fn readStartCommand(state: *State, index: usize) ?records.StartCommand {
+    if (!panels.mapIsOpen(state.editor)) return null;
+    var value: records.Value = undefined;
+    if (state.editor.bridge.readRecord(.start_command, @intCast(index), state.allocator, &value) != .ok) return null;
+    return value.start_command;
+}
+
+/// The selected command of the window, or a note and null.
+fn selectedStartCommand(state: *State) ?usize {
+    const index = state.startcmd_selected orelse {
+        state.editor.note("select a start command first");
+        return null;
+    };
+    return index;
+}
+
+/// Sets the type of command `index` to the action type `id`; one undo step.
+/// Public: the window's type list calls it.
+pub fn setStartCommandType(state: *State, index: usize, id: i32) Outcome {
+    var command = readStartCommand(state, index) orelse return .refused;
+    defer state.allocator.free(command.units);
+    command.cmd_type = id;
+    return resultOutcome(state, state.editor.editStartCommand(index, command, 0));
+}
+
+/// Sets the number of command `index`; one undo step. Public for the window's field.
+pub fn setStartCommandNumber(state: *State, index: usize, number: f32) Outcome {
+    if (!std.math.isFinite(number)) return .bad_arg;
+    var command = readStartCommand(state, index) orelse return .refused;
+    defer state.allocator.free(command.units);
+    command.number = number;
+    return resultOutcome(state, state.editor.editStartCommand(index, command, 0));
+}
+
+/// Deletes command `index`; one undo step. Public for the window.
+pub fn deleteStartCommandAt(state: *State, index: usize) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (state.startcmd_selected != null and state.startcmd_selected.? == index) state.startcmd_selected = null;
+    return resultOutcome(state, state.editor.deleteStartCommand(index));
+}
+
+/// "Add selected unit": the object selected on the map joins command `index`.
+/// Public for the window.
+pub fn addSelectedUnitTo(state: *State, index: usize) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const link_id = state.editor.selection orelse {
+        state.editor.note("select a unit on the map first");
+        return .refused;
+    };
+    return resultOutcome(state, state.editor.addUnitToStartCommand(index, link_id));
+}
+
+/// "Remove" beside a unit of command `index` (the last one takes the command with
+/// it). Public for the window.
+pub fn removeUnitFrom(state: *State, index: usize, link_id: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (state.startcmd_selected != null and state.startcmd_selected.? == index) {
+        // The command goes with its last unit; its selection goes too.
+        const command = readStartCommand(state, index);
+        if (command) |held| {
+            defer state.allocator.free(held.units);
+            if (held.units.len == 1 and held.units[0] == link_id) state.startcmd_selected = null;
+        }
+    }
+    return resultOutcome(state, state.editor.removeUnitFromStartCommand(index, link_id));
+}
+
+/// "Set target": the Start Target tool takes one click for command `index` and the
+/// tool in hand comes back after it. Public for the window.
+pub fn beginTarget(state: *State, index: usize) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (readStartCommand(state, index)) |command| {
+        state.allocator.free(command.units);
+    } else {
+        state.editor.note("that start command is gone");
+        return .refused;
+    }
+    state.view.beginStartTarget(state.editor, index);
+    return .ok;
+}
+
+/// `do=startcmd_type:MOVE_TO`: the selected command's type, by a name the action
+/// list (Data/Editor/actions.ini) has.
+fn startcmdType(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    const index = selectedStartCommand(state) orelse return .refused;
+    state.refreshStartActions();
+    for (state.startcmd_actions) |*item| {
+        if (std.mem.eql(u8, item.nameSlice(), arg)) return setStartCommandType(state, index, item.id);
+    }
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "no action type is named {s}", .{arg}) catch "no such action type");
+    return .refused;
+}
+
+/// `do=startcmd_number:2.5`: the selected command's number.
+fn startcmdNumber(state: *State, arg: []const u8) Outcome {
+    const number = std.fmt.parseFloat(f32, arg) catch return .bad_arg;
+    const index = selectedStartCommand(state) orelse return .refused;
+    return setStartCommandNumber(state, index, number);
+}
+
+/// `do=startcmd_add_unit`: the object selected on the map joins the selected command.
+fn startcmdAddUnit(state: *State, _: []const u8) Outcome {
+    const index = selectedStartCommand(state) orelse return .refused;
+    return addSelectedUnitTo(state, index);
+}
+
+/// `do=startcmd_target_here`: the ground point at the centre of the view becomes the
+/// selected command's target, as a click there with the Start Target tool would
+/// (the ground, never an object, so a scenario needs no object under the centre).
+fn startcmdTargetHere(state: *State, _: []const u8) Outcome {
+    const editor = state.editor;
+    const index = selectedStartCommand(state) orelse return .refused;
+    const screen = state.real.screenSize() orelse return .refused;
+    var centre = editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0) catch return .refused;
+    centre.object = null;
+    return resultOutcome(state, core.tools_ai.StartTarget.setTarget(editor, index, centre));
+}
+
+/// `do=startcmd_target_begin`: "Set target" for the selected command.
+fn startcmdTargetBegin(state: *State, _: []const u8) Outcome {
+    const index = selectedStartCommand(state) orelse return .refused;
+    return beginTarget(state, index);
+}
+
+/// `do=startcmd_delete:0`.
+fn startcmdDelete(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return deleteStartCommandAt(state, index);
+}
+
+/// `do=startcmd_select:0`: the window's selection (and the lines it draws).
+fn startcmdSelect(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.refreshStartCommands();
+    if (index >= state.startcmds.len) return .refused;
+    state.startcmd_selected = index;
+    return .ok;
+}
+
+/// `do=startcmds_window:1` opens the Start Commands window, `:0` closes it.
+fn startcmdsWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.startcmds_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.startcmds_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `index:rest` - a command's index and what follows the first colon.
+fn parseIndexed(arg: []const u8) ?struct { index: usize, rest: []const u8 } {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return null;
+    const index = std.fmt.parseInt(usize, arg[0..colon], 10) catch return null;
+    return .{ .index = index, .rest = arg[colon + 1 ..] };
+}
+
+/// `expect=startcmd_units:0:2`: command 0 names two units.
+fn startcmdUnits(state: *State, arg: []const u8) Outcome {
+    const parsed = parseIndexed(arg) orelse return .bad_arg;
+    const want = std.fmt.parseInt(usize, parsed.rest, 10) catch return .bad_arg;
+    const command = readStartCommand(state, parsed.index) orelse return .refused;
+    defer state.allocator.free(command.units);
+    if (command.units.len == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "start command {d} has {d} units, not {d}", .{ parsed.index, command.units.len, want }) catch "unit count differs");
+    return .refused;
+}
+
+/// `expect=startcmd_target:0:link` (the target is an object) or `:pos` (a point and
+/// no object): what command 0's target is.
+fn startcmdTargetIs(state: *State, arg: []const u8) Outcome {
+    const parsed = parseIndexed(arg) orelse return .bad_arg;
+    const want_link = if (std.mem.eql(u8, parsed.rest, "link")) true else if (std.mem.eql(u8, parsed.rest, "pos")) false else return .bad_arg;
+    const command = readStartCommand(state, parsed.index) orelse return .refused;
+    defer state.allocator.free(command.units);
+    const is_link = command.link_id != 0;
+    const is_pos = !is_link and (command.x != 0 or command.y != 0);
+    if ((want_link and is_link) or (!want_link and is_pos)) return .ok;
+    var buffer: [128]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "start command {d}: link {d}, point {d:.0},{d:.0}", .{ parsed.index, command.link_id, command.x, command.y }) catch "target differs");
+    return .refused;
+}
+
+/// `expect=startcmd_is:0:MOVE_TO`: command 0's type is named so by the action list.
+fn startcmdIs(state: *State, arg: []const u8) Outcome {
+    const parsed = parseIndexed(arg) orelse return .bad_arg;
+    if (parsed.rest.len == 0) return .bad_arg;
+    const command = readStartCommand(state, parsed.index) orelse return .refused;
+    defer state.allocator.free(command.units);
+    state.refreshStartActions();
+    for (state.startcmd_actions) |*item| {
+        if (item.id == command.cmd_type and std.mem.eql(u8, item.nameSlice(), parsed.rest)) return .ok;
+    }
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "start command {d} has type {d}, not {s}", .{ parsed.index, command.cmd_type, parsed.rest }) catch "type differs");
     return .refused;
 }
