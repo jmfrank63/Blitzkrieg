@@ -440,6 +440,24 @@ bool IsHiddenLink( const SEditorSession &rSession, int nLinkID );
 // working copy's altitudes. False with the reason in szMessage off the map.
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ );
 
+// Altitudes (M3, D-19). rHeights are the z values (world units) to write over
+// the edit rectangle, in terrain-VERTEX coordinates, row-major; the shade of
+// every vertex is the session's own business, exactly D-19's function: set
+// the heights, then CMapInfo::UpdateTerrainShades over GrowForShades of the
+// rectangle, on the snapshot, the working copy and the engine's own terrain
+// alike - the MFC editor's whole-map shade recompute at save is not copied.
+// The record the edit log keeps covers the GROWN region, so undo restores the
+// ring's shades too; a refusal puts everything back raw and changes nothing:
+// not the snapshot, not the working copy, not the engine, not the log.
+// pnToken is -1 after a refusal. pbRefused marks the ordinary nos (a
+// rectangle off the map); a false without it is a failure.
+bool ApplyAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices,
+                              const std::vector<float> &rHeights, bool *pbRefused, int *pnToken );
+// The vertex heights (world z units) over a region, row-major, into rHeights
+// (which is sized to the rectangle by the caller). False with the reason in
+// szMessage when the region is off the map.
+bool ReadAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices, std::vector<float> *pHeights );
+
 // The engine's terrain editor for the open map, or null (session.cpp).
 ITerrainEditor* EngineTerrain();
 

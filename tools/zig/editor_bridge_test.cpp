@@ -182,6 +182,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorVec3 trenchPoints[2] = { { 0.0f, 0.0f, 0.0f }, { 100.0f, 0.0f, 0.0f } };
 	BkEditorBridgeInfo bridgeInfo; memset( &bridgeInfo, 0, sizeof bridgeInfo );
 	BkEditorPaintCell cell = { 0, 0, 0 };
+	BkEditorAltitudeRegion altRegion = { 0, 0, 1, 1 };
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
 	BkEditorTile tileInfo; memset( &tileInfo, 0, sizeof tileInfo );
@@ -204,6 +205,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorPaint", [&] { return BkEditorPaint( 0, &cell, 1, &nInt ); } },
 		{ "BkEditorUndoPaint", [&] { return BkEditorUndoPaint( 0, 0 ); } },
 		{ "BkEditorRedoPaint", [&] { return BkEditorRedoPaint( 0, 0 ); } },
+		{ "BkEditorAltitudes", [&] { return BkEditorAltitudes( 0, &altRegion, &fFloat, 1, &nInt ); } },
+		{ "BkEditorSetAltitudes", [&] { return BkEditorSetAltitudes( 0, &altRegion, &fFloat, 1, &nInt ); } },
 		{ "BkEditorEngineTile", [&] { return BkEditorEngineTile( 0, 0, 0, &cChar ); } },
 		{ "BkEditorTilesetTiles", [&] { return BkEditorTilesetTiles( 0, &cChar, 1, &nInt ); } },
 		{ "BkEditorWorldToTile", [&] { return BkEditorWorldToTile( 0, 0, 0, &nInt, &nInt2 ); } },
@@ -306,6 +309,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorPaint", [&] { return BkEditorPaint( pSession, &cell, 1, &nInt ); } },
 		{ "BkEditorUndoPaint", [&] { return BkEditorUndoPaint( pSession, 0 ); } },
 		{ "BkEditorRedoPaint", [&] { return BkEditorRedoPaint( pSession, 0 ); } },
+		{ "BkEditorAltitudes", [&] { return BkEditorAltitudes( pSession, &altRegion, &fFloat, 1, &nInt ); } },
+		{ "BkEditorSetAltitudes", [&] { return BkEditorSetAltitudes( pSession, &altRegion, &fFloat, 1, &nInt ); } },
 		{ "BkEditorEngineTile", [&] { return BkEditorEngineTile( pSession, 0, 0, &cChar ); } },
 		{ "BkEditorTilesetTiles", [&] { return BkEditorTilesetTiles( pSession, &cChar, 1, &nInt ); } },
 		{ "BkEditorDescribeTile", [&] { return BkEditorDescribeTile( pSession, 0, &tileInfo ); } },
@@ -2607,12 +2612,194 @@ static void TestPaintAtTheEdgeAndRefused( BkEditorSession *pSession, const std::
 	remove( szSaved.c_str() );
 }
 
+// D-19 (M3): altitudes end to end through the bridge. A ramp goes in through
+// BkEditorSetAltitudes, the saved map equals the map the same functions build
+// (SetAltitudeRegion + UpdateTerrainShades over GrowForShades), undo puts the
+// recorded region back so exactly that the next save is the unedited file byte
+// for byte, and every caller bug - a non-finite height, an empty region, a
+// count mismatch - is BAD_ARGUMENT while a region off the map is REFUSED, and
+// none of them moves anything.
+static bool FileBytes( const char *pszPath, std::vector<unsigned char> *pBytes )
+{
+	// The OS's own separator: the engine's streams split on '\\' and the
+	// tests spell paths that way, but std::ifstream does not.
+	std::string szPath( pszPath );
+	std::replace( szPath.begin(), szPath.end(), '\\', '/' );
+	std::ifstream file( szPath.c_str(), std::ios::binary );
+	if ( !file )
+		return false;
+	file.seekg( 0, std::ios::end );
+	const std::streamoff nSize = file.tellg();
+	if ( nSize < 0 )
+		return false;
+	file.seekg( 0, std::ios::beg );
+	pBytes->resize( size_t( nSize > 0 ? nSize : 0 ) );
+	if ( nSize > 0 && !file.read( reinterpret_cast<char*>( &( *pBytes )[0] ), nSize ) )
+		return false;
+	return true;
+}
+
+static bool BridgeFilesAreIdentical( const char *pszLeft, const char *pszRight )
+{
+	std::vector<unsigned char> left, right;
+	if ( !FileBytes( pszLeft, &left ) || !FileBytes( pszRight, &right ) )
+		return false;
+	if ( left == right )
+		return true;
+	// Kept for whoever has to look: where the two files first differ.
+	size_t i = 0;
+	while ( i < left.size() && i < right.size() && left[i] == right[i] )
+		++i;
+	printf( "editor-bridge: (identical? size %zu vs %zu, first difference at %zu: %02x vs %02x)\n",
+	        left.size(), right.size(), i, i < left.size() ? left[i] : 0, i < right.size() ? right[i] : 0 );
+	return false;
+}
+
+static void TestM3Altitudes( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nSizeX = original.terrain.altitudes.GetSizeX(), nSizeY = original.terrain.altitudes.GetSizeY();
+	if ( !Check( nSizeX > 20 && nSizeY > 20, "coldwinter has an altitude sheet big enough for an interior region" ) )
+		return;
+	const BkEditorAltitudeRegion region = { 8, 8, 16, 16 };
+	const int nArea = ( region.x1 - region.x0 ) * ( region.y1 - region.y0 );
+	std::vector<float> ramp( nArea );
+	for ( int y = 0; y < region.y1 - region.y0; ++y )
+		for ( int x = 0; x < region.x1 - region.x0; ++x )
+			ramp[size_t( y * ( region.x1 - region.x0 ) + x )] = 32.0f * float( x + y );
+
+	// The read agrees with the file the map came from.
+	std::vector<float> read_back( nArea );
+	int nCount = 0;
+	Check( BkEditorAltitudes( pSession, &region, &( read_back[0] ), nArea, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	Check( nCount == nArea, "the read counts the region's vertices" );
+	bool bSameAsFile = true;
+	for ( int i = 0; i < nArea && bSameAsFile; ++i )
+	{
+		const int nX = region.x0 + i % ( region.x1 - region.x0 );
+		const int nY = region.y0 + i / ( region.x1 - region.x0 );
+		bSameAsFile = read_back[size_t( i )] == original.terrain.altitudes[nY][nX].fHeight;
+	}
+	Check( bSameAsFile, "the heights read are the file's" );
+	// The two-pass rule: a short buffer is refused with the total answered.
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &region, 0, 0, &nCount ) == BK_EDITOR_REFUSED,
+	       "a short buffer is refused" );
+	Check( nCount == nArea, "and still answers the total" );
+
+	// The edit, through the bridge.
+	int nToken = -1;
+	Check( BkEditorSetAltitudes( pSession, &region, &( ramp[0] ), nArea, &nToken ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	Check( nToken >= 0, "the edit has a token" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The expected map: the same functions on a fresh read.
+	CMapInfo expected;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	std::vector<SVertexAltitude> values( nArea );
+	for ( int y = 0; y < region.y1 - region.y0; ++y )
+		for ( int x = 0; x < region.x1 - region.x0; ++x )
+		{
+			const int nX = region.x0 + x, nY = region.y0 + y;
+			SVertexAltitude value = expected.terrain.altitudes[nY][nX];
+			value.fHeight = 32.0f * float( x + y );
+			values[size_t( y * ( region.x1 - region.x0 ) + x )] = value;
+		}
+	const CTRect<int> rEdit( region.x0, region.y0, region.x1, region.y1 );
+	const CTRect<int> rGrown = NMapOverlay::GrowForShades( expected, rEdit );
+	Check( NMapOverlay::SetAltitudeRegion( &expected, rEdit, values, 0 ), "the expected map takes the region" );
+	Check( CMapInfo::UpdateTerrainShades( &expected.terrain, rGrown,
+	       CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( expected.nSeason ) ) ),
+	       "the expected map's shades update" );
+
+	const std::string szEdited = szScratch + "\\m3-altitudes-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-altitudes-undone.bzm";
+	const std::string szUnedited = szScratch + "\\m3-altitudes-unedited.bzm";
+	CMapInfo reread;
+	std::string szWhere;
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( szEdited.c_str(), &reread, &szError ), szError.c_str() ) )
+	{
+		Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+		       szWhere.empty() ? "the saved edit equals the same-function expected map"
+		                       : ( "the altitude edit differs at " + szWhere ).c_str() );
+		szWhere.clear();
+		Check( !NMapFile::AreEquivalent( original, reread, &szWhere ), "and the comparator sees the altitude edit" );
+	}
+
+	// Undo puts the recorded region back raw; the file it writes is the
+	// unedited one, byte for byte.
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	CMapInfo unedited;
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( NMapFile::Read( SHIPPED_MAP, &unedited, &szError ), szError.c_str() ) &&
+	     Check( NMapFile::Write( szUnedited.c_str(), unedited, &szError ), szError.c_str() ) )
+	{
+		Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
+		       "an altitude edit undone writes the unedited file byte for byte" );
+		Check( NMapFile::AreEquivalent( original, reread, &szWhere ) == false, "the reread above was of the edited map" );
+	}
+	// Redo, and the ramp is back.
+	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &region, &( read_back[0] ), nArea, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	bool bRampBack = true;
+	for ( int i = 0; i < nArea && bRampBack; ++i )
+		bRampBack = read_back[size_t( i )] == ramp[size_t( i )];
+	Check( bRampBack, "redo restores the ramp" );
+	// Leave the map as it was opened.
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The refusals: caller bugs are BAD_ARGUMENT, a region off the map is
+	// REFUSED, and each leaves the read exactly as it was. The off-map
+	// region's count still has to match it - the ABI orders its checks that
+	// way, count before bounds.
+	std::vector<float> before( nArea );
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &region, &( before[0] ), nArea, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	std::vector<float> bad( ramp );
+	bad[size_t( nArea / 2 )] = std::numeric_limits<float>::quiet_NaN();
+	Check( BkEditorSetAltitudes( pSession, &region, &( bad[0] ), nArea, &nToken ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a non-finite height is BAD_ARGUMENT" );
+	const BkEditorAltitudeRegion empty = { 8, 8, 8, 16 };
+	Check( BkEditorSetAltitudes( pSession, &empty, &( ramp[0] ), nArea, &nToken ) == BK_EDITOR_BAD_ARGUMENT,
+	       "an empty region is BAD_ARGUMENT" );
+	Check( BkEditorSetAltitudes( pSession, &region, &( ramp[0] ), nArea + 1, &nToken ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a count mismatch is BAD_ARGUMENT" );
+	std::vector<float> offMapRamp( 16, 64.0f );
+	const BkEditorAltitudeRegion offMap = { nSizeX - 2, nSizeY - 2, nSizeX + 2, nSizeY + 2 };
+	Check( BkEditorSetAltitudes( pSession, &offMap, &( offMapRamp[0] ), 16, &nToken ) == BK_EDITOR_REFUSED,
+	       ( std::string( "an off-map region is REFUSED: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorAltitudes( pSession, &offMap, &( read_back[0] ), nArea, &nCount ) == BK_EDITOR_REFUSED,
+	       "an off-map read is REFUSED too" );
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &region, &( read_back[0] ), nArea, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	Check( std::equal( before.begin(), before.end(), read_back.begin() ),
+	       "and the refusals changed nothing the read can see" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	remove( szEdited.c_str() );
+	remove( szUndone.c_str() );
+	remove( szUnedited.c_str() );
+	printf( "editor-bridge: M3 altitudes ok\n" );
+}
+
 // A tile the map's tileset has no terrain type for is the caller's mistake:
 // BK_EDITOR_BAD_ARGUMENT, naming the tile, and nothing painted - not even the
 // cells beside it that name a good tile. Tile 1 is in none of the shipped
 // tilesets; 255 is what a caller's -1 becomes in the cell's unsigned char.
-static void TestPaintRefusesTileOutsideTileset( BkEditorSession *pSession )
-{
+static void TestPaintRefusesTileOutsideTileset( BkEditorSession *pSession ){
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
 	unsigned char before[2] = { 0, 0 };
@@ -8858,6 +9045,7 @@ int main( int argc, char **argv )
 		TestPaintReachesEngineAndFile( pSession, szScratch );
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
+		TestM3Altitudes( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

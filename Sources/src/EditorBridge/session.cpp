@@ -1505,6 +1505,215 @@ bool RedoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// Altitudes (M3, D-19)
+// ---------------------------------------------------------------------------
+
+namespace {
+// The patch rectangle covering a vertex rectangle, half-open like the
+// overlay's own regions, clamped to the map's patch count - a vertex
+// rectangle at the far edge (the last vertex is one past the last cell)
+// would otherwise step one patch over the end, exactly what
+// InclusivePatches/RegionTiles exist to stop for paints.
+CTRect<int> VertexPatches( const STerrainInfo &rTerrain, const CTRect<int> &rVertices )
+{
+	return CTRect<int>( rVertices.minx / STerrainPatchInfo::nSizeX, rVertices.miny / STerrainPatchInfo::nSizeY,
+	                    Min( ( rVertices.maxx - 1 ) / STerrainPatchInfo::nSizeX + 1, rTerrain.patches.GetSizeX() ),
+	                    Min( ( rVertices.maxy - 1 ) / STerrainPatchInfo::nSizeY + 1, rTerrain.patches.GetSizeY() ) );
+}
+
+// The engine's own terrain over the region, written raw in place - the MFC
+// editor's own route, through GetTerrainInfo's const_cast
+// (DrawShadeState.cpp:204), because ITerrainEditor has a per-vertex shade
+// call but no per-vertex height one - and the covering patches redrawn, as
+// the MFC's pTerrainEditor->Update did after a shade change.
+void PutEngineAltitudes( ITerrainEditor *pEngineTerrain, const NMapOverlay::SAltitudeUndo &rRegion )
+{
+	STerrainInfo &rEngine = const_cast<STerrainInfo&>( pEngineTerrain->GetTerrainInfo() );
+	NMapOverlay::UndoTerrainAltitudeRegion( &rEngine, rRegion );
+	pEngineTerrain->Update( InclusivePatches( VertexPatches( rEngine, rRegion.rVertices ) ) );
+}
+}
+
+// One altitude region edit of the log: the grown region before and after,
+// put back raw into both copies and the engine - heights, shades and padding
+// bytes, never recomputed (D-03's rule, SPaintUndo's own).
+bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion );
+
+struct SAltitudeEdit : public IEditRecord
+{
+	NMapOverlay::SAltitudeUndo before, after;
+
+	virtual bool Revert( SEditorSession *pSession )
+	{
+		return PutAltitudeEditBack( pSession, before );
+	}
+	virtual bool Reapply( SEditorSession *pSession )
+	{
+		return PutAltitudeEditBack( pSession, after );
+	}
+};
+
+bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion )
+{
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, rRegion );
+	NMapOverlay::UndoAltitudeRegion( &pSession->working, rRegion );
+	PutEngineAltitudes( pEngineTerrain, rRegion );
+	return true;
+}
+
+bool ApplyAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices,
+                              const std::vector<float> &rHeights, bool *pbRefused, int *pnToken )
+{
+	*pnToken = -1;
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession )
+			pSession->szMessage = "no map is open";
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+
+	// A map saved without altitudes gets its sheet here, as the open path
+	// builds the working copy's (the MFC editor's own load rule,
+	// TemplateEditorFrame1.cpp:1658): the edit is what turns the implicit
+	// flat sheet into a real one.
+	STerrainInfo &rSnapshot = pSession->snapshot.terrain;
+	if ( rSnapshot.altitudes.GetSizeX() == 0 || rSnapshot.altitudes.GetSizeY() == 0 )
+	{
+		rSnapshot.altitudes.SetSizes( rSnapshot.patches.GetSizeX() * STerrainPatchInfo::nSizeX + 1,
+		                              rSnapshot.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
+		rSnapshot.altitudes.SetZero();
+	}
+	if ( rVertices.minx < 0 || rVertices.miny < 0 ||
+	     rVertices.maxx <= rVertices.minx || rVertices.maxy <= rVertices.miny ||
+	     rVertices.maxx > rSnapshot.altitudes.GetSizeX() || rVertices.maxy > rSnapshot.altitudes.GetSizeY() )
+	{
+		pSession->szMessage = NStr::Format( "vertices %d,%d..%d,%d are not on the map",
+		                                    rVertices.minx, rVertices.miny, rVertices.maxx, rVertices.maxy );
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+	const size_t nCount = size_t( rVertices.maxx - rVertices.minx ) * size_t( rVertices.maxy - rVertices.miny );
+	if ( rHeights.size() != nCount )
+	{
+		pSession->szMessage = NStr::Format( "the region holds %d vertices, %d heights were given",
+		                                    int( nCount ), int( rHeights.size() ) );
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+
+	const STerrainInfo &rEngineRead = pEngineTerrain->GetTerrainInfo();
+	if ( rEngineRead.altitudes.GetSizeX() != rSnapshot.altitudes.GetSizeX() ||
+	     rEngineRead.altitudes.GetSizeY() != rSnapshot.altitudes.GetSizeY() )
+	{
+		pSession->szMessage = "the engine's terrain is a different size from the map's";
+		return false;
+	}
+
+	// The region as D-19 defines it: the edit rectangle grown by the shade
+	// kernel, because a height edit changes every neighbouring vertex's
+	// shade. Everything is captured over that region, before anything moves.
+	const CTRect<int> rGrown = NMapOverlay::GrowForShades( pSession->snapshot, rVertices );
+	const SGFXLightDirectional sunlight = CVertexAltitudeInfo::GetSunLight(
+		static_cast<CMapInfo::SEASON>( pSession->working.nSeason ) );
+	NMapOverlay::SAltitudeUndo before, workingBefore, engineBefore;
+	NMapOverlay::CaptureAltitudeRegion( pSession->snapshot, rGrown, &before );
+	NMapOverlay::CaptureAltitudeRegion( pSession->working, rGrown, &workingBefore );
+	NMapOverlay::CaptureTerrainAltitudeRegion( rEngineRead, rGrown, &engineBefore );
+
+	// Whole records built from the snapshot's own storage - the raw-struct
+	// padding rule - with the caller's heights in them; the shades the record
+	// carried do not survive the next step, which is the point.
+	std::vector<SVertexAltitude> values( nCount );
+	size_t nValue = 0;
+	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
+		for ( int x = rVertices.minx; x < rVertices.maxx; ++x, ++nValue )
+		{
+			values[nValue] = rSnapshot.altitudes[y][x];
+			values[nValue].fHeight = rHeights[nValue];
+		}
+
+	// The deterministic function on the copy that will be saved, then on the
+	// copy the engine was built from; a failure puts everything back raw.
+	STerrainInfo &rWorking = pSession->working.terrain;
+	if ( !NMapOverlay::SetAltitudeRegion( &pSession->snapshot, rVertices, values, 0 ) ||
+	     !CMapInfo::UpdateTerrainShades( &rSnapshot, rGrown, sunlight ) )
+	{
+		NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, before );
+		PutEngineAltitudes( pEngineTerrain, engineBefore );
+		pSession->szMessage = "the map would not take that altitude edit";
+		return false;
+	}
+	if ( !NMapOverlay::SetAltitudeRegion( &pSession->working, rVertices, values, 0 ) ||
+	     !CMapInfo::UpdateTerrainShades( &rWorking, rGrown, sunlight ) )
+	{
+		NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, before );
+		NMapOverlay::UndoAltitudeRegion( &pSession->working, workingBefore );
+		PutEngineAltitudes( pEngineTerrain, engineBefore );
+		pSession->szMessage = "the map would not take that altitude edit";
+		return false;
+	}
+
+	// The engine's own copy gets what the function just wrote, raw, and the
+	// covering patches redrawn - the MFC editor's whole-map shade recompute
+	// at save is deliberately not here (D-19).
+	NMapOverlay::SAltitudeUndo after;
+	NMapOverlay::CaptureAltitudeRegion( pSession->snapshot, rGrown, &after );
+	PutEngineAltitudes( pEngineTerrain, after );
+
+	SAltitudeEdit *pEdit = new SAltitudeEdit();
+	pEdit->before = before;
+	pEdit->after = after;
+	*pnToken = LogEdit( pSession, pEdit );
+	return true;
+}
+
+bool ReadAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices, std::vector<float> *pHeights )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession )
+			pSession->szMessage = "no map is open";
+		return false;
+	}
+	const STerrainInfo::TVertexAltitudeArray2D &rAltitudes = pSession->working.terrain.altitudes;
+	if ( rAltitudes.GetSizeX() == 0 || rAltitudes.GetSizeY() == 0 )
+	{
+		pSession->szMessage = "the map has no altitudes";
+		return false;
+	}
+	if ( rVertices.minx < 0 || rVertices.miny < 0 ||
+	     rVertices.maxx <= rVertices.minx || rVertices.maxy <= rVertices.miny ||
+	     rVertices.maxx > rAltitudes.GetSizeX() || rVertices.maxy > rAltitudes.GetSizeY() )
+	{
+		pSession->szMessage = NStr::Format( "vertices %d,%d..%d,%d are not on the map",
+		                                    rVertices.minx, rVertices.miny, rVertices.maxx, rVertices.maxy );
+		return false;
+	}
+	pHeights->clear();
+	pHeights->reserve( size_t( rVertices.maxx - rVertices.minx ) * size_t( rVertices.maxy - rVertices.miny ) );
+	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
+		for ( int x = rVertices.minx; x < rVertices.maxx; ++x )
+			pHeights->push_back( rAltitudes[y][x].fHeight );
+	return true;
+}
+
 bool TerrainMatchesEngine( SEditorSession *pSession )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )

@@ -61,6 +61,7 @@ const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
+const AltitudeRegion = bridge_mod.AltitudeRegion;
 const Bridge = bridge_mod.Bridge;
 const VsoKind = bridge_mod.VsoKind;
 const VsoDescriptor = bridge_mod.VsoDescriptor;
@@ -80,7 +81,7 @@ pub const ai_tile_size: f32 = tile_size / 2.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// The most units a fake start command holds (the real one holds as many as the
@@ -277,12 +278,18 @@ const FakeBridgeGroup = struct {
 const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
 /// The fake's edit log holds road and river edits and bridge edits alike,
 /// one token space, as the real session's does.
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit };
 /// A toggle of built during play: the entry and its flag before and after.
 const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
+/// One altitude region edit (M3, D-19): the region and its heights before
+/// and after, both owned here. Undo writes `before` back, redo `after` - the
+/// fake keeps heights only, its ground being flat; the shades the real
+/// bridge recomputes are nothing the core can see.
+const FakeAltitudeEdit = struct { x0: i32, y0: i32, x1: i32, y1: i32, before: []f32, after: []f32 };
 
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
+var no_altitudes: [0]f32 = .{};
 const PaintRecord = struct { cells: []PaintCell, before: []u8 };
 
 pub const FakeBridge = struct {
@@ -375,6 +382,10 @@ pub const FakeBridge = struct {
     undone_edits: std.ArrayListUnmanaged(i32) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
     tiles: []u8 = &no_tiles,
+    /// The map's vertex heights (M3, D-19): (tiles + 1) per axis, row-major -
+    /// the fake keeps heights only, its ground being flat, so there is no
+    /// shade to recompute. Allocated at the first open, like `tiles`.
+    altitudes_grid: []f32 = &no_altitudes,
     paints: std.ArrayListUnmanaged(PaintRecord) = .empty,
     applied: std.ArrayListUnmanaged(i32) = .empty,
     undone: std.ArrayListUnmanaged(i32) = .empty,
@@ -452,6 +463,12 @@ pub const FakeBridge = struct {
         self.tombstones.deinit(self.allocator);
         for (&self.vso_descriptors) |*list| list.deinit(self.allocator);
         for (&self.vso_lists) |*list| list.deinit(self.allocator);
+        for (self.edits.items) |*edit| {
+            if (edit.* == .altitudes) {
+                self.allocator.free(edit.altitudes.before);
+                self.allocator.free(edit.altitudes.after);
+            }
+        }
         self.edits.deinit(self.allocator);
         self.bridge_types.deinit(self.allocator);
         self.bridge_entries.deinit(self.allocator);
@@ -462,6 +479,7 @@ pub const FakeBridge = struct {
         self.diplomacy_table.deinit(self.allocator);
         self.calls.deinit(self.allocator);
         self.allocator.free(self.tiles);
+        self.allocator.free(self.altitudes_grid);
         self.* = undefined;
     }
 
@@ -631,6 +649,20 @@ pub const FakeBridge = struct {
         return self.tiles[@intCast(y * self.info.width_tiles + x)];
     }
 
+    /// One vertex's height, for a test to read (M3, D-19); the sheet is
+    /// built flat if nothing has touched it yet.
+    pub fn altitude(self: *const FakeBridge, x: i32, y: i32) f32 {
+        if (self.altitudes_grid.len == 0) return 0;
+        return self.altitudes_grid[self.altitudeIndex(x, y)];
+    }
+
+    /// One vertex's height before the map opens (M3, D-19), so a test knows
+    /// the before-value an undo must restore.
+    pub fn setAltitudeFixture(self: *FakeBridge, x: i32, y: i32, height: f32) !void {
+        if (self.ensureAltitudes() != .ok) return error.OutOfMemory;
+        self.altitudes_grid[self.altitudeIndex(x, y)] = height;
+    }
+
     pub fn bridge(self: *FakeBridge) Bridge {
         return .{ .ptr = self, .vtable = &vtable };
     }
@@ -676,6 +708,12 @@ pub const FakeBridge = struct {
         self.undone.clearRetainingCapacity();
         self.freeTombstones();
         self.tombstones.clearRetainingCapacity();
+        for (self.edits.items) |*edit| {
+            if (edit.* == .altitudes) {
+                self.allocator.free(edit.altitudes.before);
+                self.allocator.free(edit.altitudes.after);
+            }
+        }
         self.edits.clearRetainingCapacity();
         self.applied_edits.clearRetainingCapacity();
         self.undone_edits.clearRetainingCapacity();
@@ -783,6 +821,8 @@ pub const FakeBridge = struct {
         .reserveRole = reserveRole,
         .undoEdit = undoEdit,
         .redoEdit = redoEdit,
+        .altitudes = altitudes,
+        .setAltitudes = setAltitudes,
         .vsoDescriptors = vsoDescriptors,
         .vsoCount = vsoCount,
         .readVso = readVso,
@@ -900,6 +940,7 @@ pub const FakeBridge = struct {
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .bridge => |*edit| self.putBridge(if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .build => |edit| self.putBuild(edit.index, edit.before),
+            .altitudes => |*edit| self.putAltitudesGrid(.{ .x0 = edit.x0, .y0 = edit.y0, .x1 = edit.x1, .y1 = edit.y1 }, edit.before),
         };
         if (put != .ok) return put;
         _ = self.applied_edits.pop();
@@ -924,11 +965,132 @@ pub const FakeBridge = struct {
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .bridge => |*edit| self.putBridge(if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .build => |edit| self.putBuild(edit.index, edit.after),
+            .altitudes => |*edit| self.putAltitudesGrid(.{ .x0 = edit.x0, .y0 = edit.y0, .x1 = edit.x1, .y1 = edit.y1 }, edit.after),
         };
         if (put != .ok) return put;
         _ = self.undone_edits.pop();
         self.applied_edits.appendAssumeCapacity(token);
         self.record(.redo_edit, token);
+        return .ok;
+    }
+
+    // Altitudes (M3, D-19): the real rules the core can see - an empty or
+    // inverted region and a count mismatch are caller bugs, a region off the
+    // map is an ordinary refusal, and a refusal changes nothing. The fake
+    // keeps heights only (its ground is flat), one more vertex than tiles per
+    // axis like the real sheet.
+    fn vertexCountX(self: *const FakeBridge) usize {
+        return @as(usize, @intCast(self.info.width_tiles)) + 1;
+    }
+
+    fn altitudeIndex(self: *const FakeBridge, x: i32, y: i32) usize {
+        return @as(usize, @intCast(y)) * self.vertexCountX() + @as(usize, @intCast(x));
+    }
+
+    fn ensureAltitudes(self: *FakeBridge) Status {
+        if (self.altitudes_grid.len != 0) return .ok;
+        const vertices_x = self.vertexCountX();
+        const vertices_y = @as(usize, @intCast(self.info.height_tiles)) + 1;
+        self.altitudes_grid = self.allocator.alloc(f32, vertices_x * vertices_y) catch return .failed;
+        @memset(self.altitudes_grid, 0);
+        return .ok;
+    }
+
+    /// False for a region that is empty, inverted or off the fake's vertex
+    /// bounds; says why, as the real bridge does.
+    fn altitudesRegionUsable(self: *FakeBridge, region: AltitudeRegion) bool {
+        if (region.x1 <= region.x0 or region.y1 <= region.y0) return false;
+        const bounds_x = @as(i32, @intCast(self.vertexCountX()));
+        const bounds_y = self.info.height_tiles + 1;
+        if (region.x0 < 0 or region.y0 < 0 or region.x1 > bounds_x or region.y1 > bounds_y) {
+            self.say("vertices {d},{d}..{d},{d} are not on the map", .{ region.x0, region.y0, region.x1, region.y1 });
+            return false;
+        }
+        return true;
+    }
+
+    fn altitudes(ptr: *anyopaque, region: AltitudeRegion, heights: []f32, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (region.x1 <= region.x0 or region.y1 <= region.y0) return .bad_argument;
+        const started = self.ensureAltitudes();
+        if (started != .ok) return started;
+        if (!self.altitudesRegionUsable(region)) return .refused;
+        const width = @as(usize, @intCast(region.x1 - region.x0));
+        const area = width * @as(usize, @intCast(region.y1 - region.y0));
+        total.* = area;
+        const fit = @min(heights.len, area);
+        var i: usize = 0;
+        var y = region.y0;
+        while (y < region.y1) : (y += 1) {
+            var x = region.x0;
+            while (x < region.x1) : (x += 1) {
+                if (i < fit) heights[i] = self.altitudes_grid[self.altitudeIndex(x, y)];
+                i += 1;
+            }
+        }
+        return if (heights.len >= area) .ok else .refused;
+    }
+
+    fn setAltitudes(ptr: *anyopaque, region: AltitudeRegion, heights: []const f32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (region.x1 <= region.x0 or region.y1 <= region.y0) return .bad_argument;
+        const width = @as(usize, @intCast(region.x1 - region.x0));
+        const area = width * @as(usize, @intCast(region.y1 - region.y0));
+        if (heights.len != area) return .bad_argument;
+        for (heights) |height| {
+            if (!std.math.isFinite(height)) return .bad_argument;
+        }
+        const started = self.ensureAltitudes();
+        if (started != .ok) return started;
+        if (!self.altitudesRegionUsable(region)) return .refused;
+        const before = self.allocator.alloc(f32, area) catch return .failed;
+        var filled: usize = 0;
+        var y = region.y0;
+        while (y < region.y1) : (y += 1) {
+            var x = region.x0;
+            while (x < region.x1) : (x += 1) {
+                before[filled] = self.altitudes_grid[self.altitudeIndex(x, y)];
+                filled += 1;
+            }
+        }
+        const after = self.allocator.dupe(f32, heights) catch {
+            self.allocator.free(before);
+            return .failed;
+        };
+        _ = self.putAltitudesGrid(region, heights);
+        self.edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.edits.appendAssumeCapacity(.{ .altitudes = .{
+            .x0 = region.x0,
+            .y0 = region.y0,
+            .x1 = region.x1,
+            .y1 = region.y1,
+            .before = before,
+            .after = after,
+        } });
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.appendAssumeCapacity(token.*);
+        self.undone_edits.clearRetainingCapacity();
+        self.record(.altitudes_edit, token.*);
+        return .ok;
+    }
+
+    /// Writes `values` row-major over the region - the one put an altitude
+    /// edit, its undo and its redo share.
+    fn putAltitudesGrid(self: *FakeBridge, region: AltitudeRegion, values: []const f32) Status {
+        var i: usize = 0;
+        var y = region.y0;
+        while (y < region.y1) : (y += 1) {
+            var x = region.x0;
+            while (x < region.x1) : (x += 1) {
+                if (i >= values.len) return .failed;
+                self.altitudes_grid[self.altitudeIndex(x, y)] = values[i];
+                i += 1;
+            }
+        }
         return .ok;
     }
 
@@ -1901,6 +2063,14 @@ pub const FakeBridge = struct {
             @memset(self.tiles, 0);
             self.diplomacy_table.resize(self.allocator, @intCast(self.info.player_count)) catch return .failed;
             for (self.diplomacy_table.items, 0..) |*side, player| side.* = @intCast(player % 2);
+        }
+        // One more vertex than tiles per axis, the real sheet's own shape
+        // (M3, D-19); flat, until an edit says otherwise.
+        if (self.altitudes_grid.len == 0) {
+            const vertices_x = @as(usize, @intCast(self.info.width_tiles)) + 1;
+            const vertices_y = @as(usize, @intCast(self.info.height_tiles)) + 1;
+            self.altitudes_grid = self.allocator.alloc(f32, vertices_x * vertices_y) catch return .failed;
+            @memset(self.altitudes_grid, 0);
         }
         self.link_floor = self.nextLinkId();
         info.* = self.info;

@@ -617,3 +617,99 @@ void CaptureRegion( const SLoadMapInfo &rMap, const CTRect<int> &rPatches, SPain
 		Record( rMap.terrain, rPatches, pOut );
 }
 }
+
+namespace NMapOverlay {
+// The altitude region helpers (D-19, M3). One validity rule shared by the set
+// and the captures: a rectangle is good when it is non-empty, not inverted,
+// and inside the altitudes sheet it names.
+namespace {
+bool VertexRectValid( const STerrainInfo &rTerrain, const CTRect<int> &r )
+{
+	return r.minx >= 0 && r.miny >= 0 && r.maxx > r.minx && r.maxy > r.miny &&
+	       r.maxx <= rTerrain.altitudes.GetSizeX() && r.maxy <= rTerrain.altitudes.GetSizeY();
+}
+
+// Row-major over the rectangle, the layout SAltitudeUndo documents.
+void RecordAltitudes( const STerrainInfo &rTerrain, const CTRect<int> &r, SAltitudeUndo *pOut )
+{
+	pOut->rVertices = r;
+	pOut->altitudes.clear();
+	pOut->altitudes.reserve( size_t( r.maxx - r.minx ) * size_t( r.maxy - r.miny ) );
+	for ( int y = r.miny; y < r.maxy; ++y )
+		for ( int x = r.minx; x < r.maxx; ++x )
+			pOut->altitudes.push_back( rTerrain.altitudes[y][x] );
+}
+}
+
+CTRect<int> GrowForShades( const SLoadMapInfo &rMap, const CTRect<int> &rVertices )
+{
+	const int nSizeX = rMap.terrain.altitudes.GetSizeX(), nSizeY = rMap.terrain.altitudes.GetSizeY();
+	return CTRect<int>( Max( 0, rVertices.minx - 1 ), Max( 0, rVertices.miny - 1 ),
+	                    Min( nSizeX, rVertices.maxx + 1 ), Min( nSizeY, rVertices.maxy + 1 ) );
+}
+
+void CaptureTerrainAltitudeRegion( const STerrainInfo &rTerrain, const CTRect<int> &rVertices, SAltitudeUndo *pOut )
+{
+	if ( pOut == 0 || !VertexRectValid( rTerrain, rVertices ) )
+	{
+		if ( pOut )
+			*pOut = SAltitudeUndo();
+		return;
+	}
+	RecordAltitudes( rTerrain, rVertices, pOut );
+}
+
+bool SetTerrainAltitudeRegion( STerrainInfo *pTerrain, const CTRect<int> &rVertices, const std::vector<SVertexAltitude> &rValues, SAltitudeUndo *pBefore )
+{
+	if ( pTerrain == 0 || !VertexRectValid( *pTerrain, rVertices ) )
+		return false;
+	if ( rValues.size() != size_t( rVertices.maxx - rVertices.minx ) * size_t( rVertices.maxy - rVertices.miny ) )
+		return false;
+	// The region before anything changes, captured whether or not the caller
+	// asked: the record holds the map's own bytes, padding included, so a
+	// failure that had already written some rows can still put the whole
+	// region back exactly.
+	SAltitudeUndo before;
+	RecordAltitudes( *pTerrain, rVertices, &before );
+	size_t nValue = 0;
+	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
+		for ( int x = rVertices.minx; x < rVertices.maxx; ++x, ++nValue )
+			pTerrain->altitudes[y][x] = rValues[nValue];
+	if ( pBefore )
+		*pBefore = before;
+	return true;
+}
+
+void UndoTerrainAltitudeRegion( STerrainInfo *pTerrain, const SAltitudeUndo &rUndo )
+{
+	if ( pTerrain == 0 )
+		return;
+	const CTRect<int> &r = rUndo.rVertices;
+	if ( !VertexRectValid( *pTerrain, r ) )
+		return;
+	size_t nValue = 0;
+	for ( int y = r.miny; y < r.maxy; ++y )
+		for ( int x = r.minx; x < r.maxx; ++x, ++nValue )
+			if ( nValue < rUndo.altitudes.size() )
+				pTerrain->altitudes[y][x] = rUndo.altitudes[nValue];
+}
+
+void CaptureAltitudeRegion( const SLoadMapInfo &rMap, const CTRect<int> &rVertices, SAltitudeUndo *pOut )
+{
+	CaptureTerrainAltitudeRegion( rMap.terrain, rVertices, pOut );
+}
+
+bool SetAltitudeRegion( SLoadMapInfo *pMap, const CTRect<int> &rVertices, const std::vector<SVertexAltitude> &rValues, SAltitudeUndo *pBefore )
+{
+	if ( pMap == 0 )
+		return false;
+	return SetTerrainAltitudeRegion( &pMap->terrain, rVertices, rValues, pBefore );
+}
+
+void UndoAltitudeRegion( SLoadMapInfo *pMap, const SAltitudeUndo &rUndo )
+{
+	if ( pMap == 0 )
+		return;
+	UndoTerrainAltitudeRegion( &pMap->terrain, rUndo );
+}
+}

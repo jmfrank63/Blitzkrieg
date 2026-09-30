@@ -10,7 +10,7 @@ const records = @import("records.zig");
 pub const Pose = struct { x: f32, y: f32, dir: i32, player: i32 };
 
 /// What a bridge-logged edit changed, so a replay knows what to refresh.
-pub const EditScope = enum { vso, objects };
+pub const EditScope = enum { vso, objects, altitudes };
 
 pub const Command = union(enum) {
     /// One bridge token per paint call of the gesture, oldest first.

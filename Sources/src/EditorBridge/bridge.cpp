@@ -795,6 +795,98 @@ BkEditorStatus BkEditorEngineTile( BkEditorSession *pSession, int nX, int nY, un
 	} );
 }
 
+// Altitudes (M3, D-19). Both entries share the caller-bug checks: a null
+// region or buffer, an empty or inverted rectangle, a count that does not
+// match the rectangle, a non-finite height. Everything else - a region off
+// the open map, no map at all - is an ordinary refusal, and a refusal
+// changes nothing.
+namespace {
+bool AltitudeRegionWellFormed( const BkEditorAltitudeRegion *pRegion, long long *pnArea )
+{
+	if ( pRegion == 0 )
+		return false;
+	if ( pRegion->x1 <= pRegion->x0 || pRegion->y1 <= pRegion->y0 )
+		return false;
+	*pnArea = static_cast<long long>( pRegion->x1 - pRegion->x0 ) *
+	          static_cast<long long>( pRegion->y1 - pRegion->y0 );
+	return true;
+}
+}
+
+BkEditorStatus BkEditorAltitudes( BkEditorSession *pSession, const BkEditorAltitudeRegion *pRegion,
+                                  float *pHeights, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pHeights == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		long long nArea = 0;
+		if ( !AltitudeRegionWellFormed( pRegion, &nArea ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( nArea > 0x7fffffff )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<float> heights;
+		if ( !ReadAltitudesInSession( pSession, CTRect<int>( pRegion->x0, pRegion->y0, pRegion->x1, pRegion->y1 ), &heights ) )
+			return BK_EDITOR_REFUSED;
+		*pnCount = int( heights.size() );
+		const int nFit = Min( nCapacity, int( heights.size() ) );
+		for ( int i = 0; i < nFit; ++i )
+			pHeights[i] = heights[i];
+		if ( nFit < int( heights.size() ) )
+		{
+			pSession->szMessage = NStr::Format( "the region holds %d vertices, the buffer has room for %d",
+			                                    int( heights.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSetAltitudes( BkEditorSession *pSession, const BkEditorAltitudeRegion *pRegion,
+                                     const float *pHeights, int nCount, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nCount < 0 || ( nCount > 0 && pHeights == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		long long nArea = 0;
+		if ( !AltitudeRegionWellFormed( pRegion, &nArea ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( nArea > 0x7fffffff || nCount != nArea )
+			return BK_EDITOR_BAD_ARGUMENT;
+		for ( int i = 0; i < nCount; ++i )
+			if ( !std::isfinite( pHeights[i] ) )
+			{
+				pSession->szMessage = NStr::Format( "height %d is not a finite number", i );
+				return BK_EDITOR_BAD_ARGUMENT;
+			}
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<float> heights( pHeights, pHeights + nCount );
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !ApplyAltitudesInSession( pSession, CTRect<int>( pRegion->x0, pRegion->y0, pRegion->x1, pRegion->y1 ),
+		                               heights, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )

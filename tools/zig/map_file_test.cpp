@@ -691,6 +691,121 @@ static void TestCameraAnchorRecords()
 	printf( "map-file: M2 camera anchor records ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// D-19 (M3): altitudes are editable as a region under the preservation
+// invariant. The deterministic function is the pair the bridge composes:
+// SetAltitudeRegion over the edit rectangle, then CMapInfo::UpdateTerrainShades
+// over GrowForShades of it (the shade kernel - one vertex per side, the MFC
+// editor's own growth, DrawShadeState.cpp:210-213). The expected map is built
+// with the same functions on another fresh read, an undo restores the recorded
+// region raw (nothing re-run), and the byte comparison is between maps READ
+// from files, never copies - the SVertexAltitude padding rule
+// (TestCameraAnchorRecords' own note).
+// ---------------------------------------------------------------------------
+static void TestAltitudeRegion()
+{
+	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	std::string szError;
+	CMapInfo original;
+	if ( !Check( NMapFile::Read( pszMap, &original, &szError ), "read for the altitude region test" ) )
+		return;
+	const int nSizeX = original.terrain.altitudes.GetSizeX(), nSizeY = original.terrain.altitudes.GetSizeY();
+	if ( !Check( nSizeX > 20 && nSizeY > 20, "coldwinter has an altitude sheet big enough for an interior region" ) )
+		return;
+	const CTRect<int> rEdit( 8, 8, 16, 16 );		// 8x8 vertices, interior
+
+	// The values: a smooth ramp of z values (world units), row-major, whole
+	// records so a raw undo has bytes to put back.
+	std::vector<SVertexAltitude> values;
+	for ( int y = rEdit.miny; y < rEdit.maxy; ++y )
+		for ( int x = rEdit.minx; x < rEdit.maxx; ++x )
+		{
+			SVertexAltitude value = original.terrain.altitudes[y][x];
+			value.fHeight = 32.0f * float( ( x - rEdit.minx ) + ( y - rEdit.miny ) );
+			values.push_back( value );
+		}
+	const CTRect<int> rGrown = NMapOverlay::GrowForShades( original, rEdit );
+	Check( rGrown.minx == rEdit.minx - 1 && rGrown.maxx == rEdit.maxx + 1 &&
+	       rGrown.miny == rEdit.miny - 1 && rGrown.maxy == rEdit.maxy + 1,
+	       "the shade kernel grows one vertex per side" );
+
+	// The expected map: the same two calls on another fresh read.
+	CMapInfo expected;
+	if ( !Check( NMapFile::Read( pszMap, &expected, &szError ), "read the expected map" ) )
+		return;
+	Check( NMapOverlay::SetAltitudeRegion( &expected, rEdit, values, 0 ), "the expected map takes the region" );
+	Check( CMapInfo::UpdateTerrainShades( &expected.terrain, rGrown,
+	       CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( expected.nSeason ) ) ),
+	       "the expected map's shades update" );
+
+	// The edited map, from its own fresh read; write, read back, compare.
+	// The undo record covers the GROWN region, not the edit rectangle: the
+	// shade recompute moves the ring's shades too, and D-19's undo restores
+	// exactly what the record holds (the bridge's own ApplyAltitudesInSession
+	// captures over rGrown the same way).
+	CMapInfo edited;
+	if ( !Check( NMapFile::Read( pszMap, &edited, &szError ), "read the map to edit" ) )
+		return;
+	NMapOverlay::SAltitudeUndo undo;
+	NMapOverlay::CaptureAltitudeRegion( edited, rGrown, &undo );
+	Check( NMapOverlay::SetAltitudeRegion( &edited, rEdit, values, 0 ), "the edit is accepted" );
+	Check( CMapInfo::UpdateTerrainShades( &edited.terrain, rGrown,
+	       CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( edited.nSeason ) ) ),
+	       "the edited map's shades update over the grown region" );
+	Check( undo.rVertices.minx == rGrown.minx && undo.rVertices.maxx == rGrown.maxx &&
+	       undo.altitudes.size() == size_t( rGrown.maxx - rGrown.minx ) * size_t( rGrown.maxy - rGrown.miny ),
+	       "the record covers the grown region" );
+
+	const char *pszEdited = "zig-out\\local-test\\altitudes-edited.bzm";
+	const char *pszUndone = "zig-out\\local-test\\altitudes-undone.bzm";
+	const char *pszUnedited = "zig-out\\local-test\\altitudes-unedited.bzm";
+	Check( NMapFile::Write( pszEdited, edited, &szError ), szError.c_str() );
+	CMapInfo reread;
+	if ( Check( NMapFile::Read( pszEdited, &reread, &szError ), szError.c_str() ) )
+	{
+		std::string szWhere;
+		Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+		       szWhere.empty() ? "the saved edit equals the same-function expected map"
+		                       : ( "the altitude edit differs at " + szWhere ).c_str() );
+		szWhere.clear();
+		Check( !NMapFile::AreEquivalent( original, reread, &szWhere ) && szWhere.find( "altitudes" ) != std::string::npos,
+		       "and the comparator sees the altitude edit" );
+	}
+
+	// Undo restores the recorded region raw, and the file it writes is the
+	// unedited one, byte for byte - both written from fresh reads.
+	NMapOverlay::UndoAltitudeRegion( &edited, undo );
+	Check( NMapFile::Write( pszUndone, edited, &szError ), szError.c_str() );
+	CMapInfo unedited;
+	if ( Check( NMapFile::Read( pszMap, &unedited, &szError ), szError.c_str() ) )
+	{
+		Check( NMapFile::Write( pszUnedited, unedited, &szError ), szError.c_str() );
+		if ( Check( FilesAreIdentical( pszUnedited, pszUndone ),
+		            "an altitude edit undone writes the unedited file byte for byte" ) )
+		{
+			remove( "zig-out/local-test/altitudes-edited.bzm" );
+			remove( "zig-out/local-test/altitudes-undone.bzm" );
+			remove( "zig-out/local-test/altitudes-unedited.bzm" );
+		}
+	}
+
+	// A bad rectangle or a bad count is refused and changes nothing.
+	CMapInfo before;
+	if ( !Check( NMapFile::Read( pszMap, &before, &szError ), "read for the refusals" ) )
+		return;
+	NMapOverlay::SAltitudeUndo refused;
+	Check( !NMapOverlay::SetAltitudeRegion( &before, CTRect<int>( nSizeX - 4, nSizeY - 4, nSizeX + 2, nSizeY + 2 ), values, &refused ),
+	       "an off-map rectangle is refused" );
+	Check( !NMapOverlay::SetAltitudeRegion( &before, CTRect<int>( 4, 4, 4, 8 ), values, &refused ),
+	       "an empty rectangle is refused" );
+	Check( !NMapOverlay::SetAltitudeRegion( &before, rEdit, std::vector<SVertexAltitude>(), &refused ),
+	       "a count mismatch is refused" );
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( before, original, &szWhere ),
+	       szWhere.empty() ? "and the refusals changed nothing" : ( "a refusal changed " + szWhere ).c_str() );
+	printf( "map-file: M3 altitude region ok\n" );
+}
+
 // Walks a directory through a storage of its own, opened on the folder and
 // nothing else. The registered data storage will not do: it mounts the .pak
 // archives as pseudo-directories, so enumerating "Maps\\*.*" through it
@@ -3183,6 +3298,7 @@ int main( int argc, char **argv )
 	TestPaintOnAPatchBorder();
 	TestPreprocessingChangesUnpaintedTiles();
 	TestCameraAnchorRecords();
+	TestAltitudeRegion();
 	TestM2RecordOps();
 	TestM2ScriptAreaConversion();
 	TestM2FindReferences();
