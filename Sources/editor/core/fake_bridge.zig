@@ -290,6 +290,10 @@ pub const FakeBridge = struct {
     /// The map's camera anchors (BkEditorCameraAnchors): world units, kept
     /// across a fake reopen like the sounds. `setCameraAnchorsFixture` seeds it.
     camera_anchors: records.CameraAnchors = .{},
+    /// The anchors as they were at the last open: a slot put back to its own
+    /// value there is exempt from the on-the-map rule, as the real bridge's
+    /// (WR-B03).
+    camera_anchors_at_open: records.CameraAnchors = .{},
     /// The map's reinforcement groups (04-09, D-16), by group ID; each value's
     /// slice is owned here. Kept across a fake reopen like the sounds.
     /// `addGroupFixture` seeds it; `recordKeys` answers it sorted.
@@ -1856,6 +1860,7 @@ pub const FakeBridge = struct {
         self.forgetHistory();
         self.hidden_script_ids.clearRetainingCapacity();
         self.script_file_at_open = self.script_file;
+        self.camera_anchors_at_open = self.camera_anchors;
         self.script_areas_at_open.clearRetainingCapacity();
         self.script_areas_at_open.appendSlice(self.allocator, self.script_areas.items) catch return .failed;
         self.start_commands_at_open.clearRetainingCapacity();
@@ -2496,12 +2501,13 @@ pub const FakeBridge = struct {
                     if (!finite(slot)) return .bad_argument;
                 }
                 const current = self.camera_anchors;
-                if (!wanted.neutral.eql(current.neutral) and !wanted.neutral.isUnset() and !self.onMap(wanted.neutral.x, wanted.neutral.y)) {
+                const opened = self.camera_anchors_at_open;
+                if (!wanted.neutral.eql(current.neutral) and !wanted.neutral.eql(opened.neutral) and !wanted.neutral.isUnset() and !self.onMap(wanted.neutral.x, wanted.neutral.y)) {
                     self.say("the neutral camera anchor is not on the map", .{});
                     return .refused;
                 }
                 for (wanted.players[0..wanted.player_count], 0..) |slot, index| {
-                    if (slot.eql(current.slot(index)) or slot.isUnset()) continue;
+                    if (slot.eql(current.slot(index)) or slot.eql(opened.slot(index)) or slot.isUnset()) continue;
                     if (!self.onMap(slot.x, slot.y)) {
                         self.say("the camera anchor of player {d} is not on the map", .{index});
                         return .refused;

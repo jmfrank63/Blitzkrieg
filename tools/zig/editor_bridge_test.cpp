@@ -3904,6 +3904,49 @@ static bool SameAnchors( const BkEditorCameraAnchorRecord &rLeft, const BkEditor
 // back the unedited file byte for byte, and every refusal leaves the read
 // unchanged. Also BkEditorGroundHeight, which the editor takes an anchor's z
 // from.
+// WR-B03 (04 review): a legacy map whose anchor lies off the map can have it
+// edited onto the map, and the undo - the file's own value put back - goes
+// through; a NEW off-map value is still refused.
+static void TestM2OffMapAnchorUndo( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	NMapRecords::SCameraAnchors odd;
+	odd.vNeutral = CVec3( 1.0e5f, -40.0f, 0.0f );
+	odd.players.push_back( CVec3( -500.0f, 99999.0f, 0.0f ) );
+	NMapRecords::PutCameraAnchors( &map, odd );
+	const std::string szMap = szScratch + "\\anchors-offmap.bzm";
+	const std::string szUnedited = szScratch + "\\anchors-offmap-unedited.bzm";
+	const std::string szAfter = szScratch + "\\anchors-offmap-after.bzm";
+	if ( !Check( NMapFile::Write( szMap.c_str(), map, &szError ), szError.c_str() ) ||
+	     !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ||
+	     !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorCameraAnchorRecord file;
+	memset( &file, 0, sizeof file );
+	if ( !Check( BkEditorCameraAnchors( pSession, &file ) == BK_EDITOR_OK && file.player_count == 1, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorCameraAnchorRecord onMap = file;
+	const float fMiddleX = map.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = map.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	onMap.neutral.x = fMiddleX; onMap.neutral.y = fMiddleY;
+	onMap.players[0].x = fMiddleX; onMap.players[0].y = fMiddleY;
+	Check( BkEditorSetCameraAnchors( pSession, &onMap ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetCameraAnchors( pSession, &file ) == BK_EDITOR_OK,
+	       NStr::Format( "the file's own off-map anchors go back, as an undo needs: %s", BkEditorLastMessage( pSession ) ) );
+	BkEditorCameraAnchorRecord fresh = file;
+	fresh.players[0].x = -123.0f;
+	Check( BkEditorSetCameraAnchors( pSession, &fresh ) == BK_EDITOR_REFUSED, "a NEW off-map anchor is still refused" );
+	if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szAfter ), "the off-map anchors put back save the unedited file byte for byte" );
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M2 off-map camera anchor undo ok\n" );
+}
+
 static void TestM2CameraAnchors( BkEditorSession *pSession, const std::string &szScratch )
 {
 	CMapInfo original;
@@ -8831,6 +8874,7 @@ int main( int argc, char **argv )
 		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2VsoRendersOnGpu( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2CameraAnchors( pSession, szScratch );
+		TestM2OffMapAnchorUndo( pSession, szScratch );
 		TestM2ScriptIDs( pSession, szScratch );
 		TestM2Groups( pSession, szScratch );
 		TestM2ScriptFile( pSession, szScratch );
