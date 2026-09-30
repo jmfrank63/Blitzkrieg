@@ -421,7 +421,7 @@ pub fn drawGroups(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 /// name a folder), a warning line says when its file is not beside the map, a
 /// list offers None and the .lua files beside the map, Choose other... copies a
 /// picked file beside the map (asking before it replaces one) and Open script
-/// hands the file to the system's editor. Every control runs a named command or
+/// folder shows the folder holding it in the system's file manager. Every control runs a named command or
 /// a panels.zig function the commands call, so BK_EDITOR_AUTO reaches it too.
 pub fn drawScriptDialog(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     if (!state.script_open) {
@@ -463,7 +463,7 @@ pub fn drawScriptDialog(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     if (ig.igButton("Choose other...")) panels.chooseOtherScript(state);
     ig.igSameLine();
     ig.igBeginDisabled(value == null or value.?.len == 0);
-    if (ig.igButton("Open script")) _ = panels.openScript(state);
+    if (ig.igButton("Open script folder")) _ = panels.openScript(state);
     ig.igEndDisabled();
     ig.igPushTextWrapPos(0);
     ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
@@ -546,9 +546,9 @@ pub fn drawScriptModals(state: *State) void {
     }
 }
 
-/// Hands `url` (built by `script_file.openUrl` from the resolved folder and a
-/// validated name, never from typed text) to the system to open with the default
-/// editor. Null on success, else why not.
+/// Hands `url` (built by `script_file.folderUrl` from the resolved folder of a
+/// validated script, never from typed text) to the system, which shows the
+/// folder. Null on success, else why not.
 pub fn openUrlWithSystem(url: [:0]const u8) ?[]const u8 {
     if (sdl3.c.SDL_OpenURL(url.ptr)) return null;
     const reason = sdl3.c.SDL_GetError();

@@ -257,14 +257,18 @@ fn isUnreserved(char: u8) bool {
     return std.ascii.isAlphanumeric(char) or char == '-' or char == '.' or char == '_' or char == '~';
 }
 
-/// The URL that opens the script `value` (as the map holds it) beside `map_path`
-/// with the system's default editor (`SDL_OpenURL`): "file://" and the resolved
-/// absolute path of the file's folder (`Files.realPath`) and the validated name
-/// and ".lua", percent-encoded, in `buffer`. Built from nothing typed: the name
-/// is `gameScriptName`'s, one component of letters, digits and "_-.", and the
-/// folder is the map's own. Null for None or a name that fails the rule, a file
-/// that is not there (the caller warns) and a path that does not fit.
-pub fn openUrl(files: Files, buffer: []u8, map_path: []const u8, value: []const u8) ?[]const u8 {
+/// The URL of the FOLDER that holds the script `value` (as the map holds it)
+/// beside `map_path`, for "Open script folder" (`SDL_OpenURL`): "file://" and the
+/// resolved absolute path of the file's folder (`Files.realPath`), percent-encoded,
+/// with a trailing slash, in `buffer`. The folder, never the file: the `.lua`
+/// came with a map that may have been downloaded, and the system's default
+/// "open" of a `.lua` may run it where an interpreter is associated (ShellExecute
+/// "open" on Windows) - showing the folder lets the person open it in the editor
+/// of their choice (WR-B04). Built from nothing typed: the name is
+/// `gameScriptName`'s and only checks the file is there; the folder is the map's
+/// own. Null for None or a name that fails the rule, a file that is not there
+/// (the caller warns) and a path that does not fit.
+pub fn folderUrl(files: Files, buffer: []u8, map_path: []const u8, value: []const u8) ?[]const u8 {
     const name = gameScriptName(value) orelse return null;
     var path_buffer: [files_mod.max_path]u8 = undefined;
     const script_path = scriptPathBeside(&path_buffer, map_path, name) orelse return null;
@@ -288,9 +292,7 @@ pub fn openUrl(files: Files, buffer: []u8, map_path: []const u8, value: []const 
             out.appendSliceBounded(&escape) catch return null;
         }
     }
-    out.appendBounded('/') catch return null;
-    out.appendSliceBounded(name) catch return null;
-    out.appendSliceBounded(lua_extension) catch return null;
+    if (out.items.len == 0 or out.items[out.items.len - 1] != '/') out.appendBounded('/') catch return null;
     return out.items;
 }
 
@@ -495,7 +497,7 @@ test "copyAlong never replaces a different script beside the new map unless told
     try std.testing.expectEqual(CopyAlongOutcome.missing, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent", true));
 }
 
-test "openUrl is file:// and the resolved folder and a validated name, and nothing else" {
+test "folderUrl is file:// and the resolved folder of a validated script, never the script itself (WR-B04)" {
     var fake = files_mod.FakeFiles.init(std.testing.allocator);
     defer fake.deinit();
     const files = fake.files();
@@ -503,21 +505,23 @@ test "openUrl is file:// and the resolved folder and a validated name, and nothi
     try fake.write("/home/me/My Maps/it's.lua", "x");
     var buffer: [512]u8 = undefined;
     if (builtin.os.tag != .windows) {
-        try std.testing.expectEqualStrings("file:///home/me/My%20Maps/m2_script.lua", openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "m2_script").?);
+        try std.testing.expectEqualStrings("file:///home/me/My%20Maps/", folderUrl(files, &buffer, "/home/me/My Maps/a.bzm", "m2_script").?);
         // A folder value keeps its last component; a drive-less engine path works too.
-        try std.testing.expectEqualStrings("file:///home/me/My%20Maps/m2_script.lua", openUrl(files, &buffer, "\\home\\me\\My Maps\\a.bzm", "maps\\m2_script").?);
+        try std.testing.expectEqualStrings("file:///home/me/My%20Maps/", folderUrl(files, &buffer, "\\home\\me\\My Maps\\a.bzm", "maps\\m2_script").?);
     }
     // Every byte is unreserved, a slash, a percent escape or the drive's colon.
-    const url = openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "m2_script").?;
+    const url = folderUrl(files, &buffer, "/home/me/My Maps/a.bzm", "m2_script").?;
     try std.testing.expect(std.mem.startsWith(u8, url, "file://"));
+    try std.testing.expect(std.mem.endsWith(u8, url, "/"));
+    try std.testing.expect(std.mem.indexOf(u8, url, ".lua") == null);
     for (url["file://".len..]) |char| try std.testing.expect(isUnreserved(char) or char == '/' or char == '%' or char == ':');
     // A file that is not there, None and a bad name give no URL - nothing to open.
-    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "absent") == null);
-    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "") == null);
-    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "x.lua") == null);
-    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "..\\..\\etc") == null);
+    try std.testing.expect(folderUrl(files, &buffer, "/home/me/My Maps/a.bzm", "absent") == null);
+    try std.testing.expect(folderUrl(files, &buffer, "/home/me/My Maps/a.bzm", "") == null);
+    try std.testing.expect(folderUrl(files, &buffer, "/home/me/My Maps/a.bzm", "x.lua") == null);
+    try std.testing.expect(folderUrl(files, &buffer, "/home/me/My Maps/a.bzm", "..\\..\\etc") == null);
     var tiny: [16]u8 = undefined;
-    try std.testing.expect(openUrl(files, &tiny, "/home/me/My Maps/a.bzm", "m2_script") == null);
+    try std.testing.expect(folderUrl(files, &tiny, "/home/me/My Maps/a.bzm", "m2_script") == null);
     // The real path is the fake's own (symlinks resolved): a link is followed for the folder only.
     var linked = files_mod.FakeFiles.init(std.testing.allocator);
     defer linked.deinit();
@@ -525,6 +529,6 @@ test "openUrl is file:// and the resolved folder and a validated name, and nothi
     linked.links = &link_list;
     try linked.write("/home/me/maps/s.lua", "x");
     if (builtin.os.tag != .windows) {
-        try std.testing.expectEqualStrings("file:///mnt/disk/maps/s.lua", openUrl(linked.files(), &buffer, "/home/me/maps/a.bzm", "s").?);
+        try std.testing.expectEqualStrings("file:///mnt/disk/maps/", folderUrl(linked.files(), &buffer, "/home/me/maps/a.bzm", "s").?);
     }
 }

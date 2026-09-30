@@ -1442,9 +1442,11 @@ pub fn refreshScriptNames(state: *State) void {
     core.script_file.listBeside(files, state.allocator, state.editor.document.path.items, &state.script_names) catch {};
 }
 
-/// "Open script": the map's script in the system's default editor. The URL is
-/// built from the resolved folder and the validated name (`script_file.openUrl`),
-/// never from typed text; a script that is not there is a warning.
+/// "Open script folder": the folder that holds the map's script, in the
+/// system's file manager - never the `.lua` itself, which the system's default
+/// "open" may run (WR-B04). The URL is built from the resolved folder of the
+/// validated name (`script_file.folderUrl`), never from typed text; a script
+/// that is not there is a warning.
 pub fn openScript(state: *State) bool {
     const files = state.editor.files orelse return false;
     var value_buffer: [core.records.script_file_capacity]u8 = undefined;
@@ -1454,7 +1456,7 @@ pub fn openScript(state: *State) bool {
         return false;
     }
     var url_buffer: [core.files.max_path + 64]u8 = undefined;
-    const url = core.script_file.openUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
+    const url = core.script_file.folderUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
         state.view.setStatus("script: ", "the script file is not beside the map");
         return false;
     };
