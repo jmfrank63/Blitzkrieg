@@ -801,6 +801,29 @@ pub const Editor = struct {
         try self.reloadObjects();
     }
 
+    /// Rotates the bridge at `index` (D-11): its `_01`/`_02` partner about
+    /// the same centre with the same span count, at the same index; one undo
+    /// step. Refused (no partner, a span off the map) with nothing changed.
+    pub fn rotateBridge(self: *Editor, index: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.rotateBridge(@intCast(index), &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjects();
+    }
+
+    /// D-12: toggles the bridge at `index` between intact and built during
+    /// play; one undo step. Refused unless a WoodenBig_Heavy_ bridge. The
+    /// objects keep their link IDs, so the document needs no re-read.
+    pub fn toggleBridgeBuild(self: *Editor, index: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.toggleBridgeBuild(@intCast(index), &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+    }
+
     /// The bridge or entrenchment under a screen point (window pixels), or
     /// null. A read: the status line is left alone.
     pub fn pickGroup(self: *Editor, sx: f32, sy: f32) EditError!?bridge_mod.GroupRef {

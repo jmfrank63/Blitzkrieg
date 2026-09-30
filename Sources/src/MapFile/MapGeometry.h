@@ -78,6 +78,14 @@ struct SBridgePlanInput
 bool PlanBridge( const SBridgePlanInput &rInput, const CVec2 &vFirstVis, const CVec2 &vLastVis,
                  std::vector<SPlannedPiece> *pSpans, std::string *pWhy );
 
+// The drag that plans a bridge of nSpans spans (2 or more; fewer is taken as
+// 2) about vCentreVis (world units), along rInput's direction: from
+// centre - n L / 2 to that plus ( n + 0.5 ) L, n = nSpans - 2, so PlanBridge
+// counts n middle spans and the planned bridge is centred on vCentreVis up to
+// its grid fit. A rotate (D-11) plans the partner type through this, about
+// the old bridge's centre with its span count.
+void RotatedBridgeDrag( const SBridgePlanInput &rInput, const CVec2 &vCentreVis, int nSpans, CVec2 *pFirstVis, CVec2 *pLastVis );
+
 // The rotated variant of a bridge type: a trailing "_01" and "_02" swapped
 // (every shipped family ships both, _01 horizontal and _02 vertical), the rest
 // of the name kept as it is. Empty for a name with neither suffix.

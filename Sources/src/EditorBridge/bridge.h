@@ -970,6 +970,21 @@ BkEditorStatus BkEditorPickGroup( BkEditorSession *session, float sx, float sy, 
    not know, a span the engine never held, a link ID the map shares): it is
    kept as read. */
 BkEditorStatus BkEditorDeleteBridge( BkEditorSession *session, int index, int *out_token );
+/* D-11: rotates bridge index - its type's _01/_02 partner, rebuilt about the
+   same centre along the other axis with the same number of spans, at the same
+   index of the list, built during play carried over - as one edit
+   (out_token, may be null). BK_EDITOR_REFUSED, changing nothing, naming the
+   reason: "no rotated variant of <type>" when the partner is not in the
+   object database, a span of the rotated bridge off the map, a bridge whose
+   spans the editor could not put back. index outside 0..count-1 is
+   BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorRotateBridge( BkEditorSession *session, int index, int *out_token );
+/* D-12: toggles bridge index between intact and built during play (every
+   span's HP in the saved map 1 or -1; the engine shows it intact, marked with
+   the MFC editor's specular 0xFF0000FF) as one edit. BK_EDITOR_REFUSED ("only
+   WoodenBig_Heavy bridges can be built during play") for any other type.
+   index outside 0..count-1 is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorToggleBridgeBuild( BkEditorSession *session, int index, int *out_token );
 
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */

@@ -13,7 +13,9 @@
 //! nothing: on a span it selects that span's whole bridge (D-11), anywhere
 //! else it drops the selection. (The MFC tool drew a two-span bridge on any
 //! release; here a bridge is a drag, so a click can select.) Delete removes
-//! the selected bridge whole.
+//! the selected bridge whole, Q or E rotates it to its `_01`/`_02` partner
+//! (D-11) and Enter toggles a WoodenBig_Heavy bridge between intact and built
+//! during play (D-12), each one undo step.
 //!
 //! Drags are world (Vis) units, the pointer's `world_x`/`world_y`: the bridge
 //! plans in the scene's units and converts each span to map units itself.
@@ -99,6 +101,23 @@ pub const BridgeTool = struct {
                 self.selected = try editor.drawBridge(self.desc(), begin[0], begin[1], end[0], end[1]);
             },
             .key => |key| switch (key) {
+                // Q/E (D-11): rotate the selected bridge to its partner. The
+                // index stays; the MFC tool had no rotate, it redrew.
+                .rotate_left, .rotate_right => {
+                    const index = self.selected orelse {
+                        editor.note("click a bridge to select it first");
+                        return;
+                    };
+                    try editor.rotateBridge(index);
+                },
+                // Enter (D-12): built during play, WoodenBig_Heavy only.
+                .enter => {
+                    const index = self.selected orelse {
+                        editor.note("click a bridge to select it first");
+                        return;
+                    };
+                    try editor.toggleBridgeBuild(index);
+                },
                 .delete => {
                     const index = self.selected orelse {
                         editor.note("click a bridge to select it first");
@@ -335,4 +354,90 @@ test "a span alone is still refused to the object delete, and the pick finds its
     try testing.expectEqual(bridge_mod.GroupKind.bridge, group.kind);
     try testing.expectEqual(@as(usize, 0), group.index);
     try testing.expectEqual(@as(?bridge_mod.GroupRef, null), try editor.pickGroup(200, 200));
+}
+
+fn fakeInfo(editor: *Editor, index: usize) !bridge_mod.BridgeInfo {
+    const infos = try editor.bridges(testing.allocator);
+    defer testing.allocator.free(infos);
+    return infos[index];
+}
+
+test "Q rotates the selected bridge to its partner: same span count, the other axis, one undo step" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("W_Fake_Bridge_01");
+    try dragAcross(&tool, &editor, 40, 150, 140, 150);
+    const index = tool.selected.?;
+    const before = try fakeInfo(&editor, index);
+    const old_links = fake.bridgeEntry(index).*;
+    try testing.expectEqual(@as(f32, before.min_y), before.max_y);
+    try tool.handle(&editor, .{ .key = .rotate_left });
+    const after = try fakeInfo(&editor, index);
+    try testing.expectEqualStrings("W_Fake_Bridge_02", after.descSlice());
+    try testing.expectEqual(before.span_count, after.span_count);
+    // Vertical now: one x, a run along y, about the same centre.
+    try testing.expectEqual(after.min_x, after.max_x);
+    try testing.expect(after.max_y > after.min_y);
+    try testing.expectApproxEqAbs((before.min_x + before.max_x) / 2, after.min_x, 0.01);
+    try testing.expectApproxEqAbs((before.min_y + before.max_y) / 2, (after.min_y + after.max_y) / 2, 0.01);
+    for (old_links.linkSlice()) |link| try testing.expect(editor.document.find(link) == null);
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    // E rotates it back to the _01 type; undo walks both back.
+    try tool.handle(&editor, .{ .key = .rotate_right });
+    try testing.expectEqualStrings("W_Fake_Bridge_01", (try fakeInfo(&editor, index)).descSlice());
+    try testing.expect(try editor.undo());
+    try testing.expect(try editor.undo());
+    try testing.expectEqualSlices(i32, old_links.linkSlice(), fake.bridgeEntry(index).linkSlice());
+    try testing.expectEqualStrings("W_Fake_Bridge_01", (try fakeInfo(&editor, index)).descSlice());
+}
+
+test "a bridge with no rotated variant is refused and the history stays as it was" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("Lonely_Bridge");
+    try dragAcross(&tool, &editor, 40, 150, 140, 150);
+    const links = fake.bridgeEntry(tool.selected.?).*;
+    try testing.expectError(error.Refused, tool.handle(&editor, .{ .key = .rotate_left }));
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "no rotated variant of Lonely_Bridge") != null);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expectEqualSlices(i32, links.linkSlice(), fake.bridgeEntry(tool.selected.?).linkSlice());
+    // A rotation whose spans would leave the map is refused too: a long
+    // horizontal bridge near the bottom edge turned upright.
+    var long = bridgeTool("W_Fake_Bridge_01");
+    try dragAcross(&long, &editor, 10, 240, 250, 240);
+    try testing.expectError(error.Refused, long.handle(&editor, .{ .key = .rotate_right }));
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+}
+
+test "Enter toggles a WoodenBig_Heavy bridge built during play, one step each way; other types are refused" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("W_WoodenBig_Heavy_01");
+    try dragAcross(&tool, &editor, 40, 150, 140, 150);
+    const index = tool.selected.?;
+    try testing.expect(!(try fakeInfo(&editor, index)).built_during_play);
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expect((try fakeInfo(&editor, index)).built_during_play);
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    // Rotating keeps it built during play.
+    try tool.handle(&editor, .{ .key = .rotate_left });
+    try testing.expect((try fakeInfo(&editor, index)).built_during_play);
+    try testing.expect(try editor.undo());
+    try testing.expect(try editor.undo());
+    try testing.expect(!(try fakeInfo(&editor, index)).built_during_play);
+    try testing.expect(try editor.redo());
+    try testing.expect((try fakeInfo(&editor, index)).built_during_play);
+
+    var other = bridgeTool("W_Fake_Bridge_01");
+    try dragAcross(&other, &editor, 40, 200, 140, 200);
+    const depth = editor.history.undo_stack.items.len;
+    try testing.expectError(error.Refused, other.handle(&editor, .{ .key = .enter }));
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "WoodenBig_Heavy") != null);
+    try testing.expectEqual(depth, editor.history.undo_stack.items.len);
 }

@@ -259,6 +259,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorBridges", [&] { return BkEditorBridges( 0, &bridgeInfo, 1, &nInt ); } },
 		{ "BkEditorPickGroup", [&] { return BkEditorPickGroup( 0, 0, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorDeleteBridge", [&] { return BkEditorDeleteBridge( 0, 0, &nInt ); } },
+		{ "BkEditorRotateBridge", [&] { return BkEditorRotateBridge( 0, 0, &nInt ); } },
+		{ "BkEditorToggleBridgeBuild", [&] { return BkEditorToggleBridgeBuild( 0, 0, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -325,6 +327,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorBridges", [&] { return BkEditorBridges( pSession, &bridgeInfo, 1, &nInt ); } },
 		{ "BkEditorPickGroup", [&] { return BkEditorPickGroup( pSession, 0, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorDeleteBridge", [&] { return BkEditorDeleteBridge( pSession, 0, &nInt ); } },
+		{ "BkEditorRotateBridge", [&] { return BkEditorRotateBridge( pSession, 0, &nInt ); } },
+		{ "BkEditorToggleBridgeBuild", [&] { return BkEditorToggleBridgeBuild( pSession, 0, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4973,6 +4977,233 @@ static void TestM2BridgeDelete( BkEditorSession *pSession, const std::string &sz
 	printf( "editor-bridge: M2 bridge delete ok\n" );
 }
 
+// The screen box of a bridge (map-unit box from BkEditorBridges, grown by
+// half a tile in world units) with the camera on its centre, and a capture of
+// the frame. False when a corner does not convert.
+struct SScreenBox { int nLeft, nTop, nRight, nBottom; };
+
+static bool CaptureBridge( BkEditorSession *pSession, const BkEditorBridgeInfo &rInfo, const std::string &szPath, SScreenBox *pBox,
+                           std::vector<unsigned char> *pPixels, int *pnWidth, int *pnHeight )
+{
+	const float fMargin = fWorldCellSize / 2.0f;
+	const float fMinX = rInfo.min_x * fAITileXCoeff - fMargin, fMaxX = rInfo.max_x * fAITileXCoeff + fMargin;
+	const float fMinY = rInfo.min_y * fAITileYCoeff - fMargin, fMaxY = rInfo.max_y * fAITileYCoeff + fMargin;
+	if ( BkEditorSetCamera( pSession, ( fMinX + fMaxX ) / 2.0f, ( fMinY + fMaxY ) / 2.0f ) != BK_EDITOR_OK || BkEditorFrame( pSession ) != BK_EDITOR_OK )
+		return false;
+	const float corners[4][2] = { { fMinX, fMinY }, { fMaxX, fMinY }, { fMaxX, fMaxY }, { fMinX, fMaxY } };
+	float fLeft = 1e9f, fTop = 1e9f, fRight = -1e9f, fBottom = -1e9f;
+	for ( int k = 0; k < 4; ++k )
+	{
+		float fSx = 0.0f, fSy = 0.0f;
+		if ( BkEditorWorldToScreen( pSession, corners[k][0], corners[k][1], &fSx, &fSy ) != BK_EDITOR_OK )
+			return false;
+		fLeft = Min( fLeft, fSx );
+		fRight = Max( fRight, fSx );
+		fTop = Min( fTop, fSy );
+		fBottom = Max( fBottom, fSy );
+	}
+	// A bridge's sprite stands above its ground box a little.
+	pBox->nLeft = int( fLeft );
+	pBox->nRight = int( fRight ) + 1;
+	pBox->nTop = int( fTop ) - 32;
+	pBox->nBottom = int( fBottom ) + 1;
+	if ( !SaveFrame( pSession, szPath ) )
+		return false;
+	*pPixels = ReadFramePixels( szPath, pnWidth, pnHeight );
+	return !pPixels->empty();
+}
+
+static int BoxArea( const SScreenBox &rBox, int nWidth, int nHeight )
+{
+	return Max( 0, Min( nWidth, rBox.nRight ) - Max( 0, rBox.nLeft ) ) * Max( 0, Min( nHeight, rBox.nBottom ) - Max( 0, rBox.nTop ) );
+}
+
+// D-11/D-12 with C1 on the real engine: a W_WoodenBig_Heavy_01 bridge rotated
+// becomes a W_WoodenBig_Heavy_02 bridge of the same span count about the same
+// centre (saved as the map the shared geometry builds), toggled built during
+// play (every span -1 in the file, the engine's picture visibly marked, the
+// mark measured) and untoggled; a rotation off the map and a toggle of
+// another type are refused; everything undone saves the unedited bytes.
+static void TestM2BridgeRotateToggle( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\bridge-rotate-unedited.bzm";
+	const std::string szEdited = szScratch + "\\bridge-rotate-edited.bzm";
+	const std::string szCheck = szScratch + "\\bridge-rotate-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	NMapGeometry::SBridgePlanInput input01, input02;
+	if ( !Check( PlanInputFromStats( WOODEN_BRIDGE, &input01 ) && PlanInputFromStats( WOODEN_BRIDGE_ROTATED, &input02 ), "both WoodenBig_Heavy variants give plan inputs" ) )
+		return;
+	Check( input02.nDirection == NMapGeometry::BRIDGE_VERTICAL, "W_WoodenBig_Heavy_02 runs vertically" );
+
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	const CVec2 vFirst( fMiddleX - 250.0f, fMiddleY + 250.0f ), vLast( fMiddleX + 250.0f, fMiddleY + 250.0f );
+	std::vector<NMapGeometry::SPlannedPiece> plan01;
+	if ( !Check( NMapGeometry::PlanBridge( input01, vFirst, vLast, &plan01, &szError ), szError.c_str() ) )
+		return;
+	std::vector<int> tokens;
+	int nToken = -1, nIndex = -1;
+	if ( !Check( BkEditorDrawBridge( pSession, WOODEN_BRIDGE, vFirst.x, vFirst.y, vLast.x, vLast.y, &nToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	tokens.push_back( nToken );
+
+	// Rotate.
+	if ( !Check( BkEditorRotateBridge( pSession, nIndex, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	tokens.push_back( nToken );
+	WorldAgrees( pSession, "after a rotate" );
+	EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after a rotate" );
+	std::vector<BkEditorBridgeInfo> infos = ReadBridges( pSession );
+	if ( !Check( nIndex < int( infos.size() ), "the rotated bridge keeps its index" ) )
+		return;
+	const BkEditorBridgeInfo rotated = infos[nIndex];
+	const float fOldCentreX = ( plan01.front().vPos.x + plan01.back().vPos.x ) / 2.0f, fOldCentreY = ( plan01.front().vPos.y + plan01.back().vPos.y ) / 2.0f;
+	const float fNewCentreX = ( rotated.min_x + rotated.max_x ) / 2.0f, fNewCentreY = ( rotated.min_y + rotated.max_y ) / 2.0f;
+	const float fSpanAI = input02.fSpanLength / fAITileXCoeff;
+	Check( std::string( rotated.desc ) == WOODEN_BRIDGE_ROTATED && rotated.span_count == int( plan01.size() ) && rotated.min_x == rotated.max_x && rotated.max_y > rotated.min_y,
+	       NStr::Format( "the entry names %d spans of W_WoodenBig_Heavy_02 along y (%s, %d)", int( plan01.size() ), rotated.desc, rotated.span_count ) );
+	Check( std::fabs( fNewCentreX - fOldCentreX ) <= fSpanAI && std::fabs( fNewCentreY - fOldCentreY ) <= fSpanAI,
+	       NStr::Format( "about the old centre within one span length (%.1f,%.1f vs %.1f,%.1f map units, span %.1f)", fNewCentreX, fNewCentreY, fOldCentreX, fOldCentreY, fSpanAI ) );
+	// The expected map: the same geometry, the drawn bridge's spans taken out
+	// and the rotated ones in, the entry at the same index.
+	CMapInfo expected;
+	Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() );
+	std::vector<int> drawnLinks;
+	Check( LayBridge( &expected, WOODEN_BRIDGE, plan01, 1.0f, -1, &drawnLinks ), "the drawn bridge lays over the expected map" );
+	{
+		CVec3 vCentre;
+		AI2Vis( &vCentre, fOldCentreX, fOldCentreY, 0.0f );
+		CVec2 vRotFirst, vRotLast;
+		NMapGeometry::RotatedBridgeDrag( input02, CVec2( vCentre.x, vCentre.y ), int( plan01.size() ), &vRotFirst, &vRotLast );
+		std::vector<NMapGeometry::SPlannedPiece> plan02;
+		Check( NMapGeometry::PlanBridge( input02, vRotFirst, vRotLast, &plan02, &szError ), szError.c_str() );
+		Check( plan02.size() == plan01.size(), "the rotated plan has the same span count" );
+		// The rotated spans take the IDs after the drawn ones: the bridge's floor
+		// is above every ID it handed out.
+		const int nFirstNew = drawnLinks.back() + 1;
+		Check( NMapRecords::EraseBridgeEntry( &expected, int( expected.bridges.size() ) - 1 ), "the expected map loses the drawn entry" );
+		for ( size_t i = drawnLinks.size(); i-- > 0; )
+		{
+			std::string szRefusal;
+			Check( NMapOverlay::DeleteObject( &expected, drawnLinks[i], &szRefusal ), szRefusal.c_str() );
+		}
+		std::vector<int> rotatedLinks;
+		for ( size_t i = 0; i < plan02.size(); ++i )
+		{
+			NMapOverlay::SAddObject add;
+			add.szName = WOODEN_BRIDGE_ROTATED;
+			add.vPos = plan02[i].vPos;
+			add.nFrameIndex = plan02[i].nPackedType;
+			add.nLinkID = nFirstNew + int( i );
+			int nLinkID = -1;
+			Check( NMapOverlay::AddObject( &expected, add, &nLinkID ), "a rotated span lays over the expected map" );
+			rotatedLinks.push_back( nLinkID );
+		}
+		Check( NMapRecords::InsertBridgeEntry( &expected, nIndex, rotatedLinks ), "and the rotated entry at the same index" );
+	}
+	CheckSavedEquals( pSession, szEdited, expected, "a rotated bridge" );
+
+	// Toggle built during play, and measure the mark.
+	SScreenBox box;
+	std::vector<unsigned char> before, marked, unmarked;
+	int nWidth = 0, nHeight = 0;
+	const std::string szShotBefore = szScratch + "/bridge-toggle-before.tga";
+	const std::string szShotMarked = szScratch + "/bridge-toggle-marked.tga";
+	const std::string szShotUndone = szScratch + "/bridge-toggle-undone.tga";
+	Check( CaptureBridge( pSession, rotated, szShotBefore, &box, &before, &nWidth, &nHeight ), "the bridge is captured before the toggle" );
+	if ( !Check( BkEditorToggleBridgeBuild( pSession, nIndex, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	tokens.push_back( nToken );
+	const int nToggleToken = nToken;
+	Check( ReadBridges( pSession )[nIndex].built_during_play == 1, "BkEditorBridges says built during play" );
+	{
+		CMapInfo saved;
+		if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+		     Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) && Check( nIndex < int( saved.bridges.size() ), "the saved map has the entry" ) )
+		{
+			bool bAllNegative = !saved.bridges[nIndex].empty();
+			for ( size_t i = 0; i < saved.bridges[nIndex].size(); ++i )
+			{
+				const SMapObjectInfo *pSpan = 0;
+				for ( size_t k = 0; k < saved.objects.size() && pSpan == 0; ++k )
+					if ( saved.objects[k].link.nLinkID == saved.bridges[nIndex][i] )
+						pSpan = &saved.objects[k];
+				bAllNegative = bAllNegative && pSpan != 0 && pSpan->fHP == -1.0f;
+			}
+			Check( bAllNegative, "the saved HP of every span is -1" );
+			for ( size_t i = 0; i < expected.bridges[nIndex].size(); ++i )
+				NMapRecords::SetObjectHP( &expected, expected.bridges[nIndex][i], -1.0f );
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ), NStr::Format( "the toggled map reads back as expected (%s)", szWhere.c_str() ) );
+		}
+	}
+	WorldAgrees( pSession, "after a toggle" );
+	Check( CaptureBridge( pSession, rotated, szShotMarked, &box, &marked, &nWidth, &nHeight ), "the bridge is captured marked" );
+	const int nArea = BoxArea( box, nWidth, nHeight );
+	const int nMarked = ChangedPixels( before, marked, nWidth, nHeight, box.nLeft, box.nTop, box.nRight, box.nBottom );
+	printf( "editor-bridge: the built-during-play mark changes %d of %d pixels (%.2f %%) of the bridge's box %d,%d-%d,%d\n", nMarked, nArea,
+	        nArea > 0 ? 100.0f * nMarked / nArea : 0.0f, box.nLeft, box.nTop, box.nRight, box.nBottom );
+	Check( nArea > 0 && nMarked * 100 > nArea, "the mark changes more than 1 % of the bridge's box" );
+	if ( Check( BkEditorUndoEdit( pSession, nToggleToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.pop_back();
+		Check( ReadBridges( pSession )[nIndex].built_during_play == 0, "the toggle's undo: intact again" );
+		Check( CaptureBridge( pSession, rotated, szShotUndone, &box, &unmarked, &nWidth, &nHeight ), "the bridge is captured after the undo" );
+		const int nBack = ChangedPixels( before, unmarked, nWidth, nHeight, box.nLeft, box.nTop, box.nRight, box.nBottom );
+		printf( "editor-bridge: after the toggle's undo %d of %d pixels (%.2f %%) differ from before\n", nBack, nArea, nArea > 0 ? 100.0f * nBack / nArea : 0.0f );
+		Check( nBack * 200 <= nArea, "the capture is back within 0.5 %" );
+		// Redo and undo once more: the mark comes back with the redo.
+		Check( BkEditorRedoEdit( pSession, nToggleToken ) == BK_EDITOR_OK && BkEditorUndoEdit( pSession, nToggleToken ) == BK_EDITOR_OK, "the toggle redoes and undoes" );
+	}
+
+	// Refusals.
+	const int nRefusedBridges = int( ReadBridges( pSession ).size() );
+	int nOther = -1, nOtherToken = -1;
+	if ( Check( BkEditorDrawBridge( pSession, "W_WoodenLittle_01", fMiddleX - 250.0f, fMiddleY - 250.0f, fMiddleX + 250.0f, fMiddleY - 250.0f, &nOtherToken, &nOther ) == BK_EDITOR_OK,
+	            BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nOtherToken );
+		Check( BkEditorToggleBridgeBuild( pSession, nOther, &nToken ) == BK_EDITOR_REFUSED, "toggling a W_WoodenLittle bridge is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "WoodenBig_Heavy" ) != std::string::npos, BkEditorLastMessage( pSession ) );
+	}
+	// A long horizontal bridge near the map's low-y edge: upright about its
+	// centre it would reach past the edge.
+	const float fLong = 7.3f * input01.fSpanLength;
+	int nEdge = -1, nEdgeToken = -1;
+	if ( Check( BkEditorDrawBridge( pSession, WOODEN_BRIDGE, fMiddleX - fLong / 2.0f, 300.0f, fMiddleX + fLong / 2.0f, 300.0f, &nEdgeToken, &nEdge ) == BK_EDITOR_OK,
+	            BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nEdgeToken );
+		const int nObjects = int( ReadObjectRecords( pSession ).size() );
+		Check( BkEditorRotateBridge( pSession, nEdge, &nToken ) == BK_EDITOR_REFUSED, "a rotation that would leave the map is refused" );
+		printf( "editor-bridge: rotation off the map: %s\n", BkEditorLastMessage( pSession ) );
+		Check( int( ReadObjectRecords( pSession ).size() ) == nObjects && ReadBridges( pSession )[nEdge].span_count > 0 &&
+		       std::string( ReadBridges( pSession )[nEdge].desc ) == WOODEN_BRIDGE, "and the bridge stays as it was" );
+		WorldAgrees( pSession, "after a refused rotation" );
+		EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after a refused rotation" );
+	}
+	Check( nRefusedBridges + 2 == int( ReadBridges( pSession ).size() ), "the refusals added nothing beyond the two drawn bridges" );
+
+	// Everything undone: the unedited bytes.
+	for ( size_t i = tokens.size(); i-- > 0; )
+		Check( BkEditorUndoEdit( pSession, tokens[i] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	WorldAgrees( pSession, "after every undo" );
+	const std::string szUndone = szScratch + "\\bridge-rotate-undone.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "a draw, rotate, toggle and the refusals undone save the unedited file byte for byte" );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 bridge rotate and toggle ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -5131,6 +5362,7 @@ int main( int argc, char **argv )
 		TestM2RoadEdits( pSession, szScratch );
 		TestM2Bridges( pSession, szScratch );
 		TestM2BridgeDelete( pSession, szScratch );
+		TestM2BridgeRotateToggle( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

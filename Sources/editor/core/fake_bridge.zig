@@ -187,7 +187,9 @@ const FakeBridgeGroup = struct {
 const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
 /// The fake's edit log holds road and river edits and bridge edits alike,
 /// one token space, as the real session's does.
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit };
+/// A toggle of built during play: the entry and its flag before and after.
+const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
@@ -549,6 +551,8 @@ pub const FakeBridge = struct {
         .bridges = bridges,
         .pickGroup = pickGroup,
         .deleteBridge = deleteBridge,
+        .rotateBridge = rotateBridge,
+        .toggleBridgeBuild = toggleBridgeBuild,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -635,6 +639,7 @@ pub const FakeBridge = struct {
         const put = switch (self.edits.items[@intCast(token)]) {
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .bridge => |*edit| self.putBridge(if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
+            .build => |edit| self.putBuild(edit.index, edit.before),
         };
         if (put != .ok) return put;
         _ = self.applied_edits.pop();
@@ -654,6 +659,7 @@ pub const FakeBridge = struct {
         const put = switch (self.edits.items[@intCast(token)]) {
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .bridge => |*edit| self.putBridge(if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
+            .build => |edit| self.putBuild(edit.index, edit.after),
         };
         if (put != .ok) return put;
         _ = self.undone_edits.pop();
@@ -1100,6 +1106,100 @@ pub const FakeBridge = struct {
             }
         }
         return self.logBridgeEdit(.{ .before = .{ .entry_index = at, .entry = self.bridge_entries.items[at] }, .after = null }, token);
+    }
+
+    fn putBuild(self: *FakeBridge, index: usize, built: bool) Status {
+        if (index >= self.bridge_entries.items.len) return .failed;
+        self.bridge_entries.items[index].built = built;
+        return .ok;
+    }
+
+    /// The type of an entry: its first span's name.
+    fn entryType(self: *const FakeBridge, index: usize) ?[]const u8 {
+        const entry = &self.bridge_entries.items[index];
+        if (entry.count == 0) return null;
+        const place = self.indexOf(entry.links[0]) orelse return null;
+        return self.objects_list.items[place].nameSlice();
+    }
+
+    /// The real rotate's rules the core can see: the partner (`_01` <-> `_02`)
+    /// must be a bridge type; the new spans lie along the partner's axis about
+    /// the mean of the old first and last spans, the same count; a span off
+    /// the map refuses; built during play carries over.
+    fn rotateBridge(ptr: *anyopaque, index: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (index < 0 or index >= self.bridge_entries.items.len) return .bad_argument;
+        const at: usize = @intCast(index);
+        const entry = self.bridge_entries.items[at];
+        const name = self.entryType(at) orelse {
+            self.say("that bridge has no spans", .{});
+            return .refused;
+        };
+        var partner_buffer: [bridge_mod.name_capacity]u8 = undefined;
+        const partner: ?[]const u8 = partner: {
+            if (name.len < 3) break :partner null;
+            const tail = name[name.len - 3 ..];
+            const swapped = if (std.mem.eql(u8, tail, "_01")) "_02" else if (std.mem.eql(u8, tail, "_02")) "_01" else break :partner null;
+            @memcpy(partner_buffer[0 .. name.len - 3], name[0 .. name.len - 3]);
+            @memcpy(partner_buffer[name.len - 3 .. name.len], swapped);
+            break :partner partner_buffer[0..name.len];
+        };
+        const kind = if (partner) |p| self.bridgeType(p) else null;
+        if (kind == null) {
+            self.say("no rotated variant of {s}", .{name});
+            return .refused;
+        }
+        const first = self.objects_list.items[self.indexOf(entry.links[0]).?];
+        const last = self.objects_list.items[self.indexOf(entry.links[entry.count - 1]) orelse return .failed];
+        const centre: [2]f32 = .{ (first.x + last.x) / 2 / self.map_per_world, (first.y + last.y) / 2 / self.map_per_world };
+        const parts: usize = if (entry.count > 2) entry.count - 2 else 0;
+        const length = kind.?.span_length;
+        const horizontal = kind.?.descriptor.direction == .horizontal;
+        const from_centre = -@as(f32, @floatFromInt(parts)) * length / 2;
+        var group: FakeBridgeGroup = .{ .entry_index = at, .count = parts + 2 };
+        group.entry.count = parts + 2;
+        group.entry.built = entry.built;
+        var link_id = self.nextLinkId();
+        for (0..parts + 2) |piece| {
+            const along: f32 = from_centre + (if (piece == 0) 0 else if (piece == parts + 1) @as(f32, @floatFromInt(parts)) * length else (@as(f32, @floatFromInt(piece - 1)) + 0.5) * length);
+            const world: [2]f32 = if (horizontal) .{ centre[0] + along, centre[1] } else .{ centre[0], centre[1] + along };
+            if (!self.onMap(world[0], world[1])) {
+                self.say("the engine would not place the rotated bridge's spans there (off the map?)", .{});
+                return .refused;
+            }
+            var span: ObjectRecord = .{ .link_id = link_id, .x = world[0] * self.map_per_world, .y = world[1] * self.map_per_world };
+            span.setName(partner.?);
+            group.spans[piece] = span;
+            group.places[piece] = std.math.maxInt(usize);
+            group.entry.links[piece] = link_id;
+            link_id += 1;
+        }
+        return self.logBridgeEdit(.{ .before = .{ .entry_index = at, .entry = entry }, .after = group }, token);
+    }
+
+    fn toggleBridgeBuild(ptr: *anyopaque, index: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (index < 0 or index >= self.bridge_entries.items.len) return .bad_argument;
+        const at: usize = @intCast(index);
+        const name = self.entryType(at) orelse "";
+        if (std.mem.indexOf(u8, name, "WoodenBig_Heavy_") == null) {
+            self.say("only WoodenBig_Heavy bridges can be built during play", .{});
+            return .refused;
+        }
+        self.edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        const built = self.bridge_entries.items[at].built;
+        _ = self.putBuild(at, !built);
+        self.edits.appendAssumeCapacity(.{ .build = .{ .index = at, .before = built, .after = !built } });
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.appendAssumeCapacity(token.*);
+        self.undone_edits.clearRetainingCapacity();
+        self.record(.bridge_edit, token.*);
+        return .ok;
     }
 
     /// Puts a bridge edit through and logs it, handing out its token.

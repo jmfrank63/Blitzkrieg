@@ -99,6 +99,24 @@ bool PlanBridge( const SBridgePlanInput &rInput, const CVec2 &vFirstVis, const C
 	return true;
 }
 
+void RotatedBridgeDrag( const SBridgePlanInput &rInput, const CVec2 &vCentreVis, int nSpans, CVec2 *pFirstVis, CVec2 *pLastVis )
+{
+	const int nParts = nSpans > 2 ? nSpans - 2 : 0;
+	const float fL = rInput.fSpanLength;
+	const float fFrom = -float( nParts ) * fL / 2.0f;
+	const float fTo = fFrom + ( float( nParts ) + 0.5f ) * fL;
+	if ( rInput.nDirection == BRIDGE_HORIZONTAL )
+	{
+		*pFirstVis = CVec2( vCentreVis.x + fFrom, vCentreVis.y );
+		*pLastVis = CVec2( vCentreVis.x + fTo, vCentreVis.y );
+	}
+	else
+	{
+		*pFirstVis = CVec2( vCentreVis.x, vCentreVis.y + fFrom );
+		*pLastVis = CVec2( vCentreVis.x, vCentreVis.y + fTo );
+	}
+}
+
 std::string BridgePartnerName( const std::string &szName )
 {
 	if ( szName.size() < 3 )

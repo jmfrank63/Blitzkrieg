@@ -593,3 +593,166 @@ bool DeleteBridgeFromSession( SEditorSession *pSession, int nIndex, int *pnToken
 	edit->oldGroup.linkIDs = rBridges[nIndex];
 	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
 }
+
+namespace {
+// The span records of an entry, in the entry's order, from the snapshot.
+bool EntrySpans( SEditorSession *pSession, int nIndex, std::vector<const SMapObjectInfo*> *pSpans, std::string *pWhy )
+{
+	pSpans->clear();
+	const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+	if ( nIndex < 0 || nIndex >= int( rBridges.size() ) )
+	{
+		*pWhy = NStr::Format( "no bridge %d", nIndex );
+		return false;
+	}
+	for ( size_t i = 0; i < rBridges[nIndex].size(); ++i )
+	{
+		const SMapObjectInfo *pSpan = FindObject( &pSession->snapshot, rBridges[nIndex][i], 0, 0 );
+		if ( pSpan == 0 )
+		{
+			*pWhy = NStr::Format( "span %d of bridge %d is not in the map", int( i ), nIndex );
+			return false;
+		}
+		pSpans->push_back( pSpan );
+	}
+	if ( pSpans->empty() )
+	{
+		*pWhy = "that bridge has no spans";
+		return false;
+	}
+	return true;
+}
+
+// The HP edit of a toggle: the snapshot's HP of each span before and after.
+// The working copy and the engine keep 1 either way (the engine will not take
+// a negative HP); futureBuildLinkIDs and the mark follow the snapshot.
+struct SBridgeBuildEdit : public IEditRecord
+{
+	std::vector<int> linkIDs;
+	std::vector<float> before, after;
+
+	bool Put( SEditorSession *pSession, const std::vector<float> &rHPs )
+	{
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+			if ( !NMapRecords::SetObjectHP( &pSession->snapshot, linkIDs[i], rHPs[i] ) )
+			{
+				pSession->szMessage = NStr::Format( "span link ID %d is not in the map", linkIDs[i] );
+				return false;
+			}
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+		{
+			std::vector<int> &rFuture = pSession->futureBuildLinkIDs;
+			rFuture.erase( std::remove( rFuture.begin(), rFuture.end(), linkIDs[i] ), rFuture.end() );
+			if ( rHPs[i] < 0 && pSession->byLinkID.find( linkIDs[i] ) != pSession->byLinkID.end() )
+				rFuture.push_back( linkIDs[i] );
+		}
+		ApplyBridgeMarks( pSession );
+		return true;
+	}
+	virtual bool Reapply( SEditorSession *pSession ) { return Put( pSession, after ); }
+	virtual bool Revert( SEditorSession *pSession ) { return Put( pSession, before ); }
+};
+}
+
+bool RotateBridgeInSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<const SMapObjectInfo*> spans;
+	std::string szWhy;
+	if ( !EntrySpans( pSession, nIndex, &spans, &szWhy ) || !CanTakeOutWhole( pSession, pSession->snapshot.bridges[nIndex], &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	const std::string szName = spans.front()->szName;
+	const std::string szPartner = NMapGeometry::BridgePartnerName( szName );
+	if ( szPartner.empty() || BridgeStats( szPartner, 0 ) == 0 )
+	{
+		pSession->szMessage = "no rotated variant of " + szName;
+		*pbRefused = true;
+		return false;
+	}
+	bool bBuilt = false;
+	for ( size_t i = 0; i < spans.size(); ++i )
+		bBuilt = bBuilt || spans[i]->fHP < 0;
+	// The old centre, map units to world units.
+	CVec3 vCentre;
+	AI2Vis( &vCentre, ( spans.front()->vPos.x + spans.back()->vPos.x ) / 2.0f, ( spans.front()->vPos.y + spans.back()->vPos.y ) / 2.0f, 0.0f );
+	NMapGeometry::SBridgePlanInput input;
+	if ( !BridgePlanInputFor( pSession, szPartner, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	CVec2 vFirst, vLast;
+	NMapGeometry::RotatedBridgeDrag( input, CVec2( vCentre.x, vCentre.y ), int( spans.size() ), &vFirst, &vLast );
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !PlanBridgeInSession( pSession, szPartner, vFirst, vLast, &plan, pbRefused ) )
+		return false;
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.nEntryIndex = nIndex;
+	edit->oldGroup.linkIDs = pSession->snapshot.bridges[nIndex];
+	edit->bNew = true;
+	if ( !NewGroupFromPlan( pSession, szPartner, plan, bBuilt ? -1.0f : 1.0f, nIndex, &edit->newGroup ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}
+
+bool ToggleBridgeBuildInSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<const SMapObjectInfo*> spans;
+	std::string szWhy;
+	if ( !EntrySpans( pSession, nIndex, &spans, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	for ( size_t i = 0; i < spans.size(); ++i )
+		if ( spans[i]->szName.find( BUILD_DURING_PLAY_FAMILY ) == std::string::npos )
+		{
+			pSession->szMessage = "only WoodenBig_Heavy bridges can be built during play";
+			*pbRefused = true;
+			return false;
+		}
+	// The MFC toggle goes by the span's own HP (RoadDrawState.cpp:1257): built
+	// during play when it is negative. All spans follow the first.
+	const bool bBuilt = spans.front()->fHP < 0;
+	std::unique_ptr<SBridgeBuildEdit> edit( new SBridgeBuildEdit );
+	for ( size_t i = 0; i < spans.size(); ++i )
+	{
+		edit->linkIDs.push_back( spans[i]->link.nLinkID );
+		edit->before.push_back( spans[i]->fHP );
+		edit->after.push_back( bBuilt ? 1.0f : -1.0f );
+	}
+	if ( !edit->Reapply( pSession ) )
+		return false;
+	*pnToken = LogEdit( pSession, edit.release() );
+	return true;
+}
+
+void ApplyBridgeMarks( SEditorSession *pSession )
+{
+	if ( pSession == 0 || pSession->pWorld == 0 )
+		return;
+	const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+	for ( size_t b = 0; b < rBridges.size(); ++b )
+		for ( size_t i = 0; i < rBridges[b].size(); ++i )
+		{
+			const int nLinkID = rBridges[b][i];
+			std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.find( nLinkID );
+			if ( it == pSession->byLinkID.end() )
+				continue;
+			SBridgeSpanObject *pSpan = pSession->pWorld->FindSpanByAI( it->second );
+			if ( pSpan == 0 )
+				continue;
+			const bool bFuture = std::find( pSession->futureBuildLinkIDs.begin(), pSession->futureBuildLinkIDs.end(), nLinkID ) != pSession->futureBuildLinkIDs.end();
+			pSpan->SetSpecular( bFuture ? 0xFF0000FF : 0x00000000 );
+		}
+}

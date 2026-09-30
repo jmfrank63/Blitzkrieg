@@ -2606,6 +2606,41 @@ BkEditorStatus BkEditorDeleteBridge( BkEditorSession *pSession, int nIndex, int 
 	} );
 }
 
+namespace {
+// A bridge edit by index: the map check, the index check, the session call.
+typedef bool ( *TBridgeIndexEdit )( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
+BkEditorStatus BridgeIndexEdit( BkEditorSession *pSession, int nIndex, int *pnToken, TBridgeIndexEdit edit )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.bridges.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		if ( !edit( pSession, nIndex, &nToken, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+}
+
+BkEditorStatus BkEditorRotateBridge( BkEditorSession *pSession, int nIndex, int *pnToken )
+{
+	return BridgeIndexEdit( pSession, nIndex, pnToken, RotateBridgeInSession );
+}
+
+BkEditorStatus BkEditorToggleBridgeBuild( BkEditorSession *pSession, int nIndex, int *pnToken )
+{
+	return BridgeIndexEdit( pSession, nIndex, pnToken, ToggleBridgeBuildInSession );
+}
+
 BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 {
 	// Safe on null and safe twice: the caller reaches here on every path out,
