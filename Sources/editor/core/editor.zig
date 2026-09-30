@@ -413,6 +413,35 @@ pub const Editor = struct {
         self.history.recordAssumeCapacity(self.allocator, .{ .delete = .{ .object = object, .index = index } }, 0);
     }
 
+    /// An object's script ID (D-15): -1 none, else 0..32000. The bridge
+    /// changes both map copies only (C7) and refuses a value out of range, an
+    /// unknown or shared link ID and link ID 0, naming why, so a refusal
+    /// changes nothing: not the document, not the history. An equal value
+    /// records nothing; within one gesture (the same object) edits merge into
+    /// one undo step, and one that lands back on the step's own before-value
+    /// drops it, as `place` does.
+    pub fn setScriptID(self: *Editor, link_id: i32, value: i32, gesture: u32) EditError!void {
+        const object = self.document.find(link_id) orelse return error.Failed;
+        const before = object.script_id;
+        if (before == value) return;
+        const merge_entry = self.mergeable(gesture, .script_id);
+        const merging = if (merge_entry) |entry| entry.command.script_id.link_id == link_id else false;
+        if (!merging) try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.setObjectScriptID(link_id, value));
+        object.script_id = value;
+        if (merging) {
+            const entry = merge_entry.?;
+            if (entry.command.script_id.before == value) {
+                self.history.dropTop(self.allocator);
+            } else {
+                entry.command.script_id.after = value;
+                self.history.touchTop(self.allocator);
+            }
+        } else {
+            self.history.recordAssumeCapacity(self.allocator, .{ .script_id = .{ .link_id = link_id, .before = before, .after = value } }, gesture);
+        }
+    }
+
     pub fn setDiplomacy(self: *Editor, player: i32, value: i32) EditError!void {
         if (player < 0 or @as(usize, @intCast(player)) >= self.document.diplomacy.items.len) return error.Failed;
         const slot = &self.document.diplomacy.items[@intCast(player)];
@@ -1021,6 +1050,11 @@ pub const Editor = struct {
                 const value = if (forwards) d.after else d.before;
                 try self.noteOutcome(self.bridge.setDiplomacy(d.player, value));
                 self.document.diplomacy.items[@intCast(d.player)] = value;
+            },
+            .script_id => |sid| {
+                const value = if (forwards) sid.after else sid.before;
+                try self.noteOutcome(self.bridge.setObjectScriptID(sid.link_id, value));
+                (self.document.find(sid.link_id) orelse return error.Failed).script_id = value;
             },
             .map_type => |m| {
                 const value = if (forwards) m.after else m.before;
@@ -1779,6 +1813,91 @@ test "record edits of one gesture are one undo step, and one that returns to its
     try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
     try std.testing.expect(!editor.dirty());
     try std.testing.expectEqual(@as(usize, 0), fake.camera_anchors.player_count);
+}
+
+test "script ID: set, undo, redo, in the document and the bridge" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try std.testing.expectEqual(@as(i32, -1), editor.document.find(1).?.script_id);
+    try editor.setScriptID(1, 4242, 0);
+    try std.testing.expectEqual(@as(i32, 4242), editor.document.find(1).?.script_id);
+    try std.testing.expect(editor.dirty());
+    var objects: [3]ObjectRecord = undefined;
+    var total: usize = 0;
+    try std.testing.expectEqual(bridge_mod.Status.ok, editor.bridge.objects(&objects, &total));
+    try std.testing.expectEqual(@as(i32, 4242), objects[0].script_id);
+    try std.testing.expectEqual(@as(i32, -1), objects[1].script_id);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, -1), editor.document.find(1).?.script_id);
+    try std.testing.expect(!editor.dirty());
+    _ = editor.bridge.objects(&objects, &total);
+    try std.testing.expectEqual(@as(i32, -1), objects[0].script_id);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(i32, 4242), editor.document.find(1).?.script_id);
+    // -1 (none) is a value like any other.
+    try editor.setScriptID(1, -1, 0);
+    try std.testing.expectEqual(@as(i32, -1), editor.document.find(1).?.script_id);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(!(try editor.undo()));
+}
+
+test "script ID: an equal value records nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setScriptID(1, -1, 0);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+test "script ID: a value out of range or an object that cannot take one is Refused and changes nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try std.testing.expectError(error.Refused, editor.setScriptID(1, 32001, 0));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "32000") != null);
+    try std.testing.expectError(error.Refused, editor.setScriptID(1, -2, 0));
+    try std.testing.expectEqual(@as(i32, -1), editor.document.find(1).?.script_id);
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.dirty());
+    // An object the document does not hold is a failure, not a bridge call.
+    try std.testing.expectError(error.Failed, editor.setScriptID(99, 5, 0));
+    // The limits themselves are fine.
+    try editor.setScriptID(1, 32000, 0);
+    try editor.setScriptID(1, 0, 0);
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+}
+
+test "script ID: the edits of one gesture are one undo step, and one that returns to its start leaves none" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    try editor.setScriptID(1, 5, gesture);
+    try editor.setScriptID(1, 50, gesture);
+    try editor.setScriptID(1, 500, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, -1), editor.document.find(1).?.script_id);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(i32, 500), editor.document.find(1).?.script_id);
+    try std.testing.expect(try editor.undo());
+    // A gesture that lands back on its own before-value is no step at all.
+    const second = editor.beginGesture();
+    try editor.setScriptID(1, 7, second);
+    try editor.setScriptID(1, -1, second);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    // Another object in the same gesture is its own step.
+    try editor.setScriptID(1, 3, second);
+    try editor.setScriptID(2, 4, second);
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
 }
 
 test "place, undo, redo" {

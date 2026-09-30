@@ -213,6 +213,7 @@ typedef struct
 	int player;        /* the map's owner, which the engine may not share */
 	int scenario;      /* 1: scenarioObjects, 0: objects */
 	int known;         /* 0: the database does not know the type */
+	int script_id;     /* the map's nScriptID: -1 none, else 0..32000 (04-09) */
 } BkEditorObjectRecord;
 BkEditorStatus BkEditorObjects( BkEditorSession *session, BkEditorObjectRecord *out, int capacity, int *out_count );
 
@@ -780,6 +781,17 @@ BkEditorStatus BkEditorSetCameraAnchors( BkEditorSession *session, const BkEdito
    and an anchor all take the same z. A point off the map is BK_EDITOR_REFUSED;
    a null z is BK_EDITOR_BAD_ARGUMENT; BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorGroundHeight( BkEditorSession *session, float x, float y, float *z );
+
+/* An object's script ID (04-09, D-15): -1 means none, otherwise 0..32000. It is
+   what a reinforcement group names and what a Lua script finds the object by.
+   The snapshot and the working copy change together and the engine is left
+   alone: the AI takes a script ID only when an object is added, at mission
+   start, and IAIEditor has no setter (C7), so a test reads the value back by
+   saving, reopening and asking IAIEditor::GetObjectScriptID. An unknown link
+   ID, link ID 0 (no link), a link ID more than one object carries, and a value
+   outside -1..32000 are BK_EDITOR_REFUSED, naming why, and change nothing.
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *session, int link_id, int script_id );
 
 /* The edit log (04-05). An edit the bridge derives or compounds - a road or
    river edit now, bridges, fences and entrenchments later - hands out a token

@@ -112,6 +112,7 @@ pub const RealBridge = struct {
         .readRecord = vtableReadRecord,
         .putRecord = vtablePutRecord,
         .groundHeight = vtableGroundHeight,
+        .setObjectScriptID = setObjectScriptID,
         .undoEdit = vtableUndoEdit,
         .redoEdit = vtableRedoEdit,
         .vsoDescriptors = vtableVsoDescriptors,
@@ -207,6 +208,7 @@ pub const RealBridge = struct {
             .player = record.player,
             .scenario = record.scenario != 0,
             .known = record.known != 0,
+            .script_id = record.script_id,
         };
         object.setName(std.mem.sliceTo(&record.name, 0));
         return object;
@@ -402,6 +404,10 @@ pub const RealBridge = struct {
 
     fn vtableGroundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {
         return status(c.BkEditorGroundHeight(from(ptr).session, wx, wy, z));
+    }
+
+    fn setObjectScriptID(ptr: *anyopaque, link_id: i32, script_id: i32) Status {
+        return status(c.BkEditorSetObjectScriptID(from(ptr).session, link_id, script_id));
     }
 
     fn vtableUndoEdit(ptr: *anyopaque, token: i32) Status {

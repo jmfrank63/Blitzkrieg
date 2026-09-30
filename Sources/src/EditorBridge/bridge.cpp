@@ -1962,6 +1962,22 @@ BkEditorStatus BkEditorGroundHeight( BkEditorSession *pSession, float fX, float 
 	} );
 }
 
+BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *pSession, int nLinkID, int nScriptID )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetSessionObjectScriptID( pSession, nLinkID, nScriptID, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 // The edit log's undo and redo, by the token an edit handed out.
 BkEditorStatus BkEditorUndoEdit( BkEditorSession *pSession, int nToken )
 {

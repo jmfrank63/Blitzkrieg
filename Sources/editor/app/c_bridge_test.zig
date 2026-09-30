@@ -81,6 +81,7 @@ fn expectDocumentIsBridge(real: *RealBridge, editor: *Editor) !void {
         try std.testing.expectEqual(record.player, object.player);
         try std.testing.expectEqual(record.scenario != 0, object.scenario);
         try std.testing.expectEqual(record.known != 0, object.known);
+        try std.testing.expectEqual(record.script_id, object.script_id);
     }
 }
 
@@ -265,6 +266,39 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
     std.debug.print("map-editor-engine: M2 camera anchors round trip ok\n", .{});
+
+    // M2 (04-09): an object's script ID end to end. The first object that
+    // takes one (link ID 0 and shared link IDs are refused) is set, the
+    // document and the raw records agree with the bridge, the engine still
+    // agrees with the map (the AI is left alone, C7), and undo and redo walk
+    // it back and forth.
+    const script_target = pick: for (editor.document.objects.items) |candidate| {
+        if (!candidate.known or candidate.link_id == 0) continue;
+        editor.setScriptID(candidate.link_id, 4242, 0) catch |err| switch (err) {
+            error.Refused => continue,
+            else => return err,
+        };
+        break :pick candidate.link_id;
+    } else return error.NoObjectTakesAScriptID;
+    try std.testing.expectEqual(@as(i32, 4242), editor.document.find(script_target).?.script_id);
+    try expectDocumentIsBridge(&real, &editor);
+    try expectEngineMatches(&real);
+    try std.testing.expect(editor.dirty());
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(i32, -1), editor.document.find(script_target).?.script_id);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.redo();
+    try std.testing.expectEqual(@as(i32, 4242), editor.document.find(script_target).?.script_id);
+    try expectDocumentIsBridge(&real, &editor);
+    try std.testing.expectError(error.Refused, editor.setScriptID(script_target, 32001, 0));
+    try std.testing.expectError(error.Refused, editor.setScriptID(script_target, -2, 0));
+    try std.testing.expectEqual(@as(i32, 4242), editor.document.find(script_target).?.script_id);
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    std.debug.print("map-editor-engine: M2 script id round trip ok\n", .{});
 
     // M2 (04-02): a delete of a real unit of coldwinter, through the cascade
     // the bridge now runs (nothing in coldwinter names it, so the cascade is

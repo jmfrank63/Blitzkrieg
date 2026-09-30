@@ -41,6 +41,7 @@ pub const command_table = [_]Entry{
     .{ .name = "fence_desc", .handler = fenceDesc },
     .{ .name = "trench_player", .handler = trenchPlayer },
     .{ .name = "trench_delete", .handler = trenchDelete },
+    .{ .name = "script_id", .handler = scriptId },
 };
 
 pub const predicate_table = [_]Entry{
@@ -53,6 +54,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "bridge_built", .handler = bridgeBuilt },
     .{ .name = "fence_delta", .handler = fenceDelta },
     .{ .name = "trench_delta", .handler = trenchDelta },
+    .{ .name = "script_id", .handler = scriptIdIs },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -418,5 +420,33 @@ fn trenchDelta(state: *State, arg: []const u8) Outcome {
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "trench_delta is {d}, not {d}", .{ delta, want }) catch "trench_delta differs");
+    return .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Script IDs (04-09, D-15) and reinforcement groups (D-16).
+// ---------------------------------------------------------------------------
+
+/// `script_id:4244`: the selected object's script ID, -1 (none) or 0..32000;
+/// one undo step. What the Properties panel's Script ID field commits.
+fn scriptId(state: *State, arg: []const u8) Outcome {
+    const value = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const link_id = state.editor.selection orelse {
+        state.editor.note("select an object first");
+        return .refused;
+    };
+    return resultOutcome(state, state.editor.setScriptID(link_id, value, 0));
+}
+
+/// `expect=script_id:4244`: the selected object's script ID is that.
+fn scriptIdIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const link_id = state.editor.selection orelse return .refused;
+    const object = state.editor.document.find(link_id) orelse return .refused;
+    if (object.script_id == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "script_id is {d}, not {d}", .{ object.script_id, want }) catch "script_id differs");
     return .refused;
 }

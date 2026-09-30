@@ -243,6 +243,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorCameraAnchors", [&] { return BkEditorCameraAnchors( 0, &anchorRecord ); } },
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( 0, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( 0, 0, 0, &fFloat ); } },
+		{ "BkEditorSetObjectScriptID", [&] { return BkEditorSetObjectScriptID( 0, 0, 0 ); } },
 		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( 0, 0 ); } },
 		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( 0, 0 ); } },
 		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( 0, 0, &vsoDescriptor, 1, &nInt ); } },
@@ -319,6 +320,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorCameraAnchors", [&] { return BkEditorCameraAnchors( pSession, &anchorRecord ); } },
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( pSession, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( pSession, 0, 0, &fFloat ); } },
+		{ "BkEditorSetObjectScriptID", [&] { return BkEditorSetObjectScriptID( pSession, 0, 0 ); } },
 		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( pSession, 0 ); } },
 		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( pSession, 0 ); } },
 		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( pSession, 0, &vsoDescriptor, 1, &nInt ); } },
@@ -3976,6 +3978,115 @@ static void TestM2CameraAnchors( BkEditorSession *pSession, const std::string &s
 	printf( "editor-bridge: M2 camera anchors ok\n" );
 }
 
+// D-15 / C7: an object's script ID, on the real engine. The first placed
+// object the session may edit takes 4242: BkEditorObjects reports it, the save
+// equals the map the same NMapRecords call builds, and a reopened save gives
+// the value to the engine's own IAIEditor::GetObjectScriptID (the AI takes a
+// script ID when an object is added, so this is the only way to read it, C7).
+// Setting it back and saving gives the unedited file byte for byte; a value
+// outside -1..32000, link ID 0 and an unknown link ID are refused and change
+// nothing.
+static void TestM2ScriptIDs( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\scriptid-unedited.bzm";
+	const std::string szEdited = szScratch + "\\scriptid-edited.bzm";
+	const std::string szUndone = szScratch + "\\scriptid-undone.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The first object of the map's objects list that the session edits: a link
+	// ID of its own, the engine holds it.
+	const std::vector<BkEditorObjectRecord> before = ReadObjectRecords( pSession );
+	int nTarget = -1, nOriginal = -1;
+	for ( size_t i = 0; i < before.size() && nTarget < 0; ++i )
+	{
+		const BkEditorObjectRecord &rRecord = before[i];
+		if ( rRecord.scenario != 0 || rRecord.link_id == 0 || rRecord.known == 0 )
+			continue;
+		int nSharing = 0;
+		for ( size_t j = 0; j < before.size(); ++j )
+			nSharing += before[j].link_id == rRecord.link_id ? 1 : 0;
+		BkEditorObjectState engineState;
+		if ( nSharing != 1 || BkEditorEngineObjectState( pSession, rRecord.link_id, &engineState ) != BK_EDITOR_OK )
+			continue;
+		nTarget = rRecord.link_id;
+		nOriginal = rRecord.script_id;
+	}
+	if ( !Check( nTarget >= 0, "coldwinter has an object the session edits" ) )
+		return;
+	for ( size_t i = 0; i < before.size(); ++i )
+		if ( before[i].link_id == nTarget )
+			Check( before[i].script_id == original.objects[i].nScriptID, "the records read the file's script IDs" );
+
+	// The set reads back and changes nothing else.
+	if ( !Check( BkEditorSetObjectScriptID( pSession, nTarget, 4242 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::vector<BkEditorObjectRecord> after = ReadObjectRecords( pSession );
+	bool bReadBack = after.size() == before.size();
+	for ( size_t i = 0; i < after.size() && bReadBack; ++i )
+		bReadBack = after[i].link_id == before[i].link_id &&
+		            after[i].script_id == ( before[i].link_id == nTarget ? 4242 : before[i].script_id );
+	Check( bReadBack, "BkEditorObjects reports the new script ID on that object and no other change" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "after the script ID set: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+
+	// Saved, it is the map the same NMapRecords call builds.
+	CMapInfo expected = original;
+	Check( NMapRecords::SetObjectScriptID( &expected, nTarget, 4242 ), "the expected map takes the script ID" );
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo saved;
+		if ( Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+			       szWhere.empty() ? "the saved map equals the expected map" : ( "the script ID save differs at " + szWhere ).c_str() );
+		}
+		// The engine's own reading: reopen the saved file and ask the AI.
+		if ( Check( BkEditorOpenMap( pSession, szEdited.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+			IRefCount *pObject = pAIEditor != 0 ? pAIEditor->ObjectByLink( nTarget ) : 0;
+			if ( Check( pObject != 0, "the reopened map has the object under its link ID" ) )
+			{
+				const int nEngineScriptID = pAIEditor->GetObjectScriptID( pObject );
+				printf( "editor-bridge: the reopened object %d reports script ID %d to the AI (file said %d before)\n", nTarget, nEngineScriptID, nOriginal );
+				Check( nEngineScriptID == 4242, "IAIEditor::GetObjectScriptID on the reopened object equals the script ID set" );
+			}
+		}
+	}
+
+	// Back to the shipped map: set, set back, and the bytes are the unedited ones.
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( BkEditorSetObjectScriptID( pSession, nTarget, 4242 ) == BK_EDITOR_OK && BkEditorSetObjectScriptID( pSession, nTarget, nOriginal ) == BK_EDITOR_OK,
+	       "the script ID goes to 4242 and back to what the file held" );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "a script ID edit and its inverse save the unedited file byte for byte" );
+
+	// The refusals change nothing.
+	Check( BkEditorSetObjectScriptID( pSession, nTarget, 32001 ) == BK_EDITOR_REFUSED, "32001 is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "32000" ) != std::string::npos, "and the refusal names the range" );
+	Check( BkEditorSetObjectScriptID( pSession, nTarget, -2 ) == BK_EDITOR_REFUSED, "-2 is refused" );
+	Check( BkEditorSetObjectScriptID( pSession, 0, 5 ) == BK_EDITOR_REFUSED, "link ID 0 is refused" );
+	Check( BkEditorSetObjectScriptID( pSession, 987654, 5 ) == BK_EDITOR_REFUSED, "an unknown link ID is refused" );
+	Check( BkEditorSetObjectScriptID( pSession, nTarget, -1 ) == BK_EDITOR_OK && BkEditorSetObjectScriptID( pSession, nTarget, nOriginal ) == BK_EDITOR_OK,
+	       "-1 (none) and the old value are both accepted" );
+	const std::string szRefused = szScratch + "\\scriptid-refused.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "the refusals changed nothing: the map saves unedited byte for byte" );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	printf( "editor-bridge: M2 script ids ok\n" );
+}
+
 // D-04 (M2): deleting an object other records name is no longer refused; it
 // cascades through the start commands (and, with bAllKinds, the reserve
 // positions, the targets and the script-ID note), in one step that
@@ -6241,6 +6352,7 @@ int main( int argc, char **argv )
 		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2VsoRendersOnGpu( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2CameraAnchors( pSession, szScratch );
+		TestM2ScriptIDs( pSession, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );
 		TestM2CascadeDelete( pSession, szScratch, true );
