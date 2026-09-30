@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-07-PLAN.md
-last_updated: "2026-09-30T01:56:10.170Z"
-state_head: 3cd3df50a498068998d579b7b33de02aca736f3d
+stopped_at: Completed 04-08-PLAN.md
+last_updated: "2026-09-30T04:06:04.176Z"
+state_head: 4d8ea05659989df1510cf1cb3751558cd400e57c
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 26
+  completed_plans: 27
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T01:56:10.107Z
-**Stopped at:** Completed 04-07-PLAN.md
+**Last session:** 2026-09-30T04:06:04.111Z
+**Stopped at:** Completed 04-08-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -96,6 +96,7 @@ behavior needs the in-game rows).
 | Phase 04 P05 | 53min | 4 tasks | 24 files |
 | Phase 04 P06 | 50min | 4 tasks | 25 files |
 | Phase 04 P07 | 28min | 2 tasks | 23 files |
+| Phase 04 P08 | 2h01m | 3 tasks | 23 files |
 
 ## Decisions
 
@@ -146,3 +147,7 @@ behavior needs the in-game rows).
 - [Phase ?]: BK_EDITOR_AUTO scripted presses are held across frames until their release (View.holdScripted)
 - [Phase ?]: 04-07: the fence tile mapping is the engine's GetAITileIndex (rounds), not CMapInfo::GetAITileIndices (truncates); they agree only at tile corners
 - [Phase ?]: 04-07: a fence run is one SGroupEdit with no bridges entry (SBridgeGroup.bEntry false); PlanFences also refuses a moved fence that leaves the map
+- [Phase ?]: 04-08: the engine places trench pieces anywhere (IsObjectInsideOfMap passes entrenchments), so PlanEntrenchment refuses a piece off the map
+- [Phase ?]: 04-08: a bridge or entrenchment a unit is garrisoned in (nLinkWith) is refused whole before anything is taken out; moving units is M3
+- [Phase ?]: 04-08: the trench builder is pinned by properties over 500 fixed-seed polylines, identical on all CI platforms; the fireplace/line switcher is global over the trench, as in MFC
+- [Phase ?]: 04-08: mid-phase CI gate green on all six jobs (run 36663674380); narrow checkouts now carry road and river descriptors
