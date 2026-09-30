@@ -672,8 +672,9 @@ fn scriptDialog(state: *State, arg: []const u8) Outcome {
     return .ok;
 }
 
-/// "Open script" (D-20): the map's script in the system's default editor;
-/// refused, with a status line, when the map names none or it is not there.
+/// "Open script folder" (D-20, WR-B04): the folder holding the map's script in
+/// the system's file manager; refused, with a status line, when the map names
+/// none or it is not there.
 fn scriptOpen(state: *State, _: []const u8) Outcome {
     return if (panels.openScript(state)) .ok else .refused;
 }
