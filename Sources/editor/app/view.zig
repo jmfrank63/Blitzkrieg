@@ -294,6 +294,9 @@ pub fn ViewWith(comptime Input: type) type {
             self.start_target.reset();
             self.reserve_tool.reset();
             self.ai_tool.reset();
+            // IN-C04: a scripted press left held (a failed pushMotion) must not
+            // keep the stale-gesture guard off on the next map.
+            self.scripted_buttons = 0;
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -325,6 +328,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.saveCurrentView();
             self.current_path.clearRetainingCapacity();
             self.map = .{};
+            self.scripted_buttons = 0; // IN-C04
             self.hover = null;
             self.panning = false;
             self.left_button_down = false;
