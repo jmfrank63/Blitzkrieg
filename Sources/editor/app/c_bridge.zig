@@ -542,12 +542,16 @@ pub const RealBridge = struct {
         if (sizing != .ok and sizing != .refused) return sizing;
         if (record.unit_count < 0) return .failed;
         const units = allocator.alloc(i32, @intCast(record.unit_count)) catch return .failed;
-        errdefer allocator.free(units);
+        // WR-C01: an errdefer never runs here - this returns a Status, not an
+        // error - so every non-OK exit frees through this flag instead.
+        var handed_over = false;
+        defer if (!handed_over) allocator.free(units);
         if (units.len != 0) {
             const read = status(c.BkEditorStartCommand(self.session, key, &record, units.ptr, record.unit_count));
             if (read != .ok) return read;
             if (@as(usize, @intCast(record.unit_count)) != units.len) return .failed;
         }
+        handed_over = true;
         out.* = .{ .start_command = .{
             .cmd_type = record.cmd_type,
             .link_id = record.link_id,
@@ -571,7 +575,10 @@ pub const RealBridge = struct {
         if (info.side_count < 0 or info.mobile_count < 0 or info.parcel_count < 0 or info.point_count < 0) return .failed;
         const counted = info;
         const mobile = allocator.alloc(i32, @intCast(counted.mobile_count)) catch return .failed;
-        errdefer allocator.free(mobile);
+        // WR-C01: Status is not an error, so errdefer never runs; these flags
+        // free what is not handed over on every non-OK exit.
+        var handed_over = false;
+        defer if (!handed_over) allocator.free(mobile);
         const c_parcels = std.heap.page_allocator.alloc(c.BkEditorAIParcel, @intCast(counted.parcel_count)) catch return .failed;
         defer std.heap.page_allocator.free(c_parcels);
         const c_points = std.heap.page_allocator.alloc(c.BkEditorAIPoint, @intCast(counted.point_count)) catch return .failed;
@@ -593,10 +600,10 @@ pub const RealBridge = struct {
         }
         const parcels = allocator.alloc(record_types.Parcel, c_parcels.len) catch return .failed;
         var done: usize = 0;
-        errdefer {
+        defer if (!handed_over) {
             for (parcels[0..done]) |parcel| allocator.free(parcel.points);
             allocator.free(parcels);
-        }
+        };
         for (c_parcels, parcels) |source, *target| {
             if (source.first_point < 0 or source.point_count < 0) return .failed;
             const first: usize = @intCast(source.first_point);
@@ -621,6 +628,7 @@ pub const RealBridge = struct {
             };
             done += 1;
         }
+        handed_over = true;
         out.* = .{ .ai_side = .{ .side = key, .side_count = @intCast(counted.side_count), .mobile_ids = mobile, .parcels = parcels } };
         return .ok;
     }
@@ -673,13 +681,16 @@ pub const RealBridge = struct {
         if (sizing != .ok and sizing != .refused) return sizing;
         if (count < 0) return .refused;
         const ids = allocator.alloc(i32, @intCast(count)) catch return .failed;
-        errdefer allocator.free(ids);
+        // WR-C01: freed on every non-OK exit (errdefer never runs for a Status).
+        var handed_over = false;
+        defer if (!handed_over) allocator.free(ids);
         if (count > 0) {
             var got: c_int = 0;
             const read = status(c.BkEditorGroup(self.session, key, ids.ptr, count, &got));
             if (read != .ok) return read;
             if (got != count) return .failed;
         }
+        handed_over = true;
         out.* = .{ .group = .{ .id = key, .ids = ids } };
         return .ok;
     }
@@ -807,13 +818,16 @@ pub const RealBridge = struct {
                 if (sizing != .ok and sizing != .refused) return sizing;
                 if (count < 0) return .failed;
                 const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
-                errdefer allocator.free(keys);
+                // WR-C01: freed on every non-OK exit (errdefer never runs for a Status).
+                var handed_over = false;
+                defer if (!handed_over) allocator.free(keys);
                 if (count > 0) {
                     var got: c_int = 0;
                     const read = status(c.BkEditorGroupIDs(self.session, keys.ptr, count, &got));
                     if (read != .ok) return read;
                     if (got != count) return .failed;
                 }
+                handed_over = true;
                 out.* = keys;
                 return .ok;
             },
