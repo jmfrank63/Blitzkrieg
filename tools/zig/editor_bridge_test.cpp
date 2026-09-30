@@ -870,6 +870,8 @@ static void TestUnknownObjectIsReadOnly( BkEditorSession *pSession, const std::s
 	Check( record.link_id == nLinkID && record.known == 0, "the list marks it unknown" );
 	Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_REFUSED, "its delete is refused" );
 	Check( BkEditorMoveObject( pSession, nLinkID, record.x + 32, record.y ) == BK_EDITOR_REFUSED, "and so is its move" );
+	// WR-A05: and its script ID, which the save would otherwise write back changed.
+	Check( BkEditorSetObjectScriptID( pSession, nLinkID, record.script_id == 7 ? 8 : 7 ) == BK_EDITOR_REFUSED, "and so is a script ID for it" );
 
 	const std::string szSaved = szScratch + "\\coldwinter-unknown-read-only-saved.bzm";
 	CMapInfo saved;
