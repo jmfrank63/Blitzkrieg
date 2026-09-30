@@ -140,16 +140,25 @@ pub fn sameFile(files: Files, a: []const u8, b: []const u8) bool {
 /// `base_root` is the installation the editor runs from (`Editor.baseRoot`): a
 /// destination inside a game's data folder is `.shipped`, whichever caller
 /// asked (WR-B05, as `Editor.save`).
+/// When no copy is made (`.missing`, `.failed`), a `<name>.lua` an earlier test
+/// left in the test folder is deleted, so the test game can never run a stale
+/// script in place of the one the map has now (WR-C06).
 pub fn copyForTest(files: Files, base_root: []const u8, map_path: []const u8, test_dir: []const u8, value: []const u8) CopyOutcome {
     var from_buffer: [files_mod.max_path]u8 = undefined;
     var to_buffer: [files_mod.max_path]u8 = undefined;
     const name = gameScriptName(value) orelse return .not_a_bare_name;
     const from = scriptPathBeside(&from_buffer, map_path, name) orelse return .not_a_bare_name;
     const to = scriptPathIn(&to_buffer, test_dir, name) orelse return .failed;
-    if (!files.exists(from)) return .missing;
-    if (sameFile(files, from, to)) return .copied;
     if (shipped_mod.isShipped(to, base_root, files)) return .shipped;
-    files.copy(from, to) catch return .failed;
+    if (!files.exists(from)) {
+        if (files.exists(to)) files.delete(to);
+        return .missing;
+    }
+    if (sameFile(files, from, to)) return .copied;
+    files.copy(from, to) catch {
+        if (files.exists(to)) files.delete(to);
+        return .failed;
+    };
     return .copied;
 }
 
@@ -411,6 +420,26 @@ test "no script writer writes into a game's data folder, whichever caller asked 
     try std.testing.expectEqual(CopyIntoOutcome.shipped, copyInto(files, "/game/", "/game/Data/Maps/x.bzm", "/dl/m2_script.lua", true));
     try std.testing.expectEqual(ops, fake.op_log.items.len);
     try std.testing.expect(fake.contents("/other/game/Data/Maps/m2_script.lua") == null);
+}
+
+test "copyForTest never leaves an earlier test's script in place of one it could not copy (WR-C06)" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("/gen/maps/m2_script.lua", "stale, from an earlier test");
+    // Nothing beside the map now: the stale copy goes too.
+    try std.testing.expectEqual(CopyOutcome.missing, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", "m2_script"));
+    try std.testing.expect(fake.contents("/gen/maps/m2_script.lua") == null);
+    // A copy the disk refuses: the stale copy goes too.
+    try fake.write("/gen/maps/m2_script.lua", "stale, from an earlier test");
+    try fake.write("/maps/mine/m2_script.lua", "now");
+    fake.fail_copy = true;
+    try std.testing.expectEqual(CopyOutcome.failed, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", "m2_script"));
+    try std.testing.expect(fake.contents("/gen/maps/m2_script.lua") == null);
+    // The map's own script is never deleted when it is the test folder's file.
+    fake.fail_copy = false;
+    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "", "/maps/mine/a.bzm", "/maps/mine", "m2_script"));
+    try std.testing.expectEqualStrings("now", fake.contents("/maps/mine/m2_script.lua").?);
 }
 
 test "gameScriptName is the last component when that is a bare name" {
