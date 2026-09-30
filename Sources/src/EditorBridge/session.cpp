@@ -267,6 +267,12 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->openedStartCommands.assign( read.startCommandsList.begin(), read.startCommandsList.end() );
 	pSession->openedReservePositions.assign( read.reservePositionsList.begin(), read.reservePositionsList.end() );
 	pSession->openedAISides = read.aiGeneralMapInfo.sidesInfo;
+	{
+		NMapRecords::SCameraAnchors anchors;
+		NMapRecords::GetCameraAnchors( read, &anchors );
+		pSession->vOpenedNeutralAnchor = anchors.vNeutral;
+		pSession->openedPlayerAnchors = anchors.players;
+	}
 	pSession->openedGroups.clear();
 	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
 		pSession->openedGroups[it->first] = it->second.ids;

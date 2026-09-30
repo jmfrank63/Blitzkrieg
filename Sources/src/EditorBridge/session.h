@@ -76,6 +76,11 @@ struct SEditorSession
 	// D-19): a parcel or a mobile script ID of these is always accepted back by a
 	// put, however odd, so an undo of an edit of a file's own data cannot fail.
 	std::vector<SAIGeneralSideInfo> openedAISides;
+	// The camera anchors as the file had them when the map was opened (WR-B03):
+	// a slot put back to exactly the file's own value - an undo of an edit of a
+	// legacy map's off-map anchor - is not held to the on-the-map rule.
+	CVec3 vOpenedNeutralAnchor;
+	std::vector<CVec3> openedPlayerAnchors;
 	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
 	// and unique, and the link IDs of the objects-list entries they name that
 	// are hidden now (their visuals at opacity 0, and picking skips them). A

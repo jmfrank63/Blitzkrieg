@@ -118,8 +118,11 @@ bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnch
 
 	// Only a slot this call changes is checked against the map: an anchor a
 	// file already held off the map stays as it is, and must not make every
-	// other edit of the vector refuse.
-	if ( wanted.vNeutral != current.vNeutral && !IsUnset( wanted.vNeutral ) && !OnTheMap( *pSession, wanted.vNeutral.x, wanted.vNeutral.y ) )
+	// other edit of the vector refuse. A slot put back to the file's own value
+	// at open is exempt too, so the undo of an edit of such an anchor goes
+	// through (WR-B03).
+	if ( wanted.vNeutral != current.vNeutral && wanted.vNeutral != pSession->vOpenedNeutralAnchor && !IsUnset( wanted.vNeutral ) &&
+	     !OnTheMap( *pSession, wanted.vNeutral.x, wanted.vNeutral.y ) )
 	{
 		pSession->szMessage = "the neutral camera anchor is not on the map";
 		if ( pbRefused != 0 ) *pbRefused = true;
@@ -128,7 +131,7 @@ bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnch
 	for ( int i = 0; i < rAnchors.player_count; ++i )
 	{
 		const CVec3 &rWanted = wanted.players[i];
-		if ( rWanted == CurrentSlot( current.players, i ) || IsUnset( rWanted ) )
+		if ( rWanted == CurrentSlot( current.players, i ) || rWanted == CurrentSlot( pSession->openedPlayerAnchors, i ) || IsUnset( rWanted ) )
 			continue;
 		if ( !OnTheMap( *pSession, rWanted.x, rWanted.y ) )
 		{

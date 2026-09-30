@@ -2338,6 +2338,27 @@ test "camera anchor: setting a player inside the vector never shrinks it" {
     try std.testing.expectEqual(@as(f32, 50), fake.camera_anchors.players[0].x);
 }
 
+test "camera anchor: the file's own off-map anchor comes back on undo (WR-B03)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var seeded: records.CameraAnchors = .{};
+    seeded.player_count = 2;
+    seeded.players[1] = .{ .x = -500, .y = 99999, .z = 0 };
+    seeded.neutral = .{ .x = 99999, .y = -1, .z = 0 };
+    fake.setCameraAnchorsFixture(seeded);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setCameraAnchor(1, 50, 60);
+    try editor.setCameraAnchor(-1, 70, 80);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(f32, -500), fake.camera_anchors.players[1].x);
+    try std.testing.expectEqual(@as(f32, 99999), fake.camera_anchors.neutral.x);
+    try std.testing.expect(!editor.dirty());
+    // A NEW off-map value is still refused.
+    try std.testing.expectError(error.Refused, editor.setCameraAnchor(0, -10, -10));
+}
+
 test "camera anchor: setting the same value twice records nothing" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
