@@ -522,6 +522,49 @@ bool ReadSessionGroup( SEditorSession *pSession, int nID, int *pOut, int nCapaci
 	return true;
 }
 
+std::string GroupHoldWarning( const SEditorSession &rSession, int nOnlyLinkID, int nOnlyGroup )
+{
+	// What names an object: every start command's units, every reserve
+	// position's gun and truck.
+	struct SNamed { int nLinkID; const char *pszBy; int nIndex; };
+	std::vector<SNamed> named;
+	int nCommand = 0;
+	for ( SLoadMapInfo::TStartCommandsList::const_iterator it = rSession.snapshot.startCommandsList.begin(); it != rSession.snapshot.startCommandsList.end(); ++it, ++nCommand )
+		for ( size_t u = 0; u < it->unitLinkIDs.size(); ++u )
+		{
+			const SNamed entry = { it->unitLinkIDs[u], "start command", nCommand };
+			named.push_back( entry );
+		}
+	int nPosition = 0;
+	for ( SLoadMapInfo::TReservePositionsList::const_iterator it = rSession.snapshot.reservePositionsList.begin(); it != rSession.snapshot.reservePositionsList.end(); ++it, ++nPosition )
+	{
+		const SNamed gun = { it->nArtilleryLinkID, "reserve position", nPosition };
+		const SNamed truck = { it->nTruckLinkID, "reserve position", nPosition };
+		named.push_back( gun );
+		named.push_back( truck );
+	}
+	const std::vector<SMapObjectInfo> *lists[2] = { &rSession.snapshot.objects, &rSession.snapshot.scenarioObjects };
+	for ( size_t n = 0; n < named.size(); ++n )
+	{
+		const int nLinkID = named[n].nLinkID;
+		if ( nLinkID == 0 || ( nOnlyLinkID != 0 && nLinkID != nOnlyLinkID ) )
+			continue;
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t o = 0; o < lists[nList]->size(); ++o )
+			{
+				const SMapObjectInfo &rObject = (*lists[nList])[o];
+				if ( rObject.link.nLinkID != nLinkID || rObject.nScriptID < 0 )
+					continue;
+				for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rSession.snapshot.reinforcements.groups.begin();
+				      it != rSession.snapshot.reinforcements.groups.end(); ++it )
+					if ( ( nOnlyGroup < 0 || it->first == nOnlyGroup ) && CountOf( it->second.ids, rObject.nScriptID ) != 0 )
+						return NStr::Format( "unit %d, which %s %d names, is held back by reinforcement group %d until a script brings it in; the %s may not find it",
+						                     nLinkID, named[n].pszBy, named[n].nIndex, it->first, named[n].pszBy );
+			}
+	}
+	return "";
+}
+
 bool SetSessionGroup( SEditorSession *pSession, int nID, const int *pIDs, int nCount, bool *pbRefused )
 {
 	if ( pbRefused != 0 ) *pbRefused = false;
@@ -541,6 +584,7 @@ bool SetSessionGroup( SEditorSession *pSession, int nID, const int *pIDs, int nC
 		NMapRecords::PutReinforcementGroup( &pSession->snapshot, nID, current );
 		return false;
 	}
+	pSession->szMessage = GroupHoldWarning( *pSession, 0, nID );
 	return true;
 }
 

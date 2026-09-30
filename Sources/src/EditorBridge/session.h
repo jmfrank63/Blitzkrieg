@@ -407,6 +407,12 @@ bool SetSessionAIGeneralSide( SEditorSession *pSession, int nSide, int nSideCoun
 bool ReadSessionGroupIDs( SEditorSession *pSession, int *pOut, int nCapacity, int *pnCount );
 bool ReadSessionGroup( SEditorSession *pSession, int nID, int *pOut, int nCapacity, int *pnCount, bool *pbRefused );
 bool SetSessionGroup( SEditorSession *pSession, int nID, const int *pIDs, int nCount, bool *pbRefused );
+// Research Pitfall 8 (WR-A10): the note for an object a start command or a
+// reserve position names whose script ID a reinforcement group holds - the
+// game's LoadUnits holds it back, so the command or position finds nothing.
+// Only objects with link ID nOnlyLinkID (0: any) and groups nOnlyGroup (-1:
+// any) are looked at; "" when there is nothing to say.
+std::string GroupHoldWarning( const SEditorSession &rSession, int nOnlyLinkID, int nOnlyGroup );
 bool DeleteSessionGroup( SEditorSession *pSession, int nID, bool *pbRefused );
 int FirstFreeGroupIDInSession( SEditorSession *pSession, int nFrom );
 // Hide checked (04-09, D-16). SetSessionHiddenScriptIDs replaces the set (any

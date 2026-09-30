@@ -429,6 +429,9 @@ pub const Editor = struct {
         const merging = if (merge_entry) |entry| entry.command.script_id.link_id == link_id else false;
         if (!merging) try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.setObjectScriptID(link_id, value));
+        // The bridge's note when a group now holds this object back while a
+        // start command or a reserve position names it (Pitfall 8).
+        self.noteCascade();
         object.script_id = value;
         if (merging) {
             const entry = merge_entry.?;
@@ -815,6 +818,9 @@ pub const Editor = struct {
         ids[current.group.ids.len] = script_id;
         const value: records.Value = .{ .group = .{ .id = group, .ids = ids } };
         try self.editRecord(.group, group, &value, 0);
+        // The bridge's note when the group now holds back an object a start
+        // command or a reserve position names (Pitfall 8).
+        self.noteCascade();
     }
 
     /// Takes a script ID out of a group (D-16, "Remove"). One that is not

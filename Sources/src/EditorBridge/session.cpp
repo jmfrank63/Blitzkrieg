@@ -618,6 +618,7 @@ bool SetSessionObjectScriptID( SEditorSession *pSession, int nLinkID, int nScrip
 	// left it is shown.
 	if ( !pSession->hiddenScriptIDs.empty() )
 		ApplyHiddenMarks( pSession );
+	pSession->szMessage = GroupHoldWarning( *pSession, nLinkID, -1 );
 	return true;
 }
 
