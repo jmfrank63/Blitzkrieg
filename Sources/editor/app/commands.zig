@@ -77,6 +77,14 @@ pub const command_table = [_]Entry{
     .{ .name = "reserve_select", .handler = reserveSelect },
     .{ .name = "placer_role", .handler = placerRole },
     .{ .name = "placer_name", .handler = placerName },
+    .{ .name = "ai_side", .handler = aiSide },
+    .{ .name = "ai_parcel_here", .handler = aiParcelHere },
+    .{ .name = "ai_point_here", .handler = aiPointHere },
+    .{ .name = "ai_toggle_type", .handler = aiToggleType },
+    .{ .name = "ai_delete", .handler = aiDelete },
+    .{ .name = "ai_select", .handler = aiSelect },
+    .{ .name = "ai_mobile_add", .handler = aiMobileAdd },
+    .{ .name = "ai_mobile_remove", .handler = aiMobileRemove },
 };
 
 pub const predicate_table = [_]Entry{
@@ -102,6 +110,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "startcmd_is", .handler = startcmdIs },
     .{ .name = "reserve_delta", .handler = reserveDelta },
     .{ .name = "reserve_pending", .handler = reservePending },
+    .{ .name = "parcels", .handler = parcelsDelta },
+    .{ .name = "mobile_has", .handler = mobileHas },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -1211,4 +1221,162 @@ fn reservePending(state: *State, arg: []const u8) Outcome {
     const tool = &state.view.reserve_tool;
     const holds = if (std.mem.eql(u8, arg, "gun")) tool.gun != null else if (std.mem.eql(u8, arg, "truck")) tool.truck != null else if (std.mem.eql(u8, arg, "place")) tool.has_place else if (std.mem.eql(u8, arg, "none")) (tool.gun == null and tool.truck == null and !tool.has_place) else return .bad_arg;
     return if (holds) .ok else .refused;
+}
+
+// ---------------------------------------------------------------------------
+// The AI general (04-12, D-19).
+// ---------------------------------------------------------------------------
+
+/// Chooses the side the AI General tool and its panel edit (a side the map lacks is
+/// created by the first edit of it); the selection is let go of when the side changes.
+/// Public: the panel's radios go through the named command.
+pub fn setAiSide(state: *State, side: usize) Outcome {
+    if (side >= records.max_ai_sides) return .bad_arg;
+    const tool = &state.view.ai_tool;
+    if (tool.side != side) {
+        tool.side = side;
+        tool.reset();
+    }
+    return .ok;
+}
+
+/// `do=ai_side:1`.
+fn aiSide(state: *State, arg: []const u8) Outcome {
+    const side = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return setAiSide(state, side);
+}
+
+/// The ground point at the centre of the view, as a pointer.
+fn viewCentre(state: *State) ?core.tools.Pointer {
+    const screen = state.real.screenSize() orelse return null;
+    var centre = state.editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0) catch return null;
+    centre.object = null;
+    return centre;
+}
+
+/// `do=ai_parcel_here`: a defence parcel of radius 256 at the centre of the view on the
+/// tool's side, as a click on open ground with the AI General tool makes one (and added
+/// even inside another parcel, which a click would make a point of). One undo step.
+fn aiParcelHere(state: *State, _: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const centre = viewCentre(state) orelse return .refused;
+    const tool = &state.view.ai_tool;
+    const added = state.editor.addDefenceParcel(tool.side, centre.map_x, centre.map_y);
+    if (added) |index| {
+        tool.select(index, null);
+        return resultOutcome(state, {});
+    } else |err| return resultOutcome(state, err);
+}
+
+/// `do=ai_point_here`: a reinforce point at the centre of the view, in the parcel of the
+/// tool's side it is inside, as a click there would make one. Refused, saying so, when
+/// no parcel holds the centre. One undo step.
+fn aiPointHere(state: *State, _: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const centre = viewCentre(state) orelse return .refused;
+    const tool = &state.view.ai_tool;
+    var side = state.editor.aiSide(state.allocator, tool.side) catch return .refused;
+    defer side.deinit(state.allocator);
+    if (core.tools_ai.AIGeneral.hitHandle(side, .{ centre.map_x, centre.map_y }) != null or core.tools_ai.AIGeneral.parcelContaining(side, .{ centre.map_x, centre.map_y }) == null) {
+        state.editor.note("the centre of the view is not inside a parcel of this side, or is on a handle: move the view");
+        return .refused;
+    }
+    const result = blk: {
+        tool.handle(state.editor, .{ .press = centre }) catch |err| break :blk err;
+        tool.handle(state.editor, .{ .release = centre }) catch |err| break :blk err;
+        break :blk {};
+    };
+    return resultOutcome(state, result);
+}
+
+/// `do=ai_select:0`: the panel's choice of parcel 0 of the side (its keys and Delete act on it).
+fn aiSelect(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.refreshAi();
+    if (index >= state.aiActive().parcels.len) return .refused;
+    state.view.ai_tool.select(index, null);
+    return .ok;
+}
+
+/// `do=ai_toggle_type:0`: parcel 0 of the side switches between defence and reinforce.
+/// One undo step.
+fn aiToggleType(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.refreshAi();
+    if (index >= state.aiActive().parcels.len) return .refused;
+    const tool = &state.view.ai_tool;
+    tool.select(index, null);
+    return resultOutcome(state, tool.switchType(state.editor));
+}
+
+/// Deletes the selected point, else the selected parcel. One undo step. Public for the panel.
+pub fn deleteAiSelected(state: *State) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.view.ai_tool.deleteSelected(state.editor));
+}
+
+/// `do=ai_delete`.
+fn aiDelete(state: *State, _: []const u8) Outcome {
+    return deleteAiSelected(state);
+}
+
+/// Adds mobile script ID `id` to the tool's side; one already there is a note. One undo step.
+/// Public for the panel.
+pub fn addAiMobile(state: *State, id: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.addMobileScriptID(state.view.ai_tool.side, id));
+}
+
+/// `do=ai_mobile_add:4245`.
+fn aiMobileAdd(state: *State, arg: []const u8) Outcome {
+    const id = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return addAiMobile(state, id);
+}
+
+/// Removes mobile script ID `id` from the tool's side. One undo step. Public for the panel.
+pub fn removeAiMobile(state: *State, id: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.removeMobileScriptID(state.view.ai_tool.side, id));
+}
+
+/// `do=ai_mobile_remove:4245`.
+fn aiMobileRemove(state: *State, arg: []const u8) Outcome {
+    const id = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return removeAiMobile(state, id);
+}
+
+/// `side:rest` - a side's number and what follows the first colon.
+fn parseSideArg(arg: []const u8) ?struct { side: usize, rest: []const u8 } {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return null;
+    const side = std.fmt.parseInt(usize, arg[0..colon], 10) catch return null;
+    return .{ .side = side, .rest = arg[colon + 1 ..] };
+}
+
+/// `expect=parcels:1:1`: side 1 holds that many parcels more than when the map opened
+/// (a side the map did not have then counted 0).
+fn parcelsDelta(state: *State, arg: []const u8) Outcome {
+    const parsed = parseSideArg(arg) orelse return .bad_arg;
+    const want = std.fmt.parseInt(i64, parsed.rest, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor) or parsed.side >= records.max_ai_sides) return .refused;
+    var side = state.editor.aiSide(state.allocator, parsed.side) catch return .refused;
+    defer side.deinit(state.allocator);
+    const opened: usize = if (parsed.side < state.ai_parcels_at_open.items.len) state.ai_parcels_at_open.items[parsed.side] else 0;
+    const delta = @as(i64, @intCast(side.parcels.len)) - @as(i64, @intCast(opened));
+    if (delta == want) return .ok;
+    var buffer: [112]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "side {d} holds {d} parcels more than at open, not {d}", .{ parsed.side, delta, want }) catch "parcels differs");
+    return .refused;
+}
+
+/// `expect=mobile_has:1:4245`: side 1 has script ID 4245 among its mobile IDs.
+fn mobileHas(state: *State, arg: []const u8) Outcome {
+    const parsed = parseSideArg(arg) orelse return .bad_arg;
+    const id = std.fmt.parseInt(i32, parsed.rest, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor) or parsed.side >= records.max_ai_sides) return .refused;
+    var side = state.editor.aiSide(state.allocator, parsed.side) catch return .refused;
+    defer side.deinit(state.allocator);
+    if (side.hasMobile(id)) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "side {d} has no mobile script ID {d}", .{ parsed.side, id }) catch "no such mobile ID");
+    return .refused;
 }

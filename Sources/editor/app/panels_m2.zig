@@ -920,3 +920,142 @@ pub fn drawReservePositions(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond
         },
     }
 }
+
+/// What one frame of the AI General panel asked for, run after the lists' loops: a
+/// command re-reads the side the loops hold.
+const AiAction = union(enum) {
+    none,
+    side: usize,
+    add_mobile,
+    remove_mobile: i32,
+    choose: usize,
+    switch_type,
+    delete,
+};
+
+/// What the AI General panel says.
+pub const ai_general_help = "Click open ground for a defence parcel (radius 4 map tiles, the default and the smallest); click inside a parcel for a reinforce point. Drag a parcel's square to move it and the circle at the end of its arrow to set its radius and direction; drag a point's square to move it and its circle to turn it. Enter, Insert or Space switch the selected parcel between defence and reinforce; Delete removes the selected point or parcel. The game gives a general to sides 0 and 1, never to the player's own side.";
+
+/// One map tile in AI units, for the radius column.
+const ai_tile: f32 = 64.0;
+
+fn parcelKindName(kind: records.ParcelKind) []const u8 {
+    return switch (kind) {
+        .defence => "defence",
+        .reinforce => "reinforce",
+        else => "unknown type",
+    };
+}
+
+/// D-19: the MFC AI General tab as a panel - the side (a radio for each side the map has
+/// and one more, "new side", which the first edit creates with every side below it), the
+/// side's mobile script IDs with Remove each, a field and Add (an ID already there is
+/// skipped), and the side's parcels (type, centre, radius in map tiles, direction in
+/// degrees, points) with Switch type and Delete for the selected one. Every control
+/// runs a named command (commands.zig), so BK_EDITOR_AUTO's `do=` reaches it too.
+pub fn drawAIGeneral(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = panels.beginPanel("AI general", pos, size, cond, null);
+    defer panels.endPanel(open);
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshAi();
+    const tool = &state.view.ai_tool;
+    const side = state.aiActive();
+    var action: AiAction = .none;
+
+    ig.igSeparatorText("Side");
+    var shown: usize = 0;
+    while (shown <= state.ai_side_count and shown < 12) : (shown += 1) {
+        ig.igPushIDInt(@intCast(shown));
+        defer ig.igPopID();
+        var label: [32:0]u8 = undefined;
+        const label_text = if (shown < state.ai_side_count)
+            std.fmt.bufPrintZ(&label, "side {d}", .{shown})
+        else
+            std.fmt.bufPrintZ(&label, "new side ({d})", .{shown});
+        if (shown != 0) ig.igSameLine();
+        if (ig.igRadioButton((label_text catch continue).ptr, tool.side == shown)) action = .{ .side = shown };
+    }
+
+    ig.igSeparatorText("Mobile script IDs");
+    if (side.mobile_ids.len == 0) {
+        panels.text("no mobile script IDs");
+    } else if (ig.igBeginChild("ai-mobile-ids", .{ .x = 0, .y = 70 }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (side.mobile_ids) |script_id| {
+            ig.igPushIDInt(script_id);
+            defer ig.igPopID();
+            var line: [24:0]u8 = undefined;
+            panels.text(std.fmt.bufPrintZ(&line, "{d}", .{script_id}) catch "?");
+            ig.igSameLine();
+            if (ig.igSmallButton("Remove")) action = .{ .remove_mobile = script_id };
+        }
+    }
+    if (side.mobile_ids.len != 0) ig.igEndChild();
+    ig.igPushItemWidth(120);
+    _ = ig.igInputIntEx("script ID", &state.ai_mobile_field, 1, 10, 0);
+    ig.igPopItemWidth();
+    ig.igSameLine();
+    if (ig.igButton("Add")) action = .add_mobile;
+
+    ig.igSeparatorText("Parcels");
+    if (side.parcels.len == 0) {
+        panels.text("this side has no parcels");
+    } else if (ig.igBeginChild("ai-parcels", .{ .x = 0, .y = 150 }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (side.parcels, 0..) |parcel, index| {
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            var label: [200:0]u8 = undefined;
+            const degrees = @as(f32, @floatFromInt(parcel.defence_dir)) * 360.0 / 65535.0;
+            const label_text = std.fmt.bufPrintZ(&label, "{d}: {s}, {d:.1} tiles, {d:.0} deg", .{ index, parcelKindName(parcel.kind), parcel.radius / ai_tile, degrees }) catch continue;
+            const selected = tool.selected_parcel != null and tool.selected_parcel.? == index;
+            if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
+        }
+    }
+    if (side.parcels.len != 0) ig.igEndChild();
+    ig.igBeginDisabled(tool.selected_parcel == null);
+    if (ig.igButton("Switch type")) action = .switch_type;
+    ig.igSameLine();
+    if (ig.igButton("Delete")) action = .delete;
+    ig.igEndDisabled();
+    if (tool.selected_parcel) |index| {
+        ig.igPushTextWrapPos(0);
+        defer ig.igPopTextWrapPos();
+        var line: [160:0]u8 = undefined;
+        if (index < side.parcels.len) {
+            const parcel = side.parcels[index];
+            panels.text(std.fmt.bufPrintZ(&line, "selected: parcel {d} at {d:.0}, {d:.0}, {d} points", .{ index, parcel.cx, parcel.cy, parcel.points.len }) catch "selected");
+        }
+        if (tool.selected_point) |point| {
+            panels.text(std.fmt.bufPrintZ(&line, "point {d} selected: Delete removes the point", .{point}) catch "point selected");
+        } else {
+            panels.text("Delete removes the parcel");
+        }
+    }
+
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(ai_general_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+
+    switch (action) {
+        .none => {},
+        .side => |chosen| _ = commands.setAiSide(state, chosen),
+        .add_mobile => _ = commands.addAiMobile(state, state.ai_mobile_field),
+        .remove_mobile => |script_id| _ = commands.removeAiMobile(state, script_id),
+        .choose => |index| {
+            tool.select(index, null);
+            if (index < side.parcels.len) {
+                const world = marker_logic.aiToWorld(.{ .x = side.parcels[index].cx, .y = side.parcels[index].cy });
+                state.view.centreOn(state.real, world.x, world.y);
+            }
+        },
+        .switch_type => if (tool.selected_parcel) |index| {
+            _ = commands.run(state, "ai_toggle_type", std.fmt.bufPrint(&state.ai_arg_buffer, "{d}", .{index}) catch "0");
+        },
+        .delete => _ = commands.deleteAiSelected(state),
+    }
+}
