@@ -43,6 +43,7 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorBridgeInfo) == core.bridge.name_capacity + 4 + 4 * 4 + 4);
     std.debug.assert(@sizeOf(c.BkEditorFenceDescriptor) == core.bridge.name_capacity);
     std.debug.assert(@sizeOf(c.BkEditorEntrenchmentInfo) == 3 * 4 + 4 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorScriptFileRecord) == core.records.script_file_capacity);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -419,6 +420,16 @@ pub const RealBridge = struct {
                 return .ok;
             },
             .group => return self.readGroup(key, allocator, out),
+            .script_file => {
+                if (key != 0) return .bad_argument;
+                var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
+                const result = status(c.BkEditorScriptFile(self.session, &record));
+                if (result != .ok) return result;
+                var value: record_types.ScriptFile = .{};
+                value.setName(std.mem.sliceTo(&record.name, 0));
+                out.* = .{ .script_file = value };
+                return .ok;
+            },
         }
     }
 
@@ -434,13 +445,20 @@ pub const RealBridge = struct {
                 if (group.id != key) return .bad_argument;
                 return status(c.BkEditorSetGroup(self.session, key, group.ids.ptr, @intCast(group.ids.len)));
             },
+            .script_file => |file| {
+                if (key != 0) return .bad_argument;
+                var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
+                const name = file.nameSlice();
+                @memcpy(record.name[0..name.len], name);
+                return status(c.BkEditorSetScriptFile(self.session, &record));
+            },
         }
     }
 
     fn vtableRecordKeys(ptr: *anyopaque, kind: record_types.Kind, allocator: std.mem.Allocator, out: *[]i32) Status {
         const self = from(ptr);
         switch (kind) {
-            .camera_anchors => {
+            .camera_anchors, .script_file => {
                 const keys = allocator.alloc(i32, 1) catch return .failed;
                 keys[0] = 0;
                 out.* = keys;
@@ -471,7 +489,7 @@ pub const RealBridge = struct {
         const self = from(ptr);
         self.own_message = null;
         switch (value.*) {
-            .camera_anchors => return .bad_argument,
+            .camera_anchors, .script_file => return .bad_argument,
             .group => |group| {
                 if (group.id != key or key < 0) return .bad_argument;
                 var count: c_int = 0;
@@ -489,7 +507,7 @@ pub const RealBridge = struct {
     fn vtableRemoveRecord(ptr: *anyopaque, kind: record_types.Kind, key: i32) Status {
         const self = from(ptr);
         switch (kind) {
-            .camera_anchors => return .bad_argument,
+            .camera_anchors, .script_file => return .bad_argument,
             .group => return status(c.BkEditorDeleteGroup(self.session, key)),
         }
     }

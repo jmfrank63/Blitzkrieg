@@ -46,6 +46,7 @@ const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const files_mod = @import("files.zig");
 const records = @import("records.zig");
+const script_file_mod = @import("script_file.zig");
 const Status = bridge_mod.Status;
 const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -223,6 +224,11 @@ pub const FakeBridge = struct {
     /// slice is owned here. Kept across a fake reopen like the sounds.
     /// `addGroupFixture` seeds it; `recordKeys` answers it sorted.
     groups: std.AutoHashMapUnmanaged(i32, []i32) = .empty,
+    /// The map's script file (04-10, D-20) and the value it held when the map
+    /// was opened, which a put may always bring back (an undo). Kept across a
+    /// fake reopen like the groups. `setScriptFileFixture` seeds both.
+    script_file: records.ScriptFile = .{},
+    script_file_at_open: records.ScriptFile = .{},
     /// The script IDs "Hide checked" holds back (04-09): objects of the
     /// objects list (not scenario objects) carrying one are skipped by
     /// `objectAt`. A view setting: forgotten by an open, as the real one.
@@ -429,6 +435,13 @@ pub const FakeBridge = struct {
         errdefer self.allocator.free(owned);
         const previous = try self.groups.fetchPut(self.allocator, id, owned);
         if (previous) |entry| self.allocator.free(entry.value);
+    }
+
+    /// The script file the map names before it opens (04-10), as the file
+    /// holds it - a test may give it a path, which reads verbatim.
+    pub fn setScriptFileFixture(self: *FakeBridge, name: []const u8) void {
+        self.script_file.setName(name);
+        self.script_file_at_open = self.script_file;
     }
 
     /// The script IDs of group `id`, for a test to read; null when there is none.
@@ -1673,6 +1686,7 @@ pub const FakeBridge = struct {
         // paint token of the map before.
         self.forgetHistory();
         self.hidden_script_ids.clearRetainingCapacity();
+        self.script_file_at_open = self.script_file;
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
             @memset(self.tiles, 0);
@@ -2002,6 +2016,10 @@ pub const FakeBridge = struct {
                 };
                 out.* = .{ .group = .{ .id = key, .ids = allocator.dupe(i32, ids) catch return .failed } };
             },
+            .script_file => {
+                if (key != 0) return .bad_argument;
+                out.* = .{ .script_file = self.script_file };
+            },
         }
         return .ok;
     }
@@ -2043,7 +2061,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (kind) {
-            .camera_anchors => {
+            .camera_anchors, .script_file => {
                 const keys = allocator.alloc(i32, 1) catch return .failed;
                 keys[0] = 0;
                 out.* = keys;
@@ -2064,7 +2082,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (value.*) {
-            .camera_anchors => return .bad_argument,
+            .camera_anchors, .script_file => return .bad_argument,
             .group => |group| {
                 if (key < 0 or group.id != key) return .bad_argument;
                 if (self.groups.contains(key)) {
@@ -2083,7 +2101,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (kind) {
-            .camera_anchors => return .bad_argument,
+            .camera_anchors, .script_file => return .bad_argument,
             .group => {
                 const removed = self.groups.fetchRemove(key) orelse {
                     self.say("there is no reinforcement group {d}", .{key});
@@ -2147,6 +2165,17 @@ pub const FakeBridge = struct {
                 const stored = self.storeGroup(key, group.ids);
                 if (stored == .ok) self.record(.record_put, key);
                 return stored;
+            },
+            .script_file => |wanted| {
+                if (key != 0) return .bad_argument;
+                // The real bridge's rule: None, a bare name, or the value the
+                // file held when the map was opened.
+                if (!wanted.eql(self.script_file_at_open) and !script_file_mod.isBareName(wanted.nameSlice())) {
+                    self.say("a script is named without folder or .lua", .{});
+                    return .refused;
+                }
+                self.script_file = wanted;
+                self.record(.record_put, key);
             },
         }
         return .ok;

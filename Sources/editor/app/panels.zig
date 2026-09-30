@@ -1621,6 +1621,10 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         return .{ .status_failure = std.mem.span(c.BkEditorLastMessage(real.session)) };
     if (real.saveCopy(test_path) != .ok)
         return .{ .status_failure = std.mem.span(c.BkEditorLastMessage(real.session)) };
+    // D-20: the map's script goes beside the test copy, where the game looks
+    // for it (script_file.copyForTest, through logic.copyScriptForTest). A script
+    // that is not there is a warning; the game still starts.
+    const script_note = logic.copyScriptForTest(state.editor, test_path, buffer);
     var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const game_path = testlaunch.gamePath(state.io, &game_path_buffer) catch |err|
         return .{ .report_failure = std.fmt.bufPrint(buffer, "No game beside the Map Editor: {s}", .{@errorName(err)}) catch "No game beside the Map Editor" };
@@ -1640,6 +1644,7 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         return .{ .report_failure = message };
     };
     state.test_game = running;
+    if (script_note) |note| return .{ .started_with_note = note };
     return .started;
 }
 

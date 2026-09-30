@@ -793,6 +793,29 @@ BkEditorStatus BkEditorGroundHeight( BkEditorSession *session, float x, float y,
    BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *session, int link_id, int script_id );
 
+/* The map's script file (04-10, D-20): CMapInfo::szScriptFile, the name of the
+   Lua file the game loads from the map's own folder (the game adds ".lua"). The
+   MFC editor stored a bare name; empty means None. */
+typedef struct { char name[64]; } BkEditorScriptFileRecord;
+
+/* The snapshot's script file name, NUL-terminated in out->name. A value that
+   does not fit (64 characters or more) is BK_EDITOR_REFUSED naming why: the file
+   keeps it byte-exact and it is not editable. BK_EDITOR_BAD_ARGUMENT for a null
+   out; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorScriptFile( BkEditorSession *session, BkEditorScriptFileRecord *out );
+
+/* An exact put of the script file name into the snapshot and the working copy
+   together; the engine is untouched (the script loads only when a mission
+   starts). The name must be NUL-terminated within the 64 bytes
+   (BK_EDITOR_BAD_ARGUMENT otherwise, and for a null record). A value NEW to the
+   map must be empty (None) or a bare name - letters, digits, '_', '-' and '.'
+   only, no folder, no ".lua", the rule NMapRecords::IsBareScriptName holds - or
+   this is BK_EDITOR_REFUSED "a script is named without folder or .lua". The one
+   exception is the value the file held when it was opened, whatever it is: an
+   undo must be able to put a verbatim path back. A refusal changes nothing.
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorSetScriptFile( BkEditorSession *session, const BkEditorScriptFileRecord *record );
+
 /* Reinforcement groups (04-09, D-16): the map's SReinforcementGroupInfo, keyed
    by group ID, each holding the script IDs of the objects the game holds back
    for it (an object of the map's objects list whose script ID a group holds is

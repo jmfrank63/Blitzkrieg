@@ -372,7 +372,7 @@ bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID )
 		return false;
 	object.link.nLinkID = rAdd.nLinkID >= 0 ? rAdd.nLinkID : NextLinkID( *pMap );
 	object.link.bIntention = false;
-	object.link.nLinkWith = -1;
+	object.link.nLinkWith = rAdd.nLinkWith;
 	( rAdd.bScenario ? pMap->scenarioObjects : pMap->objects ).push_back( object );
 	if ( pnLinkID )
 		*pnLinkID = object.link.nLinkID;
