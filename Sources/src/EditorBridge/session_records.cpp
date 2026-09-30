@@ -7,6 +7,7 @@
 // the collection feeds it, a refusal changes nothing, and pbRefused tells a
 // refusal - the record's own rules saying no - apart from a failure.
 #include "StdAfx.h"
+#include <algorithm>
 #include <cmath>
 #include "session.h"
 #include "../MapFile/MapRecords.h"
@@ -173,4 +174,142 @@ bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float 
 	}
 	*pfZ = vPoint.z;
 	return true;
+}
+
+// ---------------------------------------------------------------------------
+// Reinforcement groups (04-09, D-16).
+// ---------------------------------------------------------------------------
+
+namespace {
+const int nMinScriptID = 0;
+const int nMaxScriptID = 32000;
+
+// The script IDs of group nID, or false when there is no such group.
+bool FindGroup( const CMapInfo &rMap, int nID, std::vector<int> *pIDs )
+{
+	std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.find( nID );
+	if ( it == rMap.reinforcements.groups.end() )
+		return false;
+	if ( pIDs != 0 )
+		*pIDs = it->second.ids;
+	return true;
+}
+
+int CountOf( const std::vector<int> &rIDs, int nValue )
+{
+	return int( std::count( rIDs.begin(), rIDs.end(), nValue ) );
+}
+
+// The put's rule (Pitfall 9, T-04-09-01): every script ID the put ADDS is
+// 0..32000 and appears once. One the group holds now, or held when the file was
+// opened, is exempt - as many times as it held it - so a file's own odd data (a
+// duplicate, an ID out of range) can be put back by an undo, whichever edit of
+// the group it follows.
+bool GroupPutAllowed( SEditorSession *pSession, int nID, const std::vector<int> &rCurrent, const std::vector<int> &rWanted )
+{
+	std::unordered_map< int, std::vector<int> >::const_iterator itOpened = pSession->openedGroups.find( nID );
+	for ( size_t i = 0; i < rWanted.size(); ++i )
+	{
+		const int nScriptID = rWanted[i];
+		const int nWanted = CountOf( rWanted, nScriptID );
+		int nHeld = CountOf( rCurrent, nScriptID );
+		if ( itOpened != pSession->openedGroups.end() )
+			nHeld = Max( nHeld, CountOf( itOpened->second, nScriptID ) );
+		if ( nWanted <= nHeld )
+			continue;
+		if ( nScriptID < nMinScriptID || nScriptID > nMaxScriptID )
+		{
+			pSession->szMessage = "a script ID in a group is 0..32000";
+			return false;
+		}
+		if ( nWanted > 1 )
+		{
+			pSession->szMessage = NStr::Format( "script ID %d appears twice in the group", nScriptID );
+			return false;
+		}
+	}
+	return true;
+}
+}
+
+bool ReadSessionGroupIDs( SEditorSession *pSession, int *pOut, int nCapacity, int *pnCount )
+{
+	std::vector<int> ids;
+	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = pSession->snapshot.reinforcements.groups.begin();
+	      it != pSession->snapshot.reinforcements.groups.end(); ++it )
+		ids.push_back( it->first );
+	std::sort( ids.begin(), ids.end() );
+	*pnCount = int( ids.size() );
+	const int nWrite = Min( nCapacity, int( ids.size() ) );
+	for ( int i = 0; i < nWrite; ++i )
+		pOut[i] = ids[i];
+	return nCapacity >= int( ids.size() );
+}
+
+bool ReadSessionGroup( SEditorSession *pSession, int nID, int *pOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	std::vector<int> ids;
+	if ( !FindGroup( pSession->snapshot, nID, &ids ) )
+	{
+		*pnCount = -1;
+		pSession->szMessage = NStr::Format( "there is no reinforcement group %d", nID );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	*pnCount = int( ids.size() );
+	const int nWrite = Min( nCapacity, int( ids.size() ) );
+	for ( int i = 0; i < nWrite; ++i )
+		pOut[i] = ids[i];
+	// A buffer too short is the sizing pass of a two-pass read, not a failure
+	// worth a message: *pnCount is the total and nothing was written past it.
+	if ( nCapacity < int( ids.size() ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool SetSessionGroup( SEditorSession *pSession, int nID, const int *pIDs, int nCount, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	std::vector<int> current;
+	FindGroup( pSession->snapshot, nID, &current );
+	const std::vector<int> wanted( pIDs, pIDs + nCount );
+	if ( !GroupPutAllowed( pSession, nID, current, wanted ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// Both copies together; the engine holds no groups.
+	if ( !NMapRecords::PutReinforcementGroup( &pSession->snapshot, nID, wanted ) )
+		return false;
+	if ( !NMapRecords::PutReinforcementGroup( &pSession->working, nID, wanted ) )
+	{
+		NMapRecords::PutReinforcementGroup( &pSession->snapshot, nID, current );
+		return false;
+	}
+	return true;
+}
+
+bool DeleteSessionGroup( SEditorSession *pSession, int nID, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	std::vector<int> current;
+	if ( !FindGroup( pSession->snapshot, nID, &current ) )
+	{
+		pSession->szMessage = NStr::Format( "there is no reinforcement group %d", nID );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( !NMapRecords::EraseReinforcementGroup( &pSession->snapshot, nID ) )
+		return false;
+	NMapRecords::EraseReinforcementGroup( &pSession->working, nID );
+	return true;
+}
+
+int FirstFreeGroupIDInSession( SEditorSession *pSession, int nFrom )
+{
+	return NMapRecords::FirstFreeGroupID( pSession->snapshot, nFrom );
 }

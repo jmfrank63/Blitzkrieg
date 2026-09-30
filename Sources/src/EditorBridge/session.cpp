@@ -250,6 +250,9 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->nBridgeSpansInMap = 0;
 	pSession->nBridgeSpansPlaced = 0;
 	pSession->snapshot = read;
+	pSession->openedGroups.clear();
+	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
+		pSession->openedGroups[it->first] = it->second.ids;
 	pSession->szMapPath = pszPath;
 	pSession->paints.clear();
 	pSession->appliedPaints.clear();

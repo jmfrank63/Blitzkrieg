@@ -304,6 +304,21 @@ pub const Bridge = struct {
         /// camera anchors: BkEditorSetCameraAnchors, an exact put (the vector
         /// becomes exactly `player_count` long), world units.
         putRecord: *const fn (ptr: *anyopaque, key: i32, value: *const records.Value) Status,
+        /// The keys of the records of `kind`, ascending, allocated with
+        /// `allocator` into `out` (the caller frees it on .ok only): the
+        /// group IDs of the map's reinforcement groups (BkEditorGroupIDs), and
+        /// for the camera anchors the single key 0.
+        recordKeys: *const fn (ptr: *anyopaque, kind: records.Kind, allocator: std.mem.Allocator, out: *[]i32) Status,
+        /// A record put in that was not there (the kind from the union tag):
+        /// a new group (BkEditorSetGroup, refused when the ID is taken). The
+        /// camera anchors are a singleton and take no insert (bad_argument).
+        insertRecord: *const fn (ptr: *anyopaque, key: i32, value: *const records.Value) Status,
+        /// A record taken out: BkEditorDeleteGroup for a group, refused when
+        /// there is none. The camera anchors cannot be removed (bad_argument).
+        removeRecord: *const fn (ptr: *anyopaque, kind: records.Kind, key: i32) Status,
+        /// BkEditorFirstFreeGroupID: the first group ID at or above `from`
+        /// (clamped to 0) that no group uses (C9).
+        firstFreeGroupID: *const fn (ptr: *anyopaque, from: i32, out: *i32) Status,
         /// BkEditorGroundHeight: the terrain height at a world point, world
         /// units in and out. Refused off the map.
         groundHeight: *const fn (ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status,
@@ -430,6 +445,10 @@ pub const Bridge = struct {
     pub fn deleteSound(self: Bridge, index: i32) Status { return self.vtable.deleteSound(self.ptr, index); }
     pub fn readRecord(self: Bridge, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status { return self.vtable.readRecord(self.ptr, kind, key, allocator, out); }
     pub fn putRecord(self: Bridge, key: i32, value: *const records.Value) Status { return self.vtable.putRecord(self.ptr, key, value); }
+    pub fn recordKeys(self: Bridge, kind: records.Kind, allocator: std.mem.Allocator, out: *[]i32) Status { return self.vtable.recordKeys(self.ptr, kind, allocator, out); }
+    pub fn insertRecord(self: Bridge, key: i32, value: *const records.Value) Status { return self.vtable.insertRecord(self.ptr, key, value); }
+    pub fn removeRecord(self: Bridge, kind: records.Kind, key: i32) Status { return self.vtable.removeRecord(self.ptr, kind, key); }
+    pub fn firstFreeGroupID(self: Bridge, from: i32, out: *i32) Status { return self.vtable.firstFreeGroupID(self.ptr, from, out); }
     pub fn groundHeight(self: Bridge, wx: f32, wy: f32, z: *f32) Status { return self.vtable.groundHeight(self.ptr, wx, wy, z); }
     pub fn setObjectScriptID(self: Bridge, link_id: i32, script_id: i32) Status { return self.vtable.setObjectScriptID(self.ptr, link_id, script_id); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }

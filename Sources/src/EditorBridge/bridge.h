@@ -793,6 +793,45 @@ BkEditorStatus BkEditorGroundHeight( BkEditorSession *session, float x, float y,
    BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *session, int link_id, int script_id );
 
+/* Reinforcement groups (04-09, D-16): the map's SReinforcementGroupInfo, keyed
+   by group ID, each holding the script IDs of the objects the game holds back
+   for it (an object of the map's objects list whose script ID a group holds is
+   never placed at mission start; a script brings it in). The snapshot and the
+   working copy change together and the engine is left alone. The file writes
+   the groups in ID order whatever order they were put in. */
+
+/* The group IDs of the snapshot, ascending. out_count is always the total; a
+   capacity below it is BK_EDITOR_REFUSED after writing what fits, never past
+   capacity. out may be null with capacity 0 to ask for the total.
+   BK_EDITOR_BAD_ARGUMENT for a null out_count or a negative capacity;
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorGroupIDs( BkEditorSession *session, int *out, int capacity, int *out_count );
+
+/* The script IDs group id holds, in the order the file has them. out_count is
+   the total (-1 when there is no such group, which is BK_EDITOR_REFUSED); a
+   capacity below it is BK_EDITOR_REFUSED after writing what fits. ids may be
+   null with capacity 0. A negative id, a negative capacity or a null
+   out_count is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorGroup( BkEditorSession *session, int id, int *ids, int capacity, int *out_count );
+
+/* Creates group id or replaces its script IDs with ids[0..count-1], in that
+   order: an exact put, so undo can put back what a delete or an edit took. A
+   negative id or count, a null ids with a count above 0, or a count no group
+   could hold is BK_EDITOR_BAD_ARGUMENT. A script ID the put adds must be
+   0..32000 and appear once (-1 would match every object without one,
+   Pitfall 9): BK_EDITOR_REFUSED naming why, and nothing changes. An ID the
+   group already holds is exempt, so a file's own odd data can be put back. */
+BkEditorStatus BkEditorSetGroup( BkEditorSession *session, int id, const int *ids, int count );
+
+/* Removes group id and its script IDs. A negative id is BK_EDITOR_BAD_ARGUMENT;
+   one that is not there is BK_EDITOR_REFUSED and changes nothing. */
+BkEditorStatus BkEditorDeleteGroup( BkEditorSession *session, int id );
+
+/* The first group ID at or above from (a negative from counts as 0) that no
+   group uses, into *out_id (C9: New offers this). BK_EDITOR_BAD_ARGUMENT for
+   a null out_id. */
+BkEditorStatus BkEditorFirstFreeGroupID( BkEditorSession *session, int from, int *out_id );
+
 /* The edit log (04-05). An edit the bridge derives or compounds - a road or
    river edit now, bridges, fences and entrenchments later - hands out a token
    and keeps its own undo record: the records before and after, stored when

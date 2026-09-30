@@ -16,6 +16,9 @@ const std = @import("std");
 pub const Kind = enum {
     /// The map's camera anchors: one neutral, one per player.
     camera_anchors,
+    /// A reinforcement group (04-09, D-16): keyed by its group ID, holding the
+    /// script IDs of the objects the game holds back for it.
+    group,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -78,24 +81,51 @@ pub const CameraAnchors = struct {
     }
 };
 
+/// The most script IDs a group may name is the number of script IDs there
+/// are: 0..32000 (an object's own is -1 for none, which no group may hold:
+/// GetGroupById(-1) would match it, Pitfall 9).
+pub const min_script_id: i32 = 0;
+pub const max_script_id: i32 = 32000;
+
+/// One reinforcement group (D-16): its ID and the script IDs it holds, in the
+/// order the file has them. When it sits in a `Value` the slice is OWNED by
+/// that value (`Value.deinit` frees it); a bare `Group` built by a caller
+/// borrows.
+pub const Group = struct {
+    id: i32 = 0,
+    ids: []const i32 = &.{},
+
+    pub fn has(self: Group, script_id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.ids, script_id) != null;
+    }
+
+    pub fn eql(a: Group, b: Group) bool {
+        return a.id == b.id and std.mem.eql(i32, a.ids, b.ids);
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
-/// frees them with `deinit`; the kinds so far own no memory, and the three
-/// functions exist now so the history can free, copy and compare any value the
-/// list kinds of later plans put here.
+/// frees them with `deinit`; the camera anchors own no memory, a group owns
+/// its script-ID list, and the three functions let the history free, copy and
+/// compare any value of any kind.
 pub const Value = union(Kind) {
     camera_anchors: CameraAnchors,
+    group: Group,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
-        _ = allocator;
         switch (self.*) {
             .camera_anchors => {},
+            .group => |group| {
+                allocator.free(group.ids);
+                self.* = .{ .group = .{ .id = group.id } };
+            },
         }
     }
 
     pub fn clone(self: Value, allocator: std.mem.Allocator) std.mem.Allocator.Error!Value {
-        _ = allocator;
         return switch (self) {
             .camera_anchors => |anchors| .{ .camera_anchors = anchors },
+            .group => |group| .{ .group = .{ .id = group.id, .ids = try allocator.dupe(i32, group.ids) } },
         };
     }
 
@@ -103,6 +133,7 @@ pub const Value = union(Kind) {
         if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
         return switch (a) {
             .camera_anchors => |left| left.eql(b.camera_anchors),
+            .group => |left| left.eql(b.group),
         };
     }
 };
@@ -143,4 +174,31 @@ test "values compare by their used slots only" {
     var b = try a.clone(std.testing.allocator);
     defer b.deinit(std.testing.allocator);
     try std.testing.expect(a.eql(b));
+}
+
+test "a group value owns, clones, compares and frees its script IDs" {
+    const allocator = std.testing.allocator;
+    var first: Value = .{ .group = .{ .id = 3, .ids = try allocator.dupe(i32, &.{ 10, 20, 30 }) } };
+    defer first.deinit(allocator);
+    var copy = try first.clone(allocator);
+    defer copy.deinit(allocator);
+    try std.testing.expect(first.eql(copy));
+    try std.testing.expect(first.group.ids.ptr != copy.group.ids.ptr);
+    try std.testing.expect(first.group.has(20));
+    try std.testing.expect(!first.group.has(-1));
+    // Order is part of the value: the file keeps it.
+    var reordered: Value = .{ .group = .{ .id = 3, .ids = try allocator.dupe(i32, &.{ 20, 10, 30 }) } };
+    defer reordered.deinit(allocator);
+    try std.testing.expect(!first.eql(reordered));
+    // The ID is part of it too, and a group is never a camera value.
+    var other: Value = .{ .group = .{ .id = 4, .ids = try allocator.dupe(i32, &.{ 10, 20, 30 }) } };
+    defer other.deinit(allocator);
+    try std.testing.expect(!first.eql(other));
+    try std.testing.expect(!first.eql(.{ .camera_anchors = .{} }));
+    // An empty group is a value with nothing to free.
+    var empty: Value = .{ .group = .{ .id = 0 } };
+    var empty_copy = try empty.clone(allocator);
+    try std.testing.expect(empty.eql(empty_copy));
+    empty_copy.deinit(allocator);
+    empty.deinit(allocator);
 }

@@ -38,6 +38,13 @@ pub const Command = union(enum) {
     /// anchors). Undo and redo put `before` / `after` back through the same
     /// bridge call the edit used. The command owns both values.
     record_edit: struct { kind: records.Kind, key: i32, before: records.Value, after: records.Value },
+    /// A record put in that was not there (D-02, 04-09): a new group. Undo
+    /// removes the record at `key`, redo puts `value` back. The command owns
+    /// the value.
+    record_add: struct { kind: records.Kind, key: i32, value: records.Value },
+    /// A record taken out: undo puts `value` (read before the removal) back
+    /// under `key`, redo removes it again. The command owns the value.
+    record_delete: struct { kind: records.Kind, key: i32, value: records.Value },
     /// An edit the bridge logs itself (BkEditorUndoEdit/RedoEdit, 04-05):
     /// the bridge keeps the records before and after and hands out a token;
     /// this keeps the tokens of one gesture, oldest first. `scope` says what
@@ -55,6 +62,8 @@ pub const Command = union(enum) {
                 e.before.deinit(allocator);
                 e.after.deinit(allocator);
             },
+            .record_add => |*e| e.value.deinit(allocator),
+            .record_delete => |*e| e.value.deinit(allocator),
             else => {},
         }
     }

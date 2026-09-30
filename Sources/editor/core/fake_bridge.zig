@@ -23,10 +23,11 @@
 //!    (`trench_pieces`, link ID to entrenchment index) refuse, and start
 //!    commands (`start_commands`, at most 8 units each) and reserve
 //!    positions (`reserve_positions`) are edited by the cascade in the same
-//!    order as the real bridge, undone in reverse. Reinforcement groups and
-//!    mobile script IDs name script IDs, which a delete never edits, so the
-//!    fake does not hold them, and it words the summary one change at a time
-//!    where the real one groups ("start commands 2 and 5");
+//!    order as the real bridge, undone in reverse. Reinforcement groups are
+//!    held (`groups`, 04-09) for the Group Manager's records only; a delete
+//!    never edits them (they name script IDs), and mobile script IDs are not
+//!    held. The fake words the delete's summary one change at a time where the
+//!    real one groups ("start commands 2 and 5");
 //!  - the ground is flat: `groundHeight` answers 0 on the map, where the real
 //!    one reads the terrain's altitudes;
 //!  - roads and rivers are not sampled: a record's key points are its control
@@ -218,6 +219,10 @@ pub const FakeBridge = struct {
     /// The map's camera anchors (BkEditorCameraAnchors): world units, kept
     /// across a fake reopen like the sounds. `setCameraAnchorsFixture` seeds it.
     camera_anchors: records.CameraAnchors = .{},
+    /// The map's reinforcement groups (04-09, D-16), by group ID; each value's
+    /// slice is owned here. Kept across a fake reopen like the sounds.
+    /// `addGroupFixture` seeds it; `recordKeys` answers it sorted.
+    groups: std.AutoHashMapUnmanaged(i32, []i32) = .empty,
     /// Bridge spans: link ID to the bridge that holds it. A span cannot be
     /// deleted singly (the game's loaders assert every link of a bridge).
     bridge_spans: std.AutoHashMapUnmanaged(i32, i32) = .empty,
@@ -297,6 +302,9 @@ pub const FakeBridge = struct {
         self.undone.deinit(self.allocator);
         self.objects_list.deinit(self.allocator);
         self.sounds_list.deinit(self.allocator);
+        var group_values = self.groups.valueIterator();
+        while (group_values.next()) |ids| self.allocator.free(ids.*);
+        self.groups.deinit(self.allocator);
         self.bridge_spans.deinit(self.allocator);
         self.trench_pieces.deinit(self.allocator);
         self.start_commands.deinit(self.allocator);
@@ -408,6 +416,19 @@ pub const FakeBridge = struct {
 
     pub fn vsoLen(self: *const FakeBridge, kind: VsoKind) usize {
         return self.vso_lists[@intFromEnum(kind)].items.len;
+    }
+
+    /// A reinforcement group in the map before it opens (04-09).
+    pub fn addGroupFixture(self: *FakeBridge, id: i32, ids: []const i32) !void {
+        const owned = try self.allocator.dupe(i32, ids);
+        errdefer self.allocator.free(owned);
+        const previous = try self.groups.fetchPut(self.allocator, id, owned);
+        if (previous) |entry| self.allocator.free(entry.value);
+    }
+
+    /// The script IDs of group `id`, for a test to read; null when there is none.
+    pub fn groupIDs(self: *const FakeBridge, id: i32) ?[]const i32 {
+        return self.groups.get(id);
     }
 
     /// The camera anchors the map holds before it opens.
@@ -557,6 +578,10 @@ pub const FakeBridge = struct {
         .deleteSound = deleteSound,
         .readRecord = readRecord,
         .putRecord = putRecord,
+        .recordKeys = recordKeys,
+        .insertRecord = insertRecord,
+        .removeRecord = removeRecord,
+        .firstFreeGroupID = firstFreeGroupID,
         .groundHeight = groundHeight,
         .setObjectScriptID = setObjectScriptID,
         .undoEdit = undoEdit,
@@ -1956,7 +1981,6 @@ pub const FakeBridge = struct {
     }
 
     fn readRecord(ptr: *anyopaque, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status {
-        _ = allocator; // the kinds so far own no memory
         const self = from(ptr);
         self.message_len = 0;
         switch (kind) {
@@ -1964,7 +1988,113 @@ pub const FakeBridge = struct {
                 if (key != 0) return .bad_argument;
                 out.* = .{ .camera_anchors = self.camera_anchors };
             },
+            .group => {
+                const ids = self.groups.get(key) orelse {
+                    self.say("there is no reinforcement group {d}", .{key});
+                    return .refused;
+                };
+                out.* = .{ .group = .{ .id = key, .ids = allocator.dupe(i32, ids) catch return .failed } };
+            },
         }
+        return .ok;
+    }
+
+    /// The real bridge's group rules: every ID a put adds is 0..32000 and
+    /// appears once; an ID the group holds now is exempt. (The real bridge
+    /// also exempts what the file held when it was opened, so an undo can put
+    /// odd data back after an edit took it out; the fake keeps no such copy.)
+    /// Says why when it is not.
+    fn groupPutAllowed(self: *FakeBridge, current: []const i32, wanted: []const i32) bool {
+        for (wanted) |script_id| {
+            const in_wanted = std.mem.count(i32, wanted, &.{script_id});
+            const in_current = std.mem.count(i32, current, &.{script_id});
+            if (in_wanted <= in_current) continue;
+            if (script_id < records.min_script_id or script_id > records.max_script_id) {
+                self.say("a script ID in a group is 0..32000", .{});
+                return false;
+            }
+            if (in_wanted > 1) {
+                self.say("script ID {d} appears twice in the group", .{script_id});
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// Creates or replaces a group with `wanted` (owned copy made here).
+    fn storeGroup(self: *FakeBridge, id: i32, wanted: []const i32) Status {
+        const owned = self.allocator.dupe(i32, wanted) catch return .failed;
+        const previous = self.groups.fetchPut(self.allocator, id, owned) catch {
+            self.allocator.free(owned);
+            return .failed;
+        };
+        if (previous) |entry| self.allocator.free(entry.value);
+        return .ok;
+    }
+
+    fn recordKeys(ptr: *anyopaque, kind: records.Kind, allocator: std.mem.Allocator, out: *[]i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        switch (kind) {
+            .camera_anchors => {
+                const keys = allocator.alloc(i32, 1) catch return .failed;
+                keys[0] = 0;
+                out.* = keys;
+            },
+            .group => {
+                const keys = allocator.alloc(i32, self.groups.count()) catch return .failed;
+                var index: usize = 0;
+                var it = self.groups.keyIterator();
+                while (it.next()) |key| : (index += 1) keys[index] = key.*;
+                std.mem.sort(i32, keys, {}, std.sort.asc(i32));
+                out.* = keys;
+            },
+        }
+        return .ok;
+    }
+
+    fn insertRecord(ptr: *anyopaque, key: i32, value: *const records.Value) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        switch (value.*) {
+            .camera_anchors => return .bad_argument,
+            .group => |group| {
+                if (key < 0 or group.id != key) return .bad_argument;
+                if (self.groups.contains(key)) {
+                    self.say("there is already a reinforcement group {d}", .{key});
+                    return .refused;
+                }
+                if (!self.groupPutAllowed(&.{}, group.ids)) return .refused;
+                const stored = self.storeGroup(key, group.ids);
+                if (stored == .ok) self.record(.record_put, key);
+                return stored;
+            },
+        }
+    }
+
+    fn removeRecord(ptr: *anyopaque, kind: records.Kind, key: i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        switch (kind) {
+            .camera_anchors => return .bad_argument,
+            .group => {
+                const removed = self.groups.fetchRemove(key) orelse {
+                    self.say("there is no reinforcement group {d}", .{key});
+                    return .refused;
+                };
+                self.allocator.free(removed.value);
+                self.record(.record_put, key);
+                return .ok;
+            },
+        }
+    }
+
+    fn firstFreeGroupID(ptr: *anyopaque, from_id: i32, out: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        var id: i32 = @max(from_id, 0);
+        while (self.groups.contains(id)) id += 1;
+        out.* = id;
         return .ok;
     }
 
@@ -2002,6 +2132,14 @@ pub const FakeBridge = struct {
                 @memcpy(exact.players[0..wanted.player_count], wanted.players[0..wanted.player_count]);
                 self.camera_anchors = exact;
                 self.record(.record_put, key);
+            },
+            .group => |group| {
+                if (key < 0 or group.id != key) return .bad_argument;
+                const current: []const i32 = self.groups.get(key) orelse &.{};
+                if (!self.groupPutAllowed(current, group.ids)) return .refused;
+                const stored = self.storeGroup(key, group.ids);
+                if (stored == .ok) self.record(.record_put, key);
+                return stored;
             },
         }
         return .ok;

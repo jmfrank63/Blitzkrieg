@@ -1978,6 +1978,98 @@ BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *pSession, int nLinkID
 	} );
 }
 
+namespace {
+// The most script IDs a caller may hand BkEditorSetGroup: one per script ID
+// there is, with room for a file's own duplicates. A larger count is a caller
+// bug, and keeps the vector the put builds bounded (T-04-09-03).
+const int nMaxGroupPutCount = 65536;
+}
+
+BkEditorStatus BkEditorGroupIDs( BkEditorSession *pSession, int *pnOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( pnOut == 0 && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return ReadSessionGroupIDs( pSession, pnOut, nCapacity, pnCount ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorGroup( BkEditorSession *pSession, int nID, int *pnIDs, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nID < 0 || nCapacity < 0 || ( pnIDs == 0 && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( ReadSessionGroup( pSession, nID, pnIDs, nCapacity, pnCount, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetGroup( BkEditorSession *pSession, int nID, const int *pnIDs, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nID < 0 || nCount < 0 || nCount > nMaxGroupPutCount || ( pnIDs == 0 && nCount > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetSessionGroup( pSession, nID, pnIDs, nCount, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorDeleteGroup( BkEditorSession *pSession, int nID )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nID < 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( DeleteSessionGroup( pSession, nID, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorFirstFreeGroupID( BkEditorSession *pSession, int nFrom, int *pnID )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnID == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		*pnID = FirstFreeGroupIDInSession( pSession, nFrom );
+		return BK_EDITOR_OK;
+	} );
+}
+
 // The edit log's undo and redo, by the token an edit handed out.
 BkEditorStatus BkEditorUndoEdit( BkEditorSession *pSession, int nToken )
 {
