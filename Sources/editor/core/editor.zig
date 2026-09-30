@@ -628,6 +628,111 @@ pub const Editor = struct {
         try self.editRecord(.camera_anchors, 0, &value, 0);
     }
 
+    /// A record put in that was not there (D-02, 04-09): the kind from the
+    /// value's tag, `key` its identity (a group ID). One undo step: undo
+    /// removes the record, redo puts it back. The bridge refuses an insert
+    /// where the key is taken, and a refusal changes nothing: not the bridge,
+    /// not the history, not the generation.
+    pub fn addRecord(self: *Editor, kind: records.Kind, key: i32, value: *const records.Value) EditError!void {
+        if (std.meta.activeTag(value.*) != kind) return error.Failed;
+        var owned = try value.clone(self.allocator);
+        errdefer owned.deinit(self.allocator);
+        try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.insertRecord(key, &owned));
+        self.history.recordAssumeCapacity(self.allocator, .{ .record_add = .{ .kind = kind, .key = key, .value = owned } }, 0);
+        self.record_generations.set(kind, self.record_generations.get(kind) +% 1);
+    }
+
+    /// A record taken out (D-02, 04-09): read first, so undo puts the whole
+    /// record back under the same key; redo removes it again. One undo step.
+    /// A refusal (no such record) changes nothing.
+    pub fn deleteRecord(self: *Editor, kind: records.Kind, key: i32) EditError!void {
+        var value: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(kind, key, self.allocator, &value));
+        errdefer value.deinit(self.allocator);
+        try self.history.reserve(self.allocator);
+        try self.noteOutcome(self.bridge.removeRecord(kind, key));
+        self.history.recordAssumeCapacity(self.allocator, .{ .record_delete = .{ .kind = kind, .key = key, .value = value } }, 0);
+        self.record_generations.set(kind, self.record_generations.get(kind) +% 1);
+    }
+
+    /// The reinforcement groups' IDs, ascending, owned by the caller (`free`
+    /// with the same allocator).
+    pub fn groupIDs(self: *Editor, allocator: std.mem.Allocator) EditError![]i32 {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.group, allocator, &keys));
+        return keys;
+    }
+
+    /// The script IDs group `id` holds, owned by the caller.
+    pub fn groupScriptIDs(self: *Editor, allocator: std.mem.Allocator, id: i32) EditError![]i32 {
+        var value: records.Value = undefined;
+        try bridge_mod.check(self.bridge.readRecord(.group, id, allocator, &value));
+        defer value.deinit(allocator);
+        return try allocator.dupe(i32, value.group.ids);
+    }
+
+    /// The Group Manager's New (D-16, C9): a group with no script IDs under
+    /// the first unused ID at or above `from_id` (the ID field, default 0).
+    /// One undo step. Returns the ID it took.
+    pub fn newGroup(self: *Editor, from_id: i32) EditError!i32 {
+        var id: i32 = 0;
+        try self.noteOutcome(self.bridge.firstFreeGroupID(from_id, &id));
+        const value: records.Value = .{ .group = .{ .id = id } };
+        try self.addRecord(.group, id, &value);
+        return id;
+    }
+
+    /// Adds a script ID (0..32000) to a group (D-16, "Add"). One already in
+    /// the group is skipped with a status note and records nothing, as the MFC
+    /// dialog skips it; -1 and anything out of range is Refused (Pitfall 9).
+    /// One undo step.
+    pub fn addScriptIDToGroup(self: *Editor, group: i32, script_id: i32) EditError!void {
+        if (script_id < records.min_script_id or script_id > records.max_script_id) {
+            self.setStatus("group: ", "a script ID in a group is 0..32000");
+            return error.Refused;
+        }
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.group, group, self.allocator, &current));
+        defer current.deinit(self.allocator);
+        if (current.group.has(script_id)) {
+            var buffer: [96]u8 = undefined;
+            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is already in group {d}", .{ script_id, group }) catch "already in the group");
+            return;
+        }
+        const ids = try self.allocator.alloc(i32, current.group.ids.len + 1);
+        defer self.allocator.free(ids);
+        @memcpy(ids[0..current.group.ids.len], current.group.ids);
+        ids[current.group.ids.len] = script_id;
+        const value: records.Value = .{ .group = .{ .id = group, .ids = ids } };
+        try self.editRecord(.group, group, &value, 0);
+    }
+
+    /// Takes a script ID out of a group (D-16, "Remove"). One that is not
+    /// there is a status note and records nothing. One undo step.
+    pub fn removeScriptIDFromGroup(self: *Editor, group: i32, script_id: i32) EditError!void {
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.group, group, self.allocator, &current));
+        defer current.deinit(self.allocator);
+        const at = std.mem.indexOfScalar(i32, current.group.ids, script_id) orelse {
+            var buffer: [96]u8 = undefined;
+            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is not in group {d}", .{ script_id, group }) catch "not in the group");
+            return;
+        };
+        const ids = try self.allocator.alloc(i32, current.group.ids.len - 1);
+        defer self.allocator.free(ids);
+        @memcpy(ids[0..at], current.group.ids[0..at]);
+        @memcpy(ids[at..], current.group.ids[at + 1 ..]);
+        const value: records.Value = .{ .group = .{ .id = group, .ids = ids } };
+        try self.editRecord(.group, group, &value, 0);
+    }
+
+    /// The Group Manager's Delete (D-16): the group and its script-ID list;
+    /// undo puts both back. One undo step.
+    pub fn deleteGroup(self: *Editor, group: i32) EditError!void {
+        try self.deleteRecord(.group, group);
+    }
+
     /// What a bridge-logged edit needs before its bridge call: room for its
     /// token in the entry it merges into, or history room and a one-token list
     /// for a new entry. Everything that can fail happens here, so once the
@@ -1082,6 +1187,14 @@ pub const Editor = struct {
             .record_edit => |*e| {
                 const value = if (forwards) &e.after else &e.before;
                 try self.noteOutcome(self.bridge.putRecord(e.key, value));
+                self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
+            },
+            .record_add => |*e| {
+                if (forwards) try self.noteOutcome(self.bridge.insertRecord(e.key, &e.value)) else try self.noteOutcome(self.bridge.removeRecord(e.kind, e.key));
+                self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
+            },
+            .record_delete => |*e| {
+                if (forwards) try self.noteOutcome(self.bridge.removeRecord(e.kind, e.key)) else try self.noteOutcome(self.bridge.insertRecord(e.key, &e.value));
                 self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
             },
             .edit => |e| {
@@ -1784,6 +1897,141 @@ test "camera anchor: the neutral slot edits the neutral anchor only" {
     try std.testing.expectEqual(@as(f32, 9), fake.camera_anchors.players[1].x);
     try std.testing.expect(try editor.undo());
     try std.testing.expect(fake.camera_anchors.eql(seeded));
+}
+
+fn expectGroup(fake: *const FakeBridge, id: i32, want: []const i32) !void {
+    const got = fake.groupIDs(id) orelse return error.NoSuchGroup;
+    try std.testing.expectEqualSlices(i32, want, got);
+}
+
+test "group: New takes the first unused ID at or above the field, one undo step" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGroupFixture(0, &.{ 10, 11 });
+    try fake.addGroupFixture(1, &.{});
+    try fake.addGroupFixture(3, &.{20});
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.group);
+    try std.testing.expectEqual(@as(i32, 2), try editor.newGroup(0));
+    try expectGroup(&fake, 2, &.{});
+    try std.testing.expect(editor.record_generations.get(.group) != generation);
+    try std.testing.expectEqual(@as(i32, 4), try editor.newGroup(0));
+    try std.testing.expectEqual(@as(i32, 10), try editor.newGroup(10));
+    // A negative field clamps to 0.
+    try std.testing.expectEqual(@as(i32, 5), try editor.newGroup(-5));
+    try std.testing.expectEqual(@as(usize, 4), editor.history.undo_stack.items.len);
+    // Undo removes the newest, redo puts it back; the ID is free again after the undo.
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.groupIDs(5) == null);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.groupIDs(10) == null);
+    try std.testing.expect(try editor.redo());
+    try expectGroup(&fake, 10, &.{});
+    const ids = try editor.groupIDs(std.testing.allocator);
+    defer std.testing.allocator.free(ids);
+    try std.testing.expectEqualSlices(i32, &.{ 0, 1, 2, 3, 4, 10 }, ids);
+}
+
+test "group: script IDs are added (a duplicate is skipped with a note) and removed, each one undo step" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGroupFixture(7, &.{ 100, 200 });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.addScriptIDToGroup(7, 300);
+    try expectGroup(&fake, 7, &.{ 100, 200, 300 });
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // A duplicate records nothing and says so.
+    try editor.addScriptIDToGroup(7, 200);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "already") != null);
+    try editor.removeScriptIDFromGroup(7, 100);
+    try expectGroup(&fake, 7, &.{ 200, 300 });
+    // One that is not there records nothing either.
+    try editor.removeScriptIDFromGroup(7, 999);
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    const held = try editor.groupScriptIDs(std.testing.allocator, 7);
+    defer std.testing.allocator.free(held);
+    try std.testing.expectEqualSlices(i32, &.{ 200, 300 }, held);
+    // Undo and redo of each, in order.
+    try std.testing.expect(try editor.undo());
+    try expectGroup(&fake, 7, &.{ 100, 200, 300 });
+    try std.testing.expect(try editor.undo());
+    try expectGroup(&fake, 7, &.{ 100, 200 });
+    try std.testing.expect(!(try editor.undo()));
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(try editor.redo());
+    try expectGroup(&fake, 7, &.{ 200, 300 });
+}
+
+test "group: a refused add leaves the history, the generation and the group alone" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGroupFixture(7, &.{100});
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.group);
+    // -1 must never be in a group (GetGroupById(-1) would match every unscripted object), nor may anything past 32000.
+    try std.testing.expectError(error.Refused, editor.addScriptIDToGroup(7, -1));
+    try std.testing.expectError(error.Refused, editor.addScriptIDToGroup(7, 32001));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "32000") != null);
+    // A group that is not there is refused by the bridge.
+    try std.testing.expectError(error.Refused, editor.addScriptIDToGroup(8, 5));
+    try std.testing.expectError(error.Refused, editor.deleteGroup(8));
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation, editor.record_generations.get(.group));
+    try expectGroup(&fake, 7, &.{100});
+    try std.testing.expect(!editor.dirty());
+    // The limits themselves are fine.
+    try editor.addScriptIDToGroup(7, 0);
+    try editor.addScriptIDToGroup(7, 32000);
+    try expectGroup(&fake, 7, &.{ 100, 0, 32000 });
+    // An insert over an existing ID is refused by the bridge, and changes nothing.
+    const clash: records.Value = .{ .group = .{ .id = 7 } };
+    try std.testing.expectError(error.Refused, editor.addRecord(.group, 7, &clash));
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try expectGroup(&fake, 7, &.{ 100, 0, 32000 });
+}
+
+test "group: delete takes the group and its IDs out, undo puts both back exactly, redo removes it again" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGroupFixture(4, &.{ 42, 7, 9 });
+    try fake.addGroupFixture(5, &.{});
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deleteGroup(4);
+    try std.testing.expect(fake.groupIDs(4) == null);
+    try std.testing.expect(editor.dirty());
+    try std.testing.expect(try editor.undo());
+    try expectGroup(&fake, 4, &.{ 42, 7, 9 });
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(fake.groupIDs(4) == null);
+    try expectGroup(&fake, 5, &.{});
+    try std.testing.expect(try editor.undo());
+    try expectGroup(&fake, 4, &.{ 42, 7, 9 });
+}
+
+test "group: New, add and delete all undone leave the map as it opened" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGroupFixture(0, &.{ 1, 2 });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const created = try editor.newGroup(0);
+    try editor.addScriptIDToGroup(created, 30);
+    try editor.addScriptIDToGroup(created, 31);
+    try editor.removeScriptIDFromGroup(created, 30);
+    try editor.addScriptIDToGroup(0, 3);
+    try editor.deleteGroup(0);
+    while (try editor.undo()) {}
+    try std.testing.expect(!editor.dirty());
+    try expectGroup(&fake, 0, &.{ 1, 2 });
+    try std.testing.expect(fake.groupIDs(created) == null);
+    try std.testing.expectEqual(@as(u32, 1), fake.groups.count());
 }
 
 test "record edits of one gesture are one undo step, and one that returns to its start leaves none" {

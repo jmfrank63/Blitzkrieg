@@ -47,6 +47,12 @@ struct SEditorSession
 	// stays in the snapshot and is written back untouched.
 	std::unordered_map<int, CPtr<IRefCount> > byLinkID;
 	std::vector<int> unknownLinkIDs;
+	// The reinforcement groups as the file had them when the map was opened
+	// (04-09). A group put may keep any script ID - and as many copies of it -
+	// that the file's own group held, however odd (a duplicate, a value out of
+	// range), so an undo can put back what an edit took out; only what an edit
+	// ADDS is held to 0..32000, once.
+	std::unordered_map< int, std::vector<int> > openedGroups;
 	// The link IDs named by CMapInfo::bridges, and the ones of those that got an
 	// engine object. A span is built only through the bridge it belongs to, so
 	// the two differing means a bridge in the file has a span the engine has not
@@ -313,6 +319,16 @@ bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefus
 // readable-refused and setting is refused: the file keeps it byte-exact.
 bool ReadSessionCameraAnchors( SEditorSession *pSession, BkEditorCameraAnchorRecord *pOut, bool *pbRefused );
 bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnchorRecord &rAnchors, bool *pbRefused );
+// Reinforcement groups (04-09, D-16), through NMapRecords on both copies. The
+// two reads answer the total in *pnCount and return false when the buffer was
+// too short (nothing written past it); ReadSessionGroup also returns false
+// with *pbRefused for a group that is not there. SetSessionGroup applies the
+// script-ID rules (0..32000, once each, an ID the group holds is exempt).
+bool ReadSessionGroupIDs( SEditorSession *pSession, int *pOut, int nCapacity, int *pnCount );
+bool ReadSessionGroup( SEditorSession *pSession, int nID, int *pOut, int nCapacity, int *pnCount, bool *pbRefused );
+bool SetSessionGroup( SEditorSession *pSession, int nID, const int *pIDs, int nCount, bool *pbRefused );
+bool DeleteSessionGroup( SEditorSession *pSession, int nID, bool *pbRefused );
+int FirstFreeGroupIDInSession( SEditorSession *pSession, int nFrom );
 // The terrain height at a world point, through CVSOBuilder::UpdateZ on the
 // working copy's altitudes. False with the reason in szMessage off the map.
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ );

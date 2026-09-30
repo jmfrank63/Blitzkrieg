@@ -244,6 +244,11 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( 0, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( 0, 0, 0, &fFloat ); } },
 		{ "BkEditorSetObjectScriptID", [&] { return BkEditorSetObjectScriptID( 0, 0, 0 ); } },
+		{ "BkEditorGroupIDs", [&] { return BkEditorGroupIDs( 0, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorGroup", [&] { return BkEditorGroup( 0, 0, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorSetGroup", [&] { return BkEditorSetGroup( 0, 0, &nInt, 1 ); } },
+		{ "BkEditorDeleteGroup", [&] { return BkEditorDeleteGroup( 0, 0 ); } },
+		{ "BkEditorFirstFreeGroupID", [&] { return BkEditorFirstFreeGroupID( 0, 0, &nInt ); } },
 		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( 0, 0 ); } },
 		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( 0, 0 ); } },
 		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( 0, 0, &vsoDescriptor, 1, &nInt ); } },
@@ -321,6 +326,11 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( pSession, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( pSession, 0, 0, &fFloat ); } },
 		{ "BkEditorSetObjectScriptID", [&] { return BkEditorSetObjectScriptID( pSession, 0, 0 ); } },
+		{ "BkEditorGroupIDs", [&] { return BkEditorGroupIDs( pSession, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorGroup", [&] { return BkEditorGroup( pSession, 0, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorSetGroup", [&] { return BkEditorSetGroup( pSession, 0, &nInt, 1 ); } },
+		{ "BkEditorDeleteGroup", [&] { return BkEditorDeleteGroup( pSession, 0 ); } },
+		{ "BkEditorFirstFreeGroupID", [&] { return BkEditorFirstFreeGroupID( pSession, 0, &nInt ); } },
 		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( pSession, 0 ); } },
 		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( pSession, 0 ); } },
 		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( pSession, 0, &vsoDescriptor, 1, &nInt ); } },
@@ -3599,6 +3609,21 @@ static bool SameBytes( const std::string &szLeft, const std::string &szRight )
 	return szL == szR;
 }
 
+// Where two files first differ, for a failed byte comparison to say: sizes and
+// the first offset (or "same").
+static std::string DescribeDifference( const std::string &szLeft, const std::string &szRight )
+{
+	std::ifstream left( OsPath( szLeft ).c_str(), std::ios::binary ), right( OsPath( szRight ).c_str(), std::ios::binary );
+	if ( !left || !right )
+		return "a file would not open";
+	const std::string szL( ( std::istreambuf_iterator<char>( left ) ), std::istreambuf_iterator<char>() );
+	const std::string szR( ( std::istreambuf_iterator<char>( right ) ), std::istreambuf_iterator<char>() );
+	size_t nAt = 0;
+	while ( nAt < szL.size() && nAt < szR.size() && szL[nAt] == szR[nAt] )
+		++nAt;
+	return NStr::Format( "sizes %d and %d, first difference at offset %d", int( szL.size() ), int( szR.size() ), int( nAt ) );
+}
+
 static std::vector<BkEditorObjectRecord> ReadObjectRecords( BkEditorSession *pSession )
 {
 	int nCount = 0;
@@ -4085,6 +4110,279 @@ static void TestM2ScriptIDs( BkEditorSession *pSession, const std::string &szScr
 	remove( OsPath( szUndone ).c_str() );
 	remove( OsPath( szRefused ).c_str() );
 	printf( "editor-bridge: M2 script ids ok\n" );
+}
+
+// The sorted shipped map paths (engine form), the same on every platform.
+static std::vector<std::string> SortedShippedMaps()
+{
+	std::vector<std::string> paths;
+	std::error_code error;
+	for ( std::filesystem::recursive_directory_iterator it( "Data/Maps", error ), itEnd; !error && it != itEnd; it.increment( error ) )
+		if ( it->is_regular_file( error ) )
+		{
+			std::string szPath = it->path().generic_string();
+			if ( szPath.size() > 4 && NStr::CompareAsciiNoCase( szPath.c_str() + szPath.size() - 4, ".bzm" ) == 0 )
+			{
+				std::replace( szPath.begin(), szPath.end(), '/', '\\' );
+				paths.push_back( szPath );
+			}
+		}
+	std::sort( paths.begin(), paths.end() );
+	return paths;
+}
+
+// The group IDs of a map, ascending.
+static std::vector<int> SortedGroupIDs( const CMapInfo &rMap )
+{
+	std::vector<int> ids;
+	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.begin();
+	      it != rMap.reinforcements.groups.end(); ++it )
+		ids.push_back( it->first );
+	std::sort( ids.begin(), ids.end() );
+	return ids;
+}
+
+// The bridge's view of one group: false when it is not there.
+static bool ReadGroupOf( BkEditorSession *pSession, int nID, std::vector<int> *pIDs )
+{
+	int nCount = -2;
+	BkEditorGroup( pSession, nID, 0, 0, &nCount );
+	if ( nCount < 0 )
+		return false;
+	pIDs->assign( nCount > 0 ? nCount : 1, 0 );
+	int nRead = -2;
+	if ( BkEditorGroup( pSession, nID, &( *pIDs )[0], nCount, &nRead ) != BK_EDITOR_OK || nRead != nCount )
+		return false;
+	pIDs->resize( nCount );
+	return true;
+}
+
+// D-16 on the real engine: the reinforcement groups of the first shipped map
+// (in sorted path order) that has at least two, read as the file has them; a
+// new group takes the first free ID from 0, gets two script IDs, loses one,
+// another group gains one and a third is deleted; the save equals the map the
+// same NMapRecords calls build. Put back the other way round, the edits save
+// the unedited file byte for byte, and the same edits in another order save
+// the same bytes as the first time (the groups go out in ID order). Refusals (-1, 32001, a duplicate, an unknown group, a buffer too
+// short) change nothing, and an ID a group already holds is exempt from the
+// rules so an undo can put a file's own odd data back.
+static void TestM2Groups( BkEditorSession *pSession, const std::string &szScratch )
+{
+	std::string szMap = SHIPPED_MAP;
+	int nScanned = 0;
+	{
+		const std::vector<std::string> paths = SortedShippedMaps();
+		for ( size_t p = 0; p < paths.size(); ++p )
+		{
+			CMapInfo probe;
+			std::string szProbeError;
+			++nScanned;
+			if ( NMapFile::Read( paths[p].c_str(), &probe, &szProbeError ) && probe.reinforcements.groups.size() >= 2 )
+			{
+				szMap = paths[p];
+				break;
+			}
+		}
+	}
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szMap.c_str(), &original, &szError ), szError.c_str() ) )
+		return;
+	std::vector<int> existing = SortedGroupIDs( original );
+	printf( "editor-bridge: groups on %s (%d maps scanned): %d groups\n", szMap.c_str(), nScanned, int( existing.size() ) );
+	if ( !Check( existing.size() >= 2, "a shipped map with two reinforcement groups was found" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\groups-unedited.bzm";
+	const std::string szEdited = szScratch + "\\groups-edited.bzm";
+	const std::string szUndone = szScratch + "\\groups-undone.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The reads equal the file: the IDs ascending, each group's script IDs in file order.
+	int nTotal = -1;
+	Check( BkEditorGroupIDs( pSession, 0, 0, &nTotal ) == ( existing.empty() ? BK_EDITOR_OK : BK_EDITOR_REFUSED ) && nTotal == int( existing.size() ),
+	       "a sizing call answers the total (REFUSED for a zero capacity when there are groups)" );
+	std::vector<int> listed( existing.size() + 1, -77 );
+	int nListed = 0;
+	Check( BkEditorGroupIDs( pSession, &listed[0], int( existing.size() ), &nListed ) == BK_EDITOR_OK && nListed == int( existing.size() ), "the group IDs list" );
+	Check( std::equal( existing.begin(), existing.end(), listed.begin() ), "the group IDs read ascending, as the file has them" );
+	Check( listed[existing.size()] == -77, "and nothing was written past the capacity" );
+	for ( size_t i = 0; i < existing.size(); ++i )
+	{
+		std::vector<int> ids;
+		Check( ReadGroupOf( pSession, existing[i], &ids ) && ids == original.reinforcements.groups.find( existing[i] )->second.ids,
+		       NStr::Format( "group %d reads with the file's script IDs in the file's order", existing[i] ) );
+	}
+
+	// A buffer too short answers the total and writes nothing past it.
+	{
+		std::vector<int> ids;
+		int nBigGroup = -1;
+		for ( size_t i = 0; i < existing.size() && nBigGroup < 0; ++i )
+			if ( original.reinforcements.groups.find( existing[i] )->second.ids.size() >= 2 )
+				nBigGroup = existing[i];
+		if ( nBigGroup >= 0 )
+		{
+			const int nHeld = int( original.reinforcements.groups.find( nBigGroup )->second.ids.size() );
+			int canary[4] = { -77, -77, -77, -77 };
+			int nCount = -1;
+			Check( BkEditorGroup( pSession, nBigGroup, canary, 1, &nCount ) == BK_EDITOR_REFUSED && nCount == nHeld, "a group read with a buffer too short is REFUSED with the total" );
+			Check( canary[1] == -77 && canary[2] == -77 && canary[3] == -77, "and wrote nothing past the capacity" );
+		}
+		int nCount = -1;
+		Check( BkEditorGroup( pSession, 999999, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount == -1, "an unknown group reads REFUSED with a count of -1" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "no reinforcement group" ) != std::string::npos, "and says there is no such group" );
+		Check( BkEditorGroup( pSession, -1, 0, 0, &nCount ) == BK_EDITOR_BAD_ARGUMENT, "a negative group ID is a bad argument" );
+		Check( BkEditorGroup( pSession, existing[0], 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null count is a bad argument" );
+		Check( BkEditorGroupIDs( pSession, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and so is a null count for the IDs" );
+	}
+
+	// The edits: New from 0, two script IDs in, one out; another group gains one; a third is deleted.
+	int nFree = -1;
+	Check( BkEditorFirstFreeGroupID( pSession, 0, &nFree ) == BK_EDITOR_OK && nFree == NMapRecords::FirstFreeGroupID( original, 0 ), "the first free group ID from 0 is the overlay's" );
+	Check( BkEditorFirstFreeGroupID( pSession, -9, &nFree ) == BK_EDITOR_OK && nFree == NMapRecords::FirstFreeGroupID( original, 0 ), "a negative start counts as 0" );
+	Check( BkEditorFirstFreeGroupID( pSession, existing[0], &nFree ) == BK_EDITOR_OK && nFree > existing[0] && original.reinforcements.groups.find( nFree ) == original.reinforcements.groups.end(),
+	       "starting at a taken ID gives a higher free one (C9)" );
+	Check( BkEditorFirstFreeGroupID( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
+	const int nNew = NMapRecords::FirstFreeGroupID( original, 0 );
+	int nFreeFrom0 = -1;
+	BkEditorFirstFreeGroupID( pSession, 0, &nFreeFrom0 );
+	if ( !Check( nFreeFrom0 == nNew, "the new group takes that ID" ) )
+		return;
+	const int nEdit = existing[0], nDelete = existing[1];
+	const std::vector<int> editOriginal = original.reinforcements.groups.find( nEdit )->second.ids;
+	const std::vector<int> deleteOriginal = original.reinforcements.groups.find( nDelete )->second.ids;
+	const int nFirstAdded = 5000, nSecondAdded = 5001, nEditAdded = 5002;
+	Check( original.reinforcements.GetGroupById( nFirstAdded ) == -1 && original.reinforcements.GetGroupById( nSecondAdded ) == -1 && original.reinforcements.GetGroupById( nEditAdded ) == -1,
+	       "the script IDs the test adds are held by no group" );
+	{
+		const int none = 0;
+		Check( BkEditorSetGroup( pSession, nNew, &none, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		std::vector<int> ids;
+		Check( ReadGroupOf( pSession, nNew, &ids ) && ids.empty(), "a new group holds no script IDs" );
+		const int two[2] = { nFirstAdded, nSecondAdded };
+		Check( BkEditorSetGroup( pSession, nNew, two, 2 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( ReadGroupOf( pSession, nNew, &ids ) && ids.size() == 2 && ids[0] == nFirstAdded && ids[1] == nSecondAdded, "two script IDs in, in the order given" );
+		const int one[1] = { nFirstAdded };
+		Check( BkEditorSetGroup( pSession, nNew, one, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( ReadGroupOf( pSession, nNew, &ids ) && ids.size() == 1 && ids[0] == nFirstAdded, "one taken out" );
+		std::vector<int> grown = editOriginal;
+		grown.push_back( nEditAdded );
+		Check( BkEditorSetGroup( pSession, nEdit, &grown[0], int( grown.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( ReadGroupOf( pSession, nEdit, &ids ) && ids == grown, "an existing group gains a script ID at the end" );
+		Check( BkEditorDeleteGroup( pSession, nDelete ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( !ReadGroupOf( pSession, nDelete, &ids ), "a deleted group is gone" );
+	}
+
+	// Saved, it is the map the same NMapRecords calls build.
+	CMapInfo expected;
+	if ( !Check( NMapFile::Read( szMap.c_str(), &expected, &szError ), szError.c_str() ) )
+		return;
+	{
+		Check( NMapRecords::EraseReinforcementGroup( &expected, nDelete ), "the expected map loses the deleted group" );
+		std::vector<int> grown = editOriginal;
+		grown.push_back( nEditAdded );
+		Check( NMapRecords::PutReinforcementGroup( &expected, nEdit, grown ), "and the edited group gains its script ID" );
+		Check( NMapRecords::PutReinforcementGroup( &expected, nNew, std::vector<int>( 1, nFirstAdded ) ), "and holds the new group" );
+	}
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo saved;
+		if ( Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+			       szWhere.empty() ? "the saved map equals the expected map" : ( "the group save differs at " + szWhere ).c_str() );
+			Check( saved.reinforcements.groups.size() == original.reinforcements.groups.size(), "one group in (new), one out (deleted)" );
+		}
+	}
+
+	// The other way round: the edits put back exactly bring back the unedited file.
+	const int nNoIDs = 0;
+	const int *pEditOriginal = editOriginal.empty() ? &nNoIDs : &editOriginal[0];
+	const int *pDeleteOriginal = deleteOriginal.empty() ? &nNoIDs : &deleteOriginal[0];
+	Check( BkEditorDeleteGroup( pSession, nNew ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetGroup( pSession, nEdit, pEditOriginal, int( editOriginal.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetGroup( pSession, nDelete, pDeleteOriginal, int( deleteOriginal.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "the group edits and their inverses save the unedited file byte for byte" );
+
+	// The same three edits in the reverse order save the same bytes: the file
+	// lists the groups in ID order, whatever order the hash table was filled in.
+	// (Compared with the first save, never with a map written from another read:
+	// SVertexAltitude's padding differs between a copy and a read, 04-01.)
+	{
+		Check( BkEditorDeleteGroup( pSession, nDelete ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		std::vector<int> grown = editOriginal;
+		grown.push_back( nEditAdded );
+		Check( BkEditorSetGroup( pSession, nEdit, &grown[0], int( grown.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorSetGroup( pSession, nNew, &nFirstAdded, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		const std::string szEditedAgain = szScratch + "\\groups-edited-again.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szEditedAgain.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szEdited, szEditedAgain ), "the same edits in another order save the same bytes: groups go out in ID order" );
+		remove( OsPath( szEditedAgain ).c_str() );
+		Check( BkEditorDeleteGroup( pSession, nNew ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorSetGroup( pSession, nEdit, pEditOriginal, int( editOriginal.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorSetGroup( pSession, nDelete, pDeleteOriginal, int( deleteOriginal.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+
+	// The refusals change nothing.
+	{
+		const int minusOne[1] = { -1 }, tooBig[1] = { 32001 }, twice[2] = { 6000, 6000 }, edge[2] = { 0, 32000 };
+		Check( BkEditorSetGroup( pSession, nNew, minusOne, 1 ) == BK_EDITOR_REFUSED, "-1 is refused: it would match every object without a script ID" );
+		Check( BkEditorSetGroup( pSession, nNew, tooBig, 1 ) == BK_EDITOR_REFUSED, "32001 is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "32000" ) != std::string::npos, "and the refusal names the range" );
+		Check( BkEditorSetGroup( pSession, nNew, twice, 2 ) == BK_EDITOR_REFUSED, "a duplicate in the list is refused" );
+		Check( BkEditorSetGroup( pSession, -1, edge, 2 ) == BK_EDITOR_BAD_ARGUMENT, "a negative group ID is a bad argument" );
+		Check( BkEditorSetGroup( pSession, nNew, edge, -1 ) == BK_EDITOR_BAD_ARGUMENT, "a negative count is a bad argument" );
+		Check( BkEditorSetGroup( pSession, nNew, 0, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a null list with a count is a bad argument" );
+		Check( BkEditorSetGroup( pSession, nNew, 0, 1 << 20 ) == BK_EDITOR_BAD_ARGUMENT, "a count no group could hold is a bad argument" );
+		Check( BkEditorDeleteGroup( pSession, 999999 ) == BK_EDITOR_REFUSED, "deleting an unknown group is refused" );
+		Check( BkEditorDeleteGroup( pSession, -3 ) == BK_EDITOR_BAD_ARGUMENT, "and a negative ID is a bad argument" );
+		std::vector<int> ids;
+		Check( !ReadGroupOf( pSession, nNew, &ids ), "none of the refusals made the group" );
+		// The limits are fine.
+		Check( BkEditorSetGroup( pSession, nNew, edge, 2 ) == BK_EDITOR_OK && BkEditorDeleteGroup( pSession, nNew ) == BK_EDITOR_OK, "0 and 32000 are accepted" );
+		const std::string szRefused = szScratch + "\\groups-refused.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szRefused ), "the refusals changed nothing: the map saves unedited byte for byte" );
+		remove( OsPath( szRefused ).c_str() );
+	}
+
+	// A file's own odd data: a group holding -1, a duplicate and a value past the
+	// range opens, reads, lets a script ID go, and takes the odd group back
+	// unchanged (an undo) - but adds no new odd value.
+	{
+		const std::string szOdd = szScratch + "\\groups-odd.bzm";
+		CMapInfo odd;
+		if ( Check( NMapFile::Read( szMap.c_str(), &odd, &szError ), szError.c_str() ) )
+		{
+			const int oddID = NMapRecords::FirstFreeGroupID( odd, 0 );
+			const int oddIDs[4] = { 7, -1, 7, 40000 };
+			NMapRecords::PutReinforcementGroup( &odd, oddID, std::vector<int>( oddIDs, oddIDs + 4 ) );
+			if ( Check( NMapFile::Write( szOdd.c_str(), odd, &szError ), szError.c_str() ) &&
+			     Check( BkEditorOpenMap( pSession, szOdd.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			{
+				std::vector<int> ids;
+				Check( ReadGroupOf( pSession, oddID, &ids ) && ids == std::vector<int>( oddIDs, oddIDs + 4 ), "an odd group reads as the file has it" );
+				const int fewer[3] = { -1, 7, 40000 };
+				Check( BkEditorSetGroup( pSession, oddID, fewer, 3 ) == BK_EDITOR_OK, "a script ID can be taken out of an odd group" );
+				Check( BkEditorSetGroup( pSession, oddID, oddIDs, 4 ) == BK_EDITOR_OK, "and the odd group goes back exactly, as an undo needs" );
+				const int worse[5] = { 7, -1, 7, 40000, -1 };
+				Check( BkEditorSetGroup( pSession, oddID, worse, 5 ) == BK_EDITOR_REFUSED, "but a second -1 is a new odd value and is refused" );
+				const int another[5] = { 7, -1, 7, 40000, 41000 };
+				Check( BkEditorSetGroup( pSession, oddID, another, 5 ) == BK_EDITOR_REFUSED, "and so is a new value out of range" );
+				Check( ReadGroupOf( pSession, oddID, &ids ) && ids == std::vector<int>( oddIDs, oddIDs + 4 ), "the refusals left the odd group as it was" );
+			}
+		}
+		remove( OsPath( szOdd ).c_str() );
+	}
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	printf( "editor-bridge: M2 groups ok\n" );
 }
 
 // D-04 (M2): deleting an object other records name is no longer refused; it
@@ -6353,6 +6651,7 @@ int main( int argc, char **argv )
 		TestM2VsoRendersOnGpu( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2CameraAnchors( pSession, szScratch );
 		TestM2ScriptIDs( pSession, szScratch );
+		TestM2Groups( pSession, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );
 		TestM2CascadeDelete( pSession, szScratch, true );

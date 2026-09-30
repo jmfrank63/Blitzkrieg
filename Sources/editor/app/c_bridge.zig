@@ -63,6 +63,10 @@ pub const Picture = struct {
 pub const RealBridge = struct {
     session: *c.BkEditorSession,
     message: [512]u8 = undefined,
+    /// A refusal the adapter itself decides (an insert over a taken group ID:
+    /// BkEditorSetGroup creates or replaces, so the check is here). The next
+    /// `lastMessage` answers it instead of the bridge's, once.
+    own_message: ?[]const u8 = null,
 
     pub fn init(session: *c.BkEditorSession) RealBridge {
         return .{ .session = session };
@@ -111,6 +115,10 @@ pub const RealBridge = struct {
         .deleteSound = vtableDeleteSound,
         .readRecord = vtableReadRecord,
         .putRecord = vtablePutRecord,
+        .recordKeys = vtableRecordKeys,
+        .insertRecord = vtableInsertRecord,
+        .removeRecord = vtableRemoveRecord,
+        .firstFreeGroupID = vtableFirstFreeGroupID,
         .groundHeight = vtableGroundHeight,
         .setObjectScriptID = setObjectScriptID,
         .undoEdit = vtableUndoEdit,
@@ -145,7 +153,8 @@ pub const RealBridge = struct {
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
         const self = from(ptr);
-        const text = std.mem.span(c.BkEditorLastMessage(self.session));
+        const text = if (self.own_message) |own| own else std.mem.span(c.BkEditorLastMessage(self.session));
+        self.own_message = null;
         const len = @min(text.len, self.message.len);
         @memcpy(self.message[0..len], text[0..len]);
         return self.message[0..len];
@@ -374,10 +383,30 @@ pub const RealBridge = struct {
         return record;
     }
 
+    /// BkEditorGroup as a core value: two-pass, the script IDs allocated with
+    /// `allocator` (the value owns them). The total comes back in `count` even
+    /// when the buffer was too short, and -1 for a group that is not there.
+    fn readGroup(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorGroup(self.session, key, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .refused;
+        const ids = allocator.alloc(i32, @intCast(count)) catch return .failed;
+        errdefer allocator.free(ids);
+        if (count > 0) {
+            var got: c_int = 0;
+            const read = status(c.BkEditorGroup(self.session, key, ids.ptr, count, &got));
+            if (read != .ok) return read;
+            if (got != count) return .failed;
+        }
+        out.* = .{ .group = .{ .id = key, .ids = ids } };
+        return .ok;
+    }
+
     /// The generic record read: one switch arm per kind, each over its own C
-    /// call. The camera anchors are a singleton, so `key` is 0.
+    /// call. The camera anchors are a singleton, so `key` is 0; a group's key
+    /// is its ID.
     fn vtableReadRecord(ptr: *anyopaque, kind: record_types.Kind, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
-        _ = allocator; // the kinds so far own no memory
         const self = from(ptr);
         switch (kind) {
             .camera_anchors => {
@@ -388,6 +417,7 @@ pub const RealBridge = struct {
                 out.* = .{ .camera_anchors = toCameraAnchors(record) orelse return .failed };
                 return .ok;
             },
+            .group => return self.readGroup(key, allocator, out),
         }
     }
 
@@ -399,7 +429,75 @@ pub const RealBridge = struct {
                 const record = toCCameraAnchors(anchors);
                 return status(c.BkEditorSetCameraAnchors(self.session, &record));
             },
+            .group => |group| {
+                if (group.id != key) return .bad_argument;
+                return status(c.BkEditorSetGroup(self.session, key, group.ids.ptr, @intCast(group.ids.len)));
+            },
         }
+    }
+
+    fn vtableRecordKeys(ptr: *anyopaque, kind: record_types.Kind, allocator: std.mem.Allocator, out: *[]i32) Status {
+        const self = from(ptr);
+        switch (kind) {
+            .camera_anchors => {
+                const keys = allocator.alloc(i32, 1) catch return .failed;
+                keys[0] = 0;
+                out.* = keys;
+                return .ok;
+            },
+            .group => {
+                var count: c_int = 0;
+                const sizing = status(c.BkEditorGroupIDs(self.session, null, 0, &count));
+                if (sizing != .ok and sizing != .refused) return sizing;
+                if (count < 0) return .failed;
+                const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
+                errdefer allocator.free(keys);
+                if (count > 0) {
+                    var got: c_int = 0;
+                    const read = status(c.BkEditorGroupIDs(self.session, keys.ptr, count, &got));
+                    if (read != .ok) return read;
+                    if (got != count) return .failed;
+                }
+                out.* = keys;
+                return .ok;
+            },
+        }
+    }
+
+    /// An insert is a put that must not replace: a group whose ID is taken is
+    /// refused here, since BkEditorSetGroup creates or replaces.
+    fn vtableInsertRecord(ptr: *anyopaque, key: i32, value: *const record_types.Value) Status {
+        const self = from(ptr);
+        self.own_message = null;
+        switch (value.*) {
+            .camera_anchors => return .bad_argument,
+            .group => |group| {
+                if (group.id != key or key < 0) return .bad_argument;
+                var count: c_int = 0;
+                const probe = status(c.BkEditorGroup(self.session, key, null, 0, &count));
+                if (probe != .ok and probe != .refused) return probe;
+                if (count >= 0) {
+                    self.own_message = "there is already a reinforcement group with that ID";
+                    return .refused;
+                }
+                return status(c.BkEditorSetGroup(self.session, key, group.ids.ptr, @intCast(group.ids.len)));
+            },
+        }
+    }
+
+    fn vtableRemoveRecord(ptr: *anyopaque, kind: record_types.Kind, key: i32) Status {
+        const self = from(ptr);
+        switch (kind) {
+            .camera_anchors => return .bad_argument,
+            .group => return status(c.BkEditorDeleteGroup(self.session, key)),
+        }
+    }
+
+    fn vtableFirstFreeGroupID(ptr: *anyopaque, from_id: i32, out: *i32) Status {
+        var id: c_int = 0;
+        const result = status(c.BkEditorFirstFreeGroupID(from(ptr).session, from_id, &id));
+        if (result == .ok) out.* = id;
+        return result;
     }
 
     fn vtableGroundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {

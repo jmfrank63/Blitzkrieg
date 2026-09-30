@@ -300,6 +300,49 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectDocumentIsBridge(&real, &editor);
     std.debug.print("map-editor-engine: M2 script id round trip ok\n", .{});
 
+    // M2 (04-09): reinforcement groups through the generic record path on the
+    // real engine (readGroup's two passes, insert refusing a taken ID, delete
+    // and undo). Read back through the raw C ABI, not RealBridge.
+    var groups_before: c_int = -1;
+    try std.testing.expect(c.BkEditorGroupIDs(real.session, null, 0, &groups_before) != c.BK_EDITOR_BAD_ARGUMENT);
+    const created = try editor.newGroup(0);
+    try editor.addScriptIDToGroup(created, 5000);
+    try editor.addScriptIDToGroup(created, 5001);
+    try editor.removeScriptIDFromGroup(created, 5000);
+    try editor.addScriptIDToGroup(created, 5001); // a duplicate: a note, no step
+    try std.testing.expectEqual(@as(usize, 4), editor.history.undo_stack.items.len);
+    {
+        var ids: [4]c_int = @splat(-77);
+        var count: c_int = -1;
+        try std.testing.expect(c.BkEditorGroup(real.session, created, &ids, 4, &count) == c.BK_EDITOR_OK);
+        try std.testing.expectEqual(@as(c_int, 1), count);
+        try std.testing.expectEqual(@as(c_int, 5001), ids[0]);
+        try std.testing.expectEqual(@as(c_int, -77), ids[1]);
+    }
+    const listed = try editor.groupIDs(std.testing.allocator);
+    defer std.testing.allocator.free(listed);
+    try std.testing.expectEqual(@as(usize, @intCast(groups_before + 1)), listed.len);
+    try std.testing.expect(std.mem.indexOfScalar(i32, listed, created) != null);
+    const clash: core.records.Value = .{ .group = .{ .id = created } };
+    try std.testing.expectError(error.Refused, editor.addRecord(.group, created, &clash));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "already") != null);
+    try std.testing.expectError(error.Refused, editor.addScriptIDToGroup(created, -1));
+    try editor.deleteGroup(created);
+    try std.testing.expectError(error.Refused, editor.deleteGroup(created));
+    _ = try editor.undo(); // the delete: the group and its script ID are back
+    {
+        const back = try editor.groupScriptIDs(std.testing.allocator, created);
+        defer std.testing.allocator.free(back);
+        try std.testing.expectEqualSlices(i32, &.{5001}, back);
+    }
+    while (try editor.undo()) {}
+    try std.testing.expect(!editor.dirty());
+    var groups_after: c_int = -1;
+    _ = c.BkEditorGroupIDs(real.session, null, 0, &groups_after);
+    try std.testing.expectEqual(groups_before, groups_after);
+    try expectEngineMatches(&real);
+    std.debug.print("map-editor-engine: M2 groups round trip ok\n", .{});
+
     // M2 (04-02): a delete of a real unit of coldwinter, through the cascade
     // the bridge now runs (nothing in coldwinter names it, so the cascade is
     // empty here; the engine tier carries the records that do). Undo, redo and
