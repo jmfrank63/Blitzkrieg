@@ -215,6 +215,11 @@ pub const BridgeInfo = struct {
     }
 };
 
+/// BkEditorPickGroup's kinds: a bridge span picks its bridges entry, a trench
+/// piece its entrenchment.
+pub const GroupKind = enum(u8) { bridge = 1, entrenchment = 2 };
+pub const GroupRef = struct { kind: GroupKind, index: usize };
+
 pub const Bridge = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -318,6 +323,11 @@ pub const Bridge = struct {
         drawBridge: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, token: *i32, index: *i32) Status,
         /// BkEditorBridges: every bridges entry in list order (two-pass).
         bridges: *const fn (ptr: *anyopaque, out: []BridgeInfo, total: *usize) Status,
+        /// BkEditorPickGroup: the bridge or entrenchment under a screen
+        /// point. Refused when neither is there.
+        pickGroup: *const fn (ptr: *anyopaque, sx: f32, sy: f32, kind: *GroupKind, index: *i32) Status,
+        /// BkEditorDeleteBridge: the whole bridge at `index`, one edit.
+        deleteBridge: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -362,6 +372,8 @@ pub const Bridge = struct {
     pub fn planBridge(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []PlannedPiece, total: *usize) Status { return self.vtable.planBridge(self.ptr, desc, wx0, wy0, wx1, wy1, out, total); }
     pub fn drawBridge(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, token: *i32, index: *i32) Status { return self.vtable.drawBridge(self.ptr, desc, wx0, wy0, wx1, wy1, token, index); }
     pub fn bridges(self: Bridge, out: []BridgeInfo, total: *usize) Status { return self.vtable.bridges(self.ptr, out, total); }
+    pub fn pickGroup(self: Bridge, sx: f32, sy: f32, kind: *GroupKind, index: *i32) Status { return self.vtable.pickGroup(self.ptr, sx, sy, kind, index); }
+    pub fn deleteBridge(self: Bridge, index: i32, token: *i32) Status { return self.vtable.deleteBridge(self.ptr, index, token); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

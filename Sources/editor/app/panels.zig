@@ -302,6 +302,14 @@ pub const State = struct {
     /// The roads and rivers the map held when it opened, for the scripted
     /// `vso_delta` predicate.
     vso_count_at_open: [2]usize = .{ 0, 0 },
+    /// 04-06: the map's bridges entries (type, span count, box in map units),
+    /// for the Bridges panel and the outline markers; read again when the
+    /// editor's `bridges_generation` moves past `bridges_generation_seen`
+    /// (`refreshBridges`).
+    bridge_infos: []core.bridge.BridgeInfo = &.{},
+    bridges_generation_seen: ?u32 = null,
+    /// The bridges entries the map held when it opened, for `bridge_delta`.
+    bridge_count_at_open: usize = 0,
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -364,6 +372,7 @@ pub const State = struct {
         self.allocator.free(self.sound_names);
         self.allocator.free(self.sounds);
         self.allocator.free(self.vso_types);
+        self.allocator.free(self.bridge_infos);
         self.vso_line_points.deinit(self.allocator);
         self.vso_line_ends.deinit(self.allocator);
         self.vso_line_kinds.deinit(self.allocator);
@@ -580,6 +589,18 @@ pub const State = struct {
         }
     }
 
+    /// The map's bridges entries, read again after any bridge change (and
+    /// capped, marker_logic.cap would not bound a list the panel scrolls).
+    pub fn refreshBridges(self: *State) void {
+        const generation = self.editor.bridges_generation;
+        if (self.bridges_generation_seen != null and self.bridges_generation_seen.? == generation) return;
+        self.bridges_generation_seen = generation;
+        self.allocator.free(self.bridge_infos);
+        self.bridge_infos = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.bridge_infos = self.editor.bridges(self.allocator) catch &.{};
+    }
+
     pub fn refreshAnchors(self: *State) void {
         const generation = self.editor.record_generations.get(.camera_anchors);
         if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
@@ -612,6 +633,9 @@ pub const State = struct {
         self.anchors = commands.readAnchors(self) orelse .{};
         self.vso_types_kind = null;
         self.vso_lines_generation = null;
+        self.bridges_generation_seen = null;
+        self.refreshBridges();
+        self.bridge_count_at_open = self.bridge_infos.len;
         self.vso_count_at_open = .{
             self.editor.vsoCount(.road) catch 0,
             self.editor.vsoCount(.river) catch 0,

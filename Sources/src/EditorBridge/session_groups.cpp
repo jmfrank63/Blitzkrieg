@@ -30,6 +30,7 @@
 #include "../Main/GameDB.h"
 #include "../Main/RPGStats.h"
 #include "../AILogic/AILogic.h"
+#include "../Scene/Scene.h"
 #include "../Formats/fmtTerrain.h"
 
 namespace {
@@ -461,4 +462,134 @@ void ReadSessionBridges( const SEditorSession &rSession, std::vector<SBridgeInfo
 		}
 		pOut->push_back( info );
 	}
+}
+
+bool PickGroupInSession( SEditorSession *pSession, float sx, float sy, int *pnKind, int *pnIndex, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnKind = -1;
+	*pnIndex = -1;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		return false;
+	}
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( CVec2( sx, sy ), &pObjects, &nCount, SGVOGT_UNKNOWN );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		IVisObj *pVisObj = pObjects[i].first;
+		IRefCount *pAIObject = 0;
+		int nKind = 0;
+		// A span is the world's own object (CWorldBase::AddToScene for a span),
+		// its slab and girders each a visual that picks it.
+		if ( SBridgeSpanObject *pSpan = pSession->pWorld->FindSpanByVis( pVisObj ) )
+		{
+			pAIObject = pSpan->pAIObj;
+			nKind = 1;
+		}
+		else if ( SMapObject *pMapObject = pSession->pWorld->FindByVis( pVisObj ) )
+		{
+			if ( pMapObject->pDesc != 0 && pMapObject->pDesc->eGameType == SGVOGT_BRIDGE )
+				nKind = 1;
+			else if ( pMapObject->pDesc != 0 && pMapObject->pDesc->eGameType == SGVOGT_ENTRENCHMENT )
+				nKind = 2;
+			pAIObject = pMapObject->pAIObj;
+		}
+		if ( nKind == 0 || pAIObject == 0 )
+			continue;
+		std::unordered_map<IRefCount*, int>::const_iterator it = pSession->linkByAI.find( pAIObject );
+		if ( it == pSession->linkByAI.end() || it->second == 0 )
+			continue;
+		const int nLinkID = it->second;
+		if ( nKind == 1 )
+		{
+			const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+			for ( size_t b = 0; b < rBridges.size(); ++b )
+				if ( std::find( rBridges[b].begin(), rBridges[b].end(), nLinkID ) != rBridges[b].end() )
+				{
+					*pnKind = 1;
+					*pnIndex = int( b );
+					return true;
+				}
+		}
+		else
+		{
+			const std::vector<SEntrenchmentInfo> &rTrenches = pSession->snapshot.entrenchments;
+			for ( size_t t = 0; t < rTrenches.size(); ++t )
+				for ( size_t k = 0; k < rTrenches[t].sections.size(); ++k )
+					if ( std::find( rTrenches[t].sections[k].begin(), rTrenches[t].sections[k].end(), nLinkID ) != rTrenches[t].sections[k].end() )
+					{
+						*pnKind = 2;
+						*pnIndex = int( t );
+						return true;
+					}
+		}
+	}
+	pSession->szMessage = "no bridge or entrenchment there";
+	*pbRefused = true;
+	return false;
+}
+
+namespace {
+// Whether every span of an entry is one the editor can take out and put back:
+// held by exactly one record of the map, of a type the database knows, and
+// held by the engine. A bridge with any other span is kept as read (the
+// preservation invariant): its undo could not rebuild it.
+bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs, std::string *pWhy )
+{
+	if ( rLinkIDs.empty() )
+	{
+		*pWhy = "that bridge has no spans";
+		return false;
+	}
+	for ( size_t i = 0; i < rLinkIDs.size(); ++i )
+	{
+		const int nLinkID = rLinkIDs[i];
+		int nHolders = 0;
+		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t k = 0; k < lists[nList]->size(); ++k )
+				if ( (*lists[nList])[k].link.nLinkID == nLinkID )
+					++nHolders;
+		if ( nLinkID == 0 || nHolders != 1 )
+		{
+			*pWhy = NStr::Format( "span %d of that bridge (link ID %d) is held by %d objects of the map; the bridge is kept as it is", int( i ), nLinkID, nHolders );
+			return false;
+		}
+		if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() ||
+		     pSession->byLinkID.find( nLinkID ) == pSession->byLinkID.end() )
+		{
+			*pWhy = NStr::Format( "span %d of that bridge (link ID %d) is not one the engine holds; the bridge is kept as it is", int( i ), nLinkID );
+			return false;
+		}
+	}
+	return true;
+}
+}
+
+bool DeleteBridgeFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+	if ( nIndex < 0 || nIndex >= int( rBridges.size() ) )
+	{
+		pSession->szMessage = NStr::Format( "no bridge %d", nIndex );
+		*pbRefused = true;
+		return false;
+	}
+	std::string szWhy;
+	if ( !CanTakeOutWhole( pSession, rBridges[nIndex], &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.nEntryIndex = nIndex;
+	edit->oldGroup.linkIDs = rBridges[nIndex];
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
 }

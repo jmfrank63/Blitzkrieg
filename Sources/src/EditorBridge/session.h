@@ -425,5 +425,17 @@ struct SBridgeInfo
 	SBridgeInfo() : nSpans( 0 ), vMin( VNULL2 ), vMax( VNULL2 ), bBuiltDuringPlay( false ) {  }
 };
 void ReadSessionBridges( const SEditorSession &rSession, std::vector<SBridgeInfo> *pOut );
+// The bridge or entrenchment under a screen point: *pnKind 1 and the bridges
+// index, or 2 and the entrenchments index. The scene's own pick and linkByAI,
+// as ObjectAt, but a span or trench piece is what it looks for (ObjectAt
+// passes them over, so the M1 Select tool never takes one). Refused when
+// neither is there.
+bool PickGroupInSession( SEditorSession *pSession, float sx, float sy, int *pnKind, int *pnIndex, bool *pbRefused );
+// Deletes bridge nIndex whole: the entry, then every span (both copies, the
+// engine), one logged edit whose undo puts the spans back and then the entry
+// at the same index. Refused for a bridge with a span the editor could not put
+// back (a type the database does not know, a span the engine never held, a
+// link ID the map shares), which is kept as read.
+bool DeleteBridgeFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

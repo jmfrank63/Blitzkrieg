@@ -547,6 +547,8 @@ pub const FakeBridge = struct {
         .planBridge = planBridge,
         .drawBridge = drawBridge,
         .bridges = bridges,
+        .pickGroup = pickGroup,
+        .deleteBridge = deleteBridge,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -1045,6 +1047,59 @@ pub const FakeBridge = struct {
             out[at] = info;
         }
         return if (out.len >= self.bridge_entries.items.len) .ok else .refused;
+    }
+
+    /// The fake's pick: a bridge span within `pick_radius` of the point (the
+    /// screen is the world here), the last bridge listed first. Trench
+    /// pieces are the fixture's `trench_pieces`.
+    fn pickGroup(ptr: *anyopaque, sx: f32, sy: f32, kind: *bridge_mod.GroupKind, index: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        index.* = -1;
+        var at = self.bridge_entries.items.len;
+        while (at != 0) {
+            at -= 1;
+            for (self.bridge_entries.items[at].linkSlice()) |link| {
+                const place = self.indexOf(link) orelse continue;
+                const span = self.objects_list.items[place];
+                if (@abs(span.x / self.map_per_world - sx) <= pick_radius and @abs(span.y / self.map_per_world - sy) <= pick_radius) {
+                    kind.* = .bridge;
+                    index.* = @intCast(at);
+                    return .ok;
+                }
+            }
+        }
+        var pieces = self.trench_pieces.iterator();
+        while (pieces.next()) |piece| {
+            const place = self.indexOf(piece.key_ptr.*) orelse continue;
+            const object = self.objects_list.items[place];
+            if (@abs(object.x / self.map_per_world - sx) <= pick_radius and @abs(object.y / self.map_per_world - sy) <= pick_radius) {
+                kind.* = .entrenchment;
+                index.* = piece.value_ptr.*;
+                return .ok;
+            }
+        }
+        self.say("no bridge or entrenchment there", .{});
+        return .refused;
+    }
+
+    fn deleteBridge(ptr: *anyopaque, index: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (index < 0 or index >= self.bridge_entries.items.len) return .bad_argument;
+        const at: usize = @intCast(index);
+        for (self.bridge_entries.items[at].linkSlice()) |link| {
+            const place = self.indexOf(link) orelse {
+                self.say("span link ID {d} of that bridge is not one the engine holds; the bridge is kept as it is", .{link});
+                return .refused;
+            };
+            if (!self.objects_list.items[place].known) {
+                self.say("span link ID {d} of that bridge is not one the engine holds; the bridge is kept as it is", .{link});
+                return .refused;
+            }
+        }
+        return self.logBridgeEdit(.{ .before = .{ .entry_index = at, .entry = self.bridge_entries.items[at] }, .after = null }, token);
     }
 
     /// Puts a bridge edit through and logs it, handing out its token.

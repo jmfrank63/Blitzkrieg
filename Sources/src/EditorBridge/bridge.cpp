@@ -2565,6 +2565,47 @@ BkEditorStatus BkEditorBridges( BkEditorSession *pSession, BkEditorBridgeInfo *p
 	} );
 }
 
+BkEditorStatus BkEditorPickGroup( BkEditorSession *pSession, float fSx, float fSy, int *pnKind, int *pnIndex )
+{
+	if ( pnKind != 0 ) *pnKind = -1;
+	if ( pnIndex != 0 ) *pnIndex = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnKind == 0 || pnIndex == 0 || !std::isfinite( fSx ) || !std::isfinite( fSy ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( !PickGroupInSession( pSession, fSx, fSy, pnKind, pnIndex, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorDeleteBridge( BkEditorSession *pSession, int nIndex, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.bridges.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		if ( !DeleteBridgeFromSession( pSession, nIndex, &nToken, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 {
 	// Safe on null and safe twice: the caller reaches here on every path out,

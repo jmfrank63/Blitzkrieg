@@ -790,6 +790,29 @@ pub const Editor = struct {
         return if (index >= 0) @intCast(index) else 0;
     }
 
+    /// Deletes the whole bridge at `index` (D-11): its entry and every span,
+    /// one undo step that puts them back at the same index.
+    pub fn deleteBridge(self: *Editor, index: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.deleteBridge(@intCast(index), &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjects();
+    }
+
+    /// The bridge or entrenchment under a screen point (window pixels), or
+    /// null. A read: the status line is left alone.
+    pub fn pickGroup(self: *Editor, sx: f32, sy: f32) EditError!?bridge_mod.GroupRef {
+        var kind: bridge_mod.GroupKind = .bridge;
+        var index: i32 = -1;
+        const result = self.bridge.pickGroup(sx, sy, &kind, &index);
+        if (result == .refused) return null;
+        try bridge_mod.check(result);
+        if (index < 0) return null;
+        return .{ .kind = kind, .index = @intCast(index) };
+    }
+
     /// The object database's bridge types, sorted; the caller frees the
     /// slice with `allocator`. A read: the status line is left alone.
     pub fn bridgeDescriptors(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.BridgeDescriptor {
