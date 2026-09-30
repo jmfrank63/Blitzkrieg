@@ -422,7 +422,7 @@ fn addScript(io: std.Io, editor: *core.editor.Editor, paths: *const common.TestP
     var stand_in_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const stand_in = std.fmt.bufPrint(&stand_in_buffer, "{s}{c}m2_edited.bzm", .{ scratch, std.fs.path.sep }) catch return false;
     const files = editor.files orelse return false;
-    const outcome = core.script_file.copyForTest(files, stand_in, core.script_file.directoryOf(paths.test_path), script_name);
+    const outcome = core.script_file.copyForTest(files, editor.baseRoot(), stand_in, core.script_file.directoryOf(paths.test_path), script_name);
     if (outcome != .copied) {
         std.debug.print("map-editor: {s} FAIL: the script was not copied beside the test map {s}: {s}\n", .{ label, paths.test_path, @tagName(outcome) });
         return false;

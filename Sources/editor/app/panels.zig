@@ -1410,7 +1410,7 @@ pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
     if (!yes) return true;
     const files = state.editor.files orelse return false;
     var note: [200]u8 = undefined;
-    switch (core.script_file.copyAlong(files, pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
+    switch (core.script_file.copyAlong(files, baseRoot(state), pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
         .copied => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua copied beside the new map", .{pending.name()}) catch "copied"),
         // A file of that name appeared beside the new map after the question
         // was put: nothing is replaced; the question is asked again as
@@ -1424,6 +1424,7 @@ pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
         .missing => state.view.setStatus("script: ", "the script is not beside the old map any more"),
         .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua could not be copied: {s}", .{ pending.name(), files.lastError() }) catch "could not be copied"),
         .not_a_bare_name => state.view.setStatus("script: ", "the script's name is not a plain name, so it was not copied"),
+        .shipped => state.view.setStatus("script: ", "the new map is inside a game's data folder, which is read-only; the script was not copied"),
     }
     return true;
 }
@@ -1515,7 +1516,7 @@ pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) void {
         state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only");
         return;
     };
-    switch (core.script_file.copyInto(files, state.editor.document.path.items, picked, overwrite)) {
+    switch (core.script_file.copyInto(files, baseRoot(state), state.editor.document.path.items, picked, overwrite)) {
         .copied => {
             state.script_names_stale = true;
             _ = commands.setScriptFile(state, name);
@@ -1526,6 +1527,7 @@ pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) void {
         },
         .not_a_bare_name => state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only"),
         .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&state.script_note, "{s} could not be copied beside the map: {s}", .{ name, files.lastError() }) catch "the script could not be copied"),
+        .shipped => state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first"),
     }
 }
 

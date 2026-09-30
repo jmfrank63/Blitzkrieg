@@ -990,11 +990,12 @@ pub fn copyScriptForTest(editor: *Editor, test_map_path: []const u8, note: []u8)
     const name = value.script_file.nameSlice();
     if (name.len == 0) return null;
     const test_dir = core.script_file.directoryOf(test_map_path);
-    return switch (core.script_file.copyForTest(files, editor.document.path.items, test_dir, name)) {
+    return switch (core.script_file.copyForTest(files, editor.baseRoot(), editor.document.path.items, test_dir, name)) {
         .copied => null,
         .missing => std.fmt.bufPrint(note, "the script {s}.lua is not beside the map; the test game runs without it", .{name}) catch "the script is not beside the map",
         .failed => std.fmt.bufPrint(note, "the script {s}.lua could not be copied for the test: {s}", .{ name, files.lastError() }) catch "the script could not be copied",
         .not_a_bare_name => std.fmt.bufPrint(note, "the script name \"{s}\" is not a plain name, so it was not copied", .{name}) catch "the script was not copied",
+        .shipped => "the test map's folder is inside a game's data folder, which is never written; the script was not copied",
     };
 }
 
