@@ -2137,6 +2137,165 @@ BkEditorStatus BkEditorAddVso( BkEditorSession *pSession, int nKind, const char 
 	} );
 }
 
+namespace {
+// The checks every edit of an existing road or river shares, in the order
+// the no-map table needs: the kind, the map, the index.
+BkEditorStatus VsoEditPrologue( BkEditorSession *pSession, int nKind, int nIndex )
+{
+	if ( !IsVsoKind( nKind ) )
+		return BK_EDITOR_BAD_ARGUMENT;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( nIndex < 0 || nIndex >= VsoCount( *pSession, nKind ) )
+		return BK_EDITOR_BAD_ARGUMENT;
+	return BK_EDITOR_OK;
+}
+
+// A session edit's answer as a status, its token handed out on success.
+BkEditorStatus VsoEditResult( bool bOk, bool bRefused, int nToken, int *pnToken )
+{
+	if ( !bOk )
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	if ( pnToken != 0 )
+		*pnToken = nToken;
+	return BK_EDITOR_OK;
+}
+
+// The key point count of a record, for the range checks.
+int KeyCount( const SVectorStripeObject &rVso )
+{
+	int nKeys = 0;
+	for ( size_t i = 0; i < rVso.points.size(); ++i )
+		if ( rVso.points[i].bKeyPoint )
+			++nKeys;
+	return nKeys;
+}
+}
+
+BkEditorStatus BkEditorMoveVsoPoints( BkEditorSession *pSession, int nKind, int nIndex, const BkEditorVec3 *pPoints, int nCount, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nCount < 0 || nCount > 1024 || ( nCount > 0 && pPoints == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::vector<CVec3> points( nCount );
+		for ( int i = 0; i < nCount; ++i )
+		{
+			if ( !std::isfinite( pPoints[i].x ) || !std::isfinite( pPoints[i].y ) || !std::isfinite( pPoints[i].z ) )
+				return BK_EDITOR_BAD_ARGUMENT;
+			points[i] = CVec3( pPoints[i].x, pPoints[i].y, pPoints[i].z );
+		}
+		const BkEditorStatus prologue = VsoEditPrologue( pSession, nKind, nIndex );
+		if ( prologue != BK_EDITOR_OK )
+			return prologue;
+		if ( nCount != int( SessionVso( *pSession, nKind, nIndex )->controlpoints.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		const bool bOk = MoveVsoPointsInSession( pSession, nKind, nIndex, points, &nToken, &bRefused );
+		return VsoEditResult( bOk, bRefused, nToken, pnToken );
+	} );
+}
+
+BkEditorStatus BkEditorSetVsoWidth( BkEditorSession *pSession, int nKind, int nIndex, int nKey, float fWidth, int nMode, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !std::isfinite( fWidth ) || fWidth <= 0.0f || nMode < 0 || nMode > 2 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		const BkEditorStatus prologue = VsoEditPrologue( pSession, nKind, nIndex );
+		if ( prologue != BK_EDITOR_OK )
+			return prologue;
+		if ( nKey < 0 || nKey >= KeyCount( *SessionVso( *pSession, nKind, nIndex ) ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		const bool bOk = SetVsoWidthInSession( pSession, nKind, nIndex, nKey, fWidth, nMode, &nToken, &bRefused );
+		return VsoEditResult( bOk, bRefused, nToken, pnToken );
+	} );
+}
+
+BkEditorStatus BkEditorSetVsoOpacity( BkEditorSession *pSession, int nKind, int nIndex, int nKey, float fOpacity, int nMode, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !std::isfinite( fOpacity ) || fOpacity < 0.0f || fOpacity > 1.0f || nMode < 0 || nMode > 2 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		const BkEditorStatus prologue = VsoEditPrologue( pSession, nKind, nIndex );
+		if ( prologue != BK_EDITOR_OK )
+			return prologue;
+		if ( nKey < 0 || nKey >= KeyCount( *SessionVso( *pSession, nKind, nIndex ) ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		const bool bOk = SetVsoOpacityInSession( pSession, nKind, nIndex, nKey, fOpacity, nMode, &nToken, &bRefused );
+		return VsoEditResult( bOk, bRefused, nToken, pnToken );
+	} );
+}
+
+BkEditorStatus BkEditorInsertVsoPoint( BkEditorSession *pSession, int nKind, int nIndex, int nControl, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		const BkEditorStatus prologue = VsoEditPrologue( pSession, nKind, nIndex );
+		if ( prologue != BK_EDITOR_OK )
+			return prologue;
+		if ( nControl < 0 || nControl >= int( SessionVso( *pSession, nKind, nIndex )->controlpoints.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		const bool bOk = InsertVsoPointInSession( pSession, nKind, nIndex, nControl, &nToken, &bRefused );
+		return VsoEditResult( bOk, bRefused, nToken, pnToken );
+	} );
+}
+
+BkEditorStatus BkEditorDeleteVsoPoint( BkEditorSession *pSession, int nKind, int nIndex, int nControl, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		const BkEditorStatus prologue = VsoEditPrologue( pSession, nKind, nIndex );
+		if ( prologue != BK_EDITOR_OK )
+			return prologue;
+		if ( nControl < 0 || nControl >= int( SessionVso( *pSession, nKind, nIndex )->controlpoints.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		const bool bOk = DeleteVsoPointInSession( pSession, nKind, nIndex, nControl, &nToken, &bRefused );
+		return VsoEditResult( bOk, bRefused, nToken, pnToken );
+	} );
+}
+
+BkEditorStatus BkEditorPickVso( BkEditorSession *pSession, float fX, float fY, int nCycle, int *pnKind, int *pnIndex )
+{
+	if ( pnKind != 0 ) *pnKind = -1;
+	if ( pnIndex != 0 ) *pnIndex = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnKind == 0 || pnIndex == 0 || !std::isfinite( fX ) || !std::isfinite( fY ) || nCycle < 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		int nKind = -1, nIndex = -1;
+		bool bRefused = false;
+		if ( !PickVsoInSession( pSession, fX, fY, nCycle, &nKind, &nIndex, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		*pnKind = nKind;
+		*pnIndex = nIndex;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorDeleteVso( BkEditorSession *pSession, int nKind, int nIndex, int *pnToken )
 {
 	if ( pnToken != 0 ) *pnToken = -1;

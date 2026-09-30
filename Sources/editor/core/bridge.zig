@@ -103,6 +103,14 @@ pub const VsoKind = enum(u8) {
     }
 };
 
+/// The MFC width modes (CTabVOVSODialog::CW_SINGLE/MULTI/ALL): an edit of a
+/// point changes that point only, that point and every later one, or every
+/// point. The C ABI's mode 0, 1, 2.
+pub const VsoWidthMode = enum(u8) { single = 0, multi = 1, all = 2 };
+
+/// A road or river of the map: its kind and its index in that kind's list.
+pub const VsoRef = struct { kind: VsoKind, index: usize };
+
 /// BkEditorVsoDescriptor's and BkEditorVsoInfo's name capacity.
 pub const vso_name_capacity = 128;
 
@@ -229,6 +237,24 @@ pub const Bridge = struct {
         addVso: *const fn (ptr: *anyopaque, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status,
         /// BkEditorDeleteVso: the whole road or river at `index`, one edit.
         deleteVso: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, token: *i32) Status,
+        /// BkEditorMoveVsoPoints: every control point of the line at `index`
+        /// (world units), resampled keeping its key points; one edit.
+        moveVsoPoints: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, points: []const records.Vec3, token: *i32) Status,
+        /// BkEditorSetVsoWidth: the width (world units) at key point `key`
+        /// in `mode`; one edit.
+        setVsoWidth: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, key: i32, width: f32, mode: VsoWidthMode, token: *i32) Status,
+        /// BkEditorSetVsoOpacity: the opacity (0..1) at key point `key` in
+        /// `mode`, nothing resampled; one edit.
+        setVsoOpacity: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, key: i32, opacity: f32, mode: VsoWidthMode, token: *i32) Status,
+        /// BkEditorInsertVsoPoint: the midpoint after control point `control`
+        /// (before it when it is the last); one edit.
+        insertVsoPoint: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, control: i32, token: *i32) Status,
+        /// BkEditorDeleteVsoPoint: removes control point `control`; refused
+        /// while only 2 remain; one edit.
+        deleteVsoPoint: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, control: i32, token: *i32) Status,
+        /// BkEditorPickVso: the road or river under a world point, roads
+        /// first; `cycle` skips that many earlier hits. Refused when none.
+        pickVso: *const fn (ptr: *anyopaque, wx: f32, wy: f32, cycle: i32, kind: *VsoKind, index: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -262,6 +288,12 @@ pub const Bridge = struct {
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }
+    pub fn moveVsoPoints(self: Bridge, kind: VsoKind, index: i32, points: []const records.Vec3, token: *i32) Status { return self.vtable.moveVsoPoints(self.ptr, kind, index, points, token); }
+    pub fn setVsoWidth(self: Bridge, kind: VsoKind, index: i32, key: i32, width: f32, mode: VsoWidthMode, token: *i32) Status { return self.vtable.setVsoWidth(self.ptr, kind, index, key, width, mode, token); }
+    pub fn setVsoOpacity(self: Bridge, kind: VsoKind, index: i32, key: i32, opacity: f32, mode: VsoWidthMode, token: *i32) Status { return self.vtable.setVsoOpacity(self.ptr, kind, index, key, opacity, mode, token); }
+    pub fn insertVsoPoint(self: Bridge, kind: VsoKind, index: i32, control: i32, token: *i32) Status { return self.vtable.insertVsoPoint(self.ptr, kind, index, control, token); }
+    pub fn deleteVsoPoint(self: Bridge, kind: VsoKind, index: i32, control: i32, token: *i32) Status { return self.vtable.deleteVsoPoint(self.ptr, kind, index, control, token); }
+    pub fn pickVso(self: Bridge, wx: f32, wy: f32, cycle: i32, kind: *VsoKind, index: *i32) Status { return self.vtable.pickVso(self.ptr, wx, wy, cycle, kind, index); }
     pub fn deleteVso(self: Bridge, kind: VsoKind, index: i32, token: *i32) Status { return self.vtable.deleteVso(self.ptr, kind, index, token); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };

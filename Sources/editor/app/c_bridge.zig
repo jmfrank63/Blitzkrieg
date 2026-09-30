@@ -112,6 +112,12 @@ pub const RealBridge = struct {
         .readVso = vtableReadVso,
         .addVso = vtableAddVso,
         .deleteVso = vtableDeleteVso,
+        .moveVsoPoints = vtableMoveVsoPoints,
+        .setVsoWidth = vtableSetVsoWidth,
+        .setVsoOpacity = vtableSetVsoOpacity,
+        .insertVsoPoint = vtableInsertVsoPoint,
+        .deleteVsoPoint = vtableDeleteVsoPoint,
+        .pickVso = vtablePickVso,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -467,6 +473,38 @@ pub const RealBridge = struct {
 
     fn vtableDeleteVso(ptr: *anyopaque, kind: VsoKind, index: i32, token: *i32) Status {
         return status(c.BkEditorDeleteVso(from(ptr).session, kindInt(kind), index, token));
+    }
+
+    fn vtableMoveVsoPoints(ptr: *anyopaque, kind: VsoKind, index: i32, points: []const record_types.Vec3, token: *i32) Status {
+        const self = from(ptr);
+        const count = std.math.cast(c_int, points.len) orelse return .bad_argument;
+        const c_points = std.heap.page_allocator.alloc(c.BkEditorVec3, @max(points.len, 1)) catch return .failed;
+        defer std.heap.page_allocator.free(c_points);
+        for (points, c_points[0..points.len]) |point, *c_point| c_point.* = toCVec3(point);
+        return status(c.BkEditorMoveVsoPoints(self.session, kindInt(kind), index, c_points.ptr, count, token));
+    }
+
+    fn vtableSetVsoWidth(ptr: *anyopaque, kind: VsoKind, index: i32, key: i32, width: f32, mode: core.bridge.VsoWidthMode, token: *i32) Status {
+        return status(c.BkEditorSetVsoWidth(from(ptr).session, kindInt(kind), index, key, width, @intFromEnum(mode), token));
+    }
+
+    fn vtableSetVsoOpacity(ptr: *anyopaque, kind: VsoKind, index: i32, key: i32, opacity: f32, mode: core.bridge.VsoWidthMode, token: *i32) Status {
+        return status(c.BkEditorSetVsoOpacity(from(ptr).session, kindInt(kind), index, key, opacity, @intFromEnum(mode), token));
+    }
+
+    fn vtableInsertVsoPoint(ptr: *anyopaque, kind: VsoKind, index: i32, control: i32, token: *i32) Status {
+        return status(c.BkEditorInsertVsoPoint(from(ptr).session, kindInt(kind), index, control, token));
+    }
+
+    fn vtableDeleteVsoPoint(ptr: *anyopaque, kind: VsoKind, index: i32, control: i32, token: *i32) Status {
+        return status(c.BkEditorDeleteVsoPoint(from(ptr).session, kindInt(kind), index, control, token));
+    }
+
+    fn vtablePickVso(ptr: *anyopaque, wx: f32, wy: f32, cycle: i32, kind: *VsoKind, index: *i32) Status {
+        var c_kind: c_int = -1;
+        const result = status(c.BkEditorPickVso(from(ptr).session, wx, wy, cycle, &c_kind, index));
+        if (result == .ok) kind.* = std.enums.fromInt(VsoKind, c_kind) orelse return .failed;
+        return result;
     }
 
     /// The engine tier's road and river agreement check.

@@ -310,7 +310,7 @@ pub const Editor = struct {
     /// the terrain but past the map's edge has no tile, and a point over no
     /// object has no object - neither is an error.
     pub fn resolve(self: *Editor, sx: f32, sy: f32) EditError!tools.Pointer {
-        var pointer: tools.Pointer = .{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+        var pointer: tools.Pointer = .{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0, .screen_x = sx, .screen_y = sy };
         try bridge_mod.check(self.bridge.screenToWorld(sx, sy, &pointer.world_x, &pointer.world_y));
         try bridge_mod.check(self.bridge.worldToMap(pointer.world_x, pointer.world_y, &pointer.map_x, &pointer.map_y));
         var tx: i32 = 0;
@@ -669,6 +669,70 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.deleteVso(kind, @intCast(index), &token));
         self.commitEdit(&prepared, token, 0, .vso);
+    }
+
+    /// Moves the control points of the road or river at `index` to `points`
+    /// (every one of them, world units); the bridge resamples keeping the key
+    /// points. The calls of one drag (`gesture`) are one undo step.
+    pub fn moveVsoPoints(self: *Editor, kind: VsoKind, index: usize, points: []const records.Vec3, gesture: u32) EditError!void {
+        var prepared = try self.prepareEdit(gesture, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.moveVsoPoints(kind, @intCast(index), points, &token));
+        self.commitEdit(&prepared, token, gesture, .vso);
+    }
+
+    /// The width (world units, centre line to edge) at key point `key` in
+    /// `mode`; the calls of one drag are one undo step.
+    pub fn setVsoWidth(self: *Editor, kind: VsoKind, index: usize, key: usize, width: f32, mode: bridge_mod.VsoWidthMode, gesture: u32) EditError!void {
+        var prepared = try self.prepareEdit(gesture, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.setVsoWidth(kind, @intCast(index), @intCast(key), width, mode, &token));
+        self.commitEdit(&prepared, token, gesture, .vso);
+    }
+
+    /// The opacity (0..1) at key point `key` in `mode`; the calls of one drag
+    /// are one undo step.
+    pub fn setVsoOpacity(self: *Editor, kind: VsoKind, index: usize, key: usize, opacity: f32, mode: bridge_mod.VsoWidthMode, gesture: u32) EditError!void {
+        var prepared = try self.prepareEdit(gesture, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.setVsoOpacity(kind, @intCast(index), @intCast(key), opacity, mode, &token));
+        self.commitEdit(&prepared, token, gesture, .vso);
+    }
+
+    /// Insert (D-08): the midpoint after control point `control`, or before
+    /// it when it is the last. One undo step.
+    pub fn insertVsoPoint(self: *Editor, kind: VsoKind, index: usize, control: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.insertVsoPoint(kind, @intCast(index), @intCast(control), &token));
+        self.commitEdit(&prepared, token, 0, .vso);
+    }
+
+    /// Delete of one control point; refused while only 2 remain. One undo
+    /// step.
+    pub fn deleteVsoPoint(self: *Editor, kind: VsoKind, index: usize, control: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.deleteVsoPoint(kind, @intCast(index), @intCast(control), &token));
+        self.commitEdit(&prepared, token, 0, .vso);
+    }
+
+    /// The road or river under a world point, `cycle` skipping that many
+    /// earlier hits; null when nothing is there. A read: the status line is
+    /// left alone.
+    pub fn pickVso(self: *Editor, wx: f32, wy: f32, cycle: u32) EditError!?bridge_mod.VsoRef {
+        var kind: VsoKind = .road;
+        var index: i32 = -1;
+        const result = self.bridge.pickVso(wx, wy, @intCast(@min(cycle, std.math.maxInt(i32))), &kind, &index);
+        if (result == .refused) return null;
+        try bridge_mod.check(result);
+        if (index < 0) return null;
+        return .{ .kind = kind, .index = @intCast(index) };
     }
 
     /// How many roads or rivers the map holds. A read: the status line is

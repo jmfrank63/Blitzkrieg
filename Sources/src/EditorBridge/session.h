@@ -338,6 +338,22 @@ bool VsoDescriptors( SEditorSession *pSession, int nKind, std::vector<std::strin
 // from a failure. A refusal changes nothing.
 bool AddVsoToSession( SEditorSession *pSession, int nKind, const std::string &szDesc, const std::vector<CVec3> &rPoints,
                       float fWidthTiles, float fOpacity, int *pnToken, int *pnIndex, bool *pbRefused );
+// Edits of an existing road or river, each one logged edit (session_vso.cpp).
+// A move names every control point (world units) and resamples keeping the key
+// points' widths and opacities; a width (world units) or an opacity (0..1) is
+// set at key point nKey in a mode (0 that point, 1 it and every later one, 2
+// every point); an insert adds the midpoint after control point nControl
+// (before it when it is the last) and a delete removes it - refused while only
+// 2 remain. Each refuses a result the loaders could not take.
+bool MoveVsoPointsInSession( SEditorSession *pSession, int nKind, int nIndex, const std::vector<CVec3> &rPoints, int *pnToken, bool *pbRefused );
+bool SetVsoWidthInSession( SEditorSession *pSession, int nKind, int nIndex, int nKey, float fWidth, int nMode, int *pnToken, bool *pbRefused );
+bool SetVsoOpacityInSession( SEditorSession *pSession, int nKind, int nIndex, int nKey, float fOpacity, int nMode, int *pnToken, bool *pbRefused );
+bool InsertVsoPointInSession( SEditorSession *pSession, int nKind, int nIndex, int nControl, int *pnToken, bool *pbRefused );
+bool DeleteVsoPointInSession( SEditorSession *pSession, int nKind, int nIndex, int nControl, int *pnToken, bool *pbRefused );
+// The road or river under a world point (CMapInfo::TerrainHitTest, roads then
+// rivers); nCycle skips that many earlier hits, wrapping. Refused when nothing
+// is there.
+bool PickVsoInSession( SEditorSession *pSession, float fX, float fY, int nCycle, int *pnKind, int *pnIndex, bool *pbRefused );
 // Deletes the road or river at nIndex (the whole record), logged; for a river
 // the AI's tiles are unlocked first (DeleteRiver with the record as saved).
 bool DeleteVsoFromSession( SEditorSession *pSession, int nKind, int nIndex, int *pnToken, bool *pbRefused );

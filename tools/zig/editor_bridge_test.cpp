@@ -241,6 +241,12 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorAddVso", [&] { return BkEditorAddVso( 0, 0, "x", &vsoPoint, 1, 3.0f, 1.0f, &nInt, &nInt2 ); } },
 		{ "BkEditorVsoMatchesEngine", [&] { return BkEditorVsoMatchesEngine( 0 ); } },
 		{ "BkEditorDeleteVso", [&] { return BkEditorDeleteVso( 0, 0, 0, &nInt ); } },
+		{ "BkEditorMoveVsoPoints", [&] { return BkEditorMoveVsoPoints( 0, 0, 0, &vsoPoint, 1, &nInt ); } },
+		{ "BkEditorSetVsoWidth", [&] { return BkEditorSetVsoWidth( 0, 0, 0, 0, 10.0f, 0, &nInt ); } },
+		{ "BkEditorSetVsoOpacity", [&] { return BkEditorSetVsoOpacity( 0, 0, 0, 0, 0.5f, 0, &nInt ); } },
+		{ "BkEditorInsertVsoPoint", [&] { return BkEditorInsertVsoPoint( 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorDeleteVsoPoint", [&] { return BkEditorDeleteVsoPoint( 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorPickVso", [&] { return BkEditorPickVso( 0, 0, 0, 0, &nInt, &nInt2 ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -295,6 +301,12 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorAddVso", [&] { return BkEditorAddVso( pSession, 0, "x", &vsoPoint, 1, 3.0f, 1.0f, &nInt, &nInt2 ); } },
 		{ "BkEditorVsoMatchesEngine", [&] { return BkEditorVsoMatchesEngine( pSession ); } },
 		{ "BkEditorDeleteVso", [&] { return BkEditorDeleteVso( pSession, 0, 0, &nInt ); } },
+		{ "BkEditorMoveVsoPoints", [&] { return BkEditorMoveVsoPoints( pSession, 0, 0, &vsoPoint, 1, &nInt ); } },
+		{ "BkEditorSetVsoWidth", [&] { return BkEditorSetVsoWidth( pSession, 0, 0, 0, 10.0f, 0, &nInt ); } },
+		{ "BkEditorSetVsoOpacity", [&] { return BkEditorSetVsoOpacity( pSession, 0, 0, 0, 0.5f, 0, &nInt ); } },
+		{ "BkEditorInsertVsoPoint", [&] { return BkEditorInsertVsoPoint( pSession, 0, 0, 0, &nInt ); } },
+		{ "BkEditorDeleteVsoPoint", [&] { return BkEditorDeleteVsoPoint( pSession, 0, 0, 0, &nInt ); } },
+		{ "BkEditorPickVso", [&] { return BkEditorPickVso( pSession, 0, 0, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4420,6 +4432,188 @@ static void TestM2Rivers( BkEditorSession *pSession, const std::string &szScratc
 	printf( "editor-bridge: M2 rivers and passability ok\n" );
 }
 
+// The bridge's edits of an existing record as plain CVSOBuilder calls, for
+// the expected maps: resample keeping the key points with the record's own
+// first width and opacity, then fit to the ground; after an insert or a
+// delete, the MFC order around the key-point backup.
+static void ExpectedResample( const CMapInfo &rMap, SVectorStripeObject *pVso )
+{
+	CVSOBuilder::Update( pVso, true, CVSOBuilder::DEFAULT_STEP, pVso->points[0].fWidth, pVso->points[0].fOpacity );
+	CVSOBuilder::UpdateZ( rMap.terrain.altitudes, pVso );
+}
+
+static void ExpectedAroundBackup( const CMapInfo &rMap, SVectorStripeObject *pVso, CVSOBuilder::SBackupKeyPoints *pBackup, float fWidth, float fOpacity )
+{
+	CVSOBuilder::Update( pVso, true, CVSOBuilder::DEFAULT_STEP, fWidth, fOpacity );
+	pBackup->LoadKeyPoints( pVso );
+	CVSOBuilder::Update( pVso, true, CVSOBuilder::DEFAULT_STEP, fWidth, fOpacity );
+	CVSOBuilder::UpdateZ( rMap.terrain.altitudes, pVso );
+}
+
+static int ExpectedKeyIndex( const SVectorStripeObject &rVso, int nKey )
+{
+	int nSeen = 0;
+	for ( size_t i = 0; i < rVso.points.size(); ++i )
+		if ( rVso.points[i].bKeyPoint && nSeen++ == nKey )
+			return int( i );
+	return -1;
+}
+
+// D-08's edits of a selected road on the real engine: a move of one point and
+// of all, a width, an opacity, an insert and point deletes, each the map the
+// same CVSOBuilder calls build, the engine agreeing after each; undoing all of
+// them saves the unedited file byte for byte.
+static void TestM2RoadEdits( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::vector<std::string> roads = VsoDescriptorNames( pSession, 0 );
+	if ( !Check( !roads.empty(), "road types for the edits" ) )
+		return;
+	const std::string szUnedited = szScratch + "\\road-edits-unedited.bzm";
+	const std::string szEdited = szScratch + "\\road-edits-edited.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	std::vector<CVec3> line = MiddleLine( original, 0.0f, 300.0f );
+	std::vector<BkEditorVec3> cLine = ToCPoints( line );
+	std::vector<int> tokens;
+	int nToken = -1, nIndex = -1;
+	if ( !Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &cLine[0], 3, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	tokens.push_back( nToken );
+	CMapInfo expected;
+	Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() );
+	if ( !Check( AppendExpectedVso( &expected, 0, roads[0], line, 3.0f, 1.0f ), "the expected road builds" ) )
+		return;
+	SVectorStripeObject &rExpected = expected.terrain.roads3.back();
+
+	// The pick finds it under its middle key point, cycling past any road it
+	// overlaps; nothing is off the map.
+	{
+		const int nMiddle = ExpectedKeyIndex( rExpected, 1 );
+		const CVec3 vMiddle = rExpected.points[nMiddle].vPos;
+		bool bFound = false;
+		for ( int nCycle = 0; nCycle < 8 && !bFound; ++nCycle )
+		{
+			int nKind = -1, nPicked = -1;
+			if ( BkEditorPickVso( pSession, vMiddle.x, vMiddle.y, nCycle, &nKind, &nPicked ) == BK_EDITOR_OK )
+				bFound = nKind == 0 && nPicked == nIndex;
+		}
+		Check( bFound, "the pick finds the new road under its middle" );
+		int nKind = 0, nPicked = 0;
+		Check( BkEditorPickVso( pSession, -500.0f, -500.0f, 0, &nKind, &nPicked ) == BK_EDITOR_REFUSED && nKind == -1 && nPicked == -1, "nothing is picked off the map" );
+	}
+
+	// A move of one point.
+	std::vector<CVec3> moved = line;
+	moved[1].y += 40.0f;
+	std::vector<BkEditorVec3> cMoved = ToCPoints( moved );
+	if ( Check( BkEditorMoveVsoPoints( pSession, 0, nIndex, &cMoved[0], 3, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nToken );
+		rExpected.controlpoints = moved;
+		ExpectedResample( expected, &rExpected );
+		VsoAgreesWithEngine( pSession, "after a point was moved" );
+		CheckSavedEquals( pSession, szEdited, expected, "a moved point" );
+	}
+	// A move of all points.
+	for ( size_t i = 0; i < moved.size(); ++i )
+		moved[i].x += 30.0f;
+	cMoved = ToCPoints( moved );
+	if ( Check( BkEditorMoveVsoPoints( pSession, 0, nIndex, &cMoved[0], 3, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nToken );
+		rExpected.controlpoints = moved;
+		ExpectedResample( expected, &rExpected );
+		VsoAgreesWithEngine( pSession, "after the whole line was moved" );
+		CheckSavedEquals( pSession, szEdited, expected, "a moved line" );
+	}
+	// A width at key point 1.
+	if ( Check( BkEditorSetVsoWidth( pSession, 0, nIndex, 1, 90.0f, 0, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nToken );
+		rExpected.points[ExpectedKeyIndex( rExpected, 1 )].fWidth = 90.0f;
+		ExpectedResample( expected, &rExpected );
+		VsoAgreesWithEngine( pSession, "after a width" );
+		CheckSavedEquals( pSession, szEdited, expected, "a width" );
+	}
+	// An opacity for every point.
+	if ( Check( BkEditorSetVsoOpacity( pSession, 0, nIndex, 0, 0.5f, 2, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nToken );
+		for ( size_t i = 0; i < rExpected.points.size(); ++i )
+			rExpected.points[i].fOpacity = 0.5f;
+		VsoAgreesWithEngine( pSession, "after an opacity" );
+		CheckSavedEquals( pSession, szEdited, expected, "an opacity" );
+	}
+	// An insert after control point 0.
+	if ( Check( BkEditorInsertVsoPoint( pSession, 0, nIndex, 0, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		tokens.push_back( nToken );
+		const int nKeyA = ExpectedKeyIndex( rExpected, 0 ), nKeyB = ExpectedKeyIndex( rExpected, 1 );
+		const float fWidth = ( rExpected.points[nKeyA].fWidth + rExpected.points[nKeyB].fWidth ) / 2.0f;
+		const float fOpacity = ( rExpected.points[nKeyA].fOpacity + rExpected.points[nKeyB].fOpacity ) / 2.0f;
+		const float fRecordWidth = rExpected.points[0].fWidth, fRecordOpacity = rExpected.points[0].fOpacity;
+		CVSOBuilder::SBackupKeyPoints backup;
+		backup.SaveKeyPoints( rExpected );
+		rExpected.controlpoints.insert( rExpected.controlpoints.begin() + 1, ( rExpected.controlpoints[0] + rExpected.controlpoints[1] ) / 2.0f );
+		backup.AddKeyPoint( 1, fWidth, fOpacity );
+		ExpectedAroundBackup( expected, &rExpected, &backup, fRecordWidth, fRecordOpacity );
+		VsoAgreesWithEngine( pSession, "after an insert" );
+		CheckSavedEquals( pSession, szEdited, expected, "an insert" );
+		BkEditorVsoInfo info;
+		Check( BkEditorVso( pSession, 0, nIndex, &info, 0, 0, 0, 0 ) == BK_EDITOR_REFUSED && info.control_count == 4 && info.key_count == 4, "the insert made four control and key points" );
+	}
+	// Point deletes, down to two, and the third refused.
+	for ( int nDelete = 0; nDelete < 2; ++nDelete )
+	{
+		if ( !Check( BkEditorDeleteVsoPoint( pSession, 0, nIndex, 2 - nDelete, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			break;
+		tokens.push_back( nToken );
+		const float fRecordWidth = rExpected.points[0].fWidth, fRecordOpacity = rExpected.points[0].fOpacity;
+		CVSOBuilder::SBackupKeyPoints backup;
+		backup.SaveKeyPoints( rExpected );
+		rExpected.controlpoints.erase( rExpected.controlpoints.begin() + ( 2 - nDelete ) );
+		backup.RemoveKeyPoint( 2 - nDelete );
+		ExpectedAroundBackup( expected, &rExpected, &backup, fRecordWidth, fRecordOpacity );
+		VsoAgreesWithEngine( pSession, "after a point delete" );
+		CheckSavedEquals( pSession, szEdited, expected, "a point delete" );
+	}
+	Check( BkEditorDeleteVsoPoint( pSession, 0, nIndex, 0, &nToken ) == BK_EDITOR_REFUSED, "a point delete is refused while only 2 remain" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "at least 2 points" ) != std::string::npos, "and says why" );
+	// Bad arguments change nothing.
+	Check( BkEditorSetVsoWidth( pSession, 0, nIndex, 0, 0.0f, 0, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a width of 0 is a bad argument" );
+	Check( BkEditorSetVsoWidth( pSession, 0, nIndex, 0, 40.0f, 3, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "mode 3 is a bad argument" );
+	Check( BkEditorSetVsoWidth( pSession, 0, nIndex, 99, 40.0f, 0, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "key point 99 is a bad argument" );
+	Check( BkEditorSetVsoOpacity( pSession, 0, nIndex, 0, 1.5f, 0, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "opacity 1.5 is a bad argument" );
+	Check( BkEditorMoveVsoPoints( pSession, 0, nIndex, &cMoved[0], 3, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a move naming the wrong point count is a bad argument" );
+	Check( BkEditorInsertVsoPoint( pSession, 0, nIndex, 5, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "an insert at control point 5 is a bad argument" );
+	std::vector<BkEditorVec3> tooClose = ToCPoints( std::vector<CVec3>( rExpected.controlpoints.begin(), rExpected.controlpoints.end() ) );
+	tooClose[1] = tooClose[0];
+	tooClose[1].x += 1.0f;
+	Check( BkEditorMoveVsoPoints( pSession, 0, nIndex, &tooClose[0], 2, &nToken ) == BK_EDITOR_REFUSED, "a move putting two points 1 unit apart is refused" );
+	VsoAgreesWithEngine( pSession, "after the refused edits" );
+	CheckSavedEquals( pSession, szEdited, expected, "the refused edits" );
+
+	// Every edit undone, newest first: the unedited file.
+	for ( size_t i = tokens.size(); i-- > 0; )
+		if ( !Check( BkEditorUndoEdit( pSession, tokens[i] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			break;
+	VsoAgreesWithEngine( pSession, "after every road edit was undone" );
+	const std::string szUndone = szScratch + "\\road-edits-undone.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "every road edit undone saves the unedited file byte for byte" );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 road edits ok (%d edits)\n", int( tokens.size() ) );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -4575,6 +4769,7 @@ int main( int argc, char **argv )
 		TestM2CascadeDelete( pSession, szScratch, true );
 		TestM2Roads( pSession, szScratch );
 		TestM2Rivers( pSession, szScratch );
+		TestM2RoadEdits( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
