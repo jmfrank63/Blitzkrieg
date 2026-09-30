@@ -12,6 +12,7 @@ const core = @import("editor_core");
 const panels = @import("panels.zig");
 const logic = @import("panels_logic.zig");
 const marker_logic = @import("marker_logic.zig");
+const testlaunch = @import("testlaunch.zig");
 
 const State = panels.State;
 const records = core.records;
@@ -35,6 +36,7 @@ pub const command_table = [_]Entry{
     .{ .name = "vso_desc", .handler = vsoDesc },
     .{ .name = "vso_width", .handler = vsoWidth },
     .{ .name = "vso_opacity", .handler = vsoOpacity },
+    .{ .name = "vso_width_mode", .handler = vsoWidthMode },
     .{ .name = "bridge_desc", .handler = bridgeDesc },
     .{ .name = "bridge_rotate", .handler = bridgeRotate },
     .{ .name = "bridge_toggle_build", .handler = bridgeToggleBuild },
@@ -56,6 +58,7 @@ pub const command_table = [_]Entry{
     .{ .name = "area_rename", .handler = areaRename },
     .{ .name = "area_delete", .handler = areaDelete },
     .{ .name = "script_dialog", .handler = scriptDialog },
+    .{ .name = "script_choose", .handler = scriptChoose },
     .{ .name = "script_open", .handler = scriptOpen },
     .{ .name = "script_copy_along_yes", .handler = scriptCopyAlongYes },
     .{ .name = "script_copy_along_no", .handler = scriptCopyAlongNo },
@@ -102,6 +105,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "groups_delta", .handler = groupsDelta },
     .{ .name = "hidden_count", .handler = hiddenCount },
     .{ .name = "script_file", .handler = scriptFileIs },
+    .{ .name = "script_beside", .handler = scriptBeside },
+    .{ .name = "test_game_script", .handler = testGameScript },
     .{ .name = "areas_delta", .handler = areasDelta },
     .{ .name = "area_named", .handler = areaNamed },
     .{ .name = "startcmds_delta", .handler = startcmdsDelta },
@@ -278,20 +283,50 @@ fn vsoDesc(state: *State, arg: []const u8) Outcome {
     return chooseVsoType(state, index);
 }
 
+/// The panel's width (1..16 tiles): what the next line takes and, in the width
+/// mode All with a line selected, the selected line's width too (04-13, the
+/// MFC editor's CW_ALL); the calls that pass one `gesture` are one undo step.
+/// Public: the panel's slider calls it.
+pub fn setVsoWidthTiles(state: *State, width_tiles: f32, gesture: u32) Outcome {
+    const tool = &state.view.roads_rivers;
+    tool.width_tiles = width_tiles;
+    if (!panels.mapIsOpen(state.editor)) return .ok;
+    return resultOutcome(state, tool.applyPanelWidth(state.editor, gesture));
+}
+
+/// The panel's opacity (0..1), as `setVsoWidthTiles`.
+pub fn setVsoOpacity(state: *State, opacity: f32, gesture: u32) Outcome {
+    const tool = &state.view.roads_rivers;
+    tool.opacity = opacity;
+    if (!panels.mapIsOpen(state.editor)) return .ok;
+    return resultOutcome(state, tool.applyPanelOpacity(state.editor, gesture));
+}
+
 /// The width spinner, 1..16 (the MFC tool's; w * fWorldCellSize / 2 world
-/// units).
+/// units); one undo step when it re-widths the selected line.
 fn vsoWidth(state: *State, arg: []const u8) Outcome {
     const width = std.fmt.parseInt(u8, arg, 10) catch return .bad_arg;
     if (width < 1 or width > 16) return .bad_arg;
-    state.view.roads_rivers.width_tiles = @floatFromInt(width);
-    return .ok;
+    return setVsoWidthTiles(state, @floatFromInt(width), state.editor.beginGesture());
 }
 
-/// The opacity slider, 0..100 %.
+/// The opacity slider, 0..100 %; one undo step when it changes the selected line.
 fn vsoOpacity(state: *State, arg: []const u8) Outcome {
     const percent = std.fmt.parseInt(u8, arg, 10) catch return .bad_arg;
     if (percent > 100) return .bad_arg;
-    state.view.roads_rivers.opacity = @as(f32, @floatFromInt(percent)) / 100.0;
+    return setVsoOpacity(state, @as(f32, @floatFromInt(percent)) / 100.0, state.editor.beginGesture());
+}
+
+/// `do=vso_width_mode:single|multi|all`: the panel's width mode radio.
+fn vsoWidthMode(state: *State, arg: []const u8) Outcome {
+    const tool = &state.view.roads_rivers;
+    if (std.mem.eql(u8, arg, "single")) {
+        tool.width_mode = .single;
+    } else if (std.mem.eql(u8, arg, "multi")) {
+        tool.width_mode = .multi;
+    } else if (std.mem.eql(u8, arg, "all")) {
+        tool.width_mode = .all;
+    } else return .bad_arg;
     return .ok;
 }
 
@@ -641,6 +676,70 @@ fn scriptDialog(state: *State, arg: []const u8) Outcome {
 /// refused, with a status line, when the map names none or it is not there.
 fn scriptOpen(state: *State, _: []const u8) Outcome {
     return if (panels.openScript(state)) .ok else .refused;
+}
+
+/// `do=script_choose:<path>` (04-13): the Script dialog's "Choose other..."
+/// without the file picker - the Lua file at the OS path `path` (absolute, or
+/// relative to the working directory) is copied beside the map under its own
+/// name and becomes the map's script, one undo step, exactly as a file the
+/// dialog answered would be (`panels.pickScript`). Refused, the status line
+/// saying why, for a shipped map, a failed copy, and when a different file of
+/// that name is already beside the map: the "Replace it?" question is then up
+/// (`script_overwrite_yes` / `_no`). A name that is not a bare name is bad.
+fn scriptChoose(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    const name = core.script_file.pickedName(arg) orelse return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    panels.pickScript(state, arg, false);
+    if (state.script_pick_active) {
+        state.editor.note("a different file of that name is beside the map; the Replace it? question is up");
+        return .refused;
+    }
+    var buffer: [records.script_file_capacity]u8 = undefined;
+    const have = readScriptFile(state, &buffer) orelse return .refused;
+    return if (std.mem.eql(u8, have, name)) .ok else .refused;
+}
+
+/// `expect=script_beside:<name>` (04-13): `<name>.lua` is a file beside the
+/// open map - what Choose other and Save As's copy-along put there.
+fn scriptBeside(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or !core.script_file.isBareName(arg)) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const files = state.editor.files orelse return .refused;
+    var path_buffer: [core.files.max_path]u8 = undefined;
+    const path = core.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, arg) orelse return .bad_arg;
+    if (files.exists(path)) return .ok;
+    var note: [160]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&note, "{s}.lua is not beside the map", .{arg}) catch "the script is not beside the map");
+    return .refused;
+}
+
+/// `expect=test_game_script:<name>` (04-13): the last test game's log (Test in
+/// game's test-game.log) reports, through BK_MAP_TRACE, that it loaded the
+/// script `<name>` and ran its Init - the script Test in game copied beside
+/// the test map. The game must have been started with BK_MAP_TRACE
+/// (BK_EDITOR_AUTO_GAME_TRACE) and have exited (`waitgame`).
+fn testGameScript(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or !core.script_file.isBareName(arg)) return .bad_arg;
+    if (state.test_game_log_len == 0) {
+        state.editor.note("no test game has been started");
+        return .refused;
+    }
+    const log_path = state.test_game_log_buffer[0..state.test_game_log_len];
+    const log = std.Io.Dir.cwd().readFileAlloc(state.io, log_path, state.allocator, .limited(16 << 20)) catch {
+        state.editor.note("the test game's log did not read");
+        return .refused;
+    };
+    defer state.allocator.free(log);
+    const trace = testlaunch.parseMapTrace(log);
+    var note: [200]u8 = undefined;
+    const script = trace.script orelse {
+        state.editor.note(std.fmt.bufPrint(&note, "the test game's log {s} has no BK_MAP_TRACE script line", .{log_path}) catch "no script line");
+        return .refused;
+    };
+    if (std.mem.eql(u8, script.name.slice(), arg) and script.loaded and script.init) return .ok;
+    state.editor.note(std.fmt.bufPrint(&note, "the test game's script is \"{s}\" loaded={} init={}, not {s} run", .{ script.name.slice(), script.loaded, script.init, arg }) catch "the test game's script differs");
+    return .refused;
 }
 
 /// The two buttons of Save As's "Copy <name>.lua beside the new map?".

@@ -102,10 +102,17 @@ pub fn drawRoadsRivers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.
     }
     if (state.vso_types.len != 0) ig.igEndChild();
 
+    // 04-13: in the width mode All the sliders re-width the selected line too
+    // (the MFC editor's CW_ALL); one slider drag is one undo step, its gesture
+    // begun when the slider is taken hold of.
     var width: c_int = @intFromFloat(@round(tool.width_tiles));
-    if (ig.igSliderInt("width", &width, 1, 16)) tool.width_tiles = @floatFromInt(width);
+    const width_moved = ig.igSliderInt("width", &width, 1, 16);
+    if (ig.igIsItemActivated()) state.vso_slider_gesture = state.editor.beginGesture();
+    if (width_moved) _ = commands.setVsoWidthTiles(state, @floatFromInt(width), state.vso_slider_gesture);
     var percent: c_int = @intFromFloat(@round(tool.opacity * 100));
-    if (ig.igSliderInt("opacity %", &percent, 0, 100)) tool.opacity = @as(f32, @floatFromInt(percent)) / 100.0;
+    const opacity_moved = ig.igSliderInt("opacity %", &percent, 0, 100);
+    if (ig.igIsItemActivated()) state.vso_slider_gesture = state.editor.beginGesture();
+    if (opacity_moved) _ = commands.setVsoOpacity(state, @as(f32, @floatFromInt(percent)) / 100.0, state.vso_slider_gesture);
     ig.igSeparatorText("Width mode");
     if (ig.igRadioButton("Single point", tool.width_mode == .single)) tool.width_mode = .single;
     if (ig.igRadioButton("From this point on", tool.width_mode == .multi)) tool.width_mode = .multi;
@@ -489,7 +496,7 @@ fn warnIfMissing(state: *State, value: []const u8) void {
     ig.igPopStyleColor();
 }
 
-/// The two questions the script asks: Save As of a shipped map (bring the script
+/// The two questions the script asks: Save As of a map (bring the script
 /// along?) and Choose other (replace the file that is there?). Buttons are the
 /// commands `script_copy_along_yes`/`_no` and `script_overwrite_yes`/`_no`.
 pub fn drawScriptModals(state: *State) void {

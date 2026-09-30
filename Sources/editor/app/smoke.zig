@@ -1512,7 +1512,11 @@ pub const AutoRunner = struct {
     /// `test`'s own extra-environment pair storage (panels.State.test_extra_env
     /// borrows a slice of this) - owned here so it outlives the `startTestGame`
     /// call that reads it.
-    game_env_pairs: [2][2][]const u8 = undefined,
+    game_env_pairs: [3][2][]const u8 = undefined,
+    /// BK_EDITOR_AUTO_GAME_TRACE (04-13): the test game also gets
+    /// BK_MAP_TRACE=1, so its log (panels' test-game.log) reports what it read
+    /// and the `test_game_script` predicate can ask whether the script ran.
+    game_trace: bool = false,
 
     /// After the map is open and State built, exactly like `Script.init`.
     pub fn init(
@@ -1754,6 +1758,9 @@ pub const AutoRunner = struct {
     }
 
     fn runSaveAs(self: *AutoRunner, path: []const u8) bool {
+        // A person picks an existing folder in the dialog; a script names one
+        // that may not be there yet (04-13's copy-along leg), so it is made.
+        if (std.fs.path.dirname(path)) |folder| std.Io.Dir.cwd().createDirPath(self.io, folder) catch {};
         if (!self.state.actions.dialog.request(.save_as)) return self.fail("saveas={s}: the dialog slot was busy", .{path});
         self.state.actions.dialog.deliver(path);
         self.pending_file_action = "saveas";
@@ -1766,14 +1773,18 @@ pub const AutoRunner = struct {
     /// popups").
     fn runTest(self: *AutoRunner) bool {
         if (!panels.mapIsOpen(self.editor)) return self.fail("test: no map is open", .{});
+        var count: usize = 0;
         if (self.game_env_text) |auto_ui| {
-            self.game_env_pairs[0] = .{ "BK_AUTO_UI", auto_ui };
-            self.game_env_pairs[1] = .{ "BK_NO_HELP", "1" };
-            self.state.test_extra_env = self.game_env_pairs[0..2];
-        } else {
-            self.game_env_pairs[0] = .{ "BK_NO_HELP", "1" };
-            self.state.test_extra_env = self.game_env_pairs[0..1];
+            self.game_env_pairs[count] = .{ "BK_AUTO_UI", auto_ui };
+            count += 1;
         }
+        self.game_env_pairs[count] = .{ "BK_NO_HELP", "1" };
+        count += 1;
+        if (self.game_trace) {
+            self.game_env_pairs[count] = .{ "BK_MAP_TRACE", "1" };
+            count += 1;
+        }
+        self.state.test_extra_env = self.game_env_pairs[0..count];
         panels.requestTestLaunch(self.state);
         if (self.state.test_game == null) return self.fail("test: the game did not start: {s}", .{self.state.view.statusLine()});
         return true;

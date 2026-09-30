@@ -6099,6 +6099,16 @@ fn addMapEditor(
     // block of lines and never an edit of one long string. No `test` action:
     // the M2 game-reads-it checks belong to the plans that add them.
     const auto_m2_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2");
+    // 04-13: the copy-along leg's second folder, and the Lua fixture named
+    // relative to the editor's working directory (the stage root): a do=
+    // argument is at most 64 characters, which an absolute path is not.
+    const auto_m2_along_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2-along");
+    const auto_m2_fixture = fixture: {
+        var up: std.ArrayListUnmanaged(u8) = .empty;
+        for (0..std.mem.count(u8, stage_root, "/") + 1) |_| up.appendSlice(b.allocator, "../") catch @panic("OOM");
+        up.appendSlice(b.allocator, "tools/zig/fixtures/m2_script.lua") catch @panic("OOM");
+        break :fixture up.items;
+    };
     const auto_m2_entries = [_][]const u8{
         // 04-03: camera anchors, the tracer. coldwinter already holds anchors
         // for players 0-3, so the segment works on player 4 and the neutral
@@ -6175,7 +6185,18 @@ fn addMapEditor(
         "59:rdrag=c-230x-200",
         "59:rrelease=c-230x-200",
         "61:expect=undo_depth:6",
+        // 04-13: in the width mode All the panel's width re-widths the selected
+        // line (the river just finished) as one undo step (the MFC editor's
+        // CW_ALL); undone, and the panel back to single and 3 tiles.
+        "62:do=vso_width_mode:all",
+        "62:do=vso_width:5",
+        "63:expect=undo_depth:7",
+        "63:key=Z+ctrl",
+        "65:expect=undo_depth:6",
+        "65:do=vso_width_mode:single",
+        "65:do=vso_width:3",
         "66:shot=m2_roads",
+        "66:compare=m2_roads",
         // 04-06: the Bridge tool (key 5) with W_WoodenBig_Heavy_01, dragged
         // along the world's x axis (down and to the right on screen, 2:1) over
         // the empty snow right of the view centre, between the new road and
@@ -6206,6 +6227,7 @@ fn addMapEditor(
         "93:expect=bridge_built",
         "94:expect=bridge_delta:1",
         "96:shot=m2_bridges",
+        "96:compare=m2_bridges",
         // 04-07: the Fence tool (key 6) with W_FactoryFence, dragged along the
         // world's x axis on the snow between the bridge and the tanks: the
         // ghost is shot while the button is held (a scripted press is held
@@ -6217,6 +6239,7 @@ fn addMapEditor(
         "101:drag=c140x-35",
         "102:drag=c200x-5",
         "103:shot=m2_fence_ghost",
+        "103:compare=m2_fence_ghost",
         "104:drag=c240x15",
         "105:release=c240x15",
         "107:expect=fence_delta:6",
@@ -6228,6 +6251,7 @@ fn addMapEditor(
         "115:expect=fence_delta:6",
         "116:expect=undo_depth:10",
         "118:shot=m2_fences",
+        "118:compare=m2_fences",
         // 04-08: the Entrenchment tool (key 7) for player 0, an L of three
         // clicks on the snow left of the view centre, below the river: two
         // clicks, the pointer moved to the third point (the preview is shot
@@ -6240,6 +6264,7 @@ fn addMapEditor(
         "122:click=c-170x-10",
         "123:drag=c-150x80",
         "125:shot=m2_trench_preview",
+        "125:compare=m2_trench_preview",
         "126:dblclick=c-150x80",
         "128:expect=trench_delta:1",
         "129:expect=undo_depth:11",
@@ -6250,6 +6275,7 @@ fn addMapEditor(
         "136:expect=trench_delta:1",
         "137:expect=undo_depth:11",
         "139:shot=m2_trench",
+        "139:compare=m2_trench",
         // 04-09: script IDs and reinforcement groups (coldwinter holds no
         // group, so New from 0 takes group 0). The Select tool clicks a tank of
         // the rows below the fence; the script_id command gives it 4244 and the
@@ -6272,10 +6298,12 @@ fn addMapEditor(
         "151:expect=undo_depth:14",
         "152:do=group_select:0",
         "154:shot=m2_groups_marked",
+        "154:compare=m2_groups_marked",
         "155:do=group_hide:0:1",
         "156:expect=hidden_count:1",
         "157:do=groups_window:1",
         "160:shot=m2_groups_hidden",
+        "160:compare=m2_groups_hidden",
         "161:do=group_hide:0:0",
         "162:expect=hidden_count:0",
         "163:do=group_remove_id:0:4244",
@@ -6294,6 +6322,7 @@ fn addMapEditor(
         "181:expect=groups_delta:0",
         "182:expect=undo_depth:11",
         "185:shot=m2_groups",
+        "185:compare=m2_groups",
         // 04-10: script areas (key 8) and the script file. A rectangle named
         // m2_area is dragged, a circle named m2_ring after it (the drag's press,
         // motions and release in separate frames); the map now holds two areas
@@ -6339,6 +6368,7 @@ fn addMapEditor(
         "228:expect=undo_depth:14",
         "229:do=script_dialog:1",
         "232:shot=m2_areas",
+        "232:compare=m2_areas",
         "233:do=script_dialog:0",
         "233:do=groups_window:0",
         // 04-11: start commands. The Select tool clicks the tank the 04-09 segment
@@ -6364,8 +6394,10 @@ fn addMapEditor(
         "247:expect=startcmd_target:0:pos",
         "248:expect=undo_depth:18",
         "250:shot=m2_startcmds",
+        "250:compare=m2_startcmds",
         "251:do=startcmds_window:1",
         "254:shot=m2_startcmds_panel",
+        "254:compare=m2_startcmds_panel",
         "255:do=startcmds_window:0",
         "256:key=Z+ctrl",
         "258:expect=undo_depth:17",
@@ -6409,6 +6441,7 @@ fn addMapEditor(
         "299:key=Y+ctrl",
         "301:expect=reserve_delta:1",
         "303:shot=m2_reserve",
+        "303:compare=m2_reserve",
         // 04-12: the AI general. The AI General tool on side 1 (coldwinter has two sides):
         // a click on open ground makes a defence parcel, a click inside it a reinforce
         // point, the undo key takes the point away and redo brings it back, Enter switches
@@ -6433,6 +6466,7 @@ fn addMapEditor(
         "323:expect=mobile_has:1:4245",
         "324:expect=undo_depth:25",
         "327:shot=m2_ai_general",
+        "327:compare=m2_ai_general",
         "328:key=Z+ctrl",
         "330:key=Z+ctrl",
         "332:key=Z+ctrl",
@@ -6441,13 +6475,41 @@ fn addMapEditor(
         "337:expect=undo_depth:21",
         b.fmt("339:saveas={s}/m2.bzm", .{auto_m2_dir}),
         "340:shot=m2_anchor",
-        "341:exit",
+        "340:compare=m2_anchor",
+        // 04-13, the exit run (D-25.6): the saved user map gets its script the
+        // way the Script dialog's Choose other gives one, without the file
+        // picker (script_choose copies the fixture beside m2.bzm and names it),
+        // is saved and shot; Save As into another folder asks to bring the
+        // script along and the answer copies it (the copy-along question on a
+        // user map); Test in game from there copies it beside the test map and
+        // the test game's own BK_MAP_TRACE report says it ran the script.
+        "341:do=script_file:none",
+        "342:expect=script_file:none",
+        b.fmt("343:do=script_choose:{s}", .{auto_m2_fixture}),
+        "344:expect=script_file:m2_script",
+        "344:expect=script_beside:m2_script",
+        "345:expect=undo_depth:23",
+        "346:save",
+        "348:shot=m2_final",
+        "348:compare=m2_final",
+        b.fmt("350:saveas={s}/m2_along.bzm", .{auto_m2_along_dir}),
+        "353:do=script_copy_along_yes",
+        "354:expect=script_beside:m2_script",
+        "354:expect=script_file:m2_script",
+        "355:test",
+        "356:waitgame=240",
+        "357:expect=test_game_script:m2_script",
+        "358:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));
     auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m2_entries) catch @panic("OOM"));
+    // 04-13: the test game's own schedule (a shot, then exit) and its
+    // BK_MAP_TRACE, which the test_game_script predicate reads.
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_GAME", "400:shot,440:exit");
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_GAME_TRACE", "1");
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     auto_m2_run.has_side_effects = true;
@@ -6456,6 +6518,14 @@ fn addMapEditor(
     // engines never start at once: this Zig has no ordering-only edge
     // (Build.Step has no mustRunAfter), so the M1 scenario runs first.
     auto_m2_run.step.dependOn(&cleanup_autoshots.step);
+    // 04-13: a script left beside m2.bzm or m2_along.bzm by an earlier run
+    // would turn Choose other into its Replace it? question and let the
+    // copy-along check pass on a stale file, so both go first.
+    for ([_][]const u8{ auto_m2_dir, auto_m2_along_dir }) |folder| {
+        const stale_scripts = b.addRunArtifact(delete_matching);
+        stale_scripts.addArgs(&.{ folder, "m2_script", ".lua" });
+        auto_m2_run.step.dependOn(&stale_scripts.step);
+    }
     const cleanup_autoshots_m2 = b.addRunArtifact(delete_matching);
     cleanup_autoshots_m2.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
     cleanup_autoshots_m2.step.dependOn(&auto_m2_run.step);

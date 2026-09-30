@@ -99,7 +99,7 @@ pub const entries = [_]Entry{
     // Markers says, so the tool never edits what it cannot see.
     .{
         .id = .script_areas,
-        .label = "script_areas",
+        .label = "Script Areas",
         .shortcut = '8',
         .marker_kinds = marker_logic.MarkerSet.only(&.{.script_areas}),
     },
@@ -110,7 +110,7 @@ pub const entries = [_]Entry{
     // markers are the red lines from the units to their targets.
     .{
         .id = .start_target,
-        .label = "start_target",
+        .label = "Start Target",
         .marker_kinds = marker_logic.MarkerSet.only(&.{.start_commands}),
     },
     // 04-11 (D-18): the MFC editor's artillery positions mode, also entered from Unit >
@@ -119,7 +119,7 @@ pub const entries = [_]Entry{
     // keys. No digit shortcut. Its markers are the gun-truck-place lines.
     .{
         .id = .reserve_positions,
-        .label = "reserve_positions",
+        .label = "Reserve Positions",
         .marker_kinds = marker_logic.MarkerSet.only(&.{.reserve_positions}),
     },
     // 04-12 (D-19): the MFC AI general tab. A click on open ground makes a defence
@@ -129,7 +129,7 @@ pub const entries = [_]Entry{
     // what it cannot see.
     .{
         .id = .ai_general,
-        .label = "ai_general",
+        .label = "AI General",
         .shortcut = '9',
         .marker_kinds = marker_logic.MarkerSet.only(&.{.parcels}),
     },
