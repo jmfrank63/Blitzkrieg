@@ -23,7 +23,14 @@ struct SAddObject
 	int nFrameIndex;										// left 0 for the bridge to pack, unless the caller knows better
 	float fHP;													// a fraction of the maximum; 1 is whole
 	int nScriptID;											// -1: none
-	SAddObject() : vPos( VNULL3 ), nDir( 0 ), nPlayer( 0 ), bScenario( false ), nLinkID( -1 ), nFrameIndex( 0 ), fHP( 1.0f ), nScriptID( -1 ) {  }
+	// What the object is linked with: -1, as before, for the spans, fences and
+	// trench pieces the group tools add; 0 - "nothing", SLinkInfo's own default
+	// and what the MFC editor wrote for an object it had not linked - for an
+	// object a person places. The game lands a reinforcement only when its
+	// nLinkWith is 0 (CScripts::LandSuspendedReiforcements), so a unit placed
+	// with -1 would wait in the queue for good.
+	int nLinkWith;
+	SAddObject() : vPos( VNULL3 ), nDir( 0 ), nPlayer( 0 ), bScenario( false ), nLinkID( -1 ), nFrameIndex( 0 ), fHP( 1.0f ), nScriptID( -1 ), nLinkWith( -1 ) {  }
 };
 struct SMoveObject
 {

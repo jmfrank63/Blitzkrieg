@@ -6395,6 +6395,9 @@ fn mapEditorModule(
     });
     // bridge.h, for c_bridge.zig's @cImport.
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // The M2 test script (04-10): game_reads_m2.zig embeds it, so the scenario
+    // needs no path to the source tree at run time.
+    module.addAnonymousImport("m2_script_lua", .{ .root_source_file = b.path("tools/zig/fixtures/m2_script.lua") });
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     // The engine's statics are built against the debug CRT in Debug, so the

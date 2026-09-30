@@ -252,6 +252,7 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->snapshot = read;
 	pSession->hiddenScriptIDs.clear();
 	pSession->hiddenLinkIDs.clear();
+	pSession->szScriptFileAtOpen = read.szScriptFile;
 	pSession->openedGroups.clear();
 	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
 		pSession->openedGroups[it->first] = it->second.ids;
@@ -782,6 +783,10 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	add.nFrameIndex = 0;
 	add.fHP = 1.0f;
 	add.nScriptID = -1;
+	// Linked with nothing, as the MFC editor wrote an object it had not linked: the
+	// game lands a reinforcement only when this is 0 (see SAddObject::nLinkWith),
+	// so a unit placed for a reinforcement group needs it.
+	add.nLinkWith = 0;
 	add.nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
 	int nLinkID = -1;
 	if ( !NMapOverlay::AddObject( &pSession->snapshot, add, &nLinkID ) )

@@ -147,6 +147,62 @@ bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnch
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// The script file (04-10, D-20).
+// ---------------------------------------------------------------------------
+
+bool ReadSessionScriptFile( SEditorSession *pSession, BkEditorScriptFileRecord *pOut, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	const std::string &rszName = pSession->snapshot.szScriptFile;
+	if ( rszName.size() >= sizeof pOut->name )
+	{
+		pSession->szMessage = "this map's script file name is longer than the editor edits";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	memset( pOut, 0, sizeof *pOut );
+	memcpy( pOut->name, rszName.c_str(), rszName.size() );
+	return true;
+}
+
+bool SetSessionScriptFile( SEditorSession *pSession, const char *pszName, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	const std::string szWanted( pszName );
+	// A name NEW to the map is None or a bare name; the value the file held is
+	// exempt however odd, so the undo of an edit can bring a verbatim path back
+	// (Pitfall 12). Only an empty or bare name can name a file beside the map:
+	// the copies made for it are built from a fixed directory plus that name.
+	if ( szWanted != pSession->szScriptFileAtOpen && !NMapRecords::IsBareScriptName( szWanted ) )
+	{
+		pSession->szMessage = "a script is named without folder or .lua";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	const std::string szCurrent = pSession->snapshot.szScriptFile;
+	// Both copies together, the engine untouched: the script loads only when a
+	// mission starts, which this headless session never does.
+	if ( !NMapRecords::PutScriptFile( &pSession->snapshot, szWanted ) )
+		return false;
+	if ( !NMapRecords::PutScriptFile( &pSession->working, szWanted ) )
+	{
+		NMapRecords::PutScriptFile( &pSession->snapshot, szCurrent );
+		return false;
+	}
+	return true;
+}
+
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ )
 {
 	if ( pSession == 0 || pfZ == 0 )

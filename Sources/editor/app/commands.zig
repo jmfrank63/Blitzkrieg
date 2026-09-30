@@ -49,6 +49,7 @@ pub const command_table = [_]Entry{
     .{ .name = "group_hide", .handler = groupHide },
     .{ .name = "group_select", .handler = groupSelect },
     .{ .name = "groups_window", .handler = groupsWindow },
+    .{ .name = "script_file", .handler = scriptFile },
 };
 
 pub const predicate_table = [_]Entry{
@@ -65,6 +66,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "group_has", .handler = groupHas },
     .{ .name = "groups_delta", .handler = groupsDelta },
     .{ .name = "hidden_count", .handler = hiddenCount },
+    .{ .name = "script_file", .handler = scriptFileIs },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -458,6 +460,42 @@ fn scriptIdIs(state: *State, arg: []const u8) Outcome {
     if (object.script_id == want) return .ok;
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "script_id is {d}, not {d}", .{ object.script_id, want }) catch "script_id differs");
+    return .refused;
+}
+
+/// The script file's name as the map holds it now (a fresh read), or null
+/// with no map open or for a value the editor cannot read. `buffer` holds it.
+pub fn readScriptFile(state: *State, buffer: *[records.script_file_capacity]u8) ?[]const u8 {
+    if (!panels.mapIsOpen(state.editor)) return null;
+    var value: records.Value = undefined;
+    if (state.editor.bridge.readRecord(.script_file, 0, state.allocator, &value) != .ok) return null;
+    defer value.deinit(state.allocator);
+    buffer.* = value.script_file.name;
+    return std.mem.sliceTo(buffer, 0);
+}
+
+/// Map -> Script: the map's script file becomes `name` (empty for None), one
+/// undo step (D-20). Public: the Script dialog calls it too.
+pub fn setScriptFile(state: *State, name: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.setScriptFile(name));
+}
+
+/// `do=script_file:<name>` (`none` for no script): the map's script file.
+fn scriptFile(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    return setScriptFile(state, if (std.mem.eql(u8, arg, "none")) "" else arg);
+}
+
+/// `expect=script_file:<name>` (`none` for no script): the map names it.
+fn scriptFileIs(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    const want = if (std.mem.eql(u8, arg, "none")) "" else arg;
+    var buffer: [records.script_file_capacity]u8 = undefined;
+    const have = readScriptFile(state, &buffer) orelse return .refused;
+    if (std.mem.eql(u8, have, want)) return .ok;
+    var note: [128]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&note, "the script file is \"{s}\", not \"{s}\"", .{ have, want }) catch "the script file differs");
     return .refused;
 }
 

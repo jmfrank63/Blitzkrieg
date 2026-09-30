@@ -628,6 +628,33 @@ pub const Editor = struct {
         try self.editRecord(.camera_anchors, 0, &value, 0);
     }
 
+    /// The map's script file name (D-20), copied into `out`: empty for None.
+    /// Refused for a value the record cannot hold (64 characters or more): the
+    /// map keeps it byte-exact and it is not editable here.
+    pub fn scriptFileName(self: *Editor, out: *[records.script_file_capacity]u8) EditError![]const u8 {
+        var value: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.script_file, 0, self.allocator, &value));
+        defer value.deinit(self.allocator);
+        out.* = value.script_file.name;
+        return std.mem.sliceTo(out, 0);
+    }
+
+    /// Map -> Script (D-20): the map's script file becomes `name`, a bare name
+    /// or empty for None, as one undo step. A name that carries a folder or
+    /// ".lua" is Refused by the bridge and changes nothing; the value a file
+    /// held when the map was opened is always accepted back, so the undo of
+    /// this edit can restore a verbatim path. An equal value records nothing.
+    pub fn setScriptFile(self: *Editor, name: []const u8) EditError!void {
+        if (name.len >= records.script_file_capacity) {
+            self.setStatus("script: ", "a script name is 63 characters at most");
+            return error.Refused;
+        }
+        var file: records.ScriptFile = .{};
+        file.setName(name);
+        const value: records.Value = .{ .script_file = file };
+        try self.editRecord(.script_file, 0, &value, 0);
+    }
+
     /// A record put in that was not there (D-02, 04-09): the kind from the
     /// value's tag, `key` its identity (a group ID). One undo step: undo
     /// removes the record, redo puts it back. The bridge refuses an insert
@@ -2032,6 +2059,72 @@ test "group: New, add and delete all undone leave the map as it opened" {
     try expectGroup(&fake, 0, &.{ 1, 2 });
     try std.testing.expect(fake.groupIDs(created) == null);
     try std.testing.expectEqual(@as(u32, 1), fake.groups.count());
+}
+
+test "script file: set, undo and redo are one step each, and an equal value records nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.setScriptFileFixture("coldwinter");
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var buffer: [records.script_file_capacity]u8 = undefined;
+    try std.testing.expectEqualStrings("coldwinter", try editor.scriptFileName(&buffer));
+    const generation = editor.record_generations.get(.script_file);
+    try editor.setScriptFile("m2_script");
+    try std.testing.expectEqualStrings("m2_script", try editor.scriptFileName(&buffer));
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.dirty());
+    try std.testing.expect(editor.record_generations.get(.script_file) != generation);
+    // The same value again records nothing.
+    try editor.setScriptFile("m2_script");
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // None is a value like any other.
+    try editor.setScriptFile("");
+    try std.testing.expectEqualStrings("", try editor.scriptFileName(&buffer));
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualStrings("m2_script", fake.script_file.nameSlice());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualStrings("coldwinter", fake.script_file.nameSlice());
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqualStrings("m2_script", fake.script_file.nameSlice());
+}
+
+test "script file: a name with a folder or .lua is Refused and changes nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.setScriptFileFixture("coldwinter");
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.script_file);
+    for ([_][]const u8{ "..\\x", "a/b", "x.lua", "..", "a b", "x" ** 64 }) |name| {
+        try std.testing.expectError(error.Refused, editor.setScriptFile(name));
+    }
+    try std.testing.expectEqualStrings("coldwinter", fake.script_file.nameSlice());
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation, editor.record_generations.get(.script_file));
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(editor.status().len != 0);
+}
+
+test "script file: a value read from the file is kept verbatim, and an undo puts it back" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.setScriptFileFixture("..\\odd name.lua");
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var buffer: [records.script_file_capacity]u8 = undefined;
+    try std.testing.expectEqualStrings("..\\odd name.lua", try editor.scriptFileName(&buffer));
+    try editor.setScriptFile("m2_script");
+    // Another odd name is a new value: refused. The file's own goes back.
+    try std.testing.expectError(error.Refused, editor.setScriptFile("..\\other.lua"));
+    try editor.setScriptFile("..\\odd name.lua");
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualStrings("..\\odd name.lua", fake.script_file.nameSlice());
+    try std.testing.expect(!editor.dirty());
 }
 
 test "record edits of one gesture are one undo step, and one that returns to its start leaves none" {

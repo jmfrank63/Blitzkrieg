@@ -13,6 +13,7 @@ pub const files = @import("files.zig");
 pub const settings = @import("settings.zig");
 pub const autosave = @import("autosave.zig");
 pub const shipped = @import("shipped.zig");
+pub const script_file = @import("script_file.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

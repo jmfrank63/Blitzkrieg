@@ -19,6 +19,8 @@ pub const Kind = enum {
     /// A reinforcement group (04-09, D-16): keyed by its group ID, holding the
     /// script IDs of the objects the game holds back for it.
     group,
+    /// The map's script file (04-10, D-20): one bare name, a singleton.
+    script_file,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -104,17 +106,44 @@ pub const Group = struct {
     }
 };
 
+/// BkEditorScriptFileRecord's name capacity: 63 characters and the NUL.
+pub const script_file_capacity = 64;
+
+/// The map's script file (D-20): the bare name of the Lua file beside the map,
+/// empty for None. A value read from a file is kept verbatim until the user
+/// changes it, so it may hold a folder or ".lua" - the bridge refuses such a
+/// value only when it is NEW.
+pub const ScriptFile = struct {
+    name: [script_file_capacity]u8 = [_]u8{0} ** script_file_capacity,
+
+    pub fn nameSlice(self: *const ScriptFile) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    /// Copies `text`, cut to what the record holds.
+    pub fn setName(self: *ScriptFile, text: []const u8) void {
+        const len = @min(text.len, script_file_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+
+    pub fn eql(a: ScriptFile, b: ScriptFile) bool {
+        return std.mem.eql(u8, std.mem.sliceTo(&a.name, 0), std.mem.sliceTo(&b.name, 0));
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
-/// frees them with `deinit`; the camera anchors own no memory, a group owns
-/// its script-ID list, and the three functions let the history free, copy and
-/// compare any value of any kind.
+/// frees them with `deinit`; the camera anchors and the script file own no
+/// memory, a group owns its script-ID list, and the three functions let the
+/// history free, copy and compare any value of any kind.
 pub const Value = union(Kind) {
     camera_anchors: CameraAnchors,
     group: Group,
+    script_file: ScriptFile,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .camera_anchors => {},
+            .camera_anchors, .script_file => {},
             .group => |group| {
                 allocator.free(group.ids);
                 self.* = .{ .group = .{ .id = group.id } };
@@ -125,6 +154,7 @@ pub const Value = union(Kind) {
     pub fn clone(self: Value, allocator: std.mem.Allocator) std.mem.Allocator.Error!Value {
         return switch (self) {
             .camera_anchors => |anchors| .{ .camera_anchors = anchors },
+            .script_file => |file| .{ .script_file = file },
             .group => |group| .{ .group = .{ .id = group.id, .ids = try allocator.dupe(i32, group.ids) } },
         };
     }
@@ -134,6 +164,7 @@ pub const Value = union(Kind) {
         return switch (a) {
             .camera_anchors => |left| left.eql(b.camera_anchors),
             .group => |left| left.eql(b.group),
+            .script_file => |left| left.eql(b.script_file),
         };
     }
 };
@@ -201,4 +232,24 @@ test "a group value owns, clones, compares and frees its script IDs" {
     try std.testing.expect(empty.eql(empty_copy));
     empty_copy.deinit(allocator);
     empty.deinit(allocator);
+}
+
+test "a script file value compares by its text and never by the padding" {
+    var first: ScriptFile = .{};
+    first.setName("m2_script");
+    var second: ScriptFile = .{};
+    second.setName("m2_script");
+    second.name[40] = 0; // padding past the NUL is not part of the value
+    try std.testing.expect(first.eql(second));
+    try std.testing.expectEqualStrings("m2_script", first.nameSlice());
+    second.setName("other");
+    try std.testing.expect(!first.eql(second));
+    var long: ScriptFile = .{};
+    long.setName("x" ** 100);
+    try std.testing.expectEqual(@as(usize, script_file_capacity - 1), long.nameSlice().len);
+    const a: Value = .{ .script_file = first };
+    var b = try a.clone(std.testing.allocator);
+    defer b.deinit(std.testing.allocator);
+    try std.testing.expect(a.eql(b));
+    try std.testing.expect(!a.eql(.{ .camera_anchors = .{} }));
 }

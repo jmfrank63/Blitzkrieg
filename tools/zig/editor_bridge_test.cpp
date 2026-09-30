@@ -570,6 +570,7 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	add.vPos = CVec3( 132.0f, 100.0f, 0.0f );
 	add.nDir = 1024;
 	add.nPlayer = 1;
+	add.nLinkWith = 0;		// a palette add is linked with nothing (see SAddObject::nLinkWith)
 	int nExpectedLinkID = -1;
 	NMapOverlay::AddObject( &expected, add, &nExpectedLinkID );
 	Check( nExpectedLinkID == nLinkID, "the two paths agree on the link ID" );
@@ -703,6 +704,7 @@ static void TestRefusedEditsReachNeither( BkEditorSession *pSession, const std::
 	add.vPos = CVec3( 132.0f, 100.0f, 0.0f );
 	add.nDir = 0;      // the refused turn left this alone
 	add.nPlayer = 0;   // and so did the refused change of hands
+	add.nLinkWith = 0; // a palette add is linked with nothing (see SAddObject::nLinkWith)
 	NMapOverlay::AddObject( &expected, add, 0 );
 	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
 		return;
@@ -761,6 +763,7 @@ static void TestPartlyRefusedEditRollsTheEngineBack( BkEditorSession *pSession, 
 	NMapOverlay::SAddObject add;
 	add.szName = "W_BigPoplar";
 	add.vPos = CVec3( 100.0f, 100.0f, 0.0f );
+	add.nLinkWith = 0;	// a palette add is linked with nothing (see SAddObject::nLinkWith)
 	NMapOverlay::AddObject( &expected, add, 0 );
 	if ( !Check( NMapFile::Read( szSaved.c_str(), &saved, &szError ), szError.c_str() ) )
 		return;
@@ -4390,6 +4393,156 @@ static void TestM2Groups( BkEditorSession *pSession, const std::string &szScratc
 	printf( "editor-bridge: M2 groups ok\n" );
 }
 
+// The script file of the bridge's map, or false with the status the read gave.
+static bool ReadScriptFileOf( BkEditorSession *pSession, std::string *pszName, BkEditorStatus *pStatus = 0 )
+{
+	BkEditorScriptFileRecord record;
+	memset( &record, 0x7f, sizeof record );
+	const BkEditorStatus status = BkEditorScriptFile( pSession, &record );
+	if ( pStatus != 0 )
+		*pStatus = status;
+	if ( status != BK_EDITOR_OK )
+		return false;
+	*pszName = record.name;
+	return true;
+}
+
+static BkEditorStatus PutScriptFileOf( BkEditorSession *pSession, const char *pszName )
+{
+	BkEditorScriptFileRecord record;
+	memset( &record, 0, sizeof record );
+	strncpy( record.name, pszName, sizeof record.name - 1 );
+	return BkEditorSetScriptFile( pSession, &record );
+}
+
+// D-20 on the real engine: the script file of the first shipped map (in sorted
+// path order) that names one reads as the file has it, verbatim (it may hold a
+// folder); "m2_script" is set, saves as the map the same NMapRecords call
+// builds and reads back; the file's own value - accepted although it is not a
+// bare name - puts back, and the bytes are the unedited save's. A scratch map
+// naming an odd script ("..\\odd name.lua") reads verbatim, takes a bare name
+// and puts the odd one back, but a different odd name is a new value and is
+// refused. "..\\x", "a/b", "x.lua" and an unterminated record are refused or
+// bad arguments and change nothing.
+static void TestM2ScriptFile( BkEditorSession *pSession, const std::string &szScratch )
+{
+	std::string szMap = SHIPPED_MAP;
+	{
+		const std::vector<std::string> paths = SortedShippedMaps();
+		for ( size_t p = 0; p < paths.size(); ++p )
+		{
+			CMapInfo probe;
+			std::string szProbeError;
+			if ( NMapFile::Read( paths[p].c_str(), &probe, &szProbeError ) && !probe.szScriptFile.empty() && probe.szScriptFile.size() < 64 )
+			{
+				szMap = paths[p];
+				break;
+			}
+		}
+	}
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szMap.c_str(), &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	printf( "editor-bridge: script file test on %s, which names \"%s\"\n", szMap.c_str(), original.szScriptFile.c_str() );
+	const std::string szUnedited = szScratch + "\\scriptfile-unedited.bzm";
+	const std::string szEdited = szScratch + "\\scriptfile-edited.bzm";
+	const std::string szUndone = szScratch + "\\scriptfile-undone.bzm";
+	const std::string szRefused = szScratch + "\\scriptfile-refused.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The read equals the file, verbatim.
+	std::string szRead;
+	Check( ReadScriptFileOf( pSession, &szRead ) && szRead == original.szScriptFile, "the script file reads as the file has it, verbatim" );
+	Check( BkEditorScriptFile( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
+
+	// m2_script is set, reads back and saves as the NMapRecords-built map.
+	if ( !Check( PutScriptFileOf( pSession, "m2_script" ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( ReadScriptFileOf( pSession, &szRead ) && szRead == "m2_script", "the set name reads back" );
+	CMapInfo expected = original;
+	Check( NMapRecords::PutScriptFile( &expected, "m2_script" ), "the expected map takes the script file" );
+	if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo saved;
+		if ( Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+			       szWhere.empty() ? "the saved map equals the expected map" : ( "the script file save differs at " + szWhere ).c_str() );
+			Check( saved.szScriptFile == "m2_script", "the saved file names m2_script" );
+		}
+	}
+	Check( PutScriptFileOf( pSession, "" ) == BK_EDITOR_OK && ReadScriptFileOf( pSession, &szRead ) && szRead.empty(), "None (empty) is accepted" );
+
+	// The file's own value goes back although it may not be a bare name, and the
+	// map is then the unedited one.
+	Check( PutScriptFileOf( pSession, original.szScriptFile.c_str() ) == BK_EDITOR_OK, "the value the file held puts back (an undo)" );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "a script file edit and its inverse save the unedited file byte for byte" );
+
+	// New values that name a path or carry the extension are refused and change nothing.
+	const char *const pszBad[] = { "..\\x", "a/b", "x.lua", "x.LUA", "..", ".hidden", "a b", "a:b", "dir\\name" };
+	for ( size_t i = 0; i < sizeof pszBad / sizeof pszBad[0]; ++i )
+	{
+		Check( PutScriptFileOf( pSession, pszBad[i] ) == BK_EDITOR_REFUSED, NStr::Format( "\"%s\" is refused", pszBad[i] ) );
+		if ( i == 0 )
+			Check( std::string( BkEditorLastMessage( pSession ) ).find( "without folder or .lua" ) != std::string::npos, "and the refusal says how a script is named" );
+	}
+	BkEditorScriptFileRecord unterminated;
+	memset( &unterminated, 'a', sizeof unterminated );
+	Check( BkEditorSetScriptFile( pSession, &unterminated ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated name is a bad argument" );
+	Check( BkEditorSetScriptFile( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a bad argument" );
+	Check( ReadScriptFileOf( pSession, &szRead ) && szRead == original.szScriptFile, "none of the refusals changed the script file" );
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "the refusals changed nothing: the map saves unedited byte for byte" );
+
+	// A file's own odd value: it opens, reads verbatim, takes a bare name and
+	// puts the odd value back - but another odd name is a new value.
+	{
+		const std::string szOdd = szScratch + "\\scriptfile-odd.bzm";
+		const char *const pszOddName = "..\\odd name.lua";
+		CMapInfo odd = original;
+		NMapRecords::PutScriptFile( &odd, pszOddName );
+		if ( Check( NMapFile::Write( szOdd.c_str(), odd, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szOdd.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			Check( ReadScriptFileOf( pSession, &szRead ) && szRead == pszOddName, "an odd script file reads as the file has it" );
+			Check( PutScriptFileOf( pSession, "m2_script" ) == BK_EDITOR_OK, "a bare name replaces an odd one" );
+			Check( PutScriptFileOf( pSession, pszOddName ) == BK_EDITOR_OK, "and the odd value goes back exactly, as an undo needs" );
+			Check( PutScriptFileOf( pSession, "..\\another odd.lua" ) == BK_EDITOR_REFUSED, "but another odd name is new and is refused" );
+			Check( ReadScriptFileOf( pSession, &szRead ) && szRead == pszOddName, "the refusal left the odd value as it was" );
+		}
+		remove( OsPath( szOdd ).c_str() );
+		// A value the record cannot hold reads as a refusal and stays editable
+		// only away from it: the file keeps it byte-exact.
+		const std::string szLong = szScratch + "\\scriptfile-long.bzm";
+		CMapInfo longName = original;
+		NMapRecords::PutScriptFile( &longName, std::string( 70, 'b' ) );
+		if ( Check( NMapFile::Write( szLong.c_str(), longName, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szLong.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			BkEditorStatus status = BK_EDITOR_OK;
+			Check( !ReadScriptFileOf( pSession, &szRead, &status ) && status == BK_EDITOR_REFUSED, "a script file name of 70 characters reads as a refusal" );
+			const std::string szLongSaved = szScratch + "\\scriptfile-long-saved.bzm";
+			CMapInfo savedLong;
+			if ( Check( BkEditorSaveMap( pSession, szLongSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szLongSaved.c_str(), &savedLong, &szError ), szError.c_str() ) )
+				Check( savedLong.szScriptFile == std::string( 70, 'b' ), "and saves byte-exact while nobody edits it" );
+			remove( OsPath( szLongSaved ).c_str() );
+		}
+		remove( OsPath( szLong ).c_str() );
+	}
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	printf( "editor-bridge: M2 script file ok\n" );
+}
+
 // D-16's Hide checked, on the real engine and the real pixels. One object a
 // click picks with the camera on it, given script ID 4243 and hidden by that
 // ID: the pixels of its screen box change (above 1 % of the box, against a
@@ -6860,6 +7013,7 @@ int main( int argc, char **argv )
 		TestM2CameraAnchors( pSession, szScratch );
 		TestM2ScriptIDs( pSession, szScratch );
 		TestM2Groups( pSession, szScratch );
+		TestM2ScriptFile( pSession, szScratch );
 		TestM2HideGroups( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );

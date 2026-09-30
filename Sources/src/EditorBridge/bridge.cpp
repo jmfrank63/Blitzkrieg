@@ -1978,6 +1978,44 @@ BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *pSession, int nLinkID
 	} );
 }
 
+BkEditorStatus BkEditorScriptFile( BkEditorSession *pSession, BkEditorScriptFileRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( ReadSessionScriptFile( pSession, pOut, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetScriptFile( BkEditorSession *pSession, const BkEditorScriptFileRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		// A name that is not terminated inside the record is a caller bug, not a
+		// refusal: there is no string to judge.
+		if ( pRecord == 0 || memchr( pRecord->name, 0, sizeof pRecord->name ) == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetSessionScriptFile( pSession, pRecord->name, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 namespace {
 // The most script IDs a caller may hand BkEditorSetGroup: one per script ID
 // there is, with room for a file's own duplicates. A larger count is a caller

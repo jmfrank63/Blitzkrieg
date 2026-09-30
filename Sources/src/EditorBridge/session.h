@@ -53,6 +53,11 @@ struct SEditorSession
 	// range), so an undo can put back what an edit took out; only what an edit
 	// ADDS is held to 0..32000, once.
 	std::unordered_map< int, std::vector<int> > openedGroups;
+	// The script file the map named when it was opened (04-10, D-20). A value
+	// read from a file is kept verbatim until the user changes it - it may be
+	// a path or carry ".lua" - so a put may always bring it back (an undo),
+	// while a value NEW to the map must be a bare name.
+	std::string szScriptFileAtOpen;
 	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
 	// and unique, and the link IDs of the objects-list entries they name that
 	// are hidden now (their visuals at opacity 0, and picking skips them). A
@@ -325,6 +330,11 @@ bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefus
 // readable-refused and setting is refused: the file keeps it byte-exact.
 bool ReadSessionCameraAnchors( SEditorSession *pSession, BkEditorCameraAnchorRecord *pOut, bool *pbRefused );
 bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnchorRecord &rAnchors, bool *pbRefused );
+// The script file name (04-10, D-20). The read is refused for a value the record
+// cannot hold (64 characters or more); the set accepts a bare name, None, or the
+// value the file held at open (szScriptFileAtOpen).
+bool ReadSessionScriptFile( SEditorSession *pSession, BkEditorScriptFileRecord *pOut, bool *pbRefused );
+bool SetSessionScriptFile( SEditorSession *pSession, const char *pszName, bool *pbRefused );
 // Reinforcement groups (04-09, D-16), through NMapRecords on both copies. The
 // two reads answer the total in *pnCount and return false when the buffer was
 // too short (nothing written past it); ReadSessionGroup also returns false

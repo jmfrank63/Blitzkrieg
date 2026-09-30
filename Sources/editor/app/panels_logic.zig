@@ -974,6 +974,30 @@ pub const FileActions = struct {
     }
 };
 
+/// Test in game (D-20): copies the map's script beside the test copy, where the
+/// game looks for it (`script_file.copyForTest`: overwriting there, never
+/// asking - the test folder is ours). `test_map_path` is what
+/// BkEditorTestMapPath answered. Null when there is nothing to say (no script,
+/// or it was copied); otherwise a warning for the status bar, formatted into
+/// `note` - a missing script is a warning, never an error, and the launch goes
+/// on. Reads the script's name straight from the bridge, so the status line the
+/// last edit left is not touched.
+pub fn copyScriptForTest(editor: *Editor, test_map_path: []const u8, note: []u8) ?[]const u8 {
+    const files = editor.files orelse return null;
+    var value: core.records.Value = undefined;
+    if (editor.bridge.readRecord(.script_file, 0, editor.allocator, &value) != .ok) return null;
+    defer value.deinit(editor.allocator);
+    const name = value.script_file.nameSlice();
+    if (name.len == 0) return null;
+    const test_dir = core.script_file.directoryOf(test_map_path);
+    return switch (core.script_file.copyForTest(files, editor.document.path.items, test_dir, name)) {
+        .copied => null,
+        .missing => std.fmt.bufPrint(note, "the script {s}.lua is not beside the map; the test game runs without it", .{name}) catch "the script is not beside the map",
+        .failed => std.fmt.bufPrint(note, "the script {s}.lua could not be copied for the test: {s}", .{ name, files.lastError() }) catch "the script could not be copied",
+        .not_a_bare_name => std.fmt.bufPrint(note, "the script name \"{s}\" is not a plain name, so it was not copied", .{name}) catch "the script was not copied",
+    };
+}
+
 /// How one Test-in-game launch ended (`TestLaunchPrompt.noteLaunch`).
 pub const LaunchAttempt = union(enum) {
     /// Failed before the game was asked to start: no test map path, the
@@ -984,6 +1008,10 @@ pub const LaunchAttempt = union(enum) {
     report_failure: []const u8,
     /// The game is running.
     started,
+    /// The game is running, and there is something to say about the launch that
+    /// is not a failure: the map's script was not beside the map to copy (04-10,
+    /// D-20). Shown on the status bar as a warning; nothing stops.
+    started_with_note: []const u8,
 };
 
 /// D-06's "Test while a test game still runs" prompt: idle until a request
@@ -1072,6 +1100,7 @@ pub const TestLaunchPrompt = struct {
                 self.reportFailure(message);
             },
             .started => status.clearFrom(.test_launch),
+            .started_with_note => |note| status.set(.test_launch, "test in game: ", note),
         }
     }
 
@@ -2191,6 +2220,48 @@ test "Test in game status: a failure is shown, and a later successful launch cle
     prompt.noteLaunch(.started, &status);
     try std.testing.expectEqualStrings("", status.line());
     try std.testing.expect(prompt.report() == null);
+}
+
+test "Test in game status: a launch with a note shows it as a warning, and the next clean launch clears it" {
+    var prompt: TestLaunchPrompt = .{};
+    var status: view_math.StatusSlot = .{};
+    prompt.noteLaunch(.{ .started_with_note = "the script m2_script.lua is not beside the map" }, &status);
+    try std.testing.expectEqualStrings("test in game: the script m2_script.lua is not beside the map", status.line());
+    try std.testing.expect(prompt.report() == null);
+    prompt.noteLaunch(.started, &status);
+    try std.testing.expectEqualStrings("", status.line());
+}
+
+test "copyScriptForTest: the script goes beside the test map, a missing one is a warning, no script says nothing" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var files = core.files.FakeFiles.init(std.testing.allocator);
+    defer files.deinit();
+    fake.setScriptFileFixture("m2_script");
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    editor.files = files.files();
+    try editor.open("maps\\mine\\a.bzm");
+    // The keys the copy uses, built the way it builds them.
+    var from_buffer: [128]u8 = undefined;
+    var to_buffer: [128]u8 = undefined;
+    const from_key = core.script_file.scriptPathBeside(&from_buffer, "maps\\mine\\a.bzm", "m2_script").?;
+    const to_key = core.script_file.scriptPathIn(&to_buffer, "gen\\maps", "m2_script").?;
+    const test_map = "gen\\maps\\mapeditor_test.bzm";
+    var note: [256]u8 = undefined;
+    // Nothing beside the map yet: a warning that names the script.
+    const missing = copyScriptForTest(&editor, test_map, &note) orelse return error.TestUnexpectedResult;
+    try std.testing.expect(std.mem.indexOf(u8, missing, "m2_script.lua") != null);
+    try std.testing.expect(files.contents(to_key) == null);
+    // With the file there it is copied and nothing is said.
+    try files.write(from_key, "function Init() end");
+    try std.testing.expect(copyScriptForTest(&editor, test_map, &note) == null);
+    try std.testing.expectEqualStrings("function Init() end", files.contents(to_key).?);
+    // None copies nothing.
+    try editor.setScriptFile("");
+    const ops = files.op_log.items.len;
+    try std.testing.expect(copyScriptForTest(&editor, test_map, &note) == null);
+    try std.testing.expectEqual(ops, files.op_log.items.len);
 }
 
 test "Test in game status: each pre-start failure replaces the last one's reason" {

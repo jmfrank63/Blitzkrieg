@@ -26,6 +26,11 @@ const testlaunch = @import("testlaunch.zig");
 
 const label = "game reads it M2";
 
+/// The M2 test script (tools/zig/fixtures/m2_script.lua), embedded through the
+/// build's anonymous import, and the bare name the map is given for it.
+const script_source = @embedFile("m2_script_lua");
+const script_name = "m2_script";
+
 /// One world tile in world (Vis) units: fWorldCellSize, 32 * sqrt(2)
 /// (Formats/fmtTerrain.h). The anchor must be at least this many tiles from
 /// where the baseline camera stood, so an anchor that was never read cannot
@@ -254,6 +259,45 @@ fn addHeldUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32) bool {
     return true;
 }
 
+/// 04-10 (D-20): the map names `m2_script` as its script, and the game finds the
+/// file where it looks - beside the test copy. The fixture is written beside a
+/// stand-in for the edited map (a folder of our own under zig-out/local-test:
+/// the shipped map's folder is never written) and `script_file.copyForTest`, the
+/// very call Test in game makes, copies it beside the test map. False after
+/// printing why.
+fn addScript(io: std.Io, editor: *core.editor.Editor, paths: *const common.TestPaths, log_path: []const u8) bool {
+    editor.setScriptFile(script_name) catch {
+        std.debug.print("map-editor: {s} FAIL: naming the script {s} was refused: {s}\n", .{ label, script_name, editor.status() });
+        return false;
+    };
+    const parent = std.fs.path.dirname(log_path) orelse ".";
+    var dir_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const scratch = std.fmt.bufPrint(&dir_buffer, "{s}{c}game-reads-it-m2-script", .{ parent, std.fs.path.sep }) catch {
+        std.debug.print("map-editor: {s} FAIL: the script folder's path is too long\n", .{label});
+        return false;
+    };
+    std.Io.Dir.cwd().createDirPath(io, scratch) catch |err| {
+        std.debug.print("map-editor: {s} FAIL: the folder {s} would not be made: {s}\n", .{ label, scratch, @errorName(err) });
+        return false;
+    };
+    var source_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const source = std.fmt.bufPrint(&source_buffer, "{s}{c}{s}.lua", .{ scratch, std.fs.path.sep, script_name }) catch return false;
+    std.Io.Dir.cwd().writeFile(io, .{ .sub_path = source, .data = script_source }) catch |err| {
+        std.debug.print("map-editor: {s} FAIL: the script {s} would not write: {s}\n", .{ label, source, @errorName(err) });
+        return false;
+    };
+    var stand_in_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const stand_in = std.fmt.bufPrint(&stand_in_buffer, "{s}{c}m2_edited.bzm", .{ scratch, std.fs.path.sep }) catch return false;
+    const files = editor.files orelse return false;
+    const outcome = core.script_file.copyForTest(files, stand_in, core.script_file.directoryOf(paths.test_path), script_name);
+    if (outcome != .copied) {
+        std.debug.print("map-editor: {s} FAIL: the script was not copied beside the test map {s}: {s}\n", .{ label, paths.test_path, @tagName(outcome) });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: the map names script {s}; {s} copied beside {s}\n", .{ label, script_name, source, paths.test_path });
+    return true;
+}
+
 /// The edited run's own screenshot dump (BK_AUTO_UI's shot, written in the
 /// game's directory and swept afterwards), copied beside the report as
 /// `<log>.edited.rgba`: 04-13 looks at it. Best effort: no shot is not a
@@ -379,6 +423,10 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     // reports how many it held per group, so `group id=900 held=1` is the proof.
     if (!addHeldUnit(gpa, &rig, anchor_at)) return false;
 
+    // 04-10 (D-20): the map's script, which lands group 900 and traces what the
+    // game holds.
+    if (!addScript(io, editor, &paths, log_path)) return false;
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -438,6 +486,39 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     }
     std.debug.print("map-editor: {s}: BK_MAP_TRACE group id={d} held={d}\n", .{ label, held_group, held_by_group.? });
 
+    // The game loaded and ran the script the map names (Scripts.cpp Load).
+    const script = edited_trace.script orelse {
+        std.debug.print("map-editor: {s} FAIL: the game printed no BK_MAP_TRACE script line; see {s}\n", .{ label, edited_log_path });
+        return false;
+    };
+    if (!std.mem.eql(u8, script.name.slice(), script_name) or !script.loaded or !script.init) {
+        std.debug.print("map-editor: {s} FAIL: the game's script is \"{s}\" loaded={} init={}, not {s} loaded and run; see {s}\n", .{ label, script.name.slice(), script.loaded, script.init, script_name, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE script name={s} loaded=1 init=1\n", .{ label, script.name.slice() });
+    // The first trace is Init's 1: the script ran. The rest are Report's counts of
+    // script group 4245, which LandReinforcement queued: 0 until the game lands
+    // the unit, then 1.
+    const lua = edited_trace.lua.slice();
+    if (lua.len < 2 or !std.mem.eql(u8, lua[0].slice(), "1")) {
+        std.debug.print("map-editor: {s} FAIL: the script's first trace is not \"1\" (lua lines seen {d}); see {s}\n", .{ label, edited_trace.lua.seen, edited_log_path });
+        return false;
+    }
+    var landed_at: ?usize = null;
+    for (lua[1..], 1..) |line, index| {
+        const count = std.fmt.parseInt(i32, line.slice(), 10) catch -1;
+        if (count > 1) {
+            std.debug.print("map-editor: {s} FAIL: the script counted {s} units in script group {d}, not at most 1; see {s}\n", .{ label, line.slice(), held_script_id, edited_log_path });
+            return false;
+        }
+        if (count == 1 and landed_at == null) landed_at = index;
+    }
+    const landed = landed_at orelse {
+        std.debug.print("map-editor: {s} FAIL: script group {d} never held the landed unit in {d} counts (lua lines seen {d}); see {s}\n", .{ label, held_script_id, lua.len - 1, edited_trace.lua.seen, edited_log_path });
+        return false;
+    };
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE lua: the script ran, and script group {d} held one unit from count {d} of {d} after LandReinforcement({d})\n", .{ label, held_script_id, landed, lua.len - 1, held_group });
+
     // Assumption A2, measured and printed, not asserted: the anchor's z as
     // the editor took it from the terrain against the z the game reports.
     std.debug.print("map-editor: {s}: anchor z {d:.1}, game camera z {d:.1}\n", .{ label, anchor_z, camera.z });
@@ -458,6 +539,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.? });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, script {s} ran)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, script_name });
     return true;
 }
