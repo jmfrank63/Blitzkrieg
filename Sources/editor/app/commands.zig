@@ -92,6 +92,13 @@ pub const command_table = [_]Entry{
     .{ .name = "ai_select", .handler = aiSelect },
     .{ .name = "ai_mobile_add", .handler = aiMobileAdd },
     .{ .name = "ai_mobile_remove", .handler = aiMobileRemove },
+    .{ .name = "heights_window", .handler = heightsWindow },
+    .{ .name = "heights_brush", .handler = heightsBrush },
+    .{ .name = "heights_speed", .handler = heightsSpeed },
+    .{ .name = "heights_ratio", .handler = heightsRatio },
+    .{ .name = "heights_mode", .handler = heightsMode },
+    .{ .name = "heights_generate", .handler = heightsGenerate },
+    .{ .name = "heights_set_zero", .handler = heightsSetZero },
 };
 
 pub const predicate_table = [_]Entry{
@@ -1578,4 +1585,79 @@ fn mobileHas(state: *State, arg: []const u8) Outcome {
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "side {d} has no mobile script ID {d}", .{ parsed.side, id }) catch "no such mobile ID");
     return .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Heights (M3, D-18): the Heights panel's fields and its two confirmed
+// actions, every one a named command so the panel's controls and a
+// BK_EDITOR_AUTO `do=` run the same code. The confirmations themselves are
+// the panel's popups (the MFC's own Yes/No); a script's `do=` IS the yes.
+// ---------------------------------------------------------------------------
+
+/// `do=heights_window:1|0` opens or closes the Heights window.
+fn heightsWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.heights_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.heights_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=heights_brush:NN` - the brush, 2..16, the MFC slider's own range.
+fn heightsBrush(state: *State, arg: []const u8) Outcome {
+    const brush = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (brush < 2 or brush > 16) return .bad_arg;
+    state.view.heights_tool.brush = brush;
+    return .ok;
+}
+
+/// `do=heights_speed:X` - the profile gradient's ceiling (world z units).
+/// The MFC keeps the old value when the typed one is not a positive number
+/// (TabTerrainAltitudesDialog.cpp:210-228); the command form is a bad_arg.
+fn heightsSpeed(state: *State, arg: []const u8) Outcome {
+    const speed = logic.parseHeightsFloat(arg) orelse return .bad_arg;
+    if (speed <= 0) return .bad_arg;
+    state.view.heights_tool.speed = speed;
+    return .ok;
+}
+
+/// `do=heights_ratio:X` - the level step in percent of the distance to the
+/// target; positive, like the MFC's own edit rule.
+fn heightsRatio(state: *State, arg: []const u8) Outcome {
+    const ratio = logic.parseHeightsFloat(arg) orelse return .bad_arg;
+    if (ratio <= 0) return .bad_arg;
+    state.view.heights_tool.ratio_percent = ratio;
+    return .ok;
+}
+
+/// `do=heights_mode:zero|click_tile|instant_average|click_average` - what a
+/// level stroke moves the terrain toward.
+fn heightsMode(state: *State, arg: []const u8) Outcome {
+    const mode = logic.heightsModeFromName(arg) orelse return .bad_arg;
+    state.view.heights_tool.level_mode = mode;
+    return .ok;
+}
+
+/// `do=heights_generate:hills|rocks|dunes:granularity:min_z:max_z` - the
+/// MFC's Generate over the whole map, one undo step. The type names are the
+/// dialog's own three (Hills TG_FBM, Rocks TG_HYBRID, Dunes TG_RIDGED); the
+/// z values are world units per vertex, exactly the MFC's fParameters.
+fn heightsGenerate(state: *State, arg: []const u8) Outcome {
+    var fields = std.mem.splitScalar(u8, arg, ':');
+    const type_name = fields.next() orelse return .bad_arg;
+    const gen_type = logic.heightsGenerateTypeFromName(type_name) orelse return .bad_arg;
+    const granularity = logic.parseHeightsFloat(fields.next() orelse return .bad_arg) orelse return .bad_arg;
+    const min_z = logic.parseHeightsFloat(fields.next() orelse return .bad_arg) orelse return .bad_arg;
+    const max_z = logic.parseHeightsFloat(fields.next() orelse return .bad_arg) orelse return .bad_arg;
+    if (granularity <= 0 or max_z <= min_z) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.generateHeights(gen_type, granularity, min_z, max_z));
+}
+
+/// `do=heights_set_zero` - every height to 0, one undo step.
+fn heightsSetZero(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.setZeroHeights());
 }

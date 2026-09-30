@@ -9,6 +9,12 @@ const Editor = editor_mod.Editor;
 const EditError = bridge_mod.EditError;
 const PaintCell = bridge_mod.PaintCell;
 
+/// The mouse buttons held as an event arrives, as the view reads them (its
+/// own down-tracking plus the motion's mask) - what a tool that changes
+/// behaviour mid-gesture when buttons combine needs. The Heights tool is the
+/// first: middle, or left and right together, level (DrawShadeState.cpp:217).
+pub const Buttons = struct { left: bool = false, right: bool = false, middle: bool = false };
+
 /// world_x/world_y are the scene's units, for the camera; map_x/map_y the
 /// same point in the map's, which is what an object's position is in. The
 /// two differ by sqrt 2 (bridge.h, BkEditorScreenToWorld): a placer handed
@@ -18,7 +24,7 @@ const PaintCell = bridge_mod.PaintCell;
 /// 100 pixels to 1.0.
 /// `ctrl` is the modifier as the view read it with the event (04-07): the
 /// Fence tool's flip of a single fence. It is a modifier, never a right click.
-pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null, screen_x: f32 = 0, screen_y: f32 = 0, ctrl: bool = false };
+pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null, screen_x: f32 = 0, screen_y: f32 = 0, ctrl: bool = false, buttons: Buttons = .{} };
 /// `enter`, `insert`, `escape` and `space` are the MFC editor's keys for
 /// finishing, toggling and cancelling a gesture (04-03, C13); the M1 tools
 /// ignore them.

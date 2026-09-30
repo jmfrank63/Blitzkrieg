@@ -20,6 +20,9 @@
 #include "../../Sources/src/Main/RPGStats.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
+#include "../../Sources/src/RandomMapGen/VA_Types.h"
+#include "../../Sources/src/RandomMapGen/TerrainGenerator.h"
+#include "../../Sources/src/RandomMapGen/PNoise.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
 #include "../../Sources/src/AILogic/AILogic.h"
 #include "../../Sources/src/AILogic/aiconsts.h"
@@ -2972,11 +2975,460 @@ static void TestM3NewMap( BkEditorSession *pSession, const std::string &szScratc
 			remove( szZeroSaved.c_str() );
 		}
 	}
-	remove( szNoAltitudes.c_str() );
-	remove( szSavedBzm.c_str() );
-	remove( szSavedXml.c_str() );
-	printf( "editor-bridge: M3 new map ok\n" );
+ 	remove( szNoAltitudes.c_str() );
+ 	remove( szSavedBzm.c_str() );
+ 	remove( szSavedXml.c_str() );
+ 	printf( "editor-bridge: M3 new map ok\n" );
+ }
+
+// The Heights machine (M3, D-18) end to end: raise, lower and level in all
+// four modes against the same-function expected map (the engine's own
+// gradient, pattern and shade functions on a fresh read - D-19's builder
+// rule), the invalid-height rollback (nothing changes unless Ctrl is held),
+// Generate for each of the MFC's three noise types, Set Zero, one token per
+// step with byte-exact undo, and the ABI's own refusals.
+//
+// The builder mirrors session_terrain.cpp's arithmetic exactly - the same
+// SVAGradient from editor\profile.tga, the same radial pattern, the same
+// corner arithmetic and the same click-mode freeze - so a difference is a
+// deviation, not a reimplementation.
+struct SStrokeBuilder
+{
+	// The stroke-start cache, exactly the session's own (frozen on the step
+	// that carries stroke_start).
+	float fClickTileHeight;
+	bool bClickTileValid;
+	float fClickAverage;
+
+	SStrokeBuilder() : fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverage( 0.0f ) { }
+
+	static float MaskAverageAt( const STerrainInfo &rTerrain, const SVAPattern &rMask, const CTPoint<int> &rCorner )
+	{
+		const CTRect<int> rBounds( 0, 0, rTerrain.altitudes.GetSizeX(), rTerrain.altitudes.GetSizeY() );
+		CTRect<int> rRect( rCorner.x, rCorner.y, rCorner.x + rMask.heights.GetSizeX(), rCorner.y + rMask.heights.GetSizeY() );
+		if ( ValidateIndices( rBounds, &rRect ) < 0 )
+			return 0.0f;
+		double fTotal = 0.0;
+		int nCount = 0;
+		for ( int nY = rRect.miny; nY < rRect.maxy; ++nY )
+			for ( int nX = rRect.minx; nX < rRect.maxx; ++nX )
+				if ( rMask.heights[nY - rCorner.y][nX - rCorner.x] != 0.0f )
+				{
+					fTotal += rTerrain.altitudes[nY][nX].fHeight;
+					++nCount;
+				}
+		return ( nCount != 0 ) ? float( fTotal / nCount ) : 0.0f;
+	}
+
+	// One stroke step onto `pMap` (already read fresh); false with the reason
+	// in rWhy when the pattern itself will not build (the image is missing).
+	bool Step( CMapInfo *pMap, const BkEditorHeightsStrokeParams &rStroke, SVAPattern *pPattern, SVAPattern *pMask, std::string *pWhy )
+	{
+		STerrainInfo &rTerrain = pMap->terrain;
+		CTPoint<int> tile;
+		if ( !CMapInfo::GetTerrainTileIndices( rTerrain, CVec3( rStroke.pos_x, rStroke.pos_y, 0 ), &tile ) )
+		{
+			*pWhy = "the cursor is not over the map";
+			return false;
+		}
+		const int nPatternSize = rStroke.brush * 2;
+		const CTPoint<int> corner( tile.x - ( nPatternSize / 2 - 1 ), tile.y - ( nPatternSize / 2 - 1 ) );
+		CTRect<int> rEdit( corner.x, corner.y, corner.x + nPatternSize, corner.y + nPatternSize );
+		const CTRect<int> rBounds( 0, 0, rTerrain.altitudes.GetSizeX(), rTerrain.altitudes.GetSizeY() );
+		if ( ValidateIndices( rBounds, &rEdit ) < 0 )
+		{
+			*pWhy = "the brush is not over the map";
+			return false;
+		}
+		if ( rStroke.stroke_start != 0 )
+		{
+			CTPoint<int> refTile;
+			if ( CMapInfo::GetTerrainTileIndices( rTerrain, CVec3( rStroke.click_x, rStroke.click_y, 0 ), &refTile ) )
+			{
+				bClickTileValid = true;
+				fClickTileHeight = ( rTerrain.altitudes[refTile.y + 0][refTile.x + 0].fHeight +
+				                      rTerrain.altitudes[refTile.y + 1][refTile.x + 0].fHeight +
+				                      rTerrain.altitudes[refTile.y + 1][refTile.x + 1].fHeight +
+				                      rTerrain.altitudes[refTile.y + 0][refTile.x + 1].fHeight ) / 4.0f;
+				fClickAverage = MaskAverageAt( rTerrain, *pMask, CTPoint<int>( refTile.x - ( nPatternSize / 2 - 1 ), refTile.y - ( nPatternSize / 2 - 1 ) ) );
+			}
+			else
+			{
+				bClickTileValid = false;
+				fClickTileHeight = 0.0f;
+				fClickAverage = 0.0f;
+			}
+		}
+		float fTarget = 0.0f;
+		if ( rStroke.action == 2 )
+		{
+			switch ( rStroke.level_mode )
+			{
+				case 1: fTarget = fClickTileHeight; break;
+				case 2: fTarget = MaskAverageAt( rTerrain, *pMask, corner ); break;
+				case 3: fTarget = fClickAverage; break;
+				default: fTarget = 0.0f; break;
+			}
+		}
+		const float fRatio = rStroke.level_ratio_percent / 100.0f;
+		const size_t nCount = size_t( rEdit.maxx - rEdit.minx ) * size_t( rEdit.maxy - rEdit.miny );
+		std::vector<SVertexAltitude> values( nCount );
+		size_t nValue = 0;
+		for ( int nY = rEdit.miny; nY < rEdit.maxy; ++nY )
+			for ( int nX = rEdit.minx; nX < rEdit.maxx; ++nX, ++nValue )
+			{
+				memcpy( &values[nValue], &rTerrain.altitudes[nY][nX], sizeof( SVertexAltitude ) );
+				const float fAt = rTerrain.altitudes[nY][nX].fHeight;
+				const float fPattern = pPattern->heights[nY - corner.y][nX - corner.x];
+				float fHeight = fAt;
+				if ( rStroke.action == 1 )
+					fHeight = fAt - fPattern;
+				else if ( rStroke.action == 2 )
+				{
+					if ( pMask->heights[nY - corner.y][nX - corner.x] != 0.0f )
+						fHeight = fAt + ( fTarget - fAt ) * fRatio;
+				}
+				else
+					fHeight = fAt + fPattern;
+				values[nValue].fHeight = fHeight;
+			}
+		const CTRect<int> rGrown = NMapOverlay::GrowForShades( *pMap, rEdit );
+		if ( !NMapOverlay::SetAltitudeRegion( pMap, rEdit, values, 0 ) ||
+		     !CMapInfo::UpdateTerrainShades( &rTerrain, rGrown,
+		       CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pMap->nSeason ) ) ) )
+		{
+			*pWhy = "the expected map would not take the stroke";
+			return false;
+		}
+		return true;
+	}
+};
+
+static void TestM3Heights( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) ) return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ) return;
+	const int nTilesX = original.terrain.tiles.GetSizeX();
+	const int nTilesY = original.terrain.tiles.GetSizeY();
+	// The world point over an interior tile, and the round trip that says the
+	// formula is the engine's own: a tile's centre in X from 0, in Y from the
+	// far edge and reversed (GetTileIndicesInternal's isYReverse,
+	// MapInfo_StaticMethods.cpp:63-66) - the view's own documented relationship.
+	const int nCentreTileX = nTilesX / 2, nCentreTileY = nTilesY / 2;
+	const float fCentreX = ( nCentreTileX + 0.5f ) * fWorldCellSize;
+	const float fCentreY = ( nTilesY - nCentreTileY - 0.5f ) * fWorldCellSize;
+	CTPoint<int> roundTrip;
+	Check( CMapInfo::GetTerrainTileIndices( original.terrain, CVec3( fCentreX, fCentreY, 0 ), &roundTrip ) &&
+	       roundTrip.x == nCentreTileX && roundTrip.y == nCentreTileY,
+	       "the world point over the centre tile round-trips through the engine's own conversion" );
+
+	const std::string szUnedited = szScratch + "\\m3-heights-unedited.bzm";
+	const std::string szEdited = szScratch + "\\m3-heights-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-heights-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The engine's own pattern, the same objects the session builds.
+	CPtr<IDataStream> pImageStream = GetSingleton<IDataStorage>()->OpenStream( "editor\\profile.tga", STREAM_ACCESS_READ );
+	if ( !Check( pImageStream != 0, "editor\\profile.tga is in the data storage" ) ) return;
+	CPtr<IImage> pImage = GetImageProcessor()->LoadImage( pImageStream );
+	if ( !Check( pImage != 0, "editor\\profile.tga decodes" ) ) return;
+	SVAGradient gradient;
+	SVAPattern pattern, mask;
+	gradient.CreateFromImage( pImage, CTPoint<float>( 0.0f, 1.0f ), CTPoint<float>( 0.0f, 2.0f ) );
+	Check( pattern.CreateFromGradient( gradient, 6 ) && mask.CreateValue( 1.0f, 6 ), "the profile pattern and level mask build (brush 3)" );
+
+	// One raise stroke of two steps: both tokens name edits of the log, the
+	// engine holds what the map holds, and the saved file equals the
+	// same-function expected map.
+	BkEditorHeightsStrokeParams stroke;
+	memset( &stroke, 0, sizeof stroke );
+	stroke.action = 0;
+	stroke.level_mode = 2;
+	stroke.brush = 3;
+	stroke.height_speed = 2.0f;
+	stroke.level_ratio_percent = 3.0f;
+	stroke.pos_x = fCentreX; stroke.pos_y = fCentreY;
+	stroke.click_x = fCentreX; stroke.click_y = fCentreY;
+	stroke.stroke_start = 1;
+	int nToken1 = -1, nToken2 = -1;
+	Check( BkEditorHeightsStroke( pSession, &stroke, &nToken1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( nToken1 >= 0, "the first step has a token" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	stroke.stroke_start = 0;
+	stroke.pos_x = fCentreX + fWorldCellSize; stroke.pos_y = fCentreY;
+	Check( BkEditorHeightsStroke( pSession, &stroke, &nToken2 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( nToken2 == nToken1 + 1, "the second step is the next edit of the log" );
+
+	{
+		CMapInfo expected;
+		szError.clear();
+		if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) ) return;
+		SStrokeBuilder builder;
+		std::string szWhy;
+		BkEditorHeightsStrokeParams step1 = stroke;
+		step1.pos_x = fCentreX; step1.pos_y = fCentreY; step1.stroke_start = 1;
+		if ( Check( builder.Step( &expected, step1, &pattern, &mask, &szWhy ) &&
+	             builder.Step( &expected, stroke, &pattern, &mask, &szWhy ), szWhy.c_str() ) )
+		{
+			CMapInfo reread;
+			std::string szWhere;
+			if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szEdited.c_str(), &reread, &szError ), szError.c_str() ) )
+				Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+				       szWhere.empty() ? "a raise stroke equals the same-function expected map"
+				                       : ( "the raise stroke differs at " + szWhere ).c_str() );
+		}
+	}
+	// Undo, newest first: the file it writes is the unedited save, byte for
+	// byte - the whole stroke, two tokens, leaves nothing behind.
+	Check( BkEditorUndoEdit( pSession, nToken2 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorUndoEdit( pSession, nToken1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
+		       "a raise stroke undone writes the unedited save byte for byte" );
+
+	// Lower, then level in each of the four modes, one stroke each, each
+	// against its expected map and each undone byte-exact.
+	for ( int nMode = -1; nMode < 4; ++nMode )
+	{
+		BkEditorHeightsStrokeParams one;
+		memset( &one, 0, sizeof one );
+		one.action = ( nMode == -1 ) ? 1 : 2;
+		one.level_mode = ( nMode == -1 ) ? 2 : nMode;
+		one.brush = 3;
+		one.height_speed = 1.0f;
+		one.level_ratio_percent = 50.0f;
+		// The click modes' reference: the centre tile; the instant and zero
+		// modes keep it anyway (the session takes the cache from whatever
+		// the reference was).
+		one.click_x = fCentreX; one.click_y = fCentreY;
+		one.pos_x = fCentreX; one.pos_y = fCentreY;
+		one.stroke_start = 1;
+		int nToken = -1;
+		const char *const szWhat = ( nMode == -1 ) ? "a lower stroke" :
+			( nMode == 0 ? "a level-to-zero stroke" :
+			  nMode == 1 ? "a level-to-click-tile stroke" :
+			  nMode == 2 ? "a level-to-instant-average stroke" : "a level-to-click-average stroke" );
+		Check( BkEditorHeightsStroke( pSession, &one, &nToken ) == BK_EDITOR_OK,
+		       ( std::string( szWhat ) + " applies: " + BkEditorLastMessage( pSession ) ).c_str() );
+		if ( nToken < 0 ) continue;
+		Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		{
+			CMapInfo expected;
+			szError.clear();
+			if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) ) return;
+			// The pattern carries the stroke's own speed (the gradient's
+			// ceiling is what the session keys its cache on).
+			SVAGradient oneGradient;
+			SVAPattern onePattern;
+			oneGradient.CreateFromImage( pImage, CTPoint<float>( 0.0f, 1.0f ), CTPoint<float>( 0.0f, one.height_speed ) );
+			Check( onePattern.CreateFromGradient( oneGradient, one.brush * 2 ), "the expected pattern builds" );
+			SStrokeBuilder builder;
+			std::string szWhy;
+			if ( Check( builder.Step( &expected, one, &onePattern, &mask, &szWhy ), szWhy.c_str() ) )
+			{
+				CMapInfo reread;
+				std::string szWhere;
+				if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+				     Check( NMapFile::Read( szEdited.c_str(), &reread, &szError ), szError.c_str() ) )
+					Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+					       ( std::string( szWhat ) + ( szWhere.empty() ? " equals the same-function expected map" : ( " differs at " + szWhere ).c_str() ) ).c_str() );
+			}
+		}
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
+			       ( std::string( szWhat ) + " undone writes the unedited save byte for byte" ).c_str() );
+	}
+
+	// The rollback: a speed that makes a cliff the IsValidHeight predicate
+	// refuses is REFUSED with the MFC's own words, and nothing changes -
+	// heights, engine, file. Ctrl keeps it (the MFC's MK_CONTROL override).
+	std::vector<float> beforeCentre( 16, 0.0f );
+	const BkEditorAltitudeRegion centreRegion = { nCentreTileX, nCentreTileY, nCentreTileX + 4, nCentreTileY + 4 };
+	int nCount = 0;
+	Check( BkEditorAltitudes( pSession, &centreRegion, &( beforeCentre[0] ), 16, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	BkEditorHeightsStrokeParams cliff;
+	memset( &cliff, 0, sizeof cliff );
+	cliff.action = 0;
+	cliff.brush = 3;
+	cliff.height_speed = 4000.0f;
+	cliff.pos_x = fCentreX; cliff.pos_y = fCentreY;
+	cliff.click_x = fCentreX; cliff.click_y = fCentreY;
+	cliff.stroke_start = 1;
+	int nCliffToken = -1;
+	Check( BkEditorHeightsStroke( pSession, &cliff, &nCliffToken ) == BK_EDITOR_REFUSED, "a cliff-making stroke is REFUSED" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "invalid height" ) != std::string::npos,
+	       "and the refusal says the MFC's own words" );
+	std::vector<float> afterRefused( 16, 0.0f );
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &centreRegion, &( afterRefused[0] ), 16, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	Check( std::equal( beforeCentre.begin(), beforeCentre.end(), afterRefused.begin() ),
+	       "the refused stroke changed nothing the read can see" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	cliff.ctrl_held = 1;
+	Check( BkEditorHeightsStroke( pSession, &cliff, &nCliffToken ) == BK_EDITOR_OK,
+	       ( std::string( "Ctrl keeps the cliff: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorUndoEdit( pSession, nCliffToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
+		       "the kept cliff undone writes the unedited save byte for byte" );
+
+	// Generate: each of the MFC's three types over the whole sheet, undone
+	// byte-exact. The types are the engine's own values (TG_FBM 0 Hills,
+	// TG_HYBRID 3 Rocks, TG_RIDGED 4 Dunes). The field itself is the
+	// engine's own seeded noise - NPerlinNoise::Init and the fractal
+	// exponents draw the global generator, whose state no two calls see
+	// alike - so the expected map here is STRUCTURAL, exactly the MFC
+	// formula's own promises (TabTerrainAltitudesDialog.cpp:337-346): every
+	// height lands in [min_z, max_z] * cell, the range's two ends are both
+	// attained (the formula maps H's own min and max onto them), and the
+	// shades are the engine's own recompute over the whole sheet (D-19's
+	// deterministic part). The undo proofs carry the preservation weight.
+	const int nGenTypes[3] = { 0, 3, 4 };
+	const char *const nGenNames[3] = { "Hills", "Rocks", "Dunes" };
+	for ( int nWhich = 0; nWhich < 3; ++nWhich )
+	{
+		int nToken = -1;
+		Check( BkEditorGenerateHeights( pSession, nGenTypes[nWhich], 0.3f, -3.0f, 3.0f, &nToken ) == BK_EDITOR_OK,
+		       ( std::string( nGenNames[nWhich] ) + " generates: " + BkEditorLastMessage( pSession ) ).c_str() );
+		if ( nToken < 0 ) continue;
+		Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		{
+			const BkEditorAltitudeRegion whole = { 0, 0, original.terrain.altitudes.GetSizeX(), original.terrain.altitudes.GetSizeY() };
+			const int nArea = ( whole.x1 - whole.x0 ) * ( whole.y1 - whole.y0 );
+			std::vector<float> generated( nArea, 0.0f );
+			int nRead = 0;
+			if ( Check( BkEditorAltitudes( pSession, &whole, &( generated[0] ), nArea, &nRead ) == BK_EDITOR_OK &&
+			     nRead == nArea, BkEditorLastMessage( pSession ) ) )
+			{
+				const float fLow = -3.0f * fWorldCellSize, fHigh = 3.0f * fWorldCellSize;
+				bool bInRange = true, bLowAttained = false, bHighAttained = false;
+				for ( int i = 0; i < nArea; ++i )
+				{
+					if ( generated[size_t( i )] < fLow || generated[size_t( i )] > fHigh )
+					{
+						bInRange = false;
+						break;
+					}
+					if ( generated[size_t( i )] == fLow ) bLowAttained = true;
+					if ( generated[size_t( i )] == fHigh ) bHighAttained = true;
+				}
+				Check( bInRange, ( std::string( nGenNames[nWhich] ) + " keeps every height inside [min_z, max_z] * cell" ).c_str() );
+				Check( bLowAttained && bHighAttained, ( std::string( nGenNames[nWhich] ) + " attains both ends of the MFC formula's range" ).c_str() );
+			}
+			// The shades: the same recompute over a fresh read, compared
+			// whole (AreEquivalent would fold a shade drift into the altitudes).
+			CMapInfo expected;
+			szError.clear();
+			if ( Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+			{
+				std::vector<SVertexAltitude> values( nArea );
+				for ( int nY = whole.y0; nY < whole.y1; ++nY )
+					for ( int nX = whole.x0; nX < whole.x1; ++nX )
+					{
+						const size_t nAt = size_t( nY - whole.y0 ) * size_t( whole.x1 - whole.x0 ) + size_t( nX - whole.x0 );
+						memcpy( &values[nAt], &expected.terrain.altitudes[nY][nX], sizeof( SVertexAltitude ) );
+						values[nAt].fHeight = generated[nAt];
+					}
+				Check( NMapOverlay::SetAltitudeRegion( &expected, CTRect<int>( whole.x0, whole.y0, whole.x1, whole.y1 ), values, 0 ) &&
+				       CMapInfo::UpdateTerrainShades( &expected.terrain, CTRect<int>( whole.x0, whole.y0, whole.x1, whole.y1 ),
+				         CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( expected.nSeason ) ) ),
+				       ( std::string( nGenNames[nWhich] ) + ": the expected map builds" ).c_str() );
+				CMapInfo reread;
+				std::string szWhere;
+				if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+				     Check( NMapFile::Read( szEdited.c_str(), &reread, &szError ), szError.c_str() ) )
+					Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+					       ( std::string( nGenNames[nWhich] ) + ( szWhere.empty() ? " equals the same-shades expected map" : ( " differs at " + szWhere ).c_str() ) ).c_str() );
+			}
+		}
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
+			       ( std::string( nGenNames[nWhich] ) + " undone writes the unedited save byte for byte" ).c_str() );
+	}
+
+	// Set Zero: every height 0 with the shades recomputed, undone byte-exact.
+	{
+		int nToken = -1;
+		Check( BkEditorSetZeroHeights( pSession, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		if ( nToken >= 0 )
+		{
+			Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			CMapInfo expected;
+			szError.clear();
+			if ( Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+			{
+				const int nSizeX = expected.terrain.altitudes.GetSizeX(), nSizeY = expected.terrain.altitudes.GetSizeY();
+				std::vector<SVertexAltitude> values( size_t( nSizeX ) * size_t( nSizeY ) );
+				for ( int nY = 0; nY < nSizeY; ++nY )
+					for ( int nX = 0; nX < nSizeX; ++nX )
+					{
+						const size_t nAt = size_t( nY ) * size_t( nSizeX ) + size_t( nX );
+						memcpy( &values[nAt], &expected.terrain.altitudes[nY][nX], sizeof( SVertexAltitude ) );
+						values[nAt].fHeight = 0.0f;
+					}
+				Check( NMapOverlay::SetAltitudeRegion( &expected, CTRect<int>( 0, 0, nSizeX, nSizeY ), values, 0 ) &&
+				       CMapInfo::UpdateTerrainShades( &expected.terrain, CTRect<int>( 0, 0, nSizeX, nSizeY ),
+				         CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( expected.nSeason ) ) ),
+				       "the expected zero map builds" );
+				CMapInfo reread;
+				std::string szWhere;
+				if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+				     Check( NMapFile::Read( szEdited.c_str(), &reread, &szError ), szError.c_str() ) )
+					Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+					       szWhere.empty() ? "set zero equals the same-function expected map" : ( "set zero differs at " + szWhere ).c_str() );
+			}
+			Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( BridgeFilesAreIdentical( szUnedited.c_str(), szUndone.c_str() ),
+				       "set zero undone writes the unedited save byte for byte" );
+		}
+	}
+
+	// The ABI's own refusals: caller bugs are BAD_ARGUMENT (brush, a
+	// non-finite float, a hidden generator type, a bad granularity), the
+	// cursor off the map is REFUSED - each leaving the heights exactly as
+	// they were (the session was undone back to the unedited state above).
+	std::vector<float> beforeRefusals( 16, 0.0f );
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &centreRegion, &( beforeRefusals[0] ), 16, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	BkEditorHeightsStrokeParams bad = stroke;
+	bad.brush = 1;
+	Check( BkEditorHeightsStroke( pSession, &bad, 0 ) == BK_EDITOR_BAD_ARGUMENT, "brush 1 is BAD_ARGUMENT" );
+	bad.brush = 17;
+	Check( BkEditorHeightsStroke( pSession, &bad, 0 ) == BK_EDITOR_BAD_ARGUMENT, "brush 17 is BAD_ARGUMENT" );
+	bad = stroke;
+	bad.height_speed = std::numeric_limits<float>::quiet_NaN();
+	Check( BkEditorHeightsStroke( pSession, &bad, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a non-finite speed is BAD_ARGUMENT" );
+	bad = stroke;
+	bad.pos_x = -100000.0f; bad.pos_y = -100000.0f;
+	Check( BkEditorHeightsStroke( pSession, &bad, 0 ) == BK_EDITOR_REFUSED, "a cursor off the map is REFUSED" );
+	int nGenToken = -1;
+	Check( BkEditorGenerateHeights( pSession, 1, 0.3f, -3.0f, 3.0f, &nGenToken ) == BK_EDITOR_BAD_ARGUMENT,
+	       "the hidden MULTI radio is not a generator" );
+	Check( BkEditorGenerateHeights( pSession, 0, 0.0f, -3.0f, 3.0f, &nGenToken ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a zero granularity is BAD_ARGUMENT" );
+	std::vector<float> afterRefusals( 16, 0.0f );
+	nCount = 0;
+	Check( BkEditorAltitudes( pSession, &centreRegion, &( afterRefusals[0] ), 16, &nCount ) == BK_EDITOR_OK,
+	       BkEditorLastMessage( pSession ) );
+	Check( std::equal( beforeRefusals.begin(), beforeRefusals.end(), afterRefusals.begin() ),
+	       "and the refusals changed nothing the read can see" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	remove( szEdited.c_str() );
+	remove( szUndone.c_str() );
+	remove( szUnedited.c_str() );
+	printf( "editor-bridge: M3 heights ok\n" );
 }
+
 
 // A tile the map's tileset has no terrain type for is the caller's mistake:
 // BK_EDITOR_BAD_ARGUMENT, naming the tile, and nothing painted - not even the
@@ -9230,6 +9682,7 @@ int main( int argc, char **argv )
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestM3Altitudes( pSession, szScratch );
 		TestM3NewMap( pSession, szScratch );
+		TestM3Heights( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

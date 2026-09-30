@@ -317,7 +317,63 @@ typedef struct
    unsaved-changes question is the caller's (the MFC editor's NeedSaveChanges
    ran before its dialog); this entry builds, it does not ask. */
 BkEditorStatus BkEditorNewMap( BkEditorSession *session, const BkEditorNewMapParams *params,
-                               BkEditorMapSummary *out );
+                                BkEditorMapSummary *out );
+
+/* The Heights tool (M3, D-18): one stroke step - the DrawShadeState machine
+   (DrawShadeState.cpp:186-336) riding the D-19 altitude region primitive.
+   A stroke is a series of steps sharing click_x/click_y; stroke_start marks
+   the first, which is where the session takes the click modes' frozen
+   targets. Every step is one edit of the log (BkEditorUndoEdit/RedoEdit);
+   the core merges a gesture's steps into one undo step. */
+/* action: 0 raise, 1 lower, 2 level. level_mode: 0 zero, 1 click tile,
+   2 instant average (the MFC's own default, LEVEL_TO_2), 3 click average.
+   brush is the MFC slider's own 2..16; the pattern the bridge scales from
+   editor\profile.tga spans brush*2 vertices per axis, its corner above-left
+   of the cursor's tile by the MFC's own arithmetic. height_speed is the
+   profile gradient's ceiling, WORLD z units; level_ratio_percent the level
+   step, percent of the distance to the mode's target. pos_x/pos_y are the
+   cursor now and click_x/click_y the stroke's start, both WORLD (Vis) units;
+   ctrl_held keeps a height the IsValidHeight predicate refuses, the MFC's
+   MK_CONTROL override. */
+typedef struct
+{
+	int action;
+	int level_mode;
+	int brush;
+	float height_speed;
+	float level_ratio_percent;
+	float pos_x, pos_y;
+	float click_x, click_y;
+	int stroke_start;
+	int ctrl_held;
+} BkEditorHeightsStrokeParams;
+/* A null params or a brush outside 2..16 is BK_EDITOR_BAD_ARGUMENT; a cursor
+   off the map, a click-tile stroke whose reference left the map, and the
+   invalid-height rollback (the pattern subtracted back unless ctrl_held,
+   exactly DrawShadeState.cpp:261) are BK_EDITOR_REFUSED with the reason in
+   BkEditorLastMessage - a refused step changes nothing: not the map, not the
+   engine, not the history. out_token may be null; it is -1 after a refusal
+   or a failure. */
+BkEditorStatus BkEditorHeightsStroke( BkEditorSession *session, const BkEditorHeightsStrokeParams *params,
+                                      int *out_token );
+
+/* Generate heights (M3, D-18, the MFC's Hills/Rocks/Dunes): the engine's own
+   noise - NPerlinNoise::Init, a CHField of the altitudes' own size,
+   fBmDefVals[type] with featSize = granularity - with every altitude scaled
+   into [min_z, max_z] by the MFC's formula (TabTerrainAltitudesDialog.cpp:330-346).
+   type: 0 TG_FBM (Hills), 3 TG_HYBRID (Rocks), 4 TG_RIDGED (Dunes) - the
+   hidden MULTI/HETERO radios are not features. The confirmation is the
+   caller's. One edit of the log over the whole vertex sheet. min_z and max_z
+   are WORLD z units per vertex (the MFC's fParameters[2]/[3]). A type outside
+   the three, a non-finite float or a granularity <= 0 is BK_EDITOR_BAD_ARGUMENT;
+   no map open is BK_EDITOR_REFUSED; out_token as BkEditorHeightsStroke's. */
+BkEditorStatus BkEditorGenerateHeights( BkEditorSession *session, int type, float granularity,
+                                        float min_z, float max_z, int *out_token );
+
+/* Set Zero (M3, D-18): every height to 0 with the shades recomputed, one edit
+   of the log over the whole vertex sheet. The confirmation is the caller's.
+   BK_EDITOR_REFUSED when no map is open; out_token as BkEditorHeightsStroke's. */
+BkEditorStatus BkEditorSetZeroHeights( BkEditorSession *session, int *out_token );
 
 /* The tiles BkEditorPaint takes on the open map: every index its tileset has a
    terrain type for, once each, ascending - what a brush's palette offers.

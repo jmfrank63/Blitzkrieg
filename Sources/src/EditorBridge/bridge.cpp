@@ -16,6 +16,7 @@
 #include "../Scene/SceneScreenScale.h"
 #include "../Scene/Terrain.h"
 #include "../Formats/fmtTerrain.h"
+#include "../RandomMapGen/TerrainGenerator.h"
 #include "../Image/Image.h"
 #include "../Platform/Paths.h"
 #include "../StreamIO/RandomGen.h"
@@ -973,7 +974,82 @@ BkEditorStatus BkEditorNewMap( BkEditorSession *pSession, const BkEditorNewMapPa
 	} );
 }
 
+BkEditorStatus BkEditorHeightsStroke( BkEditorSession *pSession, const BkEditorHeightsStrokeParams *pParams, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pParams == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( pParams->action < 0 || pParams->action > 2 || pParams->level_mode < 0 || pParams->level_mode > 3 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( pParams->brush < 2 || pParams->brush > 16 )
+		{
+			pSession->szMessage = "the heights brush is 2..16";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		if ( !std::isfinite( pParams->height_speed ) || !std::isfinite( pParams->level_ratio_percent ) ||
+		     !std::isfinite( pParams->pos_x ) || !std::isfinite( pParams->pos_y ) ||
+		     !std::isfinite( pParams->click_x ) || !std::isfinite( pParams->click_y ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		SHeightsStroke stroke;
+		stroke.nAction = pParams->action;
+		stroke.nLevelMode = pParams->level_mode;
+		stroke.nBrush = pParams->brush;
+		stroke.fHeightSpeed = pParams->height_speed;
+		stroke.fLevelRatioPercent = pParams->level_ratio_percent;
+		stroke.vPos = CVec3( pParams->pos_x, pParams->pos_y, 0 );
+		stroke.vClickRef = CVec3( pParams->click_x, pParams->click_y, 0 );
+		stroke.bStrokeStart = pParams->stroke_start;
+		stroke.bCtrlHeld = pParams->ctrl_held;
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !ApplyHeightsStrokeInSession( pSession, stroke, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
 
+BkEditorStatus BkEditorGenerateHeights( BkEditorSession *pSession, int nType, float fGranularity, float fMinZ, float fMaxZ, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		// The MFC dialog's three names (TabTerrainAltitudesDialog.cpp:250-278);
+		// the hidden MULTI/HETERO radios are not features (editor.rc:503-507).
+		if ( nType != TG_FBM && nType != TG_HYBRID && nType != TG_RIDGED )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !std::isfinite( fGranularity ) || !std::isfinite( fMinZ ) || !std::isfinite( fMaxZ ) || fGranularity <= 0.0f )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !GenerateHeightsInSession( pSession, nType, fGranularity, fMinZ, fMaxZ, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSetZeroHeights( BkEditorSession *pSession, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !SetZeroHeightsInSession( pSession, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )

@@ -293,6 +293,20 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 		                                              pSession->snapshot.terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
 		pSession->snapshot.terrain.altitudes.SetZero();
 	}
+	// 05-02 (Rule 1): the snapshot is a COPY of the read, and the copy's
+	// SVertexAltitude padding bytes are whatever the heap held there - a
+	// save wrote them, so every byte-for-byte proof of an altitude edit
+	// since 05-01 rode on heap luck. Pin them to what a fresh read holds -
+	// the file's own padding - by zeroing the three pad bytes of every
+	// vertex once, here, at install: capture, restore and save all agree
+	// from then on, whatever the allocator did. (SetZero already zeroed the
+	// F5 sheet's records whole, so this is a no-op there.)
+	{
+		STerrainInfo::TVertexAltitudeArray2D &rSheet = pSession->snapshot.terrain.altitudes;
+		for ( int nY = 0; nY < rSheet.GetSizeY(); ++nY )
+			for ( int nX = 0; nX < rSheet.GetSizeX(); ++nX )
+				memset( &rSheet[nY][nX].shade + 1, 0, sizeof( SVertexAltitude ) - 5 );
+	}
 	pSession->hiddenScriptIDs.clear();
 	pSession->hiddenLinkIDs.clear();
 	pSession->szScriptFileAtOpen = read.szScriptFile;
@@ -1624,38 +1638,37 @@ CTRect<int> VertexPatches( const STerrainInfo &rTerrain, const CTRect<int> &rVer
 	                    Min( ( rVertices.maxx - 1 ) / STerrainPatchInfo::nSizeX + 1, rTerrain.patches.GetSizeX() ),
 	                    Min( ( rVertices.maxy - 1 ) / STerrainPatchInfo::nSizeY + 1, rTerrain.patches.GetSizeY() ) );
 }
+}
 
 // The engine's own terrain over the region, written raw in place - the MFC
 // editor's own route, through GetTerrainInfo's const_cast
 // (DrawShadeState.cpp:204), because ITerrainEditor has a per-vertex shade
 // call but no per-vertex height one - and the covering patches redrawn, as
-// the MFC's pTerrainEditor->Update did after a shade change.
+// the MFC's pTerrainEditor->Update did after a shade change. Declared in
+// session.h since 05-02: the heights machine in session_terrain.cpp pushes
+// the same way.
 void PutEngineAltitudes( ITerrainEditor *pEngineTerrain, const NMapOverlay::SAltitudeUndo &rRegion )
 {
 	STerrainInfo &rEngine = const_cast<STerrainInfo&>( pEngineTerrain->GetTerrainInfo() );
 	NMapOverlay::UndoTerrainAltitudeRegion( &rEngine, rRegion );
 	pEngineTerrain->Update( InclusivePatches( VertexPatches( rEngine, rRegion.rVertices ) ) );
 }
-}
 
 // One altitude region edit of the log: the grown region before and after,
 // put back raw into both copies and the engine - heights, shades and padding
-// bytes, never recomputed (D-03's rule, SPaintUndo's own).
+// bytes, never recomputed (D-03's rule, SPaintUndo's own). The record type
+// itself and PutEngineAltitudes live in session.h/session_terrain.cpp's
+// world since M3's heights machine (05-02) logs the same edit.
 bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion );
 
-struct SAltitudeEdit : public IEditRecord
+bool SAltitudeEdit::Revert( SEditorSession *pSession )
 {
-	NMapOverlay::SAltitudeUndo before, after;
-
-	virtual bool Revert( SEditorSession *pSession )
-	{
-		return PutAltitudeEditBack( pSession, before );
-	}
-	virtual bool Reapply( SEditorSession *pSession )
-	{
-		return PutAltitudeEditBack( pSession, after );
-	}
-};
+	return PutAltitudeEditBack( pSession, before );
+}
+bool SAltitudeEdit::Reapply( SEditorSession *pSession )
+{
+	return PutAltitudeEditBack( pSession, after );
+}
 
 bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion )
 {
@@ -1668,6 +1681,13 @@ bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitude
 	NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, rRegion );
 	NMapOverlay::UndoAltitudeRegion( &pSession->working, rRegion );
 	PutEngineAltitudes( pEngineTerrain, rRegion );
+	// When Instant Update is on, the stroke this record came from moved the
+	// roads', rivers' and sounds' z with the terrain (05-02, D-20). The z is
+	// a pure function of the altitudes, so putting the altitudes back and
+	// re-deriving it lands on exactly the bytes the stroke found - the
+	// Update Map composite's undo and redo ride the same rule.
+	if ( pSession->bInstantUpdate )
+		UpdateObjectsZInSession( pSession );
 	return true;
 }
 

@@ -2,6 +2,7 @@
 #define __MAP_OVERLAY_H__
 #include <string>
 #include <vector>
+#include <cstring>
 #include "../Formats/fmtMap.h"
 struct SLoadMapInfo;
 namespace NMapOverlay
@@ -158,6 +159,35 @@ struct SAltitudeUndo
 	CTRect<int> rVertices;								// the region, in terrain-vertex coordinates
 	std::vector<SVertexAltitude> altitudes;	// row-major over rVertices
 	SAltitudeUndo() : rVertices( 0, 0, 0, 0 ) {  }
+
+	// 05-02 (Rule 1): the implicit copy was element-wise, and an element-wise
+	// assignment of SVertexAltitude copies the height and the shade but NOT
+	// the three padding bytes - a copied record carried whatever the heap
+	// held there, and an undo that restored it wrote padding the map never
+	// had (only visible once the session's own padding was pinned at install,
+	// 05-02's other half; before that both sides rode the same heap luck).
+	// Every copy of a record is a memcpy, the struct's own rule.
+	SAltitudeUndo( const SAltitudeUndo &rOther ) : rVertices( rOther.rVertices )
+	{
+		CopyRaw( rOther );
+	}
+	SAltitudeUndo& operator=( const SAltitudeUndo &rOther )
+	{
+		if ( this != &rOther )
+		{
+			rVertices = rOther.rVertices;
+			CopyRaw( rOther );
+		}
+		return *this;
+	}
+
+private:
+	void CopyRaw( const SAltitudeUndo &rOther )
+	{
+		altitudes.resize( rOther.altitudes.size() );
+		if ( !rOther.altitudes.empty() )
+			memcpy( &( altitudes[0] ), &( rOther.altitudes[0] ), rOther.altitudes.size() * sizeof( SVertexAltitude ) );
+	}
 };
 
 // The shade kernel: a height edit changes every vertex whose normal reads it,

@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include "../RandomMapGen/MapInfo_Types.h"
+#include "../RandomMapGen/VA_Types.h"
 #include "../MapFile/MapOverlay.h"
 #include "../MapFile/MapGeometry.h"
 #include "bridge.h"
@@ -160,7 +161,28 @@ struct SEditorSession
 	// the alphabetically first squad name wins.
 	std::unordered_map<std::string, std::string> squadIconOwnerBySoldier;
 	bool bSquadIconOwnerMapBuilt;
-	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ) {  }
+	// M3 heights (D-18): the profile pattern and the level mask the stroke
+	// machine applies, rebuilt only when the brush or the speed moves, and
+	// the stroke-start cache (the click modes' frozen targets, taken on the
+	// step that carries bStrokeStart). VNULL3 in vClickRefStroke means no
+	// stroke is open.
+	int nHeightsBrush;
+	float fHeightsSpeed;
+	SVAPattern heightsPattern;
+	SVAPattern heightsLevelMask;
+	bool bHeightsPatternValid;
+	CVec3 vClickRefStroke;
+	float fClickTileHeight;
+	bool bClickTileValid;
+	float fClickAverageHeight;
+	// The terrain-mode toggles (M3, D-20): Instant Update off by default,
+	// Fit To Grid ON by default, exactly the MFC's own initial states
+	// (TemplateEditorFrame1.cpp:5249/5287).
+	bool bInstantUpdate;
+	bool bFitToGrid;
+	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ),
+									 nHeightsBrush( 0 ), fHeightsSpeed( 0.0f ), bHeightsPatternValid( false ), vClickRefStroke( VNULL3 ), fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverageHeight( 0.0f ),
+									 bInstantUpdate( false ), bFitToGrid( true ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws
@@ -456,6 +478,14 @@ bool IsHiddenLink( const SEditorSession &rSession, int nLinkID );
 // working copy's altitudes. False with the reason in szMessage off the map.
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ );
 
+// The terrain-mode toggles (M3, D-20): Instant Update Map Mode runs the
+// objects-Z refresh over every height stroke's rectangle (the MFC's
+// m_bNeedUpdateUnitHeights, TemplateEditorFrame1.cpp:5249), Fit Objects To
+// Grid snaps non-unit objects on place and move (m_ifFitToAI,
+// TemplateEditorFrame1.cpp:5287, default on like the MFC's). Set through
+// BkEditorSetTerrainModes; the session reads them, nothing derives them.
+bool SetTerrainModesInSession( SEditorSession *pSession, int bInstantUpdate, int bFitToGrid );
+
 // Altitudes (M3, D-19). rHeights are the z values (world units) to write over
 // the edit rectangle, in terrain-VERTEX coordinates, row-major; the shade of
 // every vertex is the session's own business, exactly D-19's function: set
@@ -473,6 +503,79 @@ bool ApplyAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVert
 // (which is sized to the rectangle by the caller). False with the reason in
 // szMessage when the region is off the map.
 bool ReadAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices, std::vector<float> *pHeights );
+
+// One step of one Heights-tool stroke (M3, D-18), the DrawShadeState machine
+// (DrawShadeState.cpp:186-336) with the MFC taken out. A stroke is a series
+// of these - one per mouse move - that share vClickRef and the stroke-start
+// cache; each step is one edit of the log, so the core's gesture merging
+// makes one drag one undo step.
+struct SHeightsStroke
+{
+	int nAction;			// 0 raise, 1 lower, 2 level
+	int nLevelMode;		// 0 zero, 1 click tile, 2 instant average (the MFC default), 3 click average
+	int nBrush;				// 2..16, the MFC slider's own value; the pattern spans brush*2 vertices per axis
+	float fHeightSpeed;			// world z units: the profile gradient's ceiling
+	float fLevelRatioPercent;	// the level step, percent of the distance to the target
+	CVec3 vPos;				// world (Vis) units: the cursor now
+	CVec3 vClickRef;	// world (Vis) units: where the stroke began (the click modes' reference)
+	int bStrokeStart;	// 1 on the first step of a stroke: the session takes the click reference's tile height and pattern average then, frozen for the stroke exactly as the MFC froze them at its last hover update (fTileHeight/fAverageHeight, DrawShadeState.cpp:151-162)
+	int bCtrlHeld;			// 1: a height the IsValidHeight predicate refuses is kept anyway (the MFC's MK_CONTROL override)
+	SHeightsStroke() : nAction( 0 ), nLevelMode( 2 ), nBrush( 3 ), fHeightSpeed( 1.0f ), fLevelRatioPercent( 3.0f ),
+									 vPos( VNULL3 ), vClickRef( VNULL3 ), bStrokeStart( 0 ), bCtrlHeld( 0 ) {  }
+};
+
+// Applies one stroke step over the pattern the MFC's own gradient builds from
+// editor\profile.tga (cached per brush and speed in the session): raise adds
+// it, lower subtracts it, level moves each vertex inside the level mask
+// toward the mode's target by the ratio percent. The click modes' targets are
+// frozen at the stroke's start (bStrokeStart caches them). When the result
+// fails CVertexAltitudeInfo::IsValidHeight over the edit rectangle grown by
+// the shade kernel and Ctrl is not held, the step is rolled back - the
+// pattern subtracted back, exactly DrawShadeState.cpp:261 - and refused with
+// "invalid height"; a refused step changes nothing. pnToken is -1 after a
+// refusal; pbRefused marks the ordinary nos (the cursor off the map, an
+// invalid-height rollback, a click-tile stroke whose reference left the map).
+bool ApplyHeightsStrokeInSession( SEditorSession *pSession, const SHeightsStroke &rStroke, bool *pbRefused, int *pnToken );
+
+// Generate heights (M3, D-18): the MFC's own noise - NPerlinNoise::Init, a
+// CHField of the altitudes' own size, CHField::fBmDefVals[nType] with
+// featSize = fGranularity, and every altitude scaled into [fMinZ, fMaxZ] by
+// the MFC's formula (TabTerrainAltitudesDialog.cpp:330-346). nType is one of
+// TG_FBM, TG_HYBRID, TG_RIDGED (the MFC dialog's Hills, Rocks, Dunes); the
+// hidden MULTI/HETERO radios are not features. One edit of the log over the
+// whole vertex sheet.
+bool GenerateHeightsInSession( SEditorSession *pSession, int nType, float fGranularity, float fMinZ, float fMaxZ,
+                               bool *pbRefused, int *pnToken );
+
+// Set Zero (M3, D-18): every height to 0, the shades recomputed, one edit of
+// the log over the whole vertex sheet - the MFC's altitudes.SetZero() with
+// the update the MFC ran after it.
+bool SetZeroHeightsInSession( SEditorSession *pSession, bool *pbRefused, int *pnToken );
+
+// The MFC's UpdateObjectsZ (TemplateEditorFrame1.cpp:4704-4742): every road,
+// river and sound of the map gets its z back on the ground over the
+// altitudes - CVSOBuilder::UpdateZ on both copies' own records and the
+// engine's, UpdateRoad/UpdateRiver for the redraw. The MFC ignores its
+// rectangle here (the body updates every record whatever it was handed) and
+// so does this, which also keeps the z a pure function of the altitudes:
+// an altitude undo that re-runs it reproduces the bytes it had. Used by
+// Instant Update's per-stroke pass and Update Map's (D-20).
+void UpdateObjectsZInSession( SEditorSession *pSession );
+
+// The altitude edit of the log (session.cpp): the grown region before and
+// after, put back raw. Shared by ApplyAltitudesInSession and the heights
+// machine - one edit kind, one implementation.
+struct SAltitudeEdit : public IEditRecord
+{
+	NMapOverlay::SAltitudeUndo before, after;
+
+	virtual bool Revert( SEditorSession *pSession );
+	virtual bool Reapply( SEditorSession *pSession );
+};
+// The engine's own terrain over the region, written raw in place, and the
+// covering patches redrawn (session.cpp) - the MFC editor's own route through
+// GetTerrainInfo's const_cast (DrawShadeState.cpp:204).
+void PutEngineAltitudes( ITerrainEditor *pEngineTerrain, const NMapOverlay::SAltitudeUndo &rRegion );
 
 // The engine's terrain editor for the open map, or null (session.cpp).
 ITerrainEditor* EngineTerrain();

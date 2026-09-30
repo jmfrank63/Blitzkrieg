@@ -62,6 +62,7 @@ const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const AltitudeRegion = bridge_mod.AltitudeRegion;
+const HeightsStrokeParams = bridge_mod.HeightsStrokeParams;
 const NewMapParams = bridge_mod.NewMapParams;
 const Bridge = bridge_mod.Bridge;
 const VsoKind = bridge_mod.VsoKind;
@@ -87,7 +88,14 @@ pub const ai_tile_size: f32 = tile_size / 2.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map };
+/// The fake's own heights-validity ceiling (M3, D-18): a stroke whose result
+/// leaves +-this many WORLD z units is "invalid height" and refused unless
+/// Ctrl is held - the engine's own rule is a slope predicate
+/// (CVertexAltitudeInfo::IsValidHeight) the fake's flat ground cannot model,
+/// so it uses a bound a test can compute. 16 tiles of height.
+pub const fake_height_limit: f32 = tile_size * 16.0;
+
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map, heights_stroke, heights_generate, heights_zero };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// The most units a fake start command holds (the real one holds as many as the
@@ -392,6 +400,14 @@ pub const FakeBridge = struct {
     /// the fake keeps heights only, its ground being flat, so there is no
     /// shade to recompute. Allocated at the first open, like `tiles`.
     altitudes_grid: []f32 = &no_altitudes,
+    /// The heights stroke-start cache (M3, D-18): whether a stroke is open,
+    /// the click modes' frozen targets, and the last Generate type asked of
+    /// the fake (its tests read it back).
+    heights_stroke_open: bool = false,
+    click_tile_valid: bool = false,
+    click_tile_height: f32 = 0,
+    click_average: f32 = 0,
+    last_generate_type: bridge_mod.HeightsGenerateType = .hills,
     paints: std.ArrayListUnmanaged(PaintRecord) = .empty,
     applied: std.ArrayListUnmanaged(i32) = .empty,
     undone: std.ArrayListUnmanaged(i32) = .empty,
@@ -830,6 +846,9 @@ pub const FakeBridge = struct {
         .altitudes = altitudes,
         .setAltitudes = setAltitudes,
         .newMap = newMap,
+        .heightsStroke = heightsStroke,
+        .generateHeights = generateHeights,
+        .setZeroHeights = setZeroHeights,
         .vsoDescriptors = vsoDescriptors,
         .vsoCount = vsoCount,
         .readVso = readVso,
@@ -990,7 +1009,7 @@ pub const FakeBridge = struct {
         return @as(usize, @intCast(self.info.width_tiles)) + 1;
     }
 
-    fn altitudeIndex(self: *const FakeBridge, x: i32, y: i32) usize {
+    pub fn altitudeIndex(self: *const FakeBridge, x: i32, y: i32) usize {
         return @as(usize, @intCast(y)) * self.vertexCountX() + @as(usize, @intCast(x));
     }
 
@@ -1148,8 +1167,239 @@ pub const FakeBridge = struct {
         self.diplomacy_table.clearRetainingCapacity();
         self.diplomacy_table.appendSlice(self.allocator, &.{ 2, 2 }) catch return .failed;
         self.link_floor = self.nextLinkId();
+        self.heights_stroke_open = false;
         info.* = self.info;
         return .ok;
+    }
+
+    // Heights (M3, D-18): the real rules the core can see - the brush range,
+    // the stroke-start click cache, one edit per step - over a knowingly
+    // simpler model, which a core test must not lean on:
+    //  - the pattern is a smooth radial dome speed * (1 - distance from the
+    //    pattern's centre), the real profile.tga gradient's own shape family
+    //    without the image: the fake has no data storage;
+    //  - the validity rule is |height| <= fake_height_limit rather than the
+    //    engine's slope predicate, so a test triggers the rollback the same
+    //    way (a speed past the limit) with a rule it can compute;
+    //  - generate is a fixed diagonal ramp into [min_z, max_z] (the fake has
+    //    no Perlin noise), set zero is the zeros.
+    fn heightsPatternValue(brush: i32, speed: f32, cell_x: i32, cell_y: i32) f32 {
+        const n: f32 = @floatFromInt(brush * 2);
+        // ApplyVAInRadius's own arithmetic (VA_Types.h:442-451): the cell's
+        // offset from the centre over the half-extent, Euclidean.
+        const half: f32 = (n - 1.0) / 2.0;
+        const dx = (@as(f32, @floatFromInt(cell_x)) - half) / half;
+        const dy = (@as(f32, @floatFromInt(cell_y)) - half) / half;
+        const dist = @sqrt(dx * dx + dy * dy);
+        if (dist > 1.0) return 0;
+        return speed * (1.0 - dist);
+    }
+
+    fn heightsMaskValue(brush: i32, cell_x: i32, cell_y: i32) f32 {
+        return if (heightsPatternValue(brush, 1.0, cell_x, cell_y) > 0) 1.0 else 0.0;
+    }
+
+    fn heightsCorner(brush: i32, tile_x: i32, tile_y: i32) [2]i32 {
+        const half = brush - 1;
+        return .{ tile_x - half, tile_y - half };
+    }
+
+    fn heightsMaskAverage(self: *FakeBridge, brush: i32, corner: [2]i32) f32 {
+        const bounds_x: i32 = @intCast(self.vertexCountX());
+        const bounds_y: i32 = self.info.height_tiles + 1;
+        var total: f64 = 0;
+        var count: usize = 0;
+        var cy: i32 = 0;
+        while (cy < brush * 2) : (cy += 1) {
+            var cx: i32 = 0;
+            while (cx < brush * 2) : (cx += 1) {
+                const x = corner[0] + cx;
+                const y = corner[1] + cy;
+                if (x < 0 or y < 0 or x >= bounds_x or y >= bounds_y) continue;
+                if (heightsMaskValue(brush, cx, cy) == 0) continue;
+                total += self.altitudes_grid[self.altitudeIndex(x, y)];
+                count += 1;
+            }
+        }
+        return if (count != 0) @floatCast(total / @as(f64, @floatFromInt(count))) else 0;
+    }
+
+    fn heightsStroke(ptr: *anyopaque, params: HeightsStrokeParams, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (params.action < 0 or params.action > 2 or params.level_mode < 0 or params.level_mode > 3) return .bad_argument;
+        if (params.brush < 2 or params.brush > 16) {
+            self.say("the heights brush is 2..16", .{});
+            return .bad_argument;
+        }
+        if (!std.math.isFinite(params.height_speed) or !std.math.isFinite(params.level_ratio_percent) or
+            !std.math.isFinite(params.pos_x) or !std.math.isFinite(params.pos_y) or
+            !std.math.isFinite(params.click_x) or !std.math.isFinite(params.click_y)) return .bad_argument;
+        const started = self.ensureAltitudes();
+        if (started != .ok) return started;
+        const tile_x: i32 = @intFromFloat(@floor(params.pos_x / tile_size));
+        const tile_y: i32 = @intFromFloat(@floor(params.pos_y / tile_size));
+        if (tile_x < 0 or tile_y < 0 or tile_x >= self.info.width_tiles or tile_y >= self.info.height_tiles) {
+            self.say("the cursor is not over the map", .{});
+            return .refused;
+        }
+        const corner = heightsCorner(params.brush, tile_x, tile_y);
+        // The stroke-start cache: the click modes' targets are frozen at the
+        // stroke's first step, exactly the session's own rule.
+        if (params.stroke_start != 0) {
+            self.heights_stroke_open = true;
+            const cx: i32 = @intFromFloat(@floor(params.click_x / tile_size));
+            const cy: i32 = @intFromFloat(@floor(params.click_y / tile_size));
+            self.click_tile_valid = cx >= 0 and cy >= 0 and cx < self.info.width_tiles and cy < self.info.height_tiles;
+            if (self.click_tile_valid) {
+                self.click_tile_height = (self.altitudes_grid[self.altitudeIndex(cx, cy)] +
+                    self.altitudes_grid[self.altitudeIndex(cx + 1, cy)] +
+                    self.altitudes_grid[self.altitudeIndex(cx, cy + 1)] +
+                    self.altitudes_grid[self.altitudeIndex(cx + 1, cy + 1)]) / 4.0;
+                self.click_average = self.heightsMaskAverage(params.brush, heightsCorner(params.brush, cx, cy));
+            } else {
+                self.click_tile_height = 0;
+                self.click_average = 0;
+            }
+        }
+        var target: f32 = 0;
+        if (params.action == 2) {
+            switch (params.level_mode) {
+                0 => target = 0,
+                1 => {
+                    if (!self.click_tile_valid) {
+                        self.say("the stroke's tile left the map", .{});
+                        return .refused;
+                    }
+                    target = self.click_tile_height;
+                },
+                2 => target = self.heightsMaskAverage(params.brush, corner),
+                else => target = self.click_average,
+            }
+        }
+        // The would-be values over the clipped pattern rect; the validity
+        // rule runs before anything is written, so a refused step changes
+        // nothing by construction.
+        const bounds_x: i32 = @intCast(self.vertexCountX());
+        const bounds_y: i32 = self.info.height_tiles + 1;
+        const x0 = @max(corner[0], 0);
+        const y0 = @max(corner[1], 0);
+        const x1 = @min(corner[0] + params.brush * 2, bounds_x);
+        const y1 = @min(corner[1] + params.brush * 2, bounds_y);
+        if (x1 <= x0 or y1 <= y0) return .refused;
+        const width: usize = @intCast(x1 - x0);
+        const area = width * @as(usize, @intCast(y1 - y0));
+        const before = self.allocator.alloc(f32, area) catch return .failed;
+        const after = self.allocator.alloc(f32, area) catch {
+            self.allocator.free(before);
+            return .failed;
+        };
+        const ratio = params.level_ratio_percent / 100.0;
+        var i: usize = 0;
+        var invalid = false;
+        var y = y0;
+        while (y < y1) : (y += 1) {
+            var x = x0;
+            while (x < x1) : (x += 1) {
+                const at = self.altitudes_grid[self.altitudeIndex(x, y)];
+                const pattern = heightsPatternValue(params.brush, params.height_speed, x - corner[0], y - corner[1]);
+                var value = at;
+                switch (params.action) {
+                    1 => value = at - pattern,
+                    2 => if (heightsMaskValue(params.brush, x - corner[0], y - corner[1]) != 0) {
+                        value = at + (target - at) * ratio;
+                    },
+                    else => value = at + pattern,
+                }
+                before[i] = at;
+                after[i] = value;
+                if (@abs(value) > fake_height_limit) invalid = true;
+                i += 1;
+            }
+        }
+        if (invalid and params.ctrl_held == 0) {
+            self.allocator.free(before);
+            self.allocator.free(after);
+            self.say("invalid height", .{});
+            return .refused;
+        }
+        _ = self.putAltitudesGrid(.{ .x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1 }, after);
+        self.logAltitudesEdit(.{ .x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1 }, before, after, token);
+        self.record(.heights_stroke, token.*);
+        return .ok;
+    }
+
+    fn generateHeights(ptr: *anyopaque, gen_type: bridge_mod.HeightsGenerateType, granularity: f32, min_z: f32, max_z: f32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (!std.math.isFinite(granularity) or !std.math.isFinite(min_z) or !std.math.isFinite(max_z) or granularity <= 0) return .bad_argument;
+        const started = self.ensureAltitudes();
+        if (started != .ok) return started;
+        const w: f32 = @floatFromInt(self.vertexCountX() - 1);
+        const h: f32 = @floatFromInt(self.info.height_tiles);
+        const values = self.allocator.alloc(f32, self.altitudes_grid.len) catch return .failed;
+        defer self.allocator.free(values);
+        var y: i32 = 0;
+        while (y <= self.info.height_tiles) : (y += 1) {
+            var x: i32 = 0;
+            while (x <= self.info.width_tiles) : (x += 1) {
+                // The fake's fixed diagonal ramp: the shape its tests build
+                // their expected values from, into the caller's z range the
+                // way the real formula scales its noise.
+                const t = ( @as(f32, @floatFromInt(x)) / w + @as(f32, @floatFromInt(y)) / h ) / 2.0;
+                values[self.altitudeIndex(x, y)] = min_z * tile_size + (max_z - min_z) * tile_size * t;
+            }
+        }
+        return self.applyWholeSheet(values, token, .heights_generate, gen_type);
+    }
+
+    fn setZeroHeights(ptr: *anyopaque, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const started = self.ensureAltitudes();
+        if (started != .ok) return started;
+        const values = self.allocator.alloc(f32, self.altitudes_grid.len) catch return .failed;
+        defer self.allocator.free(values);
+        @memset(values, 0);
+        return self.applyWholeSheet(values, token, .heights_zero, null);
+    }
+
+    /// One logged edit over the whole vertex sheet - the shape generate and
+    /// set zero share. `gen_type` rides the recorded call for a test to read.
+    fn applyWholeSheet(self: *FakeBridge, values: []const f32, token: *i32, kind: CallKind, gen_type: ?bridge_mod.HeightsGenerateType) Status {
+        const region = AltitudeRegion{ .x0 = 0, .y0 = 0, .x1 = self.info.width_tiles + 1, .y1 = self.info.height_tiles + 1 };
+        const before = self.allocator.dupe(f32, self.altitudes_grid) catch return .failed;
+        const after = self.allocator.dupe(f32, values) catch {
+            self.allocator.free(before);
+            return .failed;
+        };
+        _ = self.putAltitudesGrid(region, values);
+        self.logAltitudesEdit(region, before, after, token);
+        if (gen_type) |which| self.last_generate_type = which;
+        self.record(kind, token.*);
+        return .ok;
+    }
+
+    /// Appends one altitude edit record and hands out its token - the tail
+    /// `setAltitudes` and the heights calls share. Takes ownership of both
+    /// slices on success only.
+    fn logAltitudesEdit(self: *FakeBridge, region: AltitudeRegion, before: []f32, after: []f32, token: *i32) void {
+        self.edits.ensureUnusedCapacity(self.allocator, 1) catch return;
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return;
+        self.edits.appendAssumeCapacity(.{ .altitudes = .{
+            .x0 = region.x0,
+            .y0 = region.y0,
+            .x1 = region.x1,
+            .y1 = region.y1,
+            .before = before,
+            .after = after,
+        } });
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.appendAssumeCapacity(token.*);
+        self.undone_edits.clearRetainingCapacity();
     }
 
     fn vsoDescriptors(ptr: *anyopaque, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status {

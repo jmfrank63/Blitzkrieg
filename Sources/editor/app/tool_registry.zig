@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general, heights };
 
 pub const Entry = struct {
     id: ToolId,
@@ -132,6 +132,18 @@ pub const entries = [_]Entry{
         .label = "AI General",
         .shortcut = '9',
         .marker_kinds = marker_logic.MarkerSet.only(&.{.parcels}),
+    },
+    // M3, D-18: the MFC terrain tab's Heights tool. Left-drag raises,
+    // right-drag lowers, middle-drag - or left and right held together, or
+    // Alt+drag which the view maps to the middle button - levels toward the
+    // level mode's target. The right button is its own gesture; Ctrl is the
+    // invalid-height override, never a right click. No digit left (1..9 are
+    // taken), like the other mode-entered tools. Its marker is the brush
+    // outline the view draws for it (PARITY TR9).
+    .{
+        .id = .heights,
+        .label = "Heights",
+        .needs_right_button = true,
     },
 };
 
@@ -301,6 +313,18 @@ test "every tool is in the palette: none is hidden, and a hidden one would have 
         try std.testing.expect(!item.hidden);
         if (item.hidden) try std.testing.expectEqual(@as(?u8, null), item.shortcut);
     }
+}
+
+test "the Heights tool takes the right button, never Ctrl-as-right, with no key" {
+    const item = entry(.heights);
+    try std.testing.expectEqual(@as(?u8, null), item.shortcut);
+    try std.testing.expect(item.needs_right_button);
+    // Ctrl is the MFC's own invalid-height override there (DrawShadeState.cpp:261),
+    // so Ctrl+left must arrive as a left press with the modifier, not as the right button.
+    try std.testing.expect(!item.ctrl_click_is_right);
+    try std.testing.expect(!item.needs_double_click);
+    try std.testing.expectEqual(@as(?ToolId, .heights), byLabel("heights"));
+    try std.testing.expect(!item.hidden);
 }
 
 test "a tool label is a valid tool= word" {
