@@ -8171,6 +8171,161 @@ static void TestM2AIGeneral( BkEditorSession *pSession, const std::string &szScr
 	printf( "editor-bridge: M2 ai general ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// D-25 item 4, the engine half (04-13, `--m2-sweep`, the local step
+// test-editor-bridge-m2-sweep): every Data\Maps map is opened through the
+// bridge and saved unedited; then, where the map allows it, a bridge, a fence
+// run and an entrenchment are drawn on free ground, one shipped bridge and one
+// shipped entrenchment are deleted whole, and a unit a start command or a
+// reserve position names is deleted with its cascade; everything is undone in
+// reverse through BkEditorUndoEdit / BkEditorRestoreObject and the map saved
+// again: the two saves must be the same bytes. A refusal (a crowded map, a
+// garrisoned trench, a unit carrying a passenger) changes nothing and is
+// counted, never a failure.
+// ---------------------------------------------------------------------------
+struct SSweepUndo
+{
+	int nToken;				// an edit of the edit log, or -1
+	int nRestoreLink;	// an object BkEditorRestoreObject puts back, or -1
+	std::string szKind;
+};
+
+// Free-ground candidates spread over the map, WORLD units.
+static std::vector<CVec2> SweepSpots( const CMapInfo &rMap )
+{
+	const float fWidth = rMap.terrain.tiles.GetSizeX() * fWorldCellSize;
+	const float fHeight = rMap.terrain.tiles.GetSizeY() * fWorldCellSize;
+	const float fractions[][2] = { { 0.5f, 0.5f }, { 0.3f, 0.3f }, { 0.7f, 0.3f }, { 0.3f, 0.7f }, { 0.7f, 0.7f }, { 0.2f, 0.5f }, { 0.8f, 0.5f }, { 0.5f, 0.2f }, { 0.5f, 0.8f } };
+	std::vector<CVec2> spots;
+	for ( size_t i = 0; i < sizeof( fractions ) / sizeof( fractions[0] ); ++i )
+		spots.push_back( CVec2( fWidth * fractions[i][0], fHeight * fractions[i][1] ) );
+	return spots;
+}
+
+static void TestM2Sweep( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const std::vector<std::string> maps = SortedShippedMaps();
+	printf( "editor-bridge: M2 sweep over %d maps\n", int( maps.size() ) );
+	if ( !Check( maps.size() >= 50, "the M2 sweep found the shipped maps (is Data staged?)" ) )
+		return;
+	const int nFailuresBefore = g_nFailures;
+	const std::string szUnedited = szScratch + "\\m2-sweep-unedited.bzm";
+	const std::string szEdited = szScratch + "\\m2-sweep-edited.bzm";
+	const std::string szUndone = szScratch + "\\m2-sweep-undone.bzm";
+	int nEdits = 0, nMaps = 0;
+	std::map<std::string, int> done, refused;
+	for ( size_t m = 0; m < maps.size(); ++m )
+	{
+		const std::string &szMap = maps[m];
+		const std::string szName = "M2 sweep (" + szMap + "): ";
+		CMapInfo map;
+		std::string szError;
+		if ( !Check( NMapFile::Read( szMap.c_str(), &map, &szError ), ( szName + "the map reads: " + szError ).c_str() ) )
+			continue;
+		if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, ( szName + "opens: " + BkEditorLastMessage( pSession ) ).c_str() ) )
+			continue;
+		if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, ( szName + "saves unedited: " + BkEditorLastMessage( pSession ) ).c_str() ) )
+			continue;
+		++nMaps;
+		const std::vector<CVec2> spots = SweepSpots( map );
+		std::vector<SSweepUndo> undos;
+		const int nShippedBridges = int( ReadBridges( pSession ).size() );
+		const int nShippedTrenches = int( ReadTrenches( pSession ).size() );
+		// A bridge, a fence run and an entrenchment on free ground.
+		{
+			SSweepUndo undo = { -1, -1, "bridge drawn" };
+			int nIndex = -1;
+			for ( size_t i = 0; i < spots.size() && undo.nToken < 0; ++i )
+				if ( BkEditorDrawBridge( pSession, "W_WoodenBig_Heavy_01", spots[i].x - 150.0f, spots[i].y, spots[i].x + 150.0f, spots[i].y, &undo.nToken, &nIndex ) != BK_EDITOR_OK )
+					undo.nToken = -1;
+			if ( undo.nToken >= 0 ) undos.push_back( undo ); else ++refused[undo.szKind];
+		}
+		{
+			SSweepUndo undo = { -1, -1, "fence run drawn" };
+			for ( size_t i = 0; i < spots.size() && undo.nToken < 0; ++i )
+				if ( BkEditorDrawFences( pSession, "W_FactoryFence", spots[i].x - 200.0f, spots[i].y + 260.0f, spots[i].x + 200.0f, spots[i].y + 260.0f, 0, &undo.nToken ) != BK_EDITOR_OK )
+					undo.nToken = -1;
+			if ( undo.nToken >= 0 ) undos.push_back( undo ); else ++refused[undo.szKind];
+		}
+		{
+			SSweepUndo undo = { -1, -1, "entrenchment drawn" };
+			int nIndex = -1;
+			for ( size_t i = 0; i < spots.size() && undo.nToken < 0; ++i )
+			{
+				const std::vector<BkEditorVec3> clicks = ToCPoints2( EngineTrenchL( spots[i].x - 300.0f, spots[i].y - 700.0f ) );
+				if ( BkEditorDrawEntrenchment( pSession, &clicks[0], int( clicks.size() ), 0, &undo.nToken, &nIndex ) != BK_EDITOR_OK )
+					undo.nToken = -1;
+			}
+			if ( undo.nToken >= 0 ) undos.push_back( undo ); else ++refused[undo.szKind];
+		}
+		// One shipped bridge and one shipped entrenchment deleted whole.
+		if ( nShippedBridges > 0 )
+		{
+			SSweepUndo undo = { -1, -1, "shipped bridge deleted" };
+			for ( int i = 0; i < nShippedBridges && undo.nToken < 0; ++i )
+				if ( BkEditorDeleteBridge( pSession, i, &undo.nToken ) != BK_EDITOR_OK )
+					undo.nToken = -1;
+			if ( undo.nToken >= 0 ) undos.push_back( undo ); else ++refused[undo.szKind];
+		}
+		if ( nShippedTrenches > 0 )
+		{
+			SSweepUndo undo = { -1, -1, "shipped entrenchment deleted" };
+			for ( int i = 0; i < nShippedTrenches && undo.nToken < 0; ++i )
+				if ( BkEditorDeleteEntrenchment( pSession, i, &undo.nToken ) != BK_EDITOR_OK )
+					undo.nToken = -1;
+			if ( undo.nToken >= 0 ) undos.push_back( undo ); else ++refused[undo.szKind];
+		}
+		// The cascade delete of a unit a start command or a reserve position names.
+		{
+			std::vector<int> candidates;
+			for ( std::list<SAIStartCommand>::const_iterator it = map.startCommandsList.begin(); it != map.startCommandsList.end(); ++it )
+				if ( !it->unitLinkIDs.empty() )
+					candidates.push_back( it->unitLinkIDs[0] );
+			for ( std::list<SBattlePosition>::const_iterator it = map.reservePositionsList.begin(); it != map.reservePositionsList.end(); ++it )
+				candidates.push_back( it->nArtilleryLinkID );
+			if ( !candidates.empty() )
+			{
+				SSweepUndo undo = { -1, -1, "cascade delete" };
+				for ( size_t i = 0; i < candidates.size() && i < 8 && undo.nRestoreLink < 0; ++i )
+					if ( BkEditorDeleteObject( pSession, candidates[i] ) == BK_EDITOR_OK )
+						undo.nRestoreLink = candidates[i];
+				if ( undo.nRestoreLink >= 0 ) undos.push_back( undo ); else ++refused[undo.szKind];
+			}
+		}
+		if ( !undos.empty() )
+		{
+			if ( Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, ( szName + "saves edited: " + BkEditorLastMessage( pSession ) ).c_str() ) )
+				Check( !SameBytes( szUnedited, szEdited ), ( szName + "the edits changed the saved bytes" ).c_str() );
+		}
+		bool bUndone = true;
+		for ( size_t u = undos.size(); u-- > 0 && bUndone; )
+		{
+			const SSweepUndo &undo = undos[u];
+			const BkEditorStatus status = undo.nRestoreLink >= 0 ? BkEditorRestoreObject( pSession, undo.nRestoreLink ) : BkEditorUndoEdit( pSession, undo.nToken );
+			bUndone = Check( status == BK_EDITOR_OK, ( szName + "the undo of \"" + undo.szKind + "\": " + BkEditorLastMessage( pSession ) ).c_str() );
+		}
+		if ( !bUndone )
+			continue;
+		if ( !Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, ( szName + "saves undone: " + BkEditorLastMessage( pSession ) ).c_str() ) )
+			continue;
+		Check( SameBytes( szUnedited, szUndone ), ( szName + "the edits and their undos save the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+		nEdits += int( undos.size() );
+		for ( size_t u = 0; u < undos.size(); ++u )
+			++done[undos[u].szKind];
+	}
+	std::string szDone, szRefused;
+	for ( std::map<std::string, int>::const_iterator it = done.begin(); it != done.end(); ++it )
+		szDone += ( szDone.empty() ? "" : ", " ) + it->first + " " + NStr::Format( "%d", it->second );
+	for ( std::map<std::string, int>::const_iterator it = refused.begin(); it != refused.end(); ++it )
+		szRefused += ( szRefused.empty() ? "" : ", " ) + it->first + " " + NStr::Format( "%d", it->second );
+	printf( "editor-bridge: M2 sweep edits by kind: %s; refused (recorded, not failures): %s\n", szDone.c_str(), szRefused.empty() ? "none" : szRefused.c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	if ( g_nFailures == nFailuresBefore )
+		printf( "editor-bridge: M2 sweep %d maps, %d edits, all restored byte-exact\n", nMaps, nEdits );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -8212,6 +8367,11 @@ int main( int argc, char **argv )
 	// Data beside each other, which is what install-game stages, and this
 	// executable is staged into it. So the installation to edit is this
 	// executable's own directory unless a caller names another one.
+	// 04-13: `--m2-sweep` after the two positional arguments runs only the M2
+	// sweep (the local step test-editor-bridge-m2-sweep).
+	bool bM2Sweep = false;
+	for ( int i = 3; i < argc; ++i )
+		bM2Sweep = bM2Sweep || strcmp( argv[i], "--m2-sweep" ) == 0;
 	const std::string szSelfDir = DirectoryOf( argv[0] != 0 ? argv[0] : "." );
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	// Everything this test writes goes here. Defaults beside the executable so
@@ -8266,6 +8426,12 @@ int main( int argc, char **argv )
 	// which is why BkEditorLastMessage is defined for a null session.
 	if ( !Check( status == BK_EDITOR_OK, "the bridge starts" ) )
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+	else if ( bM2Sweep )
+	{
+		// 04-13: --m2-sweep runs the M2 edit-and-undo sweep alone.
+		TestM2Sweep( pSession, szScratch );
+		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
 	else
 	{
 		// First, before any map is open (Task 1 carried).

@@ -5727,6 +5727,23 @@ fn addMapFileTest(
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
+
+    // 04-13 (D-25 item 4): one record edit of each M2 collection a shipped map
+    // has, undone, must write the unedited file byte for byte. Local, like
+    // test-map-files-all: not in the default test step or CI.
+    const run_m2_sweep = b.addRunArtifact(exe);
+    run_m2_sweep.setCwd(b.path("."));
+    run_m2_sweep.addArg(module_root);
+    run_m2_sweep.addArg("--m2-sweep");
+    run_m2_sweep.step.dependOn(&streamio_install.step);
+    run_m2_sweep.step.dependOn(&sdl_install.step);
+    run_m2_sweep.step.dependOn(&scratch_install.step);
+    run_m2_sweep.step.dependOn(&platform_install.step);
+    run_m2_sweep.step.dependOn(&options_install.step);
+    run_m2_sweep.addPathDir(b.path("zig-out/bin").getPath(b));
+    const step_m2_sweep = b.step("test-map-files-m2-sweep", "Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes");
+    step_m2_sweep.dependOn(&exe.step);
+    if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
 }
 
 fn addEditorBridgeTest(
@@ -5846,6 +5863,22 @@ fn addEditorBridgeTest(
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+
+    // 04-13 (D-25 item 4): bridges, fences, entrenchments and the cascade
+    // delete on every Data/Maps map, undone, must save the unedited bytes.
+    // Local only, like test-map-files-m2-sweep: not in the default test step
+    // or CI.
+    const run_m2_sweep = b.addRunArtifact(exe);
+    run_m2_sweep.setCwd(b.path(stage_root));
+    run_m2_sweep.addArg(".");
+    run_m2_sweep.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m2_sweep.addArg("--m2-sweep");
+    run_m2_sweep.has_side_effects = true;
+    run_m2_sweep.step.dependOn(&install_exe.step);
+    run_m2_sweep.step.dependOn(install_fixture_mod_step);
+    const step_m2_sweep = b.step("test-editor-bridge-m2-sweep", "Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes");
+    step_m2_sweep.dependOn(&exe.step);
+    if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
 }
 
 /// The static libraries MapEditor's executables link: the engine

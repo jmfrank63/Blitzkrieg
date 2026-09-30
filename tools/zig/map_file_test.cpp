@@ -2864,6 +2864,257 @@ static void SweepMaps( bool bAll )
 	             int( paths.size() ) - ( g_nFailures - nFailuresBefore ), int( paths.size() ) );
 }
 
+// ---------------------------------------------------------------------------
+// D-25 item 4, the map-file half (04-13, `--m2-sweep`, the local step
+// test-map-files-m2-sweep): for every map under Data\Maps, one record edit of
+// each M2 collection the map has - the script file and player 0's camera anchor
+// on every map, then an area renamed, a group given one more member, a start
+// command's number changed, a reserve position moved, an AI side's parcel moved
+// (or, with no parcel, a mobile script ID added), the first road and river
+// resampled by CVSOBuilder after one control point moved, an object's script ID
+// set - all applied, then undone by putting each before-record back in reverse
+// order. The result must write the unedited file byte for byte and read back
+// equivalent. Every compared write comes from its own fresh read (the
+// SVertexAltitude padding rule).
+// ---------------------------------------------------------------------------
+struct SSweepEdit
+{
+	std::string szKind;
+	TMapOp forward;
+	TMapOp inverse;
+};
+
+// The first road or river of the kind, one control point moved 24 world units
+// along x and rebuilt the way the bridge's add builds (CreateVSO, Update at the
+// line's own first width and opacity, UpdateZ), keeping its nID and
+// passability. False when the builder refuses the line's descriptor; the
+// caller then moves the stored points instead, which is still an edit of the
+// record.
+static bool ResampleVso( const CMapInfo &rMap, const SVectorStripeObject &rBefore, SVectorStripeObject *pAfter )
+{
+	if ( rBefore.controlpoints.size() < 2 || rBefore.points.empty() )
+		return false;
+	std::vector<CVec3> controls = rBefore.controlpoints;
+	const size_t nMoved = controls.size() > 2 ? 1 : 0;
+	controls[nMoved].x += 24.0f;
+	SVectorStripeObject vso;
+	if ( !CVSOBuilder::CreateVSO( &vso, rBefore.szDescName, controls ) || vso.controlpoints.size() < 2 )
+		return false;
+	CVSOBuilder::Update( &vso, false, CVSOBuilder::DEFAULT_STEP, rBefore.points[0].fWidth, rBefore.points[0].fOpacity );
+	if ( vso.points.size() < 2 )
+		return false;
+	CVSOBuilder::UpdateZ( rMap.terrain.altitudes, &vso );
+	vso.nID = rBefore.nID;
+	vso.fPassability = rBefore.fPassability;
+	*pAfter = vso;
+	return true;
+}
+
+static int g_nSweepBuilderRefusals = 0;
+
+static void AddVsoEdit( const CMapInfo &rMap, NMapRecords::EVsoKind eKind, std::vector<SSweepEdit> *pEdits )
+{
+	const std::vector<SVectorStripeObject> &lines = eKind == NMapRecords::VSO_ROAD ? rMap.terrain.roads3 : rMap.terrain.rivers;
+	if ( lines.empty() )
+		return;
+	const SVectorStripeObject before = lines[0];
+	SVectorStripeObject after;
+	if ( !ResampleVso( rMap, before, &after ) )
+	{
+		++g_nSweepBuilderRefusals;
+		after = before;
+		for ( size_t i = 0; i < after.points.size(); ++i )
+			after.points[i].vPos.x += 24.0f;
+		for ( size_t i = 0; i < after.controlpoints.size(); ++i )
+			after.controlpoints[i].x += 24.0f;
+	}
+	SSweepEdit edit;
+	edit.szKind = eKind == NMapRecords::VSO_ROAD ? "road resampled" : "river resampled";
+	edit.forward = [eKind, after]( SLoadMapInfo *p ) { return NMapRecords::ReplaceVso( p, eKind, 0, after ); };
+	edit.inverse = [eKind, before]( SLoadMapInfo *p ) { return NMapRecords::ReplaceVso( p, eKind, 0, before ); };
+	pEdits->push_back( edit );
+}
+
+// The edits for one map, planned on one read of it: each captures its before
+// and after records by value, so it applies to any other fresh read.
+static std::vector<SSweepEdit> PlanSweepEdits( const CMapInfo &rMap )
+{
+	std::vector<SSweepEdit> edits;
+	{
+		const std::string szBefore = rMap.szScriptFile;
+		const std::string szAfter = szBefore == "m2_sweep" ? "m2_sweep2" : "m2_sweep";
+		SSweepEdit edit;
+		edit.szKind = "script file";
+		edit.forward = [szAfter]( SLoadMapInfo *p ) { return NMapRecords::PutScriptFile( p, szAfter ); };
+		edit.inverse = [szBefore]( SLoadMapInfo *p ) { return NMapRecords::PutScriptFile( p, szBefore ); };
+		edits.push_back( edit );
+	}
+	{
+		NMapRecords::SCameraAnchors before;
+		NMapRecords::GetCameraAnchors( rMap, &before );
+		NMapRecords::SCameraAnchors after = before;
+		NMapRecords::SetPlayerCameraAnchor( &after, 0, CVec3( 1234.5f, 678.25f, 0.0f ) );
+		SSweepEdit edit;
+		edit.szKind = "camera anchor";
+		edit.forward = [after]( SLoadMapInfo *p ) { return NMapRecords::PutCameraAnchors( p, after ); };
+		edit.inverse = [before]( SLoadMapInfo *p ) { return NMapRecords::PutCameraAnchors( p, before ); };
+		edits.push_back( edit );
+	}
+	if ( !rMap.scriptAreas.empty() )
+	{
+		const SScriptArea before = rMap.scriptAreas[0];
+		SScriptArea after = before;
+		after.szName += "_m2";
+		SSweepEdit edit;
+		edit.szKind = "script area renamed";
+		edit.forward = [after]( SLoadMapInfo *p ) { return NMapRecords::ReplaceScriptArea( p, 0, after ); };
+		edit.inverse = [before]( SLoadMapInfo *p ) { return NMapRecords::ReplaceScriptArea( p, 0, before ); };
+		edits.push_back( edit );
+	}
+	if ( !rMap.reinforcements.groups.empty() )
+	{
+		int nGroup = rMap.reinforcements.groups.begin()->first;
+		for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.begin(); it != rMap.reinforcements.groups.end(); ++it )
+			nGroup = Min( nGroup, it->first );
+		const std::vector<int> before = rMap.reinforcements.groups.find( nGroup )->second.ids;
+		std::vector<int> after = before;
+		after.push_back( 31999 );
+		SSweepEdit edit;
+		edit.szKind = "group member added";
+		edit.forward = [nGroup, after]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, nGroup, after ); };
+		edit.inverse = [nGroup, before]( SLoadMapInfo *p ) { return NMapRecords::PutReinforcementGroup( p, nGroup, before ); };
+		edits.push_back( edit );
+	}
+	if ( !rMap.startCommandsList.empty() )
+	{
+		const SAIStartCommand before = rMap.startCommandsList.front();
+		SAIStartCommand after = before;
+		after.fNumber += 1.5f;
+		SSweepEdit edit;
+		edit.szKind = "start command number";
+		edit.forward = [after]( SLoadMapInfo *p ) { return NMapRecords::ReplaceStartCommand( p, 0, after ); };
+		edit.inverse = [before]( SLoadMapInfo *p ) { return NMapRecords::ReplaceStartCommand( p, 0, before ); };
+		edits.push_back( edit );
+	}
+	if ( !rMap.reservePositionsList.empty() )
+	{
+		const SBattlePosition before = rMap.reservePositionsList.front();
+		SBattlePosition after = before;
+		after.vPos += CVec2( 32.0f, 16.0f );
+		SSweepEdit edit;
+		edit.szKind = "reserve position moved";
+		edit.forward = [after]( SLoadMapInfo *p ) { return NMapRecords::ReplaceReservePosition( p, 0, after ); };
+		edit.inverse = [before]( SLoadMapInfo *p ) { return NMapRecords::ReplaceReservePosition( p, 0, before ); };
+		edits.push_back( edit );
+	}
+	if ( !rMap.aiGeneralMapInfo.sidesInfo.empty() )
+	{
+		int nSide = 0;
+		for ( int i = 0; i < int( rMap.aiGeneralMapInfo.sidesInfo.size() ); ++i )
+			if ( !rMap.aiGeneralMapInfo.sidesInfo[i].parcels.empty() )
+			{
+				nSide = i;
+				break;
+			}
+		NMapRecords::SAIGeneralSidePut before;
+		NMapRecords::GetAIGeneralSide( rMap, nSide, &before );
+		NMapRecords::SAIGeneralSidePut after = before;
+		SSweepEdit edit;
+		if ( !after.info.parcels.empty() )
+		{
+			after.info.parcels[0].vCenter += CVec2( 64.0f, 32.0f );
+			edit.szKind = "AI parcel moved";
+		}
+		else
+		{
+			after.info.mobileScriptIDs.push_back( 31998 );
+			edit.szKind = "AI mobile script ID added";
+		}
+		edit.forward = [after]( SLoadMapInfo *p ) { return NMapRecords::PutAIGeneralSide( p, after ); };
+		edit.inverse = [before]( SLoadMapInfo *p ) { return NMapRecords::PutAIGeneralSide( p, before ); };
+		edits.push_back( edit );
+	}
+	AddVsoEdit( rMap, NMapRecords::VSO_ROAD, &edits );
+	AddVsoEdit( rMap, NMapRecords::VSO_RIVER, &edits );
+	if ( const int nLinkID = FindUsableLinkID( rMap ) )
+	{
+		const int nBefore = ObjectByLinkID( rMap, nLinkID )->nScriptID;
+		const int nAfter = nBefore == 31997 ? 31996 : 31997;
+		SSweepEdit edit;
+		edit.szKind = "object script ID";
+		edit.forward = [nLinkID, nAfter]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, nAfter ); };
+		edit.inverse = [nLinkID, nBefore]( SLoadMapInfo *p ) { return NMapRecords::SetObjectScriptID( p, nLinkID, nBefore ); };
+		edits.push_back( edit );
+	}
+	return edits;
+}
+
+static void SweepM2Edits()
+{
+	std::vector<std::string> paths;
+	CollectMaps( "Data\\Maps", true, &paths );
+	printf( "map-file: M2 sweep over %d maps\n", int( paths.size() ) );
+	if ( !Check( paths.size() >= 50, "the M2 sweep found the shipped maps (is Data checked out?)" ) )
+		return;
+	const int nFailuresBefore = g_nFailures;
+	int nEdits = 0;
+	std::map<std::string, int> kinds;
+	for ( size_t i = 0; i < paths.size(); ++i )
+	{
+		const std::string &szPath = paths[i];
+		const std::string szName = "M2 sweep (" + szPath + "): ";
+		const std::string szBaseline = std::string( "zig-out\\local-test\\m2-sweep-baseline" ) + Extension( szPath );
+		const std::string szUndone = std::string( "zig-out\\local-test\\m2-sweep-undone" ) + Extension( szPath );
+		std::string szError;
+		CMapInfo planned;
+		if ( !ReadFresh( szPath, &planned ) )
+			continue;
+		const std::vector<SSweepEdit> edits = PlanSweepEdits( planned );
+		CMapInfo unedited;
+		if ( !ReadFresh( szPath, &unedited ) )
+			continue;
+		if ( !Check( NMapFile::Write( szBaseline.c_str(), unedited, &szError ), ( szName + "the unedited map writes: " + szError ).c_str() ) )
+			continue;
+		CMapInfo edited;
+		if ( !ReadFresh( szPath, &edited ) )
+			continue;
+		bool bApplied = true;
+		for ( size_t e = 0; e < edits.size() && bApplied; ++e )
+			bApplied = Check( edits[e].forward( &edited ), ( szName + "the edit \"" + edits[e].szKind + "\" is accepted" ).c_str() );
+		if ( !bApplied )
+			continue;
+		std::string szWhere;
+		Check( !NMapFile::AreEquivalent( unedited, edited, &szWhere ), ( szName + "the edits changed nothing the comparator sees" ).c_str() );
+		bool bUndone = true;
+		for ( size_t e = edits.size(); e-- > 0 && bUndone; )
+			bUndone = Check( edits[e].inverse( &edited ), ( szName + "the undo of \"" + edits[e].szKind + "\" is accepted" ).c_str() );
+		if ( !bUndone )
+			continue;
+		if ( !Check( NMapFile::Write( szUndone.c_str(), edited, &szError ), ( szName + "the undone map writes: " + szError ).c_str() ) )
+			continue;
+		Check( FilesAreIdentical( szBaseline.c_str(), szUndone.c_str() ), ( szName + "the edits and their undos write the unedited file byte for byte" ).c_str() );
+		CMapInfo reread;
+		if ( Check( NMapFile::Read( szUndone.c_str(), &reread, &szError ), ( szName + "the undone map reads back: " + szError ).c_str() ) )
+		{
+			szWhere.clear();
+			Check( NMapFile::AreEquivalent( unedited, reread, &szWhere ), ( szName + "the undone map differs at " + szWhere ).c_str() );
+		}
+		nEdits += int( edits.size() );
+		for ( size_t e = 0; e < edits.size(); ++e )
+			++kinds[edits[e].szKind];
+	}
+	std::string szKinds;
+	for ( std::map<std::string, int>::const_iterator it = kinds.begin(); it != kinds.end(); ++it )
+		szKinds += ( szKinds.empty() ? "" : ", " ) + it->first + " " + NStr::Format( "%d", it->second );
+	printf( "map-file: M2 sweep edits by kind: %s; the builder refused %d lines, moved as stored instead\n", szKinds.c_str(), g_nSweepBuilderRefusals );
+	remove( "zig-out/local-test/m2-sweep-baseline.bzm" );
+	remove( "zig-out/local-test/m2-sweep-undone.bzm" );
+	remove( "zig-out/local-test/m2-sweep-baseline.xml" );
+	remove( "zig-out/local-test/m2-sweep-undone.xml" );
+	if ( g_nFailures == nFailuresBefore )
+		printf( "map-file: M2 sweep %d maps, %d edits, all restored byte-exact\n", int( paths.size() ), nEdits );
+}
+
 int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
@@ -2876,8 +3127,21 @@ int main( int argc, char **argv )
 	TestComparatorSeesADifference();
 	TestRoundTripIsEquivalent();
 	bool bAll = false;
+	bool bM2Sweep = false;
 	for ( int i = 1; i < argc; ++i )
+	{
 		bAll = bAll || strcmp( argv[i], "--all" ) == 0;
+		bM2Sweep = bM2Sweep || strcmp( argv[i], "--m2-sweep" ) == 0;
+	}
+	// --m2-sweep (04-13, the local step test-map-files-m2-sweep): only the M2
+	// edit-and-undo sweep over Data\Maps; the regular run is unchanged.
+	if ( bM2Sweep )
+	{
+		SweepM2Edits();
+		if ( g_nFailures == 0 )
+			printf( "map-file: PASS\n" );
+		return g_nFailures == 0 ? 0 : 1;
+	}
 	TestObjectOverlay();
 	TestDeleteWithNoReferences();
 	TestDiplomacyChange();
