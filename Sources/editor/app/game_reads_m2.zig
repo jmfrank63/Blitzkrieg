@@ -197,6 +197,63 @@ fn addTrench(editor: *core.editor.Editor, anchor: [2]f32) ?usize {
     return null;
 }
 
+/// The group and the script ID 04-09's held unit uses. 900 is the ID 04-10's
+/// Lua fixture names, so the scenario fails if the first free ID at or above it
+/// is not 900; 4245 is far above any script ID a shipped map carries.
+const held_group: i32 = 900;
+const held_script_id: i32 = 4245;
+
+/// 04-09 (D-15, D-16): one unit of player 0 - the first placeable SGVOGT_UNIT
+/// of the catalogue - beside the start camera (which stands on `anchor`), given
+/// script ID 4245 and held back by a new group 900 that holds 4245. The engine
+/// refuses a unit on another object, so a few offsets from the anchor are
+/// tried. False after printing why.
+fn addHeldUnit(gpa: std.mem.Allocator, rig: *common.Rig, anchor: [2]f32) bool {
+    const editor = &rig.editor;
+    const entries = rig.real.catalogue(gpa) catch {
+        std.debug.print("map-editor: {s} FAIL: the object catalogue did not read\n", .{label});
+        return false;
+    };
+    defer gpa.free(entries);
+    const unit_name: []const u8 = for (entries) |entry| {
+        if (entry.game_type == 1 and entry.placeable != 0) break std.mem.sliceTo(&entry.name, 0);
+    } else {
+        std.debug.print("map-editor: {s} FAIL: no placeable SGVOGT_UNIT in the catalogue\n", .{label});
+        return false;
+    };
+    const offsets = [_][2]f32{ .{ 90, 0 }, .{ -90, 0 }, .{ 0, 90 }, .{ 0, -90 }, .{ 160, 60 }, .{ -160, -60 } };
+    var link_id: i32 = -1;
+    for (offsets) |offset| {
+        var map_x: f32 = 0;
+        var map_y: f32 = 0;
+        if (editor.bridge.worldToMap(anchor[0] + offset[0], anchor[1] + offset[1], &map_x, &map_y) != .ok) continue;
+        link_id = editor.addObject(unit_name, map_x, map_y, 0, 0) catch continue;
+        break;
+    }
+    if (link_id < 0) {
+        std.debug.print("map-editor: {s} FAIL: no unit {s} near the anchor {d:.0},{d:.0} was placed: {s}\n", .{ label, unit_name, anchor[0], anchor[1], editor.status() });
+        return false;
+    }
+    editor.setScriptID(link_id, held_script_id, 0) catch {
+        std.debug.print("map-editor: {s} FAIL: script ID {d} on object {d} was refused: {s}\n", .{ label, held_script_id, link_id, editor.status() });
+        return false;
+    };
+    const group = editor.newGroup(held_group) catch {
+        std.debug.print("map-editor: {s} FAIL: no group at or above {d}: {s}\n", .{ label, held_group, editor.status() });
+        return false;
+    };
+    if (group != held_group) {
+        std.debug.print("map-editor: {s} FAIL: the first free group ID at or above {d} is {d}; 04-10's Lua fixture names group {d}\n", .{ label, held_group, group, held_group });
+        return false;
+    }
+    editor.addScriptIDToGroup(group, held_script_id) catch {
+        std.debug.print("map-editor: {s} FAIL: script ID {d} into group {d}: {s}\n", .{ label, held_script_id, group, editor.status() });
+        return false;
+    };
+    std.debug.print("map-editor: {s}: placed {s} (link {d}, script ID {d}) beside the start camera and put script ID {d} in group {d}\n", .{ label, unit_name, link_id, held_script_id, held_script_id, group });
+    return true;
+}
+
 /// The edited run's own screenshot dump (BK_AUTO_UI's shot, written in the
 /// game's directory and swept afterwards), copied beside the report as
 /// `<log>.edited.rgba`: 04-13 looks at it. Best effort: no shot is not a
@@ -317,6 +374,11 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     std.debug.print("map-editor: {s}: drew entrenchment {d} ({d} pieces) for player 0 beside the start camera\n", .{ label, trench, trench_pieces });
 
+    // 04-09 (D-15, D-16): a unit the new group 900 holds back. The game's
+    // LoadUnits holds back every map object whose script ID a group names and
+    // reports how many it held per group, so `group id=900 held=1` is the proof.
+    if (!addHeldUnit(gpa, &rig, anchor_at)) return false;
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -365,6 +427,17 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
 
+    // The game held the unit back for group 900 (LoadUnits' GetGroupById).
+    var held_by_group: ?u32 = null;
+    for (edited_trace.groups.slice()) |group| {
+        if (group.id == held_group) held_by_group = group.held;
+    }
+    if (held_by_group == null or held_by_group.? != 1) {
+        std.debug.print("map-editor: {s} FAIL: the game held {?d} objects back for group {d}, not 1 (groups seen {d}); see {s}\n", .{ label, held_by_group, held_group, edited_trace.groups.seen, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE group id={d} held={d}\n", .{ label, held_group, held_by_group.? });
+
     // Assumption A2, measured and printed, not asserted: the anchor's z as
     // the editor took it from the terrain against the z the game reports.
     std.debug.print("map-editor: {s}: anchor z {d:.1}, game camera z {d:.1}\n", .{ label, anchor_z, camera.z });
@@ -385,6 +458,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.? });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.? });
     return true;
 }

@@ -42,6 +42,13 @@ pub const command_table = [_]Entry{
     .{ .name = "trench_player", .handler = trenchPlayer },
     .{ .name = "trench_delete", .handler = trenchDelete },
     .{ .name = "script_id", .handler = scriptId },
+    .{ .name = "group_new", .handler = groupNew },
+    .{ .name = "group_add_id", .handler = groupAddId },
+    .{ .name = "group_remove_id", .handler = groupRemoveId },
+    .{ .name = "group_delete", .handler = groupDelete },
+    .{ .name = "group_hide", .handler = groupHide },
+    .{ .name = "group_select", .handler = groupSelect },
+    .{ .name = "groups_window", .handler = groupsWindow },
 };
 
 pub const predicate_table = [_]Entry{
@@ -55,6 +62,9 @@ pub const predicate_table = [_]Entry{
     .{ .name = "fence_delta", .handler = fenceDelta },
     .{ .name = "trench_delta", .handler = trenchDelta },
     .{ .name = "script_id", .handler = scriptIdIs },
+    .{ .name = "group_has", .handler = groupHas },
+    .{ .name = "groups_delta", .handler = groupsDelta },
+    .{ .name = "hidden_count", .handler = hiddenCount },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -448,5 +458,172 @@ fn scriptIdIs(state: *State, arg: []const u8) Outcome {
     if (object.script_id == want) return .ok;
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "script_id is {d}, not {d}", .{ object.script_id, want }) catch "script_id differs");
+    return .refused;
+}
+
+/// `G:S`: a group ID and a script ID (or the 1/0 of `group_hide`), both whole
+/// numbers.
+fn parsePair(arg: []const u8) ?struct { first: i32, second: i32 } {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return null;
+    const first = std.fmt.parseInt(i32, arg[0..colon], 10) catch return null;
+    const second = std.fmt.parseInt(i32, arg[colon + 1 ..], 10) catch return null;
+    return .{ .first = first, .second = second };
+}
+
+/// The Groups window's New: an empty group under the first unused ID at or
+/// above `from_id` (C9), selected; one undo step.
+pub fn newGroup(state: *State, from_id: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const id = state.editor.newGroup(from_id) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    state.view.clearStatus();
+    state.group_selected = id;
+    return .ok;
+}
+
+/// Add: a script ID (0..32000) to a group; one already there is a status note
+/// and no step.
+pub fn addGroupId(state: *State, group: i32, script_id: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.addScriptIDToGroup(group, script_id));
+}
+
+/// Remove: a script ID from a group.
+pub fn removeGroupId(state: *State, group: i32, script_id: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.removeScriptIDFromGroup(group, script_id));
+}
+
+/// Delete: the group and its script IDs; its check and selection go too.
+pub fn deleteGroup(state: *State, group: i32) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const result = state.editor.deleteGroup(group);
+    if (result) |_| {
+        state.setGroupChecked(group, false);
+        if (state.group_selected != null and state.group_selected.? == group) state.group_selected = null;
+        if (state.group_marked != null and state.group_marked.? == group) state.group_marked = null;
+    } else |_| {}
+    return resultOutcome(state, result);
+}
+
+/// Hide checked, one group's box: its script IDs are held back in the view and
+/// from picking, or shown again. A view setting: no undo step.
+pub fn hideGroup(state: *State, group: i32, hide: bool) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (state.findGroup(group) == null) {
+        var buffer: [64]u8 = undefined;
+        state.editor.note(std.fmt.bufPrint(&buffer, "there is no reinforcement group {d}", .{group}) catch "no such group");
+        return .refused;
+    }
+    state.setGroupChecked(group, hide);
+    return .ok;
+}
+
+/// Select objects: the document's objects that carry a script ID of the group
+/// are marked (View -> Markers -> Reinforcement groups) and the first is
+/// selected in the Select tool; the status bar says how many.
+pub fn selectGroupObjects(state: *State, group: i32) Outcome {
+    const editor = state.editor;
+    if (!panels.mapIsOpen(editor)) return .refused;
+    const row = state.findGroup(group) orelse {
+        var buffer: [64]u8 = undefined;
+        editor.note(std.fmt.bufPrint(&buffer, "there is no reinforcement group {d}", .{group}) catch "no such group");
+        return .refused;
+    };
+    state.group_selected = group;
+    state.group_marked = group;
+    var count: usize = 0;
+    var first: ?i32 = null;
+    for (editor.document.objects.items) |object| {
+        if (object.scenario or !row.has(object.script_id)) continue;
+        count += 1;
+        if (first == null) first = object.link_id;
+    }
+    var buffer: [128]u8 = undefined;
+    if (first) |link_id| {
+        state.view.selectTool(editor, .select);
+        editor.selection = link_id;
+        editor.note(std.fmt.bufPrint(&buffer, "{d} {s} of group {d}'s script IDs; the first is selected", .{ count, if (count == 1) "object carries one" else "objects carry them", group }) catch "objects selected");
+    } else {
+        editor.note(std.fmt.bufPrint(&buffer, "no object carries a script ID of group {d}", .{group}) catch "no objects");
+    }
+    return .ok;
+}
+
+/// `group_new:0`: New with that ID in the field.
+fn groupNew(state: *State, arg: []const u8) Outcome {
+    const from_id = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return newGroup(state, from_id);
+}
+
+/// `group_add_id:900:4245`: script ID 4245 into group 900.
+fn groupAddId(state: *State, arg: []const u8) Outcome {
+    const pair = parsePair(arg) orelse return .bad_arg;
+    return addGroupId(state, pair.first, pair.second);
+}
+
+fn groupRemoveId(state: *State, arg: []const u8) Outcome {
+    const pair = parsePair(arg) orelse return .bad_arg;
+    return removeGroupId(state, pair.first, pair.second);
+}
+
+fn groupDelete(state: *State, arg: []const u8) Outcome {
+    const group = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return deleteGroup(state, group);
+}
+
+/// `group_hide:900:1` hides group 900's objects, `group_hide:900:0` shows them.
+fn groupHide(state: *State, arg: []const u8) Outcome {
+    const pair = parsePair(arg) orelse return .bad_arg;
+    if (pair.second != 0 and pair.second != 1) return .bad_arg;
+    return hideGroup(state, pair.first, pair.second == 1);
+}
+
+fn groupSelect(state: *State, arg: []const u8) Outcome {
+    const group = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return selectGroupObjects(state, group);
+}
+
+/// `groups_window:1` opens the Groups window, `:0` closes it.
+fn groupsWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.groups_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.groups_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `expect=group_has:900:4245`: group 900 holds script ID 4245.
+fn groupHas(state: *State, arg: []const u8) Outcome {
+    const pair = parsePair(arg) orelse return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const row = state.findGroup(pair.first) orelse return .refused;
+    return if (row.has(pair.second)) .ok else .refused;
+}
+
+/// `expect=groups_delta:1`: the map holds one group more than when it opened.
+fn groupsDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    state.refreshGroups();
+    const delta = @as(i64, @intCast(state.groups.items.len)) - @as(i64, @intCast(state.groups_at_open));
+    if (delta == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "groups_delta is {d}, not {d}", .{ delta, want }) catch "groups_delta differs");
+    return .refused;
+}
+
+/// `expect=hidden_count:1`: the checked groups hide that many of the
+/// document's objects now.
+fn hiddenCount(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    state.syncHiddenGroups();
+    if (state.hidden_object_count == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "hidden_count is {d}, not {d}", .{ state.hidden_object_count, want }) catch "hidden_count differs");
     return .refused;
 }

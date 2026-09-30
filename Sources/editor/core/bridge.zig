@@ -319,6 +319,11 @@ pub const Bridge = struct {
         /// BkEditorFirstFreeGroupID: the first group ID at or above `from`
         /// (clamped to 0) that no group uses (C9).
         firstFreeGroupID: *const fn (ptr: *anyopaque, from: i32, out: *i32) Status,
+        /// BkEditorSetHiddenScriptIDs (04-09, D-16): the objects of the map's
+        /// objects list whose script ID is in `script_ids` are hidden in the
+        /// view and skipped by picking; an empty set shows everything. A view
+        /// setting, never saved and never in the history.
+        setHiddenScriptIDs: *const fn (ptr: *anyopaque, script_ids: []const i32) Status,
         /// BkEditorGroundHeight: the terrain height at a world point, world
         /// units in and out. Refused off the map.
         groundHeight: *const fn (ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status,
@@ -449,6 +454,7 @@ pub const Bridge = struct {
     pub fn insertRecord(self: Bridge, key: i32, value: *const records.Value) Status { return self.vtable.insertRecord(self.ptr, key, value); }
     pub fn removeRecord(self: Bridge, kind: records.Kind, key: i32) Status { return self.vtable.removeRecord(self.ptr, kind, key); }
     pub fn firstFreeGroupID(self: Bridge, from: i32, out: *i32) Status { return self.vtable.firstFreeGroupID(self.ptr, from, out); }
+    pub fn setHiddenScriptIDs(self: Bridge, script_ids: []const i32) Status { return self.vtable.setHiddenScriptIDs(self.ptr, script_ids); }
     pub fn groundHeight(self: Bridge, wx: f32, wy: f32, z: *f32) Status { return self.vtable.groundHeight(self.ptr, wx, wy, z); }
     pub fn setObjectScriptID(self: Bridge, link_id: i32, script_id: i32) Status { return self.vtable.setObjectScriptID(self.ptr, link_id, script_id); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }

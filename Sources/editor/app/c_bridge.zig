@@ -119,6 +119,7 @@ pub const RealBridge = struct {
         .insertRecord = vtableInsertRecord,
         .removeRecord = vtableRemoveRecord,
         .firstFreeGroupID = vtableFirstFreeGroupID,
+        .setHiddenScriptIDs = vtableSetHiddenScriptIDs,
         .groundHeight = vtableGroundHeight,
         .setObjectScriptID = setObjectScriptID,
         .undoEdit = vtableUndoEdit,
@@ -502,6 +503,10 @@ pub const RealBridge = struct {
 
     fn vtableGroundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {
         return status(c.BkEditorGroundHeight(from(ptr).session, wx, wy, z));
+    }
+
+    fn vtableSetHiddenScriptIDs(ptr: *anyopaque, script_ids: []const i32) Status {
+        return status(c.BkEditorSetHiddenScriptIDs(from(ptr).session, script_ids.ptr, @intCast(script_ids.len)));
     }
 
     fn setObjectScriptID(ptr: *anyopaque, link_id: i32, script_id: i32) Status {

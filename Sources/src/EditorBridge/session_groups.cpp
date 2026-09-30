@@ -554,6 +554,8 @@ bool PickGroupInSession( SEditorSession *pSession, float sx, float sy, int *pnKi
 		if ( it == pSession->linkByAI.end() || it->second == 0 )
 			continue;
 		const int nLinkID = it->second;
+		if ( IsHiddenLink( *pSession, nLinkID ) )
+			continue;
 		if ( nKind == 1 )
 		{
 			const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;

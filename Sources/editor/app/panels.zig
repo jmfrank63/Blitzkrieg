@@ -133,6 +133,17 @@ pub const TrenchGhost = struct {
     count: usize = 0,
 };
 
+/// One reinforcement group as the Groups panel and the markers see it: its ID
+/// and its script IDs (owned by `State.groups`).
+pub const GroupRow = struct {
+    id: i32,
+    ids: []i32,
+
+    pub fn has(self: GroupRow, script_id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.ids, script_id) != null;
+    }
+};
+
 pub const State = struct {
     allocator: std.mem.Allocator,
     editor: *Editor,
@@ -390,6 +401,31 @@ pub const State = struct {
     /// then it follows the Objects panel's (the placer's) player.
     trench_player_chosen: bool = false,
 
+    /// 04-09 (D-16): the Groups window (Map -> Reinforcement groups...). The
+    /// map's groups (ID and script IDs, ascending by ID) are read again when
+    /// the editor's `.group` record generation moves past
+    /// `groups_generation_seen` (`refreshGroups`), or a map opens.
+    groups_open: bool = false,
+    groups: std.ArrayListUnmanaged(GroupRow) = .empty,
+    groups_generation_seen: ?u32 = null,
+    /// The groups the map held when it opened, for `groups_delta`.
+    groups_at_open: usize = 0,
+    /// The selected row, the ID field of New (default 0, bumped by the bridge
+    /// to the first unused one at or above it, C9) and the script ID field.
+    group_selected: ?i32 = null,
+    group_new_from: c_int = 0,
+    group_script_field: c_int = 0,
+    /// "Hide checked": the groups whose row is checked. Their script IDs are
+    /// what the bridge hides (`syncHiddenGroups`); a view setting, forgotten
+    /// with the map.
+    groups_checked: std.ArrayListUnmanaged(i32) = .empty,
+    hidden_wanted: std.ArrayListUnmanaged(i32) = .empty,
+    hidden_sent: std.ArrayListUnmanaged(i32) = .empty,
+    /// How many of the document's objects the checked groups hide now.
+    hidden_object_count: usize = 0,
+    /// "Select objects": the group whose objects the markers outline.
+    group_marked: ?i32 = null,
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -457,6 +493,11 @@ pub const State = struct {
         self.allocator.free(self.bridge_types);
         self.allocator.free(self.fence_types);
         self.allocator.free(self.trench_infos);
+        self.freeGroups();
+        self.groups.deinit(self.allocator);
+        self.groups_checked.deinit(self.allocator);
+        self.hidden_wanted.deinit(self.allocator);
+        self.hidden_sent.deinit(self.allocator);
         self.vso_line_points.deinit(self.allocator);
         self.vso_line_ends.deinit(self.allocator);
         self.vso_line_kinds.deinit(self.allocator);
@@ -696,6 +737,91 @@ pub const State = struct {
         self.trench_infos = self.editor.entrenchments(self.allocator) catch &.{};
     }
 
+    fn freeGroups(self: *State) void {
+        for (self.groups.items) |row| self.allocator.free(row.ids);
+        self.groups.clearRetainingCapacity();
+    }
+
+    /// The map's reinforcement groups, read again when the editor's `.group`
+    /// generation moved or a map opened (`mapOpened` resets the mark).
+    pub fn refreshGroups(self: *State) void {
+        const generation = self.editor.record_generations.get(.group);
+        if (self.groups_generation_seen != null and self.groups_generation_seen.? == generation) return;
+        self.groups_generation_seen = generation;
+        self.freeGroups();
+        if (!mapIsOpen(self.editor)) return;
+        const keys = self.editor.groupIDs(self.allocator) catch return;
+        defer self.allocator.free(keys);
+        self.groups.ensureTotalCapacity(self.allocator, keys.len) catch return;
+        for (keys) |key| {
+            const ids = self.editor.groupScriptIDs(self.allocator, key) catch continue;
+            self.groups.appendAssumeCapacity(.{ .id = key, .ids = ids });
+        }
+    }
+
+    /// The row of group `id`, or null.
+    pub fn findGroup(self: *State, id: i32) ?GroupRow {
+        self.refreshGroups();
+        for (self.groups.items) |row| {
+            if (row.id == id) return row;
+        }
+        return null;
+    }
+
+    pub fn groupIsChecked(self: *const State, id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.groups_checked.items, id) != null;
+    }
+
+    /// Checks or unchecks a group's "hide" box and hands the bridge the new
+    /// set at once.
+    pub fn setGroupChecked(self: *State, id: i32, checked: bool) void {
+        const at = std.mem.indexOfScalar(i32, self.groups_checked.items, id);
+        if (checked and at == null) {
+            self.groups_checked.append(self.allocator, id) catch return;
+        } else if (!checked and at != null) {
+            _ = self.groups_checked.orderedRemove(at.?);
+        }
+        self.syncHiddenGroups();
+    }
+
+    /// "Hide checked": the script IDs of the checked groups (the groups as
+    /// they are now, so an edit of a group, its undo and a group's deletion
+    /// all follow) go to the bridge whenever they differ from what it holds,
+    /// and `hidden_object_count` says how many of the document's objects they
+    /// hide. Called once a frame and after every check.
+    pub fn syncHiddenGroups(self: *State) void {
+        self.refreshGroups();
+        self.hidden_wanted.clearRetainingCapacity();
+        if (mapIsOpen(self.editor)) {
+            for (self.groups.items) |row| {
+                if (!self.groupIsChecked(row.id)) continue;
+                self.hidden_wanted.appendSlice(self.allocator, row.ids) catch return;
+            }
+        }
+        std.mem.sort(i32, self.hidden_wanted.items, {}, std.sort.asc(i32));
+        var kept: usize = 0;
+        for (self.hidden_wanted.items, 0..) |value, index| {
+            if (index != 0 and value == self.hidden_wanted.items[kept - 1]) continue;
+            self.hidden_wanted.items[kept] = value;
+            kept += 1;
+        }
+        self.hidden_wanted.shrinkRetainingCapacity(kept);
+        if (mapIsOpen(self.editor) and !std.mem.eql(i32, self.hidden_wanted.items, self.hidden_sent.items)) {
+            if (self.editor.bridge.setHiddenScriptIDs(self.hidden_wanted.items) == .ok) {
+                self.hidden_sent.clearRetainingCapacity();
+                self.hidden_sent.appendSlice(self.allocator, self.hidden_wanted.items) catch {};
+            }
+        }
+        var hidden: usize = 0;
+        if (self.hidden_wanted.items.len != 0) {
+            for (self.editor.document.objects.items) |object| {
+                if (object.scenario) continue;
+                if (std.mem.indexOfScalar(i32, self.hidden_wanted.items, object.script_id) != null) hidden += 1;
+            }
+        }
+        self.hidden_object_count = hidden;
+    }
+
     /// The bridge types, once per map; a tool with no type yet, or one the
     /// list does not hold, takes the first.
     pub fn refreshBridgeTypes(self: *State) void {
@@ -789,6 +915,16 @@ pub const State = struct {
         self.trench_count_at_open = self.trench_infos.len;
         self.trench_ghost.valid = false;
         self.trench_player_chosen = false;
+        // The bridge forgot the last map's hidden set on the open; so does the
+        // panel's, and the groups are the new map's.
+        self.groups_checked.clearRetainingCapacity();
+        self.hidden_sent.clearRetainingCapacity();
+        self.hidden_object_count = 0;
+        self.group_selected = null;
+        self.group_marked = null;
+        self.groups_generation_seen = null;
+        self.refreshGroups();
+        self.groups_at_open = self.groups.items.len;
         self.vso_count_at_open = .{
             self.editor.vsoCount(.road) catch 0,
             self.editor.vsoCount(.river) catch 0,
@@ -840,6 +976,7 @@ pub fn draw(state: *State) void {
     // window draw lists regardless of call order), so this is about
     // reading this frame's hover/tool state before anything else changes it.
     state.refreshAnchors();
+    state.syncHiddenGroups();
     state.view.drawOverlay(state.real, state.sounds, state.selected_sound);
     markers.drawM2Markers(state, state.real);
     const menu_height = drawMenuBar(state);
@@ -884,6 +1021,7 @@ pub fn draw(state: *State) void {
     drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);
     panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
     drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height + layout.anchors_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height - layout.anchors_height, 100) }, cond);
+    panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
@@ -1645,6 +1783,8 @@ fn drawMapMenu(state: *State, map_open: bool) void {
         if (ig.igMenuItemEx("Set neutral camera", null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, commands.neutral_slot);
         ig.igEndMenu();
     }
+    // D-16: the Group Manager.
+    if (ig.igMenuItemBoolPtr("Reinforcement groups...", null, &state.groups_open, map_open)) {}
 }
 
 /// File > Open Recent (D-27): every entry's existence, checked once for the
@@ -2509,6 +2649,8 @@ fn statusLine(state: *State, buffer: []u8) []const u8 {
         if (hover.tile) |tile| append(buffer, &len, " | tile {d},{d}", .{ tile[0], tile[1] });
         append(buffer, &len, " | map {d:.0},{d:.0}", .{ hover.map_x, hover.map_y });
     }
+    // "Hide checked" (D-16): how many objects the checked groups hold back.
+    if (state.hidden_object_count != 0) append(buffer, &len, " | {d} {s} hidden", .{ state.hidden_object_count, if (state.hidden_object_count == 1) "object" else "objects" });
     const editor_status = state.editor.status();
     const view_status = state.view.statusLine();
     if (view_status.len != 0 and std.mem.endsWith(u8, view_status, editor_status)) {

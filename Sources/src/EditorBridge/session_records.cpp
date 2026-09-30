@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <cmath>
 #include "session.h"
+#include "world.h"
+#include "../AILogic/AILogic.h"
+#include "../Scene/Scene.h"
 #include "../MapFile/MapRecords.h"
 #include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/VSO_Types.h"
@@ -312,4 +315,99 @@ bool DeleteSessionGroup( SEditorSession *pSession, int nID, bool *pbRefused )
 int FirstFreeGroupIDInSession( SEditorSession *pSession, int nFrom )
 {
 	return NMapRecords::FirstFreeGroupID( pSession->snapshot, nFrom );
+}
+
+// ---------------------------------------------------------------------------
+// Hide checked (04-09, D-16).
+// ---------------------------------------------------------------------------
+
+namespace {
+// One AI object's map object out of the scene or back in it. The MFC editor's
+// own Hide checked did exactly this (TemplateEditorFrame1.cpp, WM_USER + 7:
+// RemoveFromScene, AddToScene), which takes the shadow and the icons with it
+// - a visual at opacity 0 left a tank's mesh shadow and its health bar
+// standing where the tank had been.
+void SetAIObjectHidden( SEditorSession *pSession, IRefCount *pAIObject, bool bHidden )
+{
+	SMapObject *pMapObject = pSession->pWorld->FindByAI( pAIObject );
+	if ( bHidden )
+		pSession->pWorld->HideMapObject( pMapObject );
+	else
+		pSession->pWorld->ShowMapObject( pMapObject );
+}
+
+// The engine object of a link ID: one visual, or a squad's soldiers'.
+void SetLinkHidden( SEditorSession *pSession, int nLinkID, bool bHidden )
+{
+	std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.find( nLinkID );
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( it == pSession->byLinkID.end() || pAIEditor == 0 )
+		return;
+	IRefCount *pObject = it->second.GetPtr();
+	if ( pAIEditor->IsFormation( pObject ) )
+	{
+		IRefCount **pUnits = 0;
+		int nLength = 0;
+		pAIEditor->GetUnitsInFormation( pObject, &pUnits, &nLength );
+		for ( int i = 0; i < nLength; ++i )
+			SetAIObjectHidden( pSession, pUnits[i], bHidden );
+	}
+	else
+		SetAIObjectHidden( pSession, pObject, bHidden );
+}
+}
+
+void ApplyHiddenMarks( SEditorSession *pSession )
+{
+	if ( pSession == 0 || pSession->pWorld == 0 )
+		return;
+	// The entries of the objects list a hidden script ID names, as the game
+	// holds them back (LoadUnits reads mapInfo.objects only). Link ID 0 names no
+	// one object (C11), so it is not hidden.
+	std::vector<int> now;
+	if ( !pSession->hiddenScriptIDs.empty() )
+	{
+		const std::vector<SMapObjectInfo> &rObjects = pSession->snapshot.objects;
+		for ( size_t i = 0; i < rObjects.size(); ++i )
+			if ( rObjects[i].link.nLinkID != 0 &&
+			     std::binary_search( pSession->hiddenScriptIDs.begin(), pSession->hiddenScriptIDs.end(), rObjects[i].nScriptID ) )
+				now.push_back( rObjects[i].link.nLinkID );
+		std::sort( now.begin(), now.end() );
+		now.erase( std::unique( now.begin(), now.end() ), now.end() );
+	}
+	// Shown again: the ones that were hidden and no longer are.
+	for ( size_t i = 0; i < pSession->hiddenLinkIDs.size(); ++i )
+		if ( !std::binary_search( now.begin(), now.end(), pSession->hiddenLinkIDs[i] ) )
+			SetLinkHidden( pSession, pSession->hiddenLinkIDs[i], false );
+	for ( size_t i = 0; i < now.size(); ++i )
+		SetLinkHidden( pSession, now[i], true );
+	pSession->hiddenLinkIDs = now;
+}
+
+void ShowHiddenForUpdate( SEditorSession *pSession )
+{
+	if ( pSession == 0 || pSession->pWorld == 0 )
+		return;
+	for ( size_t i = 0; i < pSession->hiddenLinkIDs.size(); ++i )
+		SetLinkHidden( pSession, pSession->hiddenLinkIDs[i], false );
+}
+
+bool SetSessionHiddenScriptIDs( SEditorSession *pSession, const int *pIDs, int nCount )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession != 0 ) pSession->szMessage = "no map is open";
+		return false;
+	}
+	std::vector<int> ids( pIDs, pIDs + nCount );
+	std::sort( ids.begin(), ids.end() );
+	ids.erase( std::unique( ids.begin(), ids.end() ), ids.end() );
+	pSession->hiddenScriptIDs = ids;
+	ApplyHiddenMarks( pSession );
+	return true;
+}
+
+bool IsHiddenLink( const SEditorSession &rSession, int nLinkID )
+{
+	return std::binary_search( rSession.hiddenLinkIDs.begin(), rSession.hiddenLinkIDs.end(), nLinkID );
 }
