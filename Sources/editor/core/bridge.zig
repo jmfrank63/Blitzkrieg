@@ -227,6 +227,8 @@ pub const Bridge = struct {
         /// for undoEdit/redoEdit. Refused naming why: an unknown type, a point
         /// off the map, a line too short to be a road.
         addVso: *const fn (ptr: *anyopaque, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status,
+        /// BkEditorDeleteVso: the whole road or river at `index`, one edit.
+        deleteVso: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, token: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -260,6 +262,7 @@ pub const Bridge = struct {
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }
+    pub fn deleteVso(self: Bridge, kind: VsoKind, index: i32, token: *i32) Status { return self.vtable.deleteVso(self.ptr, kind, index, token); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

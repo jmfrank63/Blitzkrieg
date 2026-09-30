@@ -855,6 +855,12 @@ BkEditorStatus BkEditorVso( BkEditorSession *session, int kind, int index, BkEdi
    fewer than two sampled points). A refusal changes nothing. */
 BkEditorStatus BkEditorAddVso( BkEditorSession *session, int kind, const char *desc, const BkEditorVec3 *points, int count,
                                float width_tiles, float opacity, int *out_token, int *out_index );
+/* Deletes the road (kind 0) or river (kind 1) at index, the whole record, as
+   one edit (out_token, may be null; -1 after a refusal). A river's tiles are
+   unlocked in the AI first; undo puts the record back where it was and locks
+   them again. index outside 0..count-1 is BK_EDITOR_BAD_ARGUMENT;
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorDeleteVso( BkEditorSession *session, int kind, int index, int *out_token );
 /* For the engine tier: every road and river the map will save against the
    engine's own, found through the bridge's ID map (never by nID), in control
    points, sampled points, widths and opacities, and against the working copy.

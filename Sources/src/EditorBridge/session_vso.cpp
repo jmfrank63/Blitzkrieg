@@ -461,6 +461,30 @@ bool AddVsoToSession( SEditorSession *pSession, int nKind, const std::string &sz
 	return true;
 }
 
+bool DeleteVsoFromSession( SEditorSession *pSession, int nKind, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	const SVectorStripeObject *pVso = SessionVso( *pSession, nKind, nIndex );
+	if ( pVso == 0 )
+	{
+		pSession->szMessage = NStr::Format( "no %s %d", IsKind( nKind ) ? KindName( nKind ) : "road or river", nIndex );
+		return false;
+	}
+	std::unique_ptr<SVsoEdit> edit( new SVsoEdit );
+	edit->nKind = nKind;
+	edit->nIndex = nIndex;
+	edit->bBefore = true;
+	edit->before = *pVso;
+	return ApplyAndLog( pSession, edit.release(), pnToken );
+}
+
 bool VsoMatchesEngine( SEditorSession *pSession )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )

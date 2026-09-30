@@ -83,7 +83,8 @@ pub const RoadsRivers = struct {
             .key => |key| switch (key) {
                 .enter, .space => try self.finish(editor),
                 .escape => self.pending_len = 0,
-                .delete, .insert, .rotate_left, .rotate_right => {},
+                .delete => try self.deleteSelected(editor),
+                .insert, .rotate_left, .rotate_right => {},
             },
             .drag, .release, .right_drag, .right_release => {},
         }
@@ -97,6 +98,15 @@ pub const RoadsRivers = struct {
         }
         self.pending[self.pending_len] = .{ .x = pointer.world_x, .y = pointer.world_y, .z = 0 };
         self.pending_len += 1;
+    }
+
+    /// Delete with a road or river selected and no point in hand: the whole
+    /// record goes (MFC: VK_DELETE with no active point), one undo step.
+    fn deleteSelected(self: *RoadsRivers, editor: *Editor) EditError!void {
+        if (self.pending_len != 0) return;
+        const selected = self.selected orelse return;
+        try editor.deleteVso(selected.kind, selected.index);
+        self.selected = null;
     }
 
     /// The MFC finish: the line becomes a road or river when it has two
@@ -263,4 +273,41 @@ test "an unknown type or a point off the map is refused with the map unchanged" 
     defer testing.allocator.free(descriptors);
     try testing.expectEqual(@as(usize, 2), descriptors.len);
     try testing.expectEqualStrings("road_track", descriptors[1].nameSlice());
+}
+
+test "Delete with a road selected and no point in hand deletes the whole road, one undo step" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    try tool.handle(&editor, .{ .press = try at(&editor, 20, 20) });
+    try tool.handle(&editor, .{ .press = try at(&editor, 100, 20) });
+    try tool.handle(&editor, .{ .key = .enter });
+    tool.kind = .river;
+    tool.setDesc("defaultriver");
+    try tool.handle(&editor, .{ .press = try at(&editor, 20, 200) });
+    try tool.handle(&editor, .{ .press = try at(&editor, 100, 200) });
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expectEqual(@as(?RoadsRivers.Selected, .{ .kind = .river, .index = 0 }), tool.selected);
+    const generation = editor.vso_generation;
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 0), fake.vsoLen(.river));
+    try testing.expectEqual(@as(usize, 1), fake.vsoLen(.road));
+    try testing.expectEqual(@as(?RoadsRivers.Selected, null), tool.selected);
+    try testing.expect(editor.vso_generation != generation);
+    try testing.expectEqual(@as(usize, 3), editor.history.undo_stack.items.len);
+    // Nothing selected: Delete does nothing.
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 3), editor.history.undo_stack.items.len);
+    _ = try editor.undo();
+    try testing.expectEqual(@as(usize, 1), fake.vsoLen(.river));
+    try testing.expectEqual(@as(f32, 100), fake.vso(.river, 0).controls[1].x);
+    _ = try editor.redo();
+    try testing.expectEqual(@as(usize, 0), fake.vsoLen(.river));
+    // Undo everything: no roads, no rivers.
+    while (try editor.undo()) {}
+    try testing.expectEqual(@as(usize, 0), fake.vsoLen(.river));
+    try testing.expectEqual(@as(usize, 0), fake.vsoLen(.road));
+    try testing.expect(!editor.dirty());
 }

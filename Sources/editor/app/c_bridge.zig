@@ -111,6 +111,7 @@ pub const RealBridge = struct {
         .vsoCount = vtableVsoCount,
         .readVso = vtableReadVso,
         .addVso = vtableAddVso,
+        .deleteVso = vtableDeleteVso,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -462,6 +463,10 @@ pub const RealBridge = struct {
         defer std.heap.page_allocator.free(c_points);
         for (points, c_points[0..points.len]) |point, *c_point| c_point.* = toCVec3(point);
         return status(c.BkEditorAddVso(self.session, kindInt(kind), desc_z, c_points.ptr, count, width_tiles, opacity, token, index));
+    }
+
+    fn vtableDeleteVso(ptr: *anyopaque, kind: VsoKind, index: i32, token: *i32) Status {
+        return status(c.BkEditorDeleteVso(from(ptr).session, kindInt(kind), index, token));
     }
 
     /// The engine tier's road and river agreement check.

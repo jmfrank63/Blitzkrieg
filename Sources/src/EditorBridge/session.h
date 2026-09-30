@@ -338,6 +338,9 @@ bool VsoDescriptors( SEditorSession *pSession, int nKind, std::vector<std::strin
 // from a failure. A refusal changes nothing.
 bool AddVsoToSession( SEditorSession *pSession, int nKind, const std::string &szDesc, const std::vector<CVec3> &rPoints,
                       float fWidthTiles, float fOpacity, int *pnToken, int *pnIndex, bool *pbRefused );
+// Deletes the road or river at nIndex (the whole record), logged; for a river
+// the AI's tiles are unlocked first (DeleteRiver with the record as saved).
+bool DeleteVsoFromSession( SEditorSession *pSession, int nKind, int nIndex, int *pnToken, bool *pbRefused );
 // Every saved record against the engine's, found through vsoEngineIDs (never
 // by nID): points, control points, widths and opacities. False naming the
 // first difference in szMessage.

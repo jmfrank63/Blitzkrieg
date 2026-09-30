@@ -18,6 +18,7 @@
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
+#include "../../Sources/src/AILogic/AILogic.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Scene/Scene.h"
 #include "../../Sources/src/Scene/Terrain.h"
@@ -239,6 +240,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorVso", [&] { return BkEditorVso( 0, 0, 0, &vsoInfo, 0, 0, 0, 0 ); } },
 		{ "BkEditorAddVso", [&] { return BkEditorAddVso( 0, 0, "x", &vsoPoint, 1, 3.0f, 1.0f, &nInt, &nInt2 ); } },
 		{ "BkEditorVsoMatchesEngine", [&] { return BkEditorVsoMatchesEngine( 0 ); } },
+		{ "BkEditorDeleteVso", [&] { return BkEditorDeleteVso( 0, 0, 0, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -292,6 +294,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorVso", [&] { return BkEditorVso( pSession, 0, 0, &vsoInfo, 0, 0, 0, 0 ); } },
 		{ "BkEditorAddVso", [&] { return BkEditorAddVso( pSession, 0, "x", &vsoPoint, 1, 3.0f, 1.0f, &nInt, &nInt2 ); } },
 		{ "BkEditorVsoMatchesEngine", [&] { return BkEditorVsoMatchesEngine( pSession ); } },
+		{ "BkEditorDeleteVso", [&] { return BkEditorDeleteVso( pSession, 0, 0, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4258,6 +4261,165 @@ static void TestM2Roads( BkEditorSession *pSession, const std::string &szScratch
 	printf( "editor-bridge: M2 roads ok\n" );
 }
 
+// The first unit the palette places (game type 1, SGVOGT_UNIT), for the
+// passability probe.
+static std::string FirstPlaceableUnit( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCount );
+	std::vector<BkEditorCatalogueEntry> entries( nCount > 0 ? nCount : 1 );
+	if ( BkEditorCatalogue( pSession, &entries[0], nCount, &nCount ) != BK_EDITOR_OK )
+		return "";
+	for ( int i = 0; i < nCount; ++i )
+		if ( entries[i].game_type == 1 && entries[i].placeable != 0 )
+			return entries[i].name;
+	return "";
+}
+
+// Whether the AI would take the probe unit at a world point: false while the
+// tiles under its rectangle are locked, which is what a river does to them
+// (CAIEditor::CanAddObject tests IsRectOnLockedTiles for every class).
+static bool ProbeFits( const std::string &szUnit, float fX, float fY )
+{
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pAIEditor == 0 )
+		return false;
+	SMapObjectInfo probe;
+	probe.szName = szUnit;
+	CVec3 vAI;
+	Vis2AI( &vAI, fX, fY, 0.0f );
+	probe.vPos = CVec3( vAI.x, vAI.y, 0.0f );
+	probe.nDir = 0;
+	probe.nPlayer = 0;
+	return pAIEditor->CanAddObject( probe );
+}
+
+// D-09 (river passability) on the real engine: a river the bridge adds locks
+// the AI's tiles under it, its undo unlocks them, its redo locks them again,
+// a whole-river delete unlocks them and its undo locks them; a road never
+// touches the AI. Everything undone saves the unedited file byte for byte.
+// On arnheim, deleting a shipped river unblocks a probe on it and undo blocks
+// it again.
+static void TestM2Rivers( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnit = FirstPlaceableUnit( pSession );
+	const std::vector<std::string> roads = VsoDescriptorNames( pSession, 0 );
+	const std::vector<std::string> rivers = VsoDescriptorNames( pSession, 1 );
+	if ( !Check( !szUnit.empty() && !roads.empty() && !rivers.empty(), "a probe unit and road and river types" ) )
+		return;
+	const std::string szUnedited = szScratch + "\\rivers-unedited.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// A point the probe fits on now, with room for the line either side.
+	const float fWidth = original.terrain.tiles.GetSizeX() * fWorldCellSize;
+	const float fHeight = original.terrain.tiles.GetSizeY() * fWorldCellSize;
+	float fProbeX = -1.0f, fProbeY = -1.0f;
+	for ( int j = 2; j <= 8 && fProbeX < 0.0f; ++j )
+		for ( int i = 2; i <= 8 && fProbeX < 0.0f; ++i )
+		{
+			const float fX = fWidth * i / 10.0f, fY = fHeight * j / 10.0f;
+			if ( ProbeFits( szUnit, fX, fY ) )
+			{
+				fProbeX = fX;
+				fProbeY = fY;
+			}
+		}
+	if ( !Check( fProbeX >= 0.0f, ( "a point of coldwinter where " + szUnit + " fits" ).c_str() ) )
+		return;
+	printf( "editor-bridge: river probe %s at %.0f,%.0f\n", szUnit.c_str(), fProbeX, fProbeY );
+	std::vector<BkEditorVec3> line( 3 );
+	for ( int i = 0; i < 3; ++i )
+	{
+		line[i].x = fProbeX + ( i - 1 ) * 250.0f;
+		line[i].y = fProbeY;
+		line[i].z = 0.0f;
+	}
+
+	// A river: added, undone, redone, deleted, the delete undone, the add undone.
+	int nToken = -1, nIndex = -1;
+	if ( !Check( BkEditorAddVso( pSession, 1, rivers[0].c_str(), &line[0], 3, 4.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	VsoAgreesWithEngine( pSession, "after a river was added" );
+	Check( !ProbeFits( szUnit, fProbeX, fProbeY ), "a new river locks the tiles under it" );
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	VsoAgreesWithEngine( pSession, "after the river's undo" );
+	Check( ProbeFits( szUnit, fProbeX, fProbeY ), "its undo unlocks them" );
+	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	VsoAgreesWithEngine( pSession, "after the river's redo" );
+	Check( !ProbeFits( szUnit, fProbeX, fProbeY ), "its redo locks them again" );
+	int nDelete = -1;
+	Check( BkEditorDeleteVso( pSession, 1, nIndex + 1, &nDelete ) == BK_EDITOR_BAD_ARGUMENT, "a river past the end is a bad argument" );
+	if ( Check( BkEditorDeleteVso( pSession, 1, nIndex, &nDelete ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		VsoAgreesWithEngine( pSession, "after the river's delete" );
+		Check( ProbeFits( szUnit, fProbeX, fProbeY ), "deleting the river unlocks its tiles" );
+		Check( VsoCountOf( pSession, 1 ) == int( original.terrain.rivers.size() ), "and it is gone from the list" );
+		Check( BkEditorUndoEdit( pSession, nDelete ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		VsoAgreesWithEngine( pSession, "after the delete's undo" );
+		Check( !ProbeFits( szUnit, fProbeX, fProbeY ), "the delete's undo locks them again" );
+	}
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	VsoAgreesWithEngine( pSession, "after everything was undone" );
+	Check( ProbeFits( szUnit, fProbeX, fProbeY ), "and everything undone leaves the tiles free" );
+
+	// A road through the same point never touches the AI.
+	int nRoadToken = -1, nRoadIndex = -1;
+	if ( Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &line[0], 3, 4.0f, 1.0f, &nRoadToken, &nRoadIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( ProbeFits( szUnit, fProbeX, fProbeY ), "a road leaves the probe's answer as it was" );
+		int nRoadDelete = -1;
+		Check( BkEditorDeleteVso( pSession, 0, nRoadIndex, &nRoadDelete ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( ProbeFits( szUnit, fProbeX, fProbeY ), "and so does its delete" );
+		VsoAgreesWithEngine( pSession, "after a road's delete" );
+		Check( BkEditorUndoEdit( pSession, nRoadDelete ) == BK_EDITOR_OK && BkEditorUndoEdit( pSession, nRoadToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		VsoAgreesWithEngine( pSession, "after the road was undone" );
+	}
+	const std::string szUndone = szScratch + "\\rivers-undone.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "a river and a road, deleted and all undone, save the unedited file byte for byte" );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+
+	// arnheim: a shipped river.
+	CMapInfo bridgeMap;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &bridgeMap, &szError ), szError.c_str() ) || !Check( !bridgeMap.terrain.rivers.empty(), "arnheim has a river" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szArnheimUnit = FirstPlaceableUnit( pSession );
+	VsoAgreesWithEngine( pSession, "on arnheim at open" );
+	const std::vector<SVectorStripeObjectPoint> &rPoints = bridgeMap.terrain.rivers[0].points;
+	std::vector<int> blocked;
+	for ( size_t i = 0; i < rPoints.size(); i += Max( size_t( 1 ), rPoints.size() / 40 ) )
+		if ( !ProbeFits( szArnheimUnit, rPoints[i].vPos.x, rPoints[i].vPos.y ) )
+			blocked.push_back( int( i ) );
+	if ( !Check( !blocked.empty(), "the probe is blocked somewhere on arnheim's first river" ) )
+		return;
+	int nArnheimToken = -1;
+	if ( !Check( BkEditorDeleteVso( pSession, 1, 0, &nArnheimToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	VsoAgreesWithEngine( pSession, "after arnheim's river was deleted" );
+	int nFreed = -1;
+	for ( size_t k = 0; k < blocked.size() && nFreed < 0; ++k )
+		if ( ProbeFits( szArnheimUnit, rPoints[blocked[k]].vPos.x, rPoints[blocked[k]].vPos.y ) )
+			nFreed = blocked[k];
+	if ( Check( nFreed >= 0, NStr::Format( "deleting the shipped river unblocks a probe on it (%d blocked points tried)", int( blocked.size() ) ) ) )
+	{
+		Check( BkEditorUndoEdit( pSession, nArnheimToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		VsoAgreesWithEngine( pSession, "after arnheim's river came back" );
+		Check( !ProbeFits( szArnheimUnit, rPoints[nFreed].vPos.x, rPoints[nFreed].vPos.y ), "and its undo blocks it again" );
+		printf( "editor-bridge: arnheim's river point %d unblocked by the delete, blocked again by the undo\n", nFreed );
+	}
+	printf( "editor-bridge: M2 rivers and passability ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -4412,6 +4574,7 @@ int main( int argc, char **argv )
 		TestM2CascadeDelete( pSession, szScratch, false );
 		TestM2CascadeDelete( pSession, szScratch, true );
 		TestM2Roads( pSession, szScratch );
+		TestM2Rivers( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
