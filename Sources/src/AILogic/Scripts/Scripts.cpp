@@ -143,17 +143,20 @@ void CScripts::Load( const std::string &_szScriptFile )
 {
 	szScriptFile = _szScriptFile;
 	const bool bLoaded = ReadScriptFile();
+	// lua_call's own answer: 0 when Init ran, an error code when it failed or
+	// the script has none (a nil is not callable). -1: nothing was called.
+	int nInitError = -1;
 	if ( bLoaded )
 	{
 		script.GetGlobal( "Init" );
-		script.Call( 0, 0 );
+		nInitError = script.Call( 0, 0 );
 	}
 	if ( IsMapTraceOn() )
 	{
 		// The file's own name only, never the directory it was found in.
 		const std::string::size_type nSlash = szScriptFile.find_last_of( "\\/" );
 		const std::string szBaseName = nSlash == std::string::npos ? szScriptFile : szScriptFile.substr( nSlash + 1 );
-		fprintf( stderr, "BK_MAP_TRACE: script name=\"%s\" loaded=%d init=%d\n", szBaseName.c_str(), bLoaded ? 1 : 0, bLoaded ? 1 : 0 );
+		fprintf( stderr, "BK_MAP_TRACE: script name=\"%s\" loaded=%d init=%d\n", szBaseName.c_str(), bLoaded ? 1 : 0, nInitError == 0 ? 1 : 0 );
 	}
 }
 int CScripts::KillActiveScript( const std::string szName )
