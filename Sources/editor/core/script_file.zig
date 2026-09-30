@@ -12,6 +12,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const files_mod = @import("files.zig");
+const shipped_mod = @import("shipped.zig");
 
 const Files = files_mod.Files;
 
@@ -112,6 +113,9 @@ pub const CopyOutcome = enum {
     /// The name is None or not a bare name, so no path was built: nothing was
     /// copied.
     not_a_bare_name,
+    /// The destination is inside a game's data folder (`shipped.isShipped`),
+    /// which is never written: nothing was copied.
+    shipped,
 };
 
 /// True when `a` and `b` are the same file: the same text, or the same real
@@ -133,7 +137,10 @@ pub fn sameFile(files: Files, a: []const u8, b: []const u8) bool {
 /// from a shipped map - a path whose last component is the name the game
 /// loads (`gameScriptName`). Both ends are a fixed directory plus that one
 /// validated component.
-pub fn copyForTest(files: Files, map_path: []const u8, test_dir: []const u8, value: []const u8) CopyOutcome {
+/// `base_root` is the installation the editor runs from (`Editor.baseRoot`): a
+/// destination inside a game's data folder is `.shipped`, whichever caller
+/// asked (WR-B05, as `Editor.save`).
+pub fn copyForTest(files: Files, base_root: []const u8, map_path: []const u8, test_dir: []const u8, value: []const u8) CopyOutcome {
     var from_buffer: [files_mod.max_path]u8 = undefined;
     var to_buffer: [files_mod.max_path]u8 = undefined;
     const name = gameScriptName(value) orelse return .not_a_bare_name;
@@ -141,6 +148,7 @@ pub fn copyForTest(files: Files, map_path: []const u8, test_dir: []const u8, val
     const to = scriptPathIn(&to_buffer, test_dir, name) orelse return .failed;
     if (!files.exists(from)) return .missing;
     if (sameFile(files, from, to)) return .copied;
+    if (shipped_mod.isShipped(to, base_root, files)) return .shipped;
     files.copy(from, to) catch return .failed;
     return .copied;
 }
@@ -200,18 +208,21 @@ pub const CopyIntoOutcome = enum {
     not_a_bare_name,
     /// The picked file is not there, or the disk refused.
     failed,
+    /// The map is inside a game's data folder, which is never written.
+    shipped,
 };
 
 /// "Choose other...": copies the picked file beside the map `map_path` under
 /// its own name (`pickedName`). The destination is the map's folder plus that
 /// validated name, never the picked path. When a different file is already
 /// there this is `.exists` unless `overwrite` says the person agreed.
-pub fn copyInto(files: Files, map_path: []const u8, picked_path: []const u8, overwrite: bool) CopyIntoOutcome {
+pub fn copyInto(files: Files, base_root: []const u8, map_path: []const u8, picked_path: []const u8, overwrite: bool) CopyIntoOutcome {
     const name = pickedName(picked_path) orelse return .not_a_bare_name;
     var to_buffer: [files_mod.max_path]u8 = undefined;
     const to = scriptPathBeside(&to_buffer, map_path, name) orelse return .not_a_bare_name;
     if (!files.exists(picked_path)) return .failed;
     if (sameFile(files, picked_path, to)) return .copied;
+    if (shipped_mod.isShipped(to, base_root, files)) return .shipped;
     if (files.exists(to) and !overwrite) return .exists;
     files.copy(picked_path, to) catch return .failed;
     return .copied;
@@ -231,6 +242,8 @@ pub const CopyAlongOutcome = enum {
     failed,
     /// The name is None or not a bare name, so no path was built.
     not_a_bare_name,
+    /// The new map is inside a game's data folder, which is never written.
+    shipped,
 };
 
 /// Save As (D-20; any map since 04-13): copies the script the map names from beside
@@ -240,7 +253,7 @@ pub const CopyAlongOutcome = enum {
 /// copy onto itself - both maps in one folder - is `.copied`. A different file
 /// of that name already beside the new map is never replaced unless `overwrite`
 /// says the person agreed: `.exists` (the contract of `copyInto`).
-pub fn copyAlong(files: Files, from_map: []const u8, to_map: []const u8, value: []const u8, overwrite: bool) CopyAlongOutcome {
+pub fn copyAlong(files: Files, base_root: []const u8, from_map: []const u8, to_map: []const u8, value: []const u8, overwrite: bool) CopyAlongOutcome {
     const name = gameScriptName(value) orelse return .not_a_bare_name;
     var from_buffer: [files_mod.max_path]u8 = undefined;
     var to_buffer: [files_mod.max_path]u8 = undefined;
@@ -248,6 +261,7 @@ pub fn copyAlong(files: Files, from_map: []const u8, to_map: []const u8, value: 
     const to = scriptPathBeside(&to_buffer, to_map, name) orelse return .not_a_bare_name;
     if (!files.exists(from)) return .missing;
     if (sameFile(files, from, to)) return .copied;
+    if (shipped_mod.isShipped(to, base_root, files)) return .shipped;
     if (files.exists(to) and !overwrite) return .exists;
     files.copy(from, to) catch return .failed;
     return .copied;
@@ -335,7 +349,7 @@ test "copyForTest copies beside the test map, overwriting there, and warns when 
     try fake.write("/maps/mine/m2_script.lua", "function Init() end");
     try fake.write("/gen/maps/m2_script.lua", "stale");
 
-    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "/maps/mine/a.bzm", "/gen/maps", "m2_script"));
+    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", "m2_script"));
     try std.testing.expectEqualStrings("function Init() end", fake.contents("/gen/maps/m2_script.lua").?);
     // The source is untouched, and the copy was the one op.
     try std.testing.expectEqualStrings("function Init() end", fake.contents("/maps/mine/m2_script.lua").?);
@@ -350,7 +364,7 @@ test "copyForTest copies beside the test map, overwriting there, and warns when 
 
     // No file beside the map: a warning outcome and no copy.
     const ops_before = fake.op_log.items.len;
-    try std.testing.expectEqual(CopyOutcome.missing, copyForTest(files, "/maps/mine/a.bzm", "/gen/maps", "other"));
+    try std.testing.expectEqual(CopyOutcome.missing, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", "other"));
     try std.testing.expectEqual(ops_before, fake.op_log.items.len);
 }
 
@@ -362,14 +376,14 @@ test "copyForTest builds no path for a name that is not a bare name, and keeps a
     try fake.write("/maps/x.lua", "one folder up");
     try fake.write("/x.lua", "at the root");
     for ([_][]const u8{ "x.lua", "..", "a b", "", "dir\\", "a/..", "C:", "sub\\y.lua" }) |value| {
-        try std.testing.expectEqual(CopyOutcome.not_a_bare_name, copyForTest(files, "/maps/mine/a.bzm", "/gen/maps", value));
+        try std.testing.expectEqual(CopyOutcome.not_a_bare_name, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", value));
     }
     try std.testing.expectEqual(@as(usize, 3), fake.op_log.items.len); // only the three writes above
     try std.testing.expect(fake.contents("/gen/maps/x.lua") == null);
     // A shipped map's folder value keeps only its last component, as the game does:
     // however many ".." lead to it, the file is the one beside the map and it lands
     // in the test folder.
-    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "/maps/mine/a.bzm", "/gen/maps", "..\\..\\x"));
+    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", "..\\..\\x"));
     try std.testing.expectEqualStrings("beside the map", fake.contents("/gen/maps/x.lua").?);
     for (fake.op_log.items) |op| {
         if (op.kind != .copy) continue;
@@ -378,6 +392,25 @@ test "copyForTest builds no path for a name that is not a bare name, and keeps a
     }
     try std.testing.expectEqualStrings("one folder up", fake.contents("/maps/x.lua").?);
     try std.testing.expectEqualStrings("at the root", fake.contents("/x.lua").?);
+}
+
+test "no script writer writes into a game's data folder, whichever caller asked (WR-B05)" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const data_roots = [_][]const u8{"/other/game/Data"};
+    fake.data_roots = &data_roots;
+    const files = fake.files();
+    try fake.write("/other/game/Data/Maps/shipped.bzm", "map");
+    try fake.write("/home/maps/m2_script.lua", "mine");
+    try fake.write("/dl/m2_script.lua", "picked");
+    const ops = fake.op_log.items.len;
+    try std.testing.expectEqual(CopyIntoOutcome.shipped, copyInto(files, "/game/", "/other/game/Data/Maps/shipped.bzm", "/dl/m2_script.lua", true));
+    try std.testing.expectEqual(CopyAlongOutcome.shipped, copyAlong(files, "/game/", "/home/maps/a.bzm", "/other/game/Data/Maps/shipped.bzm", "m2_script", true));
+    try std.testing.expectEqual(CopyOutcome.shipped, copyForTest(files, "/game/", "/home/maps/a.bzm", "/other/game/Data/Maps", "m2_script"));
+    // The installation's own Data by rule 1, with no marker needed.
+    try std.testing.expectEqual(CopyIntoOutcome.shipped, copyInto(files, "/game/", "/game/Data/Maps/x.bzm", "/dl/m2_script.lua", true));
+    try std.testing.expectEqual(ops, fake.op_log.items.len);
+    try std.testing.expect(fake.contents("/other/game/Data/Maps/m2_script.lua") == null);
 }
 
 test "gameScriptName is the last component when that is a bare name" {
@@ -393,10 +426,10 @@ test "copyForTest reports a refusing disk, and leaves a script already in the te
     const files = fake.files();
     try fake.write("/maps/mine/m2_script.lua", "one");
     fake.fail_copy = true;
-    try std.testing.expectEqual(CopyOutcome.failed, copyForTest(files, "/maps/mine/a.bzm", "/gen/maps", "m2_script"));
+    try std.testing.expectEqual(CopyOutcome.failed, copyForTest(files, "", "/maps/mine/a.bzm", "/gen/maps", "m2_script"));
     fake.fail_copy = false;
     // The map itself lives in the test folder: the file is where it is wanted.
-    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "/maps/mine/a.bzm", "/maps/mine", "m2_script"));
+    try std.testing.expectEqual(CopyOutcome.copied, copyForTest(files, "", "/maps/mine/a.bzm", "/maps/mine", "m2_script"));
     var copies: usize = 0;
     for (fake.op_log.items) |op| {
         if (op.kind == .copy) copies += 1;
@@ -441,21 +474,21 @@ test "copyInto puts a picked script beside the map, asks first when one is there
     try fake.write("/dl/bad name.lua", "x");
     try fake.write("/dl/notes.txt", "x");
     const map = "/maps/mine/a.bzm";
-    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, map, "/dl/mine.lua", false));
+    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, "", map, "/dl/mine.lua", false));
     try std.testing.expectEqualStrings("new", fake.contents("/maps/mine/mine.lua").?);
     // A different file of that name is there now: ask, do not copy.
     try fake.write("/dl/mine.lua", "newer");
-    try std.testing.expectEqual(CopyIntoOutcome.exists, copyInto(files, map, "/dl/mine.lua", false));
+    try std.testing.expectEqual(CopyIntoOutcome.exists, copyInto(files, "", map, "/dl/mine.lua", false));
     try std.testing.expectEqualStrings("new", fake.contents("/maps/mine/mine.lua").?);
     // Told to overwrite, it does.
-    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, map, "/dl/mine.lua", true));
+    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, "", map, "/dl/mine.lua", true));
     try std.testing.expectEqualStrings("newer", fake.contents("/maps/mine/mine.lua").?);
     // A script already beside the map is chosen without a copy or a question.
-    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, map, "/maps/mine/mine.lua", false));
+    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, "", map, "/maps/mine/mine.lua", false));
     // The name must be a bare name plus .lua; a missing file fails.
-    try std.testing.expectEqual(CopyIntoOutcome.not_a_bare_name, copyInto(files, map, "/dl/bad name.lua", true));
-    try std.testing.expectEqual(CopyIntoOutcome.not_a_bare_name, copyInto(files, map, "/dl/notes.txt", true));
-    try std.testing.expectEqual(CopyIntoOutcome.failed, copyInto(files, map, "/dl/gone.lua", true));
+    try std.testing.expectEqual(CopyIntoOutcome.not_a_bare_name, copyInto(files, "", map, "/dl/bad name.lua", true));
+    try std.testing.expectEqual(CopyIntoOutcome.not_a_bare_name, copyInto(files, "", map, "/dl/notes.txt", true));
+    try std.testing.expectEqual(CopyIntoOutcome.failed, copyInto(files, "", map, "/dl/gone.lua", true));
     try std.testing.expect(fake.contents("/maps/mine/bad name.lua") == null);
 }
 
@@ -464,20 +497,20 @@ test "copyAlong copies a script between the two maps' folders and reports a miss
     defer fake.deinit();
     const files = fake.files();
     try fake.write("/game/Data/Maps/Multiplayer/coldwinter.lua", "shipped");
-    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter", false));
+    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter", false));
     try std.testing.expectEqualStrings("shipped", fake.contents("/home/maps/coldwinter.lua").?);
     // A value the shipped map holds as a folder path keeps its last component, as the game does.
-    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/other/mine.bzm", "maps\\coldwinter", false));
+    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/other/mine.bzm", "maps\\coldwinter", false));
     try std.testing.expectEqualStrings("shipped", fake.contents("/home/other/coldwinter.lua").?);
     // Nothing beside the old map: missing, nothing written.
     const ops = fake.op_log.items.len;
-    try std.testing.expectEqual(CopyAlongOutcome.missing, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent", false));
+    try std.testing.expectEqual(CopyAlongOutcome.missing, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent", false));
     try std.testing.expectEqual(ops, fake.op_log.items.len);
     // Both maps in one folder: nothing to copy.
-    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "/home/maps/a.bzm", "/home/maps/b.bzm", "coldwinter", false));
+    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "", "/home/maps/a.bzm", "/home/maps/b.bzm", "coldwinter", false));
     // A name that builds no path copies nothing.
-    try std.testing.expectEqual(CopyAlongOutcome.not_a_bare_name, copyAlong(files, "/game/a.bzm", "/home/b.bzm", "x.lua", false));
-    try std.testing.expectEqual(CopyAlongOutcome.not_a_bare_name, copyAlong(files, "/game/a.bzm", "/home/b.bzm", "", false));
+    try std.testing.expectEqual(CopyAlongOutcome.not_a_bare_name, copyAlong(files, "", "/game/a.bzm", "/home/b.bzm", "x.lua", false));
+    try std.testing.expectEqual(CopyAlongOutcome.not_a_bare_name, copyAlong(files, "", "/game/a.bzm", "/home/b.bzm", "", false));
 }
 
 test "copyAlong never replaces a different script beside the new map unless told to (CR-B01)" {
@@ -487,14 +520,14 @@ test "copyAlong never replaces a different script beside the new map unless told
     try fake.write("/game/Data/Maps/Multiplayer/coldwinter.lua", "shipped");
     try fake.write("/home/maps/coldwinter.lua", "my own work");
     const ops = fake.op_log.items.len;
-    try std.testing.expectEqual(CopyAlongOutcome.exists, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter", false));
+    try std.testing.expectEqual(CopyAlongOutcome.exists, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter", false));
     try std.testing.expectEqualStrings("my own work", fake.contents("/home/maps/coldwinter.lua").?);
     try std.testing.expectEqual(ops, fake.op_log.items.len);
     // Asked and answered Replace: the copy goes through.
-    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter", true));
+    try std.testing.expectEqual(CopyAlongOutcome.copied, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter", true));
     try std.testing.expectEqualStrings("shipped", fake.contents("/home/maps/coldwinter.lua").?);
     // Nothing beside the old map is still missing, whatever `overwrite` says.
-    try std.testing.expectEqual(CopyAlongOutcome.missing, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent", true));
+    try std.testing.expectEqual(CopyAlongOutcome.missing, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent", true));
 }
 
 test "folderUrl is file:// and the resolved folder of a validated script, never the script itself (WR-B04)" {
