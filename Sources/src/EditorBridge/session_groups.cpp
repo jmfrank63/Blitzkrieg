@@ -617,6 +617,26 @@ bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs
 			return false;
 		}
 	}
+	// Nothing outside the group may hold one of its objects: a unit whose
+	// nLinkWith names a piece is garrisoned in it (a soldier in a trench),
+	// and the overlay's delete refuses such a piece. Refused here, before
+	// anything is taken out, rather than halfway through the group. Moving
+	// the units out is M3's links (05-PARITY O18, O21).
+	const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t k = 0; k < lists[nList]->size(); ++k )
+		{
+			const SMapObjectInfo &rObject = (*lists[nList])[k];
+			if ( rObject.link.nLinkWith <= 0 || std::find( rLinkIDs.begin(), rLinkIDs.end(), rObject.link.nLinkID ) != rLinkIDs.end() )
+				continue;
+			const std::vector<int>::const_iterator itHeld = std::find( rLinkIDs.begin(), rLinkIDs.end(), rObject.link.nLinkWith );
+			if ( itHeld != rLinkIDs.end() )
+			{
+				*pWhy = NStr::Format( "%s %d of that %s (link ID %d) holds %s (link ID %d); the %s is kept as it is", pszPart, int( itHeld - rLinkIDs.begin() ),
+				                      pszGroup, *itHeld, rObject.szName.c_str(), rObject.link.nLinkID, pszGroup );
+				return false;
+			}
+		}
 	return true;
 }
 }

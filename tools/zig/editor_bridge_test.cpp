@@ -272,6 +272,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorPlanEntrenchment", [&] { return BkEditorPlanEntrenchment( 0, trenchPoints, 2, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawEntrenchment", [&] { return BkEditorDrawEntrenchment( 0, trenchPoints, 2, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorEntrenchments", [&] { return BkEditorEntrenchments( 0, &trenchInfo, 1, &nInt ); } },
+		{ "BkEditorDeleteEntrenchment", [&] { return BkEditorDeleteEntrenchment( 0, 0, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -347,6 +348,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorPlanEntrenchment", [&] { return BkEditorPlanEntrenchment( pSession, trenchPoints, 2, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawEntrenchment", [&] { return BkEditorDrawEntrenchment( pSession, trenchPoints, 2, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorEntrenchments", [&] { return BkEditorEntrenchments( pSession, &trenchInfo, 1, &nInt ); } },
+		{ "BkEditorDeleteEntrenchment", [&] { return BkEditorDeleteEntrenchment( pSession, 0, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -5819,6 +5821,276 @@ static void TestM2Entrenchments( BkEditorSession *pSession, const std::string &s
 	printf( "editor-bridge: M2 entrenchments draw ok\n" );
 }
 
+// The shipped map the garrison refusal is shown on: the first map under
+// Data\Maps the map-file tier's scan finds entrenchments in; every one of its
+// 15 entrenchments holds units.
+static const char *const GARRISONED_TRENCH_MAP = "Data\\Maps\\allies\\ardennes\\battleofbulge.bzm";
+
+// Which entrenchments of a map hold units: a unit whose nLinkWith names one of
+// the entrenchment's pieces is garrisoned in it.
+static std::vector<bool> GarrisonedTrenches( const CMapInfo &rMap )
+{
+	std::set<int> holders;
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			if ( (*lists[nList])[i].link.nLinkWith > 0 )
+				holders.insert( (*lists[nList])[i].link.nLinkWith );
+	std::vector<bool> garrisoned( rMap.entrenchments.size(), false );
+	for ( size_t t = 0; t < rMap.entrenchments.size(); ++t )
+		for ( size_t sIndex = 0; sIndex < rMap.entrenchments[t].sections.size(); ++sIndex )
+			for ( size_t k = 0; k < rMap.entrenchments[t].sections[sIndex].size(); ++k )
+				if ( holders.count( rMap.entrenchments[t].sections[sIndex][k] ) != 0 )
+					garrisoned[t] = true;
+	return garrisoned;
+}
+
+// The first shipped map, in sorted path order (the same on every platform),
+// with an entrenchment that holds no units and whose pieces are each one
+// object of `objects`; its path (engine form) and that entrenchment's index.
+static bool FindEmptyTrenchMap( std::string *pPath, int *pnTrench, int *pnScanned )
+{
+	std::vector<std::string> paths;
+	std::error_code error;
+	for ( std::filesystem::recursive_directory_iterator it( "Data/Maps", error ), itEnd; !error && it != itEnd; it.increment( error ) )
+		if ( it->is_regular_file( error ) )
+		{
+			std::string szPath = it->path().generic_string();
+			if ( szPath.size() > 4 && NStr::CompareAsciiNoCase( szPath.c_str() + szPath.size() - 4, ".bzm" ) == 0 )
+			{
+				std::replace( szPath.begin(), szPath.end(), '/', '\\' );
+				paths.push_back( szPath );
+			}
+		}
+	std::sort( paths.begin(), paths.end() );
+	*pnScanned = 0;
+	for ( size_t p = 0; p < paths.size(); ++p )
+	{
+		CMapInfo map;
+		std::string szError;
+		++*pnScanned;
+		if ( !NMapFile::Read( paths[p].c_str(), &map, &szError ) || map.entrenchments.empty() )
+			continue;
+		const std::vector<bool> garrisoned = GarrisonedTrenches( map );
+		for ( size_t t = 0; t < map.entrenchments.size(); ++t )
+		{
+			if ( garrisoned[t] || map.entrenchments[t].sections.empty() )
+				continue;
+			bool bPlain = true;
+			for ( size_t sIndex = 0; sIndex < map.entrenchments[t].sections.size() && bPlain; ++sIndex )
+				for ( size_t k = 0; k < map.entrenchments[t].sections[sIndex].size() && bPlain; ++k )
+				{
+					int nHolders = 0;
+					for ( size_t i = 0; i < map.objects.size(); ++i )
+						nHolders += map.objects[i].link.nLinkID == map.entrenchments[t].sections[sIndex][k] ? 1 : 0;
+					bPlain = nHolders == 1;
+				}
+			if ( bPlain )
+			{
+				*pPath = paths[p];
+				*pnTrench = int( t );
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+// The screen point a shipped entrenchment's piece is picked at: the camera on
+// the piece, then its world point on screen, tried as it is and a little
+// above and below. False when no offset picks entrenchment nWanted.
+static bool PickTrenchAt( BkEditorSession *pSession, float fWorldX, float fWorldY, int nWanted, float *pfSx, float *pfSy )
+{
+	if ( BkEditorSetCamera( pSession, fWorldX, fWorldY ) != BK_EDITOR_OK || BkEditorFrame( pSession ) != BK_EDITOR_OK )
+		return false;
+	float fSx = 0.0f, fSy = 0.0f;
+	if ( BkEditorWorldToScreen( pSession, fWorldX, fWorldY, &fSx, &fSy ) != BK_EDITOR_OK )
+		return false;
+	const float offsets[] = { 0.0f, -4.0f, 4.0f, -8.0f, 8.0f, -12.0f, 12.0f };
+	for ( size_t i = 0; i < sizeof offsets / sizeof offsets[0]; ++i )
+	{
+		int nKind = -1, nIndex = -1;
+		if ( BkEditorPickGroup( pSession, fSx, fSy + offsets[i], &nKind, &nIndex ) == BK_EDITOR_OK && nKind == 2 && nIndex == nWanted )
+		{
+			*pfSx = fSx;
+			*pfSy = fSy + offsets[i];
+			return true;
+		}
+	}
+	return false;
+}
+
+// D-04 on the real engine: an entrenchment that holds units (a soldier whose
+// nLinkWith names a piece) is refused whole before anything is taken out, and
+// the map saves unedited. Moving units out of a trench is M3's links.
+static void TestM2GarrisonedTrenchRefused( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( GARRISONED_TRENCH_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	const std::vector<bool> garrisoned = GarrisonedTrenches( original );
+	const std::vector<bool>::const_iterator itHeld = std::find( garrisoned.begin(), garrisoned.end(), true );
+	if ( !Check( itHeld != garrisoned.end(), "battleofbulge has an entrenchment that holds units" ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, GARRISONED_TRENCH_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\trench-held-unedited.bzm";
+	const std::string szHeld = szScratch + "\\trench-held.bzm";
+	const std::string szCheck = szScratch + "\\trench-held-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nHeld = int( itHeld - garrisoned.begin() );
+	int nToken = 7;
+	Check( BkEditorDeleteEntrenchment( pSession, nHeld, &nToken ) == BK_EDITOR_REFUSED && nToken == -1,
+	       NStr::Format( "entrenchment %d, which holds units, is refused whole (%s)", nHeld, BkEditorLastMessage( pSession ) ) );
+	printf( "editor-bridge: %d of %d entrenchments hold units; one refused: %s\n", int( std::count( garrisoned.begin(), garrisoned.end(), true ) ),
+	        int( garrisoned.size() ), BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szHeld.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szHeld ), "and the map saves unedited byte for byte" );
+	WorldAgrees( pSession, "after the refused delete" );
+	EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after the refused delete" );
+	remove( OsPath( szHeld ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+}
+
+// D-13/D-04 on the real engine: a shipped map's entrenchment (the first in
+// sorted path order that holds no units) is picked from a screen point over
+// one of its pieces (as a group - BkEditorObjectAt passes a piece over),
+// deleted whole - the save equals the file's map with the entry erased and its
+// pieces deleted, and every other entrenchment's links still resolve - its
+// undo saves the unedited bytes, and a piece alone is still refused to the
+// object delete.
+static void TestM2EntrenchmentDelete( BkEditorSession *pSession, const std::string &szScratch )
+{
+	TestM2GarrisonedTrenchRefused( pSession, szScratch );
+
+	std::string szMap;
+	int nWantedTrench = -1, nScanned = 0;
+	if ( !Check( FindEmptyTrenchMap( &szMap, &nWantedTrench, &nScanned ), NStr::Format( "a shipped map has an entrenchment with no units in it (%d maps read)", nScanned ) ) )
+		return;
+	printf( "editor-bridge: entrenchment %d of %s holds no units (%d maps read)\n", nWantedTrench, szMap.c_str(), nScanned );
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szMap.c_str(), &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\trench-delete-unedited.bzm";
+	const std::string szEdited = szScratch + "\\trench-delete-edited.bzm";
+	const std::string szCheck = szScratch + "\\trench-delete-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( ReadTrenches( pSession ).size() == original.entrenchments.size(),
+	       NStr::Format( "BkEditorEntrenchments lists the file's %d entrenchments", int( original.entrenchments.size() ) ) );
+	EveryTrenchLinkIsInTheEngine( pSession, szCheck, "as opened" );
+
+	// One of its pieces, on screen.
+	const int nTrench = nWantedTrench;
+	int nPieceLink = -1;
+	float fSx = 0.0f, fSy = 0.0f, fPieceX = 0.0f, fPieceY = 0.0f;
+	const SEntrenchmentInfo &rTrench = original.entrenchments[nTrench];
+	for ( size_t sIndex = 0; sIndex < rTrench.sections.size() && nPieceLink < 0; ++sIndex )
+		for ( size_t k = 0; k < rTrench.sections[sIndex].size() && nPieceLink < 0; ++k )
+		{
+			const int nLink = rTrench.sections[sIndex][k];
+			for ( size_t i = 0; i < original.objects.size(); ++i )
+				if ( original.objects[i].link.nLinkID == nLink )
+				{
+					fPieceX = original.objects[i].vPos.x * fAITileXCoeff;
+					fPieceY = original.objects[i].vPos.y * fAITileYCoeff;
+					if ( PickTrenchAt( pSession, fPieceX, fPieceY, nTrench, &fSx, &fSy ) )
+						nPieceLink = nLink;
+					break;
+				}
+		}
+	if ( !Check( nPieceLink >= 0, "BkEditorPickGroup finds the entrenchment over one of its pieces" ) )
+		return;
+	int nPieces = 0;
+	for ( size_t sIndex = 0; sIndex < rTrench.sections.size(); ++sIndex )
+		nPieces += int( rTrench.sections[sIndex].size() );
+	printf( "editor-bridge: entrenchment %d of %d (%d pieces, %d sections) picked at %.0f,%.0f\n", nTrench, int( original.entrenchments.size() ),
+	        nPieces, int( rTrench.sections.size() ), fSx, fSy );
+	{
+		// BkEditorObjectAt keeps its meaning: it passes the piece over.
+		int nLinkID = -1;
+		const BkEditorStatus status = BkEditorObjectAt( pSession, fSx, fSy, &nLinkID );
+		bool bPiece = false;
+		for ( size_t t = 0; t < original.entrenchments.size(); ++t )
+			for ( size_t sIndex = 0; sIndex < original.entrenchments[t].sections.size(); ++sIndex )
+				bPiece = bPiece || std::find( original.entrenchments[t].sections[sIndex].begin(), original.entrenchments[t].sections[sIndex].end(), nLinkID ) !=
+				                   original.entrenchments[t].sections[sIndex].end();
+		Check( status == BK_EDITOR_REFUSED || ( status == BK_EDITOR_OK && !bPiece ), "BkEditorObjectAt at the same point answers no trench piece" );
+	}
+	// D-04: a piece alone is refused, and changes nothing.
+	Check( BkEditorDeleteObject( pSession, nPieceLink ) == BK_EDITOR_REFUSED, NStr::Format( "a trench piece alone is refused to the object delete (%s)", BkEditorLastMessage( pSession ) ) );
+
+	const int nObjectsBefore = int( ReadObjectRecords( pSession ).size() );
+	int nToken = -1;
+	if ( !Check( BkEditorDeleteEntrenchment( pSession, nTrench, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( int( ReadTrenches( pSession ).size() ) == int( original.entrenchments.size() ) - 1, "the entry is gone" );
+	Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore - nPieces, "and every piece with it" );
+	WorldAgrees( pSession, "after an entrenchment was deleted" );
+	EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after an entrenchment was deleted" );
+	CMapInfo expected;
+	Check( NMapFile::Read( szMap.c_str(), &expected, &szError ), szError.c_str() );
+	SEntrenchmentInfo erased;
+	Check( NMapRecords::EraseEntrenchment( &expected, nTrench, &erased ), "the expected map loses the entry" );
+	for ( size_t sIndex = erased.sections.size(); sIndex-- > 0; )
+		for ( size_t k = erased.sections[sIndex].size(); k-- > 0; )
+		{
+			std::string szRefusal;
+			Check( NMapOverlay::DeleteObject( &expected, erased.sections[sIndex][k], &szRefusal ), szRefusal.c_str() );
+		}
+	CheckSavedEquals( pSession, szEdited, expected, "a deleted entrenchment" );
+
+	if ( Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the delete's undo" );
+		EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after the delete's undo" );
+		const std::string szUndone = szScratch + "\\trench-delete-undone.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), "an entrenchment's delete and its undo save the unedited file byte for byte" );
+		remove( OsPath( szUndone ).c_str() );
+		// Picked again over the same piece, after a frame has drawn the pieces
+		// the undo put back.
+		float fAgainX = 0.0f, fAgainY = 0.0f;
+		Check( PickTrenchAt( pSession, fPieceX, fPieceY, nTrench, &fAgainX, &fAgainY ), "and the entrenchment is picked again" );
+	}
+	if ( Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CheckSavedEquals( pSession, szEdited, expected, "the delete redone" );
+		EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after the delete's redo" );
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+	Check( BkEditorDeleteEntrenchment( pSession, int( original.entrenchments.size() ), &nToken ) == BK_EDITOR_BAD_ARGUMENT, "an entrenchment past the end is a bad argument" );
+	Check( BkEditorDeleteEntrenchment( pSession, -1, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "index -1 is a bad argument" );
+	// A drawn trench deletes whole as well, and its undo puts it back.
+	{
+		const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+		const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+		const std::vector<BkEditorVec3> clicks = ToCPoints2( EngineTrenchL( fMiddleX - 300.0f, fMiddleY - 250.0f ) );
+		int nDrawToken = -1, nIndex = -1, nDeleteToken = -1;
+		if ( Check( BkEditorDrawEntrenchment( pSession, &clicks[0], int( clicks.size() ), 0, &nDrawToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+		     Check( BkEditorDeleteEntrenchment( pSession, nIndex, &nDeleteToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			Check( int( ReadTrenches( pSession ).size() ) == int( original.entrenchments.size() ), "a drawn trench deleted leaves the file's list" );
+			Check( BkEditorUndoEdit( pSession, nDeleteToken ) == BK_EDITOR_OK && int( ReadTrenches( pSession ).size() ) == int( original.entrenchments.size() ) + 1,
+			       "its delete undone puts it back at the end" );
+			EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after a drawn trench's delete was undone" );
+			Check( BkEditorUndoEdit( pSession, nDrawToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		}
+		const std::string szBack = szScratch + "\\trench-delete-back.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szBack.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szBack ), "and everything undone saves the unedited file byte for byte" );
+		remove( OsPath( szBack ).c_str() );
+	}
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 entrenchment delete ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -5980,6 +6252,7 @@ int main( int argc, char **argv )
 		TestM2BridgeRotateToggle( pSession, szScratch );
 		TestM2Fences( pSession, szScratch );
 		TestM2Entrenchments( pSession, szScratch );
+		TestM2EntrenchmentDelete( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

@@ -393,6 +393,10 @@ pub const Bridge = struct {
         /// BkEditorEntrenchments: every entrenchments entry in list order
         /// (two-pass).
         entrenchments: *const fn (ptr: *anyopaque, out: []EntrenchmentInfo, total: *usize) Status,
+        /// BkEditorDeleteEntrenchment: the whole entrenchment at `index`, one
+        /// edit. Refused for one that holds units or has a piece the editor
+        /// could not put back.
+        deleteEntrenchment: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -447,6 +451,7 @@ pub const Bridge = struct {
     pub fn planEntrenchment(self: Bridge, points: []const records.Vec3, out: []PlannedPiece, total: *usize) Status { return self.vtable.planEntrenchment(self.ptr, points, out, total); }
     pub fn drawEntrenchment(self: Bridge, points: []const records.Vec3, player: i32, token: *i32, index: *i32) Status { return self.vtable.drawEntrenchment(self.ptr, points, player, token, index); }
     pub fn entrenchments(self: Bridge, out: []EntrenchmentInfo, total: *usize) Status { return self.vtable.entrenchments(self.ptr, out, total); }
+    pub fn deleteEntrenchment(self: Bridge, index: i32, token: *i32) Status { return self.vtable.deleteEntrenchment(self.ptr, index, token); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

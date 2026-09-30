@@ -1070,6 +1070,15 @@ typedef struct { int piece_count; int section_count; int player; float min_x, mi
 /* Every entrenchments entry of the map, in list order; two passes like
    BkEditorBridgeDescriptors. */
 BkEditorStatus BkEditorEntrenchments( BkEditorSession *session, BkEditorEntrenchmentInfo *out, int capacity, int *out_count );
+/* Deletes entrenchment index whole - its entry, then every piece, in both
+   copies and the engine - as one edit (out_token, may be null; -1 after a
+   refusal); its undo puts the pieces back and then the entry at the same
+   index. A piece is found with BkEditorPickGroup (kind 2); BkEditorDeleteObject
+   still refuses a piece alone (D-04). index outside 0..count-1 is
+   BK_EDITOR_BAD_ARGUMENT. BK_EDITOR_REFUSED for an entrenchment with a piece
+   the editor could not put back (a link ID the map shares, a piece the engine
+   never held): it is kept as read. */
+BkEditorStatus BkEditorDeleteEntrenchment( BkEditorSession *session, int index, int *out_token );
 
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
