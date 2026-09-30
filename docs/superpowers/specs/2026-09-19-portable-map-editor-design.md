@@ -22,7 +22,7 @@ interfaces is.
 |---|---|---|
 | **Map Editor M1** | core editing loop, macOS first | this document |
 | **Map Editor M2** | roads and rivers, bridges (with rotate and built during play), entrenchments, fences, script IDs and reinforcement groups, start commands, reserve positions, AI general, script file and script areas, camera anchors; see "M2 scope" | done (phase 4, 2026-09-30; "Exit criteria for M2") |
-| Map Editor M3 | random map templates, minimap tools, parity; delete the MFC editor | later |
+| Map Editor M3 | random map templates, minimap tools, parity; delete the MFC editor | phase 5 (in progress) |
 | Resource Editor | `Sources/src/editor`, ~64k lines, 20+ sub-editors | own spec |
 | ELK | localisation kit, ~12k lines | own spec |
 | Small tools | converters and validators | own spec |
@@ -404,6 +404,17 @@ The pass in step 3 makes the order of commands matter. So:
   it runs;
 - undo restores exactly those, in the copy and in the engine.
 
+**Altitudes (amended 2026-10-01, phase 5 D-19).** The same rule covers
+terrain altitudes (heights and shades), editable from M3: an altitude edit
+is a deterministic function over the affected region — set the heights;
+run `CMapInfo::UpdateTerrainShades` over the region grown by one vertex on
+each side (the shade kernel, the MFC `DrawShadeState.cpp` update rect);
+push the region into the engine — with the expected value in tests built by
+the same function. Undo restores the recorded region raw. Outside edited
+regions altitudes stay byte-identical. The MFC editor's whole-map shade
+recompute at save is **not** copied: shades are recomputed per edit, and a
+full recompute belongs to the explicit Update Map command (D-20).
+
 **References to deleted objects.** Other records can refer to an object: by
 link ID (`bridges`, entrenchment sections, `startCommandsList` units and
 target, `reservePositionsList` artillery and truck, `link.nLinkWith` of objects
@@ -682,14 +693,19 @@ sequence:
 - every M2 edit is built with `NMapRecords` (and, from 04-06, `NMapGeometry`,
   the plain-number geometry unit) on the original map: the same functions the
   bridge applies to its own copies, so the expected value never depends on the
-  engine.
+  engine;
+- an altitude edit (from M3, D-19) runs the altitude function of "Terrain
+  edits" — set the heights, `UpdateTerrainShades` over the region grown by one
+  vertex per side — with the same C++ code the bridge uses.
 
 The saved map must then be equivalent to that value. So, for terrain:
 - outside the affected regions, every tile and every patch equals the
   original;
 - inside them, `tiles` and patch crosses equal the builder's result;
-- `altitudes`, patch heights, `rivers` and `roads3` equal the original
-  everywhere.
+- `altitudes` equal the original everywhere except inside altitude-edited
+  regions, where they equal the altitude function's result, and an
+  altitude edit followed by undo leaves them byte-identical to the original;
+  patch heights, `rivers` and `roads3` equal the original everywhere.
 
 Two further checks:
 - **Idempotent save:** saving, reading and saving again gives byte-identical

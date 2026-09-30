@@ -10,6 +10,8 @@ This is the checklist of record (05-CONTEXT D-36). It has one row per user-facin
 
 Inventory date: 2026-09-30.
 
+**Anchor re-verification (2026-10-01, plan 05-01):** every anchor cited by plan 05-01's rows was grepped against the MFC source and holds (TEF:2362 OnFileNewMap, TEF:1658 zero-altitudes load, TEF:4406/4413 save-XML/BZM handlers, TEF:153 SetMapModified/title block, TEF:1185 OnUpdateTileCoord, TEF:2934 SaveMap, MainFrm.cpp:487 FillBrushSize, MainFrm.cpp:167 indicators, InputState.cpp:98 UpdateSatusBar, DrawShadeState.cpp:210 the ±1-vertex update rect). The MFC tree is untouched by this phase, so the remaining anchors stand as inventoried; each later plan re-verifies the anchors it closes.
+
 **Columns**
 - **Owner**: `M1` is phase 3 (done). `M2` is phase 4. `M3` is this phase; its plan number follows D-39. `NF` means "not a feature": the MFC code is dead or unreachable, so the MFC editor cannot do it. The reason and its file:line are given.
 - **Evidence**: filled in when the row closes, with a test name, an auto scenario step or a hand-try note. A row without evidence is open. The MFC editor is deleted (plan 05-11) only when every row is closed.
@@ -20,21 +22,21 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 
 | # | MFC feature | MFC source | Owner | Portable equivalent / note | Evidence |
 |---|---|---|---|---|---|
-| F1 | New map (Ctrl+N): size 1–32 patches, Square lock, season, name, MOD | TEF:2362, NewMapDialog.cpp | M3 05-01 | File → New (D-23) | |
+| F1 | New map (Ctrl+N): size 1–32 patches, Square lock, season, name, MOD | TEF:2362, NewMapDialog.cpp | M3 05-01 | File → New (D-23) | `editor-bridge: M3 new map ok` (TestM3NewMap); `map_new:8x8:summer:M3Auto` in map-editor-m3-auto; panels_logic "new map fields" tests | |
 | F2 | Open (Ctrl+O) with map list, Browse, MOD choice | TEF:1357, OpenMapDialog.cpp | M1 | File → Open; mod via File → Mod (spec D-26 revised) | 03-VERIFICATION |
 | F3 | Open: try name, then `.xml`, then `.bzm` | TEF:1357 | M1 | MapFile reader picks the newer of the pair | test-map-files |
 | F4 | Load: `RemoveNonExistingObjects` on MOD change + `loadmap_log.txt` | TEF:1357–2113 | M1 / M3 05-05 | Replaced by design: unknown objects are kept and warned about (spec). Explicit removal is offered by Check Map (D-33) | |
-| F5 | Load: create zero altitudes if missing | TEF:1658 | M3 05-01 | Bridge open path; test with a map lacking altitudes | |
+| F5 | Load: create zero altitudes if missing | TEF:1658 | M3 05-01 | Bridge open path; test with a map lacking altitudes | TestM3NewMap's altitude-less crafted-map case (`editor-bridge: M3 new map ok`) | |
 | F6 | Save (Ctrl+S) | TEF:4378 | M1 | | 03-VERIFICATION |
 | F7 | Save As | TEF:4452 | M1 | | 03-VERIFICATION |
-| F8 | Save in XML (Ctrl+X) / Save in BZM (Ctrl+B) | TEF:4406, 4413 | M3 05-01 | D-24 (Ctrl+Shift+X/B) | |
+| F8 | Save in XML (Ctrl+X) / Save in BZM (Ctrl+B) | TEF:4406, 4413 | M3 05-01 | D-24 (Ctrl+Shift+X/B) | TestM3NewMap saves both formats and reads them back equal; `file_save_xml`/`file_save_bzm` commands; `do=file_save_bzm` step in map-editor-m3-auto; settings `default_format` (enginePath test) | |
 | F9 | Recent maps (10) | MainFrm.cpp:889–937 | M1 | Open Recent | 03-VERIFICATION |
 | F10 | Create Random Map dialog: template, context, graph index, setting, direction, level, BZM, DDS, name | TEF:207–298, CreateRandomMapDialog.cpp | M3 05-08 | D-01..D-05 | |
 | F11 | Exit (grayed item) / close with save prompt | editor.rc:2061, MainFrm.cpp:693 | M1 | Quit and close prompts | 03-VERIFICATION |
 | F12 | Drag-and-drop a map onto the window | MainFrm.cpp:1120 | M3 05-11 | D-34 | |
 | F13 | Single instance: a second launch passes its file (WM_COPYDATA) | MainFrm.cpp:1200, editor.cpp:125 | M3 05-11 | D-34 local IPC | |
 | F14 | Map path on the command line | editor.cpp:188 | M3 05-11 | D-34 | |
-| F15 | Window title: name, ext, `*`, WxH patches, MOD | TEF:153–205 | M3 05-01 | D-34 | |
+| F15 | Window title: name, ext, `*`, WxH patches, MOD | TEF:153–205 | M3 05-01 | D-34 | panels_logic formatTitleM3 tests; `expect=title:` steps in map-editor-m3-auto (coldwinter, M3Auto, m3.bzm, 8x8) | |
 
 ## 2. Map menu / Map toolbar
 
@@ -88,9 +90,9 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | V1 | Toolbars show/hide (File, Settings, Map, Layers, Unit, View) | MainFrm.cpp:743–826 | M3 05-11 | View menu panel toggles (D-34) | |
 | V2 | Workspace bar, Minimap bar, Status bar toggles | MainFrm.cpp:732, 834 | M3 05-11 / 05-07 | D-34, D-14 | |
 | V3 | Customize toolbars | MainFrm.cpp:384 | M3 05-11 | ImGui docking + Reset layout (D-34) | |
-| V4 | Brush size combo 1×1..16×16 (default 2×2) | MainFrm.cpp:487–503, 658 | M3 05-01 | D-22; M1 slider reaches only 9×9 | |
+| V4 | Brush size combo 1×1..16×16 (default 2×2) | MainFrm.cpp:487–503, 658 | M3 05-01 | D-22; M1 slider reaches only 9×9 | core test "the brush takes sizes 1..16, even sizes hanging right and below"; `brush_size` command; palette combo 1..16 default 2×2 | |
 | V5 | Player combo (placement owner, synced) | MainFrm.cpp:675 | M1 | Place tool player | 03-VERIFICATION |
-| V6 | Status bar: tile position; VIS/SCRIPT coords; object name/ScriptID/pos/box or "N selected" | MainFrm.cpp:167–279, TEF:1185–1284, InputState.cpp:98 | M3 05-01 | D-34 | |
+| V6 | Status bar: tile position; VIS/SCRIPT coords; object name/ScriptID/pos/box or "N selected" | MainFrm.cpp:167–279, TEF:1185–1284, InputState.cpp:98 | M3 05-01 | D-34 | panels_logic visScriptLine/objectLine tests; `expect=status:VIS:` / `expect=status:SCRIPT` steps in map-editor-m3-auto; the box is left out exactly like the MFC's own else-branch until a record carries one; the N-selected wording activates with 05-04's multi-selection | |
 | V7 | Arrow keys pan the camera | TEF:793 | M1 | view.zig | view tests |
 | H1 | Help Contents (`mapEditor.chm`) | MainFrm.cpp:708 | M3 05-11 | Help → Keys and tools window. The .chm is not shipped and is Windows-only | |
 | H2 | About | editor.cpp:260 | M3 05-11 | | |
@@ -231,7 +233,7 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | # | MFC behaviour | MFC source | Owner | Portable decision | Evidence |
 |---|---|---|---|---|---|
 | S1 | Save runs `CheckMap(false)`, fixing silently | TEF:2934 | M3 05-05 | Replaced: the check only warns (D-33). Preservation invariant | |
-| S2 | Save recomputes full-map shades | TEF:2934–3291 | M3 05-01 | Replaced: region shades at edit time and explicit Update Map (D-19, D-20) | |
+| S2 | Save recomputes full-map shades | TEF:2934–3291 | M3 05-01 | Replaced: region shades at edit time and explicit Update Map (D-19, D-20) | `map-file: M3 altitude region ok` + `editor-bridge: M3 altitudes ok`: the region primitive shades at edit time (GrowForShades ±1 vertex) and undo restores bytes exactly — the whole-map recompute at save is gone | |
 | S3 | Save writes the QuickLoadMapInfo chunk | TEF:3238–3258 | M1 | MapFile | test-map-files |
 | S4 | Save packs frame indices, writes squads once, nudges bridge spans | TEF:2934–3291 | M1 / M2 | Overlay packs only edited objects (spec); bridge spans M2 | **Closed (M1 packing; M2 bridge spans, 04-06):** `editor-bridge: M2 bridges draw ok` (the save equals the `NMapGeometry::PlanBridge` map); `test-map-files-all` 1,755 of 1,755; the M2 sweeps restore every edit byte-exact (`map-file: M2 sweep 59 maps, 460 edits`, `editor-bridge: M2 sweep 57 maps, 238 edits`); (details: phase 4 `04-PARITY.md`) |
 | S5 | Load recomputes full shades with the season sun | TEF:1657 | M1 (not copied) | Engine built from the snapshot; shades unchanged | test-map-files-all |

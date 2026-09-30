@@ -426,6 +426,74 @@ pub fn formatTitle(buffer: []u8, path: []const u8, dirty: bool, read_only: bool)
         std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
 }
 
+/// The window title's M3 shape (D-34/PARITY F15), the MFC SetWindowTitle's
+/// own fields (TemplateEditorFrame1.cpp:153-205): the map's name with its
+/// extension, `*` when modified, the size in patches, and the mod key. A
+/// never-saved map has no path, so `name` stands in (the New Map dialog's
+/// own field; empty shows the plain editor name); `size_patches` is the
+/// document's tiles / 16, null when no map is open; `mod_key` is empty with
+/// no mod. The MFC's 133-character clipping is kept, so a long name cannot
+/// push the size and the mod off the title.
+pub fn formatTitleM3(
+    buffer: []u8,
+    name: []const u8,
+    dirty: bool,
+    read_only: bool,
+    size_patches: ?[2]i32,
+    mod_key: []const u8,
+) [:0]const u8 {
+    const plain = "Map Editor";
+    if (name.len == 0 and size_patches == null) return std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
+    var tail: [96]u8 = undefined;
+    var tail_len: usize = 0;
+    const star = if (dirty) "*" else "";
+    const suffix = if (read_only) " (read-only)" else "";
+    if (size_patches) |size| {
+        tail_len += (std.fmt.bufPrint(tail[tail_len..], " {d}x{d}", .{ size[0], size[1] }) catch return plainZero(buffer)).len;
+    }
+    if (mod_key.len != 0) {
+        tail_len += (std.fmt.bufPrint(tail[tail_len..], " MOD: {s}", .{mod_key}) catch return plainZero(buffer)).len;
+    }
+    // The MFC's own budget (MAX_NAME_SIZE 133), star and read-only mark
+    // included: clip the NAME, never the fields after it.
+    const budget = if (133 > tail_len + star.len + suffix.len) 133 - tail_len - star.len - suffix.len else 0;
+    const shown = if (name.len > budget) name[0..budget] else name;
+    return std.fmt.bufPrintZ(buffer, plain ++ " - {s}{s}{s}{s}", .{ shown, star, suffix, tail[0..tail_len] }) catch
+        plainZero(buffer);
+}
+
+fn plainZero(buffer: []u8) [:0]const u8 {
+    return std.fmt.bufPrintZ(buffer, "Map Editor", .{}) catch "";
+}
+
+/// The status bar's VIS/SCRIPT coordinate line (M3, D-34/PARITY V6), the MFC
+/// editor's own format (InputState.cpp:123-137): VIS in tiles, SCRIPT in AI
+/// units, the MFC's own dashes when there is no point.
+pub fn visScriptLine(buffer: []u8, vis: ?[3]f32, script: ?[2]i32) []const u8 {
+    if (vis == null or script == null)
+        return "VIS: (-, -, -), SCRIPT: (-, -)";
+    const v = vis.?;
+    const s = script.?;
+    return std.fmt.bufPrint(buffer, "VIS: ({d:.2}, {d:.2}, {d:.2}), SCRIPT: ({d}, {d})", .{ v[0], v[1], v[2], s[0], s[1] }) catch
+        "VIS: (-, -, -), SCRIPT: (-, -)";
+}
+
+/// The status bar's object line (M3, D-34/PARITY V6), the MFC editor's own
+/// words (TemplateEditorFrame1.cpp:1219-1278): one object - name, Script
+/// ID, position in AI tiles, and the box when it is known (the MFC's own
+/// else-branch leaves it out when the stats had none); several - "N objects
+/// selected"; none - "Name: no selected".
+pub fn objectLine(buffer: []u8, selected_count: usize, name: []const u8, script_id: i32, pos_ai: ?[2]f32, box_cells: ?[2]i32) []const u8 {
+    if (selected_count == 0) return "Name: no selected";
+    if (selected_count > 1)
+        return std.fmt.bufPrint(buffer, "{d} objects selected", .{selected_count}) catch "Name: no selected";
+    const pos = pos_ai orelse
+        return std.fmt.bufPrint(buffer, "Name: {s}, Script ID: {d}", .{ name, script_id }) catch "Name: no selected";
+    if (box_cells) |box|
+        return std.fmt.bufPrint(buffer, "Name: {s}, Script ID: {d}, Pos: [{d:.2}, {d:.2}], Box: [{d}, {d}]", .{ name, script_id, pos[0], pos[1], box[0], box[1] }) catch "Name: no selected";
+    return std.fmt.bufPrint(buffer, "Name: {s}, Script ID: {d}, Pos: [{d:.2}, {d:.2}]", .{ name, script_id, pos[0], pos[1] }) catch "Name: no selected";
+}
+
 const normalizeForCompare = core.shipped.normalizeForCompare;
 const isAbsolutePath = core.shipped.isAbsolutePath;
 
@@ -1465,6 +1533,72 @@ test "the title marks a shipped map read-only, dirty or not" {
     var buffer: [128]u8 = undefined;
     try std.testing.expectEqualStrings("Map Editor - coldwinter.bzm (read-only)", formatTitle(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", false, true));
     try std.testing.expectEqualStrings("Map Editor - coldwinter.bzm* (read-only)", formatTitle(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", true, true));
+}
+
+test "formatTitleM3: the MFC's own fields - name, star, patches, mod (F15)" {
+    var buffer: [320:0]u8 = undefined;
+    // No map at all: the plain editor name.
+    try std.testing.expectEqualStrings("Map Editor", formatTitleM3(&buffer, "", false, false, null, ""));
+    // A saved map: name with extension, size in patches.
+    try std.testing.expectEqualStrings(
+        "Map Editor - coldwinter.bzm 16x16",
+        formatTitleM3(&buffer, "coldwinter.bzm", false, false, .{ 16, 16 }, ""),
+    );
+    // Modified, with a mod key.
+    try std.testing.expectEqualStrings(
+        "Map Editor - mine.xml* 8x12 MOD: AP2",
+        formatTitleM3(&buffer, "mine.xml", true, false, .{ 8, 12 }, "AP2"),
+    );
+    // A never-saved map: the New Map dialog's name stands in for a path.
+    try std.testing.expectEqualStrings(
+        "Map Editor - M3Auto 8x8",
+        formatTitleM3(&buffer, "M3Auto", false, false, .{ 8, 8 }, ""),
+    );
+    // Read-only keeps its mark, after the star like the MFC's own order.
+    try std.testing.expectEqualStrings(
+        "Map Editor - coldwinter.bzm* (read-only) 16x16",
+        formatTitleM3(&buffer, "coldwinter.bzm", true, true, .{ 16, 16 }, ""),
+    );
+    // A long name is clipped - never the fields after it (the MFC's own
+    // 133-character budget).
+    const long_name = "a" ** 200;
+    const titled = formatTitleM3(&buffer, long_name, false, false, .{ 16, 16 }, "AP2");
+    try std.testing.expect(std.mem.indexOf(u8, titled, " 16x16 MOD: AP2") != null);
+    try std.testing.expect(titled.len < 160);
+}
+
+test "visScriptLine: values and the MFC's own dashes (V6)" {
+    var buffer: [96]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        "VIS: (12.00, 34.50, 0.00), SCRIPT: (7, -3)",
+        visScriptLine(&buffer, .{ 12.0, 34.5, 0.0 }, .{ 7, -3 }),
+    );
+    try std.testing.expectEqualStrings(
+        "VIS: (-, -, -), SCRIPT: (-, -)",
+        visScriptLine(&buffer, null, null),
+    );
+}
+
+test "objectLine: one object, many objects, none (V6)" {
+    var buffer: [192]u8 = undefined;
+    try std.testing.expectEqualStrings("Name: no selected", objectLine(&buffer, 0, "", -1, null, null));
+    try std.testing.expectEqualStrings("3 objects selected", objectLine(&buffer, 3, "", -1, null, null));
+    // One, without a position known: the name and Script ID alone.
+    try std.testing.expectEqualStrings(
+        "Name: T34, Script ID: 4244",
+        objectLine(&buffer, 1, "T34", 4244, null, null),
+    );
+    // One with a position (map/AI units) but no box: the MFC's own
+    // else-branch leaves the box out.
+    try std.testing.expectEqualStrings(
+        "Name: T34, Script ID: 4244, Pos: [12.00, 40.50]",
+        objectLine(&buffer, 1, "T34", 4244, .{ 12.0, 40.5 }, null),
+    );
+    // The box when a later record carries one.
+    try std.testing.expectEqualStrings(
+        "Name: T34, Script ID: 4244, Pos: [12.00, 40.50], Box: [2, 3]",
+        objectLine(&buffer, 1, "T34", 4244, .{ 12.0, 40.5 }, .{ 2, 3 }),
+    );
 }
 
 test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {

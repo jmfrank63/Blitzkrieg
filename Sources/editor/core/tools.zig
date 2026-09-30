@@ -72,10 +72,23 @@ const full_turn: i32 = 65536;
 
 pub const Brush = struct {
     tile: u8,
-    /// 0 is one cell, 1 a 3x3 square, and so on.
-    radius: i32 = 0,
+    /// Cells per axis, 1..16, even sizes included (M3, D-22/PARITY V4): the
+    /// MFC toolbar combo's own range and its 2x2 default. M1's radius
+    /// (whose ceiling was 9x9) could not name an even square at all. An
+    /// even stamp hangs to the right and below the cell under the cursor -
+    /// the cursor names the stamp's top-left - which is the only convention
+    /// a size carries; `topLeft` is the one place that knows it.
+    size: i32 = 2,
     gesture: u32 = 0,
     painted: std.AutoHashMapUnmanaged([2]i32, void) = .empty,
+
+    /// The stamp's top-left cell for a brush of `size` over `centre`: the
+    /// centre's own cell for odd sizes, the one whose right and below
+    /// neighbours fill the even square out.
+    pub fn topLeft(size: i32, centre: [2]i32) [2]i32 {
+        const half = @divFloor(size - 1, 2);
+        return .{ centre[0] - half, centre[1] - half };
+    }
 
     pub fn deinit(self: *Brush, allocator: std.mem.Allocator) void {
         self.painted.deinit(allocator);
@@ -110,10 +123,11 @@ pub const Brush = struct {
         defer cells.deinit(allocator);
         const width = editor.document.info.width_tiles;
         const height = editor.document.info.height_tiles;
-        var y = centre[1] - self.radius;
-        while (y <= centre[1] + self.radius) : (y += 1) {
-            var x = centre[0] - self.radius;
-            while (x <= centre[0] + self.radius) : (x += 1) {
+        const origin = topLeft(self.size, centre);
+        var y = origin[1];
+        while (y < origin[1] + self.size) : (y += 1) {
+            var x = origin[0];
+            while (x < origin[0] + self.size) : (x += 1) {
                 if (x < 0 or y < 0 or x >= width or y >= height) continue;
                 const cell = [2]i32{ x, y };
                 if (self.painted.contains(cell)) continue;
@@ -218,7 +232,7 @@ test "a brush drag paints the cells it crossed, once each, as one undo step" {
     defer fake.deinit();
     var editor = try opened(&fake);
     defer editor.deinit();
-    var brush: Brush = .{ .tile = 7, .radius = 0 };
+    var brush: Brush = .{ .tile = 7, .size = 1 };
     defer brush.deinit(testing.allocator);
     try brush.handle(&editor, .{ .press = try at(&editor, 40, 40) }); // cell 1,1
     try brush.handle(&editor, .{ .drag = try at(&editor, 45, 40) }); // still 1,1: no paint
@@ -241,7 +255,7 @@ test "a refused stamp leaves its cells for the same stroke to paint again" {
     defer fake.deinit();
     var editor = try opened(&fake);
     defer editor.deinit();
-    var brush: Brush = .{ .tile = 7, .radius = 0 };
+    var brush: Brush = .{ .tile = 7, .size = 1 };
     defer brush.deinit(testing.allocator);
     fake.refuse_paints = true;
     try testing.expectError(error.Refused, brush.handle(&editor, .{ .press = try at(&editor, 40, 40) })); // cell 1,1
@@ -254,18 +268,49 @@ test "a refused stamp leaves its cells for the same stroke to paint again" {
     try testing.expectEqual(@as(u8, 0), fake.tile(1, 1));
 }
 
-test "a brush with a radius paints a square, clipped to the map" {
+test "a brush with a size paints a square, clipped to the map" {
     var fake = try testFixture(testing.allocator);
     defer fake.deinit();
     var editor = try opened(&fake);
     defer editor.deinit();
-    var brush: Brush = .{ .tile = 3, .radius = 1 };
+    var brush: Brush = .{ .tile = 3, .size = 3 };
     defer brush.deinit(testing.allocator);
     try brush.handle(&editor, .{ .press = try at(&editor, 5, 5) }); // cell 0,0 at the corner
     try brush.handle(&editor, .{ .release = try at(&editor, 5, 5) });
     try testing.expectEqual(@as(u8, 3), fake.tile(0, 0));
     try testing.expectEqual(@as(u8, 3), fake.tile(1, 1));
     try testing.expectEqual(@as(u8, 0), fake.tile(2, 2));
+}
+
+test "the brush takes sizes 1..16, even sizes hanging right and below (D-22)" {
+    // The MFC toolbar combo's own range (MainFrm.cpp:487-503): 1x1 and 16x16
+    // are both valid, and an even square's cursor cell names its top-left.
+    try testing.expectEqual([2]i32{ 0, 0 }, Brush.topLeft(1, .{ 0, 0 }));
+    try testing.expectEqual([2]i32{ -1, -1 }, Brush.topLeft(3, .{ 0, 0 }));
+    try testing.expectEqual([2]i32{ 0, 0 }, Brush.topLeft(2, .{ 0, 0 }));
+    try testing.expectEqual([2]i32{ 4, 4 }, Brush.topLeft(2, .{ 4, 4 }));
+    try testing.expectEqual([2]i32{ 4, 4 }, Brush.topLeft(4, .{ 5, 5 }));
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    // An even square hangs right and below: size 2 at cell 1,1 paints
+    // 1..2 on both axes, never 0 or 3.
+    var brush: Brush = .{ .tile = 3, .size = 2 };
+    defer brush.deinit(testing.allocator);
+    try brush.handle(&editor, .{ .press = try at(&editor, 40, 40) }); // cell 1,1
+    try brush.handle(&editor, .{ .release = try at(&editor, 40, 40) });
+    try testing.expectEqual(@as(u8, 3), fake.tile(1, 1));
+    try testing.expectEqual(@as(u8, 3), fake.tile(2, 2));
+    try testing.expectEqual(@as(u8, 0), fake.tile(0, 0));
+    try testing.expectEqual(@as(u8, 0), fake.tile(3, 3));
+    // And 16 - the combo's ceiling - covers the fake's whole 8x8 map from
+    // anywhere: topLeft(16, 1,1) = -6,-6 .. 9,9 clipped to 0..7.
+    brush.size = 16;
+    try brush.handle(&editor, .{ .press = try at(&editor, 40, 40) });
+    try brush.handle(&editor, .{ .release = try at(&editor, 40, 40) });
+    try testing.expectEqual(@as(u8, 3), fake.tile(0, 0));
+    try testing.expectEqual(@as(u8, 3), fake.tile(7, 7));
 }
 
 test "the placer adds and selects" {
@@ -382,7 +427,7 @@ test "the M1 tools ignore the right button, double click and the new keys" {
     defer fake.deinit();
     var editor = try opened(&fake);
     defer editor.deinit();
-    var brush: Brush = .{ .tile = 7, .radius = 0 };
+    var brush: Brush = .{ .tile = 7, .size = 1 };
     defer brush.deinit(testing.allocator);
     var placer: Placer = .{ .name = "T34" };
     var selector: Selector = .{};
