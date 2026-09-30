@@ -290,6 +290,35 @@ BkEditorStatus BkEditorAltitudes( BkEditorSession *session, const BkEditorAltitu
 BkEditorStatus BkEditorSetAltitudes( BkEditorSession *session, const BkEditorAltitudeRegion *region,
                                      const float *heights, int count, int *out_token );
 
+/* File > New (M3, D-23): the engine builds a map in memory - CMapInfo::Create
+   of the given size and season, every tile the season's most common tile,
+   zero altitudes with the season's shades, the default diplomacies - and it
+   opens as the session's map, never-saved (there is no path until the first
+   BkEditorSaveMap; Save As is the caller's first save, exactly a shipped
+   map's rule). The summary answers what the new map is. */
+/* size_x and size_y are in PATCHES per axis, 1..32; season is 0..3
+   (Summer/Winter/Africa/Spring); szName is the map's name (what a Save As
+   starts from and the title shows - the map itself carries no name field);
+   szModFolder is "" to keep the current mod (RMGC_CURRENT_MOD_FOLDER's own
+   meaning), the literal "none" for no mod, or a bare folder name that
+   BkEditorMods must list - a mod that is not the active one is switched to
+   first, exactly BkEditorSetMod's own steps. */
+typedef struct
+{
+	int size_x, size_y;
+	int season;
+	char szName[64];      /* truncated at 63, always terminated */
+	char szModFolder[64]; /* "", "none", or a bare mod folder name */
+} BkEditorNewMapParams;
+/* A size outside 1..32, a season outside 0..3, a null params or out, or a
+   mod folder that is neither "", "none" nor installed is BK_EDITOR_BAD_ARGUMENT
+   (an unknown mod) or refused with the reason in BkEditorLastMessage, and
+   nothing changes: not the session's map, not its mod, not the engine. The
+   unsaved-changes question is the caller's (the MFC editor's NeedSaveChanges
+   ran before its dialog); this entry builds, it does not ask. */
+BkEditorStatus BkEditorNewMap( BkEditorSession *session, const BkEditorNewMapParams *params,
+                               BkEditorMapSummary *out );
+
 /* The tiles BkEditorPaint takes on the open map: every index its tileset has a
    terrain type for, once each, ascending - what a brush's palette offers.
    Like BkEditorObjects, out_count is always the total, and a buffer too short

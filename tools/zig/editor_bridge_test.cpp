@@ -183,6 +183,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorBridgeInfo bridgeInfo; memset( &bridgeInfo, 0, sizeof bridgeInfo );
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorAltitudeRegion altRegion = { 0, 0, 1, 1 };
+	BkEditorNewMapParams newMapParams; memset( &newMapParams, 0, sizeof newMapParams );
+	newMapParams.size_x = 8;
+	newMapParams.size_y = 8;
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
 	BkEditorTile tileInfo; memset( &tileInfo, 0, sizeof tileInfo );
@@ -207,6 +210,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorRedoPaint", [&] { return BkEditorRedoPaint( 0, 0 ); } },
 		{ "BkEditorAltitudes", [&] { return BkEditorAltitudes( 0, &altRegion, &fFloat, 1, &nInt ); } },
 		{ "BkEditorSetAltitudes", [&] { return BkEditorSetAltitudes( 0, &altRegion, &fFloat, 1, &nInt ); } },
+		{ "BkEditorNewMap", [&] { return BkEditorNewMap( 0, &newMapParams, &summary ); } },
 		{ "BkEditorEngineTile", [&] { return BkEditorEngineTile( 0, 0, 0, &cChar ); } },
 		{ "BkEditorTilesetTiles", [&] { return BkEditorTilesetTiles( 0, &cChar, 1, &nInt ); } },
 		{ "BkEditorWorldToTile", [&] { return BkEditorWorldToTile( 0, 0, 0, &nInt, &nInt2 ); } },
@@ -2797,6 +2801,174 @@ static void TestM3Altitudes( BkEditorSession *pSession, const std::string &szScr
 	remove( szUndone.c_str() );
 	remove( szUnedited.c_str() );
 	printf( "editor-bridge: M3 altitudes ok\n" );
+}
+
+// File > New (M3, D-23) end to end: the engine builds the map (Create, every
+// tile the season's most common tile, zero altitudes, the season's shades),
+// it opens as a never-saved document, saves in either format, a caller bug is
+// BAD_ARGUMENT and builds nothing, and the current mod's new map carries the
+// mod's name and version like the M1 save (D-28). F5 (D-23) rides along: a
+// crafted map whose file lacks altitudes opens with a zero sheet of the right
+// vertex count, and a save keeps it without disturbing anything else.
+static void TestM3NewMap( BkEditorSession *pSession, const std::string &szScratch )
+{
+	BkEditorNewMapParams params;
+	memset( &params, 0, sizeof params );
+	params.size_x = 8;
+	params.size_y = 8;
+	params.season = 0;		// Summer
+	strcpy( params.szName, "m3_new_map" );
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorNewMap( pSession, &params, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( summary.width_tiles == 8 * 16 && summary.height_tiles == 8 * 16, "an 8x8-patch map is 128x128 tiles" );
+	Check( summary.season == CMapInfo::REAL_SEASONS[0], "a Summer map's season is Summer's own real value" );
+	Check( summary.player_count == 2, "a new map has the two default players" );
+	Check( summary.object_count == 0 && summary.placed_object_count == 0, "and no objects" );
+
+	// Every tile is the season's most common tile: what the MFC editor's
+	// FillTerrain(MOST_COMMON_TILES[season]) wrote, read back through the
+	// engine's own terrain.
+	STilesetDesc tilesetDesc;
+	LoadDataResource( "terrain\\sets\\1\\tileset", "", false, 0, "tileset", tilesetDesc );
+	if ( !Check( tilesetDesc.terrtypes.size() > size_t( CMapInfo::MOST_COMMON_TILES[0] ), "the Summer tileset lists the most common terrain type" ) )
+		return;
+	const int nCommonTile = tilesetDesc.terrtypes[CMapInfo::MOST_COMMON_TILES[0]].GetMapsIndex();
+	bool bAllCommon = true;
+	for ( int y = 0; y < summary.height_tiles && bAllCommon; ++y )
+		for ( int x = 0; x < summary.width_tiles; ++x )
+		{
+			unsigned char tile = 0;
+			if ( BkEditorEngineTile( pSession, x, y, &tile ) != BK_EDITOR_OK || tile != nCommonTile )
+			{
+				bAllCommon = false;
+				break;
+			}
+		}
+	Check( bAllCommon, "every tile is Summer's most common tile" );
+
+	// Zero altitudes, the whole vertex sheet.
+	const BkEditorAltitudeRegion whole = { 0, 0, 8 * 16 + 1, 8 * 16 + 1 };
+	const int nVertices = ( 8 * 16 + 1 ) * ( 8 * 16 + 1 );
+	std::vector<float> heights( nVertices );
+	int nCount = 0;
+	if ( !Check( BkEditorAltitudes( pSession, &whole, &( heights[0] ), nVertices, &nCount ) == BK_EDITOR_OK,
+	             BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nCount == nVertices, "the new map's vertex sheet is one more than the tiles per axis" );
+	bool bAllZero = true;
+	for ( int i = 0; i < nVertices; ++i )
+		if ( heights[size_t( i )] != 0.0f )
+		{
+			bAllZero = false;
+			break;
+		}
+	Check( bAllZero, "the new map's altitudes are zero" );
+
+	// Either format: Save As .bzm and .xml read back equivalent to each other.
+	const std::string szSavedBzm = szScratch + "\\m3-new-map.bzm";
+	const std::string szSavedXml = szScratch + "\\m3-new-map.xml";
+	Check( BkEditorSaveMap( pSession, szSavedBzm.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSaveMap( pSession, szSavedXml.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	CMapInfo fromBzm, fromXml;
+	std::string szError, szWhere;
+	if ( Check( NMapFile::Read( szSavedBzm.c_str(), &fromBzm, &szError ), szError.c_str() ) &&
+	     Check( NMapFile::Read( szSavedXml.c_str(), &fromXml, &szError ), szError.c_str() ) )
+		Check( NMapFile::AreEquivalent( fromBzm, fromXml, &szWhere ),
+		       szWhere.empty() ? "the new map saves .bzm and .xml equivalent" : ( "the two formats differ at " + szWhere ).c_str() );
+
+	// Caller bugs build nothing: the map that is open stays exactly as it is.
+	const int nWidth = summary.width_tiles;
+	BkEditorNewMapParams bad = params;
+	bad.size_x = 0;
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "a size of 0 patches is BAD_ARGUMENT" );
+	bad = params;
+	bad.size_y = 33;
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "a size of 33 patches is BAD_ARGUMENT" );
+	bad = params;
+	bad.season = 4;
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "a season of 4 is BAD_ARGUMENT" );
+	Check( BkEditorNewMap( pSession, 0, &summary ) == BK_EDITOR_BAD_ARGUMENT, "null params are BAD_ARGUMENT" );
+	unsigned char tile = 0;
+	Check( BkEditorEngineTile( pSession, 0, 0, &tile ) == BK_EDITOR_OK && BkEditorEngineTile( pSession, nWidth - 1, 0, &tile ) == BK_EDITOR_OK,
+	       "and the refused builds left the map open" );
+
+	// The current mod's new map carries the mod's name and version (D-28's
+	// own stamp, at creation, like the MFC editor's new map).
+	if ( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK )
+	{
+		BkEditorMapSummary modSummary;
+		memset( &modSummary, 0, sizeof modSummary );
+		if ( Check( BkEditorNewMap( pSession, &params, &modSummary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const std::string szModSaved = szScratch + "\\m3-new-map-mod.bzm";
+			CMapInfo fromMod;
+			szError.clear();
+			if ( Check( BkEditorSaveMap( pSession, szModSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szModSaved.c_str(), &fromMod, &szError ), szError.c_str() ) )
+			{
+				Check( fromMod.szMODName == "Editor Test Mod", "the current mod's new map carries the mod's name" );
+				Check( fromMod.szMODVersion == "1.0", "and its version" );
+			}
+			remove( szModSaved.c_str() );
+		}
+		Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, "and the mod clears again" );
+	}
+
+	// F5: a map whose file lacks altitudes opens with a zero sheet of the
+	// map's own vertex count, and saving keeps it without disturbing
+	// anything else.
+	CMapInfo crafted;
+	szError.clear();
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &crafted, &szError ), szError.c_str() ) )
+		return;
+	crafted.terrain.altitudes.Clear();
+	const std::string szNoAltitudes = szScratch + "\\m3-no-altitudes.bzm";
+	if ( !Check( NMapFile::Write( szNoAltitudes.c_str(), crafted, &szError ), szError.c_str() ) )
+		return;
+	if ( Check( BkEditorOpenMap( pSession, szNoAltitudes.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		CMapInfo reopened;
+		szError.clear();
+		if ( Check( NMapFile::Read( szNoAltitudes.c_str(), &reopened, &szError ), szError.c_str() ) )
+		{
+			const int nMapVertices = ( reopened.terrain.tiles.GetSizeX() + 1 ) * ( reopened.terrain.tiles.GetSizeY() + 1 );
+			std::vector<float> mapHeights( nMapVertices );
+			const BkEditorAltitudeRegion mapWhole = { 0, 0, reopened.terrain.tiles.GetSizeX() + 1, reopened.terrain.tiles.GetSizeY() + 1 };
+			nCount = 0;
+			if ( Check( BkEditorAltitudes( pSession, &mapWhole, &( mapHeights[0] ), nMapVertices, &nCount ) == BK_EDITOR_OK,
+			            BkEditorLastMessage( pSession ) ) )
+			{
+				Check( nCount == nMapVertices, "the crafted map's zero sheet has the map's own vertex count" );
+				bool bZero = true;
+				for ( int i = 0; i < nMapVertices; ++i )
+					if ( mapHeights[size_t( i )] != 0.0f )
+					{
+						bZero = false;
+						break;
+					}
+				Check( bZero, "the crafted map opens with zero altitudes" );
+			}
+			// And a save keeps the sheet without disturbing anything else.
+			CMapInfo expected = reopened;
+			expected.terrain.altitudes.SetSizes( reopened.terrain.patches.GetSizeX() * 16 + 1, reopened.terrain.patches.GetSizeY() * 16 + 1 );
+			expected.terrain.altitudes.SetZero();
+			const std::string szZeroSaved = szScratch + "\\m3-no-altitudes-saved.bzm";
+			CMapInfo zeroSaved;
+			szError.clear();
+			szWhere.clear();
+			if ( Check( BkEditorSaveMap( pSession, szZeroSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szZeroSaved.c_str(), &zeroSaved, &szError ), szError.c_str() ) )
+				Check( NMapFile::AreEquivalent( expected, zeroSaved, &szWhere ),
+				       szWhere.empty() ? "a save keeps the zero sheet and nothing else moves" : ( "the saved sheet differs at " + szWhere ).c_str() );
+			remove( szZeroSaved.c_str() );
+		}
+	}
+	remove( szNoAltitudes.c_str() );
+	remove( szSavedBzm.c_str() );
+	remove( szSavedXml.c_str() );
+	printf( "editor-bridge: M3 new map ok\n" );
 }
 
 // A tile the map's tileset has no terrain type for is the caller's mistake:
@@ -9050,6 +9222,7 @@ int main( int argc, char **argv )
 		TestPaintUndoIsExact( pSession, szScratch );
 		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
 		TestM3Altitudes( pSession, szScratch );
+		TestM3NewMap( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

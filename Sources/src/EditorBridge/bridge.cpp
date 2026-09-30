@@ -886,6 +886,22 @@ BkEditorStatus BkEditorSetAltitudes( BkEditorSession *pSession, const BkEditorAl
 	} );
 }
 
+// File > New (M3, D-23). The RED stub: the entry point and its contract exist
+// (the engine tier's TestM3NewMap is written against them); the build itself
+// lands with the session's NewMapInSession in the GREEN step.
+BkEditorStatus BkEditorNewMap( BkEditorSession *pSession, const BkEditorNewMapParams *pParams, BkEditorMapSummary *pOut )
+{
+	if ( pOut != 0 )
+		memset( pOut, 0, sizeof *pOut );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pParams == 0 || pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		pSession->szMessage = "a new map is not built yet";
+		return BK_EDITOR_REFUSED;
+	} );
+}
+
 
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
 {
