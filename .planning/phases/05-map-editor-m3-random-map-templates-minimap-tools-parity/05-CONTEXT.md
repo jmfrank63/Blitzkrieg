@@ -329,6 +329,7 @@ The portable editor already has real undo, which exceeds the MFC editor.
 ## Specific Ideas
 
 - Johannes: "all features implemented". Nothing the MFC editor can do is deferred. A row may be "not a feature" only when the MFC code is dead or unreachable, with file:line evidence.
+- **Known bug to carry into M3 (handoff 2026-09-30):** a railroad with fewer than two control points crashes the game when the map loads. It predates the editor work. M3 covers it twice: Check Map (D-33) flags a road/railroad with fewer than two control points as an error, and the game's own map loader gets a guard so such a map cannot crash the game.
 - Where the MFC editor has a bug, the portable editor does the evident intent, and the parity row notes it:
   - the fill-rect typo;
   - tile 0's properties;
