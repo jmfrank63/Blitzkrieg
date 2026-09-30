@@ -101,12 +101,28 @@ struct SBridgeGroup
 	// False for a group with no bridges entry (a fence run, 04-07): only its
 	// objects go out and come back.
 	bool bEntry;
-	SBridgeGroup() : nEntryIndex( 0 ), bEntry( true ) {  }
+	// An entrenchment (04-08): the entry is `trench`, an entrenchments entry
+	// (its sections of link IDs) at nEntryIndex, not a bridges one; linkIDs
+	// are all its pieces, in the order they are built.
+	bool bTrench;
+	SEntrenchmentInfo trench;
+	SBridgeGroup() : nEntryIndex( 0 ), bEntry( true ), bTrench( false ) {  }
 };
 
 bool SameEntry( const std::vector< std::vector<int> > &rBridges, int nIndex, const std::vector<int> &rLinkIDs )
 {
 	return nIndex >= 0 && nIndex < int( rBridges.size() ) && rBridges[nIndex] == rLinkIDs;
+}
+
+bool SameTrench( const std::vector<SEntrenchmentInfo> &rTrenches, int nIndex, const SEntrenchmentInfo &rTrench )
+{
+	return nIndex >= 0 && nIndex < int( rTrenches.size() ) && rTrenches[nIndex].sections == rTrench.sections;
+}
+
+// What the messages call a group and one of its objects.
+const char* GroupNoun( const SBridgeGroup &rGroup )
+{
+	return rGroup.bTrench ? "entrenchment" : rGroup.bEntry ? "bridge" : "fence run";
 }
 
 // Takes a bridge out: the entry first (both copies), then every span, in
@@ -115,7 +131,14 @@ bool SameEntry( const std::vector< std::vector<int> > &rBridges, int nIndex, con
 // places included.
 bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
 {
-	if ( pGroup->bEntry &&
+	if ( pGroup->bTrench &&
+	     ( !SameTrench( pSession->snapshot.entrenchments, pGroup->nEntryIndex, pGroup->trench ) ||
+	       !SameTrench( pSession->working.entrenchments, pGroup->nEntryIndex, pGroup->trench ) ) )
+	{
+		pSession->szMessage = NStr::Format( "entrenchment %d is not the one the edit log holds", pGroup->nEntryIndex );
+		return false;
+	}
+	if ( pGroup->bEntry && !pGroup->bTrench &&
 	     ( !SameEntry( pSession->snapshot.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ||
 	       !SameEntry( pSession->working.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ) )
 	{
@@ -136,7 +159,12 @@ bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
 	std::sort( places.begin(), places.end(), []( const SPlace &a, const SPlace &b )
 	           { return a.bScenario != b.bScenario ? !a.bScenario : a.nIndex < b.nIndex; } );
 
-	if ( pGroup->bEntry )
+	if ( pGroup->bTrench )
+	{
+		NMapRecords::EraseEntrenchment( &pSession->snapshot, pGroup->nEntryIndex );
+		NMapRecords::EraseEntrenchment( &pSession->working, pGroup->nEntryIndex );
+	}
+	else if ( pGroup->bEntry )
 	{
 		NMapRecords::EraseBridgeEntry( &pSession->snapshot, pGroup->nEntryIndex );
 		NMapRecords::EraseBridgeEntry( &pSession->working, pGroup->nEntryIndex );
@@ -153,7 +181,7 @@ bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
 		{
 			// Nothing names a span once its entry is gone, so this is a map
 			// the session no longer understands.
-			pSession->szMessage = "a span of the bridge would not come out of the map: " + szWhy + "; reopen the map";
+			pSession->szMessage = std::string( "an object of the " ) + GroupNoun( *pGroup ) + " would not come out of the map: " + szWhy + "; reopen the map";
 			return false;
 		}
 	}
@@ -181,11 +209,12 @@ void UndoPartialAdd( SEditorSession *pSession, const SBridgeGroup &rGroup, size_
 bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRefused )
 {
 	*pbRefused = false;
-	const int nEntries = int( pSession->snapshot.bridges.size() );
-	if ( ( rGroup.bEntry && ( rGroup.nEntryIndex < 0 || rGroup.nEntryIndex > nEntries || rGroup.nEntryIndex > int( pSession->working.bridges.size() ) ) ) ||
+	const int nEntries = rGroup.bTrench ? int( pSession->snapshot.entrenchments.size() ) : int( pSession->snapshot.bridges.size() );
+	const int nWorkingEntries = rGroup.bTrench ? int( pSession->working.entrenchments.size() ) : int( pSession->working.bridges.size() );
+	if ( ( rGroup.bEntry && ( rGroup.nEntryIndex < 0 || rGroup.nEntryIndex > nEntries || rGroup.nEntryIndex > nWorkingEntries ) ) ||
 	     rGroup.snapshotSpans.size() != rGroup.workingSpans.size() )
 	{
-		pSession->szMessage = NStr::Format( "bridge %d cannot go back into the list", rGroup.nEntryIndex );
+		pSession->szMessage = NStr::Format( "%s %d cannot go back into the list", GroupNoun( rGroup ), rGroup.nEntryIndex );
 		return false;
 	}
 	size_t nRestored = 0;
@@ -213,7 +242,10 @@ bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRef
 	if ( nPlaced != int( spans.size() ) )
 	{
 		UndoPartialAdd( pSession, rGroup, nRestored );
-		pSession->szMessage = rGroup.bEntry
+		pSession->szMessage = rGroup.bTrench
+		    ? NStr::Format( "the engine would not place %d of the entrenchment's %d pieces there (off the map)",
+		                    int( spans.size() ) - nPlaced, int( spans.size() ) )
+		    : rGroup.bEntry
 		    ? NStr::Format( "the engine would not place %d of the bridge's %d spans there (off the map, or on another object)",
 		                    int( spans.size() ) - nPlaced, int( spans.size() ) )
 		    : NStr::Format( "the engine would not place %d of the %d fences there (off the map, or on another object)",
@@ -221,7 +253,12 @@ bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRef
 		*pbRefused = true;
 		return false;
 	}
-	if ( rGroup.bEntry )
+	if ( rGroup.bTrench )
+	{
+		NMapRecords::InsertEntrenchment( &pSession->snapshot, rGroup.nEntryIndex, rGroup.trench );
+		NMapRecords::InsertEntrenchment( &pSession->working, rGroup.nEntryIndex, rGroup.trench );
+	}
+	else if ( rGroup.bEntry )
 	{
 		NMapRecords::InsertBridgeEntry( &pSession->snapshot, rGroup.nEntryIndex, rGroup.linkIDs );
 		NMapRecords::InsertBridgeEntry( &pSession->working, rGroup.nEntryIndex, rGroup.linkIDs );
@@ -254,7 +291,7 @@ struct SGroupEdit : public IEditRecord
 			if ( bOld && !AddGroup( pSession, oldGroup, &bIgnored ) )
 			{
 				UpdateSessionWorld( pSession );
-				pSession->szMessage = szWhy + "; and the bridge could not be put back: reopen the map";
+				pSession->szMessage = szWhy + "; and the " + GroupNoun( oldGroup ) + " could not be put back: reopen the map";
 				*pbRefused = false;
 				return false;
 			}
@@ -551,11 +588,12 @@ namespace {
 // held by exactly one record of the map, of a type the database knows, and
 // held by the engine. A bridge with any other span is kept as read (the
 // preservation invariant): its undo could not rebuild it.
-bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs, std::string *pWhy )
+bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs, std::string *pWhy,
+                      const char *pszPart = "span", const char *pszGroup = "bridge" )
 {
 	if ( rLinkIDs.empty() )
 	{
-		*pWhy = "that bridge has no spans";
+		*pWhy = NStr::Format( "that %s has no %ss", pszGroup, pszPart );
 		return false;
 	}
 	for ( size_t i = 0; i < rLinkIDs.size(); ++i )
@@ -569,13 +607,13 @@ bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs
 					++nHolders;
 		if ( nLinkID == 0 || nHolders != 1 )
 		{
-			*pWhy = NStr::Format( "span %d of that bridge (link ID %d) is held by %d objects of the map; the bridge is kept as it is", int( i ), nLinkID, nHolders );
+			*pWhy = NStr::Format( "%s %d of that %s (link ID %d) is held by %d objects of the map; the %s is kept as it is", pszPart, int( i ), pszGroup, nLinkID, nHolders, pszGroup );
 			return false;
 		}
 		if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() ||
 		     pSession->byLinkID.find( nLinkID ) == pSession->byLinkID.end() )
 		{
-			*pWhy = NStr::Format( "span %d of that bridge (link ID %d) is not one the engine holds; the bridge is kept as it is", int( i ), nLinkID );
+			*pWhy = NStr::Format( "%s %d of that %s (link ID %d) is not one the engine holds; the %s is kept as it is", pszPart, int( i ), pszGroup, nLinkID, pszGroup );
 			return false;
 		}
 	}
@@ -963,5 +1001,225 @@ bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, c
 		*pbRefused = true;
 		return false;
 	}
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}
+
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08, D-13).
+//
+// An entrenchment is one entry of CMapInfo::entrenchments - sections of the
+// link IDs of its pieces - plus its piece objects. The MFC editor places the
+// pieces as ordinary objects (AddObjectByAI) and makes no engine grouping call
+// (the AI editor's entrenchment call has no caller in MapEditor/): the game groups
+// them in LoadEntrenchments, which dereferences every link and each section's
+// first (Pitfall 7). So, as a bridge, a piece is never deleted alone, the
+// entry goes before its pieces and comes back after them.
+
+namespace {
+// The fixed descriptor the MFC builder reads (RoadDrawState.cpp:249-251).
+const char *const ENTRENCHMENT_DESC = "Entrenchment";
+// The most clicks one trench takes (the ABI refuses more).
+const size_t nMaxTrenchClicks = 256;
+
+const SEntrenchmentRPGStats* EntrenchmentStats( const SGDBObjectDesc **ppDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return 0;
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( ENTRENCHMENT_DESC );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_ENTRENCHMENT )
+		return 0;
+	if ( ppDesc != 0 )
+		*ppDesc = pDesc;
+	return NGDB::GetRPGStats<SEntrenchmentRPGStats>( pObjectsDB, pDesc );
+}
+
+bool SegmentIndexOk( const SEntrenchmentRPGStats *pStats, const std::vector<int> &rIndices )
+{
+	if ( rIndices.empty() )
+		return false;
+	for ( size_t i = 0; i < rIndices.size(); ++i )
+		if ( rIndices[i] < 0 || rIndices[i] >= int( pStats->segments.size() ) )
+			return false;
+	return true;
+}
+
+// Every link ID of an entry, section by section.
+std::vector<int> TrenchLinkIDs( const SEntrenchmentInfo &rTrench )
+{
+	std::vector<int> linkIDs;
+	for ( size_t s = 0; s < rTrench.sections.size(); ++s )
+		linkIDs.insert( linkIDs.end(), rTrench.sections[s].begin(), rTrench.sections[s].end() );
+	return linkIDs;
+}
+}
+
+bool EntrenchmentPlanInputFor( SEditorSession *pSession, NMapGeometry::STrenchPlanInput *pInput )
+{
+	const SEntrenchmentRPGStats *pStats = EntrenchmentStats( 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "the object database has no \"Entrenchment\" type";
+		return false;
+	}
+	// The index helpers divide by these lists' sizes (Pitfall 5): an empty one,
+	// or one naming a segment the stats do not have, is refused here.
+	if ( !SegmentIndexOk( pStats, pStats->lines ) || !SegmentIndexOk( pStats, pStats->fireplaces ) ||
+	     !SegmentIndexOk( pStats, pStats->terminators ) || !SegmentIndexOk( pStats, pStats->arcs ) )
+	{
+		pSession->szMessage = "the \"Entrenchment\" type lacks a line, fireplace, terminator or arc piece";
+		return false;
+	}
+	pInput->fLineWidth = pStats->segments[pStats->lines[0]].GetVisAABBHalfSize().x * 2.0f;
+	pInput->fArcWidth = pStats->segments[pStats->arcs[0]].GetVisAABBHalfSize().x * 2.0f;
+	// The map's extent in map units: 32 AI tiles of nAITileSize a patch side.
+	pInput->fMapWidth = float( pSession->working.terrain.patches.GetSizeX() * 32 * NMapGeometry::nAITileSize );
+	pInput->fMapHeight = float( pSession->working.terrain.patches.GetSizeY() * 32 * NMapGeometry::nAITileSize );
+	return true;
+}
+
+bool PlanEntrenchmentInSession( SEditorSession *pSession, const std::vector<CVec2> &rPoints, NMapGeometry::STrenchPlan *pPlan, bool *pbRefused )
+{
+	*pbRefused = false;
+	NMapGeometry::STrenchPlanInput input;
+	if ( !EntrenchmentPlanInputFor( pSession, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( rPoints.size() > nMaxTrenchClicks )
+	{
+		pSession->szMessage = NStr::Format( "a trench takes at most %d points", int( nMaxTrenchClicks ) );
+		*pbRefused = true;
+		return false;
+	}
+	std::string szWhy;
+	if ( !NMapGeometry::PlanEntrenchment( input, rPoints, pPlan, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool DrawEntrenchmentInSession( SEditorSession *pSession, const std::vector<CVec2> &rPoints, int nPlayer, int *pnToken, int *pnIndex, bool *pbRefused )
+{
+	*pbRefused = false;
+	NMapGeometry::STrenchPlan plan;
+	if ( !PlanEntrenchmentInSession( pSession, rPoints, &plan, pbRefused ) )
+		return false;
+	const SGDBObjectDesc *pDesc = 0;
+	const SEntrenchmentRPGStats *pStats = EntrenchmentStats( &pDesc );
+	if ( pStats == 0 || pDesc == 0 )
+	{
+		pSession->szMessage = "the object database has no \"Entrenchment\" type";
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bNew = true;
+	SBridgeGroup &rGroup = edit->newGroup;
+	rGroup.bEntry = true;
+	rGroup.bTrench = true;
+	rGroup.nEntryIndex = int( pSession->snapshot.entrenchments.size() );
+	int nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
+	for ( size_t i = 0; i < plan.pieces.size(); ++i, ++nLinkID )
+	{
+		SMapObjectInfo piece;
+		piece.szName = pDesc->szKey;
+		piece.vPos = plan.pieces[i].vPos;
+		piece.nDir = plan.pieces[i].nDir;
+		piece.nPlayer = nPlayer;
+		piece.nScriptID = -1;
+		piece.fHP = 1.0f;
+		piece.link.nLinkID = nLinkID;
+		piece.link.bIntention = false;
+		piece.link.nLinkWith = -1;
+		piece.nFrameIndex = plan.pieces[i].nPackedType;			// the file holds the type (C6)
+		NMapOverlay::SDeletedObject saved;
+		saved.object = piece;
+		saved.bScenario = false;
+		saved.nIndex = size_t( -1 );										// RestoreObject appends
+		// The working copy's sprite: the seeded helper, seeded with the piece's
+		// place so a straight run is not one repeated model.
+		int nSeed = int( i );
+		NMapOverlay::SDeletedObject working = saved;
+		working.object.nFrameIndex = pStats->GetIndexFromType( plan.pieces[i].nPackedType, &nSeed );
+		rGroup.linkIDs.push_back( nLinkID );
+		rGroup.snapshotSpans.push_back( saved );
+		rGroup.workingSpans.push_back( working );
+	}
+	for ( size_t s = 0; s < plan.sections.size(); ++s )
+	{
+		SEntrenchmentInfo::TSegment section;
+		for ( size_t k = 0; k < plan.sections[s].size(); ++k )
+			section.push_back( rGroup.linkIDs[plan.sections[s][k]] );
+		rGroup.trench.sections.push_back( section );
+	}
+	const int nIndex = rGroup.nEntryIndex;
+	if ( !ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused ) )
+		return false;
+	*pnIndex = nIndex;
+	return true;
+}
+
+void ReadSessionEntrenchments( const SEditorSession &rSession, std::vector<SEntrenchmentSummary> *pOut )
+{
+	pOut->clear();
+	CMapInfo &rMap = const_cast<CMapInfo&>( rSession.snapshot );
+	for ( size_t t = 0; t < rMap.entrenchments.size(); ++t )
+	{
+		SEntrenchmentSummary info;
+		info.nSections = int( rMap.entrenchments[t].sections.size() );
+		const std::vector<int> linkIDs = TrenchLinkIDs( rMap.entrenchments[t] );
+		info.nPieces = int( linkIDs.size() );
+		bool bAny = false;
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+		{
+			const SMapObjectInfo *pPiece = FindObject( &rMap, linkIDs[i], 0, 0 );
+			if ( pPiece == 0 )
+				continue;
+			const CVec2 vPos( pPiece->vPos.x, pPiece->vPos.y );
+			if ( !bAny )
+			{
+				info.vMin = info.vMax = vPos;
+				info.nPlayer = pPiece->nPlayer;
+			}
+			info.vMin.x = Min( info.vMin.x, vPos.x );
+			info.vMin.y = Min( info.vMin.y, vPos.y );
+			info.vMax.x = Max( info.vMax.x, vPos.x );
+			info.vMax.y = Max( info.vMax.y, vPos.y );
+			bAny = true;
+		}
+		pOut->push_back( info );
+	}
+}
+
+bool DeleteEntrenchmentFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	const std::vector<SEntrenchmentInfo> &rTrenches = pSession->snapshot.entrenchments;
+	if ( nIndex < 0 || nIndex >= int( rTrenches.size() ) )
+	{
+		pSession->szMessage = NStr::Format( "no entrenchment %d", nIndex );
+		*pbRefused = true;
+		return false;
+	}
+	const std::vector<int> linkIDs = TrenchLinkIDs( rTrenches[nIndex] );
+	std::string szWhy;
+	if ( !CanTakeOutWhole( pSession, linkIDs, &szWhy, "piece", "entrenchment" ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.bEntry = true;
+	edit->oldGroup.bTrench = true;
+	edit->oldGroup.nEntryIndex = nIndex;
+	edit->oldGroup.linkIDs = linkIDs;
+	edit->oldGroup.trench = rTrenches[nIndex];
 	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
 }

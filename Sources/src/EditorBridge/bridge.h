@@ -1029,6 +1029,48 @@ BkEditorStatus BkEditorPlanFences( BkEditorSession *session, const char *desc, f
 BkEditorStatus BkEditorDrawFences( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1, int ctrl,
                                    int *out_token );
 
+/* Entrenchments (04-08, D-13): the MFC trench builder. A trench is one entry
+   of the map's entrenchments list - sections, each the link IDs of its
+   pieces - plus its piece objects of the "Entrenchment" type, drawn and
+   deleted as a whole (one edit of the edit log, all or nothing; no edit ever
+   leaves a section naming a missing object or a section empty: the game's
+   LoadEntrenchments dereferences every link). Points are WORLD (Vis) units,
+   the clicks of the polyline in order (the builder extends its path one click
+   at a time as the MFC tool does: straight runs of line pieces, arcs of arc
+   pieces at turns over 30 degrees); a piece's position is MAP (AI) units. The
+   geometry is NMapGeometry::PlanEntrenchment
+   (Sources/src/MapFile/MapGeometry.h), the function the map-file tier builds
+   its expected maps with.
+
+   The pieces the clicks would commit, changing nothing - for the tool's
+   preview; each a BkEditorPlannedPiece: position (MAP units), packed type (1
+   line, 2 fireplace, 4 terminator, 8 arc - what the file holds) and direction
+   (0..65535). Two passes like BkEditorBridgeDescriptors: out_count is always
+   the planned count; the order is the begin terminator, the end terminator,
+   then one piece per step of the path. BK_EDITOR_REFUSED naming the reason for
+   a path shorter than one piece ("the trench is shorter than one piece ..."),
+   and for a database with no usable "Entrenchment" type; BK_EDITOR_BAD_ARGUMENT
+   for a null out_count, null points with a count, a count outside 0..256 and a
+   non-finite coordinate (z is ignored). */
+BkEditorStatus BkEditorPlanEntrenchment( BkEditorSession *session, const BkEditorVec3 *points, int count,
+                                         BkEditorPlannedPiece *out, int capacity, int *out_count );
+/* Draws the entrenchment the clicks commit: the planned pieces become objects
+   (HP 1, no script ID, the given player, fresh link IDs; the file gets the
+   packed type) and a new entrenchments entry is appended with its sections;
+   out_index is that entry's index, out_token names the edit (either may be
+   null; both -1 after a refusal). The refusals of BkEditorPlanEntrenchment,
+   BK_EDITOR_BAD_ARGUMENT for a player outside the map's players, and
+   BK_EDITOR_REFUSED when the engine will not place a piece (off the map): a
+   refusal changes nothing. */
+BkEditorStatus BkEditorDrawEntrenchment( BkEditorSession *session, const BkEditorVec3 *points, int count, int player,
+                                         int *out_token, int *out_index );
+/* One entrenchments entry: how many pieces and sections it names, the player
+   of its first piece and the box of its pieces' positions (MAP units). */
+typedef struct { int piece_count; int section_count; int player; float min_x, min_y, max_x, max_y; } BkEditorEntrenchmentInfo;
+/* Every entrenchments entry of the map, in list order; two passes like
+   BkEditorBridgeDescriptors. */
+BkEditorStatus BkEditorEntrenchments( BkEditorSession *session, BkEditorEntrenchmentInfo *out, int capacity, int *out_count );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

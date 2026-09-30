@@ -490,4 +490,44 @@ bool PlanFencesInSession( SEditorSession *pSession, const std::string &szDesc, c
 bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
                           int *pnToken, bool *pbRefused );
 
+// Entrenchments (session_groups.cpp, 04-08, D-13): one entry of
+// CMapInfo::entrenchments (sections of piece link IDs) plus its piece objects,
+// drawn and deleted as a whole through the same SGroupEdit as a bridge, all or
+// nothing; the entry goes before its pieces and comes back after them. No
+// engine grouping call: the MFC editor makes none, the game groups the pieces
+// in LoadEntrenchments.
+//
+// The builder's inputs from the "Entrenchment" stats (the MFC editor's fixed
+// descriptor): the first line and first arc segment's GetVisAABBHalfSize().x
+// * 2. Refused for a database without the type and for stats whose line,
+// fireplace, terminator or arc list is empty or names a missing segment
+// (Pitfall 5).
+bool EntrenchmentPlanInputFor( SEditorSession *pSession, NMapGeometry::STrenchPlanInput *pInput );
+// The entrenchment clicks (world units) would commit
+// (NMapGeometry::PlanEntrenchment), changing nothing. pbRefused as
+// PlanBridgeInSession; more than 256 points is refused.
+bool PlanEntrenchmentInSession( SEditorSession *pSession, const std::vector<CVec2> &rPoints, NMapGeometry::STrenchPlan *pPlan, bool *pbRefused );
+// Draws the entrenchment: its pieces become objects (the snapshot holds the
+// packed piece type, the working copy and the engine a seeded concrete
+// segment; HP 1, script ID -1, nPlayer, fresh link IDs in the plan's order) and
+// a new entrenchments entry at the end of the list, as one logged edit.
+// pnIndex is the entry's index. Refused, changing nothing, for the plan's
+// refusals and a piece the engine will not place (off the map).
+bool DrawEntrenchmentInSession( SEditorSession *pSession, const std::vector<CVec2> &rPoints, int nPlayer, int *pnToken, int *pnIndex, bool *pbRefused );
+// One entrenchments entry as the tools see it: its piece and section counts,
+// the player of its first piece the map holds and the box of its pieces'
+// positions (map units; a piece the map does not hold is left out).
+struct SEntrenchmentSummary
+{
+	int nPieces, nSections, nPlayer;
+	CVec2 vMin, vMax;
+	SEntrenchmentSummary() : nPieces( 0 ), nSections( 0 ), nPlayer( 0 ), vMin( VNULL2 ), vMax( VNULL2 ) {  }
+};
+void ReadSessionEntrenchments( const SEditorSession &rSession, std::vector<SEntrenchmentSummary> *pOut );
+// Deletes entrenchment nIndex whole: the entry, then every piece (both copies,
+// the engine), one logged edit whose undo puts the pieces back and then the
+// entry at the same index. Refused, as a bridge is, for an entrenchment with a
+// piece the editor could not put back; it is kept as read.
+bool DeleteEntrenchmentFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
+
 #endif // __EDITOR_BRIDGE_SESSION_H__

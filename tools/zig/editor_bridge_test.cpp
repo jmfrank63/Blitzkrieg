@@ -178,6 +178,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorBridgeDescriptor bridgeDescriptor; memset( &bridgeDescriptor, 0, sizeof bridgeDescriptor );
 	BkEditorPlannedPiece plannedPiece; memset( &plannedPiece, 0, sizeof plannedPiece );
 	BkEditorFenceDescriptor fenceDescriptor; memset( &fenceDescriptor, 0, sizeof fenceDescriptor );
+	BkEditorEntrenchmentInfo trenchInfo; memset( &trenchInfo, 0, sizeof trenchInfo );
+	BkEditorVec3 trenchPoints[2] = { { 0.0f, 0.0f, 0.0f }, { 100.0f, 0.0f, 0.0f } };
 	BkEditorBridgeInfo bridgeInfo; memset( &bridgeInfo, 0, sizeof bridgeInfo );
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorView view; memset( &view, 0, sizeof view );
@@ -267,6 +269,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorFenceDescriptors", [&] { return BkEditorFenceDescriptors( 0, &fenceDescriptor, 1, &nInt ); } },
 		{ "BkEditorPlanFences", [&] { return BkEditorPlanFences( 0, "x", 0, 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawFences", [&] { return BkEditorDrawFences( 0, "x", 0, 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorPlanEntrenchment", [&] { return BkEditorPlanEntrenchment( 0, trenchPoints, 2, &plannedPiece, 1, &nInt ); } },
+		{ "BkEditorDrawEntrenchment", [&] { return BkEditorDrawEntrenchment( 0, trenchPoints, 2, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorEntrenchments", [&] { return BkEditorEntrenchments( 0, &trenchInfo, 1, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -339,6 +344,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorFenceDescriptors", [&] { return BkEditorFenceDescriptors( pSession, &fenceDescriptor, 1, &nInt ); } },
 		{ "BkEditorPlanFences", [&] { return BkEditorPlanFences( pSession, "x", 0, 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawFences", [&] { return BkEditorDrawFences( pSession, "x", 0, 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorPlanEntrenchment", [&] { return BkEditorPlanEntrenchment( pSession, trenchPoints, 2, &plannedPiece, 1, &nInt ); } },
+		{ "BkEditorDrawEntrenchment", [&] { return BkEditorDrawEntrenchment( pSession, trenchPoints, 2, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorEntrenchments", [&] { return BkEditorEntrenchments( pSession, &trenchInfo, 1, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -5557,6 +5565,260 @@ static void TestM2BridgeRotateToggle( BkEditorSession *pSession, const std::stri
 	printf( "editor-bridge: M2 bridge rotate and toggle ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08)
+// ---------------------------------------------------------------------------
+
+// The builder's inputs as the object database's "Entrenchment" stats give
+// them, read straight (lines[0], arcs[0]).
+static bool TrenchInputFromStats( NMapGeometry::STrenchPlanInput *pInput )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( "Entrenchment" ) : 0;
+	const SEntrenchmentRPGStats *pStats = pDesc != 0 ? NGDB::GetRPGStats<SEntrenchmentRPGStats>( pObjectsDB, pDesc ) : 0;
+	if ( pStats == 0 || pStats->lines.empty() || pStats->arcs.empty() )
+		return false;
+	pInput->fLineWidth = pStats->segments[pStats->lines[0]].GetVisAABBHalfSize().x * 2.0f;
+	pInput->fArcWidth = pStats->segments[pStats->arcs[0]].GetVisAABBHalfSize().x * 2.0f;
+	return true;
+}
+
+// The map's extent the bridge gives the builder, map units.
+static void TrenchExtent( const CMapInfo &rMap, NMapGeometry::STrenchPlanInput *pInput )
+{
+	pInput->fMapWidth = float( rMap.terrain.patches.GetSizeX() * 32 * NMapGeometry::nAITileSize );
+	pInput->fMapHeight = float( rMap.terrain.patches.GetSizeY() * 32 * NMapGeometry::nAITileSize );
+}
+
+// The L the map-file tier draws: 600 world units east, then 500 north.
+static std::vector<CVec2> EngineTrenchL( float fX, float fY )
+{
+	std::vector<CVec2> points;
+	points.push_back( CVec2( fX, fY ) );
+	points.push_back( CVec2( fX + 600.0f, fY ) );
+	points.push_back( CVec2( fX + 600.0f, fY + 500.0f ) );
+	return points;
+}
+
+static std::vector<BkEditorVec3> ToCPoints2( const std::vector<CVec2> &rPoints )
+{
+	std::vector<BkEditorVec3> out;
+	for ( size_t i = 0; i < rPoints.size(); ++i )
+	{
+		BkEditorVec3 point = { rPoints[i].x, rPoints[i].y, 0.0f };
+		out.push_back( point );
+	}
+	return out;
+}
+
+// A planned entrenchment laid over a map the way the bridge lays it: one
+// "Entrenchment" object per piece in the plan's order (the packed type, HP 1,
+// no script ID, the player), link IDs from NextLinkID up, then the entry of
+// the sections' link IDs at nEntryIndex (-1 appends).
+static bool LayTrench( CMapInfo *pMap, const NMapGeometry::STrenchPlan &rPlan, int nPlayer, int nEntryIndex = -1 )
+{
+	std::vector<int> linkIDs;
+	for ( size_t i = 0; i < rPlan.pieces.size(); ++i )
+	{
+		NMapOverlay::SAddObject add;
+		add.szName = "Entrenchment";
+		add.vPos = rPlan.pieces[i].vPos;
+		add.nDir = rPlan.pieces[i].nDir;
+		add.nPlayer = nPlayer;
+		add.nFrameIndex = rPlan.pieces[i].nPackedType;
+		add.fHP = 1.0f;
+		add.nScriptID = -1;
+		int nLinkID = -1;
+		if ( !NMapOverlay::AddObject( pMap, add, &nLinkID ) )
+			return false;
+		linkIDs.push_back( nLinkID );
+	}
+	SEntrenchmentInfo entry;
+	for ( size_t s = 0; s < rPlan.sections.size(); ++s )
+	{
+		SEntrenchmentInfo::TSegment section;
+		for ( size_t k = 0; k < rPlan.sections[s].size(); ++k )
+			section.push_back( linkIDs[rPlan.sections[s][k]] );
+		entry.sections.push_back( section );
+	}
+	return NMapRecords::InsertEntrenchment( pMap, nEntryIndex, entry );
+}
+
+static std::vector<BkEditorEntrenchmentInfo> ReadTrenches( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorEntrenchments( pSession, 0, 0, &nCount );
+	std::vector<BkEditorEntrenchmentInfo> out( nCount > 0 ? nCount : 1 );
+	if ( BkEditorEntrenchments( pSession, &out[0], int( out.size() ), &nCount ) != BK_EDITOR_OK && nCount > 0 )
+		return std::vector<BkEditorEntrenchmentInfo>();
+	out.resize( nCount );
+	return out;
+}
+
+// Every section of every entrenchment of the saved map at szPath is non-empty
+// and every link it names is an object the engine holds (the game's
+// LoadEntrenchments takes each section's first and dereferences each link).
+static bool EveryTrenchLinkIsInTheEngine( BkEditorSession *pSession, const std::string &szPath, const char *pszWhen )
+{
+	CMapInfo saved;
+	std::string szError;
+	if ( !Check( BkEditorSaveMap( pSession, szPath.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ||
+	     !Check( NMapFile::Read( szPath.c_str(), &saved, &szError ), szError.c_str() ) )
+		return false;
+	int nMissing = 0, nLinks = 0, nEmpty = 0;
+	for ( size_t t = 0; t < saved.entrenchments.size(); ++t )
+		for ( size_t s = 0; s < saved.entrenchments[t].sections.size(); ++s )
+		{
+			const std::vector<int> &rSection = saved.entrenchments[t].sections[s];
+			if ( rSection.empty() )
+				++nEmpty;
+			for ( size_t k = 0; k < rSection.size(); ++k, ++nLinks )
+			{
+				BkEditorObjectState state;
+				if ( BkEditorEngineObjectState( pSession, rSection[k], &state ) != BK_EDITOR_OK )
+					++nMissing;
+			}
+		}
+	remove( OsPath( szPath ).c_str() );
+	return Check( nMissing == 0 && nEmpty == 0, NStr::Format( "every entrenchment section is non-empty and names engine objects %s (%d of %d links missing, %d sections empty)",
+	                                                          pszWhen, nMissing, nLinks, nEmpty ) );
+}
+
+// D-13/D-03/C6 on the real engine: an L-shaped trench drawn across coldwinter
+// is planned exactly as NMapGeometry::PlanEntrenchment plans it with the
+// stats' own inputs, saved as the map the map-file tier's builder makes (its
+// pieces as ordinary objects, its sections of their link IDs), undone to the
+// unedited bytes and redone; a trench shorter than a piece, one off the map
+// and bad arguments are refused with nothing changed.
+static void TestM2Entrenchments( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	// The packed types MapGeometry repeats are the stats'.
+	Check( NMapGeometry::TRENCH_LINE == SEntrenchmentRPGStats::ENTRENCHMENT_LINE && NMapGeometry::TRENCH_FIREPLACE == SEntrenchmentRPGStats::ENTRENCHMENT_FIREPLACE &&
+	       NMapGeometry::TRENCH_TERMINATOR == SEntrenchmentRPGStats::ENTRENCHMENT_TERMINATOR && NMapGeometry::TRENCH_ARC == SEntrenchmentRPGStats::ENTRENCHMENT_ARC,
+	       "MapGeometry's trench piece types are SEntrenchmentRPGStats'" );
+	NMapGeometry::STrenchPlanInput input;
+	if ( !Check( TrenchInputFromStats( &input ), "the Entrenchment stats give the builder's inputs" ) )
+		return;
+	// The literals the map-file tier plans with (map_file_test.cpp) are these.
+	Check( input.fLineWidth == 2.0f * 52.0f * fAITileXCoeff && input.fArcWidth == 2.0f * 15.0f * fAITileXCoeff,
+	       NStr::Format( "the stats agree with the map-file tier's literals (line %g, arc %g)", input.fLineWidth, input.fArcWidth ) );
+	TrenchExtent( original, &input );
+
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	const std::vector<CVec2> clicks = EngineTrenchL( fMiddleX - 300.0f, fMiddleY - 250.0f );
+	const std::vector<BkEditorVec3> cClicks = ToCPoints2( clicks );
+	NMapGeometry::STrenchPlan plan;
+	if ( !Check( NMapGeometry::PlanEntrenchment( input, clicks, &plan, &szError ), szError.c_str() ) )
+		return;
+
+	// The preview's plan is the function's.
+	{
+		int nPlanned = 0;
+		std::vector<BkEditorPlannedPiece> pieces( 256 );
+		Check( BkEditorPlanEntrenchment( pSession, &cClicks[0], int( cClicks.size() ), &pieces[0], 256, &nPlanned ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		bool bSame = nPlanned == int( plan.pieces.size() );
+		for ( int i = 0; bSame && i < nPlanned; ++i )
+			bSame = pieces[i].x == plan.pieces[i].vPos.x && pieces[i].y == plan.pieces[i].vPos.y && pieces[i].type == plan.pieces[i].nPackedType &&
+			        pieces[i].dir == plan.pieces[i].nDir;
+		Check( bSame, NStr::Format( "BkEditorPlanEntrenchment plans what PlanEntrenchment plans (%d pieces, %d sections)", nPlanned, int( plan.sections.size() ) ) );
+		Check( BkEditorPlanEntrenchment( pSession, &cClicks[0], int( cClicks.size() ), 0, 0, &nPlanned ) == BK_EDITOR_REFUSED && nPlanned == int( plan.pieces.size() ),
+		       "a plan with no buffer is refused with the count filled" );
+	}
+
+	const std::string szUnedited = szScratch + "\\trench-unedited.bzm";
+	const std::string szEdited = szScratch + "\\trench-edited.bzm";
+	const std::string szCheck = szScratch + "\\trench-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nObjectsBefore = int( ReadObjectRecords( pSession ).size() );
+	EveryTrenchLinkIsInTheEngine( pSession, szCheck, "as opened" );
+
+	const int nPlayer = 1;
+	int nToken = -1, nIndex = -1;
+	if ( !Check( BkEditorDrawEntrenchment( pSession, &cClicks[0], int( cClicks.size() ), nPlayer, &nToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0 && nIndex == int( original.entrenchments.size() ), NStr::Format( "the entrenchment's entry is appended (token %d, index %d)", nToken, nIndex ) );
+	Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore + int( plan.pieces.size() ), "one object per piece" );
+	WorldAgrees( pSession, "after an entrenchment was drawn" );
+	EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after an entrenchment was drawn" );
+	{
+		const std::vector<BkEditorEntrenchmentInfo> infos = ReadTrenches( pSession );
+		if ( Check( int( infos.size() ) == nIndex + 1, "BkEditorEntrenchments lists the new entry" ) )
+		{
+			const BkEditorEntrenchmentInfo &rInfo = infos[nIndex];
+			Check( rInfo.piece_count == int( plan.pieces.size() ) && rInfo.section_count == int( plan.sections.size() ) && rInfo.player == nPlayer &&
+			       rInfo.min_x <= plan.pieces[0].vPos.x && rInfo.max_y >= plan.pieces[1].vPos.y,
+			       NStr::Format( "with its piece and section counts, player and box (%d pieces, %d sections)", rInfo.piece_count, rInfo.section_count ) );
+		}
+	}
+	CMapInfo expected;
+	Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() );
+	Check( LayTrench( &expected, plan, nPlayer ), "the expected entrenchment lays over the file's map" );
+	CheckSavedEquals( pSession, szEdited, expected, "a new entrenchment" );
+
+	// Undo: the unedited bytes; redo: the expected map again.
+	if ( Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the entrenchment's undo" );
+		EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after the entrenchment's undo" );
+		Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore, "the undo takes every piece out" );
+		const std::string szUndone = szScratch + "\\trench-undone.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), "an entrenchment and its undo save the unedited file byte for byte" );
+		remove( OsPath( szUndone ).c_str() );
+	}
+	if ( Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the entrenchment's redo" );
+		EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after the entrenchment's redo" );
+		CheckSavedEquals( pSession, szEdited, expected, "the entrenchment redone" );
+	}
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// Refusals change nothing: the objects, the entries, the engine, the file.
+	const size_t nTrenches = ReadTrenches( pSession ).size();
+	nToken = nIndex = 7;
+	{
+		std::vector<BkEditorVec3> one( 1, cClicks[0] );
+		Check( BkEditorDrawEntrenchment( pSession, &one[0], 1, 0, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "one point is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "shorter than one piece" ) != std::string::npos, NStr::Format( "and says why (%s)", BkEditorLastMessage( pSession ) ) );
+		Check( nToken == -1 && nIndex == -1, "a refusal hands out no token" );
+	}
+	const float fEdge = original.terrain.tiles.GetSizeX() * fWorldCellSize;
+	{
+		const std::vector<BkEditorVec3> off = ToCPoints2( EngineTrenchL( fEdge - 300.0f, fMiddleY ) );
+		Check( BkEditorDrawEntrenchment( pSession, &off[0], int( off.size() ), 0, &nToken, &nIndex ) == BK_EDITOR_REFUSED &&
+		       std::string( BkEditorLastMessage( pSession ) ) == "the trench leaves the map", "a trench running off the map's edge is refused" );
+		printf( "editor-bridge: off the edge: %s\n", BkEditorLastMessage( pSession ) );
+		std::vector<BkEditorVec3> nan = cClicks;
+		nan[1].y = std::numeric_limits<float>::quiet_NaN();
+		Check( BkEditorDrawEntrenchment( pSession, &nan[0], int( nan.size() ), 0, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "a NaN point is a bad argument" );
+		Check( BkEditorDrawEntrenchment( pSession, 0, 3, 0, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "null points are a bad argument" );
+		std::vector<BkEditorVec3> many( 257, cClicks[0] );
+		Check( BkEditorDrawEntrenchment( pSession, &many[0], 257, 0, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "257 points are a bad argument" );
+		Check( BkEditorDrawEntrenchment( pSession, &cClicks[0], int( cClicks.size() ), 99, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "a player the map lacks is a bad argument" );
+		Check( BkEditorDrawEntrenchment( pSession, &cClicks[0], int( cClicks.size() ), -1, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "player -1 is a bad argument" );
+	}
+	Check( ReadTrenches( pSession ).size() == nTrenches, "no refusal added an entry" );
+	Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore, "nor an object" );
+	WorldAgrees( pSession, "after the refusals" );
+	EveryTrenchLinkIsInTheEngine( pSession, szCheck, "after the refusals" );
+	const std::string szRefused = szScratch + "\\trench-refused.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "and the map saves unedited byte for byte" );
+	remove( OsPath( szRefused ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 entrenchments draw ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -5717,6 +5979,7 @@ int main( int argc, char **argv )
 		TestM2BridgeDelete( pSession, szScratch );
 		TestM2BridgeRotateToggle( pSession, szScratch );
 		TestM2Fences( pSession, szScratch );
+		TestM2Entrenchments( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

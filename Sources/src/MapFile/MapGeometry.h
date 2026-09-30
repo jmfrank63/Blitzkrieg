@@ -146,5 +146,79 @@ struct SFencePlanInput
 //    direction is in its frame index).
 bool PlanFences( const SFencePlanInput &rInput, const CTPoint<int> &firstTile, const CTPoint<int> &lastTile, bool bCtrl,
                  std::vector<SPlannedPiece> *pFences, std::string *pWhy );
+
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08, D-13): the MFC trench builder, RoadDrawState.cpp:184-237
+// (CAngle), 238-290 (GetLineAngle, GetTrenchWidth, SplitLineToSegrments),
+// 293-364 (CConnector), 1135-1216 (a click extends the path) and 1403-1585 (the
+// double click's commit), ported with its arithmetic: the path is integer
+// points (GPoint truncates), a length is the project's two-argument fabs (a
+// Euclidean length, Misc/Tools.h:600), an angle wraps into [0, 2 pi) with fmod
+// only where the MFC's CAngle operators wrap it.
+//
+// SEntrenchmentRPGStats' packed piece types (ENTRENCHMENT_LINE / FIREPLACE /
+// TERMINATOR / ARC, Main/RPGStats.h), repeated so this unit needs no stats
+// header; the engine tier checks them.
+enum ETrenchPieceType
+{
+	TRENCH_LINE = 0x00000001,
+	TRENCH_FIREPLACE = 0x00000002,
+	TRENCH_TERMINATOR = 0x00000004,
+	TRENCH_ARC = 0x00000008,
+};
+// What the builder reads of the "Entrenchment" stats (GetTrenchWidth): the
+// length of a line piece and of an arc piece along the trench, world units -
+// the segment's GetVisAABBHalfSize().x * 2 (a line: the first of `lines`, every
+// shipped one is as long; an arc: the first of `arcs`). And the map's extent
+// in map (AI) units, 0 for none: the engine places a trench piece anywhere,
+// even off the map (CAIEditor::IsObjectInsideOfMap passes every
+// SGVOGT_ENTRENCHMENT), and the MFC tool never checked, so a piece whose
+// centre the map does not hold is refused here (an addition, T-04-08-02).
+struct STrenchPlanInput
+{
+	float fLineWidth;
+	float fArcWidth;
+	float fMapWidth, fMapHeight;
+	STrenchPlanInput() : fLineWidth( 0.0f ), fArcWidth( 0.0f ), fMapWidth( 0.0f ), fMapHeight( 0.0f ) {  }
+};
+// A planned entrenchment: the builder's path (m_pointForTrench, integer world
+// points), the pieces in the order the MFC commit makes them - [0] the begin
+// terminator, [1] the end terminator, then one piece per step of the path -
+// and the sections, each a list of indices into `pieces` in trench order.
+struct STrenchPlan
+{
+	std::vector< CTPoint<int> > path;
+	std::vector<SPlannedPiece> pieces;
+	std::vector< std::vector<int> > sections;
+};
+// The path the clicks build, one click at a time as OnLButtonDown extends
+// m_pointForTrench: the first click is the first point; the second adds the
+// straight line to it cut into line pieces; a later one either carries the
+// last direction on (a turn under 30 degrees, for the click's distance) or
+// adds an arc of arc pieces turning the shorter way round (15 degrees first,
+// then 30 each) and, when the click is nearer the arc's end than its start,
+// a straight run on from it. Refused (false, the reason in pWhy) for widths
+// that are not finite or below 4 world units, a click that is not finite or
+// farther than a million world units out, and a path of more than 2048
+// points.
+bool TrenchPath( const STrenchPlanInput &rInput, const std::vector<CVec2> &rClicksVis, std::vector< CTPoint<int> > *pPath, std::string *pWhy );
+// The entrenchment the clicks (world units) commit, OnLButtonDblClk's rules:
+//  - terminators at the first path point (the first step's angle + pi) and at
+//    the last (the last step's angle);
+//  - one piece per path step, at the step's integer midpoint: a step longer
+//    than 0.9 line widths is straight, a fireplace and a line alternating
+//    through the whole trench starting with a fireplace; a shorter one is an
+//    arc, turned + pi unless the previous step's angle less its own wraps to
+//    more than pi (the previous step is taken from the third step on, as the
+//    MFC's `i > 1` does);
+//  - direction int( angle / 2 pi * 65535 ), positions Vis2AI (map units);
+//  - the first section starts with the begin terminator; a straight piece
+//    after an arc closes the section before it and opens the next; the end
+//    terminator joins the last section.
+// Refused as TrenchPath is, for a path of fewer than two points ("the trench
+// is shorter than one piece"), a step whose angle is not a number, and - with
+// an extent given - a piece outside [0, fMapWidth) x [0, fMapHeight) ("the
+// trench leaves the map").
+bool PlanEntrenchment( const STrenchPlanInput &rInput, const std::vector<CVec2> &rPointsVis, STrenchPlan *pPlan, std::string *pWhy );
 }
 #endif // __MAP_GEOMETRY_H__
