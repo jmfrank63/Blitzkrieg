@@ -1445,6 +1445,18 @@ bool SetSessionAIGeneralSide( SEditorSession *pSession, int nSide, int nSideCoun
 		if ( pbRefused != 0 ) *pbRefused = true;
 		return false;
 	}
+	// A smaller count drops the sides above it. That is how an undo takes back
+	// the sides a put created - which are empty - so a side above the count
+	// that holds anything, other than the side this put names, is refused
+	// rather than dropped.
+	const std::vector<SAIGeneralSideInfo> &rSides = pSession->snapshot.aiGeneralMapInfo.sidesInfo;
+	for ( int i = nSideCount; i < int( rSides.size() ); ++i )
+		if ( i != nSide && ( !rSides[i].mobileScriptIDs.empty() || !rSides[i].parcels.empty() ) )
+		{
+			pSession->szMessage = NStr::Format( "side %d holds parcels or script IDs, so the side count cannot drop to %d", i, nSideCount );
+			if ( pbRefused != 0 ) *pbRefused = true;
+			return false;
+		}
 	NMapRecords::SAIGeneralSidePut before;
 	NMapRecords::GetAIGeneralSide( pSession->snapshot, nSide, &before );
 	NMapRecords::SAIGeneralSidePut put;
