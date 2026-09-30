@@ -6192,9 +6192,31 @@ fn addMapEditor(
         "93:expect=bridge_built",
         "94:expect=bridge_delta:1",
         "96:shot=m2_bridges",
-        b.fmt("97:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "98:shot=m2_anchor",
-        "99:exit",
+        // 04-07: the Fence tool (key 6) with W_FactoryFence, dragged along the
+        // world's x axis on the snow between the bridge and the tanks: the
+        // ghost is shot while the button is held (a scripted press is held
+        // across frames), the release places one run as one undo step, undo
+        // and redo walk it back and forth, the run is shot.
+        "97:tool=fence",
+        "98:do=fence_desc:W_FactoryFence",
+        "100:press=c80x-65",
+        "101:drag=c140x-35",
+        "102:drag=c200x-5",
+        "103:shot=m2_fence_ghost",
+        "104:drag=c240x15",
+        "105:release=c240x15",
+        "107:expect=fence_delta:6",
+        "108:expect=undo_depth:10",
+        "109:key=Z+ctrl",
+        "111:expect=fence_delta:0",
+        "112:expect=undo_depth:9",
+        "113:key=Y+ctrl",
+        "115:expect=fence_delta:6",
+        "116:expect=undo_depth:10",
+        "118:shot=m2_fences",
+        b.fmt("119:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "120:shot=m2_anchor",
+        "121:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

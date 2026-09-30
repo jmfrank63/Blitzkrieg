@@ -38,6 +38,7 @@ pub const command_table = [_]Entry{
     .{ .name = "bridge_rotate", .handler = bridgeRotate },
     .{ .name = "bridge_toggle_build", .handler = bridgeToggleBuild },
     .{ .name = "bridge_delete", .handler = bridgeDelete },
+    .{ .name = "fence_desc", .handler = fenceDesc },
 };
 
 pub const predicate_table = [_]Entry{
@@ -48,6 +49,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "vso_points", .handler = vsoPoints },
     .{ .name = "bridge_delta", .handler = bridgeDelta },
     .{ .name = "bridge_built", .handler = bridgeBuilt },
+    .{ .name = "fence_delta", .handler = fenceDelta },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -344,4 +346,38 @@ fn bridgeBuilt(state: *State, arg: []const u8) Outcome {
     defer state.allocator.free(now);
     if (index >= now.len) return .refused;
     return if (now[index].built_during_play) .ok else .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Fences (04-07, D-14).
+// ---------------------------------------------------------------------------
+
+/// A type from the Fences panel's list, by name: what the next run places.
+pub fn chooseFenceType(state: *State, name: []const u8) Outcome {
+    state.refreshFenceTypes();
+    for (state.fence_types) |*item| {
+        if (std.mem.eql(u8, item.nameSlice(), name)) {
+            state.view.fence_tool.setDesc(name);
+            return .ok;
+        }
+    }
+    return .bad_arg;
+}
+
+fn fenceDesc(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or arg.len >= core.bridge.name_capacity) return .bad_arg;
+    return chooseFenceType(state, arg);
+}
+
+/// `fence_delta:5`: the map holds five fences more than at open.
+fn fenceDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const delta = @as(i64, @intCast(state.fenceCount())) - @as(i64, @intCast(state.fence_count_at_open));
+    if (delta == want) return .ok;
+    // The scenario runner prints the status line with a false predicate: say
+    // what the count is, so a wrong expectation is one run, not a search.
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "fence_delta is {d}, not {d}", .{ delta, want }) catch "fence_delta differs");
+    return .refused;
 }
