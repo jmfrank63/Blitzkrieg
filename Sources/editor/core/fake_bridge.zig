@@ -373,6 +373,11 @@ pub const FakeBridge = struct {
     /// Set by a test to make `openMap` answer `failed`, as the real bridge
     /// does when the engine throws while it builds the new map.
     fail_build: bool = false,
+    /// Set by a test to make `undoEdit` of this token fail (as an engine that
+    /// will not take a span back does), for the core's replay-unwinding tests.
+    fail_undo_token: ?i32 = null,
+    /// The same for `redoEdit`.
+    fail_redo_token: ?i32 = null,
     /// Set by a test to make `paint` refuse cells that are on the map, as
     /// the real bridge does when the map will not take a paint (no tileset).
     refuse_paints: bool = false,
@@ -865,6 +870,10 @@ pub const FakeBridge = struct {
     fn undoEdit(ptr: *anyopaque, token: i32) Status {
         const self = from(ptr);
         self.message_len = 0;
+        if (self.fail_undo_token == token) {
+            self.say("the engine would not take edit {d} back", .{token});
+            return .failed;
+        }
         if (self.applied_edits.items.len == 0 or self.applied_edits.items[self.applied_edits.items.len - 1] != token) {
             self.say("edits are undone newest first", .{});
             return .refused;
@@ -885,6 +894,10 @@ pub const FakeBridge = struct {
     fn redoEdit(ptr: *anyopaque, token: i32) Status {
         const self = from(ptr);
         self.message_len = 0;
+        if (self.fail_redo_token == token) {
+            self.say("the engine would not redo edit {d}", .{token});
+            return .failed;
+        }
         if (self.undone_edits.items.len == 0 or self.undone_edits.items[self.undone_edits.items.len - 1] != token) {
             self.say("edits are redone in the order they were undone", .{});
             return .refused;

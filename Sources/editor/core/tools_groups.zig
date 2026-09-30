@@ -508,6 +508,30 @@ test "undo removes the spans and the entry, redo puts both back" {
     try testing.expectEqual(objects_before + drawn.count, editor.document.objects.items.len);
 }
 
+test "a re-read that fails after an undo leaves the step on the redo stack, where the bridge is (WR-B01)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = bridgeTool("W_Fake_Bridge_01");
+    const bridges_before = fake.bridgeCount();
+    try dragAcross(&tool, &editor, 20, 150, 120, 150);
+    const undo_depth = editor.history.undo_stack.items.len;
+    fake.fail_objects = true;
+    try testing.expectError(error.Failed, editor.undo());
+    fake.fail_objects = false;
+    // The bridge took the bridge out, and the history followed it.
+    try testing.expectEqual(bridges_before, fake.bridgeCount());
+    try testing.expectEqual(undo_depth - 1, editor.history.undo_stack.items.len);
+    try testing.expectEqual(@as(usize, 1), editor.history.redo_stack.items.len);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "reopen the map") != null);
+    // So the redo is the next step, and it works.
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(bridges_before + 1, fake.bridgeCount());
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(bridges_before, fake.bridgeCount());
+}
+
 test "no type chosen is a note, not a command; the ghost follows the drag" {
     var fake = try editor_mod.testFixture(testing.allocator);
     defer fake.deinit();

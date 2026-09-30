@@ -70,6 +70,12 @@ pub const Editor = struct {
     /// (shipped.zig's rule 1). Empty until set - rules 2 and 3 still apply.
     base_root_buffer: [shipped_mod.max_path]u8 = undefined,
     base_root_len: usize = 0,
+    /// Set when a bridge-logged edit (`.edit`) failed part-way through an
+    /// undo or redo and the tokens already replayed could not be put back:
+    /// the bridge's own edit log and the history no longer agree, so every
+    /// further undo and redo is refused with one clear message instead of
+    /// failing on the same entry forever (WR-B01). An open or a close clears it.
+    replay_broken: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, b: Bridge) Editor {
         return .{ .allocator = allocator, .bridge = b };
@@ -166,6 +172,7 @@ pub const Editor = struct {
             return err;
         };
         self.history.clear(self.allocator);
+        self.replay_broken = false;
         self.selection = null;
         self.vso_generation +%= 1;
         self.bridges_generation +%= 1;
@@ -188,6 +195,7 @@ pub const Editor = struct {
         self.document.deinit(self.allocator);
         self.document = .{};
         self.history.clear(self.allocator);
+        self.replay_broken = false;
         self.selection = null;
         self.vso_generation +%= 1;
         self.bridges_generation +%= 1;
@@ -1342,7 +1350,7 @@ pub const Editor = struct {
         // The bridge has committed and the history holds the step: a failed
         // re-read leaves the document short of the new spans, which the
         // status line reports; the next open or undo reads it again.
-        try self.reloadObjects();
+        try self.reloadObjectsAfterEdit();
         return if (index >= 0) @intCast(index) else 0;
     }
 
@@ -1354,7 +1362,7 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.deleteBridge(@intCast(index), &token));
         self.commitEdit(&prepared, token, 0, .objects);
-        try self.reloadObjects();
+        try self.reloadObjectsAfterEdit();
     }
 
     /// Rotates the bridge at `index` (D-11): its `_01`/`_02` partner about
@@ -1366,7 +1374,7 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.rotateBridge(@intCast(index), &token));
         self.commitEdit(&prepared, token, 0, .objects);
-        try self.reloadObjects();
+        try self.reloadObjectsAfterEdit();
     }
 
     /// D-12: toggles the bridge at `index` between intact and built during
@@ -1394,7 +1402,7 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.drawFences(desc, wx0, wy0, wx1, wy1, ctrl, &token));
         self.commitEdit(&prepared, token, 0, .objects);
-        try self.reloadObjects();
+        try self.reloadObjectsAfterEdit();
     }
 
     /// The object database's fence types, sorted; the caller frees the slice
@@ -1438,7 +1446,7 @@ pub const Editor = struct {
         var index: i32 = -1;
         try self.noteOutcome(self.bridge.drawEntrenchment(points, player, &token, &index));
         self.commitEdit(&prepared, token, 0, .objects);
-        try self.reloadObjects();
+        try self.reloadObjectsAfterEdit();
         return if (index >= 0) @intCast(index) else 0;
     }
 
@@ -1466,7 +1474,7 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.deleteEntrenchment(@intCast(index), &token));
         self.commitEdit(&prepared, token, 0, .objects);
-        try self.reloadObjects();
+        try self.reloadObjectsAfterEdit();
     }
 
     /// The map's entrenchments in list order; the caller frees the slice with
@@ -1610,23 +1618,30 @@ pub const Editor = struct {
                 self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
             },
             .edit => |e| {
+                // A token that fails part-way leaves the ones before it replayed
+                // in the bridge's own log: they are put back, so the log and this
+                // entry agree again and a retry starts where this one did.
                 if (forwards) {
-                    for (e.tokens.items) |token| try self.noteOutcome(self.bridge.redoEdit(token));
+                    for (e.tokens.items, 0..) |token, done| {
+                        self.noteOutcome(self.bridge.redoEdit(token)) catch |err| {
+                            self.unwindTokens(e.tokens.items[0..done], .undo);
+                            return err;
+                        };
+                    }
                 } else {
                     var index = e.tokens.items.len;
                     while (index != 0) {
                         index -= 1;
-                        try self.noteOutcome(self.bridge.undoEdit(e.tokens.items[index]));
+                        self.noteOutcome(self.bridge.undoEdit(e.tokens.items[index])) catch |err| {
+                            self.unwindTokens(e.tokens.items[index + 1 ..], .redo);
+                            return err;
+                        };
                     }
                 }
-                switch (e.scope) {
-                    .vso => self.vso_generation +%= 1,
-                    .objects => {
-                        self.bridges_generation +%= 1;
-                        self.entrenchments_generation +%= 1;
-                        try self.reloadObjects();
-                    },
-                }
+                // The document's re-read (scope `objects`) is `afterReplay`'s:
+                // it runs once the entry has moved, so a failed re-read cannot
+                // leave the entry on the stack the bridge has already left.
+                self.bumpScope(e.scope);
             },
         }
     }
@@ -1653,11 +1668,66 @@ pub const Editor = struct {
         return if (err == error.Refused) error.Failed else err;
     }
 
+    const Unwind = enum { undo, redo };
+
+    /// Puts back the bridge-logged tokens a failed replay had already replayed:
+    /// `.redo` re-applies tokens an undo took back (oldest first, the order the
+    /// bridge undid them in reverse), `.undo` takes back tokens a redo applied
+    /// (newest first). The status line keeps the failure's reason. A token
+    /// that will not go back marks the history as broken (`replay_broken`).
+    fn unwindTokens(self: *Editor, tokens: []const i32, direction: Unwind) void {
+        switch (direction) {
+            .redo => for (tokens) |token| {
+                if (self.bridge.redoEdit(token) != .ok) {
+                    self.replay_broken = true;
+                    return;
+                }
+            },
+            .undo => {
+                var index = tokens.len;
+                while (index != 0) {
+                    index -= 1;
+                    if (self.bridge.undoEdit(tokens[index]) != .ok) {
+                        self.replay_broken = true;
+                        return;
+                    }
+                }
+            },
+        }
+    }
+
+    /// What a replayed command needs once its entry has moved stacks: the
+    /// document's objects read again after an `objects`-scope edit. A failed
+    /// re-read is reported (the history stays as the bridge is) and asks for
+    /// a reopen.
+    fn afterReplay(self: *Editor, command: *const history_mod.Command) EditError!void {
+        switch (command.*) {
+            .edit => |e| if (e.scope == .objects) try self.reloadObjectsAfterEdit(),
+            else => {},
+        }
+    }
+
+    /// `reloadObjects` after a bridge edit has committed (or been undone or
+    /// redone): the history already holds the step, so a failure only leaves
+    /// the document's object list stale, which the status line says.
+    fn reloadObjectsAfterEdit(self: *Editor) EditError!void {
+        self.reloadObjects() catch |err| {
+            self.setStatus("", "the edit went through but the map's objects could not be read again; reopen the map");
+            return err;
+        };
+    }
+
+    fn refuseBrokenReplay(self: *Editor) EditError {
+        self.setStatus("", "the undo history no longer matches the map after a failed undo or redo; reopen the map");
+        return error.Failed;
+    }
+
     /// False when there is nothing to undo. On a failure the entry stays
     /// where it was and the status line says why; the map should be reopened.
     pub fn undo(self: *Editor) EditError!bool {
         const count = self.history.undo_stack.items.len;
         if (count == 0) return false;
+        if (self.replay_broken) return self.refuseBrokenReplay();
         // Room first: once the bridge has undone it, the entry must not be
         // lost to an allocation failure, nor a restored object be missing
         // from the document.
@@ -1667,18 +1737,21 @@ pub const Editor = struct {
         self.replay(&entry.command, false) catch |err| return drifted(err);
         _ = self.history.undo_stack.pop();
         self.history.redo_stack.appendAssumeCapacity(entry);
+        try self.afterReplay(&entry.command);
         return true;
     }
 
     pub fn redo(self: *Editor) EditError!bool {
         const count = self.history.redo_stack.items.len;
         if (count == 0) return false;
+        if (self.replay_broken) return self.refuseBrokenReplay();
         try self.history.undo_stack.ensureUnusedCapacity(self.allocator, 1);
         try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
         var entry = self.history.redo_stack.items[count - 1];
         self.replay(&entry.command, true) catch |err| return drifted(err);
         _ = self.history.redo_stack.pop();
         self.history.undo_stack.appendAssumeCapacity(entry);
+        try self.afterReplay(&entry.command);
         return true;
     }
 };
