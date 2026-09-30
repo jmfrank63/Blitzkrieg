@@ -465,6 +465,7 @@ pub const FakeBridge = struct {
         .vsoCount = vsoCount,
         .readVso = readVso,
         .addVso = addVso,
+        .deleteVso = deleteVso,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -602,6 +603,16 @@ pub const FakeBridge = struct {
         out.* = .{ .saved_id = item.saved_id, .control_points = controls, .key_points = keys };
         @memcpy(out.desc[0..item.desc.name.len], &item.desc.name);
         return .ok;
+    }
+
+    fn deleteVso(ptr: *anyopaque, kind: VsoKind, index: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const list = self.vso_lists[@intFromEnum(kind)].items;
+        if (index < 0 or index >= list.len) return .bad_argument;
+        const at: usize = @intCast(index);
+        return self.logVsoEdit(.{ .kind = kind, .index = at, .before = list[at], .after = null }, token);
     }
 
     fn knownDescriptor(self: *const FakeBridge, kind: VsoKind, desc: []const u8) bool {

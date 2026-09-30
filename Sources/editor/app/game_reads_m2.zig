@@ -113,6 +113,47 @@ fn chooseAnchor(editor: *core.editor.Editor, from: [2]f32) ?[2]f32 {
     return best;
 }
 
+/// Of the spread points `chooseAnchor` looks at, the one farthest from `from`.
+fn farthestPoint(editor: *core.editor.Editor, from: [2]f32) [2]f32 {
+    const width = @as(f32, @floatFromInt(editor.document.info.width_tiles)) * world_cell_size;
+    const height = @as(f32, @floatFromInt(editor.document.info.height_tiles)) * world_cell_size;
+    const fractions = [_][2]f32{ .{ 0.25, 0.25 }, .{ 0.75, 0.25 }, .{ 0.25, 0.75 }, .{ 0.75, 0.75 }, .{ 0.5, 0.5 } };
+    var best: [2]f32 = .{ width / 2, height / 2 };
+    var best_distance: f32 = -1;
+    for (fractions) |fraction| {
+        const x = width * fraction[0];
+        const y = height * fraction[1];
+        const distance = std.math.hypot(x - from[0], y - from[1]);
+        if (distance > best_distance) {
+            best_distance = distance;
+            best = .{ x, y };
+        }
+    }
+    return best;
+}
+
+/// A three-point line 500 world units long across (x, y), of the first type
+/// of `kind`, width 3, full opacity, through the core Editor. False after
+/// printing why.
+fn addLine(gpa: std.mem.Allocator, editor: *core.editor.Editor, kind: core.bridge.VsoKind, x: f32, y: f32) bool {
+    const types = editor.vsoDescriptors(kind, gpa) catch {
+        std.debug.print("map-editor: {s} FAIL: the {s} types would not list: {s}\n", .{ label, kind.label(), editor.status() });
+        return false;
+    };
+    defer gpa.free(types);
+    if (types.len == 0) {
+        std.debug.print("map-editor: {s} FAIL: the map's season has no {s} type\n", .{ label, kind.label() });
+        return false;
+    }
+    const line = [_]core.records.Vec3{ .{ .x = x - 250, .y = y }, .{ .x = x, .y = y + 40 }, .{ .x = x + 250, .y = y } };
+    _ = editor.addVso(kind, types[0].nameSlice(), &line, 3, 1) catch {
+        std.debug.print("map-editor: {s} FAIL: the {s} at {d:.0},{d:.0} was not added: {s}\n", .{ label, kind.label(), x, y, editor.status() });
+        return false;
+    };
+    std.debug.print("map-editor: {s}: added a {s} ({s}) across {d:.0},{d:.0}\n", .{ label, kind.label(), types[0].nameSlice(), x, y });
+    return true;
+}
+
 pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     var rig: common.Rig = .{};
     defer rig.deinit();
@@ -172,6 +213,13 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     var anchor_z: f32 = 0;
     _ = editor.bridge.groundHeight(anchor_at[0], anchor_at[1], &anchor_z);
 
+    // 04-05 (D-07, D-09): a new road and a new river, drawn through the core
+    // Editor with the first type of each kind, on the spread point farthest
+    // from the anchor (the camera starts there, so neither is under it).
+    const lines_at = farthestPoint(editor, anchor_at);
+    if (!addLine(gpa, editor, .road, lines_at[0], lines_at[1] - 150)) return false;
+    if (!addLine(gpa, editor, .river, lines_at[0], lines_at[1] + 150)) return false;
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -187,6 +235,18 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         std.debug.print("map-editor: {s} FAIL: the game's camera is at {d:.0},{d:.0}, not at player 0's anchor {d:.0},{d:.0}; see {s}\n", .{ label, camera.x, camera.y, anchor_at[0], anchor_at[1], edited_log_path });
         return false;
     }
+    // The game read one more road and one more river than the map shipped with.
+    const edited_trace = edited.trace;
+    if (base.roads == null or base.rivers == null or edited_trace.roads == null or edited_trace.rivers == null) {
+        std.debug.print("map-editor: {s} FAIL: a run printed no BK_MAP_TRACE terrain line (roads {?d} -> {?d}, rivers {?d} -> {?d}); see {s}\n", .{ label, base.roads, edited_trace.roads, base.rivers, edited_trace.rivers, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: roads={d} rivers={d} (baseline roads={d} rivers={d})\n", .{ label, edited_trace.roads.?, edited_trace.rivers.?, base.roads.?, base.rivers.? });
+    if (edited_trace.roads.? != base.roads.? + 1 or edited_trace.rivers.? != base.rivers.? + 1) {
+        std.debug.print("map-editor: {s} FAIL: the game read {d} roads and {d} rivers, not one more of each than the baseline's {d} and {d}; see {s}\n", .{ label, edited_trace.roads.?, edited_trace.rivers.?, base.roads.?, base.rivers.?, edited_log_path });
+        return false;
+    }
+
     // Assumption A2, measured and printed, not asserted: the anchor's z as
     // the editor took it from the terrain against the z the game reports.
     std.debug.print("map-editor: {s}: anchor z {d:.1}, game camera z {d:.1}\n", .{ label, anchor_z, camera.z });
@@ -206,6 +266,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     };
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.? });
     return true;
 }

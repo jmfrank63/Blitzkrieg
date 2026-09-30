@@ -2137,6 +2137,29 @@ BkEditorStatus BkEditorAddVso( BkEditorSession *pSession, int nKind, const char 
 	} );
 }
 
+BkEditorStatus BkEditorDeleteVso( BkEditorSession *pSession, int nKind, int nIndex, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !IsVsoKind( nKind ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= VsoCount( *pSession, nKind ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nToken = -1;
+		bool bRefused = false;
+		if ( !DeleteVsoFromSession( pSession, nKind, nIndex, &nToken, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorVsoMatchesEngine( BkEditorSession *pSession )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

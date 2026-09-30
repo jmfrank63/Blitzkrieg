@@ -661,6 +661,16 @@ pub const Editor = struct {
         return if (index >= 0) @intCast(index) else 0;
     }
 
+    /// Deletes the whole road or river at `index` (D-08's Delete with no point
+    /// grabbed); one undo step, which puts it back where it was.
+    pub fn deleteVso(self: *Editor, kind: VsoKind, index: usize) EditError!void {
+        var prepared = try self.prepareEdit(0, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.deleteVso(kind, @intCast(index), &token));
+        self.commitEdit(&prepared, token, 0, .vso);
+    }
+
     /// How many roads or rivers the map holds. A read: the status line is
     /// left alone.
     pub fn vsoCount(self: *Editor, kind: VsoKind) EditError!usize {
