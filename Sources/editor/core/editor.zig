@@ -851,15 +851,13 @@ pub const Editor = struct {
 
     /// The spans a drag would place (MAP units), changing nothing - the
     /// ghost. Writes at most `out.len` and returns how many the plan has;
-    /// null when the drag is refused, with the reason in `status()`.
+    /// null when the drag is refused, the reason in `bridge.lastMessage()`.
+    /// A read: the status line is left alone (the ghost asks every frame).
     pub fn planBridge(self: *Editor, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []bridge_mod.PlannedPiece) EditError!?usize {
         var total: usize = 0;
         const result = self.bridge.planBridge(desc, wx0, wy0, wx1, wy1, out, &total);
         if (result == .refused and total > out.len) return total;
-        if (result == .refused) {
-            self.noteOutcome(result) catch {};
-            return null;
-        }
+        if (result == .refused) return null;
         try bridge_mod.check(result);
         return total;
     }

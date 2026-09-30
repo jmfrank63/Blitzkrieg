@@ -1644,7 +1644,14 @@ pub const AutoRunner = struct {
             .ok => true,
             .unknown_name => self.fail("expect={s}: no such predicate", .{named.name}),
             .bad_arg => self.fail("expect={s}:{s}: bad argument", .{ named.name, named.arg }),
-            .refused => self.fail("expect={s}:{s} was false", .{ named.name, named.arg }),
+            // The status line, when there is one, is usually why (a refused
+            // gesture two frames earlier).
+            .refused => refused: {
+                const editor_status = self.state.editor.status();
+                const view_status = self.state.view.statusLine();
+                if (editor_status.len == 0 and view_status.len == 0) break :refused self.fail("expect={s}:{s} was false", .{ named.name, named.arg });
+                break :refused self.fail("expect={s}:{s} was false (status: {s}{s})", .{ named.name, named.arg, view_status, editor_status });
+            },
         };
     }
 

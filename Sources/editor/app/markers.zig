@@ -4,8 +4,8 @@
 //! resolves (Pitfall 17: both use the z = 0 plane). View -> Markers switches
 //! each kind on or off (`State.marker_set`); the active tool's own kinds are
 //! always on (marker_logic.visible). 04-03 drew the camera anchors, 04-05 the
-//! roads and rivers; later plans add their kind's function here and one call
-//! in `drawM2Markers`.
+//! roads and rivers, 04-06 the bridge ghost and outlines; later plans add
+//! their kind's function here and one call in `drawM2Markers`.
 //!
 //! An item whose conversion fails (off the current view, no camera yet) is
 //! skipped alone, never the whole kind; every kind is capped
@@ -53,6 +53,38 @@ const bridge_outline_margin: f32 = 32.0 * std.math.sqrt2 / 2.0;
 /// The outline of a box given in MAP units, grown by `margin` world units,
 /// through four world corners on the z = 0 plane (Pitfall 17).
 fn drawMapBox(draw_list: *ig.ImDrawList, real: anytype, min_x: f32, min_y: f32, max_x: f32, max_y: f32, margin: f32, box_color: ig.ImU32, thickness: f32) void {
+    var points = mapBoxCorners(real, min_x, min_y, max_x, max_y, margin) orelse return;
+    ig.ImDrawList_AddPolyline(draw_list, &points, 4, box_color, thickness, ig.ImDrawFlags_Closed);
+}
+
+fn refusedColor() ig.ImU32 {
+    return color(1.0, 0.25, 0.2);
+}
+
+/// Not the engine mark's blue: the dashed outline has to read against it.
+fn builtColor() ig.ImU32 {
+    return color(1.0, 0.6, 0.1);
+}
+
+/// A dashed closed polyline: every other stretch of `dash` pixels drawn.
+fn drawDashed(draw_list: *ig.ImDrawList, points: []const ig.ImVec2, dash_color: ig.ImU32, dash: f32, thickness: f32) void {
+    for (points, 0..) |from, index| {
+        const to = points[(index + 1) % points.len];
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const length = @sqrt(dx * dx + dy * dy);
+        if (length <= 0) continue;
+        var at: f32 = 0;
+        while (at < length) : (at += 2 * dash) {
+            const end = @min(at + dash, length);
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = from.x + dx * at / length, .y = from.y + dy * at / length }, .{ .x = from.x + dx * end / length, .y = from.y + dy * end / length }, dash_color, thickness);
+        }
+    }
+}
+
+/// The four screen corners of a map-unit box grown by `margin` world units;
+/// null when one does not convert.
+fn mapBoxCorners(real: anytype, min_x: f32, min_y: f32, max_x: f32, max_y: f32, margin: f32) ?[4]ig.ImVec2 {
     const low = marker_logic.aiToWorld(.{ .x = min_x, .y = min_y });
     const high = marker_logic.aiToWorld(.{ .x = max_x, .y = max_y });
     const corners = [4][2]f32{
@@ -62,19 +94,78 @@ fn drawMapBox(draw_list: *ig.ImDrawList, real: anytype, min_x: f32, min_y: f32, 
         .{ low.x - margin, high.y + margin },
     };
     var points: [4]ig.ImVec2 = undefined;
-    for (corners, &points) |corner, *point| point.* = screenOf(real, corner[0], corner[1]) orelse return;
-    ig.ImDrawList_AddPolyline(draw_list, &points, 4, box_color, thickness, ig.ImDrawFlags_Closed);
+    for (corners, &points) |corner, *point| point.* = screenOf(real, corner[0], corner[1]) orelse return null;
+    return points;
 }
 
-/// D-11: the Bridge tool's selected bridge, outlined round all its spans.
+/// D-10..D-12 while the Bridge tool is active: the drag's ghost (the planned
+/// span centres and their outline in green, or the drag in red with the
+/// refusal), the selected bridge's outline, and a dashed outline round every
+/// bridge built during play, beside the engine's own mark (C1).
 fn drawBridgeOutlines(state: *State, real: anytype) void {
     if (state.view.tool != .bridge) return;
     state.refreshBridges();
-    const selected = state.view.bridge_tool.selected orelse return;
-    if (selected >= state.bridge_infos.len) return;
-    const info = state.bridge_infos[selected];
     const draw_list = ig.igGetBackgroundDrawList();
-    drawMapBox(draw_list, real, info.min_x, info.min_y, info.max_x, info.max_y, bridge_outline_margin, outlineColor(), 3);
+    for (state.bridge_infos) |info| {
+        if (!info.built_during_play) continue;
+        const points = mapBoxCorners(real, info.min_x, info.min_y, info.max_x, info.max_y, bridge_outline_margin * 1.4) orelse continue;
+        drawDashed(draw_list, &points, builtColor(), 10, 2.5);
+    }
+    if (state.view.bridge_tool.selected) |selected| {
+        if (selected < state.bridge_infos.len) {
+            const info = state.bridge_infos[selected];
+            drawMapBox(draw_list, real, info.min_x, info.min_y, info.max_x, info.max_y, bridge_outline_margin, outlineColor(), 3);
+        }
+    }
+    drawBridgeGhost(state, real, draw_list);
+}
+
+/// The ghost of the drag in hand (research Q2: drawn by the app from the
+/// plan, no engine objects): planned again only when the drag or the type
+/// changed since the last frame.
+fn drawBridgeGhost(state: *State, real: anytype, draw_list: *ig.ImDrawList) void {
+    const tool = &state.view.bridge_tool;
+    if (!tool.dragging or tool.desc().len == 0) return;
+    const from = tool.start orelse return;
+    const to = tool.current orelse return;
+    const ghost = &state.bridge_ghost;
+    const same_desc = std.mem.eql(u8, std.mem.sliceTo(&ghost.desc, 0), tool.desc());
+    if (!ghost.valid or !same_desc or ghost.from[0] != from[0] or ghost.from[1] != from[1] or ghost.to[0] != to[0] or ghost.to[1] != to[1]) {
+        ghost.valid = true;
+        ghost.from = from;
+        ghost.to = to;
+        @memset(&ghost.desc, 0);
+        @memcpy(ghost.desc[0..tool.desc().len], tool.desc());
+        const planned = state.editor.planBridge(tool.desc(), from[0], from[1], to[0], to[1], &ghost.pieces) catch null;
+        ghost.refused = planned == null;
+        ghost.count = if (planned) |count| @min(count, ghost.pieces.len) else 0;
+        const why = if (planned == null) state.editor.bridge.lastMessage() else "";
+        ghost.why_len = @min(why.len, ghost.why.len);
+        @memcpy(ghost.why[0..ghost.why_len], why[0..ghost.why_len]);
+    }
+    if (ghost.refused or ghost.count == 0) {
+        const a = screenOf(real, from[0], from[1]) orelse return;
+        const b = screenOf(real, to[0], to[1]) orelse return;
+        ig.ImDrawList_AddLineEx(draw_list, a, b, refusedColor(), 3);
+        const why = ghost.why[0..ghost.why_len];
+        ig.ImDrawList_AddTextEx(draw_list, .{ .x = b.x + 8, .y = b.y - 8 }, refusedColor(), why.ptr, why.ptr + why.len);
+        return;
+    }
+    const pieces = ghost.pieces[0..ghost.count];
+    var min_x = pieces[0].x;
+    var min_y = pieces[0].y;
+    var max_x = pieces[0].x;
+    var max_y = pieces[0].y;
+    for (pieces) |piece| {
+        min_x = @min(min_x, piece.x);
+        min_y = @min(min_y, piece.y);
+        max_x = @max(max_x, piece.x);
+        max_y = @max(max_y, piece.y);
+        const world = marker_logic.aiToWorld(.{ .x = piece.x, .y = piece.y });
+        const at = screenOf(real, world.x, world.y) orelse continue;
+        drawSquare(draw_list, at, 4, outlineColor(), piece.type != 2);
+    }
+    drawMapBox(draw_list, real, min_x, min_y, max_x, max_y, bridge_outline_margin, outlineColor(), 2);
 }
 
 fn roadColor() ig.ImU32 {

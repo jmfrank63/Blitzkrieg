@@ -34,6 +34,10 @@ pub const command_table = [_]Entry{
     .{ .name = "vso_desc", .handler = vsoDesc },
     .{ .name = "vso_width", .handler = vsoWidth },
     .{ .name = "vso_opacity", .handler = vsoOpacity },
+    .{ .name = "bridge_desc", .handler = bridgeDesc },
+    .{ .name = "bridge_rotate", .handler = bridgeRotate },
+    .{ .name = "bridge_toggle_build", .handler = bridgeToggleBuild },
+    .{ .name = "bridge_delete", .handler = bridgeDelete },
 };
 
 pub const predicate_table = [_]Entry{
@@ -42,6 +46,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "undo_depth", .handler = undoDepth },
     .{ .name = "vso_delta", .handler = vsoDelta },
     .{ .name = "vso_points", .handler = vsoPoints },
+    .{ .name = "bridge_delta", .handler = bridgeDelta },
+    .{ .name = "bridge_built", .handler = bridgeBuilt },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -251,4 +257,91 @@ fn vsoPoints(state: *State, arg: []const u8) Outcome {
     if (selected.kind != want.kind) return .refused;
     const view = tool.selectedView(state.editor) orelse return .refused;
     return if (@as(i64, @intCast(view.control_points.len)) == want.count) .ok else .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Bridges (04-06, D-10..D-12): the Bridges panel's controls, as commands.
+// ---------------------------------------------------------------------------
+
+/// A type from the panel's list, by name: what the next drag draws.
+pub fn chooseBridgeType(state: *State, name: []const u8) Outcome {
+    state.refreshBridgeTypes();
+    for (state.bridge_types) |*item| {
+        if (std.mem.eql(u8, item.nameSlice(), name)) {
+            state.view.bridge_tool.setDesc(name);
+            return .ok;
+        }
+    }
+    return .bad_arg;
+}
+
+/// The selected bridge (the Bridge tool's), or a note saying none is.
+fn selectedBridge(state: *State) ?usize {
+    if (!panels.mapIsOpen(state.editor)) return null;
+    const index = state.view.bridge_tool.selected orelse {
+        state.editor.note("click a bridge to select it first");
+        return null;
+    };
+    return index;
+}
+
+/// The panel's Rotate button and Q/E: the selected bridge to its partner.
+pub fn rotateSelectedBridge(state: *State) Outcome {
+    const index = selectedBridge(state) orelse return .refused;
+    return resultOutcome(state, state.editor.rotateBridge(index));
+}
+
+/// The panel's "Built during play" checkbox and Enter.
+pub fn toggleSelectedBridgeBuild(state: *State) Outcome {
+    const index = selectedBridge(state) orelse return .refused;
+    return resultOutcome(state, state.editor.toggleBridgeBuild(index));
+}
+
+/// The panel's Delete: the whole selected bridge.
+pub fn deleteSelectedBridge(state: *State) Outcome {
+    const index = selectedBridge(state) orelse return .refused;
+    const result = state.editor.deleteBridge(index);
+    if (result) |_| state.view.bridge_tool.selected = null else |_| {}
+    return resultOutcome(state, result);
+}
+
+fn bridgeDesc(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or arg.len >= core.bridge.name_capacity) return .bad_arg;
+    return chooseBridgeType(state, arg);
+}
+
+fn bridgeRotate(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return rotateSelectedBridge(state);
+}
+
+fn bridgeToggleBuild(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return toggleSelectedBridgeBuild(state);
+}
+
+fn bridgeDelete(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return deleteSelectedBridge(state);
+}
+
+/// `bridge_delta:1`: the map holds one bridges entry more than at open.
+fn bridgeDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.bridges(state.allocator) catch return .refused;
+    defer state.allocator.free(now);
+    const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.bridge_count_at_open));
+    return if (delta == want) .ok else .refused;
+}
+
+/// `bridge_built`: the selected bridge is built during play.
+fn bridgeBuilt(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const index = state.view.bridge_tool.selected orelse return .refused;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.bridges(state.allocator) catch return .refused;
+    defer state.allocator.free(now);
+    if (index >= now.len) return .refused;
+    return if (now[index].built_during_play) .ok else .refused;
 }

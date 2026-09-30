@@ -6176,9 +6176,39 @@ fn addMapEditor(
         "59:rrelease=c-230x-200",
         "61:expect=undo_depth:6",
         "66:shot=m2_roads",
-        b.fmt("67:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "68:shot=m2_anchor",
-        "69:exit",
+        // 04-06: the Bridge tool (key 5) with W_WoodenBig_Heavy_01, dragged
+        // along the world's x axis (down and to the right on screen, 2:1) over
+        // the empty snow right of the view centre, between the new road and
+        // the tanks below (the engine refuses a span on another object), the
+        // press, the motions and the release in separate
+        // frames (a scripted press is held until its release since 04-06):
+        // one new bridges entry, selected; E rotates it to _02, Enter makes it
+        // built during play; two undos and two redos walk both back and
+        // forth; the bridge, its outline and its mark shot.
+        "67:tool=bridge",
+        "68:do=bridge_desc:W_WoodenBig_Heavy_01",
+        "70:press=c-20x-190",
+        "71:drag=c100x-130",
+        "72:drag=c200x-80",
+        "73:release=c260x-50",
+        "75:expect=bridge_delta:1",
+        "76:expect=undo_depth:7",
+        "77:key=E",
+        "79:expect=undo_depth:8",
+        "80:key=ENTER",
+        "82:expect=bridge_built",
+        "83:expect=undo_depth:9",
+        "84:key=Z+ctrl",
+        "86:key=Z+ctrl",
+        "88:expect=undo_depth:7",
+        "89:key=Y+ctrl",
+        "91:key=Y+ctrl",
+        "93:expect=bridge_built",
+        "94:expect=bridge_delta:1",
+        "96:shot=m2_bridges",
+        b.fmt("97:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "98:shot=m2_anchor",
+        "99:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));
