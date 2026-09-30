@@ -181,8 +181,12 @@ pub const ScriptAreas = struct {
                         editor.note("select a script area first");
                         return;
                     };
+                    // IN-B06: a refused delete keeps the selection.
+                    editor.deleteScriptArea(index) catch |err| {
+                        if (err != error.Refused) self.selected = null;
+                        return err;
+                    };
                     self.selected = null;
-                    try editor.deleteScriptArea(index);
                 },
                 .escape => {
                     self.start = null;
@@ -429,8 +433,12 @@ pub const ReservePositions = struct {
                         editor.note("select a reserve position in the list first");
                         return;
                     };
+                    // IN-B06: a refused delete keeps the selection.
+                    editor.deleteReservePosition(index) catch |err| {
+                        if (err != error.Refused) self.selected = null;
+                        return err;
+                    };
                     self.selected = null;
-                    try editor.deleteReservePosition(index);
                 },
                 else => {},
             },

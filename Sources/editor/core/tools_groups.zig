@@ -152,8 +152,13 @@ pub const BridgeTool = struct {
                         editor.note("click a bridge to select it first");
                         return;
                     };
+                    // IN-B06: a refused delete keeps the selection; anything
+                    // else (it went through, or failed past the bridge) drops it.
+                    editor.deleteBridge(index) catch |err| {
+                        if (err != error.Refused) self.selected = null;
+                        return err;
+                    };
                     self.selected = null;
-                    try editor.deleteBridge(index);
                 },
                 else => {},
             },
@@ -382,9 +387,16 @@ pub const EntrenchmentTool = struct {
                         editor.note("click an entrenchment, or point at one, to delete it");
                         return;
                     };
+                    // IN-B06: a refusal (units inside) keeps the selection.
+                    editor.deleteEntrenchment(index) catch |err| {
+                        if (err != error.Refused) {
+                            self.selected = null;
+                            self.hovered = null;
+                        }
+                        return err;
+                    };
                     self.selected = null;
                     self.hovered = null;
-                    try editor.deleteEntrenchment(index);
                 },
                 else => {},
             },
