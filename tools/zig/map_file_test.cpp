@@ -3118,6 +3118,21 @@ static void SweepM2Edits()
 	for ( std::map<std::string, int>::const_iterator it = kinds.begin(); it != kinds.end(); ++it )
 		szKinds += ( szKinds.empty() ? "" : ", " ) + it->first + " " + NStr::Format( "%d", it->second );
 	printf( "map-file: M2 sweep edits by kind: %s; the builder refused %d lines, moved as stored instead\n", szKinds.c_str(), g_nSweepBuilderRefusals );
+	// WR-C05: every kind was really exercised - a regression that stopped one
+	// from applying would otherwise still end "all restored byte-exact". The
+	// minimums are about half of what the 59 shipped maps give (04-13).
+	struct SMinimum { const char *pszKind; int nAtLeast; };
+	const SMinimum minimums[] = {
+		{ "AI mobile script ID added", 19 }, { "AI parcel moved", 10 }, { "camera anchor", 29 }, { "group member added", 19 },
+		{ "object script ID", 28 }, { "reserve position moved", 9 }, { "river resampled", 20 }, { "road resampled", 29 },
+		{ "script area renamed", 16 }, { "script file", 29 }, { "start command number", 19 },
+	};
+	for ( size_t k = 0; k < sizeof minimums / sizeof minimums[0]; ++k )
+	{
+		const std::map<std::string, int>::const_iterator it = kinds.find( minimums[k].pszKind );
+		const int nDone = it == kinds.end() ? 0 : it->second;
+		Check( nDone >= minimums[k].nAtLeast, NStr::Format( "M2 sweep: \"%s\" applied %d times, at least %d expected", minimums[k].pszKind, nDone, minimums[k].nAtLeast ) );
+	}
 	remove( "zig-out/local-test/m2-sweep-baseline.bzm" );
 	remove( "zig-out/local-test/m2-sweep-undone.bzm" );
 	remove( "zig-out/local-test/m2-sweep-baseline.xml" );
