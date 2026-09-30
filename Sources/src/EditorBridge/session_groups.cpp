@@ -206,7 +206,7 @@ bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRef
 	if ( nPlaced != int( spans.size() ) )
 	{
 		UndoPartialAdd( pSession, rGroup, nRestored );
-		pSession->szMessage = NStr::Format( "the engine would not place %d of the bridge's %d spans there (off the map?)",
+		pSession->szMessage = NStr::Format( "the engine would not place %d of the bridge's %d spans there (off the map, or on another object)",
 		                                    int( spans.size() ) - nPlaced, int( spans.size() ) );
 		*pbRefused = true;
 		return false;

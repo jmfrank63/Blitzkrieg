@@ -82,6 +82,22 @@ const RecoveryOffer = struct {
     }
 };
 
+/// The Bridge tool's ghost: the drag it was planned for (world units), the
+/// planned spans (map units) or the refusal, so the markers ask the bridge
+/// only when the pointer moved.
+pub const BridgeGhost = struct {
+    pub const max_pieces = 128;
+    from: [2]f32 = .{ 0, 0 },
+    to: [2]f32 = .{ 0, 0 },
+    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    valid: bool = false,
+    refused: bool = false,
+    why: [160]u8 = undefined,
+    why_len: usize = 0,
+    pieces: [max_pieces]core.bridge.PlannedPiece = undefined,
+    count: usize = 0,
+};
+
 pub const State = struct {
     allocator: std.mem.Allocator,
     editor: *Editor,
@@ -310,6 +326,13 @@ pub const State = struct {
     bridges_generation_seen: ?u32 = null,
     /// The bridges entries the map held when it opened, for `bridge_delta`.
     bridge_count_at_open: usize = 0,
+    /// The object database's bridge types, for the Bridges panel; read when a
+    /// map opens (`refreshBridgeTypes`).
+    bridge_types: []core.bridge.BridgeDescriptor = &.{},
+    bridge_types_read: bool = false,
+    /// The Bridge tool's ghost (markers.zig): the plan for the last drag it
+    /// was asked for, kept while the drag does not move.
+    bridge_ghost: BridgeGhost = .{},
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -373,6 +396,7 @@ pub const State = struct {
         self.allocator.free(self.sounds);
         self.allocator.free(self.vso_types);
         self.allocator.free(self.bridge_infos);
+        self.allocator.free(self.bridge_types);
         self.vso_line_points.deinit(self.allocator);
         self.vso_line_ends.deinit(self.allocator);
         self.vso_line_kinds.deinit(self.allocator);
@@ -601,6 +625,22 @@ pub const State = struct {
         self.bridge_infos = self.editor.bridges(self.allocator) catch &.{};
     }
 
+    /// The bridge types, once per map; a tool with no type yet, or one the
+    /// list does not hold, takes the first.
+    pub fn refreshBridgeTypes(self: *State) void {
+        if (self.bridge_types_read) return;
+        self.allocator.free(self.bridge_types);
+        self.bridge_types = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.bridge_types_read = true;
+        self.bridge_types = self.editor.bridgeDescriptors(self.allocator) catch &.{};
+        const tool = &self.view.bridge_tool;
+        for (self.bridge_types) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), tool.desc())) return;
+        }
+        tool.setDesc(if (self.bridge_types.len != 0) self.bridge_types[0].nameSlice() else "");
+    }
+
     pub fn refreshAnchors(self: *State) void {
         const generation = self.editor.record_generations.get(.camera_anchors);
         if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
@@ -636,6 +676,8 @@ pub const State = struct {
         self.bridges_generation_seen = null;
         self.refreshBridges();
         self.bridge_count_at_open = self.bridge_infos.len;
+        self.bridge_types_read = false;
+        self.bridge_ghost = .{};
         self.vso_count_at_open = .{
             self.editor.vsoCount(.road) catch 0,
             self.editor.vsoCount(.river) catch 0,
@@ -718,6 +760,8 @@ pub fn draw(state: *State) void {
     const left_size: ig.ImVec2 = .{ .x = state.left_width, .y = @max(body_height - layout.tools_height, 100) };
     if (state.view.tool == .roads_rivers)
         panels_m2.drawRoadsRivers(state, left_pos, left_size, cond)
+    else if (state.view.tool == .bridge)
+        panels_m2.drawBridges(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
@@ -1711,8 +1755,15 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     defer endPanel(open);
     if (!open) return;
     const view = state.view;
+    // The buttons flow onto a new row when the next would not fit (04-06: a
+    // fifth tool did not fit the default panel width and was clipped).
+    const style = ig.igGetStyle();
+    const right_edge = ig.igGetCursorScreenPos().x + ig.igGetContentRegionAvail().x;
     for (&tool_registry.entries, 0..) |*item, index| {
-        if (index != 0) ig.igSameLine();
+        if (index != 0) {
+            const width = ig.igCalcTextSize(item.label).x + 2 * style.*.FramePadding.x;
+            if (ig.igGetItemRectMax().x + style.*.ItemSpacing.x + width <= right_edge) ig.igSameLine();
+        }
         const active = view.tool == item.id;
         // The active tool's button wears the pressed colour.
         if (active) ig.igPushStyleColorImVec4(ig.ImGuiCol_Button, ig.igGetStyleColorVec4(ig.ImGuiCol_ButtonActive).*);
@@ -1943,7 +1994,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
 /// under a 33 ms (30 fps) frame for the GPU upload and the rest of the
 /// panels and the engine's own frame; the remaining names simply arrive a
 /// few frames later (03-09-SUMMARY.md).
-const picture_pump_budget: usize = 8;
+pub const picture_pump_budget: usize = 8;
 
 /// One palette row's picture cell, always `palette_picture_size` square:
 /// a neutral bordered frame drawn first - visible the instant the row is
@@ -1961,7 +2012,7 @@ const picture_pump_budget: usize = 8;
 /// picture may still land this frame or the next. Never a per-type symbol
 /// either way.
 const palette_picture_size: f32 = 48;
-fn drawPaletteRowPicture(state: *State, name: []const u8) void {
+pub fn drawPaletteRowPicture(state: *State, name: []const u8) void {
     const top_left = ig.igGetCursorScreenPos();
     const draw_list = ig.igGetWindowDrawList();
     ig.ImDrawList_AddRect(draw_list, .{ .x = top_left.x, .y = top_left.y }, .{ .x = top_left.x + palette_picture_size, .y = top_left.y + palette_picture_size }, ig.igGetColorU32(ig.ImGuiCol_Border));

@@ -154,6 +154,15 @@ fn addLine(gpa: std.mem.Allocator, editor: *core.editor.Editor, kind: core.bridg
     return true;
 }
 
+/// A W_WoodenBig_Heavy_01 bridge 500 world units along x at (x, y), through
+/// the core Editor; its bridges index, or null after printing why.
+fn addBridge(editor: *core.editor.Editor, x: f32, y: f32) ?usize {
+    return editor.drawBridge("W_WoodenBig_Heavy_01", x - 250, y, x + 250, y) catch {
+        std.debug.print("map-editor: {s} FAIL: the bridge across {d:.0},{d:.0} was not drawn: {s}\n", .{ label, x, y, editor.status() });
+        return null;
+    };
+}
+
 pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     var rig: common.Rig = .{};
     defer rig.deinit();
@@ -220,6 +229,21 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     if (!addLine(gpa, editor, .road, lines_at[0], lines_at[1] - 150)) return false;
     if (!addLine(gpa, editor, .river, lines_at[0], lines_at[1] + 150)) return false;
 
+    // 04-06 (D-10..D-12): two W_WoodenBig_Heavy bridges on either side of the
+    // road and the river, the first rotated to its _02 partner, the second
+    // built during play (every span saved with HP -1).
+    const rotated = addBridge(editor, lines_at[0], lines_at[1] - 450) orelse return false;
+    editor.rotateBridge(rotated) catch {
+        std.debug.print("map-editor: {s} FAIL: bridge {d} would not rotate: {s}\n", .{ label, rotated, editor.status() });
+        return false;
+    };
+    const built = addBridge(editor, lines_at[0], lines_at[1] + 450) orelse return false;
+    editor.toggleBridgeBuild(built) catch {
+        std.debug.print("map-editor: {s} FAIL: bridge {d} would not toggle built during play: {s}\n", .{ label, built, editor.status() });
+        return false;
+    };
+    std.debug.print("map-editor: {s}: drew bridge {d} (rotated to W_WoodenBig_Heavy_02) and bridge {d} (built during play)\n", .{ label, rotated, built });
+
     if (!common.saveTestCopy(&rig, label, "edited test copy", paths.test_path)) return false;
     var edited = play(gpa, io, environ, &paths, "edited game", edited_log_path) orelse return false;
     defer edited.deinit(gpa);
@@ -247,6 +271,17 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
 
+    // The game loaded both bridges (LoadBridges asserts every link, so a
+    // clean run with two more is the proof the entries name real spans).
+    if (base.bridges == null or edited_trace.bridges == null) {
+        std.debug.print("map-editor: {s} FAIL: a run printed no BK_MAP_TRACE bridges line ({?d} -> {?d}); see {s}\n", .{ label, base.bridges, edited_trace.bridges, edited_log_path });
+        return false;
+    }
+    if (edited_trace.bridges.? != base.bridges.? + 2) {
+        std.debug.print("map-editor: {s} FAIL: the game read {d} bridges, not the baseline's {d} and two more; see {s}\n", .{ label, edited_trace.bridges.?, base.bridges.?, edited_log_path });
+        return false;
+    }
+
     // Assumption A2, measured and printed, not asserted: the anchor's z as
     // the editor took it from the terrain against the z the game reports.
     std.debug.print("map-editor: {s}: anchor z {d:.1}, game camera z {d:.1}\n", .{ label, anchor_z, camera.z });
@@ -266,6 +301,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     };
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.? });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d})\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.? });
     return true;
 }
