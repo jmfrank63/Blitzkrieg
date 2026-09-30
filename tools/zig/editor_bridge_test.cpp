@@ -4759,14 +4759,21 @@ static void TestM2ScriptAreas( BkEditorSession *pSession, const std::string &szS
 			const std::string szOddBefore = szScratch + "\\areas-odd-before.bzm", szOddAfter = szScratch + "\\areas-odd-after.bzm";
 			Check( BkEditorSaveMap( pSession, szOddBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 			std::vector<BkEditorScriptAreaRecord> read;
-			Check( ReadAreasOf( pSession, &read ) && int( read.size() ) == nTwin + 2 && std::string( read[nTwin].name ) == "twin" && std::string( read[nTwin + 1].name ) == "twin", "the two areas of one name read as the file has them" );
-			const BkEditorScriptAreaRecord first = read[nTwin];
-			Check( BkEditorDeleteScriptArea( pSession, nTwin ) == BK_EDITOR_OK && BkEditorAddScriptArea( pSession, nTwin, &first ) == BK_EDITOR_OK,
-			       "one of the pair is deleted and put back beside its twin, as an undo needs" );
-			BkEditorScriptAreaRecord third = first;
-			Check( BkEditorAddScriptArea( pSession, -1, &third ) == BK_EDITOR_REFUSED, "but a third of that name is a new duplicate and is refused" );
-			if ( Check( BkEditorSaveMap( pSession, szOddAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
-				Check( SameBytes( szOddBefore, szOddAfter ), "the odd map saves the same bytes after the delete and the put back" );
+			// Indexed only once the read is known to hold both twins: a failed read
+			// leaves the vector short, and a hardened libc++ aborts on an index past it.
+			const bool bTwins = ReadAreasOf( pSession, &read ) && nTwin >= 0 && int( read.size() ) == nTwin + 2 &&
+			                    std::string( read[nTwin].name ) == "twin" && std::string( read[nTwin + 1].name ) == "twin";
+			Check( bTwins, "the two areas of one name read as the file has them" );
+			if ( bTwins )
+			{
+				const BkEditorScriptAreaRecord first = read[nTwin];
+				Check( BkEditorDeleteScriptArea( pSession, nTwin ) == BK_EDITOR_OK && BkEditorAddScriptArea( pSession, nTwin, &first ) == BK_EDITOR_OK,
+				       "one of the pair is deleted and put back beside its twin, as an undo needs" );
+				BkEditorScriptAreaRecord third = first;
+				Check( BkEditorAddScriptArea( pSession, -1, &third ) == BK_EDITOR_REFUSED, "but a third of that name is a new duplicate and is refused" );
+				if ( Check( BkEditorSaveMap( pSession, szOddAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+					Check( SameBytes( szOddBefore, szOddAfter ), "the odd map saves the same bytes after the delete and the put back" );
+			}
 			remove( OsPath( szOddBefore ).c_str() );
 			remove( OsPath( szOddAfter ).c_str() );
 		}
