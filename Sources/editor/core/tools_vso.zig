@@ -703,6 +703,59 @@ test "a press near a selected road's control point grabs it and a single-mode dr
     try expectControl(&fake, 1, 107, 130);
 }
 
+test "a drag's undo or redo that fails part-way puts back what it replayed, so a retry works (WR-B01)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    defer tool.deinit(testing.allocator);
+    try drawnRoad(&editor, &tool);
+    try dragFrom(&tool, &editor, 103, 100, 110, 130);
+    const entry = editor.history.undo_stack.items[editor.history.undo_stack.items.len - 1];
+    const tokens = entry.command.edit.tokens.items;
+    try testing.expect(tokens.len >= 2);
+    // The oldest token will not go back: the newer ones already undone are redone.
+    fake.fail_undo_token = tokens[0];
+    try testing.expectError(error.Failed, editor.undo());
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try expectControl(&fake, 1, 107, 130);
+    try testing.expect(!editor.replay_broken);
+    fake.fail_undo_token = null;
+    try testing.expect(try editor.undo());
+    try expectControl(&fake, 1, 100, 100);
+    // The newest token will not be redone: the older ones already redone are undone.
+    fake.fail_redo_token = tokens[tokens.len - 1];
+    try testing.expectError(error.Failed, editor.redo());
+    try expectControl(&fake, 1, 100, 100);
+    fake.fail_redo_token = null;
+    try testing.expect(try editor.redo());
+    try expectControl(&fake, 1, 107, 130);
+}
+
+test "a failed replay whose own unwinding fails refuses every further undo and redo until the map is reopened (WR-B01)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    defer tool.deinit(testing.allocator);
+    try drawnRoad(&editor, &tool);
+    try dragFrom(&tool, &editor, 103, 100, 110, 130);
+    const tokens = editor.history.undo_stack.items[editor.history.undo_stack.items.len - 1].command.edit.tokens.items;
+    try testing.expect(tokens.len >= 2);
+    fake.fail_undo_token = tokens[0];
+    fake.fail_redo_token = tokens[1];
+    try testing.expectError(error.Failed, editor.undo());
+    try testing.expect(editor.replay_broken);
+    fake.fail_undo_token = null;
+    fake.fail_redo_token = null;
+    try testing.expectError(error.Failed, editor.undo());
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "reopen the map") != null);
+    try editor.open("fixture.bzm");
+    try testing.expect(!editor.replay_broken);
+}
+
 test "multi mode moves the point and every later one (earlier ones when asked); all moves every point" {
     var fake = try editor_mod.testFixture(testing.allocator);
     defer fake.deinit();
