@@ -689,16 +689,18 @@ fn scriptOpen(state: *State, _: []const u8) Outcome {
 /// (`script_overwrite_yes` / `_no`). A name that is not a bare name is bad.
 fn scriptChoose(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0) return .bad_arg;
-    const name = core.script_file.pickedName(arg) orelse return .bad_arg;
+    if (core.script_file.pickedName(arg) == null) return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
-    panels.pickScript(state, arg, false);
-    if (state.script_pick_active) {
-        state.editor.note("a different file of that name is beside the map; the Replace it? question is up");
-        return .refused;
-    }
-    var buffer: [records.script_file_capacity]u8 = undefined;
-    const have = readScriptFile(state, &buffer) orelse return .refused;
-    return if (std.mem.eql(u8, have, name)) .ok else .refused;
+    // WR-C04: the pick's own answer, never the map's state afterwards - a
+    // refused copy of a script the map already names must not read as OK.
+    return switch (panels.pickScript(state, arg, false)) {
+        .chosen => .ok,
+        .asked => blk: {
+            state.editor.note("a different file of that name is beside the map; the Replace it? question is up");
+            break :blk .refused;
+        },
+        .refused => .refused,
+    };
 }
 
 /// `expect=script_beside:<name>` (04-13): `<name>.lua` is a file beside the
@@ -758,8 +760,7 @@ fn scriptOverwriteYes(state: *State, _: []const u8) Outcome {
     state.script_pick_active = false;
     var picked: logic.PathText = .{};
     picked.set(state.script_pick.slice());
-    panels.pickScript(state, picked.slice(), true);
-    return .ok;
+    return if (panels.pickScript(state, picked.slice(), true) == .chosen) .ok else .refused;
 }
 
 fn scriptOverwriteNo(state: *State, _: []const u8) Outcome {

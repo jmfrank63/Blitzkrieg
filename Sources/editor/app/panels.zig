@@ -1499,36 +1499,43 @@ fn pollScriptPick(state: *State) void {
     switch (result) {
         .cancelled => {},
         .failed => |message| state.view.setStatus("the file dialog failed: ", message),
-        .path => |chosen| pickScript(state, chosen.path, false),
+        .path => |chosen| _ = pickScript(state, chosen.path, false),
     }
 }
 
 /// Copies the picked script beside the map and names it, or asks before it
 /// replaces one (`overwrite` is the answer to that question). Public: the
 /// overwrite question's button and the smoke call it.
-pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) void {
-    const files = state.editor.files orelse return;
+/// What `pickScript` did (WR-C04): the file is beside the map and named as the
+/// map's script, the "Replace it?" question is up, or nothing changed (the
+/// status line says why).
+pub const PickOutcome = enum { chosen, asked, refused };
+
+pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) PickOutcome {
+    const files = state.editor.files orelse return .refused;
     if (documentIsShipped(state)) {
         state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
-        return;
+        return .refused;
     }
     const name = core.script_file.pickedName(picked) orelse {
         state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only");
-        return;
+        return .refused;
     };
     switch (core.script_file.copyInto(files, baseRoot(state), state.editor.document.path.items, picked, overwrite)) {
         .copied => {
             state.script_names_stale = true;
-            _ = commands.setScriptFile(state, name);
+            return if (commands.setScriptFile(state, name) == .ok) .chosen else .refused;
         },
         .exists => {
             state.script_pick.set(picked);
             state.script_pick_active = true;
+            return .asked;
         },
         .not_a_bare_name => state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only"),
         .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&state.script_note, "{s} could not be copied beside the map: {s}", .{ name, files.lastError() }) catch "the script could not be copied"),
         .shipped => state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first"),
     }
+    return .refused;
 }
 
 /// D-27: after every successful Open, Save or Save As, the document's OS
