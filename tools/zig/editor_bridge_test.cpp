@@ -2827,26 +2827,33 @@ static void TestM3NewMap( BkEditorSession *pSession, const std::string &szScratc
 	Check( summary.player_count == 2, "a new map has the two default players" );
 	Check( summary.object_count == 0 && summary.placed_object_count == 0, "and no objects" );
 
-	// Every tile is the season's most common tile: what the MFC editor's
-	// FillTerrain(MOST_COMMON_TILES[season]) wrote, read back through the
-	// engine's own terrain.
+	// Every tile is the season's most common TERRAIN TYPE: what the MFC
+	// editor's FillTerrain(MOST_COMMON_TILES[season]) wrote. GetMapsIndex
+	// picks one of the type's tile variants by rand()
+	// (fmtTerrain.h:STileTypeDesc, the same rand CreateRandomMap reseeds),
+	// so the check is against the type's whole variant set, read back
+	// through the engine's own terrain.
 	STilesetDesc tilesetDesc;
 	LoadDataResource( "terrain\\sets\\1\\tileset", "", false, 0, "tileset", tilesetDesc );
 	if ( !Check( tilesetDesc.terrtypes.size() > size_t( CMapInfo::MOST_COMMON_TILES[0] ), "the Summer tileset lists the most common terrain type" ) )
 		return;
-	const int nCommonTile = tilesetDesc.terrtypes[CMapInfo::MOST_COMMON_TILES[0]].GetMapsIndex();
+	std::set<int> commonTiles;
+	for ( size_t i = 0; i < tilesetDesc.terrtypes[CMapInfo::MOST_COMMON_TILES[0]].tiles.size(); ++i )
+		commonTiles.insert( tilesetDesc.terrtypes[CMapInfo::MOST_COMMON_TILES[0]].tiles[i].nIndex );
+	if ( !Check( !commonTiles.empty(), "the most common terrain type has tiles" ) )
+		return;
 	bool bAllCommon = true;
 	for ( int y = 0; y < summary.height_tiles && bAllCommon; ++y )
 		for ( int x = 0; x < summary.width_tiles; ++x )
 		{
 			unsigned char tile = 0;
-			if ( BkEditorEngineTile( pSession, x, y, &tile ) != BK_EDITOR_OK || tile != nCommonTile )
+			if ( BkEditorEngineTile( pSession, x, y, &tile ) != BK_EDITOR_OK || commonTiles.find( tile ) == commonTiles.end() )
 			{
 				bAllCommon = false;
 				break;
 			}
 		}
-	Check( bAllCommon, "every tile is Summer's most common tile" );
+	Check( bAllCommon, "every tile is one of Summer's most common terrain type's tiles" );
 
 	// Zero altitudes, the whole vertex sheet.
 	const BkEditorAltitudeRegion whole = { 0, 0, 8 * 16 + 1, 8 * 16 + 1 };

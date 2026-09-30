@@ -32,6 +32,12 @@ comptime {
     std.debug.assert(@sizeOf(core.bridge.AltitudeRegion) == 16);
     std.debug.assert(@offsetOf(core.bridge.AltitudeRegion, "x0") == @offsetOf(c.BkEditorAltitudeRegion, "x0"));
     std.debug.assert(@offsetOf(core.bridge.AltitudeRegion, "y1") == @offsetOf(c.BkEditorAltitudeRegion, "y1"));
+    // The new-map params (M3): three ints and two name buffers, handed to
+    // BkEditorNewMap as they are.
+    std.debug.assert(@sizeOf(core.bridge.NewMapParams) == @sizeOf(c.BkEditorNewMapParams));
+    std.debug.assert(@sizeOf(c.BkEditorNewMapParams) == 12 + 2 * core.bridge.name_capacity);
+    std.debug.assert(@offsetOf(core.bridge.NewMapParams, "name") == @offsetOf(c.BkEditorNewMapParams, "szName"));
+    std.debug.assert(@offsetOf(core.bridge.NewMapParams, "mod_folder") == @offsetOf(c.BkEditorNewMapParams, "szModFolder"));
     // The core's camera anchors are read and put field by field, but the C
     // record's layout is part of the ABI: 12 (neutral) + 4 (count) + 32 * 12.
     std.debug.assert(@sizeOf(c.BkEditorVec3) == 12);
@@ -150,6 +156,7 @@ pub const RealBridge = struct {
         .redoEdit = vtableRedoEdit,
         .altitudes = vtableAltitudes,
         .setAltitudes = vtableSetAltitudes,
+        .newMap = vtableNewMap,
         .vsoDescriptors = vtableVsoDescriptors,
         .vsoCount = vtableVsoCount,
         .readVso = vtableReadVso,
@@ -958,6 +965,31 @@ pub const RealBridge = struct {
         const count = std.math.cast(c_int, heights.len) orelse return .bad_argument;
         const c_region = toCAltitudeRegion(region);
         return status(c.BkEditorSetAltitudes(from(ptr).session, &c_region, heights.ptr, count, token));
+    }
+
+    /// BkEditorNewMap: the params are layout-identical (asserted above), so
+    /// they pass straight through; the summary's fields land in the core's
+    /// MapInfo exactly an open's own do.
+    fn vtableNewMap(ptr: *anyopaque, params: core.bridge.NewMapParams, info: *MapInfo) Status {
+        const self = from(ptr);
+        const c_params: c.BkEditorNewMapParams = .{
+            .size_x = params.size_x,
+            .size_y = params.size_y,
+            .season = params.season,
+            .szName = params.name,
+            .szModFolder = params.mod_folder,
+        };
+        var summary: c.BkEditorMapSummary = std.mem.zeroes(c.BkEditorMapSummary);
+        const result = status(c.BkEditorNewMap(self.session, &c_params, &summary));
+        if (result == .ok) info.* = .{
+            .width_tiles = summary.width_tiles,
+            .height_tiles = summary.height_tiles,
+            .season = summary.season,
+            .player_count = summary.player_count,
+            .map_type = summary.map_type,
+            .attacking_side = summary.attacking_side,
+        };
+        return result;
     }
 
     fn kindInt(kind: VsoKind) c_int {

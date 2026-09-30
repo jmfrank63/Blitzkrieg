@@ -25,6 +25,20 @@ pub const default_autosave_minutes: u32 = 2;
 /// D-27: the last ten maps.
 pub const recent_capacity = 10;
 
+/// D-24 (M3): the format a never-saved map's Save As writes when the path
+/// typed names no extension - the MFC Options field. The bridge picks the
+/// format from the path's extension, so this is only ever the default.
+pub const Format = enum { bzm, xml };
+
+pub const default_format: Format = .bzm;
+
+pub fn formatExtension(which: Format) []const u8 {
+    return switch (which) {
+        .bzm => ".bzm",
+        .xml => ".xml",
+    };
+}
+
 /// `BkEditorPathSet`'s own `char[1024]` (bridge.h) - big enough for any real
 /// path, and matches the engine's own convention for a fixed path buffer.
 pub const max_path = 1024;
@@ -49,6 +63,8 @@ pub const Settings = struct {
     scroll_speed: f32 = default_scroll_speed,
     autosave: bool = true,
     autosave_minutes: u32 = default_autosave_minutes,
+    /// D-24 (M3): the default format of a never-saved map's Save As.
+    default_format: Format = default_format,
     maps_folder_storage: FixedPath = .{},
     recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
     recent_count: usize = 0,
@@ -125,6 +141,14 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
     } else if (std.mem.eql(u8, key, "autosave_minutes")) {
         const parsed = std.fmt.parseInt(u32, value, 10) catch return;
         settings.autosave_minutes = std.math.clamp(parsed, min_autosave_minutes, max_autosave_minutes);
+    } else if (std.mem.eql(u8, key, "default_format")) {
+        // D-24 (M3): bzm or xml; anything else is malformed and skipped,
+        // keeping the default, exactly autosave's own rule.
+        if (std.mem.eql(u8, value, "bzm")) {
+            settings.default_format = .bzm;
+        } else if (std.mem.eql(u8, value, "xml")) {
+            settings.default_format = .xml;
+        }
     } else if (std.mem.eql(u8, key, "maps_folder")) {
         settings.setMapsFolder(value);
     } else if (std.mem.eql(u8, key, "recent")) {
@@ -167,6 +191,7 @@ pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error
     try writer.print("scroll_speed={d}\n", .{self.scroll_speed});
     try writer.print("autosave={s}\n", .{if (self.autosave) "on" else "off"});
     try writer.print("autosave_minutes={d}\n", .{self.autosave_minutes});
+    try writer.print("default_format={s}\n", .{@tagName(self.default_format)});
     if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
     var i: usize = 0;
     while (i < self.recent_count) : (i += 1) try writer.print("recent={s}\n", .{self.recentAt(i)});
@@ -186,6 +211,7 @@ test "round trip: every field survives format then parse" {
     settings.scroll_speed = 2.5;
     settings.autosave = false;
     settings.autosave_minutes = 10;
+    settings.default_format = .xml;
     settings.setMapsFolder("/Users/me/maps");
 
     var buffer: [1024]u8 = undefined;
@@ -196,7 +222,16 @@ test "round trip: every field survives format then parse" {
     try std.testing.expectEqual(@as(f32, 2.5), round_tripped.scroll_speed);
     try std.testing.expect(!round_tripped.autosave);
     try std.testing.expectEqual(@as(u32, 10), round_tripped.autosave_minutes);
+    try std.testing.expectEqual(Format.xml, round_tripped.default_format);
     try std.testing.expectEqualStrings("/Users/me/maps", round_tripped.mapsFolder());
+}
+
+test "default_format: bzm by default, xml reads, malformed keeps the default" {
+    try std.testing.expectEqual(Format.bzm, parse("").default_format);
+    try std.testing.expectEqual(Format.xml, parse("default_format=xml\n").default_format);
+    try std.testing.expectEqual(Format.bzm, parse("default_format=zip\n").default_format);
+    try std.testing.expectEqualStrings(".xml", formatExtension(.xml));
+    try std.testing.expectEqualStrings(".bzm", formatExtension(.bzm));
 }
 
 test "round trip: repeated 'recent' lines parse in file order, most recent first" {

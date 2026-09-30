@@ -181,6 +181,34 @@ pub const Editor = struct {
         self.bumpDocumentGenerations();
     }
 
+    /// File -> New (M3, D-23): the engine builds the map of `params`
+    /// (patches per axis, season, name, mod folder) and it opens as a
+    /// never-saved document - no path, clean history, every generation
+    /// moved, exactly an open's own reset. The params' name is the caller's
+    /// to keep for the title and the first Save As: the document holds no
+    /// name of its own, and the map none at all. A failure works like an
+    /// open's: the document is emptied rather than left holding fields of a
+    /// map the bridge could not finish building.
+    pub fn newMap(self: *Editor, params: bridge_mod.NewMapParams) EditError!void {
+        var info: bridge_mod.MapInfo = .{};
+        const created = self.bridge.newMap(params, &info);
+        self.noteOutcome(created) catch |err| {
+            if (created == .failed) self.closeDocument();
+            return err;
+        };
+        self.document.deinit(self.allocator);
+        self.document = .{};
+        self.document.reload(self.allocator, self.bridge, "", info) catch |err| {
+            self.setStatus("the map was created but its fields could not be read: ", self.bridge.lastMessage());
+            self.closeDocument();
+            return err;
+        };
+        self.history.clear(self.allocator);
+        self.replay_broken = false;
+        self.selection = null;
+        self.bumpDocumentGenerations();
+    }
+
     /// Every generation counter a panel or marker layer keys on moves: a new
     /// map (or none) changes every list they show (IN-B04).
     fn bumpDocumentGenerations(self: *Editor) void {
@@ -3710,4 +3738,65 @@ test "altitude refusals change nothing: off-map, count mismatch, empty region, n
     var heights: [16]f32 = undefined;
     var total: usize = 0;
     try std.testing.expectEqual(bridge_mod.Status.refused, editor.bridge.altitudes(.{ .x0 = 8, .y0 = 8, .x1 = 12, .y1 = 12 }, &heights, &total));
+}
+
+test "new map: the engine builds it, the document opens never-saved (M3 D-23)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    try editor.paint(&.{.{ .x = 0, .y = 0, .tile = 14 }}, 0);
+    try std.testing.expect(editor.dirty());
+    var params: bridge_mod.NewMapParams = .{};
+    params.size_x = 8;
+    params.size_y = 4;
+    params.season = 3; // Spring: the map stores Summer's own real value
+    params.setName("m3_new");
+    try editor.newMap(params);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(usize, 0), editor.document.path.items.len);
+    try std.testing.expectEqual(@as(i32, 8 * 16), editor.document.info.width_tiles);
+    try std.testing.expectEqual(@as(i32, 4 * 16), editor.document.info.height_tiles);
+    try std.testing.expectEqual(@as(i32, 0), editor.document.info.season);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.objects.items.len);
+    try std.testing.expectEqualSlices(i32, &.{ 2, 2 }, editor.document.diplomacy.items);
+    // The tiles are the season's most common terrain type; the altitudes a
+    // zero sheet one bigger than the tiles per axis.
+    try std.testing.expectEqual(fake_mod.most_common_tiles[3], fake.tile(0, 0));
+    try std.testing.expectEqual(fake_mod.most_common_tiles[3], fake.tile(8 * 16 - 1, 4 * 16 - 1));
+    var read: [4]f32 = undefined;
+    var total: usize = 0;
+    const sheet: bridge_mod.AltitudeRegion = .{ .x0 = 0, .y0 = 0, .x1 = 4, .y1 = 1 };
+    try std.testing.expectEqual(bridge_mod.Status.ok, editor.bridge.altitudes(sheet, &read, &total));
+    try std.testing.expectEqual(@as(usize, 4), total);
+    try std.testing.expectEqualSlices(f32, &.{ 0, 0, 0, 0 }, &read);
+    // The history of the map before is gone with it.
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    // Every generation moved (the open bumped them once, the new map again;
+    // the paint in between does not touch the altitudes').
+    try std.testing.expectEqual(@as(u32, 2), editor.altitudes_generation);
+}
+
+test "new map refusals: sizes and season are caller bugs, nothing changes" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    const width_at_open = editor.document.info.width_tiles;
+    var bad: bridge_mod.NewMapParams = .{};
+    bad.size_x = 0;
+    try std.testing.expectError(error.Failed, editor.newMap(bad));
+    bad = .{};
+    bad.size_y = 33;
+    try std.testing.expectError(error.Failed, editor.newMap(bad));
+    bad = .{};
+    bad.season = 4;
+    try std.testing.expectError(error.Failed, editor.newMap(bad));
+    // The map that was open is exactly as it was.
+    try std.testing.expectEqual(width_at_open, editor.document.info.width_tiles);
+    try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
+    try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
 }

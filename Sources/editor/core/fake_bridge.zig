@@ -62,6 +62,7 @@ const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const AltitudeRegion = bridge_mod.AltitudeRegion;
+const NewMapParams = bridge_mod.NewMapParams;
 const Bridge = bridge_mod.Bridge;
 const VsoKind = bridge_mod.VsoKind;
 const VsoDescriptor = bridge_mod.VsoDescriptor;
@@ -75,13 +76,18 @@ const EntrenchmentInfo = bridge_mod.EntrenchmentInfo;
 
 /// World units per tile, standing in for the engine's own conversion.
 pub const tile_size: f32 = 32.0;
+/// CMapInfo::MOST_COMMON_TILES (MapInfo_Consts.cpp): the terrain type a new
+/// map of the season is filled with (M3, D-23). The fake has no variant
+/// draw (GetMapsIndex's rand), so the type's index is the tile its cells
+/// hold.
+pub const most_common_tiles = [4]u8{ 3, 9, 12, 2 };
 /// World units per AI tile (half a tile), standing in for the engine's
 /// GetAITileIndex.
 pub const ai_tile_size: f32 = tile_size / 2.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// The most units a fake start command holds (the real one holds as many as the
@@ -823,6 +829,7 @@ pub const FakeBridge = struct {
         .redoEdit = redoEdit,
         .altitudes = altitudes,
         .setAltitudes = setAltitudes,
+        .newMap = newMap,
         .vsoDescriptors = vsoDescriptors,
         .vsoCount = vsoCount,
         .readVso = readVso,
@@ -1091,6 +1098,57 @@ pub const FakeBridge = struct {
                 i += 1;
             }
         }
+        return .ok;
+    }
+
+    /// BkEditorNewMap (M3, D-23): the real rules the core can see - sizes
+    /// 1..32 patches per axis, season 0..3, a whole new map (the fake's
+    /// objects, paints and edits are forgotten, its tiles and altitudes
+    /// resized and refilled; the tile is the season's most common terrain
+    /// type's index, the fake having no variant draw). The mod is the
+    /// caller's word: the fake holds no mods of its own.
+    fn newMap(ptr: *anyopaque, params: NewMapParams, info: *MapInfo) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        self.record(.new_map, 0);
+        if (params.size_x < 1 or params.size_x > 32 or params.size_y < 1 or params.size_y > 32) {
+            self.say("a new map is 1..32 patches per axis", .{});
+            return .bad_argument;
+        }
+        if (params.season < 0 or params.season > 3) {
+            self.say("the season is Summer, Winter, Africa or Spring", .{});
+            return .bad_argument;
+        }
+        const width = params.size_x * 16;
+        const height = params.size_y * 16;
+        // A new map replaces everything: the objects, the history, the
+        // tombstones and the tiles of the map before.
+        self.forgetHistory();
+        self.objects_list.clearRetainingCapacity();
+        self.freeTombstones();
+        self.tombstones.clearRetainingCapacity();
+        self.hidden_script_ids.clearRetainingCapacity();
+        self.info.width_tiles = width;
+        self.info.height_tiles = height;
+        // REAL_SEASONS (MapInfo_Consts.cpp): the dialog's Spring maps onto
+        // the Summer the map stores.
+        const real_seasons = [4]i32{ 0, 1, 2, 0 };
+        self.info.season = real_seasons[@intCast(params.season)];
+        self.info.player_count = 2;
+        if (self.tiles.len != @as(usize, @intCast(width * height))) {
+            self.allocator.free(self.tiles);
+            self.tiles = self.allocator.alloc(u8, @intCast(width * height)) catch return .failed;
+        }
+        @memset(self.tiles, most_common_tiles[@intCast(params.season)]);
+        if (self.altitudes_grid.len != (@as(usize, @intCast(width)) + 1) * (@as(usize, @intCast(height)) + 1)) {
+            self.allocator.free(self.altitudes_grid);
+            self.altitudes_grid = self.allocator.alloc(f32, (@as(usize, @intCast(width)) + 1) * (@as(usize, @intCast(height)) + 1)) catch return .failed;
+        }
+        @memset(self.altitudes_grid, 0);
+        self.diplomacy_table.clearRetainingCapacity();
+        self.diplomacy_table.appendSlice(self.allocator, &.{ 2, 2 }) catch return .failed;
+        self.link_floor = self.nextLinkId();
+        info.* = self.info;
         return .ok;
     }
 

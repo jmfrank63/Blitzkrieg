@@ -511,15 +511,17 @@ pub fn baseName(path: []const u8) []const u8 {
 
 /// A path as the bridge takes it: an OS path written with the engine's
 /// separator, because OpenFileStream splits on backslash only (bridge.h,
-/// BkEditorOpenMap). A save path without .bzm or .xml gets .bzm, since the
-/// bridge picks the format from the extension. Null when it does not fit.
-pub fn enginePath(buffer: []u8, os_path: []const u8, kind: DialogKind) ?[]const u8 {
+/// BkEditorOpenMap). A save path without .bzm or .xml gets the default
+/// format's extension (D-24, M3: the setting the MFC Options field held),
+/// since the bridge picks the format from the extension. Null when it does
+/// not fit.
+pub fn enginePath(buffer: []u8, os_path: []const u8, kind: DialogKind, default_format: core.settings.Format) ?[]const u8 {
     const needs_extension = kind == .save_as and !hasMapExtension(os_path);
-    const extension = if (needs_extension) ".bzm" else "";
+    const extension = if (needs_extension) core.settings.formatExtension(default_format) else "";
     if (os_path.len + extension.len > buffer.len) return null;
     for (os_path, buffer[0..os_path.len]) |char, *out| out.* = if (char == '/') '\\' else char;
     @memcpy(buffer[os_path.len..][0..extension.len], extension);
-    return buffer[0 .. os_path.len + extension.len];
+    return buffer[0..os_path.len + extension.len];
 }
 
 /// A path typed on the command line, made absolute against the directory the
@@ -665,6 +667,80 @@ pub const NameText = struct {
     }
 };
 
+/// File > New's fields (M3, D-23): the MFC dialog's own four - sizes in
+/// patches per axis, the season (0 Summer .. 3 Spring, the dialog's own
+/// numbering; the bridge maps Spring onto the Summer the map stores), the
+/// name, and the mod ("" keeps the current one, "none" is none, anything
+/// else a bare installed folder). A plain value: it travels through
+/// `Pending` by copy, like every other guarded action.
+pub const NewMapFields = struct {
+    size_x: i32 = 8,
+    size_y: i32 = 8,
+    season: i32 = 0,
+    name: NameText = .{},
+    mod_folder: NameText = .{},
+
+    pub const season_names = [4][]const u8{ "Summer", "Winter", "Africa", "Spring" };
+
+    pub fn seasonName(self: *const NewMapFields) []const u8 {
+        return season_names[@intCast(@min(self.season, 3))];
+    }
+
+    /// The dialog's own bounds (M3, D-23): 1..32 patches per axis, the
+    /// season 0..3. False - with the offending fields clamped back - when
+    /// anything was outside, so a caller can both correct and report.
+    pub fn clampToValid(self: *NewMapFields) bool {
+        var ok = true;
+        if (self.size_x < 1) {
+            self.size_x = 1;
+            ok = false;
+        }
+        if (self.size_x > 32) {
+            self.size_x = 32;
+            ok = false;
+        }
+        if (self.size_y < 1) {
+            self.size_y = 1;
+            ok = false;
+        }
+        if (self.size_y > 32) {
+            self.size_y = 32;
+            ok = false;
+        }
+        if (self.season < 0) {
+            self.season = 0;
+            ok = false;
+        }
+        if (self.season > 3) {
+            self.season = 3;
+            ok = false;
+        }
+        return ok;
+    }
+
+    /// `WxH:season[:name][:mod]`, the `map_new` command's own format
+    /// (commands.zig documents it; the auto grammar allows no space, and a
+    /// comma would end the schedule entry). The season is summer/winter/
+    /// africa/spring by name. Null when the text does not parse.
+    pub fn parse(arg: []const u8) ?NewMapFields {
+        var fields: NewMapFields = .{};
+        var parts = std.mem.splitScalar(u8, arg, ':');
+        const size = parts.next() orelse return null;
+        const x_mark = std.mem.indexOfScalar(u8, size, 'x') orelse return null;
+        fields.size_x = std.fmt.parseInt(i32, size[0..x_mark], 10) catch return null;
+        fields.size_y = std.fmt.parseInt(i32, size[x_mark + 1 ..], 10) catch return null;
+        const season = parts.next() orelse return null;
+        fields.season = for (season_names, 0..) |name, index| {
+            if (std.ascii.eqlIgnoreCase(name, season)) break @intCast(index);
+        } else return null;
+        if (parts.next()) |name| fields.name.set(name);
+        if (parts.next()) |mod_folder| fields.mod_folder.set(mod_folder);
+        if (parts.next() != null) return null;
+        if (!fields.clampToValid()) return null;
+        return fields;
+    }
+};
+
 /// The action an unsaved-changes prompt is guarding: what to do once the
 /// user says it is fine to go ahead (or once a redirected save lands).
 /// `open_path` (03-07's Open Recent) and `switch_mod` (03-08's Mod switch)
@@ -676,6 +752,9 @@ pub const Pending = union(enum) {
     switch_mod: NameText,
     /// File > Close (03-15 gap fix).
     close,
+    /// File > New (M3, D-23): the map to build once the prompt, if any,
+    /// has been answered.
+    new_map: NewMapFields,
 };
 
 /// D-23's Open/Quit/window-close prompt: idle until a guarded action finds
@@ -811,6 +890,12 @@ pub const FileActions = struct {
     /// unsaved-changes prompt as Open; the caller closes the map once
     /// `next()` returns `.close` (`closeMapAndDocument`).
     close_requested: bool = false,
+    /// File > New (M3, D-23), guarded through the same unsaved-changes prompt
+    /// as Open; the caller builds the map once `next()` returns `.new_map`.
+    new_map_requested: ?NewMapFields = null,
+    /// `stepForPending`'s own copy of a `new_map` Pending's fields, for the
+    /// same use-after-return reason `open_path_scratch` exists.
+    new_map_scratch: NewMapFields = .{},
 
     pub const Step = union(enum) {
         none,
@@ -830,6 +915,9 @@ pub const FileActions = struct {
         switch_mod: []const u8,
         /// File > Close: close the map, its edits saved or abandoned already.
         close,
+        /// File > New (M3, D-23): build this map (the prompt, if any, has
+        /// been answered already).
+        new_map: NewMapFields,
         quit,
         /// A second Open or Save As while a dialog is already up (Task 5,
         /// carried from plan 5: this used to be dropped silently) - the
@@ -844,6 +932,12 @@ pub const FileActions = struct {
             .open_dialog => if (self.dialog.request(.open)) Step{ .show_dialog = .open } else Step.dialog_busy,
             .quit => .quit,
             .close => .close,
+            .new_map => |fields| blk: {
+                // See open_path_scratch's own doc comment - the same
+                // use-after-return reason, for a value that travels by copy.
+                self.new_map_scratch = fields;
+                break :blk Step{ .new_map = self.new_map_scratch };
+            },
             .open_path => |path| blk: {
                 // See open_path_scratch's own doc comment for why this copy
                 // has to happen before the slice is built.
@@ -876,6 +970,13 @@ pub const FileActions = struct {
     pub fn requestSwitchMod(self: *FileActions, folder: []const u8, active: ?[]const u8) void {
         if (isSameMod(folder, active)) return;
         self.switch_mod_requested = NameText.init(folder);
+    }
+
+    /// File > New (M3, D-23): guards the map's fields through the same
+    /// unsaved-changes prompt Open itself uses; the caller builds the map
+    /// once `next()` returns `.new_map`.
+    pub fn requestNewMap(self: *FileActions, fields: NewMapFields) void {
+        self.new_map_requested = fields;
     }
 
     /// The save `act` made for the prompt (plain Save or a Save As whose
@@ -961,6 +1062,13 @@ pub const FileActions = struct {
         if (self.close_requested) {
             self.close_requested = false;
             return switch (self.prompt.guard(dirty, .close)) {
+                .proceed => |pending| self.stepForPending(pending),
+                .asked => .ask_unsaved,
+            };
+        }
+        if (self.new_map_requested) |fields| {
+            self.new_map_requested = null;
+            return switch (self.prompt.guard(dirty, .{ .new_map = fields })) {
                 .proceed => |pending| self.stepForPending(pending),
                 .asked => .ask_unsaved,
             };
@@ -1192,9 +1300,9 @@ pub fn closeMapAndDocument(editor: *Editor, closer: anytype) core.bridge.Status 
 
 /// Opens or saves to a path a dialog chose, through the editor, so the
 /// document, the history and the status line follow as for any edit.
-pub fn actOnPath(editor: *Editor, kind: DialogKind, os_path: []const u8) EditError!void {
+pub fn actOnPath(editor: *Editor, kind: DialogKind, os_path: []const u8, default_format: core.settings.Format) EditError!void {
     var buffer: [PathSlot.max_path + 4]u8 = undefined;
-    const path = enginePath(&buffer, os_path, kind) orelse return error.Failed;
+    const path = enginePath(&buffer, os_path, kind, default_format) orelse return error.Failed;
     switch (kind) {
         .open => try editor.open(path),
         .save_as => try editor.save(path),
@@ -1422,12 +1530,12 @@ test "defaultMapsFolder: the user root plus maps, or mods/<name>/maps; a bad mod
 
 test "a dialog's path is written with the engine's separator, and a save gets an extension" {
     var buffer: [64]u8 = undefined;
-    try std.testing.expectEqualStrings("\\Users\\me\\a.bzm", enginePath(&buffer, "/Users/me/a.bzm", .open).?);
-    try std.testing.expectEqualStrings("C:\\maps\\a.xml", enginePath(&buffer, "C:\\maps\\a.xml", .save_as).?);
-    try std.testing.expectEqualStrings("\\tmp\\b.bzm", enginePath(&buffer, "/tmp/b", .save_as).?);
-    try std.testing.expectEqualStrings("\\tmp\\b", enginePath(&buffer, "/tmp/b", .open).?);
+    try std.testing.expectEqualStrings("\\Users\\me\\a.bzm", enginePath(&buffer, "/Users/me/a.bzm", .open, .bzm).?);
+    try std.testing.expectEqualStrings("C:\\maps\\a.xml", enginePath(&buffer, "C:\\maps\\a.xml", .save_as, .bzm).?);
+    try std.testing.expectEqualStrings("\\tmp\\b.bzm", enginePath(&buffer, "/tmp/b", .save_as, .bzm).?);
+    try std.testing.expectEqualStrings("\\tmp\\b", enginePath(&buffer, "/tmp/b", .open, .bzm).?);
     var tiny: [4]u8 = undefined;
-    try std.testing.expect(enginePath(&tiny, "/tmp/b", .open) == null);
+    try std.testing.expect(enginePath(&tiny, "/tmp/b", .open, .bzm) == null);
 }
 
 test "the dialog slot: requested, path arrived, taken once; one dialog at a time; a cancel leaves nothing" {
@@ -1618,7 +1726,7 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     actions.dialog.deliver("/maps/fixture.bzm");
     const step = actions.next(false, false);
     try std.testing.expectEqual(DialogKind.open, step.act_on_path.kind);
-    try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path);
+    try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path, .bzm);
     try std.testing.expectEqualStrings("\\maps\\fixture.bzm", editor.document.path.items);
     try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
 
@@ -1627,7 +1735,7 @@ test "file actions: a request shows a dialog, the path it delivers is acted on t
     try std.testing.expectEqual(FileActions.Step{ .show_dialog = .save_as }, actions.next(false, false));
     actions.dialog.deliver("/maps/copy");
     const save_step = actions.next(false, false);
-    try actOnPath(&editor, save_step.act_on_path.kind, save_step.act_on_path.path);
+    try actOnPath(&editor, save_step.act_on_path.kind, save_step.act_on_path.path, .bzm);
     try std.testing.expectEqualStrings("\\maps\\copy.bzm", editor.document.path.items);
     actions.save_requested = true;
     actions.quit_requested = true;
@@ -1722,7 +1830,7 @@ test "file actions: Open Recent's path opens through the editor, converted with 
 
     actions.requestOpenPath("/maps/fixture.bzm");
     const step = actions.next(false, false);
-    try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path);
+    try actOnPath(&editor, step.act_on_path.kind, step.act_on_path.path, .bzm);
     try std.testing.expectEqualStrings("\\maps\\fixture.bzm", editor.document.path.items);
 }
 
@@ -2364,4 +2472,76 @@ test "parseAnchorSlot takes neutral and players below the record's capacity" {
 test {
     _ = @import("marker_logic.zig");
     _ = @import("tool_registry.zig");
+}
+
+test "new map fields: parse the command's format, clamp the dialog's" {
+    const fields = NewMapFields.parse("8x8:summer") orelse return error.TestUnexpectedError;
+    try std.testing.expectEqual(@as(i32, 8), fields.size_x);
+    try std.testing.expectEqual(@as(i32, 8), fields.size_y);
+    try std.testing.expectEqual(@as(i32, 0), fields.season);
+    try std.testing.expectEqual(@as(usize, 0), fields.name.slice().len);
+    const named = NewMapFields.parse("16x4:WINTER:my_map:EditorTestMod") orelse return error.TestUnexpectedError;
+    try std.testing.expectEqual(@as(i32, 16), named.size_x);
+    try std.testing.expectEqual(@as(i32, 4), named.size_y);
+    try std.testing.expectEqual(@as(i32, 1), named.season);
+    try std.testing.expectEqualStrings("my_map", named.name.slice());
+    try std.testing.expectEqualStrings("EditorTestMod", named.mod_folder.slice());
+    // Spring is the dialog's fourth; the bridge maps it onto Summer's own
+    // real value (REAL_SEASONS), the parse leaves the dialog numbering.
+    try std.testing.expectEqual(@as(i32, 3), (NewMapFields.parse("1x1:spring") orelse return error.TestUnexpectedError).season);
+    // Africa by name, case-insensitively.
+    try std.testing.expectEqual(@as(i32, 2), (NewMapFields.parse("1x1:AFRICA") orelse return error.TestUnexpectedError).season);
+    // Bad sizes, a bad season and trailing parts do not parse.
+    try std.testing.expect(NewMapFields.parse("0x8:summer") == null);
+    try std.testing.expect(NewMapFields.parse("33x8:summer") == null);
+    try std.testing.expect(NewMapFields.parse("8x8:autumn") == null);
+    try std.testing.expect(NewMapFields.parse("8x8") == null);
+    try std.testing.expect(NewMapFields.parse("8:8:summer") == null);
+    // The dialog's own bounds: clamp, and say so.
+    var clamped: NewMapFields = .{ .size_x = 40, .size_y = 0, .season = 9 };
+    try std.testing.expect(!clamped.clampToValid());
+    try std.testing.expectEqual(@as(i32, 32), clamped.size_x);
+    try std.testing.expectEqual(@as(i32, 1), clamped.size_y);
+    try std.testing.expectEqual(@as(i32, 3), clamped.season);
+    var valid: NewMapFields = .{};
+    try std.testing.expect(valid.clampToValid());
+}
+
+test "file actions: File > New guards through the unsaved-changes prompt, then builds" {
+    var fake = try core.editor.testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+
+    // A clean map: the fields run at once, as a new_map step.
+    actions.requestNewMap(.{ .size_x = 2, .size_y = 3, .season = 1, .name = .{} });
+    const step = actions.next(false, false);
+    try std.testing.expectEqual(@as(i32, 2), step.new_map.size_x);
+    try std.testing.expectEqual(@as(i32, 3), step.new_map.size_y);
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(false, false));
+
+    // A dirty map: the prompt asks first, and the fields wait.
+    actions.requestNewMap(.{ .size_x = 4, .size_y = 4 });
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    try std.testing.expect(actions.prompt.isAsking());
+    // Don't save: the fields run.
+    actions.answer_pending = .dont_save;
+    const answered = actions.next(true, false);
+    try std.testing.expectEqual(@as(i32, 4), answered.new_map.size_x);
+    // Cancel: nothing is built.
+    actions.requestNewMap(.{ .size_x = 5, .size_y = 5 });
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    actions.answer_pending = .cancel;
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+}
+
+test "enginePath: the default format is what an extensionless save gets" {
+    var buffer: [64]u8 = undefined;
+    try std.testing.expectEqualStrings("\\tmp\\b.bzm", enginePath(&buffer, "/tmp/b", .save_as, .bzm).?);
+    try std.testing.expectEqualStrings("\\tmp\\b.xml", enginePath(&buffer, "/tmp/b", .save_as, .xml).?);
+    // A path that names its format keeps it whatever the default is.
+    try std.testing.expectEqualStrings("\\tmp\\b.xml", enginePath(&buffer, "/tmp/b.xml", .save_as, .bzm).?);
 }

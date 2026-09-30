@@ -255,6 +255,25 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	// From here on the old map is gone: the engine is global, and it is cleared
 	// and rebuilt in place, so there is nothing to go back to. Only a throw can
 	// leave this path early, and it leaves the session with no map open.
+	return InstallMapInSession( pSession, read, pszPath );
+}
+
+// Everything after a map has been read or built: the per-map tables are
+// reset, the working copy is made, the engine is rebuilt from it and the
+// camera placed on the middle. OpenMapIntoSession and NewMapInSession both
+// end here; pszPath is what the terrain loader names its sidecar files after
+// (the map's own path for an open, its name for a new one - nothing of a new
+// map is on disk, exactly the MFC editor's own Load(m_currentMapName)).
+bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const char *pszPath )
+{
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pAIEditor == 0 || pScene == 0 || pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine is missing the AI editor, the scene or the object database";
+		return false;
+	}
 	pSession->bMapOpen = false;
 	pSession->byLinkID.clear();
 	pSession->unknownLinkIDs.clear();
@@ -262,6 +281,18 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->nBridgeSpansInMap = 0;
 	pSession->nBridgeSpansPlaced = 0;
 	pSession->snapshot = read;
+	// F5 (M3, D-23): a map whose file lacks altitudes gets a flat sheet on
+	// the snapshot too - the MFC editor's own load rule
+	// (TemplateEditorFrame1.cpp:1658) - so a save writes the zeros rather
+	// than an empty sheet back. MakeWorkingCopy gives the working copy the
+	// same sheet it always did; with the snapshot holding one already, its
+	// own branch simply does not fire.
+	if ( pSession->snapshot.terrain.altitudes.GetSizeX() == 0 || pSession->snapshot.terrain.altitudes.GetSizeY() == 0 )
+	{
+		pSession->snapshot.terrain.altitudes.SetSizes( pSession->snapshot.terrain.patches.GetSizeX() * STerrainPatchInfo::nSizeX + 1,
+		                                              pSession->snapshot.terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
+		pSession->snapshot.terrain.altitudes.SetZero();
+	}
 	pSession->hiddenScriptIDs.clear();
 	pSession->hiddenLinkIDs.clear();
 	pSession->szScriptFileAtOpen = read.szScriptFile;
@@ -281,7 +312,7 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->openedGroups.clear();
 	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
 		pSession->openedGroups[it->first] = it->second.ids;
-	pSession->szMapPath = pszPath;
+	pSession->szMapPath = pszPath != 0 ? pszPath : "";
 	pSession->paints.clear();
 	pSession->appliedPaints.clear();
 	pSession->undonePaints.clear();
@@ -363,6 +394,78 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		pSession->szMessage.clear();
 
 	pSession->bMapOpen = true;
+	return true;
+}
+
+// File > New (M3, D-23): the engine builds the map and it opens through the
+// same install the open path uses. Sizes are in patches per axis (1..32),
+// nSeason is the dialog's 0..3 (Summer/Winter/Africa/Spring - REAL_SEASONS
+// maps it to the value the map stores), pszName is what the terrain loader's
+// sidecar files are named after (the MFC editor's own m_currentMapName), and
+// the mod stamp is the active mod's name/version (empty for none), put on at
+// creation the way the MFC editor's new map carries it.
+bool NewMapInSession( SEditorSession *pSession, int nSizeX, int nSizeY, int nSeason, const char *pszName,
+                      const std::string &rszModName, const std::string &rszModVersion )
+{
+	if ( pSession == 0 )
+		return false;
+	if ( !pSession->bEngineStarted )
+	{
+		pSession->szMessage = "the engine is not started";
+		return false;
+	}
+	if ( nSizeX < 1 || nSizeX > 32 || nSizeY < 1 || nSizeY > 32 ||
+	     nSeason < 0 || nSeason >= CMapInfo::SEASON_COUNT )
+	{
+		pSession->szMessage = "a new map is 1..32 patches per axis, the season Summer/Winter/Africa/Spring";
+		return false;
+	}
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pAIEditor == 0 || pScene == 0 || pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine is missing the AI editor, the scene or the object database";
+		return false;
+	}
+
+	// The MFC editor's own sequence (OnFileNewMap, TemplateEditorFrame1.cpp:
+	// 2479-2512): Create of the size and the season - two neutral players,
+	// a single-player map, altitudes sized and zeroed - then every tile the
+	// season's most common tile.
+	CMapInfo read;
+	if ( !CMapInfo::Create( &read, CTPoint<int>( nSizeX, nSizeY ), CMapInfo::REAL_SEASONS[nSeason],
+	                        CMapInfo::SEASON_FOLDERS[nSeason], 2, CMapInfo::TYPE_SINGLE_PLAYER ) )
+	{
+		pSession->szMessage = "the engine would not create a map of that size and season";
+		return false;
+	}
+	if ( !read.FillTerrain( CMapInfo::MOST_COMMON_TILES[nSeason] ) )
+	{
+		pSession->szMessage = "the season's tileset did not read, so the new map's tiles cannot be filled";
+		return false;
+	}
+	// The shades the season's sun makes over the zero sheet (the MFC editor's
+	// UpdateTerrainShades at :2529); Create has already sized and zeroed the
+	// altitudes.
+	if ( !CMapInfo::UpdateTerrainShades( &read.terrain,
+	                                     CTRect<int>( 0, 0, read.terrain.altitudes.GetSizeX(), read.terrain.altitudes.GetSizeY() ),
+	                                     CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( read.nSeason ) ) ) )
+	{
+		pSession->szMessage = "the new map's shades did not compute";
+		return false;
+	}
+	// The mod stamp, at creation, the way the MFC editor's new map carries it
+	// (OnFileNewMap's szNewMODKey handling at :2464-2476): empty with no mod.
+	read.szMODName = rszModName;
+	read.szMODVersion = rszModVersion;
+
+	const std::string szTerrainName = ( pszName != 0 && *pszName != 0 ) ? pszName : "new map";
+	if ( !InstallMapInSession( pSession, read, szTerrainName.c_str() ) )
+		return false;
+	// A new map is never-saved: the session holds no path for it. The name
+	// went to the terrain loader only.
+	pSession->szMapPath.clear();
 	return true;
 }
 

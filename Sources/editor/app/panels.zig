@@ -215,6 +215,22 @@ pub const State = struct {
     /// changed.
     settings_changed: bool = false,
     settings_window_open: bool = false,
+    /// File > New's dialog (M3, D-23): whether it is up, the fields being
+    /// edited, the Square lock, and the name the newest never-saved map was
+    /// given (kept for the title and the first Save As; the document holds
+    /// no name of its own, and the map none at all).
+    new_map_dialog_open: bool = false,
+    new_map_fields: logic.NewMapFields = .{},
+    new_map_square: bool = true,
+    new_map_name: logic.NameText = .{},
+    /// The New Map dialog's name field (a zero-terminated buffer ImGui
+    /// edits in place, committed to `new_map_fields.name` on Create).
+    new_map_name_edit: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+    /// The format a Save As was asked for by name (M3, D-24: File > Save as
+    /// XML/BZM and the file_save_xml/bzm commands): while set, a path the
+    /// dialog or command delivered without an extension gets this format's
+    /// one instead of the setting's default. Cleared once consumed.
+    save_as_format_forced: ?core.settings.Format = null,
     /// The Settings window's "Maps folder" field, loaded from `settings`
     /// whenever the window is (re)opened, edited in place, and only copied
     /// back into `settings` once editing is deactivated (not per keystroke).
@@ -1208,6 +1224,8 @@ pub fn draw(state: *State) void {
     // window merely being focused must not swallow it.
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_F5, false) and !ig.igGetIO().*.WantTextInput) requestTestLaunch(state);
     if (closeShortcutPressed() and mapIsOpen(state.editor)) state.actions.close_requested = true;
+    if (newMapShortcutPressed()) openNewMapDialog(state);
+    if (saveAsFormatShortcutPressed()) |which| requestSaveAsFormat(state, which);
     const viewport = ig.igGetMainViewport();
     const size = viewport.*.Size;
     // Task 2, carried from plan 5: ImGuiCond_FirstUseEver only ever applies
@@ -1262,6 +1280,7 @@ pub fn draw(state: *State) void {
     drawUnsavedPrompt(state);
     drawUnknownObjectsPrompt(state);
     drawSettingsWindow(state);
+    drawNewMapDialog(state);
     drawRecoveryPrompt(state);
     updateTitle(state);
 }
@@ -1311,7 +1330,12 @@ pub fn act(state: *State) bool {
             },
             // The dialog that was busy has ended: "a dialog is already
             // open" (or an earlier dialog's failure) is no longer true.
-            .dialog_cancelled => state.view.clearStatusFrom(.dialog),
+            // A Save As that never chose a path takes its forced format
+            // with it (M3, D-24).
+            .dialog_cancelled => {
+                state.view.clearStatusFrom(.dialog);
+                state.save_as_format_forced = null;
+            },
             // A quit that reaches here is either clean (never dirty) or
             // answered Don't save (the prompt's .proceed path) - both are
             // "this document's edits, if any, are abandoned" (D-22).
@@ -1329,14 +1353,18 @@ pub fn act(state: *State) bool {
             },
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
-                // D-20: a Save As may bring the map's script along, so where the
+                // D-20: A Save As may bring the map's script along, so where the
                 // map was is kept before the save moves the document. 04-13: any
                 // map, not only a shipped one - a user map saved into another
                 // folder would leave its script behind just the same.
                 var came_from: logic.PathText = .{};
                 const bring_script = chosen.kind == .save_as and state.editor.document.path.items.len > 0;
                 if (bring_script) came_from.set(state.editor.document.path.items);
-                const result = logic.actOnPath(state.editor, chosen.kind, chosen.path);
+                // M3, D-24: a Save As asked for by name forces its format on
+                // a path that names no extension; consumed here.
+                const save_format = if (chosen.kind == .save_as) state.save_as_format_forced orelse state.settings.default_format else state.settings.default_format;
+                state.save_as_format_forced = null;
+                const result = logic.actOnPath(state.editor, chosen.kind, chosen.path, save_format);
                 state.view.noteEditResult(state.editor, result);
                 if (chosen.kind == .open) {
                     // A failed open may have emptied the document (editor.open
@@ -1356,6 +1384,23 @@ pub fn act(state: *State) bool {
                     }
                     state.actions.noteSaveOutcome(ok);
                 }
+            },
+            // File > New (M3, D-23): the engine builds the map (the prompt,
+            // if any, has been answered already) and the document opens
+            // never-saved - exactly what `mapOpened` resets for.
+            .new_map => |fields| {
+                var params: core.bridge.NewMapParams = .{};
+                params.size_x = fields.size_x;
+                params.size_y = fields.size_y;
+                params.season = fields.season;
+                params.setName(fields.name.slice());
+                params.setMod(fields.mod_folder.slice());
+                const result = state.editor.newMap(params);
+                state.view.noteEditResult(state.editor, result);
+                if (result) |_| {
+                    state.new_map_name.set(fields.name.slice());
+                    state.mapOpened();
+                } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
             },
             .dialog_failed => |message| state.view.setStatusFrom(.dialog, "the file dialog failed: ", message),
             .switch_mod => |folder| performModSwitch(state, folder),
@@ -1638,7 +1683,7 @@ fn writeRecoveryCopy(state: *State, now_ms: u64) void {
         return;
     };
     var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const engine_path = logic.enginePath(&engine_buffer, os_path, .open) orelse {
+    const engine_path = logic.enginePath(&engine_buffer, os_path, .open, .bzm) orelse {
         state.view.setStatus("autosave failed: ", "the recovery path is too long");
         return;
     };
@@ -1757,7 +1802,7 @@ fn drawRecoveryPrompt(state: *State) void {
 
 fn openRecoveryOffer(state: *State, offer: RecoveryOffer) void {
     var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const engine_path = logic.enginePath(&engine_buffer, offer.filePath(), .open) orelse {
+    const engine_path = logic.enginePath(&engine_buffer, offer.filePath(), .open, .bzm) orelse {
         state.view.setStatus("failed: ", "the recovery path is too long");
         return;
     };
@@ -2123,6 +2168,9 @@ fn drawMenuBar(state: *State) f32 {
     const editor = state.editor;
     const map_open = mapIsOpen(editor);
     if (ig.igBeginMenu("File")) {
+        // M3, D-23: New goes through the dialog; the map itself is built
+        // once the unsaved-changes prompt, if any, has been answered.
+        if (ig.igMenuItemEx("New...", new_map_shortcut_label, false, true)) openNewMapDialog(state);
         if (ig.igMenuItemEx("Open...", null, false, true)) state.actions.open_requested = true;
         if (ig.igBeginMenu("Open Recent")) {
             if (!state.recent_menu_open_prev) refreshRecentExistsCache(state);
@@ -2143,7 +2191,16 @@ fn drawMenuBar(state: *State) f32 {
             state.mod_menu_open_prev = false;
         }
         if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
-        if (ig.igMenuItemEx("Save As...", null, false, map_open)) state.actions.save_as_requested = true;
+        if (ig.igMenuItemEx("Save As...", null, false, map_open)) {
+            // A plain Save As: no forced format, the setting's default is it.
+            state.save_as_format_forced = null;
+            state.actions.save_as_requested = true;
+        }
+        // M3, D-24: both convert the map's format for this and later saves -
+        // the bridge takes the format from the path's extension, so the
+        // forced one is what an extensionless path is given.
+        if (ig.igMenuItemEx("Save as XML", save_xml_shortcut_label, false, map_open)) requestSaveAsFormat(state, .xml);
+        if (ig.igMenuItemEx("Save as BZM", save_bzm_shortcut_label, false, map_open)) requestSaveAsFormat(state, .bzm);
         // 03-15 gap fix: through the unsaved-changes prompt (D-23), like Open.
         if (ig.igMenuItemEx("Close", close_shortcut_label, false, map_open)) state.actions.close_requested = true;
         ig.igSeparator();
@@ -2407,6 +2464,9 @@ fn performClose(state: *State) void {
 /// elsewhere - `closeShortcutPressed` takes either modifier on every
 /// platform, as view.zig's own Cmd/Ctrl+Z does.
 const close_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+W" else "Ctrl+W";
+const new_map_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+N" else "Ctrl+N";
+const save_xml_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+Shift+X" else "Ctrl+Shift+X";
+const save_bzm_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+Shift+B" else "Ctrl+Shift+B";
 
 /// Cmd+W or Ctrl+W this frame, not while a text field is being typed in
 /// (the same WantTextInput rule F5 follows), and not held down (a held W
@@ -2416,6 +2476,135 @@ fn closeShortcutPressed() bool {
     if (io.*.WantTextInput) return false;
     if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
     return ig.igIsKeyPressedEx(ig.ImGuiKey_W, false);
+}
+
+/// File > New (M3, D-23): Ctrl+N / Cmd+N.
+fn newMapShortcutPressed() bool {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return false;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    return ig.igIsKeyPressedEx(ig.ImGuiKey_N, false);
+}
+
+/// File > Save as XML / Save as BZM (M3, D-24): Ctrl+Shift+X / Ctrl+Shift+B
+/// (the MFC editor's Ctrl+X and Ctrl+B are Cut and Bold in ImGui text
+/// fields, so the portable editor adds the Shift).
+fn saveAsFormatShortcutPressed() ?core.settings.Format {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return false;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    if (!io.*.KeyShift) return null;
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_X, false)) return .xml;
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_B, false)) return .bzm;
+    return null;
+}
+
+/// A Save As with the format named (M3, D-24): the forced format rides the
+/// request, so a path delivered without an extension gets this one rather
+/// than the setting's default. A plain Save As (the menu item) clears the
+/// forcing first. Public: the file_save_xml/bzm commands call it.
+pub fn requestSaveAsFormat(state: *State, which: core.settings.Format) void {
+    if (!mapIsOpen(state.editor)) return;
+    state.save_as_format_forced = which;
+    state.actions.save_as_requested = true;
+}
+
+/// Opens the New Map dialog with the fields as they were last left (M3,
+/// D-23), the name field seeded with the newest never-saved map's name.
+fn openNewMapDialog(state: *State) void {
+    const name = state.new_map_fields.name.slice();
+    @memset(&state.new_map_name_edit, 0);
+    const len = @min(name.len, state.new_map_name_edit.len - 1);
+    @memcpy(state.new_map_name_edit[0..len], name[0..len]);
+    state.new_map_dialog_open = true;
+}
+
+/// The New Map dialog (M3, D-23): the MFC CNewMapDialog's own fields - size
+/// X/Y in patches with a Square lock, the season, the name, and the mod
+/// (current / none / an installed folder). Create runs through the
+/// unsaved-changes prompt like Open, and the map is built by `act` once it
+/// has been answered.
+fn drawNewMapDialog(state: *State) void {
+    if (!state.new_map_dialog_open) return;
+    if (!ig.igBegin("New Map", &state.new_map_dialog_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        ig.igEnd();
+        return;
+    }
+    defer ig.igEnd();
+    ig.igText("A new map is never saved: the first save is a Save As.");
+    var size_x = state.new_map_fields.size_x;
+    if (ig.igInputIntEx("Size X", &size_x, 1, 4, 0)) {
+        state.new_map_fields.size_x = size_x;
+        if (state.new_map_square) state.new_map_fields.size_y = size_x;
+    }
+    var size_y = state.new_map_fields.size_y;
+    if (ig.igInputIntEx("Size Y", &size_y, 1, 4, 0)) {
+        state.new_map_fields.size_y = size_y;
+        if (state.new_map_square) state.new_map_fields.size_x = size_y;
+    }
+    _ = ig.igCheckbox("Square", &state.new_map_square);
+    if (state.new_map_square) state.new_map_fields.size_y = state.new_map_fields.size_x;
+    var season: c_int = state.new_map_fields.season;
+    if (ig.igCombo("Season", &season, "Summer\x00Winter\x00Africa\x00Spring\x00") and season != state.new_map_fields.season)
+        state.new_map_fields.season = season;
+    _ = ig.igInputTextWithHint("Name", "new map", &state.new_map_name_edit, state.new_map_name_edit.len + 1, 0);
+
+    // The mod, the MFC dialog's combo: the current one, none, or an
+    // installed folder ("" is "current" in the params' own meaning, "none"
+    // the literal the bridge answers).
+    refreshModList(state);
+    var mod_choice: c_int = 0;
+    if (std.mem.eql(u8, state.new_map_fields.mod_folder.slice(), "none")) mod_choice = 1;
+    var index: usize = 0;
+    while (index < state.mod_list_count) : (index += 1) {
+        if (std.mem.eql(u8, state.new_map_fields.mod_folder.slice(), std.mem.sliceTo(&state.mod_list_buffer[index].folder, 0)))
+            mod_choice = @intCast(index + 2);
+    }
+    var preview_buffer: [128:0]u8 = undefined;
+    const preview: [*:0]const u8 = modPreview(&preview_buffer, state, mod_choice);
+    if (ig.igBeginCombo("Mod", preview, 0)) {
+        if (ig.igSelectableEx("current mod", mod_choice == 0)) {
+            state.new_map_fields.mod_folder.set("");
+            mod_choice = 0;
+        }
+        if (ig.igSelectableEx("none", mod_choice == 1)) {
+            state.new_map_fields.mod_folder.set("none");
+            mod_choice = 1;
+        }
+        index = 0;
+        while (index < state.mod_list_count) : (index += 1) {
+            const mod = state.mod_list_buffer[index];
+            var label_buffer: [128:0]u8 = undefined;
+            const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch continue;
+            if (ig.igSelectableEx(label.ptr, mod_choice == @as(c_int, @intCast(index + 2))))
+                state.new_map_fields.mod_folder.set(std.mem.sliceTo(&mod.folder, 0));
+        }
+        ig.igEndCombo();
+    }
+
+    ig.igSpacing();
+    const create = ig.igButton("Create") and blk: {
+        state.new_map_fields.name.set(std.mem.sliceTo(&state.new_map_name_edit, 0));
+        break :blk state.new_map_fields.clampToValid();
+    };
+    ig.igSameLine(0, -1);
+    const cancel = ig.igButton("Cancel");
+    if (create or cancel) state.new_map_dialog_open = false;
+    if (create) {
+        // The prompt, if any, asks before the map is built - exactly Open's
+        // own guard - and `act` builds it once answered.
+        state.actions.requestNewMap(state.new_map_fields);
+    }
+}
+
+/// The mod combo's preview text: "current mod", "none", or the chosen
+/// mod's own "name version".
+fn modPreview(buffer: *[128:0]u8, state: *State, choice: c_int) [*:0]const u8 {
+    if (choice == 0) return "current mod";
+    if (choice == 1) return "none";
+    const mod = state.mod_list_buffer[@intCast(choice - 2)];
+    const text = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch return "current mod";
+    return text.ptr;
 }
 
 /// Every panel's widgets leave room for their labels to the right.
