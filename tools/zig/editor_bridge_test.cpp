@@ -7998,6 +7998,55 @@ static BkEditorAIParcel DefenceParcelAt( float fX, float fY )
 	return parcel;
 }
 
+// WR-A03 (04 review): a put whose side count is below the map's drops the
+// sides above it. Only empty ones may go (the undo of a put that created
+// sides); a put that would drop a side holding parcels or script IDs is
+// refused and changes nothing.
+static void TestM2AISideShrinkRefused( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\ai-shrink-unedited.bzm";
+	const std::string szAfter = szScratch + "\\ai-shrink-after.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	SAISideRead side0, side1;
+	if ( !Check( ReadAISideOf( pSession, 0, &side0 ) && ReadAISideOf( pSession, 1, &side1 ), "sides 0 and 1 read" ) )
+		return;
+	const int nCount = side0.info.side_count;
+	if ( !Check( nCount >= 2, "coldwinter has two AI sides" ) )
+		return;
+	const float fX = map.terrain.tiles.GetSizeX() * fWorldCellSize * fAITileXCoeff1 / 2.0f;
+	const float fY = map.terrain.tiles.GetSizeY() * fWorldCellSize * fAITileYCoeff1 / 2.0f;
+	SAISideRead held = side1;
+	held.parcels.push_back( DefenceParcelAt( fX, fY ) );
+	held.parcels.back().first_point = int( held.points.size() );
+	if ( !Check( PutAISideOf( pSession, 1, nCount, held ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( PutAISideOf( pSession, 0, 1, side0 ) == BK_EDITOR_REFUSED, "a put of side 0 with count 1 would drop side 1's parcel: refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "cannot drop" ) != std::string::npos, "and says why" );
+	Check( PutAISideOf( pSession, 0, 0, SAISideRead() ) == BK_EDITOR_REFUSED, "a put with count 0 is refused too" );
+	SAISideRead again;
+	Check( ReadAISideOf( pSession, 1, &again ) && again.info.side_count == nCount && again.parcels.size() == held.parcels.size(), "side 1 and the side count are unchanged" );
+	// The undo of a put that created sides: side count+1 with a parcel, then
+	// side count+1 empty under the old count - the side between is empty, so
+	// it goes.
+	SAISideRead created;
+	created.parcels.push_back( DefenceParcelAt( fX, fY ) );
+	if ( Check( PutAISideOf( pSession, nCount + 1, nCount + 2, created ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( PutAISideOf( pSession, nCount + 1, nCount, SAISideRead() ) == BK_EDITOR_OK, "a shrink over sides a put created (empty ones, and the put's own) goes through" );
+	Check( PutAISideOf( pSession, 1, nCount, side1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szAfter ), "the AI sides put back save the unedited file byte for byte" );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M2 AI side shrink refused ok\n" );
+}
+
 // The map with `side` set, through the map tier's own put: what the saved file must equal.
 static void PutExpectedAISide( CMapInfo *pMap, int nSide, int nSideCount, const SAISideRead &rSide )
 {
@@ -8636,6 +8685,7 @@ int main( int argc, char **argv )
 		TestM2StartCommands( pSession, szScratch );
 		TestM2ReservePositions( pSession, szScratch );
 		TestM2AIGeneral( pSession, szScratch );
+		TestM2AISideShrinkRefused( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

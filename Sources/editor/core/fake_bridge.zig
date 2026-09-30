@@ -2264,6 +2264,16 @@ pub const FakeBridge = struct {
             self.say("side {d} is not one of the map's {d} sides, so it holds nothing", .{ key, count });
             return .refused;
         }
+        // A smaller count drops only empty sides (an undo takes back the sides a
+        // put created, which are empty): one above it that holds anything,
+        // other than `key`, is refused (WR-A03).
+        for (self.ai_sides.items, 0..) |side, index| {
+            if (index < count or index == @as(usize, @intCast(key))) continue;
+            if (side.parcels.len != 0 or side.mobile_ids.len != 0) {
+                self.say("side {d} holds parcels or script IDs, so the side count cannot drop to {d}", .{ index, count });
+                return .refused;
+            }
+        }
         var current: records.AiSide = .{};
         if (key < self.ai_sides.items.len) current = self.ai_sides.items[@intCast(key)];
         if (key < count and !self.aiSideAllowed(current, wanted)) return .refused;
