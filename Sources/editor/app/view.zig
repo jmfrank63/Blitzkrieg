@@ -653,8 +653,10 @@ pub fn ViewWith(comptime Input: type) type {
             if (Input.capture().mouse) return;
             const hover = self.hover orelse return;
             const tile = hover.tile orelse return;
-            const radius = self.brush.radius;
-            const n: i32 = 2 * radius + 2; // corners along one side
+            // The stamp's top-left, not a radius: the brush is sized in
+            // cells per axis now (M3, D-22), even sizes included.
+            const origin = tools.Brush.topLeft(self.brush.size, tile);
+            const n: i32 = self.brush.size + 1; // corners along one side
             // The engine tier confirms this against BkEditorWorldToTile: a
             // tile's CENTRE - not a corner - is a plain index * world_cell_size
             // in X (CTerrain::GetTileIndex rounds to the nearest tile rather
@@ -664,8 +666,8 @@ pub fn ViewWith(comptime Input: type) type {
             // -0.5 baked into base_x/base_y below, kept in these "corner index"
             // units rather than converted to world units yet, so every corner
             // along the boundary is a whole step of 1.0 from the last.
-            const base_x = @as(f32, @floatFromInt(tile[0] - radius)) - 0.5;
-            const base_y = @as(f32, @floatFromInt(tile[1] - radius)) - 0.5;
+            const base_x = @as(f32, @floatFromInt(origin[0])) - 0.5;
+            const base_y = @as(f32, @floatFromInt(origin[1])) - 0.5;
             const height_tiles = @as(f32, @floatFromInt(self.map.height_tiles));
 
             var points: [max_outline_points]imgui.c.ImVec2 = undefined;

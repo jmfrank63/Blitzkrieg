@@ -33,6 +33,7 @@ pub const command_table = [_]Entry{
     .{ .name = "camera_clear", .handler = cameraClear },
     .{ .name = "camera_goto", .handler = cameraGoto },
     .{ .name = "map_new", .handler = mapNew },
+    .{ .name = "brush_size", .handler = brushSize },
     .{ .name = "file_save_xml", .handler = fileSaveXml },
     .{ .name = "file_save_bzm", .handler = fileSaveBzm },
     .{ .name = "vso_kind", .handler = vsoKind },
@@ -120,6 +121,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "reserve_pending", .handler = reservePending },
     .{ .name = "parcels", .handler = parcelsDelta },
     .{ .name = "mobile_has", .handler = mobileHas },
+    .{ .name = "title", .handler = titleContains },
+    .{ .name = "status", .handler = statusContains },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -232,6 +235,16 @@ fn mapNew(state: *State, arg: []const u8) Outcome {
     return .ok;
 }
 
+/// `do=brush_size:NN` - the Brush tool's size in cells per axis, 1..16 even
+/// sizes included (M3, D-22/PARITY V4): what the palette's combo and the
+/// MFC toolbar's before it set.
+fn brushSize(state: *State, arg: []const u8) Outcome {
+    const size = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (size < 1 or size > 16) return .bad_arg;
+    state.view.brush.size = size;
+    return .ok;
+}
+
 /// A Save As with the format named (D-24: the bridge takes the format from
 /// the path's extension, so the format is what an extensionless path is
 /// given). With no argument it is the menu item - the Save As dialog, the
@@ -240,7 +253,10 @@ fn mapNew(state: *State, arg: []const u8) Outcome {
 /// through the dialog slot exactly a dialog's own choice would be, and gets
 /// the format's extension when it names none.
 fn saveAsFormat(state: *State, arg: []const u8, which: core.settings.Format) Outcome {
-    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (!panels.documentLoaded(state.editor)) {
+        state.editor.note("no map to save");
+        return .refused;
+    }
     if (arg.len == 0) {
         panels.requestSaveAsFormat(state, which);
         return .ok;
@@ -274,6 +290,21 @@ fn fileSaveXml(state: *State, arg: []const u8) Outcome {
 
 fn fileSaveBzm(state: *State, arg: []const u8) Outcome {
     return saveAsFormat(state, arg, .bzm);
+}
+
+/// `expect=title:...` (05-01, F15): the window title contains the text.
+fn titleContains(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    const current = state.title[0..state.title_len];
+    return if (std.mem.indexOf(u8, current, arg) != null) .ok else .refused;
+}
+
+/// `expect=status:...` (05-01, V6): the status line contains the text.
+fn statusContains(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    var buffer: [1024]u8 = undefined;
+    const line = panels.statusLine(state, &buffer);
+    return if (std.mem.indexOf(u8, line, arg) != null) .ok else .refused;
 }
 
 fn anchorIsSet(state: *State, arg: []const u8) ?bool {

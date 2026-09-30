@@ -1206,6 +1206,13 @@ pub fn mapIsOpen(editor: *const Editor) bool {
     return editor.document.path.items.len != 0;
 }
 
+/// A document is loaded - opened OR never-saved (File > New, D-23). The M1
+/// `mapIsOpen` (a non-empty path) cannot see a never-saved map, which has
+/// none; a loaded document always has its tile count.
+pub fn documentLoaded(editor: *const Editor) bool {
+    return editor.document.info.width_tiles != 0;
+}
+
 /// All the panels, once a frame, between host.beginFrame and host.endFrame.
 /// Edits made through them go to the editor at once; the file actions the
 /// menu asks for are left in `state.actions` for `act`.
@@ -2190,8 +2197,11 @@ fn drawMenuBar(state: *State) f32 {
         } else {
             state.mod_menu_open_prev = false;
         }
-        if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
-        if (ig.igMenuItemEx("Save As...", null, false, map_open)) {
+        // The Save family works on a never-saved map too (D-23/D-24): what
+        // matters is a loaded document, not a path on disk.
+        const saveable = documentLoaded(editor);
+        if (ig.igMenuItemEx("Save", null, false, saveable)) state.actions.save_requested = true;
+        if (ig.igMenuItemEx("Save As...", null, false, saveable)) {
             // A plain Save As: no forced format, the setting's default is it.
             state.save_as_format_forced = null;
             state.actions.save_as_requested = true;
@@ -2199,8 +2209,8 @@ fn drawMenuBar(state: *State) f32 {
         // M3, D-24: both convert the map's format for this and later saves -
         // the bridge takes the format from the path's extension, so the
         // forced one is what an extensionless path is given.
-        if (ig.igMenuItemEx("Save as XML", save_xml_shortcut_label, false, map_open)) requestSaveAsFormat(state, .xml);
-        if (ig.igMenuItemEx("Save as BZM", save_bzm_shortcut_label, false, map_open)) requestSaveAsFormat(state, .bzm);
+        if (ig.igMenuItemEx("Save as XML", save_xml_shortcut_label, false, saveable)) requestSaveAsFormat(state, .xml);
+        if (ig.igMenuItemEx("Save as BZM", save_bzm_shortcut_label, false, saveable)) requestSaveAsFormat(state, .bzm);
         // 03-15 gap fix: through the unsaved-changes prompt (D-23), like Open.
         if (ig.igMenuItemEx("Close", close_shortcut_label, false, map_open)) state.actions.close_requested = true;
         ig.igSeparator();
@@ -2491,8 +2501,8 @@ fn newMapShortcutPressed() bool {
 /// fields, so the portable editor adds the Shift).
 fn saveAsFormatShortcutPressed() ?core.settings.Format {
     const io = ig.igGetIO();
-    if (io.*.WantTextInput) return false;
-    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    if (io.*.WantTextInput) return null;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return null;
     if (!io.*.KeyShift) return null;
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_X, false)) return .xml;
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_B, false)) return .bzm;
@@ -2563,11 +2573,11 @@ fn drawNewMapDialog(state: *State) void {
     var preview_buffer: [128:0]u8 = undefined;
     const preview: [*:0]const u8 = modPreview(&preview_buffer, state, mod_choice);
     if (ig.igBeginCombo("Mod", preview, 0)) {
-        if (ig.igSelectableEx("current mod", mod_choice == 0)) {
+        if (ig.igSelectableEx("current mod", mod_choice == 0, 0, .{ .x = 0, .y = 0 })) {
             state.new_map_fields.mod_folder.set("");
             mod_choice = 0;
         }
-        if (ig.igSelectableEx("none", mod_choice == 1)) {
+        if (ig.igSelectableEx("none", mod_choice == 1, 0, .{ .x = 0, .y = 0 })) {
             state.new_map_fields.mod_folder.set("none");
             mod_choice = 1;
         }
@@ -2576,7 +2586,7 @@ fn drawNewMapDialog(state: *State) void {
             const mod = state.mod_list_buffer[index];
             var label_buffer: [128:0]u8 = undefined;
             const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch continue;
-            if (ig.igSelectableEx(label.ptr, mod_choice == @as(c_int, @intCast(index + 2))))
+            if (ig.igSelectableEx(label.ptr, mod_choice == @as(c_int, @intCast(index + 2)), 0, .{ .x = 0, .y = 0 }))
                 state.new_map_fields.mod_folder.set(std.mem.sliceTo(&mod.folder, 0));
         }
         ig.igEndCombo();
@@ -2587,7 +2597,7 @@ fn drawNewMapDialog(state: *State) void {
         state.new_map_fields.name.set(std.mem.sliceTo(&state.new_map_name_edit, 0));
         break :blk state.new_map_fields.clampToValid();
     };
-    ig.igSameLine(0, -1);
+    ig.igSameLine();
     const cancel = ig.igButton("Cancel");
     if (create or cancel) state.new_map_dialog_open = false;
     if (create) {
@@ -2603,8 +2613,8 @@ fn modPreview(buffer: *[128:0]u8, state: *State, choice: c_int) [*:0]const u8 {
     if (choice == 0) return "current mod";
     if (choice == 1) return "none";
     const mod = state.mod_list_buffer[@intCast(choice - 2)];
-    const text = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch return "current mod";
-    return text.ptr;
+    const shown = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch return "current mod";
+    return shown.ptr;
 }
 
 /// Every panel's widgets leave room for their labels to the right.
@@ -2679,8 +2689,22 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     } else {
         drawTilePicker(state);
     }
-    var radius: c_int = view.brush.radius;
-    if (ig.igSliderInt("radius", &radius, 0, 4)) view.brush.radius = radius;
+    // M3, D-22/PARITY V4: the MFC toolbar's own combo - 1x1..16x16, even
+    // sizes included, 2x2 the default - in place of M1's 0..4 radius slider.
+    var brush_label: [10:0]u8 = undefined;
+    const label = std.fmt.bufPrintZ(&brush_label, "{d}x{d}", .{ view.brush.size, view.brush.size }) catch "2x2";
+    if (ig.igBeginCombo("brush", label.ptr, 0)) {
+        var brush_choice: i32 = 1;
+        while (brush_choice <= 16) : (brush_choice += 1) {
+            var entry_buffer: [10:0]u8 = undefined;
+            const entry = std.fmt.bufPrintZ(&entry_buffer, "{d}x{d}", .{ brush_choice, brush_choice }) catch continue;
+            if (ig.igSelectableEx(entry.ptr, view.brush.size == brush_choice, 0, .{ .x = 0, .y = 0 })) {
+                view.brush.size = brush_choice;
+                state.view.clearStatus();
+            }
+        }
+        ig.igEndCombo();
+    }
     if (state.tile_pictures.queue.pendingCount() != 0) {
         if (state.real.gpuDevice()) |device| state.tile_pictures.pump(state.real, device, tile_picture_pump_budget);
     }
@@ -3277,9 +3301,10 @@ fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 }
 
 /// The tool, the hovered tile and map position (or "no map open" - at a
-/// start with no map, or after File > Mod closed it), then the editor's last
-/// refusal or failure and the view's own failures.
-fn statusLine(state: *State, buffer: []u8) []const u8 {
+/// start with no map, or after File > Mod closed it), the MFC's own
+/// VIS/SCRIPT coordinate pair and object line (M3, D-34/PARITY V6), then the
+/// editor's last refusal or failure and the view's own failures.
+pub fn statusLine(state: *State, buffer: []u8) []const u8 {
     var len: usize = 0;
     append(buffer, &len, "{t}", .{state.view.tool});
     if (!mapIsOpen(state.editor)) append(buffer, &len, " | no map open", .{});
@@ -3287,6 +3312,35 @@ fn statusLine(state: *State, buffer: []u8) []const u8 {
         if (hover.tile) |tile| append(buffer, &len, " | tile {d},{d}", .{ tile[0], tile[1] });
         append(buffer, &len, " | map {d:.0},{d:.0}", .{ hover.map_x, hover.map_y });
     }
+    // VIS/SCRIPT (V6), the MFC InputState.cpp's own pair: VIS is the cursor's
+    // world position in world cells (z on the bridge's own z=0 convention -
+    // the same one the brush outline draws on), SCRIPT its AI position.
+    // No cursor: the MFC's own dashes.
+    var coord_buffer: [96]u8 = undefined;
+    const vis_script = if (state.view.hover) |hover|
+        logic.visScriptLine(
+            &coord_buffer,
+            .{ hover.world_x / view_mod.world_cell_size, hover.world_y / view_mod.world_cell_size, 0.0 },
+            .{ @intFromFloat(@round(hover.map_x)), @intFromFloat(@round(hover.map_y)) },
+        )
+    else
+        logic.visScriptLine(&coord_buffer, null, null);
+    append(buffer, &len, " | {s}", .{vis_script});
+    // The object line (V6): the one selected object's name, Script ID and
+    // position (map/AI units, as the records hold them), or the MFC's own
+    // "Name: no selected". The box is unknown to the core records, so it is
+    // left out exactly like the MFC's own else-branch. A multi-selection
+    // wording ("N objects selected") arrives with 05-04's set selection;
+    // until then the count is 0 or 1.
+    var object_buffer: [192]u8 = undefined;
+    const object_line = if (state.editor.selection) |link_id|
+        (if (state.editor.document.find(link_id)) |record|
+            logic.objectLine(&object_buffer, 1, record.nameSlice(), record.script_id, .{ record.x, record.y }, null)
+        else
+            logic.objectLine(&object_buffer, 0, "", -1, null, null))
+    else
+        logic.objectLine(&object_buffer, 0, "", -1, null, null);
+    append(buffer, &len, " | {s}", .{object_line});
     // "Hide checked" (D-16): how many objects the checked groups hold back.
     if (state.hidden_object_count != 0) append(buffer, &len, " | {d} {s} hidden", .{ state.hidden_object_count, if (state.hidden_object_count == 1) "object" else "objects" });
     const editor_status = state.editor.status();
@@ -3315,15 +3369,25 @@ fn append(buffer: []u8, len: *usize, comptime format: []const u8, args: anytype)
 /// a plain post-process rather than a `formatTitle` parameter, so
 /// panels_logic.zig's own `formatTitle` tests (base game, no mod) need no
 /// change for this app-layer decoration.
+/// D-34/PARITY F15: the title carries the MFC SetWindowTitle's own fields -
+/// the map's name with its extension, `*` when modified, the size in patches,
+/// the mod key - in one format (formatTitleM3). D-26's separate "[mod]"
+/// suffix is folded in. A never-saved map has no path, so the New Map
+/// dialog's own name stands in (the document holds none, editor.zig
+/// newMap's rule).
 fn updateTitle(state: *State) void {
-    var buffer: [256]u8 = undefined;
-    const read_only = documentIsShipped(state);
-    const base_title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty(), read_only);
-    var full_buffer: [320:0]u8 = undefined;
-    const title: [:0]const u8 = if (state.real.activeMod()) |mod|
-        std.fmt.bufPrintZ(&full_buffer, "{s} [{s}]", .{ base_title, std.mem.sliceTo(&mod.name, 0) }) catch base_title
+    var buffer: [320:0]u8 = undefined;
+    const path = state.editor.document.path.items;
+    const name = if (path.len != 0) logic.baseName(path) else state.new_map_name.slice();
+    const size_patches: ?[2]i32 = if (mapIsOpen(state.editor)) .{
+        @divTrunc(@as(i32, @intCast(state.editor.document.info.width_tiles)), 16),
+        @divTrunc(@as(i32, @intCast(state.editor.document.info.height_tiles)), 16),
+    } else null;
+    const mod_key: []const u8 = if (state.real.activeMod()) |mod|
+        std.mem.sliceTo(&mod.name, 0)
     else
-        base_title;
+        "";
+    const title = logic.formatTitleM3(&buffer, name, state.editor.dirty(), documentIsShipped(state), size_patches, mod_key);
     if (std.mem.eql(u8, title, state.title[0..state.title_len])) return;
     _ = sdl3.c.SDL_SetWindowTitle(state.window, title.ptr);
     const len = @min(title.len, state.title.len);

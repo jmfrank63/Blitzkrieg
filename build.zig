@@ -6565,6 +6565,56 @@ fn addMapEditor(
     const auto_m2_step = b.step("map-editor-auto-m2", "Run BK_EDITOR_AUTO's M2 scenario (named commands and predicates) on a shipped map");
     auto_m2_step.dependOn(&cleanup_autoshots_m2.step);
 
+    // Phase 5's M3 scenario (05-01, D-37/D-40.7): the same loop once more -
+    // every M3 plan appends its own segment of named commands and predicates
+    // to the array below. This plan's segment: the title (F15) and status
+    // bar (V6) expect their own predicates, the brush combo's range (V4),
+    // New Map (F1) and Save as BZM (F8). No `test` action and no
+    // BK_EDITOR_AUTO_GAME: the game-reads-it checks belong to the plans that
+    // add them.
+    const auto_m3_dir = b.pathFromRoot("zig-out/local-test/map-editor-m3-auto");
+    const auto_m3_entries = [_][]const u8{
+        // The shipped map from the command line is open by now: the title
+        // names it (F15), the status bar carries the MFC's own VIS/SCRIPT
+        // pair and object line (V6).
+        "3:expect=title:coldwinter",
+        "5:expect=status:VIS:",
+        "7:expect=status:SCRIPT",
+        // The brush combo's own range (V4): 1 and 16 are both taken, and
+        // neither is an edit - there is nothing to undo.
+        "10:do=brush_size:1",
+        "12:do=brush_size:16",
+        "14:expect=undo_depth:0",
+        // New Map (F1): the dialog's fields as one command; the title
+        // follows to the never-saved name (F15).
+        "18:do=map_new:8x8:summer:M3Auto",
+        "25:expect=title:M3Auto",
+        "27:expect=status:VIS:",
+        // Save as BZM (F8): the command's own path argument delivers the
+        // Save As; the relative path is from the staged game root (the
+        // run's cwd), the same ground `saveas=` uses.
+        "32:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3.bzm",
+        // Saved: the title names the file it became, clean of the star.
+        "40:expect=title:m3.bzm",
+        "42:expect=title:8x8",
+        "45:exit",
+    };
+    const auto_m3_run = b.addRunArtifact(exe);
+    auto_m3_run.setCwd(b.path(stage_root));
+    auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
+    auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
+    auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
+    auto_m3_run.has_side_effects = true;
+    auto_m3_run.step.dependOn(&install_exe.step);
+    // After the M2 scenario (which itself runs after M1's), so two engines
+    // never start at once.
+    auto_m3_run.step.dependOn(&cleanup_autoshots_m2.step);
+    const cleanup_autoshots_m3 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_m3.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_m3.step.dependOn(&auto_m3_run.step);
+    const auto_m3_step = b.step("map-editor-m3-auto", "Run BK_EDITOR_AUTO's M3 scenario (named commands and predicates) on a shipped map");
+    auto_m3_step.dependOn(&cleanup_autoshots_m3.step);
+
     // Task 1's headless test-launch proof (D-01..D-09): the editor places a
     // unit and the real Game plays it, no person watching. Local-only
     // (RESEARCH.md Pitfall 6 / the spec's own test-tier table): it starts a
