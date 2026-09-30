@@ -6646,11 +6646,12 @@ static void TestM2EveryBridgeTypePlans( BkEditorSession *pSession )
 	Check( BkEditorPlanFences( pSession, "x", 1000.0f, 1000.0f, 1000.0f, -1.0e30f, 0, 0, 0, &nPieces ) == BK_EDITOR_BAD_ARGUMENT, "a fence drag to -1e30 is a bad argument" );
 	BkEditorScriptAreaRecord area;
 	Check( BkEditorScriptAreaFromVis( pSession, 1, 100.0f, 100.0f, 1.0e30f, 100.0f, "huge", &area ) == BK_EDITOR_BAD_ARGUMENT, "an area drag to 1e30 is a bad argument" );
-	BkEditorScriptAreaRecord small;
-	if ( Check( BkEditorScriptAreaFromVis( pSession, 1, 100.0f, 100.0f, 200.0f, 100.0f, "small", &small ) == BK_EDITOR_OK, "a sane area drag converts" ) )
+	// Not "small": the Windows SDK defines it as a macro (rpcndr.h).
+	BkEditorScriptAreaRecord saneArea;
+	if ( Check( BkEditorScriptAreaFromVis( pSession, 1, 100.0f, 100.0f, 200.0f, 100.0f, "sane", &saneArea ) == BK_EDITOR_OK, "a sane area drag converts" ) )
 	{
-		Check( BkEditorScriptAreaMoved( pSession, &small, 1.0e30f, 0.0f, &area ) == BK_EDITOR_BAD_ARGUMENT, "an area moved to 1e30 is a bad argument" );
-		Check( BkEditorScriptAreaResized( pSession, &small, 0.0f, 1.0e30f, &area ) == BK_EDITOR_BAD_ARGUMENT, "an area resized to 1e30 is a bad argument" );
+		Check( BkEditorScriptAreaMoved( pSession, &saneArea, 1.0e30f, 0.0f, &area ) == BK_EDITOR_BAD_ARGUMENT, "an area moved to 1e30 is a bad argument" );
+		Check( BkEditorScriptAreaResized( pSession, &saneArea, 0.0f, 1.0e30f, &area ) == BK_EDITOR_BAD_ARGUMENT, "an area resized to 1e30 is a bad argument" );
 	}
 	printf( "editor-bridge: every bridge type's plan inputs check out (%d types, %d planned a horizontal drag)\n", nCount, nPlanned );
 }
