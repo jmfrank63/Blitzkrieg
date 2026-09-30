@@ -62,6 +62,10 @@ pub const Play = struct {
 /// report. `what` names the run in a failure line; the game's whole log
 /// goes to `log_path`. Null after printing why.
 fn play(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, paths: *const common.TestPaths, what: []const u8, log_path: []const u8) ?Play {
+    // WR-C07: no screenshot dump of an earlier run (an aborted one, the
+    // baseline) may be kept as this run's: the game directory holds only what
+    // this run writes.
+    common.deleteAutoshots(io, paths.game_path);
     const log = common.runGame(gpa, io, environ, label, what, paths.game_path, log_path, &.{
         .{ "BK_AUTO_UI", auto_ui },
         .{ "BK_NO_HELP", "1" },
@@ -818,13 +822,16 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     common.deleteAutoshots(io, paths.game_path);
     // 04-13: the PASS line names every D-25.5 check, each asserted above on the
     // game's own report: the camera, the terrain counts, the bridges (one rotated,
-    // one built during play), the fences, the entrenchment, the group's held unit,
-    // the start command, the reserve position, the parcel, the script and its
-    // Init, the area's centre as Lua read it, the landed unit, a clean exit (the
-    // run above returns null otherwise) - and the path of the game's shot.
+    // one built during play), the entrenchment, the group's held unit, the start
+    // command, the reserve position, the parcel, the script and its Init, the
+    // area's centre as Lua read it, the landed unit, a clean exit (the run above
+    // returns null otherwise) - and the path of the game's shot. The fences are
+    // the one item the game's trace does not report: the line says they were
+    // placed by the editor and loaded in a clean run, not that the game counted
+    // them (WR-C07).
     // Two parts: one format call takes at most 32 arguments.
-    var first_buffer: [512]u8 = undefined;
-    const first = std.fmt.bufPrint(&first_buffer, "camera at player 0's anchor {d:.0},{d:.0}, source=player; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d} (one rotated, one built during play), fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}", .{
+    var first_buffer: [768]u8 = undefined;
+    const first = std.fmt.bufPrint(&first_buffer, "camera at player 0's anchor {d:.0},{d:.0}, source=player; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d} (one rotated, one built during play), fences +{d} (placed by the editor, loaded by a clean run; not in the game's trace), entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}", .{
         camera.x,
         camera.y,
         baseline_camera.x,
