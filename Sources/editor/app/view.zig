@@ -1122,6 +1122,9 @@ test "view: the 2 key, then a left press, drag and release paint two cells as on
     rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
     try testing.expectEqual(Tool.brush, rig.view.tool);
     rig.view.brush.tile = 5;
+    // This test is the gesture and undo semantics, not the brush's size
+    // (D-22 made the default 2x2, which would spread the stroke): pin 1x1.
+    rig.view.brush.size = 1;
 
     rig.send(mouseButton(button_left, true, 40, 40));
     try testing.expect(rig.view.hasActiveMouseGesture());
@@ -1371,6 +1374,9 @@ test "view: a pan or stroke whose release went elsewhere ends on the next frame"
 
     rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
     rig.view.brush.tile = 9;
+    // Pin 1x1 like the stroke test above: D-22's 2x2 default would spread
+    // this stroke into the cell the undo assertions expect to stay 0.
+    rig.view.brush.size = 1;
     rig.send(mouseButton(button_left, true, 40, 40));
     try testing.expect(rig.view.brush.gesture != 0);
     rig.view.update(&rig.editor, &rig.camera, {}, 0);
