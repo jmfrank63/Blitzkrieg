@@ -598,6 +598,7 @@ pub const State = struct {
         self.allocator.free(self.startcmd_actions);
         self.allocator.free(self.reserve_list);
         self.freeAiSides();
+        self.ai_sides.deinit(self.allocator); // WR-C08: the list's own buffer, not only its sides
         self.ai_parcels_at_open.deinit(self.allocator);
         self.groups.deinit(self.allocator);
         self.groups_checked.deinit(self.allocator);
