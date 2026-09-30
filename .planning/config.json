@@ -2,7 +2,11 @@
   "projectName": "Blitzkrieg Reloaded",
   "created": "2026-06-06",
   "workflow": {
-    "use_worktrees": false
+    "use_worktrees": false,
+    "_auto_chain_active": false,
+    "build_command": "zig build -Dtarget=aarch64-macos -Dcopy-data=false",
+    "test_command": "zig build test -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run",
+    "test_gate_timeout": 1800
   },
   "primaryLanguage": "C++",
   "targetPlatform": "Win32",
