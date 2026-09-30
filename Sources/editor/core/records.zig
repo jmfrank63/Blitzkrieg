@@ -428,7 +428,10 @@ pub const AiSide = struct {
 
     /// Makes `side_count` cover this side: creating side 3 on a one-side map makes the
     /// count 4 and the sides 1 and 2 empty (the bridge does the latter).
+    /// A negative side (no side at all) leaves the count alone rather than
+    /// panic in the cast (IN-B08); the bridge refuses such a key anyway.
     pub fn ensureSideExists(self: *AiSide) void {
+        if (self.side < 0) return;
         const needed: u32 = @intCast(self.side + 1);
         if (self.side_count < needed) self.side_count = needed;
     }
