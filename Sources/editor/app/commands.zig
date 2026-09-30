@@ -1165,7 +1165,9 @@ fn startcmdUnits(state: *State, arg: []const u8) Outcome {
 }
 
 /// `expect=startcmd_target:0:link` (the target is an object) or `:pos` (a point and
-/// no object): what command 0's target is.
+/// no object): what command 0's target is. The record has no "unset" flag, so a
+/// target at exactly map point (0,0) - the map's corner - reads as no target
+/// here and draws no line in the markers (IN-C06, an accepted limit).
 fn startcmdTargetIs(state: *State, arg: []const u8) Outcome {
     const parsed = parseIndexed(arg) orelse return .bad_arg;
     const want_link = if (std.mem.eql(u8, parsed.rest, "link")) true else if (std.mem.eql(u8, parsed.rest, "pos")) false else return .bad_arg;
