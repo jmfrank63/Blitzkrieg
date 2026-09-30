@@ -174,9 +174,17 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.replay_broken = false;
         self.selection = null;
+        self.bumpDocumentGenerations();
+    }
+
+    /// Every generation counter a panel or marker layer keys on moves: a new
+    /// map (or none) changes every list they show (IN-B04).
+    fn bumpDocumentGenerations(self: *Editor) void {
         self.vso_generation +%= 1;
         self.bridges_generation +%= 1;
         self.entrenchments_generation +%= 1;
+        self.sounds_generation +%= 1;
+        for (std.enums.values(records.Kind)) |kind| self.record_generations.set(kind, self.record_generations.get(kind) +% 1);
     }
 
     /// Forgets the open document: no path, no objects, nothing to undo or
@@ -197,9 +205,7 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.replay_broken = false;
         self.selection = null;
-        self.vso_generation +%= 1;
-        self.bridges_generation +%= 1;
-        self.entrenchments_generation +%= 1;
+        self.bumpDocumentGenerations();
     }
 
     /// The new path is copied before the bridge writes: once the file is
@@ -1772,6 +1778,18 @@ test "open fills the document from the bridge" {
     try std.testing.expectEqualStrings("T34", editor.document.find(1).?.nameSlice());
     try std.testing.expect(!editor.document.find(3).?.known);
     try std.testing.expectEqualSlices(i32, &.{ 0, 1 }, editor.document.diplomacy.items);
+}
+
+test "an open moves every generation a panel keys on (IN-B04)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    const groups = editor.record_generations.get(.group);
+    const sounds = editor.sounds_generation;
+    try editor.open("fixture.bzm");
+    try std.testing.expect(editor.record_generations.get(.group) != groups);
+    try std.testing.expect(editor.sounds_generation != sounds);
 }
 
 test "a failed open keeps the map that was open" {
