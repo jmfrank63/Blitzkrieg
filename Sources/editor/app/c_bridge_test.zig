@@ -164,6 +164,19 @@ test "the core drives the real bridge: every command, undone and redone" {
     var editor = Editor.init(std.testing.allocator, real.bridge());
     defer editor.deinit();
 
+    // WR-C02: with no map open the two-pass reads answer REFUSED, never an OK
+    // with a zeroed record, and a group insert is not "already there".
+    {
+        const bridge = real.bridge();
+        var value: core.records.Value = undefined;
+        try std.testing.expectEqual(core.bridge.Status.refused, bridge.readRecord(.start_command, 0, std.testing.allocator, &value));
+        try std.testing.expectEqual(core.bridge.Status.refused, bridge.readRecord(.ai_side, 0, std.testing.allocator, &value));
+        try std.testing.expectEqual(core.bridge.Status.refused, bridge.readRecord(.group, 0, std.testing.allocator, &value));
+        const group: core.records.Value = .{ .group = .{ .id = 3 } };
+        try std.testing.expectEqual(core.bridge.Status.refused, bridge.insertRecord(3, &group));
+        try std.testing.expect(std.mem.indexOf(u8, bridge.lastMessage(), "already") == null);
+    }
+
     try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
     const objects_at_open = editor.document.objects.items.len;
     try std.testing.expect(objects_at_open > 0);
