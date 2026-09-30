@@ -365,6 +365,8 @@ void UpdateSessionWorld( SEditorSession *pSession )
 	pSession->linkByAI.clear();
 	for ( std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.begin(); it != pSession->byLinkID.end(); ++it )
 		pSession->linkByAI[it->second.GetPtr()] = it->first;
+	// After the update: a span the AI just built has its world object only now.
+	ApplyBridgeMarks( pSession );
 }
 
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )

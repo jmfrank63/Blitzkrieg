@@ -328,6 +328,13 @@ pub const Bridge = struct {
         pickGroup: *const fn (ptr: *anyopaque, sx: f32, sy: f32, kind: *GroupKind, index: *i32) Status,
         /// BkEditorDeleteBridge: the whole bridge at `index`, one edit.
         deleteBridge: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
+        /// BkEditorRotateBridge: the `_01`/`_02` partner about the same
+        /// centre, same span count, same index; one edit. Refused naming why
+        /// (no partner, off the map).
+        rotateBridge: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
+        /// BkEditorToggleBridgeBuild: intact <-> built during play; one edit.
+        /// Refused unless a WoodenBig_Heavy_ type.
+        toggleBridgeBuild: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -374,6 +381,8 @@ pub const Bridge = struct {
     pub fn bridges(self: Bridge, out: []BridgeInfo, total: *usize) Status { return self.vtable.bridges(self.ptr, out, total); }
     pub fn pickGroup(self: Bridge, sx: f32, sy: f32, kind: *GroupKind, index: *i32) Status { return self.vtable.pickGroup(self.ptr, sx, sy, kind, index); }
     pub fn deleteBridge(self: Bridge, index: i32, token: *i32) Status { return self.vtable.deleteBridge(self.ptr, index, token); }
+    pub fn rotateBridge(self: Bridge, index: i32, token: *i32) Status { return self.vtable.rotateBridge(self.ptr, index, token); }
+    pub fn toggleBridgeBuild(self: Bridge, index: i32, token: *i32) Status { return self.vtable.toggleBridgeBuild(self.ptr, index, token); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

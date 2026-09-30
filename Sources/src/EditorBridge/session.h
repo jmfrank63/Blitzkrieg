@@ -437,5 +437,24 @@ bool PickGroupInSession( SEditorSession *pSession, float sx, float sy, int *pnKi
 // back (a type the database does not know, a span the engine never held, a
 // link ID the map shares), which is kept as read.
 bool DeleteBridgeFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
+// Rotates bridge nIndex (D-11): its type's _01/_02 partner, planned about the
+// old centre (the mean of its first and last spans) along the partner's axis
+// with the same span count, swapped in at the same index as one logged edit,
+// all or nothing; built during play carries over. Refused for a type with no
+// partner in the object database ("no rotated variant of ..."), a span of the
+// new bridge the engine will not place (off the map), and a bridge whose
+// spans the editor could not put back.
+bool RotateBridgeInSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
+// D-12: toggles bridge nIndex between intact and built during play - the
+// snapshot's HP of every span 1 or -1 (the working copy and the engine keep
+// 1), futureBuildLinkIDs and the mark with it - as one logged edit. Refused
+// unless its spans are a WoodenBig_Heavy_ type (RoadDrawState.cpp:1253).
+bool ToggleBridgeBuildInSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
+// C1: the built-during-play mark, as the MFC editor draws it
+// (TemplateEditorFrame1.cpp:1972): SetSpecular( 0xFF0000FF ) on every span in
+// futureBuildLinkIDs, 0 on every other span of every bridge. UpdateSessionWorld
+// calls it after each world update, so an open, an undo, a redo and a rotate
+// all show it.
+void ApplyBridgeMarks( SEditorSession *pSession );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

@@ -129,6 +129,8 @@ pub const RealBridge = struct {
         .bridges = vtableBridges,
         .pickGroup = vtablePickGroup,
         .deleteBridge = vtableDeleteBridge,
+        .rotateBridge = vtableRotateBridge,
+        .toggleBridgeBuild = vtableToggleBridgeBuild,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -609,6 +611,14 @@ pub const RealBridge = struct {
 
     fn vtableDeleteBridge(ptr: *anyopaque, index: i32, token: *i32) Status {
         return status(c.BkEditorDeleteBridge(from(ptr).session, index, token));
+    }
+
+    fn vtableRotateBridge(ptr: *anyopaque, index: i32, token: *i32) Status {
+        return status(c.BkEditorRotateBridge(from(ptr).session, index, token));
+    }
+
+    fn vtableToggleBridgeBuild(ptr: *anyopaque, index: i32, token: *i32) Status {
+        return status(c.BkEditorToggleBridgeBuild(from(ptr).session, index, token));
     }
 
     /// The engine tier's road and river agreement check.
