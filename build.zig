@@ -6137,10 +6137,10 @@ fn addMapEditor(
         // point, undone; Insert after that point (4 points), undone; then a
         // river of three clicks finished by Enter and a right-drag of 50
         // pixels down on its second point (opacity 1 -> 0.5); the markers
-        // shot. A drag's press, motions and release share one frame: the
-        // view ends a gesture whose button the real mouse does not hold at
-        // the frame's end (the stale-gesture guard), and a script's buttons
-        // are only events.
+        // shot. These drags keep their press, motions and release in one
+        // frame as 04-05 wrote them; since 04-06 a scripted press is held
+        // across frames until its release (View.holdScripted), so a drag may
+        // also span frames.
         "28:tool=roads_rivers",
         "29:do=vso_kind:road",
         "30:do=vso_width:3",
