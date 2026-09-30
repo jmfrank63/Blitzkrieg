@@ -12,6 +12,14 @@ bool Finite( const CVec2 &v )
 {
 	return std::isfinite( v.x ) && std::isfinite( v.y );
 }
+
+// Finite and within +-1e6 world units (a map is a few tens of thousands
+// across): Vis2AI and the span count convert these to int, which is undefined
+// for a float outside int's range (WR-A09).
+bool Bounded( const CVec2 &v )
+{
+	return Finite( v ) && std::fabs( v.x ) <= 1.0e6f && std::fabs( v.y ) <= 1.0e6f;
+}
 }
 
 bool PlanBridge( const SBridgePlanInput &rInput, const CVec2 &vFirstVis, const CVec2 &vLastVis,
@@ -24,7 +32,7 @@ bool PlanBridge( const SBridgePlanInput &rInput, const CVec2 &vFirstVis, const C
 		szWhy = "this bridge type has no span length";
 	else if ( rInput.nDirection != BRIDGE_HORIZONTAL && rInput.nDirection != BRIDGE_VERTICAL )
 		szWhy = "this bridge type has no direction";
-	else if ( !Finite( vFirstVis ) || !Finite( vLastVis ) || !Finite( rInput.vBeginOrigin ) )
+	else if ( !Bounded( vFirstVis ) || !Bounded( vLastVis ) || !Bounded( rInput.vBeginOrigin ) )
 		szWhy = "the drag is not a point on the map";
 	if ( !szWhy.empty() )
 	{
@@ -62,7 +70,10 @@ bool PlanBridge( const SBridgePlanInput &rInput, const CVec2 &vFirstVis, const C
 	// As GetPointsForBridge counts them: from the drag's own first point, not
 	// the fitted start.
 	const float fRun = bHorizontal ? vLast.x - vFirst.x : vLast.y - vFirst.y;
-	const int nParts = int( fRun / fL );
+	// Bounded before the conversion: a float out of int's range (a huge drag,
+	// a zero span length) converts with undefined behaviour (WR-A09).
+	const float fParts = fRun / fL;
+	const int nParts = fParts > -1.0f && fParts < 4097.0f ? int( fParts ) : -1;
 	if ( nParts < 0 || nParts > 4096 )
 	{
 		if ( pWhy != 0 ) *pWhy = "that bridge would be too long";
@@ -608,7 +619,15 @@ namespace {
 // serves the centre, the half size and the radius.
 float VisLengthToAI( float fVis )
 {
-	return float( int( fVis * fAITileXCoeff1 + 0.3f ) );
+	// Clamped before the conversion, so a huge length (a file area's odd size,
+	// a gesture far off the map) is defined and the same on every platform
+	// instead of INT_MIN on x86 and INT_MAX on ARM64 (WR-A09).
+	float fAI = fVis * fAITileXCoeff1 + 0.3f;
+	if ( !( fAI >= -1.0e9f ) )		// a NaN too
+		fAI = -1.0e9f;
+	else if ( fAI > 1.0e9f )
+		fAI = 1.0e9f;
+	return float( int( fAI ) );
 }
 
 CVec2 VisPointToAI( const CVec2 &rVis )
