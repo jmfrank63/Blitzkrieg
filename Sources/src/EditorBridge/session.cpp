@@ -156,14 +156,17 @@ void PlaceObjects( SEditorSession *pSession, const std::vector<SMapObjectInfo> &
 void BuildBridges( SEditorSession *pSession, const std::vector<SMapObjectInfo> &rSpans )
 {
 	const std::vector< std::vector<int> > &rBridges = pSession->working.bridges;
+	// A link ID named twice - by one entry or by two - is one span, and
+	// BuildOneBridge places it once (a second placement is the engine's
+	// "Repeated link" and orphans the first object).
+	std::vector<int> unique;
 	for ( size_t nBridge = 0; nBridge < rBridges.size(); ++nBridge )
 	{
-		// A link ID an entry names twice is one span (BuildOneBridge places it once).
-		std::vector<int> unique( rBridges[nBridge] );
-		std::sort( unique.begin(), unique.end() );
-		pSession->nBridgeSpansInMap += int( std::unique( unique.begin(), unique.end() ) - unique.begin() );
+		unique.insert( unique.end(), rBridges[nBridge].begin(), rBridges[nBridge].end() );
 		pSession->nBridgeSpansPlaced += BuildOneBridge( pSession, rBridges[nBridge], rSpans );
 	}
+	std::sort( unique.begin(), unique.end() );
+	pSession->nBridgeSpansInMap = int( std::unique( unique.begin(), unique.end() ) - unique.begin() );
 }
 }
 
@@ -185,9 +188,11 @@ int BuildOneBridge( SEditorSession *pSession, const std::vector<int> &rLinkIDs, 
 	for ( size_t nSpan = 0; nSpan < rLinkIDs.size(); ++nSpan )
 	{
 		const int nLinkID = rLinkIDs[nSpan];
-		// A link ID the entry names twice is one object: placing it again
-		// would overwrite byLinkID and orphan the first engine object.
-		if ( std::find( rLinkIDs.begin(), rLinkIDs.begin() + nSpan, nLinkID ) != rLinkIDs.begin() + nSpan )
+		// A link ID the entry names twice, or another entry already placed, is
+		// one object: placing it again is the engine's "Repeated link"
+		// (asserted in a debug build) and would orphan the first engine object.
+		if ( std::find( rLinkIDs.begin(), rLinkIDs.begin() + nSpan, nLinkID ) != rLinkIDs.begin() + nSpan ||
+		     pSession->byLinkID.find( nLinkID ) != pSession->byLinkID.end() )
 			continue;
 		std::vector<SMapObjectInfo>::const_iterator it = rSpans.begin();
 		for ( ; it != rSpans.end(); ++it )
